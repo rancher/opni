@@ -19,14 +19,13 @@ Pre-requisites:
 #### Methodology
 * Training controller service is subscribed to the Nats subject called "train"
 * When it receives any content from this subject, it will launch the necessary steps.
-* Controller will first fetch the logs from Elasticsearch that will be used by the two model training jobs: FastText with PCA and NuLog.
-* Then, both FastText and NuLog models will be trained.
-* Once, jobs are completed, both jobs will send a message to the Nats subject indicating that the inference service can update its models that it is currently using.
+* Controller will first fetch the logs from Elasticsearch that will be used during training by the Nulog model.* Nulog model training job is then launched.
+* Once, Nulog training is completed, it will send a message to the Nats subject indicating that the inference service can update its models that it is currently using.
+* If another training job is sent over to the controller service while Nulog model is training, it will be placed in a queue and will run after the current Nulog model training has finished.
 * To test this service, once you have deployed this service onto your Kubernetes cluster, you can run the sample-service job that will publish the train subject with
-payload in this format
+payload in this format.
 ```
-    payload = [{"start_ts": 1616097870000000000, "end_ts": 1619457870000000000}]
+    payload = {"model_to_train": "nulog","time_intervals": [{"start_ts": 1617039360000000000, "end_ts": 1617039450000000000}, {"start_ts": 1617039510000000000, "end_ts": 1617039660000000000}]}
     encoded_payload_json = json.dumps(payload).encode()
 ```
-payload is a list of dictionaries where each dictionary should have a "start_ts" and "end_ts" key with a timestamp in nanoseconds.
-* You can then view the pods and jobs of your cluster to verify that the Nulog and FastText models are both undergoing training.
+* You can then view the pods and jobs of your cluster to verify that the Nulog model is undergoing training.

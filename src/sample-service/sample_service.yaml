@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sample-service
+spec:
+  template:
+    metadata:
+      labels:
+        app: sample-service
+    spec:
+      containers:
+      - name: sample-service
+        image: amartyarancher/sample-service
+        imagePullPolicy: Always
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: "myaccesskey"
+        - name: MINIO_SECRET_KEY
+          value: "mysecretkey"
+        - name: NATS_SERVER_URL
+          value: "nats://nats_client:VfU6TcAl9x@nats-client.default.svc:4222"
+      restartPolicy: Never

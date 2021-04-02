@@ -1,0 +1,4 @@
+kubernetes
+asyncio-nats-client
+boto3
+pandas

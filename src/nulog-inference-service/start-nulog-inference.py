@@ -1,5 +1,6 @@
 # Standard Library
 import asyncio
+import gc
 import logging
 import os
 import time
@@ -50,6 +51,18 @@ async def infer_logs(logs_queue):
             continue
 
         start_time = time.time()
+        decoded_payload = json.loads(payload)
+        ## TODO: testing decode with pd.read_json first to reduce unnecessary decode.
+        ## logic: df = pd.read_json(payload, dtype={"_id": object})
+        ## if "bucket" in df: reload nulog model
+        if "bucket" in decoded_payload and decoded_payload["bucket"] == "nulog-models":
+            logging.info(
+                "Just received signal to download a new Nulog model files from Minio."
+            )
+            nulog_predictor.download_from_minio(decoded_payload)
+            nulog_predictor.load()
+            continue
+
         df = pd.read_json(payload, dtype={"_id": object})
         masked_log = list(df["masked_log"])
         predictions = nulog_predictor.predict(masked_log)
@@ -94,6 +107,9 @@ async def infer_logs(logs_queue):
 
         del df
         del masked_log
+
+        del decoded_payload
+        gc.collect()
 
 
 def start_inference_controller():

@@ -19,6 +19,7 @@ class NulogServer:
         self.method = method
         self.to_reload_model = False
         self.download_from_minio()
+        self.load()
 
     def download_from_minio(
         self,
@@ -54,8 +55,6 @@ class NulogServer:
                     "Cannot currently obtain necessary model files. Exiting function"
                 )
                 return
-
-        self.load()
 
     def load(self):
 

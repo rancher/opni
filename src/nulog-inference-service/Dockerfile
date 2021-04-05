@@ -1,6 +1,7 @@
 FROM python:3.7-slim
 COPY ./nulog-inference-service/ /app/
 COPY ./utils/nats_wrapper.py /app/nats_wrapper.py
+COPY ./models/nulog/ /app/
 
 RUN chmod a+rwx -R /app
 WORKDIR /app

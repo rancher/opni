@@ -66,6 +66,7 @@ async def infer_logs(logs_queue):
 
         df = pd.read_json(payload, dtype={"_id": object})
         masked_log = list(df["masked_log"])
+        logging.info("inferencing payload.")
         predictions = nulog_predictor.predict(masked_log)
 
         df["predictions"] = [1 if p < threshold else 0 for p in predictions]

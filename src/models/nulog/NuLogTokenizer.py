@@ -2,6 +2,8 @@
 import logging
 import os
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
+
 
 class LogTokenizer:
     def __init__(self, filters="([ |:|\(|\)|=|,])|(core.)|(\.{2,})"):
@@ -14,7 +16,6 @@ class LogTokenizer:
             tmpword = "<TMP" + str(i) + ">"
             self.word2index[tmpword] = i
             self.index2word[i] = tmpword
-        # self.regex_masker = masker()
 
     def addWord(self, word):
         if word not in self.word2index and self.valid_words < self.n_words:
@@ -25,7 +26,6 @@ class LogTokenizer:
     def load_vocab(self, filepath):
         self.word2index = {}
         self.index2word = {}
-        logging.info("load vocab........")
         with open(os.path.join(filepath, "vocab.txt"), "r") as fin:
             self.n_words = int(fin.readline().rstrip())
             self.valid_words = int(fin.readline().rstrip())
@@ -36,7 +36,7 @@ class LogTokenizer:
                 self.index2word[idx] = word_i
                 self.word2index[word_i] = idx
 
-    def save_vocab(self, filepath):
+    def save_vocab(self, filepath, minio_client):
         with open(os.path.join(filepath, "vocab.txt"), "w") as fout:
             logging.info("n_words : " + str(self.n_words))
             logging.info("valid_words : " + str(self.valid_words))
@@ -48,15 +48,30 @@ class LogTokenizer:
                 fout.write(self.index2word[n])
                 fout.write("\n")
 
+        minio_client.meta.client.upload_file(
+            "{}{}".format(filepath, "vocab.txt"), "nulog-models", "vocab.txt"
+        )  ## TODO: upload to minio should not be in this function. Upload together with trained models
+
+    def is_num_there(self, s):
+        """
+        detect toekn with digits
+        """
+        digits = [i.isdigit() for i in s]
+        return True if sum(digits) > 1 else False
+
     def tokenize(self, sent, isTrain):
         tokens = sent.split(" ")
-        # sent = sent.replace('\'', '')
-        # sent = sent.replace('\"', '')
-        # #sent = self.regex_masker.mask(sent)
         # filtered = re.split(self.filters, sent)
-
+        valid_tokens = []
+        for t in tokens:
+            if t != None and t != "":
+                valid_tokens.append(t)
         res = []
-        for word in tokens:
+        for word in valid_tokens:
+            ## replace word contains digits with <NUM>, significantly reduce the vocab size
+            if self.is_num_there(word):
+                word = "<NUM>"
+
             if isTrain:
                 self.addWord(word)
             if word in self.word2index:

@@ -3,8 +3,6 @@
 # Standard Library
 import copy
 import math
-
-# from keras.preprocessing.sequence import pad_sequences
 from collections import defaultdict
 
 # Third Party

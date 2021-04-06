@@ -458,16 +458,6 @@ class LogParser:
                 yield r1, r2, r3
                 t4 = time.perf_counter()
 
-    def outputResult(self, pred):
-        df_events = []
-        templateids = []
-        for pr in pred:
-            template_id = hashlib.md5(pr.encode("utf-8")).hexdigest()
-            templateids.append(template_id)
-            df_events.append([template_id, pr])
-
-        df_event = pd.DataFrame(df_events, columns=["EventId", "EventTemplate"])
-        return df_event
 
     def make_model(
         self,

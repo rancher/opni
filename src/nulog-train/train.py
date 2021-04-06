@@ -41,10 +41,6 @@ def train_nulog_model(minio_client):
     k = 50  # was 50 ## tunable, top k predictions
     nr_epochs = 2
     num_samples = 0
-
-    output_dir = "output/"  # The output directory of parsing results
-
-    logging.info("before the parsing done")
     parser = LogParser(filters=filters, k=k, log_format=log_format)
     texts = parser.load_data(WINDOWS_FOLDER_PATH)
     logging.info("NuLog model being trained from scratch")
@@ -52,9 +48,13 @@ def train_nulog_model(minio_client):
     parser.tokenizer.save_vocab()
     logging.info("vocab has been saved!")
     parser.train(tokenized, nr_epochs=nr_epochs, num_samples=num_samples)
-    minio_client.meta.client.upload_file("nulog_model_latest.pt", "nulog-models", "nulog_model_latest.pt")
-    minio_client.meta.client.upload_file("vocab.txt", "nulog-models", "vocab.txt")
-    logging.info("Nulog model and vocab have been uploaded to Minio.")
+    all_files = os.listdir('.')
+    if "nulog_model_latest.pt" in all_files and "vocab.txt" in all_files:
+        minio_client.meta.client.upload_file("nulog_model_latest.pt", "nulog-models", "nulog_model_latest.pt")
+        minio_client.meta.client.upload_file("vocab.txt", "nulog-models", "vocab.txt")
+        logging.info("Nulog model and vocab have been uploaded to Minio.")
+    else:
+        logging.info("Nulog model was not able to be trained and saved successfully.")
 
 
 async def run(loop, nc):

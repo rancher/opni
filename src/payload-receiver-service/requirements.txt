@@ -1,0 +1,5 @@
+asyncio-nats-client
+fastapi
+uvicorn
+numpy
+pandas

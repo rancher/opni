@@ -23,7 +23,7 @@ class LogTokenizer:
             self.index2word[self.valid_words] = word
             self.valid_words += 1
 
-    def load_vocab(self, filepath):
+    def load_vocab(self, filepath="output/"):
         self.word2index = {}
         self.index2word = {}
         with open(os.path.join(filepath, "vocab.txt"), "r") as fin:

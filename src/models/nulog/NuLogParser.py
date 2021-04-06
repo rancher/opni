@@ -1,6 +1,7 @@
 # Standard Library
 import logging
 import os
+import re
 import time
 
 # Third Party
@@ -62,7 +63,7 @@ class LogParser:
             loss = ckpt["loss"]
             return epoch, loss
         except:  ## TODO: remove this try except when we use the new save function.
-            logging.error("loading trained model with old format.")
+            logging.warning("loading trained model with old format.")
             model.load_state_dict(ckpt)
 
     def train(
@@ -137,11 +138,8 @@ class LogParser:
                 SimpleLossCompute(model.generator, criterion, model_opt),
             )
 
-        self.save_model(model, model_opt, self.nr_epochs, 0)
+        self.save_model(model=model, model_opt=model_opt, epoch=self.nr_epochs, loss=0)
         # torch.save(model.state_dict(), "nulog_model_latest.pt")
-        minio_client.meta.client.upload_file(
-            "nulog_model_latest.pt", "nulog-models", "nulog_model_latest.pt"
-        )  ## this method should be placed outside of the function, probably in train.py
 
     def init_inference(
         self,
@@ -463,17 +461,6 @@ class LogParser:
                 r3 = ind.cpu()
                 yield r1, r2, r3
                 t4 = time.perf_counter()
-
-    def outputResult(self, pred):
-        df_events = []
-        templateids = []
-        for pr in pred:
-            template_id = hashlib.md5(pr.encode("utf-8")).hexdigest()
-            templateids.append(template_id)
-            df_events.append([template_id, pr])
-
-        df_event = pd.DataFrame(df_events, columns=["EventId", "EventTemplate"])
-        return df_event
 
     def make_model(
         self,

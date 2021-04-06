@@ -17,10 +17,10 @@ MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 class NulogServer:
     def __init__(self, method: str = "predict"):
         self.method = method
+        self.is_ready = False
         self.parser = None
         self.download_from_minio()
         self.load()
-        self.is_ready = False
 
     def download_from_minio(
         self,
@@ -65,8 +65,8 @@ class NulogServer:
             logging.info("inferencing without GPU.")
         try:
             self.parser = nuloginf.init_model()
-            logging.info("Nulog model gets loaded.")
             self.is_ready = True
+            logging.info("Nulog model gets loaded.")
         except Exception as e:
             logging.error("No Nulog model currently {}".format(e))
         # self.predict(test_texts)

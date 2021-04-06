@@ -2,6 +2,7 @@
 import logging
 import os
 import time
+import re
 
 # Third Party
 import torch
@@ -22,18 +23,16 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(messa
 
 
 class LogParser:
-    def __init__(self, filters, k, log_format, model_name="nulog_model_latest.pt"):
-        self.savePath = "output/"
+    def __init__(
+        self, filters, k, log_format, logName="nulog_model_latest"
+    ):
+        self.logName = logName
         self.filters = filters
         self.k = k
         self.df_log = None
         self.log_format = log_format
         self.tokenizer = LogTokenizer(filters)
-
-        if not os.path.exists(self.savePath):
-            os.makedirs(self.savePath)
-        self.model_name = model_name
-        self.model_path = os.path.join(self.savePath, self.model_name)
+        self.model_path = self.logName + ".pt"
 
     def num_there(self, s):
         digits = [i.isdigit() for i in s]
@@ -119,7 +118,7 @@ class LogParser:
             weight_decay=self.weight_decay,
         )
 
-        if (self.model_name) in os.listdir(self.savePath):
+        if self.model_path in os.listdir("."):
             # model.load_state_dict(torch.load(self.model_path))
             prev_epoch, prev_loss = self.load_model(model, model_opt)
 
@@ -136,12 +135,7 @@ class LogParser:
                 model,
                 SimpleLossCompute(model.generator, criterion, model_opt),
             )
-
-        self.save_model(model, model_opt, self.nr_epochs, 0)
-        # torch.save(model.state_dict(), "nulog_model_latest.pt")
-        minio_client.meta.client.upload_file(
-            "nulog_model_latest.pt", "nulog-models", "nulog_model_latest.pt"
-        )  ## this method should be placed outside of the function, probably in train.py
+        self.save_model(model, model_opt, epoch, self.nr_epochs)
 
     def init_inference(
         self,
@@ -464,16 +458,6 @@ class LogParser:
                 yield r1, r2, r3
                 t4 = time.perf_counter()
 
-    def outputResult(self, pred):
-        df_events = []
-        templateids = []
-        for pr in pred:
-            template_id = hashlib.md5(pr.encode("utf-8")).hexdigest()
-            templateids.append(template_id)
-            df_events.append([template_id, pr])
-
-        df_event = pd.DataFrame(df_events, columns=["EventId", "EventTemplate"])
-        return df_event
 
     def make_model(
         self,

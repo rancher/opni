@@ -22,12 +22,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(messa
 
 
 class LogParser:
-    def __init__(
-        self, indir, outdir, filters, k, log_format, logName="nulog_model_latest"
-    ):
-        self.path = indir
-        self.savePath = outdir
-        self.logName = logName
+    def __init__(self, filters, k, log_format, model_name="nulog_model_latest.pt"):
+        self.savePath = "output/"
         self.filters = filters
         self.k = k
         self.df_log = None
@@ -36,7 +32,8 @@ class LogParser:
 
         if not os.path.exists(self.savePath):
             os.makedirs(self.savePath)
-        self.model_path = os.path.join(self.savePath, self.logName + ".pt")
+        self.model_name = model_name
+        self.model_path = os.path.join(self.savePath, self.model_name)
 
     def num_there(self, s):
         digits = [i.isdigit() for i in s]
@@ -122,7 +119,7 @@ class LogParser:
             weight_decay=self.weight_decay,
         )
 
-        if (self.logName + ".pt") in os.listdir(self.savePath):
+        if (self.model_name) in os.listdir(self.savePath):
             # model.load_state_dict(torch.load(self.model_path))
             prev_epoch, prev_loss = self.load_model(model, model_opt)
 
@@ -140,10 +137,8 @@ class LogParser:
                 SimpleLossCompute(model.generator, criterion, model_opt),
             )
 
-        # self.save_model(model, model_opt, epoch, 0)
-        torch.save(
-            model.state_dict(), "nulog_model_latest.pt"
-        )  ## pls replace this line with self.save_model() above
+        self.save_model(model, model_opt, self.nr_epochs, 0)
+        # torch.save(model.state_dict(), "nulog_model_latest.pt")
         minio_client.meta.client.upload_file(
             "nulog_model_latest.pt", "nulog-models", "nulog_model_latest.pt"
         )  ## this method should be placed outside of the function, probably in train.py
@@ -263,10 +258,6 @@ class LogParser:
         )
 
         return anomaly_preds
-
-    def save_parsed_logs(self, parsed_logs):
-        df_event = self.outputResult(parsed_logs)
-        df_event.to_csv(self.savePath + self.logName + "_structured.csv", index=False)
 
     def get_train_dataloaders(self, data_tokenized, transform_to_tensor):
         train_data = MaskedDataset(

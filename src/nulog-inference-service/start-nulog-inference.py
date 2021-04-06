@@ -75,7 +75,10 @@ async def infer_logs(logs_queue):
         masked_log = list(df["masked_log"])
         logging.info("inferencing payload.")
         predictions = nulog_predictor.predict(masked_log)
+        if predictions is None:
+            continue
 
+        df["nulog_confidence"] = predictions
         df["predictions"] = [1 if p < threshold else 0 for p in predictions]
         # filter out df to only include abnormal predictions
         df = df[df["predictions"] > 0]
@@ -93,9 +96,12 @@ async def infer_logs(logs_queue):
         )
 
         df.rename(columns={"log_id": "_id"}, inplace=True)
-
-        # TODO: add these extra metadata in correct format
-        #     df['script'] = df['script'] + "ctx._source.nulog_confidence = " + df['nulog_confidence'].map(str) + ";"
+        df["script"] = (
+            df["script"]
+            + "ctx._source.nulog_confidence = "
+            + df["nulog_confidence"].map(str)
+            + ";"
+        )
 
         try:
             async for ok, result in async_streaming_bulk(

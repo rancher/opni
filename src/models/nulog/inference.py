@@ -14,6 +14,7 @@ def init_model():
     nr_epochs = 1
     num_samples = 0
 
+    output_dir = "output/"
     parser = LogParser(filters=filters, k=k, log_format=log_format)
     parser.tokenizer.load_vocab(output_dir)
     parser.init_inference(nr_epochs=nr_epochs, num_samples=num_samples)

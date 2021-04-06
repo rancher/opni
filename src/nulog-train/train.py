@@ -50,8 +50,8 @@ def train_nulog_model(minio_client):
     parser.train(tokenized, nr_epochs=nr_epochs, num_samples=num_samples)
     all_files = os.listdir('.')
     if "nulog_model_latest.pt" in all_files and "vocab.txt" in all_files:
-        minio_client.meta.client.upload_file("nulog_model_latest.pt", "nulog-models", "nulog_model_latest.pt")
-        minio_client.meta.client.upload_file("vocab.txt", "nulog-models", "vocab.txt")
+        minio_client.meta.client.upload_file("output/nulog_model_latest.pt", "nulog-models", "nulog_model_latest.pt")
+        minio_client.meta.client.upload_file("output/vocab.txt", "nulog-models", "vocab.txt")
         logging.info("Nulog model and vocab have been uploaded to Minio.")
     else:
         logging.info("Nulog model was not able to be trained and saved successfully.")

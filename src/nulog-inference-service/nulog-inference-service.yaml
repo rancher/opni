@@ -20,7 +20,7 @@ spec:
         - name: NATS_SERVER_URL
           value: "nats://nats_client:VfU6TcAl9x@nats-client.default.svc:4222"
         - name: ES_ENDPOINT
-          value: "http://elasticsearch-coordinating-only.default.svc.cluster.local:9200"
+          value: "https://opendistro-es-client-service.default.svc.cluster.local:9200"
         - name: MINIO_ACCESS_KEY
           value: "myaccesskey"
         - name: MINIO_SECRET_KEY

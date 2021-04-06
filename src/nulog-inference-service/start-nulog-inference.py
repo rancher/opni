@@ -34,7 +34,14 @@ async def infer_logs(logs_queue):
     """
 
     ES_ENDPOINT = os.environ["ES_ENDPOINT"]
-    es = AsyncElasticsearch([ES_ENDPOINT], port=9200, http_compress=True)
+    es = AsyncElasticsearch(
+        [ES_ENDPOINT],
+        port=9200,
+        http_compress=True,
+        http_auth=("admin", "admin"),
+        verify_certs=False,
+        use_ssl=True,
+    )
 
     nulog_predictor = NulogServer()
 

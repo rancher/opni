@@ -48,7 +48,7 @@ def train_nulog_model(minio_client):
     parser.tokenizer.save_vocab()
     logging.info("vocab has been saved!")
     parser.train(tokenized, nr_epochs=nr_epochs, num_samples=num_samples)
-    all_files = os.listdir('.')
+    all_files = os.listdir('output/')
     if "nulog_model_latest.pt" in all_files and "vocab.txt" in all_files:
         minio_client.meta.client.upload_file("output/nulog_model_latest.pt", "nulog-models", "nulog_model_latest.pt")
         minio_client.meta.client.upload_file("output/vocab.txt", "nulog-models", "vocab.txt")

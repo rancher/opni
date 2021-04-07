@@ -24,7 +24,6 @@ async def startup_event():
 
 
 async def get_nats() -> NATS:
-    global nw
     if not nw.nc.is_connected:
         loop = asyncio.get_event_loop()
         await nw.connect(loop)

@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:3.8-slim
 EXPOSE 80
 COPY ./payload-receiver-service/app /app
 COPY ./payload-receiver-service/requirements.txt /app

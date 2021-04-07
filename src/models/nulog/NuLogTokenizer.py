@@ -23,7 +23,7 @@ class LogTokenizer:
             self.index2word[self.valid_words] = word
             self.valid_words += 1
 
-    def load_vocab(self, filepath):
+    def load_vocab(self, filepath="output/"):
         self.word2index = {}
         self.index2word = {}
         with open(os.path.join(filepath, "vocab.txt"), "r") as fin:
@@ -36,7 +36,7 @@ class LogTokenizer:
                 self.index2word[idx] = word_i
                 self.word2index[word_i] = idx
 
-    def save_vocab(self, filepath, minio_client):
+    def save_vocab(self, filepath="output/"):
         with open(os.path.join(filepath, "vocab.txt"), "w") as fout:
             logging.info("n_words : " + str(self.n_words))
             logging.info("valid_words : " + str(self.valid_words))
@@ -48,13 +48,9 @@ class LogTokenizer:
                 fout.write(self.index2word[n])
                 fout.write("\n")
 
-        minio_client.meta.client.upload_file(
-            "{}{}".format(filepath, "vocab.txt"), "nulog-models", "vocab.txt"
-        )  ## TODO: upload to minio should not be in this function. Upload together with trained models
-
     def is_num_there(self, s):
         """
-        detect toekn with digits
+        detect token with digits
         """
         digits = [i.isdigit() for i in s]
         return True if sum(digits) > 1 else False

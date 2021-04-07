@@ -12,6 +12,7 @@ from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 from nats.aio.client import Client as NATS
 from prepare_training_logs import PrepareTrainingLogs
+from nats_wrapper import NatsWrapper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 config.load_incluster_config()
@@ -282,6 +283,8 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     queue = asyncio.Queue(loop=loop)
     signals_queue = asyncio.Queue(loop=loop)
+    nw = NatsWrapper()
+    await nw.connect(loop)
     consumer_coroutine = run(loop, queue)
     consume_nats_drain_signal_coroutine = consume_nats_drain_signal(
         queue, signals_queue

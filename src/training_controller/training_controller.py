@@ -87,6 +87,7 @@ def job_not_currently_running(job_name, namespace="default"):
 
 
 async def kube_delete_empty_pods(signals_queue, namespace="default", phase="Succeeded"):
+
     deleteoptions = client.V1DeleteOptions()
     # We need the api entry point for pods
     api_pods = client.CoreV1Api()

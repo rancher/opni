@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: training-controller
+  namespace: model-training
 spec:
   replicas: 1
   selector:
@@ -14,7 +15,7 @@ spec:
     spec:
       containers:
       - name: training-controller
-        image: amartyarancher/training-controller
+        image: tybalex/training-controller
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL

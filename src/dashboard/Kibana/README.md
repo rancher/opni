@@ -49,6 +49,39 @@ You are ready to go!
 
 ## Launch ML model training in Kibana!
 
+Navigate to `Menu` -> `Dev Tools` and paste the following codes in the left side console:
+```
+POST training_signal/_doc/
+{
+  "@timestamp": "2021-01-01T00:00:00",
+  "training_method" : "nulog",
+  "status" : "submitted"
+}
+```
+then click `▻` to send request to launch nulog training!
 
+the output on the right side should be like this:
+```
+{
+  "_index" : "training_signal",
+  "_type" : "_doc",
+  "_id" : "puhts3gB0Gdvef1IavPR",
+  "_version" : 1,
+  "result" : "created",
+  "_shards" : {
+    "total" : 2,
+    "successful" : 1,
+    "failed" : 0
+  },
+  "_seq_no" : 27,
+  "_primary_term" : 2
+}
+
+```
+
+remember to copy the `_id` so you can track the status of the job simply by:
+```
+GET training_signal/_doc/puhts3gB0Gdvef1IavPR
+```
 
 

@@ -40,49 +40,75 @@ nulog_spec["env"] = [
 ]
 startup_time = time.time()
 
+NAMESPACE = "model-training"
+ES_ENDPOINT = "https://opendistro-es-client-service.default.svc.cluster.local:9200"
+es = AsyncElasticsearch(
+    [ES_ENDPOINT],
+    port=9200,
+    http_auth=("admin", "admin"),
+    verify_certs=False,
+    use_ssl=True,
+)
+
+
+async def update_es_job_status(
+    request_id: str,
+    job_status: str,
+    op_type: str = "update",
+    index: str = "training_signal",
+):
+    script = "ctx._source.status = '{}';".format(job_status)
+    docs_to_update = [
+        {
+            "_id": request_id,
+            "_op_type": op_type,
+            "_index": index,
+            "script": script,
+        }
+    ]
+    logging.info("ES job {} status update : {}".format(request_id, job_status))
+    try:
+        async for ok, result in async_streaming_bulk(es, docs_to_update):
+            action, result = result.popitem()
+            if not ok:
+                logging.error("failed to %s document %s" % ())
+    except Exception as e:
+        logging.error(e)
+
 
 async def user_training_signal_coroutine(signals_queue):
-    ES_ENDPOINT = "https://opendistro-es-client-service.default.svc.cluster.local:9200"
-    es = AsyncElasticsearch(
-        [ES_ENDPOINT],
-        port=9200,
-        http_auth=("admin", "admin"),
-        verify_certs=False,
-        use_ssl=True,
-    )
 
     query_body = {"query": {"bool": {"must": {"match": {"status": "submitted"}}}}}
-    script = "ctx._source.status = 'scheduled';"
     index = "training_signal"
+    job_payload = {
+        "model_to_train": "nulog",
+        "time_intervals": [
+            {"start_ts": 1617039360000000000, "end_ts": 1617039450000000000},
+            {"start_ts": 1617039510000000000, "end_ts": 1617039660000000000},
+        ],
+    }
     while True:
-        signals = es.search(index=index, body=query_body, size=100)
-        signal_hits = signals["hits"]["hits"]
-        if len(signal_hits) == 0:
+        user_signals_response = await es.search(index=index, body=query_body, size=100)
+        user_signal_hits = user_signals_response["hits"]["hits"]
+        if len(user_signal_hits) == 0:
             logging.info("no unprocessed user training request...")
         else:
-            for hit in signal_hits:
-                d = [
-                    {
-                        "_id": hit["_id"],
-                        "_op_type": "update",
-                        "_index": index,
-                        "script": script,
-                    }
-                ]
-                logging.info("scheduling a training job from ES...")
-                ## schedule run_job
-                try:
-                    async for ok, result in async_streaming_bulk(es, d):
-                        action, result = result.popitem()
-                        if not ok:
-                            logging.error("failed to %s document %s" % ())
-                except Exception as e:
-                    logging.error(e)
+            for hit in user_signal_hits:
+                signals_queue_payload = {
+                    "source": "elasticsearch",
+                    "model": "nulog-train",
+                    "signal": "start",
+                    "payload": job_payload,
+                }
+                await signals_queue.put(signals_queue_payload)
+                await update_es_job_status(
+                    request_id=hit["_id"], job_status="scheduling"
+                )
 
         await asyncio.sleep(30)
 
 
-def job_not_currently_running(job_name, namespace="default"):
+def job_not_currently_running(job_name, namespace=NAMESPACE):
     try:
         jobs = api_instance.list_namespaced_job(namespace, timeout_seconds=60)
     except ApiException as e:
@@ -96,7 +122,7 @@ def job_not_currently_running(job_name, namespace="default"):
     return True
 
 
-async def kube_delete_empty_pods(signals_queue, namespace="default", phase="Succeeded"):
+async def kube_delete_empty_pods(signals_queue, namespace=NAMESPACE, phase="Succeeded"):
 
     deleteoptions = client.V1DeleteOptions()
     # We need the api entry point for pods
@@ -159,11 +185,11 @@ def run_job(job_details):
         metadata=client.V1ObjectMeta(name=job_details["name"]),
         spec=spec,
     )
-    api_instance.create_namespaced_job(body=job, namespace="default")
+    api_instance.create_namespaced_job(body=job, namespace=NAMESPACE)
 
 
 async def clear_jobs(signals_queue):
-    namespace = "default"
+    namespace = NAMESPACE
     state = "finished"
     while True:
         await asyncio.sleep(300)
@@ -229,12 +255,14 @@ async def manage_kubernetes_training_jobs(signals_queue):
                 PrepareTrainingLogs("/tmp").run(model_payload["time_intervals"])
                 if model_to_train == "nulog-train":
                     run_job(nulog_spec)
+                    ## es_update_status = training_inprogress
             else:
                 if model_to_train == "nulog-train":
                     nulog_next_job_to_run = model_payload
                     logging.info(
                         "Nulog model currently being trained. Job will run after this model's training has been completed"
                     )
+                    ## es_update_status = pending_in_queue
         else:
             if nulog_next_job_to_run:
                 PrepareTrainingLogs("/tmp").run(nulog_next_job_to_run["time_intervals"])

@@ -7,6 +7,7 @@ import time
 
 # Third Party
 import kubernetes.client
+from elasticsearch import AsyncElasticsearch
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 from nats_wrapper import NatsWrapper
@@ -37,39 +38,39 @@ nulog_spec["env"] = [
     client.V1EnvVar(name="NATS_SERVER_URL", value=NATS_SERVER_URL),
 ]
 startup_time = time.time()
+ES_ENDPOINT = "https://opendistro-es-client-service.default.svc.cluster.local:9200"
+es = AsyncElasticsearch(
+    [ES_ENDPOINT],
+    port=9200,
+    http_auth=("admin", "admin"),
+    verify_certs=False,
+    use_ssl=True,
+)
 
 
-# async def user_training_signal(signals_queue):
-#     ES_ENDPOINT = "https://opendistro-es-client-service.default.svc.cluster.local:9200"
-#     es = AsyncElasticsearch(
-#         [ES_ENDPOINT],
-#         port=9200,
-#         http_auth=("admin", "admin"),
-#         verify_certs=False,
-#         use_ssl=True,
-#     )
-#     query_body = {"query": { "bool": {"must": {"match": { "status" : "submitted"}}}}}
-#     script = "ctx._source.status = 'scheduled';"
-#     index = "training_signal"
-#     while True:
-#         await signals = es.search(index=index, body=query_body, size=100)
-#         signal_hits = signals["hits"]["hits"]
-#         if len(signal_hits) == 0:
-#             logging.info("no unprocessed user training request...")
-#         else:
-#             for hit in signal_hits:
-#                 d = [{"_id" : hit["_id"], '_op_type': 'update', '_index': index, 'script': script}]
-#                 ## schedule run_job
-#                 # try:
-#                 #     async for ok, result in async_streaming_bulk(es, d):
-#                 #         action, result = result.popitem()
-#                 #         if not ok:
-#                 #             logging.error("failed to %s document %s" % ())
-#                 # except Exception as e:
-#                 #     logging.error(e)
+async def user_training_signal_coroutine(signals_queue):
 
-#         # await asyncio.sleep(30)
-#     return
+    query_body = {"query": {"bool": {"must": {"match": {"status": "submitted"}}}}}
+    script = "ctx._source.status = 'scheduled';"
+    index = "training_signal"
+    # while True:
+    #     await signals = es.search(index=index, body=query_body, size=100)
+    #     signal_hits = signals["hits"]["hits"]
+    #     if len(signal_hits) == 0:
+    #         logging.info("no unprocessed user training request...")
+    #     else:
+    #         for hit in signal_hits:
+    #             d = [{"_id" : hit["_id"], '_op_type': 'update', '_index': index, 'script': script}]
+    #             ## schedule run_job
+    #             # try:
+    #             #     async for ok, result in async_streaming_bulk(es, d):
+    #             #         action, result = result.popitem()
+    #             #         if not ok:
+    #             #             logging.error("failed to %s document %s" % ())
+    #             # except Exception as e:
+    #             #     logging.error(e)
+
+    await asyncio.sleep(30)
 
 
 def job_not_currently_running(job_name, namespace="default"):
@@ -272,7 +273,7 @@ if __name__ == "__main__":
     )
     clear_jobs_coroutine = clear_jobs(signals_queue)
     manage_kubernetes_jobs_coroutine = manage_kubernetes_training_jobs(signals_queue)
-    user_training_signal_coroutine = user_training_signal(signals_queue)
+    user_training_signal_coroutine = user_training_signal_coroutine(signals_queue)
     loop.run_until_complete(
         asyncio.gather(
             consumer_coroutine,

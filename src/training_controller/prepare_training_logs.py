@@ -12,7 +12,6 @@ from botocore.client import Config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 
-# from prepare_training_logs import PrepareTrainingLogs
 class PrepareTrainingLogs:
     def __init__(self, working_dir):
         self.WORKING_DIR = working_dir
@@ -53,12 +52,10 @@ class PrepareTrainingLogs:
     def run_esdump(self, chunked_commands):
         processes = set()
         max_processes = 200
-        counter = 0
 
         for index, chunk in enumerate(chunked_commands):
             for query in chunk:
                 processes.add(subprocess.Popen(query))
-                counter += 1
             for p in processes:
                 if p.poll() is None:
                     p.wait()

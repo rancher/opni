@@ -12,6 +12,7 @@ from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 from nats.aio.client import Client as NATS
 from prepare_training_logs import PrepareTrainingLogs
+from nats_wrapper import NatsWrapper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 config.load_incluster_config()
@@ -43,7 +44,7 @@ startup_time = time.time()
 def job_not_currently_running(job_name, namespace="default"):
     try:
         jobs = api_instance.list_namespaced_job(
-            namespace, pretty=True, timeout_seconds=60
+            namespace, timeout_seconds=60
         )
     except ApiException as e:
         logging.error(
@@ -54,32 +55,14 @@ def job_not_currently_running(job_name, namespace="default"):
         if job.metadata.name == job_name:
             return False
     return True
-
-
-def check_training_job(job_name, namespace="default"):
-    try:
-        jobs = api_instance.list_namespaced_job(
-            namespace, pretty=True, timeout_seconds=60
-        )
-    except ApiException as e:
-        logging.error(
-            "Exception when calling BatchV1Api->list_namespaced_job: %s\n" % e
-        )
-
-    for job in jobs.items:
-        if job.metadata.name == job_name:
-            return False
-    return True
-
 
 async def kube_delete_empty_pods(signals_queue, namespace="default", phase="Succeeded"):
-    # The always needed object
     deleteoptions = client.V1DeleteOptions()
     # We need the api entry point for pods
     api_pods = client.CoreV1Api()
     # List the pods
     try:
-        pods = api_pods.list_namespaced_pod(namespace, pretty=True, timeout_seconds=60)
+        pods = api_pods.list_namespaced_pod(namespace, timeout_seconds=60)
     except ApiException as e:
         logging.info("Exception when calling CoreV1Api->list_namespaced_pod: %s\n" % e)
 
@@ -137,7 +120,7 @@ def run_job(job_details):
     )
     api_instance.create_namespaced_job(body=job, namespace="default")
 
-
+'''
 async def run(loop, queue):
     nc = NATS()
 
@@ -190,6 +173,7 @@ async def run(loop, queue):
         loop.add_signal_handler(getattr(signal, sig), signal_handler)
 
     await nc.subscribe("train", "", subscribe_handler)
+'''
 
 
 async def clear_jobs(signals_queue):
@@ -200,7 +184,7 @@ async def clear_jobs(signals_queue):
         deleteoptions = client.V1DeleteOptions()
         try:
             jobs = api_instance.list_namespaced_job(
-                namespace, pretty=True, timeout_seconds=60
+                namespace, timeout_seconds=60
             )
         except ApiException as e:
             logging.error(
@@ -295,14 +279,23 @@ async def consume_nats_drain_signal(queue, signals_queue):
         except Exception as e:
             logging.error(e)
 
+async def consume_payload_coroutine(loop, jobs_queue):
+    nw = NatsWrapper()
+    await nw.connect(loop)
+    nw.add_signal_handler(loop)
+    await nw.subscribe(nats_subject="train", payload_queue=jobs_queue)
+
+
+
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
-    queue = asyncio.Queue(loop=loop)
+    jobs_queue = asyncio.Queue(loop=loop)
     signals_queue = asyncio.Queue(loop=loop)
-    consumer_coroutine = run(loop, queue)
+    consumer_coroutine = consume_payload_coroutine(loop, jobs_queue)
+    #consumer_coroutine = run(loop, jobs_queue)
     consume_nats_drain_signal_coroutine = consume_nats_drain_signal(
-        queue, signals_queue
+        jobs_queue, signals_queue
     )
     clear_jobs_coroutine = clear_jobs(signals_queue)
     manage_kubernetes_jobs_coroutine = manage_kubernetes_training_jobs(signals_queue)

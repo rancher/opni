@@ -120,7 +120,7 @@ def run_job(job_details):
     )
     api_instance.create_namespaced_job(body=job, namespace="default")
 
-
+'''
 async def run(loop, queue):
     nc = NATS()
 
@@ -173,6 +173,7 @@ async def run(loop, queue):
         loop.add_signal_handler(getattr(signal, sig), signal_handler)
 
     await nc.subscribe("train", "", subscribe_handler)
+'''
 
 
 async def clear_jobs(signals_queue):
@@ -278,16 +279,23 @@ async def consume_nats_drain_signal(queue, signals_queue):
         except Exception as e:
             logging.error(e)
 
+async def consume_payload_coroutine(loop, jobs_queue):
+    nw = NatsWrapper()
+    await nw.connect(loop)
+    nw.add_signal_handler(loop)
+    await nw.subscribe(nats_subject="train", payload_queue=jobs_queue)
+
+
+
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
-    queue = asyncio.Queue(loop=loop)
+    jobs_queue = asyncio.Queue(loop=loop)
     signals_queue = asyncio.Queue(loop=loop)
-    nw = NatsWrapper()
-    await nw.connect(loop)
-    consumer_coroutine = run(loop, queue)
+    consumer_coroutine = consume_payload_coroutine(loop, jobs_queue)
+    #consumer_coroutine = run(loop, jobs_queue)
     consume_nats_drain_signal_coroutine = consume_nats_drain_signal(
-        queue, signals_queue
+        jobs_queue, signals_queue
     )
     clear_jobs_coroutine = clear_jobs(signals_queue)
     manage_kubernetes_jobs_coroutine = manage_kubernetes_training_jobs(signals_queue)

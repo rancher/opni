@@ -3,16 +3,14 @@ import asyncio
 import json
 import logging
 import os
-import signal
 import time
 
 # Third Party
 import kubernetes.client
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
-from nats.aio.client import Client as NATS
-from prepare_training_logs import PrepareTrainingLogs
 from nats_wrapper import NatsWrapper
+from prepare_training_logs import PrepareTrainingLogs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 config.load_incluster_config()
@@ -43,9 +41,7 @@ startup_time = time.time()
 
 def job_not_currently_running(job_name, namespace="default"):
     try:
-        jobs = api_instance.list_namespaced_job(
-            namespace, timeout_seconds=60
-        )
+        jobs = api_instance.list_namespaced_job(namespace, timeout_seconds=60)
     except ApiException as e:
         logging.error(
             "Exception when calling BatchV1Api->list_namespaced_job: %s\n" % e
@@ -55,6 +51,7 @@ def job_not_currently_running(job_name, namespace="default"):
         if job.metadata.name == job_name:
             return False
     return True
+
 
 async def kube_delete_empty_pods(signals_queue, namespace="default", phase="Succeeded"):
     deleteoptions = client.V1DeleteOptions()
@@ -120,7 +117,8 @@ def run_job(job_details):
     )
     api_instance.create_namespaced_job(body=job, namespace="default")
 
-'''
+
+"""
 async def run(loop, queue):
     nc = NATS()
 
@@ -173,7 +171,7 @@ async def run(loop, queue):
         loop.add_signal_handler(getattr(signal, sig), signal_handler)
 
     await nc.subscribe("train", "", subscribe_handler)
-'''
+"""
 
 
 async def clear_jobs(signals_queue):
@@ -183,9 +181,7 @@ async def clear_jobs(signals_queue):
         await asyncio.sleep(300)
         deleteoptions = client.V1DeleteOptions()
         try:
-            jobs = api_instance.list_namespaced_job(
-                namespace, timeout_seconds=60
-            )
+            jobs = api_instance.list_namespaced_job(namespace, timeout_seconds=60)
         except ApiException as e:
             logging.error(
                 "Exception when calling BatchV1Api->list_namespaced_job: %s\n" % e
@@ -279,6 +275,7 @@ async def consume_nats_drain_signal(queue, signals_queue):
         except Exception as e:
             logging.error(e)
 
+
 async def consume_payload_coroutine(loop, jobs_queue):
     nw = NatsWrapper()
     await nw.connect(loop)
@@ -286,14 +283,12 @@ async def consume_payload_coroutine(loop, jobs_queue):
     await nw.subscribe(nats_subject="train", payload_queue=jobs_queue)
 
 
-
-
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     jobs_queue = asyncio.Queue(loop=loop)
     signals_queue = asyncio.Queue(loop=loop)
     consumer_coroutine = consume_payload_coroutine(loop, jobs_queue)
-    #consumer_coroutine = run(loop, jobs_queue)
+    # consumer_coroutine = run(loop, jobs_queue)
     consume_nats_drain_signal_coroutine = consume_nats_drain_signal(
         jobs_queue, signals_queue
     )

@@ -12,6 +12,7 @@ from botocore.client import Config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 
+
 class PrepareTrainingLogs:
     def __init__(self, working_dir):
         self.WORKING_DIR = working_dir

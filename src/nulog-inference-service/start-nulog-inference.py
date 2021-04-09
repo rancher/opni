@@ -16,6 +16,7 @@ from NulogServer import NulogServer
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+THRESHOLD = float(os.getenv("MODEL_THRESHOLD", 0.8))
 
 
 async def consume_logs(nw, loop, logs_queue):
@@ -50,7 +51,6 @@ async def infer_logs(logs_queue):
             doc_dict = document.to_dict()
             yield doc_dict
 
-    threshold = 0.8
     script = 'ctx._source.anomaly_level = ctx._source.anomaly_predicted_count == 0 ? "Normal" : ctx._source.anomaly_predicted_count == 1 ? "Suspicious" : "Anomaly";'
 
     while True:
@@ -79,7 +79,7 @@ async def infer_logs(logs_queue):
             continue
 
         df["nulog_confidence"] = predictions
-        df["predictions"] = [1 if p < threshold else 0 for p in predictions]
+        df["predictions"] = [1 if p < THRESHOLD else 0 for p in predictions]
         # filter out df to only include abnormal predictions
         df = df[df["predictions"] > 0]
         if len(df) == 0:

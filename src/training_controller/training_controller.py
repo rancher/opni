@@ -42,7 +42,7 @@ nulog_spec["env"] = [
 startup_time = time.time()
 
 NAMESPACE = os.environ["JOB_NAMESPACE"]
-DEFAULT_TRAINING_INTERVAL = 1200  # 1200 seconds aka 20mins
+DEFAULT_TRAINING_INTERVAL = 1800  # 1800 seconds aka 30mins
 
 ES_ENDPOINT = os.environ["ES_ENDPOINT"]
 es = AsyncElasticsearch(

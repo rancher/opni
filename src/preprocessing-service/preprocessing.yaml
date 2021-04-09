@@ -1,0 +1,22 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: preprocessing-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: preprocessing-service
+  template:
+    metadata:
+      labels:
+        app: preprocessing-service
+    spec:
+      containers:
+      - name: preprocessing-service
+        image: sanjayrancher/preprocessing-service
+        imagePullPolicy: Always
+        env:
+        - name: NATS_SERVER_URL
+          value: "nats://nats_client:VfU6TcAl9x@nats-client.default.svc:4222"

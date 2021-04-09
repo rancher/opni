@@ -10,11 +10,13 @@ Pre-requisites:
 * Must have at least one GPU node (preferably K80 GPU or higher) and at least two CPUs as part of the cluster with at least 10 GiB memory as well.
 * Make sure appropriate rbac is set up.
 
+* To set up rbac:
 ```
-* To set up rbac:, first run kubectl apply -f rbac_service_account.yaml
-* Then run kubectl apply -f rbac_role.yaml
-* Then, finally run kubectl apply -f rbac_role_binding.yaml
-* To deploy training-controller service: kubectl apply -f training_controller.yaml
+kubectl apply -f rbac.yaml
+```
+* To deploy training-controller service:
+```
+kubectl apply -f training_controller.yaml
 ```
 ---
 ---

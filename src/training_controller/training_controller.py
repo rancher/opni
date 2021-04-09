@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime
 
 # Third Party
 import kubernetes.client
@@ -40,8 +41,10 @@ nulog_spec["env"] = [
 ]
 startup_time = time.time()
 
-NAMESPACE = "model-training"
-ES_ENDPOINT = "https://opendistro-es-client-service.default.svc.cluster.local:9200"
+NAMESPACE = os.environ["JOB_NAMESPACE"]
+DEFAULT_TRAINING_INTERVAL = 1200  # 1200 seconds aka 20mins
+
+ES_ENDPOINT = os.environ["ES_ENDPOINT"]
 es = AsyncElasticsearch(
     [ES_ENDPOINT],
     port=9200,
@@ -76,15 +79,18 @@ async def update_es_job_status(
         logging.error(e)
 
 
-async def user_training_signal_coroutine(signals_queue):
+async def user_training_signal_coroutine(signals_queue: asyncio.Queue):
 
     query_body = {"query": {"bool": {"must": {"match": {"status": "submitted"}}}}}
     index = "training_signal"
+    current_time = int(datetime.timestamp(datetime.now()))
     job_payload = {
         "model_to_train": "nulog",
         "time_intervals": [
-            {"start_ts": 1617039360000000000, "end_ts": 1617039450000000000},
-            {"start_ts": 1617039510000000000, "end_ts": 1617039660000000000},
+            {
+                "start_ts": (current_time - DEFAULT_TRAINING_INTERVAL) * (10 ** 9),
+                "end_ts": current_time * (10 ** 9),
+            }
         ],
     }
     while True:
@@ -96,14 +102,15 @@ async def user_training_signal_coroutine(signals_queue):
             for hit in user_signal_hits:
                 signals_queue_payload = {
                     "source": "elasticsearch",
+                    "_id": hit["_id"],
                     "model": "nulog-train",
                     "signal": "start",
                     "payload": job_payload,
                 }
-                await signals_queue.put(signals_queue_payload)
                 await update_es_job_status(
-                    request_id=hit["_id"], job_status="scheduling"
+                    request_id=hit["_id"], job_status="scheduled"
                 )
+                await signals_queue.put(signals_queue_payload)
 
         await asyncio.sleep(30)
 
@@ -242,7 +249,7 @@ async def clear_jobs(signals_queue):
 
 
 async def manage_kubernetes_training_jobs(signals_queue):
-    nulog_next_job_to_run = None
+    nulog_next_job_to_run = None  ## TODO: should replace this with a queue? in case there are multiple pending jobs
     while True:
         payload = await signals_queue.get()
         if payload is None:
@@ -254,6 +261,10 @@ async def manage_kubernetes_training_jobs(signals_queue):
             if job_not_currently_running(model_to_train):
                 PrepareTrainingLogs("/tmp").run(model_payload["time_intervals"])
                 if model_to_train == "nulog-train":
+                    if "source" in payload and payload["source"] == "elasticsearch":
+                        await update_es_job_status(
+                            request_id=payload["_id"], job_status="trainingStarted"
+                        )
                     run_job(nulog_spec)
                     ## es_update_status = training_inprogress
             else:
@@ -262,6 +273,10 @@ async def manage_kubernetes_training_jobs(signals_queue):
                     logging.info(
                         "Nulog model currently being trained. Job will run after this model's training has been completed"
                     )
+                    if "source" in payload and payload["source"] == "elasticsearch":
+                        await update_es_job_status(
+                            request_id=payload["_id"], job_status="pendingInQueue"
+                        )
                     ## es_update_status = pending_in_queue
         else:
             if nulog_next_job_to_run:
@@ -304,7 +319,6 @@ if __name__ == "__main__":
     jobs_queue = asyncio.Queue(loop=loop)
     signals_queue = asyncio.Queue(loop=loop)
     consumer_coroutine = consume_payload_coroutine(loop, jobs_queue)
-    # consumer_coroutine = run(loop, jobs_queue)
     consume_nats_drain_signal_coroutine = consume_nats_drain_signal(
         jobs_queue, signals_queue
     )

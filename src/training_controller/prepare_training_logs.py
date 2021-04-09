@@ -11,6 +11,9 @@ import pandas as pd
 from botocore.client import Config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
+ES_ENDPOINT = os.environ["ES_ENDPOINT"]
+FORMATTED_ES_ENDPOINT = "https://admin:admin@" + ES_ENDPOINT.split("//")[-1]
+
 
 class PrepareTrainingLogs:
     def __init__(self, working_dir):
@@ -66,8 +69,8 @@ class PrepareTrainingLogs:
         # Get the first 10k logs
         logging.info("Retrieve sample logs from ES")
         es_dump_cmd = (
-            'elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=http://elasticsearch-coordinating-only.default.svc.cluster.local:9200/logs --output=%s --type=data'
-            % self.ES_DUMP_SAMPLE_LOGS_PATH
+            'elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=%s/logs --output=%s --type=data'
+            % (FORMATTED_ES_ENDPOINT, self.ES_DUMP_SAMPLE_LOGS_PATH)
         )
         subprocess.run(es_dump_cmd, shell=True)
 
@@ -94,6 +97,9 @@ class PrepareTrainingLogs:
 
     def fetch_training_logs(self, num_logs_to_fetch, timestamps_list):
         # ESDump logs
+
+        ## to address ES authentication issue
+
         esdump_sample_command = [
             "elasticdump",
             "--searchBody",
@@ -104,7 +110,7 @@ class PrepareTrainingLogs:
             "--size={}",
             "--limit",
             "10000",
-            "--input=http://elasticsearch-coordinating-only.default.svc.cluster.local:9200/logs",
+            "--input={}/logs".format(FORMATTED_ES_ENDPOINT),
             "--output={}",
             "--type=data",
         ]

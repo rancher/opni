@@ -15,8 +15,7 @@ MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 
 
 class NulogServer:
-    def __init__(self, method: str = "predict"):
-        self.method = method
+    def __init__(self):
         self.is_ready = False
         self.parser = None
         self.download_from_minio()
@@ -71,7 +70,7 @@ class NulogServer:
             logging.error("No Nulog model currently {}".format(e))
         # self.predict(test_texts)
 
-    def predict(self, logs: List[str], feature_names=None):
+    def predict(self, logs: List[str]):
         if not self.is_ready:
             logging.warning("Warning: NuLog model is not ready yet!")
             return None

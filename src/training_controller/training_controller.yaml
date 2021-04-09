@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: training-controller
-  namespace: model-training
 spec:
   replicas: 1
   selector:
@@ -24,3 +23,9 @@ spec:
           value: "myaccesskey"
         - name: MINIO_SECRET_KEY
           value: "mysecretkey"
+        - name: JOB_NAMESPACE
+          value: "default"
+        - name: ES_ENDPOINT
+          value: "https://opendistro-es-client-service.default.svc.cluster.local:9200"
+        - name: NODE_TLS_REJECT_UNAUTHORIZED
+          value: "0"

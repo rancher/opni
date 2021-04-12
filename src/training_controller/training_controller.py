@@ -60,6 +60,9 @@ async def update_es_job_status(
     op_type: str = "update",
     index: str = "training_signal",
 ):
+    """
+    this method updates the status of jobs in elasticsearch.
+    """
     script = "ctx._source.status = '{}';".format(job_status)
     docs_to_update = [
         {
@@ -79,8 +82,10 @@ async def update_es_job_status(
         logging.error(e)
 
 
-async def user_training_signal_coroutine(signals_queue: asyncio.Queue):
-
+async def es_training_signal_coroutine(signals_queue: asyncio.Queue):
+    """
+    collect job training signal from elasticsearch, and add to job queue.
+    """
     query_body = {"query": {"bool": {"must": {"match": {"status": "submitted"}}}}}
     index = "training_signal"
     current_time = int(datetime.timestamp(datetime.now()))
@@ -324,14 +329,14 @@ if __name__ == "__main__":
     )
     clear_jobs_coroutine = clear_jobs(signals_queue)
     manage_kubernetes_jobs_coroutine = manage_kubernetes_training_jobs(signals_queue)
-    user_training_signal_coroutine = user_training_signal_coroutine(signals_queue)
+    es_signal_coroutine = es_training_signal_coroutine(signals_queue)
     loop.run_until_complete(
         asyncio.gather(
             consumer_coroutine,
             consume_nats_drain_signal_coroutine,
             clear_jobs_coroutine,
             manage_kubernetes_jobs_coroutine,
-            user_training_signal_coroutine,
+            es_signal_coroutine,
         )
     )
     try:

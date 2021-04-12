@@ -60,7 +60,7 @@ def train_nulog_model(minio_client):
         logging.info("Nulog model was not able to be trained and saved successfully.")
 
 
-def send_signal_to_inference(loop):
+async def send_signal_to_inference(loop):
     nulog_payload = {
         "bucket": "nulog-models",
         "bucket_files": {

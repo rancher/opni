@@ -73,6 +73,9 @@ def send_signal_to_inference(loop):
     await nw.connect(loop)
     nw.add_signal_handler(loop)
     await nw.publish(nats_subject="model_ready", payload_df=encoded_nulog_json)
+    logging.info(
+        "Published to model_ready Nats subject that new Nulog model is ready to be used for inferencing."
+    )
 
 
 if __name__ == "__main__":

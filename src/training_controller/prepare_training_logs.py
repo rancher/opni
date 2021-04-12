@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import tarfile
+from multiprocessing import Pool
 
 # Third Party
 import boto3
@@ -50,16 +51,24 @@ class PrepareTrainingLogs:
         logging.info("Disk Free: %d GiB" % (free // (2 ** 30)))
         return free
 
+    def open_proc(self, query):
+        subprocess.Popen(query)
+
     def run_esdump(self, chunked_commands):
         processes = set()
-        max_processes = 200
-
+        process_cap = 10
+        p = Pool(process_cap)
         for index, chunk in enumerate(chunked_commands):
             for query in chunk:
+                p.map(self.open_proc, query)
+                p.close()
+                p.join()
+            """
                 processes.add(subprocess.Popen(query))
             for p in processes:
                 if p.poll() is None:
                     p.wait()
+            """
 
             logging.info("completed chunk {}".format(index))
 

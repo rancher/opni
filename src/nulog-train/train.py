@@ -4,13 +4,12 @@ import json
 import logging
 import os
 import shutil
-import signal
 
 # Third Party
 import boto3
 import botocore
 from botocore.client import Config
-from nats.aio.client import Client as NATS
+from nats_wrapper import NatsWrapper
 from NuLogParser import LogParser
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
@@ -58,48 +57,7 @@ def train_nulog_model(minio_client):
         logging.info("Nulog model was not able to be trained and saved successfully.")
 
 
-async def run(loop, nc):
-    async def error_cb(e):
-        logging.warning("Error: {}".format(str(e)))
-
-    async def closed_cb():
-        logging.warning("Closed connection to NATS")
-        await asyncio.sleep(0.1, loop=loop)
-        loop.stop()
-
-    async def on_disconnect():
-        logging.warning("Disconnected from NATS")
-
-    async def reconnected_cb():
-        logging.warning(
-            "Reconnected to NATS at nats://{}".format(nats.connected_url.netloc)
-        )
-
-    options = {
-        "loop": loop,
-        "error_cb": error_cb,
-        "closed_cb": closed_cb,
-        "reconnected_cb": reconnected_cb,
-        "disconnected_cb": on_disconnect,
-        "servers": [NATS_SERVER_URL],
-    }
-
-    try:
-        await nc.connect(**options)
-    except Exception as e:
-        logging.error(str(e))
-
-    logging.info(f"Connected to NATS at {nc.connected_url.netloc}...")
-
-    def signal_handler():
-        if nc.is_closed:
-            return
-        logging.warning("Disconnecting...")
-        loop.create_task(nc.close())
-
-    for sig in ("SIGINT", "SIGTERM"):
-        loop.add_signal_handler(getattr(signal, sig), signal_handler)
-
+async def send_signal_to_inference(loop):
     nulog_payload = {
         "bucket": "nulog-models",
         "bucket_files": {
@@ -108,11 +66,13 @@ async def run(loop, nc):
         },
     }
     encoded_nulog_json = json.dumps(nulog_payload).encode()
-    await nc.publish("model_ready", encoded_nulog_json)
+    nw = NatsWrapper()
+    await nw.connect(loop)
+    nw.add_signal_handler(loop)
+    await nw.publish(nats_subject="model_ready", payload_df=encoded_nulog_json)
     logging.info(
-        "Published to model_ready Nats subject that the latest Nulog has been uploaded onto Minio."
+        "Published to model_ready Nats subject that new Nulog model is ready to be used for inferencing."
     )
-    await nc.close()
 
 
 if __name__ == "__main__":
@@ -134,7 +94,7 @@ if __name__ == "__main__":
     logging.info("About to train model")
     train_nulog_model(minio_client)
     logging.info("Model completed training")
-    nc = NATS()
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run(loop, nc))
+    send_signal_inference_coroutine = send_signal_to_inference(loop)
+    loop.run_until_complete(send_signal_inference_coroutine)
     loop.close()

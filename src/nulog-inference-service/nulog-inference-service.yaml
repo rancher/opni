@@ -21,6 +21,8 @@ spec:
           value: "nats://nats_client:VfU6TcAl9x@nats-client.default.svc:4222"
         - name: ES_ENDPOINT
           value: "https://opendistro-es-client-service.default.svc.cluster.local:9200"
+        - name: MINIO_ENDPOINT
+          value: "http://minio.default.svc.cluster.local:9000"
         - name: MINIO_ACCESS_KEY
           value: "myaccesskey"
         - name: MINIO_SECRET_KEY

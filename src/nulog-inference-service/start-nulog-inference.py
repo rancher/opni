@@ -17,6 +17,7 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 THRESHOLD = float(os.getenv("MODEL_THRESHOLD", 0.8))
+ES_ENDPOINT = os.environ["ES_ENDPOINT"]
 
 
 async def consume_logs(nw, loop, logs_queue):
@@ -33,8 +34,6 @@ async def infer_logs(logs_queue):
     """
     coroutine to get payload from logs_queue, call inference rest API and put predictions to elasticsearch.
     """
-
-    ES_ENDPOINT = os.environ["ES_ENDPOINT"]
     es = AsyncElasticsearch(
         [ES_ENDPOINT],
         port=9200,

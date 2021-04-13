@@ -6,8 +6,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(messa
 
 
 class LogTokenizer:
-    def __init__(self, filters="([ |:|\(|\)|=|,])|(core.)|(\.{2,})"):
-        self.filters = filters
+    def __init__(self):
         self.word2index = {"<PAD>": 0, "<CLS>": 1, "<MASK>": 2, "<UNK>": 3, "<NUM>": 4}
         self.index2word = {0: "<PAD>", 1: "<CLS>", 2: "<MASK>", 3: "<UNK>", 4: "<NUM>"}
         self.n_words = 10000  # Count SOS and EOS
@@ -57,7 +56,6 @@ class LogTokenizer:
 
     def tokenize(self, sent, isTrain):
         tokens = sent.split(" ")
-        # filtered = re.split(self.filters, sent)
         valid_tokens = []
         for t in tokens:
             if t != None and t != "":

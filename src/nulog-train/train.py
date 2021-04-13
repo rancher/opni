@@ -35,12 +35,9 @@ WINDOWS_FOLDER_PATH = "windows/"
 
 
 def train_nulog_model(minio_client):
-    log_format = "<Content>"
-    filters = '([ |:|\(|\)|\[|\]|\{|\}|"|,|=])'
-    k = 50  # was 50 ## tunable, top k predictions
     nr_epochs = 2
     num_samples = 0
-    parser = LogParser(filters=filters, k=k, log_format=log_format)
+    parser = LogParser()
     texts = parser.load_data(WINDOWS_FOLDER_PATH)
     logging.info("NuLog model being trained from scratch")
     tokenized = parser.tokenize_data(texts, isTrain=True)

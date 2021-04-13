@@ -23,13 +23,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(messa
 
 
 class LogParser:
-    def __init__(self, filters, k, log_format, model_name="nulog_model_latest.pt"):
+    def __init__(
+        self, k=50, log_format="<Content>", model_name="nulog_model_latest.pt"
+    ):
         self.savePath = "output/"
-        self.filters = filters
         self.k = k
         self.df_log = None
         self.log_format = log_format
-        self.tokenizer = LogTokenizer(filters)
+        self.tokenizer = LogTokenizer()
 
         if not os.path.exists(self.savePath):
             os.makedirs(self.savePath)

@@ -11,6 +11,8 @@ import pandas as pd
 from botocore.client import Config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
+MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
+MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 
 
 class PrepareTrainingLogs:
@@ -22,8 +24,6 @@ class PrepareTrainingLogs:
             self.WORKING_DIR, "sample_logs.json"
         )
 
-        MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
-        MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
         self.minio_client = boto3.resource(
             "s3",
             endpoint_url="http://minio.default.svc.cluster.local:9000",

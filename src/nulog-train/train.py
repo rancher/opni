@@ -16,22 +16,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(messa
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
-minio_client = boto3.resource(
-    "s3",
-    endpoint_url="http://minio.default.svc.cluster.local:9000",
-    aws_access_key_id=MINIO_ACCESS_KEY,
-    aws_secret_access_key=MINIO_SECRET_KEY,
-    config=Config(signature_version="s3v4"),
-)
-logging.info("Connected to Minio client")
-minio_client.meta.client.download_file(
-    "training-logs", "windows.tar.gz", "windows.tar.gz"
-)
-logging.info("Downloaded the windows.tar.gz file")
-shutil.unpack_archive("windows.tar.gz", format="gztar")
-logging.info("Extracted windows directory from windows.tar.gz file")
-
-WINDOWS_FOLDER_PATH = "windows/"
 
 
 def train_nulog_model(minio_client):
@@ -76,25 +60,44 @@ async def send_signal_to_inference(loop):
 
 
 if __name__ == "__main__":
-    bucket = minio_client.Bucket("nulog-models")
-    exists = True
     try:
-        minio_client.meta.client.head_bucket(Bucket="nulog-models")
-    except botocore.exceptions.ClientError as e:
-        # If a client error is thrown, then check that it was a 404 error.
-        # If it was a 404 error, then the bucket does not exist.
-        error_code = e.response["Error"]["Code"]
-        if error_code == "404":
-            exists = False
-    if exists:
-        logging.info("nulog-models bucket exists")
-    else:
-        logging.info("nulog-models bucket does not exist so creating it now")
-        minio_client.create_bucket(Bucket="nulog-models")
-    logging.info("About to train model")
-    train_nulog_model(minio_client)
-    logging.info("Model completed training")
-    loop = asyncio.get_event_loop()
-    send_signal_inference_coroutine = send_signal_to_inference(loop)
-    loop.run_until_complete(send_signal_inference_coroutine)
-    loop.close()
+        minio_client = boto3.resource(
+            "s3",
+            endpoint_url="http://minio.default.svc.cluster.local:9000",
+            aws_access_key_id=MINIO_ACCESS_KEY,
+            aws_secret_access_key=MINIO_SECRET_KEY,
+            config=Config(signature_version="s3v4"),
+        )
+        logging.info("Connected to Minio client")
+        minio_client.meta.client.download_file(
+            "training-logs", "windows.tar.gz", "windows.tar.gz"
+        )
+        logging.info("Downloaded the windows.tar.gz file")
+        shutil.unpack_archive("windows.tar.gz", format="gztar")
+        logging.info("Extracted windows directory from windows.tar.gz file")
+
+        WINDOWS_FOLDER_PATH = "windows/"
+        bucket = minio_client.Bucket("nulog-models")
+        exists = True
+        try:
+            minio_client.meta.client.head_bucket(Bucket="nulog-models")
+        except botocore.exceptions.ClientError as e:
+            # If a client error is thrown, then check that it was a 404 error.
+            # If it was a 404 error, then the bucket does not exist.
+            error_code = e.response["Error"]["Code"]
+            if error_code == "404":
+                exists = False
+        if exists:
+            logging.info("nulog-models bucket exists")
+        else:
+            logging.info("nulog-models bucket does not exist so creating it now")
+            minio_client.create_bucket(Bucket="nulog-models")
+        logging.info("About to train model")
+        train_nulog_model(minio_client)
+        logging.info("Model completed training")
+        loop = asyncio.get_event_loop()
+        send_signal_inference_coroutine = send_signal_to_inference(loop)
+        loop.run_until_complete(send_signal_inference_coroutine)
+        loop.close()
+    except Exception as e:
+        logging.error("Unable to train Nulog model right now because of {}".format(e))

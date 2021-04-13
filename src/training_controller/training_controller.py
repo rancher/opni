@@ -12,14 +12,14 @@ from kubernetes.client.rest import ApiException
 from nats_wrapper import NatsWrapper
 from prepare_training_logs import PrepareTrainingLogs
 
+MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
+MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
+NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 config.load_incluster_config()
 configuration = kubernetes.client.Configuration()
 api_instance = kubernetes.client.BatchV1Api()
 logging.info("Cluster config has been been loaded")
-MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
-MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
-NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
 nulog_spec = {
     "name": "nulog-train",
     "container_name": "nulog-train",

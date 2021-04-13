@@ -10,7 +10,7 @@ spec:
     spec:
       containers:
       - name: nulog-train
-        image: amartyarancher/nulog-train
+        image: amartyarancher/nulog-train:v0.0
         imagePullPolicy: Always
         env:
         - name: MINIO_ACCESS_KEY

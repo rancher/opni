@@ -4,7 +4,6 @@ import os
 import shutil
 import subprocess
 import tarfile
-from multiprocessing import Pool
 
 # Third Party
 import boto3
@@ -54,23 +53,38 @@ class PrepareTrainingLogs:
     def open_proc(self, query):
         subprocess.Popen(query)
 
-    def run_esdump(self, chunked_commands):
-        processes = set()
-        process_cap = 10
-        p = Pool(process_cap)
+    def run_esdump(self, query_commands):
+        current_processes = set()
+        logging.info(query_commands)
+        max_processes = 2
+        """
+        for query in query_commands:
+            current_subprocess = subprocess.Popen(query)
+            if current_subprocess.poll() is None:
+                current_subprocess.wait()
+        """
+        while len(query_commands) > 0:
+            finished_processes = set()
+            if len(current_processes) < max_processes:
+                current_query = query_commands.pop(0)
+                current_processes.add(subprocess.Popen(current_query))
+            for p in current_processes:
+                if p.poll() is None:
+                    p.wait()
+                else:
+                    finished_processes.add(p)
+            current_processes -= finished_processes
+
+        """
         for index, chunk in enumerate(chunked_commands):
             for query in chunk:
-                p.map(self.open_proc, query)
-                p.close()
-                p.join()
-            """
                 processes.add(subprocess.Popen(query))
             for p in processes:
                 if p.poll() is None:
                     p.wait()
-            """
 
             logging.info("completed chunk {}".format(index))
+        """
 
     def retrieve_sample_logs(self):
         # Get the first 10k logs
@@ -134,7 +148,7 @@ class PrepareTrainingLogs:
         chunked_commands = [
             query_queue[i : i + 5] for i in range(0, len(query_queue), 5)
         ]
-        self.run_esdump(chunked_commands)
+        self.run_esdump(query_queue)
 
     def create_windows(self):
         # For every json file, write/append each time window to own file

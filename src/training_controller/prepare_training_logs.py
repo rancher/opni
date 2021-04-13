@@ -13,6 +13,9 @@ from botocore.client import Config
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 ES_ENDPOINT = os.environ["ES_ENDPOINT"]
 FORMATTED_ES_ENDPOINT = "https://admin:admin@" + ES_ENDPOINT.split("//")[-1]
+MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
+MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
+MINIO_ENDPOINT = os.environ["MINIO_ENDPOINT"]
 
 
 class PrepareTrainingLogs:
@@ -24,11 +27,9 @@ class PrepareTrainingLogs:
             self.WORKING_DIR, "sample_logs.json"
         )
 
-        MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
-        MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
         self.minio_client = boto3.resource(
             "s3",
-            endpoint_url="http://minio.default.svc.cluster.local:9000",
+            endpoint_url=MINIO_ENDPOINT,
             aws_access_key_id=MINIO_ACCESS_KEY,
             aws_secret_access_key=MINIO_SECRET_KEY,
             config=Config(signature_version="s3v4"),

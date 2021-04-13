@@ -23,6 +23,8 @@ spec:
           value: "myaccesskey"
         - name: MINIO_SECRET_KEY
           value: "mysecretkey"
+        - name: MINIO_ENDPOINT
+          value: "http://minio.default.svc.cluster.local:9000"
         - name: JOB_NAMESPACE
           value: "default"
         - name: ES_ENDPOINT

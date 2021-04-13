@@ -1,6 +1,7 @@
 # Standard Library
 import asyncio
 import logging
+import os
 
 # Third Party
 import pandas as pd
@@ -11,12 +12,13 @@ from nats_wrapper import NatsWrapper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 
-ES_ENDPOINT = "https://opendistro-es-client-service.default.svc.cluster.local:9200"
+ES_ENDPOINT = os.environ["ES_ENDPOINT"]
 
 es = AsyncElasticsearch(
     [ES_ENDPOINT],
     port=9200,
     http_auth=("admin", "admin"),
+    http_compress=True,
     verify_certs=False,
     use_ssl=True,
     timeout=10,

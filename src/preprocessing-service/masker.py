@@ -120,7 +120,4 @@ class LogMasker:
         )
 
     def mask(self, content: str):
-        if self.masker is not None:
-            return self.masker.mask(content)
-        else:
-            return content
+        return self.masker.mask(content)

@@ -9,6 +9,7 @@ import tarfile
 import boto3
 import pandas as pd
 from botocore.client import Config
+from elasticsearch import Elasticsearch
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 
@@ -16,6 +17,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(messa
 class PrepareTrainingLogs:
     def __init__(self, working_dir):
         self.WORKING_DIR = working_dir
+        self.ES_ENDPOINT = os.environ["ES_ENDPOINT"]
         self.ES_DUMP_DIR = os.path.join(self.WORKING_DIR, "windows")
         self.ES_DUMP_DIR_ZIPPED = self.ES_DUMP_DIR + ".tar.gz"
         self.ES_DUMP_SAMPLE_LOGS_PATH = os.path.join(
@@ -50,24 +52,18 @@ class PrepareTrainingLogs:
         logging.info("Disk Free: %d GiB" % (free // (2 ** 30)))
         return free
 
-    def open_proc(self, query):
-        subprocess.Popen(query)
-
     def run_esdump(self, query_commands):
         current_processes = set()
-        logging.info(query_commands)
         max_processes = 2
-        """
-        for query in query_commands:
-            current_subprocess = subprocess.Popen(query)
-            if current_subprocess.poll() is None:
-                current_subprocess.wait()
-        """
         while len(query_commands) > 0:
             finished_processes = set()
             if len(current_processes) < max_processes:
-                current_query = query_commands.pop(0)
-                current_processes.add(subprocess.Popen(current_query))
+                num_processes_to_run = min(
+                    max_processes - len(current_processes), len(query_commands)
+                )
+                for i in range(num_processes_to_run):
+                    current_query = query_commands.pop(0)
+                    current_processes.add(subprocess.Popen(current_query))
             for p in current_processes:
                 if p.poll() is None:
                     p.wait()
@@ -75,23 +71,12 @@ class PrepareTrainingLogs:
                     finished_processes.add(p)
             current_processes -= finished_processes
 
-        """
-        for index, chunk in enumerate(chunked_commands):
-            for query in chunk:
-                processes.add(subprocess.Popen(query))
-            for p in processes:
-                if p.poll() is None:
-                    p.wait()
-
-            logging.info("completed chunk {}".format(index))
-        """
-
     def retrieve_sample_logs(self):
         # Get the first 10k logs
         logging.info("Retrieve sample logs from ES")
         es_dump_cmd = (
-            'elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=http://elasticsearch-coordinating-only.default.svc.cluster.local:9200/logs --output=%s --type=data'
-            % self.ES_DUMP_SAMPLE_LOGS_PATH
+            'elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=%s/logs --output=%s --type=data'
+            % (self.ES_ENDPOINT, self.ES_DUMP_SAMPLE_LOGS_PATH)
         )
         subprocess.run(es_dump_cmd, shell=True)
 
@@ -116,7 +101,41 @@ class PrepareTrainingLogs:
         logging.info("Number of log messages to fetch = {}".format(num_logs_to_fetch))
         return num_logs_to_fetch
 
-    def fetch_training_logs(self, num_logs_to_fetch, timestamps_list):
+    def get_log_count(self, es_instance, timestamps_list, num_logs_to_fetch):
+        timestamps_esdump_num_logs_fetched = dict()
+        total_number_of_logs = 0
+        for timestamp_idx, timestamp_entry in enumerate(timestamps_list):
+            start_ts, end_ts = timestamp_entry["start_ts"], timestamp_entry["end_ts"]
+            query_body = {
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {
+                                "range": {
+                                    "time_nanoseconds": {"gte": start_ts, "lt": end_ts}
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+            num_entries = es_instance.count(index="logs", body=query_body)["count"]
+            timestamps_esdump_num_logs_fetched[timestamp_idx] = num_entries
+            total_number_of_logs += num_entries
+        total_number_of_logs_to_fetch = min(num_logs_to_fetch, total_number_of_logs)
+        for idx_key in timestamps_esdump_num_logs_fetched:
+            timestamps_esdump_num_logs_fetched[idx_key] /= total_number_of_logs
+            timestamps_esdump_num_logs_fetched[idx_key] *= total_number_of_logs_to_fetch
+            timestamps_esdump_num_logs_fetched[idx_key] = int(
+                timestamps_esdump_num_logs_fetched[idx_key]
+            )
+
+        return timestamps_esdump_num_logs_fetched
+
+    def fetch_training_logs(self, es_instance, num_logs_to_fetch, timestamps_list):
+        timestamps_esdump_num_logs_fetched = self.get_log_count(
+            es_instance, timestamps_list, num_logs_to_fetch
+        )
         # ESDump logs
         esdump_sample_command = [
             "elasticdump",
@@ -128,26 +147,26 @@ class PrepareTrainingLogs:
             "--size={}",
             "--limit",
             "10000",
-            "--input=http://elasticsearch-coordinating-only.default.svc.cluster.local:9200/logs",
+            "--input={}/logs".format(self.ES_ENDPOINT),
             "--output={}",
             "--type=data",
         ]
+        logging.info(timestamps_esdump_num_logs_fetched)
         query_queue = []
         for idx, entry in enumerate(timestamps_list):
             current_command = esdump_sample_command[:]
             current_command[2] = current_command[2].format(
                 entry["start_ts"], entry["end_ts"]
             )
-            current_command[6] = current_command[6].format(num_logs_to_fetch)
+            current_command[6] = current_command[6].format(
+                timestamps_esdump_num_logs_fetched[idx]
+            )
             current_command[10] = current_command[10].format(
                 os.path.join(
                     self.es_dump_data_path, "training_logs_{}.json".format(idx)
                 )
             )
             query_queue.append(current_command)
-        chunked_commands = [
-            query_queue[i : i + 5] for i in range(0, len(query_queue), 5)
-        ]
         self.run_esdump(query_queue)
 
     def create_windows(self):
@@ -189,11 +208,16 @@ class PrepareTrainingLogs:
             os.makedirs(self.es_dump_data_path)
         if not os.path.exists(self.ES_DUMP_DIR):
             os.makedirs(self.ES_DUMP_DIR)
-
+        es_instance = Elasticsearch(
+            [self.ES_ENDPOINT],
+            port=9200,
+            http_auth=("admin", "admin"),
+            http_compress=True,
+        )
         free = self.disk_size()
         self.retrieve_sample_logs()
         num_logs_to_fetch = self.calculate_training_logs_size(free)
-        self.fetch_training_logs(num_logs_to_fetch, timestamps_list)
+        self.fetch_training_logs(es_instance, num_logs_to_fetch, timestamps_list)
         self.create_windows()
         self.tar_windows_folder()
         self.upload_windows_tar_to_minio()

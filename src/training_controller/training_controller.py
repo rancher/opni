@@ -131,8 +131,10 @@ async def clear_jobs(signals_queue):
                 "Exception when calling BatchV1Api->list_namespaced_job: %s\n" % e
             )
 
-        # Now we have all the jobs, lets clean up
-        # We are also logging the jobs we didn't clean up because they either failed or are still running
+        """
+        Now we have all the jobs, lets clean up.
+        We are also logging the jobs we didn't clean up because they either failed or are still running
+        """
         for job in jobs.items:
             jobname = job.metadata.name
             jobstatus = job.status.conditions
@@ -144,8 +146,10 @@ async def clear_jobs(signals_queue):
                     )
                 )
                 try:
-                    # What is at work here. Setting Grace Period to 0 means delete ASAP. Otherwise it defaults to
-                    # some value I can't find anywhere. Propagation policy makes the Garbage cleaning Async
+                    """
+                    What is at work here. Setting Grace Period to 0 means delete ASAP.
+                    Propagation policy makes the Garbage cleaning Async
+                    """
                     api_response = api_instance.delete_namespaced_job(
                         jobname,
                         namespace,

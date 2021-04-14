@@ -50,18 +50,25 @@ class PrepareTrainingLogs:
         logging.info("Disk Free: %d GiB" % (free // (2 ** 30)))
         return free
 
-    def run_esdump(self, chunked_commands):
-        processes = set()
-        max_processes = 200
-
-        for index, chunk in enumerate(chunked_commands):
-            for query in chunk:
-                processes.add(subprocess.Popen(query))
-            for p in processes:
+    def run_esdump(self, query_commands):
+        current_processes = set()
+        logging.info(query_commands)
+        max_processes = 2
+        while len(query_commands) > 0:
+            finished_processes = set()
+            if len(current_processes) < max_processes:
+                num_processes_to_run = min(
+                    max_processes - len(current_processes), len(query_commands)
+                )
+                for i in range(num_processes_to_run):
+                    current_query = query_commands.pop(0)
+                    current_processes.add(subprocess.Popen(current_query))
+            for p in current_processes:
                 if p.poll() is None:
                     p.wait()
-
-            logging.info("completed chunk {}".format(index))
+                else:
+                    finished_processes.add(p)
+            current_processes -= finished_processes
 
     def retrieve_sample_logs(self):
         # Get the first 10k logs
@@ -122,10 +129,7 @@ class PrepareTrainingLogs:
                 )
             )
             query_queue.append(current_command)
-        chunked_commands = [
-            query_queue[i : i + 5] for i in range(0, len(query_queue), 5)
-        ]
-        self.run_esdump(chunked_commands)
+        self.run_esdump(query_queue)
 
     def create_windows(self):
         # For every json file, write/append each time window to own file

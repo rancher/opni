@@ -57,6 +57,7 @@ async def send_signal_to_inference(loop):
     logging.info(
         "Published to model_ready Nats subject that new Nulog model is ready to be used for inferencing."
     )
+    await nw.nc.close()
 
 
 if __name__ == "__main__":

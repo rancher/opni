@@ -23,6 +23,8 @@ config.load_incluster_config()
 configuration = kubernetes.client.Configuration()
 api_instance = kubernetes.client.BatchV1Api()
 logging.info("Cluster config has been been loaded")
+
+## TODO: for nulog_spec, rather than define it here, maybe should load it from yaml file.
 nulog_spec = {
     "name": "nulog-train",
     "container_name": "nulog-train",
@@ -101,9 +103,7 @@ async def es_training_signal_coroutine(signals_queue: asyncio.Queue):
     while True:
         user_signals_response = await es.search(index=index, body=query_body, size=100)
         user_signal_hits = user_signals_response["hits"]["hits"]
-        if len(user_signal_hits) == 0:
-            logging.info("no unprocessed user training request...")
-        else:
+        if len(user_signal_hits) > 0:
             for hit in user_signal_hits:
                 signals_queue_payload = {
                     "source": "elasticsearch",
@@ -117,7 +117,7 @@ async def es_training_signal_coroutine(signals_queue: asyncio.Queue):
                 )
                 await signals_queue.put(signals_queue_payload)
 
-        await asyncio.sleep(30)
+        await asyncio.sleep(60)
 
 
 def job_not_currently_running(job_name, namespace=NAMESPACE):
@@ -135,7 +135,6 @@ def job_not_currently_running(job_name, namespace=NAMESPACE):
 
 
 async def kube_delete_empty_pods(signals_queue, namespace=NAMESPACE, phase="Succeeded"):
-
     deleteoptions = client.V1DeleteOptions()
     # We need the api entry point for pods
     api_pods = client.CoreV1Api()
@@ -143,7 +142,7 @@ async def kube_delete_empty_pods(signals_queue, namespace=NAMESPACE, phase="Succ
     try:
         pods = api_pods.list_namespaced_pod(namespace, timeout_seconds=60)
     except ApiException as e:
-        logging.info("Exception when calling CoreV1Api->list_namespaced_pod: %s\n" % e)
+        logging.error("Exception when calling CoreV1Api->list_namespaced_pod: %s\n" % e)
 
     for pod in pods.items:
         podname = pod.metadata.name
@@ -166,7 +165,7 @@ async def kube_delete_empty_pods(signals_queue, namespace=NAMESPACE, phase="Succ
                     )
                 )
         except ApiException as e:
-            logging.info(
+            logging.error(
                 "Exception when calling CoreV1Api->delete_namespaced_pod: %s\n" % e
             )
 
@@ -254,7 +253,7 @@ async def clear_jobs(signals_queue):
 
 
 async def manage_kubernetes_training_jobs(signals_queue):
-    nulog_next_job_to_run = None  ## TODO: should replace this with a queue? in case there are multiple pending jobs
+    nulog_next_job_to_run = None  ## TODO: (minor) should replace this with a queue? in case there are multiple pending jobs
     while True:
         payload = await signals_queue.get()
         if payload is None:

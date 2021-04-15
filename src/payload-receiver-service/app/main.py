@@ -58,9 +58,15 @@ async def push_to_nats(nats: NATS, payload):
                     )
                 # process every chunk
                 for chunked_payload_df in np.array_split(data_df, num_chunked_dfs):
+                    is_control_log = chunked_payload_df[
+                        "kubernetes.container_image"
+                    ].str.startswith("rancher/")
+                    df_control_logs = chunked_payload_df[is_control_log]
+                    df_app_logs = chunked_payload_df[~is_control_log]
                     await nats.publish(
-                        "raw_logs", chunked_payload_df.to_json().encode()
+                        "raw_control_logs", df_control_logs.to_json().encode()
                     )
+                    await nats.publish("raw_logs", df_app_logs.to_json().encode())
         else:
             # TODO logs without timestamp (e.g. control plane logs)
             logging.info("Ignoring payload without time field")

@@ -63,10 +63,12 @@ async def push_to_nats(nats: NATS, payload):
                     ].str.startswith("rancher/")
                     df_control_logs = chunked_payload_df[is_control_log]
                     df_app_logs = chunked_payload_df[~is_control_log]
-                    await nats.publish(
-                        "raw_control_logs", df_control_logs.to_json().encode()
-                    )
-                    await nats.publish("raw_logs", df_app_logs.to_json().encode())
+                    if len(df_control_logs) > 0:
+                        await nats.publish(
+                            "raw_control_logs", df_control_logs.to_json().encode()
+                        )
+                    if len(df_app_logs) > 0:
+                        await nats.publish("raw_logs", df_app_logs.to_json().encode())
         else:
             # TODO logs without timestamp (e.g. control plane logs)
             logging.info("Ignoring payload without time field")

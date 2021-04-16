@@ -58,9 +58,9 @@ class NulogServer:
 
     def load(self):
         if using_GPU:
-            logging.info("inferencing with GPU.")
+            logging.debug("inferencing with GPU.")
         else:
-            logging.info("inferencing without GPU.")
+            logging.debug("inferencing without GPU.")
         try:
             self.parser = nuloginf.init_model()
             self.is_ready = True
@@ -74,7 +74,7 @@ class NulogServer:
             return None
         start_time = time.time()
         output = nuloginf.predict(self.parser, logs)
-        logging.info(
+        logging.debug(
             (
                 "--- predict %s logs in %s seconds ---"
                 % (len(logs), time.time() - start_time)

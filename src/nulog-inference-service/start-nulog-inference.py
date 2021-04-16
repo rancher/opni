@@ -63,16 +63,12 @@ async def infer_logs(logs_queue):
         ## logic: df = pd.read_json(payload, dtype={"_id": object})
         ## if "bucket" in df: reload nulog model
         if "bucket" in decoded_payload and decoded_payload["bucket"] == "nulog-models":
-            logging.info(
-                "Just received signal to download a new Nulog model files from Minio."
-            )
             nulog_predictor.download_from_minio(decoded_payload)
             nulog_predictor.load()
             continue
 
         df = pd.read_json(payload, dtype={"_id": object})
         masked_log = list(df["masked_log"])
-        logging.info("inferencing payload.")
         predictions = nulog_predictor.predict(masked_log)
         if predictions is None:
             continue
@@ -109,15 +105,13 @@ async def infer_logs(logs_queue):
                 action, result = result.popitem()
                 if not ok:
                     logging.error("failed to %s document %s" % ())
-        except Exception as e:
-            logging.error(e)
-        finally:
             logging.info(
-                "Updated {} anomalies from {} logs to ES".format(
-                    len(df), len(masked_log)
+                "Updated {} anomalies from {} logs to ES in {} seconds".format(
+                    len(df), len(masked_log), time.time() - start_time
                 )
             )
-            logging.info("Updated in {} seconds".format(time.time() - start_time))
+        except Exception as e:
+            logging.error(e)
 
         del df
         del masked_log
@@ -126,10 +120,7 @@ async def infer_logs(logs_queue):
         gc.collect()
 
 
-def start_inference_controller():
-    """
-    entry of inference controller.
-    """
+if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     logs_queue = asyncio.Queue(loop=loop)
 
@@ -142,7 +133,3 @@ def start_inference_controller():
         loop.run_forever()
     finally:
         loop.close()
-
-
-if __name__ == "__main__":
-    start_inference_controller()

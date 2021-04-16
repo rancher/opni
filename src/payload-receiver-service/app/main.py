@@ -10,6 +10,16 @@ from fastapi import FastAPI, HTTPException, Request
 from nats.aio.client import Client as NATS
 from nats_wrapper import NatsWrapper
 
+logs_path = "/var/lib/rancher/rke/log/"
+control_plane_terms = [
+    "etcd",
+    "kube-apiserver",
+    "kube-controller-manager",
+    "kubelet",
+    "kube-proxy",
+    "kube-scheduler",
+]
+
 app = FastAPI()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 nw = None
@@ -58,20 +68,46 @@ async def push_to_nats(nats: NATS, payload):
                     )
                 # process every chunk
                 for chunked_payload_df in np.array_split(data_df, num_chunked_dfs):
-                    is_control_log = chunked_payload_df[
-                        "kubernetes.container_image"
-                    ].str.startswith("rancher/")
-                    df_control_logs = chunked_payload_df[is_control_log]
-                    df_app_logs = chunked_payload_df[~is_control_log]
-                    if len(df_control_logs) > 0:
+                    if len(chunked_payload_df) > 0:
                         await nats.publish(
-                            "raw_control_logs", df_control_logs.to_json().encode()
+                            "raw_logs", chunked_payload_df.to_json().encode()
                         )
-                    if len(df_app_logs) > 0:
-                        await nats.publish("raw_logs", df_app_logs.to_json().encode())
         else:
             # TODO logs without timestamp (e.g. control plane logs)
-            logging.info("Ignoring payload without time field")
+            df["is_control_plane_log"] = df["log"].str.contains(
+                "etcd|kube-apiserver|kube-controller-manager|kubelet|kube-proxy|kube-scheduler"
+            )
+            for control_plane_flag, data_df in df.groupby(["is_control_plane_log"]):
+                payload_size_bytes = df.memory_usage(deep=True).sum()
+                num_chunked_dfs = max(
+                    1, math.ceil(payload_size_bytes / nats.max_payload)
+                )
+                if num_chunked_dfs > 1:
+                    logging.info(
+                        "payload_df size = {} bytes. NATS max payload = {} bytes. Chunking into {} DataFrames".format(
+                            payload_size_bytes, nats.max_payload, num_chunked_dfs
+                        )
+                    )
+                # process every chunk
+                for chunked_payload_df in np.array_split(data_df, num_chunked_dfs):
+                    if len(chunked_payload_df) > 0:
+                        is_control_plane_log = chunked_payload_df[
+                            "is_control_plane_log"
+                        ].tolist()[0]
+                        if is_control_plane_log:
+                            await nats.publish(
+                                "raw_control_logs",
+                                chunked_payload_df.to_json().encode(),
+                            )
+                            logging.info(
+                                "Published control plane logs to raw_control_logs NATS subject"
+                            )
+                        else:
+                            await nats.publish(
+                                "raw_logs", chunked_payload_df.to_json().encode()
+                            )
+                            logging.info("Published logs to raw_logs NATS subject")
+            # logging.info("Ignoring payload without time field")
     except Exception as e:
         logging.error("Error: {}".format(str(e)))
 

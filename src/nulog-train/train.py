@@ -13,6 +13,7 @@ from nats_wrapper import NatsWrapper
 from NuLogParser import LogParser
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
+MINIO_SERVER_URL = os.environ["MINIO_SERVER_URL"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     try:
         minio_client = boto3.resource(
             "s3",
-            endpoint_url="http://minio.default.svc.cluster.local:9000",
+            endpoint_url=MINIO_SERVER_URL,
             aws_access_key_id=MINIO_ACCESS_KEY,
             aws_secret_access_key=MINIO_SECRET_KEY,
             config=Config(signature_version="s3v4"),
@@ -73,9 +74,7 @@ if __name__ == "__main__":
         minio_client.meta.client.download_file(
             "training-logs", "windows.tar.gz", "windows.tar.gz"
         )
-        logging.info("Downloaded the windows.tar.gz file")
         shutil.unpack_archive("windows.tar.gz", format="gztar")
-        logging.info("Extracted windows directory from windows.tar.gz file")
 
         WINDOWS_FOLDER_PATH = "windows/"
         bucket = minio_client.Bucket("nulog-models")

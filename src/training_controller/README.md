@@ -11,9 +11,7 @@ Pre-requisites:
 * Make sure appropriate rbac is set up.
 
 ```
-* To set up rbac:, first run kubectl apply -f rbac_service_account.yaml
-* Then run kubectl apply -f rbac_role.yaml
-* Then, finally run kubectl apply -f rbac_role_binding.yaml
+* To set up rbac: kubectl apply -f rbac.yaml
 * To deploy training-controller service: kubectl apply -f training_controller.yaml
 ```
 ---

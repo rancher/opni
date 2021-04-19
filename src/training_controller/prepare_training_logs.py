@@ -11,6 +11,7 @@ import pandas as pd
 from botocore.client import Config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
+MINIO_SERVER_URL = os.environ["MINIO_SERVER_URL"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 
@@ -18,6 +19,7 @@ MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 class PrepareTrainingLogs:
     def __init__(self, working_dir):
         self.WORKING_DIR = working_dir
+        self.ES_ENDPOINT = os.environ["ES_ENDPOINT"]
         self.ES_DUMP_DIR = os.path.join(self.WORKING_DIR, "windows")
         self.ES_DUMP_DIR_ZIPPED = self.ES_DUMP_DIR + ".tar.gz"
         self.ES_DUMP_SAMPLE_LOGS_PATH = os.path.join(
@@ -26,7 +28,7 @@ class PrepareTrainingLogs:
 
         self.minio_client = boto3.resource(
             "s3",
-            endpoint_url="http://minio.default.svc.cluster.local:9000",
+            endpoint_url=MINIO_SERVER_URL,
             aws_access_key_id=MINIO_ACCESS_KEY,
             aws_secret_access_key=MINIO_SECRET_KEY,
             config=Config(signature_version="s3v4"),
@@ -52,7 +54,6 @@ class PrepareTrainingLogs:
 
     def run_esdump(self, query_commands):
         current_processes = set()
-        logging.info(query_commands)
         max_processes = 2
         while len(query_commands) > 0:
             finished_processes = set()
@@ -74,8 +75,8 @@ class PrepareTrainingLogs:
         # Get the first 10k logs
         logging.info("Retrieve sample logs from ES")
         es_dump_cmd = (
-            'elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=http://elasticsearch-coordinating-only.default.svc.cluster.local:9200/logs --output=%s --type=data'
-            % self.ES_DUMP_SAMPLE_LOGS_PATH
+            'elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"], "sort": [{"time_nanoseconds": {"order": "desc"}}]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=%s/logs --output=%s --type=data'
+            % (self.ES_ENDPOINT, self.ES_DUMP_SAMPLE_LOGS_PATH)
         )
         subprocess.run(es_dump_cmd, shell=True)
 
@@ -112,7 +113,7 @@ class PrepareTrainingLogs:
             "--size={}",
             "--limit",
             "10000",
-            "--input=http://elasticsearch-coordinating-only.default.svc.cluster.local:9200/logs",
+            "--input={}/logs".format(self.ES_ENDPOINT),
             "--output={}",
             "--type=data",
         ]

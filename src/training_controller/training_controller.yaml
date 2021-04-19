@@ -25,3 +25,5 @@ spec:
           value: "myaccesskey"
         - name: MINIO_SECRET_KEY
           value: "mysecretkey"
+        - name: ES_ENDPOINT
+          value: "http://elasticsearch-coordinating-only.default.svc.cluster.local:9200"

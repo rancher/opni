@@ -63,7 +63,11 @@ class PrepareTrainingLogs:
                 )
                 for i in range(num_processes_to_run):
                     current_query = query_commands.pop(0)
-                    current_processes.add(subprocess.Popen(current_query))
+                    current_processes.add(
+                        subprocess.Popen(
+                            current_query, env={"NODE_TLS_REJECT_UNAUTHORIZED": "0"}
+                        )
+                    )
             for p in current_processes:
                 if p.poll() is None:
                     p.wait()
@@ -75,7 +79,7 @@ class PrepareTrainingLogs:
         # Get the first 10k logs
         logging.info("Retrieve sample logs from ES")
         es_dump_cmd = (
-            'elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"], "sort": [{"time_nanoseconds": {"order": "desc"}}]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=%s/logs --output=%s --type=data'
+            'NODE_TLS_REJECT_UNAUTHORIZED=0 elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"], "sort": [{"time_nanoseconds": {"order": "desc"}}]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=%s/logs --output=%s --type=data'
             % (self.ES_ENDPOINT, self.ES_DUMP_SAMPLE_LOGS_PATH)
         )
         subprocess.run(es_dump_cmd, shell=True)
@@ -116,6 +120,7 @@ class PrepareTrainingLogs:
             "--input={}/logs".format(self.ES_ENDPOINT),
             "--output={}",
             "--type=data",
+            "NODE_TLS_REJECT_UNAUTHORIZED=0",
         ]
         query_queue = []
         for idx, entry in enumerate(timestamps_list):

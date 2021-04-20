@@ -12,14 +12,15 @@ from kubernetes.client.rest import ApiException
 from nats_wrapper import NatsWrapper
 from prepare_training_logs import PrepareTrainingLogs
 
+MINIO_SERVER_URL = os.environ["MINIO_SERVER_URL"]
+MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
+MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
+NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 config.load_incluster_config()
 configuration = kubernetes.client.Configuration()
 api_instance = kubernetes.client.BatchV1Api()
 logging.info("Cluster config has been been loaded")
-MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
-MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
-NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
 nulog_spec = {
     "name": "nulog-train",
     "container_name": "nulog-train",
@@ -32,6 +33,7 @@ nulog_spec = {
     "env": [],
 }
 nulog_spec["env"] = [
+    client.V1EnvVar(name="MINIO_SERVER_URL", value=MINIO_SERVER_URL),
     client.V1EnvVar(name="MINIO_ACCESS_KEY", value=MINIO_ACCESS_KEY),
     client.V1EnvVar(name="MINIO_SECRET_KEY", value=MINIO_SECRET_KEY),
     client.V1EnvVar(name="NATS_SERVER_URL", value=NATS_SERVER_URL),
@@ -131,8 +133,10 @@ async def clear_jobs(signals_queue):
                 "Exception when calling BatchV1Api->list_namespaced_job: %s\n" % e
             )
 
-        # Now we have all the jobs, lets clean up
-        # We are also logging the jobs we didn't clean up because they either failed or are still running
+        """
+        Now we have all the jobs, lets clean up.
+        We are also logging the jobs we didn't clean up because they either failed or are still running
+        """
         for job in jobs.items:
             jobname = job.metadata.name
             jobstatus = job.status.conditions
@@ -144,8 +148,10 @@ async def clear_jobs(signals_queue):
                     )
                 )
                 try:
-                    # What is at work here. Setting Grace Period to 0 means delete ASAP. Otherwise it defaults to
-                    # some value I can't find anywhere. Propagation policy makes the Garbage cleaning Async
+                    """
+                    What is at work here. Setting Grace Period to 0 means delete ASAP.
+                    Propagation policy makes the Garbage cleaning Async
+                    """
                     api_response = api_instance.delete_namespaced_job(
                         jobname,
                         namespace,

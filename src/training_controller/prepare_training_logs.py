@@ -12,6 +12,9 @@ from botocore.client import Config
 from elasticsearch import Elasticsearch
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
+MINIO_SERVER_URL = os.environ["MINIO_SERVER_URL"]
+MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
+MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 
 
 class PrepareTrainingLogs:
@@ -24,11 +27,9 @@ class PrepareTrainingLogs:
             self.WORKING_DIR, "sample_logs.json"
         )
 
-        MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
-        MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
         self.minio_client = boto3.resource(
             "s3",
-            endpoint_url="http://minio.default.svc.cluster.local:9000",
+            endpoint_url=MINIO_SERVER_URL,
             aws_access_key_id=MINIO_ACCESS_KEY,
             aws_secret_access_key=MINIO_SECRET_KEY,
             config=Config(signature_version="s3v4"),
@@ -63,7 +64,11 @@ class PrepareTrainingLogs:
                 )
                 for i in range(num_processes_to_run):
                     current_query = query_commands.pop(0)
-                    current_processes.add(subprocess.Popen(current_query))
+                    current_processes.add(
+                        subprocess.Popen(
+                            current_query, env={"NODE_TLS_REJECT_UNAUTHORIZED": "0"}
+                        )
+                    )
             for p in current_processes:
                 if p.poll() is None:
                     p.wait()
@@ -75,7 +80,7 @@ class PrepareTrainingLogs:
         # Get the first 10k logs
         logging.info("Retrieve sample logs from ES")
         es_dump_cmd = (
-            'elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=%s/logs --output=%s --type=data'
+            'NODE_TLS_REJECT_UNAUTHORIZED=0 elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"], "sort": [{"time_nanoseconds": {"order": "desc"}}]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=%s/logs --output=%s --type=data'
             % (self.ES_ENDPOINT, self.ES_DUMP_SAMPLE_LOGS_PATH)
         )
         subprocess.run(es_dump_cmd, shell=True)
@@ -150,6 +155,7 @@ class PrepareTrainingLogs:
             "--input={}/logs".format(self.ES_ENDPOINT),
             "--output={}",
             "--type=data",
+            "NODE_TLS_REJECT_UNAUTHORIZED=0",
         ]
         logging.info(timestamps_esdump_num_logs_fetched)
         query_queue = []

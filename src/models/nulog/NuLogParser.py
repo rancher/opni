@@ -23,13 +23,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(messa
 
 
 class LogParser:
-    def __init__(self, filters, k, log_format, model_name="nulog_model_latest.pt"):
+    def __init__(
+        self,
+        k=50,
+        log_format="<Content>",
+        model_name="nulog_model_latest.pt",
+    ):
         self.savePath = "output/"
-        self.filters = filters
         self.k = k
         self.df_log = None
         self.log_format = log_format
-        self.tokenizer = LogTokenizer(filters)
+        self.tokenizer = LogTokenizer()
 
         if not os.path.exists(self.savePath):
             os.makedirs(self.savePath)
@@ -219,7 +223,6 @@ class LogParser:
         theta = 0.8  # the threshold
         anomaly_preds = []
         total_anomaly = 0
-
         for i, (x, y, ind) in enumerate(results):
             true_pred = 0
             total_count = 0
@@ -233,28 +236,25 @@ class LogParser:
                     else:
                         data_words.append("<*>")
                     total_count += 1
-
-                    if j == len(x) - 1 or ind[j] != ind[j + 1]:
-                        c_rates.append(true_pred / total_count)
-                        true_pred = 0
-                        total_count = 0
-
                 else:
                     data_words.append("<*>")
+
+                if j == len(x) - 1 or ind[j] != ind[j + 1]:
+                    this_rate = 1.0 if total_count == 0 else true_pred / total_count
+                    c_rates.append(this_rate)
+                    true_pred = 0
+                    total_count = 0
+
             for c in c_rates:
                 if c < theta:
                     total_anomaly += 1
 
             counts = len(set(ind.numpy()))
-
             for correct_rate in c_rates:
                 anomaly_preds.append(correct_rate)
             indices_from += ind.tolist()
 
-        logging.info(
-            ("--- merged results of preds in %s seconds ---" % (time.time() - t2))
-        )
-
+        logging.info(("nulog predicts in %s seconds." % (time.time() - t2)))
         return anomaly_preds
 
     def get_train_dataloaders(self, data_tokenized, transform_to_tensor):

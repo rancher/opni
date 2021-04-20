@@ -45,6 +45,13 @@ async def push_to_nats(nats: NATS, payload):
                 "time_nanoseconds"
             ).cumcount().map("{:016b}".format)
             df = df.fillna("")
+            if "filename" in df.columns:
+                df["is_control_plane_log"] = df["filename"].str.contains(
+                    "rke/log/etcd|rke/log/kubelet|/rke/log/kube-apiserver|rke/log/kube-controller-manager|rke/log/kube-proxy|rke/log/kube-scheduler"
+                )
+            else:
+                df["is_control_plane_log"] = False
+
             for window_start_time_ns, data_df in df.groupby(["window_start_time_ns"]):
                 window_payload_size_bytes = data_df.memory_usage(deep=True).sum()
                 num_chunked_dfs = max(
@@ -58,9 +65,7 @@ async def push_to_nats(nats: NATS, payload):
                     )
                 # process every chunk
                 for chunked_payload_df in np.array_split(data_df, num_chunked_dfs):
-                    is_control_log = chunked_payload_df[
-                        "kubernetes.container_image"
-                    ].str.startswith("rancher/")
+                    is_control_log = chunked_payload_df["is_control_plane_log"] == True
                     df_control_logs = chunked_payload_df[is_control_log]
                     df_app_logs = chunked_payload_df[~is_control_log]
                     if len(df_control_logs) > 0:

@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: payload-receiver-service
-        image: amartyarancher/payload-receiver-service:v0.0
+        image: sanjayrancher/payload-receiver-service
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL

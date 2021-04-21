@@ -26,4 +26,6 @@ spec:
         - name: MINIO_SECRET_KEY
           value: "mysecretkey"
         - name: ES_ENDPOINT
-          value: "https://admin:admin@opendistro-es-client-service.default.svc.cluster.local:9200"
+          value: "https://opendistro-es-client-service.default.svc.cluster.local:9200"
+        - name: NODE_TLS_REJECT_UNAUTHORIZED
+          value: "0"

@@ -15,12 +15,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(messa
 MINIO_SERVER_URL = os.environ["MINIO_SERVER_URL"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
+ES_ENDPOINT = os.environ["ES_ENDPOINT"]
+FORMATTED_ES_ENDPOINT = "https://admin:admin@" + ES_ENDPOINT.split("//")[-1]
 
 
 class PrepareTrainingLogs:
     def __init__(self, working_dir):
         self.WORKING_DIR = working_dir
-        self.ES_ENDPOINT = os.environ["ES_ENDPOINT"]
         self.ES_DUMP_DIR = os.path.join(self.WORKING_DIR, "windows")
         self.ES_DUMP_DIR_ZIPPED = self.ES_DUMP_DIR + ".tar.gz"
         self.ES_DUMP_SAMPLE_LOGS_PATH = os.path.join(
@@ -80,8 +81,8 @@ class PrepareTrainingLogs:
         # Get the first 10k logs
         logging.info("Retrieve sample logs from ES")
         es_dump_cmd = (
-            'NODE_TLS_REJECT_UNAUTHORIZED=0 elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"], "sort": [{"time_nanoseconds": {"order": "desc"}}]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=%s/logs --output=%s --type=data'
-            % (self.ES_ENDPOINT, self.ES_DUMP_SAMPLE_LOGS_PATH)
+            'elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"], "sort": [{"time_nanoseconds": {"order": "desc"}}]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=%s/logs --output=%s --type=data'
+            % (FORMATTED_ES_ENDPOINT, self.ES_DUMP_SAMPLE_LOGS_PATH)
         )
         subprocess.run(es_dump_cmd, shell=True)
 
@@ -152,12 +153,10 @@ class PrepareTrainingLogs:
             "--size={}",
             "--limit",
             "10000",
-            "--input={}/logs".format(self.ES_ENDPOINT),
+            "--input={}/logs".format(FORMATTED_ES_ENDPOINT),
             "--output={}",
             "--type=data",
-            "NODE_TLS_REJECT_UNAUTHORIZED=0",
         ]
-        logging.info(timestamps_esdump_num_logs_fetched)
         query_queue = []
         for idx, entry in enumerate(timestamps_list):
             current_command = esdump_sample_command[:]
@@ -215,10 +214,11 @@ class PrepareTrainingLogs:
         if not os.path.exists(self.ES_DUMP_DIR):
             os.makedirs(self.ES_DUMP_DIR)
         es_instance = Elasticsearch(
-            [self.ES_ENDPOINT],
+            [ES_ENDPOINT],
             port=9200,
             http_auth=("admin", "admin"),
-            http_compress=True,
+            verify_certs=False,
+            use_ssl=True,
         )
         free = self.disk_size()
         self.retrieve_sample_logs()

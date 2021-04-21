@@ -4,17 +4,13 @@ import logging
 # Third Party
 from NuLogParser import LogParser
 
-log_format = "<Content>"
-filters = '([ |:|\(|\)|\[|\]|\{|\}|"|,|=])'
-
 
 def init_model():
     logging.info("initializing...")
-    k = 50  # was 50 ## tunable, top k predictions
     nr_epochs = 1
     num_samples = 0
 
-    parser = LogParser(filters=filters, k=k, log_format=log_format)
+    parser = LogParser()
     parser.tokenizer.load_vocab()
     parser.init_inference(nr_epochs=nr_epochs, num_samples=num_samples)
 

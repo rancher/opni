@@ -26,7 +26,7 @@ logging.info("Cluster config has been been loaded")
 nulog_spec = {
     "name": "nulog-train",
     "container_name": "nulog-train",
-    "image_name": "amartyarancher/nulog-train",
+    "image_name": "amartyarancher/nulog-train:v0.0",
     "image_pull_policy": "Always",
     "labels": {"app": "nulog-train"},
     "restart_policy": "Never",

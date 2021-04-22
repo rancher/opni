@@ -87,7 +87,7 @@ if __name__ == "__main__":
         s3_client.download_file(
             "pretrained-nulog-model-logs",
             "nulog_model_latest.pt",
-            "nulog_models_latest.pt",
+            "nulog_model_latest.pt",
         )
         s3_client.download_file(
             "pretrained-nulog-model-logs", "masked_logs.txt", "windows/masked_logs.txt"
@@ -108,11 +108,13 @@ if __name__ == "__main__":
             logging.info("nulog-models bucket does not exist so creating it now")
             minio_client.create_bucket(Bucket="nulog-models")
         logging.info("About to train model")
-        train_nulog_model(minio_client, s3_client)
+        train_nulog_model(minio_client, windows_folder_path)
         logging.info("Model completed training")
         loop = asyncio.get_event_loop()
         send_signal_inference_coroutine = send_signal_to_inference(loop)
         loop.run_until_complete(send_signal_inference_coroutine)
         loop.close()
     except Exception as e:
-        logging.error("Unable to train Nulog model right now because of {}".format(e))
+        logging.info(
+            "Cannot train Nulog model right now. Received exception {}".format(e)
+        )

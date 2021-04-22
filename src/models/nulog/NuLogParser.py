@@ -52,11 +52,13 @@ class LogParser:
             self.model_path,
         )
 
-    def load_model(self, model, model_opt):
+    def load_model(self, model, model_opt, model_path=None):
+        if model_path is None:
+            model_path = self.model_path
         if using_GPU:
-            ckpt = torch.load(self.model_path)
+            ckpt = torch.load(model_path)
         else:
-            ckpt = torch.load(self.model_path, map_location=torch.device("cpu"))
+            ckpt = torch.load(model_path, map_location=torch.device("cpu"))
         try:
             model_opt.load_state_dict(ckpt["optimizer_state_dict"])
             model.load_state_dict(ckpt["model_state_dict"])
@@ -122,7 +124,7 @@ class LogParser:
         )
 
         # Load the model which was downloaded from Pytorch.
-        model.load_state_dict(torch.load("nulog_model_latest.pt"))
+        epoch, loss = self.load_model(model, model_opt, "nulog_model_latest.pt")
 
         train_dataloader = self.get_train_dataloaders(
             data_tokenized, transform_to_tensor
@@ -141,7 +143,6 @@ class LogParser:
             )
 
         self.save_model(model=model, model_opt=model_opt, epoch=self.nr_epochs, loss=0)
-        # torch.save(model.state_dict(), "nulog_model_latest.pt")
 
     def init_inference(
         self,

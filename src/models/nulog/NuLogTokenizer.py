@@ -7,8 +7,22 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(messa
 
 class LogTokenizer:
     def __init__(self):
-        self.word2index = {"<PAD>": 0, "<CLS>": 1, "<MASK>": 2, "<UNK>": 3, "<NUM>": 4}
-        self.index2word = {0: "<PAD>", 1: "<CLS>", 2: "<MASK>", 3: "<UNK>", 4: "<NUM>"}
+        self.word2index = {
+            "<PAD>": 0,
+            "<CLS>": 1,
+            "<MASK>": 2,
+            "<UNK>": 3,
+            "<NUM>": 4,
+            "<EMPTY>": 5,
+        }
+        self.index2word = {
+            0: "<PAD>",
+            1: "<CLS>",
+            2: "<MASK>",
+            3: "<UNK>",
+            4: "<NUM>",
+            5: "<EMPTY>",
+        }
         self.n_words = 10000  # Count SOS and EOS
         self.valid_words = 5
         for i in range(self.valid_words, self.n_words):
@@ -60,6 +74,8 @@ class LogTokenizer:
         for t in tokens:
             if t != None and t != "":
                 valid_tokens.append(t)
+        if len(valid_tokens) <= 1:  ## input is empty string
+            valid_tokens.append("<EMPTY>")
         res = []
         for word in valid_tokens:
             ## replace word contains digits with <NUM>, significantly reduce the vocab size

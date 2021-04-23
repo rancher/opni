@@ -16,8 +16,9 @@ from NulogServer import NulogServer
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-THRESHOLD = float(os.getenv("MODEL_THRESHOLD", 0.8))
+THRESHOLD = float(os.getenv("MODEL_THRESHOLD", 0.7))
 ES_ENDPOINT = os.environ["ES_ENDPOINT"]
+IS_CONTROL_PLANE_SERVICE = bool(os.getenv("IS_CONTROL_PLANE_SERVICE", False))
 
 
 async def consume_logs(nw, loop, logs_queue):
@@ -26,8 +27,15 @@ async def consume_logs(nw, loop, logs_queue):
     """
     await nw.connect(loop)
     nw.add_signal_handler(loop)
-    await nw.subscribe(nats_subject="preprocessed_logs", payload_queue=logs_queue)
-    await nw.subscribe(nats_subject="model_ready", payload_queue=logs_queue)
+    if IS_CONTROL_PLANE_SERVICE:
+        await nw.subscribe(
+            nats_subject="preprocessed_logs_control_plane",
+            payload_queue=logs_queue,
+            nats_queue="workers",
+        )
+    else:
+        await nw.subscribe(nats_subject="preprocessed_logs", payload_queue=logs_queue)
+        await nw.subscribe(nats_subject="model_ready", payload_queue=logs_queue)
 
 
 async def infer_logs(logs_queue):
@@ -44,6 +52,9 @@ async def infer_logs(logs_queue):
     )
 
     nulog_predictor = NulogServer()
+    if not IS_CONTROL_PLANE_SERVICE:  ## control plane model is built-in in the image.
+        nulog_predictor.download_from_minio()
+    nulog_predictor.load()
 
     async def doc_generator(df):
         for index, document in df.iterrows():
@@ -71,6 +82,7 @@ async def infer_logs(logs_queue):
         masked_log = list(df["masked_log"])
         predictions = nulog_predictor.predict(masked_log)
         if predictions is None:
+            logging.warning("fail to make predictions.")
             continue
 
         df["nulog_confidence"] = predictions

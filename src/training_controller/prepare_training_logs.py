@@ -9,17 +9,23 @@ import tarfile
 import boto3
 import pandas as pd
 from botocore.client import Config
+from elasticsearch import Elasticsearch
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 MINIO_SERVER_URL = os.environ["MINIO_SERVER_URL"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
+ES_ENDPOINT = os.environ["ES_ENDPOINT"]
+ES_USERNAME = os.environ["ES_USERNAME"]
+ES_PASSWORD = os.environ["ES_PASSWORD"]
+FORMATTED_ES_ENDPOINT = (
+    "https://{}:{}@".format(ES_USERNAME, ES_PASSWORD) + ES_ENDPOINT.split("//")[-1]
+)
 
 
 class PrepareTrainingLogs:
     def __init__(self, working_dir):
         self.WORKING_DIR = working_dir
-        self.ES_ENDPOINT = os.environ["ES_ENDPOINT"]
         self.ES_DUMP_DIR = os.path.join(self.WORKING_DIR, "windows")
         self.ES_DUMP_DIR_ZIPPED = self.ES_DUMP_DIR + ".tar.gz"
         self.ES_DUMP_SAMPLE_LOGS_PATH = os.path.join(
@@ -79,8 +85,8 @@ class PrepareTrainingLogs:
         # Get the first 10k logs
         logging.info("Retrieve sample logs from ES")
         es_dump_cmd = (
-            'NODE_TLS_REJECT_UNAUTHORIZED=0 elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"], "sort": [{"time_nanoseconds": {"order": "desc"}}]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=%s/logs --output=%s --type=data'
-            % (self.ES_ENDPOINT, self.ES_DUMP_SAMPLE_LOGS_PATH)
+            'elasticdump --searchBody \'{"query": { "match_all": {} }, "_source": ["masked_log", "time_nanoseconds"], "sort": [{"time_nanoseconds": {"order": "desc"}}]}\' --retryAttempts 10 --size=10000 --limit 10000 --input=%s/logs --output=%s --type=data'
+            % (FORMATTED_ES_ENDPOINT, self.ES_DUMP_SAMPLE_LOGS_PATH)
         )
         subprocess.run(es_dump_cmd, shell=True)
 
@@ -105,7 +111,44 @@ class PrepareTrainingLogs:
         logging.info("Number of log messages to fetch = {}".format(num_logs_to_fetch))
         return num_logs_to_fetch
 
-    def fetch_training_logs(self, num_logs_to_fetch, timestamps_list):
+    def get_log_count(self, es_instance, timestamps_list, num_logs_to_fetch):
+        timestamps_esdump_num_logs_fetched = dict()
+        total_number_of_logs = 0
+        for timestamp_idx, timestamp_entry in enumerate(timestamps_list):
+            start_ts, end_ts = timestamp_entry["start_ts"], timestamp_entry["end_ts"]
+            query_body = {
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {
+                                "range": {
+                                    "time_nanoseconds": {"gte": start_ts, "lt": end_ts}
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+            num_entries = es_instance.count(index="logs", body=query_body)["count"]
+            timestamps_esdump_num_logs_fetched[timestamp_idx] = num_entries
+            total_number_of_logs += num_entries
+        total_number_of_logs_to_fetch = min(num_logs_to_fetch, total_number_of_logs)
+        if total_number_of_logs > 0:
+            for idx_key in timestamps_esdump_num_logs_fetched:
+                timestamps_esdump_num_logs_fetched[idx_key] /= total_number_of_logs
+                timestamps_esdump_num_logs_fetched[
+                    idx_key
+                ] *= total_number_of_logs_to_fetch
+                timestamps_esdump_num_logs_fetched[idx_key] = int(
+                    timestamps_esdump_num_logs_fetched[idx_key]
+                )
+
+        return timestamps_esdump_num_logs_fetched
+
+    def fetch_training_logs(self, es_instance, num_logs_to_fetch, timestamps_list):
+        timestamps_esdump_num_logs_fetched = self.get_log_count(
+            es_instance, timestamps_list, num_logs_to_fetch
+        )
         # ESDump logs
         esdump_sample_command = [
             "elasticdump",
@@ -117,25 +160,29 @@ class PrepareTrainingLogs:
             "--size={}",
             "--limit",
             "10000",
-            "--input={}/logs".format(self.ES_ENDPOINT),
+            "--input={}/logs".format(FORMATTED_ES_ENDPOINT),
             "--output={}",
             "--type=data",
-            "NODE_TLS_REJECT_UNAUTHORIZED=0",
         ]
         query_queue = []
         for idx, entry in enumerate(timestamps_list):
+            if timestamps_esdump_num_logs_fetched[idx] == 0:
+                continue
             current_command = esdump_sample_command[:]
             current_command[2] = current_command[2].format(
                 entry["start_ts"], entry["end_ts"]
             )
-            current_command[6] = current_command[6].format(num_logs_to_fetch)
+            current_command[6] = current_command[6].format(
+                timestamps_esdump_num_logs_fetched[idx]
+            )
             current_command[10] = current_command[10].format(
                 os.path.join(
                     self.es_dump_data_path, "training_logs_{}.json".format(idx)
                 )
             )
             query_queue.append(current_command)
-        self.run_esdump(query_queue)
+        if len(query_queue) > 0:
+            self.run_esdump(query_queue)
 
     def create_windows(self):
         # For every json file, write/append each time window to own file
@@ -176,11 +223,17 @@ class PrepareTrainingLogs:
             os.makedirs(self.es_dump_data_path)
         if not os.path.exists(self.ES_DUMP_DIR):
             os.makedirs(self.ES_DUMP_DIR)
-
+        es_instance = Elasticsearch(
+            [ES_ENDPOINT],
+            port=9200,
+            http_auth=("admin", "admin"),
+            verify_certs=False,
+            use_ssl=True,
+        )
         free = self.disk_size()
         self.retrieve_sample_logs()
         num_logs_to_fetch = self.calculate_training_logs_size(free)
-        self.fetch_training_logs(num_logs_to_fetch, timestamps_list)
+        self.fetch_training_logs(es_instance, num_logs_to_fetch, timestamps_list)
         self.create_windows()
         self.tar_windows_folder()
         self.upload_windows_tar_to_minio()

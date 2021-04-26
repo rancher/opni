@@ -73,6 +73,10 @@ async def mask_logs(nw, loop, queue):
         for index, row in payload_data_df.iterrows():
             masked_logs.append(masker.mask(row["log"]))
         payload_data_df["masked_log"] = masked_logs
+
+        # drop redundant field in control plane logs
+        payload_data_df.drop(["t.$date"], axis=1, errors="ignore", inplace=True)
+
         await nw.publish("preprocessed_logs", payload_data_df.to_json().encode())
         async for ok, result in async_streaming_bulk(
             es, doc_generator(payload_data_df)

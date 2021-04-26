@@ -35,7 +35,7 @@ async def doc_generator(df):
     df["nulog_confidence"] = -1.0
     df["drain_matched_template_id"] = -1.0
     df["drain_matched_template_support"] = -1.0
-    df["anomaly_level"] = "info"
+    df["anomaly_level"] = "Normal"
     for index, document in df.iterrows():
         doc_dict = document.to_dict()
         yield doc_dict

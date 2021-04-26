@@ -61,7 +61,10 @@ async def infer_logs(logs_queue):
             doc_dict = document.to_dict()
             yield doc_dict
 
-    script = 'ctx._source.anomaly_level = ctx._source.anomaly_predicted_count == 0 ? "Normal" : ctx._source.anomaly_predicted_count == 1 ? "Suspicious" : "Anomaly";'
+    if IS_CONTROL_PLANE_SERVICE:
+        script = 'ctx._source.anomaly_level = ctx._source.anomaly_predicted_count == 0 ? "Normal" : "Anomaly";'
+    else:
+        script = 'ctx._source.anomaly_level = ctx._source.anomaly_predicted_count == 0 ? "Normal" : ctx._source.anomaly_predicted_count == 1 ? "Suspicious" : "Anomaly";'
 
     while True:
         payload = await logs_queue.get()

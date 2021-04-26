@@ -76,8 +76,26 @@ async def mask_logs(nw, loop, queue):
 
         # drop redundant field in control plane logs
         payload_data_df.drop(["t.$date"], axis=1, errors="ignore", inplace=True)
+        payload_data_df["is_control_plane_log"] = False
+        if "filename" in payload_data_df.columns:
+            payload_data_df["is_control_plane_log"] = payload_data_df[
+                "filename"
+            ].str.contains(
+                "rke/log/etcd|rke/log/kubelet|/rke/log/kube-apiserver|rke/log/kube-controller-manager|rke/log/kube-proxy|rke/log/kube-scheduler"
+            )
+        is_control_log = payload_data_df["is_control_plane_log"] == True
+        control_plane_logs_df = payload_data_df[is_control_log]
+        app_logs_df = payload_data_df[~is_control_log]
 
-        await nw.publish("preprocessed_logs", payload_data_df.to_json().encode())
+        if len(app_logs_df) > 0:
+            await nw.publish("preprocessed_logs", app_logs_df.to_json().encode())
+
+        if len(control_plane_logs_df) > 0:
+            await nw.publish(
+                "preprocessed_logs_control_plane",
+                control_plane_logs_df.to_json().encode(),
+            )
+
         async for ok, result in async_streaming_bulk(
             es, doc_generator(payload_data_df)
         ):

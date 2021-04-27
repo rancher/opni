@@ -42,7 +42,14 @@ class PrepareTrainingLogs:
         self.es_dump_data_path = ""
 
     def save_window(self, window_start_time_ns, df):
-        df[["time_nanoseconds", "window_start_time_ns", "masked_log"]].to_json(
+        df[
+            [
+                "time_nanoseconds",
+                "window_start_time_ns",
+                "masked_log",
+                "is_control_plane_log",
+            ]
+        ].to_json(
             os.path.join(self.ES_DUMP_DIR, str(window_start_time_ns) + ".json.gz"),
             orient="records",
             lines=True,
@@ -153,7 +160,7 @@ class PrepareTrainingLogs:
         esdump_sample_command = [
             "elasticdump",
             "--searchBody",
-            '{{"query": {{"range": {{"time_nanoseconds": {{"gte": {}, "lt": {}}}}}}}, "_source": ["masked_log", "time_nanoseconds", "window_start_time_ns", "_id"], "sort": [{{"time_nanoseconds": {{"order": "asc"}}}}]}}',
+            '{{"query": {{"range": {{"time_nanoseconds": {{"gte": {}, "lt": {}}}}}}}, "_source": ["masked_log", "time_nanoseconds", "window_start_time_ns", "_id", "is_control_plane_log"], "sort": [{{"time_nanoseconds": {{"order": "asc"}}}}]}}',
             "--retryAttempts",
             "100",
             "--fileSize=50mb",

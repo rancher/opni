@@ -18,8 +18,6 @@ MINIO_SERVER_URL = os.environ["MINIO_SERVER_URL"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
-AWS_ACCESS_KEY = os.environ["AWS_ACCESS_KEY"]
-AWS_SECRET_KEY = os.environ["AWS_SECRET_KEY"]
 
 
 def train_nulog_model(minio_client, windows_folder_path):
@@ -73,9 +71,6 @@ if __name__ == "__main__":
             aws_secret_access_key=MINIO_SECRET_KEY,
             config=Config(signature_version="s3v4"),
         )
-        s3_client = boto3.client(
-            "s3", aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY
-        )
 
         logging.info("Connected to Minio client")
         minio_client.meta.client.download_file(
@@ -84,14 +79,6 @@ if __name__ == "__main__":
         shutil.unpack_archive("windows.tar.gz", format="gztar")
 
         windows_folder_path = "windows/"
-        s3_client.download_file(
-            "pretrained-nulog-model-logs",
-            "nulog_model_latest.pt",
-            "nulog_model_latest.pt",
-        )
-        s3_client.download_file(
-            "pretrained-nulog-model-logs", "masked_logs.txt", "windows/masked_logs.txt"
-        )
         bucket = minio_client.Bucket("nulog-models")
         exists = True
         try:

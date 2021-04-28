@@ -127,7 +127,7 @@ class LogParser:
         )
 
         # Load the model which was downloaded from Pytorch.
-        epoch, loss = self.load_model(model, model_opt, "nulog_model_latest.pt")
+        # epoch, loss = self.load_model(model, model_opt, "nulog_model_latest.pt")
 
         train_dataloader = self.get_train_dataloaders(
             data_tokenized, transform_to_tensor
@@ -318,7 +318,6 @@ class LogParser:
                 if file.endswith(".json.gz")
             ]
         )
-        control_logs_file = "{}masked_logs.txt".format(windows_folder_path)
         for window_file in json_files:
             window_df = pd.read_json(
                 os.path.join(windows_folder_path, window_file), lines=True
@@ -335,15 +334,6 @@ class LogParser:
                 except Exception as e:
                     pass
             all_log_messages.extend(regex_log_messages)
-        with open(control_logs_file, "r") as control_logs:
-            for line in control_logs:
-                line = line.rstrip()
-                try:
-                    match = regex.search(line)
-                    message = [match.group(header) for header in headers]
-                    all_log_messages.append(message)
-                except Exception as e:
-                    pass
         logdf = pd.DataFrame(all_log_messages, columns=headers)
         logdf.insert(0, "LineId", None)
         logdf["LineId"] = [i + 1 for i in range(len(all_log_messages))]

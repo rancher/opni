@@ -31,9 +31,5 @@ spec:
           value: "admin"
         - name: ES_PASSWORD
           value: "admin"
-        - name: AWS_ACCESS_KEY
-          value: "AWS_ACCESS_KEY"
-        - name: AWS_SECRET_KEY
-          value: "AWS_SECRET_KEY"
         - name: NODE_TLS_REJECT_UNAUTHORIZED
           value: "0"

@@ -16,8 +16,6 @@ MINIO_SERVER_URL = os.environ["MINIO_SERVER_URL"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
-AWS_ACCESS_KEY = os.environ["AWS_ACCESS_KEY"]
-AWS_SECRET_KEY = os.environ["AWS_SECRET_KEY"]
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 config.load_incluster_config()
 configuration = kubernetes.client.Configuration()
@@ -39,8 +37,6 @@ nulog_spec["env"] = [
     client.V1EnvVar(name="MINIO_ACCESS_KEY", value=MINIO_ACCESS_KEY),
     client.V1EnvVar(name="MINIO_SECRET_KEY", value=MINIO_SECRET_KEY),
     client.V1EnvVar(name="NATS_SERVER_URL", value=NATS_SERVER_URL),
-    client.V1EnvVar(name="AWS_ACCESS_KEY", value=AWS_ACCESS_KEY),
-    client.V1EnvVar(name="AWS_SECRET_KEY", value=AWS_SECRET_KEY),
 ]
 startup_time = time.time()
 

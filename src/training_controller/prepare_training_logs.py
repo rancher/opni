@@ -42,6 +42,11 @@ class PrepareTrainingLogs:
         self.es_dump_data_path = ""
 
     def save_window(self, window_start_time_ns, df):
+        current_window_json_files = [
+            file
+            for file in os.listdir(self.ES_DUMP_DIR)
+            if str(window_start_time_ns) in file
+        ]
         df[
             [
                 "time_nanoseconds",
@@ -50,7 +55,12 @@ class PrepareTrainingLogs:
                 "is_control_plane_log",
             ]
         ].to_json(
-            os.path.join(self.ES_DUMP_DIR, str(window_start_time_ns) + ".json.gz"),
+            os.path.join(
+                self.ES_DUMP_DIR,
+                "{}_{}.json.gz".format(
+                    window_start_time_ns, len(current_window_json_files)
+                ),
+            ),
             orient="records",
             lines=True,
             compression="gzip",
@@ -126,13 +136,14 @@ class PrepareTrainingLogs:
             query_body = {
                 "query": {
                     "bool": {
+                        "must": {"term": {"is_control_plane_log": "false"}},
                         "filter": [
                             {
                                 "range": {
                                     "time_nanoseconds": {"gte": start_ts, "lt": end_ts}
                                 }
                             }
-                        ]
+                        ],
                     }
                 }
             }
@@ -160,7 +171,7 @@ class PrepareTrainingLogs:
         esdump_sample_command = [
             "elasticdump",
             "--searchBody",
-            '{{"query": {{"range": {{"time_nanoseconds": {{"gte": {}, "lt": {}}}}}}}, "_source": ["masked_log", "time_nanoseconds", "window_start_time_ns", "_id", "is_control_plane_log"], "sort": [{{"time_nanoseconds": {{"order": "asc"}}}}]}}',
+            '{{"query": {{"bool": {{"must": [{{"term": {{"is_control_plane_log": false}}}},{{"range": {{"time_nanoseconds": {{"gte": {},"lt": {}}}}}}}]}}}} ,"_source": ["masked_log", "time_nanoseconds", "is_control_plane_log", "window_start_time_ns", "_id"], "sort": [{{"time_nanoseconds": {{"order": "desc"}}}}]}}',
             "--retryAttempts",
             "100",
             "--fileSize=50mb",

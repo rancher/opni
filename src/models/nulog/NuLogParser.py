@@ -322,9 +322,7 @@ class LogParser:
             window_df = pd.read_json(
                 os.path.join(windows_folder_path, window_file), lines=True
             )
-            is_app_log = window_df["is_control_plane_log"] == False
-            app_logs_df = window_df[is_app_log]
-            masked_log_messages = app_logs_df["masked_log"].tolist()
+            masked_log_messages = window_df["masked_log"].tolist()
             regex_log_messages = []
             for masked_message in masked_log_messages:
                 try:

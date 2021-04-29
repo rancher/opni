@@ -1,0 +1,25 @@
+site_name: OPNI - Operational Omniscience
+repo_url: https://github.com/rancher/opni
+strict: false
+theme:
+  name: material
+  palette:
+    primary: purple
+  font:
+    text: 'Work Sans'
+  logo: 'assets/logo-stacked-opni.svg'
+  favicon: 'assets/icon-opni.png'
+plugins:
+  - search
+  - markdownextradata: {}
+markdown_extensions:
+- codehilite
+- admonition
+- pymdownx.tabbed
+- pymdownx.superfences
+- toc:
+    permalink: true
+nav:
+  - index.md
+  - Installation:
+    - install/quickstart.md

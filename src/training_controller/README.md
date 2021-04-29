@@ -10,12 +10,14 @@ Pre-requisites:
 * Must have at least one GPU node (preferably K80 GPU or higher) and at least two CPUs as part of the cluster with at least 10 GiB memory as well.
 * Make sure appropriate rbac is set up.
 
-* To set up rbac:
 ```
+* To setup Minio
+helm install --set accessKey=myaccesskey,secretKey=mysecretkey minio minio/minio
+* To setup rbac
 kubectl apply -f rbac.yaml
-```
-* To deploy training-controller service:
-```
+* To install NVIDIA gpu driver
+kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.6.0/nvidia-device-plugin.yml
+* To deploy training-controller service
 kubectl apply -f training_controller.yaml
 ```
 ---
@@ -31,5 +33,11 @@ Payload sent to the "train" Nats subject should be in this format
 ```
     payload = {"model_to_train": "nulog","time_intervals": [{"start_ts": 1617039360000000000, "end_ts": 1617039450000000000}, {"start_ts": 1617039510000000000, "end_ts": 1617039660000000000}]}
 
+```
+
+Use nats-box to send training signal manually:
+```
+kubectl run -i --rm --tty nats-box --image=synadia/nats-box --restart=Never
+nats-pub -s nats://nats_client:VfU6TcAl9x@nats-client.default.svc:4222 train '{"model_to_train": "nulog","time_intervals": [{"start_ts": 1619661600000000000, "end_ts": 1619671569000000000}]}'
 ```
 * You can then view the pods and jobs of your cluster to verify that the Nulog model is undergoing training.

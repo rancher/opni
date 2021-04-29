@@ -40,6 +40,7 @@ class RegexMasker:
             content = mi.regex.sub(mi.mask_with_wrapped, content)
 
         content = " ".join(re.split(r"([=|:])", content))
+        content = " ".join(re.split(r'[\n\r\t\r]', content))
 
         for mi in self.masking_instructions:
             # content = re.sub(mi.regex, mi.mask_with_wrapped, content)
@@ -99,6 +100,10 @@ masking_list_before_value_assigning_token_split = [
         "regex_pattern": "\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[1-2]\\d|3[0-1])[T|\\s](?:[0-1]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+|)[(?:Z|(?:\\+|\\-)(?:\\d{2}):?(?:\\d{2}))]",
         "mask_with": "UTC_DATE",
     },
+    {
+        "regex_pattern": "[IWEF]\\d{4}\\s\\d{2}:\\d{2}:\\d{2}[\\.\\d+]*",
+        "mask_with": "KLOG_DATE",
+    }
 ]
 
 

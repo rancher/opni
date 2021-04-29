@@ -15,6 +15,7 @@ from kubernetes.client.rest import ApiException
 from nats_wrapper import NatsWrapper
 from prepare_training_logs import PrepareTrainingLogs
 
+MINIO_SERVER_URL = os.environ["MINIO_SERVER_URL"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
@@ -37,6 +38,7 @@ nulog_spec = {
     "env": [],
 }
 nulog_spec["env"] = [
+    client.V1EnvVar(name="MINIO_SERVER_URL", value=MINIO_SERVER_URL),
     client.V1EnvVar(name="MINIO_ACCESS_KEY", value=MINIO_ACCESS_KEY),
     client.V1EnvVar(name="MINIO_SECRET_KEY", value=MINIO_SECRET_KEY),
     client.V1EnvVar(name="NATS_SERVER_URL", value=NATS_SERVER_URL),

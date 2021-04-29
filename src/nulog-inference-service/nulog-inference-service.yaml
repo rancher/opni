@@ -28,7 +28,7 @@ spec:
         - name: MINIO_SECRET_KEY
           value: "mysecretkey"
         - name: MODEL_THRESHOLD
-          value: "0.7"
+          value: "0.6"
         resources:
           limits:
             nvidia.com/gpu: 1

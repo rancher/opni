@@ -77,11 +77,18 @@ async def mask_logs(nw, loop, queue):
         # drop redundant field in control plane logs
         payload_data_df.drop(["t.$date"], axis=1, errors="ignore", inplace=True)
         payload_data_df["is_control_plane_log"] = False
+        payload_data_df["kubernetes_component"] = ""
         if "filename" in payload_data_df.columns:
             payload_data_df["is_control_plane_log"] = payload_data_df[
                 "filename"
             ].str.contains(
                 "rke/log/etcd|rke/log/kubelet|/rke/log/kube-apiserver|rke/log/kube-controller-manager|rke/log/kube-proxy|rke/log/kube-scheduler"
+            )
+            payload_data_df["kubernetes_component"] = payload_data_df["filename"].apply(
+                lambda x: os.path.basename(x)
+            )
+            payload_data_df["kubernetes_component"] = (
+                payload_data_df["kubernetes_component"].str.split("_").str[0]
             )
         is_control_log = payload_data_df["is_control_plane_log"] == True
         control_plane_logs_df = payload_data_df[is_control_log]

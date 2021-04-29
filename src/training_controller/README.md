@@ -34,4 +34,10 @@ Payload sent to the "train" Nats subject should be in this format
     payload = {"model_to_train": "nulog","time_intervals": [{"start_ts": 1617039360000000000, "end_ts": 1617039450000000000}, {"start_ts": 1617039510000000000, "end_ts": 1617039660000000000}]}
 
 ```
+
+Use nats-box to send training signal manually:
+```
+kubectl run -i --rm --tty nats-box --image=synadia/nats-box --restart=Never
+nats-pub -s nats://nats_client:VfU6TcAl9x@nats-client.default.svc:4222 train '{"model_to_train": "nulog","time_intervals": [{"start_ts": 1619661600000000000, "end_ts": 1619671569000000000}]}'
+```
 * You can then view the pods and jobs of your cluster to verify that the Nulog model is undergoing training.

@@ -2,7 +2,7 @@ We build our documentation using [mkdocs](https://www.mkdocs.org/).
 
 Our live docs site (https://rancher.github.io/opni) is published using a GitHub Action. You can see the configuration of this action in the file `$PROJECT_ROOT/.github/workflows/docs.yaml`.
 
-Additional configuration to make this happen is the `Pages` setion of the project's Settings in GitHub.
+Additional configuration to make this happen is the `Pages` section of the project's Settings in GitHub.
 
 You can build and view the site locally by running these two commands:
 ```

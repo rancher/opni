@@ -1,7 +1,6 @@
 # Standard Library
 import logging
 import os
-import re
 import time
 
 # Third Party
@@ -294,22 +293,6 @@ class LogParser:
         return test_dataloader
 
     def load_data(self, windows_folder_path):
-        headers, regex = self.generate_logformat_regex(self.log_format)
-        df_log = self.log_to_dataframe(
-            windows_folder_path, regex, headers, self.log_format
-        )
-        return [df_log.iloc[i].Content for i in range(df_log.shape[0])]
-
-    def tokenize_data(self, input_text, isTrain=False):
-        data_tokenized = []
-        for i in range(0, len(input_text)):
-            text_i = input_text[i].lower()  ## lowercase before tokenization
-            tokenized = self.tokenizer.tokenize("<CLS> " + text_i, isTrain=isTrain)
-            data_tokenized.append(tokenized)
-        return data_tokenized
-
-    def log_to_dataframe(self, windows_folder_path, regex, headers, logformat):
-        """Function to transform log file to dataframe"""
         all_log_messages = []
         json_files = sorted(
             [
@@ -322,36 +305,18 @@ class LogParser:
             window_df = pd.read_json(
                 os.path.join(windows_folder_path, window_file), lines=True
             )
-            masked_log_messages = window_df["masked_log"].tolist()
-            regex_log_messages = []
-            for masked_message in masked_log_messages:
-                try:
-                    match = regex.search(masked_message)
-                    message = [match.group(header) for header in headers]
-                    regex_log_messages.append(message)
-                except Exception as e:
-                    pass
-            all_log_messages.extend(regex_log_messages)
-        logdf = pd.DataFrame(all_log_messages, columns=headers)
-        logdf.insert(0, "LineId", None)
-        logdf["LineId"] = [i + 1 for i in range(len(all_log_messages))]
-        return logdf
+            masked_log_messages = window_df["masked_log"]
+            for index, masked_log in masked_log_messages.items():
+                all_log_messages.append(masked_log)
+        return all_log_messages
 
-    def generate_logformat_regex(self, logformat):
-        """Function to generate regular expression to split log messages"""
-        headers = []
-        splitters = re.split(r"(<[^<>]+>)", logformat)
-        regex = ""
-        for k in range(len(splitters)):
-            if k % 2 == 0:
-                splitter = re.sub(" +", "\\\s+", splitters[k])
-                regex += splitter
-            else:
-                header = splitters[k].strip("<").strip(">")
-                regex += "(?P<%s>.*?)" % header
-                headers.append(header)
-        regex = re.compile("^" + regex + "$")
-        return headers, regex
+    def tokenize_data(self, input_text, isTrain=False):
+        data_tokenized = []
+        for i in range(0, len(input_text)):
+            text_i = input_text[i].lower()  ## lowercase before tokenization
+            tokenized = self.tokenizer.tokenize("<CLS> " + text_i, isTrain=isTrain)
+            data_tokenized.append(tokenized)
+        return data_tokenized
 
     def do_mask(self, batch):
         c = copy.deepcopy

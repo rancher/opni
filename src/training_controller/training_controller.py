@@ -4,9 +4,12 @@ import json
 import logging
 import os
 import time
+from datetime import datetime
 
 # Third Party
 import kubernetes.client
+from elasticsearch import AsyncElasticsearch
+from elasticsearch.helpers import async_streaming_bulk
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 from nats_wrapper import NatsWrapper
@@ -21,6 +24,8 @@ config.load_incluster_config()
 configuration = kubernetes.client.Configuration()
 api_instance = kubernetes.client.BatchV1Api()
 logging.info("Cluster config has been been loaded")
+
+## TODO: for nulog_spec, rather than define it here, maybe should load it from yaml file.
 nulog_spec = {
     "name": "nulog-train",
     "container_name": "nulog-train",
@@ -40,8 +45,84 @@ nulog_spec["env"] = [
 ]
 startup_time = time.time()
 
+NAMESPACE = os.environ["JOB_NAMESPACE"]
+DEFAULT_TRAINING_INTERVAL = 1800  # 1800 seconds aka 30mins
 
-def job_not_currently_running(job_name, namespace="default"):
+ES_ENDPOINT = os.environ["ES_ENDPOINT"]
+es = AsyncElasticsearch(
+    [ES_ENDPOINT],
+    port=9200,
+    http_auth=("admin", "admin"),
+    verify_certs=False,
+    use_ssl=True,
+)
+
+
+async def update_es_job_status(
+    request_id: str,
+    job_status: str,
+    op_type: str = "update",
+    index: str = "training_signal",
+):
+    """
+    this method updates the status of jobs in elasticsearch.
+    """
+    script = "ctx._source.status = '{}';".format(job_status)
+    docs_to_update = [
+        {
+            "_id": request_id,
+            "_op_type": op_type,
+            "_index": index,
+            "script": script,
+        }
+    ]
+    logging.info("ES job {} status update : {}".format(request_id, job_status))
+    try:
+        async for ok, result in async_streaming_bulk(es, docs_to_update):
+            action, result = result.popitem()
+            if not ok:
+                logging.error("failed to %s document %s" % ())
+    except Exception as e:
+        logging.error(e)
+
+
+async def es_training_signal_coroutine(signals_queue: asyncio.Queue):
+    """
+    collect job training signal from elasticsearch, and add to job queue.
+    """
+    query_body = {"query": {"bool": {"must": {"match": {"status": "submitted"}}}}}
+    index = "training_signal"
+    current_time = int(datetime.timestamp(datetime.now()))
+    job_payload = {
+        "model_to_train": "nulog",
+        "time_intervals": [
+            {
+                "start_ts": (current_time - DEFAULT_TRAINING_INTERVAL) * (10 ** 9),
+                "end_ts": current_time * (10 ** 9),
+            }
+        ],
+    }
+    while True:
+        user_signals_response = await es.search(index=index, body=query_body, size=100)
+        user_signal_hits = user_signals_response["hits"]["hits"]
+        if len(user_signal_hits) > 0:
+            for hit in user_signal_hits:
+                signals_queue_payload = {
+                    "source": "elasticsearch",
+                    "_id": hit["_id"],
+                    "model": "nulog-train",
+                    "signal": "start",
+                    "payload": job_payload,
+                }
+                await update_es_job_status(
+                    request_id=hit["_id"], job_status="scheduled"
+                )
+                await signals_queue.put(signals_queue_payload)
+
+        await asyncio.sleep(60)
+
+
+def job_not_currently_running(job_name, namespace=NAMESPACE):
     try:
         jobs = api_instance.list_namespaced_job(namespace, timeout_seconds=60)
     except ApiException as e:
@@ -55,7 +136,7 @@ def job_not_currently_running(job_name, namespace="default"):
     return True
 
 
-async def kube_delete_empty_pods(signals_queue, namespace="default", phase="Succeeded"):
+async def kube_delete_empty_pods(signals_queue, namespace=NAMESPACE, phase="Succeeded"):
     deleteoptions = client.V1DeleteOptions()
     # We need the api entry point for pods
     api_pods = client.CoreV1Api()
@@ -63,7 +144,7 @@ async def kube_delete_empty_pods(signals_queue, namespace="default", phase="Succ
     try:
         pods = api_pods.list_namespaced_pod(namespace, timeout_seconds=60)
     except ApiException as e:
-        logging.info("Exception when calling CoreV1Api->list_namespaced_pod: %s\n" % e)
+        logging.error("Exception when calling CoreV1Api->list_namespaced_pod: %s\n" % e)
 
     for pod in pods.items:
         podname = pod.metadata.name
@@ -86,7 +167,7 @@ async def kube_delete_empty_pods(signals_queue, namespace="default", phase="Succ
                     )
                 )
         except ApiException as e:
-            logging.info(
+            logging.error(
                 "Exception when calling CoreV1Api->delete_namespaced_pod: %s\n" % e
             )
 
@@ -117,11 +198,11 @@ def run_job(job_details):
         metadata=client.V1ObjectMeta(name=job_details["name"]),
         spec=spec,
     )
-    api_instance.create_namespaced_job(body=job, namespace="default")
+    api_instance.create_namespaced_job(body=job, namespace=NAMESPACE)
 
 
 async def clear_jobs(signals_queue):
-    namespace = "default"
+    namespace = NAMESPACE
     state = "finished"
     while True:
         await asyncio.sleep(300)
@@ -133,10 +214,8 @@ async def clear_jobs(signals_queue):
                 "Exception when calling BatchV1Api->list_namespaced_job: %s\n" % e
             )
 
-        """
-        Now we have all the jobs, lets clean up.
-        We are also logging the jobs we didn't clean up because they either failed or are still running
-        """
+        # Now we have all the jobs, lets clean up
+        # We are also logging the jobs we didn't clean up because they either failed or are still running
         for job in jobs.items:
             jobname = job.metadata.name
             jobstatus = job.status.conditions
@@ -148,10 +227,8 @@ async def clear_jobs(signals_queue):
                     )
                 )
                 try:
-                    """
-                    What is at work here. Setting Grace Period to 0 means delete ASAP.
-                    Propagation policy makes the Garbage cleaning Async
-                    """
+                    # What is at work here. Setting Grace Period to 0 means delete ASAP. Otherwise it defaults to
+                    # some value I can't find anywhere. Propagation policy makes the Garbage cleaning Async
                     api_response = api_instance.delete_namespaced_job(
                         jobname,
                         namespace,
@@ -178,7 +255,7 @@ async def clear_jobs(signals_queue):
 
 
 async def manage_kubernetes_training_jobs(signals_queue):
-    nulog_next_job_to_run = None
+    nulog_next_job_to_run = None  ## TODO: (minor) should replace this with a queue? in case there are multiple pending jobs
     while True:
         payload = await signals_queue.get()
         if payload is None:
@@ -190,13 +267,23 @@ async def manage_kubernetes_training_jobs(signals_queue):
             if job_not_currently_running(model_to_train):
                 PrepareTrainingLogs("/tmp").run(model_payload["time_intervals"])
                 if model_to_train == "nulog-train":
+                    if "source" in payload and payload["source"] == "elasticsearch":
+                        await update_es_job_status(
+                            request_id=payload["_id"], job_status="trainingStarted"
+                        )
                     run_job(nulog_spec)
+                    ## es_update_status = training_inprogress
             else:
                 if model_to_train == "nulog-train":
                     nulog_next_job_to_run = model_payload
                     logging.info(
                         "Nulog model currently being trained. Job will run after this model's training has been completed"
                     )
+                    if "source" in payload and payload["source"] == "elasticsearch":
+                        await update_es_job_status(
+                            request_id=payload["_id"], job_status="pendingInQueue"
+                        )
+                    ## es_update_status = pending_in_queue
         else:
             if nulog_next_job_to_run:
                 PrepareTrainingLogs("/tmp").run(nulog_next_job_to_run["time_intervals"])
@@ -243,12 +330,14 @@ if __name__ == "__main__":
     )
     clear_jobs_coroutine = clear_jobs(signals_queue)
     manage_kubernetes_jobs_coroutine = manage_kubernetes_training_jobs(signals_queue)
+    es_signal_coroutine = es_training_signal_coroutine(signals_queue)
     loop.run_until_complete(
         asyncio.gather(
             consumer_coroutine,
             consume_nats_drain_signal_coroutine,
             clear_jobs_coroutine,
             manage_kubernetes_jobs_coroutine,
+            es_signal_coroutine,
         )
     )
     try:

@@ -12,11 +12,18 @@ from NuLogParser import using_GPU
 
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
+MINIO_ENDPOINT = os.environ["MINIO_ENDPOINT"]
+DEFAULT_MODELREADY_PAYLOAD = {
+    "bucket": "nulog-models",
+    "bucket_files": {
+        "model_file": "nulog_model_latest.pt",
+        "vocab_file": "vocab.txt",
+    },
+}
 
 
 class NulogServer:
-    def __init__(self, method: str = "predict"):
-        self.method = method
+    def __init__(self):
         self.is_ready = False
         self.parser = None
         self.download_from_minio()
@@ -24,19 +31,11 @@ class NulogServer:
 
     def download_from_minio(
         self,
-        decoded_payload={
-            "bucket": "nulog-models",
-            "bucket_files": {
-                "model_file": "nulog_model_latest.pt",
-                "vocab_file": "vocab.txt",
-            },
-        },
+        decoded_payload: dict = DEFAULT_MODELREADY_PAYLOAD,
     ):
-
-        endpoint_url = "http://minio.default.svc.cluster.local:9000"
         minio_client = boto3.resource(
             "s3",
-            endpoint_url=endpoint_url,
+            endpoint_url=MINIO_ENDPOINT,
             aws_access_key_id=MINIO_ACCESS_KEY,
             aws_secret_access_key=MINIO_SECRET_KEY,
             config=Config(signature_version="s3v4"),
@@ -58,26 +57,24 @@ class NulogServer:
                 return
 
     def load(self):
-
         if using_GPU:
-            logging.info("inferencing with GPU.")
+            logging.debug("inferencing with GPU.")
         else:
-            logging.info("inferencing without GPU.")
+            logging.debug("inferencing without GPU.")
         try:
             self.parser = nuloginf.init_model()
             self.is_ready = True
             logging.info("Nulog model gets loaded.")
         except Exception as e:
             logging.error("No Nulog model currently {}".format(e))
-        # self.predict(test_texts)
 
-    def predict(self, logs: List[str], feature_names=None):
+    def predict(self, logs: List[str]):
         if not self.is_ready:
             logging.warning("Warning: NuLog model is not ready yet!")
             return None
         start_time = time.time()
         output = nuloginf.predict(self.parser, logs)
-        logging.info(
+        logging.debug(
             (
                 "--- predict %s logs in %s seconds ---"
                 % (len(logs), time.time() - start_time)

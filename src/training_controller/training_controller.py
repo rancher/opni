@@ -8,7 +8,7 @@ from datetime import datetime
 
 # Third Party
 import kubernetes.client
-from elasticsearch import AsyncElasticsearch
+from elasticsearch import AsyncElasticsearch, exceptions
 from elasticsearch.helpers import async_streaming_bulk
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
@@ -126,8 +126,8 @@ async def es_training_signal_coroutine(signals_queue: asyncio.Queue):
                         request_id=hit["_id"], job_status="scheduled"
                     )
                     await signals_queue.put(signals_queue_payload)
-        except Exception as e:
-            logging.error("Running into exception: {}".format(e))
+        except exceptions.NotFoundError as e:
+            logging.error(e)
 
         await asyncio.sleep(60)
 

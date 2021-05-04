@@ -26,8 +26,6 @@ class NulogServer:
     def __init__(self):
         self.is_ready = False
         self.parser = None
-        self.download_from_minio()
-        self.load()
 
     def download_from_minio(
         self,

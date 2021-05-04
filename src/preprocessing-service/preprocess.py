@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import os
+from datetime import datetime
 
 # Third Party
 import pandas as pd
@@ -67,12 +68,39 @@ async def mask_logs(nw, loop, queue):
         if not nw.nc.is_connected:
             await nw.connect(loop)
             nw.add_signal_handler(loop)
-        window_start_time_ns = payload_data_df["window_start_time_ns"].unique()
         payload_data_df["log"] = payload_data_df["log"].str.strip()
         masked_logs = []
         for index, row in payload_data_df.iterrows():
             masked_logs.append(masker.mask(row["log"]))
         payload_data_df["masked_log"] = masked_logs
+        # impute NaT with time column if available else use current time
+        payload_data_df["time_operation"] = pd.to_datetime(
+            payload_data_df["time"], errors="coerce", utc=True
+        )
+        for index, i in payload_data_df.loc[
+            payload_data_df["time_operation"].isna()
+        ].iterrows():
+            payload_data_df.loc[index, "time_operation"] = datetime.utcfromtimestamp(
+                int(i["time"]) / 1000.0
+            )
+        payload_data_df["time"] = payload_data_df["time_operation"]
+        payload_data_df.drop(columns=["time_operation"], inplace=True)
+        if "timestamp" in payload_data_df.columns:
+            payload_data_df.loc[
+                (payload_data_df.timestamp.dt.year == 1970), "timestamp"
+            ] = pd.NaT
+            payload_data_df["timestamp"].fillna(
+                pd.to_datetime(
+                    payload_data_df.time, unit="ms", errors="ignore", utc=True
+                ),
+                inplace=True,
+            )
+            payload_data_df["timestamp"].fillna(pd.to_datetime("now", utc=True))
+            payload_data_df["timestamp"] = pd.to_datetime(
+                payload_data_df["timestamp"], utc=True
+            )
+        else:
+            payload_data_df["timestamp"] = payload_data_df["time"]
 
         # drop redundant field in control plane logs
         payload_data_df.drop(["t.$date"], axis=1, errors="ignore", inplace=True)

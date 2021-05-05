@@ -104,9 +104,13 @@ async def es_training_signal_coroutine(signals_queue: asyncio.Queue):
             }
         ],
     }
-    signal_index_exists = await es.indices.exists(index)
-    if not signal_index_exists:
-        signal_created = await es.indices.create(index=index)
+    signal_index_exists = False
+    try:
+        signal_index_exists = await es.indices.exists(index)
+        if not signal_index_exists:
+            signal_created = await es.indices.create(index=index)
+    except exceptions.TransportError as e:
+        logging.error(e)
     while True:
         try:
             user_signals_response = await es.search(
@@ -126,7 +130,7 @@ async def es_training_signal_coroutine(signals_queue: asyncio.Queue):
                         request_id=hit["_id"], job_status="scheduled"
                     )
                     await signals_queue.put(signals_queue_payload)
-        except exceptions.NotFoundError as e:
+        except (exceptions.NotFoundError, exceptions.TransportError) as e:
             logging.error(e)
 
         await asyncio.sleep(60)

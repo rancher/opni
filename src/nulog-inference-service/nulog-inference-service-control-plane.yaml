@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nulog-inference-service
+  name: nulog-inference-service-control-plane
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nulog-inference-service
+      app: nulog-inference-service-control-plane
   template:
     metadata:
       labels:
-        app: nulog-inference-service
+        app: nulog-inference-service-control-plane
     spec:
       containers:
-      - name: nulog-inference-service
-        image: tybalex/nulog-inference-service:v0.0
+      - name: nulog-inference-service-control-plane
+        image: tybalex/nulog-inference-service-control-plane:v0.0
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL
@@ -29,6 +29,12 @@ spec:
           value: "mysecretkey"
         - name: MODEL_THRESHOLD
           value: "0.6"
+        - name: IS_CONTROL_PLANE_SERVICE
+          value: "True"
         resources:
           limits:
-            nvidia.com/gpu: 1
+            memory: 2Gi
+            cpu: "8"
+          requests:
+            memory: 1Gi
+            cpu: "4"

@@ -1,0 +1,6 @@
+boto3==1.17.45
+pandas==1.0.3
+asyncio_nats_client==0.11.4
+kubernetes==12.0.1
+elasticsearch==7.12.0
+aiohttp==3.7.4.post0

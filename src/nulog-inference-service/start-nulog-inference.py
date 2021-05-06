@@ -9,7 +9,7 @@ import time
 # Third Party
 import pandas as pd
 from elasticsearch import AsyncElasticsearch
-from elasticsearch.helpers import async_streaming_bulk
+from elasticsearch.helpers import async_bulk
 from nats_wrapper import NatsWrapper
 from NulogServer import NulogServer
 
@@ -66,7 +66,7 @@ async def infer_logs(logs_queue):
     else:
         script = 'ctx._source.anomaly_level = ctx._source.anomaly_predicted_count == 0 ? "Normal" : ctx._source.anomaly_predicted_count == 1 ? "Suspicious" : "Anomaly";'
 
-    max_payload_size = 32 if IS_CONTROL_PLANE_SERVICE else 512
+    max_payload_size = 512 if IS_CONTROL_PLANE_SERVICE else 512
     while True:
         payload = await logs_queue.get()
         if payload is None:
@@ -94,10 +94,14 @@ async def infer_logs(logs_queue):
             df["nulog_confidence"] = predictions
             df["predictions"] = [1 if p < THRESHOLD else 0 for p in predictions]
             # filter out df to only include abnormal predictions
+            hold_time = 0.2
+
             df = df[df["predictions"] > 0]
             if len(df) == 0:
                 logging.info(
-                    "No anomalies in this payload of {} logs".format(len(masked_log))
+                    "No anomalies in this payload of {} logs, in {} seconds".format(
+                        len(masked_log), time.time() - start_time
+                    )
                 )
                 continue
 
@@ -117,12 +121,16 @@ async def infer_logs(logs_queue):
             )
 
             try:
-                async for ok, result in async_streaming_bulk(
+                await asyncio.sleep(hold_time)
+                # async for ok, result in async_streaming_bulk(
+                #     es, doc_generator(df[["_id", "_op_type", "_index", "script"]])
+                # ):
+                #     action, result = result.popitem()
+                #     if not ok:
+                #         logging.error("failed to %s document %s" % ())
+                await async_bulk(
                     es, doc_generator(df[["_id", "_op_type", "_index", "script"]])
-                ):
-                    action, result = result.popitem()
-                    if not ok:
-                        logging.error("failed to %s document %s" % ())
+                )
                 logging.info(
                     "Updated {} anomalies from {} logs to ES in {} seconds".format(
                         len(df), len(masked_log), time.time() - start_time

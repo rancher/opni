@@ -2,6 +2,7 @@
 import logging
 import os
 import time
+from collections import defaultdict
 from typing import List
 
 # Third Party
@@ -26,6 +27,7 @@ class NulogServer:
     def __init__(self):
         self.is_ready = False
         self.parser = None
+        self.saved_preds = defaultdict(float)
 
     def download_from_minio(
         self,
@@ -67,15 +69,27 @@ class NulogServer:
             logging.error("No Nulog model currently {}".format(e))
 
     def predict(self, logs: List[str]):
+        """
+        logs: masked logs
+        """
         if not self.is_ready:
             logging.warning("Warning: NuLog model is not ready yet!")
             return None
         start_time = time.time()
-        output = nuloginf.predict(self.parser, logs)
+        # output = nuloginf.predict(self.parser, logs)
+        output = []
+        for log in logs:
+            if log in self.saved_preds:
+                output.append(self.saved_preds[log])
+            else:
+                pred = (nuloginf.predict(self.parser, [log]))[0]
+                output.append(pred)
+                self.saved_preds[log] = pred
         logging.debug(
             (
                 "--- predict %s logs in %s seconds ---"
                 % (len(logs), time.time() - start_time)
             )
         )
+        logging.info("size of saved preds : {}".format(len(self.saved_preds)))
         return output

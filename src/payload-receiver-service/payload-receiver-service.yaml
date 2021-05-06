@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: payload-receiver-service
+  labels:
+    service: payload-receiver-service
+spec:
+  selector:
+    app: payload-receiver-service
+  ports:
+  - port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payload-receiver-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payload-receiver-service
+  template:
+    metadata:
+      labels:
+        app: payload-receiver-service
+    spec:
+      containers:
+      - name: payload-receiver-service
+        image: sanjayrancher/payload-receiver-service:v0.0
+        imagePullPolicy: Always
+        env:
+        - name: NATS_SERVER_URL
+          value: "nats://nats_client:VfU6TcAl9x@nats-client.default.svc:4222"
+        ports:
+        - containerPort: 80
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: payload-receiver-service-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        backend:
+          serviceName: payload-receiver-service
+          servicePort: 80
+

@@ -8,7 +8,7 @@ from datetime import datetime
 
 # Third Party
 import kubernetes.client
-from elasticsearch import AsyncElasticsearch
+from elasticsearch import AsyncElasticsearch, exceptions
 from elasticsearch.helpers import async_streaming_bulk
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
@@ -19,6 +19,9 @@ MINIO_SERVER_URL = os.environ["MINIO_SERVER_URL"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
+ES_ENDPOINT = os.environ["ES_ENDPOINT"]
+ES_USERNAME = os.environ["ES_USERNAME"]
+ES_PASSWORD = os.environ["ES_PASSWORD"]
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 config.load_incluster_config()
 configuration = kubernetes.client.Configuration()
@@ -48,11 +51,10 @@ startup_time = time.time()
 NAMESPACE = os.environ["JOB_NAMESPACE"]
 DEFAULT_TRAINING_INTERVAL = 1800  # 1800 seconds aka 30mins
 
-ES_ENDPOINT = os.environ["ES_ENDPOINT"]
 es = AsyncElasticsearch(
     [ES_ENDPOINT],
     port=9200,
-    http_auth=("admin", "admin"),
+    http_auth=(ES_USERNAME, ES_PASSWORD),
     verify_certs=False,
     use_ssl=True,
 )
@@ -102,22 +104,34 @@ async def es_training_signal_coroutine(signals_queue: asyncio.Queue):
             }
         ],
     }
+    signal_index_exists = False
+    try:
+        signal_index_exists = await es.indices.exists(index)
+        if not signal_index_exists:
+            signal_created = await es.indices.create(index=index)
+    except exceptions.TransportError as e:
+        logging.error(e)
     while True:
-        user_signals_response = await es.search(index=index, body=query_body, size=100)
-        user_signal_hits = user_signals_response["hits"]["hits"]
-        if len(user_signal_hits) > 0:
-            for hit in user_signal_hits:
-                signals_queue_payload = {
-                    "source": "elasticsearch",
-                    "_id": hit["_id"],
-                    "model": "nulog-train",
-                    "signal": "start",
-                    "payload": job_payload,
-                }
-                await update_es_job_status(
-                    request_id=hit["_id"], job_status="scheduled"
-                )
-                await signals_queue.put(signals_queue_payload)
+        try:
+            user_signals_response = await es.search(
+                index=index, body=query_body, size=100
+            )
+            user_signal_hits = user_signals_response["hits"]["hits"]
+            if len(user_signal_hits) > 0:
+                for hit in user_signal_hits:
+                    signals_queue_payload = {
+                        "source": "elasticsearch",
+                        "_id": hit["_id"],
+                        "model": "nulog-train",
+                        "signal": "start",
+                        "payload": job_payload,
+                    }
+                    await update_es_job_status(
+                        request_id=hit["_id"], job_status="scheduled"
+                    )
+                    await signals_queue.put(signals_queue_payload)
+        except (exceptions.NotFoundError, exceptions.TransportError) as e:
+            logging.error(e)
 
         await asyncio.sleep(60)
 

@@ -14,7 +14,7 @@ ____
 #### Prerequisites
 * At least two GPU nodes (K80 GPU or higher)
 * One node with at least 4 CPUs
-* At least four additional nodes each with at least 16 GB RAM and 40 GB of disk space.
+* At least three additional nodes each with at least 16 GB RAM and 40 GB of disk space.
 ____
 #### How does it work?
 Ship logs over to your Opni cluster with [Rancher Logging](https://rancher.com/docs/rancher/v2.x/en/logging/v2.5/). That's it! Opni will continuously learn the nature of your logs and will update models automatically.

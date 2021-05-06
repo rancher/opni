@@ -1,6 +1,8 @@
 # opni
 
 Opni is a collection of AIOPs tools - it currently features AI-infused log monitoring for Kubernetes.
+
+**Stable v0.1 release on May 13**
 ____
 #### What does it give me?
 * Insights into logs from your cluster's workloads, control plane & etcd

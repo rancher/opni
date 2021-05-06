@@ -12,7 +12,9 @@ If a lot of logs in a short period of time are marked as suspicious or anomalous
 The anomaly threshold is a number that can tuned depending on your volume of logs and how frequently Opni is predicting anomalies.
 ____
 #### Prerequisites
-* Must have at least two GPU nodes (K80 GPU or higher), one node with at least 4 CPUs, with at least 10 GB of memory.
+* At least two GPU nodes (K80 GPU or higher)
+* One node with at least 4 CPUs
+* At least four additional nodes each with at least 16 GB RAM and 40 GB of disk space.
 ____
 #### How does it work?
 Ship logs over to your Opni cluster with [Rancher Logging](https://rancher.com/docs/rancher/v2.x/en/logging/v2.5/). That's it! Opni will continuously learn the nature of your logs and will update models automatically.

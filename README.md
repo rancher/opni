@@ -23,7 +23,7 @@ ____
 TODO
 ____
 #### Upcoming features
-- [ ] Prediction feedback - give feedback for incorrect predictions so the AI adapts better to your logs
+- Prediction feedback - give feedback for incorrect predictions so the AI adapts better to your logs
 - Control plane log anomaly detection for additional Kubernetes distributions besides RKE including K3S and EKS.
 
 ## Contributing

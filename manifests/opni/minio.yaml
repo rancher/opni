@@ -1,0 +1,13 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: minio 
+  namespace: kube-system
+spec:
+  chart: minio
+  repo: https://helm.min.io/
+  version: "%MINIO_VERSION%"
+  set:
+    accessKey: "%MINIO_ACCESS_KEY%"
+    secretKey: "%MINIO_SECRET_KEY%"
+    persistence.storageClass: "local-path"

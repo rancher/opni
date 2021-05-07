@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drain-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drain-service
+  template:
+    metadata:
+      labels:
+        app: drain-service
+    spec:
+      containers:
+      - name: drain-service
+        image: sanjayrancher/drain-service
+        imagePullPolicy: Always
+        env:
+        - name: NATS_SERVER_URL
+          value: "nats://nats_client:%NATS_PASSWORD%@nats-client.kube-system.svc:4222"
+        - name: ES_ENDPOINT
+          value: "https://opendistro-es-client-service.default.svc.cluster.local:9200"
+        - name: FAIL_KEYWORDS
+          value: "fail,error,missing,unable"

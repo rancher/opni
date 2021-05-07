@@ -1,0 +1,12 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: traefik 
+  namespace: kube-system
+spec:
+  chart: traefik
+  repo: https://helm.traefik.io/traefik
+  version: "%TRAEFIK_VERSION%"
+  set:
+    rbac.enabled: "true"
+    ssl.enabled: "true"

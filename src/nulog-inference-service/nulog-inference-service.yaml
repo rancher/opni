@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: nulog-inference-service
-        image: tybalex/nulog-inference-service:v0.01
+        image: tybalex/nulog-inference-service:v0.1
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL
@@ -28,7 +28,9 @@ spec:
         - name: MINIO_SECRET_KEY
           value: "mysecretkey"
         - name: MODEL_THRESHOLD
-          value: "0.6"
+          value: "0.5"
+        - name: MIN_LOG_TOKENS
+          value: "5"
         resources:
           limits:
             nvidia.com/gpu: 1

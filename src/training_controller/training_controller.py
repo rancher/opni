@@ -8,7 +8,7 @@ from datetime import datetime
 
 # Third Party
 import kubernetes.client
-from elasticsearch import AsyncElasticsearch, exceptions
+from elasticsearch import AsyncElasticsearch, Elasticsearch, exceptions
 from elasticsearch.helpers import async_streaming_bulk
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
@@ -327,11 +327,18 @@ async def consume_payload_coroutine(loop, jobs_queue):
     await nw.subscribe(nats_subject="train", payload_queue=jobs_queue)
 
 
-async def create_training_signal_index():
+def create_training_signal_index():
+    regular_es = Elasticsearch(
+        [ES_ENDPOINT],
+        port=9200,
+        http_auth=(ES_USERNAME, ES_PASSWORD),
+        verify_certs=False,
+        use_ssl=True,
+    )
     try:
-        signal_index_exists = await es.indices.exists("training_signal")
+        signal_index_exists = regular_es.indices.exists("training_signal")
         if not signal_index_exists:
-            signal_created = await es.indices.create(index="training_signal")
+            signal_created = regular_es.indices.create(index="training_signal")
     except exceptions.TransportError as e:
         logging.error(e)
 
@@ -340,7 +347,7 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     jobs_queue = asyncio.Queue(loop=loop)
     signals_queue = asyncio.Queue(loop=loop)
-    created_signal = create_training_signal_index()
+    create_training_signal_index()
     consumer_coroutine = consume_payload_coroutine(loop, jobs_queue)
     consume_nats_drain_signal_coroutine = consume_nats_drain_signal(
         jobs_queue, signals_queue
@@ -355,7 +362,6 @@ if __name__ == "__main__":
             clear_jobs_coroutine,
             manage_kubernetes_jobs_coroutine,
             es_signal_coroutine,
-            created_signal,
         )
     )
     try:

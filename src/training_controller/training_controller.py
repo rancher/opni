@@ -104,12 +104,6 @@ async def es_training_signal_coroutine(signals_queue: asyncio.Queue):
             }
         ],
     }
-    try:
-        signal_index_exists = await es.indices.exists(index)
-        if not signal_index_exists:
-            signal_created = await es.indices.create(index=index)
-    except exceptions.TransportError as e:
-        logging.error(e)
     while True:
         try:
             user_signals_response = await es.search(
@@ -333,10 +327,20 @@ async def consume_payload_coroutine(loop, jobs_queue):
     await nw.subscribe(nats_subject="train", payload_queue=jobs_queue)
 
 
+async def create_training_signal_index():
+    try:
+        signal_index_exists = await es.indices.exists("training_signal")
+        if not signal_index_exists:
+            signal_created = await es.indices.create(index="training_signal")
+    except exceptions.TransportError as e:
+        logging.error(e)
+
+
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     jobs_queue = asyncio.Queue(loop=loop)
     signals_queue = asyncio.Queue(loop=loop)
+    created_signal = create_training_signal_index()
     consumer_coroutine = consume_payload_coroutine(loop, jobs_queue)
     consume_nats_drain_signal_coroutine = consume_nats_drain_signal(
         jobs_queue, signals_queue
@@ -351,6 +355,7 @@ if __name__ == "__main__":
             clear_jobs_coroutine,
             manage_kubernetes_jobs_coroutine,
             es_signal_coroutine,
+            created_signal,
         )
     )
     try:

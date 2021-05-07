@@ -18,8 +18,11 @@ import (
 )
 
 const (
-	InfraStack       = "infra"
-	OpniStack        = "opni"
+	InfraStack       = "infra-stack"
+	OpniStack        = "opni-stack"
+	ServicesStack    = "services"
+	OpniConfig       = "opni-config"
+	OpniSystemNS     = "opni-system"
 	MINIO_ACCESS_KEY = "MINIO_ACCESS_KEY"
 	MINIO_SECRET_KEY = "MINIO_SECRET_KEY"
 	MINIO_VERSION    = "MINIO_VERSION"
@@ -46,15 +49,38 @@ func Install(ctx context.Context, sc *Context, values map[string]string) error {
 		return err
 	}
 
+	// initialize configuration secrets
+	logrus.Infof("Initializing infrastructure configuration")
+	configObj, configOwner := configObj(values)
+	os = objectset.NewObjectSet()
+	os.Add(configObj...)
+	if err := sc.Apply.WithOwner(configOwner).WithSetID(OpniConfig).Apply(os); err != nil {
+		return err
+	}
+
 	// installing opni stack
 	logrus.Infof("Deploying opni stack")
 	opniObjs, opniOwner, err := objs(OpniStack, values)
 	if err != nil {
 		return err
 	}
+
 	os = objectset.NewObjectSet()
 	os.Add(opniObjs...)
-	return sc.Apply.WithOwner(opniOwner).WithSetID(OpniStack).Apply(os)
+	if err := sc.Apply.WithOwner(opniOwner).WithSetID(OpniStack).Apply(os); err != nil {
+		return err
+	}
+
+	// installing services stack
+	logrus.Infof("Deploying services stack")
+	servicesObj, servicesOwner, err := objs(ServicesStack, values)
+	if err != nil {
+		return err
+	}
+
+	os = objectset.NewObjectSet()
+	os.Add(servicesObj...)
+	return sc.Apply.WithOwner(servicesOwner).WithSetID(ServicesStack).Apply(os)
 }
 
 func objs(dir string, values map[string]string) ([]runtime.Object, *corev1.ConfigMap, error) {
@@ -65,24 +91,7 @@ func objs(dir string, values map[string]string) ([]runtime.Object, *corev1.Confi
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dir,
-			Namespace: "kube-system",
-		},
-	}
-
-	cfgSecret := &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dir,
-			Namespace: "kube-system",
-		},
-		Data: map[string][]byte{
-			MINIO_ACCESS_KEY: []byte(values[MINIO_ACCESS_KEY]),
-			MINIO_SECRET_KEY: []byte(values[MINIO_ACCESS_KEY]),
-			NATS_PASSWORD:    []byte(values[NATS_PASSWORD]),
-			ES_PASSWORD:      []byte(values[ES_PASSWORD]),
+			Namespace: OpniSystemNS,
 		},
 	}
 	objs := []runtime.Object{}
@@ -101,7 +110,7 @@ func objs(dir string, values map[string]string) ([]runtime.Object, *corev1.Confi
 		}
 		objs = append(objs, assetObj...)
 	}
-	objs = append(objs, owner, cfgSecret)
+	objs = append(objs, owner)
 	return objs, owner, nil
 }
 
@@ -173,4 +182,24 @@ func replaceValues(content []byte, values map[string]string) []byte {
 
 func base64Encode(value string) []byte {
 	return []byte(base64.StdEncoding.EncodeToString([]byte(value)))
+}
+
+func configObj(values map[string]string) ([]runtime.Object, *corev1.Secret) {
+	cfgSecret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      OpniConfig,
+			Namespace: OpniSystemNS,
+		},
+		Data: map[string][]byte{
+			MINIO_ACCESS_KEY: []byte(values[MINIO_ACCESS_KEY]),
+			MINIO_SECRET_KEY: []byte(values[MINIO_ACCESS_KEY]),
+			NATS_PASSWORD:    []byte(values[NATS_PASSWORD]),
+			ES_PASSWORD:      []byte(values[ES_PASSWORD]),
+		},
+	}
+	return []runtime.Object{cfgSecret}, cfgSecret
 }

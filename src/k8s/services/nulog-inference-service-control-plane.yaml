@@ -14,21 +14,23 @@ spec:
     spec:
       containers:
       - name: nulog-inference-service-control-plane
-        image: tybalex/nulog-inference-service-control-plane:v0.0
+        image: tybalex/nulog-inference-service-control-plane:v0.1
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL
-          value: "nats://nats_client:%NATS_PASSWORD%@nats-client.kube-system.svc:4222"
+          value: "nats://nats_client:VfU6TcAl9x@nats-client.default.svc:4222"
         - name: ES_ENDPOINT
           value: "https://opendistro-es-client-service.default.svc.cluster.local:9200"
         - name: MINIO_ENDPOINT
           value: "http://minio.default.svc.cluster.local:9000"
         - name: MINIO_ACCESS_KEY
-          value: "%MINIO_ACCESS_KEY%"
+          value: "http://minio.opni-system.svc.cluster.local:9000"
         - name: MINIO_SECRET_KEY
           value: "%MINIO_SECRET_KEY%"
         - name: MODEL_THRESHOLD
           value: "0.6"
+        - name: MIN_LOG_TOKENS
+          value: "4"
         - name: IS_CONTROL_PLANE_SERVICE
           value: "True"
         resources:

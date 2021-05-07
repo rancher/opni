@@ -2,7 +2,7 @@ apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
   name: "opendistro-es"
-  namespace: "default"
+  namespace: opni-system
 spec:
   chartContent: %OPENDISTRO_ES_CHART_CONTENT%
   set:

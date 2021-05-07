@@ -14,12 +14,13 @@ spec:
     spec:
       containers:
       - name: drain-service
-        image: sanjayrancher/drain-service
+        image: sanjayrancher/drain-service:v0.0
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL
-          value: "nats://nats_client:%NATS_PASSWORD%@nats-client.kube-system.svc:4222"
+          value: "nats://nats_client:%NATS_PASSWORD%@nats-client.opni-system.svc:4222"
         - name: ES_ENDPOINT
-          value: "https://opendistro-es-client-service.default.svc.cluster.local:9200"
+          value: "https://opendistro-es-client-service.opni-system.svc.cluster.local:9200"
         - name: FAIL_KEYWORDS
           value: "fail,error,missing,unable"
+

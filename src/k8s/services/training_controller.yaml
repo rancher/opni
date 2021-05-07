@@ -1,4 +1,3 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,15 +16,11 @@ spec:
       - name: training-controller
         image: amartyarancher/training-controller:v0.0
         imagePullPolicy: Always
-        args:
-        - sh
-        - -c
-        - "sleep 60 && python training_controller.py"
         env:
         - name: NATS_SERVER_URL
-          value: "nats://nats_client:%NATS_PASSWORD%@nats-client.kube-system.svc:4222"
+          value: "nats://nats_client:%NATS_PASSWORD%@nats-client.opni-system.svc:4222"
         - name: MINIO_SERVER_URL
-          value: "http://minio.kube-system.svc.cluster.local:9000"
+          value: "http://minio.opni-system.svc.cluster.local:9000"
         - name: MINIO_ACCESS_KEY
           value: "%MINIO_ACCESS_KEY%"
         - name: MINIO_SECRET_KEY
@@ -33,7 +28,7 @@ spec:
         - name: JOB_NAMESPACE
           value: "default"
         - name: ES_ENDPOINT
-          value: "https://opendistro-es-client-service.default.svc.cluster.local:9200"
+          value: "https://opendistro-es-client-service.opni-system.svc.cluster.local:9200"
         - name: ES_USERNAME
           value: "%ES_USER%"
         - name: ES_PASSWORD

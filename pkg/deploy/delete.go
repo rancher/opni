@@ -13,7 +13,35 @@ import (
 )
 
 func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
-	var skipOpni, skipInfra bool
+	var skipOpni, skipInfra, skipServices bool
+	servicesOwner, err := getOwner(ctx, ServicesStack, sc)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			skipServices = true
+			logrus.Info("services stack already deleted")
+		} else {
+			return err
+		}
+
+	}
+	if !skipServices {
+		// deleting Services stack
+		logrus.Infof("Deleting Services stack")
+		opniObjs, _, err := objs(ServicesStack, nil)
+		if err != nil {
+			return err
+		}
+		os := objectset.NewObjectSet()
+		os.Add(opniObjs...)
+		var gvk []schema.GroupVersionKind
+		for k := range os.ObjectsByGVK() {
+			gvk = append(gvk, k)
+		}
+		if err := sc.Apply.WithOwner(servicesOwner).WithGVK(gvk...).WithSetID(ServicesStack).Apply(nil); err != nil {
+			return err
+		}
+	}
+
 	opniOwner, err := getOwner(ctx, OpniStack, sc)
 	if err != nil {
 		if apierrors.IsNotFound(err) {

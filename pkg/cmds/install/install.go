@@ -52,18 +52,16 @@ func Run(c *cli.Context) error {
 
 func getValues(ctx context.Context, cfg *cmds.InstallConfig, sc *deploy.Context) (map[string]string, error) {
 	// try getting first from configMap
-	cfgSecret, err := sc.K8s.CoreV1().Secrets("kube-system").Get(ctx, deploy.OpniStack, metav1.GetOptions{})
+	cfgSecret, err := sc.K8s.CoreV1().Secrets(deploy.OpniSystemNS).Get(ctx, deploy.OpniConfig, metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}
-	logrus.Infof("%v", cfgSecret)
 	if cfgSecret != nil && len(cfgSecret.Data) > 0 {
 		cfg.MinioAccessKey = string(cfgSecret.Data[deploy.MINIO_ACCESS_KEY])
 		cfg.MinioSecretKey = string(cfgSecret.Data[deploy.MINIO_SECRET_KEY])
 		cfg.NatsPassword = string(cfgSecret.Data[deploy.NATS_PASSWORD])
 		cfg.ElasticsearchPassword = string(cfgSecret.Data[deploy.ES_PASSWORD])
 	}
-	logrus.Infof("%#v", cfg)
 	values := make(map[string]string)
 	// get minio values
 	values[deploy.MINIO_ACCESS_KEY] = cfg.MinioAccessKey

@@ -2,7 +2,7 @@ apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
   name: nats 
-  namespace: kube-system
+  namespace: opni-system
 spec:
   chart: nats
   repo: https://charts.bitnami.com/bitnami

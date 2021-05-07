@@ -26,11 +26,11 @@ spec:
     spec:
       containers:
       - name: payload-receiver-service
-        image: sanjayrancher/payload-receiver-service:latest
+        image: sanjayrancher/payload-receiver-service:v0.0
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL
-          value: "nats://nats_client:%NATS_PASSWORD%@nats-client.kube-system.svc:4222"
+          value: "nats://nats_client:%NATS_PASSWORD%@nats-client.opni-system.svc:4222"
         ports:
         - containerPort: 80
 ---
@@ -49,3 +49,4 @@ spec:
         backend:
           serviceName: payload-receiver-service
           servicePort: 80
+

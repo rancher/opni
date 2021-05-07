@@ -2,7 +2,7 @@ apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
   name: minio 
-  namespace: kube-system
+  namespace: opni-system
 spec:
   chart: minio
   repo: https://helm.min.io/

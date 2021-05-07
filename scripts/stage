@@ -4,7 +4,7 @@ set -e
 source $(dirname $0)/version
 
 # grab and package opendistro-es
-CHART_FILE=../manifests/opni/opendistro-es.yaml
+CHART_FILE=../src/opni-stack/opendistro-es.yaml
 CHART_NAME=opendistro-es
 OPENDISTROES_VERSION=1.13.2
 

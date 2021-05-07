@@ -1,7 +1,5 @@
 # opni
 
-<<<<<<< HEAD
-=======
 Opni is a collection of AIOPs tools - it currently features AI-infused log monitoring for Kubernetes.
 
 **Stable v0.1 release on May 13**
@@ -30,7 +28,6 @@ ____
 - Prediction feedback - give feedback for incorrect predictions so the AI adapts better to your logs
 - Control plane log anomaly detection for additional Kubernetes distributions besides RKE including K3S and EKS.
 
->>>>>>> main
 ## Contributing
 We use `pre-commit` for formatting auto-linting and checking import. Please refer to [installation](https://pre-commit.com/#installation) to install the pre-commit or run `pip install pre-commit`. Then you can activate it for this repo. Once it's activated, it will lint and format the code when you make a git commit. It makes changes in place. If the code is modified during the reformatting, it needs to be staged manually.
 
@@ -44,8 +41,6 @@ pre-commit install
 # (Optional)Manually run against all files
 pre-commit run --all-files
 ```
-<<<<<<< HEAD
-=======
 
 ## License
 
@@ -62,4 +57,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
->>>>>>> main

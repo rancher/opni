@@ -4,6 +4,10 @@ Opni is a collection of AIOPs tools - it currently features AI-infused log monit
 
 **Stable v0.1 release on May 13**
 ____
+
+Watch a demo of Opni:
+[![](https://opni-public.s3.us-east-2.amazonaws.com/opni_youtube.png)](http://www.youtube.com/watch?v=dq5Q_crQKvk "Introduction to Opni")
+____
 #### What does it give me?
 * Insights into logs from your cluster's workloads, control plane & etcd
 * Opni insights dashboard to inspect logs

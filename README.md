@@ -1,6 +1,6 @@
-# opni
+# Opni - AIOPs for Kubernetes
 
-Opni is a collection of AIOPs tools - it currently features AI-infused log monitoring for Kubernetes.
+Opni is a collection of AIOPs tools - it currently features log anomaly detection for Kubernetes.
 
 **Stable v0.1 release on May 13**
 ____

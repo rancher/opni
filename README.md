@@ -104,8 +104,18 @@ Building
 # make
 ```
 
-All stack manifests are under `manifests/` directory, any added or changed yaml will be available as part of the stack after running Make
+All stack manifests are under `src/` directory, any added or changed yaml will be available as part of the stack after running Make
 
+
+#### macOS
+
+For building in MACOS you need to enable cross building by using the following command:
+
+```
+# CROSS=true make
+```
+
+Then the binary should be found under ./bin/opnictl-darwin
 
 ## License
 

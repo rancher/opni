@@ -200,13 +200,8 @@ class LogParser:
         self.model.eval()
 
     def predict(self, data_tokenized, output_prefix=""):
-        start_time = time.time()
         test_dataloader = self.get_test_dataloaders(
             data_tokenized, self.transform_to_tensor
-        )
-        t1 = time.time()
-        logging.debug(
-            ("--- generate dataloader of logs in %s seconds ---" % (t1 - start_time))
         )
 
         results = self.run_test(
@@ -215,14 +210,7 @@ class LogParser:
             SimpleLossCompute(self.model.generator, self.criterion, None, is_test=True),
         )
 
-        t2 = time.time()
-
-        data_words = []
-        indices_from = []
-
-        theta = 0.8  # the threshold
         anomaly_preds = []
-        total_anomaly = 0
         for i, (x, y, ind) in enumerate(results):
             true_pred = 0
             total_count = 0
@@ -232,12 +220,7 @@ class LogParser:
 
                     if y[j] in x[j][-self.k :]:  ## if it's within top k predictions
                         true_pred += 1
-                        data_words.append(self.tokenizer.index2word[y[j]])
-                    else:
-                        data_words.append("<*>")
                     total_count += 1
-                else:
-                    data_words.append("<*>")
 
                 if j == len(x) - 1 or ind[j] != ind[j + 1]:
                     this_rate = 1.0 if total_count == 0 else true_pred / total_count
@@ -245,16 +228,8 @@ class LogParser:
                     true_pred = 0
                     total_count = 0
 
-            for c in c_rates:
-                if c < theta:
-                    total_anomaly += 1
+            anomaly_preds.extend(c_rates)
 
-            counts = len(set(ind.numpy()))
-            for correct_rate in c_rates:
-                anomaly_preds.append(correct_rate)
-            indices_from += ind.tolist()
-
-        logging.info(("nulog predicts in %s seconds." % (time.time() - t2)))
         return anomaly_preds
 
     def get_train_dataloaders(self, data_tokenized, transform_to_tensor):

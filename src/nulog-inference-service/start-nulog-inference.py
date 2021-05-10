@@ -9,7 +9,7 @@ import time
 # Third Party
 import pandas as pd
 from elasticsearch import AsyncElasticsearch
-from elasticsearch.helpers import async_streaming_bulk
+from elasticsearch.helpers import async_bulk
 from nats_wrapper import NatsWrapper
 from NulogServer import NulogServer
 
@@ -62,11 +62,15 @@ async def infer_logs(logs_queue):
             yield doc_dict
 
     if IS_CONTROL_PLANE_SERVICE:
-        script = 'ctx._source.anomaly_level = ctx._source.anomaly_predicted_count == 0 ? "Normal" : "Anomaly";'
+        script_source = 'ctx._source.anomaly_level = ctx._source.anomaly_predicted_count == 0 ? "Normal" : "Anomaly";'
     else:
-        script = 'ctx._source.anomaly_level = ctx._source.anomaly_predicted_count == 0 ? "Normal" : ctx._source.anomaly_predicted_count == 1 ? "Suspicious" : "Anomaly";'
+        script_source = 'ctx._source.anomaly_level = ctx._source.anomaly_predicted_count == 0 ? "Normal" : ctx._source.anomaly_predicted_count == 1 ? "Suspicious" : "Anomaly";'
+    script_source += "ctx._source.nulog_confidence = params['nulog_score'];"
+    script_for_anomaly = (
+        "ctx._source.anomaly_predicted_count += 1; ctx._source.nulog_anomaly = true;"
+    )
 
-    max_payload_size = 32 if IS_CONTROL_PLANE_SERVICE else 512
+    max_payload_size = 128 if IS_CONTROL_PLANE_SERVICE else 512
     while True:
         payload = await logs_queue.get()
         if payload is None:
@@ -94,38 +98,29 @@ async def infer_logs(logs_queue):
             df["nulog_confidence"] = predictions
             df["predictions"] = [1 if p < THRESHOLD else 0 for p in predictions]
             # filter out df to only include abnormal predictions
-            df = df[df["predictions"] > 0]
-            if len(df) == 0:
-                logging.info(
-                    "No anomalies in this payload of {} logs".format(len(masked_log))
-                )
-                continue
 
             df["_op_type"] = "update"
             df["_index"] = "logs"
-            df["script"] = (
-                "ctx._source.anomaly_predicted_count += 1; ctx._source.nulog_anomaly = true;"
-                + script
-            )
-
             df.rename(columns={"log_id": "_id"}, inplace=True)
-            df["script"] = (
-                df["script"]
-                + "ctx._source.nulog_confidence = "
-                + df["nulog_confidence"].map(str)
-                + ";"
-            )
-
+            df["script"] = [
+                {
+                    "source": (script_for_anomaly + script_source)
+                    if nulog_score < THRESHOLD
+                    else script_source,
+                    "lang": "painless",
+                    "params": {"nulog_score": nulog_score},
+                }
+                for nulog_score in df["nulog_confidence"]
+            ]
             try:
-                async for ok, result in async_streaming_bulk(
+                await async_bulk(
                     es, doc_generator(df[["_id", "_op_type", "_index", "script"]])
-                ):
-                    action, result = result.popitem()
-                    if not ok:
-                        logging.error("failed to %s document %s" % ())
+                )
                 logging.info(
                     "Updated {} anomalies from {} logs to ES in {} seconds".format(
-                        len(df), len(masked_log), time.time() - start_time
+                        len(df[df["predictions"] > 0]),
+                        len(masked_log),
+                        time.time() - start_time,
                     )
                 )
             except Exception as e:

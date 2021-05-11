@@ -28,12 +28,13 @@ class LogParser:
         k=50,
         log_format="<Content>",
         model_name="nulog_model_latest.pt",
+        save_path="output/",
     ):
-        self.savePath = "output/"
+        self.savePath = save_path
         self.k = k
         self.df_log = None
         self.log_format = log_format
-        self.tokenizer = LogTokenizer()
+        self.tokenizer = LogTokenizer(self.savePath)
 
         if not os.path.exists(self.savePath):
             os.makedirs(self.savePath)

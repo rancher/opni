@@ -22,9 +22,9 @@ spec:
         - name: ES_ENDPOINT
           value: "https://opendistro-es-client-service.default.svc.cluster.local:9200"
         - name: MINIO_ENDPOINT
-          value: "http://minio.default.svc.cluster.local:9000"
-        - name: MINIO_ACCESS_KEY
           value: "http://minio.opni-system.svc.cluster.local:9000"
+        - name: MINIO_ACCESS_KEY
+          value: "%MINIO_ACCESS_KEY%"
         - name: MINIO_SECRET_KEY
           value: "%MINIO_SECRET_KEY%"
         - name: MODEL_THRESHOLD

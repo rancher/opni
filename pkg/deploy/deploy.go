@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/rancher/wrangler/pkg/objectset"
 	"github.com/sirupsen/logrus"
@@ -34,6 +35,7 @@ const (
 	TRAEFIK_VERSION  = "TRAEFIK_VERSION"
 	ES_USER          = "ES_USER"
 	ES_PASSWORD      = "ES_PASSWORD"
+	waitTime         = 1 * time.Minute
 )
 
 func Install(ctx context.Context, sc *Context, values map[string]string) error {
@@ -70,6 +72,9 @@ func Install(ctx context.Context, sc *Context, values map[string]string) error {
 	if err := sc.Apply.WithOwner(opniOwner).WithSetID(OpniStack).Apply(os); err != nil {
 		return err
 	}
+
+	// wait time before running opni stack
+	waitForOpniStack(ctx, sc)
 
 	// installing services stack
 	logrus.Infof("Deploying services stack")
@@ -202,4 +207,20 @@ func configObj(values map[string]string) ([]runtime.Object, *corev1.Secret) {
 		},
 	}
 	return []runtime.Object{cfgSecret}, cfgSecret
+}
+
+func waitForOpniStack(ctx context.Context, sc *Context) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		esStatefulSet, err := sc.K8s.AppsV1().StatefulSets(OpniSystemNS).Get(ctx, "opendistro-es-master", metav1.GetOptions{})
+		if err != nil {
+			logrus.Infof("Waiting for elastic search to start correctly")
+			continue
+		}
+		if esStatefulSet.Status.ReadyReplicas == *esStatefulSet.Spec.Replicas {
+			logrus.Infof("Opni stack is ready")
+			break
+		}
+	}
 }

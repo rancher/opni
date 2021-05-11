@@ -104,5 +104,5 @@ func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
 }
 
 func getOwner(ctx context.Context, name string, sc *Context) (*corev1.ConfigMap, error) {
-	return sc.K8s.CoreV1().ConfigMaps("kube-system").Get(ctx, name, metav1.GetOptions{})
+	return sc.K8s.CoreV1().ConfigMaps(OpniSystemNS).Get(ctx, name, metav1.GetOptions{})
 }

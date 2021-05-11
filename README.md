@@ -65,7 +65,7 @@ INFO[0003] Deploying opni stack
 For deleting the stack:
 
 ```
-# opnictl delete --all
+# opnictl delete --kubeconfig <kubeconfig path> --all
 ```
 
 ### Options
@@ -116,6 +116,12 @@ For building in MACOS you need to enable cross building by using the following c
 ```
 
 Then the binary should be found under ./bin/opnictl-darwin
+
+for running the tool, you can use the following command:
+
+```
+./bin/opnictl-darwin install --kubeconfig <kubeconfig path>
+```
 
 ## License
 

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: nulog-inference-service-control-plane
-        image: tybalex/nulog-inference-service-control-plane:v0.0
+        image: tybalex/nulog-inference-service-control-plane:v0.1
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL
@@ -29,6 +29,8 @@ spec:
           value: "mysecretkey"
         - name: MODEL_THRESHOLD
           value: "0.6"
+        - name: MIN_LOG_TOKENS
+          value: "4"
         - name: IS_CONTROL_PLANE_SERVICE
           value: "True"
         resources:

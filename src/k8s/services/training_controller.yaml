@@ -1,3 +1,41 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: training-controller-rb
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: training-controller-rb
+rules:
+  - apiGroups:
+      - ""
+      - "apps"
+      - "batch"
+    resources:
+      - endpoints
+      - deployments
+      - pods
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: training-controller-rb
+subjects:
+  - kind: ServiceAccount
+    name: training-controller-rb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: training-controller-rb
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -12,6 +50,7 @@ spec:
       labels:
         app: training-controller
     spec:
+      serviceAccountName: training-controller-rb
       containers:
       - name: training-controller
         image: amartyarancher/training-controller:v0.1

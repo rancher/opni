@@ -48,6 +48,8 @@ async def push_to_nats(nats: NATS, payload):
         df["_id"] = df["time_nanoseconds"].map(str) + df.groupby(
             "time_nanoseconds"
         ).cumcount().map("{:016b}".format)
+        if "id" in df.columns:
+            df["id"] = df["id"].map(str)
         df = df.fillna("")
         for window_start_time_ns, data_df in df.groupby(["window_start_time_ns"]):
             window_payload_size_bytes = data_df.memory_usage(deep=True).sum()

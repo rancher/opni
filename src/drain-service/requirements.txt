@@ -1,6 +1,4 @@
 jsonpickle==1.5.1
-kafka-python==2.0.1
-redis==3.5.3
 cachetools==4.2.1
 pandas==1.2.3
 asyncio-nats-client

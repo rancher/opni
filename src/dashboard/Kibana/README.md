@@ -1,4 +1,4 @@
-## deploy opendistro-es with kibana
+## deploy opendistro-es with Kibana
 
 ```
 1. git clone https://github.com/opendistro-for-elasticsearch/opendistro-build
@@ -7,7 +7,7 @@
 4. helm install opendistro-es opendistro-es-1.13.1.tgz
 ```
 
-## setup Kibana dashboard
+## setup Opni dashboard
 
 port forward kibana to localhost:
 ```
@@ -15,7 +15,12 @@ kubectl port-forward svc/opendistro-es-kibana-svc 5601:443
 ```
 then pls visit -> `localhost:5601`  with username: `admin`  and pwd: `admin`
 
-Import the example dashboard by click `Stack Management -> Saved Objects -> Import` and select `kibana-dashboard.ndjson` from this folder. Click Done and Check out the example Dashboard!
+---
+Import the Opni dashboard by following steps:
+1. click `Stack Management -> Saved Objects -> Import`
+2. hit `Import` under `Select a file to import`, select `opni-dashboard.ndjson` from this directory.
+3. Click the blue button `Import` at the bottom, and then click `Done`.
+Now you can navigate to `Kibana -> Dashboard` to try out the Opni Logs Dashboard.
 
 ## setup Kibana alert and Slack notification
 

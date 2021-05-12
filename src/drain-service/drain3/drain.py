@@ -4,11 +4,12 @@ Author      : LogPAI team
 Modified by : david.ohana@ibm.com, moshikh@il.ibm.com
 License     : MIT
 """
-from typing import List, Dict
+# Standard Library
+from typing import Dict, List
 
-from cachetools import LRUCache, Cache
-
-from drain3.simple_profiler import Profiler, NullProfiler
+# Third Party
+from cachetools import Cache, LRUCache
+from drain3.simple_profiler import NullProfiler, Profiler
 
 
 class LogCluster:
@@ -20,7 +21,7 @@ class LogCluster:
         self.size = 1
 
     def get_template(self):
-        return ' '.join(self.log_template_tokens)
+        return " ".join(self.log_template_tokens)
 
     def __str__(self):
         return f"ID={str(self.cluster_id).ljust(5)} : size={str(self.size).ljust(10)}: {self.get_template()}"
@@ -35,14 +36,16 @@ class Node:
 
 
 class Drain:
-    def __init__(self,
-                 depth=4,
-                 sim_th=0.4,
-                 max_children=100,
-                 max_clusters=None,
-                 extra_delimiters=(),
-                 profiler: Profiler = NullProfiler(),
-                 param_str="<*>"):
+    def __init__(
+        self,
+        depth=4,
+        sim_th=0.4,
+        max_children=100,
+        max_clusters=None,
+        extra_delimiters=(),
+        profiler: Profiler = NullProfiler(),
+        param_str="<*>",
+    ):
         """
         Attributes
         ----------
@@ -55,7 +58,9 @@ class Drain:
                 with a new ones according to the LRU policy.
             extra_delimiters: delimiters to apply when splitting log message into words (in addition to whitespace).
         """
-        self.depth = depth - 2  # number of prefix tokens in each tree path (exclude root and leaf node)
+        self.depth = (
+            depth - 2
+        )  # number of prefix tokens in each tree path (exclude root and leaf node)
         self.sim_th = sim_th
         self.max_children = max_children
         self.root_node = Node()
@@ -65,7 +70,9 @@ class Drain:
         self.param_str = param_str
 
         # key: int, value: LogCluster
-        self.id_to_cluster = {} if max_clusters is None else LRUCache(maxsize=max_clusters)
+        self.id_to_cluster = (
+            {} if max_clusters is None else LRUCache(maxsize=max_clusters)
+        )
         self.clusters_counter = 0
 
     @property
@@ -76,7 +83,9 @@ class Drain:
     def has_numbers(s):
         return any(char.isdigit() for char in s)
 
-    def tree_search(self, root_node: Node, tokens: list, sim_th: float, include_params: bool):
+    def tree_search(
+        self, root_node: Node, tokens: list, sim_th: float, include_params: bool
+    ):
 
         # at first level, children are grouped by token (word) count
         token_count = len(tokens)
@@ -111,7 +120,9 @@ class Drain:
             current_depth += 1
 
         # get best match among all clusters with same prefix, or None if no match is above sim_th
-        cluster = self.fast_match(parent_node.cluster_ids, tokens, sim_th, include_params)
+        cluster = self.fast_match(
+            parent_node.cluster_ids, tokens, sim_th, include_params
+        )
         return cluster
 
     def add_seq_to_prefix_tree(self, root_node, cluster: LogCluster):
@@ -157,7 +168,9 @@ class Drain:
                             new_node = Node()
                             parent_node.key_to_child_node[token] = new_node
                             parent_node = new_node
-                        elif len(parent_node.key_to_child_node) + 1 == self.max_children:
+                        elif (
+                            len(parent_node.key_to_child_node) + 1 == self.max_children
+                        ):
                             new_node = Node()
                             parent_node.key_to_child_node[self.param_str] = new_node
                             parent_node = new_node
@@ -198,7 +211,9 @@ class Drain:
 
         return ret_val, param_count
 
-    def fast_match(self, cluster_ids: list, tokens: list, sim_th: float, include_params: bool):
+    def fast_match(
+        self, cluster_ids: list, tokens: list, sim_th: float, include_params: bool
+    ):
         """
         Find the best match for a log message (represented as tokens) versus a list of clusters
         :param cluster_ids: List of clusters to match against (represented by their IDs)
@@ -219,8 +234,12 @@ class Drain:
             cluster = Cache.get(self.id_to_cluster, cluster_id)
             if cluster is None:
                 continue
-            cur_sim, param_count = self.get_seq_distance(cluster.log_template_tokens, tokens, include_params)
-            if cur_sim > max_sim or (cur_sim == max_sim and param_count > max_param_count):
+            cur_sim, param_count = self.get_seq_distance(
+                cluster.log_template_tokens, tokens, include_params
+            )
+            if cur_sim > max_sim or (
+                cur_sim == max_sim and param_count > max_param_count
+            ):
                 max_sim = cur_sim
                 max_param_count = param_count
                 max_cluster = cluster
@@ -244,10 +263,10 @@ class Drain:
         self.print_node("root", self.root_node, 0, file)
 
     def print_node(self, token, node, depth, file):
-        out_str = '\t' * depth
+        out_str = "\t" * depth
 
         if depth < 2:
-            out_str += '<' + str(token) + '>'
+            out_str += "<" + str(token) + ">"
         else:
             out_str += token
 
@@ -268,7 +287,9 @@ class Drain:
 
         if self.profiler:
             self.profiler.start_section("tree_search")
-        match_cluster = self.tree_search(self.root_node, content_tokens, self.sim_th, False)
+        match_cluster = self.tree_search(
+            self.root_node, content_tokens, self.sim_th, False
+        )
         if self.profiler:
             self.profiler.end_section()
 
@@ -287,7 +308,9 @@ class Drain:
         else:
             if self.profiler:
                 self.profiler.start_section("cluster_exist")
-            new_template_tokens = self.create_template(content_tokens, match_cluster.log_template_tokens)
+            new_template_tokens = self.create_template(
+                content_tokens, match_cluster.log_template_tokens
+            )
             if tuple(new_template_tokens) == match_cluster.log_template_tokens:
                 update_type = "none"
             else:

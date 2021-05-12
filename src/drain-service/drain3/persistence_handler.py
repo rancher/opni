@@ -4,11 +4,11 @@ Author      : David Ohana
 Author_email: david.ohana@ibm.com
 License     : MIT
 """
+# Standard Library
 from abc import ABC, abstractmethod
 
 
 class PersistenceHandler(ABC):
-
     @abstractmethod
     def save_state(self, state):
         pass

@@ -3,14 +3,13 @@ Description : A section-based runtime profiler.
 Author      : david.ohana@ibm.com
 License     : Apache v2
 """
+# Standard Library
 import os
 import time
-
 from abc import ABC, abstractmethod
 
 
 class Profiler(ABC):
-
     @abstractmethod
     def start_section(self, section_name: str):
         pass
@@ -38,7 +37,13 @@ class NullProfiler(Profiler):
 
 
 class SimpleProfiler(Profiler):
-    def __init__(self, reset_after_sample_count=0, enclosing_section_name="total", printer=print, report_sec=30):
+    def __init__(
+        self,
+        reset_after_sample_count=0,
+        enclosing_section_name="total",
+        printer=print,
+        report_sec=30,
+    ):
         self.printer = printer
         self.enclosing_section_name = enclosing_section_name
         self.reset_after_sample_count = reset_after_sample_count
@@ -75,7 +80,9 @@ class SimpleProfiler(Profiler):
             section_name = self.last_started_section_name
 
         if not section_name:
-            raise ValueError("Neither section name is specified nor a section is started")
+            raise ValueError(
+                "Neither section name is specified nor a section is started"
+            )
 
         section: ProfiledSectionStats = self.section_to_stats.get(section_name, None)
         if section is None:
@@ -85,7 +92,10 @@ class SimpleProfiler(Profiler):
             raise ValueError(f"Section {section_name} was not started")
 
         took_sec = now - section.start_time_sec
-        if self.reset_after_sample_count > 0 and section.sample_count == self.reset_after_sample_count:
+        if (
+            self.reset_after_sample_count > 0
+            and section.sample_count == self.reset_after_sample_count
+        ):
             section.sample_count_batch = 0
             section.total_time_sec_batch = 0
 
@@ -102,15 +112,22 @@ class SimpleProfiler(Profiler):
 
         enclosing_time_sec = 0
         if self.enclosing_section_name:
-            enclosing_section: ProfiledSectionStats = self.section_to_stats.get(self.enclosing_section_name, None)
+            enclosing_section: ProfiledSectionStats = self.section_to_stats.get(
+                self.enclosing_section_name, None
+            )
             if enclosing_section:
                 enclosing_time_sec = enclosing_section.total_time_sec
 
         include_batch_rates = self.reset_after_sample_count > 0
 
         sections = self.section_to_stats.values()
-        sorted_sections = sorted(sections, key=lambda it: it.total_time_sec, reverse=True)
-        lines = map(lambda it: it.to_string(enclosing_time_sec, include_batch_rates), sorted_sections)
+        sorted_sections = sorted(
+            sections, key=lambda it: it.total_time_sec, reverse=True
+        )
+        lines = map(
+            lambda it: it.to_string(enclosing_time_sec, include_batch_rates),
+            sorted_sections,
+        )
         text = os.linesep.join(lines)
         self.printer(text)
 
@@ -119,8 +136,15 @@ class SimpleProfiler(Profiler):
 
 
 class ProfiledSectionStats:
-    def __init__(self, section_name, start_time_sec=0, sample_count=0, total_time_sec=0,
-                 sample_count_batch=0, total_time_sec_batch=0):
+    def __init__(
+        self,
+        section_name,
+        start_time_sec=0,
+        sample_count=0,
+        total_time_sec=0,
+        sample_count_batch=0,
+        total_time_sec_batch=0,
+    ):
         self.section_name = section_name
         self.start_time_sec = start_time_sec
         self.sample_count = sample_count
@@ -131,16 +155,22 @@ class ProfiledSectionStats:
     def to_string(self, enclosing_time_sec: int, include_batch_rates: bool):
         took_sec_text = f"{self.total_time_sec:>8.2f} s"
         if enclosing_time_sec > 0:
-            took_sec_text += f" ({100 * self.total_time_sec / enclosing_time_sec:>6.2f}%)"
+            took_sec_text += (
+                f" ({100 * self.total_time_sec / enclosing_time_sec:>6.2f}%)"
+            )
 
         ms_per_k_samples = f"{1000000 * self.total_time_sec / self.sample_count: 7.2f}"
         samples_per_sec = f"{self.sample_count / self.total_time_sec: 15,.2f}"
 
         if include_batch_rates:
             ms_per_k_samples += f" ({1000000 * self.total_time_sec_batch / self.sample_count_batch: 7.2f})"
-            samples_per_sec += f" ({self.sample_count_batch / self.total_time_sec_batch: 15,.2f})"
+            samples_per_sec += (
+                f" ({self.sample_count_batch / self.total_time_sec_batch: 15,.2f})"
+            )
 
-        return f"{self.section_name: <15}: took {took_sec_text}, " \
-               f"{self.sample_count: >10,} samples, " \
-               f"{ms_per_k_samples} ms / 1000 samples, " \
-               f"{samples_per_sec} hz"
+        return (
+            f"{self.section_name: <15}: took {took_sec_text}, "
+            f"{self.sample_count: >10,} samples, "
+            f"{ms_per_k_samples} ms / 1000 samples, "
+            f"{samples_per_sec} hz"
+        )

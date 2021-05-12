@@ -104,6 +104,7 @@ async def es_training_signal_coroutine(signals_queue: asyncio.Queue):
             }
         ],
     }
+    signal_index_exists = False
     try:
         signal_index_exists = await es.indices.exists(index)
         if not signal_index_exists:

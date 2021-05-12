@@ -1,6 +1,7 @@
 # Standard Library
 import logging
 import os
+import re
 import time
 
 # Third Party
@@ -54,13 +55,11 @@ class LogParser:
             self.model_path,
         )
 
-    def load_model(self, model, model_opt, model_path=None):
-        if model_path is None:
-            model_path = self.model_path
+    def load_model(self, model, model_opt):
         if using_GPU:
-            ckpt = torch.load(model_path)
+            ckpt = torch.load(self.model_path)
         else:
-            ckpt = torch.load(model_path, map_location=torch.device("cpu"))
+            ckpt = torch.load(self.model_path, map_location=torch.device("cpu"))
         try:
             model_opt.load_state_dict(ckpt["optimizer_state_dict"])
             model.load_state_dict(ckpt["model_state_dict"])
@@ -125,17 +124,16 @@ class LogParser:
             weight_decay=self.weight_decay,
         )
 
-        # Load the model which was downloaded from Pytorch.
-        # epoch, loss = self.load_model(model, model_opt, "nulog_model_latest.pt")
+        if (self.model_name) in os.listdir(self.savePath):
+            # model.load_state_dict(torch.load(self.model_path))
+            prev_epoch, prev_loss = self.load_model(model, model_opt)
 
         train_dataloader = self.get_train_dataloaders(
             data_tokenized, transform_to_tensor
         )
         ## train if no model
         model.train()
-        logging.info(
-            "#######Training Model within {} epochs...######".format(self.nr_epochs)
-        )
+        logging.info("#######Training Model within {self.nr_epochs} epochs...######")
         for epoch in range(self.nr_epochs):
             logging.info("Epoch: {}".format(epoch))
             self.run_epoch(
@@ -145,6 +143,7 @@ class LogParser:
             )
 
         self.save_model(model=model, model_opt=model_opt, epoch=self.nr_epochs, loss=0)
+        # torch.save(model.state_dict(), "nulog_model_latest.pt")
 
     def init_inference(
         self,
@@ -201,13 +200,8 @@ class LogParser:
         self.model.eval()
 
     def predict(self, data_tokenized, output_prefix=""):
-        start_time = time.time()
         test_dataloader = self.get_test_dataloaders(
             data_tokenized, self.transform_to_tensor
-        )
-        t1 = time.time()
-        logging.debug(
-            ("--- generate dataloader of logs in %s seconds ---" % (t1 - start_time))
         )
 
         results = self.run_test(
@@ -216,14 +210,7 @@ class LogParser:
             SimpleLossCompute(self.model.generator, self.criterion, None, is_test=True),
         )
 
-        t2 = time.time()
-
-        data_words = []
-        indices_from = []
-
-        theta = 0.8  # the threshold
         anomaly_preds = []
-        total_anomaly = 0
         for i, (x, y, ind) in enumerate(results):
             true_pred = 0
             total_count = 0
@@ -233,12 +220,7 @@ class LogParser:
 
                     if y[j] in x[j][-self.k :]:  ## if it's within top k predictions
                         true_pred += 1
-                        data_words.append(self.tokenizer.index2word[y[j]])
-                    else:
-                        data_words.append("<*>")
                     total_count += 1
-                else:
-                    data_words.append("<*>")
 
                 if j == len(x) - 1 or ind[j] != ind[j + 1]:
                     this_rate = 1.0 if total_count == 0 else true_pred / total_count
@@ -246,16 +228,8 @@ class LogParser:
                     true_pred = 0
                     total_count = 0
 
-            for c in c_rates:
-                if c < theta:
-                    total_anomaly += 1
+            anomaly_preds.extend(c_rates)
 
-            counts = len(set(ind.numpy()))
-            for correct_rate in c_rates:
-                anomaly_preds.append(correct_rate)
-            indices_from += ind.tolist()
-
-        logging.info(("nulog predicts in %s seconds." % (time.time() - t2)))
         return anomaly_preds
 
     def get_train_dataloaders(self, data_tokenized, transform_to_tensor):
@@ -293,6 +267,22 @@ class LogParser:
         return test_dataloader
 
     def load_data(self, windows_folder_path):
+        headers, regex = self.generate_logformat_regex(self.log_format)
+        df_log = self.log_to_dataframe(
+            windows_folder_path, regex, headers, self.log_format
+        )
+        return [df_log.iloc[i].Content for i in range(df_log.shape[0])]
+
+    def tokenize_data(self, input_text, isTrain=False):
+        data_tokenized = []
+        for i in range(0, len(input_text)):
+            text_i = input_text[i].lower()  ## lowercase before tokenization
+            tokenized = self.tokenizer.tokenize("<CLS> " + text_i, isTrain=isTrain)
+            data_tokenized.append(tokenized)
+        return data_tokenized
+
+    def log_to_dataframe(self, windows_folder_path, regex, headers, logformat):
+        """Function to transform log file to dataframe"""
         all_log_messages = []
         json_files = sorted(
             [
@@ -305,18 +295,36 @@ class LogParser:
             window_df = pd.read_json(
                 os.path.join(windows_folder_path, window_file), lines=True
             )
-            masked_log_messages = window_df["masked_log"]
-            for index, masked_log in masked_log_messages.items():
-                all_log_messages.append(masked_log)
-        return all_log_messages
+            masked_log_messages = window_df["masked_log"].tolist()
+            regex_log_messages = []
+            for masked_message in masked_log_messages:
+                try:
+                    match = regex.search(masked_message)
+                    message = [match.group(header) for header in headers]
+                    regex_log_messages.append(message)
+                except Exception as e:
+                    pass
+            all_log_messages.extend(regex_log_messages)
+        logdf = pd.DataFrame(all_log_messages, columns=headers)
+        logdf.insert(0, "LineId", None)
+        logdf["LineId"] = [i + 1 for i in range(len(all_log_messages))]
+        return logdf
 
-    def tokenize_data(self, input_text, isTrain=False):
-        data_tokenized = []
-        for i in range(0, len(input_text)):
-            text_i = input_text[i].lower()  ## lowercase before tokenization
-            tokenized = self.tokenizer.tokenize("<CLS> " + text_i, isTrain=isTrain)
-            data_tokenized.append(tokenized)
-        return data_tokenized
+    def generate_logformat_regex(self, logformat):
+        """Function to generate regular expression to split log messages"""
+        headers = []
+        splitters = re.split(r"(<[^<>]+>)", logformat)
+        regex = ""
+        for k in range(len(splitters)):
+            if k % 2 == 0:
+                splitter = re.sub(" +", "\\\s+", splitters[k])
+                regex += splitter
+            else:
+                header = splitters[k].strip("<").strip(">")
+                regex += "(?P<%s>.*?)" % header
+                headers.append(header)
+        regex = re.compile("^" + regex + "$")
+        return headers, regex
 
     def do_mask(self, batch):
         c = copy.deepcopy

@@ -117,3 +117,15 @@ venv.bak/
 .idea/
 
 *.DS_Store
+<<<<<<< HEAD
+=======
+
+# Opnictl
+/.dapper
+/.cache
+/bin
+/dist
+*.swp
+.idea
+opnictl
+>>>>>>> 6ec03642b3454b560b52f297a812820ff0e481ac

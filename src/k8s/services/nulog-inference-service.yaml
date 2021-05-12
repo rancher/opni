@@ -24,9 +24,9 @@ spec:
         - name: MINIO_ENDPOINT
           value: "http://minio.opni-system.svc.cluster.local:9000"
         - name: MINIO_ACCESS_KEY
-          value: "myaccesskey"
+          value: "%MINIO_ACCESS_KEY%"
         - name: MINIO_SECRET_KEY
-          value: "mysecretkey"
+          value: "%MINIO_SECRET_KEY%"
         - name: MODEL_THRESHOLD
           value: "0.5"
         - name: MIN_LOG_TOKENS

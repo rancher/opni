@@ -1,0 +1,13 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: nats 
+  namespace: opni-system
+spec:
+  chart: nats
+  repo: https://charts.bitnami.com/bitnami
+  set:
+    auth.enabled: "true"
+    auth.password: "%NATS_PASSWORD%"
+    replicaCount: "%NATS_REPLICAS%"
+    maxPayload: "%NATS_MAX_PAYLOAD%"

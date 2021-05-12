@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+source $(dirname $0)/version
+
+# grab and package opendistro-es
+CHART_FILE=../src/k8s/opni-stack/opendistro-es.yaml
+CHART_NAME=opendistro-es
+OPENDISTROES_VERSION=1.13.2
+
+git clone --depth 1 --branch v${OPENDISTROES_VERSION} https://github.com/opendistro-for-elasticsearch/opendistro-build
+
+helm package opendistro-build/helm/opendistro-es/
+
+CHART_TMP=${PWD}/opendistro-es-${OPENDISTROES_VERSION}.tgz
+CHART_CONTENT=$(base64 -w0 < "${CHART_TMP}")
+
+sed -i "s~%OPENDISTRO_ES_CHART_CONTENT%~$CHART_CONTENT~g" ${CHART_FILE}

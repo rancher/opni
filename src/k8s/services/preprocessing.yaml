@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: preprocessing-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: preprocessing-service
+  template:
+    metadata:
+      labels:
+        app: preprocessing-service
+    spec:
+      initContainers:
+      - name: kibana-dashboard
+        image: husseingalal/opni-kibana-dashboard:v0.0
+        imagePullPolicy: Always
+        env:
+        - name: ES_ENDPOINT
+          value: "https://opendistro-es-client-service.opni-system.svc.cluster.local:9200"
+        - name: ES_USER
+          value: "%ES_USER%"
+        - name: ES_PASSWORD
+          value: "%ES_PASSWORD%"
+      containers:
+      - name: preprocessing-service
+        image: sanjayrancher/preprocessing-service:v0.0
+        imagePullPolicy: Always
+        env:
+        - name: NATS_SERVER_URL
+          value: "nats://nats_client:%NATS_PASSWORD%@nats-client.opni-system.svc:4222"
+        - name: ES_ENDPOINT
+          value: "https://opendistro-es-client-service.opni-system.svc.cluster.local:9200"

@@ -1,0 +1,6 @@
+jsonpickle==1.5.1
+cachetools==4.2.1
+pandas==1.2.3
+asyncio-nats-client
+elasticsearch[async]
+schedule

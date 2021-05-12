@@ -7,6 +7,3 @@ spec:
   chart: traefik
   repo: https://helm.traefik.io/traefik
   version: "%TRAEFIK_VERSION%"
-  set:
-    rbac.enabled: "true"
-    ssl.enabled: "true"

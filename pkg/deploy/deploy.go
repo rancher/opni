@@ -51,6 +51,8 @@ func Install(ctx context.Context, sc *Context, values map[string]string) error {
 		return err
 	}
 
+	time.Sleep(10 * time.Second)
+
 	// initialize configuration secrets
 	logrus.Infof("Initializing infrastructure configuration")
 	configObj, configOwner := configObj(values)

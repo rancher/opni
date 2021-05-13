@@ -5,12 +5,12 @@ import logging
 from NuLogParser import LogParser
 
 
-def init_model():
+def init_model(save_path="output/"):
     logging.info("initializing...")
     nr_epochs = 1
     num_samples = 0
 
-    parser = LogParser()
+    parser = LogParser(save_path=save_path)
     parser.tokenizer.load_vocab()
     parser.init_inference(nr_epochs=nr_epochs, num_samples=num_samples)
 

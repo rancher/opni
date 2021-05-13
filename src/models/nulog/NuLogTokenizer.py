@@ -6,7 +6,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(messa
 
 
 class LogTokenizer:
-    def __init__(self):
+    def __init__(self, filepath="output/"):
+        self.filepath = filepath
         self.word2index = {
             "<PAD>": 0,
             "<CLS>": 1,
@@ -36,10 +37,10 @@ class LogTokenizer:
             self.index2word[self.valid_words] = word
             self.valid_words += 1
 
-    def load_vocab(self, filepath="output/"):
+    def load_vocab(self):
         self.word2index = {}
         self.index2word = {}
-        with open(os.path.join(filepath, "vocab.txt"), "r") as fin:
+        with open(os.path.join(self.filepath, "vocab.txt"), "r") as fin:
             self.n_words = int(fin.readline().rstrip())
             self.valid_words = int(fin.readline().rstrip())
             logging.info("n_words : " + str(self.n_words))
@@ -49,8 +50,8 @@ class LogTokenizer:
                 self.index2word[idx] = word_i
                 self.word2index[word_i] = idx
 
-    def save_vocab(self, filepath="output/"):
-        with open(os.path.join(filepath, "vocab.txt"), "w") as fout:
+    def save_vocab(self):
+        with open(os.path.join(self.filepath, "vocab.txt"), "w") as fout:
             logging.info("n_words : " + str(self.n_words))
             logging.info("valid_words : " + str(self.valid_words))
             fout.write(str(self.n_words))

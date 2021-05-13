@@ -52,9 +52,11 @@ async def infer_logs(logs_queue):
     )
 
     nulog_predictor = NulogServer()
-    if not IS_CONTROL_PLANE_SERVICE:  ## control plane model is built-in in the image.
+    if IS_CONTROL_PLANE_SERVICE:
+        nulog_predictor.load(save_path="control-plane-output/")
+    else:
         nulog_predictor.download_from_minio()
-    nulog_predictor.load()
+        nulog_predictor.load()
 
     async def doc_generator(df):
         for index, document in df.iterrows():

@@ -32,14 +32,9 @@ num_total_clusters_tracking_queue = deque([], 50)
 
 
 async def consume_logs(nw, loop, incoming_logs_to_train_queue, logs_to_update_es):
-    if not nw.nc.is_connected:
-        await nw.connect(loop)
-        nw.add_signal_handler(loop)
-
     async def subscribe_handler(msg):
         subject = msg.subject
         reply = msg.reply
-        payload_data = msg.data.decode()
         payload_data = msg.data.decode()
         await incoming_logs_to_train_queue.put(
             pd.read_json(payload_data, dtype={"_id": object})
@@ -50,34 +45,35 @@ async def consume_logs(nw, loop, incoming_logs_to_train_queue, logs_to_update_es
         logging.info("got anomaly payload")
         await logs_to_update_es.put(pd.read_json(anomalies_data, dtype={"_id": object}))
 
-    await nw.subscribe(
-        nats_subject="preprocessed_logs",
-        payload_queue=None,
-        subscribe_handler=subscribe_handler,
-    )
-    await nw.subscribe(
-        nats_subject="preprocessed_logs_control_plane",
-        payload_queue=None,
-        subscribe_handler=subscribe_handler,
-    )
-    await nw.subscribe(
-        nats_subject="anomalies",
-        payload_queue=None,
-        subscribe_handler=anomalies_subscription_handler,
-    )
+    while True:
+        if nw.first_run_or_got_disconnected_or_error:
+            logging.info("Need to (re)connect to NATS")
+            nw.re_init()
+            await nw.connect()
+            await nw.subscribe(
+                nats_subject="preprocessed_logs",
+                payload_queue=None,
+                subscribe_handler=subscribe_handler,
+            )
+            await nw.subscribe(
+                nats_subject="preprocessed_logs_control_plane",
+                payload_queue=None,
+                subscribe_handler=subscribe_handler,
+            )
+            await nw.subscribe(
+                nats_subject="anomalies",
+                payload_queue=None,
+                subscribe_handler=anomalies_subscription_handler,
+            )
+            nw.first_run_or_got_disconnected_or_error = False
+        await asyncio.sleep(1)
 
 
 async def train_and_inference(nw, incoming_logs_to_train_queue, fail_keywords_str):
     global num_no_templates_change_tracking_queue, num_templates_changed_tracking_queue, num_clusters_created_tracking_queue
     while True:
         payload_data_df = await incoming_logs_to_train_queue.get()
-
-        if not nw.nc.is_connected:
-            await nw.connect(loop)
-            nw.add_signal_handler(loop)
-
         inferencing_results = []
-
         for index, row in payload_data_df.iterrows():
             log_message = row["masked_log"]
             if log_message:
@@ -133,6 +129,8 @@ async def train_and_inference(nw, incoming_logs_to_train_queue, fail_keywords_st
             .to_json()
             .encode()
         )
+        if not nw.nc.is_connected:
+            await nw.connect()
         await nw.publish("anomalies", prediction_payload)
 
 
@@ -301,8 +299,6 @@ async def training_signal_check(nw):
 
         previous_weighted_vol = weighted_vol
 
-        logging.info([t.__str__() for t in template_miner.drain.clusters])
-
 
 if __name__ == "__main__":
     fail_keywords_str = ""
@@ -315,12 +311,12 @@ if __name__ == "__main__":
             fail_keywords_str += "({})".format(fail_keyword)
     logging.info("fail_keywords_str = {}".format(fail_keywords_str))
 
-    nw = NatsWrapper()
-
     loop = asyncio.get_event_loop()
     incoming_logs_to_train_queue = asyncio.Queue(loop=loop)
     model_to_save_queue = asyncio.Queue(loop=loop)
     logs_to_update_in_elasticsearch = asyncio.Queue(loop=loop)
+
+    nw = NatsWrapper(loop)
 
     preprocessed_logs_consumer_coroutine = consume_logs(
         nw, loop, incoming_logs_to_train_queue, logs_to_update_in_elasticsearch

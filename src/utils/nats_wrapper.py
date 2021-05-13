@@ -57,6 +57,7 @@ class NatsWrapper:
             await self.nc.connect(**options)
             logging.info(f"Connected to NATS at {self.nc.connected_url.netloc}...")
         except Exception as e:
+            logging.info("Failed to connect to nats")
             logging.error(e)
 
     def add_signal_handler(self):

@@ -57,13 +57,13 @@ class NulogServer:
                 )
                 return
 
-    def load(self):
+    def load(self, save_path="output/"):
         if using_GPU:
             logging.debug("inferencing with GPU.")
         else:
             logging.debug("inferencing without GPU.")
         try:
-            self.parser = nuloginf.init_model()
+            self.parser = nuloginf.init_model(save_path=save_path)
             self.is_ready = True
             logging.info("Nulog model gets loaded.")
         except Exception as e:

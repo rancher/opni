@@ -53,13 +53,11 @@ class NatsWrapper:
             "disconnected_cb": on_disconnect,
             "servers": [self.NATS_SERVER_URL],
         }
-
         try:
             await self.nc.connect(**options)
             logging.info(f"Connected to NATS at {self.nc.connected_url.netloc}...")
         except Exception as e:
             logging.error(e)
-
 
     def add_signal_handler(self):
         def signal_handler():
@@ -76,9 +74,8 @@ class NatsWrapper:
         nats_subject: str,
         payload_queue: asyncio.Queue,
         nats_queue: str = "",
-        subscribe_handler=None
+        subscribe_handler=None,
     ):
-
         async def default_subscribe_handler(msg):
             subject = msg.subject
             reply = msg.reply
@@ -94,11 +91,6 @@ class NatsWrapper:
         this is not necessary at this point though
         """
         await self.nc.publish(nats_subject, payload_df)
-
-
-#####################################################################
-##                          example usage:                         ##
-#####################################################################
 
 
 async def nats_subscriber(nw, payload_queue):

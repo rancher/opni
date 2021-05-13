@@ -286,7 +286,6 @@ async def training_signal_check(nw):
                     normal_periods.append(
                         {"start_ts": training_start_ts_ns, "end_ts": training_end_ts_ns}
                     )
-                # TODO send NATS signal
                 train_payload = {
                     "model_to_train": "nulog",
                     "time_intervals": normal_periods,

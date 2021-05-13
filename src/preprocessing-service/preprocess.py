@@ -42,10 +42,8 @@ async def doc_generator(df):
         yield doc_dict
 
 
-async def consume_logs(nw, loop, mask_logs_queue):
+async def consume_logs(nw, mask_logs_queue):
     async def subscribe_handler(msg):
-        subject = msg.subject
-        reply = msg.reply
         payload_data = msg.data.decode()
         await mask_logs_queue.put(pd.read_json(payload_data, dtype={"_id": object}))
 
@@ -64,7 +62,7 @@ async def consume_logs(nw, loop, mask_logs_queue):
         await asyncio.sleep(1)
 
 
-async def mask_logs(nw, loop, queue):
+async def mask_logs(nw, queue):
     masker = LogMasker()
     while True:
         payload_data_df = await queue.get()
@@ -146,8 +144,8 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     mask_logs_queue = asyncio.Queue(loop=loop)
     nw = NatsWrapper(loop)
-    nats_consumer_coroutine = consume_logs(nw, loop, mask_logs_queue)
-    mask_logs_coroutine = mask_logs(nw, loop, mask_logs_queue)
+    nats_consumer_coroutine = consume_logs(nw, mask_logs_queue)
+    mask_logs_coroutine = mask_logs(nw, mask_logs_queue)
     loop.run_until_complete(
         asyncio.gather(nats_consumer_coroutine, mask_logs_coroutine)
     )

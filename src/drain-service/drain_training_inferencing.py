@@ -31,10 +31,8 @@ num_clusters_created_tracking_queue = deque([], 50)
 num_total_clusters_tracking_queue = deque([], 50)
 
 
-async def consume_logs(nw, loop, incoming_logs_to_train_queue, logs_to_update_es):
+async def consume_logs(nw, incoming_logs_to_train_queue, logs_to_update_es):
     async def subscribe_handler(msg):
-        subject = msg.subject
-        reply = msg.reply
         payload_data = msg.data.decode()
         await incoming_logs_to_train_queue.put(
             pd.read_json(payload_data, dtype={"_id": object})
@@ -233,9 +231,7 @@ async def training_signal_check(nw):
     train_on_next_chance = True
     stable = False
     training_start_ts_ns = time.time_ns()
-    training_end_ts_ns = -1.0
     very_first_ts_ns = training_start_ts_ns
-    previous_weighted_vol = -1.0
 
     normal_periods = []
 
@@ -296,8 +292,6 @@ async def training_signal_check(nw):
 
                 training_start_ts_ns = time.time_ns()
 
-        previous_weighted_vol = weighted_vol
-
 
 if __name__ == "__main__":
     fail_keywords_str = ""
@@ -318,7 +312,7 @@ if __name__ == "__main__":
     nw = NatsWrapper(loop)
 
     preprocessed_logs_consumer_coroutine = consume_logs(
-        nw, loop, incoming_logs_to_train_queue, logs_to_update_in_elasticsearch
+        nw, incoming_logs_to_train_queue, logs_to_update_in_elasticsearch
     )
     train_coroutine = train_and_inference(
         nw, incoming_logs_to_train_queue, fail_keywords_str

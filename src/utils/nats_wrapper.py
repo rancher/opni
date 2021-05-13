@@ -14,21 +14,31 @@ logging.basicConfig(
 
 
 class NatsWrapper:
-    def __init__(self):
+    def __init__(self, loop):
         self.nc = NATS()
         self.NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
+        self.loop = loop
+        self.add_signal_handler()
+        self.first_run_or_got_disconnected_or_error = True
 
-    async def connect(self, loop):
+    def re_init(self):
+        self.nc = NATS()
+
+    async def connect(self):
         async def error_cb(e):
             logging.warning("Error: {}".format(str(e)))
+            self.first_run_or_got_disconnected_or_error = True
+            await self.nc.close()
 
         async def closed_cb():
             logging.warning("Closed connection to NATS")
-            await asyncio.sleep(0.1, loop=loop)
-            loop.stop()
+            await asyncio.sleep(0.1, loop=self.loop)
+            self.loop.stop()
 
         async def on_disconnect():
             logging.warning("Disconnected from NATS")
+            self.first_run_or_got_disconnected_or_error = True
+            await self.nc.close()
 
         async def reconnected_cb():
             logging.warning(
@@ -36,7 +46,7 @@ class NatsWrapper:
             )
 
         options = {
-            "loop": loop,
+            "loop": self.loop,
             "error_cb": error_cb,
             "closed_cb": closed_cb,
             "reconnected_cb": reconnected_cb,
@@ -46,28 +56,29 @@ class NatsWrapper:
 
         try:
             await self.nc.connect(**options)
+            logging.info(f"Connected to NATS at {self.nc.connected_url.netloc}...")
         except Exception as e:
             logging.error(e)
 
-        logging.info(f"Connected to NATS at {self.nc.connected_url.netloc}...")
 
-    def add_signal_handler(self, loop):
+    def add_signal_handler(self):
         def signal_handler():
             if self.nc.is_closed:
                 return
             logging.warning("Disconnecting...")
-            loop.create_task(self.nc.close())
+            self.loop.create_task(self.nc.close())
 
         for sig in ("SIGINT", "SIGTERM"):
-            loop.add_signal_handler(getattr(signal, sig), signal_handler)
+            self.loop.add_signal_handler(getattr(signal, sig), signal_handler)
 
     async def subscribe(
         self,
         nats_subject: str,
         payload_queue: asyncio.Queue,
         nats_queue: str = "",
-        subscribe_handler=None,
+        subscribe_handler=None
     ):
+
         async def default_subscribe_handler(msg):
             subject = msg.subject
             reply = msg.reply
@@ -90,9 +101,7 @@ class NatsWrapper:
 #####################################################################
 
 
-async def nats_subscriber(nw, loop, payload_queue):
-    await nw.connect(loop)
-    nw.add_signal_handler(loop)
+async def nats_subscriber(nw, payload_queue):
     await nw.subscribe(nats_subject="logs", payload_queue=payload_queue)
 
 
@@ -109,8 +118,8 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     payload_queue = asyncio.Queue(loop=loop)
 
-    nw = NatsWrapper()
-    subscriber_coroutine = nats_subscriber(nw, loop, payload_queue)
+    nw = NatsWrapper(loop)
+    subscriber_coroutine = nats_subscriber(nw, payload_queue)
     publisher_coroutine = nats_publisher(nw, payload_queue)
 
     loop.run_until_complete(asyncio.gather(subscriber_coroutine, publisher_coroutine))

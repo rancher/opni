@@ -32,8 +32,8 @@ class NatsWrapper:
 
         async def closed_cb():
             logging.warning("Closed connection to NATS")
+            self.first_run_or_got_disconnected_or_error = True
             await asyncio.sleep(0.1, loop=self.loop)
-            self.loop.stop()
 
         async def on_disconnect():
             logging.warning("Disconnected from NATS")

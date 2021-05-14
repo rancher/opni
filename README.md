@@ -2,14 +2,53 @@
 
 Opni is a collection of AIOPs tools - it currently features log anomaly detection for Kubernetes.
 
-**Stable v0.1 release in May 2021**
+- [ ] **Stable v0.1 release in May 2021**
 ____
 
 **Watch a demo of Opni:**
 
 [![](https://opni-public.s3.us-east-2.amazonaws.com/opni_youtube_gh.png)](https://youtu.be/DQVBwMaO_o0)
 ____
+## Installing
+Use a 1-command install: `opnictl` - A small tool to install the opni stack on Kubernetes cluster
+```
+opnictl install --kubeconfig <kubeconfig path>
+```
+
+### Options
+The tool can be customized to specify different passwords and versions for the stack components:
+```
+# opnictl install --help
+NAME:
+   opnictl install - install opni stack
+
+USAGE:
+   opnictl install [OPTIONS]
+
+OPTIONS:
+   --kubeconfig value               [$KUBECONFIG]
+   --minio-access-key value         [$MINIO_ACCESS_KEY]
+   --minio-secret-key value         [$MINIO_SECRET_KEY]
+   --minio-version value           (default: "4.0.8") [$MINIO_VERSION]
+   --nats-version value            (default: "2.2.1") [$NATS_VERSION]
+   --nats-password value            [$NATS_PASSWORD]
+   --nats-replicas value           (default: 3) [$NATS_REPLICAS]
+   --nats-max-payload value        (default: 10485760) [$NATS_MAX_PAYLOAD]
+   --nvidia-version value          (default: "1.0.0-beta6") [$NVIDIA_VERSION]
+   --elasticsearch-user value      (default: "admin") [$ES_USER]
+   --elasticsearch-password value  (default: "admin") [$ES_PASSWORD]
+   --traefik-version value         (default: "v9.18.3") [$TRAEFIK_VERSION]
+```
+If passwords are not specified for a specific component, a random generated password will be created for it.
+
+For deleting the stack:
+```
+opnictl delete --kubeconfig <kubeconfig path> --all
+```
+____
+
 #### What does Opni give me?
+TODO: Add architecture markdown file
 * Insights into logs from your cluster's workloads, control plane & etcd
 * Opni insights dashboard to inspect logs
 * Ability to send alerts (slack/email/etc) when anomaly threshold is breached
@@ -34,56 +73,6 @@ ____
 #### Upcoming features
 - Prediction feedback - give feedback for incorrect predictions so the AI adapts better to your logs
 - Control plane log anomaly detection for additional Kubernetes distributions besides RKE including K3S and EKS.
-
-
-## opnictl
-
-A small tool to install the opni stack on Kubernetes cluster
-
-### Usage
-
-For installing the stack:
-
-```
-# opnictl install --kubeconfig <kubeconfig path>
-INFO[0000] Starting installer                                
-INFO[0001] Deploying infrastructure resources           
-INFO[0003] Deploying opni stack
-```
-
-For deleting the stack:
-
-```
-# opnictl delete --kubeconfig <kubeconfig path> --all
-```
-
-### Options
-
-The tool can be customized to specify different passwords and versions for the stack components:
-```
-# opnictl install --help
-NAME:
-   opnictl install - install opni stack
-
-USAGE:
-   opnictl install [OPTIONS]
-
-OPTIONS:
-   --kubeconfig value               [$KUBECONFIG]
-   --minio-access-key value         [$MINIO_ACCESS_KEY]
-   --minio-secret-key value         [$MINIO_SECRET_KEY]
-   --minio-version value           (default: "4.0.8") [$MINIO_VERSION]
-   --nats-version value            (default: "2.2.1") [$NATS_VERSION]
-   --nats-password value            [$NATS_PASSWORD]
-   --nats-replicas value           (default: 3) [$NATS_REPLICAS]
-   --nats-max-payload value        (default: 10485760) [$NATS_MAX_PAYLOAD]
-   --nvidia-version value          (default: "1.0.0-beta6") [$NVIDIA_VERSION]
-   --elasticsearch-user value      (default: "admin") [$ES_USER]
-   --elasticsearch-password value  (default: "admin") [$ES_PASSWORD]
-   --traefik-version value         (default: "v9.18.3") [$TRAEFIK_VERSION]
-```
-
-If passwords are not specified for a specific component, a random generated password will be created for it.
 
 ____
 #### Ship Logs to Opni

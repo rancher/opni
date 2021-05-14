@@ -28,7 +28,6 @@ class NatsWrapper:
         async def error_cb(e):
             logging.warning("Error: {}".format(str(e)))
             self.first_run_or_got_disconnected_or_error = True
-            await self.nc.close()
 
         async def closed_cb():
             logging.warning("Closed connection to NATS")
@@ -38,7 +37,6 @@ class NatsWrapper:
         async def on_disconnect():
             logging.warning("Disconnected from NATS")
             self.first_run_or_got_disconnected_or_error = True
-            await self.nc.close()
 
         async def reconnected_cb():
             logging.warning(
@@ -53,12 +51,15 @@ class NatsWrapper:
             "disconnected_cb": on_disconnect,
             "servers": [self.NATS_SERVER_URL],
         }
-        try:
-            await self.nc.connect(**options)
-            logging.info(f"Connected to NATS at {self.nc.connected_url.netloc}...")
-        except Exception as e:
-            logging.info("Failed to connect to nats")
-            logging.error(e)
+        while True:
+            try:
+                await self.nc.connect(**options)
+                logging.info(f"Connected to NATS at {self.nc.connected_url.netloc}...")
+                break
+            except Exception as e:
+                logging.info("Failed to connect to nats")
+                logging.error(e)
+                await asyncio.sleep(1)
 
     def add_signal_handler(self):
         def signal_handler():

@@ -25,7 +25,7 @@ spec:
           value: "%ES_PASSWORD%"
       containers:
       - name: preprocessing-service
-        image: sanjayrancher/preprocessing-service:v0.0
+        image: tybalex/preprocessing-service:v0.1
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL

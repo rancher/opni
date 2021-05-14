@@ -2,74 +2,20 @@
 
 Opni is a collection of AIOPs tools - it currently features log anomaly detection for Kubernetes.
 
-**Stable v0.1 release on May 13**
+- [ ] **Stable v0.1 release in May 2021**
 ____
 
 **Watch a demo of Opni:**
 
 [![](https://opni-public.s3.us-east-2.amazonaws.com/opni_youtube_gh.png)](https://youtu.be/DQVBwMaO_o0)
 ____
-#### What does it give me?
-* Insights into logs from your cluster's workloads, control plane & etcd
-* Opni insights dashboard to inspect logs
-* Ability to send alerts (slack/email/etc) when anomaly threshold is breached
-
-Every log message sent to Opni will be marked as either normal, suspicious, or anomalous.
-If a lot of logs in a short period of time are marked as suspicious or anomalous it is probably worth investigating!
-The anomaly threshold is a number that can tuned depending on your volume of logs and how frequently Opni is predicting anomalies.
-____
-#### Prerequisites
-* At least two GPU nodes (K80 GPU or higher)
-* One node with at least 4 CPUs
-* At least three additional nodes each with at least 16 GB RAM and 40 GB of disk space.
-____
-#### How does it work?
-Ship logs over to your Opni cluster with [Rancher Logging](https://rancher.com/docs/rancher/v2.x/en/logging/v2.5/). That's it! Opni will continuously learn the nature of your logs and will update models automatically.
-____
-#### Ship Logs to Opni
-TODO
-____
-#### Upcoming features
-- Prediction feedback - give feedback for incorrect predictions so the AI adapts better to your logs
-- Control plane log anomaly detection for additional Kubernetes distributions besides RKE including K3S and EKS.
-
-## Contributing
-We use `pre-commit` for formatting auto-linting and checking import. Please refer to [installation](https://pre-commit.com/#installation) to install the pre-commit or run `pip install pre-commit`. Then you can activate it for this repo. Once it's activated, it will lint and format the code when you make a git commit. It makes changes in place. If the code is modified during the reformatting, it needs to be staged manually.
-
+## Installing
+Use a 1-command install: `opnictl` - A small tool to install the opni stack on Kubernetes cluster
 ```
-# Install
-pip install pre-commit
-
-# Install the git commit hook to invoke automatically every time you do "git commit"
-pre-commit install
-
-# (Optional)Manually run against all files
-pre-commit run --all-files
-```
-
-## opnictl
-
-A small tool to install the opni stack on Kubernetes cluster
-
-### Usage
-
-For installing the stack:
-
-```
-# opnictl install --kubeconfig <kubeconfig path>
-INFO[0000] Starting installer                                
-INFO[0001] Deploying infrastructure resources           
-INFO[0003] Deploying opni stack
-```
-
-For deleting the stack:
-
-```
-# opnictl delete --kubeconfig <kubeconfig path> --all
+opnictl install --kubeconfig <kubeconfig path>
 ```
 
 ### Options
-
 The tool can be customized to specify different passwords and versions for the stack components:
 ```
 # opnictl install --help
@@ -93,11 +39,52 @@ OPTIONS:
    --elasticsearch-password value  (default: "admin") [$ES_PASSWORD]
    --traefik-version value         (default: "v9.18.3") [$TRAEFIK_VERSION]
 ```
-
 If passwords are not specified for a specific component, a random generated password will be created for it.
 
-### Development
+For deleting the stack:
+```
+opnictl delete --kubeconfig <kubeconfig path> --all
+```
+____
 
+#### What does Opni give me?
+TODO: Add architecture markdown file
+* Insights into logs from your cluster's workloads, control plane & etcd
+* Opni insights dashboard to inspect logs
+* Ability to send alerts (slack/email/etc) when anomaly threshold is breached
+
+Every log message sent to Opni will be marked as either normal, suspicious, or anomalous.
+If a lot of logs in a short period of time are marked as suspicious or anomalous it is probably worth investigating!
+The anomaly threshold is a number that can tuned depending on your volume of logs and how frequently Opni is predicting anomalies.
+____
+#### Prerequisites
+TODO Production
+* At least two GPU nodes (K80 GPU or higher)
+* One node with at least 4 CPUs
+* At least three additional nodes each with at least 16 GB RAM and 40 GB of disk space.
+
+Want to try Opni out on on a lightweight cluster? (it's a lightweight opni with only control plane logs anomaly detection)
+TODO
+____
+#### How does it work?
+TODO Move this to another markdown file
+Ship logs over to your Opni cluster with [Rancher Logging](https://rancher.com/docs/rancher/v2.x/en/logging/v2.5/). That's it! Opni will continuously learn the nature of your logs and will update models automatically.
+____
+#### Upcoming features
+- Prediction feedback - give feedback for incorrect predictions so the AI adapts better to your logs
+- Control plane log anomaly detection for additional Kubernetes distributions besides RKE including K3S and EKS.
+
+____
+#### Ship Logs to Opni
+Fetch the Opni service endpoint by running:
+```
+kubectl get svc traefik -n opni-system -o jsonpath='{.status.loadBalancer.ingress[*].hostname}'
+```
+* Your endpoint will look something like `xyz-xxxxxxxxx.us-east-2.elb.amazonaws.com`
+____
+
+### Development
+TODO Add this to its own markdown file
 Building
 
 ```
@@ -121,6 +108,21 @@ for running the tool, you can use the following command:
 
 ```
 ./bin/opnictl-darwin install --kubeconfig <kubeconfig path>
+```
+
+## Contributing
+TODO Add this to its own markdown file
+We use `pre-commit` for formatting auto-linting and checking import. Please refer to [installation](https://pre-commit.com/#installation) to install the pre-commit or run `pip install pre-commit`. Then you can activate it for this repo. Once it's activated, it will lint and format the code when you make a git commit. It makes changes in place. If the code is modified during the reformatting, it needs to be staged manually.
+
+```
+# Install
+pip install pre-commit
+
+# Install the git commit hook to invoke automatically every time you do "git commit"
+pre-commit install
+
+# (Optional)Manually run against all files
+pre-commit run --all-files
 ```
 
 ## License

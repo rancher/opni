@@ -328,10 +328,15 @@ async def consume_nats_drain_signal(queue, signals_queue):
 
 
 async def consume_payload_coroutine(loop, jobs_queue):
-    nw = NatsWrapper()
-    await nw.connect(loop)
-    nw.add_signal_handler(loop)
-    await nw.subscribe(nats_subject="train", payload_queue=jobs_queue)
+    nw = NatsWrapper(loop)
+    while True:
+        if nw.first_run_or_got_disconnected_or_error:
+            logging.info("Need to (re)connect to NATS")
+            nw.re_init()
+            await nw.connect()
+            await nw.subscribe(nats_subject="train", payload_queue=jobs_queue)
+            nw.first_run_or_got_disconnected_or_error = False
+        await asyncio.sleep(1)
 
 
 if __name__ == "__main__":

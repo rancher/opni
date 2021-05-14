@@ -18,15 +18,16 @@ nw = None
 @app.on_event("startup")
 async def startup_event():
     global nw
-    nw = NatsWrapper()
     loop = asyncio.get_event_loop()
-    await nw.connect(loop)
+    nw = NatsWrapper(loop)
+    await nw.connect()
+    nw.first_run_or_got_disconnected_or_error = False
 
 
 async def get_nats() -> NATS:
-    if not nw.nc.is_connected:
-        loop = asyncio.get_event_loop()
-        await nw.connect(loop)
+    if not nw.nc.is_connected or nw.first_run_or_got_disconnected_or_error:
+        await nw.connect()
+        nw.first_run_or_got_disconnected_or_error = False
     return nw.nc
 
 
@@ -48,9 +49,10 @@ async def push_to_nats(nats: NATS, payload):
         df["_id"] = df["time_nanoseconds"].map(str) + df.groupby(
             "time_nanoseconds"
         ).cumcount().map("{:016b}".format)
+        df = df.fillna("")
         if "id" in df.columns:
             df["id"] = df["id"].map(str)
-        df = df.fillna("")
+
         for window_start_time_ns, data_df in df.groupby(["window_start_time_ns"]):
             window_payload_size_bytes = data_df.memory_usage(deep=True).sum()
             num_chunked_dfs = max(

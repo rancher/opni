@@ -42,32 +42,30 @@ async def doc_generator(df):
         yield doc_dict
 
 
-async def consume_logs(nw, loop, mask_logs_queue):
-    if not nw.nc.is_connected:
-        await nw.connect(loop)
-        nw.add_signal_handler(loop)
-
+async def consume_logs(nw, mask_logs_queue):
     async def subscribe_handler(msg):
-        subject = msg.subject
-        reply = msg.reply
         payload_data = msg.data.decode()
         await mask_logs_queue.put(pd.read_json(payload_data, dtype={"_id": object}))
 
-    await nw.subscribe(
-        nats_subject="raw_logs",
-        nats_queue="workers",
-        payload_queue=mask_logs_queue,
-        subscribe_handler=subscribe_handler,
-    )
+    while True:
+        if nw.first_run_or_got_disconnected_or_error:
+            logging.info("Need to (re)connect to NATS")
+            nw.re_init()
+            await nw.connect()
+            await nw.subscribe(
+                nats_subject="raw_logs",
+                nats_queue="workers",
+                payload_queue=mask_logs_queue,
+                subscribe_handler=subscribe_handler,
+            )
+            nw.first_run_or_got_disconnected_or_error = False
+        await asyncio.sleep(1)
 
 
-async def mask_logs(nw, loop, queue):
+async def mask_logs(nw, queue):
     masker = LogMasker()
     while True:
         payload_data_df = await queue.get()
-        if not nw.nc.is_connected:
-            await nw.connect(loop)
-            nw.add_signal_handler(loop)
         payload_data_df["log"] = payload_data_df["log"].str.strip()
         masked_logs = []
         for index, row in payload_data_df.iterrows():
@@ -122,6 +120,9 @@ async def mask_logs(nw, loop, queue):
         control_plane_logs_df = payload_data_df[is_control_log]
         app_logs_df = payload_data_df[~is_control_log]
 
+        if not nw.nc.is_connected:
+            await nw.connect()
+
         if len(app_logs_df) > 0:
             await nw.publish("preprocessed_logs", app_logs_df.to_json().encode())
 
@@ -155,9 +156,9 @@ async def es_log_management():
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     mask_logs_queue = asyncio.Queue(loop=loop)
-    nw = NatsWrapper()
-    nats_consumer_coroutine = consume_logs(nw, loop, mask_logs_queue)
-    mask_logs_coroutine = mask_logs(nw, loop, mask_logs_queue)
+    nw = NatsWrapper(loop)
+    nats_consumer_coroutine = consume_logs(nw, mask_logs_queue)
+    mask_logs_coroutine = mask_logs(nw, mask_logs_queue)
     es_management_coroutine = es_log_management()
     loop.run_until_complete(
         asyncio.gather(

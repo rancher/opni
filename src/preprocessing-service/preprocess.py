@@ -140,14 +140,30 @@ async def mask_logs(nw, queue):
                 logging.error("failed to %s document %s" % ())
 
 
+async def es_log_management():
+
+    query = {"query": {"range": {"timestamp": {"lte": "now-3d"}}}}
+    while True:
+        try:
+            await es.delete_by_query(index="logs", body=query)
+            logging.info("deleted logs older than 3 days!")
+        except Exception as e:
+            logging.error(e)
+
+        await asyncio.sleep(3600)  # deletion once an hour
+
+
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     mask_logs_queue = asyncio.Queue(loop=loop)
     nw = NatsWrapper(loop)
     nats_consumer_coroutine = consume_logs(nw, mask_logs_queue)
     mask_logs_coroutine = mask_logs(nw, mask_logs_queue)
+    es_management_coroutine = es_log_management()
     loop.run_until_complete(
-        asyncio.gather(nats_consumer_coroutine, mask_logs_coroutine)
+        asyncio.gather(
+            nats_consumer_coroutine, mask_logs_coroutine, es_management_coroutine
+        )
     )
     try:
         loop.run_forever()

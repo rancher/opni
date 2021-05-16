@@ -1,8 +1,13 @@
 # Opni - AIOPs for Kubernetes
 
-Opni is a collection of AIOPs tools - it currently features log anomaly detection for Kubernetes.
+Opni is a collection of AIOPs tools - it currently features log anomaly detection for Kubernetes. Future versions will introduce metric, event & trace anomaly detection, correlation analysis between all features, and remediation suggestions.
+
+![Architecture](https://opni-public.s3.us-east-2.amazonaws.com/arch.png)
+![Opni Dashboard](https://opni-public.s3.us-east-2.amazonaws.com/dashboard.png)
 
 - [ ] **Stable v0.1 release in May 2021**
+
+
 ____
 
 **Watch a demo of Opni:**

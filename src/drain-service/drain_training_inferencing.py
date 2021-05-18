@@ -18,17 +18,21 @@ pd.set_option("mode.chained_assignment", None)
 
 # Third Party
 from elasticsearch import AsyncElasticsearch
+from elasticsearch.exceptions import ConnectionTimeout
 from elasticsearch.helpers import BulkIndexError, async_streaming_bulk
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 persistence = FilePersistence("drain3_state.bin")
 template_miner = TemplateMiner(persistence)
 ES_ENDPOINT = os.environ["ES_ENDPOINT"]
-
+ES_USERNAME = os.environ["ES_USERNAME"]
+ES_PASSWORD = os.environ["ES_PASSWORD"]
 num_no_templates_change_tracking_queue = deque([], 50)
 num_templates_changed_tracking_queue = deque([], 50)
 num_clusters_created_tracking_queue = deque([], 50)
 num_total_clusters_tracking_queue = deque([], 50)
+
+nw = NatsWrapper()
 
 
 async def consume_logs(nw, incoming_logs_to_train_queue, logs_to_update_es):
@@ -43,28 +47,21 @@ async def consume_logs(nw, incoming_logs_to_train_queue, logs_to_update_es):
         logging.info("got anomaly payload")
         await logs_to_update_es.put(pd.read_json(anomalies_data, dtype={"_id": object}))
 
-    while True:
-        if nw.first_run_or_got_disconnected_or_error:
-            logging.info("Need to (re)connect to NATS")
-            nw.re_init()
-            await nw.connect()
-            await nw.subscribe(
-                nats_subject="preprocessed_logs",
-                payload_queue=None,
-                subscribe_handler=subscribe_handler,
-            )
-            await nw.subscribe(
-                nats_subject="preprocessed_logs_control_plane",
-                payload_queue=None,
-                subscribe_handler=subscribe_handler,
-            )
-            await nw.subscribe(
-                nats_subject="anomalies",
-                payload_queue=None,
-                subscribe_handler=anomalies_subscription_handler,
-            )
-            nw.first_run_or_got_disconnected_or_error = False
-        await asyncio.sleep(1)
+    await nw.subscribe(
+        nats_subject="preprocessed_logs",
+        payload_queue=None,
+        subscribe_handler=subscribe_handler,
+    )
+    await nw.subscribe(
+        nats_subject="preprocessed_logs_control_plane",
+        payload_queue=None,
+        subscribe_handler=subscribe_handler,
+    )
+    await nw.subscribe(
+        nats_subject="anomalies",
+        payload_queue=None,
+        subscribe_handler=anomalies_subscription_handler,
+    )
 
 
 async def train_and_inference(nw, incoming_logs_to_train_queue, fail_keywords_str):
@@ -127,8 +124,6 @@ async def train_and_inference(nw, incoming_logs_to_train_queue, fail_keywords_st
             .to_json()
             .encode()
         )
-        if not nw.nc.is_connected:
-            await nw.connect()
         await nw.publish("anomalies", prediction_payload)
 
 
@@ -136,11 +131,11 @@ async def update_es_logs(queue):
     es = AsyncElasticsearch(
         [ES_ENDPOINT],
         port=9200,
-        http_auth=("admin", "admin"),
+        http_auth=(ES_USERNAME, ES_PASSWORD),
         http_compress=True,
-        max_retries=5,
+        max_retries=10,
         retry_on_timeout=True,
-        timeout=10,
+        timeout=20,
         use_ssl=True,
         verify_certs=False,
     )
@@ -186,11 +181,13 @@ async def update_es_logs(queue):
                     doc_generator_anomaly(
                         anomaly_df[["_id", "_op_type", "_index", "script"]]
                     ),
+                    max_retries=5,
+                    initial_backoff=2,
                 ):
                     action, result = result.popitem()
                     if not ok:
                         logging.error("failed to %s document %s" % ())
-            except BulkIndexError as exception:
+            except (BulkIndexError, ConnectionTimeout) as exception:
                 logging.error("Failed to index data")
                 logging.error(exception)
             logging.info("Updated {} anomalies in ES".format(len(anomaly_df)))
@@ -210,11 +207,13 @@ async def update_es_logs(queue):
                         ]
                     ]
                 ),
+                max_retries=5,
+                initial_backoff=2,
             ):
                 action, result = result.popitem()
                 if not ok:
                     logging.error("failed to %s document %s" % ())
-        except BulkIndexError as exception:
+        except (BulkIndexError, ConnectionTimeout) as exception:
             logging.error("Failed to index data")
             logging.error(exception)
         logging.info("Updated {} logs in ES".format(len(df)))
@@ -293,6 +292,11 @@ async def training_signal_check(nw):
                 training_start_ts_ns = time.time_ns()
 
 
+async def main():
+    logging.info("connecting")
+    await nw.connect()
+
+
 if __name__ == "__main__":
     fail_keywords_str = ""
     for fail_keyword in os.environ["FAIL_KEYWORDS"].split(","):
@@ -309,7 +313,9 @@ if __name__ == "__main__":
     model_to_save_queue = asyncio.Queue(loop=loop)
     logs_to_update_in_elasticsearch = asyncio.Queue(loop=loop)
 
-    nw = NatsWrapper(loop)
+    task = loop.create_task(main())
+    loop.run_until_complete(task)
+    logging.info("Came here")
 
     preprocessed_logs_consumer_coroutine = consume_logs(
         nw, incoming_logs_to_train_queue, logs_to_update_in_elasticsearch

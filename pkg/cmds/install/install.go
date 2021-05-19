@@ -65,49 +65,49 @@ func getValues(ctx context.Context, cfg *cmds.InstallConfig, sc *deploy.Context)
 		return nil, err
 	}
 	if cfgSecret != nil && len(cfgSecret.Data) > 0 {
-		cfg.MinioAccessKey = string(cfgSecret.Data[deploy.MINIO_ACCESS_KEY])
-		cfg.MinioSecretKey = string(cfgSecret.Data[deploy.MINIO_SECRET_KEY])
-		cfg.NatsPassword = string(cfgSecret.Data[deploy.NATS_PASSWORD])
-		cfg.ElasticsearchPassword = string(cfgSecret.Data[deploy.ES_PASSWORD])
+		cfg.MinioAccessKey = string(cfgSecret.Data[deploy.MinioAccessKey])
+		cfg.MinioSecretKey = string(cfgSecret.Data[deploy.MinioSecretKey])
+		cfg.NatsPassword = string(cfgSecret.Data[deploy.NatsPassword])
+		cfg.ElasticsearchPassword = string(cfgSecret.Data[deploy.ESPassword])
 	}
 	values := make(map[string]string)
 	// get minio values
-	values[deploy.MINIO_ACCESS_KEY] = cfg.MinioAccessKey
-	values[deploy.MINIO_SECRET_KEY] = cfg.MinioSecretKey
-	values[deploy.MINIO_VERSION] = cfg.MinioVersion
+	values[deploy.MinioAccessKey] = cfg.MinioAccessKey
+	values[deploy.MinioSecretKey] = cfg.MinioSecretKey
+	values[deploy.MinioVersion] = cfg.MinioVersion
 	if cfg.MinioAccessKey == "" || cfg.MinioSecretKey == "" {
 		minioAccessKey := randStringRunes(8)
 		minioSecretKey := randStringRunes(8)
-		values[deploy.MINIO_ACCESS_KEY] = string(minioAccessKey)
-		values[deploy.MINIO_SECRET_KEY] = string(minioSecretKey)
+		values[deploy.MinioAccessKey] = string(minioAccessKey)
+		values[deploy.MinioSecretKey] = string(minioSecretKey)
 	}
 
 	// get nats values
-	values[deploy.NATS_PASSWORD] = cfg.NatsPassword
+	values[deploy.NatsPassword] = cfg.NatsPassword
 	if cfg.NatsPassword == "" {
 		natsPassword := randStringRunes(8)
-		values[deploy.NATS_PASSWORD] = string(natsPassword)
+		values[deploy.NatsPassword] = string(natsPassword)
 	}
-	values[deploy.NATS_MAX_PAYLOAD] = strconv.Itoa(cfg.NatsMaxPayload)
-	values[deploy.NATS_REPLICAS] = strconv.Itoa(cfg.NatsReplicas)
-	values[deploy.NATS_VERSION] = cfg.NatsVersion
+	values[deploy.NatsMaxPayload] = strconv.Itoa(cfg.NatsMaxPayload)
+	values[deploy.NatsReplicas] = strconv.Itoa(cfg.NatsReplicas)
+	values[deploy.NatsVersion] = cfg.NatsVersion
 
 	// get nvidia values
-	values[deploy.NVIDIA_VERSION] = cfg.NvidiaVersion
+	values[deploy.NvidiaVersion] = cfg.NvidiaVersion
 
 	// get elastic search values
-	values[deploy.ES_USER] = cfg.ElasticsearchUser
+	values[deploy.ESUser] = cfg.ElasticsearchUser
 	if cfg.ElasticsearchUser == "" {
-		values[deploy.ES_USER] = "admin"
+		values[deploy.ESUser] = "admin"
 	}
-	values[deploy.ES_PASSWORD] = cfg.ElasticsearchPassword
+	values[deploy.ESPassword] = cfg.ElasticsearchPassword
 	if cfg.ElasticsearchPassword == "" {
 		esPass := randStringRunes(8)
-		values[deploy.ES_PASSWORD] = string(esPass)
+		values[deploy.ESPassword] = string(esPass)
 	}
 
 	// get traefik values
-	values[deploy.TRAEFIK_VERSION] = cfg.TraefikVersion
+	values[deploy.TraefikVersion] = cfg.TraefikVersion
 	return values, nil
 }
 

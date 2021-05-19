@@ -19,23 +19,23 @@ import (
 )
 
 const (
-	InfraStack       = "infra-stack"
-	OpniStack        = "opni-stack"
-	ServicesStack    = "services"
-	OpniConfig       = "opni-config"
-	OpniSystemNS     = "opni-system"
-	MINIO_ACCESS_KEY = "MINIO_ACCESS_KEY"
-	MINIO_SECRET_KEY = "MINIO_SECRET_KEY"
-	MINIO_VERSION    = "MINIO_VERSION"
-	NATS_VERSION     = "NATS_VERSION"
-	NATS_PASSWORD    = "NATS_PASSWORD"
-	NATS_REPLICAS    = "NATS_REPLICAS"
-	NATS_MAX_PAYLOAD = "NATS_MAX_PAYLOAD"
-	NVIDIA_VERSION   = "NVIDIA_VERSION"
-	TRAEFIK_VERSION  = "TRAEFIK_VERSION"
-	ES_USER          = "ES_USER"
-	ES_PASSWORD      = "ES_PASSWORD"
-	waitTime         = 1 * time.Minute
+	InfraStack     = "infra-stack"
+	OpniStack      = "opni-stack"
+	ServicesStack  = "services"
+	OpniConfig     = "opni-config"
+	OpniSystemNS   = "opni-system"
+	MinioAccessKey = "MINIO_ACCESS_KEY"
+	MinioSecretKey = "MINIO_SECRET_KEY"
+	MinioVersion   = "MINIO_VERSION"
+	NatsVersion    = "NATS_VERSION"
+	NatsPassword   = "NATS_PASSWORD"
+	NatsReplicas   = "NATS_REPLICAS"
+	NatsMaxPayload = "NATS_MAX_PAYLOAD"
+	NvidiaVersion  = "NVIDIA_VERSION"
+	TraefikVersion = "TRAEFIK_VERSION"
+	ESUser         = "ES_USER"
+	ESPassword     = "ES_PASSWORD"
+	waitTime       = 1 * time.Minute
 )
 
 func Install(ctx context.Context, sc *Context, values map[string]string, disabledItems []string) error {
@@ -207,10 +207,10 @@ func configObj(values map[string]string) ([]runtime.Object, *corev1.Secret) {
 			Namespace: OpniSystemNS,
 		},
 		Data: map[string][]byte{
-			MINIO_ACCESS_KEY: []byte(values[MINIO_ACCESS_KEY]),
-			MINIO_SECRET_KEY: []byte(values[MINIO_ACCESS_KEY]),
-			NATS_PASSWORD:    []byte(values[NATS_PASSWORD]),
-			ES_PASSWORD:      []byte(values[ES_PASSWORD]),
+			MinioAccessKey: []byte(values[MinioAccessKey]),
+			MinioSecretKey: []byte(values[MinioSecretKey]),
+			NatsPassword:   []byte(values[NatsPassword]),
+			ESPassword:     []byte(values[ESPassword]),
 		},
 	}
 	return []runtime.Object{cfgSecret}, cfgSecret

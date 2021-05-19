@@ -38,10 +38,10 @@ const (
 	waitTime         = 1 * time.Minute
 )
 
-func Install(ctx context.Context, sc *Context, values map[string]string) error {
+func Install(ctx context.Context, sc *Context, values map[string]string, disabledItems []string) error {
 	// installing infra resources
 	logrus.Infof("Deploying infrastructure resources")
-	infraObjs, infraOwner, err := objs(InfraStack, values)
+	infraObjs, infraOwner, err := objs(InfraStack, values, disabledItems)
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,8 @@ func Install(ctx context.Context, sc *Context, values map[string]string) error {
 		return err
 	}
 
-	time.Sleep(10 * time.Second)
+	// wait for ns creation
+	waitForNS(ctx, sc, OpniSystemNS)
 
 	// initialize configuration secrets
 	logrus.Infof("Initializing infrastructure configuration")
@@ -64,7 +65,7 @@ func Install(ctx context.Context, sc *Context, values map[string]string) error {
 
 	// installing opni stack
 	logrus.Infof("Deploying opni stack")
-	opniObjs, opniOwner, err := objs(OpniStack, values)
+	opniObjs, opniOwner, err := objs(OpniStack, values, disabledItems)
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func Install(ctx context.Context, sc *Context, values map[string]string) error {
 
 	// installing services stack
 	logrus.Infof("Deploying services stack")
-	servicesObj, servicesOwner, err := objs(ServicesStack, values)
+	servicesObj, servicesOwner, err := objs(ServicesStack, values, disabledItems)
 	if err != nil {
 		return err
 	}
@@ -90,7 +91,7 @@ func Install(ctx context.Context, sc *Context, values map[string]string) error {
 	return sc.Apply.WithOwner(servicesOwner).WithSetID(ServicesStack).Apply(os)
 }
 
-func objs(dir string, values map[string]string) ([]runtime.Object, *corev1.ConfigMap, error) {
+func objs(dir string, values map[string]string, disabledItems []string) ([]runtime.Object, *corev1.ConfigMap, error) {
 	owner := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -104,6 +105,10 @@ func objs(dir string, values map[string]string) ([]runtime.Object, *corev1.Confi
 	objs := []runtime.Object{}
 	for _, asset := range AssetNames() {
 		if !strings.HasPrefix(asset, dir) {
+			continue
+		}
+		if disabled(asset, disabledItems) {
+			logrus.Infof("%s is disabled", asset)
 			continue
 		}
 		content, err := getManifest(asset)
@@ -182,7 +187,7 @@ func getManifest(name string, args ...string) ([]byte, error) {
 func replaceValues(content []byte, values map[string]string) []byte {
 	contentStr := string(content)
 	for k, v := range values {
-		contentStr = strings.Replace(contentStr, "%"+k+"%", v, 1)
+		contentStr = strings.Replace(contentStr, "%"+k+"%", v, -1)
 	}
 	return []byte(contentStr)
 }
@@ -224,5 +229,28 @@ func waitForOpniStack(ctx context.Context, sc *Context) {
 			logrus.Infof("Opni stack is ready")
 			break
 		}
+	}
+}
+
+func disabled(asset string, disabledItems []string) bool {
+	for _, disabled := range disabledItems {
+		if strings.Contains(asset, disabled) {
+			return true
+		}
+	}
+	return false
+}
+
+func waitForNS(ctx context.Context, sc *Context, ns string) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		_, err := sc.K8s.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
+		if err != nil {
+			logrus.Infof("Waiting for namespace %s creation", OpniSystemNS)
+			continue
+		}
+		logrus.Infof("%s namespace is ready", OpniSystemNS)
+		break
 	}
 }

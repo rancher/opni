@@ -2,12 +2,14 @@ package deploy
 
 import (
 	"context"
+	"os/user"
+	"path/filepath"
+	"strings"
 
 	"github.com/k3s-io/helm-controller/pkg/generated/controllers/helm.cattle.io"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/apps"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/batch"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/core"
-	"github.com/rancher/wrangler-api/pkg/generated/controllers/rbac"
 	"github.com/rancher/wrangler/pkg/apply"
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/rancher/wrangler/pkg/start"
@@ -20,17 +22,25 @@ type Context struct {
 	Helm  *helm.Factory
 	Batch *batch.Factory
 	Apps  *apps.Factory
-	Auth  *rbac.Factory
 	Core  *core.Factory
 	K8s   kubernetes.Interface
 	Apply apply.Apply
 }
 
 func (c *Context) Start(ctx context.Context) error {
-	return start.All(ctx, 5, c.Helm, c.Apps, c.Auth, c.Batch, c.Core)
+	return start.All(ctx, 5, c.Helm, c.Apps, c.Batch, c.Core)
 }
 
 func NewContext(ctx context.Context, cfg string) (*Context, error) {
+	// expand tilde
+	usr, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+	dir := usr.HomeDir
+	if strings.HasPrefix(cfg, "~/") {
+		cfg = filepath.Join(dir, cfg[2:])
+	}
 	restConfig, err := clientcmd.BuildConfigFromFlags("", cfg)
 	if err != nil {
 		return nil, err
@@ -44,7 +54,6 @@ func NewContext(ctx context.Context, cfg string) (*Context, error) {
 	return &Context{
 		Helm:  helm.NewFactoryFromConfigOrDie(restConfig),
 		K8s:   k8s,
-		Auth:  rbac.NewFactoryFromConfigOrDie(restConfig),
 		Apps:  apps.NewFactoryFromConfigOrDie(restConfig),
 		Batch: batch.NewFactoryFromConfigOrDie(restConfig),
 		Core:  core.NewFactoryFromConfigOrDie(restConfig),

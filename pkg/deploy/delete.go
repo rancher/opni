@@ -27,7 +27,7 @@ func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
 	if !skipServices {
 		// deleting Services stack
 		logrus.Infof("Deleting Services stack")
-		opniObjs, _, err := objs(ServicesStack, nil)
+		opniObjs, _, err := objs(ServicesStack, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -55,7 +55,7 @@ func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
 	if !skipOpni {
 		// deleting opni stack
 		logrus.Infof("Deleting opni stack")
-		opniObjs, _, err := objs(OpniStack, nil)
+		opniObjs, _, err := objs(OpniStack, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
 			}
 		}
 		if !skipInfra {
-			infraObjs, _, err := objs(InfraStack, nil)
+			infraObjs, _, err := objs(InfraStack, nil, nil)
 			if err != nil {
 				return err
 			}

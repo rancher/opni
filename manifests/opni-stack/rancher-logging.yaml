@@ -1,0 +1,19 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: rancher-logging-crd
+  namespace: opni-system
+spec:
+  chart: rancher-logging-crd
+  repo: http://charts.rancher.io/
+  version: "3.9.400"
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: rancher-logging 
+  namespace: opni-system
+spec:
+  chart: rancher-logging
+  repo: http://charts.rancher.io/
+  version: "3.9.400"

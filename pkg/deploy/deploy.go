@@ -41,7 +41,7 @@ const (
 func Install(ctx context.Context, sc *Context, values map[string]string, disabledItems []string) error {
 	// installing infra resources
 	logrus.Infof("Deploying infrastructure resources")
-	infraObjs, infraOwner, err := objs(InfraStack, values, disabledItems)
+	infraObjs, infraOwner, err := objs(InfraStack, values, disabledItems, true)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func Install(ctx context.Context, sc *Context, values map[string]string, disable
 
 	// installing opni stack
 	logrus.Infof("Deploying opni stack")
-	opniObjs, opniOwner, err := objs(OpniStack, values, disabledItems)
+	opniObjs, opniOwner, err := objs(OpniStack, values, disabledItems, false)
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func Install(ctx context.Context, sc *Context, values map[string]string, disable
 
 	// installing services stack
 	logrus.Infof("Deploying services stack")
-	servicesObj, servicesOwner, err := objs(ServicesStack, values, disabledItems)
+	servicesObj, servicesOwner, err := objs(ServicesStack, values, disabledItems, false)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,11 @@ func Install(ctx context.Context, sc *Context, values map[string]string, disable
 	return sc.Apply.WithOwner(servicesOwner).WithSetID(ServicesStack).Apply(os)
 }
 
-func objs(dir string, values map[string]string, disabledItems []string) ([]runtime.Object, *corev1.ConfigMap, error) {
+func objs(dir string, values map[string]string, disabledItems []string, infra bool) ([]runtime.Object, *corev1.ConfigMap, error) {
+	ns := OpniSystemNS
+	if infra {
+		ns = "kube-system"
+	}
 	owner := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -99,7 +103,7 @@ func objs(dir string, values map[string]string, disabledItems []string) ([]runti
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dir,
-			Namespace: OpniSystemNS,
+			Namespace: ns,
 		},
 	}
 	objs := []runtime.Object{}

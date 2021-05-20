@@ -28,7 +28,6 @@ configuration = kubernetes.client.Configuration()
 api_instance = kubernetes.client.BatchV1Api()
 logging.info("Cluster config has been been loaded")
 
-## TODO: for nulog_spec, rather than define it here, maybe should load it from yaml file.
 nulog_spec = {
     "name": "nulog-train",
     "container_name": "nulog-train",
@@ -139,15 +138,14 @@ async def es_training_signal_coroutine(signals_queue: asyncio.Queue):
 def job_not_currently_running(job_name, namespace=NAMESPACE):
     try:
         jobs = api_instance.list_namespaced_job(namespace, timeout_seconds=60)
+        for job in jobs.items:
+            if job.metadata.name == job_name:
+                return False
+        return True
     except ApiException as e:
         logging.error(
             "Exception when calling BatchV1Api->list_namespaced_job: %s\n" % e
         )
-
-    for job in jobs.items:
-        if job.metadata.name == job_name:
-            return False
-    return True
 
 
 async def kube_delete_empty_pods(signals_queue, namespace=NAMESPACE, phase="Succeeded"):
@@ -157,33 +155,32 @@ async def kube_delete_empty_pods(signals_queue, namespace=NAMESPACE, phase="Succ
     # List the pods
     try:
         pods = api_pods.list_namespaced_pod(namespace, timeout_seconds=60)
+        for pod in pods.items:
+            podname = pod.metadata.name
+            try:
+                if pod.status.phase == phase:
+                    api_response = api_pods.delete_namespaced_pod(
+                        podname, namespace, body=deleteoptions
+                    )
+                    if "nulog-train" in podname:
+                        signals_queue_payload = {
+                            "model": "nulog-train",
+                            "signal": "finish",
+                            "payload": None,
+                        }
+                        await signals_queue.put(signals_queue_payload)
+                else:
+                    logging.info(
+                        "Pod: {} still not done... Phase: {}".format(
+                            podname, pod.status.phase
+                        )
+                    )
+            except ApiException as e:
+                logging.error(
+                    "Exception when calling CoreV1Api->delete_namespaced_pod: %s\n" % e
+                )
     except ApiException as e:
         logging.error("Exception when calling CoreV1Api->list_namespaced_pod: %s\n" % e)
-
-    for pod in pods.items:
-        podname = pod.metadata.name
-        try:
-            if pod.status.phase == phase:
-                api_response = api_pods.delete_namespaced_pod(
-                    podname, namespace, body=deleteoptions
-                )
-                if "nulog-train" in podname:
-                    signals_queue_payload = {
-                        "model": "nulog-train",
-                        "signal": "finish",
-                        "payload": None,
-                    }
-                    await signals_queue.put(signals_queue_payload)
-            else:
-                logging.info(
-                    "Pod: {} still not done... Phase: {}".format(
-                        podname, pod.status.phase
-                    )
-                )
-        except ApiException as e:
-            logging.error(
-                "Exception when calling CoreV1Api->delete_namespaced_pod: %s\n" % e
-            )
 
     return
 
@@ -223,46 +220,45 @@ async def clear_jobs(signals_queue):
         deleteoptions = client.V1DeleteOptions()
         try:
             jobs = api_instance.list_namespaced_job(namespace, timeout_seconds=60)
+            # Now we have all the jobs, lets clean up
+            # We are also logging the jobs we didn't clean up because they either failed or are still running
+            for job in jobs.items:
+                jobname = job.metadata.name
+                jobstatus = job.status.conditions
+                if job.status.succeeded == 1:
+                    # Clean up Job
+                    logging.info(
+                        "Cleaning up Job: {}. Finished at: {}".format(
+                            jobname, job.status.completion_time
+                        )
+                    )
+                    try:
+                        # What is at work here. Setting Grace Period to 0 means delete ASAP. Otherwise it defaults to
+                        # some value I can't find anywhere. Propagation policy makes the Garbage cleaning Async
+                        api_response = api_instance.delete_namespaced_job(
+                            jobname,
+                            namespace,
+                            body=deleteoptions,
+                            grace_period_seconds=0,
+                            propagation_policy="Background",
+                        )
+                    except ApiException as e:
+                        logging.error(
+                            "Exception when calling BatchV1Api->delete_namespaced_job: %s\n"
+                            % e
+                        )
+                else:
+                    if jobstatus is None and job.status.active == 1:
+                        jobstatus = "active"
+                    logging.info(
+                        "Job: {} not cleaned up. Current status: {}".format(
+                            jobname, jobstatus
+                        )
+                    )
         except ApiException as e:
             logging.error(
                 "Exception when calling BatchV1Api->list_namespaced_job: %s\n" % e
             )
-
-        # Now we have all the jobs, lets clean up
-        # We are also logging the jobs we didn't clean up because they either failed or are still running
-        for job in jobs.items:
-            jobname = job.metadata.name
-            jobstatus = job.status.conditions
-            if job.status.succeeded == 1:
-                # Clean up Job
-                logging.info(
-                    "Cleaning up Job: {}. Finished at: {}".format(
-                        jobname, job.status.completion_time
-                    )
-                )
-                try:
-                    # What is at work here. Setting Grace Period to 0 means delete ASAP. Otherwise it defaults to
-                    # some value I can't find anywhere. Propagation policy makes the Garbage cleaning Async
-                    api_response = api_instance.delete_namespaced_job(
-                        jobname,
-                        namespace,
-                        body=deleteoptions,
-                        grace_period_seconds=0,
-                        propagation_policy="Background",
-                    )
-                except ApiException as e:
-                    logging.error(
-                        "Exception when calling BatchV1Api->delete_namespaced_job: %s\n"
-                        % e
-                    )
-            else:
-                if jobstatus is None and job.status.active == 1:
-                    jobstatus = "active"
-                logging.info(
-                    "Job: {} not cleaned up. Current status: {}".format(
-                        jobname, jobstatus
-                    )
-                )
 
         # Now that we have the jobs cleaned, let's clean the pods
         await kube_delete_empty_pods(signals_queue)
@@ -327,23 +323,17 @@ async def consume_nats_drain_signal(queue, signals_queue):
             logging.error(e)
 
 
-async def consume_payload_coroutine(loop, jobs_queue):
-    nw = NatsWrapper(loop)
-    while True:
-        if nw.first_run_or_got_disconnected_or_error:
-            logging.info("Need to (re)connect to NATS")
-            nw.re_init()
-            await nw.connect()
-            await nw.subscribe(nats_subject="train", payload_queue=jobs_queue)
-            nw.first_run_or_got_disconnected_or_error = False
-        await asyncio.sleep(1)
+async def consume_payload_coroutine(jobs_queue):
+    nw = NatsWrapper()
+    await nw.connect()
+    await nw.subscribe(nats_subject="train", payload_queue=jobs_queue)
 
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     jobs_queue = asyncio.Queue(loop=loop)
     signals_queue = asyncio.Queue(loop=loop)
-    consumer_coroutine = consume_payload_coroutine(loop, jobs_queue)
+    consumer_coroutine = consume_payload_coroutine(jobs_queue)
     consume_nats_drain_signal_coroutine = consume_nats_drain_signal(
         jobs_queue, signals_queue
     )

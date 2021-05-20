@@ -19,6 +19,8 @@ MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
 
+nw = NatsWrapper()
+
 
 def train_nulog_model(minio_client, windows_folder_path):
     nr_epochs = 2
@@ -52,8 +54,7 @@ async def send_signal_to_inference(loop):
         },
     }
     encoded_nulog_json = json.dumps(nulog_payload).encode()
-    nw = NatsWrapper()
-    await nw.connect(loop)
+    await nw.connect()
     nw.add_signal_handler(loop)
     await nw.publish(nats_subject="model_ready", payload_df=encoded_nulog_json)
     logging.info(

@@ -21,28 +21,22 @@ ES_ENDPOINT = os.environ["ES_ENDPOINT"]
 IS_CONTROL_PLANE_SERVICE = bool(os.getenv("IS_CONTROL_PLANE_SERVICE", False))
 
 
-async def consume_logs(nw, logs_queue):
+async def consume_logs(logs_queue):
     """
     coroutine to consume logs from NATS and put messages to the logs_queue
     """
-    while True:
-        if nw.first_run_or_got_disconnected_or_error:
-            logging.info("Need to (re)connect to NATS")
-            nw.re_init()
-            await nw.connect()
-            if IS_CONTROL_PLANE_SERVICE:
-                await nw.subscribe(
-                    nats_subject="preprocessed_logs_control_plane",
-                    payload_queue=logs_queue,
-                    nats_queue="workers",
-                )
-            else:
-                await nw.subscribe(
-                    nats_subject="preprocessed_logs", payload_queue=logs_queue
-                )
-                await nw.subscribe(nats_subject="model_ready", payload_queue=logs_queue)
-            nw.first_run_or_got_disconnected_or_error = False
-        await asyncio.sleep(1)
+    nw = NatsWrapper()
+    logging.info("connecting to nats")
+    await nw.connect()
+    if IS_CONTROL_PLANE_SERVICE:
+        await nw.subscribe(
+            nats_subject="preprocessed_logs_control_plane",
+            payload_queue=logs_queue,
+            nats_queue="workers",
+        )
+    else:
+        await nw.subscribe(nats_subject="preprocessed_logs", payload_queue=logs_queue)
+        await nw.subscribe(nats_subject="model_ready", payload_queue=logs_queue)
 
 
 async def infer_logs(logs_queue):
@@ -146,9 +140,7 @@ async def infer_logs(logs_queue):
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     logs_queue = asyncio.Queue(loop=loop)
-
-    nw = NatsWrapper(loop)
-    consumer_coroutine = consume_logs(nw, logs_queue)
+    consumer_coroutine = consume_logs(logs_queue)
     inference_coroutine = infer_logs(logs_queue)
 
     loop.run_until_complete(asyncio.gather(inference_coroutine, consumer_coroutine))

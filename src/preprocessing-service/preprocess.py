@@ -7,18 +7,21 @@ from datetime import datetime
 # Third Party
 import pandas as pd
 from elasticsearch import AsyncElasticsearch
-from elasticsearch.helpers import async_streaming_bulk
+from elasticsearch.exceptions import ConnectionTimeout
+from elasticsearch.helpers import BulkIndexError, async_streaming_bulk
 from masker import LogMasker
 from nats_wrapper import NatsWrapper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
 
 ES_ENDPOINT = os.environ["ES_ENDPOINT"]
+ES_USERNAME = os.environ["ES_USERNAME"]
+ES_PASSWORD = os.environ["ES_PASSWORD"]
 
 es = AsyncElasticsearch(
     [ES_ENDPOINT],
     port=9200,
-    http_auth=("admin", "admin"),
+    http_auth=(ES_USERNAME, ES_PASSWORD),
     http_compress=True,
     verify_certs=False,
     use_ssl=True,
@@ -26,6 +29,8 @@ es = AsyncElasticsearch(
     max_retries=5,
     retry_on_timeout=True,
 )
+
+nw = NatsWrapper()
 
 
 async def doc_generator(df):
@@ -42,30 +47,34 @@ async def doc_generator(df):
         yield doc_dict
 
 
-async def consume_logs(nw, mask_logs_queue):
+async def consume_logs(mask_logs_queue):
     async def subscribe_handler(msg):
         payload_data = msg.data.decode()
         await mask_logs_queue.put(pd.read_json(payload_data, dtype={"_id": object}))
 
-    while True:
-        if nw.first_run_or_got_disconnected_or_error:
-            logging.info("Need to (re)connect to NATS")
-            nw.re_init()
-            await nw.connect()
-            await nw.subscribe(
-                nats_subject="raw_logs",
-                nats_queue="workers",
-                payload_queue=mask_logs_queue,
-                subscribe_handler=subscribe_handler,
-            )
-            nw.first_run_or_got_disconnected_or_error = False
-        await asyncio.sleep(1)
+    await nw.subscribe(
+        nats_subject="raw_logs",
+        nats_queue="workers",
+        payload_queue=mask_logs_queue,
+        subscribe_handler=subscribe_handler,
+    )
 
 
-async def mask_logs(nw, queue):
+async def mask_logs(queue):
     masker = LogMasker()
     while True:
         payload_data_df = await queue.get()
+        if (
+            "log" not in payload_data_df.columns
+            and "message" in payload_data_df.columns
+        ):
+            payload_data_df["log"] = payload_data_df["message"]
+        if (
+            "log" not in payload_data_df.columns
+            and "message" not in payload_data_df.columns
+        ):
+            logging.warning("ERROR: No log or message field")
+            continue
         payload_data_df["log"] = payload_data_df["log"].str.strip()
         masked_logs = []
         for index, row in payload_data_df.iterrows():
@@ -120,9 +129,6 @@ async def mask_logs(nw, queue):
         control_plane_logs_df = payload_data_df[is_control_log]
         app_logs_df = payload_data_df[~is_control_log]
 
-        if not nw.nc.is_connected:
-            await nw.connect()
-
         if len(app_logs_df) > 0:
             await nw.publish("preprocessed_logs", app_logs_df.to_json().encode())
 
@@ -132,12 +138,16 @@ async def mask_logs(nw, queue):
                 control_plane_logs_df.to_json().encode(),
             )
 
-        async for ok, result in async_streaming_bulk(
-            es, doc_generator(payload_data_df)
-        ):
-            action, result = result.popitem()
-            if not ok:
-                logging.error("failed to %s document %s" % ())
+        try:
+            async for ok, result in async_streaming_bulk(
+                es, doc_generator(payload_data_df)
+            ):
+                action, result = result.popitem()
+                if not ok:
+                    logging.error("failed to %s document %s" % ())
+        except (BulkIndexError, ConnectionTimeout) as exception:
+            logging.error("Failed to index data")
+            logging.error(exception)
 
 
 async def es_log_management():
@@ -153,13 +163,21 @@ async def es_log_management():
         await asyncio.sleep(3600)  # deletion once an hour
 
 
+async def init_nats():
+    logging.info("Attempting to connect to NATS")
+    await nw.connect()
+
+
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     mask_logs_queue = asyncio.Queue(loop=loop)
-    nw = NatsWrapper(loop)
-    nats_consumer_coroutine = consume_logs(nw, mask_logs_queue)
-    mask_logs_coroutine = mask_logs(nw, mask_logs_queue)
+    nats_consumer_coroutine = consume_logs(mask_logs_queue)
+    mask_logs_coroutine = mask_logs(mask_logs_queue)
     es_management_coroutine = es_log_management()
+
+    task = loop.create_task(init_nats())
+    loop.run_until_complete(task)
+
     loop.run_until_complete(
         asyncio.gather(
             nats_consumer_coroutine, mask_logs_coroutine, es_management_coroutine

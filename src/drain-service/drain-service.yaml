@@ -29,4 +29,8 @@ spec:
           value: "myaccesskey"
         - name: MINIO_SECRET_KEY
           value: "mysecretkey"
+        - name: ES_USERNAME
+          value: "admin"
+        - name: ES_PASSWORD
+          value: "admin"
 

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: nulog-inference-service
-        image: tybalex/nulog-inference-service:v0.1
+        image: sanjayrancher/nulog-inference-service:v0.0
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL

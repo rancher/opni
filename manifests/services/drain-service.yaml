@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: drain-service
-        image: amartyarancher/drain-service:v0.1
+        image: sanjayrancher/drain-service:v0.0
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL

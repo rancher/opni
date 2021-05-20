@@ -40,4 +40,4 @@ spec:
             cpu: "7.5"
           requests:
             memory: 1Gi
-            cpu: "1"
+            cpu: "%NULOG_SERVICE_CPU_REQUEST%"

@@ -106,6 +106,18 @@ func getValues(ctx context.Context, cfg *cmds.InstallConfig, sc *deploy.Context)
 		values[deploy.ESPassword] = string(esPass)
 	}
 
+	// get nulog values
+
+	values[deploy.NulogServiceCPURequest] = cfg.NulogServiceCPURequest
+	if values[deploy.NulogServiceCPURequest] == "" {
+		// overriding nulog service cpu request when no value is passed
+		values[deploy.NulogServiceCPURequest] = "3.5"
+		if cfg.QuickStart {
+			values[deploy.NulogServiceCPURequest] = "1"
+		}
+
+	}
+
 	// get traefik values
 	values[deploy.TraefikVersion] = cfg.TraefikVersion
 	return values, nil

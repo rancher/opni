@@ -5,20 +5,21 @@ import (
 )
 
 type InstallConfig struct {
-	KubeConfig            string
-	MinioAccessKey        string
-	MinioSecretKey        string
-	MinioVersion          string
-	NatsPassword          string
-	NatsReplicas          int
-	NatsMaxPayload        int
-	NatsVersion           string
-	NvidiaVersion         string
-	ElasticsearchUser     string
-	ElasticsearchPassword string
-	TraefikVersion        string
-	Disable               cli.StringSlice
-	QuickStart            bool
+	KubeConfig             string
+	MinioAccessKey         string
+	MinioSecretKey         string
+	MinioVersion           string
+	NatsPassword           string
+	NatsReplicas           int
+	NatsMaxPayload         int
+	NatsVersion            string
+	NvidiaVersion          string
+	ElasticsearchUser      string
+	ElasticsearchPassword  string
+	TraefikVersion         string
+	NulogServiceCPURequest string
+	Disable                cli.StringSlice
+	QuickStart             bool
 }
 
 var InstallCmd InstallConfig
@@ -110,6 +111,12 @@ func NewInstallCommand(action func(*cli.Context) error) cli.Command {
 				Destination: &InstallCmd.TraefikVersion,
 				Value:       "v9.18.3",
 				Usage:       "Traefik chart version",
+			},
+			cli.StringFlag{
+				Name:        "nulog-service-cpu-request",
+				EnvVar:      "NULOG_SERVICE_CPU_REQUEST",
+				Destination: &InstallCmd.NulogServiceCPURequest,
+				Usage:       "CPU resource request for nulog service controlplane",
 			},
 			cli.StringSliceFlag{
 				Name:  "disable",

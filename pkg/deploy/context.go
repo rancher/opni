@@ -2,11 +2,9 @@ package deploy
 
 import (
 	"context"
-	"os/user"
-	"path/filepath"
-	"strings"
 
 	"github.com/k3s-io/helm-controller/pkg/generated/controllers/helm.cattle.io"
+	"github.com/mitchellh/go-homedir"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/apps"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/batch"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/core"
@@ -33,13 +31,9 @@ func (c *Context) Start(ctx context.Context) error {
 
 func NewContext(ctx context.Context, cfg string) (*Context, error) {
 	// expand tilde
-	usr, err := user.Current()
+	cfg, err := homedir.Expand(cfg)
 	if err != nil {
 		return nil, err
-	}
-	dir := usr.HomeDir
-	if strings.HasPrefix(cfg, "~/") {
-		cfg = filepath.Join(dir, cfg[2:])
 	}
 	restConfig, err := clientcmd.BuildConfigFromFlags("", cfg)
 	if err != nil {

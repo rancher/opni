@@ -12,30 +12,33 @@ import (
 	"github.com/rancher/wrangler/pkg/objectset"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 const (
-	InfraStack     = "infra-stack"
-	OpniStack      = "opni-stack"
-	ServicesStack  = "services"
-	OpniConfig     = "opni-config"
-	OpniSystemNS   = "opni-system"
-	MinioAccessKey = "MINIO_ACCESS_KEY"
-	MinioSecretKey = "MINIO_SECRET_KEY"
-	MinioVersion   = "MINIO_VERSION"
-	NatsVersion    = "NATS_VERSION"
-	NatsPassword   = "NATS_PASSWORD"
-	NatsReplicas   = "NATS_REPLICAS"
-	NatsMaxPayload = "NATS_MAX_PAYLOAD"
-	NvidiaVersion  = "NVIDIA_VERSION"
-	TraefikVersion = "TRAEFIK_VERSION"
-	ESUser         = "ES_USER"
-	ESPassword     = "ES_PASSWORD"
-	waitTime       = 1 * time.Minute
+	InfraStack             = "infra-stack"
+	OpniStack              = "opni-stack"
+	ServicesStack          = "services"
+	OpniConfig             = "opni-config"
+	OpniSystemNS           = "opni-system"
+	MinioAccessKey         = "MINIO_ACCESS_KEY"
+	MinioSecretKey         = "MINIO_SECRET_KEY"
+	MinioVersion           = "MINIO_VERSION"
+	NatsVersion            = "NATS_VERSION"
+	NatsPassword           = "NATS_PASSWORD"
+	NatsReplicas           = "NATS_REPLICAS"
+	NatsMaxPayload         = "NATS_MAX_PAYLOAD"
+	NvidiaVersion          = "NVIDIA_VERSION"
+	TraefikVersion         = "TRAEFIK_VERSION"
+	ESUser                 = "ES_USER"
+	ESPassword             = "ES_PASSWORD"
+	NulogServiceCPURequest = "NULOG_SERVICE_CPU_REQUEST"
+	waitTime               = 1 * time.Minute
 )
 
 func Install(ctx context.Context, sc *Context, values map[string]string, disabledItems []string) error {
@@ -249,11 +252,17 @@ func waitForNS(ctx context.Context, sc *Context, ns string) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
-		_, err := sc.K8s.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
-		if err != nil {
-			logrus.Infof("Waiting for namespace %s creation", OpniSystemNS)
-			continue
-		}
+		c, cancel := context.WithCancel(ctx)
+		wait.UntilWithContext(c, func(ctx context.Context) {
+			if _, err := sc.K8s.CoreV1().Namespaces().Get(c, ns, metav1.GetOptions{}); err == nil {
+				cancel()
+			} else {
+				if apierrors.IsNotFound(err) {
+					logrus.Infof("Waiting for namespace %s creation", OpniSystemNS)
+				}
+			}
+		}, 1*time.Second)
+
 		logrus.Infof("%s namespace is ready", OpniSystemNS)
 		break
 	}

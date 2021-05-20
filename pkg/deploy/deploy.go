@@ -249,21 +249,15 @@ func disabled(asset string, disabledItems []string) bool {
 }
 
 func waitForNS(ctx context.Context, sc *Context, ns string) {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-	for range ticker.C {
-		c, cancel := context.WithCancel(ctx)
-		wait.UntilWithContext(c, func(ctx context.Context) {
-			if _, err := sc.K8s.CoreV1().Namespaces().Get(c, ns, metav1.GetOptions{}); err == nil {
-				cancel()
-			} else {
-				if apierrors.IsNotFound(err) {
-					logrus.Infof("Waiting for namespace %s creation", OpniSystemNS)
-				}
+	c, cancel := context.WithCancel(ctx)
+	wait.UntilWithContext(c, func(ctx context.Context) {
+		if _, err := sc.K8s.CoreV1().Namespaces().Get(c, ns, metav1.GetOptions{}); err == nil {
+			cancel()
+		} else {
+			if apierrors.IsNotFound(err) {
+				logrus.Infof("Waiting for namespace %s creation", OpniSystemNS)
 			}
-		}, 1*time.Second)
-
-		logrus.Infof("%s namespace is ready", OpniSystemNS)
-		break
-	}
+		}
+	}, 1*time.Second)
+	logrus.Infof("%s namespace is ready", OpniSystemNS)
 }

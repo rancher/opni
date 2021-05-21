@@ -88,7 +88,6 @@ func Install(ctx context.Context, sc *Context, values map[string]string, disable
 	if err != nil {
 		return err
 	}
-
 	os = objectset.NewObjectSet()
 	os.Add(servicesObj...)
 	return sc.Apply.WithOwner(servicesOwner).WithSetID(ServicesStack).Apply(os)

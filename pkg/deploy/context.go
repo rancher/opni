@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/apps"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/batch"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/core"
+	"github.com/rancher/wrangler-api/pkg/generated/controllers/rbac"
 	"github.com/rancher/wrangler/pkg/apply"
 	"github.com/rancher/wrangler/pkg/crd"
 	"github.com/rancher/wrangler/pkg/start"
@@ -21,6 +22,7 @@ type Context struct {
 	Batch *batch.Factory
 	Apps  *apps.Factory
 	Core  *core.Factory
+	Auth  *rbac.Factory
 	K8s   kubernetes.Interface
 	Apply apply.Apply
 }
@@ -48,6 +50,7 @@ func NewContext(ctx context.Context, cfg string) (*Context, error) {
 	return &Context{
 		Helm:  helm.NewFactoryFromConfigOrDie(restConfig),
 		K8s:   k8s,
+		Auth:  rbac.NewFactoryFromConfigOrDie(restConfig),
 		Apps:  apps.NewFactoryFromConfigOrDie(restConfig),
 		Batch: batch.NewFactoryFromConfigOrDie(restConfig),
 		Core:  core.NewFactoryFromConfigOrDie(restConfig),

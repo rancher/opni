@@ -86,6 +86,8 @@ github.com/rancher/wrangler-api/pkg/generated/controllers/batch
 github.com/rancher/wrangler-api/pkg/generated/controllers/batch/v1
 github.com/rancher/wrangler-api/pkg/generated/controllers/core
 github.com/rancher/wrangler-api/pkg/generated/controllers/core/v1
+github.com/rancher/wrangler-api/pkg/generated/controllers/rbac
+github.com/rancher/wrangler-api/pkg/generated/controllers/rbac/v1
 # github.com/russross/blackfriday/v2 v2.0.1
 github.com/russross/blackfriday/v2
 # github.com/shurcooL/sanitized_anchor_name v1.0.0

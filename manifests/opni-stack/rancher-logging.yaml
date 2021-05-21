@@ -17,3 +17,5 @@ spec:
   chart: rancher-logging
   repo: http://charts.rancher.io/
   version: "3.9.400"
+  set:
+    additionalLoggingSources.rke.enabled: "true"

@@ -6,24 +6,27 @@ License     : MIT
 """
 
 # Standard Library
+import logging
 import os
 import pathlib
+import time
+
+# Third Party
 import boto3
 import botocore
 from botocore.client import Config
-import logging
-
-# Third Party
 from drain3.persistence_handler import PersistenceHandler
 
 MINIO_SERVER_URL = os.environ["MINIO_SERVER_URL"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 
+
 class FilePersistence(PersistenceHandler):
     def __init__(self, file_path):
         self.file_path = file_path
         self.connect_to_minio()
+        self.last_minio_save_ts = -1
 
     def connect_to_minio(self):
         self.minio_client = None
@@ -56,21 +59,24 @@ class FilePersistence(PersistenceHandler):
 
     def save_state(self, state):
         pathlib.Path(self.file_path).write_bytes(state)
-        try:
-            self.minio_client.meta.client.upload_file(self.file_path, "drain-model", self.file_path)
-            logging.info("Saved DRAIN model into Minio")
-        except Exception as e:
-            logging.error("Unable to save DRAIN model into Minio")
+        if time.time() - self.last_minio_save_ts > 60:
+            try:
+                self.minio_client.meta.client.upload_file(
+                    self.file_path, "drain-model", self.file_path
+                )
+                logging.info("Saved DRAIN model into Minio")
+                self.last_minio_save_ts = time.time()
+            except Exception as e:
+                logging.error("Unable to save DRAIN model into Minio")
 
     def load_state(self):
         try:
             self.minio_client.meta.client.download_file(
-                "drain-model", self.file_path, self.file_path)
+                "drain-model", self.file_path, self.file_path
+            )
             logging.info("Downloaded DRAIN model file from Minio")
         except Exception as e:
-            logging.error(
-                "Cannot currently obtain DRAIN model file"
-            )
+            logging.error("Cannot currently obtain DRAIN model file")
         if not os.path.exists(self.file_path):
             return None
 

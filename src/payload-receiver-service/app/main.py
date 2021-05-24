@@ -18,16 +18,13 @@ nw = None
 @app.on_event("startup")
 async def startup_event():
     global nw
-    loop = asyncio.get_event_loop()
-    nw = NatsWrapper(loop)
+    nw = NatsWrapper()
     await nw.connect()
-    nw.first_run_or_got_disconnected_or_error = False
 
 
 async def get_nats() -> NATS:
-    if not nw.nc.is_connected or nw.first_run_or_got_disconnected_or_error:
+    if not nw.nc.is_connected:
         await nw.connect()
-        nw.first_run_or_got_disconnected_or_error = False
     return nw.nc
 
 

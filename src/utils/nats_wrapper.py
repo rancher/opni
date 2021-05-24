@@ -14,29 +14,24 @@ logging.basicConfig(
 
 
 class NatsWrapper:
-    def __init__(self, loop):
-        self.nc = NATS()
+    def __init__(self):
+        self.nc = None
         self.NATS_SERVER_URL = os.environ["NATS_SERVER_URL"]
-        self.loop = loop
-        self.add_signal_handler()
-        self.first_run_or_got_disconnected_or_error = True
-
-    def re_init(self):
-        self.nc = NATS()
+        self.loop = None
 
     async def connect(self):
+        self.nc = NATS()
+        self.loop = asyncio.get_event_loop()
+        self.add_signal_handler()
+
         async def error_cb(e):
             logging.warning("Error: {}".format(str(e)))
-            self.first_run_or_got_disconnected_or_error = True
 
         async def closed_cb():
             logging.warning("Closed connection to NATS")
-            self.first_run_or_got_disconnected_or_error = True
-            await asyncio.sleep(0.1, loop=self.loop)
 
         async def on_disconnect():
             logging.warning("Disconnected from NATS")
-            self.first_run_or_got_disconnected_or_error = True
 
         async def reconnected_cb():
             logging.warning(
@@ -50,16 +45,16 @@ class NatsWrapper:
             "reconnected_cb": reconnected_cb,
             "disconnected_cb": on_disconnect,
             "servers": [self.NATS_SERVER_URL],
+            "max_reconnect_attempts": -1,
+            "reconnect_time_wait": 5,
+            "verbose": True,
         }
-        while True:
-            try:
-                await self.nc.connect(**options)
-                logging.info(f"Connected to NATS at {self.nc.connected_url.netloc}...")
-                break
-            except Exception as e:
-                logging.info("Failed to connect to nats")
-                logging.error(e)
-                await asyncio.sleep(1)
+        try:
+            await self.nc.connect(**options)
+            logging.info(f"Connected to NATS at {self.nc.connected_url.netloc}...")
+        except Exception as e:
+            logging.info("Failed to connect to nats")
+            logging.error(e)
 
     def add_signal_handler(self):
         def signal_handler():

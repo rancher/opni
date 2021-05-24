@@ -23,4 +23,14 @@ spec:
           value: "https://opendistro-es-client-service.default.svc.cluster.local:9200"
         - name: FAIL_KEYWORDS
           value: "fail,error,missing,unable"
+        - name: MINIO_SERVER_URL
+          value: "http://minio.default.svc.cluster.local:9000"
+        - name: MINIO_ACCESS_KEY
+          value: "myaccesskey"
+        - name: MINIO_SECRET_KEY
+          value: "mysecretkey"
+        - name: ES_USERNAME
+          value: "admin"
+        - name: ES_PASSWORD
+          value: "admin"
 

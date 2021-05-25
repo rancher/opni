@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+if [ -n "$(git status --porcelain --untracked-files=no | grep -v opendistro-es.yaml)" ]; then
     DIRTY="-dirty"
 fi
 

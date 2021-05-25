@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/k3s-io/helm-controller/pkg/generated/controllers/helm.cattle.io"
+	"github.com/mitchellh/go-homedir"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/apps"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/batch"
 	"github.com/rancher/wrangler-api/pkg/generated/controllers/core"
@@ -20,17 +21,22 @@ type Context struct {
 	Helm  *helm.Factory
 	Batch *batch.Factory
 	Apps  *apps.Factory
-	Auth  *rbac.Factory
 	Core  *core.Factory
+	Auth  *rbac.Factory
 	K8s   kubernetes.Interface
 	Apply apply.Apply
 }
 
 func (c *Context) Start(ctx context.Context) error {
-	return start.All(ctx, 5, c.Helm, c.Apps, c.Auth, c.Batch, c.Core)
+	return start.All(ctx, 5, c.Helm, c.Apps, c.Batch, c.Core)
 }
 
 func NewContext(ctx context.Context, cfg string) (*Context, error) {
+	// expand tilde
+	cfg, err := homedir.Expand(cfg)
+	if err != nil {
+		return nil, err
+	}
 	restConfig, err := clientcmd.BuildConfigFromFlags("", cfg)
 	if err != nil {
 		return nil, err

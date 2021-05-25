@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: training-controller-rb
+  namespace: opni-system
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: training-controller-rb
+rules:
+  - apiGroups:
+      - ""
+      - "apps"
+      - "batch"
+    resources:
+      - endpoints
+      - deployments
+      - pods
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: training-controller-rb
+subjects:
+  - kind: ServiceAccount
+    name: training-controller-rb
+    namespace: opni-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: training-controller-rb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: training-controller
+  namespace: opni-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: training-controller
+  template:
+    metadata:
+      labels:
+        app: training-controller
+    spec:
+      serviceAccountName: training-controller-rb
+      containers:
+      - name: training-controller
+        image: rancher/opni-training-controller:v0.1.1
+        imagePullPolicy: Always
+        env:
+        - name: NATS_SERVER_URL
+          value: "nats://nats_client:%NATS_PASSWORD%@nats-client.opni-system.svc:4222"
+        - name: MINIO_SERVER_URL
+          value: "http://minio.opni-system.svc.cluster.local:9000"
+        - name: MINIO_ACCESS_KEY
+          value: "%MINIO_ACCESS_KEY%"
+        - name: MINIO_SECRET_KEY
+          value: "%MINIO_SECRET_KEY%"
+        - name: JOB_NAMESPACE
+          value: "default"
+        - name: ES_ENDPOINT
+          value: "https://opendistro-es-client-service.opni-system.svc.cluster.local:9200"
+        - name: ES_USERNAME
+          value: "%ES_USER%"
+        - name: ES_PASSWORD
+          value: "%ES_PASSWORD%"
+        - name: NODE_TLS_REJECT_UNAUTHORIZED
+          value: "0"

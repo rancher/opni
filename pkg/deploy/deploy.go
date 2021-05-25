@@ -12,36 +12,39 @@ import (
 	"github.com/rancher/wrangler/pkg/objectset"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 const (
-	InfraStack       = "infra-stack"
-	OpniStack        = "opni-stack"
-	ServicesStack    = "services"
-	OpniConfig       = "opni-config"
-	OpniSystemNS     = "opni-system"
-	MINIO_ACCESS_KEY = "MINIO_ACCESS_KEY"
-	MINIO_SECRET_KEY = "MINIO_SECRET_KEY"
-	MINIO_VERSION    = "MINIO_VERSION"
-	NATS_VERSION     = "NATS_VERSION"
-	NATS_PASSWORD    = "NATS_PASSWORD"
-	NATS_REPLICAS    = "NATS_REPLICAS"
-	NATS_MAX_PAYLOAD = "NATS_MAX_PAYLOAD"
-	NVIDIA_VERSION   = "NVIDIA_VERSION"
-	TRAEFIK_VERSION  = "TRAEFIK_VERSION"
-	ES_USER          = "ES_USER"
-	ES_PASSWORD      = "ES_PASSWORD"
-	waitTime         = 1 * time.Minute
+	InfraStack             = "infra-stack"
+	OpniStack              = "opni-stack"
+	ServicesStack          = "services"
+	OpniConfig             = "opni-config"
+	OpniSystemNS           = "opni-system"
+	MinioAccessKey         = "MINIO_ACCESS_KEY"
+	MinioSecretKey         = "MINIO_SECRET_KEY"
+	MinioVersion           = "MINIO_VERSION"
+	NatsVersion            = "NATS_VERSION"
+	NatsPassword           = "NATS_PASSWORD"
+	NatsReplicas           = "NATS_REPLICAS"
+	NatsMaxPayload         = "NATS_MAX_PAYLOAD"
+	NvidiaVersion          = "NVIDIA_VERSION"
+	TraefikVersion         = "TRAEFIK_VERSION"
+	ESUser                 = "ES_USER"
+	ESPassword             = "ES_PASSWORD"
+	NulogServiceCPURequest = "NULOG_SERVICE_CPU_REQUEST"
+	waitTime               = 1 * time.Minute
 )
 
-func Install(ctx context.Context, sc *Context, values map[string]string) error {
+func Install(ctx context.Context, sc *Context, values map[string]string, disabledItems []string) error {
 	// installing infra resources
 	logrus.Infof("Deploying infrastructure resources")
-	infraObjs, infraOwner, err := objs(InfraStack, values)
+	infraObjs, infraOwner, err := objs(InfraStack, values, disabledItems, true)
 	if err != nil {
 		return err
 	}
@@ -51,7 +54,8 @@ func Install(ctx context.Context, sc *Context, values map[string]string) error {
 		return err
 	}
 
-	time.Sleep(10 * time.Second)
+	// wait for ns creation
+	waitForNS(ctx, sc, OpniSystemNS)
 
 	// initialize configuration secrets
 	logrus.Infof("Initializing infrastructure configuration")
@@ -64,7 +68,7 @@ func Install(ctx context.Context, sc *Context, values map[string]string) error {
 
 	// installing opni stack
 	logrus.Infof("Deploying opni stack")
-	opniObjs, opniOwner, err := objs(OpniStack, values)
+	opniObjs, opniOwner, err := objs(OpniStack, values, disabledItems, false)
 	if err != nil {
 		return err
 	}
@@ -80,17 +84,20 @@ func Install(ctx context.Context, sc *Context, values map[string]string) error {
 
 	// installing services stack
 	logrus.Infof("Deploying services stack")
-	servicesObj, servicesOwner, err := objs(ServicesStack, values)
+	servicesObj, servicesOwner, err := objs(ServicesStack, values, disabledItems, false)
 	if err != nil {
 		return err
 	}
-
 	os = objectset.NewObjectSet()
 	os.Add(servicesObj...)
 	return sc.Apply.WithOwner(servicesOwner).WithSetID(ServicesStack).Apply(os)
 }
 
-func objs(dir string, values map[string]string) ([]runtime.Object, *corev1.ConfigMap, error) {
+func objs(dir string, values map[string]string, disabledItems []string, infra bool) ([]runtime.Object, *corev1.ConfigMap, error) {
+	ns := OpniSystemNS
+	if infra {
+		ns = "kube-system"
+	}
 	owner := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -98,12 +105,16 @@ func objs(dir string, values map[string]string) ([]runtime.Object, *corev1.Confi
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dir,
-			Namespace: OpniSystemNS,
+			Namespace: ns,
 		},
 	}
 	objs := []runtime.Object{}
 	for _, asset := range AssetNames() {
 		if !strings.HasPrefix(asset, dir) {
+			continue
+		}
+		if disabled(asset, disabledItems) {
+			logrus.Infof("%s is disabled", asset)
 			continue
 		}
 		content, err := getManifest(asset)
@@ -182,7 +193,7 @@ func getManifest(name string, args ...string) ([]byte, error) {
 func replaceValues(content []byte, values map[string]string) []byte {
 	contentStr := string(content)
 	for k, v := range values {
-		contentStr = strings.Replace(contentStr, "%"+k+"%", v, 1)
+		contentStr = strings.Replace(contentStr, "%"+k+"%", v, -1)
 	}
 	return []byte(contentStr)
 }
@@ -202,10 +213,10 @@ func configObj(values map[string]string) ([]runtime.Object, *corev1.Secret) {
 			Namespace: OpniSystemNS,
 		},
 		Data: map[string][]byte{
-			MINIO_ACCESS_KEY: []byte(values[MINIO_ACCESS_KEY]),
-			MINIO_SECRET_KEY: []byte(values[MINIO_ACCESS_KEY]),
-			NATS_PASSWORD:    []byte(values[NATS_PASSWORD]),
-			ES_PASSWORD:      []byte(values[ES_PASSWORD]),
+			MinioAccessKey: []byte(values[MinioAccessKey]),
+			MinioSecretKey: []byte(values[MinioSecretKey]),
+			NatsPassword:   []byte(values[NatsPassword]),
+			ESPassword:     []byte(values[ESPassword]),
 		},
 	}
 	return []runtime.Object{cfgSecret}, cfgSecret
@@ -225,4 +236,27 @@ func waitForOpniStack(ctx context.Context, sc *Context) {
 			break
 		}
 	}
+}
+
+func disabled(asset string, disabledItems []string) bool {
+	for _, disabled := range disabledItems {
+		if strings.Contains(asset, disabled) {
+			return true
+		}
+	}
+	return false
+}
+
+func waitForNS(ctx context.Context, sc *Context, ns string) {
+	c, cancel := context.WithCancel(ctx)
+	wait.UntilWithContext(c, func(ctx context.Context) {
+		if _, err := sc.K8s.CoreV1().Namespaces().Get(c, ns, metav1.GetOptions{}); err == nil {
+			cancel()
+		} else {
+			if apierrors.IsNotFound(err) {
+				logrus.Infof("Waiting for namespace %s creation", OpniSystemNS)
+			}
+		}
+	}, 1*time.Second)
+	logrus.Infof("%s namespace is ready", OpniSystemNS)
 }

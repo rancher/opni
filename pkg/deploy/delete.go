@@ -14,7 +14,7 @@ import (
 
 func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
 	var skipOpni, skipInfra, skipServices bool
-	servicesOwner, err := getOwner(ctx, ServicesStack, sc)
+	servicesOwner, err := getOwner(ctx, ServicesStack, sc, OpniSystemNS)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			skipServices = true
@@ -27,7 +27,7 @@ func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
 	if !skipServices {
 		// deleting Services stack
 		logrus.Infof("Deleting Services stack")
-		opniObjs, _, err := objs(ServicesStack, nil)
+		opniObjs, _, err := objs(ServicesStack, nil, nil, false)
 		if err != nil {
 			return err
 		}
@@ -42,7 +42,7 @@ func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
 		}
 	}
 
-	opniOwner, err := getOwner(ctx, OpniStack, sc)
+	opniOwner, err := getOwner(ctx, OpniStack, sc, OpniSystemNS)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			skipOpni = true
@@ -55,7 +55,7 @@ func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
 	if !skipOpni {
 		// deleting opni stack
 		logrus.Infof("Deleting opni stack")
-		opniObjs, _, err := objs(OpniStack, nil)
+		opniObjs, _, err := objs(OpniStack, nil, nil, false)
 		if err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
 		if !skipOpni {
 			time.Sleep(1 * time.Minute)
 		}
-		infraOwner, err := getOwner(ctx, InfraStack, sc)
+		infraOwner, err := getOwner(ctx, InfraStack, sc, "kube-system")
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				skipInfra = true
@@ -84,7 +84,7 @@ func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
 			}
 		}
 		if !skipInfra {
-			infraObjs, _, err := objs(InfraStack, nil)
+			infraObjs, _, err := objs(InfraStack, nil, nil, true)
 			if err != nil {
 				return err
 			}
@@ -103,6 +103,6 @@ func Delete(ctx context.Context, sc *Context, deleteAll bool) error {
 	return nil
 }
 
-func getOwner(ctx context.Context, name string, sc *Context) (*corev1.ConfigMap, error) {
-	return sc.K8s.CoreV1().ConfigMaps(OpniSystemNS).Get(ctx, name, metav1.GetOptions{})
+func getOwner(ctx context.Context, name string, sc *Context, ns string) (*corev1.ConfigMap, error) {
+	return sc.K8s.CoreV1().ConfigMaps(ns).Get(ctx, name, metav1.GetOptions{})
 }

@@ -3,9 +3,9 @@ set -e
 
 cd $(dirname $0)
 
+./validate
+./validate-ci
 ./stage
 ./build
 ./test
-./validate
-./validate-ci
 ./package

@@ -1,4 +1,0 @@
-aiohttp==3.7.4.post0
-asyncio-nats-client==0.11.4
-elasticsearch==7.12.0
-pandas==1.2.3

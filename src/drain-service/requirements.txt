@@ -1,7 +1,0 @@
-jsonpickle==1.5.1
-cachetools==4.2.1
-pandas==1.2.3
-boto3==1.17.45
-asyncio-nats-client
-elasticsearch[async]
-schedule

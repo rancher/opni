@@ -15,6 +15,8 @@ func NewDeleteCommand(action func(*cli.Context) error) cli.Command {
 				Name:        "kubeconfig",
 				EnvVar:      "KUBECONFIG",
 				Destination: &KubeConfig,
+				Usage:       "Kubeconfig file to access the kubernetes cluster",
+				Value:       "~/.kube/config",
 			},
 			cli.BoolFlag{
 				Name:        "all",

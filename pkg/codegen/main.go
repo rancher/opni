@@ -19,13 +19,13 @@ func main() {
 	bc := &bindata.Config{
 		Input: []bindata.InputConfig{
 			{
-				Path:      "src/k8s",
+				Path:      "manifests",
 				Recursive: true,
 			},
 		},
 		Package:    "deploy",
 		NoMetadata: true,
-		Prefix:     "src/k8s",
+		Prefix:     "manifests",
 		Output:     "pkg/deploy/zz_generated_bindata.go",
 		Tags:       "!no_stage",
 		Ignore:     []*regexp.Regexp{yamlOnly},

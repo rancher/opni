@@ -38,6 +38,7 @@ replace (
 require (
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/k3s-io/helm-controller v0.8.4
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/rancher/wrangler v0.8.0
 	github.com/rancher/wrangler-api v0.6.0
 	github.com/sirupsen/logrus v1.6.0

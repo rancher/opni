@@ -1,0 +1,42 @@
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: ClusterOutput
+metadata:
+    name: "aiops-demo-log-output"
+    namespace: "opni-system"
+spec:
+  http:
+    endpoint: http://payload-receiver-service.opni-system.svc/
+    content_type: application/json
+    json_array: true
+    buffer:
+      tags: "[]"
+      flush_interval: 2s
+      chunk_limit_size: 1mb
+---
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: ClusterFlow
+metadata: 
+  name: "aiops-demo-log-flow"
+  namespace: "opni-system"
+spec: 
+  filters:
+    - dedot:
+       de_dot_separator: "-"
+       de_dot_nested: true
+    - grep:
+        exclude:
+        - key: log
+          pattern: ^\n$
+    - 
+      detectExceptions: 
+        languages: 
+          - java
+          - python
+          - go
+          - ruby
+          - js
+          - csharp
+          - php
+        multiline_flush_interval: "0.1"
+  globalOutputRefs: 
+    - "aiops-demo-log-output"

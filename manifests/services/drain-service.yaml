@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: drain-service
-        image: rancher/opni-drain-service:v0.1.0
+        image: rancher/opni-drain-service:v0.1.1
         imagePullPolicy: Always
         env:
         - name: NATS_SERVER_URL

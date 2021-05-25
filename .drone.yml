@@ -11,7 +11,7 @@ steps:
 - name: build-and-package
   image: rancher/dapper:v0.5.5
   commands:
-  - dapper ci
+  - CROSS=true dapper ci
   volumes:
   - name: docker
     path: /var/run/docker.sock

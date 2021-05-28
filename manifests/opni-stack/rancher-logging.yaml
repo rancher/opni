@@ -19,3 +19,11 @@ spec:
   version: "3.9.400"
   set:
     additionalLoggingSources.rke.enabled: "true"
+    additionalLoggingSources.fluentbit.log_level: "info"
+    additionalLoggingSources.fluentbit.mem_buffer_limit: "5MB"
+    additionalLoggingSources.rke2.enabled: "true"
+    additionalLoggingSources.k3s.enabled: "true"
+    additionalLoggingSources.k3s.container_engine: "systemd"
+    additionalLoggingSources.aks.enabled: "true"
+    additionalLoggingSources.eks.enabled: "true"
+    additionalLoggingSources.gke.enabled: "true"

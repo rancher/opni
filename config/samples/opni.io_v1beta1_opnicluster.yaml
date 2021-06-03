@@ -3,5 +3,9 @@ kind: OpniCluster
 metadata:
   name: opnicluster-sample
 spec:
-  # Add fields here
-  foo: bar
+  elastic:
+    endpoint: "todo"
+    credentials:
+      keys:
+        accessKey: testAccessKey
+        secretKey: testSecretKey

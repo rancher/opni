@@ -16,7 +16,17 @@ spec:
     singular: opnicluster
   scope: Namespaced
   versions:
-  - name: v1beta1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.ready
+      name: Ready
+      type: boolean
+    - jsonPath: .status.active
+      name: Active
+      type: boolean
+    name: v1beta1
     schema:
       openAPIV3Schema:
         description: OpniCluster is the Schema for the opniclusters API
@@ -32,12 +42,127 @@ spec:
           spec:
             description: OpniClusterSpec defines the desired state of OpniCluster
             properties:
-              foo:
-                description: Foo is an example field of OpniCluster. Edit OpniCluster_types.go to remove/update
-                type: string
+              backend:
+                properties:
+                  filebeats:
+                    type: object
+                  fluentd:
+                    type: object
+                  loki:
+                    type: object
+                  syslog:
+                    type: object
+                type: object
+              dashboard:
+                properties:
+                  grafana:
+                    type: object
+                  kibana:
+                    properties:
+                      endpoint:
+                        type: string
+                    required:
+                    - endpoint
+                    type: object
+                type: object
+              elastic:
+                properties:
+                  credentials:
+                    properties:
+                      fromSecret:
+                        description: SecretReference represents a Secret Reference. It has enough information to retrieve secret in any namespace
+                        properties:
+                          name:
+                            description: Name is unique within a namespace to reference a secret resource.
+                            type: string
+                          namespace:
+                            description: Namespace defines the space within which the secret name must be unique.
+                            type: string
+                        type: object
+                      keys:
+                        properties:
+                          accessKey:
+                            type: string
+                          secretKey:
+                            type: string
+                        type: object
+                    type: object
+                  endpoint:
+                    type: string
+                required:
+                - credentials
+                - endpoint
+                type: object
+              services:
+                properties:
+                  drain:
+                    properties:
+                      image:
+                        type: string
+                    type: object
+                  inference:
+                    properties:
+                      image:
+                        type: string
+                      models:
+                        items:
+                          properties:
+                            image:
+                              type: string
+                            name:
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  preprocessing:
+                    properties:
+                      image:
+                        type: string
+                    type: object
+                  training:
+                    properties:
+                      image:
+                        type: string
+                    type: object
+                type: object
+              storage:
+                properties:
+                  s3:
+                    properties:
+                      credentials:
+                        properties:
+                          fromSecret:
+                            description: SecretReference represents a Secret Reference. It has enough information to retrieve secret in any namespace
+                            properties:
+                              name:
+                                description: Name is unique within a namespace to reference a secret resource.
+                                type: string
+                              namespace:
+                                description: Namespace defines the space within which the secret name must be unique.
+                                type: string
+                            type: object
+                          keys:
+                            properties:
+                              accessKey:
+                                type: string
+                              secretKey:
+                                type: string
+                            type: object
+                        type: object
+                      endpoint:
+                        type: string
+                    type: object
+                  storageClass:
+                    type: string
+                type: object
             type: object
           status:
             description: OpniClusterStatus defines the observed state of OpniCluster
+            properties:
+              active:
+                type: boolean
+              ready:
+                type: boolean
             type: object
         type: object
     served: true

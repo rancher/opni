@@ -35,6 +35,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	demov1alpha1 "github.com/rancher/opni/api/v1alpha1"
 	"github.com/rancher/opni/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
@@ -71,6 +72,9 @@ var _ = BeforeSuite(func() {
 	err = v1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = demov1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:scheme
 
 	// add the opnicluster manager
@@ -83,6 +87,13 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).NotTo(BeNil())
 
 	err = (&OpniClusterReconciler{
+		Client: k8sClient,
+		Log:    ctrl.Log,
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = (&OpniDemoReconciler{
 		Client: k8sClient,
 		Log:    ctrl.Log,
 		Scheme: k8sManager.GetScheme(),

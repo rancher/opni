@@ -2,6 +2,11 @@ domain: opni.io
 layout: go.kubebuilder.io/v3
 projectName: opni
 repo: github.com/rancher/opni
+resources:
+- crdVersion: v1
+  group: demo
+  kind: OpniDemo
+  version: v1alpha1
 version: 3-alpha
 plugins:
   manifests.sdk.operatorframework.io/v2: {}

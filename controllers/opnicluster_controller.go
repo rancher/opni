@@ -23,7 +23,6 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -66,7 +65,7 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Check if the elasticsearch credentials secret exists
 
 	userSuppliedSecret := (es.Credentials.SecretRef != nil)
-	esCredentials := &v1.Secret{}
+	esCredentials := &corev1.Secret{}
 
 	if userSuppliedSecret {
 		// The user has their own secret, make sure it exists

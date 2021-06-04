@@ -24,6 +24,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -48,6 +49,7 @@ func init() {
 	utilruntime.Must(opniiov1beta1.AddToScheme(scheme))
 	utilruntime.Must(demov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(helmv1.AddToScheme(scheme))
+	utilruntime.Must(apiextv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 

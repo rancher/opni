@@ -63,10 +63,14 @@ type OpniStack struct {
 
 // OpniDemoStatus defines the observed state of OpniDemo
 type OpniDemoStatus struct {
+	Conditions []string `json:"conditions,omitempty"`
+	State      string   `json:"state,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:printcolumn:name="State",type=string,JSONPath=`.status.state`
 
 // OpniDemo is the Schema for the opnidemoes API
 type OpniDemo struct {

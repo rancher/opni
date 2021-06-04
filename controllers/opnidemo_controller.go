@@ -18,11 +18,13 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -44,6 +46,8 @@ type OpniDemoReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// We need to give this controller all permissions due to it needing to install
+// the helm controller, which itself needs all permissions
 // +kubebuilder:rbac:groups=*,resources=*,verbs=*
 
 // /*+*/ kubebuilder:rbac:groups=demo.opni.io,resources=opnidemoes,verbs=get;list;watch;create;update;patch;delete
@@ -72,27 +76,44 @@ func (r *OpniDemoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	_ = r.Log.WithValues("opnidemo", req.NamespacedName)
 
 	opniDemo := &v1alpha1.OpniDemo{}
-	err := r.Get(ctx, req.NamespacedName, opniDemo)
-	if err != nil {
+	if err := r.Get(ctx, req.NamespacedName, opniDemo); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// Set conditions to empty to start
+	opniDemo.Status.Conditions = []string{}
+
 	if result, err := r.reconcileInfraStack(ctx, req, opniDemo); err != nil ||
 		result.Requeue || result.RequeueAfter != time.Duration(0) {
+		opniDemo.Status.State = "Deploying infrastructure resources"
+		err = r.Status().Update(ctx, opniDemo)
 		return result, err
 	}
 
 	if result, err := r.reconcileOpniStack(ctx, req, opniDemo); err != nil ||
 		result.Requeue || result.RequeueAfter != time.Duration(0) {
+		opniDemo.Status.State = "Deploying opni stack"
+		err = r.Status().Update(ctx, opniDemo)
 		return result, err
 	}
 
 	if result, err := r.reconcileServicesStack(ctx, req, opniDemo); err != nil ||
 		result.Requeue || result.RequeueAfter != time.Duration(0) {
+		opniDemo.Status.State = "Deploying services stack"
+		err = r.Status().Update(ctx, opniDemo)
 		return result, err
 	}
 
-	return ctrl.Result{}, nil
+	result := ctrl.Result{}
+	if len(opniDemo.Status.Conditions) == 0 {
+		opniDemo.Status.State = "Ready"
+	} else {
+		opniDemo.Status.State = "Waiting"
+		result = ctrl.Result{
+			RequeueAfter: 2 * time.Second,
+		}
+	}
+	return result, r.Status().Update(ctx, opniDemo)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -118,10 +139,10 @@ func (r *OpniDemoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *OpniDemoReconciler) reconcileInfraStack(ctx context.Context, req ctrl.Request, opniDemo *v1alpha1.OpniDemo) (ctrl.Result, error) {
-	objects := demo.InfraStackObjects
+	objects := demo.MakeInfraStackObjects(opniDemo)
 	for _, object := range objects {
+		object.SetNamespace(opniDemo.Namespace)
 		if err := r.Get(ctx, client.ObjectKeyFromObject(object), object); errors.IsNotFound(err) {
-			object.SetNamespace(opniDemo.Namespace)
 			r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
 			if err := ctrl.SetControllerReference(opniDemo, object, r.Scheme); err != nil {
 				return ctrl.Result{}, err
@@ -143,6 +164,9 @@ func (r *OpniDemoReconciler) reconcileOpniStack(ctx context.Context, req ctrl.Re
 	if opts.Components.Opni.Nats {
 		objects = append(objects, demo.BuildNatsHelmChart(opniDemo))
 	}
+	if opts.Components.Opni.Elastic {
+		objects = append(objects, demo.BuildElasticHelmChart(opniDemo))
+	}
 	if opts.Components.Opni.RancherLogging {
 		objects = append(objects, demo.BuildRancherLoggingCrdHelmChart(), demo.BuildRancherLoggingHelmChart())
 	}
@@ -151,11 +175,11 @@ func (r *OpniDemoReconciler) reconcileOpniStack(ctx context.Context, req ctrl.Re
 	}
 
 	for _, object := range objects {
+		object.SetNamespace(opniDemo.Namespace)
 		if err := r.Get(ctx, types.NamespacedName{
 			Namespace: opniDemo.Namespace,
 			Name:      object.GetName(),
 		}, object); errors.IsNotFound(err) {
-			object.SetNamespace(opniDemo.Namespace)
 			r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
 			if err := ctrl.SetControllerReference(opniDemo, object, r.Scheme); err != nil {
 				return ctrl.Result{}, err
@@ -163,6 +187,20 @@ func (r *OpniDemoReconciler) reconcileOpniStack(ctx context.Context, req ctrl.Re
 			return ctrl.Result{Requeue: true}, r.Create(ctx, object)
 		} else if err != nil {
 			return ctrl.Result{}, err
+		}
+		if chart, ok := object.(*helmv1.HelmChart); ok {
+			jobname := chart.Status.JobName
+			job := &batchv1.Job{}
+			if err := r.Get(ctx, types.NamespacedName{
+				Namespace: opniDemo.Namespace,
+				Name:      jobname,
+			}, job); err != nil {
+				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+					fmt.Sprintf("Waiting for job %s to start (%s)", jobname, err.Error()))
+			} else if job.Status.CompletionTime == nil {
+				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+					fmt.Sprintf("Waiting for job %s to complete", jobname))
+			}
 		}
 	}
 	return ctrl.Result{}, nil
@@ -183,22 +221,34 @@ func (r *OpniDemoReconciler) reconcileServicesStack(ctx context.Context, req ctr
 			demo.BuildNvidiaPlugin(opniDemo),
 			demo.BuildTrainingController(opniDemo),
 		)
-		objects = append(objects, demo.BuildTrainingControllerInfra()...)
+		objects = append(objects, demo.BuildTrainingControllerInfra(opniDemo)...)
 	}
 
 	for _, object := range objects {
+		object.SetNamespace(opniDemo.Namespace)
 		if err := r.Get(ctx, types.NamespacedName{
 			Namespace: opniDemo.Namespace,
 			Name:      object.GetName(),
 		}, object); errors.IsNotFound(err) {
 			r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
-			object.SetNamespace(opniDemo.Namespace)
 			if err := ctrl.SetControllerReference(opniDemo, object, r.Scheme); err != nil {
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{Requeue: true}, r.Create(ctx, object)
 		} else if err != nil {
 			return ctrl.Result{}, err
+		}
+		switch o := object.(type) {
+		case *appsv1.Deployment:
+			if o.Status.AvailableReplicas < o.Status.Replicas || o.Status.UnavailableReplicas > 0 {
+				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+					fmt.Sprintf("Waiting for deployment %s to become ready", o.Name))
+			}
+		case *appsv1.DaemonSet:
+			if o.Status.CurrentNumberScheduled != o.Status.DesiredNumberScheduled {
+				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+					fmt.Sprintf("Waiting for daemonset %s to become ready", o.Name))
+			}
 		}
 	}
 	return ctrl.Result{}, nil

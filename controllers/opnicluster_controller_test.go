@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	crName      = "test-buildcluster"
-	crNamespace = "opni-test"
+	crName      = "test-opnicluster"
+	crNamespace = "opnicluster-test"
 	timeout     = 10 * time.Second
 	interval    = 500 * time.Millisecond
 )

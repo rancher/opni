@@ -11,7 +11,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-all: manager
+all: manager opnictl
 
 # Run tests
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
@@ -23,6 +23,10 @@ test: generate fmt vet manifests
 # Build manager binary
 manager: generate fmt vet manifests
 	CGO_ENABLED=0 go build -ldflags '-w -s' -o bin/manager .
+
+# Build opnictl binary
+opnictl: generate fmt vet manifests
+	CGO_ENABLED=0 go build -ldflags '-w -s' -o bin/opnictl ./cmd/opnictl
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests

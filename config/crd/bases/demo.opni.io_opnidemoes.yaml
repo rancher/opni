@@ -16,7 +16,14 @@ spec:
     singular: opnidemo
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.state
+      name: State
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: OpniDemo is the Schema for the opnidemoes API
@@ -102,6 +109,13 @@ spec:
             type: object
           status:
             description: OpniDemoStatus defines the observed state of OpniDemo
+            properties:
+              conditions:
+                items:
+                  type: string
+                type: array
+              state:
+                type: string
             type: object
         type: object
     served: true

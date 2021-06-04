@@ -413,7 +413,7 @@ func BuildPreprocessingService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 	}
 }
 
-func BuildTrainingControllerInfra() []client.Object {
+func BuildTrainingControllerInfra(spec *demov1alpha1.OpniDemo) []client.Object {
 	return []client.Object{
 		&corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
@@ -438,9 +438,9 @@ func BuildTrainingControllerInfra() []client.Object {
 			},
 			Subjects: []rbacv1.Subject{
 				{
-					Kind:     "ServiceAccount",
-					Name:     "training-controller-rb",
-					APIGroup: "rbac.authorization.k8s.io",
+					Kind:      "ServiceAccount",
+					Name:      "training-controller-rb",
+					Namespace: spec.Namespace,
 				},
 			},
 			RoleRef: rbacv1.RoleRef{

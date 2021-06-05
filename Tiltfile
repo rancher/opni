@@ -6,4 +6,4 @@ load('ext://kubebuilder', 'kubebuilder')
 load('ext://min_k8s_version', 'min_k8s_version')
 
 min_k8s_version('1.20')
-kubebuilder('demo', 'opni.io', 'v1alpha1', 'OpniDemo', 'rancher/opni')
+kubebuilder('demo', 'opni.io', 'v1alpha1', 'OpniDemo', 'joekralicky/opni-manager')

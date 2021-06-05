@@ -6,8 +6,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/vbauerster/mpb"
-	"github.com/vbauerster/mpb/decor"
+	"github.com/ttacon/chalk"
+	"github.com/vbauerster/mpb/v7"
+	"github.com/vbauerster/mpb/v7/decor"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -19,11 +20,15 @@ var UninstallCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		p := mpb.New()
 
-		spinner := p.AddSpinner(1, mpb.SpinnerOnLeft,
-			mpb.PrependDecorators(
-				decor.OnComplete(decor.Name("Uninstalling Opni Resources..."), "Uninstall completed."),
+		spinner := p.AddSpinner(1,
+			mpb.AppendDecorators(
+				decor.OnComplete(
+					decor.Name(chalk.Bold.TextStyle("Uninstalling Opni Resources..."), decor.WCSyncSpaceR),
+					chalk.Bold.TextStyle("Uninstall completed."),
+				),
 			),
-			mpb.BarClearOnComplete(),
+			mpb.BarFillerOnComplete(chalk.Green.Color("✓")),
+			mpb.BarWidth(1),
 		)
 		var msgs []string
 		go func() {

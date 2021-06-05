@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"io"
 	"log"
 	"strings"
 	"time"
@@ -9,8 +10,9 @@ import (
 	"github.com/rancher/opni/api/v1alpha1"
 	"github.com/rancher/opni/api/v1beta1"
 	"github.com/spf13/cobra"
-	"github.com/vbauerster/mpb"
-	"github.com/vbauerster/mpb/decor"
+	"github.com/ttacon/chalk"
+	"github.com/vbauerster/mpb/v7"
+	"github.com/vbauerster/mpb/v7/decor"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -34,6 +36,30 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(v1beta1.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+}
+
+func barFiller(waitCtx context.Context) func(mpb.BarFiller) mpb.BarFiller {
+	return func(base mpb.BarFiller) mpb.BarFiller {
+		done := false
+		var doneText string
+		return mpb.BarFillerFunc(func(w io.Writer, reqWidth int, st decor.Statistics) {
+			if done {
+				io.WriteString(w, doneText)
+				return
+			}
+			if st.Completed || waitCtx.Err() != nil {
+				done = true
+				if waitCtx.Err() != nil {
+					doneText = chalk.Red.Color("✗")
+				} else {
+					doneText = chalk.Green.Color("✓")
+				}
+				io.WriteString(w, doneText)
+			} else {
+				base.Fill(w, reqWidth, st)
+			}
+		})
+	}
 }
 
 var DemoCmd = &cobra.Command{
@@ -76,7 +102,7 @@ var DemoCmd = &cobra.Command{
 				Nats:           true,
 				Elastic:        true,
 				RancherLogging: opniDemo.Spec.Quickstart,
-				Traefik:        opniDemo.Spec.Quickstart,
+				Traefik:        opniDemo.Spec.Quickstart && !isK3S,
 			},
 		}
 
@@ -86,12 +112,25 @@ var DemoCmd = &cobra.Command{
 
 		p := mpb.New()
 
-		waitingSpinner := p.AddSpinner(1, mpb.SpinnerOnLeft, mpb.PrependDecorators(
-			decor.OnComplete(decor.Name("Waiting..."), "Done."),
-		), mpb.BarClearOnComplete())
+		timeout := 60 * time.Second
+		waitCtx, ca := context.WithTimeout(context.Background(), timeout)
+
+		waitingSpinner := p.AddSpinner(1,
+			mpb.AppendDecorators(
+				decor.OnComplete(decor.Name(chalk.Bold.TextStyle("Creating Resource..."), decor.WCSyncSpaceR),
+					chalk.Bold.TextStyle("Done."),
+				),
+			),
+			mpb.BarFillerMiddleware(barFiller(waitCtx)),
+			mpb.BarWidth(1),
+		)
 		conds := map[string]*mpb.Bar{}
 
-		waitCtx := context.Background()
+		go func() {
+			<-waitCtx.Done()
+			waitingSpinner.Increment()
+		}()
+		defer ca()
 		wait.PollImmediateUntil(500*time.Millisecond, func() (done bool, err error) {
 			obj := &v1alpha1.OpniDemo{}
 			err = cli.Get(waitCtx, client.ObjectKeyFromObject(opniDemo), obj)
@@ -109,9 +148,38 @@ var DemoCmd = &cobra.Command{
 
 			for _, cond := range conditions {
 				if _, ok := conds[cond]; !ok {
-					conds[cond] = p.AddSpinner(1, mpb.SpinnerOnLeft, mpb.PrependDecorators(
-						decor.OnComplete(decor.Name(cond), "Done."),
-					), mpb.BarClearOnComplete())
+					conds[cond] = p.AddSpinner(1,
+						mpb.AppendDecorators(
+							func(cond string) decor.Decorator {
+								done := false
+								var doneText string
+								return decor.Any(func(s decor.Statistics) string {
+									if done {
+										return doneText
+									}
+									if s.Completed || waitCtx.Err() != nil {
+										done = true
+										if waitCtx.Err() == nil {
+											doneText = chalk.Bold.TextStyle(chalk.Green.Color("[Done] ")) + chalk.Italic.TextStyle(cond)
+										} else {
+											doneText = chalk.Bold.TextStyle(chalk.Red.Color("[Timed Out] ")) + chalk.Italic.TextStyle(cond)
+										}
+										return doneText
+									} else {
+										return chalk.Bold.TextStyle(chalk.Blue.Color(cond))
+									}
+								}, decor.WCSyncSpaceR)
+							}(cond),
+						),
+						mpb.BarFillerMiddleware(barFiller(waitCtx)),
+						mpb.BarWidth(1),
+					)
+					go func(cond string) {
+						<-waitCtx.Done()
+						if !conds[cond].Completed() {
+							conds[cond].Increment()
+						}
+					}(cond)
 				}
 			}
 

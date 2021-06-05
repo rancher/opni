@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= rancher/opni:latest
+IMG ?= joekralicky/opni-manager:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
@@ -25,7 +25,7 @@ manager: generate fmt vet manifests
 	CGO_ENABLED=0 go build -ldflags '-w -s' -o bin/manager .
 
 # Build opnictl binary
-opnictl: generate fmt vet manifests
+opnictl: generate fmt vet manifests staging-gen
 	CGO_ENABLED=0 go build -ldflags '-w -s' -o bin/opnictl ./cmd/opnictl
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
@@ -72,6 +72,9 @@ docker-build: test
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+staging-gen:
+	./staging/generate.sh
 
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen

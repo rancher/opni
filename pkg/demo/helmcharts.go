@@ -50,7 +50,7 @@ func BuildElasticHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 		},
 		Spec: helmv1.HelmChartSpec{
 			Chart:   "opendistro-es",
-			Repo:    "http://charts.rancher.io/",
+			Repo:    "https://raw.githubusercontent.com/rancher/opni-charts/main",
 			Version: "1.13.2",
 			Set: map[string]intstr.IntOrString{
 				"elasticsearch.master.persistence.enabled":      intstr.FromString("true"),

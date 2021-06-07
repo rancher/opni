@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"github.com/vbauerster/mpb/v7"
@@ -32,14 +33,15 @@ var InstallCmd = &cobra.Command{
 		)
 		var msgs []string
 		go func() {
-			msgs = ForEachStagingResource(func(dr dynamic.ResourceInterface, obj *unstructured.Unstructured) error {
-				_, err := dr.Create(
-					context.Background(),
-					obj,
-					v1.CreateOptions{},
-				)
-				return err
-			})
+			msgs = cliutil.ForEachStagingResource(
+				func(dr dynamic.ResourceInterface, obj *unstructured.Unstructured) error {
+					_, err := dr.Create(
+						context.Background(),
+						obj,
+						v1.CreateOptions{},
+					)
+					return err
+				})
 			spinner.Increment()
 		}()
 		p.Wait()

@@ -1,4 +1,4 @@
-package commands
+package opnictl
 
 import (
 	"bytes"
@@ -13,31 +13,18 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
-func LoadClientConfig() *rest.Config {
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	kubeconfig, err := rules.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-	clientConfig, err := clientcmd.NewDefaultClientConfig(*kubeconfig, nil).
-		ClientConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return clientConfig
-}
-
-func ForEachStagingResource(callback func(dynamic.ResourceInterface, *unstructured.Unstructured) error) (errors []string) {
+func ForEachStagingResource(
+	callback func(dynamic.ResourceInterface, *unstructured.Unstructured) error,
+) (errors []string) {
 	errors = []string{}
 
 	clientConfig := LoadClientConfig()
 
-	decodingSerializer := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	decodingSerializer := yaml.NewDecodingSerializer(
+		unstructured.UnstructuredJSONScheme)
 	decoder := yamlutil.NewYAMLOrJSONDecoder(
 		bytes.NewReader([]byte(staging.StagingAutogenYaml)), 32)
 	dynamicClient := dynamic.NewForConfigOrDie(clientConfig)
@@ -46,7 +33,8 @@ func ForEachStagingResource(callback func(dynamic.ResourceInterface, *unstructur
 	if err != nil {
 		log.Fatal(err)
 	}
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(
+		memory.NewMemCacheClient(dc))
 
 	for {
 		var rawObj runtime.RawExtension
@@ -69,7 +57,8 @@ func ForEachStagingResource(callback func(dynamic.ResourceInterface, *unstructur
 		var dr dynamic.ResourceInterface
 		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
 			// namespaced resources should specify the namespace
-			dr = dynamicClient.Resource(mapping.Resource).Namespace(obj.GetNamespace())
+			dr = dynamicClient.Resource(mapping.Resource).
+				Namespace(obj.GetNamespace())
 		} else {
 			// for cluster-wide resources
 			dr = dynamicClient.Resource(mapping.Resource)

@@ -36,6 +36,7 @@ type OpniDemoSpec struct {
 	TraefikVersion         string         `json:"traefikVersion"`
 	NulogServiceCpuRequest string         `json:"nulogServiceCpuRequest"`
 	Quickstart             bool           `json:"quickstart"`
+	CreateKibanaDashboard  *bool          `json:"createKibanaDashboard,omitempty"`
 }
 
 type ComponentsSpec struct {

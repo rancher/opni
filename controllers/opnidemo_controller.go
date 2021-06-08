@@ -104,6 +104,13 @@ func (r *OpniDemoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return result, err
 	}
 
+	if result, err := r.reconcileKibanaDashboards(ctx, req, opniDemo); err != nil ||
+		result.Requeue || result.RequeueAfter != time.Duration(0) {
+		opniDemo.Status.State = "Deploying Kibana dashboard pod"
+		err = r.Status().Update(ctx, opniDemo)
+		return result, err
+	}
+
 	result := ctrl.Result{}
 	if len(opniDemo.Status.Conditions) == 0 {
 		opniDemo.Status.State = "Ready"
@@ -250,6 +257,40 @@ func (r *OpniDemoReconciler) reconcileServicesStack(ctx context.Context, req ctr
 					fmt.Sprintf("Waiting for daemonset %s to become ready", o.Name))
 			}
 		}
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *OpniDemoReconciler) reconcileKibanaDashboards(ctx context.Context, req ctrl.Request, opniDemo *v1alpha1.OpniDemo) (ctrl.Result, error) {
+	opts := opniDemo.Spec
+	if opts.CreateKibanaDashboard != nil && !*opts.CreateKibanaDashboard {
+		return ctrl.Result{}, nil
+	}
+
+	pod := demo.BuildKibanaDashboardPod(opniDemo)
+	pod.SetNamespace(opniDemo.Namespace)
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: opniDemo.Namespace,
+		Name:      demo.KibanaDashboardPodName,
+	}, pod); errors.IsNotFound(err) {
+		r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(pod))
+		if err := ctrl.SetControllerReference(opniDemo, pod, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, r.Create(ctx, pod)
+	} else if err != nil {
+		return ctrl.Result{}, err
+	}
+	switch s := pod.Status.Phase; s {
+	case corev1.PodSucceeded:
+		return ctrl.Result{}, nil
+	case corev1.PodFailed:
+		opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+			fmt.Sprintf("%s failed, deleting and rescheduling", pod.Name))
+		return ctrl.Result{RequeueAfter: time.Duration(2 * time.Second)}, r.Delete(ctx, pod)
+	default:
+		opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+			fmt.Sprintf("Waiting for pod %s to finish, currently %s", pod.Name, s))
 	}
 	return ctrl.Result{}, nil
 }

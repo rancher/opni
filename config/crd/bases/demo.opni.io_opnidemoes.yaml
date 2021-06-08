@@ -65,6 +65,8 @@ spec:
                 - infra
                 - opni
                 type: object
+              createKibanaDashboard:
+                type: boolean
               elasticsearchPassword:
                 type: string
               elasticsearchUser:

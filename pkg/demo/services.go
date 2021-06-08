@@ -16,6 +16,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	KibanaDashboardPodName = "deploy-opni-kibana-dasbhboards"
+)
+
 func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 	labels := map[string]string{"app": "drain-service"}
 	return &appsv1.Deployment{
@@ -515,6 +519,40 @@ func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 					},
 				},
 			},
+		},
+	}
+}
+
+func BuildKibanaDashboardPod(spec *demov1alpha1.OpniDemo) *v1.Pod {
+	labels := map[string]string{"app": "training-controller"}
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   KibanaDashboardPodName,
+			Labels: labels,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
+					Name:            "kibana-dashboard",
+					Image:           "rancher/opni-kibana-dashboard:v0.1.1",
+					ImagePullPolicy: v1.PullAlways,
+					Env: []v1.EnvVar{
+						{
+							Name:  "ES_ENDPOINT",
+							Value: fmt.Sprintf("https://opendistro-es-client-service.%s.svc.cluster.local:9200", spec.Namespace),
+						},
+						{
+							Name:  "ES_USER",
+							Value: spec.Spec.ElasticsearchUser,
+						},
+						{
+							Name:  "ES_PASSWORD",
+							Value: spec.Spec.ElasticsearchUser,
+						},
+					},
+				},
+			},
+			RestartPolicy: v1.RestartPolicyNever,
 		},
 	}
 }

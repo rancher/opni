@@ -240,5 +240,14 @@ var _ = Describe("OpniDemo Controller", func() {
 				}, acct)
 			}, timeout, interval)
 		})
+		It("should create the kibana dashboards pod", func() {
+			Eventually(func() error {
+				pod := &corev1.Pod{}
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Namespace: demoCrNamespace,
+					Name:      "deploy-opni-kibana-dasbhboards",
+				}, pod)
+			}, timeout, interval)
+		})
 	})
 })

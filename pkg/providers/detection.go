@@ -10,6 +10,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// TODO: this probably already exists in a library somewhere
+
 type Provider int
 
 const (

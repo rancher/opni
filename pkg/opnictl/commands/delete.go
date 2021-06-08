@@ -1,8 +1,17 @@
 package commands
 
 import (
+	"context"
+
+	. "github.com/rancher/opni/pkg/opnictl/common"
+
+	"github.com/rancher/opni/api/v1alpha1"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
+	"github.com/ttacon/chalk"
+	"github.com/vbauerster/mpb/v7"
+	"github.com/vbauerster/mpb/v7/decor"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var DeleteCmd = &cobra.Command{
@@ -10,13 +19,47 @@ var DeleteCmd = &cobra.Command{
 	Short: "Delete existing opni resources",
 }
 
-var scheme = cliutil.CreateScheme()
-
 var DeleteDemoCmd = &cobra.Command{
-	Use:   "demo-cluster",
+	Use:   "demo-cluster name",
+	Args:  cobra.ExactArgs(1),
 	Short: "Delete an existing opni demo cluster",
 	Run: func(cmd *cobra.Command, args []string) {
+		cli := cliutil.CreateClientOrDie()
 
+		demo := &v1alpha1.OpniDemo{}
+		if err := cli.Get(context.Background(), types.NamespacedName{
+			Namespace: NamespaceFlagValue,
+			Name:      args[0],
+		}, demo); err != nil {
+			Log.Fatal(err)
+		}
+
+		p := mpb.New()
+		waitCtx, ca := context.WithTimeout(context.Background(), TimeoutFlagValue)
+		defer ca()
+		var deleteError error
+		waitingSpinner := p.AddSpinner(1,
+			mpb.AppendDecorators(
+				decor.OnComplete(decor.Name(chalk.Bold.TextStyle("Deleting resources..."), decor.WCSyncSpaceR),
+					chalk.Bold.TextStyle("Done."),
+				),
+			),
+			mpb.BarFillerMiddleware(
+				cliutil.CheckBarFiller(waitCtx, func(c context.Context) bool {
+					return waitCtx.Err() == nil && deleteError == nil
+				})),
+			mpb.BarWidth(1),
+		)
+
+		go func() {
+			defer waitingSpinner.Increment()
+			deleteError = cli.Delete(waitCtx, demo)
+			if deleteError != nil {
+				Log.Fatal(deleteError)
+			}
+		}()
+
+		p.Wait()
 	},
 }
 

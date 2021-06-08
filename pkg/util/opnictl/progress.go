@@ -24,9 +24,9 @@ func CheckBarFiller(
 			if st.Completed || waitCtx.Err() != nil {
 				done = true
 				if success(waitCtx) {
-					doneText = chalk.Red.Color("✗")
-				} else {
 					doneText = chalk.Green.Color("✓")
+				} else {
+					doneText = chalk.Red.Color("✗")
 				}
 				io.WriteString(w, doneText)
 			} else {

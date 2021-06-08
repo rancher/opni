@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	coreErrors "errors"
 	"fmt"
 	"time"
 
@@ -44,6 +45,12 @@ type OpniDemoReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+}
+
+// KibanaDashboardPrerequisite describes a prerequisite object for the kibana dashboard pod
+type KibanaDashboardPrerequisite struct {
+	Name   string
+	Object client.Object
 }
 
 // We need to give this controller all permissions due to it needing to install
@@ -267,6 +274,43 @@ func (r *OpniDemoReconciler) reconcileKibanaDashboards(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	}
 
+	dashboardPrerequsites := [3]KibanaDashboardPrerequisite{
+		{
+			Name:   "opendistro-es-master",
+			Object: &appsv1.StatefulSet{},
+		},
+		{
+			Name:   "opendistro-es-data",
+			Object: &appsv1.StatefulSet{},
+		},
+		{
+			Name:   "opendistro-es-client",
+			Object: &appsv1.Deployment{},
+		},
+	}
+	for _, prerequisite := range dashboardPrerequsites {
+		if err := r.Get(ctx, types.NamespacedName{
+			Namespace: opniDemo.Namespace,
+			Name:      prerequisite.Name,
+		}, prerequisite.Object); err != nil {
+			return ctrl.Result{}, err
+		}
+		switch o := prerequisite.Object.(type) {
+		case *appsv1.StatefulSet:
+			if o.Status.ReadyReplicas < 1 {
+				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+					fmt.Sprintf("Waiting for prerequisite statefulset %s to become ready", o.Name))
+				return ctrl.Result{RequeueAfter: time.Duration(2 * time.Second)}, nil
+			}
+		case *appsv1.Deployment:
+			if o.Status.AvailableReplicas < 1 {
+				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+					fmt.Sprintf("Waiting for prerequisite deployment %s to become ready", o.Name))
+				return ctrl.Result{RequeueAfter: time.Duration(2 * time.Second)}, nil
+			}
+		}
+	}
+
 	pod := demo.BuildKibanaDashboardPod(opniDemo)
 	pod.SetNamespace(opniDemo.Namespace)
 	if err := r.Get(ctx, types.NamespacedName{
@@ -287,7 +331,10 @@ func (r *OpniDemoReconciler) reconcileKibanaDashboards(ctx context.Context, req 
 	case corev1.PodFailed:
 		opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
 			fmt.Sprintf("%s failed, deleting and rescheduling", pod.Name))
-		return ctrl.Result{RequeueAfter: time.Duration(2 * time.Second)}, r.Delete(ctx, pod)
+		if err := r.Delete(ctx, pod); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, coreErrors.New("kibana dashboard pod failed")
 	default:
 		opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
 			fmt.Sprintf("Waiting for pod %s to finish, currently %s", pod.Name, s))

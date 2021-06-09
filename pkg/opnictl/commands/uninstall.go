@@ -20,7 +20,13 @@ import (
 
 var UninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "Uninstall Opni Manager",
+	Short: "Uninstall Opni",
+	Long: `
+The Uninstall command will completely uninstall Opni from your cluster. This 
+includes the Manager, as well as any Opni services that were created using opnictl.
+
+Your current kubeconfig context will be used to select the cluster to uninstall 
+Opni from, unless the --context flag is provided to select a specific context.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		p := mpb.New()
 

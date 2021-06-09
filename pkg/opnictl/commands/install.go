@@ -19,6 +19,20 @@ import (
 var InstallCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install Opni Manager",
+	Long: `
+The install command will install the Opni Manager (operator) into your cluster, 
+along with the Opni CRDs. 
+
+Your current kubeconfig context will be used to select the cluster to install 
+Opni into, unless the --context flag is provided to select a specific context.
+
+A namespace can be provided using the --namespace flag, otherwise a default 
+namespace of 'opni-system' will be used. If the opni-system namespace does not
+exist, it will be created, but if a custom namespace is specified, it must
+already exist.
+
+Once the manager is running, install the Opni services using one of the Opni
+APIs. For more information on selecting an API, run 'opnictl help apis'.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		p := mpb.New()
 

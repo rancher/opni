@@ -1,3 +1,5 @@
+// Package opnictl contains various utility and helper functions that are used
+// by the Opnictl CLI.
 package opnictl
 
 import (
@@ -14,6 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// ClientOptions can be passed to some of the functions in this package when
+// creating clients and/or client configurations.
 type ClientOptions struct {
 	overrides *clientcmd.ConfigOverrides
 }
@@ -26,6 +30,8 @@ func (o *ClientOptions) Apply(opts ...ClientOption) {
 	}
 }
 
+// WithConfigOverrides allows overriding specific kubeconfig fields from the
+// user's loaded kubeconfig.
 func WithConfigOverrides(overrides *clientcmd.ConfigOverrides) ClientOption {
 	return func(o *ClientOptions) {
 		o.overrides = overrides
@@ -69,6 +75,7 @@ func LoadClientConfig(opts ...ClientOption) *rest.Config {
 	return clientConfig
 }
 
+// CreateScheme creates a new scheme with the types necessary for opnictl.
 func CreateScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))

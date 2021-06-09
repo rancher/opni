@@ -1,7 +1,9 @@
+// Package commands contains the opnictl sub-commands.
 package commands
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/rancher/opni/api/v1alpha1"
@@ -22,11 +24,19 @@ var opniDemo = &v1alpha1.OpniDemo{}
 var CreateCmd = &cobra.Command{
 	Use:   "create resource",
 	Short: "Create new Opni resources",
+	Long:  "See subcommands for more information.",
 }
 
 var CreateDemoCmd = &cobra.Command{
-	Use:   "demo-cluster",
+	Use:   "demo",
 	Short: "Create a new opni demo cluster",
+	Long: fmt.Sprintf(`
+This command will install opni into the selected namespace using the Demo API.
+For more information about the Demo API, run %s.
+
+Your current kubeconfig context will be used to select the cluster to operate
+on, unless the --context flag is provided to select a specific context.`,
+		chalk.Bold.TextStyle("opnictl help apis")),
 	Run: func(cmd *cobra.Command, args []string) {
 		cli := cliutil.CreateClientOrDie()
 

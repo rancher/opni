@@ -1,3 +1,4 @@
+// Package providers provides methods to detect different Kubernetes distros.
 package providers
 
 import (

@@ -18,12 +18,21 @@ import (
 var DeleteCmd = &cobra.Command{
 	Use:   "delete resource",
 	Short: "Delete existing opni resources",
+	Long:  "See subcommands for more information.",
 }
 
 var DeleteDemoCmd = &cobra.Command{
-	Use:   "demo-cluster name",
+	Use:   "demo name",
 	Args:  cobra.ExactArgs(1),
 	Short: "Delete an existing opni demo cluster",
+	Long: `
+This command will remove an installation of Opni from the selected namespace.
+Any installations of Opni in other namespaces, as well as the Opni Manager and
+CRDs, will remain.
+
+Your current kubeconfig context will be used to select the cluster to operate
+on, unless the --context flag is provided to select a specific context.
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cli := cliutil.CreateClientOrDie()
 

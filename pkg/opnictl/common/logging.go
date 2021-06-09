@@ -1,3 +1,5 @@
+// Package common contains utilities shared between the opnictl commands
+// and the CLI logic that is not tied to any specific command.
 package common
 
 import (
@@ -10,6 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Log is a shared logger that can be used in all opnictl commands.
 var Log *zap.SugaredLogger
 var startTime = atomic.NewInt64(time.Now().Unix())
 

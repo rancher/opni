@@ -7,6 +7,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// These constants are available to all opnictl sub-commands and are filled
+// in by the root command using persistent flags.
+
 var (
 	TimeoutFlagValue         time.Duration
 	NamespaceFlagValue       string

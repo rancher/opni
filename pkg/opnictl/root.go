@@ -2,6 +2,9 @@ package opnictl
 
 import (
 	"os"
+	"time"
+
+	. "github.com/rancher/opni/pkg/opnictl/common"
 
 	"github.com/rancher/opni/pkg/opnictl/commands"
 	"github.com/spf13/cobra"
@@ -29,7 +32,12 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.PersistentFlags().StringVarP(&NamespaceFlagValue, "namespace", "n", "opni-demo",
+		"namespace to install resources to")
+	rootCmd.PersistentFlags().DurationVar(&TimeoutFlagValue, "timeout", 2*time.Minute,
+		"Duration to wait for Create/Delete operations before timing out")
 	rootCmd.AddCommand(commands.InstallCmd)
 	rootCmd.AddCommand(commands.UninstallCmd)
 	rootCmd.AddCommand(commands.CreateCmd)
+	rootCmd.AddCommand(commands.DeleteCmd)
 }

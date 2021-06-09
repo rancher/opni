@@ -2,16 +2,17 @@ package commands
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/rancher/opni/api/v1alpha1"
+	. "github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/rancher/opni/pkg/providers"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"github.com/vbauerster/mpb/v7"
 	"github.com/vbauerster/mpb/v7/decor"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,14 +28,7 @@ var CreateDemoCmd = &cobra.Command{
 	Use:   "demo-cluster",
 	Short: "Create a new opni demo cluster",
 	Run: func(cmd *cobra.Command, args []string) {
-		clientConfig := cliutil.LoadClientConfig()
-
-		cli, err := client.New(clientConfig, client.Options{
-			Scheme: scheme,
-		})
-		if err != nil {
-			log.Fatal(err)
-		}
+		cli := cliutil.CreateClientOrDie()
 
 		provider := providers.Detect(cli)
 
@@ -52,18 +46,17 @@ var CreateDemoCmd = &cobra.Command{
 			},
 		}
 
-		if err := cli.Create(context.Background(), opniDemo); err != nil {
-			log.Fatal(err)
+		if err := cli.Create(context.Background(), opniDemo); errors.IsAlreadyExists(err) {
+			Log.Info(err.Error())
 		}
 
 		p := mpb.New()
 
-		timeout := 60 * time.Second
-		waitCtx, ca := context.WithTimeout(context.Background(), timeout)
+		waitCtx, ca := context.WithTimeout(context.Background(), TimeoutFlagValue)
 
 		waitingSpinner := p.AddSpinner(1,
 			mpb.AppendDecorators(
-				decor.OnComplete(decor.Name(chalk.Bold.TextStyle("Creating Resource..."), decor.WCSyncSpaceR),
+				decor.OnComplete(decor.Name(chalk.Bold.TextStyle("Waiting for resource to become ready..."), decor.WCSyncSpaceR),
 					chalk.Bold.TextStyle("Done."),
 				),
 			),
@@ -84,7 +77,7 @@ var CreateDemoCmd = &cobra.Command{
 			obj := &v1alpha1.OpniDemo{}
 			err = cli.Get(waitCtx, client.ObjectKeyFromObject(opniDemo), obj)
 			if client.IgnoreNotFound(err) != nil {
-				log.Println(err.Error())
+				Log.Error(err.Error())
 				return false, err
 			}
 			state := obj.Status.State
@@ -122,7 +115,7 @@ var CreateDemoCmd = &cobra.Command{
 						),
 						mpb.BarFillerMiddleware(
 							cliutil.CheckBarFiller(waitCtx, func(c context.Context) bool {
-								return waitCtx == nil
+								return waitCtx.Err() == nil
 							}),
 						),
 						mpb.BarWidth(1),

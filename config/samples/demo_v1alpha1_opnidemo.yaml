@@ -1,28 +1,28 @@
-apiVersion: demo.opni.io/v1alpha1
-kind: OpniDemo
-metadata:
-  name: opnidemo-sample
-spec:
-  components:
-    infra:
-      helmController: false
-      localPathProvisioner: false
-    opni:
-      minio: true
-      nats: true
-      elastic: true
-      rancherLogging: true
-      traefik: false
-  minioAccessKey: testAccessKey
-  minioSecretKey: testSecretKey
-  minioVersion: "8.0.10"
-  natsVersion: "2.2.1"
-  natsPassword: testNatsPassword
-  natsReplicas: 3
-  natsMaxPayload: 10485760
-  nvidiaVersion: "1.0.0-beta6"
-  elasticsearchUser: "admin"
-  elasticsearchPassword: "admin"
-  traefikVersion: "v9.18.3"
-  nulogServiceCpuRequest: "1"
-  quickstart: true
+# apiVersion: demo.opni.io/v1alpha1
+# kind: OpniDemo
+# metadata:
+#   name: opnidemo-sample
+# spec:
+#   components:
+#     infra:
+#       helmController: false
+#       localPathProvisioner: false
+#     opni:
+#       minio: true
+#       nats: true
+#       elastic: true
+#       rancherLogging: true
+#       traefik: false
+#   minioAccessKey: testAccessKey
+#   minioSecretKey: testSecretKey
+#   minioVersion: "8.0.10"
+#   natsVersion: "2.2.1"
+#   natsPassword: testNatsPassword
+#   natsReplicas: 3
+#   natsMaxPayload: 10485760
+#   nvidiaVersion: "1.0.0-beta6"
+#   elasticsearchUser: "admin"
+#   elasticsearchPassword: "admin"
+#   traefikVersion: "v9.18.3"
+#   nulogServiceCpuRequest: "1"
+#   quickstart: true

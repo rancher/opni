@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -254,7 +255,7 @@ func BuildNvidiaPlugin(spec *demov1alpha1.OpniDemo) *appsv1.DaemonSet {
 							Name:  "nvidia-device-plugin-ctr",
 							Image: fmt.Sprintf("nvidia/k8s-device-plugin:%s", spec.Spec.NvidiaVersion),
 							SecurityContext: &v1.SecurityContext{
-								AllowPrivilegeEscalation: &falseVar,
+								AllowPrivilegeEscalation: pointer.BoolPtr(false),
 								Capabilities: &v1.Capabilities{
 									Drop: []v1.Capability{
 										v1.Capability("ALL"),

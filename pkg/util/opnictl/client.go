@@ -1,7 +1,8 @@
 package opnictl
 
 import (
-	"log"
+	"fmt"
+	"os"
 
 	"github.com/rancher/opni/api/v1alpha1"
 	"github.com/rancher/opni/api/v1beta1"
@@ -21,7 +22,8 @@ func CreateClientOrDie() client.Client {
 		Scheme: scheme,
 	})
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 
 	return cli
@@ -31,12 +33,14 @@ func LoadClientConfig() *rest.Config {
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	kubeconfig, err := rules.Load()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 	clientConfig, err := clientcmd.NewDefaultClientConfig(*kubeconfig, nil).
 		ClientConfig()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
 	}
 	return clientConfig
 }

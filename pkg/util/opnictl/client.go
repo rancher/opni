@@ -14,9 +14,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateClientOrDie() client.Client {
+type ClientOptions struct {
+	overrides *clientcmd.ConfigOverrides
+}
+
+type ClientOption func(*ClientOptions)
+
+func (o *ClientOptions) Apply(opts ...ClientOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithConfigOverrides(overrides *clientcmd.ConfigOverrides) ClientOption {
+	return func(o *ClientOptions) {
+		o.overrides = overrides
+	}
+}
+
+// CreateClientOrDie constructs a new controller-runtime client, or exit
+// with a fatal error if an error occurs.
+func CreateClientOrDie(opts ...ClientOption) client.Client {
 	scheme := CreateScheme()
-	clientConfig := LoadClientConfig()
+	clientConfig := LoadClientConfig(opts...)
 
 	cli, err := client.New(clientConfig, client.Options{
 		Scheme: scheme,
@@ -29,15 +49,19 @@ func CreateClientOrDie() client.Client {
 	return cli
 }
 
-func LoadClientConfig() *rest.Config {
+// LoadClientConfig loads the user's kubeconfig using the same logic as kubectl.
+func LoadClientConfig(opts ...ClientOption) *rest.Config {
+	options := ClientOptions{}
+	options.Apply(opts...)
+
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	kubeconfig, err := rules.Load()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
-	clientConfig, err := clientcmd.NewDefaultClientConfig(*kubeconfig, nil).
-		ClientConfig()
+	clientConfig, err := clientcmd.NewDefaultClientConfig(
+		*kubeconfig, options.overrides).ClientConfig()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)

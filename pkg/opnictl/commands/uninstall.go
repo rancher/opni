@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	. "github.com/rancher/opni/pkg/opnictl/common"
+
+	"github.com/rancher/opni/pkg/util/opnictl"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -21,6 +24,8 @@ var UninstallCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		p := mpb.New()
 
+		clientConfig := opnictl.LoadClientConfig(MaybeContextOverride()...)
+
 		spinner := p.AddSpinner(1,
 			mpb.AppendDecorators(
 				decor.OnComplete(
@@ -34,6 +39,7 @@ var UninstallCmd = &cobra.Command{
 		var msgs []string
 		go func() {
 			msgs = cliutil.ForEachStagingResource(
+				clientConfig,
 				func(dr dynamic.ResourceInterface, obj *unstructured.Unstructured) error {
 					return dr.Delete(
 						context.Background(),

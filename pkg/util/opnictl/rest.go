@@ -13,15 +13,15 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 )
 
 func ForEachStagingResource(
+	clientConfig *rest.Config,
 	callback func(dynamic.ResourceInterface, *unstructured.Unstructured) error,
 ) (errors []string) {
 	errors = []string{}
-
-	clientConfig := LoadClientConfig()
 
 	decodingSerializer := yaml.NewDecodingSerializer(
 		unstructured.UnstructuredJSONScheme)

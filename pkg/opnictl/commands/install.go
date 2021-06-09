@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	. "github.com/rancher/opni/pkg/opnictl/common"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -21,6 +22,8 @@ var InstallCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		p := mpb.New()
 
+		clientConfig := cliutil.LoadClientConfig(MaybeContextOverride()...)
+
 		spinner := p.AddSpinner(1,
 			mpb.AppendDecorators(
 				decor.OnComplete(
@@ -34,6 +37,7 @@ var InstallCmd = &cobra.Command{
 		var msgs []string
 		go func() {
 			msgs = cliutil.ForEachStagingResource(
+				clientConfig,
 				func(dr dynamic.ResourceInterface, obj *unstructured.Unstructured) error {
 					_, err := dr.Create(
 						context.Background(),

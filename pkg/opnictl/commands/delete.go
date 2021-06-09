@@ -4,6 +4,7 @@ import (
 	"context"
 
 	. "github.com/rancher/opni/pkg/opnictl/common"
+	"go.uber.org/atomic"
 
 	"github.com/rancher/opni/api/v1alpha1"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
@@ -37,7 +38,7 @@ var DeleteDemoCmd = &cobra.Command{
 		p := mpb.New()
 		waitCtx, ca := context.WithTimeout(context.Background(), TimeoutFlagValue)
 		defer ca()
-		var deleteError error
+		deleteError := atomic.NewError(nil)
 		waitingSpinner := p.AddSpinner(1,
 			mpb.AppendDecorators(
 				decor.OnComplete(decor.Name(chalk.Bold.TextStyle("Deleting resources..."), decor.WCSyncSpaceR),
@@ -46,16 +47,16 @@ var DeleteDemoCmd = &cobra.Command{
 			),
 			mpb.BarFillerMiddleware(
 				cliutil.CheckBarFiller(waitCtx, func(c context.Context) bool {
-					return waitCtx.Err() == nil && deleteError == nil
+					return waitCtx.Err() == nil && deleteError.Load() == nil
 				})),
 			mpb.BarWidth(1),
 		)
 
 		go func() {
 			defer waitingSpinner.Increment()
-			deleteError = cli.Delete(waitCtx, demo)
-			if deleteError != nil {
-				Log.Fatal(deleteError)
+			deleteError.Store(cli.Delete(waitCtx, demo))
+			if err := deleteError.Load(); err != nil {
+				Log.Fatal(err)
 			}
 		}()
 

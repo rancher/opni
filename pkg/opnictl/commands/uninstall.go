@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	. "github.com/rancher/opni/pkg/opnictl/common"
+
+	"github.com/rancher/opni/pkg/util/opnictl"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -17,9 +20,17 @@ import (
 
 var UninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "Uninstall Opni Manager",
+	Short: "Uninstall Opni",
+	Long: `
+The Uninstall command will completely uninstall Opni from your cluster. This 
+includes the Manager, as well as any Opni services that were created using opnictl.
+
+Your current kubeconfig context will be used to select the cluster to uninstall 
+Opni from, unless the --context flag is provided to select a specific context.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		p := mpb.New()
+
+		clientConfig := opnictl.LoadClientConfig(MaybeContextOverride()...)
 
 		spinner := p.AddSpinner(1,
 			mpb.AppendDecorators(
@@ -34,6 +45,7 @@ var UninstallCmd = &cobra.Command{
 		var msgs []string
 		go func() {
 			msgs = cliutil.ForEachStagingResource(
+				clientConfig,
 				func(dr dynamic.ResourceInterface, obj *unstructured.Unstructured) error {
 					return dr.Delete(
 						context.Background(),

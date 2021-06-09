@@ -13,15 +13,21 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 )
 
+// ForEachStagingResource will call the given callback function for each
+// Kubernetes resource embedded in the binary. See the staging package for
+// more details.
+// This function will not abort if the callback returns an error, rather it
+// will collect all errors that have been returned and return them all at
+// once.
 func ForEachStagingResource(
+	clientConfig *rest.Config,
 	callback func(dynamic.ResourceInterface, *unstructured.Unstructured) error,
 ) (errors []string) {
 	errors = []string{}
-
-	clientConfig := LoadClientConfig()
 
 	decodingSerializer := yaml.NewDecodingSerializer(
 		unstructured.UnstructuredJSONScheme)

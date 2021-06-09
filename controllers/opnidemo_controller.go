@@ -274,7 +274,7 @@ func (r *OpniDemoReconciler) reconcileKibanaDashboards(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	}
 
-	dashboardPrerequsites := [3]KibanaDashboardPrerequisite{
+	dashboardPrerequsites := [4]KibanaDashboardPrerequisite{
 		{
 			Name:   "opendistro-es-master",
 			Object: &appsv1.StatefulSet{},
@@ -285,6 +285,10 @@ func (r *OpniDemoReconciler) reconcileKibanaDashboards(ctx context.Context, req 
 		},
 		{
 			Name:   "opendistro-es-client",
+			Object: &appsv1.Deployment{},
+		},
+		{
+			Name:   "opendistro-es-kibana",
 			Object: &appsv1.Deployment{},
 		},
 	}
@@ -330,7 +334,7 @@ func (r *OpniDemoReconciler) reconcileKibanaDashboards(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	case corev1.PodFailed:
 		opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
-			fmt.Sprintf("%s failed, deleting and rescheduling", pod.Name))
+			fmt.Sprintf("%s failed, %s", pod.Name, pod.Status.Message))
 		if err := r.Delete(ctx, pod); err != nil {
 			return ctrl.Result{}, err
 		}

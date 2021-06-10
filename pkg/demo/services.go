@@ -534,7 +534,7 @@ func BuildKibanaDashboardPod(spec *demov1alpha1.OpniDemo) *v1.Pod {
 			Containers: []v1.Container{
 				{
 					Name:            "kibana-dashboard",
-					Image:           "rancher/opni-kibana-dashboard:v0.1.1",
+					Image:           "rancher/opni-kibana-dashboard:v0.1.1-rc01",
 					ImagePullPolicy: v1.PullAlways,
 					Env: []v1.EnvVar{
 						{

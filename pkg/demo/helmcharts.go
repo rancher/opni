@@ -51,7 +51,7 @@ func BuildElasticHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 		Spec: helmv1.HelmChartSpec{
 			Chart:   "opendistro-es",
 			Repo:    "https://raw.githubusercontent.com/rancher/opni-charts/main",
-			Version: "1.13.2",
+			Version: "1.13.201+up1.13.2",
 			Set: map[string]intstr.IntOrString{
 				"elasticsearch.master.persistence.enabled":      intstr.FromString("true"),
 				"elasticsearch.master.persistence.storageClass": intstr.FromString("local-path"),
@@ -71,8 +71,8 @@ func BuildRancherLoggingCrdHelmChart() *helmv1.HelmChart {
 		},
 		Spec: helmv1.HelmChartSpec{
 			Chart:   "rancher-logging-crd",
-			Repo:    "http://charts.rancher.io/",
-			Version: "3.9.400",
+			Repo:    "https://raw.githubusercontent.com/rancher/opni-charts/main",
+			Version: "3.9.401+up3.10.0",
 		},
 	}
 }
@@ -84,15 +84,15 @@ func BuildRancherLoggingHelmChart() *helmv1.HelmChart {
 		},
 		Spec: helmv1.HelmChartSpec{
 			Chart:   "rancher-logging",
-			Repo:    "http://charts.rancher.io/",
-			Version: "3.9.400",
+			Repo:    "https://raw.githubusercontent.com/rancher/opni-charts/main",
+			Version: "3.9.401+up3.9.4",
 			Set: map[string]intstr.IntOrString{
-				"additionalLoggingSources.rke.enabled":  intstr.FromString("true"),
-				"additionalLoggingSources.rke2.enabled": intstr.FromString("true"),
-				"additionalLoggingSources.k3s.enabled":  intstr.FromString("true"),
-				"additionalLoggingSources.eks.enabled":  intstr.FromString("true"),
-				"additionalLoggingSources.aks.enabled":  intstr.FromString("true"),
-				"additionalLoggingSources.gke.enabled":  intstr.FromString("true"),
+				//"additionalLoggingSources.rke.enabled":  intstr.FromString("true"),
+				//"additionalLoggingSources.rke2.enabled": intstr.FromString("true"),
+				"additionalLoggingSources.k3s.enabled": intstr.FromString("true"),
+				//"additionalLoggingSources.eks.enabled":  intstr.FromString("true"),
+				//"additionalLoggingSources.aks.enabled":  intstr.FromString("true"),
+				//"additionalLoggingSources.gke.enabled":  intstr.FromString("true"),
 			},
 		},
 	}

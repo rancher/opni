@@ -37,7 +37,7 @@ func init() {
 	// Flags
 	rootCmd.PersistentFlags().StringVarP(&NamespaceFlagValue, "namespace", "n", "opni-demo",
 		"namespace to install resources to")
-	rootCmd.PersistentFlags().StringVar(&NamespaceFlagValue, "context", "",
+	rootCmd.PersistentFlags().StringVar(&ContextOverrideFlagValue, "context", "",
 		"Kubernetes context (defaults to current-context)")
 	rootCmd.PersistentFlags().DurationVar(&TimeoutFlagValue, "timeout", 2*time.Minute,
 		"Duration to wait for Create/Delete operations before timing out")

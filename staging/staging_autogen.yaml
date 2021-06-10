@@ -267,6 +267,8 @@ spec:
                 type: string
               elasticsearchUser:
                 type: string
+              image:
+                type: string
               minioAccessKey:
                 type: string
               minioSecretKey:
@@ -293,6 +295,7 @@ spec:
             - components
             - elasticsearchPassword
             - elasticsearchUser
+            - image
             - minioAccessKey
             - minioSecretKey
             - minioVersion
@@ -619,10 +622,10 @@ spec:
         resources:
           limits:
             cpu: 100m
-            memory: 30Mi
+            memory: 500Mi
           requests:
             cpu: 100m
-            memory: 20Mi
+            memory: 100Mi
         securityContext:
           allowPrivilegeEscalation: false
       terminationGracePeriodSeconds: 10

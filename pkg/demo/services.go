@@ -514,6 +514,15 @@ func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Name:  "NODE_TLS_REJECT_UNAUTHORIZED",
 									Value: "0",
 								},
+								{
+									Name: "NULOG_TRAIN_IMAGE",
+									Value: func() string {
+										if spec.Spec.NulogTrainImage != "" {
+											return spec.Spec.NulogTrainImage
+										}
+										return "rancher/nulog-train:v0.1.1"
+									}(),
+								},
 							},
 						},
 					},

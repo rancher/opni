@@ -2,7 +2,7 @@
 
 Opni is a collection of AIOPs tools - it currently features log anomaly detection for Kubernetes.
 
-- [ ] **Stable v0.1 release in May 2021**
+- [ ] **Stable v0.1 release in June 2021**
 ____
 
 **Watch a demo of Opni:**

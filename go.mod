@@ -3,6 +3,7 @@ module github.com/rancher/opni
 go 1.16
 
 require (
+	github.com/containers/image/v5 v5.12.0
 	github.com/go-logr/logr v0.4.0
 	github.com/k3s-io/helm-controller v0.10.0
 	github.com/onsi/ginkgo v1.16.4

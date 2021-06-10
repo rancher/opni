@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"strings"
 	"sync"
 
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
@@ -57,6 +58,7 @@ var _ = Describe("OpniDemo Controller", func() {
 				ElasticsearchPassword:  "password",
 				TraefikVersion:         "1",
 				NulogServiceCpuRequest: "1",
+				NulogTrainImage:        "does-not-exist/name:tag",
 				Quickstart:             false,
 			},
 		}
@@ -213,10 +215,26 @@ var _ = Describe("OpniDemo Controller", func() {
 		It("should create the training controller", func() {
 			Eventually(func() error {
 				deployment := &appsv1.Deployment{}
-				return k8sClient.Get(context.Background(), types.NamespacedName{
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
 					Namespace: demoCrNamespace,
 					Name:      "training-controller",
 				}, deployment)
+				if err != nil {
+					return err
+				}
+				env := deployment.Spec.Template.Spec.Containers[0].Env
+				var foundName, foundTag bool
+				for _, v := range env {
+					if v.Name == "NULOG_TRAIN_IMAGE_NAME" && strings.HasSuffix(v.Value, "does-not-exist/name") {
+						foundName = true
+					} else if v.Name == "NULOG_TRAIN_IMAGE_TAG" && v.Value == "tag" {
+						foundTag = true
+					}
+				}
+				if !foundName || !foundTag {
+					return errors.New("NULOG_TRAIN_IMAGE_* env vars do not match")
+				}
+				return nil
 			}, timeout, interval)
 			Eventually(func() error {
 				acct := &corev1.ServiceAccount{}

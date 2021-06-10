@@ -36,8 +36,17 @@ run: generate vet manifests
 install: manifests kustomize
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
+.PHONY: warn
+warn:
+	@echo "***********************************************************"
+	@echo "** THIS WILL COMPLETELY UNINSTALL OPNI FROM YOUR CLUSTER **"
+	@echo "***********************************************************"
+	@echo "Current Kubernetes context: $(shell kubectl config current-context)"
+	@echo "Waiting 5 seconds before continuing. Press Ctrl-C to abort."
+	@sleep 5
+
 # Uninstall CRDs from a cluster
-uninstall: manifests kustomize
+uninstall: warn manifests kustomize
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
@@ -46,7 +55,7 @@ deploy: manifests kustomize
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
-undeploy:
+undeploy: warn
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 # Generate manifests e.g. CRD, RBAC etc.

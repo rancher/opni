@@ -8,6 +8,8 @@ require (
 	github.com/k3s-io/helm-controller v0.10.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
+	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
+	github.com/rancher/k3d/v4 v4.4.4
 	github.com/spf13/cobra v1.1.3
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/vbauerster/mpb/v7 v7.0.2

@@ -3,6 +3,7 @@ package demo
 import (
 	"fmt"
 
+	"github.com/containers/image/v5/docker/reference"
 	demov1alpha1 "github.com/rancher/opni/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -458,6 +459,16 @@ func BuildTrainingControllerInfra(spec *demov1alpha1.OpniDemo) []client.Object {
 }
 
 func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
+	nulogTrainImgName := "rancher/nulog-train"
+	nulogTrainImgTag := "v0.1.1"
+	if spec.Spec.NulogTrainImage != "" {
+		nulogTrainImgRef, err := reference.ParseNamed(spec.Spec.NulogTrainImage)
+		if err == nil {
+			namedTagged := reference.TagNameOnly(nulogTrainImgRef).(reference.NamedTagged)
+			nulogTrainImgName = namedTagged.Name()
+			nulogTrainImgTag = namedTagged.Tag()
+		}
+	}
 	labels := map[string]string{"app": "training-controller"}
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -513,6 +524,14 @@ func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 								{
 									Name:  "NODE_TLS_REJECT_UNAUTHORIZED",
 									Value: "0",
+								},
+								{
+									Name:  "NULOG_TRAIN_IMAGE_NAME",
+									Value: nulogTrainImgName,
+								},
+								{
+									Name:  "NULOG_TRAIN_IMAGE_TAG",
+									Value: nulogTrainImgTag,
 								},
 							},
 						},

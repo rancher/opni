@@ -3,7 +3,7 @@
 package common
 
 import (
-	"strconv"
+	"fmt"
 	"time"
 
 	"github.com/ttacon/chalk"
@@ -31,21 +31,7 @@ func init() {
 			enc.AppendString(chalk.Dim.TextStyle(ec.TrimmedPath()))
 		},
 		EncodeTime: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-			now := t.Unix()
-			var timeBuf []byte
-			elapsed := now - startTime.Load()
-			number := strconv.AppendInt([]byte{}, elapsed, 10)
-			switch len(number) {
-			case 1:
-				timeBuf = []byte{'[', '0', '0', number[0], ']'}
-			case 2:
-				timeBuf = []byte{'[', '0', number[0], number[1], ']'}
-			case 3:
-				timeBuf = []byte{'[', number[0], number[1], number[2], ']'}
-			default:
-				timeBuf = append(append([]byte{'['}, number...), ']')
-			}
-			enc.AppendByteString(timeBuf)
+			enc.AppendString(fmt.Sprintf("[%04d]", t.Unix()-startTime.Load()))
 		},
 		EncodeDuration: zapcore.SecondsDurationEncoder,
 	}

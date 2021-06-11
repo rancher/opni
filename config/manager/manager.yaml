@@ -46,8 +46,8 @@ spec:
           resources:
             limits:
               cpu: 100m
-              memory: 30Mi
+              memory: 500Mi
             requests:
               cpu: 100m
-              memory: 20Mi
+              memory: 100Mi
       terminationGracePeriodSeconds: 10

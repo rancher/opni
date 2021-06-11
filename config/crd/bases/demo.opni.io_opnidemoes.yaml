@@ -71,6 +71,8 @@ spec:
                 type: string
               elasticsearchUser:
                 type: string
+              image:
+                type: string
               minioAccessKey:
                 type: string
               minioSecretKey:
@@ -97,6 +99,7 @@ spec:
             - components
             - elasticsearchPassword
             - elasticsearchUser
+            - image
             - minioAccessKey
             - minioSecretKey
             - minioVersion

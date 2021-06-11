@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
+	"github.com/banzaicloud/logging-operator/pkg/sdk/model/filter"
+	"github.com/banzaicloud/logging-operator/pkg/sdk/model/output"
 	"github.com/rancher/opni/api/v1alpha1"
 	. "github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/rancher/opni/pkg/providers"
@@ -15,11 +18,93 @@ import (
 	"github.com/vbauerster/mpb/v7"
 	"github.com/vbauerster/mpb/v7/decor"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	ClusterOutputName = "aiops-demo-log-output"
+	ClusterFlowName   = "aiops-demo-log-flow"
+)
+
 var opniDemo = &v1alpha1.OpniDemo{}
+var namespace string
+
+var clusterOutput = &loggingv1beta1.ClusterOutput{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: ClusterOutputName,
+	},
+	Spec: loggingv1beta1.ClusterOutputSpec{
+		OutputSpec: loggingv1beta1.OutputSpec{
+			HTTPOutput: &output.HTTPOutputConfig{
+				Endpoint:    fmt.Sprintf("http://payload-receiver-service.%s.svc", namespace),
+				ContentType: "application/json",
+				JsonArray:   true,
+				Buffer: &output.Buffer{
+					Tags:           "[]",
+					FlushInterval:  "2s",
+					ChunkLimitSize: "1mb",
+				},
+			},
+		},
+	},
+}
+
+var clusterFlow = &loggingv1beta1.ClusterFlow{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: ClusterFlowName,
+	},
+	Spec: loggingv1beta1.ClusterFlowSpec{
+		Match: []loggingv1beta1.ClusterMatch{
+			{
+				ClusterExclude: &loggingv1beta1.ClusterExclude{
+					Namespaces: []string{
+						namespace,
+					},
+				},
+			},
+			{
+				ClusterSelect: &loggingv1beta1.ClusterSelect{},
+			},
+		},
+		Filters: []loggingv1beta1.Filter{
+			{
+				Dedot: &filter.DedotFilterConfig{
+					Separator: "-",
+					Nested:    true,
+				},
+			},
+			{
+				Grep: &filter.GrepConfig{
+					Exclude: []filter.ExcludeSection{
+						{
+							Key:     "log",
+							Pattern: "^\n$",
+						},
+					},
+				},
+			},
+			{
+				DetectExceptions: &filter.DetectExceptions{
+					Languages: []string{
+						"java",
+						"python",
+						"go",
+						"ruby",
+						"js",
+						"csharp",
+						"php",
+					},
+					MultilineFlushInterval: "0.1",
+				},
+			},
+		},
+		GlobalOutputRefs: []string{
+			ClusterOutputName,
+		},
+	},
+}
 
 var CreateCmd = &cobra.Command{
 	Use:   "create resource",
@@ -41,6 +126,10 @@ on, unless the --context flag is provided to select a specific context.`,
 		cli := cliutil.CreateClientOrDie()
 
 		provider := providers.Detect(cli)
+
+		opniDemo.Namespace = namespace
+		clusterOutput.Namespace = namespace
+		clusterFlow.Namespace = namespace
 
 		opniDemo.Spec.Components = v1alpha1.ComponentsSpec{
 			Infra: v1alpha1.InfraStack{
@@ -151,17 +240,28 @@ on, unless the --context flag is provided to select a specific context.`,
 					v.Increment()
 				}
 			}
-			return false, nil
+			return done, nil
 		}, waitCtx.Done())
 
 		p.Wait()
+
+		if err := cli.Create(context.Background(), clusterOutput); errors.IsAlreadyExists(err) {
+			Log.Info(err.Error())
+		} else if err != nil {
+			Log.Error(err.Error())
+		}
+		if err := cli.Create(context.Background(), clusterFlow); errors.IsAlreadyExists(err) {
+			Log.Info(err.Error())
+		} else if err != nil {
+			Log.Error(err.Error())
+		}
 	},
 }
 
 func init() {
 	CreateCmd.AddCommand(CreateDemoCmd)
 	CreateDemoCmd.Flags().StringVar(&opniDemo.Name, "name", "opni-demo", "resource name")
-	CreateDemoCmd.Flags().StringVar(&opniDemo.Namespace, "namespace", "opni-demo", "namespace to install resources to")
+	CreateDemoCmd.Flags().StringVar(&namespace, "namespace", "opni-demo", "namespace to install resources to")
 	CreateDemoCmd.Flags().StringVar(&opniDemo.Spec.MinioAccessKey, "minio-access-key", "minioadmin", "minio access key")
 	CreateDemoCmd.Flags().StringVar(&opniDemo.Spec.MinioSecretKey, "minio-secret-key", "minioadmin", "minio access key")
 	CreateDemoCmd.Flags().StringVar(&opniDemo.Spec.MinioVersion, "minio-version", "8.0.10", "minio chart version")

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	"github.com/rancher/opni/api/v1alpha1"
 	"github.com/rancher/opni/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,5 +82,6 @@ func CreateScheme() *runtime.Scheme {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(v1beta1.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(loggingv1beta1.AddToScheme(scheme))
 	return scheme
 }

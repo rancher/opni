@@ -39,7 +39,7 @@ func init() {
 		"namespace to install resources to")
 	rootCmd.PersistentFlags().StringVar(&ContextOverrideFlagValue, "context", "",
 		"Kubernetes context (defaults to current-context)")
-	rootCmd.PersistentFlags().DurationVar(&TimeoutFlagValue, "timeout", 2*time.Minute,
+	rootCmd.PersistentFlags().DurationVar(&TimeoutFlagValue, "timeout", 5*time.Minute,
 		"Duration to wait for Create/Delete operations before timing out")
 
 	// Sub-commands

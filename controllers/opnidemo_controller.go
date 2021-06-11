@@ -22,8 +22,11 @@ import (
 	"fmt"
 	"time"
 
+	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	"github.com/go-logr/logr"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
+	"github.com/rancher/opni/api/v1alpha1"
+	"github.com/rancher/opni/pkg/demo"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,9 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/rancher/opni/api/v1alpha1"
-	"github.com/rancher/opni/pkg/demo"
 )
 
 // OpniDemoReconciler reconciles a OpniDemo object
@@ -118,6 +118,13 @@ func (r *OpniDemoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return result, err
 	}
 
+	if result, err := r.reconcileLoggingCRs(ctx, req, opniDemo); err != nil ||
+		result.Requeue || result.RequeueAfter != time.Duration(0) {
+		opniDemo.Status.State = "Deploying Logging CRs"
+		err = r.Status().Update(ctx, opniDemo)
+		return result, err
+	}
+
 	result := ctrl.Result{}
 	if len(opniDemo.Status.Conditions) == 0 {
 		opniDemo.Status.State = "Ready"
@@ -149,10 +156,16 @@ func (r *OpniDemoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&storagev1.StorageClass{}).
 		Owns(&helmv1.HelmChart{}).
 		Owns(&helmv1.HelmChartConfig{}).
+		Owns(&loggingv1beta1.ClusterFlow{}).
+		Owns(&loggingv1beta1.ClusterOutput{}).
 		Complete(r)
 }
 
-func (r *OpniDemoReconciler) reconcileInfraStack(ctx context.Context, req ctrl.Request, opniDemo *v1alpha1.OpniDemo) (ctrl.Result, error) {
+func (r *OpniDemoReconciler) reconcileInfraStack(
+	ctx context.Context,
+	req ctrl.Request,
+	opniDemo *v1alpha1.OpniDemo,
+) (ctrl.Result, error) {
 	objects := demo.MakeInfraStackObjects(opniDemo)
 	for _, object := range objects {
 		object.SetNamespace(opniDemo.Namespace)
@@ -169,7 +182,11 @@ func (r *OpniDemoReconciler) reconcileInfraStack(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
-func (r *OpniDemoReconciler) reconcileOpniStack(ctx context.Context, req ctrl.Request, opniDemo *v1alpha1.OpniDemo) (ctrl.Result, error) {
+func (r *OpniDemoReconciler) reconcileOpniStack(
+	ctx context.Context,
+	req ctrl.Request,
+	opniDemo *v1alpha1.OpniDemo,
+) (ctrl.Result, error) {
 	opts := opniDemo.Spec
 	objects := []client.Object{}
 	if opts.Components.Opni.Minio {
@@ -220,7 +237,11 @@ func (r *OpniDemoReconciler) reconcileOpniStack(ctx context.Context, req ctrl.Re
 	return ctrl.Result{}, nil
 }
 
-func (r *OpniDemoReconciler) reconcileServicesStack(ctx context.Context, req ctrl.Request, opniDemo *v1alpha1.OpniDemo) (ctrl.Result, error) {
+func (r *OpniDemoReconciler) reconcileServicesStack(
+	ctx context.Context,
+	req ctrl.Request,
+	opniDemo *v1alpha1.OpniDemo,
+) (ctrl.Result, error) {
 	objects := []client.Object{
 		demo.BuildDrainService(opniDemo),
 		demo.BuildNulogInferenceServiceControlPlane(opniDemo),
@@ -268,7 +289,11 @@ func (r *OpniDemoReconciler) reconcileServicesStack(ctx context.Context, req ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *OpniDemoReconciler) reconcileKibanaDashboards(ctx context.Context, req ctrl.Request, opniDemo *v1alpha1.OpniDemo) (ctrl.Result, error) {
+func (r *OpniDemoReconciler) reconcileKibanaDashboards(
+	ctx context.Context,
+	req ctrl.Request,
+	opniDemo *v1alpha1.OpniDemo,
+) (ctrl.Result, error) {
 	opts := opniDemo.Spec
 	if opts.CreateKibanaDashboard != nil && !*opts.CreateKibanaDashboard {
 		return ctrl.Result{}, nil
@@ -304,13 +329,13 @@ func (r *OpniDemoReconciler) reconcileKibanaDashboards(ctx context.Context, req 
 			if o.Status.ReadyReplicas < 1 {
 				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
 					fmt.Sprintf("Waiting for prerequisite statefulset %s to become ready", o.Name))
-				return ctrl.Result{RequeueAfter: time.Duration(2 * time.Second)}, nil
+				return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 			}
 		case *appsv1.Deployment:
 			if o.Status.AvailableReplicas < 1 {
 				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
 					fmt.Sprintf("Waiting for prerequisite deployment %s to become ready", o.Name))
-				return ctrl.Result{RequeueAfter: time.Duration(2 * time.Second)}, nil
+				return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 			}
 		}
 	}
@@ -342,6 +367,32 @@ func (r *OpniDemoReconciler) reconcileKibanaDashboards(ctx context.Context, req 
 	default:
 		opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
 			fmt.Sprintf("Waiting for pod %s to finish, currently %s", pod.Name, s))
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *OpniDemoReconciler) reconcileLoggingCRs(
+	ctx context.Context,
+	req ctrl.Request,
+	opniDemo *v1alpha1.OpniDemo,
+) (ctrl.Result, error) {
+	objects := []client.Object{
+		demo.BuildClusterFlow(opniDemo),
+		demo.BuildClusterOutput(opniDemo),
+	}
+	for _, obj := range objects {
+		key := client.ObjectKeyFromObject(obj)
+		if err := r.Get(ctx, key, obj); errors.IsNotFound(err) {
+			r.Log.Info("creating resource", "name", key)
+			if err := ctrl.SetControllerReference(opniDemo, obj, r.Scheme); err != nil {
+				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions, err.Error())
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{Requeue: true}, r.Create(ctx, obj)
+		} else if err != nil {
+			opniDemo.Status.Conditions = append(opniDemo.Status.Conditions, err.Error())
+			return ctrl.Result{}, err
+		}
 	}
 	return ctrl.Result{}, nil
 }

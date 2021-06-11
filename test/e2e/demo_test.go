@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -57,10 +57,15 @@ var _ = Describe("OpniDemo E2E", func() {
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), &demo)).To(Succeed())
-
+		})
+		It("should become ready", func() {
+			demo := v1alpha1.OpniDemo{}
 			i := 0
 			Eventually(func() error {
-				err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(&demo), &demo)
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      demoCrName,
+					Namespace: demoCrNamespace,
+				}, &demo)
 				if err != nil {
 					return err
 				}
@@ -75,5 +80,8 @@ var _ = Describe("OpniDemo E2E", func() {
 				return nil
 			}, 10*time.Minute, 500*time.Millisecond).Should(BeNil())
 		})
+	})
+	Context("verifying logs are being shipped to elasticsearch", func() {
+
 	})
 })

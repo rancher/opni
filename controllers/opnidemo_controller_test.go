@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -265,6 +266,22 @@ var _ = Describe("OpniDemo Controller", func() {
 					Namespace: demoCrNamespace,
 					Name:      "deploy-opni-kibana-dasbhboards",
 				}, pod)
+			}, timeout, interval)
+		})
+		It("should create the logging CRs", func() {
+			Eventually(func() error {
+				clusterFlow := loggingv1beta1.ClusterFlow{}
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Namespace: demoCrNamespace,
+					Name:      "aiops-demo-log-flow",
+				}, &clusterFlow)
+			}, timeout, interval)
+			Eventually(func() error {
+				clusterOutput := loggingv1beta1.ClusterOutput{}
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Namespace: demoCrNamespace,
+					Name:      "aiops-demo-log-output",
+				}, &clusterOutput)
 			}, timeout, interval)
 		})
 	})

@@ -72,7 +72,7 @@ func BuildRancherLoggingCrdHelmChart() *helmv1.HelmChart {
 		Spec: helmv1.HelmChartSpec{
 			Chart:   "rancher-logging-crd",
 			Repo:    "https://raw.githubusercontent.com/rancher/opni-charts/main",
-			Version: "3.9.401+up3.10.0",
+			Version: "3.10.0",
 		},
 	}
 }
@@ -85,7 +85,7 @@ func BuildRancherLoggingHelmChart() *helmv1.HelmChart {
 		Spec: helmv1.HelmChartSpec{
 			Chart:   "rancher-logging",
 			Repo:    "https://raw.githubusercontent.com/rancher/opni-charts/main",
-			Version: "3.9.401+up3.9.4",
+			Version: "3.10.0",
 			Set: map[string]intstr.IntOrString{
 				//"additionalLoggingSources.rke.enabled":  intstr.FromString("true"),
 				//"additionalLoggingSources.rke2.enabled": intstr.FromString("true"),
@@ -93,6 +93,7 @@ func BuildRancherLoggingHelmChart() *helmv1.HelmChart {
 				//"additionalLoggingSources.eks.enabled":  intstr.FromString("true"),
 				//"additionalLoggingSources.aks.enabled":  intstr.FromString("true"),
 				//"additionalLoggingSources.gke.enabled":  intstr.FromString("true"),
+				"systemdLogPath": intstr.FromString("/var/log/journal"),
 			},
 		},
 	}

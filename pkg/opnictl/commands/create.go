@@ -126,6 +126,9 @@ on, unless the --context flag is provided to select a specific context.`,
 			if state == "Ready" {
 				waitingSpinner.Increment()
 				done = true
+				for _, v := range conds {
+					v.Increment()
+				}
 			}
 
 			for _, cond := range conditions {

@@ -200,10 +200,9 @@ var _ = Describe("OpniDemo E2E", func() {
 		Specify("elasticsearch should contain logs", func() {
 			var err error
 			esClient, err = elasticsearch.NewClient(elasticsearch.Config{
-				Addresses:    []string{fmt.Sprintf("https://127.0.0.1:%d", portForwardPort)},
-				Username:     "admin",
-				Password:     "admin",
-				DisableRetry: true,
+				Addresses: []string{fmt.Sprintf("https://127.0.0.1:%d", portForwardPort)},
+				Username:  "admin",
+				Password:  "admin",
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
 						InsecureSkipVerify: true,
@@ -217,9 +216,10 @@ var _ = Describe("OpniDemo E2E", func() {
 				searchResp := SearchResponse{}
 				Expect(json.NewDecoder(response.Body).Decode(&searchResp)).To(Succeed())
 				return searchResp.Hits.Total.Value
-			}, 2*time.Minute, 1*time.Second).Should(BeNumerically(">", 0))
+			}, 5*time.Minute, 1*time.Second).Should(BeNumerically(">", 0))
 		})
 		Specify("anomaly count should increase when faults are injected", func() {
+			By("sampling anomaly count (30s)")
 			experiment := gmeasure.NewExperiment("fault injection")
 			experiment.SampleValue("before", func(idx int) float64 {
 				response, err := esClient.Search(esClient.Search.WithIndex("logs*"))
@@ -228,36 +228,34 @@ var _ = Describe("OpniDemo E2E", func() {
 				Expect(json.NewDecoder(response.Body).Decode(&searchResp)).To(Succeed())
 				anomalyCount := 0
 				for _, hit := range searchResp.Hits.Hits {
-					if hit.Source.AnomalyLevel == "Anomaly" {
+					if hit.Source.AnomalyLevel == "Anomaly" || hit.Source.AnomalyLevel == "Suspicious" {
 						anomalyCount++
 					}
 				}
 				return float64(anomalyCount)
 			}, gmeasure.SamplingConfig{
-				N:        100,
-				Duration: 30 * time.Second,
+				Duration: 1 * time.Minute,
 			})
-			go func() {
-				// Create 10 unschedulable pods
-				// Create 10 pods with nonexistent images
-				// Create 10 pods that will exit with non-zero exit codes
-				for i := 0; i < 10; i++ {
-					k8sClient.Create(context.Background(), &corev1.Pod{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      fmt.Sprintf("%s-%d", "opni-fault-injection-unschedulable", i),
-							Namespace: "default",
-						},
-						Spec: corev1.PodSpec{
-							Affinity: &corev1.Affinity{
-								NodeAffinity: &corev1.NodeAffinity{
-									RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-										NodeSelectorTerms: []corev1.NodeSelectorTerm{
-											{
-												MatchExpressions: []corev1.NodeSelectorRequirement{
-													{
-														Key:      "nonexistent",
-														Operator: corev1.NodeSelectorOpExists,
-													},
+			By("injecting faults")
+			// Create 10 unschedulable pods
+			// Create 10 pods with nonexistent images
+			// Create 10 pods that will exit with non-zero exit codes
+			for i := 0; i < 10; i++ {
+				k8sClient.Create(context.Background(), &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%d", "opni-fault-injection-unschedulable", i),
+						Namespace: "default",
+					},
+					Spec: corev1.PodSpec{
+						Affinity: &corev1.Affinity{
+							NodeAffinity: &corev1.NodeAffinity{
+								RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+									NodeSelectorTerms: []corev1.NodeSelectorTerm{
+										{
+											MatchExpressions: []corev1.NodeSelectorRequirement{
+												{
+													Key:      "nonexistent",
+													Operator: corev1.NodeSelectorOpExists,
 												},
 											},
 										},
@@ -265,44 +263,45 @@ var _ = Describe("OpniDemo E2E", func() {
 								},
 							},
 						},
-					})
-				}
-				for i := 0; i < 10; i++ {
-					k8sClient.Create(context.Background(), &corev1.Pod{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      fmt.Sprintf("%s-%d", "opni-fault-injection-no-image", i),
-							Namespace: "default",
-						},
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Name:            "test",
-									Image:           "this-image-does-not-exist",
-									Command:         []string{"/test"},
-									ImagePullPolicy: corev1.PullAlways,
-								},
+					},
+				})
+			}
+			for i := 0; i < 10; i++ {
+				k8sClient.Create(context.Background(), &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%d", "opni-fault-injection-no-image", i),
+						Namespace: "default",
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:            "test",
+								Image:           "this-image-does-not-exist",
+								Command:         []string{"/test"},
+								ImagePullPolicy: corev1.PullAlways,
 							},
 						},
-					})
-				}
-				for i := 0; i < 10; i++ {
-					k8sClient.Create(context.Background(), &corev1.Pod{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      fmt.Sprintf("%s-%d", "opni-fault-injection-fail", i),
-							Namespace: "default",
-						},
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{
-									Name:    "test",
-									Image:   "busybox",
-									Command: []string{"/bin/false"},
-								},
+					},
+				})
+			}
+			for i := 0; i < 10; i++ {
+				k8sClient.Create(context.Background(), &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("%s-%d", "opni-fault-injection-fail", i),
+						Namespace: "default",
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:    "test",
+								Image:   "busybox",
+								Command: []string{"/bin/false"},
 							},
 						},
-					})
-				}
-			}()
+					},
+				})
+			}
+			By("sampling anomaly count after fault injection (30s)")
 			experiment.SampleValue("after", func(idx int) float64 {
 				response, err := esClient.Search(esClient.Search.WithIndex("logs*"))
 				Expect(err).NotTo(HaveOccurred())
@@ -310,26 +309,24 @@ var _ = Describe("OpniDemo E2E", func() {
 				Expect(json.NewDecoder(response.Body).Decode(&searchResp)).To(Succeed())
 				anomalyCount := 0
 				for _, hit := range searchResp.Hits.Hits {
-					if hit.Source.AnomalyLevel == "Anomaly" {
+					if hit.Source.AnomalyLevel == "Anomaly" || hit.Source.AnomalyLevel == "Suspicious" {
 						anomalyCount++
 					}
 				}
 				return float64(anomalyCount)
 			}, gmeasure.SamplingConfig{
-				N:        100,
-				Duration: 30 * time.Second,
+				Duration: 1 * time.Minute,
 			})
 			before := experiment.GetStats("before")
 			after := experiment.GetStats("after")
 			r1 := gmeasure.RankStats(gmeasure.HigherMaxIsBetter, before, after)
 			r2 := gmeasure.RankStats(gmeasure.HigherMeanIsBetter, before, after)
 			r3 := gmeasure.RankStats(gmeasure.HigherMedianIsBetter, before, after)
+			fmt.Printf("Anomaly Count (before fault injection): %s\n", before.String())
+			fmt.Printf("Anomaly Count  (after fault injection): %s\n", after.String())
 			Expect(r1.Winner()).To(Equal(after))
 			Expect(r2.Winner()).To(Equal(after))
 			Expect(r3.Winner()).To(Equal(after))
-			fmt.Printf("Anomaly Count (before fault injection): %s\n", before.String())
-			fmt.Printf("Anomaly Count  (after fault injection): %s\n", after.String())
-			Expect(before.FloatFor(gmeasure.StatMax)).Should(BeNumerically("<", 5))
 			Expect(after.FloatFor(gmeasure.StatMax)).Should(BeNumerically(">", 20))
 		})
 		Specify("clean up port-forward", func() {

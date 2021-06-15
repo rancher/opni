@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"time"
 
-	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	"github.com/go-logr/logr"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	"github.com/rancher/opni/api/v1alpha1"
@@ -154,10 +153,10 @@ func (r *OpniDemoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rbacv1.Role{}).
 		Owns(&extv1beta1.Ingress{}).
 		Owns(&storagev1.StorageClass{}).
-		Owns(&helmv1.HelmChart{}).
-		Owns(&helmv1.HelmChartConfig{}).
-		Owns(&loggingv1beta1.ClusterFlow{}).
-		Owns(&loggingv1beta1.ClusterOutput{}).
+		// Owns(&helmv1.HelmChart{}).
+		// Owns(&helmv1.HelmChartConfig{}).
+		// Owns(&loggingv1beta1.ClusterFlow{}).
+		// Owns(&loggingv1beta1.ClusterOutput{}).
 		Complete(r)
 }
 
@@ -167,6 +166,7 @@ func (r *OpniDemoReconciler) reconcileInfraStack(
 	opniDemo *v1alpha1.OpniDemo,
 ) (ctrl.Result, error) {
 	objects := demo.MakeInfraStackObjects(opniDemo)
+	objects = append(objects, demo.BuildRancherLoggingCrdHelmChart())
 	for _, object := range objects {
 		object.SetNamespace(opniDemo.Namespace)
 		if err := r.Get(ctx, client.ObjectKeyFromObject(object), object); errors.IsNotFound(err) {
@@ -189,19 +189,19 @@ func (r *OpniDemoReconciler) reconcileOpniStack(
 ) (ctrl.Result, error) {
 	opts := opniDemo.Spec
 	objects := []client.Object{}
-	if opts.Components.Opni.Minio {
+	if opts.Components.Opni.Minio.Enabled {
 		objects = append(objects, demo.BuildMinioHelmChart(opniDemo))
 	}
-	if opts.Components.Opni.Nats {
+	if opts.Components.Opni.Nats.Enabled {
 		objects = append(objects, demo.BuildNatsHelmChart(opniDemo))
 	}
-	if opts.Components.Opni.Elastic {
+	if opts.Components.Opni.Elastic.Enabled {
 		objects = append(objects, demo.BuildElasticHelmChart(opniDemo))
 	}
-	if opts.Components.Opni.RancherLogging {
-		objects = append(objects, demo.BuildRancherLoggingCrdHelmChart(), demo.BuildRancherLoggingHelmChart())
+	if opts.Components.Opni.RancherLogging.Enabled {
+		objects = append(objects, demo.BuildRancherLoggingHelmChart(opniDemo))
 	}
-	if opts.Components.Opni.Traefik {
+	if opts.Components.Opni.Traefik.Enabled {
 		objects = append(objects, demo.BuildTraefikHelmChart(opniDemo))
 	}
 

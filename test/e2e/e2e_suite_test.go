@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -22,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,9 +38,12 @@ func TestE2E(t *testing.T) {
 	RunSpecs(t, "E2E Tests")
 }
 
-var clusterName = "opni-k3d-e2e-test-cluster"
-var testEnv *envtest.Environment
-var k8sClient crclient.Client
+var (
+	clusterName = "opni-k3d-e2e-test-cluster"
+	testEnv     *envtest.Environment
+	k8sClient   crclient.Client
+	restConfig  *rest.Config
+)
 
 func deleteTestClusterIfExists() {
 	cluster, err := client.ClusterGet(context.Background(), runtimes.Docker, &types.Cluster{
@@ -66,6 +71,20 @@ var _ = BeforeSuite(func() {
 			HostIP:   "127.0.0.1",
 			HostPort: fmt.Sprint(freePort),
 		},
+		Ports: []v1alpha2.PortWithNodeFilters{
+			{
+				Port:        "8081:80",
+				NodeFilters: []string{"loadbalancer"},
+			},
+		},
+		Options: v1alpha2.SimpleConfigOptions{
+			K3sOptions: v1alpha2.SimpleConfigOptionsK3s{
+				ExtraServerArgs: []string{
+					"--log=/var/log/k3s.log",
+					"--alsologtostderr",
+				},
+			},
+		},
 	}
 
 	ctx := context.Background()
@@ -79,7 +98,7 @@ var _ = BeforeSuite(func() {
 	kubeconfig, err := client.KubeconfigGet(ctx, runtimes.Docker, &conf.Cluster)
 	Expect(err).NotTo(HaveOccurred())
 
-	restConfig, err := clientcmd.NewDefaultClientConfig(*kubeconfig, nil).ClientConfig()
+	restConfig, err = clientcmd.NewDefaultClientConfig(*kubeconfig, nil).ClientConfig()
 	Expect(err).NotTo(HaveOccurred())
 
 	testEnv = &envtest.Environment{
@@ -107,6 +126,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = apiextv1beta1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = loggingv1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{

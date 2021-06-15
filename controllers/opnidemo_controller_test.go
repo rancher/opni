@@ -40,11 +40,21 @@ var _ = Describe("OpniDemo Controller", func() {
 						LocalPathProvisioner: true,
 					},
 					Opni: v1alpha1.OpniStack{
-						Minio:          true,
-						Nats:           true,
-						Elastic:        true,
-						RancherLogging: true,
-						Traefik:        true,
+						Minio: v1alpha1.ChartOptions{
+							Enabled: true,
+						},
+						Nats: v1alpha1.ChartOptions{
+							Enabled: true,
+						},
+						Elastic: v1alpha1.ChartOptions{
+							Enabled: true,
+						},
+						RancherLogging: v1alpha1.ChartOptions{
+							Enabled: true,
+						},
+						Traefik: v1alpha1.ChartOptions{
+							Enabled: true,
+						},
 					},
 				},
 				MinioAccessKey:         "testAccessKey",

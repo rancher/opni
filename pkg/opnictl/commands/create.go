@@ -51,11 +51,21 @@ on, unless the --context flag is provided to select a specific context.`,
 				LocalPathProvisioner: provider != providers.K3S,
 			},
 			Opni: v1alpha1.OpniStack{
-				Minio:          true,
-				Nats:           true,
-				Elastic:        true,
-				RancherLogging: opniDemo.Spec.Quickstart,
-				Traefik:        opniDemo.Spec.Quickstart && provider != providers.K3S,
+				Minio: v1alpha1.ChartOptions{
+					Enabled: true,
+				},
+				Nats: v1alpha1.ChartOptions{
+					Enabled: true,
+				},
+				Elastic: v1alpha1.ChartOptions{
+					Enabled: true,
+				},
+				RancherLogging: v1alpha1.ChartOptions{
+					Enabled: opniDemo.Spec.Quickstart,
+				},
+				Traefik: v1alpha1.ChartOptions{
+					Enabled: opniDemo.Spec.Quickstart && provider != providers.K3S,
+				},
 			},
 		}
 

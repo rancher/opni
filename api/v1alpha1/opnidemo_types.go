@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // OpniDemoSpec defines the desired state of OpniDemo
@@ -50,17 +51,23 @@ type InfraStack struct {
 	LocalPathProvisioner bool `json:"localPathProvisioner,omitempty"`
 }
 
+type ChartOptions struct {
+	Enabled bool `json:"enabled"`
+	// +optional
+	Set map[string]intstr.IntOrString `json:"set,omitempty"`
+}
+
 type OpniStack struct {
 	// +optional
-	Minio bool `json:"minio,omitempty"`
+	Minio ChartOptions `json:"minio,omitempty"`
 	// +optional
-	Nats bool `json:"nats,omitempty"`
+	Nats ChartOptions `json:"nats,omitempty"`
 	// +optional
-	Elastic bool `json:"elastic,omitempty"`
+	Elastic ChartOptions `json:"elastic,omitempty"`
 	// +optional
-	RancherLogging bool `json:"rancherLogging,omitempty"`
+	RancherLogging ChartOptions `json:"rancherLogging,omitempty"`
 	// +optional
-	Traefik bool `json:"traefik,omitempty"`
+	Traefik ChartOptions `json:"traefik,omitempty"`
 }
 
 // OpniDemoStatus defines the observed state of OpniDemo

@@ -8,6 +8,14 @@ import (
 )
 
 func BuildMinioHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
+	values := map[string]intstr.IntOrString{
+		"accessKey":                intstr.FromString(spec.Spec.MinioAccessKey),
+		"secretKey":                intstr.FromString(spec.Spec.MinioSecretKey),
+		"persistence.storageClass": intstr.FromString("local-path"),
+	}
+	for k, v := range spec.Spec.Components.Opni.Minio.Set {
+		values[k] = v
+	}
 	return &helmv1.HelmChart{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "minio",
@@ -16,16 +24,21 @@ func BuildMinioHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 			Chart:   "minio",
 			Repo:    "https://helm.min.io/",
 			Version: spec.Spec.MinioVersion,
-			Set: map[string]intstr.IntOrString{
-				"accessKey":                intstr.FromString(spec.Spec.MinioAccessKey),
-				"secretKey":                intstr.FromString(spec.Spec.MinioSecretKey),
-				"persistence.storageClass": intstr.FromString("local-path"),
-			},
+			Set:     values,
 		},
 	}
 }
 
 func BuildNatsHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
+	values := map[string]intstr.IntOrString{
+		"auth.enabled":  intstr.FromString("true"),
+		"auth.password": intstr.FromString(spec.Spec.NatsPassword),
+		"replicaCount":  intstr.FromInt(spec.Spec.NatsReplicas),
+		"maxPayload":    intstr.FromInt(spec.Spec.NatsMaxPayload),
+	}
+	for k, v := range spec.Spec.Components.Opni.Nats.Set {
+		values[k] = v
+	}
 	return &helmv1.HelmChart{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "nats",
@@ -33,17 +46,23 @@ func BuildNatsHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 		Spec: helmv1.HelmChartSpec{
 			Chart: "nats",
 			Repo:  "https://charts.bitnami.com/bitnami",
-			Set: map[string]intstr.IntOrString{
-				"auth.enabled":  intstr.FromString("true"),
-				"auth.password": intstr.FromString(spec.Spec.NatsPassword),
-				"replicaCount":  intstr.FromInt(spec.Spec.NatsReplicas),
-				"maxPayload":    intstr.FromInt(spec.Spec.NatsMaxPayload),
-			},
+			Set:   values,
 		},
 	}
 }
 
 func BuildElasticHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
+	values := map[string]intstr.IntOrString{
+		"elasticsearch.master.persistence.enabled":      intstr.FromString("true"),
+		"elasticsearch.master.persistence.storageClass": intstr.FromString("local-path"),
+		"elasticsearch.data.persistence.enabled":        intstr.FromString("true"),
+		"elasticsearch.data.persistence.storageClass":   intstr.FromString("local-path"),
+		"elasticsearch.username":                        intstr.FromString(spec.Spec.ElasticsearchUser),
+		"elasticsearch.password":                        intstr.FromString(spec.Spec.ElasticsearchPassword),
+	}
+	for k, v := range spec.Spec.Components.Opni.Elastic.Set {
+		values[k] = v
+	}
 	return &helmv1.HelmChart{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "opendistro-es",
@@ -52,14 +71,7 @@ func BuildElasticHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 			Chart:   "opendistro-es",
 			Repo:    "https://raw.githubusercontent.com/rancher/opni-charts/main",
 			Version: "1.13.201+up1.13.2",
-			Set: map[string]intstr.IntOrString{
-				"elasticsearch.master.persistence.enabled":      intstr.FromString("true"),
-				"elasticsearch.master.persistence.storageClass": intstr.FromString("local-path"),
-				"elasticsearch.data.persistence.enabled":        intstr.FromString("true"),
-				"elasticsearch.data.persistence.storageClass":   intstr.FromString("local-path"),
-				"elasticsearch.username":                        intstr.FromString(spec.Spec.ElasticsearchUser),
-				"elasticsearch.password":                        intstr.FromString(spec.Spec.ElasticsearchPassword),
-			},
+			Set:     values,
 		},
 	}
 }
@@ -77,7 +89,11 @@ func BuildRancherLoggingCrdHelmChart() *helmv1.HelmChart {
 	}
 }
 
-func BuildRancherLoggingHelmChart() *helmv1.HelmChart {
+func BuildRancherLoggingHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
+	values := map[string]intstr.IntOrString{}
+	for k, v := range spec.Spec.Components.Opni.RancherLogging.Set {
+		values[k] = v
+	}
 	return &helmv1.HelmChart{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "rancher-logging",
@@ -86,20 +102,18 @@ func BuildRancherLoggingHelmChart() *helmv1.HelmChart {
 			Chart:   "rancher-logging",
 			Repo:    "https://raw.githubusercontent.com/rancher/opni-charts/main",
 			Version: "3.10.0",
-			Set: map[string]intstr.IntOrString{
-				//"additionalLoggingSources.rke.enabled":  intstr.FromString("true"),
-				//"additionalLoggingSources.rke2.enabled": intstr.FromString("true"),
-				"additionalLoggingSources.k3s.enabled": intstr.FromString("true"),
-				//"additionalLoggingSources.eks.enabled":  intstr.FromString("true"),
-				//"additionalLoggingSources.aks.enabled":  intstr.FromString("true"),
-				//"additionalLoggingSources.gke.enabled":  intstr.FromString("true"),
-				"systemdLogPath": intstr.FromString("/var/log/journal"),
-			},
+			Set:     values,
 		},
 	}
 }
 
 func BuildTraefikHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
+	values := map[string]intstr.IntOrString{
+		"ports.websecure.nodePort": intstr.FromInt(32222),
+	}
+	for k, v := range spec.Spec.Components.Opni.Traefik.Set {
+		values[k] = v
+	}
 	return &helmv1.HelmChart{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "traefik",
@@ -108,9 +122,7 @@ func BuildTraefikHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 			Chart:   "traefik",
 			Repo:    "https://helm.traefik.io/traefik",
 			Version: spec.Spec.TraefikVersion,
-			Set: map[string]intstr.IntOrString{
-				"ports.websecure.nodePort": intstr.FromInt(32222),
-			},
+			Set:     values,
 		},
 	}
 }

@@ -330,54 +330,54 @@ func MakeInfraStackObjects(spec *v1alpha1.OpniDemo) (objects []client.Object) {
 			},
 			Data: map[string]string{
 				"config.json": `{
-	"nodePathMap":[
-	{
-		"node":"DEFAULT_PATH_FOR_NON_LISTED_NODES",
-		"paths":["/opt/aiops"]
-	}
-	]
+  "nodePathMap":[
+  {
+    "node":"DEFAULT_PATH_FOR_NON_LISTED_NODES",
+    "paths":["/opt/aiops"]
+  }
+  ]
 }`,
 				"setup": `#!/bin/sh
 while getopts "m:s:p:" opt
 do
-		case $opt in
-				p)
-				absolutePath=$OPTARG
-				;;
-				s)
-				sizeInBytes=$OPTARG
-				;;
-				m)
-				volMode=$OPTARG
-				;;
-		esac
+    case $opt in
+        p)
+        absolutePath=$OPTARG
+        ;;
+        s)
+        sizeInBytes=$OPTARG
+        ;;
+        m)
+        volMode=$OPTARG
+        ;;
+    esac
 done
 mkdir -m 0777 -p ${absolutePath}
 `,
 				"teardown": `#!/bin/sh
 while getopts "m:s:p:" opt
 do
-		case $opt in
-				p)
-				absolutePath=$OPTARG
-				;;
-				s)
-				sizeInBytes=$OPTARG
-				;;
-				m)
-				volMode=$OPTARG
-				;;
-		esac
+    case $opt in
+        p)
+        absolutePath=$OPTARG
+        ;;
+        s)
+        sizeInBytes=$OPTARG
+        ;;
+        m)
+        volMode=$OPTARG
+        ;;
+    esac
 done
 rm -rf ${absolutePath}`,
 				"helperPod.yaml": `apiVersion: v1
 kind: Pod
 metadata:
-	name: helper-pod
+  name: helper-pod
 spec:
-	containers:
-	- name: helper-pod
-		image: rancher/library-busybox:1.32.1
+  containers:
+  - name: helper-pod
+    image: rancher/library-busybox:1.32.1
 `,
 			},
 		},

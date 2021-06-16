@@ -21,7 +21,13 @@ import (
 )
 
 const (
-	KibanaDashboardPodName = "deploy-opni-kibana-dasbhboards"
+	KibanaDashboardPodName           = "deploy-opni-kibana-dasbhboards"
+	DrainServiceImage                = "sanjayrancher/drain-service:v0.0"
+	NulogInfServiceControlPlaneImage = "sanjayrancher/nulog-inference-service:v0.0"
+	NulogInfServiceImage             = "sanjayrancher/nulog-inference-service:v0.0"
+	PayloadReceiverServiceImage      = "sanjayrancher/payload-receiver-service:v0.0"
+	PreprocessingServiceImage        = "sanjayrancher/preprocessing-service:v0.0"
+	TrainingControllerImage          = "sanjayrancher/training-controller:v0.0"
 )
 
 func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
@@ -42,7 +48,7 @@ func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 					Containers: []v1.Container{
 						{
 							Name:            "drain-service",
-							Image:           "rancher/opni-drain-service:v0.1.1",
+							Image:           DrainServiceImage,
 							ImagePullPolicy: v1.PullAlways,
 							Env: []v1.EnvVar{
 								{
@@ -104,7 +110,7 @@ func BuildNulogInferenceServiceControlPlane(spec *demov1alpha1.OpniDemo) *appsv1
 					Containers: []v1.Container{
 						{
 							Name:            "nulog-inference-service-control-plane",
-							Image:           "rancher/opni-inference-service:v0.1.1",
+							Image:           NulogInfServiceControlPlaneImage,
 							ImagePullPolicy: v1.PullAlways,
 							Env: []v1.EnvVar{
 								{
@@ -172,7 +178,7 @@ func BuildNulogInferenceService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment 
 					Containers: []v1.Container{
 						{
 							Name:            "nulog-inference-service",
-							Image:           "rancher/opni-inference-service:v0.1.1",
+							Image:           NulogInfServiceImage,
 							ImagePullPolicy: v1.PullAlways,
 							Env: []v1.EnvVar{
 								{
@@ -326,7 +332,7 @@ func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*v1.Service, *app
 						Containers: []v1.Container{
 							{
 								Name:            "payload-receiver-service",
-								Image:           "rancher/opni-payload-receiver-service:v0.1.1",
+								Image:           PayloadReceiverServiceImage,
 								ImagePullPolicy: v1.PullAlways,
 								Env: []v1.EnvVar{
 									{
@@ -394,7 +400,7 @@ func BuildPreprocessingService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 					Containers: []v1.Container{
 						{
 							Name:            "preprocessing-service",
-							Image:           "rancher/opni-preprocessing-service:v0.1.1",
+							Image:           PreprocessingServiceImage,
 							ImagePullPolicy: v1.PullAlways,
 							Env: []v1.EnvVar{
 								{
@@ -489,7 +495,7 @@ func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 					Containers: []v1.Container{
 						{
 							Name:            "training-controller",
-							Image:           "rancher/opni-training-controller:v0.1.1",
+							Image:           TrainingControllerImage,
 							ImagePullPolicy: v1.PullAlways,
 							Env: []v1.EnvVar{
 								{

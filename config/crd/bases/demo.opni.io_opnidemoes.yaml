@@ -51,15 +51,75 @@ spec:
                   opni:
                     properties:
                       elastic:
-                        type: boolean
+                        properties:
+                          enabled:
+                            type: boolean
+                          set:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                            type: object
+                        required:
+                        - enabled
+                        type: object
                       minio:
-                        type: boolean
+                        properties:
+                          enabled:
+                            type: boolean
+                          set:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                            type: object
+                        required:
+                        - enabled
+                        type: object
                       nats:
-                        type: boolean
+                        properties:
+                          enabled:
+                            type: boolean
+                          set:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                            type: object
+                        required:
+                        - enabled
+                        type: object
                       rancherLogging:
-                        type: boolean
+                        properties:
+                          enabled:
+                            type: boolean
+                          set:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                            type: object
+                        required:
+                        - enabled
+                        type: object
                       traefik:
-                        type: boolean
+                        properties:
+                          enabled:
+                            type: boolean
+                          set:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                            type: object
+                        required:
+                        - enabled
+                        type: object
                     type: object
                 required:
                 - infra

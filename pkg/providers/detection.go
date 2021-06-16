@@ -19,6 +19,7 @@ const (
 	Unknown Provider = iota
 	K3S
 	RKE2
+	RKE
 )
 
 func Detect(c client.Client) Provider {
@@ -31,6 +32,8 @@ func Detect(c client.Client) Provider {
 			return K3S
 		} else if strings.Contains(node.Spec.ProviderID, "rke2") {
 			return RKE2
+		} else if _, ok := node.ObjectMeta.Annotations["rke.cattle.io/internal-ip"]; ok {
+			return RKE
 		}
 	}
 	return Unknown

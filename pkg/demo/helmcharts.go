@@ -90,9 +90,7 @@ func BuildRancherLoggingCrdHelmChart() *helmv1.HelmChart {
 }
 
 func BuildRancherLoggingHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
-	values := map[string]intstr.IntOrString{
-		"additionalLoggingSources.k3s.enabled": intstr.FromString("true"),
-	}
+	values := map[string]intstr.IntOrString{}
 	for k, v := range spec.Spec.Components.Opni.RancherLogging.Set {
 		values[k] = v
 	}

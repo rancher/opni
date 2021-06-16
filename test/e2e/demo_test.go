@@ -70,10 +70,36 @@ type SearchResponse struct {
 	} `json:"hits"`
 }
 
+type CountResponse struct {
+	Count  int `json:"count"`
+	Shards struct {
+		Total      int `json:"total"`
+		Successful int `json:"successful"`
+		Skipped    int `json:"skipped"`
+		Failed     int `json:"failed"`
+	} `json:"_shards"`
+}
+
 const (
 	demoCrName      = "test-opnidemo"
 	demoCrNamespace = "opnidemo-test"
 )
+
+func queryAnomalyCount(esClient *elasticsearch.Client) (int, error) {
+	response, err := esClient.Count(
+		esClient.Count.WithIndex("logs"),
+		// esClient.Count.WithQuery(`anomaly_level:Anomalous AND is_control_plane_log:true`),
+		esClient.Count.WithQuery(`anomaly_level:Suspicious`),
+	)
+	if err != nil {
+		return 0, err
+	}
+	countResp := CountResponse{}
+	if err := json.NewDecoder(response.Body).Decode(&countResp); err != nil {
+		return 0, err
+	}
+	return countResp.Count, nil
+}
 
 var _ = Describe("OpniDemo E2E", func() {
 	When("creating an opnidemo", func() {
@@ -211,37 +237,30 @@ var _ = Describe("OpniDemo E2E", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() int {
-				response, err := esClient.Search(esClient.Search.WithIndex("logs*"))
+				response, err := esClient.Count(esClient.Count.WithIndex("logs"))
 				Expect(err).NotTo(HaveOccurred())
-				searchResp := SearchResponse{}
-				Expect(json.NewDecoder(response.Body).Decode(&searchResp)).To(Succeed())
-				return searchResp.Hits.Total.Value
+				countResp := CountResponse{}
+				Expect(json.NewDecoder(response.Body).Decode(&countResp)).To(Succeed())
+				return countResp.Count
 			}, 5*time.Minute, 1*time.Second).Should(BeNumerically(">", 0))
 		})
 		Specify("anomaly count should increase when faults are injected", func() {
 			By("sampling anomaly count (30s)")
 			experiment := gmeasure.NewExperiment("fault injection")
 			experiment.SampleValue("before", func(idx int) float64 {
-				response, err := esClient.Search(esClient.Search.WithIndex("logs*"))
+				defer time.Sleep(500 * time.Millisecond)
+				count, err := queryAnomalyCount(esClient)
 				Expect(err).NotTo(HaveOccurred())
-				searchResp := SearchResponse{}
-				Expect(json.NewDecoder(response.Body).Decode(&searchResp)).To(Succeed())
-				anomalyCount := 0
-				for _, hit := range searchResp.Hits.Hits {
-					if hit.Source.AnomalyLevel == "Anomaly" || hit.Source.AnomalyLevel == "Suspicious" {
-						anomalyCount++
-					}
-				}
-				return float64(anomalyCount)
+				return float64(count)
 			}, gmeasure.SamplingConfig{
-				Duration: 1 * time.Minute,
+				Duration: 30 * time.Second,
 			})
 			By("injecting faults")
 			// Create 10 unschedulable pods
 			// Create 10 pods with nonexistent images
 			// Create 10 pods that will exit with non-zero exit codes
 			for i := 0; i < 10; i++ {
-				k8sClient.Create(context.Background(), &corev1.Pod{
+				Expect(k8sClient.Create(context.Background(), &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("%s-%d", "opni-fault-injection-unschedulable", i),
 						Namespace: "default",
@@ -263,11 +282,17 @@ var _ = Describe("OpniDemo E2E", func() {
 								},
 							},
 						},
+						Containers: []corev1.Container{
+							{
+								Name:  "test",
+								Image: "busybox",
+							},
+						},
 					},
-				})
+				})).To(Succeed())
 			}
 			for i := 0; i < 10; i++ {
-				k8sClient.Create(context.Background(), &corev1.Pod{
+				Expect(k8sClient.Create(context.Background(), &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("%s-%d", "opni-fault-injection-no-image", i),
 						Namespace: "default",
@@ -282,10 +307,10 @@ var _ = Describe("OpniDemo E2E", func() {
 							},
 						},
 					},
-				})
+				})).To(Succeed())
 			}
 			for i := 0; i < 10; i++ {
-				k8sClient.Create(context.Background(), &corev1.Pod{
+				Expect(k8sClient.Create(context.Background(), &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("%s-%d", "opni-fault-injection-fail", i),
 						Namespace: "default",
@@ -299,23 +324,16 @@ var _ = Describe("OpniDemo E2E", func() {
 							},
 						},
 					},
-				})
+				})).To(Succeed())
 			}
 			By("sampling anomaly count after fault injection (30s)")
 			experiment.SampleValue("after", func(idx int) float64 {
-				response, err := esClient.Search(esClient.Search.WithIndex("logs*"))
+				defer time.Sleep(500 * time.Millisecond)
+				count, err := queryAnomalyCount(esClient)
 				Expect(err).NotTo(HaveOccurred())
-				searchResp := SearchResponse{}
-				Expect(json.NewDecoder(response.Body).Decode(&searchResp)).To(Succeed())
-				anomalyCount := 0
-				for _, hit := range searchResp.Hits.Hits {
-					if hit.Source.AnomalyLevel == "Anomaly" || hit.Source.AnomalyLevel == "Suspicious" {
-						anomalyCount++
-					}
-				}
-				return float64(anomalyCount)
+				return float64(count)
 			}, gmeasure.SamplingConfig{
-				Duration: 1 * time.Minute,
+				Duration: 30 * time.Second,
 			})
 			before := experiment.GetStats("before")
 			after := experiment.GetStats("after")
@@ -327,7 +345,7 @@ var _ = Describe("OpniDemo E2E", func() {
 			Expect(r1.Winner()).To(Equal(after))
 			Expect(r2.Winner()).To(Equal(after))
 			Expect(r3.Winner()).To(Equal(after))
-			Expect(after.FloatFor(gmeasure.StatMax)).Should(BeNumerically(">", 20))
+			Expect(after.FloatFor(gmeasure.StatMax)).Should(BeNumerically(">", 30))
 		})
 		Specify("clean up port-forward", func() {
 			close(stopCh)

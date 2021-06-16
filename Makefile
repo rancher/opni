@@ -13,12 +13,20 @@ endif
 
 all: manager opnictl
 
+SHORT ?= 1
+
+ifeq ($(SHORT), 1)
+SHORT_FLAG = "-short"
+else
+SHORT_FLAG = ""
+endif
+
 # Run tests
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test: generate vet manifests
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out -v $(SHORT_FLAG)
 
 # Build manager binary
 manager: generate vet manifests

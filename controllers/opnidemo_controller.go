@@ -153,10 +153,6 @@ func (r *OpniDemoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rbacv1.Role{}).
 		Owns(&extv1beta1.Ingress{}).
 		Owns(&storagev1.StorageClass{}).
-		// Owns(&helmv1.HelmChart{}).
-		// Owns(&helmv1.HelmChartConfig{}).
-		// Owns(&loggingv1beta1.ClusterFlow{}).
-		// Owns(&loggingv1beta1.ClusterOutput{}).
 		Complete(r)
 }
 

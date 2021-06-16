@@ -35,6 +35,9 @@ import (
 
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
+	if testing.Short() {
+		t.Skip("Skipping e2e tests")
+	}
 	RunSpecs(t, "E2E Tests")
 }
 

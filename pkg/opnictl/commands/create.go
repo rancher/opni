@@ -17,12 +17,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var defaultDemoNamespace = "opni-demo"
 var opniDemo = &v1alpha1.OpniDemo{}
+var loggingValues = map[string]intstr.IntOrString{}
 
 var CreateCmd = &cobra.Command{
 	Use:   "create resource",
@@ -45,6 +47,16 @@ on, unless the --context flag is provided to select a specific context.`,
 
 		provider := providers.Detect(cli)
 
+		switch provider {
+		case providers.K3S:
+			loggingValues["additionalLoggingSources.k3s.enabled"] = intstr.FromString("true")
+			loggingValues["systemdLogPath"] = intstr.FromString("/var/log/journal")
+		case providers.RKE2:
+			loggingValues["additionalLoggingSources.rke2.enabled"] = intstr.FromString("true")
+		case providers.RKE:
+			loggingValues["additionalLoggingSources.rke.enabled"] = intstr.FromString("true")
+		}
+
 		opniDemo.Spec.Components = v1alpha1.ComponentsSpec{
 			Infra: v1alpha1.InfraStack{
 				HelmController:       provider == providers.Unknown,
@@ -62,6 +74,7 @@ on, unless the --context flag is provided to select a specific context.`,
 				},
 				RancherLogging: v1alpha1.ChartOptions{
 					Enabled: opniDemo.Spec.Quickstart,
+					Set:     loggingValues,
 				},
 				Traefik: v1alpha1.ChartOptions{
 					Enabled: opniDemo.Spec.Quickstart && provider != providers.K3S,

@@ -26,7 +26,7 @@ const (
 	NulogInfServiceControlPlaneImage = "sanjayrancher/nulog-inference-service:v0.0"
 	NulogInfServiceImage             = "sanjayrancher/nulog-inference-service:v0.0"
 	PayloadReceiverServiceImage      = "sanjayrancher/payload-receiver-service:v0.0"
-	PreprocessingServiceImage        = "sanjayrancher/preprocessing-service:v0.0"
+	PreprocessingServiceImage        = "quay.io/dbason/opni-preprocessing-service:v0"
 	TrainingControllerImage          = "sanjayrancher/training-controller:v0.0"
 )
 
@@ -562,7 +562,7 @@ func BuildKibanaDashboardPod(spec *demov1alpha1.OpniDemo) *v1.Pod {
 			Containers: []v1.Container{
 				{
 					Name:            "kibana-dashboard",
-					Image:           "rancher/opni-kibana-dashboard:v0.1.1-rc01",
+					Image:           "quay.io/dbason/opni-kibana-dashboard:controlplane",
 					ImagePullPolicy: v1.PullAlways,
 					Env: []v1.EnvVar{
 						{
@@ -576,6 +576,10 @@ func BuildKibanaDashboardPod(spec *demov1alpha1.OpniDemo) *v1.Pod {
 						{
 							Name:  "ES_PASSWORD",
 							Value: spec.Spec.ElasticsearchUser,
+						},
+						{
+							Name:  "KB_ENDPOINT",
+							Value: fmt.Sprintf("http://opendistro-es-kibana-svc.%s.svc.cluster.local:443", spec.Namespace),
 						},
 					},
 				},

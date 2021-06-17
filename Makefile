@@ -59,7 +59,7 @@ uninstall: warn manifests kustomize
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests kustomize
-  cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
@@ -107,7 +107,7 @@ kustomize:
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool
-@[ -f $(1) ] || { \
+@[ -f $(1) ] || ( \
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
 pushd $$TMP_DIR &>/dev/null ;\
@@ -119,5 +119,5 @@ mkdir -p $$(dirname $(1)) ;\
 mv temp_bin/* $(1) ;\
 popd &>/dev/null ;\
 rm -rf $$TMP_DIR ;\
-}
+)
 endef

@@ -96,22 +96,35 @@ inject_anomaly() {
 EOF
 }
 
+get_user_anomaly_input() {
+  info "Waiting to inject anomaly; press enter to inject anomaly or type quit to exit"
+  read k
+  if [ "$k" = "quit" ]
+  then
+    info "Exiting quickstart script"
+  else
+    info "Injecting Anomaly"
+    inject_anomaly
+  fi
+}
+
 do_install_opni() {
     if [ -z "${INSTALL_RKE2_ARTIFACT_PATH}" ]; then
         verify_downloader curl || verify_downloader wget || fatal "can not find curl or wget for downloading files"
     fi
     do_install_rke2
+    sleep 5
     #download "/usr/local/bin/opnictl" "${OPNICTL_URL}"
     info "Installing Opni Manager"
     KUBECONFIG=/etc/rancher/rke2/rke2.yaml opnictl install
     sleep 10
     info "Installing Opni Quickstart"
     KUBECONFIG=/etc/rancher/rke2/rke2.yaml opnictl create demo --quickstart --timeout 10m
-    info "Waiting for controlplane logs to stabilize"
-    sleep 30
-    info "Generating controlplane anomalies"
-    inject_anomaly
+    NODEPORT=$(/var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml -n opni-demo get -o jsonpath="{.spec.ports[0].nodePort}" services opendistro-es-kibana-svc)
+    echo "The opni kibana dashboard is listening on port ${NODEPORT}"
+    echo "Navigate to http://<external_ip>:${NODEPORT} and login with the default admin user to view the dashboards"
 }
 
 do_install_opni
+get_user_anomaly_input
 exit 0

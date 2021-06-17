@@ -65,6 +65,9 @@ func BuildCreateDemoCmd() *cobra.Command {
 					},
 					Elastic: v1alpha1.ChartOptions{
 						Enabled: true,
+						Set: map[string]intstr.IntOrString{
+							"kibana.service.type": intstr.FromString("NodePort"),
+						},
 					},
 					RancherLogging: v1alpha1.ChartOptions{
 						Enabled: opniDemo.Spec.Quickstart,

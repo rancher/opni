@@ -84,7 +84,7 @@ var _ = Describe("OpniDemo Controller", func() {
 			}, timeout, interval).Should(BeNil())
 		})
 		It("should create helm charts", func() {
-			wc := &sync.WaitGroup{}
+			wg := &sync.WaitGroup{}
 			for _, chart := range []string{
 				"minio",
 				"nats",
@@ -93,7 +93,7 @@ var _ = Describe("OpniDemo Controller", func() {
 				"rancher-logging",
 				"traefik",
 			} {
-				wc.Add(1)
+				wg.Add(1)
 				go func(chart string) {
 					defer GinkgoRecover()
 					Eventually(func() error {
@@ -107,10 +107,10 @@ var _ = Describe("OpniDemo Controller", func() {
 						}
 						return err
 					}, timeout, interval).Should(BeNil())
-					wc.Done()
+					wg.Done()
 				}(chart)
 			}
-			wc.Wait()
+			wg.Wait()
 		})
 		It("should install the helm controller", func() {
 			Eventually(func() error {

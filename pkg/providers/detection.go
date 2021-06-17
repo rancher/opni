@@ -3,7 +3,6 @@ package providers
 
 import (
 	"context"
-	"log"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -22,19 +21,19 @@ const (
 	RKE
 )
 
-func Detect(c client.Client) Provider {
+func Detect(ctx context.Context, c client.Client) (Provider, error) {
 	nodes := &corev1.NodeList{}
-	if err := c.List(context.Background(), nodes); err != nil {
-		log.Fatal(err)
+	if err := c.List(ctx, nodes); err != nil {
+		return Unknown, err
 	}
 	for _, node := range nodes.Items {
 		if strings.Contains(node.Spec.ProviderID, "k3s") {
-			return K3S
+			return K3S, nil
 		} else if strings.Contains(node.Spec.ProviderID, "rke2") {
-			return RKE2
+			return RKE2, nil
 		} else if _, ok := node.ObjectMeta.Annotations["rke.cattle.io/internal-ip"]; ok {
-			return RKE
+			return RKE, nil
 		}
 	}
-	return Unknown
+	return Unknown, nil
 }

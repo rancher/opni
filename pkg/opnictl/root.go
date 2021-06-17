@@ -2,6 +2,7 @@
 package opnictl
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -12,9 +13,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use: "opnictl",
-	Long: `                     _ 
+func BuildRootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use: "opnictl",
+		Long: `                     _ 
   ____  ____  ____  (_)
  / __ \/ __ \/ __ \/ / 
 / /_/ / /_/ / / / / /  
@@ -22,18 +24,10 @@ var rootCmd = &cobra.Command{
     /_/                
  AIOps for Kubernetes
 `,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	},
-}
-
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
 	}
-}
-
-func init() {
 	// Flags
 	rootCmd.PersistentFlags().StringVarP(&NamespaceFlagValue, "namespace", "n", "opni-demo",
 		"namespace to install resources to")
@@ -43,13 +37,22 @@ func init() {
 		"Duration to wait for Create/Delete operations before timing out")
 
 	// Sub-commands
-	rootCmd.AddCommand(commands.InstallCmd)
-	rootCmd.AddCommand(commands.UninstallCmd)
-	rootCmd.AddCommand(commands.CreateCmd)
-	rootCmd.AddCommand(commands.DeleteCmd)
-	rootCmd.AddCommand(commands.GetCmd)
+	rootCmd.AddCommand(commands.BuildInstallCmd())
+	rootCmd.AddCommand(commands.BuildUninstallCmd())
+	rootCmd.AddCommand(commands.BuildCreateCmd())
+	rootCmd.AddCommand(commands.BuildDeleteCmd())
+	rootCmd.AddCommand(commands.BuildGetCmd())
 	rootCmd.AddCommand(commands.CompletionCmd)
 
 	// Help topics
 	rootCmd.AddCommand(helptopics.ApisHelpCmd)
+
+	return rootCmd
+}
+
+func Execute() {
+	LoadDefaultClientConfig()
+	if err := BuildRootCmd().ExecuteContext(context.Background()); err != nil {
+		os.Exit(1)
+	}
 }

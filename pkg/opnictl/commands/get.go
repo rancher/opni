@@ -2,21 +2,22 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	. "github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/ttacon/chalk"
 
 	"github.com/rancher/opni/api/v1alpha1"
-	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var GetCmd = &cobra.Command{
-	Use:   "get [opnidemoes|opniclusters]",
-	Short: "Show existing opni resources",
-	Long: `
+func BuildGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get [opnidemoes|opniclusters]",
+		Short: "Show existing opni resources",
+		Long: `
 The get command will list opni Custom Resource objects that exist in your
 cluster. For each object listed, its status will be shown. If the resources
 controlled by the object are healthy and running, it will display "Ready", 
@@ -25,31 +26,29 @@ displayed for that object.
 
 Your current kubeconfig context will be used to select the cluster to operate
 on, unless the --context flag is provided to select a specific context.`,
-	Args:       cobra.ExactArgs(1),
-	ValidArgs:  []string{"opnidemoes"},
-	ArgAliases: []string{"demoes", "demos", "opnidemo", "opnidemos"},
-	Run: func(cmd *cobra.Command, args []string) {
-		switch args[0] {
-		case "opnidemoes", "demoes", "demos", "opnidemo", "opnidemos":
-			getOpniDemoes()
-		default:
-			Log.Fatalf("Unknown resource %s", args[0])
-		}
-	},
+		Args:       cobra.ExactArgs(1),
+		ValidArgs:  []string{"opnidemoes"},
+		ArgAliases: []string{"demoes", "demos", "opnidemo", "opnidemos"},
+		Run: func(cmd *cobra.Command, args []string) {
+			switch args[0] {
+			case "opnidemoes", "demoes", "demos", "opnidemo", "opnidemos":
+				getOpniDemoes(cmd.Context())
+			default:
+				Log.Fatalf("Unknown resource %s", args[0])
+			}
+		},
+	}
 }
 
-func getOpniDemoes() {
-	cli := cliutil.CreateClientOrDie()
-
+func getOpniDemoes(ctx context.Context) error {
 	list := &v1alpha1.OpniDemoList{}
 
-	if err := cli.List(context.Background(), list, client.InNamespace(NamespaceFlagValue)); err != nil {
-		Log.Fatal(err)
+	if err := K8sClient.List(ctx, list, client.InNamespace(NamespaceFlagValue)); err != nil {
+		return err
 	}
 
 	if len(list.Items) == 0 {
-		fmt.Printf("No resources found in %s namespace.\n", NamespaceFlagValue)
-		return
+		return errors.New(fmt.Sprintf("No resources found in %s namespace.\n", NamespaceFlagValue))
 	}
 
 	for _, demo := range list.Items {
@@ -66,4 +65,5 @@ func getOpniDemoes() {
 			fmt.Printf("  %s\n", chalk.Yellow.Color(cond))
 		}
 	}
+	return nil
 }

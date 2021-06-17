@@ -41,7 +41,7 @@ func WithConfigOverrides(overrides *clientcmd.ConfigOverrides) ClientOption {
 
 // CreateClientOrDie constructs a new controller-runtime client, or exit
 // with a fatal error if an error occurs.
-func CreateClientOrDie(opts ...ClientOption) client.Client {
+func CreateClientOrDie(opts ...ClientOption) (*rest.Config, client.Client) {
 	scheme := CreateScheme()
 	clientConfig := LoadClientConfig(opts...)
 
@@ -53,7 +53,7 @@ func CreateClientOrDie(opts ...ClientOption) client.Client {
 		os.Exit(1)
 	}
 
-	return cli
+	return clientConfig, cli
 }
 
 // LoadClientConfig loads the user's kubeconfig using the same logic as kubectl.

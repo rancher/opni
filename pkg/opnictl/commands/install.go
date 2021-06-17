@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -16,10 +15,11 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-var InstallCmd = &cobra.Command{
-	Use:   "install",
-	Short: "Install Opni Manager",
-	Long: `
+func BuildInstallCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "install",
+		Short: "Install Opni Manager",
+		Long: `
 The install command will install the Opni Manager (operator) into your cluster, 
 along with the Opni CRDs. 
 
@@ -33,39 +33,38 @@ already exist.
 
 Once the manager is running, install the Opni services using one of the Opni
 APIs. For more information on selecting an API, run 'opnictl help apis'.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		p := mpb.New()
+		Run: func(cmd *cobra.Command, args []string) {
+			p := mpb.New()
 
-		clientConfig := cliutil.LoadClientConfig(MaybeContextOverride()...)
-
-		spinner := p.AddSpinner(1,
-			mpb.AppendDecorators(
-				decor.OnComplete(
-					decor.Name(chalk.Bold.TextStyle("Installing Opni Resources..."), decor.WCSyncSpaceR),
-					chalk.Bold.TextStyle("Installation completed."),
+			spinner := p.AddSpinner(1,
+				mpb.AppendDecorators(
+					decor.OnComplete(
+						decor.Name(chalk.Bold.TextStyle("Installing Opni Resources..."), decor.WCSyncSpaceR),
+						chalk.Bold.TextStyle("Installation completed."),
+					),
 				),
-			),
-			mpb.BarFillerOnComplete(chalk.Green.Color("✓")),
-			mpb.BarWidth(1),
-		)
-		var msgs []string
-		go func() {
-			msgs = cliutil.ForEachStagingResource(
-				clientConfig,
-				func(dr dynamic.ResourceInterface, obj *unstructured.Unstructured) error {
-					_, err := dr.Create(
-						context.Background(),
-						obj,
-						v1.CreateOptions{},
-					)
-					return err
-				})
-			spinner.Increment()
-		}()
-		p.Wait()
+				mpb.BarFillerOnComplete(chalk.Green.Color("✓")),
+				mpb.BarWidth(1),
+			)
+			var msgs []string
+			go func() {
+				msgs = cliutil.ForEachStagingResource(
+					RestConfig,
+					func(dr dynamic.ResourceInterface, obj *unstructured.Unstructured) error {
+						_, err := dr.Create(
+							cmd.Context(),
+							obj,
+							v1.CreateOptions{},
+						)
+						return err
+					})
+				spinner.Increment()
+			}()
+			p.Wait()
 
-		for _, msg := range msgs {
-			fmt.Fprintln(os.Stderr, msg)
-		}
-	},
+			for _, msg := range msgs {
+				fmt.Fprintln(os.Stderr, msg)
+			}
+		},
+	}
 }

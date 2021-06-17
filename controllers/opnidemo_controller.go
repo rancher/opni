@@ -372,6 +372,22 @@ func (r *OpniDemoReconciler) reconcileLoggingCRs(
 	req ctrl.Request,
 	opniDemo *v1alpha1.OpniDemo,
 ) (ctrl.Result, error) {
+	dashboardPod := &corev1.Pod{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: opniDemo.Namespace,
+		Name:      demo.KibanaDashboardPodName,
+	}, dashboardPod); errors.IsNotFound(err) {
+		opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+			fmt.Sprintf("Waiting for pod %s to complete", dashboardPod.Name))
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	} else if err != nil {
+		return ctrl.Result{}, err
+	}
+	if dashboardPod.Status.Phase != corev1.PodSucceeded {
+		opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+			fmt.Sprintf("Waiting for pod %s to complete", dashboardPod.Name))
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	}
 	objects := []client.Object{
 		demo.BuildClusterFlow(opniDemo),
 		demo.BuildClusterOutput(opniDemo),

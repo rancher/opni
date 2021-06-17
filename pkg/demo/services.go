@@ -22,12 +22,12 @@ import (
 
 const (
 	KibanaDashboardPodName           = "deploy-opni-kibana-dasbhboards"
-	DrainServiceImage                = "sanjayrancher/drain-service:v0.0"
-	NulogInfServiceControlPlaneImage = "sanjayrancher/nulog-inference-service:v0.0"
-	NulogInfServiceImage             = "sanjayrancher/nulog-inference-service:v0.0"
-	PayloadReceiverServiceImage      = "sanjayrancher/payload-receiver-service:v0.0"
+	DrainServiceImage                = "sanjayrancher/drain-service:v0.1-dev"
+	NulogInfServiceControlPlaneImage = "sanjayrancher/nulog-inference-service:v0.1-dev"
+	NulogInfServiceImage             = "sanjayrancher/nulog-inference-service:v0.1-dev"
+	PayloadReceiverServiceImage      = "sanjayrancher/payload-receiver-service:v0.1-dev"
+	TrainingControllerImage          = "sanjayrancher/training-controller:v0.1-dev"
 	PreprocessingServiceImage        = "quay.io/dbason/opni-preprocessing-service:v0"
-	TrainingControllerImage          = "sanjayrancher/training-controller:v0.0"
 )
 
 func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {

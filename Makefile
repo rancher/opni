@@ -110,12 +110,14 @@ define go-get-tool
 @[ -f $(1) ] || { \
 set -e ;\
 TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
+pushd $$TMP_DIR &>/dev/null ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
 mkdir temp_bin ;\
 GOBIN=$$TMP_DIR/temp_bin go get $(2) ;\
+mkdir -p $$(dirname $(1)) ;\
 mv temp_bin/* $(1) ;\
+popd &>/dev/null ;\
 rm -rf $$TMP_DIR ;\
 }
 endef

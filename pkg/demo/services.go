@@ -149,7 +149,7 @@ func BuildNulogInferenceServiceControlPlane(spec *demov1alpha1.OpniDemo) *appsv1
 							Resources: v1.ResourceRequirements{
 								Requests: v1.ResourceList{
 									v1.ResourceMemory: resource.MustParse("1Gi"),
-									v1.ResourceCPU:    resource.MustParse(spec.Spec.NulogServiceCpuRequest),
+									v1.ResourceCPU:    resource.MustParse(spec.Spec.NulogServiceCPURequest),
 								},
 							},
 						},

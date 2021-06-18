@@ -2,10 +2,9 @@ package commands
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	. "github.com/rancher/opni/pkg/opnictl/common"
+	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/ttacon/chalk"
 
 	"github.com/rancher/opni/api/v1alpha1"
@@ -34,7 +33,7 @@ on, unless the --context flag is provided to select a specific context.`,
 			case "opnidemoes", "demoes", "demos", "opnidemo", "opnidemos":
 				getOpniDemoes(cmd.Context())
 			default:
-				Log.Fatalf("Unknown resource %s", args[0])
+				common.Log.Fatalf("Unknown resource %s", args[0])
 			}
 		},
 	}
@@ -43,12 +42,12 @@ on, unless the --context flag is provided to select a specific context.`,
 func getOpniDemoes(ctx context.Context) error {
 	list := &v1alpha1.OpniDemoList{}
 
-	if err := K8sClient.List(ctx, list, client.InNamespace(NamespaceFlagValue)); err != nil {
+	if err := common.K8sClient.List(ctx, list, client.InNamespace(common.NamespaceFlagValue)); err != nil {
 		return err
 	}
 
 	if len(list.Items) == 0 {
-		return errors.New(fmt.Sprintf("No resources found in %s namespace.\n", NamespaceFlagValue))
+		return fmt.Errorf("no resources found in %s namespace", common.NamespaceFlagValue)
 	}
 
 	for _, demo := range list.Items {

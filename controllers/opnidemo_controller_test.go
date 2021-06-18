@@ -68,7 +68,7 @@ var _ = Describe("OpniDemo Controller", func() {
 				ElasticsearchUser:      "user",
 				ElasticsearchPassword:  "password",
 				TraefikVersion:         "1",
-				NulogServiceCpuRequest: "1",
+				NulogServiceCPURequest: "1",
 				NulogTrainImage:        "does-not-exist/name:tag",
 				Quickstart:             false,
 			},
@@ -133,9 +133,8 @@ var _ = Describe("OpniDemo Controller", func() {
 					role.Rules[0].Resources[0] != "*" ||
 					role.Rules[0].Verbs[0] != "*" {
 					return errors.New("invalid helm controller permissions")
-				} else {
-					return nil
 				}
+				return nil
 			}, timeout, interval)
 		})
 		It("should install local path provisioner and storage class", func() {
@@ -150,9 +149,8 @@ var _ = Describe("OpniDemo Controller", func() {
 				}
 				if value, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && value == "true" {
 					return nil
-				} else {
-					return errors.New("invalid storage class annotations")
 				}
+				return errors.New("invalid storage class annotations")
 			}, timeout, interval)
 			Eventually(func() error {
 				deployment := &appsv1.Deployment{}

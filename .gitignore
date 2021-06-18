@@ -8,3 +8,9 @@ testbin/*
 *.swp
 *~
 tilt_modules/
+
+# Distribution/packaging
+dist/
+build/
+
+/.dapper

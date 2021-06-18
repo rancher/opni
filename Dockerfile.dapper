@@ -1,0 +1,29 @@
+FROM golang:1.16
+
+RUN go get sigs.k8s.io/kustomize/kustomize/v4@v4.1.3 \
+  && go get sigs.k8s.io/kubebuilder/v3/cmd@v3.1.0 \
+  && go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0
+
+RUN curl -sL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s v1.38.0;
+
+ENV DOCKER_VERSION=20.10.5
+
+RUN curl -sL https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz -o docker-${DOCKER_VERSION}.tgz && \
+  tar -zxvf docker-${DOCKER_VERSION}.tgz -C /usr/bin docker/docker --strip-components 1 && \
+  chmod +x /usr/bin/docker
+
+RUN mv /go/bin/* /usr/bin/ \
+  && rm -rf /go/bin/* \
+  && go clean -cache -modcache
+
+ENV PATH /go/bin:$PATH
+ENV DAPPER_SOURCE /workspace
+ENV DAPPER_OUTPUT bin build/bin dist
+ENV DAPPER_DOCKER_SOCKET true
+ENV DAPPER_ENV TAG REPO GOOS CROSS DRONE_TAG
+ENV DAPPER_RUN_ARGS "-v opni-build-go16-pkg:/go/pkg -v opni-build-go16-cache:/root/.cache/go-build"
+ENV GOCACHE /root/.cache/go-build
+WORKDIR ${DAPPER_SOURCE}
+
+ENTRYPOINT ["./scripts/entry"]
+CMD ["build"]

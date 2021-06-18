@@ -1,0 +1,70 @@
+---
+kind: pipeline
+type: docker
+name: build-amd64
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: build-and-package
+  image: rancher/dapper:v0.5.5
+  commands:
+  - CROSS=1 dapper ci
+  volumes:
+  - name: docker
+    path: /var/run/docker.sock
+
+- name: stage-binaries
+  image: rancher/dapper:v0.5.5
+  commands:
+  - "cp -r ./bin/manager ./package/"
+  when:
+    event:
+    - tag
+    ref:
+    - refs/head/operator
+    - refs/head/ci
+    - refs/tags/*
+
+- name: publish-dockerhub
+  image: plugins/docker
+  settings:
+    password:
+      from_secret: docker_password
+    username:
+      from_secret: docker_username
+    context: package/
+    dockerfile: package/Dockerfile
+    repo: rancher/opni-manager
+    tag: ${DRONE_TAG}
+  when:
+    event:
+    - tag
+    refs:
+    - refs/head/operator
+    - refs/head/ci
+    - refs/tags/*
+
+- name: publish-bin-artifacts
+  image: plugins/github-release
+  settings:
+    api_key:
+      from_secret: github_token
+    checksum:
+    - sha256
+    files:
+    - bin/opnictl*
+  when:
+    event:
+    - tag
+    ref:
+    - refs/head/operator
+    - refs/head/ci
+    - refs/tags/*
+  
+volumes:
+- name: docker
+  host:
+    path: /var/run/docker.sock

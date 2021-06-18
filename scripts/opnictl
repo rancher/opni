@@ -1,8 +1,6 @@
 #!/bin/bash
 
 cd $(dirname $0)
-./generate
-./vet
 
 source version
 

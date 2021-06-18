@@ -7,9 +7,15 @@ TARGETS := $(shell ls scripts)
 	@./.dapper.tmp -v
 	@mv .dapper.tmp .dapper
 
+export DAPPER_MODE := "auto"
+
+ifeq ($(shell uname -s),Linux)
+DAPPER_MODE = bind
+endif
+
 $(TARGETS): .dapper
 	./.dapper $@
 
-.DEFAULT_GOAL := ci
+.DEFAULT_GOAL := build
 
 .PHONY: $(TARGETS)

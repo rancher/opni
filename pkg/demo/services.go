@@ -22,12 +22,13 @@ import (
 
 const (
 	KibanaDashboardPodName           = "deploy-opni-kibana-dasbhboards"
-	DrainServiceImage                = "sanjayrancher/drain-service:v0.1-dev"
-	NulogInfServiceControlPlaneImage = "sanjayrancher/nulog-inference-service:v0.1-dev"
-	NulogInfServiceImage             = "sanjayrancher/nulog-inference-service:v0.1-dev"
-	PayloadReceiverServiceImage      = "sanjayrancher/payload-receiver-service:v0.1-dev"
-	TrainingControllerImage          = "sanjayrancher/training-controller:v0.1-dev"
-	PreprocessingServiceImage        = "quay.io/dbason/opni-preprocessing-service:v0"
+	DrainServiceImage                = "rancher/opni-drain-service:v0.1.1"
+	NulogInfServiceControlPlaneImage = "rancher/opni-inference-service:v0.1.1"
+	NulogInfServiceImage             = "rancher/opni-inference-service:v0.1.1"
+	PayloadReceiverServiceImage      = "rancher/opni-payload-receiver-service:v0.1.1"
+	TrainingControllerImage          = "rancher/opni-training-controller:v0.1.1"
+	PreprocessingServiceImage        = "rancher/opni-preprocessing-service:v0.1.1"
+	KibanaDashboardImage             = "rancher/opni-kibana-dashboard:v0.1.1"
 )
 
 func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
@@ -562,7 +563,7 @@ func BuildKibanaDashboardPod(spec *demov1alpha1.OpniDemo) *v1.Pod {
 			Containers: []v1.Container{
 				{
 					Name:            "kibana-dashboard",
-					Image:           "quay.io/dbason/opni-kibana-dashboard:controlplane",
+					Image:           KibanaDashboardImage,
 					ImagePullPolicy: v1.PullAlways,
 					Env: []v1.EnvVar{
 						{

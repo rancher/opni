@@ -665,7 +665,7 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: joekralicky/opni-manager:latest
+        image: rancher/opni-manager:v0.1.0-rc4:latest
         livenessProbe:
           httpGet:
             path: /healthz

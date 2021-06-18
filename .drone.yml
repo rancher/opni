@@ -16,16 +16,10 @@ steps:
   - name: docker
     path: /var/run/docker.sock
 
-- name: publish-bin-artifacts
-  image: plugins/github-release
-  settings:
-    api_key:
-      from_secret: github_token
-    checksum:
-    - sha256
-    files:
-    - bin/*
-    prerelease: true
+- name: stage-binaries
+  image: rancher/dapper:v0.5.5
+  commands:
+  - "cp -r ./bin/manager ./package/"
   when:
     event:
     - tag
@@ -52,7 +46,23 @@ steps:
     - refs/head/operator
     - refs/head/ci
     - refs/tags/*
-    
+
+- name: publish-bin-artifacts
+  image: plugins/github-release
+  settings:
+    api_key:
+      from_secret: github_token
+    checksum:
+    - sha256
+    files:
+    - bin/opnictl*
+  when:
+    event:
+    - tag
+    ref:
+    - refs/head/operator
+    - refs/head/ci
+    - refs/tags/*
   
 volumes:
 - name: docker

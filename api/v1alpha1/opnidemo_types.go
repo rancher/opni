@@ -35,7 +35,7 @@ type OpniDemoSpec struct {
 	ElasticsearchUser      string         `json:"elasticsearchUser"`
 	ElasticsearchPassword  string         `json:"elasticsearchPassword"`
 	TraefikVersion         string         `json:"traefikVersion"`
-	NulogServiceCpuRequest string         `json:"nulogServiceCpuRequest"`
+	NulogServiceCPURequest string         `json:"nulogServiceCpuRequest"`
 	NulogTrainImage        string         `json:"image"`
 	Quickstart             bool           `json:"quickstart"`
 	CreateKibanaDashboard  *bool          `json:"createKibanaDashboard,omitempty"`

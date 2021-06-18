@@ -1,0 +1,18 @@
+{
+  "linters": {
+      "disable-all": true,
+      "enable": [
+          "govet",
+          "golint",
+          "goimports",
+          "ineffassign",
+          "gofmt"
+      ]
+  },
+  "run": {
+      "skip-files": [
+          "/zz_generated"
+      ],
+      "timeout": "10m"
+  }
+}

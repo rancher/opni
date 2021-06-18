@@ -152,7 +152,7 @@ var _ = Describe("OpniDemo E2E", func() {
 					ElasticsearchUser:      "admin",
 					ElasticsearchPassword:  "admin",
 					TraefikVersion:         "v9.18.3",
-					NulogServiceCpuRequest: "1",
+					NulogServiceCPURequest: "1",
 					Quickstart:             true,
 				},
 			}

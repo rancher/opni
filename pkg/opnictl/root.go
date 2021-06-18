@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	. "github.com/rancher/opni/pkg/opnictl/common"
+	"github.com/rancher/opni/pkg/opnictl/common"
 
 	"github.com/rancher/opni/pkg/opnictl/commands"
 	"github.com/rancher/opni/pkg/opnictl/helptopics"
@@ -29,11 +29,11 @@ func BuildRootCmd() *cobra.Command {
 		},
 	}
 	// Flags
-	rootCmd.PersistentFlags().StringVarP(&NamespaceFlagValue, "namespace", "n", "opni-demo",
+	rootCmd.PersistentFlags().StringVarP(&common.NamespaceFlagValue, "namespace", "n", "opni-demo",
 		"namespace to install resources to")
-	rootCmd.PersistentFlags().StringVar(&ContextOverrideFlagValue, "context", "",
+	rootCmd.PersistentFlags().StringVar(&common.ContextOverrideFlagValue, "context", "",
 		"Kubernetes context (defaults to current-context)")
-	rootCmd.PersistentFlags().DurationVar(&TimeoutFlagValue, "timeout", 5*time.Minute,
+	rootCmd.PersistentFlags().DurationVar(&common.TimeoutFlagValue, "timeout", 5*time.Minute,
 		"Duration to wait for Create/Delete operations before timing out")
 
 	// Sub-commands
@@ -51,7 +51,7 @@ func BuildRootCmd() *cobra.Command {
 }
 
 func Execute() {
-	LoadDefaultClientConfig()
+	common.LoadDefaultClientConfig()
 	if err := BuildRootCmd().ExecuteContext(context.Background()); err != nil {
 		os.Exit(1)
 	}

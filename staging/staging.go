@@ -5,8 +5,6 @@ package staging
 
 import _ "embed"
 
-//go:generate ./generate.sh
-
 // StagingAutogenYaml contains the full manifest of resources for the Opni
 // Manager. This string will contain multiple YAML documents, each containing
 // one Kubernetes resource.

@@ -1,123 +1,15 @@
+TARGETS := $(shell ls scripts)
 
-# Image URL to use all building/pushing image targets
-IMG ?= joekralicky/opni-manager:latest
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+.dapper:
+	@echo Downloading dapper
+	@curl -sL https://releases.rancher.com/dapper/latest/dapper-`uname -s`-`uname -m` > .dapper.tmp
+	@@chmod +x .dapper.tmp
+	@./.dapper.tmp -v
+	@mv .dapper.tmp .dapper
 
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
+$(TARGETS): .dapper
+	./.dapper $@
 
-all: manager opnictl
+.DEFAULT_GOAL := ci
 
-SHORT ?= 1
-
-ifeq ($(SHORT), 1)
-SHORT_FLAG = "-short"
-else
-SHORT_FLAG = ""
-endif
-
-# Run tests
-ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test: generate vet manifests
-	mkdir -p ${ENVTEST_ASSETS_DIR}
-	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.8.3/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out -v $(SHORT_FLAG)
-
-# Build manager binary
-manager: generate vet manifests
-	CGO_ENABLED=0 go build -ldflags '-w -s' -o bin/manager .
-
-# Build opnictl binary
-opnictl: generate vet manifests staging-gen
-	CGO_ENABLED=0 go build -ldflags '-w -s' -o bin/opnictl ./cmd/opnictl
-
-# Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate vet manifests
-	go run .
-
-# Install CRDs into a cluster
-install: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
-
-.PHONY: warn
-warn:
-	@echo "***********************************************************"
-	@echo "** THIS WILL COMPLETELY UNINSTALL OPNI FROM YOUR CLUSTER **"
-	@echo "***********************************************************"
-	@echo "Current Kubernetes context: $(shell kubectl config current-context)"
-	@echo "Waiting 5 seconds before continuing. Press Ctrl-C to abort."
-	@sleep 5
-
-# Uninstall CRDs from a cluster
-uninstall: warn manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
-
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
-
-# UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
-undeploy: warn
-	$(KUSTOMIZE) build config/default | kubectl delete -f -
-
-# Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen kustomize
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-
-# Run go vet against code
-vet:
-	go vet ./...
-
-# Generate code
-generate: controller-gen kubebuilder
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
-
-# Build the docker image
-docker-build: test
-	DOCKER_BUILDKIT=1 docker build -t ${IMG} -f Dockerfile .
-
-# Push the docker image
-docker-push:
-	docker push ${IMG}
-
-staging-gen:
-	go generate ./...
-
-# Download controller-gen locally if necessary
-CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
-controller-gen:
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0)
-
-# Download controller-gen locally if necessary
-KUBEBUILDER = $(shell pwd)/bin/kubebuilder
-kubebuilder:
-	$(call go-get-tool,$(KUBEBUILDER),sigs.k8s.io/kubebuilder/v3/cmd@v3.1.0)
-
-# Download kustomize locally if necessary
-KUSTOMIZE = $(shell pwd)/bin/kustomize
-kustomize:
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.1.3)
-
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
-@[ -f $(1) ] || ( \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-pushd $$TMP_DIR &>/dev/null ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-mkdir temp_bin ;\
-GOBIN=$$TMP_DIR/temp_bin go get $(2) ;\
-mkdir -p $$(dirname $(1)) ;\
-mv temp_bin/* $(1) ;\
-popd &>/dev/null ;\
-rm -rf $$TMP_DIR ;\
-)
-endef
+.PHONY: $(TARGETS)

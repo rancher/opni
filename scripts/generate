@@ -1,0 +1,7 @@
+#!/bin/bash
+
+cd $(dirname $0)/..
+
+controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
+controller-gen crd:trivialVersions=true,preserveUnknownFields=false rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+kustomize build ./config/default -o ./staging/staging_autogen.yaml

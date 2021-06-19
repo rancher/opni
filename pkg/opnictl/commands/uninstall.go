@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	. "github.com/rancher/opni/pkg/opnictl/common"
+	"github.com/rancher/opni/pkg/opnictl/common"
 
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
@@ -42,7 +42,7 @@ Opni from, unless the --context flag is provided to select a specific context.`,
 			var msgs []string
 			go func() {
 				msgs = cliutil.ForEachStagingResource(
-					RestConfig,
+					common.RestConfig,
 					func(dr dynamic.ResourceInterface, obj *unstructured.Unstructured) error {
 						return dr.Delete(
 							cmd.Context(),

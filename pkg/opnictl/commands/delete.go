@@ -3,7 +3,7 @@ package commands
 import (
 	"context"
 
-	. "github.com/rancher/opni/pkg/opnictl/common"
+	"github.com/rancher/opni/pkg/opnictl/common"
 	"go.uber.org/atomic"
 
 	"github.com/rancher/opni/api/v1alpha1"
@@ -14,6 +14,7 @@ import (
 	"github.com/vbauerster/mpb/v7/decor"
 	"k8s.io/apimachinery/pkg/types"
 )
+
 func BuildDeleteDemoCmd() *cobra.Command {
 	var deleteDemoCmd = &cobra.Command{
 		Use:   "demo name",
@@ -29,15 +30,15 @@ on, unless the --context flag is provided to select a specific context.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			demo := &v1alpha1.OpniDemo{}
-			if err := K8sClient.Get(cmd.Context(), types.NamespacedName{
-				Namespace: NamespaceFlagValue,
+			if err := common.K8sClient.Get(cmd.Context(), types.NamespacedName{
+				Namespace: common.NamespaceFlagValue,
 				Name:      args[0],
 			}, demo); err != nil {
 				return err
 			}
 
 			p := mpb.New()
-			waitCtx, ca := context.WithTimeout(cmd.Context(), TimeoutFlagValue)
+			waitCtx, ca := context.WithTimeout(cmd.Context(), common.TimeoutFlagValue)
 			defer ca()
 			deleteError := atomic.NewError(nil)
 			waitingSpinner := p.AddSpinner(1,
@@ -56,7 +57,7 @@ on, unless the --context flag is provided to select a specific context.
 			var asyncErr error
 			go func() {
 				defer waitingSpinner.Increment()
-				deleteError.Store(K8sClient.Delete(waitCtx, demo))
+				deleteError.Store(common.K8sClient.Delete(waitCtx, demo))
 				if err := deleteError.Load(); err != nil {
 					asyncErr = err
 				}
@@ -75,7 +76,7 @@ func BuildDeleteCmd() *cobra.Command {
 		Short: "Delete existing opni resources",
 		Long:  "See subcommands for more information.",
 	}
-	 
+
 	deleteCmd.AddCommand(BuildDeleteDemoCmd())
 
 	return deleteCmd

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/api/v1alpha1"
-	. "github.com/rancher/opni/pkg/opnictl/common"
+	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/rancher/opni/pkg/providers"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
@@ -36,7 +36,7 @@ func BuildCreateDemoCmd() *cobra.Command {
 			chalk.Bold.TextStyle("opnictl help apis")),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var loggingValues = map[string]intstr.IntOrString{}
-			provider, err := providers.Detect(cmd.Context(), K8sClient)
+			provider, err := providers.Detect(cmd.Context(), common.K8sClient)
 			if err != nil {
 				return err
 			}
@@ -65,6 +65,9 @@ func BuildCreateDemoCmd() *cobra.Command {
 					},
 					Elastic: v1alpha1.ChartOptions{
 						Enabled: true,
+						Set: map[string]intstr.IntOrString{
+							"kibana.service.type": intstr.FromString("NodePort"),
+						},
 					},
 					RancherLogging: v1alpha1.ChartOptions{
 						Enabled: opniDemo.Spec.Quickstart,
@@ -80,27 +83,27 @@ func BuildCreateDemoCmd() *cobra.Command {
 			// requested to use a different namespace
 			// Note that we are not going to make the namespace controlled by the
 			// opnidemo CR
-			if opniDemo.Namespace == DefaultOpniDemoNamespace {
-				if err := K8sClient.Create(cmd.Context(), &corev1.Namespace{
+			if opniDemo.Namespace == common.DefaultOpniDemoNamespace {
+				if err := common.K8sClient.Create(cmd.Context(), &corev1.Namespace{
 					ObjectMeta: v1.ObjectMeta{
-						Name: DefaultOpniDemoNamespace,
+						Name: common.DefaultOpniDemoNamespace,
 					},
 				}); errors.IsAlreadyExists(err) {
-					Log.Debug(err)
+					common.Log.Debug(err)
 				} else if err != nil {
 					return err
 				}
 			}
 
-			if err := K8sClient.Create(cmd.Context(), opniDemo); errors.IsAlreadyExists(err) {
-				Log.Info(err.Error())
+			if err := common.K8sClient.Create(cmd.Context(), opniDemo); errors.IsAlreadyExists(err) {
+				common.Log.Info(err.Error())
 			} else if err != nil {
 				return err
 			}
 
 			p := mpb.New()
 
-			waitCtx, ca := context.WithTimeout(cmd.Context(), TimeoutFlagValue)
+			waitCtx, ca := context.WithTimeout(cmd.Context(), common.TimeoutFlagValue)
 
 			waitingSpinner := p.AddSpinner(1,
 				mpb.AppendDecorators(
@@ -122,9 +125,9 @@ func BuildCreateDemoCmd() *cobra.Command {
 			}()
 			defer ca()
 			wait.PollImmediateUntil(500*time.Millisecond, func() (done bool, err error) {
-				err = K8sClient.Get(waitCtx, client.ObjectKeyFromObject(opniDemo), opniDemo)
+				err = common.K8sClient.Get(waitCtx, client.ObjectKeyFromObject(opniDemo), opniDemo)
 				if client.IgnoreNotFound(err) != nil {
-					Log.Error(err.Error())
+					common.Log.Error(err.Error())
 					return false, err
 				}
 				state := opniDemo.Status.State
@@ -157,9 +160,8 @@ func BuildCreateDemoCmd() *cobra.Command {
 												doneText = chalk.Bold.TextStyle(chalk.Red.Color("[Timed Out] ")) + chalk.Italic.TextStyle(cond)
 											}
 											return doneText
-										} else {
-											return chalk.Bold.TextStyle(chalk.Blue.Color(cond))
 										}
+										return chalk.Bold.TextStyle(chalk.Blue.Color(cond))
 									}, decor.WCSyncSpaceR)
 								}(cond),
 							),
@@ -199,21 +201,21 @@ func BuildCreateDemoCmd() *cobra.Command {
 		},
 	}
 
-	createDemoCmd.Flags().StringVar(&opniDemo.Name, "name", DefaultOpniDemoName, "resource name")
-	createDemoCmd.Flags().StringVar(&opniDemo.Namespace, "namespace", DefaultOpniDemoNamespace, "namespace to install resources to")
-	createDemoCmd.Flags().StringVar(&opniDemo.Spec.MinioAccessKey, "minio-access-key", DefaultOpniDemoMinioAccessKey, "minio access key")
-	createDemoCmd.Flags().StringVar(&opniDemo.Spec.MinioSecretKey, "minio-secret-key", DefaultOpniDemoMinioSecretKey, "minio access key")
-	createDemoCmd.Flags().StringVar(&opniDemo.Spec.MinioVersion, "minio-version", DefaultOpniDemoMinioVersion, "minio chart version")
-	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NatsVersion, "nats-version", DefaultOpniDemoNatsVersion, "nats chart version")
-	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NatsPassword, "nats-password", DefaultOpniDemoNatsPassword, "nats chart version")
-	createDemoCmd.Flags().IntVar(&opniDemo.Spec.NatsReplicas, "nats-replicas", DefaultOpniDemoNatsReplicas, "nats pod replica count")
-	createDemoCmd.Flags().IntVar(&opniDemo.Spec.NatsMaxPayload, "nats-max-payload", DefaultOpniDemoNatsMaxPayload, "nats maximum payload")
-	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NvidiaVersion, "nvidia-version", DefaultOpniDemoNvidiaVersion, "nvidia plugin version")
-	createDemoCmd.Flags().StringVar(&opniDemo.Spec.ElasticsearchUser, "elasticsearch-user", DefaultOpniDemoElasticUser, "elasticsearch username")
-	createDemoCmd.Flags().StringVar(&opniDemo.Spec.ElasticsearchPassword, "elasticsearch-password", DefaultOpniDemoElasticPassword, "elasticsearch password")
-	createDemoCmd.Flags().StringVar(&opniDemo.Spec.TraefikVersion, "traefik-version", DefaultOpniDemoTraefikVersion, "traefik chart version")
-	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NulogServiceCpuRequest, "nulog-service-cpu-request", DefaultOpniDemoNulogServiceCpuRequest, "CPU resource request for nulog control-plane service")
-	createDemoCmd.Flags().BoolVar(&opniDemo.Spec.Quickstart, "quickstart", DefaultOpniDemoQuickstart, "quickstart mode")
+	createDemoCmd.Flags().StringVar(&opniDemo.Name, "name", common.DefaultOpniDemoName, "resource name")
+	createDemoCmd.Flags().StringVar(&opniDemo.Namespace, "namespace", common.DefaultOpniDemoNamespace, "namespace to install resources to")
+	createDemoCmd.Flags().StringVar(&opniDemo.Spec.MinioAccessKey, "minio-access-key", common.DefaultOpniDemoMinioAccessKey, "minio access key")
+	createDemoCmd.Flags().StringVar(&opniDemo.Spec.MinioSecretKey, "minio-secret-key", common.DefaultOpniDemoMinioSecretKey, "minio access key")
+	createDemoCmd.Flags().StringVar(&opniDemo.Spec.MinioVersion, "minio-version", common.DefaultOpniDemoMinioVersion, "minio chart version")
+	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NatsVersion, "nats-version", common.DefaultOpniDemoNatsVersion, "nats chart version")
+	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NatsPassword, "nats-password", common.DefaultOpniDemoNatsPassword, "nats chart version")
+	createDemoCmd.Flags().IntVar(&opniDemo.Spec.NatsReplicas, "nats-replicas", common.DefaultOpniDemoNatsReplicas, "nats pod replica count")
+	createDemoCmd.Flags().IntVar(&opniDemo.Spec.NatsMaxPayload, "nats-max-payload", common.DefaultOpniDemoNatsMaxPayload, "nats maximum payload")
+	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NvidiaVersion, "nvidia-version", common.DefaultOpniDemoNvidiaVersion, "nvidia plugin version")
+	createDemoCmd.Flags().StringVar(&opniDemo.Spec.ElasticsearchUser, "elasticsearch-user", common.DefaultOpniDemoElasticUser, "elasticsearch username")
+	createDemoCmd.Flags().StringVar(&opniDemo.Spec.ElasticsearchPassword, "elasticsearch-password", common.DefaultOpniDemoElasticPassword, "elasticsearch password")
+	createDemoCmd.Flags().StringVar(&opniDemo.Spec.TraefikVersion, "traefik-version", common.DefaultOpniDemoTraefikVersion, "traefik chart version")
+	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NulogServiceCPURequest, "nulog-service-cpu-request", common.DefaultOpniDemoNulogServiceCPURequest, "CPU resource request for nulog control-plane service")
+	createDemoCmd.Flags().BoolVar(&opniDemo.Spec.Quickstart, "quickstart", common.DefaultOpniDemoQuickstart, "quickstart mode")
 
 	return createDemoCmd
 }

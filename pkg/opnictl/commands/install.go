@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	. "github.com/rancher/opni/pkg/opnictl/common"
+	"github.com/rancher/opni/pkg/opnictl/common"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -49,7 +49,7 @@ APIs. For more information on selecting an API, run 'opnictl help apis'.`,
 			var msgs []string
 			go func() {
 				msgs = cliutil.ForEachStagingResource(
-					RestConfig,
+					common.RestConfig,
 					func(dr dynamic.ResourceInterface, obj *unstructured.Unstructured) error {
 						_, err := dr.Create(
 							cmd.Context(),

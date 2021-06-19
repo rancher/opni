@@ -34,7 +34,7 @@ const (
 	DefaultOpniDemoElasticUser            = "admin"
 	DefaultOpniDemoElasticPassword        = "admin"
 	DefaultOpniDemoTraefikVersion         = "v9.18.3"
-	DefaultOpniDemoNulogServiceCpuRequest = "1"
+	DefaultOpniDemoNulogServiceCPURequest = "1"
 	DefaultOpniDemoQuickstart             = false
 )
 

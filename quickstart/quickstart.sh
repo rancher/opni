@@ -114,7 +114,8 @@ do_install_opni() {
     fi
     do_install_rke2
     sleep 5
-    #download "/usr/local/bin/opnictl" "${OPNICTL_URL}"
+    download "/usr/local/bin/opnictl" "https://github.com/rancher/opni/releases/download/v0.1.1/opnictl_linux-amd64"
+    chmod +x /usr/local/bin/opnictl
     info "Installing Opni Manager"
     KUBECONFIG=/etc/rancher/rke2/rke2.yaml opnictl install
     sleep 10

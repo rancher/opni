@@ -37,7 +37,7 @@ ____
 
 Please see [the official docs site](https://opni.io/) for complete documentation.
 
-Quick-Start - Install Script
+**Quick-Start - Install Script**
 --------------
 
 To install Opni, within your virtual machine instance run:

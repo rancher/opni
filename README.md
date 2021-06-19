@@ -46,10 +46,10 @@ To install Opni, within your virtual machine instance run:
 curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/demo/quickstart_files/install_opni.sh | sh -
 ```
 
-A kubeconfig file is written to `/etc/rancher/rke2/rke2.yaml` and the service is automatically started or restarted.
-The install script will first install RKE2 and additional utilities such as `kubectl`.
-Once the RKE2 cluster has been setup, the script then installs Opni and Rancher logging onto the cluster.
-Finally, once that has been completed, it will inject an anomaly.
+* A kubeconfig file is written to `/etc/rancher/rke2/rke2.yaml` and the service is automatically started or restarted.
+* The install script will first install RKE2 and additional utilities such as `kubectl`.
+* Once the RKE2 cluster has been setup, the script then installs Opni and Rancher logging onto the cluster.
+* Finally, once that has been completed, it will inject an anomaly.
 
 ____
 #### Ship Logs to Opni

@@ -19,18 +19,37 @@ Every log message sent to Opni will be marked as either normal, suspicious, or a
 If a lot of logs in a short period of time are marked as suspicious or anomalous it is probably worth investigating!
 The anomaly threshold is a number that can tuned depending on your volume of logs and how frequently Opni is predicting anomalies.
 ____
-#### Prerequisites
-* At least two GPU nodes (K80 GPU or higher)
-* One node with at least 4 CPUs
-* At least three additional nodes each with at least 16 GB RAM and 40 GB of disk space.
+#### Virtual Machine
+* Virtual Machine Instance with:
+   * 4 CPUs
+   * 16GB of RAM
+   * 32GB of disk space
 
 ____
 #### How does it work?
-Ship logs over to your Opni cluster with [Rancher Logging](https://rancher.com/docs/rancher/v2.x/en/logging/v2.5/). That's it! Opni will continuously learn the nature of your logs and will update models automatically.
+ When Opni is installed into your cluster, it will also install Rancher logging into the cluster.
+ Rancher logging will aggregate control plane log messages within the cluster and send them over to Opni.
+ Opni will continuously learn the nature of your logs and will update its models automatically.
 ____
-#### Upcoming features
-- Prediction feedback - give feedback for incorrect predictions so the AI adapts better to your logs
-- Control plane log anomaly detection for additional Kubernetes distributions besides RKE including K3S and EKS.
+
+#### Documentation
+-------------
+
+Please see [the official docs site](https://opni.io/) for complete documentation.
+
+Quick-Start - Install Script
+--------------
+
+To install Opni, within your virtual machine instance run:
+
+```
+curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/demo/quickstart_files/install_opni.sh | sh -
+```
+
+A kubeconfig file is written to `/etc/rancher/rke2/rke2.yaml` and the service is automatically started or restarted.
+The install script will first install RKE2 and additional utilities such as `kubectl`.
+Once the RKE2 cluster has been setup, the script then installs Opni and Rancher logging onto the cluster.
+Finally, once that has been completed, it will inject an anomaly.
 
 ____
 #### Ship Logs to Opni
@@ -40,6 +59,9 @@ kubectl get svc traefik -n opni-system -o jsonpath='{.status.loadBalancer.ingres
 ```
 * Your endpoint will look something like `xyz-xxxxxxxxx.us-east-2.elb.amazonaws.com`
 ____
+#### Upcoming features
+- Prediction feedback - give feedback for incorrect predictions so the AI adapts better to your logs
+- Control plane log anomaly detection for additional Kubernetes distributions besides RKE including K3S and EKS.
 
 ## Contributing
 We use `pre-commit` for formatting auto-linting and checking import. Please refer to [installation](https://pre-commit.com/#installation) to install the pre-commit or run `pip install pre-commit`. Then you can activate it for this repo. Once it's activated, it will lint and format the code when you make a git commit. It makes changes in place. If the code is modified during the reformatting, it needs to be staged manually.
@@ -70,4 +92,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-

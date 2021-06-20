@@ -23,16 +23,12 @@ Opni currently features log anomaly detection for Kubernetes.
 On a VM with 4 vCPUs & 16 GB RAM:
 1. Create a RKE2 cluster with Opni installed
     ```
-    curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/demo/quickstart_files/install_opni.sh | sh -
+    curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/main/quickstart_files/install_opni.sh | sh -
     ```
-2. Port forward Kibana
-    ```
-    export KUBECONFIG=/etc/rancher/rke2/rke2.yaml PATH=$PATH:/var/lib/rancher/rke2/bin
-    kubectl port-forward svc/opendistro-es-kibana-svc --address 0.0.0.0 -n opni-system 5601:443
-    ```
-    * View insights at [IPV4_ADDRESS]:5601
+2. Copy the NodePort from the script output
+    * View insights at [IPV4_ADDRESS]:[NODE_PORT]
 
-An error was injected into the cluster's control plane - you can find it in the Opni dashboard!
+To inject an error into the demo cluster press 'Enter' when prompted by the script.  You can view this in the Opni Dashboard.
  
 ----
 

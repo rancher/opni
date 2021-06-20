@@ -34,7 +34,8 @@ On a VM with 4 vCPUs & 16 GB RAM:
     ```
     * View insights at [IPV4_ADDRESS]:5601
 
-An error was injected into the cluster's control plane - you can find it in the Opni dashboard! 
+An error was injected into the cluster's control plane - you can find it in the Opni dashboard!
+ 
 ----
 
 **Watch a demo of Opni:**

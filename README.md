@@ -1,6 +1,4 @@
-# Opni - AIOPs for Kubernetes
-
-Opni = AIOps for Kubernetes + Observability Tools
+# Opni = AIOps for Kubernetes + Observability Tools
 
 Opni currently features log anomaly detection for Kubernetes.
 

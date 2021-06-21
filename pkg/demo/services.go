@@ -11,11 +11,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -297,7 +295,7 @@ func BuildNvidiaPlugin(spec *demov1alpha1.OpniDemo) *appsv1.DaemonSet {
 	}
 }
 
-func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*v1.Service, *appsv1.Deployment, *extv1beta1.Ingress) {
+func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*v1.Service, *appsv1.Deployment) {
 	labels := map[string]string{
 		"app": "payload-receiver-service",
 	}
@@ -344,33 +342,6 @@ func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*v1.Service, *app
 								Ports: []v1.ContainerPort{
 									{
 										ContainerPort: 80,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		&extv1beta1.Ingress{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "payload-receiver-service-ingress",
-				Annotations: map[string]string{
-					"kubernetes.io/ingress.class": "traefik",
-				},
-			},
-			Spec: extv1beta1.IngressSpec{
-				Rules: []extv1beta1.IngressRule{
-					{
-						IngressRuleValue: extv1beta1.IngressRuleValue{
-							HTTP: &extv1beta1.HTTPIngressRuleValue{
-								Paths: []extv1beta1.HTTPIngressPath{
-									{
-										Path: "/",
-										Backend: extv1beta1.IngressBackend{
-											ServiceName: "payload-receiver-service",
-											ServicePort: intstr.FromInt(80),
-										},
 									},
 								},
 							},

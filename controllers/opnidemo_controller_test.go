@@ -14,7 +14,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -52,9 +51,6 @@ var _ = Describe("OpniDemo Controller", func() {
 						RancherLogging: v1alpha1.ChartOptions{
 							Enabled: true,
 						},
-						Traefik: v1alpha1.ChartOptions{
-							Enabled: true,
-						},
 					},
 				},
 				MinioAccessKey:         "testAccessKey",
@@ -67,7 +63,6 @@ var _ = Describe("OpniDemo Controller", func() {
 				NvidiaVersion:          "1",
 				ElasticsearchUser:      "user",
 				ElasticsearchPassword:  "password",
-				TraefikVersion:         "1",
 				NulogServiceCPURequest: "1",
 				NulogTrainImage:        "does-not-exist/name:tag",
 				Quickstart:             false,
@@ -91,7 +86,6 @@ var _ = Describe("OpniDemo Controller", func() {
 				"opendistro-es",
 				"rancher-logging-crd",
 				"rancher-logging",
-				"traefik",
 			} {
 				wg.Add(1)
 				go func(chart string) {
@@ -135,29 +129,6 @@ var _ = Describe("OpniDemo Controller", func() {
 					return errors.New("invalid helm controller permissions")
 				}
 				return nil
-			}, timeout, interval)
-		})
-		It("should install local path provisioner and storage class", func() {
-			Eventually(func() error {
-				sc := &storagev1.StorageClass{}
-				err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
-					Name:      "local-path",
-				}, sc)
-				if err != nil {
-					return err
-				}
-				if value, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && value == "true" {
-					return nil
-				}
-				return errors.New("invalid storage class annotations")
-			}, timeout, interval)
-			Eventually(func() error {
-				deployment := &appsv1.Deployment{}
-				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
-					Name:      "local-path-provisioner",
-				}, deployment)
 			}, timeout, interval)
 		})
 		It("should create drain service", func() {

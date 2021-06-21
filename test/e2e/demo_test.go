@@ -136,9 +136,6 @@ var _ = Describe("OpniDemo E2E", func() {
 									"kibana.readinessProbe":                                   intstr.FromString("initialDelaySeconds: 5"),
 								},
 							},
-							Traefik: v1alpha1.ChartOptions{
-								Enabled: false,
-							},
 						},
 					},
 					MinioAccessKey:         "testAccessKey",
@@ -151,7 +148,6 @@ var _ = Describe("OpniDemo E2E", func() {
 					NvidiaVersion:          "1.0.0-beta6",
 					ElasticsearchUser:      "admin",
 					ElasticsearchPassword:  "admin",
-					TraefikVersion:         "v9.18.3",
 					NulogServiceCPURequest: "1",
 					Quickstart:             true,
 				},

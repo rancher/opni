@@ -73,9 +73,6 @@ func BuildCreateDemoCmd() *cobra.Command {
 						Enabled: opniDemo.Spec.Quickstart,
 						Set:     loggingValues,
 					},
-					Traefik: v1alpha1.ChartOptions{
-						Enabled: opniDemo.Spec.Quickstart && provider != providers.K3S,
-					},
 				},
 			}
 
@@ -213,7 +210,6 @@ func BuildCreateDemoCmd() *cobra.Command {
 	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NvidiaVersion, "nvidia-version", common.DefaultOpniDemoNvidiaVersion, "nvidia plugin version")
 	createDemoCmd.Flags().StringVar(&opniDemo.Spec.ElasticsearchUser, "elasticsearch-user", common.DefaultOpniDemoElasticUser, "elasticsearch username")
 	createDemoCmd.Flags().StringVar(&opniDemo.Spec.ElasticsearchPassword, "elasticsearch-password", common.DefaultOpniDemoElasticPassword, "elasticsearch password")
-	createDemoCmd.Flags().StringVar(&opniDemo.Spec.TraefikVersion, "traefik-version", common.DefaultOpniDemoTraefikVersion, "traefik chart version")
 	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NulogServiceCPURequest, "nulog-service-cpu-request", common.DefaultOpniDemoNulogServiceCPURequest, "CPU resource request for nulog control-plane service")
 	createDemoCmd.Flags().BoolVar(&opniDemo.Spec.Quickstart, "quickstart", common.DefaultOpniDemoQuickstart, "quickstart mode")
 

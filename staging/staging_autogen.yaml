@@ -302,20 +302,6 @@ spec:
                         required:
                         - enabled
                         type: object
-                      traefik:
-                        properties:
-                          enabled:
-                            type: boolean
-                          set:
-                            additionalProperties:
-                              anyOf:
-                              - type: integer
-                              - type: string
-                              x-kubernetes-int-or-string: true
-                            type: object
-                        required:
-                        - enabled
-                        type: object
                     type: object
                 required:
                 - infra
@@ -349,8 +335,6 @@ spec:
                 type: string
               quickstart:
                 type: boolean
-              traefikVersion:
-                type: string
             required:
             - components
             - elasticsearchPassword
@@ -366,7 +350,6 @@ spec:
             - nulogServiceCpuRequest
             - nvidiaVersion
             - quickstart
-            - traefikVersion
             type: object
           status:
             description: OpniDemoStatus defines the observed state of OpniDemo
@@ -665,7 +648,7 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: joekralicky/opni-manager:v0.1.1
+        image: joekralicky/opni-manager
         livenessProbe:
           httpGet:
             path: /healthz

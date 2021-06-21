@@ -197,9 +197,6 @@ func (r *OpniDemoReconciler) reconcileOpniStack(
 	if opts.Components.Opni.RancherLogging.Enabled {
 		objects = append(objects, demo.BuildRancherLoggingHelmChart(opniDemo))
 	}
-	if opts.Components.Opni.Traefik.Enabled {
-		objects = append(objects, demo.BuildTraefikHelmChart(opniDemo))
-	}
 
 	for _, object := range objects {
 		object.SetNamespace(opniDemo.Namespace)
@@ -243,8 +240,8 @@ func (r *OpniDemoReconciler) reconcileServicesStack(
 		demo.BuildNulogInferenceServiceControlPlane(opniDemo),
 		demo.BuildPreprocessingService(opniDemo),
 	}
-	svc, dep, in := demo.BuildPayloadReceiverService(opniDemo)
-	objects = append(objects, svc, dep, in)
+	svc, dep := demo.BuildPayloadReceiverService(opniDemo)
+	objects = append(objects, svc, dep)
 
 	if !opniDemo.Spec.Quickstart {
 		objects = append(objects,

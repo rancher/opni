@@ -75,7 +75,6 @@ var _ = Describe("Opnictl Commands", func() {
 				Expect(demoCR.Spec.NvidiaVersion).To(Equal(common.DefaultOpniDemoNvidiaVersion))
 				Expect(demoCR.Spec.ElasticsearchUser).To(Equal(common.DefaultOpniDemoElasticUser))
 				Expect(demoCR.Spec.ElasticsearchPassword).To(Equal(common.DefaultOpniDemoElasticPassword))
-				Expect(demoCR.Spec.TraefikVersion).To(Equal(common.DefaultOpniDemoTraefikVersion))
 				Expect(demoCR.Spec.NulogServiceCPURequest).To(Equal(common.DefaultOpniDemoNulogServiceCPURequest))
 				Expect(demoCR.Spec.Quickstart).To(Equal(common.DefaultOpniDemoQuickstart))
 			})
@@ -93,7 +92,6 @@ var _ = Describe("Opnictl Commands", func() {
 					"--nvidia-version=300",
 					"--elasticsearch-user=todo-this-flag-probably-does-nothing",
 					"--elasticsearch-password=todo-this-flag-probably-does-nothing",
-					"--traefik-version=400",
 					"--nulog-service-cpu-request=999",
 					"--quickstart",
 				}
@@ -130,7 +128,6 @@ var _ = Describe("Opnictl Commands", func() {
 				Expect(demoCR.Spec.NvidiaVersion).To(Equal("300"))
 				Expect(demoCR.Spec.ElasticsearchUser).To(Equal("todo-this-flag-probably-does-nothing"))
 				Expect(demoCR.Spec.ElasticsearchPassword).To(Equal("todo-this-flag-probably-does-nothing"))
-				Expect(demoCR.Spec.TraefikVersion).To(Equal("400"))
 				Expect(demoCR.Spec.NulogServiceCPURequest).To(Equal("999"))
 				Expect(demoCR.Spec.Quickstart).To(Equal(true))
 			})

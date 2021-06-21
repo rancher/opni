@@ -34,7 +34,6 @@ type OpniDemoSpec struct {
 	NvidiaVersion          string         `json:"nvidiaVersion"`
 	ElasticsearchUser      string         `json:"elasticsearchUser"`
 	ElasticsearchPassword  string         `json:"elasticsearchPassword"`
-	TraefikVersion         string         `json:"traefikVersion"`
 	NulogServiceCPURequest string         `json:"nulogServiceCpuRequest"`
 	NulogTrainImage        string         `json:"image"`
 	Quickstart             bool           `json:"quickstart"`
@@ -66,8 +65,6 @@ type OpniStack struct {
 	Elastic ChartOptions `json:"elastic,omitempty"`
 	// +optional
 	RancherLogging ChartOptions `json:"rancherLogging,omitempty"`
-	// +optional
-	Traefik ChartOptions `json:"traefik,omitempty"`
 }
 
 // OpniDemoStatus defines the observed state of OpniDemo

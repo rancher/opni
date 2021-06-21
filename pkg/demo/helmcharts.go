@@ -9,9 +9,8 @@ import (
 
 func BuildMinioHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 	values := map[string]intstr.IntOrString{
-		"accessKey":                intstr.FromString(spec.Spec.MinioAccessKey),
-		"secretKey":                intstr.FromString(spec.Spec.MinioSecretKey),
-		"persistence.storageClass": intstr.FromString("local-path"),
+		"accessKey": intstr.FromString(spec.Spec.MinioAccessKey),
+		"secretKey": intstr.FromString(spec.Spec.MinioSecretKey),
 	}
 	for k, v := range spec.Spec.Components.Opni.Minio.Set {
 		values[k] = v
@@ -53,12 +52,10 @@ func BuildNatsHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 
 func BuildElasticHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 	values := map[string]intstr.IntOrString{
-		"elasticsearch.master.persistence.enabled":      intstr.FromString("true"),
-		"elasticsearch.master.persistence.storageClass": intstr.FromString("local-path"),
-		"elasticsearch.data.persistence.enabled":        intstr.FromString("true"),
-		"elasticsearch.data.persistence.storageClass":   intstr.FromString("local-path"),
-		"elasticsearch.username":                        intstr.FromString(spec.Spec.ElasticsearchUser),
-		"elasticsearch.password":                        intstr.FromString(spec.Spec.ElasticsearchPassword),
+		"elasticsearch.master.persistence.enabled": intstr.FromString("true"),
+		"elasticsearch.data.persistence.enabled":   intstr.FromString("true"),
+		"elasticsearch.username":                   intstr.FromString(spec.Spec.ElasticsearchUser),
+		"elasticsearch.password":                   intstr.FromString(spec.Spec.ElasticsearchPassword),
 	}
 	for k, v := range spec.Spec.Components.Opni.Elastic.Set {
 		values[k] = v
@@ -102,26 +99,6 @@ func BuildRancherLoggingHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart
 			Chart:   "rancher-logging",
 			Repo:    "https://raw.githubusercontent.com/rancher/opni-charts/main",
 			Version: "3.10.0",
-			Set:     values,
-		},
-	}
-}
-
-func BuildTraefikHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
-	values := map[string]intstr.IntOrString{
-		"ports.websecure.nodePort": intstr.FromInt(32222),
-	}
-	for k, v := range spec.Spec.Components.Opni.Traefik.Set {
-		values[k] = v
-	}
-	return &helmv1.HelmChart{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "traefik",
-		},
-		Spec: helmv1.HelmChartSpec{
-			Chart:   "traefik",
-			Repo:    "https://helm.traefik.io/traefik",
-			Version: spec.Spec.TraefikVersion,
 			Set:     values,
 		},
 	}

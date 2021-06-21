@@ -1,129 +1,52 @@
-# Opni - AIOPs for Kubernetes
+# Opni = AIOps for Kubernetes + Observability Tools
 
-Opni is a collection of AIOPs tools - it currently features log anomaly detection for Kubernetes.
+Opni currently features log anomaly detection for Kubernetes.
 
-- [ ] **Stable v0.1 release in June 2021**
-____
+##### What does Opni give me?
+* AI generated insights on your cluster's log messages
+  * **Control Plane & etcd** insights
+    * Pretrained models maintained by Rancher Labs
+    * Only for RKE1, RKE2, k3s clusters
+  * **Workload & application** insights
+    * Automatically learns what steady-state is in your workloads & applications
+    * For any Kubernetes cluster  
+* Every log message sent to Opni will be marked as:
+  * **Normal**
+  * **Suspicious** - Operators may want to investigate
+  * **Anomalous** - Operators definitely should investigate  
+* Open Distro for Elasticsearch + Kibana 
+  * Opni dashboard to consume log insights & explore logs 
+  * Ability to setup & send alerts (slack/email/etc) based on Opni log insights
+
+----
+#### Try it out!
+On a VM with 4 vCPUs & 16 GB RAM:
+1. Create a RKE2 cluster with Opni installed
+    ```
+    curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/main/quickstart_files/install_opni.sh | sh -
+    ```
+2. Copy the NodePort from the script output
+    * View insights at [IPV4_ADDRESS]:[NODE_PORT]
+
+To inject an error into the demo cluster press 'Enter' when prompted by the script.  You can view this in the Opni Dashboard.
+ 
+----
 
 **Watch a demo of Opni:**
 
 [![](https://opni-public.s3.us-east-2.amazonaws.com/opni_youtube_gh.png)](https://youtu.be/DQVBwMaO_o0)
 ____
-## Installing
-Use a 1-command install: `opnictl` - A small tool to install the opni stack on Kubernetes cluster
-```
-opnictl install --kubeconfig <kubeconfig path>
-```
+#### What's next?
 
-### Options
-The tool can be customized to specify different passwords and versions for the stack components:
-```
-# opnictl install --help
-NAME:
-   opnictl install - install opni stack
-
-USAGE:
-   opnictl install [OPTIONS]
-
-OPTIONS:
-   --kubeconfig value               [$KUBECONFIG]
-   --minio-access-key value         [$MINIO_ACCESS_KEY]
-   --minio-secret-key value         [$MINIO_SECRET_KEY]
-   --minio-version value           (default: "4.0.8") [$MINIO_VERSION]
-   --nats-version value            (default: "2.2.1") [$NATS_VERSION]
-   --nats-password value            [$NATS_PASSWORD]
-   --nats-replicas value           (default: 3) [$NATS_REPLICAS]
-   --nats-max-payload value        (default: 10485760) [$NATS_MAX_PAYLOAD]
-   --nvidia-version value          (default: "1.0.0-beta6") [$NVIDIA_VERSION]
-   --elasticsearch-user value      (default: "admin") [$ES_USER]
-   --elasticsearch-password value  (default: "admin") [$ES_PASSWORD]
-   --traefik-version value         (default: "v9.18.3") [$TRAEFIK_VERSION]
-```
-If passwords are not specified for a specific component, a random generated password will be created for it.
-
-For deleting the stack:
-```
-opnictl delete --kubeconfig <kubeconfig path> --all
-```
-____
-
-#### What does Opni give me?
-TODO: Add architecture markdown file
-* Insights into logs from your cluster's workloads, control plane & etcd
-* Opni insights dashboard to inspect logs
-* Ability to send alerts (slack/email/etc) when anomaly threshold is breached
-
-Every log message sent to Opni will be marked as either normal, suspicious, or anomalous.
-If a lot of logs in a short period of time are marked as suspicious or anomalous it is probably worth investigating!
-The anomaly threshold is a number that can tuned depending on your volume of logs and how frequently Opni is predicting anomalies.
-____
-#### Prerequisites
-TODO Production
-* At least two GPU nodes (K80 GPU or higher)
-* One node with at least 4 CPUs
-* At least three additional nodes each with at least 16 GB RAM and 40 GB of disk space.
-
-Want to try Opni out on on a lightweight cluster? (it's a lightweight opni with only control plane logs anomaly detection)
-TODO
-____
-#### How does it work?
-TODO Move this to another markdown file
-Ship logs over to your Opni cluster with [Rancher Logging](https://rancher.com/docs/rancher/v2.x/en/logging/v2.5/). That's it! Opni will continuously learn the nature of your logs and will update models automatically.
-____
-#### Upcoming features
-- Prediction feedback - give feedback for incorrect predictions so the AI adapts better to your logs
-- Control plane log anomaly detection for additional Kubernetes distributions besides RKE including K3S and EKS.
-
-____
-#### Ship Logs to Opni
-Fetch the Opni service endpoint by running:
-```
-kubectl get svc traefik -n opni-system -o jsonpath='{.status.loadBalancer.ingress[*].hostname}'
-```
-* Your endpoint will look something like `xyz-xxxxxxxxx.us-east-2.elb.amazonaws.com`
-____
-
-### Development
-TODO Add this to its own markdown file
-Building
-
-```
-# make
-```
-
-All stack manifests are under `src/` directory, any added or changed yaml will be available as part of the stack after running Make
+ * v0.1.1 (released) allows you to view Opni's log anomaly insights **only** on a demo environment created on a VM
+ * v0.1.2 (June 25, 2021) will allow you install Opni into your existing Kubernetes cluster and consume log insights from it
+ * v0.2.0 (Fall 2021) will introduce AI applied to metrics, kubernetes events, audit logs, and more! 
 
 
-#### macOS
+![alt text](https://opni-public.s3.us-east-2.amazonaws.com/Opni-user-scenarios.png)
 
-For building in MACOS you need to enable cross building by using the following command:
+----
 
-```
-# CROSS=true make
-```
-
-Then the binary should be found under ./bin/opnictl-darwin
-
-for running the tool, you can use the following command:
-
-```
-./bin/opnictl-darwin install --kubeconfig <kubeconfig path>
-```
-
-## Contributing
-TODO Add this to its own markdown file
-We use `pre-commit` for formatting auto-linting and checking import. Please refer to [installation](https://pre-commit.com/#installation) to install the pre-commit or run `pip install pre-commit`. Then you can activate it for this repo. Once it's activated, it will lint and format the code when you make a git commit. It makes changes in place. If the code is modified during the reformatting, it needs to be staged manually.
-
-```
-# Install
-pip install pre-commit
-
-# Install the git commit hook to invoke automatically every time you do "git commit"
-pre-commit install
-
-# (Optional)Manually run against all files
-pre-commit run --all-files
-```
 
 ## License
 

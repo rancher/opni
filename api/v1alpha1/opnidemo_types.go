@@ -23,21 +23,21 @@ import (
 
 // OpniDemoSpec defines the desired state of OpniDemo
 type OpniDemoSpec struct {
-	Components             ComponentsSpec `json:"components"`
-	MinioAccessKey         string         `json:"minioAccessKey"`
-	MinioSecretKey         string         `json:"minioSecretKey"`
-	MinioVersion           string         `json:"minioVersion"`
-	NatsVersion            string         `json:"natsVersion"`
-	NatsPassword           string         `json:"natsPassword"`
-	NatsReplicas           int            `json:"natsReplicas"`
-	NatsMaxPayload         int            `json:"natsMaxPayload"`
-	NvidiaVersion          string         `json:"nvidiaVersion"`
-	ElasticsearchUser      string         `json:"elasticsearchUser"`
-	ElasticsearchPassword  string         `json:"elasticsearchPassword"`
-	NulogServiceCPURequest string         `json:"nulogServiceCpuRequest"`
-	NulogTrainImage        string         `json:"image"`
-	Quickstart             bool           `json:"quickstart"`
-	CreateKibanaDashboard  *bool          `json:"createKibanaDashboard,omitempty"`
+	Components              ComponentsSpec `json:"components"`
+	MinioAccessKey          string         `json:"minioAccessKey"`
+	MinioSecretKey          string         `json:"minioSecretKey"`
+	MinioVersion            string         `json:"minioVersion"`
+	NatsVersion             string         `json:"natsVersion"`
+	NatsPassword            string         `json:"natsPassword"`
+	NatsReplicas            int            `json:"natsReplicas"`
+	NatsMaxPayload          int            `json:"natsMaxPayload"`
+	NvidiaVersion           string         `json:"nvidiaVersion"`
+	ElasticsearchUser       string         `json:"elasticsearchUser"`
+	ElasticsearchPassword   string         `json:"elasticsearchPassword"`
+	NulogServiceCPURequest  string         `json:"nulogServiceCpuRequest"`
+	NulogTrainImage         string         `json:"image"`
+	CreateKibanaDashboard   *bool          `json:"createKibanaDashboard,omitempty"`
+	RancherLoggingNamespace string         `json:"rancherLoggingNamespace,omitempty"`
 }
 
 type ComponentsSpec struct {
@@ -46,8 +46,8 @@ type ComponentsSpec struct {
 }
 
 type InfraStack struct {
-	HelmController       bool `json:"helmController,omitempty"`
-	LocalPathProvisioner bool `json:"localPathProvisioner,omitempty"`
+	DeployHelmController bool `json:"deployHelmController,omitempty"`
+	DeployNvidiaPlugin   bool `json:"deployNvidiaPlugin,omitempty"`
 }
 
 type ChartOptions struct {
@@ -57,14 +57,16 @@ type ChartOptions struct {
 }
 
 type OpniStack struct {
+	DeployGpuServices bool `json:"deployGpuServices,omitempty"`
+
+	// +optional
+	RancherLogging ChartOptions `json:"rancherLogging,omitempty"`
 	// +optional
 	Minio ChartOptions `json:"minio,omitempty"`
 	// +optional
 	Nats ChartOptions `json:"nats,omitempty"`
 	// +optional
 	Elastic ChartOptions `json:"elastic,omitempty"`
-	// +optional
-	RancherLogging ChartOptions `json:"rancherLogging,omitempty"`
 }
 
 // OpniDemoStatus defines the observed state of OpniDemo

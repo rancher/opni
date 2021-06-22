@@ -112,10 +112,11 @@ var _ = Describe("OpniDemo E2E", func() {
 				Spec: v1alpha1.OpniDemoSpec{
 					Components: v1alpha1.ComponentsSpec{
 						Infra: v1alpha1.InfraStack{
-							HelmController:       false,
-							LocalPathProvisioner: false,
+							DeployHelmController: false,
+							DeployNvidiaPlugin:   false,
 						},
 						Opni: v1alpha1.OpniStack{
+							DeployGpuServices: false,
 							Minio: v1alpha1.ChartOptions{
 								Enabled: true,
 							},
@@ -149,7 +150,6 @@ var _ = Describe("OpniDemo E2E", func() {
 					ElasticsearchUser:      "admin",
 					ElasticsearchPassword:  "admin",
 					NulogServiceCPURequest: "1",
-					Quickstart:             true,
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), &demo)).To(Succeed())

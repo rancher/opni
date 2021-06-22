@@ -3,6 +3,7 @@ module github.com/rancher/opni
 go 1.16
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.2.12 // indirect
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.2
 	github.com/containers/image/v5 v5.12.0
 	github.com/elastic/go-elasticsearch/v7 v7.13.1

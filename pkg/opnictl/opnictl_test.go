@@ -76,7 +76,6 @@ var _ = Describe("Opnictl Commands", func() {
 				Expect(demoCR.Spec.ElasticsearchUser).To(Equal(common.DefaultOpniDemoElasticUser))
 				Expect(demoCR.Spec.ElasticsearchPassword).To(Equal(common.DefaultOpniDemoElasticPassword))
 				Expect(demoCR.Spec.NulogServiceCPURequest).To(Equal(common.DefaultOpniDemoNulogServiceCPURequest))
-				Expect(demoCR.Spec.Quickstart).To(Equal(common.DefaultOpniDemoQuickstart))
 			})
 			It("should create a new demo custom resource with user-specified values", func() {
 				os.Args = []string{"opnictl", "create", "demo",
@@ -129,7 +128,6 @@ var _ = Describe("Opnictl Commands", func() {
 				Expect(demoCR.Spec.ElasticsearchUser).To(Equal("todo-this-flag-probably-does-nothing"))
 				Expect(demoCR.Spec.ElasticsearchPassword).To(Equal("todo-this-flag-probably-does-nothing"))
 				Expect(demoCR.Spec.NulogServiceCPURequest).To(Equal("999"))
-				Expect(demoCR.Spec.Quickstart).To(Equal(true))
 			})
 		})
 	})

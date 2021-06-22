@@ -239,13 +239,17 @@ spec:
                 properties:
                   infra:
                     properties:
-                      helmController:
-                        type: boolean
-                      localPathProvisioner:
-                        type: boolean
+                      deployHelmController:
+                        type: string
+                      deployNvidiaPlugin:
+                        type: string
+                      deployRancherLogging:
+                        type: string
                     type: object
                   opni:
                     properties:
+                      deployGpuServices:
+                        type: string
                       elastic:
                         properties:
                           enabled:
@@ -275,20 +279,6 @@ spec:
                         - enabled
                         type: object
                       nats:
-                        properties:
-                          enabled:
-                            type: boolean
-                          set:
-                            additionalProperties:
-                              anyOf:
-                              - type: integer
-                              - type: string
-                              x-kubernetes-int-or-string: true
-                            type: object
-                        required:
-                        - enabled
-                        type: object
-                      rancherLogging:
                         properties:
                           enabled:
                             type: boolean
@@ -333,8 +323,8 @@ spec:
                 type: string
               nvidiaVersion:
                 type: string
-              quickstart:
-                type: boolean
+              rancherLoggingNamespace:
+                type: string
             required:
             - components
             - elasticsearchPassword
@@ -349,7 +339,6 @@ spec:
             - natsVersion
             - nulogServiceCpuRequest
             - nvidiaVersion
-            - quickstart
             type: object
           status:
             description: OpniDemoStatus defines the observed state of OpniDemo

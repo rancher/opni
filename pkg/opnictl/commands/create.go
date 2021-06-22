@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/rancher/opni/api/v1alpha1"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/rancher/opni/pkg/providers"
@@ -16,7 +17,8 @@ import (
 	"github.com/vbauerster/mpb/v7/decor"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,6 +26,11 @@ import (
 
 func BuildCreateDemoCmd() *cobra.Command {
 	var opniDemo = &v1alpha1.OpniDemo{}
+	var deployHelmController string
+	var deployNvidiaPlugin string
+	var deployRancherLogging string
+	var deployGpuServices string
+
 	var createDemoCmd = &cobra.Command{
 		Use:   "demo",
 		Short: "Create a new opni demo cluster",
@@ -35,6 +42,68 @@ func BuildCreateDemoCmd() *cobra.Command {
 		on, unless the --context flag is provided to select a specific context.`,
 			chalk.Bold.TextStyle("opnictl help apis")),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			questions := []*survey.Question{}
+			if deployHelmController == "prompt" {
+				questions = append(questions, &survey.Question{
+					Name: "DeployHelmController",
+					Prompt: &survey.Confirm{
+						Message: "Deploy the Helm Controller alongside Opni?",
+						Default: false,
+					},
+				})
+			}
+			if deployRancherLogging == "prompt" {
+				questions = append(questions, &survey.Question{
+					Name: "DeployRancherLogging",
+					Prompt: &survey.Confirm{
+						Message: "Deploy the Rancher Logging Helm chart alongside Opni?",
+						Default: true,
+					},
+				})
+			}
+			if deployGpuServices == "prompt" {
+				questions = append(questions, &survey.Question{
+					Name: "DeployGpuServices",
+					Prompt: &survey.Confirm{
+						Message: "Enable GPU-accelerated anomaly detection? (Requires a GPU)",
+						Default: false,
+					},
+				})
+			}
+
+			responses := struct {
+				DeployHelmController bool
+				DeployRancherLogging bool
+				DeployGpuServices    bool
+			}{}
+
+			if err := survey.Ask(questions, &responses); err != nil {
+				return err
+			}
+
+			if deployHelmController == "prompt" {
+				opniDemo.Spec.Components.Infra.DeployHelmController = responses.DeployHelmController
+			}
+			if deployRancherLogging == "prompt" {
+				opniDemo.Spec.Components.Opni.RancherLogging.Enabled = responses.DeployRancherLogging
+			}
+			if deployGpuServices == "prompt" {
+				opniDemo.Spec.Components.Opni.DeployGpuServices = responses.DeployGpuServices
+			}
+
+			if deployGpuServices == "true" && deployNvidiaPlugin == "prompt" {
+				var response bool
+				if err := survey.AskOne(&survey.Confirm{
+					Message: "Deploy the Nvidia plugin DaemonSet?",
+					Default: true,
+				}, &response); err != nil {
+					return err
+				}
+				opniDemo.Spec.Components.Infra.DeployNvidiaPlugin = response
+			} else {
+				opniDemo.Spec.Components.Infra.DeployNvidiaPlugin = false
+			}
+
 			var loggingValues = map[string]intstr.IntOrString{}
 			provider, err := providers.Detect(cmd.Context(), common.K8sClient)
 			if err != nil {
@@ -50,29 +119,18 @@ func BuildCreateDemoCmd() *cobra.Command {
 			case providers.RKE:
 				loggingValues["additionalLoggingSources.rke.enabled"] = intstr.FromString("true")
 			}
+			opniDemo.Spec.Components.Opni.RancherLogging.Set = loggingValues
 
-			opniDemo.Spec.Components = v1alpha1.ComponentsSpec{
-				Infra: v1alpha1.InfraStack{
-					HelmController:       provider == providers.Unknown,
-					LocalPathProvisioner: provider != providers.K3S,
-				},
-				Opni: v1alpha1.OpniStack{
-					Minio: v1alpha1.ChartOptions{
-						Enabled: true,
-					},
-					Nats: v1alpha1.ChartOptions{
-						Enabled: true,
-					},
-					Elastic: v1alpha1.ChartOptions{
-						Enabled: true,
-						Set: map[string]intstr.IntOrString{
-							"kibana.service.type": intstr.FromString("NodePort"),
-						},
-					},
-					RancherLogging: v1alpha1.ChartOptions{
-						Enabled: opniDemo.Spec.Quickstart,
-						Set:     loggingValues,
-					},
+			opniDemo.Spec.Components.Opni.Minio = v1alpha1.ChartOptions{
+				Enabled: true,
+			}
+			opniDemo.Spec.Components.Opni.Nats = v1alpha1.ChartOptions{
+				Enabled: true,
+			}
+			opniDemo.Spec.Components.Opni.Elastic = v1alpha1.ChartOptions{
+				Enabled: true,
+				Set: map[string]intstr.IntOrString{
+					"kibana.service.type": intstr.FromString("NodePort"),
 				},
 			}
 
@@ -82,7 +140,7 @@ func BuildCreateDemoCmd() *cobra.Command {
 			// opnidemo CR
 			if opniDemo.Namespace == common.DefaultOpniDemoNamespace {
 				if err := common.K8sClient.Create(cmd.Context(), &corev1.Namespace{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: common.DefaultOpniDemoNamespace,
 					},
 				}); errors.IsAlreadyExists(err) {
@@ -94,7 +152,10 @@ func BuildCreateDemoCmd() *cobra.Command {
 
 			if err := common.K8sClient.Create(cmd.Context(), opniDemo); errors.IsAlreadyExists(err) {
 				common.Log.Info(err.Error())
+			} else if meta.IsNoMatchError(err) {
+				common.Log.Fatal("Opni is not installed. Try running 'opnictl install' first.")
 			} else if err != nil {
+				fmt.Println(errors.ReasonForError(err))
 				return err
 			}
 
@@ -210,8 +271,25 @@ func BuildCreateDemoCmd() *cobra.Command {
 	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NvidiaVersion, "nvidia-version", common.DefaultOpniDemoNvidiaVersion, "nvidia plugin version")
 	createDemoCmd.Flags().StringVar(&opniDemo.Spec.ElasticsearchUser, "elasticsearch-user", common.DefaultOpniDemoElasticUser, "elasticsearch username")
 	createDemoCmd.Flags().StringVar(&opniDemo.Spec.ElasticsearchPassword, "elasticsearch-password", common.DefaultOpniDemoElasticPassword, "elasticsearch password")
+
 	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NulogServiceCPURequest, "nulog-service-cpu-request", common.DefaultOpniDemoNulogServiceCPURequest, "CPU resource request for nulog control-plane service")
-	createDemoCmd.Flags().BoolVar(&opniDemo.Spec.Quickstart, "quickstart", common.DefaultOpniDemoQuickstart, "quickstart mode")
+	createDemoCmd.Flags().StringVar(&opniDemo.Spec.RancherLoggingNamespace, "rancher-logging-namespace", "", "namespace of existing Rancher Logging installation")
+
+	// the flags below have the following usage:
+	// [unset] 			-> "prompt"
+	// --flag 			-> "true"
+	// --flag=true 	-> "true"
+	// --flag=false -> "false"
+
+	createDemoCmd.Flags().StringVar(&deployHelmController, "deploy-helm-controller", "prompt", "deploy the Helm Controller alongside Opni (true/false)")
+	createDemoCmd.Flags().StringVar(&deployNvidiaPlugin, "deploy-nvidia-plugin", "prompt", "deploy the Nvidia GPU plugin alongside Opni (true/false)")
+	createDemoCmd.Flags().StringVar(&deployRancherLogging, "deploy-rancher-logging", "prompt", "deploy the Rancher Logging Helm chart alongside Opni (true/false)")
+	createDemoCmd.Flags().StringVar(&deployGpuServices, "deploy-gpu-services", "prompt", "deploy GPU-enabled Opni services (true/false)")
+
+	createDemoCmd.Flags().Lookup("deploy-helm-controller").NoOptDefVal = "true"
+	createDemoCmd.Flags().Lookup("deploy-rancher-logging").NoOptDefVal = "true"
+	createDemoCmd.Flags().Lookup("deploy-nvidia-plugin").NoOptDefVal = "true"
+	createDemoCmd.Flags().Lookup("deploy-gpu-services").NoOptDefVal = "true"
 
 	return createDemoCmd
 }

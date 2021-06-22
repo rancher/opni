@@ -14,7 +14,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -212,79 +211,6 @@ func BuildNulogInferenceService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment 
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
 									"nvidia.com/gpu": resource.MustParse("1"),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-var falseVar = false
-
-func BuildNvidiaPlugin(spec *demov1alpha1.OpniDemo) *appsv1.DaemonSet {
-	labels := map[string]string{
-		"name": "nvidia-device-plugin-ds",
-	}
-	return &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "nvidia-device-plugin-daemonset",
-		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
-				Type: appsv1.RollingUpdateDaemonSetStrategyType,
-			},
-			Template: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"scheduler.alpha.kubernetes.io/critical-pod": "",
-					},
-					Labels: labels,
-				},
-				Spec: v1.PodSpec{
-					Tolerations: []v1.Toleration{
-						{
-							Key:      "CriticalAddonsOnly",
-							Operator: v1.TolerationOpExists,
-						},
-						{
-							Key:      "nvidia.com/gpu",
-							Operator: v1.TolerationOpExists,
-							Effect:   v1.TaintEffectNoSchedule,
-						},
-					},
-					PriorityClassName: "system-node-critical",
-					Containers: []v1.Container{
-						{
-							Name:  "nvidia-device-plugin-ctr",
-							Image: fmt.Sprintf("nvidia/k8s-device-plugin:%s", spec.Spec.NvidiaVersion),
-							SecurityContext: &v1.SecurityContext{
-								AllowPrivilegeEscalation: pointer.BoolPtr(false),
-								Capabilities: &v1.Capabilities{
-									Drop: []v1.Capability{
-										v1.Capability("ALL"),
-									},
-								},
-							},
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:      "device-plugin",
-									MountPath: "/var/lib/kubelet/device-plugins",
-								},
-							},
-						},
-					},
-					Volumes: []v1.Volume{
-						{
-							Name: "device-plugin",
-							VolumeSource: v1.VolumeSource{
-								HostPath: &v1.HostPathVolumeSource{
-									Path: "/var/lib/kubelet/device-plugins",
 								},
 							},
 						},

@@ -161,8 +161,16 @@ func (r *OpniDemoReconciler) reconcileInfraStack(
 	req ctrl.Request,
 	opniDemo *v1alpha1.OpniDemo,
 ) (ctrl.Result, error) {
-	objects := demo.MakeInfraStackObjects(opniDemo)
-	objects = append(objects, demo.BuildRancherLoggingCrdHelmChart())
+	objects := []client.Object{}
+
+	if opniDemo.Spec.Components.Infra.DeployHelmController {
+		objects = append(objects, demo.BuildHelmControllerObjects(opniDemo)...)
+	}
+
+	if opniDemo.Spec.Components.Infra.DeployNvidiaPlugin {
+		objects = append(objects, demo.BuildNvidiaPlugin(opniDemo))
+	}
+
 	for _, object := range objects {
 		object.SetNamespace(opniDemo.Namespace)
 		if err := r.Get(ctx, client.ObjectKeyFromObject(object), object); errors.IsNotFound(err) {
@@ -185,6 +193,13 @@ func (r *OpniDemoReconciler) reconcileOpniStack(
 ) (ctrl.Result, error) {
 	opts := opniDemo.Spec
 	objects := []client.Object{}
+
+	if opts.Components.Opni.RancherLogging.Enabled {
+		objects = append(objects,
+			demo.BuildRancherLoggingCrdHelmChart(),
+			demo.BuildRancherLoggingHelmChart(opniDemo),
+		)
+	}
 	if opts.Components.Opni.Minio.Enabled {
 		objects = append(objects, demo.BuildMinioHelmChart(opniDemo))
 	}
@@ -193,9 +208,6 @@ func (r *OpniDemoReconciler) reconcileOpniStack(
 	}
 	if opts.Components.Opni.Elastic.Enabled {
 		objects = append(objects, demo.BuildElasticHelmChart(opniDemo))
-	}
-	if opts.Components.Opni.RancherLogging.Enabled {
-		objects = append(objects, demo.BuildRancherLoggingHelmChart(opniDemo))
 	}
 
 	for _, object := range objects {
@@ -243,13 +255,12 @@ func (r *OpniDemoReconciler) reconcileServicesStack(
 	svc, dep := demo.BuildPayloadReceiverService(opniDemo)
 	objects = append(objects, svc, dep)
 
-	if !opniDemo.Spec.Quickstart {
+	if opniDemo.Spec.Components.Opni.DeployGpuServices {
+		objects = append(objects, demo.BuildTrainingControllerInfra(opniDemo)...)
 		objects = append(objects,
 			demo.BuildNulogInferenceService(opniDemo),
-			demo.BuildNvidiaPlugin(opniDemo),
 			demo.BuildTrainingController(opniDemo),
 		)
-		objects = append(objects, demo.BuildTrainingControllerInfra(opniDemo)...)
 	}
 
 	for _, object := range objects {

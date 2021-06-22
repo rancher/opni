@@ -35,8 +35,8 @@ var _ = Describe("OpniDemo Controller", func() {
 			Spec: v1alpha1.OpniDemoSpec{
 				Components: v1alpha1.ComponentsSpec{
 					Infra: v1alpha1.InfraStack{
-						HelmController:       true,
-						LocalPathProvisioner: true,
+						DeployHelmController: true,
+						DeployNvidiaPlugin:   true,
 					},
 					Opni: v1alpha1.OpniStack{
 						Minio: v1alpha1.ChartOptions{
@@ -51,6 +51,7 @@ var _ = Describe("OpniDemo Controller", func() {
 						RancherLogging: v1alpha1.ChartOptions{
 							Enabled: true,
 						},
+						DeployGpuServices: true,
 					},
 				},
 				MinioAccessKey:         "testAccessKey",
@@ -65,7 +66,6 @@ var _ = Describe("OpniDemo Controller", func() {
 				ElasticsearchPassword:  "password",
 				NulogServiceCPURequest: "1",
 				NulogTrainImage:        "does-not-exist/name:tag",
-				Quickstart:             false,
 			},
 		}
 		It("should succeed", func() {

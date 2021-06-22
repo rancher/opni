@@ -1,20 +1,21 @@
 package demo
 
 import (
+	"fmt"
+
 	"github.com/rancher/opni/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func MakeInfraStackObjects(spec *v1alpha1.OpniDemo) (objects []client.Object) {
-	objects = []client.Object{}
-	helmObjects := []client.Object{
+func BuildHelmControllerObjects(spec *v1alpha1.OpniDemo) (objects []client.Object) {
+	return []client.Object{
 		&apiextv1beta1.CustomResourceDefinition{
 			TypeMeta: v1.TypeMeta{
 				Kind:       "CustomResourceDefinition",
@@ -180,13 +181,75 @@ func MakeInfraStackObjects(spec *v1alpha1.OpniDemo) (objects []client.Object) {
 			},
 		},
 	}
-
-	if spec.Spec.Components.Infra.HelmController {
-		objects = append(objects, helmObjects...)
-	}
-
-	return
 }
 
-var waitForFirstConsumer = storagev1.VolumeBindingWaitForFirstConsumer
-var deleteReclaimPolicy = corev1.PersistentVolumeReclaimDelete
+func BuildNvidiaPlugin(spec *v1alpha1.OpniDemo) *appsv1.DaemonSet {
+	labels := map[string]string{
+		"name": "nvidia-device-plugin-ds",
+	}
+	return &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "nvidia-device-plugin-daemonset",
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+				Type: appsv1.RollingUpdateDaemonSetStrategyType,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"scheduler.alpha.kubernetes.io/critical-pod": "",
+					},
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "CriticalAddonsOnly",
+							Operator: corev1.TolerationOpExists,
+						},
+						{
+							Key:      "nvidia.com/gpu",
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+					},
+					PriorityClassName: "system-node-critical",
+					Containers: []corev1.Container{
+						{
+							Name:  "nvidia-device-plugin-ctr",
+							Image: fmt.Sprintf("nvidia/k8s-device-plugin:%s", spec.Spec.NvidiaVersion),
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: pointer.BoolPtr(false),
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{
+										corev1.Capability("ALL"),
+									},
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "device-plugin",
+									MountPath: "/var/lib/kubelet/device-plugins",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "device-plugin",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/lib/kubelet/device-plugins",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}

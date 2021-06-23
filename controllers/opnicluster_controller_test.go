@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/rancher/opni/api/v1beta1"
+	"github.com/rancher/opni/apis/v1beta1"
 )
 
 const (

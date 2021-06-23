@@ -2,7 +2,7 @@ package demo
 
 import (
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
-	demov1alpha1 "github.com/rancher/opni/api/v1alpha1"
+	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )

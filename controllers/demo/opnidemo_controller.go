@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package demo
 
 import (
 	"context"
@@ -24,7 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
-	"github.com/rancher/opni/api/v1alpha1"
+	"github.com/rancher/opni/apis/demo/v1alpha1"
 	"github.com/rancher/opni/pkg/demo"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -42,8 +42,8 @@ import (
 // OpniDemoReconciler reconciles a OpniDemo object
 type OpniDemoReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	log    logr.Logger
+	scheme *runtime.Scheme
 }
 
 // KibanaDashboardPrerequisite describes a prerequisite object for the kibana dashboard pod
@@ -79,7 +79,7 @@ type KibanaDashboardPrerequisite struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
 func (r *OpniDemoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.Log.WithValues("opnidemo", req.NamespacedName)
+	_ = r.log.WithValues("opnidemo", req.NamespacedName)
 
 	opniDemo := &v1alpha1.OpniDemo{}
 	if err := r.Get(ctx, req.NamespacedName, opniDemo); err != nil {
@@ -138,6 +138,9 @@ func (r *OpniDemoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *OpniDemoReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.Client = mgr.GetClient()
+	r.log = mgr.GetLogger().WithName("controllers").WithName("OpniDemo")
+	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.OpniDemo{}).
 		Owns(&appsv1.Deployment{}).
@@ -174,8 +177,8 @@ func (r *OpniDemoReconciler) reconcileInfraStack(
 	for _, object := range objects {
 		object.SetNamespace(opniDemo.Namespace)
 		if err := r.Get(ctx, client.ObjectKeyFromObject(object), object); errors.IsNotFound(err) {
-			r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
-			if err := ctrl.SetControllerReference(opniDemo, object, r.Scheme); err != nil {
+			r.log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
+			if err := ctrl.SetControllerReference(opniDemo, object, r.scheme); err != nil {
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{Requeue: true}, r.Create(ctx, object)
@@ -216,8 +219,8 @@ func (r *OpniDemoReconciler) reconcileOpniStack(
 			Namespace: opniDemo.Namespace,
 			Name:      object.GetName(),
 		}, object); errors.IsNotFound(err) {
-			r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
-			if err := ctrl.SetControllerReference(opniDemo, object, r.Scheme); err != nil {
+			r.log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
+			if err := ctrl.SetControllerReference(opniDemo, object, r.scheme); err != nil {
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{Requeue: true}, r.Create(ctx, object)
@@ -269,8 +272,8 @@ func (r *OpniDemoReconciler) reconcileServicesStack(
 			Namespace: opniDemo.Namespace,
 			Name:      object.GetName(),
 		}, object); errors.IsNotFound(err) {
-			r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
-			if err := ctrl.SetControllerReference(opniDemo, object, r.Scheme); err != nil {
+			r.log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
+			if err := ctrl.SetControllerReference(opniDemo, object, r.scheme); err != nil {
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{Requeue: true}, r.Create(ctx, object)
@@ -350,8 +353,8 @@ func (r *OpniDemoReconciler) reconcileKibanaDashboards(
 		Namespace: opniDemo.Namespace,
 		Name:      demo.KibanaDashboardPodName,
 	}, pod); errors.IsNotFound(err) {
-		r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(pod))
-		if err := ctrl.SetControllerReference(opniDemo, pod, r.Scheme); err != nil {
+		r.log.Info("creating resource", "name", client.ObjectKeyFromObject(pod))
+		if err := ctrl.SetControllerReference(opniDemo, pod, r.scheme); err != nil {
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{Requeue: true}, r.Create(ctx, pod)
@@ -403,8 +406,8 @@ func (r *OpniDemoReconciler) reconcileLoggingCRs(
 	for _, obj := range objects {
 		key := client.ObjectKeyFromObject(obj)
 		if err := r.Get(ctx, key, obj); errors.IsNotFound(err) {
-			r.Log.Info("creating resource", "name", key)
-			if err := ctrl.SetControllerReference(opniDemo, obj, r.Scheme); err != nil {
+			r.log.Info("creating resource", "name", key)
+			if err := ctrl.SetControllerReference(opniDemo, obj, r.scheme); err != nil {
 				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions, err.Error())
 				return ctrl.Result{}, err
 			}

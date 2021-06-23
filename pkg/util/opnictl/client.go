@@ -7,8 +7,8 @@ import (
 	"os"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
-	"github.com/rancher/opni/api/v1alpha1"
-	"github.com/rancher/opni/api/v1beta1"
+	"github.com/rancher/opni/apis/demo/v1alpha1"
+	"github.com/rancher/opni/apis/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"

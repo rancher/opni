@@ -24,9 +24,10 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
-	demov1alpha1 "github.com/rancher/opni/api/v1alpha1"
-	opniiov1beta1 "github.com/rancher/opni/api/v1beta1"
+	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
+	opniiov1beta1 "github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/controllers"
+	"github.com/rancher/opni/controllers/demo"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -83,19 +84,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.OpniClusterReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("OpniCluster"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err = (&controllers.OpniClusterReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OpniCluster")
 		os.Exit(1)
 	}
-	if err = (&controllers.OpniDemoReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("OpniDemo"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err = (&demo.OpniDemoReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OpniDemo")
 		os.Exit(1)
 	}

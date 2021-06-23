@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package demo
 
 import (
 	"testing"
@@ -48,12 +48,12 @@ var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			"../config/crd/bases",
-			"../test/resources",
+			"../../config/crd/bases",
+			"../../test/resources",
 		},
-		BinaryAssetsDirectory: "../testbin/bin",
+		BinaryAssetsDirectory: "../../testbin/bin",
 	}
-	k8sManager, k8sClient = test.RunTestEnvironment(testEnv, &OpniClusterReconciler{})
+	k8sManager, k8sClient = test.RunTestEnvironment(testEnv, &OpniDemoReconciler{})
 }, 60)
 
 var _ = AfterSuite(func() {

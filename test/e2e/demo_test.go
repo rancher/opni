@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gmeasure"
 	"github.com/phayes/freeport"
-	"github.com/rancher/opni/api/v1alpha1"
+	"github.com/rancher/opni/apis/demo/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"

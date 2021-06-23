@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/api/v1alpha1"
+	"github.com/rancher/opni/apis/demo/v1alpha1"
 	"github.com/rancher/opni/pkg/opnictl"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"

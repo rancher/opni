@@ -44,16 +44,14 @@ spec:
                   infra:
                     properties:
                       deployHelmController:
-                        type: string
+                        type: boolean
                       deployNvidiaPlugin:
-                        type: string
-                      deployRancherLogging:
-                        type: string
+                        type: boolean
                     type: object
                   opni:
                     properties:
                       deployGpuServices:
-                        type: string
+                        type: boolean
                       elastic:
                         properties:
                           enabled:
@@ -83,6 +81,20 @@ spec:
                         - enabled
                         type: object
                       nats:
+                        properties:
+                          enabled:
+                            type: boolean
+                          set:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                            type: object
+                        required:
+                        - enabled
+                        type: object
+                      rancherLogging:
                         properties:
                           enabled:
                             type: boolean

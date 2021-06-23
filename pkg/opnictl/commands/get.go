@@ -7,7 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/ttacon/chalk"
 
-	"github.com/rancher/opni/api/v1alpha1"
+	"github.com/rancher/opni/apis/demo/v1alpha1"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

@@ -13,7 +13,7 @@ import (
 	"github.com/rancher/k3d/v4/pkg/config/v1alpha2"
 	"github.com/rancher/k3d/v4/pkg/runtimes"
 	"github.com/rancher/k3d/v4/pkg/types"
-	"github.com/rancher/opni/controllers"
+	"github.com/rancher/opni/pkg/test"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -106,7 +106,7 @@ var _ = BeforeSuite(func() {
 		Scheme:                scheme.Scheme,
 	}
 
-	_, k8sClient = controllers.RunTestEnvironment(testEnv)
+	_, k8sClient = test.RunTestEnvironment(testEnv)
 })
 
 var _ = AfterSuite(func() {

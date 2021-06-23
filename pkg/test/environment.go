@@ -1,4 +1,4 @@
-package controllers
+package test
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
-	demov1alpha1 "github.com/rancher/opni/api/v1alpha1"
-	"github.com/rancher/opni/api/v1beta1"
+	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
+	"github.com/rancher/opni/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -19,8 +19,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
+type Reconciler interface {
+	SetupWithManager(ctrl.Manager) error
+}
+
 func RunTestEnvironment(
 	testEnv *envtest.Environment,
+	reconcilers ...Reconciler,
 ) (k8sManager ctrl.Manager, k8sClient client.Client) {
 	cfg, err := testEnv.Start()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -52,19 +57,9 @@ func RunTestEnvironment(
 	k8sClient = k8sManager.GetClient()
 	gomega.Expect(k8sClient).NotTo(gomega.BeNil())
 
-	err = (&OpniClusterReconciler{
-		Client: k8sClient,
-		Log:    ctrl.Log,
-		Scheme: k8sManager.GetScheme(),
-	}).SetupWithManager(k8sManager)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = (&OpniDemoReconciler{
-		Client: k8sClient,
-		Log:    ctrl.Log,
-		Scheme: k8sManager.GetScheme(),
-	}).SetupWithManager(k8sManager)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	for _, rec := range reconcilers {
+		gomega.Expect(rec.SetupWithManager(k8sManager)).NotTo(gomega.HaveOccurred())
+	}
 
 	go func() {
 		defer ginkgo.GinkgoRecover()

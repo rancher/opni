@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/rancher/opni/api/v1alpha1"
+	"github.com/rancher/opni/apis/demo/v1alpha1"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/rancher/opni/pkg/providers"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"

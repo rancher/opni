@@ -9,8 +9,9 @@ import (
 
 func BuildMinioHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 	values := map[string]intstr.IntOrString{
-		"accessKey": intstr.FromString(spec.Spec.MinioAccessKey),
-		"secretKey": intstr.FromString(spec.Spec.MinioSecretKey),
+		"accessKey":           intstr.FromString(spec.Spec.MinioAccessKey),
+		"secretKey":           intstr.FromString(spec.Spec.MinioSecretKey),
+		"persistence.enabled": intstr.FromString("false"),
 	}
 	for k, v := range spec.Spec.Components.Opni.Minio.Set {
 		values[k] = v
@@ -52,8 +53,8 @@ func BuildNatsHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 
 func BuildElasticHelmChart(spec *demov1alpha1.OpniDemo) *helmv1.HelmChart {
 	values := map[string]intstr.IntOrString{
-		"elasticsearch.master.persistence.enabled": intstr.FromString("true"),
-		"elasticsearch.data.persistence.enabled":   intstr.FromString("true"),
+		"elasticsearch.master.persistence.enabled": intstr.FromString("false"),
+		"elasticsearch.data.persistence.enabled":   intstr.FromString("false"),
 		"elasticsearch.username":                   intstr.FromString(spec.Spec.ElasticsearchUser),
 		"elasticsearch.password":                   intstr.FromString(spec.Spec.ElasticsearchPassword),
 	}

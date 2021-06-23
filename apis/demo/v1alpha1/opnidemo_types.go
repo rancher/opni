@@ -23,21 +23,20 @@ import (
 
 // OpniDemoSpec defines the desired state of OpniDemo
 type OpniDemoSpec struct {
-	Components              ComponentsSpec `json:"components"`
-	MinioAccessKey          string         `json:"minioAccessKey"`
-	MinioSecretKey          string         `json:"minioSecretKey"`
-	MinioVersion            string         `json:"minioVersion"`
-	NatsVersion             string         `json:"natsVersion"`
-	NatsPassword            string         `json:"natsPassword"`
-	NatsReplicas            int            `json:"natsReplicas"`
-	NatsMaxPayload          int            `json:"natsMaxPayload"`
-	NvidiaVersion           string         `json:"nvidiaVersion"`
-	ElasticsearchUser       string         `json:"elasticsearchUser"`
-	ElasticsearchPassword   string         `json:"elasticsearchPassword"`
-	NulogServiceCPURequest  string         `json:"nulogServiceCpuRequest"`
-	NulogTrainImage         string         `json:"image"`
-	CreateKibanaDashboard   *bool          `json:"createKibanaDashboard,omitempty"`
-	RancherLoggingNamespace string         `json:"rancherLoggingNamespace,omitempty"`
+	Components             ComponentsSpec `json:"components"`
+	MinioAccessKey         string         `json:"minioAccessKey"`
+	MinioSecretKey         string         `json:"minioSecretKey"`
+	MinioVersion           string         `json:"minioVersion"`
+	NatsVersion            string         `json:"natsVersion"`
+	NatsPassword           string         `json:"natsPassword"`
+	NatsReplicas           int            `json:"natsReplicas"`
+	NatsMaxPayload         int            `json:"natsMaxPayload"`
+	NvidiaVersion          string         `json:"nvidiaVersion"`
+	ElasticsearchUser      string         `json:"elasticsearchUser"`
+	ElasticsearchPassword  string         `json:"elasticsearchPassword"`
+	NulogServiceCPURequest string         `json:"nulogServiceCpuRequest"`
+	NulogTrainImage        string         `json:"nulogTrainImage"`
+	CreateKibanaDashboard  *bool          `json:"createKibanaDashboard,omitempty"`
 }
 
 type ComponentsSpec struct {

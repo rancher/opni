@@ -119,8 +119,6 @@ spec:
                 type: string
               elasticsearchUser:
                 type: string
-              image:
-                type: string
               minioAccessKey:
                 type: string
               minioSecretKey:
@@ -137,15 +135,14 @@ spec:
                 type: string
               nulogServiceCpuRequest:
                 type: string
-              nvidiaVersion:
+              nulogTrainImage:
                 type: string
-              rancherLoggingNamespace:
+              nvidiaVersion:
                 type: string
             required:
             - components
             - elasticsearchPassword
             - elasticsearchUser
-            - image
             - minioAccessKey
             - minioSecretKey
             - minioVersion
@@ -154,6 +151,7 @@ spec:
             - natsReplicas
             - natsVersion
             - nulogServiceCpuRequest
+            - nulogTrainImage
             - nvidiaVersion
             type: object
           status:

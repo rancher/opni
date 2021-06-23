@@ -83,12 +83,20 @@ func BuildCreateDemoCmd() *cobra.Command {
 
 			if deployHelmController == "prompt" {
 				opniDemo.Spec.Components.Infra.DeployHelmController = responses.DeployHelmController
+			} else {
+				opniDemo.Spec.Components.Infra.DeployHelmController = (deployHelmController == "true")
 			}
+
 			if deployRancherLogging == "prompt" {
 				opniDemo.Spec.Components.Opni.RancherLogging.Enabled = responses.DeployRancherLogging
+			} else {
+				opniDemo.Spec.Components.Opni.RancherLogging.Enabled = (deployRancherLogging == "true")
 			}
+
 			if deployGpuServices == "prompt" {
 				opniDemo.Spec.Components.Opni.DeployGpuServices = responses.DeployGpuServices
+			} else {
+				opniDemo.Spec.Components.Opni.DeployGpuServices = (deployGpuServices == "true")
 			}
 
 			if deployGpuServices == "true" && deployNvidiaPlugin == "prompt" {
@@ -101,7 +109,7 @@ func BuildCreateDemoCmd() *cobra.Command {
 				}
 				opniDemo.Spec.Components.Infra.DeployNvidiaPlugin = response
 			} else {
-				opniDemo.Spec.Components.Infra.DeployNvidiaPlugin = false
+				opniDemo.Spec.Components.Infra.DeployNvidiaPlugin = (deployNvidiaPlugin == "true")
 			}
 
 			var loggingValues = map[string]intstr.IntOrString{}

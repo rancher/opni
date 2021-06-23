@@ -184,6 +184,13 @@ func (r *OpniDemoReconciler) reconcileInfraStack(
 			return ctrl.Result{Requeue: true}, r.Create(ctx, object)
 		} else if err != nil {
 			return ctrl.Result{}, err
+		} else {
+			if ds, ok := object.(*appsv1.DaemonSet); ok {
+				if ds.Status.NumberReady != ds.Status.DesiredNumberScheduled {
+					opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+						fmt.Sprintf("Waiting for daemonset %s to become ready", ds.Name))
+				}
+			}
 		}
 	}
 	return ctrl.Result{}, nil
@@ -233,12 +240,20 @@ func (r *OpniDemoReconciler) reconcileOpniStack(
 			if err := r.Get(ctx, types.NamespacedName{
 				Namespace: opniDemo.Namespace,
 				Name:      jobname,
-			}, job); err != nil {
-				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
-					fmt.Sprintf("Waiting for job %s to start (%s)", jobname, err.Error()))
+			}, job); errors.IsNotFound(err) {
+				if jobname == "" {
+					opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+						fmt.Sprintf("Waiting for an install job to start for %s", chart.Name))
+				} else {
+					opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+						fmt.Sprintf("Waiting for job %s (%s)", jobname, err.Error()))
+				}
 			} else if job.Status.CompletionTime == nil {
 				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
 					fmt.Sprintf("Waiting for job %s to complete", jobname))
+			} else if err != nil {
+				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+					fmt.Sprintf("Waiting for job %s (%s)", jobname, err.Error()))
 			}
 		}
 	}
@@ -287,7 +302,7 @@ func (r *OpniDemoReconciler) reconcileServicesStack(
 					fmt.Sprintf("Waiting for deployment %s to become ready", o.Name))
 			}
 		case *appsv1.DaemonSet:
-			if o.Status.CurrentNumberScheduled != o.Status.DesiredNumberScheduled {
+			if o.Status.NumberReady != o.Status.DesiredNumberScheduled {
 				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
 					fmt.Sprintf("Waiting for daemonset %s to become ready", o.Name))
 			}

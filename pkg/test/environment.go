@@ -27,6 +27,10 @@ func RunTestEnvironment(
 	testEnv *envtest.Environment,
 	reconcilers ...Reconciler,
 ) (k8sManager ctrl.Manager, k8sClient client.Client) {
+	if len(reconcilers) == 0 {
+		panic("no reconcilers")
+	}
+
 	cfg, err := testEnv.Start()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(cfg).NotTo(gomega.BeNil())

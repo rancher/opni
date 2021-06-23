@@ -41,7 +41,12 @@ var _ = Describe("Opnictl Commands", func() {
 	var _ = Describe("Create", func() {
 		var _ = Describe("Demo API", func() {
 			It("should create a new demo custom resource with default values", func() {
-				os.Args = []string{"opnictl", "create", "demo"}
+				os.Args = []string{"opnictl", "create", "demo",
+					"--deploy-helm-controller",
+					"--deploy-rancher-logging",
+					"--deploy-nvidia-plugin",
+					"--deploy-gpu-services",
+				}
 				ctx, ca := context.WithCancel(context.Background())
 				completed := make(chan struct{})
 				go func() {
@@ -76,6 +81,10 @@ var _ = Describe("Opnictl Commands", func() {
 				Expect(demoCR.Spec.ElasticsearchUser).To(Equal(common.DefaultOpniDemoElasticUser))
 				Expect(demoCR.Spec.ElasticsearchPassword).To(Equal(common.DefaultOpniDemoElasticPassword))
 				Expect(demoCR.Spec.NulogServiceCPURequest).To(Equal(common.DefaultOpniDemoNulogServiceCPURequest))
+				Expect(demoCR.Spec.Components.Infra.DeployHelmController).To(Equal(true))
+				Expect(demoCR.Spec.Components.Infra.DeployNvidiaPlugin).To(Equal(true))
+				Expect(demoCR.Spec.Components.Opni.DeployGpuServices).To(Equal(true))
+				Expect(demoCR.Spec.Components.Opni.RancherLogging.Enabled).To(Equal(true))
 			})
 			It("should create a new demo custom resource with user-specified values", func() {
 				os.Args = []string{"opnictl", "create", "demo",
@@ -92,7 +101,10 @@ var _ = Describe("Opnictl Commands", func() {
 					"--elasticsearch-user=todo-this-flag-probably-does-nothing",
 					"--elasticsearch-password=todo-this-flag-probably-does-nothing",
 					"--nulog-service-cpu-request=999",
-					"--quickstart",
+					"--deploy-helm-controller=false",
+					"--deploy-rancher-logging=false",
+					"--deploy-nvidia-plugin=false",
+					"--deploy-gpu-services=false",
 				}
 				ctx, ca := context.WithCancel(context.Background())
 				completed := make(chan struct{})
@@ -128,6 +140,10 @@ var _ = Describe("Opnictl Commands", func() {
 				Expect(demoCR.Spec.ElasticsearchUser).To(Equal("todo-this-flag-probably-does-nothing"))
 				Expect(demoCR.Spec.ElasticsearchPassword).To(Equal("todo-this-flag-probably-does-nothing"))
 				Expect(demoCR.Spec.NulogServiceCPURequest).To(Equal("999"))
+				Expect(demoCR.Spec.Components.Infra.DeployHelmController).To(Equal(false))
+				Expect(demoCR.Spec.Components.Infra.DeployNvidiaPlugin).To(Equal(false))
+				Expect(demoCR.Spec.Components.Opni.DeployGpuServices).To(Equal(false))
+				Expect(demoCR.Spec.Components.Opni.RancherLogging.Enabled).To(Equal(false))
 			})
 		})
 	})

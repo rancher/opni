@@ -29,25 +29,27 @@ steps:
     - refs/head/main
     - refs/tags/*
 
-#- name: publish-dockerhub
-#  image: plugins/docker
-#  settings:
-#    password:
-#      from_secret: docker_password
-#    username:
-#      from_secret: docker_username
-#    context: package/
-#    dockerfile: package/Dockerfile
-#    repo: rancher/opni-manager
-#    tag: ${DRONE_TAG}
-#  when:
-#    event:
-#    - tag
-#    instance:
-#    - drone-publish.rancher.io
-#    refs:
-#    - refs/head/main
-#    - refs/tags/*
+- name: publish-dockerhub
+  image: plugins/docker
+  settings:
+    password:
+      from_secret: docker_password
+    username:
+      from_secret: docker_username
+    context: package/
+    dockerfile: package/Dockerfile
+    repo: rancher/opni-manager
+    tags: 
+    - ${DRONE_TAG}
+    - latest
+  when:
+    event:
+    - tag
+    instance:
+    - drone-publish.rancher.io
+    refs:
+    - refs/head/main
+    - refs/tags/*
 
 - name: publish-bin-artifacts
   image: plugins/github-release

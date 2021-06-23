@@ -152,7 +152,7 @@ func BuildCreateDemoCmd() *cobra.Command {
 						Name: common.DefaultOpniDemoNamespace,
 					},
 				}); errors.IsAlreadyExists(err) {
-					common.Log.Debug(err)
+					common.Log.Info(err)
 				} else if err != nil {
 					return err
 				}

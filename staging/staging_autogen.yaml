@@ -649,7 +649,7 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: joekralicky/opni-manager
+        image: rancher/opni-manager
         livenessProbe:
           httpGet:
             path: /healthz

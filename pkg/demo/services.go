@@ -19,13 +19,13 @@ import (
 
 const (
 	KibanaDashboardPodName           = "deploy-opni-kibana-dasbhboards"
-	DrainServiceImage                = "rancher/opni-drain-service:v0.1.1"
-	NulogInfServiceControlPlaneImage = "rancher/opni-inference-service:v0.1.1"
-	NulogInfServiceImage             = "rancher/opni-inference-service:v0.1.1"
-	PayloadReceiverServiceImage      = "rancher/opni-payload-receiver-service:v0.1.1"
-	TrainingControllerImage          = "rancher/opni-training-controller:v0.1.1"
-	PreprocessingServiceImage        = "rancher/opni-preprocessing-service:v0.1.1"
-	KibanaDashboardImage             = "rancher/opni-kibana-dashboard:v0.1.1"
+	DrainServiceImage                = "rancher/opni-drain-service:v0.1.2-rc1"
+	NulogInfServiceControlPlaneImage = "rancher/opni-inference-service:v0.1.2-rc1"
+	NulogInfServiceImage             = "rancher/opni-inference-service:v0.1.2-rc1"
+	PayloadReceiverServiceImage      = "rancher/opni-payload-receiver-service:v0.1.2-rc1"
+	TrainingControllerImage          = "rancher/opni-training-controller:v0.1.2-rc1"
+	PreprocessingServiceImage        = "rancher/opni-preprocessing-service:v0.1.2-rc1"
+	KibanaDashboardImage             = "rancher/opni-kibana-dashboard:v0.1.2-rc1"
 )
 
 func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {

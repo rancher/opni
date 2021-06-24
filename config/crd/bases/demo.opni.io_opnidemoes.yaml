@@ -119,6 +119,8 @@ spec:
                 type: string
               elasticsearchUser:
                 type: string
+              loggingCrdNamespace:
+                type: string
               minioAccessKey:
                 type: string
               minioSecretKey:

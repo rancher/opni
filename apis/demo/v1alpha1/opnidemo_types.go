@@ -37,6 +37,7 @@ type OpniDemoSpec struct {
 	NulogServiceCPURequest string         `json:"nulogServiceCpuRequest"`
 	NulogTrainImage        string         `json:"nulogTrainImage"`
 	CreateKibanaDashboard  *bool          `json:"createKibanaDashboard,omitempty"`
+	LoggingCRDNamespace    *string        `json:"loggingCrdNamespace,omitempty"`
 }
 
 type ComponentsSpec struct {

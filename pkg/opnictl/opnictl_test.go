@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/api/v1alpha1"
+	"github.com/rancher/opni/apis/demo/v1alpha1"
 	"github.com/rancher/opni/pkg/opnictl"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
@@ -41,7 +41,12 @@ var _ = Describe("Opnictl Commands", func() {
 	var _ = Describe("Create", func() {
 		var _ = Describe("Demo API", func() {
 			It("should create a new demo custom resource with default values", func() {
-				os.Args = []string{"opnictl", "create", "demo"}
+				os.Args = []string{"opnictl", "create", "demo",
+					"--deploy-helm-controller",
+					"--deploy-rancher-logging",
+					"--deploy-nvidia-plugin",
+					"--deploy-gpu-services",
+				}
 				ctx, ca := context.WithCancel(context.Background())
 				completed := make(chan struct{})
 				go func() {
@@ -75,9 +80,11 @@ var _ = Describe("Opnictl Commands", func() {
 				Expect(demoCR.Spec.NvidiaVersion).To(Equal(common.DefaultOpniDemoNvidiaVersion))
 				Expect(demoCR.Spec.ElasticsearchUser).To(Equal(common.DefaultOpniDemoElasticUser))
 				Expect(demoCR.Spec.ElasticsearchPassword).To(Equal(common.DefaultOpniDemoElasticPassword))
-				Expect(demoCR.Spec.TraefikVersion).To(Equal(common.DefaultOpniDemoTraefikVersion))
 				Expect(demoCR.Spec.NulogServiceCPURequest).To(Equal(common.DefaultOpniDemoNulogServiceCPURequest))
-				Expect(demoCR.Spec.Quickstart).To(Equal(common.DefaultOpniDemoQuickstart))
+				Expect(demoCR.Spec.Components.Infra.DeployHelmController).To(Equal(true))
+				Expect(demoCR.Spec.Components.Infra.DeployNvidiaPlugin).To(Equal(true))
+				Expect(demoCR.Spec.Components.Opni.DeployGpuServices).To(Equal(true))
+				Expect(demoCR.Spec.Components.Opni.RancherLogging.Enabled).To(Equal(true))
 			})
 			It("should create a new demo custom resource with user-specified values", func() {
 				os.Args = []string{"opnictl", "create", "demo",
@@ -93,9 +100,11 @@ var _ = Describe("Opnictl Commands", func() {
 					"--nvidia-version=300",
 					"--elasticsearch-user=todo-this-flag-probably-does-nothing",
 					"--elasticsearch-password=todo-this-flag-probably-does-nothing",
-					"--traefik-version=400",
 					"--nulog-service-cpu-request=999",
-					"--quickstart",
+					"--deploy-helm-controller=false",
+					"--deploy-rancher-logging=false",
+					"--deploy-nvidia-plugin=false",
+					"--deploy-gpu-services=false",
 				}
 				ctx, ca := context.WithCancel(context.Background())
 				completed := make(chan struct{})
@@ -130,9 +139,11 @@ var _ = Describe("Opnictl Commands", func() {
 				Expect(demoCR.Spec.NvidiaVersion).To(Equal("300"))
 				Expect(demoCR.Spec.ElasticsearchUser).To(Equal("todo-this-flag-probably-does-nothing"))
 				Expect(demoCR.Spec.ElasticsearchPassword).To(Equal("todo-this-flag-probably-does-nothing"))
-				Expect(demoCR.Spec.TraefikVersion).To(Equal("400"))
 				Expect(demoCR.Spec.NulogServiceCPURequest).To(Equal("999"))
-				Expect(demoCR.Spec.Quickstart).To(Equal(true))
+				Expect(demoCR.Spec.Components.Infra.DeployHelmController).To(Equal(false))
+				Expect(demoCR.Spec.Components.Infra.DeployNvidiaPlugin).To(Equal(false))
+				Expect(demoCR.Spec.Components.Opni.DeployGpuServices).To(Equal(false))
+				Expect(demoCR.Spec.Components.Opni.RancherLogging.Enabled).To(Equal(false))
 			})
 		})
 	})

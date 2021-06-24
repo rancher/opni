@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gmeasure"
 	"github.com/phayes/freeport"
-	"github.com/rancher/opni/api/v1alpha1"
+	"github.com/rancher/opni/apis/demo/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -112,10 +112,11 @@ var _ = Describe("OpniDemo E2E", func() {
 				Spec: v1alpha1.OpniDemoSpec{
 					Components: v1alpha1.ComponentsSpec{
 						Infra: v1alpha1.InfraStack{
-							HelmController:       false,
-							LocalPathProvisioner: false,
+							DeployHelmController: false,
+							DeployNvidiaPlugin:   false,
 						},
 						Opni: v1alpha1.OpniStack{
+							DeployGpuServices: false,
 							Minio: v1alpha1.ChartOptions{
 								Enabled: true,
 							},
@@ -136,9 +137,6 @@ var _ = Describe("OpniDemo E2E", func() {
 									"kibana.readinessProbe":                                   intstr.FromString("initialDelaySeconds: 5"),
 								},
 							},
-							Traefik: v1alpha1.ChartOptions{
-								Enabled: false,
-							},
 						},
 					},
 					MinioAccessKey:         "testAccessKey",
@@ -151,9 +149,7 @@ var _ = Describe("OpniDemo E2E", func() {
 					NvidiaVersion:          "1.0.0-beta6",
 					ElasticsearchUser:      "admin",
 					ElasticsearchPassword:  "admin",
-					TraefikVersion:         "v9.18.3",
 					NulogServiceCPURequest: "1",
-					Quickstart:             true,
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), &demo)).To(Succeed())
@@ -169,7 +165,12 @@ var _ = Describe("OpniDemo E2E", func() {
 				if err != nil {
 					return err
 				}
+				if demo.Status.State == "" {
+					return errors.New("State not populated yet")
+				}
 				if demo.Status.State != "Ready" {
+					Expect(demo.Status.Conditions).NotTo(BeEmpty(),
+						"Expected one or more conditions if state is not Ready (%s)", demo.Status.State)
 					conditions := strings.Join(demo.Status.Conditions, "; ")
 					i++
 					if i%4 == 0 {

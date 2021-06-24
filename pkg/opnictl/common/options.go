@@ -33,7 +33,6 @@ const (
 	DefaultOpniDemoNvidiaVersion          = "1.0.0-beta6"
 	DefaultOpniDemoElasticUser            = "admin"
 	DefaultOpniDemoElasticPassword        = "admin"
-	DefaultOpniDemoTraefikVersion         = "v9.18.3"
 	DefaultOpniDemoNulogServiceCPURequest = "1"
 	DefaultOpniDemoQuickstart             = false
 )

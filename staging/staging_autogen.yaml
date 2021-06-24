@@ -239,13 +239,15 @@ spec:
                 properties:
                   infra:
                     properties:
-                      helmController:
+                      deployHelmController:
                         type: boolean
-                      localPathProvisioner:
+                      deployNvidiaPlugin:
                         type: boolean
                     type: object
                   opni:
                     properties:
+                      deployGpuServices:
+                        type: boolean
                       elastic:
                         properties:
                           enabled:
@@ -302,20 +304,6 @@ spec:
                         required:
                         - enabled
                         type: object
-                      traefik:
-                        properties:
-                          enabled:
-                            type: boolean
-                          set:
-                            additionalProperties:
-                              anyOf:
-                              - type: integer
-                              - type: string
-                              x-kubernetes-int-or-string: true
-                            type: object
-                        required:
-                        - enabled
-                        type: object
                     type: object
                 required:
                 - infra
@@ -326,8 +314,6 @@ spec:
               elasticsearchPassword:
                 type: string
               elasticsearchUser:
-                type: string
-              image:
                 type: string
               minioAccessKey:
                 type: string
@@ -345,17 +331,14 @@ spec:
                 type: string
               nulogServiceCpuRequest:
                 type: string
-              nvidiaVersion:
+              nulogTrainImage:
                 type: string
-              quickstart:
-                type: boolean
-              traefikVersion:
+              nvidiaVersion:
                 type: string
             required:
             - components
             - elasticsearchPassword
             - elasticsearchUser
-            - image
             - minioAccessKey
             - minioSecretKey
             - minioVersion
@@ -364,9 +347,8 @@ spec:
             - natsReplicas
             - natsVersion
             - nulogServiceCpuRequest
+            - nulogTrainImage
             - nvidiaVersion
-            - quickstart
-            - traefikVersion
             type: object
           status:
             description: OpniDemoStatus defines the observed state of OpniDemo
@@ -665,7 +647,7 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: joekralicky/opni-manager:v0.1.1
+        image: rancher/opni-manager
         livenessProbe:
           httpGet:
             path: /healthz

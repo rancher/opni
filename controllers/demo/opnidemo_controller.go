@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package demo
 
 import (
 	"context"
@@ -24,7 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
-	"github.com/rancher/opni/api/v1alpha1"
+	"github.com/rancher/opni/apis/demo/v1alpha1"
 	"github.com/rancher/opni/pkg/demo"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -42,8 +42,8 @@ import (
 // OpniDemoReconciler reconciles a OpniDemo object
 type OpniDemoReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	log    logr.Logger
+	scheme *runtime.Scheme
 }
 
 // KibanaDashboardPrerequisite describes a prerequisite object for the kibana dashboard pod
@@ -79,7 +79,7 @@ type KibanaDashboardPrerequisite struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
 func (r *OpniDemoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.Log.WithValues("opnidemo", req.NamespacedName)
+	_ = r.log.WithValues("opnidemo", req.NamespacedName)
 
 	opniDemo := &v1alpha1.OpniDemo{}
 	if err := r.Get(ctx, req.NamespacedName, opniDemo); err != nil {
@@ -138,6 +138,9 @@ func (r *OpniDemoReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *OpniDemoReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.Client = mgr.GetClient()
+	r.log = mgr.GetLogger().WithName("controllers").WithName("OpniDemo")
+	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.OpniDemo{}).
 		Owns(&appsv1.Deployment{}).
@@ -161,18 +164,33 @@ func (r *OpniDemoReconciler) reconcileInfraStack(
 	req ctrl.Request,
 	opniDemo *v1alpha1.OpniDemo,
 ) (ctrl.Result, error) {
-	objects := demo.MakeInfraStackObjects(opniDemo)
-	objects = append(objects, demo.BuildRancherLoggingCrdHelmChart())
+	objects := []client.Object{}
+
+	if opniDemo.Spec.Components.Infra.DeployHelmController {
+		objects = append(objects, demo.BuildHelmControllerObjects(opniDemo)...)
+	}
+
+	if opniDemo.Spec.Components.Infra.DeployNvidiaPlugin {
+		objects = append(objects, demo.BuildNvidiaPlugin(opniDemo))
+	}
+
 	for _, object := range objects {
 		object.SetNamespace(opniDemo.Namespace)
 		if err := r.Get(ctx, client.ObjectKeyFromObject(object), object); errors.IsNotFound(err) {
-			r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
-			if err := ctrl.SetControllerReference(opniDemo, object, r.Scheme); err != nil {
+			r.log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
+			if err := ctrl.SetControllerReference(opniDemo, object, r.scheme); err != nil {
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{Requeue: true}, r.Create(ctx, object)
 		} else if err != nil {
 			return ctrl.Result{}, err
+		} else {
+			if ds, ok := object.(*appsv1.DaemonSet); ok {
+				if ds.Status.NumberReady != ds.Status.DesiredNumberScheduled {
+					opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+						fmt.Sprintf("Waiting for daemonset %s to become ready", ds.Name))
+				}
+			}
 		}
 	}
 	return ctrl.Result{}, nil
@@ -183,22 +201,23 @@ func (r *OpniDemoReconciler) reconcileOpniStack(
 	req ctrl.Request,
 	opniDemo *v1alpha1.OpniDemo,
 ) (ctrl.Result, error) {
-	opts := opniDemo.Spec
+	spec := opniDemo.Spec
 	objects := []client.Object{}
-	if opts.Components.Opni.Minio.Enabled {
+
+	if spec.Components.Opni.RancherLogging.Enabled {
+		objects = append(objects,
+			demo.BuildRancherLoggingCrdHelmChart(),
+			demo.BuildRancherLoggingHelmChart(opniDemo),
+		)
+	}
+	if spec.Components.Opni.Minio.Enabled {
 		objects = append(objects, demo.BuildMinioHelmChart(opniDemo))
 	}
-	if opts.Components.Opni.Nats.Enabled {
+	if spec.Components.Opni.Nats.Enabled {
 		objects = append(objects, demo.BuildNatsHelmChart(opniDemo))
 	}
-	if opts.Components.Opni.Elastic.Enabled {
+	if spec.Components.Opni.Elastic.Enabled {
 		objects = append(objects, demo.BuildElasticHelmChart(opniDemo))
-	}
-	if opts.Components.Opni.RancherLogging.Enabled {
-		objects = append(objects, demo.BuildRancherLoggingHelmChart(opniDemo))
-	}
-	if opts.Components.Opni.Traefik.Enabled {
-		objects = append(objects, demo.BuildTraefikHelmChart(opniDemo))
 	}
 
 	for _, object := range objects {
@@ -207,8 +226,8 @@ func (r *OpniDemoReconciler) reconcileOpniStack(
 			Namespace: opniDemo.Namespace,
 			Name:      object.GetName(),
 		}, object); errors.IsNotFound(err) {
-			r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
-			if err := ctrl.SetControllerReference(opniDemo, object, r.Scheme); err != nil {
+			r.log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
+			if err := ctrl.SetControllerReference(opniDemo, object, r.scheme); err != nil {
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{Requeue: true}, r.Create(ctx, object)
@@ -221,12 +240,20 @@ func (r *OpniDemoReconciler) reconcileOpniStack(
 			if err := r.Get(ctx, types.NamespacedName{
 				Namespace: opniDemo.Namespace,
 				Name:      jobname,
-			}, job); err != nil {
-				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
-					fmt.Sprintf("Waiting for job %s to start (%s)", jobname, err.Error()))
+			}, job); errors.IsNotFound(err) {
+				if jobname == "" {
+					opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+						fmt.Sprintf("Waiting for an install job to start for %s", chart.Name))
+				} else {
+					opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+						fmt.Sprintf("Waiting for job %s (%s)", jobname, err.Error()))
+				}
 			} else if job.Status.CompletionTime == nil {
 				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
 					fmt.Sprintf("Waiting for job %s to complete", jobname))
+			} else if err != nil {
+				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
+					fmt.Sprintf("Waiting for job %s (%s)", jobname, err.Error()))
 			}
 		}
 	}
@@ -243,16 +270,15 @@ func (r *OpniDemoReconciler) reconcileServicesStack(
 		demo.BuildNulogInferenceServiceControlPlane(opniDemo),
 		demo.BuildPreprocessingService(opniDemo),
 	}
-	svc, dep, in := demo.BuildPayloadReceiverService(opniDemo)
-	objects = append(objects, svc, dep, in)
+	svc, dep := demo.BuildPayloadReceiverService(opniDemo)
+	objects = append(objects, svc, dep)
 
-	if !opniDemo.Spec.Quickstart {
+	if opniDemo.Spec.Components.Opni.DeployGpuServices {
+		objects = append(objects, demo.BuildTrainingControllerInfra(opniDemo)...)
 		objects = append(objects,
 			demo.BuildNulogInferenceService(opniDemo),
-			demo.BuildNvidiaPlugin(opniDemo),
 			demo.BuildTrainingController(opniDemo),
 		)
-		objects = append(objects, demo.BuildTrainingControllerInfra(opniDemo)...)
 	}
 
 	for _, object := range objects {
@@ -261,8 +287,8 @@ func (r *OpniDemoReconciler) reconcileServicesStack(
 			Namespace: opniDemo.Namespace,
 			Name:      object.GetName(),
 		}, object); errors.IsNotFound(err) {
-			r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
-			if err := ctrl.SetControllerReference(opniDemo, object, r.Scheme); err != nil {
+			r.log.Info("creating resource", "name", client.ObjectKeyFromObject(object))
+			if err := ctrl.SetControllerReference(opniDemo, object, r.scheme); err != nil {
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{Requeue: true}, r.Create(ctx, object)
@@ -276,7 +302,7 @@ func (r *OpniDemoReconciler) reconcileServicesStack(
 					fmt.Sprintf("Waiting for deployment %s to become ready", o.Name))
 			}
 		case *appsv1.DaemonSet:
-			if o.Status.CurrentNumberScheduled != o.Status.DesiredNumberScheduled {
+			if o.Status.NumberReady != o.Status.DesiredNumberScheduled {
 				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions,
 					fmt.Sprintf("Waiting for daemonset %s to become ready", o.Name))
 			}
@@ -290,8 +316,9 @@ func (r *OpniDemoReconciler) reconcileKibanaDashboards(
 	req ctrl.Request,
 	opniDemo *v1alpha1.OpniDemo,
 ) (ctrl.Result, error) {
-	opts := opniDemo.Spec
-	if opts.CreateKibanaDashboard != nil && !*opts.CreateKibanaDashboard {
+	spec := opniDemo.Spec
+	if (spec.CreateKibanaDashboard != nil && !*spec.CreateKibanaDashboard) ||
+		!spec.Components.Opni.Elastic.Enabled {
 		return ctrl.Result{}, nil
 	}
 
@@ -342,8 +369,8 @@ func (r *OpniDemoReconciler) reconcileKibanaDashboards(
 		Namespace: opniDemo.Namespace,
 		Name:      demo.KibanaDashboardPodName,
 	}, pod); errors.IsNotFound(err) {
-		r.Log.Info("creating resource", "name", client.ObjectKeyFromObject(pod))
-		if err := ctrl.SetControllerReference(opniDemo, pod, r.Scheme); err != nil {
+		r.log.Info("creating resource", "name", client.ObjectKeyFromObject(pod))
+		if err := ctrl.SetControllerReference(opniDemo, pod, r.scheme); err != nil {
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{Requeue: true}, r.Create(ctx, pod)
@@ -395,8 +422,8 @@ func (r *OpniDemoReconciler) reconcileLoggingCRs(
 	for _, obj := range objects {
 		key := client.ObjectKeyFromObject(obj)
 		if err := r.Get(ctx, key, obj); errors.IsNotFound(err) {
-			r.Log.Info("creating resource", "name", key)
-			if err := ctrl.SetControllerReference(opniDemo, obj, r.Scheme); err != nil {
+			r.log.Info("creating resource", "name", key)
+			if err := ctrl.SetControllerReference(opniDemo, obj, r.scheme); err != nil {
 				opniDemo.Status.Conditions = append(opniDemo.Status.Conditions, err.Error())
 				return ctrl.Result{}, err
 			}

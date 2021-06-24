@@ -7,28 +7,25 @@ import (
 	"github.com/banzaicloud/logging-operator/pkg/sdk/model/filter"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/model/output"
 	"github.com/containers/image/v5/docker/reference"
-	demov1alpha1 "github.com/rancher/opni/api/v1alpha1"
+	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
 	KibanaDashboardPodName           = "deploy-opni-kibana-dasbhboards"
-	DrainServiceImage                = "rancher/opni-drain-service:v0.1.1"
-	NulogInfServiceControlPlaneImage = "rancher/opni-inference-service:v0.1.1"
-	NulogInfServiceImage             = "rancher/opni-inference-service:v0.1.1"
-	PayloadReceiverServiceImage      = "rancher/opni-payload-receiver-service:v0.1.1"
-	TrainingControllerImage          = "rancher/opni-training-controller:v0.1.1"
-	PreprocessingServiceImage        = "rancher/opni-preprocessing-service:v0.1.1"
-	KibanaDashboardImage             = "rancher/opni-kibana-dashboard:v0.1.1"
+	DrainServiceImage                = "rancher/opni-drain-service:v0.1.2-rc1"
+	NulogInfServiceControlPlaneImage = "rancher/opni-inference-service:v0.1.2-rc1"
+	NulogInfServiceImage             = "rancher/opni-inference-service:v0.1.2-rc1"
+	PayloadReceiverServiceImage      = "rancher/opni-payload-receiver-service:v0.1.2-rc1"
+	TrainingControllerImage          = "rancher/opni-training-controller:v0.1.2-rc1"
+	PreprocessingServiceImage        = "rancher/opni-preprocessing-service:v0.1.2-rc1"
+	KibanaDashboardImage             = "rancher/opni-kibana-dashboard:v0.1.2-rc1"
 )
 
 func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
@@ -224,80 +221,7 @@ func BuildNulogInferenceService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment 
 	}
 }
 
-var falseVar = false
-
-func BuildNvidiaPlugin(spec *demov1alpha1.OpniDemo) *appsv1.DaemonSet {
-	labels := map[string]string{
-		"name": "nvidia-device-plugin-ds",
-	}
-	return &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "nvidia-device-plugin-daemonset",
-		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
-				Type: appsv1.RollingUpdateDaemonSetStrategyType,
-			},
-			Template: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"scheduler.alpha.kubernetes.io/critical-pod": "",
-					},
-					Labels: labels,
-				},
-				Spec: v1.PodSpec{
-					Tolerations: []v1.Toleration{
-						{
-							Key:      "CriticalAddonsOnly",
-							Operator: v1.TolerationOpExists,
-						},
-						{
-							Key:      "nvidia.com/gpu",
-							Operator: v1.TolerationOpExists,
-							Effect:   v1.TaintEffectNoSchedule,
-						},
-					},
-					PriorityClassName: "system-node-critical",
-					Containers: []v1.Container{
-						{
-							Name:  "nvidia-device-plugin-ctr",
-							Image: fmt.Sprintf("nvidia/k8s-device-plugin:%s", spec.Spec.NvidiaVersion),
-							SecurityContext: &v1.SecurityContext{
-								AllowPrivilegeEscalation: pointer.BoolPtr(false),
-								Capabilities: &v1.Capabilities{
-									Drop: []v1.Capability{
-										v1.Capability("ALL"),
-									},
-								},
-							},
-							VolumeMounts: []v1.VolumeMount{
-								{
-									Name:      "device-plugin",
-									MountPath: "/var/lib/kubelet/device-plugins",
-								},
-							},
-						},
-					},
-					Volumes: []v1.Volume{
-						{
-							Name: "device-plugin",
-							VolumeSource: v1.VolumeSource{
-								HostPath: &v1.HostPathVolumeSource{
-									Path: "/var/lib/kubelet/device-plugins",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*v1.Service, *appsv1.Deployment, *extv1beta1.Ingress) {
+func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*v1.Service, *appsv1.Deployment) {
 	labels := map[string]string{
 		"app": "payload-receiver-service",
 	}
@@ -344,33 +268,6 @@ func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*v1.Service, *app
 								Ports: []v1.ContainerPort{
 									{
 										ContainerPort: 80,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		&extv1beta1.Ingress{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "payload-receiver-service-ingress",
-				Annotations: map[string]string{
-					"kubernetes.io/ingress.class": "traefik",
-				},
-			},
-			Spec: extv1beta1.IngressSpec{
-				Rules: []extv1beta1.IngressRule{
-					{
-						IngressRuleValue: extv1beta1.IngressRuleValue{
-							HTTP: &extv1beta1.HTTPIngressRuleValue{
-								Paths: []extv1beta1.HTTPIngressPath{
-									{
-										Path: "/",
-										Backend: extv1beta1.IngressBackend{
-											ServiceName: "payload-receiver-service",
-											ServicePort: intstr.FromInt(80),
-										},
 									},
 								},
 							},

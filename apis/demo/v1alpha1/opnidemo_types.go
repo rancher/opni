@@ -34,10 +34,8 @@ type OpniDemoSpec struct {
 	NvidiaVersion          string         `json:"nvidiaVersion"`
 	ElasticsearchUser      string         `json:"elasticsearchUser"`
 	ElasticsearchPassword  string         `json:"elasticsearchPassword"`
-	TraefikVersion         string         `json:"traefikVersion"`
 	NulogServiceCPURequest string         `json:"nulogServiceCpuRequest"`
-	NulogTrainImage        string         `json:"image"`
-	Quickstart             bool           `json:"quickstart"`
+	NulogTrainImage        string         `json:"nulogTrainImage"`
 	CreateKibanaDashboard  *bool          `json:"createKibanaDashboard,omitempty"`
 }
 
@@ -47,8 +45,8 @@ type ComponentsSpec struct {
 }
 
 type InfraStack struct {
-	HelmController       bool `json:"helmController,omitempty"`
-	LocalPathProvisioner bool `json:"localPathProvisioner,omitempty"`
+	DeployHelmController bool `json:"deployHelmController,omitempty"`
+	DeployNvidiaPlugin   bool `json:"deployNvidiaPlugin,omitempty"`
 }
 
 type ChartOptions struct {
@@ -58,16 +56,16 @@ type ChartOptions struct {
 }
 
 type OpniStack struct {
+	DeployGpuServices bool `json:"deployGpuServices,omitempty"`
+
+	// +optional
+	RancherLogging ChartOptions `json:"rancherLogging,omitempty"`
 	// +optional
 	Minio ChartOptions `json:"minio,omitempty"`
 	// +optional
 	Nats ChartOptions `json:"nats,omitempty"`
 	// +optional
 	Elastic ChartOptions `json:"elastic,omitempty"`
-	// +optional
-	RancherLogging ChartOptions `json:"rancherLogging,omitempty"`
-	// +optional
-	Traefik ChartOptions `json:"traefik,omitempty"`
 }
 
 // OpniDemoStatus defines the observed state of OpniDemo

@@ -29,14 +29,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	v1beta1 "github.com/rancher/opni/api/v1beta1"
+	v1beta1 "github.com/rancher/opni/apis/v1beta1"
 )
 
 // OpniClusterReconciler reconciles a OpniCluster object
 type OpniClusterReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	log    logr.Logger
+	scheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=opni.io,resources=opniclusters,verbs=get;list;watch;create;update;patch;delete
@@ -50,7 +50,7 @@ type OpniClusterReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 
 func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := r.Log.WithValues("opnicluster", req.NamespacedName)
+	lg := r.log.WithValues("opnicluster", req.NamespacedName)
 
 	// Ensure secrets are configured first
 
@@ -142,6 +142,9 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *OpniClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.Client = mgr.GetClient()
+	r.log = mgr.GetLogger().WithName("controllers").WithName("OpniCluster")
+	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1.OpniCluster{}).
 		Owns(&appsv1.Deployment{}).

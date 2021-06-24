@@ -1,20 +1,21 @@
 package demo
 
 import (
-	"github.com/rancher/opni/api/v1alpha1"
+	"fmt"
+
+	"github.com/rancher/opni/apis/demo/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func MakeInfraStackObjects(spec *v1alpha1.OpniDemo) (objects []client.Object) {
-	objects = []client.Object{}
-	helmObjects := []client.Object{
+func BuildHelmControllerObjects(spec *v1alpha1.OpniDemo) (objects []client.Object) {
+	return []client.Object{
 		&apiextv1beta1.CustomResourceDefinition{
 			TypeMeta: v1.TypeMeta{
 				Kind:       "CustomResourceDefinition",
@@ -180,219 +181,75 @@ func MakeInfraStackObjects(spec *v1alpha1.OpniDemo) (objects []client.Object) {
 			},
 		},
 	}
-	localPathObjects := []client.Object{
-		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "local-path-provisioner-service-account",
-				Namespace: spec.Namespace,
-			},
-		},
-		&rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "local-path-provisioner-role",
-			},
-			Rules: []rbacv1.PolicyRule{
-				{
-					APIGroups: []string{""},
-					Resources: []string{"nodes", "persistentvolumeclaims", "configmaps"},
-					Verbs:     []string{"get", "list", "watch"},
-				},
-				{
-					APIGroups: []string{""},
-					Resources: []string{"endpoints", "persistentvolumes", "pods"},
-					Verbs:     []string{"*"},
-				},
-				{
-					APIGroups: []string{""},
-					Resources: []string{"events"},
-					Verbs:     []string{"create", "patch"},
-				},
-				{
-					APIGroups: []string{"storage.k8s.io"},
-					Resources: []string{"storageclasses"},
-					Verbs:     []string{"get", "list", "watch"},
-				},
-			},
-		},
-		&rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "local-path-provisioner-bind",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      "ServiceAccount",
-					Name:      "local-path-provisioner-service-account",
-					Namespace: spec.Namespace,
-				},
-			},
-			RoleRef: rbacv1.RoleRef{
-				APIGroup: "rbac.authorization.k8s.io",
-				Kind:     "ClusterRole",
-				Name:     "local-path-provisioner-role",
-			},
-		},
-		&appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "local-path-provisioner",
-				Namespace: spec.Namespace,
-			},
-			Spec: appsv1.DeploymentSpec{
-				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"app": "local-path-provisioner",
-					},
-				},
-				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{
-							"app": "local-path-provisioner",
-						},
-					},
-					Spec: corev1.PodSpec{
-						PriorityClassName:  "system-node-critical",
-						ServiceAccountName: "local-path-provisioner-service-account",
-						Tolerations: []corev1.Toleration{
-							{
-								Key:      "CriticalAddonsOnly",
-								Operator: corev1.TolerationOpExists,
-							},
-							{
-								Key:      "node-role.kubernetes.io/control-plane",
-								Operator: corev1.TolerationOpExists,
-								Effect:   corev1.TaintEffectNoExecute,
-							},
-							{
-								Key:      "node-role.kubernetes.io/master",
-								Operator: corev1.TolerationOpExists,
-								Effect:   corev1.TaintEffectNoSchedule,
-							},
-						},
-						Containers: []corev1.Container{
-							{
-								Name:            "local-path-provisioner",
-								Image:           "rancher/local-path-provisioner:v0.0.19",
-								ImagePullPolicy: corev1.PullIfNotPresent,
-								Command: []string{
-									"local-path-provisioner",
-									"start",
-									"--config",
-									"/etc/config/config.json",
-								},
-								VolumeMounts: []corev1.VolumeMount{
-									{
-										Name:      "config-volume",
-										MountPath: "/etc/config",
-									},
-								},
-								Env: []corev1.EnvVar{
-									{
-										Name: "POD_NAMESPACE",
-										ValueFrom: &corev1.EnvVarSource{
-											FieldRef: &corev1.ObjectFieldSelector{
-												FieldPath: "metadata.namespace",
-											},
-										},
-									},
-								},
-							},
-						},
-						Volumes: []corev1.Volume{
-							{
-								Name: "config-volume",
-								VolumeSource: corev1.VolumeSource{
-									ConfigMap: &corev1.ConfigMapVolumeSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "local-path-config",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		&storagev1.StorageClass{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "local-path",
-				Annotations: map[string]string{
-					"storageclass.kubernetes.io/is-default-class": "true",
-				},
-			},
-			Provisioner:       "rancher.io/local-path",
-			VolumeBindingMode: &waitForFirstConsumer,
-			ReclaimPolicy:     &deleteReclaimPolicy,
-		},
-		&corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "local-path-config",
-				Namespace: spec.Namespace,
-			},
-			Data: map[string]string{
-				"config.json": `{
-  "nodePathMap":[
-  {
-    "node":"DEFAULT_PATH_FOR_NON_LISTED_NODES",
-    "paths":["/opt/aiops"]
-  }
-  ]
-}`,
-				"setup": `#!/bin/sh
-while getopts "m:s:p:" opt
-do
-    case $opt in
-        p)
-        absolutePath=$OPTARG
-        ;;
-        s)
-        sizeInBytes=$OPTARG
-        ;;
-        m)
-        volMode=$OPTARG
-        ;;
-    esac
-done
-mkdir -m 0777 -p ${absolutePath}
-`,
-				"teardown": `#!/bin/sh
-while getopts "m:s:p:" opt
-do
-    case $opt in
-        p)
-        absolutePath=$OPTARG
-        ;;
-        s)
-        sizeInBytes=$OPTARG
-        ;;
-        m)
-        volMode=$OPTARG
-        ;;
-    esac
-done
-rm -rf ${absolutePath}`,
-				"helperPod.yaml": `apiVersion: v1
-kind: Pod
-metadata:
-  name: helper-pod
-spec:
-  containers:
-  - name: helper-pod
-    image: rancher/library-busybox:1.32.1
-`,
-			},
-		},
-	}
-
-	if spec.Spec.Components.Infra.HelmController {
-		objects = append(objects, helmObjects...)
-	}
-
-	if spec.Spec.Components.Infra.LocalPathProvisioner {
-		objects = append(objects, localPathObjects...)
-	}
-
-	return
 }
 
-var waitForFirstConsumer = storagev1.VolumeBindingWaitForFirstConsumer
-var deleteReclaimPolicy = corev1.PersistentVolumeReclaimDelete
+func BuildNvidiaPlugin(spec *v1alpha1.OpniDemo) *appsv1.DaemonSet {
+	labels := map[string]string{
+		"name": "nvidia-device-plugin-ds",
+	}
+	return &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "nvidia-device-plugin-daemonset",
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
+				Type: appsv1.RollingUpdateDaemonSetStrategyType,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"scheduler.alpha.kubernetes.io/critical-pod": "",
+					},
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "CriticalAddonsOnly",
+							Operator: corev1.TolerationOpExists,
+						},
+						{
+							Key:      "nvidia.com/gpu",
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+					},
+					PriorityClassName: "system-node-critical",
+					Containers: []corev1.Container{
+						{
+							Name:  "nvidia-device-plugin-ctr",
+							Image: fmt.Sprintf("nvidia/k8s-device-plugin:%s", spec.Spec.NvidiaVersion),
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: pointer.BoolPtr(false),
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{
+										corev1.Capability("ALL"),
+									},
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "device-plugin",
+									MountPath: "/var/lib/kubelet/device-plugins",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "device-plugin",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/lib/kubelet/device-plugins",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}

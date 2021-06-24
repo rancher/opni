@@ -1,4 +1,4 @@
-package controllers
+package demo
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
@@ -14,30 +15,31 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/rancher/opni/api/v1alpha1"
+	"github.com/rancher/opni/apis/demo/v1alpha1"
 )
 
 const (
-	demoCrName      = "test-opnidemo"
-	demoCrNamespace = "opnidemo-test"
+	crName      = "test-opnidemo"
+	crNamespace = "opnidemo-test"
+	timeout     = 10 * time.Second
+	interval    = 500 * time.Millisecond
 )
 
 var _ = Describe("OpniDemo Controller", func() {
 	When("creating an opnidemo", func() {
 		demo := v1alpha1.OpniDemo{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      demoCrName,
-				Namespace: demoCrNamespace,
+				Name:      crName,
+				Namespace: crNamespace,
 			},
 			Spec: v1alpha1.OpniDemoSpec{
 				Components: v1alpha1.ComponentsSpec{
 					Infra: v1alpha1.InfraStack{
-						HelmController:       true,
-						LocalPathProvisioner: true,
+						DeployHelmController: true,
+						DeployNvidiaPlugin:   true,
 					},
 					Opni: v1alpha1.OpniStack{
 						Minio: v1alpha1.ChartOptions{
@@ -52,9 +54,7 @@ var _ = Describe("OpniDemo Controller", func() {
 						RancherLogging: v1alpha1.ChartOptions{
 							Enabled: true,
 						},
-						Traefik: v1alpha1.ChartOptions{
-							Enabled: true,
-						},
+						DeployGpuServices: true,
 					},
 				},
 				MinioAccessKey:         "testAccessKey",
@@ -67,10 +67,8 @@ var _ = Describe("OpniDemo Controller", func() {
 				NvidiaVersion:          "1",
 				ElasticsearchUser:      "user",
 				ElasticsearchPassword:  "password",
-				TraefikVersion:         "1",
 				NulogServiceCPURequest: "1",
 				NulogTrainImage:        "does-not-exist/name:tag",
-				Quickstart:             false,
 			},
 		}
 		It("should succeed", func() {
@@ -78,8 +76,8 @@ var _ = Describe("OpniDemo Controller", func() {
 			Eventually(func() error {
 				cluster := v1alpha1.OpniDemo{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Name:      demoCrName,
-					Namespace: demoCrNamespace,
+					Name:      crName,
+					Namespace: crNamespace,
 				}, &cluster)
 			}, timeout, interval).Should(BeNil())
 		})
@@ -91,7 +89,6 @@ var _ = Describe("OpniDemo Controller", func() {
 				"opendistro-es",
 				"rancher-logging-crd",
 				"rancher-logging",
-				"traefik",
 			} {
 				wg.Add(1)
 				go func(chart string) {
@@ -99,7 +96,7 @@ var _ = Describe("OpniDemo Controller", func() {
 					Eventually(func() error {
 						helmchart := &helmv1.HelmChart{}
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
-							Namespace: demoCrNamespace,
+							Namespace: crNamespace,
 							Name:      chart,
 						}, helmchart)
 						if err != nil {
@@ -116,14 +113,14 @@ var _ = Describe("OpniDemo Controller", func() {
 			Eventually(func() error {
 				deployment := &appsv1.Deployment{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "helm-controller",
 				}, deployment)
 			}, timeout, interval)
 			Eventually(func() error {
 				role := &rbacv1.ClusterRole{}
 				err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "helm-controller",
 				}, role)
 				if err != nil {
@@ -137,34 +134,11 @@ var _ = Describe("OpniDemo Controller", func() {
 				return nil
 			}, timeout, interval)
 		})
-		It("should install local path provisioner and storage class", func() {
-			Eventually(func() error {
-				sc := &storagev1.StorageClass{}
-				err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
-					Name:      "local-path",
-				}, sc)
-				if err != nil {
-					return err
-				}
-				if value, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]; ok && value == "true" {
-					return nil
-				}
-				return errors.New("invalid storage class annotations")
-			}, timeout, interval)
-			Eventually(func() error {
-				deployment := &appsv1.Deployment{}
-				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
-					Name:      "local-path-provisioner",
-				}, deployment)
-			}, timeout, interval)
-		})
 		It("should create drain service", func() {
 			Eventually(func() error {
 				deployment := &appsv1.Deployment{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "drain-service",
 				}, deployment)
 			}, timeout, interval)
@@ -173,7 +147,7 @@ var _ = Describe("OpniDemo Controller", func() {
 			Eventually(func() error {
 				deployment := &appsv1.Deployment{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "nulog-inference-service-control-plane",
 				}, deployment)
 			}, timeout, interval)
@@ -182,7 +156,7 @@ var _ = Describe("OpniDemo Controller", func() {
 			Eventually(func() error {
 				deployment := &appsv1.Deployment{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "nulog-inference-service",
 				}, deployment)
 			}, timeout, interval)
@@ -191,7 +165,7 @@ var _ = Describe("OpniDemo Controller", func() {
 			Eventually(func() error {
 				deployment := &appsv1.DaemonSet{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "nvidia-device-plugin-ds",
 				}, deployment)
 			}, timeout, interval)
@@ -200,14 +174,14 @@ var _ = Describe("OpniDemo Controller", func() {
 			Eventually(func() error {
 				deployment := &appsv1.Deployment{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "payload-receiver-service",
 				}, deployment)
 			}, timeout, interval)
 			Eventually(func() error {
 				svc := &corev1.Service{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "payload-receiver-service",
 				}, svc)
 			}, timeout, interval)
@@ -216,7 +190,7 @@ var _ = Describe("OpniDemo Controller", func() {
 			Eventually(func() error {
 				deployment := &appsv1.Deployment{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "preprocessing-service",
 				}, deployment)
 			}, timeout, interval)
@@ -225,7 +199,7 @@ var _ = Describe("OpniDemo Controller", func() {
 			Eventually(func() error {
 				deployment := &appsv1.Deployment{}
 				err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "training-controller",
 				}, deployment)
 				if err != nil {
@@ -248,21 +222,21 @@ var _ = Describe("OpniDemo Controller", func() {
 			Eventually(func() error {
 				acct := &corev1.ServiceAccount{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "training-controller-rb",
 				}, acct)
 			}, timeout, interval)
 			Eventually(func() error {
 				acct := &rbacv1.ClusterRoleBinding{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "training-controller-rb",
 				}, acct)
 			}, timeout, interval)
 			Eventually(func() error {
 				acct := &rbacv1.ClusterRole{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "training-controller-rb",
 				}, acct)
 			}, timeout, interval)
@@ -271,7 +245,7 @@ var _ = Describe("OpniDemo Controller", func() {
 			Eventually(func() error {
 				pod := &corev1.Pod{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "deploy-opni-kibana-dasbhboards",
 				}, pod)
 			}, timeout, interval)
@@ -280,14 +254,14 @@ var _ = Describe("OpniDemo Controller", func() {
 			Eventually(func() error {
 				clusterFlow := loggingv1beta1.ClusterFlow{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "aiops-demo-log-flow",
 				}, &clusterFlow)
 			}, timeout, interval)
 			Eventually(func() error {
 				clusterOutput := loggingv1beta1.ClusterOutput{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: demoCrNamespace,
+					Namespace: crNamespace,
 					Name:      "aiops-demo-log-output",
 				}, &clusterOutput)
 			}, timeout, interval)

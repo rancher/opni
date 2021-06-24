@@ -6,7 +6,7 @@ import (
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"go.uber.org/atomic"
 
-	"github.com/rancher/opni/api/v1alpha1"
+	"github.com/rancher/opni/apis/demo/v1alpha1"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"

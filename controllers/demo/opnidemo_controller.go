@@ -201,22 +201,22 @@ func (r *OpniDemoReconciler) reconcileOpniStack(
 	req ctrl.Request,
 	opniDemo *v1alpha1.OpniDemo,
 ) (ctrl.Result, error) {
-	opts := opniDemo.Spec
+	spec := opniDemo.Spec
 	objects := []client.Object{}
 
-	if opts.Components.Opni.RancherLogging.Enabled {
+	if spec.Components.Opni.RancherLogging.Enabled {
 		objects = append(objects,
 			demo.BuildRancherLoggingCrdHelmChart(),
 			demo.BuildRancherLoggingHelmChart(opniDemo),
 		)
 	}
-	if opts.Components.Opni.Minio.Enabled {
+	if spec.Components.Opni.Minio.Enabled {
 		objects = append(objects, demo.BuildMinioHelmChart(opniDemo))
 	}
-	if opts.Components.Opni.Nats.Enabled {
+	if spec.Components.Opni.Nats.Enabled {
 		objects = append(objects, demo.BuildNatsHelmChart(opniDemo))
 	}
-	if opts.Components.Opni.Elastic.Enabled {
+	if spec.Components.Opni.Elastic.Enabled {
 		objects = append(objects, demo.BuildElasticHelmChart(opniDemo))
 	}
 
@@ -316,8 +316,9 @@ func (r *OpniDemoReconciler) reconcileKibanaDashboards(
 	req ctrl.Request,
 	opniDemo *v1alpha1.OpniDemo,
 ) (ctrl.Result, error) {
-	opts := opniDemo.Spec
-	if opts.CreateKibanaDashboard != nil && !*opts.CreateKibanaDashboard {
+	spec := opniDemo.Spec
+	if (spec.CreateKibanaDashboard != nil && !*spec.CreateKibanaDashboard) ||
+		!spec.Components.Opni.Elastic.Enabled {
 		return ctrl.Result{}, nil
 	}
 

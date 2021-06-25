@@ -11,9 +11,10 @@ import (
 	"github.com/ttacon/chalk"
 	"github.com/vbauerster/mpb/v7"
 	"github.com/vbauerster/mpb/v7/decor"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/utils/pointer"
 )
 
 func BuildUninstallCmd() *cobra.Command {
@@ -47,7 +48,10 @@ Opni from, unless the --context flag is provided to select a specific context.`,
 						return dr.Delete(
 							cmd.Context(),
 							obj.GetName(),
-							v1.DeleteOptions{},
+							metav1.DeleteOptions{
+								PropagationPolicy: (*metav1.DeletionPropagation)(
+									pointer.String((string)(metav1.DeletePropagationForeground))),
+							},
 						)
 					})
 				spinner.Increment()

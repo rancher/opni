@@ -112,6 +112,18 @@ func BuildCreateDemoCmd() *cobra.Command {
 				opniDemo.Spec.Components.Infra.DeployNvidiaPlugin = (deployNvidiaPlugin == "true")
 			}
 
+			if !opniDemo.Spec.Components.Opni.RancherLogging.Enabled {
+				var response string
+				if err := survey.AskOne(&survey.Input{
+					Message: "Enter the namespace where Rancher Logging is installed:",
+					Default: "cattle-logging-system",
+					Help:    "This is the \"control namespace\" where the BanzaiCloud Logging Operator looks for ClusterFlow and ClusterOutput resources.",
+				}, &response); err != nil {
+					return err
+				}
+				opniDemo.Spec.LoggingCRDNamespace = &response
+			}
+
 			var loggingValues = map[string]intstr.IntOrString{}
 			provider, err := providers.Detect(cmd.Context(), common.K8sClient)
 			if err != nil {

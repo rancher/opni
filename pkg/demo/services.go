@@ -493,10 +493,17 @@ const (
 )
 
 func BuildClusterFlow(spec *demov1alpha1.OpniDemo) *loggingv1beta1.ClusterFlow {
+	controlNamespace := spec.Namespace
+	if !spec.Spec.Components.Opni.RancherLogging.Enabled {
+		if ns := spec.Spec.LoggingCRDNamespace; ns != nil {
+			controlNamespace = *ns
+		}
+	}
+
 	return &loggingv1beta1.ClusterFlow{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ClusterFlowName,
-			Namespace: spec.Namespace,
+			Namespace: controlNamespace,
 		},
 		Spec: loggingv1beta1.ClusterFlowSpec{
 			Match: []loggingv1beta1.ClusterMatch{
@@ -551,10 +558,17 @@ func BuildClusterFlow(spec *demov1alpha1.OpniDemo) *loggingv1beta1.ClusterFlow {
 }
 
 func BuildClusterOutput(spec *demov1alpha1.OpniDemo) *loggingv1beta1.ClusterOutput {
+	controlNamespace := spec.Namespace
+	if !spec.Spec.Components.Opni.RancherLogging.Enabled {
+		if ns := spec.Spec.LoggingCRDNamespace; ns != nil {
+			controlNamespace = *ns
+		}
+	}
+
 	return &loggingv1beta1.ClusterOutput{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ClusterOutputName,
-			Namespace: spec.Namespace,
+			Namespace: controlNamespace,
 		},
 		Spec: loggingv1beta1.ClusterOutputSpec{
 			OutputSpec: loggingv1beta1.OutputSpec{

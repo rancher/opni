@@ -17,6 +17,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 
 	"github.com/rancher/opni/apis/demo/v1alpha1"
 )
@@ -262,6 +263,76 @@ var _ = Describe("OpniDemo Controller", func() {
 				clusterOutput := loggingv1beta1.ClusterOutput{}
 				return k8sClient.Get(context.Background(), types.NamespacedName{
 					Namespace: crNamespace,
+					Name:      "aiops-demo-log-output",
+				}, &clusterOutput)
+			}, timeout, interval)
+		})
+	})
+	When("installing without rancher logging", func() {
+		demo := v1alpha1.OpniDemo{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      crName + "2",
+				Namespace: crNamespace,
+			},
+			Spec: v1alpha1.OpniDemoSpec{
+				Components: v1alpha1.ComponentsSpec{
+					Infra: v1alpha1.InfraStack{
+						DeployHelmController: true,
+						DeployNvidiaPlugin:   true,
+					},
+					Opni: v1alpha1.OpniStack{
+						Minio: v1alpha1.ChartOptions{
+							Enabled: true,
+						},
+						Nats: v1alpha1.ChartOptions{
+							Enabled: true,
+						},
+						Elastic: v1alpha1.ChartOptions{
+							Enabled: true,
+						},
+						RancherLogging: v1alpha1.ChartOptions{
+							Enabled: false,
+						},
+						DeployGpuServices: true,
+					},
+				},
+				MinioAccessKey:         "testAccessKey",
+				MinioSecretKey:         "testSecretKey",
+				MinioVersion:           "1",
+				NatsVersion:            "1",
+				NatsPassword:           "password",
+				NatsReplicas:           1,
+				NatsMaxPayload:         12345,
+				NvidiaVersion:          "1",
+				ElasticsearchUser:      "user",
+				ElasticsearchPassword:  "password",
+				NulogServiceCPURequest: "1",
+				NulogTrainImage:        "does-not-exist/name:tag",
+				LoggingCRDNamespace:    pointer.String("default"),
+			},
+		}
+		It("should succeed", func() {
+			Expect(k8sClient.Create(context.Background(), &demo)).To(Succeed())
+			Eventually(func() error {
+				cluster := v1alpha1.OpniDemo{}
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      crName + "2",
+					Namespace: crNamespace,
+				}, &cluster)
+			}, timeout, interval).Should(BeNil())
+		})
+		It("should create the logging CRs in the control namespace", func() {
+			Eventually(func() error {
+				clusterFlow := loggingv1beta1.ClusterFlow{}
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Namespace: "default",
+					Name:      "aiops-demo-log-flow",
+				}, &clusterFlow)
+			}, timeout, interval)
+			Eventually(func() error {
+				clusterOutput := loggingv1beta1.ClusterOutput{}
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Namespace: "default",
 					Name:      "aiops-demo-log-output",
 				}, &clusterOutput)
 			}, timeout, interval)

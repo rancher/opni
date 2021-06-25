@@ -99,7 +99,7 @@ func BuildCreateDemoCmd() *cobra.Command {
 				opniDemo.Spec.Components.Opni.DeployGpuServices = (deployGpuServices == "true")
 			}
 
-			if deployGpuServices == "true" && deployNvidiaPlugin == "prompt" {
+			if opniDemo.Spec.Components.Opni.DeployGpuServices && deployNvidiaPlugin == "prompt" {
 				var response bool
 				if err := survey.AskOne(&survey.Confirm{
 					Message: "Deploy the Nvidia plugin DaemonSet?",

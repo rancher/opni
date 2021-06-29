@@ -6,7 +6,7 @@ cd $(dirname $0)/..
 ENVTEST_ASSETS_DIR=$(pwd)/testbin
 SHORT_FLAG="-short"
 
-if [ ! -z $SHORT ] && [ ! $SHORT ]; then
+if [ "$SHORT" = "0" ]; then
   SHORT_FLAG=
 fi
 

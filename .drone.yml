@@ -7,71 +7,88 @@ platform:
   os: linux
   arch: amd64
 steps:
-- name: build-and-package
-  image: rancher/dapper:v0.5.5
-  commands:
-  - CROSS=1 dapper ci
-  volumes:
-  - name: docker
-    path: /var/run/docker.sock
-- name: test
-  image: rancher/dapper:v0.5.5
-  commands:
-  - SHORT=0 dapper test
-  volumes:
-  - name: docker
-    path: /var/run/docker.sock
-- name: stage-binaries
-  image: rancher/dapper:v0.5.5
-  commands:
-  - "cp -r ./bin/manager ./package/"
-  when:
-    event:
-    - tag
-    instance:
-    - drone-publish.rancher.io
-    ref:
-    - refs/head/main
-    - refs/tags/*
-- name: publish-dockerhub
-  image: plugins/docker
-  settings:
-    password:
-      from_secret: docker_password
-    username:
-      from_secret: docker_username
-    context: package/
-    dockerfile: package/Dockerfile
-    repo: rancher/opni-manager
-    tags: 
-    - ${DRONE_TAG}
-    - latest
-  when:
-    event:
-    - tag
-    instance:
-    - drone-publish.rancher.io
-    refs:
-    - refs/head/main
-    - refs/tags/*
-- name: publish-bin-artifacts
-  image: plugins/github-release
-  settings:
-    api_key:
-      from_secret: github_token
-    checksum:
-    - sha256
-    files:
-    - bin/opnictl*
-  when:
-    event:
-    - tag
-    instance:
-    - drone-publish.rancher.io
-    ref:
-    - refs/head/main
-    - refs/tags/*
+  - name: build-and-package
+    image: rancher/dapper:v0.5.5
+    commands:
+      - CROSS=1 dapper ci
+    volumes:
+      - name: docker
+        path: /var/run/docker.sock
+  - name: test
+    image: golang:1.16
+    commands:
+      - until test -f ./kubeconfig.yaml; do sleep 1s; done
+      - cat /etc/resolv.conf
+      - export KUBECONFIG=$(realpath kubeconfig.yaml)
+      - export SHORT=0
+      - export E2E_USE_EXISTING=1
+      - scripts/test
+    volumes:
+      - name: docker
+        path: /var/run/docker.sock
+  - name: stage-binaries
+    image: rancher/dapper:v0.5.5
+    commands:
+      - "cp -r ./bin/manager ./package/"
+    when:
+      event:
+        - tag
+      instance:
+        - drone-publish.rancher.io
+      ref:
+        - refs/head/main
+        - refs/tags/*
+  - name: publish-dockerhub
+    image: plugins/docker
+    settings:
+      password:
+        from_secret: docker_password
+      username:
+        from_secret: docker_username
+      context: package/
+      dockerfile: package/Dockerfile
+      repo: rancher/opni-manager
+      tags:
+        - ${DRONE_TAG}
+        - latest
+    when:
+      event:
+        - tag
+      instance:
+        - drone-publish.rancher.io
+      refs:
+        - refs/head/main
+        - refs/tags/*
+  - name: publish-bin-artifacts
+    image: plugins/github-release
+    settings:
+      api_key:
+        from_secret: github_token
+      checksum:
+        - sha256
+      files:
+        - bin/opnictl*
+    when:
+      event:
+        - tag
+      instance:
+        - drone-publish.rancher.io
+      ref:
+        - refs/head/main
+        - refs/tags/*
+services:
+  - name: k3dsvc
+    image: rancher/k3d:latest-dind
+    privileged: true
+    commands:
+      - nohup dockerd-entrypoint.sh &
+      - until docker ps &>/dev/null; do sleep 1s; done
+      - k3d cluster create --config hack/k3d-drone.yaml --api-port $(hostname -i):6445
+      - until kubectl --context k3d-drone -n kube-system wait --for=condition=Ready pods -l k8s-app; do sleep 1; done
+      - k3d kubeconfig get drone > kubeconfig.yaml
+      - echo "k3d started successfully"
+      - tail -f /dev/null
 volumes:
-- name: docker
-  host:
-    path: /var/run/docker.sock
+  - name: docker
+    host:
+      path: /var/run/docker.sock

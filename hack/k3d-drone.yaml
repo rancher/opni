@@ -1,0 +1,11 @@
+apiVersion: k3d.io/v1alpha2
+kind: Simple
+name: drone
+servers: 1
+options:
+  k3s:
+    extraServerArgs:
+      - --tls-san=k3dsvc
+      - --disable=servicelb
+      - --disable=local-storage
+      - --disable=metrics-server

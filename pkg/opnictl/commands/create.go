@@ -30,6 +30,7 @@ func BuildCreateDemoCmd() *cobra.Command {
 	var deployNvidiaPlugin string
 	var deployRancherLogging string
 	var deployGpuServices string
+	var loggingCrdNamespace string
 
 	var createDemoCmd = &cobra.Command{
 		Use:   "demo",
@@ -113,15 +114,16 @@ func BuildCreateDemoCmd() *cobra.Command {
 			}
 
 			if !opniDemo.Spec.Components.Opni.RancherLogging.Enabled {
-				var response string
-				if err := survey.AskOne(&survey.Input{
-					Message: "Enter the namespace where Rancher Logging is installed:",
-					Default: "cattle-logging-system",
-					Help:    "This is the \"control namespace\" where the BanzaiCloud Logging Operator looks for ClusterFlow and ClusterOutput resources.",
-				}, &response); err != nil {
-					return err
+				if loggingCrdNamespace == "" {
+					if err := survey.AskOne(&survey.Input{
+						Message: "Enter the namespace where Rancher Logging is installed:",
+						Default: "cattle-logging-system",
+						Help:    "This is the \"control namespace\" where the BanzaiCloud Logging Operator looks for ClusterFlow and ClusterOutput resources.",
+					}, &loggingCrdNamespace); err != nil {
+						return err
+					}
 				}
-				opniDemo.Spec.LoggingCRDNamespace = &response
+				opniDemo.Spec.LoggingCRDNamespace = &loggingCrdNamespace
 			}
 
 			var loggingValues = map[string]intstr.IntOrString{}
@@ -292,6 +294,7 @@ func BuildCreateDemoCmd() *cobra.Command {
 	createDemoCmd.Flags().StringVar(&opniDemo.Spec.ElasticsearchUser, "elasticsearch-user", common.DefaultOpniDemoElasticUser, "elasticsearch username")
 	createDemoCmd.Flags().StringVar(&opniDemo.Spec.ElasticsearchPassword, "elasticsearch-password", common.DefaultOpniDemoElasticPassword, "elasticsearch password")
 	createDemoCmd.Flags().StringVar(&opniDemo.Spec.NulogServiceCPURequest, "nulog-service-cpu-request", common.DefaultOpniDemoNulogServiceCPURequest, "CPU resource request for nulog control-plane service")
+	createDemoCmd.Flags().StringVar(&loggingCrdNamespace, "logging-namespace", "", "Logging Operator Control Namespace")
 
 	// the flags below have the following usage:
 	// [unset] 			-> "prompt"

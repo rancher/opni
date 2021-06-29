@@ -14,11 +14,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/utils/pointer"
 )
 
 func BuildUninstallCmd() *cobra.Command {
-	return &cobra.Command{
+	var deletionPropagationPolicy string
+	cmd := &cobra.Command{
 		Use:   "uninstall",
 		Short: "Uninstall Opni",
 		Long: `
@@ -29,7 +29,7 @@ Your current kubeconfig context will be used to select the cluster to uninstall
 Opni from, unless the --context flag is provided to select a specific context.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			p := mpb.New()
-
+			policy := metav1.DeletionPropagation(deletionPropagationPolicy)
 			spinner := p.AddSpinner(1,
 				mpb.AppendDecorators(
 					decor.OnComplete(
@@ -49,8 +49,7 @@ Opni from, unless the --context flag is provided to select a specific context.`,
 							cmd.Context(),
 							obj.GetName(),
 							metav1.DeleteOptions{
-								PropagationPolicy: (*metav1.DeletionPropagation)(
-									pointer.String((string)(metav1.DeletePropagationForeground))),
+								PropagationPolicy: &policy,
 							},
 						)
 					})
@@ -63,4 +62,11 @@ Opni from, unless the --context flag is provided to select a specific context.`,
 			}
 		},
 	}
+	cmd.Flags().StringVar(&deletionPropagationPolicy, "deletion-propagation-policy", string(metav1.DeletePropagationForeground),
+		fmt.Sprintf("Propagation Policy to use when deleting the resource. Acceptable values are {%q, %q, %q}.",
+			metav1.DeletePropagationForeground,
+			metav1.DeletePropagationBackground,
+			metav1.DeletePropagationOrphan,
+		))
+	return cmd
 }

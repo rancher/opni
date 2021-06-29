@@ -2,11 +2,13 @@ package test
 
 import (
 	"context"
+	"fmt"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	"github.com/phayes/freeport"
 	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
 	"github.com/rancher/opni/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -52,9 +54,14 @@ func RunTestEnvironment(
 
 	// +kubebuilder:scaffold:scheme
 
+	ports, err := freeport.GetFreePorts(2)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 	// add the opnicluster manager
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
+		Scheme:                 scheme.Scheme,
+		MetricsBindAddress:     fmt.Sprintf(":%d", ports[0]),
+		HealthProbeBindAddress: fmt.Sprintf(":%d", ports[1]),
 	})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 

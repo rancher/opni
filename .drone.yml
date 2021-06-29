@@ -1,5 +1,5 @@
 ---
-# test 2
+# test 3
 kind: pipeline
 type: docker
 name: build-amd64
@@ -17,7 +17,7 @@ steps:
 - name: test
   image: rancher/dapper:v0.5.5
   commands:
-  - dapper test
+  - SHORT=0 dapper test
   volumes:
   - name: docker
     path: /var/run/docker.sock

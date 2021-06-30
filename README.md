@@ -29,6 +29,8 @@ On a VM with 4 vCPUs & 16 GB RAM:
     * View insights at [IPV4_ADDRESS]:[NODE_PORT]
 
 To inject an error into the demo cluster press 'Enter' when prompted by the script.  You can view this in the Opni Dashboard.
+
+The default username and password is admin/admin You must be in the Global Tenant mode if you are not already. Click on Dashboard, Opni Logs Dashboard.
  
 ----
 
@@ -39,7 +41,7 @@ ____
 #### What's next?
 
  * v0.1.1 (released) allows you to view Opni's log anomaly insights **only** on a demo environment created on a VM
- * v0.1.2 (June 25, 2021) will allow you install Opni into your existing Kubernetes cluster and consume log insights from it
+ * v0.1.2 (Early July) will allow you install Opni into your existing Kubernetes cluster and consume log insights from it
  * v0.2.0 (Fall 2021) will introduce AI applied to metrics, kubernetes events, audit logs, and more! 
 
 

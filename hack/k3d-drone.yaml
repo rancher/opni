@@ -5,7 +5,9 @@ servers: 1
 options:
   k3s:
     extraServerArgs:
-      - --tls-san=k3dsvc
+      - --disable=traefik
       - --disable=servicelb
       - --disable=local-storage
       - --disable=metrics-server
+      - --log=/var/log/k3s.log
+      - --alsologtostderr

@@ -24,10 +24,12 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
+	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
 	opniiov1beta1 "github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/controllers/demo"
+	"github.com/rancher/opni/pkg/util/manager"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -42,6 +44,11 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+	Version  = "v0.1.0-dev"
+)
+
+const (
+	upgradeResponderAddress = "https://opni-usage.danbason.dev/v1/checkupgrade"
 )
 
 func init() {
@@ -58,11 +65,14 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var disableUsage bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&disableUsage, "disable-usage", false, "Disable anonymous Opni usage tracking.")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -82,6 +92,15 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	if !disableUsage {
+		upgradeRequester := manager.UpgradeRequester{Version: Version}
+		upgradeRequester.SetupLoggerWithManager(mgr)
+		setupLog.Info("Usage tracking enabled", "current-version", Version)
+		upgradeChecker := upgraderesponder.NewUpgradeChecker(upgradeResponderAddress, &upgradeRequester)
+		upgradeChecker.Start()
+		defer upgradeChecker.Stop()
 	}
 
 	if err = (&controllers.OpniClusterReconciler{}).SetupWithManager(mgr); err != nil {

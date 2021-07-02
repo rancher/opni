@@ -44,7 +44,7 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-	Version  = "v0.1.0-dev"
+	Version  = "dev"
 )
 
 const (

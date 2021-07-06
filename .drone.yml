@@ -85,8 +85,8 @@ services:
       - until docker ps &>/dev/null; do sleep 1s; done
       - NEW_ID=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 6 | head -n 1)
       - k3d cluster create drone-$${NEW_ID} --config hack/k3d-drone.yaml --api-port $(hostname -i):6445
-      - until kubectl --context k3d-drone -n kube-system wait --for=condition=Ready pods -l k8s-app; do sleep 1; done
-      - k3d kubeconfig get drone > kubeconfig.yaml
+      - until kubectl --context k3d-drone-$${NEW_ID} -n kube-system wait --for=condition=Ready pods -l k8s-app; do sleep 1; done
+      - k3d kubeconfig get drone-$${NEW_ID} > kubeconfig.yaml
       - echo "k3d started successfully"
       - tail -f /dev/null
 volumes:

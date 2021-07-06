@@ -83,7 +83,7 @@ services:
     commands:
       - nohup dockerd-entrypoint.sh &
       - until docker ps &>/dev/null; do sleep 1s; done
-      - k3d cluster create drone-${RANDOM} --config hack/k3d-drone.yaml --api-port $(hostname -i):6445
+      - k3d cluster create drone-$RANDOM --config hack/k3d-drone.yaml --api-port $(hostname -i):6445
       - until kubectl --context k3d-drone -n kube-system wait --for=condition=Ready pods -l k8s-app; do sleep 1; done
       - k3d kubeconfig get drone > kubeconfig.yaml
       - echo "k3d started successfully"

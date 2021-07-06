@@ -103,6 +103,7 @@ var _ = Describe("Opnictl Commands", func() {
 					"--nulog-service-cpu-request=999",
 					"--deploy-helm-controller=false",
 					"--deploy-rancher-logging=false",
+					"--logging-namespace=default",
 					"--deploy-nvidia-plugin=false",
 					"--deploy-gpu-services=false",
 				}
@@ -206,7 +207,9 @@ var _ = Describe("Opnictl Commands", func() {
 	})
 	var _ = Describe("uninstall", func() {
 		It("should complete successfully", func() {
-			os.Args = []string{"opnictl", "uninstall"}
+			// Can't run finalizers in the test environment, so we need to use the
+			// Background propagation policy instead of the default Foreground
+			os.Args = []string{"opnictl", "uninstall", "--deletion-propagation-policy=Background"}
 			ctx, ca := context.WithTimeout(context.Background(), 5*time.Second)
 			defer ca()
 			err := opnictl.BuildRootCmd().ExecuteContext(ctx)
@@ -228,7 +231,7 @@ var _ = Describe("Opnictl Commands", func() {
 				)
 
 				return notFoundErrors == total
-			}, 30*time.Minute, 500*time.Millisecond).Should(BeTrue())
+			}, 1*time.Minute, 500*time.Millisecond).Should(BeTrue())
 		})
 	})
 })

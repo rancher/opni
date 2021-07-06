@@ -169,8 +169,6 @@ var _ = Describe("OpniDemo E2E", func() {
 					return errors.New("State not populated yet")
 				}
 				if demo.Status.State != "Ready" {
-					Expect(demo.Status.Conditions).NotTo(BeEmpty(),
-						"Expected one or more conditions if state is not Ready (%s)", demo.Status.State)
 					conditions := strings.Join(demo.Status.Conditions, "; ")
 					i++
 					if i%4 == 0 {
@@ -178,6 +176,8 @@ var _ = Describe("OpniDemo E2E", func() {
 					}
 					return errors.New(conditions)
 				}
+				Expect(demo.Status.Conditions).To(BeEmpty(),
+					"Expected no conditions if state is Ready")
 				return nil
 			}, 10*time.Minute, 500*time.Millisecond).Should(BeNil())
 		})

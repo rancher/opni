@@ -1,0 +1,13 @@
+apiVersion: k3d.io/v1alpha2
+kind: Simple
+name: drone
+servers: 1
+options:
+  k3s:
+    extraServerArgs:
+      - --disable=traefik
+      - --disable=servicelb
+      - --disable=local-storage
+      - --disable=metrics-server
+      - --log=/var/log/k3s.log
+      - --alsologtostderr

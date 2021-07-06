@@ -17,10 +17,12 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,14 +46,26 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
+	port, err := freeport.GetFreePort()
+	Expect(err).NotTo(HaveOccurred())
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			"../config/crd/bases",
 			"../test/resources",
 		},
+
 		BinaryAssetsDirectory: "../testbin/bin",
+		ControlPlane: envtest.ControlPlane{
+			APIServer: &envtest.APIServer{
+				SecureServing: envtest.SecureServing{
+					ListenAddr: envtest.ListenAddr{
+						Address: "127.0.0.1",
+						Port:    fmt.Sprint(port),
+					},
+				},
+			},
+		},
 	}
 	k8sManager, k8sClient = test.RunTestEnvironment(testEnv, &OpniClusterReconciler{})
 }, 60)

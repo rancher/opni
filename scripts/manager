@@ -6,4 +6,4 @@ source version
 
 cd ..
 
-CGO_ENABLED=0 go build -ldflags '-w -s -X main.Version=$VERSION' -o bin/manager .
+CGO_ENABLED=0 go build -ldflags "-w -s -X main.Version=$VERSION" -o bin/manager .

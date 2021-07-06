@@ -94,7 +94,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !disableUsage {
+	if !disableUsage && Version != "dev" {
 		upgradeRequester := manager.UpgradeRequester{Version: Version}
 		upgradeRequester.SetupLoggerWithManager(mgr)
 		setupLog.Info("Usage tracking enabled", "current-version", Version)

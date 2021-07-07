@@ -9,7 +9,7 @@ DIRNAME = os.path.basename(os. getcwd())
 k8s_yaml('staging/staging_autogen.yaml')
 
 
-deps = ['controllers', 'main.go', 'apis', 'pkg/demo', 
+deps = ['controllers', 'main.go', 'apis', 'pkg/demo', 'pkg/util/manager',
     'config/certmanager/kustomization.yaml',
     'config/crd/kustomization.yaml',
     'config/default/kustomization.yaml',
@@ -32,7 +32,7 @@ CMD ["/manager"]
 '''
 docker_build_with_restart("rancher/opni-manager", '.', 
     dockerfile_contents=DOCKERFILE,
-    entrypoint='/manager',
+    entrypoint=['/manager'],
     only=['./bin/manager'],
     live_update=[sync('./bin/manager', '/manager')]
 )

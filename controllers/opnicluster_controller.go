@@ -20,7 +20,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1beta1 "github.com/rancher/opni/apis/v1beta1"
 )
@@ -35,7 +35,6 @@ import (
 // OpniClusterReconciler reconciles a OpniCluster object
 type OpniClusterReconciler struct {
 	client.Client
-	log    logr.Logger
 	scheme *runtime.Scheme
 }
 
@@ -50,7 +49,7 @@ type OpniClusterReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 
 func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := r.log.WithValues("opnicluster", req.NamespacedName)
+	lg := log.FromContext(ctx)
 
 	// Ensure secrets are configured first
 
@@ -143,7 +142,6 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 // SetupWithManager sets up the controller with the Manager.
 func (r *OpniClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
-	r.log = mgr.GetLogger().WithName("controllers").WithName("OpniCluster")
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1.OpniCluster{}).

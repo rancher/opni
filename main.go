@@ -22,14 +22,12 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	logcontrollers "github.com/banzaicloud/logging-operator/controllers"
+	loggingv1alpha1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1alpha1"
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
-	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
-	opniiov1beta1 "github.com/rancher/opni/apis/v1beta1"
-	"github.com/rancher/opni/controllers"
-	"github.com/rancher/opni/controllers/demo"
-	"github.com/rancher/opni/pkg/util/manager"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -38,6 +36,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
+	opniiov1beta1 "github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/controllers"
+	"github.com/rancher/opni/controllers/demo"
+	"github.com/rancher/opni/pkg/util/manager"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -52,12 +56,23 @@ const (
 )
 
 func init() {
+	// Register the logging operator CRDs under the logging.opni.io group
+	// to avoid possible conflicts.
+	loggingv1alpha1.GroupVersion.Group = "logging.opni.io"
+	loggingv1beta1.GroupVersion.Group = "logging.opni.io"
+	loggingv1alpha1.SchemeBuilder.GroupVersion = loggingv1alpha1.GroupVersion
+	loggingv1beta1.SchemeBuilder.GroupVersion = loggingv1beta1.GroupVersion
+	loggingv1alpha1.AddToScheme = loggingv1alpha1.SchemeBuilder.AddToScheme
+	loggingv1beta1.AddToScheme = loggingv1beta1.SchemeBuilder.AddToScheme
+
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(opniiov1beta1.AddToScheme(scheme))
 	utilruntime.Must(demov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(helmv1.AddToScheme(scheme))
 	utilruntime.Must(apiextv1beta1.AddToScheme(scheme))
+	utilruntime.Must(loggingv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(loggingv1beta1.AddToScheme(scheme))
+	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -109,6 +124,20 @@ func main() {
 	}
 	if err = (&demo.OpniDemoReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OpniDemo")
+		os.Exit(1)
+	}
+
+	loggingReconciler := logcontrollers.NewLoggingReconciler(
+		mgr.GetClient(), ctrl.Log.WithName("controllers").WithName("Logging"))
+
+	err = logcontrollers.SetupLoggingWithManager(mgr, ctrl.Log).Complete(loggingReconciler)
+	if err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Logging")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.LogAdapterReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LogAdapter")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

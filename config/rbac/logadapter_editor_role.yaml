@@ -1,0 +1,24 @@
+# permissions for end users to edit logadapters.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: logadapter-editor-role
+rules:
+- apiGroups:
+  - opni.io.opni.io
+  resources:
+  - logadapters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io.opni.io
+  resources:
+  - logadapters/status
+  verbs:
+  - get

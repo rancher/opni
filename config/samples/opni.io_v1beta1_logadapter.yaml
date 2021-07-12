@@ -1,0 +1,7 @@
+apiVersion: opni.io.opni.io/v1beta1
+kind: LogAdapter
+metadata:
+  name: logadapter-sample
+spec:
+  # Add fields here
+  foo: bar

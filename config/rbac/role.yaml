@@ -87,6 +87,32 @@ rules:
 - apiGroups:
   - opni.io
   resources:
+  - logadapters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - logadapters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - logadapters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
   - opniclusters
   verbs:
   - create

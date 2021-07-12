@@ -5,6 +5,8 @@ repos:
   rev: v3.2.0
   hooks:
   - id: check-added-large-files
+    args:
+      - '--maxkb=1024'
   - id: detect-private-key
   - id: check-merge-conflict
 - repo: https://github.com/golangci/golangci-lint

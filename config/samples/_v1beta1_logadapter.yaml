@@ -3,5 +3,6 @@ kind: LogAdapter
 metadata:
   name: logadapter-sample
 spec:
-  # Add fields here
-  foo: bar
+  provider: K3S
+  k3s:
+    containerEngine: openrc

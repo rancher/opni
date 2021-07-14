@@ -23,7 +23,6 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	logcontrollers "github.com/banzaicloud/logging-operator/controllers"
-	loggingv1alpha1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1alpha1"
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
@@ -58,11 +57,8 @@ const (
 func init() {
 	// Register the logging operator CRDs under the logging.opni.io group
 	// to avoid possible conflicts.
-	loggingv1alpha1.GroupVersion.Group = "logging.opni.io"
 	loggingv1beta1.GroupVersion.Group = "logging.opni.io"
-	loggingv1alpha1.SchemeBuilder.GroupVersion = loggingv1alpha1.GroupVersion
 	loggingv1beta1.SchemeBuilder.GroupVersion = loggingv1beta1.GroupVersion
-	loggingv1alpha1.AddToScheme = loggingv1alpha1.SchemeBuilder.AddToScheme
 	loggingv1beta1.AddToScheme = loggingv1beta1.SchemeBuilder.AddToScheme
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -70,13 +66,19 @@ func init() {
 	utilruntime.Must(demov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(helmv1.AddToScheme(scheme))
 	utilruntime.Must(apiextv1beta1.AddToScheme(scheme))
-	utilruntime.Must(loggingv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(loggingv1beta1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
+	if err := run(); err != nil {
+		setupLog.Error(err, "failed to start manager")
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
@@ -106,7 +108,7 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
+		return err
 	}
 
 	if !disableUsage && Version != "dev" {
@@ -120,11 +122,11 @@ func main() {
 
 	if err = (&controllers.OpniClusterReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OpniCluster")
-		os.Exit(1)
+		return err
 	}
 	if err = (&demo.OpniDemoReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OpniDemo")
-		os.Exit(1)
+		return err
 	}
 
 	loggingReconciler := logcontrollers.NewLoggingReconciler(
@@ -133,27 +135,33 @@ func main() {
 	err = logcontrollers.SetupLoggingWithManager(mgr, ctrl.Log).Complete(loggingReconciler)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Logging")
-		os.Exit(1)
+		return err
 	}
 
 	if err = (&controllers.LogAdapterReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LogAdapter")
-		os.Exit(1)
+		return err
+	}
+
+	if err = (&opniiov1beta1.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
+		return err
 	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
+		return err
 	}
 	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
+		return err
 	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
+		return err
 	}
+
+	return nil
 }

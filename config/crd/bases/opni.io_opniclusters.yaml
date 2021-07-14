@@ -61,8 +61,6 @@ spec:
                     properties:
                       endpoint:
                         type: string
-                    required:
-                    - endpoint
                     type: object
                 type: object
               elastic:
@@ -89,9 +87,6 @@ spec:
                     type: object
                   endpoint:
                     type: string
-                required:
-                - credentials
-                - endpoint
                 type: object
               services:
                 properties:

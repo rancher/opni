@@ -2,7 +2,8 @@ load('ext://min_k8s_version', 'min_k8s_version')
 load('ext://restart_process', 'docker_build_with_restart')
 
 allow_k8s_contexts('k3d-k3s-tilt-opni')
-min_k8s_version('1.20')
+# allow_k8s_contexts('boutique-metrics-amartya')
+min_k8s_version('1.18')
 
 DIRNAME = os.path.basename(os. getcwd())
 
@@ -22,7 +23,7 @@ local_resource('Watch & Compile',
     './scripts/generate && CGO_ENABLED=0 go build -o bin/manager main.go', 
     deps=deps, ignore=['**/zz_generated.deepcopy.go'])
 
-local_resource('Sample YAML', 'kubectl apply -f ./config/samples', 
+local_resource('Sample YAML', 'kubectl apply -k ./config/samples', 
     deps=["./config/samples"], resource_deps=[DIRNAME + "-controller-manager"])
 
 DOCKERFILE = '''FROM golang:alpine
@@ -30,6 +31,9 @@ WORKDIR /
 COPY ./bin/manager /
 CMD ["/manager"]
 '''
+# default_registry(
+#     'docker.io/joekralicky',
+# )
 docker_build_with_restart("rancher/opni-manager", '.', 
     dockerfile_contents=DOCKERFILE,
     entrypoint=['/manager'],

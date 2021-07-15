@@ -18,14 +18,18 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/rancher/opni/apis/v1beta1"
 )
+
+var ErrInvalidReference = errors.New("referenced OpniCluster could not be found")
 
 // LogAdapterReconciler reconciles a LogAdapter object
 type LogAdapterReconciler struct {
@@ -38,10 +42,52 @@ type LogAdapterReconciler struct {
 //+kubebuilder:rbac:groups=opni.io,resources=logadapters/finalizers,verbs=update
 
 func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	// lg := log.FromContext(ctx)
+	// Look up the object from the request.
+	logAdapter := v1beta1.LogAdapter{}
+	err := r.Get(ctx, req.NamespacedName, &logAdapter)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
-	// your logic here
+	// Look up the referenced OpniCluster to make sure it exists.
+	opniCluster := v1beta1.OpniCluster{}
+	if err := r.Get(ctx, logAdapter.Spec.OpniCluster, &opniCluster); err != nil {
+		logAdapter.Status.Phase = "Error"
+		logAdapter.Status.Message = ErrInvalidReference.Error()
+		r.Status().Update(ctx, &logAdapter)
+		return ctrl.Result{}, fmt.Errorf("%w: %s",
+			ErrInvalidReference, logAdapter.Spec.OpniCluster.String())
+	}
 
+	if len(logAdapter.OwnerReferences) == 0 {
+		// Tie the LogAdapter to the corresponding OpniCluster.
+		logAdapter.OwnerReferences = append(logAdapter.OwnerReferences,
+			v1.OwnerReference{
+				APIVersion: opniCluster.APIVersion,
+				Kind:       opniCluster.Kind,
+				Name:       opniCluster.Name,
+				UID:        opniCluster.UID,
+			})
+		logAdapter.Status.Phase = "Initializing"
+		logAdapter.Status.Message = "Configuring Owner References"
+		return ctrl.Result{
+			Requeue: true,
+		}, r.Update(ctx, &logAdapter)
+	}
+
+	logAdapter.Status.Conditions = []string{}
+
+	// Don't process the request if the log adapter is being deleted.
+	if logAdapter.DeletionTimestamp != nil {
+		logAdapter.Status.Phase = "Deleting"
+		r.Status().Update(ctx, &logAdapter)
+		return ctrl.Result{}, nil
+	}
+
+	logAdapter.Status.Phase = "Ready"
+	logAdapter.Status.Message = ""
+	r.Status().Update(ctx, &logAdapter)
 	return ctrl.Result{}, nil
 }
 

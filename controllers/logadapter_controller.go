@@ -18,18 +18,17 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
+	opnierrors "github.com/rancher/opni/pkg/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/pkg/providers"
 )
-
-var ErrInvalidReference = errors.New("referenced OpniCluster could not be found")
 
 // LogAdapterReconciler reconciles a LogAdapter object
 type LogAdapterReconciler struct {
@@ -54,10 +53,10 @@ func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	opniCluster := v1beta1.OpniCluster{}
 	if err := r.Get(ctx, logAdapter.Spec.OpniCluster, &opniCluster); err != nil {
 		logAdapter.Status.Phase = "Error"
-		logAdapter.Status.Message = ErrInvalidReference.Error()
+		logAdapter.Status.Message = opnierrors.InvalidReference.Error()
 		r.Status().Update(ctx, &logAdapter)
 		return ctrl.Result{}, fmt.Errorf("%w: %s",
-			ErrInvalidReference, logAdapter.Spec.OpniCluster.String())
+			opnierrors.InvalidReference, logAdapter.Spec.OpniCluster.String())
 	}
 
 	if len(logAdapter.OwnerReferences) == 0 {
@@ -83,6 +82,16 @@ func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		logAdapter.Status.Phase = "Deleting"
 		r.Status().Update(ctx, &logAdapter)
 		return ctrl.Result{}, nil
+	}
+
+	result, err := providers.ReconcileLogAdapter(ctx, r, &logAdapter)
+	if !result.IsZero() || err != nil {
+		logAdapter.Status.Phase = "Processing"
+		if err != nil {
+			logAdapter.Status.Message = err.Error()
+		}
+		r.Status().Update(ctx, &logAdapter)
+		return result, err
 	}
 
 	logAdapter.Status.Phase = "Ready"

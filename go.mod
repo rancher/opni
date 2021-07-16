@@ -6,6 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.2.12
 	github.com/banzaicloud/logging-operator v0.0.0-20210712114307-bf2e09ce9302
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.5
+	github.com/banzaicloud/operator-tools v0.23.0
 	github.com/containers/image/v5 v5.12.0
 	github.com/elastic/go-elasticsearch/v7 v7.13.1
 	github.com/go-logr/logr v0.4.0

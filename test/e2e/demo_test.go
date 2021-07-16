@@ -245,7 +245,7 @@ var _ = Describe("OpniDemo E2E", func() {
 				return countResp.Count
 			}, 5*time.Minute, 1*time.Second).Should(BeNumerically(">", 0))
 		})
-		Specify("anomaly count should increase when faults are injected", func() {
+		XSpecify("anomaly count should increase when faults are injected", func() {
 			By("sampling anomaly count (30s)")
 			experiment := gmeasure.NewExperiment("fault injection")
 			experiment.SampleValue("before", func(idx int) float64 {
@@ -257,41 +257,8 @@ var _ = Describe("OpniDemo E2E", func() {
 				Duration: 30 * time.Second,
 			})
 			By("injecting faults")
-			// Create 10 unschedulable pods
 			// Create 10 pods with nonexistent images
 			// Create 10 pods that will exit with non-zero exit codes
-			for i := 0; i < 10; i++ {
-				Expect(k8sClient.Create(context.Background(), &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("%s-%d", "opni-fault-injection-unschedulable", i),
-						Namespace: "default",
-					},
-					Spec: corev1.PodSpec{
-						Affinity: &corev1.Affinity{
-							NodeAffinity: &corev1.NodeAffinity{
-								RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-									NodeSelectorTerms: []corev1.NodeSelectorTerm{
-										{
-											MatchExpressions: []corev1.NodeSelectorRequirement{
-												{
-													Key:      "nonexistent",
-													Operator: corev1.NodeSelectorOpExists,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-						Containers: []corev1.Container{
-							{
-								Name:  "test",
-								Image: "busybox",
-							},
-						},
-					},
-				})).To(Succeed())
-			}
 			for i := 0; i < 10; i++ {
 				Expect(k8sClient.Create(context.Background(), &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -346,7 +313,7 @@ var _ = Describe("OpniDemo E2E", func() {
 			Expect(r1.Winner()).To(Equal(after))
 			Expect(r2.Winner()).To(Equal(after))
 			Expect(r3.Winner()).To(Equal(after))
-			Expect(after.FloatFor(gmeasure.StatMax)).Should(BeNumerically(">", 30))
+			Expect(after.FloatFor(gmeasure.StatMax)).Should(BeNumerically(">", 20))
 		})
 		Specify("clean up port-forward", func() {
 			close(stopCh)

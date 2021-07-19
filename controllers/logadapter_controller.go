@@ -23,6 +23,7 @@ import (
 	opnierrors "github.com/rancher/opni/pkg/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -51,12 +52,16 @@ func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Look up the referenced OpniCluster to make sure it exists.
 	opniCluster := v1beta1.OpniCluster{}
-	if err := r.Get(ctx, logAdapter.Spec.OpniCluster, &opniCluster); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      logAdapter.Spec.OpniCluster.Name,
+		Namespace: logAdapter.Spec.OpniCluster.Namespace,
+	},
+		&opniCluster); err != nil {
 		logAdapter.Status.Phase = "Error"
 		logAdapter.Status.Message = opnierrors.InvalidReference.Error()
 		r.Status().Update(ctx, &logAdapter)
-		return ctrl.Result{}, fmt.Errorf("%w: %s",
-			opnierrors.InvalidReference, logAdapter.Spec.OpniCluster.String())
+		return ctrl.Result{}, fmt.Errorf("%w: { name: %s, namespace: %s }",
+			opnierrors.InvalidReference, logAdapter.Spec.OpniCluster.Name, logAdapter.Spec.OpniCluster.Namespace)
 	}
 
 	if len(logAdapter.OwnerReferences) == 0 {

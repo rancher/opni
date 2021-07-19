@@ -40,6 +40,7 @@ var (
 		Repository: "rancher/mirrored-jimmidyson-configmap-reload",
 		Tag:        "v0.4.0",
 	}
+	DefaultContainerLogDir = "/var/lib/docker/containers"
 )
 
 // log is for logging in this package.
@@ -58,32 +59,65 @@ var _ webhook.Defaulter = &LogAdapter{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *LogAdapter) Default() {
 	logger.Info("apply defaults", "name", r.Name)
-
-	if r.Spec.Fluentbit == nil {
-		r.Spec.Fluentbit = &loggingv1beta1.FluentbitSpec{}
+	if r.Spec.FluentConfig == nil {
+		r.Spec.FluentConfig = &FluentConfigSpec{}
 	}
-	if r.Spec.Fluentd == nil {
-		r.Spec.Fluentd = &loggingv1beta1.FluentdSpec{}
+	if r.Spec.RootFluentConfig == nil {
+		r.Spec.RootFluentConfig = &FluentConfigSpec{}
+	}
+
+	if r.Spec.FluentConfig.Fluentbit == nil {
+		r.Spec.FluentConfig.Fluentbit = &loggingv1beta1.FluentbitSpec{}
+	}
+	if r.Spec.RootFluentConfig.Fluentbit == nil {
+		r.Spec.RootFluentConfig.Fluentbit = &loggingv1beta1.FluentbitSpec{}
+	}
+	if r.Spec.FluentConfig.Fluentd == nil {
+		r.Spec.FluentConfig.Fluentd = &loggingv1beta1.FluentdSpec{}
+	}
+	if r.Spec.RootFluentConfig.Fluentd == nil {
+		r.Spec.RootFluentConfig.Fluentd = &loggingv1beta1.FluentdSpec{}
 	}
 
 	// Add our own defaults first
-	if r.Spec.Fluentbit.Image.Repository == "" {
-		r.Spec.Fluentbit.Image.Repository = DefaultFluentbitImage.Repository
+	if r.Spec.FluentConfig.Fluentbit.Image.Repository == "" {
+		r.Spec.FluentConfig.Fluentbit.Image.Repository = DefaultFluentbitImage.Repository
 	}
-	if r.Spec.Fluentbit.Image.Tag == "" {
-		r.Spec.Fluentbit.Image.Tag = DefaultFluentbitImage.Tag
+	if r.Spec.RootFluentConfig.Fluentbit.Image.Repository == "" {
+		r.Spec.RootFluentConfig.Fluentbit.Image.Repository = DefaultFluentbitImage.Repository
 	}
-	if r.Spec.Fluentd.Image.Repository == "" {
-		r.Spec.Fluentd.Image.Repository = DefaultFluentdImage.Repository
+	if r.Spec.FluentConfig.Fluentbit.Image.Tag == "" {
+		r.Spec.FluentConfig.Fluentbit.Image.Tag = DefaultFluentbitImage.Tag
 	}
-	if r.Spec.Fluentd.Image.Tag == "" {
-		r.Spec.Fluentd.Image.Tag = DefaultFluentdImage.Tag
+	if r.Spec.RootFluentConfig.Fluentbit.Image.Tag == "" {
+		r.Spec.RootFluentConfig.Fluentbit.Image.Tag = DefaultFluentbitImage.Tag
 	}
-	if r.Spec.Fluentd.ConfigReloaderImage.Repository == "" {
-		r.Spec.Fluentd.ConfigReloaderImage.Repository = DefaultConfigReloaderImage.Repository
+	if r.Spec.FluentConfig.Fluentd.Image.Repository == "" {
+		r.Spec.FluentConfig.Fluentd.Image.Repository = DefaultFluentdImage.Repository
 	}
-	if r.Spec.Fluentd.ConfigReloaderImage.Tag == "" {
-		r.Spec.Fluentd.ConfigReloaderImage.Tag = DefaultConfigReloaderImage.Tag
+	if r.Spec.RootFluentConfig.Fluentd.Image.Repository == "" {
+		r.Spec.RootFluentConfig.Fluentd.Image.Repository = DefaultFluentdImage.Repository
+	}
+	if r.Spec.FluentConfig.Fluentd.Image.Tag == "" {
+		r.Spec.FluentConfig.Fluentd.Image.Tag = DefaultFluentdImage.Tag
+	}
+	if r.Spec.RootFluentConfig.Fluentd.Image.Tag == "" {
+		r.Spec.RootFluentConfig.Fluentd.Image.Tag = DefaultFluentdImage.Tag
+	}
+	if r.Spec.FluentConfig.Fluentd.ConfigReloaderImage.Repository == "" {
+		r.Spec.FluentConfig.Fluentd.ConfigReloaderImage.Repository = DefaultConfigReloaderImage.Repository
+	}
+	if r.Spec.RootFluentConfig.Fluentd.ConfigReloaderImage.Repository == "" {
+		r.Spec.RootFluentConfig.Fluentd.ConfigReloaderImage.Repository = DefaultConfigReloaderImage.Repository
+	}
+	if r.Spec.FluentConfig.Fluentd.ConfigReloaderImage.Tag == "" {
+		r.Spec.FluentConfig.Fluentd.ConfigReloaderImage.Tag = DefaultConfigReloaderImage.Tag
+	}
+	if r.Spec.RootFluentConfig.Fluentd.ConfigReloaderImage.Tag == "" {
+		r.Spec.RootFluentConfig.Fluentd.ConfigReloaderImage.Tag = DefaultConfigReloaderImage.Tag
+	}
+	if r.Spec.ContainerLogDir == "" {
+		r.Spec.ContainerLogDir = DefaultContainerLogDir
 	}
 
 	// Apply provider-specific defaults
@@ -93,8 +127,14 @@ func (r *LogAdapter) Default() {
 	// Any user-specified values will not be overwritten
 	(&loggingv1beta1.Logging{
 		Spec: loggingv1beta1.LoggingSpec{
-			FluentbitSpec: r.Spec.Fluentbit,
-			FluentdSpec:   r.Spec.Fluentd,
+			FluentbitSpec: r.Spec.FluentConfig.Fluentbit,
+			FluentdSpec:   r.Spec.FluentConfig.Fluentd,
+		},
+	}).SetDefaults()
+	(&loggingv1beta1.Logging{
+		Spec: loggingv1beta1.LoggingSpec{
+			FluentbitSpec: r.Spec.RootFluentConfig.Fluentbit,
+			FluentdSpec:   r.Spec.RootFluentConfig.Fluentd,
 		},
 	}).SetDefaults()
 }
@@ -105,13 +145,12 @@ var _ webhook.Validator = &LogAdapter{}
 
 func validateProviderSettings(r *LogAdapter) error {
 	fields := map[LogProvider]interface{}{
-		LogProviderAKS:       r.Spec.AKS,
-		LogProviderEKS:       r.Spec.EKS,
-		LogProviderGKE:       r.Spec.GKE,
-		LogProviderK3S:       r.Spec.K3S,
-		LogProviderRKE:       r.Spec.RKE,
-		LogProviderRKE2:      r.Spec.RKE2,
-		LogProviderKubeAudit: r.Spec.KubeAudit,
+		LogProviderAKS:  r.Spec.AKS,
+		LogProviderEKS:  r.Spec.EKS,
+		LogProviderGKE:  r.Spec.GKE,
+		LogProviderK3S:  r.Spec.K3S,
+		LogProviderRKE:  r.Spec.RKE,
+		LogProviderRKE2: r.Spec.RKE2,
 	}
 
 	// Ensure that the provider matches the given settings
@@ -121,7 +160,7 @@ func validateProviderSettings(r *LogAdapter) error {
 				"Provider settings field was not defaulted correctly (is the webhook running?)")
 		} else if v != nil && r.Spec.Provider != k {
 			return field.Forbidden(field.NewPath("spec", "provider"),
-				fmt.Sprintf("Provider is set to %s, but field %s is set", r.Spec.Provider, field.NewPath("spec", string(k))))
+				fmt.Sprintf("Provider is set to %s, but field %s is set, value is %v", r.Spec.Provider, field.NewPath("spec", string(k)), v))
 		}
 	}
 	return nil

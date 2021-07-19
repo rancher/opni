@@ -4,5 +4,8 @@ metadata:
   name: logadapter-sample
 spec:
   provider: K3S
+  opniCluster:
+    name: opnicluster-sample
+    namespace: default
   k3s:
     containerEngine: openrc

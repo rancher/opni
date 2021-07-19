@@ -20,19 +20,17 @@ package v1beta1
 import (
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type LogProvider string
 
 const (
-	LogProviderAKS       LogProvider = "AKS"
-	LogProviderEKS       LogProvider = "EKS"
-	LogProviderGKE       LogProvider = "GKE"
-	LogProviderK3S       LogProvider = "K3S"
-	LogProviderRKE       LogProvider = "RKE"
-	LogProviderRKE2      LogProvider = "RKE2"
-	LogProviderKubeAudit LogProvider = "KubeAudit"
+	LogProviderAKS  LogProvider = "AKS"
+	LogProviderEKS  LogProvider = "EKS"
+	LogProviderGKE  LogProvider = "GKE"
+	LogProviderK3S  LogProvider = "K3S"
+	LogProviderRKE  LogProvider = "RKE"
+	LogProviderRKE2 LogProvider = "RKE2"
 )
 
 type ContainerEngine string
@@ -49,18 +47,30 @@ type LogAdapterSpec struct {
 	Provider LogProvider `json:"provider"`
 
 	// +kubebuilder:validation:Required
-	OpniCluster types.NamespacedName `json:"opniCluster,omitempty"`
+	OpniCluster OpniClusterNameSpec `json:"opniCluster,omitempty"`
 
-	AKS       *AKSSpec       `json:"aks,omitempty"`
-	EKS       *EKSSpec       `json:"eks,omitempty"`
-	GKE       *GKESpec       `json:"gke,omitempty"`
-	K3S       *K3SSpec       `json:"k3s,omitempty"`
-	RKE       *RKESpec       `json:"rke,omitempty"`
-	RKE2      *RKE2Spec      `json:"rke2,omitempty"`
-	KubeAudit *KubeAuditSpec `json:"kubeAudit,omitempty"`
+	ContainerLogDir string `json:"containerLogDir,omitempty"`
+	SELinuxEnabled  bool   `json:"seLinuxEnabled,omitempty"`
 
+	AKS  *AKSSpec  `json:"aks,omitempty"`
+	EKS  *EKSSpec  `json:"eks,omitempty"`
+	GKE  *GKESpec  `json:"gke,omitempty"`
+	K3S  *K3SSpec  `json:"k3s,omitempty"`
+	RKE  *RKESpec  `json:"rke,omitempty"`
+	RKE2 *RKE2Spec `json:"rke2,omitempty"`
+
+	FluentConfig     *FluentConfigSpec `json:"fluentConfig,omitempty"`
+	RootFluentConfig *FluentConfigSpec `json:"rootFluentConfig,omitempty"`
+}
+
+type FluentConfigSpec struct {
 	Fluentbit *loggingv1beta1.FluentbitSpec `json:"fluentbit,omitempty"`
 	Fluentd   *loggingv1beta1.FluentdSpec   `json:"fluentd,omitempty"`
+}
+
+type OpniClusterNameSpec struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // Provider-specific settings are below.
@@ -83,11 +93,6 @@ type RKESpec struct {
 }
 
 type RKE2Spec struct {
-}
-
-type KubeAuditSpec struct {
-	AuditFilename string `json:"auditFilename,omitempty"`
-	PathPrefix    string `json:"pathPrefix,omitempty"`
 }
 
 // LogAdapterStatus defines the observed state of LogAdapter

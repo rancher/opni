@@ -17,7 +17,7 @@ import (
 func BuildLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 	return &loggingv1beta1.Logging{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-%s-",
+			Name: fmt.Sprintf("%s-%s",
 				adapter.GetName(),
 				strings.ToLower(string(adapter.Spec.Provider)),
 			),
@@ -35,8 +35,32 @@ func BuildLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 		},
 		Spec: loggingv1beta1.LoggingSpec{
 			ControlNamespace: adapter.GetNamespace(),
-			FluentbitSpec:    adapter.Spec.Fluentbit,
-			FluentdSpec:      adapter.Spec.Fluentd,
+			FluentbitSpec:    adapter.Spec.FluentConfig.Fluentbit,
+			FluentdSpec:      adapter.Spec.FluentConfig.Fluentd,
+		},
+	}
+}
+
+func BuildRootLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
+	return &loggingv1beta1.Logging{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      adapter.GetName(),
+			Namespace: adapter.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion:         adapter.APIVersion,
+					Kind:               adapter.Kind,
+					Name:               adapter.Name,
+					UID:                adapter.UID,
+					Controller:         pointer.Bool(true),
+					BlockOwnerDeletion: pointer.Bool(true),
+				},
+			},
+		},
+		Spec: loggingv1beta1.LoggingSpec{
+			ControlNamespace: adapter.GetNamespace(),
+			FluentbitSpec:    adapter.Spec.RootFluentConfig.Fluentbit,
+			FluentdSpec:      adapter.Spec.RootFluentConfig.Fluentd,
 		},
 	}
 }
@@ -117,7 +141,7 @@ func BuildK3SJournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 					Containers: []corev1.Container{
 						{
 							Name:  "fluentbit",
-							Image: adapter.Spec.Fluentbit.Image.RepositoryWithTag(),
+							Image: adapter.Spec.FluentConfig.Fluentbit.Image.RepositoryWithTag(),
 							SecurityContext: &corev1.SecurityContext{
 								SELinuxOptions: &corev1.SELinuxOptions{
 									Type: "rke_logreader_t",

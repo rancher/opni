@@ -5,11 +5,44 @@ import (
 	"k8s.io/utils/pointer"
 )
 
+var namespacedKubeURL = "https://kubernetes.default:443"
+
 func enableSecuritySettings(spec *LogAdapterSpec) {
-	spec.Fluentbit.Security.PodSecurityPolicyCreate = true
-	spec.Fluentbit.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
-	spec.Fluentd.Security.PodSecurityPolicyCreate = true
-	spec.Fluentd.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
+	if spec.FluentConfig.Fluentbit.Security == nil {
+		spec.FluentConfig.Fluentbit.Security = &loggingv1beta1.Security{}
+	}
+	if spec.RootFluentConfig.Fluentbit.Security == nil {
+		spec.RootFluentConfig.Fluentbit.Security = &loggingv1beta1.Security{}
+	}
+	if spec.FluentConfig.Fluentd.Security == nil {
+		spec.FluentConfig.Fluentd.Security = &loggingv1beta1.Security{}
+	}
+	if spec.RootFluentConfig.Fluentd.Security == nil {
+		spec.RootFluentConfig.Fluentd.Security = &loggingv1beta1.Security{}
+	}
+
+	spec.FluentConfig.Fluentbit.Security.PodSecurityPolicyCreate = true
+	spec.RootFluentConfig.Fluentbit.Security.PodSecurityPolicyCreate = true
+	spec.FluentConfig.Fluentbit.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
+	spec.RootFluentConfig.Fluentbit.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
+	spec.FluentConfig.Fluentd.Security.PodSecurityPolicyCreate = true
+	spec.RootFluentConfig.Fluentd.Security.PodSecurityPolicyCreate = true
+	spec.FluentConfig.Fluentd.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
+	spec.RootFluentConfig.Fluentd.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
+	if spec.SELinuxEnabled {
+		spec.RootFluentConfig.Fluentbit.Security.SecurityContext.SELinuxOptions.Type = "rke_logreader_t"
+	}
+}
+
+func setRootLoggingSettings(spec *LogAdapterSpec) {
+	spec.RootFluentConfig.Fluentbit.MountPath = spec.ContainerLogDir
+	spec.RootFluentConfig.Fluentbit.ExtraVolumeMounts = append(spec.RootFluentConfig.Fluentbit.ExtraVolumeMounts,
+		&loggingv1beta1.VolumeMount{
+			Source:      spec.ContainerLogDir,
+			Destination: spec.ContainerLogDir,
+			ReadOnly:    pointer.Bool(true),
+		},
+	)
 }
 
 // ApplyDefaults will configure the default provider-specific settings, and
@@ -19,27 +52,28 @@ func enableSecuritySettings(spec *LogAdapterSpec) {
 // are guaranteed not to be nil.
 func (p LogProvider) ApplyDefaults(a *LogAdapter) {
 	enableSecuritySettings(&a.Spec)
+	setRootLoggingSettings(&a.Spec)
 
 	switch p {
 	case LogProviderAKS:
 		if a.Spec.AKS == nil {
 			a.Spec.AKS = &AKSSpec{}
 		}
-		a.Spec.Fluentbit.InputTail.Tag = "aks"
-		a.Spec.Fluentbit.InputTail.Path = "/var/log/azure/kubelet-status.log"
+		a.Spec.FluentConfig.Fluentbit.InputTail.Tag = "aks"
+		a.Spec.FluentConfig.Fluentbit.InputTail.Path = "/var/log/azure/kubelet-status.log"
 	case LogProviderEKS:
 		if a.Spec.EKS == nil {
 			a.Spec.EKS = &EKSSpec{}
 		}
-		a.Spec.Fluentbit.InputTail.Tag = "eks"
-		a.Spec.Fluentbit.InputTail.Path = "/var/log/messages"
-		a.Spec.Fluentbit.InputTail.Parser = "syslog"
+		a.Spec.FluentConfig.Fluentbit.InputTail.Tag = "eks"
+		a.Spec.FluentConfig.Fluentbit.InputTail.Path = "/var/log/messages"
+		a.Spec.FluentConfig.Fluentbit.InputTail.Parser = "syslog"
 	case LogProviderGKE:
 		if a.Spec.GKE == nil {
 			a.Spec.GKE = &GKESpec{}
 		}
-		a.Spec.Fluentbit.InputTail.Tag = "gke"
-		a.Spec.Fluentbit.InputTail.Path = "/var/log/kube-proxy.log"
+		a.Spec.FluentConfig.Fluentbit.InputTail.Tag = "gke"
+		a.Spec.FluentConfig.Fluentbit.InputTail.Path = "/var/log/kube-proxy.log"
 	case LogProviderK3S:
 		if a.Spec.K3S == nil {
 			a.Spec.K3S = &K3SSpec{
@@ -49,18 +83,19 @@ func (p LogProvider) ApplyDefaults(a *LogAdapter) {
 				a.Spec.K3S.LogPath = "/var/log/journal"
 			}
 		}
-		a.Spec.Fluentbit.InputTail.Tag = "k3s"
+		a.Spec.FluentConfig.Fluentbit.InputTail.Tag = "k3s"
 		if a.Spec.K3S.LogPath != "" {
-			a.Spec.Fluentbit.InputTail.Path = a.Spec.K3S.LogPath
+			a.Spec.FluentConfig.Fluentbit.InputTail.Path = a.Spec.K3S.LogPath
 		}
-		a.Spec.Fluentbit.InputTail.PathKey = "filename"
-		a.Spec.Fluentbit.ExtraVolumeMounts = append(a.Spec.Fluentbit.ExtraVolumeMounts,
+		a.Spec.FluentConfig.Fluentbit.InputTail.PathKey = "filename"
+		a.Spec.FluentConfig.Fluentbit.ExtraVolumeMounts = append(a.Spec.FluentConfig.Fluentbit.ExtraVolumeMounts,
 			&loggingv1beta1.VolumeMount{
 				Source:      "/var/log",
 				Destination: "/var/log",
 				ReadOnly:    pointer.Bool(true),
 			},
 		)
+		a.Spec.RootFluentConfig.Fluentbit.FilterKubernetes.KubeURL = namespacedKubeURL
 	case LogProviderRKE:
 		if a.Spec.RKE == nil {
 			a.Spec.RKE = &RKESpec{}
@@ -69,20 +104,6 @@ func (p LogProvider) ApplyDefaults(a *LogAdapter) {
 		if a.Spec.RKE2 == nil {
 			a.Spec.RKE2 = &RKE2Spec{}
 		}
-	case LogProviderKubeAudit:
-		if a.Spec.KubeAudit == nil {
-			a.Spec.KubeAudit = &KubeAuditSpec{
-				PathPrefix:    "/var/log/kube-audit",
-				AuditFilename: "/var/log/kube-audit/kube-audit.log",
-			}
-		}
-		a.Spec.Fluentbit.DisableKubernetesFilter = pointer.Bool(true)
-		a.Spec.Fluentbit.ExtraVolumeMounts = append(a.Spec.Fluentbit.ExtraVolumeMounts,
-			&loggingv1beta1.VolumeMount{
-				Source:      a.Spec.KubeAudit.PathPrefix,
-				Destination: "/kube-audit-logs",
-				ReadOnly:    pointer.Bool(true),
-			},
-		)
+		a.Spec.RootFluentConfig.Fluentbit.FilterKubernetes.KubeURL = namespacedKubeURL
 	}
 }

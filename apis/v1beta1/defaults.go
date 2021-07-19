@@ -36,13 +36,15 @@ func enableSecuritySettings(spec *LogAdapterSpec) {
 
 func setRootLoggingSettings(spec *LogAdapterSpec) {
 	spec.RootFluentConfig.Fluentbit.MountPath = spec.ContainerLogDir
-	spec.RootFluentConfig.Fluentbit.ExtraVolumeMounts = append(spec.RootFluentConfig.Fluentbit.ExtraVolumeMounts,
-		&loggingv1beta1.VolumeMount{
-			Source:      spec.ContainerLogDir,
-			Destination: spec.ContainerLogDir,
-			ReadOnly:    pointer.Bool(true),
-		},
-	)
+	if spec.ContainerLogDir != "/var/lib/docker/containers" {
+		spec.RootFluentConfig.Fluentbit.ExtraVolumeMounts = appendOrUpdateVolumeMount(spec.RootFluentConfig.Fluentbit.ExtraVolumeMounts,
+			&loggingv1beta1.VolumeMount{
+				Source:      spec.ContainerLogDir,
+				Destination: spec.ContainerLogDir,
+				ReadOnly:    pointer.Bool(true),
+			},
+		)
+	}
 }
 
 // ApplyDefaults will configure the default provider-specific settings, and
@@ -88,7 +90,7 @@ func (p LogProvider) ApplyDefaults(a *LogAdapter) {
 			a.Spec.FluentConfig.Fluentbit.InputTail.Path = a.Spec.K3S.LogPath
 		}
 		a.Spec.FluentConfig.Fluentbit.InputTail.PathKey = "filename"
-		a.Spec.FluentConfig.Fluentbit.ExtraVolumeMounts = append(a.Spec.FluentConfig.Fluentbit.ExtraVolumeMounts,
+		a.Spec.FluentConfig.Fluentbit.ExtraVolumeMounts = appendOrUpdateVolumeMount(a.Spec.FluentConfig.Fluentbit.ExtraVolumeMounts,
 			&loggingv1beta1.VolumeMount{
 				Source:      "/var/log",
 				Destination: "/var/log",
@@ -106,4 +108,14 @@ func (p LogProvider) ApplyDefaults(a *LogAdapter) {
 		}
 		a.Spec.RootFluentConfig.Fluentbit.FilterKubernetes.KubeURL = namespacedKubeURL
 	}
+}
+
+func appendOrUpdateVolumeMount(mounts []*loggingv1beta1.VolumeMount, newMount *loggingv1beta1.VolumeMount) []*loggingv1beta1.VolumeMount {
+	for i, v := range mounts {
+		if v.Destination == newMount.Destination {
+			mounts[i] = newMount
+			return mounts
+		}
+	}
+	return append(mounts, newMount)
 }

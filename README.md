@@ -40,8 +40,8 @@ The default username and password is admin/admin You must be in the Global Tenan
 ____
 #### What's next?
 
- * v0.1.1 (released) allows you to view Opni's log anomaly insights **only** on a demo environment created on a VM
- * v0.1.2 (Early July) will allow you install Opni into your existing Kubernetes cluster and consume log insights from it
+ * v0.1.1 (Released) allows you to view Opni's log anomaly insights **only** on a demo environment created on a VM
+ * v0.1.2 (Released) allows you install Opni into your existing Kubernetes cluster and consume log insights from it
  * v0.2.0 (Fall 2021) will introduce AI applied to metrics, kubernetes events, audit logs, and more! 
 
 

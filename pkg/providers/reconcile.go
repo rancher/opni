@@ -16,66 +16,51 @@ func ReconcileLogAdapter(
 	logAdapter *v1beta1.LogAdapter,
 ) (ctrl.Result, error) {
 	result := reconciler.CombinedResult{}
-	reconcileRootLogging(ctx, cli, logAdapter, &result)
+
+	lg := log.FromContext(ctx)
+
+	rec := reconciler.NewReconcilerWith(cli,
+		reconciler.WithLog(lg),
+		reconciler.WithScheme(cli.Scheme()),
+	)
+
+	reconcileRootLogging(rec, logAdapter, &result)
 	switch logAdapter.Spec.Provider {
 	case v1beta1.LogProviderAKS, v1beta1.LogProviderEKS, v1beta1.LogProviderGKE:
-		reconcileGenericCloud(ctx, cli, logAdapter, &result)
+		reconcileGenericCloud(rec, logAdapter, &result)
 	case v1beta1.LogProviderK3S:
-		reconcileK3S(ctx, cli, logAdapter, &result)
+		reconcileK3S(rec, logAdapter, &result)
 	case v1beta1.LogProviderRKE:
-		reconcileRKE(ctx, cli, logAdapter, &result)
+		reconcileRKE(rec, logAdapter, &result)
 	case v1beta1.LogProviderRKE2:
-		reconcileRKE2(ctx, cli, logAdapter, &result)
+		reconcileRKE2(rec, logAdapter, &result)
 	}
 
 	return result.Result, result.Err
 }
 
-func reconcileRootLogging(ctx context.Context,
-	cli client.Client,
+func reconcileRootLogging(rec reconciler.ResourceReconciler,
 	logAdapter *v1beta1.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {
-	lg := log.FromContext(ctx)
-
-	rec := reconciler.NewReconcilerWith(cli,
-		reconciler.WithLog(lg),
-		reconciler.WithScheme(cli.Scheme()),
-	)
 	rootLogging := BuildRootLogging(logAdapter)
-	result.Combine(rec.ReconcileResource(rootLogging, reconciler.StateAbsent))
+	result.Combine(rec.ReconcileResource(rootLogging, reconciler.StatePresent))
 }
 
 func reconcileGenericCloud(
-	ctx context.Context,
-	cli client.Client,
+	rec reconciler.ResourceReconciler,
 	logAdapter *v1beta1.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {
-	lg := log.FromContext(ctx)
-
-	rec := reconciler.NewReconcilerWith(cli,
-		reconciler.WithLog(lg),
-		reconciler.WithScheme(cli.Scheme()),
-	)
-
 	logging := BuildLogging(logAdapter)
 	result.Combine(rec.ReconcileResource(logging, reconciler.StatePresent))
 }
 
 func reconcileK3S(
-	ctx context.Context,
-	cli client.Client,
+	rec reconciler.ResourceReconciler,
 	logAdapter *v1beta1.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {
-	lg := log.FromContext(ctx)
-
-	rec := reconciler.NewReconcilerWith(cli,
-		reconciler.WithLog(lg),
-		reconciler.WithScheme(cli.Scheme()),
-	)
-
 	logging := BuildLogging(logAdapter)
 	config := BuildK3SConfig(logAdapter)
 	aggregator := BuildK3SJournaldAggregator(logAdapter)
@@ -96,16 +81,14 @@ func reconcileK3S(
 }
 
 func reconcileRKE(
-	ctx context.Context,
-	cli client.Client,
+	rec reconciler.ResourceReconciler,
 	logAdapter *v1beta1.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {
 }
 
 func reconcileRKE2(
-	ctx context.Context,
-	cli client.Client,
+	rec reconciler.ResourceReconciler,
 	logAdapter *v1beta1.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {

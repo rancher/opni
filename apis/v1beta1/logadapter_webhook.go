@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"reflect"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -155,15 +156,19 @@ func validateProviderSettings(r *LogAdapter) error {
 
 	// Ensure that the provider matches the given settings
 	for k, v := range fields {
-		if v == nil && r.Spec.Provider == k {
+		if (v == nil || isInterfaceNil(v)) && r.Spec.Provider == k {
 			return field.Required(field.NewPath("spec", "provider"),
 				"Provider settings field was not defaulted correctly (is the webhook running?)")
-		} else if v != nil && r.Spec.Provider != k {
+		} else if !(v == nil || isInterfaceNil(v)) && r.Spec.Provider != k {
 			return field.Forbidden(field.NewPath("spec", "provider"),
 				fmt.Sprintf("Provider is set to %s, but field %s is set, value is %v", r.Spec.Provider, field.NewPath("spec", string(k)), v))
 		}
 	}
 	return nil
+}
+
+func isInterfaceNil(i interface{}) bool {
+	return reflect.ValueOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type

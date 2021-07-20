@@ -18510,6 +18510,9 @@ spec:
                     type: string
                 type: object
               rke2:
+                properties:
+                  logPath:
+                    type: string
                 type: object
               rootFluentConfig:
                 properties:

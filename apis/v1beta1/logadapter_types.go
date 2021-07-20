@@ -103,6 +103,7 @@ type RKESpec struct {
 }
 
 type RKE2Spec struct {
+	LogPath string `json:"logPath,omitempty"`
 }
 
 // LogAdapterStatus defines the observed state of LogAdapter

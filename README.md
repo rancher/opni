@@ -20,7 +20,15 @@ Opni currently features log anomaly detection for Kubernetes.
 
 ----
 #### Try it out!
-On a VM with 4 vCPUs & 16 GB RAM:
+
+**Demo Opni on your own k8s cluster:**
+```
+opnictl install
+opnictl create demo
+```
+
+
+**Demo Opni on a VM with 4 vCPUs & 16 GB RAM:**
 1. Create a RKE2 cluster with Opni installed
     ```
     curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/main/quickstart_files/install_opni.sh | sh -

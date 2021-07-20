@@ -99,4 +99,11 @@ func reconcileRKE2(
 	logAdapter *v1beta1.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {
+	config := BuildRKE2Config(logAdapter)
+	aggregator := BuildRKE2JournaldAggregator(logAdapter)
+	svcAcct := BuildRKE2ServiceAccount(logAdapter)
+
+	result.Combine(rec.ReconcileResource(config, reconciler.StatePresent))
+	result.Combine(rec.ReconcileResource(aggregator, reconciler.StatePresent))
+	result.Combine(rec.ReconcileResource(svcAcct, reconciler.StatePresent))
 }

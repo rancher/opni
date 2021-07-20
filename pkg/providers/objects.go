@@ -402,3 +402,96 @@ func BuildRKE2Config(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 		},
 	}
 }
+
+func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
+	name := fmt.Sprintf("%s-rke2-journald-aggregator", adapter.GetName())
+	podLabels := map[string]string{
+		"name": name,
+	}
+	return &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: adapter.GetNamespace(),
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: podLabels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: adapter.GetNamespace(),
+					Labels:    podLabels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "fluentbit",
+							Image: adapter.Spec.FluentConfig.Fluentbit.Image.RepositoryWithTag(),
+							SecurityContext: &corev1.SecurityContext{
+								SELinuxOptions: &corev1.SELinuxOptions{
+									Type: "rke_logreader_t",
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "config",
+									MountPath: "/fluent-bit/etc/",
+								},
+								{
+									Name:      "journal",
+									MountPath: adapter.Spec.RKE2.LogPath,
+									ReadOnly:  true,
+								},
+								{
+									Name:      "machine-id",
+									MountPath: "/etc/machine-id",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					ServiceAccountName: name,
+					Volumes: []corev1.Volume{
+						{
+							Name: "config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: adapter.GetName() + "-rke2",
+									},
+								},
+							},
+						},
+						{
+							Name: "journal",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: adapter.Spec.RKE2.LogPath,
+								},
+							},
+						},
+						{
+							Name: "machine-id",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/etc/machine-id",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func BuildRKE2ServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount {
+	name := fmt.Sprintf("%s-rke2-journald-aggregator", adapter.GetName())
+	return &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: adapter.GetNamespace(),
+		},
+	}
+}

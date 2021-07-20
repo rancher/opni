@@ -40,6 +40,15 @@ const (
 	ContainerEngineOpenRC  ContainerEngine = "openrc"
 )
 
+type LogLevel string
+
+const (
+	LogLevelDebug LogLevel = "debug"
+	LogLevelInfo  LogLevel = "info"
+	LogLevelWarn  LogLevel = "warn"
+	LogLevelError LogLevel = "error"
+)
+
 // LogAdapterSpec defines the desired state of LogAdapter
 type LogAdapterSpec struct {
 	// +kubebuilder:validation:Enum:=AKS;EKS;GKE;K3S;RKE;RKE2;KubeAudit
@@ -90,6 +99,7 @@ type K3SSpec struct {
 }
 
 type RKESpec struct {
+	LogLevel LogLevel `json:"logLevel,omitempty"`
 }
 
 type RKE2Spec struct {

@@ -85,6 +85,13 @@ func reconcileRKE(
 	logAdapter *v1beta1.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {
+	config := BuildRKEConfig(logAdapter)
+	aggregator := BuildRKEAggregator(logAdapter)
+	svcAcct := BuildRKEServiceAccount(logAdapter)
+
+	result.Combine(rec.ReconcileResource(config, reconciler.StatePresent))
+	result.Combine(rec.ReconcileResource(aggregator, reconciler.StatePresent))
+	result.Combine(rec.ReconcileResource(svcAcct, reconciler.StatePresent))
 }
 
 func reconcileRKE2(

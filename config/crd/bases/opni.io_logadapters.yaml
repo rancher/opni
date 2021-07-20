@@ -3696,6 +3696,9 @@ spec:
                 - KubeAudit
                 type: string
               rke:
+                properties:
+                  logLevel:
+                    type: string
                 type: object
               rke2:
                 type: object

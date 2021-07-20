@@ -102,6 +102,9 @@ func (p LogProvider) ApplyDefaults(a *LogAdapter) {
 		if a.Spec.RKE == nil {
 			a.Spec.RKE = &RKESpec{}
 		}
+		if a.Spec.RKE.LogLevel == "" {
+			a.Spec.RKE.LogLevel = LogLevelInfo
+		}
 	case LogProviderRKE2:
 		if a.Spec.RKE2 == nil {
 			a.Spec.RKE2 = &RKE2Spec{}

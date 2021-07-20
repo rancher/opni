@@ -21,7 +21,9 @@ import (
 	"reflect"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -42,6 +44,15 @@ var (
 		Tag:        "v0.4.0",
 	}
 	DefaultContainerLogDir = "/var/lib/docker/containers"
+	DefaultLivenessProbe   = corev1.Probe{
+		InitialDelaySeconds: 30,
+		PeriodSeconds:       15,
+		Handler: corev1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromInt(24240),
+			},
+		},
+	}
 )
 
 // log is for logging in this package.
@@ -75,9 +86,13 @@ func (r *LogAdapter) Default() {
 	}
 	if r.Spec.FluentConfig.Fluentd == nil {
 		r.Spec.FluentConfig.Fluentd = &loggingv1beta1.FluentdSpec{}
+		r.Spec.FluentConfig.Fluentd.DisablePvc = true
+		r.Spec.FluentConfig.Fluentd.LivenessProbe = &DefaultLivenessProbe
 	}
 	if r.Spec.RootFluentConfig.Fluentd == nil {
 		r.Spec.RootFluentConfig.Fluentd = &loggingv1beta1.FluentdSpec{}
+		r.Spec.RootFluentConfig.Fluentd.DisablePvc = true
+		r.Spec.RootFluentConfig.Fluentd.LivenessProbe = &DefaultLivenessProbe
 	}
 
 	// Add our own defaults first

@@ -23,7 +23,6 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	logcontrollers "github.com/banzaicloud/logging-operator/controllers"
-	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -37,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
+	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	opniiov1beta1 "github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/controllers/demo"
@@ -57,16 +57,12 @@ const (
 func init() {
 	// Register the logging operator CRDs under the logging.opni.io group
 	// to avoid possible conflicts.
-	loggingv1beta1.GroupVersion.Group = "logging.opni.io"
-	loggingv1beta1.SchemeBuilder.GroupVersion = loggingv1beta1.GroupVersion
-	loggingv1beta1.AddToScheme = loggingv1beta1.SchemeBuilder.AddToScheme
-
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(opniiov1beta1.AddToScheme(scheme))
 	utilruntime.Must(demov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(helmv1.AddToScheme(scheme))
 	utilruntime.Must(apiextv1beta1.AddToScheme(scheme))
-	utilruntime.Must(loggingv1beta1.AddToScheme(scheme))
+	utilruntime.Must(opniloggingv1beta1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }

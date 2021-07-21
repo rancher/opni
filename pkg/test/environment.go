@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/phayes/freeport"
 	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
+	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -49,7 +49,7 @@ func RunTestEnvironment(
 	err = apiextv1beta1.AddToScheme(scheme.Scheme)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	err = loggingv1beta1.AddToScheme(scheme.Scheme)
+	err = opniloggingv1beta1.AddToScheme(scheme.Scheme)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme

@@ -56,7 +56,6 @@ var _ = BeforeSuite(func() {
 			"../config/crd/logging",
 			"../test/resources",
 		},
-
 		BinaryAssetsDirectory: "../testbin/bin",
 		ControlPlane: envtest.ControlPlane{
 			APIServer: &envtest.APIServer{

@@ -179,6 +179,7 @@ func validateProviderSettings(r *LogAdapter) error {
 				fmt.Sprintf("Provider is set to %s, but field %s is set, value is %v", r.Spec.Provider, field.NewPath("spec", string(k)), v))
 		}
 	}
+
 	return nil
 }
 

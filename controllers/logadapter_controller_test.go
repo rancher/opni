@@ -16,16 +16,12 @@ import (
 	"github.com/rancher/opni/apis/v1beta1"
 )
 
-var _ = Describe("LogAdapter Controller", func() {
+var _ = FDescribe("LogAdapter Controller", func() {
 	var (
 		logadapter v1beta1.LogAdapter
 		cluster    v1beta1.OpniCluster
 		err        error
 	)
-	loggingv1beta1.GroupVersion.Group = "logging.opni.io"
-	loggingv1beta1.SchemeBuilder.GroupVersion = loggingv1beta1.GroupVersion
-	loggingv1beta1.AddToScheme = loggingv1beta1.SchemeBuilder.AddToScheme
-
 	When("creating a logadapter", func() {
 		AfterEach(func() {
 			logadapter := v1beta1.LogAdapter{}

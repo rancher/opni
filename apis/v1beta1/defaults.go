@@ -81,9 +81,9 @@ func (p LogProvider) ApplyDefaults(a *LogAdapter) {
 			a.Spec.K3S = &K3SSpec{
 				ContainerEngine: ContainerEngineSystemd,
 			}
-			if a.Spec.K3S.ContainerEngine == ContainerEngineSystemd {
-				a.Spec.K3S.LogPath = "/var/log/journal"
-			}
+		}
+		if a.Spec.K3S.ContainerEngine == ContainerEngineSystemd && a.Spec.K3S.LogPath == "" {
+			a.Spec.K3S.LogPath = "/var/log/journal"
 		}
 		a.Spec.FluentConfig.Fluentbit.InputTail.Tag = "k3s"
 		if a.Spec.K3S.LogPath != "" {

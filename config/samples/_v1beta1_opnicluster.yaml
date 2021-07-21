@@ -2,6 +2,7 @@ apiVersion: opni.io/v1beta1
 kind: OpniCluster
 metadata:
   name: opnicluster-sample
+  namespace: default
 spec:
   elastic:
     endpoint: "todo"

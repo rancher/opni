@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -11,13 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/rancher/opni/apis/v1beta1"
-)
-
-const (
-	crName      = "test-opnicluster"
-	crNamespace = "opnicluster-test"
-	timeout     = 10 * time.Second
-	interval    = 500 * time.Millisecond
 )
 
 var _ = Describe("OpniCluster Controller", func() {

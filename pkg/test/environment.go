@@ -91,5 +91,12 @@ func RunTestEnvironment(
 		},
 	})
 	gomega.Expect(err).Should(gomega.Or(gomega.BeNil(), gomega.WithTransform(errors.IsAlreadyExists, gomega.BeTrue())))
+
+	err = k8sClient.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "logadapter-test",
+		},
+	})
+	gomega.Expect(err).Should(gomega.Or(gomega.BeNil(), gomega.WithTransform(errors.IsAlreadyExists, gomega.BeTrue())))
 	return
 }

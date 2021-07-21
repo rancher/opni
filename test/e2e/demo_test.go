@@ -245,7 +245,7 @@ var _ = Describe("OpniDemo E2E", func() {
 				return countResp.Count
 			}, 5*time.Minute, 1*time.Second).Should(BeNumerically(">", 0))
 		})
-		Specify("anomaly count should increase when faults are injected", func() {
+		XSpecify("anomaly count should increase when faults are injected", func() {
 			By("sampling anomaly count (30s)")
 			experiment := gmeasure.NewExperiment("fault injection")
 			experiment.SampleValue("before", func(idx int) float64 {

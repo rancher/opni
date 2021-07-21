@@ -53,6 +53,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			"../config/crd/bases",
+			"../config/crd/logging",
 			"../test/resources",
 		},
 
@@ -68,7 +69,7 @@ var _ = BeforeSuite(func() {
 			},
 		},
 	}
-	k8sManager, k8sClient = test.RunTestEnvironment(testEnv, &OpniClusterReconciler{})
+	k8sManager, k8sClient = test.RunTestEnvironment(testEnv, &OpniClusterReconciler{}, &LogAdapterReconciler{})
 }, 60)
 
 var _ = AfterSuite(func() {

@@ -11,7 +11,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,7 +22,7 @@ const (
 	NulogInfServiceControlPlaneImage = "rancher/opni-inference-service:v0.1.2"
 	NulogInfServiceImage             = "rancher/opni-inference-service:v0.1.2"
 	PayloadReceiverServiceImage      = "rancher/opni-payload-receiver-service:v0.1.2"
-	TrainingControllerImage          = "rancher/opni-training-controller:v0.1.2"
+	GPUServiceControllerImage        = "rancher/opni-gpu-service-controller:v0.1.2"
 	PreprocessingServiceImage        = "rancher/opni-preprocessing-service:v0.1.2"
 	KibanaDashboardImage             = "rancher/opni-kibana-dashboard:v0.1.2"
 )
@@ -208,11 +207,6 @@ func BuildNulogInferenceService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment 
 									Value: "5",
 								},
 							},
-							Resources: v1.ResourceRequirements{
-								Limits: v1.ResourceList{
-									"nvidia.com/gpu": resource.MustParse("1"),
-								},
-							},
 						},
 					},
 				},
@@ -326,60 +320,11 @@ func BuildPreprocessingService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 	}
 }
 
-func BuildTrainingControllerInfra(spec *demov1alpha1.OpniDemo) []client.Object {
-	return []client.Object{
-		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "training-controller-rb",
-			},
-		},
-		&rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "training-controller-rb",
-			},
-			Rules: []rbacv1.PolicyRule{
-				{
-					APIGroups: []string{"", "apps", "batch"},
-					Resources: []string{"endpoints", "deployments", "pods", "jobs"},
-					Verbs:     []string{"get", "list", "watch", "create", "delete"},
-				},
-			},
-		},
-		&rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "training-controller-rb",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      "ServiceAccount",
-					Name:      "training-controller-rb",
-					Namespace: spec.Namespace,
-				},
-			},
-			RoleRef: rbacv1.RoleRef{
-				APIGroup: "rbac.authorization.k8s.io",
-				Kind:     "ClusterRole",
-				Name:     "training-controller-rb",
-			},
-		},
-	}
-}
-
-func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
-	nulogTrainImgName := "rancher/nulog-train"
-	nulogTrainImgTag := "v0.1.1"
-	if spec.Spec.NulogTrainImage != "" {
-		nulogTrainImgRef, err := reference.ParseNamed(spec.Spec.NulogTrainImage)
-		if err == nil {
-			namedTagged := reference.TagNameOnly(nulogTrainImgRef).(reference.NamedTagged)
-			nulogTrainImgName = namedTagged.Name()
-			nulogTrainImgTag = namedTagged.Tag()
-		}
-	}
-	labels := map[string]string{"app": "training-controller"}
+func BuildGPUService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
+	labels := map[string]string{"app": "gpu-service"}
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "training-controller",
+			Name: "gpu-service",
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -392,8 +337,8 @@ func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name:            "training-controller",
-							Image:           TrainingControllerImage,
+							Name:            "gpu-service-controller",
+							Image:           GPUServiceControllerImage,
 							ImagePullPolicy: v1.PullAlways,
 							Env: []v1.EnvVar{
 								{
@@ -413,10 +358,6 @@ func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Value: spec.Spec.MinioSecretKey,
 								},
 								{
-									Name:  "JOB_NAMESPACE",
-									Value: "default",
-								},
-								{
 									Name:  "ES_ENDPOINT",
 									Value: fmt.Sprintf("https://opendistro-es-client-service.%s.svc.cluster.local:9200", spec.Namespace),
 								},
@@ -432,13 +373,49 @@ func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Name:  "NODE_TLS_REJECT_UNAUTHORIZED",
 									Value: "0",
 								},
+							},
+						},
+						{
+							Name:            "gpu-service-worker",
+							Image:           NulogInfServiceImage,
+							ImagePullPolicy: v1.PullAlways,
+							Env: []v1.EnvVar{
 								{
-									Name:  "NULOG_TRAIN_IMAGE_NAME",
-									Value: nulogTrainImgName,
+									Name:  "NATS_SERVER_URL",
+									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
 								},
 								{
-									Name:  "NULOG_TRAIN_IMAGE_TAG",
-									Value: nulogTrainImgTag,
+									Name:  "MINIO_ENDPOINT",
+									Value: fmt.Sprintf("http://minio.%s.svc.cluster.local:9000", spec.Namespace),
+								},
+								{
+									Name:  "MINIO_ACCESS_KEY",
+									Value: spec.Spec.MinioAccessKey,
+								},
+								{
+									Name:  "MINIO_SECRET_KEY",
+									Value: spec.Spec.MinioSecretKey,
+								},
+								{
+									Name:  "ES_ENDPOINT",
+									Value: fmt.Sprintf("https://opendistro-es-client-service.%s.svc.cluster.local:9200", spec.Namespace),
+								},
+								{
+									Name:  "MODEL_THRESHOLD",
+									Value: "0.5",
+								},
+								{
+									Name:  "MIN_LOG_TOKENS",
+									Value: "5",
+								},
+								{
+									Name:  "IS_GPU_SERVICE",
+									Value: "True",
+								},
+							},
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									"nvidia.com/gpu": resource.MustParse("1"),
 								},
 							},
 						},
@@ -450,7 +427,7 @@ func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 }
 
 func BuildKibanaDashboardPod(spec *demov1alpha1.OpniDemo) *v1.Pod {
-	labels := map[string]string{"app": "training-controller"}
+	labels := map[string]string{"app": "preset-kibana-dashboard"}
 	return &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   KibanaDashboardPodName,

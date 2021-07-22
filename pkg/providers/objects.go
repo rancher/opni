@@ -12,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func BuildLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
@@ -258,8 +259,7 @@ func BuildK3SServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount 
 func BuildRKEConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 	var buffer bytes.Buffer
 	fluentBitRKETemplate.Execute(&buffer, adapter)
-
-	return &corev1.ConfigMap{
+	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-rke", adapter.GetName()),
 			Namespace: adapter.GetNamespace(),
@@ -268,6 +268,8 @@ func BuildRKEConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 			"fluent-bit.conf": buffer.String(),
 		},
 	}
+	setOwnerReference(adapter, &configmap)
+	return &configmap
 }
 
 func BuildRKEAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
@@ -276,7 +278,7 @@ func BuildRKEAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 		"name": name,
 	}
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
-	return &appsv1.DaemonSet{
+	daemonset := appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: adapter.GetNamespace(),
@@ -375,6 +377,8 @@ func BuildRKEAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 			},
 		},
 	}
+	setOwnerReference(adapter, &daemonset)
+	return &daemonset
 }
 
 func BuildRKEServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount {
@@ -391,7 +395,7 @@ func BuildRKE2Config(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 	var buffer bytes.Buffer
 	fluentBitRKE2Template.Execute(&buffer, adapter)
 
-	return &corev1.ConfigMap{
+	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-rke2", adapter.GetName()),
 			Namespace: adapter.GetNamespace(),
@@ -401,6 +405,8 @@ func BuildRKE2Config(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 			"received_at.lua": receivedAtLua,
 		},
 	}
+	setOwnerReference(adapter, &configmap)
+	return &configmap
 }
 
 func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
@@ -408,7 +414,7 @@ func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet 
 	podLabels := map[string]string{
 		"name": name,
 	}
-	return &appsv1.DaemonSet{
+	daemonset := appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: adapter.GetNamespace(),
@@ -484,6 +490,8 @@ func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet 
 			},
 		},
 	}
+	setOwnerReference(adapter, &daemonset)
+	return &daemonset
 }
 
 func BuildRKE2ServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount {
@@ -494,4 +502,17 @@ func BuildRKE2ServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount
 			Namespace: adapter.GetNamespace(),
 		},
 	}
+}
+
+func setOwnerReference(adapter *v1beta1.LogAdapter, object client.Object) {
+	object.SetOwnerReferences([]metav1.OwnerReference{
+		{
+			APIVersion:         adapter.APIVersion,
+			Kind:               adapter.Kind,
+			Name:               adapter.Name,
+			UID:                adapter.UID,
+			Controller:         pointer.Bool(true),
+			BlockOwnerDeletion: pointer.Bool(true),
+		},
+	})
 }

@@ -1,0 +1,24 @@
+# permissions for end users to edit pretrainedmodels.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pretrainedmodel-editor-role
+rules:
+- apiGroups:
+  - opni.io
+  resources:
+  - pretrainedmodels
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - pretrainedmodels/status
+  verbs:
+  - get

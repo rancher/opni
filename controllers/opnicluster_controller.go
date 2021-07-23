@@ -18,16 +18,12 @@ package controllers
 
 import (
 	"context"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1beta1 "github.com/rancher/opni/apis/v1beta1"
 )
@@ -49,9 +45,7 @@ type OpniClusterReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 
 func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := log.FromContext(ctx)
-
-	// Ensure secrets are configured first
+	// lg := log.FromContext(ctx)
 
 	opniCluster := &v1beta1.OpniCluster{}
 	err := r.Get(ctx, req.NamespacedName, opniCluster)
@@ -59,83 +53,10 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	es := opniCluster.Spec.Elastic
-
-	// Check if the elasticsearch credentials secret exists
-
-	userSuppliedSecret := (es.Credentials.SecretRef != nil)
-	esCredentials := &corev1.Secret{}
-
-	if userSuppliedSecret {
-		// The user has their own secret, make sure it exists
-		ns := es.Credentials.SecretRef.Namespace
-		if ns == "" {
-			ns = opniCluster.Namespace
-		}
-		err = r.Get(ctx, types.NamespacedName{
-			Namespace: ns,
-			Name:      es.Credentials.SecretRef.Name,
-		}, esCredentials)
-		if errors.IsNotFound(err) {
-			// The user's secret does not exist. Try again later
-			lg.Error(err, "secret not found", "secret", esSecret.Name)
-			return ctrl.Result{
-				RequeueAfter: 10 * time.Second,
-			}, err
-		}
-	} else {
-		// Use our own secret with the provided keys from the CR
-		if es.Credentials.Keys == nil {
-			lg.Error(err,
-				"either keys or a secret reference must be specified",
-				"field", "credentials",
-			)
-			// Do not requeue, the user has improperly configured the CR.
-			return ctrl.Result{}, nil
-		}
-
-		// Check if it exists first
-		err = r.Get(ctx, types.NamespacedName{
-			Namespace: opniCluster.Namespace,
-			Name:      esSecret.Name,
-		}, esCredentials)
-
-		if errors.IsNotFound(err) {
-			// Keys are specified and the secret does not exist, create it now
-			esCredentials.StringData = map[string]string{
-				"username": es.Credentials.Keys.AccessKey,
-				"password": es.Credentials.Keys.SecretKey,
-			}
-			esCredentials.ObjectMeta.Name = esSecret.Name
-			esCredentials.ObjectMeta.Namespace = opniCluster.Namespace
-			if err := r.Create(ctx, esCredentials); err != nil {
-				lg.Error(err, "could not create secret", "secret", esSecret.Name)
-				return ctrl.Result{}, err
-			}
-			lg.Info("created secret", "secret", esSecret.Name)
-			return ctrl.Result{
-				Requeue: true,
-			}, nil
-		}
-
-		needsUpdate := false
-		// Check if the keys match
-		if string(esCredentials.Data["username"]) != es.Credentials.Keys.AccessKey {
-			needsUpdate = true
-			esCredentials.StringData["username"] = es.Credentials.Keys.AccessKey
-		}
-		if string(esCredentials.Data["password"]) != es.Credentials.Keys.SecretKey {
-			needsUpdate = true
-			esCredentials.StringData["password"] = es.Credentials.Keys.SecretKey
-		}
-
-		// If one or both keys do not match, update the secret and requeue
-		if needsUpdate {
-			return ctrl.Result{
-				Requeue: true,
-			}, r.Update(ctx, esCredentials)
-		}
+	if opniCluster.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
 	}
+
 	return ctrl.Result{}, nil
 }
 

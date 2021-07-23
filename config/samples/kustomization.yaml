@@ -2,4 +2,5 @@
 resources:
   - _v1beta1_logadapter.yaml
   - _v1beta1_opnicluster.yaml
+- _v1beta1_pretrainedmodel.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

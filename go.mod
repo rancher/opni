@@ -3,6 +3,7 @@ module github.com/rancher/opni
 go 1.16
 
 require (
+	emperror.dev/errors v0.8.0
 	github.com/AlecAivazis/survey/v2 v2.2.12
 	github.com/banzaicloud/logging-operator v0.0.0-20210712114307-bf2e09ce9302
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.5
@@ -22,6 +23,7 @@ require (
 	github.com/vbauerster/mpb/v7 v7.0.2
 	go.uber.org/atomic v1.8.0
 	go.uber.org/zap v1.17.0
+	golang.org/x/crypto v0.0.0-20210314154223-e6e6c4f2bb5b // indirect
 	golang.org/x/mod v0.4.2
 	golang.org/x/tools v0.1.3 // indirect
 	k8s.io/api v0.21.1

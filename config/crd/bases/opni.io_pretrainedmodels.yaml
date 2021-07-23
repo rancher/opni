@@ -1,0 +1,89 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.5.0
+  creationTimestamp: null
+  name: pretrainedmodels.opni.io
+spec:
+  group: opni.io
+  names:
+    kind: PretrainedModel
+    listKind: PretrainedModelList
+    plural: pretrainedmodels
+    singular: pretrainedmodel
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: PretrainedModel is the Schema for the pretrainedmodels API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PretrainedModelSpec defines the desired state of PretrainedModel
+            properties:
+              hyperparameters:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
+              source:
+                properties:
+                  container:
+                    properties:
+                      image:
+                        type: string
+                      imagePullSecrets:
+                        items:
+                          description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
+                          properties:
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                          type: object
+                        type: array
+                    required:
+                    - image
+                    type: object
+                  http:
+                    properties:
+                      url:
+                        type: string
+                    required:
+                    - url
+                    type: object
+                type: object
+            required:
+            - source
+            type: object
+          status:
+            description: PretrainedModelStatus defines the observed state of PretrainedModel
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

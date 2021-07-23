@@ -1,0 +1,63 @@
+# Example: subset of an OpniCluster configuration as well as two PretrainedModel
+# specs, which define the download URL and some hyperparameters for the model.
+
+apiVersion: opni.io
+kind: OpniCluster
+spec:
+  services:
+    inference:
+      image: "rancher/opni-inference-service"
+      pretrainedModels:
+        - name: control-plane
+          resources:
+            limits:
+              cpu: "1"
+              memory: "128Mi"
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: app
+                        operator: In
+                        values:
+                          - nulog-inference-service
+                  topologyKey: "kubernetes.io/hostname"
+        - name: custom
+          resources:
+            requests:
+              memory: "500Mi"
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: app
+                        operator: In
+                        values:
+                          - nulog-inference-service
+                  topologyKey: "kubernetes.io/hostname"
+---
+apiVersion: opni.io
+kind: PretrainedModel
+metadata:
+  name: control-plane
+spec:
+  url: "https://s3.amazonaws.com/rancher-opni/control-plane.tar.gz"
+  hyperparameters:
+    modelThreshold: 0.5,
+    modelThresholdType: "relative"
+---
+apiVersion: opni.io
+kind: PretrainedModel
+metadata:
+  name: custom
+spec:
+  source:
+    image: "rancher/pretrained-model:v0.1.0"
+    imagePullSecrets: # optional
+  hyperparameters:
+    - name: "frobnicationRate"
+      value: "0.5"
+    - name: "frobnicationType"
+      value: "relative"

@@ -24,7 +24,6 @@ import (
 // OpniClusterSpec defines the desired state of OpniCluster
 type OpniClusterSpec struct {
 	Services  ServicesSpec  `json:"services,omitempty"`
-	Backend   BackendSpec   `json:"backend,omitempty"`
 	Dashboard DashboardSpec `json:"dashboard,omitempty"`
 	Elastic   ElasticSpec   `json:"elastic,omitempty"`
 	Storage   StorageSpec   `json:"storage,omitempty"`
@@ -32,15 +31,14 @@ type OpniClusterSpec struct {
 
 // OpniClusterStatus defines the observed state of OpniCluster
 type OpniClusterStatus struct {
-	Ready  bool `json:"ready,omitempty"`
-	Active bool `json:"active,omitempty"`
+	Conditions []string `json:"conditions,omitempty"`
+	State      string   `json:"state,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
-// +kubebuilder:printcolumn:name="Ready",type=boolean,JSONPath=`.status.ready`
-// +kubebuilder:printcolumn:name="Active",type=boolean,JSONPath=`.status.active`
+// +kubebuilder:printcolumn:name="State",type=boolean,JSONPath=`.status.state`
 
 // OpniCluster is the Schema for the opniclusters API
 type OpniCluster struct {
@@ -52,58 +50,46 @@ type OpniCluster struct {
 }
 
 type ServicesSpec struct {
-	Drain         DrainServiceSpec         `json:"drain,omitempty"`
-	Inference     InferenceServiceSpec     `json:"inference,omitempty"`
-	Preprocessing PreprocessingServiceSpec `json:"preprocessing,omitempty"`
-	Training      TrainingControllerSpec   `json:"training,omitempty"`
+	Drain           DrainServiceSpec           `json:"drain,omitempty"`
+	Inference       InferenceServiceSpec       `json:"inference,omitempty"`
+	Preprocessing   PreprocessingServiceSpec   `json:"preprocessing,omitempty"`
+	PayloadReceiver PayloadReceiverServiceSpec `json:"payloadReceiver,omitempty"`
 }
 
 type DrainServiceSpec struct {
+	// +optional
 	Image string `json:"image,omitempty"`
 }
 
 type InferenceServiceSpec struct {
-	Image  string      `json:"image,omitempty"`
-	Models []ModelSpec `json:"models,omitempty"`
+	// +optional
+	Image string `json:"image,omitempty"`
+	// +optional
+	PretrainedModels []PretrainedModelReference `json:"pretrainedModels,omitempty"`
 }
 
-type ModelSpec struct {
-	Name  string `json:"name,omitempty"`
-	Image string `json:"image,omitempty"`
+type PretrainedModelReference struct {
+	// +kubebuilder:validation:Required
+	Name string `json:"name,omitempty"`
+	// +optional
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	// +optional
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 }
 
 type PreprocessingServiceSpec struct {
+	// +optional
+	Image string `json:"image,omitempty"`
+}
+
+type PayloadReceiverServiceSpec struct {
+	// +optional
 	Image string `json:"image,omitempty"`
 }
 
 type TrainingControllerSpec struct {
+	// +optional
 	Image string `json:"image,omitempty"`
-}
-
-type BackendSpec struct {
-	// +optional
-	Fluentd FluentdSpec `json:"fluentd,omitempty"`
-	// +optional
-	Loki LokiSpec `json:"loki,omitempty"`
-	// +optional
-	Syslog SyslogSpec `json:"syslog,omitempty"`
-	// +optional
-	Filebeats FilebeatsSpec `json:"filebeats,omitempty"`
-}
-
-type FluentdSpec struct {
-}
-
-type LokiSpec struct {
-	// TODO
-}
-
-type SyslogSpec struct {
-	// TODO
-}
-
-type FilebeatsSpec struct {
-	// TODO
 }
 
 type DashboardSpec struct {

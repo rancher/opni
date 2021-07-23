@@ -36,4 +36,11 @@ resources:
     defaulting: true
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: opni.io
+  kind: PretrainedModel
+  path: github.com/rancher/opni/apis/v1beta1
+  version: v1beta1
 version: "3"

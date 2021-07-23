@@ -1,0 +1,7 @@
+apiVersion: opni.io/v1beta1
+kind: PretrainedModel
+metadata:
+  name: pretrainedmodel-sample
+spec:
+  # Add fields here
+  foo: bar

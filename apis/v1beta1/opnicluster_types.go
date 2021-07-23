@@ -21,8 +21,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type ImageSpec struct {
+	Image            *string                       `json:"image,omitempty"`
+	ImagePullPolicy  *corev1.PullPolicy            `json:"imagePullPolicy,omitempty"`
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+}
+
 // OpniClusterSpec defines the desired state of OpniCluster
 type OpniClusterSpec struct {
+	// +kubebuilder:default:=latest
+	Version string `json:"version"`
+	// +optional
+	DefaultRepo *string `json:"defaultRepo,omitempty"`
+
 	Services  ServicesSpec  `json:"services,omitempty"`
 	Dashboard DashboardSpec `json:"dashboard,omitempty"`
 	Elastic   ElasticSpec   `json:"elastic,omitempty"`
@@ -57,13 +68,11 @@ type ServicesSpec struct {
 }
 
 type DrainServiceSpec struct {
-	// +optional
-	Image string `json:"image,omitempty"`
+	ImageSpec `json:",inline,omitempty"`
 }
 
 type InferenceServiceSpec struct {
-	// +optional
-	Image string `json:"image,omitempty"`
+	ImageSpec `json:",inline,omitempty"`
 	// +optional
 	PretrainedModels []PretrainedModelReference `json:"pretrainedModels,omitempty"`
 }
@@ -78,18 +87,11 @@ type PretrainedModelReference struct {
 }
 
 type PreprocessingServiceSpec struct {
-	// +optional
-	Image string `json:"image,omitempty"`
+	ImageSpec `json:",inline,omitempty"`
 }
 
 type PayloadReceiverServiceSpec struct {
-	// +optional
-	Image string `json:"image,omitempty"`
-}
-
-type TrainingControllerSpec struct {
-	// +optional
-	Image string `json:"image,omitempty"`
+	ImageSpec `json:",inline,omitempty"`
 }
 
 type DashboardSpec struct {

@@ -12,6 +12,18 @@ type RequeueOp struct {
 	err error
 }
 
+func LoadResult(result *reconcile.Result, err error) RequeueOp {
+	if err != nil {
+		return RequeueErr(err)
+	}
+	if result != nil {
+		return RequeueOp{
+			res: *result,
+		}
+	}
+	return RequeueOp{}
+}
+
 func DoNotRequeue() RequeueOp {
 	return RequeueOp{
 		res: ctrl.Result{

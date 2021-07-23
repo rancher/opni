@@ -24,8 +24,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	v1beta1 "github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/resources/opnicluster"
+	"github.com/rancher/opni/pkg/util"
 )
 
 // OpniClusterReconciler reconciles a OpniCluster object
@@ -45,7 +50,7 @@ type OpniClusterReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 
 func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// lg := log.FromContext(ctx)
+	lg := log.FromContext(ctx)
 
 	opniCluster := &v1beta1.OpniCluster{}
 	err := r.Get(ctx, req.NamespacedName, opniCluster)
@@ -53,11 +58,22 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if opniCluster.DeletionTimestamp != nil {
-		return ctrl.Result{}, nil
+	reconcilers := []resources.ComponentReconciler{
+		opnicluster.NewReconciler(ctx, r, opniCluster,
+			reconciler.WithLog(lg),
+			reconciler.WithEnableRecreateWorkload(),
+			reconciler.WithScheme(r.scheme),
+		).Reconcile,
 	}
 
-	return ctrl.Result{}, nil
+	for _, rec := range reconcilers {
+		op := util.LoadResult(rec())
+		if op.ShouldRequeue() {
+			return op.Result()
+		}
+	}
+
+	return util.DoNotRequeue().Result()
 }
 
 // SetupWithManager sets up the controller with the Manager.

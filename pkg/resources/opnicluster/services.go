@@ -2,7 +2,6 @@ package opnicluster
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
@@ -102,9 +101,10 @@ func (r *Reconciler) pretrainedModelDeployment(
 
 	return func() (runtime.Object, reconciler.DesiredState, error) {
 		labels := combineLabels(
-			r.serviceLabels(InferenceLabel),
+			r.serviceLabels(v1beta1.InferenceService),
 			r.pretrainedModelLabels(model.Name),
 		)
+		imageSpec := r.serviceImageSpec(v1beta1.InferenceService)
 		lg := logr.FromContext(r.ctx)
 		lg.Info("Creating pretrained model deployment", "name", model.Name)
 		deployment := &appsv1.Deployment{
@@ -131,8 +131,9 @@ func (r *Reconciler) pretrainedModelDeployment(
 						},
 						Containers: []corev1.Container{
 							{
-								Name:  "inference-service",
-								Image: r.opniCluster.Spec.Services.Inference.Image,
+								Name:            "inference-service",
+								Image:           *imageSpec.Image,
+								ImagePullPolicy: *imageSpec.ImagePullPolicy,
 								VolumeMounts: []corev1.VolumeMount{
 									{
 										Name:      "model-volume",
@@ -207,12 +208,10 @@ func (r *Reconciler) findPretrainedModel(
 	return model, nil
 }
 
-func (r *Reconciler) genericDeployment(label string) *appsv1.Deployment {
-	labels := r.serviceLabels(label)
-	image := reflect.ValueOf(r.opniCluster.Spec.Services).
-		FieldByName(strings.Title(label)).
-		FieldByName("Image").
-		String()
+func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Deployment {
+	labels := r.serviceLabels(service)
+	imageSpec := r.serviceImageSpec(service)
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: labels[AppNameLabel],
@@ -228,10 +227,12 @@ func (r *Reconciler) genericDeployment(label string) *appsv1.Deployment {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  labels[AppNameLabel],
-							Image: image,
+							Name:            labels[AppNameLabel],
+							Image:           *imageSpec.Image,
+							ImagePullPolicy: *imageSpec.ImagePullPolicy,
 						},
 					},
+					ImagePullSecrets: imageSpec.ImagePullSecrets,
 				},
 			},
 		},

@@ -57,6 +57,7 @@ type ContainerSource struct {
 
 // PretrainedModelStatus defines the observed state of PretrainedModel
 type PretrainedModelStatus struct {
+	ConfigMap corev1.LocalObjectReference `json:"configMap,omitempty"`
 }
 
 //+kubebuilder:object:root=true

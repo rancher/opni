@@ -16,23 +16,13 @@ import (
 )
 
 func BuildLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
-	return &loggingv1beta1.Logging{
+	logging := loggingv1beta1.Logging{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s",
 				adapter.GetName(),
 				strings.ToLower(string(adapter.Spec.Provider)),
 			),
 			Namespace: adapter.GetNamespace(),
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion:         adapter.APIVersion,
-					Kind:               adapter.Kind,
-					Name:               adapter.Name,
-					UID:                adapter.UID,
-					Controller:         pointer.Bool(true),
-					BlockOwnerDeletion: pointer.Bool(true),
-				},
-			},
 		},
 		Spec: loggingv1beta1.LoggingSpec{
 			ControlNamespace: adapter.GetNamespace(),
@@ -40,23 +30,15 @@ func BuildLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 			FluentdSpec:      adapter.Spec.FluentConfig.Fluentd,
 		},
 	}
+	setOwnerReference(adapter, &logging)
+	return &logging
 }
 
 func BuildRootLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
-	return &loggingv1beta1.Logging{
+	logging := loggingv1beta1.Logging{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      adapter.GetName(),
 			Namespace: adapter.GetNamespace(),
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion:         adapter.APIVersion,
-					Kind:               adapter.Kind,
-					Name:               adapter.Name,
-					UID:                adapter.UID,
-					Controller:         pointer.Bool(true),
-					BlockOwnerDeletion: pointer.Bool(true),
-				},
-			},
 		},
 		Spec: loggingv1beta1.LoggingSpec{
 			ControlNamespace: adapter.GetNamespace(),
@@ -64,6 +46,8 @@ func BuildRootLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 			FluentdSpec:      adapter.Spec.RootFluentConfig.Fluentd,
 		},
 	}
+	setOwnerReference(adapter, &logging)
+	return &logging
 }
 
 var (
@@ -151,7 +135,7 @@ func BuildK3SConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 	var buffer bytes.Buffer
 	fluentBitK3sTemplate.Execute(&buffer, adapter)
 
-	return &corev1.ConfigMap{
+	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-k3s", adapter.GetName()),
 			Namespace: adapter.GetNamespace(),
@@ -161,6 +145,8 @@ func BuildK3SConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 			"received_at.lua": receivedAtLua,
 		},
 	}
+	setOwnerReference(adapter, &configmap)
+	return &configmap
 }
 
 func BuildK3SJournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
@@ -168,7 +154,7 @@ func BuildK3SJournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 	podLabels := map[string]string{
 		"name": name,
 	}
-	return &appsv1.DaemonSet{
+	daemonset := appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: adapter.GetNamespace(),
@@ -244,6 +230,8 @@ func BuildK3SJournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 			},
 		},
 	}
+	setOwnerReference(adapter, &daemonset)
+	return &daemonset
 }
 
 func BuildK3SServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount {

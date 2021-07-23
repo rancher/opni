@@ -1,6 +1,8 @@
 package v1beta1
 
 import (
+	"path/filepath"
+
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	"k8s.io/utils/pointer"
 )
@@ -85,15 +87,17 @@ func (p LogProvider) ApplyDefaults(a *LogAdapter) {
 		if a.Spec.K3S.ContainerEngine == ContainerEngineSystemd && a.Spec.K3S.LogPath == "" {
 			a.Spec.K3S.LogPath = "/var/log/journal"
 		}
-		a.Spec.FluentConfig.Fluentbit.InputTail.Tag = "k3s"
-		if a.Spec.K3S.LogPath != "" {
-			a.Spec.FluentConfig.Fluentbit.InputTail.Path = a.Spec.K3S.LogPath
+		if a.Spec.K3S.ContainerEngine == ContainerEngineOpenRC && a.Spec.K3S.LogPath == "" {
+			a.Spec.K3S.LogPath = "/var/log/k3s.log"
 		}
+		logDir := filepath.Dir(a.Spec.K3S.LogPath)
+		a.Spec.FluentConfig.Fluentbit.InputTail.Tag = "k3s"
+		a.Spec.FluentConfig.Fluentbit.InputTail.Path = a.Spec.K3S.LogPath
 		a.Spec.FluentConfig.Fluentbit.InputTail.PathKey = "filename"
 		a.Spec.FluentConfig.Fluentbit.ExtraVolumeMounts = appendOrUpdateVolumeMount(a.Spec.FluentConfig.Fluentbit.ExtraVolumeMounts,
 			&loggingv1beta1.VolumeMount{
-				Source:      "/var/log",
-				Destination: "/var/log",
+				Source:      logDir,
+				Destination: logDir,
 				ReadOnly:    pointer.Bool(true),
 			},
 		)

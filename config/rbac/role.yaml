@@ -160,3 +160,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - opni.io
+  resources:
+  - pretrainedmodels
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - pretrainedmodels/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - pretrainedmodels/status
+  verbs:
+  - get
+  - patch
+  - update

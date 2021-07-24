@@ -109,7 +109,8 @@ func (r *Reconciler) pretrainedModelDeployment(
 		lg.Info("Creating pretrained model deployment", "name", model.Name)
 		deployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("inference-service-%s", model.Name),
+				Name:      fmt.Sprintf("inference-service-%s", model.Name),
+				Namespace: r.opniCluster.Namespace,
 			},
 			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{
@@ -211,10 +212,10 @@ func (r *Reconciler) findPretrainedModel(
 func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Deployment {
 	labels := r.serviceLabels(service)
 	imageSpec := r.serviceImageSpec(service)
-
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: labels[AppNameLabel],
+			Name:      labels[AppNameLabel],
+			Namespace: r.opniCluster.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -233,6 +234,12 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 						},
 					},
 					ImagePullSecrets: imageSpec.ImagePullSecrets,
+					Volumes: []corev1.Volume{
+						{
+							Name:         "hyperparameters",
+							VolumeSource: corev1.VolumeSource{},
+						},
+					},
 				},
 			},
 		},
@@ -241,7 +248,7 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 }
 
 func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(InferenceLabel)
+	deployment := r.genericDeployment(v1beta1.InferenceService)
 	deployment.Spec.Template.Spec.Containers[0].Resources =
 		corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
@@ -252,16 +259,16 @@ func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredSt
 }
 
 func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(DrainLabel)
+	deployment := r.genericDeployment(v1beta1.DrainService)
 	return deployment, reconciler.StateCreated, nil
 }
 
 func (r *Reconciler) payloadReceiverDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(PayloadReceiverLabel)
+	deployment := r.genericDeployment(v1beta1.PayloadReceiverService)
 	return deployment, reconciler.StatePresent, nil
 }
 
 func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(PreprocessingLabel)
+	deployment := r.genericDeployment(v1beta1.PreprocessingService)
 	return deployment, reconciler.StatePresent, nil
 }

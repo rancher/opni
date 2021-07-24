@@ -39,6 +39,7 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
+  controller: true
   domain: opni.io
   kind: PretrainedModel
   path: github.com/rancher/opni/apis/v1beta1

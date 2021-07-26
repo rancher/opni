@@ -143,6 +143,7 @@ func run() error {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
 		return err
 	}
+
 	if err = (&controllers.PretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PretrainedModel")
 		return err

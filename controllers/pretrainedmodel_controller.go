@@ -19,43 +19,54 @@ package controllers
 import (
 	"context"
 
+	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/pkg/resources/pretrainedmodel"
+	"github.com/rancher/opni/pkg/util"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // PretrainedModelReconciler reconciles a PretrainedModel object
 type PretrainedModelReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	scheme *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=opni.io,resources=pretrainedmodels,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=opni.io,resources=pretrainedmodels/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=opni.io,resources=pretrainedmodels/finalizers,verbs=update
+//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the PretrainedModel object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *PretrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	// lg := log.FromContext(ctx)
 
-	// your logic here
+	model := &v1beta1.PretrainedModel{}
+	err := r.Get(ctx, req.NamespacedName, model)
+	if err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-	return ctrl.Result{}, nil
+	rec := pretrainedmodel.NewReconciler(ctx, r, model,
+		reconciler.WithScheme(r.scheme),
+	)
+
+	op := util.LoadResult(rec.Reconcile())
+	if op.ShouldRequeue() {
+		return op.Result()
+	}
+
+	return op.Result()
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PretrainedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.Client = mgr.GetClient()
+	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		// For().
+		For(&v1beta1.PretrainedModel{}).
+		Owns(&corev1.ConfigMap{}).
 		Complete(r)
 }

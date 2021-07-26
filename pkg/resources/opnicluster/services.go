@@ -23,7 +23,7 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource) {
 	resourceList = []resources.Resource{}
 	lg := logr.FromContext(r.ctx)
 	requirement, err := labels.NewRequirement(
-		PretrainedModelLabel,
+		resources.PretrainedModelLabel,
 		selection.Exists,
 		[]string{},
 	)
@@ -214,7 +214,7 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 	imageSpec := r.serviceImageSpec(service)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      labels[AppNameLabel],
+			Name:      labels[resources.AppNameLabel],
 			Namespace: r.opniCluster.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -228,18 +228,12 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:            labels[AppNameLabel],
+							Name:            labels[resources.AppNameLabel],
 							Image:           *imageSpec.Image,
 							ImagePullPolicy: *imageSpec.ImagePullPolicy,
 						},
 					},
 					ImagePullSecrets: imageSpec.ImagePullSecrets,
-					Volumes: []corev1.Volume{
-						{
-							Name:         "hyperparameters",
-							VolumeSource: corev1.VolumeSource{},
-						},
-					},
 				},
 			},
 		},
@@ -271,4 +265,33 @@ func (r *Reconciler) payloadReceiverDeployment() (runtime.Object, reconciler.Des
 func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.PreprocessingService)
 	return deployment, reconciler.StatePresent, nil
+}
+
+func addHyperparametersVolume(deployment *appsv1.Deployment, model *v1beta1.PretrainedModel) {
+	volume := corev1.Volume{
+		Name: "config-volume",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: fmt.Sprintf("%s-hyperparameters", model.Name),
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Key:  "hyperparameters.json",
+						Path: "hyperparameters.json",
+					},
+				},
+			},
+		},
+	}
+	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, volume)
+	for i, container := range deployment.Spec.Template.Spec.Containers {
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      "hyperparameters",
+			MountPath: "/hyperparameters.json",
+			SubPath:   "hyperparameters.json",
+			ReadOnly:  true,
+		})
+		deployment.Spec.Template.Spec.Containers[i] = container
+	}
 }

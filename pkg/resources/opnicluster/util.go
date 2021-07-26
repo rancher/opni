@@ -5,28 +5,22 @@ import (
 	"path"
 
 	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 )
 
-const (
-	PretrainedModelLabel = "opni.io/pretrained-model"
-	ServiceLabel         = "opni.io/service"
-	AppNameLabel         = "app.kubernetes.io/name"
-	PartOfLabel          = "app.kubernetes.io/part-of"
-)
-
 func (r *Reconciler) serviceLabels(service v1beta1.ServiceKind) map[string]string {
 	return map[string]string{
-		AppNameLabel: service.ServiceName(),
-		ServiceLabel: service.String(),
-		PartOfLabel:  "opni",
+		resources.AppNameLabel: service.ServiceName(),
+		resources.ServiceLabel: service.String(),
+		resources.PartOfLabel:  "opni",
 	}
 }
 
 func (r *Reconciler) pretrainedModelLabels(modelName string) map[string]string {
 	return map[string]string{
-		PretrainedModelLabel: modelName,
+		resources.PretrainedModelLabel: modelName,
 	}
 }
 

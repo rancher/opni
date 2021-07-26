@@ -1,4 +1,4 @@
-package opnicluster
+package pretrainedmodel
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -16,34 +15,30 @@ import (
 
 type Reconciler struct {
 	reconciler.ResourceReconciler
-	ctx         context.Context
-	client      client.Client
-	opniCluster *v1beta1.OpniCluster
+	ctx    context.Context
+	client client.Client
+	model  *v1beta1.PretrainedModel
 }
 
 func NewReconciler(
 	ctx context.Context,
 	client client.Client,
-	opniCluster *v1beta1.OpniCluster,
+	model *v1beta1.PretrainedModel,
 	opts ...func(*reconciler.ReconcilerOpts),
 ) *Reconciler {
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
 			append(opts, reconciler.WithLog(log.FromContext(ctx)))...),
-		ctx:         ctx,
-		client:      client,
-		opniCluster: opniCluster,
+		ctx:    ctx,
+		client: client,
+		model:  model,
 	}
 }
 
 func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
-	pretrained := r.pretrainedModels()
-	for _, factory := range append([]resources.Resource{
-		r.inferenceDeployment,
-		r.drainDeployment,
-		r.payloadReceiverDeployment,
-		r.preprocessingDeployment,
-	}, pretrained...) {
+	for _, factory := range []resources.Resource{
+		r.hyperparameters,
+	} {
 		o, state, err := factory()
 		if err != nil {
 			return nil, errors.WrapIf(err, "failed to create object")
@@ -61,8 +56,4 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		}
 	}
 	return nil, nil
-}
-
-func RegisterWatches(builder *builder.Builder) *builder.Builder {
-	return builder
 }

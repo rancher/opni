@@ -4,14 +4,15 @@ go 1.16
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.12
+	github.com/Microsoft/hcsshim v0.8.16 // indirect
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.2
-	github.com/containers/image/v5 v5.12.0
 	github.com/elastic/go-elasticsearch/v7 v7.13.1
 	github.com/go-logr/logr v0.4.0
 	github.com/k3s-io/helm-controller v0.10.0
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
+	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6 // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/rancher/k3d/v4 v4.4.5
 	github.com/spf13/cobra v1.1.3

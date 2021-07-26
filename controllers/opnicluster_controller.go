@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	v1beta1 "github.com/rancher/opni/apis/v1beta1"
@@ -50,8 +49,6 @@ type OpniClusterReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 
 func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := log.FromContext(ctx)
-
 	opniCluster := &v1beta1.OpniCluster{}
 	err := r.Get(ctx, req.NamespacedName, opniCluster)
 	if err != nil {
@@ -60,7 +57,6 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	reconcilers := []resources.ComponentReconciler{
 		opnicluster.NewReconciler(ctx, r, opniCluster,
-			reconciler.WithLog(lg),
 			reconciler.WithEnableRecreateWorkload(),
 			reconciler.WithScheme(r.scheme),
 		).Reconcile,

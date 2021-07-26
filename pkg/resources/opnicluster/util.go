@@ -6,7 +6,6 @@ import (
 
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 )
 
@@ -63,7 +62,5 @@ func (r *Reconciler) serviceImageSpec(service v1beta1.ServiceKind) (result v1bet
 	result.Image = pointer.String(fmt.Sprintf("%s:%s",
 		path.Join(defaultRepo, service.ImageName()),
 		version))
-	result.ImagePullPolicy =
-		(*corev1.PullPolicy)(pointer.String(string(corev1.PullIfNotPresent)))
 	return
 }

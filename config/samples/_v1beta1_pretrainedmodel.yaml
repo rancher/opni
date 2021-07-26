@@ -3,5 +3,11 @@ kind: PretrainedModel
 metadata:
   name: pretrainedmodel-sample
 spec:
-  # Add fields here
-  foo: bar
+  source:
+    http:
+      url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model.zip"
+  hyperparameters:
+    - name: "frobnicationRate"
+      value: "0.5"
+    - name: "frobnicationType"
+      value: "relative"

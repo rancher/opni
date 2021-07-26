@@ -4,9 +4,9 @@ metadata:
   name: opnicluster-sample
   namespace: default
 spec:
-  elastic:
-    endpoint: "todo"
-    credentials:
-      keys:
-        accessKey: testAccessKey
-        secretKey: testSecretKey
+  version: v0.1.2
+  services:
+    inference:
+      image: "rancher/opni-inference-service"
+      pretrainedModels:
+        - name: control-plane

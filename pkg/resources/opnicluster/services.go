@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -70,7 +71,7 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource) {
 		if _, ok := models[model.Name]; !ok {
 			deployment, err := r.pretrainedModelDeployment(model)
 			if err != nil {
-				lg.Error(err, "failed to create pretrained model deployment")
+				lg.Error(err, "failed to create pretrained model resource")
 				continue
 			}
 			resourceList = append(resourceList, deployment)
@@ -148,6 +149,8 @@ func (r *Reconciler) pretrainedModelDeployment(
 				},
 			},
 		}
+		insertHyperparametersVolume(deployment, &model)
+		ctrl.SetControllerReference(r.opniCluster, deployment, r.client.Scheme())
 		return deployment, reconciler.StatePresent, nil
 	}, nil
 }
@@ -228,9 +231,14 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:            labels[resources.AppNameLabel],
-							Image:           *imageSpec.Image,
-							ImagePullPolicy: *imageSpec.ImagePullPolicy,
+							Name:  labels[resources.AppNameLabel],
+							Image: *imageSpec.Image,
+							ImagePullPolicy: func() (_ corev1.PullPolicy) {
+								if p := imageSpec.ImagePullPolicy; p != nil {
+									return *p
+								}
+								return
+							}(),
 						},
 					},
 					ImagePullSecrets: imageSpec.ImagePullSecrets,
@@ -238,6 +246,7 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 			},
 		},
 	}
+	ctrl.SetControllerReference(r.opniCluster, deployment, r.client.Scheme())
 	return deployment
 }
 
@@ -267,7 +276,7 @@ func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.Desir
 	return deployment, reconciler.StatePresent, nil
 }
 
-func addHyperparametersVolume(deployment *appsv1.Deployment, model *v1beta1.PretrainedModel) {
+func insertHyperparametersVolume(deployment *appsv1.Deployment, model *v1beta1.PretrainedModel) {
 	volume := corev1.Volume{
 		Name: "config-volume",
 		VolumeSource: corev1.VolumeSource{

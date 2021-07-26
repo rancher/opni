@@ -1,6 +1,6 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-  - _v1beta1_logadapter.yaml
-  - _v1beta1_opnicluster.yaml
+- _v1beta1_logadapter.yaml
+- _v1beta1_opnicluster.yaml
 - _v1beta1_pretrainedmodel.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

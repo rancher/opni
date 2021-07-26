@@ -41,8 +41,6 @@ type PretrainedModelReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
 func (r *PretrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// lg := log.FromContext(ctx)
-
 	model := &v1beta1.PretrainedModel{}
 	err := r.Get(ctx, req.NamespacedName, model)
 	if err != nil {

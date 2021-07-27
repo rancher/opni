@@ -6,15 +6,11 @@ import (
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/model/filter"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/model/output"
-	"github.com/containers/image/v5/docker/reference"
 	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -23,7 +19,7 @@ const (
 	NulogInfServiceControlPlaneImage = "rancher/opni-inference-service:v0.1.2"
 	NulogInfServiceImage             = "rancher/opni-inference-service:v0.1.2"
 	PayloadReceiverServiceImage      = "rancher/opni-payload-receiver-service:v0.1.2"
-	TrainingControllerImage          = "rancher/opni-training-controller:v0.1.2"
+	GPUServiceControllerImage        = "rancher/opni-gpu-service-controller:v0.1.2"
 	PreprocessingServiceImage        = "rancher/opni-preprocessing-service:v0.1.2"
 	KibanaDashboardImage             = "rancher/opni-kibana-dashboard:v0.1.2"
 )
@@ -38,17 +34,17 @@ func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Template: v1.PodTemplateSpec{
+			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name:            "drain-service",
 							Image:           DrainServiceImage,
-							ImagePullPolicy: v1.PullAlways,
-							Env: []v1.EnvVar{
+							ImagePullPolicy: corev1.PullAlways,
+							Env: []corev1.EnvVar{
 								{
 									Name:  "NATS_SERVER_URL",
 									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
@@ -100,17 +96,17 @@ func BuildNulogInferenceServiceControlPlane(spec *demov1alpha1.OpniDemo) *appsv1
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Template: v1.PodTemplateSpec{
+			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name:            "nulog-inference-service-control-plane",
 							Image:           NulogInfServiceControlPlaneImage,
-							ImagePullPolicy: v1.PullAlways,
-							Env: []v1.EnvVar{
+							ImagePullPolicy: corev1.PullAlways,
+							Env: []corev1.EnvVar{
 								{
 									Name:  "NATS_SERVER_URL",
 									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
@@ -144,10 +140,10 @@ func BuildNulogInferenceServiceControlPlane(spec *demov1alpha1.OpniDemo) *appsv1
 									Value: "True",
 								},
 							},
-							Resources: v1.ResourceRequirements{
-								Requests: v1.ResourceList{
-									v1.ResourceMemory: resource.MustParse("1Gi"),
-									v1.ResourceCPU:    resource.MustParse(spec.Spec.NulogServiceCPURequest),
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("1Gi"),
+									corev1.ResourceCPU:    resource.MustParse(spec.Spec.NulogServiceCPURequest),
 								},
 							},
 						},
@@ -168,17 +164,17 @@ func BuildNulogInferenceService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment 
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Template: v1.PodTemplateSpec{
+			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name:            "nulog-inference-service",
 							Image:           NulogInfServiceImage,
-							ImagePullPolicy: v1.PullAlways,
-							Env: []v1.EnvVar{
+							ImagePullPolicy: corev1.PullAlways,
+							Env: []corev1.EnvVar{
 								{
 									Name:  "NATS_SERVER_URL",
 									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
@@ -208,11 +204,6 @@ func BuildNulogInferenceService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment 
 									Value: "5",
 								},
 							},
-							Resources: v1.ResourceRequirements{
-								Limits: v1.ResourceList{
-									"nvidia.com/gpu": resource.MustParse("1"),
-								},
-							},
 						},
 					},
 				},
@@ -221,20 +212,20 @@ func BuildNulogInferenceService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment 
 	}
 }
 
-func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*v1.Service, *appsv1.Deployment) {
+func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*corev1.Service, *appsv1.Deployment) {
 	labels := map[string]string{
 		"app": "payload-receiver-service",
 	}
-	return &v1.Service{
+	return &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "payload-receiver-service",
 				Labels: map[string]string{
 					"service": "payload-receiver-service",
 				},
 			},
-			Spec: v1.ServiceSpec{
+			Spec: corev1.ServiceSpec{
 				Selector: labels,
-				Ports: []v1.ServicePort{
+				Ports: []corev1.ServicePort{
 					{
 						Port: 80,
 					},
@@ -249,23 +240,23 @@ func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*v1.Service, *app
 				Selector: &metav1.LabelSelector{
 					MatchLabels: labels,
 				},
-				Template: v1.PodTemplateSpec{
+				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: labels,
 					},
-					Spec: v1.PodSpec{
-						Containers: []v1.Container{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
 							{
 								Name:            "payload-receiver-service",
 								Image:           PayloadReceiverServiceImage,
-								ImagePullPolicy: v1.PullAlways,
-								Env: []v1.EnvVar{
+								ImagePullPolicy: corev1.PullAlways,
+								Env: []corev1.EnvVar{
 									{
 										Name:  "NATS_SERVER_URL",
 										Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
 									},
 								},
-								Ports: []v1.ContainerPort{
+								Ports: []corev1.ContainerPort{
 									{
 										ContainerPort: 80,
 									},
@@ -290,17 +281,17 @@ func BuildPreprocessingService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Template: v1.PodTemplateSpec{
+			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name:            "preprocessing-service",
 							Image:           PreprocessingServiceImage,
-							ImagePullPolicy: v1.PullAlways,
-							Env: []v1.EnvVar{
+							ImagePullPolicy: corev1.PullAlways,
+							Env: []corev1.EnvVar{
 								{
 									Name:  "NATS_SERVER_URL",
 									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
@@ -326,76 +317,27 @@ func BuildPreprocessingService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 	}
 }
 
-func BuildTrainingControllerInfra(spec *demov1alpha1.OpniDemo) []client.Object {
-	return []client.Object{
-		&corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "training-controller-rb",
-			},
-		},
-		&rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "training-controller-rb",
-			},
-			Rules: []rbacv1.PolicyRule{
-				{
-					APIGroups: []string{"", "apps", "batch"},
-					Resources: []string{"endpoints", "deployments", "pods", "jobs"},
-					Verbs:     []string{"get", "list", "watch", "create", "delete"},
-				},
-			},
-		},
-		&rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "training-controller-rb",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      "ServiceAccount",
-					Name:      "training-controller-rb",
-					Namespace: spec.Namespace,
-				},
-			},
-			RoleRef: rbacv1.RoleRef{
-				APIGroup: "rbac.authorization.k8s.io",
-				Kind:     "ClusterRole",
-				Name:     "training-controller-rb",
-			},
-		},
-	}
-}
-
-func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
-	nulogTrainImgName := "rancher/nulog-train"
-	nulogTrainImgTag := "v0.1.1"
-	if spec.Spec.NulogTrainImage != "" {
-		nulogTrainImgRef, err := reference.ParseNamed(spec.Spec.NulogTrainImage)
-		if err == nil {
-			namedTagged := reference.TagNameOnly(nulogTrainImgRef).(reference.NamedTagged)
-			nulogTrainImgName = namedTagged.Name()
-			nulogTrainImgTag = namedTagged.Tag()
-		}
-	}
-	labels := map[string]string{"app": "training-controller"}
+func BuildGPUService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
+	labels := map[string]string{"app": "gpu-service"}
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "training-controller",
+			Name: "gpu-service",
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Template: v1.PodTemplateSpec{
+			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
-							Name:            "training-controller",
-							Image:           TrainingControllerImage,
-							ImagePullPolicy: v1.PullAlways,
-							Env: []v1.EnvVar{
+							Name:            "gpu-service-controller",
+							Image:           GPUServiceControllerImage,
+							ImagePullPolicy: corev1.PullAlways,
+							Env: []corev1.EnvVar{
 								{
 									Name:  "NATS_SERVER_URL",
 									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
@@ -413,10 +355,6 @@ func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Value: spec.Spec.MinioSecretKey,
 								},
 								{
-									Name:  "JOB_NAMESPACE",
-									Value: "default",
-								},
-								{
 									Name:  "ES_ENDPOINT",
 									Value: fmt.Sprintf("https://opendistro-es-client-service.%s.svc.cluster.local:9200", spec.Namespace),
 								},
@@ -432,13 +370,49 @@ func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Name:  "NODE_TLS_REJECT_UNAUTHORIZED",
 									Value: "0",
 								},
+							},
+						},
+						{
+							Name:            "gpu-service-worker",
+							Image:           NulogInfServiceImage,
+							ImagePullPolicy: corev1.PullAlways,
+							Env: []corev1.EnvVar{
 								{
-									Name:  "NULOG_TRAIN_IMAGE_NAME",
-									Value: nulogTrainImgName,
+									Name:  "NATS_SERVER_URL",
+									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
 								},
 								{
-									Name:  "NULOG_TRAIN_IMAGE_TAG",
-									Value: nulogTrainImgTag,
+									Name:  "MINIO_ENDPOINT",
+									Value: fmt.Sprintf("http://minio.%s.svc.cluster.local:9000", spec.Namespace),
+								},
+								{
+									Name:  "MINIO_ACCESS_KEY",
+									Value: spec.Spec.MinioAccessKey,
+								},
+								{
+									Name:  "MINIO_SECRET_KEY",
+									Value: spec.Spec.MinioSecretKey,
+								},
+								{
+									Name:  "ES_ENDPOINT",
+									Value: fmt.Sprintf("https://opendistro-es-client-service.%s.svc.cluster.local:9200", spec.Namespace),
+								},
+								{
+									Name:  "MODEL_THRESHOLD",
+									Value: "0.5",
+								},
+								{
+									Name:  "MIN_LOG_TOKENS",
+									Value: "5",
+								},
+								{
+									Name:  "IS_GPU_SERVICE",
+									Value: "True",
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									"nvidia.com/gpu": resource.MustParse("1"),
 								},
 							},
 						},
@@ -449,20 +423,20 @@ func BuildTrainingController(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 	}
 }
 
-func BuildKibanaDashboardPod(spec *demov1alpha1.OpniDemo) *v1.Pod {
-	labels := map[string]string{"app": "training-controller"}
-	return &v1.Pod{
+func BuildKibanaDashboardPod(spec *demov1alpha1.OpniDemo) *corev1.Pod {
+	labels := map[string]string{"app": "preset-kibana-dashboard"}
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   KibanaDashboardPodName,
 			Labels: labels,
 		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
 				{
 					Name:            "kibana-dashboard",
 					Image:           KibanaDashboardImage,
-					ImagePullPolicy: v1.PullAlways,
-					Env: []v1.EnvVar{
+					ImagePullPolicy: corev1.PullAlways,
+					Env: []corev1.EnvVar{
 						{
 							Name:  "ES_ENDPOINT",
 							Value: fmt.Sprintf("https://opendistro-es-client-service.%s.svc.cluster.local:9200", spec.Namespace),
@@ -482,7 +456,7 @@ func BuildKibanaDashboardPod(spec *demov1alpha1.OpniDemo) *v1.Pod {
 					},
 				},
 			},
-			RestartPolicy: v1.RestartPolicyNever,
+			RestartPolicy: corev1.RestartPolicyNever,
 		},
 	}
 }

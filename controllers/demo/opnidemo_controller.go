@@ -274,10 +274,9 @@ func (r *OpniDemoReconciler) reconcileServicesStack(
 	objects = append(objects, svc, dep)
 
 	if opniDemo.Spec.Components.Opni.DeployGpuServices {
-		objects = append(objects, demo.BuildTrainingControllerInfra(opniDemo)...)
 		objects = append(objects,
 			demo.BuildNulogInferenceService(opniDemo),
-			demo.BuildTrainingController(opniDemo),
+			demo.BuildGPUService(opniDemo),
 		)
 	}
 

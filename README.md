@@ -19,24 +19,34 @@ Opni currently features log anomaly detection for Kubernetes.
   * Ability to setup & send alerts (slack/email/etc) based on Opni log insights
 
 ----
-#### Try it out!
+### Install Opni in your Kubernetes cluster:
+* Download the `opnictl` binary from the [latest release](https://github.com/rancher/opni/releases/tag/v0.1.2)
+* Install Opni using `opnictl`
+  ```
+  opnictl install
+  opnictl create demo
+  ```
+  * Will look at `~/.kube/config` for your cluster's kubectl configuration file
+  * Cluster Hardware requirements: 4 vCPUs, 16GB RAM
+    * *2 Nvidia GPUs* required if you want the AI to learn from your workloads (recommended)
+      * Next release (v0.1.3) will only require 1 GPU
 
-**Demo Opni on your own k8s cluster:**
+
+Consume insights from the Opni Dashboard in Kibana. You will need to expose the Kibana service or port forward to do this.
+
+----
+### Demo Opni in a Ubuntu VM with 4 vCPUs & 16 GB RAM
+
 ```
-opnictl install
-opnictl create demo
+curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/main/quickstart_files/install_opni.sh | sh -
 ```
+  * Creates an RKE2 cluster with Opni installed & injects [an anomaly](https://github.com/rancher/opni-docs/blob/22ed683e2b9e810b04561967d65682654350d787/quickstart_files/install_opni.sh#L72)
 
+  * Copy the NodePort from the script output
+    * View insights from the Opni Dashboard in Kibana [IPV4_ADDRESS]:[NODE_PORT]
 
-**Demo Opni on a VM with 4 vCPUs & 16 GB RAM:**
-1. Create a RKE2 cluster with Opni installed
-    ```
-    curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/main/quickstart_files/install_opni.sh | sh -
-    ```
-2. Copy the NodePort from the script output
-    * View insights at [IPV4_ADDRESS]:[NODE_PORT]
-
-To inject an error into the demo cluster press 'Enter' when prompted by the script.  You can view this in the Opni Dashboard.
+  * Experiment with injecting your own control plane failures to see how Opni responds
+    * Can refer to [these failures](https://github.com/rancher/opni-docs/blob/main/examples/fault-injection.md) and this [anomaly injection script](https://github.com/rancher/opni-docs/blob/main/quickstart_files/errors_injection.sh) as starting points
 
 The default username and password is admin/admin You must be in the Global Tenant mode if you are not already. Click on Dashboard, Opni Logs Dashboard.
  
@@ -50,7 +60,8 @@ ____
 
  * v0.1.1 (Released) allows you to view Opni's log anomaly insights **only** on a demo environment created on a VM
  * v0.1.2 (Released) allows you install Opni into your existing Kubernetes cluster and consume log insights from it
- * v0.2.0 (Fall 2021) will introduce AI applied to metrics, kubernetes events, audit logs, and more! 
+ * v0.1.3 (August 2021) - only 1 GPU required, changes to the Opni operator, log anomaly optimizations
+ * v0.2.0 (Fall 2021) will introduce a custom UI, AI applied to metrics, kubernetes events, audit logs, and more! 
 
 
 ![alt text](https://opni-public.s3.us-east-2.amazonaws.com/Opni-user-scenarios.png)

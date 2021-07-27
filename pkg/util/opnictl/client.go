@@ -20,7 +20,8 @@ import (
 // ClientOptions can be passed to some of the functions in this package when
 // creating clients and/or client configurations.
 type ClientOptions struct {
-	overrides *clientcmd.ConfigOverrides
+	overrides    *clientcmd.ConfigOverrides
+	explicitPath string
 }
 
 type ClientOption func(*ClientOptions)
@@ -36,6 +37,12 @@ func (o *ClientOptions) Apply(opts ...ClientOption) {
 func WithConfigOverrides(overrides *clientcmd.ConfigOverrides) ClientOption {
 	return func(o *ClientOptions) {
 		o.overrides = overrides
+	}
+}
+
+func WithExplicitPath(path string) ClientOption {
+	return func(o *ClientOptions) {
+		o.explicitPath = path
 	}
 }
 
@@ -62,6 +69,9 @@ func LoadClientConfig(opts ...ClientOption) *rest.Config {
 	options.Apply(opts...)
 
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	// the loading rules check for empty string in the ExplicitPath, so it is
+	// safe to always set this, it defaults to empty string.
+	rules.ExplicitPath = options.explicitPath
 	kubeconfig, err := rules.Load()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())

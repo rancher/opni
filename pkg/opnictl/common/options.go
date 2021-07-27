@@ -16,6 +16,7 @@ var (
 	TimeoutFlagValue         time.Duration
 	NamespaceFlagValue       string
 	ContextOverrideFlagValue string
+	ExplicitPathFlagValue    string
 	K8sClient                client.Client
 	RestConfig               *rest.Config
 )
@@ -51,5 +52,6 @@ func MaybeContextOverride() []cliutil.ClientOption {
 }
 
 func LoadDefaultClientConfig() {
-	RestConfig, K8sClient = cliutil.CreateClientOrDie(MaybeContextOverride()...)
+	RestConfig, K8sClient = cliutil.CreateClientOrDie(
+		append(MaybeContextOverride(), cliutil.WithExplicitPath(ExplicitPathFlagValue))...)
 }

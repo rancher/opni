@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/opnictl/common"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/rancher/opni/pkg/opnictl/commands"
 	"github.com/rancher/opni/pkg/opnictl/helptopics"
@@ -31,6 +32,8 @@ func BuildRootCmd() *cobra.Command {
 	// Flags
 	rootCmd.PersistentFlags().StringVarP(&common.NamespaceFlagValue, "namespace", "n", "opni-demo",
 		"namespace to install resources to")
+	rootCmd.PersistentFlags().StringVar(&common.ExplicitPathFlagValue, clientcmd.RecommendedConfigPathFlag, "",
+		"explicit path to kubeconfig file")
 	rootCmd.PersistentFlags().StringVar(&common.ContextOverrideFlagValue, "context", "",
 		"Kubernetes context (defaults to current-context)")
 	rootCmd.PersistentFlags().DurationVar(&common.TimeoutFlagValue, "timeout", 5*time.Minute,

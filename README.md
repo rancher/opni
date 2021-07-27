@@ -26,7 +26,7 @@ Opni currently features log anomaly detection for Kubernetes.
   opnictl install
   opnictl create demo
   ```
-  * Will look at `~/.kube/config` for your cluster's kubectl configuration file
+  * Will use your current kubeconfig context
   * Cluster Hardware requirements: 4 vCPUs, 16GB RAM
     * *2 Nvidia GPUs* required if you want the AI to learn from your workloads (recommended)
       * Next release (v0.1.3) will only require 1 GPU

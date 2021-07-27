@@ -76,6 +76,40 @@ spec:
                   endpoint:
                     type: string
                 type: object
+              nats:
+                properties:
+                  authMethod:
+                    type: string
+                  existingAuthSecret:
+                    properties:
+                      fromSecret:
+                        description: SecretReference represents a Secret Reference. It has enough information to retrieve secret in any namespace
+                        properties:
+                          name:
+                            description: Name is unique within a namespace to reference a secret resource.
+                            type: string
+                          namespace:
+                            description: Namespace defines the space within which the secret name must be unique.
+                            type: string
+                        type: object
+                      keys:
+                        properties:
+                          accessKey:
+                            type: string
+                          secretKey:
+                            type: string
+                        type: object
+                    type: object
+                  natsURL:
+                    type: string
+                  password:
+                    type: string
+                  replicas:
+                    format: int32
+                    type: integer
+                  username:
+                    type: string
+                type: object
               services:
                 properties:
                   drain:
@@ -680,6 +714,11 @@ spec:
                 items:
                   type: string
                 type: array
+              nKeyUser:
+                type: string
+              natsReplicas:
+                format: int32
+                type: integer
               state:
                 type: string
             type: object

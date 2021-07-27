@@ -26,6 +26,12 @@ type ImageSpec struct {
 	ImagePullPolicy  *corev1.PullPolicy            `json:"imagePullPolicy,omitempty"`
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
+type NatsAuthMethod string
+
+const (
+	NatsAuthUsername NatsAuthMethod = "username"
+	NatsAuthNkey     NatsAuthMethod = "nkey"
+)
 
 // OpniClusterSpec defines the desired state of OpniCluster
 type OpniClusterSpec struct {
@@ -38,12 +44,15 @@ type OpniClusterSpec struct {
 	Dashboard DashboardSpec `json:"dashboard,omitempty"`
 	Elastic   ElasticSpec   `json:"elastic,omitempty"`
 	Storage   StorageSpec   `json:"storage,omitempty"`
+	Nats      NatsSpec      `json:"nats,omitempty"`
 }
 
 // OpniClusterStatus defines the observed state of OpniCluster
 type OpniClusterStatus struct {
-	Conditions []string `json:"conditions,omitempty"`
-	State      string   `json:"state,omitempty"`
+	Conditions   []string `json:"conditions,omitempty"`
+	State        string   `json:"state,omitempty"`
+	NatsReplicas int32    `json:"natsReplicas,omitempty"`
+	NKeyUser     string   `json:"nKeyUser,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -138,6 +147,15 @@ type CredentialsSpec struct {
 type KeysSpec struct {
 	AccessKey string `json:"accessKey,omitempty"`
 	SecretKey string `json:"secretKey,omitempty"`
+}
+
+type NatsSpec struct {
+	AuthMethod         NatsAuthMethod  `json:"authMethod,omitempty"`
+	Username           string          `json:"username,omitempty"`
+	Password           string          `json:"password,omitempty"`
+	Replicas           *int32          `json:"replicas,omitempty"`
+	ExistingAuthSecret CredentialsSpec `json:"existingAuthSecret,omitempty"`
+	NatsURL            string          `json:"natsURL"`
 }
 
 // +kubebuilder:object:root=true

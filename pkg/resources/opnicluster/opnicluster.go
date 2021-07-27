@@ -37,13 +37,19 @@ func NewReconciler(
 }
 
 func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
+	additionalResources := []resources.Resource{}
 	pretrained := r.pretrainedModels()
+	nats := r.nats()
+
+	additionalResources = append(additionalResources, pretrained...)
+	additionalResources = append(additionalResources, nats...)
+
 	for _, factory := range append([]resources.Resource{
 		r.inferenceDeployment,
 		r.drainDeployment,
 		r.payloadReceiverDeployment,
 		r.preprocessingDeployment,
-	}, pretrained...) {
+	}, additionalResources...) {
 		o, state, err := factory()
 		if err != nil {
 			return nil, errors.WrapIf(err, "failed to create object")
@@ -58,6 +64,13 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		}
 		if result != nil {
 			return result, nil
+		}
+	}
+	// Update the Nats Replica Status once we have successfully reconciled the opniCluster
+	if r.opniCluster.Status.NatsReplicas != *r.getReplicas() {
+		r.opniCluster.Status.NatsReplicas = *r.getReplicas()
+		if err := r.client.Status().Update(r.ctx, r.opniCluster); err != nil {
+			return nil, err
 		}
 	}
 	return nil, nil

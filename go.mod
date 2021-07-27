@@ -13,6 +13,7 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/k3s-io/helm-controller v0.10.0
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
+	github.com/nats-io/nkeys v0.3.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
 	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6 // indirect
@@ -24,7 +25,6 @@ require (
 	github.com/vbauerster/mpb/v7 v7.0.2
 	go.uber.org/atomic v1.8.0
 	go.uber.org/zap v1.17.0
-	golang.org/x/crypto v0.0.0-20210314154223-e6e6c4f2bb5b // indirect
 	golang.org/x/mod v0.4.2
 	golang.org/x/tools v0.1.3 // indirect
 	k8s.io/api v0.21.1

@@ -17,6 +17,14 @@ func (r *Reconciler) serviceLabels(service v1beta1.ServiceKind) map[string]strin
 	}
 }
 
+func (r *Reconciler) natsLabels() map[string]string {
+	return map[string]string{
+		resources.AppNameLabel:    "nats",
+		resources.PartOfLabel:     "opni",
+		resources.OpniClusterName: r.opniCluster.Name,
+	}
+}
+
 func (r *Reconciler) pretrainedModelLabels(modelName string) map[string]string {
 	return map[string]string{
 		resources.PretrainedModelLabel: modelName,

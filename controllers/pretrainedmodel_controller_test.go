@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// random test data
 var hyperparameters = []v1beta1.Hyperparameter{
 	{
 		Name:  "learning_rate",

@@ -98,9 +98,6 @@ func (r *Reconciler) nats() (resourceList []resources.Resource) {
 				return r.natsStatefulSet(), reconciler.StateAbsent, nil
 			},
 			func() (runtime.Object, reconciler.DesiredState, error) {
-				return r.nkeySecret([]byte("empty")), reconciler.StateAbsent, nil
-			},
-			func() (runtime.Object, reconciler.DesiredState, error) {
 				return &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("%s-nats-config", r.opniCluster.Name),
@@ -353,21 +350,6 @@ func (r *Reconciler) natsConfig() (*corev1.Secret, error) {
 	return secret, nil
 }
 
-func (r *Reconciler) nkeySecret(nKeySeed []byte) *corev1.Secret {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-nats-nkey", r.opniCluster.Name),
-			Namespace: r.opniCluster.Namespace,
-			Labels:    r.natsLabels(),
-		},
-		Data: map[string][]byte{
-			"seed": nKeySeed,
-		},
-	}
-	ctrl.SetControllerReference(r.opniCluster, secret, r.client.Scheme())
-	return secret
-}
-
 func (r *Reconciler) natsHeadlessService() *corev1.Service {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -450,6 +432,10 @@ func (r *Reconciler) getReplicas() *int32 {
 	return r.opniCluster.Spec.Nats.Replicas
 }
 
+// getNKeyUser will check if there is already a nkey seed stored in a secret
+// it will check if there is a publickey, and return it or generate a new public key.
+// If there is no seed it will generate a new keypair, store the seed, and return the
+// public key
 func (r *Reconciler) getNKeyUser() (string, error) {
 	var seed []byte
 	var err error
@@ -524,9 +510,12 @@ func (r *Reconciler) getNKeyUser() (string, error) {
 		if err != nil {
 			return "", nil
 		}
-		r.opniCluster.Status.NKeyUser = publicKey
-		r.client.Status().Update(r.ctx, r.opniCluster)
-		return user.PublicKey()
+		publicKey, err = user.PublicKey()
+		if err == nil {
+			r.opniCluster.Status.NKeyUser = publicKey
+			r.client.Status().Update(r.ctx, r.opniCluster)
+		}
+		return publicKey, err
 	}
 
 	return r.opniCluster.Status.NKeyUser, nil

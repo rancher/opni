@@ -69,6 +69,9 @@ func makeOpniCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 		Spec: v1beta1.OpniClusterSpec{
 			Version:     "test",
 			DefaultRepo: pointer.String("docker.biz/rancher"), // nonexistent repo
+			Nats: v1beta1.NatsSpec{
+				AuthMethod: v1beta1.NatsAuthNkey,
+			},
 			Services: v1beta1.ServicesSpec{
 				Inference: v1beta1.InferenceServiceSpec{
 					ImageSpec: imageSpec,
@@ -574,6 +577,7 @@ var _ = FDescribe("OpniCluster Controller", func() {
 				return len(deployments.Items)
 			}).Should(Equal(1))
 			By("deleting the model from the opnicluster")
+			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
 			cluster.Spec.Services.Inference.PretrainedModels =
 				cluster.Spec.Services.Inference.PretrainedModels[:0]
 			Expect(k8sClient.Update(context.Background(), cluster)).To(Succeed())

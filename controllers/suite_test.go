@@ -19,6 +19,7 @@ package controllers
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -41,6 +42,12 @@ var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
 
 func TestAPIs(t *testing.T) {
+	SetDefaultEventuallyTimeout(10 * time.Second)
+	// SetDefaultEventuallyTimeout(24 * time.Hour) // For debugging
+	SetDefaultEventuallyPollingInterval(100 * time.Millisecond)
+	SetDefaultConsistentlyDuration(4 * time.Second)
+	SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Controller Suite")
 }

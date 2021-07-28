@@ -48,15 +48,11 @@ func (r *PretrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	rec := pretrainedmodel.NewReconciler(ctx, r, model,
+		reconciler.WithEnableRecreateWorkload(),
 		reconciler.WithScheme(r.scheme),
 	)
 
-	op := util.LoadResult(rec.Reconcile())
-	if op.ShouldRequeue() {
-		return op.Result()
-	}
-
-	return op.Result()
+	return util.LoadResult(rec.Reconcile()).Result()
 }
 
 // SetupWithManager sets up the controller with the Manager.

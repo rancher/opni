@@ -36,9 +36,17 @@ func NewReconciler(
 	}
 }
 
-func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
+func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
+	lg := log.FromContext(r.ctx)
+
 	additionalResources := []resources.Resource{}
-	pretrained := r.pretrainedModels()
+	pretrained, err := r.pretrainedModels()
+	if err != nil {
+		retErr = err
+		lg.Error(err, "Error when reconciling pretrained models, retrying.")
+		// Keep going, we can reconcile the rest of the deployments and come back
+		// to this later.
+	}
 	nats := r.nats()
 
 	additionalResources = append(additionalResources, pretrained...)
@@ -63,7 +71,7 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 				"resource", o.GetObjectKind().GroupVersionKind())
 		}
 		if result != nil {
-			return result, nil
+			retResult = result
 		}
 	}
 	// Update the Nats Replica Status once we have successfully reconciled the opniCluster

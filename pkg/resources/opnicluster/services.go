@@ -1,6 +1,7 @@
 package opnicluster
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -16,11 +17,24 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource) {
+var ErrPretrainedModelNotReady = errors.New("Referenced PretrainedModel does not exist or is not ready")
+
+func resourceAbsent(obj client.Object) resources.Resource {
+	return func() (runtime.Object, reconciler.DesiredState, error) {
+		return obj, reconciler.StateAbsent, nil
+	}
+}
+
+func resourcePresent(obj client.Object) resources.Resource {
+	return func() (runtime.Object, reconciler.DesiredState, error) {
+		return obj, reconciler.StatePresent, nil
+	}
+}
+
+func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retError error) {
 	resourceList = []resources.Resource{}
 	lg := logr.FromContext(r.ctx)
 	requirement, err := labels.NewRequirement(
@@ -37,6 +51,7 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource) {
 		LabelSelector: labels.NewSelector().Add(*requirement),
 	})
 	if err != nil {
+		retError = err
 		lg.Error(err, "failed to look up existing deployments")
 		return
 	}
@@ -44,36 +59,37 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource) {
 	// Given a list of desired models, ensure the corresponding deployments exist.
 	// If there are existing deployments that have been removed from the
 	// list of desired models, mark them as deleted.
-	models := map[string]*appsv1.Deployment{}
+	models := map[string]v1beta1.PretrainedModelReference{}
 	desiredModels := r.opniCluster.Spec.Services.Inference.PretrainedModels
 	for _, model := range desiredModels {
-		models[model.Name] = nil
+		models[model.Name] = model
 	}
+	existing := map[string]struct{}{}
 
 	for _, deployment := range deployments.Items {
-		d := deployment.DeepCopy()
-		if _, ok := models[d.Name]; ok {
-			// Model is still desired
-			models[d.Name] = d
-			resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
-				return d, reconciler.StatePresent, nil
-			})
+		// If the deployment is not in the list of desired models, mark it as deleted.
+		// Otherwise, simply append the deployment to the list of resources which
+		// should be present.
+		modelName := deployment.Labels[resources.PretrainedModelLabel]
+		existing[modelName] = struct{}{}
+		if _, ok := models[modelName]; !ok {
+			lg.Info("deleting pretrained model deployment", "model", modelName)
+			resourceList = append(resourceList, resourceAbsent(deployment.DeepCopy()))
 		} else {
-			// Model is no longer desired
-			resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
-				return d, reconciler.StateAbsent, nil
-			})
+			resourceList = append(resourceList, resourcePresent(deployment.DeepCopy()))
 		}
 	}
 
 	// Create new deployments for any that don't exist yet
-	for _, model := range desiredModels {
-		if _, ok := models[model.Name]; !ok {
-			deployment, err := r.pretrainedModelDeployment(model)
+	for k, v := range models {
+		if _, ok := existing[k]; !ok {
+			deployment, err := r.pretrainedModelDeployment(v)
 			if err != nil {
 				lg.Error(err, "failed to create pretrained model resource")
+				retError = err
 				continue
 			}
+			lg.Info("creating pretrained model deployment", "model", k)
 			resourceList = append(resourceList, deployment)
 		}
 	}
@@ -112,6 +128,15 @@ func (r *Reconciler) pretrainedModelDeployment(
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("inference-service-%s", model.Name),
 				Namespace: r.opniCluster.Namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: r.opniCluster.APIVersion,
+						Kind:       r.opniCluster.Kind,
+						Name:       r.opniCluster.Name,
+						UID:        r.opniCluster.UID,
+					},
+				},
+				Labels: labels,
 			},
 			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{
@@ -150,7 +175,6 @@ func (r *Reconciler) pretrainedModelDeployment(
 			},
 		}
 		insertHyperparametersVolume(deployment, &model)
-		ctrl.SetControllerReference(r.opniCluster, deployment, r.client.Scheme())
 		return deployment, reconciler.StatePresent, nil
 	}, nil
 }
@@ -219,6 +243,15 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
 			Namespace: r.opniCluster.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
+			Labels: labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -246,7 +279,6 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 			},
 		},
 	}
-	ctrl.SetControllerReference(r.opniCluster, deployment, r.client.Scheme())
 	return deployment
 }
 
@@ -258,6 +290,7 @@ func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredSt
 				"nvidia.com/gpu": resource.MustParse("1"),
 			},
 		}
+	deployment.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
 	return deployment, reconciler.StatePresent, nil
 }
 
@@ -278,7 +311,7 @@ func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.Desir
 
 func insertHyperparametersVolume(deployment *appsv1.Deployment, model *v1beta1.PretrainedModel) {
 	volume := corev1.Volume{
-		Name: "config-volume",
+		Name: "hyperparameters",
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{

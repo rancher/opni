@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func (r *Reconciler) hyperparameters() (runtime.Object, reconciler.DesiredState, error) {
@@ -24,11 +23,18 @@ func (r *Reconciler) hyperparameters() (runtime.Object, reconciler.DesiredState,
 				resources.PartOfLabel:          "opni",
 				resources.PretrainedModelLabel: r.model.Name,
 			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.model.APIVersion,
+					Kind:       r.model.Kind,
+					Name:       r.model.Name,
+					UID:        r.model.UID,
+				},
+			},
 		},
 		Data: map[string]string{
 			"hyperparameters.json": string(data),
 		},
 	}
-	ctrl.SetControllerReference(r.model, cm, r.client.Scheme())
 	return cm, reconciler.StatePresent, nil
 }

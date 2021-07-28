@@ -87,7 +87,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Name:      laName,
 					Namespace: laNamespace,
 				}, &logadapter)
-			}, timeout, interval).Should(BeNil())
+			}).Should(BeNil())
 		})
 		It("should create a logging", func() {
 			Eventually(func() error {
@@ -96,7 +96,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Name:      laName,
 					Namespace: laNamespace,
 				}, &logging)
-			}, timeout, interval).Should(BeNil())
+			}).Should(BeNil())
 			Expect(getOwnerReferenceUID(&loggingv1beta1.Logging{}, types.NamespacedName{
 				Name:      laName,
 				Namespace: laNamespace,
@@ -113,7 +113,7 @@ var _ = Describe("LogAdapter Controller", func() {
 						Name:      laName,
 						Namespace: laNamespace,
 					}, &logadapter)
-				}, timeout, interval).Should(BeNil())
+				}).Should(BeNil())
 			})
 			It("should not create a logging", func() {
 				Eventually(func() error {
@@ -122,7 +122,7 @@ var _ = Describe("LogAdapter Controller", func() {
 						Name:      laName,
 						Namespace: laNamespace,
 					}, &logging)
-				}, timeout, interval).ShouldNot(BeNil())
+				}).ShouldNot(BeNil())
 			})
 		})
 		Context("with the RKE provider", func() {
@@ -152,7 +152,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Name:      fmt.Sprintf("%s-rke-aggregator", laName),
 							Namespace: laNamespace,
 						}, &ds)
-					}, timeout, interval).Should(BeNil())
+					}).Should(BeNil())
 					Expect(getOwnerReferenceUID(&appsv1.DaemonSet{}, types.NamespacedName{
 						Name:      fmt.Sprintf("%s-rke-aggregator", laName),
 						Namespace: laNamespace,
@@ -174,7 +174,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							return ""
 						}
 						return "config map has incorrect log level"
-					}, timeout, interval).Should(BeEmpty())
+					}).Should(BeEmpty())
 					Expect(getOwnerReferenceUID(&corev1.ConfigMap{}, types.NamespacedName{
 						Name:      fmt.Sprintf("%s-rke", laName),
 						Namespace: laNamespace,
@@ -201,7 +201,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							return ""
 						}
 						return "config map has incorrect log level"
-					}, timeout, interval).Should(BeEmpty())
+					}).Should(BeEmpty())
 					Expect(getOwnerReferenceUID(&corev1.ConfigMap{}, types.NamespacedName{
 						Name:      fmt.Sprintf("%s-rke", laName),
 						Namespace: laNamespace,
@@ -219,7 +219,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Name:      laName,
 							Namespace: laNamespace,
 						}, &logadapter)
-					}, timeout, interval).Should(BeNil())
+					}).Should(BeNil())
 				})
 				XIt("should not create a daemonset", func() {
 					Consistently(func() bool {
@@ -229,7 +229,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Namespace: laNamespace,
 						}, &ds)
 						return errors.IsNotFound(err)
-					}, consistentlyTimeout, interval).Should(BeTrue())
+					}).Should(BeTrue())
 				})
 				XIt("should not create a configmap", func() {
 					Consistently(func() bool {
@@ -239,7 +239,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Namespace: laNamespace,
 						}, &configmap)
 						return errors.IsNotFound(err)
-					}, consistentlyTimeout, interval).Should(BeTrue())
+					}).Should(BeTrue())
 				})
 			})
 		})
@@ -270,7 +270,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Name:      fmt.Sprintf("%s-rke2-journald-aggregator", laName),
 							Namespace: laNamespace,
 						}, &ds)
-					}, timeout, interval).Should(BeNil())
+					}).Should(BeNil())
 					Expect(getOwnerReferenceUID(&appsv1.DaemonSet{}, types.NamespacedName{
 						Name:      fmt.Sprintf("%s-rke2-journald-aggregator", laName),
 						Namespace: laNamespace,
@@ -284,7 +284,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Name:      fmt.Sprintf("%s-rke2-journald-aggregator", laName),
 							Namespace: laNamespace,
 						}, &ds)
-					}, timeout, interval).Should(BeNil())
+					}).Should(BeNil())
 					Expect(ds.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
 						Name: "journal",
 						VolumeSource: corev1.VolumeSource{
@@ -314,7 +314,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							return ""
 						}
 						return "configmap has incorrect log path"
-					}, timeout, interval).Should(BeEmpty())
+					}).Should(BeEmpty())
 				})
 			})
 			When("a log path is specified", func() {
@@ -335,7 +335,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Name:      fmt.Sprintf("%s-rke2-journald-aggregator", laName),
 							Namespace: laNamespace,
 						}, &ds)
-					}, timeout, interval).Should(BeNil())
+					}).Should(BeNil())
 					Expect(ds.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
 						Name: "journal",
 						VolumeSource: corev1.VolumeSource{
@@ -365,7 +365,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							return ""
 						}
 						return "configmap has incorrect log path"
-					}, timeout, interval).Should(BeEmpty())
+					}).Should(BeEmpty())
 				})
 			})
 			When("the OpniCluster does not exist", func() {
@@ -379,7 +379,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Name:      laName,
 							Namespace: laNamespace,
 						}, &logadapter)
-					}, timeout, interval).Should(BeNil())
+					}).Should(BeNil())
 				})
 				XIt("should not create a daemonset", func() {
 					Consistently(func() bool {
@@ -389,7 +389,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Namespace: laNamespace,
 						}, &ds)
 						return errors.IsNotFound(err)
-					}, consistentlyTimeout, interval).Should(BeTrue())
+					}).Should(BeTrue())
 				})
 				XIt("should not create a configmap", func() {
 					Eventually(func() bool {
@@ -399,7 +399,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Namespace: laNamespace,
 						}, &configmap)
 						return errors.IsNotFound(err)
-					}, consistentlyTimeout, interval).Should(BeTrue())
+					}).Should(BeTrue())
 				})
 			})
 		})
@@ -436,7 +436,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Namespace: laNamespace,
 						}, &logging)
 						return errors.IsNotFound(err)
-					}, consistentlyTimeout, interval).Should(BeTrue())
+					}).Should(BeTrue())
 				})
 				When("a log path isn't specified", func() {
 					It("should create a daemonset", func() {
@@ -446,7 +446,7 @@ var _ = Describe("LogAdapter Controller", func() {
 								Name:      fmt.Sprintf("%s-k3s-journald-aggregator", laName),
 								Namespace: laNamespace,
 							}, &ds)
-						}, timeout, interval).Should(BeNil())
+						}).Should(BeNil())
 						Expect(getOwnerReferenceUID(&appsv1.DaemonSet{}, types.NamespacedName{
 							Name:      fmt.Sprintf("%s-k3s-journald-aggregator", laName),
 							Namespace: laNamespace,
@@ -460,7 +460,7 @@ var _ = Describe("LogAdapter Controller", func() {
 								Name:      fmt.Sprintf("%s-k3s-journald-aggregator", laName),
 								Namespace: laNamespace,
 							}, &ds)
-						}, timeout, interval).Should(BeNil())
+						}).Should(BeNil())
 						Expect(ds.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
 							Name: "journal",
 							VolumeSource: corev1.VolumeSource{
@@ -490,7 +490,7 @@ var _ = Describe("LogAdapter Controller", func() {
 								return ""
 							}
 							return "configmap has incorrect log path"
-						}, timeout, interval).Should(BeEmpty())
+						}).Should(BeEmpty())
 					})
 				})
 				When("a log path is specified", func() {
@@ -509,7 +509,7 @@ var _ = Describe("LogAdapter Controller", func() {
 								Name:      fmt.Sprintf("%s-k3s-journald-aggregator", laName),
 								Namespace: laNamespace,
 							}, &ds)
-						}, timeout, interval).Should(BeNil())
+						}).Should(BeNil())
 						Expect(ds.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
 							Name: "journal",
 							VolumeSource: corev1.VolumeSource{
@@ -539,7 +539,7 @@ var _ = Describe("LogAdapter Controller", func() {
 								return ""
 							}
 							return "configmap has incorrect log path"
-						}, timeout, interval).Should(BeEmpty())
+						}).Should(BeEmpty())
 					})
 				})
 			})
@@ -565,7 +565,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Namespace: laNamespace,
 						}, &ds)
 						return errors.IsNotFound(err)
-					}, consistentlyTimeout, interval).Should(BeTrue())
+					}).Should(BeTrue())
 				})
 				It("should not create a configmap", func() {
 					Eventually(func() bool {
@@ -575,7 +575,7 @@ var _ = Describe("LogAdapter Controller", func() {
 							Namespace: laNamespace,
 						}, &configmap)
 						return errors.IsNotFound(err)
-					}, consistentlyTimeout, interval).Should(BeTrue())
+					}).Should(BeTrue())
 				})
 				When("a log path isn't specified", func() {
 					It("should create a logging with the default path", func() {
@@ -585,7 +585,7 @@ var _ = Describe("LogAdapter Controller", func() {
 								Name:      fmt.Sprintf("%s-k3s", laName),
 								Namespace: laNamespace,
 							}, &logging)
-						}, timeout, interval).Should(BeNil())
+						}).Should(BeNil())
 						Expect(logging.Spec.FluentbitSpec.ExtraVolumeMounts).To(ContainElement(&loggingv1beta1.VolumeMount{
 							Source:      "/var/log",
 							Destination: "/var/log",
@@ -605,7 +605,7 @@ var _ = Describe("LogAdapter Controller", func() {
 								Name:      fmt.Sprintf("%s-k3s", laName),
 								Namespace: laNamespace,
 							}, &logging)
-						}, timeout, interval).Should(BeNil())
+						}).Should(BeNil())
 						Expect(logging.Spec.FluentbitSpec.ExtraVolumeMounts).To(ContainElement(&loggingv1beta1.VolumeMount{
 							Source:      openrcLogDir,
 							Destination: openrcLogDir,

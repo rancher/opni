@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -18,7 +19,31 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 )
 
-var _ = FDescribe("OpniCluster Controller", func() {
+func makeTestNamespace() string {
+	for i := 0; i < 100; i++ {
+		ns := fmt.Sprintf("test-%d", i)
+		if err := k8sClient.Create(
+			context.Background(),
+			&corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: ns,
+				},
+			},
+		); err != nil {
+			continue
+		}
+		return ns
+	}
+	panic("could not create namespace")
+}
+
+type opniClusterOpts struct {
+	Name      string
+	Namespace string
+	Models    []string
+}
+
+func makeOpniCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 	imageSpec := v1beta1.ImageSpec{
 		ImagePullPolicy: (*corev1.PullPolicy)(pointer.String(string(corev1.PullNever))),
 		ImagePullSecrets: []corev1.LocalObjectReference{
@@ -27,14 +52,19 @@ var _ = FDescribe("OpniCluster Controller", func() {
 			},
 		},
 	}
-	cluster := &v1beta1.OpniCluster{
+	return &v1beta1.OpniCluster{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1beta1.GroupVersion.String(),
 			Kind:       "OpniCluster",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opnicluster-controller-test1",
-			Namespace: crNamespace,
+			Name: opts.Name,
+			Namespace: func() string {
+				if opts.Namespace == "" {
+					return makeTestNamespace()
+				}
+				return opts.Namespace
+			}(),
 		},
 		Spec: v1beta1.OpniClusterSpec{
 			Version:     "test",
@@ -42,6 +72,15 @@ var _ = FDescribe("OpniCluster Controller", func() {
 			Services: v1beta1.ServicesSpec{
 				Inference: v1beta1.InferenceServiceSpec{
 					ImageSpec: imageSpec,
+					PretrainedModels: func() []v1beta1.PretrainedModelReference {
+						var ret []v1beta1.PretrainedModelReference
+						for _, model := range opts.Models {
+							ret = append(ret, v1beta1.PretrainedModelReference{
+								Name: model,
+							})
+						}
+						return ret
+					}(),
 				},
 				Drain: v1beta1.DrainServiceSpec{
 					ImageSpec: imageSpec,
@@ -57,16 +96,23 @@ var _ = FDescribe("OpniCluster Controller", func() {
 			},
 		},
 	}
+}
+
+var _ = FDescribe("OpniCluster Controller", func() {
 	When("creating an opnicluster ", func() {
+		var cluster *v1beta1.OpniCluster
 		It("should succeed", func() {
+			cluster = makeOpniCluster(opniClusterOpts{
+				Name: "test",
+			})
 			err := k8sClient.Create(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), types.NamespacedName{
 					Name:      cluster.Name,
-					Namespace: crNamespace,
+					Namespace: cluster.Namespace,
 				}, cluster)
-			}, timeout, interval).Should(Succeed())
+			}).Should(Succeed())
 			Expect(cluster.TypeMeta.Kind).To(Equal("OpniCluster"))
 		})
 		It("should create the drain service deployment", func() {
@@ -74,9 +120,9 @@ var _ = FDescribe("OpniCluster Controller", func() {
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), types.NamespacedName{
 					Name:      "drain-service",
-					Namespace: crNamespace,
+					Namespace: cluster.Namespace,
 				}, deployment)
-			}, timeout, interval).Should(Succeed())
+			}).Should(Succeed())
 			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(
 				Equal("docker.biz/rancher/opni-drain-service:test"))
 			Expect(deployment.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(
@@ -89,9 +135,9 @@ var _ = FDescribe("OpniCluster Controller", func() {
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), types.NamespacedName{
 					Name:      "inference-service",
-					Namespace: crNamespace,
+					Namespace: cluster.Namespace,
 				}, deployment)
-			}, timeout, interval).Should(Succeed())
+			}).Should(Succeed())
 			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(
 				Equal("docker.biz/rancher/opni-inference-service:test"))
 			Expect(deployment.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(
@@ -104,9 +150,9 @@ var _ = FDescribe("OpniCluster Controller", func() {
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), types.NamespacedName{
 					Name:      "preprocessing-service",
-					Namespace: crNamespace,
+					Namespace: cluster.Namespace,
 				}, deployment)
-			}, timeout, interval).Should(Succeed())
+			}).Should(Succeed())
 			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(
 				Equal("docker.biz/rancher/opni-preprocessing-service:test"))
 			Expect(deployment.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(
@@ -119,9 +165,9 @@ var _ = FDescribe("OpniCluster Controller", func() {
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), types.NamespacedName{
 					Name:      "payload-receiver-service",
-					Namespace: crNamespace,
+					Namespace: cluster.Namespace,
 				}, deployment)
-			}, timeout, interval).Should(Succeed())
+			}).Should(Succeed())
 			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("foo"))
 		})
 		It("should apply the correct labels to service pods", func() {
@@ -134,7 +180,7 @@ var _ = FDescribe("OpniCluster Controller", func() {
 				deployment := &appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      kind.ServiceName(),
-						Namespace: crNamespace,
+						Namespace: cluster.Namespace,
 					},
 				}
 				Eventually(func() error {
@@ -142,7 +188,12 @@ var _ = FDescribe("OpniCluster Controller", func() {
 						Name:      deployment.Name,
 						Namespace: deployment.Namespace,
 					}, deployment)
-				}, timeout, interval).Should(Succeed())
+				}).Should(Succeed())
+				Expect(deployment.Labels).To(And(
+					HaveKeyWithValue(resources.AppNameLabel, kind.ServiceName()),
+					HaveKeyWithValue(resources.ServiceLabel, kind.String()),
+					HaveKeyWithValue(resources.PartOfLabel, "opni"),
+				))
 				Expect(deployment.Spec.Template.Labels).To(And(
 					HaveKeyWithValue(resources.AppNameLabel, kind.ServiceName()),
 					HaveKeyWithValue(resources.ServiceLabel, kind.String()),
@@ -160,7 +211,7 @@ var _ = FDescribe("OpniCluster Controller", func() {
 				deployment := &appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      kind.ServiceName(),
-						Namespace: crNamespace,
+						Namespace: cluster.Namespace,
 					},
 				}
 				Eventually(func() error {
@@ -168,7 +219,7 @@ var _ = FDescribe("OpniCluster Controller", func() {
 						Name:      deployment.Name,
 						Namespace: deployment.Namespace,
 					}, deployment)
-				}, timeout, interval).Should(Succeed())
+				}).Should(Succeed())
 				Expect(deployment).To(BeOwnedBy(cluster))
 			}
 		})
@@ -179,39 +230,404 @@ var _ = FDescribe("OpniCluster Controller", func() {
 				resources.PretrainedModelLabel, selection.Exists, nil)
 			Expect(err).NotTo(HaveOccurred())
 			k8sClient.List(context.Background(), deployments, &client.ListOptions{
+				Namespace:     cluster.Namespace,
 				LabelSelector: labels.NewSelector().Add(*req),
 			})
 			Expect(deployments.Items).To(BeEmpty())
 		})
 	})
+
+	var clusterWithPretrainedModel *v1beta1.OpniCluster
+	var pretrainedModelNS string
 	When("creating a pretrained model", func() {
 		// Not testing that the pretrained model controller works here, as that
 		// is tested in the pretrained model controller test.
 		It("should succeed", func() {
-
+			pretrainedModelNS = makeTestNamespace()
+			Expect(k8sClient.Create(context.Background(), &v1beta1.PretrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-model",
+					Namespace: pretrainedModelNS,
+				},
+				Spec: v1beta1.PretrainedModelSpec{
+					ModelSource: v1beta1.ModelSource{
+						HTTP: &v1beta1.HTTPSource{
+							URL: "https://foo.bar/model.tar.gz",
+						},
+					},
+					Hyperparameters: hyperparameters,
+				},
+			})).To(Succeed())
 		})
 	})
 	When("referencing the pretrained model in an opnicluster", func() {
-		It("should succeed", func() {})
-		It("should create an inference service for the pretrained model", func() {})
+		It("should succeed", func() {
+			clusterWithPretrainedModel = makeOpniCluster(opniClusterOpts{
+				Name:      "test-cluster",
+				Namespace: pretrainedModelNS,
+				Models:    []string{"test-model"},
+			})
+			Expect(k8sClient.Create(context.Background(), clusterWithPretrainedModel)).To(Succeed())
+		})
+		It("should create an inference service for the pretrained model", func() {
+			deployment := &appsv1.Deployment{}
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      "inference-service-test-model",
+					Namespace: clusterWithPretrainedModel.Namespace,
+				}, deployment)
+			}).Should(Succeed())
+			Expect(deployment.Spec.Template.Spec.InitContainers).To(HaveLen(1))
+			Expect(deployment.Spec.Template.Spec.InitContainers[0].Image).
+				To(Equal("docker.io/curlimages/curl:latest"))
+			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+		})
 	})
 	Context("pretrained models should function in various configurations", func() {
-		It("should work with multiple copies of a model specified", func() {})
-		It("should work with multiple different models", func() {})
-		It("should work with models with different source configurations", func() {})
+		It("should ignore duplicate model names", func() {
+			cluster := makeOpniCluster(opniClusterOpts{
+				Name: "test-model",
+				Models: []string{
+					"test-model",
+					"test-model",
+				},
+			})
+			Expect(k8sClient.Create(context.Background(), &v1beta1.PretrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-model",
+					Namespace: cluster.Namespace,
+				},
+				Spec: v1beta1.PretrainedModelSpec{
+					ModelSource: v1beta1.ModelSource{
+						HTTP: &v1beta1.HTTPSource{
+							URL: "https://foo.bar/model.tar.gz",
+						},
+					},
+					Hyperparameters: hyperparameters,
+				},
+			})).To(Succeed())
+			// create cluster with 2 copies of the same model
+			Expect(k8sClient.Create(context.Background(), cluster)).To(Succeed())
+
+			// check that the second instance is ignored
+			req, err := labels.NewRequirement(
+				resources.PretrainedModelLabel, selection.In, []string{"test-model"})
+			Expect(err).NotTo(HaveOccurred())
+			deployments := &appsv1.DeploymentList{}
+			Eventually(func() int {
+				k8sClient.List(context.Background(), deployments, &client.ListOptions{
+					Namespace:     cluster.Namespace,
+					LabelSelector: labels.NewSelector().Add(*req),
+				})
+				return len(deployments.Items)
+			}).Should(Equal(1))
+		})
+		It("should work with multiple different models", func() {
+			ns := makeTestNamespace()
+			// Create 2 different pretrained models
+			model1 := v1beta1.PretrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-model-1",
+					Namespace: ns,
+				},
+				Spec: v1beta1.PretrainedModelSpec{
+					ModelSource: v1beta1.ModelSource{
+						HTTP: &v1beta1.HTTPSource{
+							URL: "https://foo.bar/model.tar.gz",
+						},
+					},
+					Hyperparameters: []v1beta1.Hyperparameter{
+						{
+							Name:  "foo",
+							Value: "0.1",
+						},
+					},
+				},
+			}
+			model2 := v1beta1.PretrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-model-2",
+					Namespace: ns,
+				},
+				Spec: v1beta1.PretrainedModelSpec{
+					ModelSource: v1beta1.ModelSource{
+						HTTP: &v1beta1.HTTPSource{
+							URL: "https://bar.baz/model.tar.gz",
+						},
+					},
+					Hyperparameters: []v1beta1.Hyperparameter{
+						{
+							Name:  "bar",
+							Value: "0.2",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), &model1)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), &model2)).To(Succeed())
+			// Create cluster with both models
+			cluster := makeOpniCluster(opniClusterOpts{
+				Name:      "test-model-3",
+				Namespace: ns,
+				Models: []string{
+					"test-model-1",
+					"test-model-2",
+				},
+			})
+			Expect(k8sClient.Create(context.Background(), cluster)).To(Succeed())
+			// check that the two different models are created
+			req, err := labels.NewRequirement(
+				resources.PretrainedModelLabel, selection.In, []string{
+					"test-model-1",
+					"test-model-2",
+				})
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(func() int {
+				deployments := &appsv1.DeploymentList{}
+				k8sClient.List(context.Background(), deployments, &client.ListOptions{
+					Namespace:     ns,
+					LabelSelector: labels.NewSelector().Add(*req),
+				})
+				return len(deployments.Items)
+			}).Should(Equal(2))
+		})
+		It("should work with models with different source configurations", func() {
+			ns := makeTestNamespace()
+			// Create 2 different pretrained models
+			model1 := v1beta1.PretrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-model-1",
+					Namespace: ns,
+				},
+				Spec: v1beta1.PretrainedModelSpec{
+					ModelSource: v1beta1.ModelSource{
+						HTTP: &v1beta1.HTTPSource{
+							URL: "https://foo.bar/model.tar.gz",
+						},
+					},
+					Hyperparameters: []v1beta1.Hyperparameter{
+						{
+							Name:  "foo",
+							Value: "0.1",
+						},
+					},
+				},
+			}
+			model2 := v1beta1.PretrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-model-2",
+					Namespace: ns,
+				},
+				Spec: v1beta1.PretrainedModelSpec{
+					ModelSource: v1beta1.ModelSource{
+						Container: &v1beta1.ContainerSource{
+							Image: "gcr.io/foo/bar:latest",
+						},
+					},
+					Hyperparameters: []v1beta1.Hyperparameter{
+						{
+							Name:  "baz",
+							Value: "0.3",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), &model1)).To(Succeed())
+			Expect(k8sClient.Create(context.Background(), &model2)).To(Succeed())
+			// Create cluster with both models
+			cluster := makeOpniCluster(opniClusterOpts{
+				Name:      "test-cluster",
+				Namespace: ns,
+				Models: []string{
+					"test-model-1",
+					"test-model-2",
+				},
+			})
+			Expect(k8sClient.Create(context.Background(), cluster)).To(Succeed())
+			// check that the two different models are created
+			req, err := labels.NewRequirement(
+				resources.PretrainedModelLabel, selection.In, []string{
+					"test-model-1",
+					"test-model-2",
+				})
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(func() int {
+				deployments := &appsv1.DeploymentList{}
+				k8sClient.List(context.Background(), deployments, &client.ListOptions{
+					Namespace:     ns,
+					LabelSelector: labels.NewSelector().Add(*req),
+				})
+				return len(deployments.Items)
+			}).Should(Equal(2))
+		})
 	})
+	var namespaceFromPreviousTest string
 	When("adding pretrained models to an existing opnicluster", func() {
-		It("should succeed", func() {})
-		It("should create an inference service for the pretrained model", func() {})
+		It("should reconcile the pretrained model deployments", func() {
+			namespaceFromPreviousTest = makeTestNamespace() // this will make sense later
+			By("adding an opnicluster without any models")
+			cluster := makeOpniCluster(opniClusterOpts{
+				Name:      "test-cluster",
+				Namespace: namespaceFromPreviousTest,
+			})
+			model := v1beta1.PretrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-model",
+					Namespace: cluster.Namespace,
+				},
+				Spec: v1beta1.PretrainedModelSpec{
+					ModelSource: v1beta1.ModelSource{
+						HTTP: &v1beta1.HTTPSource{
+							URL: "https://foo.bar/model.tar.gz",
+						},
+					},
+					Hyperparameters: []v1beta1.Hyperparameter{
+						{
+							Name:  "foo",
+							Value: "0.1",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), cluster)).To(Succeed())
+			By("creating a model")
+			Expect(k8sClient.Create(context.Background(), &model)).To(Succeed())
+			By("adding the model to the opnicluster")
+			// get the latest updates to the object
+			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
+			cluster.Spec.Services.Inference.PretrainedModels =
+				append(cluster.Spec.Services.Inference.PretrainedModels,
+					v1beta1.PretrainedModelReference{
+						Name: model.Name,
+					},
+				)
+			Expect(k8sClient.Update(context.Background(), cluster)).To(Succeed())
+
+			By("verifying the pretrained model deployment is created")
+			req, err := labels.NewRequirement(
+				resources.PretrainedModelLabel, selection.In, []string{
+					model.Name,
+				})
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(func() int {
+				deployments := &appsv1.DeploymentList{}
+				k8sClient.List(context.Background(), deployments, &client.ListOptions{
+					Namespace:     cluster.Namespace,
+					LabelSelector: labels.NewSelector().Add(*req),
+				})
+				return len(deployments.Items)
+			}).Should(Equal(1))
+		})
 	})
 	When("deleting a pretrained model from an existing opnicluster", func() {
-		It("should succeed", func() {})
-		It("should delete the inference service", func() {})
+		It("should reconcile the pretrained model deployments", func() {
+			By("creating a model")
+			ns := makeTestNamespace()
+			model := v1beta1.PretrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-model",
+					Namespace: ns,
+				},
+				Spec: v1beta1.PretrainedModelSpec{
+					ModelSource: v1beta1.ModelSource{
+						HTTP: &v1beta1.HTTPSource{
+							URL: "https://foo.bar/model.tar.gz",
+						},
+					},
+					Hyperparameters: []v1beta1.Hyperparameter{
+						{
+							Name:  "foo",
+							Value: "0.1",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), &model)).To(Succeed())
+			By("creating an opnicluster with the model")
+			cluster := makeOpniCluster(opniClusterOpts{
+				Name:      "test-cluster",
+				Namespace: ns,
+			})
+			cluster.Spec.Services.Inference.PretrainedModels =
+				append(cluster.Spec.Services.Inference.PretrainedModels,
+					v1beta1.PretrainedModelReference{
+						Name: model.Name,
+					},
+				)
+			Expect(k8sClient.Create(context.Background(), cluster)).To(Succeed())
+			By("verifying the model is added to the opnicluster")
+			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
+			Expect(len(cluster.Spec.Services.Inference.PretrainedModels)).To(Equal(1))
+			Expect(cluster.Spec.Services.Inference.PretrainedModels[0].Name).To(Equal(model.Name))
+			By("waiting for the model deployment to be created")
+			req, err := labels.NewRequirement(
+				resources.PretrainedModelLabel, selection.In, []string{
+					model.Name,
+				})
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(func() int {
+				deployments := &appsv1.DeploymentList{}
+				k8sClient.List(context.Background(), deployments, &client.ListOptions{
+					Namespace:     cluster.Namespace,
+					LabelSelector: labels.NewSelector().Add(*req),
+				})
+				return len(deployments.Items)
+			}).Should(Equal(1))
+			By("deleting the model from the opnicluster")
+			cluster.Spec.Services.Inference.PretrainedModels =
+				cluster.Spec.Services.Inference.PretrainedModels[:0]
+			Expect(k8sClient.Update(context.Background(), cluster)).To(Succeed())
+			By("verifying the model deployment is deleted")
+			Eventually(func() int {
+				deployments := &appsv1.DeploymentList{}
+				k8sClient.List(context.Background(), deployments, &client.ListOptions{
+					Namespace:     cluster.Namespace,
+					LabelSelector: labels.NewSelector().Add(*req),
+				})
+				return len(deployments.Items)
+			}).Should(Equal(0))
+		})
 	})
 	When("deleting an opnicluster with a pretrained model", func() {
-		It("should succeed", func() {})
-		It("should delete the inference service", func() {})
-		It("should keep the pretrainedmodel resource", func() {})
+		It("should succeed", func() {
+			By("deleting an opnicluster with a pretrained model")
+			// Look up the opnicluster from the previous test
+			cluster := &v1beta1.OpniCluster{}
+			k8sClient.Get(context.Background(), types.NamespacedName{
+				Name:      "test-cluster",
+				Namespace: namespaceFromPreviousTest,
+			}, cluster)
+			Expect(k8sClient.Delete(context.Background(), cluster)).To(Succeed())
+			// we can't actually delete things here so we can just test for
+			// proper object ownership
+
+			// Look up the matching pretrainedmodel
+			model := &v1beta1.PretrainedModel{}
+			err := k8sClient.Get(context.Background(), types.NamespacedName{
+				Name:      "test-model",
+				Namespace: namespaceFromPreviousTest,
+			}, model)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(model).NotTo(BeOwnedBy(cluster))
+
+			// Look up the matching deployment by label
+			req, err := labels.NewRequirement(
+				resources.PretrainedModelLabel, selection.In, []string{
+					model.Name,
+				})
+			Expect(err).NotTo(HaveOccurred())
+			deployments := &appsv1.DeploymentList{}
+			k8sClient.List(context.Background(), deployments, &client.ListOptions{
+				Namespace:     cluster.Namespace,
+				LabelSelector: labels.NewSelector().Add(*req),
+			})
+			Expect(len(deployments.Items)).To(Equal(1))
+			// the deployment should be owned by the cluster, not the model
+			Expect(&deployments.Items[0]).To(BeOwnedBy(cluster))
+			Expect(&deployments.Items[0]).NotTo(BeOwnedBy(model))
+			Expect(model).NotTo(BeOwnedBy(cluster))
+			Expect(cluster).NotTo(BeOwnedBy(model))
+		})
 	})
 	When("creating an opnicluster with an invalid pretrained model", func() {
 		It("should wait and have a status condition", func() {})

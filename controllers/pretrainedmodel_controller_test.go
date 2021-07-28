@@ -70,7 +70,7 @@ var _ = Describe("PretrainedModel Controller", func() {
 					return false
 				}
 				return true
-			}, timeout, interval).Should(BeTrue())
+			}).Should(BeTrue())
 		})
 		It("should contain the correct json data", func() {
 			data := cm.Data["hyperparameters.json"]
@@ -105,7 +105,7 @@ var _ = Describe("PretrainedModel Controller", func() {
 				err = json.Compact(buf, []byte(data))
 				Expect(err).NotTo(HaveOccurred())
 				return buf.String() == `[{"name":"learning_rate","value":"0.001"},{"name":"batch_size","value":"32"},{"name":"epochs","value":"10"},{"name":"optimizer","value":"adam"},{"name":"loss","value":"categorical_crossentropy"}]`
-			}, timeout, interval).Should(BeTrue())
+			}).Should(BeTrue())
 		})
 	})
 	When("the configmap is manually modified", func() {
@@ -134,7 +134,7 @@ var _ = Describe("PretrainedModel Controller", func() {
 				err = json.Compact(buf, []byte(data))
 				Expect(err).NotTo(HaveOccurred())
 				return buf.String() == `[{"name":"learning_rate","value":"0.001"},{"name":"batch_size","value":"32"},{"name":"epochs","value":"10"},{"name":"optimizer","value":"adam"},{"name":"loss","value":"categorical_crossentropy"}]`
-			}, timeout, interval)
+			})
 		})
 	})
 	When("deleting a pretrainedmodel", func() {
@@ -155,7 +155,7 @@ var _ = Describe("PretrainedModel Controller", func() {
 					return false
 				}
 				return true
-			}, timeout, interval)
+			})
 		})
 	})
 })

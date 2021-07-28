@@ -120,7 +120,8 @@ func (r *Reconciler) nats() (resourceList []resources.Resource) {
 
 	config, err := r.natsConfig()
 	if err != nil {
-		lg.Error(err, "failed to generate config")
+		lg.Error(err, "failed to generate nats config")
+		return
 	}
 	resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
 		return config, reconciler.StatePresent, nil

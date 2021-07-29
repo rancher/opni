@@ -3,15 +3,18 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -70,7 +73,7 @@ func makeOpniCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 			Version:     "test",
 			DefaultRepo: pointer.String("docker.biz/rancher"), // nonexistent repo
 			Nats: v1beta1.NatsSpec{
-				AuthMethod: v1beta1.NatsAuthNkey,
+				AuthMethod: v1beta1.NatsAuthUsername,
 			},
 			Services: v1beta1.ServicesSpec{
 				Inference: v1beta1.InferenceServiceSpec{
@@ -102,13 +105,97 @@ func makeOpniCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 }
 
 var _ = Describe("OpniCluster Controller", func() {
-	When("creating an opnicluster ", func() {
-		var cluster *v1beta1.OpniCluster
-		It("should succeed", func() {
-			cluster = makeOpniCluster(opniClusterOpts{
-				Name: "test",
+	var (
+		cluster                    *v1beta1.OpniCluster
+		err                        error
+		clusterWithPretrainedModel *v1beta1.OpniCluster
+		pretrainedModelNS          string
+	)
+	BeforeEach(func() {
+		cluster = makeOpniCluster(opniClusterOpts{
+			Name:      "test",
+			Namespace: "opnicluster-test",
+		})
+	})
+	JustBeforeEach(func() {
+		err = k8sClient.Create(context.Background(), cluster)
+	})
+	AfterEach(func() {
+		namespace := "opnicluster-test"
+		deletionPolicy := metav1.DeletePropagationBackground
+		deployment := appsv1.Deployment{}
+		statefulset := appsv1.StatefulSet{}
+		secret := corev1.Secret{}
+		service := corev1.Service{}
+		deployments := appsv1.DeploymentList{}
+		statefulsets := appsv1.StatefulSetList{}
+		secrets := corev1.SecretList{}
+		services := corev1.ServiceList{}
+		k8sClient.DeleteAllOf(context.Background(), &deployment, &client.DeleteAllOfOptions{
+			ListOptions: client.ListOptions{
+				Namespace: namespace,
+			},
+			DeleteOptions: client.DeleteOptions{
+				GracePeriodSeconds: pointer.Int64(0),
+			},
+		})
+		k8sClient.DeleteAllOf(context.Background(), &statefulset, &client.DeleteAllOfOptions{
+			ListOptions: client.ListOptions{
+				Namespace: namespace,
+			},
+			DeleteOptions: client.DeleteOptions{
+				GracePeriodSeconds: pointer.Int64(0),
+			},
+		})
+		k8sClient.DeleteAllOf(context.Background(), &secret, &client.DeleteAllOfOptions{
+			ListOptions: client.ListOptions{
+				Namespace: namespace,
+			},
+			DeleteOptions: client.DeleteOptions{
+				GracePeriodSeconds: pointer.Int64(0),
+			},
+		})
+		k8sClient.DeleteAllOf(context.Background(), &service, &client.DeleteAllOfOptions{
+			ListOptions: client.ListOptions{
+				Namespace: namespace,
+			},
+			DeleteOptions: client.DeleteOptions{
+				GracePeriodSeconds: pointer.Int64(0),
+				PropagationPolicy:  &deletionPolicy,
+			},
+		})
+		// Wait for all the things to be deleted
+		Eventually(func() []appsv1.Deployment {
+			k8sClient.List(context.Background(), &deployments, &client.ListOptions{
+				Namespace: namespace,
 			})
-			err := k8sClient.Create(context.Background(), cluster)
+			return deployments.Items
+		}).Should(BeEmpty())
+		Eventually(func() []appsv1.StatefulSet {
+			k8sClient.List(context.Background(), &statefulsets, &client.ListOptions{
+				Namespace: namespace,
+			})
+			return statefulsets.Items
+		}).Should(BeEmpty())
+		Eventually(func() []corev1.Secret {
+			k8sClient.List(context.Background(), &secrets, &client.ListOptions{
+				Namespace: namespace,
+			})
+			return secrets.Items
+		}).Should(BeEmpty())
+		Eventually(func() []corev1.Service {
+			k8sClient.List(context.Background(), &services, &client.ListOptions{
+				Namespace: namespace,
+			})
+			return services.Items
+		}).Should(BeEmpty())
+	})
+	JustAfterEach(func() {
+		k8sClient.Delete(context.Background(), cluster, client.GracePeriodSeconds(0))
+		time.Sleep(1 * time.Second)
+	})
+	When("creating an opnicluster ", func() {
+		It("should succeed", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), types.NamespacedName{
@@ -223,6 +310,7 @@ var _ = Describe("OpniCluster Controller", func() {
 						Namespace: deployment.Namespace,
 					}, deployment)
 				}).Should(Succeed())
+				k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
 				Expect(deployment).To(BeOwnedBy(cluster))
 			}
 		})
@@ -238,10 +326,128 @@ var _ = Describe("OpniCluster Controller", func() {
 			})
 			Expect(deployments.Items).To(BeEmpty())
 		})
+		It("should create a nats statefulset", func() {
+			statefulset := &appsv1.StatefulSet{}
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      fmt.Sprintf("%s-nats", cluster.Name),
+					Namespace: cluster.Namespace,
+				}, statefulset)
+			}).Should(Succeed())
+			Expect(*statefulset.Spec.Replicas).To(Equal(int32(3)))
+			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
+			Expect(statefulset).To(BeOwnedBy(cluster))
+		})
+		It("should create a nats config secret", func() {
+			secret := &corev1.Secret{}
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      fmt.Sprintf("%s-nats-config", cluster.Name),
+					Namespace: cluster.Namespace,
+				}, secret)
+			}).Should(Succeed())
+			Expect(secret.Data).To(HaveKey("nats-config.conf"))
+			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
+			Expect(secret).To(BeOwnedBy(cluster))
+		})
+		It("should create a headless nats service", func() {
+			service := &corev1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      fmt.Sprintf("%s-nats-headless", cluster.Name),
+					Namespace: cluster.Namespace,
+				}, service)
+			}).Should(Succeed())
+			Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+			Expect(service.Spec.ClusterIP).To(Equal("None"))
+			Expect(service.Spec.Selector).To(And(
+				HaveKeyWithValue(resources.AppNameLabel, "nats"),
+				HaveKeyWithValue(resources.OpniClusterName, cluster.Name),
+			))
+			Expect(service.Spec.Ports).To(ContainElements(
+				corev1.ServicePort{
+					Name:       "tcp-client",
+					Port:       4222,
+					TargetPort: intstr.FromString("client"),
+					Protocol:   corev1.ProtocolTCP,
+				},
+				corev1.ServicePort{
+					Name:       "tcp-cluster",
+					Port:       6222,
+					TargetPort: intstr.FromString("cluster"),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			))
+			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
+			Expect(service).To(BeOwnedBy(cluster))
+		})
+		It("should create a nats cluster service", func() {
+			service := &corev1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      fmt.Sprintf("%s-nats-cluster", cluster.Name),
+					Namespace: cluster.Namespace,
+				}, service)
+			}).Should(Succeed())
+			Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+			Expect(service.Spec.ClusterIP).NotTo(Or(
+				BeEmpty(),
+				Equal("None"),
+			))
+			Expect(service.Spec.Selector).To(And(
+				HaveKeyWithValue(resources.AppNameLabel, "nats"),
+				HaveKeyWithValue(resources.OpniClusterName, cluster.Name),
+			))
+			Expect(service.Spec.Ports).To(ContainElement(
+				corev1.ServicePort{
+					Name:       "tcp-cluster",
+					Port:       6222,
+					TargetPort: intstr.FromString("cluster"),
+					Protocol:   corev1.ProtocolTCP,
+				}))
+			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
+			Expect(service).To(BeOwnedBy(cluster))
+		})
+		It("should create a nats client service", func() {
+			service := &corev1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      fmt.Sprintf("%s-nats-client", cluster.Name),
+					Namespace: cluster.Namespace,
+				}, service)
+			}).Should(Succeed())
+			Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+			Expect(service.Spec.ClusterIP).NotTo(Or(
+				BeEmpty(),
+				Equal("None"),
+			))
+			Expect(service.Spec.Selector).To(And(
+				HaveKeyWithValue(resources.AppNameLabel, "nats"),
+				HaveKeyWithValue(resources.OpniClusterName, cluster.Name),
+			))
+			Expect(service.Spec.Ports).To(ContainElement(
+				corev1.ServicePort{
+					Name:       "tcp-client",
+					Port:       4222,
+					TargetPort: intstr.FromString("client"),
+					Protocol:   corev1.ProtocolTCP,
+				}))
+			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
+			Expect(service).To(BeOwnedBy(cluster))
+		})
+		It("should create a nats password secret", func() {
+			secret := &corev1.Secret{}
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      fmt.Sprintf("%s-nats-client", cluster.Name),
+					Namespace: cluster.Namespace,
+				}, secret)
+			}).Should(Succeed())
+			Expect(secret.Data).To(HaveKey("password"))
+			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
+			Expect(secret).To(BeOwnedBy(cluster))
+		})
 	})
-
-	var clusterWithPretrainedModel *v1beta1.OpniCluster
-	var pretrainedModelNS string
 	When("creating a pretrained model", func() {
 		// Not testing that the pretrained model controller works here, as that
 		// is tested in the pretrained model controller test.
@@ -261,6 +467,116 @@ var _ = Describe("OpniCluster Controller", func() {
 					Hyperparameters: hyperparameters,
 				},
 			})).To(Succeed())
+		})
+	})
+	Context("providing an auth secret for nats should function", func() {
+		BeforeEach(func() {
+			cluster.Spec.Nats.PasswordFrom = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "test-password-secret",
+				},
+				Key: "password",
+			}
+		})
+		When("auth secret doesn't exist", func() {
+			It("should succeed", func() {
+				Expect(err).NotTo(HaveOccurred())
+			})
+			It("should not create nats", func() {
+				Consistently(func() bool {
+					// Ensure the deployment is not created
+					statefulset := &appsv1.StatefulSet{}
+					err := k8sClient.Get(context.Background(), types.NamespacedName{
+						Name:      fmt.Sprintf("%s-nats", cluster.Name),
+						Namespace: cluster.Namespace,
+					}, statefulset)
+					return errors.IsNotFound(err)
+				}).Should(BeTrue())
+			})
+		})
+		When("auth secret exists but password key doesn't", func() {
+			It("should not create nats", func() {
+				authSecret := corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-password-secret",
+						Namespace: cluster.Namespace,
+					},
+					Data: map[string][]byte{
+						"secret": []byte("testing"),
+					},
+				}
+				k8sClient.Create(context.Background(), &authSecret)
+				Consistently(func() bool {
+					// Ensure the deployment is not created
+					statefulset := &appsv1.StatefulSet{}
+					err := k8sClient.Get(context.Background(), types.NamespacedName{
+						Name:      fmt.Sprintf("%s-nats", cluster.Name),
+						Namespace: cluster.Namespace,
+					}, statefulset)
+					return errors.IsNotFound(err)
+				}).Should(BeTrue())
+			})
+		})
+		When("auth secret exists with correct key", func() {
+			It("should create nats", func() {
+				authSecret := corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-password-secret",
+						Namespace: cluster.Namespace,
+					},
+					Data: map[string][]byte{
+						"password": []byte("testing"),
+					},
+				}
+				k8sClient.Create(context.Background(), &authSecret)
+				Eventually(func() error {
+					statefulset := &appsv1.StatefulSet{}
+					return k8sClient.Get(context.Background(), types.NamespacedName{
+						Name:      fmt.Sprintf("%s-nats", cluster.Name),
+						Namespace: cluster.Namespace,
+					}, statefulset)
+				}).Should(Succeed())
+			})
+			It("should not create a separate auth secret", func() {
+				Consistently(func() bool {
+					secret := &corev1.Secret{}
+					err := k8sClient.Get(context.Background(), types.NamespacedName{
+						Name:      fmt.Sprintf("%s-nats-client", cluster.Name),
+						Namespace: cluster.Namespace,
+					}, secret)
+					return errors.IsNotFound(err)
+				})
+			})
+		})
+
+	})
+	XWhen("using nkey auth", func() {
+		BeforeEach(func() {
+			cluster.Spec.Nats.AuthMethod = v1beta1.NatsAuthNkey
+		})
+		It("should create nats", func() {
+			Eventually(func() error {
+				statefulset := &appsv1.StatefulSet{}
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      fmt.Sprintf("%s-nats", cluster.Name),
+					Namespace: cluster.Namespace,
+				}, statefulset)
+			}).Should(Succeed())
+		})
+		It("should not create an auth secret", func() {
+			secret := &corev1.Secret{}
+			Consistently(func() bool {
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      fmt.Sprintf("%s-nats-client", cluster.Name),
+					Namespace: cluster.Namespace,
+				}, secret)
+				return errors.IsNotFound(err)
+			})
+			Expect(secret.Data).To(HaveKey("seed"))
+		})
+		It("should update the cluster status", func() {
+			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
+			Expect(cluster.Status.Auth.NKeyUser).NotTo(BeEmpty())
 		})
 	})
 	When("referencing the pretrained model in an opnicluster", func() {

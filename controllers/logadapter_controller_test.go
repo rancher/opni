@@ -65,6 +65,9 @@ var _ = Describe("LogAdapter Controller", func() {
 				},
 				Spec: v1beta1.OpniClusterSpec{
 					Elastic: v1beta1.ElasticSpec{},
+					Nats: v1beta1.NatsSpec{
+						AuthMethod: v1beta1.NatsAuthUsername,
+					},
 				},
 			}
 		})

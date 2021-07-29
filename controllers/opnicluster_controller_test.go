@@ -101,7 +101,7 @@ func makeOpniCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 	}
 }
 
-var _ = FDescribe("OpniCluster Controller", func() {
+var _ = Describe("OpniCluster Controller", func() {
 	When("creating an opnicluster ", func() {
 		var cluster *v1beta1.OpniCluster
 		It("should succeed", func() {
@@ -634,19 +634,85 @@ var _ = FDescribe("OpniCluster Controller", func() {
 		})
 	})
 	When("creating an opnicluster with an invalid pretrained model", func() {
-		It("should wait and have a status condition", func() {})
-		It("should resolve when the pretrained model is created", func() {})
+		var ns string
+		It("should wait and have a status condition", func() {
+			By("creating an opnicluster with an invalid pretrained model")
+			cluster := makeOpniCluster(opniClusterOpts{
+				Name:   "test-cluster",
+				Models: []string{"invalid-model"},
+			})
+			ns = cluster.Namespace
+			Expect(k8sClient.Create(context.Background(), cluster)).To(Succeed())
+			By("verifying the model deployment is in the waiting state")
+			req, err := labels.NewRequirement(
+				resources.PretrainedModelLabel, selection.In, []string{
+					"invalid-model",
+				})
+			Expect(err).NotTo(HaveOccurred())
+			done := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				defer close(done)
+				Consistently(func() string {
+					// Ensure the deployment is not created
+					deployments := &appsv1.DeploymentList{}
+					k8sClient.List(context.Background(), deployments, &client.ListOptions{
+						Namespace:     cluster.Namespace,
+						LabelSelector: labels.NewSelector().Add(*req),
+					})
+					if len(deployments.Items) != 0 {
+						return "Expected pretrained model deployment not to be created"
+					}
+					return ""
+				}).Should(Equal(""))
+			}()
+			// Ensure the state is set to error
+			Eventually(func() v1beta1.OpniClusterState {
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      "test-cluster",
+					Namespace: ns,
+				}, cluster)
+				if err != nil {
+					return ""
+				}
+				return cluster.Status.State
+			}).Should(Equal(v1beta1.OpniClusterStateError))
+			Expect(cluster.Status.Conditions).NotTo(BeEmpty())
+			<-done
+		})
+		It("should resolve when the pretrained model is created", func() {
+			// Create the invalid model
+			model := v1beta1.PretrainedModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "invalid-model",
+					Namespace: ns,
+				},
+				Spec: v1beta1.PretrainedModelSpec{
+					ModelSource: v1beta1.ModelSource{
+						HTTP: &v1beta1.HTTPSource{
+							URL: "http://invalid-model",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), &model)).To(Succeed())
+			cluster := &v1beta1.OpniCluster{}
+			// Wait for the cluster to be ready
+			Eventually(func() v1beta1.OpniClusterState {
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      "test-cluster",
+					Namespace: ns,
+				}, cluster)
+				Expect(err).NotTo(HaveOccurred())
+				return cluster.Status.State
+			}).ShouldNot(Equal(v1beta1.OpniClusterStateError))
+		})
 	})
-	When("deleting a pretrained model while an opnicluster is using it", func() {
-		It("should succeed", func() {})
-		It("should delete the inference service", func() {})
-		It("should delete the pretrainedmodel resource", func() {})
-		It("should cause the opnicluster to report a status condition", func() {})
-	})
-	When("deleting an opnicluster with a model that is also being used by another opnicluster", func() {
-		It("should succeed", func() {})
-		It("should delete the inference service only for the deleted opnicluster", func() {})
-		It("should not delete the pretrainedmodel resource", func() {})
-		It("should not cause the remaining opnicluster to report a status condition", func() {})
+	// TODO: decide how to handle deleting pretrainedmodels in use
+	PWhen("deleting a pretrained model while an opnicluster is using it", func() {
+		PIt("should succeed", func() {})
+		PIt("should delete the inference service", func() {})
+		PIt("should delete the pretrainedmodel resource", func() {})
+		PIt("should cause the opnicluster to report a status condition", func() {})
 	})
 })

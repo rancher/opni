@@ -2,11 +2,12 @@ package opnicluster
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math/rand"
 	"text/template"
 	"time"
+
+	"emperror.dev/errors"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +19,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	"github.com/go-logr/logr"
 	"github.com/nats-io/nkeys"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
@@ -90,9 +90,8 @@ type natsConfigData struct {
 	ClusterURL      string
 }
 
-func (r *Reconciler) nats() (resourceList []resources.Resource) {
+func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 	resourceList = []resources.Resource{}
-	lg := logr.FromContext(r.ctx)
 
 	if *r.getReplicas() == 0 {
 		return []resources.Resource{
@@ -117,12 +116,12 @@ func (r *Reconciler) nats() (resourceList []resources.Resource) {
 			func() (runtime.Object, reconciler.DesiredState, error) {
 				return r.natsClientService(), reconciler.StateAbsent, nil
 			},
-		}
+		}, nil
 	}
 
 	config, err := r.natsConfig()
 	if err != nil {
-		lg.Error(err, "failed to generate nats config")
+		retErr = errors.WithMessage(err, "failed to generate nats config")
 		return
 	}
 	resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
@@ -135,7 +134,7 @@ func (r *Reconciler) nats() (resourceList []resources.Resource) {
 	} else {
 		secret, err := r.natsAuthSecret()
 		if err != nil {
-			lg.Error(err, "failed to create auth secret")
+			retErr = errors.WithMessage(err, "failed to create auth secret")
 			return
 		}
 		resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
@@ -163,7 +162,7 @@ func (r *Reconciler) nats() (resourceList []resources.Resource) {
 			return r.natsStatefulSet(), reconciler.StatePresent, nil
 		})
 	} else if err != nil {
-		lg.Error(err, "failed to get nats statefulset")
+		retErr = errors.WithMessage(err, "failed to get nats statefulset")
 		return
 	}
 
@@ -173,7 +172,7 @@ func (r *Reconciler) nats() (resourceList []resources.Resource) {
 		})
 	}
 
-	return resourceList
+	return
 }
 
 func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {

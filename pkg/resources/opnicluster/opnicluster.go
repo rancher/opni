@@ -8,6 +8,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
+	util "github.com/rancher/opni/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -39,15 +40,49 @@ func NewReconciler(
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
 
+	defer func() {
+		// When the reconciler is done, figure out what the state of the opnicluster
+		// is and set it in the state field accordingly.
+		op := util.LoadResult(retResult, retErr)
+		if op.ShouldRequeue() {
+			if retErr != nil {
+				// If an error occurred, the state should be set to error
+				r.opniCluster.Status.State = v1beta1.OpniClusterStateError
+			} else {
+				// If no error occurred, but we need to requeue, the state should be
+				// set to working
+				r.opniCluster.Status.State = v1beta1.OpniClusterStateWorking
+			}
+		} else if len(r.opniCluster.Status.Conditions) == 0 {
+			// If we are not requeueing and there are no conditions, the state should
+			// be set to ready
+			r.opniCluster.Status.State = v1beta1.OpniClusterStateReady
+		}
+		if err := r.client.Status().Update(r.ctx, r.opniCluster); err != nil {
+			lg.Error(err, "failed to update status")
+		}
+	}()
+
+	r.opniCluster.Status.Conditions = []string{}
+
 	additionalResources := []resources.Resource{}
 	pretrained, err := r.pretrainedModels()
 	if err != nil {
-		retErr = err
+		retErr = errors.Combine(retErr, err)
+		r.opniCluster.Status.Conditions =
+			append(r.opniCluster.Status.Conditions, err.Error())
 		lg.Error(err, "Error when reconciling pretrained models, retrying.")
 		// Keep going, we can reconcile the rest of the deployments and come back
 		// to this later.
 	}
-	nats := r.nats()
+	nats, err := r.nats()
+	if err != nil {
+		retErr = errors.Combine(retErr, err)
+		r.opniCluster.Status.Conditions =
+			append(r.opniCluster.Status.Conditions, err.Error())
+		lg.Error(err, "Error when reconciling nats, retrying.")
+		// Keep going.
+	}
 
 	additionalResources = append(additionalResources, pretrained...)
 	additionalResources = append(additionalResources, nats...)
@@ -81,7 +116,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			return nil, err
 		}
 	}
-	return nil, nil
+	return
 }
 
 func RegisterWatches(builder *builder.Builder) *builder.Builder {

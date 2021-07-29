@@ -35,6 +35,14 @@ const (
 	NatsAuthNkey     NatsAuthMethod = "nkey"
 )
 
+type OpniClusterState string
+
+const (
+	OpniClusterStateError   OpniClusterState = "Error"
+	OpniClusterStateWorking OpniClusterState = "Working"
+	OpniClusterStateReady   OpniClusterState = "Ready"
+)
+
 // OpniClusterSpec defines the desired state of OpniCluster
 type OpniClusterSpec struct {
 	// +kubebuilder:default:=latest
@@ -51,10 +59,10 @@ type OpniClusterSpec struct {
 
 // OpniClusterStatus defines the observed state of OpniCluster
 type OpniClusterStatus struct {
-	Conditions   []string       `json:"conditions,omitempty"`
-	State        string         `json:"state,omitempty"`
-	NatsReplicas int32          `json:"natsReplicas,omitempty"`
-	Auth         NatsAuthStatus `json:"auth,omitempty"`
+	Conditions   []string         `json:"conditions,omitempty"`
+	State        OpniClusterState `json:"state,omitempty"`
+	NatsReplicas int32            `json:"natsReplicas,omitempty"`
+	Auth         NatsAuthStatus   `json:"auth,omitempty"`
 }
 
 type NatsAuthStatus struct {

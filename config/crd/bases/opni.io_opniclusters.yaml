@@ -79,31 +79,28 @@ spec:
               nats:
                 properties:
                   authMethod:
+                    default: username
+                    enum:
+                    - username
+                    - nkey
                     type: string
-                  existingAuthSecret:
-                    properties:
-                      fromSecret:
-                        description: SecretReference represents a Secret Reference. It has enough information to retrieve secret in any namespace
-                        properties:
-                          name:
-                            description: Name is unique within a namespace to reference a secret resource.
-                            type: string
-                          namespace:
-                            description: Namespace defines the space within which the secret name must be unique.
-                            type: string
-                        type: object
-                      keys:
-                        properties:
-                          accessKey:
-                            type: string
-                          secretKey:
-                            type: string
-                        type: object
-                    type: object
                   natsURL:
                     type: string
-                  password:
-                    type: string
+                  passwordFrom:
+                    description: SecretKeySelector selects a key of a Secret.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
                   replicas:
                     format: int32
                     type: integer
@@ -710,12 +707,30 @@ spec:
           status:
             description: OpniClusterStatus defines the observed state of OpniCluster
             properties:
+              auth:
+                properties:
+                  authSecretKeyRef:
+                    description: SecretKeySelector selects a key of a Secret.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                  nKeyUser:
+                    type: string
+                type: object
               conditions:
                 items:
                   type: string
                 type: array
-              nKeyUser:
-                type: string
               natsReplicas:
                 format: int32
                 type: integer

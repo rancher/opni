@@ -26,6 +26,8 @@ type ImageSpec struct {
 	ImagePullPolicy  *corev1.PullPolicy            `json:"imagePullPolicy,omitempty"`
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
+
+// +kubebuilder:validation:Enum=username;nkey
 type NatsAuthMethod string
 
 const (
@@ -49,10 +51,15 @@ type OpniClusterSpec struct {
 
 // OpniClusterStatus defines the observed state of OpniCluster
 type OpniClusterStatus struct {
-	Conditions   []string `json:"conditions,omitempty"`
-	State        string   `json:"state,omitempty"`
-	NatsReplicas int32    `json:"natsReplicas,omitempty"`
-	NKeyUser     string   `json:"nKeyUser,omitempty"`
+	Conditions   []string       `json:"conditions,omitempty"`
+	State        string         `json:"state,omitempty"`
+	NatsReplicas int32          `json:"natsReplicas,omitempty"`
+	Auth         NatsAuthStatus `json:"auth,omitempty"`
+}
+
+type NatsAuthStatus struct {
+	NKeyUser         string                    `json:"nKeyUser,omitempty"`
+	AuthSecretKeyRef *corev1.SecretKeySelector `json:"authSecretKeyRef,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -150,12 +157,13 @@ type KeysSpec struct {
 }
 
 type NatsSpec struct {
-	AuthMethod         NatsAuthMethod  `json:"authMethod,omitempty"`
-	Username           string          `json:"username,omitempty"`
-	Password           string          `json:"password,omitempty"`
-	Replicas           *int32          `json:"replicas,omitempty"`
-	ExistingAuthSecret CredentialsSpec `json:"existingAuthSecret,omitempty"`
-	NatsURL            string          `json:"natsURL"`
+	// +required
+	// +kubebuilder:default:=username
+	AuthMethod   NatsAuthMethod            `json:"authMethod,omitempty"`
+	Username     string                    `json:"username,omitempty"`
+	Replicas     *int32                    `json:"replicas,omitempty"`
+	PasswordFrom *corev1.SecretKeySelector `json:"passwordFrom,omitempty"`
+	NatsURL      string                    `json:"natsURL"`
 }
 
 // +kubebuilder:object:root=true

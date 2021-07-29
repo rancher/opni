@@ -11,6 +11,4 @@ spec:
       pretrainedModels:
         - name: control-plane
   nats:
-    authMethod: password
-    username: opnitest
-    password: password
+    authMethod: username

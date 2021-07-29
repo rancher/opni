@@ -18,8 +18,13 @@ Opni currently features log anomaly detection for Kubernetes.
   * Opni dashboard to consume log insights & explore logs 
   * Ability to setup & send alerts (slack/email/etc) based on Opni log insights
 
+![alt text](https://opni-public.s3.us-east-2.amazonaws.com/opni-inside-cluster-diagram.png)
+
 ----
-### Install Opni in your Kubernetes cluster:
+## Getting started with Opni
+
+
+### Full Install Opni in your Kubernetes cluster:
 * Download the `opnictl` binary from the [latest release](https://github.com/rancher/opni/releases/tag/v0.1.2)
 * Install Opni using `opnictl`
   ```
@@ -34,13 +39,12 @@ Opni currently features log anomaly detection for Kubernetes.
 
 Consume insights from the Opni Dashboard in Kibana. You will need to expose the Kibana service or port forward to do this.
 
-----
-### Demo Opni in a Ubuntu VM with 4 vCPUs & 16 GB RAM
-
-```
-curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/main/quickstart_files/install_opni.sh | sh -
-```
-  * Creates an RKE2 cluster with Opni installed & injects [an anomaly](https://github.com/rancher/opni-docs/blob/22ed683e2b9e810b04561967d65682654350d787/quickstart_files/install_opni.sh#L72)
+### Demo Opni in a sandbox environment
+* What you need: **an Ubuntu VM with 4 vCPUs & 16 GB RAM**
+* 1-command installer that creates an RKE2 cluster with Opni installed and simulates [a failure](https://github.com/rancher/opni-docs/blob/22ed683e2b9e810b04561967d65682654350d787/quickstart_files/install_opni.sh#L72)
+  ```
+  curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/main/quickstart_files/install_opni.sh | sh -
+  ```
 
   * Copy the NodePort from the script output
     * View insights from the Opni Dashboard in Kibana [IPV4_ADDRESS]:[NODE_PORT]
@@ -48,7 +52,7 @@ curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/main/quickstart_fi
   * Experiment with injecting your own control plane failures to see how Opni responds
     * Can refer to [these failures](https://github.com/rancher/opni-docs/blob/main/examples/fault-injection.md) and this [anomaly injection script](https://github.com/rancher/opni-docs/blob/main/quickstart_files/errors_injection.sh) as starting points
 
-The default username and password is admin/admin You must be in the Global Tenant mode if you are not already. Click on Dashboard, Opni Logs Dashboard.
+The default username and password is admin/admin You must be in the Global Tenant mode if you are not already. Navigate to `Dashboard` then `Opni Logs Dashboard`.
  
 ----
 

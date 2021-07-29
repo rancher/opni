@@ -22,10 +22,11 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	logcontrollers "github.com/banzaicloud/logging-operator/controllers"
+
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"go.uber.org/zap/zapcore"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -40,6 +41,7 @@ import (
 	opniiov1beta1 "github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/controllers/demo"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
 	// +kubebuilder:scaffold:imports
 )
@@ -92,7 +94,10 @@ func run() error {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctrl.SetLogger(zap.New(
+		zap.UseFlagOptions(&opts),
+		zap.Encoder(zapcore.NewConsoleEncoder(util.EncoderConfig)),
+	))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -125,11 +130,7 @@ func run() error {
 		return err
 	}
 
-	loggingReconciler := logcontrollers.NewLoggingReconciler(
-		mgr.GetClient(), ctrl.Log.WithName("controllers").WithName("Logging"))
-
-	err = logcontrollers.SetupLoggingWithManager(mgr, ctrl.Log).Complete(loggingReconciler)
-	if err != nil {
+	if err = (&controllers.LoggingReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Logging")
 		return err
 	}

@@ -28,9 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/util"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -53,7 +53,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	logf.SetLogger(util.NewTestLogger())
 	port, err := freeport.GetFreePort()
 	Expect(err).NotTo(HaveOccurred())
 	By("bootstrapping test environment")
@@ -76,7 +76,11 @@ var _ = BeforeSuite(func() {
 		},
 	}
 	k8sManager, k8sClient = test.RunTestEnvironment(testEnv,
-		&OpniClusterReconciler{}, &LogAdapterReconciler{}, &PretrainedModelReconciler{})
+		&OpniClusterReconciler{},
+		&LogAdapterReconciler{},
+		&PretrainedModelReconciler{},
+		&LoggingReconciler{},
+	)
 }, 60)
 
 var _ = AfterSuite(func() {

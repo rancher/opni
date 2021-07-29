@@ -18,13 +18,14 @@ import (
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/controllers/demo"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/util"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/utils/pointer"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -56,10 +57,11 @@ func deleteTestClusterIfExists() {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	logf.SetLogger(util.NewTestLogger())
 
 	if str, ok := os.LookupEnv("E2E_USE_EXISTING"); ok {
 		if value, err := strconv.ParseBool(str); err == nil {
+			logf.Log.Info("Using existing cluster")
 			useExisting = value
 		}
 	}
@@ -113,11 +115,12 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			"../../config/crd/bases",
+			"../../config/crd/logging",
 			"../resources",
 		},
 		BinaryAssetsDirectory: "../../testbin/bin",
-		UseExistingCluster:    &useExisting,
-		Config:                restConfig, // this will be nil if E2E_USE_EXISTING is set
+		UseExistingCluster:    pointer.Bool(true), // This should always be true
+		Config:                restConfig,         // this will be nil if E2E_USE_EXISTING is set
 		Scheme:                scheme.Scheme,
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			CleanUpAfterUse: useExisting,
@@ -127,6 +130,9 @@ var _ = BeforeSuite(func() {
 	var mgr manager.Manager
 	mgr, k8sClient = test.RunTestEnvironment(testEnv,
 		&demo.OpniDemoReconciler{},
+		&controllers.LoggingReconciler{},
+		&controllers.LogAdapterReconciler{},
+		&controllers.PretrainedModelReconciler{},
 		&controllers.OpniClusterReconciler{},
 	)
 	if restConfig == nil {

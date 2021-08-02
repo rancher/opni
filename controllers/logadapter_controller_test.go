@@ -64,14 +64,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Namespace: laNamespace,
 				},
 				Spec: v1beta1.OpniClusterSpec{
-					Elastic: v1beta1.ElasticSpec{
-						Credentials: v1beta1.CredentialsSpec{
-							Keys: &v1beta1.KeysSpec{
-								AccessKey: "testAccessKey",
-								SecretKey: "testSecretKey",
-							},
-						},
-					},
+					Elastic: v1beta1.ElasticSpec{},
 				},
 			}
 		})

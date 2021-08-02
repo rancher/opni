@@ -1,5 +1,7 @@
 package v1beta1
 
+import corev1 "k8s.io/api/core/v1"
+
 type ServiceKind int
 
 const (
@@ -45,4 +47,11 @@ func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *ImageSpec {
 	default:
 		return nil
 	}
+}
+
+func (s ImageSpec) GetImagePullPolicy() (_ corev1.PullPolicy) {
+	if p := s.ImagePullPolicy; p != nil {
+		return *p
+	}
+	return
 }

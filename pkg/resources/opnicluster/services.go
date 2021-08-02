@@ -1,7 +1,6 @@
 package opnicluster
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -19,20 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var ErrPretrainedModelNotReady = errors.New("Referenced PretrainedModel does not exist or is not ready")
-
-func resourceAbsent(obj client.Object) resources.Resource {
-	return func() (runtime.Object, reconciler.DesiredState, error) {
-		return obj, reconciler.StateAbsent, nil
-	}
-}
-
-func resourcePresent(obj client.Object) resources.Resource {
-	return func() (runtime.Object, reconciler.DesiredState, error) {
-		return obj, reconciler.StatePresent, nil
-	}
-}
 
 func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retError error) {
 	resourceList = []resources.Resource{}
@@ -74,9 +59,9 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retE
 		existing[modelName] = struct{}{}
 		if _, ok := models[modelName]; !ok {
 			lg.Info("deleting pretrained model deployment", "model", modelName)
-			resourceList = append(resourceList, resourceAbsent(deployment.DeepCopy()))
+			resourceList = append(resourceList, resources.Absent(deployment.DeepCopy()))
 		} else {
-			resourceList = append(resourceList, resourcePresent(deployment.DeepCopy()))
+			resourceList = append(resourceList, resources.Present(deployment.DeepCopy()))
 		}
 	}
 
@@ -117,7 +102,7 @@ func (r *Reconciler) pretrainedModelDeployment(
 	}
 
 	return func() (runtime.Object, reconciler.DesiredState, error) {
-		labels := combineLabels(
+		labels := resources.CombineLabels(
 			r.serviceLabels(v1beta1.InferenceService),
 			r.pretrainedModelLabels(model.Name),
 		)
@@ -264,14 +249,9 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  labels[resources.AppNameLabel],
-							Image: *imageSpec.Image,
-							ImagePullPolicy: func() (_ corev1.PullPolicy) {
-								if p := imageSpec.ImagePullPolicy; p != nil {
-									return *p
-								}
-								return
-							}(),
+							Name:            labels[resources.AppNameLabel],
+							Image:           *imageSpec.Image,
+							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 						},
 					},
 					ImagePullSecrets: imageSpec.ImagePullSecrets,

@@ -40,6 +40,7 @@ func TestE2E(t *testing.T) {
 var (
 	clusterName = "opni-k3d-e2e-test-cluster"
 	testEnv     *envtest.Environment
+	stopEnv     context.CancelFunc
 	k8sClient   crclient.Client
 	restConfig  *rest.Config
 	useExisting bool
@@ -128,7 +129,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	var mgr manager.Manager
-	mgr, k8sClient = test.RunTestEnvironment(testEnv,
+	stopEnv, mgr, k8sClient = test.RunTestEnvironment(testEnv,
 		&demo.OpniDemoReconciler{},
 		&controllers.LoggingReconciler{},
 		&controllers.LogAdapterReconciler{},
@@ -141,8 +142,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	stopEnv()
 	if !useExisting {
 		deleteTestClusterIfExists()
 	}

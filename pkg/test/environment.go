@@ -28,14 +28,25 @@ type Reconciler interface {
 func RunTestEnvironment(
 	testEnv *envtest.Environment,
 	reconcilers ...Reconciler,
-) (k8sManager ctrl.Manager, k8sClient client.Client) {
+) (stop context.CancelFunc, k8sManager ctrl.Manager, k8sClient client.Client) {
 	if len(reconcilers) == 0 {
 		panic("no reconcilers")
 	}
+	var ctx context.Context
+	ctx, stop = context.WithCancel(ctrl.SetupSignalHandler())
 
 	cfg, err := testEnv.Start()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(cfg).NotTo(gomega.BeNil())
+
+	go func() {
+		defer ginkgo.GinkgoRecover()
+		<-ctx.Done()
+		err := testEnv.Stop()
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	}()
+
+	StartControllerManager(ctx, testEnv)
 
 	err = v1beta1.AddToScheme(scheme.Scheme)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -74,7 +85,7 @@ func RunTestEnvironment(
 
 	go func() {
 		defer ginkgo.GinkgoRecover()
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		err = k8sManager.Start(ctx)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	}()
 

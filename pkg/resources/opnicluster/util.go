@@ -31,16 +31,6 @@ func (r *Reconciler) pretrainedModelLabels(modelName string) map[string]string {
 	}
 }
 
-func combineLabels(maps ...map[string]string) map[string]string {
-	result := make(map[string]string)
-	for _, m := range maps {
-		for k, v := range m {
-			result[k] = v
-		}
-	}
-	return result
-}
-
 func (r *Reconciler) serviceImageSpec(service v1beta1.ServiceKind) (result v1beta1.ImageSpec) {
 	// If the service provides a custom service image, use that instead.
 	if spec := service.GetImageSpec(r.opniCluster); spec != nil {

@@ -50,11 +50,10 @@ type OpniClusterSpec struct {
 	// +optional
 	DefaultRepo *string `json:"defaultRepo,omitempty"`
 
-	Services  ServicesSpec  `json:"services,omitempty"`
-	Dashboard DashboardSpec `json:"dashboard,omitempty"`
-	Elastic   ElasticSpec   `json:"elastic,omitempty"`
-	Storage   StorageSpec   `json:"storage,omitempty"`
-	Nats      NatsSpec      `json:"nats,omitempty"`
+	Services ServicesSpec    `json:"services,omitempty"`
+	Elastic  ElasticSpec     `json:"elastic,omitempty"`
+	Storage  PersistenceSpec `json:"storage,omitempty"`
+	Nats     NatsSpec        `json:"nats,omitempty"`
 }
 
 // OpniClusterStatus defines the observed state of OpniCluster
@@ -118,32 +117,51 @@ type PayloadReceiverServiceSpec struct {
 	ImageSpec `json:",inline,omitempty"`
 }
 
-type DashboardSpec struct {
-	// +optional
-	Kibana KibanaSpec `json:"kibana,omitempty"`
-	// +optional
-	Grafana GrafanaSpec `json:"grafana,omitempty"`
-}
-
-type KibanaSpec struct {
-	// +required
-	Endpoint string `json:"endpoint"`
-}
-
-type GrafanaSpec struct {
-	// TODO
-}
-
 type ElasticSpec struct {
-	// +required
-	Endpoint string `json:"endpoint"`
-	// +required
-	Credentials CredentialsSpec `json:"credentials"`
+	Workloads    ElasticWorkloadSpec          `json:"workloads,omitempty"`
+	Version      string                       `json:"version"`
+	DefaultRepo  *string                      `json:"defaultRepo,omitempty"`
+	Image        *ImageSpec                   `json:"image,omitempty"`
+	Persistence  *PersistenceSpec             `json:"storage,omitempty"`
+	ConfigSecret *corev1.LocalObjectReference `json:"configSecret,omitempty"`
 }
 
-type StorageSpec struct {
-	StorageClass string `json:"storageClass,omitempty"`
-	S3           S3Spec `json:"s3,omitempty"`
+type ElasticWorkloadSpec struct {
+	Master *ElasticWorkloadMasterSpec `json:"master,omitempty"`
+	Data   *ElasticWorkloadDataSpec   `json:"data,omitempty"`
+	Client *ElasticWorkloadClientSpec `json:"client,omitempty"`
+}
+
+type ElasticWorkloadMasterSpec struct {
+	// +kubebuilder:default:=1
+	Replicas  int32                        `json:"replicas,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
+}
+
+type ElasticWorkloadDataSpec struct {
+	// +kubebuilder:default:=1
+	Replicas int32 `json:"replicas,omitempty"`
+	// +kubebuilder:default:=true
+	DedicatedPod bool                         `json:"dedicatedPod,omitempty"`
+	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
+}
+
+type ElasticWorkloadClientSpec struct {
+	// +kubebuilder:default:=1
+	Replicas int32 `json:"replicas,omitempty"`
+	// +kubebuilder:default:=true
+	DedicatedPod bool                         `json:"dedicatedPod,omitempty"`
+	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
+}
+
+type PersistenceSpec struct {
+	Enabled      bool                                `json:"enabled,omitempty"`
+	StorageClass string                              `json:"storageClass,omitempty"`
+	AccessModes  []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
+	Request      string                              `json:"request,omitempty"`
 }
 
 type S3Spec struct {

@@ -17,6 +17,7 @@ limitations under the License.
 package demo
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -38,6 +39,7 @@ import (
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
+var stopEnv context.CancelFunc
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -67,11 +69,11 @@ var _ = BeforeSuite(func() {
 			},
 		},
 	}
-	k8sManager, k8sClient = test.RunTestEnvironment(testEnv, &OpniDemoReconciler{})
+	stopEnv, k8sManager, k8sClient =
+		test.RunTestEnvironment(testEnv, &OpniDemoReconciler{})
 }, 60)
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	stopEnv()
 })

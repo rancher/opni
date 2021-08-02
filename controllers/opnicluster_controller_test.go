@@ -286,6 +286,21 @@ var _ = Describe("OpniCluster Controller", func() {
 			Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 		})
 	})
+	When("deleting an opnicluster", func() {
+		It("should succeed", func() {
+			Expect(k8sClient.Delete(context.Background(), clusterWithPretrainedModel)).To(Succeed())
+		})
+		It("should delete the pretrained model inference service", func() {
+			deployment := &appsv1.Deployment{}
+			Eventually(func() error {
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      "inference-service-test-model",
+					Namespace: clusterWithPretrainedModel.Namespace,
+				}, deployment)
+			}).Should(HaveOccurred())
+		})
+	})
+
 	Context("pretrained models should function in various configurations", func() {
 		It("should ignore duplicate model names", func() {
 			cluster := makeOpniCluster(opniClusterOpts{

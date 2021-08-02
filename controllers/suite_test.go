@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -40,6 +41,7 @@ import (
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
+var stopEnv context.CancelFunc
 
 func TestAPIs(t *testing.T) {
 	SetDefaultEventuallyTimeout(10 * time.Second)
@@ -75,7 +77,7 @@ var _ = BeforeSuite(func() {
 			},
 		},
 	}
-	k8sManager, k8sClient = test.RunTestEnvironment(testEnv,
+	stopEnv, k8sManager, k8sClient = test.RunTestEnvironment(testEnv,
 		&OpniClusterReconciler{},
 		&LogAdapterReconciler{},
 		&PretrainedModelReconciler{},
@@ -85,6 +87,5 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	stopEnv()
 })

@@ -1,6 +1,7 @@
 package elastic
 
 import (
+	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -11,13 +12,10 @@ import (
 )
 
 func (r *Reconciler) elasticWorkloads() []resources.Resource {
-	master := r.elasticMasterWorkload()
-	data := r.elasticDataWorkload()
-	client := r.elasticClientWorkload()
 	return []resources.Resource{
-		master,
-		data,
-		client,
+		r.elasticMasterWorkload(),
+		r.elasticDataWorkload(),
+		r.elasticClientWorkload(),
 	}
 }
 
@@ -25,7 +23,7 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 	labels := resources.NewElasticLabels().
 		WithRole(resources.ElasticDataRole)
 
-	deployment := &appsv1.StatefulSet{
+	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opendistro-es-data",
 			Namespace: r.opniCluster.Namespace,
@@ -36,53 +34,131 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: corev1.PodSpec{
-					InitContainers: []corev1.Container{
-						initSysctlContainer(),
-						fixMountContainer(),
-					},
-					Containers: []corev1.Container{
-						r.elasticDataContainer(),
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: "opendistro-es-config",
-								},
-							},
-						},
-					},
-				},
-			},
+			Template: r.elasticPodTemplate(labels),
 		},
 	}
 
-	// If we are using persistent storage, create a PVC. Otherwise, create a
-	// emptyDir volume.
-	if pvcTemplate := r.maybePVC(); pvcTemplate != nil {
-		deployment.Spec.VolumeClaimTemplates =
-			append(deployment.Spec.VolumeClaimTemplates, *pvcTemplate)
-	} else {
-		deployment.Spec.Template.Spec.Volumes =
-			append(deployment.Spec.Template.Spec.Volumes,
-				corev1.Volume{
-					Name: "data",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			)
+	workload.Spec.Template.Spec.Affinity =
+		r.opniCluster.Spec.Elastic.Workloads.Data.Affinity
+	if r.opniCluster.Spec.Elastic.Workloads.Data.Resources != nil {
+		workload.Spec.Template.Spec.Containers[0].Resources =
+			*r.opniCluster.Spec.Elastic.Workloads.Data.Resources
 	}
-	return resources.Present(deployment)
+
+	r.configurePVC(workload)
+	return resources.Present(workload)
 }
 
-func (r *Reconciler) maybePVC() *corev1.PersistentVolumeClaim {
+func (r *Reconciler) elasticPodTemplate(
+	labels resources.ElasticLabels,
+) corev1.PodTemplateSpec {
+	imageSpec := r.openDistroImageSpec()
+	return corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: labels,
+		},
+		Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{
+				initSysctlContainer(),
+			},
+			Containers: []corev1.Container{
+				{
+					Name:            "elasticsearch",
+					Image:           imageSpec.GetImage(),
+					ImagePullPolicy: imageSpec.GetImagePullPolicy(),
+					Ports:           containerPortsForRole(labels.Role()),
+					VolumeMounts: []corev1.VolumeMount{
+						configVolumeMount(),
+					},
+					LivenessProbe: &corev1.Probe{
+						InitialDelaySeconds: 60,
+						PeriodSeconds:       10,
+						Handler: corev1.Handler{
+							TCPSocket: &corev1.TCPSocketAction{
+								Port: intstr.FromString("transport"),
+							},
+						},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						Capabilities: &corev1.Capabilities{
+							Add: []corev1.Capability{"SYS_CHROOT"},
+						},
+					},
+					Env: combineEnvVars(
+						elasticContainerEnv,
+						downwardsAPIEnv,
+						elasticNodeTypeEnv(labels.Role()),
+						r.javaOptsEnv(),
+					),
+				},
+			},
+			Volumes: []corev1.Volume{
+				configVolume(),
+			},
+			ImagePullSecrets: imageSpec.ImagePullSecrets,
+		},
+	}
+}
+
+func containerPortsForRole(role resources.ElasticRole) []corev1.ContainerPort {
+	switch role {
+	case resources.ElasticDataRole:
+		return []corev1.ContainerPort{
+			containerPort(transportPort),
+		}
+	case resources.ElasticClientRole, resources.ElasticMasterRole:
+		return []corev1.ContainerPort{
+			containerPort(httpPort),
+			containerPort(transportPort),
+			containerPort(metricsPort),
+			containerPort(rcaPort),
+		}
+	case resources.ElasticKibanaRole:
+		return []corev1.ContainerPort{
+			containerPort(kibanaPort),
+		}
+	default:
+		return nil
+	}
+}
+
+func (r *Reconciler) elasticMasterWorkload() resources.Resource {
+	labels := resources.NewElasticLabels().
+		WithRole(resources.ElasticMasterRole)
+
+	workload := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opendistro-es-master",
+			Namespace: r.opniCluster.Namespace,
+			Labels:    labels,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: &r.opniCluster.Spec.Elastic.Workloads.Master.Replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: r.elasticPodTemplate(labels),
+		},
+	}
+
+	workload.Spec.Template.Spec.Affinity =
+		r.opniCluster.Spec.Elastic.Workloads.Master.Affinity
+	if r.opniCluster.Spec.Elastic.Workloads.Master.Resources != nil {
+		workload.Spec.Template.Spec.Containers[0].Resources =
+			*r.opniCluster.Spec.Elastic.Workloads.Master.Resources
+	}
+
+	r.configurePVC(workload)
+	return resources.Present(workload)
+}
+
+func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
+	// Insert the data volume into the pod template.
+	workload.Spec.Template.Spec.InitContainers = append(
+		workload.Spec.Template.Spec.InitContainers, fixMountContainer())
+	workload.Spec.Template.Spec.Containers[0].VolumeMounts = append(
+		workload.Spec.Template.Spec.Containers[0].VolumeMounts, dataVolumeMount())
+
 	// Set up defaults
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -100,10 +176,13 @@ func (r *Reconciler) maybePVC() *corev1.PersistentVolumeClaim {
 		},
 	}
 
+	usePersistence := false
 	if p := r.opniCluster.Spec.Elastic.Persistence; p != nil {
 		if !p.Enabled {
-			return nil
+			// Persistence disabled
+			return
 		}
+		usePersistence = true
 		if len(p.AccessModes) > 0 {
 			pvc.Spec.AccessModes = p.AccessModes
 		}
@@ -117,21 +196,66 @@ func (r *Reconciler) maybePVC() *corev1.PersistentVolumeClaim {
 		}
 	}
 
-	return &pvc
+	// If we are using persistent storage, create a PVC. Otherwise, create an
+	// emptyDir volume.
+	if usePersistence {
+		workload.Spec.VolumeClaimTemplates =
+			append(workload.Spec.VolumeClaimTemplates, pvc)
+	} else {
+		workload.Spec.Template.Spec.Volumes =
+			append(workload.Spec.Template.Spec.Volumes,
+				corev1.Volume{
+					Name: "data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			)
+	}
 }
 
-func (r *Reconciler) elasticMasterWorkload() resources.Resource {
+func (r *Reconciler) elasticClientWorkload() resources.Resource {
 	labels := resources.NewElasticLabels().
-		WithRole(resources.ElasticMasterRole)
+		WithRole(resources.ElasticClientRole)
 
-	deployment := &appsv1.Deployment{
+	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-master",
+			Name:      "opendistro-es-client",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &r.opniCluster.Spec.Elastic.Workloads.Master.Replicas,
+			Replicas: &r.opniCluster.Spec.Elastic.Workloads.Client.Replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: r.elasticPodTemplate(labels),
+		},
+	}
+
+	workload.Spec.Template.Spec.Affinity =
+		r.opniCluster.Spec.Elastic.Workloads.Client.Affinity
+	if r.opniCluster.Spec.Elastic.Workloads.Client.Resources != nil {
+		workload.Spec.Template.Spec.Containers[0].Resources =
+			*r.opniCluster.Spec.Elastic.Workloads.Client.Resources
+	}
+
+	return resources.Present(workload)
+}
+
+func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
+	labels := resources.NewElasticLabels().
+		WithRole(resources.ElasticKibanaRole)
+
+	imageSpec := r.kibanaImageSpec()
+	workload := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opendistro-es-kibana",
+			Namespace: r.opniCluster.Namespace,
+			Labels:    labels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &r.opniCluster.Spec.Elastic.Workloads.Kibana.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -139,15 +263,57 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
 				},
+				Spec: corev1.PodSpec{
+					Affinity: r.opniCluster.Spec.Elastic.Workloads.Kibana.Affinity,
+					Containers: []corev1.Container{
+						{
+							Name:            "opendistro-es-kibana",
+							Image:           imageSpec.GetImage(),
+							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
+							Env:             kibanaEnv,
+							ReadinessProbe: &corev1.Probe{
+								FailureThreshold:    3,
+								InitialDelaySeconds: 60,
+								PeriodSeconds:       30,
+								SuccessThreshold:    1,
+								TimeoutSeconds:      10,
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/api/status",
+										Port: intstr.FromInt(5601),
+									},
+								},
+							},
+							LivenessProbe: &corev1.Probe{
+								FailureThreshold:    3,
+								InitialDelaySeconds: 10,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								TimeoutSeconds:      1,
+								Handler: corev1.Handler{
+									TCPSocket: &corev1.TCPSocketAction{
+										Port: intstr.FromInt(5601),
+									},
+								},
+							},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "http",
+									ContainerPort: 5601,
+								},
+							},
+						},
+					},
+					ImagePullSecrets: imageSpec.ImagePullSecrets,
+				},
 			},
 		},
 	}
-
-	return resources.Present(deployment)
-}
-
-func (r *Reconciler) elasticClientWorkload() resources.Resource {
-	return resources.Present(nil)
+	if r.opniCluster.Spec.Elastic.Workloads.Kibana.Resources != nil {
+		workload.Spec.Template.Spec.Containers[0].Resources =
+			*r.opniCluster.Spec.Elastic.Workloads.Kibana.Resources
+	}
+	return resources.Present(workload)
 }
 
 func initSysctlContainer() corev1.Container {
@@ -195,36 +361,33 @@ func configVolumeMount() corev1.VolumeMount {
 	}
 }
 
-func (r *Reconciler) elasticDataContainer() corev1.Container {
-	return corev1.Container{
-		Name:  "elasticsearch",
-		Image: "", // todo
-		Ports: []corev1.ContainerPort{
-			containerPort(transportPort),
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			dataVolumeMount(),
-			configVolumeMount(),
-		},
-		LivenessProbe: &corev1.Probe{
-			InitialDelaySeconds: 60,
-			PeriodSeconds:       10,
-			Handler: corev1.Handler{
-				TCPSocket: &corev1.TCPSocketAction{
-					Port: intstr.FromString("transport"),
-				},
+func configVolume() corev1.Volume {
+	return corev1.Volume{
+		Name: "config",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: "opendistro-es-config",
 			},
 		},
-		SecurityContext: &corev1.SecurityContext{
-			Capabilities: &corev1.Capabilities{
-				Add: []corev1.Capability{"SYS_CHROOT"},
-			},
-		},
-		Env: combineEnvVars(
-			elasticContainerEnv,
-			downwardsAPIEnv,
-			elasticNodeTypeEnv("data"),
-			r.javaOptsEnv(),
-		),
 	}
+}
+
+func (r *Reconciler) openDistroImageSpec() v1beta1.ImageSpec {
+	return v1beta1.ImageResolver{
+		Version:             r.opniCluster.Spec.Elastic.Version,
+		ImageName:           "opendistro-for-elasticsearch",
+		DefaultRepo:         "docker.io/amazon",
+		DefaultRepoOverride: r.opniCluster.Spec.Elastic.DefaultRepo,
+		ImageOverride:       r.opniCluster.Spec.Elastic.Image,
+	}.Resolve()
+}
+
+func (r *Reconciler) kibanaImageSpec() v1beta1.ImageSpec {
+	return v1beta1.ImageResolver{
+		Version:             r.opniCluster.Spec.Elastic.Version,
+		ImageName:           "opendistro-for-elasticsearch-kibana",
+		DefaultRepo:         "docker.io/amazon",
+		DefaultRepoOverride: r.opniCluster.Spec.Elastic.DefaultRepo,
+		ImageOverride:       r.opniCluster.Spec.Elastic.KibanaImage,
+	}.Resolve()
 }

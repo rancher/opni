@@ -25,7 +25,7 @@ var (
 		Port: 9650,
 	}
 	kibanaPort = corev1.ServicePort{
-		Name:       "kibana-svc",
+		Name:       "kibana",
 		Port:       443,
 		TargetPort: intstr.FromInt(5601),
 	}
@@ -45,7 +45,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 	// Create data service
 	dataSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-data-svc",
+			Name:      "opendistro-es-data",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels.WithRole(resources.ElasticDataRole),
 		},
@@ -64,7 +64,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 	}
 	clientSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-client-svc",
+			Name:      "opendistro-es-client",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels.WithRole(resources.ElasticClientRole),
 		},
@@ -83,7 +83,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 	}
 	discoverySvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-discovery-svc",
+			Name:      "opendistro-es-discovery",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels.WithRole(resources.ElasticMasterRole),
 		},
@@ -99,7 +99,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 	}
 	kibanaSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-kibana-svc",
+			Name:      "opendistro-es-kibana",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels.WithRole(resources.ElasticKibanaRole),
 		},

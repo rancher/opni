@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/phayes/freeport"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -53,12 +54,18 @@ func StartControllerManager(ctx context.Context, testEnv *envtest.Environment) {
 		},
 		CurrentContext: "default",
 	}
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
 	clientcmd.WriteToFile(apiCfg, path.Join(testEnv.BinaryAssetsDirectory, "kubeconfig.yaml"))
 	cmd := exec.CommandContext(ctx, controllerMgrBin,
 		"--kubeconfig", path.Join(testEnv.BinaryAssetsDirectory, "kubeconfig.yaml"),
 		"--controllers", strings.Join(defaultControllers, ","),
 		"--leader-elect=false",
-		"--bind-address=127.0.0.1",
+		"--address=127.0.0.1",
+		fmt.Sprintf("--port=%d", port),
+		"--secure-port=0",
 		"--enable-garbage-collector",
 		"--concurrent-gc-syncs=40",
 	)

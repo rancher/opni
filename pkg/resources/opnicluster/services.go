@@ -144,8 +144,8 @@ func (r *Reconciler) pretrainedModelDeployment(
 						Containers: []corev1.Container{
 							{
 								Name:            "inference-service",
-								Image:           *imageSpec.Image,
-								ImagePullPolicy: *imageSpec.ImagePullPolicy,
+								Image:           imageSpec.GetImage(),
+								ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 								VolumeMounts: []corev1.VolumeMount{
 									{
 										Name:      "model-volume",

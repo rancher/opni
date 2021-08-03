@@ -3,6 +3,7 @@ package elastic
 import (
 	"fmt"
 
+	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -28,6 +29,10 @@ var (
 			},
 		},
 		{
+			Name:  "discovery.seed_hosts",
+			Value: "opendistro-es-discovery",
+		},
+		{
 			Name: "KUBERNETES_NAMESPACE",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
@@ -44,21 +49,31 @@ var (
 			},
 		},
 	}
+	kibanaEnv = []corev1.EnvVar{
+		{
+			Name:  "CLUSTER_NAME",
+			Value: "elasticsearch",
+		},
+		{
+			Name:  "ELASTICSEARCH_HOSTS",
+			Value: "https://opendistro-es-client:9200",
+		},
+	}
 )
 
-func elasticNodeTypeEnv(nodeType string) []corev1.EnvVar {
+func elasticNodeTypeEnv(role resources.ElasticRole) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "node.master",
-			Value: fmt.Sprint(nodeType == "master"),
+			Value: fmt.Sprint(role == resources.ElasticMasterRole),
 		},
 		{
 			Name:  "node.ingest",
-			Value: fmt.Sprint(nodeType == "client"),
+			Value: fmt.Sprint(role == resources.ElasticClientRole),
 		},
 		{
 			Name:  "node.data",
-			Value: fmt.Sprint(nodeType == "data"),
+			Value: fmt.Sprint(role == resources.ElasticDataRole),
 		},
 	}
 }

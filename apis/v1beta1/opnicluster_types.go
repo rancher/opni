@@ -122,6 +122,7 @@ type ElasticSpec struct {
 	Version      string                       `json:"version"`
 	DefaultRepo  *string                      `json:"defaultRepo,omitempty"`
 	Image        *ImageSpec                   `json:"image,omitempty"`
+	KibanaImage  *ImageSpec                   `json:"kibanaImage,omitempty"`
 	Persistence  *PersistenceSpec             `json:"storage,omitempty"`
 	ConfigSecret *corev1.LocalObjectReference `json:"configSecret,omitempty"`
 }
@@ -130,6 +131,7 @@ type ElasticWorkloadSpec struct {
 	Master *ElasticWorkloadMasterSpec `json:"master,omitempty"`
 	Data   *ElasticWorkloadDataSpec   `json:"data,omitempty"`
 	Client *ElasticWorkloadClientSpec `json:"client,omitempty"`
+	Kibana *ElasticWorkloadKibanaSpec `json:"kibana,omitempty"`
 }
 
 type ElasticWorkloadMasterSpec struct {
@@ -155,6 +157,13 @@ type ElasticWorkloadClientSpec struct {
 	DedicatedPod bool                         `json:"dedicatedPod,omitempty"`
 	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
 	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
+}
+
+type ElasticWorkloadKibanaSpec struct {
+	// +kubebuilder:default:=1
+	Replicas  int32                        `json:"replicas,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
 }
 
 type PersistenceSpec struct {

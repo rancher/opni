@@ -42,3 +42,11 @@ func (l ElasticLabels) WithRole(role ElasticRole) ElasticLabels {
 	copied["role"] = string(role)
 	return l
 }
+
+func (l ElasticLabels) Role() ElasticRole {
+	if role, ok := l["role"]; !ok {
+		return ""
+	} else {
+		return ElasticRole(role)
+	}
+}

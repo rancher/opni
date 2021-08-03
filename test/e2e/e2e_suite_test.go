@@ -113,6 +113,9 @@ var _ = BeforeSuite(func() {
 		fmt.Println("KUBECONFIG=" + os.Getenv("KUBECONFIG"))
 	}
 
+	port, err := freeport.GetFreePort()
+	Expect(err).NotTo(HaveOccurred())
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			"../../config/crd/bases",
@@ -125,6 +128,16 @@ var _ = BeforeSuite(func() {
 		Scheme:                scheme.Scheme,
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			CleanUpAfterUse: useExisting,
+		},
+		ControlPlane: envtest.ControlPlane{
+			APIServer: &envtest.APIServer{
+				SecureServing: envtest.SecureServing{
+					ListenAddr: envtest.ListenAddr{
+						Address: "127.0.0.1",
+						Port:    fmt.Sprint(port),
+					},
+				},
+			},
 		},
 	}
 

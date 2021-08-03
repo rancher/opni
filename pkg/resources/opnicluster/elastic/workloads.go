@@ -16,6 +16,7 @@ func (r *Reconciler) elasticWorkloads() []resources.Resource {
 		r.elasticMasterWorkload(),
 		r.elasticDataWorkload(),
 		r.elasticClientWorkload(),
+		r.elasticKibanaWorkload(),
 	}
 }
 
@@ -88,7 +89,7 @@ func (r *Reconciler) elasticPodTemplate(
 						elasticContainerEnv,
 						downwardsAPIEnv,
 						elasticNodeTypeEnv(labels.Role()),
-						r.javaOptsEnv(),
+						r.javaOptsEnv(labels.Role()),
 					),
 				},
 			},

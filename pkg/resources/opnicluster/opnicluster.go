@@ -8,6 +8,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/resources/opnicluster/elastic"
 	util "github.com/rancher/opni/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,13 +66,20 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	r.opniCluster.Status.Conditions = []string{}
 
+	opniResources := []resources.Resource{
+		r.inferenceDeployment,
+		r.drainDeployment,
+		r.payloadReceiverDeployment,
+		r.preprocessingDeployment,
+	}
+
 	additionalResources := []resources.Resource{}
 	pretrained, err := r.pretrainedModels()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
 		r.opniCluster.Status.Conditions =
 			append(r.opniCluster.Status.Conditions, err.Error())
-		lg.Error(err, "Error when reconciling pretrained models, retrying.")
+		lg.Error(err, "Error when reconciling pretrained models, will retry.")
 		// Keep going, we can reconcile the rest of the deployments and come back
 		// to this later.
 	}
@@ -80,19 +88,23 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		retErr = errors.Combine(retErr, err)
 		r.opniCluster.Status.Conditions =
 			append(r.opniCluster.Status.Conditions, err.Error())
-		lg.Error(err, "Error when reconciling nats, retrying.")
+		lg.Error(err, "Error when reconciling nats, will retry.")
+		// Keep going.
+	}
+	es, err := elastic.NewReconciler(r.opniCluster).ElasticResources()
+	if err != nil {
+		retErr = errors.Combine(retErr, err)
+		r.opniCluster.Status.Conditions =
+			append(r.opniCluster.Status.Conditions, err.Error())
+		lg.Error(err, "Error when reconciling elastic, will retry.")
 		// Keep going.
 	}
 
 	additionalResources = append(additionalResources, pretrained...)
 	additionalResources = append(additionalResources, nats...)
+	additionalResources = append(additionalResources, es...)
 
-	for _, factory := range append([]resources.Resource{
-		r.inferenceDeployment,
-		r.drainDeployment,
-		r.payloadReceiverDeployment,
-		r.preprocessingDeployment,
-	}, additionalResources...) {
+	for _, factory := range append(opniResources, additionalResources...) {
 		o, state, err := factory()
 		if err != nil {
 			return nil, errors.WrapIf(err, "failed to create object")

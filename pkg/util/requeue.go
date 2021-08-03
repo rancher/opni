@@ -57,7 +57,7 @@ func RequeueErr(err error) RequeueOp {
 }
 
 func (r RequeueOp) ShouldRequeue() bool {
-	return r.res.Requeue || r.res.RequeueAfter == 0 || r.err != nil
+	return r.res.Requeue || r.res.RequeueAfter >= 0 || r.err != nil
 }
 
 func (r RequeueOp) Result() (ctrl.Result, error) {

@@ -78,21 +78,41 @@ func elasticNodeTypeEnv(role resources.ElasticRole) []corev1.EnvVar {
 	}
 }
 
-func (r *Reconciler) javaOptsEnv() []corev1.EnvVar {
+func (r *Reconciler) javaOptsEnv(role resources.ElasticRole) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "ES_JAVA_OPTS",
-			Value: javaOpts(r.opniCluster.Spec.Elastic.Workloads.Data.Resources),
+			Name: "ES_JAVA_OPTS",
+			Value: javaOpts(func() *corev1.ResourceRequirements {
+				switch role {
+				case resources.ElasticDataRole:
+					if res := r.opniCluster.Spec.Elastic.Workloads.Data.Resources; res != nil {
+						return res
+					}
+				case resources.ElasticClientRole:
+					if res := r.opniCluster.Spec.Elastic.Workloads.Client.Resources; res != nil {
+						return res
+					}
+				case resources.ElasticMasterRole:
+					if res := r.opniCluster.Spec.Elastic.Workloads.Master.Resources; res != nil {
+						return res
+					}
+				case resources.ElasticKibanaRole:
+					if res := r.opniCluster.Spec.Elastic.Workloads.Kibana.Resources; res != nil {
+						return res
+					}
+				}
+				return &corev1.ResourceRequirements{}
+			}()),
 		},
 	}
 }
 
 func javaOpts(req *corev1.ResourceRequirements) string {
-	if cpuLimit, ok := req.Limits[corev1.ResourceCPU]; ok {
-		return fmt.Sprintf("-Xms%[1]dm -Xmx%[1]dm", cpuLimit.ScaledValue(resource.Mega))
+	if memLimit, ok := req.Limits[corev1.ResourceMemory]; ok {
+		return fmt.Sprintf("-Xms%[1]dm -Xmx%[1]dm", memLimit.ScaledValue(resource.Mega)/2)
 	}
-	if cpuReq, ok := req.Requests[corev1.ResourceCPU]; ok {
-		return fmt.Sprintf("-Xms%[1]dm -Xmx%[1]dm", cpuReq.ScaledValue(resource.Mega))
+	if memReq, ok := req.Requests[corev1.ResourceMemory]; ok {
+		return fmt.Sprintf("-Xms%[1]dm -Xmx%[1]dm", memReq.ScaledValue(resource.Mega)/2)
 	}
 	return "-Xms512m -Xmx512m"
 }

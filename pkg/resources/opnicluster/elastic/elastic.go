@@ -9,9 +9,15 @@ type Reconciler struct {
 	opniCluster *v1beta1.OpniCluster
 }
 
-func (r *Reconciler) elastic() (resourceList []resources.Resource, retErr error) {
-	services := r.elasticServices()
-	configSecret := r.elasticConfigSecret()
+func NewReconciler(opniCluster *v1beta1.OpniCluster) *Reconciler {
+	return &Reconciler{
+		opniCluster: opniCluster,
+	}
+}
 
-	return append(services, configSecret), nil
+func (r *Reconciler) ElasticResources() (resourceList []resources.Resource, _ error) {
+	resourceList = append(resourceList, r.elasticServices()...)
+	resourceList = append(resourceList, r.elasticConfigSecret())
+	resourceList = append(resourceList, r.elasticWorkloads()...)
+	return
 }

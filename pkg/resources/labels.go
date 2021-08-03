@@ -40,7 +40,7 @@ func (l ElasticLabels) WithRole(role ElasticRole) ElasticLabels {
 		copied[k] = v
 	}
 	copied["role"] = string(role)
-	return l
+	return copied
 }
 
 func (l ElasticLabels) Role() ElasticRole {

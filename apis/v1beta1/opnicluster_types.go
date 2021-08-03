@@ -128,10 +128,10 @@ type ElasticSpec struct {
 }
 
 type ElasticWorkloadSpec struct {
-	Master *ElasticWorkloadMasterSpec `json:"master,omitempty"`
-	Data   *ElasticWorkloadDataSpec   `json:"data,omitempty"`
-	Client *ElasticWorkloadClientSpec `json:"client,omitempty"`
-	Kibana *ElasticWorkloadKibanaSpec `json:"kibana,omitempty"`
+	Master ElasticWorkloadMasterSpec `json:"master,omitempty"`
+	Data   ElasticWorkloadDataSpec   `json:"data,omitempty"`
+	Client ElasticWorkloadClientSpec `json:"client,omitempty"`
+	Kibana ElasticWorkloadKibanaSpec `json:"kibana,omitempty"`
 }
 
 type ElasticWorkloadMasterSpec struct {

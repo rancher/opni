@@ -26,6 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	"github.com/rancher/opni/pkg/util"
 
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -82,6 +83,9 @@ var _ = BeforeSuite(func() {
 
 	scheme := runtime.NewScheme()
 	err = AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = admissionv1beta1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = admissionv1beta1.AddToScheme(scheme)

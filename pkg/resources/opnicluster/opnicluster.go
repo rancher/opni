@@ -73,7 +73,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		r.preprocessingDeployment,
 	}
 
-	additionalResources := []resources.Resource{}
+	allResources := []resources.Resource{}
 	pretrained, err := r.pretrainedModels()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
@@ -91,7 +91,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		lg.Error(err, "Error when reconciling nats, will retry.")
 		// Keep going.
 	}
-	es, err := elastic.NewReconciler(r.opniCluster).ElasticResources()
+	es, err := elastic.NewReconciler(r.client, r.opniCluster).ElasticResources()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
 		r.opniCluster.Status.Conditions =
@@ -100,11 +100,13 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		// Keep going.
 	}
 
-	additionalResources = append(additionalResources, pretrained...)
-	additionalResources = append(additionalResources, nats...)
-	additionalResources = append(additionalResources, es...)
+	// Order is important
+	allResources = append(allResources, nats...)
+	allResources = append(allResources, opniResources...)
+	allResources = append(allResources, pretrained...)
+	allResources = append(allResources, es...)
 
-	for _, factory := range append(opniResources, additionalResources...) {
+	for _, factory := range allResources {
 		o, state, err := factory()
 		if err != nil {
 			return nil, errors.WrapIf(err, "failed to create object")

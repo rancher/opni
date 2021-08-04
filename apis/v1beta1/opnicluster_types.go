@@ -69,6 +69,8 @@ type NatsAuthStatus struct {
 	AuthSecretKeyRef *corev1.SecretKeySelector `json:"authSecretKeyRef,omitempty"`
 }
 
+//+kubebuilder:webhook:path=/highlander-opni-io-v1beta1-opnicluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=opniclusters,verbs=create;update,versions=v1beta1,name=highlander.opni.io,admissionReviewVersions={v1,v1beta1}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
@@ -118,8 +120,9 @@ type PayloadReceiverServiceSpec struct {
 }
 
 type ElasticSpec struct {
-	Workloads    ElasticWorkloadSpec          `json:"workloads,omitempty"`
+	// +kubebuilder:default:=latest
 	Version      string                       `json:"version"`
+	Workloads    ElasticWorkloadSpec          `json:"workloads,omitempty"`
 	DefaultRepo  *string                      `json:"defaultRepo,omitempty"`
 	Image        *ImageSpec                   `json:"image,omitempty"`
 	KibanaImage  *ImageSpec                   `json:"kibanaImage,omitempty"`
@@ -135,33 +138,29 @@ type ElasticWorkloadSpec struct {
 }
 
 type ElasticWorkloadMasterSpec struct {
-	// +kubebuilder:default:=1
-	Replicas  int32                        `json:"replicas,omitempty"`
+	Replicas  *int32                       `json:"replicas,omitempty"`
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
 }
 
 type ElasticWorkloadDataSpec struct {
-	// +kubebuilder:default:=1
-	Replicas int32 `json:"replicas,omitempty"`
 	// +kubebuilder:default:=true
 	DedicatedPod bool                         `json:"dedicatedPod,omitempty"`
+	Replicas     *int32                       `json:"replicas,omitempty"`
 	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
 	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
 }
 
 type ElasticWorkloadClientSpec struct {
-	// +kubebuilder:default:=1
-	Replicas int32 `json:"replicas,omitempty"`
 	// +kubebuilder:default:=true
 	DedicatedPod bool                         `json:"dedicatedPod,omitempty"`
+	Replicas     *int32                       `json:"replicas,omitempty"`
 	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
 	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
 }
 
 type ElasticWorkloadKibanaSpec struct {
-	// +kubebuilder:default:=1
-	Replicas  int32                        `json:"replicas,omitempty"`
+	Replicas  *int32                       `json:"replicas,omitempty"`
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
 }

@@ -33,11 +33,11 @@ func (s ServiceKind) String() string {
 }
 
 func (s ServiceKind) ServiceName() string {
-	return s.String() + "-service"
+	return "opni-" + s.String()
 }
 
 func (s ServiceKind) ImageName() string {
-	return "opni-" + s.ServiceName()
+	return s.ServiceName() + "-service"
 }
 
 func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *ImageSpec {

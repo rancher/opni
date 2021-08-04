@@ -12,10 +12,11 @@ require (
 	github.com/elastic/go-elasticsearch/v7 v7.13.1
 	github.com/go-logr/logr v0.4.0
 	github.com/k3s-io/helm-controller v0.10.0
+	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
 	github.com/nats-io/nkeys v0.3.0
 	github.com/onsi/ginkgo v1.16.4
-	github.com/onsi/gomega v1.13.0
+	github.com/onsi/gomega v1.14.0
 	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6 // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.43.0
@@ -24,15 +25,15 @@ require (
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/vbauerster/mpb/v7 v7.0.2
 	go.uber.org/atomic v1.8.0
-	go.uber.org/zap v1.17.0
+	go.uber.org/zap v1.18.1
 	golang.org/x/mod v0.4.2
 	golang.org/x/tools v0.1.3 // indirect
-	k8s.io/api v0.21.1
-	k8s.io/apiextensions-apiserver v0.21.1
-	k8s.io/apimachinery v0.21.1
-	k8s.io/client-go v0.21.1
-	k8s.io/utils v0.0.0-20210527160623-6fdb442a123b
-	sigs.k8s.io/controller-runtime v0.9.0
+	k8s.io/api v0.21.3
+	k8s.io/apiextensions-apiserver v0.21.3
+	k8s.io/apimachinery v0.21.3
+	k8s.io/client-go v0.21.3
+	k8s.io/utils v0.0.0-20210722164352-7f3ee0f31471
+	sigs.k8s.io/controller-runtime v0.9.5
 )
 
 replace github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.5

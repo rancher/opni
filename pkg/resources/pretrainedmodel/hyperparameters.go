@@ -2,6 +2,7 @@ package pretrainedmodel
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/rancher/opni/pkg/resources"
@@ -17,7 +18,7 @@ func (r *Reconciler) hyperparameters() (runtime.Object, reconciler.DesiredState,
 	}
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.model.Name + "-hyperparameters",
+			Name:      fmt.Sprintf("opni-%s-hyperparameters", r.model.Name),
 			Namespace: r.model.Namespace,
 			Labels: map[string]string{
 				resources.PartOfLabel:          "opni",

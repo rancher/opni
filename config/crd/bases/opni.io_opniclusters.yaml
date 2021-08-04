@@ -100,6 +100,7 @@ spec:
                         type: string
                     type: object
                   version:
+                    default: latest
                     type: string
                   workloads:
                     properties:
@@ -570,7 +571,6 @@ spec:
                             default: true
                             type: boolean
                           replicas:
-                            default: 1
                             format: int32
                             type: integer
                           resources:
@@ -1063,7 +1063,6 @@ spec:
                             default: true
                             type: boolean
                           replicas:
-                            default: 1
                             format: int32
                             type: integer
                           resources:
@@ -1553,7 +1552,6 @@ spec:
                                 type: object
                             type: object
                           replicas:
-                            default: 1
                             format: int32
                             type: integer
                           resources:
@@ -2043,7 +2041,6 @@ spec:
                                 type: object
                             type: object
                           replicas:
-                            default: 1
                             format: int32
                             type: integer
                           resources:

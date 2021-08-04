@@ -154,7 +154,7 @@ func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 
 	statefulset := appsv1.StatefulSet{}
 	err = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      fmt.Sprintf("%s-nats", r.opniCluster.Name),
+		Name:      "opni-nats",
 		Namespace: r.opniCluster.Namespace,
 	}, &statefulset)
 	if k8serrors.IsNotFound(err) {

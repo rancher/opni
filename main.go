@@ -24,6 +24,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
+	"github.com/kralicky/highlander"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"go.uber.org/zap/zapcore"
@@ -38,7 +39,7 @@ import (
 
 	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
-	opniiov1beta1 "github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/controllers/demo"
 	"github.com/rancher/opni/pkg/util"
@@ -60,7 +61,7 @@ func init() {
 	// Register the logging operator CRDs under the logging.opni.io group
 	// to avoid possible conflicts.
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(opniiov1beta1.AddToScheme(scheme))
+	utilruntime.Must(v1beta1.AddToScheme(scheme))
 	utilruntime.Must(demov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(helmv1.AddToScheme(scheme))
 	utilruntime.Must(apiextv1beta1.AddToScheme(scheme))
@@ -140,7 +141,7 @@ func run() error {
 		return err
 	}
 
-	if err = (&opniiov1beta1.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&v1beta1.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
 		return err
 	}
@@ -150,6 +151,11 @@ func run() error {
 		return err
 	}
 	// +kubebuilder:scaffold:builder
+
+	if err := highlander.NewFor(&v1beta1.OpniCluster{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "OpniCluster")
+		return err
+	}
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

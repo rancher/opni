@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func (r *Reconciler) elasticWorkloads() []resources.Resource {
@@ -26,12 +27,12 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-data",
+			Name:      "opni-es-data",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: &r.opniCluster.Spec.Elastic.Workloads.Client.Replicas,
+			Replicas: r.opniCluster.Spec.Elastic.Workloads.Client.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -46,6 +47,7 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 			*r.opniCluster.Spec.Elastic.Workloads.Data.Resources
 	}
 
+	ctrl.SetControllerReference(r.opniCluster, workload, r.client.Scheme())
 	r.configurePVC(workload)
 	return resources.Present(workload)
 }
@@ -129,12 +131,12 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-master",
+			Name:      "opni-es-master",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: &r.opniCluster.Spec.Elastic.Workloads.Master.Replicas,
+			Replicas: r.opniCluster.Spec.Elastic.Workloads.Master.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -149,6 +151,7 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 			*r.opniCluster.Spec.Elastic.Workloads.Master.Resources
 	}
 
+	ctrl.SetControllerReference(r.opniCluster, workload, r.client.Scheme())
 	r.configurePVC(workload)
 	return resources.Present(workload)
 }
@@ -221,12 +224,12 @@ func (r *Reconciler) elasticClientWorkload() resources.Resource {
 
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-client",
+			Name:      "opni-es-client",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &r.opniCluster.Spec.Elastic.Workloads.Client.Replicas,
+			Replicas: r.opniCluster.Spec.Elastic.Workloads.Client.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -241,6 +244,7 @@ func (r *Reconciler) elasticClientWorkload() resources.Resource {
 			*r.opniCluster.Spec.Elastic.Workloads.Client.Resources
 	}
 
+	ctrl.SetControllerReference(r.opniCluster, workload, r.client.Scheme())
 	return resources.Present(workload)
 }
 
@@ -251,12 +255,12 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 	imageSpec := r.kibanaImageSpec()
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-kibana",
+			Name:      "opni-es-kibana",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &r.opniCluster.Spec.Elastic.Workloads.Kibana.Replicas,
+			Replicas: r.opniCluster.Spec.Elastic.Workloads.Kibana.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -268,7 +272,7 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 					Affinity: r.opniCluster.Spec.Elastic.Workloads.Kibana.Affinity,
 					Containers: []corev1.Container{
 						{
-							Name:            "opendistro-es-kibana",
+							Name:            "opni-es-kibana",
 							Image:           imageSpec.GetImage(),
 							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 							Env:             kibanaEnv,
@@ -314,6 +318,8 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 		workload.Spec.Template.Spec.Containers[0].Resources =
 			*r.opniCluster.Spec.Elastic.Workloads.Kibana.Resources
 	}
+
+	ctrl.SetControllerReference(r.opniCluster, workload, r.client.Scheme())
 	return resources.Present(workload)
 }
 

@@ -40397,10 +40397,20 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    cert-manager.io/inject-ca-from: opni-system/opni-serving-cert
     controller-gen.kubebuilder.io/version: v0.5.0
-  creationTimestamp: null
   name: opniclusters.opni.io
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: opni-webhook-service
+          namespace: opni-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
   group: opni.io
   names:
     kind: OpniCluster
@@ -40507,6 +40517,7 @@ spec:
                         type: string
                     type: object
                   version:
+                    default: latest
                     type: string
                   workloads:
                     properties:
@@ -41480,7 +41491,6 @@ spec:
                             default: true
                             type: boolean
                           replicas:
-                            default: 1
                             format: int32
                             type: integer
                           resources:
@@ -42482,7 +42492,6 @@ spec:
                             default: true
                             type: boolean
                           replicas:
-                            default: 1
                             format: int32
                             type: integer
                           resources:
@@ -43481,7 +43490,6 @@ spec:
                                 type: object
                             type: object
                           replicas:
-                            default: 1
                             format: int32
                             type: integer
                           resources:
@@ -44480,7 +44488,6 @@ spec:
                                 type: object
                             type: object
                           replicas:
-                            default: 1
                             format: int32
                             type: integer
                           resources:
@@ -55979,4 +55986,25 @@ webhooks:
     - UPDATE
     resources:
     - logadapters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: opni-webhook-service
+      namespace: opni-system
+      path: /highlander-opni-io-v1beta1-opnicluster
+  failurePolicy: Fail
+  name: highlander.opni.io
+  rules:
+  - apiGroups:
+    - opni.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - opniclusters
   sideEffects: None

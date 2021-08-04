@@ -115,7 +115,7 @@ func (r *Reconciler) pretrainedModelDeployment(
 		lg.Info("Creating pretrained model deployment", "name", model.Name)
 		deployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("inference-service-%s", model.Name),
+				Name:      fmt.Sprintf("opni-inference-%s", model.Name),
 				Namespace: r.opniCluster.Namespace,
 				OwnerReferences: []metav1.OwnerReference{
 					{
@@ -363,7 +363,7 @@ func insertHyperparametersVolume(deployment *appsv1.Deployment, model *v1beta1.P
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-hyperparameters", model.Name),
+					Name: fmt.Sprintf("opni-%s-hyperparameters", model.Name),
 				},
 				Items: []corev1.KeyToPath{
 					{

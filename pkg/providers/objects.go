@@ -18,7 +18,7 @@ import (
 func BuildLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 	logging := loggingv1beta1.Logging{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s-%s",
+			Name: fmt.Sprintf("opni-%s-%s",
 				adapter.GetName(),
 				strings.ToLower(string(adapter.Spec.Provider)),
 			),
@@ -37,7 +37,7 @@ func BuildLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 func BuildRootLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 	logging := loggingv1beta1.Logging{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      adapter.GetName(),
+			Name:      fmt.Sprintf("opni-%s", adapter.GetName()),
 			Namespace: adapter.GetNamespace(),
 		},
 		Spec: loggingv1beta1.LoggingSpec{
@@ -72,7 +72,7 @@ var (
 [OUTPUT]
     Name              forward
     Match             *
-    Host              {{ .ObjectMeta.Name }}-fluentd.{{ .ObjectMeta.Namespace }}.svc
+    Host              opni-{{ .ObjectMeta.Name }}-fluentd.{{ .ObjectMeta.Namespace }}.svc
     Port              24240
     Retry_Limit       False
 `))
@@ -99,7 +99,7 @@ end
 [OUTPUT]
     Name              forward
     Match             *
-    Host              {{ .ObjectMeta.Name }}-fluentd.{{ .ObjectMeta.Namespace }}.svc
+    Host              opni-{{ .ObjectMeta.Name }}-fluentd.{{ .ObjectMeta.Namespace }}.svc
     Port              24240
     Retry_Limit       False
 `))
@@ -125,7 +125,7 @@ end
 [OUTPUT]
     Name              forward
     Match             *
-    Host              {{ .ObjectMeta.Name }}-fluentd.{{ .ObjectMeta.Namespace }}.svc
+    Host              opni-{{ .ObjectMeta.Name }}-fluentd.{{ .ObjectMeta.Namespace }}.svc
     Port              24240
     Retry_Limit       False
 `))
@@ -137,7 +137,7 @@ func BuildK3SConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 
 	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-k3s", adapter.GetName()),
+			Name:      fmt.Sprintf("opni-%s-k3s", adapter.GetName()),
 			Namespace: adapter.GetNamespace(),
 		},
 		Data: map[string]string{
@@ -150,7 +150,7 @@ func BuildK3SConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 }
 
 func BuildK3SJournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
-	name := fmt.Sprintf("%s-k3s-journald-aggregator", adapter.GetName())
+	name := fmt.Sprintf("opni-%s-k3s-journald-aggregator", adapter.GetName())
 	podLabels := map[string]string{
 		"name": name,
 	}
@@ -204,7 +204,7 @@ func BuildK3SJournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: adapter.GetName() + "-k3s",
+										Name: fmt.Sprintf("opni-%s-k3s", adapter.GetName()),
 									},
 								},
 							},
@@ -235,7 +235,7 @@ func BuildK3SJournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 }
 
 func BuildK3SServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount {
-	name := fmt.Sprintf("%s-k3s-journald-aggregator", adapter.GetName())
+	name := fmt.Sprintf("opni-%s-k3s-journald-aggregator", adapter.GetName())
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -249,7 +249,7 @@ func BuildRKEConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 	fluentBitRKETemplate.Execute(&buffer, adapter)
 	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-rke", adapter.GetName()),
+			Name:      fmt.Sprintf("opni-%s-rke", adapter.GetName()),
 			Namespace: adapter.GetNamespace(),
 		},
 		Data: map[string]string{
@@ -261,7 +261,7 @@ func BuildRKEConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 }
 
 func BuildRKEAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
-	name := fmt.Sprintf("%s-rke-aggregator", adapter.GetName())
+	name := fmt.Sprintf("opni-%s-rke-aggregator", adapter.GetName())
 	podLabels := map[string]string{
 		"name": name,
 	}
@@ -342,7 +342,7 @@ func BuildRKEAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: fmt.Sprintf("%s-rke", adapter.GetName()),
+										Name: fmt.Sprintf("opni-%s-rke", adapter.GetName()),
 									},
 								},
 							},
@@ -370,7 +370,7 @@ func BuildRKEAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 }
 
 func BuildRKEServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount {
-	name := fmt.Sprintf("%s-rke-aggregator", adapter.GetName())
+	name := fmt.Sprintf("opni-%s-rke-aggregator", adapter.GetName())
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -385,7 +385,7 @@ func BuildRKE2Config(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 
 	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-rke2", adapter.GetName()),
+			Name:      fmt.Sprintf("opni-%s-rke2", adapter.GetName()),
 			Namespace: adapter.GetNamespace(),
 		},
 		Data: map[string]string{
@@ -398,7 +398,7 @@ func BuildRKE2Config(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 }
 
 func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
-	name := fmt.Sprintf("%s-rke2-journald-aggregator", adapter.GetName())
+	name := fmt.Sprintf("opni-%s-rke2-journald-aggregator", adapter.GetName())
 	podLabels := map[string]string{
 		"name": name,
 	}
@@ -452,7 +452,7 @@ func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet 
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: adapter.GetName() + "-rke2",
+										Name: fmt.Sprintf("opni-%s-rke2", adapter.GetName()),
 									},
 								},
 							},
@@ -483,7 +483,7 @@ func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet 
 }
 
 func BuildRKE2ServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount {
-	name := fmt.Sprintf("%s-rke2-journald-aggregator", adapter.GetName())
+	name := fmt.Sprintf("opni-%s-rke2-journald-aggregator", adapter.GetName())
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

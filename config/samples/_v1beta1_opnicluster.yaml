@@ -7,8 +7,9 @@ spec:
   version: v0.1.2
   services:
     inference:
-      image: "rancher/opni-inference-service"
       pretrainedModels:
-        - name: control-plane
+        - name: pretrainedmodel-sample
+  elastic:
+    version: 1.13.2
   nats:
-    authMethod: username
+    authMethod: nkey

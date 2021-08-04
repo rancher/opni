@@ -537,17 +537,7 @@ func (r *Reconciler) getNKeyUser() (string, []byte, error) {
 			return "", make([]byte, 0), err
 		}
 
-		secret = corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-nats-secrets", r.opniCluster.Name),
-				Namespace: r.opniCluster.Namespace,
-			},
-			Data: map[string][]byte{
-				"seed": seed,
-			},
-		}
-		ctrl.SetControllerReference(r.opniCluster, &secret, r.client.Scheme())
-		err = r.client.Create(r.ctx, &secret)
+		err = r.updateState("seed", seed)
 		if err != nil {
 			return "", make([]byte, 0), err
 		}
@@ -570,8 +560,7 @@ func (r *Reconciler) getNKeyUser() (string, []byte, error) {
 			return "", make([]byte, 0), err
 		}
 
-		secret.Data["seed"] = seed
-		err = r.client.Update(r.ctx, &secret)
+		err = r.updateState("seed", seed)
 		if err != nil {
 			return "", make([]byte, 0), err
 		}
@@ -624,7 +613,7 @@ func (r *Reconciler) getNatsUserPassword() ([]byte, error) {
 	return r.fetchOrGeneratePassword("user-password")
 }
 
-// fetchOrGeneratePasswor will check if there is already a nats password stored in the cluster state secret
+// fetchOrGeneratePassword will check if there is already a nats password stored in the cluster state secret
 // and return the value.  If there is no secret it will generate a new password, store it in the secret,
 // and then return the generated value
 func (r *Reconciler) fetchOrGeneratePassword(key string) ([]byte, error) {
@@ -636,18 +625,7 @@ func (r *Reconciler) fetchOrGeneratePassword(key string) ([]byte, error) {
 	if k8serrors.IsNotFound(err) {
 		password := generateRandomPassword()
 
-		secret = corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-nats-secrets", r.opniCluster.Name),
-				Namespace: r.opniCluster.Namespace,
-			},
-			Data: map[string][]byte{
-				key: password,
-			},
-		}
-		ctrl.SetControllerReference(r.opniCluster, &secret, r.client.Scheme())
-
-		err := r.client.Create(r.ctx, &secret)
+		err := r.updateState(key, password)
 		if err != nil {
 			return make([]byte, 0), err
 		}
@@ -659,13 +637,37 @@ func (r *Reconciler) fetchOrGeneratePassword(key string) ([]byte, error) {
 	password, ok := secret.Data[key]
 	if !ok {
 		password = generateRandomPassword()
-		secret.Data[key] = password
-		err := r.client.Update(r.ctx, &secret)
+		err := r.updateState(key, password)
 		if err != nil {
 			return make([]byte, 0), err
 		}
 	}
 	return password, nil
+}
+
+func (r *Reconciler) updateState(key string, value []byte) error {
+	secret := &corev1.Secret{}
+	err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      fmt.Sprintf("%s-nats-secrets", r.opniCluster.Name),
+		Namespace: r.opniCluster.Namespace,
+	}, secret)
+	if k8serrors.IsNotFound(err) {
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-nats-secrets", r.opniCluster.Name),
+				Namespace: r.opniCluster.Namespace,
+			},
+			Data: map[string][]byte{
+				key: value,
+			},
+		}
+		ctrl.SetControllerReference(r.opniCluster, secret, r.client.Scheme())
+		return r.client.Create(r.ctx, secret)
+	} else if err != nil {
+		return err
+	}
+	secret.Data[key] = value
+	return r.client.Update(r.ctx, secret)
 }
 
 func generateRandomPassword() []byte {

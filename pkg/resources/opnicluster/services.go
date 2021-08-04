@@ -19,6 +19,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	natsNkeyDir = "/etc/nkey"
+)
+
 func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retError error) {
 	resourceList = []resources.Resource{}
 	lg := logr.FromContext(r.ctx)
@@ -224,6 +228,67 @@ func (r *Reconciler) findPretrainedModel(
 func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Deployment {
 	labels := r.serviceLabels(service)
 	imageSpec := r.serviceImageSpec(service)
+	volumes := []corev1.Volume{}
+	volumeMounts := []corev1.VolumeMount{}
+	envVars := []corev1.EnvVar{
+		{
+			Name:  "NATS_URL",
+			Value: fmt.Sprintf("nats://%s-nats-client.%s.svc:%d", r.opniCluster.Name, r.opniCluster.Namespace, natsDefaultClientPort),
+		},
+	}
+	switch r.opniCluster.Spec.Nats.AuthMethod {
+	case v1beta1.NatsAuthUsername:
+		var username string
+		if r.opniCluster.Spec.Nats.Username == "" {
+			username = "nats-user"
+		} else {
+			username = r.opniCluster.Spec.Nats.Username
+		}
+		newEnvVars := []corev1.EnvVar{
+			{
+				Name:  "NATS_USERNAME",
+				Value: username,
+			},
+			{
+				Name: "NATS_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: r.opniCluster.Status.Auth.AuthSecretKeyRef,
+				},
+			},
+		}
+		envVars = append(envVars, newEnvVars...)
+	case v1beta1.NatsAuthNkey:
+		newVolumes := []corev1.Volume{
+			{
+				Name: "nkey",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: r.opniCluster.Status.Auth.AuthSecretKeyRef.Name,
+					},
+				},
+			},
+		}
+		volumes = append(volumes, newVolumes...)
+		newVolumeMounts := []corev1.VolumeMount{
+			{
+				Name:      "nkey",
+				ReadOnly:  true,
+				MountPath: natsNkeyDir,
+			},
+		}
+		volumeMounts = append(volumeMounts, newVolumeMounts...)
+		newEnvVars := []corev1.EnvVar{
+			{
+				Name:  "NKEY_USER_FILENAME",
+				Value: fmt.Sprintf("%s/pubkey", natsNkeyDir),
+			},
+			{
+				Name:  "NKEY_USER_FILENAME",
+				Value: fmt.Sprintf("%s/seed", natsNkeyDir),
+			},
+		}
+		envVars = append(envVars, newEnvVars...)
+	}
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
@@ -252,9 +317,12 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 							Name:            labels[resources.AppNameLabel],
 							Image:           *imageSpec.Image,
 							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
+							Env:             envVars,
+							VolumeMounts:    volumeMounts,
 						},
 					},
 					ImagePullSecrets: imageSpec.ImagePullSecrets,
+					Volumes:          volumes,
 				},
 			},
 		},

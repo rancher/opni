@@ -395,11 +395,12 @@ func (r *Reconciler) natsAuthSecret() (*corev1.Secret, error) {
 		r.client.Status().Update(r.ctx, r.opniCluster)
 		return secret, nil
 	case v1beta1.NatsAuthNkey:
-		_, seed, err := r.getNKeyUser()
+		pubkey, seed, err := r.getNKeyUser()
 		if err != nil {
 			return &corev1.Secret{}, err
 		}
-		secret := r.genericAuthSecret("password", seed)
+		secret := r.genericAuthSecret("seed", seed)
+		secret.Data["pubkey"] = []byte(pubkey)
 		ctrl.SetControllerReference(r.opniCluster, secret, r.client.Scheme())
 		r.opniCluster.Status.Auth.AuthSecretKeyRef = &corev1.SecretKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{

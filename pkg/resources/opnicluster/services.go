@@ -232,7 +232,7 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 	volumeMounts := []corev1.VolumeMount{}
 	envVars := []corev1.EnvVar{
 		{
-			Name:  "NATS_URL",
+			Name:  "NATS_SERVER_URL",
 			Value: fmt.Sprintf("nats://%s-nats-client.%s.svc:%d", r.opniCluster.Name, r.opniCluster.Namespace, natsDefaultClientPort),
 		},
 	}
@@ -279,11 +279,7 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 		volumeMounts = append(volumeMounts, newVolumeMounts...)
 		newEnvVars := []corev1.EnvVar{
 			{
-				Name:  "NKEY_USER_FILENAME",
-				Value: fmt.Sprintf("%s/pubkey", natsNkeyDir),
-			},
-			{
-				Name:  "NKEY_USER_FILENAME",
+				Name:  "NKEY_SEED_FILENAME",
 				Value: fmt.Sprintf("%s/seed", natsNkeyDir),
 			},
 		}

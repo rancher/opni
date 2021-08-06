@@ -5,6 +5,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var (
@@ -45,7 +46,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 	// Create data service
 	dataSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-data",
+			Name:      "opni-es-data",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels.WithRole(resources.ElasticDataRole),
 		},
@@ -64,7 +65,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 	}
 	clientSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-client",
+			Name:      "opni-es-client",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels.WithRole(resources.ElasticClientRole),
 		},
@@ -83,7 +84,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 	}
 	discoverySvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-discovery",
+			Name:      "opni-es-discovery",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels.WithRole(resources.ElasticMasterRole),
 		},
@@ -99,7 +100,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 	}
 	kibanaSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opendistro-es-kibana",
+			Name:      "opni-es-kibana",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels.WithRole(resources.ElasticKibanaRole),
 		},
@@ -113,6 +114,11 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 			},
 		},
 	}
+
+	ctrl.SetControllerReference(r.opniCluster, dataSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.opniCluster, clientSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.opniCluster, discoverySvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.opniCluster, kibanaSvc, r.client.Scheme())
 
 	return []resources.Resource{
 		resources.Present(dataSvc),

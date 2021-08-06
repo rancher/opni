@@ -21,7 +21,7 @@ rootLogger: ${es.logger.level}, console`
 )
 
 func (r *Reconciler) elasticConfigSecret() resources.Resource {
-	secretName := "opendistro-es-config"
+	secretName := "opni-es-config"
 	if r.opniCluster.Spec.Elastic.ConfigSecret != nil {
 		// If auth secret is provided, use it instead of creating a new one. If
 		// the secret doesn't exist, create one with the given name.

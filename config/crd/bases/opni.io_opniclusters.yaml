@@ -86,7 +86,7 @@ spec:
                           type: object
                         type: array
                     type: object
-                  storage:
+                  persistence:
                     properties:
                       accessModes:
                         items:
@@ -2099,10 +2099,56 @@ spec:
                   username:
                     type: string
                 type: object
+              s3:
+                properties:
+                  external:
+                    description: If set, Opni will connect to an external S3 endpoint. Cannot be set at the same time as `internal`.
+                    properties:
+                      credentials:
+                        description: Reference to a secret containing "accessKey" and "secretKey" items. This secret must already exist.
+                        properties:
+                          name:
+                            description: Name is unique within a namespace to reference a secret resource.
+                            type: string
+                          namespace:
+                            description: Namespace defines the space within which the secret name must be unique.
+                            type: string
+                        type: object
+                      endpoint:
+                        type: string
+                    required:
+                    - credentials
+                    - endpoint
+                    type: object
+                  internal:
+                    description: If set, Opni will deploy an S3 pod to use internally. Cannot be set at the same time as `external`.
+                    type: object
+                type: object
               services:
                 properties:
                   drain:
                     properties:
+                      enabled:
+                        type: boolean
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        description: PullPolicy describes a policy for if/when to pull a container image
+                        type: string
+                      imagePullSecrets:
+                        items:
+                          description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
+                          properties:
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  gpuController:
+                    properties:
+                      enabled:
+                        type: boolean
                       image:
                         type: string
                       imagePullPolicy:
@@ -2120,6 +2166,8 @@ spec:
                     type: object
                   inference:
                     properties:
+                      enabled:
+                        type: boolean
                       image:
                         type: string
                       imagePullPolicy:
@@ -2629,6 +2677,8 @@ spec:
                     type: object
                   payloadReceiver:
                     properties:
+                      enabled:
+                        type: boolean
                       image:
                         type: string
                       imagePullPolicy:
@@ -2646,6 +2696,8 @@ spec:
                     type: object
                   preprocessing:
                     properties:
+                      enabled:
+                        type: boolean
                       image:
                         type: string
                       imagePullPolicy:
@@ -2661,19 +2713,6 @@ spec:
                           type: object
                         type: array
                     type: object
-                type: object
-              storage:
-                properties:
-                  accessModes:
-                    items:
-                      type: string
-                    type: array
-                  enabled:
-                    type: boolean
-                  request:
-                    type: string
-                  storageClass:
-                    type: string
                 type: object
               version:
                 default: latest
@@ -2701,6 +2740,38 @@ spec:
                     type: object
                   nKeyUser:
                     type: string
+                  s3AccessKey:
+                    description: SecretKeySelector selects a key of a Secret.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                  s3Endpoint:
+                    type: string
+                  s3SecretKey:
+                    description: SecretKeySelector selects a key of a Secret.
+                    properties:
+                      key:
+                        description: The key of the secret to select from.  Must be a valid secret key.
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the Secret or its key must be defined
+                        type: boolean
+                    required:
+                    - key
+                    type: object
                 type: object
               conditions:
                 items:

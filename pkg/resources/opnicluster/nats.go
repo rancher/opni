@@ -178,7 +178,7 @@ func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 	statefulset := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-nats", r.opniCluster.Name),
+			Name:      "opni-nats",
 			Namespace: r.opniCluster.Namespace,
 			Labels:    r.natsLabels(),
 		},

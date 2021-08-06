@@ -23,7 +23,7 @@ import (
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	"github.com/rancher/opni/apis/v1beta1"
 	opnierrors "github.com/rancher/opni/pkg/errors"
-	"github.com/rancher/opni/pkg/providers"
+	"github.com/rancher/opni/pkg/resources/logadapter"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -95,7 +95,7 @@ func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	result, err := providers.ReconcileLogAdapter(ctx, r, &logAdapter)
+	result, err := logadapter.ReconcileLogAdapter(ctx, r, &logAdapter)
 	if !result.IsZero() || err != nil {
 		logAdapter.Status.Phase = "Processing"
 		if err != nil {

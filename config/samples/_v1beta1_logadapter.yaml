@@ -1,7 +1,7 @@
 apiVersion: opni.io/v1beta1
 kind: LogAdapter
 metadata:
-  name: k3s
+  name: lga
   namespace: default
 spec:
   provider: K3S

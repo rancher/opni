@@ -15,6 +15,7 @@ const (
 	DrainService
 	PreprocessingService
 	PayloadReceiverService
+	GPUControllerService
 )
 
 func (s ServiceKind) String() string {
@@ -27,17 +28,19 @@ func (s ServiceKind) String() string {
 		return "preprocessing"
 	case PayloadReceiverService:
 		return "payload-receiver"
+	case GPUControllerService:
+		return "gpu-controller"
 	default:
 		return ""
 	}
 }
 
 func (s ServiceKind) ServiceName() string {
-	return "opni-" + s.String()
+	return "opni-svc-" + s.String()
 }
 
 func (s ServiceKind) ImageName() string {
-	return s.ServiceName() + "-service"
+	return "opni-" + s.String() + "-service"
 }
 
 func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *ImageSpec {
@@ -50,6 +53,8 @@ func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *ImageSpec {
 		return &opniCluster.Spec.Services.Preprocessing.ImageSpec
 	case PayloadReceiverService:
 		return &opniCluster.Spec.Services.PayloadReceiver.ImageSpec
+	case GPUControllerService:
+		return &opniCluster.Spec.Services.GPUController.ImageSpec
 	default:
 		return nil
 	}

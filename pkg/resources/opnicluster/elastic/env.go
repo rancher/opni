@@ -30,7 +30,7 @@ var (
 		},
 		{
 			Name:  "discovery.seed_hosts",
-			Value: "opendistro-es-discovery",
+			Value: "opni-es-discovery",
 		},
 		{
 			Name: "KUBERNETES_NAMESPACE",
@@ -56,7 +56,7 @@ var (
 		},
 		{
 			Name:  "ELASTICSEARCH_HOSTS",
-			Value: "https://opendistro-es-client:9200",
+			Value: "https://opni-es-client:9200",
 		},
 	}
 )

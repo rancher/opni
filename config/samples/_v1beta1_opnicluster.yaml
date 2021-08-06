@@ -7,9 +7,12 @@ spec:
   version: v0.1.2
   services:
     inference:
+      enabled: false
       pretrainedModels:
-        - name: pretrainedmodel-sample
+        - name: control-plane
   elastic:
     version: 1.13.2
   nats:
     authMethod: nkey
+  s3:
+    internal: {}

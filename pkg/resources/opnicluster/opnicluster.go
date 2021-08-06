@@ -66,14 +66,14 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	r.opniCluster.Status.Conditions = []string{}
 
-	opniResources := []resources.Resource{
-		r.inferenceDeployment,
-		r.drainDeployment,
-		r.payloadReceiverDeployment,
-		r.preprocessingDeployment,
-	}
-
 	allResources := []resources.Resource{}
+	opniServices, err := r.opniServices()
+	if err != nil {
+		retErr = errors.Combine(retErr, err)
+		r.opniCluster.Status.Conditions =
+			append(r.opniCluster.Status.Conditions, err.Error())
+		return nil, err
+	}
 	pretrained, err := r.pretrainedModels()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
@@ -83,14 +83,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		// Keep going, we can reconcile the rest of the deployments and come back
 		// to this later.
 	}
-	nats, err := r.nats()
-	if err != nil {
-		retErr = errors.Combine(retErr, err)
-		r.opniCluster.Status.Conditions =
-			append(r.opniCluster.Status.Conditions, err.Error())
-		lg.Error(err, "Error when reconciling nats, will retry.")
-		// Keep going.
-	}
 	es, err := elastic.NewReconciler(r.client, r.opniCluster).ElasticResources()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
@@ -99,10 +91,40 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		lg.Error(err, "Error when reconciling elastic, will retry.")
 		// Keep going.
 	}
+	nats, err := r.nats()
+	if err != nil {
+		retErr = errors.Combine(retErr, err)
+		r.opniCluster.Status.Conditions =
+			append(r.opniCluster.Status.Conditions, err.Error())
+		lg.Error(err, "Error when reconciling nats, cannot continue.")
+		return
+	}
+	var s3 []resources.Resource
+	intS3, err := r.internalS3()
+	if err != nil {
+		retErr = errors.Combine(retErr, err)
+		r.opniCluster.Status.Conditions =
+			append(r.opniCluster.Status.Conditions, err.Error())
+		lg.Error(err, "Error when reconciling s3, cannot continue.")
+		return
+	}
+	extS3, err := r.externalS3()
+	if err != nil {
+		retErr = errors.Combine(retErr, err)
+		r.opniCluster.Status.Conditions =
+			append(r.opniCluster.Status.Conditions, err.Error())
+		lg.Error(err, "Error when reconciling s3, cannot continue.")
+		return
+	}
+	s3 = append(s3, intS3...)
+	s3 = append(s3, extS3...)
 
-	// Order is important
+	// Order is important here
+	// nats and s3 reconcilers will add fields to the opniCluster status object
+	// which are used by other reconcilers.
 	allResources = append(allResources, nats...)
-	allResources = append(allResources, opniResources...)
+	allResources = append(allResources, s3...)
+	allResources = append(allResources, opniServices...)
 	allResources = append(allResources, pretrained...)
 	allResources = append(allResources, es...)
 

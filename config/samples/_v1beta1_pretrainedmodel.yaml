@@ -1,13 +1,8 @@
 apiVersion: opni.io/v1beta1
 kind: PretrainedModel
 metadata:
-  name: pretrainedmodel-sample
+  name: control-plane
 spec:
   source:
     http:
-      url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model.zip"
-  hyperparameters:
-    - name: "frobnicationRate"
-      value: "0.5"
-    - name: "frobnicationType"
-      value: "relative"
+      url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model-v0.1.2.zip"

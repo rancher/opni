@@ -50,10 +50,10 @@ type OpniClusterSpec struct {
 	// +optional
 	DefaultRepo *string `json:"defaultRepo,omitempty"`
 
-	Services ServicesSpec    `json:"services,omitempty"`
-	Elastic  ElasticSpec     `json:"elastic,omitempty"`
-	Storage  PersistenceSpec `json:"storage,omitempty"`
-	Nats     NatsSpec        `json:"nats,omitempty"`
+	Services ServicesSpec `json:"services,omitempty"`
+	Elastic  ElasticSpec  `json:"elastic,omitempty"`
+	Nats     NatsSpec     `json:"nats,omitempty"`
+	S3       S3Spec       `json:"s3,omitempty"`
 }
 
 // OpniClusterStatus defines the observed state of OpniCluster
@@ -61,12 +61,15 @@ type OpniClusterStatus struct {
 	Conditions   []string         `json:"conditions,omitempty"`
 	State        OpniClusterState `json:"state,omitempty"`
 	NatsReplicas int32            `json:"natsReplicas,omitempty"`
-	Auth         NatsAuthStatus   `json:"auth,omitempty"`
+	Auth         AuthStatus       `json:"auth,omitempty"`
 }
 
-type NatsAuthStatus struct {
+type AuthStatus struct {
 	NKeyUser         string                    `json:"nKeyUser,omitempty"`
 	AuthSecretKeyRef *corev1.SecretKeySelector `json:"authSecretKeyRef,omitempty"`
+	S3Endpoint       string                    `json:"s3Endpoint,omitempty"`
+	S3AccessKey      *corev1.SecretKeySelector `json:"s3AccessKey,omitempty"`
+	S3SecretKey      *corev1.SecretKeySelector `json:"s3SecretKey,omitempty"`
 }
 
 //+kubebuilder:webhook:path=/highlander-opni-io-v1beta1-opnicluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=opniclusters,verbs=create;update,versions=v1beta1,name=highlander.opni.io,admissionReviewVersions={v1,v1beta1}
@@ -90,13 +93,16 @@ type ServicesSpec struct {
 	Inference       InferenceServiceSpec       `json:"inference,omitempty"`
 	Preprocessing   PreprocessingServiceSpec   `json:"preprocessing,omitempty"`
 	PayloadReceiver PayloadReceiverServiceSpec `json:"payloadReceiver,omitempty"`
+	GPUController   GPUControllerServiceSpec   `json:"gpuController,omitempty"`
 }
 
 type DrainServiceSpec struct {
+	Enabled   *bool `json:"enabled,omitempty"`
 	ImageSpec `json:",inline,omitempty"`
 }
 
 type InferenceServiceSpec struct {
+	Enabled   *bool `json:"enabled,omitempty"`
 	ImageSpec `json:",inline,omitempty"`
 	// +optional
 	PretrainedModels []PretrainedModelReference `json:"pretrainedModels,omitempty"`
@@ -112,10 +118,17 @@ type PretrainedModelReference struct {
 }
 
 type PreprocessingServiceSpec struct {
+	Enabled   *bool `json:"enabled,omitempty"`
 	ImageSpec `json:",inline,omitempty"`
 }
 
 type PayloadReceiverServiceSpec struct {
+	Enabled   *bool `json:"enabled,omitempty"`
+	ImageSpec `json:",inline,omitempty"`
+}
+
+type GPUControllerServiceSpec struct {
+	Enabled   *bool `json:"enabled,omitempty"`
 	ImageSpec `json:",inline,omitempty"`
 }
 
@@ -126,7 +139,7 @@ type ElasticSpec struct {
 	DefaultRepo  *string                      `json:"defaultRepo,omitempty"`
 	Image        *ImageSpec                   `json:"image,omitempty"`
 	KibanaImage  *ImageSpec                   `json:"kibanaImage,omitempty"`
-	Persistence  *PersistenceSpec             `json:"storage,omitempty"`
+	Persistence  *PersistenceSpec             `json:"persistence,omitempty"`
 	ConfigSecret *corev1.LocalObjectReference `json:"configSecret,omitempty"`
 }
 
@@ -166,28 +179,31 @@ type ElasticWorkloadKibanaSpec struct {
 }
 
 type PersistenceSpec struct {
-	Enabled      bool                                `json:"enabled,omitempty"`
-	StorageClass string                              `json:"storageClass,omitempty"`
-	AccessModes  []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
-	Request      string                              `json:"request,omitempty"`
+	Enabled          bool                                `json:"enabled,omitempty"`
+	StorageClassName *string                             `json:"storageClass,omitempty"`
+	AccessModes      []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
+	Request          string                              `json:"request,omitempty"`
 }
 
 type S3Spec struct {
-	Endpoint    string          `json:"endpoint,omitempty"`
-	Credentials CredentialsSpec `json:"credentials,omitempty"`
+	// If set, Opni will deploy an S3 pod to use internally.
+	// Cannot be set at the same time as `external`.
+	Internal *InternalSpec `json:"internal,omitempty"`
+	// If set, Opni will connect to an external S3 endpoint.
+	// Cannot be set at the same time as `internal`.
+	External *ExternalSpec `json:"external,omitempty"`
 }
 
-type CredentialsSpec struct {
-	// +optional
-	Keys *KeysSpec `json:"keys,omitempty"`
-
-	// +optional
-	SecretRef *corev1.SecretReference `json:"fromSecret,omitempty"`
+type InternalSpec struct {
 }
 
-type KeysSpec struct {
-	AccessKey string `json:"accessKey,omitempty"`
-	SecretKey string `json:"secretKey,omitempty"`
+type ExternalSpec struct {
+	// +kubebuilder:validation:Required
+	Endpoint string `json:"endpoint,omitempty"`
+	// +kubebuilder:validation:Required
+	// Reference to a secret containing "accessKey" and "secretKey" items. This
+	// secret must already exist.
+	Credentials *corev1.SecretReference `json:"credentials,omitempty"`
 }
 
 type NatsSpec struct {

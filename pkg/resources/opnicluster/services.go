@@ -23,6 +23,16 @@ const (
 	natsNkeyDir = "/etc/nkey"
 )
 
+func (r *Reconciler) opniServices() ([]resources.Resource, error) {
+	return []resources.Resource{
+		r.inferenceDeployment,
+		r.drainDeployment,
+		r.payloadReceiverDeployment,
+		r.preprocessingDeployment,
+		r.gpuCtrlDeployment,
+	}, nil
+}
+
 func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retError error) {
 	resourceList = []resources.Resource{}
 	lg := logr.FromContext(r.ctx)
@@ -226,13 +236,14 @@ func (r *Reconciler) findPretrainedModel(
 }
 
 func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Deployment {
+	lg := logr.FromContext(r.ctx)
 	labels := r.serviceLabels(service)
 	imageSpec := r.serviceImageSpec(service)
 	volumes := []corev1.Volume{}
 	volumeMounts := []corev1.VolumeMount{}
 	envVars := []corev1.EnvVar{
 		{
-			Name:  "NATS_URL",
+			Name:  "NATS_SERVER_URL",
 			Value: fmt.Sprintf("nats://%s-nats-client.%s.svc:%d", r.opniCluster.Name, r.opniCluster.Namespace, natsDefaultClientPort),
 		},
 	}
@@ -289,6 +300,37 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 		}
 		envVars = append(envVars, newEnvVars...)
 	}
+	if r.opniCluster.Status.Auth.S3AccessKey != nil &&
+		r.opniCluster.Status.Auth.S3SecretKey != nil &&
+		r.opniCluster.Status.Auth.S3Endpoint != "" {
+		envVars = append(envVars, corev1.EnvVar{
+			Name: "MINIO_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: r.opniCluster.Status.Auth.S3AccessKey,
+			},
+		}, corev1.EnvVar{
+			Name: "MINIO_SECRET_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: r.opniCluster.Status.Auth.S3SecretKey,
+			},
+		}, corev1.EnvVar{
+			Name:  "MINIO_SERVER_URL",
+			Value: r.opniCluster.Status.Auth.S3Endpoint,
+		})
+	} else {
+		lg.Info("Warning: S3 not configured")
+	}
+	envVars = append(envVars, corev1.EnvVar{
+		Name:  "ES_ENDPOINT",
+		Value: fmt.Sprintf("http://opni-es-client.%s.svc:9200", r.opniCluster.Namespace),
+	}, corev1.EnvVar{
+		Name:  "ES_USERNAME",
+		Value: "admin",
+	}, corev1.EnvVar{
+		Name:  "ES_PASSWORD",
+		Value: "admin",
+	})
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
@@ -330,6 +372,13 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 	return deployment
 }
 
+func deploymentState(enabled *bool) reconciler.DesiredState {
+	if enabled == nil || *enabled {
+		return reconciler.StatePresent
+	}
+	return reconciler.StateAbsent
+}
+
 func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.InferenceService)
 	deployment.Spec.Template.Spec.Containers[0].Resources =
@@ -339,22 +388,33 @@ func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredSt
 			},
 		}
 	deployment.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
-	return deployment, reconciler.StatePresent, nil
+	return deployment, deploymentState(r.opniCluster.Spec.Services.Inference.Enabled), nil
 }
 
 func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.DrainService)
-	return deployment, reconciler.StateCreated, nil
+	// temporary
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
+		corev1.EnvVar{
+			Name:  "FAIL_KEYWORDS",
+			Value: "fail,error,missing,unable",
+		})
+	return deployment, deploymentState(r.opniCluster.Spec.Services.Drain.Enabled), nil
 }
 
 func (r *Reconciler) payloadReceiverDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.PayloadReceiverService)
-	return deployment, reconciler.StatePresent, nil
+	return deployment, deploymentState(r.opniCluster.Spec.Services.PayloadReceiver.Enabled), nil
 }
 
 func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.PreprocessingService)
-	return deployment, reconciler.StatePresent, nil
+	return deployment, deploymentState(r.opniCluster.Spec.Services.Preprocessing.Enabled), nil
+}
+
+func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredState, error) {
+	deployment := r.genericDeployment(v1beta1.GPUControllerService)
+	return deployment, deploymentState(r.opniCluster.Spec.Services.GPUController.Enabled), nil
 }
 
 func insertHyperparametersVolume(deployment *appsv1.Deployment, model *v1beta1.PretrainedModel) {

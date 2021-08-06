@@ -190,9 +190,7 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 		if len(p.AccessModes) > 0 {
 			pvc.Spec.AccessModes = p.AccessModes
 		}
-		if p.StorageClass != "" {
-			pvc.Spec.StorageClassName = &p.StorageClass
-		}
+		pvc.Spec.StorageClassName = p.StorageClassName
 		if p.Request != "" {
 			pvc.Spec.Resources.Requests = corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse(p.Request),
@@ -373,7 +371,7 @@ func configVolume() corev1.Volume {
 		Name: "config",
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: "opendistro-es-config",
+				SecretName: "opni-es-config",
 			},
 		},
 	}

@@ -290,11 +290,7 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 		volumeMounts = append(volumeMounts, newVolumeMounts...)
 		newEnvVars := []corev1.EnvVar{
 			{
-				Name:  "NKEY_USER_FILENAME",
-				Value: fmt.Sprintf("%s/pubkey", natsNkeyDir),
-			},
-			{
-				Name:  "NKEY_USER_FILENAME",
+				Name:  "NKEY_SEED_FILENAME",
 				Value: fmt.Sprintf("%s/seed", natsNkeyDir),
 			},
 		}

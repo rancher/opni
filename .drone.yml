@@ -25,6 +25,9 @@ steps:
         - drone-publish.rancher.io
       refs:
         - refs/head/main
+      event:
+        exclude:
+        - pull_request
   - name: publish-python-torch
     image: plugins/docker
     settings:
@@ -43,6 +46,9 @@ steps:
         - drone-publish.rancher.io
       refs:
         - refs/head/main
+      event:
+        exclude:
+        - pull_request
   - name: build-and-package
     image: rancher/dapper:v0.5.5
     commands:

@@ -42,3 +42,20 @@ ENV PATH /usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}
 ENV LD_LIBRARY_PATH /usr/local/nvidia/lib:/usr/local/nvidia/lib64
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
+
+# Final elasticdump image
+FROM base-final as elasticdump
+
+RUN \
+  apt-get update && \
+  apt-get install -yqq wget gnupg && \
+  echo "deb https://deb.nodesource.com/node_14.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
+  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
+  echo "deb https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
+  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
+  apt-get update && \
+  apt-get install -yqq nodejs yarn && \
+  npm i -g npm@^6 && \
+  npm i -g elasticdump && \
+  apt-get purge -y --auto-remove wget && \
+  rm -rf /var/lib/apt/lists/*

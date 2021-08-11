@@ -49,6 +49,27 @@ steps:
       event:
         exclude:
         - pull_request
+  - name: publish-python-elasticdump
+    image: plugins/docker
+    settings:
+      password:
+        from_secret: docker_password
+      username:
+        from_secret: docker_username
+      context: images/python/
+      dockerfile: images/python/Dockerfile
+      target: elasticdump
+      repo: rancher/opni-python-base
+      tags:
+        - "3.8-node14-elasticdump"
+    when:
+      instance:
+        - drone-publish.rancher.io
+      refs:
+        - refs/head/main
+      event:
+        exclude:
+        - pull_request
   - name: build-and-package
     image: rancher/dapper:v0.5.5
     commands:

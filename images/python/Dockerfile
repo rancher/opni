@@ -37,3 +37,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 FROM base-final as torch
 
 COPY --from=builder2 /opt/venv /opt/venv
+
+ENV PATH /usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH /usr/local/nvidia/lib:/usr/local/nvidia/lib64
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES compute,utility

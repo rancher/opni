@@ -32,7 +32,7 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 			Labels:    labels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: r.opniCluster.Spec.Elastic.Workloads.Client.Replicas,
+			Replicas: r.opniCluster.Spec.Elastic.Workloads.Data.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -203,6 +203,17 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 	if usePersistence {
 		workload.Spec.VolumeClaimTemplates =
 			append(workload.Spec.VolumeClaimTemplates, pvc)
+		workload.Spec.Template.Spec.Volumes =
+			append(workload.Spec.Template.Spec.Volumes,
+				corev1.Volume{
+					Name: "data",
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "data",
+						},
+					},
+				},
+			)
 	} else {
 		workload.Spec.Template.Spec.Volumes =
 			append(workload.Spec.Template.Spec.Volumes,

@@ -3,13 +3,15 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
+	"sync"
 
+	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -41,9 +43,10 @@ func makeTestNamespace() string {
 }
 
 type opniClusterOpts struct {
-	Name      string
-	Namespace string
-	Models    []string
+	Name                string
+	Namespace           string
+	Models              []string
+	DisableOpniServices bool
 }
 
 func makeOpniCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
@@ -77,6 +80,7 @@ func makeOpniCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 			},
 			Services: v1beta1.ServicesSpec{
 				Inference: v1beta1.InferenceServiceSpec{
+					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 					PretrainedModels: func() []v1beta1.PretrainedModelReference {
 						var ret []v1beta1.PretrainedModelReference
@@ -89,15 +93,22 @@ func makeOpniCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 					}(),
 				},
 				Drain: v1beta1.DrainServiceSpec{
+					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
 				Preprocessing: v1beta1.PreprocessingServiceSpec{
+					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
 				PayloadReceiver: v1beta1.PayloadReceiverServiceSpec{
+					Enabled: pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: v1beta1.ImageSpec{
 						Image: pointer.String("foo"),
 					},
+				},
+				GPUController: v1beta1.GPUControllerServiceSpec{
+					Enabled:   pointer.Bool(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
 				},
 			},
 		},
@@ -110,6 +121,7 @@ var _ = Describe("OpniCluster Controller", func() {
 		err                        error
 		clusterWithPretrainedModel *v1beta1.OpniCluster
 		pretrainedModelNS          string
+		deleteCluster              bool
 	)
 	BeforeEach(func() {
 		cluster = makeOpniCluster(opniClusterOpts{
@@ -118,9 +130,14 @@ var _ = Describe("OpniCluster Controller", func() {
 		})
 	})
 	JustBeforeEach(func() {
+		deleteCluster = false
 		err = k8sClient.Create(context.Background(), cluster)
 	})
 	AfterEach(func() {
+		if !deleteCluster {
+			return
+		}
+
 		namespace := "opnicluster-test"
 		deletionPolicy := metav1.DeletePropagationBackground
 		deployment := appsv1.Deployment{}
@@ -191,8 +208,10 @@ var _ = Describe("OpniCluster Controller", func() {
 		}).Should(BeEmpty())
 	})
 	JustAfterEach(func() {
+		if !deleteCluster {
+			return
+		}
 		k8sClient.Delete(context.Background(), cluster, client.GracePeriodSeconds(0))
-		time.Sleep(1 * time.Second)
 	})
 	When("creating an opnicluster ", func() {
 		It("should succeed", func() {
@@ -311,7 +330,7 @@ var _ = Describe("OpniCluster Controller", func() {
 					}, deployment)
 				}).Should(Succeed())
 				k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
-				Expect(deployment).To(BeOwnedBy(cluster))
+				Expect(deployment).To(HaveOwner(cluster))
 			}
 		})
 		It("should not create any pretrained model services yet", func() {
@@ -336,7 +355,7 @@ var _ = Describe("OpniCluster Controller", func() {
 			}).Should(Succeed())
 			Expect(*statefulset.Spec.Replicas).To(Equal(int32(3)))
 			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
-			Expect(statefulset).To(BeOwnedBy(cluster))
+			Expect(statefulset).To(HaveOwner(cluster))
 		})
 		It("should create a nats config secret", func() {
 			secret := &corev1.Secret{}
@@ -348,7 +367,7 @@ var _ = Describe("OpniCluster Controller", func() {
 			}).Should(Succeed())
 			Expect(secret.Data).To(HaveKey("nats-config.conf"))
 			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
-			Expect(secret).To(BeOwnedBy(cluster))
+			Expect(secret).To(HaveOwner(cluster))
 		})
 		It("should create a headless nats service", func() {
 			service := &corev1.Service{}
@@ -379,7 +398,7 @@ var _ = Describe("OpniCluster Controller", func() {
 				},
 			))
 			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
-			Expect(service).To(BeOwnedBy(cluster))
+			Expect(service).To(HaveOwner(cluster))
 		})
 		It("should create a nats cluster service", func() {
 			service := &corev1.Service{}
@@ -406,7 +425,7 @@ var _ = Describe("OpniCluster Controller", func() {
 					Protocol:   corev1.ProtocolTCP,
 				}))
 			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
-			Expect(service).To(BeOwnedBy(cluster))
+			Expect(service).To(HaveOwner(cluster))
 		})
 		It("should create a nats client service", func() {
 			service := &corev1.Service{}
@@ -433,7 +452,7 @@ var _ = Describe("OpniCluster Controller", func() {
 					Protocol:   corev1.ProtocolTCP,
 				}))
 			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
-			Expect(service).To(BeOwnedBy(cluster))
+			Expect(service).To(HaveOwner(cluster))
 		})
 		It("should create a nats password secret", func() {
 			secret := &corev1.Secret{}
@@ -445,7 +464,8 @@ var _ = Describe("OpniCluster Controller", func() {
 			}).Should(Succeed())
 			Expect(secret.Data).To(HaveKey("password"))
 			k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
-			Expect(secret).To(BeOwnedBy(cluster))
+			Expect(secret).To(HaveOwner(cluster))
+			deleteCluster = true
 		})
 	})
 	When("creating a pretrained model", func() {
@@ -943,7 +963,7 @@ var _ = Describe("OpniCluster Controller", func() {
 				Namespace: namespaceFromPreviousTest,
 			}, model)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(model).NotTo(BeOwnedBy(cluster))
+			Expect(model).NotTo(HaveOwner(cluster))
 
 			// Look up the matching deployment by label
 			req, err := labels.NewRequirement(
@@ -958,10 +978,10 @@ var _ = Describe("OpniCluster Controller", func() {
 			})
 			Expect(len(deployments.Items)).To(Equal(1))
 			// the deployment should be owned by the cluster, not the model
-			Expect(&deployments.Items[0]).To(BeOwnedBy(cluster))
-			Expect(&deployments.Items[0]).NotTo(BeOwnedBy(model))
-			Expect(model).NotTo(BeOwnedBy(cluster))
-			Expect(cluster).NotTo(BeOwnedBy(model))
+			Expect(&deployments.Items[0]).To(HaveOwner(cluster))
+			Expect(&deployments.Items[0]).NotTo(HaveOwner(model))
+			Expect(model).NotTo(HaveOwner(cluster))
+			Expect(cluster).NotTo(HaveOwner(model))
 		})
 	})
 	When("creating an opnicluster with an invalid pretrained model", func() {
@@ -1045,5 +1065,168 @@ var _ = Describe("OpniCluster Controller", func() {
 		PIt("should delete the inference service", func() {})
 		PIt("should delete the pretrainedmodel resource", func() {})
 		PIt("should cause the opnicluster to report a status condition", func() {})
+	})
+
+	FContext("Elastic Cluster", func() {
+		When("creating an opnicluster with elastic enabled", func() {
+			It("should create the necessary deployments", func() {
+				cluster := makeOpniCluster(opniClusterOpts{
+					Name:                "test-elastic",
+					DisableOpniServices: true,
+				})
+				cluster.Spec.Elastic = v1beta1.ElasticSpec{
+					Version: "1.0.0",
+					Persistence: &v1beta1.PersistenceSpec{
+						Enabled:          true,
+						StorageClassName: pointer.String("test-storageclass"),
+					},
+					Workloads: v1beta1.ElasticWorkloadSpec{
+						Master: v1beta1.ElasticWorkloadMasterSpec{
+							Replicas: pointer.Int32(1),
+						},
+						Data: v1beta1.ElasticWorkloadDataSpec{
+							DedicatedPod: true,
+							Replicas:     pointer.Int32(3),
+						},
+						Client: v1beta1.ElasticWorkloadClientSpec{
+							DedicatedPod: true,
+							Replicas:     pointer.Int32(5),
+							Resources: &corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("10Gi"),
+								},
+							},
+						},
+						Kibana: v1beta1.ElasticWorkloadKibanaSpec{
+							Replicas: pointer.Int32(7),
+						},
+					},
+				}
+				Expect(k8sClient.Create(context.Background(), cluster)).To(Succeed())
+				Eventually(func() error {
+					return k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), cluster)
+				}).Should(Succeed())
+
+				wg := sync.WaitGroup{}
+				wg.Add(4)
+
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					Eventually(Object(k8sClient, &appsv1.StatefulSet{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "opni-es-master",
+							Namespace: cluster.Namespace,
+						},
+					})).Should(And(
+						HaveOwner(cluster),
+						HaveLabels(
+							"app", "opendistro-es",
+							"role", "master",
+						),
+						HaveReplicaCount(1),
+						HaveMatchingVolume(And(
+							HaveName("config"),
+							HaveVolumeSource("Secret"),
+						)),
+						HaveMatchingContainer(And(
+							HaveName("elasticsearch"),
+							HaveImage("docker.io/amazon/opendistro-for-elasticsearch:1.0.0"),
+							HaveEnv("node.master", "true"),
+							HavePorts("transport", "http", "metrics", "rca"),
+							HaveVolumeMounts("config", "data"),
+						)),
+						HaveMatchingPersistentVolume(And(
+							HaveName("data"),
+							HaveStorageClass("test-storageclass"),
+						)),
+					))
+				}()
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					Eventually(Object(k8sClient, &appsv1.StatefulSet{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "opni-es-data",
+							Namespace: cluster.Namespace,
+						},
+					})).Should(And(
+						HaveOwner(cluster),
+						HaveLabels(
+							"app", "opendistro-es",
+							"role", "data",
+						),
+						HaveReplicaCount(3),
+						HaveMatchingContainer(And(
+							HaveName("elasticsearch"),
+							HaveImage("docker.io/amazon/opendistro-for-elasticsearch:1.0.0"),
+							HaveEnv("node.data", "true"),
+							HavePorts("transport"),
+							HaveVolumeMounts("config", "data"),
+						)),
+						HaveMatchingPersistentVolume(And(
+							HaveName("data"),
+							HaveStorageClass("test-storageclass"),
+						)),
+					))
+				}()
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					Eventually(Object(k8sClient, &appsv1.Deployment{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "opni-es-client",
+							Namespace: cluster.Namespace,
+						},
+					})).Should(And(
+						HaveOwner(cluster),
+						HaveLabels(
+							"app", "opendistro-es",
+							"role", "client",
+						),
+						HaveReplicaCount(5),
+						HaveMatchingContainer(And(
+							HaveName("elasticsearch"),
+							HaveImage("docker.io/amazon/opendistro-for-elasticsearch:1.0.0"),
+							HaveEnv(
+								"node.ingest", "true",
+								"ES_JAVA_OPTS", "-Xms5369m -Xmx5369m",
+							),
+							HavePorts("transport", "http", "metrics", "rca"),
+							HaveVolumeMounts("config"),
+							Not(HaveVolumeMounts("data")),
+						)),
+					))
+				}()
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					Eventually(Object(k8sClient, &appsv1.Deployment{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "opni-es-kibana",
+							Namespace: cluster.Namespace,
+						},
+					})).Should(And(
+						HaveOwner(cluster),
+						HaveLabels(
+							"app", "opendistro-es",
+							"role", "kibana",
+						),
+						HaveReplicaCount(7),
+						HaveMatchingContainer(And(
+							HaveName("opni-es-kibana"),
+							HaveImage("docker.io/amazon/opendistro-for-elasticsearch-kibana:1.0.0"),
+							HaveEnv(
+								"CLUSTER_NAME", nil,
+								"ELASTICSEARCH_HOSTS", nil,
+							),
+							HavePorts("http"),
+							Not(HaveVolumeMounts("config", "data")),
+						)),
+					))
+				}()
+				wg.Wait()
+			})
+		})
 	})
 })

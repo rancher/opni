@@ -13772,6 +13772,46 @@ spec:
                       disableKubernetesFilter:
                         description: Disable Kubernetes metadata filter
                         type: boolean
+                      dnsConfig:
+                        description: PodDNSConfig defines the DNS parameters of a
+                          pod in addition to those generated from DNSPolicy.
+                        properties:
+                          nameservers:
+                            description: A list of DNS name server IP addresses. This
+                              will be appended to the base nameservers generated from
+                              DNSPolicy. Duplicated nameservers will be removed.
+                            items:
+                              type: string
+                            type: array
+                          options:
+                            description: A list of DNS resolver options. This will
+                              be merged with the base options generated from DNSPolicy.
+                              Duplicated entries will be removed. Resolution options
+                              given in Options will override those that appear in
+                              the base DNSPolicy.
+                            items:
+                              description: PodDNSConfigOption defines DNS resolver
+                                options of a pod.
+                              properties:
+                                name:
+                                  description: Required.
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                          searches:
+                            description: A list of DNS search domains for host-name
+                              lookup. This will be appended to the base search paths
+                              generated from DNSPolicy. Duplicated search paths will
+                              be removed.
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      dnsPolicy:
+                        description: DNSPolicy defines how a pod's DNS will be configured.
+                        type: string
                       enableUpstream:
                         type: boolean
                       envVars:
@@ -17219,6 +17259,46 @@ spec:
                         type: object
                       disablePvc:
                         type: boolean
+                      dnsConfig:
+                        description: PodDNSConfig defines the DNS parameters of a
+                          pod in addition to those generated from DNSPolicy.
+                        properties:
+                          nameservers:
+                            description: A list of DNS name server IP addresses. This
+                              will be appended to the base nameservers generated from
+                              DNSPolicy. Duplicated nameservers will be removed.
+                            items:
+                              type: string
+                            type: array
+                          options:
+                            description: A list of DNS resolver options. This will
+                              be merged with the base options generated from DNSPolicy.
+                              Duplicated entries will be removed. Resolution options
+                              given in Options will override those that appear in
+                              the base DNSPolicy.
+                            items:
+                              description: PodDNSConfigOption defines DNS resolver
+                                options of a pod.
+                              properties:
+                                name:
+                                  description: Required.
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                          searches:
+                            description: A list of DNS search domains for host-name
+                              lookup. This will be appended to the base search paths
+                              generated from DNSPolicy. Duplicated search paths will
+                              be removed.
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      dnsPolicy:
+                        description: DNSPolicy defines how a pod's DNS will be configured.
+                        type: string
                       envVars:
                         items:
                           description: EnvVar represents an environment variable present
@@ -18022,6 +18102,39 @@ spec:
                       port:
                         format: int32
                         type: integer
+                      readinessDefaultCheck:
+                        description: ReadinessDefaultCheck Enable default readiness
+                          checks
+                        properties:
+                          bufferFileNumber:
+                            type: boolean
+                          bufferFileNumberMax:
+                            format: int32
+                            type: integer
+                          bufferFreeSpace:
+                            description: Enable default Readiness check it'll fail
+                              if the buffer volume free space exceeds the `readinessDefaultThreshold`
+                              percentage (90%).
+                            type: boolean
+                          bufferFreeSpaceThreshold:
+                            format: int32
+                            type: integer
+                          failureThreshold:
+                            format: int32
+                            type: integer
+                          initialDelaySeconds:
+                            format: int32
+                            type: integer
+                          periodSeconds:
+                            format: int32
+                            type: integer
+                          successThreshold:
+                            format: int32
+                            type: integer
+                          timeoutSeconds:
+                            format: int32
+                            type: integer
+                        type: object
                       readinessProbe:
                         description: Probe describes a health check to be performed
                           against a container to determine whether it is alive or
@@ -20034,6 +20147,46 @@ spec:
                       disableKubernetesFilter:
                         description: Disable Kubernetes metadata filter
                         type: boolean
+                      dnsConfig:
+                        description: PodDNSConfig defines the DNS parameters of a
+                          pod in addition to those generated from DNSPolicy.
+                        properties:
+                          nameservers:
+                            description: A list of DNS name server IP addresses. This
+                              will be appended to the base nameservers generated from
+                              DNSPolicy. Duplicated nameservers will be removed.
+                            items:
+                              type: string
+                            type: array
+                          options:
+                            description: A list of DNS resolver options. This will
+                              be merged with the base options generated from DNSPolicy.
+                              Duplicated entries will be removed. Resolution options
+                              given in Options will override those that appear in
+                              the base DNSPolicy.
+                            items:
+                              description: PodDNSConfigOption defines DNS resolver
+                                options of a pod.
+                              properties:
+                                name:
+                                  description: Required.
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                          searches:
+                            description: A list of DNS search domains for host-name
+                              lookup. This will be appended to the base search paths
+                              generated from DNSPolicy. Duplicated search paths will
+                              be removed.
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      dnsPolicy:
+                        description: DNSPolicy defines how a pod's DNS will be configured.
+                        type: string
                       enableUpstream:
                         type: boolean
                       envVars:
@@ -23481,6 +23634,46 @@ spec:
                         type: object
                       disablePvc:
                         type: boolean
+                      dnsConfig:
+                        description: PodDNSConfig defines the DNS parameters of a
+                          pod in addition to those generated from DNSPolicy.
+                        properties:
+                          nameservers:
+                            description: A list of DNS name server IP addresses. This
+                              will be appended to the base nameservers generated from
+                              DNSPolicy. Duplicated nameservers will be removed.
+                            items:
+                              type: string
+                            type: array
+                          options:
+                            description: A list of DNS resolver options. This will
+                              be merged with the base options generated from DNSPolicy.
+                              Duplicated entries will be removed. Resolution options
+                              given in Options will override those that appear in
+                              the base DNSPolicy.
+                            items:
+                              description: PodDNSConfigOption defines DNS resolver
+                                options of a pod.
+                              properties:
+                                name:
+                                  description: Required.
+                                  type: string
+                                value:
+                                  type: string
+                              type: object
+                            type: array
+                          searches:
+                            description: A list of DNS search domains for host-name
+                              lookup. This will be appended to the base search paths
+                              generated from DNSPolicy. Duplicated search paths will
+                              be removed.
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      dnsPolicy:
+                        description: DNSPolicy defines how a pod's DNS will be configured.
+                        type: string
                       envVars:
                         items:
                           description: EnvVar represents an environment variable present
@@ -24284,6 +24477,39 @@ spec:
                       port:
                         format: int32
                         type: integer
+                      readinessDefaultCheck:
+                        description: ReadinessDefaultCheck Enable default readiness
+                          checks
+                        properties:
+                          bufferFileNumber:
+                            type: boolean
+                          bufferFileNumberMax:
+                            format: int32
+                            type: integer
+                          bufferFreeSpace:
+                            description: Enable default Readiness check it'll fail
+                              if the buffer volume free space exceeds the `readinessDefaultThreshold`
+                              percentage (90%).
+                            type: boolean
+                          bufferFreeSpaceThreshold:
+                            format: int32
+                            type: integer
+                          failureThreshold:
+                            format: int32
+                            type: integer
+                          initialDelaySeconds:
+                            format: int32
+                            type: integer
+                          periodSeconds:
+                            format: int32
+                            type: integer
+                          successThreshold:
+                            format: int32
+                            type: integer
+                          timeoutSeconds:
+                            format: int32
+                            type: integer
+                        type: object
                       readinessProbe:
                         description: Probe describes a health check to be performed
                           against a container to determine whether it is alive or

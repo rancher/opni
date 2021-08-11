@@ -123,6 +123,17 @@ func (r *Reconciler) pretrainedModelDeployment(
 		imageSpec := r.serviceImageSpec(v1beta1.InferenceService)
 		lg := logr.FromContext(r.ctx)
 		lg.Info("Creating pretrained model deployment", "name", model.Name)
+		envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
+		volumes = append(volumes, corev1.Volume{
+			Name: "model-volume",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "model-volume",
+			MountPath: "/model/",
+		})
 		deployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("opni-inference-%s", model.Name),
@@ -147,25 +158,14 @@ func (r *Reconciler) pretrainedModelDeployment(
 					},
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{sidecar},
-						Volumes: []corev1.Volume{
-							{
-								Name: "model-volume",
-								VolumeSource: corev1.VolumeSource{
-									EmptyDir: &corev1.EmptyDirVolumeSource{},
-								},
-							},
-						},
+						Volumes:        volumes,
 						Containers: []corev1.Container{
 							{
 								Name:            "inference-service",
 								Image:           imageSpec.GetImage(),
 								ImagePullPolicy: imageSpec.GetImagePullPolicy(),
-								VolumeMounts: []corev1.VolumeMount{
-									{
-										Name:      "model-volume",
-										MountPath: "/model/",
-									},
-								},
+								VolumeMounts:    volumeMounts,
+								Env:             envVars,
 							},
 						},
 						ImagePullSecrets: maybeImagePullSecrets(model),
@@ -236,17 +236,63 @@ func (r *Reconciler) findPretrainedModel(
 }
 
 func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Deployment {
-	lg := logr.FromContext(r.ctx)
 	labels := r.serviceLabels(service)
 	imageSpec := r.serviceImageSpec(service)
-	volumes := []corev1.Volume{}
-	volumeMounts := []corev1.VolumeMount{}
-	envVars := []corev1.EnvVar{
-		{
-			Name:  "NATS_SERVER_URL",
-			Value: fmt.Sprintf("nats://%s-nats-client.%s.svc:%d", r.opniCluster.Name, r.opniCluster.Namespace, natsDefaultClientPort),
+	envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      labels[resources.AppNameLabel],
+			Namespace: r.opniCluster.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
+			Labels: labels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            labels[resources.AppNameLabel],
+							Image:           *imageSpec.Image,
+							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
+							Env:             envVars,
+							VolumeMounts:    volumeMounts,
+						},
+					},
+					ImagePullSecrets: imageSpec.ImagePullSecrets,
+					Volumes:          volumes,
+				},
+			},
 		},
 	}
+	return deployment
+}
+
+func (r *Reconciler) genericEnvAndVolumes() (
+	envVars []corev1.EnvVar,
+	volumeMounts []corev1.VolumeMount,
+	volumes []corev1.Volume,
+) {
+	lg := logr.FromContext(r.ctx)
+
+	envVars = append(envVars, corev1.EnvVar{
+		Name: "NATS_SERVER_URL",
+		Value: fmt.Sprintf("nats://%s-nats-client.%s.svc:%d",
+			r.opniCluster.Name, r.opniCluster.Namespace, natsDefaultClientPort),
+	})
 	switch r.opniCluster.Spec.Nats.AuthMethod {
 	case v1beta1.NatsAuthUsername:
 		var username string
@@ -326,46 +372,7 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 		Name:  "ES_PASSWORD",
 		Value: "admin",
 	})
-
-	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      labels[resources.AppNameLabel],
-			Namespace: r.opniCluster.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: r.opniCluster.APIVersion,
-					Kind:       r.opniCluster.Kind,
-					Name:       r.opniCluster.Name,
-					UID:        r.opniCluster.UID,
-				},
-			},
-			Labels: labels,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:            labels[resources.AppNameLabel],
-							Image:           *imageSpec.Image,
-							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
-							Env:             envVars,
-							VolumeMounts:    volumeMounts,
-						},
-					},
-					ImagePullSecrets: imageSpec.ImagePullSecrets,
-					Volumes:          volumes,
-				},
-			},
-		},
-	}
-	return deployment
+	return
 }
 
 func deploymentState(enabled *bool) reconciler.DesiredState {

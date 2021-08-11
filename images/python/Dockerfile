@@ -24,7 +24,7 @@ RUN find /opt/venv/ -type f > /files-to-delete.txt
 
 RUN pip install -r /requirements-torch.txt
 
-RUN cat /files-to-delete.txt | xargs rm -f
+RUN cat /files-to-delete.txt | xargs  -d'\n' rm -f
 
 # Final base image
 FROM base as base-final

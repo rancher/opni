@@ -12,7 +12,7 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/k3s-io/helm-controller v0.11.2
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
-	github.com/kralicky/kmatch v0.0.0-20210811200706-71e3c74b9c86
+	github.com/kralicky/kmatch v0.0.0-20210811230004-274e0850c721
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
 	github.com/nats-io/nkeys v0.3.0
 	github.com/onsi/ginkgo v1.16.4
@@ -22,7 +22,7 @@ require (
 	github.com/rancher/k3d/v4 v4.4.7
 	github.com/spf13/cobra v1.2.1
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
-	github.com/vbauerster/mpb/v7 v7.1.1
+	github.com/vbauerster/mpb/v7 v7.1.3
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.19.0
 	golang.org/x/mod v0.4.2

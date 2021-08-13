@@ -5,6 +5,8 @@ go 1.16
 require (
 	emperror.dev/errors v0.8.0
 	github.com/AlecAivazis/survey/v2 v2.2.16
+	github.com/Microsoft/go-winio v0.5.0 // indirect
+	github.com/Microsoft/hcsshim v0.8.20 // indirect
 	github.com/banzaicloud/logging-operator v1.12.4-alpine-2
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/banzaicloud/operator-tools v0.24.0
@@ -12,11 +14,13 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/k3s-io/helm-controller v0.11.2
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
-	github.com/kralicky/kmatch v0.0.0-20210811230004-274e0850c721
+	github.com/kralicky/kmatch v0.0.0-20210813192016-5724bb1c4ce9
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
 	github.com/nats-io/nkeys v0.3.0
-	github.com/onsi/ginkgo v1.16.4
+	github.com/onsi/ginkgo v1.16.5-0.20210808002315-bc059d745883
 	github.com/onsi/gomega v1.15.0
+	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6 // indirect
+	github.com/opencontainers/runc v1.0.1 // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.49.0
 	github.com/rancher/k3d/v4 v4.4.7

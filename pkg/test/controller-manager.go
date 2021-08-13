@@ -69,8 +69,8 @@ func StartControllerManager(ctx context.Context, testEnv *envtest.Environment) {
 		"--enable-garbage-collector",
 		"--concurrent-gc-syncs=40",
 	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = testEnv.ControlPlane.APIServer.Out
+	cmd.Stderr = testEnv.ControlPlane.APIServer.Err
 	go func() {
 		err := cmd.Run()
 		if err != nil {

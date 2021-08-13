@@ -45,7 +45,7 @@ var _ = BeforeSuite(func() {
 		Scheme: opnictl.CreateScheme(),
 	})
 	Expect(err).NotTo(HaveOccurred())
-}, 60)
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")

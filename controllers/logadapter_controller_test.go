@@ -19,7 +19,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta1"
 )
 
-var _ = Describe("LogAdapter Controller", func() {
+var _ = XDescribe("LogAdapter Controller", func() {
 	var (
 		logadapter v1beta1.LogAdapter
 		cluster    v1beta1.OpniCluster

@@ -71,7 +71,7 @@ var _ = BeforeSuite(func() {
 	}
 	stopEnv, k8sManager, k8sClient =
 		test.RunTestEnvironment(testEnv, &OpniDemoReconciler{})
-}, 60)
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")

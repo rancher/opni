@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
@@ -47,9 +48,8 @@ func TestAPIs(t *testing.T) {
 	SetDefaultEventuallyTimeout(10 * time.Second)
 	// SetDefaultEventuallyTimeout(24 * time.Hour) // For debugging
 	SetDefaultEventuallyPollingInterval(100 * time.Millisecond)
-	SetDefaultConsistentlyDuration(4 * time.Second)
+	SetDefaultConsistentlyDuration(2 * time.Second)
 	SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
-
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Controller Suite")
 }
@@ -83,7 +83,8 @@ var _ = BeforeSuite(func() {
 		&PretrainedModelReconciler{},
 		&LoggingReconciler{},
 	)
-}, 60)
+	kmatch.SetDefaultObjectClient(k8sClient)
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")

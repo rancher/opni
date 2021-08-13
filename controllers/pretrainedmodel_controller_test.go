@@ -37,7 +37,7 @@ var hyperparameters = []v1beta1.Hyperparameter{
 	},
 }
 
-var _ = Describe("PretrainedModel Controller", func() {
+var _ = XDescribe("PretrainedModel Controller", func() {
 	model := v1beta1.PretrainedModel{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",

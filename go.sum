@@ -180,6 +180,8 @@ github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7/go.mod h1:C1ep+YmU8ewEKIL
 github.com/banzaicloud/operator-tools v0.23.0/go.mod h1:PHM11b9i4wNIpzLLDyI/dgzdfGEIRiKdUL7ltD+LkBs=
 github.com/banzaicloud/operator-tools v0.24.0 h1:FbU96ilpHTXOEmwk4rIVQgpi9Rgu29YYnUNhTUyhWkY=
 github.com/banzaicloud/operator-tools v0.24.0/go.mod h1:KkeGXkPknUBJnXNNUoVz6b+DWePS38a/dwvyQjCoKcc=
+github.com/banzaicloud/operator-tools v0.25.0 h1:PO2vtpdC5MiMt61fiaDptW37iWuTci7o8lee50JKHnY=
+github.com/banzaicloud/operator-tools v0.25.0/go.mod h1:KkeGXkPknUBJnXNNUoVz6b+DWePS38a/dwvyQjCoKcc=
 github.com/benbjohnson/clock v1.0.3/go.mod h1:bGMdMPoPVvcYyt1gHDf4J2KE153Yf9BuiUKYMaxlTDM=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
@@ -1093,6 +1095,8 @@ github.com/pquerna/cachecontrol v0.0.0-20171018203845-0dec1b30a021/go.mod h1:prY
 github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.43.0/go.mod h1:udmeCxAYc7D6folUmLnaCXW4RUSX9Y+maxf00eE1meE=
 github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.49.0 h1:caQO65I0GsYqrQsbZkIA7T941XVq2N6n3z2jIUPuzdo=
 github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.49.0/go.mod h1:3WYi4xqXxGGXWDdQIITnLNmuDzO5n6wYva9spVhR4fg=
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.50.0 h1:eIYVhtUPLDah0nhcHaWItFM595UAGVFKECaWoW02FUA=
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.50.0/go.mod h1:3WYi4xqXxGGXWDdQIITnLNmuDzO5n6wYva9spVhR4fg=
 github.com/prometheus/client_golang v0.0.0-20180209125602-c332b6f63c06/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.2/go.mod h1:OsXs2jCmiKlQ1lTBmv21f2mNfw4xf/QclQDMrYNZzcM=
@@ -1462,6 +1466,8 @@ golang.org/x/mod v0.4.0/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
 golang.org/x/mod v0.4.1/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
 golang.org/x/mod v0.4.2 h1:Gz96sIWK3OalVv/I/qNygP42zyoKp3xptRVCWRFEBvo=
 golang.org/x/mod v0.4.2/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
+golang.org/x/mod v0.5.0 h1:UG21uOlmZabA4fW5i7ZX6bjw1xELEGg/ZLgZq9auk/Q=
+golang.org/x/mod v0.5.0/go.mod h1:5OXOZSfqPIIbmVBIIKWRFfZjPR0E5r58TLhUjH0a2Ro=
 golang.org/x/net v0.0.0-20170114055629-f2499483f923/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/net v0.0.0-20170915142106-8351a756f30f/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/net v0.0.0-20180112015858-5ccada7d0a7b/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=

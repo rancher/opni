@@ -14,7 +14,7 @@ DAPPER_MODE = bind
 endif
 
 $(TARGETS): .dapper
-	./.dapper $@
+	@./.dapper -q $@
 
 .DEFAULT_GOAL := build
 

@@ -3,9 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
-	"time"
 
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo"
@@ -16,137 +14,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 )
-
-func makeTestNamespace() string {
-	for i := 0; i < 100; i++ {
-		ns := fmt.Sprintf("test-%d", i)
-		if err := k8sClient.Create(
-			context.Background(),
-			&corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: ns,
-				},
-			},
-		); err != nil {
-			continue
-		}
-		return ns
-	}
-	panic("could not create namespace")
-}
-
-func updateObject(existing client.Object, patchFn interface{}) {
-	patchFnValue := reflect.ValueOf(patchFn)
-	if patchFnValue.Kind() != reflect.Func {
-		panic("patchFn must be a function")
-	}
-	var lastErr error
-	waitErr := wait.ExponentialBackoff(wait.Backoff{
-		Duration: 10 * time.Millisecond,
-		Factor:   2,
-		Steps:    10,
-	}, func() (bool, error) {
-		// Make a copy of the existing object
-		existingCopy := existing.DeepCopyObject().(client.Object)
-		// Get the latest version of the object
-		lastErr = k8sClient.Get(context.Background(),
-			client.ObjectKeyFromObject(existingCopy), existingCopy)
-		if lastErr != nil {
-			return false, nil
-		}
-		// Call the patchFn to make changes to the object
-		patchFnValue.Call([]reflect.Value{reflect.ValueOf(existingCopy)})
-		// Apply the patch
-		lastErr = k8sClient.Update(context.Background(), existingCopy, &client.UpdateOptions{})
-		if lastErr != nil {
-			return false, nil
-		}
-		// Replace the existing object with the new one
-		existing = existingCopy
-		return true, nil // exit backoff loop
-	})
-	if waitErr != nil {
-		Fail("failed to update object: " + lastErr.Error())
-	}
-}
-
-type opniClusterOpts struct {
-	Name                string
-	Namespace           string
-	Models              []string
-	DisableOpniServices bool
-}
-
-func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
-	imageSpec := v1beta1.ImageSpec{
-		ImagePullPolicy: (*corev1.PullPolicy)(pointer.String(string(corev1.PullNever))),
-		ImagePullSecrets: []corev1.LocalObjectReference{
-			{
-				Name: "lorem-ipsum",
-			},
-		},
-	}
-	return &v1beta1.OpniCluster{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1beta1.GroupVersion.String(),
-			Kind:       "OpniCluster",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: opts.Name,
-			Namespace: func() string {
-				if opts.Namespace == "" {
-					return makeTestNamespace()
-				}
-				return opts.Namespace
-			}(),
-		},
-		Spec: v1beta1.OpniClusterSpec{
-			Version:     "test",
-			DefaultRepo: pointer.String("docker.biz/rancher"), // nonexistent repo
-			Nats: v1beta1.NatsSpec{
-				AuthMethod: v1beta1.NatsAuthUsername,
-			},
-			Services: v1beta1.ServicesSpec{
-				Inference: v1beta1.InferenceServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-					PretrainedModels: func() []v1beta1.PretrainedModelReference {
-						var ret []v1beta1.PretrainedModelReference
-						for _, model := range opts.Models {
-							ret = append(ret, v1beta1.PretrainedModelReference{
-								Name: model,
-							})
-						}
-						return ret
-					}(),
-				},
-				Drain: v1beta1.DrainServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-				},
-				Preprocessing: v1beta1.PreprocessingServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-				},
-				PayloadReceiver: v1beta1.PayloadReceiverServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-				},
-				GPUController: v1beta1.GPUControllerServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-				},
-			},
-		},
-	}
-}
 
 var _ = Describe("OpniCluster Controller", func() {
 	cluster := &v1beta1.OpniCluster{}

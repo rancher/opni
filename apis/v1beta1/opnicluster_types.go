@@ -195,6 +195,7 @@ type S3Spec struct {
 }
 
 type InternalSpec struct {
+	Persistence *PersistenceSpec `json:"persistence,omitempty"`
 }
 
 type ExternalSpec struct {

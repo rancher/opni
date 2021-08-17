@@ -45401,6 +45401,20 @@ spec:
                   internal:
                     description: If set, Opni will deploy an S3 pod to use internally.
                       Cannot be set at the same time as `external`.
+                    properties:
+                      persistence:
+                        properties:
+                          accessModes:
+                            items:
+                              type: string
+                            type: array
+                          enabled:
+                            type: boolean
+                          request:
+                            type: string
+                          storageClass:
+                            type: string
+                        type: object
                     type: object
                 type: object
               services:
@@ -56467,6 +56481,18 @@ rules:
   - apps
   resources:
   - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
   verbs:
   - create
   - delete

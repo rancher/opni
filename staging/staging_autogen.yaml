@@ -5953,6 +5953,158 @@ spec:
                 - hec_host
                 - hec_token
                 type: object
+              sqs:
+                properties:
+                  aws_key_id:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  aws_sec_key:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  buffer:
+                    properties:
+                      chunk_full_threshold:
+                        type: string
+                      chunk_limit_records:
+                        type: integer
+                      chunk_limit_size:
+                        type: string
+                      compress:
+                        type: string
+                      delayed_commit_timeout:
+                        type: string
+                      disable_chunk_backup:
+                        type: boolean
+                      flush_at_shutdown:
+                        type: boolean
+                      flush_interval:
+                        type: string
+                      flush_mode:
+                        type: string
+                      flush_thread_burst_interval:
+                        type: string
+                      flush_thread_count:
+                        type: integer
+                      flush_thread_interval:
+                        type: string
+                      overflow_action:
+                        type: string
+                      path:
+                        type: string
+                      queue_limit_length:
+                        type: integer
+                      queued_chunks_limit_size:
+                        type: integer
+                      retry_exponential_backoff_base:
+                        type: string
+                      retry_forever:
+                        type: boolean
+                      retry_max_interval:
+                        type: string
+                      retry_max_times:
+                        type: integer
+                      retry_randomize:
+                        type: boolean
+                      retry_secondary_threshold:
+                        type: string
+                      retry_timeout:
+                        type: string
+                      retry_type:
+                        type: string
+                      retry_wait:
+                        type: string
+                      tags:
+                        type: string
+                      timekey:
+                        type: string
+                      timekey_use_utc:
+                        type: boolean
+                      timekey_wait:
+                        type: string
+                      timekey_zone:
+                        type: string
+                      total_limit_size:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  create_queue:
+                    type: boolean
+                  delay_seconds:
+                    type: integer
+                  include_tag:
+                    type: boolean
+                  message_group_id:
+                    type: string
+                  queue_name:
+                    type: string
+                  region:
+                    type: string
+                  sqs_url:
+                    type: string
+                  tag_property_name:
+                    type: string
+                type: object
               sumologic:
                 properties:
                   add_timestamp:
@@ -10690,6 +10842,158 @@ spec:
                 required:
                 - hec_host
                 - hec_token
+                type: object
+              sqs:
+                properties:
+                  aws_key_id:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  aws_sec_key:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  buffer:
+                    properties:
+                      chunk_full_threshold:
+                        type: string
+                      chunk_limit_records:
+                        type: integer
+                      chunk_limit_size:
+                        type: string
+                      compress:
+                        type: string
+                      delayed_commit_timeout:
+                        type: string
+                      disable_chunk_backup:
+                        type: boolean
+                      flush_at_shutdown:
+                        type: boolean
+                      flush_interval:
+                        type: string
+                      flush_mode:
+                        type: string
+                      flush_thread_burst_interval:
+                        type: string
+                      flush_thread_count:
+                        type: integer
+                      flush_thread_interval:
+                        type: string
+                      overflow_action:
+                        type: string
+                      path:
+                        type: string
+                      queue_limit_length:
+                        type: integer
+                      queued_chunks_limit_size:
+                        type: integer
+                      retry_exponential_backoff_base:
+                        type: string
+                      retry_forever:
+                        type: boolean
+                      retry_max_interval:
+                        type: string
+                      retry_max_times:
+                        type: integer
+                      retry_randomize:
+                        type: boolean
+                      retry_secondary_threshold:
+                        type: string
+                      retry_timeout:
+                        type: string
+                      retry_type:
+                        type: string
+                      retry_wait:
+                        type: string
+                      tags:
+                        type: string
+                      timekey:
+                        type: string
+                      timekey_use_utc:
+                        type: boolean
+                      timekey_wait:
+                        type: string
+                      timekey_zone:
+                        type: string
+                      total_limit_size:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  create_queue:
+                    type: boolean
+                  delay_seconds:
+                    type: integer
+                  include_tag:
+                    type: boolean
+                  message_group_id:
+                    type: string
+                  queue_name:
+                    type: string
+                  region:
+                    type: string
+                  sqs_url:
+                    type: string
+                  tag_property_name:
+                    type: string
                 type: object
               sumologic:
                 properties:
@@ -26474,6 +26778,28 @@ spec:
                     type: string
                   disableKubernetesFilter:
                     type: boolean
+                  dnsConfig:
+                    properties:
+                      nameservers:
+                        items:
+                          type: string
+                        type: array
+                      options:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                      searches:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  dnsPolicy:
+                    type: string
                   enableUpstream:
                     type: boolean
                   envVars:
@@ -26645,6 +26971,8 @@ spec:
                         type: string
                       Time_as_Integer:
                         type: boolean
+                      storage.total_limit_size:
+                        type: string
                     type: object
                   grace:
                     format: int32
@@ -26678,6 +27006,8 @@ spec:
                       Docker_Mode:
                         type: string
                       Docker_Mode_Flush:
+                        type: string
+                      Docker_Mode_Parser:
                         type: string
                       Exclude_Path:
                         type: string
@@ -28019,6 +28349,28 @@ spec:
                     type: object
                   disablePvc:
                     type: boolean
+                  dnsConfig:
+                    properties:
+                      nameservers:
+                        items:
+                          type: string
+                        type: array
+                      options:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                      searches:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  dnsPolicy:
+                    type: string
                   envVars:
                     items:
                       properties:
@@ -28449,6 +28801,34 @@ spec:
                   port:
                     format: int32
                     type: integer
+                  readinessDefaultCheck:
+                    properties:
+                      bufferFileNumber:
+                        type: boolean
+                      bufferFileNumberMax:
+                        format: int32
+                        type: integer
+                      bufferFreeSpace:
+                        type: boolean
+                      bufferFreeSpaceThreshold:
+                        format: int32
+                        type: integer
+                      failureThreshold:
+                        format: int32
+                        type: integer
+                      initialDelaySeconds:
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        format: int32
+                        type: integer
+                      successThreshold:
+                        format: int32
+                        type: integer
+                      timeoutSeconds:
+                        format: int32
+                        type: integer
+                    type: object
                   readinessProbe:
                     properties:
                       exec:
@@ -32682,6 +33062,8 @@ spec:
                               type: string
                             Time_as_Integer:
                               type: boolean
+                            storage.total_limit_size:
+                              type: string
                           type: object
                         grace:
                           format: int32
@@ -32699,6 +33081,8 @@ spec:
                             Docker_Mode:
                               type: string
                             Docker_Mode_Flush:
+                              type: string
+                            Docker_Mode_Parser:
                               type: string
                             Exclude_Path:
                               type: string
@@ -34421,6 +34805,28 @@ spec:
                     type: string
                   disableKubernetesFilter:
                     type: boolean
+                  dnsConfig:
+                    properties:
+                      nameservers:
+                        items:
+                          type: string
+                        type: array
+                      options:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                      searches:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  dnsPolicy:
+                    type: string
                   enableUpstream:
                     type: boolean
                   envVars:
@@ -34592,6 +34998,8 @@ spec:
                         type: string
                       Time_as_Integer:
                         type: boolean
+                      storage.total_limit_size:
+                        type: string
                     type: object
                   grace:
                     format: int32
@@ -34625,6 +35033,8 @@ spec:
                       Docker_Mode:
                         type: string
                       Docker_Mode_Flush:
+                        type: string
+                      Docker_Mode_Parser:
                         type: string
                       Exclude_Path:
                         type: string
@@ -35966,6 +36376,28 @@ spec:
                     type: object
                   disablePvc:
                     type: boolean
+                  dnsConfig:
+                    properties:
+                      nameservers:
+                        items:
+                          type: string
+                        type: array
+                      options:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                      searches:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  dnsPolicy:
+                    type: string
                   envVars:
                     items:
                       properties:
@@ -36396,6 +36828,34 @@ spec:
                   port:
                     format: int32
                     type: integer
+                  readinessDefaultCheck:
+                    properties:
+                      bufferFileNumber:
+                        type: boolean
+                      bufferFileNumberMax:
+                        format: int32
+                        type: integer
+                      bufferFreeSpace:
+                        type: boolean
+                      bufferFreeSpaceThreshold:
+                        format: int32
+                        type: integer
+                      failureThreshold:
+                        format: int32
+                        type: integer
+                      initialDelaySeconds:
+                        format: int32
+                        type: integer
+                      periodSeconds:
+                        format: int32
+                        type: integer
+                      successThreshold:
+                        format: int32
+                        type: integer
+                      timeoutSeconds:
+                        format: int32
+                        type: integer
+                    type: object
                   readinessProbe:
                     properties:
                       exec:
@@ -40629,6 +41089,8 @@ spec:
                               type: string
                             Time_as_Integer:
                               type: boolean
+                            storage.total_limit_size:
+                              type: string
                           type: object
                         grace:
                           format: int32
@@ -40646,6 +41108,8 @@ spec:
                             Docker_Mode:
                               type: string
                             Docker_Mode_Flush:
+                              type: string
+                            Docker_Mode_Parser:
                               type: string
                             Exclude_Path:
                               type: string
@@ -51270,6 +51734,158 @@ spec:
                 - hec_host
                 - hec_token
                 type: object
+              sqs:
+                properties:
+                  aws_key_id:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  aws_sec_key:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  buffer:
+                    properties:
+                      chunk_full_threshold:
+                        type: string
+                      chunk_limit_records:
+                        type: integer
+                      chunk_limit_size:
+                        type: string
+                      compress:
+                        type: string
+                      delayed_commit_timeout:
+                        type: string
+                      disable_chunk_backup:
+                        type: boolean
+                      flush_at_shutdown:
+                        type: boolean
+                      flush_interval:
+                        type: string
+                      flush_mode:
+                        type: string
+                      flush_thread_burst_interval:
+                        type: string
+                      flush_thread_count:
+                        type: integer
+                      flush_thread_interval:
+                        type: string
+                      overflow_action:
+                        type: string
+                      path:
+                        type: string
+                      queue_limit_length:
+                        type: integer
+                      queued_chunks_limit_size:
+                        type: integer
+                      retry_exponential_backoff_base:
+                        type: string
+                      retry_forever:
+                        type: boolean
+                      retry_max_interval:
+                        type: string
+                      retry_max_times:
+                        type: integer
+                      retry_randomize:
+                        type: boolean
+                      retry_secondary_threshold:
+                        type: string
+                      retry_timeout:
+                        type: string
+                      retry_type:
+                        type: string
+                      retry_wait:
+                        type: string
+                      tags:
+                        type: string
+                      timekey:
+                        type: string
+                      timekey_use_utc:
+                        type: boolean
+                      timekey_wait:
+                        type: string
+                      timekey_zone:
+                        type: string
+                      total_limit_size:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  create_queue:
+                    type: boolean
+                  delay_seconds:
+                    type: integer
+                  include_tag:
+                    type: boolean
+                  message_group_id:
+                    type: string
+                  queue_name:
+                    type: string
+                  region:
+                    type: string
+                  sqs_url:
+                    type: string
+                  tag_property_name:
+                    type: string
+                type: object
               sumologic:
                 properties:
                   add_timestamp:
@@ -56001,6 +56617,158 @@ spec:
                 required:
                 - hec_host
                 - hec_token
+                type: object
+              sqs:
+                properties:
+                  aws_key_id:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  aws_sec_key:
+                    properties:
+                      mountFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                      value:
+                        type: string
+                      valueFrom:
+                        properties:
+                          secretKeyRef:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                        type: object
+                    type: object
+                  buffer:
+                    properties:
+                      chunk_full_threshold:
+                        type: string
+                      chunk_limit_records:
+                        type: integer
+                      chunk_limit_size:
+                        type: string
+                      compress:
+                        type: string
+                      delayed_commit_timeout:
+                        type: string
+                      disable_chunk_backup:
+                        type: boolean
+                      flush_at_shutdown:
+                        type: boolean
+                      flush_interval:
+                        type: string
+                      flush_mode:
+                        type: string
+                      flush_thread_burst_interval:
+                        type: string
+                      flush_thread_count:
+                        type: integer
+                      flush_thread_interval:
+                        type: string
+                      overflow_action:
+                        type: string
+                      path:
+                        type: string
+                      queue_limit_length:
+                        type: integer
+                      queued_chunks_limit_size:
+                        type: integer
+                      retry_exponential_backoff_base:
+                        type: string
+                      retry_forever:
+                        type: boolean
+                      retry_max_interval:
+                        type: string
+                      retry_max_times:
+                        type: integer
+                      retry_randomize:
+                        type: boolean
+                      retry_secondary_threshold:
+                        type: string
+                      retry_timeout:
+                        type: string
+                      retry_type:
+                        type: string
+                      retry_wait:
+                        type: string
+                      tags:
+                        type: string
+                      timekey:
+                        type: string
+                      timekey_use_utc:
+                        type: boolean
+                      timekey_wait:
+                        type: string
+                      timekey_zone:
+                        type: string
+                      total_limit_size:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  create_queue:
+                    type: boolean
+                  delay_seconds:
+                    type: integer
+                  include_tag:
+                    type: boolean
+                  message_group_id:
+                    type: string
+                  queue_name:
+                    type: string
+                  region:
+                    type: string
+                  sqs_url:
+                    type: string
+                  tag_property_name:
+                    type: string
                 type: object
               sumologic:
                 properties:

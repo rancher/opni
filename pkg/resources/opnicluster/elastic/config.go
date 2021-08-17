@@ -4,6 +4,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var (
@@ -37,5 +38,6 @@ func (r *Reconciler) elasticConfigSecret() resources.Resource {
 		},
 	}
 
+	ctrl.SetControllerReference(r.opniCluster, secret, r.client.Scheme())
 	return resources.Present(secret)
 }

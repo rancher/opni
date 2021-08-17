@@ -723,12 +723,10 @@ var _ = Describe("OpniCluster Controller", func() {
 					Replicas: pointer.Int32(1),
 				},
 				Data: v1beta1.ElasticWorkloadDataSpec{
-					DedicatedPod: true,
-					Replicas:     pointer.Int32(3),
+					Replicas: pointer.Int32(3),
 				},
 				Client: v1beta1.ElasticWorkloadClientSpec{
-					DedicatedPod: true,
-					Replicas:     pointer.Int32(5),
+					Replicas: pointer.Int32(5),
 					Resources: &corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
 							corev1.ResourceMemory: resource.MustParse("10Gi"),
@@ -741,6 +739,8 @@ var _ = Describe("OpniCluster Controller", func() {
 			},
 		}
 		createCluster(c)
+
+		services := []string{"opni-es-data", "opni-es-client", "opni-es-discovery", "opni-es-kibana"}
 
 		By("checking if the elastic deployments are created")
 		wg := sync.WaitGroup{}
@@ -769,10 +769,10 @@ var _ = Describe("OpniCluster Controller", func() {
 					HaveImage("docker.io/amazon/opendistro-for-elasticsearch:1.0.0"),
 					HaveEnv("node.master", "true"),
 					HavePorts("transport", "http", "metrics", "rca"),
-					HaveVolumeMounts("config", "data"),
+					HaveVolumeMounts("config", "opni-es-data"),
 				)),
 				HaveMatchingPersistentVolume(And(
-					HaveName("data"),
+					HaveName("opni-es-data"),
 					HaveStorageClass("test-storageclass"),
 				)),
 			))
@@ -797,10 +797,10 @@ var _ = Describe("OpniCluster Controller", func() {
 					HaveImage("docker.io/amazon/opendistro-for-elasticsearch:1.0.0"),
 					HaveEnv("node.data", "true"),
 					HavePorts("transport"),
-					HaveVolumeMounts("config", "data"),
+					HaveVolumeMounts("config", "opni-es-data"),
 				)),
 				HaveMatchingPersistentVolume(And(
-					HaveName("data"),
+					HaveName("opni-es-data"),
 					HaveStorageClass("test-storageclass"),
 				)),
 			))
@@ -829,7 +829,7 @@ var _ = Describe("OpniCluster Controller", func() {
 					),
 					HavePorts("transport", "http", "metrics", "rca"),
 					HaveVolumeMounts("config"),
-					Not(HaveVolumeMounts("data")),
+					Not(HaveVolumeMounts("opni-es-data")),
 				)),
 			))
 		}()
@@ -856,10 +856,100 @@ var _ = Describe("OpniCluster Controller", func() {
 						"ELASTICSEARCH_HOSTS", nil,
 					),
 					HavePorts("http"),
-					Not(HaveVolumeMounts("config", "data")),
+					Not(HaveVolumeMounts("config", "opni-es-data")),
 				)),
 			))
 		}()
 		wg.Wait()
+
+		By("checking that services are created")
+		for _, svc := range services {
+			Eventually(Object(&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svc,
+					Namespace: cluster.Namespace,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(cluster),
+			))
+		}
+
+		By("checking that secrets are created")
+		Eventually(Object(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-es-config",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveOwner(cluster),
+			HaveData("logging.yml", nil),
+		))
+
+		By("adjusting the elastic workload replicas")
+		updateObject(cluster, func(obj *v1beta1.OpniCluster) {
+			obj.Spec.Elastic.Workloads.Data.Replicas = pointer.Int32(1)
+			obj.Spec.Elastic.Workloads.Client.Replicas = pointer.Int32(1)
+			obj.Spec.Elastic.Workloads.Kibana.Replicas = pointer.Int32(1)
+		})
+
+		By("checking that replica counts are updated")
+		Eventually(Object(&appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-es-data",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(HaveReplicaCount(1))
+		Eventually(Object(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-es-client",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(HaveReplicaCount(1))
+		Eventually(Object(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-es-kibana",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(HaveReplicaCount(1))
+
+		By("deleting the opnicluster")
+		Expect(k8sClient.Delete(context.Background(), cluster)).To(Succeed())
+
+		statefulSets := []string{"opni-es-data", "opni-es-master", "opni-nats"}
+		By("ensuring all elastic resources are deleted")
+		for _, name := range statefulSets {
+			Eventually(Object(&appsv1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: cluster.Namespace,
+				},
+			})).ShouldNot(Exist())
+		}
+		deployments := []string{"opni-es-client", "opni-es-kibana"}
+		for _, name := range deployments {
+			Eventually(Object(&appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: cluster.Namespace,
+				},
+			})).ShouldNot(Exist())
+		}
+		for _, name := range services {
+			Eventually(Object(&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: cluster.Namespace,
+				},
+			})).ShouldNot(Exist())
+		}
+		secrets := []string{"opni-es-config"}
+		for _, name := range secrets {
+			Eventually(Object(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: cluster.Namespace,
+				},
+			})).ShouldNot(Exist())
+		}
 	})
 })

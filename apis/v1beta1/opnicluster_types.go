@@ -157,19 +157,15 @@ type ElasticWorkloadMasterSpec struct {
 }
 
 type ElasticWorkloadDataSpec struct {
-	// +kubebuilder:default:=true
-	DedicatedPod bool                         `json:"dedicatedPod,omitempty"`
-	Replicas     *int32                       `json:"replicas,omitempty"`
-	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
+	Replicas  *int32                       `json:"replicas,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
 }
 
 type ElasticWorkloadClientSpec struct {
-	// +kubebuilder:default:=true
-	DedicatedPod bool                         `json:"dedicatedPod,omitempty"`
-	Replicas     *int32                       `json:"replicas,omitempty"`
-	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
+	Replicas  *int32                       `json:"replicas,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
 }
 
 type ElasticWorkloadKibanaSpec struct {

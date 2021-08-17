@@ -166,7 +166,7 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 	// Set up defaults
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "data",
+			Name: "opni-es-data",
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -174,7 +174,7 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("8Gi"),
+					corev1.ResourceStorage: resource.MustParse("10Gi"),
 				},
 			},
 		},
@@ -206,10 +206,10 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 		workload.Spec.Template.Spec.Volumes =
 			append(workload.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: "data",
+					Name: "opni-es-data",
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "data",
+							ClaimName: "opni-es-data",
 						},
 					},
 				},
@@ -218,7 +218,7 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 		workload.Spec.Template.Spec.Volumes =
 			append(workload.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: "data",
+					Name: "opni-es-data",
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
@@ -364,7 +364,7 @@ func fixMountContainer() corev1.Container {
 
 func dataVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
-		Name:      "data",
+		Name:      "opni-es-data",
 		MountPath: "/usr/share/elasticsearch/data",
 	}
 }

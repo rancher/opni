@@ -567,9 +567,6 @@ spec:
                                     type: array
                                 type: object
                             type: object
-                          dedicatedPod:
-                            default: true
-                            type: boolean
                           replicas:
                             format: int32
                             type: integer
@@ -1059,9 +1056,6 @@ spec:
                                     type: array
                                 type: object
                             type: object
-                          dedicatedPod:
-                            default: true
-                            type: boolean
                           replicas:
                             format: int32
                             type: integer

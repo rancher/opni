@@ -14,7 +14,7 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/k3s-io/helm-controller v0.11.2
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
-	github.com/kralicky/kmatch v0.0.0-20210817160144-12534f06d775
+	github.com/kralicky/kmatch v0.0.0-20210817213559-44a41c23a9fd
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
 	github.com/nats-io/nkeys v0.3.0
 	github.com/onsi/ginkgo v1.16.5-0.20210808002315-bc059d745883

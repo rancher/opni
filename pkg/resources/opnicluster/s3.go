@@ -129,34 +129,6 @@ func (r *Reconciler) seaweed() []resources.Resource {
 				},
 			},
 		},
-		// ReadinessProbe: &corev1.Probe{
-		// 	Handler: corev1.Handler{
-		// 		HTTPGet: &corev1.HTTPGetAction{
-		// 			Path:   "/",
-		// 			Port:   intstr.FromInt(8333),
-		// 			Scheme: corev1.URISchemeHTTP,
-		// 		},
-		// 	},
-		// 	InitialDelaySeconds: 15,
-		// 	PeriodSeconds:       15,
-		// 	SuccessThreshold:    1,
-		// 	FailureThreshold:    100,
-		// 	TimeoutSeconds:      10,
-		// },
-		// LivenessProbe: &corev1.Probe{
-		// 	Handler: corev1.Handler{
-		// 		HTTPGet: &corev1.HTTPGetAction{
-		// 			Path:   "/",
-		// 			Port:   intstr.FromInt(8333),
-		// 			Scheme: corev1.URISchemeHTTP,
-		// 		},
-		// 	},
-		// 	InitialDelaySeconds: 20,
-		// 	PeriodSeconds:       60,
-		// 	SuccessThreshold:    1,
-		// 	FailureThreshold:    20,
-		// 	TimeoutSeconds:      10,
-		// },
 		Args: []string{
 			"server",
 			"-ip.bind=0.0.0.0",
@@ -175,7 +147,7 @@ func (r *Reconciler) seaweed() []resources.Resource {
 				ReadOnly:  true,
 			},
 			{
-				Name:      "seaweed-data",
+				Name:      "opni-seaweed-data",
 				MountPath: "/var/lib/seaweed/data",
 			},
 		},
@@ -205,7 +177,7 @@ func (r *Reconciler) seaweed() []resources.Resource {
 			resourceRequest = resource.MustParse("10Gi")
 		}
 		workload.Spec.Template.Spec.Volumes = append(workload.Spec.Template.Spec.Volumes, corev1.Volume{
-			Name: "seaweed-data",
+			Name: "opni-seaweed-data",
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: "opni-seaweed-data",
@@ -231,7 +203,7 @@ func (r *Reconciler) seaweed() []resources.Resource {
 	} else {
 		// Use an emptydir volume
 		workload.Spec.Template.Spec.Volumes = append(workload.Spec.Template.Spec.Volumes, corev1.Volume{
-			Name: "seaweed-data",
+			Name: "opni-seaweed-data",
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
@@ -253,6 +225,9 @@ func (r *Reconciler) internalKeySecret() ([]resources.Resource, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-seaweed-config",
 			Namespace: r.opniCluster.Namespace,
+			Labels: map[string]string{
+				"app": "seaweed",
+			},
 		},
 	}
 	if r.opniCluster.Spec.S3.Internal == nil {
@@ -270,6 +245,7 @@ func (r *Reconciler) internalKeySecret() ([]resources.Resource, error) {
 			"secretKey":   string(secretKey),
 			"config.json": fmt.Sprintf(s3JsonTemplate, accessKey, secretKey),
 		}
+		ctrl.SetControllerReference(r.opniCluster, sec, r.client.Scheme())
 		if err := r.client.Create(r.ctx, sec); err != nil {
 			return nil, err
 		}
@@ -307,10 +283,14 @@ func (r *Reconciler) externalKeySecret() error {
 		return fmt.Errorf("%w: external credentials secret not provided",
 			opnierrs.ErrS3Credentials)
 	}
+	ns := r.opniCluster.Namespace
+	if r.opniCluster.Spec.S3.External.Credentials.Namespace != "" {
+		ns = r.opniCluster.Spec.S3.External.Credentials.Namespace
+	}
 	sec := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.opniCluster.Spec.S3.External.Credentials.Name,
-			Namespace: r.opniCluster.Namespace,
+			Namespace: ns,
 		},
 	}
 	err := r.client.Get(r.ctx, client.ObjectKeyFromObject(sec), sec)

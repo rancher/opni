@@ -952,4 +952,123 @@ var _ = Describe("OpniCluster Controller", func() {
 			})).ShouldNot(Exist())
 		}
 	})
+
+	It("should reconcile internal s3 resources", func() {
+		By("creating the opnicluster")
+		c := buildCluster(opniClusterOpts{
+			Name: "test",
+		})
+		c.Spec.S3.Internal = &v1beta1.InternalSpec{
+			Persistence: &v1beta1.PersistenceSpec{
+				Enabled:          true,
+				StorageClassName: pointer.String("testing"),
+				Request:          "64Gi",
+				AccessModes: []corev1.PersistentVolumeAccessMode{
+					corev1.ReadWriteMany,
+				},
+			},
+		}
+		createCluster(c)
+
+		By("checking if the seaweed resources are created")
+		Eventually(Object(&appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-seaweed",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveOwner(cluster),
+			HaveLabels("app", "seaweed"),
+			HaveMatchingContainer(And(
+				HaveVolumeMounts("opni-seaweed-data"),
+			)),
+			HaveMatchingPersistentVolume(And(
+				HaveName("opni-seaweed-data"),
+				HaveStorageClass("testing"),
+			)),
+		))
+		Eventually(Object(&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-seaweed-s3",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveOwner(cluster),
+			HaveLabels("app", "seaweed"),
+			HavePorts("s3"),
+		))
+		Eventually(Object(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-seaweed-config",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveOwner(cluster),
+			HaveLabels("app", "seaweed"),
+			HaveData(
+				"accessKey", nil,
+				"secretKey", nil,
+				"config.json", nil,
+			),
+		))
+
+		By("checking that the cluster status contains key references")
+		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta1.OpniClusterStatus) bool {
+			return status.Auth.S3AccessKey != nil &&
+				status.Auth.S3SecretKey != nil &&
+				status.Auth.S3Endpoint != ""
+		}))
+	})
+
+	It("should reconcile external s3 resources", func() {
+		By("creating the opnicluster with a missing secret")
+		c := buildCluster(opniClusterOpts{
+			Name: "test",
+		})
+		c.Spec.S3.External = &v1beta1.ExternalSpec{
+			Endpoint: "http://s3.amazonaws.biz",
+			Credentials: &corev1.SecretReference{
+				Name: "missing-secret",
+			},
+		}
+		createCluster(c)
+
+		By("checking that the external key secret is not created")
+		Consistently(Object(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "missing-secret",
+				Namespace: cluster.Namespace,
+			},
+		})).ShouldNot(Exist())
+
+		By("checking that s3 info in the cluster status should be unset")
+		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta1.OpniClusterStatus) bool {
+			return status.Auth.S3Endpoint == "" &&
+				status.Auth.S3AccessKey == nil &&
+				status.Auth.S3SecretKey == nil
+		}))
+
+		By("creating the secret")
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "missing-secret",
+				Namespace: cluster.Namespace,
+			},
+			Data: map[string][]byte{
+				"accessKey": []byte("access-key"),
+				"secretKey": []byte("secret-key"),
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), secret)).To(Succeed())
+
+		By("checking that the secret is created")
+		Eventually(Object(secret)).Should(Exist())
+
+		By("checking that s3 info in the cluster status should be set")
+		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta1.OpniClusterStatus) bool {
+			return status.Auth.S3Endpoint == "http://s3.amazonaws.biz" &&
+				status.Auth.S3AccessKey != nil &&
+				status.Auth.S3SecretKey != nil
+		}))
+	})
 })

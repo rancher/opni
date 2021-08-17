@@ -846,6 +846,8 @@ github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a h1:I5tncrQ/dxO
 github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a/go.mod h1:ie5ARlfZVi2fyaApaZ/5JFhIs5DaIIFKxwM6rjYa8SE=
 github.com/kralicky/kmatch v0.0.0-20210813212428-85cc79120de7 h1:9Dil5GeHie8TQ3dJi76mHZUmpT41DNwbx9bS6iuOikM=
 github.com/kralicky/kmatch v0.0.0-20210813212428-85cc79120de7/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
+github.com/kralicky/kmatch v0.0.0-20210817160144-12534f06d775 h1:QEW9hBFYRaszJ4QJ3Vml7vSnbQ2Dxc/A1YwwisQ1u7Y=
+github.com/kralicky/kmatch v0.0.0-20210817160144-12534f06d775/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
 github.com/lann/builder v0.0.0-20180802200727-47ae307949d0/go.mod h1:dXGbAdH5GtBTC4WfIxhKZfyBF/HBFgRZSWwZ9g/He9o=
 github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0/go.mod h1:vmVJ0l/dxyfGW6FmdpVm2joNMFikkuWg0EoCKLGUMNw=
 github.com/lib/pq v1.0.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=

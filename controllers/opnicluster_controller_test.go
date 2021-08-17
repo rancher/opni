@@ -309,7 +309,6 @@ var _ = Describe("OpniCluster Controller", func() {
 						URL: "https://foo.bar/model.tar.gz",
 					},
 				},
-				Hyperparameters: hyperparameters,
 			},
 		})).To(Succeed())
 
@@ -485,7 +484,6 @@ var _ = Describe("OpniCluster Controller", func() {
 							URL: "https://foo.bar/model.tar.gz",
 						},
 					},
-					Hyperparameters: hyperparameters,
 				},
 			})).To(Succeed())
 

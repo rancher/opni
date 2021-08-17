@@ -112,15 +112,15 @@ func BuildNulogInferenceServiceControlPlane(spec *demov1alpha1.OpniDemo) *appsv1
 									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
 								},
 								{
-									Name:  "MINIO_ENDPOINT",
+									Name:  "S3_ENDPOINT",
 									Value: fmt.Sprintf("http://minio.%s.svc.cluster.local:9000", spec.Namespace),
 								},
 								{
-									Name:  "MINIO_ACCESS_KEY",
+									Name:  "S3_ACCESS_KEY",
 									Value: spec.Spec.MinioAccessKey,
 								},
 								{
-									Name:  "MINIO_SECRET_KEY",
+									Name:  "S3_SECRET_KEY",
 									Value: spec.Spec.MinioSecretKey,
 								},
 								{
@@ -180,15 +180,15 @@ func BuildNulogInferenceService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment 
 									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
 								},
 								{
-									Name:  "MINIO_ENDPOINT",
+									Name:  "S3_ENDPOINT",
 									Value: fmt.Sprintf("http://minio.%s.svc.cluster.local:9000", spec.Namespace),
 								},
 								{
-									Name:  "MINIO_ACCESS_KEY",
+									Name:  "S3_ACCESS_KEY",
 									Value: spec.Spec.MinioAccessKey,
 								},
 								{
-									Name:  "MINIO_SECRET_KEY",
+									Name:  "S3_SECRET_KEY",
 									Value: spec.Spec.MinioSecretKey,
 								},
 								{
@@ -343,18 +343,6 @@ func BuildGPUService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
 								},
 								{
-									Name:  "MINIO_SERVER_URL",
-									Value: fmt.Sprintf("http://minio.%s.svc.cluster.local:9000", spec.Namespace),
-								},
-								{
-									Name:  "MINIO_ACCESS_KEY",
-									Value: spec.Spec.MinioAccessKey,
-								},
-								{
-									Name:  "MINIO_SECRET_KEY",
-									Value: spec.Spec.MinioSecretKey,
-								},
-								{
 									Name:  "ES_ENDPOINT",
 									Value: fmt.Sprintf("https://opendistro-es-client-service.%s.svc.cluster.local:9200", spec.Namespace),
 								},
@@ -371,6 +359,12 @@ func BuildGPUService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Value: "0",
 								},
 							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "data",
+									MountPath: "/var/opni-data",
+								},
+							},
 						},
 						{
 							Name:            "gpu-service-worker",
@@ -382,15 +376,15 @@ func BuildGPUService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
 								},
 								{
-									Name:  "MINIO_ENDPOINT",
+									Name:  "S3_ENDPOINT",
 									Value: fmt.Sprintf("http://minio.%s.svc.cluster.local:9000", spec.Namespace),
 								},
 								{
-									Name:  "MINIO_ACCESS_KEY",
+									Name:  "S3_ACCESS_KEY",
 									Value: spec.Spec.MinioAccessKey,
 								},
 								{
-									Name:  "MINIO_SECRET_KEY",
+									Name:  "S3_SECRET_KEY",
 									Value: spec.Spec.MinioSecretKey,
 								},
 								{
@@ -414,6 +408,20 @@ func BuildGPUService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 								Limits: corev1.ResourceList{
 									"nvidia.com/gpu": resource.MustParse("1"),
 								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "data",
+									MountPath: "/var/opni-data",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "data",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},

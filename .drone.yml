@@ -16,6 +16,7 @@ steps:
         from_secret: docker_username
       context: images/python/
       dockerfile: images/python/Dockerfile
+      cache_from: rancher/opni-python-base:3.8
       target: base-final
       repo: rancher/opni-python-base
       tags:
@@ -37,6 +38,7 @@ steps:
         from_secret: docker_username
       context: images/python/
       dockerfile: images/python/Dockerfile
+      cache_from: rancher/opni-python-base:3.8-torch
       target: torch
       repo: rancher/opni-python-base
       tags:
@@ -58,6 +60,7 @@ steps:
         from_secret: docker_username
       context: images/python/
       dockerfile: images/python/Dockerfile
+      cache_from: rancher/opni-python-base:3.8-node14-elasticdump
       target: elasticdump
       repo: rancher/opni-python-base
       tags:

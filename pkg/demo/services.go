@@ -50,15 +50,15 @@ func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
 								},
 								{
-									Name:  "MINIO_SERVER_URL",
+									Name:  "S3_ENDPOINT",
 									Value: fmt.Sprintf("http://minio.%s.svc.cluster.local:9000", spec.Namespace),
 								},
 								{
-									Name:  "MINIO_ACCESS_KEY",
+									Name:  "S3_ACCESS_KEY",
 									Value: spec.Spec.MinioAccessKey,
 								},
 								{
-									Name:  "MINIO_SECRET_KEY",
+									Name:  "S3_SECRET_KEY",
 									Value: spec.Spec.MinioSecretKey,
 								},
 								{

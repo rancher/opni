@@ -7,6 +7,52 @@ platform:
   os: linux
   arch: amd64
 steps:
+  - name: publish-python-builder1
+    image: plugins/docker
+    settings:
+      password:
+        from_secret: docker_password
+      username:
+        from_secret: docker_username
+      context: images/python/
+      dockerfile: images/python/Dockerfile
+      cache_from: rancher/opni-python-base:builder1
+      target: builder1
+      repo: rancher/opni-python-base
+      tags:
+        - "builder1"
+    when:
+      instance:
+        - drone-publish.rancher.io
+      refs:
+        - refs/head/main
+      event:
+        exclude:
+        - pull_request
+  - name: publish-python-builder2
+    image: plugins/docker
+    settings:
+      password:
+        from_secret: docker_password
+      username:
+        from_secret: docker_username
+      context: images/python/
+      dockerfile: images/python/Dockerfile
+      cache_from:
+      - rancher/opni-python-base:builder1
+      - rancher/opni-python-base:builder2
+      target: builder2
+      repo: rancher/opni-python-base
+      tags:
+        - "builder2"
+    when:
+      instance:
+        - drone-publish.rancher.io
+      refs:
+        - refs/head/main
+      event:
+        exclude:
+        - pull_request
   - name: publish-python-base
     image: plugins/docker
     settings:
@@ -16,7 +62,10 @@ steps:
         from_secret: docker_username
       context: images/python/
       dockerfile: images/python/Dockerfile
-      cache_from: rancher/opni-python-base:3.8
+      cache_from:
+      - rancher/opni-python-base:builder1
+      - rancher/opni-python-base:builder2
+      - rancher/opni-python-base:3.8
       target: base-final
       repo: rancher/opni-python-base
       tags:
@@ -38,7 +87,11 @@ steps:
         from_secret: docker_username
       context: images/python/
       dockerfile: images/python/Dockerfile
-      cache_from: rancher/opni-python-base:3.8-torch
+      cache_from:
+      - rancher/opni-python-base:builder1
+      - rancher/opni-python-base:builder2
+      - rancher/opni-python-base:3.8
+      - rancher/opni-python-base:3.8-torch
       target: torch
       repo: rancher/opni-python-base
       tags:
@@ -59,9 +112,9 @@ steps:
       username:
         from_secret: docker_username
       context: images/python/
-      dockerfile: images/python/Dockerfile
-      cache_from: rancher/opni-python-base:3.8-node14-elasticdump
-      target: elasticdump
+      dockerfile: images/python/Dockerfile.elasticdump
+      cache_from:
+      - rancher/opni-python-base:3.8-node14-elasticdump
       repo: rancher/opni-python-base
       tags:
         - "3.8-node14-elasticdump"

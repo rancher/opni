@@ -60,6 +60,8 @@ lame_duck_duration: "30s"
 
 pid_file: "{{ .PidFile }}"
 
+max_payload: 8388608
+
 #Clustering defition
 cluster {
 	listen: 0.0.0.0:{{ .ClusterPort }}

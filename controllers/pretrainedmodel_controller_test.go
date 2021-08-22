@@ -10,9 +10,10 @@ import (
 	"github.com/rancher/opni/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func marshal(hp []v1beta1.Hyperparameter) string {
+func marshal(hp map[string]intstr.IntOrString) string {
 	b, err := json.MarshalIndent(hp, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
 	return string(b)
@@ -32,11 +33,8 @@ var _ = Describe("PretrainedModel Controller", func() {
 						URL: "https://nonexistent",
 					},
 				},
-				Hyperparameters: []v1beta1.Hyperparameter{
-					{
-						Name:  "batch_size",
-						Value: "32",
-					},
+				Hyperparameters: map[string]intstr.IntOrString{
+					"batch_size": intstr.FromInt(32),
 				},
 			},
 		}
@@ -52,20 +50,14 @@ var _ = Describe("PretrainedModel Controller", func() {
 		Eventually(Object(hpConfigMap)).Should(ExistAnd(
 			HaveOwner(model),
 			HaveData("hyperparameters.json",
-				marshal([]v1beta1.Hyperparameter{
-					{
-						Name:  "batch_size",
-						Value: "32",
-					},
+				marshal(map[string]intstr.IntOrString{
+					"batch_size": intstr.FromInt(32),
 				}),
 			)),
 		)
 
-		newParameters := []v1beta1.Hyperparameter{
-			{
-				Name:  "batch_size",
-				Value: "32",
-			},
+		newParameters := map[string]intstr.IntOrString{
+			"batch_size": intstr.FromInt(32),
 		}
 		By("updating the hyperparameters")
 		updateObject(model, func(obj *v1beta1.PretrainedModel) {

@@ -33,17 +33,12 @@ spec:
             description: PretrainedModelSpec defines the desired state of PretrainedModel
             properties:
               hyperparameters:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    value:
-                      type: string
-                  required:
-                  - name
-                  - value
-                  type: object
-                type: array
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  x-kubernetes-int-or-string: true
+                type: object
               source:
                 properties:
                   container:

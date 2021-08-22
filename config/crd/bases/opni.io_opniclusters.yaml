@@ -2093,8 +2093,18 @@ spec:
                   username:
                     type: string
                 type: object
+              nulogHyperparameters:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  x-kubernetes-int-or-string: true
+                type: object
               s3:
                 properties:
+                  drainS3Bucket:
+                    description: Bucket used to persiste drain models.  It not set will use opni-drain-models
+                    type: string
                   external:
                     description: If set, Opni will connect to an external S3 endpoint. Cannot be set at the same time as `internal`.
                     properties:
@@ -2131,6 +2141,9 @@ spec:
                             type: string
                         type: object
                     type: object
+                  nulogS3Bucket:
+                    description: Bucket used to persist nulog models.  If not set will use opni-nulog-models.
+                    type: string
                 type: object
               services:
                 properties:

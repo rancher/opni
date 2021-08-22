@@ -4,10 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/resources/hyperparameters"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -33,6 +37,16 @@ func NewReconciler(
 		client: client,
 		model:  model,
 	}
+}
+
+func (r *Reconciler) hyperparameters() (runtime.Object, reconciler.DesiredState, error) {
+	cm, err := hyperparameters.GenerateHyperparametersConfigMap(r.model.Name, r.model.Namespace, r.model.Spec.Hyperparameters)
+	if err != nil {
+		return nil, nil, err
+	}
+	cm.Labels[resources.PretrainedModelLabel] = r.model.Name
+	err = ctrl.SetControllerReference(r.model, &cm, r.client.Scheme())
+	return &cm, reconciler.StatePresent, err
 }
 
 func (r *Reconciler) Reconcile() (*reconcile.Result, error) {

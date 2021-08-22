@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -383,11 +384,8 @@ var _ = Describe("OpniCluster Controller", func() {
 							URL: "https://foo.bar/model.tar.gz",
 						},
 					},
-					Hyperparameters: []v1beta1.Hyperparameter{
-						{
-							Name:  "foo",
-							Value: "0.1",
-						},
+					Hyperparameters: map[string]intstr.IntOrString{
+						"foo": intstr.FromString("0.1"),
 					},
 				},
 			}
@@ -402,11 +400,8 @@ var _ = Describe("OpniCluster Controller", func() {
 							URL: "https://bar.baz/model.tar.gz",
 						},
 					},
-					Hyperparameters: []v1beta1.Hyperparameter{
-						{
-							Name:  "bar",
-							Value: "0.2",
-						},
+					Hyperparameters: map[string]intstr.IntOrString{
+						"bar": intstr.FromString("0.2"),
 					},
 				},
 			}
@@ -448,11 +443,8 @@ var _ = Describe("OpniCluster Controller", func() {
 							URL: "https://foo.bar/model.tar.gz",
 						},
 					},
-					Hyperparameters: []v1beta1.Hyperparameter{
-						{
-							Name:  "foo",
-							Value: "0.1",
-						},
+					Hyperparameters: map[string]intstr.IntOrString{
+						"foo": intstr.FromString("0.1"),
 					},
 				},
 			}
@@ -467,11 +459,8 @@ var _ = Describe("OpniCluster Controller", func() {
 							Image: "gcr.io/foo/bar:latest",
 						},
 					},
-					Hyperparameters: []v1beta1.Hyperparameter{
-						{
-							Name:  "baz",
-							Value: "0.3",
-						},
+					Hyperparameters: map[string]intstr.IntOrString{
+						"baz": intstr.FromString("0.3"),
 					},
 				},
 			}
@@ -518,11 +507,8 @@ var _ = Describe("OpniCluster Controller", func() {
 						URL: "https://foo.bar/model.tar.gz",
 					},
 				},
-				Hyperparameters: []v1beta1.Hyperparameter{
-					{
-						Name:  "foo",
-						Value: "0.1",
-					},
+				Hyperparameters: map[string]intstr.IntOrString{
+					"foo": intstr.FromString("0.1"),
 				},
 			},
 		}
@@ -562,11 +548,8 @@ var _ = Describe("OpniCluster Controller", func() {
 						URL: "https://foo.bar/model.tar.gz",
 					},
 				},
-				Hyperparameters: []v1beta1.Hyperparameter{
-					{
-						Name:  "foo",
-						Value: "0.1",
-					},
+				Hyperparameters: map[string]intstr.IntOrString{
+					"foo": intstr.FromString("0.1"),
 				},
 			},
 		}

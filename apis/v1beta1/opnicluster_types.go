@@ -19,6 +19,7 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type ImageSpec struct {
@@ -50,10 +51,11 @@ type OpniClusterSpec struct {
 	// +optional
 	DefaultRepo *string `json:"defaultRepo,omitempty"`
 
-	Services ServicesSpec `json:"services,omitempty"`
-	Elastic  ElasticSpec  `json:"elastic,omitempty"`
-	Nats     NatsSpec     `json:"nats,omitempty"`
-	S3       S3Spec       `json:"s3,omitempty"`
+	Services             ServicesSpec                  `json:"services,omitempty"`
+	Elastic              ElasticSpec                   `json:"elastic,omitempty"`
+	Nats                 NatsSpec                      `json:"nats,omitempty"`
+	S3                   S3Spec                        `json:"s3,omitempty"`
+	NulogHyperparameters map[string]intstr.IntOrString `json:"nulogHyperparameters,omitempty"`
 }
 
 // OpniClusterStatus defines the observed state of OpniCluster
@@ -188,6 +190,12 @@ type S3Spec struct {
 	// If set, Opni will connect to an external S3 endpoint.
 	// Cannot be set at the same time as `internal`.
 	External *ExternalSpec `json:"external,omitempty"`
+	// Bucket used to persist nulog models.  If not set will use
+	// opni-nulog-models.
+	NulogS3Bucket string `json:"nulogS3Bucket,omitempty"`
+	// Bucket used to persiste drain models.  It not set will use
+	// opni-drain-models
+	DrainS3Bucket string `json:"drainS3Bucket,omitempty"`
 }
 
 type InternalSpec struct {

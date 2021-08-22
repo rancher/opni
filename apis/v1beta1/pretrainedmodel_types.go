@@ -19,6 +19,7 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // PretrainedModelSpec defines the desired state of PretrainedModel
@@ -26,14 +27,7 @@ type PretrainedModelSpec struct {
 	// +kubebuilder:validation:Required
 	ModelSource `json:"source"`
 	// +optional
-	Hyperparameters []Hyperparameter `json:"hyperparameters,omitempty"`
-}
-
-type Hyperparameter struct {
-	// +kubebuilder:validation:Required
-	Name string `json:"name"`
-	// +kubebuilder:validation:Required
-	Value string `json:"value"`
+	Hyperparameters map[string]intstr.IntOrString `json:"hyperparameters,omitempty"`
 }
 
 type ModelSource struct {

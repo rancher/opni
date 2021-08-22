@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/resources/hyperparameters"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -16,6 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,6 +28,7 @@ const (
 
 func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 	return []resources.Resource{
+		r.nulogHyperparameters,
 		r.inferenceDeployment,
 		r.drainDeployment,
 		r.payloadReceiverDeployment,
@@ -173,7 +177,7 @@ func (r *Reconciler) pretrainedModelDeployment(
 				},
 			},
 		}
-		insertHyperparametersVolume(deployment, &model)
+		insertHyperparametersVolume(deployment, model.Name)
 		return deployment, reconciler.StatePresent, nil
 	}, nil
 }
@@ -216,6 +220,45 @@ func containerSidecar(model v1beta1.PretrainedModel) corev1.Container {
 				Name:      "model-volume",
 				MountPath: "/model/model.tar.gz",
 				SubPath:   "model.tar.gz",
+			},
+		},
+	}
+}
+
+func (r *Reconciler) gpuWorkerContainer() corev1.Container {
+	imageSpec := r.serviceImageSpec(v1beta1.InferenceService)
+	envVars, volumeMounts, _ := r.genericEnvAndVolumes()
+	envVars = append(envVars, r.s3EnvVars()...)
+	envVars = append(envVars, []corev1.EnvVar{
+		{
+			Name:  "MODEL_THRESHOLD",
+			Value: "0.5",
+		},
+		{
+			Name:  "MIN_LOG_TOKENS",
+			Value: "5",
+		},
+		{
+			Name:  "IS_GPU_SERVICE",
+			Value: "True",
+		},
+	}...)
+	if r.opniCluster.Spec.S3.NulogS3Bucket != "" {
+		envVars = append(envVars,
+			corev1.EnvVar{
+				Name:  "S3_BUCKET",
+				Value: r.opniCluster.Spec.S3.NulogS3Bucket,
+			})
+	}
+	return corev1.Container{
+		Name:            "gpu-service-worker",
+		Image:           *imageSpec.Image,
+		ImagePullPolicy: imageSpec.GetImagePullPolicy(),
+		Env:             envVars,
+		VolumeMounts:    volumeMounts,
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				"nvidia.com/gpu": resource.MustParse("1"),
 			},
 		},
 	}
@@ -278,6 +321,7 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 			},
 		},
 	}
+	ctrl.SetControllerReference(r.opniCluster, deployment, r.client.Scheme())
 	return deployment
 }
 
@@ -286,8 +330,6 @@ func (r *Reconciler) genericEnvAndVolumes() (
 	volumeMounts []corev1.VolumeMount,
 	volumes []corev1.Volume,
 ) {
-	lg := logr.FromContext(r.ctx)
-
 	envVars = append(envVars, corev1.EnvVar{
 		Name: "NATS_SERVER_URL",
 		Value: fmt.Sprintf("nats://%s-nats-client.%s.svc:%d",
@@ -342,26 +384,6 @@ func (r *Reconciler) genericEnvAndVolumes() (
 		}
 		envVars = append(envVars, newEnvVars...)
 	}
-	if r.opniCluster.Status.Auth.S3AccessKey != nil &&
-		r.opniCluster.Status.Auth.S3SecretKey != nil &&
-		r.opniCluster.Status.Auth.S3Endpoint != "" {
-		envVars = append(envVars, corev1.EnvVar{
-			Name: "MINIO_ACCESS_KEY",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: r.opniCluster.Status.Auth.S3AccessKey,
-			},
-		}, corev1.EnvVar{
-			Name: "MINIO_SECRET_KEY",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: r.opniCluster.Status.Auth.S3SecretKey,
-			},
-		}, corev1.EnvVar{
-			Name:  "MINIO_SERVER_URL",
-			Value: r.opniCluster.Status.Auth.S3Endpoint,
-		})
-	} else {
-		lg.Info("Warning: S3 not configured")
-	}
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  "ES_ENDPOINT",
 		Value: fmt.Sprintf("http://opni-es-client.%s.svc:9200", r.opniCluster.Namespace),
@@ -375,6 +397,31 @@ func (r *Reconciler) genericEnvAndVolumes() (
 	return
 }
 
+func (r *Reconciler) s3EnvVars() (envVars []corev1.EnvVar) {
+	lg := logr.FromContext(r.ctx)
+	if r.opniCluster.Status.Auth.S3AccessKey != nil &&
+		r.opniCluster.Status.Auth.S3SecretKey != nil &&
+		r.opniCluster.Status.Auth.S3Endpoint != "" {
+		envVars = append(envVars, corev1.EnvVar{
+			Name: "S3_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: r.opniCluster.Status.Auth.S3AccessKey,
+			},
+		}, corev1.EnvVar{
+			Name: "S3_SECRET_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: r.opniCluster.Status.Auth.S3SecretKey,
+			},
+		}, corev1.EnvVar{
+			Name:  "S3_ENDPOINT",
+			Value: r.opniCluster.Status.Auth.S3Endpoint,
+		})
+	} else {
+		lg.Info("Warning: S3 not configured")
+	}
+	return envVars
+}
+
 func deploymentState(enabled *bool) reconciler.DesiredState {
 	if enabled == nil || *enabled {
 		return reconciler.StatePresent
@@ -382,15 +429,37 @@ func deploymentState(enabled *bool) reconciler.DesiredState {
 	return reconciler.StateAbsent
 }
 
+func (r *Reconciler) nulogHyperparameters() (runtime.Object, reconciler.DesiredState, error) {
+	var data map[string]intstr.IntOrString
+	if len(r.opniCluster.Spec.NulogHyperparameters) > 0 {
+		data = r.opniCluster.Spec.NulogHyperparameters
+	} else {
+		data = map[string]intstr.IntOrString{
+			"modelThreshold": intstr.FromString("0.5"),
+			"minLogTokens":   intstr.FromInt(5),
+		}
+	}
+	cm, err := hyperparameters.GenerateHyperparametersConfigMap("nulog", r.opniCluster.Namespace, data)
+	if err != nil {
+		return nil, nil, err
+	}
+	cm.Labels["opni-service"] = "nulog"
+	err = ctrl.SetControllerReference(r.opniCluster, &cm, r.client.Scheme())
+	return &cm, reconciler.StatePresent, err
+}
+
 func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.InferenceService)
-	deployment.Spec.Template.Spec.Containers[0].Resources =
-		corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				"nvidia.com/gpu": resource.MustParse("1"),
-			},
-		}
-	deployment.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
+	s3EnvVars := r.s3EnvVars()
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
+	if r.opniCluster.Spec.S3.NulogS3Bucket != "" {
+		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
+			corev1.EnvVar{
+				Name:  "S3_BUCKET",
+				Value: r.opniCluster.Spec.S3.NulogS3Bucket,
+			})
+	}
+	insertHyperparametersVolume(deployment, "nulog")
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Inference.Enabled), nil
 }
 
@@ -402,6 +471,15 @@ func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState,
 			Name:  "FAIL_KEYWORDS",
 			Value: "fail,error,missing,unable",
 		})
+	s3EnvVars := r.s3EnvVars()
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
+	if r.opniCluster.Spec.S3.DrainS3Bucket != "" {
+		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
+			corev1.EnvVar{
+				Name:  "S3_BUCKET",
+				Value: r.opniCluster.Spec.S3.DrainS3Bucket,
+			})
+	}
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Drain.Enabled), nil
 }
 
@@ -417,16 +495,33 @@ func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.Desir
 
 func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.GPUControllerService)
+	dataVolume := corev1.Volume{
+		Name: "data",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+	dataVolumeMount := corev1.VolumeMount{
+		Name:      "data",
+		MountPath: "/var/opni-data",
+	}
+	deployment.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
+	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, r.gpuWorkerContainer())
+	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, dataVolume)
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		container.VolumeMounts = append(container.VolumeMounts, dataVolumeMount)
+	}
+	insertHyperparametersVolume(deployment, "nulog")
 	return deployment, deploymentState(r.opniCluster.Spec.Services.GPUController.Enabled), nil
 }
 
-func insertHyperparametersVolume(deployment *appsv1.Deployment, model *v1beta1.PretrainedModel) {
+func insertHyperparametersVolume(deployment *appsv1.Deployment, modelName string) {
 	volume := corev1.Volume{
 		Name: "hyperparameters",
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-hyperparameters", model.Name),
+					Name: fmt.Sprintf("%s-hyperparameters", modelName),
 				},
 				Items: []corev1.KeyToPath{
 					{
@@ -441,7 +536,7 @@ func insertHyperparametersVolume(deployment *appsv1.Deployment, model *v1beta1.P
 	for i, container := range deployment.Spec.Template.Spec.Containers {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 			Name:      "hyperparameters",
-			MountPath: "/hyperparameters.json",
+			MountPath: "/etc/opni/hyperparameters.json",
 			SubPath:   "hyperparameters.json",
 			ReadOnly:  true,
 		})

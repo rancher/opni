@@ -59,7 +59,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 			},
 			ClusterIP: corev1.ClusterIPNone,
 			Selector: map[string]string{
-				"role": string(resources.ElasticMasterRole),
+				"role": string(resources.ElasticDataRole),
 			},
 		},
 	}
@@ -78,7 +78,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 			},
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"role": string(resources.ElasticMasterRole),
+				"role": string(resources.ElasticClientRole),
 			},
 		},
 	}

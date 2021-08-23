@@ -62,7 +62,7 @@ var (
 )
 
 func elasticNodeTypeEnv(role resources.ElasticRole) []corev1.EnvVar {
-	return []corev1.EnvVar{
+	envVars := []corev1.EnvVar{
 		{
 			Name:  "node.master",
 			Value: fmt.Sprint(role == resources.ElasticMasterRole),
@@ -76,6 +76,13 @@ func elasticNodeTypeEnv(role resources.ElasticRole) []corev1.EnvVar {
 			Value: fmt.Sprint(role == resources.ElasticDataRole),
 		},
 	}
+	if role == resources.ElasticMasterRole {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "cluster.initial_master_nodes",
+			Value: "opni-es-master-0",
+		})
+	}
+	return envVars
 }
 
 func (r *Reconciler) javaOptsEnv(role resources.ElasticRole) []corev1.EnvVar {

@@ -64,6 +64,7 @@ max_payload: 8388608
 
 #Clustering defition
 cluster {
+	name: {{ .ClusterName }}
 	listen: 0.0.0.0:{{ .ClusterPort }}
 
 	authorization {
@@ -90,6 +91,7 @@ type natsConfigData struct {
 	PidFile         string
 	ClusterPassword string
 	ClusterURL      string
+	ClusterName     string
 }
 
 func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
@@ -196,6 +198,21 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 				Spec: corev1.PodSpec{
 					TerminationGracePeriodSeconds: pointer.Int64(40),
 					ShareProcessNamespace:         pointer.Bool(true),
+					Affinity: &corev1.Affinity{
+						PodAntiAffinity: &corev1.PodAntiAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+								{
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										TopologyKey: resources.HostTopologyKey,
+										LabelSelector: &metav1.LabelSelector{
+											MatchLabels: r.natsLabels(),
+										},
+									},
+									Weight: 100,
+								},
+							},
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							Name:            "nats",
@@ -327,6 +344,7 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 
 func (r *Reconciler) natsConfig() (*corev1.Secret, error) {
 	natsConfig := natsConfigData{
+		ClusterName: r.opniCluster.Name,
 		AuthMethod:  r.opniCluster.Spec.Nats.AuthMethod,
 		ClientPort:  natsDefaultClientPort,
 		HTTPPort:    natsDefaultHTTPPort,

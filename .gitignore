@@ -12,5 +12,6 @@ tilt_modules/
 # Distribution/packaging
 dist/
 build/
+package/
 
 /.dapper

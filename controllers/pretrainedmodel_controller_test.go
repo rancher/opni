@@ -43,7 +43,7 @@ var _ = Describe("PretrainedModel Controller", func() {
 		By("checking if a configmap was created")
 		hpConfigMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-hyperparameters",
+				Name:      "opni-test-hyperparameters",
 				Namespace: "default",
 			},
 		}

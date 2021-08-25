@@ -521,7 +521,7 @@ func insertHyperparametersVolume(deployment *appsv1.Deployment, modelName string
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-hyperparameters", modelName),
+					Name: fmt.Sprintf("opni-%s-hyperparameters", modelName),
 				},
 				Items: []corev1.KeyToPath{
 					{

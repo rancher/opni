@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -165,6 +166,59 @@ var _ = Describe("OpniCluster Controller", func() {
 		})).Should(ExistAnd(
 			HaveData("password", nil),
 			HaveOwner(cluster),
+		))
+		By("checking hyperparameters config")
+		defaultHyperParameters, _ := json.MarshalIndent(map[string]intstr.IntOrString{
+			"modelThreshold": intstr.FromString("0.5"),
+			"minLogTokens":   intstr.FromInt(5),
+		}, "", "  ")
+		Eventually(Object(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-nulog-hyperparameters",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveData("hyperparameters.json", string(defaultHyperParameters)),
+			HaveOwner(cluster),
+		))
+		Eventually(Object(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      v1beta1.InferenceService.ServiceName(),
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveMatchingVolume(And(
+				HaveName("hyperparameters"),
+				HaveVolumeSource("ConfigMap"),
+			)),
+			HaveMatchingContainer(
+				HaveVolumeMounts(corev1.VolumeMount{
+					Name:      "hyperparameters",
+					MountPath: "/etc/opni/hyperparameters.json",
+					SubPath:   "hyperparameters.json",
+					ReadOnly:  true,
+				}),
+			),
+		))
+		Eventually(Object(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      v1beta1.GPUControllerService.ServiceName(),
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveMatchingVolume(And(
+				HaveName("hyperparameters"),
+				HaveVolumeSource("ConfigMap"),
+			)),
+			HaveMatchingContainer(And(
+				HaveName("gpu-service-worker"),
+				HaveVolumeMounts(corev1.VolumeMount{
+					Name:      "hyperparameters",
+					MountPath: "/etc/opni/hyperparameters.json",
+					SubPath:   "hyperparameters.json",
+					ReadOnly:  true,
+				}),
+			)),
 		))
 	})
 	It("should create inference services for pretrained models", func() {
@@ -338,6 +392,24 @@ var _ = Describe("OpniCluster Controller", func() {
 		)
 	})
 
+	Specify("providing hyperparameters should work", func() {
+		testData := map[string]intstr.IntOrString{
+			"meaning-of-life": intstr.FromInt(42),
+		}
+		updateObject(cluster, func(c *v1beta1.OpniCluster) {
+			c.Spec.NulogHyperparameters = testData
+		})
+		testBytes, _ := json.MarshalIndent(testData, "", "  ")
+		Eventually(Object(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-nulog-hyperparameters",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveData("hyperparameters.json", string(testBytes)),
+			HaveOwner(cluster),
+		))
+	})
 	Context("pretrained models should function in various configurations", func() {
 		It("should ignore duplicate model names", func() {
 			createCluster(buildCluster(opniClusterOpts{

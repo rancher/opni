@@ -17,7 +17,7 @@ func GenerateHyperparametersConfigMap(modelName string, namespace string, hyperp
 	}
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-hyperparameters", modelName),
+			Name:      fmt.Sprintf("opni-%s-hyperparameters", modelName),
 			Namespace: namespace,
 			Labels: map[string]string{
 				resources.PartOfLabel: "opni",

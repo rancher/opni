@@ -47,7 +47,15 @@ func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 							Env: []corev1.EnvVar{
 								{
 									Name:  "NATS_SERVER_URL",
-									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
+									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
+								},
+								{
+								    Name: "NATS_USERNAME",
+								    Value: "nats_client",
+								},
+								{
+								    Name: "NATS_PASSWORD",
+								    Value: spec.Spec.NatsPassword,
 								},
 								{
 									Name:  "S3_ENDPOINT",
@@ -109,7 +117,15 @@ func BuildNulogInferenceServiceControlPlane(spec *demov1alpha1.OpniDemo) *appsv1
 							Env: []corev1.EnvVar{
 								{
 									Name:  "NATS_SERVER_URL",
-									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
+									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
+								},
+								{
+								    Name: "NATS_USERNAME",
+								    Value: "nats_client",
+								},
+								{
+								    Name: "NATS_PASSWORD",
+								    Value: spec.Spec.NatsPassword,
 								},
 								{
 									Name:  "S3_ENDPOINT",
@@ -177,7 +193,15 @@ func BuildNulogInferenceService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment 
 							Env: []corev1.EnvVar{
 								{
 									Name:  "NATS_SERVER_URL",
-									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
+									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
+								},
+								{
+								    Name: "NATS_USERNAME",
+								    Value: "nats_client",
+								},
+								{
+								    Name: "NATS_PASSWORD",
+								    Value: spec.Spec.NatsPassword,
 								},
 								{
 									Name:  "S3_ENDPOINT",
@@ -252,9 +276,17 @@ func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*corev1.Service, 
 								ImagePullPolicy: corev1.PullAlways,
 								Env: []corev1.EnvVar{
 									{
-										Name:  "NATS_SERVER_URL",
-										Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
-									},
+                                        Name:  "NATS_SERVER_URL",
+                                        Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
+                                    },
+                                    {
+                                        Name: "NATS_USERNAME",
+                                        Value: "nats_client",
+                                    },
+                                    {
+                                        Name: "NATS_PASSWORD",
+                                        Value: spec.Spec.NatsPassword,
+                                    },
 								},
 								Ports: []corev1.ContainerPort{
 									{
@@ -294,7 +326,15 @@ func BuildPreprocessingService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 							Env: []corev1.EnvVar{
 								{
 									Name:  "NATS_SERVER_URL",
-									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
+									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
+								},
+								{
+								    Name: "NATS_USERNAME",
+								    Value: "nats_client",
+								},
+								{
+								    Name: "NATS_PASSWORD",
+								    Value: spec.Spec.NatsPassword,
 								},
 								{
 									Name:  "ES_ENDPOINT",
@@ -340,7 +380,15 @@ func BuildGPUService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 							Env: []corev1.EnvVar{
 								{
 									Name:  "NATS_SERVER_URL",
-									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
+									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
+								},
+								{
+								    Name: "NATS_USERNAME",
+								    Value: "nats_client",
+								},
+								{
+								    Name: "NATS_PASSWORD",
+								    Value: spec.Spec.NatsPassword,
 								},
 								{
 									Name:  "ES_ENDPOINT",
@@ -373,7 +421,15 @@ func BuildGPUService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 							Env: []corev1.EnvVar{
 								{
 									Name:  "NATS_SERVER_URL",
-									Value: fmt.Sprintf("nats://nats_client:%s@nats-client.%s.svc:4222", spec.Spec.NatsPassword, spec.Namespace),
+									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
+								},
+								{
+								    Name: "NATS_USERNAME",
+								    Value: "nats_client",
+								},
+								{
+								    Name: "NATS_PASSWORD",
+								    Value: spec.Spec.NatsPassword,
 								},
 								{
 									Name:  "S3_ENDPOINT",

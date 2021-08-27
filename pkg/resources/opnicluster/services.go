@@ -116,7 +116,7 @@ func (r *Reconciler) pretrainedModelDeployment(
 		sidecar = containerSidecar(model)
 	default:
 		return nil, fmt.Errorf(
-			"Model %q is invalid. Must specify either HTTP or Container", modelRef.Name)
+			"model %q is invalid. Must specify either HTTP or Container", modelRef.Name)
 	}
 
 	return func() (runtime.Object, reconciler.DesiredState, error) {
@@ -128,6 +128,8 @@ func (r *Reconciler) pretrainedModelDeployment(
 		lg := logr.FromContext(r.ctx)
 		lg.Info("Creating pretrained model deployment", "name", model.Name)
 		envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
+		s3EnvVars := r.s3EnvVars()
+		envVars = append(envVars, s3EnvVars...)
 		volumes = append(volumes, corev1.Volume{
 			Name: "model-volume",
 			VolumeSource: corev1.VolumeSource{

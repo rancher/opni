@@ -50,11 +50,11 @@ func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
 								},
 								{
-									Name: "NATS_USERNAME",
+									Name:  "NATS_USERNAME",
 									Value: "nats_client",
 								},
 								{
-									Name: "NATS_PASSWORD",
+									Name:  "NATS_PASSWORD",
 									Value: spec.Spec.NatsPassword,
 								},
 								{
@@ -120,11 +120,11 @@ func BuildNulogInferenceServiceControlPlane(spec *demov1alpha1.OpniDemo) *appsv1
 									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
 								},
 								{
-									Name: "NATS_USERNAME",
+									Name:  "NATS_USERNAME",
 									Value: "nats_client",
 								},
 								{
-									Name: "NATS_PASSWORD",
+									Name:  "NATS_PASSWORD",
 									Value: spec.Spec.NatsPassword,
 								},
 								{
@@ -196,11 +196,11 @@ func BuildNulogInferenceService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment 
 									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
 								},
 								{
-									Name: "NATS_USERNAME",
+									Name:  "NATS_USERNAME",
 									Value: "nats_client",
 								},
 								{
-									Name: "NATS_PASSWORD",
+									Name:  "NATS_PASSWORD",
 									Value: spec.Spec.NatsPassword,
 								},
 								{
@@ -280,11 +280,11 @@ func BuildPayloadReceiverService(spec *demov1alpha1.OpniDemo) (*corev1.Service, 
 										Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
 									},
 									{
-										Name: "NATS_USERNAME",
+										Name:  "NATS_USERNAME",
 										Value: "nats_client",
 									},
 									{
-										Name: "NATS_PASSWORD",
+										Name:  "NATS_PASSWORD",
 										Value: spec.Spec.NatsPassword,
 									},
 								},
@@ -329,11 +329,11 @@ func BuildPreprocessingService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
 								},
 								{
-									Name: "NATS_USERNAME",
+									Name:  "NATS_USERNAME",
 									Value: "nats_client",
 								},
 								{
-									Name: "NATS_PASSWORD",
+									Name:  "NATS_PASSWORD",
 									Value: spec.Spec.NatsPassword,
 								},
 								{
@@ -383,11 +383,11 @@ func BuildGPUService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
 								},
 								{
-									Name: "NATS_USERNAME",
+									Name:  "NATS_USERNAME",
 									Value: "nats_client",
 								},
 								{
-									Name: "NATS_PASSWORD",
+									Name:  "NATS_PASSWORD",
 									Value: spec.Spec.NatsPassword,
 								},
 								{
@@ -424,11 +424,11 @@ func BuildGPUService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 									Value: fmt.Sprintf("nats://nats-client.%s.svc:4222", spec.Namespace),
 								},
 								{
-									Name: "NATS_USERNAME",
+									Name:  "NATS_USERNAME",
 									Value: "nats_client",
 								},
 								{
-									Name: "NATS_PASSWORD",
+									Name:  "NATS_PASSWORD",
 									Value: spec.Spec.NatsPassword,
 								},
 								{

@@ -31,10 +31,10 @@ require (
 	go.uber.org/zap v1.19.0
 	golang.org/x/mod v0.5.0
 	golang.org/x/tools v0.1.5 // indirect
-	k8s.io/api v0.22.0
+	k8s.io/api v0.22.1
 	k8s.io/apiextensions-apiserver v0.22.0
-	k8s.io/apimachinery v0.22.0
-	k8s.io/client-go v0.22.0
+	k8s.io/apimachinery v0.22.1
+	k8s.io/client-go v0.22.1
 	k8s.io/utils v0.0.0-20210802155522-efc7438f0176
 	sigs.k8s.io/controller-runtime v0.9.6
 )

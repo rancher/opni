@@ -17,6 +17,7 @@ import (
 	. "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -296,8 +297,15 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retError error) {
 
 	if kibanaDeployment.Status.AvailableReplicas < 1 {
 		lg.Info("waiting for elastic stack")
-		r.cluster.Status.Conditions = append(r.cluster.Status.Conditions, "waiting for elastic cluster to be available")
-		return &reconcile.Result{RequeueAfter: 5 * time.Second}, r.client.Status().Update(r.ctx, r.cluster)
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.cluster), r.cluster); err != nil {
+				return err
+			}
+			r.cluster.Status.Conditions = append(r.cluster.Status.Conditions, "waiting for elastic cluster to be available")
+			return r.client.Status().Update(r.ctx, r.cluster)
+		})
+
+		return &reconcile.Result{RequeueAfter: 5 * time.Second}, err
 	}
 
 	for _, policy := range []ISMPolicySpec{

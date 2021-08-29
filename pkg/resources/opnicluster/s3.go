@@ -254,6 +254,9 @@ func (r *Reconciler) internalKeySecret() ([]resources.Resource, error) {
 	}
 
 	// Update auth status
+	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+		return nil, err
+	}
 	r.opniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
 		LocalObjectReference: corev1.LocalObjectReference{
 			Name: sec.Name,
@@ -321,6 +324,9 @@ func (r *Reconciler) externalKeySecret() error {
 			},
 			Key: "secretKey",
 		}
+	}
+	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+		return err
 	}
 	r.opniCluster.Status.Auth.S3Endpoint = r.opniCluster.Spec.S3.External.Endpoint
 	if err := r.client.Status().Update(r.ctx, r.opniCluster); err != nil {

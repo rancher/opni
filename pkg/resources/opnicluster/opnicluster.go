@@ -59,6 +59,9 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			// be set to ready
 			r.opniCluster.Status.State = v1beta1.OpniClusterStateReady
 		}
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			lg.Error(err, "failed to get latest version of opnicluster")
+		}
 		if err := r.client.Status().Update(r.ctx, r.opniCluster); err != nil {
 			lg.Error(err, "failed to update status")
 		}
@@ -146,6 +149,9 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}
 	// Update the Nats Replica Status once we have successfully reconciled the opniCluster
+	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+		return nil, err
+	}
 	if r.opniCluster.Status.NatsReplicas != *r.getReplicas() {
 		r.opniCluster.Status.NatsReplicas = *r.getReplicas()
 		if err := r.client.Status().Update(r.ctx, r.opniCluster); err != nil {

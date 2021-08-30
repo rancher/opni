@@ -15,6 +15,8 @@ import (
 	"github.com/elastic/go-elasticsearch/v7/esutil"
 	"github.com/rancher/opni/apis/v1beta1"
 	. "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
+	"github.com/rancher/opni/pkg/util/kibana"
+	"golang.org/x/mod/semver"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -23,15 +25,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const (
+	headerContentType        = "Content-Type"
+	kibanaCrossHeaderType    = "kbn-xsrf"
+	securityTenantHeaderType = "securitytenant"
+
+	jsonContentHeader = "application/json"
+)
+
+type ExtendedClient struct {
+	*elasticsearch.Client
+	ISM *ISMApi
+}
+
 type Reconciler struct {
-	esClient ClientWithISM
-	client   client.Client
-	cluster  *v1beta1.OpniCluster
-	ctx      context.Context
+	esClient     ExtendedClient
+	kibanaClient *kibana.Client
+	client       client.Client
+	cluster      *v1beta1.OpniCluster
+	ctx          context.Context
 }
 
 func NewReconciler(opniCluster *v1beta1.OpniCluster, ctx context.Context, client client.Client) *Reconciler {
-	cfg := elasticsearch.Config{
+	esCfg := elasticsearch.Config{
 		Addresses: []string{
 			fmt.Sprintf("https://opni-es-client.%s:9200", opniCluster.Namespace),
 		},
@@ -43,14 +59,23 @@ func NewReconciler(opniCluster *v1beta1.OpniCluster, ctx context.Context, client
 			},
 		},
 	}
-	esClient, _ := elasticsearch.NewClient(cfg)
-	esExtendedclient := ClientWithISM{Client: esClient, ISM: &ISMApi{Client: esClient}}
-
+	kbCfg := kibana.Config{
+		URL:      fmt.Sprintf("http://opni-es-kibana.%s:5601", opniCluster.Namespace),
+		Username: "admin",
+		Password: "admin",
+	}
+	kbClient, _ := kibana.NewClient(kbCfg)
+	esClient, _ := elasticsearch.NewClient(esCfg)
+	esExtendedclient := ExtendedClient{
+		Client: esClient,
+		ISM:    &ISMApi{Client: esClient},
+	}
 	return &Reconciler{
-		cluster:  opniCluster,
-		esClient: esExtendedclient,
-		ctx:      ctx,
-		client:   client,
+		cluster:      opniCluster,
+		esClient:     esExtendedclient,
+		kibanaClient: kbClient,
+		ctx:          ctx,
+		client:       client,
 	}
 }
 
@@ -283,8 +308,101 @@ func (r *Reconciler) maybeCreateIndex(name string, settings map[string]TemplateM
 	return nil
 }
 
+func (r *Reconciler) shouldUpdateKibana() (retBool bool, retErr error) {
+	exists, err := r.indexExists(kibanaDashboardVersionIndex)
+	if err != nil {
+		return false, err
+	}
+
+	if !exists {
+		return true, nil
+	}
+
+	respDoc := &KibanaDocResponse{}
+	req := esapi.GetRequest{
+		Index:      kibanaDashboardVersionIndex,
+		DocumentID: kibanaDashboardVersionDocId,
+	}
+
+	resp, err := req.Do(r.ctx, r.esClient)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return true, nil
+	} else if resp.IsError() {
+		return false, fmt.Errorf("failed to check kibana version doc: %s", resp.String())
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	err = json.Unmarshal(data, respDoc)
+	if err != nil {
+		return false, err
+	}
+
+	if semver.Compare(respDoc.Source.DashboardVersion, kibanaDashboardVersion) < 0 {
+		return true, nil
+	}
+
+	return
+}
+
+func (r *Reconciler) upsertKibanaObjectDoc() error {
+	upsertRequest := UpsertKibanaDoc{
+		Document:         kibanaDoc,
+		DocumentAsUpsert: esapi.BoolPtr(true),
+	}
+
+	req := esapi.UpdateRequest{
+		Index:      kibanaDashboardVersionIndex,
+		DocumentID: kibanaDashboardVersionDocId,
+		Body:       esutil.NewJSONReader(upsertRequest),
+	}
+	resp, err := req.Do(r.ctx, r.esClient)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to upsert kibana doc: %s", resp.String())
+	}
+
+	return nil
+}
+
+func (r *Reconciler) importKibanaObjects() error {
+	lg := log.FromContext(r.ctx)
+	update, err := r.shouldUpdateKibana()
+	if err != nil {
+		return err
+	}
+
+	if update {
+		lg.Info("updating kibana saved objects")
+		resp, err := r.kibanaClient.ImportObjects(r.ctx, kibanaObjects, "objects.ndjson")
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.IsError() {
+			return fmt.Errorf("unable to import kibana objects: %s", resp.String())
+		}
+
+		return r.upsertKibanaObjectDoc()
+	}
+
+	lg.V(1).Info("kibana objects on latest version")
+	return nil
+}
+
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retError error) {
 	kibanaDeployment := &appsv1.Deployment{}
+	conditions := make([]string, 0)
 	lg := log.FromContext(r.ctx)
 	lg.V(1).Info("reconciling elastic indices")
 	err := r.client.Get(r.ctx, types.NamespacedName{
@@ -297,11 +415,12 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retError error) {
 
 	if kibanaDeployment.Status.AvailableReplicas < 1 {
 		lg.Info("waiting for elastic stack")
-		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		conditions = append(conditions, "waiting for elastic cluster to be available")
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.cluster), r.cluster); err != nil {
 				return err
 			}
-			r.cluster.Status.Conditions = append(r.cluster.Status.Conditions, "waiting for elastic cluster to be available")
+			r.cluster.Status.Conditions = conditions
 			return r.client.Status().Update(r.ctx, r.cluster)
 		})
 
@@ -340,6 +459,11 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retError error) {
 	}
 
 	err = r.maybeCreateIndex(normalIntervalIndexName, normalIntervalIndexSettings)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.importKibanaObjects()
 	if err != nil {
 		return nil, err
 	}

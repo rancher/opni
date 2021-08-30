@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic"
 	util "github.com/rancher/opni/pkg/util"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -45,24 +46,28 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		// When the reconciler is done, figure out what the state of the opnicluster
 		// is and set it in the state field accordingly.
 		op := util.LoadResult(retResult, retErr)
-		if op.ShouldRequeue() {
-			if retErr != nil {
-				// If an error occurred, the state should be set to error
-				r.opniCluster.Status.State = v1beta1.OpniClusterStateError
-			} else {
-				// If no error occurred, but we need to requeue, the state should be
-				// set to working
-				r.opniCluster.Status.State = v1beta1.OpniClusterStateWorking
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
 			}
-		} else if len(r.opniCluster.Status.Conditions) == 0 {
-			// If we are not requeueing and there are no conditions, the state should
-			// be set to ready
-			r.opniCluster.Status.State = v1beta1.OpniClusterStateReady
-		}
-		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
-			lg.Error(err, "failed to get latest version of opnicluster")
-		}
-		if err := r.client.Status().Update(r.ctx, r.opniCluster); err != nil {
+			if op.ShouldRequeue() {
+				if retErr != nil {
+					// If an error occurred, the state should be set to error
+					r.opniCluster.Status.State = v1beta1.OpniClusterStateError
+				} else {
+					// If no error occurred, but we need to requeue, the state should be
+					// set to working
+					r.opniCluster.Status.State = v1beta1.OpniClusterStateWorking
+				}
+			} else if len(r.opniCluster.Status.Conditions) == 0 {
+				// If we are not requeueing and there are no conditions, the state should
+				// be set to ready
+				r.opniCluster.Status.State = v1beta1.OpniClusterStateReady
+			}
+			return r.client.Status().Update(r.ctx, r.opniCluster)
+		})
+
+		if err != nil {
 			lg.Error(err, "failed to update status")
 		}
 	}()
@@ -149,15 +154,20 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}
 	// Update the Nats Replica Status once we have successfully reconciled the opniCluster
-	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			return err
+		}
+		if r.opniCluster.Status.NatsReplicas != *r.getReplicas() {
+			r.opniCluster.Status.NatsReplicas = *r.getReplicas()
+		}
+		return r.client.Status().Update(r.ctx, r.opniCluster)
+	})
+
+	if err != nil {
 		return nil, err
 	}
-	if r.opniCluster.Status.NatsReplicas != *r.getReplicas() {
-		r.opniCluster.Status.NatsReplicas = *r.getReplicas()
-		if err := r.client.Status().Update(r.ctx, r.opniCluster); err != nil {
-			return nil, err
-		}
-	}
+
 	return
 }
 

@@ -4,16 +4,21 @@ import (
 	"fmt"
 
 	. "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
+
+	_ "embed" // embed should be a blank import
 )
 
 const (
-	logPolicyName           = "log-policy"
-	logIndexPrefix          = "logs-v0.1.3"
-	logIndexAlias           = "logs"
-	drainStatusPolicyName   = "opni-drain-model-status-policy"
-	drainStatusIndexPrefix  = "opni-drain-model-status-v0.1.3"
-	drainStatusIndexAlias   = "opni-drain-model-status"
-	normalIntervalIndexName = "opni-normal-intervals"
+	logPolicyName               = "log-policy"
+	logIndexPrefix              = "logs-v0.1.3"
+	logIndexAlias               = "logs"
+	drainStatusPolicyName       = "opni-drain-model-status-policy"
+	drainStatusIndexPrefix      = "opni-drain-model-status-v0.1.3"
+	drainStatusIndexAlias       = "opni-drain-model-status"
+	normalIntervalIndexName     = "opni-normal-intervals"
+	kibanaDashboardVersionDocId = "latest"
+	kibanaDashboardVersion      = "v0.1.3"
+	kibanaDashboardVersionIndex = "opni-dashboard-version"
 )
 
 var (
@@ -268,4 +273,13 @@ var (
 			},
 		},
 	}
+
+	kibanaDoc = KibanaVersionDoc{
+		DashboardVersion: kibanaDashboardVersion,
+	}
+
+	// kibanaObjects contains the ndjson form data for creating the kibana
+	// index patterns and dashboards
+	//go:embed dashboard.ndjson
+	kibanaObjects string
 )

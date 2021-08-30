@@ -27,7 +27,7 @@ var (
 	}
 	kibanaPort = corev1.ServicePort{
 		Name:       "kibana",
-		Port:       443,
+		Port:       5601,
 		TargetPort: intstr.FromInt(5601),
 	}
 )

@@ -14,21 +14,6 @@ import (
 	. "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 )
 
-const (
-	headerContentType = "Content-Type"
-)
-
-var (
-	jsonContentHeader = []string{
-		"application/json",
-	}
-)
-
-type ClientWithISM struct {
-	*elasticsearch.Client
-	ISM *ISMApi
-}
-
 type ISMApi struct {
 	*elasticsearch.Client
 	Policy *ISMPolicySpec
@@ -92,7 +77,7 @@ func (c *ISMApi) CreateISM(ctx context.Context) (*esapi.Response, error) {
 	if ctx != nil {
 		req = req.WithContext(ctx)
 	}
-	req.Header[headerContentType] = jsonContentHeader
+	req.Header.Add(headerContentType, jsonContentHeader)
 
 	res, err := c.Perform(req)
 	if err != nil {
@@ -125,7 +110,7 @@ func (c *ISMApi) UpdateISM(ctx context.Context, seqNo int, primaryTerm int) (*es
 		req = req.WithContext(ctx)
 	}
 
-	req.Header[headerContentType] = jsonContentHeader
+	req.Header.Add(headerContentType, jsonContentHeader)
 
 	query := req.URL.Query()
 	query.Set("if_seq_no", fmt.Sprint(seqNo))

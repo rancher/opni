@@ -17,11 +17,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/nats-io/nkeys"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 )
 
@@ -133,8 +135,17 @@ func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 	})
 
 	if r.opniCluster.Spec.Nats.PasswordFrom != nil {
-		r.opniCluster.Status.Auth.AuthSecretKeyRef = r.opniCluster.Spec.Nats.PasswordFrom
-		r.client.Status().Update(r.ctx, r.opniCluster)
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
+			}
+			r.opniCluster.Status.Auth.AuthSecretKeyRef = r.opniCluster.Spec.Nats.PasswordFrom
+			return r.client.Status().Update(r.ctx, r.opniCluster)
+		})
+		if err != nil {
+			retErr = err
+			return
+		}
 	} else {
 		secret, err := r.natsAuthSecret()
 		if err != nil {
@@ -402,32 +413,51 @@ func (r *Reconciler) natsAuthSecret() (*corev1.Secret, error) {
 	case v1beta1.NatsAuthUsername:
 		password, err := r.getNatsUserPassword()
 		if err != nil {
-			return &corev1.Secret{}, err
+			return nil, err
 		}
 		secret := r.genericAuthSecret("password", password)
 		ctrl.SetControllerReference(r.opniCluster, secret, r.client.Scheme())
-		r.opniCluster.Status.Auth.AuthSecretKeyRef = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: secret.Name,
-			},
-			Key: "password",
+
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
+			}
+			r.opniCluster.Status.Auth.AuthSecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secret.Name,
+				},
+				Key: "password",
+			}
+			return r.client.Status().Update(r.ctx, r.opniCluster)
+		})
+		if err != nil {
+			return nil, err
 		}
-		r.client.Status().Update(r.ctx, r.opniCluster)
 		return secret, nil
 	case v1beta1.NatsAuthNkey:
 		_, seed, err := r.getNKeyUser()
 		if err != nil {
-			return &corev1.Secret{}, err
+			return nil, err
 		}
 		secret := r.genericAuthSecret("seed", seed)
 		ctrl.SetControllerReference(r.opniCluster, secret, r.client.Scheme())
-		r.opniCluster.Status.Auth.AuthSecretKeyRef = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: secret.Name,
-			},
-			Key: "seed",
+
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
+			}
+			r.opniCluster.Status.Auth.AuthSecretKeyRef = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secret.Name,
+				},
+				Key: "seed",
+			}
+			return r.client.Status().Update(r.ctx, r.opniCluster)
+		})
+		if err != nil {
+			return nil, err
 		}
-		r.client.Status().Update(r.ctx, r.opniCluster)
+
 		return secret, nil
 	default:
 		return &corev1.Secret{}, errors.New("nats auth method not supported")
@@ -586,8 +616,16 @@ func (r *Reconciler) getNKeyUser() (string, []byte, error) {
 	}
 
 	if publicKey != "" {
-		r.opniCluster.Status.Auth.NKeyUser = publicKey
-		r.client.Status().Update(r.ctx, r.opniCluster)
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
+			}
+			r.opniCluster.Status.Auth.NKeyUser = publicKey
+			return r.client.Status().Update(r.ctx, r.opniCluster)
+		})
+		if err != nil {
+			return "", make([]byte, 0), err
+		}
 		return publicKey, seed, nil
 	}
 
@@ -598,8 +636,16 @@ func (r *Reconciler) getNKeyUser() (string, []byte, error) {
 		}
 		publicKey, err = user.PublicKey()
 		if err == nil {
-			r.opniCluster.Status.Auth.NKeyUser = publicKey
-			r.client.Status().Update(r.ctx, r.opniCluster)
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+					return err
+				}
+				r.opniCluster.Status.Auth.NKeyUser = publicKey
+				return r.client.Status().Update(r.ctx, r.opniCluster)
+			})
+			if err != nil {
+				return "", make([]byte, 0), err
+			}
 		}
 		return publicKey, seed, err
 	}

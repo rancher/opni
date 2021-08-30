@@ -254,6 +254,11 @@ func (r *Reconciler) maybeBootstrapIndex(prefix string, alias string) error {
 		if indexResp.IsError() {
 			return fmt.Errorf("failed to bootstrap %s: %s", prefix, indexResp.String())
 		}
+
+		aliasIsIndex, err := r.indexExists(alias)
+		if err != nil {
+			return err
+		}
 		aliasRequestBody := UpdateAliasRequest{
 			Actions: []AliasActionSpec{
 				{
@@ -267,6 +272,38 @@ func (r *Reconciler) maybeBootstrapIndex(prefix string, alias string) error {
 				},
 			},
 		}
+
+		if aliasIsIndex {
+			body := ReindexSpec{
+				Source: ReindexIndexSpec{
+					Index: alias,
+				},
+				Destination: ReindexIndexSpec{
+					Index: fmt.Sprintf("%s-000001", prefix),
+				},
+			}
+			reindexReq := esapi.ReindexRequest{
+				Body:              esutil.NewJSONReader(body),
+				WaitForCompletion: esapi.BoolPtr(true),
+			}
+			reindexResp, err := reindexReq.Do(r.ctx, r.esClient)
+			if err != nil {
+				return err
+			}
+			defer reindexResp.Body.Close()
+			if reindexResp.IsError() {
+				return fmt.Errorf("failed to reindex %s: %s", alias, reindexResp.String())
+			}
+
+			aliasRequestBody.Actions = append(aliasRequestBody.Actions, AliasActionSpec{
+				AliasAtomicAction: &AliasAtomicAction{
+					RemoveIndex: &AliasGenericAction{
+						Index: alias,
+					},
+				},
+			})
+		}
+
 		aliasReq := esapi.IndicesUpdateAliasesRequest{
 			Body: esutil.NewJSONReader(aliasRequestBody),
 		}

@@ -1,7 +1,7 @@
 package types
 
 type IndexTemplateSpec struct {
-	TemplateName  string
+	TemplateName  string       `json:"-"`
 	IndexPatterns []string     `json:"index_patterns,omitempty"`
 	Template      TemplateSpec `json:"template,omitempty"`
 	Priority      int          `json:"priority,omitempty"`

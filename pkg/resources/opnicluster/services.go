@@ -79,7 +79,13 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retE
 			lg.Info("deleting pretrained model deployment", "model", modelName)
 			resourceList = append(resourceList, resources.Absent(deployment.DeepCopy()))
 		} else {
-			resourceList = append(resourceList, resources.Present(deployment.DeepCopy()))
+			deployment, err := r.pretrainedModelDeployment(models[modelName])
+			if err != nil {
+				lg.Error(err, "failed to reconcile existing model")
+				retError = err
+				continue
+			}
+			resourceList = append(resourceList, deployment)
 		}
 	}
 
@@ -161,6 +167,9 @@ func (r *Reconciler) pretrainedModelDeployment(
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: labels,
+						Annotations: map[string]string{
+							"opni.io/hyperparameters": hyperparameters.GenerateHyperParametersHash(model.Spec.Hyperparameters),
+						},
 					},
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{sidecar},

@@ -6,3 +6,6 @@ spec:
   source:
     http:
       url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model-v0.1.2.zip"
+  hyperparameters:
+    modelThreshold: "0.6"
+    minLogTokens: 4

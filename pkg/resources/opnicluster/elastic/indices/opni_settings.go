@@ -9,16 +9,18 @@ import (
 )
 
 const (
-	logPolicyName               = "log-policy"
-	logIndexPrefix              = "logs-v0.1.3"
-	logIndexAlias               = "logs"
-	drainStatusPolicyName       = "opni-drain-model-status-policy"
-	drainStatusIndexPrefix      = "opni-drain-model-status-v0.1.3"
-	drainStatusIndexAlias       = "opni-drain-model-status"
-	normalIntervalIndexName     = "opni-normal-intervals"
-	kibanaDashboardVersionDocId = "latest"
-	kibanaDashboardVersion      = "v0.1.3"
-	kibanaDashboardVersionIndex = "opni-dashboard-version"
+	logPolicyName                = "log-policy"
+	logIndexPrefix               = "logs-v0.1.3"
+	logIndexAlias                = "logs"
+	logIndexTemplateName         = "logs_rollover_mapping"
+	drainStatusPolicyName        = "opni-drain-model-status-policy"
+	drainStatusIndexPrefix       = "opni-drain-model-status-v0.1.3"
+	drainStatusIndexAlias        = "opni-drain-model-status"
+	drainStatusIndexTemplateName = "opni-drain-model-status_rollover_mapping"
+	normalIntervalIndexName      = "opni-normal-intervals"
+	kibanaDashboardVersionDocId  = "latest"
+	kibanaDashboardVersion       = "v0.1.3"
+	kibanaDashboardVersionIndex  = "opni-dashboard-version"
 )
 
 var (
@@ -212,6 +214,7 @@ var (
 	}
 
 	opniLogTemplate = IndexTemplateSpec{
+		TemplateName: logIndexTemplateName,
 		IndexPatterns: []string{
 			fmt.Sprintf("%s*", logIndexPrefix),
 		},
@@ -232,6 +235,7 @@ var (
 		},
 	}
 	drainStatusTemplate = IndexTemplateSpec{
+		TemplateName: drainStatusIndexTemplateName,
 		IndexPatterns: []string{
 			fmt.Sprintf("%s*", drainStatusIndexPrefix),
 		},

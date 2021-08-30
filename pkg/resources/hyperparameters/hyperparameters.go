@@ -1,6 +1,7 @@
 package hyperparameters
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 
@@ -28,4 +29,11 @@ func GenerateHyperparametersConfigMap(modelName string, namespace string, hyperp
 		},
 	}
 	return cm, nil
+}
+
+func GenerateHyperParametersHash(hyperparameters map[string]intstr.IntOrString) string {
+	data := []byte(fmt.Sprintf("%#v", hyperparameters))
+	hash := sha256.Sum256(data)
+
+	return fmt.Sprintf("%x", hash)
 }

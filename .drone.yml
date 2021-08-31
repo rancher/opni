@@ -24,8 +24,8 @@ steps:
     when:
       instance:
         - drone-publish.rancher.io
-      refs:
-        - refs/head/main
+      branch:
+        - main
       event:
         exclude:
         - pull_request
@@ -48,8 +48,8 @@ steps:
     when:
       instance:
         - drone-publish.rancher.io
-      refs:
-        - refs/head/main
+      branch:
+        - main
       event:
         exclude:
         - pull_request
@@ -73,8 +73,8 @@ steps:
     when:
       instance:
         - drone-publish.rancher.io
-      refs:
-        - refs/head/main
+      branch:
+        - main
       event:
         exclude:
         - pull_request
@@ -99,8 +99,8 @@ steps:
     when:
       instance:
         - drone-publish.rancher.io
-      refs:
-        - refs/head/main
+      branch:
+        - main
       event:
         exclude:
         - pull_request
@@ -121,8 +121,8 @@ steps:
     when:
       instance:
         - drone-publish.rancher.io
-      refs:
-        - refs/head/main
+      branch:
+        - main
       event:
         exclude:
         - pull_request

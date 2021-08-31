@@ -57,12 +57,15 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	opniReconciler := opnicluster.NewReconciler(ctx, r, opniCluster,
+		reconciler.WithEnableRecreateWorkload(),
+		reconciler.WithScheme(r.scheme),
+	)
+
 	reconcilers := []resources.ComponentReconciler{
-		opnicluster.NewReconciler(ctx, r, opniCluster,
-			reconciler.WithEnableRecreateWorkload(),
-			reconciler.WithScheme(r.scheme),
-		).Reconcile,
+		opniReconciler.Reconcile,
 		indices.NewReconciler(opniCluster, ctx, r).Reconcile,
+		opniReconciler.ReconcileLogCollector,
 	}
 
 	for _, rec := range reconcilers {

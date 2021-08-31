@@ -41,6 +41,7 @@ func NewReconciler(
 
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
+	conditions := []string{}
 
 	defer func() {
 		// When the reconciler is done, figure out what the state of the opnicluster
@@ -50,6 +51,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 				return err
 			}
+			r.opniCluster.Status.Conditions = conditions
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
@@ -72,21 +74,17 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}()
 
-	r.opniCluster.Status.Conditions = []string{}
-
 	allResources := []resources.Resource{}
 	opniServices, err := r.opniServices()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
-		r.opniCluster.Status.Conditions =
-			append(r.opniCluster.Status.Conditions, err.Error())
+		conditions = append(conditions, err.Error())
 		return nil, err
 	}
 	pretrained, err := r.pretrainedModels()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
-		r.opniCluster.Status.Conditions =
-			append(r.opniCluster.Status.Conditions, err.Error())
+		conditions = append(conditions, err.Error())
 		lg.Error(err, "Error when reconciling pretrained models, will retry.")
 		// Keep going, we can reconcile the rest of the deployments and come back
 		// to this later.
@@ -94,16 +92,14 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	es, err := elastic.NewReconciler(r.client, r.opniCluster).ElasticResources()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
-		r.opniCluster.Status.Conditions =
-			append(r.opniCluster.Status.Conditions, err.Error())
+		conditions = append(conditions, err.Error())
 		lg.Error(err, "Error when reconciling elastic, will retry.")
 		// Keep going.
 	}
 	nats, err := r.nats()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
-		r.opniCluster.Status.Conditions =
-			append(r.opniCluster.Status.Conditions, err.Error())
+		conditions = append(conditions, err.Error())
 		lg.Error(err, "Error when reconciling nats, cannot continue.")
 		return
 	}
@@ -111,16 +107,14 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	intS3, err := r.internalS3()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
-		r.opniCluster.Status.Conditions =
-			append(r.opniCluster.Status.Conditions, err.Error())
+		conditions = append(conditions, err.Error())
 		lg.Error(err, "Error when reconciling s3, cannot continue.")
 		return
 	}
 	extS3, err := r.externalS3()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
-		r.opniCluster.Status.Conditions =
-			append(r.opniCluster.Status.Conditions, err.Error())
+		conditions = append(conditions, err.Error())
 		lg.Error(err, "Error when reconciling s3, cannot continue.")
 		return
 	}
@@ -139,15 +133,17 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	for _, factory := range allResources {
 		o, state, err := factory()
 		if err != nil {
-			return nil, errors.WrapIf(err, "failed to create object")
+			retErr = errors.WrapIf(err, "failed to create object")
+			return
 		}
 		if o == nil {
 			panic(fmt.Sprintf("reconciler %#v created a nil object", factory))
 		}
 		result, err := r.ReconcileResource(o, state)
 		if err != nil {
-			return nil, errors.WrapWithDetails(err, "failed to reconcile resource",
+			retErr = errors.WrapWithDetails(err, "failed to reconcile resource",
 				"resource", o.GetObjectKind().GroupVersionKind())
+			return
 		}
 		if result != nil {
 			retResult = result
@@ -166,6 +162,63 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	return
+}
+
+func (r *Reconciler) ReconcileLogCollector() (retResult *reconcile.Result, retErr error) {
+	lg := log.FromContext(r.ctx)
+	conditions := []string{}
+
+	defer func() {
+		// When the reconciler is done, figure out what the state of the opnicluster
+		// is and set it in the state field accordingly.
+		op := util.LoadResult(retResult, retErr)
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
+			}
+			r.opniCluster.Status.Conditions = conditions
+			if op.ShouldRequeue() {
+				if retErr != nil {
+					// If an error occurred, the state should be set to error
+					r.opniCluster.Status.LogCollectorState = v1beta1.OpniClusterStateError
+				} else {
+					// If no error occurred, but we need to requeue, the state should be
+					// set to working
+					r.opniCluster.Status.LogCollectorState = v1beta1.OpniClusterStateWorking
+				}
+			} else if len(r.opniCluster.Status.Conditions) == 0 {
+				// If we are not requeueing and there are no conditions, the state should
+				// be set to ready
+				r.opniCluster.Status.LogCollectorState = v1beta1.OpniClusterStateReady
+			}
+			return r.client.Status().Update(r.ctx, r.opniCluster)
+		})
+
+		if err != nil {
+			lg.Error(err, "failed to update status")
+		}
+	}()
+
+	desiredState := deploymentState(r.opniCluster.Spec.DeployLogCollector)
+	clusterOutput := r.buildClusterOutput()
+	clusterFlow := r.buildClusterFlow()
+
+	for _, object := range []client.Object{
+		clusterOutput,
+		clusterFlow,
+	} {
+		result, err := r.ReconcileResource(object, desiredState)
+		if err != nil {
+			retErr = errors.WrapWithDetails(err, "failed to reconcile resource",
+				"resource", object.GetObjectKind().GroupVersionKind())
+			return
+		}
+		if result != nil {
+			retResult = result
+		}
 	}
 
 	return

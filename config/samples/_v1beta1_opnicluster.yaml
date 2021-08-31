@@ -5,6 +5,7 @@ metadata:
   namespace: default
 spec:
   version: v0.1.2
+  deployLogCollector: true
   services:
     inference:
       enabled: true

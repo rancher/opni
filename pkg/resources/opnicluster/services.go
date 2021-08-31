@@ -32,6 +32,7 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.inferenceDeployment,
 		r.drainDeployment,
 		r.payloadReceiverDeployment,
+		r.payloadReceiverService,
 		r.preprocessingDeployment,
 		r.gpuCtrlDeployment,
 	}, nil
@@ -132,7 +133,7 @@ func (r *Reconciler) pretrainedModelDeployment(
 		)
 		imageSpec := r.serviceImageSpec(v1beta1.InferenceService)
 		lg := logr.FromContext(r.ctx)
-		lg.Info("Creating pretrained model deployment", "name", model.Name)
+		lg.V(1).Info("generating pretrained model deployment", "name", model.Name)
 		envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
 		s3EnvVars := r.s3EnvVars()
 		envVars = append(envVars, s3EnvVars...)
@@ -332,7 +333,6 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 			},
 		},
 	}
-	ctrl.SetControllerReference(r.opniCluster, deployment, r.client.Scheme())
 	return deployment
 }
 
@@ -497,6 +497,34 @@ func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState,
 func (r *Reconciler) payloadReceiverDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.PayloadReceiverService)
 	return deployment, deploymentState(r.opniCluster.Spec.Services.PayloadReceiver.Enabled), nil
+}
+
+func (r *Reconciler) payloadReceiverService() (runtime.Object, reconciler.DesiredState, error) {
+	labels := r.serviceLabels(v1beta1.PayloadReceiverService)
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      labels[resources.AppNameLabel],
+			Namespace: r.opniCluster.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
+			Labels: labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Port: 80,
+				},
+			},
+		},
+	}
+	return service, deploymentState(r.opniCluster.Spec.Services.PayloadReceiver.Enabled), nil
 }
 
 func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.DesiredState, error) {

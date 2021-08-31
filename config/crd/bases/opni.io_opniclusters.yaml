@@ -41,6 +41,8 @@ spec:
             properties:
               defaultRepo:
                 type: string
+              deployLogCollector:
+                type: boolean
               elastic:
                 properties:
                   configSecret:
@@ -2798,6 +2800,10 @@ spec:
                 items:
                   type: string
                 type: array
+              indexState:
+                type: string
+              logState:
+                type: string
               natsReplicas:
                 format: int32
                 type: integer

@@ -9,7 +9,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -17,11 +16,11 @@ import (
 func BuildHelmControllerObjects(spec *v1alpha1.OpniDemo) (objects []client.Object) {
 	return []client.Object{
 		&apiextv1beta1.CustomResourceDefinition{
-			TypeMeta: v1.TypeMeta{
+			TypeMeta: metav1.TypeMeta{
 				Kind:       "CustomResourceDefinition",
 				APIVersion: "apiextensions.k8s.io/v1beta1",
 			},
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: "helmcharts.helm.cattle.io",
 			},
 			Spec: apiextv1beta1.CustomResourceDefinitionSpec{
@@ -94,11 +93,11 @@ func BuildHelmControllerObjects(spec *v1alpha1.OpniDemo) (objects []client.Objec
 			},
 		},
 		&apiextv1beta1.CustomResourceDefinition{
-			TypeMeta: v1.TypeMeta{
+			TypeMeta: metav1.TypeMeta{
 				Kind:       "CustomResourceDefinition",
 				APIVersion: "apiextensions.k8s.io/v1beta1",
 			},
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: "helmchartconfigs.helm.cattle.io",
 			},
 			Spec: apiextv1beta1.CustomResourceDefinitionSpec{

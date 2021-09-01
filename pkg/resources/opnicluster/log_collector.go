@@ -1,6 +1,8 @@
 package opnicluster
 
 import (
+	"fmt"
+
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/model/filter"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/model/output"
@@ -18,6 +20,14 @@ func (r *Reconciler) buildClusterFlow() *loggingv1beta1.ClusterFlow {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterFlowName,
 			Namespace: r.opniCluster.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
 		},
 		Spec: loggingv1beta1.ClusterFlowSpec{
 			Match: []loggingv1beta1.ClusterMatch{
@@ -76,11 +86,19 @@ func (r *Reconciler) buildClusterOutput() *loggingv1beta1.ClusterOutput {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterOutputName,
 			Namespace: r.opniCluster.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
 		},
 		Spec: loggingv1beta1.ClusterOutputSpec{
 			OutputSpec: loggingv1beta1.OutputSpec{
 				HTTPOutput: &output.HTTPOutputConfig{
-					Endpoint:    v1beta1.PayloadReceiverService.ServiceName(),
+					Endpoint:    fmt.Sprintf("http://%s.%s", v1beta1.PayloadReceiverService.ServiceName(), r.opniCluster.Namespace),
 					ContentType: "application/json",
 					JsonArray:   true,
 					Buffer: &output.Buffer{

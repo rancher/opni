@@ -557,8 +557,9 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 	deployment.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
 	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, r.gpuWorkerContainer())
 	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, dataVolume)
-	for _, container := range deployment.Spec.Template.Spec.Containers {
+	for i, container := range deployment.Spec.Template.Spec.Containers {
 		container.VolumeMounts = append(container.VolumeMounts, dataVolumeMount)
+		deployment.Spec.Template.Spec.Containers[i] = container
 	}
 	insertHyperparametersVolume(deployment, "nulog")
 	return deployment, deploymentState(r.opniCluster.Spec.Services.GPUController.Enabled), nil

@@ -5,11 +5,23 @@ metadata:
   namespace: default
 spec:
   version: v0.1.2
+  deployLogCollector: true
   services:
     inference:
-      enabled: false
+      enabled: true
+      image: quay.io/dbason/opni-inference-service:test
+      imagePullPolicy: Always
       pretrainedModels:
         - name: control-plane
+    preprocessing:
+      image: quay.io/dbason/opni-preprocessing-service:debug
+    drain:
+      image: quay.io/dbason/opni-drain-service:debug
+    payloadReceiver:
+      image: quay.io/dbason/opni-payload-receiver-service:debug
+    gpuController:
+      enabled: false
+      image: quay.io/dbason/opni-gpu-service-controller:debug
   elastic:
     version: 1.13.2
   nats:

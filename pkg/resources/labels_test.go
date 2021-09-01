@@ -24,7 +24,7 @@ var _ = Describe("Labels", func() {
 				"app":  "opendistro-es",
 				"role": "client",
 			}))
-			Expect(labels.Role()).To(BeEquivalentTo(resources.ElasticClientRole))
+			Expect(labelsWithRole.Role()).To(BeEquivalentTo(resources.ElasticClientRole))
 		})
 		It("should not mutate the original instance", func() {
 			Expect(labels).To(BeEquivalentTo(map[string]string{
@@ -39,13 +39,13 @@ var _ = Describe("Labels", func() {
 				"app":  "opendistro-es",
 				"role": "client",
 			}))
-			Expect(labels.Role()).To(BeEquivalentTo(resources.ElasticClientRole))
+			Expect(labelsWithRole.Role()).To(BeEquivalentTo(resources.ElasticClientRole))
 			labelsWithRole = labelsWithRole.WithRole(resources.ElasticDataRole)
 			Expect(labelsWithRole).To(BeEquivalentTo(map[string]string{
 				"app":  "opendistro-es",
 				"role": "data",
 			}))
-			Expect(labels.Role()).To(BeEquivalentTo(resources.ElasticDataRole))
+			Expect(labelsWithRole.Role()).To(BeEquivalentTo(resources.ElasticDataRole))
 		})
 	})
 })

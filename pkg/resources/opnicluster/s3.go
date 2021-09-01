@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -254,24 +255,29 @@ func (r *Reconciler) internalKeySecret() ([]resources.Resource, error) {
 	}
 
 	// Update auth status
-	r.opniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
-		LocalObjectReference: corev1.LocalObjectReference{
-			Name: sec.Name,
-		},
-		Key: "accessKey",
-	}
-	r.opniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
-		LocalObjectReference: corev1.LocalObjectReference{
-			Name: sec.Name,
-		},
-		Key: "secretKey",
-	}
-	r.opniCluster.Status.Auth.S3Endpoint = fmt.Sprintf(
-		"http://opni-seaweed-s3.%s.svc", r.opniCluster.Namespace)
-	if err := r.client.Status().Update(r.ctx, r.opniCluster); err != nil {
-		return nil, err
-	}
-	return nil, nil
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			return err
+		}
+		r.opniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: sec.Name,
+			},
+			Key: "accessKey",
+		}
+		r.opniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: sec.Name,
+			},
+			Key: "secretKey",
+		}
+		r.opniCluster.Status.Auth.S3Endpoint = fmt.Sprintf(
+			"http://opni-seaweed-s3.%s.svc", r.opniCluster.Namespace)
+
+		return r.client.Status().Update(r.ctx, r.opniCluster)
+	})
+
+	return nil, err
 }
 
 func (r *Reconciler) externalKeySecret() error {
@@ -293,6 +299,7 @@ func (r *Reconciler) externalKeySecret() error {
 			Namespace: ns,
 		},
 	}
+
 	err := r.client.Get(r.ctx, client.ObjectKeyFromObject(sec), sec)
 	if errors.IsNotFound(err) {
 		return fmt.Errorf("%w: secret must already exist in the same namespace as the opnicluster",
@@ -300,33 +307,37 @@ func (r *Reconciler) externalKeySecret() error {
 	} else if err != nil {
 		return err
 	}
-	if _, ok := sec.Data["accessKey"]; !ok {
-		return fmt.Errorf("%w: secret must contain an item named accessKey",
-			opnierrs.ErrS3Credentials)
-	} else {
-		r.opniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: sec.Name,
-			},
-			Key: "accessKey",
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			return err
 		}
-	}
-	if _, ok := sec.Data["secretKey"]; !ok {
-		return fmt.Errorf("%w: secret must contain an item named secretKey",
-			opnierrs.ErrS3Credentials)
-	} else {
-		r.opniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: sec.Name,
-			},
-			Key: "secretKey",
+
+		if _, ok := sec.Data["accessKey"]; !ok {
+			return fmt.Errorf("%w: secret must contain an item named accessKey",
+				opnierrs.ErrS3Credentials)
+		} else {
+			r.opniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: sec.Name,
+				},
+				Key: "accessKey",
+			}
 		}
-	}
-	r.opniCluster.Status.Auth.S3Endpoint = r.opniCluster.Spec.S3.External.Endpoint
-	if err := r.client.Status().Update(r.ctx, r.opniCluster); err != nil {
-		return err
-	}
-	return nil
+		if _, ok := sec.Data["secretKey"]; !ok {
+			return fmt.Errorf("%w: secret must contain an item named secretKey",
+				opnierrs.ErrS3Credentials)
+		} else {
+			r.opniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: sec.Name,
+				},
+				Key: "secretKey",
+			}
+		}
+		r.opniCluster.Status.Auth.S3Endpoint = r.opniCluster.Spec.S3.External.Endpoint
+		return r.client.Status().Update(r.ctx, r.opniCluster)
+	})
 }
 
 func (r *Reconciler) internalS3() (list []resources.Resource, _ error) {

@@ -32,6 +32,7 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.inferenceDeployment,
 		r.drainDeployment,
 		r.payloadReceiverDeployment,
+		r.payloadReceiverService,
 		r.preprocessingDeployment,
 		r.gpuCtrlDeployment,
 	}, nil
@@ -79,7 +80,13 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retE
 			lg.Info("deleting pretrained model deployment", "model", modelName)
 			resourceList = append(resourceList, resources.Absent(deployment.DeepCopy()))
 		} else {
-			resourceList = append(resourceList, resources.Present(deployment.DeepCopy()))
+			deployment, err := r.pretrainedModelDeployment(models[modelName])
+			if err != nil {
+				lg.Error(err, "failed to reconcile existing model")
+				retError = err
+				continue
+			}
+			resourceList = append(resourceList, deployment)
 		}
 	}
 
@@ -116,7 +123,7 @@ func (r *Reconciler) pretrainedModelDeployment(
 		sidecar = containerSidecar(model)
 	default:
 		return nil, fmt.Errorf(
-			"Model %q is invalid. Must specify either HTTP or Container", modelRef.Name)
+			"model %q is invalid. Must specify either HTTP or Container", modelRef.Name)
 	}
 
 	return func() (runtime.Object, reconciler.DesiredState, error) {
@@ -126,8 +133,10 @@ func (r *Reconciler) pretrainedModelDeployment(
 		)
 		imageSpec := r.serviceImageSpec(v1beta1.InferenceService)
 		lg := logr.FromContext(r.ctx)
-		lg.Info("Creating pretrained model deployment", "name", model.Name)
+		lg.V(1).Info("generating pretrained model deployment", "name", model.Name)
 		envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
+		s3EnvVars := r.s3EnvVars()
+		envVars = append(envVars, s3EnvVars...)
 		volumes = append(volumes, corev1.Volume{
 			Name: "model-volume",
 			VolumeSource: corev1.VolumeSource{
@@ -159,6 +168,9 @@ func (r *Reconciler) pretrainedModelDeployment(
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: labels,
+						Annotations: map[string]string{
+							"opni.io/hyperparameters": hyperparameters.GenerateHyperParametersHash(model.Spec.Hyperparameters),
+						},
 					},
 					Spec: corev1.PodSpec{
 						InitContainers: []corev1.Container{sidecar},
@@ -321,7 +333,6 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 			},
 		},
 	}
-	ctrl.SetControllerReference(r.opniCluster, deployment, r.client.Scheme())
 	return deployment
 }
 
@@ -488,6 +499,34 @@ func (r *Reconciler) payloadReceiverDeployment() (runtime.Object, reconciler.Des
 	return deployment, deploymentState(r.opniCluster.Spec.Services.PayloadReceiver.Enabled), nil
 }
 
+func (r *Reconciler) payloadReceiverService() (runtime.Object, reconciler.DesiredState, error) {
+	labels := r.serviceLabels(v1beta1.PayloadReceiverService)
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      labels[resources.AppNameLabel],
+			Namespace: r.opniCluster.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
+			Labels: labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Port: 80,
+				},
+			},
+		},
+	}
+	return service, deploymentState(r.opniCluster.Spec.Services.PayloadReceiver.Enabled), nil
+}
+
 func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.PreprocessingService)
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Preprocessing.Enabled), nil
@@ -521,7 +560,7 @@ func insertHyperparametersVolume(deployment *appsv1.Deployment, modelName string
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-hyperparameters", modelName),
+					Name: fmt.Sprintf("opni-%s-hyperparameters", modelName),
 				},
 				Items: []corev1.KeyToPath{
 					{

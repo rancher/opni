@@ -56,14 +56,17 @@ type OpniClusterSpec struct {
 	Nats                 NatsSpec                      `json:"nats,omitempty"`
 	S3                   S3Spec                        `json:"s3,omitempty"`
 	NulogHyperparameters map[string]intstr.IntOrString `json:"nulogHyperparameters,omitempty"`
+	DeployLogCollector   *bool                         `json:"deployLogCollector"`
 }
 
 // OpniClusterStatus defines the observed state of OpniCluster
 type OpniClusterStatus struct {
-	Conditions   []string         `json:"conditions,omitempty"`
-	State        OpniClusterState `json:"state,omitempty"`
-	NatsReplicas int32            `json:"natsReplicas,omitempty"`
-	Auth         AuthStatus       `json:"auth,omitempty"`
+	Conditions        []string         `json:"conditions,omitempty"`
+	State             OpniClusterState `json:"state,omitempty"`
+	IndexState        OpniClusterState `json:"indexState,omitempty"`
+	LogCollectorState OpniClusterState `json:"logState,omitempty"`
+	NatsReplicas      int32            `json:"natsReplicas,omitempty"`
+	Auth              AuthStatus       `json:"auth,omitempty"`
 }
 
 type AuthStatus struct {

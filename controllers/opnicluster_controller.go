@@ -29,6 +29,7 @@ import (
 	v1beta1 "github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
+	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
 	"github.com/rancher/opni/pkg/util"
 )
 
@@ -56,11 +57,15 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	opniReconciler := opnicluster.NewReconciler(ctx, r, opniCluster,
+		reconciler.WithEnableRecreateWorkload(),
+		reconciler.WithScheme(r.scheme),
+	)
+
 	reconcilers := []resources.ComponentReconciler{
-		opnicluster.NewReconciler(ctx, r, opniCluster,
-			reconciler.WithEnableRecreateWorkload(),
-			reconciler.WithScheme(r.scheme),
-		).Reconcile,
+		opniReconciler.Reconcile,
+		indices.NewReconciler(opniCluster, ctx, r).Reconcile,
+		opniReconciler.ReconcileLogCollector,
 	}
 
 	for _, rec := range reconcilers {

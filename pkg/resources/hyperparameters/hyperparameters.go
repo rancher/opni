@@ -1,6 +1,7 @@
 package hyperparameters
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 
@@ -17,7 +18,7 @@ func GenerateHyperparametersConfigMap(modelName string, namespace string, hyperp
 	}
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-hyperparameters", modelName),
+			Name:      fmt.Sprintf("opni-%s-hyperparameters", modelName),
 			Namespace: namespace,
 			Labels: map[string]string{
 				resources.PartOfLabel: "opni",
@@ -28,4 +29,11 @@ func GenerateHyperparametersConfigMap(modelName string, namespace string, hyperp
 		},
 	}
 	return cm, nil
+}
+
+func GenerateHyperParametersHash(hyperparameters map[string]intstr.IntOrString) string {
+	data := []byte(fmt.Sprintf("%#v", hyperparameters))
+	hash := sha256.Sum256(data)
+
+	return fmt.Sprintf("%x", hash)
 }

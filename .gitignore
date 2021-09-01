@@ -14,5 +14,6 @@ Dockerfile.dapper*
 # Distribution/packaging
 dist/
 build/
+package/
 
 /.dapper

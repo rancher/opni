@@ -4,9 +4,10 @@ go 1.16
 
 require (
 	emperror.dev/errors v0.8.0
-	github.com/AlecAivazis/survey/v2 v2.2.16
+	github.com/AlecAivazis/survey/v2 v2.3.1
 	github.com/Microsoft/go-winio v0.5.0 // indirect
 	github.com/Microsoft/hcsshim v0.8.20 // indirect
+	github.com/NVIDIA/gpu-operator v1.8.1
 	github.com/banzaicloud/logging-operator v1.12.4-alpine-2
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/banzaicloud/operator-tools v0.25.0
@@ -15,12 +16,13 @@ require (
 	github.com/k3s-io/helm-controller v0.11.2
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
 	github.com/kralicky/kmatch v0.0.0-20210817213559-44a41c23a9fd
+	github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
 	github.com/nats-io/nkeys v0.3.0
 	github.com/onsi/ginkgo v1.16.5-0.20210808002315-bc059d745883
-	github.com/onsi/gomega v1.15.0
+	github.com/onsi/gomega v1.16.0
 	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6 // indirect
-	github.com/opencontainers/runc v1.0.1 // indirect
+	github.com/opencontainers/runc v1.0.2 // indirect
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.50.0
 	github.com/rancher/k3d/v4 v4.4.7
@@ -31,12 +33,15 @@ require (
 	go.uber.org/zap v1.19.0
 	golang.org/x/mod v0.5.0
 	golang.org/x/tools v0.1.5 // indirect
-	k8s.io/api v0.22.0
-	k8s.io/apiextensions-apiserver v0.22.0
-	k8s.io/apimachinery v0.22.0
-	k8s.io/client-go v0.22.0
-	k8s.io/utils v0.0.0-20210802155522-efc7438f0176
+	k8s.io/api v0.22.1
+	k8s.io/apiextensions-apiserver v0.22.1
+	k8s.io/apimachinery v0.22.1
+	k8s.io/client-go v0.22.1
+	k8s.io/utils v0.0.0-20210820185131-d34e5cb4466e
 	sigs.k8s.io/controller-runtime v0.9.6
 )
 
-replace github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
+replace (
+	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
+)

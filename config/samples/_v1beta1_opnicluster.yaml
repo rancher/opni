@@ -11,11 +11,6 @@ spec:
       pretrainedModels:
         - name: control-plane
   elastic:
-    workloads:
-      data:
-        dedicatedPod: false
-      client:
-        dedicatedPod: false
     version: 1.13.2
   nats:
     authMethod: nkey

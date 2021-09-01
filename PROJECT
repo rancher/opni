@@ -47,4 +47,12 @@ resources:
   kind: PretrainedModel
   path: github.com/rancher/opni/apis/v1beta1
   version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: opni.io
+  kind: GpuPolicyAdapter
+  path: github.com/rancher/opni/apis/v1beta1
+  version: v1beta1
 version: "3"

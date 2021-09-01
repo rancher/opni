@@ -1,7 +1,9 @@
-load('ext://restart_process', 'docker_build_with_restart')
+settings = read_yaml('tilt-options.yaml', default={})
 
 allow_k8s_contexts('k3d-k3s-tilt-opni')
-allow_k8s_contexts('k3s')
+
+if "allowedContexts" in settings:
+    allow_k8s_contexts(settings["allowedContexts"])
 
 k8s_yaml('staging/staging_autogen.yaml')
 
@@ -18,14 +20,17 @@ local_resource('Sample YAML', 'kubectl apply -k ./config/samples',
 DOCKERFILE = '''FROM golang:alpine
 WORKDIR /
 COPY ./bin/manager /
+COPY ./config/assets/nfd/ /opt/nfd/
+COPY ./config/assets/gpu-operator/ /opt/gpu-operator/
 CMD ["/manager"]
 '''
-# default_registry(
-#     'docker.io/joekralicky',
-# )
-docker_build_with_restart("rancher/opni-manager", '.', 
+
+if "defaultRegistry" in settings:
+    default_registry(settings["defaultRegistry"])
+
+docker_build("rancher/opni-manager", '.', 
     dockerfile_contents=DOCKERFILE,
     entrypoint=['/manager'],
-    only=['./bin/manager'],
+    only=['./bin/manager', './config/assets'],
     live_update=[sync('./bin/manager', '/manager')]
 )

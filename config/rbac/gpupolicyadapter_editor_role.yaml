@@ -1,0 +1,24 @@
+# permissions for end users to edit gpupolicyadapters.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gpupolicyadapter-editor-role
+rules:
+- apiGroups:
+  - opni.io
+  resources:
+  - gpupolicyadapters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - gpupolicyadapters/status
+  verbs:
+  - get

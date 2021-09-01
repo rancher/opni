@@ -1,0 +1,19 @@
+apiVersion: nfd.opni.io/v1
+kind: NodeFeatureDiscovery
+metadata:
+  name: opni-nfd-server
+  namespace: default
+spec:
+  operand:
+    namespace: default
+    image: "k8s.gcr.io/nfd/node-feature-discovery:v0.7.0"
+    imagePullPolicy: Always
+    servicePort: 12000
+  extraLabelNs:
+    - nvidia.com
+  workerConfig:
+    configData: |
+      sources:
+        pci:
+          deviceLabelFields:
+          - vendor

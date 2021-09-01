@@ -39,7 +39,10 @@ import (
 
 	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	opninfdv1 "github.com/rancher/opni/apis/nfd/v1"
+	opninvidiav1 "github.com/rancher/opni/apis/nvidia/v1"
 	"github.com/rancher/opni/apis/v1beta1"
+	opniiov1beta1 "github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/controllers/demo"
 	"github.com/rancher/opni/pkg/util"
@@ -67,6 +70,9 @@ func init() {
 	utilruntime.Must(apiextv1beta1.AddToScheme(scheme))
 	utilruntime.Must(opniloggingv1beta1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
+	utilruntime.Must(opninvidiav1.AddToScheme(scheme))
+	utilruntime.Must(opninfdv1.AddToScheme(scheme))
+	utilruntime.Must(opniiov1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -149,6 +155,23 @@ func run() error {
 	if err = (&controllers.PretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PretrainedModel")
 		return err
+	}
+
+	if err = (&controllers.ClusterPolicyReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ClusterPolicy")
+		return err
+	}
+
+	if err = (&controllers.NodeFeatureDiscoveryReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "NodeFeatureDiscovery")
+		return err
+	}
+	if err = (&controllers.GpuPolicyAdapterReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "GpuPolicyAdapter")
+		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 

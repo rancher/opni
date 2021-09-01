@@ -8,6 +8,8 @@ testbin/*
 *.swp
 *~
 tilt_modules/
+tilt-options.yaml
+Dockerfile.dapper*
 
 # Distribution/packaging
 dist/

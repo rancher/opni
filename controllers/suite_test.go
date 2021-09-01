@@ -96,6 +96,7 @@ var _ = BeforeSuite(func() {
 		&LogAdapterReconciler{},
 		&PretrainedModelReconciler{},
 		&LoggingReconciler{},
+		&ClusterPolicyReconciler{},
 	)
 	kmatch.SetDefaultObjectClient(k8sClient)
 })

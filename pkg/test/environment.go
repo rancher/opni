@@ -10,6 +10,7 @@ import (
 	"github.com/phayes/freeport"
 	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	opninvidiav1 "github.com/rancher/opni/apis/nvidia/v1"
 	"github.com/rancher/opni/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -61,6 +62,9 @@ func RunTestEnvironment(
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = opniloggingv1beta1.AddToScheme(scheme.Scheme)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = opninvidiav1.AddToScheme(scheme.Scheme)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme

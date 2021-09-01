@@ -22,6 +22,9 @@ bases:
 #- ../prometheus
 
 patchesStrategicMerge:
+  - manager_gpu_operator_patch.yaml
+  - manager_nfd_operator_patch.yaml
+
   # Protect the /metrics endpoint by putting it behind auth.
   # If you want your controller-manager to expose the /metrics
   # endpoint w/o any authn/z, please comment the following line.

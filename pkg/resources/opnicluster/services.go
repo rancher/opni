@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -253,6 +254,14 @@ func (r *Reconciler) gpuWorkerContainer() corev1.Container {
 		{
 			Name:  "IS_GPU_SERVICE",
 			Value: "True",
+		},
+		{
+			Name:  "NVIDIA_VISIBLE_DEVICES",
+			Value: "all",
+		},
+		{
+			Name:  "NVIDIA_DRIVER_CAPABILITIES",
+			Value: "compute,utility",
 		},
 	}...)
 	if r.opniCluster.Spec.S3.NulogS3Bucket != "" {
@@ -544,6 +553,7 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 		Name:      "data",
 		MountPath: "/var/opni-data",
 	}
+	deployment.Spec.Template.Spec.RuntimeClassName = pointer.String("nvidia")
 	deployment.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
 	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, r.gpuWorkerContainer())
 	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, dataVolume)

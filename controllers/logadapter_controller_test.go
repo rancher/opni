@@ -46,8 +46,7 @@ var _ = Describe("LogAdapter Controller", func() {
 		k8sClient.Create(context.Background(), &cluster)
 		logadapter = v1beta1.LogAdapter{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: testNs,
+				Name: "test",
 			},
 			Spec: v1beta1.LogAdapterSpec{
 				Provider: v1beta1.LogProviderEKS,
@@ -69,8 +68,7 @@ var _ = Describe("LogAdapter Controller", func() {
 			It("should not create a logging", func() {
 				Consistently(Object(&loggingv1beta1.Logging{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("opni-%s", logadapter.Name),
-						Namespace: logadapter.Namespace,
+						Name: fmt.Sprintf("opni-%s", logadapter.Name),
 					},
 				})).ShouldNot(Exist())
 			})
@@ -87,8 +85,7 @@ var _ = Describe("LogAdapter Controller", func() {
 			It("should create a logging", func() {
 				Eventually(Object(&loggingv1beta1.Logging{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("opni-%s", logadapter.Name),
-						Namespace: logadapter.Namespace,
+						Name: fmt.Sprintf("opni-%s", logadapter.Name),
 					},
 				})).Should(ExistAnd(HaveOwner(&logadapter)))
 			})
@@ -105,7 +102,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Eventually(Object(&appsv1.DaemonSet{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("opni-%s-rke-aggregator", logadapter.Name),
-							Namespace: logadapter.Namespace,
+							Namespace: logadapter.Spec.OpniCluster.Namespace,
 						},
 					})).Should(ExistAnd(HaveOwner(&logadapter)))
 				})
@@ -115,7 +112,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Eventually(Object(&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("opni-%s-rke", logadapter.Name),
-							Namespace: logadapter.Namespace,
+							Namespace: logadapter.Spec.OpniCluster.Namespace,
 						},
 					})).Should(ExistAnd(
 						HaveOwner(&logadapter),
@@ -137,7 +134,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Eventually(Object(&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("opni-%s-rke", logadapter.Name),
-							Namespace: logadapter.Namespace,
+							Namespace: logadapter.Spec.OpniCluster.Namespace,
 						},
 					})).Should(ExistAnd(
 						HaveOwner(&logadapter),
@@ -160,7 +157,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Eventually(Object(&appsv1.DaemonSet{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("opni-%s-rke2-journald-aggregator", logadapter.Name),
-							Namespace: logadapter.Namespace,
+							Namespace: logadapter.Spec.OpniCluster.Namespace,
 						},
 					})).Should(ExistAnd(HaveOwner(&logadapter)))
 				})
@@ -169,7 +166,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Eventually(Object(&appsv1.DaemonSet{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("opni-%s-rke2-journald-aggregator", logadapter.Name),
-							Namespace: logadapter.Namespace,
+							Namespace: logadapter.Spec.OpniCluster.Namespace,
 						},
 					})).Should(ExistAnd(
 						HaveOwner(&logadapter),
@@ -195,7 +192,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Eventually(Object(&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("opni-%s-rke2", logadapter.Name),
-							Namespace: logadapter.Namespace,
+							Namespace: logadapter.Spec.OpniCluster.Namespace,
 						},
 					})).Should(ExistAnd(
 						HaveOwner(&logadapter),
@@ -223,7 +220,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Eventually(Object(&appsv1.DaemonSet{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("opni-%s-rke2-journald-aggregator", logadapter.Name),
-							Namespace: logadapter.Namespace,
+							Namespace: logadapter.Spec.OpniCluster.Namespace,
 						},
 					})).Should(ExistAnd(
 						HaveOwner(&logadapter),
@@ -249,7 +246,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Eventually(Object(&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("opni-%s-rke2", logadapter.Name),
-							Namespace: logadapter.Namespace,
+							Namespace: logadapter.Spec.OpniCluster.Namespace,
 						},
 					})).Should(ExistAnd(
 						HaveOwner(&logadapter),
@@ -279,8 +276,7 @@ var _ = Describe("LogAdapter Controller", func() {
 				It("should not create a logging", func() {
 					Consistently(Object(&loggingv1beta1.Logging{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      fmt.Sprintf("opni-%s-k3s", logadapter.Name),
-							Namespace: logadapter.Namespace,
+							Name: fmt.Sprintf("opni-%s-k3s", logadapter.Name),
 						},
 					})).ShouldNot(Exist())
 				})
@@ -289,7 +285,7 @@ var _ = Describe("LogAdapter Controller", func() {
 						Eventually(Object(&appsv1.DaemonSet{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      fmt.Sprintf("opni-%s-k3s-journald-aggregator", logadapter.Name),
-								Namespace: logadapter.Namespace,
+								Namespace: logadapter.Spec.OpniCluster.Namespace,
 							},
 						})).Should(ExistAnd(HaveOwner(&logadapter)))
 					})
@@ -298,7 +294,7 @@ var _ = Describe("LogAdapter Controller", func() {
 						Eventually(Object(&appsv1.DaemonSet{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      fmt.Sprintf("opni-%s-k3s-journald-aggregator", logadapter.Name),
-								Namespace: logadapter.Namespace,
+								Namespace: logadapter.Spec.OpniCluster.Namespace,
 							},
 						})).Should(ExistAnd(
 							HaveOwner(&logadapter),
@@ -324,7 +320,7 @@ var _ = Describe("LogAdapter Controller", func() {
 						Eventually(Object(&corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      fmt.Sprintf("opni-%s-k3s", logadapter.Name),
-								Namespace: logadapter.Namespace,
+								Namespace: logadapter.Spec.OpniCluster.Namespace,
 							},
 						})).Should(ExistAnd(
 							HaveOwner(&logadapter),
@@ -345,7 +341,7 @@ var _ = Describe("LogAdapter Controller", func() {
 						Eventually(Object(&appsv1.DaemonSet{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      fmt.Sprintf("opni-%s-k3s-journald-aggregator", logadapter.Name),
-								Namespace: logadapter.Namespace,
+								Namespace: logadapter.Spec.OpniCluster.Namespace,
 							},
 						})).Should(ExistAnd(
 							HaveOwner(&logadapter),
@@ -371,7 +367,7 @@ var _ = Describe("LogAdapter Controller", func() {
 						Eventually(Object(&corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      fmt.Sprintf("opni-%s-k3s", logadapter.Name),
-								Namespace: logadapter.Namespace,
+								Namespace: logadapter.Spec.OpniCluster.Namespace,
 							},
 						})).Should(ExistAnd(
 							HaveOwner(&logadapter),
@@ -396,7 +392,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Eventually(Object(&appsv1.DaemonSet{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("opni-%s-k3s-journald-aggregator", logadapter.Name),
-							Namespace: logadapter.Namespace,
+							Namespace: logadapter.Spec.OpniCluster.Namespace,
 						},
 					})).ShouldNot(Exist())
 				})
@@ -404,7 +400,7 @@ var _ = Describe("LogAdapter Controller", func() {
 					Eventually(Object(&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("opni-%s-k3s", logadapter.Name),
-							Namespace: logadapter.Namespace,
+							Namespace: logadapter.Spec.OpniCluster.Namespace,
 						},
 					})).ShouldNot(Exist())
 				})
@@ -413,8 +409,7 @@ var _ = Describe("LogAdapter Controller", func() {
 						logging := loggingv1beta1.Logging{}
 						Eventually(func() error {
 							return k8sClient.Get(context.Background(), types.NamespacedName{
-								Name:      fmt.Sprintf("opni-%s-k3s", logadapter.Name),
-								Namespace: logadapter.Namespace,
+								Name: fmt.Sprintf("opni-%s-k3s", logadapter.Name),
 							}, &logging)
 						}).Should(BeNil())
 						Expect(logging.Spec.FluentbitSpec.ExtraVolumeMounts).To(ContainElement(&loggingv1beta1.VolumeMount{
@@ -436,14 +431,12 @@ var _ = Describe("LogAdapter Controller", func() {
 						logging := loggingv1beta1.Logging{}
 						Eventually(func() error {
 							return k8sClient.Get(context.Background(), types.NamespacedName{
-								Name:      fmt.Sprintf("opni-%s-k3s", logadapter.Name),
-								Namespace: logadapter.Namespace,
+								Name: fmt.Sprintf("opni-%s-k3s", logadapter.Name),
 							}, &logging)
 						}).Should(BeNil())
 						Eventually(func() []*loggingv1beta1.VolumeMount {
 							k8sClient.Get(context.Background(), types.NamespacedName{
-								Name:      fmt.Sprintf("opni-%s-k3s", logadapter.Name),
-								Namespace: logadapter.Namespace,
+								Name: fmt.Sprintf("opni-%s-k3s", logadapter.Name),
 							}, &logging)
 							return logging.Spec.FluentbitSpec.ExtraVolumeMounts
 						}).Should(ContainElement(&loggingv1beta1.VolumeMount{

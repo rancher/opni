@@ -22,10 +22,9 @@ func BuildLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 				adapter.GetName(),
 				strings.ToLower(string(adapter.Spec.Provider)),
 			),
-			Namespace: adapter.GetNamespace(),
 		},
 		Spec: loggingv1beta1.LoggingSpec{
-			ControlNamespace: adapter.GetNamespace(),
+			ControlNamespace: adapter.Spec.OpniCluster.Namespace,
 			FluentbitSpec:    adapter.Spec.FluentConfig.Fluentbit,
 			FluentdSpec:      adapter.Spec.FluentConfig.Fluentd,
 		},
@@ -37,11 +36,10 @@ func BuildLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 func BuildRootLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 	logging := loggingv1beta1.Logging{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("opni-%s", adapter.GetName()),
-			Namespace: adapter.GetNamespace(),
+			Name: fmt.Sprintf("opni-%s", adapter.GetName()),
 		},
 		Spec: loggingv1beta1.LoggingSpec{
-			ControlNamespace: adapter.GetNamespace(),
+			ControlNamespace: adapter.Spec.OpniCluster.Namespace,
 			FluentbitSpec:    adapter.Spec.RootFluentConfig.Fluentbit,
 			FluentdSpec:      adapter.Spec.RootFluentConfig.Fluentd,
 		},
@@ -138,7 +136,7 @@ func BuildK3SConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("opni-%s-k3s", adapter.GetName()),
-			Namespace: adapter.GetNamespace(),
+			Namespace: adapter.Spec.OpniCluster.Namespace,
 		},
 		Data: map[string]string{
 			"fluent-bit.conf": buffer.String(),
@@ -157,7 +155,7 @@ func BuildK3SJournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 	daemonset := appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: adapter.GetNamespace(),
+			Namespace: adapter.Spec.OpniCluster.Namespace,
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
@@ -165,9 +163,8 @@ func BuildK3SJournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: adapter.GetNamespace(),
-					Labels:    podLabels,
+					Name:   name,
+					Labels: podLabels,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -239,7 +236,7 @@ func BuildK3SServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount 
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: adapter.GetNamespace(),
+			Namespace: adapter.Spec.OpniCluster.Namespace,
 		},
 	}
 }
@@ -250,7 +247,7 @@ func BuildRKEConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("opni-%s-rke", adapter.GetName()),
-			Namespace: adapter.GetNamespace(),
+			Namespace: adapter.Spec.OpniCluster.Namespace,
 		},
 		Data: map[string]string{
 			"fluent-bit.conf": buffer.String(),
@@ -269,7 +266,7 @@ func BuildRKEAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 	daemonset := appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: adapter.GetNamespace(),
+			Namespace: adapter.Spec.OpniCluster.Namespace,
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
@@ -277,9 +274,8 @@ func BuildRKEAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: adapter.GetNamespace(),
-					Labels:    podLabels,
+					Name:   name,
+					Labels: podLabels,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -374,7 +370,7 @@ func BuildRKEServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount 
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: adapter.GetNamespace(),
+			Namespace: adapter.Spec.OpniCluster.Namespace,
 		},
 	}
 }
@@ -386,7 +382,7 @@ func BuildRKE2Config(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("opni-%s-rke2", adapter.GetName()),
-			Namespace: adapter.GetNamespace(),
+			Namespace: adapter.Spec.OpniCluster.Namespace,
 		},
 		Data: map[string]string{
 			"fluent-bit.conf": buffer.String(),
@@ -405,7 +401,7 @@ func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet 
 	daemonset := appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: adapter.GetNamespace(),
+			Namespace: adapter.Spec.OpniCluster.Namespace,
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
@@ -413,9 +409,8 @@ func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet 
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: adapter.GetNamespace(),
-					Labels:    podLabels,
+					Name:   name,
+					Labels: podLabels,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -487,7 +482,7 @@ func BuildRKE2ServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: adapter.GetNamespace(),
+			Namespace: adapter.Spec.OpniCluster.Namespace,
 		},
 	}
 }

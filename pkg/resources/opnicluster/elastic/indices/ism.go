@@ -1,9 +1,7 @@
 package indices
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,17 +9,15 @@ import (
 
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
-	. "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 )
 
 type ISMApi struct {
 	*elasticsearch.Client
-	Policy *ISMPolicySpec
 }
 
-func (c *ISMApi) generatePath() strings.Builder {
+func generatePath(name string) strings.Builder {
 	var path strings.Builder
-	path.Grow(1 + len("_opendistro") + 1 + len("_ism") + 1 + len("policies") + 1 + len(c.Policy.PolicyId))
+	path.Grow(1 + len("_opendistro") + 1 + len("_ism") + 1 + len("policies") + 1 + len(name))
 	path.WriteString("/")
 	path.WriteString("_opendistro")
 	path.WriteString("/")
@@ -29,13 +25,13 @@ func (c *ISMApi) generatePath() strings.Builder {
 	path.WriteString("/")
 	path.WriteString("policies")
 	path.WriteString("/")
-	path.WriteString(c.Policy.PolicyId)
+	path.WriteString(name)
 	return path
 }
 
-func (c *ISMApi) GetISM(ctx context.Context) (*esapi.Response, error) {
+func (c *ISMApi) GetISM(ctx context.Context, name string) (*esapi.Response, error) {
 	method := "GET"
-	path := c.generatePath()
+	path := generatePath(name)
 
 	req, err := http.NewRequest(method, path.String(), nil)
 	if err != nil {
@@ -54,21 +50,11 @@ func (c *ISMApi) GetISM(ctx context.Context) (*esapi.Response, error) {
 	return &esapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
 }
 
-func (c *ISMApi) CreateISM(ctx context.Context) (*esapi.Response, error) {
-	var (
-		method string
-		body   io.Reader
-	)
-	method = "PUT"
-	path := c.generatePath()
+func (c *ISMApi) CreateISM(ctx context.Context, name string, body io.Reader) (*esapi.Response, error) {
+	var method string
 
-	marshalled, err := json.MarshalIndent(map[string]interface{}{
-		"policy": c.Policy,
-	}, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	body = bytes.NewReader(marshalled)
+	method = "PUT"
+	path := generatePath(name)
 
 	req, err := http.NewRequest(method, path.String(), body)
 	if err != nil {
@@ -87,20 +73,11 @@ func (c *ISMApi) CreateISM(ctx context.Context) (*esapi.Response, error) {
 	return &esapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
 }
 
-func (c *ISMApi) UpdateISM(ctx context.Context, seqNo int, primaryTerm int) (*esapi.Response, error) {
-	var (
-		method string
-		body   io.Reader
-	)
+func (c *ISMApi) UpdateISM(ctx context.Context, name string, body io.Reader, seqNo int, primaryTerm int) (*esapi.Response, error) {
+	var method string
 	method = "PUT"
-	marshalled, err := json.Marshal(map[string]interface{}{
-		"policy": c.Policy,
-	})
-	if err != nil {
-		return nil, err
-	}
-	body = bytes.NewReader(marshalled)
-	path := c.generatePath()
+
+	path := generatePath(name)
 
 	req, err := http.NewRequest(method, path.String(), body)
 	if err != nil {

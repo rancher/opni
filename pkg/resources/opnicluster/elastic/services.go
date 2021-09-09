@@ -1,6 +1,7 @@
 package elastic
 
 import (
+	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +49,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-es-data",
 			Namespace: r.opniCluster.Namespace,
-			Labels:    labels.WithRole(resources.ElasticDataRole),
+			Labels:    labels.WithRole(v1beta1.ElasticDataRole),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -59,7 +60,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 			},
 			ClusterIP: corev1.ClusterIPNone,
 			Selector: map[string]string{
-				"role": string(resources.ElasticDataRole),
+				"role": string(v1beta1.ElasticDataRole),
 			},
 		},
 	}
@@ -67,7 +68,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-es-client",
 			Namespace: r.opniCluster.Namespace,
-			Labels:    labels.WithRole(resources.ElasticClientRole),
+			Labels:    labels.WithRole(v1beta1.ElasticClientRole),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -78,7 +79,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 			},
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"role": string(resources.ElasticClientRole),
+				"role": string(v1beta1.ElasticClientRole),
 			},
 		},
 	}
@@ -86,7 +87,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-es-discovery",
 			Namespace: r.opniCluster.Namespace,
-			Labels:    labels.WithRole(resources.ElasticMasterRole),
+			Labels:    labels.WithRole(v1beta1.ElasticMasterRole),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -94,7 +95,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 			},
 			ClusterIP: corev1.ClusterIPNone,
 			Selector: map[string]string{
-				"role": string(resources.ElasticMasterRole),
+				"role": string(v1beta1.ElasticMasterRole),
 			},
 		},
 	}
@@ -102,7 +103,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-es-kibana",
 			Namespace: r.opniCluster.Namespace,
-			Labels:    labels.WithRole(resources.ElasticKibanaRole),
+			Labels:    labels.WithRole(v1beta1.ElasticKibanaRole),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -110,7 +111,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 			},
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"role": string(resources.ElasticKibanaRole),
+				"role": string(v1beta1.ElasticKibanaRole),
 			},
 		},
 	}

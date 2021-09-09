@@ -39181,6 +39181,10 @@ spec:
                                     type: array
                                 type: object
                             type: object
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
@@ -39203,6 +39207,22 @@ spec:
                                   x-kubernetes-int-or-string: true
                                 type: object
                             type: object
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
+                              type: object
+                            type: array
                         type: object
                       data:
                         properties:
@@ -39560,6 +39580,10 @@ spec:
                                     type: array
                                 type: object
                             type: object
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
@@ -39582,6 +39606,22 @@ spec:
                                   x-kubernetes-int-or-string: true
                                 type: object
                             type: object
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
+                              type: object
+                            type: array
                         type: object
                       kibana:
                         properties:
@@ -39939,6 +39979,10 @@ spec:
                                     type: array
                                 type: object
                             type: object
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
@@ -39961,6 +40005,22 @@ spec:
                                   x-kubernetes-int-or-string: true
                                 type: object
                             type: object
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
+                              type: object
+                            type: array
                         type: object
                       master:
                         properties:
@@ -40318,6 +40378,10 @@ spec:
                                     type: array
                                 type: object
                             type: object
+                          nodeSelector:
+                            additionalProperties:
+                              type: string
+                            type: object
                           replicas:
                             format: int32
                             type: integer
@@ -40340,9 +40404,45 @@ spec:
                                   x-kubernetes-int-or-string: true
                                 type: object
                             type: object
+                          tolerations:
+                            items:
+                              properties:
+                                effect:
+                                  type: string
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                tolerationSeconds:
+                                  format: int64
+                                  type: integer
+                                value:
+                                  type: string
+                              type: object
+                            type: array
                         type: object
                     type: object
                 type: object
+              globalNodeSelector:
+                additionalProperties:
+                  type: string
+                type: object
+              globalTolerations:
+                items:
+                  properties:
+                    effect:
+                      type: string
+                    key:
+                      type: string
+                    operator:
+                      type: string
+                    tolerationSeconds:
+                      format: int64
+                      type: integer
+                    value:
+                      type: string
+                  type: object
+                type: array
               nats:
                 properties:
                   authMethod:
@@ -40353,6 +40453,10 @@ spec:
                     type: string
                   natsURL:
                     type: string
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    type: object
                   passwordFrom:
                     properties:
                       key:
@@ -40367,6 +40471,22 @@ spec:
                   replicas:
                     format: int32
                     type: integer
+                  tolerations:
+                    items:
+                      properties:
+                        effect:
+                          type: string
+                        key:
+                          type: string
+                        operator:
+                          type: string
+                        tolerationSeconds:
+                          format: int64
+                          type: integer
+                        value:
+                          type: string
+                      type: object
+                    type: array
                   username:
                     type: string
                 type: object
@@ -40432,6 +40552,26 @@ spec:
                               type: string
                           type: object
                         type: array
+                      nodeSelector:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      tolerations:
+                        items:
+                          properties:
+                            effect:
+                              type: string
+                            key:
+                              type: string
+                            operator:
+                              type: string
+                            tolerationSeconds:
+                              format: int64
+                              type: integer
+                            value:
+                              type: string
+                          type: object
+                        type: array
                     type: object
                   gpuController:
                     properties:
@@ -40445,6 +40585,26 @@ spec:
                         items:
                           properties:
                             name:
+                              type: string
+                          type: object
+                        type: array
+                      nodeSelector:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      tolerations:
+                        items:
+                          properties:
+                            effect:
+                              type: string
+                            key:
+                              type: string
+                            operator:
+                              type: string
+                            tolerationSeconds:
+                              format: int64
+                              type: integer
+                            value:
                               type: string
                           type: object
                         type: array
@@ -40464,6 +40624,10 @@ spec:
                               type: string
                           type: object
                         type: array
+                      nodeSelector:
+                        additionalProperties:
+                          type: string
+                        type: object
                       pretrainedModels:
                         items:
                           properties:
@@ -40846,6 +41010,22 @@ spec:
                           - name
                           type: object
                         type: array
+                      tolerations:
+                        items:
+                          properties:
+                            effect:
+                              type: string
+                            key:
+                              type: string
+                            operator:
+                              type: string
+                            tolerationSeconds:
+                              format: int64
+                              type: integer
+                            value:
+                              type: string
+                          type: object
+                        type: array
                     type: object
                   payloadReceiver:
                     properties:
@@ -40862,6 +41042,26 @@ spec:
                               type: string
                           type: object
                         type: array
+                      nodeSelector:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      tolerations:
+                        items:
+                          properties:
+                            effect:
+                              type: string
+                            key:
+                              type: string
+                            operator:
+                              type: string
+                            tolerationSeconds:
+                              format: int64
+                              type: integer
+                            value:
+                              type: string
+                          type: object
+                        type: array
                     type: object
                   preprocessing:
                     properties:
@@ -40875,6 +41075,26 @@ spec:
                         items:
                           properties:
                             name:
+                              type: string
+                          type: object
+                        type: array
+                      nodeSelector:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      tolerations:
+                        items:
+                          properties:
+                            effect:
+                              type: string
+                            key:
+                              type: string
+                            operator:
+                              type: string
+                            tolerationSeconds:
+                              format: int64
+                              type: integer
+                            value:
                               type: string
                           type: object
                         type: array

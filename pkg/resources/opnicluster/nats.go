@@ -345,6 +345,8 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 							},
 						},
 					},
+					NodeSelector: r.natsNodeSelector(),
+					Tolerations:  r.natsTolerations(),
 				},
 			},
 		},

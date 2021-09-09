@@ -1,5 +1,9 @@
 package resources
 
+import (
+	"github.com/rancher/opni/apis/v1beta1"
+)
+
 const (
 	PretrainedModelLabel = "opni.io/pretrained-model"
 	ServiceLabel         = "opni.io/service"
@@ -20,14 +24,6 @@ func CombineLabels(maps ...map[string]string) map[string]string {
 }
 
 type ElasticLabels map[string]string
-type ElasticRole string
-
-const (
-	ElasticDataRole   ElasticRole = "data"
-	ElasticClientRole ElasticRole = "client"
-	ElasticMasterRole ElasticRole = "master"
-	ElasticKibanaRole ElasticRole = "kibana"
-)
 
 func NewElasticLabels() ElasticLabels {
 	return map[string]string{
@@ -35,7 +31,7 @@ func NewElasticLabels() ElasticLabels {
 	}
 }
 
-func (l ElasticLabels) WithRole(role ElasticRole) ElasticLabels {
+func (l ElasticLabels) WithRole(role v1beta1.ElasticRole) ElasticLabels {
 	copied := map[string]string{}
 	for k, v := range l {
 		copied[k] = v
@@ -44,10 +40,10 @@ func (l ElasticLabels) WithRole(role ElasticRole) ElasticLabels {
 	return copied
 }
 
-func (l ElasticLabels) Role() ElasticRole {
+func (l ElasticLabels) Role() v1beta1.ElasticRole {
 	if role, ok := l["role"]; !ok {
 		return ""
 	} else {
-		return ElasticRole(role)
+		return v1beta1.ElasticRole(role)
 	}
 }

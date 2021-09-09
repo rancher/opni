@@ -23,7 +23,7 @@ func (r *Reconciler) elasticWorkloads() []resources.Resource {
 
 func (r *Reconciler) elasticDataWorkload() resources.Resource {
 	labels := resources.NewElasticLabels().
-		WithRole(resources.ElasticDataRole)
+		WithRole(v1beta1.ElasticDataRole)
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -95,6 +95,8 @@ func (r *Reconciler) elasticPodTemplate(
 					),
 				},
 			},
+			NodeSelector: r.elasticNodeSelector(labels.Role()),
+			Tolerations:  r.elasticTolerations(labels.Role()),
 			Volumes: []corev1.Volume{
 				configVolume(),
 			},
@@ -103,20 +105,20 @@ func (r *Reconciler) elasticPodTemplate(
 	}
 }
 
-func containerPortsForRole(role resources.ElasticRole) []corev1.ContainerPort {
+func containerPortsForRole(role v1beta1.ElasticRole) []corev1.ContainerPort {
 	switch role {
-	case resources.ElasticDataRole:
+	case v1beta1.ElasticDataRole:
 		return []corev1.ContainerPort{
 			containerPort(transportPort),
 		}
-	case resources.ElasticClientRole, resources.ElasticMasterRole:
+	case v1beta1.ElasticClientRole, v1beta1.ElasticMasterRole:
 		return []corev1.ContainerPort{
 			containerPort(httpPort),
 			containerPort(transportPort),
 			containerPort(metricsPort),
 			containerPort(rcaPort),
 		}
-	case resources.ElasticKibanaRole:
+	case v1beta1.ElasticKibanaRole:
 		return []corev1.ContainerPort{
 			containerPort(kibanaPort),
 		}
@@ -127,7 +129,7 @@ func containerPortsForRole(role resources.ElasticRole) []corev1.ContainerPort {
 
 func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 	labels := resources.NewElasticLabels().
-		WithRole(resources.ElasticMasterRole)
+		WithRole(v1beta1.ElasticMasterRole)
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -229,7 +231,7 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 
 func (r *Reconciler) elasticClientWorkload() resources.Resource {
 	labels := resources.NewElasticLabels().
-		WithRole(resources.ElasticClientRole)
+		WithRole(v1beta1.ElasticClientRole)
 
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -259,7 +261,7 @@ func (r *Reconciler) elasticClientWorkload() resources.Resource {
 
 func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 	labels := resources.NewElasticLabels().
-		WithRole(resources.ElasticKibanaRole)
+		WithRole(v1beta1.ElasticKibanaRole)
 
 	imageSpec := r.kibanaImageSpec()
 	workload := &appsv1.Deployment{
@@ -406,4 +408,15 @@ func (r *Reconciler) kibanaImageSpec() v1beta1.ImageSpec {
 		DefaultRepoOverride: r.opniCluster.Spec.Elastic.DefaultRepo,
 		ImageOverride:       r.opniCluster.Spec.Elastic.KibanaImage,
 	}.Resolve()
+}
+
+func (r *Reconciler) elasticNodeSelector(role v1beta1.ElasticRole) map[string]string {
+	if s := role.GetNodeSelector(r.opniCluster); len(s) > 0 {
+		return s
+	}
+	return r.opniCluster.Spec.GlobalNodeSelector
+}
+
+func (r *Reconciler) elasticTolerations(role v1beta1.ElasticRole) []corev1.Toleration {
+	return append(r.opniCluster.Spec.GlobalTolerations, role.GetTolerations(r.opniCluster)...)
 }

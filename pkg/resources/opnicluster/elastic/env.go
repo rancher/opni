@@ -3,7 +3,7 @@ package elastic
 import (
 	"fmt"
 
-	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -61,22 +61,22 @@ var (
 	}
 )
 
-func elasticNodeTypeEnv(role resources.ElasticRole) []corev1.EnvVar {
+func elasticNodeTypeEnv(role v1beta1.ElasticRole) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{
 		{
 			Name:  "node.master",
-			Value: fmt.Sprint(role == resources.ElasticMasterRole),
+			Value: fmt.Sprint(role == v1beta1.ElasticMasterRole),
 		},
 		{
 			Name:  "node.ingest",
-			Value: fmt.Sprint(role == resources.ElasticClientRole),
+			Value: fmt.Sprint(role == v1beta1.ElasticClientRole),
 		},
 		{
 			Name:  "node.data",
-			Value: fmt.Sprint(role == resources.ElasticDataRole),
+			Value: fmt.Sprint(role == v1beta1.ElasticDataRole),
 		},
 	}
-	if role == resources.ElasticMasterRole {
+	if role == v1beta1.ElasticMasterRole {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "cluster.initial_master_nodes",
 			Value: "opni-es-master-0",
@@ -85,25 +85,25 @@ func elasticNodeTypeEnv(role resources.ElasticRole) []corev1.EnvVar {
 	return envVars
 }
 
-func (r *Reconciler) javaOptsEnv(role resources.ElasticRole) []corev1.EnvVar {
+func (r *Reconciler) javaOptsEnv(role v1beta1.ElasticRole) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name: "ES_JAVA_OPTS",
 			Value: javaOpts(func() *corev1.ResourceRequirements {
 				switch role {
-				case resources.ElasticDataRole:
+				case v1beta1.ElasticDataRole:
 					if res := r.opniCluster.Spec.Elastic.Workloads.Data.Resources; res != nil {
 						return res
 					}
-				case resources.ElasticClientRole:
+				case v1beta1.ElasticClientRole:
 					if res := r.opniCluster.Spec.Elastic.Workloads.Client.Resources; res != nil {
 						return res
 					}
-				case resources.ElasticMasterRole:
+				case v1beta1.ElasticMasterRole:
 					if res := r.opniCluster.Spec.Elastic.Workloads.Master.Resources; res != nil {
 						return res
 					}
-				case resources.ElasticKibanaRole:
+				case v1beta1.ElasticKibanaRole:
 					if res := r.opniCluster.Spec.Elastic.Workloads.Kibana.Resources; res != nil {
 						return res
 					}

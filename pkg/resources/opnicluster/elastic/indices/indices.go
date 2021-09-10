@@ -153,8 +153,7 @@ func (r *Reconciler) shouldBootstrapIndex(prefix string) (bool, error) {
 }
 
 func (r *Reconciler) checkISMPolicy(policy *ISMPolicySpec) (bool, bool, int, int, error) {
-	r.esClient.ISM.Policy = policy
-	resp, err := r.esClient.ISM.GetISM(r.ctx)
+	resp, err := r.esClient.ISM.GetISM(r.ctx, policy.PolicyId)
 	if err != nil {
 		return false, false, 0, 0, err
 	}
@@ -178,6 +177,9 @@ func (r *Reconciler) checkISMPolicy(policy *ISMPolicySpec) (bool, bool, int, int
 
 func (r *Reconciler) reconcileISM(policy *ISMPolicySpec) error {
 	lg := log.FromContext(r.ctx)
+	policyBody := map[string]interface{}{
+		"policy": policy,
+	}
 	createIsm, updateIsm, seqNo, primaryTerm, err := r.checkISMPolicy(policy)
 	if err != nil {
 		return err
@@ -185,8 +187,7 @@ func (r *Reconciler) reconcileISM(policy *ISMPolicySpec) error {
 
 	if createIsm {
 		lg.Info("creating ism", "policy", policy.PolicyId)
-		r.esClient.ISM.Policy = policy
-		resp, err := r.esClient.ISM.CreateISM(r.ctx)
+		resp, err := r.esClient.ISM.CreateISM(r.ctx, policy.PolicyId, esutil.NewJSONReader(policyBody))
 		if err != nil {
 			return err
 		}
@@ -199,8 +200,7 @@ func (r *Reconciler) reconcileISM(policy *ISMPolicySpec) error {
 
 	if updateIsm {
 		lg.Info("updating existing ism", "policy", policy.PolicyId)
-		r.esClient.ISM.Policy = policy
-		resp, err := r.esClient.ISM.UpdateISM(r.ctx, seqNo, primaryTerm)
+		resp, err := r.esClient.ISM.UpdateISM(r.ctx, policy.PolicyId, esutil.NewJSONReader(policyBody), seqNo, primaryTerm)
 		if err != nil {
 			return err
 		}

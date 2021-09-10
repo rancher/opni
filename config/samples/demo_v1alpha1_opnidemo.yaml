@@ -1,33 +1,33 @@
-apiVersion: demo.opni.io/v1alpha1
-kind: OpniDemo
-metadata:
-  name: opnidemo-sample
-spec:
-  components:
-    infra:
-      deployHelmController: true
-      deployNvidiaPlugin: true
-    opni:
-      deployGpuServices: true
-      elastic:
-        enabled: true
-        set:
-          kibana.service.type: NodePort
-      minio:
-        enabled: true
-      nats:
-        enabled: true
-      rancherLogging:
-        enabled: true
-  elasticsearchPassword: admin
-  elasticsearchUser: admin
-  minioAccessKey: minioadmin
-  minioSecretKey: minioadmin
-  minioVersion: 8.0.10
-  natsMaxPayload: 10485760
-  natsPassword: password
-  natsReplicas: 3
-  natsVersion: 2.2.1
-  nulogServiceCpuRequest: "1"
-  nulogTrainImage: ""
-  nvidiaVersion: 1.0.0-beta6
+# apiVersion: demo.opni.io/v1alpha1
+# kind: OpniDemo
+# metadata:
+#   name: opnidemo-sample
+# spec:
+#   components:
+#     infra:
+#       deployHelmController: true
+#       deployNvidiaPlugin: true
+#     opni:
+#       deployGpuServices: true
+#       elastic:
+#         enabled: true
+#         set:
+#           kibana.service.type: NodePort
+#       minio:
+#         enabled: true
+#       nats:
+#         enabled: true
+#       rancherLogging:
+#         enabled: true
+#   elasticsearchPassword: admin
+#   elasticsearchUser: admin
+#   minioAccessKey: minioadmin
+#   minioSecretKey: minioadmin
+#   minioVersion: 8.0.10
+#   natsMaxPayload: 10485760
+#   natsPassword: password
+#   natsReplicas: 3
+#   natsVersion: 2.2.1
+#   nulogServiceCpuRequest: "1"
+#   nulogTrainImage: ""
+#   nvidiaVersion: 1.0.0-beta6

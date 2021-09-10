@@ -57,6 +57,8 @@ type OpniClusterSpec struct {
 	S3                   S3Spec                        `json:"s3,omitempty"`
 	NulogHyperparameters map[string]intstr.IntOrString `json:"nulogHyperparameters,omitempty"`
 	DeployLogCollector   *bool                         `json:"deployLogCollector"`
+	GlobalNodeSelector   map[string]string             `json:"globalNodeSelector,omitempty"`
+	GlobalTolerations    []corev1.Toleration           `json:"globalTolerations,omitempty"`
 }
 
 // OpniClusterStatus defines the observed state of OpniCluster
@@ -102,8 +104,10 @@ type ServicesSpec struct {
 }
 
 type DrainServiceSpec struct {
-	Enabled   *bool `json:"enabled,omitempty"`
-	ImageSpec `json:",inline,omitempty"`
+	Enabled      *bool `json:"enabled,omitempty"`
+	ImageSpec    `json:",inline,omitempty"`
+	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type InferenceServiceSpec struct {
@@ -111,6 +115,8 @@ type InferenceServiceSpec struct {
 	ImageSpec `json:",inline,omitempty"`
 	// +optional
 	PretrainedModels []PretrainedModelReference `json:"pretrainedModels,omitempty"`
+	NodeSelector     map[string]string          `json:"nodeSelector,omitempty"`
+	Tolerations      []corev1.Toleration        `json:"tolerations,omitempty"`
 }
 
 type PretrainedModelReference struct {
@@ -123,18 +129,24 @@ type PretrainedModelReference struct {
 }
 
 type PreprocessingServiceSpec struct {
-	Enabled   *bool `json:"enabled,omitempty"`
-	ImageSpec `json:",inline,omitempty"`
+	Enabled      *bool `json:"enabled,omitempty"`
+	ImageSpec    `json:",inline,omitempty"`
+	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type PayloadReceiverServiceSpec struct {
-	Enabled   *bool `json:"enabled,omitempty"`
-	ImageSpec `json:",inline,omitempty"`
+	Enabled      *bool `json:"enabled,omitempty"`
+	ImageSpec    `json:",inline,omitempty"`
+	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type GPUControllerServiceSpec struct {
-	Enabled   *bool `json:"enabled,omitempty"`
-	ImageSpec `json:",inline,omitempty"`
+	Enabled      *bool `json:"enabled,omitempty"`
+	ImageSpec    `json:",inline,omitempty"`
+	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type ElasticSpec struct {
@@ -156,27 +168,35 @@ type ElasticWorkloadSpec struct {
 }
 
 type ElasticWorkloadMasterSpec struct {
-	Replicas  *int32                       `json:"replicas,omitempty"`
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
+	Replicas     *int32                       `json:"replicas,omitempty"`
+	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
+	NodeSelector map[string]string            `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration          `json:"tolerations,omitempty"`
 }
 
 type ElasticWorkloadDataSpec struct {
-	Replicas  *int32                       `json:"replicas,omitempty"`
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
+	Replicas     *int32                       `json:"replicas,omitempty"`
+	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
+	NodeSelector map[string]string            `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration          `json:"tolerations,omitempty"`
 }
 
 type ElasticWorkloadClientSpec struct {
-	Replicas  *int32                       `json:"replicas,omitempty"`
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
+	Replicas     *int32                       `json:"replicas,omitempty"`
+	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
+	NodeSelector map[string]string            `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration          `json:"tolerations,omitempty"`
 }
 
 type ElasticWorkloadKibanaSpec struct {
-	Replicas  *int32                       `json:"replicas,omitempty"`
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
+	Replicas     *int32                       `json:"replicas,omitempty"`
+	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
+	NodeSelector map[string]string            `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration          `json:"tolerations,omitempty"`
 }
 
 type PersistenceSpec struct {
@@ -222,6 +242,8 @@ type NatsSpec struct {
 	Replicas     *int32                    `json:"replicas,omitempty"`
 	PasswordFrom *corev1.SecretKeySelector `json:"passwordFrom,omitempty"`
 	NatsURL      string                    `json:"natsURL"`
+	NodeSelector map[string]string         `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration       `json:"tolerations,omitempty"`
 }
 
 // +kubebuilder:object:root=true

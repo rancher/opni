@@ -18,6 +18,15 @@ const (
 	GPUControllerService
 )
 
+type ElasticRole string
+
+const (
+	ElasticDataRole   ElasticRole = "data"
+	ElasticClientRole ElasticRole = "client"
+	ElasticMasterRole ElasticRole = "master"
+	ElasticKibanaRole ElasticRole = "kibana"
+)
+
 func (s ServiceKind) String() string {
 	switch s {
 	case InferenceService:
@@ -57,6 +66,40 @@ func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *ImageSpec {
 		return &opniCluster.Spec.Services.GPUController.ImageSpec
 	default:
 		return nil
+	}
+}
+
+func (s ServiceKind) GetNodeSelector(opniCluster *OpniCluster) map[string]string {
+	switch s {
+	case InferenceService:
+		return opniCluster.Spec.Services.Inference.NodeSelector
+	case DrainService:
+		return opniCluster.Spec.Services.Drain.NodeSelector
+	case PreprocessingService:
+		return opniCluster.Spec.Services.Preprocessing.NodeSelector
+	case PayloadReceiverService:
+		return opniCluster.Spec.Services.PayloadReceiver.NodeSelector
+	case GPUControllerService:
+		return opniCluster.Spec.Services.GPUController.NodeSelector
+	default:
+		return map[string]string{}
+	}
+}
+
+func (s ServiceKind) GetTolerations(opniCluster *OpniCluster) []corev1.Toleration {
+	switch s {
+	case InferenceService:
+		return opniCluster.Spec.Services.Inference.Tolerations
+	case DrainService:
+		return opniCluster.Spec.Services.Drain.Tolerations
+	case PreprocessingService:
+		return opniCluster.Spec.Services.Preprocessing.Tolerations
+	case PayloadReceiverService:
+		return opniCluster.Spec.Services.PayloadReceiver.Tolerations
+	case GPUControllerService:
+		return opniCluster.Spec.Services.GPUController.Tolerations
+	default:
+		return []corev1.Toleration{}
 	}
 }
 
@@ -111,4 +154,34 @@ func (r ImageResolver) Resolve() (result ImageSpec) {
 	result.Image = pointer.String(fmt.Sprintf("%s:%s",
 		path.Join(defaultRepo, r.ImageName), version))
 	return
+}
+
+func (e ElasticRole) GetNodeSelector(opniCluster *OpniCluster) map[string]string {
+	switch e {
+	case ElasticDataRole:
+		return opniCluster.Spec.Elastic.Workloads.Data.NodeSelector
+	case ElasticMasterRole:
+		return opniCluster.Spec.Elastic.Workloads.Master.NodeSelector
+	case ElasticClientRole:
+		return opniCluster.Spec.Elastic.Workloads.Client.NodeSelector
+	case ElasticKibanaRole:
+		return opniCluster.Spec.Elastic.Workloads.Kibana.NodeSelector
+	default:
+		return map[string]string{}
+	}
+}
+
+func (e ElasticRole) GetTolerations(opniCluster *OpniCluster) []corev1.Toleration {
+	switch e {
+	case ElasticDataRole:
+		return opniCluster.Spec.Elastic.Workloads.Data.Tolerations
+	case ElasticMasterRole:
+		return opniCluster.Spec.Elastic.Workloads.Master.Tolerations
+	case ElasticClientRole:
+		return opniCluster.Spec.Elastic.Workloads.Client.Tolerations
+	case ElasticKibanaRole:
+		return opniCluster.Spec.Elastic.Workloads.Kibana.Tolerations
+	default:
+		return []corev1.Toleration{}
+	}
 }

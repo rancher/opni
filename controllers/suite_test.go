@@ -77,6 +77,8 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths: []string{
 			"../config/crd/bases",
 			"../config/crd/logging",
+			"../config/crd/nvidia",
+			"../config/crd/nfd",
 			"../test/resources",
 		},
 		BinaryAssetsDirectory: "../testbin/bin",

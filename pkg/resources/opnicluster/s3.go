@@ -139,6 +139,9 @@ func (r *Reconciler) seaweed() []resources.Resource {
 			"-s3.allowEmptyFolder=true",
 			fmt.Sprintf("-s3.domainName=opni-seaweed-s3.%s.svc", r.opniCluster.Namespace),
 			"-s3.port=8333",
+			"-volume.max=0",
+			"-master.volumeSizeLimitMB=512",
+			"-master.defaultReplication=000",
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{

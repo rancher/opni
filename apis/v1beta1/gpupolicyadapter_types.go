@@ -17,13 +17,14 @@ limitations under the License.
 package v1beta1
 
 import (
+	nvidiav1 "github.com/NVIDIA/gpu-operator/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ContainerRuntime string
 
 const (
-	// Auto will detect the container runtime based on the flavor of Kubernetes
+	// Auto will detect the container runtime based on the Kubernetes provider
 	// in use. Containerd is the default, unless the cluster is using RKE.
 	Auto       ContainerRuntime = "auto"
 	Docker     ContainerRuntime = "docker"
@@ -32,19 +33,38 @@ const (
 
 // GpuPolicyAdapterSpec defines the desired state of GpuPolicyAdapter
 type GpuPolicyAdapterSpec struct {
-	// Version is the version of the GPU Operator. This is used for validator and
-	// node status exporter components.
-	Version          string           `json:"version"`
-	ContainerRuntime ContainerRuntime `json:"containerRuntime"`
-	// +optional
-	DefaultRepo *string `json:"defaultRepo,omitempty"`
-	RDMA        bool    `json:"rdma"`
+	// +kubebuilder:validation:Enum={"auto","docker","containerd"}
+	// +kubebuilder:default=auto
+	ContainerRuntime ContainerRuntime `json:"containerRuntime,omitempty"`
+	// +kubebuilder:validation:Enum={"auto","k3s","rke2","rke","none"}
+	// +kubebuilder:default=auto
+	KubernetesProvider string                     `json:"kubernetesProvider,omitempty"`
+	Images             ImagesSpec                 `json:"images,omitempty"`
+	VGPU               VGPUSpec                   `json:"vgpu,omitempty"`
+	Template           nvidiav1.ClusterPolicySpec `json:"template,omitempty"`
+}
+
+type VGPUSpec struct {
+	LicenseConfigMap string `json:"licenseConfigMap"`
+	// +kubebuilder:validation:Enum={"nls","legacy"}
+	LicenseServerKind string `json:"licenseServerKind"`
+}
+
+type ImagesSpec struct {
+	Driver        string `json:"driver"`
+	DriverManager string `json:"driverManager"`
+	DCGM          string `json:"dcgm"`
+	DCGMExporter  string `json:"dcgmExporter"`
+	DevicePlugin  string `json:"devicePlugin"`
+	GFD           string `json:"gfd"`
+	InitContainer string `json:"initContainer"`
+	Toolkit       string `json:"toolkit"`
+	Validator     string `json:"validator"`
+	MIGManager    string `json:"migManager"`
 }
 
 // GpuPolicyAdapterStatus defines the observed state of GpuPolicyAdapter
 type GpuPolicyAdapterStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 }
 
 //+kubebuilder:object:root=true

@@ -77,7 +77,7 @@ spec:
     repoConfig:
       configMapName: ""
       destinationDir: ""
-    repository: your.registry.local
+    repository: cr.lan.kralicky.dev
     securityContext:
       privileged: true
       seLinuxOptions:

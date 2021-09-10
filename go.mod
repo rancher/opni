@@ -11,8 +11,10 @@ require (
 	github.com/banzaicloud/logging-operator v1.12.4-alpine-2
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/banzaicloud/operator-tools v0.25.0
+	github.com/containers/image v3.0.2+incompatible
 	github.com/elastic/go-elasticsearch/v7 v7.12.0
 	github.com/go-logr/logr v0.4.0
+	github.com/imdario/mergo v0.3.12
 	github.com/k3s-io/helm-controller v0.11.2
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
 	github.com/kralicky/kmatch v0.0.0-20210825023525-bd5d2e8fc7f8
@@ -83,7 +85,6 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/heroku/docker-registry-client v0.0.0-20190909225348-afc9e1acc3d5 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
-	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect

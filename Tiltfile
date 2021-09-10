@@ -1,9 +1,11 @@
-settings = read_yaml('tilt-options.yaml', default={})
+load('ext://min_k8s_version', 'min_k8s_version')
 
-allow_k8s_contexts('k3d-k3s-tilt-opni')
+settings = read_yaml('tilt-options.yaml', default={})
 
 if "allowedContexts" in settings:
     allow_k8s_contexts(settings["allowedContexts"])
+
+min_k8s_version('1.22')
 
 k8s_yaml('staging/staging_autogen.yaml')
 

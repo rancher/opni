@@ -20,7 +20,7 @@ spec:
     payloadReceiver:
       image: quay.io/dbason/opni-payload-receiver-service:debug
     gpuController:
-      enabled: false
+      enabled: true
       image: quay.io/dbason/opni-gpu-service-controller:debug
   elastic:
     version: 1.13.2

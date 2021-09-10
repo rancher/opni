@@ -37,3 +37,25 @@ func Detect(ctx context.Context, c client.Client) (Provider, error) {
 	}
 	return Unknown, nil
 }
+
+func (p Provider) ContainerRuntime() string {
+	switch p {
+	case RKE:
+		return "docker"
+	default:
+		return "containerd"
+	}
+}
+
+func (p Provider) String() string {
+	switch p {
+	case K3S:
+		return "k3s"
+	case RKE2:
+		return "rke2"
+	case RKE:
+		return "rke"
+	default:
+		return "unknown"
+	}
+}

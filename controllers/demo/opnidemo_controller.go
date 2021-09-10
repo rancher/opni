@@ -29,7 +29,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -73,7 +72,6 @@ type KibanaDashboardPrerequisite struct {
 // /*+*/ kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch;create;update;patch;delete
 // /*+*/ kubebuilder:rbac:groups=helm.cattle.io,resources=helmchartconfigs,verbs=get;list;watch;create;update;patch;delete
 // /*+*/ kubebuilder:rbac:groups=helm.cattle.io,resources=helmcharts,verbs=get;list;watch;create;update;patch;delete
-// /*+*/ kubebuilder:rbac:groups=extensions,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 
 //
 // For more details, check Reconcile and its Result here:
@@ -154,7 +152,6 @@ func (r *OpniDemoReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rbacv1.ClusterRoleBinding{}).
 		Owns(&rbacv1.RoleBinding{}).
 		Owns(&rbacv1.Role{}).
-		Owns(&extv1beta1.Ingress{}).
 		Owns(&storagev1.StorageClass{}).
 		Complete(r)
 }

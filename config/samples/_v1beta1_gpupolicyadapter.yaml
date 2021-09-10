@@ -1,7 +1,5 @@
-# apiVersion: opni.io/v1beta1
-# kind: GpuPolicyAdapter
-# metadata:
-#   name: gpupolicyadapter-sample
-# spec:
-#   # Add fields here
-#   foo: bar
+apiVersion: opni.io/v1beta1
+kind: GpuPolicyAdapter
+metadata:
+  name: gpu
+spec: {}

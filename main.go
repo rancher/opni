@@ -28,7 +28,6 @@ import (
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"go.uber.org/zap/zapcore"
-	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -67,7 +66,6 @@ func init() {
 	utilruntime.Must(v1beta1.AddToScheme(scheme))
 	utilruntime.Must(demov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(helmv1.AddToScheme(scheme))
-	utilruntime.Must(apiextv1beta1.AddToScheme(scheme))
 	utilruntime.Must(opniloggingv1beta1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(opninvidiav1.AddToScheme(scheme))
@@ -166,12 +164,10 @@ func run() error {
 		setupLog.Error(err, "unable to create controller", "controller", "NodeFeatureDiscovery")
 		return err
 	}
-	if err = (&controllers.GpuPolicyAdapterReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+
+	if err = (&controllers.GpuPolicyAdapterReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GpuPolicyAdapter")
-		os.Exit(1)
+		return err
 	}
 	// +kubebuilder:scaffold:builder
 

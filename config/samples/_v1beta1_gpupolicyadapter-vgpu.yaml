@@ -1,0 +1,10 @@
+apiVersion: opni.io/v1beta1
+kind: GpuPolicyAdapter
+metadata:
+  name: vgpu
+spec:
+  images:
+    driver:
+  vgpu:
+    licenseConfigMap: licensing-config
+    licenseServerKind: nls

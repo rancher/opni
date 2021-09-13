@@ -125,8 +125,6 @@ github.com/Microsoft/hcsshim v0.8.20 h1:ZTwcx3NS8n07kPf/JZ1qwU6vnjhVPMUWlXBF8r9U
 github.com/Microsoft/hcsshim v0.8.20/go.mod h1:+w2gRZ5ReXQhFOrvSQeNfhrYB/dg3oDwTOcER2fw4I4=
 github.com/Microsoft/hcsshim/test v0.0.0-20201218223536-d3e5debf77da/go.mod h1:5hlzMzRKMLyo42nCZ9oml8AdTlq/0cvIaBv6tK1RehU=
 github.com/Microsoft/hcsshim/test v0.0.0-20210227013316-43a75bb4edd3/go.mod h1:mw7qgWloBUl75W/gVH3cQszUg1+gUITj7D6NY7ywVnY=
-github.com/NVIDIA/gpu-operator v1.8.1 h1:I2uvH37KbdytazGH2dwYe1vl8eaqhP4Yl64sbwic3zo=
-github.com/NVIDIA/gpu-operator v1.8.1/go.mod h1:rKE6hMtDcJB/bZK1gVGimyIDnpy/P9XpKDm5uTv53eg=
 github.com/NYTimes/gziphandler v0.0.0-20170623195520-56545f4a5d46/go.mod h1:3wb06e3pkSAbeQ52E9H9iFoQsEEwGN64994WTCIhntQ=
 github.com/NYTimes/gziphandler v1.1.1/go.mod h1:n/CVRwUEOgIxrgPvAQhUUr9oeUtvrhMomdKFjzJNB0c=
 github.com/Netflix/go-expect v0.0.0-20180615182759-c93bf25de8e8 h1:xzYJEypr/85nBpB11F9br+3HUrpgb+fcm5iADzXXYEw=
@@ -329,8 +327,6 @@ github.com/containernetworking/cni v0.8.0/go.mod h1:LGwApLUm2FpoOfxTDEeq8T9ipbpZ
 github.com/containernetworking/cni v0.8.1/go.mod h1:LGwApLUm2FpoOfxTDEeq8T9ipbpZ61X79hmU3w8FmsY=
 github.com/containernetworking/plugins v0.8.6/go.mod h1:qnw5mN19D8fIwkqW7oHHYDHVlzhJpcY6TQxn/fUyDDM=
 github.com/containernetworking/plugins v0.9.1/go.mod h1:xP/idU2ldlzN6m4p5LmGiwRDjeJr6FLK6vuiUwoH7P8=
-github.com/containers/image v3.0.2+incompatible h1:B1lqAE8MUPCrsBLE86J0gnXleeRq8zJnQryhiiGQNyE=
-github.com/containers/image v3.0.2+incompatible/go.mod h1:8Vtij257IWSanUQKe1tAeNOm2sRVkSqQTVQ1IlwI3+M=
 github.com/containers/ocicrypt v1.0.1/go.mod h1:MeJDzk1RJHv89LjsH0Sp5KTY3ZYkjXO/C+bKAeWFIrc=
 github.com/containers/ocicrypt v1.1.0/go.mod h1:b8AOe0YR67uU8OqfVNcznfFpAzu3rdgUV4GP9qXPfu4=
 github.com/containers/ocicrypt v1.1.1/go.mod h1:Dm55fwWm1YZAjYRaJ94z2mfZikIyIN4B0oB3dj3jFxY=
@@ -854,6 +850,8 @@ github.com/kr/pty v1.1.5/go.mod h1:9r2w37qlBe7rQ6e1fg1S/9xpWHSnaqNdHD3WcMdbPDA=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
+github.com/kralicky/gpu-operator v1.8.1-0.20210913231859-c0b0d7673219 h1:nrWL3IBxhjv5RmhyKwGQVAlRe6gkm4znvNcRNinpzeY=
+github.com/kralicky/gpu-operator v1.8.1-0.20210913231859-c0b0d7673219/go.mod h1:C//C1o3b0JPB2KtO4K3tgyeeTXcpBK6ZVEDjDlgFco8=
 github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a h1:I5tncrQ/dxOPY7jNN5hhubtkpvoIhz4qckT62C0kdTQ=
 github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a/go.mod h1:ie5ARlfZVi2fyaApaZ/5JFhIs5DaIIFKxwM6rjYa8SE=
 github.com/kralicky/kmatch v0.0.0-20210825023525-bd5d2e8fc7f8 h1:41k/TM82ymFDwx+0qQSrECDxwIgC49tDMMu/jk9GTcY=
@@ -932,6 +930,9 @@ github.com/mitchellh/go-ps v0.0.0-20170309133038-4fdf99ab2936/go.mod h1:r1VsdOzO
 github.com/mitchellh/go-testing-interface v1.0.0/go.mod h1:kRemZodwjscx+RGhAo8eIhFbs2+BFgRtFPeD/KE+zxI=
 github.com/mitchellh/go-wordwrap v1.0.0/go.mod h1:ZXFpozHsX6DPmq2I0TCekCxypsnAUbP2oI0UX1GXzOo=
 github.com/mitchellh/gox v0.4.0/go.mod h1:Sd9lOJ0+aimLBi73mGofS1ycjY8lL3uZM3JPS42BGNg=
+github.com/mitchellh/hashstructure v1.1.0 h1:P6P1hdjqAAknpY/M1CGipelZgp+4y9ja9kmUZPXP+H0=
+github.com/mitchellh/hashstructure v1.1.0/go.mod h1:xUDAozZz0Wmdiufv0uyhnHkUTN6/6d8ulp4AwfLKrmA=
+github.com/mitchellh/hashstructure/v2 v2.0.2/go.mod h1:MG3aRVU/N29oo/V/IhBX8GR/zz4kQkprJgF2EVszyDE=
 github.com/mitchellh/iochan v1.0.0/go.mod h1:JwYml1nuB7xOzsp52dPpHFffvOCDupsG0QubkSMEySY=
 github.com/mitchellh/mapstructure v0.0.0-20160808181253-ca63d7c062ee/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/mitchellh/mapstructure v0.0.0-20180220230111-00c29f56e238/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=

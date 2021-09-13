@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.5.0
+    controller-gen.kubebuilder.io/version: (devel)
   creationTimestamp: null
   name: gpupolicyadapters.opni.io
 spec:
@@ -14,7 +14,7 @@ spec:
     listKind: GpuPolicyAdapterList
     plural: gpupolicyadapters
     singular: gpupolicyadapter
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1beta1
     schema:
@@ -162,7 +162,6 @@ spec:
                         format: int32
                         type: integer
                       image:
-                        pattern: '[a-zA-Z0-9\-]+'
                         type: string
                       imagePullPolicy:
                         type: string
@@ -254,8 +253,6 @@ spec:
                         type: object
                       version:
                         type: string
-                    required:
-                    - image
                     type: object
                   dcgmExporter:
                     properties:
@@ -329,7 +326,6 @@ spec:
                           type: object
                         type: array
                       image:
-                        pattern: '[a-zA-Z0-9\-]+'
                         type: string
                       imagePullPolicy:
                         type: string
@@ -421,8 +417,6 @@ spec:
                         type: object
                       version:
                         type: string
-                    required:
-                    - image
                     type: object
                   devicePlugin:
                     properties:
@@ -491,7 +485,6 @@ spec:
                           type: object
                         type: array
                       image:
-                        pattern: '[a-zA-Z0-9\-]+'
                         type: string
                       imagePullPolicy:
                         type: string
@@ -583,8 +576,6 @@ spec:
                         type: object
                       version:
                         type: string
-                    required:
-                    - image
                     type: object
                   driver:
                     properties:
@@ -655,7 +646,6 @@ spec:
                           type: object
                         type: array
                       image:
-                        pattern: '[a-zA-Z0-9\-]+'
                         type: string
                       imagePullPolicy:
                         type: string
@@ -733,7 +723,7 @@ spec:
                               type: object
                             type: array
                           image:
-                            pattern: '[a-zA-Z0-9\-]+'
+                            pattern: '[a-zA-Z0-9\-]*'
                             type: string
                           imagePullPolicy:
                             type: string
@@ -847,8 +837,6 @@ spec:
                           config:
                             type: string
                         type: object
-                    required:
-                    - image
                     type: object
                   gfd:
                     properties:
@@ -917,7 +905,6 @@ spec:
                           type: object
                         type: array
                       image:
-                        pattern: '[a-zA-Z0-9\-]+'
                         type: string
                       imagePullPolicy:
                         type: string
@@ -1009,12 +996,11 @@ spec:
                         type: object
                       version:
                         type: string
-                    required:
-                    - image
                     type: object
                   mig:
                     properties:
                       strategy:
+                        default: none
                         enum:
                         - none
                         - single
@@ -1027,6 +1013,11 @@ spec:
                         items:
                           type: string
                         type: array
+                      config:
+                        properties:
+                          name:
+                            type: string
+                        type: object
                       enabled:
                         type: boolean
                       env:
@@ -1090,7 +1081,6 @@ spec:
                           type: object
                         type: array
                       image:
-                        pattern: '[a-zA-Z0-9\-]+'
                         type: string
                       imagePullPolicy:
                         type: string
@@ -1182,8 +1172,6 @@ spec:
                         type: object
                       version:
                         type: string
-                    required:
-                    - image
                     type: object
                   nodeStatusExporter:
                     properties:
@@ -1254,7 +1242,6 @@ spec:
                           type: object
                         type: array
                       image:
-                        pattern: '[a-zA-Z0-9\-]+'
                         type: string
                       imagePullPolicy:
                         type: string
@@ -1346,8 +1333,6 @@ spec:
                         type: object
                       version:
                         type: string
-                    required:
-                    - image
                     type: object
                   operator:
                     properties:
@@ -1361,7 +1346,6 @@ spec:
                       initContainer:
                         properties:
                           image:
-                            pattern: '[a-zA-Z0-9\-]+'
                             type: string
                           imagePullPolicy:
                             type: string
@@ -1377,8 +1361,8 @@ spec:
                       runtimeClass:
                         default: nvidia
                         type: string
-                    required:
-                    - defaultRuntime
+                      runtimeHandler:
+                        type: string
                     type: object
                   psp:
                     properties:
@@ -1454,7 +1438,6 @@ spec:
                           type: object
                         type: array
                       image:
-                        pattern: '[a-zA-Z0-9\-]+'
                         type: string
                       imagePullPolicy:
                         type: string
@@ -1546,8 +1529,6 @@ spec:
                         type: object
                       version:
                         type: string
-                    required:
-                    - image
                     type: object
                   validator:
                     properties:
@@ -1742,7 +1723,6 @@ spec:
                           type: object
                         type: array
                       image:
-                        pattern: '[a-zA-Z0-9\-]+'
                         type: string
                       imagePullPolicy:
                         type: string
@@ -1960,19 +1940,7 @@ spec:
                         type: object
                       version:
                         type: string
-                    required:
-                    - image
                     type: object
-                required:
-                - daemonsets
-                - dcgm
-                - dcgmExporter
-                - devicePlugin
-                - driver
-                - gfd
-                - nodeStatusExporter
-                - operator
-                - toolkit
                 type: object
               vgpu:
                 properties:

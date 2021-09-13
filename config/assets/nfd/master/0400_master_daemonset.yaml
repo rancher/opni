@@ -13,9 +13,17 @@ spec:
       labels:
         app: nfd-master
     spec:
+      affinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io
+                  operator: In
+                  values:
+                    - master
+                    - controlplane
+                    - control-plane
       serviceAccount: nfd-master
-      nodeSelector:
-        node-role.kubernetes.io/master: "true"
       tolerations:
         - key: "node-role.kubernetes.io/master"
           operator: "Equal"
@@ -23,10 +31,10 @@ spec:
           effect: "NoSchedule"
       containers:
         - env:
-          - name: NODE_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.nodeName
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           image: $(NODE_FEATURE_DISCOVERY_IMAGE)
           name: nfd-master
           command: ["nfd-master"]

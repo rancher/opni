@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//+kubebuilder:validation:Optional
 package v1beta1
 
 import (
@@ -38,29 +39,30 @@ type GpuPolicyAdapterSpec struct {
 	ContainerRuntime ContainerRuntime `json:"containerRuntime,omitempty"`
 	// +kubebuilder:validation:Enum={"auto","k3s","rke2","rke","none"}
 	// +kubebuilder:default=auto
-	KubernetesProvider string                     `json:"kubernetesProvider,omitempty"`
-	Images             ImagesSpec                 `json:"images,omitempty"`
-	VGPU               VGPUSpec                   `json:"vgpu,omitempty"`
-	Template           nvidiav1.ClusterPolicySpec `json:"template,omitempty"`
+	KubernetesProvider string     `json:"kubernetesProvider,omitempty"`
+	Images             ImagesSpec `json:"images,omitempty"`
+	VGPU               VGPUSpec   `json:"vgpu,omitempty"`
+	// +kubebuilder:validation:Optional
+	Template nvidiav1.ClusterPolicySpec `json:"template,omitempty"`
 }
 
 type VGPUSpec struct {
-	LicenseConfigMap string `json:"licenseConfigMap"`
+	LicenseConfigMap string `json:"licenseConfigMap,omitempty"`
 	// +kubebuilder:validation:Enum={"nls","legacy"}
-	LicenseServerKind string `json:"licenseServerKind"`
+	LicenseServerKind string `json:"licenseServerKind,omitempty"`
 }
 
 type ImagesSpec struct {
-	Driver        string `json:"driver"`
-	DriverManager string `json:"driverManager"`
-	DCGM          string `json:"dcgm"`
-	DCGMExporter  string `json:"dcgmExporter"`
-	DevicePlugin  string `json:"devicePlugin"`
-	GFD           string `json:"gfd"`
-	InitContainer string `json:"initContainer"`
-	Toolkit       string `json:"toolkit"`
-	Validator     string `json:"validator"`
-	MIGManager    string `json:"migManager"`
+	Driver        string `json:"driver,omitempty"`
+	DriverManager string `json:"driverManager,omitempty"`
+	DCGM          string `json:"dcgm,omitempty"`
+	DCGMExporter  string `json:"dcgmExporter,omitempty"`
+	DevicePlugin  string `json:"devicePlugin,omitempty"`
+	GFD           string `json:"gfd,omitempty"`
+	InitContainer string `json:"initContainer,omitempty"`
+	Toolkit       string `json:"toolkit,omitempty"`
+	Validator     string `json:"validator,omitempty"`
+	MIGManager    string `json:"migManager,omitempty"`
 }
 
 // GpuPolicyAdapterStatus defines the observed state of GpuPolicyAdapter
@@ -68,6 +70,7 @@ type GpuPolicyAdapterStatus struct {
 }
 
 //+kubebuilder:object:root=true
+//+kubebuilder:resource:scope=Cluster
 //+kubebuilder:subresource:status
 
 // GpuPolicyAdapter is the Schema for the gpupolicyadapters API

@@ -28,7 +28,7 @@ var (
 		GFD:           "nvcr.io/nvidia/gpu-feature-discovery:v0.4.1",
 		InitContainer: "nvcr.io/nvidia/cuda:11.2.1-base-ubuntu20.04",
 		MIGManager:    "nvcr.io/nvidia/cloud-native/k8s-mig-manager:v0.1.2-ubuntu20.04",
-		Toolkit:       "nvcr.io/nvidia/k8s/container-toolkit:1.6.0",
+		Toolkit:       "joekralicky/container-toolkit:1.7.0-ubuntu20.04",
 		Validator:     "joekralicky/gpu-operator-validator:v1.8.1-ubuntu20.04",
 	}
 )
@@ -55,6 +55,7 @@ func ReconcileGPUAdapter(
 	if err != nil {
 		return util.RequeueErr(err).Result()
 	}
+
 	return util.LoadResult(rec.ReconcileResource(policy, reconciler.StatePresent)).Result()
 }
 
@@ -67,6 +68,15 @@ func buildClusterPolicy(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gpa.Name,
 			Namespace: gpa.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: gpa.APIVersion,
+					Kind:       gpa.Kind,
+					Name:       gpa.Name,
+					UID:        gpa.UID,
+					Controller: pointer.BoolPtr(true),
+				},
+			},
 		},
 		Spec: nvidiav1.ClusterPolicySpec{
 			Daemonsets: nvidiav1.DaemonsetsSpec{
@@ -207,7 +217,6 @@ func buildClusterPolicy(
 			},
 			Operator: nvidiav1.OperatorSpec{
 				DefaultRuntime: nvidiav1.Runtime(provider.ContainerRuntime()),
-				RuntimeClass:   "nvidia",
 				InitContainer: nvidiav1.InitContainerSpec{
 					Image: gpa.Spec.Images.InitContainer,
 				},

@@ -11,7 +11,6 @@ require (
 	github.com/banzaicloud/logging-operator v1.12.4-alpine-2
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/banzaicloud/operator-tools v0.25.0
-	github.com/containers/image v3.0.2+incompatible
 	github.com/elastic/go-elasticsearch/v7 v7.12.0
 	github.com/go-logr/logr v0.4.0
 	github.com/imdario/mergo v0.3.12
@@ -96,6 +95,7 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/mitchellh/hashstructure v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/moby/sys/mount v0.2.0 // indirect
@@ -158,6 +158,7 @@ require (
 )
 
 replace (
+	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20210913231859-c0b0d7673219
 	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
 )

@@ -1,3 +1,4 @@
+
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -210,7 +211,6 @@ spec:
                     type: integer
                   image:
                     description: DCGM image name
-                    pattern: '[a-zA-Z0-9\-]+'
                     type: string
                   imagePullPolicy:
                     description: Image pull policy
@@ -398,8 +398,6 @@ spec:
                   version:
                     description: DCGM image tag
                     type: string
-                required:
-                - image
                 type: object
               dcgmExporter:
                 description: DCGMExporter spec
@@ -529,7 +527,6 @@ spec:
                     type: array
                   image:
                     description: DCGM image name
-                    pattern: '[a-zA-Z0-9\-]+'
                     type: string
                   imagePullPolicy:
                     description: Image pull policy
@@ -717,8 +714,6 @@ spec:
                   version:
                     description: DCGM image tag
                     type: string
-                required:
-                - image
                 type: object
               devicePlugin:
                 description: DevicePlugin component spec
@@ -839,7 +834,6 @@ spec:
                     type: array
                   image:
                     description: DevicePlugin image name
-                    pattern: '[a-zA-Z0-9\-]+'
                     type: string
                   imagePullPolicy:
                     description: Image pull policy
@@ -1027,8 +1021,6 @@ spec:
                   version:
                     description: DevicePlugin image tag
                     type: string
-                required:
-                - image
                 type: object
               driver:
                 description: Driver component spec
@@ -1153,7 +1145,6 @@ spec:
                     type: array
                   image:
                     description: Driver image name
-                    pattern: '[a-zA-Z0-9\-]+'
                     type: string
                   imagePullPolicy:
                     description: Image pull policy
@@ -1291,7 +1282,7 @@ spec:
                         type: array
                       image:
                         description: Image represents Driver-Manager image name
-                        pattern: '[a-zA-Z0-9\-]+'
+                        pattern: '[a-zA-Z0-9\-]*'
                         type: string
                       imagePullPolicy:
                         description: Image pull policy
@@ -1513,8 +1504,6 @@ spec:
                           daemon configuration file nvidia-topologyd.conf'
                         type: string
                     type: object
-                required:
-                - image
                 type: object
               gfd:
                 description: GPUFeatureDiscovery spec
@@ -1635,7 +1624,6 @@ spec:
                     type: array
                   image:
                     description: GFD image name
-                    pattern: '[a-zA-Z0-9\-]+'
                     type: string
                   imagePullPolicy:
                     description: Image pull policy
@@ -1823,13 +1811,12 @@ spec:
                   version:
                     description: GFD image tag
                     type: string
-                required:
-                - image
                 type: object
               mig:
                 description: MIG spec
                 properties:
                   strategy:
+                    default: none
                     description: 'Optional: MIGStrategy to apply for GFD and Device-Plugin'
                     enum:
                     - none
@@ -1845,6 +1832,14 @@ spec:
                     items:
                       type: string
                     type: array
+                  config:
+                    description: 'Optional: Custom mig-parted configuration for MIG
+                      Manager container'
+                    properties:
+                      name:
+                        description: ConfigMap name
+                        type: string
+                    type: object
                   enabled:
                     description: Enabled indicates if deployment of mig-manager is
                       enabled
@@ -1960,7 +1955,6 @@ spec:
                     type: array
                   image:
                     description: mig-manager image name
-                    pattern: '[a-zA-Z0-9\-]+'
                     type: string
                   imagePullPolicy:
                     description: Image pull policy
@@ -2148,8 +2142,6 @@ spec:
                   version:
                     description: mig-manager image tag
                     type: string
-                required:
-                - image
                 type: object
               nodeStatusExporter:
                 description: NodeStatusExporter spec
@@ -2274,7 +2266,6 @@ spec:
                     type: array
                   image:
                     description: node-status-exporter image name
-                    pattern: '[a-zA-Z0-9\-]+'
                     type: string
                   imagePullPolicy:
                     description: Image pull policy
@@ -2462,8 +2453,6 @@ spec:
                   version:
                     description: node-status-exporter image tag
                     type: string
-                required:
-                - image
                 type: object
               operator:
                 description: Operator component spec
@@ -2482,7 +2471,6 @@ spec:
                     properties:
                       image:
                         description: Image represents image name
-                        pattern: '[a-zA-Z0-9\-]+'
                         type: string
                       imagePullPolicy:
                         description: Image pull policy
@@ -2502,8 +2490,11 @@ spec:
                   runtimeClass:
                     default: nvidia
                     type: string
-                required:
-                - defaultRuntime
+                  runtimeHandler:
+                    description: 'Optional: the handler to use for the specified RuntimeClass.
+                      If unset, it will use ''docker'' if DefaultRuntime is ''docker'',
+                      otherwise it will use the value of RuntimeClass.'
+                    type: string
                 type: object
               psp:
                 description: PSP defines spec for handling PodSecurityPolicies
@@ -2636,7 +2627,6 @@ spec:
                     type: array
                   image:
                     description: Toolkit image name
-                    pattern: '[a-zA-Z0-9\-]+'
                     type: string
                   imagePullPolicy:
                     description: Image pull policy
@@ -2824,8 +2814,6 @@ spec:
                   version:
                     description: Toolkit image tag
                     type: string
-                required:
-                - image
                 type: object
               validator:
                 description: Validator defines the spec for operator-validator daemonset
@@ -3180,7 +3168,6 @@ spec:
                     type: array
                   image:
                     description: Validator image name
-                    pattern: '[a-zA-Z0-9\-]+'
                     type: string
                   imagePullPolicy:
                     description: Image pull policy
@@ -3602,19 +3589,7 @@ spec:
                   version:
                     description: Validator image tag
                     type: string
-                required:
-                - image
                 type: object
-            required:
-            - daemonsets
-            - dcgm
-            - dcgmExporter
-            - devicePlugin
-            - driver
-            - gfd
-            - nodeStatusExporter
-            - operator
-            - toolkit
             type: object
           status:
             description: ClusterPolicyStatus defines the observed state of ClusterPolicy
@@ -3626,8 +3601,6 @@ spec:
                 - ready
                 - notReady
                 type: string
-            required:
-            - state
             type: object
         type: object
     served: true

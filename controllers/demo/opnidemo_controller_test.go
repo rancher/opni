@@ -94,6 +94,7 @@ var _ = Describe("OpniDemo Controller", func() {
 				wg.Add(1)
 				go func(chart string) {
 					defer GinkgoRecover()
+					defer wg.Done()
 					Eventually(func() error {
 						helmchart := &helmv1.HelmChart{}
 						err := k8sClient.Get(context.Background(), types.NamespacedName{
@@ -104,8 +105,7 @@ var _ = Describe("OpniDemo Controller", func() {
 							log.Println(err)
 						}
 						return err
-					}).Should(BeNil())
-					wg.Done()
+					}, timeout, interval).Should(BeNil())
 				}(chart)
 			}
 			wg.Wait()

@@ -46,6 +46,7 @@ import (
 	"github.com/rancher/opni/controllers/demo"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -63,6 +64,7 @@ func init() {
 	// Register the logging operator CRDs under the logging.opni.io group
 	// to avoid possible conflicts.
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(apiextv1.AddToScheme(scheme))
 	utilruntime.Must(v1beta1.AddToScheme(scheme))
 	utilruntime.Must(demov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(helmv1.AddToScheme(scheme))

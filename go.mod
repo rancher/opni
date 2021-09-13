@@ -11,13 +11,12 @@ require (
 	github.com/banzaicloud/logging-operator v1.12.4-alpine-2
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/banzaicloud/operator-tools v0.25.0
-	github.com/containers/image v3.0.2+incompatible
 	github.com/elastic/go-elasticsearch/v7 v7.12.0
 	github.com/go-logr/logr v0.4.0
 	github.com/imdario/mergo v0.3.12
 	github.com/k3s-io/helm-controller v0.11.2
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
-	github.com/kralicky/kmatch v0.0.0-20210825023525-bd5d2e8fc7f8
+	github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6
 	github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
 	github.com/nats-io/nkeys v0.3.0

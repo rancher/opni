@@ -180,6 +180,7 @@ func (r *OpniDemoReconciler) reconcileInfraStack(
 			}
 			return ctrl.Result{Requeue: true}, r.Create(ctx, object)
 		} else if err != nil {
+			r.log.Error(err, "error checking objects")
 			return ctrl.Result{}, err
 		} else {
 			if ds, ok := object.(*appsv1.DaemonSet); ok {

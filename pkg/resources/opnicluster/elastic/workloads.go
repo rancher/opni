@@ -321,6 +321,8 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 						},
 					},
 					ImagePullSecrets: imageSpec.ImagePullSecrets,
+					NodeSelector:     r.elasticNodeSelector(labels.Role()),
+					Tolerations:      r.elasticTolerations(labels.Role()),
 				},
 			},
 		},

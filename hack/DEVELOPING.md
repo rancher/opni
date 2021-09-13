@@ -90,16 +90,18 @@ $ docker push your.registry.local/nvidia-vgpu-driver:latest-ubuntu20.04
 ```
 5. Patch `config/samples/_v1_clusterpolicy-vgpu.yaml` as follows:
 ```yaml
-# fields that have not changed are omitted
+apiVersion: opni.io/v1beta1
+kind: GpuPolicyAdapter
+metadata:
+  name: vgpu
 spec:
-  driver:
-    licensingConfig:
-      configMapName: licensing-config
-      nlsEnabled: true 
-    repository: your.registry.local
-    version: latest # note: omit the -ubuntu20.04 suffix
+  images:
+    driver: your.registry.local/nvidia-vgpu-driver:latest-ubuntu20.04
+  vgpu:
+    licenseConfigMap: licensing-config
+    licenseServerKind: nls # assuming you are using NLS
 ```
-6. Swap `_v1_clusterpolicy.yaml` for `_v1_clusterpolicy-vgpu.yaml` in `config/samples/kustomization.yaml`
+6. Swap `_v1beta1_gpupolicyadapter.yaml` for `_v1beta1_gpupolicyadapter-vgpu.yaml` in `config/samples/kustomization.yaml`
 7. Install cert-manager `./install-cert-manager.sh`
 8. Label nodes for tilt `./tilt-label-nodes.sh`
 9. Create the license configmap `./vgpu-create-license-configmap.sh`

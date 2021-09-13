@@ -3,9 +3,7 @@ resources:
 - _v1beta1_logadapter.yaml
 - _v1beta1_opnicluster.yaml
 - _v1beta1_pretrainedmodel.yaml
-# - _v1_clusterpolicy.yaml
-# - _v1_clusterpolicy-vgpu.yaml
 - _v1beta1_gpupolicyadapter-vgpu.yaml
-- _v1_nodefeaturediscovery.yaml
 # - _v1beta1_gpupolicyadapter.yaml
+- _v1_nodefeaturediscovery.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

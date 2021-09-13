@@ -194,6 +194,15 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 		Spec: v1beta1.OpniClusterSpec{
 			Version:     "test",
 			DefaultRepo: pointer.String("docker.biz/rancher"), // nonexistent repo
+			GlobalNodeSelector: map[string]string{
+				"foo": "bar",
+			},
+			GlobalTolerations: []corev1.Toleration{
+				{
+					Key:      "foo",
+					Operator: corev1.TolerationOpExists,
+				},
+			},
 			Nats: v1beta1.NatsSpec{
 				AuthMethod: v1beta1.NatsAuthUsername,
 			},

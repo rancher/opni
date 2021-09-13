@@ -854,8 +854,8 @@ github.com/kralicky/gpu-operator v1.8.1-0.20210913231859-c0b0d7673219 h1:nrWL3IB
 github.com/kralicky/gpu-operator v1.8.1-0.20210913231859-c0b0d7673219/go.mod h1:C//C1o3b0JPB2KtO4K3tgyeeTXcpBK6ZVEDjDlgFco8=
 github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a h1:I5tncrQ/dxOPY7jNN5hhubtkpvoIhz4qckT62C0kdTQ=
 github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a/go.mod h1:ie5ARlfZVi2fyaApaZ/5JFhIs5DaIIFKxwM6rjYa8SE=
-github.com/kralicky/kmatch v0.0.0-20210825023525-bd5d2e8fc7f8 h1:41k/TM82ymFDwx+0qQSrECDxwIgC49tDMMu/jk9GTcY=
-github.com/kralicky/kmatch v0.0.0-20210825023525-bd5d2e8fc7f8/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
+github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6 h1:2EyVCvuVcVMG+UIUUurmTIMkBsgC42stXr1gVqKxCLk=
+github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
 github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208 h1:QBhf9mF1hatXAj3VOCc4Ycu7x865oR2k4JXNuQwRCRA=
 github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208/go.mod h1:5oljBNxBrSTcEQcaTEyv2yEqBudP4pWeF7swUybVnsA=
 github.com/lann/builder v0.0.0-20180802200727-47ae307949d0/go.mod h1:dXGbAdH5GtBTC4WfIxhKZfyBF/HBFgRZSWwZ9g/He9o=

@@ -73,6 +73,8 @@ var _ = Describe("OpniCluster Controller", func() {
 					HaveImage(fmt.Sprintf("docker.biz/rancher/%s:test", kind.ImageName()), corev1.PullNever),
 				),
 				HaveImagePullSecrets("lorem-ipsum"),
+				HaveNodeSelector("foo", "bar"),
+				HaveTolerations("foo"),
 			))
 		}
 		By("checking the gpu service data mount exists")
@@ -117,7 +119,12 @@ var _ = Describe("OpniCluster Controller", func() {
 				Name:      "opni-nats",
 				Namespace: cluster.Namespace,
 			},
-		})).Should(HaveReplicaCount(3))
+		})).Should(ExistAnd(
+			HaveReplicaCount(3),
+			HaveNodeSelector("foo", "bar"),
+			HaveTolerations("foo"),
+			HaveOwner(cluster),
+		))
 
 		By("checking nats config secret")
 		Eventually(Object(&corev1.Secret{
@@ -813,6 +820,15 @@ var _ = Describe("OpniCluster Controller", func() {
 							corev1.ResourceMemory: resource.MustParse("10Gi"),
 						},
 					},
+					NodeSelector: map[string]string{
+						"baz": "bat",
+					},
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "bar",
+							Operator: corev1.TolerationOpExists,
+						},
+					},
 				},
 				Kibana: v1beta1.ElasticWorkloadKibanaSpec{
 					Replicas: pointer.Int32(7),
@@ -841,6 +857,8 @@ var _ = Describe("OpniCluster Controller", func() {
 					"role", "master",
 				),
 				HaveReplicaCount(1),
+				HaveNodeSelector("foo", "bar"),
+				HaveTolerations("foo"),
 				HaveMatchingVolume(And(
 					HaveName("config"),
 					HaveVolumeSource("Secret"),
@@ -873,6 +891,8 @@ var _ = Describe("OpniCluster Controller", func() {
 					"role", "data",
 				),
 				HaveReplicaCount(3),
+				HaveNodeSelector("foo", "bar"),
+				HaveTolerations("foo"),
 				HaveMatchingContainer(And(
 					HaveName("elasticsearch"),
 					HaveImage("docker.io/amazon/opendistro-for-elasticsearch:1.0.0"),
@@ -901,6 +921,8 @@ var _ = Describe("OpniCluster Controller", func() {
 					"role", "client",
 				),
 				HaveReplicaCount(5),
+				HaveNodeSelector("baz", "bat"),
+				HaveTolerations("foo", "bar"),
 				HaveMatchingContainer(And(
 					HaveName("elasticsearch"),
 					HaveImage("docker.io/amazon/opendistro-for-elasticsearch:1.0.0"),
@@ -929,6 +951,8 @@ var _ = Describe("OpniCluster Controller", func() {
 					"role", "kibana",
 				),
 				HaveReplicaCount(7),
+				HaveNodeSelector("foo", "bar"),
+				HaveTolerations("foo"),
 				HaveMatchingContainer(And(
 					HaveName("opni-es-kibana"),
 					HaveImage("docker.io/amazon/opendistro-for-elasticsearch-kibana:1.0.0"),

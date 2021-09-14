@@ -34,7 +34,7 @@ var s3JsonTemplate = `{
 }`
 
 func (r *Reconciler) seaweed() []resources.Resource {
-	lg := log.FromContext(r.ctx)
+	_ = log.FromContext(r.ctx)
 	labels := map[string]string{
 		"app": "seaweed",
 	}
@@ -175,9 +175,8 @@ func (r *Reconciler) seaweed() []resources.Resource {
 	}
 	if p := r.opniCluster.Spec.S3.Internal.Persistence; p != nil && p.Enabled {
 		// Use a persistent volume
-		resourceRequest, err := resource.ParseQuantity(p.Request)
-		if err != nil {
-			lg.Error(err, "failed to parse storage resource request, defaulting to '10Gi'")
+		resourceRequest := p.Request
+		if resourceRequest.IsZero() {
 			resourceRequest = resource.MustParse("10Gi")
 		}
 		workload.Spec.Template.Spec.Volumes = append(workload.Spec.Template.Spec.Volumes, corev1.Volume{

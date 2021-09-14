@@ -4,7 +4,7 @@ metadata:
   name: vgpu
 spec:
   images:
-    driver: your.registry.local/nvidia-vgpu-driver:latest
+    driver: cr.lan.kralicky.dev/nvidia-vgpu-driver:latest
   vgpu:
     licenseConfigMap: licensing-config
     licenseServerKind: nls

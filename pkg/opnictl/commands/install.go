@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
@@ -16,9 +17,13 @@ import (
 )
 
 func BuildInstallCmd() *cobra.Command {
-	return &cobra.Command{
+	installCmd := &cobra.Command{
 		Use:   "install",
 		Short: "Install Opni Manager",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			featureGates := cmd.Flag("feature-gates").Value.String()
+			return features.DefaultMutableFeatureGate.Set(featureGates)
+		},
 		Long: `
 The install command will install the Opni Manager (operator) into your cluster, 
 along with the Opni CRDs. 
@@ -51,6 +56,11 @@ APIs. For more information on selecting an API, run 'opnictl help apis'.`,
 				msgs = cliutil.ForEachStagingResource(
 					common.RestConfig,
 					func(dr dynamic.ResourceInterface, obj *unstructured.Unstructured) error {
+						if obj.GetKind() == "Deployment" && obj.GetName() == "opni-controller-manager" {
+							if err := features.PatchFeatureGatesInWorkload(obj, "manager"); err != nil {
+								return err
+							}
+						}
 						_, err := dr.Create(
 							cmd.Context(),
 							obj,
@@ -67,4 +77,7 @@ APIs. For more information on selecting an API, run 'opnictl help apis'.`,
 			}
 		},
 	}
+
+	features.DefaultMutableFeatureGate.AddFlag(installCmd.Flags())
+	return installCmd
 }

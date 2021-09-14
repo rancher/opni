@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kubebuilder:validation:Optional
 package v1beta1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -104,16 +106,15 @@ type ServicesSpec struct {
 }
 
 type DrainServiceSpec struct {
-	Enabled      *bool `json:"enabled,omitempty"`
 	ImageSpec    `json:",inline,omitempty"`
+	Enabled      *bool               `json:"enabled,omitempty"`
 	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
 	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type InferenceServiceSpec struct {
-	Enabled   *bool `json:"enabled,omitempty"`
-	ImageSpec `json:",inline,omitempty"`
-	// +optional
+	ImageSpec        `json:",inline,omitempty"`
+	Enabled          *bool                      `json:"enabled,omitempty"`
 	PretrainedModels []PretrainedModelReference `json:"pretrainedModels,omitempty"`
 	NodeSelector     map[string]string          `json:"nodeSelector,omitempty"`
 	Tolerations      []corev1.Toleration        `json:"tolerations,omitempty"`
@@ -121,77 +122,52 @@ type InferenceServiceSpec struct {
 
 type PretrainedModelReference struct {
 	// +kubebuilder:validation:Required
-	Name string `json:"name,omitempty"`
-	// +optional
+	Name      string                       `json:"name,omitempty"`
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	// +optional
-	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
 }
 
 type PreprocessingServiceSpec struct {
-	Enabled      *bool `json:"enabled,omitempty"`
 	ImageSpec    `json:",inline,omitempty"`
+	Enabled      *bool               `json:"enabled,omitempty"`
 	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
 	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type PayloadReceiverServiceSpec struct {
-	Enabled      *bool `json:"enabled,omitempty"`
 	ImageSpec    `json:",inline,omitempty"`
+	Enabled      *bool               `json:"enabled,omitempty"`
 	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
 	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type GPUControllerServiceSpec struct {
-	Enabled      *bool `json:"enabled,omitempty"`
 	ImageSpec    `json:",inline,omitempty"`
+	Enabled      *bool               `json:"enabled,omitempty"`
 	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
 	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type ElasticSpec struct {
-	// +kubebuilder:default:=latest
-	Version      string                       `json:"version"`
-	Workloads    ElasticWorkloadSpec          `json:"workloads,omitempty"`
-	DefaultRepo  *string                      `json:"defaultRepo,omitempty"`
-	Image        *ImageSpec                   `json:"image,omitempty"`
-	KibanaImage  *ImageSpec                   `json:"kibanaImage,omitempty"`
-	Persistence  *PersistenceSpec             `json:"persistence,omitempty"`
+	Version     string              `json:"version"`
+	Workloads   ElasticWorkloadSpec `json:"workloads,omitempty"`
+	DefaultRepo *string             `json:"defaultRepo,omitempty"`
+	Image       *ImageSpec          `json:"image,omitempty"`
+	KibanaImage *ImageSpec          `json:"kibanaImage,omitempty"`
+	Persistence *PersistenceSpec    `json:"persistence,omitempty"`
+	// Secret containing an item "logging.yml" with the contents of the
+	// elasticsearch logging config.
 	ConfigSecret *corev1.LocalObjectReference `json:"configSecret,omitempty"`
 }
 
 type ElasticWorkloadSpec struct {
-	Master ElasticWorkloadMasterSpec `json:"master,omitempty"`
-	Data   ElasticWorkloadDataSpec   `json:"data,omitempty"`
-	Client ElasticWorkloadClientSpec `json:"client,omitempty"`
-	Kibana ElasticWorkloadKibanaSpec `json:"kibana,omitempty"`
+	Master ElasticWorkloadOptions `json:"master,omitempty"`
+	Data   ElasticWorkloadOptions `json:"data,omitempty"`
+	Client ElasticWorkloadOptions `json:"client,omitempty"`
+	Kibana ElasticWorkloadOptions `json:"kibana,omitempty"`
 }
 
-type ElasticWorkloadMasterSpec struct {
-	Replicas     *int32                       `json:"replicas,omitempty"`
-	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
-	NodeSelector map[string]string            `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration          `json:"tolerations,omitempty"`
-}
-
-type ElasticWorkloadDataSpec struct {
-	Replicas     *int32                       `json:"replicas,omitempty"`
-	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
-	NodeSelector map[string]string            `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration          `json:"tolerations,omitempty"`
-}
-
-type ElasticWorkloadClientSpec struct {
-	Replicas     *int32                       `json:"replicas,omitempty"`
-	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
-	NodeSelector map[string]string            `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration          `json:"tolerations,omitempty"`
-}
-
-type ElasticWorkloadKibanaSpec struct {
+type ElasticWorkloadOptions struct {
 	Replicas     *int32                       `json:"replicas,omitempty"`
 	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
 	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`
@@ -203,7 +179,8 @@ type PersistenceSpec struct {
 	Enabled          bool                                `json:"enabled,omitempty"`
 	StorageClassName *string                             `json:"storageClass,omitempty"`
 	AccessModes      []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
-	Request          string                              `json:"request,omitempty"`
+	// Storage size request. Defaults to 10Gi.
+	Request resource.Quantity `json:"request,omitempty"`
 }
 
 type S3Spec struct {
@@ -222,26 +199,34 @@ type S3Spec struct {
 }
 
 type InternalSpec struct {
+	// Persistence configuration for internal S3 deployment. If unset, internal
+	// S3 storage is not persistent.
 	Persistence *PersistenceSpec `json:"persistence,omitempty"`
 }
 
 type ExternalSpec struct {
 	// +kubebuilder:validation:Required
+	// External S3 endpoint URL.
 	Endpoint string `json:"endpoint,omitempty"`
 	// +kubebuilder:validation:Required
 	// Reference to a secret containing "accessKey" and "secretKey" items. This
-	// secret must already exist.
+	// secret must already exist if specified.
 	Credentials *corev1.SecretReference `json:"credentials,omitempty"`
 }
 
 type NatsSpec struct {
-	// +required
+	// +kubebuilder:validation:Required
 	// +kubebuilder:default:=username
-	AuthMethod   NatsAuthMethod            `json:"authMethod,omitempty"`
-	Username     string                    `json:"username,omitempty"`
-	Replicas     *int32                    `json:"replicas,omitempty"`
+	AuthMethod NatsAuthMethod `json:"authMethod,omitempty"`
+	// Username to use for authentication, if username auth is specified in
+	// AuthMethod. If empty, defaults to "nats-user". If AuthMethod is "nkey",
+	// this field is ignored.
+	Username string `json:"username,omitempty"`
+	// Number of nats server replicas. If not set, defaults to 3.
+	Replicas *int32 `json:"replicas,omitempty"`
+	// A secret containing a "password" item.	This secret must already exist
+	// if specified.
 	PasswordFrom *corev1.SecretKeySelector `json:"passwordFrom,omitempty"`
-	NatsURL      string                    `json:"natsURL"`
 	NodeSelector map[string]string         `json:"nodeSelector,omitempty"`
 	Tolerations  []corev1.Toleration       `json:"tolerations,omitempty"`
 }

@@ -25,8 +25,7 @@ spec:
       containers:
         - command:
             - /manager
-          args:
-            - --leader-elect
+          args: []
           image: controller
           name: manager
           securityContext:

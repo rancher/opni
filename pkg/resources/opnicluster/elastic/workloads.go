@@ -193,10 +193,12 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 			pvc.Spec.AccessModes = p.AccessModes
 		}
 		pvc.Spec.StorageClassName = p.StorageClassName
-		if p.Request != "" {
-			pvc.Spec.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceStorage: resource.MustParse(p.Request),
-			}
+		resourceRequest := p.Request
+		if resourceRequest.IsZero() {
+			resourceRequest = resource.MustParse("10Gi")
+		}
+		pvc.Spec.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceStorage: resourceRequest,
 		}
 	}
 

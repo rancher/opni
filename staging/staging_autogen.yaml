@@ -40704,12 +40704,15 @@ spec:
                       enabled:
                         type: boolean
                       request:
-                        type: string
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                       storageClass:
                         type: string
                     type: object
                   version:
-                    default: latest
                     type: string
                   workloads:
                     properties:
@@ -42339,8 +42342,6 @@ spec:
                     - username
                     - nkey
                     type: string
-                  natsURL:
-                    type: string
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -42377,6 +42378,8 @@ spec:
                     type: array
                   username:
                     type: string
+                required:
+                - authMethod
                 type: object
               nulogHyperparameters:
                 additionalProperties:
@@ -42415,7 +42418,11 @@ spec:
                           enabled:
                             type: boolean
                           request:
-                            type: string
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           storageClass:
                             type: string
                         type: object

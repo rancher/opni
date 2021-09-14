@@ -807,13 +807,13 @@ var _ = Describe("OpniCluster Controller", func() {
 				StorageClassName: pointer.String("test-storageclass"),
 			},
 			Workloads: v1beta1.ElasticWorkloadSpec{
-				Master: v1beta1.ElasticWorkloadMasterSpec{
+				Master: v1beta1.ElasticWorkloadOptions{
 					Replicas: pointer.Int32(1),
 				},
-				Data: v1beta1.ElasticWorkloadDataSpec{
+				Data: v1beta1.ElasticWorkloadOptions{
 					Replicas: pointer.Int32(3),
 				},
-				Client: v1beta1.ElasticWorkloadClientSpec{
+				Client: v1beta1.ElasticWorkloadOptions{
 					Replicas: pointer.Int32(5),
 					Resources: &corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
@@ -830,7 +830,7 @@ var _ = Describe("OpniCluster Controller", func() {
 						},
 					},
 				},
-				Kibana: v1beta1.ElasticWorkloadKibanaSpec{
+				Kibana: v1beta1.ElasticWorkloadOptions{
 					Replicas: pointer.Int32(7),
 				},
 			},
@@ -1067,7 +1067,7 @@ var _ = Describe("OpniCluster Controller", func() {
 			Persistence: &v1beta1.PersistenceSpec{
 				Enabled:          true,
 				StorageClassName: pointer.String("testing"),
-				Request:          "64Gi",
+				Request:          resource.MustParse("64Gi"),
 				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteMany,
 				},

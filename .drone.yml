@@ -197,7 +197,7 @@ steps:
         - refs/tags/*
 services:
   - name: k3dsvc
-    image: rancher/k3d:latest-dind
+    image: rancher/k3d:4.4.8dind
     privileged: true
     commands:
       - nohup dockerd-entrypoint.sh &

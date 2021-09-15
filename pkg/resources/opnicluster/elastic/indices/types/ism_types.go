@@ -3,7 +3,7 @@ package types
 import "encoding/json"
 
 type ISMPolicySpec struct {
-	PolicyId          string            `json:"policy_id,omitempty"`
+	PolicyID          string            `json:"policy_id,omitempty"`
 	Description       string            `json:"description"`
 	ISMTemplate       *ISMTemplateSpec  `json:"ism_template,omitempty"`
 	ErrorNotification *NotificationSpec `json:"error_notification"`
@@ -152,6 +152,6 @@ type ISMGetResponse struct {
 func (p ISMPolicySpec) MarshalJSON() ([]byte, error) {
 	type policy ISMPolicySpec
 	tmp := policy(p)
-	tmp.PolicyId = ""
+	tmp.PolicyID = ""
 	return json.Marshal(tmp)
 }

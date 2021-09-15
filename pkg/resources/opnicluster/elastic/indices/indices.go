@@ -15,7 +15,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"github.com/elastic/go-elasticsearch/v7/esutil"
 	"github.com/rancher/opni/apis/v1beta1"
-	. "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
+	esapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/kibana"
 	"golang.org/x/mod/semver"
@@ -48,7 +48,7 @@ type Reconciler struct {
 	ctx          context.Context
 }
 
-func NewReconciler(opniCluster *v1beta1.OpniCluster, ctx context.Context, client client.Client) *Reconciler {
+func NewReconciler(ctx context.Context, opniCluster *v1beta1.OpniCluster, client client.Client) *Reconciler {
 	esCfg := elasticsearch.Config{
 		Addresses: []string{
 			fmt.Sprintf("https://opni-es-client.%s:9200", opniCluster.Namespace),
@@ -152,8 +152,8 @@ func (r *Reconciler) shouldBootstrapIndex(prefix string) (bool, error) {
 	return len(indices) == 0, nil
 }
 
-func (r *Reconciler) checkISMPolicy(policy *ISMPolicySpec) (bool, bool, int, int, error) {
-	resp, err := r.esClient.ISM.GetISM(r.ctx, policy.PolicyId)
+func (r *Reconciler) checkISMPolicy(policy *esapiext.ISMPolicySpec) (bool, bool, int, int, error) {
+	resp, err := r.esClient.ISM.GetISM(r.ctx, policy.PolicyID)
 	if err != nil {
 		return false, false, 0, 0, err
 	}
@@ -163,7 +163,7 @@ func (r *Reconciler) checkISMPolicy(policy *ISMPolicySpec) (bool, bool, int, int
 	} else if resp.IsError() {
 		return false, false, 0, 0, fmt.Errorf("response from API is %s", resp.Status())
 	}
-	ismResponse := &ISMGetResponse{}
+	ismResponse := &esapiext.ISMGetResponse{}
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, false, 0, 0, err
@@ -175,7 +175,7 @@ func (r *Reconciler) checkISMPolicy(policy *ISMPolicySpec) (bool, bool, int, int
 	return false, true, ismResponse.SeqNo, ismResponse.PrimaryTerm, nil
 }
 
-func (r *Reconciler) reconcileISM(policy *ISMPolicySpec) error {
+func (r *Reconciler) reconcileISM(policy *esapiext.ISMPolicySpec) error {
 	lg := log.FromContext(r.ctx)
 	policyBody := map[string]interface{}{
 		"policy": policy,
@@ -186,8 +186,8 @@ func (r *Reconciler) reconcileISM(policy *ISMPolicySpec) error {
 	}
 
 	if createIsm {
-		lg.Info("creating ism", "policy", policy.PolicyId)
-		resp, err := r.esClient.ISM.CreateISM(r.ctx, policy.PolicyId, esutil.NewJSONReader(policyBody))
+		lg.Info("creating ism", "policy", policy.PolicyID)
+		resp, err := r.esClient.ISM.CreateISM(r.ctx, policy.PolicyID, esutil.NewJSONReader(policyBody))
 		if err != nil {
 			return err
 		}
@@ -199,8 +199,8 @@ func (r *Reconciler) reconcileISM(policy *ISMPolicySpec) error {
 	}
 
 	if updateIsm {
-		lg.Info("updating existing ism", "policy", policy.PolicyId)
-		resp, err := r.esClient.ISM.UpdateISM(r.ctx, policy.PolicyId, esutil.NewJSONReader(policyBody), seqNo, primaryTerm)
+		lg.Info("updating existing ism", "policy", policy.PolicyID)
+		resp, err := r.esClient.ISM.UpdateISM(r.ctx, policy.PolicyID, esutil.NewJSONReader(policyBody), seqNo, primaryTerm)
 		if err != nil {
 			return err
 		}
@@ -210,11 +210,11 @@ func (r *Reconciler) reconcileISM(policy *ISMPolicySpec) error {
 		}
 		return nil
 	}
-	lg.V(1).Info("ism in sync", "policy", policy.PolicyId)
+	lg.V(1).Info("ism in sync", "policy", policy.PolicyID)
 	return nil
 }
 
-func (r *Reconciler) maybeCreateIndexTemplate(template *IndexTemplateSpec) error {
+func (r *Reconciler) maybeCreateIndexTemplate(template *esapiext.IndexTemplateSpec) error {
 	createTemplate, err := r.shouldCreateTemplate(template.TemplateName)
 	if err != nil {
 		return err
@@ -263,11 +263,11 @@ func (r *Reconciler) maybeBootstrapIndex(prefix string, alias string) error {
 		if err != nil {
 			return err
 		}
-		aliasRequestBody := UpdateAliasRequest{
-			Actions: []AliasActionSpec{
+		aliasRequestBody := esapiext.UpdateAliasRequest{
+			Actions: []esapiext.AliasActionSpec{
 				{
-					AliasAtomicAction: &AliasAtomicAction{
-						Add: &AliasGenericAction{
+					AliasAtomicAction: &esapiext.AliasAtomicAction{
+						Add: &esapiext.AliasGenericAction{
 							Index:        fmt.Sprintf("%s-000001", prefix),
 							Alias:        alias,
 							IsWriteIndex: esapi.BoolPtr(true),
@@ -278,11 +278,11 @@ func (r *Reconciler) maybeBootstrapIndex(prefix string, alias string) error {
 		}
 
 		if aliasIsIndex {
-			body := ReindexSpec{
-				Source: ReindexIndexSpec{
+			body := esapiext.ReindexSpec{
+				Source: esapiext.ReindexIndexSpec{
 					Index: alias,
 				},
-				Destination: ReindexIndexSpec{
+				Destination: esapiext.ReindexIndexSpec{
 					Index: fmt.Sprintf("%s-000001", prefix),
 				},
 			}
@@ -300,9 +300,9 @@ func (r *Reconciler) maybeBootstrapIndex(prefix string, alias string) error {
 				return fmt.Errorf("failed to reindex %s: %s", alias, reindexResp.String())
 			}
 
-			aliasRequestBody.Actions = append(aliasRequestBody.Actions, AliasActionSpec{
-				AliasAtomicAction: &AliasAtomicAction{
-					RemoveIndex: &AliasGenericAction{
+			aliasRequestBody.Actions = append(aliasRequestBody.Actions, esapiext.AliasActionSpec{
+				AliasAtomicAction: &esapiext.AliasAtomicAction{
+					RemoveIndex: &esapiext.AliasGenericAction{
 						Index: alias,
 					},
 				},
@@ -326,7 +326,7 @@ func (r *Reconciler) maybeBootstrapIndex(prefix string, alias string) error {
 	return nil
 }
 
-func (r *Reconciler) maybeCreateIndex(name string, settings map[string]TemplateMappingsSpec) error {
+func (r *Reconciler) maybeCreateIndex(name string, settings map[string]esapiext.TemplateMappingsSpec) error {
 	indexExists, err := r.indexExists(name)
 	if err != nil {
 		return err
@@ -360,10 +360,10 @@ func (r *Reconciler) shouldUpdateKibana() (retBool bool, retErr error) {
 		return true, nil
 	}
 
-	respDoc := &KibanaDocResponse{}
+	respDoc := &esapiext.KibanaDocResponse{}
 	req := esapi.GetRequest{
 		Index:      kibanaDashboardVersionIndex,
-		DocumentID: kibanaDashboardVersionDocId,
+		DocumentID: kibanaDashboardVersionDocID,
 	}
 
 	resp, err := req.Do(r.ctx, r.esClient)
@@ -395,14 +395,14 @@ func (r *Reconciler) shouldUpdateKibana() (retBool bool, retErr error) {
 }
 
 func (r *Reconciler) upsertKibanaObjectDoc() error {
-	upsertRequest := UpsertKibanaDoc{
+	upsertRequest := esapiext.UpsertKibanaDoc{
 		Document:         kibanaDoc,
 		DocumentAsUpsert: esapi.BoolPtr(true),
 	}
 
 	req := esapi.UpdateRequest{
 		Index:      kibanaDashboardVersionIndex,
-		DocumentID: kibanaDashboardVersionDocId,
+		DocumentID: kibanaDashboardVersionDocID,
 		Body:       esutil.NewJSONReader(upsertRequest),
 	}
 	resp, err := req.Do(r.ctx, r.esClient)
@@ -495,7 +495,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		return
 	}
 
-	for _, policy := range []ISMPolicySpec{
+	for _, policy := range []esapiext.ISMPolicySpec{
 		opniLogPolicy,
 		opniDrainModelStatusPolicy,
 	} {
@@ -507,7 +507,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}
 
-	for _, template := range []IndexTemplateSpec{
+	for _, template := range []esapiext.IndexTemplateSpec{
 		opniLogTemplate,
 		drainStatusTemplate,
 	} {

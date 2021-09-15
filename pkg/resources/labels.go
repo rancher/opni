@@ -41,9 +41,9 @@ func (l ElasticLabels) WithRole(role v1beta1.ElasticRole) ElasticLabels {
 }
 
 func (l ElasticLabels) Role() v1beta1.ElasticRole {
-	if role, ok := l["role"]; !ok {
+	role, ok := l["role"]
+	if !ok {
 		return ""
-	} else {
-		return v1beta1.ElasticRole(role)
 	}
+	return v1beta1.ElasticRole(role)
 }

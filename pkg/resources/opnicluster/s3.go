@@ -318,25 +318,24 @@ func (r *Reconciler) externalKeySecret() error {
 		if _, ok := sec.Data["accessKey"]; !ok {
 			return fmt.Errorf("%w: secret must contain an item named accessKey",
 				opnierrs.ErrS3Credentials)
-		} else {
-			r.opniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: sec.Name,
-				},
-				Key: "accessKey",
-			}
+		}
+		r.opniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: sec.Name,
+			},
+			Key: "accessKey",
 		}
 		if _, ok := sec.Data["secretKey"]; !ok {
 			return fmt.Errorf("%w: secret must contain an item named secretKey",
 				opnierrs.ErrS3Credentials)
-		} else {
-			r.opniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: sec.Name,
-				},
-				Key: "secretKey",
-			}
 		}
+		r.opniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: sec.Name,
+			},
+			Key: "secretKey",
+		}
+
 		r.opniCluster.Status.Auth.S3Endpoint = r.opniCluster.Spec.S3.External.Endpoint
 		return r.client.Status().Update(r.ctx, r.opniCluster)
 	})

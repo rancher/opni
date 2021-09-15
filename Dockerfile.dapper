@@ -1,4 +1,4 @@
-FROM golang:1.16
+FROM golang:1.17
 
 RUN go get sigs.k8s.io/kustomize/kustomize/v4@v4.1.3 \
   && go get sigs.k8s.io/kubebuilder/v3/cmd@v3.1.0 \

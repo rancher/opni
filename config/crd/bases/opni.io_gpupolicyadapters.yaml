@@ -34,6 +34,7 @@ spec:
                 - auto
                 - docker
                 - containerd
+                - crio
                 type: string
               images:
                 properties:

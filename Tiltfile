@@ -32,7 +32,7 @@ if "defaultRegistry" in settings:
 
 docker_build("rancher/opni-manager", '.', 
     dockerfile_contents=DOCKERFILE,
-    entrypoint=['/manager'],
+    entrypoint=['/manager', '--feature-gates=AllAlpha=true'],
     only=['./bin/manager', './config/assets'],
     live_update=[sync('./bin/manager', '/manager')]
 )

@@ -405,7 +405,11 @@ func (in *GpuPolicyAdapterList) DeepCopyObject() runtime.Object {
 func (in *GpuPolicyAdapterSpec) DeepCopyInto(out *GpuPolicyAdapterSpec) {
 	*out = *in
 	out.Images = in.Images
-	out.VGPU = in.VGPU
+	if in.VGPU != nil {
+		in, out := &in.VGPU, &out.VGPU
+		*out = new(VGPUSpec)
+		**out = **in
+	}
 	in.Template.DeepCopyInto(&out.Template)
 }
 

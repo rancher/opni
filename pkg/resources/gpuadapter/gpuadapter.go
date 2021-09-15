@@ -3,6 +3,7 @@ package gpuadapter
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	nvidiav1 "github.com/NVIDIA/gpu-operator/api/v1"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
@@ -43,10 +44,26 @@ func ReconcileGPUAdapter(
 		reconciler.WithLog(lg),
 		reconciler.WithScheme(cli.Scheme()),
 	)
-	provider, err := providers.Detect(ctx, cli)
-	if err != nil {
-		return util.RequeueErr(err).Result()
+	var provider providers.Provider
+	switch gpa.Spec.KubernetesProvider {
+	case "auto":
+		var err error
+		provider, err = providers.Detect(ctx, cli)
+		if err != nil {
+			return util.RequeueErr(err).Result()
+		}
+	case "k3s":
+		provider = providers.K3S
+	case "rke2":
+		provider = providers.RKE2
+	case "rke":
+		provider = providers.RKE
+	case "none":
+		fallthrough
+	default:
+		provider = providers.Unknown
 	}
+
 	policy, err := buildClusterPolicy(gpa, provider)
 	if err != nil {
 		return util.RequeueErr(err).Result()
@@ -64,6 +81,15 @@ func buildClusterPolicy(
 	provider providers.Provider,
 ) (*nvidiav1.ClusterPolicy, error) {
 	mergo.Merge(&gpa.Spec.Images, &defaultImages)
+	var containerRuntime v1beta1.ContainerRuntime
+	switch cr := gpa.Spec.ContainerRuntime; cr {
+	case v1beta1.Auto:
+		containerRuntime = provider.ContainerRuntime()
+	case v1beta1.Docker, v1beta1.Containerd, v1beta1.Crio:
+		containerRuntime = cr
+	default:
+		containerRuntime = v1beta1.Containerd
+	}
 	policy := &nvidiav1.ClusterPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gpa.Name,
@@ -216,7 +242,7 @@ func buildClusterPolicy(
 				Image:   gpa.Spec.Images.Validator,
 			},
 			Operator: nvidiav1.OperatorSpec{
-				DefaultRuntime: nvidiav1.Runtime(provider.ContainerRuntime()),
+				DefaultRuntime: nvidiav1.Runtime(containerRuntime),
 				InitContainer: nvidiav1.InitContainerSpec{
 					Image: gpa.Spec.Images.InitContainer,
 				},
@@ -227,7 +253,7 @@ func buildClusterPolicy(
 			Toolkit: nvidiav1.ToolkitSpec{
 				Enabled: pointer.Bool(true),
 				Env: func() (vars []corev1.EnvVar) {
-					if provider.ContainerRuntime() == "containerd" {
+					if containerRuntime == v1beta1.Containerd {
 						vars = append(vars, corev1.EnvVar{
 							Name:  "CONTAINERD_RUNTIME_CLASS",
 							Value: "nvidia",
@@ -273,6 +299,13 @@ func buildClusterPolicy(
 				Image: gpa.Spec.Images.Validator,
 			},
 		},
+	}
+	if gpa.Spec.VGPU != nil {
+		nls := strings.ToLower(gpa.Spec.VGPU.LicenseServerKind) == "nls"
+		policy.Spec.Driver.LicensingConfig = &nvidiav1.DriverLicensingConfigSpec{
+			ConfigMapName: gpa.Spec.VGPU.LicenseConfigMap,
+			NLSEnabled:    &nls,
+		}
 	}
 	return policy, nil
 }

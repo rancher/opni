@@ -30,18 +30,19 @@ const (
 	Auto       ContainerRuntime = "auto"
 	Docker     ContainerRuntime = "docker"
 	Containerd ContainerRuntime = "containerd"
+	Crio       ContainerRuntime = "crio"
 )
 
 // GpuPolicyAdapterSpec defines the desired state of GpuPolicyAdapter
 type GpuPolicyAdapterSpec struct {
-	// +kubebuilder:validation:Enum={"auto","docker","containerd"}
+	// +kubebuilder:validation:Enum={"auto","docker","containerd", "crio"}
 	// +kubebuilder:default=auto
 	ContainerRuntime ContainerRuntime `json:"containerRuntime,omitempty"`
 	// +kubebuilder:validation:Enum={"auto","k3s","rke2","rke","none"}
 	// +kubebuilder:default=auto
 	KubernetesProvider string     `json:"kubernetesProvider,omitempty"`
 	Images             ImagesSpec `json:"images,omitempty"`
-	VGPU               VGPUSpec   `json:"vgpu,omitempty"`
+	VGPU               *VGPUSpec  `json:"vgpu,omitempty"`
 	// +kubebuilder:validation:Optional
 	Template nvidiav1.ClusterPolicySpec `json:"template,omitempty"`
 }

@@ -37,10 +37,10 @@ func BuildHelmControllerObjects(spec *v1alpha1.OpniDemo) (objects []client.Objec
 						Schema: &apiextv1.CustomResourceValidation{
 							OpenAPIV3Schema: &apiextv1.JSONSchemaProps{
 								Properties: map[string]apiextv1.JSONSchemaProps{
-									"spec": apiextv1.JSONSchemaProps{
+									"spec": {
 										XPreserveUnknownFields: pointer.BoolPtr(true),
 									},
-									"status": apiextv1.JSONSchemaProps{
+									"status": {
 										XPreserveUnknownFields: pointer.BoolPtr(true),
 									},
 								},
@@ -78,10 +78,10 @@ func BuildHelmControllerObjects(spec *v1alpha1.OpniDemo) (objects []client.Objec
 						Schema: &apiextv1.CustomResourceValidation{
 							OpenAPIV3Schema: &apiextv1.JSONSchemaProps{
 								Properties: map[string]apiextv1.JSONSchemaProps{
-									"spec": apiextv1.JSONSchemaProps{
+									"spec": {
 										XPreserveUnknownFields: pointer.BoolPtr(true),
 									},
-									"status": apiextv1.JSONSchemaProps{
+									"status": {
 										XPreserveUnknownFields: pointer.BoolPtr(true),
 									},
 								},

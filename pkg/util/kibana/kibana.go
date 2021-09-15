@@ -30,11 +30,11 @@ type Config struct {
 }
 
 func NewClient(cfg Config) (*Client, error) {
-	newUrl, err := url.Parse(cfg.URL)
+	newURL, err := url.Parse(cfg.URL)
 	if err != nil {
 		return nil, err
 	}
-	newUrl.User = url.UserPassword(cfg.Username, cfg.Password)
+	newURL.User = url.UserPassword(cfg.Username, cfg.Password)
 
 	var client *http.Client
 
@@ -48,7 +48,7 @@ func NewClient(cfg Config) (*Client, error) {
 
 	return &Client{
 		Client: client,
-		url:    newUrl,
+		url:    newURL,
 	}, nil
 }
 
@@ -67,7 +67,7 @@ func (c *Client) generateObjectPath() string {
 func (c *Client) ImportObjects(ctx context.Context, objectData string, objectName string) (*esapi.Response, error) {
 	method := "POST"
 	relPath := &url.URL{Path: c.generateObjectPath()}
-	absUrl := c.url.ResolveReference(relPath)
+	absURL := c.url.ResolveReference(relPath)
 
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
@@ -81,7 +81,7 @@ func (c *Client) ImportObjects(ctx context.Context, objectData string, objectNam
 		return nil, err
 	}
 
-	req, err := http.NewRequest(method, absUrl.String(), body)
+	req, err := http.NewRequest(method, absURL.String(), body)
 	if err != nil {
 		return nil, err
 	}

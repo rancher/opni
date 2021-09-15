@@ -178,7 +178,11 @@ func (r *OpniDemoReconciler) reconcileInfraStack(
 			if err := ctrl.SetControllerReference(opniDemo, object, r.scheme); err != nil {
 				return ctrl.Result{}, err
 			}
-			return ctrl.Result{Requeue: true}, r.Create(ctx, object)
+			err = r.Create(ctx, object)
+			if err != nil {
+				r.log.Error(err, "error creating resource")
+			}
+			return ctrl.Result{Requeue: true}, err
 		} else if err != nil {
 			r.log.Error(err, "error checking objects")
 			return ctrl.Result{}, err

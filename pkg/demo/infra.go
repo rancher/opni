@@ -7,6 +7,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,6 +15,90 @@ import (
 
 func BuildHelmControllerObjects(spec *v1alpha1.OpniDemo) (objects []client.Object) {
 	return []client.Object{
+		&apiextv1.CustomResourceDefinition{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "CustomResourceDefinition",
+				APIVersion: "apiextensions.k8s.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "helmcharts.helm.cattle.io",
+			},
+			Spec: apiextv1.CustomResourceDefinitionSpec{
+				Conversion: &apiextv1.CustomResourceConversion{
+					Strategy: apiextv1.NoneConverter,
+				},
+				Group: "helm.cattle.io",
+				Versions: []apiextv1.CustomResourceDefinitionVersion{
+					{
+						Name:    "v1",
+						Served:  true,
+						Storage: true,
+						Schema: &apiextv1.CustomResourceValidation{
+							OpenAPIV3Schema: &apiextv1.JSONSchemaProps{
+								Properties: map[string]apiextv1.JSONSchemaProps{
+									"spec": {
+										XPreserveUnknownFields: pointer.BoolPtr(true),
+									},
+									"status": {
+										XPreserveUnknownFields: pointer.BoolPtr(true),
+									},
+								},
+								Type: "object",
+							},
+						},
+					},
+				},
+				Names: apiextv1.CustomResourceDefinitionNames{
+					Plural:   "helmcharts",
+					Singular: "helmchart",
+					Kind:     "HelmChart",
+					ListKind: "HelmChartList",
+				},
+				Scope: "Namespaced",
+			},
+		},
+		&apiextv1.CustomResourceDefinition{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "CustomResourceDefinition",
+				APIVersion: "apiextensions.k8s.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "helmchartconfigs.helm.cattle.io",
+			},
+			Spec: apiextv1.CustomResourceDefinitionSpec{
+				Conversion: &apiextv1.CustomResourceConversion{
+					Strategy: apiextv1.NoneConverter,
+				},
+				Group: "helm.cattle.io",
+				Versions: []apiextv1.CustomResourceDefinitionVersion{
+					{
+						Name:    "v1",
+						Served:  true,
+						Storage: true,
+						Schema: &apiextv1.CustomResourceValidation{
+							OpenAPIV3Schema: &apiextv1.JSONSchemaProps{
+								Properties: map[string]apiextv1.JSONSchemaProps{
+									"spec": {
+										XPreserveUnknownFields: pointer.BoolPtr(true),
+									},
+									"status": {
+										XPreserveUnknownFields: pointer.BoolPtr(true),
+									},
+								},
+								Type: "object",
+							},
+						},
+					},
+				},
+				Names: apiextv1.CustomResourceDefinitionNames{
+					Plural:   "helmchartconfigs",
+					Singular: "helmchartconfig",
+					Kind:     "HelmChartConfig",
+					ListKind: "HelmChartConfigList",
+				},
+				Scope: "Namespaced",
+			},
+		},
 		&corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "helm-controller",

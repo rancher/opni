@@ -1,16 +1,17 @@
 package demo
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 
-	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
-	"github.com/banzaicloud/logging-operator/pkg/sdk/model/filter"
-	"github.com/banzaicloud/logging-operator/pkg/sdk/model/output"
 	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 )
 
 const (
@@ -23,6 +24,56 @@ const (
 	PreprocessingServiceImage        = "rancher/opni-preprocessing-service:v0.1.3"
 	KibanaDashboardImage             = "rancher/opni-kibana-dashboard:v0.1.3"
 )
+
+var clusterOutputManifest = template.Must(template.New("clusteroutput").Parse(`
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: ClusterOutput
+metadata:
+  name: aiops-demo-log-output
+spec:
+  http:
+    buffer:
+      chunk_limit_size: 1mb
+      flush_interval: 2s
+      tags: '[]'
+      timekey: ""
+    content_type: application/json
+    endpoint: http://payload-receiver-service.{{ . }}.svc
+    json_array: true
+`))
+
+var clusterFlowManifest = template.Must(template.New("clusterflow").Parse(`
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: ClusterFlow
+metadata:
+  name: aiops-demo-log-flow
+spec:
+  filters:
+  - dedot:
+      de_dot_nested: true
+      de_dot_separator: '-'
+  - grep:
+      exclude:
+      - key: log
+        pattern: ^\n$
+  - detectExceptions:
+      languages:
+      - java
+      - python
+      - go
+      - ruby
+      - js
+      - csharp
+      - php
+      multiline_flush_interval: "0.1"
+  globalOutputRefs:
+  - aiops-demo-log-output
+  match:
+  - exclude:
+      namespaces:
+      - {{ . }}
+  - select: {}
+`))
 
 func BuildDrainService(spec *demov1alpha1.OpniDemo) *appsv1.Deployment {
 	labels := map[string]string{"app": "drain-service"}
@@ -530,7 +581,15 @@ const (
 	ClusterFlowName   = "aiops-demo-log-flow"
 )
 
-func BuildClusterFlow(spec *demov1alpha1.OpniDemo) *loggingv1beta1.ClusterFlow {
+func BuildClusterFlow(spec *demov1alpha1.OpniDemo) *unstructured.Unstructured {
+	var buffer bytes.Buffer
+	clusterFlowManifest.Execute(&buffer, spec.Namespace)
+
+	obj := &unstructured.Unstructured{}
+	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+
+	dec.Decode(buffer.Bytes(), nil, obj)
+
 	controlNamespace := spec.Namespace
 	if !spec.Spec.Components.Opni.RancherLogging.Enabled {
 		if ns := spec.Spec.LoggingCRDNamespace; ns != nil {
@@ -538,64 +597,19 @@ func BuildClusterFlow(spec *demov1alpha1.OpniDemo) *loggingv1beta1.ClusterFlow {
 		}
 	}
 
-	return &loggingv1beta1.ClusterFlow{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ClusterFlowName,
-			Namespace: controlNamespace,
-		},
-		Spec: loggingv1beta1.ClusterFlowSpec{
-			Match: []loggingv1beta1.ClusterMatch{
-				{
-					ClusterExclude: &loggingv1beta1.ClusterExclude{
-						Namespaces: []string{
-							spec.Namespace,
-						},
-					},
-				},
-				{
-					ClusterSelect: &loggingv1beta1.ClusterSelect{},
-				},
-			},
-			Filters: []loggingv1beta1.Filter{
-				{
-					Dedot: &filter.DedotFilterConfig{
-						Separator: "-",
-						Nested:    true,
-					},
-				},
-				{
-					Grep: &filter.GrepConfig{
-						Exclude: []filter.ExcludeSection{
-							{
-								Key:     "log",
-								Pattern: `^\n$`,
-							},
-						},
-					},
-				},
-				{
-					DetectExceptions: &filter.DetectExceptions{
-						Languages: []string{
-							"java",
-							"python",
-							"go",
-							"ruby",
-							"js",
-							"csharp",
-							"php",
-						},
-						MultilineFlushInterval: "0.1",
-					},
-				},
-			},
-			GlobalOutputRefs: []string{
-				ClusterOutputName,
-			},
-		},
-	}
+	obj.SetNamespace(controlNamespace)
+	return obj
 }
 
-func BuildClusterOutput(spec *demov1alpha1.OpniDemo) *loggingv1beta1.ClusterOutput {
+func BuildClusterOutput(spec *demov1alpha1.OpniDemo) *unstructured.Unstructured {
+	var buffer bytes.Buffer
+	clusterOutputManifest.Execute(&buffer, spec.Namespace)
+
+	obj := &unstructured.Unstructured{}
+	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+
+	dec.Decode(buffer.Bytes(), nil, obj)
+
 	controlNamespace := spec.Namespace
 	if !spec.Spec.Components.Opni.RancherLogging.Enabled {
 		if ns := spec.Spec.LoggingCRDNamespace; ns != nil {
@@ -603,24 +617,6 @@ func BuildClusterOutput(spec *demov1alpha1.OpniDemo) *loggingv1beta1.ClusterOutp
 		}
 	}
 
-	return &loggingv1beta1.ClusterOutput{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ClusterOutputName,
-			Namespace: controlNamespace,
-		},
-		Spec: loggingv1beta1.ClusterOutputSpec{
-			OutputSpec: loggingv1beta1.OutputSpec{
-				HTTPOutput: &output.HTTPOutputConfig{
-					Endpoint:    fmt.Sprintf("http://payload-receiver-service.%s.svc", spec.Namespace),
-					ContentType: "application/json",
-					JsonArray:   true,
-					Buffer: &output.Buffer{
-						Tags:           "[]",
-						FlushInterval:  "2s",
-						ChunkLimitSize: "1mb",
-					},
-				},
-			},
-		},
-	}
+	obj.SetNamespace(controlNamespace)
+	return obj
 }

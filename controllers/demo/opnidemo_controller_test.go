@@ -82,6 +82,31 @@ var _ = Describe("OpniDemo Controller", func() {
 				}, &cluster)
 			}).Should(BeNil())
 		})
+		It("should install the helm controller", func() {
+			Eventually(func() error {
+				deployment := &appsv1.Deployment{}
+				return k8sClient.Get(context.Background(), types.NamespacedName{
+					Namespace: crNamespace,
+					Name:      "helm-controller",
+				}, deployment)
+			})
+			Eventually(func() error {
+				role := &rbacv1.ClusterRole{}
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Namespace: crNamespace,
+					Name:      "helm-controller",
+				}, role)
+				if err != nil {
+					return err
+				}
+				if role.Rules[0].APIGroups[0] != "*" ||
+					role.Rules[0].Resources[0] != "*" ||
+					role.Rules[0].Verbs[0] != "*" {
+					return errors.New("invalid helm controller permissions")
+				}
+				return nil
+			})
+		})
 		It("should create helm charts", func() {
 			wg := &sync.WaitGroup{}
 			for _, chart := range []string{
@@ -109,31 +134,6 @@ var _ = Describe("OpniDemo Controller", func() {
 				}(chart)
 			}
 			wg.Wait()
-		})
-		It("should install the helm controller", func() {
-			Eventually(func() error {
-				deployment := &appsv1.Deployment{}
-				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: crNamespace,
-					Name:      "helm-controller",
-				}, deployment)
-			})
-			Eventually(func() error {
-				role := &rbacv1.ClusterRole{}
-				err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Namespace: crNamespace,
-					Name:      "helm-controller",
-				}, role)
-				if err != nil {
-					return err
-				}
-				if role.Rules[0].APIGroups[0] != "*" ||
-					role.Rules[0].Resources[0] != "*" ||
-					role.Rules[0].Verbs[0] != "*" {
-					return errors.New("invalid helm controller permissions")
-				}
-				return nil
-			})
 		})
 		It("should create drain service", func() {
 			Eventually(func() error {

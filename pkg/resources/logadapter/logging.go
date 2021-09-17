@@ -70,7 +70,7 @@ var (
 [OUTPUT]
     Name              forward
     Match             *
-    Host              opni-{{ .ObjectMeta.Name }}-fluentd.{{ .ObjectMeta.Namespace }}.svc
+    Host              opni-{{ .ObjectMeta.Name }}-fluentd.{{ .Spec.OpniCluster.Namespace }}.svc
     Port              24240
     Retry_Limit       False
 `))
@@ -97,7 +97,7 @@ end
 [OUTPUT]
     Name              forward
     Match             *
-    Host              opni-{{ .ObjectMeta.Name }}-fluentd.{{ .ObjectMeta.Namespace }}.svc
+    Host              opni-{{ .ObjectMeta.Name }}-fluentd.{{ .Spec.OpniCluster.Namespace }}.svc
     Port              24240
     Retry_Limit       False
 `))
@@ -123,7 +123,7 @@ end
 [OUTPUT]
     Name              forward
     Match             *
-    Host              opni-{{ .ObjectMeta.Name }}-fluentd.{{ .ObjectMeta.Namespace }}.svc
+    Host              opni-{{ .ObjectMeta.Name }}-fluentd.{{ .Spec.OpniCluster.Namespace }}.svc
     Port              24240
     Retry_Limit       False
 `))

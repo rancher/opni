@@ -39,6 +39,7 @@ var _ = Describe("OpniCluster Controller", func() {
 
 	It("should create the necessary opni service deployments", func() {
 		By("waiting for the cluster to be created")
+		wg := &sync.WaitGroup{}
 		createCluster(buildCluster(opniClusterOpts{Name: "test"}))
 
 		for _, kind := range []v1beta1.ServiceKind{
@@ -48,34 +49,39 @@ var _ = Describe("OpniCluster Controller", func() {
 			v1beta1.PreprocessingService,
 			v1beta1.GPUControllerService,
 		} {
-			By(fmt.Sprintf("checking %s service metadata", kind.String()))
-			Eventually(Object(&appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      kind.ServiceName(),
-					Namespace: cluster.Namespace,
-				},
-			})).Should(ExistAnd(
-				HaveLabels(
-					resources.AppNameLabel, kind.ServiceName(),
-					resources.ServiceLabel, kind.String(),
-					resources.PartOfLabel, "opni",
-				),
-				HaveOwner(cluster),
-			))
-			By(fmt.Sprintf("checking %s service containers", kind.String()))
-			Eventually(Object(&appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      kind.ServiceName(),
-					Namespace: cluster.Namespace,
-				},
-			})).Should(ExistAnd(
-				HaveMatchingContainer(
-					HaveImage(fmt.Sprintf("docker.biz/rancher/%s:test", kind.ImageName()), corev1.PullNever),
-				),
-				HaveImagePullSecrets("lorem-ipsum"),
-				HaveNodeSelector("foo", "bar"),
-				HaveTolerations("foo"),
-			))
+			wg.Add(1)
+			go func(kind v1beta1.ServiceKind) {
+				defer GinkgoRecover()
+				defer wg.Done()
+				By(fmt.Sprintf("checking %s service metadata", kind.String()))
+				Eventually(Object(&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      kind.ServiceName(),
+						Namespace: cluster.Namespace,
+					},
+				})).Should(ExistAnd(
+					HaveLabels(
+						resources.AppNameLabel, kind.ServiceName(),
+						resources.ServiceLabel, kind.String(),
+						resources.PartOfLabel, "opni",
+					),
+					HaveOwner(cluster),
+				))
+				By(fmt.Sprintf("checking %s service containers", kind.String()))
+				Eventually(Object(&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      kind.ServiceName(),
+						Namespace: cluster.Namespace,
+					},
+				})).Should(ExistAnd(
+					HaveMatchingContainer(
+						HaveImage(fmt.Sprintf("docker.biz/rancher/%s:test", kind.ImageName()), corev1.PullNever),
+					),
+					HaveImagePullSecrets("lorem-ipsum"),
+					HaveNodeSelector("foo", "bar"),
+					HaveTolerations("foo"),
+				))
+			}(kind)
 		}
 		By("checking the gpu service data mount exists")
 		Eventually(Object(&appsv1.Deployment{

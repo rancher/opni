@@ -3,12 +3,17 @@ package types
 import "encoding/json"
 
 type ISMPolicySpec struct {
-	PolicyID          string            `json:"policy_id,omitempty"`
+	*ISMPolicyIDSpec  `json:",inline,omitempty"`
 	Description       string            `json:"description"`
 	ISMTemplate       *ISMTemplateSpec  `json:"ism_template,omitempty"`
 	ErrorNotification *NotificationSpec `json:"error_notification"`
 	DefaultState      string            `json:"default_state"`
 	States            []StateSpec       `json:"states"`
+}
+
+type ISMPolicyIDSpec struct {
+	PolicyID   string `json:"policy_id,omitempty"`
+	MarshallID bool   `json:"-"`
 }
 
 type ISMTemplateSpec struct {
@@ -152,6 +157,29 @@ type ISMGetResponse struct {
 func (p ISMPolicySpec) MarshalJSON() ([]byte, error) {
 	type policy ISMPolicySpec
 	tmp := policy(p)
-	tmp.PolicyID = ""
+	if !tmp.MarshallID {
+		tmp.ISMPolicyIDSpec = nil
+	}
 	return json.Marshal(tmp)
+}
+
+func (s *StateSpec) UnmarshalJSON(data []byte) error {
+	type state StateSpec
+	tmp := state{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	s.Name = tmp.Name
+	if len(tmp.Actions) > 0 {
+		s.Actions = tmp.Actions
+	} else {
+		s.Actions = make([]ActionSpec, 0)
+	}
+	if len(tmp.Transitions) > 0 {
+		s.Transitions = tmp.Transitions
+	} else {
+		s.Transitions = make([]TransitionSpec, 0)
+	}
+	return nil
 }

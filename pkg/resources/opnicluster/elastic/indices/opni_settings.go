@@ -25,7 +25,10 @@ const (
 
 var (
 	opniLogPolicy = esapiext.ISMPolicySpec{
-		PolicyID:     logPolicyName,
+		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+			PolicyID:   logPolicyName,
+			MarshallID: false,
+		},
 		Description:  "Opni policy with hot-warm-cold workflow",
 		DefaultState: "hot",
 		States: []esapiext.StateSpec{
@@ -119,7 +122,10 @@ var (
 		},
 	}
 	opniDrainModelStatusPolicy = esapiext.ISMPolicySpec{
-		PolicyID:     drainStatusPolicyName,
+		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+			PolicyID:   drainStatusPolicyName,
+			MarshallID: false,
+		},
 		Description:  "A hot-warm-cold-delete workflow for the opni-drain-model-status index.",
 		DefaultState: "hot",
 		States: []esapiext.StateSpec{

@@ -26,7 +26,7 @@ type Config struct {
 	Username  string
 	Password  string
 	URL       string
-	Transport *http.Transport
+	Transport http.RoundTripper
 }
 
 func NewClient(cfg Config) (*Client, error) {

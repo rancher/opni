@@ -51,9 +51,7 @@ func (c *ISMApi) GetISM(ctx context.Context, name string) (*esapi.Response, erro
 }
 
 func (c *ISMApi) CreateISM(ctx context.Context, name string, body io.Reader) (*esapi.Response, error) {
-	var method string
-
-	method = "PUT"
+	method := "PUT"
 	path := generatePath(name)
 
 	req, err := http.NewRequest(method, path.String(), body)
@@ -74,8 +72,7 @@ func (c *ISMApi) CreateISM(ctx context.Context, name string, body io.Reader) (*e
 }
 
 func (c *ISMApi) UpdateISM(ctx context.Context, name string, body io.Reader, seqNo int, primaryTerm int) (*esapi.Response, error) {
-	var method string
-	method = "PUT"
+	method := "PUT"
 
 	path := generatePath(name)
 

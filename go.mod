@@ -14,6 +14,7 @@ require (
 	github.com/elastic/go-elasticsearch/v7 v7.12.0
 	github.com/go-logr/logr v0.4.0
 	github.com/imdario/mergo v0.3.12
+	github.com/jarcoal/httpmock v1.0.8
 	github.com/k3s-io/helm-controller v0.11.2
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
 	github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6
@@ -87,7 +88,6 @@ require (
 	github.com/heroku/docker-registry-client v0.0.0-20190909225348-afc9e1acc3d5 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/jarcoal/httpmock v1.0.8 // indirect
 	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect

@@ -25,7 +25,7 @@ import (
 const (
 	crName      = "test-opnidemo"
 	crNamespace = "opnidemo-test"
-	timeout     = 10 * time.Second
+	timeout     = 30 * time.Second
 	interval    = 500 * time.Millisecond
 )
 

@@ -89,7 +89,7 @@ func queryAnomalyCount(esClient *elasticsearch.Client) (int, error) {
 	response, err := esClient.Count(
 		esClient.Count.WithIndex("logs"),
 		// esClient.Count.WithQuery(`anomaly_level:Anomalous AND is_control_plane_log:true`),
-		esClient.Count.WithQuery(`anomaly_level:Suspicious`),
+		esClient.Count.WithQuery(`anomaly_level:Anomalous`),
 	)
 	if err != nil {
 		return 0, err

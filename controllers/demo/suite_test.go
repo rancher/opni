@@ -17,6 +17,7 @@ limitations under the License.
 package demo
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -24,11 +25,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -38,6 +39,7 @@ import (
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
+var stopEnv context.CancelFunc
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -45,7 +47,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	logf.SetLogger(util.NewTestLogger())
 
 	port, err := freeport.GetFreePort()
 	Expect(err).NotTo(HaveOccurred())
@@ -67,11 +69,11 @@ var _ = BeforeSuite(func() {
 			},
 		},
 	}
-	k8sManager, k8sClient = test.RunTestEnvironment(testEnv, &OpniDemoReconciler{})
-}, 60)
+	stopEnv, k8sManager, k8sClient =
+		test.RunTestEnvironment(testEnv, &OpniDemoReconciler{})
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	stopEnv()
 })

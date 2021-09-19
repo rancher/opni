@@ -1,16 +1,58 @@
 domain: opni.io
-layout: go.kubebuilder.io/v3
-projectName: opni
-repo: github.com/rancher/opni
-resources:
-- crdVersion: v1
-  group: demo
-  kind: OpniDemo
-  version: v1alpha1
-- crdVersion: v1
-  kind: OpniCluster
-  version: v1beta1
-version: 3-alpha
+layout:
+- go.kubebuilder.io/v3
 multigroup: true
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
+projectName: opni
+repo: github.com/rancher/opni
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: opni.io
+  group: demo
+  kind: OpniDemo
+  path: github.com/rancher/opni/apis/demo/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: opni.io
+  kind: OpniCluster
+  path: github.com/rancher/opni/apis/v1beta1
+  version: v1beta1
+  webhooks:
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: opni.io
+  kind: LogAdapter
+  path: github.com/rancher/opni/apis/v1beta1
+  version: v1beta1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: opni.io
+  kind: PretrainedModel
+  path: github.com/rancher/opni/apis/v1beta1
+  version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: false
+  controller: true
+  domain: opni.io
+  kind: GpuPolicyAdapter
+  path: github.com/rancher/opni/apis/v1beta1
+  version: v1beta1
+version: "3"

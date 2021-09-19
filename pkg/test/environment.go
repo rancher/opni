@@ -4,15 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
 	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/phayes/freeport"
 	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
+	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	opninvidiav1 "github.com/rancher/opni/apis/nvidia/v1"
 	"github.com/rancher/opni/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -28,14 +29,25 @@ type Reconciler interface {
 func RunTestEnvironment(
 	testEnv *envtest.Environment,
 	reconcilers ...Reconciler,
-) (k8sManager ctrl.Manager, k8sClient client.Client) {
+) (stop context.CancelFunc, k8sManager ctrl.Manager, k8sClient client.Client) {
 	if len(reconcilers) == 0 {
 		panic("no reconcilers")
 	}
+	var ctx context.Context
+	ctx, stop = context.WithCancel(ctrl.SetupSignalHandler())
 
 	cfg, err := testEnv.Start()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(cfg).NotTo(gomega.BeNil())
+
+	go func() {
+		defer ginkgo.GinkgoRecover()
+		<-ctx.Done()
+		err := testEnv.Stop()
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	}()
+
+	StartControllerManager(ctx, testEnv)
 
 	err = v1beta1.AddToScheme(scheme.Scheme)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -46,10 +58,13 @@ func RunTestEnvironment(
 	err = helmv1.AddToScheme(scheme.Scheme)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	err = apiextv1beta1.AddToScheme(scheme.Scheme)
+	err = opniloggingv1beta1.AddToScheme(scheme.Scheme)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	err = loggingv1beta1.AddToScheme(scheme.Scheme)
+	err = opninvidiav1.AddToScheme(scheme.Scheme)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = apiextv1.AddToScheme(scheme.Scheme)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
@@ -74,7 +89,7 @@ func RunTestEnvironment(
 
 	go func() {
 		defer ginkgo.GinkgoRecover()
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		err = k8sManager.Start(ctx)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	}()
 
@@ -88,6 +103,13 @@ func RunTestEnvironment(
 	err = k8sClient.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "opnidemo-test",
+		},
+	})
+	gomega.Expect(err).Should(gomega.Or(gomega.BeNil(), gomega.WithTransform(errors.IsAlreadyExists, gomega.BeTrue())))
+
+	err = k8sClient.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "logadapter-test",
 		},
 	})
 	gomega.Expect(err).Should(gomega.Or(gomega.BeNil(), gomega.WithTransform(errors.IsAlreadyExists, gomega.BeTrue())))

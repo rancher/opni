@@ -1,0 +1,12 @@
+apiVersion: opni.io/v1beta1
+kind: LogAdapter
+metadata:
+  name: lga
+  namespace: default
+spec:
+  provider: K3S
+  opniCluster:
+    name: opnicluster-sample
+    namespace: default
+  k3s:
+    containerEngine: systemd

@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvidia-mig-manager
+  namespace: gpu-operator-resources
+  labels:
+    app: nvidia-mig-manager
+spec:
+  selector:
+    matchLabels:
+      app: nvidia-mig-manager
+  template:
+    metadata:
+      labels:
+        app: nvidia-mig-manager
+    spec:
+      nodeSelector:
+        nvidia.com/gpu.deploy.mig-manager: "true"
+      serviceAccount: nvidia-mig-manager
+      initContainers:
+        - name: toolkit-validation
+          image: "FILLED BY THE OPERATOR"
+          command: ['sh', '-c']
+          args: ["until [ -f /run/nvidia/validations/toolkit-ready ]; do echo waiting for nvidia container toolkit to be setup; sleep 5; done"]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: run-nvidia
+              mountPath: /run/nvidia
+              mountPropagation: HostToContainer
+      containers:
+      - name: nvidia-mig-manager
+        image: "FILLED_BY_OPERATOR"
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: CONFIG_FILE
+          value: "/mig-parted-config/config.yaml"
+        - name: WITH_REBOOT
+          value: "FILLED_BY_OPERATOR"
+        - name: HOST_ROOT_MOUNT
+          value: "/host"
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /sys
+          name: host-sys
+        - mountPath: /mig-parted-config
+          name: mig-parted-config
+        - mountPath: /host
+          name: host-root
+      volumes:
+      - name: host-sys
+        hostPath:
+          path: /sys
+          type: Directory
+      - name: mig-parted-config
+        configMap:
+          name: "FILLED_BY_OPERATOR"
+      - name: run-nvidia
+        hostPath:
+          path: "/run/nvidia"
+          type: Directory
+      - name: host-root
+        hostPath:
+          path: "/"

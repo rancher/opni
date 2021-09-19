@@ -1,0 +1,13 @@
+apiVersion: opni.io/v1beta1
+kind: GpuPolicyAdapter
+metadata:
+  name: vgpu
+spec:
+  images:
+    driver: cr.lan.kralicky.dev/nvidia-vgpu-driver:latest
+  vgpu:
+    licenseConfigMap: licensing-config
+    licenseServerKind: nls
+  template:
+    toolkit:
+      imagePullPolicy: Always

@@ -1175,9 +1175,61 @@ var _ = Describe("OpniCluster Controller", func() {
 		By("checking that the secret is created")
 		Eventually(Object(secret)).Should(Exist())
 
+		By("cbecking that seaweed is not deployed")
+		Consistently(Object(&appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-seaweed",
+				Namespace: cluster.Namespace,
+			},
+		})).ShouldNot(Exist())
+		Consistently(Object(&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-seaweed-s3",
+				Namespace: cluster.Namespace,
+			},
+		})).ShouldNot(Exist())
+
 		By("checking that s3 info in the cluster status should be set")
 		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta1.OpniClusterStatus) bool {
 			return status.Auth.S3Endpoint == "http://s3.amazonaws.biz" &&
+				status.Auth.S3AccessKey != nil &&
+				status.Auth.S3SecretKey != nil
+		}))
+
+	})
+
+	It("should reconcile internal s3 resources", func() {
+		By("creating the cluster with internal s3")
+		c := buildCluster(opniClusterOpts{
+			Name: "test",
+		})
+		c.Spec.S3.Internal = &v1beta1.InternalSpec{}
+		createCluster(c)
+
+		By("checking the seaweedfs statefulset is created")
+		Eventually(Object(&appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-seaweed",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveOwner(cluster),
+		))
+
+		By("creating the s3 service")
+		Eventually(Object(&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-seaweed-s3",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveOwner(cluster),
+			HavePorts("s3"),
+		))
+
+		By("checking that s3 info in the cluster status should be set")
+		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta1.OpniClusterStatus) bool {
+			return status.Auth.S3Endpoint == fmt.Sprintf("http://opni-seaweed-s3.%s.svc", cluster.Namespace) &&
 				status.Auth.S3AccessKey != nil &&
 				status.Auth.S3SecretKey != nil
 		}))

@@ -29,8 +29,9 @@ func BuildRootCmd() *cobra.Command {
 			return cmd.Help()
 		},
 	}
+
 	// Flags
-	rootCmd.PersistentFlags().StringVarP(&common.NamespaceFlagValue, "namespace", "n", "opni-demo",
+	rootCmd.PersistentFlags().StringVarP(&common.NamespaceFlagValue, "namespace", "n", "opni",
 		"namespace to install resources to")
 	rootCmd.PersistentFlags().StringVar(&common.ExplicitPathFlagValue, clientcmd.RecommendedConfigPathFlag, "",
 		"explicit path to kubeconfig file")

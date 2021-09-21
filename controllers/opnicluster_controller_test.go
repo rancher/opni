@@ -632,7 +632,7 @@ var _ = Describe("OpniCluster Controller", func() {
 		updateObject(cluster, func(c *v1beta1.OpniCluster) {
 			c.Spec.Services.Inference.PretrainedModels =
 				append(c.Spec.Services.Inference.PretrainedModels,
-					v1beta1.PretrainedModelReference{
+					corev1.LocalObjectReference{
 						Name: model.Name,
 					})
 		})
@@ -676,7 +676,7 @@ var _ = Describe("OpniCluster Controller", func() {
 		})
 		c.Spec.Services.Inference.PretrainedModels =
 			append(c.Spec.Services.Inference.PretrainedModels,
-				v1beta1.PretrainedModelReference{
+				corev1.LocalObjectReference{
 					Name: model.Name,
 				},
 			)
@@ -709,7 +709,7 @@ var _ = Describe("OpniCluster Controller", func() {
 		updateObject(cluster, func(c *v1beta1.OpniCluster) {
 			c.Spec.Services.Inference.PretrainedModels =
 				append(c.Spec.Services.Inference.PretrainedModels,
-					v1beta1.PretrainedModelReference{
+					corev1.LocalObjectReference{
 						Name: model.Name,
 					})
 		})

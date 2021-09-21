@@ -15,6 +15,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -49,9 +50,9 @@ func WithExplicitPath(path string) ClientOption {
 
 // CreateClientOrDie constructs a new controller-runtime client, or exit
 // with a fatal error if an error occurs.
-func CreateClientOrDie(opts ...ClientOption) (*rest.Config, client.Client) {
+func CreateClientOrDie(opts ...ClientOption) (*api.Config, *rest.Config, client.Client) {
 	scheme := CreateScheme()
-	clientConfig := LoadClientConfig(opts...)
+	apiConfig, clientConfig := LoadClientConfig(opts...)
 
 	cli, err := client.New(clientConfig, client.Options{
 		Scheme: scheme,
@@ -61,11 +62,11 @@ func CreateClientOrDie(opts ...ClientOption) (*rest.Config, client.Client) {
 		os.Exit(1)
 	}
 
-	return clientConfig, cli
+	return apiConfig, clientConfig, cli
 }
 
 // LoadClientConfig loads the user's kubeconfig using the same logic as kubectl.
-func LoadClientConfig(opts ...ClientOption) *rest.Config {
+func LoadClientConfig(opts ...ClientOption) (*api.Config, *rest.Config) {
 	options := ClientOptions{}
 	options.Apply(opts...)
 
@@ -73,18 +74,18 @@ func LoadClientConfig(opts ...ClientOption) *rest.Config {
 	// the loading rules check for empty string in the ExplicitPath, so it is
 	// safe to always set this, it defaults to empty string.
 	rules.ExplicitPath = options.explicitPath
-	kubeconfig, err := rules.Load()
+	apiConfig, err := rules.Load()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
 	clientConfig, err := clientcmd.NewDefaultClientConfig(
-		*kubeconfig, options.overrides).ClientConfig()
+		*apiConfig, options.overrides).ClientConfig()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
-	return clientConfig
+	return apiConfig, clientConfig
 }
 
 // CreateScheme creates a new scheme with the types necessary for opnictl.

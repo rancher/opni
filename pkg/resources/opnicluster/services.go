@@ -7,6 +7,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
 	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/hyperparameters"
 	appsv1 "k8s.io/api/apps/v1"
@@ -64,7 +65,7 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retE
 	// Given a list of desired models, ensure the corresponding deployments exist.
 	// If there are existing deployments that have been removed from the
 	// list of desired models, mark them as deleted.
-	models := map[string]v1beta1.PretrainedModelReference{}
+	models := map[string]corev1.LocalObjectReference{}
 	desiredModels := r.opniCluster.Spec.Services.Inference.PretrainedModels
 	for _, model := range desiredModels {
 		models[model.Name] = model
@@ -108,7 +109,7 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retE
 }
 
 func (r *Reconciler) pretrainedModelDeployment(
-	modelRef v1beta1.PretrainedModelReference,
+	modelRef corev1.LocalObjectReference,
 ) (resources.Resource, error) {
 	model, err := r.findPretrainedModel(modelRef)
 	if err != nil {
@@ -288,7 +289,7 @@ func (r *Reconciler) gpuWorkerContainer() corev1.Container {
 }
 
 func (r *Reconciler) findPretrainedModel(
-	modelRef v1beta1.PretrainedModelReference,
+	modelRef corev1.LocalObjectReference,
 ) (v1beta1.PretrainedModel, error) {
 	model := v1beta1.PretrainedModel{}
 	err := r.client.Get(r.ctx, types.NamespacedName{
@@ -444,6 +445,26 @@ func (r *Reconciler) s3EnvVars() (envVars []corev1.EnvVar) {
 		lg.Info("Warning: S3 not configured")
 	}
 	return envVars
+}
+
+func serviceDeploymentState(serviceSpec interface{}) reconciler.DesiredState {
+	switch spec := serviceSpec.(type) {
+	case v1beta1.DrainServiceSpec:
+		return deploymentState(spec.Enabled)
+	case v1beta1.InferenceServiceSpec:
+		return deploymentState(spec.Enabled)
+	case v1beta1.PreprocessingServiceSpec:
+		return deploymentState(spec.Enabled)
+	case v1beta1.PayloadReceiverServiceSpec:
+		return deploymentState(spec.Enabled)
+	case v1beta1.GPUControllerServiceSpec:
+		if !features.DefaultMutableFeatureGate.Enabled(features.GPUOperator) {
+			return reconciler.StateAbsent
+		}
+		return deploymentState(spec.Enabled)
+	default:
+		panic("bug (serviceDeploymentState): invalid spec type")
+	}
 }
 
 func deploymentState(enabled *bool) reconciler.DesiredState {

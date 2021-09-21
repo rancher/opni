@@ -208,7 +208,8 @@ steps:
       - until test -f ./kubeconfig.yaml; do sleep 1s; done
       - cat /etc/resolv.conf
       - export KUBECONFIG=$(realpath kubeconfig.yaml)
-      - go test -v --tags=e2e ./...
+      - export E2E_USE_EXISTING=1
+      - scripts/e2e
     when:
       event:
         - pull_request

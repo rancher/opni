@@ -1,3 +1,6 @@
+//go:build !e2e
+// +build !e2e
+
 package resources_test
 
 import (

@@ -134,14 +134,9 @@ steps:
       - name: docker
         path: /var/run/docker.sock
   - name: test
-    image: golang:1.16
+    image: rancher/dapper:v0.5.5
     commands:
-      - until test -f ./kubeconfig.yaml; do sleep 1s; done
-      - cat /etc/resolv.conf
-      - export KUBECONFIG=$(realpath kubeconfig.yaml)
-      - export SHORT=0
-      - export E2E_USE_EXISTING=1
-      - scripts/test
+      - dapper test
     volumes:
       - name: docker
         path: /var/run/docker.sock
@@ -195,6 +190,32 @@ steps:
       ref:
         - refs/head/main
         - refs/tags/*
+volumes:
+  - name: docker
+    host:
+      path: /var/run/docker.sock
+---
+kind: pipeline
+type: docker
+name: e2e-test
+platform:
+  os: linux
+  arch: amd64
+steps:
+  - name: e2e-test
+    image: golang:1.17
+    commands:
+      - until test -f ./kubeconfig.yaml; do sleep 1s; done
+      - cat /etc/resolv.conf
+      - export KUBECONFIG=$(realpath kubeconfig.yaml)
+      - go test -v --tags=e2e ./...
+    when:
+      event:
+        - pull_request
+      branch:
+        - main
+      instance:
+        - drone-pr.rancher.io
 services:
   - name: k3dsvc
     image: rancher/k3d:4.4.8dind
@@ -213,3 +234,5 @@ volumes:
   - name: docker
     host:
       path: /var/run/docker.sock
+depends_on:
+  - build-amd64

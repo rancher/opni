@@ -1,3 +1,6 @@
+//go:build !e2e && demo
+// +build !e2e,demo
+
 /*
 Copyright 2021.
 

@@ -1,3 +1,6 @@
+//go:build demo && !e2e
+// +build demo,!e2e
+
 package demo
 
 import (

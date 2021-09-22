@@ -17,7 +17,8 @@ local_resource('Watch & Compile',
     deps=deps, ignore=['**/zz_generated.deepcopy.go'])
 
 local_resource('Sample YAML', 'kubectl apply -k ./config/samples', 
-    deps=["./config/samples"], resource_deps=["opni-controller-manager"])
+    deps=["./config/samples"], resource_deps=["opni-controller-manager"],
+    auto_init=False, trigger_mode=TRIGGER_MODE_MANUAL)
 
 DOCKERFILE = '''FROM golang:alpine
 WORKDIR /

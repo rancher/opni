@@ -14,10 +14,8 @@ import (
 	"github.com/ttacon/chalk"
 	"github.com/vbauerster/mpb/v7"
 	"github.com/vbauerster/mpb/v7/decor"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,11 +33,11 @@ func BuildCreateDemoCmd() *cobra.Command {
 		Use:   "demo",
 		Short: "Create a new opni demo cluster",
 		Long: fmt.Sprintf(`
-		This command will install opni into the selected namespace using the Demo API.
-		For more information about the Demo API, run %s.
-		
-		Your current kubeconfig context will be used to select the cluster to operate
-		on, unless the --context flag is provided to select a specific context.`,
+This command will install opni into the selected namespace using the Demo API.
+For more information about the Demo API, run %s.
+
+Your current kubeconfig context will be used to select the cluster to operate
+on, unless the --context flag is provided to select a specific context.`,
 			chalk.Bold.TextStyle("opnictl help apis")),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			questions := []*survey.Question{}
@@ -155,20 +153,8 @@ func BuildCreateDemoCmd() *cobra.Command {
 				},
 			}
 
-			// Create default namespace if it already exists and the user has not
-			// requested to use a different namespace
-			// Note that we are not going to make the namespace controlled by the
-			// opnidemo CR
 			if opniDemo.Namespace == common.DefaultOpniDemoNamespace {
-				if err := common.K8sClient.Create(cmd.Context(), &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: common.DefaultOpniDemoNamespace,
-					},
-				}); errors.IsAlreadyExists(err) {
-					common.Log.Info(err)
-				} else if err != nil {
-					return err
-				}
+				common.CreateDefaultDemoNamespace(cmd.Context())
 			}
 
 			if err := common.K8sClient.Create(cmd.Context(), opniDemo); errors.IsAlreadyExists(err) {

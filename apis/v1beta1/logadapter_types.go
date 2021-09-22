@@ -25,12 +25,12 @@ import (
 type LogProvider string
 
 const (
-	LogProviderAKS  LogProvider = "AKS"
-	LogProviderEKS  LogProvider = "EKS"
-	LogProviderGKE  LogProvider = "GKE"
-	LogProviderK3S  LogProvider = "K3S"
-	LogProviderRKE  LogProvider = "RKE"
-	LogProviderRKE2 LogProvider = "RKE2"
+	LogProviderAKS  LogProvider = "aks"
+	LogProviderEKS  LogProvider = "eks"
+	LogProviderGKE  LogProvider = "gke"
+	LogProviderK3S  LogProvider = "k3s"
+	LogProviderRKE  LogProvider = "rke"
+	LogProviderRKE2 LogProvider = "rke2"
 )
 
 type ContainerEngine string

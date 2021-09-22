@@ -10,10 +10,7 @@ if [ "$SHORT" = "0" ]; then
   SHORT_FLAG=
 fi
 
-source ./hack/setup-envtest.sh
+./hack/setup-envtest.sh
 
-mkdir -p ${ENVTEST_ASSETS_DIR}
-fetch_envtest_tools ${ENVTEST_ASSETS_DIR}
-setup_envtest_env ${ENVTEST_ASSETS_DIR}
 echo "** STARTING TEST ** [KUBECONFIG=${KUBECONFIG}]"
 go test -v ${SHORT_FLAG} ./... 

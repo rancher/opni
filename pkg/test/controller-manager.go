@@ -63,14 +63,13 @@ func StartControllerManager(ctx context.Context, testEnv *envtest.Environment) {
 		"--kubeconfig", path.Join(testEnv.BinaryAssetsDirectory, "kubeconfig.yaml"),
 		"--controllers", strings.Join(defaultControllers, ","),
 		"--leader-elect=false",
-		"--address=127.0.0.1",
-		fmt.Sprintf("--port=%d", port),
-		"--secure-port=0",
+		"--bind-address=127.0.0.1",
+		fmt.Sprintf("--secure-port=%d", port),
 		"--enable-garbage-collector",
 		"--concurrent-gc-syncs=40",
 	)
 	cmd.Stdout = testEnv.ControlPlane.APIServer.Out
-	cmd.Stderr = testEnv.ControlPlane.APIServer.Err
+	cmd.Stderr = os.Stderr
 	go func() {
 		err := cmd.Run()
 		if err != nil {

@@ -28,6 +28,7 @@ type Reconciler interface {
 
 func RunTestEnvironment(
 	testEnv *envtest.Environment,
+	runControllerManager bool,
 	reconcilers ...Reconciler,
 ) (stop context.CancelFunc, k8sManager ctrl.Manager, k8sClient client.Client) {
 	if len(reconcilers) == 0 {
@@ -47,7 +48,9 @@ func RunTestEnvironment(
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	}()
 
-	StartControllerManager(ctx, testEnv)
+	if runControllerManager {
+		StartControllerManager(ctx, testEnv)
+	}
 
 	err = v1beta1.AddToScheme(scheme.Scheme)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())

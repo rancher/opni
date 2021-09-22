@@ -3,7 +3,6 @@ set -e
 
 cd $(dirname $0)/..
 
-ENVTEST_ASSETS_DIR=$(pwd)/testbin
 SHORT_FLAG="-short"
 
 if [ "$SHORT" = "0" ]; then

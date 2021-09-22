@@ -145,7 +145,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	var mgr manager.Manager
-	stopEnv, mgr, k8sClient = test.RunTestEnvironment(testEnv,
+	stopEnv, mgr, k8sClient = test.RunTestEnvironment(testEnv, false,
 		&demo.OpniDemoReconciler{},
 		&controllers.LoggingReconciler{},
 		&controllers.LogAdapterReconciler{},

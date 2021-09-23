@@ -16,6 +16,7 @@ KUBECONFIG= k3d cluster create \
   --servers 1 \
   --agents 1 \
   --timeout 30s \
+  --volume /etc/os-release:/etc/os-release \
   ${CLUSTER_NAME} "$@"
 
 # default name/port

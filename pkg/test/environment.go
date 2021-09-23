@@ -24,9 +24,10 @@ type Reconciler interface {
 func RunTestEnvironment(
 	testEnv *envtest.Environment,
 	runControllerManager bool,
+	externalEnv bool,
 	reconcilers ...Reconciler,
 ) (stop context.CancelFunc, k8sManager ctrl.Manager, k8sClient client.Client) {
-	if len(reconcilers) == 0 {
+	if !externalEnv && len(reconcilers) == 0 {
 		panic("no reconcilers")
 	}
 	var ctx context.Context

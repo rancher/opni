@@ -73,7 +73,7 @@ var _ = BeforeSuite(func() {
 		},
 	}
 	stopEnv, k8sManager, k8sClient =
-		test.RunTestEnvironment(testEnv, &OpniDemoReconciler{})
+		test.RunTestEnvironment(testEnv, true, false, &OpniDemoReconciler{})
 })
 
 var _ = AfterSuite(func() {

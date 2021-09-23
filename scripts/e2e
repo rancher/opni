@@ -7,4 +7,4 @@ cd $(dirname $0)/..
 ./hack/setup-envtest.sh
 
 echo "** STARTING TEST ** [KUBECONFIG=${KUBECONFIG}]"
-go test -v --tags=e2e,demo ./... 
+tilt ci e2e-tests

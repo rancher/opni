@@ -96,7 +96,7 @@ var _ = BeforeSuite(func() {
 			},
 		},
 	}
-	stopEnv, k8sManager, k8sClient = test.RunTestEnvironment(testEnv, true,
+	stopEnv, k8sManager, k8sClient = test.RunTestEnvironment(testEnv, true, false,
 		&OpniClusterReconciler{},
 		&LogAdapterReconciler{},
 		&PretrainedModelReconciler{},

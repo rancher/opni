@@ -8,3 +8,12 @@ test_go('e2e-tests', './test/e2e', '.',
         # run this test automatically in CI mode; otherwise, only on manual trigger
         auto_init=config.tilt_subcommand == 'ci',
         resource_deps=["opni-controller-manager"])
+
+test_go('e2e-tests-prod', './test/e2e', '.',
+        tags=["e2e"],
+        extra_args=["-v"],
+        trigger_mode=TRIGGER_MODE_MANUAL,
+
+        # run this test automatically in CI mode; otherwise, only on manual trigger
+        auto_init=config.tilt_subcommand == 'ci',
+        resource_deps=["opni-controller-manager"])

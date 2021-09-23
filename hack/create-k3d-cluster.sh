@@ -33,4 +33,3 @@ for node in $nodes; do
           tilt.dev/registry=localhost:${reg_port} \
           tilt.dev/registry-from-cluster=${reg_name}:${reg_port}
 done
-kubectl --context=k3d-${CLUSTER_NAME} apply -f https://github.com/jetstack/cert-manager/releases/download/v1.4.0/cert-manager.yaml

@@ -2,8 +2,13 @@ apiVersion: k3d.io/v1alpha2
 kind: Simple
 name: drone
 servers: 1
+kubeAPI:
+  host: k3dsvc
 volumes:
   - volume: /etc/os-release:/etc/os-release
+registries:
+  use:
+  - k3d-k3dsvc:5000
 options:
   k3s:
     extraServerArgs:

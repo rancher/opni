@@ -235,6 +235,8 @@ steps:
         path: /var/run
   - name: e2e-test
     image: quay.io/dbason/tilt:go1.17-0.22.9
+    environment:
+      GOCACHE: /root/.cache/go-build
     commands:
       - until test -f ./kubeconfig.yaml; do sleep 1s; done
       - cat /etc/resolv.conf
@@ -243,6 +245,10 @@ steps:
     volumes:
       - name: dindsock
         path: /var/run
+      - name: gopkg
+        path: /go/pkg
+      - name: gocache
+        path: /root/.cache/go-build
     when:
       event:
         - pull_request
@@ -256,3 +262,9 @@ volumes:
       path: /var/run/docker.sock
   - name: dindsock
     temp: {}
+  - name: gopkg
+    host:
+      path: /var/lib/docker/volumes/opni-build-go16-pkg/_data
+  - name: gocache
+    host:
+      path: /var/lib/docker/volumes/opni-build-go16-cache/_data

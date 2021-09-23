@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/rancher/opni/pkg/providers"
+	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	corev1 "k8s.io/api/core/v1"
@@ -251,7 +253,7 @@ on, unless the --context flag is provided to select a specific context.`,
 				}
 				err = common.K8sClient.Create(cmd.Context(), pretrainedModel)
 				if errors.IsAlreadyExists(err) {
-					common.Log.Warn("Pretrained model already exists, skipping")
+					common.Log.Info("Pretrained model already exists, skipping")
 				} else if err != nil {
 					return err
 				}
@@ -287,7 +289,9 @@ on, unless the --context flag is provided to select a specific context.`,
 				}
 			}
 
-			return nil
+			waitCtx, ca := context.WithTimeout(cmd.Context(), common.TimeoutFlagValue)
+			defer ca()
+			return cliutil.WaitAndDisplayStatus(waitCtx, common.K8sClient, opniCluster)
 		},
 	}
 

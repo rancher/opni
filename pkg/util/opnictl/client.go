@@ -6,13 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
-	"github.com/rancher/opni/apis/demo/v1alpha1"
-	"github.com/rancher/opni/apis/v1beta1"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"github.com/rancher/opni/apis"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -91,10 +86,6 @@ func LoadClientConfig(opts ...ClientOption) (*api.Config, *rest.Config) {
 // CreateScheme creates a new scheme with the types necessary for opnictl.
 func CreateScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(apiextv1.AddToScheme(scheme))
-	utilruntime.Must(v1beta1.AddToScheme(scheme))
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
-	utilruntime.Must(loggingv1beta1.AddToScheme(scheme))
+	apis.InitScheme(scheme)
 	return scheme
 }

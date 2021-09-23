@@ -4,16 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/phayes/freeport"
-	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
-	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
-	opninvidiav1 "github.com/rancher/opni/apis/nvidia/v1"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis"
 	corev1 "k8s.io/api/core/v1"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -52,25 +47,7 @@ func RunTestEnvironment(
 		StartControllerManager(ctx, testEnv)
 	}
 
-	err = v1beta1.AddToScheme(scheme.Scheme)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = demov1alpha1.AddToScheme(scheme.Scheme)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = helmv1.AddToScheme(scheme.Scheme)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = opniloggingv1beta1.AddToScheme(scheme.Scheme)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = opninvidiav1.AddToScheme(scheme.Scheme)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = apiextv1.AddToScheme(scheme.Scheme)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	// +kubebuilder:scaffold:scheme
+	apis.InitScheme(scheme.Scheme)
 
 	ports, err := freeport.GetFreePorts(2)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())

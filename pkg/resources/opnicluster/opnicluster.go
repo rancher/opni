@@ -9,7 +9,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic"
-	util "github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"

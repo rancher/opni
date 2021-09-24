@@ -53463,6 +53463,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app: opni-controller-manager
     control-plane: controller-manager
   name: opni-controller-manager
   namespace: opni-system
@@ -53470,10 +53471,12 @@ spec:
   replicas: 1
   selector:
     matchLabels:
+      app: opni-controller-manager
       control-plane: controller-manager
   template:
     metadata:
       labels:
+        app: opni-controller-manager
         control-plane: controller-manager
     spec:
       containers:

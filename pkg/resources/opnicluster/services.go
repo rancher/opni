@@ -423,7 +423,7 @@ func (r *Reconciler) genericEnvAndVolumes() (
 }
 
 func (r *Reconciler) s3EnvVars() (envVars []corev1.EnvVar) {
-	lg := logr.FromContext(r.ctx)
+	// lg := logr.FromContext(r.ctx)
 	if r.opniCluster.Status.Auth.S3AccessKey != nil &&
 		r.opniCluster.Status.Auth.S3SecretKey != nil &&
 		r.opniCluster.Status.Auth.S3Endpoint != "" {
@@ -442,7 +442,7 @@ func (r *Reconciler) s3EnvVars() (envVars []corev1.EnvVar) {
 			Value: r.opniCluster.Status.Auth.S3Endpoint,
 		})
 	} else {
-		lg.Info("Warning: S3 not configured")
+		// lg.Info("Warning: S3 not configured")
 	}
 	return envVars
 }

@@ -2,25 +2,32 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	nfdv1 "github.com/kubernetes-sigs/node-feature-discovery-operator/api/v1"
 	"github.com/mattn/go-isatty"
 	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/rancher/opni/pkg/providers"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type flagVars struct {
@@ -174,6 +181,10 @@ func buildGpuPolicyAdapter(vars *flagVars) *v1beta1.GpuPolicyAdapter {
 			Name:      "gpu-policy",
 			Namespace: common.NamespaceFlagValue,
 		},
+		Spec: v1beta1.GpuPolicyAdapterSpec{
+			ContainerRuntime:   "auto",
+			KubernetesProvider: "auto",
+		},
 	}
 }
 
@@ -200,6 +211,13 @@ sources:
 			},
 		},
 	}
+}
+
+func ignoreAlreadyExists(err error) error {
+	if apierrors.IsAlreadyExists(err) {
+		return nil
+	}
+	return err
 }
 
 func BuildCreateClusterCmd() *cobra.Command {
@@ -233,6 +251,41 @@ Your current kubeconfig context will be used to select the cluster to operate
 on, unless the --context flag is provided to select a specific context.`,
 			chalk.Bold.TextStyle("opnictl help apis")),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Look up the feature gates used by the opni controller
+			controllers := appsv1.DeploymentList{}
+			labelReq, err := labels.NewRequirement(
+				"app",
+				selection.In,
+				[]string{"opni-controller-manager"},
+			)
+			if err != nil {
+				panic(err)
+			}
+			err = common.K8sClient.List(context.Background(), &controllers, &client.ListOptions{
+				Namespace:     "opni-system",
+				LabelSelector: labels.NewSelector().Add(*labelReq),
+			})
+			if err != nil {
+				return err
+			}
+			if len(controllers.Items) == 0 {
+				return fmt.Errorf("No opni controller manager found in namespace opni-system")
+			}
+			if len(controllers.Items) > 1 {
+				return fmt.Errorf("Multiple opni controller managers found in namespace opni-system")
+			}
+			controller := controllers.Items[0]
+			containerArgs := controller.Spec.Template.Spec.Containers[0].Args
+			featureGate := features.DefaultMutableFeatureGate.DeepCopy()
+			for _, arg := range containerArgs {
+				if strings.HasPrefix(arg, "--feature-gates=") {
+					if err := featureGate.Set(strings.TrimPrefix(arg, "--feature-gates=")); err != nil {
+						return err
+					}
+					break
+				}
+			}
+
 			if vars.provider == "" {
 				provider, err := providers.Detect(cmd.Context(), common.K8sClient)
 				if err != nil {
@@ -246,45 +299,54 @@ on, unless the --context flag is provided to select a specific context.`,
 				}
 			}
 
-			if !vars.noPretrainedModel {
-				pretrainedModel, err := buildPretrainedModel(cmd, vars)
+			opniCluster := buildOpniCluster(vars)
+			if vars.edit {
+				err := cliutil.EditObject(opniCluster, common.K8sClient.Scheme())
 				if err != nil {
-					return err
-				}
-				err = common.K8sClient.Create(cmd.Context(), pretrainedModel)
-				if errors.IsAlreadyExists(err) {
-					common.Log.Info("Pretrained model already exists, skipping")
-				} else if err != nil {
+					if errors.Is(err, cliutil.ErrCanceled) {
+						common.Log.Info("OpniCluster creation canceled.")
+						return nil
+					}
 					return err
 				}
 			}
 
-			opniCluster := buildOpniCluster(vars)
-			err := common.K8sClient.Create(cmd.Context(), opniCluster)
-			if err != nil {
+			err = common.K8sClient.Create(cmd.Context(), opniCluster)
+			if ignoreAlreadyExists(err) != nil {
 				return err
+			}
+
+			if !vars.noPretrainedModel {
+				pretrainedModel, err := buildPretrainedModel(cmd, vars)
+				if ignoreAlreadyExists(err) != nil {
+					return err
+				}
+				err = common.K8sClient.Create(cmd.Context(), pretrainedModel)
+				if ignoreAlreadyExists(err) != nil {
+					return err
+				}
 			}
 
 			if !vars.noLogAdapter {
 				logAdapter := buildLogAdapter(vars)
 				err = common.K8sClient.Create(cmd.Context(), logAdapter)
-				if err != nil {
+				if ignoreAlreadyExists(err) != nil {
 					return err
 				}
 			}
 
-			if !vars.noGpuPolicyAdapter {
+			if !vars.noGpuPolicyAdapter && featureGate.Enabled(features.GPUOperator) {
 				gpuPolicyAdapter := buildGpuPolicyAdapter(vars)
 				err = common.K8sClient.Create(cmd.Context(), gpuPolicyAdapter)
-				if err != nil {
+				if ignoreAlreadyExists(err) != nil {
 					return err
 				}
 			}
 
-			if !vars.noNodeFeatureDiscovery {
+			if !vars.noNodeFeatureDiscovery && featureGate.Enabled(features.NodeFeatureDiscoveryOperator) {
 				nodeFeatureDiscovery := buildNodeFeatureDiscovery(vars)
 				err = common.K8sClient.Create(cmd.Context(), nodeFeatureDiscovery)
-				if err != nil {
+				if ignoreAlreadyExists(err) != nil {
 					return err
 				}
 			}

@@ -26,6 +26,7 @@ import (
 	"github.com/rancher/opni/pkg/resources/logadapter"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -71,7 +72,13 @@ func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if len(logAdapter.OwnerReferences) == 0 {
 		// Tie the LogAdapter to the corresponding OpniCluster.
-		ctrl.SetControllerReference(&opniCluster, &logAdapter, r.scheme)
+		logAdapter.OwnerReferences = append(logAdapter.OwnerReferences,
+			v1.OwnerReference{
+				APIVersion: opniCluster.APIVersion,
+				Kind:       opniCluster.Kind,
+				Name:       opniCluster.Name,
+				UID:        opniCluster.UID,
+			})
 		logAdapter.Status.Phase = "Initializing"
 		logAdapter.Status.Message = "Configuring Owner References"
 		return ctrl.Result{

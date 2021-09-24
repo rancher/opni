@@ -286,7 +286,7 @@ on, unless the --context flag is provided to select a specific context.`,
 						if err := featureGate.Set(arg); err != nil {
 							return err
 						}
-						fmt.Println("Using feature gates:" + arg)
+						common.Log.Info("Using feature gates: " + arg)
 						break
 					}
 				}
@@ -358,7 +358,7 @@ on, unless the --context flag is provided to select a specific context.`,
 				}
 			}
 
-			return cliutil.WaitAndDisplayStatus(cmd.Context(), common.TimeoutFlagValue, common.K8sClient, opniCluster)
+			return nil
 		},
 	}
 

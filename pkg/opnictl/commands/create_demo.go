@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -161,9 +160,7 @@ on, unless the --context flag is provided to select a specific context.`,
 				return err
 			}
 
-			waitCtx, ca := context.WithTimeout(cmd.Context(), common.TimeoutFlagValue)
-			defer ca()
-			return cliutil.WaitAndDisplayStatus(waitCtx, common.K8sClient, opniDemo)
+			return cliutil.WaitAndDisplayStatus(cmd.Context(), common.TimeoutFlagValue, common.K8sClient, opniDemo)
 		},
 	}
 

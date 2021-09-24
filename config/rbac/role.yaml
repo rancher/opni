@@ -380,6 +380,7 @@ rules:
   - opni.io
   resources:
   - logadapters
+  - opniclusters
   verbs:
   - create
   - delete
@@ -391,13 +392,15 @@ rules:
 - apiGroups:
   - opni.io
   resources:
-  - logadapters/finalizers
+  - logadapters
+  - opniclusters/finalizers
   verbs:
   - update
 - apiGroups:
   - opni.io
   resources:
-  - logadapters/status
+  - logadapters
+  - opniclusters/status
   verbs:
   - get
   - patch

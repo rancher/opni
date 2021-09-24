@@ -17,7 +17,15 @@ type StatusObject interface {
 	GetConditions() []string
 }
 
-func WaitAndDisplayStatus(waitCtx context.Context, k8sClient client.Client, obj StatusObject) error {
+func WaitAndDisplayStatus(
+	ctx context.Context,
+	timeout time.Duration,
+	k8sClient client.Client,
+	obj StatusObject,
+) error {
+	waitCtx, ca := context.WithTimeout(ctx, timeout)
+	defer ca()
+
 	p := mpb.New()
 
 	waitingSpinner := p.AddSpinner(1,

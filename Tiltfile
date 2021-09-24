@@ -25,7 +25,7 @@ WORKDIR /
 COPY ./bin/manager /
 COPY ./config/assets/nfd/ /opt/nfd/
 COPY ./config/assets/gpu-operator/ /opt/gpu-operator/
-CMD ["/manager"]
+ENTRYPOINT ["/manager"]
 '''
 
 if "defaultRegistry" in settings:
@@ -33,7 +33,7 @@ if "defaultRegistry" in settings:
 
 docker_build("rancher/opni-manager", '.', 
     dockerfile_contents=DOCKERFILE,
-    entrypoint=['/manager', '--feature-gates=AllAlpha=true'],
+    container_args=['--feature-gates=AllAlpha=true'],
     only=['./bin/manager', './config/assets'],
     live_update=[sync('./bin/manager', '/manager')]
 )

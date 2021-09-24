@@ -275,14 +275,20 @@ on, unless the --context flag is provided to select a specific context.`,
 				return fmt.Errorf("Multiple opni controller managers found in namespace opni-system")
 			}
 			controller := controllers.Items[0]
-			containerArgs := controller.Spec.Template.Spec.Containers[0].Args
 			featureGate := features.DefaultMutableFeatureGate.DeepCopy()
-			for _, arg := range containerArgs {
-				if strings.HasPrefix(arg, "--feature-gates=") {
-					if err := featureGate.Set(strings.TrimPrefix(arg, "--feature-gates=")); err != nil {
-						return err
+			for _, container := range controller.Spec.Template.Spec.Containers {
+				containerArgs := container.Args
+				for _, arg := range containerArgs {
+					if strings.HasPrefix(arg, "--feature-gates") {
+						arg = strings.TrimPrefix(arg, "--feature-gates")
+						arg = strings.TrimPrefix(arg, "=")
+						arg = strings.Trim(arg, `"`)
+						if err := featureGate.Set(arg); err != nil {
+							return err
+						}
+						fmt.Println("Using feature gates:" + arg)
+						break
 					}
-					break
 				}
 			}
 
@@ -301,7 +307,7 @@ on, unless the --context flag is provided to select a specific context.`,
 
 			opniCluster := buildOpniCluster(vars)
 			if vars.edit {
-				err := cliutil.EditObject(opniCluster, common.K8sClient.Scheme())
+				obj, err := cliutil.EditObject(opniCluster, common.K8sClient.Scheme())
 				if err != nil {
 					if errors.Is(err, cliutil.ErrCanceled) {
 						common.Log.Info("OpniCluster creation canceled.")
@@ -309,6 +315,7 @@ on, unless the --context flag is provided to select a specific context.`,
 					}
 					return err
 				}
+				opniCluster = obj.(*v1beta1.OpniCluster)
 			}
 
 			err = common.K8sClient.Create(cmd.Context(), opniCluster)
@@ -351,9 +358,7 @@ on, unless the --context flag is provided to select a specific context.`,
 				}
 			}
 
-			waitCtx, ca := context.WithTimeout(cmd.Context(), common.TimeoutFlagValue)
-			defer ca()
-			return cliutil.WaitAndDisplayStatus(waitCtx, common.K8sClient, opniCluster)
+			return cliutil.WaitAndDisplayStatus(cmd.Context(), common.TimeoutFlagValue, common.K8sClient, opniCluster)
 		},
 	}
 

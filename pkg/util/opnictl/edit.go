@@ -24,11 +24,11 @@ var (
 // editor. It will retry on basic yaml decoding errors but will not validate
 // the object against the schema. On success, the provided object will be
 // modified in-place. If an error occurs, it will not be modified.
-func EditObject(obj runtime.Object, scheme *runtime.Scheme) error {
+func EditObject(obj runtime.Object, scheme *runtime.Scheme) (runtime.Object, error) {
 	// send the yaml to $EDITOR for editing
 	editor, ok := os.LookupEnv("EDITOR")
 	if !ok {
-		return ErrNoEditor
+		return nil, ErrNoEditor
 	}
 
 	// edit the object
@@ -43,16 +43,15 @@ func EditObject(obj runtime.Object, scheme *runtime.Scheme) error {
 		newObj, err := doEdit(editor, obj.DeepCopyObject(), scheme, headers...)
 		if err != nil {
 			if errors.Is(err, ErrCanceled) {
-				return err
+				return nil, err
 			}
 			if errors.Is(err, ErrObjectDecodeFailed) {
 				errHeaders = []string{"#", fmt.Sprintf("# %s", err.Error())}
 				continue
 			}
-			return err
+			return nil, err
 		}
-		obj = newObj
-		return nil
+		return newObj, nil
 	}
 }
 

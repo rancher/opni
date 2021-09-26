@@ -53,9 +53,10 @@ func queryAnomalyCount(esClient *elasticsearch.Client) (int, error) {
 }
 
 var _ = Describe("OpniDemo E2E", func() {
+	var demo v1alpha1.OpniDemo
 	When("creating an opnidemo", func() {
 		It("should succeed", func() {
-			demo := v1alpha1.OpniDemo{
+			demo = v1alpha1.OpniDemo{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      demoCrName,
 					Namespace: demoCrNamespace,
@@ -268,6 +269,9 @@ var _ = Describe("OpniDemo E2E", func() {
 		})
 		Specify("clean up port-forward", func() {
 			close(stopCh)
+		})
+		Specify("delete opnidemo", func() {
+			k8sClient.Delete(context.Background(), &demo)
 		})
 	})
 })

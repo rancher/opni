@@ -12,24 +12,6 @@ set -o errexit
 CLUSTER_NAME="${CLUSTER_NAME:-k3s-tilt-opni}"
 
 KUBECONFIG= k3d cluster create \
-  --registry-create \
-  --servers 1 \
-  --agents 1 \
+  --config $(dirname $0)/k3d-local.yaml \
   --timeout 30s \
-  --volume /etc/os-release:/etc/os-release \
   ${CLUSTER_NAME} "$@"
-
-# default name/port
-# TODO(maia): support other names/ports
-reg_name='registry.local'
-reg_port='5000'
-
-# Annotate nodes with registry info for Tilt to auto-detect
-echo "Annotating nodes with registry info..."
-DONE=""
-nodes=$(kubectl --context=k3d-${CLUSTER_NAME} get nodes -o go-template --template='{{range .items}}{{printf "%s\n" .metadata.name}}{{end}}')
-for node in $nodes; do
-  kubectl --context=k3d-${CLUSTER_NAME} annotate node "${node}" \
-          tilt.dev/registry=localhost:${reg_port} \
-          tilt.dev/registry-from-cluster=${reg_name}:${reg_port}
-done

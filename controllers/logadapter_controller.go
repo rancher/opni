@@ -69,25 +69,6 @@ func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			opnierrors.InvalidReference, logAdapter.Spec.OpniCluster.Name, logAdapter.Spec.OpniCluster.Namespace)
 	}
 
-	// if len(logAdapter.OwnerReferences) == 0 {
-	// 	// Tie the LogAdapter to the corresponding OpniCluster.
-	// 	logAdapter.OwnerReferences = append(logAdapter.OwnerReferences,
-	// 		v1.OwnerReference{
-	// 			APIVersion:         opniCluster.APIVersion,
-	// 			Kind:               opniCluster.Kind,
-	// 			Name:               opniCluster.Name,
-	// 			UID:                opniCluster.UID,
-	// 			Controller:         pointer.Bool(true),
-	// 			BlockOwnerDeletion: pointer.Bool(true),
-	// 		},
-	// 	)
-	// 	logAdapter.Status.Phase = "Initializing"
-	// 	logAdapter.Status.Message = "Configuring Owner References"
-	// 	return ctrl.Result{
-	// 		Requeue: true,
-	// 	}, r.Update(ctx, &logAdapter)
-	// }
-
 	logAdapter.Status.Conditions = []string{}
 
 	// Don't process the request if the log adapter is being deleted.

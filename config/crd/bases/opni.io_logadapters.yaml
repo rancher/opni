@@ -3007,7 +3007,6 @@ spec:
                 - k3s
                 - rke
                 - rke2
-                - kubeaudit
                 type: string
               rke:
                 properties:

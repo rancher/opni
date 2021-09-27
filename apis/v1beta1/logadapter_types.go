@@ -51,7 +51,7 @@ const (
 
 // LogAdapterSpec defines the desired state of LogAdapter
 type LogAdapterSpec struct {
-	// +kubebuilder:validation:Enum:=aks;eks;gke;k3s;rke;rke2;kubeaudit
+	// +kubebuilder:validation:Enum:=aks;eks;gke;k3s;rke;rke2
 	// +kubebuilder:validation:Required
 	Provider LogProvider `json:"provider"`
 

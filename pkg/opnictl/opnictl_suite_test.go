@@ -1,5 +1,5 @@
-//go:build !e2e
-// +build !e2e
+//go:build e2e && gpu
+// +build e2e,gpu
 
 package opnictl_test
 

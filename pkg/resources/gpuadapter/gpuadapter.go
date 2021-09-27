@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	defaultImages = v1beta1.ImagesSpec{
+	DefaultImages = v1beta1.ImagesSpec{
 		Driver:        "nvcr.io/nvidia/driver:470.57.02",
 		DriverManager: "nvcr.io/nvidia/cloud-native/k8s-driver-manager:v0.1.0",
 		DCGM:          "nvcr.io/nvidia/cloud-native/dcgm:2.2.3-ubuntu20.04",
@@ -64,7 +64,7 @@ func ReconcileGPUAdapter(
 		provider = providers.Unknown
 	}
 
-	policy, err := buildClusterPolicy(gpa, provider)
+	policy, err := BuildClusterPolicy(gpa, provider)
 	if err != nil {
 		return util.RequeueErr(err).Result()
 	}
@@ -76,11 +76,11 @@ func ReconcileGPUAdapter(
 	return util.LoadResult(rec.ReconcileResource(policy, reconciler.StatePresent)).Result()
 }
 
-func buildClusterPolicy(
+func BuildClusterPolicy(
 	gpa *v1beta1.GpuPolicyAdapter,
 	provider providers.Provider,
 ) (*nvidiav1.ClusterPolicy, error) {
-	mergo.Merge(&gpa.Spec.Images, &defaultImages)
+	mergo.Merge(&gpa.Spec.Images, &DefaultImages)
 	var containerRuntime v1beta1.ContainerRuntime
 	switch cr := gpa.Spec.ContainerRuntime; cr {
 	case v1beta1.Auto:
@@ -96,11 +96,12 @@ func buildClusterPolicy(
 			Namespace: gpa.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: gpa.APIVersion,
-					Kind:       gpa.Kind,
-					Name:       gpa.Name,
-					UID:        gpa.UID,
-					Controller: pointer.BoolPtr(true),
+					APIVersion:         gpa.APIVersion,
+					Kind:               gpa.Kind,
+					Name:               gpa.Name,
+					UID:                gpa.UID,
+					Controller:         pointer.BoolPtr(true),
+					BlockOwnerDeletion: pointer.BoolPtr(true),
 				},
 			},
 		},
@@ -167,6 +168,9 @@ func buildClusterPolicy(
 				},
 				SecurityContext: &corev1.SecurityContext{
 					Privileged: pointer.Bool(true),
+					SELinuxOptions: &corev1.SELinuxOptions{
+						Level: "s0",
+					},
 				},
 				Image: gpa.Spec.Images.DevicePlugin,
 			},
@@ -235,6 +239,9 @@ func buildClusterPolicy(
 				},
 				SecurityContext: &corev1.SecurityContext{
 					Privileged: pointer.Bool(true),
+					SELinuxOptions: &corev1.SELinuxOptions{
+						Level: "s0",
+					},
 				},
 			},
 			NodeStatusExporter: nvidiav1.NodeStatusExporterSpec{

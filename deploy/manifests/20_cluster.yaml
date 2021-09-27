@@ -1,0 +1,50 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: opni-cluster
+---
+apiVersion: opni.io/v1beta1
+kind: PretrainedModel
+metadata:
+  name: control-plane
+  namespace: opni-cluster
+spec:
+  source:
+    http:
+      url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model-v0.1.2.zip"
+  hyperparameters:
+    modelThreshold: "0.6"
+    minLogTokens: 4
+    isControlPlane: "true"
+---
+apiVersion: opni.io/v1beta1
+kind: LogAdapter
+metadata:
+  name: rke2
+spec:
+  provider: rke2
+  opniCluster:
+    name: opni-cluster
+    namespace: opni-cluster
+---
+apiVersion: opni.io/v1beta1
+kind: OpniCluster
+metadata:
+  name: opni-cluster
+  namespace: opni-cluster
+spec:
+  version: v0.1.3
+  deployLogCollector: true
+  services:
+    gpuController:
+      enabled: false  # Set this to true for a a cluster with a GPU
+    inference:
+      pretrainedModels:
+      - name: control-plane
+  elastic:
+    version: 1.13.2
+  s3:
+    internal: {}
+  nats:
+    authMethod: nkey

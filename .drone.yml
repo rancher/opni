@@ -151,7 +151,7 @@ steps:
       instance:
         - drone-publish.rancher.io
       ref:
-        - refs/head/main
+        - refs/heads/main
         - refs/tags/*
   - name: publish-dockerhub-tag
     image: plugins/docker
@@ -171,7 +171,7 @@ steps:
       instance:
         - drone-publish.rancher.io
       refs:
-        - refs/head/main
+        - refs/heads/main
         - refs/tags/*
   - name: publish-dockerhub-main
     image: plugins/docker
@@ -207,7 +207,7 @@ steps:
       instance:
         - drone-publish.rancher.io
       ref:
-        - refs/head/main
+        - refs/heads/main
         - refs/tags/*
 volumes:
   - name: docker

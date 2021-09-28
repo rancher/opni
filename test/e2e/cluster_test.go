@@ -123,7 +123,7 @@ var _ = Describe("OpniCluster E2E Test", func() {
 							Enabled: pointer.BoolPtr(false),
 						},
 						Inference: v1beta1.InferenceServiceSpec{
-							PretrainedModels: []v1beta1.PretrainedModelReference{
+							PretrainedModels: []corev1.LocalObjectReference{
 								{
 									Name: clusterCrName,
 								},

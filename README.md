@@ -21,11 +21,32 @@ Opni currently features log anomaly detection for Kubernetes.
 ![alt text](https://opni-public.s3.us-east-2.amazonaws.com/opni-inside-cluster-diagram.png)
 
 ----
+
+### Deprecation Notice
+Please note the opnidemo resource, and opnictl are being deprecated in the next release.
 ## Getting started with Opni
 
-
 ### Full Install Opni in your Kubernetes cluster:
-* Download the `opnictl` binary from the [latest release](https://github.com/rancher/opni/releases/tag/v0.1.2)
+
+#### Manifests install (recommended):
+Prerequisites:
+  * *1 Nvidia GPU* required if you want the AI to learn from your workloads
+    * You will need the nvidia [k8s-device-plugin](https://github.com/NVIDIA/k8s-device-plugin) deployed to the cluster.  The simplest way is to use the nvidia operator.  [This blog post](https://rancher.com/blog/2020/get-up-and-running-with-nvidia-gpus) contains instructions on how to deploy it.
+  * Cert manager installed.  This can be installed with the following command:
+    ```bash
+    kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
+    ```
+
+Installation:
+  1) Clone the git repo
+  1) Deploy the manifests in `deploy/manifests`
+     ```bash
+     kubectl apply -f deploy/manifests
+     ```
+     1) If you want to deploy the GPU service set the [deploy option](https://github.com/rancher/opni/blob/main/deploy/manifests/20_cluster.yaml#L31) to true
+  1) Deploy a matching logAdapter from [deploy/examples/logAdapters](https://github.com/rancher/opni/tree/main/deploy/examples/logAdapters)
+#### Opnictl install
+* Download the `opnictl` binary from the [latest release](https://github.com/rancher/opni/releases/tag/v0.1.3)
 * Install Opni using `opnictl`
   ```
   opnictl install
@@ -33,9 +54,7 @@ Opni currently features log anomaly detection for Kubernetes.
   ```
   * Will use your current kubeconfig context
   * Cluster Hardware requirements: 4 vCPUs, 16GB RAM
-    * *2 Nvidia GPUs* required if you want the AI to learn from your workloads (recommended)
-      * Next release (v0.1.3) will only require 1 GPU
-
+    * *1 Nvidia GPU* required if you want the AI to learn from your workloads (recommended)
 
 Consume insights from the Opni Dashboard in Kibana. You will need to expose the Kibana service or port forward to do this.
 
@@ -45,9 +64,6 @@ Consume insights from the Opni Dashboard in Kibana. You will need to expose the 
   ```
   curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/main/quickstart_files/install_opni.sh | sh -
   ```
-
-  * Copy the NodePort from the script output
-    * View insights from the Opni Dashboard in Kibana [IPV4_ADDRESS]:[NODE_PORT]
 
   * Experiment with injecting your own control plane failures to see how Opni responds
     * Can refer to [these failures](https://github.com/rancher/opni-docs/blob/main/examples/fault-injection.md) and this [anomaly injection script](https://github.com/rancher/opni-docs/blob/main/quickstart_files/errors_injection.sh) as starting points

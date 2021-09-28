@@ -114,17 +114,10 @@ type DrainServiceSpec struct {
 
 type InferenceServiceSpec struct {
 	ImageSpec        `json:",inline,omitempty"`
-	Enabled          *bool                      `json:"enabled,omitempty"`
-	PretrainedModels []PretrainedModelReference `json:"pretrainedModels,omitempty"`
-	NodeSelector     map[string]string          `json:"nodeSelector,omitempty"`
-	Tolerations      []corev1.Toleration        `json:"tolerations,omitempty"`
-}
-
-type PretrainedModelReference struct {
-	// +kubebuilder:validation:Required
-	Name      string                       `json:"name,omitempty"`
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity  *corev1.Affinity             `json:"affinity,omitempty"`
+	Enabled          *bool                         `json:"enabled,omitempty"`
+	PretrainedModels []corev1.LocalObjectReference `json:"pretrainedModels,omitempty"`
+	NodeSelector     map[string]string             `json:"nodeSelector,omitempty"`
+	Tolerations      []corev1.Toleration           `json:"tolerations,omitempty"`
 }
 
 type PreprocessingServiceSpec struct {

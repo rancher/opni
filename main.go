@@ -22,32 +22,23 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 
-	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	"github.com/kralicky/highlander"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	demov1alpha1 "github.com/rancher/opni/apis/demo/v1alpha1"
-	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
-	opninfdv1 "github.com/rancher/opni/apis/nfd/v1"
-	opninvidiav1 "github.com/rancher/opni/apis/nvidia/v1"
+	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/apis/v1beta1"
-	opniiov1beta1 "github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/controllers/demo"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
-	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -62,19 +53,7 @@ const (
 )
 
 func init() {
-	// Register the logging operator CRDs under the logging.opni.io group
-	// to avoid possible conflicts.
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(apiextv1.AddToScheme(scheme))
-	utilruntime.Must(v1beta1.AddToScheme(scheme))
-	utilruntime.Must(demov1alpha1.AddToScheme(scheme))
-	utilruntime.Must(helmv1.AddToScheme(scheme))
-	utilruntime.Must(opniloggingv1beta1.AddToScheme(scheme))
-	utilruntime.Must(monitoringv1.AddToScheme(scheme))
-	utilruntime.Must(opninvidiav1.AddToScheme(scheme))
-	utilruntime.Must(opninfdv1.AddToScheme(scheme))
-	utilruntime.Must(opniiov1beta1.AddToScheme(scheme))
-	// +kubebuilder:scaffold:scheme
+	apis.InitScheme(scheme)
 }
 
 func main() {

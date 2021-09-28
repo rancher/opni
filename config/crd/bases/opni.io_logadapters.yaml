@@ -3001,13 +3001,12 @@ spec:
                 type: object
               provider:
                 enum:
-                - AKS
-                - EKS
-                - GKE
-                - K3S
-                - RKE
-                - RKE2
-                - KubeAudit
+                - aks
+                - eks
+                - gke
+                - k3s
+                - rke
+                - rke2
                 type: string
               rke:
                 properties:

@@ -26,7 +26,6 @@ import (
 	"github.com/rancher/opni/pkg/resources/logadapter"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,9 +38,9 @@ type LogAdapterReconciler struct {
 	scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=opni.io,resources=logadapters,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=opni.io,resources=logadapters/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=opni.io,resources=logadapters/finalizers,verbs=update
+//+kubebuilder:rbac:groups=opni.io,resources=logadapters;opniclusters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=opni.io,resources=logadapters;opniclusters/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=opni.io,resources=logadapters;opniclusters/finalizers,verbs=update
 //+kubebuilder:rbac:groups=logging.opni.io,resources=loggings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
@@ -68,22 +67,6 @@ func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		r.Status().Update(ctx, &logAdapter)
 		return ctrl.Result{}, fmt.Errorf("%w: { name: %s, namespace: %s }",
 			opnierrors.InvalidReference, logAdapter.Spec.OpniCluster.Name, logAdapter.Spec.OpniCluster.Namespace)
-	}
-
-	if len(logAdapter.OwnerReferences) == 0 {
-		// Tie the LogAdapter to the corresponding OpniCluster.
-		logAdapter.OwnerReferences = append(logAdapter.OwnerReferences,
-			v1.OwnerReference{
-				APIVersion: opniCluster.APIVersion,
-				Kind:       opniCluster.Kind,
-				Name:       opniCluster.Name,
-				UID:        opniCluster.UID,
-			})
-		logAdapter.Status.Phase = "Initializing"
-		logAdapter.Status.Message = "Configuring Owner References"
-		return ctrl.Result{
-			Requeue: true,
-		}, r.Update(ctx, &logAdapter)
 	}
 
 	logAdapter.Status.Conditions = []string{}

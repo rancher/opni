@@ -213,10 +213,10 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 				Inference: v1beta1.InferenceServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
-					PretrainedModels: func() []v1beta1.PretrainedModelReference {
-						var ret []v1beta1.PretrainedModelReference
+					PretrainedModels: func() []corev1.LocalObjectReference {
+						var ret []corev1.LocalObjectReference
 						for _, model := range opts.Models {
-							ret = append(ret, v1beta1.PretrainedModelReference{
+							ret = append(ret, corev1.LocalObjectReference{
 								Name: model,
 							})
 						}

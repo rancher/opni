@@ -185,3 +185,11 @@ func (e ElasticRole) GetTolerations(opniCluster *OpniCluster) []corev1.Toleratio
 		return []corev1.Toleration{}
 	}
 }
+
+func (c *OpniCluster) GetState() string {
+	return string(c.Status.State)
+}
+
+func (c *OpniCluster) GetConditions() []string {
+	return c.Status.Conditions
+}

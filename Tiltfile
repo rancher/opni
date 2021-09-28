@@ -17,14 +17,15 @@ local_resource('Watch & Compile',
     deps=deps, ignore=['**/zz_generated.deepcopy.go'])
 
 local_resource('Sample YAML', 'kubectl apply -k ./config/samples', 
-    deps=["./config/samples"], resource_deps=["opni-controller-manager"])
+    deps=["./config/samples"], resource_deps=["opni-controller-manager"],
+    auto_init=False, trigger_mode=TRIGGER_MODE_MANUAL)
 
 DOCKERFILE = '''FROM golang:alpine
 WORKDIR /
 COPY ./bin/manager /
 COPY ./config/assets/nfd/ /opt/nfd/
 COPY ./config/assets/gpu-operator/ /opt/gpu-operator/
-CMD ["/manager"]
+ENTRYPOINT ["/manager"]
 '''
 
 if "defaultRegistry" in settings:
@@ -32,7 +33,7 @@ if "defaultRegistry" in settings:
 
 docker_build("rancher/opni-manager", '.', 
     dockerfile_contents=DOCKERFILE,
-    entrypoint=['/manager', '--feature-gates=AllAlpha=true'],
+    container_args=['--feature-gates=AllAlpha=true'],
     only=['./bin/manager', './config/assets'],
     live_update=[sync('./bin/manager', '/manager')]
 )

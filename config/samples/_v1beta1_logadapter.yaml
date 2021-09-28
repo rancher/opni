@@ -4,7 +4,7 @@ metadata:
   name: lga
   namespace: default
 spec:
-  provider: K3S
+  provider: k3s
   opniCluster:
     name: opnicluster-sample
     namespace: default

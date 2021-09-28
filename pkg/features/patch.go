@@ -36,8 +36,10 @@ func PatchFeatureGatesInWorkload(obj *unstructured.Unstructured, containerName s
 	if err != nil {
 		return fmt.Errorf("failed to list args of container %s: %w", containerName, err)
 	}
-	argList = append(argList, fmt.Sprintf("--feature-gates=%q",
-		DefaultMutableFeatureGate.String()))
+	featureGateArg := DefaultMutableFeatureGate.String()
+	if len(featureGateArg) > 0 {
+		argList = append(argList, fmt.Sprintf("--feature-gates=%q", featureGateArg))
+	}
 	if err := unstructured.SetNestedStringSlice(container, argList, "args"); err != nil {
 		return fmt.Errorf("failed to set args of container %s: %w", containerName, err)
 	}

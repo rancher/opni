@@ -101,3 +101,11 @@ type OpniDemoList struct {
 func init() {
 	SchemeBuilder.Register(&OpniDemo{}, &OpniDemoList{})
 }
+
+func (c *OpniDemo) GetState() string {
+	return c.Status.State
+}
+
+func (c *OpniDemo) GetConditions() []string {
+	return c.Status.Conditions
+}

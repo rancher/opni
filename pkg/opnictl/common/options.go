@@ -6,6 +6,7 @@ import (
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -19,9 +20,11 @@ var (
 	ExplicitPathFlagValue    string
 	K8sClient                client.Client
 	RestConfig               *rest.Config
+	APIConfig                *api.Config
 )
 
 const (
+	DefaultOpniNamespace                  = "opni"
 	DefaultOpniDemoName                   = "opni-demo"
 	DefaultOpniDemoNamespace              = "opni-demo"
 	DefaultOpniDemoMinioAccessKey         = "minioadmin"
@@ -52,6 +55,6 @@ func MaybeContextOverride() []cliutil.ClientOption {
 }
 
 func LoadDefaultClientConfig() {
-	RestConfig, K8sClient = cliutil.CreateClientOrDie(
+	APIConfig, RestConfig, K8sClient = cliutil.CreateClientOrDie(
 		append(MaybeContextOverride(), cliutil.WithExplicitPath(ExplicitPathFlagValue))...)
 }

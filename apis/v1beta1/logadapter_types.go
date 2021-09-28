@@ -25,12 +25,12 @@ import (
 type LogProvider string
 
 const (
-	LogProviderAKS  LogProvider = "AKS"
-	LogProviderEKS  LogProvider = "EKS"
-	LogProviderGKE  LogProvider = "GKE"
-	LogProviderK3S  LogProvider = "K3S"
-	LogProviderRKE  LogProvider = "RKE"
-	LogProviderRKE2 LogProvider = "RKE2"
+	LogProviderAKS  LogProvider = "aks"
+	LogProviderEKS  LogProvider = "eks"
+	LogProviderGKE  LogProvider = "gke"
+	LogProviderK3S  LogProvider = "k3s"
+	LogProviderRKE  LogProvider = "rke"
+	LogProviderRKE2 LogProvider = "rke2"
 )
 
 type ContainerEngine string
@@ -51,7 +51,7 @@ const (
 
 // LogAdapterSpec defines the desired state of LogAdapter
 type LogAdapterSpec struct {
-	// +kubebuilder:validation:Enum:=AKS;EKS;GKE;K3S;RKE;RKE2;KubeAudit
+	// +kubebuilder:validation:Enum:=aks;eks;gke;k3s;rke;rke2
 	// +kubebuilder:validation:Required
 	Provider LogProvider `json:"provider"`
 

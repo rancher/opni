@@ -20,6 +20,7 @@ require (
 	github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6
 	github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
+	github.com/mattn/go-isatty v0.0.14
 	github.com/nats-io/nkeys v0.3.0
 	github.com/onsi/ginkgo v1.16.5-0.20210808002315-bc059d745883
 	github.com/onsi/gomega v1.16.0
@@ -93,7 +94,6 @@ require (
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
@@ -159,7 +159,7 @@ require (
 )
 
 replace (
-	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20210913231859-c0b0d7673219
+	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20210924182312-f0c2765f861e
 	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
 )

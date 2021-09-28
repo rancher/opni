@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/mattn/go-isatty"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
@@ -17,12 +19,15 @@ import (
 )
 
 func BuildInstallCmd() *cobra.Command {
+	var interactive bool
 	installCmd := &cobra.Command{
 		Use:   "install",
 		Short: "Install Opni Manager",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			featureGates := cmd.Flag("feature-gates").Value.String()
-			return features.DefaultMutableFeatureGate.Set(featureGates)
+			// Set the feature gates into a temporary copy to verify the flag is
+			// well-formed; this will not actually set the feature gates.
+			return features.DefaultMutableFeatureGate.DeepCopy().Set(featureGates)
 		},
 		Long: `
 The install command will install the Opni Manager (operator) into your cluster, 
@@ -38,9 +43,32 @@ already exist.
 
 Once the manager is running, install the Opni services using one of the Opni
 APIs. For more information on selecting an API, run 'opnictl help apis'.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if interactive {
+				var selectedGates []string
+				gpuGateDesc := "Automatic GPU Configuration"
+				err := survey.AskOne(&survey.MultiSelect{
+					Message: "Select optional features to enable",
+					Options: []string{gpuGateDesc},
+					Default: []string{},
+				}, &selectedGates)
+				if err != nil {
+					return err
+				}
+				for _, gate := range selectedGates {
+					if gate == gpuGateDesc {
+						err := features.DefaultMutableFeatureGate.SetFromMap(map[string]bool{
+							string(features.GPUOperator):                  true,
+							string(features.NodeFeatureDiscoveryOperator): true,
+						})
+						if err != nil {
+							panic(fmt.Sprintf("bug: error setting feature gates: %s", err.Error()))
+						}
+						break
+					}
+				}
+			}
 			p := mpb.New()
-
 			spinner := p.AddSpinner(1,
 				mpb.AppendDecorators(
 					decor.OnComplete(
@@ -75,9 +103,11 @@ APIs. For more information on selecting an API, run 'opnictl help apis'.`,
 			for _, msg := range msgs {
 				fmt.Fprintln(os.Stderr, msg)
 			}
+			return nil
 		},
 	}
 
+	installCmd.Flags().BoolVar(&interactive, "interactive", isatty.IsTerminal(os.Stdout.Fd()), "use interactive prompts (disabling this will use only defaults)")
 	features.DefaultMutableFeatureGate.AddFlag(installCmd.Flags())
 	return installCmd
 }

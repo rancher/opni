@@ -12,5 +12,6 @@ func BuildCreateCmd() *cobra.Command {
 		Long:  "See subcommands for more information.",
 	}
 	createCmd.AddCommand(BuildCreateDemoCmd())
+	createCmd.AddCommand(BuildCreateClusterCmd())
 	return createCmd
 }

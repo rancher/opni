@@ -1,0 +1,9 @@
+apiVersion: opni.io/v1beta1
+kind: LogAdapter
+metadata:
+  name: rke
+spec:
+  provider: rke
+  opniCluster:
+    name: opni-cluster
+    namespace: opni-cluster

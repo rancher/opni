@@ -1,6 +1,3 @@
-//go:build !e2e
-// +build !e2e
-
 package controllers
 
 import (
@@ -22,7 +19,7 @@ func marshal(hp map[string]intstr.IntOrString) string {
 	return string(b)
 }
 
-var _ = Describe("PretrainedModel Controller", func() {
+var _ = Describe("PretrainedModel Controller", Label("controller"), func() {
 	It("should reconcile pretrained model resources", func() {
 		By("Creating a pretrainedmodel")
 		model := &v1beta1.PretrainedModel{

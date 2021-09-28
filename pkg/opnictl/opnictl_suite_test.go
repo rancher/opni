@@ -1,6 +1,3 @@
-//go:build e2e && gpu
-// +build e2e,gpu
-
 package opnictl_test
 
 import (

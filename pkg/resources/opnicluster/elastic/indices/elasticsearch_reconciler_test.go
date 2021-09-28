@@ -1,6 +1,3 @@
-//go:build !e2e
-// +build !e2e
-
 package indices
 
 import (
@@ -14,7 +11,7 @@ import (
 	esapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 )
 
-var _ = Describe("Indices", func() {
+var _ = Describe("Indices", Label("unit"), func() {
 	var (
 		reconciler *elasticsearchReconciler
 		transport  *httpmock.MockTransport

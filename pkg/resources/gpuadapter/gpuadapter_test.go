@@ -1,6 +1,3 @@
-//go:build !e2e
-// +build !e2e
-
 package gpuadapter_test
 
 import (
@@ -68,7 +65,7 @@ var (
 	}
 )
 
-var _ = Describe("GpuAdapter", func() {
+var _ = Describe("GpuAdapter", Label("unit"), func() {
 	It("should handle all permutations of GpuAdapter", func() {
 		for _, vgpuSpec := range vgpuSpecs {
 			for _, discoveredProvider := range discoveredProviders {

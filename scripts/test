@@ -3,13 +3,7 @@ set -e
 
 cd $(dirname $0)/..
 
-SHORT_FLAG="-short"
-
-if [ "$SHORT" = "0" ]; then
-  SHORT_FLAG=
-fi
-
 ./hack/setup-envtest.sh
 
 echo "** STARTING TEST ** [KUBECONFIG=${KUBECONFIG}]"
-go test -v ${SHORT_FLAG} ./... 
+go test ./... -v --ginkgo.label-filter unit,controller

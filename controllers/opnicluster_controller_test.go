@@ -1,6 +1,3 @@
-//go:build !e2e
-// +build !e2e
-
 package controllers
 
 import (
@@ -26,7 +23,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 )
 
-var _ = Describe("OpniCluster Controller", func() {
+var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 	cluster := &v1beta1.OpniCluster{}
 
 	createCluster := func(c *v1beta1.OpniCluster) {

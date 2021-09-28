@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	emperror.dev/errors v0.8.0
-	github.com/AlecAivazis/survey/v2 v2.3.1
+	github.com/AlecAivazis/survey/v2 v2.3.2
 	github.com/NVIDIA/gpu-operator v1.8.1
 	github.com/banzaicloud/logging-operator v1.12.4-alpine-2
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
@@ -20,7 +20,7 @@ require (
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
 	github.com/mattn/go-isatty v0.0.14
 	github.com/nats-io/nkeys v0.3.0
-	github.com/onsi/ginkgo v1.16.5-0.20210808002315-bc059d745883
+	github.com/onsi/ginkgo v1.16.5-0.20210926212817-d0c597ffc7d0
 	github.com/onsi/gomega v1.16.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.50.0
@@ -31,7 +31,6 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.19.0
 	golang.org/x/mod v0.5.0
-	golang.org/x/tools v0.1.5 // indirect
 	k8s.io/api v0.22.1
 	k8s.io/apiextensions-apiserver v0.22.1
 	k8s.io/apimachinery v0.22.1

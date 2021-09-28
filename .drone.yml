@@ -147,12 +147,13 @@ steps:
     when:
       event:
         - tag
+        - push
       instance:
         - drone-publish.rancher.io
       ref:
         - refs/head/main
         - refs/tags/*
-  - name: publish-dockerhub
+  - name: publish-dockerhub-tag
     image: plugins/docker
     settings:
       password:
@@ -164,7 +165,6 @@ steps:
       repo: rancher/opni-manager
       tags:
         - ${DRONE_TAG}
-        - latest
     when:
       event:
         - tag
@@ -173,6 +173,25 @@ steps:
       refs:
         - refs/head/main
         - refs/tags/*
+  - name: publish-dockerhub-main
+    image: plugins/docker
+    settings:
+      password:
+        from_secret: docker_password
+      username:
+        from_secret: docker_username
+      context: package/
+      dockerfile: package/Dockerfile
+      repo: rancher/opni-manager
+      tags:
+        - latest
+    when:
+      event:
+        - push
+      instance:
+        - drone-publish.rancher.io
+      branch:
+        - main
   - name: publish-bin-artifacts
     image: plugins/github-release
     settings:

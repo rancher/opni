@@ -6,4 +6,4 @@ cd $(dirname $0)/..
 ./hack/setup-envtest.sh
 
 echo "** STARTING TEST ** [KUBECONFIG=${KUBECONFIG}]"
-go test ./... -v --ginkgo.label-filter unit,controller
+go test ./... -race -v --ginkgo.label-filter unit,controller

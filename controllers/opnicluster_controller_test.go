@@ -50,10 +50,11 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 			v1beta1.GPUControllerService,
 		} {
 			wg.Add(1)
+
+			By(fmt.Sprintf("checking %s service metadata and containers", kind.String()))
 			go func(kind v1beta1.ServiceKind) {
 				defer GinkgoRecover()
 				defer wg.Done()
-				By(fmt.Sprintf("checking %s service metadata", kind.String()))
 				Eventually(Object(&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      kind.ServiceName(),
@@ -67,7 +68,6 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 					),
 					HaveOwner(cluster),
 				))
-				By(fmt.Sprintf("checking %s service containers", kind.String()))
 				Eventually(Object(&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      kind.ServiceName(),
@@ -83,6 +83,8 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 				))
 			}(kind)
 		}
+		wg.Wait()
+
 		By("checking the gpu service data mount exists")
 		Eventually(Object(&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{

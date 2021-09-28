@@ -31,58 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type SearchResponse struct {
-	Took     int  `json:"took"`
-	TimedOut bool `json:"timed_out"`
-	Shards   struct {
-		Total      int `json:"total"`
-		Successful int `json:"successful"`
-		Skipped    int `json:"skipped"`
-		Failed     int `json:"failed"`
-	} `json:"_shards"`
-	Hits struct {
-		Total struct {
-			Value    int    `json:"value"`
-			Relation string `json:"relation"`
-		} `json:"total"`
-		MaxScore float64 `json:"max_score"`
-		Hits     []struct {
-			Index  string  `json:"_index"`
-			Type   string  `json:"_type"`
-			ID     string  `json:"_id"`
-			Score  float64 `json:"_score"`
-			Source struct {
-				Log                         string    `json:"log"`
-				Time                        time.Time `json:"time"`
-				TimeNanoseconds             int64     `json:"time_nanoseconds"`
-				WindowDt                    int64     `json:"window_dt"`
-				WindowStartTimeNs           int64     `json:"window_start_time_ns"`
-				MaskedLog                   string    `json:"masked_log"`
-				Timestamp                   time.Time `json:"timestamp"`
-				IsControlPlaneLog           bool      `json:"is_control_plane_log"`
-				KubernetesComponent         string    `json:"kubernetes_component"`
-				AnomalyPredictedCount       float64   `json:"anomaly_predicted_count"`
-				NulogAnomaly                bool      `json:"nulog_anomaly"`
-				DrainAnomaly                bool      `json:"drain_anomaly"`
-				NulogConfidence             float64   `json:"nulog_confidence"`
-				DrainMatchedTemplateID      float64   `json:"drain_matched_template_id"`
-				DrainMatchedTemplateSupport float64   `json:"drain_matched_template_support"`
-				AnomalyLevel                string    `json:"anomaly_level"`
-			} `json:"_source"`
-		} `json:"hits"`
-	} `json:"hits"`
-}
-
-type CountResponse struct {
-	Count  int `json:"count"`
-	Shards struct {
-		Total      int `json:"total"`
-		Successful int `json:"successful"`
-		Skipped    int `json:"skipped"`
-		Failed     int `json:"failed"`
-	} `json:"_shards"`
-}
-
 const (
 	demoCrName      = "test-opnidemo"
 	demoCrNamespace = "opnidemo-test"
@@ -105,9 +53,10 @@ func queryAnomalyCount(esClient *elasticsearch.Client) (int, error) {
 }
 
 var _ = Describe("OpniDemo E2E", func() {
+	var demo v1alpha1.OpniDemo
 	When("creating an opnidemo", func() {
 		It("should succeed", func() {
-			demo := v1alpha1.OpniDemo{
+			demo = v1alpha1.OpniDemo{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      demoCrName,
 					Namespace: demoCrNamespace,
@@ -320,6 +269,9 @@ var _ = Describe("OpniDemo E2E", func() {
 		})
 		Specify("clean up port-forward", func() {
 			close(stopCh)
+		})
+		Specify("delete opnidemo", func() {
+			k8sClient.Delete(context.Background(), &demo)
 		})
 	})
 })

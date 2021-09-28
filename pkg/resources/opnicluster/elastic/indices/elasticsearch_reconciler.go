@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"reflect"
 
@@ -141,12 +140,7 @@ func (r *elasticsearchReconciler) shouldBootstrapIndex(prefix string) (bool, err
 	}
 
 	indices := []map[string]interface{}{}
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return false, err
-	}
-
-	err = json.Unmarshal(data, &indices)
+	err = json.NewDecoder(resp.Body).Decode(&indices)
 	if err != nil {
 		return false, err
 	}
@@ -166,11 +160,10 @@ func (r *elasticsearchReconciler) checkISMPolicy(policy *esapiext.ISMPolicySpec)
 		return false, false, 0, 0, fmt.Errorf("response from API is %s", resp.Status())
 	}
 	ismResponse := &esapiext.ISMGetResponse{}
-	data, err := io.ReadAll(resp.Body)
+	err = json.NewDecoder(resp.Body).Decode(ismResponse)
 	if err != nil {
 		return false, false, 0, 0, err
 	}
-	json.Unmarshal(data, ismResponse)
 	if reflect.DeepEqual(ismResponse.Policy, *policy) {
 		return false, false, 0, 0, nil
 	}
@@ -380,11 +373,7 @@ func (r *elasticsearchReconciler) shouldUpdateKibana() (retBool bool, retErr err
 		return false, fmt.Errorf("failed to check kibana version doc: %s", resp.String())
 	}
 
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return false, err
-	}
-	err = json.Unmarshal(data, respDoc)
+	err = json.NewDecoder(resp.Body).Decode(respDoc)
 	if err != nil {
 		return false, err
 	}

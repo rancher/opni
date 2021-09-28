@@ -71,7 +71,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			} else if len(r.cluster.Status.Conditions) == 0 {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
-				r.cluster.Status.State = v1beta1.OpniClusterStateReady
+				r.cluster.Status.IndexState = v1beta1.OpniClusterStateReady
 			}
 			return r.client.Status().Update(r.ctx, r.cluster)
 		})

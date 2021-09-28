@@ -209,26 +209,20 @@ steps:
       ref:
         - refs/heads/main
         - refs/tags/*
-volumes:
-  - name: docker
-    host:
-      path: /var/run/docker.sock
----
-kind: pipeline
-type: docker
-name: e2e-test
-platform:
-  os: linux
-  arch: amd64
-steps:
-  - name: e2e-test
-    image: golang:1.17
+  - name: k3dsvc
+    image: rancher/k3d:4.4.8dind
+    detach: true
+    privileged: true
     commands:
-      - until test -f ./kubeconfig.yaml; do sleep 1s; done
-      - cat /etc/resolv.conf
-      - export KUBECONFIG=$(realpath kubeconfig.yaml)
-      - export E2E_USE_EXISTING=1
-      - scripts/e2e
+      - nohup dockerd-entrypoint.sh --insecure-registry=172.0.0.0/8 &
+      - until docker ps &>/dev/null; do sleep 1s; done
+      - NEW_ID=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 6 | head -n 1)
+      - k3d registry create k3dsvc --port k3dsvc:5000
+      - k3d cluster create drone-$${NEW_ID} --config hack/k3d-drone.yaml
+      - until kubectl --context k3d-drone-$${NEW_ID} -n kube-system wait --for=condition=Ready pods -l k8s-app; do sleep 1; done
+      - k3d kubeconfig get drone-$${NEW_ID} > kubeconfig.yaml
+      - echo "k3d started successfully"
+      - tail -f /dev/null
     when:
       event:
         - pull_request
@@ -236,23 +230,41 @@ steps:
         - main
       instance:
         - drone-pr.rancher.io
-services:
-  - name: k3dsvc
-    image: rancher/k3d:4.4.8dind
-    privileged: true
+    volumes:
+      - name: dindsock
+        path: /var/run
+  - name: e2e-test
+    image: quay.io/dbason/tilt:go1.17-0.22.9
+    environment:
+      GOCACHE: /root/.cache/go-build
     commands:
-      - nohup dockerd-entrypoint.sh &
-      - until docker ps &>/dev/null; do sleep 1s; done
-      - NEW_ID=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 6 | head -n 1)
-      - k3d cluster create drone-$${NEW_ID} --config hack/k3d-drone.yaml --api-port $(hostname -i):6445
-      - until kubectl --context k3d-drone-$${NEW_ID} -n kube-system wait --for=condition=Ready pods -l k8s-app; do sleep 1; done
-      - kubectl apply --context k3d-drone-$${NEW_ID} -f https://github.com/jetstack/cert-manager/releases/download/v1.4.0/cert-manager.yaml
-      - k3d kubeconfig get drone-$${NEW_ID} > kubeconfig.yaml
-      - echo "k3d started successfully"
-      - tail -f /dev/null
+      - until test -f ./kubeconfig.yaml; do sleep 1s; done
+      - cat /etc/resolv.conf
+      - export KUBECONFIG=$(realpath kubeconfig.yaml)
+      - scripts/e2e
+    volumes:
+      - name: dindsock
+        path: /var/run
+      - name: gopkg
+        path: /go/pkg
+      - name: gocache
+        path: /root/.cache/go-build
+    when:
+      event:
+        - pull_request
+      branch:
+        - main
+      instance:
+        - drone-pr.rancher.io
 volumes:
   - name: docker
     host:
       path: /var/run/docker.sock
-depends_on:
-  - build-amd64
+  - name: dindsock
+    temp: {}
+  - name: gopkg
+    host:
+      path: /var/lib/docker/volumes/opni-build-go16-pkg/_data
+  - name: gocache
+    host:
+      path: /var/lib/docker/volumes/opni-build-go16-cache/_data

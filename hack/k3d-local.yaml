@@ -1,22 +1,18 @@
 apiVersion: k3d.io/v1alpha2
 kind: Simple
-name: drone
 servers: 1
-kubeAPI:
-  host: k3dsvc
+agents: 1
 volumes:
   - volume: /etc/os-release:/etc/os-release
 registries:
-  use:
-  - k3d-k3dsvc:5000
+  create: true
 options:
   k3s:
     extraServerArgs:
-      - --disable=traefik
-      - --disable=servicelb
-      - --disable=local-storage
-      - --disable=metrics-server
+      - --kube-scheduler-arg=v=2
       - --log=/var/log/k3s.log
       - --alsologtostderr
-      - --kube-scheduler-arg=v=2
+    extraAgentArgs:
       - --kubelet-arg=v=2
+      - --log=/var/log/k3s.log
+      - --alsologtostderr

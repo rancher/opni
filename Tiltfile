@@ -1,4 +1,7 @@
 load('ext://min_k8s_version', 'min_k8s_version')
+load('ext://cert_manager', 'deploy_cert_manager')
+
+include('Tiltfile.tests')
 
 settings = read_yaml('tilt-options.yaml', default={})
 
@@ -6,7 +9,7 @@ if "allowedContexts" in settings:
     allow_k8s_contexts(settings["allowedContexts"])
 
 # min_k8s_version('1.22')
-
+deploy_cert_manager(version="v1.5.3")
 k8s_yaml('staging/staging_autogen.yaml')
 
 deps = ['controllers', 'main.go', 'apis', 'pkg/demo', 'pkg/util/manager',
@@ -17,8 +20,7 @@ local_resource('Watch & Compile',
     deps=deps, ignore=['**/zz_generated.deepcopy.go'])
 
 local_resource('Sample YAML', 'kubectl apply -k ./config/samples', 
-    deps=["./config/samples"], resource_deps=["opni-controller-manager"],
-    auto_init=False, trigger_mode=TRIGGER_MODE_MANUAL)
+    deps=["./config/samples"], resource_deps=["opni-controller-manager"], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 DOCKERFILE = '''FROM golang:alpine
 WORKDIR /

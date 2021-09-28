@@ -10,7 +10,7 @@ if "allowedContexts" in settings:
 
 # min_k8s_version('1.22')
 deploy_cert_manager(version="v1.5.3")
-k8s_yaml('staging/staging_autogen.yaml')
+k8s_yaml(['deploy/manifests/00_crds.yaml', 'deploy/manifests/01_rbac.yaml', 'deploy/manifests/10_operator.yaml'])
 
 deps = ['controllers', 'main.go', 'apis', 'pkg/demo', 'pkg/util/manager',
         'pkg/resources', 'pkg/providers']

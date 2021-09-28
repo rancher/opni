@@ -1,0 +1,11 @@
+apiVersion: opni.io/v1beta1
+kind: LogAdapter
+metadata:
+  name: k3s-systemd
+spec:
+  provider: k3s
+  k3s:
+    containerEngine: systemd
+  opniCluster:
+    name: opni-cluster
+    namespace: opni-cluster

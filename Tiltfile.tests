@@ -1,6 +1,6 @@
 load('ext://tests/golang', 'test_go')
 
-test_go('e2e-tests', './test/e2e --ginkgo.label-filter=e2e,demo', '.',
+test_go('e2e-tests', './test/e2e --ginkgo.label-filter="e2e && demo"', '.',
         extra_args=["-v", "-race"],
         trigger_mode=TRIGGER_MODE_MANUAL,
 
@@ -8,7 +8,7 @@ test_go('e2e-tests', './test/e2e --ginkgo.label-filter=e2e,demo', '.',
         auto_init=config.tilt_subcommand == 'ci',
         resource_deps=["opni-controller-manager"])
 
-test_go('e2e-tests-prod', './test/e2e --ginkgo.label-filter=e2e,!demo', '.',
+test_go('e2e-tests-prod', './test/e2e --ginkgo.label-filter="e2e && !demo"', '.',
         extra_args=["-v", "-race"],
         trigger_mode=TRIGGER_MODE_MANUAL,
 

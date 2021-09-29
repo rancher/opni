@@ -137,6 +137,7 @@ type PayloadReceiverServiceSpec struct {
 type GPUControllerServiceSpec struct {
 	ImageSpec    `json:",inline,omitempty"`
 	Enabled      *bool               `json:"enabled,omitempty"`
+	RuntimeClass *string             `json:"runtimeClass,omitempty"`
 	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
 	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
 }

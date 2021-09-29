@@ -1868,6 +1868,8 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      runtimeClass:
+                        type: string
                       tolerations:
                         items:
                           properties:

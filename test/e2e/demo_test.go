@@ -1,6 +1,3 @@
-//go:build e2e && demo
-// +build e2e,demo
-
 package e2e
 
 import (
@@ -11,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -52,7 +48,7 @@ func queryAnomalyCount(esClient *elasticsearch.Client) (int, error) {
 	return countResp.Count, nil
 }
 
-var _ = Describe("OpniDemo E2E", func() {
+var _ = Describe("OpniDemo E2E", Label("e2e", "demo"), func() {
 	var demo v1alpha1.OpniDemo
 	When("creating an opnidemo", func() {
 		It("should succeed", func() {
@@ -165,7 +161,7 @@ var _ = Describe("OpniDemo E2E", func() {
 					})
 				forwarder, err := portforward.New(dialer, []string{
 					fmt.Sprintf("%d:%d", portForwardPort, 9200),
-				}, stopCh, readyCh, os.Stdout, os.Stderr)
+				}, stopCh, readyCh, GinkgoWriter, GinkgoWriter)
 				Expect(err).NotTo(HaveOccurred())
 				go func() {
 					defer GinkgoRecover()

@@ -1,12 +1,9 @@
-//go:build demo && !e2e
-// +build demo,!e2e
-
 package demo
 
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -32,7 +29,7 @@ const (
 	interval    = 500 * time.Millisecond
 )
 
-var _ = Describe("OpniDemo Controller", func() {
+var _ = Describe("OpniDemo Controller", Label("controller", "demo"), func() {
 	When("creating an opnidemo", func() {
 		demo := v1alpha1.OpniDemo{
 			ObjectMeta: v1.ObjectMeta{
@@ -130,7 +127,7 @@ var _ = Describe("OpniDemo Controller", func() {
 							Name:      chart,
 						}, helmchart)
 						if err != nil {
-							log.Println(err)
+							fmt.Fprintln(GinkgoWriter, err)
 						}
 						return err
 					}, timeout, interval).Should(BeNil())

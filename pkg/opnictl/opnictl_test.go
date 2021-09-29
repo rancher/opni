@@ -1,6 +1,3 @@
-//go:build e2e && gpu
-// +build e2e,gpu
-
 package opnictl_test
 
 import (
@@ -21,7 +18,7 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-var _ = Describe("Opnictl Commands", func() {
+var _ = Describe("Opnictl Commands", Label("e2e", "gpu", "demo"), func() {
 	var _ = Describe("Install", func() {
 		It("should install the manager with the install command", func() {
 			os.Args = []string{"opnictl", "install"}

@@ -1,6 +1,3 @@
-//go:build !e2e
-// +build !e2e
-
 package resources_test
 
 import (
@@ -11,7 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 )
 
-var _ = Describe("Labels", func() {
+var _ = Describe("Labels", Label("unit"), func() {
 	var labels resources.ElasticLabels
 	When("creating an instance of ElasticLabels", func() {
 		It("should contain only the app label", func() {

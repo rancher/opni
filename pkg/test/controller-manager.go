@@ -3,11 +3,11 @@ package test
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"path"
 	"strings"
 
+	"github.com/onsi/ginkgo"
 	"github.com/phayes/freeport"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -68,15 +68,15 @@ func StartControllerManager(ctx context.Context, testEnv *envtest.Environment) {
 		"--enable-garbage-collector",
 		"--concurrent-gc-syncs=40",
 	)
-	cmd.Stdout = testEnv.ControlPlane.APIServer.Out
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = ginkgo.GinkgoWriter
+	cmd.Stderr = ginkgo.GinkgoWriter
 	go func() {
 		err := cmd.Run()
 		if err != nil {
 			if ctx.Err() == nil {
 				panic(err)
 			} else {
-				fmt.Fprintln(os.Stderr, err)
+				fmt.Fprintln(ginkgo.GinkgoWriter, err)
 			}
 		}
 	}()

@@ -1,6 +1,3 @@
-//go:build !e2e
-// +build !e2e
-
 package gpuadapter_test
 
 import (

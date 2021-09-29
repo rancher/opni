@@ -49,7 +49,12 @@ func (s ServiceKind) ServiceName() string {
 }
 
 func (s ServiceKind) ImageName() string {
-	return "opni-" + s.String() + "-service"
+	switch s {
+	case GPUControllerService:
+		return "opni-gpu-service-controller"
+	default:
+		return "opni-" + s.String() + "-service"
+	}
 }
 
 func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *ImageSpec {

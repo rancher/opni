@@ -316,6 +316,11 @@ func (in *GPUControllerServiceSpec) DeepCopyInto(out *GPUControllerServiceSpec) 
 		*out = new(bool)
 		**out = **in
 	}
+	if in.RuntimeClass != nil {
+		in, out := &in.RuntimeClass, &out.RuntimeClass
+		*out = new(string)
+		**out = **in
+	}
 	if in.NodeSelector != nil {
 		in, out := &in.NodeSelector, &out.NodeSelector
 		*out = make(map[string]string, len(*in))

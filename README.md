@@ -38,14 +38,17 @@ Prerequisites:
     ```
 
 Installation:
-  1) Clone the git repo
-  1) Deploy the manifests in `deploy/manifests`
+  1) Run the deploy helper script:
      ```bash
-     kubectl apply -f deploy/manifests
+     curl -sfL https://raw.githubusercontent.com/rancher/opni/main/deploy/deploy.sh | sh -
      ```
-     1) If you want to deploy the GPU service set the [deploy option](https://github.com/rancher/opni/blob/main/deploy/manifests/20_cluster.yaml#L31) to true
+     OR
+     Deploy the manifests in [deploy/manifests](https://github.com/rancher/opni/tree/main/deploy/manifests) in order
   1) Deploy a matching logAdapter from [deploy/examples/logAdapters](https://github.com/rancher/opni/tree/main/deploy/examples/logAdapters)
-#### Opnictl install
+
+
+*If you want to deploy the GPU service edit the opnicluster resource and set the [deploy option](https://github.com/rancher/opni/blob/main/deploy/manifests/20_cluster.yaml#L31) to true*
+#### Opnictl install (deprecated)
 * Download the `opnictl` binary from the [latest release](https://github.com/rancher/opni/releases/tag/v0.1.3)
 * Install Opni using `opnictl`
   ```

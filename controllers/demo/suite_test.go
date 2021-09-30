@@ -76,4 +76,5 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	stopEnv()
+	test.ExternalResources.Wait()
 })

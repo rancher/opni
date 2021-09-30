@@ -441,30 +441,8 @@ func (r *Reconciler) s3EnvVars() (envVars []corev1.EnvVar) {
 			Name:  "S3_ENDPOINT",
 			Value: r.opniCluster.Status.Auth.S3Endpoint,
 		})
-	} else {
-		// lg.Info("Warning: S3 not configured")
 	}
 	return envVars
-}
-
-func serviceDeploymentState(serviceSpec interface{}) reconciler.DesiredState {
-	switch spec := serviceSpec.(type) {
-	case v1beta1.DrainServiceSpec:
-		return deploymentState(spec.Enabled)
-	case v1beta1.InferenceServiceSpec:
-		return deploymentState(spec.Enabled)
-	case v1beta1.PreprocessingServiceSpec:
-		return deploymentState(spec.Enabled)
-	case v1beta1.PayloadReceiverServiceSpec:
-		return deploymentState(spec.Enabled)
-	case v1beta1.GPUControllerServiceSpec:
-		if !features.DefaultMutableFeatureGate.Enabled(features.GPUOperator) {
-			return reconciler.StateAbsent
-		}
-		return deploymentState(spec.Enabled)
-	default:
-		panic("bug (serviceDeploymentState): invalid spec type")
-	}
 }
 
 func deploymentState(enabled *bool) reconciler.DesiredState {

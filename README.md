@@ -31,7 +31,10 @@ Please note the opnidemo resource, and opnictl are being deprecated in the next 
 #### Manifests install (recommended):
 Prerequisites:
   * *1 Nvidia GPU* required if you want the AI to learn from your workloads
-    * You will need the nvidia [k8s-device-plugin](https://github.com/NVIDIA/k8s-device-plugin) deployed to the cluster.  The simplest way is to use the nvidia operator.  [This blog post](https://rancher.com/blog/2020/get-up-and-running-with-nvidia-gpus) contains instructions on how to deploy it.
+    * You will need the nvidia [k8s-device-plugin](https://github.com/NVIDIA/k8s-device-plugin) deployed to the cluster.  The simplest way is to use the nvidia operator.  [This blog post](https://rancher.com/blog/2020/get-up-and-running-with-nvidia-gpus) contains instructions on how to deploy it.  If you are using a host that already has nvidia drivers (e.g an EKS cluster) deploy the Daemonset with the following command:
+      ```bash
+      kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.9.0/nvidia-device-plugin.yml
+      ```
   * Cert manager installed.  This can be installed with the following command:
     ```bash
     kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml

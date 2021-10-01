@@ -24,7 +24,7 @@ metadata:
   name: opni-cluster
   namespace: opni-cluster
 spec:
-  version: v0.1.3
+  version: v0.2.0-rc1
   deployLogCollector: true
   services:
     gpuController:

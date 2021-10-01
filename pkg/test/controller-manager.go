@@ -71,13 +71,13 @@ func StartControllerManager(ctx context.Context, testEnv *envtest.Environment) {
 	cmd.Stdout = ginkgo.GinkgoWriter
 	cmd.Stderr = ginkgo.GinkgoWriter
 	go func() {
-		err := cmd.Run()
-		if err != nil {
-			if ctx.Err() == nil {
-				panic(err)
-			} else {
-				fmt.Fprintln(ginkgo.GinkgoWriter, err)
-			}
+		if err := cmd.Start(); err != nil {
+			panic(err)
+		}
+		ExternalResources.Add(1)
+		defer ExternalResources.Done()
+		if err := cmd.Wait(); err != nil {
+			fmt.Fprintln(ginkgo.GinkgoWriter, err)
 		}
 	}()
 }

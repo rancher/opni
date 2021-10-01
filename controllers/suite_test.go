@@ -94,11 +94,11 @@ var _ = BeforeSuite(func() {
 		},
 	}
 	stopEnv, k8sManager, k8sClient = test.RunTestEnvironment(testEnv, true, false,
+		&GpuPolicyAdapterReconciler{},
 		&OpniClusterReconciler{},
 		&LogAdapterReconciler{},
 		&PretrainedModelReconciler{},
 		&LoggingReconciler{},
-		&ClusterPolicyReconciler{},
 	)
 	kmatch.SetDefaultObjectClient(k8sClient)
 })
@@ -106,6 +106,7 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	stopEnv()
+	test.ExternalResources.Wait()
 })
 
 func makeTestNamespace() string {

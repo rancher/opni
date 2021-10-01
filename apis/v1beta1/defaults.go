@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 )
 
@@ -32,7 +33,11 @@ func enableSecuritySettings(spec *LogAdapterSpec) {
 	spec.FluentConfig.Fluentd.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
 	spec.RootFluentConfig.Fluentd.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
 	if spec.SELinuxEnabled {
-		spec.RootFluentConfig.Fluentbit.Security.SecurityContext.SELinuxOptions.Type = "rke_logreader_t"
+		spec.RootFluentConfig.Fluentbit.Security.SecurityContext = &v1.SecurityContext{
+			SELinuxOptions: &v1.SELinuxOptions{
+				Type: "rke_logreader_t",
+			},
+		}
 	}
 }
 

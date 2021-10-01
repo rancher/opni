@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -21,6 +22,8 @@ type Reconciler interface {
 	SetupWithManager(ctrl.Manager) error
 }
 
+var ExternalResources sync.WaitGroup
+
 func RunTestEnvironment(
 	testEnv *envtest.Environment,
 	runControllerManager bool,
@@ -36,9 +39,11 @@ func RunTestEnvironment(
 	cfg, err := testEnv.Start()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(cfg).NotTo(gomega.BeNil())
+	ExternalResources.Add(1)
 
 	go func() {
 		defer ginkgo.GinkgoRecover()
+		defer ExternalResources.Done()
 		<-ctx.Done()
 		err := testEnv.Stop()
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())

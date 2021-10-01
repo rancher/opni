@@ -35,6 +35,7 @@ Prerequisites:
       ```bash
       kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.9.0/nvidia-device-plugin.yml
       ```
+    * The Opni manager has alpha support for automatically setting up GPU configuration.  For more details please visit the [GPU Configuration](https://opni.io/setup/gpu/) page.
   * Cert manager installed.  This can be installed with the following command:
     ```bash
     kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml

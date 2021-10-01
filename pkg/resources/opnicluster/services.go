@@ -444,8 +444,6 @@ func (r *Reconciler) s3EnvVars() (envVars []corev1.EnvVar) {
 			Name:  "S3_ENDPOINT",
 			Value: r.opniCluster.Status.Auth.S3Endpoint,
 		})
-	} else {
-		// lg.Info("Warning: S3 not configured")
 	}
 	return envVars
 }

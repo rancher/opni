@@ -11,7 +11,7 @@ ENV NVIDIA_VISIBLE_DEVICES=void
 
 WORKDIR /
 COPY --from=builder /workspace/bin/manager .
-COPY --from=builder /workspace/config/assets/nfd /opt/
-COPY --from=builder /workspace/config/assets/gpu-operator /opt/
+COPY --from=builder /workspace/config/assets/nfd /opt/nfd/
+COPY --from=builder /workspace/config/assets/gpu-operator /opt/gpu-operator/
 
 ENTRYPOINT ["/manager"]

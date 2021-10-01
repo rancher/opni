@@ -25,8 +25,8 @@ local_resource('Sample YAML', 'kubectl apply -k ./config/samples',
 DOCKERFILE = '''FROM golang:alpine
 WORKDIR /
 COPY ./bin/manager /
-COPY ./config/assets/nfd/ /opt/nfd/
-COPY ./config/assets/gpu-operator/ /opt/gpu-operator/
+COPY ./package/assets/nfd/ /opt/nfd/
+COPY ./package/assets/gpu-operator/ /opt/gpu-operator/
 ENTRYPOINT ["/manager"]
 '''
 
@@ -36,6 +36,6 @@ if "defaultRegistry" in settings:
 docker_build("rancher/opni-manager", '.', 
     dockerfile_contents=DOCKERFILE,
     container_args=['--feature-gates=AllAlpha=true'],
-    only=['./bin/manager', './config/assets'],
+    only=['./bin/manager', './package/assets'],
     live_update=[sync('./bin/manager', '/manager')]
 )

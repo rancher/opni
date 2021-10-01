@@ -16,6 +16,7 @@ const (
 	PreprocessingService
 	PayloadReceiverService
 	GPUControllerService
+	MetricsService
 )
 
 type ElasticRole string
@@ -39,6 +40,8 @@ func (s ServiceKind) String() string {
 		return "payload-receiver"
 	case GPUControllerService:
 		return "gpu-controller"
+	case MetricsService:
+		return "metrics"
 	default:
 		return ""
 	}
@@ -69,6 +72,8 @@ func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *ImageSpec {
 		return &opniCluster.Spec.Services.PayloadReceiver.ImageSpec
 	case GPUControllerService:
 		return &opniCluster.Spec.Services.GPUController.ImageSpec
+	case MetricsService:
+		return &opniCluster.Spec.Services.Metrics.ImageSpec
 	default:
 		return nil
 	}
@@ -86,6 +91,8 @@ func (s ServiceKind) GetNodeSelector(opniCluster *OpniCluster) map[string]string
 		return opniCluster.Spec.Services.PayloadReceiver.NodeSelector
 	case GPUControllerService:
 		return opniCluster.Spec.Services.GPUController.NodeSelector
+	case MetricsService:
+		return opniCluster.Spec.Services.Metrics.NodeSelector
 	default:
 		return map[string]string{}
 	}
@@ -103,6 +110,8 @@ func (s ServiceKind) GetTolerations(opniCluster *OpniCluster) []corev1.Toleratio
 		return opniCluster.Spec.Services.PayloadReceiver.Tolerations
 	case GPUControllerService:
 		return opniCluster.Spec.Services.GPUController.Tolerations
+	case MetricsService:
+		return opniCluster.Spec.Services.Metrics.Tolerations
 	default:
 		return []corev1.Toleration{}
 	}

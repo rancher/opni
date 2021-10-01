@@ -167,6 +167,7 @@ type opniClusterOpts struct {
 	Namespace           string
 	Models              []string
 	DisableOpniServices bool
+	PrometheusEndpoint  string
 }
 
 func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
@@ -236,6 +237,16 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 				GPUController: v1beta1.GPUControllerServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
+				},
+				Metrics: v1beta1.MetricsServiceSpec{
+					Enabled:   pointer.Bool(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
+					PrometheusEndpoint: func() string {
+						if opts.PrometheusEndpoint != "" {
+							return opts.PrometheusEndpoint
+						}
+						return "http://dummy-endpoint"
+					}(),
 				},
 			},
 		},

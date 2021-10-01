@@ -2,8 +2,10 @@ package opnicluster
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
+	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
 	"github.com/rancher/opni/apis/v1beta1"
@@ -37,6 +39,7 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.payloadReceiverService,
 		r.preprocessingDeployment,
 		r.gpuCtrlDeployment,
+		r.metricsDeployment,
 	}, nil
 }
 
@@ -447,26 +450,6 @@ func (r *Reconciler) s3EnvVars() (envVars []corev1.EnvVar) {
 	return envVars
 }
 
-func serviceDeploymentState(serviceSpec interface{}) reconciler.DesiredState {
-	switch spec := serviceSpec.(type) {
-	case v1beta1.DrainServiceSpec:
-		return deploymentState(spec.Enabled)
-	case v1beta1.InferenceServiceSpec:
-		return deploymentState(spec.Enabled)
-	case v1beta1.PreprocessingServiceSpec:
-		return deploymentState(spec.Enabled)
-	case v1beta1.PayloadReceiverServiceSpec:
-		return deploymentState(spec.Enabled)
-	case v1beta1.GPUControllerServiceSpec:
-		if !features.DefaultMutableFeatureGate.Enabled(features.GPUOperator) {
-			return reconciler.StateAbsent
-		}
-		return deploymentState(spec.Enabled)
-	default:
-		panic("bug (serviceDeploymentState): invalid spec type")
-	}
-}
-
 func deploymentState(enabled *bool) reconciler.DesiredState {
 	if enabled == nil || *enabled {
 		return reconciler.StatePresent
@@ -591,6 +574,19 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 	}
 	insertHyperparametersVolume(deployment, "nulog")
 	return deployment, deploymentState(r.opniCluster.Spec.Services.GPUController.Enabled), nil
+}
+
+func (r *Reconciler) metricsDeployment() (runtime.Object, reconciler.DesiredState, error) {
+	deployment := r.genericDeployment(v1beta1.MetricsService)
+	_, err := url.ParseRequestURI(r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint)
+	if err != nil && (r.opniCluster.Spec.Services.Metrics.Enabled == nil || *r.opniCluster.Spec.Services.Metrics.Enabled) {
+		return deployment, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), errors.New("prometheus endpoint is not a valid URL")
+	}
+	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		Name:  "PROMETHEUS_ENDPOINT",
+		Value: r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint,
+	})
+	return deployment, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
 }
 
 func insertHyperparametersVolume(deployment *appsv1.Deployment, modelName string) {

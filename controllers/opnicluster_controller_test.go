@@ -48,6 +48,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 			v1beta1.PayloadReceiverService,
 			v1beta1.PreprocessingService,
 			v1beta1.GPUControllerService,
+			v1beta1.MetricsService,
 		} {
 			wg.Add(1)
 
@@ -261,6 +262,20 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 				}),
 			)),
 		))
+	})
+	It("should not create the metrics service when the prometheus endpoint is invalid", func() {
+		By("waiting for the cluster to be created")
+		createCluster(buildCluster(opniClusterOpts{
+			Name:               "test",
+			PrometheusEndpoint: "badendpoint",
+		}))
+		By("ensuring the metrics service is not created.")
+		Consistently(Object(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      v1beta1.MetricsService.ServiceName(),
+				Namespace: cluster.Namespace,
+			},
+		})).ShouldNot(Exist())
 	})
 	It("should create inference services for pretrained models", func() {
 		ns := makeTestNamespace()

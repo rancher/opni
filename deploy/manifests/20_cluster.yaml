@@ -32,6 +32,9 @@ spec:
     inference:
       pretrainedModels:
       - name: control-plane
+    metrics:
+      enabled: false # metrics anomaly detection is currently experimental
+      prometheusEndpoint: http://prometheus-url # metrics anomaly detection requires a prometheus url to connect to.
   elastic:
     version: 1.13.2
   s3:

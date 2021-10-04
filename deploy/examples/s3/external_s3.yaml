@@ -1,0 +1,11 @@
+apiVersion: opni.io/v1beta1
+kind: OpniCluster
+metadata:
+  name: cluster
+spec:
+  s3:
+    external:
+      endpoint: <your s3 endpoint>
+      credentials: # secret containing "accessKey" and "secretKey" items
+        name: <secret name>
+        namespace: <secret namespace>

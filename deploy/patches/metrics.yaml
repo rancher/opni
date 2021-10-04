@@ -1,0 +1,9 @@
+apiVersion: opni.io/v1beta1
+kind: OpniCluster
+metadata:
+  name: cluster
+spec:
+  services:
+    metrics:
+      enabled: true
+      prometheusEndpoint: # replace with your prometheus URL

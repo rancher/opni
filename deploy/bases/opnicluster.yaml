@@ -1,0 +1,18 @@
+apiVersion: opni.io/v1beta1
+kind: OpniCluster
+metadata:
+  name: cluster
+spec:
+  deployLogCollector: true
+  services:
+    gpuController:
+      enabled: false # edit in ../patches/gpu.yaml
+    inference:
+      pretrainedModels:
+        - name: control-plane
+    metrics:
+      enabled: false # edit in ../patches/prometheus.yaml
+  s3:
+    internal: {}
+  nats:
+    authMethod: nkey

@@ -25,4 +25,4 @@ patchesStrategicMerge:
   # - patches/metrics.yaml # edit this file to set your prometheus endpoint
 
   # Uncomment to enable external S3 storage
-  # - patches/s3/external_s3.yaml # edit this file to configure your S3 server
+  # - examples/s3/external_s3.yaml # edit this file to configure your S3 server

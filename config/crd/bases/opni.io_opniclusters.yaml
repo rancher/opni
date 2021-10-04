@@ -41,6 +41,17 @@ spec:
                 type: boolean
               elastic:
                 properties:
+                  adminPasswordFrom:
+                    properties:
+                      key:
+                        type: string
+                      name:
+                        type: string
+                      optional:
+                        type: boolean
+                    required:
+                    - key
+                    type: object
                   configSecret:
                     properties:
                       name:
@@ -2049,7 +2060,7 @@ spec:
             properties:
               auth:
                 properties:
-                  authSecretKeyRef:
+                  elasticsearchAuthSecretKeyRef:
                     properties:
                       key:
                         type: string
@@ -2062,6 +2073,17 @@ spec:
                     type: object
                   nKeyUser:
                     type: string
+                  natsAuthSecretKeyRef:
+                    properties:
+                      key:
+                        type: string
+                      name:
+                        type: string
+                      optional:
+                        type: boolean
+                    required:
+                    - key
+                    type: object
                   s3AccessKey:
                     properties:
                       key:

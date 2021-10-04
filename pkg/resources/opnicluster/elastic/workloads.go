@@ -1,6 +1,8 @@
 package elastic
 
 import (
+	"fmt"
+
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	appsv1 "k8s.io/api/apps/v1"
@@ -72,6 +74,7 @@ func (r *Reconciler) elasticPodTemplate(
 					Ports:           containerPortsForRole(labels.Role()),
 					VolumeMounts: []corev1.VolumeMount{
 						configVolumeMount(),
+						internalusersVolumeMount(),
 					},
 					LivenessProbe: &corev1.Probe{
 						InitialDelaySeconds: 60,
@@ -99,6 +102,7 @@ func (r *Reconciler) elasticPodTemplate(
 			Tolerations:  r.elasticTolerations(labels.Role()),
 			Volumes: []corev1.Volume{
 				configVolume(),
+				internalusersVolume(),
 			},
 			ImagePullSecrets: imageSpec.ImagePullSecrets,
 		},
@@ -389,6 +393,25 @@ func configVolume() corev1.Volume {
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: "opni-es-config",
+			},
+		},
+	}
+}
+
+func internalusersVolumeMount() corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      "internalusers",
+		MountPath: fmt.Sprintf("/usr/share/elasticsearch/plugins/opendistro_security/securityconfig/%s", internalUsersKey),
+		SubPath:   internalUsersKey,
+	}
+}
+
+func internalusersVolume() corev1.Volume {
+	return corev1.Volume{
+		Name: "internalusers",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: internalUsersSecretName,
 			},
 		},
 	}

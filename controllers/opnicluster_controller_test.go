@@ -442,8 +442,8 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		Eventually(Object(cluster)).Should(
 			MatchStatus(func(s v1beta1.OpniClusterStatus) bool {
 				return s.Auth.NKeyUser != "" &&
-					s.Auth.AuthSecretKeyRef != nil &&
-					s.Auth.AuthSecretKeyRef.Name == fmt.Sprintf("%s-nats-client", cluster.Name)
+					s.Auth.NatsAuthSecretKeyRef != nil &&
+					s.Auth.NatsAuthSecretKeyRef.Name == fmt.Sprintf("%s-nats-client", cluster.Name)
 			}),
 		)
 	})

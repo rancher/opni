@@ -89,12 +89,12 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		// Keep going, we can reconcile the rest of the deployments and come back
 		// to this later.
 	}
-	es, err := elastic.NewReconciler(r.client, r.opniCluster).ElasticResources()
+	es, err := elastic.NewReconciler(r.ctx, r.client, r.opniCluster).ElasticResources()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
 		conditions = append(conditions, err.Error())
 		lg.Error(err, "Error when reconciling elastic, will retry.")
-		// Keep going.
+		return
 	}
 	nats, err := r.nats()
 	if err != nil {
@@ -122,13 +122,13 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	s3 = append(s3, extS3...)
 
 	// Order is important here
-	// nats and s3 reconcilers will add fields to the opniCluster status object
+	// nats, s3, and elasticsearch reconcilers will add fields to the opniCluster status object
 	// which are used by other reconcilers.
 	allResources = append(allResources, nats...)
 	allResources = append(allResources, s3...)
+	allResources = append(allResources, es...)
 	allResources = append(allResources, opniServices...)
 	allResources = append(allResources, pretrained...)
-	allResources = append(allResources, es...)
 
 	for _, factory := range allResources {
 		o, state, err := factory()

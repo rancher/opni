@@ -379,7 +379,7 @@ func (r *Reconciler) genericEnvAndVolumes() (
 			{
 				Name: "NATS_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: r.opniCluster.Status.Auth.AuthSecretKeyRef,
+					SecretKeyRef: r.opniCluster.Status.Auth.NatsAuthSecretKeyRef,
 				},
 			},
 		}
@@ -390,7 +390,7 @@ func (r *Reconciler) genericEnvAndVolumes() (
 				Name: "nkey",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: r.opniCluster.Status.Auth.AuthSecretKeyRef.Name,
+						SecretName: r.opniCluster.Status.Auth.NatsAuthSecretKeyRef.Name,
 					},
 				},
 			},
@@ -419,8 +419,10 @@ func (r *Reconciler) genericEnvAndVolumes() (
 		Name:  "ES_USERNAME",
 		Value: "admin",
 	}, corev1.EnvVar{
-		Name:  "ES_PASSWORD",
-		Value: "admin",
+		Name: "ES_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef,
+		},
 	})
 	return
 }

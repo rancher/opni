@@ -10,6 +10,7 @@ import (
 	esapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 	"github.com/rancher/opni/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,13 +38,31 @@ type Reconciler struct {
 	ctx          context.Context
 }
 
-func NewReconciler(ctx context.Context, opniCluster *v1beta1.OpniCluster, client client.Client) *Reconciler {
-	esReconciler := newElasticsearchReconciler(ctx, opniCluster.Namespace)
+func NewReconciler(ctx context.Context, opniCluster *v1beta1.OpniCluster, c client.Client) *Reconciler {
+	// Need to fetch the elasticsearch password from the status
+	lg := log.FromContext(ctx)
+	password := "admin"
+	if err := c.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster); err != nil {
+		lg.Error(err, "error fetching cluster status, using default password")
+	}
+	// TODO this will always be nil the first time an opnicluster is reconciled. Clean up the logic for this.
+	if opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef != nil {
+		secret := &corev1.Secret{}
+		if err := c.Get(ctx, types.NamespacedName{
+			Name:      opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Name,
+			Namespace: opniCluster.Namespace,
+		}, secret); err != nil {
+			lg.Error(err, "error fetching password secret, using default password")
+		}
+		password = string(secret.Data[opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Key])
+	}
+
+	esReconciler := newElasticsearchReconciler(ctx, opniCluster.Namespace, password)
 	return &Reconciler{
 		cluster:      opniCluster,
 		esReconciler: esReconciler,
 		ctx:          ctx,
-		client:       client,
+		client:       c,
 	}
 }
 

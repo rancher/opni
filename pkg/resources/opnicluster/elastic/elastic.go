@@ -1,6 +1,8 @@
 package elastic
 
 import (
+	"context"
+
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -9,16 +11,25 @@ import (
 type Reconciler struct {
 	opniCluster *v1beta1.OpniCluster
 	client      client.Client
+	ctx         context.Context
 }
 
-func NewReconciler(client client.Client, opniCluster *v1beta1.OpniCluster) *Reconciler {
+func NewReconciler(ctx context.Context, client client.Client, opniCluster *v1beta1.OpniCluster) *Reconciler {
 	return &Reconciler{
 		client:      client,
 		opniCluster: opniCluster,
+		ctx:         ctx,
 	}
 }
 
 func (r *Reconciler) ElasticResources() (resourceList []resources.Resource, _ error) {
+	// Generate the elasticsearch password resources and return any errors
+	passwordResources, err := r.elasticPasswordResourcces()
+	if err != nil {
+		return resourceList, err
+	}
+
+	resourceList = append(resourceList, passwordResources...)
 	resourceList = append(resourceList, r.elasticServices()...)
 	resourceList = append(resourceList, r.elasticConfigSecret())
 	resourceList = append(resourceList, r.elasticWorkloads()...)

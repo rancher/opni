@@ -11,8 +11,8 @@ import (
 
 func GenerateRandomPassword() []byte {
 	rand.Seed(time.Now().UnixNano())
-	chars := []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-		"abcdefghijklmnopqrstuvwxyz" +
+	chars := []byte("BCDFGHJKLMNPQRSTVWXZ" +
+		"bcdfghjklmnpqrstvwxz" +
 		"0123456789")
 	b := make([]byte, 8)
 	for i := range b {

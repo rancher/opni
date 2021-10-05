@@ -5,6 +5,7 @@ import (
 
 	opnierrs "github.com/rancher/opni/pkg/errors"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -241,8 +242,8 @@ func (r *Reconciler) internalKeySecret() ([]resources.Resource, error) {
 	err := r.client.Get(r.ctx, client.ObjectKeyFromObject(sec), sec)
 	if errors.IsNotFound(err) {
 		// Create the secret
-		accessKey := generateRandomPassword()
-		secretKey := generateRandomPassword()
+		accessKey := util.GenerateRandomPassword()
+		secretKey := util.GenerateRandomPassword()
 		sec.StringData = map[string]string{
 			"accessKey":   string(accessKey),
 			"secretKey":   string(secretKey),

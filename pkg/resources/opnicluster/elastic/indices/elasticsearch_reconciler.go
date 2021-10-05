@@ -23,13 +23,13 @@ type elasticsearchReconciler struct {
 	ctx          context.Context
 }
 
-func newElasticsearchReconciler(ctx context.Context, namespace string) *elasticsearchReconciler {
+func newElasticsearchReconciler(ctx context.Context, namespace string, password string) *elasticsearchReconciler {
 	esCfg := elasticsearch.Config{
 		Addresses: []string{
 			fmt.Sprintf("https://opni-es-client.%s:9200", namespace),
 		},
 		Username: "admin",
-		Password: "admin",
+		Password: password,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
@@ -39,7 +39,7 @@ func newElasticsearchReconciler(ctx context.Context, namespace string) *elastics
 	kbCfg := kibana.Config{
 		URL:      fmt.Sprintf("http://opni-es-kibana.%s:5601", namespace),
 		Username: "admin",
-		Password: "admin",
+		Password: password,
 	}
 	kbClient, _ := kibana.NewClient(kbCfg)
 	esClient, _ := elasticsearch.NewClient(esCfg)

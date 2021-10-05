@@ -113,7 +113,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 					Namespace: clusterCrNamespace,
 				},
 				Spec: v1beta1.OpniClusterSpec{
-					Version:            "v0.1.3",
+					Version:            "v0.2.0-rc1",
 					DeployLogCollector: pointer.BoolPtr(true),
 					Services: v1beta1.ServicesSpec{
 						GPUController: v1beta1.GPUControllerServiceSpec{
@@ -227,10 +227,22 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 	Context("verify elasticsearch setup", func() {
 		It("should be able to create elasticsearch client", func() {
 			var err error
+
+			By("fetching the password secret")
+			secret := &corev1.Secret{}
+			err = k8sClient.Get(context.Background(), types.NamespacedName{
+				Name:      "opni-es-password",
+				Namespace: clusterCrNamespace,
+			}, secret)
+			Expect(err).NotTo(HaveOccurred())
+			password, ok := secret.Data["password"]
+			Expect(ok).To(BeTrue())
+
+			By("creating the client")
 			elasticClient, err := elasticsearch.NewClient(elasticsearch.Config{
 				Addresses: []string{fmt.Sprintf("https://127.0.0.1:%d", portForwardPort)},
 				Username:  "admin",
-				Password:  "admin",
+				Password:  string(password),
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
 						InsecureSkipVerify: true,

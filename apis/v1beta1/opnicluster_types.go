@@ -74,11 +74,13 @@ type OpniClusterStatus struct {
 }
 
 type AuthStatus struct {
-	NKeyUser         string                    `json:"nKeyUser,omitempty"`
-	AuthSecretKeyRef *corev1.SecretKeySelector `json:"authSecretKeyRef,omitempty"`
-	S3Endpoint       string                    `json:"s3Endpoint,omitempty"`
-	S3AccessKey      *corev1.SecretKeySelector `json:"s3AccessKey,omitempty"`
-	S3SecretKey      *corev1.SecretKeySelector `json:"s3SecretKey,omitempty"`
+	NKeyUser                      string                    `json:"nKeyUser,omitempty"`
+	NatsAuthSecretKeyRef          *corev1.SecretKeySelector `json:"natsAuthSecretKeyRef,omitempty"`
+	GenerateElasticsearchHash     *bool                     `json:"generateElasticsearchHash"`
+	ElasticsearchAuthSecretKeyRef *corev1.SecretKeySelector `json:"elasticsearchAuthSecretKeyRef,omitempty"`
+	S3Endpoint                    string                    `json:"s3Endpoint,omitempty"`
+	S3AccessKey                   *corev1.SecretKeySelector `json:"s3AccessKey,omitempty"`
+	S3SecretKey                   *corev1.SecretKeySelector `json:"s3SecretKey,omitempty"`
 }
 
 //+kubebuilder:webhook:path=/highlander-opni-io-v1beta1-opnicluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=opniclusters,verbs=create;update,versions=v1beta1,name=highlander.opni.io,admissionReviewVersions={v1,v1beta1}
@@ -161,6 +163,8 @@ type ElasticSpec struct {
 	// Secret containing an item "logging.yml" with the contents of the
 	// elasticsearch logging config.
 	ConfigSecret *corev1.LocalObjectReference `json:"configSecret,omitempty"`
+	// Reference to a secret containing the desired admin password
+	AdminPasswordFrom *corev1.SecretKeySelector `json:"adminPasswordFrom,omitempty"`
 }
 
 type ElasticWorkloadSpec struct {

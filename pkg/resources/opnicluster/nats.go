@@ -3,9 +3,7 @@ package opnicluster
 import (
 	"bytes"
 	"fmt"
-	"math/rand"
 	"text/template"
-	"time"
 
 	"emperror.dev/errors"
 
@@ -23,6 +21,7 @@ import (
 	"github.com/nats-io/nkeys"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 )
@@ -139,7 +138,7 @@ func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 				return err
 			}
-			r.opniCluster.Status.Auth.AuthSecretKeyRef = r.opniCluster.Spec.Nats.PasswordFrom
+			r.opniCluster.Status.Auth.NatsAuthSecretKeyRef = r.opniCluster.Spec.Nats.PasswordFrom
 			return r.client.Status().Update(r.ctx, r.opniCluster)
 		})
 		if err != nil {
@@ -424,7 +423,7 @@ func (r *Reconciler) natsAuthSecret() (*corev1.Secret, error) {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 				return err
 			}
-			r.opniCluster.Status.Auth.AuthSecretKeyRef = &corev1.SecretKeySelector{
+			r.opniCluster.Status.Auth.NatsAuthSecretKeyRef = &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: secret.Name,
 				},
@@ -448,7 +447,7 @@ func (r *Reconciler) natsAuthSecret() (*corev1.Secret, error) {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 				return err
 			}
-			r.opniCluster.Status.Auth.AuthSecretKeyRef = &corev1.SecretKeySelector{
+			r.opniCluster.Status.Auth.NatsAuthSecretKeyRef = &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: secret.Name,
 				},
@@ -690,7 +689,7 @@ func (r *Reconciler) fetchOrGeneratePassword(key string) ([]byte, error) {
 		Namespace: r.opniCluster.Namespace,
 	}, &secret)
 	if k8serrors.IsNotFound(err) {
-		password := generateRandomPassword()
+		password := util.GenerateRandomPassword()
 
 		err := r.updateState(key, password)
 		if err != nil {
@@ -703,7 +702,7 @@ func (r *Reconciler) fetchOrGeneratePassword(key string) ([]byte, error) {
 	}
 	password, ok := secret.Data[key]
 	if !ok {
-		password = generateRandomPassword()
+		password = util.GenerateRandomPassword()
 		err := r.updateState(key, password)
 		if err != nil {
 			return make([]byte, 0), err
@@ -735,16 +734,4 @@ func (r *Reconciler) updateState(key string, value []byte) error {
 	}
 	secret.Data[key] = value
 	return r.client.Update(r.ctx, secret)
-}
-
-func generateRandomPassword() []byte {
-	rand.Seed(time.Now().UnixNano())
-	chars := []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-		"abcdefghijklmnopqrstuvwxyz" +
-		"0123456789")
-	b := make([]byte, 8)
-	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
-	}
-	return b
 }

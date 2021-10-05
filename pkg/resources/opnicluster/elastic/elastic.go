@@ -24,12 +24,11 @@ func NewReconciler(ctx context.Context, client client.Client, opniCluster *v1bet
 
 func (r *Reconciler) ElasticResources() (resourceList []resources.Resource, _ error) {
 	// Generate the elasticsearch password resources and return any errors
-	passwordResources, err := r.elasticPasswordResourcces()
+	err := r.elasticPasswordResourcces()
 	if err != nil {
 		return resourceList, err
 	}
 
-	resourceList = append(resourceList, passwordResources...)
 	resourceList = append(resourceList, r.elasticServices()...)
 	resourceList = append(resourceList, r.elasticConfigSecret())
 	resourceList = append(resourceList, r.elasticWorkloads()...)

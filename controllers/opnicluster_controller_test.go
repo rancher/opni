@@ -886,12 +886,17 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 					HaveName("config"),
 					HaveVolumeSource("Secret"),
 				)),
+				HaveMatchingVolume(And(
+					HaveName("internalusers"),
+					HaveVolumeSource("Secret"),
+				)),
 				HaveMatchingContainer(And(
 					HaveName("elasticsearch"),
 					HaveImage("docker.io/amazon/opendistro-for-elasticsearch:1.0.0"),
 					HaveEnv("node.master", "true"),
 					HavePorts("transport", "http", "metrics", "rca"),
 					HaveVolumeMounts("config", "opni-es-data"),
+					HaveVolumeMounts("internalusers", "opni-es-internalusers"),
 				)),
 				HaveMatchingPersistentVolume(And(
 					HaveName("opni-es-data"),
@@ -922,10 +927,15 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 					HaveEnv("node.data", "true"),
 					HavePorts("transport"),
 					HaveVolumeMounts("config", "opni-es-data"),
+					HaveVolumeMounts("internalusers", "opni-es-internalusers"),
 				)),
 				HaveMatchingPersistentVolume(And(
 					HaveName("opni-es-data"),
 					HaveStorageClass("test-storageclass"),
+				)),
+				HaveMatchingVolume(And(
+					HaveName("internalusers"),
+					HaveVolumeSource("Secret"),
 				)),
 			))
 		}()
@@ -955,7 +965,12 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 					),
 					HavePorts("transport", "http", "metrics", "rca"),
 					HaveVolumeMounts("config"),
+					HaveVolumeMounts("internalusers", "opni-es-internalusers"),
 					Not(HaveVolumeMounts("opni-es-data")),
+				)),
+				HaveMatchingVolume(And(
+					HaveName("internalusers"),
+					HaveVolumeSource("Secret"),
 				)),
 			))
 		}()
@@ -1011,6 +1026,24 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		})).Should(ExistAnd(
 			HaveOwner(cluster),
 			HaveData("logging.yml", nil),
+		))
+		Eventually(Object(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-es-password",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveOwner(cluster),
+			HaveData("password", nil),
+		))
+		Eventually(Object(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-es-internalusers",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveOwner(cluster),
+			HaveData("internal_users.yml", nil),
 		))
 
 		By("adjusting the elastic workload replicas")

@@ -2071,6 +2071,8 @@ spec:
                     required:
                     - key
                     type: object
+                  generateElasticsearchHash:
+                    type: boolean
                   nKeyUser:
                     type: string
                   natsAuthSecretKeyRef:

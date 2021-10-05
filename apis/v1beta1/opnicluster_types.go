@@ -76,6 +76,7 @@ type OpniClusterStatus struct {
 type AuthStatus struct {
 	NKeyUser                      string                    `json:"nKeyUser,omitempty"`
 	NatsAuthSecretKeyRef          *corev1.SecretKeySelector `json:"natsAuthSecretKeyRef,omitempty"`
+	GenerateElasticsearchHash     *bool                     `json:"generateElasticsearchHash"`
 	ElasticsearchAuthSecretKeyRef *corev1.SecretKeySelector `json:"elasticsearchAuthSecretKeyRef,omitempty"`
 	S3Endpoint                    string                    `json:"s3Endpoint,omitempty"`
 	S3AccessKey                   *corev1.SecretKeySelector `json:"s3AccessKey,omitempty"`

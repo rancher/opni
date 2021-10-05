@@ -51,6 +51,11 @@ func (in *AuthStatus) DeepCopyInto(out *AuthStatus) {
 		*out = new(v1.SecretKeySelector)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.GenerateElasticsearchHash != nil {
+		in, out := &in.GenerateElasticsearchHash, &out.GenerateElasticsearchHash
+		*out = new(bool)
+		**out = **in
+	}
 	if in.ElasticsearchAuthSecretKeyRef != nil {
 		in, out := &in.ElasticsearchAuthSecretKeyRef, &out.ElasticsearchAuthSecretKeyRef
 		*out = new(v1.SecretKeySelector)

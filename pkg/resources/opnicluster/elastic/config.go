@@ -4,23 +4,24 @@ import (
 	"bytes"
 	"text/template"
 
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"golang.org/x/crypto/bcrypt"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
 	passwordSecretName      = "opni-es-password"
 	internalUsersSecretName = "opni-es-internalusers"
 	internalUsersKey        = "internal_users.yml"
-	bcryptCost              = 12
+	bcryptCost              = 5
 )
 
 var (
@@ -74,10 +75,14 @@ func (r *Reconciler) elasticConfigSecret() resources.Resource {
 	return resources.Present(secret)
 }
 
-func (r *Reconciler) elasticPasswordResourcces() (resources []resources.Resource, err error) {
+func (r *Reconciler) elasticPasswordResourcces() (err error) {
 	var password []byte
+	var hash []byte
 	var buffer bytes.Buffer
 	var passwordSecretRef *corev1.SecretKeySelector
+
+	lg := log.FromContext(r.ctx)
+	generatePassword := r.opniCluster.Status.Auth.GenerateElasticsearchHash == nil || *r.opniCluster.Status.Auth.GenerateElasticsearchHash
 
 	// Fetch or create the password secret
 	if r.opniCluster.Spec.Elastic.AdminPasswordFrom != nil {
@@ -93,16 +98,10 @@ func (r *Reconciler) elasticPasswordResourcces() (resources []resources.Resource
 			return
 		}
 		password = secret.Data[r.opniCluster.Spec.Elastic.AdminPasswordFrom.Key]
+
 	} else {
-		// TODO don't regenerate this every reconciliation loop
-		passwordSecretRef = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: passwordSecretName,
-			},
-			Key: "password",
-		}
-		password = util.GenerateRandomPassword()
-		resources = append(resources, func() (runtime.Object, reconciler.DesiredState, error) {
+		if generatePassword {
+			password = util.GenerateRandomPassword()
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      passwordSecretName,
@@ -113,8 +112,72 @@ func (r *Reconciler) elasticPasswordResourcces() (resources []resources.Resource
 				},
 			}
 			ctrl.SetControllerReference(r.opniCluster, secret, r.client.Scheme())
-			return secret, reconciler.StateCreated, nil
-		})
+			err = util.CreateOrUpdate(r.ctx, r.client, secret)
+			if err != nil {
+				return err
+			}
+
+		} else {
+			// fetch the existing secret
+			existingSecret := corev1.Secret{}
+			err := r.client.Get(r.ctx, types.NamespacedName{
+				Name:      passwordSecretName,
+				Namespace: r.opniCluster.Namespace,
+			}, &existingSecret)
+
+			// If we can't get the secret return an error
+			if err != nil {
+				lg.Error(err, "failed to check password secret")
+				return err
+			}
+		}
+
+		passwordSecretRef = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: passwordSecretName,
+			},
+			Key: "password",
+		}
+	}
+
+	// Generate the internal_users secret
+	if generatePassword {
+		lg.V(1).Info("generating bcrypt hash of password; this is slow")
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      internalUsersSecretName,
+				Namespace: r.opniCluster.Namespace,
+			},
+			Data: map[string][]byte{},
+		}
+
+		// Check the namespace for test annotation
+		ns := corev1.Namespace{}
+		r.client.Get(r.ctx, types.NamespacedName{
+			Name: r.opniCluster.Namespace,
+		}, &ns)
+
+		if value, ok := ns.Annotations["controller-test"]; ok && value == "true" {
+			lg.V(1).Info("test namespace, using minimum bcrypt difficulty to hash password")
+			hash, err = bcrypt.GenerateFromPassword(password, 4)
+		} else {
+			hash, err = bcrypt.GenerateFromPassword(password, bcryptCost)
+		}
+		if err != nil {
+			return
+		}
+
+		err = internalUsersTemplate.Execute(&buffer, string(hash))
+		if err != nil {
+			return
+		}
+
+		secret.Data[internalUsersKey] = buffer.Bytes()
+		ctrl.SetControllerReference(r.opniCluster, secret, r.client.Scheme())
+		err = util.CreateOrUpdate(r.ctx, r.client, secret)
+		if err != nil {
+			return
+		}
 	}
 
 	// Update the status with the password ref
@@ -123,33 +186,8 @@ func (r *Reconciler) elasticPasswordResourcces() (resources []resources.Resource
 			return err
 		}
 		r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef = passwordSecretRef
+		r.opniCluster.Status.Auth.GenerateElasticsearchHash = pointer.BoolPtr(false)
 		return r.client.Status().Update(r.ctx, r.opniCluster)
 	})
-	if err != nil {
-		return
-	}
-
-	// TODO compare the password against a previously generated hash
-	// Generate the internal_users secret
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      internalUsersSecretName,
-			Namespace: r.opniCluster.Namespace,
-		},
-		Data: map[string][]byte{},
-	}
-
-	hash, err := bcrypt.GenerateFromPassword(password, bcryptCost)
-	if err != nil {
-		return
-	}
-
-	err = internalUsersTemplate.Execute(&buffer, string(hash))
-	if err != nil {
-		return
-	}
-
-	secret.Data[internalUsersKey] = buffer.Bytes()
-	ctrl.SetControllerReference(r.opniCluster, secret, r.client.Scheme())
-	return append(resources, func() (runtime.Object, reconciler.DesiredState, error) { return secret, reconciler.StateCreated, nil }), err
+	return
 }

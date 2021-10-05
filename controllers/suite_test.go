@@ -117,6 +117,9 @@ func makeTestNamespace() string {
 			&corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: ns,
+					Annotations: map[string]string{
+						"controller-test": "true",
+					},
 				},
 			},
 		); err != nil {

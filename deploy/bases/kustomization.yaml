@@ -1,5 +1,4 @@
 namespace: opni
-namePrefix: opni-
 resources:
   - opnicluster.yaml
   - pretrainedmodel.yaml

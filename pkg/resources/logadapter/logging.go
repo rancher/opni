@@ -113,8 +113,15 @@ end
     Tag               rke2
     Path              {{ .Spec.RKE2.LogPath }}
     Systemd_Filter    _SYSTEMD_UNIT=rke2-server.service
-	Systemd_Filter    _SYSTEMD_UNIT=rke2-agent.service
+    Systemd_Filter    _SYSTEMD_UNIT=rke2-agent.service
     Strip_Underscores On
+[INPUT]
+    Tag               rke2
+    Name              tail
+    Path_Key          filename
+    DB                /tail-db/tail-containers-state.db
+    Mem_Buf_Limit     5MB
+    Path              /var/lib/rancher/rke2/agent/logs/kubelet.log
 [FILTER]
     Name              lua
     Match             *
@@ -395,6 +402,7 @@ func BuildRKE2Config(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 
 func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 	name := fmt.Sprintf("opni-%s-rke2-journald-aggregator", adapter.GetName())
+	directoryOrCreate := corev1.HostPathDirectoryOrCreate
 	podLabels := map[string]string{
 		"name": name,
 	}
@@ -437,6 +445,14 @@ func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet 
 									MountPath: "/etc/machine-id",
 									ReadOnly:  true,
 								},
+								{
+									MountPath: "/tail-db",
+									Name:      "positiondb",
+								},
+								{
+									MountPath: "/var/lib/rancher/rke2/agent/logs/",
+									Name:      "indir",
+								},
 							},
 						},
 					},
@@ -465,6 +481,21 @@ func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet 
 							VolumeSource: corev1.VolumeSource{
 								HostPath: &corev1.HostPathVolumeSource{
 									Path: "/etc/machine-id",
+								},
+							},
+						},
+						{
+							Name: "positiondb",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+						{
+							Name: "indir",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/lib/rancher/rke2/agent/logs/",
+									Type: &directoryOrCreate,
 								},
 							},
 						},

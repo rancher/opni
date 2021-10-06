@@ -373,6 +373,9 @@ func (r *Reconciler) genericEnvAndVolumes() (
 	})
 	switch r.opniCluster.Spec.Nats.AuthMethod {
 	case v1beta1.NatsAuthUsername:
+		if r.opniCluster.Status.Auth.AuthSecretKeyRef == nil {
+			break
+		}
 		var username string
 		if r.opniCluster.Spec.Nats.Username == "" {
 			username = "nats-user"
@@ -393,6 +396,9 @@ func (r *Reconciler) genericEnvAndVolumes() (
 		}
 		envVars = append(envVars, newEnvVars...)
 	case v1beta1.NatsAuthNkey:
+		if r.opniCluster.Status.Auth.AuthSecretKeyRef == nil {
+			break
+		}
 		newVolumes := []corev1.Volume{
 			{
 				Name: "nkey",

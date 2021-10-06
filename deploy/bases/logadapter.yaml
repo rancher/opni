@@ -6,4 +6,4 @@ spec:
   provider: none
   opniCluster:
     name: cluster
-    namespace: opni-cluster
+    namespace: opni

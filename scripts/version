@@ -9,6 +9,10 @@ GIT_TAG=${DRONE_TAG:-$(git tag -l --contains HEAD | head -n 1)}
 
 if [[ -z "$DIRTY" && -n "$GIT_TAG" ]]; then
     VERSION=$GIT_TAG
+elif [[ -n "$DRONE_PULL_REQUEST" ]]; then
+    VERSION="dev"
+elif [[ -n "$CI" ]]; then
+    VERSION="latest"
 else
-    VERSION="${COMMIT}${DIRTY}"
+    VERSION="dev"
 fi

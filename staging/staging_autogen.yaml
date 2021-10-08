@@ -52907,6 +52907,20 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: opni-event-viewer
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   creationTimestamp: null
   name: opni-manager-role
 rules:
@@ -53378,6 +53392,19 @@ rules:
   resources:
   - clusterrolebindings
   - clusterroles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
   - rolebindings
   - roles
   verbs:
@@ -53510,6 +53537,30 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: opni-svc-insights
+rules:
+- apiGroups:
+  - ""
+  - apps
+  - batch
+  resources:
+  - namespaces
+  - endpoints
+  - deployments
+  - pods
+  - jobs
+  - cronjobs
+  - replicasets
+  - daemonsets
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

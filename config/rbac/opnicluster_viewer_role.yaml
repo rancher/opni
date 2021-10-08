@@ -4,17 +4,17 @@ kind: ClusterRole
 metadata:
   name: opnicluster-viewer-role
 rules:
-  - apiGroups:
-      - opni.io
-    resources:
-      - opniclusters
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - opni.io
-    resources:
-      - opniclusters/status
-    verbs:
-      - get
+- apiGroups:
+  - opni.io
+  resources:
+  - opniclusters
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - opniclusters/status
+  verbs:
+  - get

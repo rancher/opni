@@ -22,6 +22,8 @@ spec:
     gpuController:
       enabled: true
       image: quay.io/dbason/opni-gpu-service-controller:debug
+    metrics:
+      prometheusEndpoint: http://prometheus-k8s.monitoring.svc.cluster.local:9090
   elastic:
     version: 1.13.2
   nats:

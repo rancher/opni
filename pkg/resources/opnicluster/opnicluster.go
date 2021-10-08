@@ -43,15 +43,16 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
 	conditions := []string{}
 
-	defer func() {
+	defer func(conditions *[]string) {
 		// When the reconciler is done, figure out what the state of the opnicluster
 		// is and set it in the state field accordingly.
 		op := util.LoadResult(retResult, retErr)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				lg.Error(err, "failed to get opnicluster")
 				return err
 			}
-			r.opniCluster.Status.Conditions = conditions
+			r.opniCluster.Status.Conditions = *conditions
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
@@ -66,16 +67,27 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 				// be set to ready
 				r.opniCluster.Status.State = v1beta1.OpniClusterStateReady
 			}
-			return r.client.Status().Update(r.ctx, r.opniCluster)
+			err := r.client.Status().Update(r.ctx, r.opniCluster)
+			if err != nil {
+				lg.Error(err, "failed to update opnicluster status")
+				return err
+			}
+			return nil
 		})
 
 		if err != nil {
 			lg.Error(err, "failed to update status")
 		}
-	}()
+	}(&conditions)
 
 	allResources := []resources.Resource{}
 	opniServices, err := r.opniServices()
+	if err != nil {
+		retErr = errors.Combine(retErr, err)
+		conditions = append(conditions, err.Error())
+		return nil, err
+	}
+	eventExporter, err := r.eventExporter()
 	if err != nil {
 		retErr = errors.Combine(retErr, err)
 		conditions = append(conditions, err.Error())
@@ -128,6 +140,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	allResources = append(allResources, s3...)
 	allResources = append(allResources, es...)
 	allResources = append(allResources, opniServices...)
+	allResources = append(allResources, eventExporter...)
 	allResources = append(allResources, pretrained...)
 
 	for _, factory := range allResources {

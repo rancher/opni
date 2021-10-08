@@ -251,6 +251,14 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 						return "http://dummy-endpoint"
 					}(),
 				},
+				Insights: v1beta1.InsightsServiceSpec{
+					Enabled:   pointer.Bool(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
+				},
+				UI: v1beta1.UIServiceSpec{
+					Enabled:   pointer.Bool(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
+				},
 			},
 		},
 	}

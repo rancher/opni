@@ -1,6 +1,7 @@
 package opnicluster
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"net/url"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/resources/hyperparameters"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -40,6 +42,12 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.preprocessingDeployment,
 		r.gpuCtrlDeployment,
 		r.metricsDeployment,
+		r.insightsServiceAccount,
+		r.insightsClusterRoleBinding,
+		r.insightsDeployment,
+		r.insightsService,
+		r.uiDeployment,
+		r.uiService,
 	}, nil
 }
 
@@ -587,6 +595,138 @@ func (r *Reconciler) metricsDeployment() (runtime.Object, reconciler.DesiredStat
 		Value: r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint,
 	})
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
+}
+
+func (r *Reconciler) insightsServiceAccount() (runtime.Object, reconciler.DesiredState, error) {
+	labels := r.serviceLabels(v1beta1.InsightsService)
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      labels[resources.AppNameLabel],
+			Namespace: r.opniCluster.Namespace,
+			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
+		},
+	}
+
+	return serviceAccount, deploymentState(r.opniCluster.Spec.Services.Insights.Enabled), nil
+}
+
+func (r *Reconciler) insightsClusterRoleBinding() (runtime.Object, reconciler.DesiredState, error) {
+	labels := r.serviceLabels(v1beta1.InsightsService)
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   fmt.Sprintf("%s-%s", labels[resources.AppNameLabel], r.generateSHAID()),
+			Labels: labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     labels[resources.AppNameLabel],
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      labels[resources.AppNameLabel],
+				Namespace: r.opniCluster.Namespace,
+			},
+		},
+	}
+	return clusterRoleBinding, deploymentState(r.opniCluster.Spec.Services.Insights.Enabled), nil
+}
+
+func (r *Reconciler) insightsDeployment() (runtime.Object, reconciler.DesiredState, error) {
+	deployment := r.genericDeployment(v1beta1.InsightsService)
+	deployment.Spec.Template.Spec.ServiceAccountName = v1beta1.InsightsService.ServiceName()
+	return deployment, deploymentState(r.opniCluster.Spec.Services.Insights.Enabled), nil
+}
+
+func (r *Reconciler) insightsService() (runtime.Object, reconciler.DesiredState, error) {
+	labels := r.serviceLabels(v1beta1.InsightsService)
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      labels[resources.AppNameLabel],
+			Namespace: r.opniCluster.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
+			Labels: labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Port: 80,
+				},
+			},
+		},
+	}
+	return service, reconciler.StateCreated, nil
+}
+
+func (r *Reconciler) uiDeployment() (runtime.Object, reconciler.DesiredState, error) {
+	deployment := r.genericDeployment(v1beta1.UIService)
+	deployment.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{
+		{
+			Name:  "OPNI_API",
+			Value: fmt.Sprintf("http://%s.%s", v1beta1.InsightsService.ServiceName(), r.opniCluster.Namespace),
+		},
+	}
+	return deployment, deploymentState(r.opniCluster.Spec.Services.UI.Enabled), nil
+}
+
+func (r *Reconciler) uiService() (runtime.Object, reconciler.DesiredState, error) {
+	labels := r.serviceLabels(v1beta1.UIService)
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      labels[resources.AppNameLabel],
+			Namespace: r.opniCluster.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
+			Labels: labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Port: 80,
+				},
+			},
+		},
+	}
+	return service, reconciler.StateCreated, nil
+}
+
+func (r *Reconciler) generateSHAID() string {
+	hash := sha1.New()
+	hash.Write([]byte(r.opniCluster.Name + r.opniCluster.Namespace))
+	sum := hash.Sum(nil)
+	return fmt.Sprintf("%x", sum[:3])
 }
 
 func insertHyperparametersVolume(deployment *appsv1.Deployment, modelName string) {

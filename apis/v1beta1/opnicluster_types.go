@@ -106,6 +106,8 @@ type ServicesSpec struct {
 	PayloadReceiver PayloadReceiverServiceSpec `json:"payloadReceiver,omitempty"`
 	GPUController   GPUControllerServiceSpec   `json:"gpuController,omitempty"`
 	Metrics         MetricsServiceSpec         `json:"metrics,omitempty"`
+	Insights        InsightsServiceSpec        `json:"insights,omitempty"`
+	UI              UIServiceSpec              `json:"ui,omitempty"`
 }
 
 type DrainServiceSpec struct {
@@ -151,6 +153,20 @@ type MetricsServiceSpec struct {
 	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
 	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
 	PrometheusEndpoint string              `json:"prometheusEndpoint,omitempty"`
+}
+
+type InsightsServiceSpec struct {
+	ImageSpec    `json:",inline,omitempty"`
+	Enabled      *bool               `json:"enabled,omitempty"`
+	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+}
+
+type UIServiceSpec struct {
+	ImageSpec    `json:",inline,omitempty"`
+	Enabled      *bool               `json:"enabled,omitempty"`
+	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type ElasticSpec struct {

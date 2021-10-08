@@ -13,16 +13,18 @@ patchesStrategicMerge:
   # - examples/logAdapters/logAdapter_rke2.yaml
 
   # Uncomment to enable GPU support
-  - patches/gpu.yaml
-  - examples/nfd/aio.yaml
+  # - patches/gpu.yaml
+  # - examples/nfd/aio.yaml
 
-  # Uncomment one of the following depending on your GPU type
-  # - examples/gpu/gpu.yaml
-  # - examples/gpu/vgpu.yaml # a template for this file is provided in examples/gpu
+  # Uncomment to enable persistent storage
+  # - patches/persistence.yaml # edit this file to set storage size
 
   # Uncomment to enable metric anomaly detection (experimental)
-  # - patches/metrics.yaml
   # - patches/metrics.yaml # edit this file to set your prometheus endpoint
 
   # Uncomment to enable external S3 storage
   # - examples/s3/external_s3.yaml # edit this file to configure your S3 server
+resources:
+  # Uncomment one of the following depending on your GPU type
+  # - examples/gpu/gpu.yaml
+  # - examples/gpu/vgpu.yaml # a template for this file is provided in examples/gpu

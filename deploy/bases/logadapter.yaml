@@ -3,6 +3,7 @@ kind: LogAdapter
 metadata:
   name: lga
 spec:
-  provider: k3s
-  k3s:
-    containerEngine: systemd
+  provider: none
+  opniCluster:
+    name: cluster
+    namespace: opni

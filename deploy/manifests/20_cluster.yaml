@@ -24,7 +24,7 @@ metadata:
   name: opni-cluster
   namespace: opni-cluster
 spec:
-  version: v0.2.0-rc1
+  version: v0.2.0
   deployLogCollector: true
   services:
     gpuController:
@@ -35,6 +35,10 @@ spec:
     metrics:
       enabled: false # metrics anomaly detection is currently experimental
       prometheusEndpoint: http://prometheus-url # metrics anomaly detection requires a prometheus url to connect to.
+    insights:
+      enabled: false
+    ui:
+      enabled: false
   elastic:
     version: 1.13.2
   s3:

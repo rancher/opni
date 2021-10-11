@@ -15,7 +15,7 @@ var (
 	DefaultMutableFeatureGate = featuregate.NewFeatureGate()
 	featureGates              = map[featuregate.Feature]featuregate.FeatureSpec{
 		NodeFeatureDiscoveryOperator: {Default: false, PreRelease: featuregate.Alpha},
-		GPUOperator:                  {Default: false, PreRelease: featuregate.Alpha},
+		GPUOperator:                  {Default: true, PreRelease: featuregate.Beta},
 	}
 
 	ErrUnknownFeatureGate = errors.New("unknown feature gate")

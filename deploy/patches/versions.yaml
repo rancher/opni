@@ -3,6 +3,6 @@ kind: OpniCluster
 metadata:
   name: cluster
 spec:
-  version: v0.2.0-rc1
+  version: v0.2.0
   elastic:
     version: 1.13.2

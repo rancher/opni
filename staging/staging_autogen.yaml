@@ -53496,6 +53496,30 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: opni-opni-svc-insights
+rules:
+- apiGroups:
+  - ""
+  - apps
+  - batch
+  resources:
+  - namespaces
+  - endpoints
+  - deployments
+  - pods
+  - jobs
+  - cronjobs
+  - replicasets
+  - daemonsets
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: opni-proxy-role
 rules:
 - apiGroups:

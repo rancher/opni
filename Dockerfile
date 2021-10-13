@@ -3,7 +3,7 @@ FROM registry.opensuse.org/devel/bci/images/bci/golang:1.16 as builder
 WORKDIR /workspace
 COPY . .
 RUN go mod download
-RUN make manager
+RUN scripts/manager
 
 FROM nvidia/cuda:11.4.1-base-centos8
 

@@ -20,7 +20,7 @@ import (
 	"github.com/ttacon/chalk"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -214,7 +214,7 @@ sources:
 }
 
 func ignoreAlreadyExists(err error) error {
-	if apierrors.IsAlreadyExists(err) {
+	if k8serrors.IsAlreadyExists(err) {
 		return nil
 	}
 	return err

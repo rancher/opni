@@ -2,19 +2,17 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 bases:
   - bases/
-  - examples/nfd/aio.yaml
 patchesStrategicMerge:
   - patches/versions.yaml # If needed, edit this file to change versions
 
   # Uncomment one of the following to deploy a LogAdapter
-  - examples/logAdapters/logAdapter_k3s_openrc.yaml
+  # - examples/logAdapters/logAdapter_k3s_openrc.yaml
   # - examples/logAdapters/logAdapter_k3s_systemd.yaml
   # - examples/logAdapters/logAdapter_rke.yaml
   # - examples/logAdapters/logAdapter_rke2.yaml
 
   # Uncomment to enable GPU support
   # - patches/gpu.yaml
-  # - examples/nfd/aio.yaml
 
   # Uncomment to enable persistent storage
   # - patches/persistence.yaml # edit this file to set storage size
@@ -25,6 +23,9 @@ patchesStrategicMerge:
   # Uncomment to enable external S3 storage
   # - examples/s3/external_s3.yaml # edit this file to configure your S3 server
 resources:
+  # Uncomment to enable GPU support
+  # - examples/nfd/aio.yaml
+  
   # Uncomment one of the following depending on your GPU type
   # - examples/gpu/gpu.yaml
   # - examples/gpu/vgpu.yaml # a template for this file is provided in examples/gpu

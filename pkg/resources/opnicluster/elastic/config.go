@@ -2,12 +2,15 @@ package elastic
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"text/template"
 
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"golang.org/x/crypto/bcrypt"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -80,6 +83,7 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 	var hash []byte
 	var buffer bytes.Buffer
 	var passwordSecretRef *corev1.SecretKeySelector
+	var ok bool
 
 	lg := log.FromContext(r.ctx)
 	generatePassword := r.opniCluster.Status.Auth.GenerateElasticsearchHash == nil || *r.opniCluster.Status.Auth.GenerateElasticsearchHash
@@ -97,7 +101,10 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 		if err != nil {
 			return
 		}
-		password = secret.Data[r.opniCluster.Spec.Elastic.AdminPasswordFrom.Key]
+		password, ok = secret.Data[r.opniCluster.Spec.Elastic.AdminPasswordFrom.Key]
+		if !ok {
+			return fmt.Errorf("%s key does not exist in %s", r.opniCluster.Spec.Elastic.AdminPasswordFrom.Key, r.opniCluster.Spec.Elastic.AdminPasswordFrom.Name)
+		}
 
 	} else {
 		if generatePassword {
@@ -126,7 +133,16 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 			}, &existingSecret)
 
 			// If we can't get the secret return an error
-			if err != nil {
+			if k8serrors.IsNotFound(err) {
+				retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+						return err
+					}
+					r.opniCluster.Status.Auth.GenerateElasticsearchHash = pointer.BoolPtr(true)
+					return r.client.Status().Update(r.ctx, r.opniCluster)
+				})
+				return errors.New("password secret not found, will recreate on next loop")
+			} else if err != nil {
 				lg.Error(err, "failed to check password secret")
 				return err
 			}

@@ -30,7 +30,7 @@ var (
 		InitContainer: "nvcr.io/nvidia/cuda:11.2.1-base-ubuntu20.04",
 		MIGManager:    "nvcr.io/nvidia/cloud-native/k8s-mig-manager:v0.1.2-ubuntu20.04",
 		Toolkit:       "joekralicky/container-toolkit:1.7.0-ubuntu20.04",
-		Validator:     "joekralicky/gpu-operator-validator:v1.8.1-ubuntu20.04",
+		Validator:     "joekralicky/gpu-operator-validator:v1.8.2-ubuntu20.04",
 	}
 )
 

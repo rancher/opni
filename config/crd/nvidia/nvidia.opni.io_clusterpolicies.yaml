@@ -1030,6 +1030,13 @@ spec:
                     items:
                       type: string
                     type: array
+                  certConfig:
+                    description: 'Optional: Custom certificates configuration for
+                      driver container'
+                    properties:
+                      name:
+                        type: string
+                    type: object
                   enabled:
                     description: Enabled indicates if deployment of driver through
                       operator is enabled
@@ -1313,8 +1320,6 @@ spec:
                     description: 'Optional: Custom repo configuration for driver container'
                     properties:
                       configMapName:
-                        type: string
-                      destinationDir:
                         type: string
                     type: object
                   repository:

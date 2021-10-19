@@ -584,6 +584,11 @@ spec:
                         items:
                           type: string
                         type: array
+                      certConfig:
+                        properties:
+                          name:
+                            type: string
+                        type: object
                       enabled:
                         type: boolean
                       env:
@@ -745,8 +750,6 @@ spec:
                       repoConfig:
                         properties:
                           configMapName:
-                            type: string
-                          destinationDir:
                             type: string
                         type: object
                       repository:

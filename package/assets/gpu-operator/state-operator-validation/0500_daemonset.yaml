@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: nvidia-operator-validator
-  namespace: gpu-operator-resources
+  namespace: "FILLED BY THE OPERATOR"
   labels:
     app: nvidia-operator-validator
     app.kubernetes.io/part-of: gpu-operator
@@ -19,10 +19,15 @@ spec:
     spec:
       nodeSelector:
         nvidia.com/gpu.deploy.operator-validator: "true"
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      priorityClassName: system-node-critical
       serviceAccount: nvidia-operator-validator
       initContainers:
         - name: driver-validation
-          image: "FILLED_BY_OPERATOR"
+          image: "FILLED BY THE OPERATOR"
           command: ['sh', '-c']
           args: ["nvidia-validator"]
           env:
@@ -37,12 +42,12 @@ spec:
           volumeMounts:
             - name: driver-install-path
               mountPath: /run/nvidia/driver
-              mountPropagation: Bidirectional
+              mountPropagation: HostToContainer
             - name: run-nvidia-validations
               mountPath: /run/nvidia/validations
               mountPropagation: Bidirectional
         - name: toolkit-validation
-          image: "FILLED_BY_OPERATOR"
+          image: "FILLED BY THE OPERATOR"
           command: ['sh', '-c']
           args: ["nvidia-validator"]
           env:
@@ -57,7 +62,7 @@ spec:
               mountPath: /run/nvidia/validations
               mountPropagation: Bidirectional
         - name: cuda-validation
-          image: "FILLED_BY_OPERATOR"
+          image: "FILLED BY THE OPERATOR"
           command: ['sh', '-c']
           args: ["nvidia-validator"]
           env:
@@ -69,6 +74,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+          - name: OPERATOR_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
           securityContext:
             privileged: true
           volumeMounts:
@@ -76,7 +85,7 @@ spec:
               mountPath: /run/nvidia/validations
               mountPropagation: Bidirectional
         - name: plugin-validation
-          image: "FILLED_BY_OPERATOR"
+          image: "FILLED BY THE OPERATOR"
           command: ['sh', '-c']
           args: ["nvidia-validator"]
           env:
@@ -92,6 +101,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+          - name: OPERATOR_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
           securityContext:
             privileged: true
           volumeMounts:
@@ -99,7 +112,7 @@ spec:
               mountPath: /run/nvidia/validations
               mountPropagation: Bidirectional
       containers:
-        - image: "FILLED_BY_OPERATOR"
+        - image: "FILLED BY THE OPERATOR"
           name: nvidia-operator-validator
           command: ['sh', '-c']
           args: ["echo all validations are successful; sleep infinity"]

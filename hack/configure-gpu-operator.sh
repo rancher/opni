@@ -1,6 +1,7 @@
 #!/bin/bash
 
-config_dir="$(realpath $(dirname $0)/../config)"
+project_dir="$(realpath $(dirname $0)/..)"
+config_dir="$(realpath ${project_dir}/config)"
 cd "${config_dir}"
 
 tmp="$(mktemp -d)"
@@ -18,7 +19,7 @@ mkdir -p "${config_dir}"/crd/nvidia
 mv ${bases} "${config_dir}/crd/nvidia"
 popd &>/dev/null
 
-rm -rf "${config_dir}/assets/gpu-operator"
-mv assets "${config_dir}/assets/gpu-operator"
+rm -rf "${project_dir}/package/assets/gpu-operator"
+mv assets "${project_dir}/package/assets/gpu-operator"
 
 popd &>/dev/null

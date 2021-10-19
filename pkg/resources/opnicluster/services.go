@@ -4,7 +4,6 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
@@ -241,7 +240,10 @@ func containerSidecar(model v1beta1.PretrainedModel) corev1.Container {
 		Name:    "copy-model",
 		Image:   model.Spec.Container.Image,
 		Command: []string{"/bin/sh"},
-		Args:    strings.Fields(`-c cp /staging/* /model/ && chmod -R a+r /model/`),
+		Args: []string{
+			"-c",
+			`cp /staging/* /model/ && chmod -R a+r /model/`,
+		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "model-volume",

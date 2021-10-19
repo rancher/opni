@@ -20,4 +20,4 @@ for node in $nodes; do
 done
 
 echo "** STARTING TEST ** [KUBECONFIG=${KUBECONFIG}]"
-tilt ci e2e-tests
+tilt ci e2e-tests-prod

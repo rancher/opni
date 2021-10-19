@@ -245,8 +245,7 @@ func containerSidecar(model v1beta1.PretrainedModel) corev1.Container {
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "model-volume",
-				MountPath: "/model/model.tar.gz",
-				SubPath:   "model.tar.gz",
+				MountPath: "/model/",
 			},
 		},
 	}

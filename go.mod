@@ -8,7 +8,7 @@ require (
 	github.com/NVIDIA/gpu-operator v1.8.1
 	github.com/banzaicloud/logging-operator v1.12.4-alpine-2
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
-	github.com/banzaicloud/operator-tools v0.25.0
+	github.com/banzaicloud/operator-tools v0.25.4
 	github.com/elastic/go-elasticsearch/v7 v7.12.0
 	github.com/go-logr/logr v0.4.0
 	github.com/go-test/deep v1.0.7
@@ -118,6 +118,8 @@ require (
 
 replace (
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211018192549-27689de6173c
-	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
+	github.com/banzaicloud/logging-operator => github.com/dbason/logging-operator v0.0.0-20211020201013-d8577a836438
+	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/dbason/logging-operator/pkg/sdk v0.0.0-20211020201013-d8577a836438
+	// github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
 )

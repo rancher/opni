@@ -7,6 +7,7 @@ import (
 	"text/template"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
+	"github.com/banzaicloud/logging-operator/pkg/sdk/model/filter"
 	"github.com/rancher/opni/apis/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -42,6 +43,14 @@ func BuildRootLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 			ControlNamespace: adapter.Spec.OpniCluster.Namespace,
 			FluentbitSpec:    adapter.Spec.RootFluentConfig.Fluentbit,
 			FluentdSpec:      adapter.Spec.RootFluentConfig.Fluentd,
+			GlobalFilters: []loggingv1beta1.Filter{
+				{
+					EnhanceK8s: &filter.EnhanceK8s{
+						InNamespacePath: []string{`$.kubernetes.namespace_name`},
+						InPodPath:       []string{`$.kubernetes.pod_name`},
+					},
+				},
+			},
 		},
 	}
 	setOwnerReference(adapter, &logging)

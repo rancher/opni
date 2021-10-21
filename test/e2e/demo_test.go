@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elastic/go-elasticsearch/v7"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gmeasure"
+	"github.com/opensearch-project/opensearch-go"
 	"github.com/phayes/freeport"
 	"github.com/rancher/opni/apis/demo/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,7 +32,7 @@ const (
 	demoCrNamespace = "opnidemo-test"
 )
 
-func queryAnomalyCount(esClient *elasticsearch.Client) (int, error) {
+func queryAnomalyCount(esClient *opensearch.Client) (int, error) {
 	response, err := esClient.Count(
 		esClient.Count.WithIndex("logs"),
 		// esClient.Count.WithQuery(`anomaly_level:Anomalous AND is_control_plane_log:true`),
@@ -171,13 +171,14 @@ var _ = Describe("OpniDemo E2E", Label("e2e", "demo"), func() {
 				break
 			}
 		})
-		var esClient *elasticsearch.Client
+		var esClient *opensearch.Client
 		Specify("elasticsearch should contain logs", func() {
 			var err error
-			esClient, err = elasticsearch.NewClient(elasticsearch.Config{
-				Addresses: []string{fmt.Sprintf("https://127.0.0.1:%d", portForwardPort)},
-				Username:  "admin",
-				Password:  "admin",
+			esClient, err = opensearch.NewClient(opensearch.Config{
+				Addresses:            []string{fmt.Sprintf("https://127.0.0.1:%d", portForwardPort)},
+				Username:             "admin",
+				Password:             "admin",
+				UseResponseCheckOnly: true,
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
 						InsecureSkipVerify: true,

@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/elastic/go-elasticsearch/v7/esapi"
+	"github.com/opensearch-project/opensearch-go/opensearchapi"
 )
 
 const (
@@ -64,7 +64,7 @@ func (c *Client) generateObjectPath() string {
 	return path.String()
 }
 
-func (c *Client) ImportObjects(ctx context.Context, objectData string, objectName string) (*esapi.Response, error) {
+func (c *Client) ImportObjects(ctx context.Context, objectData string, objectName string) (*opensearchapi.Response, error) {
 	method := "POST"
 	relPath := &url.URL{Path: c.generateObjectPath()}
 	absURL := c.url.ResolveReference(relPath)
@@ -108,6 +108,6 @@ func (c *Client) ImportObjects(ctx context.Context, objectData string, objectNam
 		return nil, err
 	}
 
-	return &esapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
 
 }

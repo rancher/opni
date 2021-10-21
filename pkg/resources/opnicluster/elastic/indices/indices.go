@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/elastic/go-elasticsearch/v7"
+	"github.com/opensearch-project/opensearch-go"
 	"github.com/rancher/opni/apis/v1beta1"
 	esapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 	"github.com/rancher/opni/pkg/util"
@@ -27,7 +27,7 @@ const (
 )
 
 type ExtendedClient struct {
-	*elasticsearch.Client
+	*opensearch.Client
 	ISM *ISMApi
 }
 

@@ -6,4 +6,4 @@ spec:
   services:
     metrics:
       enabled: true
-      prometheusEndpoint: # replace with your prometheus URL
+      prometheusEndpoint: # replace with your prometheus URL, for example: "http://rancher-monitoring-prometheus.cattle-monitoring-system.svc:9090"

@@ -51,11 +51,7 @@ var (
 	}
 	kibanaEnv = []corev1.EnvVar{
 		{
-			Name:  "CLUSTER_NAME",
-			Value: "elasticsearch",
-		},
-		{
-			Name:  "ELASTICSEARCH_HOSTS",
+			Name:  "OPENSEARCH_HOSTS",
 			Value: "https://opni-es-client:9200",
 		},
 	}
@@ -69,11 +65,15 @@ func elasticNodeTypeEnv(role v1beta1.ElasticRole) []corev1.EnvVar {
 		},
 		{
 			Name:  "node.ingest",
-			Value: fmt.Sprint(role == v1beta1.ElasticClientRole),
+			Value: fmt.Sprint(role == v1beta1.ElasticDataRole),
 		},
 		{
 			Name:  "node.data",
 			Value: fmt.Sprint(role == v1beta1.ElasticDataRole),
+		},
+		{
+			Name:  "discovery.seed_hosts",
+			Value: "opni-es-discovery",
 		},
 	}
 	if role == v1beta1.ElasticMasterRole {
@@ -88,7 +88,7 @@ func elasticNodeTypeEnv(role v1beta1.ElasticRole) []corev1.EnvVar {
 func (r *Reconciler) javaOptsEnv(role v1beta1.ElasticRole) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name: "ES_JAVA_OPTS",
+			Name: "OPENSEARCH_JAVA_OPTS",
 			Value: javaOpts(func() *corev1.ResourceRequirements {
 				switch role {
 				case v1beta1.ElasticDataRole:

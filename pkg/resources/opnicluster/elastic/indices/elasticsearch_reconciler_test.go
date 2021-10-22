@@ -51,11 +51,13 @@ var _ = Describe("Indices", Label("unit"), func() {
 						Transitions: make([]opensearchapiext.TransitionSpec, 0),
 					},
 				},
-				ISMTemplate: &opensearchapiext.ISMTemplateSpec{
-					IndexPatterns: []string{
-						"test*",
+				ISMTemplate: []opensearchapiext.ISMTemplateSpec{
+					{
+						IndexPatterns: []string{
+							"test*",
+						},
+						Priority: 100,
 					},
-					Priority: 100,
 				},
 			}
 			policyResponse = &opensearchapiext.ISMGetResponse{
@@ -83,11 +85,13 @@ var _ = Describe("Indices", Label("unit"), func() {
 							Transitions: make([]opensearchapiext.TransitionSpec, 0),
 						},
 					},
-					ISMTemplate: &opensearchapiext.ISMTemplateSpec{
-						IndexPatterns: []string{
-							"test*",
+					ISMTemplate: []opensearchapiext.ISMTemplateSpec{
+						{
+							IndexPatterns: []string{
+								"test*",
+							},
+							Priority: 100,
 						},
-						Priority: 100,
 					},
 				},
 			}
@@ -160,11 +164,13 @@ var _ = Describe("Indices", Label("unit"), func() {
 								Transitions: make([]opensearchapiext.TransitionSpec, 0),
 							},
 						},
-						ISMTemplate: &opensearchapiext.ISMTemplateSpec{
-							IndexPatterns: []string{
-								"test*",
+						ISMTemplate: []opensearchapiext.ISMTemplateSpec{
+							{
+								IndexPatterns: []string{
+									"test*",
+								},
+								Priority: 100,
 							},
-							Priority: 100,
 						},
 					},
 				}

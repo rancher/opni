@@ -13,7 +13,7 @@ import (
 
 const (
 	headerContentType        = "Content-Type"
-	kibanaCrossHeaderType    = "kbn-xsrf"
+	kibanaCrossHeaderType    = "osd-xsrf"
 	securityTenantHeaderType = "securitytenant"
 )
 

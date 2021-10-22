@@ -17,9 +17,9 @@ type ISMApi struct {
 
 func generatePath(name string) strings.Builder {
 	var path strings.Builder
-	path.Grow(1 + len("_opendistro") + 1 + len("_ism") + 1 + len("policies") + 1 + len(name))
+	path.Grow(1 + len("_plugins") + 1 + len("_ism") + 1 + len("policies") + 1 + len(name))
 	path.WriteString("/")
-	path.WriteString("_opendistro")
+	path.WriteString("_plugins")
 	path.WriteString("/")
 	path.WriteString("_ism")
 	path.WriteString("/")

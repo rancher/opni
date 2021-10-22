@@ -364,7 +364,7 @@ func fixMountContainer() corev1.Container {
 		Command: []string{
 			"sh",
 			"-c",
-			"chown -R 1000:1000 /usr/share/elasticsearch/data",
+			"chown -R 1000:1000 /usr/share/opensearch/data",
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			dataVolumeMount(),
@@ -375,14 +375,14 @@ func fixMountContainer() corev1.Container {
 func dataVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      "opni-es-data",
-		MountPath: "/usr/share/elasticsearch/data",
+		MountPath: "/usr/share/opensearch/data",
 	}
 }
 
 func configVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      "config",
-		MountPath: "/usr/share/elasticsearch/config/logging.yml",
+		MountPath: "/usr/share/opensearch/config/logging.yml",
 		SubPath:   "logging.yml",
 	}
 }
@@ -401,7 +401,7 @@ func configVolume() corev1.Volume {
 func internalusersVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      "internalusers",
-		MountPath: fmt.Sprintf("/usr/share/elasticsearch/plugins/opendistro_security/securityconfig/%s", internalUsersKey),
+		MountPath: fmt.Sprintf("/usr/share/opensearch/plugins/opensearch-security/securityconfig/%s", internalUsersKey),
 		SubPath:   internalUsersKey,
 	}
 }
@@ -420,8 +420,8 @@ func internalusersVolume() corev1.Volume {
 func (r *Reconciler) openDistroImageSpec() v1beta1.ImageSpec {
 	return v1beta1.ImageResolver{
 		Version:             r.opniCluster.Spec.Elastic.Version,
-		ImageName:           "opendistro-for-elasticsearch",
-		DefaultRepo:         "docker.io/amazon",
+		ImageName:           "opensearch",
+		DefaultRepo:         "docker.io/opensearchproject",
 		DefaultRepoOverride: r.opniCluster.Spec.Elastic.DefaultRepo,
 		ImageOverride:       r.opniCluster.Spec.Elastic.Image,
 	}.Resolve()
@@ -430,8 +430,8 @@ func (r *Reconciler) openDistroImageSpec() v1beta1.ImageSpec {
 func (r *Reconciler) kibanaImageSpec() v1beta1.ImageSpec {
 	return v1beta1.ImageResolver{
 		Version:             r.opniCluster.Spec.Elastic.Version,
-		ImageName:           "opendistro-for-elasticsearch-kibana",
-		DefaultRepo:         "docker.io/amazon",
+		ImageName:           "opensearch-dashboards",
+		DefaultRepo:         "docker.io/opensearchproject",
 		DefaultRepoOverride: r.opniCluster.Spec.Elastic.DefaultRepo,
 		ImageOverride:       r.opniCluster.Spec.Elastic.KibanaImage,
 	}.Resolve()

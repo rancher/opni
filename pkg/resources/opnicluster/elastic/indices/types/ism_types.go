@@ -5,7 +5,7 @@ import "encoding/json"
 type ISMPolicySpec struct {
 	*ISMPolicyIDSpec  `json:",inline,omitempty"`
 	Description       string            `json:"description"`
-	ISMTemplate       *ISMTemplateSpec  `json:"ism_template,omitempty"`
+	ISMTemplate       []ISMTemplateSpec `json:"ism_template,omitempty"`
 	ErrorNotification *NotificationSpec `json:"error_notification"`
 	DefaultState      string            `json:"default_state"`
 	States            []StateSpec       `json:"states"`

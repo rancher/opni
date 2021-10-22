@@ -114,11 +114,13 @@ var (
 				Transitions: make([]esapiext.TransitionSpec, 0),
 			},
 		},
-		ISMTemplate: &esapiext.ISMTemplateSpec{
-			IndexPatterns: []string{
-				fmt.Sprintf("%s*", logIndexPrefix),
+		ISMTemplate: []esapiext.ISMTemplateSpec{
+			{
+				IndexPatterns: []string{
+					fmt.Sprintf("%s*", logIndexPrefix),
+				},
+				Priority: 100,
 			},
-			Priority: 100,
 		},
 	}
 	opniDrainModelStatusPolicy = esapiext.ISMPolicySpec{
@@ -211,11 +213,13 @@ var (
 				Transitions: make([]esapiext.TransitionSpec, 0),
 			},
 		},
-		ISMTemplate: &esapiext.ISMTemplateSpec{
-			IndexPatterns: []string{
-				fmt.Sprintf("%s*", drainStatusIndexPrefix),
+		ISMTemplate: []esapiext.ISMTemplateSpec{
+			{
+				IndexPatterns: []string{
+					fmt.Sprintf("%s*", drainStatusIndexPrefix),
+				},
+				Priority: 100,
 			},
-			Priority: 100,
 		},
 	}
 

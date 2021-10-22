@@ -137,7 +137,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 						},
 					},
 					Elastic: v1beta1.ElasticSpec{
-						Version: "1.13.2",
+						Version: "1.1.0",
 					},
 					S3: v1beta1.S3Spec{
 						Internal: &v1beta1.InternalSpec{},

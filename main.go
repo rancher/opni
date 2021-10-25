@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -69,6 +70,7 @@ func run() error {
 		enableLeaderElection bool
 		probeAddr            string
 		disableUsage         bool
+		echoVersion          bool
 	)
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -77,12 +79,18 @@ func run() error {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	pflag.BoolVar(&disableUsage, "disable-usage", false, "Disable anonymous Opni usage tracking.")
+	pflag.BoolVarP(&echoVersion, "version", "v", false, "print the version and exit")
 	features.DefaultMutableFeatureGate.AddFlag(pflag.CommandLine)
 	opts := zap.Options{
 		Development: true,
 	}
 
 	pflag.Parse()
+
+	if echoVersion {
+		fmt.Println(Version)
+		return nil
+	}
 
 	ctrl.SetLogger(zap.New(
 		zap.UseFlagOptions(&opts),

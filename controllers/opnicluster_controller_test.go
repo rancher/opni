@@ -893,7 +893,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 				)),
 				HaveMatchingContainer(And(
 					HaveName("elasticsearch"),
-					HaveImage("docker.io/amazon/opendistro-for-elasticsearch:1.0.0"),
+					HaveImage("docker.io/opensearchproject/opensearch:1.0.0"),
 					HaveEnv("node.master", "true"),
 					HavePorts("transport", "http", "metrics", "rca"),
 					HaveVolumeMounts("config", "opni-es-data"),
@@ -924,8 +924,11 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 				HaveTolerations("foo"),
 				HaveMatchingContainer(And(
 					HaveName("elasticsearch"),
-					HaveImage("docker.io/amazon/opendistro-for-elasticsearch:1.0.0"),
-					HaveEnv("node.data", "true"),
+					HaveImage("docker.io/opensearchproject/opensearch:1.0.0"),
+					HaveEnv(
+						"node.data", "true",
+						"node.ingest", "true",
+					),
 					HavePorts("transport"),
 					HaveVolumeMounts("config", "opni-es-data"),
 					HaveVolumeMounts("internalusers", "opni-es-internalusers"),
@@ -959,10 +962,9 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 				HaveTolerations("foo", "bar"),
 				HaveMatchingContainer(And(
 					HaveName("elasticsearch"),
-					HaveImage("docker.io/amazon/opendistro-for-elasticsearch:1.0.0"),
+					HaveImage("docker.io/opensearchproject/opensearch:1.0.0"),
 					HaveEnv(
-						"node.ingest", "true",
-						"ES_JAVA_OPTS", "-Xms5369m -Xmx5369m",
+						"OPENSEARCH_JAVA_OPTS", "-Xms5369m -Xmx5369m",
 					),
 					HavePorts("transport", "http", "metrics", "rca"),
 					HaveVolumeMounts("config"),
@@ -994,10 +996,9 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 				HaveTolerations("foo"),
 				HaveMatchingContainer(And(
 					HaveName("opni-es-kibana"),
-					HaveImage("docker.io/amazon/opendistro-for-elasticsearch-kibana:1.0.0"),
+					HaveImage("docker.io/opensearchproject/opensearch-dashboards:1.0.0"),
 					HaveEnv(
-						"CLUSTER_NAME", nil,
-						"ELASTICSEARCH_HOSTS", nil,
+						"OPENSEARCH_HOSTS", nil,
 					),
 					HavePorts("http"),
 					Not(HaveVolumeMounts("config", "opni-es-data")),

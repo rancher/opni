@@ -100,12 +100,12 @@ var _ = Describe("Indices", Label("unit"), func() {
 			It("should create a new ISM", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_opendistro/_ism/policies/testpolicy",
+					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
 					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
 				)
 				transport.RegisterResponder(
 					"PUT",
-					"https://opni-es-client.test:9200/_opendistro/_ism/policies/testpolicy",
+					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
@@ -123,7 +123,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 			It("should do nothing", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_opendistro/_ism/policies/testpolicy",
+					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
@@ -177,12 +177,12 @@ var _ = Describe("Indices", Label("unit"), func() {
 				policy.Description = "this is a different description"
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_opendistro/_ism/policies/testpolicy",
+					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				transport.RegisterResponderWithQuery(
 					"PUT",
-					"https://opni-es-client.test:9200/_opendistro/_ism/policies/testpolicy",
+					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
 					map[string]string{
 						"if_seq_no":       "1",
 						"if_primary_term": "1",

@@ -174,7 +174,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 func (r *Reconciler) ReconcileElasticUpgrade() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
-	if r.opniCluster.Status.OpensearchState.Version == nil || r.opniCluster.Status.OpensearchState.Version == &r.opniCluster.Spec.Elastic.Version {
+	if r.opniCluster.Status.OpensearchState.Version == nil || *r.opniCluster.Status.OpensearchState.Version == r.opniCluster.Spec.Elastic.Version {
 		return
 	}
 

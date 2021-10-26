@@ -29,7 +29,7 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-es-data",
+			Name:      opniDataWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -37,6 +37,9 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 			Replicas: r.opniCluster.Spec.Elastic.Workloads.Data.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
+			},
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+				Type: appsv1.OnDeleteStatefulSetStrategyType,
 			},
 			Template: r.elasticPodTemplate(labels),
 		},
@@ -94,6 +97,7 @@ func (r *Reconciler) elasticPodTemplate(
 						elasticContainerEnv,
 						downwardsAPIEnv,
 						elasticNodeTypeEnv(labels.Role()),
+						r.zenMastersEnv(),
 						r.javaOptsEnv(labels.Role()),
 					),
 				},
@@ -137,7 +141,7 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-es-master",
+			Name:      opniMasterWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -145,6 +149,19 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 			Replicas: r.opniCluster.Spec.Elastic.Workloads.Master.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
+			},
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
+					Partition: func() *int32 {
+						if r.opniCluster.Status.OpensearchState.Version == nil {
+							return pointer.Int32(0)
+						}
+						if *r.opniCluster.Status.OpensearchState.Version == r.opniCluster.Spec.Elastic.Version {
+							return pointer.Int32(0)
+						}
+						return r.opniCluster.Spec.Elastic.Workloads.Master.Replicas
+					}(),
+				},
 			},
 			Template: r.elasticPodTemplate(labels),
 		},
@@ -214,7 +231,7 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 		workload.Spec.Template.Spec.Volumes =
 			append(workload.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: "opni-es-data",
+					Name: opniDataWorkload,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "opni-es-data",
@@ -241,7 +258,7 @@ func (r *Reconciler) elasticClientWorkload() resources.Resource {
 
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-es-client",
+			Name:      opniClientWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -272,7 +289,7 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 	imageSpec := r.kibanaImageSpec()
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-es-kibana",
+			Name:      opniKibanaWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -289,7 +306,7 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 					Affinity: r.opniCluster.Spec.Elastic.Workloads.Kibana.Affinity,
 					Containers: []corev1.Container{
 						{
-							Name:            "opni-es-kibana",
+							Name:            opniKibanaWorkload,
 							Image:           imageSpec.GetImage(),
 							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 							Env:             kibanaEnv,

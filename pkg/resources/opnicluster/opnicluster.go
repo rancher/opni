@@ -3,6 +3,7 @@ package opnicluster
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
@@ -65,6 +66,10 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
 				r.opniCluster.Status.State = v1beta1.OpniClusterStateReady
+				// Set the opensearch version once it's been created
+				if r.opniCluster.Status.OpensearchState.Version == nil {
+					r.opniCluster.Status.OpensearchState.Version = &r.opniCluster.Spec.Elastic.Version
+				}
 			}
 			return r.client.Status().Update(r.ctx, r.opniCluster)
 		})
@@ -163,6 +168,46 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return
+}
+
+func (r *Reconciler) ReconcileElasticUpgrade() (retResult *reconcile.Result, retErr error) {
+	lg := log.FromContext(r.ctx)
+	if r.opniCluster.Status.OpensearchState.Version == nil || r.opniCluster.Status.OpensearchState.Version == &r.opniCluster.Spec.Elastic.Version {
+		return
+	}
+
+	// If no persistence and only one data replica we can't safely upgrade so log an error and return
+	if (r.opniCluster.Spec.Elastic.Workloads.Data.Replicas == nil ||
+		*r.opniCluster.Spec.Elastic.Workloads.Data.Replicas == int32(1)) &&
+		(r.opniCluster.Spec.Elastic.Persistence == nil ||
+			!r.opniCluster.Spec.Elastic.Persistence.Enabled) {
+		lg.Error(errors.New("insufficient data persistence"), "can't upgrade opensearch")
+		return
+	}
+
+	es := elastic.NewReconciler(r.ctx, r.client, r.opniCluster)
+
+	// Update data nodes first
+	requeue, err := es.UpgradeData()
+	if err != nil {
+		return retResult, err
+	}
+	if requeue {
+		retResult = &reconcile.Result{
+			RequeueAfter: 5 * time.Second,
+		}
+		return
+	}
+
+	retErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			return err
+		}
+		r.opniCluster.Status.OpensearchState.Version = &r.opniCluster.Spec.Version
+		return r.client.Status().Update(r.ctx, r.opniCluster)
+	})
 
 	return
 }

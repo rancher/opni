@@ -168,7 +168,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 					}
 					return errors.New(conditions)
 				}
-				if opnicluster.Status.IndexState != "Ready" {
+				if opnicluster.Status.OpensearchState.IndexState != "Ready" {
 					conditions := strings.Join(opnicluster.Status.Conditions, "; ")
 					i++
 					if i%4 == 0 {

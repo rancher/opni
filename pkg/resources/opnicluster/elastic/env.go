@@ -2,6 +2,7 @@ package elastic
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/rancher/opni/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -110,6 +111,19 @@ func (r *Reconciler) javaOptsEnv(role v1beta1.ElasticRole) []corev1.EnvVar {
 				}
 				return &corev1.ResourceRequirements{}
 			}()),
+		},
+	}
+}
+
+func (r *Reconciler) zenMastersEnv() []corev1.EnvVar {
+	if r.opniCluster.Spec.Elastic.Workloads.Master.Replicas == nil {
+		return []corev1.EnvVar{}
+	}
+	quorum := math.Round(float64(*r.opniCluster.Spec.Elastic.Workloads.Master.Replicas) / 2)
+	return []corev1.EnvVar{
+		{
+			Name:  "discovery.zen.minimum_master_nodes",
+			Value: fmt.Sprintf("%.0f", quorum),
 		},
 	}
 }

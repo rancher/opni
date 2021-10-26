@@ -8,6 +8,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	opniMasterWorkload = "opni-es-master"
+	opniDataWorkload   = "opni-es-data"
+	opniClientWorkload = "opni-es-client"
+	opniKibanaWorkload = "opni-es-kibana"
+)
+
 type Reconciler struct {
 	opniCluster *v1beta1.OpniCluster
 	client      client.Client

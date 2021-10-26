@@ -81,16 +81,16 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
-					r.cluster.Status.IndexState = v1beta1.OpniClusterStateError
+					r.cluster.Status.OpensearchState.IndexState = v1beta1.OpniClusterStateError
 				} else {
 					// If no error occurred, but we need to requeue, the state should be
 					// set to working
-					r.cluster.Status.IndexState = v1beta1.OpniClusterStateWorking
+					r.cluster.Status.OpensearchState.IndexState = v1beta1.OpniClusterStateWorking
 				}
 			} else if len(r.cluster.Status.Conditions) == 0 {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
-				r.cluster.Status.IndexState = v1beta1.OpniClusterStateReady
+				r.cluster.Status.OpensearchState.IndexState = v1beta1.OpniClusterStateReady
 			}
 			return r.client.Status().Update(r.ctx, r.cluster)
 		})

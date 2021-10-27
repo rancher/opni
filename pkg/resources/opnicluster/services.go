@@ -582,6 +582,15 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 	}
 	deployment.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
 	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, r.gpuWorkerContainer())
+
+	// TODO: workaround for clone3 seccomp issues - remove when fixed
+	for i, container := range deployment.Spec.Template.Spec.Containers {
+		container.SecurityContext = &corev1.SecurityContext{
+			Privileged: pointer.Bool(true),
+		}
+		deployment.Spec.Template.Spec.Containers[i] = container
+	}
+
 	deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, dataVolume)
 	for i, container := range deployment.Spec.Template.Spec.Containers {
 		container.VolumeMounts = append(container.VolumeMounts, dataVolumeMount)

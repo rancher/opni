@@ -19,7 +19,7 @@ import (
 )
 
 type ClusterHealthResponse struct {
-	Status             string  `json:"status,omitempyt"`
+	Status             string  `json:"status,omitempty"`
 	ActiveShards       int     `json:"active_shards,omitempty"`
 	RelocatingShards   int     `json:"relocating_shards,omitempty"`
 	InitializingShards int     `json:"initializing_shards,omitempty"`
@@ -31,7 +31,7 @@ type ClusterSettings struct {
 	Persistent Persistent `json:"persistent,omitempty"`
 }
 type Persistent struct {
-	ClusterRoutingAllocationEnable string `yaml:"cluster.routing.allocation.enable,omitempty"`
+	ClusterRoutingAllocationEnable string `json:"cluster.routing.allocation.enable,omitempty"`
 }
 
 var esClient *opensearch.Client
@@ -39,7 +39,7 @@ var esClient *opensearch.Client
 func (r *Reconciler) UpgradeData() (retry bool, err error) {
 	statefulset := appsv1.StatefulSet{}
 	err = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      opniDataWorkload,
+		Name:      OpniDataWorkload,
 		Namespace: r.opniCluster.Namespace,
 	}, &statefulset)
 	if err != nil {
@@ -99,6 +99,11 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 		return
 	}
 
+	// The above logic doesn't work due to https://github.com/kubernetes/kubernetes/issues/73492 so work around it in the meantime
+	if statefulset.Status.UpdatedReplicas == statefulset.Status.Replicas {
+		return
+	}
+
 	putReq := opensearchapi.ClusterPutSettingsRequest{
 		Body: opensearchutil.NewJSONReader(ClusterSettings{
 			Persistent: Persistent{
@@ -125,7 +130,7 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 
 	r.client.Delete(r.ctx, &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%d", opniDataWorkload, deleteOrdinal),
+			Name:      fmt.Sprintf("%s-%d", OpniDataWorkload, deleteOrdinal),
 			Namespace: r.opniCluster.Namespace,
 		},
 	})
@@ -181,6 +186,6 @@ func (r *Reconciler) areShardsGreen() bool {
 	health := ClusterHealthResponse{}
 	json.NewDecoder(resp.Body).Decode(&health)
 
-	lg.V(1).Info("%.2f percent of shards ready")
+	lg.V(1).Info(fmt.Sprintf("%.2f percent of shards ready", health.PercentActive))
 	return health.Status == "green"
 }

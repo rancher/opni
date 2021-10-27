@@ -11,6 +11,15 @@ type ISMPolicySpec struct {
 	States            []StateSpec       `json:"states"`
 }
 
+type OldISMPolicySpec struct {
+	*ISMPolicyIDSpec  `json:",inline,omitempty"`
+	Description       string            `json:"description"`
+	ISMTemplate       *ISMTemplateSpec  `json:"ism_template,omitempty"`
+	ErrorNotification *NotificationSpec `json:"error_notification"`
+	DefaultState      string            `json:"default_state"`
+	States            []StateSpec       `json:"states"`
+}
+
 type ISMPolicyIDSpec struct {
 	PolicyID   string `json:"policy_id,omitempty"`
 	MarshallID bool   `json:"-"`
@@ -154,8 +163,25 @@ type ISMGetResponse struct {
 	Policy      ISMPolicySpec `json:"policy,omitempty"`
 }
 
+type OldISMGetResponse struct {
+	ID          string           `json:"_id"`
+	Version     int              `json:"_version"`
+	SeqNo       int              `json:"_seq_no"`
+	PrimaryTerm int              `json:"_primary_term"`
+	Policy      OldISMPolicySpec `json:"policy,omitempty"`
+}
+
 func (p ISMPolicySpec) MarshalJSON() ([]byte, error) {
 	type policy ISMPolicySpec
+	tmp := policy(p)
+	if !tmp.MarshallID {
+		tmp.ISMPolicyIDSpec = nil
+	}
+	return json.Marshal(tmp)
+}
+
+func (p OldISMPolicySpec) MarshalJSON() ([]byte, error) {
+	type policy OldISMPolicySpec
 	tmp := policy(p)
 	if !tmp.MarshallID {
 		tmp.ISMPolicyIDSpec = nil

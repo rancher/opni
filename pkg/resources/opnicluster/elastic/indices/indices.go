@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"emperror.dev/errors"
+	"github.com/hashicorp/go-version"
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/rancher/opni/apis/v1beta1"
 	esapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
@@ -24,6 +25,8 @@ const (
 	securityTenantHeaderType = "securitytenant"
 
 	jsonContentHeader = "application/json"
+
+	ISMChangeVersion = "1.1.0"
 )
 
 type ExtendedClient struct {
@@ -100,9 +103,18 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}()
 
+	oldVersion := false
+	changeVersion, _ := version.NewVersion(ISMChangeVersion)
+	desiredVersion, err := version.NewVersion(r.cluster.Spec.Elastic.Version)
+	if err != nil {
+		lg.V(1).Error(err, "failed to parse opensearch version")
+	} else {
+		oldVersion = desiredVersion.LessThan(changeVersion)
+	}
+
 	kibanaDeployment := &appsv1.Deployment{}
 	lg.V(1).Info("reconciling elastic indices")
-	err := r.client.Get(r.ctx, types.NamespacedName{
+	err = r.client.Get(r.ctx, types.NamespacedName{
 		Name:      "opni-es-kibana",
 		Namespace: r.cluster.Namespace,
 	}, kibanaDeployment)
@@ -119,11 +131,16 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		return
 	}
 
-	for _, policy := range []esapiext.ISMPolicySpec{
-		opniLogPolicy,
-		opniDrainModelStatusPolicy,
-	} {
-		err = r.esReconciler.reconcileISM(&policy)
+	var policies []interface{}
+	if oldVersion {
+		policies = append(policies, oldOpniLogPolicy)
+		policies = append(policies, oldOpniDrainModelStatusPolicy)
+	} else {
+		policies = append(policies, opniLogPolicy)
+		policies = append(policies, opniDrainModelStatusPolicy)
+	}
+	for _, policy := range policies {
+		err = r.esReconciler.reconcileISM(policy, oldVersion)
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)

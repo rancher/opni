@@ -27,11 +27,11 @@ var _ = Describe("Indices", Label("unit"), func() {
 	})
 	Context("reconciling ISM policies", func() {
 		var (
-			policy         *opensearchapiext.ISMPolicySpec
+			policy         opensearchapiext.ISMPolicySpec
 			policyResponse *opensearchapiext.ISMGetResponse
 		)
 		BeforeEach(func() {
-			policy = &opensearchapiext.ISMPolicySpec{
+			policy = opensearchapiext.ISMPolicySpec{
 				ISMPolicyIDSpec: &opensearchapiext.ISMPolicyIDSpec{
 					PolicyID:   "testpolicy",
 					MarshallID: false,
@@ -109,7 +109,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.reconcileISM(policy)
+					err := reconciler.reconcileISM(policy, false)
 					if err != nil {
 						log.Println(err)
 					}
@@ -127,7 +127,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.reconcileISM(policy)
+					err := reconciler.reconcileISM(policy, false)
 					if err != nil {
 						log.Println(err)
 					}
@@ -190,7 +190,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponseNew).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.reconcileISM(policy)
+					err := reconciler.reconcileISM(policy, false)
 					if err != nil {
 						log.Println(err)
 					}

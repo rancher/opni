@@ -84,9 +84,9 @@ type AuthStatus struct {
 }
 
 type OpensearchStatus struct {
-	IndexState   OpniClusterState `json:"indexState,omitempty"`
-	Version      *string          `json:"version,omitempty"`
-	DataUpgraded *bool            `json:"dataUpgraded,omitempty"`
+	IndexState  OpniClusterState `json:"indexState,omitempty"`
+	Version     *string          `json:"version,omitempty"`
+	Initialized bool             `json:"initialized,omitempty"`
 }
 
 //+kubebuilder:webhook:path=/highlander-opni-io-v1beta1-opnicluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=opniclusters,verbs=create;update,versions=v1beta1,name=highlander.opni.io,admissionReviewVersions={v1,v1beta1}

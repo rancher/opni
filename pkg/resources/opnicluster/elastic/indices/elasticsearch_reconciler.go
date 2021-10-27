@@ -150,8 +150,9 @@ func (r *elasticsearchReconciler) shouldBootstrapIndex(prefix string) (bool, err
 	return len(indices) == 0, nil
 }
 
-func (r *elasticsearchReconciler) checkISMPolicy(policy *opensearchapiext.ISMPolicySpec) (bool, bool, int, int, error) {
-	resp, err := r.esClient.ISM.GetISM(r.ctx, policy.PolicyID)
+func (r *elasticsearchReconciler) checkISMPolicy(policy interface{}, oldVersion bool) (bool, bool, int, int, error) {
+	policyID := reflect.ValueOf(policy).FieldByName("PolicyID").String()
+	resp, err := r.esClient.ISM.GetISM(r.ctx, policyID)
 	if err != nil {
 		return false, false, 0, 0, err
 	}
@@ -161,30 +162,45 @@ func (r *elasticsearchReconciler) checkISMPolicy(policy *opensearchapiext.ISMPol
 	} else if resp.IsError() {
 		return false, false, 0, 0, fmt.Errorf("response from API is %s", resp.Status())
 	}
+	if oldVersion {
+		ismResponse := &opensearchapiext.OldISMGetResponse{}
+		err = json.NewDecoder(resp.Body).Decode(ismResponse)
+		if err != nil {
+			return false, false, 0, 0, err
+		}
+		concretePolicy := reflect.ValueOf(policy).Interface().(opensearchapiext.OldISMPolicySpec)
+		if reflect.DeepEqual(ismResponse.Policy, concretePolicy) {
+			return false, false, 0, 0, nil
+		}
+		return false, true, ismResponse.SeqNo, ismResponse.PrimaryTerm, nil
+	}
+
 	ismResponse := &opensearchapiext.ISMGetResponse{}
 	err = json.NewDecoder(resp.Body).Decode(ismResponse)
 	if err != nil {
 		return false, false, 0, 0, err
 	}
-	if reflect.DeepEqual(ismResponse.Policy, *policy) {
+	concretePolicy := reflect.ValueOf(policy).Interface().(opensearchapiext.ISMPolicySpec)
+	if reflect.DeepEqual(ismResponse.Policy, concretePolicy) {
 		return false, false, 0, 0, nil
 	}
 	return false, true, ismResponse.SeqNo, ismResponse.PrimaryTerm, nil
 }
 
-func (r *elasticsearchReconciler) reconcileISM(policy *opensearchapiext.ISMPolicySpec) error {
+func (r *elasticsearchReconciler) reconcileISM(policy interface{}, oldVersion bool) error {
 	lg := log.FromContext(r.ctx)
+	policyID := reflect.ValueOf(policy).FieldByName("PolicyID").String()
 	policyBody := map[string]interface{}{
 		"policy": policy,
 	}
-	createIsm, updateIsm, seqNo, primaryTerm, err := r.checkISMPolicy(policy)
+	createIsm, updateIsm, seqNo, primaryTerm, err := r.checkISMPolicy(policy, oldVersion)
 	if err != nil {
 		return err
 	}
 
 	if createIsm {
-		lg.Info("creating ism", "policy", policy.PolicyID)
-		resp, err := r.esClient.ISM.CreateISM(r.ctx, policy.PolicyID, opensearchutil.NewJSONReader(policyBody))
+		lg.Info("creating ism", "policy", policyID)
+		resp, err := r.esClient.ISM.CreateISM(r.ctx, policyID, opensearchutil.NewJSONReader(policyBody))
 		if err != nil {
 			return err
 		}
@@ -196,8 +212,8 @@ func (r *elasticsearchReconciler) reconcileISM(policy *opensearchapiext.ISMPolic
 	}
 
 	if updateIsm {
-		lg.Info("updating existing ism", "policy", policy.PolicyID)
-		resp, err := r.esClient.ISM.UpdateISM(r.ctx, policy.PolicyID, opensearchutil.NewJSONReader(policyBody), seqNo, primaryTerm)
+		lg.Info("updating existing ism", "policy", policyID)
+		resp, err := r.esClient.ISM.UpdateISM(r.ctx, policyID, opensearchutil.NewJSONReader(policyBody), seqNo, primaryTerm)
 		if err != nil {
 			return err
 		}
@@ -207,7 +223,7 @@ func (r *elasticsearchReconciler) reconcileISM(policy *opensearchapiext.ISMPolic
 		}
 		return nil
 	}
-	lg.V(1).Info("ism in sync", "policy", policy.PolicyID)
+	lg.V(1).Info("ism in sync", "policy", policyID)
 	return nil
 }
 

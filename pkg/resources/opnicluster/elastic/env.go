@@ -58,7 +58,7 @@ var (
 	}
 )
 
-func elasticNodeTypeEnv(role v1beta1.ElasticRole) []corev1.EnvVar {
+func (r *Reconciler) elasticNodeTypeEnv(role v1beta1.ElasticRole) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{
 		{
 			Name:  "node.master",
@@ -77,7 +77,7 @@ func elasticNodeTypeEnv(role v1beta1.ElasticRole) []corev1.EnvVar {
 			Value: "opni-es-discovery",
 		},
 	}
-	if role == v1beta1.ElasticMasterRole {
+	if role == v1beta1.ElasticMasterRole && (r.masterSingleton() || !r.opniCluster.Status.OpensearchState.Initialized) {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "cluster.initial_master_nodes",
 			Value: "opni-es-master-0",
@@ -126,6 +126,24 @@ func (r *Reconciler) zenMastersEnv() []corev1.EnvVar {
 			Value: fmt.Sprintf("%.0f", quorum),
 		},
 	}
+}
+
+func (r *Reconciler) esPasswordEnv() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name: "ES_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef,
+			},
+		},
+	}
+}
+
+func (r *Reconciler) masterSingleton() bool {
+	return (r.opniCluster.Spec.Elastic.Workloads.Master.Replicas == nil ||
+		*r.opniCluster.Spec.Elastic.Workloads.Master.Replicas == int32(1)) &&
+		(r.opniCluster.Spec.Elastic.Persistence == nil ||
+			!r.opniCluster.Spec.Elastic.Persistence.Enabled)
 }
 
 func javaOpts(req *corev1.ResourceRequirements) string {

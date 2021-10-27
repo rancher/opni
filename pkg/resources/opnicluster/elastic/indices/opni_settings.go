@@ -123,6 +123,104 @@ var (
 			},
 		},
 	}
+
+	oldOpniLogPolicy = esapiext.OldISMPolicySpec{
+		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+			PolicyID:   logPolicyName,
+			MarshallID: false,
+		},
+		Description:  "Opni policy with hot-warm-cold workflow",
+		DefaultState: "hot",
+		States: []esapiext.StateSpec{
+			{
+				Name: "hot",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							Rollover: &esapiext.RolloverOperation{
+								MinIndexAge: "1d",
+								MinSize:     "20gb",
+							},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "warm",
+					},
+				},
+			},
+			{
+				Name: "warm",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ReplicaCount: &esapiext.ReplicaCountOperation{
+								NumberOfReplicas: 0,
+							},
+						},
+					},
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							IndexPriority: &esapiext.IndexPriorityOperation{
+								Priority: 50,
+							},
+						},
+					},
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ForceMerge: &esapiext.ForceMergeOperation{
+								MaxNumSegments: 1,
+							},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "cold",
+						Conditions: &esapiext.ConditionSpec{
+							MinIndexAge: "2d",
+						},
+					},
+				},
+			},
+			{
+				Name: "cold",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ReadOnly: &esapiext.ReadOnlyOperation{},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "delete",
+						Conditions: &esapiext.ConditionSpec{
+							MinIndexAge: "7d",
+						},
+					},
+				},
+			},
+			{
+				Name: "delete",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							Delete: &esapiext.DeleteOperation{},
+						},
+					},
+				},
+				Transitions: make([]esapiext.TransitionSpec, 0),
+			},
+		},
+		ISMTemplate: &esapiext.ISMTemplateSpec{
+			IndexPatterns: []string{
+				fmt.Sprintf("%s*", logIndexPrefix),
+			},
+			Priority: 100,
+		},
+	}
 	opniDrainModelStatusPolicy = esapiext.ISMPolicySpec{
 		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
 			PolicyID:   drainStatusPolicyName,
@@ -220,6 +318,103 @@ var (
 				},
 				Priority: 100,
 			},
+		},
+	}
+	oldOpniDrainModelStatusPolicy = esapiext.OldISMPolicySpec{
+		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+			PolicyID:   drainStatusPolicyName,
+			MarshallID: false,
+		},
+		Description:  "A hot-warm-cold-delete workflow for the opni-drain-model-status index.",
+		DefaultState: "hot",
+		States: []esapiext.StateSpec{
+			{
+				Name: "hot",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							Rollover: &esapiext.RolloverOperation{
+								MinSize:     "1gb",
+								MinIndexAge: "1d",
+							},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "warm",
+					},
+				},
+			},
+			{
+				Name: "warm",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ReplicaCount: &esapiext.ReplicaCountOperation{
+								NumberOfReplicas: 0,
+							},
+						},
+					},
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							IndexPriority: &esapiext.IndexPriorityOperation{
+								Priority: 50,
+							},
+						},
+					},
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ForceMerge: &esapiext.ForceMergeOperation{
+								MaxNumSegments: 1,
+							},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "cold",
+						Conditions: &esapiext.ConditionSpec{
+							MinIndexAge: "5d",
+						},
+					},
+				},
+			},
+			{
+				Name: "cold",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ReadOnly: &esapiext.ReadOnlyOperation{},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "delete",
+						Conditions: &esapiext.ConditionSpec{
+							MinIndexAge: "30d",
+						},
+					},
+				},
+			},
+			{
+				Name: "delete",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							Delete: &esapiext.DeleteOperation{},
+						},
+					},
+				},
+				Transitions: make([]esapiext.TransitionSpec, 0),
+			},
+		},
+		ISMTemplate: &esapiext.ISMTemplateSpec{
+			IndexPatterns: []string{
+				fmt.Sprintf("%s*", drainStatusIndexPrefix),
+			},
+			Priority: 100,
 		},
 	}
 

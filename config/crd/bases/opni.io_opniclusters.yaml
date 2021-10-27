@@ -2194,10 +2194,10 @@ spec:
                 type: integer
               opensearchState:
                 properties:
-                  dataUpgraded:
-                    type: boolean
                   indexState:
                     type: string
+                  initialized:
+                    type: boolean
                   version:
                     type: string
                 type: object

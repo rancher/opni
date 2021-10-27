@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	opniMasterWorkload = "opni-es-master"
-	opniDataWorkload   = "opni-es-data"
-	opniClientWorkload = "opni-es-client"
-	opniKibanaWorkload = "opni-es-kibana"
+	OpniMasterWorkload = "opni-es-master"
+	OpniDataWorkload   = "opni-es-data"
+	OpniClientWorkload = "opni-es-client"
+	OpniKibanaWorkload = "opni-es-kibana"
 )
 
 type Reconciler struct {

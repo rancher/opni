@@ -29,7 +29,7 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      opniDataWorkload,
+			Name:      OpniDataWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -88,6 +88,7 @@ func (r *Reconciler) elasticPodTemplate(
 							},
 						},
 					},
+					ReadinessProbe: r.readinessProbe(labels.Role()),
 					SecurityContext: &corev1.SecurityContext{
 						Capabilities: &corev1.Capabilities{
 							Add: []corev1.Capability{"SYS_CHROOT"},
@@ -96,8 +97,9 @@ func (r *Reconciler) elasticPodTemplate(
 					Env: combineEnvVars(
 						elasticContainerEnv,
 						downwardsAPIEnv,
-						elasticNodeTypeEnv(labels.Role()),
+						r.elasticNodeTypeEnv(labels.Role()),
 						r.zenMastersEnv(),
+						r.esPasswordEnv(),
 						r.javaOptsEnv(labels.Role()),
 					),
 				},
@@ -110,6 +112,42 @@ func (r *Reconciler) elasticPodTemplate(
 			},
 			ImagePullSecrets: imageSpec.ImagePullSecrets,
 		},
+	}
+}
+
+func (r *Reconciler) readinessProbe(role v1beta1.ElasticRole) *corev1.Probe {
+	switch role {
+	case v1beta1.ElasticMasterRole:
+		if !r.masterSingleton() && r.opniCluster.Status.OpensearchState.Initialized {
+			return &corev1.Probe{
+				InitialDelaySeconds: 60,
+				PeriodSeconds:       30,
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{
+						Command: []string{
+							"/bin/bash",
+							"-c",
+							"curl -k -u admin:${ES_PASSWORD} --silent --fail https://localhost:9200",
+						},
+					},
+				},
+			}
+		}
+		return nil
+	default:
+		return &corev1.Probe{
+			InitialDelaySeconds: 60,
+			PeriodSeconds:       30,
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"/bin/bash",
+						"-c",
+						"curl -k -u admin:${ES_PASSWORD} --silent --fail https://localhost:9200",
+					},
+				},
+			},
+		}
 	}
 }
 
@@ -141,7 +179,7 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      opniMasterWorkload,
+			Name:      OpniMasterWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -231,7 +269,7 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 		workload.Spec.Template.Spec.Volumes =
 			append(workload.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: opniDataWorkload,
+					Name: OpniDataWorkload,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "opni-es-data",
@@ -258,7 +296,7 @@ func (r *Reconciler) elasticClientWorkload() resources.Resource {
 
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      opniClientWorkload,
+			Name:      OpniClientWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -289,7 +327,7 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 	imageSpec := r.kibanaImageSpec()
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      opniKibanaWorkload,
+			Name:      OpniKibanaWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -306,7 +344,7 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 					Affinity: r.opniCluster.Spec.Elastic.Workloads.Kibana.Affinity,
 					Containers: []corev1.Container{
 						{
-							Name:            opniKibanaWorkload,
+							Name:            OpniKibanaWorkload,
 							Image:           imageSpec.GetImage(),
 							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 							Env:             kibanaEnv,

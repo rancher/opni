@@ -343,6 +343,15 @@ spec:
                             type: object
                           type: array
                       type: object
+                    kube_events_timestamp:
+                      properties:
+                        mapped_time_key:
+                          type: string
+                        timestamp_fields:
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     parser:
                       properties:
                         emit_invalid_record_to_error:
@@ -369,6 +378,8 @@ spec:
                               type: string
                             keep_time_key:
                               type: boolean
+                            keys:
+                              type: string
                             label_delimiter:
                               type: string
                             local_time:
@@ -446,6 +457,8 @@ spec:
                                 type: string
                               keep_time_key:
                                 type: boolean
+                              keys:
+                                type: string
                               label_delimiter:
                                 type: string
                               local_time:
@@ -1076,6 +1089,15 @@ spec:
                             type: object
                           type: array
                       type: object
+                    kube_events_timestamp:
+                      properties:
+                        mapped_time_key:
+                          type: string
+                        timestamp_fields:
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     parser:
                       properties:
                         emit_invalid_record_to_error:
@@ -1102,6 +1124,8 @@ spec:
                               type: string
                             keep_time_key:
                               type: boolean
+                            keys:
+                              type: string
                             label_delimiter:
                               type: string
                             local_time:
@@ -1179,6 +1203,8 @@ spec:
                                 type: string
                               keep_time_key:
                                 type: boolean
+                              keys:
+                                type: string
                               label_delimiter:
                                 type: string
                               local_time:

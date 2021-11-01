@@ -36,8 +36,8 @@ var (
 		Tag:        "1.7.4",
 	}
 	DefaultFluentdImage = loggingv1beta1.ImageSpec{
-		Repository: "rancher/mirrored-banzaicloud-fluentd",
-		Tag:        "v1.11.5-alpine-21",
+		Repository: "quay.io/dbason/banzaicloud-fluentd",
+		Tag:        "alpine-1.13-2",
 	}
 	DefaultConfigReloaderImage = loggingv1beta1.ImageSpec{
 		Repository: "rancher/mirrored-jimmidyson-configmap-reload",

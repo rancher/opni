@@ -5,7 +5,8 @@ import (
 	"time"
 
 	"emperror.dev/errors"
-	"github.com/elastic/go-elasticsearch/v7"
+	"github.com/hashicorp/go-version"
+	"github.com/opensearch-project/opensearch-go"
 	"github.com/rancher/opni/apis/v1beta1"
 	esapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 	"github.com/rancher/opni/pkg/util"
@@ -24,10 +25,12 @@ const (
 	securityTenantHeaderType = "securitytenant"
 
 	jsonContentHeader = "application/json"
+
+	ISMChangeVersion = "1.1.0"
 )
 
 type ExtendedClient struct {
-	*elasticsearch.Client
+	*opensearch.Client
 	ISM *ISMApi
 }
 
@@ -81,16 +84,16 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
-					r.cluster.Status.IndexState = v1beta1.OpniClusterStateError
+					r.cluster.Status.OpensearchState.IndexState = v1beta1.OpniClusterStateError
 				} else {
 					// If no error occurred, but we need to requeue, the state should be
 					// set to working
-					r.cluster.Status.IndexState = v1beta1.OpniClusterStateWorking
+					r.cluster.Status.OpensearchState.IndexState = v1beta1.OpniClusterStateWorking
 				}
 			} else if len(r.cluster.Status.Conditions) == 0 {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
-				r.cluster.Status.IndexState = v1beta1.OpniClusterStateReady
+				r.cluster.Status.OpensearchState.IndexState = v1beta1.OpniClusterStateReady
 			}
 			return r.client.Status().Update(r.ctx, r.cluster)
 		})
@@ -100,9 +103,18 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}()
 
+	oldVersion := false
+	changeVersion, _ := version.NewVersion(ISMChangeVersion)
+	desiredVersion, err := version.NewVersion(r.cluster.Spec.Elastic.Version)
+	if err != nil {
+		lg.V(1).Error(err, "failed to parse opensearch version")
+	} else {
+		oldVersion = desiredVersion.LessThan(changeVersion)
+	}
+
 	kibanaDeployment := &appsv1.Deployment{}
 	lg.V(1).Info("reconciling elastic indices")
-	err := r.client.Get(r.ctx, types.NamespacedName{
+	err = r.client.Get(r.ctx, types.NamespacedName{
 		Name:      "opni-es-kibana",
 		Namespace: r.cluster.Namespace,
 	}, kibanaDeployment)
@@ -119,11 +131,16 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		return
 	}
 
-	for _, policy := range []esapiext.ISMPolicySpec{
-		opniLogPolicy,
-		opniDrainModelStatusPolicy,
-	} {
-		err = r.esReconciler.reconcileISM(&policy)
+	var policies []interface{}
+	if oldVersion {
+		policies = append(policies, oldOpniLogPolicy)
+		policies = append(policies, oldOpniDrainModelStatusPolicy)
+	} else {
+		policies = append(policies, opniLogPolicy)
+		policies = append(policies, opniDrainModelStatusPolicy)
+	}
+	for _, policy := range policies {
+		err = r.esReconciler.reconcileISM(policy)
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)

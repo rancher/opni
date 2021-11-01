@@ -12,17 +12,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elastic/go-elasticsearch/v7"
-	"github.com/elastic/go-elasticsearch/v7/esapi"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gmeasure"
+	"github.com/opensearch-project/opensearch-go"
+	"github.com/opensearch-project/opensearch-go/opensearchapi"
 	"github.com/phayes/freeport"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
-	esapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
+	opensearchapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -137,7 +137,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 						},
 					},
 					Elastic: v1beta1.ElasticSpec{
-						Version: "1.13.2",
+						Version: "1.1.0",
 					},
 					S3: v1beta1.S3Spec{
 						Internal: &v1beta1.InternalSpec{},
@@ -168,7 +168,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 					}
 					return errors.New(conditions)
 				}
-				if opnicluster.Status.IndexState != "Ready" {
+				if opnicluster.Status.OpensearchState.IndexState != "Ready" {
 					conditions := strings.Join(opnicluster.Status.Conditions, "; ")
 					i++
 					if i%4 == 0 {
@@ -245,10 +245,11 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 			Expect(ok).To(BeTrue())
 
 			By("creating the client")
-			elasticClient, err := elasticsearch.NewClient(elasticsearch.Config{
-				Addresses: []string{fmt.Sprintf("https://127.0.0.1:%d", portForwardPort)},
-				Username:  "admin",
-				Password:  string(password),
+			elasticClient, err := opensearch.NewClient(opensearch.Config{
+				Addresses:            []string{fmt.Sprintf("https://127.0.0.1:%d", portForwardPort)},
+				Username:             "admin",
+				Password:             string(password),
+				UseResponseCheckOnly: true,
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
 						InsecureSkipVerify: true,
@@ -287,7 +288,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 				"opni-drain-model-status_rollover_mapping",
 			} {
 				Expect(func() bool {
-					req := esapi.IndicesGetIndexTemplateRequest{
+					req := opensearchapi.IndicesGetIndexTemplateRequest{
 						Name: []string{
 							template,
 						},
@@ -314,7 +315,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 				"opni-dashboard-version",
 			} {
 				Expect(func() bool {
-					req := esapi.CatIndicesRequest{
+					req := opensearchapi.CatIndicesRequest{
 						Index: []string{
 							index,
 						},
@@ -335,9 +336,9 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 			}
 		})
 		Specify("kibana version document should be correct", func() {
-			respDoc := &esapiext.KibanaDocResponse{}
+			respDoc := &opensearchapiext.KibanaDocResponse{}
 			Expect(func() bool {
-				req := esapi.GetRequest{
+				req := opensearchapi.GetRequest{
 					Index:      "opni-dashboard-version",
 					DocumentID: "latest",
 				}

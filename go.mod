@@ -9,9 +9,9 @@ require (
 	github.com/banzaicloud/logging-operator v1.12.4-alpine-2
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/banzaicloud/operator-tools v0.25.4
-	github.com/elastic/go-elasticsearch/v7 v7.12.0
 	github.com/go-logr/logr v0.4.0
 	github.com/go-test/deep v1.0.7
+	github.com/hashicorp/go-version v1.2.0
 	github.com/imdario/mergo v0.3.12
 	github.com/jarcoal/httpmock v1.0.8
 	github.com/k3s-io/helm-controller v0.11.2
@@ -23,6 +23,7 @@ require (
 	github.com/nats-io/nkeys v0.3.0
 	github.com/onsi/ginkgo v1.16.5-0.20210926212817-d0c597ffc7d0
 	github.com/onsi/gomega v1.16.0
+	github.com/opensearch-project/opensearch-go v1.0.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.50.0
 	github.com/spf13/cobra v1.2.1

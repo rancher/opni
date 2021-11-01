@@ -7,19 +7,19 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/elastic/go-elasticsearch/v7"
-	"github.com/elastic/go-elasticsearch/v7/esapi"
+	"github.com/opensearch-project/opensearch-go"
+	"github.com/opensearch-project/opensearch-go/opensearchapi"
 )
 
 type ISMApi struct {
-	*elasticsearch.Client
+	*opensearch.Client
 }
 
 func generatePath(name string) strings.Builder {
 	var path strings.Builder
-	path.Grow(1 + len("_opendistro") + 1 + len("_ism") + 1 + len("policies") + 1 + len(name))
+	path.Grow(1 + len("_plugins") + 1 + len("_ism") + 1 + len("policies") + 1 + len(name))
 	path.WriteString("/")
-	path.WriteString("_opendistro")
+	path.WriteString("_plugins")
 	path.WriteString("/")
 	path.WriteString("_ism")
 	path.WriteString("/")
@@ -29,7 +29,7 @@ func generatePath(name string) strings.Builder {
 	return path
 }
 
-func (c *ISMApi) GetISM(ctx context.Context, name string) (*esapi.Response, error) {
+func (c *ISMApi) GetISM(ctx context.Context, name string) (*opensearchapi.Response, error) {
 	method := "GET"
 	path := generatePath(name)
 
@@ -47,10 +47,10 @@ func (c *ISMApi) GetISM(ctx context.Context, name string) (*esapi.Response, erro
 		return nil, err
 	}
 
-	return &esapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
 }
 
-func (c *ISMApi) CreateISM(ctx context.Context, name string, body io.Reader) (*esapi.Response, error) {
+func (c *ISMApi) CreateISM(ctx context.Context, name string, body io.Reader) (*opensearchapi.Response, error) {
 	method := "PUT"
 	path := generatePath(name)
 
@@ -68,10 +68,10 @@ func (c *ISMApi) CreateISM(ctx context.Context, name string, body io.Reader) (*e
 		return nil, err
 	}
 
-	return &esapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
 }
 
-func (c *ISMApi) UpdateISM(ctx context.Context, name string, body io.Reader, seqNo int, primaryTerm int) (*esapi.Response, error) {
+func (c *ISMApi) UpdateISM(ctx context.Context, name string, body io.Reader, seqNo int, primaryTerm int) (*opensearchapi.Response, error) {
 	method := "PUT"
 
 	path := generatePath(name)
@@ -96,5 +96,5 @@ func (c *ISMApi) UpdateISM(ctx context.Context, name string, body io.Reader, seq
 		return nil, err
 	}
 
-	return &esapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
+	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
 }

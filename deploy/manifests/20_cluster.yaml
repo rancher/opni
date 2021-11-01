@@ -40,7 +40,7 @@ spec:
     ui:
       enabled: false
   elastic:
-    version: 1.13.2
+    version: 1.1.0
   s3:
     internal: {}
   nats:

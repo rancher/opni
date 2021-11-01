@@ -3,15 +3,24 @@ package elastic
 import (
 	"context"
 
+	"github.com/opensearch-project/opensearch-go"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	OpniMasterWorkload = "opni-es-master"
+	OpniDataWorkload   = "opni-es-data"
+	OpniClientWorkload = "opni-es-client"
+	OpniKibanaWorkload = "opni-es-kibana"
 )
 
 type Reconciler struct {
 	opniCluster *v1beta1.OpniCluster
 	client      client.Client
 	ctx         context.Context
+	esClient    *opensearch.Client
 }
 
 func NewReconciler(ctx context.Context, client client.Client, opniCluster *v1beta1.OpniCluster) *Reconciler {

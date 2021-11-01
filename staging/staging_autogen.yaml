@@ -34947,13 +34947,20 @@ spec:
                 items:
                   type: string
                 type: array
-              indexState:
-                type: string
               logState:
                 type: string
               natsReplicas:
                 format: int32
                 type: integer
+              opensearchState:
+                properties:
+                  indexState:
+                    type: string
+                  initialized:
+                    type: boolean
+                  version:
+                    type: string
+                type: object
               state:
                 type: string
             type: object

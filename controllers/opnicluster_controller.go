@@ -63,6 +63,7 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	reconcilers := []resources.ComponentReconciler{
 		opniReconciler.Reconcile,
+		opniReconciler.ReconcileElasticUpgrade,
 		indices.NewReconciler(ctx, opniCluster, r).Reconcile,
 		opniReconciler.ReconcileLogCollector,
 	}

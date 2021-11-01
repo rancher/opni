@@ -3,6 +3,7 @@ package opnicluster
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
@@ -10,11 +11,17 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic"
 	"github.com/rancher/opni/pkg/util"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+)
+
+var (
+	ErrOpensearchUpgradeFailed = errors.New("opensearch upgrade failed")
 )
 
 type Reconciler struct {
@@ -65,6 +72,10 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
 				r.opniCluster.Status.State = v1beta1.OpniClusterStateReady
+				// Set the opensearch version once it's been created
+				if r.opniCluster.Status.OpensearchState.Version == nil {
+					r.opniCluster.Status.OpensearchState.Version = &r.opniCluster.Spec.Elastic.Version
+				}
 			}
 			return r.client.Status().Update(r.ctx, r.opniCluster)
 		})
@@ -149,6 +160,30 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			retResult = result
 		}
 	}
+
+	// Check the status of the opensearch data statefulset and update status if it's ready
+	osData := &appsv1.StatefulSet{}
+	err = r.client.Get(r.ctx, types.NamespacedName{
+		Name:      elastic.OpniDataWorkload,
+		Namespace: r.opniCluster.Namespace,
+	}, osData)
+	if err != nil {
+		return nil, err
+	}
+
+	if osData.Spec.Replicas != nil && osData.Status.ReadyReplicas == *osData.Spec.Replicas {
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
+			}
+			r.opniCluster.Status.OpensearchState.Initialized = true
+			return r.client.Status().Update(r.ctx, r.opniCluster)
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Update the Nats Replica Status once we have successfully reconciled the opniCluster
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
@@ -163,6 +198,54 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return
+}
+
+func (r *Reconciler) ReconcileElasticUpgrade() (retResult *reconcile.Result, retErr error) {
+	lg := log.FromContext(r.ctx)
+	if r.opniCluster.Status.OpensearchState.Version == nil || *r.opniCluster.Status.OpensearchState.Version == r.opniCluster.Spec.Elastic.Version {
+		return
+	}
+
+	// If no persistence and only one data replica we can't safely upgrade so log an error and return
+	if (r.opniCluster.Spec.Elastic.Workloads.Data.Replicas == nil ||
+		*r.opniCluster.Spec.Elastic.Workloads.Data.Replicas == int32(1)) &&
+		(r.opniCluster.Spec.Elastic.Persistence == nil ||
+			!r.opniCluster.Spec.Elastic.Persistence.Enabled) {
+		lg.Error(ErrOpensearchUpgradeFailed, "insufficient data node persistence")
+		return
+	}
+
+	if (r.opniCluster.Spec.Elastic.Workloads.Master.Replicas == nil ||
+		*r.opniCluster.Spec.Elastic.Workloads.Master.Replicas == int32(1)) &&
+		(r.opniCluster.Spec.Elastic.Persistence == nil ||
+			!r.opniCluster.Spec.Elastic.Persistence.Enabled) {
+		lg.Error(ErrOpensearchUpgradeFailed, "insufficient master node persistence")
+		return
+	}
+
+	es := elastic.NewReconciler(r.ctx, r.client, r.opniCluster)
+
+	// Update data nodes first
+	requeue, err := es.UpgradeData()
+	if err != nil {
+		return retResult, err
+	}
+	if requeue {
+		retResult = &reconcile.Result{
+			RequeueAfter: 5 * time.Second,
+		}
+		return
+	}
+
+	retErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			return err
+		}
+		r.opniCluster.Status.OpensearchState.Version = &r.opniCluster.Spec.Elastic.Version
+		return r.client.Status().Update(r.ctx, r.opniCluster)
+	})
 
 	return
 }

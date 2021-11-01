@@ -4,11 +4,11 @@ import (
 	"context"
 	"log"
 
-	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"github.com/jarcoal/httpmock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	esapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
+	"github.com/opensearch-project/opensearch-go/opensearchapi"
+	opensearchapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 )
 
 var _ = Describe("Indices", Label("unit"), func() {
@@ -27,67 +27,71 @@ var _ = Describe("Indices", Label("unit"), func() {
 	})
 	Context("reconciling ISM policies", func() {
 		var (
-			policy         *esapiext.ISMPolicySpec
-			policyResponse *esapiext.ISMGetResponse
+			policy         opensearchapiext.ISMPolicySpec
+			policyResponse *opensearchapiext.ISMGetResponse
 		)
 		BeforeEach(func() {
-			policy = &esapiext.ISMPolicySpec{
-				ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+			policy = opensearchapiext.ISMPolicySpec{
+				ISMPolicyIDSpec: &opensearchapiext.ISMPolicyIDSpec{
 					PolicyID:   "testpolicy",
 					MarshallID: false,
 				},
 				Description:  "testing policy",
 				DefaultState: "test",
-				States: []esapiext.StateSpec{
+				States: []opensearchapiext.StateSpec{
 					{
 						Name: "test",
-						Actions: []esapiext.ActionSpec{
+						Actions: []opensearchapiext.ActionSpec{
 							{
-								ActionOperation: &esapiext.ActionOperation{
-									ReadOnly: &esapiext.ReadOnlyOperation{},
+								ActionOperation: &opensearchapiext.ActionOperation{
+									ReadOnly: &opensearchapiext.ReadOnlyOperation{},
 								},
 							},
 						},
-						Transitions: make([]esapiext.TransitionSpec, 0),
+						Transitions: make([]opensearchapiext.TransitionSpec, 0),
 					},
 				},
-				ISMTemplate: &esapiext.ISMTemplateSpec{
-					IndexPatterns: []string{
-						"test*",
+				ISMTemplate: []opensearchapiext.ISMTemplateSpec{
+					{
+						IndexPatterns: []string{
+							"test*",
+						},
+						Priority: 100,
 					},
-					Priority: 100,
 				},
 			}
-			policyResponse = &esapiext.ISMGetResponse{
+			policyResponse = &opensearchapiext.ISMGetResponse{
 				ID:          "testid",
 				Version:     1,
 				PrimaryTerm: 1,
 				SeqNo:       1,
-				Policy: esapiext.ISMPolicySpec{
-					ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+				Policy: opensearchapiext.ISMPolicySpec{
+					ISMPolicyIDSpec: &opensearchapiext.ISMPolicyIDSpec{
 						PolicyID:   "testpolicy",
 						MarshallID: true,
 					},
 					Description:  "testing policy",
 					DefaultState: "test",
-					States: []esapiext.StateSpec{
+					States: []opensearchapiext.StateSpec{
 						{
 							Name: "test",
-							Actions: []esapiext.ActionSpec{
+							Actions: []opensearchapiext.ActionSpec{
 								{
-									ActionOperation: &esapiext.ActionOperation{
-										ReadOnly: &esapiext.ReadOnlyOperation{},
+									ActionOperation: &opensearchapiext.ActionOperation{
+										ReadOnly: &opensearchapiext.ReadOnlyOperation{},
 									},
 								},
 							},
-							Transitions: make([]esapiext.TransitionSpec, 0),
+							Transitions: make([]opensearchapiext.TransitionSpec, 0),
 						},
 					},
-					ISMTemplate: &esapiext.ISMTemplateSpec{
-						IndexPatterns: []string{
-							"test*",
+					ISMTemplate: []opensearchapiext.ISMTemplateSpec{
+						{
+							IndexPatterns: []string{
+								"test*",
+							},
+							Priority: 100,
 						},
-						Priority: 100,
 					},
 				},
 			}
@@ -96,12 +100,12 @@ var _ = Describe("Indices", Label("unit"), func() {
 			It("should create a new ISM", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_opendistro/_ism/policies/testpolicy",
+					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
 					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
 				)
 				transport.RegisterResponder(
 					"PUT",
-					"https://opni-es-client.test:9200/_opendistro/_ism/policies/testpolicy",
+					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
@@ -119,7 +123,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 			It("should do nothing", func() {
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_opendistro/_ism/policies/testpolicy",
+					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
@@ -135,48 +139,50 @@ var _ = Describe("Indices", Label("unit"), func() {
 		})
 		When("ISM exists and is different", func() {
 			It("should update the policy", func() {
-				policyResponseNew := &esapiext.ISMGetResponse{
+				policyResponseNew := &opensearchapiext.ISMGetResponse{
 					ID:          "testid",
 					Version:     1,
 					PrimaryTerm: 1,
 					SeqNo:       2,
-					Policy: esapiext.ISMPolicySpec{
-						ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+					Policy: opensearchapiext.ISMPolicySpec{
+						ISMPolicyIDSpec: &opensearchapiext.ISMPolicyIDSpec{
 							PolicyID:   "testpolicy",
 							MarshallID: true,
 						},
 						Description:  "testing policy",
 						DefaultState: "test",
-						States: []esapiext.StateSpec{
+						States: []opensearchapiext.StateSpec{
 							{
 								Name: "test",
-								Actions: []esapiext.ActionSpec{
+								Actions: []opensearchapiext.ActionSpec{
 									{
-										ActionOperation: &esapiext.ActionOperation{
-											ReadOnly: &esapiext.ReadOnlyOperation{},
+										ActionOperation: &opensearchapiext.ActionOperation{
+											ReadOnly: &opensearchapiext.ReadOnlyOperation{},
 										},
 									},
 								},
-								Transitions: make([]esapiext.TransitionSpec, 0),
+								Transitions: make([]opensearchapiext.TransitionSpec, 0),
 							},
 						},
-						ISMTemplate: &esapiext.ISMTemplateSpec{
-							IndexPatterns: []string{
-								"test*",
+						ISMTemplate: []opensearchapiext.ISMTemplateSpec{
+							{
+								IndexPatterns: []string{
+									"test*",
+								},
+								Priority: 100,
 							},
-							Priority: 100,
 						},
 					},
 				}
 				policy.Description = "this is a different description"
 				transport.RegisterResponder(
 					"GET",
-					"https://opni-es-client.test:9200/_opendistro/_ism/policies/testpolicy",
+					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				transport.RegisterResponderWithQuery(
 					"PUT",
-					"https://opni-es-client.test:9200/_opendistro/_ism/policies/testpolicy",
+					"https://opni-es-client.test:9200/_plugins/_ism/policies/testpolicy",
 					map[string]string{
 						"if_seq_no":       "1",
 						"if_primary_term": "1",
@@ -196,22 +202,22 @@ var _ = Describe("Indices", Label("unit"), func() {
 		})
 	})
 	Context("reconciling index templates", func() {
-		var indexTemplate *esapiext.IndexTemplateSpec
+		var indexTemplate *opensearchapiext.IndexTemplateSpec
 		BeforeEach(func() {
-			indexTemplate = &esapiext.IndexTemplateSpec{
+			indexTemplate = &opensearchapiext.IndexTemplateSpec{
 				TemplateName: "testtemplate",
 				IndexPatterns: []string{
 					"test*",
 				},
-				Template: esapiext.TemplateSpec{
-					Settings: esapiext.TemplateSettingsSpec{
+				Template: opensearchapiext.TemplateSpec{
+					Settings: opensearchapiext.TemplateSettingsSpec{
 						NumberOfShards:   1,
 						NumberOfReplicas: 1,
 						ISMPolicyID:      logPolicyName,
 						RolloverAlias:    logIndexAlias,
 					},
-					Mappings: esapiext.TemplateMappingsSpec{
-						Properties: map[string]esapiext.PropertySettings{
+					Mappings: opensearchapiext.TemplateMappingsSpec{
+						Properties: map[string]opensearchapiext.PropertySettings{
 							"timestamp": {
 								Type: "date",
 							},
@@ -381,13 +387,13 @@ var _ = Describe("Indices", Label("unit"), func() {
 	Context("reconciling indices", func() {
 		var (
 			indexName     string
-			indexSettings = map[string]esapiext.TemplateMappingsSpec{}
+			indexSettings = map[string]opensearchapiext.TemplateMappingsSpec{}
 		)
 		BeforeEach(func() {
 			indexName = "test"
-			indexSettings = map[string]esapiext.TemplateMappingsSpec{
+			indexSettings = map[string]opensearchapiext.TemplateMappingsSpec{
 				"mappings": {
-					Properties: map[string]esapiext.PropertySettings{
+					Properties: map[string]opensearchapiext.PropertySettings{
 						"start_ts": {
 							Type:   "date",
 							Format: "epoch_millis",
@@ -485,13 +491,13 @@ var _ = Describe("Indices", Label("unit"), func() {
 		})
 		When("kibana tracking index has version that is old", func() {
 			It("should update the tracking index and the kibana objects", func() {
-				kibanaResponse := esapiext.KibanaDocResponse{
+				kibanaResponse := opensearchapiext.KibanaDocResponse{
 					Index:       "opni-dashboard-version",
 					ID:          "latest",
 					SeqNo:       1,
 					PrimaryTerm: 1,
-					Found:       esapi.BoolPtr(true),
-					Source: esapiext.KibanaVersionDoc{
+					Found:       opensearchapi.BoolPtr(true),
+					Source: opensearchapiext.KibanaVersionDoc{
 						DashboardVersion: "0.0.1",
 					},
 				}
@@ -534,13 +540,13 @@ var _ = Describe("Indices", Label("unit"), func() {
 		})
 		When("kibana tracking index exists and is up to date", func() {
 			It("should do nothing", func() {
-				kibanaResponse := esapiext.KibanaDocResponse{
+				kibanaResponse := opensearchapiext.KibanaDocResponse{
 					Index:       "opni-dashboard-version",
 					ID:          "latest",
 					SeqNo:       1,
 					PrimaryTerm: 1,
-					Found:       esapi.BoolPtr(true),
-					Source: esapiext.KibanaVersionDoc{
+					Found:       opensearchapi.BoolPtr(true),
+					Source: opensearchapiext.KibanaVersionDoc{
 						DashboardVersion: kibanaDashboardVersion,
 					},
 				}

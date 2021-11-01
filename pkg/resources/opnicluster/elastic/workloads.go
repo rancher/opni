@@ -29,7 +29,7 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-es-data",
+			Name:      OpniDataWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -37,6 +37,9 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 			Replicas: r.opniCluster.Spec.Elastic.Workloads.Data.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
+			},
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+				Type: appsv1.OnDeleteStatefulSetStrategyType,
 			},
 			Template: r.elasticPodTemplate(labels),
 		},
@@ -85,6 +88,7 @@ func (r *Reconciler) elasticPodTemplate(
 							},
 						},
 					},
+					ReadinessProbe: r.readinessProbe(labels.Role()),
 					SecurityContext: &corev1.SecurityContext{
 						Capabilities: &corev1.Capabilities{
 							Add: []corev1.Capability{"SYS_CHROOT"},
@@ -93,7 +97,9 @@ func (r *Reconciler) elasticPodTemplate(
 					Env: combineEnvVars(
 						elasticContainerEnv,
 						downwardsAPIEnv,
-						elasticNodeTypeEnv(labels.Role()),
+						r.elasticNodeTypeEnv(labels.Role()),
+						r.zenMastersEnv(),
+						r.esPasswordEnv(),
 						r.javaOptsEnv(labels.Role()),
 					),
 				},
@@ -106,6 +112,42 @@ func (r *Reconciler) elasticPodTemplate(
 			},
 			ImagePullSecrets: imageSpec.ImagePullSecrets,
 		},
+	}
+}
+
+func (r *Reconciler) readinessProbe(role v1beta1.ElasticRole) *corev1.Probe {
+	switch role {
+	case v1beta1.ElasticMasterRole:
+		if !r.masterSingleton() && r.opniCluster.Status.OpensearchState.Initialized {
+			return &corev1.Probe{
+				InitialDelaySeconds: 60,
+				PeriodSeconds:       30,
+				Handler: corev1.Handler{
+					Exec: &corev1.ExecAction{
+						Command: []string{
+							"/bin/bash",
+							"-c",
+							"curl -k -u admin:${ES_PASSWORD} --silent --fail https://localhost:9200",
+						},
+					},
+				},
+			}
+		}
+		return nil
+	default:
+		return &corev1.Probe{
+			InitialDelaySeconds: 60,
+			PeriodSeconds:       30,
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"/bin/bash",
+						"-c",
+						"curl -k -u admin:${ES_PASSWORD} --silent --fail https://localhost:9200",
+					},
+				},
+			},
+		}
 	}
 }
 
@@ -137,7 +179,7 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-es-master",
+			Name:      OpniMasterWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -145,6 +187,19 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 			Replicas: r.opniCluster.Spec.Elastic.Workloads.Master.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
+			},
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
+					Partition: func() *int32 {
+						if r.opniCluster.Status.OpensearchState.Version == nil {
+							return pointer.Int32(0)
+						}
+						if *r.opniCluster.Status.OpensearchState.Version == r.opniCluster.Spec.Elastic.Version {
+							return pointer.Int32(0)
+						}
+						return r.opniCluster.Spec.Elastic.Workloads.Master.Replicas
+					}(),
+				},
 			},
 			Template: r.elasticPodTemplate(labels),
 		},
@@ -214,7 +269,7 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 		workload.Spec.Template.Spec.Volumes =
 			append(workload.Spec.Template.Spec.Volumes,
 				corev1.Volume{
-					Name: "opni-es-data",
+					Name: OpniDataWorkload,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "opni-es-data",
@@ -241,7 +296,7 @@ func (r *Reconciler) elasticClientWorkload() resources.Resource {
 
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-es-client",
+			Name:      OpniClientWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -272,7 +327,7 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 	imageSpec := r.kibanaImageSpec()
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-es-kibana",
+			Name:      OpniKibanaWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
@@ -289,7 +344,7 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 					Affinity: r.opniCluster.Spec.Elastic.Workloads.Kibana.Affinity,
 					Containers: []corev1.Container{
 						{
-							Name:            "opni-es-kibana",
+							Name:            OpniKibanaWorkload,
 							Image:           imageSpec.GetImage(),
 							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 							Env:             kibanaEnv,
@@ -364,7 +419,7 @@ func fixMountContainer() corev1.Container {
 		Command: []string{
 			"sh",
 			"-c",
-			"chown -R 1000:1000 /usr/share/elasticsearch/data",
+			"chown -R 1000:1000 /usr/share/opensearch/data",
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			dataVolumeMount(),
@@ -375,14 +430,14 @@ func fixMountContainer() corev1.Container {
 func dataVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      "opni-es-data",
-		MountPath: "/usr/share/elasticsearch/data",
+		MountPath: "/usr/share/opensearch/data",
 	}
 }
 
 func configVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      "config",
-		MountPath: "/usr/share/elasticsearch/config/logging.yml",
+		MountPath: "/usr/share/opensearch/config/logging.yml",
 		SubPath:   "logging.yml",
 	}
 }
@@ -401,7 +456,7 @@ func configVolume() corev1.Volume {
 func internalusersVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      "internalusers",
-		MountPath: fmt.Sprintf("/usr/share/elasticsearch/plugins/opendistro_security/securityconfig/%s", internalUsersKey),
+		MountPath: fmt.Sprintf("/usr/share/opensearch/plugins/opensearch-security/securityconfig/%s", internalUsersKey),
 		SubPath:   internalUsersKey,
 	}
 }
@@ -420,8 +475,8 @@ func internalusersVolume() corev1.Volume {
 func (r *Reconciler) openDistroImageSpec() v1beta1.ImageSpec {
 	return v1beta1.ImageResolver{
 		Version:             r.opniCluster.Spec.Elastic.Version,
-		ImageName:           "opendistro-for-elasticsearch",
-		DefaultRepo:         "docker.io/amazon",
+		ImageName:           "opensearch",
+		DefaultRepo:         "docker.io/opensearchproject",
 		DefaultRepoOverride: r.opniCluster.Spec.Elastic.DefaultRepo,
 		ImageOverride:       r.opniCluster.Spec.Elastic.Image,
 	}.Resolve()
@@ -430,8 +485,8 @@ func (r *Reconciler) openDistroImageSpec() v1beta1.ImageSpec {
 func (r *Reconciler) kibanaImageSpec() v1beta1.ImageSpec {
 	return v1beta1.ImageResolver{
 		Version:             r.opniCluster.Spec.Elastic.Version,
-		ImageName:           "opendistro-for-elasticsearch-kibana",
-		DefaultRepo:         "docker.io/amazon",
+		ImageName:           "opensearch-dashboards",
+		DefaultRepo:         "docker.io/opensearchproject",
 		DefaultRepoOverride: r.opniCluster.Spec.Elastic.DefaultRepo,
 		ImageOverride:       r.opniCluster.Spec.Elastic.KibanaImage,
 	}.Resolve()

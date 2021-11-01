@@ -67,7 +67,7 @@ type OpniClusterSpec struct {
 type OpniClusterStatus struct {
 	Conditions        []string         `json:"conditions,omitempty"`
 	State             OpniClusterState `json:"state,omitempty"`
-	IndexState        OpniClusterState `json:"indexState,omitempty"`
+	OpensearchState   OpensearchStatus `json:"opensearchState,omitempty"`
 	LogCollectorState OpniClusterState `json:"logState,omitempty"`
 	NatsReplicas      int32            `json:"natsReplicas,omitempty"`
 	Auth              AuthStatus       `json:"auth,omitempty"`
@@ -81,6 +81,12 @@ type AuthStatus struct {
 	S3Endpoint                    string                    `json:"s3Endpoint,omitempty"`
 	S3AccessKey                   *corev1.SecretKeySelector `json:"s3AccessKey,omitempty"`
 	S3SecretKey                   *corev1.SecretKeySelector `json:"s3SecretKey,omitempty"`
+}
+
+type OpensearchStatus struct {
+	IndexState  OpniClusterState `json:"indexState,omitempty"`
+	Version     *string          `json:"version,omitempty"`
+	Initialized bool             `json:"initialized,omitempty"`
 }
 
 //+kubebuilder:webhook:path=/highlander-opni-io-v1beta1-opnicluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=opniclusters,verbs=create;update,versions=v1beta1,name=highlander.opni.io,admissionReviewVersions={v1,v1beta1}

@@ -20,6 +20,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+var (
+	ErrOpensearchUpgradeFailed = errors.New("opensearch upgrade failed")
+)
+
 type Reconciler struct {
 	reconciler.ResourceReconciler
 	ctx         context.Context
@@ -209,7 +213,7 @@ func (r *Reconciler) ReconcileElasticUpgrade() (retResult *reconcile.Result, ret
 		*r.opniCluster.Spec.Elastic.Workloads.Data.Replicas == int32(1)) &&
 		(r.opniCluster.Spec.Elastic.Persistence == nil ||
 			!r.opniCluster.Spec.Elastic.Persistence.Enabled) {
-		lg.Error(errors.New("insufficient data persistence"), "can't upgrade opensearch")
+		lg.Error(ErrOpensearchUpgradeFailed, "insufficient data node persistence")
 		return
 	}
 
@@ -217,7 +221,7 @@ func (r *Reconciler) ReconcileElasticUpgrade() (retResult *reconcile.Result, ret
 		*r.opniCluster.Spec.Elastic.Workloads.Master.Replicas == int32(1)) &&
 		(r.opniCluster.Spec.Elastic.Persistence == nil ||
 			!r.opniCluster.Spec.Elastic.Persistence.Enabled) {
-		lg.Error(errors.New("insufficient master persistence"), "can't upgrade opensearch")
+		lg.Error(ErrOpensearchUpgradeFailed, "insufficient master node persistence")
 		return
 	}
 

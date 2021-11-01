@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -24,6 +25,10 @@ type elasticsearchReconciler struct {
 }
 
 func newElasticsearchReconciler(ctx context.Context, namespace string, password string) *elasticsearchReconciler {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
+	}
 	esCfg := opensearch.Config{
 		Addresses: []string{
 			fmt.Sprintf("https://opni-es-client.%s:9200", namespace),
@@ -31,11 +36,7 @@ func newElasticsearchReconciler(ctx context.Context, namespace string, password 
 		Username:             "admin",
 		Password:             password,
 		UseResponseCheckOnly: true,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
+		Transport:            transport,
 	}
 	kbCfg := kibana.Config{
 		URL:      fmt.Sprintf("http://opni-es-kibana.%s:5601", namespace),
@@ -150,7 +151,7 @@ func (r *elasticsearchReconciler) shouldBootstrapIndex(prefix string) (bool, err
 	return len(indices) == 0, nil
 }
 
-func (r *elasticsearchReconciler) checkISMPolicy(policy interface{}, oldVersion bool) (bool, bool, int, int, error) {
+func (r *elasticsearchReconciler) checkISMPolicy(policy interface{}) (bool, bool, int, int, error) {
 	policyID := reflect.ValueOf(policy).FieldByName("PolicyID").String()
 	resp, err := r.esClient.ISM.GetISM(r.ctx, policyID)
 	if err != nil {
@@ -162,38 +163,39 @@ func (r *elasticsearchReconciler) checkISMPolicy(policy interface{}, oldVersion 
 	} else if resp.IsError() {
 		return false, false, 0, 0, fmt.Errorf("response from API is %s", resp.Status())
 	}
-	if oldVersion {
+	switch ism := policy.(type) {
+	case opensearchapiext.OldISMPolicySpec:
 		ismResponse := &opensearchapiext.OldISMGetResponse{}
 		err = json.NewDecoder(resp.Body).Decode(ismResponse)
 		if err != nil {
 			return false, false, 0, 0, err
 		}
-		concretePolicy := reflect.ValueOf(policy).Interface().(opensearchapiext.OldISMPolicySpec)
-		if reflect.DeepEqual(ismResponse.Policy, concretePolicy) {
+		if reflect.DeepEqual(ismResponse.Policy, ism) {
 			return false, false, 0, 0, nil
 		}
 		return false, true, ismResponse.SeqNo, ismResponse.PrimaryTerm, nil
+	case opensearchapiext.ISMPolicySpec:
+		ismResponse := &opensearchapiext.ISMGetResponse{}
+		err = json.NewDecoder(resp.Body).Decode(ismResponse)
+		if err != nil {
+			return false, false, 0, 0, err
+		}
+		if reflect.DeepEqual(ismResponse.Policy, ism) {
+			return false, false, 0, 0, nil
+		}
+		return false, true, ismResponse.SeqNo, ismResponse.PrimaryTerm, nil
+	default:
+		return false, false, 0, 0, errors.New("invalid ISM policy type")
 	}
-
-	ismResponse := &opensearchapiext.ISMGetResponse{}
-	err = json.NewDecoder(resp.Body).Decode(ismResponse)
-	if err != nil {
-		return false, false, 0, 0, err
-	}
-	concretePolicy := reflect.ValueOf(policy).Interface().(opensearchapiext.ISMPolicySpec)
-	if reflect.DeepEqual(ismResponse.Policy, concretePolicy) {
-		return false, false, 0, 0, nil
-	}
-	return false, true, ismResponse.SeqNo, ismResponse.PrimaryTerm, nil
 }
 
-func (r *elasticsearchReconciler) reconcileISM(policy interface{}, oldVersion bool) error {
+func (r *elasticsearchReconciler) reconcileISM(policy interface{}) error {
 	lg := log.FromContext(r.ctx)
 	policyID := reflect.ValueOf(policy).FieldByName("PolicyID").String()
 	policyBody := map[string]interface{}{
 		"policy": policy,
 	}
-	createIsm, updateIsm, seqNo, primaryTerm, err := r.checkISMPolicy(policy, oldVersion)
+	createIsm, updateIsm, seqNo, primaryTerm, err := r.checkISMPolicy(policy)
 	if err != nil {
 		return err
 	}

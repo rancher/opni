@@ -140,7 +140,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		policies = append(policies, opniDrainModelStatusPolicy)
 	}
 	for _, policy := range policies {
-		err = r.esReconciler.reconcileISM(policy, oldVersion)
+		err = r.esReconciler.reconcileISM(policy)
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)

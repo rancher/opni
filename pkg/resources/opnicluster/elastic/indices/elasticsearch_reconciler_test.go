@@ -109,7 +109,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.reconcileISM(policy, false)
+					err := reconciler.reconcileISM(policy)
 					if err != nil {
 						log.Println(err)
 					}
@@ -127,7 +127,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.reconcileISM(policy, false)
+					err := reconciler.reconcileISM(policy)
 					if err != nil {
 						log.Println(err)
 					}
@@ -190,7 +190,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponseNew).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.reconcileISM(policy, false)
+					err := reconciler.reconcileISM(policy)
 					if err != nil {
 						log.Println(err)
 					}

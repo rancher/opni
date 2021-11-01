@@ -51,6 +51,12 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 		return true, nil
 	}
 
+	// create the client
+	err = r.createClient()
+	if err != nil {
+		return
+	}
+
 	// Check if all shards are green
 	if !r.areShardsGreen() {
 		// Check settings
@@ -67,7 +73,10 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 		}
 
 		settings := ClusterSettings{}
-		json.NewDecoder(resp.Body).Decode(&settings)
+		err = json.NewDecoder(resp.Body).Decode(&settings)
+		if err != nil {
+			return false, err
+		}
 
 		// return if settings are already set correctly
 		if settings.Persistent.ClusterRoutingAllocationEnable == "all" {
@@ -138,8 +147,7 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 	return true, nil
 }
 
-func (r *Reconciler) areShardsGreen() bool {
-	lg := log.FromContext(r.ctx)
+func (r *Reconciler) createClient() error {
 	// Fetch the admin password
 	var password string
 	if r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef != nil {
@@ -148,12 +156,15 @@ func (r *Reconciler) areShardsGreen() bool {
 			Name:      r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Name,
 			Namespace: r.opniCluster.Namespace,
 		}, secret); err != nil {
-			lg.Error(err, "error fetching password secret, can't check shards")
-			return false
+			return err
 		}
 		password = string(secret.Data[r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Key])
 	}
 
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
+	}
 	esClient, _ = opensearch.NewClient(opensearch.Config{
 		Addresses: []string{
 			fmt.Sprintf("https://opni-es-client.%s:9200", r.opniCluster.Namespace),
@@ -161,12 +172,13 @@ func (r *Reconciler) areShardsGreen() bool {
 		Username:             "admin",
 		Password:             password,
 		UseResponseCheckOnly: true,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
+		Transport:            transport,
 	})
+	return nil
+}
+
+func (r *Reconciler) areShardsGreen() bool {
+	lg := log.FromContext(r.ctx)
 
 	req := opensearchapi.ClusterHealthRequest{
 		Timeout:       10 * time.Second,
@@ -184,7 +196,11 @@ func (r *Reconciler) areShardsGreen() bool {
 	}
 
 	health := ClusterHealthResponse{}
-	json.NewDecoder(resp.Body).Decode(&health)
+	err = json.NewDecoder(resp.Body).Decode(&health)
+	if err != nil {
+		lg.Error(err, "failed to decode cluster status")
+		return false
+	}
 
 	lg.V(1).Info(fmt.Sprintf("%.2f percent of shards ready", health.PercentActive))
 	return health.Status == "green"

@@ -34,8 +34,6 @@ type Persistent struct {
 	ClusterRoutingAllocationEnable string `json:"cluster.routing.allocation.enable,omitempty"`
 }
 
-var esClient *opensearch.Client
-
 func (r *Reconciler) UpgradeData() (retry bool, err error) {
 	statefulset := appsv1.StatefulSet{}
 	err = r.client.Get(r.ctx, types.NamespacedName{
@@ -63,7 +61,7 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 		getReq := opensearchapi.ClusterGetSettingsRequest{
 			FlatSettings: pointer.BoolPtr(true),
 		}
-		resp, err := getReq.Do(r.ctx, esClient)
+		resp, err := getReq.Do(r.ctx, r.esClient)
 		if err != nil {
 			return false, err
 		}
@@ -91,7 +89,7 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 			}),
 			FlatSettings: pointer.BoolPtr(true),
 		}
-		resp, err = putReq.Do(r.ctx, esClient)
+		resp, err = putReq.Do(r.ctx, r.esClient)
 		if err != nil {
 			return false, err
 		}
@@ -121,7 +119,7 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 		}),
 		FlatSettings: pointer.BoolPtr(true),
 	}
-	resp, err := putReq.Do(r.ctx, esClient)
+	resp, err := putReq.Do(r.ctx, r.esClient)
 	if err != nil {
 		return false, err
 	}
@@ -165,7 +163,7 @@ func (r *Reconciler) createClient() error {
 	transport.TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: true,
 	}
-	esClient, _ = opensearch.NewClient(opensearch.Config{
+	r.esClient, _ = opensearch.NewClient(opensearch.Config{
 		Addresses: []string{
 			fmt.Sprintf("https://opni-es-client.%s:9200", r.opniCluster.Namespace),
 		},
@@ -184,7 +182,7 @@ func (r *Reconciler) areShardsGreen() bool {
 		Timeout:       10 * time.Second,
 		WaitForStatus: "green",
 	}
-	resp, err := req.Do(r.ctx, esClient)
+	resp, err := req.Do(r.ctx, r.esClient)
 	if err != nil {
 		lg.Error(err, "failed to fetch cluster status")
 		return false

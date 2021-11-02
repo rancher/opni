@@ -2442,6 +2442,10 @@ spec:
                                 type: string
                             type: object
                         type: object
+                      headlessServiceTopologyKeys:
+                        items:
+                          type: string
+                        type: array
                       ignoreRepeatedLogInterval:
                         type: string
                       ignoreSameLogInterval:
@@ -2939,6 +2943,10 @@ spec:
                               type: object
                             type: array
                         type: object
+                      serviceTopologyKeys:
+                        items:
+                          type: string
+                        type: array
                       tls:
                         properties:
                           enabled:
@@ -5471,6 +5479,10 @@ spec:
                                 type: string
                             type: object
                         type: object
+                      headlessServiceTopologyKeys:
+                        items:
+                          type: string
+                        type: array
                       ignoreRepeatedLogInterval:
                         type: string
                       ignoreSameLogInterval:
@@ -5968,6 +5980,10 @@ spec:
                               type: object
                             type: array
                         type: object
+                      serviceTopologyKeys:
+                        items:
+                          type: string
+                        type: array
                       tls:
                         properties:
                           enabled:

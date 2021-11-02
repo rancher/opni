@@ -1998,6 +1998,8 @@ spec:
                         type: object
                       prometheusEndpoint:
                         type: string
+                      prometheusNamespace:
+                        type: string
                       tolerations:
                         items:
                           properties:
@@ -2123,6 +2125,44 @@ spec:
                           type: object
                         type: array
                     type: object
+                type: object
+              thanos:
+                properties:
+                  defaultRepo:
+                    type: string
+                  image:
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        type: string
+                      imagePullSecrets:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  persistence:
+                    properties:
+                      accessModes:
+                        items:
+                          type: string
+                        type: array
+                      enabled:
+                        type: boolean
+                      request:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      storageClass:
+                        type: string
+                    type: object
+                  version:
+                    type: string
                 type: object
               version:
                 default: latest

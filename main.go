@@ -165,6 +165,11 @@ func run() error {
 			return err
 		}
 	}
+
+	if err = (&controllers.AggregateThanosReconcilers{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "error setting up Thanos controllers")
+		return err
+	}
 	// +kubebuilder:scaffold:builder
 
 	if err := highlander.NewFor(&v1beta1.OpniCluster{}).SetupWithManager(mgr); err != nil {

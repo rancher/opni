@@ -3,9 +3,7 @@ package opnicluster
 import (
 	"crypto/sha1"
 	"fmt"
-	"net/url"
 
-	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
 	"github.com/rancher/opni/apis/v1beta1"
@@ -602,14 +600,13 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 
 func (r *Reconciler) metricsDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.MetricsService)
-	_, err := url.ParseRequestURI(r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint)
-	if err != nil && (r.opniCluster.Spec.Services.Metrics.Enabled == nil || *r.opniCluster.Spec.Services.Metrics.Enabled) {
-		return deployment, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), errors.New("prometheus endpoint is not a valid URL")
-	}
-	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
-		Name:  "PROMETHEUS_ENDPOINT",
-		Value: r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint,
-	})
+
+	deployment.Spec.Template.Spec.Containers[0].Env =
+		append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+			Name: "PROMETHEUS_ENDPOINT",
+			Value: fmt.Sprintf("http://opni-thanos-query.%s.svc:10902",
+				r.opniCluster.Spec.Services.Metrics.PrometheusNamespace),
+		})
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
 }
 

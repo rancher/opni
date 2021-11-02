@@ -9,6 +9,12 @@ resources:
 - logging/logging.opni.io_outputs.yaml
 - nvidia/nvidia.opni.io_clusterpolicies.yaml
 - nfd/nfd.opni.io_nodefeaturediscoveries.yaml
+- thanos/thanos.opni.io_thanospeers.yaml
+- thanos/thanos.opni.io_thanos.yaml
+- thanos/thanos.opni.io_receivers.yaml
+- thanos/thanos.opni.io_objectstores.yaml
+- thanos/thanos.opni.io_storeendpoints.yaml
+- thanos/thanos.opni.io_thanosendpoints.yaml
 - bases/opni.io_opniclusters.yaml
 - bases/opni.io_logadapters.yaml
 - bases/demo.opni.io_opnidemoes.yaml

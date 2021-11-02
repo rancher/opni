@@ -4,27 +4,29 @@ metadata:
   name: opnicluster-sample
   namespace: default
 spec:
-  version: v0.1.2
+  version: v0.2.0
   deployLogCollector: true
   services:
-    inference:
+    ui:
+      enabled: false
+    metrics:
       enabled: true
-      image: quay.io/dbason/opni-inference-service:test
-      imagePullPolicy: Always
+      prometheusEndpoint: http://kube-prometheus-prometheus.monitoring.svc:9090
+      prometheusNamespace: monitoring
+    inference:
       pretrainedModels:
         - name: control-plane
-    preprocessing:
-      image: quay.io/dbason/opni-preprocessing-service:debug
-    drain:
-      image: quay.io/dbason/opni-drain-service:debug
-    payloadReceiver:
-      image: quay.io/dbason/opni-payload-receiver-service:debug
     gpuController:
       enabled: true
-      image: quay.io/dbason/opni-gpu-service-controller:debug
   elastic:
     version: 1.13.2
   nats:
     authMethod: nkey
   s3:
     internal: {}
+  thanos:
+    persistence:
+      enabled: true
+      storageClass: local-path
+      accessModes: ["ReadWriteOnce"]
+      request: 10Gi

@@ -23,7 +23,11 @@ type Reconciler struct {
 	esClient    *opensearch.Client
 }
 
-func NewReconciler(ctx context.Context, client client.Client, opniCluster *v1beta1.OpniCluster) *Reconciler {
+func NewReconciler(
+	ctx context.Context,
+	client client.Client,
+	opniCluster *v1beta1.OpniCluster,
+) *Reconciler {
 	return &Reconciler{
 		client:      client,
 		opniCluster: opniCluster,

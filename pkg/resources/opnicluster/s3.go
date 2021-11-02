@@ -355,3 +355,17 @@ func (r *Reconciler) internalS3() (list []resources.Resource, _ error) {
 func (r *Reconciler) externalS3() (list []resources.Resource, _ error) {
 	return nil, r.externalKeySecret()
 }
+
+func (r *Reconciler) s3() (list []resources.Resource, _ error) {
+	internal, err := r.internalS3()
+	if err != nil {
+		return nil, err
+	}
+	list = append(list, internal...)
+	external, err := r.externalS3()
+	if err != nil {
+		return nil, err
+	}
+	list = append(list, external...)
+	return
+}

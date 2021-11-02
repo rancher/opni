@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic"
+	"github.com/rancher/opni/pkg/resources/opnicluster/thanos"
 	"github.com/rancher/opni/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,6 +45,11 @@ func NewReconciler(
 		client:      client,
 		opniCluster: opniCluster,
 	}
+}
+
+type resourceSet struct {
+	Name    string
+	Factory func() ([]resources.Resource, error)
 }
 
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
@@ -85,85 +91,73 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}()
 
-	allResources := []resources.Resource{}
-	opniServices, err := r.opniServices()
-	if err != nil {
-		retErr = errors.Combine(retErr, err)
-		conditions = append(conditions, err.Error())
-		return nil, err
-	}
-	pretrained, err := r.pretrainedModels()
-	if err != nil {
-		retErr = errors.Combine(retErr, err)
-		conditions = append(conditions, err.Error())
-		lg.Error(err, "Error when reconciling pretrained models, will retry.")
-		// Keep going, we can reconcile the rest of the deployments and come back
-		// to this later.
-	}
-	es, err := elastic.NewReconciler(r.ctx, r.client, r.opniCluster).ElasticResources()
-	if err != nil {
-		retErr = errors.Combine(retErr, err)
-		conditions = append(conditions, err.Error())
-		lg.Error(err, "Error when reconciling elastic, will retry.")
-		return
-	}
-	nats, err := r.nats()
-	if err != nil {
-		retErr = errors.Combine(retErr, err)
-		conditions = append(conditions, err.Error())
-		lg.Error(err, "Error when reconciling nats, cannot continue.")
-		return
-	}
-	var s3 []resources.Resource
-	intS3, err := r.internalS3()
-	if err != nil {
-		retErr = errors.Combine(retErr, err)
-		conditions = append(conditions, err.Error())
-		lg.Error(err, "Error when reconciling s3, cannot continue.")
-		return
-	}
-	extS3, err := r.externalS3()
-	if err != nil {
-		retErr = errors.Combine(retErr, err)
-		conditions = append(conditions, err.Error())
-		lg.Error(err, "Error when reconciling s3, cannot continue.")
-		return
-	}
-	s3 = append(s3, intS3...)
-	s3 = append(s3, extS3...)
+	// Reconciler order of operations:
+	// 1. Nats
+	// 2. S3
+	// 3. Elasticsearch
+	// 4. Thanos
+	// 5. Opni Services
+	// 6. Pretrained Models
+	//
+	// Nats, S3, Elasticsearch, and Thanos reconcilers will add fields to the
+	// opniCluster status object which are used by other reconcilers.
 
-	// Order is important here
-	// nats, s3, and elasticsearch reconcilers will add fields to the opniCluster status object
-	// which are used by other reconcilers.
-	allResources = append(allResources, nats...)
-	allResources = append(allResources, s3...)
-	allResources = append(allResources, es...)
-	allResources = append(allResources, opniServices...)
-	allResources = append(allResources, pretrained...)
+	resourceSets := []resourceSet{
+		{
+			Name:    "Nats",
+			Factory: r.nats,
+		},
+		{
+			Name:    "S3",
+			Factory: r.s3,
+		},
+		{
+			Name:    "Elasticsearch",
+			Factory: elastic.NewReconciler(r.ctx, r.client, r.opniCluster).ElasticResources,
+		},
+		{
+			Name:    "Thanos",
+			Factory: thanos.NewReconciler(r.ctx, r.client, r.opniCluster).ThanosResources,
+		},
+		{
+			Name:    "Opni Services",
+			Factory: r.opniServices,
+		},
+		{
+			Name:    "Pretrained Models",
+			Factory: r.pretrainedModels,
+		},
+	}
 
-	for _, factory := range allResources {
-		o, state, err := factory()
+	for i, resourceSet := range resourceSets {
+		lg.Info(fmt.Sprintf("Reconciling %s [%d/%d]", resourceSet.Name, i+1, len(resourceSets)))
+		resources, err := resourceSet.Factory()
 		if err != nil {
-			retErr = errors.WrapIf(err, "failed to create object")
-			return
+			return nil, errors.WrapWithDetails(err, "failed to create resources")
 		}
-		if o == nil {
-			panic(fmt.Sprintf("reconciler %#v created a nil object", factory))
-		}
-		result, err := r.ReconcileResource(o, state)
-		if err != nil {
-			retErr = errors.WrapWithDetails(err, "failed to reconcile resource",
-				"resource", o.GetObjectKind().GroupVersionKind())
-			return
-		}
-		if result != nil {
-			retResult = result
+		for _, resource := range resources {
+			o, state, err := resource()
+			if err != nil {
+				return nil, errors.WrapWithDetails(err, "failed to create resource",
+					"resource", o.GetObjectKind().GroupVersionKind())
+			}
+			result, err := r.ReconcileResource(o, state)
+			if err != nil {
+				return nil, errors.WrapWithDetails(err, "failed to reconcile resource",
+					"resource", o.GetObjectKind().GroupVersionKind())
+			}
+			requeue := util.LoadResult(result, err)
+			if requeue.ShouldRequeue() {
+				return result, err
+			}
 		}
 	}
+
+	// All resources reconciled successfully, run status checks
 
 	// Check the status of the opensearch data statefulset and update status if it's ready
 	osData := &appsv1.StatefulSet{}
-	err = r.client.Get(r.ctx, types.NamespacedName{
+	err := r.client.Get(r.ctx, types.NamespacedName{
 		Name:      elastic.OpniDataWorkload,
 		Namespace: r.opniCluster.Namespace,
 	}, osData)
@@ -194,11 +188,9 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 		return r.client.Status().Update(r.ctx, r.opniCluster)
 	})
-
 	if err != nil {
 		return nil, err
 	}
-
 	return
 }
 

@@ -7,6 +7,7 @@ import (
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	opninfdv1 "github.com/rancher/opni/apis/nfd/v1"
 	opninvidiav1 "github.com/rancher/opni/apis/nvidia/v1"
+	opnithanosv1alpha1 "github.com/rancher/opni/apis/thanos/v1alpha1"
 	"github.com/rancher/opni/apis/v1beta1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,5 +26,6 @@ func InitScheme(scheme *runtime.Scheme) {
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(opninvidiav1.AddToScheme(scheme))
 	utilruntime.Must(opninfdv1.AddToScheme(scheme))
+	utilruntime.Must(opnithanosv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }

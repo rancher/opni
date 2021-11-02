@@ -61,6 +61,7 @@ type OpniClusterSpec struct {
 	DeployLogCollector   *bool                         `json:"deployLogCollector"`
 	GlobalNodeSelector   map[string]string             `json:"globalNodeSelector,omitempty"`
 	GlobalTolerations    []corev1.Toleration           `json:"globalTolerations,omitempty"`
+	Thanos               ThanosSpec                    `json:"thanos,omitempty"`
 }
 
 // OpniClusterStatus defines the observed state of OpniCluster
@@ -154,11 +155,12 @@ type GPUControllerServiceSpec struct {
 }
 
 type MetricsServiceSpec struct {
-	ImageSpec          `json:",inline,omitempty"`
-	Enabled            *bool               `json:"enabled,omitempty"`
-	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
-	PrometheusEndpoint string              `json:"prometheusEndpoint,omitempty"`
+	ImageSpec           `json:",inline,omitempty"`
+	Enabled             *bool               `json:"enabled,omitempty"`
+	NodeSelector        map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations         []corev1.Toleration `json:"tolerations,omitempty"`
+	PrometheusEndpoint  string              `json:"prometheusEndpoint,omitempty"`
+	PrometheusNamespace string              `json:"prometheusNamespace,omitempty"`
 }
 
 type InsightsServiceSpec struct {
@@ -258,6 +260,13 @@ type NatsSpec struct {
 	PasswordFrom *corev1.SecretKeySelector `json:"passwordFrom,omitempty"`
 	NodeSelector map[string]string         `json:"nodeSelector,omitempty"`
 	Tolerations  []corev1.Toleration       `json:"tolerations,omitempty"`
+}
+
+type ThanosSpec struct {
+	Version              string           `json:"version"`
+	DefaultRepo          *string          `json:"defaultRepo,omitempty"`
+	Image                *ImageSpec       `json:"image,omitempty"`
+	CompactorPersistence *PersistenceSpec `json:"persistence,omitempty"`
 }
 
 // +kubebuilder:object:root=true

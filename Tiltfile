@@ -39,7 +39,6 @@ if "defaultRegistry" in settings:
 docker_build("rancher/opni-manager", '.', 
     dockerfile_contents=DOCKERFILE,
     only=['./bin/manager', './package/assets'],
-    live_update=[sync('./bin/manager', '/manager')]
 )
 
 include('Tiltfile.tests')

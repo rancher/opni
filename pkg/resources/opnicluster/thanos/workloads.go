@@ -16,7 +16,9 @@ func (r *Reconciler) thanosWorkloads() []resources.Resource {
 	objectStore := r.objectStore()
 	storeEndpoint := r.storeEndpoint()
 	thanos := r.thanos()
-	if pointer.BoolDeref(r.opniCluster.Spec.Services.Metrics.Enabled, false) {
+	thanosEnabled := pointer.BoolDeref(r.opniCluster.Spec.Services.Metrics.Enabled, false) &&
+		(r.opniCluster.Spec.S3.Internal != nil || r.opniCluster.Spec.S3.External != nil)
+	if thanosEnabled {
 		return []resources.Resource{
 			resources.Present(objectStore),
 			resources.Present(storeEndpoint),

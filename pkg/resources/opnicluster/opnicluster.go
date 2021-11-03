@@ -40,7 +40,10 @@ func NewReconciler(
 ) *Reconciler {
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
-			append(opts, reconciler.WithLog(log.FromContext(ctx)))...),
+			append(opts,
+				reconciler.WithLog(log.FromContext(ctx)),
+				reconciler.WithRecreateErrorMessageCondition(reconciler.MatchImmutableErrorMessages),
+			)...),
 		ctx:         ctx,
 		client:      client,
 		opniCluster: opniCluster,
@@ -48,8 +51,9 @@ func NewReconciler(
 }
 
 type resourceSet struct {
-	Name    string
-	Factory func() ([]resources.Resource, error)
+	Name                string
+	Factory             func() ([]resources.Resource, error)
+	DeferDelayedRequeue bool
 }
 
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
@@ -59,6 +63,9 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	defer func() {
 		// When the reconciler is done, figure out what the state of the opnicluster
 		// is and set it in the state field accordingly.
+		if retErr != nil {
+			conditions = append(conditions, retErr.Error())
+		}
 		op := util.LoadResult(retResult, retErr)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
@@ -112,8 +119,9 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			Factory: r.s3,
 		},
 		{
-			Name:    "Elasticsearch",
-			Factory: elastic.NewReconciler(r.ctx, r.client, r.opniCluster).ElasticResources,
+			Name:                "Elasticsearch",
+			Factory:             elastic.NewReconciler(r.ctx, r.client, r.opniCluster).ElasticResources,
+			DeferDelayedRequeue: true,
 		},
 		{
 			Name:    "Thanos",
@@ -130,7 +138,9 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	for i, resourceSet := range resourceSets {
-		lg.Info(fmt.Sprintf("Reconciling %s [%d/%d]", resourceSet.Name, i+1, len(resourceSets)))
+		cond := fmt.Sprintf("Reconciling %s [%d/%d]", resourceSet.Name, i+1, len(resourceSets))
+		conditions = append(conditions, cond)
+		lg.V(2).Info(cond)
 		resources, err := resourceSet.Factory()
 		if err != nil {
 			return nil, errors.WrapWithDetails(err, "failed to create resources")
@@ -146,11 +156,22 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 				return nil, errors.WrapWithDetails(err, "failed to reconcile resource",
 					"resource", o.GetObjectKind().GroupVersionKind())
 			}
+			if result != nil && result.RequeueAfter > 0 && resourceSet.DeferDelayedRequeue {
+				defer func() {
+					if retResult == nil {
+						retResult = &reconcile.Result{}
+					}
+					if retResult.RequeueAfter == 0 {
+						retResult.RequeueAfter = result.RequeueAfter
+					}
+				}()
+			}
 			requeue := util.LoadResult(result, err)
 			if requeue.ShouldRequeue() {
 				return result, err
 			}
 		}
+		conditions = conditions[:len(conditions)-1]
 	}
 
 	// All resources reconciled successfully, run status checks

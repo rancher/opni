@@ -78,6 +78,7 @@ var _ = BeforeSuite(func() {
 			"../config/crd/bases",
 			"../config/crd/logging",
 			"../config/crd/nvidia",
+			"../config/crd/thanos",
 			"../config/crd/nfd",
 			"../test/resources",
 		},
@@ -182,19 +183,18 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 			},
 		},
 	}
+	namespace := opts.Namespace
+	if opts.Namespace == "" {
+		namespace = makeTestNamespace()
+	}
 	return &v1beta1.OpniCluster{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1beta1.GroupVersion.String(),
 			Kind:       "OpniCluster",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: opts.Name,
-			Namespace: func() string {
-				if opts.Namespace == "" {
-					return makeTestNamespace()
-				}
-				return opts.Namespace
-			}(),
+			Name:      opts.Name,
+			Namespace: namespace,
 		},
 		Spec: v1beta1.OpniClusterSpec{
 			Version:     "test",
@@ -210,6 +210,9 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 			},
 			Nats: v1beta1.NatsSpec{
 				AuthMethod: v1beta1.NatsAuthUsername,
+			},
+			Elastic: v1beta1.ElasticSpec{
+				Version: "1.1.0",
 			},
 			Services: v1beta1.ServicesSpec{
 				Inference: v1beta1.InferenceServiceSpec{
@@ -249,6 +252,12 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 							return opts.PrometheusEndpoint
 						}
 						return "http://dummy-endpoint"
+					}(),
+					PrometheusNamespace: func() string {
+						if opts.PrometheusEndpoint != "" {
+							return namespace
+						}
+						return ""
 					}(),
 				},
 				Insights: v1beta1.InsightsServiceSpec{

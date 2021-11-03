@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -36,6 +37,20 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 			cluster,
 		)).To(Succeed())
 	}
+
+	Specify("Set up test runtimeclass", func() {
+		// Required for the gpu controller pod to be accepted by the apiserver
+		// and exist during the test.
+		runtimeClass := &nodev1.RuntimeClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "nvidia",
+			},
+			Handler: "nvidia",
+		}
+		err := k8sClient.Create(context.Background(), runtimeClass)
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(Object(runtimeClass)).Should(Exist())
+	})
 
 	It("should create the necessary opni service deployments", func() {
 		By("waiting for the cluster to be created")
@@ -263,20 +278,6 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 				}),
 			)),
 		))
-	})
-	It("should not create the metrics service when the prometheus endpoint is invalid", func() {
-		By("waiting for the cluster to be created")
-		createCluster(buildCluster(opniClusterOpts{
-			Name:               "test",
-			PrometheusEndpoint: "badendpoint",
-		}))
-		By("ensuring the metrics service is not created.")
-		Consistently(Object(&appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      v1beta1.MetricsService.ServiceName(),
-				Namespace: cluster.Namespace,
-			},
-		})).ShouldNot(Exist())
 	})
 	It("should create inference services for pretrained models", func() {
 		ns := makeTestNamespace()

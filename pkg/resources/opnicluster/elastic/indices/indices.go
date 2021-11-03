@@ -105,6 +105,9 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	oldVersion := false
 	changeVersion, _ := version.NewVersion(ISMChangeVersion)
+	if r.cluster.Spec.Elastic.Version != "" {
+		lg.Info("Warning: opensearch version is empty")
+	}
 	desiredVersion, err := version.NewVersion(r.cluster.Spec.Elastic.Version)
 	if err != nil {
 		lg.V(1).Error(err, "failed to parse opensearch version")

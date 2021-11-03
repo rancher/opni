@@ -93,13 +93,18 @@ func (r *Reconciler) ensureThanosBucketExists() error {
 }
 
 func (r *Reconciler) objectStoreSecret() ([]resources.Resource, error) {
+	if r.opniCluster.Spec.S3.Internal == nil && r.opniCluster.Spec.S3.External == nil {
+		return nil, nil
+	}
+
+	// lg := log.FromContext(r.ctx)
 	if r.opniCluster.Status.Auth.S3AccessKey == nil ||
 		r.opniCluster.Status.Auth.S3SecretKey == nil ||
 		r.opniCluster.Status.Auth.S3Endpoint == "" {
 		return nil, fmt.Errorf("S3 auth info unavailable")
 	}
 	if err := r.ensureThanosBucketExists(); err != nil {
-		return nil, err
+		// lg.Error(err, "failed to check or configure thanos s3 bucket")
 	}
 	credsProvider := util.S3CredentialsProvider{
 		Client:      r.client,
@@ -108,9 +113,9 @@ func (r *Reconciler) objectStoreSecret() ([]resources.Resource, error) {
 		SecretKey:   r.opniCluster.Status.Auth.S3SecretKey,
 		ShouldCache: false,
 	}
-	creds, error := credsProvider.Retrieve()
-	if error != nil {
-		return nil, error
+	creds, err := credsProvider.Retrieve()
+	if err != nil {
+		return nil, err
 	}
 
 	objectStoreYaml := `

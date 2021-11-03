@@ -40,12 +40,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - '*'
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
   - apps
   resources:
   - daemonsets
@@ -265,9 +259,17 @@ rules:
   - update
   - watch
 - apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - logging.opni.io
   resources:
-  - loggings
+  - '*'
   verbs:
   - create
   - delete
@@ -457,6 +459,19 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - use
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:

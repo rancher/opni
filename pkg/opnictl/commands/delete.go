@@ -7,7 +7,6 @@ import (
 	"go.uber.org/atomic"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/rancher/opni/apis/demo/v1alpha1"
 	"github.com/rancher/opni/apis/v1beta1"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
@@ -16,33 +15,6 @@ import (
 	"github.com/vbauerster/mpb/v7/decor"
 	"k8s.io/apimachinery/pkg/types"
 )
-
-func BuildDeleteDemoCmd() *cobra.Command {
-	var deleteDemoCmd = &cobra.Command{
-		Use:   "demo name",
-		Args:  cobra.ExactArgs(1),
-		Short: "Delete an existing opni demo cluster",
-		Long: `
-This command will remove an installation of Opni from the selected namespace.
-Any installations of Opni in other namespaces, as well as the Opni Manager and
-CRDs, will remain.
-
-Your current kubeconfig context will be used to select the cluster to operate
-on, unless the --context flag is provided to select a specific context.
-`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			demo := &v1alpha1.OpniDemo{}
-			if err := common.K8sClient.Get(cmd.Context(), types.NamespacedName{
-				Namespace: common.NamespaceFlagValue,
-				Name:      args[0],
-			}, demo); err != nil {
-				return err
-			}
-			return deleteWithSpinner(cmd.Context(), demo)
-		},
-	}
-	return deleteDemoCmd
-}
 
 func BuildDeleteClusterCmd() *cobra.Command {
 	var deleteClusterCmd = &cobra.Command{
@@ -109,7 +81,6 @@ func BuildDeleteCmd() *cobra.Command {
 		Long:  "See subcommands for more information.",
 	}
 
-	deleteCmd.AddCommand(BuildDeleteDemoCmd())
 	deleteCmd.AddCommand(BuildDeleteClusterCmd())
 
 	return deleteCmd

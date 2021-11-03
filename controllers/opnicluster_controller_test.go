@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	thanosv1alpha1 "github.com/banzaicloud/thanos-operator/pkg/sdk/api/v1alpha1"
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -1286,5 +1287,143 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 				status.Auth.S3AccessKey != nil &&
 				status.Auth.S3SecretKey != nil
 		}))
+	})
+
+	It("should reconcile Thanos resources", func() {
+		// Thanos is enabled when the cluster spec has Metrics enabled and either
+		// internal or external S3 enabled.
+		By("creating the cluster with metrics disabled")
+		c := buildCluster(opniClusterOpts{
+			Name: "test",
+		})
+		c.Spec.Services.Metrics.Enabled = pointer.Bool(false)
+		createCluster(c)
+
+		By("checking that thanos resources are not created")
+		wg := sync.WaitGroup{}
+		wg.Add(4)
+		go func() {
+			defer GinkgoRecover()
+			defer wg.Done()
+			Consistently(Object(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-thanos-objectstore",
+					Namespace: cluster.Namespace,
+				},
+			})).ShouldNot(Exist())
+		}()
+		go func() {
+			defer GinkgoRecover()
+			defer wg.Done()
+			Consistently(Object(&thanosv1alpha1.Thanos{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-thanos",
+					Namespace: cluster.Namespace,
+				},
+			})).ShouldNot(Exist())
+		}()
+		go func() {
+			defer GinkgoRecover()
+			defer wg.Done()
+			Consistently(Object(&thanosv1alpha1.StoreEndpoint{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-thanos-storeendpoint",
+					Namespace: cluster.Namespace,
+				},
+			})).ShouldNot(Exist())
+		}()
+		go func() {
+			defer GinkgoRecover()
+			defer wg.Done()
+			Consistently(Object(&thanosv1alpha1.ObjectStore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-thanos-objectstore",
+					Namespace: cluster.Namespace,
+				},
+			})).ShouldNot(Exist())
+		}()
+		wg.Wait()
+
+		By("reconfiguring the cluster to enable metrics")
+		updateObject(cluster, func(obj *v1beta1.OpniCluster) {
+			obj.Spec.Services.Metrics.Enabled = pointer.Bool(true)
+			obj.Spec.Services.Metrics.PrometheusEndpoint = "http://prometheus.svc"
+			obj.Spec.Services.Metrics.PrometheusNamespace = cluster.Namespace
+			obj.Spec.S3.Internal = &v1beta1.InternalSpec{}
+		})
+
+		By("checking that thanos resources are created")
+		Eventually(Object(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-thanos-objectstore",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveOwner(cluster),
+			HaveData("object-store.yaml", nil),
+		))
+		Eventually(Object(&thanosv1alpha1.Thanos{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-thanos",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(HaveOwner(cluster)))
+		Eventually(Object(&thanosv1alpha1.StoreEndpoint{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-thanos-storeendpoint",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(HaveOwner(cluster)))
+		Eventually(Object(&thanosv1alpha1.ObjectStore{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-thanos-objectstore",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(HaveOwner(cluster)))
+
+		By("checking that the metrics service is using thanos query")
+		Eventually(Object(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-svc-metrics",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveOwner(cluster),
+			HaveMatchingContainer(And(
+				HaveEnv("PROMETHEUS_ENDPOINT",
+					fmt.Sprintf("http://opni-thanos-query.%s.svc:10902", cluster.Namespace)),
+			)),
+		))
+
+		By("reconfiguring the cluster to disable metrics")
+		updateObject(cluster, func(obj *v1beta1.OpniCluster) {
+			obj.Spec.Services.Metrics.Enabled = pointer.Bool(false)
+		})
+
+		By("checking that thanos resources are deleted")
+		Eventually(Object(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-thanos-objectstore",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(Not(Exist()))
+		Eventually(Object(&thanosv1alpha1.Thanos{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-thanos",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(Not(Exist()))
+		Eventually(Object(&thanosv1alpha1.StoreEndpoint{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-thanos-storeendpoint",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(Not(Exist()))
+		Eventually(Object(&thanosv1alpha1.ObjectStore{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-thanos-objectstore",
+				Namespace: cluster.Namespace,
+			},
+		})).Should(Not(Exist()))
 	})
 })

@@ -50,7 +50,7 @@ func formatS3Endpoint(u url.URL) (string, bool, error) {
 	return strings.Replace(u.String(), u.Scheme+"://", "", 1), u.Scheme == "http", nil
 }
 
-func (r *Reconciler) ensureThanosBucketExists() error {
+func (r *Reconciler) EnsureThanosBucketExists() error {
 	u, err := url.Parse(r.opniCluster.Status.Auth.S3Endpoint)
 	if err != nil {
 		return err
@@ -97,15 +97,12 @@ func (r *Reconciler) objectStoreSecret() ([]resources.Resource, error) {
 		return nil, nil
 	}
 
-	// lg := log.FromContext(r.ctx)
 	if r.opniCluster.Status.Auth.S3AccessKey == nil ||
 		r.opniCluster.Status.Auth.S3SecretKey == nil ||
 		r.opniCluster.Status.Auth.S3Endpoint == "" {
 		return nil, fmt.Errorf("S3 auth info unavailable")
 	}
-	if err := r.ensureThanosBucketExists(); err != nil {
-		// lg.Error(err, "failed to check or configure thanos s3 bucket")
-	}
+
 	credsProvider := util.S3CredentialsProvider{
 		Client:      r.client,
 		Namespace:   r.opniCluster.Namespace,
@@ -154,7 +151,7 @@ config:
 		},
 	}
 
-	ctrl.SetControllerReference(thanosSecret, r.opniCluster, r.client.Scheme())
+	ctrl.SetControllerReference(r.opniCluster, thanosSecret, r.client.Scheme())
 	if pointer.BoolDeref(r.opniCluster.Spec.Services.Metrics.Enabled, false) {
 		return []resources.Resource{
 			resources.Present(thanosSecret),

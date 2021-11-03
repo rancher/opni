@@ -71,7 +71,7 @@ func (r *Reconciler) objectStore() client.Object {
 			},
 		},
 	}
-	ctrl.SetControllerReference(os, r.opniCluster, r.client.Scheme())
+	ctrl.SetControllerReference(r.opniCluster, os, r.client.Scheme())
 	return os
 }
 
@@ -96,7 +96,7 @@ func (r *Reconciler) storeEndpoint() client.Object {
 			},
 		},
 	}
-	ctrl.SetControllerReference(se, r.opniCluster, r.client.Scheme())
+	ctrl.SetControllerReference(r.opniCluster, se, r.client.Scheme())
 	return se
 }
 
@@ -116,6 +116,6 @@ func (r *Reconciler) thanos() client.Object {
 			StoreGateway: storeGateway,
 		},
 	}
-	ctrl.SetControllerReference(thanos, r.opniCluster, r.client.Scheme())
+	ctrl.SetControllerReference(r.opniCluster, thanos, r.client.Scheme())
 	return thanos
 }

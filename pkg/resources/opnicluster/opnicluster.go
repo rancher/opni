@@ -109,6 +109,9 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	// Nats, S3, Elasticsearch, and Thanos reconcilers will add fields to the
 	// opniCluster status object which are used by other reconcilers.
 
+	elasticReconciler := elastic.NewReconciler(r.ctx, r.client, r.opniCluster)
+	thanosReconciler := thanos.NewReconciler(r.ctx, r.client, r.opniCluster)
+
 	resourceSets := []resourceSet{
 		{
 			Name:    "Nats",
@@ -120,12 +123,12 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		},
 		{
 			Name:                "Elasticsearch",
-			Factory:             elastic.NewReconciler(r.ctx, r.client, r.opniCluster).ElasticResources,
+			Factory:             elasticReconciler.ElasticResources,
 			DeferDelayedRequeue: true,
 		},
 		{
 			Name:    "Thanos",
-			Factory: thanos.NewReconciler(r.ctx, r.client, r.opniCluster).ThanosResources,
+			Factory: thanosReconciler.ThanosResources,
 		},
 		{
 			Name:    "Opni Services",
@@ -174,7 +177,15 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		conditions = conditions[:len(conditions)-1]
 	}
 
-	// All resources reconciled successfully, run status checks
+	// All resources reconciled successfully, run status checks and post-setup steps
+
+	if err := thanosReconciler.EnsureThanosBucketExists(); err != nil {
+		lg.Info(err.Error())
+		conditions = append(conditions, "Configuring Thanos S3 storage")
+		return &reconcile.Result{
+			RequeueAfter: time.Second * 5,
+		}, nil
+	}
 
 	// Check the status of the opensearch data statefulset and update status if it's ready
 	osData := &appsv1.StatefulSet{}

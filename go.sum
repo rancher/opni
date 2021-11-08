@@ -241,10 +241,10 @@ github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/daviddengcn/go-colortext v0.0.0-20160507010035-511bcaf42ccd/go.mod h1:dv4zxwHi5C/8AeI+4gX4dCWOIvNi7I6JCSX0HvlKPgE=
-github.com/dbason/logging-operator v0.0.0-20211020201013-d8577a836438 h1:6cuu+A21YaW7PPrk5+bszC0N6+2CjQxkMWU4mf5J8Vk=
-github.com/dbason/logging-operator v0.0.0-20211020201013-d8577a836438/go.mod h1:JcbSQo4reCDpHY5WLv96sY3ISPVd46PMy/geEgBy79g=
-github.com/dbason/logging-operator/pkg/sdk v0.0.0-20211020201013-d8577a836438 h1:IgHtu95ZbAI4lnIVU5v/LmeeUnIHQ8HvAP69WszZA9A=
-github.com/dbason/logging-operator/pkg/sdk v0.0.0-20211020201013-d8577a836438/go.mod h1:72ynzqFEoKo93T8z7PyfhBxl9gjrpIoc6hFjtucesBI=
+github.com/dbason/logging-operator v0.0.0-20211104200206-ca165c7327da h1:FovJYQQkjDv4mLwkYmpC/CJK7W6oySBMsDdBKB5yk7Q=
+github.com/dbason/logging-operator v0.0.0-20211104200206-ca165c7327da/go.mod h1:JcbSQo4reCDpHY5WLv96sY3ISPVd46PMy/geEgBy79g=
+github.com/dbason/logging-operator/pkg/sdk v0.0.0-20211104200206-ca165c7327da h1:6o9MklYR10dkdLb4snoS170nVnK0+ByU7KoMulGqWvQ=
+github.com/dbason/logging-operator/pkg/sdk v0.0.0-20211104200206-ca165c7327da/go.mod h1:72ynzqFEoKo93T8z7PyfhBxl9gjrpIoc6hFjtucesBI=
 github.com/deislabs/oras v0.11.1/go.mod h1:39lCtf8Q6WDC7ul9cnyWXONNzKvabEKk+AX+L0ImnQk=
 github.com/denisenkom/go-mssqldb v0.0.0-20191001013358-cfbb681360f0/go.mod h1:xbL0rPBG9cCiLr28tMa8zpbdarY27NDyej4t/EjAShU=
 github.com/denverdino/aliyungo v0.0.0-20190125010748-a747050bb1ba/go.mod h1:dV8lFg6daOBZbT6/BDGIz6Y3WFGn8juu6G+CQ6LHtl0=

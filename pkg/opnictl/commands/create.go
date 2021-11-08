@@ -11,7 +11,6 @@ func BuildCreateCmd() *cobra.Command {
 		Short: "Create new Opni resources",
 		Long:  "See subcommands for more information.",
 	}
-	createCmd.AddCommand(BuildCreateDemoCmd())
 	createCmd.AddCommand(BuildCreateClusterCmd())
 	return createCmd
 }

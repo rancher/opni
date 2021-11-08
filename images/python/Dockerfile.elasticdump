@@ -1,5 +1,6 @@
 FROM rancher/opni-python-base:3.8
 
+
 RUN \
   apt-get update && \
   apt-get install -yqq wget gnupg && \
@@ -10,6 +11,6 @@ RUN \
   apt-get update && \
   apt-get install -yqq nodejs yarn && \
   npm i -g npm@^6 && \
-  npm i -g elasticdump && \
+  npm i -g opni-elasticdump && \
   apt-get purge -y --auto-remove wget && \
   rm -rf /var/lib/apt/lists/*

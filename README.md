@@ -23,7 +23,9 @@ Opni currently features log anomaly detection for Kubernetes.
 ----
 
 ### Deprecation Notice
-Please note the opnidemo resource, and opnictl are being deprecated in the next release.
+The Opnidemo API has been removed in the v0.2.1 release.
+
+Opnictl is currently deprecated.
 ## Getting started with Opni
 
 ### Full Install Opni in your Kubernetes cluster:

@@ -45001,6 +45001,39 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  - events
+  - persistentvolumeclaims
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  - namespaces
+  - pods
+  - pods/eviction
+  - serviceaccounts
+  - services
+  - services/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - endpoints
   - namespaces
   - pods
@@ -45010,6 +45043,16 @@ rules:
   verbs:
   - create
   - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
   - get
   - list
   - patch
@@ -45085,6 +45128,7 @@ rules:
   verbs:
   - get
   - list
+  - use
   - watch
 - apiGroups:
   - coordination.k8s.io
@@ -45317,6 +45361,29 @@ rules:
   - patch
   - update
 - apiGroups:
+  - node.k8s.io
+  resources:
+  - runtimeclasses
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nvidia.com
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - nvidia.opni.io
   resources:
   - '*'
@@ -45521,6 +45588,7 @@ rules:
   - list
   - patch
   - update
+  - use
   - watch
 - apiGroups:
   - scheduling.k8s.io
@@ -45530,6 +45598,8 @@ rules:
   - create
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - security.openshift.io
@@ -45542,6 +45612,7 @@ rules:
   - list
   - patch
   - update
+  - use
   - watch
 - apiGroups:
   - storage.k8s.io

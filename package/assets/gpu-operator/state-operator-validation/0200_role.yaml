@@ -16,16 +16,35 @@ rules:
   - ""
   resources:
   - pods
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
   - nodes
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
 - apiGroups:
   - apps
   resources:
   - deployments
   - daemonsets
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
 - apiGroups:
   - policy
   resources:
@@ -39,4 +58,10 @@ rules:
   resources:
   - clusterpolicies/finalizers
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete

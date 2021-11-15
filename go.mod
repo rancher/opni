@@ -118,7 +118,7 @@ require (
 )
 
 replace (
-	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211018192549-27689de6173c
+	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
 	github.com/banzaicloud/logging-operator => github.com/dbason/logging-operator v0.0.0-20211104200206-ca165c7327da
 	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/dbason/logging-operator/pkg/sdk v0.0.0-20211104200206-ca165c7327da
 	// github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7

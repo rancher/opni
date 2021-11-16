@@ -21428,6 +21428,7 @@ spec:
                 - k3s
                 - rke
                 - rke2
+                - generic
                 type: string
               rke:
                 properties:

@@ -3,7 +3,7 @@ kind: LogAdapter
 metadata:
   name: lga
 spec:
-  provider: none
+  provider: generic
   opniCluster:
     name: cluster
     namespace: opni

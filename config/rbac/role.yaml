@@ -136,6 +136,15 @@ rules:
 - apiGroups:
   - batch
   resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
   - jobs
   verbs:
   - create
@@ -188,6 +197,16 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  - namespaces
+  - pods
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - ""

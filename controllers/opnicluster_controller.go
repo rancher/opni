@@ -49,6 +49,11 @@ type OpniClusterReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 
+// Required for insights service
+// +kubebuilder:rbac:groups=core,resources=namespaces;endpoints;pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps,resources=deployments;replicasets;daemonsets;statefulsets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=batch,resources=jobs;cronjobs,verbs=get;list;watch
+
 func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	opniCluster := &v1beta1.OpniCluster{}
 	err := r.Get(ctx, req.NamespacedName, opniCluster)

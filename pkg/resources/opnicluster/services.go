@@ -8,6 +8,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
@@ -41,6 +42,8 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.preprocessingDeployment,
 		r.gpuCtrlDeployment,
 		r.metricsDeployment,
+		r.metricsService,
+		r.metricsServiceMonitor,
 		r.insightsServiceAccount,
 		r.insightsClusterRoleBinding,
 		r.insightsDeployment,
@@ -611,6 +614,67 @@ func (r *Reconciler) metricsDeployment() (runtime.Object, reconciler.DesiredStat
 		Value: r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint,
 	})
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
+}
+
+func (r *Reconciler) metricsService() (runtime.Object, reconciler.DesiredState, error) {
+	labels := r.serviceLabels(v1beta1.MetricsService)
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      labels[resources.AppNameLabel],
+			Namespace: r.opniCluster.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
+			Labels: labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Port:       8000,
+					Name:       "metrics",
+					TargetPort: intstr.FromInt(8000),
+				},
+			},
+		},
+	}
+	return service, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
+}
+
+func (r *Reconciler) metricsServiceMonitor() (runtime.Object, reconciler.DesiredState, error) {
+	labels := r.serviceLabels(v1beta1.InsightsService)
+	serviceMonitor := &monitoringv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      labels[resources.AppNameLabel],
+			Namespace: r.opniCluster.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: r.opniCluster.APIVersion,
+					Kind:       r.opniCluster.Kind,
+					Name:       r.opniCluster.Name,
+					UID:        r.opniCluster.UID,
+				},
+			},
+			Labels: labels,
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Selector: metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Endpoints: []monitoringv1.Endpoint{
+				{
+					Port:          "metrics",
+					ScrapeTimeout: "5s",
+				},
+			},
+		},
+	}
+	return serviceMonitor, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
 }
 
 func (r *Reconciler) insightsServiceAccount() (runtime.Object, reconciler.DesiredState, error) {

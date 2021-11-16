@@ -48,6 +48,7 @@ func BuildRootLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 					EnhanceK8s: &filter.EnhanceK8s{
 						InNamespacePath: []string{`$.kubernetes.namespace_name`},
 						InPodPath:       []string{`$.kubernetes.pod_name`},
+						APIGroups:       []string{"apps/v1"},
 					},
 				},
 			},

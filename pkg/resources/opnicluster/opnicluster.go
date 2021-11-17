@@ -14,6 +14,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -189,8 +190,9 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 			return err
 		}
-		if r.opniCluster.Status.NatsReplicas != *r.getReplicas() {
-			r.opniCluster.Status.NatsReplicas = *r.getReplicas()
+		replicas := pointer.Int32Deref(r.opniCluster.Spec.Nats.Replicas, 3)
+		if r.opniCluster.Status.NatsReplicas != replicas {
+			r.opniCluster.Status.NatsReplicas = replicas
 		}
 		return r.client.Status().Update(r.ctx, r.opniCluster)
 	})

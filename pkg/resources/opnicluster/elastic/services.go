@@ -90,6 +90,7 @@ func (r *Reconciler) elasticServices() []resources.Resource {
 			Labels:    labels.WithRole(v1beta1.ElasticMasterRole),
 		},
 		Spec: corev1.ServiceSpec{
+			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
 				transportPort,
 			},

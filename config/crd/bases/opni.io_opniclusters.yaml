@@ -1996,6 +1996,13 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      prometheus:
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        type: object
                       prometheusEndpoint:
                         type: string
                       tolerations:
@@ -2201,6 +2208,8 @@ spec:
                   version:
                     type: string
                 type: object
+              prometheusRuleNamespace:
+                type: string
               state:
                 type: string
             type: object

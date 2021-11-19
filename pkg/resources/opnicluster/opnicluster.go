@@ -7,17 +7,24 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic"
 	"github.com/rancher/opni/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+)
+
+const (
+	prometheusRuleFinalizer = "opni.io/prometheusRule"
 )
 
 var (
@@ -84,6 +91,14 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			lg.Error(err, "failed to update status")
 		}
 	}()
+
+	// Handle finalizer
+	if r.opniCluster.DeletionTimestamp != nil && controllerutil.ContainsFinalizer(r.opniCluster, prometheusRuleFinalizer) {
+		retResult, retErr = r.cleanupPrometheusRule()
+		if retErr != nil || retResult != nil {
+			return
+		}
+	}
 
 	allResources := []resources.Resource{}
 	opniServices, err := r.opniServices()
@@ -248,6 +263,37 @@ func (r *Reconciler) ReconcileElasticUpgrade() (retResult *reconcile.Result, ret
 	})
 
 	return
+}
+
+func (r *Reconciler) cleanupPrometheusRule() (retResult *reconcile.Result, retErr error) {
+	if r.opniCluster.Status.PrometheusRuleNamespace == "" {
+		retErr = errors.New("prometheusRule namespace is unknown")
+		return
+	}
+	prometheusRule := &monitoringv1.PrometheusRule{}
+	err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      fmt.Sprintf("%s-%s", v1beta1.MetricsService.ServiceName(), r.generateSHAID()),
+		Namespace: r.opniCluster.Status.PrometheusRuleNamespace,
+	}, prometheusRule)
+	if k8serrors.IsNotFound(err) {
+		controllerutil.RemoveFinalizer(r.opniCluster, prometheusRuleFinalizer)
+		retErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
+			}
+			controllerutil.RemoveFinalizer(r.opniCluster, prometheusRuleFinalizer)
+			return r.client.Update(r.ctx, r.opniCluster)
+		})
+		return
+	} else if err != nil {
+		retErr = err
+		return
+	}
+	retErr = r.client.Delete(r.ctx, prometheusRule)
+	if retErr != nil {
+		return
+	}
+	return &reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
 func (r *Reconciler) ReconcileLogCollector() (retResult *reconcile.Result, retErr error) {

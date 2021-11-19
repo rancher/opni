@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"crypto/sha1"
 	"fmt"
 	"reflect"
 	"testing"
@@ -171,6 +172,7 @@ type opniClusterOpts struct {
 	Models              []string
 	DisableOpniServices bool
 	PrometheusEndpoint  string
+	UsePrometheusRef    bool
 }
 
 func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
@@ -248,7 +250,19 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 						if opts.PrometheusEndpoint != "" {
 							return opts.PrometheusEndpoint
 						}
+						if opts.UsePrometheusRef {
+							return ""
+						}
 						return "http://dummy-endpoint"
+					}(),
+					PrometheusReference: func() *v1beta1.PrometheusReference {
+						if opts.UsePrometheusRef {
+							return &v1beta1.PrometheusReference{
+								Name:      "test-prometheus",
+								Namespace: "prometheus",
+							}
+						}
+						return nil
 					}(),
 				},
 				Insights: v1beta1.InsightsServiceSpec{
@@ -262,4 +276,11 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 			},
 		},
 	}
+}
+
+func generateSHAID(name string, namespace string) string {
+	hash := sha1.New()
+	hash.Write([]byte(name + namespace))
+	sum := hash.Sum(nil)
+	return fmt.Sprintf("%x", sum[:3])
 }

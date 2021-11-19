@@ -325,6 +325,14 @@ rules:
 - apiGroups:
   - monitoring.coreos.com
   resources:
+  - prometheuses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
   - prometheusrule
   - servicemonitors
   verbs:

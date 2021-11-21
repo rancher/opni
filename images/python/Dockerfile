@@ -1,5 +1,6 @@
 FROM registry.suse.com/suse/sle15:15.3 as base
-RUN zypper --non-interactive in python39 \
+RUN zypper -n ref \
+    && zypper --non-interactive in python39 \
     && zypper --non-interactive in python39-pip \
     && zypper --non-interactive in python39-devel \
     && ln -s /usr/bin/python3.9 /usr/bin/python \

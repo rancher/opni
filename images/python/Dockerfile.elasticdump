@@ -1,6 +1,7 @@
 FROM rancher/opni-python-base:3.8
 
 RUN \
+  zypper -n ref && \
   zypper --non-interactive in npm-default && \
   npm i -g npm@^6 && \
   npm i -g elasticdump

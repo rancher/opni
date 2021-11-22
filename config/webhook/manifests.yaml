@@ -66,6 +66,10 @@ webhooks:
       path: /highlander-opni-io-v1beta1-opnicluster
   failurePolicy: Fail
   name: highlander.opni.io
+  objectSelector:
+    matchExpressions:
+    - key: "quickening.opni.io"
+      operator: DoesNotExist
   rules:
   - apiGroups:
     - opni.io

@@ -34757,6 +34757,13 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      prometheus:
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        type: object
                       prometheusEndpoint:
                         type: string
                       tolerations:
@@ -34962,6 +34969,8 @@ spec:
                   version:
                     type: string
                 type: object
+              prometheusRuleNamespace:
+                type: string
               state:
                 type: string
             type: object
@@ -45317,6 +45326,14 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheuses
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - monitoring.coreos.com

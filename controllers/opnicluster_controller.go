@@ -42,6 +42,9 @@ type OpniClusterReconciler struct {
 // +kubebuilder:rbac:groups=opni.io,resources=opniclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=opni.io,resources=opniclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=opni.io,resources=opniclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheuses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete

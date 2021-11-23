@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-prometheus
+  namespace: prometheus
+spec:
+  ports:
+  - name: prometheus
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app.kubernetes.io/name: prometheus
+    prometheus: test-prometheus
+  type: ClusterIP

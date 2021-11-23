@@ -9,6 +9,7 @@ import (
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -275,6 +276,96 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      v1beta1.MetricsService.ServiceName(),
 				Namespace: cluster.Namespace,
+			},
+		})).ShouldNot(Exist())
+	})
+	It("should create monitoring objects when prometheusRef is defined", func() {
+		By("creating a prometheus")
+		namespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "prometheus",
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), namespace)).To(Succeed())
+		prometheus := &monitoringv1.Prometheus{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-prometheus",
+				Namespace: "prometheus",
+			},
+			Spec: monitoringv1.PrometheusSpec{
+				ExternalURL:    "http://prometheus-test.prometheus",
+				EnableAdminAPI: false,
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    *resource.NewMilliQuantity(250, resource.DecimalSI),
+						corev1.ResourceMemory: *resource.NewScaledQuantity(250, resource.Mega),
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), prometheus)).To(Succeed())
+
+		By("creating a cluster")
+		createCluster(buildCluster(opniClusterOpts{
+			Name:             "test-cluster",
+			UsePrometheusRef: true,
+		}))
+
+		By("checking the metrics service is created")
+		Eventually(Object(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      v1beta1.MetricsService.ServiceName(),
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveLabels(
+				resources.AppNameLabel, v1beta1.MetricsService.ServiceName(),
+				resources.ServiceLabel, v1beta1.MetricsService.String(),
+				resources.PartOfLabel, "opni",
+			),
+			HaveOwner(cluster),
+		))
+		Eventually(Object(&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      v1beta1.MetricsService.ServiceName(),
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveLabels(
+				resources.AppNameLabel, v1beta1.MetricsService.ServiceName(),
+				resources.ServiceLabel, v1beta1.MetricsService.String(),
+				resources.PartOfLabel, "opni",
+			),
+			HavePorts("metrics"),
+			HaveOwner(cluster),
+		))
+		By("checking the monitoring resources are created")
+		Eventually(Object(&monitoringv1.ServiceMonitor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      v1beta1.MetricsService.ServiceName(),
+				Namespace: cluster.Namespace,
+			},
+		})).Should(ExistAnd(
+			HaveOwner(cluster),
+		))
+		Eventually(Object(&monitoringv1.PrometheusRule{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-%s", v1beta1.MetricsService.ServiceName(), generateSHAID(cluster.Name, cluster.Namespace)),
+				Namespace: "prometheus",
+			},
+		})).Should(ExistAnd(
+			Not(HaveOwner(cluster)),
+		))
+	})
+	It("should clean up the prometheusRule", func() {
+		By("deleting the cluster")
+		Expect(k8sClient.Delete(context.Background(), cluster)).To(Succeed())
+
+		By("checking the prometheus rule is deleted")
+		Eventually(Object(&monitoringv1.PrometheusRule{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-%s", v1beta1.MetricsService.ServiceName(), generateSHAID(cluster.Name, cluster.Namespace)),
+				Namespace: "prometheus",
 			},
 		})).ShouldNot(Exist())
 	})

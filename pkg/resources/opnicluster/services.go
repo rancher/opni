@@ -97,9 +97,13 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retE
 		// should be present.
 		modelName := deployment.Labels[resources.PretrainedModelLabel]
 		existing[modelName] = struct{}{}
+		hpa := r.pretrainedModelHPA(models[modelName])
 		if _, ok := models[modelName]; !ok {
 			lg.Info("deleting pretrained model deployment", "model", modelName)
-			resourceList = append(resourceList, resources.Absent(deployment.DeepCopy()))
+			resourceList = append(resourceList,
+				resources.Absent(deployment.DeepCopy()),
+				resources.Absent(hpa),
+			)
 		} else {
 			deployment, err := r.pretrainedModelDeployment(models[modelName])
 			if err != nil {
@@ -107,7 +111,7 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retE
 				retError = err
 				continue
 			}
-			resourceList = append(resourceList, deployment)
+			resourceList = append(resourceList, deployment, resources.Present(hpa))
 		}
 	}
 
@@ -120,11 +124,46 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retE
 				retError = err
 				continue
 			}
+			hpa := resources.Present(r.pretrainedModelHPA(v))
 			lg.Info("creating pretrained model deployment", "model", k)
-			resourceList = append(resourceList, deployment)
+			resourceList = append(resourceList, deployment, hpa)
 		}
 	}
 	return
+}
+
+func (r *Reconciler) pretrainedModelHPA(
+	modelRef corev1.LocalObjectReference,
+) *autoscalingv2.HorizontalPodAutoscaler {
+	name := fmt.Sprintf("opni-inference-%s", modelRef.Name)
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.opniCluster.Namespace,
+		},
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       name,
+			},
+			MaxReplicas: 5,
+			Metrics: []autoscalingv2.MetricSpec{
+				{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceCPU,
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
+							AverageUtilization: pointer.Int32Ptr(80),
+						},
+					},
+				},
+			},
+		},
+	}
+	ctrl.SetControllerReference(r.opniCluster, hpa, r.client.Scheme())
+	return hpa
 }
 
 func (r *Reconciler) pretrainedModelDeployment(

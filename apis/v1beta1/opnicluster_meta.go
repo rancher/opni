@@ -5,6 +5,7 @@ import (
 	"path"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 )
 
@@ -136,7 +137,14 @@ func (s ServiceKind) GetTolerations(opniCluster *OpniCluster) []corev1.Toleratio
 func (s ServiceKind) GetResourceRequirements(opniCluster *OpniCluster) corev1.ResourceRequirements {
 	switch s {
 	case InferenceService:
-		return opniCluster.Spec.Services.Inference.Resources
+		res := opniCluster.Spec.Services.Inference.Resources
+		if len(res.Limits) == 0 {
+			// Set inference service default cpu limit
+			res.Limits = corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse("4"),
+			}
+		}
+		return res
 	case DrainService:
 		return opniCluster.Spec.Services.Drain.Resources
 	case PreprocessingService:

@@ -17,6 +17,10 @@ const (
 	drainStatusIndexPrefix       = "opni-drain-model-status-v0.1.3"
 	drainStatusIndexAlias        = "opni-drain-model-status"
 	drainStatusIndexTemplateName = "opni-drain-model-status_rollover_mapping"
+	metricPolicyName             = "opni-metric-policy"
+	metricIndexPrefix            = "opni-metric-v0.1.3"
+	metricIndexAlias             = "opni-metric"
+	metricIndexTemplateName      = "opni-metric_rollover_mapping"
 	normalIntervalIndexName      = "opni-normal-intervals"
 	kibanaDashboardVersionDocID  = "latest"
 	kibanaDashboardVersion       = "v0.1.3"
@@ -418,6 +422,204 @@ var (
 		},
 	}
 
+	opniMetricPolicy = esapiext.ISMPolicySpec{
+		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+			PolicyID:   metricPolicyName,
+			MarshallID: false,
+		},
+		Description:  "A hot-warm-cold-delete workflow for the opni-metric index.",
+		DefaultState: "hot",
+		States: []esapiext.StateSpec{
+			{
+				Name: "hot",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							Rollover: &esapiext.RolloverOperation{
+								MinSize:     "1gb",
+								MinIndexAge: "1d",
+							},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "warm",
+					},
+				},
+			},
+			{
+				Name: "warm",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ReplicaCount: &esapiext.ReplicaCountOperation{
+								NumberOfReplicas: 0,
+							},
+						},
+					},
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							IndexPriority: &esapiext.IndexPriorityOperation{
+								Priority: 50,
+							},
+						},
+					},
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ForceMerge: &esapiext.ForceMergeOperation{
+								MaxNumSegments: 1,
+							},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "cold",
+						Conditions: &esapiext.ConditionSpec{
+							MinIndexAge: "7d",
+						},
+					},
+				},
+			},
+			{
+				Name: "cold",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ReadOnly: &esapiext.ReadOnlyOperation{},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "delete",
+						Conditions: &esapiext.ConditionSpec{
+							MinIndexAge: "30d",
+						},
+					},
+				},
+			},
+			{
+				Name: "delete",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							Delete: &esapiext.DeleteOperation{},
+						},
+					},
+				},
+				Transitions: make([]esapiext.TransitionSpec, 0),
+			},
+		},
+		ISMTemplate: []esapiext.ISMTemplateSpec{
+			{
+				IndexPatterns: []string{
+					fmt.Sprintf("%s*", metricIndexPrefix),
+				},
+				Priority: 100,
+			},
+		},
+	}
+
+	oldOpniMetricPolicy = esapiext.OldISMPolicySpec{
+		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+			PolicyID:   metricPolicyName,
+			MarshallID: false,
+		},
+		Description:  "A hot-warm-cold-delete workflow for the opni-metric index.",
+		DefaultState: "hot",
+		States: []esapiext.StateSpec{
+			{
+				Name: "hot",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							Rollover: &esapiext.RolloverOperation{
+								MinSize:     "1gb",
+								MinIndexAge: "1d",
+							},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "warm",
+					},
+				},
+			},
+			{
+				Name: "warm",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ReplicaCount: &esapiext.ReplicaCountOperation{
+								NumberOfReplicas: 0,
+							},
+						},
+					},
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							IndexPriority: &esapiext.IndexPriorityOperation{
+								Priority: 50,
+							},
+						},
+					},
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ForceMerge: &esapiext.ForceMergeOperation{
+								MaxNumSegments: 1,
+							},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "cold",
+						Conditions: &esapiext.ConditionSpec{
+							MinIndexAge: "7d",
+						},
+					},
+				},
+			},
+			{
+				Name: "cold",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							ReadOnly: &esapiext.ReadOnlyOperation{},
+						},
+					},
+				},
+				Transitions: []esapiext.TransitionSpec{
+					{
+						StateName: "delete",
+						Conditions: &esapiext.ConditionSpec{
+							MinIndexAge: "30d",
+						},
+					},
+				},
+			},
+			{
+				Name: "delete",
+				Actions: []esapiext.ActionSpec{
+					{
+						ActionOperation: &esapiext.ActionOperation{
+							Delete: &esapiext.DeleteOperation{},
+						},
+					},
+				},
+				Transitions: make([]esapiext.TransitionSpec, 0),
+			},
+		},
+		ISMTemplate: &esapiext.ISMTemplateSpec{
+			IndexPatterns: []string{
+				fmt.Sprintf("%s*", metricIndexPrefix),
+			},
+			Priority: 100,
+		},
+	}
+
 	opniLogTemplate = esapiext.IndexTemplateSpec{
 		TemplateName: logIndexTemplateName,
 		IndexPatterns: []string{
@@ -439,6 +641,29 @@ var (
 			},
 		},
 	}
+
+	opniMetricTemplate = esapiext.IndexTemplateSpec{
+		TemplateName: metricIndexTemplateName,
+		IndexPatterns: []string{
+			fmt.Sprintf("%s*", metricIndexPrefix),
+		},
+		Template: esapiext.TemplateSpec{
+			Settings: esapiext.TemplateSettingsSpec{
+				NumberOfShards:   2,
+				NumberOfReplicas: 1,
+				ISMPolicyID:      metricPolicyName,
+				RolloverAlias:    metricIndexAlias,
+			},
+			Mappings: esapiext.TemplateMappingsSpec{
+				Properties: map[string]esapiext.PropertySettings{
+					"timestamp": {
+						Type: "date",
+					},
+				},
+			},
+		},
+	}
+
 	drainStatusTemplate = esapiext.IndexTemplateSpec{
 		TemplateName: drainStatusIndexTemplateName,
 		IndexPatterns: []string{

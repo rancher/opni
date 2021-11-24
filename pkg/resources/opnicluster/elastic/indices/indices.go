@@ -135,9 +135,11 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	if oldVersion {
 		policies = append(policies, oldOpniLogPolicy)
 		policies = append(policies, oldOpniDrainModelStatusPolicy)
+		policies = append(policies, oldOpniMetricPolicy)
 	} else {
 		policies = append(policies, opniLogPolicy)
 		policies = append(policies, opniDrainModelStatusPolicy)
+		policies = append(policies, opniMetricPolicy)
 	}
 	for _, policy := range policies {
 		err = r.esReconciler.reconcileISM(policy)
@@ -151,6 +153,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	for _, template := range []esapiext.IndexTemplateSpec{
 		opniLogTemplate,
 		drainStatusTemplate,
+		opniMetricTemplate,
 	} {
 		err = r.esReconciler.maybeCreateIndexTemplate(&template)
 		if err != nil {
@@ -163,6 +166,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	for prefix, alias := range map[string]string{
 		logIndexPrefix:         logIndexAlias,
 		drainStatusIndexPrefix: drainStatusIndexAlias,
+		metricIndexPrefix:      metricIndexAlias,
 	} {
 		err = r.esReconciler.maybeBootstrapIndex(prefix, alias)
 		if err != nil {

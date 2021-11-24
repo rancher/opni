@@ -25,6 +25,39 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  - events
+  - persistentvolumeclaims
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  - namespaces
+  - pods
+  - pods/eviction
+  - serviceaccounts
+  - services
+  - services/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - endpoints
   - namespaces
   - pods
@@ -40,11 +73,15 @@ rules:
   - update
   - watch
 - apiGroups:
-  - '*'
+  - ""
   resources:
-  - '*'
+  - nodes
   verbs:
-  - '*'
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - apps
   resources:
@@ -99,6 +136,15 @@ rules:
 - apiGroups:
   - batch
   resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
   - jobs
   verbs:
   - create
@@ -115,6 +161,7 @@ rules:
   verbs:
   - get
   - list
+  - use
   - watch
 - apiGroups:
   - coordination.k8s.io
@@ -150,6 +197,16 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  - namespaces
+  - pods
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - ""
@@ -265,9 +322,17 @@ rules:
   - update
   - watch
 - apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - logging.opni.io
   resources:
-  - loggings
+  - '*'
   verbs:
   - create
   - delete
@@ -275,6 +340,14 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheuses
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - monitoring.coreos.com
@@ -338,6 +411,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - node.k8s.io
+  resources:
+  - runtimeclasses
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nvidia.com
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - nvidia.opni.io
   resources:
@@ -458,6 +554,19 @@ rules:
   - patch
   - update
 - apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - use
+  - watch
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
@@ -530,6 +639,7 @@ rules:
   - list
   - patch
   - update
+  - use
   - watch
 - apiGroups:
   - scheduling.k8s.io
@@ -539,6 +649,8 @@ rules:
   - create
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - security.openshift.io
@@ -551,6 +663,7 @@ rules:
   - list
   - patch
   - update
+  - use
   - watch
 - apiGroups:
   - storage.k8s.io

@@ -1,4 +1,4 @@
-FROM registry.opensuse.org/devel/bci/images/bci/minimal:latest
+FROM registry.suse.com/suse/sle15:15.3
 
 WORKDIR /
 COPY manager .

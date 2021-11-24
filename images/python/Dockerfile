@@ -1,11 +1,15 @@
-FROM python:3.8-slim-bullseye as base
+FROM registry.suse.com/suse/sle15:15.3 as base
+RUN zypper -n ref \
+    && zypper --non-interactive in python39 \
+    && zypper --non-interactive in python39-pip \
+    && zypper --non-interactive in python39-devel \
+    && ln -s /usr/bin/python3.9 /usr/bin/python \
+    && ln -s /usr/bin/pip3.9 /usr/bin/pip
 
 #Base builder
 FROM base as builder1
 
-RUN apt-get update \
-    && apt-get install gcc -y \
-    && apt-get clean
+RUN zypper --non-interactive in gcc
 
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
@@ -13,7 +17,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY ./requirements.txt /requirements.txt
 
 RUN pip install -r /requirements.txt
-
 # Base torch
 FROM builder1 as builder2
 

@@ -36,7 +36,6 @@ import (
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/controllers"
-	"github.com/rancher/opni/controllers/demo"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
@@ -121,10 +120,6 @@ func run() error {
 
 	if err = (&controllers.OpniClusterReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OpniCluster")
-		return err
-	}
-	if err = (&demo.OpniDemoReconciler{}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "OpniDemo")
 		return err
 	}
 

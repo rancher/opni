@@ -41,10 +41,12 @@ type LogAdapterReconciler struct {
 //+kubebuilder:rbac:groups=opni.io,resources=logadapters;opniclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=opni.io,resources=logadapters;opniclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=opni.io,resources=logadapters;opniclusters/finalizers,verbs=update
-//+kubebuilder:rbac:groups=logging.opni.io,resources=loggings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=logging.opni.io,resources=*,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=policy,resources=podsecuritypolicies,verbs=get;list;watch;create;update;patch;delete;use
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=get;list;watch
 
 func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// lg := log.FromContext(ctx)

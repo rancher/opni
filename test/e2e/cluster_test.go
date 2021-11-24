@@ -113,14 +113,18 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 					Namespace: clusterCrNamespace,
 				},
 				Spec: v1beta1.OpniClusterSpec{
-					Version:            "v0.2.0",
+					Version:            "v0.2.1",
 					DeployLogCollector: pointer.BoolPtr(true),
 					Services: v1beta1.ServicesSpec{
 						GPUController: v1beta1.GPUControllerServiceSpec{
 							Enabled: pointer.BoolPtr(false),
 						},
 						Metrics: v1beta1.MetricsServiceSpec{
-							Enabled: pointer.BoolPtr(false),
+							Enabled: pointer.BoolPtr(true),
+							PrometheusReference: &v1beta1.PrometheusReference{
+								Name:      "test-prometheus",
+								Namespace: "prometheus",
+							},
 						},
 						Inference: v1beta1.InferenceServiceSpec{
 							PretrainedModels: []corev1.LocalObjectReference{

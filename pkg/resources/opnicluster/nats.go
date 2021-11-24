@@ -98,7 +98,7 @@ type natsConfigData struct {
 func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 	resourceList = []resources.Resource{}
 
-	if *r.getReplicas() == 0 {
+	if pointer.Int32Deref(r.opniCluster.Spec.Nats.Replicas, 3) == 0 {
 		return []resources.Resource{
 			func() (runtime.Object, reconciler.DesiredState, error) {
 				return r.natsStatefulSet(), reconciler.StateAbsent, nil
@@ -180,7 +180,7 @@ func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 		return
 	}
 
-	if r.opniCluster.Status.NatsReplicas != 0 && *r.getReplicas() != r.opniCluster.Status.NatsReplicas {
+	if r.opniCluster.Status.NatsReplicas != 0 && pointer.Int32Deref(r.opniCluster.Spec.Nats.Replicas, 3) != r.opniCluster.Status.NatsReplicas {
 		resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
 			return r.natsStatefulSet(), reconciler.StatePresent, nil
 		})

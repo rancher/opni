@@ -65,12 +65,13 @@ type OpniClusterSpec struct {
 
 // OpniClusterStatus defines the observed state of OpniCluster
 type OpniClusterStatus struct {
-	Conditions        []string         `json:"conditions,omitempty"`
-	State             OpniClusterState `json:"state,omitempty"`
-	OpensearchState   OpensearchStatus `json:"opensearchState,omitempty"`
-	LogCollectorState OpniClusterState `json:"logState,omitempty"`
-	NatsReplicas      int32            `json:"natsReplicas,omitempty"`
-	Auth              AuthStatus       `json:"auth,omitempty"`
+	Conditions              []string         `json:"conditions,omitempty"`
+	State                   OpniClusterState `json:"state,omitempty"`
+	OpensearchState         OpensearchStatus `json:"opensearchState,omitempty"`
+	LogCollectorState       OpniClusterState `json:"logState,omitempty"`
+	NatsReplicas            int32            `json:"natsReplicas,omitempty"`
+	Auth                    AuthStatus       `json:"auth,omitempty"`
+	PrometheusRuleNamespace string           `json:"prometheusRuleNamespace,omitempty"`
 }
 
 type AuthStatus struct {
@@ -154,11 +155,12 @@ type GPUControllerServiceSpec struct {
 }
 
 type MetricsServiceSpec struct {
-	ImageSpec          `json:",inline,omitempty"`
-	Enabled            *bool               `json:"enabled,omitempty"`
-	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
-	PrometheusEndpoint string              `json:"prometheusEndpoint,omitempty"`
+	ImageSpec           `json:",inline,omitempty"`
+	Enabled             *bool                `json:"enabled,omitempty"`
+	NodeSelector        map[string]string    `json:"nodeSelector,omitempty"`
+	Tolerations         []corev1.Toleration  `json:"tolerations,omitempty"`
+	PrometheusEndpoint  string               `json:"prometheusEndpoint,omitempty"`
+	PrometheusReference *PrometheusReference `json:"prometheus,omitempty"`
 }
 
 type InsightsServiceSpec struct {
@@ -258,6 +260,12 @@ type NatsSpec struct {
 	PasswordFrom *corev1.SecretKeySelector `json:"passwordFrom,omitempty"`
 	NodeSelector map[string]string         `json:"nodeSelector,omitempty"`
 	Tolerations  []corev1.Toleration       `json:"tolerations,omitempty"`
+}
+
+// PrometheusReference refers to a Prometheus object
+type PrometheusReference struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // +kubebuilder:object:root=true

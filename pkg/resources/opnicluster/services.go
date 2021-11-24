@@ -8,6 +8,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
@@ -22,9 +23,12 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -41,6 +45,9 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.preprocessingDeployment,
 		r.gpuCtrlDeployment,
 		r.metricsDeployment,
+		r.metricsService,
+		r.metricsServiceMonitor,
+		r.metricsPrometheusRule,
 		r.insightsServiceAccount,
 		r.insightsClusterRoleBinding,
 		r.insightsDeployment,
@@ -600,17 +607,172 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 	return deployment, deploymentState(r.opniCluster.Spec.Services.GPUController.Enabled), nil
 }
 
+func (r *Reconciler) getPrometheusEndpoint() (endpoint string) {
+	lg := log.FromContext(r.ctx)
+	if r.opniCluster.Spec.Services.Metrics.PrometheusReference != nil {
+		prometheus := &monitoringv1.Prometheus{}
+		err := r.client.Get(r.ctx, types.NamespacedName{
+			Name:      r.opniCluster.Spec.Services.Metrics.PrometheusReference.Name,
+			Namespace: r.opniCluster.Spec.Services.Metrics.PrometheusReference.Namespace,
+		}, prometheus)
+		if err != nil {
+			lg.V(1).Error(err, "unable to fetch prometheus")
+		} else {
+			endpoint = prometheus.Spec.ExternalURL
+		}
+	}
+	if r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint != "" {
+		endpoint = r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint
+	}
+
+	return
+}
+
 func (r *Reconciler) metricsDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.MetricsService)
-	_, err := url.ParseRequestURI(r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint)
+	prometheusEndpoint := r.getPrometheusEndpoint()
+	_, err := url.ParseRequestURI(prometheusEndpoint)
 	if err != nil && (r.opniCluster.Spec.Services.Metrics.Enabled == nil || *r.opniCluster.Spec.Services.Metrics.Enabled) {
 		return deployment, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), errors.New("prometheus endpoint is not a valid URL")
 	}
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
 		Name:  "PROMETHEUS_ENDPOINT",
-		Value: r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint,
+		Value: prometheusEndpoint,
 	})
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
+}
+
+func (r *Reconciler) metricsService() (runtime.Object, reconciler.DesiredState, error) {
+	labels := r.serviceLabels(v1beta1.MetricsService)
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      labels[resources.AppNameLabel],
+			Namespace: r.opniCluster.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Port:       8000,
+					Name:       "metrics",
+					TargetPort: intstr.FromInt(8000),
+				},
+			},
+		},
+	}
+	ctrl.SetControllerReference(r.opniCluster, service, r.client.Scheme())
+	return service, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
+}
+
+func (r *Reconciler) metricsServiceMonitor() (runtime.Object, reconciler.DesiredState, error) {
+	labels := r.serviceLabels(v1beta1.MetricsService)
+	serviceMonitor := &monitoringv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      labels[resources.AppNameLabel],
+			Namespace: r.opniCluster.Namespace,
+			Labels:    labels,
+		},
+		Spec: monitoringv1.ServiceMonitorSpec{
+			Selector: metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Endpoints: []monitoringv1.Endpoint{
+				{
+					Port:          "metrics",
+					ScrapeTimeout: "5s",
+				},
+			},
+		},
+	}
+	ctrl.SetControllerReference(r.opniCluster, serviceMonitor, r.client.Scheme())
+	if r.opniCluster.Spec.Services.Metrics.PrometheusReference == nil {
+		return serviceMonitor, reconciler.StateAbsent, nil
+	}
+	return serviceMonitor, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
+}
+
+func (r *Reconciler) metricsPrometheusRule() (runtime.Object, reconciler.DesiredState, error) {
+	labels := r.serviceLabels(v1beta1.MetricsService)
+	prometheusRule := &monitoringv1.PrometheusRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s", labels[resources.AppNameLabel], r.generateSHAID()),
+			Namespace: r.opniCluster.Namespace,
+			Labels:    labels,
+		},
+		Spec: monitoringv1.PrometheusRuleSpec{
+			Groups: []monitoringv1.RuleGroup{
+				{
+					Name: "opni-rules",
+					Rules: []monitoringv1.Rule{
+						{
+							Alert: "ClusterCpuUsageAnomalous",
+							Expr:  intstr.FromString(`cpu_usage{value_type="is_alert"} >= 1`),
+							Annotations: map[string]string{
+								"summary":     "Anomalous CPU usage in cluster",
+								"description": "Opni has calculated an alert score >= 5 for cluster CPU usage",
+							},
+						},
+						{
+							Alert: "ClusterMemoryUsageAnomalous",
+							Expr:  intstr.FromString(`memory_usage{value_type="is_alert"} >= 1`),
+							Annotations: map[string]string{
+								"summary":     "Anomalous memory usage in cluster",
+								"description": "Opni has calculated an alert score >= 5 for cluster memory usage",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	// Fetch Prometheus resource to calculate namespace and match labels for rules
+	if r.opniCluster.Spec.Services.Metrics.PrometheusReference != nil {
+		prometheus := &monitoringv1.Prometheus{}
+		err := r.client.Get(r.ctx, types.NamespacedName{
+			Name:      r.opniCluster.Spec.Services.Metrics.PrometheusReference.Name,
+			Namespace: r.opniCluster.Spec.Services.Metrics.PrometheusReference.Namespace,
+		}, prometheus)
+		if err != nil {
+			return prometheusRule, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), err
+		}
+		if prometheus.Spec.RuleNamespaceSelector == nil {
+			prometheusRule.SetNamespace(prometheus.Namespace)
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+					return err
+				}
+				if r.opniCluster.Status.PrometheusRuleNamespace != prometheus.Namespace {
+					r.opniCluster.Status.PrometheusRuleNamespace = prometheus.Namespace
+					err = r.client.Status().Update(r.ctx, r.opniCluster)
+					if err != nil {
+						return err
+					}
+				}
+				if r.opniCluster.DeletionTimestamp == nil {
+					controllerutil.AddFinalizer(r.opniCluster, prometheusRuleFinalizer)
+					return r.client.Update(r.ctx, r.opniCluster)
+				}
+				return nil
+			})
+			if err != nil {
+				return prometheusRule, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), err
+			}
+		} else {
+			ctrl.SetControllerReference(r.opniCluster, prometheusRule, r.client.Scheme())
+		}
+		if prometheus.Spec.RuleSelector != nil {
+			labelSelector, err := metav1.LabelSelectorAsMap(prometheus.Spec.RuleSelector)
+			if err != nil {
+				return prometheusRule, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), err
+			}
+			for k, v := range labelSelector {
+				prometheusRule.Labels[k] = v
+			}
+		}
+		return prometheusRule, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
+	}
+	return prometheusRule, reconciler.StateAbsent, nil
 }
 
 func (r *Reconciler) insightsServiceAccount() (runtime.Object, reconciler.DesiredState, error) {

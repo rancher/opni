@@ -6,6 +6,7 @@ patchesStrategicMerge:
   - patches/versions.yaml # If needed, edit this file to change versions
 
   # Uncomment one of the following to deploy a LogAdapter
+  # (or leave all examples commented to use the "generic" LogAdapter)
   # - examples/logAdapters/logAdapter_k3s_openrc.yaml
   # - examples/logAdapters/logAdapter_k3s_systemd.yaml
   # - examples/logAdapters/logAdapter_rke.yaml

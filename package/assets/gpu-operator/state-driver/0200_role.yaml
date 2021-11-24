@@ -25,9 +25,24 @@ rules:
   resources:
   - pods
   - pods/eviction
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
   - nodes
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - update
+  - patch
 - apiGroups:
   - apps
   resources:
@@ -36,4 +51,10 @@ rules:
   - replicasets
   - statefulsets
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete

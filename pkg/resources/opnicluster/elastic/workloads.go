@@ -88,7 +88,19 @@ func (r *Reconciler) elasticPodTemplate(
 							},
 						},
 					},
-					ReadinessProbe: r.readinessProbe(labels.Role()),
+					ReadinessProbe: &corev1.Probe{
+						InitialDelaySeconds: 60,
+						PeriodSeconds:       30,
+						Handler: corev1.Handler{
+							Exec: &corev1.ExecAction{
+								Command: []string{
+									"/bin/bash",
+									"-c",
+									"curl -k -u admin:${ES_PASSWORD} --silent --fail https://localhost:9200",
+								},
+							},
+						},
+					},
 					SecurityContext: &corev1.SecurityContext{
 						Capabilities: &corev1.Capabilities{
 							Add: []corev1.Capability{"SYS_CHROOT"},
@@ -112,42 +124,6 @@ func (r *Reconciler) elasticPodTemplate(
 			},
 			ImagePullSecrets: imageSpec.ImagePullSecrets,
 		},
-	}
-}
-
-func (r *Reconciler) readinessProbe(role v1beta1.ElasticRole) *corev1.Probe {
-	switch role {
-	case v1beta1.ElasticMasterRole:
-		if !r.masterSingleton() && r.opniCluster.Status.OpensearchState.Initialized {
-			return &corev1.Probe{
-				InitialDelaySeconds: 60,
-				PeriodSeconds:       30,
-				Handler: corev1.Handler{
-					Exec: &corev1.ExecAction{
-						Command: []string{
-							"/bin/bash",
-							"-c",
-							"curl -k -u admin:${ES_PASSWORD} --silent --fail https://localhost:9200",
-						},
-					},
-				},
-			}
-		}
-		return nil
-	default:
-		return &corev1.Probe{
-			InitialDelaySeconds: 60,
-			PeriodSeconds:       30,
-			Handler: corev1.Handler{
-				Exec: &corev1.ExecAction{
-					Command: []string{
-						"/bin/bash",
-						"-c",
-						"curl -k -u admin:${ES_PASSWORD} --silent --fail https://localhost:9200",
-					},
-				},
-			},
-		}
 	}
 }
 

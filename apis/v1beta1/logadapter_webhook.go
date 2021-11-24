@@ -108,6 +108,24 @@ func (r *LogAdapter) Default() {
 	if r.Spec.RootFluentConfig.Fluentbit.Image.Tag == "" {
 		r.Spec.RootFluentConfig.Fluentbit.Image.Tag = DefaultFluentbitImage.Tag
 	}
+	controlPlaneTolerations := []corev1.Toleration{
+		{
+			Key:      "node-role.kubernetes.io/master",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      "node-role.kubernetes.io/control-plane",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
+	if len(r.Spec.FluentConfig.Fluentbit.Tolerations) == 0 {
+		r.Spec.FluentConfig.Fluentbit.Tolerations = controlPlaneTolerations
+	}
+	if len(r.Spec.RootFluentConfig.Fluentbit.Tolerations) == 0 {
+		r.Spec.RootFluentConfig.Fluentbit.Tolerations = controlPlaneTolerations
+	}
 	if r.Spec.FluentConfig.Fluentd.Image.Repository == "" {
 		r.Spec.FluentConfig.Fluentd.Image.Repository = DefaultFluentdImage.Repository
 	}

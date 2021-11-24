@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/hyperparameters"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -43,6 +44,7 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.payloadReceiverDeployment,
 		r.payloadReceiverService,
 		r.preprocessingDeployment,
+		r.preprocessingHPA,
 		r.gpuCtrlDeployment,
 		r.metricsDeployment,
 		r.metricsService,
@@ -170,15 +172,7 @@ func (r *Reconciler) pretrainedModelDeployment(
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("opni-inference-%s", model.Name),
 				Namespace: r.opniCluster.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: r.opniCluster.APIVersion,
-						Kind:       r.opniCluster.Kind,
-						Name:       r.opniCluster.Name,
-						UID:        r.opniCluster.UID,
-					},
-				},
-				Labels: labels,
+				Labels:    labels,
 			},
 			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{
@@ -192,6 +186,16 @@ func (r *Reconciler) pretrainedModelDeployment(
 						},
 					},
 					Spec: corev1.PodSpec{
+						TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+							{
+								MaxSkew:           1,
+								TopologyKey:       "kubernetes.io/hostname",
+								WhenUnsatisfiable: corev1.DoNotSchedule,
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: labels,
+								},
+							},
+						},
 						InitContainers: []corev1.Container{sidecar},
 						Volumes:        volumes,
 						Containers: []corev1.Container{
@@ -201,6 +205,7 @@ func (r *Reconciler) pretrainedModelDeployment(
 								ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 								VolumeMounts:    volumeMounts,
 								Env:             envVars,
+								Resources:       v1beta1.InferenceService.GetResourceRequirements(r.opniCluster),
 							},
 						},
 						ImagePullSecrets: maybeImagePullSecrets(model),
@@ -210,6 +215,7 @@ func (r *Reconciler) pretrainedModelDeployment(
 				},
 			},
 		}
+		ctrl.SetControllerReference(r.opniCluster, deployment, r.client.Scheme())
 		insertHyperparametersVolume(deployment, model.Name)
 		return deployment, reconciler.StatePresent, nil
 	}, nil
@@ -356,6 +362,7 @@ func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Depl
 							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 							Env:             envVars,
 							VolumeMounts:    volumeMounts,
+							Resources:       service.GetResourceRequirements(r.opniCluster),
 						},
 					},
 					ImagePullSecrets: imageSpec.ImagePullSecrets,
@@ -568,7 +575,47 @@ func (r *Reconciler) payloadReceiverService() (runtime.Object, reconciler.Desire
 
 func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta1.PreprocessingService)
+	deployment.Spec.Template.Spec.TopologySpreadConstraints = []corev1.TopologySpreadConstraint{
+		{
+			MaxSkew:           1,
+			TopologyKey:       "kubernetes.io/hostname",
+			WhenUnsatisfiable: corev1.DoNotSchedule,
+			LabelSelector:     deployment.Spec.Selector,
+		},
+	}
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Preprocessing.Enabled), nil
+}
+
+func (r *Reconciler) preprocessingHPA() (runtime.Object, reconciler.DesiredState, error) {
+	quantity := resource.MustParse("200Mi")
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      v1beta1.PreprocessingService.ServiceName(),
+			Namespace: r.opniCluster.Namespace,
+		},
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+				Kind:       "Deployment",
+				Name:       v1beta1.PreprocessingService.ServiceName(),
+				APIVersion: "apps/v1",
+			},
+			MaxReplicas: 10,
+			Metrics: []autoscalingv2.MetricSpec{
+				{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceMemory,
+						Target: autoscalingv2.MetricTarget{
+							Type:         autoscalingv2.AverageValueMetricType,
+							AverageValue: &quantity,
+						},
+					},
+				},
+			},
+		},
+	}
+	ctrl.SetControllerReference(r.opniCluster, hpa, r.client.Scheme())
+	return hpa, deploymentState(r.opniCluster.Spec.Services.Preprocessing.Enabled), nil
 }
 
 func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredState, error) {

@@ -119,9 +119,10 @@ type ServicesSpec struct {
 
 type DrainServiceSpec struct {
 	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	Enabled      *bool                       `json:"enabled,omitempty"`
+	NodeSelector map[string]string           `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration         `json:"tolerations,omitempty"`
+	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type InferenceServiceSpec struct {
@@ -130,51 +131,58 @@ type InferenceServiceSpec struct {
 	PretrainedModels []corev1.LocalObjectReference `json:"pretrainedModels,omitempty"`
 	NodeSelector     map[string]string             `json:"nodeSelector,omitempty"`
 	Tolerations      []corev1.Toleration           `json:"tolerations,omitempty"`
+	Resources        corev1.ResourceRequirements   `json:"resources,omitempty"`
 }
 
 type PreprocessingServiceSpec struct {
 	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	Enabled      *bool                       `json:"enabled,omitempty"`
+	NodeSelector map[string]string           `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration         `json:"tolerations,omitempty"`
+	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type PayloadReceiverServiceSpec struct {
 	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	Enabled      *bool                       `json:"enabled,omitempty"`
+	NodeSelector map[string]string           `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration         `json:"tolerations,omitempty"`
+	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type GPUControllerServiceSpec struct {
 	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	RuntimeClass *string             `json:"runtimeClass,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	Enabled      *bool                       `json:"enabled,omitempty"`
+	RuntimeClass *string                     `json:"runtimeClass,omitempty"`
+	NodeSelector map[string]string           `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration         `json:"tolerations,omitempty"`
+	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type MetricsServiceSpec struct {
 	ImageSpec           `json:",inline,omitempty"`
-	Enabled             *bool                `json:"enabled,omitempty"`
-	NodeSelector        map[string]string    `json:"nodeSelector,omitempty"`
-	Tolerations         []corev1.Toleration  `json:"tolerations,omitempty"`
-	PrometheusEndpoint  string               `json:"prometheusEndpoint,omitempty"`
-	PrometheusReference *PrometheusReference `json:"prometheus,omitempty"`
+	Enabled             *bool                       `json:"enabled,omitempty"`
+	NodeSelector        map[string]string           `json:"nodeSelector,omitempty"`
+	Tolerations         []corev1.Toleration         `json:"tolerations,omitempty"`
+	PrometheusEndpoint  string                      `json:"prometheusEndpoint,omitempty"`
+	PrometheusReference *PrometheusReference        `json:"prometheus,omitempty"`
+	Resources           corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type InsightsServiceSpec struct {
 	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	Enabled      *bool                       `json:"enabled,omitempty"`
+	NodeSelector map[string]string           `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration         `json:"tolerations,omitempty"`
+	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type UIServiceSpec struct {
 	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	Enabled      *bool                       `json:"enabled,omitempty"`
+	NodeSelector map[string]string           `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration         `json:"tolerations,omitempty"`
+	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type ElasticSpec struct {

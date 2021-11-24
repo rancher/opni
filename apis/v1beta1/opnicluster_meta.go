@@ -133,6 +133,29 @@ func (s ServiceKind) GetTolerations(opniCluster *OpniCluster) []corev1.Toleratio
 	}
 }
 
+func (s ServiceKind) GetResourceRequirements(opniCluster *OpniCluster) corev1.ResourceRequirements {
+	switch s {
+	case InferenceService:
+		return opniCluster.Spec.Services.Inference.Resources
+	case DrainService:
+		return opniCluster.Spec.Services.Drain.Resources
+	case PreprocessingService:
+		return opniCluster.Spec.Services.Preprocessing.Resources
+	case PayloadReceiverService:
+		return opniCluster.Spec.Services.PayloadReceiver.Resources
+	case GPUControllerService:
+		return opniCluster.Spec.Services.GPUController.Resources
+	case MetricsService:
+		return opniCluster.Spec.Services.Metrics.Resources
+	case InsightsService:
+		return opniCluster.Spec.Services.Insights.Resources
+	case UIService:
+		return opniCluster.Spec.Services.UI.Resources
+	default:
+		return corev1.ResourceRequirements{}
+	}
+}
+
 func (s ImageSpec) GetImagePullPolicy() (_ corev1.PullPolicy) {
 	if p := s.ImagePullPolicy; p != nil {
 		return *p

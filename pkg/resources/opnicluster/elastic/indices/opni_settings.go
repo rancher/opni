@@ -9,21 +9,22 @@ import (
 )
 
 const (
+	releaseVersion               = "v0.3.0"
 	logPolicyName                = "log-policy"
-	logIndexPrefix               = "logs-v0.1.3"
+	logIndexPrefix               = "logs-" + releaseVersion
 	logIndexAlias                = "logs"
 	logIndexTemplateName         = "logs_rollover_mapping"
 	drainStatusPolicyName        = "opni-drain-model-status-policy"
-	drainStatusIndexPrefix       = "opni-drain-model-status-v0.1.3"
+	drainStatusIndexPrefix       = "opni-drain-model-status-" + releaseVersion
 	drainStatusIndexAlias        = "opni-drain-model-status"
 	drainStatusIndexTemplateName = "opni-drain-model-status_rollover_mapping"
 	metricPolicyName             = "opni-metric-policy"
-	metricIndexPrefix            = "opni-metric-v0.1.3"
+	metricIndexPrefix            = "opni-metric-" + releaseVersion
 	metricIndexAlias             = "opni-metric"
 	metricIndexTemplateName      = "opni-metric_rollover_mapping"
 	normalIntervalIndexName      = "opni-normal-intervals"
 	kibanaDashboardVersionDocID  = "latest"
-	kibanaDashboardVersion       = "v0.1.3"
+	kibanaDashboardVersion       = releaseVersion
 	kibanaDashboardVersionIndex  = "opni-dashboard-version"
 )
 

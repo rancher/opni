@@ -270,6 +270,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 			for _, policy := range []string{
 				"log-policy",
 				"opni-drain-model-status-policy",
+				"opni-metric-policy",
 			} {
 				Expect(func() bool {
 					resp, err := esClient.ISM.GetISM(context.Background(), policy)
@@ -290,6 +291,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 			for _, template := range []string{
 				"logs_rollover_mapping",
 				"opni-drain-model-status_rollover_mapping",
+				"opni-metric_rollover_mapping",
 			} {
 				Expect(func() bool {
 					req := opensearchapi.IndicesGetIndexTemplateRequest{
@@ -315,6 +317,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 			for _, index := range []string{
 				"logs-v0.1.3-000001",
 				"opni-drain-model-status-v0.1.3-000001",
+				"opni-metric-v0.3.0-000001",
 				"opni-normal-intervals",
 				"opni-dashboard-version",
 			} {

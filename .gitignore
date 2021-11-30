@@ -10,6 +10,7 @@ testbin/*
 tilt_modules/
 tilt-options.yaml
 Dockerfile.dapper*
+*.DS_Store
 
 # Distribution/packaging
 dist/

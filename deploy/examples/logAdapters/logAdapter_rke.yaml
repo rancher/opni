@@ -4,3 +4,6 @@ metadata:
   name: lga
 spec:
   provider: rke
+  opniCluster:
+    name: opni-cluster
+    namespace: opni-cluster

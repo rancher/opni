@@ -23,6 +23,10 @@ patchesStrategicMerge:
 
   # Uncomment to enable external S3 storage
   # - examples/s3/external_s3.yaml # edit this file to configure your S3 server
+
+  # Uncomment to enable Insights Service
+  # - patches/insights.yaml # edit this file to configure your Insights server
+
 resources:
   # Uncomment to enable GPU support
   # - examples/nfd/aio.yaml

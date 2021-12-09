@@ -609,6 +609,9 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 
 func (r *Reconciler) getPrometheusEndpoint() (endpoint string) {
 	lg := log.FromContext(r.ctx)
+	if r.opniCluster.Spec.Services.Metrics.Enabled != nil && !*r.opniCluster.Spec.Services.Metrics.Enabled {
+		return
+	}
 	if r.opniCluster.Spec.Services.Metrics.PrometheusReference != nil {
 		prometheus := &monitoringv1.Prometheus{}
 		err := r.client.Get(r.ctx, types.NamespacedName{

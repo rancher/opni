@@ -5,5 +5,5 @@ metadata:
 spec:
   provider: rke
   opniCluster:
-    name: opni-cluster
-    namespace: opni-cluster
+    name: cluster
+    namespace: opni

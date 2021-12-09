@@ -7,5 +7,5 @@ spec:
   k3s:
     containerEngine: openrc
   opniCluster:
-    name: opni-cluster
-    namespace: opni-cluster
+    name: cluster
+    namespace: opni

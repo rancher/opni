@@ -2,13 +2,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: opni-cluster
+  name: opni
 ---
 apiVersion: opni.io/v1beta1
 kind: PretrainedModel
 metadata:
   name: control-plane
-  namespace: opni-cluster
+  namespace: opni
 spec:
   source:
     http:
@@ -21,8 +21,8 @@ spec:
 apiVersion: opni.io/v1beta1
 kind: OpniCluster
 metadata:
-  name: opni-cluster
-  namespace: opni-cluster
+  name: cluster
+  namespace: opni
 spec:
   version: v0.2.1
   deployLogCollector: true

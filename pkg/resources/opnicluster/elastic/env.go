@@ -3,6 +3,7 @@ package elastic
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/rancher/opni/apis/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -147,13 +148,20 @@ func (r *Reconciler) masterSingleton() bool {
 }
 
 func javaOpts(req *corev1.ResourceRequirements) string {
+	opts := []string{
+		"-Dlog4j2.formatMsgNoLookups=true",
+	}
 	if memLimit, ok := req.Limits[corev1.ResourceMemory]; ok {
-		return fmt.Sprintf("-Xms%[1]dm -Xmx%[1]dm", memLimit.ScaledValue(resource.Mega)/2)
+		value := memLimit.ScaledValue(resource.Mega) / 2
+		opts = append(opts, fmt.Sprintf("-Xms%dm", value), fmt.Sprintf("-Xmx%dm", value))
+	} else if memReq, ok := req.Requests[corev1.ResourceMemory]; ok {
+		value := memReq.ScaledValue(resource.Mega) / 2
+		opts = append(opts, fmt.Sprintf("-Xms%dm", value), fmt.Sprintf("-Xmx%dm", value))
+	} else {
+		opts = append(opts, "-Xms512m", "-Xmx512m")
 	}
-	if memReq, ok := req.Requests[corev1.ResourceMemory]; ok {
-		return fmt.Sprintf("-Xms%[1]dm -Xmx%[1]dm", memReq.ScaledValue(resource.Mega)/2)
-	}
-	return "-Xms512m -Xmx512m"
+
+	return strings.Join(opts, " ")
 }
 
 func combineEnvVars(envVars ...[]corev1.EnvVar) (result []corev1.EnvVar) {

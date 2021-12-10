@@ -1055,7 +1055,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 					HaveName("elasticsearch"),
 					HaveImage("docker.io/opensearchproject/opensearch:1.0.0"),
 					HaveEnv(
-						"OPENSEARCH_JAVA_OPTS", "-Xms5369m -Xmx5369m",
+						"OPENSEARCH_JAVA_OPTS", "-Dlog4j2.formatMsgNoLookups=true -Xms5369m -Xmx5369m",
 					),
 					HavePorts("transport", "http", "metrics", "rca"),
 					HaveVolumeMounts("config"),

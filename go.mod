@@ -21,8 +21,8 @@ require (
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
 	github.com/mattn/go-isatty v0.0.14
 	github.com/nats-io/nkeys v0.3.0
-	github.com/onsi/ginkgo v1.16.5-0.20210926212817-d0c597ffc7d0
-	github.com/onsi/gomega v1.16.0
+	github.com/onsi/ginkgo v1.16.6-0.20211118180735-4e1925ba4c95
+	github.com/onsi/gomega v1.17.0
 	github.com/opensearch-project/opensearch-go v1.0.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.52.0

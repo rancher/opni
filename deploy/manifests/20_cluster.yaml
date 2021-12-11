@@ -24,7 +24,7 @@ metadata:
   name: cluster
   namespace: opni
 spec:
-  version: v0.2.1
+  version: v0.3.0
   deployLogCollector: true
   services:
     gpuController:
@@ -33,12 +33,10 @@ spec:
       pretrainedModels:
       - name: control-plane
     metrics:
-      enabled: false # metrics anomaly detection is currently experimental
-      prometheusEndpoint: http://prometheus-url # metrics anomaly detection requires a prometheus url to connect to.
-    insights:
-      enabled: false
-    ui:
-      enabled: false
+      enabled: false # metrics anomaly detection is currently beta
+      prometheuus:
+        name: prometheus-name #The name of the prometheus resource
+        namespace: promethues-namespace #The namespace the prometheus resource is in
   elastic:
     version: 1.1.0
   s3:

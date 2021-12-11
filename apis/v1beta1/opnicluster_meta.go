@@ -61,6 +61,8 @@ func (s ServiceKind) ImageName() string {
 	switch s {
 	case GPUControllerService:
 		return "opni-gpu-service-controller"
+	case UIService:
+		return "opni-ui"
 	default:
 		return "opni-" + s.String() + "-service"
 	}

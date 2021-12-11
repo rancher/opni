@@ -113,7 +113,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 					Namespace: clusterCrNamespace,
 				},
 				Spec: v1beta1.OpniClusterSpec{
-					Version:            "v0.2.1",
+					Version:            "v0.3.0",
 					DeployLogCollector: pointer.BoolPtr(true),
 					Services: v1beta1.ServicesSpec{
 						GPUController: v1beta1.GPUControllerServiceSpec{
@@ -132,12 +132,6 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 									Name: clusterCrName,
 								},
 							},
-						},
-						Insights: v1beta1.InsightsServiceSpec{
-							Enabled: pointer.BoolPtr(false),
-						},
-						UI: v1beta1.UIServiceSpec{
-							Enabled: pointer.BoolPtr(false),
 						},
 					},
 					Elastic: v1beta1.ElasticSpec{

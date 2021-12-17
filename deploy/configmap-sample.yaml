@@ -1,0 +1,22 @@
+# Copy to a file named configmap.yaml with the placeholders filled in.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opni-gateway
+data:
+  config.yaml: |
+    apiVersion: v1beta1
+    kind: GatewayConfig
+    spec:
+      cortex: {}
+      authProvider: openid
+    ---
+    apiVersion: v1beta1
+    kind: AuthProvider
+    metadata:
+      name: openid
+    spec:
+      type: openid
+      options:
+        jwkUrl: <your-jwk-url-here>

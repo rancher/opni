@@ -1,3 +1,8 @@
 bin/
 .vscode/
+dev/
+tilt_modules/
+
 config.yaml
+deploy/configmap.yaml
+tilt-options.yaml

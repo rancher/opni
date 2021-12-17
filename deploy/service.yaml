@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: opni-gateway
+  namespace: cortex
+  labels:
+    app: opni-gateway
+spec:
+  type: LoadBalancer
+  selector:
+    app: opni-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

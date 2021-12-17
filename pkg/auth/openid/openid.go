@@ -51,6 +51,7 @@ func (m *OpenidMiddleware) Description() string {
 func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 	set, err := m.keyRefresher.Fetch(context.Background(), m.conf.JwkUrl)
 	if err != nil {
+		log.Printf("[ERROR] failed to fetch JWK set: %v", err)
 		return c.SendStatus(fiber.StatusServiceUnavailable)
 	}
 	authHeader := c.Get("Authorization")

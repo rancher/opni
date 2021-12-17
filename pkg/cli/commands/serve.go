@@ -30,7 +30,7 @@ func BuildServeCmd() *cobra.Command {
 			if err != nil {
 				if errors.Is(err, config.ErrConfigNotFound) {
 					wd, _ := os.Getwd()
-					log.Fatalf("could not find a config file in [%s; /etc/opni-gateway], and --config was given", wd)
+					log.Fatalf(`could not find a config file in ["%s","/etc/opni-gateway"], and --config was not given`, wd)
 				}
 				log.Fatalf("an error occurred while searching for a config file: %v", err)
 			}

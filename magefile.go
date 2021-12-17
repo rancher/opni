@@ -32,3 +32,10 @@ func Run() error {
 	mg.Deps(Build)
 	return sh.RunV("./bin/opni-gateway", os.Args[2:]...)
 }
+
+func Docker() error {
+	mg.Deps(Build)
+	return sh.RunWithV(map[string]string{
+		"DOCKER_BUILDKIT": "1",
+	}, "docker", "build", "-t", "opni-gateway", ".")
+}

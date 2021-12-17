@@ -27,6 +27,8 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	}
 	options.Apply(opts...)
 
+	gc.Spec.SetDefaults()
+
 	if options.authMiddleware == nil {
 		log.Fatal("auth middleware is required")
 	}

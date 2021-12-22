@@ -1,7 +1,7 @@
-package bootstrap
+package ident
 
 import "context"
 
-type IdentProvider interface {
+type Provider interface {
 	UniqueIdentifier(ctx context.Context) string
 }

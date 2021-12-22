@@ -1,4 +1,4 @@
-package bootstrap
+package ident
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 type uuidIdentProvider struct{}
 
 // Returns an IdentProvider that generates a random UUID each time.
-func NewUUIDIdentProvider() IdentProvider {
+func NewUUIDIdentProvider() Provider {
 	return &uuidIdentProvider{}
 }
 

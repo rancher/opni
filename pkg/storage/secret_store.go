@@ -1,4 +1,4 @@
-package bootstrap
+package storage
 
 import (
 	"context"
@@ -14,6 +14,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
+
+	"github.com/kralicky/opni-gateway/pkg/tokens"
 )
 
 const defaultSecretName = "opni-gateway-bootstrap-tokens"
@@ -129,8 +131,8 @@ func (i *InClusterSecretStore) OnDelete(obj interface{}) {
 	}
 }
 
-func (i *InClusterSecretStore) CreateToken(ctx context.Context) (*Token, error) {
-	token := NewToken()
+func (i *InClusterSecretStore) CreateToken(ctx context.Context) (*tokens.Token, error) {
+	token := tokens.NewToken()
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		sec, err := i.getSecret()
 		if err != nil {
@@ -172,11 +174,11 @@ func (i *InClusterSecretStore) TokenExists(ctx context.Context, token string) (b
 	return ok, nil
 }
 
-func (i *InClusterSecretStore) GetToken(ctx context.Context, tokenID string) (*Token, error) {
+func (i *InClusterSecretStore) GetToken(ctx context.Context, tokenID string) (*tokens.Token, error) {
 	i.cache.Lock()
 	defer i.cache.Unlock()
 	if secret, ok := i.cache.data[tokenID]; ok {
-		return DecodeHexToken(secret)
+		return tokens.DecodeHexToken(secret)
 	}
 	return nil, nil
 }

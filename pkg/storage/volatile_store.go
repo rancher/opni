@@ -1,9 +1,11 @@
-package bootstrap
+package storage
 
 import (
 	"context"
 	"errors"
 	"sync"
+
+	"github.com/kralicky/opni-gateway/pkg/tokens"
 )
 
 var ErrTokenNotFound = errors.New("token not found")
@@ -23,8 +25,8 @@ func NewVolatileSecretStore() TokenStore {
 	}
 }
 
-func (v *VolatileTokenStore) CreateToken(_ context.Context) (*Token, error) {
-	token := NewToken()
+func (v *VolatileTokenStore) CreateToken(_ context.Context) (*tokens.Token, error) {
+	token := tokens.NewToken()
 	v.cache.Lock()
 	defer v.cache.Unlock()
 	v.cache.data[token.HexID()] = string(token.Secret)
@@ -45,14 +47,14 @@ func (v *VolatileTokenStore) TokenExists(_ context.Context, tokenID string) (boo
 	return ok, nil
 }
 
-func (v *VolatileTokenStore) GetToken(_ context.Context, tokenID string) (*Token, error) {
+func (v *VolatileTokenStore) GetToken(_ context.Context, tokenID string) (*tokens.Token, error) {
 	v.cache.Lock()
 	defer v.cache.Unlock()
 	secret, ok := v.cache.data[tokenID]
 	if !ok {
 		return nil, ErrTokenNotFound
 	}
-	return &Token{
+	return &tokens.Token{
 		ID:     []byte(tokenID),
 		Secret: []byte(secret),
 	}, nil

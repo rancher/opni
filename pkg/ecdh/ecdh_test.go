@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/kralicky/opni-gateway/pkg/ecdh"
+	"github.com/kralicky/opni-gateway/pkg/keyring"
 )
 
 var _ = Describe("ECDH", func() {
@@ -44,7 +45,7 @@ var _ = Describe("ECDH", func() {
 
 		Expect(secretA).To(Equal(secretB))
 	})
-	It("should generate equal client keyrings", func() {
+	It("should generate equal client keys", func() {
 		ekpA, err := ecdh.NewEphemeralKeyPair()
 		Expect(err).NotTo(HaveOccurred())
 		ekpB, err := ecdh.NewEphemeralKeyPair()
@@ -62,8 +63,8 @@ var _ = Describe("ECDH", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		kr1 := ecdh.GenerateClientKeyring(secretA)
-		kr2 := ecdh.GenerateClientKeyring(secretB)
+		kr1 := keyring.NewClientKeys(secretA)
+		kr2 := keyring.NewClientKeys(secretB)
 
 		Expect(kr1.ClientKey()).To(Equal(kr2.ClientKey()))
 		Expect(kr1.TenantKey()).To(Equal(kr2.TenantKey()))

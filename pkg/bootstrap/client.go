@@ -14,7 +14,9 @@ import (
 	"strings"
 
 	"github.com/kralicky/opni-gateway/pkg/ecdh"
+	"github.com/kralicky/opni-gateway/pkg/ident"
 	"github.com/kralicky/opni-gateway/pkg/keyring"
+	"github.com/kralicky/opni-gateway/pkg/tokens"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -29,10 +31,10 @@ var (
 )
 
 type ClientConfig struct {
-	Token      *Token
+	Token      *tokens.Token
 	CACertHash []byte
 	Endpoint   string
-	Ident      IdentProvider
+	Ident      ident.Provider
 }
 
 func (c *ClientConfig) Bootstrap() (keyring.Keyring, error) {

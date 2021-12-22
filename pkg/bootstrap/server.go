@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kralicky/opni-gateway/pkg/ecdh"
 	"github.com/kralicky/opni-gateway/pkg/keyring"
+	"github.com/kralicky/opni-gateway/pkg/storage"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 )
@@ -19,7 +20,7 @@ import (
 type ServerConfig struct {
 	RootCA     *x509.Certificate
 	Keypair    *tls.Certificate
-	TokenStore TokenStore
+	TokenStore storage.TokenStore
 }
 
 func (h ServerConfig) bootstrapResponse(

@@ -1,9 +1,10 @@
 package gateway
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
@@ -60,7 +61,9 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		config:         gc,
 		app:            app,
 	}
-	g.setupRoutes(app)
+	g.setupQueryRoutes(app)
+	g.setupPushRoutes(app)
+	g.setupBootstrapEndpoint(app)
 
 	app.Use(default404Handler)
 
@@ -68,42 +71,48 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 }
 
 func (g *Gateway) Listen() error {
-	return g.app.Listen(g.listenAddr)
+	if g.keypair == nil {
+		return g.app.Listen(g.listenAddr)
+	}
+
+	pool := x509.NewCertPool()
+	pool.AddCert(g.rootCA)
+
+	config := &tls.Config{
+		Certificates:     []tls.Certificate{*g.keypair},
+		ClientAuth:       tls.VerifyClientCertIfGiven,
+		CurvePreferences: []tls.CurveID{tls.X25519},
+		RootCAs:          pool,
+	}
+	listener, err := tls.Listen(g.app.Config().Network, g.listenAddr, config)
+	if err != nil {
+		return err
+	}
+	return g.app.Listener(listener)
 }
 
 func (g *Gateway) Shutdown() error {
 	return g.app.Shutdown()
 }
 
-func (g *Gateway) setupRoutes(app *fiber.App) {
-	timeout := 10 * time.Second
-	distributor := proxy.Balancer(proxy.Config{
-		Servers: []string{g.config.Spec.Cortex.Distributor.Address},
-		Timeout: timeout,
-	})
+func (g *Gateway) setupQueryRoutes(app *fiber.App) {
 	queryFrontend := proxy.Balancer(proxy.Config{
 		Servers: []string{g.config.Spec.Cortex.QueryFrontend.Address},
-		Timeout: timeout,
 	})
 	alertmanager := proxy.Balancer(proxy.Config{
 		Servers: []string{g.config.Spec.Cortex.Alertmanager.Address},
-		Timeout: timeout,
 	})
 	ruler := proxy.Balancer(proxy.Config{
 		Servers: []string{g.config.Spec.Cortex.Ruler.Address},
-		Timeout: timeout,
 	})
 
 	// Distributor
-	app.Get("/services", distributor)
-	app.Get("/ready", distributor)
+	app.Get("/services", queryFrontend)
+	app.Get("/ready", queryFrontend)
 
 	// Alertmanager UI
 	alertmanagerUi := app.Group("/alertmanager", g.authMiddleware.Handle)
 	alertmanagerUi.Get("/alertmanager", alertmanager)
-
-	v1 := app.Group("/api/v1", g.authMiddleware.Handle)
-	v1.Post("/push", distributor)
 
 	// Prometheus-compatible API
 	promv1 := app.Group("/prometheus/api/v1", g.authMiddleware.Handle)
@@ -124,4 +133,14 @@ func (g *Gateway) setupRoutes(app *fiber.App) {
 
 	// POST only
 	promv1.Post("/read", queryFrontend)
+}
+
+func (g *Gateway) setupPushRoutes(app *fiber.App) {
+	distributor := proxy.Balancer(proxy.Config{
+		Servers: []string{g.config.Spec.Cortex.Distributor.Address},
+	})
+
+	v1 := app.Group("/api/v1", g.authMiddleware.Handle)
+	v1.Post("/push", distributor)
+
 }

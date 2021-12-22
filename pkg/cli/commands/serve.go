@@ -1,7 +1,11 @@
 package commands
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -20,6 +24,7 @@ import (
 
 func BuildServeCmd() *cobra.Command {
 	var configLocation, listenAddr string
+	var servingCACert, servingCert, servingKey string
 	var enableMonitor bool
 	var trustedProxies []string
 
@@ -65,12 +70,19 @@ func BuildServeCmd() *cobra.Command {
 			},
 		)
 
+		rootCAs, keypair, err := loadCerts(servingCACert, servingCert, servingKey)
+		if err != nil {
+			log.Fatalf("failed to load serving certs: %v", err)
+		}
+
 		g := gateway.NewGateway(gatewayConfig,
 			gateway.WithListenAddr(listenAddr),
 			gateway.WithTrustedProxies(trustedProxies),
 			gateway.WithFiberMiddleware(logger.New(), compress.New()),
 			gateway.WithMonitor(enableMonitor),
 			gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
+			gateway.WithRootCA(rootCAs),
+			gateway.WithKeypair(keypair),
 		)
 
 		errC := make(chan error)
@@ -117,5 +129,36 @@ func BuildServeCmd() *cobra.Command {
 	serveCmd.Flags().StringVar(&listenAddr, "listen", "0.0.0.0:8080", "address:port to listen on")
 	serveCmd.Flags().StringSliceVar(&trustedProxies, "trusted-proxies", []string{}, "List of trusted proxy IP addresses")
 	serveCmd.Flags().BoolVar(&enableMonitor, "enable-monitor", false, "Enable the /monitor endpoint")
+	serveCmd.Flags().StringVar(&servingCACert, "serving-ca-cert", "", "Path to a CA certificate to use for serving TLS connections")
+	serveCmd.Flags().StringVar(&servingCert, "serving-cert", "", "Path to a certificate to use for serving TLS connections")
+	serveCmd.Flags().StringVar(&servingKey, "serving-key", "", "Path to a key to use for serving TLS connections")
 	return serveCmd
+}
+
+func loadCerts(cacertPath, certPath, keyPath string) (*x509.Certificate, *tls.Certificate, error) {
+	var rootCA *x509.Certificate
+	if cacertPath != "" {
+		data, err := os.ReadFile(cacertPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to load CA cert: %v", err)
+		}
+		der, rest := pem.Decode(data)
+		if len(rest) > 0 {
+			return nil, nil, fmt.Errorf("CA cert file must only contain one PEM block")
+		}
+		if der == nil {
+			return nil, nil, fmt.Errorf("failed to decode CA cert")
+		}
+		rootCA, err = x509.ParseCertificate(der.Bytes)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to parse CA cert: %v", err)
+		}
+	}
+
+	keypair, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load TLS certificate: %w", err)
+	}
+
+	return rootCA, &keypair, nil
 }

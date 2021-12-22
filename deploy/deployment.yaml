@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: opni-gateway
-  namespace: cortex
 spec:
   replicas: 1
   selector:
@@ -18,6 +17,9 @@ spec:
           image: rancher/opni-gateway
           args:
             - serve
+            - --serving-ca-cert=/var/run/opni-gateway/certs/ca.crt
+            - --serving-cert=/var/run/opni-gateway/certs/tls.crt
+            - --serving-key=/var/run/opni-gateway/certs/tls.key
           ports:
             - name: http
               containerPort: 8080
@@ -31,11 +33,13 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /etc/opni-gateway
+            - name: certs
+              mountPath: /var/run/opni-gateway/certs
           livenessProbe:
             httpGet:
               path: /healthz
               port: http
-              scheme: HTTP
+              scheme: HTTPS
             timeoutSeconds: 1
             periodSeconds: 10
             successThreshold: 1
@@ -44,7 +48,7 @@ spec:
             httpGet:
               path: /healthz
               port: http
-              scheme: HTTP
+              scheme: HTTPS
             timeoutSeconds: 1
             periodSeconds: 10
             successThreshold: 1
@@ -53,7 +57,7 @@ spec:
             httpGet:
               path: /healthz
               port: http
-              scheme: HTTP
+              scheme: HTTPS
             timeoutSeconds: 1
             periodSeconds: 10
             successThreshold: 1
@@ -62,5 +66,9 @@ spec:
         - name: config
           configMap:
             name: opni-gateway
-            defaultMode: 420
+            defaultMode: 256
+        - name: certs
+          secret:
+            secretName: opni-gateway-serving-cert
+            defaultMode: 256
       dnsPolicy: ClusterFirst

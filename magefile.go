@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/magefile/mage/mg"
@@ -10,6 +11,25 @@ import (
 )
 
 var Default = All
+var runArgs []string
+
+func init() {
+	if len(os.Args) > 1 && os.Args[1] == "run" {
+		idx := 0
+		for i, arg := range os.Args {
+			if arg == "--" {
+				idx = i
+				break
+			}
+		}
+		if idx == 0 {
+			fmt.Println("usage: mage run -- <args>")
+			os.Exit(1)
+		}
+		runArgs = os.Args[idx+1:]
+		os.Args = os.Args[:idx]
+	}
+}
 
 func All() {
 	mg.SerialDeps(
@@ -30,7 +50,7 @@ func Test() error {
 
 func Run() error {
 	mg.Deps(Build)
-	return sh.RunV("./bin/opni-gateway", os.Args[2:]...)
+	return sh.RunV("./bin/opni-gateway", runArgs...)
 }
 
 func Docker() error {

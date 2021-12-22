@@ -13,6 +13,7 @@ func BuildRootCmd() *cobra.Command {
 		Use: "opni-gateway",
 	}
 	rootCmd.AddCommand(commands.BuildServeCmd())
+	rootCmd.AddCommand(commands.BuildToolCmd())
 	return rootCmd
 }
 

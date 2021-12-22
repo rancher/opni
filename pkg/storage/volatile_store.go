@@ -16,7 +16,7 @@ type VolatileTokenStore struct {
 
 var _ TokenStore = (*VolatileTokenStore)(nil)
 
-func NewVolatileSecretStore() TokenStore {
+func NewVolatileTokenStore() TokenStore {
 	return &VolatileTokenStore{
 		cache: tokenCache{
 			Mutex: &sync.Mutex{},
@@ -29,7 +29,7 @@ func (v *VolatileTokenStore) CreateToken(_ context.Context) (*tokens.Token, erro
 	token := tokens.NewToken()
 	v.cache.Lock()
 	defer v.cache.Unlock()
-	v.cache.data[token.HexID()] = string(token.Secret)
+	v.cache.data[token.HexID()] = token.EncodeHex()
 	return token, nil
 }
 
@@ -54,10 +54,7 @@ func (v *VolatileTokenStore) GetToken(_ context.Context, tokenID string) (*token
 	if !ok {
 		return nil, ErrTokenNotFound
 	}
-	return &tokens.Token{
-		ID:     []byte(tokenID),
-		Secret: []byte(secret),
-	}, nil
+	return tokens.DecodeHexToken(secret)
 }
 
 func (v *VolatileTokenStore) ListTokens(_ context.Context) ([]string, error) {

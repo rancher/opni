@@ -11,13 +11,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"net/url"
 
 	"github.com/kralicky/opni-gateway/pkg/ecdh"
 	"github.com/kralicky/opni-gateway/pkg/ident"
 	"github.com/kralicky/opni-gateway/pkg/keyring"
 	"github.com/kralicky/opni-gateway/pkg/tokens"
-	"golang.org/x/crypto/blake2b"
+	"github.com/kralicky/opni-gateway/pkg/util"
 )
 
 var (
@@ -37,10 +37,14 @@ type ClientConfig struct {
 	Ident      ident.Provider
 }
 
-func (c *ClientConfig) Bootstrap() (keyring.Keyring, error) {
+func (c *ClientConfig) Bootstrap(ctx context.Context) (keyring.Keyring, error) {
 	response, serverLeafCert, err := c.bootstrapInsecure()
 	if err != nil {
 		return nil, err
+	}
+
+	if len(response.Signatures) == 0 {
+		return nil, errors.New("server has no active bootstrap tokens")
 	}
 
 	completeJws, err := c.findValidSignature(
@@ -68,6 +72,9 @@ func (c *ClientConfig) Bootstrap() (keyring.Keyring, error) {
 	}
 
 	ekp, err := ecdh.NewEphemeralKeyPair()
+	if err != nil {
+		return nil, err
+	}
 	secureReq, err := json.Marshal(SecureBootstrapRequest{
 		ClientID:     c.Ident.UniqueIdentifier(context.Background()),
 		ClientPubKey: ekp.PublicKey,
@@ -76,7 +83,8 @@ func (c *ClientConfig) Bootstrap() (keyring.Keyring, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, c.Endpoint,
+	url, _ := c.bootstrapURL()
+	req, err := http.NewRequest(http.MethodPost, url.String(),
 		bytes.NewReader(secureReq))
 	if err != nil {
 		return nil, err
@@ -105,14 +113,24 @@ func (c *ClientConfig) Bootstrap() (keyring.Keyring, error) {
 	), nil
 }
 
-func (c *ClientConfig) bootstrapInsecure() (*BootstrapResponse, *x509.Certificate, error) {
-	// Ensure the endpoint is https
-	url := c.Endpoint
-	if strings.HasPrefix(url, "http://") {
-		return nil, nil, fmt.Errorf("%w: use https:// instead of http:// or omit the protocol", ErrInvalidEndpoint)
+func (c *ClientConfig) bootstrapURL() (*url.URL, error) {
+	u, err := url.Parse(c.Endpoint)
+	if err != nil {
+		return nil, err
 	}
-	if !strings.HasPrefix(url, "https://") {
-		url = fmt.Sprintf("https://%s", url)
+	if u.Scheme != "https" {
+		u.Scheme = "https"
+	}
+	if u.Path != "bootstrap" {
+		u.Path = "bootstrap"
+	}
+	return u, nil
+}
+
+func (c *ClientConfig) bootstrapInsecure() (*BootstrapResponse, *x509.Certificate, error) {
+	url, err := c.bootstrapURL()
+	if err != nil {
+		return nil, nil, err
 	}
 	// Connect to the endpoint insecurely, the server will return a jws with a
 	// detached payload that we can reconstruct and verify
@@ -123,11 +141,14 @@ func (c *ClientConfig) bootstrapInsecure() (*BootstrapResponse, *x509.Certificat
 			},
 		},
 	}
-	resp, err := insecureClient.Post(url, "application/json", nil)
-	if err != nil || resp.StatusCode != 200 {
+	resp, err := insecureClient.Post(url.String(), "application/json", nil)
+	if err != nil {
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, nil, fmt.Errorf("%w: %s", ErrBootstrapFailed, resp.Status)
+	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, err
@@ -146,22 +167,30 @@ func (c *ClientConfig) validateServerCA(
 	resp *BootstrapResponse,
 	tls *tls.ConnectionState,
 ) error {
-	responseCA, err := x509.ParseCertificate(resp.CACert)
+	cacert, err := x509.ParseCertificate(resp.CACert)
 	if err != nil {
 		return err
 	}
-	certs := tls.PeerCertificates
-	peerRootCA := certs[len(certs)-1]
-	if !peerRootCA.IsCA || !responseCA.IsCA {
-		return ErrNoRootCA
+	roots := x509.NewCertPool()
+	roots.AddCert(cacert)
+	leaf := tls.PeerCertificates[0]
+	intermediates := x509.NewCertPool()
+	for _, cert := range tls.PeerCertificates[1:] {
+		intermediates.AddCert(cert)
 	}
-
-	hashA := blake2b.Sum256(peerRootCA.RawSubjectPublicKeyInfo)
-	hashB := blake2b.Sum256(responseCA.RawSubjectPublicKeyInfo)
-	if subtle.ConstantTimeCompare(hashA[:], hashB[:]) != 1 {
-		return ErrRootCAHashMismatch
+	opts := x509.VerifyOptions{
+		Roots:         roots,
+		Intermediates: intermediates,
 	}
-	if subtle.ConstantTimeCompare(c.CACertHash, hashA[:]) != 1 {
+	if _, err := leaf.Verify(opts); err != nil {
+		return err
+	}
+	actual, err := util.CACertHash(cacert)
+	if err != nil {
+		return err
+	}
+	expected := c.CACertHash
+	if subtle.ConstantTimeCompare(actual, expected) != 1 {
 		return ErrRootCAHashMismatch
 	}
 	return nil

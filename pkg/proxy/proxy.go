@@ -1,9 +1,14 @@
 package proxy
 
 import (
+	"context"
+	"fmt"
+	"log"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/kralicky/opni-gateway/pkg/bootstrap"
 	"github.com/valyala/fasthttp"
 )
 
@@ -13,8 +18,9 @@ type RemoteWriteProxy struct {
 }
 
 type RemoteWriteProxyOptions struct {
-	listenAddr  string
-	gatewayAddr string
+	listenAddr   string
+	gatewayAddr  string
+	bootstrapper bootstrap.Bootstrapper
 }
 
 type RemoteWriteProxyOption func(*RemoteWriteProxyOptions)
@@ -37,11 +43,24 @@ func WithGatewayAddr(gatewayAddr string) RemoteWriteProxyOption {
 	}
 }
 
+func WithBootstrapper(bootstrapper bootstrap.Bootstrapper) RemoteWriteProxyOption {
+	return func(o *RemoteWriteProxyOptions) {
+		o.bootstrapper = bootstrapper
+	}
+}
+
 func NewRemoteWriteProxy(opts ...RemoteWriteProxyOption) *RemoteWriteProxy {
 	options := RemoteWriteProxyOptions{
 		listenAddr: ":8099",
 	}
 	options.Apply(opts...)
+
+	_, err := options.bootstrapper.Bootstrap(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Bootstrap OK")
+
 	app := fiber.New(fiber.Config{
 		Prefork:           false,
 		StrictRouting:     false,

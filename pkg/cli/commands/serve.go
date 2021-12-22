@@ -22,7 +22,7 @@ import (
 
 func BuildServeCmd() *cobra.Command {
 	var configLocation, listenAddr string
-	var servingCACert, servingCert, servingKey string
+	var caCert, servingCert, servingKey string
 	var enableMonitor bool
 	var trustedProxies []string
 
@@ -68,7 +68,7 @@ func BuildServeCmd() *cobra.Command {
 			},
 		)
 
-		rootCAs, keypair, err := loadCerts(servingCACert, servingCert, servingKey)
+		rootCA, keypair, err := loadCerts(caCert, servingCert, servingKey)
 		if err != nil {
 			log.Fatalf("failed to load serving certs: %v", err)
 		}
@@ -79,7 +79,7 @@ func BuildServeCmd() *cobra.Command {
 			gateway.WithFiberMiddleware(logger.New(), compress.New()),
 			gateway.WithMonitor(enableMonitor),
 			gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
-			gateway.WithRootCA(rootCAs),
+			gateway.WithRootCA(rootCA),
 			gateway.WithKeypair(keypair),
 		)
 
@@ -102,9 +102,13 @@ func BuildServeCmd() *cobra.Command {
 	serveCmd.Flags().StringVar(&listenAddr, "listen", "0.0.0.0:8080", "address:port to listen on")
 	serveCmd.Flags().StringSliceVar(&trustedProxies, "trusted-proxies", []string{}, "List of trusted proxy IP addresses")
 	serveCmd.Flags().BoolVar(&enableMonitor, "enable-monitor", false, "Enable the /monitor endpoint")
-	serveCmd.Flags().StringVar(&servingCACert, "serving-ca-cert", "", "Path to a CA certificate to use for serving TLS connections")
+	serveCmd.Flags().StringVar(&caCert, "ca-cert", "", "Path to a CA certificate")
 	serveCmd.Flags().StringVar(&servingCert, "serving-cert", "", "Path to a certificate to use for serving TLS connections")
 	serveCmd.Flags().StringVar(&servingKey, "serving-key", "", "Path to a key to use for serving TLS connections")
+
+	serveCmd.MarkFlagRequired("ca-cert")
+	serveCmd.MarkFlagRequired("serving-cert")
+	serveCmd.MarkFlagRequired("serving-key")
 	return serveCmd
 }
 

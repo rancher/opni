@@ -3,12 +3,9 @@ package bootstrap
 import (
 	"bytes"
 	"context"
-	"crypto"
-	"crypto/sha256"
+	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,29 +14,98 @@ import (
 	"strings"
 
 	"github.com/kralicky/opni-gateway/pkg/ecdh"
-	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/jwx/jws"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/kralicky/opni-gateway/pkg/keyring"
+	"golang.org/x/crypto/blake2b"
 )
 
 var (
 	ErrInvalidEndpoint    = errors.New("invalid endpoint")
 	ErrNoRootCA           = errors.New("no root CA found in peer certificates")
 	ErrLeafNotSigned      = errors.New("leaf certificate not signed by the root CA")
+	ErrKeyExpired         = errors.New("key expired")
 	ErrRootCAHashMismatch = errors.New("root CA hash mismatch")
 	ErrBootstrapFailed    = errors.New("bootstrap failed")
+	ErrNoValidSignature   = errors.New("no valid signature found in response")
 )
 
 type ClientConfig struct {
-	Token      string
-	CACertHash string
+	Token      *Token
+	CACertHash []byte
 	Endpoint   string
 	Ident      IdentProvider
 }
 
-func (b ClientConfig) Run() (jwt.Token, crypto.PrivateKey, error) {
+func (c *ClientConfig) Bootstrap() (keyring.Keyring, error) {
+	response, serverLeafCert, err := c.bootstrapInsecure()
+	if err != nil {
+		return nil, err
+	}
+
+	completeJws, err := c.findValidSignature(
+		response.Signatures, serverLeafCert.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	cacert, err := x509.ParseCertificate(response.CACert)
+	if err != nil {
+		return nil, err
+	}
+
+	rootCAPool := x509.NewCertPool()
+	rootCAPool.AddCert(cacert)
+	tlsConfig := &tls.Config{
+		RootCAs:          rootCAPool,
+		CurvePreferences: []tls.CurveID{tls.X25519},
+		ServerName:       serverLeafCert.Subject.CommonName,
+	}
+	secureClient := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
+	ekp, err := ecdh.NewEphemeralKeyPair()
+	secureReq, err := json.Marshal(SecureBootstrapRequest{
+		ClientID:     c.Ident.UniqueIdentifier(context.Background()),
+		ClientPubKey: ekp.PublicKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, c.Endpoint,
+		bytes.NewReader(secureReq))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Request", "application/json")
+	req.Header.Add("Authorization", "Bearer "+string(completeJws))
+	resp, err := secureClient.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		return nil, fmt.Errorf("%w: %s", ErrBootstrapFailed, resp.Status)
+	}
+	defer resp.Body.Close()
+
+	var secureResp SecureBootstrapResponse
+	if err := json.NewDecoder(resp.Body).Decode(&secureResp); err != nil {
+		return nil, err
+	}
+
+	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, ecdh.PeerPublicKey{
+		PublicKey: secureResp.ServerPubKey,
+		PeerType:  ecdh.PeerTypeServer,
+	})
+	return keyring.New(
+		keyring.NewClientKeys(sharedSecret),
+		keyring.NewTLSKeys(tlsConfig),
+	), nil
+}
+
+func (c *ClientConfig) bootstrapInsecure() (*BootstrapResponse, *x509.Certificate, error) {
 	// Ensure the endpoint is https
-	url := b.Endpoint
+	url := c.Endpoint
 	if strings.HasPrefix(url, "http://") {
 		return nil, nil, fmt.Errorf("%w: use https:// instead of http:// or omit the protocol", ErrInvalidEndpoint)
 	}
@@ -55,98 +121,56 @@ func (b ClientConfig) Run() (jwt.Token, crypto.PrivateKey, error) {
 			},
 		},
 	}
-	resp, err := insecureClient.Post(url, "application/x-www-form-urlencoded", nil)
-	if err != nil {
+	resp, err := insecureClient.Post(url, "application/json", nil)
+	if err != nil || resp.StatusCode != 200 {
 		return nil, nil, err
 	}
-	// Check the peer certificates - there should be a leaf certificate used
-	// to sign the JWS and for tls, and a root CA cert in the chain
-	certs := resp.TLS.PeerCertificates
-	signingCert := certs[0]
-	rootCA := certs[len(certs)-1]
-
-	if !rootCA.IsCA {
-		return nil, nil, ErrNoRootCA
-	}
-
-	// Check that the leaf was signed by the root
-	if err := rootCA.CheckSignature(
-		signingCert.SignatureAlgorithm,
-		signingCert.RawTBSCertificate,
-		signingCert.Signature,
-	); err != nil {
-		return nil, nil, ErrLeafNotSigned
-	}
-
-	// Check root ca hash (only subject public key info)
-	hash := sha256.Sum256(rootCA.RawSubjectPublicKeyInfo)
-	if hex.EncodeToString(hash[:]) != b.CACertHash {
-		return nil, nil, ErrRootCAHashMismatch
-	}
-
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, err
 	}
-	// Reconstruct the JWS with the bootstrap token and verify
-	payload := base64.RawURLEncoding.EncodeToString([]byte(b.Token))
-	_, err = jws.Verify(body, jwa.EdDSA, signingCert.PublicKey,
-		jws.WithDetachedPayload([]byte(payload)))
-	if err != nil {
+	bootstrapResponse := &BootstrapResponse{}
+	if err := json.Unmarshal(body, bootstrapResponse); err != nil {
 		return nil, nil, err
 	}
-
-	// At this point we trust the server and can send them back the jwt
-	// containing the bootstrap token, and an ephemeral public key
-
-	completeJws := bytes.Replace(body, []byte(".."), []byte("."+payload+"."), 1)
-	rootCAPool := x509.NewCertPool()
-	rootCAPool.AddCert(rootCA)
-	secureClient := http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:          rootCAPool,
-				CurvePreferences: []tls.CurveID{tls.X25519},
-				ServerName:       signingCert.Subject.CommonName,
-			},
-		},
-	}
-
-	ekp, err := ecdh.NewEphemeralKeyPair()
-	secureReq, err := json.Marshal(SecureBootstrapRequest{
-		ClientID:     b.Ident.UniqueIdentifier(context.Background()),
-		ClientPubKey: ekp.PublicKey,
-	})
-	if err != nil {
+	if err := c.validateServerCA(bootstrapResponse, resp.TLS); err != nil {
 		return nil, nil, err
 	}
+	return bootstrapResponse, resp.TLS.PeerCertificates[0], nil
+}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(secureReq))
+func (c *ClientConfig) validateServerCA(
+	resp *BootstrapResponse,
+	tls *tls.ConnectionState,
+) error {
+	responseCA, err := x509.ParseCertificate(resp.CACert)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Request", "application/json")
-	req.Header.Add("Authorization", "Bearer "+string(completeJws))
-	resp, err = secureClient.Do(req)
-	if err != nil {
-		return nil, nil, err
+	certs := tls.PeerCertificates
+	peerRootCA := certs[len(certs)-1]
+	if !peerRootCA.IsCA || !responseCA.IsCA {
+		return ErrNoRootCA
 	}
-	if resp.StatusCode != 200 {
-		return nil, nil, fmt.Errorf("%w: %s", ErrBootstrapFailed, resp.Status)
+
+	hashA := blake2b.Sum256(peerRootCA.RawSubjectPublicKeyInfo)
+	hashB := blake2b.Sum256(responseCA.RawSubjectPublicKeyInfo)
+	if subtle.ConstantTimeCompare(hashA[:], hashB[:]) != 1 {
+		return ErrRootCAHashMismatch
 	}
-	defer resp.Body.Close()
-	// The server sends us back a unique token we can use to authenticate all
-	// future requests - this token does not expire (todo)
-	// The token's sub header is our unqiue client ID
-	body, err = io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read server response: %w", err)
+	if subtle.ConstantTimeCompare(c.CACertHash, hashA[:]) != 1 {
+		return ErrRootCAHashMismatch
 	}
-	token, err := jwt.Parse(body, jwt.WithVerify(jwa.EdDSA, signingCert.PublicKey))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse server response: %w", err)
+	return nil
+}
+
+func (c *ClientConfig) findValidSignature(
+	signatures map[string][]byte,
+	pubKey interface{},
+) ([]byte, error) {
+	if sig, ok := signatures[c.Token.HexID()]; ok {
+		return c.Token.VerifyDetached(sig, pubKey)
 	}
-	return token, ekp, nil
+	return nil, ErrNoValidSignature
 }

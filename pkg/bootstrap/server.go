@@ -2,17 +2,16 @@ package bootstrap
 
 import (
 	"context"
-	"crypto"
 	"crypto/ed25519"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"fmt"
 	"log"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kralicky/opni-gateway/pkg/ecdh"
+	"github.com/kralicky/opni-gateway/pkg/keyring"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 )
@@ -25,15 +24,15 @@ type ServerConfig struct {
 
 func (h ServerConfig) bootstrapResponse(
 	ctx context.Context,
-) (BootstrapResponse, crypto.PrivateKey, error) {
+) (BootstrapResponse, error) {
 	var caCert []byte
 	if h.RootCA != nil {
 		caCert = h.RootCA.Raw
 	}
-	signatures := map[string]string{}
+	signatures := map[string][]byte{}
 	tokenIDs, err := h.TokenStore.ListTokens(ctx)
 	if err != nil {
-		return BootstrapResponse{}, nil, err
+		return BootstrapResponse{}, err
 	}
 	for _, id := range tokenIDs {
 		token, err := h.TokenStore.GetToken(ctx, id)
@@ -44,26 +43,20 @@ func (h ServerConfig) bootstrapResponse(
 		// Generate a JWS containing the signature of the detached secret token
 		sig, err := token.SignDetached(h.Keypair.PrivateKey)
 		if err != nil {
-			return BootstrapResponse{}, nil, fmt.Errorf("error signing token: %w", err)
+			return BootstrapResponse{}, fmt.Errorf("error signing token: %w", err)
 		}
 		signatures[token.HexID()] = sig
 	}
-	// generate an ephemeral key pair
-	pub, priv, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		panic(err)
-	}
 	return BootstrapResponse{
-		CACert:       base64.RawURLEncoding.EncodeToString(caCert),
-		Signatures:   signatures,
-		EphemeralKey: pub,
-	}, priv, nil
+		CACert:     caCert,
+		Signatures: signatures,
+	}, nil
 }
 
 func (h ServerConfig) Handle(c *fiber.Ctx) error {
 	authHeader := strings.TrimSpace(c.Get("Authorization"))
 	if authHeader == "" {
-		if resp, _, err := h.bootstrapResponse(c.Context()); err != nil {
+		if resp, err := h.bootstrapResponse(c.Context()); err != nil {
 			return c.SendStatus(fiber.StatusInternalServerError)
 		} else {
 			return c.Status(fiber.StatusOK).JSON(resp)
@@ -100,7 +93,7 @@ func (h ServerConfig) Handle(c *fiber.Ctx) error {
 		log.Printf("error computing shared secret: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
-	keyring := ecdh.GenerateClientKeyring(sharedSecret)
+	_ = keyring.New(keyring.NewClientKeys(sharedSecret))
 
 	return c.Status(fiber.StatusOK).JSON(SecureBootstrapResponse{
 		ServerPubKey: ekp.PublicKey,

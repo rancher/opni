@@ -1,7 +1,6 @@
 package ecdh
 
 import (
-	"crypto/ed25519"
 	"crypto/rand"
 	"io"
 
@@ -12,11 +11,6 @@ import (
 type EphemeralKeyPair struct {
 	PrivateKey []byte
 	PublicKey  []byte
-}
-
-type ClientKeyring struct {
-	clientKey ed25519.PrivateKey
-	tenantKey ed25519.PrivateKey
 }
 
 type PeerType int
@@ -49,6 +43,7 @@ func NewEphemeralKeyPair() (EphemeralKeyPair, error) {
 
 // Derives a 64-byte shared secret given one party's ephemeral keypair and
 // another party's ephemeral public key obtained from ECDH.
+//
 // The secret is computed using the following KDF (similar to libsodium):
 //  blake2b-512(q || client-pub || server-pub).
 // where q is the 32-byte x25519 shared secret.
@@ -73,26 +68,4 @@ func DeriveSharedSecret(ours EphemeralKeyPair, theirs PeerPublicKey) ([]byte, er
 	}
 
 	return hash.Sum(nil), nil
-}
-
-func GenerateClientKeyring(shared []byte) *ClientKeyring {
-	if len(shared) != 64 {
-		panic("shared secret must be 64 bytes")
-	}
-	return &ClientKeyring{
-		clientKey: ed25519.NewKeyFromSeed(shared[:32]),
-		tenantKey: ed25519.NewKeyFromSeed(shared[32:]),
-	}
-}
-
-func (kr *ClientKeyring) ClientKey() ed25519.PrivateKey {
-	buf := make([]byte, ed25519.PrivateKeySize)
-	copy(buf, kr.clientKey)
-	return buf
-}
-
-func (kr *ClientKeyring) TenantKey() ed25519.PrivateKey {
-	buf := make([]byte, ed25519.PrivateKeySize)
-	copy(buf, kr.tenantKey)
-	return buf
 }

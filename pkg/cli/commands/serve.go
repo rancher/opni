@@ -8,9 +8,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -19,6 +16,7 @@ import (
 	"github.com/kralicky/opni-gateway/pkg/config"
 	"github.com/kralicky/opni-gateway/pkg/config/v1beta1"
 	"github.com/kralicky/opni-gateway/pkg/gateway"
+	"github.com/kralicky/opni-gateway/pkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -85,32 +83,7 @@ func BuildServeCmd() *cobra.Command {
 			gateway.WithKeypair(keypair),
 		)
 
-		errC := make(chan error)
-		sigC := make(chan os.Signal, 1)
-		go func() { errC <- g.Listen() }()
-		signal.Notify(sigC, syscall.SIGHUP)
-		defer func() {
-			signal.Stop(sigC)
-			close(sigC)
-			close(errC)
-		}()
-
-		// handle SIGHUP
-		select {
-		case err := <-errC:
-			return err
-		case <-sigC:
-			log.Println("SIGHUP received, reloading config")
-			if err := g.Shutdown(); err != nil {
-				log.Fatalf("failed to shut down gateway: %v", err)
-			}
-			select {
-			case <-time.After(5 * time.Second):
-				log.Fatalf("failed to shut down gateway: timeout")
-			case <-errC:
-			}
-			return nil
-		}
+		return util.ListenReload(g)
 	}
 
 	serveCmd := &cobra.Command{

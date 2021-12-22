@@ -11,7 +11,8 @@ require (
 	github.com/onsi/ginkgo v1.16.6-0.20211118180735-4e1925ba4c95
 	github.com/onsi/gomega v1.17.0
 	github.com/spf13/cobra v1.3.0
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
+	go.step.sm/crypto v0.13.0
+	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272
 	k8s.io/api v0.23.1
 	k8s.io/apimachinery v0.23.1
 	k8s.io/client-go v0.23.1
@@ -19,6 +20,9 @@ require (
 )
 
 require (
+	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/semver/v3 v3.1.1 // indirect
+	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
 	github.com/andybalholm/brotli v1.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d // indirect
@@ -29,6 +33,8 @@ require (
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
+	github.com/huandu/xstrings v1.3.2 // indirect
+	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.13.4 // indirect
@@ -37,9 +43,13 @@ require (
 	github.com/lestrrat-go/httpcc v1.0.0 // indirect
 	github.com/lestrrat-go/iter v1.0.1 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
+	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/shopspring/decimal v1.2.0 // indirect
+	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.31.0 // indirect

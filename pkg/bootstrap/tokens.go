@@ -85,33 +85,47 @@ func DecodeHexToken(str string) (*Token, error) {
 	return t, nil
 }
 
-// Returns a base64-encoded JWS of the form:
-// 	Header.DetachedPayload.Signature
-// where DetachedPayload is the base64-encoded json string:
-//  {"id":"<token_id>"}
-func (t *Token) SignDetached(key crypto.PrivateKey) (string, error) {
+// Signs the token and returns a JWS with the payload detached
+func (t *Token) SignDetached(key crypto.PrivateKey) ([]byte, error) {
 	jsonData, err := json.Marshal(t)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	sig, err := jws.Sign(jsonData, jwa.EdDSA, key)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	firstIndex := bytes.IndexByte(sig, '.')
 	lastIndex := bytes.LastIndexByte(sig, '.')
-	jsonDataNoSecret, err := json.Marshal(Token{
-		ID: t.ID,
-	})
-	if err != nil {
-		panic(err)
-	}
-	encodedPayloadNoSecret :=
-		make([]byte, base64.RawURLEncoding.EncodedLen(len(jsonDataNoSecret)))
-	base64.RawURLEncoding.Encode(encodedPayloadNoSecret, jsonDataNoSecret)
 	buf := new(bytes.Buffer)
 	buf.Write(sig[:firstIndex+1])
-	buf.Write(encodedPayloadNoSecret)
 	buf.Write(sig[lastIndex:])
-	return string(buf.Bytes()), nil
+	return buf.Bytes(), nil
+}
+
+// Verifies a JWS with a detached signature. If the signature is valid,
+// also returns the complete message with re-attached payload.
+func (t *Token) VerifyDetached(sig []byte, key interface{}) ([]byte, error) {
+	jsonData, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	firstIndex := bytes.IndexByte(sig, '.')
+	lastIndex := bytes.LastIndexByte(sig, '.')
+	if firstIndex == -1 || lastIndex == -1 {
+		return nil, ErrMalformedToken
+	}
+	payload := base64.RawURLEncoding.EncodeToString(jsonData)
+	buf := new(bytes.Buffer)
+	buf.Write(sig[:firstIndex+1])
+	buf.WriteString(payload)
+	buf.Write(sig[lastIndex:])
+	fullToken := buf.Bytes()
+	cloned := make([]byte, len(fullToken))
+	copy(cloned, fullToken)
+	_, err = jws.Verify(cloned, jwa.EdDSA, key)
+	if err != nil {
+		return nil, err
+	}
+	return fullToken, nil
 }

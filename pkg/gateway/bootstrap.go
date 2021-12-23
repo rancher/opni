@@ -19,7 +19,7 @@ func (g *Gateway) setupBootstrapEndpoint(app *fiber.App) {
 	}
 	fmt.Println(token.EncodeHex())
 
-	app.Post("/bootstrap", bootstrap.ServerConfig{
+	app.Post("/bootstrap/*", bootstrap.ServerConfig{
 		RootCA:     g.rootCA,
 		Keypair:    g.keypair,
 		TokenStore: test,

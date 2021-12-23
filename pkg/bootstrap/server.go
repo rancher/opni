@@ -55,6 +55,17 @@ func (h ServerConfig) bootstrapResponse(
 }
 
 func (h ServerConfig) Handle(c *fiber.Ctx) error {
+	switch c.Path() {
+	case "/bootstrap/join":
+		return h.handleBootstrapJoin(c)
+	case "/bootstrap/auth":
+		return h.handleBootstrapAuth(c)
+	default:
+		return c.SendStatus(fiber.StatusNotFound)
+	}
+}
+
+func (h ServerConfig) handleBootstrapJoin(c *fiber.Ctx) error {
 	authHeader := strings.TrimSpace(c.Get("Authorization"))
 	if authHeader == "" {
 		if resp, err := h.bootstrapResponse(c.Context()); err != nil {
@@ -62,6 +73,15 @@ func (h ServerConfig) Handle(c *fiber.Ctx) error {
 		} else {
 			return c.Status(fiber.StatusOK).JSON(resp)
 		}
+	} else {
+		return c.SendStatus(fiber.StatusBadRequest)
+	}
+}
+
+func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
+	authHeader := strings.TrimSpace(c.Get("Authorization"))
+	if strings.TrimSpace(authHeader) == "" {
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 	// Authorization is given, check the authToken
 	// Remove "Bearer " from the header
@@ -99,4 +119,5 @@ func (h ServerConfig) Handle(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(SecureBootstrapResponse{
 		ServerPubKey: ekp.PublicKey,
 	})
+
 }

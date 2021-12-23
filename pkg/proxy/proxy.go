@@ -57,7 +57,7 @@ func NewRemoteWriteProxy(opts ...RemoteWriteProxyOption) *RemoteWriteProxy {
 
 	_, err := options.bootstrapper.Bootstrap(context.Background())
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Errorf("Bootstrap failed: %w", err))
 	}
 	fmt.Println("Bootstrap OK")
 

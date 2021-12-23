@@ -142,5 +142,4 @@ func (g *Gateway) setupPushRoutes(app *fiber.App) {
 
 	v1 := app.Group("/api/v1", g.authMiddleware.Handle)
 	v1.Post("/push", distributor)
-
 }

@@ -83,7 +83,10 @@ func (c *ClientConfig) Bootstrap(ctx context.Context) (keyring.Keyring, error) {
 		return nil, err
 	}
 
-	url, _ := c.bootstrapURL()
+	url, err := c.bootstrapAuthURL()
+	if err != nil {
+		return nil, err
+	}
 	req, err := http.NewRequest(http.MethodPost, url.String(),
 		bytes.NewReader(secureReq))
 	if err != nil {
@@ -113,22 +116,28 @@ func (c *ClientConfig) Bootstrap(ctx context.Context) (keyring.Keyring, error) {
 	), nil
 }
 
-func (c *ClientConfig) bootstrapURL() (*url.URL, error) {
+func (c *ClientConfig) bootstrapJoinURL() (*url.URL, error) {
 	u, err := url.Parse(c.Endpoint)
 	if err != nil {
 		return nil, err
 	}
-	if u.Scheme != "https" {
-		u.Scheme = "https"
+	u.Scheme = "https"
+	u.Path = "bootstrap/join"
+	return u, nil
+}
+
+func (c *ClientConfig) bootstrapAuthURL() (*url.URL, error) {
+	u, err := url.Parse(c.Endpoint)
+	if err != nil {
+		return nil, err
 	}
-	if u.Path != "bootstrap" {
-		u.Path = "bootstrap"
-	}
+	u.Scheme = "https"
+	u.Path = "bootstrap/auth"
 	return u, nil
 }
 
 func (c *ClientConfig) bootstrapInsecure() (*BootstrapResponse, *x509.Certificate, error) {
-	url, err := c.bootstrapURL()
+	url, err := c.bootstrapJoinURL()
 	if err != nil {
 		return nil, nil, err
 	}

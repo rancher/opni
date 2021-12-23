@@ -2,10 +2,12 @@ package management
 
 import (
 	context "context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/kralicky/opni-gateway/pkg/storage"
 	grpc "google.golang.org/grpc"
@@ -17,6 +19,7 @@ import (
 
 const (
 	DefaultManagementSocket = "/tmp/opni-gateway.sock"
+	DefaultTokenTTL         = 2 * time.Minute
 )
 
 type Server struct {
@@ -95,11 +98,28 @@ func (m *Server) CreateBootstrapToken(
 	ctx context.Context,
 	req *CreateBootstrapTokenRequest,
 ) (*BootstrapToken, error) {
-	token, err := m.tokenStore.CreateToken(ctx)
+	ttl := DefaultTokenTTL
+	if req.TTL != nil {
+		ttl = req.GetTTL().AsDuration()
+	}
+	token, err := m.tokenStore.CreateToken(ctx, ttl)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return BootstrapTokenFromToken(token), nil
+}
+
+func (m *Server) RevokeBootstrapToken(
+	ctx context.Context,
+	req *RevokeBootstrapTokenRequest,
+) (*emptypb.Empty, error) {
+	if err := m.tokenStore.DeleteToken(ctx, req.GetTokenID()); err != nil {
+		if errors.Is(err, storage.ErrTokenNotFound) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &emptypb.Empty{}, nil
 }
 
 func (m *Server) ListBootstrapTokens(
@@ -111,11 +131,7 @@ func (m *Server) ListBootstrapTokens(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	tokenList := make([]*BootstrapToken, len(tokens))
-	for i, tokenID := range tokens {
-		token, err := m.tokenStore.GetToken(ctx, tokenID)
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
+	for i, token := range tokens {
 		tokenList[i] = BootstrapTokenFromToken(token)
 	}
 	return &ListBootstrapTokensResponse{

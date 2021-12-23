@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ManagementClient interface {
 	CreateBootstrapToken(ctx context.Context, in *CreateBootstrapTokenRequest, opts ...grpc.CallOption) (*BootstrapToken, error)
+	RevokeBootstrapToken(ctx context.Context, in *RevokeBootstrapTokenRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListBootstrapTokens(ctx context.Context, in *ListBootstrapTokensRequest, opts ...grpc.CallOption) (*ListBootstrapTokensResponse, error)
 	ListTenants(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListTenantsResponse, error)
 }
@@ -39,6 +40,15 @@ func NewManagementClient(cc grpc.ClientConnInterface) ManagementClient {
 func (c *managementClient) CreateBootstrapToken(ctx context.Context, in *CreateBootstrapTokenRequest, opts ...grpc.CallOption) (*BootstrapToken, error) {
 	out := new(BootstrapToken)
 	err := c.cc.Invoke(ctx, "/management.Management/CreateBootstrapToken", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) RevokeBootstrapToken(ctx context.Context, in *RevokeBootstrapTokenRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/RevokeBootstrapToken", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +78,7 @@ func (c *managementClient) ListTenants(ctx context.Context, in *emptypb.Empty, o
 // for forward compatibility
 type ManagementServer interface {
 	CreateBootstrapToken(context.Context, *CreateBootstrapTokenRequest) (*BootstrapToken, error)
+	RevokeBootstrapToken(context.Context, *RevokeBootstrapTokenRequest) (*emptypb.Empty, error)
 	ListBootstrapTokens(context.Context, *ListBootstrapTokensRequest) (*ListBootstrapTokensResponse, error)
 	ListTenants(context.Context, *emptypb.Empty) (*ListTenantsResponse, error)
 	mustEmbedUnimplementedManagementServer()
@@ -79,6 +90,9 @@ type UnimplementedManagementServer struct {
 
 func (UnimplementedManagementServer) CreateBootstrapToken(context.Context, *CreateBootstrapTokenRequest) (*BootstrapToken, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateBootstrapToken not implemented")
+}
+func (UnimplementedManagementServer) RevokeBootstrapToken(context.Context, *RevokeBootstrapTokenRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevokeBootstrapToken not implemented")
 }
 func (UnimplementedManagementServer) ListBootstrapTokens(context.Context, *ListBootstrapTokensRequest) (*ListBootstrapTokensResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListBootstrapTokens not implemented")
@@ -113,6 +127,24 @@ func _Management_CreateBootstrapToken_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ManagementServer).CreateBootstrapToken(ctx, req.(*CreateBootstrapTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_RevokeBootstrapToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeBootstrapTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).RevokeBootstrapToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/RevokeBootstrapToken",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).RevokeBootstrapToken(ctx, req.(*RevokeBootstrapTokenRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -163,6 +195,10 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateBootstrapToken",
 			Handler:    _Management_CreateBootstrapToken_Handler,
+		},
+		{
+			MethodName: "RevokeBootstrapToken",
+			Handler:    _Management_RevokeBootstrapToken_Handler,
 		},
 		{
 			MethodName: "ListBootstrapTokens",

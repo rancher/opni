@@ -31,16 +31,11 @@ func (h ServerConfig) bootstrapResponse(
 		caCert = h.RootCA.Raw
 	}
 	signatures := map[string][]byte{}
-	tokenIDs, err := h.TokenStore.ListTokens(ctx)
+	tokens, err := h.TokenStore.ListTokens(ctx)
 	if err != nil {
 		return BootstrapResponse{}, err
 	}
-	for _, id := range tokenIDs {
-		token, err := h.TokenStore.GetToken(ctx, id)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
+	for _, token := range tokens {
 		// Generate a JWS containing the signature of the detached secret token
 		sig, err := token.SignDetached(h.Keypair.PrivateKey)
 		if err != nil {

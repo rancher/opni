@@ -6,7 +6,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kralicky/opni-gateway/pkg/auth"
-	"github.com/kralicky/opni-gateway/pkg/storage"
 )
 
 type GatewayOptions struct {
@@ -18,7 +17,6 @@ type GatewayOptions struct {
 	authMiddleware   auth.NamedMiddleware
 	rootCA           *x509.Certificate
 	keypair          *tls.Certificate
-	tokenStore       storage.TokenStore
 	managementSocket string
 }
 
@@ -81,12 +79,6 @@ func WithAuthMiddleware(name string) GatewayOption {
 		if err != nil {
 			panic(err)
 		}
-	}
-}
-
-func WithTokenStore(tokenStore storage.TokenStore) GatewayOption {
-	return func(o *GatewayOptions) {
-		o.tokenStore = tokenStore
 	}
 }
 

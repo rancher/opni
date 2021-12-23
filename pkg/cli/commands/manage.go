@@ -3,10 +3,12 @@ package commands
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/kralicky/opni-gateway/pkg/management"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -39,6 +41,7 @@ func BuildTokensCmd() *cobra.Command {
 		Short: "Manage bootstrap tokens",
 	}
 	tokensCmd.AddCommand(BuildTokensCreateCmd())
+	tokensCmd.AddCommand(BuildTokensRevokeCmd())
 	tokensCmd.AddCommand(BuildTokensListCmd())
 	return tokensCmd
 }
@@ -57,30 +60,61 @@ func BuildTokensCreateCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create a bootstrap token",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			t, err := client.CreateBootstrapToken(context.Background(),
-				&management.CreateBootstrapTokenRequest{})
+			ttl := cmd.Flag("ttl").Value.String()
+			duration, err := time.ParseDuration(ttl)
 			if err != nil {
 				return err
 			}
-			printTable(t)
+			t, err := client.CreateBootstrapToken(context.Background(),
+				&management.CreateBootstrapTokenRequest{
+					TTL: durationpb.New(duration),
+				})
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				printTable(t)
+			}
 			return nil
 		},
 	}
+	tokensCreateCmd.Flags().String("ttl", management.DefaultTokenTTL.String(), "Time to live")
 	return tokensCreateCmd
+}
+
+func BuildTokensRevokeCmd() *cobra.Command {
+	tokensRevokeCmd := &cobra.Command{
+		Use:   "revoke",
+		Short: "Revoke a bootstrap token",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			for _, token := range args {
+				_, err := client.RevokeBootstrapToken(context.Background(),
+					&management.RevokeBootstrapTokenRequest{
+						TokenID: token,
+					})
+				if err == nil {
+					fmt.Printf("Revoked token %s\n", token)
+				} else {
+					fmt.Println(err)
+				}
+			}
+		},
+	}
+	return tokensRevokeCmd
 }
 
 func BuildTokensListCmd() *cobra.Command {
 	tokensListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List bootstrap tokens",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Run: func(cmd *cobra.Command, args []string) {
 			t, err := client.ListBootstrapTokens(context.Background(),
 				&management.ListBootstrapTokensRequest{})
 			if err != nil {
-				return err
+				fmt.Println(err)
+			} else {
+				printTable(t.Tokens...)
 			}
-			printTable(t.Tokens...)
-			return nil
 		},
 	}
 	return tokensListCmd
@@ -90,15 +124,15 @@ func BuildTenantsListCmd() *cobra.Command {
 	tenantsListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List tenants",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Run: func(cmd *cobra.Command, args []string) {
 			t, err := client.ListTenants(context.Background(), &emptypb.Empty{})
 			if err != nil {
-				return err
+				fmt.Println(err)
+				return
 			}
 			for range t.Tenants {
 				// todo
 			}
-			return nil
 		},
 	}
 	return tenantsListCmd
@@ -107,10 +141,10 @@ func BuildTenantsListCmd() *cobra.Command {
 func printTable(tokens ...*management.BootstrapToken) {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"ID", "TOKEN", "EXPIRATION"})
+	w.AppendHeader(table.Row{"ID", "TOKEN", "TTL"})
 	for _, t := range tokens {
 		token := t.ToToken()
-		w.AppendRow(table.Row{token.HexID(), token.EncodeHex(), t.GetExpiration()})
+		w.AppendRow(table.Row{token.HexID(), token.EncodeHex(), t.GetTTL()})
 	}
 	fmt.Println(w.Render())
 }

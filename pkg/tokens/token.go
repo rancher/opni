@@ -18,8 +18,14 @@ import (
 var ErrMalformedToken = errors.New("malformed token")
 
 type Token struct {
-	ID     []byte `json:"id"`               // bytes 0-5
-	Secret []byte `json:"secret,omitempty"` // bytes 6-31
+	ID       []byte    `json:"id"`               // bytes 0-5
+	Secret   []byte    `json:"secret,omitempty"` // bytes 6-31
+	Metadata TokenMeta `json:"-"`
+}
+
+type TokenMeta struct {
+	LeaseID int64
+	TTL     int64
 }
 
 // Creates a new bootstrap token by reading bytes from the given random source.
@@ -49,17 +55,16 @@ func (t *Token) EncodeJSON() string {
 }
 
 func (t *Token) EncodeHex() string {
-	return hex.EncodeToString(t.ID[:]) + "." + hex.EncodeToString(t.Secret[:])
+	return hex.EncodeToString(t.ID) + "." + hex.EncodeToString(t.Secret)
 }
 
 func (t *Token) HexID() string {
-	return hex.EncodeToString(t.ID[:])
+	return hex.EncodeToString(t.ID)
 }
 
 func DecodeJSONToken(data []byte) (*Token, error) {
 	t := &Token{}
-	err := json.Unmarshal(data, t)
-	if err != nil {
+	if err := json.Unmarshal(data, t); err != nil {
 		return nil, err
 	}
 	return t, nil
@@ -76,10 +81,10 @@ func DecodeHexToken(str string) (*Token, error) {
 		ID:     make([]byte, 6),
 		Secret: make([]byte, 26),
 	}
-	if n, err := hex.Decode(t.ID[:], parts[0]); err != nil || n != 6 {
+	if n, err := hex.Decode(t.ID, parts[0]); err != nil || n != 6 {
 		return nil, ErrMalformedToken
 	}
-	if n, err := hex.Decode(t.Secret[:], parts[1]); err != nil || n != 26 {
+	if n, err := hex.Decode(t.Secret, parts[1]); err != nil || n != 26 {
 		return nil, ErrMalformedToken
 	}
 	return t, nil

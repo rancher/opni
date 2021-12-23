@@ -1,6 +1,9 @@
 package v1beta1
 
-import "github.com/kralicky/opni-gateway/pkg/config/meta"
+import (
+	"github.com/kralicky/opni-gateway/pkg/config/meta"
+	clientv3 "go.etcd.io/etcd/client/v3"
+)
 
 type GatewayConfig struct {
 	meta.TypeMeta `json:",inline"`
@@ -8,8 +11,9 @@ type GatewayConfig struct {
 }
 
 type GatewayConfigSpec struct {
-	Cortex       CortexSpec `json:"services,omitempty"`
-	AuthProvider string     `json:"authProvider,omitempty"`
+	Cortex       CortexSpec  `json:"services,omitempty"`
+	AuthProvider string      `json:"authProvider,omitempty"`
+	Storage      StorageSpec `json:"storage,omitempty"`
 }
 
 type CortexSpec struct {
@@ -71,4 +75,17 @@ type AuthProvider struct {
 type AuthProviderSpec struct {
 	Type    string            `json:"type,omitempty"`
 	Options map[string]string `json:"options,omitempty"`
+}
+
+type StorageSpec struct {
+	Type     string               `json:"type,omitempty"`
+	Etcd     *EtcdStorageSpec     `json:"etcd,omitempty"`
+	InMemory *InMemoryStorageSpec `json:"inMemory,omitempty"`
+}
+
+type EtcdStorageSpec struct {
+	clientv3.Config `json:",inline"`
+}
+
+type InMemoryStorageSpec struct {
 }

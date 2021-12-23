@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
@@ -22,6 +24,7 @@ type Gateway struct {
 	managementServer    *management.Server
 	managementCtx       context.Context
 	managementCtxCancel context.CancelFunc
+	tokenStore          storage.TokenStore
 }
 
 func default404Handler(c *fiber.Ctx) error {
@@ -34,8 +37,21 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		managementSocket: management.DefaultManagementSocket,
 	}
 	options.Apply(opts...)
-	if options.tokenStore == nil {
-		options.tokenStore = storage.NewVolatileTokenStore()
+
+	var tokenStore storage.TokenStore
+	switch strings.ToLower(strings.TrimSpace(gc.Spec.Storage.Type)) {
+	case "etcd":
+		options := gc.Spec.Storage.Etcd
+		if options == nil {
+			log.Fatal("etcd storage options missing from config")
+		}
+		ts, err := storage.NewEtcdTokenStore(storage.WithClientConfig(options.Config))
+		if err != nil {
+			log.Fatal(fmt.Errorf("failed to initialize etcd token store: %w", err))
+		}
+		tokenStore = ts
+	default:
+		log.Fatalf("unknown storage type %q", gc.Spec.Storage.Type)
 	}
 
 	gc.Spec.SetDefaults()
@@ -67,7 +83,7 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	})
 
 	mgmtSrv := management.NewServer(
-		management.TokenStore(options.tokenStore),
+		management.TokenStore(tokenStore),
 		management.Socket(options.managementSocket),
 	)
 
@@ -76,6 +92,7 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		config:           gc,
 		app:              app,
 		managementServer: mgmtSrv,
+		tokenStore:       tokenStore,
 	}
 	g.setupQueryRoutes(app)
 	g.setupPushRoutes(app)

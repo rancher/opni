@@ -43,10 +43,6 @@ func (c *ClientConfig) Bootstrap(ctx context.Context) (keyring.Keyring, error) {
 		return nil, err
 	}
 
-	if len(response.Signatures) == 0 {
-		return nil, errors.New("server has no active bootstrap tokens")
-	}
-
 	completeJws, err := c.findValidSignature(
 		response.Signatures, serverLeafCert.PublicKey)
 	if err != nil {
@@ -156,7 +152,7 @@ func (c *ClientConfig) bootstrapInsecure() (*BootstrapResponse, *x509.Certificat
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, nil, fmt.Errorf("%w: %s", ErrBootstrapFailed, resp.Status)
+		return nil, nil, fmt.Errorf(resp.Status)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -194,10 +190,7 @@ func (c *ClientConfig) validateServerCA(
 	if _, err := leaf.Verify(opts); err != nil {
 		return err
 	}
-	actual, err := util.CACertHash(cacert)
-	if err != nil {
-		return err
-	}
+	actual := util.CertSPKIHash(cacert)
 	expected := c.CACertHash
 	if subtle.ConstantTimeCompare(actual, expected) != 1 {
 		return ErrRootCAHashMismatch

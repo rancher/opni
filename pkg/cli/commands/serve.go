@@ -3,7 +3,6 @@ package commands
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"log"
@@ -70,7 +69,7 @@ func BuildServeCmd() *cobra.Command {
 			},
 		)
 
-		rootCA, keypair, err := loadCerts(caCert, servingCert, servingKey)
+		servingCert, err := loadCerts(caCert, servingCert, servingKey)
 		if err != nil {
 			log.Fatalf("failed to load serving certs: %v", err)
 		}
@@ -81,8 +80,7 @@ func BuildServeCmd() *cobra.Command {
 			gateway.WithFiberMiddleware(logger.New(), compress.New()),
 			gateway.WithMonitor(enableMonitor),
 			gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
-			gateway.WithRootCA(rootCA),
-			gateway.WithKeypair(keypair),
+			gateway.WithServingCert(servingCert),
 			gateway.WithManagementSocket(managementSocket),
 		)
 
@@ -115,30 +113,31 @@ func BuildServeCmd() *cobra.Command {
 	return serveCmd
 }
 
-func loadCerts(cacertPath, certPath, keyPath string) (*x509.Certificate, *tls.Certificate, error) {
-	var rootCA *x509.Certificate
-	if cacertPath != "" {
-		data, err := os.ReadFile(cacertPath)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to load CA cert: %v", err)
-		}
-		der, rest := pem.Decode(data)
-		if len(rest) > 0 {
-			return nil, nil, fmt.Errorf("CA cert file must only contain one PEM block")
-		}
-		if der == nil {
-			return nil, nil, fmt.Errorf("failed to decode CA cert")
-		}
-		rootCA, err = x509.ParseCertificate(der.Bytes)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse CA cert: %v", err)
-		}
-	}
-
-	keypair, err := tls.LoadX509KeyPair(certPath, keyPath)
+// Returns a complete cert chain including the root CA, and a tls serving cert.
+func loadCerts(cacertPath, certPath, keyPath string) (*tls.Certificate, error) {
+	data, err := os.ReadFile(cacertPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load TLS certificate: %w", err)
+		return nil, fmt.Errorf("failed to load CA cert: %v", err)
 	}
-
-	return rootCA, &keypair, nil
+	root, err := util.ParsePEMEncodedCertChain(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CA cert: %v", err)
+	}
+	if len(root) != 1 {
+		return nil, fmt.Errorf("failed to parse CA cert: expected one certificate in chain, got %d", len(root))
+	}
+	rootCA := root[0]
+	servingCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load TLS certificate: %w", err)
+	}
+	servingRootData := servingCert.Certificate[len(servingCert.Certificate)-1]
+	servingRoot, err := x509.ParseCertificate(servingRootData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse serving root certificate: %w", err)
+	}
+	if !rootCA.Equal(servingRoot) {
+		servingCert.Certificate = append(servingCert.Certificate, rootCA.Raw)
+	}
+	return &servingCert, nil
 }

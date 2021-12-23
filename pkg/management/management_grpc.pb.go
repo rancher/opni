@@ -27,6 +27,7 @@ type ManagementClient interface {
 	RevokeBootstrapToken(ctx context.Context, in *RevokeBootstrapTokenRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListBootstrapTokens(ctx context.Context, in *ListBootstrapTokensRequest, opts ...grpc.CallOption) (*ListBootstrapTokensResponse, error)
 	ListTenants(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListTenantsResponse, error)
+	CertsInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CertsInfoResponse, error)
 }
 
 type managementClient struct {
@@ -73,6 +74,15 @@ func (c *managementClient) ListTenants(ctx context.Context, in *emptypb.Empty, o
 	return out, nil
 }
 
+func (c *managementClient) CertsInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CertsInfoResponse, error) {
+	out := new(CertsInfoResponse)
+	err := c.cc.Invoke(ctx, "/management.Management/CertsInfo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ManagementServer is the server API for Management service.
 // All implementations must embed UnimplementedManagementServer
 // for forward compatibility
@@ -81,6 +91,7 @@ type ManagementServer interface {
 	RevokeBootstrapToken(context.Context, *RevokeBootstrapTokenRequest) (*emptypb.Empty, error)
 	ListBootstrapTokens(context.Context, *ListBootstrapTokensRequest) (*ListBootstrapTokensResponse, error)
 	ListTenants(context.Context, *emptypb.Empty) (*ListTenantsResponse, error)
+	CertsInfo(context.Context, *emptypb.Empty) (*CertsInfoResponse, error)
 	mustEmbedUnimplementedManagementServer()
 }
 
@@ -99,6 +110,9 @@ func (UnimplementedManagementServer) ListBootstrapTokens(context.Context, *ListB
 }
 func (UnimplementedManagementServer) ListTenants(context.Context, *emptypb.Empty) (*ListTenantsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListTenants not implemented")
+}
+func (UnimplementedManagementServer) CertsInfo(context.Context, *emptypb.Empty) (*CertsInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CertsInfo not implemented")
 }
 func (UnimplementedManagementServer) mustEmbedUnimplementedManagementServer() {}
 
@@ -185,6 +199,24 @@ func _Management_ListTenants_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Management_CertsInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).CertsInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/CertsInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).CertsInfo(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Management_ServiceDesc is the grpc.ServiceDesc for Management service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -207,6 +239,10 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTenants",
 			Handler:    _Management_ListTenants_Handler,
+		},
+		{
+			MethodName: "CertsInfo",
+			Handler:    _Management_CertsInfo_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

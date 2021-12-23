@@ -9,6 +9,7 @@ service Management {
   rpc RevokeBootstrapToken(RevokeBootstrapTokenRequest) returns (google.protobuf.Empty) {}
   rpc ListBootstrapTokens(ListBootstrapTokensRequest) returns (ListBootstrapTokensResponse) {}
   rpc ListTenants(google.protobuf.Empty) returns (ListTenantsResponse) {}
+  rpc CertsInfo(google.protobuf.Empty) returns (CertsInfoResponse) {}
 }
 
 message CreateBootstrapTokenRequest {
@@ -41,4 +42,17 @@ message Tenant {
 
 message ListTenantsResponse {
   repeated Tenant Tenants = 1;
+}
+
+message CertsInfoResponse {
+  repeated CertInfo Chain = 1;
+}
+
+message CertInfo {
+  string Issuer = 1;
+  string Subject = 2;
+  bool IsCA = 3;
+  string NotBefore = 4;
+  string NotAfter = 5;
+  bytes SPKIHash = 6;
 }

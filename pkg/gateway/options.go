@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kralicky/opni-gateway/pkg/auth"
@@ -15,8 +14,7 @@ type GatewayOptions struct {
 	trustedProxies   []string
 	fiberMiddlewares []FiberMiddleware
 	authMiddleware   auth.NamedMiddleware
-	rootCA           *x509.Certificate
-	keypair          *tls.Certificate
+	servingCert      *tls.Certificate
 	managementSocket string
 }
 
@@ -52,15 +50,11 @@ func WithMonitor(enableMonitor bool) GatewayOption {
 	}
 }
 
-func WithKeypair(keypair *tls.Certificate) GatewayOption {
+// Sets the certificate to be used for serving HTTPS requests. The certificate
+// list must contain the full chain, including root CA.
+func WithServingCert(cert *tls.Certificate) GatewayOption {
 	return func(o *GatewayOptions) {
-		o.keypair = keypair
-	}
-}
-
-func WithRootCA(rootCA *x509.Certificate) GatewayOption {
-	return func(o *GatewayOptions) {
-		o.rootCA = rootCA
+		o.servingCert = cert
 	}
 }
 

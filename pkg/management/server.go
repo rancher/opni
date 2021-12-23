@@ -2,6 +2,8 @@ package management
 
 import (
 	context "context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kralicky/opni-gateway/pkg/storage"
+	"github.com/kralicky/opni-gateway/pkg/util"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -30,6 +33,7 @@ type Server struct {
 type ManagementServerOptions struct {
 	socket     string
 	tokenStore storage.TokenStore
+	tlsConfig  *tls.Config
 }
 
 type ManagementServerOption func(*ManagementServerOptions)
@@ -49,6 +53,12 @@ func Socket(socket string) ManagementServerOption {
 func TokenStore(tokenStore storage.TokenStore) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
 		o.tokenStore = tokenStore
+	}
+}
+
+func TLSConfig(config *tls.Config) ManagementServerOption {
+	return func(o *ManagementServerOptions) {
+		o.tlsConfig = config
 	}
 }
 
@@ -146,4 +156,30 @@ func (m *Server) ListTenants(
 	return &ListTenantsResponse{
 		Tenants: []*Tenant{},
 	}, nil
+}
+
+func (m *Server) CertsInfo(
+	ctx context.Context,
+	req *emptypb.Empty,
+) (*CertsInfoResponse, error) {
+	resp := &CertsInfoResponse{
+		Chain: []*CertInfo{},
+	}
+	for _, tlsCert := range m.tlsConfig.Certificates[:1] {
+		for _, der := range tlsCert.Certificate {
+			cert, err := x509.ParseCertificate(der)
+			if err != nil {
+				return nil, status.Error(codes.Internal, err.Error())
+			}
+			resp.Chain = append(resp.Chain, &CertInfo{
+				Issuer:    cert.Issuer.String(),
+				Subject:   cert.Subject.String(),
+				IsCA:      cert.IsCA,
+				NotBefore: cert.NotBefore.Format(time.RFC3339),
+				NotAfter:  cert.NotAfter.Format(time.RFC3339),
+				SPKIHash:  util.CertSPKIHash(cert),
+			})
+		}
+	}
+	return resp, nil
 }

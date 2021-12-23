@@ -13,17 +13,18 @@ import (
 	"github.com/kralicky/opni-gateway/pkg/ecdh"
 	"github.com/kralicky/opni-gateway/pkg/keyring"
 	"github.com/kralicky/opni-gateway/pkg/storage"
+	"github.com/kralicky/opni-gateway/pkg/tokens"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 )
 
 type ServerConfig struct {
-	RootCA     *x509.Certificate
-	Keypair    *tls.Certificate
-	TokenStore storage.TokenStore
+	RootCA      *x509.Certificate
+	Certificate *tls.Certificate
+	TokenStore  storage.TokenStore
 }
 
-func (h ServerConfig) bootstrapResponse(
+func (h ServerConfig) bootstrapJoinResponse(
 	ctx context.Context,
 ) (BootstrapResponse, error) {
 	var caCert []byte
@@ -37,7 +38,7 @@ func (h ServerConfig) bootstrapResponse(
 	}
 	for _, token := range tokens {
 		// Generate a JWS containing the signature of the detached secret token
-		sig, err := token.SignDetached(h.Keypair.PrivateKey)
+		sig, err := token.SignDetached(h.Certificate.PrivateKey)
 		if err != nil {
 			return BootstrapResponse{}, fmt.Errorf("error signing token: %w", err)
 		}
@@ -63,9 +64,13 @@ func (h ServerConfig) Handle(c *fiber.Ctx) error {
 func (h ServerConfig) handleBootstrapJoin(c *fiber.Ctx) error {
 	authHeader := strings.TrimSpace(c.Get("Authorization"))
 	if authHeader == "" {
-		if resp, err := h.bootstrapResponse(c.Context()); err != nil {
+		if resp, err := h.bootstrapJoinResponse(c.Context()); err != nil {
 			return c.SendStatus(fiber.StatusInternalServerError)
 		} else {
+			if len(resp.Signatures) == 0 {
+				// No tokens - server is not accepting bootstrap requests
+				return c.SendStatus(fiber.StatusMethodNotAllowed)
+			}
 			return c.Status(fiber.StatusOK).JSON(resp)
 		}
 	} else {
@@ -82,17 +87,31 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	// Remove "Bearer " from the header
 	bearerToken := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
 	// Verify the token
-	edPrivKey := h.Keypair.PrivateKey.(ed25519.PrivateKey)
-	_, err := jws.Verify([]byte(bearerToken), jwa.EdDSA, edPrivKey.Public())
+	edPrivKey := h.Certificate.PrivateKey.(ed25519.PrivateKey)
+	payload, err := jws.Verify([]byte(bearerToken), jwa.EdDSA, edPrivKey.Public())
 	if err != nil {
 		log.Printf("error verifying token: %v", err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	// Token is valid. Check the client's requested UUID
+	// The payload should contain the entire token encoded as JSON
+	token, err := tokens.DecodeJSONToken(payload)
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+	ok, err := h.TokenStore.TokenExists(c.Context(), token.HexID())
+	if err != nil {
+		log.Printf("error checking token: %v", err)
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+	if !ok {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	// Token is valid and not expired. Check the client's requested UUID
 	clientReq := SecureBootstrapRequest{}
 	if err := c.BodyParser(&clientReq); err != nil {
-		return c.SendStatus(fiber.StatusBadRequest)
+		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 	}
 
 	ekp, err := ecdh.NewEphemeralKeyPair()
@@ -114,5 +133,4 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(SecureBootstrapResponse{
 		ServerPubKey: ekp.PublicKey,
 	})
-
 }

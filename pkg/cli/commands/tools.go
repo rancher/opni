@@ -53,11 +53,10 @@ the last certificate will be used.`,
 			if err != nil {
 				return fmt.Errorf("Failed to parse certificate: %w", err)
 			}
-			hash, err := util.CACertHash(certificate)
-			if err != nil {
-				return fmt.Errorf("Failed to compute CA cert hash: %w", err)
+			if !certificate.IsCA {
+				return errors.New("No CA certificate found")
 			}
-			fmt.Println(hex.EncodeToString(hash))
+			fmt.Println(hex.EncodeToString(util.CertSPKIHash(certificate)))
 			return nil
 		},
 	}

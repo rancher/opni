@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
+	cliutil "github.com/kralicky/opni-gateway/pkg/cli/util"
 	"github.com/kralicky/opni-gateway/pkg/management"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -32,6 +33,7 @@ func BuildManageCmd() *cobra.Command {
 		management.DefaultManagementSocket, "Path to the management socket")
 	manageCmd.AddCommand(BuildTokensCmd())
 	manageCmd.AddCommand(BuildTenantsCmd())
+	manageCmd.AddCommand(BuildCertsCmd())
 	return manageCmd
 }
 
@@ -55,6 +57,31 @@ func BuildTenantsCmd() *cobra.Command {
 	return tenantsCmd
 }
 
+func BuildCertsCmd() *cobra.Command {
+	certsCmd := &cobra.Command{
+		Use:   "certs",
+		Short: "Manage certificates",
+	}
+	certsCmd.AddCommand(BuildCertsInfoCmd())
+	return certsCmd
+}
+
+func BuildCertsInfoCmd() *cobra.Command {
+	certsInfoCmd := &cobra.Command{
+		Use:   "info",
+		Short: "Show certificate information",
+		Run: func(cmd *cobra.Command, args []string) {
+			t, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			cliutil.RenderCertInfoChain(t.Chain)
+		},
+	}
+	return certsInfoCmd
+}
+
 func BuildTokensCreateCmd() *cobra.Command {
 	tokensCreateCmd := &cobra.Command{
 		Use:   "create",
@@ -72,7 +99,7 @@ func BuildTokensCreateCmd() *cobra.Command {
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				printTable(t)
+				cliutil.RenderBootstrapTokenList(t)
 			}
 			return nil
 		},
@@ -113,7 +140,7 @@ func BuildTokensListCmd() *cobra.Command {
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				printTable(t.Tokens...)
+				cliutil.RenderBootstrapTokenList(t.Tokens...)
 			}
 		},
 	}

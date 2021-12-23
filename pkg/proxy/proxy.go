@@ -83,6 +83,7 @@ func NewRemoteWriteProxy(opts ...RemoteWriteProxyOption) *RemoteWriteProxy {
 		resp := c.Response()
 		req.SetHost(options.gatewayAddr)
 		req.Header.Del(fiber.HeaderConnection)
+		req.Header.Add(fiber.HeaderXForwardedFor, c.IP())
 		if err := client.Do(req, resp); err != nil {
 			return err
 		}

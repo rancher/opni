@@ -10,8 +10,10 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
+	"github.com/kralicky/opni-gateway/pkg/bootstrap"
 	"github.com/kralicky/opni-gateway/pkg/config"
 	"github.com/kralicky/opni-gateway/pkg/management"
 	"github.com/kralicky/opni-gateway/pkg/storage"
@@ -24,7 +26,7 @@ type Gateway struct {
 	managementServer    *management.Server
 	managementCtx       context.Context
 	managementCtxCancel context.CancelFunc
-	tokenStore          storage.TokenStore
+	tlsConfig           *tls.Config
 }
 
 func default404Handler(c *fiber.Ctx) error {
@@ -82,9 +84,27 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		return c.Status(http.StatusOK).SendString("alive")
 	})
 
+	pool := x509.NewCertPool()
+	rootCA, err := x509.ParseCertificate(
+		options.servingCert.Certificate[len(options.servingCert.Certificate)-1])
+	if err != nil {
+		log.Fatal(err)
+	}
+	if !rootCA.IsCA || rootCA.Subject.String() != rootCA.Issuer.String() {
+		log.Fatal("No root CA given in certificate chain")
+	}
+	pool.AddCert(rootCA)
+
+	tlsConfig := &tls.Config{
+		Certificates:     []tls.Certificate{*options.servingCert},
+		CurvePreferences: []tls.CurveID{tls.X25519},
+		RootCAs:          pool,
+	}
+
 	mgmtSrv := management.NewServer(
 		management.TokenStore(tokenStore),
 		management.Socket(options.managementSocket),
+		management.TLSConfig(tlsConfig),
 	)
 
 	g := &Gateway{
@@ -92,11 +112,16 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		config:           gc,
 		app:              app,
 		managementServer: mgmtSrv,
-		tokenStore:       tokenStore,
+		tlsConfig:        tlsConfig,
 	}
 	g.setupQueryRoutes(app)
 	g.setupPushRoutes(app)
-	g.setupBootstrapEndpoint(app)
+
+	app.Post("/bootstrap/*", bootstrap.ServerConfig{
+		RootCA:      rootCA,
+		Certificate: options.servingCert,
+		TokenStore:  tokenStore,
+	}.Handle).Use(limiter.New())
 
 	app.Use(default404Handler)
 
@@ -112,20 +137,11 @@ func (g *Gateway) Listen() error {
 		}
 	}()
 
-	if g.keypair == nil {
+	if g.servingCert == nil {
 		return g.app.Listen(g.httpListenAddr)
 	}
 
-	pool := x509.NewCertPool()
-	pool.AddCert(g.rootCA)
-
-	config := &tls.Config{
-		Certificates:     []tls.Certificate{*g.keypair},
-		ClientAuth:       tls.VerifyClientCertIfGiven,
-		CurvePreferences: []tls.CurveID{tls.X25519},
-		RootCAs:          pool,
-	}
-	listener, err := tls.Listen(g.app.Config().Network, g.httpListenAddr, config)
+	listener, err := tls.Listen(g.app.Config().Network, g.httpListenAddr, g.tlsConfig)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,40 @@
+syntax = "proto3";
+option go_package = "github.com/kralicky/opni-gateway/pkg/management";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+package management;
+
+service Management {
+  rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (BootstrapToken) {}
+  rpc ListBootstrapTokens(ListBootstrapTokensRequest) returns (ListBootstrapTokensResponse) {}
+  rpc ListTenants(google.protobuf.Empty) returns (ListTenantsResponse) {}
+}
+
+message CreateBootstrapTokenRequest {
+  google.protobuf.Duration TTL = 1;
+}
+
+message BootstrapToken {
+  bytes TokenID = 1;
+  bytes Secret = 2;
+  google.protobuf.Timestamp Expiration = 3;
+}
+
+message ListBootstrapTokensRequest {
+  bool IncludeExpired = 1;
+}
+
+message ListBootstrapTokensResponse {
+  repeated BootstrapToken Tokens = 1;
+}
+
+message Tenant {
+  string ID = 1;
+  string OrgID = 2;
+  bytes PublicKey = 3;
+}
+
+message ListTenantsResponse {
+  repeated Tenant Tenants = 1;
+}

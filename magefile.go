@@ -5,7 +5,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/kralicky/ragu/pkg/ragu"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 )
@@ -39,6 +41,7 @@ func All() {
 }
 
 func Build() error {
+	mg.Deps(Generate)
 	return sh.RunWith(map[string]string{
 		"CGO_ENABLED": "0",
 	}, mg.GoCmd(), "build", "-ldflags", "-w -s", "-o", "bin/opni-gateway", "./cmd/opni-gateway")
@@ -58,4 +61,28 @@ func Docker() error {
 	return sh.RunWithV(map[string]string{
 		"DOCKER_BUILDKIT": "1",
 	}, "docker", "build", "-t", "opni-gateway", ".")
+}
+
+func Generate() error {
+	protos, err := ragu.GenerateCode("pkg/management/management.proto", true)
+	if err != nil {
+		return err
+	}
+	for _, f := range protos {
+		path := filepath.Join("pkg/management", f.GetName())
+		if info, err := os.Stat(path); err == nil {
+			if info.Mode()&0200 == 0 {
+				if err := os.Chmod(path, 0644); err != nil {
+					return err
+				}
+			}
+		}
+		if err := os.WriteFile(path, []byte(f.GetContent()), 0444); err != nil {
+			return err
+		}
+		if err := os.Chmod(path, 0444); err != nil {
+			return err
+		}
+	}
+	return nil
 }

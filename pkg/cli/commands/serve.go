@@ -16,6 +16,7 @@ import (
 	"github.com/kralicky/opni-gateway/pkg/config"
 	"github.com/kralicky/opni-gateway/pkg/config/v1beta1"
 	"github.com/kralicky/opni-gateway/pkg/gateway"
+	"github.com/kralicky/opni-gateway/pkg/management"
 	"github.com/kralicky/opni-gateway/pkg/util"
 	"github.com/spf13/cobra"
 )
@@ -25,6 +26,7 @@ func BuildServeCmd() *cobra.Command {
 	var caCert, servingCert, servingKey string
 	var enableMonitor bool
 	var trustedProxies []string
+	var managementSocket string
 
 	run := func() error {
 		if configLocation == "" {
@@ -81,6 +83,7 @@ func BuildServeCmd() *cobra.Command {
 			gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
 			gateway.WithRootCA(rootCA),
 			gateway.WithKeypair(keypair),
+			gateway.WithManagementSocket(managementSocket),
 		)
 
 		return util.ListenReload(g)
@@ -105,7 +108,7 @@ func BuildServeCmd() *cobra.Command {
 	serveCmd.Flags().StringVar(&caCert, "ca-cert", "", "Path to a CA certificate")
 	serveCmd.Flags().StringVar(&servingCert, "serving-cert", "", "Path to a certificate to use for serving TLS connections")
 	serveCmd.Flags().StringVar(&servingKey, "serving-key", "", "Path to a key to use for serving TLS connections")
-
+	serveCmd.Flags().StringVar(&managementSocket, "management-socket", management.DefaultManagementSocket, "Unix socket path to serve management API")
 	serveCmd.MarkFlagRequired("ca-cert")
 	serveCmd.MarkFlagRequired("serving-cert")
 	serveCmd.MarkFlagRequired("serving-key")

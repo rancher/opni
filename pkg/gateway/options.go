@@ -6,10 +6,11 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kralicky/opni-gateway/pkg/auth"
+	"github.com/kralicky/opni-gateway/pkg/storage"
 )
 
 type GatewayOptions struct {
-	listenAddr       string
+	httpListenAddr   string
 	prefork          bool
 	enableMonitor    bool
 	trustedProxies   []string
@@ -17,6 +18,8 @@ type GatewayOptions struct {
 	authMiddleware   auth.NamedMiddleware
 	rootCA           *x509.Certificate
 	keypair          *tls.Certificate
+	tokenStore       storage.TokenStore
+	managementSocket string
 }
 
 type GatewayOption func(*GatewayOptions)
@@ -29,7 +32,7 @@ func (o *GatewayOptions) Apply(opts ...GatewayOption) {
 
 func WithListenAddr(addr string) GatewayOption {
 	return func(o *GatewayOptions) {
-		o.listenAddr = addr
+		o.httpListenAddr = addr
 	}
 }
 
@@ -78,5 +81,17 @@ func WithAuthMiddleware(name string) GatewayOption {
 		if err != nil {
 			panic(err)
 		}
+	}
+}
+
+func WithTokenStore(tokenStore storage.TokenStore) GatewayOption {
+	return func(o *GatewayOptions) {
+		o.tokenStore = tokenStore
+	}
+}
+
+func WithManagementSocket(socket string) GatewayOption {
+	return func(o *GatewayOptions) {
+		o.managementSocket = socket
 	}
 }

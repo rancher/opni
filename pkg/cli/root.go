@@ -13,6 +13,7 @@ func BuildRootCmd() *cobra.Command {
 	rootCmd.AddCommand(commands.BuildServeCmd())
 	rootCmd.AddCommand(commands.BuildProxyCmd())
 	rootCmd.AddCommand(commands.BuildToolCmd())
+	rootCmd.AddCommand(commands.BuildManageCmd())
 	return rootCmd
 }
 

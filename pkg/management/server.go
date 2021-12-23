@@ -1,0 +1,133 @@
+package management
+
+import (
+	context "context"
+	"fmt"
+	"net"
+	"os"
+	"path/filepath"
+
+	"github.com/kralicky/opni-gateway/pkg/storage"
+	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+)
+
+const (
+	DefaultManagementSocket = "/tmp/opni-gateway.sock"
+)
+
+type Server struct {
+	UnimplementedManagementServer
+	ManagementServerOptions
+}
+
+type ManagementServerOptions struct {
+	socket     string
+	tokenStore storage.TokenStore
+}
+
+type ManagementServerOption func(*ManagementServerOptions)
+
+func (o *ManagementServerOptions) Apply(opts ...ManagementServerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func Socket(socket string) ManagementServerOption {
+	return func(o *ManagementServerOptions) {
+		o.socket = socket
+	}
+}
+
+func TokenStore(tokenStore storage.TokenStore) ManagementServerOption {
+	return func(o *ManagementServerOptions) {
+		o.tokenStore = tokenStore
+	}
+}
+
+func NewServer(opts ...ManagementServerOption) *Server {
+	options := ManagementServerOptions{
+		socket: DefaultManagementSocket,
+	}
+	options.Apply(opts...)
+	if options.tokenStore == nil {
+		panic("token store is required")
+	}
+	return &Server{
+		ManagementServerOptions: options,
+	}
+}
+
+func (m *Server) ListenAndServe(ctx context.Context) error {
+	if err := m.createSocketDir(); err != nil {
+		return err
+	}
+	if _, err := os.Stat(m.socket); err == nil {
+		if err := os.Remove(m.socket); err != nil {
+			return err
+		}
+	}
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "unix", m.socket)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Listening on", m.socket)
+	srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
+	RegisterManagementServer(srv, m)
+	return srv.Serve(listener)
+}
+
+func (m *Server) createSocketDir() error {
+	if _, err := os.Stat(filepath.Dir(m.socket)); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Dir(m.socket), 0700); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *Server) CreateBootstrapToken(
+	ctx context.Context,
+	req *CreateBootstrapTokenRequest,
+) (*BootstrapToken, error) {
+	token, err := m.tokenStore.CreateToken(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return BootstrapTokenFromToken(token), nil
+}
+
+func (m *Server) ListBootstrapTokens(
+	ctx context.Context,
+	req *ListBootstrapTokensRequest,
+) (*ListBootstrapTokensResponse, error) {
+	tokens, err := m.tokenStore.ListTokens(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	tokenList := make([]*BootstrapToken, len(tokens))
+	for i, tokenID := range tokens {
+		token, err := m.tokenStore.GetToken(ctx, tokenID)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		tokenList[i] = BootstrapTokenFromToken(token)
+	}
+	return &ListBootstrapTokensResponse{
+		Tokens: tokenList,
+	}, nil
+}
+
+func (m *Server) ListTenants(
+	ctx context.Context,
+	req *emptypb.Empty,
+) (*ListTenantsResponse, error) {
+	return &ListTenantsResponse{
+		Tenants: []*Tenant{},
+	}, nil
+}

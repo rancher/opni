@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"log"
@@ -10,12 +11,17 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
 	"github.com/kralicky/opni-gateway/pkg/config"
+	"github.com/kralicky/opni-gateway/pkg/management"
+	"github.com/kralicky/opni-gateway/pkg/storage"
 )
 
 type Gateway struct {
 	GatewayOptions
-	config *config.GatewayConfig
-	app    *fiber.App
+	config              *config.GatewayConfig
+	app                 *fiber.App
+	managementServer    *management.Server
+	managementCtx       context.Context
+	managementCtxCancel context.CancelFunc
 }
 
 func default404Handler(c *fiber.Ctx) error {
@@ -25,8 +31,12 @@ func default404Handler(c *fiber.Ctx) error {
 func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	options := GatewayOptions{
 		fiberMiddlewares: []FiberMiddleware{},
+		managementSocket: management.DefaultManagementSocket,
 	}
 	options.Apply(opts...)
+	if options.tokenStore == nil {
+		options.tokenStore = storage.NewVolatileTokenStore()
+	}
 
 	gc.Spec.SetDefaults()
 
@@ -56,10 +66,16 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		return c.Status(http.StatusOK).SendString("alive")
 	})
 
+	mgmtSrv := management.NewServer(
+		management.TokenStore(options.tokenStore),
+		management.Socket(options.managementSocket),
+	)
+
 	g := &Gateway{
-		GatewayOptions: options,
-		config:         gc,
-		app:            app,
+		GatewayOptions:   options,
+		config:           gc,
+		app:              app,
+		managementServer: mgmtSrv,
 	}
 	g.setupQueryRoutes(app)
 	g.setupPushRoutes(app)
@@ -71,8 +87,16 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 }
 
 func (g *Gateway) Listen() error {
+	g.managementCtx, g.managementCtxCancel =
+		context.WithCancel(context.Background())
+	go func() {
+		if err := g.managementServer.ListenAndServe(g.managementCtx); err != nil {
+			panic(err)
+		}
+	}()
+
 	if g.keypair == nil {
-		return g.app.Listen(g.listenAddr)
+		return g.app.Listen(g.httpListenAddr)
 	}
 
 	pool := x509.NewCertPool()
@@ -84,7 +108,7 @@ func (g *Gateway) Listen() error {
 		CurvePreferences: []tls.CurveID{tls.X25519},
 		RootCAs:          pool,
 	}
-	listener, err := tls.Listen(g.app.Config().Network, g.listenAddr, config)
+	listener, err := tls.Listen(g.app.Config().Network, g.httpListenAddr, config)
 	if err != nil {
 		return err
 	}
@@ -92,6 +116,7 @@ func (g *Gateway) Listen() error {
 }
 
 func (g *Gateway) Shutdown() error {
+	g.managementCtxCancel()
 	return g.app.Shutdown()
 }
 

@@ -34,7 +34,7 @@ spec:
       - name: control-plane
     metrics:
       enabled: false # metrics anomaly detection is currently beta
-      prometheuus:
+      prometheus:
         name: prometheus-name #The name of the prometheus resource
         namespace: promethues-namespace #The namespace the prometheus resource is in
   elastic:

@@ -1,4 +1,4 @@
-package ecdh
+package b2bmac_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestECDH(t *testing.T) {
+func TestB2bmac(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ECDH Suite")
+	RunSpecs(t, "Blake2b MAC Suite")
 }

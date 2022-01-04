@@ -133,7 +133,11 @@ func (p *RemoteWriteProxy) handlePushRequest(c *fiber.Ctx) error {
 	if err != nil {
 		log.Fatal("Error using shared client key to generate a MAC: ", err)
 	}
-	req.Header.Add("Authorization", b2bmac.EncodeAuthHeader(p.tenantID, nonce, sig))
+	authHeader, err := b2bmac.EncodeAuthHeader(p.tenantID, nonce, sig)
+	if err != nil {
+		log.Fatal("Error encoding auth header: ", err)
+	}
+	req.Header.Add("Authorization", authHeader)
 
 	req.SetHost(p.GatewayAddress)
 	req.Header.Del(fiber.HeaderConnection)

@@ -4,9 +4,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"fmt"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
@@ -118,7 +117,6 @@ var _ = Describe("Keyring", func() {
 
 			By("ensuring Marshal returns the correct object")
 			j, err := kr.Marshal()
-			fmt.Println(string(j))
 			Expect(err).NotTo(HaveOccurred())
 			zeroes := make([]byte, 64)
 			sharedKeys := keyring.NewSharedKeys(zeroes)

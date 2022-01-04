@@ -10,11 +10,12 @@ require (
 	github.com/lestrrat-go/jwx v1.2.14
 	github.com/magefile/mage v1.12.1
 	github.com/mitchellh/mapstructure v1.4.3
-	github.com/onsi/ginkgo v1.16.6-0.20211118180735-4e1925ba4c95
+	github.com/onsi/ginkgo/v2 v2.0.0
 	github.com/onsi/gomega v1.17.0
 	github.com/spf13/cobra v1.3.0
 	github.com/valyala/fasthttp v1.31.0
 	go.etcd.io/etcd/client/v3 v3.5.1
+	go.uber.org/atomic v1.9.0
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
 	google.golang.org/grpc v1.43.0
 	google.golang.org/protobuf v1.27.1
@@ -46,7 +47,6 @@ require (
 	github.com/yoheimuta/go-protoparser/v4 v4.5.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.1 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.1 // indirect
-	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
 	golang.org/x/mod v0.5.0 // indirect

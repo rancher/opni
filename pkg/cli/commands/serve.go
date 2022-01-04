@@ -12,7 +12,6 @@ import (
 	"github.com/kralicky/opni-gateway/pkg/config"
 	"github.com/kralicky/opni-gateway/pkg/config/v1beta1"
 	"github.com/kralicky/opni-gateway/pkg/gateway"
-	"github.com/kralicky/opni-gateway/pkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -67,7 +66,7 @@ func BuildServeCmd() *cobra.Command {
 			gateway.WithPrefork(false),
 		)
 
-		return util.ListenReload(g)
+		return g.Listen()
 	}
 
 	serveCmd := &cobra.Command{

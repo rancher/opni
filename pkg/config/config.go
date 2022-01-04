@@ -68,9 +68,12 @@ func FindConfig() (string, error) {
 		"/etc/opni-gateway",
 	}
 	filenamesToSearch := []string{
-		"opni-gateway.yaml",
-		"opni-gateway.yml",
-		"opni-gateway.json",
+		"gateway.yaml",
+		"gateway.yml",
+		"gateway.json",
+		"proxy.yaml",
+		"proxy.yml",
+		"proxy.json",
 		"config.yaml",
 		"config.yml",
 		"config.json",

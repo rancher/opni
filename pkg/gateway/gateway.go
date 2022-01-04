@@ -7,16 +7,19 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
+	"os"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
+	tenantauth "github.com/kralicky/opni-gateway/pkg/auth/tenant"
 	"github.com/kralicky/opni-gateway/pkg/bootstrap"
 	"github.com/kralicky/opni-gateway/pkg/config"
+	"github.com/kralicky/opni-gateway/pkg/config/v1beta1"
 	"github.com/kralicky/opni-gateway/pkg/management"
 	"github.com/kralicky/opni-gateway/pkg/storage"
+	"github.com/kralicky/opni-gateway/pkg/util"
 )
 
 type Gateway struct {
@@ -27,36 +30,35 @@ type Gateway struct {
 	managementCtx       context.Context
 	managementCtxCancel context.CancelFunc
 	tlsConfig           *tls.Config
+	servingCertBundle   *tls.Certificate
 }
 
 func default404Handler(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNotFound)
 }
 
-func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
+func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	options := GatewayOptions{
 		fiberMiddlewares: []FiberMiddleware{},
-		managementSocket: management.DefaultManagementSocket,
 	}
 	options.Apply(opts...)
 
 	var tokenStore storage.TokenStore
-	switch strings.ToLower(strings.TrimSpace(gc.Spec.Storage.Type)) {
-	case "etcd":
-		options := gc.Spec.Storage.Etcd
+	var tenantStore storage.TenantStore
+	switch conf.Spec.Storage.Type {
+	case v1beta1.StorageTypeEtcd:
+		options := conf.Spec.Storage.Etcd
 		if options == nil {
 			log.Fatal("etcd storage options missing from config")
 		}
-		ts, err := storage.NewEtcdTokenStore(storage.WithClientConfig(options.Config))
-		if err != nil {
-			log.Fatal(fmt.Errorf("failed to initialize etcd token store: %w", err))
-		}
-		tokenStore = ts
+		store := storage.NewEtcdStore(storage.WithClientConfig(options.Config))
+		tokenStore = store
+		tenantStore = store
 	default:
-		log.Fatalf("unknown storage type %q", gc.Spec.Storage.Type)
+		log.Fatalf("unknown storage type %q", conf.Spec.Storage.Type)
 	}
 
-	gc.Spec.SetDefaults()
+	conf.Spec.SetDefaults()
 
 	if options.authMiddleware == nil {
 		log.Fatal("auth middleware is required")
@@ -68,15 +70,15 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		AppName:                 "Opni Gateway",
 		ReduceMemoryUsage:       false,
 		Network:                 "tcp4",
-		EnableTrustedProxyCheck: len(options.trustedProxies) > 0,
-		TrustedProxies:          options.trustedProxies,
+		EnableTrustedProxyCheck: len(conf.Spec.TrustedProxies) > 0,
+		TrustedProxies:          conf.Spec.TrustedProxies,
 	})
 
 	for _, middleware := range options.fiberMiddlewares {
 		app.Use(middleware)
 	}
 
-	if options.enableMonitor {
+	if conf.Spec.EnableMonitor {
 		app.Get("/monitor", monitor.New())
 	}
 
@@ -84,9 +86,18 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		return c.Status(http.StatusOK).SendString("alive")
 	})
 
+	servingCertBundle, err := loadCerts(
+		conf.Spec.Certs.CACert,
+		conf.Spec.Certs.ServingCert,
+		conf.Spec.Certs.ServingKey,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	pool := x509.NewCertPool()
 	rootCA, err := x509.ParseCertificate(
-		options.servingCert.Certificate[len(options.servingCert.Certificate)-1])
+		servingCertBundle.Certificate[len(servingCertBundle.Certificate)-1])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -96,32 +107,35 @@ func NewGateway(gc *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	pool.AddCert(rootCA)
 
 	tlsConfig := &tls.Config{
-		Certificates:     []tls.Certificate{*options.servingCert},
+		Certificates:     []tls.Certificate{*servingCertBundle},
 		CurvePreferences: []tls.CurveID{tls.X25519},
 		RootCAs:          pool,
 	}
 
 	mgmtSrv := management.NewServer(
 		management.TokenStore(tokenStore),
-		management.Socket(options.managementSocket),
+		management.TenantStore(tenantStore),
+		management.Socket(conf.Spec.ManagementSocket),
 		management.TLSConfig(tlsConfig),
 	)
 
 	g := &Gateway{
-		GatewayOptions:   options,
-		config:           gc,
-		app:              app,
-		managementServer: mgmtSrv,
-		tlsConfig:        tlsConfig,
+		GatewayOptions:    options,
+		config:            conf,
+		app:               app,
+		managementServer:  mgmtSrv,
+		tlsConfig:         tlsConfig,
+		servingCertBundle: servingCertBundle,
 	}
 	g.setupQueryRoutes(app)
-	g.setupPushRoutes(app)
+	g.setupPushRoutes(app, tenantStore)
 
 	app.Post("/bootstrap/*", bootstrap.ServerConfig{
 		RootCA:      rootCA,
-		Certificate: options.servingCert,
+		Certificate: servingCertBundle,
 		TokenStore:  tokenStore,
-	}.Handle).Use(limiter.New())
+		TenantStore: tenantStore,
+	}.Handle).Use(limiter.New()) // Limit requests to 5 per minute
 
 	app.Use(default404Handler)
 
@@ -137,11 +151,12 @@ func (g *Gateway) Listen() error {
 		}
 	}()
 
-	if g.servingCert == nil {
-		return g.app.Listen(g.httpListenAddr)
+	if g.servingCertBundle == nil {
+		return g.app.Listen(g.config.Spec.ListenAddress)
 	}
 
-	listener, err := tls.Listen(g.app.Config().Network, g.httpListenAddr, g.tlsConfig)
+	listener, err := tls.Listen(g.app.Config().Network,
+		g.config.Spec.ListenAddress, g.tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -193,11 +208,40 @@ func (g *Gateway) setupQueryRoutes(app *fiber.App) {
 	promv1.Post("/read", queryFrontend)
 }
 
-func (g *Gateway) setupPushRoutes(app *fiber.App) {
+func (g *Gateway) setupPushRoutes(app *fiber.App, tenantStore storage.TenantStore) {
 	distributor := proxy.Balancer(proxy.Config{
 		Servers: []string{g.config.Spec.Cortex.Distributor.Address},
 	})
-
-	v1 := app.Group("/api/v1", g.authMiddleware.Handle)
+	tenantMiddleware := tenantauth.New(tenantStore)
+	v1 := app.Group("/api/v1", tenantMiddleware.Handle)
 	v1.Post("/push", distributor)
+}
+
+// Returns a complete cert chain including the root CA, and a tls serving cert.
+func loadCerts(cacertPath, certPath, keyPath string) (*tls.Certificate, error) {
+	data, err := os.ReadFile(cacertPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load CA cert: %v", err)
+	}
+	root, err := util.ParsePEMEncodedCertChain(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CA cert: %v", err)
+	}
+	if len(root) != 1 {
+		return nil, fmt.Errorf("failed to parse CA cert: expected one certificate in chain, got %d", len(root))
+	}
+	rootCA := root[0]
+	servingCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load TLS certificate: %w", err)
+	}
+	servingRootData := servingCert.Certificate[len(servingCert.Certificate)-1]
+	servingRoot, err := x509.ParseCertificate(servingRootData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse serving root certificate: %w", err)
+	}
+	if !rootCA.Equal(servingRoot) {
+		servingCert.Certificate = append(servingCert.Certificate, rootCA.Raw)
+	}
+	return &servingCert, nil
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/kralicky/opni-gateway/pkg/management"
 )
 
-func RenderBootstrapTokenList(tokens ...*management.BootstrapToken) {
+func RenderBootstrapTokenList(tokens []*management.BootstrapToken) {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"ID", "TOKEN", "TTL"})
@@ -54,4 +54,14 @@ func RenderCertInfoChain(chain []*management.CertInfo) {
 			fmt.Println()
 		}
 	}
+}
+
+func RenderTenantList(tenants []*management.Tenant) string {
+	w := table.NewWriter()
+	w.SetStyle(table.StyleColoredDark)
+	w.AppendHeader(table.Row{"ID"})
+	for _, t := range tenants {
+		w.AppendRow(table.Row{t.ID})
+	}
+	return w.Render()
 }

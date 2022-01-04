@@ -36,8 +36,6 @@ message ListBootstrapTokensResponse {
 
 message Tenant {
   string ID = 1;
-  string OrgID = 2;
-  bytes PublicKey = 3;
 }
 
 message ListTenantsResponse {

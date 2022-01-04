@@ -21,6 +21,12 @@ func DecodeObject(kind string, document []byte) (meta.Object, error) {
 			return nil, err
 		}
 		return obj, nil
+	case "ProxyConfig":
+		obj := &ProxyConfig{}
+		if err := yaml.Unmarshal(document, obj); err != nil {
+			return nil, err
+		}
+		return obj, nil
 	}
 	return nil, fmt.Errorf("%w: %s", meta.ErrUnknownObjectKind, kind)
 }

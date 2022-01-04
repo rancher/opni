@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jedib0t/go-pretty/v6/table"
 	cliutil "github.com/kralicky/opni-gateway/pkg/cli/util"
 	"github.com/kralicky/opni-gateway/pkg/management"
 	"github.com/spf13/cobra"
@@ -99,7 +98,7 @@ func BuildTokensCreateCmd() *cobra.Command {
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				cliutil.RenderBootstrapTokenList(t)
+				cliutil.RenderBootstrapTokenList([]*management.BootstrapToken{t})
 			}
 			return nil
 		},
@@ -140,7 +139,7 @@ func BuildTokensListCmd() *cobra.Command {
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				cliutil.RenderBootstrapTokenList(t.Tokens...)
+				cliutil.RenderBootstrapTokenList(t.Tokens)
 			}
 		},
 	}
@@ -157,21 +156,8 @@ func BuildTenantsListCmd() *cobra.Command {
 				fmt.Println(err)
 				return
 			}
-			for range t.Tenants {
-				// todo
-			}
+			fmt.Println(cliutil.RenderTenantList(t.Tenants))
 		},
 	}
 	return tenantsListCmd
-}
-
-func printTable(tokens ...*management.BootstrapToken) {
-	w := table.NewWriter()
-	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"ID", "TOKEN", "TTL"})
-	for _, t := range tokens {
-		token := t.ToToken()
-		w.AppendRow(table.Row{token.HexID(), token.EncodeHex(), t.GetTTL()})
-	}
-	fmt.Println(w.Render())
 }

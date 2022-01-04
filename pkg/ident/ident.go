@@ -3,5 +3,5 @@ package ident
 import "context"
 
 type Provider interface {
-	UniqueIdentifier(ctx context.Context) string
+	UniqueIdentifier(ctx context.Context) (string, error)
 }

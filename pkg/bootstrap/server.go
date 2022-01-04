@@ -22,6 +22,7 @@ type ServerConfig struct {
 	RootCA      *x509.Certificate
 	Certificate *tls.Certificate
 	TokenStore  storage.TokenStore
+	TenantStore storage.TenantStore
 }
 
 func (h ServerConfig) bootstrapJoinResponse(
@@ -114,6 +115,13 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 	}
 
+	if ok, err := h.TenantStore.TenantExists(c.Context(), clientReq.ClientID); err != nil {
+		log.Printf("error checking tenant: %v", err)
+		return c.SendStatus(fiber.StatusInternalServerError)
+	} else if ok {
+		return c.Status(fiber.StatusConflict).SendString("ID already in use")
+	}
+
 	ekp, err := ecdh.NewEphemeralKeyPair()
 	if err != nil {
 		log.Printf("error generating server keypair: %v", err)
@@ -128,7 +136,20 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 		log.Printf("error computing shared secret: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
-	_ = keyring.New(keyring.NewClientKeys(sharedSecret))
+	kr := keyring.New(keyring.NewSharedKeys(sharedSecret))
+	if err := h.TenantStore.CreateTenant(c.Context(), clientReq.ClientID); err != nil {
+		log.Printf("error creating tenant: %v", err)
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+	krStore, err := h.TenantStore.KeyringStore(c.Context(), clientReq.ClientID)
+	if err != nil {
+		log.Printf("error getting keyring store: %v", err)
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+	if err := krStore.Put(c.Context(), kr); err != nil {
+		log.Printf("error storing keyring: %v", err)
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
 
 	return c.Status(fiber.StatusOK).JSON(SecureBootstrapResponse{
 		ServerPubKey: ekp.PublicKey,

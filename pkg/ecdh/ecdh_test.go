@@ -63,10 +63,10 @@ var _ = Describe("ECDH", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		kr1 := keyring.NewClientKeys(secretA)
-		kr2 := keyring.NewClientKeys(secretB)
+		kr1 := keyring.NewSharedKeys(secretA)
+		kr2 := keyring.NewSharedKeys(secretB)
 
-		Expect(kr1.ClientKey()).To(Equal(kr2.ClientKey()))
-		Expect(kr1.TenantKey()).To(Equal(kr2.TenantKey()))
+		Expect(kr1.ClientKey).To(Equal(kr2.ClientKey))
+		Expect(kr1.ServerKey).To(Equal(kr2.ServerKey))
 	})
 })

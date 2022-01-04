@@ -19,16 +19,16 @@ The bootstrap process is as follows:
 	 by the expected root CA cert. If the hash matches and the certs are correct,
 	 the client can now trust the server.
 5. The client finds the JWS with the matching bootstrap token ID, fills in
-	 the detached payload (the bootstrap token), encrypts it with the server's
-	 leaf TLS certificate, and sends it back to the server along with the
-	 client's own unique identifier it wishes to use (typically the client's
-	 kube-system namespace resource UID)
-6. The server decrypts the JWS with its leaf private key, and verifies the
-	 reconstructed JWS. The server can now trust the client.
+	 the detached payload (the bootstrap token), and sends it back to the server
+	 along with the client's own unique identifier it wishes to use (typically
+	 the client's kube-system namespace resource UID) and its own ephemeral
+	 x25519 public key.
+6. The server verifies the reconstructed JWS. If it is correct, the server can
+   now trust the client.
 7. Both the client and server use their ephemeral keypair and their peer's
 	 public key to generate a shared secret. Then, this secret is passed through
-	 a KDF to create two static ed25519 keys. One key is used by the client to
-	 sign outgoing messages, and by the server to verify incoming messages.
-	 The other key is used for the cortex tenant ID.
+	 a KDF to create two static ed25519 keys. One is used to generate and verify
+	 MACs for client->server messages, and the other is used to generate and
+	 verify MACs for server->client messages.
 */
 package bootstrap

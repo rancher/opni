@@ -34,10 +34,12 @@ type ClientConfig struct {
 	Token      *tokens.Token
 	CACertHash []byte
 	Endpoint   string
-	Ident      ident.Provider
 }
 
-func (c *ClientConfig) Bootstrap(ctx context.Context) (keyring.Keyring, error) {
+func (c *ClientConfig) Bootstrap(
+	ctx context.Context,
+	ident ident.Provider,
+) (keyring.Keyring, error) {
 	response, serverLeafCert, err := c.bootstrapInsecure()
 	if err != nil {
 		return nil, err
@@ -54,16 +56,14 @@ func (c *ClientConfig) Bootstrap(ctx context.Context) (keyring.Keyring, error) {
 		return nil, err
 	}
 
-	rootCAPool := x509.NewCertPool()
-	rootCAPool.AddCert(cacert)
-	tlsConfig := &tls.Config{
-		RootCAs:          rootCAPool,
+	tlsConfig := &keyring.TLSConfig{
+		RootCAs:          []*x509.Certificate{cacert},
 		CurvePreferences: []tls.CurveID{tls.X25519},
 		ServerName:       serverLeafCert.Subject.CommonName,
 	}
 	secureClient := http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
+			TLSClientConfig: tlsConfig.ToCryptoTLSConfig(),
 		},
 	}
 
@@ -71,8 +71,12 @@ func (c *ClientConfig) Bootstrap(ctx context.Context) (keyring.Keyring, error) {
 	if err != nil {
 		return nil, err
 	}
+	id, err := ident.UniqueIdentifier(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain unique identifier: %w", err)
+	}
 	secureReq, err := json.Marshal(SecureBootstrapRequest{
-		ClientID:     c.Ident.UniqueIdentifier(context.Background()),
+		ClientID:     id,
 		ClientPubKey: ekp.PublicKey,
 	})
 	if err != nil {
@@ -93,7 +97,11 @@ func (c *ClientConfig) Bootstrap(ctx context.Context) (keyring.Keyring, error) {
 	req.Header.Add("Authorization", "Bearer "+string(completeJws))
 	resp, err := secureClient.Do(req)
 	if err != nil || resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%w: %s", ErrBootstrapFailed, resp.Status)
+		status := "unknown"
+		if resp != nil {
+			status = resp.Status
+		}
+		return nil, fmt.Errorf("%w: %s", ErrBootstrapFailed, status)
 	}
 	defer resp.Body.Close()
 
@@ -106,8 +114,11 @@ func (c *ClientConfig) Bootstrap(ctx context.Context) (keyring.Keyring, error) {
 		PublicKey: secureResp.ServerPubKey,
 		PeerType:  ecdh.PeerTypeServer,
 	})
+	if err != nil {
+		return nil, err
+	}
 	return keyring.New(
-		keyring.NewClientKeys(sharedSecret),
+		keyring.NewSharedKeys(sharedSecret),
 		keyring.NewTLSKeys(tlsConfig),
 	), nil
 }

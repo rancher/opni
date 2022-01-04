@@ -2,18 +2,25 @@ package v1beta1
 
 import (
 	"github.com/kralicky/opni-gateway/pkg/config/meta"
+	"github.com/kralicky/opni-gateway/pkg/management"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type GatewayConfig struct {
 	meta.TypeMeta `json:",inline"`
-	Spec          GatewayConfigSpec `json:"spec,omitempty"`
+
+	Spec GatewayConfigSpec `json:"spec,omitempty"`
 }
 
 type GatewayConfigSpec struct {
-	Cortex       CortexSpec  `json:"services,omitempty"`
-	AuthProvider string      `json:"authProvider,omitempty"`
-	Storage      StorageSpec `json:"storage,omitempty"`
+	ListenAddress    string      `json:"listenAddress,omitempty"`
+	ManagementSocket string      `json:"managementSocket,omitempty"`
+	EnableMonitor    bool        `json:"enableMonitor,omitempty"`
+	TrustedProxies   []string    `json:"trustedProxies,omitempty"`
+	Cortex           CortexSpec  `json:"services,omitempty"`
+	AuthProvider     string      `json:"authProvider,omitempty"`
+	Storage          StorageSpec `json:"storage,omitempty"`
+	Certs            CertsSpec   `json:"certs,omitempty"`
 }
 
 type CortexSpec struct {
@@ -44,9 +51,21 @@ type QueryFrontendSpec struct {
 	Address string `json:"address,omitempty"`
 }
 
+type CertsSpec struct {
+	CACert      string `json:"caCert,omitempty"`
+	ServingCert string `json:"servingCert,omitempty"`
+	ServingKey  string `json:"servingKey,omitempty"`
+}
+
 func (s *GatewayConfigSpec) SetDefaults() {
 	if s == nil {
 		return
+	}
+	if s.ListenAddress == "" {
+		s.ListenAddress = ":8080"
+	}
+	if s.ManagementSocket == "" {
+		s.ManagementSocket = management.DefaultManagementSocket
 	}
 	if s.Cortex.Distributor.Address == "" {
 		s.Cortex.Distributor.Address = "http://cortex-distributor:8080"
@@ -65,27 +84,17 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	}
 }
 
-type AuthProvider struct {
-	meta.TypeMeta   `json:",inline"`
-	meta.ObjectMeta `json:"metadata,omitempty"`
+type StorageType string
 
-	Spec AuthProviderSpec `json:"spec,omitempty"`
-}
-
-type AuthProviderSpec struct {
-	Type    string            `json:"type,omitempty"`
-	Options map[string]string `json:"options,omitempty"`
-}
+const (
+	StorageTypeEtcd StorageType = "etcd"
+)
 
 type StorageSpec struct {
-	Type     string               `json:"type,omitempty"`
-	Etcd     *EtcdStorageSpec     `json:"etcd,omitempty"`
-	InMemory *InMemoryStorageSpec `json:"inMemory,omitempty"`
+	Type StorageType      `json:"type,omitempty"`
+	Etcd *EtcdStorageSpec `json:"etcd,omitempty"`
 }
 
 type EtcdStorageSpec struct {
 	clientv3.Config `json:",inline"`
-}
-
-type InMemoryStorageSpec struct {
 }

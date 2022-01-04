@@ -31,9 +31,10 @@ type Server struct {
 }
 
 type ManagementServerOptions struct {
-	socket     string
-	tokenStore storage.TokenStore
-	tlsConfig  *tls.Config
+	socket      string
+	tokenStore  storage.TokenStore
+	tenantStore storage.TenantStore
+	tlsConfig   *tls.Config
 }
 
 type ManagementServerOption func(*ManagementServerOptions)
@@ -56,6 +57,12 @@ func TokenStore(tokenStore storage.TokenStore) ManagementServerOption {
 	}
 }
 
+func TenantStore(tenantStore storage.TenantStore) ManagementServerOption {
+	return func(o *ManagementServerOptions) {
+		o.tenantStore = tenantStore
+	}
+}
+
 func TLSConfig(config *tls.Config) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
 		o.tlsConfig = config
@@ -67,8 +74,8 @@ func NewServer(opts ...ManagementServerOption) *Server {
 		socket: DefaultManagementSocket,
 	}
 	options.Apply(opts...)
-	if options.tokenStore == nil {
-		panic("token store is required")
+	if options.tokenStore == nil || options.tenantStore == nil {
+		panic("token store and tenant store are required")
 	}
 	return &Server{
 		ManagementServerOptions: options,
@@ -124,7 +131,7 @@ func (m *Server) RevokeBootstrapToken(
 	req *RevokeBootstrapTokenRequest,
 ) (*emptypb.Empty, error) {
 	if err := m.tokenStore.DeleteToken(ctx, req.GetTokenID()); err != nil {
-		if errors.Is(err, storage.ErrTokenNotFound) {
+		if errors.Is(err, storage.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		return nil, status.Error(codes.Internal, err.Error())
@@ -153,8 +160,18 @@ func (m *Server) ListTenants(
 	ctx context.Context,
 	req *emptypb.Empty,
 ) (*ListTenantsResponse, error) {
+	tenants, err := m.tenantStore.ListTenants(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	tenantList := make([]*Tenant, len(tenants))
+	for i, tenantID := range tenants {
+		tenantList[i] = &Tenant{
+			ID: tenantID,
+		}
+	}
 	return &ListTenantsResponse{
-		Tenants: []*Tenant{},
+		Tenants: tenantList,
 	}, nil
 }
 

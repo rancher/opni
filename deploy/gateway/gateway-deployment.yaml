@@ -17,12 +17,11 @@ spec:
           image: rancher/opni-gateway
           args:
             - serve
-            - --serving-ca-cert=/var/run/opni-gateway/certs/ca.crt
-            - --serving-cert=/var/run/opni-gateway/certs/tls.crt
-            - --serving-key=/var/run/opni-gateway/certs/tls.key
           ports:
             - name: http
               containerPort: 8080
+            - name: management
+              containerPort: 9090
           resources:
             requests:
               cpu: "500m"

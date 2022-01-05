@@ -9,8 +9,19 @@ data:
     apiVersion: v1beta1
     kind: GatewayConfig
     spec:
+      listenAddress: ":8080"
+      managementListenAddress: "tcp://0.0.0.0:9090"
       cortex: {}
       authProvider: openid
+      certs:
+        caCert: /var/run/opni-gateway/certs/ca.crt
+        servingCert: /var/run/opni-gateway/certs/tls.crt
+        servingKey: /var/run/opni-gateway/certs/tls.key
+      storage:
+        type: etcd
+        etcd:
+          endpoints:
+            - opni-gateway-etcd:2379
     ---
     apiVersion: v1beta1
     kind: AuthProvider

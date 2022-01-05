@@ -15,6 +15,7 @@ type ProxyConfigSpec struct {
 	GatewayAddress   string               `json:"gatewayAddress,omitempty"`
 	IdentityProvider IdentityProviderSpec `json:"identityProvider,omitempty"`
 	Storage          StorageSpec          `json:"storage,omitempty"`
+	Bootstrap        BootstrapSpec        `json:"bootstrap,omitempty"`
 }
 
 type IdentityProviderType string
@@ -27,6 +28,11 @@ const (
 type IdentityProviderSpec struct {
 	Type    IdentityProviderType `json:"type,omitempty"`
 	Options map[string]string    `json:"options,omitempty"`
+}
+
+type BootstrapSpec struct {
+	Token      string `json:"token,omitempty"`
+	CACertHash string `json:"caCertHash,omitempty"`
 }
 
 func (s *ProxyConfigSpec) SetDefaults() {

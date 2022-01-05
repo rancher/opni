@@ -15,12 +15,12 @@ import (
 var client management.ManagementClient
 
 func BuildManageCmd() *cobra.Command {
-	var socket string
+	var address string
 	manageCmd := &cobra.Command{
 		Use:   "manage",
 		Short: "Interact with the gateway's management API",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			c, err := management.NewClient(management.WithSocket(socket))
+			c, err := management.NewClient(management.WithListenAddress(address))
 			if err != nil {
 				return err
 			}
@@ -28,8 +28,8 @@ func BuildManageCmd() *cobra.Command {
 			return nil
 		},
 	}
-	manageCmd.PersistentFlags().StringVar(&socket, "socket",
-		management.DefaultManagementSocket, "Path to the management socket")
+	manageCmd.PersistentFlags().StringVarP(&address, "address", "a",
+		management.DefaultManagementSocket(), "Management API address")
 	manageCmd.AddCommand(BuildTokensCmd())
 	manageCmd.AddCommand(BuildTenantsCmd())
 	manageCmd.AddCommand(BuildCertsCmd())

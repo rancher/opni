@@ -5,10 +5,13 @@ metadata:
   labels:
     app: opni-gateway
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: opni-gateway
   ports:
     - name: http
-      port: 443
+      port: 8080
       targetPort: http
+    - name: management
+      port: 9090
+      targetPort: management

@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -25,8 +26,8 @@ type RemoteWriteProxy struct {
 	v1beta1.ProxyConfigSpec
 	app *fiber.App
 
-	tenantID   string
-	hostClient *fasthttp.HostClient
+	tenantID  string
+	tlsConfig *tls.Config
 
 	identityProvider ident.Provider
 	keyringStore     storage.KeyringStore
@@ -74,7 +75,7 @@ func NewRemoteWriteProxy(conf *v1beta1.ProxyConfig, opts ...RemoteWriteProxyOpti
 	})
 
 	app.Use(logger.New(), compress.New())
-	app.Get("/healthz", func(c *fiber.Ctx) error {
+	app.All("/healthz", func(c *fiber.Ctx) error {
 		return c.SendStatus(fasthttp.StatusOK)
 	})
 
@@ -86,8 +87,7 @@ func NewRemoteWriteProxy(conf *v1beta1.ProxyConfig, opts ...RemoteWriteProxyOpti
 
 	switch proxy.IdentityProvider.Type {
 	case v1beta1.IdentityProviderKubernetes:
-		panic("not implemented")
-		// proxy.identityProvider = ident.NewKubernetesProvider()
+		proxy.identityProvider = ident.NewKubernetesProvider()
 	case v1beta1.IdentityProviderHostPath:
 		proxy.identityProvider = ident.NewHostPathProvider(proxy.IdentityProvider.Options["path"])
 	default:
@@ -106,18 +106,14 @@ func NewRemoteWriteProxy(conf *v1beta1.ProxyConfig, opts ...RemoteWriteProxyOpti
 			log.Fatal(err)
 		}
 		proxy.keyringStore = ks
+	case v1beta1.StorageTypeSecret:
+		proxy.keyringStore = storage.NewInClusterSecretStore()
 	default:
 		log.Fatal("Unknown storage type: ", proxy.Storage.Type)
 	}
 
 	proxy.bootstrapOrLoadKeys()
-	proxy.hostClient = &fasthttp.HostClient{
-		NoDefaultUserAgentHeader: true,
-		DisablePathNormalizing:   true,
-		IsTLS:                    true,
-		TLSConfig:                proxy.tlsKey.TLSConfig.ToCryptoTLSConfig(),
-		Addr:                     proxy.GatewayAddress,
-	}
+	proxy.tlsConfig = proxy.tlsKey.TLSConfig.ToCryptoTLSConfig()
 
 	app.Post("/api/v1/push", proxy.handlePushRequest)
 	app.Use(default404Handler)
@@ -126,10 +122,7 @@ func NewRemoteWriteProxy(conf *v1beta1.ProxyConfig, opts ...RemoteWriteProxyOpti
 }
 
 func (p *RemoteWriteProxy) handlePushRequest(c *fiber.Ctx) error {
-	req := c.Request()
-	resp := c.Response()
-
-	nonce, sig, err := b2bmac.New512(p.tenantID, req.Body(), p.sharedKeys.ClientKey)
+	nonce, sig, err := b2bmac.New512(p.tenantID, c.Body(), p.sharedKeys.ClientKey)
 	if err != nil {
 		log.Fatal("Error using shared client key to generate a MAC: ", err)
 	}
@@ -137,17 +130,22 @@ func (p *RemoteWriteProxy) handlePushRequest(c *fiber.Ctx) error {
 	if err != nil {
 		log.Fatal("Error encoding auth header: ", err)
 	}
-	req.Header.Add("Authorization", authHeader)
 
-	req.SetHost(p.GatewayAddress)
-	req.Header.Del(fiber.HeaderConnection)
-	req.Header.Add(fiber.HeaderXForwardedFor, c.IP())
+	a := fiber.Post(p.GatewayAddress+"/api/v1/push").
+		Set("Authorization", authHeader).
+		Body(c.Body()).
+		TLSConfig(p.tlsConfig)
 
-	if err := p.hostClient.Do(req, resp); err != nil {
-		return err
+	if err := a.Parse(); err != nil {
+		panic(err)
 	}
-	resp.Header.Del(fiber.HeaderConnection)
-	return nil
+
+	code, body, errs := a.Bytes()
+	for _, err := range errs {
+		log.Printf("Error sending request to gateway: %s", err)
+	}
+
+	return c.Status(code).Send(body)
 }
 
 func (p *RemoteWriteProxy) ListenAndServe() error {
@@ -177,13 +175,13 @@ func (p *RemoteWriteProxy) bootstrapOrLoadKeys() {
 			err = p.keyringStore.Put(context.Background(), kr)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, fmt.Errorf("Failed to persist keyring (retry in 1 second): %w", err))
-				time.Sleep(1)
+				time.Sleep(1 * time.Second)
 			} else {
 				break
 			}
 		}
 	} else if err != nil {
-		log.Fatal("Failed to load keyring: %w", err)
+		log.Fatal(fmt.Errorf("Failed to load keyring: %w", err))
 	}
 
 	// Get keys from the keyring

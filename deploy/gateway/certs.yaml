@@ -1,0 +1,47 @@
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: opni-gateway-selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: opni-gateway-ca
+spec:
+  isCA: true
+  commonName: "opni-gateway-ca"
+  secretName: opni-gateway-ca-keys
+  privateKey:
+    algorithm: Ed25519
+    encoding: PKCS1
+  issuerRef:
+    kind: ClusterIssuer
+    name: opni-gateway-selfsigned-issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: opni-gateway-ca-issuer
+spec:
+  ca:
+    secretName: opni-gateway-ca-keys
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: opni-gateway-serving-cert
+spec:
+  secretName: opni-gateway-serving-cert
+  privateKey:
+    algorithm: Ed25519
+    encoding: PKCS1
+  issuerRef:
+    name: opni-gateway-ca-issuer
+  dnsNames:
+    - "opni-gateway.opni-gateway.svc.cluster.local"
+    - "opni-gateway.opni-gateway.svc"
+    - "opni-gateway.svc.cluster.local"

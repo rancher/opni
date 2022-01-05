@@ -1,8 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: cortex
+namespace: opni-gateway
 resources:
-  - deployment.yaml
-  - service.yaml
+  - namespace.yaml
   - certs.yaml
+  - rbac.yaml
+  - gateway-deployment.yaml
+  - service.yaml
   - configmap.yaml # see configmap-sample.yaml

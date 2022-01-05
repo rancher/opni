@@ -1,8 +1,8 @@
 bin/
-.vscode/
-dev/
+/.vscode/
+/.helm/
+/dev/
 tilt_modules/
 
-config.yaml
-deploy/configmap.yaml
+deploy/gateway/configmap.yaml
 tilt-options.yaml

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -101,8 +102,12 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if !rootCA.IsCA || rootCA.Subject.String() != rootCA.Issuer.String() {
+	if !rootCA.IsCA {
 		log.Fatal("No root CA given in certificate chain")
+	}
+	if len(strings.TrimSpace(rootCA.Issuer.String())) == 0 ||
+		len(strings.TrimSpace(rootCA.Subject.String())) == 0 {
+		log.Fatal("Root CA is missing Subject or Issuer information")
 	}
 	pool.AddCert(rootCA)
 
@@ -115,7 +120,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	mgmtSrv := management.NewServer(
 		management.TokenStore(tokenStore),
 		management.TenantStore(tenantStore),
-		management.Socket(conf.Spec.ManagementSocket),
+		management.ListenAddress(conf.Spec.ManagementListenAddress),
 		management.TLSConfig(tlsConfig),
 	)
 
@@ -147,7 +152,7 @@ func (g *Gateway) Listen() error {
 		context.WithCancel(context.Background())
 	go func() {
 		if err := g.managementServer.ListenAndServe(g.managementCtx); err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	}()
 

@@ -2,7 +2,6 @@ package v1beta1
 
 import (
 	"github.com/kralicky/opni-gateway/pkg/config/meta"
-	"github.com/kralicky/opni-gateway/pkg/management"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -13,14 +12,14 @@ type GatewayConfig struct {
 }
 
 type GatewayConfigSpec struct {
-	ListenAddress    string      `json:"listenAddress,omitempty"`
-	ManagementSocket string      `json:"managementSocket,omitempty"`
-	EnableMonitor    bool        `json:"enableMonitor,omitempty"`
-	TrustedProxies   []string    `json:"trustedProxies,omitempty"`
-	Cortex           CortexSpec  `json:"services,omitempty"`
-	AuthProvider     string      `json:"authProvider,omitempty"`
-	Storage          StorageSpec `json:"storage,omitempty"`
-	Certs            CertsSpec   `json:"certs,omitempty"`
+	ListenAddress           string      `json:"listenAddress,omitempty"`
+	ManagementListenAddress string      `json:"managementListenAddress,omitempty"`
+	EnableMonitor           bool        `json:"enableMonitor,omitempty"`
+	TrustedProxies          []string    `json:"trustedProxies,omitempty"`
+	Cortex                  CortexSpec  `json:"services,omitempty"`
+	AuthProvider            string      `json:"authProvider,omitempty"`
+	Storage                 StorageSpec `json:"storage,omitempty"`
+	Certs                   CertsSpec   `json:"certs,omitempty"`
 }
 
 type CortexSpec struct {
@@ -64,9 +63,6 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	if s.ListenAddress == "" {
 		s.ListenAddress = ":8080"
 	}
-	if s.ManagementSocket == "" {
-		s.ManagementSocket = management.DefaultManagementSocket
-	}
 	if s.Cortex.Distributor.Address == "" {
 		s.Cortex.Distributor.Address = "http://cortex-distributor:8080"
 	}
@@ -87,7 +83,8 @@ func (s *GatewayConfigSpec) SetDefaults() {
 type StorageType string
 
 const (
-	StorageTypeEtcd StorageType = "etcd"
+	StorageTypeEtcd   StorageType = "etcd"
+	StorageTypeSecret StorageType = "secret"
 )
 
 type StorageSpec struct {

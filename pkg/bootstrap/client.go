@@ -96,12 +96,11 @@ func (c *ClientConfig) Bootstrap(
 	req.Header.Set("Request", "application/json")
 	req.Header.Add("Authorization", "Bearer "+string(completeJws))
 	resp, err := secureClient.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		status := "unknown"
-		if resp != nil {
-			status = resp.Status
-		}
-		return nil, fmt.Errorf("%w: %s", ErrBootstrapFailed, status)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("%w: %s", ErrBootstrapFailed, resp.Status)
 	}
 	defer resp.Body.Close()
 

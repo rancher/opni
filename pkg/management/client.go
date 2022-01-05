@@ -5,7 +5,7 @@ import (
 )
 
 type ManagementClientOptions struct {
-	socket string
+	listenAddr string
 }
 
 type ManagementClientOption func(*ManagementClientOptions)
@@ -16,18 +16,18 @@ func (o *ManagementClientOptions) Apply(opts ...ManagementClientOption) {
 	}
 }
 
-func WithSocket(socket string) ManagementClientOption {
+func WithListenAddress(addr string) ManagementClientOption {
 	return func(o *ManagementClientOptions) {
-		o.socket = socket
+		o.listenAddr = addr
 	}
 }
 
 func NewClient(opts ...ManagementClientOption) (ManagementClient, error) {
 	options := ManagementClientOptions{
-		socket: DefaultManagementSocket,
+		listenAddr: DefaultManagementSocket(),
 	}
 	options.Apply(opts...)
-	cc, err := grpc.Dial("unix://"+options.socket, grpc.WithInsecure())
+	cc, err := grpc.Dial(options.listenAddr, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}

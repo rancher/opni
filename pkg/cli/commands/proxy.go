@@ -16,7 +16,7 @@ import (
 
 func BuildProxyCmd() *cobra.Command {
 	var configLocation string
-	var hexToken, caCertHash string
+	var overrideToken, overrideCaCertHash string
 
 	proxyCmd := &cobra.Command{
 		Use:   "proxy",
@@ -47,18 +47,27 @@ agent remote-write requests to add dynamic authentication.`,
 				proxyConfig = config
 			})
 
-			token, err := tokens.DecodeHexToken(hexToken)
+			tokenData := proxyConfig.Spec.Bootstrap.Token
+			if overrideToken != "" {
+				tokenData = overrideToken
+			}
+			caCertHashData := proxyConfig.Spec.Bootstrap.CACertHash
+			if overrideCaCertHash != "" {
+				caCertHashData = overrideCaCertHash
+			}
+			token, err := tokens.DecodeHexToken(tokenData)
 			if err != nil {
 				return err
 			}
-			caCertHashData, err := hex.DecodeString(caCertHash)
+			caCertHash, err := hex.DecodeString(caCertHashData)
 			if err != nil {
 				return err
 			}
+
 			p := proxy.NewRemoteWriteProxy(proxyConfig,
 				proxy.WithBootstrapper(&bootstrap.ClientConfig{
 					Token:      token,
-					CACertHash: caCertHashData,
+					CACertHash: caCertHash,
 					Endpoint:   proxyConfig.Spec.GatewayAddress,
 				}),
 			)
@@ -67,10 +76,7 @@ agent remote-write requests to add dynamic authentication.`,
 	}
 
 	proxyCmd.Flags().StringVar(&configLocation, "config", "", "Absolute path to a config file")
-	proxyCmd.Flags().StringVar(&hexToken, "token", "", "Bootstrap token (hex encoded)")
-	proxyCmd.Flags().StringVar(&caCertHash, "ca-cert-hash", "", "CA cert hash (hex encoded)")
-
-	proxyCmd.MarkFlagRequired("token")
-	proxyCmd.MarkFlagRequired("ca-cert-hash")
+	proxyCmd.Flags().StringVar(&overrideToken, "token", "", "Bootstrap token (hex encoded)")
+	proxyCmd.Flags().StringVar(&overrideCaCertHash, "ca-cert-hash", "", "CA cert hash (hex encoded)")
 	return proxyCmd
 }

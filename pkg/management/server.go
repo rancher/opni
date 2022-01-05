@@ -1,28 +1,24 @@
 package management
 
 import (
-	context "context"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"net"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/kralicky/opni-gateway/pkg/storage"
 	"github.com/kralicky/opni-gateway/pkg/util"
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
-	DefaultManagementSocket = "/tmp/opni-gateway.sock"
-	DefaultTokenTTL         = 2 * time.Minute
+	DefaultTokenTTL = 2 * time.Minute
 )
 
 type Server struct {
@@ -31,10 +27,10 @@ type Server struct {
 }
 
 type ManagementServerOptions struct {
-	socket      string
-	tokenStore  storage.TokenStore
-	tenantStore storage.TenantStore
-	tlsConfig   *tls.Config
+	listenAddress string
+	tokenStore    storage.TokenStore
+	tenantStore   storage.TenantStore
+	tlsConfig     *tls.Config
 }
 
 type ManagementServerOption func(*ManagementServerOptions)
@@ -45,9 +41,11 @@ func (o *ManagementServerOptions) Apply(opts ...ManagementServerOption) {
 	}
 }
 
-func Socket(socket string) ManagementServerOption {
+func ListenAddress(socket string) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
-		o.socket = socket
+		if socket != "" {
+			o.listenAddress = socket
+		}
 	}
 }
 
@@ -71,7 +69,7 @@ func TLSConfig(config *tls.Config) ManagementServerOption {
 
 func NewServer(opts ...ManagementServerOption) *Server {
 	options := ManagementServerOptions{
-		socket: DefaultManagementSocket,
+		listenAddress: DefaultManagementSocket(),
 	}
 	options.Apply(opts...)
 	if options.tokenStore == nil || options.tenantStore == nil {
@@ -83,32 +81,14 @@ func NewServer(opts ...ManagementServerOption) *Server {
 }
 
 func (m *Server) ListenAndServe(ctx context.Context) error {
-	if err := m.createSocketDir(); err != nil {
-		return err
-	}
-	if _, err := os.Stat(m.socket); err == nil {
-		if err := os.Remove(m.socket); err != nil {
-			return err
-		}
-	}
-	var lc net.ListenConfig
-	listener, err := lc.Listen(ctx, "unix", m.socket)
+	listener, err := util.NewProtocolListener(ctx, m.listenAddress)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Listening on", m.socket)
+	fmt.Printf("Management API listening on %s\n", m.listenAddress)
 	srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 	RegisterManagementServer(srv, m)
 	return srv.Serve(listener)
-}
-
-func (m *Server) createSocketDir() error {
-	if _, err := os.Stat(filepath.Dir(m.socket)); os.IsNotExist(err) {
-		if err := os.MkdirAll(filepath.Dir(m.socket), 0700); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (m *Server) CreateBootstrapToken(

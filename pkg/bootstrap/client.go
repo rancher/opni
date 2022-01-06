@@ -51,13 +51,8 @@ func (c *ClientConfig) Bootstrap(
 		return nil, err
 	}
 
-	cacert, err := x509.ParseCertificate(response.CACert)
-	if err != nil {
-		return nil, err
-	}
-
 	tlsConfig := &keyring.TLSConfig{
-		RootCAs:          []*x509.Certificate{cacert},
+		RootCAs:          [][]byte{response.CACert},
 		CurvePreferences: []tls.CurveID{tls.X25519},
 		ServerName:       serverLeafCert.Subject.CommonName,
 	}

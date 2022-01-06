@@ -36,19 +36,22 @@ func NewTLSKeys(tls *TLSConfig) *TLSKey {
 
 // TLSConfig is a json-encodable TLS config, only containing fields we need.
 type TLSConfig struct {
-	Certificates     []tls.Certificate   `json:"certificates,omitempty"`
-	CurvePreferences []tls.CurveID       `json:"curvePreferences,omitempty"`
-	RootCAs          []*x509.Certificate `json:"rootCAs,omitempty"`
-	ServerName       string              `json:"serverName,omitempty"`
+	CurvePreferences []tls.CurveID `json:"curvePreferences,omitempty"`
+	RootCAs          [][]byte      `json:"rootCAs,omitempty"`
+	ServerName       string        `json:"serverName,omitempty"`
 }
 
 func (t *TLSConfig) ToCryptoTLSConfig() *tls.Config {
 	rootCAs := x509.NewCertPool()
 	for _, cert := range t.RootCAs {
+		cert, err := x509.ParseCertificate(cert)
+		if err != nil {
+			panic("bug: failed to convert TLSConfig to tls.Config: " + err.Error())
+		}
 		rootCAs.AddCert(cert)
 	}
+
 	return &tls.Config{
-		Certificates:     t.Certificates,
 		CurvePreferences: t.CurvePreferences,
 		RootCAs:          rootCAs,
 		ServerName:       t.ServerName,

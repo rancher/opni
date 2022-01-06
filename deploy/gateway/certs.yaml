@@ -1,3 +1,15 @@
+# opni-gateway-ca [Root CA]
+# │
+# ├─> opni-gateway-serving-cert [Leaf]
+# │
+# └─> cortex-intermediate-ca [Intermediate CA]
+#     │
+#     ├─> cortex-client-ca [Intermediate CA]
+#     │   │
+#     │   └─> cortex-client-cert [Leaf]
+#     │
+#     └─> cortex-serving-cert [Leaf]
+
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
@@ -12,15 +24,15 @@ metadata:
   name: opni-gateway-ca
 spec:
   isCA: true
-  commonName: "opni-gateway-ca"
+  commonName: opni-gateway-ca
   secretName: opni-gateway-ca-keys
   privateKey:
     algorithm: Ed25519
     encoding: PKCS1
   issuerRef:
+    group: cert-manager.io
     kind: ClusterIssuer
     name: opni-gateway-selfsigned-issuer
-    group: cert-manager.io
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
@@ -40,8 +52,98 @@ spec:
     algorithm: Ed25519
     encoding: PKCS1
   issuerRef:
+    group: cert-manager.io
+    kind: Issuer
     name: opni-gateway-ca-issuer
   dnsNames:
-    - "opni-gateway.opni-gateway.svc.cluster.local"
-    - "opni-gateway.opni-gateway.svc"
-    - "opni-gateway.svc.cluster.local"
+    - opni-gateway.opni-gateway.svc.cluster.local
+    - opni-gateway.opni-gateway.svc
+    - opni-gateway.svc.cluster.local
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cortex-intermediate-ca
+spec:
+  isCA: true
+  secretName: cortex-intermediate-ca-keys
+  privateKey:
+    algorithm: Ed25519
+    encoding: PKCS1
+  dnsNames:
+    - cortex-intermediate-ca
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: opni-gateway-ca-issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cortex-intermediate-ca-issuer
+spec:
+  ca:
+    secretName: cortex-intermediate-ca-keys
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cortex-client-ca
+spec:
+  isCA: true
+  secretName: cortex-client-ca-keys
+  privateKey:
+    algorithm: Ed25519
+    encoding: PKCS1
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: cortex-intermediate-ca-issuer
+  dnsNames:
+    - cortex-client-ca
+  usages:
+    - digital signature
+    - key encipherment
+    - client auth
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cortex-client-ca-issuer
+spec:
+  ca:
+    secretName: cortex-client-ca-keys
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cortex-client-cert
+spec:
+  secretName: cortex-client-cert-keys
+  privateKey:
+    algorithm: Ed25519
+    encoding: PKCS1
+  issuerRef:
+    name: cortex-client-ca-issuer
+  dnsNames:
+    - cortex-client
+  usages:
+    - digital signature
+    - key encipherment
+    - client auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cortex-serving-cert
+spec:
+  secretName: cortex-serving-cert-keys
+  privateKey:
+    algorithm: Ed25519
+    encoding: PKCS1
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: cortex-intermediate-ca-issuer
+  dnsNames:
+    - cortex-server

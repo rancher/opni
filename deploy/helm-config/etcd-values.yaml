@@ -1,0 +1,8 @@
+auth:
+  rbac:
+    enabled: false
+    allowNoneAuthentication: true
+livenessProbe:
+  initialDelaySeconds: 5
+readinessProbe:
+  initialDelaySeconds: 5

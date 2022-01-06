@@ -13,20 +13,19 @@ helm_remote('kube-prometheus',
     repo_name='bitnami', 
     repo_url='https://charts.bitnami.com/bitnami',
     namespace='opni-gateway',
-    set=[
-        'prometheus.enabled=false',
-    ],
+    values="deploy/helm-config/kube-prometheus-values.yaml",
 )
 helm_remote('etcd', 
     repo_name='bitnami', 
     repo_url='https://charts.bitnami.com/bitnami',
     namespace='opni-gateway',
-    set=[
-        'auth.rbac.enabled=false',
-        'auth.rbac.allowNoneAuthentication=true',
-        'livenessProbe.initialDelaySeconds=5',
-        'readinessProbe.initialDelaySeconds=5',
-    ],
+    values="deploy/helm-config/etcd-values.yaml",
+)
+helm_remote('cortex',
+    repo_name='cortex-helm',
+    repo_url='https://cortexproject.github.io/cortex-helm-chart',
+    namespace='opni-gateway',
+    values="deploy/helm-config/cortex-values.yaml",
 )
 
 k8s_yaml(kustomize('deploy/gateway'))

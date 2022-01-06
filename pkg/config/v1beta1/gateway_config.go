@@ -16,7 +16,7 @@ type GatewayConfigSpec struct {
 	ManagementListenAddress string      `json:"managementListenAddress,omitempty"`
 	EnableMonitor           bool        `json:"enableMonitor,omitempty"`
 	TrustedProxies          []string    `json:"trustedProxies,omitempty"`
-	Cortex                  CortexSpec  `json:"services,omitempty"`
+	Cortex                  CortexSpec  `json:"cortex,omitempty"`
 	AuthProvider            string      `json:"authProvider,omitempty"`
 	Storage                 StorageSpec `json:"storage,omitempty"`
 	Certs                   CertsSpec   `json:"certs,omitempty"`
@@ -28,6 +28,7 @@ type CortexSpec struct {
 	Alertmanager  AlertmanagerSpec  `json:"alertmanager,omitempty"`
 	Ruler         RulerSpec         `json:"ruler,omitempty"`
 	QueryFrontend QueryFrontendSpec `json:"queryFrontend,omitempty"`
+	Certs         CortexCertsSpec   `json:"certs,omitempty"`
 }
 
 type DistributorSpec struct {
@@ -50,6 +51,13 @@ type QueryFrontendSpec struct {
 	Address string `json:"address,omitempty"`
 }
 
+type CortexCertsSpec struct {
+	ServerCA   string `json:"serverCA,omitempty"`
+	ClientCA   string `json:"clientCA,omitempty"`
+	ClientCert string `json:"clientCert,omitempty"`
+	ClientKey  string `json:"clientKey,omitempty"`
+}
+
 type CertsSpec struct {
 	CACert      string `json:"caCert,omitempty"`
 	ServingCert string `json:"servingCert,omitempty"`
@@ -64,19 +72,19 @@ func (s *GatewayConfigSpec) SetDefaults() {
 		s.ListenAddress = ":8080"
 	}
 	if s.Cortex.Distributor.Address == "" {
-		s.Cortex.Distributor.Address = "http://cortex-distributor:8080"
+		s.Cortex.Distributor.Address = "cortex-distributor:8080"
 	}
 	if s.Cortex.Ingester.Address == "" {
-		s.Cortex.Ingester.Address = "http://cortex-ingester:8080"
+		s.Cortex.Ingester.Address = "cortex-ingester:8080"
 	}
 	if s.Cortex.Alertmanager.Address == "" {
-		s.Cortex.Alertmanager.Address = "http://cortex-alertmanager:8080"
+		s.Cortex.Alertmanager.Address = "cortex-alertmanager:8080"
 	}
 	if s.Cortex.Ruler.Address == "" {
-		s.Cortex.Ruler.Address = "http://cortex-ruler:8080"
+		s.Cortex.Ruler.Address = "cortex-ruler:8080"
 	}
 	if s.Cortex.QueryFrontend.Address == "" {
-		s.Cortex.QueryFrontend.Address = "http://cortex-query-frontend:8080"
+		s.Cortex.QueryFrontend.Address = "cortex-query-frontend:8080"
 	}
 }
 

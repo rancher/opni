@@ -13,7 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
-	"github.com/gofiber/fiber/v2/middleware/proxy"
+	"github.com/gofiber/fiber/v2/utils"
 	tenantauth "github.com/kralicky/opni-gateway/pkg/auth/tenant"
 	"github.com/kralicky/opni-gateway/pkg/bootstrap"
 	"github.com/kralicky/opni-gateway/pkg/config"
@@ -21,6 +21,7 @@ import (
 	"github.com/kralicky/opni-gateway/pkg/management"
 	"github.com/kralicky/opni-gateway/pkg/storage"
 	"github.com/kralicky/opni-gateway/pkg/util"
+	"github.com/valyala/fasthttp"
 )
 
 type Gateway struct {
@@ -31,6 +32,7 @@ type Gateway struct {
 	managementCtx       context.Context
 	managementCtxCancel context.CancelFunc
 	tlsConfig           *tls.Config
+	cortexTLSConfig     *tls.Config
 	servingCertBundle   *tls.Certificate
 }
 
@@ -132,8 +134,8 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		tlsConfig:         tlsConfig,
 		servingCertBundle: servingCertBundle,
 	}
-	g.setupQueryRoutes(app)
-	g.setupPushRoutes(app, tenantStore)
+	g.loadCortexCerts()
+	g.setupCortexRoutes(app, tenantStore)
 
 	app.Post("/bootstrap/*", bootstrap.ServerConfig{
 		RootCA:      rootCA,
@@ -173,20 +175,76 @@ func (g *Gateway) Shutdown() error {
 	return g.app.Shutdown()
 }
 
-func (g *Gateway) setupQueryRoutes(app *fiber.App) {
-	queryFrontend := proxy.Balancer(proxy.Config{
-		Servers: []string{g.config.Spec.Cortex.QueryFrontend.Address},
-	})
-	alertmanager := proxy.Balancer(proxy.Config{
-		Servers: []string{g.config.Spec.Cortex.Alertmanager.Address},
-	})
-	ruler := proxy.Balancer(proxy.Config{
-		Servers: []string{g.config.Spec.Cortex.Ruler.Address},
-	})
+func (g *Gateway) newCortexForwarder(addr string) func(*fiber.Ctx) error {
+	if addr == "" {
+		panic("newCortexForwarder: address is empty")
+	}
+	hostClient := &fasthttp.HostClient{
+		NoDefaultUserAgentHeader: true,
+		DisablePathNormalizing:   true,
+		Addr:                     addr,
+		IsTLS:                    true,
+		TLSConfig:                g.cortexTLSConfig,
+	}
+	return func(c *fiber.Ctx) error {
+		req := c.Request()
+		resp := c.Response()
+		req.Header.Del(fiber.HeaderConnection)
+		req.SetRequestURI(utils.UnsafeString(req.RequestURI()))
+		if err := hostClient.Do(req, resp); err != nil {
+			return err
+		}
+		resp.Header.Del(fiber.HeaderConnection)
+		return nil
+	}
+}
 
-	// Distributor
+func (g *Gateway) loadCortexCerts() {
+	cortexServerCA := g.config.Spec.Cortex.Certs.ServerCA
+	cortexClientCA := g.config.Spec.Cortex.Certs.ClientCA
+	cortexClientCert := g.config.Spec.Cortex.Certs.ClientCert
+	cortexClientKey := g.config.Spec.Cortex.Certs.ClientKey
+
+	clientCert, err := tls.LoadX509KeyPair(cortexClientCert, cortexClientKey)
+	if err != nil {
+		log.Fatalf("Failed to load cortex client keypair: %v", err)
+	}
+	serverCAPool := x509.NewCertPool()
+	serverCAData, err := os.ReadFile(cortexServerCA)
+	if err != nil {
+		log.Fatalf("Failed to read cortex server CA: %v", err)
+	}
+	if ok := serverCAPool.AppendCertsFromPEM(serverCAData); !ok {
+		log.Fatal("Failed to load cortex server CA")
+	}
+	clientCAPool := x509.NewCertPool()
+	clientCAData, err := os.ReadFile(cortexClientCA)
+	if err != nil {
+		log.Fatalf("Failed to read cortex client CA: %v", err)
+	}
+	if ok := clientCAPool.AppendCertsFromPEM(clientCAData); !ok {
+		log.Fatal("Failed to load cortex client CA")
+	}
+	g.cortexTLSConfig = &tls.Config{
+		ServerName:   "cortex-server",
+		Certificates: []tls.Certificate{clientCert},
+		ClientCAs:    clientCAPool,
+		RootCAs:      serverCAPool,
+	}
+}
+
+func (g *Gateway) setupCortexRoutes(app *fiber.App, tenantStore storage.TenantStore) {
+	queryFrontend := g.newCortexForwarder(g.config.Spec.Cortex.QueryFrontend.Address)
+	alertmanager := g.newCortexForwarder(g.config.Spec.Cortex.Alertmanager.Address)
+	ruler := g.newCortexForwarder(g.config.Spec.Cortex.Ruler.Address)
+	distributor := g.newCortexForwarder(g.config.Spec.Cortex.Distributor.Address)
+
 	app.Get("/services", queryFrontend)
 	app.Get("/ready", queryFrontend)
+
+	// Memberlist
+	app.Get("/ring", distributor)
+	app.Get("/ruler/ring", ruler)
 
 	// Alertmanager UI
 	alertmanagerUi := app.Group("/alertmanager", g.authMiddleware.Handle)
@@ -211,12 +269,8 @@ func (g *Gateway) setupQueryRoutes(app *fiber.App) {
 
 	// POST only
 	promv1.Post("/read", queryFrontend)
-}
 
-func (g *Gateway) setupPushRoutes(app *fiber.App, tenantStore storage.TenantStore) {
-	distributor := proxy.Balancer(proxy.Config{
-		Servers: []string{g.config.Spec.Cortex.Distributor.Address},
-	})
+	// Remote-write API
 	tenantMiddleware := tenantauth.New(tenantStore)
 	v1 := app.Group("/api/v1", tenantMiddleware.Handle)
 	v1.Post("/push", distributor)
@@ -226,11 +280,11 @@ func (g *Gateway) setupPushRoutes(app *fiber.App, tenantStore storage.TenantStor
 func loadCerts(cacertPath, certPath, keyPath string) (*tls.Certificate, error) {
 	data, err := os.ReadFile(cacertPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load CA cert: %v", err)
+		return nil, fmt.Errorf("failed to load CA cert: %w", err)
 	}
 	root, err := util.ParsePEMEncodedCertChain(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse CA cert: %v", err)
+		return nil, fmt.Errorf("failed to parse CA cert: %w", err)
 	}
 	if len(root) != 1 {
 		return nil, fmt.Errorf("failed to parse CA cert: expected one certificate in chain, got %d", len(root))

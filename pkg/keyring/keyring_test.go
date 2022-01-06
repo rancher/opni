@@ -3,13 +3,26 @@ package keyring_test
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
+	"encoding/pem"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
 	"github.com/kralicky/opni-gateway/pkg/keyring"
+)
+
+var (
+	testCertificate = `-----BEGIN CERTIFICATE-----
+MIIBHjCB0aADAgECAhAOWE+Vhh8kSITCq+6EhdIkMAUGAytlcDAOMQwwCgYDVQQD
+EwNmb28wHhcNMjIwMTA2MDQyOTI2WhcNMzIwMTA0MDQyOTI2WjAOMQwwCgYDVQQD
+EwNmb28wKjAFBgMrZXADIQDqiNw97n9I1yW+uNuN9UHfhmC00JgCoccEk/oBfleE
+pqNFMEMwDgYDVR0PAQH/BAQDAgEGMBIGA1UdEwEB/wQIMAYBAf8CAQEwHQYDVR0O
+BBYEFL4nnF44+S9a+64CqaAwFlzLIIS4MAUGAytlcANBAOQWH4miLHMugDoOFZ1N
+71E+OzHO9LvbOrXVYivr4uuP+2IZmiZjklw/ZMozYfDq2AIE2Uft1FXLnh4hBoSH
+YgE=
+-----END CERTIFICATE-----
+`
 )
 
 var _ = Describe("Keyring", func() {
@@ -86,10 +99,17 @@ var _ = Describe("Keyring", func() {
 	})
 	When("creating a keyring with multiple keys", func() {
 		It("should function correctly", func() {
+			certBlock, rest := pem.Decode([]byte(testCertificate))
+			Expect(certBlock).NotTo(BeNil())
+			Expect(rest).To(BeEmpty())
+			cert, err := x509.ParseCertificate(certBlock.Bytes)
+			Expect(err).NotTo(HaveOccurred())
+
 			By("creating a new keyring")
 			kr := keyring.New(keyring.NewTLSKeys(&keyring.TLSConfig{
 				ServerName:       "foo",
 				CurvePreferences: []tls.CurveID{tls.X25519},
+				RootCAs:          [][]byte{cert.Raw},
 			}), keyring.NewSharedKeys(make([]byte, 64)))
 			Expect(kr).NotTo(BeNil())
 
@@ -115,19 +135,10 @@ var _ = Describe("Keyring", func() {
 			})
 			Expect(counter.Load()).To(Equal(int32(2)))
 
-			By("ensuring Marshal returns the correct object")
-			j, err := kr.Marshal()
+			By("ensuring Marshal followed by Unmarshal returns the same data")
+			data, err := kr.Marshal()
 			Expect(err).NotTo(HaveOccurred())
-			zeroes := make([]byte, 64)
-			sharedKeys := keyring.NewSharedKeys(zeroes)
-			encodedC := base64.StdEncoding.EncodeToString(sharedKeys.ClientKey)
-			encodedS := base64.StdEncoding.EncodeToString(sharedKeys.ServerKey)
-
-			jsonString := `{"sharedKeys":{"clientKey":"` + encodedC + `","serverKey":"` + encodedS + `"},"tlsKey":{"tlsConfig":{"curvePreferences":[29],"serverName":"foo"}}}`
-			Expect(string(j)).To(Equal(jsonString))
-
-			By("ensuring Unmarshal returns the correct object")
-			kr2, err := keyring.Unmarshal([]byte(jsonString))
+			kr2, err := keyring.Unmarshal(data)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kr2).NotTo(BeNil())
 			Expect(kr).To(BeEquivalentTo(kr2))
@@ -152,16 +163,15 @@ var _ = Describe("Keyring", func() {
 		}).To(PanicWith("shared secret must be 64 bytes"))
 	})
 	It("should convert between custom TLS config types", func() {
+		block, _ := pem.Decode([]byte(testCertificate))
 		tlsConfig := &keyring.TLSConfig{
 			ServerName:       "foo",
 			CurvePreferences: []tls.CurveID{tls.X25519},
-			RootCAs:          []*x509.Certificate{{Raw: []byte("foo")}},
-			Certificates:     []tls.Certificate{{Certificate: [][]byte{[]byte("foo")}}},
+			RootCAs:          [][]byte{block.Bytes},
 		}
 		cryptoTlsConfig := tlsConfig.ToCryptoTLSConfig()
 		Expect(cryptoTlsConfig.ServerName).To(Equal(tlsConfig.ServerName))
 		Expect(cryptoTlsConfig.CurvePreferences).To(Equal(tlsConfig.CurvePreferences))
 		Expect(len(cryptoTlsConfig.RootCAs.Subjects())).To(Equal(len(tlsConfig.RootCAs)))
-		Expect(cryptoTlsConfig.Certificates).To(Equal(tlsConfig.Certificates))
 	})
 })

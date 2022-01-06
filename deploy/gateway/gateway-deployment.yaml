@@ -34,6 +34,10 @@ spec:
               mountPath: /etc/opni-gateway
             - name: certs
               mountPath: /var/run/opni-gateway/certs
+            - name: cortex-client-certs
+              mountPath: /var/run/cortex/certs/client
+            - name: cortex-server-cacert
+              mountPath: /var/run/cortex/certs/server
           livenessProbe:
             httpGet:
               path: /healthz
@@ -70,4 +74,22 @@ spec:
           secret:
             secretName: opni-gateway-serving-cert
             defaultMode: 256
+        - name: cortex-client-certs
+          secret:
+            secretName: cortex-client-cert-keys
+            defaultMode: 256
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+              - key: ca.crt
+                path: ca.crt
+        - name: cortex-server-cacert
+          secret:
+            secretName: cortex-serving-cert-keys
+            defaultMode: 256
+            items:
+              - key: ca.crt
+                path: ca.crt
       dnsPolicy: ClusterFirst

@@ -11,19 +11,19 @@ func DecodeObject(kind string, document []byte) (meta.Object, error) {
 	switch kind {
 	case "GatewayConfig":
 		obj := &GatewayConfig{}
-		if err := yaml.Unmarshal(document, obj); err != nil {
+		if err := yaml.UnmarshalStrict(document, obj); err != nil {
 			return nil, err
 		}
 		return obj, nil
 	case "AuthProvider":
 		obj := &AuthProvider{}
-		if err := yaml.Unmarshal(document, obj); err != nil {
+		if err := yaml.UnmarshalStrict(document, obj); err != nil {
 			return nil, err
 		}
 		return obj, nil
 	case "ProxyConfig":
 		obj := &ProxyConfig{}
-		if err := yaml.Unmarshal(document, obj); err != nil {
+		if err := yaml.UnmarshalStrict(document, obj); err != nil {
 			return nil, err
 		}
 		return obj, nil

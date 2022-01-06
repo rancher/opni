@@ -103,6 +103,28 @@ func Generate() error {
 
 func Bootstrap() error {
 	ctx := context.Background()
+
+	restConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(), nil).ClientConfig()
+	if err != nil {
+		return err
+	}
+	clientset := kubernetes.NewForConfigOrDie(restConfig)
+
+	for {
+		fmt.Println("Waiting for opni-gateway to be ready...")
+		pods, err := clientset.CoreV1().Pods("opni-gateway").List(ctx, metav1.ListOptions{
+			LabelSelector: "app=opni-gateway",
+		})
+		if err == nil {
+			if len(pods.Items) == 1 {
+				if pods.Items[0].Status.Phase == corev1.PodRunning {
+					break
+				}
+			}
+		}
+		time.Sleep(2 * time.Second)
+	}
 	c, err := management.NewClient(management.WithListenAddress("localhost:9090")) // via tilt
 	if err != nil {
 		return fmt.Errorf("failed to connect to the management socket (is tilt running?): %w", err)
@@ -165,13 +187,6 @@ func Bootstrap() error {
 			"config.yaml": configData,
 		},
 	}
-
-	restConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(), nil).ClientConfig()
-	if err != nil {
-		return err
-	}
-	clientset := kubernetes.NewForConfigOrDie(restConfig)
 	_, err = clientset.CoreV1().
 		Secrets("opni-gateway-proxy").
 		Create(ctx, &secret, metav1.CreateOptions{})

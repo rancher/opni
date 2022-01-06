@@ -61,5 +61,7 @@ func (m *TenantMiddleware) Handle(c *fiber.Ctx) error {
 		log.Println("Tenant authorization failed:", err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
+
+	c.Request().Header.Add("X-Scope-OrgID", tenantID)
 	return c.Next()
 }

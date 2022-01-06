@@ -19,6 +19,7 @@ import (
 	"github.com/kralicky/opni-gateway/pkg/config"
 	"github.com/kralicky/opni-gateway/pkg/config/v1beta1"
 	"github.com/kralicky/opni-gateway/pkg/management"
+	"github.com/kralicky/opni-gateway/pkg/rbac"
 	"github.com/kralicky/opni-gateway/pkg/storage"
 	"github.com/kralicky/opni-gateway/pkg/util"
 	"github.com/valyala/fasthttp"
@@ -48,6 +49,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 
 	var tokenStore storage.TokenStore
 	var tenantStore storage.TenantStore
+	var rbacStore storage.RBACStore
 	switch conf.Spec.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
 		options := conf.Spec.Storage.Etcd
@@ -57,6 +59,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		store := storage.NewEtcdStore(storage.WithClientConfig(options.Config))
 		tokenStore = store
 		tenantStore = store
+		rbacStore = store
 	default:
 		log.Fatalf("unknown storage type %q", conf.Spec.Storage.Type)
 	}
@@ -122,6 +125,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	mgmtSrv := management.NewServer(
 		management.TokenStore(tokenStore),
 		management.TenantStore(tenantStore),
+		management.RBACStore(rbacStore),
 		management.ListenAddress(conf.Spec.ManagementListenAddress),
 		management.TLSConfig(tlsConfig),
 	)
@@ -135,7 +139,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		servingCertBundle: servingCertBundle,
 	}
 	g.loadCortexCerts()
-	g.setupCortexRoutes(app, tenantStore)
+	g.setupCortexRoutes(app, tenantStore, rbacStore)
 
 	app.Post("/bootstrap/*", bootstrap.ServerConfig{
 		RootCA:      rootCA,
@@ -233,11 +237,18 @@ func (g *Gateway) loadCortexCerts() {
 	}
 }
 
-func (g *Gateway) setupCortexRoutes(app *fiber.App, tenantStore storage.TenantStore) {
+func (g *Gateway) setupCortexRoutes(
+	app *fiber.App,
+	tenantStore storage.TenantStore,
+	rbacStore storage.RBACStore,
+) {
 	queryFrontend := g.newCortexForwarder(g.config.Spec.Cortex.QueryFrontend.Address)
 	alertmanager := g.newCortexForwarder(g.config.Spec.Cortex.Alertmanager.Address)
 	ruler := g.newCortexForwarder(g.config.Spec.Cortex.Ruler.Address)
 	distributor := g.newCortexForwarder(g.config.Spec.Cortex.Distributor.Address)
+
+	rbacProvider := storage.NewRBACProvider(rbacStore)
+	rbacMiddleware := rbac.NewMiddleware(rbacProvider)
 
 	app.Get("/services", queryFrontend)
 	app.Get("/ready", queryFrontend)
@@ -247,11 +258,11 @@ func (g *Gateway) setupCortexRoutes(app *fiber.App, tenantStore storage.TenantSt
 	app.Get("/ruler/ring", ruler)
 
 	// Alertmanager UI
-	alertmanagerUi := app.Group("/alertmanager", g.authMiddleware.Handle)
+	alertmanagerUi := app.Group("/alertmanager", g.authMiddleware.Handle, rbacMiddleware)
 	alertmanagerUi.Get("/alertmanager", alertmanager)
 
 	// Prometheus-compatible API
-	promv1 := app.Group("/prometheus/api/v1", g.authMiddleware.Handle)
+	promv1 := app.Group("/prometheus/api/v1", g.authMiddleware.Handle, rbacMiddleware)
 
 	// GET, POST
 	for _, method := range []string{http.MethodGet, http.MethodPost} {

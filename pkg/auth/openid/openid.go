@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kralicky/opni-gateway/pkg/auth"
 	"github.com/kralicky/opni-gateway/pkg/config/v1beta1"
+	"github.com/kralicky/opni-gateway/pkg/rbac"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/lestrrat-go/jwx/jwt/openid"
@@ -60,6 +61,7 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 	value := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
+	fmt.Println(value)
 	token, err := jwt.ParseString(value,
 		jwt.WithKeySet(set),
 		jwt.WithValidate(true),
@@ -69,15 +71,8 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 		log.Println(err.Error())
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
-	AddTokenToContext(c, token.(openid.Token))
+	userID := token.(openid.Token).Email()
+	c.Request().Header.Del("Authorization")
+	c.Locals(rbac.UserIDKey, userID)
 	return c.Next()
-}
-
-func TokenFromContext(c *fiber.Ctx) (openid.Token, bool) {
-	token, ok := c.Locals(TokenKey).(openid.Token)
-	return token, ok
-}
-
-func AddTokenToContext(c *fiber.Ctx, token openid.Token) {
-	c.Locals(TokenKey, token)
 }

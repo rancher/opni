@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kralicky/opni-gateway/pkg/keyring"
+	"github.com/kralicky/opni-gateway/pkg/rbac"
 	"github.com/kralicky/opni-gateway/pkg/tokens"
 )
 
@@ -25,6 +26,17 @@ type TenantStore interface {
 	TenantExists(ctx context.Context, tenantID string) (bool, error)
 	ListTenants(ctx context.Context) ([]string, error)
 	KeyringStore(ctx context.Context, tenantID string) (KeyringStore, error)
+}
+
+type RBACStore interface {
+	CreateRole(ctx context.Context, roleName string, tenantIDs []string) (rbac.Role, error)
+	DeleteRole(ctx context.Context, roleName string) error
+	GetRole(ctx context.Context, roleName string) (rbac.Role, error)
+	CreateRoleBinding(ctx context.Context, roleBindingName string, roleName string, userID string) (rbac.RoleBinding, error)
+	DeleteRoleBinding(ctx context.Context, roleBindingName string) error
+	GetRoleBinding(ctx context.Context, roleBindingName string) (rbac.RoleBinding, error)
+	ListRoles(ctx context.Context) ([]rbac.Role, error)
+	ListRoleBindings(ctx context.Context) ([]rbac.RoleBinding, error)
 }
 
 type KeyringStore interface {

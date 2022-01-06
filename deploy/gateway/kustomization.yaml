@@ -7,4 +7,6 @@ resources:
   - rbac.yaml
   - gateway-deployment.yaml
   - service.yaml
+  - ingress.yaml
   - configmap.yaml # see configmap-sample.yaml
+  - oauth.yaml # see oauth-sample.yaml

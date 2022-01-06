@@ -28,6 +28,14 @@ type ManagementClient interface {
 	ListBootstrapTokens(ctx context.Context, in *ListBootstrapTokensRequest, opts ...grpc.CallOption) (*ListBootstrapTokensResponse, error)
 	ListTenants(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListTenantsResponse, error)
 	CertsInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CertsInfoResponse, error)
+	CreateRole(ctx context.Context, in *CreateRoleRequest, opts ...grpc.CallOption) (*Role, error)
+	DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetRole(ctx context.Context, in *GetRoleRequest, opts ...grpc.CallOption) (*Role, error)
+	CreateRoleBinding(ctx context.Context, in *CreateRoleBindingRequest, opts ...grpc.CallOption) (*RoleBinding, error)
+	DeleteRoleBinding(ctx context.Context, in *DeleteRoleBindingRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetRoleBinding(ctx context.Context, in *GetRoleBindingRequest, opts ...grpc.CallOption) (*RoleBinding, error)
+	ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RoleList, error)
+	ListRoleBindings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RoleBindingList, error)
 }
 
 type managementClient struct {
@@ -83,6 +91,78 @@ func (c *managementClient) CertsInfo(ctx context.Context, in *emptypb.Empty, opt
 	return out, nil
 }
 
+func (c *managementClient) CreateRole(ctx context.Context, in *CreateRoleRequest, opts ...grpc.CallOption) (*Role, error) {
+	out := new(Role)
+	err := c.cc.Invoke(ctx, "/management.Management/CreateRole", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/DeleteRole", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) GetRole(ctx context.Context, in *GetRoleRequest, opts ...grpc.CallOption) (*Role, error) {
+	out := new(Role)
+	err := c.cc.Invoke(ctx, "/management.Management/GetRole", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) CreateRoleBinding(ctx context.Context, in *CreateRoleBindingRequest, opts ...grpc.CallOption) (*RoleBinding, error) {
+	out := new(RoleBinding)
+	err := c.cc.Invoke(ctx, "/management.Management/CreateRoleBinding", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) DeleteRoleBinding(ctx context.Context, in *DeleteRoleBindingRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/DeleteRoleBinding", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) GetRoleBinding(ctx context.Context, in *GetRoleBindingRequest, opts ...grpc.CallOption) (*RoleBinding, error) {
+	out := new(RoleBinding)
+	err := c.cc.Invoke(ctx, "/management.Management/GetRoleBinding", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RoleList, error) {
+	out := new(RoleList)
+	err := c.cc.Invoke(ctx, "/management.Management/ListRoles", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) ListRoleBindings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*RoleBindingList, error) {
+	out := new(RoleBindingList)
+	err := c.cc.Invoke(ctx, "/management.Management/ListRoleBindings", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ManagementServer is the server API for Management service.
 // All implementations must embed UnimplementedManagementServer
 // for forward compatibility
@@ -92,6 +172,14 @@ type ManagementServer interface {
 	ListBootstrapTokens(context.Context, *ListBootstrapTokensRequest) (*ListBootstrapTokensResponse, error)
 	ListTenants(context.Context, *emptypb.Empty) (*ListTenantsResponse, error)
 	CertsInfo(context.Context, *emptypb.Empty) (*CertsInfoResponse, error)
+	CreateRole(context.Context, *CreateRoleRequest) (*Role, error)
+	DeleteRole(context.Context, *DeleteRoleRequest) (*emptypb.Empty, error)
+	GetRole(context.Context, *GetRoleRequest) (*Role, error)
+	CreateRoleBinding(context.Context, *CreateRoleBindingRequest) (*RoleBinding, error)
+	DeleteRoleBinding(context.Context, *DeleteRoleBindingRequest) (*emptypb.Empty, error)
+	GetRoleBinding(context.Context, *GetRoleBindingRequest) (*RoleBinding, error)
+	ListRoles(context.Context, *emptypb.Empty) (*RoleList, error)
+	ListRoleBindings(context.Context, *emptypb.Empty) (*RoleBindingList, error)
 	mustEmbedUnimplementedManagementServer()
 }
 
@@ -113,6 +201,30 @@ func (UnimplementedManagementServer) ListTenants(context.Context, *emptypb.Empty
 }
 func (UnimplementedManagementServer) CertsInfo(context.Context, *emptypb.Empty) (*CertsInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CertsInfo not implemented")
+}
+func (UnimplementedManagementServer) CreateRole(context.Context, *CreateRoleRequest) (*Role, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateRole not implemented")
+}
+func (UnimplementedManagementServer) DeleteRole(context.Context, *DeleteRoleRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteRole not implemented")
+}
+func (UnimplementedManagementServer) GetRole(context.Context, *GetRoleRequest) (*Role, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRole not implemented")
+}
+func (UnimplementedManagementServer) CreateRoleBinding(context.Context, *CreateRoleBindingRequest) (*RoleBinding, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateRoleBinding not implemented")
+}
+func (UnimplementedManagementServer) DeleteRoleBinding(context.Context, *DeleteRoleBindingRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteRoleBinding not implemented")
+}
+func (UnimplementedManagementServer) GetRoleBinding(context.Context, *GetRoleBindingRequest) (*RoleBinding, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRoleBinding not implemented")
+}
+func (UnimplementedManagementServer) ListRoles(context.Context, *emptypb.Empty) (*RoleList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListRoles not implemented")
+}
+func (UnimplementedManagementServer) ListRoleBindings(context.Context, *emptypb.Empty) (*RoleBindingList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListRoleBindings not implemented")
 }
 func (UnimplementedManagementServer) mustEmbedUnimplementedManagementServer() {}
 
@@ -217,6 +329,150 @@ func _Management_CertsInfo_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Management_CreateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).CreateRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/CreateRole",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).CreateRole(ctx, req.(*CreateRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_DeleteRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).DeleteRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/DeleteRole",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).DeleteRole(ctx, req.(*DeleteRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_GetRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).GetRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/GetRole",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).GetRole(ctx, req.(*GetRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_CreateRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateRoleBindingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).CreateRoleBinding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/CreateRoleBinding",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).CreateRoleBinding(ctx, req.(*CreateRoleBindingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_DeleteRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRoleBindingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).DeleteRoleBinding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/DeleteRoleBinding",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).DeleteRoleBinding(ctx, req.(*DeleteRoleBindingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_GetRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRoleBindingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).GetRoleBinding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/GetRoleBinding",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).GetRoleBinding(ctx, req.(*GetRoleBindingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_ListRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).ListRoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/ListRoles",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).ListRoles(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_ListRoleBindings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).ListRoleBindings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/ListRoleBindings",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).ListRoleBindings(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Management_ServiceDesc is the grpc.ServiceDesc for Management service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -243,6 +499,38 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CertsInfo",
 			Handler:    _Management_CertsInfo_Handler,
+		},
+		{
+			MethodName: "CreateRole",
+			Handler:    _Management_CreateRole_Handler,
+		},
+		{
+			MethodName: "DeleteRole",
+			Handler:    _Management_DeleteRole_Handler,
+		},
+		{
+			MethodName: "GetRole",
+			Handler:    _Management_GetRole_Handler,
+		},
+		{
+			MethodName: "CreateRoleBinding",
+			Handler:    _Management_CreateRoleBinding_Handler,
+		},
+		{
+			MethodName: "DeleteRoleBinding",
+			Handler:    _Management_DeleteRoleBinding_Handler,
+		},
+		{
+			MethodName: "GetRoleBinding",
+			Handler:    _Management_GetRoleBinding_Handler,
+		},
+		{
+			MethodName: "ListRoles",
+			Handler:    _Management_ListRoles_Handler,
+		},
+		{
+			MethodName: "ListRoleBindings",
+			Handler:    _Management_ListRoleBindings_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

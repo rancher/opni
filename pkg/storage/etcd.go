@@ -2,11 +2,13 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/kralicky/opni-gateway/pkg/keyring"
+	"github.com/kralicky/opni-gateway/pkg/rbac"
 	"github.com/kralicky/opni-gateway/pkg/tokens"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -59,17 +61,17 @@ func NewEtcdStore(opts ...EtcdStoreOption) *EtcdStore {
 	}
 }
 
-func (v *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration) (*tokens.Token, error) {
+func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration) (*tokens.Token, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	lease, err := v.client.Grant(ctx, int64(ttl.Seconds()))
+	lease, err := e.client.Grant(ctx, int64(ttl.Seconds()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create lease: %w", err)
 	}
 	token := tokens.NewToken()
 	token.Metadata.LeaseID = int64(lease.ID)
 	token.Metadata.TTL = lease.TTL
-	_, err = v.client.Put(ctx, "/tokens/"+token.HexID(), token.EncodeJSON(),
+	_, err = e.client.Put(ctx, "/tokens/"+token.HexID(), token.EncodeJSON(),
 		clientv3.WithLease(lease.ID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token %w", err)
@@ -77,14 +79,14 @@ func (v *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration) (*tokens
 	return token, nil
 }
 
-func (v *EtcdStore) DeleteToken(ctx context.Context, tokenID string) error {
-	t, err := v.GetToken(ctx, tokenID)
+func (e *EtcdStore) DeleteToken(ctx context.Context, tokenID string) error {
+	t, err := e.GetToken(ctx, tokenID)
 	if err != nil {
 		return err
 	}
 	// If the token has a lease, revoke it, which will delete the token.
 	if t.Metadata.LeaseID != 0 {
-		_, err := v.client.Revoke(context.Background(), clientv3.LeaseID(t.Metadata.LeaseID))
+		_, err := e.client.Revoke(context.Background(), clientv3.LeaseID(t.Metadata.LeaseID))
 		if err != nil {
 			return fmt.Errorf("failed to revoke lease %d: %w", t.Metadata.LeaseID, err)
 		}
@@ -93,7 +95,7 @@ func (v *EtcdStore) DeleteToken(ctx context.Context, tokenID string) error {
 	// If the token doesn't have a lease, delete it directly.
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := v.client.Delete(ctx, "/tokens/"+tokenID)
+	resp, err := e.client.Delete(ctx, "/tokens/"+tokenID)
 	if err != nil {
 		return fmt.Errorf("failed to delete token %s: %w", tokenID, err)
 	}
@@ -103,20 +105,20 @@ func (v *EtcdStore) DeleteToken(ctx context.Context, tokenID string) error {
 	return nil
 }
 
-func (v *EtcdStore) TokenExists(ctx context.Context, tokenID string) (bool, error) {
+func (e *EtcdStore) TokenExists(ctx context.Context, tokenID string) (bool, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := v.client.Get(ctx, "/tokens/"+tokenID)
+	resp, err := e.client.Get(ctx, "/tokens/"+tokenID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get token %s: %w", tokenID, err)
 	}
 	return len(resp.Kvs) > 0, nil
 }
 
-func (v *EtcdStore) GetToken(ctx context.Context, tokenID string) (*tokens.Token, error) {
+func (e *EtcdStore) GetToken(ctx context.Context, tokenID string) (*tokens.Token, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := v.client.Get(ctx, "/tokens/"+tokenID)
+	resp, err := e.client.Get(ctx, "/tokens/"+tokenID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token %s: %w", tokenID, err)
 	}
@@ -128,16 +130,16 @@ func (v *EtcdStore) GetToken(ctx context.Context, tokenID string) (*tokens.Token
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode token %s: %w", tokenID, err)
 	}
-	if err := v.addLeaseMetadata(ctx, token, kv.Lease); err != nil {
+	if err := e.addLeaseMetadata(ctx, token, kv.Lease); err != nil {
 		return nil, err
 	}
 	return token, nil
 }
 
-func (v *EtcdStore) ListTokens(ctx context.Context) ([]*tokens.Token, error) {
+func (e *EtcdStore) ListTokens(ctx context.Context) ([]*tokens.Token, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := v.client.Get(ctx, "/tokens/", clientv3.WithPrefix())
+	resp, err := e.client.Get(ctx, "/tokens/", clientv3.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tokens: %w", err)
 	}
@@ -147,7 +149,7 @@ func (v *EtcdStore) ListTokens(ctx context.Context) ([]*tokens.Token, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode token %s: %w", string(kv.Value), err)
 		}
-		if err := v.addLeaseMetadata(ctx, token, kv.Lease); err != nil {
+		if err := e.addLeaseMetadata(ctx, token, kv.Lease); err != nil {
 			return nil, err
 		}
 		items[i] = token
@@ -155,7 +157,7 @@ func (v *EtcdStore) ListTokens(ctx context.Context) ([]*tokens.Token, error) {
 	return items, nil
 }
 
-func (v *EtcdStore) addLeaseMetadata(
+func (e *EtcdStore) addLeaseMetadata(
 	ctx context.Context,
 	token *tokens.Token,
 	lease int64,
@@ -163,7 +165,7 @@ func (v *EtcdStore) addLeaseMetadata(
 	if lease != 0 {
 		token.Metadata.LeaseID = lease
 		// lookup lease
-		leaseResp, err := v.client.TimeToLive(ctx, clientv3.LeaseID(lease))
+		leaseResp, err := e.client.TimeToLive(ctx, clientv3.LeaseID(lease))
 		if err != nil {
 			fmt.Errorf("failed to get lease %d: %w", lease, err)
 		}
@@ -172,40 +174,40 @@ func (v *EtcdStore) addLeaseMetadata(
 	return nil
 }
 
-func (v *EtcdStore) CreateTenant(ctx context.Context, tenantID string) error {
+func (e *EtcdStore) CreateTenant(ctx context.Context, tenantID string) error {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := v.client.Put(ctx, "/tenants/"+tenantID, "")
+	_, err := e.client.Put(ctx, "/tenants/"+tenantID, "")
 	if err != nil {
 		return fmt.Errorf("failed to create tenant %s: %w", tenantID, err)
 	}
 	return nil
 }
 
-func (v *EtcdStore) DeleteTenant(ctx context.Context, tenantID string) error {
+func (e *EtcdStore) DeleteTenant(ctx context.Context, tenantID string) error {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := v.client.Delete(ctx, "/tenants/"+tenantID)
+	_, err := e.client.Delete(ctx, "/tenants/"+tenantID)
 	if err != nil {
 		return fmt.Errorf("failed to delete tenant %s: %w", tenantID, err)
 	}
 	return nil
 }
 
-func (v *EtcdStore) TenantExists(ctx context.Context, tenantID string) (bool, error) {
+func (e *EtcdStore) TenantExists(ctx context.Context, tenantID string) (bool, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := v.client.Get(ctx, "/tenants/"+tenantID)
+	resp, err := e.client.Get(ctx, "/tenants/"+tenantID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get tenant %s: %w", tenantID, err)
 	}
 	return len(resp.Kvs) > 0, nil
 }
 
-func (v *EtcdStore) ListTenants(ctx context.Context) ([]string, error) {
+func (e *EtcdStore) ListTenants(ctx context.Context) ([]string, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := v.client.Get(ctx, "/tenants/", clientv3.WithPrefix())
+	resp, err := e.client.Get(ctx, "/tenants/", clientv3.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tenants: %w", err)
 	}
@@ -216,14 +218,141 @@ func (v *EtcdStore) ListTenants(ctx context.Context) ([]string, error) {
 	return items, nil
 }
 
+func (e *EtcdStore) CreateRole(ctx context.Context, roleName string, tenantIDs []string) (rbac.Role, error) {
+	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	defer ca()
+	role := rbac.Role{
+		Name:      roleName,
+		TenantIDs: tenantIDs,
+	}
+	data, err := json.Marshal(role)
+	if err != nil {
+		return rbac.Role{}, fmt.Errorf("failed to marshal role %s: %w", roleName, err)
+	}
+	_, err = e.client.Put(ctx, "/roles/"+roleName, string(data))
+	if err != nil {
+		return rbac.Role{}, fmt.Errorf("failed to create role %s: %w", roleName, err)
+	}
+	return role, nil
+}
+
+func (e *EtcdStore) DeleteRole(ctx context.Context, roleName string) error {
+	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	defer ca()
+	_, err := e.client.Delete(ctx, "/roles/"+roleName)
+	if err != nil {
+		return fmt.Errorf("failed to delete role %s: %w", roleName, err)
+	}
+	return nil
+}
+
+func (e *EtcdStore) GetRole(ctx context.Context, roleName string) (rbac.Role, error) {
+	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	defer ca()
+	resp, err := e.client.Get(ctx, "/roles/"+roleName)
+	if err != nil {
+		return rbac.Role{}, fmt.Errorf("failed to get role %s: %w", roleName, err)
+	}
+	if len(resp.Kvs) == 0 {
+		return rbac.Role{}, fmt.Errorf("failed to get role %s: %w", roleName, ErrNotFound)
+	}
+	var role rbac.Role
+	if err := json.Unmarshal(resp.Kvs[0].Value, &role); err != nil {
+		return rbac.Role{}, fmt.Errorf("failed to unmarshal role %s: %w", roleName, err)
+	}
+	return role, nil
+}
+
+func (e *EtcdStore) CreateRoleBinding(ctx context.Context, roleBindingName string, roleName string, userID string) (rbac.RoleBinding, error) {
+	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	defer ca()
+	roleBinding := rbac.RoleBinding{
+		Name:     roleBindingName,
+		RoleName: roleName,
+		UserID:   userID,
+	}
+	data, err := json.Marshal(roleBinding)
+	if err != nil {
+		return rbac.RoleBinding{}, fmt.Errorf("failed to marshal role binding %s: %w", roleBindingName, err)
+	}
+	_, err = e.client.Put(ctx, "/role_bindings/"+roleBindingName, string(data))
+	if err != nil {
+		return rbac.RoleBinding{}, fmt.Errorf("failed to create role binding %s: %w", roleBindingName, err)
+	}
+	return roleBinding, nil
+}
+
+func (e *EtcdStore) DeleteRoleBinding(ctx context.Context, roleBindingName string) error {
+	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	defer ca()
+	_, err := e.client.Delete(ctx, "/role_bindings/"+roleBindingName)
+	if err != nil {
+		return fmt.Errorf("failed to delete role binding %s: %w", roleBindingName, err)
+	}
+	return nil
+}
+
+func (e *EtcdStore) GetRoleBinding(ctx context.Context, roleBindingName string) (rbac.RoleBinding, error) {
+	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	defer ca()
+	resp, err := e.client.Get(ctx, "/role_bindings/"+roleBindingName)
+	if err != nil {
+		return rbac.RoleBinding{}, fmt.Errorf("failed to get role binding %s: %w", roleBindingName, err)
+	}
+	if len(resp.Kvs) == 0 {
+		return rbac.RoleBinding{}, fmt.Errorf("failed to get role binding %s: %w", roleBindingName, ErrNotFound)
+	}
+	var roleBinding rbac.RoleBinding
+	if err := json.Unmarshal(resp.Kvs[0].Value, &roleBinding); err != nil {
+		return rbac.RoleBinding{}, fmt.Errorf("failed to unmarshal role binding %s: %w", roleBindingName, err)
+	}
+	return roleBinding, nil
+}
+
+func (e *EtcdStore) ListRoles(ctx context.Context) ([]rbac.Role, error) {
+	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	defer ca()
+	resp, err := e.client.Get(ctx, "/roles/", clientv3.WithPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list roles: %w", err)
+	}
+	items := make([]rbac.Role, len(resp.Kvs))
+	for i, kv := range resp.Kvs {
+		var role rbac.Role
+		if err := json.Unmarshal(kv.Value, &role); err != nil {
+			return nil, fmt.Errorf("failed to decode role %s: %w", string(kv.Value), err)
+		}
+		items[i] = role
+	}
+	return items, nil
+}
+
+func (e *EtcdStore) ListRoleBindings(ctx context.Context) ([]rbac.RoleBinding, error) {
+	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	defer ca()
+	resp, err := e.client.Get(ctx, "/role_bindings/", clientv3.WithPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list role bindings: %w", err)
+	}
+	items := make([]rbac.RoleBinding, len(resp.Kvs))
+	for i, kv := range resp.Kvs {
+		var roleBinding rbac.RoleBinding
+		if err := json.Unmarshal(kv.Value, &roleBinding); err != nil {
+			return nil, fmt.Errorf("failed to decode role binding %s: %w", string(kv.Value), err)
+		}
+		items[i] = roleBinding
+	}
+	return items, nil
+}
+
 type tenantKeyringStore struct {
 	client   *clientv3.Client
 	tenantID string
 }
 
-func (v *EtcdStore) KeyringStore(ctx context.Context, tenantID string) (KeyringStore, error) {
+func (e *EtcdStore) KeyringStore(ctx context.Context, tenantID string) (KeyringStore, error) {
 	return &tenantKeyringStore{
-		client:   v.client,
+		client:   e.client,
 		tenantID: tenantID,
 	}, nil
 }

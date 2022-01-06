@@ -1,0 +1,51 @@
+image:
+  repository: docker.os.lan/grafana/grafana
+  tag: dev
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Opni
+        type: prometheus
+        access: proxy
+        url: https://opni-gateway.opni-gateway.svc:8080/prometheus
+        withCredentials: true
+        editable: false
+        jsonData:
+          tlsSkipVerify: true
+          oauthPassThru: true
+extraSecretMounts:
+  - name: oauth-config
+    secretName: grafana-oauth-config
+    mountPath: /run/secrets/grafana-oauth-config
+    readOnly: true
+    defaultMode: 256
+grafana.ini:
+  server:
+    domain: $__file{/run/secrets/grafana-oauth-config/domain}
+    root_url: https://$__file{/run/secrets/grafana-oauth-config/domain}
+  log:
+    level: debug
+  auth:
+    signout_redirect_url: $__file{/run/secrets/grafana-oauth-config/signout-redirect-url}
+  auth.proxy:
+    enabled: true
+  auth.basic:
+    enabled: false
+  auth.generic_oauth:
+    enabled: true
+    client_id: $__file{/run/secrets/grafana-oauth-config/client-id}
+    client_secret: $__file{/run/secrets/grafana-oauth-config/client-secret}
+    scopes: openid email profile roles web-origins
+    empty_scopes: false
+    auth_url: $__file{/run/secrets/grafana-oauth-config/auth-url}
+    token_url: $__file{/run/secrets/grafana-oauth-config/token-url}
+    api_url: $__file{/run/secrets/grafana-oauth-config/api-url}
+    allowed_domains: $__file{/run/secrets/grafana-oauth-config/allowed-domains}
+    allow_sign_up: true
+    tls_skip_verify_insecure: $__file{/run/secrets/grafana-oauth-config/insecure-skip-verify}
+    tls_client_cert: $__file{/run/secrets/grafana-oauth-config/tls-client-cert}
+    tls_client_key: $__file{/run/secrets/grafana-oauth-config/tls-client-key}
+    tls_client_ca: $__file{/run/secrets/grafana-oauth-config/tls-client-ca}
+    use_pkce: true
+    role_attribute_path: $__file{/run/secrets/grafana-oauth-config/role-attribute-path}

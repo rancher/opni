@@ -33,6 +33,8 @@ func BuildManageCmd() *cobra.Command {
 	manageCmd.AddCommand(BuildTokensCmd())
 	manageCmd.AddCommand(BuildTenantsCmd())
 	manageCmd.AddCommand(BuildCertsCmd())
+	manageCmd.AddCommand(BuildRolesCmd())
+	manageCmd.AddCommand(BuildRoleBindingsCmd())
 	return manageCmd
 }
 
@@ -160,4 +162,191 @@ func BuildTenantsListCmd() *cobra.Command {
 		},
 	}
 	return tenantsListCmd
+}
+
+func BuildRolesCmd() *cobra.Command {
+	rolesCmd := &cobra.Command{
+		Use:     "roles",
+		Aliases: []string{"role"},
+		Short:   "Manage roles",
+	}
+	rolesCmd.AddCommand(BuildRolesCreateCmd())
+	rolesCmd.AddCommand(BuildRolesDeleteCmd())
+	rolesCmd.AddCommand(BuildRolesGetCmd())
+	rolesCmd.AddCommand(BuildRolesListCmd())
+	return rolesCmd
+}
+
+func BuildRoleBindingsCmd() *cobra.Command {
+	roleBindingsCmd := &cobra.Command{
+		Use:     "rolebindings",
+		Aliases: []string{"rb", "rolebinding"},
+		Short:   "Manage role bindings",
+	}
+	roleBindingsCmd.AddCommand(BuildRoleBindingsCreateCmd())
+	roleBindingsCmd.AddCommand(BuildRoleBindingsDeleteCmd())
+	roleBindingsCmd.AddCommand(BuildRoleBindingsGetCmd())
+	roleBindingsCmd.AddCommand(BuildRoleBindingsListCmd())
+	return roleBindingsCmd
+}
+
+func BuildRolesCreateCmd() *cobra.Command {
+	rolesCreateCmd := &cobra.Command{
+		Use:   "create name tenant-id [...,tenant-id]",
+		Short: "Create a role",
+		Args:  cobra.MinimumNArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			newRole, err := client.CreateRole(context.Background(),
+				&management.CreateRoleRequest{
+					Role: &management.Role{
+						Name:      args[0],
+						TenantIDs: args[1:],
+					},
+				})
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Println(cliutil.RenderRole(newRole))
+			}
+		},
+	}
+	return rolesCreateCmd
+}
+
+func BuildRolesDeleteCmd() *cobra.Command {
+	rolesDeleteCmd := &cobra.Command{
+		Use:   "delete name",
+		Short: "Delete a role",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			for _, role := range args {
+				_, err := client.DeleteRole(context.Background(),
+					&management.DeleteRoleRequest{
+						Name: role,
+					})
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					fmt.Printf("Deleted role %s\n", role)
+				}
+			}
+		},
+	}
+	return rolesDeleteCmd
+}
+
+func BuildRolesGetCmd() *cobra.Command {
+	rolesGetCmd := &cobra.Command{
+		Use:   "get name",
+		Short: "Get detailed information about a role",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			role, err := client.GetRole(context.Background(),
+				&management.GetRoleRequest{
+					Name: args[0],
+				})
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Println(cliutil.RenderRole(role))
+			}
+		},
+	}
+	return rolesGetCmd
+}
+
+func BuildRolesListCmd() *cobra.Command {
+	rolesListCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List roles",
+		Run: func(cmd *cobra.Command, args []string) {
+			t, err := client.ListRoles(context.Background(), &emptypb.Empty{})
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Println(cliutil.RenderRoleList(t.Items))
+		},
+	}
+	return rolesListCmd
+}
+
+func BuildRoleBindingsCreateCmd() *cobra.Command {
+	roleBindingsCreateCmd := &cobra.Command{
+		Use:   "create rolebinding-name role-id user-id",
+		Short: "Create a role binding",
+		Args:  cobra.ExactArgs(3),
+		Run: func(cmd *cobra.Command, args []string) {
+			rb, err := client.CreateRoleBinding(context.Background(),
+				&management.CreateRoleBindingRequest{
+					RoleBinding: &management.RoleBinding{
+						Name:     args[0],
+						RoleName: args[1],
+						UserID:   args[2],
+					},
+				})
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Println(cliutil.RenderRoleBinding(rb))
+			}
+		},
+	}
+	return roleBindingsCreateCmd
+}
+
+func BuildRoleBindingsDeleteCmd() *cobra.Command {
+	roleBindingsDeleteCmd := &cobra.Command{
+		Use:   "delete rolebinding-name",
+		Short: "Delete a role binding",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			_, err := client.DeleteRoleBinding(context.Background(),
+				&management.DeleteRoleBindingRequest{
+					Name: args[0],
+				})
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Printf("Deleted role binding %s\n", args[0])
+			}
+		},
+	}
+	return roleBindingsDeleteCmd
+}
+
+func BuildRoleBindingsGetCmd() *cobra.Command {
+	roleBindingsGetCmd := &cobra.Command{
+		Use:   "get rolebinding-name",
+		Short: "Get detailed information about a role binding",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			rb, err := client.GetRoleBinding(context.Background(),
+				&management.GetRoleBindingRequest{
+					Name: args[0],
+				})
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Println(cliutil.RenderRoleBinding(rb))
+			}
+		},
+	}
+	return roleBindingsGetCmd
+}
+
+func BuildRoleBindingsListCmd() *cobra.Command {
+	roleBindingsListCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List role bindings",
+		Run: func(cmd *cobra.Command, args []string) {
+			t, err := client.ListRoleBindings(context.Background(), &emptypb.Empty{})
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Println(cliutil.RenderRoleBindingList(t.Items))
+		},
+	}
+	return roleBindingsListCmd
 }

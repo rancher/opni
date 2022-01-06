@@ -5,11 +5,20 @@ import "google/protobuf/empty.proto";
 package management;
 
 service Management {
-  rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (BootstrapToken) {}
-  rpc RevokeBootstrapToken(RevokeBootstrapTokenRequest) returns (google.protobuf.Empty) {}
-  rpc ListBootstrapTokens(ListBootstrapTokensRequest) returns (ListBootstrapTokensResponse) {}
-  rpc ListTenants(google.protobuf.Empty) returns (ListTenantsResponse) {}
-  rpc CertsInfo(google.protobuf.Empty) returns (CertsInfoResponse) {}
+  rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (BootstrapToken);
+  rpc RevokeBootstrapToken(RevokeBootstrapTokenRequest) returns (google.protobuf.Empty);
+  rpc ListBootstrapTokens(ListBootstrapTokensRequest) returns (ListBootstrapTokensResponse);
+  rpc ListTenants(google.protobuf.Empty) returns (ListTenantsResponse);
+  rpc CertsInfo(google.protobuf.Empty) returns (CertsInfoResponse);
+
+  rpc CreateRole(CreateRoleRequest) returns (Role);
+  rpc DeleteRole(DeleteRoleRequest) returns (google.protobuf.Empty);
+  rpc GetRole(GetRoleRequest) returns (Role);
+  rpc CreateRoleBinding(CreateRoleBindingRequest) returns (RoleBinding);
+  rpc DeleteRoleBinding(DeleteRoleBindingRequest) returns (google.protobuf.Empty);
+  rpc GetRoleBinding(GetRoleBindingRequest) returns (RoleBinding);
+  rpc ListRoles(google.protobuf.Empty) returns (RoleList);
+  rpc ListRoleBindings(google.protobuf.Empty) returns (RoleBindingList);
 }
 
 message CreateBootstrapTokenRequest {
@@ -53,4 +62,47 @@ message CertInfo {
   string NotBefore = 4;
   string NotAfter = 5;
   bytes SPKIHash = 6;
+}
+
+message Role {
+  string Name = 1;
+  repeated string TenantIDs = 2;
+}
+
+message RoleBinding {
+  string Name = 1;
+  string RoleName = 2;
+  string UserID = 3;
+}
+
+message RoleList {
+  repeated Role Items = 1;
+}
+
+message RoleBindingList {
+  repeated RoleBinding Items = 1;
+}
+
+message CreateRoleRequest {
+  Role Role = 1;
+}
+
+message DeleteRoleRequest {
+  string Name = 1;
+}
+
+message GetRoleRequest {
+  string Name = 1;
+}
+
+message CreateRoleBindingRequest {
+  RoleBinding RoleBinding = 1;
+}
+
+message DeleteRoleBindingRequest {
+  string Name = 1;
+}
+
+message GetRoleBindingRequest {
+  string Name = 1;
 }

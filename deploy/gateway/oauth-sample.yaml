@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-oauth-config
+type: Opaque
+stringData:
+  domain: ""
+  signout-redirect-url: ""
+  client-id: ""
+  client-secret: ""
+  auth-url: ""
+  token-url: ""
+  api-url: ""
+  allowed-domains: ""
+  insecure-skip-verify: ""
+  role-attribute-path: ""
+  tls-client-cert: ""
+  tls-client-key: ""
+  tls-client-ca: ""

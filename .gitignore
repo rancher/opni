@@ -5,4 +5,6 @@ bin/
 tilt_modules/
 
 deploy/gateway/configmap.yaml
+deploy/gateway/oauth.yaml
+deploy/gateway/ingress.yaml
 tilt-options.yaml

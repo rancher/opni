@@ -27,6 +27,12 @@ helm_remote('cortex',
     namespace='opni-gateway',
     values="deploy/helm-config/cortex-values.yaml",
 )
+helm_remote('grafana',
+    repo_name='grafana',
+    repo_url='https://grafana.github.io/helm-charts',
+    namespace='opni-gateway',
+    values="deploy/helm-config/grafana-values.yaml",
+)
 
 k8s_yaml(kustomize('deploy/gateway'))
 k8s_resource(workload='opni-gateway', port_forwards=9090)

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/kralicky/opni-gateway/pkg/keyring"
-	"github.com/kralicky/opni-gateway/pkg/rbac"
-	"github.com/kralicky/opni-gateway/pkg/tokens"
+	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/rbac"
+	"github.com/kralicky/opni-monitoring/pkg/tokens"
 )
 
 var ErrNotFound = errors.New("not found")

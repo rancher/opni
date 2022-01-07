@@ -1,6 +1,6 @@
 package v1beta1
 
-import "github.com/kralicky/opni-gateway/pkg/config/meta"
+import "github.com/kralicky/opni-monitoring/pkg/config/meta"
 
 type AuthProvider struct {
 	meta.TypeMeta   `json:",inline"`
@@ -12,7 +12,7 @@ type AuthProvider struct {
 type AuthProviderType string
 
 const (
-	AuthProviderOIDC AuthProviderType = "oidc"
+	AuthProviderOpenID AuthProviderType = "openid"
 )
 
 type AuthProviderSpec struct {

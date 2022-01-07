@@ -1,0 +1,17 @@
+enabled: true
+image:
+  repository: docker.io/grafana/grafana
+  tag: main
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Opni
+        type: prometheus
+        access: proxy
+        url: https://opni-gateway.opni-monitoring.svc:8080/prometheus
+        withCredentials: true
+        editable: false
+        jsonData:
+          tlsSkipVerify: true
+          oauthPassThru: true

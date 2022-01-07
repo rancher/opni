@@ -1,16 +1,16 @@
 package v1beta1
 
 import (
-	"github.com/kralicky/opni-gateway/pkg/config/meta"
+	"github.com/kralicky/opni-monitoring/pkg/config/meta"
 )
 
-type ProxyConfig struct {
+type AgentConfig struct {
 	meta.TypeMeta `json:",inline"`
 
-	Spec ProxyConfigSpec `json:"spec,omitempty"`
+	Spec AgentConfigSpec `json:"spec,omitempty"`
 }
 
-type ProxyConfigSpec struct {
+type AgentConfigSpec struct {
 	ListenAddress    string               `json:"listenAddress,omitempty"`
 	GatewayAddress   string               `json:"gatewayAddress,omitempty"`
 	IdentityProvider IdentityProviderSpec `json:"identityProvider,omitempty"`
@@ -35,7 +35,7 @@ type BootstrapSpec struct {
 	CACertHash string `json:"caCertHash,omitempty"`
 }
 
-func (s *ProxyConfigSpec) SetDefaults() {
+func (s *AgentConfigSpec) SetDefaults() {
 	if s == nil {
 		return
 	}

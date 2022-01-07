@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
-	"github.com/kralicky/opni-gateway/pkg/keyring"
-	"github.com/kralicky/opni-gateway/pkg/rbac"
-	"github.com/kralicky/opni-gateway/pkg/tokens"
+	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/rbac"
+	"github.com/kralicky/opni-monitoring/pkg/tokens"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -211,9 +212,14 @@ func (e *EtcdStore) ListTenants(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tenants: %w", err)
 	}
+	// Keys will be of the form /tenants/<tenantID>[/keyring]
 	items := make([]string, len(resp.Kvs))
 	for i, kv := range resp.Kvs {
-		items[i] = string(kv.Key)
+		parts := strings.Split(string(kv.Key), "/")
+		if len(parts) < 2 {
+			return nil, fmt.Errorf("unexpected key %s", kv.Key)
+		}
+		items[i] = parts[1]
 	}
 	return items, nil
 }

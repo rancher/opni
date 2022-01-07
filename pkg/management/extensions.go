@@ -1,8 +1,8 @@
 package management
 
 import (
-	"github.com/kralicky/opni-gateway/pkg/rbac"
-	"github.com/kralicky/opni-gateway/pkg/tokens"
+	"github.com/kralicky/opni-monitoring/pkg/rbac"
+	"github.com/kralicky/opni-monitoring/pkg/tokens"
 )
 
 func (t *BootstrapToken) ToToken() *tokens.Token {

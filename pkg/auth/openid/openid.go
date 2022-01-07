@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kralicky/opni-gateway/pkg/auth"
-	"github.com/kralicky/opni-gateway/pkg/config/v1beta1"
-	"github.com/kralicky/opni-gateway/pkg/rbac"
+	"github.com/kralicky/opni-monitoring/pkg/auth"
+	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
+	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/lestrrat-go/jwx/jwt/openid"
@@ -23,7 +23,7 @@ const (
 )
 
 type OpenidConfig struct {
-	JwkUrl string `mapstructure:"jwkUrl"`
+	JwkSetUrl string `mapstructure:"jwkSetUrl"`
 }
 
 type OpenidMiddleware struct {
@@ -41,7 +41,7 @@ func New(config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
 	if err := mapstructure.Decode(config.Options, m.conf); err != nil {
 		return nil, err
 	}
-	m.keyRefresher.Configure(m.conf.JwkUrl)
+	m.keyRefresher.Configure(m.conf.JwkSetUrl)
 	return m, nil
 }
 
@@ -50,7 +50,7 @@ func (m *OpenidMiddleware) Description() string {
 }
 
 func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
-	set, err := m.keyRefresher.Fetch(context.Background(), m.conf.JwkUrl)
+	set, err := m.keyRefresher.Fetch(context.Background(), m.conf.JwkSetUrl)
 	if err != nil {
 		log.Printf("[ERROR] failed to fetch JWK set: %v", err)
 		return c.SendStatus(fiber.StatusServiceUnavailable)

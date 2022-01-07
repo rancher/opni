@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	cliutil "github.com/kralicky/opni-gateway/pkg/cli/util"
-	"github.com/kralicky/opni-gateway/pkg/management"
+	cliutil "github.com/kralicky/opni-monitoring/pkg/cli/util"
+	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"

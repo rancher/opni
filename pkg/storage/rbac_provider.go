@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/kralicky/opni-gateway/pkg/rbac"
+	"github.com/kralicky/opni-monitoring/pkg/rbac"
 )
 
 type rbacProvider struct {

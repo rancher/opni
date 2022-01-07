@@ -1,4 +1,4 @@
-package proxy
+package agent
 
 import (
 	"context"
@@ -12,18 +12,18 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/kralicky/opni-gateway/pkg/b2bmac"
-	"github.com/kralicky/opni-gateway/pkg/bootstrap"
-	"github.com/kralicky/opni-gateway/pkg/config/v1beta1"
-	"github.com/kralicky/opni-gateway/pkg/ident"
-	"github.com/kralicky/opni-gateway/pkg/keyring"
-	"github.com/kralicky/opni-gateway/pkg/storage"
+	"github.com/kralicky/opni-monitoring/pkg/b2bmac"
+	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
+	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
+	"github.com/kralicky/opni-monitoring/pkg/ident"
+	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/storage"
 	"github.com/valyala/fasthttp"
 )
 
-type RemoteWriteProxy struct {
-	RemoteWriteProxyOptions
-	v1beta1.ProxyConfigSpec
+type Agent struct {
+	AgentOptions
+	v1beta1.AgentConfigSpec
 	app *fiber.App
 
 	tenantID  string
@@ -36,20 +36,20 @@ type RemoteWriteProxy struct {
 	tlsKey     *keyring.TLSKey
 }
 
-type RemoteWriteProxyOptions struct {
+type AgentOptions struct {
 	bootstrapper bootstrap.Bootstrapper
 }
 
-type RemoteWriteProxyOption func(*RemoteWriteProxyOptions)
+type AgentOption func(*AgentOptions)
 
-func (o *RemoteWriteProxyOptions) Apply(opts ...RemoteWriteProxyOption) {
+func (o *AgentOptions) Apply(opts ...AgentOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithBootstrapper(bootstrapper bootstrap.Bootstrapper) RemoteWriteProxyOption {
-	return func(o *RemoteWriteProxyOptions) {
+func WithBootstrapper(bootstrapper bootstrap.Bootstrapper) AgentOption {
+	return func(o *AgentOptions) {
 		o.bootstrapper = bootstrapper
 	}
 }
@@ -58,8 +58,8 @@ func default404Handler(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNotFound)
 }
 
-func NewRemoteWriteProxy(conf *v1beta1.ProxyConfig, opts ...RemoteWriteProxyOption) *RemoteWriteProxy {
-	options := RemoteWriteProxyOptions{}
+func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
+	options := AgentOptions{}
 	options.Apply(opts...)
 
 	if options.bootstrapper == nil {
@@ -69,7 +69,7 @@ func NewRemoteWriteProxy(conf *v1beta1.ProxyConfig, opts ...RemoteWriteProxyOpti
 	app := fiber.New(fiber.Config{
 		Prefork:           false,
 		StrictRouting:     false,
-		AppName:           "Opni Gateway Proxy",
+		AppName:           "Opni Monitoring Agent",
 		ReduceMemoryUsage: false,
 		Network:           "tcp4",
 	})
@@ -79,25 +79,25 @@ func NewRemoteWriteProxy(conf *v1beta1.ProxyConfig, opts ...RemoteWriteProxyOpti
 		return c.SendStatus(fasthttp.StatusOK)
 	})
 
-	proxy := &RemoteWriteProxy{
-		RemoteWriteProxyOptions: options,
-		ProxyConfigSpec:         conf.Spec,
-		app:                     app,
+	agent := &Agent{
+		AgentOptions:    options,
+		AgentConfigSpec: conf.Spec,
+		app:             app,
 	}
 
-	switch proxy.IdentityProvider.Type {
+	switch agent.IdentityProvider.Type {
 	case v1beta1.IdentityProviderKubernetes:
-		proxy.identityProvider = ident.NewKubernetesProvider()
+		agent.identityProvider = ident.NewKubernetesProvider()
 	case v1beta1.IdentityProviderHostPath:
-		proxy.identityProvider = ident.NewHostPathProvider(proxy.IdentityProvider.Options["path"])
+		agent.identityProvider = ident.NewHostPathProvider(agent.IdentityProvider.Options["path"])
 	default:
-		log.Fatal("Unknown identity provider: ", proxy.IdentityProvider.Type)
+		log.Fatal("Unknown identity provider: ", agent.IdentityProvider.Type)
 	}
 
-	switch proxy.Storage.Type {
+	switch agent.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
-		etcd := storage.NewEtcdStore(storage.WithClientConfig(proxy.Storage.Etcd.Config))
-		id, err := proxy.identityProvider.UniqueIdentifier(context.Background())
+		etcd := storage.NewEtcdStore(storage.WithClientConfig(agent.Storage.Etcd.Config))
+		id, err := agent.identityProvider.UniqueIdentifier(context.Background())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -105,42 +105,42 @@ func NewRemoteWriteProxy(conf *v1beta1.ProxyConfig, opts ...RemoteWriteProxyOpti
 		if err != nil {
 			log.Fatal(err)
 		}
-		proxy.keyringStore = ks
+		agent.keyringStore = ks
 	case v1beta1.StorageTypeSecret:
-		proxy.keyringStore = storage.NewInClusterSecretStore()
+		agent.keyringStore = storage.NewInClusterSecretStore()
 	default:
-		log.Fatal("Unknown storage type: ", proxy.Storage.Type)
+		log.Fatal("Unknown storage type: ", agent.Storage.Type)
 	}
 
-	proxy.bootstrapOrLoadKeys()
-	proxy.tlsConfig = proxy.tlsKey.TLSConfig.ToCryptoTLSConfig()
+	agent.bootstrapOrLoadKeys()
+	agent.tlsConfig = agent.tlsKey.TLSConfig.ToCryptoTLSConfig()
 
-	app.Post("/api/v1/push", proxy.handlePushRequest)
+	app.Post("/api/v1/push", agent.handlePushRequest)
 	app.Use(default404Handler)
 
-	return proxy
+	return agent
 }
 
-func (p *RemoteWriteProxy) handlePushRequest(c *fiber.Ctx) error {
-	nonce, sig, err := b2bmac.New512(p.tenantID, c.Body(), p.sharedKeys.ClientKey)
+func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
+	nonce, sig, err := b2bmac.New512(a.tenantID, c.Body(), a.sharedKeys.ClientKey)
 	if err != nil {
 		log.Fatal("Error using shared client key to generate a MAC: ", err)
 	}
-	authHeader, err := b2bmac.EncodeAuthHeader(p.tenantID, nonce, sig)
+	authHeader, err := b2bmac.EncodeAuthHeader(a.tenantID, nonce, sig)
 	if err != nil {
 		log.Fatal("Error encoding auth header: ", err)
 	}
 
-	a := fiber.Post(p.GatewayAddress+"/api/v1/push").
+	p := fiber.Post(a.GatewayAddress+"/api/v1/push").
 		Set("Authorization", authHeader).
 		Body(c.Body()).
-		TLSConfig(p.tlsConfig)
+		TLSConfig(a.tlsConfig)
 
-	if err := a.Parse(); err != nil {
+	if err := p.Parse(); err != nil {
 		panic(err)
 	}
 
-	code, body, errs := a.Bytes()
+	code, body, errs := p.Bytes()
 	for _, err := range errs {
 		log.Printf("Error sending request to gateway: %s", err)
 	}
@@ -148,23 +148,23 @@ func (p *RemoteWriteProxy) handlePushRequest(c *fiber.Ctx) error {
 	return c.Status(code).Send(body)
 }
 
-func (p *RemoteWriteProxy) ListenAndServe() error {
-	return p.app.Listen(p.ListenAddress)
+func (a *Agent) ListenAndServe() error {
+	return a.app.Listen(a.ListenAddress)
 }
 
-func (p *RemoteWriteProxy) bootstrapOrLoadKeys() {
+func (a *Agent) bootstrapOrLoadKeys() {
 	// Look up our tenant ID
-	id, err := p.identityProvider.UniqueIdentifier(context.Background())
+	id, err := a.identityProvider.UniqueIdentifier(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
-	p.tenantID = id
+	a.tenantID = id
 
 	// Load the stored keyring, or bootstrap a new one if it doesn't exist
-	kr, err := p.keyringStore.Get(context.Background())
+	kr, err := a.keyringStore.Get(context.Background())
 	if errors.Is(err, storage.ErrNotFound) {
 		fmt.Println("Performing initial bootstrap...")
-		kr, err = p.bootstrapper.Bootstrap(context.Background(), p.identityProvider)
+		kr, err = a.bootstrapper.Bootstrap(context.Background(), a.identityProvider)
 		if err != nil {
 			log.Fatal(fmt.Errorf("Bootstrap failed: %w", err))
 		}
@@ -172,7 +172,7 @@ func (p *RemoteWriteProxy) bootstrapOrLoadKeys() {
 		for {
 			// Don't let this fail easily, otherwise we will lose the keyring forever.
 			// Keep retrying until it succeeds.
-			err = p.keyringStore.Put(context.Background(), kr)
+			err = a.keyringStore.Put(context.Background(), kr)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, fmt.Errorf("Failed to persist keyring (retry in 1 second): %w", err))
 				time.Sleep(1 * time.Second)
@@ -187,13 +187,13 @@ func (p *RemoteWriteProxy) bootstrapOrLoadKeys() {
 	// Get keys from the keyring
 	kr.Try(
 		func(shared *keyring.SharedKeys) {
-			p.sharedKeys = shared
+			a.sharedKeys = shared
 		},
 		func(tls *keyring.TLSKey) {
-			p.tlsKey = tls
+			a.tlsKey = tls
 		},
 	)
-	if p.sharedKeys == nil || p.tlsKey == nil {
+	if a.sharedKeys == nil || a.tlsKey == nil {
 		log.Fatal("keyring does not contain the expected keys")
 	}
 }

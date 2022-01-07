@@ -5,7 +5,7 @@ import (
 	"regexp"
 
 	"github.com/google/uuid"
-	"github.com/kralicky/opni-gateway/pkg/b2bmac"
+	"github.com/kralicky/opni-monitoring/pkg/b2bmac"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

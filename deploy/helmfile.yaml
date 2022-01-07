@@ -1,0 +1,35 @@
+repositories:
+  - name: cortex
+    url: https://cortexproject.github.io/cortex-helm-chart
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+missingFileHandler: Error
+releases:
+  - name: cortex
+    chart: cortex/cortex
+    namespace: opni-monitoring
+    createNamespace: true
+    values:
+      - values/cortex.yaml
+  - name: etcd
+    chart: bitnami/etcd
+    namespace: opni-monitoring
+    createNamespace: true
+    values:
+      - values/etcd.yaml
+  - name: grafana
+    chart: grafana/grafana
+    namespace: opni-monitoring
+    createNamespace: true
+    values:
+      - values/grafana.yaml
+      - custom/grafana.yaml
+  - name: opni-monitoring
+    chart: ./charts/opni-monitoring
+    namespace: opni-monitoring
+    values:
+      - custom/opni-monitoring.yaml
+helmfiles:
+  - helmfiles/cert-manager.yaml

@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kralicky/opni-gateway/pkg/config/meta"
-	"github.com/kralicky/opni-gateway/pkg/config/v1beta1"
+	"github.com/kralicky/opni-monitoring/pkg/config/meta"
+	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -65,15 +65,15 @@ func decodeObject(typeMeta meta.TypeMeta, document []byte) (meta.Object, error) 
 func FindConfig() (string, error) {
 	pathsToSearch := []string{
 		".",
-		"/etc/opni-gateway",
+		"/etc/opni-monitoring",
 	}
 	filenamesToSearch := []string{
 		"gateway.yaml",
 		"gateway.yml",
 		"gateway.json",
-		"proxy.yaml",
-		"proxy.yml",
-		"proxy.json",
+		"agent.yaml",
+		"agent.yml",
+		"agent.json",
 		"config.yaml",
 		"config.yml",
 		"config.json",

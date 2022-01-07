@@ -1,7 +1,7 @@
 package v1beta1
 
 import (
-	"github.com/kralicky/opni-gateway/pkg/config/meta"
+	"github.com/kralicky/opni-monitoring/pkg/config/meta"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 

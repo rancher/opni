@@ -7,15 +7,15 @@ import (
 
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/kralicky/opni-gateway/pkg/auth"
-	"github.com/kralicky/opni-gateway/pkg/auth/openid"
-	"github.com/kralicky/opni-gateway/pkg/config"
-	"github.com/kralicky/opni-gateway/pkg/config/v1beta1"
-	"github.com/kralicky/opni-gateway/pkg/gateway"
+	"github.com/kralicky/opni-monitoring/pkg/auth"
+	"github.com/kralicky/opni-monitoring/pkg/auth/openid"
+	"github.com/kralicky/opni-monitoring/pkg/config"
+	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
+	"github.com/kralicky/opni-monitoring/pkg/gateway"
 	"github.com/spf13/cobra"
 )
 
-func BuildServeCmd() *cobra.Command {
+func BuildGatewayCmd() *cobra.Command {
 	var configLocation string
 
 	run := func() error {
@@ -25,7 +25,7 @@ func BuildServeCmd() *cobra.Command {
 			if err != nil {
 				if errors.Is(err, config.ErrConfigNotFound) {
 					wd, _ := os.Getwd()
-					log.Fatalf(`could not find a config file in ["%s","/etc/opni-gateway"], and --config was not given`, wd)
+					log.Fatalf(`could not find a config file in ["%s","/etc/opni-monitoring"], and --config was not given`, wd)
 				}
 				log.Fatalf("an error occurred while searching for a config file: %v", err)
 			}
@@ -70,8 +70,8 @@ func BuildServeCmd() *cobra.Command {
 	}
 
 	serveCmd := &cobra.Command{
-		Use:   "serve [flags]",
-		Short: "Run the opni gateway HTTP server",
+		Use:   "gateway",
+		Short: "Run the Opni Monitoring Gateway",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for {
 				if err := run(); err != nil {

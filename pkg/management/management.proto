@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/kralicky/opni-gateway/pkg/management";
+option go_package = "github.com/kralicky/opni-monitoring/pkg/management";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 package management;

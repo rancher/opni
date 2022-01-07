@@ -2,42 +2,53 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: opni-gateway
+  labels:
+    {{- include "opni-monitoring.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.gateway.replicaCount }}
   selector:
     matchLabels:
-      app: opni-gateway
+      {{- include "opni-monitoring.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- with .Values.gateway.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
-        app: opni-gateway
+        {{- include "opni-monitoring.selectorLabels" . | nindent 8 }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "opni-monitoring.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.gateway.podSecurityContext | nindent 8 }}
       containers:
-        - name: gateway
-          image: rancher/opni-gateway
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.gateway.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
-            - serve
-          ports:
-            - name: http
-              containerPort: 8080
-            - name: management
-              containerPort: 9090
-          resources:
-            requests:
-              cpu: "500m"
-              memory: "512Mi"
-            limits:
-              cpu: "2"
-              memory: "2Gi"
+            - gateway
           volumeMounts:
             - name: config
-              mountPath: /etc/opni-gateway
+              mountPath: /etc/opni-monitoring
             - name: certs
-              mountPath: /var/run/opni-gateway/certs
+              mountPath: /run/opni-monitoring/certs
             - name: cortex-client-certs
-              mountPath: /var/run/cortex/certs/client
+              mountPath: /run/cortex/certs/client
             - name: cortex-server-cacert
-              mountPath: /var/run/cortex/certs/server
+              mountPath: /run/cortex/certs/server
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.httpPort }}
+              protocol: TCP
+            - name: management
+              containerPort: {{ .Values.service.managementPort }}
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
@@ -65,6 +76,8 @@ spec:
             periodSeconds: 10
             successThreshold: 1
             failureThreshold: 10
+          resources:
+            {{- toYaml .Values.gateway.resources | nindent 12 }}
       volumes:
         - name: config
           configMap:
@@ -92,4 +105,15 @@ spec:
             items:
               - key: ca.crt
                 path: ca.crt
-      dnsPolicy: ClusterFirst
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

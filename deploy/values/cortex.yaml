@@ -7,17 +7,17 @@ config:
   server:
     log_level: debug
     http_tls_config: &tls_server_config
-      cert_file: /var/run/cortex/certs/server/tls.crt
-      key_file: /var/run/cortex/certs/server/tls.key
-      client_ca_file: /var/run/cortex/certs/client/ca.crt
+      cert_file: /run/cortex/certs/server/tls.crt
+      key_file: /run/cortex/certs/server/tls.key
+      client_ca_file: /run/cortex/certs/client/ca.crt
       client_auth_type: RequireAndVerifyClientCert
     grpc_tls_config: *tls_server_config
   alertmanager:
     alertmanager_client: &tls_client_config
       tls_enabled: true
-      tls_cert_path: /var/run/cortex/certs/client/tls.crt
-      tls_key_path: /var/run/cortex/certs/client/tls.key
-      tls_ca_path: /var/run/cortex/certs/client/ca.crt
+      tls_cert_path: /run/cortex/certs/client/tls.crt
+      tls_key_path: /run/cortex/certs/client/tls.key
+      tls_ca_path: /run/cortex/certs/client/ca.crt
       tls_server_name: cortex-server
   querier:
     store_gateway_client: *tls_client_config
@@ -58,19 +58,19 @@ alertmanager:
         - -k
         - https://127.0.0.1:8080/ready
         - --key
-        - /var/run/cortex/certs/client/tls.key
+        - /run/cortex/certs/client/tls.key
         - --cert
-        - /var/run/cortex/certs/client/tls.crt
+        - /run/cortex/certs/client/tls.crt
         - --cacert
-        - /var/run/cortex/certs/client/ca.crt
+        - /run/cortex/certs/client/ca.crt
     httpGet: null
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe
   extraVolumeMounts: &cert_volume_mounts
-    - mountPath: /var/run/cortex/certs/server
+    - mountPath: /run/cortex/certs/server
       name: server-certs
       readOnly: true
-    - mountPath: /var/run/cortex/certs/client
+    - mountPath: /run/cortex/certs/client
       name: client-certs
       readOnly: true
   extraVolumes: &cert_volumes

@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kralicky/opni-gateway/pkg/ecdh"
-	"github.com/kralicky/opni-gateway/pkg/keyring"
-	"github.com/kralicky/opni-gateway/pkg/storage"
-	"github.com/kralicky/opni-gateway/pkg/tokens"
+	"github.com/kralicky/opni-monitoring/pkg/ecdh"
+	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/storage"
+	"github.com/kralicky/opni-monitoring/pkg/tokens"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 )

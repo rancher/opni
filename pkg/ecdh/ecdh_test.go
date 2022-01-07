@@ -4,8 +4,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/kralicky/opni-gateway/pkg/ecdh"
-	"github.com/kralicky/opni-gateway/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/ecdh"
+	"github.com/kralicky/opni-monitoring/pkg/keyring"
 )
 
 var _ = Describe("ECDH", func() {

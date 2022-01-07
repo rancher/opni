@@ -1,0 +1,18 @@
+# Copy this to a file named grafana.yaml and edit it with your own values.
+grafana.ini:
+  server:
+    domain: "" # Full path which grafana will be accessible at
+    root_url: "" # Same as domain
+  auth.proxy:
+    enabled: true
+  auth.basic:
+    enabled: false
+  auth.generic_oauth:
+    enabled: true
+    client-id: ""
+    client-secret: ""
+    auth-url: ""
+    token-url: ""
+    api-url: ""
+    allowed-domains: ""
+    role-attribute-path: "" # See grafana docs. Example: "contains(resource_access.grafana.roles[*], 'Admin') && 'Admin' || contains(resource_access.grafana.roles[*], 'Editor') && 'Editor' || 'Viewer'"

@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opni-gateway
+  labels:
+    {{- include "opni-monitoring.labels" . | nindent 4 }}
+data:
+  config.yaml: |-
+    apiVersion: v1beta1
+    kind: GatewayConfig
+    spec:
+      listenAddress: ":{{ .Values.service.httpPort }}"
+      managementListenAddress: "tcp://0.0.0.0:{{ .Values.service.managementPort }}"
+      cortex:
+        certs:
+          serverCA: /run/cortex/certs/server/ca.crt
+          clientCA: /run/cortex/certs/client/ca.crt
+          clientCert: /run/cortex/certs/client/tls.crt
+          clientKey: /run/cortex/certs/client/tls.key
+      authProvider: openid
+      certs:
+        caCert: /run/opni-monitoring/certs/ca.crt
+        servingCert: /run/opni-monitoring/certs/tls.crt
+        servingKey: /run/opni-monitoring/certs/tls.key
+      storage:
+        type: etcd
+        etcd:
+          endpoints:
+            - etcd:2379
+    ---
+    apiVersion: v1beta1
+    kind: AuthProvider
+    metadata:
+      name: {{ .Values.auth.provider }}
+    spec:
+      type: {{ .Values.auth.provider }}
+      options:
+    {{- if eq .Values.auth.provider "openid" }}
+        {{ .Values.auth.openid | toYaml | indent 4 }}
+    {{- end }}

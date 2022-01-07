@@ -1,0 +1,56 @@
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+image:
+  repository: kralicky/opni-monitoring
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: latest
+
+auth:
+  provider: openid
+  openid:
+    # Enter the URL where your openid provider serves its JWK Set
+    jwkSetUrl: ""
+
+gateway:
+  replicaCount: 1
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext:
+    {}
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1000
+
+  resources:
+    {}
+    # requests:
+    #   cpu: "500m"
+    #   memory: "512Mi"
+    # limits:
+    #   cpu: "2"
+    #   memory: "2Gi"
+
+service:
+  type: ClusterIP
+  httpPort: 8080
+  managementPort: 9090
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

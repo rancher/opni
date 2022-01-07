@@ -5,10 +5,10 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kralicky/opni-gateway/pkg/auth"
-	"github.com/kralicky/opni-gateway/pkg/b2bmac"
-	"github.com/kralicky/opni-gateway/pkg/keyring"
-	"github.com/kralicky/opni-gateway/pkg/storage"
+	"github.com/kralicky/opni-monitoring/pkg/auth"
+	"github.com/kralicky/opni-monitoring/pkg/b2bmac"
+	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/storage"
 )
 
 type TenantMiddleware struct {

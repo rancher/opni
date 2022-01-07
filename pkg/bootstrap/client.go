@@ -13,11 +13,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/kralicky/opni-gateway/pkg/ecdh"
-	"github.com/kralicky/opni-gateway/pkg/ident"
-	"github.com/kralicky/opni-gateway/pkg/keyring"
-	"github.com/kralicky/opni-gateway/pkg/tokens"
-	"github.com/kralicky/opni-gateway/pkg/util"
+	"github.com/kralicky/opni-monitoring/pkg/ecdh"
+	"github.com/kralicky/opni-monitoring/pkg/ident"
+	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/tokens"
+	"github.com/kralicky/opni-monitoring/pkg/util"
 )
 
 var (

@@ -4,9 +4,9 @@ WORKDIR /workspace
 RUN go install github.com/magefile/mage@latest
 COPY . .
 RUN mage
-RUN mv bin/opni-gateway /
+RUN mv bin/opnim /
 
 FROM alpine 
 RUN apk add --no-cache ca-certificates curl
-COPY --from=builder /opni-gateway /
-ENTRYPOINT ["/opni-gateway"]
+COPY --from=builder /opnim /
+ENTRYPOINT ["/opnim"]

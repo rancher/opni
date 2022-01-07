@@ -12,34 +12,37 @@ deploy_cert_manager(version="v1.6.1")
 helm_remote('kube-prometheus', 
     repo_name='bitnami', 
     repo_url='https://charts.bitnami.com/bitnami',
-    namespace='opni-gateway',
+    namespace='opni-monitoring',
     values="deploy/helm-config/kube-prometheus-values.yaml",
 )
 helm_remote('etcd', 
     repo_name='bitnami', 
     repo_url='https://charts.bitnami.com/bitnami',
-    namespace='opni-gateway',
+    namespace='opni-monitoring',
     values="deploy/helm-config/etcd-values.yaml",
 )
 helm_remote('cortex',
     repo_name='cortex-helm',
     repo_url='https://cortexproject.github.io/cortex-helm-chart',
-    namespace='opni-gateway',
+    namespace='opni-monitoring',
     values="deploy/helm-config/cortex-values.yaml",
 )
 helm_remote('grafana',
     repo_name='grafana',
     repo_url='https://grafana.github.io/helm-charts',
-    namespace='opni-gateway',
+    namespace='opni-monitoring',
     values="deploy/helm-config/grafana-values.yaml",
 )
 
 k8s_yaml(kustomize('deploy/gateway'))
 k8s_resource(workload='opni-gateway', port_forwards=9090)
-k8s_yaml(kustomize('deploy/proxy'))
+k8s_yaml(kustomize('deploy/agent'))
 
 local_resource('Watch & Compile', 'mage build', 
     deps=['pkg'], ignore=['**/*.pb.go'])
+
+local_resource('Bootstrap Agent', 'mage bootstrap', 
+    auto_init=False, trigger_mode=TRIGGER_MODE_MANUAL)
 
 if "defaultRegistry" in settings:
     default_registry(settings["defaultRegistry"])
@@ -49,5 +52,5 @@ if "dockerfile" in settings:
 else:
     dockerfile = 'Dockerfile'
 
-docker_build("rancher/opni-gateway", '.', dockerfile=dockerfile, 
+docker_build("kralicky/opni-monitoring", '.', dockerfile=dockerfile, 
     ignore=['mage_output_file.go', 'deploy/'])

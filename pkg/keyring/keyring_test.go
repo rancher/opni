@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
-	"github.com/kralicky/opni-gateway/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/keyring"
 )
 
 var (

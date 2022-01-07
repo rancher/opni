@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/kralicky/opni-gateway/pkg/config/meta"
-	"github.com/kralicky/opni-gateway/pkg/config/v1beta1"
-	"github.com/kralicky/opni-gateway/pkg/management"
-	"github.com/kralicky/opni-gateway/pkg/tokens"
+	"github.com/kralicky/opni-monitoring/pkg/config/meta"
+	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
+	"github.com/kralicky/opni-monitoring/pkg/management"
+	"github.com/kralicky/opni-monitoring/pkg/tokens"
 	"github.com/kralicky/ragu/pkg/ragu"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -58,7 +58,7 @@ func Build() error {
 	mg.Deps(Generate)
 	return sh.RunWith(map[string]string{
 		"CGO_ENABLED": "0",
-	}, mg.GoCmd(), "build", "-ldflags", "-w -s", "-o", "bin/opni-gateway", "./cmd/opni-gateway")
+	}, mg.GoCmd(), "build", "-ldflags", "-w -s", "-o", "bin/opnim", "./cmd/opnim")
 }
 
 func Test() error {
@@ -67,14 +67,14 @@ func Test() error {
 
 func Run() error {
 	mg.Deps(Build)
-	return sh.RunV("./bin/opni-gateway", runArgs...)
+	return sh.RunV("./bin/opnim", runArgs...)
 }
 
 func Docker() error {
 	mg.Deps(Build)
 	return sh.RunWithV(map[string]string{
 		"DOCKER_BUILDKIT": "1",
-	}, "docker", "build", "-t", "opni-gateway", ".")
+	}, "docker", "build", "-t", "kralicky/opni-monitoring", ".")
 }
 
 func Generate() error {
@@ -153,14 +153,14 @@ func Bootstrap() error {
 		token = existing.Tokens[0].ToToken()
 	}
 
-	proxyConfig := v1beta1.ProxyConfig{
+	agentConfig := v1beta1.AgentConfig{
 		TypeMeta: meta.TypeMeta{
 			APIVersion: "v1beta1",
-			Kind:       "ProxyConfig",
+			Kind:       "AgentConfig",
 		},
-		Spec: v1beta1.ProxyConfigSpec{
+		Spec: v1beta1.AgentConfigSpec{
 			ListenAddress:  ":8080",
-			GatewayAddress: "https://opni-gateway.opni-gateway.svc.cluster.local:8080",
+			GatewayAddress: "https://opni-gateway.opni-monitoring.svc.cluster.local:8080",
 			IdentityProvider: v1beta1.IdentityProviderSpec{
 				Type: v1beta1.IdentityProviderKubernetes,
 			},
@@ -174,7 +174,7 @@ func Bootstrap() error {
 		},
 	}
 
-	configData, err := yaml.Marshal(proxyConfig)
+	configData, err := yaml.Marshal(agentConfig)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func Bootstrap() error {
 		},
 	}
 	_, err = clientset.CoreV1().
-		Secrets("opni-gateway-proxy").
+		Secrets("opni-monitoring-agent").
 		Create(ctx, &secret, metav1.CreateOptions{})
 	if err != nil {
 		return err

@@ -6,7 +6,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
-	"github.com/kralicky/opni-gateway/pkg/management"
+	"github.com/kralicky/opni-monitoring/pkg/management"
 )
 
 func RenderBootstrapTokenList(tokens []*management.BootstrapToken) {

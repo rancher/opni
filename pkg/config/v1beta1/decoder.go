@@ -3,7 +3,7 @@ package v1beta1
 import (
 	"fmt"
 
-	"github.com/kralicky/opni-gateway/pkg/config/meta"
+	"github.com/kralicky/opni-monitoring/pkg/config/meta"
 	"sigs.k8s.io/yaml"
 )
 
@@ -21,8 +21,8 @@ func DecodeObject(kind string, document []byte) (meta.Object, error) {
 			return nil, err
 		}
 		return obj, nil
-	case "ProxyConfig":
-		obj := &ProxyConfig{}
+	case "AgentConfig":
+		obj := &AgentConfig{}
 		if err := yaml.UnmarshalStrict(document, obj); err != nil {
 			return nil, err
 		}

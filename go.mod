@@ -1,4 +1,4 @@
-module github.com/kralicky/opni-gateway
+module github.com/kralicky/opni-monitoring
 
 go 1.17
 

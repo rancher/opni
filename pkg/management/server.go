@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kralicky/opni-gateway/pkg/storage"
-	"github.com/kralicky/opni-gateway/pkg/util"
+	"github.com/kralicky/opni-monitoring/pkg/storage"
+	"github.com/kralicky/opni-monitoring/pkg/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"

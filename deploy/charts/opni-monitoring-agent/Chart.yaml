@@ -1,0 +1,7 @@
+apiVersion: v2
+name: opni-monitoring-agent
+description: Opni Monitoring Agent
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies: []

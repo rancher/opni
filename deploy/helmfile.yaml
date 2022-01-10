@@ -1,4 +1,6 @@
 repositories:
+  - name: jetstack
+    url: https://charts.jetstack.io
   - name: cortex
     url: https://cortexproject.github.io/cortex-helm-chart
   - name: bitnami
@@ -7,18 +9,29 @@ repositories:
     url: https://grafana.github.io/helm-charts
 missingFileHandler: Error
 releases:
+  - name: cert-manager
+    chart: jetstack/cert-manager
+    namespace: cert-manager
+    createNamespace: true
+    values:
+      - installCRDs: true
+    wait: true
   - name: cortex
     chart: cortex/cortex
     namespace: opni-monitoring
     createNamespace: true
     values:
       - values/cortex.yaml
+    needs:
+      - cert-manager
   - name: etcd
     chart: bitnami/etcd
     namespace: opni-monitoring
     createNamespace: true
     values:
       - values/etcd.yaml
+    needs:
+      - cert-manager
   - name: grafana
     chart: grafana/grafana
     namespace: opni-monitoring
@@ -26,10 +39,14 @@ releases:
     values:
       - values/grafana.yaml
       - custom/grafana.yaml
+    needs:
+      - cert-manager
   - name: opni-monitoring
     chart: ./charts/opni-monitoring
     namespace: opni-monitoring
     values:
       - custom/opni-monitoring.yaml
-helmfiles:
-  - helmfiles/cert-manager.yaml
+    needs:
+      - cortex
+      - etcd
+      - cert-manager

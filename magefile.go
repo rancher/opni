@@ -3,27 +3,13 @@
 package main
 
 import (
-	"context"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
-	"github.com/kralicky/opni-monitoring/pkg/config/meta"
-	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
-	"github.com/kralicky/opni-monitoring/pkg/management"
-	"github.com/kralicky/opni-monitoring/pkg/tokens"
 	"github.com/kralicky/ragu/pkg/ragu"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/emptypb"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"sigs.k8s.io/yaml"
 )
 
 var Default = All
@@ -97,101 +83,6 @@ func Generate() error {
 		if err := os.Chmod(path, 0444); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func Bootstrap() error {
-	ctx := context.Background()
-
-	restConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(), nil).ClientConfig()
-	if err != nil {
-		return err
-	}
-	clientset := kubernetes.NewForConfigOrDie(restConfig)
-
-	for {
-		fmt.Println("Waiting for opni-gateway to be ready...")
-		pods, err := clientset.CoreV1().Pods("opni-gateway").List(ctx, metav1.ListOptions{
-			LabelSelector: "app=opni-gateway",
-		})
-		if err == nil {
-			if len(pods.Items) == 1 {
-				if pods.Items[0].Status.Phase == corev1.PodRunning {
-					break
-				}
-			}
-		}
-		time.Sleep(2 * time.Second)
-	}
-	c, err := management.NewClient(management.WithListenAddress("localhost:9090")) // via tilt
-	if err != nil {
-		return fmt.Errorf("failed to connect to the management socket (is tilt running?): %w", err)
-	}
-	info, err := c.CertsInfo(ctx, &emptypb.Empty{})
-	if err != nil {
-		return err
-	}
-	last := info.Chain[len(info.Chain)-1]
-	hash := last.SPKIHash
-
-	existing, err := c.ListBootstrapTokens(ctx, &management.ListBootstrapTokensRequest{})
-	if err != nil {
-		return err
-	}
-	var token *tokens.Token
-	if len(existing.Tokens) == 0 {
-		t, err := c.CreateBootstrapToken(ctx, &management.CreateBootstrapTokenRequest{
-			TTL: durationpb.New(1 * time.Hour),
-		})
-		if err != nil {
-			return err
-		}
-		token = t.ToToken()
-	} else {
-		token = existing.Tokens[0].ToToken()
-	}
-
-	agentConfig := v1beta1.AgentConfig{
-		TypeMeta: meta.TypeMeta{
-			APIVersion: "v1beta1",
-			Kind:       "AgentConfig",
-		},
-		Spec: v1beta1.AgentConfigSpec{
-			ListenAddress:  ":8080",
-			GatewayAddress: "https://opni-gateway.opni-monitoring.svc.cluster.local:8080",
-			IdentityProvider: v1beta1.IdentityProviderSpec{
-				Type: v1beta1.IdentityProviderKubernetes,
-			},
-			Storage: v1beta1.StorageSpec{
-				Type: v1beta1.StorageTypeSecret,
-			},
-			Bootstrap: v1beta1.BootstrapSpec{
-				Token:      token.EncodeHex(),
-				CACertHash: hex.EncodeToString(hash),
-			},
-		},
-	}
-
-	configData, err := yaml.Marshal(agentConfig)
-	if err != nil {
-		return err
-	}
-
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "opni-gateway",
-		},
-		Data: map[string][]byte{
-			"config.yaml": configData,
-		},
-	}
-	_, err = clientset.CoreV1().
-		Secrets("opni-monitoring-agent").
-		Create(ctx, &secret, metav1.CreateOptions{})
-	if err != nil {
-		return err
 	}
 	return nil
 }

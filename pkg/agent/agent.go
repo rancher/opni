@@ -184,6 +184,11 @@ func (a *Agent) bootstrapOrLoadKeys() {
 		log.Fatal(fmt.Errorf("Failed to load keyring: %w", err))
 	}
 
+	if err := bootstrap.EraseBootstrapTokensFromConfig(); err != nil {
+		// non-fatal error
+		log.Println(err)
+	}
+
 	// Get keys from the keyring
 	kr.Try(
 		func(shared *keyring.SharedKeys) {

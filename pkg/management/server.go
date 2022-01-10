@@ -162,6 +162,20 @@ func (m *Server) ListTenants(
 	}, nil
 }
 
+func (m *Server) DeleteTenant(
+	ctx context.Context,
+	tenant *Tenant,
+) (*emptypb.Empty, error) {
+	err := m.tenantStore.DeleteTenant(ctx, tenant.ID)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &emptypb.Empty{}, nil
+}
+
 func (m *Server) CertsInfo(
 	ctx context.Context,
 	req *emptypb.Empty,

@@ -1,6 +1,4 @@
 bin/
-/.vscode/
-/.helm/
 /dev/
 tilt_modules/
 tilt-options.yaml
@@ -8,3 +6,6 @@ tilt-options.yaml
 deploy/manifests
 deploy/custom/grafana.yaml
 deploy/custom/opni-monitoring.yaml
+
+/.*
+!/.gitignore

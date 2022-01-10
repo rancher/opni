@@ -9,8 +9,8 @@ data:
     apiVersion: v1beta1
     kind: GatewayConfig
     spec:
-      listenAddress: ":{{ .Values.service.httpPort }}"
-      managementListenAddress: "tcp://0.0.0.0:{{ .Values.service.managementPort }}"
+      listenAddress: ":{{ .Values.service.port }}"
+      managementListenAddress: "{{ .Values.management.listenAddress }}"
       cortex:
         certs:
           serverCA: /run/cortex/certs/server/ca.crt

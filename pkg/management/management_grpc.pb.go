@@ -27,6 +27,7 @@ type ManagementClient interface {
 	RevokeBootstrapToken(ctx context.Context, in *RevokeBootstrapTokenRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListBootstrapTokens(ctx context.Context, in *ListBootstrapTokensRequest, opts ...grpc.CallOption) (*ListBootstrapTokensResponse, error)
 	ListTenants(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListTenantsResponse, error)
+	DeleteTenant(ctx context.Context, in *Tenant, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CertsInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CertsInfoResponse, error)
 	CreateRole(ctx context.Context, in *CreateRoleRequest, opts ...grpc.CallOption) (*Role, error)
 	DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -76,6 +77,15 @@ func (c *managementClient) ListBootstrapTokens(ctx context.Context, in *ListBoot
 func (c *managementClient) ListTenants(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListTenantsResponse, error) {
 	out := new(ListTenantsResponse)
 	err := c.cc.Invoke(ctx, "/management.Management/ListTenants", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) DeleteTenant(ctx context.Context, in *Tenant, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/DeleteTenant", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +181,7 @@ type ManagementServer interface {
 	RevokeBootstrapToken(context.Context, *RevokeBootstrapTokenRequest) (*emptypb.Empty, error)
 	ListBootstrapTokens(context.Context, *ListBootstrapTokensRequest) (*ListBootstrapTokensResponse, error)
 	ListTenants(context.Context, *emptypb.Empty) (*ListTenantsResponse, error)
+	DeleteTenant(context.Context, *Tenant) (*emptypb.Empty, error)
 	CertsInfo(context.Context, *emptypb.Empty) (*CertsInfoResponse, error)
 	CreateRole(context.Context, *CreateRoleRequest) (*Role, error)
 	DeleteRole(context.Context, *DeleteRoleRequest) (*emptypb.Empty, error)
@@ -198,6 +209,9 @@ func (UnimplementedManagementServer) ListBootstrapTokens(context.Context, *ListB
 }
 func (UnimplementedManagementServer) ListTenants(context.Context, *emptypb.Empty) (*ListTenantsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListTenants not implemented")
+}
+func (UnimplementedManagementServer) DeleteTenant(context.Context, *Tenant) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteTenant not implemented")
 }
 func (UnimplementedManagementServer) CertsInfo(context.Context, *emptypb.Empty) (*CertsInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CertsInfo not implemented")
@@ -307,6 +321,24 @@ func _Management_ListTenants_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ManagementServer).ListTenants(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_DeleteTenant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Tenant)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).DeleteTenant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/DeleteTenant",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).DeleteTenant(ctx, req.(*Tenant))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -495,6 +527,10 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTenants",
 			Handler:    _Management_ListTenants_Handler,
+		},
+		{
+			MethodName: "DeleteTenant",
+			Handler:    _Management_DeleteTenant_Handler,
 		},
 		{
 			MethodName: "CertsInfo",

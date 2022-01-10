@@ -1,0 +1,40 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: opni-monitoring-agent-role
+  labels:
+    {{- include "opni-monitoring-agent.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: opni-monitoring-agent-rb
+  labels:
+    {{- include "opni-monitoring-agent.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: opni-monitoring-agent-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "opni-monitoring-agent.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

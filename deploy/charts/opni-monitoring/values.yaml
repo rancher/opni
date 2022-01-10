@@ -1,10 +1,9 @@
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+
 image:
-  repository: kralicky/opni-monitoring
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
+  repository: kralicky/opni-monitoring # Overrides the image tag whose default is the chart appVersion.
   tag: latest
 
 auth:
@@ -17,6 +16,7 @@ gateway:
   replicaCount: 1
   podAnnotations: {}
   podSecurityContext: {}
+  dnsNames: [] # TLS SANs to add to the gateway serving cert (required)
   securityContext:
     {}
     # capabilities:
@@ -36,9 +36,15 @@ gateway:
     #   memory: "2Gi"
 
 service:
-  type: ClusterIP
-  httpPort: 8080
-  managementPort: 9090
+  type: LoadBalancer
+  port: 8080
+
+management:
+  # The management service can listen on a unix socket or a TCP port.
+  # For example:
+  #   unix:///path/to/management.sock
+  #   tcp://0.0.0.0:9090
+  listenAddress: unix:///run/opni-monitoring/management.sock
 
 serviceAccount:
   # Specifies whether a service account should be created

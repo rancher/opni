@@ -8,12 +8,8 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - name: http
-      port: {{ .Values.service.httpPort }}
+      port: {{ .Values.service.port }}
       targetPort: http
-      protocol: TCP
-    - name: management
-      port: {{ .Values.service.managementPort }}
-      targetPort: management
       protocol: TCP
   selector:
     {{- include "opni-monitoring.selectorLabels" . | nindent 4 }}

@@ -44,10 +44,7 @@ spec:
               mountPath: /run/cortex/certs/server
           ports:
             - name: http
-              containerPort: {{ .Values.service.httpPort }}
-              protocol: TCP
-            - name: management
-              containerPort: {{ .Values.service.managementPort }}
+              containerPort: {{ .Values.service.port }}
               protocol: TCP
           livenessProbe:
             httpGet:

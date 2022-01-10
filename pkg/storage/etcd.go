@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -188,7 +189,7 @@ func (e *EtcdStore) CreateTenant(ctx context.Context, tenantID string) error {
 func (e *EtcdStore) DeleteTenant(ctx context.Context, tenantID string) error {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := e.client.Delete(ctx, "/tenants/"+tenantID)
+	_, err := e.client.Delete(ctx, "/tenants/"+tenantID, clientv3.WithPrefix())
 	if err != nil {
 		return fmt.Errorf("failed to delete tenant %s: %w", tenantID, err)
 	}
@@ -213,15 +214,20 @@ func (e *EtcdStore) ListTenants(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to list tenants: %w", err)
 	}
 	// Keys will be of the form /tenants/<tenantID>[/keyring]
-	items := make([]string, len(resp.Kvs))
-	for i, kv := range resp.Kvs {
-		parts := strings.Split(string(kv.Key), "/")
-		if len(parts) < 2 {
+	ids := map[string]struct{}{}
+	for _, kv := range resp.Kvs {
+		parts := strings.Split(string(kv.Key), "/") // {"", "tenants", <tenantID> [, ...]}
+		if len(parts) < 3 {
 			return nil, fmt.Errorf("unexpected key %s", kv.Key)
 		}
-		items[i] = parts[1]
+		ids[parts[2]] = struct{}{}
 	}
-	return items, nil
+	sortedIds := make([]string, 0, len(ids))
+	for id := range ids {
+		sortedIds = append(sortedIds, id)
+	}
+	sort.Strings(sortedIds)
+	return sortedIds, nil
 }
 
 func (e *EtcdStore) CreateRole(ctx context.Context, roleName string, tenantIDs []string) (rbac.Role, error) {

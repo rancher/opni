@@ -55,6 +55,7 @@ func BuildTenantsCmd() *cobra.Command {
 		Short: "Manage tenants",
 	}
 	tenantsCmd.AddCommand(BuildTenantsListCmd())
+	tenantsCmd.AddCommand(BuildTenantsDeleteCmd())
 	return tenantsCmd
 }
 
@@ -111,7 +112,7 @@ func BuildTokensCreateCmd() *cobra.Command {
 
 func BuildTokensRevokeCmd() *cobra.Command {
 	tokensRevokeCmd := &cobra.Command{
-		Use:   "revoke",
+		Use:   "revoke <token>",
 		Short: "Revoke a bootstrap token",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -164,6 +165,29 @@ func BuildTenantsListCmd() *cobra.Command {
 	return tenantsListCmd
 }
 
+func BuildTenantsDeleteCmd() *cobra.Command {
+	tenantsDeleteCmd := &cobra.Command{
+		Use:   "delete <tenant-id>",
+		Aliases: []string{"rm"},
+		Short: "Delete a tenant",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			_, err := client.DeleteTenant(context.Background(),
+				&management.Tenant{
+					ID: args[0],
+				},
+			)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Printf("Deleted tenant %s\n", args[0])
+		},
+	}
+	return tenantsDeleteCmd
+}
+				
+
 func BuildRolesCmd() *cobra.Command {
 	rolesCmd := &cobra.Command{
 		Use:     "roles",
@@ -215,7 +239,8 @@ func BuildRolesCreateCmd() *cobra.Command {
 
 func BuildRolesDeleteCmd() *cobra.Command {
 	rolesDeleteCmd := &cobra.Command{
-		Use:   "delete name",
+		Use:   "delete <name>",
+		Aliases: []string{"rm"},
 		Short: "Delete a role",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -237,7 +262,7 @@ func BuildRolesDeleteCmd() *cobra.Command {
 
 func BuildRolesGetCmd() *cobra.Command {
 	rolesGetCmd := &cobra.Command{
-		Use:   "get name",
+		Use:   "get <name>",
 		Short: "Get detailed information about a role",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -273,7 +298,7 @@ func BuildRolesListCmd() *cobra.Command {
 
 func BuildRoleBindingsCreateCmd() *cobra.Command {
 	roleBindingsCreateCmd := &cobra.Command{
-		Use:   "create rolebinding-name role-id user-id",
+		Use:   "create <rolebinding-name> <role-name> <user-id>",
 		Short: "Create a role binding",
 		Args:  cobra.ExactArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -297,7 +322,8 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 
 func BuildRoleBindingsDeleteCmd() *cobra.Command {
 	roleBindingsDeleteCmd := &cobra.Command{
-		Use:   "delete rolebinding-name",
+		Use:   "delete <rolebinding-name>",
+		Aliases: []string{"rm"},
 		Short: "Delete a role binding",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -317,7 +343,7 @@ func BuildRoleBindingsDeleteCmd() *cobra.Command {
 
 func BuildRoleBindingsGetCmd() *cobra.Command {
 	roleBindingsGetCmd := &cobra.Command{
-		Use:   "get rolebinding-name",
+		Use:   "get <rolebinding-name>",
 		Short: "Get detailed information about a role binding",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {

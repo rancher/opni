@@ -17,6 +17,7 @@ func BuildRootCmd() *cobra.Command {
 			"    /_/                        \n" +
 			"\x1b[33mMulti-(Cluster|Tenant) Monitoring\x1b[0m for Kubernetes\n",
 	}
+	rootCmd.AddCommand(commands.BuildBootstrapCmd())
 	rootCmd.AddCommand(commands.BuildGatewayCmd())
 	rootCmd.AddCommand(commands.BuildAgentCmd())
 	rootCmd.AddCommand(commands.BuildManageCmd())

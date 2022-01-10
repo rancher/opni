@@ -9,6 +9,7 @@ service Management {
   rpc RevokeBootstrapToken(RevokeBootstrapTokenRequest) returns (google.protobuf.Empty);
   rpc ListBootstrapTokens(ListBootstrapTokensRequest) returns (ListBootstrapTokensResponse);
   rpc ListTenants(google.protobuf.Empty) returns (ListTenantsResponse);
+  rpc DeleteTenant(Tenant) returns (google.protobuf.Empty);
   rpc CertsInfo(google.protobuf.Empty) returns (CertsInfoResponse);
 
   rpc CreateRole(CreateRoleRequest) returns (Role);

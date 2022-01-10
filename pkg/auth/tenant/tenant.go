@@ -40,14 +40,14 @@ func (m *TenantMiddleware) Handle(c *fiber.Ctx) error {
 
 	ks, err := m.tenantStore.KeyringStore(c.Context(), tenantID)
 	if err != nil {
-		log.Println("Failed to get keyring store for tenant:", err)
+		log.Println("[Unauthorized] No keyring store exists for tenant:", err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
 	kr, err := ks.Get(c.Context())
 	if err != nil {
-		log.Println("[ERROR] Failed to get keyring for tenant:", err)
-		return c.SendStatus(fiber.StatusInternalServerError)
+		log.Println("[Unauthorized] No keyring exists for tenant:", err)
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
 	var clientKey ed25519.PrivateKey

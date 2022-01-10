@@ -55,10 +55,7 @@ spec:
     group: cert-manager.io
     kind: Issuer
     name: opni-gateway-ca-issuer
-  dnsNames:
-    - opni-gateway.opni-monitoring.svc.cluster.local
-    - opni-gateway.opni-monitoring.svc
-    - opni-gateway.svc.cluster.local
+  dnsNames: {{ .Values.gateway.dnsNames }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate

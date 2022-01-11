@@ -2,7 +2,6 @@ package rbac
 
 import (
 	"context"
-	"log"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,7 +18,6 @@ func (m *middleware) Handle(c *fiber.Ctx) error {
 	}
 	tenants, err := m.provider.ListTenantsForUser(context.Background(), userID.(string))
 	if err != nil {
-		log.Printf("[ERROR] failed to list tenants for user %s: %v", userID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 	if len(tenants) == 0 {

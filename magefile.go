@@ -48,7 +48,18 @@ func Build() error {
 }
 
 func Test() error {
-	return nil
+	return sh.RunV(mg.GoCmd(), "run", "github.com/onsi/ginkgo/v2/ginkgo",
+		"-r",
+		"--randomize-all",
+		"--randomize-suites",
+		"--fail-on-pending",
+		"--keep-going",
+		"--cover",
+		"--coverprofile=cover.out",
+		"--race",
+		"--trace",
+		"--json-report=report.json",
+		"--timeout=1m")
 }
 
 func Run() error {
@@ -84,5 +95,15 @@ func Generate() error {
 			return err
 		}
 	}
+
+	err = sh.RunV(mg.GoCmd(), "run", "github.com/golang/mock/mockgen",
+		"-source=pkg/rbac/rbac.go",
+		"-destination=pkg/test/mocks/rbac_mock.go",
+		"-package=mocks",
+		"Provider")
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

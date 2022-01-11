@@ -27,26 +27,21 @@ type ServerConfig struct {
 
 func (h ServerConfig) bootstrapJoinResponse(
 	ctx context.Context,
-) (BootstrapResponse, error) {
-	var caCert []byte
-	if h.RootCA != nil {
-		caCert = h.RootCA.Raw
-	}
+) (BootstrapJoinResponse, error) {
 	signatures := map[string][]byte{}
 	tokens, err := h.TokenStore.ListTokens(ctx)
 	if err != nil {
-		return BootstrapResponse{}, err
+		return BootstrapJoinResponse{}, err
 	}
 	for _, token := range tokens {
 		// Generate a JWS containing the signature of the detached secret token
 		sig, err := token.SignDetached(h.Certificate.PrivateKey)
 		if err != nil {
-			return BootstrapResponse{}, fmt.Errorf("error signing token: %w", err)
+			return BootstrapJoinResponse{}, fmt.Errorf("error signing token: %w", err)
 		}
 		signatures[token.HexID()] = sig
 	}
-	return BootstrapResponse{
-		CACert:     caCert,
+	return BootstrapJoinResponse{
 		Signatures: signatures,
 	}, nil
 }
@@ -110,7 +105,7 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	}
 
 	// Token is valid and not expired. Check the client's requested UUID
-	clientReq := SecureBootstrapRequest{}
+	clientReq := BootstrapAuthRequest{}
 	if err := c.BodyParser(&clientReq); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 	}
@@ -151,7 +146,7 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(SecureBootstrapResponse{
+	return c.Status(fiber.StatusOK).JSON(BootstrapAuthResponse{
 		ServerPubKey: ekp.PublicKey,
 	})
 }

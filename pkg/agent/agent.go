@@ -17,6 +17,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"github.com/kralicky/opni-monitoring/pkg/ident"
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
 	"github.com/valyala/fasthttp"
 )
@@ -33,7 +34,7 @@ type Agent struct {
 	keyringStore     storage.KeyringStore
 
 	sharedKeys *keyring.SharedKeys
-	tlsKey     *keyring.TLSKey
+	pkpKey     *keyring.PKPKey
 }
 
 type AgentOptions struct {
@@ -113,7 +114,12 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 	}
 
 	agent.bootstrapOrLoadKeys()
-	agent.tlsConfig = agent.tlsKey.TLSConfig.ToCryptoTLSConfig()
+
+	var err error
+	agent.tlsConfig, err = pkp.TLSConfig(agent.pkpKey.PinnedKeys)
+	if err != nil {
+		log.Fatal(fmt.Errorf("failed to create TLS config: %s", err))
+	}
 
 	app.Post("/api/v1/push", agent.handlePushRequest)
 	app.Use(default404Handler)
@@ -194,11 +200,14 @@ func (a *Agent) bootstrapOrLoadKeys() {
 		func(shared *keyring.SharedKeys) {
 			a.sharedKeys = shared
 		},
-		func(tls *keyring.TLSKey) {
-			a.tlsKey = tls
+		func(pkp *keyring.PKPKey) {
+			a.pkpKey = pkp
 		},
 	)
-	if a.sharedKeys == nil || a.tlsKey == nil {
+	if a.sharedKeys == nil || a.pkpKey == nil {
 		log.Fatal("keyring does not contain the expected keys")
+	}
+	if len(a.pkpKey.PinnedKeys) == 0 {
+		log.Fatal("keyring does not contain any pinned public keys")
 	}
 }

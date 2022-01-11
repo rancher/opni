@@ -15,7 +15,7 @@ var allowedKeyTypes = map[reflect.Type]struct{}{}
 
 type completeKeyring struct {
 	SharedKeys *SharedKeys `json:"sharedKeys,omitempty"`
-	TLSKey     *TLSKey     `json:"tlsKey,omitempty"`
+	PKPKey     *PKPKey     `json:"pkpKey,omitempty"`
 }
 
 func init() {

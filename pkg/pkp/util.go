@@ -1,17 +1,10 @@
-package util
+package pkp
 
 import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-
-	"golang.org/x/crypto/blake2b"
 )
-
-func CertSPKIHash(cert *x509.Certificate) []byte {
-	sum := blake2b.Sum256(cert.RawSubjectPublicKeyInfo)
-	return sum[:]
-}
 
 func ParsePEMEncodedCertChain(chain []byte) ([]*x509.Certificate, error) {
 	certs := make([]*x509.Certificate, 0)
@@ -20,7 +13,7 @@ func ParsePEMEncodedCertChain(chain []byte) ([]*x509.Certificate, error) {
 		var rest []byte
 		block, rest = pem.Decode(chain)
 		if block == nil {
-			return nil, errors.New("failed to parse certificate")
+			return nil, errors.New("failed to decode PEM data")
 		}
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
@@ -30,4 +23,13 @@ func ParsePEMEncodedCertChain(chain []byte) ([]*x509.Certificate, error) {
 		chain = rest
 	}
 	return certs, nil
+}
+
+func ParsePEMEncodedCert(data []byte) (*x509.Certificate, error) {
+	var block *pem.Block
+	block, _ = pem.Decode(data)
+	if block == nil {
+		return nil, errors.New("failed to decode PEM data")
+	}
+	return x509.ParseCertificate(block.Bytes)
 }

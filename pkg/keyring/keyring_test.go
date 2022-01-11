@@ -1,28 +1,12 @@
 package keyring_test
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
-)
-
-var (
-	testCertificate = `-----BEGIN CERTIFICATE-----
-MIIBHjCB0aADAgECAhAOWE+Vhh8kSITCq+6EhdIkMAUGAytlcDAOMQwwCgYDVQQD
-EwNmb28wHhcNMjIwMTA2MDQyOTI2WhcNMzIwMTA0MDQyOTI2WjAOMQwwCgYDVQQD
-EwNmb28wKjAFBgMrZXADIQDqiNw97n9I1yW+uNuN9UHfhmC00JgCoccEk/oBfleE
-pqNFMEMwDgYDVR0PAQH/BAQDAgEGMBIGA1UdEwEB/wQIMAYBAf8CAQEwHQYDVR0O
-BBYEFL4nnF44+S9a+64CqaAwFlzLIIS4MAUGAytlcANBAOQWH4miLHMugDoOFZ1N
-71E+OzHO9LvbOrXVYivr4uuP+2IZmiZjklw/ZMozYfDq2AIE2Uft1FXLnh4hBoSH
-YgE=
------END CERTIFICATE-----
-`
+	"github.com/kralicky/opni-monitoring/pkg/pkp"
 )
 
 var _ = Describe("Keyring", func() {
@@ -36,7 +20,7 @@ var _ = Describe("Keyring", func() {
 			counter := atomic.NewInt32(0)
 			kr.Try(func(*keyring.SharedKeys) {
 				counter.Inc()
-			}, func(*keyring.TLSKey) {
+			}, func(*keyring.PKPKey) {
 				counter.Inc()
 			})
 			Expect(counter.Load()).To(Equal(int32(0)))
@@ -57,9 +41,11 @@ var _ = Describe("Keyring", func() {
 	When("creating a keyring with one key", func() {
 		It("should function correctly", func() {
 			By("creating a new keyring")
-			kr := keyring.New(keyring.NewTLSKeys(&keyring.TLSConfig{
-				ServerName:       "foo",
-				CurvePreferences: []tls.CurveID{tls.X25519},
+			kr := keyring.New(keyring.NewPKPKey([]*pkp.PublicKeyPin{
+				{
+					Algorithm:   "sha256",
+					Fingerprint: []byte("test"),
+				},
 			}))
 			Expect(kr).NotTo(BeNil())
 
@@ -67,10 +53,10 @@ var _ = Describe("Keyring", func() {
 			counter := atomic.NewInt32(0)
 			kr.Try(func(keys *keyring.SharedKeys) {
 				Fail("Try called the wrong function")
-			}, func(key *keyring.TLSKey) {
+			}, func(key *keyring.PKPKey) {
 				counter.Inc()
-				Expect(key.TLSConfig.ServerName).To(Equal("foo"))
-				Expect(key.TLSConfig.CurvePreferences).To(Equal([]tls.CurveID{tls.X25519}))
+				Expect(key.PinnedKeys[0].Algorithm).To(BeEquivalentTo("sha256"))
+				Expect(key.PinnedKeys[0].Fingerprint).To(BeEquivalentTo("test"))
 			})
 			Expect(counter.Load()).To(Equal(int32(1)))
 
@@ -78,16 +64,16 @@ var _ = Describe("Keyring", func() {
 			counter.Store(0)
 			kr.ForEach(func(key interface{}) {
 				counter.Inc()
-				Expect(key).To(BeAssignableToTypeOf(&keyring.TLSKey{}))
-				Expect(key.(*keyring.TLSKey).TLSConfig.ServerName).To(Equal("foo"))
-				Expect(key.(*keyring.TLSKey).TLSConfig.CurvePreferences).To(Equal([]tls.CurveID{tls.X25519}))
+				Expect(key).To(BeAssignableToTypeOf(&keyring.PKPKey{}))
+				Expect(key.(*keyring.PKPKey).PinnedKeys[0].Algorithm).To(BeEquivalentTo("sha256"))
+				Expect(key.(*keyring.PKPKey).PinnedKeys[0].Fingerprint).To(BeEquivalentTo("test"))
 			})
 			Expect(counter.Load()).To(Equal(int32(1)))
 
 			By("ensuring Marshal returns the correct object")
 			j, err := kr.Marshal()
 			Expect(err).NotTo(HaveOccurred())
-			jsonString := `{"tlsKey":{"tlsConfig":{"curvePreferences":[29],"serverName":"foo"}}}`
+			jsonString := `{"pkpKey":{"pinnedKeys":[{"alg":"sha256","fingerprint":"dGVzdA=="}]}}`
 			Expect(string(j)).To(Equal(jsonString))
 
 			By("ensuring Unmarshal returns the correct object")
@@ -99,17 +85,12 @@ var _ = Describe("Keyring", func() {
 	})
 	When("creating a keyring with multiple keys", func() {
 		It("should function correctly", func() {
-			certBlock, rest := pem.Decode([]byte(testCertificate))
-			Expect(certBlock).NotTo(BeNil())
-			Expect(rest).To(BeEmpty())
-			cert, err := x509.ParseCertificate(certBlock.Bytes)
-			Expect(err).NotTo(HaveOccurred())
-
 			By("creating a new keyring")
-			kr := keyring.New(keyring.NewTLSKeys(&keyring.TLSConfig{
-				ServerName:       "foo",
-				CurvePreferences: []tls.CurveID{tls.X25519},
-				RootCAs:          [][]byte{cert.Raw},
+			kr := keyring.New(keyring.NewPKPKey([]*pkp.PublicKeyPin{
+				{
+					Algorithm:   "sha256",
+					Fingerprint: []byte("test"),
+				},
 			}), keyring.NewSharedKeys(make([]byte, 64)))
 			Expect(kr).NotTo(BeNil())
 
@@ -120,10 +101,10 @@ var _ = Describe("Keyring", func() {
 				counterA.Inc()
 				Expect(keys.ClientKey).To(HaveLen(64))
 				Expect(keys.ServerKey).To(HaveLen(64))
-			}, func(key *keyring.TLSKey) {
+			}, func(key *keyring.PKPKey) {
 				counterB.Inc()
-				Expect(key.TLSConfig.ServerName).To(Equal("foo"))
-				Expect(key.TLSConfig.CurvePreferences).To(Equal([]tls.CurveID{tls.X25519}))
+				Expect(key.PinnedKeys[0].Algorithm).To(BeEquivalentTo("sha256"))
+				Expect(key.PinnedKeys[0].Fingerprint).To(BeEquivalentTo("test"))
 			})
 			Expect(counterA.Load()).To(Equal(int32(1)))
 			Expect(counterB.Load()).To(Equal(int32(1)))
@@ -161,17 +142,5 @@ var _ = Describe("Keyring", func() {
 		Expect(func() {
 			keyring.NewSharedKeys([]byte("not_64_bytes"))
 		}).To(PanicWith("shared secret must be 64 bytes"))
-	})
-	It("should convert between custom TLS config types", func() {
-		block, _ := pem.Decode([]byte(testCertificate))
-		tlsConfig := &keyring.TLSConfig{
-			ServerName:       "foo",
-			CurvePreferences: []tls.CurveID{tls.X25519},
-			RootCAs:          [][]byte{block.Bytes},
-		}
-		cryptoTlsConfig := tlsConfig.ToCryptoTLSConfig()
-		Expect(cryptoTlsConfig.ServerName).To(Equal(tlsConfig.ServerName))
-		Expect(cryptoTlsConfig.CurvePreferences).To(Equal(tlsConfig.CurvePreferences))
-		Expect(len(cryptoTlsConfig.RootCAs.Subjects())).To(Equal(len(tlsConfig.RootCAs)))
 	})
 })

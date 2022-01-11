@@ -19,9 +19,9 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/config"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"github.com/kralicky/opni-monitoring/pkg/management"
+	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
-	"github.com/kralicky/opni-monitoring/pkg/util"
 	"github.com/valyala/fasthttp"
 )
 
@@ -293,7 +293,7 @@ func loadCerts(cacertPath, certPath, keyPath string) (*tls.Certificate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load CA cert: %w", err)
 	}
-	root, err := util.ParsePEMEncodedCertChain(data)
+	root, err := pkp.ParsePEMEncodedCertChain(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CA cert: %w", err)
 	}

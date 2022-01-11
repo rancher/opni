@@ -31,8 +31,8 @@ type IdentityProviderSpec struct {
 }
 
 type BootstrapSpec struct {
-	Token      string `json:"token,omitempty"`
-	CACertHash string `json:"caCertHash,omitempty"`
+	Token string   `json:"token,omitempty"`
+	Pins  []string `json:"pins,omitempty"`
 }
 
 func (s *AgentConfigSpec) SetDefaults() {

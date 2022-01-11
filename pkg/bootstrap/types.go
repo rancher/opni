@@ -11,16 +11,15 @@ type Bootstrapper interface {
 	Bootstrap(context.Context, ident.Provider) (keyring.Keyring, error)
 }
 
-type BootstrapResponse struct {
-	CACert     []byte            `json:"ca_cert"`
+type BootstrapJoinResponse struct {
 	Signatures map[string][]byte `json:"signatures"`
 }
 
-type SecureBootstrapRequest struct {
+type BootstrapAuthRequest struct {
 	ClientID     string `json:"client_id"`
 	ClientPubKey []byte `json:"client_pub_key"`
 }
 
-type SecureBootstrapResponse struct {
+type BootstrapAuthResponse struct {
 	ServerPubKey []byte `json:"server_pub_key"`
 }

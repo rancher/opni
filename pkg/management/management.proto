@@ -62,7 +62,7 @@ message CertInfo {
   bool IsCA = 3;
   string NotBefore = 4;
   string NotAfter = 5;
-  bytes SPKIHash = 6;
+  string Fingerprint = 6;
 }
 
 message Role {

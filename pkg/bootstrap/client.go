@@ -3,8 +3,6 @@ package bootstrap
 import (
 	"bytes"
 	"context"
-	"crypto/subtle"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
@@ -16,8 +14,8 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/ecdh"
 	"github.com/kralicky/opni-monitoring/pkg/ident"
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
-	"github.com/kralicky/opni-monitoring/pkg/util"
 )
 
 var (
@@ -31,16 +29,16 @@ var (
 )
 
 type ClientConfig struct {
-	Token      *tokens.Token
-	CACertHash []byte
-	Endpoint   string
+	Token    *tokens.Token
+	Pins     []*pkp.PublicKeyPin
+	Endpoint string
 }
 
 func (c *ClientConfig) Bootstrap(
 	ctx context.Context,
 	ident ident.Provider,
 ) (keyring.Keyring, error) {
-	response, serverLeafCert, err := c.bootstrapInsecure()
+	response, serverLeafCert, err := c.bootstrapJoin()
 	if err != nil {
 		return nil, err
 	}
@@ -51,14 +49,13 @@ func (c *ClientConfig) Bootstrap(
 		return nil, err
 	}
 
-	tlsConfig := &keyring.TLSConfig{
-		RootCAs:          [][]byte{response.CACert},
-		CurvePreferences: []tls.CurveID{tls.X25519},
-		ServerName:       serverLeafCert.Subject.CommonName,
+	tlsConfig, err := pkp.TLSConfig(c.Pins)
+	if err != nil {
+		return nil, err
 	}
-	secureClient := http.Client{
+	client := http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig.ToCryptoTLSConfig(),
+			TLSClientConfig: tlsConfig,
 		},
 	}
 
@@ -70,7 +67,7 @@ func (c *ClientConfig) Bootstrap(
 	if err != nil {
 		return nil, fmt.Errorf("failed to obtain unique identifier: %w", err)
 	}
-	secureReq, err := json.Marshal(SecureBootstrapRequest{
+	authReq, err := json.Marshal(BootstrapAuthRequest{
 		ClientID:     id,
 		ClientPubKey: ekp.PublicKey,
 	})
@@ -83,14 +80,14 @@ func (c *ClientConfig) Bootstrap(
 		return nil, err
 	}
 	req, err := http.NewRequest(http.MethodPost, url.String(),
-		bytes.NewReader(secureReq))
+		bytes.NewReader(authReq))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Request", "application/json")
 	req.Header.Add("Authorization", "Bearer "+string(completeJws))
-	resp, err := secureClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -99,13 +96,13 @@ func (c *ClientConfig) Bootstrap(
 	}
 	defer resp.Body.Close()
 
-	var secureResp SecureBootstrapResponse
-	if err := json.NewDecoder(resp.Body).Decode(&secureResp); err != nil {
+	var authResp BootstrapAuthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
 		return nil, err
 	}
 
 	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, ecdh.PeerPublicKey{
-		PublicKey: secureResp.ServerPubKey,
+		PublicKey: authResp.ServerPubKey,
 		PeerType:  ecdh.PeerTypeServer,
 	})
 	if err != nil {
@@ -113,7 +110,7 @@ func (c *ClientConfig) Bootstrap(
 	}
 	return keyring.New(
 		keyring.NewSharedKeys(sharedSecret),
-		keyring.NewTLSKeys(tlsConfig),
+		keyring.NewPKPKey(c.Pins),
 	), nil
 }
 
@@ -137,21 +134,22 @@ func (c *ClientConfig) bootstrapAuthURL() (*url.URL, error) {
 	return u, nil
 }
 
-func (c *ClientConfig) bootstrapInsecure() (*BootstrapResponse, *x509.Certificate, error) {
+func (c *ClientConfig) bootstrapJoin() (*BootstrapJoinResponse, *x509.Certificate, error) {
 	url, err := c.bootstrapJoinURL()
 	if err != nil {
 		return nil, nil, err
 	}
-	// Connect to the endpoint insecurely, the server will return a jws with a
-	// detached payload that we can reconstruct and verify
-	insecureClient := http.Client{
+
+	tlsConfig, err := pkp.TLSConfig(c.Pins)
+	if err != nil {
+		return nil, nil, err
+	}
+	client := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
+			TLSClientConfig: tlsConfig,
 		},
 	}
-	resp, err := insecureClient.Post(url.String(), "application/json", nil)
+	resp, err := client.Post(url.String(), "application/json", nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -163,44 +161,12 @@ func (c *ClientConfig) bootstrapInsecure() (*BootstrapResponse, *x509.Certificat
 	if err != nil {
 		return nil, nil, err
 	}
-	bootstrapResponse := &BootstrapResponse{}
+	bootstrapResponse := &BootstrapJoinResponse{}
 	if err := json.Unmarshal(body, bootstrapResponse); err != nil {
 		return nil, nil, err
 	}
-	if err := c.validateServerCA(bootstrapResponse, resp.TLS); err != nil {
-		return nil, nil, err
-	}
-	return bootstrapResponse, resp.TLS.PeerCertificates[0], nil
-}
 
-func (c *ClientConfig) validateServerCA(
-	resp *BootstrapResponse,
-	tls *tls.ConnectionState,
-) error {
-	cacert, err := x509.ParseCertificate(resp.CACert)
-	if err != nil {
-		return err
-	}
-	roots := x509.NewCertPool()
-	roots.AddCert(cacert)
-	leaf := tls.PeerCertificates[0]
-	intermediates := x509.NewCertPool()
-	for _, cert := range tls.PeerCertificates[1:] {
-		intermediates.AddCert(cert)
-	}
-	opts := x509.VerifyOptions{
-		Roots:         roots,
-		Intermediates: intermediates,
-	}
-	if _, err := leaf.Verify(opts); err != nil {
-		return err
-	}
-	actual := util.CertSPKIHash(cacert)
-	expected := c.CACertHash
-	if subtle.ConstantTimeCompare(actual, expected) != 1 {
-		return ErrRootCAHashMismatch
-	}
-	return nil
+	return bootstrapResponse, resp.TLS.PeerCertificates[0], nil
 }
 
 func (c *ClientConfig) findValidSignature(

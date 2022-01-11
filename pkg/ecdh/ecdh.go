@@ -30,7 +30,7 @@ type PeerPublicKey struct {
 func NewEphemeralKeyPair() (EphemeralKeyPair, error) {
 	priv, err := io.ReadAll(io.LimitReader(rand.Reader, 32))
 	if err != nil {
-		return EphemeralKeyPair{}, err
+		panic(err)
 	}
 	pub, err := curve25519.X25519(priv, curve25519.Basepoint)
 	if err != nil {

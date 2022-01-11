@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"io"
 
+	"github.com/lestrrat-go/jwx/x25519"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -87,6 +88,15 @@ var _ = Describe("Token", func() {
 		segments = bytes.Split(complete, []byte{'.'})
 		Expect(len(segments)).To(Equal(3))
 		Expect(base64.RawURLEncoding.DecodeString(string(segments[1]))).To(BeEquivalentTo(t.EncodeJSON()))
+	})
+	It("should handle errors when signing", func() {
+		t := tokens.NewToken()
+		_, wrongKeyType, err := x25519.GenerateKey(nil)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = t.SignDetached(wrongKeyType)
+		Expect(err).To(HaveOccurred())
+		_, err = t.SignDetached(nil)
+		Expect(err).To(HaveOccurred())
 	})
 	It("should handle errors when verifying", func() {
 		t := tokens.NewToken()

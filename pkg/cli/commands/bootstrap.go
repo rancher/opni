@@ -21,7 +21,8 @@ import (
 )
 
 func BuildBootstrapCmd() *cobra.Command {
-	var namespace, kubeconfig, gatewayAddress, token, caCertHash string
+	var namespace, kubeconfig, gatewayAddress, token string
+	var pins []string
 	bootstrapCmd := &cobra.Command{
 		Use:   "bootstrap",
 		Short: "Bootstrap an agent",
@@ -90,8 +91,8 @@ func BuildBootstrapCmd() *cobra.Command {
 						Type: v1beta1.StorageTypeSecret,
 					},
 					Bootstrap: v1beta1.BootstrapSpec{
-						Token:      token,
-						CACertHash: caCertHash,
+						Token: token,
+						Pins:  pins,
 					},
 				},
 			}
@@ -138,13 +139,13 @@ func BuildBootstrapCmd() *cobra.Command {
 
 	bootstrapCmd.Flags().StringVarP(&gatewayAddress, "address", "a", "", "Gateway address")
 	bootstrapCmd.Flags().StringVarP(&token, "token", "t", "", "Token to use for bootstrapping")
-	bootstrapCmd.Flags().StringVarP(&caCertHash, "ca-cert-hash", "c", "", "Gateway Server CA Cert Hash")
+	bootstrapCmd.Flags().StringSliceVar(&pins, "pin", []string{}, "Gateway server public key to pin (repeatable)")
 	bootstrapCmd.Flags().StringVarP(&namespace, "namespace", "n", "opni-monitoring-agent", "Namespace where the agent is installed")
 	bootstrapCmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to kubeconfig file (optional)")
 
 	bootstrapCmd.MarkFlagRequired("token")
 	bootstrapCmd.MarkFlagRequired("address")
-	bootstrapCmd.MarkFlagRequired("ca-cert-hash")
+	bootstrapCmd.MarkFlagRequired("pin")
 
 	return bootstrapCmd
 }

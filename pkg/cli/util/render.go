@@ -22,7 +22,7 @@ func RenderBootstrapTokenList(tokens []*management.BootstrapToken) {
 
 func RenderCertInfoChain(chain []*management.CertInfo) {
 	for i, cert := range chain {
-		hash := hex.EncodeToString(cert.SPKIHash)
+		fp := hex.EncodeToString([]byte(cert.Fingerprint))
 		w := table.NewWriter()
 		w.SetIndexColumn(1)
 		w.SetStyle(table.StyleColoredDark)
@@ -33,22 +33,14 @@ func RenderCertInfoChain(chain []*management.CertInfo) {
 			},
 			{
 				Number: 2,
-				Transformer: func(val interface{}) string {
-					if i == len(chain)-1 {
-						if str, ok := val.(string); ok && str == hash {
-							return text.FgHiGreen.Sprint(val)
-						}
-					}
-					return table.StyleColoredDark.Color.Row.Sprint(val)
-				},
 			},
 		})
 		w.AppendRow(table.Row{"SUBJECT", cert.Subject})
 		w.AppendRow(table.Row{"ISSUER", cert.Issuer})
-		w.AppendRow(table.Row{"CA", cert.IsCA})
+		w.AppendRow(table.Row{"IS CA", cert.IsCA})
 		w.AppendRow(table.Row{"NOT BEFORE", cert.NotBefore})
 		w.AppendRow(table.Row{"NOT AFTER", cert.NotAfter})
-		w.AppendRow(table.Row{"HASH", hash})
+		w.AppendRow(table.Row{"FINGERPRINT", fp})
 		fmt.Println(w.Render())
 		if i != len(chain)-1 {
 			fmt.Println()

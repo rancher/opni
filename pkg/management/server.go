@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
 	"github.com/kralicky/opni-monitoring/pkg/util"
 	"google.golang.org/grpc"
@@ -190,12 +191,12 @@ func (m *Server) CertsInfo(
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 			resp.Chain = append(resp.Chain, &CertInfo{
-				Issuer:    cert.Issuer.String(),
-				Subject:   cert.Subject.String(),
-				IsCA:      cert.IsCA,
-				NotBefore: cert.NotBefore.Format(time.RFC3339),
-				NotAfter:  cert.NotAfter.Format(time.RFC3339),
-				SPKIHash:  util.CertSPKIHash(cert),
+				Issuer:      cert.Issuer.String(),
+				Subject:     cert.Subject.String(),
+				IsCA:        cert.IsCA,
+				NotBefore:   cert.NotBefore.Format(time.RFC3339),
+				NotAfter:    cert.NotAfter.Format(time.RFC3339),
+				Fingerprint: pkp.NewSha256(cert).Encode(),
 			})
 		}
 	}

@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/hex"
 	"errors"
 	"log"
 	"os"
@@ -10,13 +9,13 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
 	"github.com/kralicky/opni-monitoring/pkg/config"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
+	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
 	"github.com/spf13/cobra"
 )
 
 func BuildAgentCmd() *cobra.Command {
 	var configLocation string
-	var overrideToken, overrideCaCertHash string
 
 	agentCmd := &cobra.Command{
 		Use:   "agent",
@@ -48,27 +47,21 @@ agent remote-write requests to add dynamic authentication.`,
 			})
 
 			tokenData := agentConfig.Spec.Bootstrap.Token
-			if overrideToken != "" {
-				tokenData = overrideToken
-			}
-			caCertHashData := agentConfig.Spec.Bootstrap.CACertHash
-			if overrideCaCertHash != "" {
-				caCertHashData = overrideCaCertHash
-			}
+			pins := agentConfig.Spec.Bootstrap.Pins
 			token, err := tokens.ParseHex(tokenData)
 			if err != nil {
 				return err
 			}
-			caCertHash, err := hex.DecodeString(caCertHashData)
-			if err != nil {
-				return err
+			publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
+			for i, pin := range pins {
+				publicKeyPins[i], err = pkp.DecodePin(pin)
 			}
 
 			p := agent.New(agentConfig,
 				agent.WithBootstrapper(&bootstrap.ClientConfig{
-					Token:      token,
-					CACertHash: caCertHash,
-					Endpoint:   agentConfig.Spec.GatewayAddress,
+					Token:    token,
+					Pins:     publicKeyPins,
+					Endpoint: agentConfig.Spec.GatewayAddress,
 				}),
 			)
 			return p.ListenAndServe()
@@ -76,7 +69,5 @@ agent remote-write requests to add dynamic authentication.`,
 	}
 
 	agentCmd.Flags().StringVar(&configLocation, "config", "", "Absolute path to a config file")
-	agentCmd.Flags().StringVar(&overrideToken, "token", "", "Bootstrap token (hex encoded)")
-	agentCmd.Flags().StringVar(&overrideCaCertHash, "ca-cert-hash", "", "CA cert hash (hex encoded)")
 	return agentCmd
 }

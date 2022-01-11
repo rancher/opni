@@ -55,7 +55,7 @@ agent remote-write requests to add dynamic authentication.`,
 			if overrideCaCertHash != "" {
 				caCertHashData = overrideCaCertHash
 			}
-			token, err := tokens.DecodeHexToken(tokenData)
+			token, err := tokens.ParseHex(tokenData)
 			if err != nil {
 				return err
 			}

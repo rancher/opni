@@ -73,7 +73,7 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration) (*tokens
 	token := tokens.NewToken()
 	token.Metadata.LeaseID = int64(lease.ID)
 	token.Metadata.TTL = lease.TTL
-	_, err = e.client.Put(ctx, "/tokens/"+token.HexID(), token.EncodeJSON(),
+	_, err = e.client.Put(ctx, "/tokens/"+token.HexID(), string(token.EncodeJSON()),
 		clientv3.WithLease(lease.ID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token %w", err)
@@ -128,7 +128,7 @@ func (e *EtcdStore) GetToken(ctx context.Context, tokenID string) (*tokens.Token
 		return nil, fmt.Errorf("failed to get token %s: %w", tokenID, ErrNotFound)
 	}
 	kv := resp.Kvs[0]
-	token, err := tokens.DecodeJSONToken(kv.Value)
+	token, err := tokens.ParseJSON(kv.Value)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode token %s: %w", tokenID, err)
 	}
@@ -147,7 +147,7 @@ func (e *EtcdStore) ListTokens(ctx context.Context) ([]*tokens.Token, error) {
 	}
 	items := make([]*tokens.Token, len(resp.Kvs))
 	for i, kv := range resp.Kvs {
-		token, err := tokens.DecodeJSONToken(kv.Value)
+		token, err := tokens.ParseJSON(kv.Value)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode token %s: %w", string(kv.Value), err)
 		}

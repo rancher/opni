@@ -46,12 +46,12 @@ func NewToken(source ...io.Reader) *Token {
 	}
 }
 
-func (t *Token) EncodeJSON() string {
-	str, err := json.Marshal(t)
+func (t *Token) EncodeJSON() []byte {
+	data, err := json.Marshal(t)
 	if err != nil {
 		panic(err)
 	}
-	return string(str)
+	return data
 }
 
 func (t *Token) EncodeHex() string {
@@ -62,7 +62,7 @@ func (t *Token) HexID() string {
 	return hex.EncodeToString(t.ID)
 }
 
-func DecodeJSONToken(data []byte) (*Token, error) {
+func ParseJSON(data []byte) (*Token, error) {
 	t := &Token{}
 	if err := json.Unmarshal(data, t); err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func DecodeJSONToken(data []byte) (*Token, error) {
 	return t, nil
 }
 
-func DecodeHexToken(str string) (*Token, error) {
+func ParseHex(str string) (*Token, error) {
 	parts := bytes.Split([]byte(str), []byte("."))
 	if len(parts) != 2 ||
 		len(parts[0]) != hex.EncodedLen(6) ||

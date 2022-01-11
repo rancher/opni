@@ -2,6 +2,7 @@ package ecdh
 
 import (
 	"crypto/rand"
+	"fmt"
 	"io"
 
 	"golang.org/x/crypto/blake2b"
@@ -33,7 +34,7 @@ func NewEphemeralKeyPair() (EphemeralKeyPair, error) {
 	}
 	pub, err := curve25519.X25519(priv, curve25519.Basepoint)
 	if err != nil {
-		return EphemeralKeyPair{}, err
+		panic(err)
 	}
 	return EphemeralKeyPair{
 		PrivateKey: priv,
@@ -65,6 +66,8 @@ func DeriveSharedSecret(ours EphemeralKeyPair, theirs PeerPublicKey) ([]byte, er
 	case PeerTypeServer:
 		hash.Write(ours.PublicKey)
 		hash.Write(theirs.PublicKey)
+	default:
+		return nil, fmt.Errorf("invalid peer type: %d", theirs.PeerType)
 	}
 
 	return hash.Sum(nil), nil

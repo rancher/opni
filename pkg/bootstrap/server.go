@@ -96,7 +96,7 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	}
 
 	// The payload should contain the entire token encoded as JSON
-	token, err := tokens.DecodeJSONToken(payload)
+	token, err := tokens.ParseJSON(payload)
 	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}

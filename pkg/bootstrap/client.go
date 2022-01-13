@@ -49,10 +49,9 @@ func (c *ClientConfig) Bootstrap(
 		return nil, err
 	}
 
-	tlsConfig, err := pkp.TLSConfig(c.Pins)
-	if err != nil {
-		return nil, err
-	}
+	// error already checked in bootstrapJoin
+	tlsConfig, _ := pkp.TLSConfig(c.Pins)
+
 	client := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: tlsConfig,
@@ -75,10 +74,9 @@ func (c *ClientConfig) Bootstrap(
 		return nil, err
 	}
 
-	url, err := c.bootstrapAuthURL()
-	if err != nil {
-		return nil, err
-	}
+	// error already checked in bootstrapJoin
+	url, _ := c.bootstrapAuthURL()
+
 	req, err := http.NewRequest(http.MethodPost, url.String(),
 		bytes.NewReader(authReq))
 	if err != nil {

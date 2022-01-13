@@ -33,3 +33,8 @@ jobs:
         run: mage
       - name: Test
         run: mage test
+      - name: Upload Results To Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          files: ./cover.out
+          verbose: true # optional (default = false)

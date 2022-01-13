@@ -9,5 +9,5 @@ import (
 
 func TestECDH(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ECDH Suite")
+	RunSpecs(t, "EC Diffie-Hellman Suite")
 }

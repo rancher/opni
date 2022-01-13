@@ -7,12 +7,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
+	"github.com/kralicky/opni-monitoring/pkg/test"
 )
 
-//go:embed testdata/full_chain.crt
-var testFullChain []byte
-
 var _ = Describe("PKP Utils", func() {
+	testFullChain := test.TestData("full_chain.crt")
 	It("should load a full cert chain", func() {
 		chain, err := pkp.ParsePEMEncodedCertChain(testFullChain)
 		Expect(err).NotTo(HaveOccurred())

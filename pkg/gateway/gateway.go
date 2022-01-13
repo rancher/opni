@@ -142,7 +142,6 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	g.setupCortexRoutes(app, tenantStore, rbacStore)
 
 	app.Post("/bootstrap/*", bootstrap.ServerConfig{
-		RootCA:      rootCA,
 		Certificate: servingCertBundle,
 		TokenStore:  tokenStore,
 		TenantStore: tenantStore,

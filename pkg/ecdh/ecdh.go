@@ -2,11 +2,16 @@ package ecdh
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/curve25519"
+)
+
+var (
+	ErrInvalidPeerType = errors.New("invalid peer type")
 )
 
 type EphemeralKeyPair struct {
@@ -67,7 +72,7 @@ func DeriveSharedSecret(ours EphemeralKeyPair, theirs PeerPublicKey) ([]byte, er
 		hash.Write(ours.PublicKey)
 		hash.Write(theirs.PublicKey)
 	default:
-		return nil, fmt.Errorf("invalid peer type: %d", theirs.PeerType)
+		return nil, fmt.Errorf("%w: %d", ErrInvalidPeerType, theirs.PeerType)
 	}
 
 	return hash.Sum(nil), nil

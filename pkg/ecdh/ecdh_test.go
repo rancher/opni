@@ -96,7 +96,7 @@ var _ = Describe("ECDH", func() {
 			PublicKey: ekpB.PublicKey,
 			PeerType:  ecdh.PeerType(99),
 		})
-		Expect(err).To(MatchError("invalid peer type: 99"))
+		Expect(err).To(MatchError(ecdh.ErrInvalidPeerType))
 
 		By("using a low order point")
 		_, err = ecdh.DeriveSharedSecret(ekpA, ecdh.PeerPublicKey{

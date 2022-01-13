@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
+	"github.com/kralicky/opni-monitoring/pkg/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -40,7 +41,7 @@ var _ = Describe("Public Key Pinning", func() {
 	It("should compute correct certificate fingerprints", func() {
 		Expect(testFingerprints.TestData).To(HaveLen(5))
 		for _, actual := range testFingerprints.TestData {
-			certData := testData(actual.Cert)
+			certData := test.TestData(actual.Cert)
 			cert, err := pkp.ParsePEMEncodedCert(certData)
 			Expect(err).NotTo(HaveOccurred())
 			for _, alg := range []pkp.Alg{pkp.AlgSHA256, pkp.AlgB2B256} {
@@ -55,7 +56,7 @@ var _ = Describe("Public Key Pinning", func() {
 		}
 	})
 	It("should correctly deep-copy", func() {
-		certData := testData("root_ca.crt")
+		certData := test.TestData("root_ca.crt")
 		cert, err := pkp.ParsePEMEncodedCert(certData)
 		Expect(err).NotTo(HaveOccurred())
 		pin := pkp.NewSha256(cert)

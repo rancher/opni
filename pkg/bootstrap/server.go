@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"log"
 	"strings"
@@ -19,7 +18,6 @@ import (
 )
 
 type ServerConfig struct {
-	RootCA      *x509.Certificate
 	Certificate *tls.Certificate
 	TokenStore  storage.TokenStore
 	TenantStore storage.TenantStore

@@ -1,4 +1,4 @@
-package rbac_test
+package bootstrap_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestRbac(t *testing.T) {
+func TestBootstrap(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "RBAC Suite")
+	RunSpecs(t, "Bootstrap Suite")
 }

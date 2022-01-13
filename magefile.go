@@ -39,7 +39,7 @@ func Test() error {
 		"--race",
 		"--trace",
 		"--json-report=report.json",
-		"--timeout=1m")
+		"--timeout=10m")
 }
 
 func Docker() error {

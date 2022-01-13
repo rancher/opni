@@ -84,7 +84,6 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	edPrivKey := h.Certificate.PrivateKey.(ed25519.PrivateKey)
 	payload, err := jws.Verify([]byte(bearerToken), jwa.EdDSA, edPrivKey.Public())
 	if err != nil {
-		log.Printf("error verifying token: %v", err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 

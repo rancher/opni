@@ -9,3 +9,4 @@ deploy/custom/opni-monitoring.yaml
 
 /.*
 !/.gitignore
+!/.github

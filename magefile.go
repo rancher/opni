@@ -18,10 +18,7 @@ import (
 var Default = All
 
 func All() {
-	mg.SerialDeps(
-		Build,
-		Test,
-	)
+	mg.SerialDeps(Build)
 }
 
 func Build() error {
@@ -34,7 +31,6 @@ func Build() error {
 func Test() error {
 	return sh.RunV(mg.GoCmd(), "run", "github.com/onsi/ginkgo/v2/ginkgo",
 		"-r",
-		"--randomize-all",
 		"--randomize-suites",
 		"--fail-on-pending",
 		"--keep-going",

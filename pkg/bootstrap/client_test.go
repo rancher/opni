@@ -44,16 +44,15 @@ var _ = Describe("Client", func() {
 			Return("foo", nil).
 			AnyTimes()
 		fooIdent = mockIdent
-	})
-	It("should bootstrap with the server", func() {
-		mux := http.NewServeMux()
-
 		var err error
 		crt, err := tls.X509KeyPair(test.TestData("self_signed_leaf.crt"), test.TestData("self_signed_leaf.key"))
 		Expect(err).NotTo(HaveOccurred())
 		crt.Leaf, err = x509.ParseCertificate(crt.Certificate[0])
 		Expect(err).NotTo(HaveOccurred())
 		cert = &crt
+	})
+	It("should bootstrap with the server", func() {
+		mux := http.NewServeMux()
 
 		mux.HandleFunc("/bootstrap/join", func(rw http.ResponseWriter, r *http.Request) {
 			defer GinkgoRecover()
@@ -104,7 +103,7 @@ var _ = Describe("Client", func() {
 			Endpoint: server.URL,
 		}
 
-		_, err = cc.Bootstrap(context.Background(), fooIdent)
+		_, err := cc.Bootstrap(context.Background(), fooIdent)
 		Expect(err).NotTo(HaveOccurred())
 	})
 	Context("error handling", func() {

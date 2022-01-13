@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	"github.com/onsi/ginkgo/v2"
 	gomock "github.com/golang/mock/gomock"
 	keyring "github.com/kralicky/opni-monitoring/pkg/keyring"
 	rbac "github.com/kralicky/opni-monitoring/pkg/rbac"
@@ -139,7 +138,6 @@ func (m *MockTenantStore) EXPECT() *MockTenantStoreMockRecorder {
 
 // CreateTenant mocks base method.
 func (m *MockTenantStore) CreateTenant(ctx context.Context, tenantID string) error {
-	defer ginkgo.GinkgoRecover()
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateTenant", ctx, tenantID)
 	ret0, _ := ret[0].(error)

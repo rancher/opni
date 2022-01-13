@@ -3,6 +3,7 @@ module github.com/kralicky/opni-monitoring
 go 1.17
 
 require (
+	emperror.dev/errors v0.8.0
 	github.com/gofiber/fiber/v2 v2.24.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0

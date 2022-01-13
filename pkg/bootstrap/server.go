@@ -91,7 +91,7 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	// The payload should contain the entire token encoded as JSON
 	token, err := tokens.ParseJSON(payload)
 	if err != nil {
-		return c.SendStatus(fiber.StatusUnauthorized)
+		panic("bug: jws.Verify returned a malformed token")
 	}
 	ok, err := h.TokenStore.TokenExists(c.Context(), token.HexID())
 	if err != nil {

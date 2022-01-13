@@ -3,9 +3,12 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
+
+	"emperror.dev/errors"
 
 	"github.com/kralicky/ragu/pkg/ragu"
 	"github.com/magefile/mage/mg"
@@ -13,25 +16,6 @@ import (
 )
 
 var Default = All
-var runArgs []string
-
-func init() {
-	if len(os.Args) > 1 && os.Args[1] == "run" {
-		idx := 0
-		for i, arg := range os.Args {
-			if arg == "--" {
-				idx = i
-				break
-			}
-		}
-		if idx == 0 {
-			fmt.Println("usage: mage run -- <args>")
-			os.Exit(1)
-		}
-		runArgs = os.Args[idx+1:]
-		os.Args = os.Args[:idx]
-	}
-}
 
 func All() {
 	mg.SerialDeps(
@@ -62,11 +46,6 @@ func Test() error {
 		"--timeout=1m")
 }
 
-func Run() error {
-	mg.Deps(Build)
-	return sh.RunV("./bin/opnim", runArgs...)
-}
-
 func Docker() error {
 	mg.Deps(Build)
 	return sh.RunWithV(map[string]string{
@@ -74,36 +53,87 @@ func Docker() error {
 	}, "docker", "build", "-t", "kralicky/opni-monitoring", ".")
 }
 
+type mockgenConfig struct {
+	Source string
+	Dest   string
+	Types  []string
+}
+
 func Generate() error {
-	protos, err := ragu.GenerateCode("pkg/management/management.proto", true)
-	if err != nil {
-		return err
-	}
-	for _, f := range protos {
-		path := filepath.Join("pkg/management", f.GetName())
-		if info, err := os.Stat(path); err == nil {
-			if info.Mode()&0200 == 0 {
-				if err := os.Chmod(path, 0644); err != nil {
-					return err
+	wg := sync.WaitGroup{}
+
+	var mu sync.Mutex
+	var generateErr error
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		protos, err := ragu.GenerateCode("pkg/management/management.proto", true)
+		if err != nil {
+			mu.Lock()
+			generateErr = errors.Append(generateErr, err)
+			mu.Unlock()
+			return
+		}
+		for _, f := range protos {
+			path := filepath.Join("pkg/management", f.GetName())
+			if info, err := os.Stat(path); err == nil {
+				if info.Mode()&0200 == 0 {
+					if err := os.Chmod(path, 0644); err != nil {
+						mu.Lock()
+						generateErr = errors.Append(generateErr, err)
+						mu.Unlock()
+						return
+					}
 				}
 			}
+			if err := os.WriteFile(path, []byte(f.GetContent()), 0444); err != nil {
+				mu.Lock()
+				generateErr = errors.Append(generateErr, err)
+				mu.Unlock()
+				return
+			}
+			if err := os.Chmod(path, 0444); err != nil {
+				mu.Lock()
+				generateErr = errors.Append(generateErr, err)
+				mu.Unlock()
+				return
+			}
 		}
-		if err := os.WriteFile(path, []byte(f.GetContent()), 0444); err != nil {
-			return err
-		}
-		if err := os.Chmod(path, 0444); err != nil {
-			return err
-		}
+	}()
+
+	for _, cfg := range []mockgenConfig{
+		{
+			Source: "pkg/rbac/rbac.go",
+			Dest:   "pkg/test/mock/rbac/rbac.go",
+			Types:  []string{"Provider"},
+		},
+		{
+			Source: "pkg/storage/stores.go",
+			Dest:   "pkg/test/mock/storage/stores.go",
+			Types:  []string{"TokenStore", "TenantStore"},
+		},
+		{
+			Source: "pkg/ident/ident.go",
+			Dest:   "pkg/test/mock/ident/ident.go",
+			Types:  []string{"Provider"},
+		},
+	} {
+		wg.Add(1)
+		go func(cfg mockgenConfig) {
+			defer wg.Done()
+			err := sh.RunV(mg.GoCmd(), "run", "github.com/golang/mock/mockgen",
+				"-source="+cfg.Source,
+				"-destination="+cfg.Dest,
+				strings.Join(cfg.Types, ","))
+			if err != nil {
+				mu.Lock()
+				generateErr = errors.Append(generateErr, err)
+				mu.Unlock()
+			}
+		}(cfg)
 	}
 
-	err = sh.RunV(mg.GoCmd(), "run", "github.com/golang/mock/mockgen",
-		"-source=pkg/rbac/rbac.go",
-		"-destination=pkg/test/mocks/rbac_mock.go",
-		"-package=mocks",
-		"Provider")
-	if err != nil {
-		return err
-	}
-
-	return nil
+	wg.Wait()
+	return generateErr
 }

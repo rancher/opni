@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/golang/mock/gomock"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +22,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/ident"
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/test"
+	mock_ident "github.com/kralicky/opni-monitoring/pkg/test/mock/ident"
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
 )
 
@@ -32,8 +34,17 @@ func (p *errProvider) UniqueIdentifier(context.Context) (string, error) {
 
 var _ = Describe("Client", func() {
 	token := tokens.NewToken()
-	fooIdent := ident.NewFakeProvider("foo")
+	var fooIdent ident.Provider
 	var cert *tls.Certificate
+
+	Specify("setup", func() {
+		mockIdent := mock_ident.NewMockProvider(ctrl)
+		mockIdent.EXPECT().
+			UniqueIdentifier(gomock.Any()).
+			Return("foo", nil).
+			AnyTimes()
+		fooIdent = mockIdent
+	})
 	It("should bootstrap with the server", func() {
 		mux := http.NewServeMux()
 

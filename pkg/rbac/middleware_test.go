@@ -14,7 +14,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
-	"github.com/kralicky/opni-monitoring/pkg/test/mocks"
+	mock_rbac "github.com/kralicky/opni-monitoring/pkg/test/mock/rbac"
 )
 
 var testUsers = map[string][]string{
@@ -28,7 +28,7 @@ var _ = Describe("Middleware", func() {
 	It("should set tenant IDs for authorized users", func() {
 		By("setting up the test controller")
 		ctrl := gomock.NewController(GinkgoT())
-		mockProvider := mocks.NewMockProvider(ctrl)
+		mockProvider := mock_rbac.NewMockProvider(ctrl)
 		mockProvider.EXPECT().
 			ListTenantsForUser(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, userID string) ([]string, error) {
@@ -89,7 +89,7 @@ var _ = Describe("Middleware", func() {
 	It("should skip the middleware if no user ID key is set", func() {
 		By("setting up the test controller")
 		ctrl := gomock.NewController(GinkgoT())
-		mockProvider := mocks.NewMockProvider(ctrl)
+		mockProvider := mock_rbac.NewMockProvider(ctrl)
 		mockProvider.EXPECT().
 			ListTenantsForUser(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, userID string) ([]string, error) {

@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/kralicky/opni-monitoring/pkg/config/meta"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
+	"github.com/kralicky/opni-monitoring/pkg/logger"
+	"go.uber.org/zap"
 	"sigs.k8s.io/yaml"
 )
 
@@ -23,6 +24,8 @@ type Unmarshaler interface {
 	Unmarshal(into interface{}) error
 }
 
+var configLog = logger.New().Named("config")
+
 type GatewayConfig = v1beta1.GatewayConfig
 
 func LoadObjectsFromFile(path string) (meta.ObjectList, error) {
@@ -32,21 +35,30 @@ func LoadObjectsFromFile(path string) (meta.ObjectList, error) {
 	}
 	objects := []meta.Object{}
 	documents := bytes.Split(data, []byte("\n---\n"))
-	for _, document := range documents {
+	for i, document := range documents {
+		lg := configLog.With(
+			"path", path,
+			"documentIndex", i,
+		)
 		if len(strings.TrimSpace(string(document))) == 0 {
 			continue
 		}
 		typeMeta := meta.TypeMeta{}
 		if err := yaml.Unmarshal(document, &typeMeta); err != nil {
-			log.Println(err)
+			lg.With(
+				zap.Error(err),
+			).Error("object has missing or invalid TypeMeta")
 			continue
 		}
 		if typeMeta.APIVersion == "" || typeMeta.Kind == "" {
+			lg.Error("object has missing or invalid TypeMeta")
 			continue
 		}
 		object, err := decodeObject(typeMeta, document)
 		if err != nil {
-			log.Println(err)
+			lg.With(
+				zap.Error(err),
+			).Error("failed to decode object")
 			continue
 		}
 		objects = append(objects, object)
@@ -58,8 +70,9 @@ func decodeObject(typeMeta meta.TypeMeta, document []byte) (meta.Object, error) 
 	switch typeMeta.APIVersion {
 	case v1beta1.APIVersion:
 		return v1beta1.DecodeObject(typeMeta.Kind, document)
+	default:
+		return nil, ErrUnsupportedApiVersion
 	}
-	return nil, ErrUnsupportedApiVersion
 }
 
 func FindConfig() (string, error) {

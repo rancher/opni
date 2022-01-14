@@ -2,7 +2,6 @@ package tenant
 
 import (
 	"crypto/ed25519"
-	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kralicky/opni-monitoring/pkg/auth"
@@ -28,6 +27,7 @@ func (m *TenantMiddleware) Description() string {
 }
 
 func (m *TenantMiddleware) Handle(c *fiber.Ctx) error {
+	lg := c.Context().Logger()
 	authHeader := c.Get("Authorization")
 	if authHeader == "" {
 		return c.Status(fiber.StatusUnauthorized).SendString("Authorization header required")
@@ -40,13 +40,13 @@ func (m *TenantMiddleware) Handle(c *fiber.Ctx) error {
 
 	ks, err := m.tenantStore.KeyringStore(c.Context(), tenantID)
 	if err != nil {
-		log.Println("[Unauthorized] No keyring store exists for tenant:", err)
+		lg.Printf("unauthorized: no keyring store found for tenant %s: %v", tenantID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
 	kr, err := ks.Get(c.Context())
 	if err != nil {
-		log.Println("[Unauthorized] No keyring exists for tenant:", err)
+		lg.Printf("unauthorized: no keyring found for tenant %s: %v", tenantID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
@@ -54,11 +54,12 @@ func (m *TenantMiddleware) Handle(c *fiber.Ctx) error {
 	if ok := kr.Try(func(shared *keyring.SharedKeys) {
 		clientKey = shared.ClientKey
 	}); !ok {
-		log.Fatal("[ERROR] Keyring does not contain shared keys")
+		lg.Printf("unauthorized: invalid keyring for tenant %s: %v", tenantID, err)
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
 	if err := b2bmac.Verify(mac, tenantID, nonce, c.Body(), clientKey); err != nil {
-		log.Println("Tenant authorization failed:", err)
+		lg.Printf("unauthorized: invalid mac for tenant %s: %v", tenantID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 

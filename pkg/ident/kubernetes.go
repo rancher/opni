@@ -2,7 +2,6 @@ package ident
 
 import (
 	"context"
-	"log"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -16,12 +15,9 @@ type kubernetesProvider struct {
 func NewKubernetesProvider() Provider {
 	rc, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-	cs, err := kubernetes.NewForConfig(rc)
-	if err != nil {
-		log.Fatal(err)
-	}
+	cs := kubernetes.NewForConfigOrDie(rc)
 	return &kubernetesProvider{
 		clientset: cs,
 	}

@@ -81,8 +81,7 @@ var _ = Describe("Client", func() {
 			Expect(req.ClientID).To(Equal("foo"))
 			Expect(req.ClientPubKey).To(HaveLen(32))
 
-			ekp, err := ecdh.NewEphemeralKeyPair()
-			Expect(err).NotTo(HaveOccurred())
+			ekp := ecdh.NewEphemeralKeyPair()
 			rw.WriteHeader(http.StatusOK)
 			resp, _ := json.Marshal(bootstrap.BootstrapAuthResponse{
 				ServerPubKey: ekp.PublicKey,

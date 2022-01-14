@@ -2,12 +2,13 @@ package commands
 
 import (
 	"context"
-	"fmt"
-	"log"
+	"time"
 
 	"github.com/kralicky/opni-monitoring/pkg/config/meta"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
+	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,6 +22,8 @@ import (
 )
 
 func BuildBootstrapCmd() *cobra.Command {
+	lg := logger.New()
+
 	var namespace, kubeconfig, gatewayAddress, token string
 	var pins []string
 	bootstrapCmd := &cobra.Command{
@@ -33,31 +36,32 @@ func BuildBootstrapCmd() *cobra.Command {
 			rules.ExplicitPath = kubeconfig
 			apiConfig, err := rules.Load()
 			if err != nil {
-				log.Println(fmt.Errorf("failed to load kubeconfig: %w", err))
-				return
+				lg.With(
+					zap.Error(err),
+				).Fatal("Failed to load kubeconfig")
 			}
 			restConfig, err := clientcmd.NewDefaultClientConfig(
 				*apiConfig, &clientcmd.ConfigOverrides{}).ClientConfig()
 			if err != nil {
-				log.Println(fmt.Errorf("failed to load kubeconfig: %w", err))
-				return
+				lg.With(
+					zap.Error(err),
+				).Fatal("Failed to load kubeconfig")
 			}
 			clientset := kubernetes.NewForConfigOrDie(restConfig)
 
-			log.Println("Checking for pending agents...")
+			lg.Info("Checking for pending agents...")
 
-			dep, err := clientset.AppsV1().
-				Deployments(namespace).
-				Get(ctx, "opni-monitoring-agent", metav1.GetOptions{})
+			dep, err := getAgentDeployment(clientset, namespace)
 			if err != nil {
-				log.Println(fmt.Errorf("failed to look up agent deployment: %w", err))
-				return
+				lg.With(
+					zap.Error(err),
+				).Fatal("Failed to look up agent deployment")
 			}
 
 			// If any replicas are available (not unavailable), the agent has already
 			// been bootstrapped.
 			if dep.Status.UnavailableReplicas < pointer.Int32Deref(dep.Spec.Replicas, 1) {
-				log.Println("Agent has already been bootstrapped.")
+				lg.Info("Agent has already been bootstrapped")
 				return
 			}
 
@@ -67,14 +71,15 @@ func BuildBootstrapCmd() *cobra.Command {
 				Secrets(namespace).
 				Get(ctx, "agent-config", metav1.GetOptions{})
 			if err == nil {
-				log.Println("Agent has already been bootstrapped")
+				lg.Info("Agent has already been bootstrapped")
 				return
 			}
 			if !k8serrors.IsNotFound(err) {
-				log.Println(fmt.Errorf("failed to look up agent config secret: %v", err))
-				return
+				lg.With(
+					zap.Error(err),
+				).Fatal("Failed to look up agent config secret")
 			}
-			log.Println("Bootstrapping agent...")
+			lg.Info("Bootstrapping agent...")
 
 			agentConfig := v1beta1.AgentConfig{
 				TypeMeta: meta.TypeMeta{
@@ -99,8 +104,9 @@ func BuildBootstrapCmd() *cobra.Command {
 
 			configData, err := yaml.Marshal(agentConfig)
 			if err != nil {
-				log.Println(fmt.Errorf("failed to marshal agent config: %w", err))
-				return
+				lg.With(
+					zap.Error(err),
+				).Fatal("Failed to marshal agent config")
 			}
 
 			secret := corev1.Secret{
@@ -116,24 +122,43 @@ func BuildBootstrapCmd() *cobra.Command {
 				Secrets(namespace).
 				Create(ctx, &secret, metav1.CreateOptions{})
 			if err != nil {
-				log.Println(fmt.Errorf("failed to create agent config secret: %w", err))
-				return
+				lg.With(
+					zap.Error(err),
+				).Fatal("Failed to create agent config secret")
 			}
+
+			lg.Info("Agent bootstrapped successfully.")
 
 			// Check if the deployment needs to be restarted
 			for _, cond := range dep.Status.Conditions {
 				if cond.Type == appsv1.DeploymentProgressing &&
 					cond.Status == corev1.ConditionFalse &&
 					cond.Reason == "ProgressDeadlineExceeded" {
-					log.Println("Restarting agent deployment...")
+					lg.Info("Agent deployment is stuck, restarting...")
 					if err := doRolloutRestart(clientset, dep); err != nil {
-						log.Println(fmt.Errorf("failed to restart agent deployment: %w", err))
-						return
+						lg.With(
+							zap.Error(err),
+						).Error("Failed to restart agent deployment. You might have to restart the agent manually.")
 					}
 				}
 			}
 
-			log.Println("Done.")
+			lg.Info("Waiting for agent to be ready...")
+
+			for {
+				dep, err = getAgentDeployment(clientset, namespace)
+				if err != nil {
+					lg.With(
+						zap.Error(err),
+					).Error("Failed to look up agent deployment")
+				}
+				if dep.Status.AvailableReplicas == pointer.Int32Deref(dep.Spec.Replicas, 1) {
+					break
+				}
+				time.Sleep(time.Second)
+			}
+
+			lg.Info("Done.")
 		},
 	}
 
@@ -143,8 +168,8 @@ func BuildBootstrapCmd() *cobra.Command {
 	bootstrapCmd.Flags().StringVarP(&namespace, "namespace", "n", "opni-monitoring-agent", "Namespace where the agent is installed")
 	bootstrapCmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to kubeconfig file (optional)")
 
-	bootstrapCmd.MarkFlagRequired("token")
 	bootstrapCmd.MarkFlagRequired("address")
+	bootstrapCmd.MarkFlagRequired("token")
 	bootstrapCmd.MarkFlagRequired("pin")
 
 	return bootstrapCmd
@@ -163,4 +188,10 @@ func doRolloutRestart(clientset *kubernetes.Clientset, dep *appsv1.Deployment) e
 			},
 		)
 	return err
+}
+
+func getAgentDeployment(clientset *kubernetes.Clientset, namespace string) (*appsv1.Deployment, error) {
+	return clientset.AppsV1().
+		Deployments(namespace).
+		Get(context.Background(), "opni-monitoring-agent", metav1.GetOptions{})
 }

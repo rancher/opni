@@ -5,10 +5,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -18,17 +16,20 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
 	"github.com/kralicky/opni-monitoring/pkg/config"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
+	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
 	"github.com/valyala/fasthttp"
+	"go.uber.org/zap"
 )
 
 type Gateway struct {
 	GatewayOptions
 	config              *config.GatewayConfig
 	app                 *fiber.App
+	logger              *zap.SugaredLogger
 	managementServer    *management.Server
 	managementCtx       context.Context
 	managementCtxCancel context.CancelFunc
@@ -47,6 +48,8 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	}
 	options.Apply(opts...)
 
+	lg := logger.New().Named("gateway")
+
 	var tokenStore storage.TokenStore
 	var tenantStore storage.TenantStore
 	var rbacStore storage.RBACStore
@@ -54,20 +57,23 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	case v1beta1.StorageTypeEtcd:
 		options := conf.Spec.Storage.Etcd
 		if options == nil {
-			log.Fatal("etcd storage options missing from config")
+			lg.Fatal("etcd storage options are not set")
+		} else {
+			store := storage.NewEtcdStore(storage.WithClientConfig(options.Config))
+			tokenStore = store
+			tenantStore = store
+			rbacStore = store
 		}
-		store := storage.NewEtcdStore(storage.WithClientConfig(options.Config))
-		tokenStore = store
-		tenantStore = store
-		rbacStore = store
 	default:
-		log.Fatalf("unknown storage type %q", conf.Spec.Storage.Type)
+		lg.With(
+			"type", conf.Spec.Storage.Type,
+		).Fatal("unknown storage type")
 	}
 
 	conf.Spec.SetDefaults()
 
 	if options.authMiddleware == nil {
-		log.Fatal("auth middleware is required")
+		lg.Fatal("auth middleware is required")
 	}
 
 	app := fiber.New(fiber.Config{
@@ -79,6 +85,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		EnableTrustedProxyCheck: len(conf.Spec.TrustedProxies) > 0,
 		TrustedProxies:          conf.Spec.TrustedProxies,
 	})
+	logger.ConfigureApp(app, lg)
 
 	for _, middleware := range options.fiberMiddlewares {
 		app.Use(middleware)
@@ -92,34 +99,19 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		return c.Status(http.StatusOK).SendString("alive")
 	})
 
-	servingCertBundle, err := loadCerts(
+	servingCertBundle, err := loadServingCertBundle(
 		conf.Spec.Certs.CACert,
 		conf.Spec.Certs.ServingCert,
 		conf.Spec.Certs.ServingKey,
 	)
 	if err != nil {
-		log.Fatal(err)
+		lg.With(
+			zap.Error(err),
+		).Fatal("failed to load serving cert bundle")
 	}
-
-	pool := x509.NewCertPool()
-	rootCA, err := x509.ParseCertificate(
-		servingCertBundle.Certificate[len(servingCertBundle.Certificate)-1])
-	if err != nil {
-		log.Fatal(err)
-	}
-	if !rootCA.IsCA {
-		log.Fatal("No root CA given in certificate chain")
-	}
-	if len(strings.TrimSpace(rootCA.Issuer.String())) == 0 ||
-		len(strings.TrimSpace(rootCA.Subject.String())) == 0 {
-		log.Fatal("Root CA is missing Subject or Issuer information")
-	}
-	pool.AddCert(rootCA)
 
 	tlsConfig := &tls.Config{
-		Certificates:     []tls.Certificate{*servingCertBundle},
-		CurvePreferences: []tls.CurveID{tls.X25519},
-		RootCAs:          pool,
+		Certificates: []tls.Certificate{*servingCertBundle},
 	}
 
 	mgmtSrv := management.NewServer(
@@ -134,6 +126,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		GatewayOptions:    options,
 		config:            conf,
 		app:               app,
+		logger:            lg,
 		managementServer:  mgmtSrv,
 		tlsConfig:         tlsConfig,
 		servingCertBundle: servingCertBundle,
@@ -157,7 +150,7 @@ func (g *Gateway) Listen() error {
 		context.WithCancel(context.Background())
 	go func() {
 		if err := g.managementServer.ListenAndServe(g.managementCtx); err != nil {
-			log.Fatal(err)
+			g.logger.Error(err)
 		}
 	}()
 
@@ -203,6 +196,7 @@ func (g *Gateway) newCortexForwarder(addr string) func(*fiber.Ctx) error {
 }
 
 func (g *Gateway) loadCortexCerts() {
+	lg := g.logger
 	cortexServerCA := g.config.Spec.Cortex.Certs.ServerCA
 	cortexClientCA := g.config.Spec.Cortex.Certs.ClientCA
 	cortexClientCert := g.config.Spec.Cortex.Certs.ClientCert
@@ -210,23 +204,29 @@ func (g *Gateway) loadCortexCerts() {
 
 	clientCert, err := tls.LoadX509KeyPair(cortexClientCert, cortexClientKey)
 	if err != nil {
-		log.Fatalf("Failed to load cortex client keypair: %v", err)
+		lg.With(
+			zap.Error(err),
+		).Fatalf("failed to load cortex client keypair")
 	}
 	serverCAPool := x509.NewCertPool()
 	serverCAData, err := os.ReadFile(cortexServerCA)
 	if err != nil {
-		log.Fatalf("Failed to read cortex server CA: %v", err)
+		lg.With(
+			zap.Error(err),
+		).Fatalf("failed to read cortex server CA")
 	}
 	if ok := serverCAPool.AppendCertsFromPEM(serverCAData); !ok {
-		log.Fatal("Failed to load cortex server CA")
+		lg.Fatal("failed to load cortex server CA")
 	}
 	clientCAPool := x509.NewCertPool()
 	clientCAData, err := os.ReadFile(cortexClientCA)
 	if err != nil {
-		log.Fatalf("Failed to read cortex client CA: %v", err)
+		lg.With(
+			zap.Error(err),
+		).Fatalf("failed to read cortex client CA")
 	}
 	if ok := clientCAPool.AppendCertsFromPEM(clientCAData); !ok {
-		log.Fatal("Failed to load cortex client CA")
+		lg.Fatal("failed to load cortex client CA")
 	}
 	g.cortexTLSConfig = &tls.Config{
 		ServerName:   "cortex-server",
@@ -287,7 +287,7 @@ func (g *Gateway) setupCortexRoutes(
 }
 
 // Returns a complete cert chain including the root CA, and a tls serving cert.
-func loadCerts(cacertPath, certPath, keyPath string) (*tls.Certificate, error) {
+func loadServingCertBundle(cacertPath, certPath, keyPath string) (*tls.Certificate, error) {
 	data, err := os.ReadFile(cacertPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load CA cert: %w", err)

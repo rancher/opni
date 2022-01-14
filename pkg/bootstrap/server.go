@@ -5,7 +5,6 @@ import (
 	"crypto/ed25519"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -73,6 +72,7 @@ func (h ServerConfig) handleBootstrapJoin(c *fiber.Ctx) error {
 }
 
 func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
+	lg := c.Context().Logger()
 	authHeader := strings.TrimSpace(c.Get("Authorization"))
 	if strings.TrimSpace(authHeader) == "" {
 		return c.SendStatus(fiber.StatusUnauthorized)
@@ -94,7 +94,7 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	}
 	ok, err := h.TokenStore.TokenExists(c.Context(), token.HexID())
 	if err != nil {
-		log.Printf("error checking token: %v", err)
+		lg.Printf("error checking if token exists: %v")
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 	if !ok {
@@ -108,38 +108,34 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	}
 
 	if ok, err := h.TenantStore.TenantExists(c.Context(), clientReq.ClientID); err != nil {
-		log.Printf("error checking tenant: %v", err)
+		lg.Printf("error checking if tenant exists: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	} else if ok {
 		return c.Status(fiber.StatusConflict).SendString("ID already in use")
 	}
 
-	ekp, err := ecdh.NewEphemeralKeyPair()
-	if err != nil {
-		log.Printf("error generating server keypair: %v", err)
-		return c.SendStatus(fiber.StatusInternalServerError)
-	}
+	ekp := ecdh.NewEphemeralKeyPair()
 
 	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, ecdh.PeerPublicKey{
 		PublicKey: clientReq.ClientPubKey,
 		PeerType:  ecdh.PeerTypeClient,
 	})
 	if err != nil {
-		log.Printf("error computing shared secret: %v", err)
+		lg.Printf("error computing shared secret: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 	kr := keyring.New(keyring.NewSharedKeys(sharedSecret))
 	if err := h.TenantStore.CreateTenant(c.Context(), clientReq.ClientID); err != nil {
-		log.Printf("error creating tenant: %v", err)
+		lg.Printf("error creating tenant: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 	krStore, err := h.TenantStore.KeyringStore(c.Context(), clientReq.ClientID)
 	if err != nil {
-		log.Printf("error getting keyring store: %v", err)
+		lg.Printf("error getting keyring store: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 	if err := krStore.Put(c.Context(), kr); err != nil {
-		log.Printf("error storing keyring: %v", err)
+		lg.Printf("error storing keyring: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 

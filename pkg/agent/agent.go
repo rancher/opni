@@ -4,28 +4,26 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
-	"log"
-	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/compress"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/kralicky/opni-monitoring/pkg/b2bmac"
 	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"github.com/kralicky/opni-monitoring/pkg/ident"
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
 	"github.com/valyala/fasthttp"
+	"go.uber.org/zap"
 )
 
 type Agent struct {
 	AgentOptions
 	v1beta1.AgentConfigSpec
-	app *fiber.App
+	app    *fiber.App
+	logger *zap.SugaredLogger
 
 	tenantID  string
 	tlsConfig *tls.Config
@@ -60,6 +58,7 @@ func default404Handler(c *fiber.Ctx) error {
 }
 
 func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
+	lg := logger.New().Named("agent")
 	options := AgentOptions{}
 	options.Apply(opts...)
 
@@ -68,14 +67,15 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 	}
 
 	app := fiber.New(fiber.Config{
-		Prefork:           false,
-		StrictRouting:     false,
-		AppName:           "Opni Monitoring Agent",
-		ReduceMemoryUsage: false,
-		Network:           "tcp4",
+		Prefork:               false,
+		StrictRouting:         false,
+		AppName:               "Opni Monitoring Agent",
+		ReduceMemoryUsage:     false,
+		Network:               "tcp4",
+		DisableStartupMessage: true,
 	})
+	logger.ConfigureApp(app, lg)
 
-	app.Use(logger.New(), compress.New())
 	app.All("/healthz", func(c *fiber.Ctx) error {
 		return c.SendStatus(fasthttp.StatusOK)
 	})
@@ -84,6 +84,7 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 		AgentOptions:    options,
 		AgentConfigSpec: conf.Spec,
 		app:             app,
+		logger:          lg,
 	}
 
 	switch agent.IdentityProvider.Type {
@@ -92,7 +93,9 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 	case v1beta1.IdentityProviderHostPath:
 		agent.identityProvider = ident.NewHostPathProvider(agent.IdentityProvider.Options["path"])
 	default:
-		log.Fatal("Unknown identity provider: ", agent.IdentityProvider.Type)
+		lg.With(
+			"type", agent.IdentityProvider.Type,
+		).Fatal("unknown identity provider")
 	}
 
 	switch agent.Storage.Type {
@@ -100,17 +103,19 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 		etcd := storage.NewEtcdStore(storage.WithClientConfig(agent.Storage.Etcd.Config))
 		id, err := agent.identityProvider.UniqueIdentifier(context.Background())
 		if err != nil {
-			log.Fatal(err)
+			lg.With(zap.Error(err)).Fatal("error getting unique identifier")
 		}
 		ks, err := etcd.KeyringStore(context.Background(), id)
 		if err != nil {
-			log.Fatal(err)
+			lg.With(zap.Error(err)).Fatal("error getting keyring store")
 		}
 		agent.keyringStore = ks
 	case v1beta1.StorageTypeSecret:
 		agent.keyringStore = storage.NewInClusterSecretStore()
 	default:
-		log.Fatal("Unknown storage type: ", agent.Storage.Type)
+		lg.With(
+			"type", agent.Storage.Type,
+		).Fatal("unknown storage type")
 	}
 
 	agent.bootstrapOrLoadKeys()
@@ -118,7 +123,7 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 	var err error
 	agent.tlsConfig, err = pkp.TLSConfig(agent.pkpKey.PinnedKeys)
 	if err != nil {
-		log.Fatal(fmt.Errorf("failed to create TLS config: %s", err))
+		lg.With(zap.Error(err)).Fatal("error creating TLS config")
 	}
 
 	app.Post("/api/v1/push", agent.handlePushRequest)
@@ -128,13 +133,14 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 }
 
 func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
+	lg := a.logger
 	nonce, sig, err := b2bmac.New512(a.tenantID, c.Body(), a.sharedKeys.ClientKey)
 	if err != nil {
-		log.Fatal("Error using shared client key to generate a MAC: ", err)
+		lg.With(zap.Error(err)).Fatal("error generating MAC")
 	}
 	authHeader, err := b2bmac.EncodeAuthHeader(a.tenantID, nonce, sig)
 	if err != nil {
-		log.Fatal("Error encoding auth header: ", err)
+		lg.With(zap.Error(err)).Fatal("error encoding auth header")
 	}
 
 	p := fiber.Post(a.GatewayAddress+"/api/v1/push").
@@ -148,7 +154,7 @@ func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
 
 	code, body, errs := p.Bytes()
 	for _, err := range errs {
-		log.Printf("Error sending request to gateway: %s", err)
+		lg.With(zap.Error(err)).Error("error sending reqest to gateway")
 	}
 
 	return c.Status(code).Send(body)
@@ -159,40 +165,41 @@ func (a *Agent) ListenAndServe() error {
 }
 
 func (a *Agent) bootstrapOrLoadKeys() {
+	lg := a.logger
 	// Look up our tenant ID
 	id, err := a.identityProvider.UniqueIdentifier(context.Background())
 	if err != nil {
-		log.Fatal(err)
+		lg.With(zap.Error(err)).Fatal("error getting unique identifier")
 	}
 	a.tenantID = id
 
 	// Load the stored keyring, or bootstrap a new one if it doesn't exist
 	kr, err := a.keyringStore.Get(context.Background())
 	if errors.Is(err, storage.ErrNotFound) {
-		fmt.Println("Performing initial bootstrap...")
+		lg.Info("performing initial bootstrap")
 		kr, err = a.bootstrapper.Bootstrap(context.Background(), a.identityProvider)
 		if err != nil {
-			log.Fatal(fmt.Errorf("Bootstrap failed: %w", err))
+			lg.With(zap.Error(err)).Fatal("bootstrap failed")
 		}
-		fmt.Println("Bootstrap OK")
+		lg.Info("bootstrap completed successfully")
 		for {
 			// Don't let this fail easily, otherwise we will lose the keyring forever.
 			// Keep retrying until it succeeds.
 			err = a.keyringStore.Put(context.Background(), kr)
 			if err != nil {
-				fmt.Fprintln(os.Stderr, fmt.Errorf("Failed to persist keyring (retry in 1 second): %w", err))
+				lg.With(zap.Error(err)).Error("failed to persist keyring (retry in 1 second)")
 				time.Sleep(1 * time.Second)
 			} else {
 				break
 			}
 		}
 	} else if err != nil {
-		log.Fatal(fmt.Errorf("Failed to load keyring: %w", err))
+		lg.With(zap.Error(err)).Fatal("error loading keyring")
 	}
 
 	if err := bootstrap.EraseBootstrapTokensFromConfig(); err != nil {
 		// non-fatal error
-		log.Println(err)
+		lg.With(zap.Error(err)).Error("error erasing bootstrap tokens from config")
 	}
 
 	// Get keys from the keyring
@@ -205,9 +212,9 @@ func (a *Agent) bootstrapOrLoadKeys() {
 		},
 	)
 	if a.sharedKeys == nil || a.pkpKey == nil {
-		log.Fatal("keyring does not contain the expected keys")
+		lg.Fatal("keyring is missing keys")
 	}
 	if len(a.pkpKey.PinnedKeys) == 0 {
-		log.Fatal("keyring does not contain any pinned public keys")
+		lg.Fatal("keyring does not contain any pinned public keys")
 	}
 }

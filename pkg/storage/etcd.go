@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 )
 
 var defaultEtcdTimeout = 5 * time.Second
@@ -20,6 +21,7 @@ var defaultEtcdTimeout = 5 * time.Second
 // EtcdStore implements TokenStore and TenantStore.
 type EtcdStore struct {
 	EtcdStoreOptions
+	logger *zap.SugaredLogger
 	client *clientv3.Client
 }
 
@@ -47,17 +49,24 @@ func WithClientConfig(config clientv3.Config) EtcdStoreOption {
 func NewEtcdStore(opts ...EtcdStoreOption) *EtcdStore {
 	options := &EtcdStoreOptions{}
 	options.Apply(opts...)
+	lg := logger.New().Named("etcd")
 	cli, err := clientv3.New(options.clientConfig)
 	if err != nil {
-		log.Fatal(fmt.Errorf("failed to create etcd client: %w", err))
+		lg.With(
+			zap.Error(err),
+		).Fatal("failed to create etcd client")
 	}
 	ctx, ca := context.WithTimeout(context.Background(), defaultEtcdTimeout)
 	defer ca()
 	_, err = cli.Status(ctx, options.clientConfig.Endpoints[0])
 	if err != nil {
-		log.Fatal(fmt.Errorf("failed to connect to etcd: %w", err))
+		lg.With(
+			zap.Error(err),
+		).Fatal("failed to connect to etcd")
 	}
-	fmt.Printf("Connected to etcd at %s\n", options.clientConfig.Endpoints)
+	lg.With(
+		"endpoints", options.clientConfig.Endpoints,
+	).Info("Connected to etcd")
 	return &EtcdStore{
 		client: cli,
 	}
@@ -169,9 +178,13 @@ func (e *EtcdStore) addLeaseMetadata(
 		// lookup lease
 		leaseResp, err := e.client.TimeToLive(ctx, clientv3.LeaseID(lease))
 		if err != nil {
-			fmt.Errorf("failed to get lease %d: %w", lease, err)
+			e.logger.With(
+				zap.Error(err),
+				zap.Int64("lease", lease),
+			).Error("failed to get lease")
+		} else {
+			token.Metadata.TTL = leaseResp.TTL
 		}
-		token.Metadata.TTL = leaseResp.TTL
 	}
 	return nil
 }

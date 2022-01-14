@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
@@ -26,7 +25,7 @@ func EraseBootstrapTokensFromConfig() error {
 	ctx := context.Background()
 	namespace, ok := os.LookupEnv("POD_NAMESPACE")
 	if !ok {
-		log.Fatal("POD_NAMESPACE environment variable not set")
+		panic("POD_NAMESPACE environment variable not set")
 	}
 	secret, err := clientset.CoreV1().
 		Secrets(namespace).

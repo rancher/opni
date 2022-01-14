@@ -5,12 +5,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"time"
 
+	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
 	"github.com/kralicky/opni-monitoring/pkg/util"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -25,6 +26,7 @@ const (
 type Server struct {
 	UnimplementedManagementServer
 	ManagementServerOptions
+	logger *zap.SugaredLogger
 }
 
 type ManagementServerOptions struct {
@@ -85,6 +87,7 @@ func NewServer(opts ...ManagementServerOption) *Server {
 	}
 	return &Server{
 		ManagementServerOptions: options,
+		logger:                  logger.New().Named("mgmt"),
 	}
 }
 
@@ -93,7 +96,9 @@ func (m *Server) ListenAndServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Management API listening on %s\n", m.listenAddress)
+	m.logger.With(
+		"address", m.listenAddress,
+	).Info("management server starting")
 	srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 	RegisterManagementServer(srv, m)
 	return srv.Serve(listener)

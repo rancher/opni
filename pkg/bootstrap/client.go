@@ -58,10 +58,7 @@ func (c *ClientConfig) Bootstrap(
 		},
 	}
 
-	ekp, err := ecdh.NewEphemeralKeyPair()
-	if err != nil {
-		return nil, err
-	}
+	ekp := ecdh.NewEphemeralKeyPair()
 	id, err := ident.UniqueIdentifier(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to obtain unique identifier: %w", err)

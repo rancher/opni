@@ -10,19 +10,16 @@ import (
 
 var _ = Describe("ECDH", func() {
 	It("should generate a key pair", func() {
-		ekp, err := ecdh.NewEphemeralKeyPair()
-		Expect(err).NotTo(HaveOccurred())
+		ekp := ecdh.NewEphemeralKeyPair()
 		Expect(ekp.PrivateKey).NotTo(BeNil())
 		Expect(ekp.PublicKey).NotTo(BeNil())
 	})
 
 	It("should compute equal shared secrets", func() {
-		ekpA, err := ecdh.NewEphemeralKeyPair()
-		Expect(err).NotTo(HaveOccurred())
+		ekpA := ecdh.NewEphemeralKeyPair()
 		Expect(ekpA.PrivateKey).NotTo(BeNil())
 		Expect(ekpA.PublicKey).NotTo(BeNil())
-		ekpB, err := ecdh.NewEphemeralKeyPair()
-		Expect(err).NotTo(HaveOccurred())
+		ekpB := ecdh.NewEphemeralKeyPair()
 		Expect(ekpB.PrivateKey).NotTo(BeNil())
 		Expect(ekpB.PublicKey).NotTo(BeNil())
 
@@ -46,10 +43,8 @@ var _ = Describe("ECDH", func() {
 		Expect(secretA).To(Equal(secretB))
 	})
 	It("should generate equal client keys", func() {
-		ekpA, err := ecdh.NewEphemeralKeyPair()
-		Expect(err).NotTo(HaveOccurred())
-		ekpB, err := ecdh.NewEphemeralKeyPair()
-		Expect(err).NotTo(HaveOccurred())
+		ekpA := ecdh.NewEphemeralKeyPair()
+		ekpB := ecdh.NewEphemeralKeyPair()
 
 		secretA, err := ecdh.DeriveSharedSecret(ekpA, ecdh.PeerPublicKey{
 			PublicKey: ekpB.PublicKey,
@@ -71,13 +66,11 @@ var _ = Describe("ECDH", func() {
 	})
 
 	It("should handle errors", func() {
-		ekpA, err := ecdh.NewEphemeralKeyPair()
-		Expect(err).NotTo(HaveOccurred())
-		ekpB, err := ecdh.NewEphemeralKeyPair()
-		Expect(err).NotTo(HaveOccurred())
+		ekpA := ecdh.NewEphemeralKeyPair()
+		ekpB := ecdh.NewEphemeralKeyPair()
 
 		By("using a scalar of incorrect length")
-		_, err = ecdh.DeriveSharedSecret(ecdh.EphemeralKeyPair{
+		_, err := ecdh.DeriveSharedSecret(ecdh.EphemeralKeyPair{
 			PrivateKey: make([]byte, 31),
 		}, ecdh.PeerPublicKey{
 			PublicKey: ekpB.PublicKey,

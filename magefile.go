@@ -38,7 +38,6 @@ func Test() error {
 		"--coverprofile=cover.out",
 		"--race",
 		"--trace",
-		"--json-report=report.json",
 		"--timeout=10m")
 }
 

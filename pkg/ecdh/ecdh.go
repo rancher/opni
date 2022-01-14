@@ -32,7 +32,7 @@ type PeerPublicKey struct {
 }
 
 // Creates a new x25519 keypair for use in ECDH key exchange.
-func NewEphemeralKeyPair() (EphemeralKeyPair, error) {
+func NewEphemeralKeyPair() EphemeralKeyPair {
 	priv, err := io.ReadAll(io.LimitReader(rand.Reader, 32))
 	if err != nil {
 		panic(err)
@@ -44,7 +44,7 @@ func NewEphemeralKeyPair() (EphemeralKeyPair, error) {
 	return EphemeralKeyPair{
 		PrivateKey: priv,
 		PublicKey:  pub,
-	}, nil
+	}
 }
 
 // Derives a 64-byte shared secret given one party's ephemeral keypair and

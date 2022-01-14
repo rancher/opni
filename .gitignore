@@ -10,3 +10,7 @@ deploy/custom/opni-monitoring.yaml
 /.*
 !/.gitignore
 !/.github
+
+/report.json
+/cover.out
+/cover.profile

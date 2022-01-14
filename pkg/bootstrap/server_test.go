@@ -21,6 +21,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
 	"github.com/kralicky/opni-monitoring/pkg/ecdh"
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
 	"github.com/kralicky/opni-monitoring/pkg/test"
 	mock_storage "github.com/kralicky/opni-monitoring/pkg/test/mock/storage"
@@ -118,6 +119,7 @@ var _ = Describe("Server", func() {
 		app = fiber.New(fiber.Config{
 			DisableStartupMessage: true,
 		})
+		logger.ConfigureApp(app, logger.New().Named("test"))
 		server := bootstrap.ServerConfig{
 			Certificate: cert,
 			TokenStore:  mockTokenStore,
@@ -236,7 +238,7 @@ var _ = Describe("Server", func() {
 						req, err := http.NewRequest("POST", addr+"/bootstrap/auth", nil)
 						Expect(err).NotTo(HaveOccurred())
 						req.Header.Add("Authorization", "Bearer "+string(sig))
-						ekp, _ := ecdh.NewEphemeralKeyPair()
+						ekp := ecdh.NewEphemeralKeyPair()
 						authReq := bootstrap.BootstrapAuthRequest{
 							ClientID:     "foo",
 							ClientPubKey: ekp.PublicKey,
@@ -285,7 +287,7 @@ var _ = Describe("Server", func() {
 					req, err := http.NewRequest("POST", addr+"/bootstrap/auth", nil)
 					Expect(err).NotTo(HaveOccurred())
 					req.Header.Add("Authorization", "Bearer "+string(sig))
-					ekp, _ := ecdh.NewEphemeralKeyPair()
+					ekp := ecdh.NewEphemeralKeyPair()
 					authReq := bootstrap.BootstrapAuthRequest{
 						ClientID:     "foo",
 						ClientPubKey: ekp.PublicKey,
@@ -307,7 +309,7 @@ var _ = Describe("Server", func() {
 					req, err := http.NewRequest("POST", addr+"/bootstrap/auth", nil)
 					Expect(err).NotTo(HaveOccurred())
 					req.Header.Add("Authorization", "Bearer "+string(sig))
-					ekp, _ := ecdh.NewEphemeralKeyPair()
+					ekp := ecdh.NewEphemeralKeyPair()
 					authReq := bootstrap.BootstrapAuthRequest{
 						ClientID:     "foo",
 						ClientPubKey: ekp.PublicKey,

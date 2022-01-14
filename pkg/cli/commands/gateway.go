@@ -2,20 +2,20 @@ package commands
 
 import (
 	"errors"
-	"log"
 	"os"
 
-	"github.com/gofiber/fiber/v2/middleware/compress"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/kralicky/opni-monitoring/pkg/auth"
 	"github.com/kralicky/opni-monitoring/pkg/auth/openid"
 	"github.com/kralicky/opni-monitoring/pkg/config"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"github.com/kralicky/opni-monitoring/pkg/gateway"
+	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 func BuildGatewayCmd() *cobra.Command {
+	lg := logger.New()
 	var configLocation string
 
 	run := func() error {
@@ -25,17 +25,23 @@ func BuildGatewayCmd() *cobra.Command {
 			if err != nil {
 				if errors.Is(err, config.ErrConfigNotFound) {
 					wd, _ := os.Getwd()
-					log.Fatalf(`could not find a config file in ["%s","/etc/opni-monitoring"], and --config was not given`, wd)
+					lg.Fatalf(`could not find a config file in ["%s","/etc/opni-monitoring"], and --config was not given`, wd)
 				}
-				log.Fatalf("an error occurred while searching for a config file: %v", err)
+				lg.With(
+					zap.Error(err),
+				).Fatal("an error occurred while searching for a config file")
 			}
-			log.Println("using config file:", path)
+			lg.With(
+				"path", path,
+			).Info("using config file")
 			configLocation = path
 		}
 
 		objects, err := config.LoadObjectsFromFile(configLocation)
 		if err != nil {
-			log.Fatalf("failed to load config: %v", err)
+			lg.With(
+				zap.Error(err),
+			).Fatal("failed to load config")
 		}
 		var gatewayConfig *v1beta1.GatewayConfig
 		objects.Visit(
@@ -49,19 +55,24 @@ func BuildGatewayCmd() *cobra.Command {
 				case "openid":
 					mw, err := openid.New(ap.Spec)
 					if err != nil {
-						log.Fatalf("failed to create OpenID auth provider: %v", err)
+						lg.With(
+							zap.Error(err),
+						).Fatal("failed to create OpenID auth provider")
 					}
 					if err := auth.InstallMiddleware(ap.GetName(), mw); err != nil {
-						log.Fatalf("failed to install auth provider: %v", err)
+						lg.With(
+							zap.Error(err),
+						).Fatal("failed to install OpenID auth provider")
 					}
 				default:
-					log.Printf("unsupported auth provider type: %s", ap.Spec.Type)
+					lg.With(
+						"type", ap.Spec.Type,
+					).Fatal("unsupported auth provider type")
 				}
 			},
 		)
 
 		g := gateway.NewGateway(gatewayConfig,
-			gateway.WithFiberMiddleware(logger.New(), compress.New()),
 			gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
 			gateway.WithPrefork(false),
 		)

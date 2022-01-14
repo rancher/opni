@@ -3,10 +3,11 @@ package storage
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/kralicky/opni-monitoring/pkg/logger"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,32 +22,33 @@ const (
 
 type SecretStore struct {
 	clientset *kubernetes.Clientset
+	logger    *zap.SugaredLogger
 	namespace string
 }
 
 var _ KeyringStore = (*SecretStore)(nil)
 
 func NewInClusterSecretStore() *SecretStore {
+	lg := logger.New().Named("secret-store")
 	// check downwards api
 	namespace, ok := os.LookupEnv("POD_NAMESPACE")
 	if !ok {
-		log.Fatal("POD_NAMESPACE environment variable not set")
+		lg.Fatal("POD_NAMESPACE environment variable not set")
 	}
 	rc, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-	cs, err := kubernetes.NewForConfig(rc)
-	if err != nil {
-		log.Fatal(err)
-	}
+	cs := kubernetes.NewForConfigOrDie(rc)
 	return &SecretStore{
 		clientset: cs,
+		logger:    lg,
 		namespace: namespace,
 	}
 }
 
 func (s *SecretStore) Put(ctx context.Context, kr keyring.Keyring) error {
+	lg := s.logger
 	keyringData, err := kr.Marshal()
 	if err != nil {
 		return err
@@ -79,7 +81,9 @@ func (s *SecretStore) Put(ctx context.Context, kr keyring.Keyring) error {
 				Secrets(s.namespace).
 				Update(ctx, secret, metav1.UpdateOptions{})
 			if err != nil {
-				log.Println("error updating secret (will retry): ", err)
+				lg.With(
+					zap.Error(err),
+				).Error("error updating secret (will retry)")
 			}
 			return err
 		})

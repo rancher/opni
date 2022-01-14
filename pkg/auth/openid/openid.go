@@ -3,7 +3,6 @@ package openid
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -50,25 +49,25 @@ func (m *OpenidMiddleware) Description() string {
 }
 
 func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
+	lg := c.Context().Logger()
 	set, err := m.keyRefresher.Fetch(context.Background(), m.conf.JwkSetUrl)
 	if err != nil {
-		log.Printf("[ERROR] failed to fetch JWK set: %v", err)
+		lg.Printf("failed to fetch JWK set: %v", err)
 		return c.SendStatus(fiber.StatusServiceUnavailable)
 	}
 	authHeader := c.Get("Authorization")
 	if authHeader == "" {
-		log.Println("no authorization header")
+		lg.Printf("no authorization header in request")
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 	value := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
-	fmt.Println(value)
 	token, err := jwt.ParseString(value,
 		jwt.WithKeySet(set),
 		jwt.WithValidate(true),
 		jwt.WithToken(openid.New()),
 	)
 	if err != nil {
-		log.Println(err.Error())
+		lg.Printf("failed to parse JWT: %v", err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 	userID := token.(openid.Token).Email()

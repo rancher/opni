@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
+	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	mock_rbac "github.com/kralicky/opni-monitoring/pkg/test/mock/rbac"
 )
@@ -40,6 +41,7 @@ var _ = Describe("Middleware", func() {
 			AnyTimes()
 		defer ctrl.Finish()
 		app := fiber.New()
+		logger.ConfigureApp(app, logger.New().Named("test"))
 
 		By("adding test middleware to insert the userID local")
 		id := atomic.NewInt32(0)
@@ -100,6 +102,7 @@ var _ = Describe("Middleware", func() {
 			AnyTimes()
 		defer ctrl.Finish()
 		app := fiber.New()
+		logger.ConfigureApp(app, logger.New().Named("test"))
 
 		By("adding the rbac middleware")
 		app.Use(rbac.NewMiddleware(mockProvider))

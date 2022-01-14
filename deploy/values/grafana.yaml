@@ -9,7 +9,7 @@ datasources:
       - name: Opni
         type: prometheus
         access: proxy
-        url: https://opni-gateway.opni-monitoring.svc:8080/prometheus
+        url: https://opni-monitoring.opni-monitoring.svc:8080/prometheus
         withCredentials: true
         editable: false
         jsonData:

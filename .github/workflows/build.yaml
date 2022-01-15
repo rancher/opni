@@ -21,7 +21,7 @@ jobs:
         with:
           path: |
             ~/go
-            ${{ env.GITHUB_WORKSPACE }}/testbin
+            /home/runner/work/opni-monitoring/opni-monitoring/testbin
           key: ${{ runner.os }}-go
           restore-keys: |
             ${{ runner.os }}-go

@@ -97,7 +97,7 @@ func (m *Server) ListenAndServe(ctx context.Context) error {
 		return err
 	}
 	m.logger.With(
-		"address", m.listenAddress,
+		"address", listener.Addr().String(),
 	).Info("management server starting")
 	srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 	RegisterManagementServer(srv, m)

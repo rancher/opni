@@ -32,3 +32,9 @@ func (p *kubernetesProvider) UniqueIdentifier(ctx context.Context) (string, erro
 	}
 	return string(ns.GetUID()), nil
 }
+
+func init() {
+	if err := RegisterProvider("kubernetes", NewKubernetesProvider); err != nil {
+		panic(err)
+	}
+}

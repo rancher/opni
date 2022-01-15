@@ -20,7 +20,8 @@ func BuildManageCmd() *cobra.Command {
 		Use:   "manage",
 		Short: "Interact with the gateway's management API",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			c, err := management.NewClient(management.WithListenAddress(address))
+			c, err := management.NewClient(context.Background(),
+				management.WithListenAddress(address))
 			if err != nil {
 				return err
 			}
@@ -167,10 +168,10 @@ func BuildTenantsListCmd() *cobra.Command {
 
 func BuildTenantsDeleteCmd() *cobra.Command {
 	tenantsDeleteCmd := &cobra.Command{
-		Use:   "delete <tenant-id>",
+		Use:     "delete <tenant-id>",
 		Aliases: []string{"rm"},
-		Short: "Delete a tenant",
-		Args:  cobra.ExactArgs(1),
+		Short:   "Delete a tenant",
+		Args:    cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			_, err := client.DeleteTenant(context.Background(),
 				&management.Tenant{
@@ -186,7 +187,6 @@ func BuildTenantsDeleteCmd() *cobra.Command {
 	}
 	return tenantsDeleteCmd
 }
-				
 
 func BuildRolesCmd() *cobra.Command {
 	rolesCmd := &cobra.Command{
@@ -239,10 +239,10 @@ func BuildRolesCreateCmd() *cobra.Command {
 
 func BuildRolesDeleteCmd() *cobra.Command {
 	rolesDeleteCmd := &cobra.Command{
-		Use:   "delete <name>",
+		Use:     "delete <name>",
 		Aliases: []string{"rm"},
-		Short: "Delete a role",
-		Args:  cobra.ExactArgs(1),
+		Short:   "Delete a role",
+		Args:    cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, role := range args {
 				_, err := client.DeleteRole(context.Background(),
@@ -322,10 +322,10 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 
 func BuildRoleBindingsDeleteCmd() *cobra.Command {
 	roleBindingsDeleteCmd := &cobra.Command{
-		Use:   "delete <rolebinding-name>",
+		Use:     "delete <rolebinding-name>",
 		Aliases: []string{"rm"},
-		Short: "Delete a role binding",
-		Args:  cobra.ExactArgs(1),
+		Short:   "Delete a role binding",
+		Args:    cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			_, err := client.DeleteRoleBinding(context.Background(),
 				&management.DeleteRoleBindingRequest{

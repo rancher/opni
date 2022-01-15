@@ -5,15 +5,18 @@ cd "$root_dir" || exit 1
 
 etcd_version="v3.5.1"
 cortex_version="v1.11.0"
+prometheus_version="v2.32.1"
 goarch="$(go env GOARCH)"
 goos="$(go env GOOS)"
 
 needs_etcd_download=false
 needs_cortex_download=false
+needs_prometheus_download=false
 # if testbin does not exist, need to download
 if [ ! -d "./testbin/bin" ]; then
   needs_etcd_download=true
   needs_cortex_download=true
+  needs_prometheus_download=true
 fi
 
 if [ "$needs_etcd_download" = false ]; then
@@ -66,4 +69,30 @@ if [ "$needs_cortex_download" = true ]; then
   rm -rf "${temp_dir}"
 else
   echo "cortex test binary up to date"
+fi
+
+if [ "$needs_prometheus_download" = false ]; then
+  if [ -f "./testbin/bin/prometheus" ]; then
+    cur_prometheus_version="v$(testbin/bin/prometheus --version | head -1 | awk '{print $2}')"
+    if [ "$cur_prometheus_version" != "$cortex_version" ]; then
+      echo "prometheus test binary out of date"
+      needs_prometheus_download=true
+    fi
+  else
+    echo "prometheus test binary missing"
+    needs_prometheus_download=true
+  fi
+fi
+
+if [ "$needs_prometheus_download" = true ]; then
+  # download prometheus binary
+  temp_dir=$(mktemp -d)
+  echo "downloading prometheus ${cortex_version} binary"
+  mkdir -p ./testbin/bin
+  curl -sL "https://github.com/prometheus/prometheus/releases/download/${prometheus_version}/prometheus-${prometheus_version/v/}.${goos}-${goarch}.tar.gz" -o "${temp_dir}/prometheus.tar.gz"
+  tar -xf "${temp_dir}/prometheus.tar.gz" -C "${temp_dir}"
+  mv "${temp_dir}/prometheus-${prometheus_version/v/}.${goos}-${goarch}/prometheus" "./testbin/bin/prometheus"
+  rm -rf "${temp_dir}"
+else
+  echo "prometheus test binary up to date"
 fi

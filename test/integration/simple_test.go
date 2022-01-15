@@ -1,14 +1,18 @@
 package integration_test
 
 import (
+	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/kralicky/opni-monitoring/pkg/logger"
+	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/kralicky/opni-monitoring/pkg/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Simple Test", Ordered, func() {
@@ -27,36 +31,25 @@ var _ = Describe("Simple Test", Ordered, func() {
 		Expect(environment.Stop()).To(Succeed())
 	})
 
-	Specify("it should start the gateway", func() {
-		gc := environment.GatewayConfig().Spec.ListenAddress
-		Eventually(func() int {
-			req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://%s/healthz", gc), nil)
-			client := http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: environment.GatewayTLSConfig(),
-				},
-			}
-			resp, err := client.Do(req)
-			if err != nil {
-				return -1
-			}
-			return resp.StatusCode
-		}, 10*time.Second, 500*time.Millisecond).Should(Equal(http.StatusOK))
+	var token *management.BootstrapToken
+	var fingerprint string
+	It("should create a bootstrap token", func() {
+		mgmt := environment.NewManagementClient()
+		var err error
+		token, err = mgmt.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			TTL: durationpb.New(time.Minute),
+		}, grpc.WaitForReady(true))
+		Expect(err).NotTo(HaveOccurred())
+		certsInfo, err := mgmt.CertsInfo(context.Background(), &emptypb.Empty{})
+		Expect(err).NotTo(HaveOccurred())
+		fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
+		Expect(fingerprint).NotTo(BeEmpty())
 	})
-	Specify("cortex should become ready", func() {
-		gc := environment.GatewayConfig().Spec.ListenAddress
-		Eventually(func() int {
-			req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://%s/ready", gc), nil)
-			client := http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: environment.GatewayTLSConfig(),
-				},
-			}
-			resp, err := client.Do(req)
-			if err != nil {
-				return -1
-			}
-			return resp.StatusCode
-		}, 10*time.Second, 500*time.Millisecond).Should(Equal(http.StatusOK))
+	When("an agent is added", func() {
+		It("should become ready", func() {
+			port := environment.StartAgent("foo", token.ToToken().EncodeHex(), []string{fingerprint})
+			promAgentPort := environment.StartPrometheus(port)
+			Expect(promAgentPort).NotTo(BeZero())
+		})
 	})
 })

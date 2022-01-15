@@ -1,7 +1,10 @@
 package management
 
 import (
+	context "context"
+
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type ManagementClientOptions struct {
@@ -22,12 +25,13 @@ func WithListenAddress(addr string) ManagementClientOption {
 	}
 }
 
-func NewClient(opts ...ManagementClientOption) (ManagementClient, error) {
+func NewClient(ctx context.Context, opts ...ManagementClientOption) (ManagementClient, error) {
 	options := ManagementClientOptions{
 		listenAddr: DefaultManagementSocket(),
 	}
 	options.Apply(opts...)
-	cc, err := grpc.Dial(options.listenAddr, grpc.WithInsecure())
+	cc, err := grpc.DialContext(ctx, options.listenAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}

@@ -59,10 +59,10 @@ func BuildGatewayCmd() *cobra.Command {
 							zap.Error(err),
 						).Fatal("failed to create OpenID auth provider")
 					}
-					if err := auth.InstallMiddleware(ap.GetName(), mw); err != nil {
+					if err := auth.RegisterMiddleware(ap.GetName(), mw); err != nil {
 						lg.With(
 							zap.Error(err),
-						).Fatal("failed to install OpenID auth provider")
+						).Fatal("failed to register OpenID auth provider")
 					}
 				default:
 					lg.With(

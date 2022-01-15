@@ -45,7 +45,7 @@ var (
 	ErrMiddlewareConfigNotFound = errors.New("auth middleware config not found")
 )
 
-func InstallMiddleware(name string, m Middleware) error {
+func RegisterMiddleware(name string, m Middleware) error {
 	name = strings.TrimSpace(name)
 	if len(name) == 0 {
 		return ErrInvalidMiddlewareName

@@ -19,8 +19,11 @@ func NewProtocolListener(ctx context.Context, addr string) (net.Listener, error)
 	}
 	var lc net.ListenConfig
 	switch u.Scheme {
-	case "tcp":
-		return lc.Listen(ctx, "tcp", u.Host)
+	case "tcp", "tcp4":
+		if u.Host == "" {
+			return nil, fmt.Errorf("missing host in address %s", addr)
+		}
+		return lc.Listen(ctx, "tcp4", u.Host)
 	case "unix":
 		socketPath := u.Path
 		if err := createSocketDir(socketPath); err != nil {

@@ -87,15 +87,10 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 		logger:          lg,
 	}
 
-	switch agent.IdentityProvider.Type {
-	case v1beta1.IdentityProviderKubernetes:
-		agent.identityProvider = ident.NewKubernetesProvider()
-	case v1beta1.IdentityProviderHostPath:
-		agent.identityProvider = ident.NewHostPathProvider(agent.IdentityProvider.Options["path"])
-	default:
-		lg.With(
-			"type", agent.IdentityProvider.Type,
-		).Fatal("unknown identity provider")
+	var err error
+	agent.identityProvider, err = ident.GetProvider(conf.Spec.IdentityProvider)
+	if err != nil {
+		lg.With(zap.Error(err)).Fatal("configuration error")
 	}
 
 	switch agent.Storage.Type {
@@ -120,7 +115,6 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 
 	agent.bootstrapOrLoadKeys()
 
-	var err error
 	agent.tlsConfig, err = pkp.TLSConfig(agent.pkpKey.PinnedKeys)
 	if err != nil {
 		lg.With(zap.Error(err)).Fatal("error creating TLS config")
@@ -201,9 +195,8 @@ func (a *Agent) bootstrapOrLoadKeys() {
 		lg.With(zap.Error(err)).Fatal("error loading keyring")
 	}
 
-	if err := bootstrap.EraseBootstrapTokensFromConfig(); err != nil {
-		// non-fatal error
-		lg.With(zap.Error(err)).Error("error erasing bootstrap tokens from config")
+	if err := a.bootstrapper.Finalize(context.Background()); err != nil {
+		lg.With(zap.Error(err)).Error("error in post-bootstrap finalization")
 	}
 
 	// Get keys from the keyring

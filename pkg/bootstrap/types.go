@@ -9,6 +9,7 @@ import (
 
 type Bootstrapper interface {
 	Bootstrap(context.Context, ident.Provider) (keyring.Keyring, error)
+	Finalize(context.Context) error
 }
 
 type BootstrapJoinResponse struct {

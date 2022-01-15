@@ -16,6 +16,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
+	"k8s.io/client-go/rest"
 )
 
 var (
@@ -107,6 +108,14 @@ func (c *ClientConfig) Bootstrap(
 		keyring.NewSharedKeys(sharedSecret),
 		keyring.NewPKPKey(c.Pins),
 	), nil
+}
+
+func (c *ClientConfig) Finalize(ctx context.Context) error {
+	err := eraseBootstrapTokensFromConfig()
+	if err == nil || errors.Is(err, rest.ErrNotInCluster) {
+		return nil
+	}
+	return err
 }
 
 func (c *ClientConfig) bootstrapJoinURL() (*url.URL, error) {

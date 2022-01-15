@@ -21,6 +21,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"github.com/kralicky/opni-monitoring/pkg/gateway"
+	"github.com/kralicky/opni-monitoring/pkg/ident"
 	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	mock_ident "github.com/kralicky/opni-monitoring/pkg/test/mock/ident"
@@ -58,13 +59,13 @@ func (e *Environment) Start() error {
 	e.waitGroup = &sync.WaitGroup{}
 
 	if _, err := auth.GetMiddleware("test"); err != nil {
-		if err := auth.InstallMiddleware("test", &TestAuthMiddleware{
+		if err := auth.RegisterMiddleware("test", &TestAuthMiddleware{
 			Strategy: AuthStrategyUserIDInAuthHeader,
 		}); err != nil {
 			return fmt.Errorf("failed to install test auth middleware: %w", err)
 		}
 	}
-	ports, err := freeport.GetFreePorts(4)
+	ports, err := freeport.GetFreePorts(5)
 	if err != nil {
 		panic(err)
 	}
@@ -92,10 +93,13 @@ func (e *Environment) Start() error {
 			return err
 		}
 	}
+	if err := os.Mkdir(path.Join(e.tempDir, "prometheus"), 0700); err != nil {
+		return err
+	}
 
 	e.startEtcd()
 	e.startGateway()
-	go e.startCortex()
+	e.startCortex()
 	return nil
 }
 
@@ -200,6 +204,64 @@ func (e *Environment) startCortex() {
 	}()
 }
 
+type prometheusTemplateOptions struct {
+	ListenPort    int
+	OpniAgentPort int
+}
+
+func (e *Environment) StartPrometheus(opniAgentPort int) int {
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
+	e.waitGroup.Add(1)
+	configTemplate := TestData("prometheus/config.yaml")
+	t := template.Must(template.New("config").Parse(string(configTemplate)))
+	configFile, err := os.Create(path.Join(e.tempDir, "prometheus", "config.yaml"))
+	if err != nil {
+		panic(err)
+	}
+	if err := t.Execute(configFile, prometheusTemplateOptions{
+		ListenPort:    port,
+		OpniAgentPort: opniAgentPort,
+	}); err != nil {
+		panic(err)
+	}
+	configFile.Close()
+	prometheusBin := path.Join(e.TestBin, "prometheus")
+	defaultArgs := []string{
+		fmt.Sprintf("--config.file=%s", path.Join(e.tempDir, "prometheus/config.yaml")),
+		fmt.Sprintf("--storage.agent.path=%s", path.Join(e.tempDir, "prometheus")),
+		fmt.Sprintf("--web.listen-address=127.0.0.1:%d", port),
+		"--log.level=error",
+		"--web.enable-lifecycle",
+		"--enable-feature=agent",
+	}
+	cmd := exec.CommandContext(e.ctx, prometheusBin, defaultArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		if !errors.Is(e.ctx.Err(), context.Canceled) {
+			panic(err)
+		}
+	}
+	fmt.Println("Waiting for prometheus to start...")
+	for e.ctx.Err() == nil {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", port))
+		if err == nil && resp.StatusCode == http.StatusOK {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	fmt.Println("Prometheus started")
+	go func() {
+		defer e.waitGroup.Done()
+		<-e.ctx.Done()
+		cmd.Wait()
+	}()
+	return port
+}
+
 func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 	caCertData := string(TestData("root_ca.crt"))
 	servingCertData := string(TestData("localhost.crt"))
@@ -207,7 +269,7 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 	return &v1beta1.GatewayConfig{
 		Spec: v1beta1.GatewayConfigSpec{
 			ListenAddress:           fmt.Sprintf("localhost:%d", e.ports.Gateway),
-			ManagementListenAddress: fmt.Sprintf("tcp:///localhost:%d", e.ports.Management),
+			ManagementListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", e.ports.Management),
 			AuthProvider:            "test",
 			Certs: v1beta1.CertsSpec{
 				CACertData:      &caCertData,
@@ -250,8 +312,8 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 }
 
 func (e *Environment) NewManagementClient() management.ManagementClient {
-	c, err := management.NewClient(management.WithListenAddress(
-		fmt.Sprintf("localhost:%d", e.ports.Management)))
+	c, err := management.NewClient(e.ctx, management.WithListenAddress(
+		fmt.Sprintf("127.0.0.1:%d", e.ports.Management)))
 	if err != nil {
 		panic(err)
 	}
@@ -293,24 +355,29 @@ func (e *Environment) startGateway() {
 	}()
 }
 
-func (e *Environment) StartAgent(id string, token string, pins []string) {
+func (e *Environment) StartAgent(id string, token string, pins []string) int {
 	e.waitGroup.Add(1)
-	defer e.waitGroup.Done()
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
 	}
 
-	ident := mock_ident.NewMockProvider(e.mockCtrl)
-	ident.EXPECT().
-		UniqueIdentifier(gomock.Any()).
-		Return(id, nil).
-		AnyTimes()
+	if err := ident.RegisterProvider("test", func() ident.Provider {
+		mockIdent := mock_ident.NewMockProvider(e.mockCtrl)
+		mockIdent.EXPECT().
+			UniqueIdentifier(gomock.Any()).
+			Return(id, nil).
+			AnyTimes()
+		return mockIdent
+	}); err != nil {
+		panic(err)
+	}
 
 	agentConfig := &v1beta1.AgentConfig{
 		Spec: v1beta1.AgentConfigSpec{
-			ListenAddress:  fmt.Sprintf("localhost:%d", port),
-			GatewayAddress: fmt.Sprintf("localhost:%d", e.ports.Gateway),
+			ListenAddress:    fmt.Sprintf("localhost:%d", port),
+			GatewayAddress:   fmt.Sprintf("localhost:%d", e.ports.Gateway),
+			IdentityProvider: "test",
 			Storage: v1beta1.StorageSpec{
 				Type: v1beta1.StorageTypeEtcd,
 				Etcd: &v1beta1.EtcdStorageSpec{
@@ -346,10 +413,14 @@ func (e *Environment) StartAgent(id string, token string, pins []string) {
 			fmt.Println("agent error:", err)
 		}
 	}()
-	<-e.ctx.Done()
-	if err := agent.Shutdown(); err != nil {
-		fmt.Println("agent error:", err)
-	}
+	go func() {
+		defer e.waitGroup.Done()
+		<-e.ctx.Done()
+		if err := agent.Shutdown(); err != nil {
+			fmt.Println("agent error:", err)
+		}
+	}()
+	return port
 }
 
 func (e *Environment) GatewayTLSConfig() *tls.Config {

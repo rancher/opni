@@ -11,23 +11,11 @@ type AgentConfig struct {
 }
 
 type AgentConfigSpec struct {
-	ListenAddress    string               `json:"listenAddress,omitempty"`
-	GatewayAddress   string               `json:"gatewayAddress,omitempty"`
-	IdentityProvider IdentityProviderSpec `json:"identityProvider,omitempty"`
-	Storage          StorageSpec          `json:"storage,omitempty"`
-	Bootstrap        BootstrapSpec        `json:"bootstrap,omitempty"`
-}
-
-type IdentityProviderType string
-
-const (
-	IdentityProviderKubernetes IdentityProviderType = "kubernetes"
-	IdentityProviderHostPath   IdentityProviderType = "hostPath"
-)
-
-type IdentityProviderSpec struct {
-	Type    IdentityProviderType `json:"type,omitempty"`
-	Options map[string]string    `json:"options,omitempty"`
+	ListenAddress    string        `json:"listenAddress,omitempty"`
+	GatewayAddress   string        `json:"gatewayAddress,omitempty"`
+	IdentityProvider string        `json:"identityProvider,omitempty"`
+	Storage          StorageSpec   `json:"storage,omitempty"`
+	Bootstrap        BootstrapSpec `json:"bootstrap,omitempty"`
 }
 
 type BootstrapSpec struct {
@@ -39,8 +27,8 @@ func (s *AgentConfigSpec) SetDefaults() {
 	if s == nil {
 		return
 	}
-	if s.IdentityProvider.Type == "" {
-		s.IdentityProvider.Type = IdentityProviderKubernetes
+	if s.IdentityProvider == "" {
+		s.IdentityProvider = "kubernetes"
 	}
 	if s.ListenAddress == "" {
 		s.ListenAddress = ":8080"

@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func EraseBootstrapTokensFromConfig() error {
+func eraseBootstrapTokensFromConfig() error {
 	restConfig, err := rest.InClusterConfig()
 	if err != nil {
 		return err

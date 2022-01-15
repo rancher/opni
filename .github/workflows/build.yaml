@@ -16,15 +16,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Cache
+      - name: Go Module Cache
         uses: actions/cache@v2.1.7
         with:
-          path: |
-            ~/go
-            /home/runner/work/opni-monitoring/opni-monitoring/testbin
-          key: ${{ runner.os }}-go
-          restore-keys: |
-            ${{ runner.os }}-go
+          path: ~/go
+          key: cache-go-${{ runner.os }}-${{ github.sha }}
+          restore-keys: cache-go-${{ runner.os }}-
+      - name: Test Binary Cache
+        uses: actions/cache@v2.1.7
+        with:
+          path: /home/runner/work/opni-monitoring/opni-monitoring/testbin
+          key: cache-testbin-${{ runner.os }}-${{ github.sha }}
+          restore-keys: cache-testbin-${{ runner.os }}-
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -39,4 +42,3 @@ jobs:
         uses: codecov/codecov-action@v1
         with:
           files: ./cover.out
-          verbose: true # optional (default = false)

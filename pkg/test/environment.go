@@ -78,11 +78,11 @@ func (e *Environment) Start() error {
 	if err != nil {
 		return err
 	}
-	if err := os.Mkdir(path.Join(e.tempDir, "etcd"), 0755); err != nil {
+	if err := os.Mkdir(path.Join(e.tempDir, "etcd"), 0700); err != nil {
 		return err
 	}
 	cortexTempDir := path.Join(e.tempDir, "cortex")
-	if err := os.Mkdir(cortexTempDir, 0755); err != nil {
+	if err := os.MkdirAll(path.Join(cortexTempDir, "rules"), 0700); err != nil {
 		return err
 	}
 	entries, _ := fs.ReadDir(TestDataFS, "testdata/cortex")
@@ -113,6 +113,7 @@ func (e *Environment) startEtcd() {
 		fmt.Sprintf("--listen-client-urls=http://localhost:%d", e.ports.Etcd),
 		fmt.Sprintf("--advertise-client-urls=http://localhost:%d", e.ports.Etcd),
 		"--listen-peer-urls=http://localhost:0",
+		"--log-level=error",
 		fmt.Sprintf("--data-dir=%s", path.Join(e.tempDir, "etcd")),
 	}
 	etcdBin := path.Join(e.TestBin, "etcd")
@@ -127,8 +128,8 @@ func (e *Environment) startEtcd() {
 			return
 		}
 	}
+	fmt.Println("Waiting for etcd to start...")
 	for e.ctx.Err() == nil {
-		fmt.Println("Waiting for etcd to start...")
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/health", e.ports.Etcd))
 		if err == nil {
 			if resp.StatusCode == http.StatusOK {
@@ -152,7 +153,6 @@ type cortexTemplateOptions struct {
 
 func (e *Environment) startCortex() {
 	e.waitGroup.Add(1)
-	defer e.waitGroup.Done()
 	configTemplate := TestData("cortex/config.yaml")
 	t := template.Must(template.New("config").Parse(string(configTemplate)))
 	configFile, err := os.Create(path.Join(e.tempDir, "cortex", "config.yaml"))
@@ -178,8 +178,26 @@ func (e *Environment) startCortex() {
 			panic(err)
 		}
 	}
-	<-e.ctx.Done()
-	cmd.Wait()
+	fmt.Println("Waiting for cortex to start...")
+	for e.ctx.Err() == nil {
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.Gateway), nil)
+		client := http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: e.GatewayTLSConfig(),
+			},
+		}
+		resp, err := client.Do(req)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	fmt.Println("Cortex started")
+	go func() {
+		defer e.waitGroup.Done()
+		<-e.ctx.Done()
+		cmd.Wait()
+	}()
 }
 
 func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
@@ -248,7 +266,7 @@ func (e *Environment) startGateway() {
 	)
 	go func() {
 		if err := g.Listen(); err != nil {
-			fmt.Println(err)
+			fmt.Println("gateway error:", err)
 		}
 	}()
 	fmt.Println("Waiting for gateway to start...")
@@ -270,7 +288,7 @@ func (e *Environment) startGateway() {
 		defer e.waitGroup.Done()
 		<-e.ctx.Done()
 		if err := g.Shutdown(); err != nil {
-			fmt.Println(err)
+			fmt.Println("gateway error:", err)
 		}
 	}()
 }
@@ -323,10 +341,14 @@ func (e *Environment) StartAgent(id string, token string, pins []string) {
 			Pins:     publicKeyPins,
 			Endpoint: fmt.Sprintf("http://localhost:%d", e.ports.Gateway),
 		}))
-	go agent.ListenAndServe()
+	go func() {
+		if err := agent.ListenAndServe(); err != nil {
+			fmt.Println("agent error:", err)
+		}
+	}()
 	<-e.ctx.Done()
 	if err := agent.Shutdown(); err != nil {
-		fmt.Println(err)
+		fmt.Println("agent error:", err)
 	}
 }
 

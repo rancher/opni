@@ -17,9 +17,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Cache
-        uses: actions/cache@v2.1.4
+        uses: actions/cache@v2.1.7
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/go
+            ${{ env.GITHUB_WORKSPACE }}/testbin
           key: ${{ runner.os }}-go
           restore-keys: |
             ${{ runner.os }}-go

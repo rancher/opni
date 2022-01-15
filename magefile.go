@@ -29,9 +29,7 @@ func Build() error {
 }
 
 func Test() error {
-	if _, err := os.Stat("testbin/bin"); os.IsNotExist(err) {
-		sh.RunV("scripts/setup-envtest.sh")
-	}
+	sh.RunV("scripts/setup-envtest.sh")
 	return sh.RunV(mg.GoCmd(), "run", "github.com/onsi/ginkgo/v2/ginkgo",
 		"-r",
 		"--randomize-suites",

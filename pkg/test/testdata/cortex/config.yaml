@@ -1,0 +1,87 @@
+# Configuration for running Cortex in single-process mode.
+# This should not be used in production.  It is only for getting started
+# and development.
+
+auth_enabled: true
+tenant_federation:
+  enabled: true
+
+server:
+  http_listen_port: {{ .HttpListenPort }}
+  http_tls_config: &tls_server_config
+    cert_file: "{{ .StorageDir }}/server.crt"
+    key_file: "{{ .StorageDir }}/server.key"
+    client_ca_file: "{{ .StorageDir }}/root.crt"
+    client_auth_type: RequireAndVerifyClientCert
+  grpc_tls_config: *tls_server_config
+
+alertmanager:
+  alertmanager_client: &tls_client_config
+    tls_enabled: true
+    tls_cert_path: "{{ .StorageDir }}client.crt"
+    tls_key_path: "{{ .StorageDir }}client.key"
+    tls_ca_path: "{{ .StorageDir }}/root.crt"
+
+querier:
+  store_gateway_client: *tls_client_config
+
+frontend:
+  grpc_client_config: *tls_client_config
+
+frontend_worker:
+  grpc_client_config: *tls_client_config
+  match_max_concurrent: true
+
+ingester_client:
+  grpc_client_config: *tls_client_config
+
+ruler:
+  ruler_client: *tls_client_config
+  enable_api: true
+  enable_sharding: false
+
+distributor:
+  shard_by_all_labels: true
+  pool:
+    health_check_ingesters: true
+
+ingester:
+  lifecycler:
+    # The address to advertise for this ingester.  Will be autodiscovered by
+    # looking up address on eth0 or en0; can be specified if this fails.
+    address: localhost
+
+    # We want to start immediately and flush on shutdown.
+    join_after: 0
+    min_ready_duration: 0s
+    final_sleep: 0s
+    num_tokens: 512
+
+    # Use an in memory ring store, so we don't need to launch a Consul.
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+
+storage:
+  engine: blocks
+
+blocks_storage:
+  tsdb:
+    dir: "{{ .StorageDir }}/tsdb"
+  bucket_store:
+    sync_dir: "{{ .StorageDir }}/tsdb-sync"
+  backend: filesystem
+  filesystem:
+    dir: "{{ .StorageDir }}/blocks"
+
+compactor:
+  data_dir: "{{ .StorageDir }}/compactor"
+  sharding_ring:
+    kvstore:
+      store: inmemory
+
+ruler_storage:
+  backend: local
+  local:
+    directory: "{{ .StorageDir }}/rules"

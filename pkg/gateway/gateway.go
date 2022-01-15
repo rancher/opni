@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -84,6 +85,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		Network:                 "tcp4",
 		EnableTrustedProxyCheck: len(conf.Spec.TrustedProxies) > 0,
 		TrustedProxies:          conf.Spec.TrustedProxies,
+		DisableStartupMessage:   true,
 	})
 	logger.ConfigureApp(app, lg)
 
@@ -96,14 +98,10 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	}
 
 	app.All("/healthz", func(c *fiber.Ctx) error {
-		return c.Status(http.StatusOK).SendString("alive")
+		return c.SendStatus(http.StatusOK)
 	})
 
-	servingCertBundle, err := loadServingCertBundle(
-		conf.Spec.Certs.CACert,
-		conf.Spec.Certs.ServingCert,
-		conf.Spec.Certs.ServingKey,
-	)
+	servingCertBundle, err := loadServingCertBundle(conf.Spec.Certs)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
@@ -206,7 +204,7 @@ func (g *Gateway) loadCortexCerts() {
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-		).Fatalf("failed to load cortex client keypair")
+		).Fatal("failed to load cortex client keypair")
 	}
 	serverCAPool := x509.NewCertPool()
 	serverCAData, err := os.ReadFile(cortexServerCA)
@@ -229,7 +227,6 @@ func (g *Gateway) loadCortexCerts() {
 		lg.Fatal("failed to load cortex client CA")
 	}
 	g.cortexTLSConfig = &tls.Config{
-		ServerName:   "cortex-server",
 		Certificates: []tls.Certificate{clientCert},
 		ClientCAs:    clientCAPool,
 		RootCAs:      serverCAPool,
@@ -287,20 +284,50 @@ func (g *Gateway) setupCortexRoutes(
 }
 
 // Returns a complete cert chain including the root CA, and a tls serving cert.
-func loadServingCertBundle(cacertPath, certPath, keyPath string) (*tls.Certificate, error) {
-	data, err := os.ReadFile(cacertPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load CA cert: %w", err)
+func loadServingCertBundle(certsSpec v1beta1.CertsSpec) (*tls.Certificate, error) {
+	var caCertData, servingCertData, servingKeyData []byte
+	switch {
+	case certsSpec.CACert != nil:
+		data, err := os.ReadFile(*certsSpec.CACert)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load CA cert: %w", err)
+		}
+		caCertData = data
+	case certsSpec.CACertData != nil:
+		caCertData = []byte(*certsSpec.CACertData)
+	default:
+		return nil, errors.New("no CA cert configured")
 	}
-	root, err := pkp.ParsePEMEncodedCertChain(data)
+	switch {
+	case certsSpec.ServingCert != nil:
+		data, err := os.ReadFile(*certsSpec.ServingCert)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load serving cert: %w", err)
+		}
+		servingCertData = data
+	case certsSpec.ServingCertData != nil:
+		servingCertData = []byte(*certsSpec.ServingCertData)
+	default:
+		return nil, errors.New("no serving cert configured")
+	}
+	switch {
+	case certsSpec.ServingKey != nil:
+		data, err := os.ReadFile(*certsSpec.ServingKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load serving key: %w", err)
+		}
+		servingKeyData = data
+	case certsSpec.ServingKeyData != nil:
+		servingKeyData = []byte(*certsSpec.ServingKeyData)
+	default:
+		return nil, errors.New("no serving key configured")
+	}
+
+	rootCA, err := pkp.ParsePEMEncodedCert(caCertData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CA cert: %w", err)
 	}
-	if len(root) != 1 {
-		return nil, fmt.Errorf("failed to parse CA cert: expected one certificate in chain, got %d", len(root))
-	}
-	rootCA := root[0]
-	servingCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	servingCert, err := tls.X509KeyPair(servingCertData, servingKeyData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load TLS certificate: %w", err)
 	}

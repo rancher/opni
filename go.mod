@@ -8,16 +8,20 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/jedib0t/go-pretty/v6 v6.2.4
+	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/kralicky/ragu v0.2.1
 	github.com/lestrrat-go/jwx v1.2.15
 	github.com/magefile/mage v1.12.1
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/onsi/ginkgo/v2 v2.0.0
 	github.com/onsi/gomega v1.17.0
+	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/spf13/cobra v1.3.0
+	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/valyala/fasthttp v1.32.0
 	go.etcd.io/etcd/client/v3 v3.5.1
 	go.uber.org/atomic v1.9.0
+	go.uber.org/zap v1.19.0
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
 	gonum.org/v1/gonum v0.9.3
 	google.golang.org/grpc v1.43.0
@@ -64,7 +68,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/jwalton/go-supportscolor v1.1.0 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
@@ -86,7 +89,6 @@ require (
 	github.com/russross/blackfriday v1.5.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
-	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca // indirect
@@ -95,7 +97,6 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.5.1 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
-	go.uber.org/zap v1.19.0 // indirect
 	golang.org/x/mod v0.5.0 // indirect
 	golang.org/x/net v0.0.0-20211209124913-491a49abca63 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect

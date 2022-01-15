@@ -56,17 +56,17 @@ func NewEtcdStore(opts ...EtcdStoreOption) *EtcdStore {
 			zap.Error(err),
 		).Fatal("failed to create etcd client")
 	}
-	ctx, ca := context.WithTimeout(context.Background(), defaultEtcdTimeout)
-	defer ca()
-	_, err = cli.Status(ctx, options.clientConfig.Endpoints[0])
-	if err != nil {
-		lg.With(
-			zap.Error(err),
-		).Fatal("failed to connect to etcd")
-	}
+	// ctx, ca := context.WithTimeout(context.Background(), defaultEtcdTimeout)
+	// defer ca()
+	// _, err = cli.Status(ctx, options.clientConfig.Endpoints[0])
+	// if err != nil {
+	// 	lg.With(
+	// 		zap.Error(err),
+	// 	).Fatal("failed to connect to etcd")
+	// }
 	lg.With(
 		"endpoints", options.clientConfig.Endpoints,
-	).Info("Connected to etcd")
+	).Info("connecting to etcd")
 	return &EtcdStore{
 		client: cli,
 	}

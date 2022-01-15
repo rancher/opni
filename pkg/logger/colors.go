@@ -12,8 +12,6 @@ var colorEnabled = supportscolor.SupportsColor(
 	supportscolor.SniffFlagsOption(false),
 ).SupportsColor
 
-// wrap chalk methods
-
 func ColorEnabled() bool {
 	return colorEnabled
 }

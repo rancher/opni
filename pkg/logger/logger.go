@@ -47,11 +47,19 @@ func New() *zap.SugaredLogger {
 		FunctionKey:   "",
 		StacktraceKey: "S",
 		LineEnding:    "\n",
-		EncodeLevel:   zapcore.CapitalColorLevelEncoder,
+		EncodeLevel: func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+			if colorEnabled {
+				zapcore.CapitalColorLevelEncoder(l, enc)
+			} else {
+				zapcore.CapitalLevelEncoder(l, enc)
+			}
+		},
 		EncodeCaller: func(ec zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 			enc.AppendString(TextStyle(ec.TrimmedPath(), chalk.Dim))
 		},
-		EncodeName:       zapcore.FullNameEncoder,
+		EncodeName: func(s string, enc zapcore.PrimitiveArrayEncoder) {
+			enc.AppendString(Color(s, chalk.Green))
+		},
 		EncodeDuration:   zapcore.SecondsDurationEncoder,
 		EncodeTime:       zapcore.TimeEncoderOfLayout("Jan 02 15:04:05"),
 		ConsoleSeparator: " ",

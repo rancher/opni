@@ -164,6 +164,10 @@ func (a *Agent) ListenAndServe() error {
 	return a.app.Listen(a.ListenAddress)
 }
 
+func (a *Agent) Shutdown() error {
+	return a.app.Shutdown()
+}
+
 func (a *Agent) bootstrapOrLoadKeys() {
 	lg := a.logger
 	// Look up our tenant ID

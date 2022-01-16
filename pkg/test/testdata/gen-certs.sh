@@ -1,6 +1,6 @@
 #!/bin/bash
 
-args=("-f" "--kty=OKP" "--crv=Ed25519" "--insecure" "--no-password")
+args=("-f" "--kty=OKP" "--crv=Ed25519" "--insecure" "--no-password" "--not-after=87600h")
 
 step certificate create "Example Root CA" root_ca.crt root_ca.key --profile=root-ca "${args[@]}"
 step certificate create "Example Intermediate CA 1" intermediate_ca_1.crt intermediate_ca_1.key --profile=intermediate-ca --ca=root_ca.crt --ca-key=root_ca.key "${args[@]}"

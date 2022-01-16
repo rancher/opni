@@ -27,7 +27,7 @@ var (
 )
 
 func AsciiLogo() string {
-	if colorEnabled {
+	if ColorEnabled() {
 		return coloredAsciiLogo
 	}
 	return asciiLogo
@@ -48,7 +48,7 @@ func New() *zap.SugaredLogger {
 		StacktraceKey: "S",
 		LineEnding:    "\n",
 		EncodeLevel: func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-			if colorEnabled {
+			if ColorEnabled() {
 				zapcore.CapitalColorLevelEncoder(l, enc)
 			} else {
 				zapcore.CapitalLevelEncoder(l, enc)
@@ -72,8 +72,8 @@ func New() *zap.SugaredLogger {
 		Sampling:          nil,
 		Encoding:          "console",
 		EncoderConfig:     encoderConfig,
-		OutputPaths:       []string{"stderr"},
-		ErrorOutputPaths:  []string{"stderr"},
+		OutputPaths:       []string{"stdout"},
+		ErrorOutputPaths:  []string{"stdout"},
 	}
 	lg, err := zapConfig.Build()
 	if err != nil {

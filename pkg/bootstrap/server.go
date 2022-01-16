@@ -57,7 +57,7 @@ func (h ServerConfig) Handle(c *fiber.Ctx) error {
 func (h ServerConfig) handleBootstrapJoin(c *fiber.Ctx) error {
 	authHeader := strings.TrimSpace(c.Get("Authorization"))
 	if authHeader == "" {
-		if resp, err := h.bootstrapJoinResponse(c.Context()); err != nil {
+		if resp, err := h.bootstrapJoinResponse(context.Background()); err != nil {
 			return c.SendStatus(fiber.StatusInternalServerError)
 		} else {
 			if len(resp.Signatures) == 0 {
@@ -92,7 +92,7 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	if err != nil {
 		panic("bug: jws.Verify returned a malformed token")
 	}
-	ok, err := h.TokenStore.TokenExists(c.Context(), token.HexID())
+	ok, err := h.TokenStore.TokenExists(context.Background(), token.HexID())
 	if err != nil {
 		lg.Printf("error checking if token exists: %v")
 		return c.SendStatus(fiber.StatusInternalServerError)
@@ -107,7 +107,7 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 	}
 
-	if ok, err := h.TenantStore.TenantExists(c.Context(), clientReq.ClientID); err != nil {
+	if ok, err := h.TenantStore.TenantExists(context.Background(), clientReq.ClientID); err != nil {
 		lg.Printf("error checking if tenant exists: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	} else if ok {
@@ -125,16 +125,16 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 	kr := keyring.New(keyring.NewSharedKeys(sharedSecret))
-	if err := h.TenantStore.CreateTenant(c.Context(), clientReq.ClientID); err != nil {
+	if err := h.TenantStore.CreateTenant(context.Background(), clientReq.ClientID); err != nil {
 		lg.Printf("error creating tenant: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
-	krStore, err := h.TenantStore.KeyringStore(c.Context(), clientReq.ClientID)
+	krStore, err := h.TenantStore.KeyringStore(context.Background(), clientReq.ClientID)
 	if err != nil {
 		lg.Printf("error getting keyring store: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
-	if err := krStore.Put(c.Context(), kr); err != nil {
+	if err := krStore.Put(context.Background(), kr); err != nil {
 		lg.Printf("error storing keyring: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}

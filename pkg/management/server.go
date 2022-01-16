@@ -101,6 +101,10 @@ func (m *Server) ListenAndServe(ctx context.Context) error {
 	).Info("management server starting")
 	srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 	RegisterManagementServer(srv, m)
+	go func() {
+		<-ctx.Done()
+		srv.Stop()
+	}()
 	return srv.Serve(listener)
 }
 

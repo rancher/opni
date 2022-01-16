@@ -1,6 +1,7 @@
 package tenant
 
 import (
+	"context"
 	"crypto/ed25519"
 
 	"github.com/gofiber/fiber/v2"
@@ -38,13 +39,13 @@ func (m *TenantMiddleware) Handle(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).SendString(err.Error())
 	}
 
-	ks, err := m.tenantStore.KeyringStore(c.Context(), tenantID)
+	ks, err := m.tenantStore.KeyringStore(context.Background(), tenantID)
 	if err != nil {
 		lg.Printf("unauthorized: no keyring store found for tenant %s: %v", tenantID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	kr, err := ks.Get(c.Context())
+	kr, err := ks.Get(context.Background())
 	if err != nil {
 		lg.Printf("unauthorized: no keyring found for tenant %s: %v", tenantID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)

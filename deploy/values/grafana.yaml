@@ -13,5 +13,28 @@ datasources:
         withCredentials: true
         editable: false
         jsonData:
-          tlsSkipVerify: true
+          tlsAuthWithCACert: true
           oauthPassThru: true
+grafana.ini:
+  server:
+    domain: "grafana.{{ .Environment.Values.hostname }}"
+    root_url: "grafana.{{ .Environment.Values.hostname }}"
+  auth.generic_oauth:
+    tls_client_ca: /run/opni-monitoring/certs/ca.crt
+extraSecretMounts:
+  - name: opni-cacert
+    mountPath: /run/opni-monitoring/certs
+    readOnly: true
+    projected:
+      sources:
+        - secret:
+            name: opni-gateway-serving-cert
+            items:
+              - key: ca.crt
+                path: ca.crt
+tls:
+  - secretName: grafana-tls-keys
+    hosts:
+      - "grafana.{{ .Environment.Values.hostname }}"
+persistence:
+  enabled: true

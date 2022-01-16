@@ -1,8 +1,5 @@
 # Copy this to a file named grafana.yaml and edit it with your own values.
 grafana.ini:
-  server:
-    domain: "" # Full path which grafana will be accessible at
-    root_url: "" # Same as domain
   auth.proxy:
     enabled: true
   auth.basic:

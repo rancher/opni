@@ -3,102 +3,53 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
+	"fmt"
 	"strings"
-	"sync"
 
-	"emperror.dev/errors"
-
-	"github.com/kralicky/ragu/pkg/ragu"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+
+	// mage:import
+	"github.com/kralicky/spellbook/build"
+	// mage:import
+	test "github.com/kralicky/spellbook/test/ginkgo"
+	// mage:import
+	"github.com/kralicky/spellbook/docker"
+	// mage:import
+	"github.com/kralicky/spellbook/mockgen"
+	// mage:import
+	protobuf "github.com/kralicky/spellbook/protobuf/ragu"
+	// mage:import
+	"github.com/kralicky/spellbook/testbin"
 )
 
 var Default = All
 
 func All() {
-	mg.SerialDeps(Build)
+	mg.SerialDeps(build.Build)
 }
 
-func Build() error {
-	mg.Deps(Generate)
-	return sh.RunWith(map[string]string{
-		"CGO_ENABLED": "0",
-	}, mg.GoCmd(), "build", "-ldflags", "-w -s", "-o", "bin/opnim", "./cmd/opnim")
+func Generate() {
+	mg.Deps(mockgen.Mockgen, protobuf.Protobuf)
 }
 
-func Test() error {
-	sh.RunV("scripts/setup-envtest.sh")
-	return sh.RunV(mg.GoCmd(), "run", "github.com/onsi/ginkgo/v2/ginkgo",
-		"-r",
-		"--randomize-suites",
-		"--fail-on-pending",
-		"--keep-going",
-		"--cover",
-		"--coverprofile=cover.out",
-		"--race",
-		"--trace",
-		"--timeout=10m")
+// "prometheus, version x.y.z"
+// "etcd Version: x.y.z"
+// "Cortex, version x.y.z"
+func getVersion(binary string) string {
+	version, err := sh.Output(binary, "--version")
+	if err != nil {
+		panic(fmt.Sprintf("failed to query version for %s: %v", binary, err))
+	}
+	return strings.Split(strings.Split(version, "\n")[0], " ")[2]
 }
 
-func Docker() error {
-	mg.Deps(Build)
-	return sh.RunWithV(map[string]string{
-		"DOCKER_BUILDKIT": "1",
-	}, "docker", "build", "-t", "kralicky/opni-monitoring", ".")
-}
+func init() {
+	build.Deps(Generate)
+	docker.Deps(build.Build)
+	test.Deps(testbin.Testbin)
 
-type mockgenConfig struct {
-	Source string
-	Dest   string
-	Types  []string
-}
-
-func Generate() error {
-	wg := sync.WaitGroup{}
-
-	var mu sync.Mutex
-	var generateErr error
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		protos, err := ragu.GenerateCode("pkg/management/management.proto", true)
-		if err != nil {
-			mu.Lock()
-			generateErr = errors.Append(generateErr, err)
-			mu.Unlock()
-			return
-		}
-		for _, f := range protos {
-			path := filepath.Join("pkg/management", f.GetName())
-			if info, err := os.Stat(path); err == nil {
-				if info.Mode()&0200 == 0 {
-					if err := os.Chmod(path, 0644); err != nil {
-						mu.Lock()
-						generateErr = errors.Append(generateErr, err)
-						mu.Unlock()
-						return
-					}
-				}
-			}
-			if err := os.WriteFile(path, []byte(f.GetContent()), 0444); err != nil {
-				mu.Lock()
-				generateErr = errors.Append(generateErr, err)
-				mu.Unlock()
-				return
-			}
-			if err := os.Chmod(path, 0444); err != nil {
-				mu.Lock()
-				generateErr = errors.Append(generateErr, err)
-				mu.Unlock()
-				return
-			}
-		}
-	}()
-
-	for _, cfg := range []mockgenConfig{
+	mockgen.Config.Mocks = []mockgen.Mock{
 		{
 			Source: "pkg/rbac/rbac.go",
 			Dest:   "pkg/test/mock/rbac/rbac.go",
@@ -114,22 +65,32 @@ func Generate() error {
 			Dest:   "pkg/test/mock/ident/ident.go",
 			Types:  []string{"Provider"},
 		},
-	} {
-		wg.Add(1)
-		go func(cfg mockgenConfig) {
-			defer wg.Done()
-			err := sh.RunV(mg.GoCmd(), "run", "github.com/golang/mock/mockgen",
-				"-source="+cfg.Source,
-				"-destination="+cfg.Dest,
-				strings.Join(cfg.Types, ","))
-			if err != nil {
-				mu.Lock()
-				generateErr = errors.Append(generateErr, err)
-				mu.Unlock()
-			}
-		}(cfg)
 	}
-
-	wg.Wait()
-	return generateErr
+	protobuf.Config.Protos = []protobuf.Proto{
+		{
+			Source:  "pkg/management/management.proto",
+			DestDir: "pkg/management",
+		},
+	}
+	docker.Config.Tag = "kralicky/opni-monitoring"
+	testbin.Config.Binaries = []testbin.Binary{
+		{
+			Name:       "etcd",
+			Version:    "3.5.1",
+			URL:        "https://storage.googleapis.com/etcd/v{{.Version}}/etcd-v{{.Version}}-{{.GOOS}}-{{.GOARCH}}.tar.gz",
+			GetVersion: getVersion,
+		},
+		{
+			Name:       "prometheus",
+			Version:    "2.32.1",
+			URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+			GetVersion: getVersion,
+		},
+		{
+			Name:       "cortex",
+			Version:    "1.11.0",
+			URL:        "https://github.com/cortexproject/cortex/releases/download/v{{.Version}}/cortex-{{.GOOS}}-{{.GOARCH}}",
+			GetVersion: getVersion,
+		},
+	}
 }

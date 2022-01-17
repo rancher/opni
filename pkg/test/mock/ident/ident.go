@@ -48,3 +48,55 @@ func (mr *MockProviderMockRecorder) UniqueIdentifier(ctx interface{}) *gomock.Ca
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UniqueIdentifier", reflect.TypeOf((*MockProvider)(nil).UniqueIdentifier), ctx)
 }
+
+// MockNamedProvider is a mock of NamedProvider interface.
+type MockNamedProvider struct {
+	ctrl     *gomock.Controller
+	recorder *MockNamedProviderMockRecorder
+}
+
+// MockNamedProviderMockRecorder is the mock recorder for MockNamedProvider.
+type MockNamedProviderMockRecorder struct {
+	mock *MockNamedProvider
+}
+
+// NewMockNamedProvider creates a new mock instance.
+func NewMockNamedProvider(ctrl *gomock.Controller) *MockNamedProvider {
+	mock := &MockNamedProvider{ctrl: ctrl}
+	mock.recorder = &MockNamedProviderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockNamedProvider) EXPECT() *MockNamedProviderMockRecorder {
+	return m.recorder
+}
+
+// Name mocks base method.
+func (m *MockNamedProvider) Name() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name.
+func (mr *MockNamedProviderMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockNamedProvider)(nil).Name))
+}
+
+// UniqueIdentifier mocks base method.
+func (m *MockNamedProvider) UniqueIdentifier(ctx context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UniqueIdentifier", ctx)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UniqueIdentifier indicates an expected call of UniqueIdentifier.
+func (mr *MockNamedProviderMockRecorder) UniqueIdentifier(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UniqueIdentifier", reflect.TypeOf((*MockNamedProvider)(nil).UniqueIdentifier), ctx)
+}

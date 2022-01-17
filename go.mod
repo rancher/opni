@@ -8,7 +8,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/jedib0t/go-pretty/v6 v6.2.4
 	github.com/jwalton/go-supportscolor v1.1.0
-	github.com/lestrrat-go/jwx v1.2.15
+	github.com/kralicky/spellbook v0.0.0-20220117010754-fed421257374
+	github.com/lestrrat-go/jwx v1.2.17
 	github.com/magefile/mage v1.12.1
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/onsi/ginkgo/v2 v2.0.0
@@ -54,7 +55,7 @@ require (
 	github.com/go-openapi/jsonreference v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.14 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
-	github.com/goccy/go-json v0.9.0 // indirect
+	github.com/goccy/go-json v0.9.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -72,7 +73,6 @@ require (
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/kralicky/ragu v0.2.1 // indirect
-	github.com/kralicky/spellbook v0.0.0-20220117010754-fed421257374 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
 	github.com/lestrrat-go/httpcc v1.0.0 // indirect

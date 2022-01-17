@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/jedib0t/go-pretty/v6 v6.2.4
 	github.com/jwalton/go-supportscolor v1.1.0
+	github.com/kralicky/spellbook v0.0.0-20220117010754-fed421257374
 	github.com/lestrrat-go/jwx v1.2.15
 	github.com/magefile/mage v1.12.1
 	github.com/mitchellh/mapstructure v1.4.3
@@ -19,7 +20,7 @@ require (
 	github.com/valyala/fasthttp v1.32.0
 	go.etcd.io/etcd/client/v3 v3.5.1
 	go.uber.org/atomic v1.9.0
-	go.uber.org/zap v1.19.0
+	go.uber.org/zap v1.20.0
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
 	gonum.org/v1/gonum v0.9.3
 	google.golang.org/grpc v1.43.0
@@ -72,7 +73,6 @@ require (
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/kralicky/ragu v0.2.1 // indirect
-	github.com/kralicky/spellbook v0.0.0-20220117010754-fed421257374 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
 	github.com/lestrrat-go/httpcc v1.0.0 // indirect

@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/magefile/mage/mg"
@@ -73,11 +74,15 @@ func init() {
 		},
 	}
 	docker.Config.Tag = "kralicky/opni-monitoring"
+	ext := ".tar.gz"
+	if runtime.GOOS == "darwin" {
+		ext = ".zip"
+	}
 	testbin.Config.Binaries = []testbin.Binary{
 		{
 			Name:       "etcd",
 			Version:    "3.5.1",
-			URL:        "https://storage.googleapis.com/etcd/v{{.Version}}/etcd-v{{.Version}}-{{.GOOS}}-{{.GOARCH}}.tar.gz",
+			URL:        "https://storage.googleapis.com/etcd/v{{.Version}}/etcd-v{{.Version}}-{{.GOOS}}-{{.GOARCH}}" + ext,
 			GetVersion: getVersion,
 		},
 		{

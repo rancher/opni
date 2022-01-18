@@ -1,7 +1,6 @@
 package util
 
 import (
-	"encoding/hex"
 	"fmt"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -22,7 +21,7 @@ func RenderBootstrapTokenList(tokens []*management.BootstrapToken) {
 
 func RenderCertInfoChain(chain []*management.CertInfo) {
 	for i, cert := range chain {
-		fp := hex.EncodeToString([]byte(cert.Fingerprint))
+		fp := []byte(cert.Fingerprint)
 		w := table.NewWriter()
 		w.SetIndexColumn(1)
 		w.SetStyle(table.StyleColoredDark)

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"path"
 	"strings"
 	"time"
 
@@ -30,6 +30,7 @@ var _ TenantStore = (*EtcdStore)(nil)
 
 type EtcdStoreOptions struct {
 	clientConfig clientv3.Config
+	namespace    string
 }
 
 type EtcdStoreOption func(*EtcdStoreOptions)
@@ -46,6 +47,12 @@ func WithClientConfig(config clientv3.Config) EtcdStoreOption {
 	}
 }
 
+func WithNamespace(namespace string) EtcdStoreOption {
+	return func(o *EtcdStoreOptions) {
+		o.namespace = namespace
+	}
+}
+
 func NewEtcdStore(opts ...EtcdStoreOption) *EtcdStore {
 	options := &EtcdStoreOptions{}
 	options.Apply(opts...)
@@ -56,14 +63,6 @@ func NewEtcdStore(opts ...EtcdStoreOption) *EtcdStore {
 			zap.Error(err),
 		).Fatal("failed to create etcd client")
 	}
-	// ctx, ca := context.WithTimeout(context.Background(), defaultEtcdTimeout)
-	// defer ca()
-	// _, err = cli.Status(ctx, options.clientConfig.Endpoints[0])
-	// if err != nil {
-	// 	lg.With(
-	// 		zap.Error(err),
-	// 	).Fatal("failed to connect to etcd")
-	// }
 	lg.With(
 		"endpoints", options.clientConfig.Endpoints,
 	).Info("connecting to etcd")
@@ -82,7 +81,7 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration) (*tokens
 	token := tokens.NewToken()
 	token.Metadata.LeaseID = int64(lease.ID)
 	token.Metadata.TTL = lease.TTL
-	_, err = e.client.Put(ctx, "/tokens/"+token.HexID(), string(token.EncodeJSON()),
+	_, err = e.client.Put(ctx, path.Join(e.namespace, "tokens", token.HexID()), string(token.EncodeJSON()),
 		clientv3.WithLease(lease.ID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token %w", err)
@@ -106,7 +105,7 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, tokenID string) error {
 	// If the token doesn't have a lease, delete it directly.
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Delete(ctx, "/tokens/"+tokenID)
+	resp, err := e.client.Delete(ctx, path.Join(e.namespace, "tokens", tokenID))
 	if err != nil {
 		return fmt.Errorf("failed to delete token %s: %w", tokenID, err)
 	}
@@ -119,7 +118,7 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, tokenID string) error {
 func (e *EtcdStore) TokenExists(ctx context.Context, tokenID string) (bool, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, "/tokens/"+tokenID)
+	resp, err := e.client.Get(ctx, path.Join(e.namespace, "tokens", tokenID))
 	if err != nil {
 		return false, fmt.Errorf("failed to get token %s: %w", tokenID, err)
 	}
@@ -129,7 +128,7 @@ func (e *EtcdStore) TokenExists(ctx context.Context, tokenID string) (bool, erro
 func (e *EtcdStore) GetToken(ctx context.Context, tokenID string) (*tokens.Token, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, "/tokens/"+tokenID)
+	resp, err := e.client.Get(ctx, path.Join(e.namespace, "tokens", tokenID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token %s: %w", tokenID, err)
 	}
@@ -150,7 +149,7 @@ func (e *EtcdStore) GetToken(ctx context.Context, tokenID string) (*tokens.Token
 func (e *EtcdStore) ListTokens(ctx context.Context) ([]*tokens.Token, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, "/tokens/", clientv3.WithPrefix())
+	resp, err := e.client.Get(ctx, path.Join(e.namespace, "tokens"), clientv3.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tokens: %w", err)
 	}
@@ -192,7 +191,7 @@ func (e *EtcdStore) addLeaseMetadata(
 func (e *EtcdStore) CreateTenant(ctx context.Context, tenantID string) error {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := e.client.Put(ctx, "/tenants/"+tenantID, "")
+	_, err := e.client.Put(ctx, path.Join(e.namespace, "tenants", tenantID), "")
 	if err != nil {
 		return fmt.Errorf("failed to create tenant %s: %w", tenantID, err)
 	}
@@ -202,7 +201,7 @@ func (e *EtcdStore) CreateTenant(ctx context.Context, tenantID string) error {
 func (e *EtcdStore) DeleteTenant(ctx context.Context, tenantID string) error {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := e.client.Delete(ctx, "/tenants/"+tenantID, clientv3.WithPrefix())
+	_, err := e.client.Delete(ctx, path.Join(e.namespace, "tenants", tenantID), clientv3.WithPrefix())
 	if err != nil {
 		return fmt.Errorf("failed to delete tenant %s: %w", tenantID, err)
 	}
@@ -212,7 +211,7 @@ func (e *EtcdStore) DeleteTenant(ctx context.Context, tenantID string) error {
 func (e *EtcdStore) TenantExists(ctx context.Context, tenantID string) (bool, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, "/tenants/"+tenantID)
+	resp, err := e.client.Get(ctx, path.Join(e.namespace, "tenants", tenantID))
 	if err != nil {
 		return false, fmt.Errorf("failed to get tenant %s: %w", tenantID, err)
 	}
@@ -222,25 +221,19 @@ func (e *EtcdStore) TenantExists(ctx context.Context, tenantID string) (bool, er
 func (e *EtcdStore) ListTenants(ctx context.Context) ([]string, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, "/tenants/", clientv3.WithPrefix())
+	resp, err := e.client.Get(ctx, path.Join(e.namespace, "tenants"),
+		clientv3.WithPrefix(),
+		clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tenants: %w", err)
 	}
-	// Keys will be of the form /tenants/<tenantID>[/keyring]
-	ids := map[string]struct{}{}
+	// Keys will be of the form namespace/tenants/<tenantID>[/keyring]
+	ids := []string{}
 	for _, kv := range resp.Kvs {
-		parts := strings.Split(string(kv.Key), "/") // {"", "tenants", <tenantID> [, ...]}
-		if len(parts) < 3 {
-			return nil, fmt.Errorf("unexpected key %s", kv.Key)
-		}
-		ids[parts[2]] = struct{}{}
+		ids = append(ids, strings.TrimSuffix(strings.TrimPrefix(string(kv.Key),
+			path.Join(e.namespace, "tenants")+"/"), "/keyring"))
 	}
-	sortedIds := make([]string, 0, len(ids))
-	for id := range ids {
-		sortedIds = append(sortedIds, id)
-	}
-	sort.Strings(sortedIds)
-	return sortedIds, nil
+	return ids, nil
 }
 
 func (e *EtcdStore) CreateRole(ctx context.Context, roleName string, tenantIDs []string) (rbac.Role, error) {
@@ -254,7 +247,7 @@ func (e *EtcdStore) CreateRole(ctx context.Context, roleName string, tenantIDs [
 	if err != nil {
 		return rbac.Role{}, fmt.Errorf("failed to marshal role %s: %w", roleName, err)
 	}
-	_, err = e.client.Put(ctx, "/roles/"+roleName, string(data))
+	_, err = e.client.Put(ctx, path.Join(e.namespace, "roles", roleName), string(data))
 	if err != nil {
 		return rbac.Role{}, fmt.Errorf("failed to create role %s: %w", roleName, err)
 	}
@@ -264,7 +257,7 @@ func (e *EtcdStore) CreateRole(ctx context.Context, roleName string, tenantIDs [
 func (e *EtcdStore) DeleteRole(ctx context.Context, roleName string) error {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := e.client.Delete(ctx, "/roles/"+roleName)
+	_, err := e.client.Delete(ctx, path.Join(e.namespace, "roles", roleName))
 	if err != nil {
 		return fmt.Errorf("failed to delete role %s: %w", roleName, err)
 	}
@@ -274,7 +267,7 @@ func (e *EtcdStore) DeleteRole(ctx context.Context, roleName string) error {
 func (e *EtcdStore) GetRole(ctx context.Context, roleName string) (rbac.Role, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, "/roles/"+roleName)
+	resp, err := e.client.Get(ctx, path.Join(e.namespace, "roles", roleName))
 	if err != nil {
 		return rbac.Role{}, fmt.Errorf("failed to get role %s: %w", roleName, err)
 	}
@@ -300,7 +293,7 @@ func (e *EtcdStore) CreateRoleBinding(ctx context.Context, roleBindingName strin
 	if err != nil {
 		return rbac.RoleBinding{}, fmt.Errorf("failed to marshal role binding %s: %w", roleBindingName, err)
 	}
-	_, err = e.client.Put(ctx, "/role_bindings/"+roleBindingName, string(data))
+	_, err = e.client.Put(ctx, path.Join(e.namespace, "role_bindings", roleBindingName), string(data))
 	if err != nil {
 		return rbac.RoleBinding{}, fmt.Errorf("failed to create role binding %s: %w", roleBindingName, err)
 	}
@@ -310,7 +303,7 @@ func (e *EtcdStore) CreateRoleBinding(ctx context.Context, roleBindingName strin
 func (e *EtcdStore) DeleteRoleBinding(ctx context.Context, roleBindingName string) error {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := e.client.Delete(ctx, "/role_bindings/"+roleBindingName)
+	_, err := e.client.Delete(ctx, path.Join(e.namespace, "role_bindings", roleBindingName))
 	if err != nil {
 		return fmt.Errorf("failed to delete role binding %s: %w", roleBindingName, err)
 	}
@@ -320,7 +313,7 @@ func (e *EtcdStore) DeleteRoleBinding(ctx context.Context, roleBindingName strin
 func (e *EtcdStore) GetRoleBinding(ctx context.Context, roleBindingName string) (rbac.RoleBinding, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, "/role_bindings/"+roleBindingName)
+	resp, err := e.client.Get(ctx, path.Join(e.namespace, "role_bindings", roleBindingName))
 	if err != nil {
 		return rbac.RoleBinding{}, fmt.Errorf("failed to get role binding %s: %w", roleBindingName, err)
 	}
@@ -337,7 +330,7 @@ func (e *EtcdStore) GetRoleBinding(ctx context.Context, roleBindingName string) 
 func (e *EtcdStore) ListRoles(ctx context.Context) ([]rbac.Role, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, "/roles/", clientv3.WithPrefix())
+	resp, err := e.client.Get(ctx, path.Join(e.namespace, "roles"), clientv3.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list roles: %w", err)
 	}
@@ -355,7 +348,7 @@ func (e *EtcdStore) ListRoles(ctx context.Context) ([]rbac.Role, error) {
 func (e *EtcdStore) ListRoleBindings(ctx context.Context) ([]rbac.RoleBinding, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, "/role_bindings/", clientv3.WithPrefix())
+	resp, err := e.client.Get(ctx, path.Join(e.namespace, "role_bindings"), clientv3.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}
@@ -371,14 +364,16 @@ func (e *EtcdStore) ListRoleBindings(ctx context.Context) ([]rbac.RoleBinding, e
 }
 
 type tenantKeyringStore struct {
-	client   *clientv3.Client
-	tenantID string
+	client    *clientv3.Client
+	tenantID  string
+	namespace string
 }
 
 func (e *EtcdStore) KeyringStore(ctx context.Context, tenantID string) (KeyringStore, error) {
 	return &tenantKeyringStore{
-		client:   e.client,
-		tenantID: tenantID,
+		client:    e.client,
+		tenantID:  tenantID,
+		namespace: e.namespace,
 	}, nil
 }
 
@@ -389,7 +384,7 @@ func (ks *tenantKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) 
 	if err != nil {
 		return fmt.Errorf("failed to marshal keyring: %w", err)
 	}
-	_, err = ks.client.Put(ctx, fmt.Sprintf("/tenants/%s/keyring", ks.tenantID), string(k))
+	_, err = ks.client.Put(ctx, path.Join(ks.namespace, "tenants", ks.tenantID, "keyring"), string(k))
 	if err != nil {
 		return fmt.Errorf("failed to put keyring: %w", err)
 	}
@@ -399,7 +394,7 @@ func (ks *tenantKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) 
 func (ks *tenantKeyringStore) Get(ctx context.Context) (keyring.Keyring, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := ks.client.Get(ctx, fmt.Sprintf("/tenants/%s/keyring", ks.tenantID))
+	resp, err := ks.client.Get(ctx, path.Join(ks.namespace, "tenants", ks.tenantID, "keyring"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get keyring: %w", err)
 	}

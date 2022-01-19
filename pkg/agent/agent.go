@@ -95,7 +95,10 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 
 	switch agent.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
-		etcd := storage.NewEtcdStore(storage.WithClientConfig(agent.Storage.Etcd.Config))
+		etcd := storage.NewEtcdStore(
+			storage.WithClientConfig(agent.Storage.Etcd.Config),
+			storage.WithNamespace("agent"),
+		)
 		id, err := agent.identityProvider.UniqueIdentifier(context.Background())
 		if err != nil {
 			lg.With(zap.Error(err)).Fatal("error getting unique identifier")

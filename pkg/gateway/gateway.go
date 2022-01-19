@@ -60,7 +60,10 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		if options == nil {
 			lg.Fatal("etcd storage options are not set")
 		} else {
-			store := storage.NewEtcdStore(storage.WithClientConfig(options.Config))
+			store := storage.NewEtcdStore(
+				storage.WithClientConfig(options.Config),
+				storage.WithNamespace("gateway"),
+			)
 			tokenStore = store
 			tenantStore = store
 			rbacStore = store

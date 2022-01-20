@@ -19,9 +19,9 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/management"
-	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
+	"github.com/kralicky/opni-monitoring/pkg/util"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -60,8 +60,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		if options == nil {
 			lg.Fatal("etcd storage options are not set")
 		} else {
-			store := storage.NewEtcdStore(
-				storage.WithClientConfig(options.Config),
+			store := storage.NewEtcdStore(conf.Spec.Storage.Etcd,
 				storage.WithNamespace("gateway"),
 			)
 			tokenStore = store
@@ -189,9 +188,12 @@ func (g *Gateway) newCortexForwarder(addr string) func(*fiber.Ctx) error {
 		req.Header.Del(fiber.HeaderConnection)
 		req.SetRequestURI(utils.UnsafeString(req.RequestURI()))
 		if err := hostClient.Do(req, resp); err != nil {
-			return err
+			return fmt.Errorf("cortex error: %w", err)
 		}
 		resp.Header.Del(fiber.HeaderConnection)
+		if resp.StatusCode() != http.StatusOK {
+			resp.Header.SetStatusMessage([]byte(fmt.Sprintf("cortex: %s", resp.Header.StatusMessage())))
+		}
 		return nil
 	}
 }
@@ -326,7 +328,7 @@ func loadServingCertBundle(certsSpec v1beta1.CertsSpec) (*tls.Certificate, error
 		return nil, errors.New("no serving key configured")
 	}
 
-	rootCA, err := pkp.ParsePEMEncodedCert(caCertData)
+	rootCA, err := util.ParsePEMEncodedCert(caCertData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CA cert: %w", err)
 	}

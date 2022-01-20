@@ -2,16 +2,19 @@ package storage
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"path"
 	"strings"
 	"time"
 
+	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
 	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
+	"github.com/kralicky/opni-monitoring/pkg/util"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 )
@@ -29,8 +32,7 @@ var _ TokenStore = (*EtcdStore)(nil)
 var _ TenantStore = (*EtcdStore)(nil)
 
 type EtcdStoreOptions struct {
-	clientConfig clientv3.Config
-	namespace    string
+	namespace string
 }
 
 type EtcdStoreOption func(*EtcdStoreOptions)
@@ -41,30 +43,36 @@ func (o *EtcdStoreOptions) Apply(opts ...EtcdStoreOption) {
 	}
 }
 
-func WithClientConfig(config clientv3.Config) EtcdStoreOption {
-	return func(o *EtcdStoreOptions) {
-		o.clientConfig = config
-	}
-}
-
 func WithNamespace(namespace string) EtcdStoreOption {
 	return func(o *EtcdStoreOptions) {
 		o.namespace = namespace
 	}
 }
 
-func NewEtcdStore(opts ...EtcdStoreOption) *EtcdStore {
+func NewEtcdStore(conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) *EtcdStore {
 	options := &EtcdStoreOptions{}
 	options.Apply(opts...)
 	lg := logger.New().Named("etcd")
-	cli, err := clientv3.New(options.clientConfig)
+	var tlsConfig *tls.Config
+	if conf.Certs != nil {
+		var err error
+		tlsConfig, err = util.LoadClientMTLSConfig(conf.Certs)
+		if err != nil {
+			lg.Fatal("failed to load client TLS config", zap.Error(err))
+		}
+	}
+	clientConfig := clientv3.Config{
+		Endpoints: conf.Endpoints,
+		TLS:       tlsConfig,
+	}
+	cli, err := clientv3.New(clientConfig)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
 		).Fatal("failed to create etcd client")
 	}
 	lg.With(
-		"endpoints", options.clientConfig.Endpoints,
+		"endpoints", clientConfig.Endpoints,
 	).Info("connecting to etcd")
 	return &EtcdStore{
 		client: cli,

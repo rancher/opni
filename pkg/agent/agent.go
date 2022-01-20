@@ -95,8 +95,7 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 
 	switch agent.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
-		etcd := storage.NewEtcdStore(
-			storage.WithClientConfig(agent.Storage.Etcd.Config),
+		etcd := storage.NewEtcdStore(agent.Storage.Etcd,
 			storage.WithNamespace("agent"),
 		)
 		id, err := agent.identityProvider.UniqueIdentifier(context.Background())

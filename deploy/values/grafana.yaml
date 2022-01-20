@@ -15,12 +15,14 @@ datasources:
         jsonData:
           tlsAuthWithCACert: true
           oauthPassThru: true
+        secureJsonData:
+          tlsCACert: "$__file{/run/opni-monitoring/certs/ca.crt}"
 grafana.ini:
   server:
-    domain: "grafana.{{ .Environment.Values.hostname }}"
-    root_url: "grafana.{{ .Environment.Values.hostname }}"
+    domain: "grafana.localhost"
+    root_url: "grafana.localhost"
   auth.generic_oauth:
-    tls_client_ca: /run/opni-monitoring/certs/ca.crt
+    scopes: "openid profile email"
 extraSecretMounts:
   - name: opni-cacert
     mountPath: /run/opni-monitoring/certs
@@ -32,9 +34,14 @@ extraSecretMounts:
             items:
               - key: ca.crt
                 path: ca.crt
+
 tls:
   - secretName: grafana-tls-keys
     hosts:
-      - "grafana.{{ .Environment.Values.hostname }}"
+      - "grafana.localhost"
 persistence:
   enabled: true
+ingress:
+  enabled: true
+  hosts:
+    - "grafana.localhost"

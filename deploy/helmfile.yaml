@@ -36,7 +36,3 @@ releases:
       - etcd
 helmfiles:
   - helmfiles/cert-manager.yaml
-environments:
-  default:
-    values:
-      - values.yaml

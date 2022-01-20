@@ -2,7 +2,6 @@ package v1beta1
 
 import (
 	"github.com/kralicky/opni-monitoring/pkg/config/meta"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type GatewayConfig struct {
@@ -28,7 +27,7 @@ type CortexSpec struct {
 	Alertmanager  AlertmanagerSpec  `json:"alertmanager,omitempty"`
 	Ruler         RulerSpec         `json:"ruler,omitempty"`
 	QueryFrontend QueryFrontendSpec `json:"queryFrontend,omitempty"`
-	Certs         CortexCertsSpec   `json:"certs,omitempty"`
+	Certs         MTLSSpec          `json:"certs,omitempty"`
 }
 
 type DistributorSpec struct {
@@ -51,7 +50,7 @@ type QueryFrontendSpec struct {
 	Address string `json:"address,omitempty"`
 }
 
-type CortexCertsSpec struct {
+type MTLSSpec struct {
 	ServerCA   string `json:"serverCA,omitempty"`
 	ClientCA   string `json:"clientCA,omitempty"`
 	ClientCert string `json:"clientCert,omitempty"`
@@ -110,5 +109,6 @@ type StorageSpec struct {
 }
 
 type EtcdStorageSpec struct {
-	clientv3.Config `json:",inline"`
+	Endpoints []string  `json:"endpoints,omitempty"`
+	Certs     *MTLSSpec `json:"certs,omitempty"`
 }

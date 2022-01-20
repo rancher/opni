@@ -8,6 +8,7 @@ import (
 
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/test"
+	"github.com/kralicky/opni-monitoring/pkg/util"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -31,7 +32,7 @@ var _ = BeforeSuite(func() {
 	Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 	Expect(testFingerprints.TestData).To(HaveLen(5))
 	var err error
-	fullChain, err = pkp.ParsePEMEncodedCertChain(test.TestData("full_chain.crt"))
+	fullChain, err = util.ParsePEMEncodedCertChain(test.TestData("full_chain.crt"))
 	Expect(err).NotTo(HaveOccurred())
 	Expect(fullChain).To(HaveLen(5))
 })

@@ -1,3 +1,3 @@
 gateway:
   dnsNames:
-    - "{{ .Environment.Values.hostname }}"
+    - "localhost"

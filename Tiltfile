@@ -1,6 +1,7 @@
 load('ext://min_k8s_version', 'min_k8s_version')
 load('ext://cert_manager', 'deploy_cert_manager')
 load('ext://helm_remote', 'helm_remote')
+load('ext://namespace', 'namespace_create')
 
 settings = read_yaml('tilt-options.yaml', default={})
 if "allowedContexts" in settings:
@@ -9,40 +10,51 @@ if "allowedContexts" in settings:
 min_k8s_version('1.22')
 deploy_cert_manager(version="v1.6.1")
 
-helm_remote('kube-prometheus', 
-    repo_name='bitnami', 
-    repo_url='https://charts.bitnami.com/bitnami',
-    namespace='opni-monitoring',
-    values="deploy/helm-config/kube-prometheus-values.yaml",
-)
+namespace_create('opni-monitoring')
+
+if "hostname" in settings:
+    hostname = settings["hostname"]
+else:
+    fail("hostname is required")
+
 helm_remote('etcd', 
     repo_name='bitnami', 
     repo_url='https://charts.bitnami.com/bitnami',
     namespace='opni-monitoring',
-    values="deploy/helm-config/etcd-values.yaml",
+    values="deploy/values/etcd.yaml",
 )
 helm_remote('cortex',
     repo_name='cortex-helm',
     repo_url='https://cortexproject.github.io/cortex-helm-chart',
     namespace='opni-monitoring',
-    values="deploy/helm-config/cortex-values.yaml",
+    values="deploy/values/cortex.yaml",
 )
 helm_remote('grafana',
     repo_name='grafana',
     repo_url='https://grafana.github.io/helm-charts',
     namespace='opni-monitoring',
-    values="deploy/helm-config/grafana-values.yaml",
+    values=["deploy/values/grafana.yaml", "deploy/custom/grafana.yaml"],
+    set=[
+        'grafana\\.ini.server.domain=grafana.%s' % hostname,
+        'grafana\\.ini.server.root_url=http://grafana.%s' % hostname,
+        'tls[0].hosts={grafana.%s}' % hostname,
+        'ingress.hosts={grafana.%s}' % hostname,
+    ],
 )
 
-k8s_yaml(kustomize('deploy/gateway'))
+k8s_yaml(helm('deploy/charts/opni-monitoring',
+    name='opni-monitoring',
+    namespace='opni-monitoring',
+    values=['deploy/custom/opni-monitoring.yaml'],
+    set=[
+        'gateway.dnsNames={%s}' % hostname,
+    ]
+))
+
 k8s_resource(workload='opni-gateway', port_forwards=9090)
-k8s_yaml(kustomize('deploy/agent'))
 
 local_resource('Watch & Compile', 'mage build', 
-    deps=['pkg'], ignore=['**/*.pb.go'])
-
-local_resource('Bootstrap Agent', 'mage bootstrap', 
-    auto_init=False, trigger_mode=TRIGGER_MODE_MANUAL)
+    deps=['pkg'], ignore=['**/*.pb.go','pkg/test/mock/*'])
 
 if "defaultRegistry" in settings:
     default_registry(settings["defaultRegistry"])

@@ -28,7 +28,6 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/phayes/freeport"
-	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 )
 
@@ -292,7 +291,7 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 				QueryFrontend: v1beta1.QueryFrontendSpec{
 					Address: fmt.Sprintf("localhost:%d", e.ports.Cortex),
 				},
-				Certs: v1beta1.CortexCertsSpec{
+				Certs: v1beta1.MTLSSpec{
 					ServerCA:   path.Join(e.tempDir, "cortex/root.crt"),
 					ClientCA:   path.Join(e.tempDir, "cortex/root.crt"),
 					ClientCert: path.Join(e.tempDir, "cortex/client.crt"),
@@ -302,9 +301,7 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 			Storage: v1beta1.StorageSpec{
 				Type: v1beta1.StorageTypeEtcd,
 				Etcd: &v1beta1.EtcdStorageSpec{
-					Config: clientv3.Config{
-						Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
-					},
+					Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
 				},
 			},
 		},
@@ -381,9 +378,7 @@ func (e *Environment) StartAgent(id string, token string, pins []string) int {
 			Storage: v1beta1.StorageSpec{
 				Type: v1beta1.StorageTypeEtcd,
 				Etcd: &v1beta1.EtcdStorageSpec{
-					Config: clientv3.Config{
-						Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
-					},
+					Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
 				},
 			},
 		},

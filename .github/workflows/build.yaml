@@ -39,13 +39,13 @@ jobs:
       - name: Test
         run: go run github.com/magefile/mage test
       - name: Log in to Docker Hub
-        uses: docker/login-action
+        uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Extract metadata for Docker
         if: ${{ github.event_name != 'pull_request' }}
-        uses: docker/metadata-action
+        uses: docker/metadata-action@v1
         with:
           images: kralicky/opni-monitoring
           tags: |
@@ -57,7 +57,7 @@ jobs:
             type=semver,pattern={{major}}
             type=sha
       - name: Build and push Docker image
-        uses: docker/build-push-action
+        uses: docker/build-push-action@v2
         with:
           push: ${{ github.event_name != 'pull_request' }}
           context: .

@@ -45,7 +45,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Extract metadata for Docker
         if: ${{ github.event_name != 'pull_request' }}
-        uses: docker/metadata-action@v1
+        uses: docker/metadata-action@v3
         with:
           images: kralicky/opni-monitoring
           tags: |

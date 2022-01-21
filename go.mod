@@ -3,7 +3,7 @@ module github.com/kralicky/opni-monitoring
 go 1.17
 
 require (
-	github.com/gofiber/fiber/v2 v2.24.0
+	github.com/gofiber/fiber/v2 v2.25.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/jedib0t/go-pretty/v6 v6.2.4

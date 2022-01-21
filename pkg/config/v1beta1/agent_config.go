@@ -11,11 +11,11 @@ type AgentConfig struct {
 }
 
 type AgentConfigSpec struct {
-	ListenAddress    string        `json:"listenAddress,omitempty"`
-	GatewayAddress   string        `json:"gatewayAddress,omitempty"`
-	IdentityProvider string        `json:"identityProvider,omitempty"`
-	Storage          StorageSpec   `json:"storage,omitempty"`
-	Bootstrap        BootstrapSpec `json:"bootstrap,omitempty"`
+	ListenAddress    string         `json:"listenAddress,omitempty"`
+	GatewayAddress   string         `json:"gatewayAddress,omitempty"`
+	IdentityProvider string         `json:"identityProvider,omitempty"`
+	Storage          StorageSpec    `json:"storage,omitempty"`
+	Bootstrap        *BootstrapSpec `json:"bootstrap,omitempty"`
 }
 
 type BootstrapSpec struct {

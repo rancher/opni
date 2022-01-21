@@ -93,7 +93,7 @@ func BuildBootstrapCmd() *cobra.Command {
 					Storage: v1beta1.StorageSpec{
 						Type: v1beta1.StorageTypeSecret,
 					},
-					Bootstrap: v1beta1.BootstrapSpec{
+					Bootstrap: &v1beta1.BootstrapSpec{
 						Token: token,
 						Pins:  pins,
 					},

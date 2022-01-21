@@ -54,31 +54,34 @@ agent remote-write requests to add dynamic authentication.`,
 				agentConfig = config
 			})
 
-			tokenData := agentConfig.Spec.Bootstrap.Token
-			pins := agentConfig.Spec.Bootstrap.Pins
-			token, err := tokens.ParseHex(tokenData)
-			if err != nil {
-				lg.With(
-					zap.Error(err),
-				).Fatal("failed to parse token")
-			}
-			publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
-			for i, pin := range pins {
-				publicKeyPins[i], err = pkp.DecodePin(pin)
+			var bootstrapper bootstrap.Bootstrapper
+			if agentConfig.Spec.Bootstrap != nil {
+				lg.Info("loading bootstrap tokens from config file")
+				tokenData := agentConfig.Spec.Bootstrap.Token
+				pins := agentConfig.Spec.Bootstrap.Pins
+				token, err := tokens.ParseHex(tokenData)
 				if err != nil {
 					lg.With(
 						zap.Error(err),
-					).Fatal("failed to parse pin")
+					).Fatal("failed to parse token")
 				}
-			}
-
-			p := agent.New(agentConfig,
-				agent.WithBootstrapper(&bootstrap.ClientConfig{
+				publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
+				for i, pin := range pins {
+					publicKeyPins[i], err = pkp.DecodePin(pin)
+					if err != nil {
+						lg.With(
+							zap.Error(err),
+						).Fatal("failed to parse pin")
+					}
+				}
+				bootstrapper = &bootstrap.ClientConfig{
 					Token:    token,
 					Pins:     publicKeyPins,
 					Endpoint: agentConfig.Spec.GatewayAddress,
-				}),
-			)
+				}
+			}
+
+			p := agent.New(agentConfig, agent.WithBootstrapper(bootstrapper))
 			if err := p.ListenAndServe(); err != nil {
 				lg.Error(err)
 			}

@@ -62,10 +62,6 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 	options := AgentOptions{}
 	options.Apply(opts...)
 
-	if options.bootstrapper == nil {
-		panic("bootstrapper is required")
-	}
-
 	app := fiber.New(fiber.Config{
 		Prefork:               false,
 		StrictRouting:         false,
@@ -115,7 +111,11 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 		).Fatal("unknown storage type")
 	}
 
-	agent.bootstrapOrLoadKeys()
+	if options.bootstrapper != nil {
+		agent.bootstrap()
+	} else {
+		agent.loadKeyring()
+	}
 
 	agent.tlsConfig, err = pkp.TLSConfig(agent.pkpKey.PinnedKeys)
 	if err != nil {
@@ -164,7 +164,7 @@ func (a *Agent) Shutdown() error {
 	return a.app.Shutdown()
 }
 
-func (a *Agent) bootstrapOrLoadKeys() {
+func (a *Agent) bootstrap() {
 	lg := a.logger
 	// Look up our tenant ID
 	id, err := a.identityProvider.UniqueIdentifier(context.Background())
@@ -174,10 +174,9 @@ func (a *Agent) bootstrapOrLoadKeys() {
 	a.tenantID = id
 
 	// Load the stored keyring, or bootstrap a new one if it doesn't exist
-	kr, err := a.keyringStore.Get(context.Background())
-	if errors.Is(err, storage.ErrNotFound) {
+	if _, err := a.keyringStore.Get(context.Background()); errors.Is(err, storage.ErrNotFound) {
 		lg.Info("performing initial bootstrap")
-		kr, err = a.bootstrapper.Bootstrap(context.Background(), a.identityProvider)
+		newKeyring, err := a.bootstrapper.Bootstrap(context.Background(), a.identityProvider)
 		if err != nil {
 			lg.With(zap.Error(err)).Fatal("bootstrap failed")
 		}
@@ -185,7 +184,7 @@ func (a *Agent) bootstrapOrLoadKeys() {
 		for {
 			// Don't let this fail easily, otherwise we will lose the keyring forever.
 			// Keep retrying until it succeeds.
-			err = a.keyringStore.Put(context.Background(), kr)
+			err = a.keyringStore.Put(context.Background(), newKeyring)
 			if err != nil {
 				lg.With(zap.Error(err)).Error("failed to persist keyring (retry in 1 second)")
 				time.Sleep(1 * time.Second)
@@ -195,13 +194,25 @@ func (a *Agent) bootstrapOrLoadKeys() {
 		}
 	} else if err != nil {
 		lg.With(zap.Error(err)).Fatal("error loading keyring")
+	} else {
+		lg.Warn("this agent has already been bootstrapped but may have been interrupted - will use existing keyring")
 	}
 
+	lg.Info("running post-bootstrap finalization steps")
 	if err := a.bootstrapper.Finalize(context.Background()); err != nil {
 		lg.With(zap.Error(err)).Error("error in post-bootstrap finalization")
 	}
+	lg.Info("bootstrap completed successfully")
+	a.loadKeyring()
+}
 
-	// Get keys from the keyring
+func (a *Agent) loadKeyring() {
+	lg := a.logger
+	lg.Info("loading keyring")
+	kr, err := a.keyringStore.Get(context.Background())
+	if err != nil {
+		lg.With(zap.Error(err)).Fatal("error loading keyring")
+	}
 	kr.Try(
 		func(shared *keyring.SharedKeys) {
 			a.sharedKeys = shared
@@ -216,4 +227,5 @@ func (a *Agent) bootstrapOrLoadKeys() {
 	if len(a.pkpKey.PinnedKeys) == 0 {
 		lg.Fatal("keyring does not contain any pinned public keys")
 	}
+	lg.Info("keyring loaded successfully")
 }

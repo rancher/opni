@@ -2,6 +2,7 @@ package commands
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/kralicky/opni-monitoring/pkg/agent"
@@ -63,7 +64,8 @@ agent remote-write requests to add dynamic authentication.`,
 				if err != nil {
 					lg.With(
 						zap.Error(err),
-					).Fatal("failed to parse token")
+						zap.String("token", fmt.Sprintf("[redacted (len: %d)]", len(tokenData))),
+					).Error("failed to parse token")
 				}
 				publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
 				for i, pin := range pins {
@@ -71,7 +73,8 @@ agent remote-write requests to add dynamic authentication.`,
 					if err != nil {
 						lg.With(
 							zap.Error(err),
-						).Fatal("failed to parse pin")
+							zap.String("pin", string(pin)),
+						).Error("failed to parse pin")
 					}
 				}
 				bootstrapper = &bootstrap.ClientConfig{

@@ -27,6 +27,8 @@ var (
 	ErrRootCAHashMismatch = errors.New("root CA hash mismatch")
 	ErrBootstrapFailed    = errors.New("bootstrap failed")
 	ErrNoValidSignature   = errors.New("no valid signature found in response")
+	ErrNoToken            = errors.New("no bootstrap token provided")
+	ErrNoPins             = errors.New("no public key pins provided")
 )
 
 type ClientConfig struct {
@@ -39,6 +41,12 @@ func (c *ClientConfig) Bootstrap(
 	ctx context.Context,
 	ident ident.Provider,
 ) (keyring.Keyring, error) {
+	if c.Token == nil {
+		return nil, ErrNoToken
+	}
+	if len(c.Pins) == 0 {
+		return nil, ErrNoPins
+	}
 	response, serverLeafCert, err := c.bootstrapJoin()
 	if err != nil {
 		return nil, err

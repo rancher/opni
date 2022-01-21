@@ -23,7 +23,7 @@ func (m *middleware) Handle(c *fiber.Ctx) error {
 	if len(tenants) == 0 {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
-	c.Request().Header.Set("X-Scope-OrgID", strings.Join(tenants, ";"))
+	c.Request().Header.Set("X-Scope-OrgID", strings.Join(tenants, "|"))
 	return c.Next()
 }
 

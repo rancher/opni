@@ -11,5 +11,12 @@ spec:
       port: {{ .Values.service.port }}
       targetPort: http
       protocol: TCP
+{{- if hasPrefix "tcp://" .Values.management.listenAddress }}
+    - name: management
+{{- $a := split ":" .Values.management.listenAddress }}
+      port: {{ $a._2 }}
+      targetPort: management
+      protocol: TCP
+{{- end }}
   selector:
     {{- include "opni-monitoring.selectorLabels" . | nindent 4 }}

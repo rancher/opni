@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
@@ -44,6 +45,9 @@ func (p *rbacProvider) ListTenantsForUser(ctx context.Context, userID string) ([
 				continue
 			}
 			for _, tenantID := range role.TenantIDs {
+				if strings.TrimSpace(tenantID) == "" {
+					continue
+				}
 				tenants[tenantID] = struct{}{}
 			}
 		}

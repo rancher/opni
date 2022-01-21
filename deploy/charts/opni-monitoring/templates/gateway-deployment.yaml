@@ -50,6 +50,12 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
+{{- if hasPrefix "tcp://" .Values.management.listenAddress }}
+            - name: management
+{{- $a := split ":" .Values.management.listenAddress }}
+              containerPort: {{ $a._2 }}
+              protocol: TCP
+{{- end }}
           livenessProbe:
             httpGet:
               path: /healthz

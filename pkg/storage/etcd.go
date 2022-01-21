@@ -236,10 +236,16 @@ func (e *EtcdStore) ListTenants(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to list tenants: %w", err)
 	}
 	// Keys will be of the form namespace/tenants/<tenantID>[/keyring]
+	idMap := make(map[string]struct{})
 	ids := []string{}
 	for _, kv := range resp.Kvs {
-		ids = append(ids, strings.TrimSuffix(strings.TrimPrefix(string(kv.Key),
-			path.Join(e.namespace, "tenants")+"/"), "/keyring"))
+		id := strings.TrimSuffix(strings.TrimPrefix(string(kv.Key),
+			path.Join(e.namespace, "tenants")+"/"), "/keyring")
+		if _, ok := idMap[id]; ok {
+			continue
+		}
+		ids = append(ids, id)
+		idMap[id] = struct{}{}
 	}
 	return ids, nil
 }

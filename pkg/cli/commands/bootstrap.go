@@ -87,8 +87,9 @@ func BuildBootstrapCmd() *cobra.Command {
 					Kind:       "AgentConfig",
 				},
 				Spec: v1beta1.AgentConfigSpec{
-					ListenAddress:  ":8080",
-					GatewayAddress: gatewayAddress,
+					ListenAddress:    ":8080",
+					GatewayAddress:   gatewayAddress,
+					IdentityProvider: "kubernetes",
 					Storage: v1beta1.StorageSpec{
 						Type: v1beta1.StorageTypeSecret,
 					},

@@ -22,6 +22,7 @@ helm_remote('etcd',
     repo_url='https://charts.bitnami.com/bitnami',
     namespace='opni-monitoring',
     values="deploy/values/etcd.yaml",
+    set=['auth.rbac.rootPassword=tilt']
 )
 helm_remote('cortex',
     repo_name='cortex-helm',
@@ -48,10 +49,11 @@ k8s_yaml(helm('deploy/charts/opni-monitoring',
     values=['deploy/custom/opni-monitoring.yaml'],
     set=[
         'gateway.dnsNames={%s}' % hostname,
+        'management.listenAddress=tcp://0.0.0.0:9999',
     ]
 ))
 
-k8s_resource(workload='opni-gateway', port_forwards=9090)
+k8s_resource(workload='opni-gateway', port_forwards=9999)
 
 local_resource('Watch & Compile', 'mage build', 
     deps=['pkg'], ignore=['**/*.pb.go','pkg/test/mock/*'])

@@ -22,7 +22,7 @@ grafana.ini:
     domain: "grafana.localhost"
     root_url: "grafana.localhost"
   auth.generic_oauth:
-    scopes: "openid profile email"
+    scopes: "openid profile email roles"
 extraSecretMounts:
   - name: opni-cacert
     mountPath: /run/opni-monitoring/certs

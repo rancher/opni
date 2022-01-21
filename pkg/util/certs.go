@@ -1,4 +1,4 @@
-package pkp
+package util
 
 import (
 	"crypto/x509"

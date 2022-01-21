@@ -66,7 +66,7 @@ var _ = Describe("Middleware", func() {
 			Expect(orgId).NotTo(BeEmpty())
 			tenants := testUsers[userId.(string)]
 			Expect(tenants).NotTo(BeEmpty())
-			Expect(orgId).To(Equal(strings.Join(tenants, ";")))
+			Expect(orgId).To(Equal(strings.Join(tenants, "|")))
 			return c.Next()
 		})
 

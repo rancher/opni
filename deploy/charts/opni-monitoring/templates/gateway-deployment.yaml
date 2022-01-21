@@ -42,10 +42,20 @@ spec:
               mountPath: /run/cortex/certs/client
             - name: cortex-server-cacert
               mountPath: /run/cortex/certs/server
+            - name: etcd-client-certs
+              mountPath: /run/etcd/certs/client
+            - name: etcd-server-cacert
+              mountPath: /run/etcd/certs/server
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
+{{- if hasPrefix "tcp://" .Values.management.listenAddress }}
+            - name: management
+{{- $a := split ":" .Values.management.listenAddress }}
+              containerPort: {{ $a._2 }}
+              protocol: TCP
+{{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -98,6 +108,24 @@ spec:
         - name: cortex-server-cacert
           secret:
             secretName: cortex-serving-cert-keys
+            defaultMode: 256
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: etcd-client-certs
+          secret:
+            secretName: etcd-client-cert-keys
+            defaultMode: 256
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+              - key: ca.crt
+                path: ca.crt
+        - name: etcd-server-cacert
+          secret:
+            secretName: etcd-serving-cert-keys
             defaultMode: 256
             items:
               - key: ca.crt

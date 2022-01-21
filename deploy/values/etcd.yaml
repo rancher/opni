@@ -1,7 +1,15 @@
 auth:
   rbac:
-    enabled: false
-    allowNoneAuthentication: true
+    enabled: true
+    allowNoneAuthentication: false
+  client:
+    secureTransport: true
+    useAutoTLS: false
+    existingSecret: etcd-serving-cert-keys
+    enableAuthentication: true
+    certFilename: tls.crt
+    certKeyFilename: tls.key
+    caFilename: ca.crt
 livenessProbe:
   initialDelaySeconds: 5
 readinessProbe:

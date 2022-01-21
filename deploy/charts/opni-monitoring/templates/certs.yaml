@@ -55,7 +55,14 @@ spec:
     group: cert-manager.io
     kind: Issuer
     name: opni-gateway-ca-issuer
-  dnsNames: {{ .Values.gateway.dnsNames }}
+  dnsNames:
+    - opni-monitoring.opni-monitoring.svc
+    - opni-monitoring.opni-monitoring.svc.cluster.local
+{{- if .Values.gateway.dnsNames }}
+{{- range .Values.gateway.dnsNames }}
+    - {{ . }}
+{{- end }}
+{{- end }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -144,3 +151,86 @@ spec:
     name: cortex-intermediate-ca-issuer
   dnsNames:
     - cortex-server
+    - cortex-distributor
+    - cortex-ingester
+    - cortex-alertmanager
+    - cortex-querier
+    - cortex-query-frontend
+    - cortex-query-frontend-headless
+    - cortex-ruler
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-intermediate-ca
+spec:
+  isCA: true
+  secretName: etcd-intermediate-ca-keys
+  privateKey:
+    algorithm: Ed25519
+    encoding: PKCS1
+  dnsNames:
+    - etcd-intermediate-ca
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: opni-gateway-ca-issuer
+  usages:
+    - digital signature
+    - key encipherment
+    - client auth
+    - server auth
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: etcd-intermediate-ca-issuer
+spec:
+  ca:
+    secretName: etcd-intermediate-ca-keys
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-client-cert
+spec:
+  commonName: root # etcd user
+  secretName: etcd-client-cert-keys
+  privateKey:
+    algorithm: Ed25519
+    encoding: PKCS1
+  issuerRef:
+    name: etcd-intermediate-ca-issuer
+  dnsNames:
+    - root
+  usages:
+    - digital signature
+    - key encipherment
+    - client auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-serving-cert
+spec:
+  commonName: root # etcd user
+  secretName: etcd-serving-cert-keys
+  privateKey:
+    algorithm: Ed25519
+    encoding: PKCS1
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: etcd-intermediate-ca-issuer
+  dnsNames:
+    - etcd
+    - etcd.opni-monitoring.svc.cluster.local
+    - etcd.opni-monitoring.svc
+    - "*.etcd-headless.opni-monitoring.svc.cluster.local"
+    - "*.etcd-headless.opni-monitoring.svc"
+  usages:
+    - digital signature
+    - key encipherment
+    - client auth
+    - server auth

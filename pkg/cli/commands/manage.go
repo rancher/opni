@@ -3,9 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	cliutil "github.com/kralicky/opni-monitoring/pkg/cli/util"
+	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -13,6 +15,7 @@ import (
 )
 
 var client management.ManagementClient
+var lg = logger.New().Named("management")
 
 func BuildManageCmd() *cobra.Command {
 	var address string
@@ -36,6 +39,7 @@ func BuildManageCmd() *cobra.Command {
 	manageCmd.AddCommand(BuildCertsCmd())
 	manageCmd.AddCommand(BuildRolesCmd())
 	manageCmd.AddCommand(BuildRoleBindingsCmd())
+	manageCmd.AddCommand(BuildAccessMatrixCmd())
 	return manageCmd
 }
 
@@ -70,41 +74,37 @@ func BuildCertsCmd() *cobra.Command {
 }
 
 func BuildCertsInfoCmd() *cobra.Command {
-	certsInfoCmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "info",
 		Short: "Show certificate information",
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 			if err != nil {
-				fmt.Println(err)
-				return
+				lg.Fatal(err)
 			}
-			cliutil.RenderCertInfoChain(t.Chain)
+			fmt.Println(cliutil.RenderCertInfoChain(t.Chain))
 		},
 	}
-	return certsInfoCmd
 }
 
 func BuildTokensCreateCmd() *cobra.Command {
 	tokensCreateCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a bootstrap token",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Run: func(cmd *cobra.Command, args []string) {
 			ttl := cmd.Flag("ttl").Value.String()
 			duration, err := time.ParseDuration(ttl)
 			if err != nil {
-				return err
+				lg.Fatal(err)
 			}
 			t, err := client.CreateBootstrapToken(context.Background(),
 				&management.CreateBootstrapTokenRequest{
 					TTL: durationpb.New(duration),
 				})
 			if err != nil {
-				fmt.Println(err)
-			} else {
-				cliutil.RenderBootstrapTokenList([]*management.BootstrapToken{t})
+				lg.Fatal(err)
 			}
-			return nil
+			fmt.Println(cliutil.RenderBootstrapTokenList([]*management.BootstrapToken{t}))
 		},
 	}
 	tokensCreateCmd.Flags().String("ttl", management.DefaultTokenTTL.String(), "Time to live")
@@ -112,7 +112,7 @@ func BuildTokensCreateCmd() *cobra.Command {
 }
 
 func BuildTokensRevokeCmd() *cobra.Command {
-	tokensRevokeCmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "revoke <token>",
 		Short: "Revoke a bootstrap token",
 		Args:  cobra.MinimumNArgs(1),
@@ -122,70 +122,66 @@ func BuildTokensRevokeCmd() *cobra.Command {
 					&management.RevokeBootstrapTokenRequest{
 						TokenID: token,
 					})
-				if err == nil {
-					fmt.Printf("Revoked token %s\n", token)
-				} else {
-					fmt.Println(err)
+				if err != nil {
+					lg.Fatal(err)
 				}
+				lg.Info("Revoked token %s\n", token)
 			}
 		},
 	}
-	return tokensRevokeCmd
 }
 
 func BuildTokensListCmd() *cobra.Command {
-	tokensListCmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "list",
 		Short: "List bootstrap tokens",
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := client.ListBootstrapTokens(context.Background(),
 				&management.ListBootstrapTokensRequest{})
 			if err != nil {
-				fmt.Println(err)
-			} else {
-				cliutil.RenderBootstrapTokenList(t.Tokens)
+				lg.Fatal(err)
 			}
+			cliutil.RenderBootstrapTokenList(t.Tokens)
 		},
 	}
-	return tokensListCmd
 }
 
 func BuildTenantsListCmd() *cobra.Command {
-	tenantsListCmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "list",
 		Short: "List tenants",
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := client.ListTenants(context.Background(), &emptypb.Empty{})
 			if err != nil {
-				fmt.Println(err)
-				return
+				lg.Fatal(err)
 			}
 			fmt.Println(cliutil.RenderTenantList(t.Tenants))
 		},
 	}
-	return tenantsListCmd
 }
 
 func BuildTenantsDeleteCmd() *cobra.Command {
-	tenantsDeleteCmd := &cobra.Command{
-		Use:     "delete <tenant-id>",
+	return &cobra.Command{
+		Use:     "delete <tenant-id> [<tenant-id>...]",
 		Aliases: []string{"rm"},
 		Short:   "Delete a tenant",
-		Args:    cobra.ExactArgs(1),
+		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			_, err := client.DeleteTenant(context.Background(),
-				&management.Tenant{
-					ID: args[0],
-				},
-			)
-			if err != nil {
-				fmt.Println(err)
-				return
+			for _, tenant := range args {
+				_, err := client.DeleteTenant(context.Background(),
+					&management.Tenant{
+						ID: tenant,
+					},
+				)
+				if err != nil {
+					lg.Fatal(err)
+				}
+				lg.With(
+					"id", tenant,
+				).Info("Deleted tenant")
 			}
-			fmt.Printf("Deleted tenant %s\n", args[0])
 		},
 	}
-	return tenantsDeleteCmd
 }
 
 func BuildRolesCmd() *cobra.Command {
@@ -196,7 +192,7 @@ func BuildRolesCmd() *cobra.Command {
 	}
 	rolesCmd.AddCommand(BuildRolesCreateCmd())
 	rolesCmd.AddCommand(BuildRolesDeleteCmd())
-	rolesCmd.AddCommand(BuildRolesGetCmd())
+	rolesCmd.AddCommand(BuildRolesShowCmd())
 	rolesCmd.AddCommand(BuildRolesListCmd())
 	return rolesCmd
 }
@@ -209,13 +205,13 @@ func BuildRoleBindingsCmd() *cobra.Command {
 	}
 	roleBindingsCmd.AddCommand(BuildRoleBindingsCreateCmd())
 	roleBindingsCmd.AddCommand(BuildRoleBindingsDeleteCmd())
-	roleBindingsCmd.AddCommand(BuildRoleBindingsGetCmd())
+	roleBindingsCmd.AddCommand(BuildRoleBindingsShowCmd())
 	roleBindingsCmd.AddCommand(BuildRoleBindingsListCmd())
 	return roleBindingsCmd
 }
 
 func BuildRolesCreateCmd() *cobra.Command {
-	rolesCreateCmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "create name tenant-id [...,tenant-id]",
 		Short: "Create a role",
 		Args:  cobra.MinimumNArgs(2),
@@ -228,21 +224,19 @@ func BuildRolesCreateCmd() *cobra.Command {
 					},
 				})
 			if err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println(cliutil.RenderRole(newRole))
+				lg.Fatal(err)
 			}
+			fmt.Println(cliutil.RenderRole(newRole))
 		},
 	}
-	return rolesCreateCmd
 }
 
 func BuildRolesDeleteCmd() *cobra.Command {
-	rolesDeleteCmd := &cobra.Command{
-		Use:     "delete <name>",
+	return &cobra.Command{
+		Use:     "delete <role-id> [<role-id>...]",
 		Aliases: []string{"rm"},
-		Short:   "Delete a role",
-		Args:    cobra.ExactArgs(1),
+		Short:   "Delete roles",
+		Args:    cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, role := range args {
 				_, err := client.DeleteRole(context.Background(),
@@ -250,20 +244,18 @@ func BuildRolesDeleteCmd() *cobra.Command {
 						Name: role,
 					})
 				if err != nil {
-					fmt.Println(err)
-				} else {
-					fmt.Printf("Deleted role %s\n", role)
+					lg.Fatal(err)
 				}
+				fmt.Printf("Deleted role %s\n", role)
 			}
 		},
 	}
-	return rolesDeleteCmd
 }
 
-func BuildRolesGetCmd() *cobra.Command {
-	rolesGetCmd := &cobra.Command{
-		Use:   "get <name>",
-		Short: "Get detailed information about a role",
+func BuildRolesShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show <name>",
+		Short: "Show detailed information about a role",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			role, err := client.GetRole(context.Background(),
@@ -271,33 +263,29 @@ func BuildRolesGetCmd() *cobra.Command {
 					Name: args[0],
 				})
 			if err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println(cliutil.RenderRole(role))
+				lg.Fatal(err)
 			}
+			fmt.Println(cliutil.RenderRole(role))
 		},
 	}
-	return rolesGetCmd
 }
 
 func BuildRolesListCmd() *cobra.Command {
-	rolesListCmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "list",
 		Short: "List roles",
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := client.ListRoles(context.Background(), &emptypb.Empty{})
 			if err != nil {
-				fmt.Println(err)
-				return
+				lg.Fatal(err)
 			}
 			fmt.Println(cliutil.RenderRoleList(t.Items))
 		},
 	}
-	return rolesListCmd
 }
 
 func BuildRoleBindingsCreateCmd() *cobra.Command {
-	roleBindingsCreateCmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "create <rolebinding-name> <role-name> <user-id>",
 		Short: "Create a role binding",
 		Args:  cobra.ExactArgs(3),
@@ -311,17 +299,15 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 					},
 				})
 			if err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println(cliutil.RenderRoleBinding(rb))
+				lg.Fatal(err)
 			}
+			fmt.Println(cliutil.RenderRoleBinding(rb))
 		},
 	}
-	return roleBindingsCreateCmd
 }
 
 func BuildRoleBindingsDeleteCmd() *cobra.Command {
-	roleBindingsDeleteCmd := &cobra.Command{
+	return &cobra.Command{
 		Use:     "delete <rolebinding-name>",
 		Aliases: []string{"rm"},
 		Short:   "Delete a role binding",
@@ -332,19 +318,17 @@ func BuildRoleBindingsDeleteCmd() *cobra.Command {
 					Name: args[0],
 				})
 			if err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Printf("Deleted role binding %s\n", args[0])
+				lg.Fatal(err)
 			}
+			fmt.Printf("Deleted role binding %s\n", args[0])
 		},
 	}
-	return roleBindingsDeleteCmd
 }
 
-func BuildRoleBindingsGetCmd() *cobra.Command {
-	roleBindingsGetCmd := &cobra.Command{
-		Use:   "get <rolebinding-name>",
-		Short: "Get detailed information about a role binding",
+func BuildRoleBindingsShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show <rolebinding-name>",
+		Short: "Show detailed information about a role binding",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			rb, err := client.GetRoleBinding(context.Background(),
@@ -358,11 +342,10 @@ func BuildRoleBindingsGetCmd() *cobra.Command {
 			}
 		},
 	}
-	return roleBindingsGetCmd
 }
 
 func BuildRoleBindingsListCmd() *cobra.Command {
-	roleBindingsListCmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "list",
 		Short: "List role bindings",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -374,5 +357,46 @@ func BuildRoleBindingsListCmd() *cobra.Command {
 			fmt.Println(cliutil.RenderRoleBindingList(t.Items))
 		},
 	}
-	return roleBindingsListCmd
+}
+
+func BuildAccessMatrixCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "access-matrix",
+		Short: "Print an access matrix showing all users and their allowed tenants",
+		Run: func(cmd *cobra.Command, args []string) {
+			rbs, err := client.ListRoleBindings(context.Background(), &emptypb.Empty{})
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			users := map[string]struct{}{}
+			tenantsToUsers := make(map[string]map[string]struct{})
+			for _, rb := range rbs.Items {
+				role, err := client.GetRole(context.Background(),
+					&management.GetRoleRequest{
+						Name: rb.RoleName,
+					})
+				if err != nil {
+					lg.Fatal(err)
+				}
+				users[rb.UserID] = struct{}{}
+				for _, tenantID := range role.TenantIDs {
+					if m, ok := tenantsToUsers[tenantID]; !ok {
+						tenantsToUsers[tenantID] = map[string]struct{}{rb.UserID: struct{}{}}
+					} else {
+						m[rb.UserID] = struct{}{}
+					}
+				}
+			}
+			sortedUsers := make([]string, 0, len(users))
+			for user := range users {
+				sortedUsers = append(sortedUsers, user)
+			}
+			sort.Strings(sortedUsers)
+			fmt.Println(cliutil.RenderAccessMatrix(cliutil.AccessMatrix{
+				Users:          sortedUsers,
+				TenantsToUsers: tenantsToUsers,
+			}))
+		},
+	}
 }

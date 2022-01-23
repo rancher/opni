@@ -730,7 +730,8 @@ func (r *Reconciler) metricsPrometheusRule() (runtime.Object, reconciler.Desired
 		},
 	}
 	// Fetch Prometheus resource to calculate namespace and match labels for rules
-	if r.opniCluster.Spec.Services.Metrics.PrometheusReference != nil {
+	if (r.opniCluster.Spec.Services.Metrics.Enabled == nil || *r.opniCluster.Spec.Services.Metrics.Enabled) &&
+		r.opniCluster.Spec.Services.Metrics.PrometheusReference != nil {
 		prometheus := &monitoringv1.Prometheus{}
 		err := r.client.Get(r.ctx, types.NamespacedName{
 			Name:      r.opniCluster.Spec.Services.Metrics.PrometheusReference.Name,

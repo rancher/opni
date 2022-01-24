@@ -733,18 +733,30 @@ metadata:
 rules:
 - apiGroups:
   - ""
-  - "apps"
-  - "batch"
   resources:
   - namespaces
   - endpoints
-  - deployments
   - pods
-  - jobs
-  - cronjobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "apps"
+  resources:
+  - deployments
   - replicasets
   - daemonsets
   - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "batch"
+  resources:
+  - jobs
+  - cronjobs
   verbs:
   - get
   - list

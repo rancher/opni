@@ -142,6 +142,15 @@ rules:
 - apiGroups:
   - batch
   resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
   - jobs
   verbs:
   - create
@@ -194,6 +203,16 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  - namespaces
+  - pods
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - ""
@@ -714,18 +733,30 @@ metadata:
 rules:
 - apiGroups:
   - ""
-  - "apps"
-  - "batch"
   resources:
   - namespaces
   - endpoints
-  - deployments
   - pods
-  - jobs
-  - cronjobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "apps"
+  resources:
+  - deployments
   - replicasets
   - daemonsets
   - statefulsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "batch"
+  resources:
+  - jobs
+  - cronjobs
   verbs:
   - get
   - list

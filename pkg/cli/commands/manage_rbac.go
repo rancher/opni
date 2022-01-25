@@ -130,7 +130,7 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "create <rolebinding-name> <role-name> <user-id>...",
 		Short: "Create a role binding",
-		Args:  cobra.MaximumNArgs(3),
+		Args:  cobra.MinimumNArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
 			rb := &core.RoleBinding{
 				Name:     args[0],

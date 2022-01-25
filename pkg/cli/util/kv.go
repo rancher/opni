@@ -15,7 +15,7 @@ func ParseKeyValuePairs(pairs []string) (map[string]string, error) {
 			m[kv[0]] = kv[1]
 		case 1:
 			if strings.HasSuffix(kv[0], "-") {
-				m[kv[0]] = "-"
+				m[strings.TrimSuffix(kv[0], "-")] = "-"
 			}
 		default:
 			return nil, fmt.Errorf("invalid syntax: %q", pair)

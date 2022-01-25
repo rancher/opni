@@ -133,7 +133,7 @@ var _ = Describe("Token", func() {
 		Expect(err).To(HaveOccurred())
 
 		_, err = t.VerifyDetached(sig, privA)
-		Expect(err).To(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		sig, err = t.SignDetached(privB)
 		Expect(err).NotTo(HaveOccurred())
@@ -144,10 +144,10 @@ var _ = Describe("Token", func() {
 		_, err = t.VerifyDetached(sig, pubB)
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = t.VerifyDetached(sig, privB)
-		Expect(err).To(HaveOccurred())
-
 		_, err = t.VerifyDetached(sig, privA)
 		Expect(err).To(HaveOccurred())
+
+		_, err = t.VerifyDetached(sig, privB)
+		Expect(err).NotTo(HaveOccurred())
 	})
 })

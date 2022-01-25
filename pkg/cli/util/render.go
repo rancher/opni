@@ -9,6 +9,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
+	"github.com/ttacon/chalk"
 )
 
 func RenderBootstrapToken(token *core.BootstrapToken) string {
@@ -105,9 +106,23 @@ func RenderRoleBinding(binding *core.RoleBinding) string {
 func RenderRoleBindingList(list *core.RoleBindingList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"NAME", "ROLE NAME", "SUBJECTS"})
+	header := table.Row{"NAME", "ROLE NAME", "SUBJECTS"}
+	anyRolesHaveTaints := false
+	for _, rb := range list.Items {
+		if len(rb.Taints) > 0 {
+			anyRolesHaveTaints = true
+		}
+	}
+	if anyRolesHaveTaints {
+		header = append(header, "TAINTS")
+	}
+	w.AppendHeader(header)
 	for _, b := range list.Items {
-		w.AppendRow(table.Row{b.Name, b.RoleName, strings.Join(b.Subjects, "\n")})
+		row := table.Row{b.Name, b.RoleName, strings.Join(b.Subjects, "\n")}
+		if anyRolesHaveTaints {
+			row = append(row, chalk.Red.Color(strings.Join(b.Taints, "\n")))
+		}
+		w.AppendRow(row)
 	}
 	return w.Render()
 }

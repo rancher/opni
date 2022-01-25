@@ -2,6 +2,7 @@ package etcd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 
@@ -102,6 +103,9 @@ func (e *EtcdStore) GetRoleBinding(ctx context.Context, ref *core.Reference) (*c
 	if err := protojson.Unmarshal(resp.Kvs[0].Value, roleBinding); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal role binding: %w", err)
 	}
+	if err := e.applyRoleBindingTaints(ctx, roleBinding); err != nil {
+		return nil, err
+	}
 	return roleBinding, nil
 }
 
@@ -140,7 +144,24 @@ func (e *EtcdStore) ListRoleBindings(ctx context.Context) (*core.RoleBindingList
 		if err := protojson.Unmarshal(kv.Value, roleBinding); err != nil {
 			return nil, fmt.Errorf("failed to decode role binding: %w", err)
 		}
+		if err := e.applyRoleBindingTaints(ctx, roleBinding); err != nil {
+			return nil, err
+		}
 		roleBindingList.Items[i] = roleBinding
 	}
 	return roleBindingList, nil
+}
+
+func (e *EtcdStore) applyRoleBindingTaints(ctx context.Context, rb *core.RoleBinding) error {
+	if _, err := e.GetRole(ctx, rb.RoleReference()); err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			rb.Taints = append(rb.Taints, "role not found")
+		} else {
+			return err
+		}
+	}
+	if len(rb.Subjects) == 0 {
+		rb.Taints = append(rb.Taints, "no subjects")
+	}
+	return nil
 }

@@ -43,6 +43,7 @@ message RoleBinding {
   string name = 1;
   string roleName = 2;
   repeated string subjects = 3;
+  repeated string taints = 4;
 }
 
 message RoleList {

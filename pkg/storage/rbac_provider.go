@@ -48,12 +48,21 @@ func (p *rbacProvider) SubjectAccess(
 		if !appliesToUser {
 			continue
 		}
+		if taints := roleBinding.Taints; len(taints) > 0 {
+			p.logger.With(
+				"roleBinding", roleBinding.Name,
+				"role", roleBinding.RoleName,
+				"taints", roleBinding.Taints,
+			).Warn("skipping tainted role binding")
+			continue
+		}
 		role, err := p.rbacStore.GetRole(ctx, roleBinding.RoleReference())
 		if err != nil {
 			p.logger.With(
 				zap.Error(err),
-				zap.String("role", roleBinding.RoleName),
-			).Warn("ignoring invalid role binding")
+				"roleBinding", roleBinding.Name,
+				"role", roleBinding.RoleName,
+			).Warn("error looking up role")
 			continue
 		}
 		// Add explicitly-allowed clusters to the list

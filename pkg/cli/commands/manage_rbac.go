@@ -141,6 +141,10 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
+			rb, err = client.GetRoleBinding(cmd.Context(), rb.Reference())
+			if err != nil {
+				lg.Fatal(err)
+			}
 			fmt.Println(cliutil.RenderRoleBinding(rb))
 		},
 	}

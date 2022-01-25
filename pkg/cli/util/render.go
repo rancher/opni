@@ -2,6 +2,7 @@ package util
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -9,6 +10,12 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
 )
+
+func RenderBootstrapToken(token *core.BootstrapToken) string {
+	return RenderBootstrapTokenList(&core.BootstrapTokenList{
+		Items: []*core.BootstrapToken{token},
+	})
+}
 
 func RenderBootstrapTokenList(list *core.BootstrapTokenList) string {
 	w := table.NewWriter()
@@ -54,38 +61,45 @@ func RenderCertInfoChain(chain []*core.CertInfo) string {
 func RenderClusterList(list *core.ClusterList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"ID"})
+	w.AppendHeader(table.Row{"ID", "LABELS"})
 	for _, t := range list.Items {
-		w.AppendRow(table.Row{t.GetId()})
+		labels := []string{}
+		for k, v := range t.Labels {
+			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
+		}
+		w.AppendRow(table.Row{t.GetId(), strings.Join(labels, ",")})
 	}
 	return w.Render()
 }
 
 func RenderRole(role *core.Role) string {
-	w := table.NewWriter()
-	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"NAME", "EXPLICIT IDS", "LABEL SELECTOR"})
-
-	w.AppendRow(table.Row{role.Name, strings.Join(role.ClusterIDs, "\n"), role.MatchLabels.ExpressionString()})
-	return w.Render()
+	return RenderRoleList(&core.RoleList{
+		Items: []*core.Role{role},
+	})
 }
 
 func RenderRoleList(list *core.RoleList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"NAME", "# TENANTS"})
-	for _, r := range list.Items {
-		w.AppendRow(table.Row{r.Name, len(r.ClusterIDs)})
+	w.AppendHeader(table.Row{"NAME", "SELECTOR", "CLUSTER IDS"})
+	for _, role := range list.Items {
+		clusterIds := strings.Join(role.ClusterIDs, "\n")
+		if len(clusterIds) == 0 {
+			clusterIds = "(none)"
+		}
+		expressionStr := role.MatchLabels.ExpressionString()
+		if expressionStr == "" {
+			expressionStr = "(none)"
+		}
+		w.AppendRow(table.Row{role.Name, expressionStr, clusterIds})
 	}
 	return w.Render()
 }
 
 func RenderRoleBinding(binding *core.RoleBinding) string {
-	w := table.NewWriter()
-	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"NAME", "ROLE NAME", "SUBJECTS"})
-	w.AppendRow(table.Row{binding.Name, binding.RoleName, strings.Join(binding.Subjects, "\n")})
-	return w.Render()
+	return RenderRoleBindingList(&core.RoleBindingList{
+		Items: []*core.RoleBinding{binding},
+	})
 }
 
 func RenderRoleBindingList(list *core.RoleBindingList) string {
@@ -101,6 +115,8 @@ func RenderRoleBindingList(list *core.RoleBindingList) string {
 type AccessMatrix struct {
 	// List of users (in the order they will appear in the table)
 	Users []string
+	// Set of known clusters (rules referencing nonexistent clusters are marked)
+	KnownClusters map[string]struct{}
 	// Map of tenant IDs to a set of users that have access to the tenant
 	ClustersToUsers map[string]map[string]struct{}
 }
@@ -125,6 +141,9 @@ func RenderAccessMatrix(am AccessMatrix) string {
 			AlignHeader: text.AlignCenter,
 		},
 	}
+	if len(am.Users) == 0 {
+		return ""
+	}
 	row := table.Row{"TENANT ID"}
 	for i, user := range am.Users {
 		row = append(row, user)
@@ -136,8 +155,14 @@ func RenderAccessMatrix(am AccessMatrix) string {
 	}
 	w.SetColumnConfigs(cc)
 	w.AppendHeader(row)
-	for tenant, users := range am.ClustersToUsers {
-		row = table.Row{tenant}
+	needsFootnote := false
+	for cluster, users := range am.ClustersToUsers {
+		clusterText := cluster
+		if _, ok := am.KnownClusters[cluster]; !ok {
+			needsFootnote = true
+			clusterText = fmt.Sprintf("%s*", cluster)
+		}
+		row = table.Row{clusterText}
 		for _, user := range am.Users {
 			if _, ok := users[user]; ok {
 				// print unicode checkmark
@@ -147,6 +172,9 @@ func RenderAccessMatrix(am AccessMatrix) string {
 			}
 		}
 		w.AppendRow(row)
+	}
+	if needsFootnote {
+		w.AppendFooter(table.Row{"Clusters marked with * are not known to the server."})
 	}
 	return w.Render()
 }

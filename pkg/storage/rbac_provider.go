@@ -17,10 +17,11 @@ type rbacProvider struct {
 	logger       *zap.SugaredLogger
 }
 
-func NewRBACProvider(rbacStore RBACStore) rbac.Provider {
+func NewRBACProvider(rbacStore RBACStore, clusterStore ClusterStore) rbac.Provider {
 	return &rbacProvider{
-		rbacStore: rbacStore,
-		logger:    logger.New().Named("rbac"),
+		rbacStore:    rbacStore,
+		clusterStore: clusterStore,
+		logger:       logger.New().Named("rbac"),
 	}
 }
 

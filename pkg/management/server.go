@@ -9,6 +9,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
+	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
 	"github.com/kralicky/opni-monitoring/pkg/util"
 	"go.uber.org/zap"
@@ -25,15 +26,18 @@ const (
 type Server struct {
 	UnimplementedManagementServer
 	ManagementServerOptions
-	logger *zap.SugaredLogger
+	logger       *zap.SugaredLogger
+	rbacProvider rbac.Provider
 }
+
+var _ ManagementServer = (*Server)(nil)
 
 type ManagementServerOptions struct {
 	listenAddress string
 	tokenStore    storage.TokenStore
 	clusterStore  storage.ClusterStore
-	storage.RBACStore
-	tlsConfig *tls.Config
+	rbacStore     storage.RBACStore
+	tlsConfig     *tls.Config
 }
 
 type ManagementServerOption func(*ManagementServerOptions)
@@ -58,7 +62,7 @@ func TokenStore(tokenStore storage.TokenStore) ManagementServerOption {
 	}
 }
 
-func TenantStore(tenantStore storage.ClusterStore) ManagementServerOption {
+func ClusterStore(tenantStore storage.ClusterStore) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
 		o.clusterStore = tenantStore
 	}
@@ -66,7 +70,7 @@ func TenantStore(tenantStore storage.ClusterStore) ManagementServerOption {
 
 func RBACStore(rbacStore storage.RBACStore) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
-		o.RBACStore = rbacStore
+		o.rbacStore = rbacStore
 	}
 }
 
@@ -81,12 +85,19 @@ func NewServer(opts ...ManagementServerOption) *Server {
 		listenAddress: DefaultManagementSocket(),
 	}
 	options.Apply(opts...)
-	if options.tokenStore == nil || options.clusterStore == nil {
-		panic("token store and tenant store are required")
+	if options.tokenStore == nil {
+		panic("token store is required")
+	}
+	if options.clusterStore == nil {
+		panic("cluster store is required")
+	}
+	if options.rbacStore == nil {
+		panic("rbac store is required")
 	}
 	return &Server{
 		ManagementServerOptions: options,
 		logger:                  logger.New().Named("mgmt"),
+		rbacProvider:            storage.NewRBACProvider(options.rbacStore, options.clusterStore),
 	}
 }
 
@@ -128,4 +139,8 @@ func (m *Server) CertsInfo(ctx context.Context) (*CertsInfoResponse, error) {
 		}
 	}
 	return resp, nil
+}
+
+func (s *Server) SubjectAccess(ctx context.Context, sar *core.SubjectAccessRequest) (*core.ReferenceList, error) {
+	return s.rbacProvider.SubjectAccess(ctx, sar)
 }

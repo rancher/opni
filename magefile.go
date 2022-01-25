@@ -12,6 +12,7 @@ import (
 
 	// mage:import
 	"github.com/kralicky/ragu/pkg/ragu"
+	// mage:import
 	"github.com/kralicky/spellbook/build"
 
 	// mage:import

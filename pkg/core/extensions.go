@@ -34,5 +34,20 @@ func (lsr *LabelSelectorRequirement) ExpressionString() string {
 	if lsr == nil {
 		return ""
 	}
-	return lsr.Key + " " + lsr.Operator + " [" + strings.Join(lsr.Values, ",") + "]"
+	return keyWithOperatorSymbol(lsr.Key, lsr.Operator) + " [" + strings.Join(lsr.Values, ",") + "]"
+}
+
+func keyWithOperatorSymbol(key string, operator string) string {
+	switch LabelSelectorOperator(operator) {
+	case LabelSelectorOpIn:
+		return key + " ∈"
+	case LabelSelectorOpNotIn:
+		return key + " ∉"
+	case LabelSelectorOpExists:
+		return "∃ " + key
+	case LabelSelectorOpDoesNotExist:
+		return "∄ " + key
+	default:
+		return "?"
+	}
 }

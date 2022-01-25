@@ -53,7 +53,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	lg := logger.New().Named("gateway")
 
 	var tokenStore storage.TokenStore
-	var tenantStore storage.ClusterStore
+	var clusterStore storage.ClusterStore
 	var rbacStore storage.RBACStore
 	switch conf.Spec.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
@@ -65,7 +65,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 				etcd.WithNamespace("gateway"),
 			)
 			tokenStore = store
-			tenantStore = store
+			clusterStore = store
 			rbacStore = store
 		}
 	default:
@@ -117,7 +117,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 
 	mgmtSrv := management.NewServer(
 		management.TokenStore(tokenStore),
-		management.TenantStore(tenantStore),
+		management.ClusterStore(clusterStore),
 		management.RBACStore(rbacStore),
 		management.ListenAddress(conf.Spec.ManagementListenAddress),
 		management.TLSConfig(tlsConfig),
@@ -133,12 +133,12 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		servingCertBundle: servingCertBundle,
 	}
 	g.loadCortexCerts()
-	g.setupCortexRoutes(app, tenantStore, rbacStore)
+	g.setupCortexRoutes(app, rbacStore, clusterStore)
 
 	app.Post("/bootstrap/*", bootstrap.ServerConfig{
 		Certificate:  servingCertBundle,
 		TokenStore:   tokenStore,
-		ClusterStore: tenantStore,
+		ClusterStore: clusterStore,
 	}.Handle).Use(limiter.New()) // Limit requests to 5 per minute
 
 	app.Use(default404Handler)
@@ -241,15 +241,15 @@ func (g *Gateway) loadCortexCerts() {
 
 func (g *Gateway) setupCortexRoutes(
 	app *fiber.App,
-	tenantStore storage.ClusterStore,
 	rbacStore storage.RBACStore,
+	clusterStore storage.ClusterStore,
 ) {
 	queryFrontend := g.newCortexForwarder(g.config.Spec.Cortex.QueryFrontend.Address)
 	alertmanager := g.newCortexForwarder(g.config.Spec.Cortex.Alertmanager.Address)
 	ruler := g.newCortexForwarder(g.config.Spec.Cortex.Ruler.Address)
 	distributor := g.newCortexForwarder(g.config.Spec.Cortex.Distributor.Address)
 
-	rbacProvider := storage.NewRBACProvider(rbacStore)
+	rbacProvider := storage.NewRBACProvider(rbacStore, clusterStore)
 	rbacMiddleware := rbac.NewMiddleware(rbacProvider)
 
 	app.Get("/services", queryFrontend)
@@ -284,8 +284,8 @@ func (g *Gateway) setupCortexRoutes(
 	promv1.Post("/read", queryFrontend)
 
 	// Remote-write API
-	tenantMiddleware := cluster.New(tenantStore)
-	v1 := app.Group("/api/v1", tenantMiddleware.Handle)
+	clusterMiddleware := cluster.New(clusterStore)
+	v1 := app.Group("/api/v1", clusterMiddleware.Handle)
 	v1.Post("/push", distributor)
 }
 

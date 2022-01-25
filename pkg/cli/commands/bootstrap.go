@@ -30,7 +30,7 @@ func BuildBootstrapCmd() *cobra.Command {
 		Use:   "bootstrap",
 		Short: "Bootstrap an agent",
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			rules := clientcmd.NewDefaultClientConfigLoadingRules()
 			rules.ExplicitPath = kubeconfig
@@ -51,7 +51,7 @@ func BuildBootstrapCmd() *cobra.Command {
 
 			lg.Info("Checking for pending agents...")
 
-			dep, err := getAgentDeployment(clientset, namespace)
+			dep, err := getAgentDeployment(ctx, clientset, namespace)
 			if err != nil {
 				lg.With(
 					zap.Error(err),
@@ -133,7 +133,7 @@ func BuildBootstrapCmd() *cobra.Command {
 					cond.Status == corev1.ConditionFalse &&
 					cond.Reason == "ProgressDeadlineExceeded" {
 					lg.Info("Agent deployment is stuck, restarting...")
-					if err := doRolloutRestart(clientset, dep); err != nil {
+					if err := doRolloutRestart(ctx, clientset, dep); err != nil {
 						lg.With(
 							zap.Error(err),
 						).Error("Failed to restart agent deployment. You might have to restart the agent manually.")
@@ -144,7 +144,7 @@ func BuildBootstrapCmd() *cobra.Command {
 			lg.Info("Waiting for agent to be ready...")
 
 			for {
-				dep, err = getAgentDeployment(clientset, namespace)
+				dep, err = getAgentDeployment(ctx, clientset, namespace)
 				if err != nil {
 					lg.With(
 						zap.Error(err),
@@ -173,14 +173,14 @@ func BuildBootstrapCmd() *cobra.Command {
 	return bootstrapCmd
 }
 
-func doRolloutRestart(clientset *kubernetes.Clientset, dep *appsv1.Deployment) error {
+func doRolloutRestart(ctx context.Context, clientset *kubernetes.Clientset, dep *appsv1.Deployment) error {
 	patch, err := polymorphichelpers.ObjectRestarterFn(dep)
 	if err != nil {
 		return err
 	}
 	_, err = clientset.AppsV1().
 		Deployments(dep.Namespace).
-		Patch(context.Background(),
+		Patch(ctx,
 			dep.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{
 				FieldManager: "kubectl-rollout",
 			},
@@ -188,8 +188,8 @@ func doRolloutRestart(clientset *kubernetes.Clientset, dep *appsv1.Deployment) e
 	return err
 }
 
-func getAgentDeployment(clientset *kubernetes.Clientset, namespace string) (*appsv1.Deployment, error) {
+func getAgentDeployment(ctx context.Context, clientset *kubernetes.Clientset, namespace string) (*appsv1.Deployment, error) {
 	return clientset.AppsV1().
 		Deployments(namespace).
-		Get(context.Background(), "opni-monitoring-agent", metav1.GetOptions{})
+		Get(ctx, "opni-monitoring-agent", metav1.GetOptions{})
 }

@@ -9,7 +9,7 @@ service Management {
   rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (core.BootstrapToken);
   rpc RevokeBootstrapToken(core.Reference) returns (google.protobuf.Empty);
   rpc ListBootstrapTokens(google.protobuf.Empty) returns (core.BootstrapTokenList);
-  rpc ListClusters(google.protobuf.Empty) returns (core.ClusterList);
+  rpc ListClusters(ListClustersRequest) returns (core.ClusterList);
   rpc DeleteCluster(core.Reference) returns (google.protobuf.Empty);
   rpc CertsInfo(google.protobuf.Empty) returns (CertsInfoResponse);
   rpc GetCluster(core.Reference) returns (core.Cluster);
@@ -23,6 +23,7 @@ service Management {
   rpc GetRoleBinding(core.Reference) returns (core.RoleBinding);
   rpc ListRoles(google.protobuf.Empty) returns (core.RoleList);
   rpc ListRoleBindings(google.protobuf.Empty) returns (core.RoleBindingList);
+  rpc SubjectAccess(core.SubjectAccessRequest) returns (core.ReferenceList);
 }
 
 message CreateBootstrapTokenRequest {
@@ -30,7 +31,11 @@ message CreateBootstrapTokenRequest {
 }
 
 message CertsInfoResponse {
-  repeated core.CertInfo Chain = 1;
+  repeated core.CertInfo chain = 1;
+}
+
+message ListClustersRequest {
+  core.LabelSelector matchLabels = 1;
 }
 
 message EditClusterRequest {

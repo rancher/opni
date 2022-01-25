@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/kralicky/opni-monitoring/pkg/core"
 )
 
 type middleware struct {
@@ -16,14 +17,20 @@ func (m *middleware) Handle(c *fiber.Ctx) error {
 	if userID == nil {
 		return c.Next()
 	}
-	tenants, err := m.provider.ListTenantsForUser(context.Background(), userID.(string))
+	clusters, err := m.provider.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
+		Subject: userID.(string),
+	})
 	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
-	if len(tenants) == 0 {
+	if len(clusters.Items) == 0 {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
-	c.Request().Header.Set("X-Scope-OrgID", strings.Join(tenants, "|"))
+	ids := make([]string, len(clusters.Items))
+	for i, cluster := range clusters.Items {
+		ids[i] = cluster.Id
+	}
+	c.Request().Header.Set("X-Scope-OrgID", strings.Join(ids, "|"))
 	return c.Next()
 }
 

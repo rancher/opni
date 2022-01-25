@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	core "github.com/kralicky/opni-monitoring/pkg/core"
 )
 
 // MockProvider is a mock of Provider interface.
@@ -34,17 +35,17 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
-// ListTenantsForUser mocks base method.
-func (m *MockProvider) ListTenantsForUser(ctx context.Context, userID string) ([]string, error) {
+// SubjectAccess mocks base method.
+func (m *MockProvider) SubjectAccess(arg0 context.Context, arg1 *core.SubjectAccessRequest) (*core.ReferenceList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListTenantsForUser", ctx, userID)
-	ret0, _ := ret[0].([]string)
+	ret := m.ctrl.Call(m, "SubjectAccess", arg0, arg1)
+	ret0, _ := ret[0].(*core.ReferenceList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListTenantsForUser indicates an expected call of ListTenantsForUser.
-func (mr *MockProviderMockRecorder) ListTenantsForUser(ctx, userID interface{}) *gomock.Call {
+// SubjectAccess indicates an expected call of SubjectAccess.
+func (mr *MockProviderMockRecorder) SubjectAccess(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTenantsForUser", reflect.TypeOf((*MockProvider)(nil).ListTenantsForUser), ctx, userID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubjectAccess", reflect.TypeOf((*MockProvider)(nil).SubjectAccess), arg0, arg1)
 }

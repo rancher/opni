@@ -23,7 +23,14 @@ message ClusterList {
 }
 
 message LabelSelector { 
-  map<string, string> labels = 1; 
+  map<string, string> matchLabels = 1; 
+  repeated LabelSelectorRequirement matchExpressions = 2;
+}
+
+message LabelSelectorRequirement {
+  string key = 1;
+  string operator = 2;
+  repeated string values = 3;
 }
 
 message Role {
@@ -56,6 +63,14 @@ message CertInfo {
 }
 
 message Reference {
-  string name = 2;
-  string id = 3;
+  string name = 1;
+  string id = 2;
+}
+
+message ReferenceList {
+  repeated Reference items = 1;
+}
+
+message SubjectAccessRequest {
+  string subject = 1;
 }

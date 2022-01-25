@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Simple Test", Ordered, func() {
@@ -42,7 +41,7 @@ var _ = Describe("Simple Test", Ordered, func() {
 			Ttl: durationpb.New(time.Minute),
 		}, grpc.WaitForReady(true))
 		Expect(err).NotTo(HaveOccurred())
-		certsInfo, err := mgmt.CertsInfo(context.Background(), &emptypb.Empty{})
+		certsInfo, err := mgmt.CertsInfo(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
 		Expect(fingerprint).NotTo(BeEmpty())

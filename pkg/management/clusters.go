@@ -12,8 +12,9 @@ import (
 
 func (m *Server) ListClusters(
 	ctx context.Context,
+	in *ListClustersRequest,
 ) (*core.ClusterList, error) {
-	clusters, err := m.clusterStore.ListClusters(ctx)
+	clusters, err := m.clusterStore.ListClusters(ctx, in.MatchLabels)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

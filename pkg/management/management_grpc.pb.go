@@ -27,7 +27,7 @@ type ManagementClient interface {
 	CreateBootstrapToken(ctx context.Context, in *CreateBootstrapTokenRequest, opts ...grpc.CallOption) (*core.BootstrapToken, error)
 	RevokeBootstrapToken(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) error
 	ListBootstrapTokens(ctx context.Context, opts ...grpc.CallOption) (*core.BootstrapTokenList, error)
-	ListClusters(ctx context.Context, opts ...grpc.CallOption) (*core.ClusterList, error)
+	ListClusters(ctx context.Context, in *ListClustersRequest, opts ...grpc.CallOption) (*core.ClusterList, error)
 	DeleteCluster(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) error
 	CertsInfo(ctx context.Context, opts ...grpc.CallOption) (*CertsInfoResponse, error)
 	GetCluster(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*core.Cluster, error)
@@ -40,6 +40,7 @@ type ManagementClient interface {
 	GetRoleBinding(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*core.RoleBinding, error)
 	ListRoles(ctx context.Context, opts ...grpc.CallOption) (*core.RoleList, error)
 	ListRoleBindings(ctx context.Context, opts ...grpc.CallOption) (*core.RoleBindingList, error)
+	SubjectAccess(ctx context.Context, in *core.SubjectAccessRequest, opts ...grpc.CallOption) (*core.ReferenceList, error)
 }
 
 type managementClient struct {
@@ -75,8 +76,7 @@ func (c *managementClient) ListBootstrapTokens(ctx context.Context, opts ...grpc
 	return out, nil
 }
 
-func (c *managementClient) ListClusters(ctx context.Context, opts ...grpc.CallOption) (*core.ClusterList, error) {
-	in := new(emptypb.Empty)
+func (c *managementClient) ListClusters(ctx context.Context, in *ListClustersRequest, opts ...grpc.CallOption) (*core.ClusterList, error) {
 	out := new(core.ClusterList)
 	err := c.cc.Invoke(ctx, "/management.Management/ListClusters", in, out, opts...)
 	if err != nil {
@@ -181,6 +181,15 @@ func (c *managementClient) ListRoleBindings(ctx context.Context, opts ...grpc.Ca
 	return out, nil
 }
 
+func (c *managementClient) SubjectAccess(ctx context.Context, in *core.SubjectAccessRequest, opts ...grpc.CallOption) (*core.ReferenceList, error) {
+	out := new(core.ReferenceList)
+	err := c.cc.Invoke(ctx, "/management.Management/SubjectAccess", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ManagementServer is the server API for Management service.
 // All implementations must embed UnimplementedManagementServer
 // for forward compatibility
@@ -188,7 +197,7 @@ type ManagementServer interface {
 	CreateBootstrapToken(context.Context, *CreateBootstrapTokenRequest) (*core.BootstrapToken, error)
 	RevokeBootstrapToken(context.Context, *core.Reference) error
 	ListBootstrapTokens(context.Context) (*core.BootstrapTokenList, error)
-	ListClusters(context.Context) (*core.ClusterList, error)
+	ListClusters(context.Context, *ListClustersRequest) (*core.ClusterList, error)
 	DeleteCluster(context.Context, *core.Reference) error
 	CertsInfo(context.Context) (*CertsInfoResponse, error)
 	GetCluster(context.Context, *core.Reference) (*core.Cluster, error)
@@ -201,6 +210,7 @@ type ManagementServer interface {
 	GetRoleBinding(context.Context, *core.Reference) (*core.RoleBinding, error)
 	ListRoles(context.Context) (*core.RoleList, error)
 	ListRoleBindings(context.Context) (*core.RoleBindingList, error)
+	SubjectAccess(context.Context, *core.SubjectAccessRequest) (*core.ReferenceList, error)
 	mustEmbedUnimplementedManagementServer()
 }
 
@@ -217,7 +227,7 @@ func (UnimplementedManagementServer) RevokeBootstrapToken(context.Context, *core
 func (UnimplementedManagementServer) ListBootstrapTokens(context.Context) (*core.BootstrapTokenList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListBootstrapTokens not implemented")
 }
-func (UnimplementedManagementServer) ListClusters(context.Context) (*core.ClusterList, error) {
+func (UnimplementedManagementServer) ListClusters(context.Context, *ListClustersRequest) (*core.ClusterList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListClusters not implemented")
 }
 func (UnimplementedManagementServer) DeleteCluster(context.Context, *core.Reference) error {
@@ -255,6 +265,9 @@ func (UnimplementedManagementServer) ListRoles(context.Context) (*core.RoleList,
 }
 func (UnimplementedManagementServer) ListRoleBindings(context.Context) (*core.RoleBindingList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRoleBindings not implemented")
+}
+func (UnimplementedManagementServer) SubjectAccess(context.Context, *core.SubjectAccessRequest) (*core.ReferenceList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SubjectAccess not implemented")
 }
 func (UnimplementedManagementServer) mustEmbedUnimplementedManagementServer() {}
 
@@ -325,19 +338,19 @@ func _Management_ListBootstrapTokens_Handler(srv interface{}, ctx context.Contex
 }
 
 func _Management_ListClusters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(ListClustersRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagementServer).ListClusters(ctx)
+		return srv.(ManagementServer).ListClusters(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/management.Management/ListClusters",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).ListClusters(ctx)
+		return srv.(ManagementServer).ListClusters(ctx, req.(*ListClustersRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -563,6 +576,24 @@ func _Management_ListRoleBindings_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Management_SubjectAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(core.SubjectAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).SubjectAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/SubjectAccess",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).SubjectAccess(ctx, req.(*core.SubjectAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Management_ServiceDesc is the grpc.ServiceDesc for Management service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -633,6 +664,10 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListRoleBindings",
 			Handler:    _Management_ListRoleBindings_Handler,
+		},
+		{
+			MethodName: "SubjectAccess",
+			Handler:    _Management_SubjectAccess_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

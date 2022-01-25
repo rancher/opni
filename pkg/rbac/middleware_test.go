@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
+	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	mock_rbac "github.com/kralicky/opni-monitoring/pkg/test/mock/rbac"
@@ -31,10 +32,18 @@ var _ = Describe("Middleware", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		mockProvider := mock_rbac.NewMockProvider(ctrl)
 		mockProvider.EXPECT().
-			ListTenantsForUser(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, userID string) ([]string, error) {
-				if tenants, ok := testUsers[userID]; ok {
-					return tenants, nil
+			SubjectAccess(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, sar *core.SubjectAccessRequest) (*core.ReferenceList, error) {
+				if clusters, ok := testUsers[sar.Subject]; ok {
+					items := make([]*core.Reference, len(clusters))
+					for i, cluster := range clusters {
+						items[i] = &core.Reference{
+							Id: cluster,
+						}
+					}
+					return &core.ReferenceList{
+						Items: items,
+					}, nil
 				}
 				return nil, errors.New("user not found")
 			}).
@@ -93,8 +102,8 @@ var _ = Describe("Middleware", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		mockProvider := mock_rbac.NewMockProvider(ctrl)
 		mockProvider.EXPECT().
-			ListTenantsForUser(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, userID string) ([]string, error) {
+			SubjectAccess(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, sar *core.SubjectAccessRequest) ([]string, error) {
 				defer GinkgoRecover()
 				Fail("this should not be called")
 				return nil, nil

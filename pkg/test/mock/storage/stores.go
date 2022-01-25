@@ -210,18 +210,18 @@ func (mr *MockClusterStoreMockRecorder) KeyringStore(ctx, ref interface{}) *gomo
 }
 
 // ListClusters mocks base method.
-func (m *MockClusterStore) ListClusters(ctx context.Context) (*core.ClusterList, error) {
+func (m *MockClusterStore) ListClusters(ctx context.Context, matchLabels *core.LabelSelector) (*core.ClusterList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListClusters", ctx)
+	ret := m.ctrl.Call(m, "ListClusters", ctx, matchLabels)
 	ret0, _ := ret[0].(*core.ClusterList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListClusters indicates an expected call of ListClusters.
-func (mr *MockClusterStoreMockRecorder) ListClusters(ctx interface{}) *gomock.Call {
+func (mr *MockClusterStoreMockRecorder) ListClusters(ctx, matchLabels interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListClusters", reflect.TypeOf((*MockClusterStore)(nil).ListClusters), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListClusters", reflect.TypeOf((*MockClusterStore)(nil).ListClusters), ctx, matchLabels)
 }
 
 // UpdateCluster mocks base method.

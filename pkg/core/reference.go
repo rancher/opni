@@ -24,6 +24,12 @@ func (r *RoleBinding) Reference() *Reference {
 	}
 }
 
+func (r *RoleBinding) RoleReference() *Reference {
+	return &Reference{
+		Name: r.RoleName,
+	}
+}
+
 func (r *Reference) Equal(other *Reference) bool {
 	if r.Id == "" && other.Id == "" {
 		return r.Name == other.Name

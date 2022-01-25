@@ -2,6 +2,7 @@ package util
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -63,14 +64,9 @@ func RenderClusterList(list *core.ClusterList) string {
 func RenderRole(role *core.Role) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"NAME", "TENANTS"})
-	for i, tenant := range role.ClusterIDs {
-		name := role.Name
-		if i > 0 {
-			name = ""
-		}
-		w.AppendRow(table.Row{name, tenant})
-	}
+	w.AppendHeader(table.Row{"NAME", "EXPLICIT IDS", "LABEL SELECTOR"})
+
+	w.AppendRow(table.Row{role.Name, strings.Join(role.ClusterIDs, "\n"), role.MatchLabels.ExpressionString()})
 	return w.Render()
 }
 
@@ -87,17 +83,17 @@ func RenderRoleList(list *core.RoleList) string {
 func RenderRoleBinding(binding *core.RoleBinding) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"NAME", "ROLE NAME", "USER ID"})
-	w.AppendRow(table.Row{binding.Name, binding.RoleName, binding.UserID})
+	w.AppendHeader(table.Row{"NAME", "ROLE NAME", "SUBJECTS"})
+	w.AppendRow(table.Row{binding.Name, binding.RoleName, strings.Join(binding.Subjects, "\n")})
 	return w.Render()
 }
 
 func RenderRoleBindingList(list *core.RoleBindingList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"NAME", "ROLE NAME", "USER ID"})
+	w.AppendHeader(table.Row{"NAME", "ROLE NAME", "SUBJECTS"})
 	for _, b := range list.Items {
-		w.AppendRow(table.Row{b.Name, b.RoleName, b.UserID})
+		w.AppendRow(table.Row{b.Name, b.RoleName, strings.Join(b.Subjects, "\n")})
 	}
 	return w.Render()
 }
@@ -106,7 +102,7 @@ type AccessMatrix struct {
 	// List of users (in the order they will appear in the table)
 	Users []string
 	// Map of tenant IDs to a set of users that have access to the tenant
-	TenantsToUsers map[string]map[string]struct{}
+	ClustersToUsers map[string]map[string]struct{}
 }
 
 func RenderAccessMatrix(am AccessMatrix) string {
@@ -140,7 +136,7 @@ func RenderAccessMatrix(am AccessMatrix) string {
 	}
 	w.SetColumnConfigs(cc)
 	w.AppendHeader(row)
-	for tenant, users := range am.TenantsToUsers {
+	for tenant, users := range am.ClustersToUsers {
 		row = table.Row{tenant}
 		for _, user := range am.Users {
 			if _, ok := users[user]; ok {

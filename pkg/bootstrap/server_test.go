@@ -19,6 +19,7 @@ import (
 	"github.com/valyala/fasthttp/fasthttputil"
 
 	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
+	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/ecdh"
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
 	"github.com/kralicky/opni-monitoring/pkg/logger"
@@ -56,8 +57,8 @@ var _ = Describe("Server", func() {
 			AnyTimes()
 		mockTokenStore.EXPECT().
 			TokenExists(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ context.Context, tokenID string) (bool, error) {
-				return tokenID == token.HexID(), nil
+			DoAndReturn(func(_ context.Context, ref *core.Reference) (bool, error) {
+				return ref.Id == token.HexID(), nil
 			}).
 			AnyTimes()
 
@@ -84,24 +85,30 @@ var _ = Describe("Server", func() {
 		hasCreated := false
 		mockClusterStore.EXPECT().
 			CreateCluster(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ context.Context, tenantID string) error {
+			DoAndReturn(func(_ context.Context, ref *core.Cluster) error {
 				hasCreated = true
 				return nil
 			}).
 			AnyTimes()
 		mockClusterStore.EXPECT().
 			ClusterExists(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, tenantID string) (bool, error) {
+			DoAndReturn(func(ctx context.Context, ref *core.Reference) (bool, error) {
 				return hasCreated, nil
 			}).
 			AnyTimes()
 		mockClusterStore.EXPECT().
-			ListClusters(gomock.Any()).
-			DoAndReturn(func(context.Context) ([]string, error) {
+			ListClusters(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(context.Context, *core.LabelSelector) (*core.ClusterList, error) {
 				if hasCreated {
-					return []string{"foo"}, nil
+					return &core.ClusterList{
+						Items: []*core.Cluster{
+							{
+								Id: "foo",
+							},
+						},
+					}, nil
 				}
-				return []string{}, nil
+				return &core.ClusterList{Items: []*core.Cluster{}}, nil
 			}).
 			AnyTimes()
 		mockClusterStore.EXPECT().

@@ -3,17 +3,18 @@ package storage
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
+	"sort"
 
+	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"go.uber.org/zap"
 )
 
 type rbacProvider struct {
-	rbacStore RBACStore
-	logger    *zap.SugaredLogger
+	rbacStore    RBACStore
+	clusterStore ClusterStore
+	logger       *zap.SugaredLogger
 }
 
 func NewRBACProvider(rbacStore RBACStore) rbac.Provider {
@@ -23,39 +24,61 @@ func NewRBACProvider(rbacStore RBACStore) rbac.Provider {
 	}
 }
 
-func (p *rbacProvider) ListTenantsForUser(ctx context.Context, userID string) ([]string, error) {
+func (p *rbacProvider) SubjectAccess(
+	ctx context.Context,
+	req *core.SubjectAccessRequest,
+) (*core.ReferenceList, error) {
 	// Look up all role bindings which exist for this user, then look up the roles
 	// referenced by those role bindings. Aggregate the resulting tenant IDs from
 	// the roles and filter out any duplicates.
-	ctx, ca := context.WithTimeout(ctx, 5*time.Second)
-	defer ca()
 	rbs, err := p.rbacStore.ListRoleBindings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}
-	tenants := map[string]struct{}{}
-	for _, roleBinding := range rbs {
-		if roleBinding.UserID == userID {
-			// Look up the associated role
-			role, err := p.rbacStore.GetRole(ctx, roleBinding.RoleName)
-			if err != nil {
-				p.logger.With(
-					zap.Error(err),
-					zap.String("role", roleBinding.RoleName),
-				).Warn("ignoring invalid role binding")
-				continue
-			}
-			for _, tenantID := range role.TenantIDs {
-				if strings.TrimSpace(tenantID) == "" {
-					continue
-				}
-				tenants[tenantID] = struct{}{}
+	allowedClusters := map[string]struct{}{}
+	// All applicable role bindings for this user are ORed together
+	for _, roleBinding := range rbs.Items {
+		appliesToUser := false
+		for _, s := range roleBinding.Subjects {
+			if s == req.Subject {
+				appliesToUser = true
 			}
 		}
+		if !appliesToUser {
+			continue
+		}
+		role, err := p.rbacStore.GetRole(ctx, roleBinding.RoleReference())
+		if err != nil {
+			p.logger.With(
+				zap.Error(err),
+				zap.String("role", roleBinding.RoleName),
+			).Warn("ignoring invalid role binding")
+			continue
+		}
+		// Add explicitly-allowed clusters to the list
+		for _, clusterID := range role.ClusterIDs {
+			allowedClusters[clusterID] = struct{}{}
+		}
+
+		// Add any clusters to the list which match the role's label selector
+		filteredList, err := p.clusterStore.ListClusters(ctx, role.MatchLabels)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list clusters: %w", err)
+		}
+		for _, cluster := range filteredList.Items {
+			allowedClusters[cluster.Id] = struct{}{}
+		}
 	}
-	tenantIDs := make([]string, 0, len(tenants))
-	for tenantID := range tenants {
-		tenantIDs = append(tenantIDs, tenantID)
+	sortedReferences := make([]*core.Reference, 0, len(allowedClusters))
+	for clusterID := range allowedClusters {
+		sortedReferences = append(sortedReferences, &core.Reference{
+			Id: clusterID,
+		})
 	}
-	return tenantIDs, nil
+	sort.Slice(sortedReferences, func(i, j int) bool {
+		return sortedReferences[i].Id < sortedReferences[j].Id
+	})
+	return &core.ReferenceList{
+		Items: sortedReferences,
+	}, nil
 }

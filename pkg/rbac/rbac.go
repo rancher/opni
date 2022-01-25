@@ -2,6 +2,8 @@ package rbac
 
 import (
 	"context"
+
+	"github.com/kralicky/opni-monitoring/pkg/core"
 )
 
 const (
@@ -9,5 +11,5 @@ const (
 )
 
 type Provider interface {
-	ListTenantsForUser(ctx context.Context, userID string) ([]string, error)
+	SubjectAccess(context.Context, *core.SubjectAccessRequest) (*core.ReferenceList, error)
 }

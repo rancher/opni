@@ -8,12 +8,13 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/jedib0t/go-pretty/v6 v6.2.5
 	github.com/jwalton/go-supportscolor v1.1.0
-	github.com/kralicky/spellbook v0.0.0-20220117010754-fed421257374
+	github.com/kralicky/ragu v0.2.2
+	github.com/kralicky/spellbook v0.0.0-20220122004913-e7384b6b52ed
 	github.com/lestrrat-go/jwx v1.2.17
 	github.com/magefile/mage v1.12.1
 	github.com/mitchellh/mapstructure v1.4.3
-	github.com/onsi/ginkgo/v2 v2.0.0
-	github.com/onsi/gomega v1.17.0
+	github.com/onsi/ginkgo/v2 v2.1.0
+	github.com/onsi/gomega v1.18.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/spf13/cobra v1.3.0
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
@@ -72,7 +73,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
-	github.com/kralicky/ragu v0.2.1 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
 	github.com/lestrrat-go/httpcc v1.0.0 // indirect
@@ -110,7 +110,7 @@ require (
 	golang.org/x/mod v0.5.0 // indirect
 	golang.org/x/net v0.0.0-20211209124913-491a49abca63 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.0.0-20211205182925-97ca703d548d // indirect
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
@@ -130,3 +130,7 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.13.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )
+
+replace github.com/kralicky/ragu => ../../ragu
+
+replace github.com/kralicky/spellbook => ../../spellbook

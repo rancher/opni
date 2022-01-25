@@ -13,7 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/utils"
-	tenantauth "github.com/kralicky/opni-monitoring/pkg/auth/tenant"
+	"github.com/kralicky/opni-monitoring/pkg/auth/cluster"
 	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
 	"github.com/kralicky/opni-monitoring/pkg/config"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
@@ -21,6 +21,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
+	"github.com/kralicky/opni-monitoring/pkg/storage/etcd"
 	"github.com/kralicky/opni-monitoring/pkg/util"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
@@ -52,7 +53,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	lg := logger.New().Named("gateway")
 
 	var tokenStore storage.TokenStore
-	var tenantStore storage.TenantStore
+	var tenantStore storage.ClusterStore
 	var rbacStore storage.RBACStore
 	switch conf.Spec.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
@@ -60,8 +61,8 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		if options == nil {
 			lg.Fatal("etcd storage options are not set")
 		} else {
-			store := storage.NewEtcdStore(conf.Spec.Storage.Etcd,
-				storage.WithNamespace("gateway"),
+			store := etcd.NewEtcdStore(conf.Spec.Storage.Etcd,
+				etcd.WithNamespace("gateway"),
 			)
 			tokenStore = store
 			tenantStore = store
@@ -135,9 +136,9 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	g.setupCortexRoutes(app, tenantStore, rbacStore)
 
 	app.Post("/bootstrap/*", bootstrap.ServerConfig{
-		Certificate: servingCertBundle,
-		TokenStore:  tokenStore,
-		TenantStore: tenantStore,
+		Certificate:  servingCertBundle,
+		TokenStore:   tokenStore,
+		ClusterStore: tenantStore,
 	}.Handle).Use(limiter.New()) // Limit requests to 5 per minute
 
 	app.Use(default404Handler)
@@ -240,7 +241,7 @@ func (g *Gateway) loadCortexCerts() {
 
 func (g *Gateway) setupCortexRoutes(
 	app *fiber.App,
-	tenantStore storage.TenantStore,
+	tenantStore storage.ClusterStore,
 	rbacStore storage.RBACStore,
 ) {
 	queryFrontend := g.newCortexForwarder(g.config.Spec.Cortex.QueryFrontend.Address)
@@ -283,7 +284,7 @@ func (g *Gateway) setupCortexRoutes(
 	promv1.Post("/read", queryFrontend)
 
 	// Remote-write API
-	tenantMiddleware := tenantauth.New(tenantStore)
+	tenantMiddleware := cluster.New(tenantStore)
 	v1 := app.Group("/api/v1", tenantMiddleware.Handle)
 	v1.Post("/push", distributor)
 }

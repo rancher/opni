@@ -53,10 +53,9 @@ func (s *SecretStore) Put(ctx context.Context, kr keyring.Keyring) error {
 	if err != nil {
 		return err
 	}
-	secret, err := s.clientset.CoreV1().
-		Secrets(s.namespace).
-		Get(ctx, secretName, metav1.GetOptions{})
-	if err != nil {
+
+	if _, err = s.clientset.CoreV1().Secrets(s.namespace).
+		Get(ctx, secretName, metav1.GetOptions{}); err != nil {
 		if k8serrors.IsNotFound(err) {
 			newSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -74,20 +73,29 @@ func (s *SecretStore) Put(ctx context.Context, kr keyring.Keyring) error {
 		} else {
 			return err
 		}
-	} else {
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			secret.Data["keyring"] = keyringData
-			_, err = s.clientset.CoreV1().
-				Secrets(s.namespace).
-				Update(ctx, secret, metav1.UpdateOptions{})
-			if err != nil {
-				lg.With(
-					zap.Error(err),
-				).Error("error updating secret (will retry)")
-			}
-			return err
-		})
 	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		secret, err := s.clientset.CoreV1().
+			Secrets(s.namespace).
+			Get(ctx, secretName, metav1.GetOptions{})
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("error looking up secret")
+			return err
+		}
+		secret.Data["keyring"] = keyringData
+		_, err = s.clientset.CoreV1().
+			Secrets(s.namespace).
+			Update(ctx, secret, metav1.UpdateOptions{})
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("error updating secret (will retry)")
+		}
+		return err
+	})
 }
 
 func (s *SecretStore) Get(ctx context.Context) (keyring.Keyring, error) {

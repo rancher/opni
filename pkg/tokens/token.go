@@ -11,6 +11,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 )
@@ -46,6 +47,22 @@ func NewToken(source ...io.Reader) *Token {
 	}
 }
 
+func FromBootstrapToken(t *core.BootstrapToken) *Token {
+	tokenID := t.GetTokenID()
+	tokenSecret := t.GetSecret()
+	token := &Token{
+		ID:     make([]byte, len(tokenID)),
+		Secret: make([]byte, len(tokenSecret)),
+		Metadata: TokenMeta{
+			LeaseID: t.GetLeaseID(),
+			TTL:     t.GetTtl(),
+		},
+	}
+	copy(token.ID, tokenID)
+	copy(token.Secret, tokenSecret)
+	return token
+}
+
 func (t *Token) EncodeJSON() []byte {
 	data, err := json.Marshal(t)
 	if err != nil {
@@ -60,6 +77,12 @@ func (t *Token) EncodeHex() string {
 
 func (t *Token) HexID() string {
 	return hex.EncodeToString(t.ID)
+}
+
+func (t *Token) Reference() *core.Reference {
+	return &core.Reference{
+		Id: t.HexID(),
+	}
 }
 
 func ParseJSON(data []byte) (*Token, error) {

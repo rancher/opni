@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/kralicky/opni-monitoring/pkg/test"
+	"github.com/kralicky/opni-monitoring/pkg/tokens"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc"
@@ -31,13 +33,13 @@ var _ = Describe("Simple Test", Ordered, func() {
 		Expect(environment.Stop()).To(Succeed())
 	})
 
-	var token *management.BootstrapToken
+	var token *core.BootstrapToken
 	var fingerprint string
 	It("should create a bootstrap token", func() {
 		mgmt := environment.NewManagementClient()
 		var err error
 		token, err = mgmt.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
-			TTL: durationpb.New(time.Minute),
+			Ttl: durationpb.New(time.Minute),
 		}, grpc.WaitForReady(true))
 		Expect(err).NotTo(HaveOccurred())
 		certsInfo, err := mgmt.CertsInfo(context.Background(), &emptypb.Empty{})
@@ -47,7 +49,7 @@ var _ = Describe("Simple Test", Ordered, func() {
 	})
 	When("an agent is added", func() {
 		It("should become ready", func() {
-			port := environment.StartAgent("foo", token.ToToken().EncodeHex(), []string{fingerprint})
+			port := environment.StartAgent("foo", tokens.FromBootstrapToken(token).EncodeHex(), []string{fingerprint})
 			promAgentPort := environment.StartPrometheus(port)
 			Expect(promAgentPort).NotTo(BeZero())
 		})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
@@ -26,7 +27,7 @@ func (p *rbacProvider) ListTenantsForUser(ctx context.Context, userID string) ([
 	// Look up all role bindings which exist for this user, then look up the roles
 	// referenced by those role bindings. Aggregate the resulting tenant IDs from
 	// the roles and filter out any duplicates.
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, 5*time.Second)
 	defer ca()
 	rbs, err := p.rbacStore.ListRoleBindings(ctx)
 	if err != nil {

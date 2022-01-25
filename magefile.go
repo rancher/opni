@@ -11,7 +11,9 @@ import (
 	"github.com/magefile/mage/sh"
 
 	// mage:import
+	"github.com/kralicky/ragu/pkg/ragu"
 	"github.com/kralicky/spellbook/build"
+
 	// mage:import
 	test "github.com/kralicky/spellbook/test/ginkgo"
 	// mage:import
@@ -69,9 +71,16 @@ func init() {
 	}
 	protobuf.Config.Protos = []protobuf.Proto{
 		{
+			Source:  "pkg/core/core.proto",
+			DestDir: "pkg/core",
+		},
+		{
 			Source:  "pkg/management/management.proto",
 			DestDir: "pkg/management",
 		},
+	}
+	protobuf.Config.Options = []ragu.GenerateCodeOption{
+		ragu.ExperimentalHideEmptyMessages(),
 	}
 	docker.Config.Tag = "kralicky/opni-monitoring"
 	ext := ".tar.gz"

@@ -10,11 +10,13 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/b2bmac"
 	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
+	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/ident"
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
 	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
+	"github.com/kralicky/opni-monitoring/pkg/storage/etcd"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -91,14 +93,16 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 
 	switch agent.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
-		etcd := storage.NewEtcdStore(agent.Storage.Etcd,
-			storage.WithNamespace("agent"),
+		es := etcd.NewEtcdStore(agent.Storage.Etcd,
+			etcd.WithNamespace("agent"),
 		)
 		id, err := agent.identityProvider.UniqueIdentifier(context.Background())
 		if err != nil {
 			lg.With(zap.Error(err)).Fatal("error getting unique identifier")
 		}
-		ks, err := etcd.KeyringStore(context.Background(), id)
+		ks, err := es.KeyringStore(context.Background(), &core.Reference{
+			Id: id,
+		})
 		if err != nil {
 			lg.With(zap.Error(err)).Fatal("error getting keyring store")
 		}

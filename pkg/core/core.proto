@@ -1,0 +1,61 @@
+syntax = "proto3";
+option go_package = "github.com/kralicky/opni-monitoring/pkg/core";
+package core;
+
+message BootstrapToken {
+  bytes tokenID = 1;
+  bytes secret = 2;
+  int64 leaseID = 3;
+  int64 ttl = 4;
+}
+
+message BootstrapTokenList {
+  repeated BootstrapToken items = 1;
+}
+
+message Cluster {
+  string id = 1;
+  map<string, string> labels = 2;
+}
+
+message ClusterList {
+  repeated Cluster items = 1;
+}
+
+message LabelSelector { 
+  map<string, string> labels = 1; 
+}
+
+message Role {
+  string name = 1;
+  repeated string clusterIDs = 2;
+  LabelSelector matchLabels = 3;
+}
+
+message RoleBinding {
+  string name = 1;
+  string roleName = 2;
+  repeated string subjects = 3;
+}
+
+message RoleList {
+  repeated Role items = 1;
+}
+
+message RoleBindingList {
+  repeated RoleBinding items = 1;
+}
+
+message CertInfo {
+  string issuer = 1;
+  string subject = 2;
+  bool isCA = 3;
+  string notBefore = 4;
+  string notAfter = 5;
+  string fingerprint = 6;
+}
+
+message Reference {
+  string name = 2;
+  string id = 3;
+}

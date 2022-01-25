@@ -155,7 +155,7 @@ func BuildTenantsListCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderTenantList(t.Tenants))
+			fmt.Println(cliutil.RenderClusterList(t.Tenants))
 		},
 	}
 }

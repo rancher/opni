@@ -35,12 +35,12 @@ var _ = Describe("Server", func() {
 	var app *fiber.App
 	var addr string
 	var mockTokenStore *mock_storage.MockTokenStore
-	var mockTenantStore *mock_storage.MockTenantStore
+	var mockClusterStore *mock_storage.MockClusterStore
 
 	BeforeEach(func() {
 		token = tokens.NewToken()
 		mockTokenStore = mock_storage.NewMockTokenStore(ctrl)
-		mockTenantStore = mock_storage.NewMockTenantStore(ctrl)
+		mockClusterStore = mock_storage.NewMockClusterStore(ctrl)
 
 		mockTokenStore.EXPECT().
 			GetToken(gomock.Any(), token.HexID()).
@@ -82,21 +82,21 @@ var _ = Describe("Server", func() {
 			AnyTimes()
 
 		hasCreated := false
-		mockTenantStore.EXPECT().
-			CreateTenant(gomock.Any(), gomock.Any()).
+		mockClusterStore.EXPECT().
+			CreateCluster(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(_ context.Context, tenantID string) error {
 				hasCreated = true
 				return nil
 			}).
 			AnyTimes()
-		mockTenantStore.EXPECT().
-			TenantExists(gomock.Any(), gomock.Any()).
+		mockClusterStore.EXPECT().
+			ClusterExists(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(ctx context.Context, tenantID string) (bool, error) {
 				return hasCreated, nil
 			}).
 			AnyTimes()
-		mockTenantStore.EXPECT().
-			ListTenants(gomock.Any()).
+		mockClusterStore.EXPECT().
+			ListClusters(gomock.Any()).
 			DoAndReturn(func(context.Context) ([]string, error) {
 				if hasCreated {
 					return []string{"foo"}, nil
@@ -104,7 +104,7 @@ var _ = Describe("Server", func() {
 				return []string{}, nil
 			}).
 			AnyTimes()
-		mockTenantStore.EXPECT().
+		mockClusterStore.EXPECT().
 			KeyringStore(gomock.Any(), gomock.Any()).
 			Return(mockKeyringStore, nil).
 			AnyTimes()
@@ -121,9 +121,9 @@ var _ = Describe("Server", func() {
 		})
 		logger.ConfigureApp(app, logger.New().Named("test"))
 		server := bootstrap.ServerConfig{
-			Certificate: cert,
-			TokenStore:  mockTokenStore,
-			TenantStore: mockTenantStore,
+			Certificate:  cert,
+			TokenStore:   mockTokenStore,
+			ClusterStore: mockClusterStore,
 		}
 		app.Post("/bootstrap/*", server.Handle)
 		tlsConfig := &tls.Config{

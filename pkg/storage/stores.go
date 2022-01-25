@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
-	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
 )
 
@@ -14,29 +14,31 @@ var ErrNotFound = errors.New("not found")
 
 type TokenStore interface {
 	CreateToken(ctx context.Context, ttl time.Duration) (*tokens.Token, error)
-	DeleteToken(ctx context.Context, tokenID string) error
-	TokenExists(ctx context.Context, tokenID string) (bool, error)
-	GetToken(ctx context.Context, tokenID string) (*tokens.Token, error)
+	DeleteToken(ctx context.Context, ref *core.Reference) error
+	TokenExists(ctx context.Context, ref *core.Reference) (bool, error)
+	GetToken(ctx context.Context, ref *core.Reference) (*tokens.Token, error)
 	ListTokens(ctx context.Context) ([]*tokens.Token, error)
 }
 
-type TenantStore interface {
-	CreateTenant(ctx context.Context, tenantID string) error
-	DeleteTenant(ctx context.Context, tenantID string) error
-	TenantExists(ctx context.Context, tenantID string) (bool, error)
-	ListTenants(ctx context.Context) ([]string, error)
-	KeyringStore(ctx context.Context, tenantID string) (KeyringStore, error)
+type ClusterStore interface {
+	CreateCluster(ctx context.Context, cluster *core.Cluster) error
+	DeleteCluster(ctx context.Context, ref *core.Reference) error
+	ClusterExists(ctx context.Context, ref *core.Reference) (bool, error)
+	GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error)
+	UpdateCluster(ctx context.Context, cluster *core.Cluster) (*core.Cluster, error)
+	ListClusters(ctx context.Context) (*core.ClusterList, error)
+	KeyringStore(ctx context.Context, ref *core.Reference) (KeyringStore, error)
 }
 
 type RBACStore interface {
-	CreateRole(ctx context.Context, roleName string, tenantIDs []string) (rbac.Role, error)
-	DeleteRole(ctx context.Context, roleName string) error
-	GetRole(ctx context.Context, roleName string) (rbac.Role, error)
-	CreateRoleBinding(ctx context.Context, roleBindingName string, roleName string, userID string) (rbac.RoleBinding, error)
-	DeleteRoleBinding(ctx context.Context, roleBindingName string) error
-	GetRoleBinding(ctx context.Context, roleBindingName string) (rbac.RoleBinding, error)
-	ListRoles(ctx context.Context) ([]rbac.Role, error)
-	ListRoleBindings(ctx context.Context) ([]rbac.RoleBinding, error)
+	CreateRole(context.Context, *core.Role) error
+	DeleteRole(context.Context, *core.Reference) error
+	GetRole(context.Context, *core.Reference) (*core.Role, error)
+	CreateRoleBinding(context.Context, *core.RoleBinding) error
+	DeleteRoleBinding(context.Context, *core.Reference) error
+	GetRoleBinding(context.Context, *core.Reference) (*core.RoleBinding, error)
+	ListRoles(context.Context) (*core.RoleList, error)
+	ListRoleBindings(context.Context) (*core.RoleBindingList, error)
 }
 
 type KeyringStore interface {

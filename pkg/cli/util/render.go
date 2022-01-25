@@ -5,21 +5,22 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
-	"github.com/kralicky/opni-monitoring/pkg/management"
+	"github.com/kralicky/opni-monitoring/pkg/core"
+	"github.com/kralicky/opni-monitoring/pkg/tokens"
 )
 
-func RenderBootstrapTokenList(tokens []*management.BootstrapToken) string {
+func RenderBootstrapTokenList(list *core.BootstrapTokenList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"ID", "TOKEN", "TTL"})
-	for _, t := range tokens {
-		token := t.ToToken()
-		w.AppendRow(table.Row{token.HexID(), token.EncodeHex(), t.GetTTL()})
+	for _, t := range list.Items {
+		token := tokens.FromBootstrapToken(t)
+		w.AppendRow(table.Row{token.HexID(), token.EncodeHex(), t.GetTtl()})
 	}
 	return w.Render()
 }
 
-func RenderCertInfoChain(chain []*management.CertInfo) string {
+func RenderCertInfoChain(chain []*core.CertInfo) string {
 	buf := new(bytes.Buffer)
 	for i, cert := range chain {
 		fp := []byte(cert.Fingerprint)
@@ -49,21 +50,21 @@ func RenderCertInfoChain(chain []*management.CertInfo) string {
 	return buf.String()
 }
 
-func RenderTenantList(tenants []*management.Tenant) string {
+func RenderClusterList(list *core.ClusterList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"ID"})
-	for _, t := range tenants {
-		w.AppendRow(table.Row{t.ID})
+	for _, t := range list.Items {
+		w.AppendRow(table.Row{t.GetId()})
 	}
 	return w.Render()
 }
 
-func RenderRole(role *management.Role) string {
+func RenderRole(role *core.Role) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"NAME", "TENANTS"})
-	for i, tenant := range role.TenantIDs {
+	for i, tenant := range role.ClusterIDs {
 		name := role.Name
 		if i > 0 {
 			name = ""
@@ -73,17 +74,17 @@ func RenderRole(role *management.Role) string {
 	return w.Render()
 }
 
-func RenderRoleList(roles []*management.Role) string {
+func RenderRoleList(list *core.RoleList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"NAME", "# TENANTS"})
-	for _, r := range roles {
-		w.AppendRow(table.Row{r.Name, len(r.TenantIDs)})
+	for _, r := range list.Items {
+		w.AppendRow(table.Row{r.Name, len(r.ClusterIDs)})
 	}
 	return w.Render()
 }
 
-func RenderRoleBinding(binding *management.RoleBinding) string {
+func RenderRoleBinding(binding *core.RoleBinding) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"NAME", "ROLE NAME", "USER ID"})
@@ -91,11 +92,11 @@ func RenderRoleBinding(binding *management.RoleBinding) string {
 	return w.Render()
 }
 
-func RenderRoleBindingList(bindings []*management.RoleBinding) string {
+func RenderRoleBindingList(list *core.RoleBindingList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"NAME", "ROLE NAME", "USER ID"})
-	for _, b := range bindings {
+	for _, b := range list.Items {
 		w.AppendRow(table.Row{b.Name, b.RoleName, b.UserID})
 	}
 	return w.Render()

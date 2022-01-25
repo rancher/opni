@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/ecdh"
 	"github.com/kralicky/opni-monitoring/pkg/keyring"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
@@ -17,9 +18,9 @@ import (
 )
 
 type ServerConfig struct {
-	Certificate *tls.Certificate
-	TokenStore  storage.TokenStore
-	TenantStore storage.TenantStore
+	Certificate  *tls.Certificate
+	TokenStore   storage.TokenStore
+	ClusterStore storage.ClusterStore
 }
 
 func (h ServerConfig) bootstrapJoinResponse(
@@ -92,7 +93,7 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	if err != nil {
 		panic("bug: jws.Verify returned a malformed token")
 	}
-	ok, err := h.TokenStore.TokenExists(context.Background(), token.HexID())
+	ok, err := h.TokenStore.TokenExists(context.Background(), token.Reference())
 	if err != nil {
 		lg.Printf("error checking if token exists: %v")
 		return c.SendStatus(fiber.StatusInternalServerError)
@@ -107,8 +108,10 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 	}
 
-	if ok, err := h.TenantStore.TenantExists(context.Background(), clientReq.ClientID); err != nil {
-		lg.Printf("error checking if tenant exists: %v", err)
+	if ok, err := h.ClusterStore.ClusterExists(context.Background(), &core.Reference{
+		Id: clientReq.ClientID,
+	}); err != nil {
+		lg.Printf("error checking if cluster exists: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	} else if ok {
 		return c.Status(fiber.StatusConflict).SendString("ID already in use")
@@ -125,11 +128,15 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 	kr := keyring.New(keyring.NewSharedKeys(sharedSecret))
-	if err := h.TenantStore.CreateTenant(context.Background(), clientReq.ClientID); err != nil {
-		lg.Printf("error creating tenant: %v", err)
+	newCluster := &core.Cluster{
+		Id:     clientReq.ClientID,
+		Labels: map[string]string{},
+	}
+	if err := h.ClusterStore.CreateCluster(context.Background(), newCluster); err != nil {
+		lg.Printf("error creating cluster: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
-	krStore, err := h.TenantStore.KeyringStore(context.Background(), clientReq.ClientID)
+	krStore, err := h.ClusterStore.KeyringStore(context.Background(), newCluster.Reference())
 	if err != nil {
 		lg.Printf("error getting keyring store: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)

@@ -8,8 +8,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/jedib0t/go-pretty/v6 v6.2.5
 	github.com/jwalton/go-supportscolor v1.1.0
-	github.com/kralicky/ragu v0.2.2
-	github.com/kralicky/spellbook v0.0.0-20220122004913-e7384b6b52ed
+	github.com/kralicky/ragu v0.2.3
+	github.com/kralicky/spellbook v0.0.0-20220125024540-1a8969438a0f
 	github.com/lestrrat-go/jwx v1.2.17
 	github.com/magefile/mage v1.12.1
 	github.com/mitchellh/mapstructure v1.4.3
@@ -130,7 +130,3 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.13.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )
-
-replace github.com/kralicky/ragu => ../../ragu
-
-replace github.com/kralicky/spellbook => ../../spellbook

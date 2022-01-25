@@ -13,8 +13,9 @@ import (
 
 func BuildTokensCmd() *cobra.Command {
 	tokensCmd := &cobra.Command{
-		Use:   "tokens",
-		Short: "Manage bootstrap tokens",
+		Use:     "tokens",
+		Aliases: []string{"token"},
+		Short:   "Manage bootstrap tokens",
 	}
 	tokensCmd.AddCommand(BuildTokensCreateCmd())
 	tokensCmd.AddCommand(BuildTokensRevokeCmd())

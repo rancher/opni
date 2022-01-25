@@ -13,8 +13,9 @@ import (
 
 func BuildClustersCmd() *cobra.Command {
 	clustersCmd := &cobra.Command{
-		Use:   "clusters",
-		Short: "Manage clusters",
+		Use:     "clusters",
+		Aliases: []string{"cluster"},
+		Short:   "Manage clusters",
 	}
 	clustersCmd.AddCommand(BuildClustersListCmd())
 	clustersCmd.AddCommand(BuildClustersDeleteCmd())

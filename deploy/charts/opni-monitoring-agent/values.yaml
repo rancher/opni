@@ -5,7 +5,8 @@ fullnameOverride: ""
 image:
   repository: kralicky/opni-monitoring
   # Overrides the image tag whose default is the chart appVersion.
-  tag: latest
+  tag: main
+  pullPolicy: Always
 
 serviceAccount:
   # Specifies whether a service account should be created

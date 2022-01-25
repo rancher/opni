@@ -22,7 +22,14 @@ grafana.ini:
     domain: "grafana.localhost"
     root_url: "grafana.localhost"
   auth.generic_oauth:
+    enabled: true
     scopes: "openid profile email roles"
+  auth:
+    disable_login_form: true
+  auth.proxy:
+    enabled: true
+  auth.basic:
+    enabled: false
 extraSecretMounts:
   - name: opni-cacert
     mountPath: /run/opni-monitoring/certs
@@ -34,7 +41,6 @@ extraSecretMounts:
             items:
               - key: ca.crt
                 path: ca.crt
-
 tls:
   - secretName: grafana-tls-keys
     hosts:

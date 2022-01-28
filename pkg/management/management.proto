@@ -4,7 +4,19 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "google/api/annotations.proto";
 import "../core/core.proto";
+
 package management;
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+	info: {
+		title: "Opni Monitoring Management API";
+		version: "1.0";
+		license: {
+			name: "Apache 2.0";
+			url: "https://github.com/kralicky/opni-monitoring/blob/main/LICENSE";
+		};
+  };
+};
 
 service Management {
   rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (core.BootstrapToken) {
@@ -26,6 +38,12 @@ service Management {
   rpc ListClusters(ListClustersRequest) returns (core.ClusterList) {
     option (google.api.http) = {
       get: "/management/clusters"
+    };
+  }
+  rpc WatchClusters(WatchClustersRequest) returns (stream WatchEvent) {
+    option (google.api.http) = {
+      post: "/management/clusters/watch"
+      body: "*"
     };
   }
   rpc DeleteCluster(core.Reference) returns (google.protobuf.Empty) {
@@ -113,4 +131,17 @@ message ListClustersRequest {
 message EditClusterRequest {
   core.Reference cluster = 1;
   map<string, string> labels = 2;
+}
+
+message WatchClustersRequest {
+  core.ReferenceList knownClusters = 1;
+}
+
+enum WatchEventType {
+  Added = 0;
+  Deleted = 2;
+}
+message WatchEvent {
+  core.Reference cluster = 1;
+  WatchEventType type = 2;
 }

@@ -28,6 +28,7 @@ type ManagementClient interface {
 	RevokeBootstrapToken(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListBootstrapTokens(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*core.BootstrapTokenList, error)
 	ListClusters(ctx context.Context, in *ListClustersRequest, opts ...grpc.CallOption) (*core.ClusterList, error)
+	WatchClusters(ctx context.Context, in *WatchClustersRequest, opts ...grpc.CallOption) (Management_WatchClustersClient, error)
 	DeleteCluster(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CertsInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CertsInfoResponse, error)
 	GetCluster(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*core.Cluster, error)
@@ -85,6 +86,38 @@ func (c *managementClient) ListClusters(ctx context.Context, in *ListClustersReq
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *managementClient) WatchClusters(ctx context.Context, in *WatchClustersRequest, opts ...grpc.CallOption) (Management_WatchClustersClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Management_ServiceDesc.Streams[0], "/management.Management/WatchClusters", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &managementWatchClustersClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Management_WatchClustersClient interface {
+	Recv() (*WatchEvent, error)
+	grpc.ClientStream
+}
+
+type managementWatchClustersClient struct {
+	grpc.ClientStream
+}
+
+func (x *managementWatchClustersClient) Recv() (*WatchEvent, error) {
+	m := new(WatchEvent)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *managementClient) DeleteCluster(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
@@ -212,6 +245,7 @@ type ManagementServer interface {
 	RevokeBootstrapToken(context.Context, *core.Reference) (*emptypb.Empty, error)
 	ListBootstrapTokens(context.Context, *emptypb.Empty) (*core.BootstrapTokenList, error)
 	ListClusters(context.Context, *ListClustersRequest) (*core.ClusterList, error)
+	WatchClusters(*WatchClustersRequest, Management_WatchClustersServer) error
 	DeleteCluster(context.Context, *core.Reference) (*emptypb.Empty, error)
 	CertsInfo(context.Context, *emptypb.Empty) (*CertsInfoResponse, error)
 	GetCluster(context.Context, *core.Reference) (*core.Cluster, error)
@@ -243,6 +277,9 @@ func (UnimplementedManagementServer) ListBootstrapTokens(context.Context, *empty
 }
 func (UnimplementedManagementServer) ListClusters(context.Context, *ListClustersRequest) (*core.ClusterList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListClusters not implemented")
+}
+func (UnimplementedManagementServer) WatchClusters(*WatchClustersRequest, Management_WatchClustersServer) error {
+	return status.Errorf(codes.Unimplemented, "method WatchClusters not implemented")
 }
 func (UnimplementedManagementServer) DeleteCluster(context.Context, *core.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteCluster not implemented")
@@ -366,6 +403,27 @@ func _Management_ListClusters_Handler(srv interface{}, ctx context.Context, dec 
 		return srv.(ManagementServer).ListClusters(ctx, req.(*ListClustersRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_WatchClusters_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WatchClustersRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ManagementServer).WatchClusters(m, &managementWatchClustersServer{stream})
+}
+
+type Management_WatchClustersServer interface {
+	Send(*WatchEvent) error
+	grpc.ServerStream
+}
+
+type managementWatchClustersServer struct {
+	grpc.ServerStream
+}
+
+func (x *managementWatchClustersServer) Send(m *WatchEvent) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _Management_DeleteCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -678,6 +736,12 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Management_SubjectAccess_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "WatchClusters",
+			Handler:       _Management_WatchClusters_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "pkg/management/management.proto",
 }

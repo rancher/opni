@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	_ "embed"
 	"errors"
 	"net/http"
 	"time"
@@ -27,6 +28,9 @@ import (
 const (
 	DefaultTokenTTL = 2 * time.Minute
 )
+
+//go:embed management.swagger.json
+var managementSwaggerJson []byte
 
 type Server struct {
 	UnimplementedManagementServer
@@ -119,11 +123,16 @@ func (m *Server) ListenAndServe(ctx context.Context) error {
 		m.logger.With(
 			"address", httpAddr,
 		).Info("management HTTP server starting")
-		mux := runtime.NewServeMux()
-		if err := RegisterManagementHandlerFromEndpoint(ctx, mux, listener.Addr().String(),
+		mux := http.NewServeMux()
+		mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, req *http.Request) {
+			w.Write(managementSwaggerJson)
+		})
+		gwmux := runtime.NewServeMux()
+		if err := RegisterManagementHandlerFromEndpoint(ctx, gwmux, listener.Addr().String(),
 			[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
 			return err
 		}
+		mux.Handle("/", gwmux)
 		server := &http.Server{
 			Addr:    httpAddr,
 			Handler: mux,

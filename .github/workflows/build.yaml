@@ -39,6 +39,7 @@ jobs:
       - name: Test
         run: go run github.com/magefile/mage test
       - name: Log in to Docker Hub
+        if: ${{ github.event_name != 'pull_request' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -58,6 +59,7 @@ jobs:
             type=semver,pattern={{major}}
             type=sha
       - name: Build and push Docker image
+        if: ${{ github.event_name != 'pull_request' }}
         uses: docker/build-push-action@v2
         with:
           push: ${{ github.event_name != 'pull_request' }}

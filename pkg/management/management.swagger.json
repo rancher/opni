@@ -1,0 +1,726 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Opni Monitoring Management API",
+    "version": "1.0",
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://github.com/kralicky/opni-monitoring/blob/main/LICENSE"
+    }
+  },
+  "tags": [
+    {
+      "name": "Management"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/management/certs": {
+      "get": {
+        "operationId": "Management_CertsInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/managementCertsInfoResponse"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters": {
+      "get": {
+        "operationId": "Management_ListClusters",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreClusterList"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters/watch": {
+      "post": {
+        "operationId": "Management_WatchClusters",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/managementWatchEvent"
+                }
+              },
+              "title": "Stream result of managementWatchEvent"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/managementWatchClustersRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters/{cluster.id}": {
+      "put": {
+        "operationId": "Management_EditCluster",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreCluster"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cluster.id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/managementEditClusterRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters/{id}": {
+      "get": {
+        "operationId": "Management_GetCluster",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreCluster"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      },
+      "delete": {
+        "operationId": "Management_DeleteCluster",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/rolebindings": {
+      "get": {
+        "operationId": "Management_ListRoleBindings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreRoleBindingList"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      },
+      "post": {
+        "operationId": "Management_CreateRoleBinding",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/coreRoleBinding"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/rolebindings/{name}": {
+      "get": {
+        "operationId": "Management_GetRoleBinding",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreRoleBinding"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      },
+      "delete": {
+        "operationId": "Management_DeleteRoleBinding",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/roles": {
+      "get": {
+        "operationId": "Management_ListRoles",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreRoleList"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      },
+      "post": {
+        "operationId": "Management_CreateRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/coreRole"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/roles/{name}": {
+      "get": {
+        "operationId": "Management_GetRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreRole"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      },
+      "delete": {
+        "operationId": "Management_DeleteRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/subjectaccess": {
+      "get": {
+        "operationId": "Management_SubjectAccess",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreReferenceList"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "subject",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/tokens": {
+      "get": {
+        "operationId": "Management_ListBootstrapTokens",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreBootstrapTokenList"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      },
+      "post": {
+        "operationId": "Management_CreateBootstrapToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreBootstrapToken"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/managementCreateBootstrapTokenRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/tokens/{id}": {
+      "delete": {
+        "operationId": "Management_RevokeBootstrapToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "coreBootstrapToken": {
+      "type": "object",
+      "properties": {
+        "tokenID": {
+          "type": "string"
+        },
+        "secret": {
+          "type": "string"
+        },
+        "leaseID": {
+          "type": "string",
+          "format": "int64"
+        },
+        "ttl": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "coreBootstrapTokenList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreBootstrapToken"
+          }
+        }
+      }
+    },
+    "coreCertInfo": {
+      "type": "object",
+      "properties": {
+        "issuer": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "isCA": {
+          "type": "boolean"
+        },
+        "notBefore": {
+          "type": "string"
+        },
+        "notAfter": {
+          "type": "string"
+        },
+        "fingerprint": {
+          "type": "string"
+        }
+      }
+    },
+    "coreCluster": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "coreClusterList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreCluster"
+          }
+        }
+      }
+    },
+    "coreLabelSelector": {
+      "type": "object",
+      "properties": {
+        "matchLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "matchExpressions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreLabelSelectorRequirement"
+          }
+        }
+      }
+    },
+    "coreLabelSelectorRequirement": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "coreReference": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "coreReferenceList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreReference"
+          }
+        }
+      }
+    },
+    "coreRole": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "clusterIDs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "matchLabels": {
+          "$ref": "#/definitions/coreLabelSelector"
+        }
+      }
+    },
+    "coreRoleBinding": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "roleName": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "taints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "coreRoleBindingList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreRoleBinding"
+          }
+        }
+      }
+    },
+    "coreRoleList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreRole"
+          }
+        }
+      }
+    },
+    "managementCertsInfoResponse": {
+      "type": "object",
+      "properties": {
+        "chain": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreCertInfo"
+          }
+        }
+      }
+    },
+    "managementCreateBootstrapTokenRequest": {
+      "type": "object",
+      "properties": {
+        "ttl": {
+          "type": "string"
+        }
+      }
+    },
+    "managementEditClusterRequest": {
+      "type": "object",
+      "properties": {
+        "cluster": {
+          "$ref": "#/definitions/coreReference"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "managementWatchClustersRequest": {
+      "type": "object",
+      "properties": {
+        "knownClusters": {
+          "$ref": "#/definitions/coreReferenceList"
+        }
+      }
+    },
+    "managementWatchEvent": {
+      "type": "object",
+      "properties": {
+        "cluster": {
+          "$ref": "#/definitions/coreReference"
+        },
+        "type": {
+          "$ref": "#/definitions/managementWatchEventType"
+        }
+      }
+    },
+    "managementWatchEventType": {
+      "type": "string",
+      "enum": [
+        "Added",
+        "Deleted"
+      ],
+      "default": "Added"
+    }
+  }
+}

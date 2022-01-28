@@ -430,6 +430,10 @@ github.com/kralicky/grpc-gateway/v2 v2.7.4-0.20220127013955-a5d3dbc63a62/go.mod 
 github.com/kralicky/ragu v0.2.4-0.20220127205506-6ff888b78906/go.mod h1:v4PT8YzI88zygMpEgF0y7CY8arSsCDaFAMgrd+Sz2SA=
 github.com/kralicky/ragu v0.2.4-0.20220127213341-bbef6815aff3 h1:gB+OgaiCv76D+OgfK0M0WPAUlDOpwZmL5VafH5WEwVI=
 github.com/kralicky/ragu v0.2.4-0.20220127213341-bbef6815aff3/go.mod h1:v4PT8YzI88zygMpEgF0y7CY8arSsCDaFAMgrd+Sz2SA=
+github.com/kralicky/ragu v0.2.4-0.20220128022238-0f261744c9e5 h1:Za8ZM6+sij7UXy9r+76jH8hxbE7nlRGtfcSydOGi9SU=
+github.com/kralicky/ragu v0.2.4-0.20220128022238-0f261744c9e5/go.mod h1:v4PT8YzI88zygMpEgF0y7CY8arSsCDaFAMgrd+Sz2SA=
+github.com/kralicky/ragu v0.2.4-0.20220128024048-2e852929920c h1:m7p8d5N4g9BakR3hOseq6JOaMsFjMaPXmlIYWmvoc8w=
+github.com/kralicky/ragu v0.2.4-0.20220128024048-2e852929920c/go.mod h1:v4PT8YzI88zygMpEgF0y7CY8arSsCDaFAMgrd+Sz2SA=
 github.com/kralicky/spellbook v0.0.0-20220127212309-d9668ae05135 h1:Qto48bjdTKPmes3hIyBdlt6qiCDJAPhrLv4FFPdEFbU=
 github.com/kralicky/spellbook v0.0.0-20220127212309-d9668ae05135/go.mod h1:PrbbTVOOdyNsBZI/BJaWAVBE4i20nzXNSn2DrxtSMB4=
 github.com/lestrrat-go/backoff/v2 v2.0.8 h1:oNb5E5isby2kiro9AgdHLv5N5tint1AnDVVf2E2un5A=

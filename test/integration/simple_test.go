@@ -3,9 +3,6 @@ package integration_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/kralicky/opni-monitoring/pkg/core"
@@ -32,10 +29,6 @@ var _ = Describe("Simple Test", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGHUP)
-		fmt.Println("Waiting for SIGHUP to shutdown test environment...", "pid:", os.Getpid())
-		<-c
 		fmt.Println("Stopping test environment")
 		Expect(environment.Stop()).To(Succeed())
 	})

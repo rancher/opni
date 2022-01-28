@@ -14,11 +14,11 @@ require (
 	github.com/magefile/mage v1.12.1
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/onsi/ginkgo/v2 v2.1.0
-	github.com/onsi/gomega v1.18.0
+	github.com/onsi/gomega v1.18.1
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/spf13/cobra v1.3.0
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
-	github.com/valyala/fasthttp v1.32.0
+	github.com/valyala/fasthttp v1.33.0
 	go.etcd.io/etcd/client/v3 v3.5.1
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.20.0
@@ -73,7 +73,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.13.6 // indirect
+	github.com/klauspost/compress v1.14.1 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/kralicky/ragu v0.2.4-0.20220128024048-2e852929920c // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
@@ -111,9 +111,9 @@ require (
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 	golang.org/x/mod v0.5.0 // indirect
-	golang.org/x/net v0.0.0-20211209124913-491a49abca63 // indirect
+	golang.org/x/net v0.0.0-20220111093109-d55c255bac03 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+	golang.org/x/sys v0.0.0-20220111092808-5a964db01320 // indirect
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect

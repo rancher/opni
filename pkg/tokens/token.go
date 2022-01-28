@@ -47,22 +47,6 @@ func NewToken(source ...io.Reader) *Token {
 	}
 }
 
-func FromBootstrapToken(t *core.BootstrapToken) *Token {
-	tokenID := t.GetTokenID()
-	tokenSecret := t.GetSecret()
-	token := &Token{
-		ID:     make([]byte, len(tokenID)),
-		Secret: make([]byte, len(tokenSecret)),
-		Metadata: TokenMeta{
-			LeaseID: t.GetLeaseID(),
-			TTL:     t.GetTtl(),
-		},
-	}
-	copy(token.ID, tokenID)
-	copy(token.Secret, tokenSecret)
-	return token
-}
-
 func (t *Token) EncodeJSON() []byte {
 	data, err := json.Marshal(t)
 	if err != nil {
@@ -77,6 +61,10 @@ func (t *Token) EncodeHex() string {
 
 func (t *Token) HexID() string {
 	return hex.EncodeToString(t.ID)
+}
+
+func (t *Token) HexSecret() string {
+	return hex.EncodeToString(t.Secret)
 }
 
 func (t *Token) Reference() *core.Reference {

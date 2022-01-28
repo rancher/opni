@@ -4,6 +4,7 @@ import (
 	context "context"
 
 	core "github.com/kralicky/opni-monitoring/pkg/core"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (m *Server) ListClusters(
@@ -20,8 +21,8 @@ func (m *Server) ListClusters(
 func (m *Server) DeleteCluster(
 	ctx context.Context,
 	ref *core.Reference,
-) error {
-	return grpcError(m.clusterStore.DeleteCluster(ctx, ref))
+) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, grpcError(m.clusterStore.DeleteCluster(ctx, ref))
 }
 
 func (m *Server) GetCluster(

@@ -8,6 +8,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func BuildRolesCmd() *cobra.Command {
@@ -61,7 +62,7 @@ func BuildRolesCreateCmd() *cobra.Command {
 					MatchLabels: matchLabels,
 				},
 			}
-			err := client.CreateRole(cmd.Context(), role)
+			_, err := client.CreateRole(cmd.Context(), role)
 			if err != nil {
 				lg.Fatal(err)
 			}
@@ -81,7 +82,7 @@ func BuildRolesDeleteCmd() *cobra.Command {
 		Args:    cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, role := range args {
-				err := client.DeleteRole(cmd.Context(),
+				_, err := client.DeleteRole(cmd.Context(),
 					&core.Reference{
 						Name: role,
 					})
@@ -117,7 +118,7 @@ func BuildRolesListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List roles",
 		Run: func(cmd *cobra.Command, args []string) {
-			t, err := client.ListRoles(cmd.Context())
+			t, err := client.ListRoles(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				lg.Fatal(err)
 			}
@@ -137,7 +138,7 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 				RoleName: args[1],
 				Subjects: args[2:],
 			}
-			err := client.CreateRoleBinding(cmd.Context(), rb)
+			_, err := client.CreateRoleBinding(cmd.Context(), rb)
 			if err != nil {
 				lg.Fatal(err)
 			}
@@ -157,7 +158,7 @@ func BuildRoleBindingsDeleteCmd() *cobra.Command {
 		Short:   "Delete a role binding",
 		Args:    cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			err := client.DeleteRoleBinding(cmd.Context(),
+			_, err := client.DeleteRoleBinding(cmd.Context(),
 				&core.Reference{
 					Name: args[0],
 				})
@@ -193,7 +194,7 @@ func BuildRoleBindingsListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List role bindings",
 		Run: func(cmd *cobra.Command, args []string) {
-			t, err := client.ListRoleBindings(cmd.Context())
+			t, err := client.ListRoleBindings(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				lg.Fatal(err)
 			}
@@ -207,7 +208,7 @@ func BuildAccessMatrixCmd() *cobra.Command {
 		Use:   "access-matrix",
 		Short: "Print an access matrix showing all users and their allowed clusters",
 		Run: func(cmd *cobra.Command, args []string) {
-			rbs, err := client.ListRoleBindings(cmd.Context())
+			rbs, err := client.ListRoleBindings(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				fmt.Println(err)
 				return

@@ -3,8 +3,8 @@ option go_package = "github.com/kralicky/opni-monitoring/pkg/core";
 package core;
 
 message BootstrapToken {
-  bytes tokenID = 1;
-  bytes secret = 2;
+  string tokenID = 1;
+  string secret = 2;
   int64 leaseID = 3;
   int64 ttl = 4;
 }

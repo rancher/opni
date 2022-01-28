@@ -4,9 +4,9 @@ import (
 	"context"
 
 	core "github.com/kralicky/opni-monitoring/pkg/core"
-	"github.com/kralicky/opni-monitoring/pkg/tokens"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (m *Server) CreateBootstrapToken(
@@ -21,18 +21,19 @@ func (m *Server) CreateBootstrapToken(
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return newBootstrapToken(token), nil
+	return token.ToBootstrapToken(), nil
 }
 
 func (m *Server) RevokeBootstrapToken(
 	ctx context.Context,
 	ref *core.Reference,
-) error {
-	return grpcError(m.tokenStore.DeleteToken(ctx, ref))
+) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, grpcError(m.tokenStore.DeleteToken(ctx, ref))
 }
 
 func (m *Server) ListBootstrapTokens(
 	ctx context.Context,
+	_ *emptypb.Empty,
 ) (*core.BootstrapTokenList, error) {
 	tokens, err := m.tokenStore.ListTokens(ctx)
 	if err != nil {
@@ -42,19 +43,7 @@ func (m *Server) ListBootstrapTokens(
 		Items: make([]*core.BootstrapToken, len(tokens)),
 	}
 	for i, token := range tokens {
-		tokenList.Items[i] = newBootstrapToken(token)
+		tokenList.Items[i] = token.ToBootstrapToken()
 	}
 	return tokenList, nil
-}
-
-func newBootstrapToken(token *tokens.Token) *core.BootstrapToken {
-	t := &core.BootstrapToken{
-		TokenID: make([]byte, len(token.ID)),
-		Secret:  make([]byte, len(token.Secret)),
-		LeaseID: token.Metadata.LeaseID,
-		Ttl:     token.Metadata.TTL,
-	}
-	copy(t.TokenID, token.ID)
-	copy(t.Secret, token.Secret)
-	return t
 }

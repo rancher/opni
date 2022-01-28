@@ -11,14 +11,19 @@ type GatewayConfig struct {
 }
 
 type GatewayConfigSpec struct {
-	ListenAddress           string      `json:"listenAddress,omitempty"`
-	ManagementListenAddress string      `json:"managementListenAddress,omitempty"`
-	EnableMonitor           bool        `json:"enableMonitor,omitempty"`
-	TrustedProxies          []string    `json:"trustedProxies,omitempty"`
-	Cortex                  CortexSpec  `json:"cortex,omitempty"`
-	AuthProvider            string      `json:"authProvider,omitempty"`
-	Storage                 StorageSpec `json:"storage,omitempty"`
-	Certs                   CertsSpec   `json:"certs,omitempty"`
+	ListenAddress  string         `json:"listenAddress,omitempty"`
+	Management     ManagementSpec `json:"management,omitempty"`
+	EnableMonitor  bool           `json:"enableMonitor,omitempty"`
+	TrustedProxies []string       `json:"trustedProxies,omitempty"`
+	Cortex         CortexSpec     `json:"cortex,omitempty"`
+	AuthProvider   string         `json:"authProvider,omitempty"`
+	Storage        StorageSpec    `json:"storage,omitempty"`
+	Certs          CertsSpec      `json:"certs,omitempty"`
+}
+
+type ManagementSpec struct {
+	GRPCListenAddress string `json:"grpcListenAddress,omitempty"`
+	HTTPListenAddress string `json:"httpListenAddress,omitempty"`
 }
 
 type CortexSpec struct {

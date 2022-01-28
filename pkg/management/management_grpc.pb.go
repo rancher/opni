@@ -25,21 +25,21 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ManagementClient interface {
 	CreateBootstrapToken(ctx context.Context, in *CreateBootstrapTokenRequest, opts ...grpc.CallOption) (*core.BootstrapToken, error)
-	RevokeBootstrapToken(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) error
-	ListBootstrapTokens(ctx context.Context, opts ...grpc.CallOption) (*core.BootstrapTokenList, error)
+	RevokeBootstrapToken(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListBootstrapTokens(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*core.BootstrapTokenList, error)
 	ListClusters(ctx context.Context, in *ListClustersRequest, opts ...grpc.CallOption) (*core.ClusterList, error)
-	DeleteCluster(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) error
-	CertsInfo(ctx context.Context, opts ...grpc.CallOption) (*CertsInfoResponse, error)
+	DeleteCluster(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CertsInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CertsInfoResponse, error)
 	GetCluster(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*core.Cluster, error)
 	EditCluster(ctx context.Context, in *EditClusterRequest, opts ...grpc.CallOption) (*core.Cluster, error)
-	CreateRole(ctx context.Context, in *core.Role, opts ...grpc.CallOption) error
-	DeleteRole(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) error
+	CreateRole(ctx context.Context, in *core.Role, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteRole(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetRole(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*core.Role, error)
-	CreateRoleBinding(ctx context.Context, in *core.RoleBinding, opts ...grpc.CallOption) error
-	DeleteRoleBinding(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) error
+	CreateRoleBinding(ctx context.Context, in *core.RoleBinding, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteRoleBinding(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetRoleBinding(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*core.RoleBinding, error)
-	ListRoles(ctx context.Context, opts ...grpc.CallOption) (*core.RoleList, error)
-	ListRoleBindings(ctx context.Context, opts ...grpc.CallOption) (*core.RoleBindingList, error)
+	ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*core.RoleList, error)
+	ListRoleBindings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*core.RoleBindingList, error)
 	SubjectAccess(ctx context.Context, in *core.SubjectAccessRequest, opts ...grpc.CallOption) (*core.ReferenceList, error)
 }
 
@@ -60,14 +60,16 @@ func (c *managementClient) CreateBootstrapToken(ctx context.Context, in *CreateB
 	return out, nil
 }
 
-func (c *managementClient) RevokeBootstrapToken(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) error {
+func (c *managementClient) RevokeBootstrapToken(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/management.Management/RevokeBootstrapToken", in, out, opts...)
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func (c *managementClient) ListBootstrapTokens(ctx context.Context, opts ...grpc.CallOption) (*core.BootstrapTokenList, error) {
-	in := new(emptypb.Empty)
+func (c *managementClient) ListBootstrapTokens(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*core.BootstrapTokenList, error) {
 	out := new(core.BootstrapTokenList)
 	err := c.cc.Invoke(ctx, "/management.Management/ListBootstrapTokens", in, out, opts...)
 	if err != nil {
@@ -85,14 +87,16 @@ func (c *managementClient) ListClusters(ctx context.Context, in *ListClustersReq
 	return out, nil
 }
 
-func (c *managementClient) DeleteCluster(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) error {
+func (c *managementClient) DeleteCluster(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/management.Management/DeleteCluster", in, out, opts...)
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func (c *managementClient) CertsInfo(ctx context.Context, opts ...grpc.CallOption) (*CertsInfoResponse, error) {
-	in := new(emptypb.Empty)
+func (c *managementClient) CertsInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CertsInfoResponse, error) {
 	out := new(CertsInfoResponse)
 	err := c.cc.Invoke(ctx, "/management.Management/CertsInfo", in, out, opts...)
 	if err != nil {
@@ -119,16 +123,22 @@ func (c *managementClient) EditCluster(ctx context.Context, in *EditClusterReque
 	return out, nil
 }
 
-func (c *managementClient) CreateRole(ctx context.Context, in *core.Role, opts ...grpc.CallOption) error {
+func (c *managementClient) CreateRole(ctx context.Context, in *core.Role, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/management.Management/CreateRole", in, out, opts...)
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func (c *managementClient) DeleteRole(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) error {
+func (c *managementClient) DeleteRole(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/management.Management/DeleteRole", in, out, opts...)
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *managementClient) GetRole(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*core.Role, error) {
@@ -140,16 +150,22 @@ func (c *managementClient) GetRole(ctx context.Context, in *core.Reference, opts
 	return out, nil
 }
 
-func (c *managementClient) CreateRoleBinding(ctx context.Context, in *core.RoleBinding, opts ...grpc.CallOption) error {
+func (c *managementClient) CreateRoleBinding(ctx context.Context, in *core.RoleBinding, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/management.Management/CreateRoleBinding", in, out, opts...)
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func (c *managementClient) DeleteRoleBinding(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) error {
+func (c *managementClient) DeleteRoleBinding(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/management.Management/DeleteRoleBinding", in, out, opts...)
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *managementClient) GetRoleBinding(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*core.RoleBinding, error) {
@@ -161,8 +177,7 @@ func (c *managementClient) GetRoleBinding(ctx context.Context, in *core.Referenc
 	return out, nil
 }
 
-func (c *managementClient) ListRoles(ctx context.Context, opts ...grpc.CallOption) (*core.RoleList, error) {
-	in := new(emptypb.Empty)
+func (c *managementClient) ListRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*core.RoleList, error) {
 	out := new(core.RoleList)
 	err := c.cc.Invoke(ctx, "/management.Management/ListRoles", in, out, opts...)
 	if err != nil {
@@ -171,8 +186,7 @@ func (c *managementClient) ListRoles(ctx context.Context, opts ...grpc.CallOptio
 	return out, nil
 }
 
-func (c *managementClient) ListRoleBindings(ctx context.Context, opts ...grpc.CallOption) (*core.RoleBindingList, error) {
-	in := new(emptypb.Empty)
+func (c *managementClient) ListRoleBindings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*core.RoleBindingList, error) {
 	out := new(core.RoleBindingList)
 	err := c.cc.Invoke(ctx, "/management.Management/ListRoleBindings", in, out, opts...)
 	if err != nil {
@@ -195,21 +209,21 @@ func (c *managementClient) SubjectAccess(ctx context.Context, in *core.SubjectAc
 // for forward compatibility
 type ManagementServer interface {
 	CreateBootstrapToken(context.Context, *CreateBootstrapTokenRequest) (*core.BootstrapToken, error)
-	RevokeBootstrapToken(context.Context, *core.Reference) error
-	ListBootstrapTokens(context.Context) (*core.BootstrapTokenList, error)
+	RevokeBootstrapToken(context.Context, *core.Reference) (*emptypb.Empty, error)
+	ListBootstrapTokens(context.Context, *emptypb.Empty) (*core.BootstrapTokenList, error)
 	ListClusters(context.Context, *ListClustersRequest) (*core.ClusterList, error)
-	DeleteCluster(context.Context, *core.Reference) error
-	CertsInfo(context.Context) (*CertsInfoResponse, error)
+	DeleteCluster(context.Context, *core.Reference) (*emptypb.Empty, error)
+	CertsInfo(context.Context, *emptypb.Empty) (*CertsInfoResponse, error)
 	GetCluster(context.Context, *core.Reference) (*core.Cluster, error)
 	EditCluster(context.Context, *EditClusterRequest) (*core.Cluster, error)
-	CreateRole(context.Context, *core.Role) error
-	DeleteRole(context.Context, *core.Reference) error
+	CreateRole(context.Context, *core.Role) (*emptypb.Empty, error)
+	DeleteRole(context.Context, *core.Reference) (*emptypb.Empty, error)
 	GetRole(context.Context, *core.Reference) (*core.Role, error)
-	CreateRoleBinding(context.Context, *core.RoleBinding) error
-	DeleteRoleBinding(context.Context, *core.Reference) error
+	CreateRoleBinding(context.Context, *core.RoleBinding) (*emptypb.Empty, error)
+	DeleteRoleBinding(context.Context, *core.Reference) (*emptypb.Empty, error)
 	GetRoleBinding(context.Context, *core.Reference) (*core.RoleBinding, error)
-	ListRoles(context.Context) (*core.RoleList, error)
-	ListRoleBindings(context.Context) (*core.RoleBindingList, error)
+	ListRoles(context.Context, *emptypb.Empty) (*core.RoleList, error)
+	ListRoleBindings(context.Context, *emptypb.Empty) (*core.RoleBindingList, error)
 	SubjectAccess(context.Context, *core.SubjectAccessRequest) (*core.ReferenceList, error)
 	mustEmbedUnimplementedManagementServer()
 }
@@ -221,19 +235,19 @@ type UnimplementedManagementServer struct {
 func (UnimplementedManagementServer) CreateBootstrapToken(context.Context, *CreateBootstrapTokenRequest) (*core.BootstrapToken, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateBootstrapToken not implemented")
 }
-func (UnimplementedManagementServer) RevokeBootstrapToken(context.Context, *core.Reference) error {
-	return status.Errorf(codes.Unimplemented, "method RevokeBootstrapToken not implemented")
+func (UnimplementedManagementServer) RevokeBootstrapToken(context.Context, *core.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevokeBootstrapToken not implemented")
 }
-func (UnimplementedManagementServer) ListBootstrapTokens(context.Context) (*core.BootstrapTokenList, error) {
+func (UnimplementedManagementServer) ListBootstrapTokens(context.Context, *emptypb.Empty) (*core.BootstrapTokenList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListBootstrapTokens not implemented")
 }
 func (UnimplementedManagementServer) ListClusters(context.Context, *ListClustersRequest) (*core.ClusterList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListClusters not implemented")
 }
-func (UnimplementedManagementServer) DeleteCluster(context.Context, *core.Reference) error {
-	return status.Errorf(codes.Unimplemented, "method DeleteCluster not implemented")
+func (UnimplementedManagementServer) DeleteCluster(context.Context, *core.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteCluster not implemented")
 }
-func (UnimplementedManagementServer) CertsInfo(context.Context) (*CertsInfoResponse, error) {
+func (UnimplementedManagementServer) CertsInfo(context.Context, *emptypb.Empty) (*CertsInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CertsInfo not implemented")
 }
 func (UnimplementedManagementServer) GetCluster(context.Context, *core.Reference) (*core.Cluster, error) {
@@ -242,28 +256,28 @@ func (UnimplementedManagementServer) GetCluster(context.Context, *core.Reference
 func (UnimplementedManagementServer) EditCluster(context.Context, *EditClusterRequest) (*core.Cluster, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EditCluster not implemented")
 }
-func (UnimplementedManagementServer) CreateRole(context.Context, *core.Role) error {
-	return status.Errorf(codes.Unimplemented, "method CreateRole not implemented")
+func (UnimplementedManagementServer) CreateRole(context.Context, *core.Role) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateRole not implemented")
 }
-func (UnimplementedManagementServer) DeleteRole(context.Context, *core.Reference) error {
-	return status.Errorf(codes.Unimplemented, "method DeleteRole not implemented")
+func (UnimplementedManagementServer) DeleteRole(context.Context, *core.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteRole not implemented")
 }
 func (UnimplementedManagementServer) GetRole(context.Context, *core.Reference) (*core.Role, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRole not implemented")
 }
-func (UnimplementedManagementServer) CreateRoleBinding(context.Context, *core.RoleBinding) error {
-	return status.Errorf(codes.Unimplemented, "method CreateRoleBinding not implemented")
+func (UnimplementedManagementServer) CreateRoleBinding(context.Context, *core.RoleBinding) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateRoleBinding not implemented")
 }
-func (UnimplementedManagementServer) DeleteRoleBinding(context.Context, *core.Reference) error {
-	return status.Errorf(codes.Unimplemented, "method DeleteRoleBinding not implemented")
+func (UnimplementedManagementServer) DeleteRoleBinding(context.Context, *core.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteRoleBinding not implemented")
 }
 func (UnimplementedManagementServer) GetRoleBinding(context.Context, *core.Reference) (*core.RoleBinding, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRoleBinding not implemented")
 }
-func (UnimplementedManagementServer) ListRoles(context.Context) (*core.RoleList, error) {
+func (UnimplementedManagementServer) ListRoles(context.Context, *emptypb.Empty) (*core.RoleList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRoles not implemented")
 }
-func (UnimplementedManagementServer) ListRoleBindings(context.Context) (*core.RoleBindingList, error) {
+func (UnimplementedManagementServer) ListRoleBindings(context.Context, *emptypb.Empty) (*core.RoleBindingList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRoleBindings not implemented")
 }
 func (UnimplementedManagementServer) SubjectAccess(context.Context, *core.SubjectAccessRequest) (*core.ReferenceList, error) {
@@ -302,19 +316,18 @@ func _Management_CreateBootstrapToken_Handler(srv interface{}, ctx context.Conte
 
 func _Management_RevokeBootstrapToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(core.Reference)
-	out := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return out, srv.(ManagementServer).RevokeBootstrapToken(ctx, in)
+		return srv.(ManagementServer).RevokeBootstrapToken(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/management.Management/RevokeBootstrapToken",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return out, srv.(ManagementServer).RevokeBootstrapToken(ctx, req.(*core.Reference))
+		return srv.(ManagementServer).RevokeBootstrapToken(ctx, req.(*core.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -325,14 +338,14 @@ func _Management_ListBootstrapTokens_Handler(srv interface{}, ctx context.Contex
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagementServer).ListBootstrapTokens(ctx)
+		return srv.(ManagementServer).ListBootstrapTokens(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/management.Management/ListBootstrapTokens",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).ListBootstrapTokens(ctx)
+		return srv.(ManagementServer).ListBootstrapTokens(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -357,19 +370,18 @@ func _Management_ListClusters_Handler(srv interface{}, ctx context.Context, dec 
 
 func _Management_DeleteCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(core.Reference)
-	out := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return out, srv.(ManagementServer).DeleteCluster(ctx, in)
+		return srv.(ManagementServer).DeleteCluster(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/management.Management/DeleteCluster",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return out, srv.(ManagementServer).DeleteCluster(ctx, req.(*core.Reference))
+		return srv.(ManagementServer).DeleteCluster(ctx, req.(*core.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -380,14 +392,14 @@ func _Management_CertsInfo_Handler(srv interface{}, ctx context.Context, dec fun
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagementServer).CertsInfo(ctx)
+		return srv.(ManagementServer).CertsInfo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/management.Management/CertsInfo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).CertsInfo(ctx)
+		return srv.(ManagementServer).CertsInfo(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -430,38 +442,36 @@ func _Management_EditCluster_Handler(srv interface{}, ctx context.Context, dec f
 
 func _Management_CreateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(core.Role)
-	out := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return out, srv.(ManagementServer).CreateRole(ctx, in)
+		return srv.(ManagementServer).CreateRole(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/management.Management/CreateRole",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return out, srv.(ManagementServer).CreateRole(ctx, req.(*core.Role))
+		return srv.(ManagementServer).CreateRole(ctx, req.(*core.Role))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Management_DeleteRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(core.Reference)
-	out := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return out, srv.(ManagementServer).DeleteRole(ctx, in)
+		return srv.(ManagementServer).DeleteRole(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/management.Management/DeleteRole",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return out, srv.(ManagementServer).DeleteRole(ctx, req.(*core.Reference))
+		return srv.(ManagementServer).DeleteRole(ctx, req.(*core.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -486,38 +496,36 @@ func _Management_GetRole_Handler(srv interface{}, ctx context.Context, dec func(
 
 func _Management_CreateRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(core.RoleBinding)
-	out := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return out, srv.(ManagementServer).CreateRoleBinding(ctx, in)
+		return srv.(ManagementServer).CreateRoleBinding(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/management.Management/CreateRoleBinding",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return out, srv.(ManagementServer).CreateRoleBinding(ctx, req.(*core.RoleBinding))
+		return srv.(ManagementServer).CreateRoleBinding(ctx, req.(*core.RoleBinding))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Management_DeleteRoleBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(core.Reference)
-	out := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return out, srv.(ManagementServer).DeleteRoleBinding(ctx, in)
+		return srv.(ManagementServer).DeleteRoleBinding(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/management.Management/DeleteRoleBinding",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return out, srv.(ManagementServer).DeleteRoleBinding(ctx, req.(*core.Reference))
+		return srv.(ManagementServer).DeleteRoleBinding(ctx, req.(*core.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -546,14 +554,14 @@ func _Management_ListRoles_Handler(srv interface{}, ctx context.Context, dec fun
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagementServer).ListRoles(ctx)
+		return srv.(ManagementServer).ListRoles(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/management.Management/ListRoles",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).ListRoles(ctx)
+		return srv.(ManagementServer).ListRoles(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -564,14 +572,14 @@ func _Management_ListRoleBindings_Handler(srv interface{}, ctx context.Context, 
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagementServer).ListRoleBindings(ctx)
+		return srv.(ManagementServer).ListRoleBindings(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
 		FullMethod: "/management.Management/ListRoleBindings",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementServer).ListRoleBindings(ctx)
+		return srv.(ManagementServer).ListRoleBindings(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -2,28 +2,100 @@ syntax = "proto3";
 option go_package = "github.com/kralicky/opni-monitoring/pkg/management";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
 import "../core/core.proto";
 package management;
 
 service Management {
-  rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (core.BootstrapToken);
-  rpc RevokeBootstrapToken(core.Reference) returns (google.protobuf.Empty);
-  rpc ListBootstrapTokens(google.protobuf.Empty) returns (core.BootstrapTokenList);
-  rpc ListClusters(ListClustersRequest) returns (core.ClusterList);
-  rpc DeleteCluster(core.Reference) returns (google.protobuf.Empty);
-  rpc CertsInfo(google.protobuf.Empty) returns (CertsInfoResponse);
-  rpc GetCluster(core.Reference) returns (core.Cluster);
-  rpc EditCluster(EditClusterRequest) returns (core.Cluster);
-
-  rpc CreateRole(core.Role) returns (google.protobuf.Empty);
-  rpc DeleteRole(core.Reference) returns (google.protobuf.Empty);
-  rpc GetRole(core.Reference) returns (core.Role);
-  rpc CreateRoleBinding(core.RoleBinding) returns (google.protobuf.Empty);
-  rpc DeleteRoleBinding(core.Reference) returns (google.protobuf.Empty);
-  rpc GetRoleBinding(core.Reference) returns (core.RoleBinding);
-  rpc ListRoles(google.protobuf.Empty) returns (core.RoleList);
-  rpc ListRoleBindings(google.protobuf.Empty) returns (core.RoleBindingList);
-  rpc SubjectAccess(core.SubjectAccessRequest) returns (core.ReferenceList);
+  rpc CreateBootstrapToken(CreateBootstrapTokenRequest) returns (core.BootstrapToken) {
+    option (google.api.http) = {
+      post: "/management/tokens"
+      body: "*"
+    };
+  }
+  rpc RevokeBootstrapToken(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/management/tokens/{id}"
+    };
+  }
+  rpc ListBootstrapTokens(google.protobuf.Empty) returns (core.BootstrapTokenList) {
+    option (google.api.http) = {
+      get: "/management/tokens"
+    };
+  }
+  rpc ListClusters(ListClustersRequest) returns (core.ClusterList) {
+    option (google.api.http) = {
+      get: "/management/clusters"
+    };
+  }
+  rpc DeleteCluster(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/management/clusters/{id}"
+    };
+  }
+  rpc CertsInfo(google.protobuf.Empty) returns (CertsInfoResponse) {
+    option (google.api.http) = {
+      get: "/management/certs"
+    };
+  }
+  rpc GetCluster(core.Reference) returns (core.Cluster) {
+    option (google.api.http) = {
+      get: "/management/clusters/{id}"
+    };
+  }
+  rpc EditCluster(EditClusterRequest) returns (core.Cluster) {
+    option (google.api.http) = {
+      put: "/management/clusters/{cluster.id}"
+      body: "*"
+    };
+  }
+  rpc CreateRole(core.Role) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/management/roles"
+      body: "*"
+    };
+  }
+  rpc DeleteRole(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/management/roles/{name}"
+    };
+  }
+  rpc GetRole(core.Reference) returns (core.Role) {
+    option (google.api.http) = {
+      get: "/management/roles/{name}"
+    };
+  }
+  rpc CreateRoleBinding(core.RoleBinding) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/management/rolebindings"
+      body: "*"
+    };
+  }
+  rpc DeleteRoleBinding(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/management/rolebindings/{name}"
+    };
+  }
+  rpc GetRoleBinding(core.Reference) returns (core.RoleBinding) {
+    option (google.api.http) = {
+      get: "/management/rolebindings/{name}"
+    };
+  }
+  rpc ListRoles(google.protobuf.Empty) returns (core.RoleList) {
+    option (google.api.http) = {
+      get: "/management/roles"
+    };
+  }
+  rpc ListRoleBindings(google.protobuf.Empty) returns (core.RoleBindingList) {
+    option (google.api.http) = {
+      get: "/management/rolebindings"
+    };
+  }
+  rpc SubjectAccess(core.SubjectAccessRequest) returns (core.ReferenceList) {
+    option (google.api.http) = {
+      get: "/management/subjectaccess"
+    };
+  }
 }
 
 message CreateBootstrapTokenRequest {

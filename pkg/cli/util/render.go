@@ -23,7 +23,10 @@ func RenderBootstrapTokenList(list *core.BootstrapTokenList) string {
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"ID", "TOKEN", "TTL"})
 	for _, t := range list.Items {
-		token := tokens.FromBootstrapToken(t)
+		token, err := tokens.FromBootstrapToken(t)
+		if err != nil {
+			return err.Error()
+		}
 		w.AppendRow(table.Row{token.HexID(), token.EncodeHex(), t.GetTtl()})
 	}
 	return w.Render()

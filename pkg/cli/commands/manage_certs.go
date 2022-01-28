@@ -5,6 +5,7 @@ import (
 
 	cliutil "github.com/kralicky/opni-monitoring/pkg/cli/util"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func BuildCertsCmd() *cobra.Command {
@@ -21,7 +22,7 @@ func BuildCertsInfoCmd() *cobra.Command {
 		Use:   "info",
 		Short: "Show certificate information",
 		Run: func(cmd *cobra.Command, args []string) {
-			t, err := client.CertsInfo(cmd.Context())
+			t, err := client.CertsInfo(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				lg.Fatal(err)
 			}

@@ -45,7 +45,7 @@ func BuildClustersDeleteCmd() *cobra.Command {
 		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, cluster := range args {
-				err := client.DeleteCluster(cmd.Context(),
+				_, err := client.DeleteCluster(cmd.Context(),
 					&core.Reference{
 						Id: cluster,
 					},

@@ -115,11 +115,10 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		Certificates: []tls.Certificate{*servingCertBundle},
 	}
 
-	mgmtSrv := management.NewServer(
+	mgmtSrv := management.NewServer(&conf.Spec.Management,
 		management.TokenStore(tokenStore),
 		management.ClusterStore(clusterStore),
 		management.RBACStore(rbacStore),
-		management.ListenAddress(conf.Spec.ManagementListenAddress),
 		management.TLSConfig(tlsConfig),
 	)
 

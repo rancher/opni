@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Simple Test", Ordered, func() {
@@ -41,14 +42,16 @@ var _ = Describe("Simple Test", Ordered, func() {
 			Ttl: durationpb.New(time.Minute),
 		}, grpc.WaitForReady(true))
 		Expect(err).NotTo(HaveOccurred())
-		certsInfo, err := mgmt.CertsInfo(context.Background())
+		certsInfo, err := mgmt.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 		fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
 		Expect(fingerprint).NotTo(BeEmpty())
 	})
 	When("an agent is added", func() {
 		It("should become ready", func() {
-			port := environment.StartAgent("foo", tokens.FromBootstrapToken(token).EncodeHex(), []string{fingerprint})
+			bootstrapToken, err := tokens.FromBootstrapToken(token)
+			Expect(err).NotTo(HaveOccurred())
+			port := environment.StartAgent("foo", bootstrapToken.EncodeHex(), []string{fingerprint})
 			promAgentPort := environment.StartPrometheus(port)
 			Expect(promAgentPort).NotTo(BeZero())
 		})

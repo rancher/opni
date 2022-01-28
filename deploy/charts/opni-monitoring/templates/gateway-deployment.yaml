@@ -46,16 +46,22 @@ spec:
               mountPath: /run/etcd/certs/client
             - name: etcd-server-cacert
               mountPath: /run/etcd/certs/server
+          {{- range .Values.extraVolumeMounts }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+              readOnly: {{ .readOnly }}
+              subPath: {{ .subPath | default "" }}
+          {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
-{{- if hasPrefix "tcp://" .Values.management.listenAddress }}
+          {{- if hasPrefix "tcp://" .Values.management.listenAddress }}
             - name: management
-{{- $a := split ":" .Values.management.listenAddress }}
+          {{- $a := split ":" .Values.management.listenAddress }}
               containerPort: {{ $a._2 }}
               protocol: TCP
-{{- end }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -130,6 +136,15 @@ spec:
             items:
               - key: ca.crt
                 path: ca.crt
+      {{- range .Values.extraVolumeMounts }}
+        - name: {{ .name }}
+          {{- if .projected }}
+          projected: {{- toYaml .projected | nindent 12 }}
+          {{- else if .hostPath }}
+          hostPath:
+            path: {{ .hostPath }}
+          {{- end }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

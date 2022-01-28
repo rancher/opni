@@ -7,7 +7,7 @@ import (
 )
 
 var client management.ManagementClient
-var lg = logger.New().Named("management")
+var lg = logger.New()
 
 func BuildManageCmd() *cobra.Command {
 	var address string

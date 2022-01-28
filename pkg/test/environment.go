@@ -32,10 +32,11 @@ import (
 )
 
 type servicePorts struct {
-	Etcd       int
-	Gateway    int
-	Management int
-	Cortex     int
+	Etcd           int
+	Gateway        int
+	ManagementGRPC int
+	ManagementHTTP int
+	Cortex         int
 }
 
 type Environment struct {
@@ -69,10 +70,11 @@ func (e *Environment) Start() error {
 		panic(err)
 	}
 	e.ports = servicePorts{
-		Etcd:       ports[0],
-		Gateway:    ports[1],
-		Management: ports[2],
-		Cortex:     ports[3],
+		Etcd:           ports[0],
+		Gateway:        ports[1],
+		ManagementGRPC: ports[2],
+		ManagementHTTP: ports[3],
+		Cortex:         ports[4],
 	}
 	e.tempDir, err = os.MkdirTemp("", "opni-monitoring-test-*")
 	if err != nil {
@@ -267,9 +269,12 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 	servingKeyData := string(TestData("localhost.key"))
 	return &v1beta1.GatewayConfig{
 		Spec: v1beta1.GatewayConfigSpec{
-			ListenAddress:           fmt.Sprintf("localhost:%d", e.ports.Gateway),
-			ManagementListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", e.ports.Management),
-			AuthProvider:            "test",
+			ListenAddress: fmt.Sprintf("localhost:%d", e.ports.Gateway),
+			Management: v1beta1.ManagementSpec{
+				GRPCListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", e.ports.ManagementGRPC),
+				HTTPListenAddress: fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementHTTP),
+			},
+			AuthProvider: "test",
 			Certs: v1beta1.CertsSpec{
 				CACertData:      &caCertData,
 				ServingCertData: &servingCertData,
@@ -310,7 +315,7 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 
 func (e *Environment) NewManagementClient() management.ManagementClient {
 	c, err := management.NewClient(e.ctx, management.WithListenAddress(
-		fmt.Sprintf("127.0.0.1:%d", e.ports.Management)))
+		fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)))
 	if err != nil {
 		panic(err)
 	}

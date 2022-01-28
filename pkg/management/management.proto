@@ -28,6 +28,12 @@ service Management {
       get: "/management/clusters"
     };
   }
+  rpc WatchClusters(WatchClustersRequest) returns (stream WatchEvent) {
+    option (google.api.http) = {
+      post: "/management/clusters/watch"
+      body: "*"
+    };
+  }
   rpc DeleteCluster(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/management/clusters/{id}"
@@ -113,4 +119,17 @@ message ListClustersRequest {
 message EditClusterRequest {
   core.Reference cluster = 1;
   map<string, string> labels = 2;
+}
+
+message WatchClustersRequest {
+  core.ReferenceList knownClusters = 1;
+}
+
+enum WatchEventType {
+  Added = 0;
+  Deleted = 2;
+}
+message WatchEvent {
+  core.Reference cluster = 1;
+  WatchEventType type = 2;
 }

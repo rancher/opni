@@ -141,6 +141,7 @@ enum WatchEventType {
   Added = 0;
   Deleted = 2;
 }
+
 message WatchEvent {
   core.Reference cluster = 1;
   WatchEventType type = 2;

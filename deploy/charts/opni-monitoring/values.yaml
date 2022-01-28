@@ -10,8 +10,8 @@ image:
 auth:
   provider: openid
   openid:
-    # Enter the URL where your openid provider serves its JWK Set
-    jwkSetUrl: ""
+    # OpenID issuer URL (as shown in /.well-known/openid-configuration)
+    issuer: ""
 
 gateway:
   replicaCount: 1

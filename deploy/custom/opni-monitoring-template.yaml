@@ -3,4 +3,4 @@
 auth:
   provider: openid
   openid:
-    jwkSetUrl: "" # URL where your openid provider serves its JWK Set
+    issuer: "" # OpenID issuer URL (as shown in /.well-known/openid-configuration)

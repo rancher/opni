@@ -45,7 +45,8 @@ management:
   # For example:
   #   unix:///path/to/management.sock
   #   tcp://0.0.0.0:9090
-  listenAddress: unix:///run/opni-monitoring/management.sock
+  grpcListenAddress: unix:///run/opni-monitoring/management.sock
+  httpListenAddress: 127.0.0.1:11990
 
 serviceAccount:
   # Specifies whether a service account should be created

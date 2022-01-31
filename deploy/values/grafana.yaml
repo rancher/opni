@@ -23,7 +23,7 @@ grafana.ini:
     root_url: "grafana.localhost"
   auth.generic_oauth:
     enabled: true
-    scopes: "openid profile email roles"
+    scopes: "openid profile email"
   auth:
     disable_login_form: true
   auth.proxy:

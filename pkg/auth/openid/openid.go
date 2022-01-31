@@ -38,7 +38,7 @@ type OpenidConfig struct {
 	// will be fetched from <Issuer>/.well-known/openid-configuration.
 	// The issuer URL must exactly match the issuer in the well-known
 	// configuration, including any trailing slashes.
-	Issuer string `mapstructure:"server"`
+	Issuer string `mapstructure:"issuer"`
 }
 
 type OpenidMiddleware struct {

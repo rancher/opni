@@ -32,6 +32,12 @@ const (
 //go:embed management.swagger.json
 var managementSwaggerJson []byte
 
+func OpenAPISpec() []byte {
+	buf := make([]byte, len(managementSwaggerJson))
+	copy(buf, managementSwaggerJson)
+	return buf
+}
+
 type Server struct {
 	UnimplementedManagementServer
 	ManagementServerOptions
@@ -124,8 +130,10 @@ func (m *Server) ListenAndServe(ctx context.Context) error {
 			"address", httpAddr,
 		).Info("management HTTP server starting")
 		mux := http.NewServeMux()
-		mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, req *http.Request) {
-			w.Write(managementSwaggerJson)
+		mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, _ *http.Request) {
+			if _, err := w.Write(OpenAPISpec()); err != nil {
+				lg.Error(err)
+			}
 		})
 		gwmux := runtime.NewServeMux()
 		if err := RegisterManagementHandlerFromEndpoint(ctx, gwmux, listener.Addr().String(),
@@ -139,7 +147,9 @@ func (m *Server) ListenAndServe(ctx context.Context) error {
 		}
 		defer func() {
 			if err := server.Close(); err != nil {
-				lg.Errorw("failed to close http gateway", "error", err)
+				lg.With(
+					zap.Error(err),
+				).Error("failed to close http gateway")
 			}
 		}()
 		go func() {

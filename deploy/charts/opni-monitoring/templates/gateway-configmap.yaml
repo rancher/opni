@@ -10,7 +10,9 @@ data:
     kind: GatewayConfig
     spec:
       listenAddress: ":{{ .Values.service.port }}"
-      managementListenAddress: "{{ .Values.management.listenAddress }}"
+      management:
+        grpcListenAddress: "{{ .Values.management.grpcListenAddress }}"
+        httpListenAddress: "{{ .Values.management.httpListenAddress }}"
       cortex:
         certs:
           serverCA: /run/cortex/certs/server/ca.crt

@@ -37,7 +37,7 @@ helm_remote('grafana',
     values=["deploy/values/grafana.yaml", "deploy/custom/grafana.yaml"],
     set=[
         'grafana\\.ini.server.domain=grafana.%s' % hostname,
-        'grafana\\.ini.server.root_url=http://grafana.%s' % hostname,
+        'grafana\\.ini.server.root_url=https://grafana.%s' % hostname,
         'tls[0].hosts={grafana.%s}' % hostname,
         'ingress.hosts={grafana.%s}' % hostname,
     ],
@@ -56,7 +56,12 @@ k8s_yaml(helm('deploy/charts/opni-monitoring',
 k8s_resource(workload='opni-gateway', port_forwards=9999)
 
 local_resource('Watch & Compile', 'mage build', 
-    deps=['pkg'], ignore=['**/*.pb.go','pkg/test/mock/*'])
+    deps=['pkg'], ignore=[
+        '**/*.pb.go',
+        '**/*.pb.*.go',
+        '**/*.swagger.json',
+        'pkg/test/mock/*',
+    ])
 
 if "defaultRegistry" in settings:
     default_registry(settings["defaultRegistry"])

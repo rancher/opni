@@ -8,5 +8,6 @@ coverage:
         informational: true # Always pass check
     patch: off # disable the commit only checks
 ignore:
+  - "**/*.pb.go"
   - "**/*.pb*.go"
   - "pkg/test"

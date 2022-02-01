@@ -13,8 +13,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/grpc-ecosystem/grpc-gateway/v2/utilities"
+	"github.com/kralicky/grpc-gateway/v2/runtime"
+	"github.com/kralicky/grpc-gateway/v2/utilities"
 	"github.com/kralicky/opni-monitoring/pkg/core"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

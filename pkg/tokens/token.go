@@ -2,7 +2,7 @@ package tokens
 
 import (
 	"bytes"
-	"crypto"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -102,7 +102,10 @@ func ParseHex(str string) (*Token, error) {
 }
 
 // Signs the token and returns a JWS with the payload detached
-func (t *Token) SignDetached(key crypto.PrivateKey) ([]byte, error) {
+func (t *Token) SignDetached(key interface{}) ([]byte, error) {
+	if _, ok := key.(ed25519.PrivateKey); !ok {
+		return nil, errors.New("invalid key type, expected ed25519.PrivateKey")
+	}
 	jsonData, err := json.Marshal(t)
 	if err != nil {
 		return nil, err

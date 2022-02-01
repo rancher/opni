@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/logger"

@@ -2,7 +2,7 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/ed25519"
+	"crypto"
 	"crypto/tls"
 	"fmt"
 	"strings"
@@ -82,8 +82,8 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	// Remove "Bearer " from the header
 	bearerToken := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
 	// Verify the token
-	edPrivKey := h.Certificate.PrivateKey.(ed25519.PrivateKey)
-	payload, err := jws.Verify([]byte(bearerToken), jwa.EdDSA, edPrivKey.Public())
+	privKey := h.Certificate.PrivateKey.(crypto.Signer)
+	payload, err := jws.Verify([]byte(bearerToken), jwa.EdDSA, privKey.Public())
 	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}

@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/rsa"
 	"encoding/base64"
 	"encoding/hex"
 	"io"
 
-	"github.com/lestrrat-go/jwx/x25519"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -91,7 +91,7 @@ var _ = Describe("Token", func() {
 	})
 	It("should handle errors when signing", func() {
 		t := tokens.NewToken()
-		_, wrongKeyType, err := x25519.GenerateKey(nil)
+		wrongKeyType, err := rsa.GenerateKey(rand.Reader, 2048)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = t.SignDetached(wrongKeyType)
 		Expect(err).To(HaveOccurred())

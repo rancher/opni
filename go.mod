@@ -6,10 +6,10 @@ require (
 	github.com/gofiber/fiber/v2 v2.25.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.0.0-00010101000000-000000000000
 	github.com/jedib0t/go-pretty/v6 v6.2.5
 	github.com/jwalton/go-supportscolor v1.1.0
-	github.com/kralicky/spellbook v0.0.0-20220127212309-d9668ae05135
+	github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc
+	github.com/kralicky/spellbook v0.0.0-20220201002736-360511d2f939
 	github.com/lestrrat-go/jwx v1.2.18
 	github.com/magefile/mage v1.12.1
 	github.com/mitchellh/mapstructure v1.4.3
@@ -22,16 +22,16 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.1
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.20.0
-	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce
+	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
 	gonum.org/v1/gonum v0.9.3
-	google.golang.org/genproto v0.0.0-20220118154757-00ab72f36ad5
+	google.golang.org/genproto v0.0.0-20220126215142-9970aeb2e350
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.23.3
 	k8s.io/apimachinery v0.23.3
 	k8s.io/client-go v0.23.3
 	k8s.io/kubectl v0.23.3
-	k8s.io/utils v0.0.0-20211208161948-7d6a63dca704
+	k8s.io/utils v0.0.0-20220127004650-9b3446523e65
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -75,7 +75,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.14.1 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
-	github.com/kralicky/ragu v0.2.4-0.20220128024048-2e852929920c // indirect
+	github.com/kralicky/ragu v0.2.4 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
 	github.com/lestrrat-go/httpcc v1.0.0 // indirect
@@ -110,7 +110,7 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.5.1 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
-	golang.org/x/mod v0.5.0 // indirect
+	golang.org/x/mod v0.5.1 // indirect
 	golang.org/x/net v0.0.0-20220111093109-d55c255bac03 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20220111092808-5a964db01320 // indirect
@@ -132,5 +132,3 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.13.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )
-
-replace github.com/grpc-ecosystem/grpc-gateway/v2 => github.com/kralicky/grpc-gateway/v2 v2.7.4-0.20220127013955-a5d3dbc63a62

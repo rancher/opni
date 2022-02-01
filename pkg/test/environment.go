@@ -40,7 +40,8 @@ type servicePorts struct {
 	Gateway        int
 	ManagementGRPC int
 	ManagementHTTP int
-	Cortex         int
+	CortexGRPC     int
+	CortexHTTP     int
 }
 
 type Environment struct {
@@ -73,7 +74,7 @@ func (e *Environment) Start() error {
 			return fmt.Errorf("failed to install test auth middleware: %w", err)
 		}
 	}
-	ports, err := freeport.GetFreePorts(5)
+	ports, err := freeport.GetFreePorts(6)
 	if err != nil {
 		panic(err)
 	}
@@ -82,7 +83,8 @@ func (e *Environment) Start() error {
 		Gateway:        ports[1],
 		ManagementGRPC: ports[2],
 		ManagementHTTP: ports[3],
-		Cortex:         ports[4],
+		CortexGRPC:     ports[4],
+		CortexHTTP:     ports[5],
 	}
 	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
 		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
@@ -180,6 +182,7 @@ func (e *Environment) startEtcd() {
 
 type cortexTemplateOptions struct {
 	HttpListenPort int
+	GrpcListenPort int
 	StorageDir     string
 }
 
@@ -192,7 +195,8 @@ func (e *Environment) startCortex() {
 		panic(err)
 	}
 	if err := t.Execute(configFile, cortexTemplateOptions{
-		HttpListenPort: e.ports.Cortex,
+		HttpListenPort: e.ports.CortexHTTP,
+		GrpcListenPort: e.ports.CortexGRPC,
 		StorageDir:     path.Join(e.tempDir, "cortex"),
 	}); err != nil {
 		panic(err)
@@ -309,19 +313,19 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 			},
 			Cortex: v1beta1.CortexSpec{
 				Distributor: v1beta1.DistributorSpec{
-					Address: fmt.Sprintf("localhost:%d", e.ports.Cortex),
+					Address: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 				},
 				Ingester: v1beta1.IngesterSpec{
-					Address: fmt.Sprintf("localhost:%d", e.ports.Cortex),
+					Address: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 				},
 				Alertmanager: v1beta1.AlertmanagerSpec{
-					Address: fmt.Sprintf("localhost:%d", e.ports.Cortex),
+					Address: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 				},
 				Ruler: v1beta1.RulerSpec{
-					Address: fmt.Sprintf("localhost:%d", e.ports.Cortex),
+					Address: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 				},
 				QueryFrontend: v1beta1.QueryFrontendSpec{
-					Address: fmt.Sprintf("localhost:%d", e.ports.Cortex),
+					Address: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 				},
 				Certs: v1beta1.MTLSSpec{
 					ServerCA:   path.Join(e.tempDir, "cortex/root.crt"),

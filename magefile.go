@@ -114,6 +114,7 @@ func init() {
 }
 
 func TestEnv() {
+	mg.Deps(testbin.Testbin)
 	fmt.Println("Starting test environment")
 	environment := &pkgtest.Environment{
 		TestBin: "testbin/bin",

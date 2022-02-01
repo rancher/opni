@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -83,6 +84,25 @@ func (e *Environment) Start() error {
 		ManagementHTTP: ports[3],
 		Cortex:         ports[4],
 	}
+	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
+		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
+		if err != nil {
+			return fmt.Errorf("failed to parse management GRPC port: %w", err)
+		}
+	}
+	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_HTTP_PORT"); ok {
+		e.ports.ManagementHTTP, err = strconv.Atoi(portNum)
+		if err != nil {
+			return fmt.Errorf("failed to parse management HTTP port: %w", err)
+		}
+	}
+	if portNum, ok := os.LookupEnv("OPNI_GATEWAY_PORT"); ok {
+		e.ports.Gateway, err = strconv.Atoi(portNum)
+		if err != nil {
+			return fmt.Errorf("failed to parse gateway port: %w", err)
+		}
+	}
+
 	e.tempDir, err = os.MkdirTemp("", "opni-monitoring-test-*")
 	if err != nil {
 		return err

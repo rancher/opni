@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -55,7 +56,11 @@ type Environment struct {
 
 func (e *Environment) Start() error {
 	e.ctx, e.cancel = context.WithCancel(context.Background())
-	e.mockCtrl = gomock.NewController(ginkgo.GinkgoT())
+	var t gomock.TestReporter
+	if strings.HasSuffix(os.Args[0], ".test") {
+		t = ginkgo.GinkgoT()
+	}
+	e.mockCtrl = gomock.NewController(t)
 	e.waitGroup = &sync.WaitGroup{}
 
 	if _, err := auth.GetMiddleware("test"); err != nil {

@@ -163,6 +163,9 @@ func (g *Gateway) Listen() error {
 	if err != nil {
 		return err
 	}
+	g.logger.With(
+		"address", listener.Addr().String(),
+	).Info("gateway server starting")
 	return g.app.Listener(listener)
 }
 

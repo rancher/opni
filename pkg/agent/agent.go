@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -59,7 +60,7 @@ func default404Handler(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNotFound)
 }
 
-func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
+func New(conf *v1beta1.AgentConfig, opts ...AgentOption) (*Agent, error) {
 	lg := logger.New().Named("agent")
 	options := AgentOptions{}
 	options.Apply(opts...)
@@ -88,7 +89,7 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 	var err error
 	agent.identityProvider, err = ident.GetProvider(conf.Spec.IdentityProvider)
 	if err != nil {
-		lg.With(zap.Error(err)).Fatal("configuration error")
+		return nil, fmt.Errorf("configuration error: %w", err)
 	}
 
 	switch agent.Storage.Type {
@@ -98,38 +99,40 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) *Agent {
 		)
 		id, err := agent.identityProvider.UniqueIdentifier(context.Background())
 		if err != nil {
-			lg.With(zap.Error(err)).Fatal("error getting unique identifier")
+			return nil, fmt.Errorf("error getting unique identifier: %w", err)
 		}
 		ks, err := es.KeyringStore(context.Background(), &core.Reference{
 			Id: id,
 		})
 		if err != nil {
-			lg.With(zap.Error(err)).Fatal("error getting keyring store")
+			return nil, fmt.Errorf("error getting keyring store: %w", err)
 		}
 		agent.keyringStore = ks
 	case v1beta1.StorageTypeSecret:
 		agent.keyringStore = storage.NewInClusterSecretStore()
 	default:
-		lg.With(
-			"type", agent.Storage.Type,
-		).Fatal("unknown storage type")
+		return nil, errors.New("unknown storage type")
 	}
 
 	if options.bootstrapper != nil {
-		agent.bootstrap()
+		if err := agent.bootstrap(); err != nil {
+			return nil, fmt.Errorf("bootsrap error: %w", err)
+		}
 	} else {
-		agent.loadKeyring()
+		if err := agent.loadKeyring(); err != nil {
+			return nil, fmt.Errorf("error loading keyring: %w", err)
+		}
 	}
 
 	agent.tlsConfig, err = pkp.TLSConfig(agent.pkpKey.PinnedKeys)
 	if err != nil {
-		lg.With(zap.Error(err)).Fatal("error creating TLS config")
+		return nil, fmt.Errorf("error creating TLS config: %w", err)
 	}
 
 	app.Post("/api/v1/push", agent.handlePushRequest)
 	app.Use(default404Handler)
 
-	return agent
+	return agent, nil
 }
 
 func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
@@ -168,12 +171,12 @@ func (a *Agent) Shutdown() error {
 	return a.app.Shutdown()
 }
 
-func (a *Agent) bootstrap() {
+func (a *Agent) bootstrap() error {
 	lg := a.logger
 	// Look up our tenant ID
 	id, err := a.identityProvider.UniqueIdentifier(context.Background())
 	if err != nil {
-		lg.With(zap.Error(err)).Fatal("error getting unique identifier")
+		return fmt.Errorf("error getting unique identifier: %w", err)
 	}
 	a.tenantID = id
 
@@ -182,7 +185,7 @@ func (a *Agent) bootstrap() {
 		lg.Info("performing initial bootstrap")
 		newKeyring, err := a.bootstrapper.Bootstrap(context.Background(), a.identityProvider)
 		if err != nil {
-			lg.With(zap.Error(err)).Fatal("bootstrap failed")
+			return fmt.Errorf("bootstrap failed: %w", err)
 		}
 		lg.Info("bootstrap completed successfully")
 		for {
@@ -197,7 +200,7 @@ func (a *Agent) bootstrap() {
 			}
 		}
 	} else if err != nil {
-		lg.With(zap.Error(err)).Fatal("error loading keyring")
+		return fmt.Errorf("error loading keyring: %w", err)
 	} else {
 		lg.Warn("this agent has already been bootstrapped but may have been interrupted - will use existing keyring")
 	}
@@ -207,15 +210,15 @@ func (a *Agent) bootstrap() {
 		lg.With(zap.Error(err)).Error("error in post-bootstrap finalization")
 	}
 	lg.Info("bootstrap completed successfully")
-	a.loadKeyring()
+	return a.loadKeyring()
 }
 
-func (a *Agent) loadKeyring() {
+func (a *Agent) loadKeyring() error {
 	lg := a.logger
 	lg.Info("loading keyring")
 	kr, err := a.keyringStore.Get(context.Background())
 	if err != nil {
-		lg.With(zap.Error(err)).Fatal("error loading keyring")
+		return fmt.Errorf("error loading keyring: %w", err)
 	}
 	kr.Try(
 		func(shared *keyring.SharedKeys) {
@@ -226,10 +229,11 @@ func (a *Agent) loadKeyring() {
 		},
 	)
 	if a.sharedKeys == nil || a.pkpKey == nil {
-		lg.Fatal("keyring is missing keys")
+		return errors.New("keyring is missing keys")
 	}
 	if len(a.pkpKey.PinnedKeys) == 0 {
-		lg.Fatal("keyring does not contain any pinned public keys")
+		return errors.New("keyring does not contain any pinned public keys")
 	}
 	lg.Info("keyring loaded successfully")
+	return nil
 }

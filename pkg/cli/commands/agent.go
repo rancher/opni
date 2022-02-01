@@ -84,7 +84,11 @@ agent remote-write requests to add dynamic authentication.`,
 				}
 			}
 
-			p := agent.New(agentConfig, agent.WithBootstrapper(bootstrapper))
+			p, err := agent.New(agentConfig, agent.WithBootstrapper(bootstrapper))
+			if err != nil {
+				lg.Error(err)
+				return
+			}
 			if err := p.ListenAndServe(); err != nil {
 				lg.Error(err)
 			}

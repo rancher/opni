@@ -21,6 +21,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/auth"
 	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
+	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/gateway"
 	"github.com/kralicky/opni-monitoring/pkg/ident"
 	"github.com/kralicky/opni-monitoring/pkg/management"
@@ -30,6 +31,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/phayes/freeport"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 type servicePorts struct {
@@ -319,8 +321,10 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 }
 
 func (e *Environment) NewManagementClient() management.ManagementClient {
-	c, err := management.NewClient(e.ctx, management.WithListenAddress(
-		fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)))
+	c, err := management.NewClient(e.ctx,
+		management.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		management.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -362,7 +366,8 @@ func (e *Environment) startGateway() {
 	}()
 }
 
-func (e *Environment) StartAgent(id string, token string, pins []string) int {
+func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []string) (int, <-chan error) {
+	errC := make(chan error, 1)
 	e.waitGroup.Add(1)
 	port, err := freeport.GetFreePort()
 	if err != nil {
@@ -377,7 +382,9 @@ func (e *Environment) StartAgent(id string, token string, pins []string) int {
 			AnyTimes()
 		return mockIdent
 	}); err != nil {
-		panic(err)
+		if !errors.Is(err, ident.ErrProviderAlreadyExists) {
+			panic(err)
+		}
 	}
 
 	agentConfig := &v1beta1.AgentConfig{
@@ -398,34 +405,43 @@ func (e *Environment) StartAgent(id string, token string, pins []string) int {
 	for _, pin := range pins {
 		d, err := pkp.DecodePin(pin)
 		if err != nil {
-			panic(err)
+			errC <- err
+			return 0, errC
 		}
 		publicKeyPins = append(publicKeyPins, d)
 	}
-
-	t, err := tokens.ParseHex(token)
+	bt, err := tokens.FromBootstrapToken(token)
 	if err != nil {
-		panic(err)
+		errC <- err
+		return 0, errC
 	}
-	agent := agent.New(agentConfig,
-		agent.WithBootstrapper(&bootstrap.ClientConfig{
-			Token:    t,
-			Pins:     publicKeyPins,
-			Endpoint: fmt.Sprintf("http://localhost:%d", e.ports.Gateway),
-		}))
+	var a *agent.Agent
 	go func() {
-		if err := agent.ListenAndServe(); err != nil {
-			fmt.Println("agent error:", err)
+		a, err = agent.New(agentConfig,
+			agent.WithBootstrapper(&bootstrap.ClientConfig{
+				Token:    bt,
+				Pins:     publicKeyPins,
+				Endpoint: fmt.Sprintf("http://localhost:%d", e.ports.Gateway),
+			}))
+		if err != nil {
+			errC <- err
+			return
+		}
+		if err := a.ListenAndServe(); err != nil {
+			errC <- err
 		}
 	}()
 	go func() {
 		defer e.waitGroup.Done()
 		<-e.ctx.Done()
-		if err := agent.Shutdown(); err != nil {
-			fmt.Println("agent error:", err)
+		if a == nil {
+			return
+		}
+		if err := a.Shutdown(); err != nil {
+			errC <- err
 		}
 	}()
-	return port
+	return port, errC
 }
 
 func (e *Environment) GatewayTLSConfig() *tls.Config {

@@ -24,6 +24,12 @@ func (r *RoleBinding) Reference() *Reference {
 	}
 }
 
+func (r *BootstrapToken) Reference() *Reference {
+	return &Reference{
+		Id: r.TokenID,
+	}
+}
+
 func (r *RoleBinding) RoleReference() *Reference {
 	return &Reference{
 		Name: r.RoleName,

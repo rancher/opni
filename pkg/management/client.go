@@ -8,7 +8,8 @@ import (
 )
 
 type ManagementClientOptions struct {
-	listenAddr string
+	listenAddr  string
+	dialOptions []grpc.DialOption
 }
 
 type ManagementClientOption func(*ManagementClientOptions)
@@ -25,13 +26,21 @@ func WithListenAddress(addr string) ManagementClientOption {
 	}
 }
 
+func WithDialOptions(options ...grpc.DialOption) ManagementClientOption {
+	return func(o *ManagementClientOptions) {
+		o.dialOptions = append(o.dialOptions, options...)
+	}
+}
+
 func NewClient(ctx context.Context, opts ...ManagementClientOption) (ManagementClient, error) {
 	options := ManagementClientOptions{
 		listenAddr: DefaultManagementSocket(),
+		dialOptions: []grpc.DialOption{
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		},
 	}
 	options.Apply(opts...)
-	cc, err := grpc.DialContext(ctx, options.listenAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()))
+	cc, err := grpc.DialContext(ctx, options.listenAddr, options.dialOptions...)
 	if err != nil {
 		return nil, err
 	}

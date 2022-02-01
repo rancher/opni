@@ -10,6 +10,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/kralicky/opni-monitoring/pkg/test"
 	"github.com/phayes/freeport"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -40,7 +41,10 @@ var _ = Describe("Server", Ordered, func() {
 				log.Println(err)
 			}
 		}()
-		client, err = management.NewClient(ctx, management.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", ports[0])))
+		client, err = management.NewClient(ctx,
+			management.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", ports[0])),
+			management.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
+		)
 		Expect(err).ToNot(HaveOccurred())
 
 		DeferCleanup(ca)

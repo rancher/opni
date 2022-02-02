@@ -87,11 +87,12 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		GetRoleBinding(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, ref *core.Reference) (*core.RoleBinding, error) {
 			mu.Lock()
-			defer mu.Unlock()
 			if _, ok := rbs[ref.Name]; !ok {
+				mu.Unlock()
 				return nil, storage.ErrNotFound
 			}
 			cloned := proto.Clone(rbs[ref.Name]).(*core.RoleBinding)
+			mu.Unlock()
 			storage.ApplyRoleBindingTaints(ctx, mockRBACStore, cloned)
 			return cloned, nil
 		}).
@@ -100,12 +101,14 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		ListRoleBindings(gomock.Any()).
 		DoAndReturn(func(ctx context.Context) (*core.RoleBindingList, error) {
 			mu.Lock()
-			defer mu.Unlock()
 			rbList := &core.RoleBindingList{}
 			for _, rb := range rbs {
 				cloned := proto.Clone(rb).(*core.RoleBinding)
-				storage.ApplyRoleBindingTaints(ctx, mockRBACStore, cloned)
 				rbList.Items = append(rbList.Items, cloned)
+			}
+			mu.Unlock()
+			for _, rb := range rbList.Items {
+				storage.ApplyRoleBindingTaints(ctx, mockRBACStore, rb)
 			}
 			return rbList, nil
 		}).

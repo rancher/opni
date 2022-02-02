@@ -1,72 +1,69 @@
 package management_test
 
 import (
+	"bytes"
 	"context"
-	"fmt"
-	"log"
+	"net/http"
 
-	"github.com/golang/mock/gomock"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/kralicky/opni-monitoring/pkg/test"
-	"github.com/phayes/freeport"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
+	"github.com/kralicky/opni-monitoring/pkg/util"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Server", Ordered, func() {
-	var ctrl *gomock.Controller
-	var client management.ManagementClient
-	BeforeAll(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		ports, err := freeport.GetFreePorts(2)
-		Expect(err).ToNot(HaveOccurred())
-		conf := &v1beta1.ManagementSpec{
-			GRPCListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", ports[0]),
-			HTTPListenAddress: fmt.Sprintf("127.0.0.1:%d", ports[1]),
-		}
-		ctx, ca := context.WithCancel(context.Background())
-		server := management.NewServer(conf,
-			management.ClusterStore(test.NewTestClusterStore(ctrl)),
-			management.RBACStore(test.NewTestRBACStore(ctrl)),
-			management.TokenStore(test.NewTestTokenStore(ctx, ctrl)),
-			management.TLSConfig(nil),
-		)
-		go func() {
-			defer GinkgoRecover()
-			if err := server.ListenAndServe(ctx); err != nil {
-				log.Println(err)
-			}
-		}()
-		client, err = management.NewClient(ctx,
-			management.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", ports[0])),
-			management.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		DeferCleanup(ca)
+	var tv *testVars
+	BeforeAll(setupManagementServer(&tv))
+	It("should return valid cert info", func() {
+		info, err := tv.client.CertsInfo(context.Background(), &emptypb.Empty{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(info.Chain).To(HaveLen(1))
+		Expect(info.Chain[0].Subject).To(Equal("CN=leaf"))
 	})
+	It("should serve the swagger.json endpoint", func() {
+		resp, err := http.Get(tv.httpEndpoint + "/swagger.json")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		body := new(bytes.Buffer)
+		_, err = body.ReadFrom(resp.Body)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(body.String()).To(ContainSubstring(`"swagger": "2.0"`))
+	})
+	It("should handle configuration errors", func() {
+		By("checking required options are set")
+		Expect(func() {
+			management.NewServer(&v1beta1.ManagementSpec{},
+				management.ClusterStore(test.NewTestClusterStore(tv.ctrl)),
+				management.RBACStore(test.NewTestRBACStore(tv.ctrl)))
+		}).To(PanicWith("token store is required"))
+		Expect(func() {
+			management.NewServer(&v1beta1.ManagementSpec{},
+				management.ClusterStore(test.NewTestClusterStore(tv.ctrl)),
+				management.TokenStore(test.NewTestTokenStore(context.Background(), tv.ctrl)))
+		}).To(PanicWith("rbac store is required"))
+		Expect(func() {
+			management.NewServer(&v1beta1.ManagementSpec{},
+				management.RBACStore(test.NewTestRBACStore(tv.ctrl)),
+				management.TokenStore(test.NewTestTokenStore(context.Background(), tv.ctrl)))
+		}).To(PanicWith("cluster store is required"))
 
-	When("the management server starts", func() {
-		It("should not have any stored items", func() {
-			clusters, err := client.ListClusters(context.Background(), &management.ListClustersRequest{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(clusters.Items).To(BeEmpty())
+		By("checking required config fields are set")
+		conf := &v1beta1.ManagementSpec{
+			HTTPListenAddress: "127.0.0.1:0",
+		}
+		server := management.NewServer(conf,
+			management.ClusterStore(test.NewTestClusterStore(tv.ctrl)),
+			management.RBACStore(test.NewTestRBACStore(tv.ctrl)),
+			management.TokenStore(test.NewTestTokenStore(context.Background(), tv.ctrl)),
+		)
+		Expect(server.ListenAndServe(context.Background())).To(MatchError("GRPCListenAddress not configured"))
 
-			tokens, err := client.ListBootstrapTokens(context.Background(), &emptypb.Empty{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(tokens.Items).To(BeEmpty())
-
-			roles, err := client.ListRoles(context.Background(), &emptypb.Empty{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(roles.Items).To(BeEmpty())
-
-			roleBindings, err := client.ListRoleBindings(context.Background(), &emptypb.Empty{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(roleBindings.Items).To(BeEmpty())
-		})
+		By("checking that invalid config fields cause errors")
+		conf.GRPCListenAddress = "foo://bar"
+		Expect(server.ListenAndServe(context.Background())).To(MatchError(util.ErrUnsupportedProtocolScheme))
 	})
 })

@@ -34,7 +34,7 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 
 	mockTokenStore.EXPECT().
 		CreateToken(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ttl time.Duration) error {
+		DoAndReturn(func(_ context.Context, ttl time.Duration) (*tokens.Token, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			t := tokens.NewToken()
@@ -42,7 +42,7 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 			t.Metadata.LeaseID = lease.ID
 			t.Metadata.TTL = int64(ttl)
 			tks[t.HexID()] = t
-			return nil
+			return t, nil
 		}).
 		AnyTimes()
 	mockTokenStore.EXPECT().

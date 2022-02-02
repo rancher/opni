@@ -8,6 +8,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
 	mock_storage "github.com/kralicky/opni-monitoring/pkg/test/mock/storage"
+	"google.golang.org/protobuf/proto"
 )
 
 func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
@@ -18,7 +19,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 
 	mockClusterStore.EXPECT().
 		CreateCluster(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, cluster *core.Cluster) error {
+		DoAndReturn(func(_ context.Context, cluster *core.Cluster) error {
 			mu.Lock()
 			defer mu.Unlock()
 			clusters[cluster.Id] = cluster
@@ -27,7 +28,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		DeleteCluster(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, ref *core.Reference) error {
+		DoAndReturn(func(_ context.Context, ref *core.Reference) error {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := clusters[ref.Id]; !ok {
@@ -39,7 +40,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		ClusterExists(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, ref *core.Reference) (bool, error) {
+		DoAndReturn(func(_ context.Context, ref *core.Reference) (bool, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := clusters[ref.Id]; !ok {
@@ -50,7 +51,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		ListClusters(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, matchLabels *core.LabelSelector) (*core.ClusterList, error) {
+		DoAndReturn(func(_ context.Context, matchLabels *core.LabelSelector) (*core.ClusterList, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			clusterList := &core.ClusterList{}
@@ -68,7 +69,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		GetCluster(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, ref *core.Reference) (*core.Cluster, error) {
+		DoAndReturn(func(_ context.Context, ref *core.Reference) (*core.Cluster, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := clusters[ref.Id]; !ok {
@@ -79,14 +80,15 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		UpdateCluster(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, cluster *core.Cluster) error {
+		DoAndReturn(func(_ context.Context, cluster *core.Cluster) (*core.Cluster, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			if _, ok := clusters[cluster.Id]; !ok {
-				return storage.ErrNotFound
+			cloned := proto.Clone(cluster).(*core.Cluster)
+			if _, ok := clusters[cloned.Id]; !ok {
+				return nil, storage.ErrNotFound
 			}
-			clusters[cluster.Id] = cluster
-			return nil
+			clusters[cloned.Id] = cloned
+			return cloned, nil
 		}).
 		AnyTimes()
 	return mockClusterStore

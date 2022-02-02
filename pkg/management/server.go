@@ -185,7 +185,3 @@ func (m *Server) CertsInfo(ctx context.Context, _ *emptypb.Empty) (*CertsInfoRes
 	}
 	return resp, nil
 }
-
-func (s *Server) SubjectAccess(ctx context.Context, sar *core.SubjectAccessRequest) (*core.ReferenceList, error) {
-	return s.rbacProvider.SubjectAccess(ctx, sar)
-}

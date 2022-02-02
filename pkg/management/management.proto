@@ -126,6 +126,7 @@ message CertsInfoResponse {
 
 message ListClustersRequest {
   core.LabelSelector matchLabels = 1;
+  core.MatchOptions matchOptions = 2;  
 }
 
 message EditClusterRequest {

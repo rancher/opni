@@ -26,7 +26,7 @@ type ClusterStore interface {
 	ClusterExists(ctx context.Context, ref *core.Reference) (bool, error)
 	GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error)
 	UpdateCluster(ctx context.Context, cluster *core.Cluster) (*core.Cluster, error)
-	ListClusters(ctx context.Context, matchLabels *core.LabelSelector) (*core.ClusterList, error)
+	ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error)
 	KeyringStore(ctx context.Context, ref *core.Reference) (KeyringStore, error)
 }
 

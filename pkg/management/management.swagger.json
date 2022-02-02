@@ -47,6 +47,19 @@
             }
           }
         },
+        "parameters": [
+          {
+            "name": "matchOptions",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "Default",
+              "EmptySelectorMatchesNone"
+            ],
+            "default": "Default"
+          }
+        ],
         "tags": [
           "Management"
         ]
@@ -577,6 +590,14 @@
           }
         }
       }
+    },
+    "coreMatchOptions": {
+      "type": "string",
+      "enum": [
+        "Default",
+        "EmptySelectorMatchesNone"
+      ],
+      "default": "Default"
     },
     "coreReference": {
       "type": "object",

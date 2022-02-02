@@ -7,11 +7,17 @@ type SelectorPredicate func(*core.Cluster) bool
 type ClusterSelector struct {
 	ClusterIDs    []string
 	LabelSelector *core.LabelSelector
+	MatchOptions  core.MatchOptions
 }
 
 func (p ClusterSelector) Predicate() SelectorPredicate {
 	if p.LabelSelector == nil && len(p.ClusterIDs) == 0 {
-		return func(c *core.Cluster) bool { return true }
+		switch {
+		case p.MatchOptions&core.MatchOptions_EmptySelectorMatchesNone != 0:
+			return func(cluster *core.Cluster) bool { return false }
+		default:
+			return func(c *core.Cluster) bool { return true }
+		}
 	}
 	idSet := map[string]struct{}{}
 	for _, id := range p.ClusterIDs {
@@ -49,15 +55,15 @@ func labelSelectorMatches(selector *core.LabelSelector, labels map[string]string
 				return false
 			}
 		case core.LabelSelectorOpNotIn:
-			ok := true
-			for _, value := range req.Values {
-				if labels[req.Key] == value {
-					ok = false
-					break
-				}
-			}
-			if !ok {
+			if v, ok := labels[req.Key]; !ok {
 				return false
+			} else {
+				for _, value := range req.Values {
+					if v == value {
+						return false
+					}
+				}
+				return true
 			}
 		case core.LabelSelectorOpExists:
 			if _, ok := labels[req.Key]; !ok {

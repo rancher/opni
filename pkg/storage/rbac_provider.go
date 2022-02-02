@@ -71,7 +71,8 @@ func (p *rbacProvider) SubjectAccess(
 		}
 
 		// Add any clusters to the list which match the role's label selector
-		filteredList, err := p.clusterStore.ListClusters(ctx, role.MatchLabels)
+		filteredList, err := p.clusterStore.ListClusters(ctx, role.MatchLabels,
+			core.MatchOptions_EmptySelectorMatchesNone)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list clusters: %w", err)
 		}

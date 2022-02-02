@@ -54,6 +54,7 @@ func (e *EtcdStore) ClusterExists(ctx context.Context, ref *core.Reference) (boo
 func (e *EtcdStore) ListClusters(
 	ctx context.Context,
 	matchLabels *core.LabelSelector,
+	matchOptions core.MatchOptions,
 ) (*core.ClusterList, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
@@ -68,6 +69,7 @@ func (e *EtcdStore) ListClusters(
 	}
 	selectorPredicate := storage.ClusterSelector{
 		LabelSelector: matchLabels,
+		MatchOptions:  matchOptions,
 	}.Predicate()
 
 	for _, kv := range resp.Kvs {
@@ -75,10 +77,9 @@ func (e *EtcdStore) ListClusters(
 		if err := protojson.Unmarshal(kv.Value, cluster); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal cluster: %w", err)
 		}
-		if !selectorPredicate(cluster) {
-			continue
+		if selectorPredicate(cluster) {
+			clusters.Items = append(clusters.Items, cluster)
 		}
-		clusters.Items = append(clusters.Items, cluster)
 	}
 	return clusters, nil
 }

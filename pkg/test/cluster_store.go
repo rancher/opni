@@ -50,19 +50,19 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		}).
 		AnyTimes()
 	mockClusterStore.EXPECT().
-		ListClusters(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, matchLabels *core.LabelSelector) (*core.ClusterList, error) {
+		ListClusters(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			clusterList := &core.ClusterList{}
 			selectorPredicate := storage.ClusterSelector{
 				LabelSelector: matchLabels,
+				MatchOptions:  matchOptions,
 			}.Predicate()
 			for _, cluster := range clusters {
-				if !selectorPredicate(cluster) {
-					continue
+				if selectorPredicate(cluster) {
+					clusterList.Items = append(clusterList.Items, cluster)
 				}
-				clusterList.Items = append(clusterList.Items, cluster)
 			}
 			return clusterList, nil
 		}).

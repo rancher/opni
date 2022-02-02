@@ -97,7 +97,7 @@ var _ = Describe("Server", func() {
 			}).
 			AnyTimes()
 		mockClusterStore.EXPECT().
-			ListClusters(gomock.Any(), gomock.Any()).
+			ListClusters(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(context.Context, *core.LabelSelector) (*core.ClusterList, error) {
 				if hasCreated {
 					return &core.ClusterList{

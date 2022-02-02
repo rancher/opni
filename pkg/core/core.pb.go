@@ -20,6 +20,52 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type MatchOptions int32
+
+const (
+	MatchOptions_Default                  MatchOptions = 0
+	MatchOptions_EmptySelectorMatchesNone MatchOptions = 1
+)
+
+// Enum value maps for MatchOptions.
+var (
+	MatchOptions_name = map[int32]string{
+		0: "Default",
+		1: "EmptySelectorMatchesNone",
+	}
+	MatchOptions_value = map[string]int32{
+		"Default":                  0,
+		"EmptySelectorMatchesNone": 1,
+	}
+)
+
+func (x MatchOptions) Enum() *MatchOptions {
+	p := new(MatchOptions)
+	*p = x
+	return p
+}
+
+func (x MatchOptions) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MatchOptions) Descriptor() protoreflect.EnumDescriptor {
+	return file_pkg_core_core_proto_enumTypes[0].Descriptor()
+}
+
+func (MatchOptions) Type() protoreflect.EnumType {
+	return &file_pkg_core_core_proto_enumTypes[0]
+}
+
+func (x MatchOptions) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MatchOptions.Descriptor instead.
+func (MatchOptions) EnumDescriptor() ([]byte, []int) {
+	return file_pkg_core_core_proto_rawDescGZIP(), []int{0}
+}
+
 type BootstrapToken struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -900,10 +946,14 @@ var file_pkg_core_core_proto_rawDesc = []byte{
 	0x63, 0x65, 0x42, 0x00, 0x3a, 0x00, 0x22, 0x2b, 0x0a, 0x14, 0x53, 0x75, 0x62, 0x6a, 0x65, 0x63,
 	0x74, 0x41, 0x63, 0x63, 0x65, 0x73, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x11,
 	0x0a, 0x07, 0x73, 0x75, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42,
-	0x00, 0x3a, 0x00, 0x42, 0x2e, 0x5a, 0x2c, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
-	0x6d, 0x2f, 0x6b, 0x72, 0x61, 0x6c, 0x69, 0x63, 0x6b, 0x79, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2d,
-	0x6d, 0x6f, 0x6e, 0x69, 0x74, 0x6f, 0x72, 0x69, 0x6e, 0x67, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x63,
-	0x6f, 0x72, 0x65, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x00, 0x3a, 0x00, 0x2a, 0x3b, 0x0a, 0x0c, 0x4d, 0x61, 0x74, 0x63, 0x68, 0x4f, 0x70, 0x74, 0x69,
+	0x6f, 0x6e, 0x73, 0x12, 0x0b, 0x0a, 0x07, 0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x10, 0x00,
+	0x12, 0x1c, 0x0a, 0x18, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x53, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x6f,
+	0x72, 0x4d, 0x61, 0x74, 0x63, 0x68, 0x65, 0x73, 0x4e, 0x6f, 0x6e, 0x65, 0x10, 0x01, 0x1a, 0x00,
+	0x42, 0x2e, 0x5a, 0x2c, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6b,
+	0x72, 0x61, 0x6c, 0x69, 0x63, 0x6b, 0x79, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2d, 0x6d, 0x6f, 0x6e,
+	0x69, 0x74, 0x6f, 0x72, 0x69, 0x6e, 0x67, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x63, 0x6f, 0x72, 0x65,
+	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -918,35 +968,37 @@ func file_pkg_core_core_proto_rawDescGZIP() []byte {
 	return file_pkg_core_core_proto_rawDescData
 }
 
+var file_pkg_core_core_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_pkg_core_core_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_pkg_core_core_proto_goTypes = []interface{}{
-	(*BootstrapToken)(nil),           // 0: core.BootstrapToken
-	(*BootstrapTokenList)(nil),       // 1: core.BootstrapTokenList
-	(*Cluster)(nil),                  // 2: core.Cluster
-	(*ClusterList)(nil),              // 3: core.ClusterList
-	(*LabelSelector)(nil),            // 4: core.LabelSelector
-	(*LabelSelectorRequirement)(nil), // 5: core.LabelSelectorRequirement
-	(*Role)(nil),                     // 6: core.Role
-	(*RoleBinding)(nil),              // 7: core.RoleBinding
-	(*RoleList)(nil),                 // 8: core.RoleList
-	(*RoleBindingList)(nil),          // 9: core.RoleBindingList
-	(*CertInfo)(nil),                 // 10: core.CertInfo
-	(*Reference)(nil),                // 11: core.Reference
-	(*ReferenceList)(nil),            // 12: core.ReferenceList
-	(*SubjectAccessRequest)(nil),     // 13: core.SubjectAccessRequest
-	nil,                              // 14: core.Cluster.LabelsEntry
-	nil,                              // 15: core.LabelSelector.MatchLabelsEntry
+	(MatchOptions)(0),                // 0: core.MatchOptions
+	(*BootstrapToken)(nil),           // 1: core.BootstrapToken
+	(*BootstrapTokenList)(nil),       // 2: core.BootstrapTokenList
+	(*Cluster)(nil),                  // 3: core.Cluster
+	(*ClusterList)(nil),              // 4: core.ClusterList
+	(*LabelSelector)(nil),            // 5: core.LabelSelector
+	(*LabelSelectorRequirement)(nil), // 6: core.LabelSelectorRequirement
+	(*Role)(nil),                     // 7: core.Role
+	(*RoleBinding)(nil),              // 8: core.RoleBinding
+	(*RoleList)(nil),                 // 9: core.RoleList
+	(*RoleBindingList)(nil),          // 10: core.RoleBindingList
+	(*CertInfo)(nil),                 // 11: core.CertInfo
+	(*Reference)(nil),                // 12: core.Reference
+	(*ReferenceList)(nil),            // 13: core.ReferenceList
+	(*SubjectAccessRequest)(nil),     // 14: core.SubjectAccessRequest
+	nil,                              // 15: core.Cluster.LabelsEntry
+	nil,                              // 16: core.LabelSelector.MatchLabelsEntry
 }
 var file_pkg_core_core_proto_depIdxs = []int32{
-	0,  // 0: core.BootstrapTokenList.items:type_name -> core.BootstrapToken
-	14, // 1: core.Cluster.labels:type_name -> core.Cluster.LabelsEntry
-	2,  // 2: core.ClusterList.items:type_name -> core.Cluster
-	15, // 3: core.LabelSelector.matchLabels:type_name -> core.LabelSelector.MatchLabelsEntry
-	5,  // 4: core.LabelSelector.matchExpressions:type_name -> core.LabelSelectorRequirement
-	4,  // 5: core.Role.matchLabels:type_name -> core.LabelSelector
-	6,  // 6: core.RoleList.items:type_name -> core.Role
-	7,  // 7: core.RoleBindingList.items:type_name -> core.RoleBinding
-	11, // 8: core.ReferenceList.items:type_name -> core.Reference
+	1,  // 0: core.BootstrapTokenList.items:type_name -> core.BootstrapToken
+	15, // 1: core.Cluster.labels:type_name -> core.Cluster.LabelsEntry
+	3,  // 2: core.ClusterList.items:type_name -> core.Cluster
+	16, // 3: core.LabelSelector.matchLabels:type_name -> core.LabelSelector.MatchLabelsEntry
+	6,  // 4: core.LabelSelector.matchExpressions:type_name -> core.LabelSelectorRequirement
+	5,  // 5: core.Role.matchLabels:type_name -> core.LabelSelector
+	7,  // 6: core.RoleList.items:type_name -> core.Role
+	8,  // 7: core.RoleBindingList.items:type_name -> core.RoleBinding
+	12, // 8: core.ReferenceList.items:type_name -> core.Reference
 	9,  // [9:9] is the sub-list for method output_type
 	9,  // [9:9] is the sub-list for method input_type
 	9,  // [9:9] is the sub-list for extension type_name
@@ -1134,13 +1186,14 @@ func file_pkg_core_core_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_core_core_proto_rawDesc,
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_pkg_core_core_proto_goTypes,
 		DependencyIndexes: file_pkg_core_core_proto_depIdxs,
+		EnumInfos:         file_pkg_core_core_proto_enumTypes,
 		MessageInfos:      file_pkg_core_core_proto_msgTypes,
 	}.Build()
 	File_pkg_core_core_proto = out.File

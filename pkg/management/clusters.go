@@ -14,7 +14,7 @@ func (m *Server) ListClusters(
 	ctx context.Context,
 	in *ListClustersRequest,
 ) (*core.ClusterList, error) {
-	clusterList, err := m.clusterStore.ListClusters(ctx, in.MatchLabels)
+	clusterList, err := m.clusterStore.ListClusters(ctx, in.MatchLabels, in.MatchOptions)
 	if err != nil {
 		return nil, grpcError(err)
 	}
@@ -52,7 +52,7 @@ func (m *Server) WatchClusters(
 	for {
 		select {
 		case <-tick.C:
-			clusters, err := m.clusterStore.ListClusters(context.Background(), nil)
+			clusters, err := m.clusterStore.ListClusters(context.Background(), nil, 0)
 			updatedIds := map[string]struct{}{}
 			if err != nil {
 				return grpcError(err)

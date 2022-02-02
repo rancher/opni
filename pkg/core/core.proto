@@ -33,6 +33,11 @@ message LabelSelectorRequirement {
   repeated string values = 3;
 }
 
+enum MatchOptions {
+  Default = 0;
+  EmptySelectorMatchesNone = 1;
+}
+
 message Role {
   string name = 1;
   repeated string clusterIDs = 2;

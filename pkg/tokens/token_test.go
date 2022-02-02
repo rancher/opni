@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
 )
 
@@ -149,5 +150,11 @@ var _ = Describe("Token", func() {
 
 		_, err = t.VerifyDetached(sig, privB)
 		Expect(err).NotTo(HaveOccurred())
+	})
+	It("should correctly generate a reference", func() {
+		t := tokens.NewToken()
+		Expect(t.Reference()).To(Equal(&core.Reference{
+			Id: t.HexID(),
+		}))
 	})
 })

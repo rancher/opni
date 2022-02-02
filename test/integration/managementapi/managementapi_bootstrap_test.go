@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+//#region Test Setup
 type fingerprintsData struct {
 	TestData []fingerprintsTestData `json:"testData"`
 }
@@ -27,8 +28,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-
-var _ = Describe("Management Test", Ordered, func() {
+var _ = Describe("Management API Boostrap Token Management Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	BeforeAll(func() {
@@ -47,6 +47,9 @@ var _ = Describe("Management Test", Ordered, func() {
 		Expect(environment.Stop()).To(Succeed())
 	})
 
+	//#endregion
+
+	//#region Happy Path Tests
 	var token *core.BootstrapToken
 	var fingerprint string
 	It("can create a bootstrap token", func() {
@@ -81,29 +84,15 @@ var _ = Describe("Management Test", Ordered, func() {
 		Expect(tokenInfo).To(BeEmpty())
 	})
 
-	It("can retrieve full certification chain information", func() {
-		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
-
-		leaf := certsInfo.Chain[0]
-		root := certsInfo.Chain[len(certsInfo.Chain)-1]
-
-		fingerprint = root.Fingerprint
-		Expect(root.Issuer).To(Equal("CN=Example Root CA"))
-		Expect(root.Subject).To(Equal("CN=Example Root CA"))
-		Expect(root.IsCA).To(BeTrue())
-		Expect(root.Fingerprint).NotTo(BeEmpty())
-
-		Expect(leaf.Issuer).To(Equal("CN=Example Root CA"))
-		Expect(leaf.Subject).To(Equal("CN=leaf"))
-		Expect(leaf.IsCA).To(BeFalse())
-		Expect(leaf.Fingerprint).NotTo(BeEmpty())
-	})
-
 	When("an agent is added and there are no tokens", func() {
 		It("should fail to bootstrap", func() {
 			_, errC := environment.StartAgent("foo", token, []string{fingerprint})
 			Eventually(errC).Should(Receive(MatchError("bootsrap error: bootstrap failed: 405 Method Not Allowed")))
 		})
 	})
+	//#endregion
+
+	//#region Edge Case Tests
+
+	//#endregion
 })

@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"strconv"
 	"strings"
@@ -18,6 +20,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/kralicky/opni-monitoring/pkg/agent"
 	"github.com/kralicky/opni-monitoring/pkg/auth"
 	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
@@ -25,12 +28,14 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/gateway"
 	"github.com/kralicky/opni-monitoring/pkg/ident"
+	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
 	mock_ident "github.com/kralicky/opni-monitoring/pkg/test/mock/ident"
 	"github.com/kralicky/opni-monitoring/pkg/tokens"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/phayes/freeport"
+	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -478,4 +483,73 @@ func (e *Environment) GatewayTLSConfig() *tls.Config {
 
 func (e *Environment) GatewayConfig() *v1beta1.GatewayConfig {
 	return e.gatewayConfig
+}
+
+func StartStandaloneTestEnvironment() {
+	fmt.Println("Starting test environment")
+	environment := &Environment{
+		TestBin: "testbin/bin",
+		Logger:  logger.New().Named("test"),
+	}
+	if err := environment.Start(); err != nil {
+		panic(err)
+	}
+	http.Handle("/agents", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			if r.Header.Get("Content-Type") != "application/json" {
+				rw.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			body := struct {
+				Token string   `json:"token"`
+				Pins  []string `json:"pins"`
+			}{}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				rw.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			token, err := tokens.ParseHex(body.Token)
+			if err != nil {
+				rw.WriteHeader(http.StatusBadRequest)
+				rw.Write([]byte(err.Error()))
+				return
+			}
+			port, errC := environment.StartAgent(uuid.New().String(), token.ToBootstrapToken(), body.Pins)
+			select {
+			case err := <-errC:
+				rw.WriteHeader(http.StatusInternalServerError)
+				rw.Write([]byte(err.Error()))
+				return
+			default:
+				rw.WriteHeader(http.StatusOK)
+			}
+			rw.Write([]byte(fmt.Sprintf("%d", port)))
+		}
+	}))
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
+	if portNum, ok := os.LookupEnv("TEST_ENV_API_PORT"); ok {
+		port, err = strconv.Atoi(portNum)
+		if err != nil {
+			panic(err)
+		}
+	}
+	go func() {
+		addr := fmt.Sprintf("127.0.0.1:%d", port)
+		fmt.Println(chalk.Green.Color("Test environment API listening on " + addr))
+		if err := http.ListenAndServe(addr, nil); err != nil {
+			panic(err)
+		}
+	}()
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	fmt.Println(chalk.Blue.Color("Press Ctrl+C to stop test environment"))
+	<-c
+	fmt.Println("\nStopping test environment")
+	if err := environment.Stop(); err != nil {
+		panic(err)
+	}
 }

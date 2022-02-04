@@ -15,13 +15,13 @@ import (
 )
 
 //#region Test Setup
-var _ = Describe("Management API Roles Management Tests", Ordered, func() {
+var _ = XDescribe("Management API Roles Management Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	BeforeAll(func() {
 		fmt.Println("Starting test environment")
 		environment = &test.Environment{
-			TestBin: "../../testbin/bin",
+			TestBin: "../../../testbin/bin",
 			Logger:  logger.New().Named("test"),
 		}
 		Expect(environment.Start()).To(Succeed())

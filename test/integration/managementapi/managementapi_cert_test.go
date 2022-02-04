@@ -20,7 +20,7 @@ var _ = Describe("Management API Cerificate Management Tests", Ordered, func() {
 	BeforeAll(func() {
 		fmt.Println("Starting test environment")
 		environment = &test.Environment{
-			TestBin: "../../testbin/bin",
+			TestBin: "../../../testbin/bin",
 			Logger:  logger.New().Named("test"),
 		}
 		Expect(environment.Start()).To(Succeed())

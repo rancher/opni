@@ -55,7 +55,10 @@ func (ls *LeaseStore) LeaseExpired() <-chan string {
 
 func (ls *LeaseStore) run(ctx context.Context) {
 	for {
-		if len(ls.leases) == 0 {
+		ls.mu.Lock()
+		count := len(ls.leases)
+		ls.mu.Unlock()
+		if count == 0 {
 			select {
 			case <-ctx.Done():
 				return

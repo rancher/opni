@@ -147,7 +147,6 @@ func (e *Environment) Stop() error {
 }
 
 func (e *Environment) startEtcd() {
-	e.waitGroup.Add(1)
 	defaultArgs := []string{
 		fmt.Sprintf("--listen-client-urls=http://localhost:%d", e.ports.Etcd),
 		fmt.Sprintf("--advertise-client-urls=http://localhost:%d", e.ports.Etcd),
@@ -178,6 +177,7 @@ func (e *Environment) startEtcd() {
 		time.Sleep(time.Second)
 	}
 	fmt.Println("Etcd started")
+	e.waitGroup.Add(1)
 	go func() {
 		defer e.waitGroup.Done()
 		<-e.ctx.Done()
@@ -192,7 +192,6 @@ type cortexTemplateOptions struct {
 }
 
 func (e *Environment) startCortex() {
-	e.waitGroup.Add(1)
 	configTemplate := TestData("cortex/config.yaml")
 	t := template.Must(template.New("config").Parse(string(configTemplate)))
 	configFile, err := os.Create(path.Join(e.tempDir, "cortex", "config.yaml"))
@@ -234,6 +233,7 @@ func (e *Environment) startCortex() {
 		time.Sleep(time.Second)
 	}
 	fmt.Println("Cortex started")
+	e.waitGroup.Add(1)
 	go func() {
 		defer e.waitGroup.Done()
 		<-e.ctx.Done()
@@ -251,7 +251,6 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 	if err != nil {
 		panic(err)
 	}
-	e.waitGroup.Add(1)
 	configTemplate := TestData("prometheus/config.yaml")
 	t := template.Must(template.New("config").Parse(string(configTemplate)))
 	configFile, err := os.Create(path.Join(e.tempDir, "prometheus", "config.yaml"))
@@ -291,6 +290,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 		time.Sleep(time.Second)
 	}
 	fmt.Println("Prometheus started")
+	e.waitGroup.Add(1)
 	go func() {
 		defer e.waitGroup.Done()
 		<-e.ctx.Done()
@@ -364,7 +364,6 @@ func (e *Environment) NewManagementClient() management.ManagementClient {
 }
 
 func (e *Environment) startGateway() {
-	e.waitGroup.Add(1)
 	e.gatewayConfig = e.newGatewayConfig()
 	g := gateway.NewGateway(e.gatewayConfig,
 		gateway.WithAuthMiddleware(e.gatewayConfig.Spec.AuthProvider),
@@ -389,6 +388,7 @@ func (e *Environment) startGateway() {
 		}
 	}
 	fmt.Println("Gateway started")
+	e.waitGroup.Add(1)
 	go func() {
 		defer e.waitGroup.Done()
 		<-e.ctx.Done()
@@ -400,7 +400,6 @@ func (e *Environment) startGateway() {
 
 func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []string) (int, <-chan error) {
 	errC := make(chan error, 1)
-	e.waitGroup.Add(1)
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
@@ -463,6 +462,7 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 			errC <- err
 		}
 	}()
+	e.waitGroup.Add(1)
 	go func() {
 		defer e.waitGroup.Done()
 		<-e.ctx.Done()

@@ -84,6 +84,10 @@ func init() {
 			DestDir: "pkg/plugins/apis/apiextensions",
 		},
 		{
+			Source:  "pkg/plugins/apis/system/system.proto",
+			DestDir: "pkg/plugins/apis/system",
+		},
+		{
 			Source:  "plugins/example/example.proto",
 			DestDir: "plugins/example",
 		},

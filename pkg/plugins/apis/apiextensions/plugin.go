@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/kralicky/opni-monitoring/pkg/plugins/meta"
+	"github.com/kralicky/opni-monitoring/pkg/plugins"
 	"google.golang.org/grpc"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -52,11 +52,6 @@ func NewPlugin(desc *grpc.ServiceDesc, impl interface{}) plugin.Plugin {
 
 const ManagementAPIExtensionPluginID = "apiextensions.ManagementAPIExtension"
 
-func AddToScheme(scheme meta.Scheme) {
-	scheme.Add(ManagementAPIExtensionPluginID,
-		NewPlugin(&ManagementAPIExtension_ServiceDesc, UnimplementedManagementAPIExtensionServer{}))
-}
-
 type apiExtensionServerImpl struct {
 	UnimplementedManagementAPIExtensionServer
 	rawServiceDesc *grpc.ServiceDesc
@@ -72,3 +67,8 @@ func (e *apiExtensionServerImpl) Descriptor(ctx context.Context, _ *emptypb.Empt
 }
 
 var _ ManagementAPIExtensionServer = (*apiExtensionServerImpl)(nil)
+
+func init() {
+	plugins.Scheme.Add(ManagementAPIExtensionPluginID,
+		NewPlugin(&ManagementAPIExtension_ServiceDesc, UnimplementedManagementAPIExtensionServer{}))
+}

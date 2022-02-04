@@ -22,6 +22,7 @@ import (
 	"github.com/kralicky/opni-monitoring/pkg/management"
 	"github.com/kralicky/opni-monitoring/pkg/plugins"
 	"github.com/kralicky/opni-monitoring/pkg/plugins/apis/apiextensions"
+	"github.com/kralicky/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/kralicky/opni-monitoring/pkg/plugins/meta"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
@@ -162,6 +163,13 @@ func (g *Gateway) Listen() error {
 			g.logger.Error(err)
 		}
 	}()
+
+	systemPlugins := plugins.DispenseAll(system.SystemPluginID)
+	g.logger.Infof("serving management api for %d system plugins", len(systemPlugins))
+	for _, systemPlugin := range systemPlugins {
+		srv := systemPlugin.Raw.(system.SystemPluginServer)
+		go srv.ServeManagementAPI(g.managementServer)
+	}
 
 	if g.servingCertBundle == nil {
 		return g.app.Listen(g.config.Spec.ListenAddress)

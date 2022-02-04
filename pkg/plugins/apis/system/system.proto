@@ -1,0 +1,13 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+option go_package = "github.com/kralicky/opni-monitoring/pkg/plugins/apis/system";
+
+package system;
+
+service System {
+  rpc UseManagementAPI(BrokerID) returns (google.protobuf.Empty);
+}
+
+message BrokerID {
+  uint32 id = 1;
+}

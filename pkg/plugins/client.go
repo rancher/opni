@@ -14,7 +14,6 @@ var pluginLog = logger.New().Named("plugin")
 
 func ClientConfig(md meta.PluginMeta, scheme meta.Scheme) *plugin.ClientConfig {
 	return &plugin.ClientConfig{
-		AutoMTLS:         true,
 		Plugins:          scheme.PluginMap(),
 		HandshakeConfig:  Handshake,
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},

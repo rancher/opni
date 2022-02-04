@@ -10,8 +10,6 @@ import (
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 
-	pkgtest "github.com/kralicky/opni-monitoring/pkg/test"
-
 	// mage:import
 	"github.com/kralicky/spellbook/build"
 	// mage:import
@@ -29,14 +27,7 @@ import (
 var Default = All
 
 func All() {
-	mg.Deps(build.Build, Plugins)
-}
-
-func Plugins() {
-	env := map[string]string{
-		"CGO_ENABLED": "0",
-	}
-	sh.RunWith(env, mg.GoCmd(), "build", "-ldflags", "-w -s", "-o", "./bin/plugin_example", "./plugins/example")
+	mg.Deps(build.Build)
 }
 
 func Generate() {
@@ -57,8 +48,11 @@ func getVersion(binary string) string {
 func init() {
 	build.Deps(Generate)
 	docker.Deps(build.Build)
-	test.Deps(testbin.Testbin)
+	test.Deps(testbin.Testbin, build.Build)
 
+	build.Config.ExtraTargets = map[string]string{
+		"./plugins/example": "bin/plugin_example",
+	}
 	mockgen.Config.Mocks = []mockgen.Mock{
 		{
 			Source: "pkg/rbac/rbac.go",
@@ -125,6 +119,6 @@ func init() {
 }
 
 func TestEnv() {
-	mg.Deps(testbin.Testbin)
-	pkgtest.StartStandaloneTestEnvironment()
+	mg.Deps(build.Build)
+	sh.RunV("bin/testenv")
 }

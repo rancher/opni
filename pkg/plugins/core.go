@@ -2,7 +2,7 @@ package plugins
 
 import (
 	"github.com/hashicorp/go-plugin"
-	"github.com/kralicky/opni-monitoring/pkg/plugins/meta"
+	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 )
 
 var Scheme = meta.NewScheme()

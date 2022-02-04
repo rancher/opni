@@ -7,12 +7,12 @@ import (
 	"path"
 	"time"
 
-	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
-	"github.com/kralicky/opni-monitoring/pkg/core"
-	"github.com/kralicky/opni-monitoring/pkg/keyring"
-	"github.com/kralicky/opni-monitoring/pkg/logger"
-	"github.com/kralicky/opni-monitoring/pkg/storage"
-	"github.com/kralicky/opni-monitoring/pkg/util"
+	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/keyring"
+	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/util"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 )

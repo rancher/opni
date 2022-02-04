@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/kralicky/opni-monitoring/pkg/logger"
-	"github.com/kralicky/opni-monitoring/pkg/management"
-	"github.com/kralicky/opni-monitoring/pkg/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/test"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

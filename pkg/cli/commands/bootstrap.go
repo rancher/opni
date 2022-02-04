@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/kralicky/opni-monitoring/pkg/config/meta"
-	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
-	"github.com/kralicky/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/config/meta"
+	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"

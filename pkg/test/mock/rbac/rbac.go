@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	core "github.com/kralicky/opni-monitoring/pkg/core"
+	core "github.com/rancher/opni-monitoring/pkg/core"
 )
 
 // MockProvider is a mock of Provider interface.

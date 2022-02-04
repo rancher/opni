@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/kralicky/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/core"
 )
 
 func ApplyRoleBindingTaints(ctx context.Context, store RBACStore, rb *core.RoleBinding) error {

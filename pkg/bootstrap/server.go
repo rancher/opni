@@ -8,13 +8,13 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kralicky/opni-monitoring/pkg/core"
-	"github.com/kralicky/opni-monitoring/pkg/ecdh"
-	"github.com/kralicky/opni-monitoring/pkg/keyring"
-	"github.com/kralicky/opni-monitoring/pkg/storage"
-	"github.com/kralicky/opni-monitoring/pkg/tokens"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
+	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/ecdh"
+	"github.com/rancher/opni-monitoring/pkg/keyring"
+	"github.com/rancher/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
 type ServerConfig struct {

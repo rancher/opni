@@ -11,11 +11,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/kralicky/opni-monitoring/pkg/ecdh"
-	"github.com/kralicky/opni-monitoring/pkg/ident"
-	"github.com/kralicky/opni-monitoring/pkg/keyring"
-	"github.com/kralicky/opni-monitoring/pkg/pkp"
-	"github.com/kralicky/opni-monitoring/pkg/tokens"
+	"github.com/rancher/opni-monitoring/pkg/ecdh"
+	"github.com/rancher/opni-monitoring/pkg/ident"
+	"github.com/rancher/opni-monitoring/pkg/keyring"
+	"github.com/rancher/opni-monitoring/pkg/pkp"
+	"github.com/rancher/opni-monitoring/pkg/tokens"
 	"k8s.io/client-go/rest"
 )
 

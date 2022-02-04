@@ -15,7 +15,7 @@ import (
 
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/kralicky/grpc-gateway/v2/utilities"
-	"github.com/kralicky/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/core"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"

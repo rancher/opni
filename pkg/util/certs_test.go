@@ -6,8 +6,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/kralicky/opni-monitoring/pkg/test"
-	"github.com/kralicky/opni-monitoring/pkg/util"
+	"github.com/rancher/opni-monitoring/pkg/test"
+	"github.com/rancher/opni-monitoring/pkg/util"
 )
 
 var _ = Describe("Cert Utils", func() {

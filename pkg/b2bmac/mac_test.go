@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/kralicky/opni-monitoring/pkg/b2bmac"
+	"github.com/rancher/opni-monitoring/pkg/b2bmac"
 )
 
 var _ = Describe("MAC", func() {

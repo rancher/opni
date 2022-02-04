@@ -4,8 +4,8 @@ import (
 	"os/exec"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/kralicky/opni-monitoring/pkg/logger"
-	"github.com/kralicky/opni-monitoring/pkg/plugins/meta"
+	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )

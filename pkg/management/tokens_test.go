@@ -4,9 +4,9 @@ import (
 	context "context"
 	"time"
 
-	"github.com/kralicky/opni-monitoring/pkg/management"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni-monitoring/pkg/management"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

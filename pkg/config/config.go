@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kralicky/opni-monitoring/pkg/config/meta"
-	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
-	"github.com/kralicky/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/config/meta"
+	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 	"go.uber.org/zap"
 	"sigs.k8s.io/yaml"
 )

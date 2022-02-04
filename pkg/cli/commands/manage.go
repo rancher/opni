@@ -1,8 +1,8 @@
 package commands
 
 import (
-	"github.com/kralicky/opni-monitoring/pkg/logger"
-	"github.com/kralicky/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/spf13/cobra"
 )
 

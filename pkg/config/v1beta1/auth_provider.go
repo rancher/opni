@@ -1,6 +1,6 @@
 package v1beta1
 
-import "github.com/kralicky/opni-monitoring/pkg/config/meta"
+import "github.com/rancher/opni-monitoring/pkg/config/meta"
 
 type AuthProvider struct {
 	meta.TypeMeta   `json:",inline"`

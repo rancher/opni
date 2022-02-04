@@ -10,10 +10,10 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	core "github.com/kralicky/opni-monitoring/pkg/core"
-	keyring "github.com/kralicky/opni-monitoring/pkg/keyring"
-	storage "github.com/kralicky/opni-monitoring/pkg/storage"
-	tokens "github.com/kralicky/opni-monitoring/pkg/tokens"
+	core "github.com/rancher/opni-monitoring/pkg/core"
+	keyring "github.com/rancher/opni-monitoring/pkg/keyring"
+	storage "github.com/rancher/opni-monitoring/pkg/storage"
+	tokens "github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
 // MockTokenStore is a mock of TokenStore interface.

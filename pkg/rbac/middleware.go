@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kralicky/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/core"
 )
 
 type middleware struct {

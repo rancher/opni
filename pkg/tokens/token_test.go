@@ -12,8 +12,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/kralicky/opni-monitoring/pkg/core"
-	"github.com/kralicky/opni-monitoring/pkg/tokens"
+	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
 func mustParse(t *tokens.Token, err error) *tokens.Token {

@@ -1,4 +1,4 @@
-module github.com/kralicky/opni-monitoring
+module github.com/rancher/opni-monitoring
 
 go 1.17
 

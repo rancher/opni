@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

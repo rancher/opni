@@ -5,7 +5,7 @@
     "version": "1.0",
     "license": {
       "name": "Apache 2.0",
-      "url": "https://github.com/kralicky/opni-monitoring/blob/main/LICENSE"
+      "url": "https://github.com/rancher/opni-monitoring/blob/main/LICENSE"
     }
   },
   "tags": [

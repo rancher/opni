@@ -1,6 +1,6 @@
 syntax = "proto3";
 import "google/protobuf/empty.proto";
-option go_package = "github.com/kralicky/opni-monitoring/pkg/plugins/apis/system";
+option go_package = "github.com/rancher/opni-monitoring/pkg/plugins/apis/system";
 
 package system;
 

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/kralicky/opni-monitoring/pkg/core"
-	"github.com/kralicky/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/storage"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/protobuf/encoding/protojson"
 )

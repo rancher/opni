@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gonum.org/v1/gonum/stat/combin"
 
-	"github.com/kralicky/opni-monitoring/pkg/pkp"
+	"github.com/rancher/opni-monitoring/pkg/pkp"
 )
 
 var _ = Describe("TLS Config", func() {

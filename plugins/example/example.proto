@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/kralicky/opni-monitoring/plugins/main";
+option go_package = "github.com/rancher/opni-monitoring/plugins/main";
 package main;
 
 service ExampleAPIExtension {

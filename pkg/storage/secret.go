@@ -5,8 +5,8 @@ import (
 	"errors"
 	"os"
 
-	"github.com/kralicky/opni-monitoring/pkg/keyring"
-	"github.com/kralicky/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/keyring"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"

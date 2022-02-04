@@ -8,13 +8,13 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
-	"github.com/kralicky/opni-monitoring/pkg/management"
-	"github.com/kralicky/opni-monitoring/pkg/storage"
-	"github.com/kralicky/opni-monitoring/pkg/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
+	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/test"
 	"google.golang.org/grpc"
 )
 

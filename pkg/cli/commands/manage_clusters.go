@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"reflect"
 
-	cliutil "github.com/kralicky/opni-monitoring/pkg/cli/util"
-	"github.com/kralicky/opni-monitoring/pkg/core"
-	"github.com/kralicky/opni-monitoring/pkg/management"
+	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
+	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )

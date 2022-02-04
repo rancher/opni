@@ -5,11 +5,11 @@ import (
 	"crypto/ed25519"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kralicky/opni-monitoring/pkg/auth"
-	"github.com/kralicky/opni-monitoring/pkg/b2bmac"
-	"github.com/kralicky/opni-monitoring/pkg/core"
-	"github.com/kralicky/opni-monitoring/pkg/keyring"
-	"github.com/kralicky/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/auth"
+	"github.com/rancher/opni-monitoring/pkg/b2bmac"
+	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/keyring"
+	"github.com/rancher/opni-monitoring/pkg/storage"
 )
 
 type ClusterMiddleware struct {

@@ -5,10 +5,10 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
-	"github.com/kralicky/opni-monitoring/pkg/management"
-	"github.com/kralicky/opni-monitoring/pkg/test"
-	"github.com/kralicky/opni-monitoring/pkg/util"
+	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/test"
+	"github.com/rancher/opni-monitoring/pkg/util"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 
 	. "github.com/onsi/ginkgo/v2"

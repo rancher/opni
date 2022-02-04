@@ -13,10 +13,10 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
-	"github.com/kralicky/opni-monitoring/pkg/core"
-	"github.com/kralicky/opni-monitoring/pkg/logger"
-	"github.com/kralicky/opni-monitoring/pkg/rbac"
-	mock_rbac "github.com/kralicky/opni-monitoring/pkg/test/mock/rbac"
+	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/rbac"
+	mock_rbac "github.com/rancher/opni-monitoring/pkg/test/mock/rbac"
 )
 
 var testUsers = map[string][]string{

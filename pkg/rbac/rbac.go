@@ -3,7 +3,7 @@ package rbac
 import (
 	"context"
 
-	"github.com/kralicky/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/core"
 )
 
 const (

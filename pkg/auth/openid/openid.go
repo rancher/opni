@@ -10,13 +10,13 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kralicky/opni-monitoring/pkg/auth"
-	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
-	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/lestrrat-go/jwx/jwt/openid"
 	"github.com/mitchellh/mapstructure"
+	"github.com/rancher/opni-monitoring/pkg/auth"
+	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/rbac"
 )
 
 var ErrNoSigningKeyFound = fmt.Errorf("no signing key found in the JWK set")

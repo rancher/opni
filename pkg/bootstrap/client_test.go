@@ -17,13 +17,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
-	"github.com/kralicky/opni-monitoring/pkg/ecdh"
-	"github.com/kralicky/opni-monitoring/pkg/ident"
-	"github.com/kralicky/opni-monitoring/pkg/pkp"
-	"github.com/kralicky/opni-monitoring/pkg/test"
-	mock_ident "github.com/kralicky/opni-monitoring/pkg/test/mock/ident"
-	"github.com/kralicky/opni-monitoring/pkg/tokens"
+	"github.com/rancher/opni-monitoring/pkg/bootstrap"
+	"github.com/rancher/opni-monitoring/pkg/ecdh"
+	"github.com/rancher/opni-monitoring/pkg/ident"
+	"github.com/rancher/opni-monitoring/pkg/pkp"
+	"github.com/rancher/opni-monitoring/pkg/test"
+	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
+	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
 type errProvider struct{}

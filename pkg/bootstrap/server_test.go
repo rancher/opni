@@ -18,15 +18,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/valyala/fasthttp/fasthttputil"
 
-	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
-	"github.com/kralicky/opni-monitoring/pkg/core"
-	"github.com/kralicky/opni-monitoring/pkg/ecdh"
-	"github.com/kralicky/opni-monitoring/pkg/keyring"
-	"github.com/kralicky/opni-monitoring/pkg/logger"
-	"github.com/kralicky/opni-monitoring/pkg/storage"
-	"github.com/kralicky/opni-monitoring/pkg/test"
-	mock_storage "github.com/kralicky/opni-monitoring/pkg/test/mock/storage"
-	"github.com/kralicky/opni-monitoring/pkg/tokens"
+	"github.com/rancher/opni-monitoring/pkg/bootstrap"
+	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/ecdh"
+	"github.com/rancher/opni-monitoring/pkg/keyring"
+	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/test"
+	mock_storage "github.com/rancher/opni-monitoring/pkg/test/mock/storage"
+	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
 var _ = Describe("Server", func() {

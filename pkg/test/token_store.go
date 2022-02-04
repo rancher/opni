@@ -7,10 +7,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/kralicky/opni-monitoring/pkg/core"
-	"github.com/kralicky/opni-monitoring/pkg/storage"
-	mock_storage "github.com/kralicky/opni-monitoring/pkg/test/mock/storage"
-	"github.com/kralicky/opni-monitoring/pkg/tokens"
+	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/storage"
+	mock_storage "github.com/rancher/opni-monitoring/pkg/test/mock/storage"
+	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
 func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.TokenStore {

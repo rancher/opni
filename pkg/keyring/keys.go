@@ -3,7 +3,7 @@ package keyring
 import (
 	"crypto/ed25519"
 
-	"github.com/kralicky/opni-monitoring/pkg/pkp"
+	"github.com/rancher/opni-monitoring/pkg/pkp"
 )
 
 // Key types are used indirectly via an interface, as most key values would

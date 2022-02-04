@@ -2,7 +2,7 @@ package gateway
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/kralicky/opni-monitoring/pkg/auth"
+	"github.com/rancher/opni-monitoring/pkg/auth"
 )
 
 type GatewayOptions struct {

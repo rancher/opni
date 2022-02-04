@@ -1,6 +1,6 @@
 package storage
 
-import "github.com/kralicky/opni-monitoring/pkg/core"
+import "github.com/rancher/opni-monitoring/pkg/core"
 
 type SelectorPredicate func(*core.Cluster) bool
 

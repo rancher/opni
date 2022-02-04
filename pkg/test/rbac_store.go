@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"github.com/golang/mock/gomock"
-	"github.com/kralicky/opni-monitoring/pkg/core"
-	"github.com/kralicky/opni-monitoring/pkg/storage"
-	mock_storage "github.com/kralicky/opni-monitoring/pkg/test/mock/storage"
+	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/storage"
+	mock_storage "github.com/rancher/opni-monitoring/pkg/test/mock/storage"
 	"google.golang.org/protobuf/proto"
 )
 

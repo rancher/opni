@@ -3,7 +3,7 @@ package v1beta1
 import (
 	"fmt"
 
-	"github.com/kralicky/opni-monitoring/pkg/config/meta"
+	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"sigs.k8s.io/yaml"
 )
 

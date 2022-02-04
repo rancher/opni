@@ -5,8 +5,8 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
-	"github.com/kralicky/opni-monitoring/pkg/keyring"
-	"github.com/kralicky/opni-monitoring/pkg/pkp"
+	"github.com/rancher/opni-monitoring/pkg/keyring"
+	"github.com/rancher/opni-monitoring/pkg/pkp"
 )
 
 var _ = Describe("Keyring", func() {

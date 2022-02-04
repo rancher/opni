@@ -4,9 +4,9 @@ import (
 	context "context"
 	"fmt"
 
-	core "github.com/kralicky/opni-monitoring/pkg/core"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	core "github.com/rancher/opni-monitoring/pkg/core"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"

@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/kralicky/opni-monitoring/pkg/pkp"
-	"github.com/kralicky/opni-monitoring/pkg/test"
-	"github.com/kralicky/opni-monitoring/pkg/util"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni-monitoring/pkg/pkp"
+	"github.com/rancher/opni-monitoring/pkg/test"
+	"github.com/rancher/opni-monitoring/pkg/util"
 )
 
 func TestUtil(t *testing.T) {

@@ -4,12 +4,12 @@ import (
 	"errors"
 	"os"
 
-	"github.com/kralicky/opni-monitoring/pkg/auth"
-	"github.com/kralicky/opni-monitoring/pkg/auth/openid"
-	"github.com/kralicky/opni-monitoring/pkg/config"
-	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
-	"github.com/kralicky/opni-monitoring/pkg/gateway"
-	"github.com/kralicky/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/auth"
+	"github.com/rancher/opni-monitoring/pkg/auth/openid"
+	"github.com/rancher/opni-monitoring/pkg/config"
+	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/gateway"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )

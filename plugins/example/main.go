@@ -5,11 +5,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/kralicky/opni-monitoring/pkg/management"
-	"github.com/kralicky/opni-monitoring/pkg/plugins"
-	"github.com/kralicky/opni-monitoring/pkg/plugins/apis/apiextensions"
-	"github.com/kralicky/opni-monitoring/pkg/plugins/apis/system"
-	"github.com/kralicky/opni-monitoring/pkg/plugins/meta"
+	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/plugins"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
+	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

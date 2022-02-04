@@ -2,7 +2,7 @@ package test
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/kralicky/opni-monitoring/pkg/rbac"
+	"github.com/rancher/opni-monitoring/pkg/rbac"
 )
 
 type AuthStrategy string

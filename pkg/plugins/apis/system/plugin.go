@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/kralicky/opni-monitoring/pkg/management"
-	"github.com/kralicky/opni-monitoring/pkg/plugins"
+	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )

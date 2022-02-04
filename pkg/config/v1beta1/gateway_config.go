@@ -1,7 +1,7 @@
 package v1beta1
 
 import (
-	"github.com/kralicky/opni-monitoring/pkg/config/meta"
+	"github.com/rancher/opni-monitoring/pkg/config/meta"
 )
 
 type GatewayConfig struct {

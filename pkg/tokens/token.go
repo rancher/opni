@@ -11,9 +11,9 @@ import (
 	"errors"
 	"io"
 
-	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
+	"github.com/rancher/opni-monitoring/pkg/core"
 )
 
 var ErrMalformedToken = errors.New("malformed token")

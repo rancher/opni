@@ -3,7 +3,7 @@ package management
 import (
 	context "context"
 
-	core "github.com/kralicky/opni-monitoring/pkg/core"
+	core "github.com/rancher/opni-monitoring/pkg/core"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 

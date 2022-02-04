@@ -3,8 +3,8 @@ package bootstrap
 import (
 	"context"
 
-	"github.com/kralicky/opni-monitoring/pkg/ident"
-	"github.com/kralicky/opni-monitoring/pkg/keyring"
+	"github.com/rancher/opni-monitoring/pkg/ident"
+	"github.com/rancher/opni-monitoring/pkg/keyring"
 )
 
 type Bootstrapper interface {

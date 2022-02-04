@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kralicky/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/storage"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 )

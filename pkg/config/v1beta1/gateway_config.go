@@ -19,6 +19,7 @@ type GatewayConfigSpec struct {
 	AuthProvider   string         `json:"authProvider,omitempty"`
 	Storage        StorageSpec    `json:"storage,omitempty"`
 	Certs          CertsSpec      `json:"certs,omitempty"`
+	Plugins        PluginsSpec    `json:"plugins,omitempty"`
 }
 
 type ManagementSpec struct {
@@ -75,6 +76,11 @@ type CertsSpec struct {
 	ServingKey *string `json:"servingKey,omitempty"`
 	// String containing PEM encoded server key data. Mutually exclusive with ServingKey
 	ServingKeyData *string `json:"servingKeyData,omitempty"`
+}
+
+type PluginsSpec struct {
+	// Directories to look for plugins in
+	Dirs []string `json:"dirs,omitempty"`
 }
 
 func (s *GatewayConfigSpec) SetDefaults() {

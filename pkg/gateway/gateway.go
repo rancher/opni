@@ -13,12 +13,16 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/utils"
+	"github.com/hashicorp/go-plugin"
 	"github.com/kralicky/opni-monitoring/pkg/auth/cluster"
 	"github.com/kralicky/opni-monitoring/pkg/bootstrap"
 	"github.com/kralicky/opni-monitoring/pkg/config"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/management"
+	"github.com/kralicky/opni-monitoring/pkg/plugins"
+	"github.com/kralicky/opni-monitoring/pkg/plugins/apis/apiextensions"
+	"github.com/kralicky/opni-monitoring/pkg/plugins/meta"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
 	"github.com/kralicky/opni-monitoring/pkg/storage/etcd"
@@ -51,6 +55,8 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	options.Apply(opts...)
 
 	lg := logger.New().Named("gateway")
+
+	loadPlugins(conf.Spec.Plugins)
 
 	var tokenStore storage.TokenStore
 	var clusterStore storage.ClusterStore
@@ -115,11 +121,14 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		Certificates: []tls.Certificate{*servingCertBundle},
 	}
 
+	apiExtensionPlugins := plugins.DispenseAll(apiextensions.ManagementAPIExtensionPluginID)
+
 	mgmtSrv := management.NewServer(&conf.Spec.Management,
 		management.TokenStore(tokenStore),
 		management.ClusterStore(clusterStore),
 		management.RBACStore(rbacStore),
 		management.TLSConfig(tlsConfig),
+		management.APIExtensions(apiExtensionPlugins),
 	)
 
 	g := &Gateway{
@@ -171,6 +180,7 @@ func (g *Gateway) Listen() error {
 
 func (g *Gateway) Shutdown() error {
 	g.managementCtxCancel()
+	plugin.CleanupClients()
 	return g.app.Shutdown()
 }
 
@@ -348,4 +358,19 @@ func loadServingCertBundle(certsSpec v1beta1.CertsSpec) (*tls.Certificate, error
 		servingCert.Certificate = append(servingCert.Certificate, rootCA.Raw)
 	}
 	return &servingCert, nil
+}
+
+func loadPlugins(conf v1beta1.PluginsSpec) {
+	for _, dir := range conf.Dirs {
+		pluginPaths, err := plugin.Discover("plugin_*", dir)
+		if err != nil {
+			continue
+		}
+		for _, p := range pluginPaths {
+			cc := plugins.ClientConfig(meta.PluginMeta{
+				Path: p,
+			}, plugins.Scheme)
+			plugins.Load(cc)
+		}
+	}
 }

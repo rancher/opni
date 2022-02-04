@@ -1,0 +1,20 @@
+syntax = "proto3";
+option go_package = "github.com/kralicky/opni-monitoring/plugins/main";
+package main;
+
+service ExampleAPIExtension {
+  rpc Echo(EchoRequest) returns (EchoResponse) {
+    option (google.api.http) = {
+      post: "/echo"
+      body: "*"
+    };
+  }
+}
+
+message EchoRequest {
+  string message = 1;
+}
+
+message EchoResponse {
+  string message = 1;
+}

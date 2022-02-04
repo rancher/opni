@@ -1,0 +1,64 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "plugins/example/example.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "ExampleAPIExtension"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/echo": {
+      "post": {
+        "operationId": "ExampleAPIExtension_Echo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/mainEchoResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/mainEchoRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ExampleAPIExtension"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "mainEchoRequest": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "mainEchoResponse": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

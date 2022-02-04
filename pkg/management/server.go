@@ -9,14 +9,18 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jhump/protoreflect/desc"
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/kralicky/opni-monitoring/pkg/config/v1beta1"
 	"github.com/kralicky/opni-monitoring/pkg/core"
 	"github.com/kralicky/opni-monitoring/pkg/logger"
 	"github.com/kralicky/opni-monitoring/pkg/pkp"
+	"github.com/kralicky/opni-monitoring/pkg/plugins"
+	"github.com/kralicky/opni-monitoring/pkg/plugins/apis/apiextensions"
 	"github.com/kralicky/opni-monitoring/pkg/rbac"
 	"github.com/kralicky/opni-monitoring/pkg/storage"
 	"github.com/kralicky/opni-monitoring/pkg/util"
+	"github.com/mwitkow/grpc-proxy/proxy"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -38,12 +42,21 @@ func OpenAPISpec() []byte {
 	return buf
 }
 
+type apiExtension struct {
+	client      apiextensions.ManagementAPIExtensionClient
+	clientConn  *grpc.ClientConn
+	serviceDesc *desc.ServiceDescriptor
+	httpRules   []*HTTPRuleDescriptor
+}
+
 type Server struct {
 	UnimplementedManagementServer
 	ManagementServerOptions
 	config       *v1beta1.ManagementSpec
 	logger       *zap.SugaredLogger
 	rbacProvider rbac.Provider
+
+	apiExtensions []apiExtension
 }
 
 var _ ManagementServer = (*Server)(nil)
@@ -53,6 +66,7 @@ type ManagementServerOptions struct {
 	clusterStore storage.ClusterStore
 	rbacStore    storage.RBACStore
 	tlsConfig    *tls.Config
+	plugins      []plugins.ActivePlugin
 }
 
 type ManagementServerOption func(*ManagementServerOptions)
@@ -84,6 +98,12 @@ func RBACStore(rbacStore storage.RBACStore) ManagementServerOption {
 func TLSConfig(config *tls.Config) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
 		o.tlsConfig = config
+	}
+}
+
+func APIExtensions(exts []plugins.ActivePlugin) ManagementServerOption {
+	return func(o *ManagementServerOptions) {
+		o.plugins = append(o.plugins, exts...)
 	}
 }
 
@@ -119,7 +139,11 @@ func (m *Server) ListenAndServe(ctx context.Context) error {
 	m.logger.With(
 		"address", listener.Addr().String(),
 	).Info("management gRPC server starting")
-	srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
+	director := m.configureApiExtensionDirector()
+	srv := grpc.NewServer(
+		grpc.Creds(insecure.NewCredentials()),
+		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
+	)
 	RegisterManagementServer(srv, m)
 	go func() {
 		<-ctx.Done()
@@ -140,6 +164,7 @@ func (m *Server) ListenAndServe(ctx context.Context) error {
 			[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
 			return err
 		}
+		m.configureHttpApiExtensions(gwmux)
 		mux.Handle("/", gwmux)
 		server := &http.Server{
 			Addr:    httpAddr,

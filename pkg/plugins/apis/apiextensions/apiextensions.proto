@@ -1,0 +1,10 @@
+syntax = "proto3";
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/any.proto";
+option go_package = "github.com/kralicky/opni-monitoring/pkg/plugin/apis/apiextensions";
+package apiextensions;
+
+service ManagementAPIExtension {
+  rpc Descriptor(google.protobuf.Empty) returns (google.protobuf.ServiceDescriptorProto);
+}

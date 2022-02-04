@@ -305,6 +305,9 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 	servingKeyData := string(TestData("localhost.key"))
 	return &v1beta1.GatewayConfig{
 		Spec: v1beta1.GatewayConfigSpec{
+			Plugins: v1beta1.PluginsSpec{
+				Dirs: []string{"bin", "../../bin"},
+			},
 			ListenAddress: fmt.Sprintf("localhost:%d", e.ports.Gateway),
 			Management: v1beta1.ManagementSpec{
 				GRPCListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", e.ports.ManagementGRPC),
@@ -497,16 +500,13 @@ func StartStandaloneTestEnvironment() {
 	http.Handle("/agents", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
-			if r.Header.Get("Content-Type") != "application/json" {
-				rw.WriteHeader(http.StatusBadRequest)
-				return
-			}
 			body := struct {
 				Token string   `json:"token"`
 				Pins  []string `json:"pins"`
 			}{}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				rw.WriteHeader(http.StatusBadRequest)
+				rw.Write([]byte(err.Error()))
 				return
 			}
 			token, err := tokens.ParseHex(body.Token)

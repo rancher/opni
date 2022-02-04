@@ -20,6 +20,22 @@
     "application/json"
   ],
   "paths": {
+    "/management/apiextensions": {
+      "get": {
+        "operationId": "Management_APIExtensions",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/managementAPIExtensionInfoList"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      }
+    },
     "/management/certs": {
       "get": {
         "operationId": "Management_CertsInfo",
@@ -479,6 +495,75 @@
     }
   },
   "definitions": {
+    "MethodOptionsIdempotencyLevel": {
+      "type": "string",
+      "enum": [
+        "IDEMPOTENCY_UNKNOWN",
+        "NO_SIDE_EFFECTS",
+        "IDEMPOTENT"
+      ],
+      "default": "IDEMPOTENCY_UNKNOWN"
+    },
+    "UninterpretedOptionNamePart": {
+      "type": "object",
+      "properties": {
+        "name_part": {
+          "type": "string"
+        },
+        "is_extension": {
+          "type": "boolean"
+        }
+      }
+    },
+    "apiCustomHttpPattern": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "apiHttpRule": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string"
+        },
+        "get": {
+          "type": "string"
+        },
+        "put": {
+          "type": "string"
+        },
+        "post": {
+          "type": "string"
+        },
+        "delete": {
+          "type": "string"
+        },
+        "patch": {
+          "type": "string"
+        },
+        "custom": {
+          "$ref": "#/definitions/apiCustomHttpPattern"
+        },
+        "body": {
+          "type": "string"
+        },
+        "response_body": {
+          "type": "string"
+        },
+        "additional_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/apiHttpRule"
+          }
+        }
+      }
+    },
     "coreBootstrapToken": {
       "type": "object",
       "properties": {
@@ -683,6 +768,31 @@
         }
       }
     },
+    "managementAPIExtensionInfo": {
+      "type": "object",
+      "properties": {
+        "serviceDesc": {
+          "$ref": "#/definitions/protobufServiceDescriptorProto"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/managementHTTPRuleDescriptor"
+          }
+        }
+      }
+    },
+    "managementAPIExtensionInfoList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/managementAPIExtensionInfo"
+          }
+        }
+      }
+    },
     "managementCertsInfoResponse": {
       "type": "object",
       "properties": {
@@ -716,6 +826,17 @@
         }
       }
     },
+    "managementHTTPRuleDescriptor": {
+      "type": "object",
+      "properties": {
+        "http": {
+          "$ref": "#/definitions/apiHttpRule"
+        },
+        "method": {
+          "$ref": "#/definitions/protobufMethodDescriptorProto"
+        }
+      }
+    },
     "managementWatchClustersRequest": {
       "type": "object",
       "properties": {
@@ -742,6 +863,110 @@
         "Deleted"
       ],
       "default": "Added"
+    },
+    "protobufMethodDescriptorProto": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "input_type": {
+          "type": "string"
+        },
+        "output_type": {
+          "type": "string"
+        },
+        "options": {
+          "$ref": "#/definitions/protobufMethodOptions"
+        },
+        "client_streaming": {
+          "type": "boolean"
+        },
+        "server_streaming": {
+          "type": "boolean"
+        }
+      }
+    },
+    "protobufMethodOptions": {
+      "type": "object",
+      "properties": {
+        "deprecated": {
+          "type": "boolean"
+        },
+        "idempotency_level": {
+          "$ref": "#/definitions/MethodOptionsIdempotencyLevel"
+        },
+        "uninterpreted_option": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufUninterpretedOption"
+          }
+        }
+      }
+    },
+    "protobufServiceDescriptorProto": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "method": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufMethodDescriptorProto"
+          }
+        },
+        "options": {
+          "$ref": "#/definitions/protobufServiceOptions"
+        }
+      }
+    },
+    "protobufServiceOptions": {
+      "type": "object",
+      "properties": {
+        "deprecated": {
+          "type": "boolean"
+        },
+        "uninterpreted_option": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufUninterpretedOption"
+          }
+        }
+      }
+    },
+    "protobufUninterpretedOption": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/UninterpretedOptionNamePart"
+          }
+        },
+        "identifier_value": {
+          "type": "string"
+        },
+        "positive_int_value": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "negative_int_value": {
+          "type": "string",
+          "format": "int64"
+        },
+        "double_value": {
+          "type": "number",
+          "format": "double"
+        },
+        "string_value": {
+          "type": "string",
+          "format": "byte"
+        },
+        "aggregate_value": {
+          "type": "string"
+        }
+      }
     }
   }
 }

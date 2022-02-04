@@ -29,7 +29,14 @@ import (
 var Default = All
 
 func All() {
-	mg.SerialDeps(build.Build)
+	mg.Deps(build.Build, Plugins)
+}
+
+func Plugins() {
+	env := map[string]string{
+		"CGO_ENABLED": "0",
+	}
+	sh.RunWith(env, mg.GoCmd(), "build", "-ldflags", "-w -s", "-o", "./bin/plugin_example", "./plugins/example")
 }
 
 func Generate() {
@@ -77,6 +84,14 @@ func init() {
 		{
 			Source:  "pkg/management/management.proto",
 			DestDir: "pkg/management",
+		},
+		{
+			Source:  "pkg/plugins/apis/apiextensions/apiextensions.proto",
+			DestDir: "pkg/plugins/apis/apiextensions",
+		},
+		{
+			Source:  "plugins/example/example.proto",
+			DestDir: "plugins/example",
 		},
 	}
 	// protobuf.Config.Options = []ragu.GenerateCodeOption{

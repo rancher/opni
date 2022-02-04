@@ -2,6 +2,8 @@ syntax = "proto3";
 option go_package = "github.com/kralicky/opni-monitoring/pkg/management";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/descriptor.proto";
+import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "../core/core.proto";
 
@@ -114,6 +116,11 @@ service Management {
       get: "/management/subjectaccess"
     };
   }
+  rpc APIExtensions(google.protobuf.Empty) returns (APIExtensionInfoList) {
+    option (google.api.http) = {
+      get: "/management/apiextensions"
+    };
+  }
 }
 
 message CreateBootstrapTokenRequest {
@@ -146,4 +153,18 @@ enum WatchEventType {
 message WatchEvent {
   core.Reference cluster = 1;
   WatchEventType type = 2;
+}
+
+message APIExtensionInfoList {
+  repeated APIExtensionInfo items = 1;
+}
+
+message APIExtensionInfo {
+  google.protobuf.ServiceDescriptorProto serviceDesc = 1;
+  repeated HTTPRuleDescriptor rules = 2;
+}
+
+message HTTPRuleDescriptor {
+  google.api.HttpRule http = 1;
+  google.protobuf.MethodDescriptorProto method = 2;
 }

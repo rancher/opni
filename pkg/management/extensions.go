@@ -37,7 +37,7 @@ func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionIn
 
 func (m *Server) configureApiExtensionDirector() proxy.StreamDirector {
 	lg := m.logger
-	lg.Infof("loading api extensions from %d plugins", len(m.apiExtensions))
+	lg.Infof("loading api extensions from %d plugins", len(m.plugins))
 	methodTable := map[string]*grpc.ClientConn{}
 	for _, plugin := range m.plugins {
 		ext, ok := plugin.Raw.(apiextensions.ManagementAPIExtensionClient)

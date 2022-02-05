@@ -88,8 +88,8 @@ func init() {
 			DestDir: "pkg/plugins/apis/system",
 		},
 		{
-			Source:  "plugins/example/example.proto",
-			DestDir: "plugins/example",
+			Source:  "plugins/example/pkg/example.proto",
+			DestDir: "plugins/example/pkg",
 		},
 	}
 	// protobuf.Config.Options = []ragu.GenerateCodeOption{

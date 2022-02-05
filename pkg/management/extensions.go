@@ -66,7 +66,7 @@ func (m *Server) configureApiExtensionDirector() proxy.StreamDirector {
 		).Info("loading service")
 		svcMethods := sd.GetMethod()
 		for _, mtd := range svcMethods {
-			fullName := fmt.Sprintf("%s/%s", svcName, mtd.GetName())
+			fullName := fmt.Sprintf("/%s/%s", svcName, mtd.GetName())
 			lg.With(
 				"name", fullName,
 			).Info("loading method")

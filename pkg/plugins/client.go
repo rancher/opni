@@ -43,31 +43,38 @@ var (
 	activePlugins = map[string][]ActivePlugin{}
 )
 
+func pluginLogName(cc *plugin.ClientConfig) string {
+	if cc.Cmd != nil {
+		return cc.Cmd.String()
+	}
+	return cc.Reattach.Addr.String()
+}
+
 func Load(cc *plugin.ClientConfig) {
 	client := plugin.NewClient(cc)
 	rpcClient, err := client.Client()
 	if err != nil {
 		pluginLog.With(
 			zap.Error(err),
-			"plugin", cc.Cmd.Path,
+			"plugin", pluginLogName(cc),
 		).Error("failed to load plugin")
 		return
 	}
 	pluginLog.With(
-		"plugin", cc.Cmd.Path,
+		"plugin", pluginLogName(cc),
 	).Debug("checking if plugin implements any interfaces in the scheme")
 	for id := range cc.Plugins {
 		raw, err := rpcClient.Dispense(id)
 		if err != nil {
 			pluginLog.With(
 				zap.Error(err),
-				"plugin", cc.Cmd.Path,
+				"plugin", pluginLogName(cc),
 				"id", id,
 			).Debug("no implementation found")
 			continue
 		}
 		pluginLog.With(
-			"plugin", cc.Cmd.Path,
+			"plugin", pluginLogName(cc),
 			"id", id,
 		).Debug("implementation found")
 		activePlugins[id] = append(activePlugins[id], ActivePlugin{

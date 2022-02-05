@@ -26,13 +26,14 @@ func TestManagement(t *testing.T) {
 type testVars struct {
 	ctrl         *gomock.Controller
 	client       management.ManagementClient
+	grpcEndpoint string
 	httpEndpoint string
 	clusterStore storage.ClusterStore
 	tokenStore   storage.TokenStore
 	rbacStore    storage.RBACStore
 }
 
-func setupManagementServer(vars **testVars) func() {
+func setupManagementServer(vars **testVars, opts ...management.ManagementServerOption) func() {
 	return func() {
 		tv := &testVars{}
 		tv.ctrl = gomock.NewController(GinkgoT())
@@ -49,13 +50,14 @@ func setupManagementServer(vars **testVars) func() {
 		cert, err := tls.X509KeyPair(test.TestData("localhost.crt"), test.TestData("localhost.key"))
 		Expect(err).NotTo(HaveOccurred())
 		server := management.NewServer(conf,
-			management.ClusterStore(tv.clusterStore),
-			management.TokenStore(tv.tokenStore),
-			management.RBACStore(tv.rbacStore),
-			management.TLSConfig(&tls.Config{
-				Certificates: []tls.Certificate{cert},
-			}),
-		)
+			append([]management.ManagementServerOption{
+				management.ClusterStore(tv.clusterStore),
+				management.TokenStore(tv.tokenStore),
+				management.RBACStore(tv.rbacStore),
+				management.TLSConfig(&tls.Config{
+					Certificates: []tls.Certificate{cert},
+				}),
+			}, opts...)...)
 		go func() {
 			defer GinkgoRecover()
 			if err := server.ListenAndServe(ctx); err != nil {
@@ -67,6 +69,7 @@ func setupManagementServer(vars **testVars) func() {
 			management.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
 		)
 		Expect(err).NotTo(HaveOccurred())
+		tv.grpcEndpoint = fmt.Sprintf("127.0.0.1:%d", ports[0])
 		tv.httpEndpoint = fmt.Sprintf("http://127.0.0.1:%d", ports[1])
 		*vars = tv
 		DeferCleanup(ca)

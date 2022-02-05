@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - ragù               v0.2.3
-// source: plugins/example/example.proto
+// source: plugins/example/pkg/example.proto
 
-package main
+package example
 
 import (
 	context "context"
@@ -35,7 +35,7 @@ func NewExampleAPIExtensionClient(cc grpc.ClientConnInterface) ExampleAPIExtensi
 
 func (c *exampleAPIExtensionClient) Echo(ctx context.Context, in *EchoRequest, opts ...grpc.CallOption) (*EchoResponse, error) {
 	out := new(EchoResponse)
-	err := c.cc.Invoke(ctx, "/main.ExampleAPIExtension/Echo", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/example.ExampleAPIExtension/Echo", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func _ExampleAPIExtension_Echo_Handler(srv interface{}, ctx context.Context, dec
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/main.ExampleAPIExtension/Echo",
+		FullMethod: "/example.ExampleAPIExtension/Echo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ExampleAPIExtensionServer).Echo(ctx, req.(*EchoRequest))
@@ -92,7 +92,7 @@ func _ExampleAPIExtension_Echo_Handler(srv interface{}, ctx context.Context, dec
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ExampleAPIExtension_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "main.ExampleAPIExtension",
+	ServiceName: "example.ExampleAPIExtension",
 	HandlerType: (*ExampleAPIExtensionServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -101,5 +101,5 @@ var ExampleAPIExtension_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "plugins/example/example.proto",
+	Metadata: "plugins/example/pkg/example.proto",
 }

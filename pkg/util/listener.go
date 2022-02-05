@@ -42,9 +42,7 @@ func NewProtocolListener(ctx context.Context, addr string) (net.Listener, error)
 
 func createSocketDir(socketPath string) error {
 	if _, err := os.Stat(filepath.Dir(socketPath)); os.IsNotExist(err) {
-		if err := os.Mkdir(filepath.Dir(socketPath), 0700); err != nil {
-			return err
-		}
+		return os.Mkdir(filepath.Dir(socketPath), 0700)
 	}
 	return nil
 }

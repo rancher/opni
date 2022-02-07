@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"runtime"
 
 	"golang.org/x/sync/errgroup"
 
@@ -37,6 +38,9 @@ var _ = Describe("Secret", Ordered, func() {
 	var cfg *rest.Config
 	var client *kubernetes.Clientset
 	BeforeAll(func() {
+		if runtime.GOOS != "linux" {
+			Skip("skipping test on non-linux OS")
+		}
 		env := &test.Environment{
 			TestBin: "../../testbin/bin",
 			Logger:  logger.New().Named("test"),

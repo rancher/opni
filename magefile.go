@@ -138,12 +138,16 @@ func init() {
 			URL:        "https://github.com/cortexproject/cortex/releases/download/v{{.Version}}/cortex-{{.GOOS}}-{{.GOARCH}}",
 			GetVersion: getVersion,
 		},
-		{
-			Name:       "kube-apiserver",
-			Version:    k8sVersion,
-			URL:        "https://dl.k8s.io/v{{.Version}}/bin/{{.GOOS}}/{{.GOARCH}}/kube-apiserver",
-			GetVersion: getKubeVersion,
-		},
+	}
+	if runtime.GOOS == "linux" {
+		testbin.Config.Binaries = append(testbin.Config.Binaries,
+			testbin.Binary{
+				Name:       "kube-apiserver",
+				Version:    k8sVersion,
+				URL:        "https://dl.k8s.io/v{{.Version}}/bin/linux/{{.GOARCH}}/kube-apiserver",
+				GetVersion: getKubeVersion,
+			},
+		)
 	}
 }
 

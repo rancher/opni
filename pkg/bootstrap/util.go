@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"sigs.k8s.io/yaml"
@@ -13,20 +12,21 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func eraseBootstrapTokensFromConfig() error {
-	restConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return err
+// Erases the bootstrap tokens from the agent-config secret.
+// if restConfig is nil, InClusterConfig will be used.
+func eraseBootstrapTokensFromConfig(restConfig *rest.Config, namespace string) error {
+	if restConfig == nil {
+		var err error
+		restConfig, err = rest.InClusterConfig()
+		if err != nil {
+			return err
+		}
 	}
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return err
 	}
 	ctx := context.Background()
-	namespace, ok := os.LookupEnv("POD_NAMESPACE")
-	if !ok {
-		panic("POD_NAMESPACE environment variable not set")
-	}
 	secret, err := clientset.CoreV1().
 		Secrets(namespace).
 		Get(ctx, "agent-config", metav1.GetOptions{})

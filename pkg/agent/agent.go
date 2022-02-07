@@ -208,8 +208,9 @@ func (a *Agent) bootstrap() error {
 	lg.Info("running post-bootstrap finalization steps")
 	if err := a.bootstrapper.Finalize(context.Background()); err != nil {
 		lg.With(zap.Error(err)).Error("error in post-bootstrap finalization")
+	} else {
+		lg.Info("bootstrap completed successfully")
 	}
-	lg.Info("bootstrap completed successfully")
 	return a.loadKeyring()
 }
 

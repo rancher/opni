@@ -9,6 +9,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"runtime"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -16,10 +18,18 @@ import (
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/yaml"
 
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
+	"github.com/rancher/opni-monitoring/pkg/config/meta"
+	v1beta1 "github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/ecdh"
 	"github.com/rancher/opni-monitoring/pkg/ident"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/test"
 	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
@@ -32,12 +42,15 @@ func (p *errProvider) UniqueIdentifier(context.Context) (string, error) {
 	return "", errors.New("test")
 }
 
-var _ = Describe("Client", func() {
+var _ = Describe("Client", Ordered, func() {
 	token := tokens.NewToken()
 	var fooIdent ident.Provider
 	var cert *tls.Certificate
 
-	Specify("setup", func() {
+	BeforeAll(func() {
+		if runtime.GOOS != "linux" {
+			Skip("skipping test on non-linux OS")
+		}
 		mockIdent := mock_ident.NewMockProvider(ctrl)
 		mockIdent.EXPECT().
 			UniqueIdentifier(gomock.Any()).
@@ -105,7 +118,102 @@ var _ = Describe("Client", func() {
 		_, err := cc.Bootstrap(context.Background(), fooIdent)
 		Expect(err).NotTo(HaveOccurred())
 	})
+	When("the bootstrap process is complete", func() {
+		It("should erase bootstrap tokens from the config secret", func() {
+			if runtime.GOOS != "linux" {
+				Skip("skipping test on non-linux OS")
+			}
+			env := test.Environment{
+				TestBin: "../../testbin/bin",
+				Logger:  logger.New().Named("test"),
+			}
+			k8sConfig, err := env.StartK8s()
+			Expect(err).NotTo(HaveOccurred())
+
+			os.Setenv("POD_NAMESPACE", "default")
+			client, err := kubernetes.NewForConfig(k8sConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			config := v1beta1.AgentConfig{
+				TypeMeta: meta.TypeMeta{
+					APIVersion: "v1beta1",
+					Kind:       "AgentConfig",
+				},
+				Spec: v1beta1.AgentConfigSpec{
+					IdentityProvider: "foo",
+					Bootstrap: &v1beta1.BootstrapSpec{
+						Token: "foo",
+						Pins:  []string{"foo", "bar"},
+					},
+				},
+			}
+			data, err := yaml.Marshal(config)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = client.CoreV1().Secrets("default").
+				Create(context.Background(), &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "agent-config",
+						Namespace: "default",
+					},
+					Data: map[string][]byte{
+						"config.yaml": data,
+					},
+				}, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			cc := bootstrap.ClientConfig{
+				K8sConfig:    k8sConfig,
+				K8sNamespace: "default",
+			}
+			err = cc.Finalize(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+
+			secret, err := client.CoreV1().Secrets("default").
+				Get(context.Background(), "agent-config", metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			erased := v1beta1.AgentConfig{}
+			Expect(yaml.Unmarshal(secret.Data["config.yaml"], &erased)).To(Succeed())
+			Expect(erased.Spec.IdentityProvider).To(Equal("foo"))
+			Expect(erased.Spec.Bootstrap).To(BeNil())
+
+			Expect(env.Stop()).To(Succeed())
+		})
+		When("the defaults are used and the in-cluster config is unavailable", func() {
+			It("should error", func() {
+				// sanity check, this is set above
+				Expect(os.Getenv("POD_NAMESPACE")).To(Equal("default"))
+
+				cc := bootstrap.ClientConfig{
+					K8sConfig: nil,
+				}
+				err := cc.Finalize(context.Background())
+				Expect(err).To(MatchError(rest.ErrNotInCluster))
+			})
+		})
+		When("a namespace is not found or configured", func() {
+			It("should error", func() {
+				// This is set above
+				os.Unsetenv("POD_NAMESPACE")
+
+				cc := bootstrap.ClientConfig{
+					K8sConfig:    nil,
+					K8sNamespace: "",
+				}
+				err := cc.Finalize(context.Background())
+				Expect(err).To(MatchError("POD_NAMESPACE not set, and no namespace was explicitly configured"))
+			})
+		})
+	})
 	Context("error handling", func() {
+		When("no token is given", func() {
+			It("should error", func() {
+				cc := bootstrap.ClientConfig{}
+				kr, err := cc.Bootstrap(context.Background(), fooIdent)
+				Expect(kr).To(BeNil())
+				Expect(err).To(MatchError(bootstrap.ErrNoToken))
+			})
+		})
 		When("an invalid endpoint is given", func() {
 			It("should error", func() {
 				cc := bootstrap.ClientConfig{
@@ -309,7 +417,6 @@ var _ = Describe("Client", func() {
 
 				_, err := cc.Bootstrap(context.Background(), fooIdent)
 				Expect(err.Error()).To(ContainSubstring("invalid character"))
-
 			})
 		})
 		When("the server sends an invalid public key", func() {
@@ -355,7 +462,6 @@ var _ = Describe("Client", func() {
 				_, err := cc.Bootstrap(context.Background(), fooIdent)
 				Expect(err.Error()).To(ContainSubstring("bad point length"))
 			})
-
 		})
 	})
 })

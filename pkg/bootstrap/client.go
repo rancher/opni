@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/rancher/opni-monitoring/pkg/ecdh"
 	"github.com/rancher/opni-monitoring/pkg/ident"
@@ -31,9 +32,11 @@ var (
 )
 
 type ClientConfig struct {
-	Token    *tokens.Token
-	Pins     []*pkp.PublicKeyPin
-	Endpoint string
+	Token        *tokens.Token
+	Pins         []*pkp.PublicKeyPin
+	Endpoint     string
+	K8sConfig    *rest.Config
+	K8sNamespace string
 }
 
 func (c *ClientConfig) Bootstrap(
@@ -115,11 +118,15 @@ func (c *ClientConfig) Bootstrap(
 }
 
 func (c *ClientConfig) Finalize(ctx context.Context) error {
-	err := eraseBootstrapTokensFromConfig()
-	if err == nil || errors.Is(err, rest.ErrNotInCluster) {
-		return nil
+	ns := c.K8sNamespace
+	if ns == "" {
+		if nsEnv, ok := os.LookupEnv("POD_NAMESPACE"); ok {
+			ns = nsEnv
+		} else {
+			return errors.New("POD_NAMESPACE not set, and no namespace was explicitly configured")
+		}
 	}
-	return err
+	return eraseBootstrapTokensFromConfig(c.K8sConfig, ns)
 }
 
 func (c *ClientConfig) bootstrapJoinURL() (*url.URL, error) {

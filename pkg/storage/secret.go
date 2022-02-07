@@ -33,7 +33,7 @@ func NewInClusterSecretStore() *SecretStore {
 	// check downwards api
 	namespace, ok := os.LookupEnv("POD_NAMESPACE")
 	if !ok {
-		lg.Fatal("POD_NAMESPACE environment variable not set")
+		panic("POD_NAMESPACE environment variable not set")
 	}
 	rc, err := rest.InClusterConfig()
 	if err != nil {
@@ -45,6 +45,19 @@ func NewInClusterSecretStore() *SecretStore {
 		logger:    lg,
 		namespace: namespace,
 	}
+}
+
+func NewSecretStoreFromConfig(cfg *rest.Config, namespace string) (*SecretStore, error) {
+	lg := logger.New().Named("secret-store")
+	cs, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &SecretStore{
+		clientset: cs,
+		namespace: namespace,
+		logger:    lg,
+	}, nil
 }
 
 func (s *SecretStore) Put(ctx context.Context, kr keyring.Keyring) error {
@@ -69,7 +82,13 @@ func (s *SecretStore) Put(ctx context.Context, kr keyring.Keyring) error {
 			_, err := s.clientset.CoreV1().
 				Secrets(s.namespace).
 				Create(ctx, newSecret, metav1.CreateOptions{})
-			return err
+			if err != nil {
+				if k8serrors.IsAlreadyExists(err) {
+					lg.Debug("secret unexpectedly already exists, updating instead")
+				} else {
+					return err
+				}
+			}
 		} else {
 			return err
 		}
@@ -80,9 +99,6 @@ func (s *SecretStore) Put(ctx context.Context, kr keyring.Keyring) error {
 			Secrets(s.namespace).
 			Get(ctx, secretName, metav1.GetOptions{})
 		if err != nil {
-			lg.With(
-				zap.Error(err),
-			).Error("error looking up secret")
 			return err
 		}
 		secret.Data["keyring"] = keyringData

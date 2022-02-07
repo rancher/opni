@@ -38,6 +38,8 @@ import (
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
 type servicePorts struct {
@@ -61,6 +63,7 @@ type Environment struct {
 	ports     servicePorts
 
 	gatewayConfig *v1beta1.GatewayConfig
+	k8sEnv        *envtest.Environment
 }
 
 func (e *Environment) Start() error {
@@ -138,11 +141,43 @@ func (e *Environment) Start() error {
 	return nil
 }
 
+func (e *Environment) StartK8s() (*rest.Config, error) {
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
+	e.k8sEnv = &envtest.Environment{
+		BinaryAssetsDirectory: "../../testbin/bin",
+		ControlPlane: envtest.ControlPlane{
+			APIServer: &envtest.APIServer{
+				SecureServing: envtest.SecureServing{
+					ListenAddr: envtest.ListenAddr{
+						Address: "127.0.0.1",
+						Port:    fmt.Sprint(port),
+					},
+				},
+			},
+		},
+	}
+	return e.k8sEnv.Start()
+}
+
 func (e *Environment) Stop() error {
-	e.cancel()
-	e.mockCtrl.Finish()
-	e.waitGroup.Wait()
-	os.RemoveAll(e.tempDir)
+	if e.k8sEnv != nil {
+		e.k8sEnv.Stop()
+	}
+	if e.cancel != nil {
+		e.cancel()
+	}
+	if e.mockCtrl != nil {
+		e.mockCtrl.Finish()
+	}
+	if e.waitGroup != nil {
+		e.waitGroup.Wait()
+	}
+	if e.tempDir != "" {
+		os.RemoveAll(e.tempDir)
+	}
 	return nil
 }
 

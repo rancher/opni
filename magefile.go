@@ -45,10 +45,29 @@ func getVersion(binary string) string {
 	return strings.Split(strings.Split(version, "\n")[0], " ")[2]
 }
 
+func getKubeVersion(binary string) string {
+	version, err := sh.Output(binary, "--version")
+	if err != nil {
+		panic(fmt.Sprintf("failed to query version for %s: %v", binary, err))
+	}
+	return strings.TrimSpace(strings.TrimPrefix(version, "Kubernetes v"))
+}
+
+func k8sModuleVersion() string {
+	out, err := sh.Output(mg.GoCmd(), "list", "-m", "k8s.io/api")
+	if err != nil {
+		panic(fmt.Sprintf("failed to query k8s.io/api module version: %v\n", err))
+	}
+	return strings.Replace(strings.Split(out, " ")[1], "v0", "1", 1)
+}
+
 func init() {
 	build.Deps(Generate)
 	docker.Deps(build.Build)
 	test.Deps(testbin.Testbin, build.Build)
+
+	k8sVersion := k8sModuleVersion()
+	fmt.Printf("Kubernetes version: %s\n", k8sVersion)
 
 	build.Config.ExtraTargets = map[string]string{
 		"./plugins/example": "bin/plugin_example",
@@ -118,6 +137,12 @@ func init() {
 			Version:    "1.11.0",
 			URL:        "https://github.com/cortexproject/cortex/releases/download/v{{.Version}}/cortex-{{.GOOS}}-{{.GOARCH}}",
 			GetVersion: getVersion,
+		},
+		{
+			Name:       "kube-apiserver",
+			Version:    k8sVersion,
+			URL:        "https://dl.k8s.io/v{{.Version}}/bin/{{.GOOS}}/{{.GOARCH}}/kube-apiserver",
+			GetVersion: getKubeVersion,
 		},
 	}
 }

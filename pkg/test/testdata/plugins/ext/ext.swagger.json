@@ -7,6 +7,9 @@
   "tags": [
     {
       "name": "Ext"
+    },
+    {
+      "name": "Ext2"
     }
   ],
   "consumes": [
@@ -29,7 +32,7 @@
         },
         "parameters": [
           {
-            "name": "bar",
+            "name": "request",
             "in": "query",
             "required": false,
             "type": "string"
@@ -51,7 +54,7 @@
         },
         "parameters": [
           {
-            "name": "bar",
+            "name": "request",
             "in": "query",
             "required": false,
             "type": "string"
@@ -139,7 +142,7 @@
     "extFooResponse": {
       "type": "object",
       "properties": {
-        "baz": {
+        "response": {
           "type": "string"
         }
       }

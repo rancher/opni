@@ -103,3 +103,89 @@ var Ext_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "pkg/test/testdata/plugins/ext/ext.proto",
 }
+
+// Ext2Client is the client API for Ext2 service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type Ext2Client interface {
+	Foo(ctx context.Context, in *FooRequest, opts ...grpc.CallOption) (*FooResponse, error)
+}
+
+type ext2Client struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewExt2Client(cc grpc.ClientConnInterface) Ext2Client {
+	return &ext2Client{cc}
+}
+
+func (c *ext2Client) Foo(ctx context.Context, in *FooRequest, opts ...grpc.CallOption) (*FooResponse, error) {
+	out := new(FooResponse)
+	err := c.cc.Invoke(ctx, "/ext.Ext2/Foo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Ext2Server is the server API for Ext2 service.
+// All implementations must embed UnimplementedExt2Server
+// for forward compatibility
+type Ext2Server interface {
+	Foo(context.Context, *FooRequest) (*FooResponse, error)
+	mustEmbedUnimplementedExt2Server()
+}
+
+// UnimplementedExt2Server must be embedded to have forward compatible implementations.
+type UnimplementedExt2Server struct {
+}
+
+func (UnimplementedExt2Server) Foo(context.Context, *FooRequest) (*FooResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Foo not implemented")
+}
+func (UnimplementedExt2Server) mustEmbedUnimplementedExt2Server() {}
+
+// UnsafeExt2Server may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to Ext2Server will
+// result in compilation errors.
+type UnsafeExt2Server interface {
+	mustEmbedUnimplementedExt2Server()
+}
+
+func RegisterExt2Server(s grpc.ServiceRegistrar, srv Ext2Server) {
+	s.RegisterService(&Ext2_ServiceDesc, srv)
+}
+
+func _Ext2_Foo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FooRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(Ext2Server).Foo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ext.Ext2/Foo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(Ext2Server).Foo(ctx, req.(*FooRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// Ext2_ServiceDesc is the grpc.ServiceDesc for Ext2 service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Ext2_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "ext.Ext2",
+	HandlerType: (*Ext2Server)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Foo",
+			Handler:    _Ext2_Foo_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "pkg/test/testdata/plugins/ext/ext.proto",
+}

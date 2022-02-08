@@ -7,29 +7,33 @@ service Ext {
   rpc Foo(FooRequest) returns (FooResponse) {
     option (google.api.http) = {
       post: "/foo"
-      body: "bar"
+      body: "request"
       additional_bindings {
         get: "/foo"
       }
       additional_bindings {
         put: "/foo"
-        body: "bar"
+        body: "request"
       }
       additional_bindings {
         delete: "/foo"
       }
       additional_bindings {
         patch: "/foo"
-        body: "bar"
+        body: "request"
       }
     };
   }
 }
 
+service Ext2 {
+  rpc Foo(FooRequest) returns (FooResponse);
+}
+
 message FooRequest {
-  string bar = 1;
+  string request = 1;
 }
 
 message FooResponse {
-  string baz = 1;
+  string response = 1;
 }

@@ -39,9 +39,17 @@ type ActivePlugin struct {
 	Raw    interface{}
 }
 
-var (
-	activePlugins = map[string][]ActivePlugin{}
-)
+type PluginLoader struct {
+	ActivePlugins map[string][]ActivePlugin
+}
+
+var DefaultPluginLoader = NewPluginLoader()
+
+func NewPluginLoader() *PluginLoader {
+	return &PluginLoader{
+		ActivePlugins: map[string][]ActivePlugin{},
+	}
+}
 
 func pluginLogName(cc *plugin.ClientConfig) string {
 	if cc.Cmd != nil {
@@ -50,7 +58,7 @@ func pluginLogName(cc *plugin.ClientConfig) string {
 	return cc.Reattach.Addr.String()
 }
 
-func Load(cc *plugin.ClientConfig) {
+func (pl *PluginLoader) Load(cc *plugin.ClientConfig) {
 	client := plugin.NewClient(cc)
 	rpcClient, err := client.Client()
 	if err != nil {
@@ -77,13 +85,21 @@ func Load(cc *plugin.ClientConfig) {
 			"plugin", pluginLogName(cc),
 			"id", id,
 		).Debug("implementation found")
-		activePlugins[id] = append(activePlugins[id], ActivePlugin{
+		pl.ActivePlugins[id] = append(pl.ActivePlugins[id], ActivePlugin{
 			Client: rpcClient.(*plugin.GRPCClient).Conn,
 			Raw:    raw,
 		})
 	}
 }
 
+func (pl *PluginLoader) DispenseAll(id string) []ActivePlugin {
+	return pl.ActivePlugins[id]
+}
+
+func Load(cc *plugin.ClientConfig) {
+	DefaultPluginLoader.Load(cc)
+}
+
 func DispenseAll(id string) []ActivePlugin {
-	return activePlugins[id]
+	return DefaultPluginLoader.DispenseAll(id)
 }

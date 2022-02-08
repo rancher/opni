@@ -2,6 +2,11 @@ package core
 
 import "errors"
 
+var (
+	ErrReferenceRequiresID   = errors.New("reference requires ID to be set; this object is uniquely identified by ID")
+	ErrReferenceRequiresName = errors.New("reference requires Name to be set; this object is uniquely identified by name")
+)
+
 type Referencer interface {
 	Reference() *Reference
 }
@@ -45,14 +50,14 @@ func (r *Reference) Equal(other *Reference) bool {
 
 func (r *Reference) CheckValidID() error {
 	if r.Id == "" {
-		return errors.New("reference has empty id")
+		return ErrReferenceRequiresID
 	}
 	return nil
 }
 
 func (r *Reference) CheckValidName() error {
 	if r.Name == "" {
-		return errors.New("reference has empty name")
+		return ErrReferenceRequiresName
 	}
 	return nil
 }

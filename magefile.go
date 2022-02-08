@@ -97,6 +97,11 @@ func init() {
 			Dest:   "pkg/test/mock/apiextensions/apiextensions.go",
 			Types:  []string{"ManagementAPIExtensionServer"},
 		},
+		{
+			Source: "pkg/test/testdata/plugins/ext/ext_grpc.pb.go",
+			Dest:   "pkg/test/mock/ext/ext.go",
+			Types:  []string{"ManagementAPIExtensionServer"},
+		},
 	}
 	protobuf.Config.Protos = []protobuf.Proto{
 		{

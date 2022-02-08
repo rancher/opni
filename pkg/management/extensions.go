@@ -209,7 +209,6 @@ func newHandler(
 
 		resp, err := stub.InvokeRpc(rctx, methodDesc, reqMsg,
 			grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-		ctx = runtime.NewServerMetadataContext(ctx, metadata)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return

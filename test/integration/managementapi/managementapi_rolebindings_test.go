@@ -38,29 +38,33 @@ var _ = XDescribe("Management API Rolebinding Management Tests", Ordered, func()
 	//#region Happy Path Tests
 
 	When("creating a new rolebinding", func() {
-		// var err error
-		// rolebinding, err := client.CreateRoleBinding(context.Background(), &core.RoleBinding{})
-		// Expect(err).NotTo(HaveOccurred())
-
-		// //TODO: Capture variables for each of the rolebindings items returned
 
 		It("can get information about all rolebindings", func() {
-			// rolebindingInfo, err := client.GetRoleBinding(context.Background(), &core.Reference{})
-			// Expect(err).NotTo(HaveOccurred())
+			var err error
+			_, err = client.CreateRole(context.Background(), &core.Role{
+				Name: "test-role",
+			},
+			)
+			Expect(err).NotTo(HaveOccurred())
 
-			// type rolebindingInfo struct {
-			// 	rolebindingInfo.Name string `json:""`
-			// 	rolebindingInfo.RoleName string `json:""`
-			// 	rolebindingInfo.Subjects string `json:""`
-			// 	rolebindingInfo.Taints string `json:""`
-			// }
+			_, err = client.CreateRoleBinding(context.Background(), &core.RoleBinding{
+				Name:     "test-rolebinding",
+				RoleName: "test-role",
+				Subjects: []string{"test-subject"},
+				Taints:   []string{"test-taint"},
+			})
 
-			// for _, rolebindingItems := range rolebindingInfo.RoleName {
-			// 	sl[rolebindingItems] =
-			// }
+			Expect(err).NotTo(HaveOccurred())
 
-			// Expect(rolebinding).NotTo(BeNil())
-			// //TODO: Add some assertions
+			rolebindingInfo, err := client.GetRoleBinding(context.Background(), &core.Reference{
+				Name: "test-rolebinding",
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(rolebindingInfo.Name).To(Equal("test-rolebinding"))
+			Expect(rolebindingInfo.RoleName).To(Equal("test-role"))
+			Expect(rolebindingInfo.Subjects).To(Equal([]string{"test-subject"}))
+			Expect(rolebindingInfo.Taints).To(Equal([]string{"test-taint"}))
 		})
 	})
 
@@ -68,19 +72,28 @@ var _ = XDescribe("Management API Rolebinding Management Tests", Ordered, func()
 		rolebinding, err := client.ListRoleBindings(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(rolebinding).NotTo(BeNil())
+		rolebindingList := rolebinding.Items
+		Expect(rolebindingList).To(HaveLen(1))
+		for _, rolebindingItem := range rolebindingList {
+			Expect(rolebindingItem.Name).To(Equal("test-rolebinding"))
+			Expect(rolebindingItem.RoleName).To(Equal("test-role"))
+			Expect(rolebindingItem.Subjects).To(ContainElement("test-subject"))
+			Expect(rolebindingItem.Taints).To(ContainElement("test-taint"))
+		}
 	})
 
 	It("can delete an existing rolebinding", func() {
-		_, err := client.DeleteRoleBinding(context.Background(), &core.Reference{})
-		//TODO: How do I specify the rolebinding to delete?
+
+		_, err := client.DeleteRoleBinding(context.Background(), &core.Reference{
+			Name: "test-rolebinding",
+		})
 		Expect(err).NotTo(HaveOccurred())
 
-		rolebindingInfo, err := client.ListRoleBindings(context.Background(), &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
-
-		//TODO: Provide
-		Expect(rolebindingInfo).NotTo(ContainSubstring(""))
+		_, err = client.GetRoleBinding(context.Background(), &core.Reference{
+			Name: "test-rolebinding",
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to get role binding: not found"))
 	})
 
 	//#endregion

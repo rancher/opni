@@ -84,15 +84,16 @@ var _ = XDescribe("Management API Boostrap Token Management Tests", Ordered, fun
 		Expect(tokenInfo).To(BeEmpty())
 	})
 
-	When("an agent is added and there are no tokens", func() {
+	//#endregion
+
+	//#region Edge Case Tests
+
+	XWhen("an agent is added and there are no tokens", func() {
 		It("should fail to bootstrap", func() {
 			_, errC := environment.StartAgent("foo", token, []string{fingerprint})
 			Eventually(errC).Should(Receive(MatchError("bootsrap error: bootstrap failed: 405 Method Not Allowed")))
 		})
 	})
-	//#endregion
-
-	//#region Edge Case Tests
 
 	//#endregion
 })

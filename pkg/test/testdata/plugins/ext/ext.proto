@@ -1,0 +1,35 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+option go_package = "github.com/rancher/opni-monitoring/pkg/test/testdata/plugins/ext";
+package ext;
+
+service Ext {
+  rpc Foo(FooRequest) returns (FooResponse) {
+    option (google.api.http) = {
+      post: "/foo"
+      body: "bar"
+      additional_bindings {
+        get: "/foo"
+      }
+      additional_bindings {
+        put: "/foo"
+        body: "bar"
+      }
+      additional_bindings {
+        delete: "/foo"
+      }
+      additional_bindings {
+        patch: "/foo"
+        body: "bar"
+      }
+    };
+  }
+}
+
+message FooRequest {
+  string bar = 1;
+}
+
+message FooResponse {
+  string baz = 1;
+}

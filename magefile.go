@@ -3,7 +3,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"os/exec"
 	"runtime"
 	"strings"
 
@@ -54,10 +56,13 @@ func getKubeVersion(binary string) string {
 }
 
 func k8sModuleVersion() string {
-	out, err := sh.Output(mg.GoCmd(), "list", "-m", "k8s.io/api")
-	if err != nil {
+	buf := &bytes.Buffer{}
+	cmd := exec.Command(mg.GoCmd(), "list", "-m", "k8s.io/api")
+	cmd.Stdout = buf
+	if err := cmd.Run(); err != nil {
 		panic(fmt.Sprintf("failed to query k8s.io/api module version: %v\n", err))
 	}
+	out := buf.String()
 	return strings.Replace(strings.Split(out, " ")[1], "v0", "1", 1)
 }
 
@@ -67,7 +72,6 @@ func init() {
 	test.Deps(testbin.Testbin, build.Build)
 
 	k8sVersion := k8sModuleVersion()
-	fmt.Printf("Kubernetes version: %s\n", k8sVersion)
 
 	build.Config.ExtraTargets = map[string]string{
 		"./plugins/example": "bin/plugin_example",
@@ -87,6 +91,11 @@ func init() {
 			Source: "pkg/ident/ident.go",
 			Dest:   "pkg/test/mock/ident/ident.go",
 			Types:  []string{"Provider"},
+		},
+		{
+			Source: "pkg/plugins/apis/apiextensions/apiextensions_grpc.pb.go",
+			Dest:   "pkg/test/mock/apiextensions/apiextensions.go",
+			Types:  []string{"ManagementAPIExtensionServer"},
 		},
 	}
 	protobuf.Config.Protos = []protobuf.Proto{
@@ -109,6 +118,10 @@ func init() {
 		{
 			Source:  "plugins/example/pkg/example.proto",
 			DestDir: "plugins/example/pkg",
+		},
+		{
+			Source:  "pkg/test/testdata/plugins/ext/ext.proto",
+			DestDir: "pkg/test/testdata/plugins/ext",
 		},
 	}
 	// protobuf.Config.Options = []ragu.GenerateCodeOption{

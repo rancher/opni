@@ -18,6 +18,9 @@ type managementApiExtensionPlugin struct {
 	extensionSrv *apiExtensionServerImpl
 }
 
+var _ plugin.GRPCPlugin = (*managementApiExtensionPlugin)(nil)
+var _ plugin.Plugin = (*managementApiExtensionPlugin)(nil)
+
 func (p *managementApiExtensionPlugin) GRPCServer(
 	broker *plugin.GRPCBroker,
 	s *grpc.Server,

@@ -36,7 +36,11 @@ type testVars struct {
 func setupManagementServer(vars **testVars, opts ...management.ManagementServerOption) func() {
 	return func() {
 		tv := &testVars{}
-		tv.ctrl = gomock.NewController(GinkgoT())
+		if *vars != nil && (*vars).ctrl != nil {
+			tv.ctrl = (*vars).ctrl
+		} else {
+			tv.ctrl = gomock.NewController(GinkgoT())
+		}
 		ctx, ca := context.WithCancel(context.Background())
 		tv.clusterStore = test.NewTestClusterStore(tv.ctrl)
 		tv.tokenStore = test.NewTestTokenStore(ctx, tv.ctrl)

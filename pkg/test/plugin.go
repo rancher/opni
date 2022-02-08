@@ -6,22 +6,50 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
-	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
-	example "github.com/rancher/opni-monitoring/plugins/example/pkg"
+	"google.golang.org/grpc"
 )
 
-func NewTestExamplePlugin(ctx context.Context) *plugin.ClientConfig {
+type apiextensionTestPlugin struct {
+	plugin.NetRPCUnsupportedPlugin
+	server  apiextensions.ManagementAPIExtensionServer
+	svcDesc *grpc.ServiceDesc
+	impl    interface{}
+}
+
+func (p *apiextensionTestPlugin) GRPCServer(
+	broker *plugin.GRPCBroker,
+	s *grpc.Server,
+) error {
+	s.RegisterService(p.svcDesc, p.impl)
+	apiextensions.RegisterManagementAPIExtensionServer(s, p.server)
+	return nil
+}
+
+func (p *apiextensionTestPlugin) GRPCClient(
+	ctx context.Context,
+	broker *plugin.GRPCBroker,
+	c *grpc.ClientConn,
+) (interface{}, error) {
+	return apiextensions.NewManagementAPIExtensionClient(c), nil
+}
+
+func NewApiExtensionTestPlugin(
+	srv apiextensions.ManagementAPIExtensionServer,
+	svcDesc *grpc.ServiceDesc,
+	impl interface{},
+) *plugin.ClientConfig {
+	p := &apiextensionTestPlugin{
+		server:  srv,
+		svcDesc: svcDesc,
+		impl:    impl,
+	}
 	scheme := meta.NewScheme()
-	p := &example.ExamplePlugin{}
-	scheme.Add(apiextensions.ManagementAPIExtensionPluginID,
-		apiextensions.NewPlugin(&example.ExampleAPIExtension_ServiceDesc, p))
-	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
+	scheme.Add(apiextensions.ManagementAPIExtensionPluginID, p)
 
 	cfg := plugins.ServeConfig(scheme)
 	ch := make(chan *plugin.ReattachConfig)
 	cfg.Test = &plugin.ServeTestConfig{
-		Context:          ctx,
 		ReattachConfigCh: ch,
 	}
 	go plugin.Serve(cfg)

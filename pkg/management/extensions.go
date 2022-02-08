@@ -163,6 +163,12 @@ func loadHttpRuleDescriptors(svc *desc.ServiceDescriptor) []*HTTPRuleDescriptor 
 				Http:   rule,
 				Method: protoMethodDesc,
 			})
+			for _, additionalRule := range rule.AdditionalBindings {
+				httpRule = append(httpRule, &HTTPRuleDescriptor{
+					Http:   additionalRule,
+					Method: protoMethodDesc,
+				})
+			}
 		}
 	}
 	return httpRule

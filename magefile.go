@@ -63,7 +63,7 @@ func k8sModuleVersion() string {
 		panic(fmt.Sprintf("failed to query k8s.io/api module version: %v\n", err))
 	}
 	out := buf.String()
-	return strings.Replace(strings.Split(out, " ")[1], "v0", "1", 1)
+	return strings.TrimSpace(strings.Replace(strings.Split(out, " ")[1], "v0", "1", 1))
 }
 
 func init() {

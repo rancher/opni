@@ -3,16 +3,16 @@ package indices
 import (
 	"fmt"
 
-	esapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
+	esapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 
 	_ "embed" // embed should be a blank import
 )
 
 const (
-	logPolicyName                = "log-policy"
-	logIndexPrefix               = "logs-v0.1.3"
-	logIndexAlias                = "logs"
-	logIndexTemplateName         = "logs_rollover_mapping"
+	LogPolicyName                = "log-policy"
+	LogIndexPrefix               = "logs-v0.1.3"
+	LogIndexAlias                = "logs"
+	LogIndexTemplateName         = "logs_rollover_mapping"
 	drainStatusPolicyName        = "opni-drain-model-status-policy"
 	drainStatusIndexPrefix       = "opni-drain-model-status-v0.1.3"
 	drainStatusIndexAlias        = "opni-drain-model-status"
@@ -28,9 +28,9 @@ const (
 )
 
 var (
-	opniLogPolicy = esapiext.ISMPolicySpec{
+	OpniLogPolicy = esapiext.ISMPolicySpec{
 		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
-			PolicyID:   logPolicyName,
+			PolicyID:   LogPolicyName,
 			MarshallID: false,
 		},
 		Description:  "Opni policy with hot-warm-cold workflow",
@@ -121,7 +121,7 @@ var (
 		ISMTemplate: []esapiext.ISMTemplateSpec{
 			{
 				IndexPatterns: []string{
-					fmt.Sprintf("%s*", logIndexPrefix),
+					fmt.Sprintf("%s*", LogIndexPrefix),
 				},
 				Priority: 100,
 			},
@@ -130,7 +130,7 @@ var (
 
 	oldOpniLogPolicy = esapiext.OldISMPolicySpec{
 		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
-			PolicyID:   logPolicyName,
+			PolicyID:   LogPolicyName,
 			MarshallID: false,
 		},
 		Description:  "Opni policy with hot-warm-cold workflow",
@@ -220,7 +220,7 @@ var (
 		},
 		ISMTemplate: &esapiext.ISMTemplateSpec{
 			IndexPatterns: []string{
-				fmt.Sprintf("%s*", logIndexPrefix),
+				fmt.Sprintf("%s*", LogIndexPrefix),
 			},
 			Priority: 100,
 		},
@@ -620,17 +620,17 @@ var (
 		},
 	}
 
-	opniLogTemplate = esapiext.IndexTemplateSpec{
-		TemplateName: logIndexTemplateName,
+	OpniLogTemplate = esapiext.IndexTemplateSpec{
+		TemplateName: LogIndexTemplateName,
 		IndexPatterns: []string{
-			fmt.Sprintf("%s*", logIndexPrefix),
+			fmt.Sprintf("%s*", LogIndexPrefix),
 		},
 		Template: esapiext.TemplateSpec{
 			Settings: esapiext.TemplateSettingsSpec{
 				NumberOfShards:   1,
 				NumberOfReplicas: 1,
-				ISMPolicyID:      logPolicyName,
-				RolloverAlias:    logIndexAlias,
+				ISMPolicyID:      LogPolicyName,
+				RolloverAlias:    LogIndexAlias,
 			},
 			Mappings: esapiext.TemplateMappingsSpec{
 				Properties: map[string]esapiext.PropertySettings{
@@ -707,13 +707,4 @@ var (
 			},
 		},
 	}
-
-	kibanaDoc = esapiext.KibanaVersionDoc{
-		DashboardVersion: kibanaDashboardVersion,
-	}
-
-	// kibanaObjects contains the ndjson form data for creating the kibana
-	// index patterns and dashboards
-	//go:embed dashboard.ndjson
-	kibanaObjects string
 )

@@ -9,10 +9,14 @@ resources:
 - logging/logging.opni.io_outputs.yaml
 - nvidia/nvidia.opni.io_clusterpolicies.yaml
 - nfd/nfd.opni.io_nodefeaturediscoveries.yaml
+- opensearch/opensearch.opni.io_opensearchclusters.yaml
+- opensearch/opensearch.opni.io_dashboards.yaml
 - bases/opni.io_opniclusters.yaml
 - bases/opni.io_logadapters.yaml
 - bases/demo.opni.io_opnidemoes.yaml
 - bases/opni.io_pretrainedmodels.yaml
+- bases/opni.io_loggingclusters.yaml
+- bases/opni.io_downstreamclusters.yaml
 - bases/opni.io_gpupolicyadapters.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 

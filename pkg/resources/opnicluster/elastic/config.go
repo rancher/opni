@@ -108,7 +108,7 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 
 	} else {
 		if generatePassword {
-			password = util.GenerateRandomPassword()
+			password = util.GenerateRandomString(8)
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      passwordSecretName,

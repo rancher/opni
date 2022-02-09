@@ -6,10 +6,10 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/hashicorp/go-version"
-	"github.com/opensearch-project/opensearch-go"
 	"github.com/rancher/opni/apis/v1beta1"
-	esapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/opensearch"
+	esapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,22 +20,11 @@ import (
 )
 
 const (
-	headerContentType        = "Content-Type"
-	kibanaCrossHeaderType    = "kbn-xsrf"
-	securityTenantHeaderType = "securitytenant"
-
-	jsonContentHeader = "application/json"
-
 	ISMChangeVersion = "1.1.0"
 )
 
-type ExtendedClient struct {
-	*opensearch.Client
-	ISM *ISMApi
-}
-
 type Reconciler struct {
-	esReconciler *elasticsearchReconciler
+	osReconciler *opensearch.OpensearchReconciler
 	client       client.Client
 	cluster      *v1beta1.OpniCluster
 	ctx          context.Context
@@ -60,10 +49,10 @@ func NewReconciler(ctx context.Context, opniCluster *v1beta1.OpniCluster, c clie
 		password = string(secret.Data[opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Key])
 	}
 
-	esReconciler := newElasticsearchReconciler(ctx, opniCluster.Namespace, password)
+	osReconciler := opensearch.NewOpensearchReconciler(ctx, opniCluster.Namespace, password, "opni-es")
 	return &Reconciler{
 		cluster:      opniCluster,
-		esReconciler: esReconciler,
+		osReconciler: osReconciler,
 		ctx:          ctx,
 		client:       c,
 	}
@@ -137,12 +126,12 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		policies = append(policies, oldOpniDrainModelStatusPolicy)
 		policies = append(policies, oldOpniMetricPolicy)
 	} else {
-		policies = append(policies, opniLogPolicy)
+		policies = append(policies, OpniLogPolicy)
 		policies = append(policies, opniDrainModelStatusPolicy)
 		policies = append(policies, opniMetricPolicy)
 	}
 	for _, policy := range policies {
-		err = r.esReconciler.reconcileISM(policy)
+		err = r.osReconciler.ReconcileISM(policy)
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)
@@ -151,11 +140,11 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	for _, template := range []esapiext.IndexTemplateSpec{
-		opniLogTemplate,
+		OpniLogTemplate,
 		drainStatusTemplate,
 		opniMetricTemplate,
 	} {
-		err = r.esReconciler.maybeCreateIndexTemplate(&template)
+		err = r.osReconciler.MaybeCreateIndexTemplate(&template)
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)
@@ -164,11 +153,11 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	for prefix, alias := range map[string]string{
-		logIndexPrefix:         logIndexAlias,
+		LogIndexPrefix:         LogIndexAlias,
 		drainStatusIndexPrefix: drainStatusIndexAlias,
 		metricIndexPrefix:      metricIndexAlias,
 	} {
-		err = r.esReconciler.maybeBootstrapIndex(prefix, alias)
+		err = r.osReconciler.MaybeBootstrapIndex(prefix, alias)
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)
@@ -176,13 +165,13 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}
 
-	err = r.esReconciler.maybeCreateIndex(normalIntervalIndexName, normalIntervalIndexSettings)
+	err = r.osReconciler.MaybeCreateIndex(normalIntervalIndexName, normalIntervalIndexSettings)
 	if err != nil {
 		conditions = append(conditions, err.Error())
 		retErr = errors.Combine(retErr, err)
 	}
 
-	err = r.esReconciler.importKibanaObjects()
+	err = r.osReconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion)
 	if err != nil {
 		conditions = append(conditions, err.Error())
 		retErr = errors.Combine(retErr, err)

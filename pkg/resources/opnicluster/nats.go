@@ -689,7 +689,7 @@ func (r *Reconciler) fetchOrGeneratePassword(key string) ([]byte, error) {
 		Namespace: r.opniCluster.Namespace,
 	}, &secret)
 	if k8serrors.IsNotFound(err) {
-		password := util.GenerateRandomPassword()
+		password := util.GenerateRandomString(8)
 
 		err := r.updateState(key, password)
 		if err != nil {
@@ -702,7 +702,7 @@ func (r *Reconciler) fetchOrGeneratePassword(key string) ([]byte, error) {
 	}
 	password, ok := secret.Data[key]
 	if !ok {
-		password = util.GenerateRandomPassword()
+		password = util.GenerateRandomString(8)
 		err := r.updateState(key, password)
 		if err != nil {
 			return make([]byte, 0), err

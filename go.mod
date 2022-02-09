@@ -8,9 +8,11 @@ require (
 	github.com/NVIDIA/gpu-operator v1.8.1
 	github.com/banzaicloud/logging-operator v1.12.4-alpine-2
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
-	github.com/banzaicloud/operator-tools v0.25.4
+	github.com/banzaicloud/operator-tools v0.26.3
+	github.com/gin-gonic/gin v1.7.7
 	github.com/go-logr/logr v0.4.0
 	github.com/go-test/deep v1.0.7
+	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-version v1.3.0
 	github.com/imdario/mergo v0.3.12
 	github.com/jarcoal/httpmock v1.0.8
@@ -26,6 +28,7 @@ require (
 	github.com/opensearch-project/opensearch-go v1.0.0
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.52.0
+	github.com/rancher/opni-opensearch-operator v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
@@ -64,18 +67,22 @@ require (
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-logr/zapr v0.4.0 // indirect
+	github.com/go-playground/locales v0.13.0 // indirect
+	github.com/go-playground/universal-translator v0.17.0 // indirect
+	github.com/go-playground/validator/v10 v10.4.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
-	github.com/google/uuid v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
+	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
@@ -95,6 +102,7 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
+	github.com/ugorji/go/codec v1.1.7 // indirect
 	github.com/wayneashleyberry/terminal-dimensions v1.0.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/net v0.0.0-20210903162142-ad29c8ab022f // indirect
@@ -124,6 +132,7 @@ replace (
 	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/dbason/logging-operator/pkg/sdk v0.0.0-20211104200206-ca165c7327da
 	// github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
+	github.com/rancher/opni-opensearch-operator => /home/dbason/git/opni/opni-opensearch-operator
 	// Because of a dependency chain to Coretx
 	k8s.io/client-go => k8s.io/client-go v0.22.3
 )

@@ -1,4 +1,4 @@
-package indices
+package opensearch
 
 import (
 	"testing"
@@ -9,5 +9,5 @@ import (
 
 func TestResources(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Elasticsearch Suite")
+	RunSpecs(t, "Opensearch Suite")
 }

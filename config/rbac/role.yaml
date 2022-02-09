@@ -447,6 +447,84 @@ rules:
   - update
   - watch
 - apiGroups:
+  - opensearch.opni.io
+  resources:
+  - dashboards
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opensearch.opni.io
+  resources:
+  - dashboards/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opensearch.opni.io
+  resources:
+  - dashboards/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opensearch.opni.io
+  resources:
+  - opensearchclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opensearch.opni.io
+  resources:
+  - opensearchclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opensearch.opni.io
+  resources:
+  - opensearchclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - downstreamclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - downstreamclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - downstreamclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - opni.io
   resources:
   - gpupolicyadapters
@@ -497,6 +575,32 @@ rules:
   resources:
   - logadapters
   - opniclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusters/status
   verbs:
   - get
   - patch

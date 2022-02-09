@@ -17,12 +17,16 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 
+	"github.com/gin-gonic/gin"
 	"github.com/kralicky/highlander"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	"github.com/spf13/pflag"
@@ -33,10 +37,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	opensearchcontrollers "github.com/rancher/opni-opensearch-operator/controllers"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
+	multiclusterapi "github.com/rancher/opni/pkg/multicluster/api"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
 	// +kubebuilder:scaffold:imports
@@ -46,6 +52,17 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 	Version  = "dev"
+
+	// pflags
+	metricsAddr           string
+	enableLeaderElection  bool
+	probeAddr             string
+	disableUsage          bool
+	echoVersion           bool
+	multiClusterName      string
+	multiClusterNamespace string
+	multiClusterAddr      string
+	enableMultiClusterAPI bool
 )
 
 const (
@@ -63,22 +80,19 @@ func main() {
 	}
 }
 
+// TODO refactor and break up this.
 func run() error {
-	var (
-		metricsAddr          string
-		enableLeaderElection bool
-		probeAddr            string
-		disableUsage         bool
-		echoVersion          bool
-	)
-
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	pflag.StringVar(&multiClusterAddr, "multi-cluster-bind-address", ":8082", "The address the multicluster API endpoint binds to")
 	pflag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	pflag.BoolVar(&disableUsage, "disable-usage", false, "Disable anonymous Opni usage tracking.")
 	pflag.BoolVarP(&echoVersion, "version", "v", false, "print the version and exit")
+	pflag.StringVar(&multiClusterName, "multi-cluster-name", "default", "The opensearch cluster to use for multicluster logging")
+	pflag.StringVar(&multiClusterNamespace, "multi-cluster-namespace", "default", "The the namespace of the opensearch cluster to use for multicluster logging")
+	pflag.BoolVar(&enableMultiClusterAPI, "multi-cluster", false, "Enable the multi-cluster API")
 	features.DefaultMutableFeatureGate.AddFlag(pflag.CommandLine)
 	opts := zap.Options{
 		Development: true,
@@ -143,6 +157,26 @@ func run() error {
 		return err
 	}
 
+	if err = (&controllers.LoggingClusterReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoggingCluster")
+		return err
+	}
+
+	if err = (&controllers.DownstreamClusterReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DownstreamCluster")
+		return err
+	}
+
+	if err = (&opensearchcontrollers.OpensearchClusterReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "OpensearchCluster")
+		return err
+	}
+
+	if err = (&opensearchcontrollers.DashboardsReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Dashboards")
+		return err
+	}
+
 	if features.DefaultMutableFeatureGate.Enabled(features.NodeFeatureDiscoveryOperator) {
 		if err = (&controllers.NodeFeatureDiscoveryReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "NodeFeatureDiscovery")
@@ -176,9 +210,45 @@ func run() error {
 		return err
 	}
 
+	ctx := ctrl.SetupSignalHandler()
+
+	srv := &http.Server{}
+	if enableMultiClusterAPI {
+		// Set up the multicluster API
+		if err = multiclusterapi.SetupAPI(ctx, multiClusterName, multiClusterNamespace, mgr.GetClient()); err != nil {
+			return err
+		}
+
+		router := gin.Default()
+		router.PUT("/cluster", multiclusterapi.PutCluster)
+		router.DELETE("/cluster", multiclusterapi.DeleteCluster)
+		router.GET("/credentials", multiclusterapi.GetClusterCredentials)
+
+		srv = &http.Server{
+			Addr:    multiClusterAddr,
+			Handler: router,
+		}
+
+		setupLog.Info("starting multicluster api")
+		// Run the http server in a go func so it doesn't block the controller manager
+		go func() {
+			srv.ListenAndServe()
+		}()
+	}
+
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		return err
+	}
+
+	if enableMultiClusterAPI {
+		// Gracefully shutdown the API server.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(ctx); err != nil {
+			return err
+		}
 	}
 
 	return nil

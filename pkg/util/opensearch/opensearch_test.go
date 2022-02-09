@@ -1,4 +1,4 @@
-package indices
+package opensearch
 
 import (
 	"context"
@@ -8,13 +8,19 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
-	opensearchapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
+	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 )
 
 var _ = Describe("Indices", Label("unit"), func() {
 	var (
-		reconciler *elasticsearchReconciler
+		reconciler *OpensearchReconciler
 		transport  *httpmock.MockTransport
+
+		logPolicyName               = "log-policy"
+		logIndexAlias               = "logs"
+		kibanaDashboardVersionDocID = "latest"
+		kibanaDashboardVersion      = "v0.1.3"
+		kibanaDashboardVersionIndex = "opni-dashboard-version"
 	)
 
 	BeforeEach(func() {
@@ -109,7 +115,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.reconcileISM(policy)
+					err := reconciler.ReconcileISM(policy)
 					if err != nil {
 						log.Println(err)
 					}
@@ -127,7 +133,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponse).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.reconcileISM(policy)
+					err := reconciler.ReconcileISM(policy)
 					if err != nil {
 						log.Println(err)
 					}
@@ -190,7 +196,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, policyResponseNew).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.reconcileISM(policy)
+					err := reconciler.ReconcileISM(policy)
 					if err != nil {
 						log.Println(err)
 					}
@@ -242,7 +248,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewStringResponder(200, `{"status": "complete"}`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.maybeCreateIndexTemplate(indexTemplate)
+					err := reconciler.MaybeCreateIndexTemplate(indexTemplate)
 					if err != nil {
 						log.Println(err)
 					}
@@ -260,7 +266,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewStringResponder(200, `{"mesg": "found it"}`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.maybeCreateIndexTemplate(indexTemplate)
+					err := reconciler.MaybeCreateIndexTemplate(indexTemplate)
 					if err != nil {
 						log.Println(err)
 					}
@@ -305,7 +311,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.maybeBootstrapIndex(prefix, alias)
+					err := reconciler.MaybeBootstrapIndex(prefix, alias)
 					if err != nil {
 						log.Println(err)
 					}
@@ -352,7 +358,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.maybeBootstrapIndex(prefix, alias)
+					err := reconciler.MaybeBootstrapIndex(prefix, alias)
 					if err != nil {
 						log.Println(err)
 					}
@@ -373,7 +379,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewStringResponder(200, `[{"test-000002": "thisexists"}, {"test-000003": "this also exists"}]`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.maybeBootstrapIndex(prefix, alias)
+					err := reconciler.MaybeBootstrapIndex(prefix, alias)
 					if err != nil {
 						log.Println(err)
 					}
@@ -422,7 +428,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.maybeCreateIndex(indexName, indexSettings)
+					err := reconciler.MaybeCreateIndex(indexName, indexSettings)
 					if err != nil {
 						log.Println(err)
 					}
@@ -443,7 +449,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.maybeCreateIndex(indexName, indexSettings)
+					err := reconciler.MaybeCreateIndex(indexName, indexSettings)
 					if err != nil {
 						log.Println(err)
 					}
@@ -479,7 +485,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.importKibanaObjects()
+					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion)
 					if err != nil {
 						log.Println(err)
 					}
@@ -528,7 +534,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.importKibanaObjects()
+					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion)
 					if err != nil {
 						log.Println(err)
 					}
@@ -564,7 +570,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, kibanaResponse).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.importKibanaObjects()
+					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion)
 					if err != nil {
 						log.Println(err)
 					}

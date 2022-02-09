@@ -10,7 +10,7 @@ import (
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
 )
 
-type SecurityApi struct {
+type SecurityAPI struct {
 	*opensearch.Client
 }
 
@@ -62,7 +62,7 @@ func generateRolesMappingPath(name string) strings.Builder {
 	return path
 }
 
-func (c *SecurityApi) GetRole(ctx context.Context, name string) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) GetRole(ctx context.Context, name string) (*opensearchapi.Response, error) {
 	method := "GET"
 	path := generateRolesPath(name)
 
@@ -83,7 +83,7 @@ func (c *SecurityApi) GetRole(ctx context.Context, name string) (*opensearchapi.
 	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
 }
 
-func (c *SecurityApi) CreateRole(ctx context.Context, name string, body io.Reader) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) CreateRole(ctx context.Context, name string, body io.Reader) (*opensearchapi.Response, error) {
 	method := "PUT"
 	path := generateRolesPath(name)
 
@@ -104,7 +104,7 @@ func (c *SecurityApi) CreateRole(ctx context.Context, name string, body io.Reade
 	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
 }
 
-func (c *SecurityApi) GetUser(ctx context.Context, name string) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) GetUser(ctx context.Context, name string) (*opensearchapi.Response, error) {
 	method := "GET"
 	path := generateUserPath(name)
 
@@ -125,7 +125,7 @@ func (c *SecurityApi) GetUser(ctx context.Context, name string) (*opensearchapi.
 	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
 }
 
-func (c *SecurityApi) CreateUser(ctx context.Context, name string, body io.Reader) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) CreateUser(ctx context.Context, name string, body io.Reader) (*opensearchapi.Response, error) {
 	method := "PUT"
 	path := generateUserPath(name)
 
@@ -146,7 +146,7 @@ func (c *SecurityApi) CreateUser(ctx context.Context, name string, body io.Reade
 	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
 }
 
-func (c *SecurityApi) GetRolesMapping(ctx context.Context, name string) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) GetRolesMapping(ctx context.Context, name string) (*opensearchapi.Response, error) {
 	method := "GET"
 	path := generateRolesMappingPath(name)
 
@@ -167,7 +167,7 @@ func (c *SecurityApi) GetRolesMapping(ctx context.Context, name string) (*opense
 	return &opensearchapi.Response{StatusCode: res.StatusCode, Body: res.Body, Header: res.Header}, nil
 }
 
-func (c *SecurityApi) CreateRolesMapping(ctx context.Context, name string, body io.Reader) (*opensearchapi.Response, error) {
+func (c *SecurityAPI) CreateRolesMapping(ctx context.Context, name string, body io.Reader) (*opensearchapi.Response, error) {
 	method := "PUT"
 	path := generateRolesMappingPath(name)
 

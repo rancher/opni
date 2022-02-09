@@ -13,7 +13,7 @@ import (
 
 var _ = Describe("Indices", Label("unit"), func() {
 	var (
-		reconciler *OpensearchReconciler
+		reconciler *Reconciler
 		transport  *httpmock.MockTransport
 
 		logPolicyName               = "log-policy"

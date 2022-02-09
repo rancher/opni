@@ -57,7 +57,7 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1b
 		return
 	}
 
-	reconciler := opensearch.NewOpensearchReconciler(r.ctx, opensearchCluster.Namespace, password, fmt.Sprintf("%s-os", opensearchCluster.Name))
+	reconciler := opensearch.NewReconciler(r.ctx, opensearchCluster.Namespace, password, fmt.Sprintf("%s-os", opensearchCluster.Name))
 
 	for _, role := range []osapiext.RoleSpec{
 		clusterIndexRole,

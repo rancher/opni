@@ -24,7 +24,7 @@ const (
 )
 
 type Reconciler struct {
-	osReconciler *opensearch.OpensearchReconciler
+	osReconciler *opensearch.Reconciler
 	client       client.Client
 	cluster      *v1beta1.OpniCluster
 	ctx          context.Context
@@ -49,7 +49,7 @@ func NewReconciler(ctx context.Context, opniCluster *v1beta1.OpniCluster, c clie
 		password = string(secret.Data[opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Key])
 	}
 
-	osReconciler := opensearch.NewOpensearchReconciler(ctx, opniCluster.Namespace, password, "opni-es")
+	osReconciler := opensearch.NewReconciler(ctx, opniCluster.Namespace, password, "opni-es")
 	return &Reconciler{
 		cluster:      opniCluster,
 		osReconciler: osReconciler,

@@ -19,7 +19,7 @@ func FetchOpensearchCluster(
 	client client.Client,
 	loggingCluster *v2beta1.LoggingCluster,
 ) (opensearchCluster *opensearchv1beta1.OpensearchCluster, retErr error) {
-	clusterName := types.NamespacedName{}
+	var clusterName types.NamespacedName
 	opensearchCluster = &opensearchv1beta1.OpensearchCluster{}
 
 	if loggingCluster.Spec.OpensearchCluster == nil {

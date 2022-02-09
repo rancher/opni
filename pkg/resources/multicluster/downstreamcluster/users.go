@@ -56,7 +56,7 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1bet
 		return
 	}
 
-	reconciler := opensearch.NewOpensearchReconciler(r.ctx, opensearchCluster.Namespace, osPassword, fmt.Sprintf("%s-os", opensearchCluster.Name))
+	reconciler := opensearch.NewReconciler(r.ctx, opensearchCluster.Namespace, osPassword, fmt.Sprintf("%s-os", opensearchCluster.Name))
 
 	retErr = reconciler.MaybeCreateUser(indexUser)
 	if retErr != nil {

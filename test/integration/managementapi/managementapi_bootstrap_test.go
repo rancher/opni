@@ -28,7 +28,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = XDescribe("Management API Boostrap Token Management Tests", Ordered, func() {
+var _ = Describe("Management API Boostrap Token Management Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	BeforeAll(func() {

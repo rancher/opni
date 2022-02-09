@@ -46,6 +46,7 @@ func BuildRootCmd() *cobra.Command {
 	rootCmd.AddCommand(commands.BuildCreateCmd())
 	rootCmd.AddCommand(commands.BuildDeleteCmd())
 	rootCmd.AddCommand(commands.BuildGetCmd())
+	rootCmd.AddCommand(commands.BuildBoostrapCmd())
 	rootCmd.AddCommand(commands.CompletionCmd)
 
 	// Help topics

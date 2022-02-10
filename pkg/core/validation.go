@@ -57,11 +57,11 @@ func (r *LabelSelectorRequirement) Validate() error {
 }
 
 func (r *Role) Validate() error {
-	if r.Name == "" {
-		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "name")
+	if r.Id == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "id")
 	}
-	if err := validation.ValidateName(r.Name); err != nil {
-		return fmt.Errorf("%w: %q", err, r.Name)
+	if err := validation.ValidateID(r.Id); err != nil {
+		return fmt.Errorf("%w: %q", err, r.Id)
 	}
 	for _, clusterID := range r.ClusterIDs {
 		if err := validation.ValidateID(clusterID); err != nil {
@@ -77,17 +77,17 @@ func (r *Role) Validate() error {
 }
 
 func (rb *RoleBinding) Validate() error {
-	if rb.Name == "" {
-		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "name")
+	if rb.Id == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "id")
 	}
-	if rb.RoleName == "" {
-		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "roleName")
+	if rb.RoleId == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "roleId")
 	}
-	if err := validation.ValidateName(rb.Name); err != nil {
-		return fmt.Errorf("%w: %q", err, rb.Name)
+	if err := validation.ValidateID(rb.Id); err != nil {
+		return fmt.Errorf("%w: %q", err, rb.Id)
 	}
-	if err := validation.ValidateName(rb.RoleName); err != nil {
-		return fmt.Errorf("%w: %q", err, rb.RoleName)
+	if err := validation.ValidateID(rb.RoleId); err != nil {
+		return fmt.Errorf("%w: %q", err, rb.RoleId)
 	}
 	for _, subject := range rb.Subjects {
 		if err := validation.ValidateSubject(subject); err != nil {
@@ -98,18 +98,11 @@ func (rb *RoleBinding) Validate() error {
 }
 
 func (ref *Reference) Validate() error {
-	if ref.Id == "" && ref.Name == "" {
-		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "at least one of ID or Name must be set")
+	if ref.Id == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "id")
 	}
-	if ref.Id != "" {
-		if err := validation.ValidateID(ref.Id); err != nil {
-			return err
-		}
-	}
-	if ref.Name == "" {
-		if err := validation.ValidateName(ref.Name); err != nil {
-			return err
-		}
+	if err := validation.ValidateID(ref.Id); err != nil {
+		return err
 	}
 	return nil
 }

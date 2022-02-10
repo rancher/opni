@@ -93,9 +93,6 @@ type clusterKeyringStore struct {
 }
 
 func (e *EtcdStore) KeyringStore(ctx context.Context, ref *core.Reference) (storage.KeyringStore, error) {
-	if err := ref.CheckValidID(); err != nil {
-		return nil, err
-	}
 	return &clusterKeyringStore{
 		client:     e.client,
 		clusterRef: ref,

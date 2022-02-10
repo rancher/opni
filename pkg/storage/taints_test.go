@@ -21,8 +21,8 @@ var _ = Describe("Taints", Ordered, func() {
 		It("should apply the relevant taint", func() {
 			store := test.NewTestRBACStore(ctrl)
 			rb := &core.RoleBinding{
-				Name:     "test",
-				RoleName: "test",
+				Id:       "test",
+				RoleId:   "test",
 				Subjects: []string{"foo"},
 			}
 			err := storage.ApplyRoleBindingTaints(context.Background(), store, rb)
@@ -30,7 +30,7 @@ var _ = Describe("Taints", Ordered, func() {
 			Expect(rb.Taints).To(Equal([]string{"role not found"}))
 
 			err = store.CreateRole(context.Background(), &core.Role{
-				Name:       "test",
+				Id:         "test",
 				ClusterIDs: []string{"foo"},
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -45,14 +45,14 @@ var _ = Describe("Taints", Ordered, func() {
 		It("should apply the relevant taint", func() {
 			store := test.NewTestRBACStore(ctrl)
 			err := store.CreateRole(context.Background(), &core.Role{
-				Name:       "test",
+				Id:         "test",
 				ClusterIDs: []string{"foo"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			rb := &core.RoleBinding{
-				Name:     "test",
-				RoleName: "test",
+				Id:       "test",
+				RoleId:   "test",
 				Subjects: []string{},
 			}
 			err = storage.ApplyRoleBindingTaints(context.Background(), store, rb)

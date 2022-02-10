@@ -27,7 +27,7 @@ var _ = Describe("RBAC", Ordered, func() {
 	It("should create roles", func() {
 		for i := 0; i < 100; i++ {
 			role := &core.Role{
-				Name:       fmt.Sprintf("role-%d", i),
+				Id:         fmt.Sprintf("role-%d", i),
 				ClusterIDs: []string{fmt.Sprintf("cluster-%d", i)},
 			}
 			_, err := tv.client.CreateRole(context.Background(), role)
@@ -35,7 +35,7 @@ var _ = Describe("RBAC", Ordered, func() {
 
 			created, err := tv.client.GetRole(context.Background(), role.Reference())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(created.Name).To(Equal(role.Name))
+			Expect(created.Id).To(Equal(role.Id))
 		}
 
 		roles, err := tv.client.ListRoles(context.Background(), &emptypb.Empty{})
@@ -45,8 +45,8 @@ var _ = Describe("RBAC", Ordered, func() {
 	It("should create role bindings", func() {
 		for i := 0; i < 100; i++ {
 			rb := &core.RoleBinding{
-				Name:     fmt.Sprintf("rb-%d", i),
-				RoleName: fmt.Sprintf("role-%d", i),
+				Id:       fmt.Sprintf("rb-%d", i),
+				RoleId:   fmt.Sprintf("role-%d", i),
 				Subjects: []string{fmt.Sprintf("user-%d", i)},
 			}
 			_, err := tv.client.CreateRoleBinding(context.Background(), rb)
@@ -54,7 +54,7 @@ var _ = Describe("RBAC", Ordered, func() {
 
 			created, err := tv.client.GetRoleBinding(context.Background(), rb.Reference())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(created.Name).To(Equal(rb.Name))
+			Expect(created.Id).To(Equal(rb.Id))
 		}
 
 		rbs, err := tv.client.ListRoleBindings(context.Background(), &emptypb.Empty{})
@@ -76,7 +76,7 @@ var _ = Describe("RBAC", Ordered, func() {
 	It("should delete roles", func() {
 		for i := 0; i < 100; i++ {
 			role := &core.Role{
-				Name: fmt.Sprintf("role-%d", i),
+				Id: fmt.Sprintf("role-%d", i),
 			}
 			_, err := tv.client.DeleteRole(context.Background(), role.Reference())
 			Expect(err).NotTo(HaveOccurred())
@@ -93,7 +93,7 @@ var _ = Describe("RBAC", Ordered, func() {
 	It("should delete role bindings", func() {
 		for i := 0; i < 100; i++ {
 			rb := &core.RoleBinding{
-				Name: fmt.Sprintf("rb-%d", i),
+				Id: fmt.Sprintf("rb-%d", i),
 			}
 			_, err := tv.client.DeleteRoleBinding(context.Background(), rb.Reference())
 			Expect(err).NotTo(HaveOccurred())

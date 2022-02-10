@@ -77,12 +77,12 @@ service Management {
   }
   rpc DeleteRole(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/management/roles/{name}"
+      delete: "/management/roles/{id}"
     };
   }
   rpc GetRole(core.Reference) returns (core.Role) {
     option (google.api.http) = {
-      get: "/management/roles/{name}"
+      get: "/management/roles/{id}"
     };
   }
   rpc CreateRoleBinding(core.RoleBinding) returns (google.protobuf.Empty) {
@@ -93,12 +93,12 @@ service Management {
   }
   rpc DeleteRoleBinding(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/management/rolebindings/{name}"
+      delete: "/management/rolebindings/{id}"
     };
   }
   rpc GetRoleBinding(core.Reference) returns (core.RoleBinding) {
     option (google.api.http) = {
-      get: "/management/rolebindings/{name}"
+      get: "/management/rolebindings/{id}"
     };
   }
   rpc ListRoles(google.protobuf.Empty) returns (core.RoleList) {

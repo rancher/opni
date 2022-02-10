@@ -162,12 +162,6 @@
             "in": "path",
             "required": true,
             "type": "string"
-          },
-          {
-            "name": "name",
-            "in": "query",
-            "required": false,
-            "type": "string"
           }
         ],
         "tags": [
@@ -189,12 +183,6 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "type": "string"
-          },
-          {
-            "name": "name",
-            "in": "query",
-            "required": false,
             "type": "string"
           }
         ],
@@ -243,7 +231,7 @@
         ]
       }
     },
-    "/management/rolebindings/{name}": {
+    "/management/rolebindings/{id}": {
       "get": {
         "operationId": "Management_GetRoleBinding",
         "responses": {
@@ -256,15 +244,9 @@
         },
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "type": "string"
-          },
-          {
-            "name": "id",
-            "in": "query",
-            "required": false,
             "type": "string"
           }
         ],
@@ -284,15 +266,9 @@
         },
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "type": "string"
-          },
-          {
-            "name": "id",
-            "in": "query",
-            "required": false,
             "type": "string"
           }
         ],
@@ -341,7 +317,7 @@
         ]
       }
     },
-    "/management/roles/{name}": {
+    "/management/roles/{id}": {
       "get": {
         "operationId": "Management_GetRole",
         "responses": {
@@ -354,15 +330,9 @@
         },
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "type": "string"
-          },
-          {
-            "name": "id",
-            "in": "query",
-            "required": false,
             "type": "string"
           }
         ],
@@ -382,15 +352,9 @@
         },
         "parameters": [
           {
-            "name": "name",
+            "name": "id",
             "in": "path",
             "required": true,
-            "type": "string"
-          },
-          {
-            "name": "id",
-            "in": "query",
-            "required": false,
             "type": "string"
           }
         ],
@@ -479,12 +443,6 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "type": "string"
-          },
-          {
-            "name": "name",
-            "in": "query",
-            "required": false,
             "type": "string"
           }
         ],
@@ -687,9 +645,6 @@
     "coreReference": {
       "type": "object",
       "properties": {
-        "name": {
-          "type": "string"
-        },
         "id": {
           "type": "string"
         }
@@ -709,7 +664,7 @@
     "coreRole": {
       "type": "object",
       "properties": {
-        "name": {
+        "id": {
           "type": "string"
         },
         "clusterIDs": {
@@ -726,10 +681,10 @@
     "coreRoleBinding": {
       "type": "object",
       "properties": {
-        "name": {
+        "id": {
           "type": "string"
         },
-        "roleName": {
+        "roleId": {
           "type": "string"
         },
         "subjects": {

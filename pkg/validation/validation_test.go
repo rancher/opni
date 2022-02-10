@@ -26,15 +26,15 @@ var (
 		string(make([]byte, 65)),
 	}
 
-	// names that match nameRegex
-	goodNames = []string{
+	// names that match labelValueRegex
+	goodLabelValues = []string{
 		"foo",
 		"foo.com",
 		"foo_bar",
 	}
 
-	// names that do not match nameRegex
-	badNames = []string{
+	// names that do not match labelValueRegex
+	badLabelValues = []string{
 		"foo!",
 		"foo.com/bar",
 		"_foo",
@@ -95,33 +95,11 @@ func labelNameRegexEntries() []TableEntry {
 
 func labelValueRegexEntries() []TableEntry {
 	entries := []TableEntry{}
-	for _, value := range goodNames {
+	for _, value := range goodLabelValues {
 		entries = append(entries, Entry(nil, value, nil))
 	}
-	for _, value := range badNames {
+	for _, value := range badLabelValues {
 		entries = append(entries, Entry(nil, value, validation.ErrInvalidLabelValue))
-	}
-	return entries
-}
-
-func nameRegexEntries() []TableEntry {
-	entries := []TableEntry{}
-	for _, name := range goodNames {
-		entries = append(entries, Entry(nil, name, nil))
-	}
-	for _, name := range badNames {
-		entries = append(entries, Entry(nil, name, validation.ErrInvalidName))
-	}
-	return entries
-}
-
-func roleNameRegexEntries() []TableEntry {
-	entries := []TableEntry{}
-	for _, name := range goodNames {
-		entries = append(entries, Entry(nil, name, nil))
-	}
-	for _, name := range badNames {
-		entries = append(entries, Entry(nil, name, validation.ErrInvalidRoleName))
 	}
 	return entries
 }
@@ -198,31 +176,9 @@ var _ = Describe("Validation", func() {
 		},
 		labelValueRegexEntries(),
 	)
-	DescribeTable("Name validation",
-		func(name string, err error) {
-			e := validation.ValidateName(name)
-			if err != nil {
-				Expect(e).To(MatchError(err))
-			} else {
-				Expect(e).To(BeNil())
-			}
-		},
-		nameRegexEntries(),
-	)
-	DescribeTable("Role name validation",
-		func(name string, err error) {
-			e := validation.ValidateRoleName(name)
-			if err != nil {
-				Expect(e).To(MatchError(err))
-			} else {
-				Expect(e).To(BeNil())
-			}
-		},
-		roleNameRegexEntries(),
-	)
 	DescribeTable("ID validation",
-		func(id string, err error) {
-			e := validation.ValidateID(id)
+		func(name string, err error) {
+			e := validation.ValidateID(name)
 			if err != nil {
 				Expect(e).To(MatchError(err))
 			} else {

@@ -20,7 +20,7 @@ var (
 	ErrInvalidID            = Errorf("ids %s, and %s", nameConstraint, lengthConstraint(128))
 
 	labelNameRegex   = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9-_./]{0,63}$`)
-	nameRegex        = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9-_.]{0,63}$`)
+	labelValueRegex  = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9-_.]{0,63}$`)
 	idRegex          = regexp.MustCompile(`^[a-zA-Z0-9-_.]{1,128}$`)
 	subjectNameRegex = regexp.MustCompile(`^[^\\*"'\s]{1,256}$`)
 )
@@ -49,22 +49,8 @@ func ValidateLabelName(name string) error {
 }
 
 func ValidateLabelValue(value string) error {
-	if !nameRegex.MatchString(value) {
+	if !labelValueRegex.MatchString(value) {
 		return ErrInvalidLabelValue
-	}
-	return nil
-}
-
-func ValidateName(name string) error {
-	if !nameRegex.MatchString(name) {
-		return ErrInvalidName
-	}
-	return nil
-}
-
-func ValidateRoleName(name string) error {
-	if !nameRegex.MatchString(name) {
-		return ErrInvalidRoleName
 	}
 	return nil
 }

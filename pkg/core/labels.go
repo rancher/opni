@@ -9,6 +9,8 @@ const (
 	LabelSelectorOpNotIn        LabelSelectorOperator = "NotIn"
 	LabelSelectorOpExists       LabelSelectorOperator = "Exists"
 	LabelSelectorOpDoesNotExist LabelSelectorOperator = "DoesNotExist"
+
+	NameLabel = "opni.io/name"
 )
 
 func (ls *LabelSelector) ExpressionString() string {

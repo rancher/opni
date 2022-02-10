@@ -26,9 +26,6 @@ func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *core.Cluster) er
 }
 
 func (e *EtcdStore) DeleteCluster(ctx context.Context, ref *core.Reference) error {
-	if err := ref.CheckValidID(); err != nil {
-		return err
-	}
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
 	_, err := e.client.Delete(ctx, path.Join(e.namespace, clusterKey, ref.Id), clientv3.WithPrefix())
@@ -39,9 +36,6 @@ func (e *EtcdStore) DeleteCluster(ctx context.Context, ref *core.Reference) erro
 }
 
 func (e *EtcdStore) ClusterExists(ctx context.Context, ref *core.Reference) (bool, error) {
-	if err := ref.CheckValidID(); err != nil {
-		return false, err
-	}
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
 	resp, err := e.client.Get(ctx, path.Join(e.namespace, clusterKey, ref.Id))
@@ -85,9 +79,6 @@ func (e *EtcdStore) ListClusters(
 }
 
 func (e *EtcdStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error) {
-	if err := ref.CheckValidID(); err != nil {
-		return nil, err
-	}
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
 	resp, err := e.client.Get(ctx, path.Join(e.namespace, clusterKey, ref.Id))

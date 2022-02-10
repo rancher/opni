@@ -18,7 +18,7 @@ func (e *EtcdStore) CreateRole(ctx context.Context, role *core.Role) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal role: %w", err)
 	}
-	_, err = e.client.Put(ctx, path.Join(e.namespace, roleKey, role.Name), string(data))
+	_, err = e.client.Put(ctx, path.Join(e.namespace, roleKey, role.Id), string(data))
 	if err != nil {
 		return fmt.Errorf("failed to create role: %w", err)
 	}
@@ -26,12 +26,9 @@ func (e *EtcdStore) CreateRole(ctx context.Context, role *core.Role) error {
 }
 
 func (e *EtcdStore) DeleteRole(ctx context.Context, ref *core.Reference) error {
-	if err := ref.CheckValidName(); err != nil {
-		return err
-	}
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := e.client.Delete(ctx, path.Join(e.namespace, roleKey, ref.Name))
+	_, err := e.client.Delete(ctx, path.Join(e.namespace, roleKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
@@ -39,12 +36,9 @@ func (e *EtcdStore) DeleteRole(ctx context.Context, ref *core.Reference) error {
 }
 
 func (e *EtcdStore) GetRole(ctx context.Context, ref *core.Reference) (*core.Role, error) {
-	if err := ref.CheckValidName(); err != nil {
-		return nil, err
-	}
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.namespace, roleKey, ref.Name))
+	resp, err := e.client.Get(ctx, path.Join(e.namespace, roleKey, ref.Id))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
@@ -65,7 +59,7 @@ func (e *EtcdStore) CreateRoleBinding(ctx context.Context, roleBinding *core.Rol
 	if err != nil {
 		return fmt.Errorf("failed to marshal role binding: %w", err)
 	}
-	_, err = e.client.Put(ctx, path.Join(e.namespace, roleBindingKey, roleBinding.Name), string(data))
+	_, err = e.client.Put(ctx, path.Join(e.namespace, roleBindingKey, roleBinding.Id), string(data))
 	if err != nil {
 		return fmt.Errorf("failed to create role binding: %w", err)
 	}
@@ -73,12 +67,9 @@ func (e *EtcdStore) CreateRoleBinding(ctx context.Context, roleBinding *core.Rol
 }
 
 func (e *EtcdStore) DeleteRoleBinding(ctx context.Context, ref *core.Reference) error {
-	if err := ref.CheckValidName(); err != nil {
-		return err
-	}
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := e.client.Delete(ctx, path.Join(e.namespace, roleBindingKey, ref.Name))
+	_, err := e.client.Delete(ctx, path.Join(e.namespace, roleBindingKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete role binding: %w", err)
 	}
@@ -86,12 +77,9 @@ func (e *EtcdStore) DeleteRoleBinding(ctx context.Context, ref *core.Reference) 
 }
 
 func (e *EtcdStore) GetRoleBinding(ctx context.Context, ref *core.Reference) (*core.RoleBinding, error) {
-	if err := ref.CheckValidName(); err != nil {
-		return nil, err
-	}
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.namespace, roleBindingKey, ref.Name))
+	resp, err := e.client.Get(ctx, path.Join(e.namespace, roleBindingKey, ref.Id))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role binding: %w", err)
 	}

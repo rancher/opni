@@ -99,10 +99,10 @@ func rbacs(objects ...interface{}) rbacObjects {
 	return objs
 }
 
-func role(name string, clusterIdOrSelector ...interface{}) func() *core.Role {
+func role(id string, clusterIdOrSelector ...interface{}) func() *core.Role {
 	return func() *core.Role {
 		r := &core.Role{
-			Name: name,
+			Id: id,
 		}
 		for _, i := range clusterIdOrSelector {
 			switch v := i.(type) {
@@ -120,11 +120,11 @@ func role(name string, clusterIdOrSelector ...interface{}) func() *core.Role {
 
 var rbacStore storage.RBACStore
 
-func rb(name string, roleName string, subjects ...string) func() *core.RoleBinding {
+func rb(id string, roleName string, subjects ...string) func() *core.RoleBinding {
 	return func() *core.RoleBinding {
 		rb := &core.RoleBinding{
-			Name:     name,
-			RoleName: roleName,
+			Id:       id,
+			RoleId:   roleName,
 			Subjects: subjects,
 		}
 		storage.ApplyRoleBindingTaints(context.Background(), rbacStore, rb)

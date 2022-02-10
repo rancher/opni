@@ -3,11 +3,14 @@ package openid
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -16,7 +19,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/rbac"
+	"go.uber.org/zap"
 )
 
 var ErrNoSigningKeyFound = fmt.Errorf("no signing key found in the JWK set")
@@ -42,9 +47,12 @@ type OpenidConfig struct {
 }
 
 type OpenidMiddleware struct {
-	keyRefresher    *jwk.AutoRefresh
-	conf            *OpenidConfig
+	keyRefresher *jwk.AutoRefresh
+	conf         *OpenidConfig
+	logger       *zap.SugaredLogger
+
 	wellKnownConfig *WellKnownConfiguration
+	lock            sync.Mutex
 }
 
 var _ auth.Middleware = (*OpenidMiddleware)(nil)
@@ -53,6 +61,7 @@ func New(config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
 	m := &OpenidMiddleware{
 		keyRefresher: jwk.NewAutoRefresh(context.Background()),
 		conf:         &OpenidConfig{},
+		logger:       logger.New().Named("openid"),
 	}
 	if err := mapstructure.Decode(config.Options, m.conf); err != nil {
 		return nil, err
@@ -61,23 +70,11 @@ func New(config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse openid issuer URL: %v", err)
 	}
-	if issuerURL.Scheme != "https" {
-		return nil, fmt.Errorf("openid issuer URL must have https scheme")
-	}
 	if !strings.HasSuffix(issuerURL.Path, ".well-known/openid-configuration") {
 		issuerURL.Path = path.Join(issuerURL.Path, ".well-known/openid-configuration")
 	}
 
-	wellKnownCfg, err := fetchWellKnownConfig(issuerURL.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch openid configuration: %v", err)
-	}
-	if wellKnownCfg.Issuer != m.conf.Issuer {
-		return nil, fmt.Errorf("openid issuer URL mismatch (server returned %q, expected %q)",
-			wellKnownCfg.Issuer, m.conf.Issuer)
-	}
-	m.wellKnownConfig = wellKnownCfg
-	m.keyRefresher.Configure(wellKnownCfg.JwksUri)
+	go m.connectToAuthProvider(issuerURL)
 	return m, nil
 }
 
@@ -86,6 +83,11 @@ func (m *OpenidMiddleware) Description() string {
 }
 
 func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
+	m.lock.Lock()
+	if m.wellKnownConfig == nil {
+		c.Status(http.StatusServiceUnavailable)
+		return c.SendString("auth provider is not ready")
+	}
 	lg := c.Context().Logger()
 	set, err := m.keyRefresher.Fetch(context.Background(), m.wellKnownConfig.JwksUri)
 	if err != nil {
@@ -113,10 +115,39 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+func (m *OpenidMiddleware) connectToAuthProvider(issuerURL *url.URL) {
+	lg := m.logger
+	for {
+		wellKnownCfg, err := fetchWellKnownConfig(issuerURL.String())
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("failed to fetch openid configuration (will retry)")
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		if wellKnownCfg.Issuer != m.conf.Issuer {
+			lg.With(
+				zap.String("response", wellKnownCfg.Issuer),
+				zap.String("expected", m.conf.Issuer),
+			).Error("issuer mismatch")
+			return
+		}
+		m.lock.Lock()
+		defer m.lock.Unlock()
+		m.wellKnownConfig = wellKnownCfg
+		m.keyRefresher.Configure(wellKnownCfg.JwksUri)
+		break
+	}
+}
+
 func fetchWellKnownConfig(url string) (*WellKnownConfiguration, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, errors.New(resp.Status)
 	}
 	defer resp.Body.Close()
 	var cfg WellKnownConfiguration

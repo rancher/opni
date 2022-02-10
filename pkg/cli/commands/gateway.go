@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/rancher/opni-monitoring/pkg/auth"
+	"github.com/rancher/opni-monitoring/pkg/auth/noauth"
 	"github.com/rancher/opni-monitoring/pkg/auth/openid"
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
@@ -52,7 +53,7 @@ func BuildGatewayCmd() *cobra.Command {
 			},
 			func(ap *v1beta1.AuthProvider) {
 				switch ap.Spec.Type {
-				case "openid":
+				case v1beta1.AuthProviderOpenID:
 					mw, err := openid.New(ap.Spec)
 					if err != nil {
 						lg.With(
@@ -63,6 +64,18 @@ func BuildGatewayCmd() *cobra.Command {
 						lg.With(
 							zap.Error(err),
 						).Fatal("failed to register OpenID auth provider")
+					}
+				case v1beta1.AuthProviderNoAuth:
+					mw, err := noauth.New(ap.Spec)
+					if err != nil {
+						lg.With(
+							zap.Error(err),
+						).Fatal("failed to create noauth auth provider")
+					}
+					if err := auth.RegisterMiddleware(ap.GetName(), mw); err != nil {
+						lg.With(
+							zap.Error(err),
+						).Fatal("failed to register noauth auth provider")
 					}
 				default:
 					lg.With(

@@ -440,7 +440,7 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 		panic(err)
 	}
 
-	if err := ident.RegisterProvider("test", func() ident.Provider {
+	if err := ident.RegisterProvider(id, func() ident.Provider {
 		mockIdent := mock_ident.NewMockProvider(e.mockCtrl)
 		mockIdent.EXPECT().
 			UniqueIdentifier(gomock.Any()).
@@ -457,7 +457,7 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 		Spec: v1beta1.AgentConfigSpec{
 			ListenAddress:    fmt.Sprintf("localhost:%d", port),
 			GatewayAddress:   fmt.Sprintf("localhost:%d", e.ports.Gateway),
-			IdentityProvider: "test",
+			IdentityProvider: id,
 			Storage: v1beta1.StorageSpec{
 				Type: v1beta1.StorageTypeEtcd,
 				Etcd: &v1beta1.EtcdStorageSpec{

@@ -85,7 +85,7 @@ func RenderRole(role *core.Role) string {
 func RenderRoleList(list *core.RoleList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"NAME", "SELECTOR", "CLUSTER IDS"})
+	w.AppendHeader(table.Row{"ID", "SELECTOR", "CLUSTER IDS"})
 	for _, role := range list.Items {
 		clusterIds := strings.Join(role.ClusterIDs, "\n")
 		if len(clusterIds) == 0 {
@@ -95,7 +95,7 @@ func RenderRoleList(list *core.RoleList) string {
 		if expressionStr == "" {
 			expressionStr = "(none)"
 		}
-		w.AppendRow(table.Row{role.Name, expressionStr, clusterIds})
+		w.AppendRow(table.Row{role.Id, expressionStr, clusterIds})
 	}
 	return w.Render()
 }
@@ -109,7 +109,7 @@ func RenderRoleBinding(binding *core.RoleBinding) string {
 func RenderRoleBindingList(list *core.RoleBindingList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	header := table.Row{"NAME", "ROLE NAME", "SUBJECTS"}
+	header := table.Row{"ID", "ROLE ID", "SUBJECTS"}
 	anyRolesHaveTaints := false
 	for _, rb := range list.Items {
 		if len(rb.Taints) > 0 {
@@ -121,7 +121,7 @@ func RenderRoleBindingList(list *core.RoleBindingList) string {
 	}
 	w.AppendHeader(header)
 	for _, b := range list.Items {
-		row := table.Row{b.Name, b.RoleName, strings.Join(b.Subjects, "\n")}
+		row := table.Row{b.Id, b.RoleId, strings.Join(b.Subjects, "\n")}
 		if anyRolesHaveTaints {
 			row = append(row, chalk.Red.Color(strings.Join(b.Taints, "\n")))
 		}

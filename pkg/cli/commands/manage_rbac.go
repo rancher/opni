@@ -42,7 +42,7 @@ func BuildRolesCreateCmd() *cobra.Command {
 	var matchLabelsStrings []string
 	matchLabels := map[string]string{}
 	cmd := &cobra.Command{
-		Use:   "create <role-name>",
+		Use:   "create <role-id>",
 		Short: "Create a role",
 		Args:  cobra.ExactArgs(1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -56,7 +56,7 @@ func BuildRolesCreateCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			role := &core.Role{
-				Name:       args[0],
+				Id:         args[0],
 				ClusterIDs: clusterIDs,
 				MatchLabels: &core.LabelSelector{
 					MatchLabels: matchLabels,
@@ -84,7 +84,7 @@ func BuildRolesDeleteCmd() *cobra.Command {
 			for _, role := range args {
 				_, err := client.DeleteRole(cmd.Context(),
 					&core.Reference{
-						Name: role,
+						Id: role,
 					})
 				if err != nil {
 					lg.Fatal(err)
@@ -97,13 +97,13 @@ func BuildRolesDeleteCmd() *cobra.Command {
 
 func BuildRolesShowCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "show <name>",
+		Use:   "show <role-id>",
 		Short: "Show detailed information about a role",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			role, err := client.GetRole(cmd.Context(),
 				&core.Reference{
-					Name: args[0],
+					Id: args[0],
 				})
 			if err != nil {
 				lg.Fatal(err)
@@ -129,13 +129,13 @@ func BuildRolesListCmd() *cobra.Command {
 
 func BuildRoleBindingsCreateCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "create <rolebinding-name> <role-name> <user-id>...",
+		Use:   "create <rolebinding-id> <role-id> <user-id>...",
 		Short: "Create a role binding",
 		Args:  cobra.MinimumNArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
 			rb := &core.RoleBinding{
-				Name:     args[0],
-				RoleName: args[1],
+				Id:       args[0],
+				RoleId:   args[1],
 				Subjects: args[2:],
 			}
 			_, err := client.CreateRoleBinding(cmd.Context(), rb)
@@ -153,14 +153,14 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 
 func BuildRoleBindingsDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete <rolebinding-name>",
+		Use:     "delete <rolebinding-id>",
 		Aliases: []string{"rm"},
 		Short:   "Delete a role binding",
 		Args:    cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			_, err := client.DeleteRoleBinding(cmd.Context(),
 				&core.Reference{
-					Name: args[0],
+					Id: args[0],
 				})
 			if err != nil {
 				lg.Fatal(err)
@@ -172,13 +172,13 @@ func BuildRoleBindingsDeleteCmd() *cobra.Command {
 
 func BuildRoleBindingsShowCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "show <rolebinding-name>",
+		Use:   "show <rolebinding-id>",
 		Short: "Show detailed information about a role binding",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			rb, err := client.GetRoleBinding(cmd.Context(),
 				&core.Reference{
-					Name: args[0],
+					Id: args[0],
 				})
 			if err != nil {
 				lg.Fatal(err)

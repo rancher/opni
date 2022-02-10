@@ -50,8 +50,8 @@ func (p *rbacProvider) SubjectAccess(
 		}
 		if taints := roleBinding.Taints; len(taints) > 0 {
 			p.logger.With(
-				"roleBinding", roleBinding.Name,
-				"role", roleBinding.RoleName,
+				"roleBinding", roleBinding.Id,
+				"role", roleBinding.Id,
 				"taints", roleBinding.Taints,
 			).Warn("skipping tainted role binding")
 			continue
@@ -60,8 +60,8 @@ func (p *rbacProvider) SubjectAccess(
 		if err != nil {
 			p.logger.With(
 				zap.Error(err),
-				"roleBinding", roleBinding.Name,
-				"role", roleBinding.RoleName,
+				"roleBinding", roleBinding.Id,
+				"role", roleBinding.RoleId,
 			).Warn("error looking up role")
 			continue
 		}

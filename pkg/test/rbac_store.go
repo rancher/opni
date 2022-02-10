@@ -23,7 +23,7 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		DoAndReturn(func(_ context.Context, role *core.Role) error {
 			mu.Lock()
 			defer mu.Unlock()
-			roles[role.Name] = role
+			roles[role.Id] = role
 			return nil
 		}).
 		AnyTimes()
@@ -32,10 +32,10 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		DoAndReturn(func(_ context.Context, ref *core.Reference) error {
 			mu.Lock()
 			defer mu.Unlock()
-			if _, ok := roles[ref.Name]; !ok {
+			if _, ok := roles[ref.Id]; !ok {
 				return storage.ErrNotFound
 			}
-			delete(roles, ref.Name)
+			delete(roles, ref.Id)
 			return nil
 		}).
 		AnyTimes()
@@ -44,10 +44,10 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		DoAndReturn(func(_ context.Context, ref *core.Reference) (*core.Role, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			if _, ok := roles[ref.Name]; !ok {
+			if _, ok := roles[ref.Id]; !ok {
 				return nil, storage.ErrNotFound
 			}
-			return roles[ref.Name], nil
+			return roles[ref.Id], nil
 		}).
 		AnyTimes()
 	mockRBACStore.EXPECT().
@@ -67,7 +67,7 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		DoAndReturn(func(_ context.Context, rb *core.RoleBinding) error {
 			mu.Lock()
 			defer mu.Unlock()
-			rbs[rb.Name] = rb
+			rbs[rb.Id] = rb
 			return nil
 		}).
 		AnyTimes()
@@ -76,10 +76,10 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		DoAndReturn(func(_ context.Context, ref *core.Reference) error {
 			mu.Lock()
 			defer mu.Unlock()
-			if _, ok := rbs[ref.Name]; !ok {
+			if _, ok := rbs[ref.Id]; !ok {
 				return storage.ErrNotFound
 			}
-			delete(rbs, ref.Name)
+			delete(rbs, ref.Id)
 			return nil
 		}).
 		AnyTimes()
@@ -87,11 +87,11 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		GetRoleBinding(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, ref *core.Reference) (*core.RoleBinding, error) {
 			mu.Lock()
-			if _, ok := rbs[ref.Name]; !ok {
+			if _, ok := rbs[ref.Id]; !ok {
 				mu.Unlock()
 				return nil, storage.ErrNotFound
 			}
-			cloned := proto.Clone(rbs[ref.Name]).(*core.RoleBinding)
+			cloned := proto.Clone(rbs[ref.Id]).(*core.RoleBinding)
 			mu.Unlock()
 			storage.ApplyRoleBindingTaints(ctx, mockRBACStore, cloned)
 			return cloned, nil

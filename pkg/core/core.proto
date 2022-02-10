@@ -39,14 +39,14 @@ enum MatchOptions {
 }
 
 message Role {
-  string name = 1;
+  string id = 1;
   repeated string clusterIDs = 2;
   LabelSelector matchLabels = 3;
 }
 
 message RoleBinding {
-  string name = 1;
-  string roleName = 2;
+  string id = 1;
+  string roleId = 2;
   repeated string subjects = 3;
   repeated string taints = 4;
 }
@@ -69,8 +69,7 @@ message CertInfo {
 }
 
 message Reference {
-  string name = 1;
-  string id = 2;
+  string id = 1;
 }
 
 message ReferenceList {

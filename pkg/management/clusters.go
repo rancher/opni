@@ -45,7 +45,7 @@ func (m *Server) WatchClusters(
 ) error {
 	known := map[string]*core.Reference{}
 	for _, cluster := range in.KnownClusters.Items {
-		known[cluster.Name] = cluster
+		known[cluster.Id] = cluster
 	}
 	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()

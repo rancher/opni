@@ -19,13 +19,13 @@ func (c *Cluster) Reference() *Reference {
 
 func (r *Role) Reference() *Reference {
 	return &Reference{
-		Name: r.Name,
+		Id: r.Id,
 	}
 }
 
 func (r *RoleBinding) Reference() *Reference {
 	return &Reference{
-		Name: r.Name,
+		Id: r.Id,
 	}
 }
 
@@ -37,27 +37,10 @@ func (r *BootstrapToken) Reference() *Reference {
 
 func (r *RoleBinding) RoleReference() *Reference {
 	return &Reference{
-		Name: r.RoleName,
+		Id: r.RoleId,
 	}
 }
 
 func (r *Reference) Equal(other *Reference) bool {
-	if r.Id == "" && other.Id == "" {
-		return r.Name == other.Name
-	}
 	return r.Id == other.Id
-}
-
-func (r *Reference) CheckValidID() error {
-	if r.Id == "" {
-		return ErrReferenceRequiresID
-	}
-	return nil
-}
-
-func (r *Reference) CheckValidName() error {
-	if r.Name == "" {
-		return ErrReferenceRequiresName
-	}
-	return nil
 }

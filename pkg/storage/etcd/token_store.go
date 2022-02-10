@@ -32,9 +32,6 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration) (*tokens
 }
 
 func (e *EtcdStore) DeleteToken(ctx context.Context, ref *core.Reference) error {
-	if err := ref.CheckValidID(); err != nil {
-		return err
-	}
 	t, err := e.GetToken(ctx, ref)
 	if err != nil {
 		return err
@@ -61,9 +58,6 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, ref *core.Reference) error 
 }
 
 func (e *EtcdStore) TokenExists(ctx context.Context, ref *core.Reference) (bool, error) {
-	if err := ref.CheckValidID(); err != nil {
-		return false, err
-	}
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
 	resp, err := e.client.Get(ctx, path.Join(e.namespace, tokensKey, ref.Id))
@@ -74,9 +68,6 @@ func (e *EtcdStore) TokenExists(ctx context.Context, ref *core.Reference) (bool,
 }
 
 func (e *EtcdStore) GetToken(ctx context.Context, ref *core.Reference) (*tokens.Token, error) {
-	if err := ref.CheckValidID(); err != nil {
-		return nil, err
-	}
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
 	resp, err := e.client.Get(ctx, path.Join(e.namespace, tokensKey, ref.Id))

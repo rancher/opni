@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="icon" href="/web/assets/images/favicon.png" />
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1, maximum-scale=1" name="viewport" />
+  <title>Log In | Opni Monitoring</title>
+  <link href="/web/assets/styles/style.css" rel="stylesheet" type="text/css" />
+  <script>
+    function login(username) {
+      document.location.href = "/callbacks/login" + document.location.search + "&login_as=" + username;
+    }
+  </script>
+</head>
+
+<body>
+  <div class="banner">
+    <span class="banner-text">FOR DEMO PURPOSES ONLY - NOT SUITABLE FOR PRODUCTION USE</span>
+  </div>
+  <div class="login-container">
+    <div class="login-header">
+      <h1>Select a User</h1>
+    </div>
+    <div class="login-content">
+      <div class="login-form">
+        {{- range $user := .Users }}
+        <button class="login-button" onclick="login('{{ $user }}')">{{ $user }}</button>
+        {{- end }}
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

@@ -18,5 +18,11 @@ spec:
       targetPort: management
       protocol: TCP
 {{- end }}
+{{- if eq .Values.auth.provider "noauth" }}
+    - name: noauth
+      port: {{ .Values.auth.noauth.port }}
+      targetPort: noauth
+      protocol: TCP
+{{- end }}
   selector:
     {{- include "opni-monitoring.selectorLabels" . | nindent 4 }}

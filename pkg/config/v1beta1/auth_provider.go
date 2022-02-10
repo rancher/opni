@@ -13,6 +13,7 @@ type AuthProviderType string
 
 const (
 	AuthProviderOpenID AuthProviderType = "openid"
+	AuthProviderNoAuth AuthProviderType = "noauth"
 )
 
 type AuthProviderSpec struct {

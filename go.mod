@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/go-oauth2/oauth2/v4 v4.4.3
 	github.com/gofiber/fiber/v2 v2.26.0
-	github.com/golang-jwt/jwt/v4 v4.2.0
+	github.com/golang-jwt/jwt/v4 v4.3.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-plugin v1.4.3

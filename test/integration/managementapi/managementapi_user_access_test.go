@@ -14,7 +14,7 @@ import (
 )
 
 //#region Test Setup
-var _ = XDescribe("Management API User/Subject Access Management Tests", Ordered, func() {
+var _ = Describe("Management API User/Subject Access Management Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	BeforeAll(func() {
@@ -36,7 +36,8 @@ var _ = XDescribe("Management API User/Subject Access Management Tests", Ordered
 	//#endregion
 
 	//#region Happy Path Tests
-	It("can return a list of all Cluster IDs that a specific User (Subject) can access", func() {
+
+	XIt("can return a list of all Cluster IDs that a specific User (Subject) can access", func() {
 		accessList, err := client.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
 			Subject: "test-subject",
 		})
@@ -49,6 +50,8 @@ var _ = XDescribe("Management API User/Subject Access Management Tests", Ordered
 	//#endregion
 
 	//#region Edge Case Tests
+
+	//TODO: Add User Access Edge Case Tests
 
 	//#endregion
 })

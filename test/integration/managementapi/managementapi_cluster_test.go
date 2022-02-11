@@ -20,6 +20,7 @@ import (
 var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
+	var fingerprint string
 	BeforeAll(func() {
 		fmt.Println("Starting test environment")
 		environment = &test.Environment{
@@ -29,22 +30,8 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()
 		Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
-		// TODO: Create a cluster to be used by the tests
-	})
 
-	AfterAll(func() {
-		fmt.Println("Stopping test environment")
-		Expect(environment.Stop()).To(Succeed())
-	})
-	//#endregion
-
-	//#region Happy Path Tests
-
-	var token *core.BootstrapToken
-	var fingerprint string
-	It("can get information about a specific cluster", func() {
-		var err error
-		token, err = client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+		token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -58,7 +45,35 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 		promAgentPort := environment.StartPrometheus(port)
 		Expect(promAgentPort).NotTo(BeZero())
 		Consistently(errC).ShouldNot(Receive())
+	})
 
+	AfterAll(func() {
+		fmt.Println("Stopping test environment")
+		Expect(environment.Stop()).To(Succeed())
+	})
+	//#endregion
+
+	//#region Happy Path Tests
+
+	events := make(chan *management.WatchEvent, 1000)
+	It("should handle watching create and delete events", func() {
+		stream, err := client.WatchClusters(context.Background(), &management.WatchClustersRequest{
+			KnownClusters: &core.ReferenceList{},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		go func() {
+			defer close(events)
+			for {
+				event, err := stream.Recv()
+				if err != nil {
+					return
+				}
+				events <- event
+			}
+		}()
+	})
+
+	It("can get information about a specific cluster", func() {
 		clusterInfo, err := client.GetCluster(context.Background(), &core.Reference{
 			Id: "test-cluster-id",
 		})
@@ -69,7 +84,6 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 	})
 
 	It("can edit the label a cluster is using", func() {
-
 		_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
 			Cluster: &core.Reference{
 				Id: "test-cluster-id",
@@ -89,14 +103,26 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 		Expect(clusterInfo.Labels).To(HaveKeyWithValue("i", "999"))
 	})
 
-	XIt("can list all clusters using the same label", func() {
+	var fingerprint2 string
+	It("can list all clusters using the same label", func() {
+		token2, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			Ttl: durationpb.New(time.Minute),
+		})
+		Expect(err).NotTo(HaveOccurred())
 
-		port, errC := environment.StartAgent("test-cluster-id-2", token, []string{fingerprint})
-		promAgentPort := environment.StartPrometheus(port)
-		Expect(promAgentPort).NotTo(BeZero())
+		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
+		Expect(err).NotTo(HaveOccurred())
+		fingerprint2 = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
+		Expect(fingerprint).NotTo(BeEmpty())
+
+		_, errC := environment.StartAgent("test-cluster-id-2", token2, []string{fingerprint2})
 		Consistently(errC).ShouldNot(Receive())
 
-		_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
+		Eventually(events).Should(Receive(WithTransform(func(event *management.WatchEvent) string {
+			return event.Cluster.Id
+		}, Equal("test-cluster-id-2"))))
+
+		_, err = client.EditCluster(context.Background(), &management.EditClusterRequest{
 			Cluster: &core.Reference{
 				Id: "test-cluster-id-2",
 			},
@@ -118,6 +144,15 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 		Expect(clusterInfo.GetItems()).NotTo(BeNil())
 	})
 
+	XIt("should handle watching create and delete events", func() {
+		_, err := client.WatchClusters(context.Background(), &management.WatchClustersRequest{
+			KnownClusters: &core.ReferenceList{},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+	})
+
+	//TODO: Need to complete this test
 	XIt("can watch cluster streams for information", func() {
 		_, err := client.WatchClusters(context.Background(), &management.WatchClustersRequest{
 			KnownClusters: &core.ReferenceList{},
@@ -142,6 +177,8 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 	//#endregion
 
 	//#region Edge Case Tests
+
+	//TODO: Need to add cluster Edge Case Tests
 
 	//#endregion
 })

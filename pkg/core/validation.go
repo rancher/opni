@@ -116,3 +116,10 @@ func (sar *SubjectAccessRequest) Validate() error {
 	}
 	return nil
 }
+
+func (o MatchOptions) Validate() error {
+	if _, ok := MatchOptions_name[int32(o)]; !ok {
+		return validation.Error("invalid match options")
+	}
+	return nil
+}

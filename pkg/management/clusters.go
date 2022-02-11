@@ -5,6 +5,7 @@ import (
 	"time"
 
 	core "github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -14,6 +15,9 @@ func (m *Server) ListClusters(
 	ctx context.Context,
 	in *ListClustersRequest,
 ) (*core.ClusterList, error) {
+	if err := validation.Validate(in); err != nil {
+		return nil, err
+	}
 	clusterList, err := m.clusterStore.ListClusters(ctx, in.MatchLabels, in.MatchOptions)
 	if err != nil {
 		return nil, grpcError(err)
@@ -25,6 +29,9 @@ func (m *Server) DeleteCluster(
 	ctx context.Context,
 	ref *core.Reference,
 ) (*emptypb.Empty, error) {
+	if err := validation.Validate(ref); err != nil {
+		return nil, err
+	}
 	return &emptypb.Empty{}, grpcError(m.clusterStore.DeleteCluster(ctx, ref))
 }
 
@@ -32,6 +39,9 @@ func (m *Server) GetCluster(
 	ctx context.Context,
 	ref *core.Reference,
 ) (*core.Cluster, error) {
+	if err := validation.Validate(ref); err != nil {
+		return nil, err
+	}
 	if cluster, err := m.clusterStore.GetCluster(ctx, ref); err != nil {
 		return nil, grpcError(err)
 	} else {
@@ -43,6 +53,9 @@ func (m *Server) WatchClusters(
 	in *WatchClustersRequest,
 	stream Management_WatchClustersServer,
 ) error {
+	if err := validation.Validate(in); err != nil {
+		return err
+	}
 	known := map[string]*core.Reference{}
 	for _, cluster := range in.KnownClusters.Items {
 		known[cluster.Id] = cluster
@@ -91,6 +104,9 @@ func (m *Server) EditCluster(
 	ctx context.Context,
 	in *EditClusterRequest,
 ) (*core.Cluster, error) {
+	if err := validation.Validate(in); err != nil {
+		return nil, err
+	}
 	storedCluster, err := m.clusterStore.GetCluster(ctx, in.Cluster)
 	if err != nil {
 		return nil, grpcError(err)

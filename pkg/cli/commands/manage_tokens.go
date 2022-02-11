@@ -50,7 +50,7 @@ func BuildTokensCreateCmd() *cobra.Command {
 			fmt.Println(cliutil.RenderBootstrapToken(t))
 		},
 	}
-	tokensCreateCmd.Flags().StringVar(&ttl, "ttl", management.DefaultTokenTTL.String(), "Time to live")
+	tokensCreateCmd.Flags().StringVar(&ttl, "ttl", "300s", "Time to live")
 	tokensCreateCmd.Flags().StringSliceVar(&labels, "labels", []string{}, "Labels which will be auto-applied to any clusters created with this token")
 	return tokensCreateCmd
 }

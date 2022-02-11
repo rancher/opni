@@ -19,17 +19,11 @@ import (
 var ErrMalformedToken = errors.New("malformed token")
 
 type Token struct {
-	ID       []byte    `json:"id"`               // bytes 0-5
-	Secret   []byte    `json:"secret,omitempty"` // bytes 6-31
-	Metadata TokenMeta `json:"-"`
+	ID     []byte `json:"id"`               // bytes 0-5
+	Secret []byte `json:"secret,omitempty"` // bytes 6-31
 }
 
-type TokenMeta struct {
-	LeaseID int64
-	TTL     int64
-}
-
-// Creates a new bootstrap token by reading bytes from the given random source.
+// Creates a new token by reading bytes from the given random source.
 // the default source is crypto/rand.Reader.
 func NewToken(source ...io.Reader) *Token {
 	entropy := rand.Reader

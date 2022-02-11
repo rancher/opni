@@ -531,13 +531,8 @@
         "secret": {
           "type": "string"
         },
-        "leaseID": {
-          "type": "string",
-          "format": "int64"
-        },
-        "ttl": {
-          "type": "string",
-          "format": "int64"
+        "metadata": {
+          "$ref": "#/definitions/coreBootstrapTokenMetadata"
         }
       }
     },
@@ -548,6 +543,29 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/coreBootstrapToken"
+          }
+        }
+      }
+    },
+    "coreBootstrapTokenMetadata": {
+      "type": "object",
+      "properties": {
+        "leaseID": {
+          "type": "string",
+          "format": "int64"
+        },
+        "ttl": {
+          "type": "string",
+          "format": "int64"
+        },
+        "usageCount": {
+          "type": "string",
+          "format": "int64"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
           }
         }
       }
@@ -764,6 +782,12 @@
       "properties": {
         "ttl": {
           "type": "string"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },

@@ -17,11 +17,11 @@ func (m *Server) CreateBootstrapToken(
 	if req.GetTtl() != nil {
 		ttl = req.GetTtl().AsDuration()
 	}
-	token, err := m.tokenStore.CreateToken(ctx, ttl)
+	token, err := m.tokenStore.CreateToken(ctx, ttl, req.GetLabels())
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return token.ToBootstrapToken(), nil
+	return token, nil
 }
 
 func (m *Server) RevokeBootstrapToken(
@@ -39,11 +39,9 @@ func (m *Server) ListBootstrapTokens(
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	tokenList := &core.BootstrapTokenList{
-		Items: make([]*core.BootstrapToken, len(tokens)),
-	}
-	for i, token := range tokens {
-		tokenList.Items[i] = token.ToBootstrapToken()
+	tokenList := &core.BootstrapTokenList{}
+	for _, token := range tokens {
+		tokenList.Items = append(tokenList.Items, token)
 	}
 	return tokenList, nil
 }

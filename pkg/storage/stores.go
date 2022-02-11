@@ -7,23 +7,21 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
-	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
 var ErrNotFound = errors.New("not found")
 
 type TokenStore interface {
-	CreateToken(ctx context.Context, ttl time.Duration) (*tokens.Token, error)
+	CreateToken(ctx context.Context, ttl time.Duration, labels map[string]string) (*core.BootstrapToken, error)
 	DeleteToken(ctx context.Context, ref *core.Reference) error
-	TokenExists(ctx context.Context, ref *core.Reference) (bool, error)
-	GetToken(ctx context.Context, ref *core.Reference) (*tokens.Token, error)
-	ListTokens(ctx context.Context) ([]*tokens.Token, error)
+	GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error)
+	ListTokens(ctx context.Context) ([]*core.BootstrapToken, error)
+	IncrementUsageCount(ctx context.Context, ref *core.Reference) error
 }
 
 type ClusterStore interface {
 	CreateCluster(ctx context.Context, cluster *core.Cluster) error
 	DeleteCluster(ctx context.Context, ref *core.Reference) error
-	ClusterExists(ctx context.Context, ref *core.Reference) (bool, error)
 	GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error)
 	UpdateCluster(ctx context.Context, cluster *core.Cluster) (*core.Cluster, error)
 	ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error)

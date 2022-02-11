@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang/mock/gomock"
@@ -30,37 +31,19 @@ import (
 )
 
 var _ = Describe("Server", func() {
-	var token *tokens.Token
+	var token *core.BootstrapToken
 	var client *http.Client
 	var cert *tls.Certificate
 	var app *fiber.App
 	var addr string
-	var mockTokenStore *mock_storage.MockTokenStore
-	var mockClusterStore *mock_storage.MockClusterStore
+	var mockTokenStore storage.TokenStore
+	var mockClusterStore storage.ClusterStore
 
 	BeforeEach(func() {
-		token = tokens.NewToken()
-		mockTokenStore = mock_storage.NewMockTokenStore(ctrl)
-		mockClusterStore = mock_storage.NewMockClusterStore(ctrl)
-
-		mockTokenStore.EXPECT().
-			GetToken(gomock.Any(), token.HexID()).
-			Return(token, nil).
-			AnyTimes()
-		mockTokenStore.EXPECT().
-			ListTokens(gomock.Any()).
-			Return([]*tokens.Token{token}, nil).
-			AnyTimes()
-		mockTokenStore.EXPECT().
-			TokenExists(gomock.Any(), token.HexID()).
-			Return(true, nil).
-			AnyTimes()
-		mockTokenStore.EXPECT().
-			TokenExists(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ context.Context, ref *core.Reference) (bool, error) {
-				return ref.Id == token.HexID(), nil
-			}).
-			AnyTimes()
+		ctx, ca := context.WithCancel(context.Background())
+		DeferCleanup(ca)
+		mockTokenStore = test.NewTestTokenStore(ctx, ctrl)
+		mockClusterStore = test.NewTestClusterStore(ctrl)
 
 		var storedKeyring keyring.Keyring
 		mockKeyringStore := mock_storage.NewMockKeyringStore(ctrl)
@@ -82,39 +65,13 @@ var _ = Describe("Server", func() {
 			}).
 			AnyTimes()
 
-		hasCreated := false
-		mockClusterStore.EXPECT().
-			CreateCluster(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ context.Context, ref *core.Cluster) error {
-				hasCreated = true
-				return nil
-			}).
-			AnyTimes()
-		mockClusterStore.EXPECT().
-			ClusterExists(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, ref *core.Reference) (bool, error) {
-				return hasCreated, nil
-			}).
-			AnyTimes()
-		mockClusterStore.EXPECT().
-			ListClusters(gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(context.Context, *core.LabelSelector) (*core.ClusterList, error) {
-				if hasCreated {
-					return &core.ClusterList{
-						Items: []*core.Cluster{
-							{
-								Id: "foo",
-							},
-						},
-					}, nil
-				}
-				return &core.ClusterList{Items: []*core.Cluster{}}, nil
-			}).
-			AnyTimes()
-		mockClusterStore.EXPECT().
+		mockClusterStore.(*mock_storage.MockClusterStore).EXPECT().
 			KeyringStore(gomock.Any(), gomock.Any()).
 			Return(mockKeyringStore, nil).
 			AnyTimes()
+
+		token, _ = mockTokenStore.CreateToken(context.Background(), 1*time.Hour,
+			map[string]string{"foo": "bar"})
 	})
 	JustBeforeEach(func() {
 		var err error
@@ -177,28 +134,15 @@ var _ = Describe("Server", func() {
 				Expect(json.Unmarshal(body, &joinResp)).To(Succeed())
 				Expect(joinResp.Signatures).To(HaveLen(1))
 
-				sig, _ := token.SignDetached(cert.PrivateKey)
-				Expect(joinResp.Signatures).To(HaveKeyWithValue(token.HexID(), sig))
+				rawToken, err := tokens.FromBootstrapToken(token)
+				Expect(err).NotTo(HaveOccurred())
+				sig, _ := rawToken.SignDetached(cert.PrivateKey)
+				Expect(joinResp.Signatures).To(HaveKeyWithValue(rawToken.HexID(), sig))
 			})
 		})
 		When("no tokens are available", func() {
 			BeforeEach(func() {
-				mockTokenStore = mock_storage.NewMockTokenStore(ctrl)
-
-				mockTokenStore.EXPECT().
-					GetToken(gomock.Any(), gomock.Any()).
-					Return(nil, storage.ErrNotFound).
-					AnyTimes()
-
-				mockTokenStore.EXPECT().
-					ListTokens(gomock.Any()).
-					Return([]*tokens.Token{}, nil).
-					AnyTimes()
-
-				mockTokenStore.EXPECT().
-					TokenExists(gomock.Any(), gomock.Any()).
-					Return(false, nil).
-					AnyTimes()
+				mockTokenStore.DeleteToken(context.Background(), token.Reference())
 			})
 			It("should return http 409", func() {
 				req, err := http.NewRequest("POST", addr+"/bootstrap/join", nil)
@@ -224,7 +168,9 @@ var _ = Describe("Server", func() {
 			When("the token is valid", func() {
 				When("the client does not send a bootstrap auth request", func() {
 					It("should return http 400", func() {
-						jsonData, err := json.Marshal(token)
+						rawToken, err := tokens.FromBootstrapToken(token)
+						Expect(err).NotTo(HaveOccurred())
+						jsonData, err := json.Marshal(rawToken)
 						Expect(err).NotTo(HaveOccurred())
 						sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
 						Expect(err).NotTo(HaveOccurred())
@@ -238,7 +184,9 @@ var _ = Describe("Server", func() {
 				})
 				When("the client sends a bootstrap auth request", func() {
 					It("should return http 200", func() {
-						jsonData, err := json.Marshal(token)
+						rawToken, err := tokens.FromBootstrapToken(token)
+						Expect(err).NotTo(HaveOccurred())
+						jsonData, err := json.Marshal(rawToken)
 						Expect(err).NotTo(HaveOccurred())
 						sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
 						Expect(err).NotTo(HaveOccurred())
@@ -256,6 +204,11 @@ var _ = Describe("Server", func() {
 						resp, err := client.Do(req)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(resp.StatusCode).To(Equal(http.StatusOK))
+						Expect(token.GetMetadata().GetUsageCount()).To(Equal(int64(1)))
+						clusterList, err := mockClusterStore.ListClusters(context.Background(), &core.LabelSelector{}, 0)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(clusterList.Items).To(HaveLen(1))
+						Expect(clusterList.Items[0].Labels).To(HaveKeyWithValue("foo", "bar"))
 					})
 				})
 			})
@@ -271,23 +224,12 @@ var _ = Describe("Server", func() {
 			})
 			When("the token is valid but expired", func() {
 				BeforeEach(func() {
-					mockTokenStore = mock_storage.NewMockTokenStore(ctrl)
-
-					mockTokenStore.EXPECT().
-						GetToken(gomock.Any(), gomock.Any()).
-						Return(nil, storage.ErrNotFound).
-						AnyTimes()
-					mockTokenStore.EXPECT().
-						ListTokens(gomock.Any()).
-						Return([]*tokens.Token{}, nil).
-						AnyTimes()
-					mockTokenStore.EXPECT().
-						TokenExists(gomock.Any(), gomock.Any()).
-						Return(false, nil).
-						AnyTimes()
+					mockTokenStore.DeleteToken(context.Background(), token.Reference())
 				})
 				It("should return http 401", func() {
-					jsonData, err := json.Marshal(token)
+					rawToken, err := tokens.FromBootstrapToken(token)
+					Expect(err).NotTo(HaveOccurred())
+					jsonData, err := json.Marshal(rawToken)
 					Expect(err).NotTo(HaveOccurred())
 					sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
 					Expect(err).NotTo(HaveOccurred())
@@ -309,7 +251,9 @@ var _ = Describe("Server", func() {
 			})
 			When("the client ID already exists", func() {
 				It("should return http 409", func() {
-					jsonData, err := json.Marshal(token)
+					rawToken, err := tokens.FromBootstrapToken(token)
+					Expect(err).NotTo(HaveOccurred())
+					jsonData, err := json.Marshal(rawToken)
 					Expect(err).NotTo(HaveOccurred())
 					sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
 					Expect(err).NotTo(HaveOccurred())

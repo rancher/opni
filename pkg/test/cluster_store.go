@@ -39,17 +39,6 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		}).
 		AnyTimes()
 	mockClusterStore.EXPECT().
-		ClusterExists(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference) (bool, error) {
-			mu.Lock()
-			defer mu.Unlock()
-			if _, ok := clusters[ref.Id]; !ok {
-				return false, nil
-			}
-			return true, nil
-		}).
-		AnyTimes()
-	mockClusterStore.EXPECT().
 		ListClusters(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
 			mu.Lock()

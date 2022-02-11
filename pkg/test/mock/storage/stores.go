@@ -13,7 +13,6 @@ import (
 	core "github.com/rancher/opni-monitoring/pkg/core"
 	keyring "github.com/rancher/opni-monitoring/pkg/keyring"
 	storage "github.com/rancher/opni-monitoring/pkg/storage"
-	tokens "github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
 // MockTokenStore is a mock of TokenStore interface.
@@ -40,18 +39,18 @@ func (m *MockTokenStore) EXPECT() *MockTokenStoreMockRecorder {
 }
 
 // CreateToken mocks base method.
-func (m *MockTokenStore) CreateToken(ctx context.Context, ttl time.Duration) (*tokens.Token, error) {
+func (m *MockTokenStore) CreateToken(ctx context.Context, ttl time.Duration, labels map[string]string) (*core.BootstrapToken, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateToken", ctx, ttl)
-	ret0, _ := ret[0].(*tokens.Token)
+	ret := m.ctrl.Call(m, "CreateToken", ctx, ttl, labels)
+	ret0, _ := ret[0].(*core.BootstrapToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateToken indicates an expected call of CreateToken.
-func (mr *MockTokenStoreMockRecorder) CreateToken(ctx, ttl interface{}) *gomock.Call {
+func (mr *MockTokenStoreMockRecorder) CreateToken(ctx, ttl, labels interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateToken", reflect.TypeOf((*MockTokenStore)(nil).CreateToken), ctx, ttl)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateToken", reflect.TypeOf((*MockTokenStore)(nil).CreateToken), ctx, ttl, labels)
 }
 
 // DeleteToken mocks base method.
@@ -69,10 +68,10 @@ func (mr *MockTokenStoreMockRecorder) DeleteToken(ctx, ref interface{}) *gomock.
 }
 
 // GetToken mocks base method.
-func (m *MockTokenStore) GetToken(ctx context.Context, ref *core.Reference) (*tokens.Token, error) {
+func (m *MockTokenStore) GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetToken", ctx, ref)
-	ret0, _ := ret[0].(*tokens.Token)
+	ret0, _ := ret[0].(*core.BootstrapToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -83,11 +82,25 @@ func (mr *MockTokenStoreMockRecorder) GetToken(ctx, ref interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetToken", reflect.TypeOf((*MockTokenStore)(nil).GetToken), ctx, ref)
 }
 
+// IncrementUsageCount mocks base method.
+func (m *MockTokenStore) IncrementUsageCount(ctx context.Context, ref *core.Reference) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IncrementUsageCount", ctx, ref)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// IncrementUsageCount indicates an expected call of IncrementUsageCount.
+func (mr *MockTokenStoreMockRecorder) IncrementUsageCount(ctx, ref interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrementUsageCount", reflect.TypeOf((*MockTokenStore)(nil).IncrementUsageCount), ctx, ref)
+}
+
 // ListTokens mocks base method.
-func (m *MockTokenStore) ListTokens(ctx context.Context) ([]*tokens.Token, error) {
+func (m *MockTokenStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTokens", ctx)
-	ret0, _ := ret[0].([]*tokens.Token)
+	ret0, _ := ret[0].([]*core.BootstrapToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -96,21 +109,6 @@ func (m *MockTokenStore) ListTokens(ctx context.Context) ([]*tokens.Token, error
 func (mr *MockTokenStoreMockRecorder) ListTokens(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTokens", reflect.TypeOf((*MockTokenStore)(nil).ListTokens), ctx)
-}
-
-// TokenExists mocks base method.
-func (m *MockTokenStore) TokenExists(ctx context.Context, ref *core.Reference) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TokenExists", ctx, ref)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// TokenExists indicates an expected call of TokenExists.
-func (mr *MockTokenStoreMockRecorder) TokenExists(ctx, ref interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TokenExists", reflect.TypeOf((*MockTokenStore)(nil).TokenExists), ctx, ref)
 }
 
 // MockClusterStore is a mock of ClusterStore interface.
@@ -134,21 +132,6 @@ func NewMockClusterStore(ctrl *gomock.Controller) *MockClusterStore {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClusterStore) EXPECT() *MockClusterStoreMockRecorder {
 	return m.recorder
-}
-
-// ClusterExists mocks base method.
-func (m *MockClusterStore) ClusterExists(ctx context.Context, ref *core.Reference) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClusterExists", ctx, ref)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ClusterExists indicates an expected call of ClusterExists.
-func (mr *MockClusterStoreMockRecorder) ClusterExists(ctx, ref interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClusterExists", reflect.TypeOf((*MockClusterStore)(nil).ClusterExists), ctx, ref)
 }
 
 // CreateCluster mocks base method.

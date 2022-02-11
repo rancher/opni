@@ -17,8 +17,6 @@ var _ = Describe("Conversion", func() {
 		bt := t.ToBootstrapToken()
 		Expect(bt.TokenID).To(Equal(t.HexID()))
 		Expect(bt.Secret).To(Equal(t.HexSecret()))
-		Expect(bt.LeaseID).To(Equal(t.Metadata.LeaseID))
-		Expect(bt.Ttl).To(Equal(t.Metadata.TTL))
 
 		t2, err := tokens.FromBootstrapToken(bt)
 		Expect(err).NotTo(HaveOccurred())

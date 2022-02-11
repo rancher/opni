@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -27,17 +28,21 @@ func (h ServerConfig) bootstrapJoinResponse(
 	ctx context.Context,
 ) (BootstrapJoinResponse, error) {
 	signatures := map[string][]byte{}
-	tokens, err := h.TokenStore.ListTokens(ctx)
+	tokenList, err := h.TokenStore.ListTokens(ctx)
 	if err != nil {
 		return BootstrapJoinResponse{}, err
 	}
-	for _, token := range tokens {
+	for _, token := range tokenList {
 		// Generate a JWS containing the signature of the detached secret token
-		sig, err := token.SignDetached(h.Certificate.PrivateKey)
+		rawToken, err := tokens.FromBootstrapToken(token)
+		if err != nil {
+			return BootstrapJoinResponse{}, err
+		}
+		sig, err := rawToken.SignDetached(h.Certificate.PrivateKey)
 		if err != nil {
 			return BootstrapJoinResponse{}, fmt.Errorf("error signing token: %w", err)
 		}
-		signatures[token.HexID()] = sig
+		signatures[rawToken.HexID()] = sig
 	}
 	return BootstrapJoinResponse{
 		Signatures: signatures,
@@ -93,13 +98,13 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	if err != nil {
 		panic("bug: jws.Verify returned a malformed token")
 	}
-	ok, err := h.TokenStore.TokenExists(context.Background(), token.Reference())
+	bootstrapToken, err := h.TokenStore.GetToken(context.Background(), token.Reference())
 	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
 		lg.Printf("error checking if token exists: %v")
 		return c.SendStatus(fiber.StatusInternalServerError)
-	}
-	if !ok {
-		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
 	// Token is valid and not expired. Check the client's requested UUID
@@ -108,12 +113,14 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
 	}
 
-	if ok, err := h.ClusterStore.ClusterExists(context.Background(), &core.Reference{
+	if _, err := h.ClusterStore.GetCluster(context.Background(), &core.Reference{
 		Id: clientReq.ClientID,
 	}); err != nil {
-		lg.Printf("error checking if cluster exists: %v", err)
-		return c.SendStatus(fiber.StatusInternalServerError)
-	} else if ok {
+		if !errors.Is(err, storage.ErrNotFound) {
+			lg.Printf("error checking if cluster exists: %v", err)
+			return c.SendStatus(fiber.StatusInternalServerError)
+		}
+	} else {
 		return c.Status(fiber.StatusConflict).SendString("ID already in use")
 	}
 
@@ -130,10 +137,14 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	kr := keyring.New(keyring.NewSharedKeys(sharedSecret))
 	newCluster := &core.Cluster{
 		Id:     clientReq.ClientID,
-		Labels: map[string]string{},
+		Labels: bootstrapToken.GetMetadata().GetLabels(),
 	}
 	if err := h.ClusterStore.CreateCluster(context.Background(), newCluster); err != nil {
 		lg.Printf("error creating cluster: %v", err)
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+	if err := h.TokenStore.IncrementUsageCount(context.Background(), token.Reference()); err != nil {
+		lg.Printf("error incrementing usage count: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 	krStore, err := h.ClusterStore.KeyringStore(context.Background(), newCluster.Reference())

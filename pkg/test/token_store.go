@@ -17,7 +17,7 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 	mockTokenStore := mock_storage.NewMockTokenStore(ctrl)
 
 	leaseStore := NewLeaseStore(ctx)
-	tks := map[string]*tokens.Token{}
+	tks := map[string]*core.BootstrapToken{}
 	mu := sync.Mutex{}
 	go func() {
 		for {
@@ -33,15 +33,19 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 	}()
 
 	mockTokenStore.EXPECT().
-		CreateToken(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ttl time.Duration) (*tokens.Token, error) {
+		CreateToken(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, ttl time.Duration, labels map[string]string) (*core.BootstrapToken, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			t := tokens.NewToken()
-			lease := leaseStore.New(t.HexID(), ttl)
-			t.Metadata.LeaseID = lease.ID
-			t.Metadata.TTL = int64(ttl)
-			tks[t.HexID()] = t
+			t := tokens.NewToken().ToBootstrapToken()
+			lease := leaseStore.New(t.TokenID, ttl)
+			t.Metadata = &core.BootstrapTokenMetadata{
+				LeaseID:    int64(lease.ID),
+				Ttl:        int64(ttl),
+				UsageCount: 0,
+				Labels:     labels,
+			}
+			tks[t.TokenID] = t
 			return t, nil
 		}).
 		AnyTimes()
@@ -58,19 +62,8 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 		}).
 		AnyTimes()
 	mockTokenStore.EXPECT().
-		TokenExists(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference) (bool, error) {
-			mu.Lock()
-			defer mu.Unlock()
-			if _, ok := tks[ref.Id]; !ok {
-				return false, nil
-			}
-			return true, nil
-		}).
-		AnyTimes()
-	mockTokenStore.EXPECT().
 		GetToken(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference) (*tokens.Token, error) {
+		DoAndReturn(func(_ context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := tks[ref.Id]; !ok {
@@ -81,14 +74,27 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 		AnyTimes()
 	mockTokenStore.EXPECT().
 		ListTokens(gomock.Any()).
-		DoAndReturn(func(_ context.Context) ([]*tokens.Token, error) {
+		DoAndReturn(func(_ context.Context) ([]*core.BootstrapToken, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			tokens := make([]*tokens.Token, 0, len(tks))
+			tokens := make([]*core.BootstrapToken, 0, len(tks))
 			for _, t := range tks {
 				tokens = append(tokens, t)
 			}
 			return tokens, nil
+		}).
+		AnyTimes()
+	mockTokenStore.EXPECT().
+		IncrementUsageCount(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, ref *core.Reference) error {
+			mu.Lock()
+			defer mu.Unlock()
+			if tk, ok := tks[ref.Id]; !ok {
+				return storage.ErrNotFound
+			} else {
+				tk.Metadata.UsageCount++
+			}
+			return nil
 		}).
 		AnyTimes()
 

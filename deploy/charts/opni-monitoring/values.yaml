@@ -13,6 +13,10 @@ auth:
     # OpenID issuer URL (as shown in /.well-known/openid-configuration)
     issuer: ""
 
+# Directories to search for plugin binaries in
+# /var/lib/opnim/plugins is automatically included in this list
+pluginSearchDirs: []
+
 gateway:
   replicaCount: 1
   podAnnotations: {}

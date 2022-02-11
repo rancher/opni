@@ -34,6 +34,9 @@ func (s *Server) CreateRoleBinding(ctx context.Context, in *core.RoleBinding) (*
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
+	if len(in.Taints) > 0 {
+		return nil, validation.ErrReadOnlyField
+	}
 	return &emptypb.Empty{}, grpcError(s.rbacStore.CreateRoleBinding(ctx, in))
 }
 

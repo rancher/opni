@@ -9,6 +9,12 @@ data:
     apiVersion: v1beta1
     kind: GatewayConfig
     spec:
+      plugins:
+        - dirs:
+            - /var/lib/opnim/plugins
+          {{- range $d := .Values.pluginSearchDirs }}
+            - {{ $d }}
+          {{- end }}
       listenAddress: ":{{ .Values.service.port }}"
       management:
         grpcListenAddress: "{{ .Values.management.grpcListenAddress }}"

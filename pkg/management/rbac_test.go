@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	core "github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -105,5 +106,21 @@ var _ = Describe("RBAC", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rbs.Items).To(HaveLen(100 - i - 1))
 		}
+	})
+
+	Context("error handling", func() {
+		When("creating a rolebinding with taints", func() {
+			It("should error indicating the field is read-only", func() {
+				rb := &core.RoleBinding{
+					Id:       "rb-1",
+					RoleId:   "role-1",
+					Subjects: []string{"user-1"},
+					Taints:   []string{"foo"},
+				}
+				_, err := tv.client.CreateRoleBinding(context.Background(), rb)
+				Expect(err).To(HaveOccurred())
+				Expect(status.Convert(err).Message()).To(Equal(validation.ErrReadOnlyField.Error()))
+			})
+		})
 	})
 })

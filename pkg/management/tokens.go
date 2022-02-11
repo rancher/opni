@@ -4,6 +4,7 @@ import (
 	"context"
 
 	core "github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -13,21 +14,23 @@ func (m *Server) CreateBootstrapToken(
 	ctx context.Context,
 	req *CreateBootstrapTokenRequest,
 ) (*core.BootstrapToken, error) {
-	ttl := DefaultTokenTTL
-	if req.GetTtl() != nil {
-		ttl = req.GetTtl().AsDuration()
+	if err := validation.Validate(req); err != nil {
+		return nil, err
 	}
-	token, err := m.tokenStore.CreateToken(ctx, ttl)
+	token, err := m.tokenStore.CreateToken(ctx, req.Ttl.AsDuration(), req.GetLabels())
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return token.ToBootstrapToken(), nil
+	return token, nil
 }
 
 func (m *Server) RevokeBootstrapToken(
 	ctx context.Context,
 	ref *core.Reference,
 ) (*emptypb.Empty, error) {
+	if err := validation.Validate(ref); err != nil {
+		return nil, err
+	}
 	return &emptypb.Empty{}, grpcError(m.tokenStore.DeleteToken(ctx, ref))
 }
 
@@ -39,11 +42,9 @@ func (m *Server) ListBootstrapTokens(
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	tokenList := &core.BootstrapTokenList{
-		Items: make([]*core.BootstrapToken, len(tokens)),
-	}
-	for i, token := range tokens {
-		tokenList.Items[i] = token.ToBootstrapToken()
+	tokenList := &core.BootstrapTokenList{}
+	for _, token := range tokens {
+		tokenList.Items = append(tokenList.Items, token)
 	}
 	return tokenList, nil
 }

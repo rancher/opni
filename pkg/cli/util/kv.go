@@ -23,3 +23,11 @@ func ParseKeyValuePairs(pairs []string) (map[string]string, error) {
 	}
 	return m, nil
 }
+
+func JoinKeyValuePairs(pairs map[string]string) []string {
+	var kvs []string
+	for k, v := range pairs {
+		kvs = append(kvs, k+"="+v)
+	}
+	return kvs
+}

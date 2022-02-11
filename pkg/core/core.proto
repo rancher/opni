@@ -5,8 +5,14 @@ package core;
 message BootstrapToken {
   string tokenID = 1;
   string secret = 2;
+  BootstrapTokenMetadata metadata = 3;
+}
+
+message BootstrapTokenMetadata {
   int64 leaseID = 3;
   int64 ttl = 4;
+  int64 usageCount = 5;
+  map<string, string> labels = 6;
 }
 
 message BootstrapTokenList {

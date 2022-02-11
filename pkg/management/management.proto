@@ -125,6 +125,7 @@ service Management {
 
 message CreateBootstrapTokenRequest {
   google.protobuf.Duration ttl = 1;
+  map<string, string> labels = 2;
 }
 
 message CertsInfoResponse {

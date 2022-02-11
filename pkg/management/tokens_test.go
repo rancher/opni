@@ -28,19 +28,27 @@ var _ = Describe("Tokens", Ordered, func() {
 		for i := 0; i < 100; i++ {
 			token, err := tv.client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
+				Labels: map[string]string{
+					"foo": "bar",
+					"baz": "quux",
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(token.TokenID).NotTo(BeEmpty())
 			Expect(token.Secret).NotTo(BeEmpty())
-			Expect(token.LeaseID).NotTo(BeZero())
-			Expect(token.Ttl).To(BeNumerically("~", time.Minute, time.Second))
+			Expect(token.Metadata.LeaseID).NotTo(BeZero())
+			Expect(token.Metadata.Ttl).To(BeNumerically("~", time.Minute, time.Second))
+			Expect(token.Metadata.Labels).To(Equal(map[string]string{
+				"foo": "bar",
+				"baz": "quux",
+			}))
 
 			Expect(ids).NotTo(HaveKey(token.TokenID))
 			Expect(secrets).NotTo(HaveKey(token.Secret))
-			Expect(leaseIds).NotTo(HaveKey(token.LeaseID))
+			Expect(leaseIds).NotTo(HaveKey(token.Metadata.LeaseID))
 			ids[token.TokenID] = struct{}{}
 			secrets[token.Secret] = struct{}{}
-			leaseIds[token.LeaseID] = struct{}{}
+			leaseIds[token.Metadata.LeaseID] = struct{}{}
 		}
 	})
 	It("should list bootstrap tokens", func() {

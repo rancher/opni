@@ -29,10 +29,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const (
-	DefaultTokenTTL = 2 * time.Minute
-)
-
 //go:embed management.swagger.json
 var managementSwaggerJson []byte
 

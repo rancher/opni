@@ -482,13 +482,16 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 		return 0, errC
 	}
 	var a *agent.Agent
+	mu := sync.Mutex{}
 	go func() {
+		mu.Lock()
 		a, err = agent.New(agentConfig,
 			agent.WithBootstrapper(&bootstrap.ClientConfig{
 				Token:    bt,
 				Pins:     publicKeyPins,
 				Endpoint: fmt.Sprintf("http://localhost:%d", e.ports.Gateway),
 			}))
+		mu.Unlock()
 		if err != nil {
 			errC <- err
 			return
@@ -501,9 +504,11 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 	go func() {
 		defer e.waitGroup.Done()
 		<-e.ctx.Done()
+		mu.Lock()
 		if a == nil {
 			return
 		}
+		mu.Unlock()
 		if err := a.Shutdown(); err != nil {
 			errC <- err
 		}

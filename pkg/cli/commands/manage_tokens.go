@@ -25,18 +25,24 @@ func BuildTokensCmd() *cobra.Command {
 }
 
 func BuildTokensCreateCmd() *cobra.Command {
+	var ttl string
+	var labels []string
 	tokensCreateCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a bootstrap token",
 		Run: func(cmd *cobra.Command, args []string) {
-			ttl := cmd.Flag("ttl").Value.String()
 			duration, err := time.ParseDuration(ttl)
+			if err != nil {
+				lg.Fatal(err)
+			}
+			labelMap, err := cliutil.ParseKeyValuePairs(labels)
 			if err != nil {
 				lg.Fatal(err)
 			}
 			t, err := client.CreateBootstrapToken(cmd.Context(),
 				&management.CreateBootstrapTokenRequest{
-					Ttl: durationpb.New(duration),
+					Ttl:    durationpb.New(duration),
+					Labels: labelMap,
 				})
 			if err != nil {
 				lg.Fatal(err)
@@ -44,7 +50,8 @@ func BuildTokensCreateCmd() *cobra.Command {
 			fmt.Println(cliutil.RenderBootstrapToken(t))
 		},
 	}
-	tokensCreateCmd.Flags().String("ttl", management.DefaultTokenTTL.String(), "Time to live")
+	tokensCreateCmd.Flags().StringVar(&ttl, "ttl", "300s", "Time to live")
+	tokensCreateCmd.Flags().StringSliceVar(&labels, "labels", []string{}, "Labels which will be auto-applied to any clusters created with this token")
 	return tokensCreateCmd
 }
 

@@ -21,13 +21,19 @@ func RenderBootstrapToken(token *core.BootstrapToken) string {
 func RenderBootstrapTokenList(list *core.BootstrapTokenList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"ID", "TOKEN", "TTL"})
+	w.AppendHeader(table.Row{"ID", "TOKEN", "TTL", "USAGES", "LABELS"})
 	for _, t := range list.Items {
 		token, err := tokens.FromBootstrapToken(t)
 		if err != nil {
 			return err.Error()
 		}
-		w.AppendRow(table.Row{token.HexID(), token.EncodeHex(), t.GetTtl()})
+
+		w.AppendRow(table.Row{
+			token.HexID(),
+			token.EncodeHex(),
+			t.GetMetadata().GetUsageCount(),
+			strings.Join(JoinKeyValuePairs(t.GetMetadata().GetLabels()), "\n"),
+		})
 	}
 	return w.Render()
 }

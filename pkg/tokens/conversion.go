@@ -12,10 +12,6 @@ func FromBootstrapToken(t *core.BootstrapToken) (*Token, error) {
 	token := &Token{
 		ID:     make([]byte, hex.DecodedLen(len(tokenID))),
 		Secret: make([]byte, hex.DecodedLen(len(tokenSecret))),
-		Metadata: TokenMeta{
-			LeaseID: t.GetLeaseID(),
-			TTL:     t.GetTtl(),
-		},
 	}
 	decodedID, err := hex.DecodeString(tokenID)
 	if err != nil {
@@ -34,7 +30,8 @@ func (t *Token) ToBootstrapToken() *core.BootstrapToken {
 	return &core.BootstrapToken{
 		TokenID: t.HexID(),
 		Secret:  t.HexSecret(),
-		LeaseID: t.Metadata.LeaseID,
-		Ttl:     t.Metadata.TTL,
+		Metadata: &core.BootstrapTokenMetadata{
+			Labels: map[string]string{},
+		},
 	}
 }

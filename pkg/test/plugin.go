@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-plugin"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
@@ -59,5 +60,6 @@ func NewApiExtensionTestPlugin(
 		Plugins:         scheme.PluginMap(),
 		Reattach:        <-ch,
 		Managed:         true,
+		Logger:          logger.NewHCLogger(logger.New()),
 	}
 }

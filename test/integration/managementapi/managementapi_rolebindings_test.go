@@ -3,7 +3,6 @@ package integration_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,7 +18,6 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, func() 
 	var environment *test.Environment
 	var client management.ManagementClient
 	BeforeAll(func() {
-		fmt.Println("Starting test environment")
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
 			Logger:  logger.New().Named("test"),
@@ -36,7 +34,6 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, func() 
 	})
 
 	AfterAll(func() {
-		fmt.Println("Stopping test environment")
 		Expect(environment.Stop()).To(Succeed())
 	})
 	//#endregion

@@ -89,7 +89,7 @@ func BuildRolesDeleteCmd() *cobra.Command {
 				if err != nil {
 					lg.Fatal(err)
 				}
-				fmt.Printf("Deleted role %s\n", role)
+				fmt.Println(role)
 			}
 		},
 	}
@@ -165,7 +165,7 @@ func BuildRoleBindingsDeleteCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Printf("Deleted role binding %s\n", args[0])
+			fmt.Println(args[0])
 		},
 	}
 }

@@ -4,13 +4,13 @@ go 1.17
 
 require (
 	github.com/go-oauth2/oauth2/v4 v4.4.3
-	github.com/gofiber/fiber/v2 v2.26.0
+	github.com/gofiber/fiber/v2 v2.27.0
 	github.com/golang-jwt/jwt/v4 v4.3.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-plugin v1.4.3
-	github.com/jedib0t/go-pretty/v6 v6.2.5
-	github.com/jhump/protoreflect v1.10.2
+	github.com/jedib0t/go-pretty/v6 v6.2.7
+	github.com/jhump/protoreflect v1.11.0
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc
 	github.com/kralicky/spellbook v0.0.0-20220204185758-6c5ad9d29ee2
@@ -18,7 +18,7 @@ require (
 	github.com/magefile/mage v1.12.1
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/mwitkow/grpc-proxy v0.0.0-20220126150247-db34e7bfee32
-	github.com/onsi/ginkgo/v2 v2.1.1
+	github.com/onsi/ginkgo/v2 v2.1.2
 	github.com/onsi/gomega v1.18.1
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/spf13/cobra v1.3.0
@@ -26,18 +26,18 @@ require (
 	github.com/valyala/fasthttp v1.33.0
 	go.etcd.io/etcd/client/v3 v3.5.2
 	go.uber.org/atomic v1.9.0
-	go.uber.org/zap v1.20.0
-	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
+	go.uber.org/zap v1.21.0
+	golang.org/x/crypto v0.0.0-20220213190939-1e6e3497d506
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gonum.org/v1/gonum v0.9.3
-	google.golang.org/genproto v0.0.0-20220204002441-d6cc3cc0770e
+	google.golang.org/genproto v0.0.0-20220211171837-173942840c17
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.23.3
 	k8s.io/apimachinery v0.23.3
 	k8s.io/client-go v0.23.3
 	k8s.io/kubectl v0.23.3
-	k8s.io/utils v0.0.0-20220127004650-9b3446523e65
+	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	sigs.k8s.io/controller-runtime v0.11.0
 	sigs.k8s.io/yaml v1.3.0
 )

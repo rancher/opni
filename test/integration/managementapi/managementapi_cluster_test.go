@@ -3,7 +3,6 @@ package integration_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +21,6 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 	var client management.ManagementClient
 	var fingerprint string
 	BeforeAll(func() {
-		fmt.Println("Starting test environment")
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
 			Logger:  logger.New().Named("test"),
@@ -48,7 +46,6 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		fmt.Println("Stopping test environment")
 		Expect(environment.Stop()).To(Succeed())
 	})
 	//#endregion

@@ -2,8 +2,12 @@ package logger
 
 import (
 	"context"
+	"io"
+	"os"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -37,7 +41,68 @@ type loggerContextKey struct{}
 
 var key = loggerContextKey{}
 
-func New() *zap.SugaredLogger {
+var inTest = strings.HasSuffix(os.Args[0], ".test")
+
+type extendedSugaredLogger struct {
+	SugaredLogger
+	level zap.AtomicLevel
+}
+
+func (l *extendedSugaredLogger) Zap() *zap.SugaredLogger {
+	return l.SugaredLogger.(*zap.SugaredLogger)
+}
+
+func (l *extendedSugaredLogger) AtomicLevel() zap.AtomicLevel {
+	return l.level
+}
+
+func (l *extendedSugaredLogger) XWith(args ...interface{}) ExtendedSugaredLogger {
+	return &extendedSugaredLogger{
+		SugaredLogger: l.With(args...),
+		level:         l.level,
+	}
+}
+
+func (l *extendedSugaredLogger) XNamed(name string) ExtendedSugaredLogger {
+	return &extendedSugaredLogger{
+		SugaredLogger: l.Named(name),
+		level:         l.level,
+	}
+}
+
+type LoggerOptions struct {
+	logLevel zapcore.Level
+	writer   io.Writer
+}
+
+type LoggerOption func(*LoggerOptions)
+
+func (o *LoggerOptions) Apply(opts ...LoggerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithLogLevel(l zapcore.Level) LoggerOption {
+	return func(o *LoggerOptions) {
+		o.logLevel = l
+	}
+}
+
+func WithWriter(w io.Writer) LoggerOption {
+	return func(o *LoggerOptions) {
+		o.writer = w
+	}
+}
+
+func New(opts ...LoggerOption) ExtendedSugaredLogger {
+	options := &LoggerOptions{
+		logLevel: zap.DebugLevel,
+	}
+	if inTest {
+		options.writer = ginkgo.GinkgoWriter
+	}
+	options.Apply(opts...)
 	encoderConfig := zapcore.EncoderConfig{
 		MessageKey:    "M",
 		LevelKey:      "L",
@@ -64,8 +129,18 @@ func New() *zap.SugaredLogger {
 		EncodeTime:       zapcore.TimeEncoderOfLayout("Jan 02 15:04:05"),
 		ConsoleSeparator: " ",
 	}
+	level := zap.NewAtomicLevelAt(options.logLevel)
+	if options.writer != nil {
+		ws := zapcore.Lock(zapcore.AddSync(options.writer))
+		encoder := zapcore.NewConsoleEncoder(encoderConfig)
+		core := zapcore.NewCore(encoder, ws, level)
+		return &extendedSugaredLogger{
+			SugaredLogger: zap.New(core).Sugar(),
+			level:         level,
+		}
+	}
 	zapConfig := zap.Config{
-		Level:             zap.NewAtomicLevelAt(zap.DebugLevel),
+		Level:             level,
 		Development:       false,
 		DisableCaller:     false,
 		DisableStacktrace: true,
@@ -79,21 +154,24 @@ func New() *zap.SugaredLogger {
 	if err != nil {
 		panic(err)
 	}
-	return lg.Sugar()
+	return &extendedSugaredLogger{
+		SugaredLogger: lg.Sugar(),
+		level:         level,
+	}
 }
 
-func AddToContext(ctx context.Context, lg *zap.SugaredLogger) context.Context {
+func AddToContext(ctx context.Context, lg ExtendedSugaredLogger) context.Context {
 	return context.WithValue(ctx, key, lg)
 }
 
-func FromContext(ctx context.Context) *zap.SugaredLogger {
-	lg, ok := ctx.Value(key).(*zap.SugaredLogger)
+func FromContext(ctx context.Context) ExtendedSugaredLogger {
+	lg, ok := ctx.Value(key).(ExtendedSugaredLogger)
 	if !ok {
 		panic("logger not found in context")
 	}
 	return lg
 }
 
-func ConfigureApp(app *fiber.App, lg *zap.SugaredLogger) {
+func ConfigureApp(app *fiber.App, lg SugaredLogger) {
 	app.Server().Logger = NewFasthttpLogger(lg)
 }

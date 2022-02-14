@@ -67,6 +67,9 @@ type Environment struct {
 }
 
 func (e *Environment) Start() error {
+	lg := e.Logger
+	lg.Info("Starting test environment")
+
 	e.ctx, e.cancel = context.WithCancel(context.Background())
 	var t gomock.TestReporter
 	if strings.HasSuffix(os.Args[0], ".test") {
@@ -125,7 +128,7 @@ func (e *Environment) Start() error {
 		return err
 	}
 	entries, _ := fs.ReadDir(TestDataFS, "testdata/cortex")
-	fmt.Printf("Copying %d files from embedded testdata/cortex to %s\n", len(entries), cortexTempDir)
+	lg.Infof("Copying %d files from embedded testdata/cortex to %s", len(entries), cortexTempDir)
 	for _, entry := range entries {
 		if err := os.WriteFile(path.Join(cortexTempDir, entry.Name()), TestData("cortex/"+entry.Name()), 0644); err != nil {
 			return err
@@ -182,6 +185,7 @@ func (e *Environment) Stop() error {
 }
 
 func (e *Environment) startEtcd() {
+	lg := e.Logger
 	defaultArgs := []string{
 		fmt.Sprintf("--listen-client-urls=http://localhost:%d", e.ports.Etcd),
 		fmt.Sprintf("--advertise-client-urls=http://localhost:%d", e.ports.Etcd),
@@ -201,7 +205,7 @@ func (e *Environment) startEtcd() {
 			return
 		}
 	}
-	fmt.Println("Waiting for etcd to start...")
+	lg.Info("Waiting for etcd to start...")
 	for e.ctx.Err() == nil {
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/health", e.ports.Etcd))
 		if err == nil {
@@ -211,7 +215,7 @@ func (e *Environment) startEtcd() {
 		}
 		time.Sleep(time.Second)
 	}
-	fmt.Println("Etcd started")
+	lg.Info("Etcd started")
 	e.waitGroup.Add(1)
 	go func() {
 		defer e.waitGroup.Done()
@@ -227,6 +231,7 @@ type cortexTemplateOptions struct {
 }
 
 func (e *Environment) startCortex() {
+	lg := e.Logger
 	configTemplate := TestData("cortex/config.yaml")
 	t := template.Must(template.New("config").Parse(string(configTemplate)))
 	configFile, err := os.Create(path.Join(e.tempDir, "cortex", "config.yaml"))
@@ -253,7 +258,7 @@ func (e *Environment) startCortex() {
 			panic(err)
 		}
 	}
-	fmt.Println("Waiting for cortex to start...")
+	lg.Info("Waiting for cortex to start...")
 	for e.ctx.Err() == nil {
 		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.Gateway), nil)
 		client := http.Client{
@@ -267,7 +272,7 @@ func (e *Environment) startCortex() {
 		}
 		time.Sleep(time.Second)
 	}
-	fmt.Println("Cortex started")
+	lg.Info("Cortex started")
 	e.waitGroup.Add(1)
 	go func() {
 		defer e.waitGroup.Done()
@@ -282,6 +287,7 @@ type prometheusTemplateOptions struct {
 }
 
 func (e *Environment) StartPrometheus(opniAgentPort int) int {
+	lg := e.Logger
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
@@ -316,7 +322,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 			panic(err)
 		}
 	}
-	fmt.Println("Waiting for prometheus to start...")
+	lg.Info("Waiting for prometheus to start...")
 	for e.ctx.Err() == nil {
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", port))
 		if err == nil && resp.StatusCode == http.StatusOK {
@@ -324,7 +330,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 		}
 		time.Sleep(time.Second)
 	}
-	fmt.Println("Prometheus started")
+	lg.Info("Prometheus started")
 	e.waitGroup.Add(1)
 	go func() {
 		defer e.waitGroup.Done()
@@ -399,16 +405,17 @@ func (e *Environment) NewManagementClient() management.ManagementClient {
 }
 
 func (e *Environment) startGateway() {
+	lg := e.Logger
 	e.gatewayConfig = e.newGatewayConfig()
 	g := gateway.NewGateway(e.gatewayConfig,
 		gateway.WithAuthMiddleware(e.gatewayConfig.Spec.AuthProvider),
 	)
 	go func() {
 		if err := g.Listen(); err != nil {
-			fmt.Println("gateway error:", err)
+			lg.Errorf("gateway error: %v", err)
 		}
 	}()
-	fmt.Println("Waiting for gateway to start...")
+	lg.Info("Waiting for gateway to start...")
 	for i := 0; i < 10; i++ {
 		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://%s/healthz",
 			e.gatewayConfig.Spec.ListenAddress), nil)
@@ -422,13 +429,13 @@ func (e *Environment) startGateway() {
 			break
 		}
 	}
-	fmt.Println("Gateway started")
+	lg.Info("Gateway started")
 	e.waitGroup.Add(1)
 	go func() {
 		defer e.waitGroup.Done()
 		<-e.ctx.Done()
 		if err := g.Shutdown(); err != nil {
-			fmt.Println("gateway error:", err)
+			lg.Errorf("gateway error: %v", err)
 		}
 	}()
 }
@@ -529,10 +536,10 @@ func (e *Environment) GatewayConfig() *v1beta1.GatewayConfig {
 }
 
 func StartStandaloneTestEnvironment() {
-	fmt.Println("Starting test environment")
+	lg := logger.New().Named("test")
 	environment := &Environment{
 		TestBin: "testbin/bin",
-		Logger:  logger.New().Named("test"),
+		Logger:  lg,
 	}
 	if err := environment.Start(); err != nil {
 		panic(err)
@@ -579,16 +586,16 @@ func StartStandaloneTestEnvironment() {
 	}
 	go func() {
 		addr := fmt.Sprintf("127.0.0.1:%d", port)
-		fmt.Println(chalk.Green.Color("Test environment API listening on " + addr))
+		lg.Infof(chalk.Green.Color("Test environment API listening on %s"), addr)
 		if err := http.ListenAndServe(addr, nil); err != nil {
 			panic(err)
 		}
 	}()
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	fmt.Println(chalk.Blue.Color("Press Ctrl+C to stop test environment"))
+	lg.Info(chalk.Blue.Color("Press Ctrl+C to stop test environment"))
 	<-c
-	fmt.Println("\nStopping test environment")
+	lg.Info("\nStopping test environment")
 	if err := environment.Stop(); err != nil {
 		panic(err)
 	}

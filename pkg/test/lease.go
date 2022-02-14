@@ -45,7 +45,10 @@ func (ls *LeaseStore) New(tokenID string, ttl time.Duration) *Lease {
 	sort.Slice(ls.leases, func(i, j int) bool {
 		return ls.leases[i].Expiration.Before(ls.leases[j].Expiration)
 	})
-	ls.refresh <- struct{}{}
+	select {
+	case ls.refresh <- struct{}{}:
+	default:
+	}
 	return l
 }
 

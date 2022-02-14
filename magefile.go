@@ -5,7 +5,9 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"path"
 	"runtime"
 	"strings"
 
@@ -34,6 +36,22 @@ func All() {
 
 func Generate() {
 	mg.Deps(mockgen.Mockgen, protobuf.Protobuf)
+}
+
+func HelmLint() error {
+	chartDirs, err := os.ReadDir("deploy/charts")
+	if err != nil {
+		return err
+	}
+	for _, chartDir := range chartDirs {
+		if !chartDir.IsDir() {
+			continue
+		}
+		if err := sh.Run("helm", "lint", path.Join("deploy/charts", chartDir.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // "prometheus, version x.y.z"
@@ -69,7 +87,7 @@ func k8sModuleVersion() string {
 func init() {
 	build.Deps(Generate)
 	docker.Deps(build.Build)
-	test.Deps(testbin.Testbin, build.Build)
+	test.Deps(testbin.Testbin, build.Build, HelmLint)
 
 	k8sVersion := k8sModuleVersion()
 

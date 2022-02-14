@@ -10,11 +10,11 @@ data:
     kind: GatewayConfig
     spec:
       plugins:
-        - dirs:
-            - /var/lib/opnim/plugins
-          {{- range $d := .Values.pluginSearchDirs }}
-            - {{ $d }}
-          {{- end }}
+        dirs:
+          - /var/lib/opnim/plugins
+        {{- range $d := .Values.pluginSearchDirs }}
+          - {{ $d }}
+        {{- end }}
       listenAddress: ":{{ .Values.service.port }}"
       management:
         grpcListenAddress: "{{ .Values.management.grpcListenAddress }}"

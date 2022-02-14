@@ -11,11 +11,18 @@ spec:
       port: {{ .Values.service.port }}
       targetPort: http
       protocol: TCP
-{{- if hasPrefix "tcp://" .Values.management.listenAddress }}
+{{- if hasPrefix "tcp://" .Values.management.grpcListenAddress }}
     - name: management
-{{- $a := split ":" .Values.management.listenAddress }}
+{{- $a := split ":" .Values.management.grpcListenAddress }}
       port: {{ $a._2 }}
       targetPort: management
+      protocol: TCP
+{{- end }}
+{{- if .Values.management.httpListenAddress }}
+    - name: management-http
+{{- $a := split ":" .Values.management.httpListenAddress }}
+      port: {{ $a._2 }}
+      targetPort: management-http
       protocol: TCP
 {{- end }}
 {{- if eq .Values.auth.provider "noauth" }}

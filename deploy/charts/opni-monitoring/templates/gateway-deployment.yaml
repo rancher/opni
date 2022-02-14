@@ -56,10 +56,15 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
-          {{- if hasPrefix "tcp://" .Values.management.listenAddress }}
+          {{- if hasPrefix "tcp://" .Values.management.grpcListenAddress }}
             - name: management
-          {{- $a := split ":" .Values.management.listenAddress }}
+          {{- $a := split ":" .Values.management.grpcListenAddress }}
               containerPort: {{ $a._2 }}
+              protocol: TCP
+          {{- end }}
+          {{- if .Values.management.httpListenAddress }}
+            - name: management-http
+              containerPort: {{ .Values.management.httpListenPort }}
               protocol: TCP
           {{- end }}
           {{- if eq .Values.auth.provider "noauth" }}

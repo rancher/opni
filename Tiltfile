@@ -49,7 +49,7 @@ k8s_yaml(helm('deploy/charts/opni-monitoring',
     values=['deploy/custom/opni-monitoring.yaml'],
     set=[
         'gateway.dnsNames={%s}' % hostname,
-        'management.listenAddress=tcp://0.0.0.0:9999',
+        'management.grpcListenAddress=tcp://0.0.0.0:9999',
     ]
 ))
 

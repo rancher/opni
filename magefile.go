@@ -94,6 +94,9 @@ func init() {
 	build.Config.ExtraTargets = map[string]string{
 		"./plugins/example": "bin/plugin_example",
 	}
+	build.Config.ExtraEnv = map[string]string{
+		"GOOS": "linux",
+	}
 	mockgen.Config.Mocks = []mockgen.Mock{
 		{
 			Source: "pkg/rbac/rbac.go",

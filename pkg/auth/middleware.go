@@ -66,3 +66,7 @@ func GetMiddleware(name string) (NamedMiddleware, error) {
 	}
 	return nil, fmt.Errorf("%w: %s", ErrMiddlewareNotFound, name)
 }
+
+func ResetMiddlewares() {
+	authMiddlewares = make(map[string]Middleware)
+}

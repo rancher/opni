@@ -32,5 +32,6 @@ func BuildManageCmd() *cobra.Command {
 	manageCmd.AddCommand(BuildRolesCmd())
 	manageCmd.AddCommand(BuildRoleBindingsCmd())
 	manageCmd.AddCommand(BuildAccessMatrixCmd())
+	manageCmd.AddCommand(BuildDebugCmd())
 	return manageCmd
 }

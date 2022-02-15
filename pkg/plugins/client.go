@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"os"
 	"os/exec"
 
 	"github.com/hashicorp/go-plugin"
@@ -19,7 +20,9 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme) *plugin.ClientConfig {
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		Managed:          true,
 		Cmd:              exec.Command(md.Path),
-		Logger:           logger.NewHCLogger(logger.New()),
+		Logger:           logger.NewHCLogger(logger.New()).Named("plugin"),
+		SyncStdout:       os.Stdout,
+		SyncStderr:       os.Stderr,
 	}
 }
 
@@ -28,7 +31,7 @@ func ServeConfig(scheme meta.Scheme) *plugin.ServeConfig {
 		HandshakeConfig: Handshake,
 		Plugins:         scheme.PluginMap(),
 		GRPCServer:      plugin.DefaultGRPCServer,
-		Logger:          logger.NewHCLogger(logger.New()),
+		Logger:          logger.NewForPlugin(),
 	}
 }
 

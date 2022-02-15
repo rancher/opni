@@ -83,12 +83,19 @@ type systemPluginHandler struct {
 func (s *systemPluginHandler) ServeManagementAPI(api management.ManagementServer) {
 	id := s.broker.NextId()
 	var srv *grpc.Server
+	wait := make(chan struct{})
 	go s.broker.AcceptAndServe(id, func(so []grpc.ServerOption) *grpc.Server {
+		defer close(wait)
 		srv = grpc.NewServer(so...)
+		go func() {
+			<-s.ctx.Done()
+			srv.GracefulStop()
+		}()
 		management.RegisterManagementServer(srv, api)
 		return srv
 	})
 	done := make(chan struct{})
+	<-wait
 	go func() {
 		defer close(done)
 		if _, err := s.client.UseManagementAPI(s.ctx, &BrokerID{
@@ -101,7 +108,9 @@ func (s *systemPluginHandler) ServeManagementAPI(api management.ManagementServer
 	case <-s.ctx.Done():
 	case <-done:
 	}
-	srv.Stop()
+	if srv != nil {
+		srv.Stop()
+	}
 }
 
 func init() {

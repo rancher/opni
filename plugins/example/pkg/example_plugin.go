@@ -5,12 +5,14 @@ import (
 	"log"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type ExamplePlugin struct {
 	UnimplementedExampleAPIExtensionServer
+	Logger hclog.Logger
 }
 
 func (s *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse, error) {
@@ -20,7 +22,8 @@ func (s *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse
 }
 
 func (s *ExamplePlugin) UseManagementAPI(api management.ManagementClient) {
-	log.Println("[example] querying management API...")
+	lg := s.Logger
+	lg.Info("querying management API...")
 	var list *management.APIExtensionInfoList
 	for {
 		var err error
@@ -35,6 +38,6 @@ func (s *ExamplePlugin) UseManagementAPI(api management.ManagementClient) {
 		break
 	}
 	for _, ext := range list.Items {
-		log.Println("[example] found api extension service: " + ext.ServiceDesc.GetName())
+		lg.Info("found API extension service", "name", ext.ServiceDesc.GetName())
 	}
 }

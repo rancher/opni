@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/hashicorp/go-hclog"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
@@ -28,7 +29,26 @@ var (
 		"\\____/ .___/_/ /_/_/_/ /_/ /_/ \n" +
 		"    /_/                        \n" +
 		"Multi-(Cluster|Tenant) Monitoring for Kubernetes\n"
+
+	levelToColor = map[zapcore.Level]chalk.Color{
+		zapcore.DebugLevel:  chalk.Magenta,
+		zapcore.InfoLevel:   chalk.Blue,
+		zapcore.WarnLevel:   chalk.Yellow,
+		zapcore.ErrorLevel:  chalk.Red,
+		zapcore.DPanicLevel: chalk.Red,
+		zapcore.PanicLevel:  chalk.Red,
+		zapcore.FatalLevel:  chalk.Red,
+	}
+	unknownLevelColor = chalk.Red
+
+	levelToColorString = make(map[zapcore.Level]string, len(levelToColor))
 )
+
+func init() {
+	for level, color := range levelToColor {
+		levelToColorString[level] = color.Color(level.CapitalString())
+	}
+}
 
 func AsciiLogo() string {
 	if ColorEnabled() {
@@ -73,6 +93,7 @@ func (l *extendedSugaredLogger) XNamed(name string) ExtendedSugaredLogger {
 type LoggerOptions struct {
 	logLevel zapcore.Level
 	writer   io.Writer
+	color    *bool
 }
 
 type LoggerOption func(*LoggerOptions)
@@ -95,6 +116,12 @@ func WithWriter(w io.Writer) LoggerOption {
 	}
 }
 
+func WithColor(color bool) LoggerOption {
+	return func(o *LoggerOptions) {
+		o.color = &color
+	}
+}
+
 func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	options := &LoggerOptions{
 		logLevel: zap.DebugLevel,
@@ -103,6 +130,12 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 		options.writer = ginkgo.GinkgoWriter
 	}
 	options.Apply(opts...)
+	var color bool
+	if options.color != nil {
+		color = *options.color
+	} else {
+		color = ColorEnabled()
+	}
 	encoderConfig := zapcore.EncoderConfig{
 		MessageKey:    "M",
 		LevelKey:      "L",
@@ -112,21 +145,27 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 		FunctionKey:   "",
 		StacktraceKey: "S",
 		LineEnding:    "\n",
-		EncodeLevel: func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-			if ColorEnabled() {
-				zapcore.CapitalColorLevelEncoder(l, enc)
+		EncodeLevel:   zapcore.CapitalColorLevelEncoder,
+		EncodeCaller: func(ec zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+			if color {
+				enc.AppendString(TextStyle(ec.TrimmedPath(), chalk.Dim))
 			} else {
-				zapcore.CapitalLevelEncoder(l, enc)
+				enc.AppendString(ec.TrimmedPath())
 			}
 		},
-		EncodeCaller: func(ec zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
-			enc.AppendString(TextStyle(ec.TrimmedPath(), chalk.Dim))
-		},
 		EncodeName: func(s string, enc zapcore.PrimitiveArrayEncoder) {
-			enc.AppendString(Color(s, chalk.Green))
+			if color {
+				if strings.HasPrefix(s, "plugin.") {
+					enc.AppendString(Color(s, chalk.Cyan))
+				} else {
+					enc.AppendString(Color(s, chalk.Green))
+				}
+			} else {
+				enc.AppendString(s)
+			}
 		},
 		EncodeDuration:   zapcore.SecondsDurationEncoder,
-		EncodeTime:       zapcore.TimeEncoderOfLayout("Jan 02 15:04:05"),
+		EncodeTime:       zapcore.ISO8601TimeEncoder,
 		ConsoleSeparator: " ",
 	}
 	level := zap.NewAtomicLevelAt(options.logLevel)
@@ -148,7 +187,7 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 		Encoding:          "console",
 		EncoderConfig:     encoderConfig,
 		OutputPaths:       []string{"stdout"},
-		ErrorOutputPaths:  []string{"stdout"},
+		ErrorOutputPaths:  []string{"stderr"},
 	}
 	lg, err := zapConfig.Build()
 	if err != nil {
@@ -174,4 +213,16 @@ func FromContext(ctx context.Context) ExtendedSugaredLogger {
 
 func ConfigureApp(app *fiber.App, lg SugaredLogger) {
 	app.Server().Logger = NewFasthttpLogger(lg)
+}
+
+func NewForPlugin() hclog.Logger {
+	opts := &hclog.LoggerOptions{
+		Level:       hclog.Debug,
+		JSONFormat:  true,
+		DisableTime: true,
+	}
+	if inTest {
+		opts.Output = ginkgo.GinkgoWriter
+	}
+	return hclog.New(opts)
 }

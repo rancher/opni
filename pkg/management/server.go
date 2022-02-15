@@ -12,6 +12,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/mwitkow/grpc-proxy/proxy"
+	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/logger"
@@ -61,6 +62,7 @@ type ManagementServerOptions struct {
 	tokenStore   storage.TokenStore
 	clusterStore storage.ClusterStore
 	rbacStore    storage.RBACStore
+	lifecycler   config.Lifecycler
 	tlsConfig    *tls.Config
 	plugins      []plugins.ActivePlugin
 }
@@ -100,6 +102,12 @@ func TLSConfig(config *tls.Config) ManagementServerOption {
 func APIExtensions(exts []plugins.ActivePlugin) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
 		o.plugins = append(o.plugins, exts...)
+	}
+}
+
+func Lifecycler(lc config.Lifecycler) ManagementServerOption {
+	return func(o *ManagementServerOptions) {
+		o.lifecycler = lc
 	}
 }
 

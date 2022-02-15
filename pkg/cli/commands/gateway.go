@@ -3,7 +3,9 @@ package commands
 import (
 	"errors"
 	"os"
+	"sync/atomic"
 
+	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/auth/noauth"
 	"github.com/rancher/opni-monitoring/pkg/auth/openid"
@@ -12,6 +14,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/gateway"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/spf13/cobra"
+	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 )
 
@@ -85,12 +88,44 @@ func BuildGatewayCmd() *cobra.Command {
 			},
 		)
 
+		lifecycler := config.NewLifecycler(objects)
 		g := gateway.NewGateway(gatewayConfig,
+			gateway.WithLifecycler(lifecycler),
 			gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
-			gateway.WithPrefork(false),
 		)
 
-		return g.Listen()
+		reloadC := make(chan struct{})
+		go func() {
+			c, err := lifecycler.ReloadC()
+			if err != nil {
+				lg.With(
+					zap.Error(err),
+				).Fatal("failed to get reload channel from lifecycler")
+			}
+			<-c
+			lg.Info(chalk.Yellow.Color("--- received reload signal ---"))
+			lg.Info("attempting to gracefully stop gateway server")
+			if err := g.Shutdown(); err != nil {
+				lg.With(
+					zap.Error(err),
+				).Fatal("error when stopping gateway server")
+			}
+			reloadC <- struct{}{}
+		}()
+
+		if err := g.Listen(); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("gateway server exited with error")
+			return err
+		}
+
+		<-reloadC
+		lg.Info(chalk.Yellow.Color("gateway server stopped successfully"))
+		auth.ResetMiddlewares()
+		lg.Info(chalk.Yellow.Color("reloading"))
+		atomic.StoreUint32(&plugin.Killed, 0)
+		return nil
 	}
 
 	serveCmd := &cobra.Command{

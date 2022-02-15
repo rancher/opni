@@ -17,19 +17,22 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/auth/cluster"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
 	"github.com/rancher/opni-monitoring/pkg/config"
+	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
-	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
+	pluginmeta "github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"github.com/rancher/opni-monitoring/pkg/rbac"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/storage/etcd"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type Gateway struct {
@@ -49,9 +52,28 @@ func default404Handler(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNotFound)
 }
 
+// If no lifecycler is provided, fall back to one with limited functionality
+type fallbackLifecycler struct {
+	objects meta.ObjectList
+}
+
+func (l *fallbackLifecycler) ReloadC() (chan struct{}, error) {
+	return nil, status.Error(codes.Unavailable, "lifecycler not available")
+}
+
+func (l *fallbackLifecycler) GetObjectList() (meta.ObjectList, error) {
+	return l.objects, nil
+}
+func (l *fallbackLifecycler) UpdateObjectList(objects meta.ObjectList) error {
+	return status.Error(codes.Unavailable, "lifecycler not available")
+}
+
 func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	options := GatewayOptions{
 		fiberMiddlewares: []FiberMiddleware{},
+		lifecycler: &fallbackLifecycler{
+			objects: meta.ObjectList{conf},
+		},
 	}
 	options.Apply(opts...)
 
@@ -130,6 +152,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		management.RBACStore(rbacStore),
 		management.TLSConfig(tlsConfig),
 		management.APIExtensions(apiExtensionPlugins),
+		management.Lifecycler(options.lifecycler),
 	)
 
 	g := &Gateway{
@@ -375,7 +398,7 @@ func loadPlugins(conf v1beta1.PluginsSpec) {
 			continue
 		}
 		for _, p := range pluginPaths {
-			cc := plugins.ClientConfig(meta.PluginMeta{
+			cc := plugins.ClientConfig(pluginmeta.PluginMeta{
 				Path: p,
 			}, plugins.Scheme)
 			plugins.Load(cc)

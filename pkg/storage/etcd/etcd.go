@@ -3,6 +3,7 @@ package etcd
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"path"
 	"time"
@@ -56,8 +57,8 @@ func WithNamespace(namespace string) EtcdStoreOption {
 	}
 }
 
-func NewEtcdStore(conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) *EtcdStore {
-	options := &EtcdStoreOptions{}
+func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) *EtcdStore {
+	options := EtcdStoreOptions{}
 	options.Apply(opts...)
 	lg := logger.New().Named("etcd")
 	var tlsConfig *tls.Config
@@ -71,6 +72,7 @@ func NewEtcdStore(conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) *EtcdS
 	clientConfig := clientv3.Config{
 		Endpoints: conf.Endpoints,
 		TLS:       tlsConfig,
+		Context:   ctx,
 	}
 	cli, err := clientv3.New(clientConfig)
 	if err != nil {
@@ -82,7 +84,9 @@ func NewEtcdStore(conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) *EtcdS
 		"endpoints", clientConfig.Endpoints,
 	).Info("connecting to etcd")
 	return &EtcdStore{
-		client: cli,
+		EtcdStoreOptions: options,
+		logger:           lg,
+		client:           cli,
 	}
 }
 
@@ -90,6 +94,11 @@ type clusterKeyringStore struct {
 	client     *clientv3.Client
 	clusterRef *core.Reference
 	namespace  string
+}
+
+type genericKeyValueStore struct {
+	client    *clientv3.Client
+	namespace string
 }
 
 func (e *EtcdStore) KeyringStore(ctx context.Context, ref *core.Reference) (storage.KeyringStore, error) {
@@ -129,4 +138,51 @@ func (ks *clusterKeyringStore) Get(ctx context.Context) (keyring.Keyring, error)
 		return nil, fmt.Errorf("failed to unmarshal keyring: %w", err)
 	}
 	return k, nil
+}
+
+func (e *EtcdStore) NewKeyValueStore(namespace string) (storage.KeyValueStore, error) {
+	return &genericKeyValueStore{
+		client:    e.client,
+		namespace: namespace,
+	}, nil
+}
+
+func (s *genericKeyValueStore) Put(ctx context.Context, key string, value []byte) error {
+	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	defer ca()
+	_, err := s.client.Put(ctx, path.Join(s.namespace, key), base64.StdEncoding.EncodeToString(value))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *genericKeyValueStore) Get(ctx context.Context, key string) ([]byte, error) {
+	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	defer ca()
+	resp, err := s.client.Get(ctx, path.Join(s.namespace, key))
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Kvs) == 0 {
+		return nil, storage.ErrNotFound
+	}
+	return base64.StdEncoding.DecodeString(string(resp.Kvs[0].Value))
+}
+
+func (s *genericKeyValueStore) ListKeys(ctx context.Context, prefix string) ([]string, error) {
+	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	defer ca()
+	resp, err := s.client.Get(ctx, path.Join(s.namespace, prefix),
+		clientv3.WithPrefix(),
+		clientv3.WithKeysOnly(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]string, len(resp.Kvs))
+	for i, kv := range resp.Kvs {
+		keys[i] = string(kv.Key)
+	}
+	return keys, nil
 }

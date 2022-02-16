@@ -17,63 +17,92 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/auth/cluster"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
 	"github.com/rancher/opni-monitoring/pkg/config"
+	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
-	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
+	pluginmeta "github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"github.com/rancher/opni-monitoring/pkg/rbac"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/storage/etcd"
 	"github.com/rancher/opni-monitoring/pkg/util"
+	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
+	"golang.org/x/mod/module"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type Gateway struct {
 	GatewayOptions
-	config              *config.GatewayConfig
-	app                 *fiber.App
-	logger              *zap.SugaredLogger
-	managementServer    *management.Server
-	managementCtx       context.Context
-	managementCtxCancel context.CancelFunc
-	tlsConfig           *tls.Config
-	cortexTLSConfig     *tls.Config
-	servingCertBundle   *tls.Certificate
+	config            *config.GatewayConfig
+	ctx               context.Context
+	app               *fiber.App
+	logger            *zap.SugaredLogger
+	managementServer  *management.Server
+	tlsConfig         *tls.Config
+	cortexTLSConfig   *tls.Config
+	servingCertBundle *tls.Certificate
+	pluginLoader      *plugins.PluginLoader
+	kvBroker          storage.KeyValueStoreBroker
 }
 
 func default404Handler(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNotFound)
 }
 
-func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
+// If no lifecycler is provided, fall back to one with limited functionality
+type fallbackLifecycler struct {
+	objects meta.ObjectList
+}
+
+func (l *fallbackLifecycler) ReloadC() (chan struct{}, error) {
+	return nil, status.Error(codes.Unavailable, "lifecycler not available")
+}
+
+func (l *fallbackLifecycler) GetObjectList() (meta.ObjectList, error) {
+	return l.objects, nil
+}
+func (l *fallbackLifecycler) UpdateObjectList(objects meta.ObjectList) error {
+	return status.Error(codes.Unavailable, "lifecycler not available")
+}
+
+func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	options := GatewayOptions{
 		fiberMiddlewares: []FiberMiddleware{},
+		lifecycler: &fallbackLifecycler{
+			objects: meta.ObjectList{conf},
+		},
 	}
 	options.Apply(opts...)
 
 	lg := logger.New().Named("gateway")
+	pluginLoader := plugins.NewPluginLoader()
 
-	loadPlugins(conf.Spec.Plugins)
+	loadPlugins(pluginLoader, conf.Spec.Plugins)
 
 	var tokenStore storage.TokenStore
 	var clusterStore storage.ClusterStore
 	var rbacStore storage.RBACStore
+	var kvBroker storage.KeyValueStoreBroker
+
 	switch conf.Spec.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
 		options := conf.Spec.Storage.Etcd
 		if options == nil {
 			lg.Fatal("etcd storage options are not set")
 		} else {
-			store := etcd.NewEtcdStore(conf.Spec.Storage.Etcd,
+			store := etcd.NewEtcdStore(ctx, conf.Spec.Storage.Etcd,
 				etcd.WithNamespace("gateway"),
 			)
 			tokenStore = store
 			clusterStore = store
 			rbacStore = store
+			kvBroker = store
 		}
 	default:
 		lg.With(
@@ -122,24 +151,28 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		Certificates: []tls.Certificate{*servingCertBundle},
 	}
 
-	apiExtensionPlugins := plugins.DispenseAll(apiextensions.ManagementAPIExtensionPluginID)
+	apiExtensionPlugins := pluginLoader.DispenseAll(apiextensions.ManagementAPIExtensionPluginID)
 
-	mgmtSrv := management.NewServer(&conf.Spec.Management,
+	mgmtSrv := management.NewServer(ctx, &conf.Spec.Management,
 		management.TokenStore(tokenStore),
 		management.ClusterStore(clusterStore),
 		management.RBACStore(rbacStore),
 		management.TLSConfig(tlsConfig),
 		management.APIExtensions(apiExtensionPlugins),
+		management.Lifecycler(options.lifecycler),
 	)
 
 	g := &Gateway{
 		GatewayOptions:    options,
+		ctx:               ctx,
 		config:            conf,
 		app:               app,
 		logger:            lg,
 		managementServer:  mgmtSrv,
 		tlsConfig:         tlsConfig,
 		servingCertBundle: servingCertBundle,
+		pluginLoader:      pluginLoader,
+		kvBroker:          kvBroker,
 	}
 	g.loadCortexCerts()
 	g.setupCortexRoutes(app, rbacStore, clusterStore)
@@ -152,23 +185,56 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 
 	app.Use(default404Handler)
 
+	waitctx.AddOne(ctx)
+	go func() {
+		defer waitctx.Done(ctx)
+		<-ctx.Done()
+		lg.Info("shutting down plugins")
+		plugin.CleanupClients()
+	}()
+
 	return g
 }
 
 func (g *Gateway) Listen() error {
-	g.managementCtx, g.managementCtxCancel =
-		context.WithCancel(context.Background())
+	lg := g.logger
 	go func() {
-		if err := g.managementServer.ListenAndServe(g.managementCtx); err != nil {
-			g.logger.Error(err)
+		if err := g.managementServer.ListenAndServe(); err != nil {
+			g.logger.With(
+				zap.Error(err),
+			).Warn("management server stopped")
+		}
+	}()
+	waitctx.AddOne(g.ctx)
+	go func() {
+		defer waitctx.Done(g.ctx)
+		<-g.ctx.Done()
+		lg.Info("shutting down gateway api")
+		if err := g.app.Shutdown(); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("error shutting down gateway api")
 		}
 	}()
 
-	systemPlugins := plugins.DispenseAll(system.SystemPluginID)
+	systemPlugins := g.pluginLoader.DispenseAll(system.SystemPluginID)
 	g.logger.Infof("serving management api for %d system plugins", len(systemPlugins))
 	for _, systemPlugin := range systemPlugins {
 		srv := systemPlugin.Raw.(system.SystemPluginServer)
+		ns := systemPlugin.Metadata.Module
+		if err := module.CheckPath(ns); err != nil {
+			g.logger.With(
+				zap.String("namespace", ns),
+				zap.Error(err),
+			).Warn("system plugin module name is invalid")
+			continue
+		}
+		store, err := g.kvBroker.NewKeyValueStore(ns)
+		if err != nil {
+			return err
+		}
 		go srv.ServeManagementAPI(g.managementServer)
+		go srv.ServeKeyValueStore(store)
 	}
 
 	if g.servingCertBundle == nil {
@@ -184,12 +250,6 @@ func (g *Gateway) Listen() error {
 		"address", listener.Addr().String(),
 	).Info("gateway server starting")
 	return g.app.Listener(listener)
-}
-
-func (g *Gateway) Shutdown() error {
-	g.managementCtxCancel()
-	plugin.CleanupClients()
-	return g.app.Shutdown()
 }
 
 func (g *Gateway) newCortexForwarder(addr string) func(*fiber.Ctx) error {
@@ -368,17 +428,22 @@ func loadServingCertBundle(certsSpec v1beta1.CertsSpec) (*tls.Certificate, error
 	return &servingCert, nil
 }
 
-func loadPlugins(conf v1beta1.PluginsSpec) {
+func loadPlugins(loader *plugins.PluginLoader, conf v1beta1.PluginsSpec) {
 	for _, dir := range conf.Dirs {
 		pluginPaths, err := plugin.Discover("plugin_*", dir)
 		if err != nil {
 			continue
 		}
 		for _, p := range pluginPaths {
-			cc := plugins.ClientConfig(meta.PluginMeta{
-				Path: p,
-			}, plugins.Scheme)
-			plugins.Load(cc)
+			md, err := pluginmeta.ReadMetadata(p)
+			if err != nil {
+				loader.Logger.With(
+					zap.String("plugin", p),
+				).Error("failed to read plugin metadata", zap.Error(err))
+				continue
+			}
+			cc := plugins.ClientConfig(md, plugins.Scheme)
+			loader.Load(md, cc)
 		}
 	}
 }

@@ -121,6 +121,17 @@ service Management {
       get: "/management/apiextensions"
     };
   }
+  rpc GetConfig(google.protobuf.Empty) returns (GatewayConfig) {
+    option (google.api.http) = {
+      get: "/management/config"
+    };
+  }
+  rpc UpdateConfig(UpdateConfigRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/management/config"
+      body: "*"
+    };
+  }
 }
 
 message CreateBootstrapTokenRequest {
@@ -168,4 +179,21 @@ message APIExtensionInfo {
 message HTTPRuleDescriptor {
   google.api.HttpRule http = 1;
   google.protobuf.MethodDescriptorProto method = 2;
+}
+
+message GatewayConfig {
+  repeated ConfigDocumentWithSchema documents = 1;
+}
+
+message ConfigDocumentWithSchema {
+  bytes json = 1;
+  bytes schema = 2;
+}
+
+message ConfigDocument {
+  bytes json = 1;
+}
+
+message UpdateConfigRequest {
+  repeated ConfigDocument documents = 1;
 }

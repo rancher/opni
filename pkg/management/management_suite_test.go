@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -15,6 +16,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/test"
+	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"google.golang.org/grpc"
 )
 
@@ -41,7 +43,7 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 		} else {
 			tv.ctrl = gomock.NewController(GinkgoT())
 		}
-		ctx, ca := context.WithCancel(context.Background())
+		ctx, ca := context.WithCancel(waitctx.FromContext(context.Background()))
 		tv.clusterStore = test.NewTestClusterStore(tv.ctrl)
 		tv.tokenStore = test.NewTestTokenStore(ctx, tv.ctrl)
 		tv.rbacStore = test.NewTestRBACStore(tv.ctrl)
@@ -53,7 +55,7 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 		}
 		cert, err := tls.X509KeyPair(test.TestData("localhost.crt"), test.TestData("localhost.key"))
 		Expect(err).NotTo(HaveOccurred())
-		server := management.NewServer(conf,
+		server := management.NewServer(ctx, conf,
 			append([]management.ManagementServerOption{
 				management.ClusterStore(tv.clusterStore),
 				management.TokenStore(tv.tokenStore),
@@ -64,7 +66,7 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 			}, opts...)...)
 		go func() {
 			defer GinkgoRecover()
-			if err := server.ListenAndServe(ctx); err != nil {
+			if err := server.ListenAndServe(); err != nil {
 				log.Println(err)
 			}
 		}()
@@ -76,6 +78,9 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 		tv.grpcEndpoint = fmt.Sprintf("127.0.0.1:%d", ports[0])
 		tv.httpEndpoint = fmt.Sprintf("http://127.0.0.1:%d", ports[1])
 		*vars = tv
-		DeferCleanup(ca)
+		DeferCleanup(func() {
+			ca()
+			waitctx.Wait(ctx, 5*time.Second)
+		})
 	}
 }

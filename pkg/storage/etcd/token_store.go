@@ -49,7 +49,7 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, ref *core.Reference) error 
 	}
 	// If the token has a lease, revoke it, which will delete the token.
 	if t.Metadata.LeaseID != 0 {
-		_, err := e.client.Revoke(context.Background(), clientv3.LeaseID(t.Metadata.LeaseID))
+		_, err := e.client.Revoke(ctx, clientv3.LeaseID(t.Metadata.LeaseID))
 		if err != nil {
 			return fmt.Errorf("failed to revoke lease: %w", err)
 		}

@@ -60,6 +60,6 @@ func NewApiExtensionTestPlugin(
 		Plugins:         scheme.PluginMap(),
 		Reattach:        <-ch,
 		Managed:         true,
-		Logger:          logger.NewHCLogger(logger.New()),
+		Logger:          logger.NewHCLogger(logger.New()).Named("plugin"),
 	}
 }

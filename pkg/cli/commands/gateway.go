@@ -1,9 +1,12 @@
 package commands
 
 import (
+	"context"
 	"errors"
 	"os"
+	"sync/atomic"
 
+	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/auth/noauth"
 	"github.com/rancher/opni-monitoring/pkg/auth/openid"
@@ -11,7 +14,9 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/gateway"
 	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/spf13/cobra"
+	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 )
 
@@ -38,6 +43,7 @@ func BuildGatewayCmd() *cobra.Command {
 			configLocation = path
 		}
 
+		ctx, cancel := context.WithCancel(waitctx.FromContext(context.Background()))
 		objects, err := config.LoadObjectsFromFile(configLocation)
 		if err != nil {
 			lg.With(
@@ -54,7 +60,7 @@ func BuildGatewayCmd() *cobra.Command {
 			func(ap *v1beta1.AuthProvider) {
 				switch ap.Spec.Type {
 				case v1beta1.AuthProviderOpenID:
-					mw, err := openid.New(ap.Spec)
+					mw, err := openid.New(ctx, ap.Spec)
 					if err != nil {
 						lg.With(
 							zap.Error(err),
@@ -66,7 +72,7 @@ func BuildGatewayCmd() *cobra.Command {
 						).Fatal("failed to register OpenID auth provider")
 					}
 				case v1beta1.AuthProviderNoAuth:
-					mw, err := noauth.New(ap.Spec)
+					mw, err := noauth.New(ctx, ap.Spec)
 					if err != nil {
 						lg.With(
 							zap.Error(err),
@@ -85,12 +91,44 @@ func BuildGatewayCmd() *cobra.Command {
 			},
 		)
 
-		g := gateway.NewGateway(gatewayConfig,
+		lifecycler := config.NewLifecycler(objects)
+		g := gateway.NewGateway(ctx, gatewayConfig,
+			gateway.WithLifecycler(lifecycler),
 			gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
-			gateway.WithPrefork(false),
 		)
 
-		return g.Listen()
+		style := chalk.Yellow.NewStyle().
+			WithBackground(chalk.ResetColor).
+			WithTextStyle(chalk.Bold)
+		reloadC := make(chan struct{})
+		go func() {
+			c, err := lifecycler.ReloadC()
+			if err != nil {
+				lg.With(
+					zap.Error(err),
+				).Fatal("failed to get reload channel from lifecycler")
+			}
+			<-c
+			lg.Info(style.Style("--- received reload signal ---"))
+			cancel()
+			close(reloadC)
+		}()
+
+		if err := g.Listen(); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("gateway server exited with error")
+			return err
+		}
+
+		<-reloadC
+		lg.Info(style.Style("waiting for servers to shut down"))
+		waitctx.Wait(ctx)
+
+		auth.ResetMiddlewares()
+		atomic.StoreUint32(&plugin.Killed, 0)
+		lg.Info(style.Style("--- reloading ---"))
+		return nil
 	}
 
 	serveCmd := &cobra.Command{

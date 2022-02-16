@@ -6,12 +6,14 @@ import (
 	"crypto/x509"
 	_ "embed"
 	"errors"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/mwitkow/grpc-proxy/proxy"
+	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/logger"
@@ -21,6 +23,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/rbac"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/util"
+	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -51,6 +54,7 @@ type Server struct {
 	config       *v1beta1.ManagementSpec
 	logger       *zap.SugaredLogger
 	rbacProvider rbac.Provider
+	ctx          context.Context
 
 	apiExtensions []apiExtension
 }
@@ -61,6 +65,7 @@ type ManagementServerOptions struct {
 	tokenStore   storage.TokenStore
 	clusterStore storage.ClusterStore
 	rbacStore    storage.RBACStore
+	lifecycler   config.Lifecycler
 	tlsConfig    *tls.Config
 	plugins      []plugins.ActivePlugin
 }
@@ -103,7 +108,13 @@ func APIExtensions(exts []plugins.ActivePlugin) ManagementServerOption {
 	}
 }
 
-func NewServer(conf *v1beta1.ManagementSpec, opts ...ManagementServerOption) *Server {
+func Lifecycler(lc config.Lifecycler) ManagementServerOption {
+	return func(o *ManagementServerOptions) {
+		o.lifecycler = lc
+	}
+}
+
+func NewServer(ctx context.Context, conf *v1beta1.ManagementSpec, opts ...ManagementServerOption) *Server {
 	options := ManagementServerOptions{}
 	options.Apply(opts...)
 	if options.tokenStore == nil {
@@ -117,71 +128,88 @@ func NewServer(conf *v1beta1.ManagementSpec, opts ...ManagementServerOption) *Se
 	}
 	return &Server{
 		ManagementServerOptions: options,
+		ctx:                     ctx,
 		config:                  conf,
 		logger:                  logger.New().Named("mgmt"),
 		rbacProvider:            storage.NewRBACProvider(options.rbacStore, options.clusterStore),
 	}
 }
 
-func (m *Server) ListenAndServe(ctx context.Context) error {
+func (m *Server) ListenAndServe() error {
 	if m.config.GRPCListenAddress == "" {
 		return errors.New("GRPCListenAddress not configured")
 	}
 	lg := m.logger
-	listener, err := util.NewProtocolListener(ctx, m.config.GRPCListenAddress)
+	listener, err := util.NewProtocolListener(m.config.GRPCListenAddress)
 	if err != nil {
 		return err
 	}
-	m.logger.With(
+	lg.With(
 		"address", listener.Addr().String(),
 	).Info("management gRPC server starting")
-	director := m.configureApiExtensionDirector()
+	director := m.configureApiExtensionDirector(m.ctx)
 	srv := grpc.NewServer(
 		grpc.Creds(insecure.NewCredentials()),
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
 	)
 	RegisterManagementServer(srv, m)
+	waitctx.AddOne(m.ctx)
 	go func() {
-		<-ctx.Done()
-		srv.Stop()
+		defer waitctx.Done(m.ctx)
+		<-m.ctx.Done()
+		srv.GracefulStop()
 	}()
-	if httpAddr := m.config.HTTPListenAddress; httpAddr != "" {
-		m.logger.With(
-			"address", httpAddr,
-		).Info("management HTTP server starting")
-		mux := http.NewServeMux()
-		mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, _ *http.Request) {
-			if _, err := w.Write(OpenAPISpec()); err != nil {
-				lg.Error(err)
-			}
-		})
-		gwmux := runtime.NewServeMux()
-		if err := RegisterManagementHandlerFromEndpoint(ctx, gwmux, listener.Addr().String(),
-			[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
-			return err
-		}
-		m.configureHttpApiExtensions(gwmux)
-		mux.Handle("/", gwmux)
-		server := &http.Server{
-			Addr:    httpAddr,
-			Handler: mux,
-		}
-		defer func() {
-			if err := server.Close(); err != nil {
-				lg.With(
-					zap.Error(err),
-				).Error("failed to close http gateway")
-			}
-		}()
-		go func() {
-			if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				lg.With(
-					zap.Error(err),
-				).Error("http gateway exited with error")
-			}
-		}()
+	if m.config.HTTPListenAddress != "" {
+		go m.listenAndServeHttp(listener)
 	}
+
+	waitctx.AddOne(m.ctx)
+	defer waitctx.Done(m.ctx)
 	return srv.Serve(listener)
+}
+
+func (m *Server) listenAndServeHttp(listener net.Listener) {
+	lg := m.logger
+	lg.With(
+		"address", m.config.HTTPListenAddress,
+	).Info("management HTTP server starting")
+	mux := http.NewServeMux()
+	mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := w.Write(OpenAPISpec()); err != nil {
+			lg.Error(err)
+		}
+	})
+	gwmux := runtime.NewServeMux()
+	if err := RegisterManagementHandlerFromEndpoint(m.ctx, gwmux, listener.Addr().String(),
+		[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
+		lg.With(
+			zap.Error(err),
+		).Fatal("failed to register management handler")
+	}
+	m.configureHttpApiExtensions(gwmux)
+	mux.Handle("/", gwmux)
+	server := &http.Server{
+		Addr:    m.config.HTTPListenAddress,
+		Handler: mux,
+		BaseContext: func(net.Listener) context.Context {
+			return m.ctx
+		},
+	}
+	waitctx.AddOne(m.ctx)
+	go func() {
+		defer waitctx.Done(m.ctx)
+		<-m.ctx.Done()
+		if err := server.Close(); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("failed to close http gateway")
+		}
+	}()
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		lg.With(
+			zap.Error(err),
+		).Error("http gateway exited with error")
+	}
 }
 
 func (m *Server) CertsInfo(ctx context.Context, _ *emptypb.Empty) (*CertsInfoResponse, error) {

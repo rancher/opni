@@ -21,6 +21,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/rbac"
+	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"go.uber.org/zap"
 )
 
@@ -50,6 +51,7 @@ type OpenidMiddleware struct {
 	keyRefresher *jwk.AutoRefresh
 	conf         *OpenidConfig
 	logger       *zap.SugaredLogger
+	ctx          context.Context
 
 	wellKnownConfig *WellKnownConfiguration
 	lock            sync.Mutex
@@ -57,11 +59,12 @@ type OpenidMiddleware struct {
 
 var _ auth.Middleware = (*OpenidMiddleware)(nil)
 
-func New(config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
+func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
 	m := &OpenidMiddleware{
-		keyRefresher: jwk.NewAutoRefresh(context.Background()),
+		keyRefresher: jwk.NewAutoRefresh(ctx),
 		conf:         &OpenidConfig{},
 		logger:       logger.New().Named("openid"),
+		ctx:          ctx,
 	}
 	if err := mapstructure.Decode(config.Options, m.conf); err != nil {
 		return nil, err
@@ -74,7 +77,11 @@ func New(config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
 		issuerURL.Path = path.Join(issuerURL.Path, ".well-known/openid-configuration")
 	}
 
-	go m.connectToAuthProvider(issuerURL)
+	waitctx.AddOne(ctx)
+	go func() {
+		m.connectToAuthProvider(issuerURL)
+		waitctx.Done(ctx)
+	}()
 	return m, nil
 }
 
@@ -89,7 +96,7 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 		return c.SendString("auth provider is not ready")
 	}
 	lg := c.Context().Logger()
-	set, err := m.keyRefresher.Fetch(context.Background(), m.wellKnownConfig.JwksUri)
+	set, err := m.keyRefresher.Fetch(m.ctx, m.wellKnownConfig.JwksUri)
 	if err != nil {
 		lg.Printf("failed to fetch JWK set: %v", err)
 		return c.SendStatus(fiber.StatusServiceUnavailable)
@@ -118,12 +125,19 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 func (m *OpenidMiddleware) connectToAuthProvider(issuerURL *url.URL) {
 	lg := m.logger
 	for {
+		if m.ctx.Err() != nil {
+			return
+		}
 		wellKnownCfg, err := fetchWellKnownConfig(issuerURL.String())
 		if err != nil {
 			lg.With(
 				zap.Error(err),
 			).Error("failed to fetch openid configuration (will retry)")
-			time.Sleep(2 * time.Second)
+			select {
+			case <-time.After(time.Second * 2):
+			case <-m.ctx.Done():
+				return
+			}
 			continue
 		}
 		if wellKnownCfg.Issuer != m.conf.Issuer {

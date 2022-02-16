@@ -14,6 +14,7 @@ import (
 	"github.com/mwitkow/grpc-proxy/proxy"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"go.uber.org/zap"
 	annotations "google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/grpc"
@@ -35,7 +36,7 @@ func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionIn
 	return resp, nil
 }
 
-func (m *Server) configureApiExtensionDirector() proxy.StreamDirector {
+func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.StreamDirector {
 	lg := m.logger
 	lg.Infof("loading api extensions from %d plugins", len(m.plugins))
 	methodTable := map[string]*grpc.ClientConn{}
@@ -44,15 +45,23 @@ func (m *Server) configureApiExtensionDirector() proxy.StreamDirector {
 		if !ok {
 			continue
 		}
-		reflectClient := grpcreflect.NewClient(context.Background(),
+		reflectClient := grpcreflect.NewClient(ctx,
 			rpb.NewServerReflectionClient(plugin.Client))
-		sd, err := ext.Descriptor(context.Background(), &emptypb.Empty{})
+		sd, err := ext.Descriptor(ctx, &emptypb.Empty{})
 		if err != nil {
 			m.logger.With(
 				zap.Error(err),
 			).Error("failed to get extension descriptor")
 			continue
 		}
+		lg.Info("got extension descriptor for service " + sd.GetName())
+		waitctx.AddOne(ctx)
+		go func() {
+			defer waitctx.Done(ctx)
+			<-ctx.Done()
+			reflectClient.Reset()
+		}()
+
 		svcDesc, err := reflectClient.ResolveService(sd.GetName())
 		if err != nil {
 			m.logger.With(

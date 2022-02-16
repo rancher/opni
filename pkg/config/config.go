@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -43,27 +44,29 @@ func LoadObjectsFromFile(path string) (meta.ObjectList, error) {
 		if len(strings.TrimSpace(string(document))) == 0 {
 			continue
 		}
-		typeMeta := meta.TypeMeta{}
-		if err := yaml.Unmarshal(document, &typeMeta); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Error("object has missing or invalid TypeMeta")
-			continue
-		}
-		if typeMeta.APIVersion == "" || typeMeta.Kind == "" {
-			lg.Error("object has missing or invalid TypeMeta")
-			continue
-		}
-		object, err := decodeObject(typeMeta, document)
+		object, err := LoadObject(document)
 		if err != nil {
-			lg.With(
-				zap.Error(err),
-			).Error("failed to decode object")
+			lg.Error("error loading config", zap.Error(err))
 			continue
 		}
 		objects = append(objects, object)
 	}
 	return objects, nil
+}
+
+func LoadObject(document []byte) (meta.Object, error) {
+	typeMeta := meta.TypeMeta{}
+	if err := yaml.Unmarshal(document, &typeMeta); err != nil {
+		return nil, errors.New("object has missing or invalid TypeMeta")
+	}
+	if typeMeta.APIVersion == "" || typeMeta.Kind == "" {
+		return nil, errors.New("object has missing or invalid TypeMeta")
+	}
+	object, err := decodeObject(typeMeta, document)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode object: %w", err)
+	}
+	return object, nil
 }
 
 func decodeObject(typeMeta meta.TypeMeta, document []byte) (meta.Object, error) {

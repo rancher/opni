@@ -1,10 +1,12 @@
 package noauth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"log"
@@ -13,7 +15,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/go-oauth2/oauth2/v4/errors"
+	oautherrors "github.com/go-oauth2/oauth2/v4/errors"
 	"github.com/go-oauth2/oauth2/v4/generates"
 	"github.com/go-oauth2/oauth2/v4/manage"
 	"github.com/go-oauth2/oauth2/v4/models"
@@ -23,6 +25,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/rancher/opni-monitoring/pkg/auth/openid"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -69,7 +72,7 @@ type templateData struct {
 //go:embed web
 var webFS embed.FS
 
-func (s *Server) Run() error {
+func (s *Server) Run(ctx context.Context) error {
 	lg := s.Logger
 	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%s", s.Port))
 	if err != nil {
@@ -80,11 +83,10 @@ func (s *Server) Run() error {
 		"address", listener.Addr(),
 	).Info("noauth server starting")
 	port := listener.Addr().(*net.TCPAddr).Port
-	defer listener.Close()
 
 	mux := http.NewServeMux()
 
-	if err := s.connectToManagementAPI(); err != nil {
+	if err := s.connectToManagementAPI(ctx); err != nil {
 		return err
 	}
 
@@ -93,16 +95,42 @@ func (s *Server) Run() error {
 
 	server := http.Server{
 		Handler: mux,
+		BaseContext: func(net.Listener) context.Context {
+			return ctx
+		},
 	}
-	return server.Serve(listener)
+	waitctx.AddOne(ctx)
+	go func() {
+		defer waitctx.Done(ctx)
+		<-ctx.Done()
+		lg.Info("noauth server shutting down")
+		if err := server.Close(); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("an error occurred while shutting down the server")
+		}
+	}()
+	err = server.Serve(listener)
+	if !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }
 
-func (s *Server) connectToManagementAPI() error {
-	cc, err := grpc.Dial(s.ManagementAPIEndpoint,
-		grpc.WithTransportCredentials(insecure.NewCredentials()))
+func (s *Server) connectToManagementAPI(ctx context.Context) error {
+	cc, err := grpc.DialContext(ctx, s.ManagementAPIEndpoint,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
 	if err != nil {
 		return err
 	}
+	waitctx.AddOne(ctx)
+	go func() {
+		defer waitctx.Done(ctx)
+		<-ctx.Done()
+		cc.Close()
+	}()
 	s.mgmtApiClient = management.NewManagementClient(cc)
 	return nil
 }
@@ -128,11 +156,11 @@ func (s *Server) configureOAuthServer(mux *http.ServeMux) {
 
 	srv := server.NewDefaultServer(manager)
 	srv.SetClientInfoHandler(server.ClientFormHandler)
-	srv.SetInternalErrorHandler(func(err error) (re *errors.Response) {
+	srv.SetInternalErrorHandler(func(err error) (re *oautherrors.Response) {
 		log.Println("Internal Error:", err.Error())
 		return
 	})
-	srv.SetResponseErrorHandler(func(re *errors.Response) {
+	srv.SetResponseErrorHandler(func(re *oautherrors.Response) {
 		log.Println("Response Error:", re.Error.Error())
 	})
 	srv.SetUserAuthorizationHandler(userAuthHandler)
@@ -250,7 +278,7 @@ func (s *Server) configureWebServer(mux *http.ServeMux, port int) {
 func userAuthHandler(w http.ResponseWriter, r *http.Request) (userID string, err error) {
 	username := r.FormValue("login_as")
 	if username == "" {
-		return "", errors.ErrInvalidRequest
+		return "", oautherrors.ErrInvalidRequest
 	}
 	return username, nil
 }

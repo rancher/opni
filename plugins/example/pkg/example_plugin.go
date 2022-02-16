@@ -5,12 +5,15 @@ import (
 	"log"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type ExamplePlugin struct {
 	UnimplementedExampleAPIExtensionServer
+	Logger hclog.Logger
 }
 
 func (s *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse, error) {
@@ -20,7 +23,8 @@ func (s *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse
 }
 
 func (s *ExamplePlugin) UseManagementAPI(api management.ManagementClient) {
-	log.Println("[example] querying management API...")
+	lg := s.Logger
+	lg.Info("querying management API...")
 	var list *management.APIExtensionInfoList
 	for {
 		var err error
@@ -35,6 +39,23 @@ func (s *ExamplePlugin) UseManagementAPI(api management.ManagementClient) {
 		break
 	}
 	for _, ext := range list.Items {
-		log.Println("[example] found api extension service: " + ext.ServiceDesc.GetName())
+		lg.Info("found API extension service", "name", ext.ServiceDesc.GetName())
 	}
+}
+
+func (s *ExamplePlugin) UseKeyValueStore(kv system.KVStoreClient) {
+	lg := s.Logger
+	err := kv.Put("foo", &EchoRequest{
+		Message: "hello",
+	})
+	if err != nil {
+		lg.Error("kv store error", "error", err)
+	}
+
+	out := &EchoRequest{}
+	err = kv.Get("foo", out)
+	if err != nil {
+		lg.Error("kv store error", "error", err)
+	}
+	lg.Info("successfully retrieved stored value", "message", out.Message)
 }

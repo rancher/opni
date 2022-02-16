@@ -191,6 +191,46 @@
         ]
       }
     },
+    "/management/config": {
+      "get": {
+        "operationId": "Management_GetConfig",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/managementGatewayConfig"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      },
+      "put": {
+        "operationId": "Management_UpdateConfig",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/managementUpdateConfigRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
     "/management/rolebindings": {
       "get": {
         "operationId": "Management_ListRoleBindings",
@@ -777,6 +817,28 @@
         }
       }
     },
+    "managementConfigDocument": {
+      "type": "object",
+      "properties": {
+        "json": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "managementConfigDocumentWithSchema": {
+      "type": "object",
+      "properties": {
+        "json": {
+          "type": "string",
+          "format": "byte"
+        },
+        "schema": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
     "managementCreateBootstrapTokenRequest": {
       "type": "object",
       "properties": {
@@ -805,6 +867,17 @@
         }
       }
     },
+    "managementGatewayConfig": {
+      "type": "object",
+      "properties": {
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/managementConfigDocumentWithSchema"
+          }
+        }
+      }
+    },
     "managementHTTPRuleDescriptor": {
       "type": "object",
       "properties": {
@@ -813,6 +886,17 @@
         },
         "method": {
           "$ref": "#/definitions/protobufMethodDescriptorProto"
+        }
+      }
+    },
+    "managementUpdateConfigRequest": {
+      "type": "object",
+      "properties": {
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/managementConfigDocument"
+          }
         }
       }
     },

@@ -43,3 +43,13 @@ type KeyringStore interface {
 	Put(ctx context.Context, keyring keyring.Keyring) error
 	Get(ctx context.Context) (keyring.Keyring, error)
 }
+
+type KeyValueStore interface {
+	Put(ctx context.Context, key string, value []byte) error
+	Get(ctx context.Context, key string) ([]byte, error)
+	ListKeys(ctx context.Context, prefix string) ([]string, error)
+}
+
+type KeyValueStoreBroker interface {
+	NewKeyValueStore(namespace string) (KeyValueStore, error)
+}

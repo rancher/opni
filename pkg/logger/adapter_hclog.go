@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 
 	"github.com/hashicorp/go-hclog"
 	"go.uber.org/zap"
@@ -20,15 +19,15 @@ var _ hclog.Logger = (*hclogAdapter)(nil)
 func (la *hclogAdapter) Log(level hclog.Level, msg string, args ...interface{}) {
 	switch level {
 	case hclog.Trace:
-		la.logger.Debugw(msg, args...)
+		la.Debug(msg, args...)
 	case hclog.Debug:
-		la.logger.Debugw(msg, args...)
+		la.Debug(msg, args...)
 	case hclog.Info:
-		la.logger.Infow(msg, args...)
+		la.Info(msg, args...)
 	case hclog.Warn:
-		la.logger.Warnw(msg, args...)
+		la.Warn(msg, args...)
 	case hclog.Error:
-		la.logger.Errorw(msg, args...)
+		la.Error(msg, args...)
 	case hclog.NoLevel:
 		if hclog.DefaultLevel != hclog.NoLevel {
 			la.Log(hclog.DefaultLevel, msg, args...)
@@ -38,23 +37,23 @@ func (la *hclogAdapter) Log(level hclog.Level, msg string, args ...interface{}) 
 }
 
 func (la *hclogAdapter) Trace(msg string, args ...interface{}) {
-	la.logger.Debugw(msg, args...)
+	la.logger.Debugw(msg, stripTimestamp(args...)...)
 }
 
 func (la *hclogAdapter) Debug(msg string, args ...interface{}) {
-	la.logger.Debugw(msg, args...)
+	la.logger.Debugw(msg, stripTimestamp(args...)...)
 }
 
 func (la *hclogAdapter) Info(msg string, args ...interface{}) {
-	la.logger.Infow(msg, args...)
+	la.logger.Infow(msg, stripTimestamp(args...)...)
 }
 
 func (la *hclogAdapter) Warn(msg string, args ...interface{}) {
-	la.logger.Warnw(msg, args...)
+	la.logger.Warnw(msg, stripTimestamp(args...)...)
 }
 
 func (la *hclogAdapter) Error(msg string, args ...interface{}) {
-	la.logger.Errorw(msg, args...)
+	la.logger.Errorw(msg, stripTimestamp(args...)...)
 }
 
 func (la *hclogAdapter) IsTrace() bool {
@@ -83,7 +82,7 @@ func (la *hclogAdapter) ImpliedArgs() []interface{} {
 
 func (la *hclogAdapter) With(args ...interface{}) hclog.Logger {
 	return &hclogAdapter{
-		logger: la.logger.XWith(args...),
+		logger: la.logger.XWith(stripTimestamp(args...)...),
 	}
 }
 
@@ -102,15 +101,15 @@ func (la *hclogAdapter) SetLevel(level hclog.Level) {
 }
 
 func (la *hclogAdapter) ResetNamed(name string) hclog.Logger {
-	return la // not available in zap
+	return la.Named(name) // todo: does zap support this?
 }
 
 func (la *hclogAdapter) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
-	return log.Default() // not available in zap
+	return hclog.Default().StandardLogger(opts)
 }
 
 func (la *hclogAdapter) StandardWriter(opts *hclog.StandardLoggerOptions) io.Writer {
-	return os.Stdout // not available in zap
+	return hclog.Default().StandardWriter(opts)
 }
 
 func NewHCLogger(logger ExtendedSugaredLogger) hclog.Logger {
@@ -142,4 +141,15 @@ func translateLevel(level hclog.Level) zapcore.Level {
 	default:
 		panic(fmt.Sprintf("unknown level: %d", level))
 	}
+}
+
+func stripTimestamp(args ...interface{}) []interface{} {
+	argsCopy := make([]interface{}, 0, len(args))
+	// args alternate keys and values, if any key is "timestamp" then skip it
+	for i := 0; i < len(args); i += 2 {
+		if args[i] != "timestamp" {
+			argsCopy = append(argsCopy, args[i], args[i+1])
+		}
+	}
+	return argsCopy
 }

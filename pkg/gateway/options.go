@@ -3,12 +3,14 @@ package gateway
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/rancher/opni-monitoring/pkg/auth"
+	"github.com/rancher/opni-monitoring/pkg/config"
 )
 
 type GatewayOptions struct {
 	prefork          bool
 	fiberMiddlewares []FiberMiddleware
 	authMiddleware   auth.NamedMiddleware
+	lifecycler       config.Lifecycler
 }
 
 type GatewayOption func(*GatewayOptions)
@@ -40,5 +42,11 @@ func WithAuthMiddleware(name string) GatewayOption {
 		if err != nil {
 			panic(err)
 		}
+	}
+}
+
+func WithLifecycler(lc config.Lifecycler) GatewayOption {
+	return func(o *GatewayOptions) {
+		o.lifecycler = lc
 	}
 }

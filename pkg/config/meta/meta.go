@@ -3,6 +3,8 @@ package meta
 import (
 	"errors"
 	"reflect"
+
+	"github.com/alecthomas/jsonschema"
 )
 
 var ErrUnknownObjectKind = errors.New("unknown object kind")
@@ -40,17 +42,39 @@ func (o ObjectMeta) GetName() string {
 
 type ObjectList []Object
 
-type ObjectVisitorFunc = interface{} // func(*T)
+type ObjectVisitorFunc = interface{} // func(*T) or func(*T, *jsonschema.Schema)
 func (l ObjectList) Visit(visitors ...ObjectVisitorFunc) {
 	// For each object in the list, call each visitor if its argument type
 	// matches the concrete type of the object.
 	for _, vf := range visitors {
 		// get the type of the first arg
-		t := reflect.TypeOf(vf).In(0)
-		fn := reflect.ValueOf(vf)
-		for _, o := range l {
-			if reflect.TypeOf(o) == t {
-				fn.Call([]reflect.Value{reflect.ValueOf(o)})
+		fn := reflect.TypeOf(vf)
+		if fn.Kind() != reflect.Func {
+			panic("visitor must be a function")
+		}
+		switch fn.NumIn() {
+		case 1: // func(*T)
+			t := fn.In(0)
+			fn := reflect.ValueOf(vf)
+			for _, o := range l {
+				if reflect.TypeOf(o) == t {
+					fn.Call([]reflect.Value{reflect.ValueOf(o)})
+				}
+			}
+		case 2: // func(*T, *jsonschema.Schema)
+			t := fn.In(0)
+			s := fn.In(1)
+			if s != reflect.TypeOf(&jsonschema.Schema{}) {
+				panic("second argument must be of type *jsonschema.Schema")
+			}
+			fn := reflect.ValueOf(vf)
+			var emptyIntf interface{}
+			emptyIntfType := reflect.TypeOf(&emptyIntf).Elem()
+			for _, o := range l {
+				if t == emptyIntfType || reflect.TypeOf(o) == t {
+					schema := jsonschema.Reflect(o)
+					fn.Call([]reflect.Value{reflect.ValueOf(o), reflect.ValueOf(schema)})
+				}
 			}
 		}
 	}

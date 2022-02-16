@@ -32,6 +32,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
+	"golang.org/x/mod/module"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -47,6 +48,7 @@ type Gateway struct {
 	cortexTLSConfig   *tls.Config
 	servingCertBundle *tls.Certificate
 	pluginLoader      *plugins.PluginLoader
+	kvBroker          storage.KeyValueStoreBroker
 }
 
 func default404Handler(c *fiber.Ctx) error {
@@ -86,6 +88,8 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 	var tokenStore storage.TokenStore
 	var clusterStore storage.ClusterStore
 	var rbacStore storage.RBACStore
+	var kvBroker storage.KeyValueStoreBroker
+
 	switch conf.Spec.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
 		options := conf.Spec.Storage.Etcd
@@ -98,6 +102,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 			tokenStore = store
 			clusterStore = store
 			rbacStore = store
+			kvBroker = store
 		}
 	default:
 		lg.With(
@@ -167,6 +172,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 		tlsConfig:         tlsConfig,
 		servingCertBundle: servingCertBundle,
 		pluginLoader:      pluginLoader,
+		kvBroker:          kvBroker,
 	}
 	g.loadCortexCerts()
 	g.setupCortexRoutes(app, rbacStore, clusterStore)
@@ -215,7 +221,20 @@ func (g *Gateway) Listen() error {
 	g.logger.Infof("serving management api for %d system plugins", len(systemPlugins))
 	for _, systemPlugin := range systemPlugins {
 		srv := systemPlugin.Raw.(system.SystemPluginServer)
+		ns := systemPlugin.Metadata.Module
+		if err := module.CheckPath(ns); err != nil {
+			g.logger.With(
+				zap.String("namespace", ns),
+				zap.Error(err),
+			).Warn("system plugin module name is invalid")
+			continue
+		}
+		store, err := g.kvBroker.NewKeyValueStore(ns)
+		if err != nil {
+			return err
+		}
 		go srv.ServeManagementAPI(g.managementServer)
+		go srv.ServeKeyValueStore(store)
 	}
 
 	if g.servingCertBundle == nil {
@@ -416,10 +435,15 @@ func loadPlugins(loader *plugins.PluginLoader, conf v1beta1.PluginsSpec) {
 			continue
 		}
 		for _, p := range pluginPaths {
-			cc := plugins.ClientConfig(pluginmeta.PluginMeta{
-				Path: p,
-			}, plugins.Scheme)
-			loader.Load(cc)
+			md, err := pluginmeta.ReadMetadata(p)
+			if err != nil {
+				loader.Logger.With(
+					zap.String("plugin", p),
+				).Error("failed to read plugin metadata", zap.Error(err))
+				continue
+			}
+			cc := plugins.ClientConfig(md, plugins.Scheme)
+			loader.Load(md, cc)
 		}
 	}
 }

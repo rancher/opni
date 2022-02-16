@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"text/template"
 	"time"
 
@@ -36,6 +35,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
+	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -56,12 +56,11 @@ type Environment struct {
 	TestBin string
 	Logger  *zap.SugaredLogger
 
-	waitGroup *sync.WaitGroup
-	mockCtrl  *gomock.Controller
-	ctx       context.Context
-	cancel    context.CancelFunc
-	tempDir   string
-	ports     servicePorts
+	mockCtrl *gomock.Controller
+	ctx      context.Context
+	cancel   context.CancelFunc
+	tempDir  string
+	ports    servicePorts
 
 	gatewayConfig *v1beta1.GatewayConfig
 	k8sEnv        *envtest.Environment
@@ -71,13 +70,12 @@ func (e *Environment) Start() error {
 	lg := e.Logger
 	lg.Info("Starting test environment")
 
-	e.ctx, e.cancel = context.WithCancel(context.Background())
+	e.ctx, e.cancel = context.WithCancel(waitctx.FromContext(context.Background()))
 	var t gomock.TestReporter
 	if strings.HasSuffix(os.Args[0], ".test") {
 		t = ginkgo.GinkgoT()
 	}
 	e.mockCtrl = gomock.NewController(t)
-	e.waitGroup = &sync.WaitGroup{}
 
 	if _, err := auth.GetMiddleware("test"); err != nil {
 		if err := auth.RegisterMiddleware("test", &TestAuthMiddleware{
@@ -172,12 +170,10 @@ func (e *Environment) Stop() error {
 	}
 	if e.cancel != nil {
 		e.cancel()
+		waitctx.Wait(e.ctx, 5*time.Second)
 	}
 	if e.mockCtrl != nil {
 		e.mockCtrl.Finish()
-	}
-	if e.waitGroup != nil {
-		e.waitGroup.Wait()
 	}
 	if e.tempDir != "" {
 		os.RemoveAll(e.tempDir)
@@ -199,9 +195,7 @@ func (e *Environment) startEtcd() {
 	cmd.Env = []string{"ALLOW_NONE_AUTHENTICATION=yes"}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
+	ConfigureSysProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
@@ -213,6 +207,7 @@ func (e *Environment) startEtcd() {
 	for e.ctx.Err() == nil {
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/health", e.ports.Etcd))
 		if err == nil {
+			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				break
 			}
@@ -220,9 +215,9 @@ func (e *Environment) startEtcd() {
 		time.Sleep(time.Second)
 	}
 	lg.Info("Etcd started")
-	e.waitGroup.Add(1)
+	waitctx.AddOne(e.ctx)
 	go func() {
-		defer e.waitGroup.Done()
+		defer waitctx.Done(e.ctx)
 		<-e.ctx.Done()
 		cmd.Wait()
 	}()
@@ -257,9 +252,7 @@ func (e *Environment) startCortex() {
 	cmd := exec.CommandContext(e.ctx, cortexBin, defaultArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
+	ConfigureSysProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
@@ -280,9 +273,9 @@ func (e *Environment) startCortex() {
 		time.Sleep(time.Second)
 	}
 	lg.Info("Cortex started")
-	e.waitGroup.Add(1)
+	waitctx.AddOne(e.ctx)
 	go func() {
-		defer e.waitGroup.Done()
+		defer waitctx.Done(e.ctx)
 		<-e.ctx.Done()
 		cmd.Wait()
 	}()
@@ -324,9 +317,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 	cmd := exec.CommandContext(e.ctx, prometheusBin, defaultArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
+	ConfigureSysProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
@@ -335,15 +326,18 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 	lg.Info("Waiting for prometheus to start...")
 	for e.ctx.Err() == nil {
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", port))
-		if err == nil && resp.StatusCode == http.StatusOK {
-			break
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				break
+			}
 		}
 		time.Sleep(time.Second)
 	}
 	lg.Info("Prometheus started")
-	e.waitGroup.Add(1)
+	waitctx.AddOne(e.ctx)
 	go func() {
-		defer e.waitGroup.Done()
+		defer waitctx.Done(e.ctx)
 		<-e.ctx.Done()
 		cmd.Wait()
 	}()
@@ -435,15 +429,18 @@ func (e *Environment) startGateway() {
 			},
 		}
 		resp, err := client.Do(req)
-		if err == nil && resp.StatusCode == http.StatusOK {
-			break
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				break
+			}
 		}
 	}
 	lg.Info("Gateway started")
-	e.waitGroup.Add(1)
+	waitctx.AddOne(e.ctx)
 	go func() {
+		defer waitctx.Done(e.ctx)
 		<-e.ctx.Done()
-		e.waitGroup.Done()
 	}()
 }
 
@@ -514,9 +511,9 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 			errC <- err
 		}
 	}()
-	e.waitGroup.Add(1)
+	waitctx.AddOne(e.ctx)
 	go func() {
-		defer e.waitGroup.Done()
+		defer waitctx.Done(e.ctx)
 		<-e.ctx.Done()
 		mu.Lock()
 		if a == nil {
@@ -534,7 +531,8 @@ func (e *Environment) GatewayTLSConfig() *tls.Config {
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM([]byte(*e.gatewayConfig.Spec.Certs.CACertData))
 	return &tls.Config{
-		RootCAs: pool,
+		MinVersion: tls.VersionTLS13,
+		RootCAs:    pool,
 	}
 }
 
@@ -598,7 +596,7 @@ func StartStandaloneTestEnvironment() {
 			panic(err)
 		}
 	}()
-	c := make(chan os.Signal, 1)
+	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt)
 	lg.Info(chalk.Blue.Color("Press Ctrl+C to stop test environment"))
 	<-c

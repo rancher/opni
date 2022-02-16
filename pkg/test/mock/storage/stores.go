@@ -412,3 +412,108 @@ func (mr *MockKeyringStoreMockRecorder) Put(ctx, keyring interface{}) *gomock.Ca
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKeyringStore)(nil).Put), ctx, keyring)
 }
+
+// MockKeyValueStore is a mock of KeyValueStore interface.
+type MockKeyValueStore struct {
+	ctrl     *gomock.Controller
+	recorder *MockKeyValueStoreMockRecorder
+}
+
+// MockKeyValueStoreMockRecorder is the mock recorder for MockKeyValueStore.
+type MockKeyValueStoreMockRecorder struct {
+	mock *MockKeyValueStore
+}
+
+// NewMockKeyValueStore creates a new mock instance.
+func NewMockKeyValueStore(ctrl *gomock.Controller) *MockKeyValueStore {
+	mock := &MockKeyValueStore{ctrl: ctrl}
+	mock.recorder = &MockKeyValueStoreMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockKeyValueStore) EXPECT() *MockKeyValueStoreMockRecorder {
+	return m.recorder
+}
+
+// Get mocks base method.
+func (m *MockKeyValueStore) Get(ctx context.Context, key string) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", ctx, key)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Get indicates an expected call of Get.
+func (mr *MockKeyValueStoreMockRecorder) Get(ctx, key interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockKeyValueStore)(nil).Get), ctx, key)
+}
+
+// ListKeys mocks base method.
+func (m *MockKeyValueStore) ListKeys(ctx context.Context, prefix string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListKeys", ctx, prefix)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListKeys indicates an expected call of ListKeys.
+func (mr *MockKeyValueStoreMockRecorder) ListKeys(ctx, prefix interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKeys", reflect.TypeOf((*MockKeyValueStore)(nil).ListKeys), ctx, prefix)
+}
+
+// Put mocks base method.
+func (m *MockKeyValueStore) Put(ctx context.Context, key string, value []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Put", ctx, key, value)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Put indicates an expected call of Put.
+func (mr *MockKeyValueStoreMockRecorder) Put(ctx, key, value interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKeyValueStore)(nil).Put), ctx, key, value)
+}
+
+// MockKeyValueStoreBroker is a mock of KeyValueStoreBroker interface.
+type MockKeyValueStoreBroker struct {
+	ctrl     *gomock.Controller
+	recorder *MockKeyValueStoreBrokerMockRecorder
+}
+
+// MockKeyValueStoreBrokerMockRecorder is the mock recorder for MockKeyValueStoreBroker.
+type MockKeyValueStoreBrokerMockRecorder struct {
+	mock *MockKeyValueStoreBroker
+}
+
+// NewMockKeyValueStoreBroker creates a new mock instance.
+func NewMockKeyValueStoreBroker(ctrl *gomock.Controller) *MockKeyValueStoreBroker {
+	mock := &MockKeyValueStoreBroker{ctrl: ctrl}
+	mock.recorder = &MockKeyValueStoreBrokerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockKeyValueStoreBroker) EXPECT() *MockKeyValueStoreBrokerMockRecorder {
+	return m.recorder
+}
+
+// NewKeyValueStore mocks base method.
+func (m *MockKeyValueStoreBroker) NewKeyValueStore(namespace string) (storage.KeyValueStore, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewKeyValueStore", namespace)
+	ret0, _ := ret[0].(storage.KeyValueStore)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewKeyValueStore indicates an expected call of NewKeyValueStore.
+func (mr *MockKeyValueStoreBrokerMockRecorder) NewKeyValueStore(namespace interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyValueStore", reflect.TypeOf((*MockKeyValueStoreBroker)(nil).NewKeyValueStore), namespace)
+}

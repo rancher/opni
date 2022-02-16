@@ -2,23 +2,24 @@ package system
 
 import (
 	"context"
-	"os"
-	"os/signal"
 	"sync"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
+	"github.com/rancher/opni-monitoring/pkg/storage"
 	"google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type SystemPluginClient interface {
-	UseManagementAPI(api management.ManagementClient)
+	UseManagementAPI(management.ManagementClient)
+	UseKeyValueStore(KVStoreClient)
 }
 
 type SystemPluginServer interface {
-	ServeManagementAPI(api management.ManagementServer)
+	ServeManagementAPI(management.ManagementServer)
+	ServeKeyValueStore(storage.KeyValueStore)
 }
 
 const SystemPluginID = "system"
@@ -51,19 +52,29 @@ type systemPluginClientImpl struct {
 	broker *plugin.GRPCBroker
 	server *grpc.Server
 	client SystemPluginClient
-
-	mgmtClient management.ManagementClient
 }
 
 func (c *systemPluginClientImpl) UseManagementAPI(ctx context.Context, in *BrokerID) (*emptypb.Empty, error) {
-	if c.mgmtClient == nil {
-		cc, err := c.broker.Dial(in.Id)
-		if err != nil {
-			return nil, err
-		}
-		c.mgmtClient = management.NewManagementClient(cc)
+	cc, err := c.broker.Dial(in.Id)
+	if err != nil {
+		return nil, err
 	}
-	c.client.UseManagementAPI(c.mgmtClient)
+	defer cc.Close()
+	client := management.NewManagementClient(cc)
+	c.client.UseManagementAPI(client)
+	return &emptypb.Empty{}, nil
+}
+
+func (c *systemPluginClientImpl) UseKeyValueStore(ctx context.Context, in *BrokerID) (*emptypb.Empty, error) {
+	cc, err := c.broker.Dial(in.Id)
+	if err != nil {
+		return nil, err
+	}
+	defer cc.Close()
+	c.client.UseKeyValueStore(&kvStoreClientImpl{
+		ctx:    ctx,
+		client: NewKeyValueStoreClient(cc),
+	})
 	return &emptypb.Empty{}, nil
 }
 
@@ -84,6 +95,39 @@ type systemPluginHandler struct {
 }
 
 func (s *systemPluginHandler) ServeManagementAPI(api management.ManagementServer) {
+	s.serveSystemApi(
+		func(srv *grpc.Server) {
+			management.RegisterManagementServer(srv, api)
+		},
+		func(id uint32) {
+			s.client.UseManagementAPI(s.ctx, &BrokerID{
+				Id: id,
+			})
+		},
+	)
+}
+
+func (s *systemPluginHandler) ServeKeyValueStore(store storage.KeyValueStore) {
+	kvStoreSrv := &kvStoreServer{
+		store: store,
+	}
+	s.serveSystemApi(
+		func(srv *grpc.Server) {
+			RegisterKeyValueStoreServer(srv, kvStoreSrv)
+		},
+		func(id uint32) {
+			s.client.UseKeyValueStore(s.ctx, &BrokerID{
+				Id: id,
+			})
+		},
+	)
+}
+
+func init() {
+	plugins.Scheme.Add(SystemPluginID, NewPlugin(nil))
+}
+
+func (s *systemPluginHandler) serveSystemApi(regCallback func(*grpc.Server), useCallback func(uint32)) {
 	id := s.broker.NextId()
 	var srv *grpc.Server
 	once := sync.Once{}
@@ -93,15 +137,13 @@ func (s *systemPluginHandler) ServeManagementAPI(api management.ManagementServer
 			<-s.ctx.Done()
 			once.Do(srv.Stop)
 		}()
-		management.RegisterManagementServer(srv, api)
+		regCallback(srv)
 		return srv
 	})
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		s.client.UseManagementAPI(s.ctx, &BrokerID{
-			Id: id,
-		})
+		useCallback(id)
 	}()
 
 	select {
@@ -111,17 +153,4 @@ func (s *systemPluginHandler) ServeManagementAPI(api management.ManagementServer
 	if srv != nil {
 		once.Do(srv.Stop)
 	}
-}
-
-func init() {
-	plugins.Scheme.Add(SystemPluginID, NewPlugin(nil))
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-
-	go func() {
-		<-c
-		plugin.CleanupClients()
-		os.Exit(0)
-	}()
 }

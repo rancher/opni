@@ -11,15 +11,13 @@ import (
 	"google.golang.org/grpc"
 )
 
-var pluginLog = logger.New().Named("plugin")
-
 func ClientConfig(md meta.PluginMeta, scheme meta.Scheme) *plugin.ClientConfig {
 	return &plugin.ClientConfig{
 		Plugins:          scheme.PluginMap(),
 		HandshakeConfig:  Handshake,
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		Managed:          true,
-		Cmd:              exec.Command(md.Path),
+		Cmd:              exec.Command(md.BinaryPath),
 		Logger:           logger.NewHCLogger(logger.New()).Named("plugin"),
 		SyncStdout:       os.Stdout,
 		SyncStderr:       os.Stderr,
@@ -40,57 +38,55 @@ func Serve(scheme meta.Scheme) {
 }
 
 type ActivePlugin struct {
-	Client *grpc.ClientConn
-	Raw    interface{}
+	Metadata meta.PluginMeta
+	Client   *grpc.ClientConn
+	Raw      interface{}
 }
 
 type PluginLoader struct {
 	ActivePlugins map[string][]ActivePlugin
+	Logger        *zap.SugaredLogger
 }
 
 func NewPluginLoader() *PluginLoader {
 	return &PluginLoader{
 		ActivePlugins: map[string][]ActivePlugin{},
+		Logger:        logger.New().Named("pluginloader"),
 	}
 }
 
-func pluginLogName(cc *plugin.ClientConfig) string {
-	if cc.Cmd != nil {
-		return cc.Cmd.String()
-	}
-	return cc.Reattach.Addr.String()
-}
-
-func (pl *PluginLoader) Load(cc *plugin.ClientConfig) {
+func (pl *PluginLoader) Load(md meta.PluginMeta, cc *plugin.ClientConfig) {
+	lg := pl.Logger
 	client := plugin.NewClient(cc)
 	rpcClient, err := client.Client()
 	if err != nil {
-		pluginLog.With(
+		lg.With(
 			zap.Error(err),
-			"plugin", pluginLogName(cc),
+			"plugin", md.Module,
 		).Error("failed to load plugin")
 		return
 	}
-	pluginLog.With(
-		"plugin", pluginLogName(cc),
+	lg.With(
+		"plugin", md.Module,
 	).Debug("checking if plugin implements any interfaces in the scheme")
 	for id := range cc.Plugins {
 		raw, err := rpcClient.Dispense(id)
 		if err != nil {
-			pluginLog.With(
+			lg.With(
 				zap.Error(err),
-				"plugin", pluginLogName(cc),
+				"plugin", md.Module,
 				"id", id,
 			).Debug("no implementation found")
 			continue
 		}
-		pluginLog.With(
-			"plugin", pluginLogName(cc),
+		lg.With(
+			"plugin", md.Module,
 			"id", id,
 		).Debug("implementation found")
 		pl.ActivePlugins[id] = append(pl.ActivePlugins[id], ActivePlugin{
-			Client: rpcClient.(*plugin.GRPCClient).Conn,
-			Raw:    raw,
+			Metadata: md,
+			Client:   rpcClient.(*plugin.GRPCClient).Conn,
+			Raw:      raw,
 		})
 	}
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"github.com/rancher/opni-monitoring/pkg/test"
 	mock_apiextensions "github.com/rancher/opni-monitoring/pkg/test/mock/apiextensions"
 	mock_ext "github.com/rancher/opni-monitoring/pkg/test/mock/ext"
@@ -92,7 +93,11 @@ var _ = Describe("Extensions", Ordered, func() {
 			cc := test.NewApiExtensionTestPlugin(apiextSrv, &ext.Ext_ServiceDesc, &extSrvImpl{
 				MockExtServer: extSrv,
 			})
-			pl.Load(cc)
+			pl.Load(meta.PluginMeta{
+				BinaryPath: "test1",
+				GoVersion:  "test1",
+				Module:     "test1",
+			}, cc)
 		}
 
 		if shouldLoadExt2.Load() {
@@ -115,7 +120,11 @@ var _ = Describe("Extensions", Ordered, func() {
 			cc2 := test.NewApiExtensionTestPlugin(apiextSrv2, &ext.Ext2_ServiceDesc, &ext2SrvImpl{
 				MockExt2Server: ext2Srv,
 			})
-			pl.Load(cc2)
+			pl.Load(meta.PluginMeta{
+				BinaryPath: "test2",
+				GoVersion:  "test2",
+				Module:     "test2",
+			}, cc2)
 		}
 
 		extensions := pl.DispenseAll(apiextensions.ManagementAPIExtensionPluginID)

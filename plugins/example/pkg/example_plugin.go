@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -40,4 +41,21 @@ func (s *ExamplePlugin) UseManagementAPI(api management.ManagementClient) {
 	for _, ext := range list.Items {
 		lg.Info("found API extension service", "name", ext.ServiceDesc.GetName())
 	}
+}
+
+func (s *ExamplePlugin) UseKeyValueStore(kv system.KVStoreClient) {
+	lg := s.Logger
+	err := kv.Put("foo", &EchoRequest{
+		Message: "hello",
+	})
+	if err != nil {
+		lg.Error("kv store error", "error", err)
+	}
+
+	out := &EchoRequest{}
+	err = kv.Get("foo", out)
+	if err != nil {
+		lg.Error("kv store error", "error", err)
+	}
+	lg.Info("successfully retrieved stored value", "message", out.Message)
 }

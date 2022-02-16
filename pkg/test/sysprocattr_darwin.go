@@ -17,7 +17,7 @@ func ConfigureSysProcAttr(cmd *exec.Cmd) {
 
 func init() {
 	c := make(chan os.Signal, 4)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	pid := os.Getpid()
 	pgid, err := syscall.Getpgid(pid)
 	if err != nil {

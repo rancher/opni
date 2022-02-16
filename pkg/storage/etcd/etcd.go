@@ -56,7 +56,7 @@ func WithNamespace(namespace string) EtcdStoreOption {
 	}
 }
 
-func NewEtcdStore(conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) *EtcdStore {
+func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) *EtcdStore {
 	options := &EtcdStoreOptions{}
 	options.Apply(opts...)
 	lg := logger.New().Named("etcd")
@@ -71,6 +71,7 @@ func NewEtcdStore(conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) *EtcdS
 	clientConfig := clientv3.Config{
 		Endpoints: conf.Endpoints,
 		TLS:       tlsConfig,
+		Context:   ctx,
 	}
 	cli, err := clientv3.New(clientConfig)
 	if err != nil {

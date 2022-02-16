@@ -1,6 +1,8 @@
 package noauth
 
 import (
+	"context"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/mitchellh/mapstructure"
 	"github.com/rancher/opni-monitoring/pkg/auth"
@@ -8,6 +10,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/noauth"
+	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"go.uber.org/zap"
 )
 
@@ -19,9 +22,9 @@ type NoauthMiddleware struct {
 
 var _ auth.Middleware = (*NoauthMiddleware)(nil)
 
-func New(config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
+func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
 	lg := logger.New().Named("noauth")
-	openidMw, err := openid.New(config)
+	openidMw, err := openid.New(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -36,9 +39,13 @@ func New(config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
 	m.noauthConfig.Logger = lg
 
 	srv := noauth.NewServer(m.noauthConfig)
+	waitctx.AddOne(ctx)
 	go func() {
-		if err := srv.Run(); err != nil {
-			lg.Error(err)
+		defer waitctx.Done(ctx)
+		if err := srv.Run(ctx); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Warn("noauth server stopped")
 		}
 	}()
 

@@ -29,6 +29,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/storage/etcd"
 	"github.com/rancher/opni-monitoring/pkg/util"
+	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -37,15 +38,15 @@ import (
 
 type Gateway struct {
 	GatewayOptions
-	config              *config.GatewayConfig
-	app                 *fiber.App
-	logger              *zap.SugaredLogger
-	managementServer    *management.Server
-	managementCtx       context.Context
-	managementCtxCancel context.CancelFunc
-	tlsConfig           *tls.Config
-	cortexTLSConfig     *tls.Config
-	servingCertBundle   *tls.Certificate
+	config            *config.GatewayConfig
+	ctx               context.Context
+	app               *fiber.App
+	logger            *zap.SugaredLogger
+	managementServer  *management.Server
+	tlsConfig         *tls.Config
+	cortexTLSConfig   *tls.Config
+	servingCertBundle *tls.Certificate
+	pluginLoader      *plugins.PluginLoader
 }
 
 func default404Handler(c *fiber.Ctx) error {
@@ -68,7 +69,7 @@ func (l *fallbackLifecycler) UpdateObjectList(objects meta.ObjectList) error {
 	return status.Error(codes.Unavailable, "lifecycler not available")
 }
 
-func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
+func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	options := GatewayOptions{
 		fiberMiddlewares: []FiberMiddleware{},
 		lifecycler: &fallbackLifecycler{
@@ -78,8 +79,9 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 	options.Apply(opts...)
 
 	lg := logger.New().Named("gateway")
+	pluginLoader := plugins.NewPluginLoader()
 
-	loadPlugins(conf.Spec.Plugins)
+	loadPlugins(pluginLoader, conf.Spec.Plugins)
 
 	var tokenStore storage.TokenStore
 	var clusterStore storage.ClusterStore
@@ -90,7 +92,7 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		if options == nil {
 			lg.Fatal("etcd storage options are not set")
 		} else {
-			store := etcd.NewEtcdStore(conf.Spec.Storage.Etcd,
+			store := etcd.NewEtcdStore(ctx, conf.Spec.Storage.Etcd,
 				etcd.WithNamespace("gateway"),
 			)
 			tokenStore = store
@@ -144,9 +146,9 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 		Certificates: []tls.Certificate{*servingCertBundle},
 	}
 
-	apiExtensionPlugins := plugins.DispenseAll(apiextensions.ManagementAPIExtensionPluginID)
+	apiExtensionPlugins := pluginLoader.DispenseAll(apiextensions.ManagementAPIExtensionPluginID)
 
-	mgmtSrv := management.NewServer(&conf.Spec.Management,
+	mgmtSrv := management.NewServer(ctx, &conf.Spec.Management,
 		management.TokenStore(tokenStore),
 		management.ClusterStore(clusterStore),
 		management.RBACStore(rbacStore),
@@ -157,12 +159,14 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 
 	g := &Gateway{
 		GatewayOptions:    options,
+		ctx:               ctx,
 		config:            conf,
 		app:               app,
 		logger:            lg,
 		managementServer:  mgmtSrv,
 		tlsConfig:         tlsConfig,
 		servingCertBundle: servingCertBundle,
+		pluginLoader:      pluginLoader,
 	}
 	g.loadCortexCerts()
 	g.setupCortexRoutes(app, rbacStore, clusterStore)
@@ -175,19 +179,39 @@ func NewGateway(conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
 
 	app.Use(default404Handler)
 
+	waitctx.AddOne(ctx)
+	go func() {
+		defer waitctx.Done(ctx)
+		<-ctx.Done()
+		lg.Info("shutting down plugins")
+		plugin.CleanupClients()
+	}()
+
 	return g
 }
 
 func (g *Gateway) Listen() error {
-	g.managementCtx, g.managementCtxCancel =
-		context.WithCancel(context.Background())
+	lg := g.logger
 	go func() {
-		if err := g.managementServer.ListenAndServe(g.managementCtx); err != nil {
-			g.logger.Error(err)
+		if err := g.managementServer.ListenAndServe(); err != nil {
+			g.logger.With(
+				zap.Error(err),
+			).Warn("management server stopped")
+		}
+	}()
+	waitctx.AddOne(g.ctx)
+	go func() {
+		defer waitctx.Done(g.ctx)
+		<-g.ctx.Done()
+		lg.Info("shutting down gateway api")
+		if err := g.app.Shutdown(); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("error shutting down gateway api")
 		}
 	}()
 
-	systemPlugins := plugins.DispenseAll(system.SystemPluginID)
+	systemPlugins := g.pluginLoader.DispenseAll(system.SystemPluginID)
 	g.logger.Infof("serving management api for %d system plugins", len(systemPlugins))
 	for _, systemPlugin := range systemPlugins {
 		srv := systemPlugin.Raw.(system.SystemPluginServer)
@@ -207,12 +231,6 @@ func (g *Gateway) Listen() error {
 		"address", listener.Addr().String(),
 	).Info("gateway server starting")
 	return g.app.Listener(listener)
-}
-
-func (g *Gateway) Shutdown() error {
-	g.managementCtxCancel()
-	plugin.CleanupClients()
-	return g.app.Shutdown()
 }
 
 func (g *Gateway) newCortexForwarder(addr string) func(*fiber.Ctx) error {
@@ -391,7 +409,7 @@ func loadServingCertBundle(certsSpec v1beta1.CertsSpec) (*tls.Certificate, error
 	return &servingCert, nil
 }
 
-func loadPlugins(conf v1beta1.PluginsSpec) {
+func loadPlugins(loader *plugins.PluginLoader, conf v1beta1.PluginsSpec) {
 	for _, dir := range conf.Dirs {
 		pluginPaths, err := plugin.Discover("plugin_*", dir)
 		if err != nil {
@@ -401,7 +419,7 @@ func loadPlugins(conf v1beta1.PluginsSpec) {
 			cc := plugins.ClientConfig(pluginmeta.PluginMeta{
 				Path: p,
 			}, plugins.Scheme)
-			plugins.Load(cc)
+			loader.Load(cc)
 		}
 	}
 }

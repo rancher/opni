@@ -53,7 +53,7 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 		}
 		cert, err := tls.X509KeyPair(test.TestData("localhost.crt"), test.TestData("localhost.key"))
 		Expect(err).NotTo(HaveOccurred())
-		server := management.NewServer(conf,
+		server := management.NewServer(ctx, conf,
 			append([]management.ManagementServerOption{
 				management.ClusterStore(tv.clusterStore),
 				management.TokenStore(tv.tokenStore),
@@ -64,7 +64,7 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 			}, opts...)...)
 		go func() {
 			defer GinkgoRecover()
-			if err := server.ListenAndServe(ctx); err != nil {
+			if err := server.ListenAndServe(); err != nil {
 				log.Println(err)
 			}
 		}()

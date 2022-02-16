@@ -36,17 +36,17 @@ var _ = Describe("Server", Ordered, func() {
 	It("should handle configuration errors", func() {
 		By("checking required options are set")
 		Expect(func() {
-			management.NewServer(&v1beta1.ManagementSpec{},
+			management.NewServer(context.Background(), &v1beta1.ManagementSpec{},
 				management.ClusterStore(test.NewTestClusterStore(tv.ctrl)),
 				management.RBACStore(test.NewTestRBACStore(tv.ctrl)))
 		}).To(PanicWith("token store is required"))
 		Expect(func() {
-			management.NewServer(&v1beta1.ManagementSpec{},
+			management.NewServer(context.Background(), &v1beta1.ManagementSpec{},
 				management.ClusterStore(test.NewTestClusterStore(tv.ctrl)),
 				management.TokenStore(test.NewTestTokenStore(context.Background(), tv.ctrl)))
 		}).To(PanicWith("rbac store is required"))
 		Expect(func() {
-			management.NewServer(&v1beta1.ManagementSpec{},
+			management.NewServer(context.Background(), &v1beta1.ManagementSpec{},
 				management.RBACStore(test.NewTestRBACStore(tv.ctrl)),
 				management.TokenStore(test.NewTestTokenStore(context.Background(), tv.ctrl)))
 		}).To(PanicWith("cluster store is required"))
@@ -55,15 +55,15 @@ var _ = Describe("Server", Ordered, func() {
 		conf := &v1beta1.ManagementSpec{
 			HTTPListenAddress: "127.0.0.1:0",
 		}
-		server := management.NewServer(conf,
+		server := management.NewServer(context.Background(), conf,
 			management.ClusterStore(test.NewTestClusterStore(tv.ctrl)),
 			management.RBACStore(test.NewTestRBACStore(tv.ctrl)),
 			management.TokenStore(test.NewTestTokenStore(context.Background(), tv.ctrl)),
 		)
-		Expect(server.ListenAndServe(context.Background())).To(MatchError("GRPCListenAddress not configured"))
+		Expect(server.ListenAndServe()).To(MatchError("GRPCListenAddress not configured"))
 
 		By("checking that invalid config fields cause errors")
 		conf.GRPCListenAddress = "foo://bar"
-		Expect(server.ListenAndServe(context.Background())).To(MatchError(util.ErrUnsupportedProtocolScheme))
+		Expect(server.ListenAndServe()).To(MatchError(util.ErrUnsupportedProtocolScheme))
 	})
 })

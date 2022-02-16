@@ -60,7 +60,7 @@ func default404Handler(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNotFound)
 }
 
-func New(conf *v1beta1.AgentConfig, opts ...AgentOption) (*Agent, error) {
+func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*Agent, error) {
 	lg := logger.New().Named("agent")
 	options := AgentOptions{}
 	options.Apply(opts...)
@@ -94,14 +94,14 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) (*Agent, error) {
 
 	switch agent.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
-		es := etcd.NewEtcdStore(agent.Storage.Etcd,
+		es := etcd.NewEtcdStore(ctx, agent.Storage.Etcd,
 			etcd.WithNamespace("agent"),
 		)
-		id, err := agent.identityProvider.UniqueIdentifier(context.Background())
+		id, err := agent.identityProvider.UniqueIdentifier(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error getting unique identifier: %w", err)
 		}
-		ks, err := es.KeyringStore(context.Background(), &core.Reference{
+		ks, err := es.KeyringStore(ctx, &core.Reference{
 			Id: id,
 		})
 		if err != nil {
@@ -115,11 +115,11 @@ func New(conf *v1beta1.AgentConfig, opts ...AgentOption) (*Agent, error) {
 	}
 
 	if options.bootstrapper != nil {
-		if err := agent.bootstrap(); err != nil {
+		if err := agent.bootstrap(ctx); err != nil {
 			return nil, fmt.Errorf("bootsrap error: %w", err)
 		}
 	} else {
-		if err := agent.loadKeyring(); err != nil {
+		if err := agent.loadKeyring(ctx); err != nil {
 			return nil, fmt.Errorf("error loading keyring: %w", err)
 		}
 	}
@@ -171,19 +171,19 @@ func (a *Agent) Shutdown() error {
 	return a.app.Shutdown()
 }
 
-func (a *Agent) bootstrap() error {
+func (a *Agent) bootstrap(ctx context.Context) error {
 	lg := a.logger
 	// Look up our tenant ID
-	id, err := a.identityProvider.UniqueIdentifier(context.Background())
+	id, err := a.identityProvider.UniqueIdentifier(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting unique identifier: %w", err)
 	}
 	a.tenantID = id
 
 	// Load the stored keyring, or bootstrap a new one if it doesn't exist
-	if _, err := a.keyringStore.Get(context.Background()); errors.Is(err, storage.ErrNotFound) {
+	if _, err := a.keyringStore.Get(ctx); errors.Is(err, storage.ErrNotFound) {
 		lg.Info("performing initial bootstrap")
-		newKeyring, err := a.bootstrapper.Bootstrap(context.Background(), a.identityProvider)
+		newKeyring, err := a.bootstrapper.Bootstrap(ctx, a.identityProvider)
 		if err != nil {
 			return fmt.Errorf("bootstrap failed: %w", err)
 		}
@@ -191,7 +191,7 @@ func (a *Agent) bootstrap() error {
 		for {
 			// Don't let this fail easily, otherwise we will lose the keyring forever.
 			// Keep retrying until it succeeds.
-			err = a.keyringStore.Put(context.Background(), newKeyring)
+			err = a.keyringStore.Put(ctx, newKeyring)
 			if err != nil {
 				lg.With(zap.Error(err)).Error("failed to persist keyring (retry in 1 second)")
 				time.Sleep(1 * time.Second)
@@ -206,18 +206,18 @@ func (a *Agent) bootstrap() error {
 	}
 
 	lg.Info("running post-bootstrap finalization steps")
-	if err := a.bootstrapper.Finalize(context.Background()); err != nil {
+	if err := a.bootstrapper.Finalize(ctx); err != nil {
 		lg.With(zap.Error(err)).Error("error in post-bootstrap finalization")
 	} else {
 		lg.Info("bootstrap completed successfully")
 	}
-	return a.loadKeyring()
+	return a.loadKeyring(ctx)
 }
 
-func (a *Agent) loadKeyring() error {
+func (a *Agent) loadKeyring(ctx context.Context) error {
 	lg := a.logger
 	lg.Info("loading keyring")
-	kr, err := a.keyringStore.Get(context.Background())
+	kr, err := a.keyringStore.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("error loading keyring: %w", err)
 	}

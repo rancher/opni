@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 )
 
 type Middleware interface {
@@ -43,6 +44,8 @@ var (
 	ErrInvalidConfig            = errors.New("middleware config must be a non-nil pointer to a struct")
 	ErrMiddlewareNotFound       = errors.New("auth middleware not found")
 	ErrMiddlewareConfigNotFound = errors.New("auth middleware config not found")
+
+	authLogger = logger.New().Named("auth")
 )
 
 func RegisterMiddleware(name string, m Middleware) error {

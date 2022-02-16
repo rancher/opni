@@ -1,7 +1,6 @@
 package util_test
 
 import (
-	"context"
 	"net"
 	"os"
 
@@ -14,12 +13,12 @@ import (
 var _ = Describe("Listener", func() {
 	When("the given address uses the tcp or tcp4 scheme", func() {
 		It("should return a tcp listener", func() {
-			listener, err := util.NewProtocolListener(context.Background(), "tcp://:0")
+			listener, err := util.NewProtocolListener("tcp://:0")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listener).To(BeAssignableToTypeOf(&net.TCPListener{}))
 			listener.Close()
 
-			listener, err = util.NewProtocolListener(context.Background(), "tcp4://:0")
+			listener, err = util.NewProtocolListener("tcp4://:0")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listener).To(BeAssignableToTypeOf(&net.TCPListener{}))
 			listener.Close()
@@ -27,15 +26,14 @@ var _ = Describe("Listener", func() {
 	})
 	When("the given address uses the unix scheme", func() {
 		It("should return a socket listener", func() {
-			listener, err := util.NewProtocolListener(context.Background(),
-				"unix:///tmp/opni-monitoring-test-util.sock")
+			listener, err := util.NewProtocolListener("unix:///tmp/opni-monitoring-test-util.sock")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listener).To(BeAssignableToTypeOf(&net.UnixListener{}))
 			listener.Close()
 		})
 		It("should create the socket's parent directory if needed", func() {
 			os.RemoveAll("/tmp/opni-monitoring-test-util-dir")
-			listener, err := util.NewProtocolListener(context.Background(),
+			listener, err := util.NewProtocolListener(
 				"unix:///tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listener).To(BeAssignableToTypeOf(&net.UnixListener{}))
@@ -46,7 +44,7 @@ var _ = Describe("Listener", func() {
 		})
 		It("should clean up existing sockets before creating a new one", func() {
 			By("creating a socket")
-			listener, err := util.NewProtocolListener(context.Background(),
+			listener, err := util.NewProtocolListener(
 				"unix:///tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listener).To(BeAssignableToTypeOf(&net.UnixListener{}))
@@ -56,7 +54,7 @@ var _ = Describe("Listener", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("creating a new socket in its place")
-			listener, err = util.NewProtocolListener(context.Background(),
+			listener, err = util.NewProtocolListener(
 				"unix:///tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listener).To(BeAssignableToTypeOf(&net.UnixListener{}))
@@ -67,7 +65,7 @@ var _ = Describe("Listener", func() {
 			os.Create("/tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock/foo")
 
 			By("creating a new socket where the non-empty directory is")
-			listener, err = util.NewProtocolListener(context.Background(),
+			listener, err = util.NewProtocolListener(
 				"unix:///tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock")
 			Expect(err).To(HaveOccurred())
 
@@ -75,7 +73,7 @@ var _ = Describe("Listener", func() {
 		})
 		When("the user does not have permissions to create the requested directory", func() {
 			It("should return an error", func() {
-				listener, err := util.NewProtocolListener(context.Background(),
+				listener, err := util.NewProtocolListener(
 					"unix:///var/lib/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock")
 				Expect(err).To(HaveOccurred())
 				Expect(listener).To(BeNil())
@@ -84,19 +82,19 @@ var _ = Describe("Listener", func() {
 	})
 	When("the given address uses an unsupported scheme", func() {
 		It("should return an error", func() {
-			_, err := util.NewProtocolListener(context.Background(), "foo://:0")
+			_, err := util.NewProtocolListener("foo://:0")
 			Expect(err).To(HaveOccurred())
 		})
 	})
 	When("an invalid address is given", func() {
 		It("should return an error", func() {
-			_, err := util.NewProtocolListener(context.Background(), "")
+			_, err := util.NewProtocolListener("")
 			Expect(err).To(HaveOccurred())
 
-			_, err = util.NewProtocolListener(context.Background(), "tcp://")
+			_, err = util.NewProtocolListener("tcp://")
 			Expect(err).To(HaveOccurred())
 
-			_, err = util.NewProtocolListener(context.Background(), string([]byte{0x7f}))
+			_, err = util.NewProtocolListener(string([]byte{0x7f}))
 			Expect(err).To(HaveOccurred())
 		})
 	})

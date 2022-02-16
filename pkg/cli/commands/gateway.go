@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"errors"
 	"os"
 	"sync/atomic"
@@ -13,6 +14,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/gateway"
 	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
@@ -41,6 +43,7 @@ func BuildGatewayCmd() *cobra.Command {
 			configLocation = path
 		}
 
+		ctx, cancel := context.WithCancel(waitctx.FromContext(context.Background()))
 		objects, err := config.LoadObjectsFromFile(configLocation)
 		if err != nil {
 			lg.With(
@@ -57,7 +60,7 @@ func BuildGatewayCmd() *cobra.Command {
 			func(ap *v1beta1.AuthProvider) {
 				switch ap.Spec.Type {
 				case v1beta1.AuthProviderOpenID:
-					mw, err := openid.New(ap.Spec)
+					mw, err := openid.New(ctx, ap.Spec)
 					if err != nil {
 						lg.With(
 							zap.Error(err),
@@ -69,7 +72,7 @@ func BuildGatewayCmd() *cobra.Command {
 						).Fatal("failed to register OpenID auth provider")
 					}
 				case v1beta1.AuthProviderNoAuth:
-					mw, err := noauth.New(ap.Spec)
+					mw, err := noauth.New(ctx, ap.Spec)
 					if err != nil {
 						lg.With(
 							zap.Error(err),
@@ -89,11 +92,14 @@ func BuildGatewayCmd() *cobra.Command {
 		)
 
 		lifecycler := config.NewLifecycler(objects)
-		g := gateway.NewGateway(gatewayConfig,
+		g := gateway.NewGateway(ctx, gatewayConfig,
 			gateway.WithLifecycler(lifecycler),
 			gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
 		)
 
+		style := chalk.Yellow.NewStyle().
+			WithBackground(chalk.ResetColor).
+			WithTextStyle(chalk.Bold)
 		reloadC := make(chan struct{})
 		go func() {
 			c, err := lifecycler.ReloadC()
@@ -103,14 +109,9 @@ func BuildGatewayCmd() *cobra.Command {
 				).Fatal("failed to get reload channel from lifecycler")
 			}
 			<-c
-			lg.Info(chalk.Yellow.Color("--- received reload signal ---"))
-			lg.Info("attempting to gracefully stop gateway server")
-			if err := g.Shutdown(); err != nil {
-				lg.With(
-					zap.Error(err),
-				).Fatal("error when stopping gateway server")
-			}
-			reloadC <- struct{}{}
+			lg.Info(style.Style("--- received reload signal ---"))
+			cancel()
+			close(reloadC)
 		}()
 
 		if err := g.Listen(); err != nil {
@@ -121,10 +122,12 @@ func BuildGatewayCmd() *cobra.Command {
 		}
 
 		<-reloadC
-		lg.Info(chalk.Yellow.Color("gateway server stopped successfully"))
+		lg.Info(style.Style("waiting for servers to shut down"))
+		waitctx.Wait(ctx)
+
 		auth.ResetMiddlewares()
-		lg.Info(chalk.Yellow.Color("reloading"))
 		atomic.StoreUint32(&plugin.Killed, 0)
+		lg.Info(style.Style("--- reloading ---"))
 		return nil
 	}
 

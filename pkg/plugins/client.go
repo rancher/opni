@@ -48,8 +48,6 @@ type PluginLoader struct {
 	ActivePlugins map[string][]ActivePlugin
 }
 
-var DefaultPluginLoader = NewPluginLoader()
-
 func NewPluginLoader() *PluginLoader {
 	return &PluginLoader{
 		ActivePlugins: map[string][]ActivePlugin{},
@@ -99,12 +97,4 @@ func (pl *PluginLoader) Load(cc *plugin.ClientConfig) {
 
 func (pl *PluginLoader) DispenseAll(id string) []ActivePlugin {
 	return pl.ActivePlugins[id]
-}
-
-func Load(cc *plugin.ClientConfig) {
-	DefaultPluginLoader.Load(cc)
-}
-
-func DispenseAll(id string) []ActivePlugin {
-	return DefaultPluginLoader.DispenseAll(id)
 }

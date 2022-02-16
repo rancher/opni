@@ -2,6 +2,9 @@ package system
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"sync"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni-monitoring/pkg/management"
@@ -83,36 +86,42 @@ type systemPluginHandler struct {
 func (s *systemPluginHandler) ServeManagementAPI(api management.ManagementServer) {
 	id := s.broker.NextId()
 	var srv *grpc.Server
-	wait := make(chan struct{})
+	once := sync.Once{}
 	go s.broker.AcceptAndServe(id, func(so []grpc.ServerOption) *grpc.Server {
-		defer close(wait)
 		srv = grpc.NewServer(so...)
 		go func() {
 			<-s.ctx.Done()
-			srv.GracefulStop()
+			once.Do(srv.Stop)
 		}()
 		management.RegisterManagementServer(srv, api)
 		return srv
 	})
 	done := make(chan struct{})
-	<-wait
 	go func() {
 		defer close(done)
-		if _, err := s.client.UseManagementAPI(s.ctx, &BrokerID{
+		s.client.UseManagementAPI(s.ctx, &BrokerID{
 			Id: id,
-		}); err != nil {
-			panic(err)
-		}
+		})
 	}()
+
 	select {
 	case <-s.ctx.Done():
 	case <-done:
 	}
 	if srv != nil {
-		srv.Stop()
+		once.Do(srv.Stop)
 	}
 }
 
 func init() {
 	plugins.Scheme.Add(SystemPluginID, NewPlugin(nil))
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	go func() {
+		<-c
+		plugin.CleanupClients()
+		os.Exit(0)
+	}()
 }

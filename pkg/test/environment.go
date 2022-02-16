@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -198,6 +199,9 @@ func (e *Environment) startEtcd() {
 	cmd.Env = []string{"ALLOW_NONE_AUTHENTICATION=yes"}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
 	if err := cmd.Start(); err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
@@ -253,6 +257,9 @@ func (e *Environment) startCortex() {
 	cmd := exec.CommandContext(e.ctx, cortexBin, defaultArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
 	if err := cmd.Start(); err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
@@ -317,6 +324,9 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 	cmd := exec.CommandContext(e.ctx, prometheusBin, defaultArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
 	if err := cmd.Start(); err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
@@ -407,7 +417,7 @@ func (e *Environment) NewManagementClient() management.ManagementClient {
 func (e *Environment) startGateway() {
 	lg := e.Logger
 	e.gatewayConfig = e.newGatewayConfig()
-	g := gateway.NewGateway(e.gatewayConfig,
+	g := gateway.NewGateway(e.ctx, e.gatewayConfig,
 		gateway.WithAuthMiddleware(e.gatewayConfig.Spec.AuthProvider),
 	)
 	go func() {
@@ -432,11 +442,8 @@ func (e *Environment) startGateway() {
 	lg.Info("Gateway started")
 	e.waitGroup.Add(1)
 	go func() {
-		defer e.waitGroup.Done()
 		<-e.ctx.Done()
-		if err := g.Shutdown(); err != nil {
-			lg.Errorf("gateway error: %v", err)
-		}
+		e.waitGroup.Done()
 	}()
 }
 
@@ -492,7 +499,7 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 	mu := sync.Mutex{}
 	go func() {
 		mu.Lock()
-		a, err = agent.New(agentConfig,
+		a, err = agent.New(e.ctx, agentConfig,
 			agent.WithBootstrapper(&bootstrap.ClientConfig{
 				Token:    bt,
 				Pins:     publicKeyPins,

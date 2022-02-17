@@ -64,7 +64,8 @@ spec:
           {{- end }}
           {{- if .Values.management.httpListenAddress }}
             - name: management-http
-              containerPort: {{ .Values.management.httpListenPort }}
+          {{- $a := split ":" .Values.management.httpListenAddress }}
+              containerPort: {{ $a._1 }}
               protocol: TCP
           {{- end }}
           {{- if eq .Values.auth.provider "noauth" }}

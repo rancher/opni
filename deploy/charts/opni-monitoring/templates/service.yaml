@@ -21,7 +21,7 @@ spec:
 {{- if .Values.management.httpListenAddress }}
     - name: management-http
 {{- $a := split ":" .Values.management.httpListenAddress }}
-      port: {{ $a._2 }}
+      port: {{ $a._1 }}
       targetPort: management-http
       protocol: TCP
 {{- end }}

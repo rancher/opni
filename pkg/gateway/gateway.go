@@ -152,7 +152,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 	}
 
 	tlsConfig := &tls.Config{
-		MinVersion:   tls.VersionTLS13,
+		MinVersion:   tls.VersionTLS12,
 		Certificates: []tls.Certificate{*servingCertBundle},
 	}
 
@@ -318,7 +318,7 @@ func (g *Gateway) loadCortexCerts() {
 		lg.Fatal("failed to load cortex client CA")
 	}
 	g.cortexTLSConfig = &tls.Config{
-		MinVersion:   tls.VersionTLS13,
+		MinVersion:   tls.VersionTLS12,
 		Certificates: []tls.Certificate{clientCert},
 		ClientCAs:    clientCAPool,
 		RootCAs:      serverCAPool,

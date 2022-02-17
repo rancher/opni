@@ -74,7 +74,7 @@ var webFS embed.FS
 
 func (s *Server) Run(ctx context.Context) error {
 	lg := s.Logger
-	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%s", s.Port))
+	listener, err := net.Listen("tcp4", fmt.Sprintf("0.0.0.0:%s", s.Port))
 	if err != nil {
 		return err
 	}

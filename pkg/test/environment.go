@@ -531,7 +531,7 @@ func (e *Environment) GatewayTLSConfig() *tls.Config {
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM([]byte(*e.gatewayConfig.Spec.Certs.CACertData))
 	return &tls.Config{
-		MinVersion: tls.VersionTLS13,
+		MinVersion: tls.VersionTLS12,
 		RootCAs:    pool,
 	}
 }

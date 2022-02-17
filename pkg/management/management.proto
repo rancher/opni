@@ -37,6 +37,11 @@ service Management {
       get: "/management/tokens"
     };
   }
+  rpc GetBootstrapToken(core.Reference) returns (core.BootstrapToken) {
+    option (google.api.http) = {
+      get: "/management/tokens/{id}"
+    };
+  }
   rpc ListClusters(ListClustersRequest) returns (core.ClusterList) {
     option (google.api.http) = {
       get: "/management/clusters"

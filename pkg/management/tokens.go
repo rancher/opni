@@ -43,8 +43,20 @@ func (m *Server) ListBootstrapTokens(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	tokenList := &core.BootstrapTokenList{}
-	for _, token := range tokens {
-		tokenList.Items = append(tokenList.Items, token)
-	}
+	tokenList.Items = append(tokenList.Items, tokens...)
 	return tokenList, nil
+}
+
+func (m *Server) GetBootstrapToken(
+	ctx context.Context,
+	ref *core.Reference,
+) (*core.BootstrapToken, error) {
+	if err := validation.Validate(ref); err != nil {
+		return nil, err
+	}
+	token, err := m.tokenStore.GetToken(ctx, ref)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return token, nil
 }

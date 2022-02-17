@@ -1,7 +1,7 @@
 package management_test
 
 import (
-	context "context"
+	"context"
 	"encoding/json"
 
 	"github.com/alecthomas/jsonschema"

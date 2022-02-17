@@ -26,7 +26,7 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
 	"github.com/rancher/opni-monitoring/pkg/config/meta"
-	v1beta1 "github.com/rancher/opni-monitoring/pkg/config/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/ecdh"
 	"github.com/rancher/opni-monitoring/pkg/ident"
 	"github.com/rancher/opni-monitoring/pkg/logger"

@@ -12,6 +12,7 @@ import (
 )
 
 func ClientConfig(md meta.PluginMeta, scheme meta.Scheme) *plugin.ClientConfig {
+	//#nosec G204
 	return &plugin.ClientConfig{
 		Plugins:          scheme.PluginMap(),
 		HandshakeConfig:  Handshake,

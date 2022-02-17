@@ -11,6 +11,7 @@ deploy/custom/opni-monitoring.yaml
 !/.gitignore
 !/.github
 !/.dockerignore
+!/.golangci.yaml
 
 /report.json
 /cover.out

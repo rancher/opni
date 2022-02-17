@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/rancher/opni-monitoring/pkg/storage"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func DefaultManagementSocket() string {

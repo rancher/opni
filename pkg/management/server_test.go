@@ -9,7 +9,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/test"
 	"github.com/rancher/opni-monitoring/pkg/util"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

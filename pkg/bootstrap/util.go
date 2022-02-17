@@ -14,7 +14,11 @@ import (
 
 // Erases the bootstrap tokens from the agent-config secret.
 // if restConfig is nil, InClusterConfig will be used.
-func eraseBootstrapTokensFromConfig(restConfig *rest.Config, namespace string) error {
+func eraseBootstrapTokensFromConfig(
+	ctx context.Context,
+	restConfig *rest.Config,
+	namespace string,
+) error {
 	if restConfig == nil {
 		var err error
 		restConfig, err = rest.InClusterConfig()
@@ -26,7 +30,6 @@ func eraseBootstrapTokensFromConfig(restConfig *rest.Config, namespace string) e
 	if err != nil {
 		return err
 	}
-	ctx := context.Background()
 	secret, err := clientset.CoreV1().
 		Secrets(namespace).
 		Get(ctx, "agent-config", metav1.GetOptions{})

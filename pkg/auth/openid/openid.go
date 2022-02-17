@@ -71,7 +71,7 @@ func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware,
 	}
 	issuerURL, err := url.Parse(m.conf.Issuer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse openid issuer URL: %v", err)
+		return nil, fmt.Errorf("failed to parse openid issuer URL: %w", err)
 	}
 	if !strings.HasSuffix(issuerURL.Path, ".well-known/openid-configuration") {
 		issuerURL.Path = path.Join(issuerURL.Path, ".well-known/openid-configuration")
@@ -156,7 +156,18 @@ func (m *OpenidMiddleware) connectToAuthProvider(issuerURL *url.URL) {
 }
 
 func fetchWellKnownConfig(url string) (*WellKnownConfiguration, error) {
-	resp, err := http.Get(url)
+	client := http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Accept", "application/json")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

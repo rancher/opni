@@ -91,7 +91,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	s.configureOAuthServer(mux)
-	s.configureWebServer(mux, port)
+	s.configureWebServer(ctx, mux, port)
 
 	server := http.Server{
 		Handler: mux,
@@ -242,11 +242,11 @@ func (s *Server) configureOAuthServer(mux *http.ServeMux) {
 	})
 }
 
-func (s *Server) configureWebServer(mux *http.ServeMux, port int) {
+func (s *Server) configureWebServer(ctx context.Context, mux *http.ServeMux, port int) {
 	mux.Handle("/web/", http.FileServer(http.FS(webFS)))
 
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		rbs, err := s.mgmtApiClient.ListRoleBindings(r.Context(), &emptypb.Empty{})
+		rbs, err := s.mgmtApiClient.ListRoleBindings(ctx, &emptypb.Empty{})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

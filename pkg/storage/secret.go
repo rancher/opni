@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	secretName = "opni-tenant-keyring"
+	/* #nosec G101 */
+	keyringSecretName = "opni-tenant-keyring"
 )
 
 type SecretStore struct {
@@ -68,11 +69,11 @@ func (s *SecretStore) Put(ctx context.Context, kr keyring.Keyring) error {
 	}
 
 	if _, err = s.clientset.CoreV1().Secrets(s.namespace).
-		Get(ctx, secretName, metav1.GetOptions{}); err != nil {
+		Get(ctx, keyringSecretName, metav1.GetOptions{}); err != nil {
 		if k8serrors.IsNotFound(err) {
 			newSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      secretName,
+					Name:      keyringSecretName,
 					Namespace: s.namespace,
 				},
 				Data: map[string][]byte{
@@ -97,7 +98,7 @@ func (s *SecretStore) Put(ctx context.Context, kr keyring.Keyring) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		secret, err := s.clientset.CoreV1().
 			Secrets(s.namespace).
-			Get(ctx, secretName, metav1.GetOptions{})
+			Get(ctx, keyringSecretName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -117,7 +118,7 @@ func (s *SecretStore) Put(ctx context.Context, kr keyring.Keyring) error {
 func (s *SecretStore) Get(ctx context.Context) (keyring.Keyring, error) {
 	secret, err := s.clientset.CoreV1().
 		Secrets(s.namespace).
-		Get(ctx, secretName, metav1.GetOptions{})
+		Get(ctx, keyringSecretName, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, ErrNotFound

@@ -23,7 +23,9 @@ func TLSConfig(pins []*PublicKeyPin) (*tls.Config, error) {
 		copiedPins[i] = pin.DeepCopy()
 	}
 
+	/* #nosec G402 -- InsecureSkipVerify allowed in conjunction with VerifyConnection */
 	return &tls.Config{
+		MinVersion:         tls.VersionTLS13,
 		InsecureSkipVerify: true,
 		VerifyConnection: func(cs tls.ConnectionState) error {
 			peerCerts := cs.PeerCertificates

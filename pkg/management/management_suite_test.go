@@ -1,7 +1,7 @@
 package management_test
 
 import (
-	context "context"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"

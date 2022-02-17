@@ -1,15 +1,15 @@
 package apiextensions
 
 import (
-	context "context"
+	"context"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"google.golang.org/grpc"
-	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type managementApiExtensionPlugin struct {

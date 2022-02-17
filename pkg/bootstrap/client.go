@@ -67,7 +67,7 @@ func (c *ClientConfig) Bootstrap(
 	}
 
 	ekp := ecdh.NewEphemeralKeyPair()
-	id, err := ident.UniqueIdentifier(context.Background())
+	id, err := ident.UniqueIdentifier(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to obtain unique identifier: %w", err)
 	}
@@ -126,7 +126,7 @@ func (c *ClientConfig) Finalize(ctx context.Context) error {
 			return errors.New("POD_NAMESPACE not set, and no namespace was explicitly configured")
 		}
 	}
-	return eraseBootstrapTokensFromConfig(c.K8sConfig, ns)
+	return eraseBootstrapTokensFromConfig(ctx, c.K8sConfig, ns)
 }
 
 func (c *ClientConfig) bootstrapJoinURL() (*url.URL, error) {

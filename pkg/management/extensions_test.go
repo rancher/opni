@@ -16,7 +16,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/utils/pointer"
 

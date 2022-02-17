@@ -41,6 +41,7 @@ func LoadClientMTLSConfig(certs *v1beta1.MTLSSpec) (*tls.Config, error) {
 	}
 
 	return &tls.Config{
+		MinVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{clientCert},
 		ClientCAs:    clientCAPool,
 		RootCAs:      serverCAPool,

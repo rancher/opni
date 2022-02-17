@@ -1,7 +1,7 @@
 package management
 
 import (
-	context "context"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -16,13 +16,13 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"go.uber.org/zap"
-	annotations "google.golang.org/genproto/googleapis/api/annotations"
+	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionInfoList, error) {

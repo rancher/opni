@@ -104,6 +104,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 			rbacStore = store
 			kvBroker = store
 		}
+	case v1beta1.StorageTypeSecret:
+		lg.With(
+			"type", conf.Spec.Storage.Type,
+		).Fatal("secret storage is only supported for agent keyrings")
 	default:
 		lg.With(
 			"type", conf.Spec.Storage.Type,
@@ -148,6 +152,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 	}
 
 	tlsConfig := &tls.Config{
+		MinVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{*servingCertBundle},
 	}
 
@@ -313,6 +318,7 @@ func (g *Gateway) loadCortexCerts() {
 		lg.Fatal("failed to load cortex client CA")
 	}
 	g.cortexTLSConfig = &tls.Config{
+		MinVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{clientCert},
 		ClientCAs:    clientCAPool,
 		RootCAs:      serverCAPool,

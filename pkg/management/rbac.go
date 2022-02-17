@@ -1,11 +1,11 @@
 package management
 
 import (
-	context "context"
+	"context"
 
-	core "github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/validation"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func (s *Server) CreateRole(ctx context.Context, in *core.Role) (*emptypb.Empty, error) {

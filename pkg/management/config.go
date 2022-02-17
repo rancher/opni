@@ -1,7 +1,7 @@
 package management
 
 import (
-	context "context"
+	"context"
 	"encoding/json"
 
 	"github.com/alecthomas/jsonschema"

@@ -3,7 +3,7 @@ package management
 import (
 	"context"
 
-	core "github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

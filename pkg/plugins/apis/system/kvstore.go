@@ -5,7 +5,7 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"google.golang.org/protobuf/proto"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type kvStoreServer struct {

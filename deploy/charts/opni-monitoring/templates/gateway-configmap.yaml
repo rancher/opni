@@ -48,14 +48,10 @@ data:
     spec:
       type: {{ .Values.auth.provider }}
       options:
-    {{- if eq .Values.auth.provider "openid" }}
-    {{- range $k, $v := .Values.auth.openid }}
-        {{ $k }}: {{ $v }}
-    {{- end }}
-    {{- end }}
-    {{- if eq .Values.auth.provider "noauth" }}
-    {{- range $k, $v := .Values.auth.noauth }}
-        {{ $k }}: {{ $v }}
-    {{- end }}
-    {{- end }}
+{{- if eq .Values.auth.provider "openid" }}
+{{ .Values.auth.openid | toYaml | indent 8 }}
+{{- end }}
+{{- if eq .Values.auth.provider "noauth" }}
+{{ .Values.auth.noauth | toYaml | indent 8 }}
+{{- end }}
     

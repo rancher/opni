@@ -9,7 +9,17 @@
   <link href="/web/assets/styles/style.css" rel="stylesheet" type="text/css" />
   <script>
     function login(username) {
-      document.location.href = "/callbacks/login" + document.location.search + "&login_as=" + username;
+      var form = document.createElement("form");
+      form.setAttribute("method", "post");
+
+      var input = document.createElement("input");
+      input.setAttribute("type", "hidden");
+      input.setAttribute("name", "username");
+      input.setAttribute("value", username);
+
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
     }
   </script>
 </head>

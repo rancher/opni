@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"runtime/debug"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -190,13 +191,11 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 
 	app.Use(default404Handler)
 
-	waitctx.AddOne(ctx)
-	go func() {
-		defer waitctx.Done(ctx)
+	waitctx.Go(ctx, func() {
 		<-ctx.Done()
 		lg.Info("shutting down plugins")
 		plugin.CleanupClients()
-	}()
+	})
 
 	return g
 }
@@ -210,9 +209,7 @@ func (g *Gateway) Listen() error {
 			).Warn("management server stopped")
 		}
 	}()
-	waitctx.AddOne(g.ctx)
-	go func() {
-		defer waitctx.Done(g.ctx)
+	waitctx.Go(g.ctx, func() {
 		<-g.ctx.Done()
 		lg.Info("shutting down gateway api")
 		if err := g.app.Shutdown(); err != nil {
@@ -220,7 +217,7 @@ func (g *Gateway) Listen() error {
 				zap.Error(err),
 			).Error("error shutting down gateway api")
 		}
-	}()
+	})
 
 	systemPlugins := g.pluginLoader.DispenseAll(system.SystemPluginID)
 	g.logger.Infof("serving management api for %d system plugins", len(systemPlugins))
@@ -251,8 +248,12 @@ func (g *Gateway) Listen() error {
 	if err != nil {
 		return err
 	}
+	info, _ := debug.ReadBuildInfo()
 	g.logger.With(
 		"address", listener.Addr().String(),
+		"go-version", info.GoVersion,
+		"version", info.Main.Version,
+		"sum", info.Main.Sum,
 	).Info("gateway server starting")
 	return g.app.Listener(listener)
 }

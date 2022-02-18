@@ -153,12 +153,10 @@ func (m *Server) ListenAndServe() error {
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
 	)
 	RegisterManagementServer(srv, m)
-	waitctx.AddOne(m.ctx)
-	go func() {
-		defer waitctx.Done(m.ctx)
+	waitctx.Go(m.ctx, func() {
 		<-m.ctx.Done()
 		srv.GracefulStop()
-	}()
+	})
 	if m.config.HTTPListenAddress != "" {
 		go m.listenAndServeHttp(listener)
 	}
@@ -195,16 +193,14 @@ func (m *Server) listenAndServeHttp(listener net.Listener) {
 			return m.ctx
 		},
 	}
-	waitctx.AddOne(m.ctx)
-	go func() {
-		defer waitctx.Done(m.ctx)
+	waitctx.Go(m.ctx, func() {
 		<-m.ctx.Done()
 		if err := server.Close(); err != nil {
 			lg.With(
 				zap.Error(err),
 			).Error("failed to close http gateway")
 		}
-	}()
+	})
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		lg.With(
 			zap.Error(err),

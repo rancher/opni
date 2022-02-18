@@ -63,3 +63,18 @@ func Wait(ctx context.Context, notifyAfter ...time.Duration) {
 		}(notifyAfter[0])
 	}
 }
+
+// Go runs the given function in a background goroutine, and adds it to the
+// WaitContext. Shorthand for the following pattern:
+//  waitctx.AddOne(ctx)
+//  go func() {
+//    defer waitctx.Done(ctx)
+//    // do stuff
+//  }()
+func Go(ctx context.Context, fn func()) {
+	AddOne(ctx)
+	go func() {
+		defer Done(ctx)
+		fn()
+	}()
+}

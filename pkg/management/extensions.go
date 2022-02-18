@@ -55,12 +55,10 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.Stream
 			continue
 		}
 		lg.Info("got extension descriptor for service " + sd.GetName())
-		waitctx.AddOne(ctx)
-		go func() {
-			defer waitctx.Done(ctx)
+		waitctx.Go(ctx, func() {
 			<-ctx.Done()
 			reflectClient.Reset()
-		}()
+		})
 
 		svcDesc, err := reflectClient.ResolveService(sd.GetName())
 		if err != nil {

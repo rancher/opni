@@ -215,12 +215,10 @@ func (e *Environment) startEtcd() {
 		time.Sleep(time.Second)
 	}
 	lg.Info("Etcd started")
-	waitctx.AddOne(e.ctx)
-	go func() {
-		defer waitctx.Done(e.ctx)
+	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
 		cmd.Wait()
-	}()
+	})
 }
 
 type cortexTemplateOptions struct {
@@ -273,12 +271,10 @@ func (e *Environment) startCortex() {
 		time.Sleep(time.Second)
 	}
 	lg.Info("Cortex started")
-	waitctx.AddOne(e.ctx)
-	go func() {
-		defer waitctx.Done(e.ctx)
+	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
 		cmd.Wait()
-	}()
+	})
 }
 
 type prometheusTemplateOptions struct {
@@ -335,12 +331,10 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 		time.Sleep(time.Second)
 	}
 	lg.Info("Prometheus started")
-	waitctx.AddOne(e.ctx)
-	go func() {
-		defer waitctx.Done(e.ctx)
+	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
 		cmd.Wait()
-	}()
+	})
 	return port
 }
 
@@ -437,11 +431,9 @@ func (e *Environment) startGateway() {
 		}
 	}
 	lg.Info("Gateway started")
-	waitctx.AddOne(e.ctx)
-	go func() {
-		defer waitctx.Done(e.ctx)
+	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
-	}()
+	})
 }
 
 func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []string) (int, <-chan error) {
@@ -511,9 +503,7 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 			errC <- err
 		}
 	}()
-	waitctx.AddOne(e.ctx)
-	go func() {
-		defer waitctx.Done(e.ctx)
+	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
 		mu.Lock()
 		if a == nil {
@@ -523,7 +513,7 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 		if err := a.Shutdown(); err != nil {
 			errC <- err
 		}
-	}()
+	})
 	return port, errC
 }
 

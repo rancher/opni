@@ -39,15 +39,13 @@ func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware,
 	m.noauthConfig.Logger = lg
 
 	srv := noauth.NewServer(m.noauthConfig)
-	waitctx.AddOne(ctx)
-	go func() {
-		defer waitctx.Done(ctx)
+	waitctx.Go(ctx, func() {
 		if err := srv.Run(ctx); err != nil {
 			lg.With(
 				zap.Error(err),
 			).Warn("noauth server stopped")
 		}
-	}()
+	})
 
 	return m, nil
 }

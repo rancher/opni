@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -31,6 +32,7 @@ func RenderBootstrapTokenList(list *core.BootstrapTokenList) string {
 		w.AppendRow(table.Row{
 			token.HexID(),
 			token.EncodeHex(),
+			(time.Duration(t.GetMetadata().GetTtl()) * time.Second).String(),
 			t.GetMetadata().GetUsageCount(),
 			strings.Join(JoinKeyValuePairs(t.GetMetadata().GetLabels()), "\n"),
 		})

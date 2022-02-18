@@ -69,7 +69,7 @@ func BuildTokensRevokeCmd() *cobra.Command {
 				if err != nil {
 					lg.Fatal(err)
 				}
-				lg.Info("Revoked token %s", token)
+				lg.Infof("Revoked token %s", token)
 			}
 		},
 	}
@@ -84,7 +84,7 @@ func BuildTokensListCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			cliutil.RenderBootstrapTokenList(t)
+			fmt.Println(cliutil.RenderBootstrapTokenList(t))
 		},
 	}
 }

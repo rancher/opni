@@ -5,14 +5,21 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
+	"github.com/andybalholm/brotli"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/schollz/progressbar/v3"
 
 	// mage:import
 	"github.com/kralicky/spellbook/build"
@@ -31,6 +38,10 @@ import (
 var Default = All
 
 func All() {
+	// Only run webdist once, if web/dist/_nuxt doesn't exist yet
+	if _, err := os.Stat("web/dist/_nuxt"); os.IsNotExist(err) {
+		mg.Deps(WebDist)
+	}
 	mg.Deps(build.Build)
 }
 
@@ -193,4 +204,171 @@ func init() {
 func TestEnv() {
 	mg.Deps(build.Build)
 	sh.RunV("bin/testenv")
+}
+
+type webAssetFile struct {
+	Path string
+	Data []byte
+}
+
+func WebDist() error {
+	err := sh.RunWith(map[string]string{
+		"DOCKER_BUILDKIT": "1",
+	}, "docker", "build", "-t", "opni-monitoring-ui-build", "-f", "Dockerfile.ui", ".")
+	if err != nil {
+		return err
+	}
+	pwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	curUser, err := user.Current()
+	if err != nil {
+		return err
+	}
+	err = sh.Run("docker", "run", "-t", "--rm", "-v",
+		filepath.Join(pwd, "web/dist")+":/dist",
+		"opni-monitoring-ui-build", fmt.Sprintf("%s:%s", curUser.Uid, curUser.Gid))
+	if err != nil {
+		return err
+	}
+	count := 0
+	uncompressedSize := int64(0)
+	compressedSize := int64(0)
+	workerCount := runtime.NumCPU()
+	uncompressedFiles := make(chan *webAssetFile, workerCount)
+	compressedFiles := make(chan *webAssetFile, workerCount)
+	bar := progressbar.Default(numFilesRecursive("web/dist"), "Compressing web assets")
+	writeWorkers := &sync.WaitGroup{}
+	for i := 0; i < workerCount; i++ {
+		writeWorkers.Add(1)
+		go func() {
+			defer writeWorkers.Done()
+			for {
+				cf, ok := <-compressedFiles
+				if !ok {
+					return
+				}
+				f, err := os.OpenFile(cf.Path, os.O_WRONLY|os.O_TRUNC, 0644)
+				if err != nil {
+					panic(err)
+				}
+				if _, err := f.Write(cf.Data); err != nil {
+					panic(err)
+				}
+				os.Rename(cf.Path, cf.Path+".br")
+				info, err := os.Stat(cf.Path + ".br")
+				if err != nil {
+					panic(err)
+				}
+				compressedSize += info.Size()
+				count++
+			}
+		}()
+	}
+	compressWorkers := &sync.WaitGroup{}
+	for i := 0; i < workerCount; i++ {
+		compressWorkers.Add(1)
+		go func() {
+			defer compressWorkers.Done()
+			for {
+				ucf, ok := <-uncompressedFiles
+				if !ok {
+					return
+				}
+
+				buf := new(bytes.Buffer)
+				w := brotli.NewWriterLevel(buf, 10)
+				w.Write(ucf.Data)
+				w.Close()
+				bar.Add(1)
+				compressedFiles <- &webAssetFile{
+					Path: ucf.Path,
+					Data: buf.Bytes(),
+				}
+			}
+		}()
+	}
+	if err := filepath.WalkDir("web/dist/_nuxt", func(path string, d fs.DirEntry, err error) error {
+		// skip dirs
+		if d.IsDir() {
+			return nil
+		}
+		// compress files with brotli
+		if strings.HasSuffix(path, ".br") {
+			// already compressed
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		uncompressedSize += info.Size()
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		buf := bytes.NewBuffer(make([]byte, 0, info.Size()))
+		_, err = io.Copy(buf, f)
+		if err != nil {
+			return err
+		}
+		f.Close()
+		uncompressedFiles <- &webAssetFile{
+			Path: path,
+			Data: buf.Bytes(),
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	close(uncompressedFiles)
+	compressWorkers.Wait()
+	close(compressedFiles)
+	writeWorkers.Wait()
+	bar.Close()
+
+	fmt.Printf("Compressed %d files (%d MiB -> %d MiB)\n", count, uncompressedSize/1024/1024, compressedSize/1024/1024)
+	return nil
+}
+
+func CleanDist() error {
+	if _, err := os.Stat("web/dist/_nuxt"); err == nil {
+		fmt.Println("Removing web/dist/_nuxt")
+		if err := os.RemoveAll("web/dist/_nuxt"); err != nil {
+			return err
+		}
+	}
+	// remove all files in web/dist except .gitignore
+	return filepath.Walk("web/dist", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if info.Name() == ".gitignore" {
+			return nil
+		}
+		fmt.Println("Removing", path)
+		return os.Remove(path)
+	})
+}
+
+func numFilesRecursive(dir string) int64 {
+	count := int64(0)
+	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(path, ".br") {
+			return nil
+		}
+		count++
+		return nil
+	})
+	return count
 }

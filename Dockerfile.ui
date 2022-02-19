@@ -1,0 +1,13 @@
+FROM node:14-alpine3.10
+
+WORKDIR /app
+
+RUN apk add --no-cache git rsync
+RUN git clone --depth=1 --branch=monitoring https://github.com/rancher/opni-ui.git .
+RUN yarn install
+RUN yarn opni:build
+RUN node_modules/.bin/nuxt generate -c product/opni/nuxt.config.js
+RUN printf '#!/bin/sh\n rsync -a --exclude=favicon.ico --chown=$1 /app/dist/* /dist/\n\n' > /sync-dist.sh \
+  && chmod +x /sync-dist.sh
+
+ENTRYPOINT [ "/sync-dist.sh" ]

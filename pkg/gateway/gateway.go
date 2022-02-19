@@ -31,6 +31,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/storage/etcd"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
+	"github.com/rancher/opni-monitoring/pkg/webui"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 	"golang.org/x/mod/module"
@@ -218,6 +219,30 @@ func (g *Gateway) Listen() error {
 			).Error("error shutting down gateway api")
 		}
 	})
+
+	webuiSrv, err := webui.NewWebUIServer(g.config)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Warn("not starting web ui server")
+	} else {
+		go func() {
+			if err := webuiSrv.ListenAndServe(); err != nil {
+				lg.With(
+					zap.Error(err),
+				).Warn("ui server stopped")
+			}
+		}()
+		waitctx.Go(g.ctx, func() {
+			<-g.ctx.Done()
+			lg.Info("shutting down ui server")
+			if err := webuiSrv.Shutdown(context.Background()); err != nil {
+				lg.With(
+					zap.Error(err),
+				).Error("error shutting down ui server")
+			}
+		})
+	}
 
 	systemPlugins := g.pluginLoader.DispenseAll(system.SystemPluginID)
 	g.logger.Infof("serving management api for %d system plugins", len(systemPlugins))

@@ -57,7 +57,7 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           {{- if hasPrefix "tcp://" .Values.management.grpcListenAddress }}
-            - name: management
+            - name: management-grpc
           {{- $a := split ":" .Values.management.grpcListenAddress }}
               containerPort: {{ $a._2 }}
               protocol: TCP
@@ -65,6 +65,12 @@ spec:
           {{- if .Values.management.httpListenAddress }}
             - name: management-http
           {{- $a := split ":" .Values.management.httpListenAddress }}
+              containerPort: {{ $a._1 }}
+              protocol: TCP
+          {{- end }}
+          {{- if .Values.management.webListenAddress }}
+            - name: management-web
+          {{- $a := split ":" .Values.management.webListenAddress }}
               containerPort: {{ $a._1 }}
               protocol: TCP
           {{- end }}

@@ -49,11 +49,13 @@ k8s_yaml(helm('deploy/charts/opni-monitoring',
     values=['deploy/custom/opni-monitoring.yaml'],
     set=[
         'gateway.dnsNames={%s}' % hostname,
-        'management.grpcListenAddress=tcp://0.0.0.0:9999',
+        'management.grpcListenAddress=tcp://0.0.0.0:11090',
+        'management.httpListenAddress=0.0.0.0:11080',
+        'management.webListenAddress=0.0.0.0:12080',
     ]
 ))
 
-k8s_resource(workload='opni-gateway', port_forwards=9999)
+k8s_resource(workload='opni-gateway', port_forwards=[11090, 11080, 12080])
 
 local_resource('Watch & Compile', 'mage build', 
     deps=['pkg'], ignore=[

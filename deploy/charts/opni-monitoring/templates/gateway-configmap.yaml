@@ -19,6 +19,7 @@ data:
       management:
         grpcListenAddress: "{{ .Values.management.grpcListenAddress }}"
         httpListenAddress: "{{ .Values.management.httpListenAddress }}"
+        webListenAddress: "{{ .Values.management.webListenAddress }}"
       cortex:
         certs:
           serverCA: /run/cortex/certs/server/ca.crt

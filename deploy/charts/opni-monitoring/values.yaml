@@ -50,7 +50,8 @@ management:
   #   unix:///path/to/management.sock
   #   tcp://0.0.0.0:9090
   grpcListenAddress: unix:///run/opni-monitoring/management.sock
-  httpListenAddress: 127.0.0.1:11990
+  httpListenAddress: 127.0.0.1:11080
+  webListenAddress: 127.0.0.1:12080
 
 serviceAccount:
   # Specifies whether a service account should be created

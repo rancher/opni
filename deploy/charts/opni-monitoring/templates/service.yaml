@@ -15,7 +15,7 @@ spec:
     - name: management
 {{- $a := split ":" .Values.management.grpcListenAddress }}
       port: {{ $a._2 }}
-      targetPort: management
+      targetPort: management-grpc
       protocol: TCP
 {{- end }}
 {{- if .Values.management.httpListenAddress }}
@@ -23,6 +23,13 @@ spec:
 {{- $a := split ":" .Values.management.httpListenAddress }}
       port: {{ $a._1 }}
       targetPort: management-http
+      protocol: TCP
+{{- end }}
+{{- if .Values.management.webListenAddress }}
+    - name: management-web
+{{- $a := split ":" .Values.management.webListenAddress }}
+      port: {{ $a._1 }}
+      targetPort: management-web
       protocol: TCP
 {{- end }}
 {{- if eq .Values.auth.provider "noauth" }}

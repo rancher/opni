@@ -3,19 +3,20 @@ module github.com/rancher/opni-monitoring
 go 1.18
 
 require (
-	github.com/alecthomas/jsonschema v0.0.0-20220203024042-cc89723c9db0
+	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
+	github.com/andybalholm/brotli v1.0.4
 	github.com/gofiber/fiber/v2 v2.27.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-hclog v1.1.0
 	github.com/hashicorp/go-plugin v1.4.3
 	github.com/jedib0t/go-pretty/v6 v6.2.7
-	github.com/jhump/protoreflect v1.11.0
+	github.com/jhump/protoreflect v1.12.0
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc
 	github.com/kralicky/spellbook v0.0.0-20220204185758-6c5ad9d29ee2
 	github.com/lestrrat-go/backoff/v2 v2.0.8
-	github.com/lestrrat-go/jwx v1.2.18
+	github.com/lestrrat-go/jwx v1.2.19
 	github.com/magefile/mage v1.12.1
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/mwitkow/grpc-proxy v0.0.0-20220126150247-db34e7bfee32
@@ -23,18 +24,19 @@ require (
 	github.com/onsi/gomega v1.18.1
 	github.com/ory/fosite v0.42.1
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
+	github.com/schollz/progressbar/v3 v3.8.6
 	github.com/spf13/cobra v1.3.0
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/valyala/fasthttp v1.33.0
+	github.com/vearutop/statigz v1.1.7
 	go.etcd.io/etcd/client/v3 v3.5.2
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
-	golang.org/x/exp v0.0.0-20220218215828-6cf2b201936e
 	golang.org/x/mod v0.6.0-dev.0.20211013180041-c96bc1413d57
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gonum.org/v1/gonum v0.9.3
-	google.golang.org/genproto v0.0.0-20220216160803-4663080d8bc8
+	google.golang.org/genproto v0.0.0-20220222154240-daf995802d7b
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.23.4
@@ -52,7 +54,6 @@ require (
 	github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
@@ -131,8 +132,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/russross/blackfriday v1.5.2 // indirect
-	github.com/schollz/progressbar v1.0.0 // indirect
-	github.com/schollz/progressbar/v3 v3.8.6 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -143,7 +142,6 @@ require (
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
-	github.com/vearutop/statigz v1.1.7 // indirect
 	github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca // indirect
 	github.com/yoheimuta/go-protoparser/v4 v4.5.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.2 // indirect

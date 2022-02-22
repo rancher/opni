@@ -50,7 +50,7 @@ var _ = Describe("Middleware", func() {
 			AnyTimes()
 		defer ctrl.Finish()
 		app := fiber.New()
-		logger.ConfigureApp(app, logger.New().Named("test"))
+		logger.ConfigureAppLogger(app, "test")
 
 		By("adding test middleware to insert the userID local")
 		id := atomic.NewInt32(0)
@@ -111,7 +111,7 @@ var _ = Describe("Middleware", func() {
 			AnyTimes()
 		defer ctrl.Finish()
 		app := fiber.New()
-		logger.ConfigureApp(app, logger.New().Named("test"))
+		logger.ConfigureAppLogger(app, "test")
 
 		By("adding the rbac middleware")
 		app.Use(rbac.NewMiddleware(mockProvider))

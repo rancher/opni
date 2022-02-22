@@ -132,7 +132,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 		TrustedProxies:          conf.Spec.TrustedProxies,
 		DisableStartupMessage:   true,
 	})
-	logger.ConfigureApp(app, lg)
+	logger.ConfigureAppLogger(app, "gateway")
 
 	for _, middleware := range options.fiberMiddlewares {
 		app.Use(middleware)

@@ -29,6 +29,9 @@ func NewWebUIServer(config *v1beta1.GatewayConfig) (*WebUIServer, error) {
 	if !web.EmbeddedAssetsAvailable() {
 		return nil, errors.New("embedded assets not available")
 	}
+	if config.Spec.Management.WebListenAddress == "" {
+		return nil, errors.New("management.webListenAddress not set in config")
+	}
 	return &WebUIServer{
 		config: config,
 		logger: logger.New().Named("webui"),
@@ -37,7 +40,7 @@ func NewWebUIServer(config *v1beta1.GatewayConfig) (*WebUIServer, error) {
 
 func (ws *WebUIServer) ListenAndServe() error {
 	lg := ws.logger
-	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	listener, err := net.Listen("tcp4", ws.config.Spec.Management.WebListenAddress)
 	if err != nil {
 		return err
 	}

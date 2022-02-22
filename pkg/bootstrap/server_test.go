@@ -83,7 +83,7 @@ var _ = Describe("Server", func() {
 		app = fiber.New(fiber.Config{
 			DisableStartupMessage: true,
 		})
-		logger.ConfigureApp(app, logger.New().Named("test"))
+		logger.ConfigureAppLogger(app, "test")
 		server := bootstrap.ServerConfig{
 			Certificate:  cert,
 			TokenStore:   mockTokenStore,

@@ -115,8 +115,10 @@ func (la *hclogAdapter) StandardWriter(opts *hclog.StandardLoggerOptions) io.Wri
 func NewHCLogger(logger ExtendedSugaredLogger) hclog.Logger {
 	return &hclogAdapter{
 		logger: &extendedSugaredLogger{
-			SugaredLogger: zap.New(logger.Desugar().Core(), zap.AddCallerSkip(1)).Sugar(),
-			level:         logger.AtomicLevel(),
+			SugaredLogger: New(WithZapOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+				return c
+			}), zap.AddCallerSkip(1))),
+			level: logger.AtomicLevel(),
 		},
 	}
 }

@@ -25,6 +25,7 @@ type GatewayConfigSpec struct {
 type ManagementSpec struct {
 	GRPCListenAddress string `json:"grpcListenAddress,omitempty"`
 	HTTPListenAddress string `json:"httpListenAddress,omitempty"`
+	WebListenAddress  string `json:"webListenAddress,omitempty"`
 }
 
 type CortexSpec struct {

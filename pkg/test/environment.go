@@ -48,6 +48,7 @@ type servicePorts struct {
 	Gateway        int
 	ManagementGRPC int
 	ManagementHTTP int
+	ManagementWeb  int
 	CortexGRPC     int
 	CortexHTTP     int
 }
@@ -84,7 +85,7 @@ func (e *Environment) Start() error {
 			return fmt.Errorf("failed to install test auth middleware: %w", err)
 		}
 	}
-	ports, err := freeport.GetFreePorts(6)
+	ports, err := freeport.GetFreePorts(7)
 	if err != nil {
 		panic(err)
 	}
@@ -93,8 +94,9 @@ func (e *Environment) Start() error {
 		Gateway:        ports[1],
 		ManagementGRPC: ports[2],
 		ManagementHTTP: ports[3],
-		CortexGRPC:     ports[4],
-		CortexHTTP:     ports[5],
+		ManagementWeb:  ports[4],
+		CortexGRPC:     ports[5],
+		CortexHTTP:     ports[6],
 	}
 	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
 		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
@@ -106,6 +108,12 @@ func (e *Environment) Start() error {
 		e.ports.ManagementHTTP, err = strconv.Atoi(portNum)
 		if err != nil {
 			return fmt.Errorf("failed to parse management HTTP port: %w", err)
+		}
+	}
+	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_WEB_PORT"); ok {
+		e.ports.ManagementWeb, err = strconv.Atoi(portNum)
+		if err != nil {
+			return fmt.Errorf("failed to parse management web port: %w", err)
 		}
 	}
 	if portNum, ok := os.LookupEnv("OPNI_GATEWAY_PORT"); ok {
@@ -348,9 +356,11 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 				Dirs: []string{"bin", "../../bin"},
 			},
 			ListenAddress: fmt.Sprintf("localhost:%d", e.ports.Gateway),
+			EnableMonitor: true,
 			Management: v1beta1.ManagementSpec{
 				GRPCListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", e.ports.ManagementGRPC),
 				HTTPListenAddress: fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementHTTP),
+				WebListenAddress:  fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementWeb),
 			},
 			AuthProvider: "test",
 			Certs: v1beta1.CertsSpec{

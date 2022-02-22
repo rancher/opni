@@ -73,7 +73,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		Network:               "tcp4",
 		DisableStartupMessage: true,
 	})
-	logger.ConfigureApp(app, lg)
+	logger.ConfigureAppLogger(app, "agent")
 
 	app.All("/healthz", func(c *fiber.Ctx) error {
 		return c.SendStatus(fasthttp.StatusOK)

@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"strings"
+
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -12,11 +14,15 @@ type fasthttplogAdapter struct {
 var _ fasthttp.Logger = (*fasthttplogAdapter)(nil)
 
 func (la *fasthttplogAdapter) Printf(format string, args ...interface{}) {
-	la.logger.Infof(format, args...)
+	if strings.Contains(format, "error") || strings.Contains(format, "failed") {
+		la.logger.Errorf(format, args...)
+	} else {
+		la.logger.Infof(format, args...)
+	}
 }
 
-func NewFasthttpLogger(logger SugaredLogger) fasthttp.Logger {
+func NewFasthttpLogger(name string) fasthttp.Logger {
 	return &fasthttplogAdapter{
-		logger: zap.New(logger.Desugar().Core(), zap.AddCallerSkip(1)).Sugar(),
+		logger: New(WithZapOptions(zap.AddCallerSkip(1))).Named(name),
 	}
 }

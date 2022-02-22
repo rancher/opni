@@ -91,9 +91,10 @@ func (l *extendedSugaredLogger) XNamed(name string) ExtendedSugaredLogger {
 }
 
 type LoggerOptions struct {
-	logLevel zapcore.Level
-	writer   io.Writer
-	color    *bool
+	logLevel   zapcore.Level
+	writer     io.Writer
+	color      *bool
+	zapOptions []zap.Option
 }
 
 type LoggerOption func(*LoggerOptions)
@@ -119,6 +120,12 @@ func WithWriter(w io.Writer) LoggerOption {
 func WithColor(color bool) LoggerOption {
 	return func(o *LoggerOptions) {
 		o.color = &color
+	}
+}
+
+func WithZapOptions(opts ...zap.Option) LoggerOption {
+	return func(o *LoggerOptions) {
+		o.zapOptions = append(o.zapOptions, opts...)
 	}
 }
 
@@ -174,7 +181,7 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 		encoder := zapcore.NewConsoleEncoder(encoderConfig)
 		core := zapcore.NewCore(encoder, ws, level)
 		return &extendedSugaredLogger{
-			SugaredLogger: zap.New(core).Sugar(),
+			SugaredLogger: zap.New(core, options.zapOptions...).Sugar(),
 			level:         level,
 		}
 	}
@@ -189,7 +196,7 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 		OutputPaths:       []string{"stdout"},
 		ErrorOutputPaths:  []string{"stderr"},
 	}
-	lg, err := zapConfig.Build()
+	lg, err := zapConfig.Build(options.zapOptions...)
 	if err != nil {
 		panic(err)
 	}
@@ -211,8 +218,8 @@ func FromContext(ctx context.Context) ExtendedSugaredLogger {
 	return lg
 }
 
-func ConfigureApp(app *fiber.App, lg SugaredLogger) {
-	app.Server().Logger = NewFasthttpLogger(lg)
+func ConfigureAppLogger(app *fiber.App, name string) {
+	app.Server().Logger = NewFasthttpLogger(name)
 }
 
 func NewForPlugin() hclog.Logger {

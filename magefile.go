@@ -103,7 +103,8 @@ func init() {
 	k8sVersion := k8sModuleVersion()
 
 	build.Config.ExtraTargets = map[string]string{
-		"./plugins/example": "bin/plugin_example",
+		"./internal/cmd/testenv": "bin/testenv",
+		"./plugins/example":      "bin/plugin_example",
 	}
 	build.Config.ExtraEnv = map[string]string{
 		"GOOS": "linux",

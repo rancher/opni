@@ -76,8 +76,8 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, func
 		for _, token := range tokenInfo {
 			Expect(token.TokenID).NotTo(BeEmpty())
 			Expect(token.Secret).NotTo(BeEmpty())
-			// Expect(token.Ttl).NotTo(BeZero())
-			// Expect(token.LeaseID).NotTo(BeZero())
+			Expect(token.Metadata.Ttl).NotTo(BeZero())
+			Expect(token.Metadata.LeaseID).NotTo(BeZero())
 		}
 	})
 

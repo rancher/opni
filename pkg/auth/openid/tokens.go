@@ -62,7 +62,7 @@ func ValidateIDToken(token string, keySet jwk.Set) (openid.Token, error) {
 	return j.(openid.Token), nil
 }
 
-func GetUserInfo(endpoint, token string) (map[string]interface{}, error) {
+func FetchUserInfo(endpoint, token string) (map[string]interface{}, error) {
 	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
 		return nil, err

@@ -33,6 +33,8 @@ type OpenidMiddleware struct {
 
 	wellKnownConfig *WellKnownConfiguration
 	lock            sync.Mutex
+
+	cache *UserInfoCache
 }
 
 var _ auth.Middleware = (*OpenidMiddleware)(nil)
@@ -78,7 +80,6 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 		lg.Printf("failed to fetch JWK set: %v", err)
 		return c.SendStatus(fiber.StatusServiceUnavailable)
 	}
-	lg.Printf("fetched JWK set (%d keys)", set.Len())
 	authHeader := c.Get("Authorization")
 	if authHeader == "" {
 		lg.Printf("no authorization header in request")
@@ -100,18 +101,17 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 		}
 		userID = fmt.Sprint(claim)
 	case AccessToken:
-		// todo: this absolutely must be cached
-		info, err := GetUserInfo(m.wellKnownConfig.UserinfoEndpoint, bearerToken)
+		userInfo, err := m.cache.Get(bearerToken)
 		if err != nil {
 			lg.Printf("failed to get user info: %v", err)
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
-		claim, ok := info[m.conf.IdentifyingClaim]
-		if !ok {
-			lg.Printf("identifying claim %q not found in user info", m.conf.IdentifyingClaim)
+		uid, err := userInfo.UserID()
+		if err != nil {
+			lg.Printf("failed to get user id: %v", err)
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
-		userID = fmt.Sprint(claim)
+		userID = uid
 	}
 	c.Request().Header.Del("Authorization")
 	c.Locals(rbac.UserIDKey, userID)
@@ -143,6 +143,7 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 		defer m.lock.Unlock()
 		m.wellKnownConfig = wellKnownCfg
 		m.keyRefresher.Configure(wellKnownCfg.JwksUri)
+		m.cache = NewUserInfoCache(m.conf, wellKnownCfg, m.logger)
 		break
 	}
 }

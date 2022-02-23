@@ -11,6 +11,7 @@ const (
 	AppNameLabel         = "app.kubernetes.io/name"
 	PartOfLabel          = "app.kubernetes.io/part-of"
 	HostTopologyKey      = "kubernetes.io/hostname"
+	OpniClusterID        = "opni.io/cluster-id"
 )
 
 func CombineLabels(maps ...map[string]string) map[string]string {

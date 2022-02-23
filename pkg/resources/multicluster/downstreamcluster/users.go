@@ -20,6 +20,24 @@ var (
 	ErrorMissingUserSecret = errors.New("user secret not set")
 
 	indexUser = osapiext.UserSpec{}
+
+	clusterReadRole = osapiext.RoleSpec{
+		RoleName: "cluster_read",
+		ClusterPermissions: []string{
+			"cluster_composite_ops_ro",
+		},
+		IndexPermissions: []osapiext.IndexPermissionSpec{
+			{
+				IndexPatterns: []string{
+					"logs*",
+				},
+				AllowedActions: []string{
+					"read",
+					"search",
+				},
+			},
+		},
+	}
 )
 
 func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1beta1.OpensearchCluster) (retResult *reconcile.Result, retErr error) {
@@ -37,6 +55,9 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1bet
 	indexUser.Attributes = map[string]string{
 		"cluster": r.downstreamCluster.Labels[v2beta1.IDLabel],
 	}
+
+	clusterReadRole.RoleName = r.downstreamCluster.Name
+	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(`{"term":{"cluster_id.keyword": "%s"}}`, r.downstreamCluster.Labels[v2beta1.IDLabel])
 
 	secret := &corev1.Secret{}
 
@@ -57,6 +78,11 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1bet
 	}
 
 	reconciler := opensearch.NewReconciler(r.ctx, opensearchCluster.Namespace, osPassword, fmt.Sprintf("%s-os", opensearchCluster.Name))
+
+	retErr = reconciler.MaybeCreateRole(clusterReadRole)
+	if retErr != nil {
+		return
+	}
 
 	retErr = reconciler.MaybeCreateUser(indexUser)
 	if retErr != nil {

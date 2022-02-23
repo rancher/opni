@@ -62,8 +62,7 @@ func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      logAdapter.Spec.OpniCluster.Name,
 		Namespace: logAdapter.Spec.OpniCluster.Namespace,
-	},
-		&opniCluster); err != nil {
+	}, &opniCluster); err != nil && !logAdapter.Spec.DownstreamCluster {
 		logAdapter.Status.Phase = "Error"
 		logAdapter.Status.Message = opnierrors.InvalidReference.Error()
 		r.Status().Update(ctx, &logAdapter)

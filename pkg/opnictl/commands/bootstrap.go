@@ -3,25 +3,31 @@ package commands
 import (
 	"context"
 	"errors"
-	"net/url"
-	"strconv"
+	"fmt"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
+	"github.com/banzaicloud/logging-operator/pkg/sdk/model/filter"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/model/output"
-	"github.com/banzaicloud/operator-tools/pkg/secret"
+	"github.com/rancher/opni/apis/v2beta1"
 	registerclient "github.com/rancher/opni/pkg/multicluster/client"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 type bootstrapFlagVars struct {
 	apiAddress        string
 	opensearchAddress string
 	useRancherLogging bool
+	insecure          bool
 }
+
+const (
+	clusterFlowName   = "multicluster-flow"
+	clusterOutputName = "multicluster-output"
+	systemNamespace   = "opni-system"
+)
 
 var (
 	vars = &bootstrapFlagVars{}
@@ -37,6 +43,7 @@ func BuildBoostrapCmd() *cobra.Command {
 	command.Flags().StringVar(&vars.apiAddress, "api", "http://localhost:8082", "address of the multicluster API")
 	command.Flags().StringVar(&vars.opensearchAddress, "opensearch", "https://localhost:9200", "address of the Opensearch endpoint")
 	command.Flags().BoolVar(&vars.useRancherLogging, "rancher-logging", false, "use rancher-logging app for shipping logs")
+	command.Flags().BoolVar(&vars.insecure, "insecure-disable-ssl-verify", false, "disable SSL verification for Opensearch endpoint")
 
 	return command
 }
@@ -75,8 +82,17 @@ func bootstrapCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	err = createDataPrepper(cmd.Context(), args[0], username, id)
+	if err != nil {
+		return err
+	}
+
 	if !vars.useRancherLogging {
-		err = createOpniClusterOutput(cmd.Context(), username)
+		err = createOpniClusterOutput(cmd.Context(), args[0])
+		if err != nil {
+			return err
+		}
+		err = createOpniClusterFlow(cmd.Context(), id)
 		if err != nil {
 			return err
 		}
@@ -85,20 +101,39 @@ func bootstrapCluster(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func createOpniClusterOutput(ctx context.Context, username string) error {
-	opensearchURL, err := url.ParseRequestURI(vars.opensearchAddress)
-	if err != nil {
-		return err
+func createDataPrepper(ctx context.Context, name string, username string, clusterID string) error {
+	dataPrepper := &v2beta1.DataPrepper{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "opni-system",
+		},
+		Spec: v2beta1.DataPrepperSpec{
+			Opensearch: &v2beta1.OpensearchSpec{
+				Endpoint:                 vars.opensearchAddress,
+				InsecureDisableSSLVerify: vars.insecure,
+			},
+			Username: username,
+			PasswordFrom: &corev1.SecretKeySelector{
+				Key: "password",
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "indexing-password",
+				},
+			},
+			ClusterID: clusterID,
+		},
 	}
+	return common.K8sClient.Create(ctx, dataPrepper)
+}
 
+func createOpniClusterOutput(ctx context.Context, name string) error {
 	clusterOutput := &loggingv1beta1.ClusterOutput{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "multicluster-outupt",
-			Namespace: "opni-system",
+			Name:      clusterOutputName,
+			Namespace: systemNamespace,
 		},
 		Spec: loggingv1beta1.ClusterOutputSpec{
 			OutputSpec: loggingv1beta1.OutputSpec{
-				ElasticsearchOutput: &output.ElasticsearchOutput{
+				HTTPOutput: &output.HTTPOutputConfig{
 					Buffer: &output.Buffer{
 						FlushInterval:         "30s",
 						FlushMode:             "interval",
@@ -106,44 +141,73 @@ func createOpniClusterOutput(ctx context.Context, username string) error {
 						QueuedChunksLimitSize: 300,
 						Type:                  "file",
 					},
-					FlattenHashes: true,
-					Host:          opensearchURL.Host,
-					Port: func() int {
-						port := opensearchURL.Port()
-
-						if port != "" {
-							p, err := strconv.Atoi(port)
-							if err != nil {
-								return 443
-							}
-							return p
-						}
-
-						if opensearchURL.Scheme == "http" {
-							return 80
-						}
-						return 443
-					}(),
-					Scheme:           opensearchURL.Scheme,
-					IndexName:        "logs",
-					LogEs400Reason:   true,
-					SuppressTypeName: pointer.BoolPtr(true),
-					TargetTypeKey:    "_doc",
-					TypeName:         "_doc",
-					User:             username,
-					Password: &secret.Secret{
-						ValueFrom: &secret.ValueFrom{
-							SecretKeyRef: &corev1.SecretKeySelector{
-								Key: "password",
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: "indexing-password",
-								},
-							},
-						},
-					},
+					Endpoint:  fmt.Sprintf("http://%s.opni-system:2021", name),
+					JsonArray: true,
 				},
 			},
 		},
 	}
 	return common.K8sClient.Create(ctx, clusterOutput)
+}
+
+func createOpniClusterFlow(ctx context.Context, clusterID string) error {
+	clusterFlow := &loggingv1beta1.ClusterFlow{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clusterFlowName,
+			Namespace: systemNamespace,
+		},
+		Spec: loggingv1beta1.ClusterFlowSpec{
+			Match: []loggingv1beta1.ClusterMatch{
+				{
+					ClusterSelect: &loggingv1beta1.ClusterSelect{},
+				},
+			},
+			Filters: []loggingv1beta1.Filter{
+				{
+					RecordTransformer: &filter.RecordTransformer{
+						Records: []filter.Record{
+							{
+								"cluster_id": clusterID,
+							},
+						},
+					},
+				},
+				{
+					Dedot: &filter.DedotFilterConfig{
+						Separator: "-",
+						Nested:    true,
+					},
+				},
+				{
+					Grep: &filter.GrepConfig{
+						Exclude: []filter.ExcludeSection{
+							{
+								Key:     "log",
+								Pattern: `^\n$`,
+							},
+						},
+					},
+				},
+				{
+					DetectExceptions: &filter.DetectExceptions{
+						Languages: []string{
+							"java",
+							"python",
+							"go",
+							"ruby",
+							"js",
+							"csharp",
+							"php",
+						},
+						MultilineFlushInterval: "0.1",
+					},
+				},
+			},
+			GlobalOutputRefs: []string{
+				clusterOutputName,
+			},
+		},
+	}
+
+	return common.K8sClient.Create(ctx, clusterFlow)
 }

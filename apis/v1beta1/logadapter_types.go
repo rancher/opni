@@ -56,7 +56,6 @@ type LogAdapterSpec struct {
 	// +kubebuilder:validation:Required
 	Provider LogProvider `json:"provider"`
 
-	// +kubebuilder:validation:Required
 	OpniCluster OpniClusterNameSpec `json:"opniCluster,omitempty"`
 
 	ContainerLogDir string `json:"containerLogDir,omitempty"`
@@ -71,6 +70,8 @@ type LogAdapterSpec struct {
 
 	FluentConfig     *FluentConfigSpec `json:"fluentConfig,omitempty"`
 	RootFluentConfig *FluentConfigSpec `json:"rootFluentConfig,omitempty"`
+
+	DownstreamCluster bool `json:"downstreamCluster,omitempty"`
 }
 
 type FluentConfigSpec struct {

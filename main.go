@@ -167,6 +167,11 @@ func run() error {
 		return err
 	}
 
+	if err = (&controllers.DataPrepperReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DataPrepper")
+		return err
+	}
+
 	if err = (&opensearchcontrollers.OpensearchClusterReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OpensearchCluster")
 		return err

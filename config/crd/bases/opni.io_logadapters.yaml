@@ -32,6 +32,8 @@ spec:
                 type: object
               containerLogDir:
                 type: string
+              downstreamCluster:
+                type: boolean
               eks:
                 type: object
               fluentConfig:
@@ -6061,7 +6063,6 @@ spec:
               seLinuxEnabled:
                 type: boolean
             required:
-            - opniCluster
             - provider
             type: object
           status:

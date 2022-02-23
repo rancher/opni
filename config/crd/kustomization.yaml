@@ -18,6 +18,7 @@ resources:
 - bases/opni.io_loggingclusters.yaml
 - bases/opni.io_downstreamclusters.yaml
 - bases/opni.io_gpupolicyadapters.yaml
+- bases/opni.io_datapreppers.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

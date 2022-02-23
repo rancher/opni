@@ -21,8 +21,6 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +kubebuilder:printcolumn:name="IndexUser",type=boolean,JSONPath=`.status.indexUserState`
-
-// DownstreamCluster contains the reference for a downstream client cluster
 type DownstreamCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -42,8 +40,6 @@ type DownstreamClusterStatus struct {
 }
 
 //+kubebuilder:object:root=true
-
-// OpensearchClusterList contains a list of OpensearchCluster
 type DownstreamClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

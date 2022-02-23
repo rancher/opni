@@ -501,6 +501,32 @@ rules:
 - apiGroups:
   - opni.io
   resources:
+  - datapreppers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - datapreppers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - datapreppers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
   - downstreamclusters
   verbs:
   - create

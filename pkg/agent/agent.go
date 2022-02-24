@@ -116,7 +116,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	if options.bootstrapper != nil {
 		if err := agent.bootstrap(ctx); err != nil {
-			return nil, fmt.Errorf("bootsrap error: %w", err)
+			return nil, fmt.Errorf("bootstrap error: %w", err)
 		}
 	} else {
 		if err := agent.loadKeyring(ctx); err != nil {

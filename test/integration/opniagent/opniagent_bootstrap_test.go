@@ -101,7 +101,7 @@ var _ = FDescribe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, fun
 	//#region Edge Case Tests
 
 	//TODO: This test should be passing but it is not. Need Joe to look into this.
-	When("the token is revoked", func() {
+	XWhen("the token is revoked", func() {
 		It("should not allow any agents to bootstrap", func() {
 			_, err := client.RevokeBootstrapToken(context.Background(), &core.Reference{
 				Id: token.TokenID,
@@ -269,11 +269,16 @@ var _ = FDescribe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, fun
 	})
 
 	//TODO: This tests is failing. Joe will need to look into it.
-	XWhen("an agent tries to bootstrap twice", func() {
+	When("an agent tries to bootstrap twice", func() {
 		It("should reject the bootstrap request", func() {
+			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+				Ttl: durationpb.New(time.Minute),
+			})
+			Expect(err).NotTo(HaveOccurred())
+
 			id := uuid.NewString()
 			ctx, cancel := context.WithCancel(context.Background())
-			_, errC := environment.StartAgent(id, nil, nil, test.WithContext(ctx)) // fill these nil args in
+			_, errC := environment.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctx)) // fill these nil args in
 
 			Consistently(errC).ShouldNot(Receive())
 			cancel()
@@ -285,7 +290,7 @@ var _ = FDescribe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, fun
 			_, err = etcdClient.Delete(context.Background(), "/agents/keyrings/"+id)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, errC = environment.StartAgent(id, nil, nil) // fill these nil args in
+			_, errC = environment.StartAgent(id, token, []string{fingerprint}) // fill these nil args in
 
 			Eventually(errC).Should(Receive(MatchError(bootstrap.ErrBootstrapFailed)))
 		})

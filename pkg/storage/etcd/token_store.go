@@ -11,7 +11,6 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -25,7 +24,6 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, labels m
 	token := tokens.NewToken().ToBootstrapToken()
 	token.Metadata = &core.BootstrapTokenMetadata{
 		LeaseID:    int64(lease.ID),
-		Ttl:        lease.TTL,
 		UsageCount: 0,
 		Labels:     labels,
 	}
@@ -47,15 +45,14 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, ref *core.Reference) error 
 	if err != nil {
 		return err
 	}
-	// If the token has a lease, revoke it, which will delete the token.
 	if t.Metadata.LeaseID != 0 {
-		_, err := e.client.Revoke(ctx, clientv3.LeaseID(t.Metadata.LeaseID))
-		if err != nil {
-			return fmt.Errorf("failed to revoke lease: %w", err)
-		}
-		return nil
+		defer func(id int64) {
+			_, err := e.client.Revoke(context.Background(), clientv3.LeaseID(id))
+			if err != nil {
+				e.logger.Warnf("failed to revoke lease: %v", err)
+			}
+		}(t.Metadata.LeaseID)
 	}
-	// If the token doesn't have a lease, delete it directly.
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
 	resp, err := e.client.Delete(ctx, path.Join(e.namespace, tokensKey, ref.Id))
@@ -151,7 +148,7 @@ func (e *EtcdStore) tryIncrementUsageCount(ctx context.Context, key string) erro
 	}
 
 	txnResp, err := txn.If(clientv3.Compare(clientv3.Version(key), "=", kv.Version)).
-		Then(clientv3.OpPut(key, string(data))).
+		Then(clientv3.OpPut(key, string(data), clientv3.WithIgnoreLease())).
 		Commit()
 	if err != nil {
 		return fmt.Errorf("failed to increment token usage count: %w", err)
@@ -172,10 +169,7 @@ func (e *EtcdStore) addLeaseMetadata(
 		// lookup lease
 		leaseResp, err := e.client.TimeToLive(ctx, clientv3.LeaseID(lease))
 		if err != nil {
-			e.logger.With(
-				zap.Error(err),
-				zap.Int64("lease", lease),
-			).Error("failed to get lease")
+			return fmt.Errorf("failed to get lease: %w", err)
 		} else {
 			token.Metadata.Ttl = leaseResp.TTL
 		}

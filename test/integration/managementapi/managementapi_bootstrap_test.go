@@ -103,7 +103,7 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, func
 			Expect(fingerprint).NotTo(BeEmpty())
 
 			_, errC := environment.StartAgent("foo", token, []string{fingerprint})
-			Eventually(errC).Should(Receive(MatchError("bootsrap error: bootstrap failed: 405 Method Not Allowed")))
+			Eventually(errC).Should(Receive(MatchError("bootstrap error: bootstrap failed: 405 Method Not Allowed")))
 		})
 	})
 

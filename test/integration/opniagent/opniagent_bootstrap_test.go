@@ -32,7 +32,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = FDescribe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
+var _ = Describe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	var fingerprint string
@@ -107,28 +107,28 @@ var _ = FDescribe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, fun
 				Id: token.TokenID,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			time.Sleep(time.Second)
-
-			_, err = client.GetBootstrapToken(context.Background(), &core.Reference{
-				Id: token.TokenID,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(ContainSubstring(""))
+			Eventually(func() error {
+				_, err := client.GetBootstrapToken(context.Background(), &core.Reference{
+					Id: token.TokenID,
+				})
+				return err
+			}).Should(HaveOccurred())
 
 			clusterName := "test-cluster-id-" + uuid.New().String()
 
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-			Consistently(errC).Should(Receive())
+			Eventually(errC).Should(Receive(MatchError("bootstrap error: bootstrap failed: 405 Method Not Allowed")))
 
 			//TODO: Add substring message for failure to assertion
-			Expect(errC).To(ContainSubstring(""))
+			// Expect(errC).To(ContainSubstring(""))
 		})
 	})
 
 	//TODO: This test is causing a panic. Need Joe to look into this.
-	XWhen("several agents bootstrap at the same time", func() {
+	When("several agents bootstrap at the same time", func() {
 		It("should correctly bootstrap each agent", func() {
-			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			var err error
+			token, err = client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -202,13 +202,13 @@ var _ = FDescribe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, fun
 			Consistently(errC).ShouldNot(Receive())
 
 			time.Sleep(time.Second)
-			_, errC = environment.StartAgent("multiple-token-cluster-1", tokens[1], []string{fingerprint})
+			_, errC = environment.StartAgent("multiple-token-cluster-2", tokens[1], []string{fingerprint})
 			Consistently(errC).ShouldNot(Receive())
 		})
 	})
 
 	//TODO: Test Not passing.
-	XWhen("a token expires but other tokens are available", func() {
+	When("a token expires but other tokens are available", func() {
 		It("should not allow agents to use the expired token", func() {
 			exToken, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Second),
@@ -217,15 +217,13 @@ var _ = FDescribe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, fun
 
 			Eventually(func() error {
 				_, err := client.GetBootstrapToken(context.Background(), &core.Reference{
-					Id: token.TokenID,
+					Id: exToken.TokenID,
 				})
-				Expect(err).To(HaveOccurred())
 				return err
-			},
-				10*time.Second, 50*time.Millisecond).Should(ContainSubstring(""))
+			}, 10*time.Second, 50*time.Millisecond).Should(HaveOccurred())
 
-			_, errC := environment.StartAgent("multiple-token-cluster-1", exToken, []string{fingerprint})
-			Eventually(errC).Should(Receive())
+			_, errC := environment.StartAgent("multiple-token-cluster-3", exToken, []string{fingerprint})
+			Eventually(errC, 5*time.Second).Should(Receive())
 		})
 	})
 
@@ -263,7 +261,7 @@ var _ = FDescribe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, fun
 		for _, cert := range info.Chain {
 			fp := cert.Fingerprint
 
-			_, errC := environment.StartAgent("test-cluster-1", token, []string{fp})
+			_, errC := environment.StartAgent("test-cluster-2", token, []string{fp})
 			Consistently(errC).ShouldNot(Receive())
 		}
 	})
@@ -287,7 +285,7 @@ var _ = FDescribe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, fun
 			Expect(err).NotTo(HaveOccurred())
 			defer etcdClient.Close()
 
-			_, err = etcdClient.Delete(context.Background(), "/agents/keyrings/"+id)
+			_, err = etcdClient.Delete(context.Background(), "/agent/keyrings/"+id)
 			Expect(err).NotTo(HaveOccurred())
 
 			_, errC = environment.StartAgent(id, token, []string{fingerprint}) // fill these nil args in
@@ -297,31 +295,43 @@ var _ = FDescribe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, fun
 	})
 
 	//TODO: This tests is failing. Joe will need to look into it.
-	XWhen("an agent requests an ID that is already in use", func() {
+	When("an agent requests an ID that is already in use", func() {
+		var prevUsageCount int32
 		It("should reject the bootstrap request", func() {
-			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			tokenUsage, err := client.GetBootstrapToken(context.Background(), &core.Reference{
+				Id: token.TokenID,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			prevUsageCount = int32(tokenUsage.Metadata.UsageCount)
+
+			tempToken, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			_, errC := environment.StartAgent("test-cluster-1", token, []string{fingerprint})
+			_, errC := environment.StartAgent("test-cluster-3", tempToken, []string{fingerprint})
 			Consistently(errC).ShouldNot(Receive())
 
-			_, errC = environment.StartAgent("test-cluster-1", token, []string{fingerprint})
-			Eventually(errC).Should(Receive())
+			Expect(environment.GetAgent("test-cluster-3").Shutdown()).To(Succeed())
 
-			//TODO: Add substring message to the assertion
-			Expect(errC).To(ContainSubstring(""))
+			etcdClient, err := environment.EtcdClient()
+			Expect(err).NotTo(HaveOccurred())
+			defer etcdClient.Close()
+
+			resp, err := etcdClient.Delete(context.Background(), "agent/keyrings/test-cluster-3")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Deleted).To(BeEquivalentTo(1))
+
+			_, errC = environment.StartAgent("test-cluster-3", token, []string{fingerprint})
+			Eventually(errC).Should(Receive(MatchError("bootstrap error: bootstrap failed: bootstrap failed: 409 Conflict")))
 		})
 
-		It("should not increment the usage count of the token", func() {
-			Eventually(func() int {
-				tokenUsage, err := client.GetBootstrapToken(context.Background(), &core.Reference{
-					Id: token.TokenID,
-				})
-				Expect(err).NotTo(HaveOccurred())
-				return int(tokenUsage.Metadata.UsageCount)
-			}).Should((Equal(0)))
+		It("should not increment the usage count of the token ", func() {
+			tokenUsage, err := client.GetBootstrapToken(context.Background(), &core.Reference{
+				Id: token.TokenID,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tokenUsage.Metadata.UsageCount).To(BeEquivalentTo(prevUsageCount))
 		})
 	})
 

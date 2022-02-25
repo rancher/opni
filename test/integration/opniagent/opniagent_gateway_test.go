@@ -47,7 +47,7 @@ var _ = Describe("Opni Agent - Gateway Integration Tests", Ordered, func() {
 
 	//#region Error Path Tests
 
-	//TODO: Add error path tests
+	//TODO: Add Edge Case tests
 
 	//#endregion
 })

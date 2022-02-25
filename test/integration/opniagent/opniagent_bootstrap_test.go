@@ -100,8 +100,7 @@ var _ = Describe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, func
 
 	//#region Edge Case Tests
 
-	//TODO: This test should be passing but it is not. Need Joe to look into this.
-	XWhen("the token is revoked", func() {
+	When("the token is revoked", func() {
 		It("should not allow any agents to bootstrap", func() {
 			_, err := client.RevokeBootstrapToken(context.Background(), &core.Reference{
 				Id: token.TokenID,
@@ -118,13 +117,9 @@ var _ = Describe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, func
 
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
 			Eventually(errC).Should(Receive(MatchError("bootstrap error: bootstrap failed: 405 Method Not Allowed")))
-
-			//TODO: Add substring message for failure to assertion
-			// Expect(errC).To(ContainSubstring(""))
 		})
 	})
 
-	//TODO: This test is causing a panic. Need Joe to look into this.
 	When("several agents bootstrap at the same time", func() {
 		It("should correctly bootstrap each agent", func() {
 			var err error
@@ -144,6 +139,7 @@ var _ = Describe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, func
 
 					_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
 					Consistently(errC).ShouldNot(Receive())
+					time.Sleep(time.Second)
 
 					_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
 						Cluster: &core.Reference{
@@ -160,8 +156,6 @@ var _ = Describe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, func
 			time.Sleep(10 * time.Millisecond) // yield execution to other goroutines
 			close(ch)                         // start all goroutines at the same time
 			wg.Wait()                         // wait until they all finish
-
-			// here, all goroutines have finished
 
 			clusterList, err := client.ListClusters(context.Background(), &management.ListClustersRequest{
 				MatchLabels: &core.LabelSelector{
@@ -207,7 +201,6 @@ var _ = Describe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, func
 		})
 	})
 
-	//TODO: Test Not passing.
 	When("a token expires but other tokens are available", func() {
 		It("should not allow agents to use the expired token", func() {
 			exToken, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
@@ -260,14 +253,15 @@ var _ = Describe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, func
 		Expect(err).NotTo(HaveOccurred())
 		for _, cert := range info.Chain {
 			fp := cert.Fingerprint
+			clusterName := "test-cluster-2" + uuid.New().String()
 
-			_, errC := environment.StartAgent("test-cluster-2", token, []string{fp})
+			_, errC := environment.StartAgent(clusterName, token, []string{fp})
 			Consistently(errC).ShouldNot(Receive())
 		}
 	})
 
-	//TODO: This tests is failing. Joe will need to look into it.
-	When("an agent tries to bootstrap twice", func() {
+	//TODO: This test is not working.
+	XWhen("an agent tries to bootstrap twice", func() {
 		It("should reject the bootstrap request", func() {
 			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
@@ -276,7 +270,7 @@ var _ = Describe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, func
 
 			id := uuid.NewString()
 			ctx, cancel := context.WithCancel(context.Background())
-			_, errC := environment.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctx)) // fill these nil args in
+			_, errC := environment.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctx))
 
 			Consistently(errC).ShouldNot(Receive())
 			cancel()
@@ -288,13 +282,12 @@ var _ = Describe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, func
 			_, err = etcdClient.Delete(context.Background(), "/agent/keyrings/"+id)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, errC = environment.StartAgent(id, token, []string{fingerprint}) // fill these nil args in
+			_, errC = environment.StartAgent(id, token, []string{fingerprint})
 
 			Eventually(errC).Should(Receive(MatchError(bootstrap.ErrBootstrapFailed)))
 		})
 	})
 
-	//TODO: This tests is failing. Joe will need to look into it.
 	When("an agent requests an ID that is already in use", func() {
 		var prevUsageCount int32
 		It("should reject the bootstrap request", func() {

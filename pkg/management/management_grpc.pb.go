@@ -27,6 +27,7 @@ type ManagementClient interface {
 	CreateBootstrapToken(ctx context.Context, in *CreateBootstrapTokenRequest, opts ...grpc.CallOption) (*core.BootstrapToken, error)
 	RevokeBootstrapToken(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListBootstrapTokens(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*core.BootstrapTokenList, error)
+	GetBootstrapToken(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*core.BootstrapToken, error)
 	ListClusters(ctx context.Context, in *ListClustersRequest, opts ...grpc.CallOption) (*core.ClusterList, error)
 	WatchClusters(ctx context.Context, in *WatchClustersRequest, opts ...grpc.CallOption) (Management_WatchClustersClient, error)
 	DeleteCluster(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -76,6 +77,15 @@ func (c *managementClient) RevokeBootstrapToken(ctx context.Context, in *core.Re
 func (c *managementClient) ListBootstrapTokens(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*core.BootstrapTokenList, error) {
 	out := new(core.BootstrapTokenList)
 	err := c.cc.Invoke(ctx, "/management.Management/ListBootstrapTokens", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) GetBootstrapToken(ctx context.Context, in *core.Reference, opts ...grpc.CallOption) (*core.BootstrapToken, error) {
+	out := new(core.BootstrapToken)
+	err := c.cc.Invoke(ctx, "/management.Management/GetBootstrapToken", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -274,6 +284,7 @@ type ManagementServer interface {
 	CreateBootstrapToken(context.Context, *CreateBootstrapTokenRequest) (*core.BootstrapToken, error)
 	RevokeBootstrapToken(context.Context, *core.Reference) (*emptypb.Empty, error)
 	ListBootstrapTokens(context.Context, *emptypb.Empty) (*core.BootstrapTokenList, error)
+	GetBootstrapToken(context.Context, *core.Reference) (*core.BootstrapToken, error)
 	ListClusters(context.Context, *ListClustersRequest) (*core.ClusterList, error)
 	WatchClusters(*WatchClustersRequest, Management_WatchClustersServer) error
 	DeleteCluster(context.Context, *core.Reference) (*emptypb.Empty, error)
@@ -307,6 +318,9 @@ func (UnimplementedManagementServer) RevokeBootstrapToken(context.Context, *core
 }
 func (UnimplementedManagementServer) ListBootstrapTokens(context.Context, *emptypb.Empty) (*core.BootstrapTokenList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListBootstrapTokens not implemented")
+}
+func (UnimplementedManagementServer) GetBootstrapToken(context.Context, *core.Reference) (*core.BootstrapToken, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBootstrapToken not implemented")
 }
 func (UnimplementedManagementServer) ListClusters(context.Context, *ListClustersRequest) (*core.ClusterList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListClusters not implemented")
@@ -425,6 +439,24 @@ func _Management_ListBootstrapTokens_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ManagementServer).ListBootstrapTokens(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_GetBootstrapToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(core.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).GetBootstrapToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/GetBootstrapToken",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).GetBootstrapToken(ctx, req.(*core.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -774,6 +806,10 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListBootstrapTokens",
 			Handler:    _Management_ListBootstrapTokens_Handler,
+		},
+		{
+			MethodName: "GetBootstrapToken",
+			Handler:    _Management_GetBootstrapToken_Handler,
 		},
 		{
 			MethodName: "ListClusters",

@@ -88,3 +88,26 @@ func BuildTokensListCmd() *cobra.Command {
 		},
 	}
 }
+
+func BuildTokensGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <token-id>...",
+		Short: "get bootstrap tokens",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			tokenList := []*core.BootstrapToken{}
+			for _, id := range args {
+				t, err := client.GetBootstrapToken(cmd.Context(), &core.Reference{
+					Id: id,
+				})
+				if err != nil {
+					lg.Fatal(err)
+				}
+				tokenList = append(tokenList, t)
+			}
+			cliutil.RenderBootstrapTokenList(&core.BootstrapTokenList{
+				Items: tokenList,
+			})
+		},
+	}
+}

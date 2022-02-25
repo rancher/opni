@@ -468,6 +468,28 @@
       }
     },
     "/management/tokens/{id}": {
+      "get": {
+        "operationId": "Management_GetBootstrapToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreBootstrapToken"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      },
       "delete": {
         "operationId": "Management_RevokeBootstrapToken",
         "responses": {

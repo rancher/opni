@@ -141,23 +141,6 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 		Expect(clusterInfo.GetItems()).NotTo(BeNil())
 	})
 
-	XIt("should handle watching create and delete events", func() {
-		_, err := client.WatchClusters(context.Background(), &management.WatchClustersRequest{
-			KnownClusters: &core.ReferenceList{},
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-	})
-
-	//TODO: Need to complete this test
-	XIt("can watch cluster streams for information", func() {
-		_, err := client.WatchClusters(context.Background(), &management.WatchClustersRequest{
-			KnownClusters: &core.ReferenceList{},
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-	})
-
 	It("can delete individual clusters", func() {
 		_, err := client.DeleteCluster(context.Background(), &core.Reference{
 			Id: "test-cluster-id",

@@ -148,7 +148,7 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 		lg.Printf("error incrementing usage count: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
-	krStore, err := h.KeyringStoreBroker.KeyringStore(context.Background(), "cluster", newCluster.Reference())
+	krStore, err := h.KeyringStoreBroker.KeyringStore(context.Background(), "gateway", newCluster.Reference())
 	if err != nil {
 		lg.Printf("error getting keyring store: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)

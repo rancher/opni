@@ -1,4 +1,4 @@
-package storage_test
+package secrets_test
 
 import (
 	"bytes"
@@ -18,9 +18,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/storage/secrets"
 	"github.com/rancher/opni-monitoring/pkg/test"
 )
 
@@ -34,7 +36,7 @@ func randomData() []byte {
 	return buf.Bytes()
 }
 
-var _ = Describe("Secret", Ordered, func() {
+var _ = PDescribe("Secret", Ordered, func() {
 	var cfg *rest.Config
 	var client *kubernetes.Clientset
 	BeforeAll(func() {
@@ -51,10 +53,16 @@ var _ = Describe("Secret", Ordered, func() {
 		DeferCleanup(env.Stop)
 		client = kubernetes.NewForConfigOrDie(cfg)
 	})
-	var store *storage.SecretStore
+	var store storage.KeyringStore
 	It("should create a new secret store", func() {
+		secStore := secrets.NewSecretsStore(
+			secrets.WithRestConfig(cfg),
+			secrets.WithNamespace(testNamespace),
+		)
 		var err error
-		store, err = storage.NewSecretStoreFromConfig(cfg, testNamespace)
+		store, err = secStore.KeyringStore(context.Background(), "test", &core.Reference{
+			Id: "test",
+		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(store).NotTo(BeNil())
 	})
@@ -125,7 +133,14 @@ var _ = Describe("Secret", Ordered, func() {
 	})
 	When("multiple stores try to create the secret at the same time", func() {
 		It("should properly handle conflicts", func() {
-			store2, err := storage.NewSecretStoreFromConfig(cfg, testNamespace)
+			secStore := secrets.NewSecretsStore(
+				secrets.WithRestConfig(cfg),
+				secrets.WithNamespace(testNamespace),
+			)
+
+			store, err := secStore.KeyringStore(context.Background(), "test", &core.Reference{
+				Id: "test",
+			})
 			Expect(err).NotTo(HaveOccurred())
 
 			keyring1 := keyring.New(keyring.NewSharedKeys(randomData()))
@@ -144,7 +159,7 @@ var _ = Describe("Secret", Ordered, func() {
 			wg.Go(func() error {
 				defer GinkgoRecover()
 				for i := 0; i < 50; i++ {
-					if err := store2.Put(context.Background(), keyring2); err != nil {
+					if err := store.Put(context.Background(), keyring2); err != nil {
 						return err
 					}
 				}
@@ -157,11 +172,11 @@ var _ = Describe("Secret", Ordered, func() {
 	When("creating a new in-cluster store outside of a cluster", func() {
 		It("should panic", func() {
 			Expect(func() {
-				storage.NewInClusterSecretStore()
+				secrets.NewSecretsStore()
 			}).To(Panic())
 			os.Setenv("POD_NAMESPACE", "default")
 			Expect(func() {
-				storage.NewInClusterSecretStore()
+				secrets.NewSecretsStore()
 			}).To(Panic())
 			os.Unsetenv("POD_NAMESPACE")
 		})

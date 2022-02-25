@@ -18,7 +18,7 @@ func (m *Server) ListClusters(
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	clusterList, err := m.clusterStore.ListClusters(ctx, in.MatchLabels, in.MatchOptions)
+	clusterList, err := m.storageBackend.ListClusters(ctx, in.MatchLabels, in.MatchOptions)
 	if err != nil {
 		return nil, grpcError(err)
 	}
@@ -32,7 +32,7 @@ func (m *Server) DeleteCluster(
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, grpcError(m.clusterStore.DeleteCluster(ctx, ref))
+	return &emptypb.Empty{}, grpcError(m.storageBackend.DeleteCluster(ctx, ref))
 }
 
 func (m *Server) GetCluster(
@@ -42,7 +42,7 @@ func (m *Server) GetCluster(
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
-	if cluster, err := m.clusterStore.GetCluster(ctx, ref); err != nil {
+	if cluster, err := m.storageBackend.GetCluster(ctx, ref); err != nil {
 		return nil, grpcError(err)
 	} else {
 		return cluster, nil
@@ -65,7 +65,7 @@ func (m *Server) WatchClusters(
 	for {
 		select {
 		case <-tick.C:
-			clusters, err := m.clusterStore.ListClusters(context.Background(), nil, 0)
+			clusters, err := m.storageBackend.ListClusters(context.Background(), nil, 0)
 			updatedIds := map[string]struct{}{}
 			if err != nil {
 				return grpcError(err)
@@ -107,12 +107,12 @@ func (m *Server) EditCluster(
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	storedCluster, err := m.clusterStore.GetCluster(ctx, in.Cluster)
+	storedCluster, err := m.storageBackend.GetCluster(ctx, in.Cluster)
 	if err != nil {
 		return nil, grpcError(err)
 	}
 	storedCluster.Labels = in.Labels
-	if err := m.clusterStore.UpdateCluster(ctx, storedCluster); err != nil {
+	if err := m.storageBackend.UpdateCluster(ctx, storedCluster); err != nil {
 		return nil, grpcError(err)
 	}
 	return storedCluster, nil

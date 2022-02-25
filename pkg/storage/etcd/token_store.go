@@ -31,7 +31,7 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, labels m
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal token: %w", err)
 	}
-	_, err = e.client.Put(ctx, path.Join(e.namespace, tokensKey, token.TokenID), string(data),
+	_, err = e.client.Put(ctx, path.Join(e.prefix, tokensKey, token.TokenID), string(data),
 		clientv3.WithLease(lease.ID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token %w", err)
@@ -55,7 +55,7 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, ref *core.Reference) error 
 	}
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Delete(ctx, path.Join(e.namespace, tokensKey, ref.Id))
+	resp, err := e.client.Delete(ctx, path.Join(e.prefix, tokensKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete token: %w", err)
 	}
@@ -68,7 +68,7 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, ref *core.Reference) error 
 func (e *EtcdStore) GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.namespace, tokensKey, ref.Id))
+	resp, err := e.client.Get(ctx, path.Join(e.prefix, tokensKey, ref.Id))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token: %w", err)
 	}
@@ -89,7 +89,7 @@ func (e *EtcdStore) GetToken(ctx context.Context, ref *core.Reference) (*core.Bo
 func (e *EtcdStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.namespace, tokensKey), clientv3.WithPrefix())
+	resp, err := e.client.Get(ctx, path.Join(e.prefix, tokensKey), clientv3.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tokens: %w", err)
 	}
@@ -110,7 +110,7 @@ func (e *EtcdStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, err
 var retryErr = errors.New("failed to increment token usage count: the token has been modified, retrying")
 
 func (e *EtcdStore) IncrementUsageCount(ctx context.Context, ref *core.Reference) error {
-	key := path.Join(e.namespace, tokensKey, ref.Id)
+	key := path.Join(e.prefix, tokensKey, ref.Id)
 	for {
 		err := e.tryIncrementUsageCount(ctx, key)
 		if err != nil {

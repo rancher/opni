@@ -18,6 +18,8 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/storage/etcd"
+	"github.com/rancher/opni-monitoring/pkg/storage/secrets"
+	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -92,24 +94,21 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, fmt.Errorf("configuration error: %w", err)
 	}
 
+	id, err := agent.identityProvider.UniqueIdentifier(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error getting unique identifier: %w", err)
+	}
 	switch agent.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
-		es := etcd.NewEtcdStore(ctx, agent.Storage.Etcd,
-			etcd.WithNamespace("agent"),
-		)
-		id, err := agent.identityProvider.UniqueIdentifier(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("error getting unique identifier: %w", err)
-		}
-		ks, err := es.KeyringStore(ctx, "agent", &core.Reference{
+		etcdStore := etcd.NewEtcdStore(ctx, agent.Storage.Etcd)
+		agent.keyringStore = util.Must(etcdStore.KeyringStore(ctx, "agent", &core.Reference{
 			Id: id,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("error getting keyring store: %w", err)
-		}
-		agent.keyringStore = ks
+		}))
 	case v1beta1.StorageTypeSecret:
-		agent.keyringStore = storage.NewInClusterSecretStore()
+		secStore := secrets.NewSecretsStore()
+		agent.keyringStore = util.Must(secStore.KeyringStore(ctx, "agent", &core.Reference{
+			Id: id,
+		}))
 	default:
 		return nil, errors.New("unknown storage type")
 	}

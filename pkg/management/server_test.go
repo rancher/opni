@@ -36,30 +36,15 @@ var _ = Describe("Server", Ordered, func() {
 	It("should handle configuration errors", func() {
 		By("checking required options are set")
 		Expect(func() {
-			management.NewServer(context.Background(), &v1beta1.ManagementSpec{},
-				management.ClusterStore(test.NewTestClusterStore(tv.ctrl)),
-				management.RBACStore(test.NewTestRBACStore(tv.ctrl)))
-		}).To(PanicWith("token store is required"))
-		Expect(func() {
-			management.NewServer(context.Background(), &v1beta1.ManagementSpec{},
-				management.ClusterStore(test.NewTestClusterStore(tv.ctrl)),
-				management.TokenStore(test.NewTestTokenStore(context.Background(), tv.ctrl)))
-		}).To(PanicWith("rbac store is required"))
-		Expect(func() {
-			management.NewServer(context.Background(), &v1beta1.ManagementSpec{},
-				management.RBACStore(test.NewTestRBACStore(tv.ctrl)),
-				management.TokenStore(test.NewTestTokenStore(context.Background(), tv.ctrl)))
-		}).To(PanicWith("cluster store is required"))
+			management.NewServer(context.Background(), &v1beta1.ManagementSpec{})
+		}).To(PanicWith("storage backend not configured"))
 
 		By("checking required config fields are set")
 		conf := &v1beta1.ManagementSpec{
 			HTTPListenAddress: "127.0.0.1:0",
 		}
 		server := management.NewServer(context.Background(), conf,
-			management.ClusterStore(test.NewTestClusterStore(tv.ctrl)),
-			management.RBACStore(test.NewTestRBACStore(tv.ctrl)),
-			management.TokenStore(test.NewTestTokenStore(context.Background(), tv.ctrl)),
-		)
+			management.StorageBackend(test.NewTestStorageBackend(context.Background(), tv.ctrl)))
 		Expect(server.ListenAndServe()).To(MatchError("GRPCListenAddress not configured"))
 
 		By("checking that invalid config fields cause errors")

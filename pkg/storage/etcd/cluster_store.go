@@ -18,7 +18,7 @@ func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *core.Cluster) er
 	if err != nil {
 		return fmt.Errorf("failed to marshal cluster: %w", err)
 	}
-	_, err = e.client.Put(ctx, path.Join(e.namespace, clusterKey, cluster.Id), string(data))
+	_, err = e.client.Put(ctx, path.Join(e.prefix, clusterKey, cluster.Id), string(data))
 	if err != nil {
 		return fmt.Errorf("failed to create cluster: %w", err)
 	}
@@ -28,7 +28,7 @@ func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *core.Cluster) er
 func (e *EtcdStore) DeleteCluster(ctx context.Context, ref *core.Reference) error {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := e.client.Delete(ctx, path.Join(e.namespace, clusterKey, ref.Id), clientv3.WithPrefix())
+	_, err := e.client.Delete(ctx, path.Join(e.prefix, clusterKey, ref.Id), clientv3.WithPrefix())
 	if err != nil {
 		return fmt.Errorf("failed to delete cluster: %w", err)
 	}
@@ -38,7 +38,7 @@ func (e *EtcdStore) DeleteCluster(ctx context.Context, ref *core.Reference) erro
 func (e *EtcdStore) ClusterExists(ctx context.Context, ref *core.Reference) (bool, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.namespace, clusterKey, ref.Id))
+	resp, err := e.client.Get(ctx, path.Join(e.prefix, clusterKey, ref.Id))
 	if err != nil {
 		return false, fmt.Errorf("failed to get cluster: %w", err)
 	}
@@ -52,7 +52,7 @@ func (e *EtcdStore) ListClusters(
 ) (*core.ClusterList, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.namespace, clusterKey),
+	resp, err := e.client.Get(ctx, path.Join(e.prefix, clusterKey),
 		clientv3.WithPrefix(),
 		clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend))
 	if err != nil {
@@ -81,7 +81,7 @@ func (e *EtcdStore) ListClusters(
 func (e *EtcdStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.namespace, clusterKey, ref.Id))
+	resp, err := e.client.Get(ctx, path.Join(e.prefix, clusterKey, ref.Id))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster: %w", err)
 	}
@@ -110,7 +110,7 @@ func (e *EtcdStore) UpdateCluster(
 	if err != nil {
 		return fmt.Errorf("failed to marshal cluster: %w", err)
 	}
-	_, err = e.client.Put(ctx, path.Join(e.namespace, clusterKey, cluster.Id), string(data))
+	_, err = e.client.Put(ctx, path.Join(e.prefix, clusterKey, cluster.Id), string(data))
 	if err != nil {
 		return fmt.Errorf("failed to update cluster: %w", err)
 	}

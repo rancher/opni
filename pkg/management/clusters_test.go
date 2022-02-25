@@ -46,7 +46,7 @@ var _ = Describe("Clusters", Ordered, func() {
 			for i := 0; i < 10; i++ {
 				id := uuid.NewString()
 				ids[id] = struct{}{}
-				err := tv.clusterStore.CreateCluster(context.Background(), &core.Cluster{
+				err := tv.storageBackend.CreateCluster(context.Background(), &core.Cluster{
 					Id: id,
 					Labels: map[string]string{
 						"i": fmt.Sprint(i + (x * 10)),

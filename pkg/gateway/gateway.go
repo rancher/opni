@@ -28,7 +28,9 @@ import (
 	pluginmeta "github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"github.com/rancher/opni-monitoring/pkg/rbac"
 	"github.com/rancher/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/storage/crds"
 	"github.com/rancher/opni-monitoring/pkg/storage/etcd"
+	"github.com/rancher/opni-monitoring/pkg/storage/secrets"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/rancher/opni-monitoring/pkg/webui"
@@ -87,11 +89,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 
 	loadPlugins(pluginLoader, conf.Spec.Plugins)
 
-	var tokenStore storage.TokenStore
-	var clusterStore storage.ClusterStore
-	var rbacStore storage.RBACStore
-	var krBroker storage.KeyringStoreBroker
-	var kvBroker storage.KeyValueStoreBroker
+	storageBackend := storage.CompositeBackend{}
 
 	switch conf.Spec.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
@@ -100,14 +98,15 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 			lg.Fatal("etcd storage options are not set")
 		} else {
 			store := etcd.NewEtcdStore(ctx, conf.Spec.Storage.Etcd,
-				etcd.WithNamespace("gateway"),
+				etcd.WithPrefix("gateway"),
 			)
-			tokenStore = store
-			clusterStore = store
-			rbacStore = store
-			krBroker = store
-			kvBroker = store
+			storageBackend.Use(store)
 		}
+	case v1beta1.StorageTypeCRDs:
+		crdStore := crds.NewCRDStore()
+		secretStore := secrets.NewSecretsStore()
+		storageBackend.Use(crdStore)
+		storageBackend.Use(secretStore)
 	case v1beta1.StorageTypeSecret:
 		lg.With(
 			"type", conf.Spec.Storage.Type,
@@ -163,9 +162,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 	apiExtensionPlugins := pluginLoader.DispenseAll(apiextensions.ManagementAPIExtensionPluginID)
 
 	mgmtSrv := management.NewServer(ctx, &conf.Spec.Management,
-		management.TokenStore(tokenStore),
-		management.ClusterStore(clusterStore),
-		management.RBACStore(rbacStore),
+		management.StorageBackend(storageBackend),
 		management.TLSConfig(tlsConfig),
 		management.APIExtensions(apiExtensionPlugins),
 		management.Lifecycler(options.lifecycler),
@@ -181,16 +178,16 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 		tlsConfig:         tlsConfig,
 		servingCertBundle: servingCertBundle,
 		pluginLoader:      pluginLoader,
-		kvBroker:          kvBroker,
+		kvBroker:          storageBackend,
 	}
 	g.loadCortexCerts()
-	g.setupCortexRoutes(app, rbacStore, clusterStore)
+	g.setupCortexRoutes(storageBackend, storageBackend)
 
 	app.Post("/bootstrap/*", bootstrap.ServerConfig{
 		Certificate:        servingCertBundle,
-		TokenStore:         tokenStore,
-		ClusterStore:       clusterStore,
-		KeyringStoreBroker: krBroker,
+		TokenStore:         storageBackend,
+		ClusterStore:       storageBackend,
+		KeyringStoreBroker: storageBackend,
 	}.Handle).Use(limiter.New()) // Limit requests to 5 per minute
 
 	app.Use(default404Handler)
@@ -355,7 +352,6 @@ func (g *Gateway) loadCortexCerts() {
 }
 
 func (g *Gateway) setupCortexRoutes(
-	app *fiber.App,
 	rbacStore storage.RBACStore,
 	clusterStore storage.ClusterStore,
 ) {
@@ -367,19 +363,19 @@ func (g *Gateway) setupCortexRoutes(
 	rbacProvider := storage.NewRBACProvider(rbacStore, clusterStore)
 	rbacMiddleware := rbac.NewMiddleware(rbacProvider)
 
-	app.Get("/services", queryFrontend)
-	app.Get("/ready", queryFrontend)
+	g.app.Get("/services", queryFrontend)
+	g.app.Get("/ready", queryFrontend)
 
 	// Memberlist
-	app.Get("/ring", distributor)
-	app.Get("/ruler/ring", ruler)
+	g.app.Get("/ring", distributor)
+	g.app.Get("/ruler/ring", ruler)
 
 	// Alertmanager UI
-	alertmanagerUi := app.Group("/alertmanager", g.authMiddleware.Handle, rbacMiddleware)
+	alertmanagerUi := g.app.Group("/alertmanager", g.authMiddleware.Handle, rbacMiddleware)
 	alertmanagerUi.Get("/alertmanager", alertmanager)
 
 	// Prometheus-compatible API
-	promv1 := app.Group("/prometheus/api/v1", g.authMiddleware.Handle, rbacMiddleware)
+	promv1 := g.app.Group("/prometheus/api/v1", g.authMiddleware.Handle, rbacMiddleware)
 
 	// GET, POST
 	for _, method := range []string{http.MethodGet, http.MethodPost} {
@@ -400,7 +396,7 @@ func (g *Gateway) setupCortexRoutes(
 
 	// Remote-write API
 	clusterMiddleware := cluster.New(clusterStore)
-	v1 := app.Group("/api/v1", clusterMiddleware.Handle)
+	v1 := g.app.Group("/api/v1", clusterMiddleware.Handle)
 	v1.Post("/push", distributor)
 }
 

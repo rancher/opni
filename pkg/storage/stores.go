@@ -11,6 +11,14 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
+type Backend interface {
+	TokenStore
+	ClusterStore
+	RBACStore
+	KeyringStoreBroker
+	KeyValueStoreBroker
+}
+
 type TokenStore interface {
 	CreateToken(ctx context.Context, ttl time.Duration, labels map[string]string) (*core.BootstrapToken, error)
 	DeleteToken(ctx context.Context, ref *core.Reference) error

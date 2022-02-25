@@ -26,13 +26,11 @@ func TestManagement(t *testing.T) {
 }
 
 type testVars struct {
-	ctrl         *gomock.Controller
-	client       management.ManagementClient
-	grpcEndpoint string
-	httpEndpoint string
-	clusterStore storage.ClusterStore
-	tokenStore   storage.TokenStore
-	rbacStore    storage.RBACStore
+	ctrl           *gomock.Controller
+	client         management.ManagementClient
+	grpcEndpoint   string
+	httpEndpoint   string
+	storageBackend storage.Backend
 }
 
 func setupManagementServer(vars **testVars, opts ...management.ManagementServerOption) func() {
@@ -44,9 +42,7 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 			tv.ctrl = gomock.NewController(GinkgoT())
 		}
 		ctx, ca := context.WithCancel(waitctx.FromContext(context.Background()))
-		tv.clusterStore = test.NewTestClusterStore(tv.ctrl)
-		tv.tokenStore = test.NewTestTokenStore(ctx, tv.ctrl)
-		tv.rbacStore = test.NewTestRBACStore(tv.ctrl)
+		tv.storageBackend = test.NewTestStorageBackend(ctx, tv.ctrl)
 		ports, err := freeport.GetFreePorts(2)
 		Expect(err).NotTo(HaveOccurred())
 		conf := &v1beta1.ManagementSpec{
@@ -57,9 +53,7 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 		Expect(err).NotTo(HaveOccurred())
 		server := management.NewServer(ctx, conf,
 			append([]management.ManagementServerOption{
-				management.ClusterStore(tv.clusterStore),
-				management.TokenStore(tv.tokenStore),
-				management.RBACStore(tv.rbacStore),
+				management.StorageBackend(tv.storageBackend),
 				management.TLSConfig(&tls.Config{
 					Certificates: []tls.Certificate{cert},
 				}),

@@ -35,6 +35,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
+	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -249,7 +250,7 @@ type cortexTemplateOptions struct {
 func (e *Environment) startCortex() {
 	lg := e.Logger
 	configTemplate := TestData("cortex/config.yaml")
-	t := template.Must(template.New("config").Parse(string(configTemplate)))
+	t := util.Must(template.New("config").Parse(string(configTemplate)))
 	configFile, err := os.Create(path.Join(e.tempDir, "cortex", "config.yaml"))
 	if err != nil {
 		panic(err)
@@ -308,7 +309,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 		panic(err)
 	}
 	configTemplate := TestData("prometheus/config.yaml")
-	t := template.Must(template.New("config").Parse(string(configTemplate)))
+	t := util.Must(template.New("config").Parse(string(configTemplate)))
 	configFile, err := os.Create(path.Join(e.tempDir, "prometheus", "config.yaml"))
 	if err != nil {
 		panic(err)

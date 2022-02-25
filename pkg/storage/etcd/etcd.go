@@ -31,14 +31,10 @@ type EtcdStore struct {
 	client *clientv3.Client
 }
 
-var _ storage.TokenStore = (*EtcdStore)(nil)
-var _ storage.ClusterStore = (*EtcdStore)(nil)
-var _ storage.RBACStore = (*EtcdStore)(nil)
-var _ storage.KeyringStoreBroker = (*EtcdStore)(nil)
-var _ storage.KeyValueStoreBroker = (*EtcdStore)(nil)
+var _ storage.Backend = (*EtcdStore)(nil)
 
 type EtcdStoreOptions struct {
-	namespace string
+	prefix string
 }
 
 type EtcdStoreOption func(*EtcdStoreOptions)
@@ -49,9 +45,9 @@ func (o *EtcdStoreOptions) Apply(opts ...EtcdStoreOption) {
 	}
 }
 
-func WithNamespace(namespace string) EtcdStoreOption {
+func WithPrefix(prefix string) EtcdStoreOption {
 	return func(o *EtcdStoreOptions) {
-		o.namespace = namespace
+		o.prefix = prefix
 	}
 }
 
@@ -89,17 +85,24 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 }
 
 func (e *EtcdStore) KeyringStore(ctx context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+	pfx := e.prefix
+	if prefix != "" {
+		pfx = prefix
+	}
 	return &etcdKeyringStore{
-		client:    e.client,
-		ref:       ref,
-		prefix:    prefix,
-		namespace: e.namespace,
+		client: e.client,
+		ref:    ref,
+		prefix: pfx,
 	}, nil
 }
 
-func (e *EtcdStore) KeyValueStore(namespace string) (storage.KeyValueStore, error) {
+func (e *EtcdStore) KeyValueStore(prefix string) (storage.KeyValueStore, error) {
+	pfx := e.prefix
+	if prefix != "" {
+		pfx = prefix
+	}
 	return &genericKeyValueStore{
-		client:    e.client,
-		namespace: namespace,
+		client: e.client,
+		prefix: pfx,
 	}, nil
 }

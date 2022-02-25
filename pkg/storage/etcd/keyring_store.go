@@ -12,10 +12,9 @@ import (
 )
 
 type etcdKeyringStore struct {
-	client    *clientv3.Client
-	ref       *core.Reference
-	prefix    string
-	namespace string
+	client *clientv3.Client
+	ref    *core.Reference
+	prefix string
 }
 
 func (ks *etcdKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) error {
@@ -25,7 +24,7 @@ func (ks *etcdKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) er
 	if err != nil {
 		return fmt.Errorf("failed to marshal keyring: %w", err)
 	}
-	_, err = ks.client.Put(ctx, path.Join(ks.namespace, keyringKey, ks.prefix, ks.ref.Id), string(k))
+	_, err = ks.client.Put(ctx, path.Join(ks.prefix, keyringKey, ks.ref.Id), string(k))
 	if err != nil {
 		return fmt.Errorf("failed to put keyring: %w", err)
 	}
@@ -35,7 +34,7 @@ func (ks *etcdKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) er
 func (ks *etcdKeyringStore) Get(ctx context.Context) (keyring.Keyring, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	resp, err := ks.client.Get(ctx, path.Join(ks.namespace, keyringKey, ks.prefix, ks.ref.Id))
+	resp, err := ks.client.Get(ctx, path.Join(ks.prefix, keyringKey, ks.ref.Id))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get keyring: %w", err)
 	}

@@ -31,12 +31,12 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, labels m
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal token: %w", err)
 	}
-
 	_, err = e.client.Put(ctx, path.Join(e.namespace, tokensKey, token.TokenID), string(data),
 		clientv3.WithLease(lease.ID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token %w", err)
 	}
+	token.Metadata.Ttl = int64(ttl.Seconds())
 	return token, nil
 }
 

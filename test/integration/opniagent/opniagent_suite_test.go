@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestManagementapi(t *testing.T) {
+func TestOpniAgent(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "OpniAgent Suite")
 }

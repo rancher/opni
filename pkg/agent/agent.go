@@ -101,7 +101,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		if err != nil {
 			return nil, fmt.Errorf("error getting unique identifier: %w", err)
 		}
-		ks, err := es.KeyringStore(ctx, &core.Reference{
+		ks, err := es.KeyringStore(ctx, "agent", &core.Reference{
 			Id: id,
 		})
 		if err != nil {

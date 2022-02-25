@@ -98,21 +98,21 @@ func (e *EtcdStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.
 func (e *EtcdStore) UpdateCluster(
 	ctx context.Context,
 	cluster *core.Cluster,
-) (*core.Cluster, error) {
+) error {
 	if exists, err := e.ClusterExists(ctx, cluster.Reference()); err != nil {
-		return nil, err
+		return err
 	} else if !exists {
-		return nil, fmt.Errorf("failed to update cluster: %w", storage.ErrNotFound)
+		return fmt.Errorf("failed to update cluster: %w", storage.ErrNotFound)
 	}
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
 	data, err := protojson.Marshal(cluster)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal cluster: %w", err)
+		return fmt.Errorf("failed to marshal cluster: %w", err)
 	}
 	_, err = e.client.Put(ctx, path.Join(e.namespace, clusterKey, cluster.Id), string(data))
 	if err != nil {
-		return nil, fmt.Errorf("failed to update cluster: %w", err)
+		return fmt.Errorf("failed to update cluster: %w", err)
 	}
-	return cluster, nil
+	return nil
 }

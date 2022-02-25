@@ -112,9 +112,8 @@ func (m *Server) EditCluster(
 		return nil, grpcError(err)
 	}
 	storedCluster.Labels = in.Labels
-	if c, err := m.clusterStore.UpdateCluster(ctx, storedCluster); err != nil {
+	if err := m.clusterStore.UpdateCluster(ctx, storedCluster); err != nil {
 		return nil, grpcError(err)
-	} else {
-		return c, nil
 	}
+	return storedCluster, nil
 }

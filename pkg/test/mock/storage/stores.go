@@ -177,21 +177,6 @@ func (mr *MockClusterStoreMockRecorder) GetCluster(ctx, ref interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCluster", reflect.TypeOf((*MockClusterStore)(nil).GetCluster), ctx, ref)
 }
 
-// KeyringStore mocks base method.
-func (m *MockClusterStore) KeyringStore(ctx context.Context, ref *core.Reference) (storage.KeyringStore, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KeyringStore", ctx, ref)
-	ret0, _ := ret[0].(storage.KeyringStore)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// KeyringStore indicates an expected call of KeyringStore.
-func (mr *MockClusterStoreMockRecorder) KeyringStore(ctx, ref interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyringStore", reflect.TypeOf((*MockClusterStore)(nil).KeyringStore), ctx, ref)
-}
-
 // ListClusters mocks base method.
 func (m *MockClusterStore) ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
 	m.ctrl.T.Helper()
@@ -208,12 +193,11 @@ func (mr *MockClusterStoreMockRecorder) ListClusters(ctx, matchLabels, matchOpti
 }
 
 // UpdateCluster mocks base method.
-func (m *MockClusterStore) UpdateCluster(ctx context.Context, cluster *core.Cluster) (*core.Cluster, error) {
+func (m *MockClusterStore) UpdateCluster(ctx context.Context, cluster *core.Cluster) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCluster", ctx, cluster)
-	ret0, _ := ret[0].(*core.Cluster)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // UpdateCluster indicates an expected call of UpdateCluster.
@@ -480,6 +464,44 @@ func (mr *MockKeyValueStoreMockRecorder) Put(ctx, key, value interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKeyValueStore)(nil).Put), ctx, key, value)
 }
 
+// MockKeyringStoreBroker is a mock of KeyringStoreBroker interface.
+type MockKeyringStoreBroker struct {
+	ctrl     *gomock.Controller
+	recorder *MockKeyringStoreBrokerMockRecorder
+}
+
+// MockKeyringStoreBrokerMockRecorder is the mock recorder for MockKeyringStoreBroker.
+type MockKeyringStoreBrokerMockRecorder struct {
+	mock *MockKeyringStoreBroker
+}
+
+// NewMockKeyringStoreBroker creates a new mock instance.
+func NewMockKeyringStoreBroker(ctrl *gomock.Controller) *MockKeyringStoreBroker {
+	mock := &MockKeyringStoreBroker{ctrl: ctrl}
+	mock.recorder = &MockKeyringStoreBrokerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockKeyringStoreBroker) EXPECT() *MockKeyringStoreBrokerMockRecorder {
+	return m.recorder
+}
+
+// KeyringStore mocks base method.
+func (m *MockKeyringStoreBroker) KeyringStore(ctx context.Context, namespace string, ref *core.Reference) (storage.KeyringStore, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KeyringStore", ctx, namespace, ref)
+	ret0, _ := ret[0].(storage.KeyringStore)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// KeyringStore indicates an expected call of KeyringStore.
+func (mr *MockKeyringStoreBrokerMockRecorder) KeyringStore(ctx, namespace, ref interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyringStore", reflect.TypeOf((*MockKeyringStoreBroker)(nil).KeyringStore), ctx, namespace, ref)
+}
+
 // MockKeyValueStoreBroker is a mock of KeyValueStoreBroker interface.
 type MockKeyValueStoreBroker struct {
 	ctrl     *gomock.Controller
@@ -503,17 +525,17 @@ func (m *MockKeyValueStoreBroker) EXPECT() *MockKeyValueStoreBrokerMockRecorder 
 	return m.recorder
 }
 
-// NewKeyValueStore mocks base method.
-func (m *MockKeyValueStoreBroker) NewKeyValueStore(namespace string) (storage.KeyValueStore, error) {
+// KeyValueStore mocks base method.
+func (m *MockKeyValueStoreBroker) KeyValueStore(namespace string) (storage.KeyValueStore, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewKeyValueStore", namespace)
+	ret := m.ctrl.Call(m, "KeyValueStore", namespace)
 	ret0, _ := ret[0].(storage.KeyValueStore)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewKeyValueStore indicates an expected call of NewKeyValueStore.
-func (mr *MockKeyValueStoreBrokerMockRecorder) NewKeyValueStore(namespace interface{}) *gomock.Call {
+// KeyValueStore indicates an expected call of KeyValueStore.
+func (mr *MockKeyValueStoreBrokerMockRecorder) KeyValueStore(namespace interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyValueStore", reflect.TypeOf((*MockKeyValueStoreBroker)(nil).NewKeyValueStore), namespace)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyValueStore", reflect.TypeOf((*MockKeyValueStoreBroker)(nil).KeyValueStore), namespace)
 }

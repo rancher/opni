@@ -90,6 +90,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 	var tokenStore storage.TokenStore
 	var clusterStore storage.ClusterStore
 	var rbacStore storage.RBACStore
+	var krBroker storage.KeyringStoreBroker
 	var kvBroker storage.KeyValueStoreBroker
 
 	switch conf.Spec.Storage.Type {
@@ -104,6 +105,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 			tokenStore = store
 			clusterStore = store
 			rbacStore = store
+			krBroker = store
 			kvBroker = store
 		}
 	case v1beta1.StorageTypeSecret:
@@ -185,9 +187,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 	g.setupCortexRoutes(app, rbacStore, clusterStore)
 
 	app.Post("/bootstrap/*", bootstrap.ServerConfig{
-		Certificate:  servingCertBundle,
-		TokenStore:   tokenStore,
-		ClusterStore: clusterStore,
+		Certificate:        servingCertBundle,
+		TokenStore:         tokenStore,
+		ClusterStore:       clusterStore,
+		KeyringStoreBroker: krBroker,
 	}.Handle).Use(limiter.New()) // Limit requests to 5 per minute
 
 	app.Use(default404Handler)
@@ -256,7 +259,7 @@ func (g *Gateway) Listen() error {
 			).Warn("system plugin module name is invalid")
 			continue
 		}
-		store, err := g.kvBroker.NewKeyValueStore(ns)
+		store, err := g.kvBroker.KeyValueStore(ns)
 		if err != nil {
 			return err
 		}

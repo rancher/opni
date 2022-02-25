@@ -1,6 +1,10 @@
 package core
 
-import "strings"
+import (
+	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 type LabelSelectorOperator string
 
@@ -52,4 +56,22 @@ func keyWithOperatorSymbol(key string, operator string) string {
 	default:
 		return "?"
 	}
+}
+
+func (ls *LabelSelector) ToLabelSelector() *metav1.LabelSelector {
+	if ls == nil {
+		return nil
+	}
+	s := &metav1.LabelSelector{
+		MatchLabels:      ls.MatchLabels,
+		MatchExpressions: []metav1.LabelSelectorRequirement{},
+	}
+	for _, expr := range ls.MatchExpressions {
+		s.MatchExpressions = append(s.MatchExpressions, metav1.LabelSelectorRequirement{
+			Key:      expr.Key,
+			Operator: metav1.LabelSelectorOperator(expr.Operator),
+			Values:   expr.Values,
+		})
+	}
+	return s
 }

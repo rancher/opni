@@ -46,7 +46,42 @@ func All() {
 }
 
 func Generate() {
-	mg.Deps(mockgen.Mockgen, protobuf.Protobuf)
+	mg.Deps(mockgen.Mockgen, protobuf.Protobuf, ControllerGen)
+}
+
+func ControllerGen() error {
+	cmd := exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/controller-tools/cmd/controller-gen",
+		"crd", "object", "paths=./pkg/sdk/api/...", "output:crd:artifacts:config=pkg/sdk/crd",
+	)
+	buf := new(bytes.Buffer)
+	cmd.Stderr = buf
+	cmd.Stdout = buf
+	err := cmd.Run()
+	if err != nil {
+		if ex, ok := err.(*exec.ExitError); ok {
+			if ex.ExitCode() != 1 {
+				return err
+			}
+			bufStr := buf.String()
+			lines := strings.Split(bufStr, "\n")
+			for _, line := range lines {
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
+				// ignore warnings that occur when running controller-gen on generated
+				// protobuf code, but can be ignored
+				if strings.Contains(line, "without JSON tag in type") ||
+					strings.Contains(line, "not all generators ran successfully") ||
+					strings.Contains(line, "for usage") ||
+					strings.Contains(line, "exit status 1") {
+					continue
+				}
+				fmt.Fprintln(os.Stderr, bufStr)
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func HelmLint() error {

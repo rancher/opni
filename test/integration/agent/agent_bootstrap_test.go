@@ -32,7 +32,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = Describe("Opni Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
+var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	var fingerprint string

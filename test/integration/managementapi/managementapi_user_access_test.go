@@ -17,7 +17,7 @@ import (
 )
 
 //#region Test Setup
-var _ = FDescribe("Management API User/Subject Access Management Tests", Ordered, func() {
+var _ = Describe("Management API User/Subject Access Management Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	var fingerprint string

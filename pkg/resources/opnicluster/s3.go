@@ -242,8 +242,8 @@ func (r *Reconciler) internalKeySecret() ([]resources.Resource, error) {
 	err := r.client.Get(r.ctx, client.ObjectKeyFromObject(sec), sec)
 	if errors.IsNotFound(err) {
 		// Create the secret
-		accessKey := util.GenerateRandomPassword()
-		secretKey := util.GenerateRandomPassword()
+		accessKey := util.GenerateRandomString(8)
+		secretKey := util.GenerateRandomString(8)
 		sec.StringData = map[string]string{
 			"accessKey":   string(accessKey),
 			"secretKey":   string(secretKey),

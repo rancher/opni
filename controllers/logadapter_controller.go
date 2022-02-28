@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
+	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	"github.com/rancher/opni/apis/v1beta1"
 	opnierrors "github.com/rancher/opni/pkg/errors"
 	"github.com/rancher/opni/pkg/resources/logadapter"

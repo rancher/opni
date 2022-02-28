@@ -21,8 +21,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rancher/opni/apis/v1beta1"
-	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
-	opensearchapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
+	opensearchutil "github.com/rancher/opni/pkg/util/opensearch"
+	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,7 +38,7 @@ const (
 	clusterCrNamespace = "opnicluster-test"
 )
 
-func queryAnomalyCountWithExtendedClient(esClient *indices.ExtendedClient) (int, error) {
+func queryAnomalyCountWithExtendedClient(esClient *opensearchutil.ExtendedClient) (int, error) {
 	response, err := esClient.Count(
 		esClient.Count.WithIndex("logs"),
 		esClient.Count.WithQuery(`anomaly_level:Anomaly AND is_control_plane_log:true`),
@@ -59,7 +59,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 		pretrained  v1beta1.PretrainedModel
 		logadapter  v1beta1.LogAdapter
 		opnicluster v1beta1.OpniCluster
-		esClient    indices.ExtendedClient
+		esClient    opensearchutil.ExtendedClient
 	)
 	When("creating a pretrained model", func() {
 		It("should succeed", func() {
@@ -254,9 +254,9 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 					},
 				},
 			})
-			esClient = indices.ExtendedClient{
+			esClient = opensearchutil.ExtendedClient{
 				Client: elasticClient,
-				ISM:    &indices.ISMApi{Client: elasticClient},
+				ISM:    &opensearchutil.ISMApi{Client: elasticClient},
 			}
 			Expect(err).NotTo(HaveOccurred())
 		})

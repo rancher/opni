@@ -1,4 +1,4 @@
-package indices
+package opensearch
 
 import (
 	"context"
@@ -12,26 +12,42 @@ import (
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
-	opensearchapiext "github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices/types"
 	"github.com/rancher/opni/pkg/util/kibana"
+	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	"golang.org/x/mod/semver"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type elasticsearchReconciler struct {
-	esClient     ExtendedClient
+const (
+	headerContentType        = "Content-Type"
+	kibanaCrossHeaderType    = "kbn-xsrf"
+	securityTenantHeaderType = "securitytenant"
+
+	jsonContentHeader = "application/json"
+
+	ISMChangeVersion = "1.1.0"
+)
+
+type Reconciler struct {
+	osClient     ExtendedClient
 	kibanaClient *kibana.Client
 	ctx          context.Context
 }
 
-func newElasticsearchReconciler(ctx context.Context, namespace string, password string) *elasticsearchReconciler {
+type ExtendedClient struct {
+	*opensearch.Client
+	ISM      *ISMApi
+	Security *SecurityAPI
+}
+
+func NewReconciler(ctx context.Context, namespace string, password string, urlPrefix string) *Reconciler {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: true,
 	}
 	esCfg := opensearch.Config{
 		Addresses: []string{
-			fmt.Sprintf("https://opni-es-client.%s:9200", namespace),
+			fmt.Sprintf("https://%s-client.%s:9200", urlPrefix, namespace),
 		},
 		Username:             "admin",
 		Password:             password,
@@ -39,24 +55,25 @@ func newElasticsearchReconciler(ctx context.Context, namespace string, password 
 		Transport:            transport,
 	}
 	kbCfg := kibana.Config{
-		URL:      fmt.Sprintf("http://opni-es-kibana.%s:5601", namespace),
+		URL:      fmt.Sprintf("http://%s-kibana.%s:5601", urlPrefix, namespace),
 		Username: "admin",
 		Password: password,
 	}
 	kbClient, _ := kibana.NewClient(kbCfg)
 	esClient, _ := opensearch.NewClient(esCfg)
 	esExtendedclient := ExtendedClient{
-		Client: esClient,
-		ISM:    &ISMApi{Client: esClient},
+		Client:   esClient,
+		ISM:      &ISMApi{Client: esClient},
+		Security: &SecurityAPI{Client: esClient},
 	}
-	return &elasticsearchReconciler{
-		esClient:     esExtendedclient,
+	return &Reconciler{
+		osClient:     esExtendedclient,
 		kibanaClient: kbClient,
 		ctx:          ctx,
 	}
 }
 
-func newElasticsearchReconcilerWithTransport(ctx context.Context, namespace string, transport http.RoundTripper) *elasticsearchReconciler {
+func newElasticsearchReconcilerWithTransport(ctx context.Context, namespace string, transport http.RoundTripper) *Reconciler {
 	esCfg := opensearch.Config{
 		Addresses: []string{
 			fmt.Sprintf("https://opni-es-client.%s:9200", namespace),
@@ -78,21 +95,21 @@ func newElasticsearchReconcilerWithTransport(ctx context.Context, namespace stri
 		Client: esClient,
 		ISM:    &ISMApi{Client: esClient},
 	}
-	return &elasticsearchReconciler{
-		esClient:     esExtendedclient,
+	return &Reconciler{
+		osClient:     esExtendedclient,
 		kibanaClient: kbClient,
 		ctx:          ctx,
 	}
 }
 
-func (r *elasticsearchReconciler) indexExists(name string) (bool, error) {
+func (r *Reconciler) indexExists(name string) (bool, error) {
 	req := opensearchapi.CatIndicesRequest{
 		Index: []string{
 			name,
 		},
 		Format: "json",
 	}
-	resp, err := req.Do(r.ctx, r.esClient)
+	resp, err := req.Do(r.ctx, r.osClient)
 	if err != nil {
 		return false, err
 	}
@@ -106,13 +123,13 @@ func (r *elasticsearchReconciler) indexExists(name string) (bool, error) {
 	return true, nil
 }
 
-func (r *elasticsearchReconciler) shouldCreateTemplate(name string) (bool, error) {
+func (r *Reconciler) shouldCreateTemplate(name string) (bool, error) {
 	req := opensearchapi.IndicesGetIndexTemplateRequest{
 		Name: []string{
 			name,
 		},
 	}
-	resp, err := req.Do(r.ctx, r.esClient)
+	resp, err := req.Do(r.ctx, r.osClient)
 	if err != nil {
 		return false, err
 	}
@@ -126,14 +143,14 @@ func (r *elasticsearchReconciler) shouldCreateTemplate(name string) (bool, error
 	return false, nil
 }
 
-func (r *elasticsearchReconciler) shouldBootstrapIndex(prefix string) (bool, error) {
+func (r *Reconciler) shouldBootstrapIndex(prefix string) (bool, error) {
 	req := opensearchapi.CatIndicesRequest{
 		Index: []string{
 			fmt.Sprintf("%s*", prefix),
 		},
 		Format: "json",
 	}
-	resp, err := req.Do(r.ctx, r.esClient)
+	resp, err := req.Do(r.ctx, r.osClient)
 	if err != nil {
 		return false, err
 	}
@@ -151,9 +168,9 @@ func (r *elasticsearchReconciler) shouldBootstrapIndex(prefix string) (bool, err
 	return len(indices) == 0, nil
 }
 
-func (r *elasticsearchReconciler) checkISMPolicy(policy interface{}) (bool, bool, int, int, error) {
+func (r *Reconciler) checkISMPolicy(policy interface{}) (bool, bool, int, int, error) {
 	policyID := reflect.ValueOf(policy).FieldByName("PolicyID").String()
-	resp, err := r.esClient.ISM.GetISM(r.ctx, policyID)
+	resp, err := r.osClient.ISM.GetISM(r.ctx, policyID)
 	if err != nil {
 		return false, false, 0, 0, err
 	}
@@ -189,7 +206,7 @@ func (r *elasticsearchReconciler) checkISMPolicy(policy interface{}) (bool, bool
 	}
 }
 
-func (r *elasticsearchReconciler) reconcileISM(policy interface{}) error {
+func (r *Reconciler) ReconcileISM(policy interface{}) error {
 	lg := log.FromContext(r.ctx)
 	policyID := reflect.ValueOf(policy).FieldByName("PolicyID").String()
 	policyBody := map[string]interface{}{
@@ -202,7 +219,7 @@ func (r *elasticsearchReconciler) reconcileISM(policy interface{}) error {
 
 	if createIsm {
 		lg.Info("creating ism", "policy", policyID)
-		resp, err := r.esClient.ISM.CreateISM(r.ctx, policyID, opensearchutil.NewJSONReader(policyBody))
+		resp, err := r.osClient.ISM.CreateISM(r.ctx, policyID, opensearchutil.NewJSONReader(policyBody))
 		if err != nil {
 			return err
 		}
@@ -215,7 +232,7 @@ func (r *elasticsearchReconciler) reconcileISM(policy interface{}) error {
 
 	if updateIsm {
 		lg.Info("updating existing ism", "policy", policyID)
-		resp, err := r.esClient.ISM.UpdateISM(r.ctx, policyID, opensearchutil.NewJSONReader(policyBody), seqNo, primaryTerm)
+		resp, err := r.osClient.ISM.UpdateISM(r.ctx, policyID, opensearchutil.NewJSONReader(policyBody), seqNo, primaryTerm)
 		if err != nil {
 			return err
 		}
@@ -229,7 +246,7 @@ func (r *elasticsearchReconciler) reconcileISM(policy interface{}) error {
 	return nil
 }
 
-func (r *elasticsearchReconciler) maybeCreateIndexTemplate(template *opensearchapiext.IndexTemplateSpec) error {
+func (r *Reconciler) MaybeCreateIndexTemplate(template *opensearchapiext.IndexTemplateSpec) error {
 	createTemplate, err := r.shouldCreateTemplate(template.TemplateName)
 	if err != nil {
 		return err
@@ -241,7 +258,7 @@ func (r *elasticsearchReconciler) maybeCreateIndexTemplate(template *opensearcha
 			Name:   template.TemplateName,
 			Create: opensearchapi.BoolPtr(true),
 		}
-		resp, err := req.Do(r.ctx, r.esClient)
+		resp, err := req.Do(r.ctx, r.osClient)
 		if err != nil {
 			return err
 		}
@@ -254,7 +271,7 @@ func (r *elasticsearchReconciler) maybeCreateIndexTemplate(template *opensearcha
 	return nil
 }
 
-func (r *elasticsearchReconciler) maybeBootstrapIndex(prefix string, alias string) error {
+func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string) error {
 	bootstrap, err := r.shouldBootstrapIndex(prefix)
 	lg := log.FromContext(r.ctx)
 	if err != nil {
@@ -265,7 +282,7 @@ func (r *elasticsearchReconciler) maybeBootstrapIndex(prefix string, alias strin
 			Index: fmt.Sprintf("%s-000001", prefix),
 		}
 		lg.Info(fmt.Sprintf("creating index %s-000001", prefix))
-		indexResp, err := indexReq.Do(r.ctx, r.esClient)
+		indexResp, err := indexReq.Do(r.ctx, r.osClient)
 		if err != nil {
 			return err
 		}
@@ -306,7 +323,7 @@ func (r *elasticsearchReconciler) maybeBootstrapIndex(prefix string, alias strin
 				WaitForCompletion: opensearchapi.BoolPtr(true),
 			}
 			lg.Info(fmt.Sprintf("reindexing %s into %s-000001", alias, prefix))
-			reindexResp, err := reindexReq.Do(r.ctx, r.esClient)
+			reindexResp, err := reindexReq.Do(r.ctx, r.osClient)
 			if err != nil {
 				return err
 			}
@@ -328,7 +345,7 @@ func (r *elasticsearchReconciler) maybeBootstrapIndex(prefix string, alias strin
 			Body: opensearchutil.NewJSONReader(aliasRequestBody),
 		}
 
-		aliasResp, err := aliasReq.Do(r.ctx, r.esClient)
+		aliasResp, err := aliasReq.Do(r.ctx, r.osClient)
 		if err != nil {
 			return err
 		}
@@ -341,7 +358,7 @@ func (r *elasticsearchReconciler) maybeBootstrapIndex(prefix string, alias strin
 	return nil
 }
 
-func (r *elasticsearchReconciler) maybeCreateIndex(name string, settings map[string]opensearchapiext.TemplateMappingsSpec) error {
+func (r *Reconciler) MaybeCreateIndex(name string, settings map[string]opensearchapiext.TemplateMappingsSpec) error {
 	indexExists, err := r.indexExists(name)
 	if err != nil {
 		return err
@@ -352,7 +369,7 @@ func (r *elasticsearchReconciler) maybeCreateIndex(name string, settings map[str
 			Index: name,
 			Body:  opensearchutil.NewJSONReader(settings),
 		}
-		resp, err := indexReq.Do(r.ctx, r.esClient)
+		resp, err := indexReq.Do(r.ctx, r.osClient)
 		if err != nil {
 			return err
 		}
@@ -365,8 +382,8 @@ func (r *elasticsearchReconciler) maybeCreateIndex(name string, settings map[str
 	return nil
 }
 
-func (r *elasticsearchReconciler) shouldUpdateKibana() (retBool bool, retErr error) {
-	exists, err := r.indexExists(kibanaDashboardVersionIndex)
+func (r *Reconciler) shouldUpdateKibana(indexName string, docID string, version string) (retBool bool, retErr error) {
+	exists, err := r.indexExists(indexName)
 	if err != nil {
 		return false, err
 	}
@@ -377,11 +394,11 @@ func (r *elasticsearchReconciler) shouldUpdateKibana() (retBool bool, retErr err
 
 	respDoc := &opensearchapiext.KibanaDocResponse{}
 	req := opensearchapi.GetRequest{
-		Index:      kibanaDashboardVersionIndex,
-		DocumentID: kibanaDashboardVersionDocID,
+		Index:      indexName,
+		DocumentID: docID,
 	}
 
-	resp, err := req.Do(r.ctx, r.esClient)
+	resp, err := req.Do(r.ctx, r.osClient)
 	if err != nil {
 		return false, err
 	}
@@ -398,25 +415,29 @@ func (r *elasticsearchReconciler) shouldUpdateKibana() (retBool bool, retErr err
 		return false, err
 	}
 
-	if semver.Compare(respDoc.Source.DashboardVersion, kibanaDashboardVersion) < 0 {
+	if semver.Compare(respDoc.Source.DashboardVersion, version) < 0 {
 		return true, nil
 	}
 
 	return
 }
 
-func (r *elasticsearchReconciler) upsertKibanaObjectDoc() error {
+func (r *Reconciler) upsertKibanaObjectDoc(indexName string, docID string, version string) error {
+	kibanaDoc := opensearchapiext.KibanaVersionDoc{
+		DashboardVersion: version,
+	}
+
 	upsertRequest := opensearchapiext.UpsertKibanaDoc{
 		Document:         kibanaDoc,
 		DocumentAsUpsert: opensearchapi.BoolPtr(true),
 	}
 
 	req := opensearchapi.UpdateRequest{
-		Index:      kibanaDashboardVersionIndex,
-		DocumentID: kibanaDashboardVersionDocID,
+		Index:      indexName,
+		DocumentID: docID,
 		Body:       opensearchutil.NewJSONReader(upsertRequest),
 	}
-	resp, err := req.Do(r.ctx, r.esClient)
+	resp, err := req.Do(r.ctx, r.osClient)
 	if err != nil {
 		return err
 	}
@@ -428,9 +449,10 @@ func (r *elasticsearchReconciler) upsertKibanaObjectDoc() error {
 	return nil
 }
 
-func (r *elasticsearchReconciler) importKibanaObjects() error {
+func (r *Reconciler) ImportKibanaObjects(indexName string, docID string, version string) error {
+	var kibanaObjects string
 	lg := log.FromContext(r.ctx)
-	update, err := r.shouldUpdateKibana()
+	update, err := r.shouldUpdateKibana(indexName, docID, version)
 	if err != nil {
 		return err
 	}
@@ -446,9 +468,129 @@ func (r *elasticsearchReconciler) importKibanaObjects() error {
 			return fmt.Errorf("unable to import kibana objects: %s", resp.String())
 		}
 
-		return r.upsertKibanaObjectDoc()
+		return r.upsertKibanaObjectDoc(indexName, docID, version)
 	}
 
 	lg.V(1).Info("kibana objects on latest version")
+	return nil
+}
+
+func (r *Reconciler) shouldCreateRole(name string) (bool, error) {
+	resp, err := r.osClient.Security.GetRole(r.ctx, name)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return true, nil
+	} else if resp.IsError() {
+		return false, fmt.Errorf("response from API is %s", resp.Status())
+	}
+
+	return false, nil
+}
+
+func (r *Reconciler) MaybeCreateRole(role opensearchapiext.RoleSpec) error {
+	createRole, err := r.shouldCreateRole(role.RoleName)
+	if err != nil {
+		return err
+	}
+	if !createRole {
+		return nil
+	}
+
+	resp, err := r.osClient.Security.CreateRole(r.ctx, role.RoleName, opensearchutil.NewJSONReader(role))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to create role: %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) shouldCreateUser(name string) (bool, error) {
+	resp, err := r.osClient.Security.GetUser(r.ctx, name)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return true, nil
+	} else if resp.IsError() {
+		return false, fmt.Errorf("response from API is %s", resp.Status())
+	}
+
+	return false, nil
+}
+
+func (r *Reconciler) MaybeCreateUser(user opensearchapiext.UserSpec) error {
+	createRole, err := r.shouldCreateUser(user.UserName)
+	if err != nil {
+		return err
+	}
+	if !createRole {
+		return nil
+	}
+
+	resp, err := r.osClient.Security.CreateUser(r.ctx, user.UserName, opensearchutil.NewJSONReader(user))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to create user: %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) checkRolesMapping(roleName string, userName string) (bool, opensearchapiext.RoleMappingSpec, error) {
+	mapping := opensearchapiext.RoleMappingSpec{}
+
+	resp, err := r.osClient.Security.GetRolesMapping(r.ctx, roleName)
+
+	if err != nil {
+		return false, mapping, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		mapping.Users = append(mapping.Users, userName)
+		return true, mapping, nil
+	}
+
+	mappingResp := opensearchapiext.RoleMappingReponse{}
+	json.NewDecoder(resp.Body).Decode(&mappingResp)
+	mapping = mappingResp[roleName]
+	for _, user := range mapping.Users {
+		if user == userName {
+			return false, mapping, nil
+		}
+	}
+	mapping.Users = append(mapping.Users, userName)
+	return true, mapping, nil
+}
+
+func (r *Reconciler) MaybeUpdateRolesMapping(roleName string, userName string) error {
+	shouldUpdate, mapping, err := r.checkRolesMapping(roleName, userName)
+	if err != nil {
+		return err
+	}
+
+	if !shouldUpdate {
+		return nil
+	}
+
+	resp, err := r.osClient.Security.CreateRolesMapping(r.ctx, roleName, opensearchutil.NewJSONReader(mapping))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to create rolesmapping: %s", resp.String())
+	}
 	return nil
 }

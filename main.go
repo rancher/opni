@@ -29,6 +29,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	opensearchcontrollers "opensearch.opster.io/controllers"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -140,6 +141,21 @@ func run() error {
 
 	if err = (&controllers.PretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PretrainedModel")
+		return err
+	}
+
+	if err = (&controllers.LoggingClusterReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoggingCluster")
+		return err
+	}
+
+	if err = (&controllers.PretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PretrainedModel")
+		return err
+	}
+
+	if err = (&opensearchcontrollers.OpenSearchClusterReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "OpenSearchCluster")
 		return err
 	}
 

@@ -254,7 +254,7 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 							},
 							LivenessProbe: &corev1.Probe{
 								FailureThreshold: 6,
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path:   "/",
 										Port:   intstr.FromString("http"),
@@ -268,7 +268,7 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 							},
 							ReadinessProbe: &corev1.Probe{
 								FailureThreshold: 6,
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path:   "/",
 										Port:   intstr.FromString("http"),
@@ -291,7 +291,7 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 								},
 							},
 							Lifecycle: &corev1.Lifecycle{
-								PreStop: &corev1.Handler{
+								PreStop: &corev1.LifecycleHandler{
 									Exec: &corev1.ExecAction{
 										Command: []string{
 											"nats-server",
@@ -689,7 +689,7 @@ func (r *Reconciler) fetchOrGeneratePassword(key string) ([]byte, error) {
 		Namespace: r.opniCluster.Namespace,
 	}, &secret)
 	if k8serrors.IsNotFound(err) {
-		password := util.GenerateRandomPassword()
+		password := util.GenerateRandomString(8)
 
 		err := r.updateState(key, password)
 		if err != nil {
@@ -702,7 +702,7 @@ func (r *Reconciler) fetchOrGeneratePassword(key string) ([]byte, error) {
 	}
 	password, ok := secret.Data[key]
 	if !ok {
-		password = util.GenerateRandomPassword()
+		password = util.GenerateRandomString(8)
 		err := r.updateState(key, password)
 		if err != nil {
 			return make([]byte, 0), err

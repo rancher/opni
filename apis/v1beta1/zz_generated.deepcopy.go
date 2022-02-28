@@ -22,7 +22,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	apiv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
+	apiv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"

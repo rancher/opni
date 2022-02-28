@@ -28,3 +28,9 @@ func Present(obj client.Object) Resource {
 		return obj, reconciler.StatePresent, nil
 	}
 }
+
+func Error(obj client.Object, err error) Resource {
+	return func() (runtime.Object, reconciler.DesiredState, error) {
+		return obj, reconciler.StatePresent, err
+	}
+}

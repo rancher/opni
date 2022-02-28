@@ -3,9 +3,9 @@ package opnicluster
 import (
 	"fmt"
 
-	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
-	"github.com/banzaicloud/logging-operator/pkg/sdk/model/filter"
-	"github.com/banzaicloud/logging-operator/pkg/sdk/model/output"
+	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
+	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/filter"
+	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/output"
 	"github.com/rancher/opni/apis/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

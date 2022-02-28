@@ -3,7 +3,7 @@ package v1beta1
 import (
 	"path/filepath"
 
-	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
+	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/pointer"
 )

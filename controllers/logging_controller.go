@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	logcontrollers "github.com/banzaicloud/logging-operator/controllers"
+	logcontrollers "github.com/banzaicloud/logging-operator/controllers/logging"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

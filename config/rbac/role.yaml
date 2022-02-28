@@ -447,6 +447,58 @@ rules:
   - update
   - watch
 - apiGroups:
+  - opensearch.opster.io
+  resources:
+  - opensearchclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opensearch.opster.io
+  resources:
+  - opensearchclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opensearch.opster.io
+  resources:
+  - opensearchclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - datapreppers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - datapreppers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - datapreppers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - opni.io
   resources:
   - gpupolicyadapters
@@ -497,6 +549,32 @@ rules:
   resources:
   - logadapters
   - opniclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusters/status
   verbs:
   - get
   - patch

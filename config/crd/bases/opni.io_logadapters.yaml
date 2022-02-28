@@ -802,6 +802,10 @@ spec:
                             type: string
                           Tag_Regex:
                             type: string
+                          multiline.parser:
+                            items:
+                              type: string
+                            type: array
                           storage.type:
                             type: string
                         type: object
@@ -823,6 +827,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -948,6 +962,82 @@ spec:
                                       type: string
                                   type: object
                                 type: array
+                              scheme:
+                                type: string
+                              tlsConfig:
+                                properties:
+                                  ca:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  caFile:
+                                    type: string
+                                  cert:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  certFile:
+                                    type: string
+                                  insecureSkipVerify:
+                                    type: boolean
+                                  keyFile:
+                                    type: string
+                                  keySecret:
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                      optional:
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                  serverName:
+                                    type: string
+                                type: object
                             type: object
                           timeout:
                             type: string
@@ -959,6 +1049,14 @@ spec:
                           connectTimeout:
                             format: int32
                             type: integer
+                          connectTimeoutLogError:
+                            type: boolean
+                          dnsMode:
+                            type: string
+                          dnsPreferIpv4:
+                            type: boolean
+                          dnsResolver:
+                            type: string
                           keepalive:
                             type: boolean
                           keepaliveIdleTimeout:
@@ -967,6 +1065,8 @@ spec:
                           keepaliveMaxRecycle:
                             format: int32
                             type: integer
+                          sourceAddress:
+                            type: string
                         type: object
                       nodeSelector:
                         additionalProperties:
@@ -1234,6 +1334,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -2088,6 +2198,82 @@ spec:
                                       type: string
                                   type: object
                                 type: array
+                              scheme:
+                                type: string
+                              tlsConfig:
+                                properties:
+                                  ca:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  caFile:
+                                    type: string
+                                  cert:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  certFile:
+                                    type: string
+                                  insecureSkipVerify:
+                                    type: boolean
+                                  keyFile:
+                                    type: string
+                                  keySecret:
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                      optional:
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                  serverName:
+                                    type: string
+                                type: object
                             type: object
                           timeout:
                             type: string
@@ -2232,6 +2418,140 @@ spec:
                               type: object
                           required:
                           - name
+                          type: object
+                        type: array
+                      extraVolumes:
+                        items:
+                          properties:
+                            containerName:
+                              type: string
+                            path:
+                              type: string
+                            volume:
+                              properties:
+                                emptyDir:
+                                  properties:
+                                    medium:
+                                      type: string
+                                    sizeLimit:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                                host_path:
+                                  properties:
+                                    path:
+                                      type: string
+                                    type:
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                hostPath:
+                                  properties:
+                                    path:
+                                      type: string
+                                    type:
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                pvc:
+                                  properties:
+                                    source:
+                                      properties:
+                                        claimName:
+                                          type: string
+                                        readOnly:
+                                          type: boolean
+                                      required:
+                                      - claimName
+                                      type: object
+                                    spec:
+                                      properties:
+                                        accessModes:
+                                          items:
+                                            type: string
+                                          type: array
+                                        dataSource:
+                                          properties:
+                                            apiGroup:
+                                              type: string
+                                            kind:
+                                              type: string
+                                            name:
+                                              type: string
+                                          required:
+                                          - kind
+                                          - name
+                                          type: object
+                                        dataSourceRef:
+                                          properties:
+                                            apiGroup:
+                                              type: string
+                                            kind:
+                                              type: string
+                                            name:
+                                              type: string
+                                          required:
+                                          - kind
+                                          - name
+                                          type: object
+                                        resources:
+                                          properties:
+                                            limits:
+                                              additionalProperties:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              type: object
+                                            requests:
+                                              additionalProperties:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              type: object
+                                          type: object
+                                        selector:
+                                          properties:
+                                            matchExpressions:
+                                              items:
+                                                properties:
+                                                  key:
+                                                    type: string
+                                                  operator:
+                                                    type: string
+                                                  values:
+                                                    items:
+                                                      type: string
+                                                    type: array
+                                                required:
+                                                - key
+                                                - operator
+                                                type: object
+                                              type: array
+                                            matchLabels:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
+                                          type: object
+                                        storageClassName:
+                                          type: string
+                                        volumeMode:
+                                          type: string
+                                        volumeName:
+                                          type: string
+                                      type: object
+                                  type: object
+                              type: object
+                            volumeName:
+                              type: string
                           type: object
                         type: array
                       fluentLogDestination:
@@ -2480,6 +2800,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -2605,6 +2935,82 @@ spec:
                                       type: string
                                   type: object
                                 type: array
+                              scheme:
+                                type: string
+                              tlsConfig:
+                                properties:
+                                  ca:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  caFile:
+                                    type: string
+                                  cert:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  certFile:
+                                    type: string
+                                  insecureSkipVerify:
+                                    type: boolean
+                                  keyFile:
+                                    type: string
+                                  keySecret:
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                      optional:
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                  serverName:
+                                    type: string
+                                type: object
                             type: object
                           timeout:
                             type: string
@@ -2658,6 +3064,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -2739,9 +3155,29 @@ spec:
                         properties:
                           drain:
                             properties:
+                              annotations:
+                                additionalProperties:
+                                  type: string
+                                type: object
                               enabled:
                                 type: boolean
                               image:
+                                properties:
+                                  imagePullSecrets:
+                                    items:
+                                      properties:
+                                        name:
+                                          type: string
+                                      type: object
+                                    type: array
+                                  pullPolicy:
+                                    type: string
+                                  repository:
+                                    type: string
+                                  tag:
+                                    type: string
+                                type: object
+                              pauseImage:
                                 properties:
                                   imagePullSecrets:
                                     items:
@@ -3832,6 +4268,10 @@ spec:
                             type: string
                           Tag_Regex:
                             type: string
+                          multiline.parser:
+                            items:
+                              type: string
+                            type: array
                           storage.type:
                             type: string
                         type: object
@@ -3853,6 +4293,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -3978,6 +4428,82 @@ spec:
                                       type: string
                                   type: object
                                 type: array
+                              scheme:
+                                type: string
+                              tlsConfig:
+                                properties:
+                                  ca:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  caFile:
+                                    type: string
+                                  cert:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  certFile:
+                                    type: string
+                                  insecureSkipVerify:
+                                    type: boolean
+                                  keyFile:
+                                    type: string
+                                  keySecret:
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                      optional:
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                  serverName:
+                                    type: string
+                                type: object
                             type: object
                           timeout:
                             type: string
@@ -3989,6 +4515,14 @@ spec:
                           connectTimeout:
                             format: int32
                             type: integer
+                          connectTimeoutLogError:
+                            type: boolean
+                          dnsMode:
+                            type: string
+                          dnsPreferIpv4:
+                            type: boolean
+                          dnsResolver:
+                            type: string
                           keepalive:
                             type: boolean
                           keepaliveIdleTimeout:
@@ -3997,6 +4531,8 @@ spec:
                           keepaliveMaxRecycle:
                             format: int32
                             type: integer
+                          sourceAddress:
+                            type: string
                         type: object
                       nodeSelector:
                         additionalProperties:
@@ -4264,6 +4800,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -5118,6 +5664,82 @@ spec:
                                       type: string
                                   type: object
                                 type: array
+                              scheme:
+                                type: string
+                              tlsConfig:
+                                properties:
+                                  ca:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  caFile:
+                                    type: string
+                                  cert:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  certFile:
+                                    type: string
+                                  insecureSkipVerify:
+                                    type: boolean
+                                  keyFile:
+                                    type: string
+                                  keySecret:
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                      optional:
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                  serverName:
+                                    type: string
+                                type: object
                             type: object
                           timeout:
                             type: string
@@ -5262,6 +5884,140 @@ spec:
                               type: object
                           required:
                           - name
+                          type: object
+                        type: array
+                      extraVolumes:
+                        items:
+                          properties:
+                            containerName:
+                              type: string
+                            path:
+                              type: string
+                            volume:
+                              properties:
+                                emptyDir:
+                                  properties:
+                                    medium:
+                                      type: string
+                                    sizeLimit:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                                host_path:
+                                  properties:
+                                    path:
+                                      type: string
+                                    type:
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                hostPath:
+                                  properties:
+                                    path:
+                                      type: string
+                                    type:
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                pvc:
+                                  properties:
+                                    source:
+                                      properties:
+                                        claimName:
+                                          type: string
+                                        readOnly:
+                                          type: boolean
+                                      required:
+                                      - claimName
+                                      type: object
+                                    spec:
+                                      properties:
+                                        accessModes:
+                                          items:
+                                            type: string
+                                          type: array
+                                        dataSource:
+                                          properties:
+                                            apiGroup:
+                                              type: string
+                                            kind:
+                                              type: string
+                                            name:
+                                              type: string
+                                          required:
+                                          - kind
+                                          - name
+                                          type: object
+                                        dataSourceRef:
+                                          properties:
+                                            apiGroup:
+                                              type: string
+                                            kind:
+                                              type: string
+                                            name:
+                                              type: string
+                                          required:
+                                          - kind
+                                          - name
+                                          type: object
+                                        resources:
+                                          properties:
+                                            limits:
+                                              additionalProperties:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              type: object
+                                            requests:
+                                              additionalProperties:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              type: object
+                                          type: object
+                                        selector:
+                                          properties:
+                                            matchExpressions:
+                                              items:
+                                                properties:
+                                                  key:
+                                                    type: string
+                                                  operator:
+                                                    type: string
+                                                  values:
+                                                    items:
+                                                      type: string
+                                                    type: array
+                                                required:
+                                                - key
+                                                - operator
+                                                type: object
+                                              type: array
+                                            matchLabels:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
+                                          type: object
+                                        storageClassName:
+                                          type: string
+                                        volumeMode:
+                                          type: string
+                                        volumeName:
+                                          type: string
+                                      type: object
+                                  type: object
+                              type: object
+                            volumeName:
+                              type: string
                           type: object
                         type: array
                       fluentLogDestination:
@@ -5510,6 +6266,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -5635,6 +6401,82 @@ spec:
                                       type: string
                                   type: object
                                 type: array
+                              scheme:
+                                type: string
+                              tlsConfig:
+                                properties:
+                                  ca:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  caFile:
+                                    type: string
+                                  cert:
+                                    properties:
+                                      configMap:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      secret:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                  certFile:
+                                    type: string
+                                  insecureSkipVerify:
+                                    type: boolean
+                                  keyFile:
+                                    type: string
+                                  keySecret:
+                                    properties:
+                                      key:
+                                        type: string
+                                      name:
+                                        type: string
+                                      optional:
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                  serverName:
+                                    type: string
+                                type: object
                             type: object
                           timeout:
                             type: string
@@ -5688,6 +6530,16 @@ spec:
                           failureThreshold:
                             format: int32
                             type: integer
+                          grpc:
+                            properties:
+                              port:
+                                format: int32
+                                type: integer
+                              service:
+                                type: string
+                            required:
+                            - port
+                            type: object
                           httpGet:
                             properties:
                               host:
@@ -5769,9 +6621,29 @@ spec:
                         properties:
                           drain:
                             properties:
+                              annotations:
+                                additionalProperties:
+                                  type: string
+                                type: object
                               enabled:
                                 type: boolean
                               image:
+                                properties:
+                                  imagePullSecrets:
+                                    items:
+                                      properties:
+                                        name:
+                                          type: string
+                                      type: object
+                                    type: array
+                                  pullPolicy:
+                                    type: string
+                                  repository:
+                                    type: string
+                                  tag:
+                                    type: string
+                                type: object
+                              pauseImage:
                                 properties:
                                   imagePullSecrets:
                                     items:

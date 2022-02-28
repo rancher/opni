@@ -82,7 +82,7 @@ func (r *Reconciler) elasticPodTemplate(
 					LivenessProbe: &corev1.Probe{
 						InitialDelaySeconds: 60,
 						PeriodSeconds:       10,
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							TCPSocket: &corev1.TCPSocketAction{
 								Port: intstr.FromString("transport"),
 							},
@@ -91,7 +91,7 @@ func (r *Reconciler) elasticPodTemplate(
 					ReadinessProbe: &corev1.Probe{
 						InitialDelaySeconds: 60,
 						PeriodSeconds:       30,
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							Exec: &corev1.ExecAction{
 								Command: []string{
 									"/bin/bash",
@@ -330,7 +330,7 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 								PeriodSeconds:       30,
 								SuccessThreshold:    1,
 								TimeoutSeconds:      10,
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
 										Path: "/api/status",
 										Port: intstr.FromInt(5601),
@@ -343,7 +343,7 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 								PeriodSeconds:       10,
 								SuccessThreshold:    1,
 								TimeoutSeconds:      1,
-								Handler: corev1.Handler{
+								ProbeHandler: corev1.ProbeHandler{
 									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.FromInt(5601),
 									},

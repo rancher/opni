@@ -14,6 +14,8 @@ resources:
 - bases/demo.opni.io_opnidemoes.yaml
 - bases/opni.io_pretrainedmodels.yaml
 - bases/opni.io_gpupolicyadapters.yaml
+- bases/opni.io_loggingclusters.yaml
+- bases/opni.io_datapreppers.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

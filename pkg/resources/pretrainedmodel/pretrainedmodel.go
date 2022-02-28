@@ -28,7 +28,7 @@ func NewReconciler(
 	ctx context.Context,
 	client client.Client,
 	model *v1beta1.PretrainedModel,
-	opts ...func(*reconciler.ReconcilerOpts),
+	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,

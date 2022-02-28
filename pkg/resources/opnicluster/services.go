@@ -59,7 +59,7 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 
 func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retError error) {
 	resourceList = []resources.Resource{}
-	lg := logr.FromContext(r.ctx)
+	lg, _ := logr.FromContext(r.ctx)
 	requirement, err := labels.NewRequirement(
 		resources.PretrainedModelLabel,
 		selection.Exists,
@@ -151,7 +151,7 @@ func (r *Reconciler) pretrainedModelDeployment(
 			r.pretrainedModelLabels(model.Name),
 		)
 		imageSpec := r.serviceImageSpec(v1beta1.InferenceService)
-		lg := logr.FromContext(r.ctx)
+		lg, _ := logr.FromContext(r.ctx)
 		lg.V(1).Info("generating pretrained model deployment", "name", model.Name)
 		envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
 		s3EnvVars := r.s3EnvVars()

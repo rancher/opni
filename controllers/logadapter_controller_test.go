@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/api/v1beta1"
+	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

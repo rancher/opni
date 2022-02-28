@@ -43,7 +43,7 @@ func NewReconciler(
 	ctx context.Context,
 	client client.Client,
 	opniCluster *v1beta1.OpniCluster,
-	opts ...func(*reconciler.ReconcilerOpts),
+	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,

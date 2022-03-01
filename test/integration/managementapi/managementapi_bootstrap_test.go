@@ -67,6 +67,18 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, func
 		Expect(token.Metadata.Ttl).To(Equal(int64(time.Hour.Seconds())))
 	})
 
+	It("can get information about a specific token", func() {
+		tokenInfo, err := client.GetBootstrapToken(context.Background(), &core.Reference{
+			Id: token.TokenID,
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(tokenInfo.TokenID).To(Equal(token.TokenID))
+		Expect(tokenInfo.Secret).To(Equal(token.Secret))
+		Expect(tokenInfo.Metadata.Ttl).Should(BeNumerically("<=", token.Metadata.Ttl))
+		Expect(tokenInfo.Metadata.LeaseID).To(Equal(token.Metadata.LeaseID))
+	})
+
 	It("can list all bootstrap tokens", func() {
 		tokenList, err := client.ListBootstrapTokens(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())

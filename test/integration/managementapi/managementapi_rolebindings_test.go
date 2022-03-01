@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni-monitoring/pkg/core"
@@ -92,13 +93,30 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, func() 
 
 	//#region Edge Case Tests
 
-	It("cannot create rolebindings without a role", func() {
+	It("cannot create rolebindings without a RoleID", func() {
 		_, err = client.CreateRoleBinding(context.Background(), &core.RoleBinding{
 			Id:       "test-rolebinding",
 			Subjects: []string{"test-subject"},
 		})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("missing required field: roleId"))
+
+		_, err = client.GetRoleBinding(context.Background(), &core.Reference{
+			Id: "test-rolebinding",
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to get role binding: not found"))
+	})
+
+	//TODO: Need to confirm this use case is valid
+	XIt("cannot create rolebindings without a valid RoleId", func() {
+		_, err = client.CreateRoleBinding(context.Background(), &core.RoleBinding{
+			RoleId:   uuid.NewString(),
+			Id:       "test-rolebinding",
+			Subjects: []string{"test-subject"},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("RoleId provided is not associated with a valid role"))
 
 		_, err = client.GetRoleBinding(context.Background(), &core.Reference{
 			Id: "test-rolebinding",
@@ -180,6 +198,28 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, func() 
 		_, err = client.DeleteRoleBinding(context.Background(), &core.Reference{})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("missing required field: id"))
+
+		_, err = client.DeleteRoleBinding(context.Background(), &core.Reference{
+			Id: "test-rolebinding",
+		})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	//TODO: Once the issue below is resolved, this test should be unignored
+	// An error message should be returned attempting to delete a rolebinding that does not exist
+	XIt("cannot delete a rolebinding without specifying a valid Id", func() {
+		_, err = client.CreateRoleBinding(context.Background(), &core.RoleBinding{
+			Id:       "test-rolebinding",
+			RoleId:   "test-role",
+			Subjects: []string{"test-subject"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = client.DeleteRoleBinding(context.Background(), &core.Reference{
+			Id: uuid.NewString(),
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to get role binding: not found"))
 
 		_, err = client.DeleteRoleBinding(context.Background(), &core.Reference{
 			Id: "test-rolebinding",

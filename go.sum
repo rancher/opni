@@ -122,6 +122,10 @@ github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf/go.mod h1:l
 github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
 github.com/banzaicloud/k8s-objectmatcher v1.8.0 h1:Nugn25elKtPMTA2br+JgHNeSQ04sc05MDPmpJnd1N2A=
 github.com/banzaicloud/k8s-objectmatcher v1.8.0/go.mod h1:p2LSNAjlECf07fbhDyebTkPUIYnU05G+WfGgkTmgeMg=
+github.com/banzaicloud/logging-operator v0.0.0-20220225205714-b06e7ad17676 h1:LuoSw/sYncGbjy5xiDDnOgVBvU7flpvgEdCU0oPVIMc=
+github.com/banzaicloud/logging-operator v0.0.0-20220225205714-b06e7ad17676/go.mod h1:R48b1Ei1+FRoK+iU24vRFcS8e6geSuzXqPUtouIk/pw=
+github.com/banzaicloud/logging-operator/pkg/sdk v0.0.0-20220225205714-b06e7ad17676 h1:ip8Fsi0vCSPo7PZtjCr/WO04whEJ56fHEiGC5aSSmBM=
+github.com/banzaicloud/logging-operator/pkg/sdk v0.0.0-20220225205714-b06e7ad17676/go.mod h1:M/Cgh6fs7p0MlpzKr90m/kikcfApYcZAHYrHoKIaY64=
 github.com/banzaicloud/operator-tools v0.28.2 h1:/xelZg4tyvtUEWuciTSkYiDRo11bSJkMlRphWvHe0xg=
 github.com/banzaicloud/operator-tools v0.28.2/go.mod h1:JN/n0ARxBhtmIOCTCByGubtlqgQFKRGjJQ6ezhQ2zxE=
 github.com/benbjohnson/clock v1.0.3/go.mod h1:bGMdMPoPVvcYyt1gHDf4J2KE153Yf9BuiUKYMaxlTDM=
@@ -200,10 +204,6 @@ github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/daviddengcn/go-colortext v0.0.0-20160507010035-511bcaf42ccd/go.mod h1:dv4zxwHi5C/8AeI+4gX4dCWOIvNi7I6JCSX0HvlKPgE=
-github.com/dbason/logging-operator v0.0.0-20220225035016-dcba64481f26 h1:f6ACxvyTlId5n0AF8Hl8s6IDf8KUzMjbuTKgadpi4m4=
-github.com/dbason/logging-operator v0.0.0-20220225035016-dcba64481f26/go.mod h1:R48b1Ei1+FRoK+iU24vRFcS8e6geSuzXqPUtouIk/pw=
-github.com/dbason/logging-operator/pkg/sdk v0.0.0-20220225035016-dcba64481f26 h1:rzoAir7QnNlIsWdEiAA+Ky6T/kFYQ7vo+v11OH5Klr8=
-github.com/dbason/logging-operator/pkg/sdk v0.0.0-20220225035016-dcba64481f26/go.mod h1:M/Cgh6fs7p0MlpzKr90m/kikcfApYcZAHYrHoKIaY64=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1/go.mod h1:+hnT3ywWDTAFrW5aE+u2Sa/wT555ZqwoCS+pk3p6ry4=
 github.com/dgryski/go-bitstream v0.0.0-20180413035011-3522498ce2c8/go.mod h1:VMaSuZ+SZcx/wljOQKvp5srsbCiKDEb6K2wC4+PiBmQ=

@@ -25485,6 +25485,13 @@ spec:
             type: object
           spec:
             properties:
+              friendlyName:
+                type: string
+              indexUser:
+                properties:
+                  name:
+                    type: string
+                type: object
               opensearchCluster:
                 properties:
                   name:
@@ -25499,11 +25506,6 @@ spec:
                 items:
                   type: string
                 type: array
-              indexUserSecret:
-                properties:
-                  name:
-                    type: string
-                type: object
               indexUserState:
                 type: string
               state:

@@ -3,19 +3,14 @@ package loggingcluster
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/rancher/opni/apis/v2beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -75,6 +70,11 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		return
 	}
 
+	if r.loggingCluster.Spec.IndexUserSecret == nil {
+		retErr = errors.New("index user secret not provided")
+		return
+	}
+
 	opensearchCluster := &opensearchv1.OpenSearchCluster{}
 	retErr = r.client.Get(r.ctx, types.NamespacedName{
 		Name:      r.loggingCluster.Spec.OpensearchClusterRef.Name,
@@ -86,15 +86,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	switch r.loggingCluster.Status.State {
 	case "":
-		_, ok := r.loggingCluster.Labels[resources.OpniBootstrapToken]
-		if !ok {
-			return retResult, errors.New("logging cluster missing bootstrap token")
-		}
-		retErr = r.maybeGenerateIndexUserSecret()
-		if retErr != nil {
-			return
-		}
-
 		retErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingCluster), r.loggingCluster); err != nil {
 				return err
@@ -123,45 +114,4 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	return
-}
-
-func (r *Reconciler) maybeGenerateIndexUserSecret() error {
-	if r.loggingCluster.Status.IndexUserSecretRef != nil {
-		return nil
-	}
-
-	name := strings.ToLower(fmt.Sprintf("%s-index-%s", r.loggingCluster.Name, util.GenerateRandomString(4)))
-	password := util.GenerateRandomString(16)
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: r.loggingCluster.Namespace,
-		},
-		Data: map[string][]byte{
-			"password": password,
-		},
-	}
-
-	err := ctrl.SetControllerReference(r.loggingCluster, secret, r.client.Scheme())
-	if err != nil {
-		return err
-	}
-
-	err = r.client.Create(r.ctx, secret)
-	if err != nil {
-		return err
-	}
-
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingCluster), r.loggingCluster); err != nil {
-			return err
-		}
-		r.loggingCluster.Status.IndexUserSecretRef = &corev1.LocalObjectReference{
-			Name: secret.Name,
-		}
-		return r.client.Status().Update(r.ctx, r.loggingCluster)
-	})
-
-	return err
 }

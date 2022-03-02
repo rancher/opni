@@ -37,7 +37,9 @@ type LoggingCluster struct {
 }
 
 type LoggingClusterSpec struct {
-	OpensearchClusterRef *OpensearchClusterRef `json:"opensearchCluster,omitempty"`
+	OpensearchClusterRef *OpensearchClusterRef        `json:"opensearchCluster,omitempty"`
+	IndexUserSecret      *corev1.LocalObjectReference `json:"indexUser,omitempty"`
+	FriendlyName         string                       `json:"friendlyName,omitempty"`
 }
 
 type OpensearchClusterRef struct {
@@ -46,10 +48,9 @@ type OpensearchClusterRef struct {
 }
 
 type LoggingClusterStatus struct {
-	Conditions         []string                     `json:"conditions,omitempty"`
-	State              LoggingClusterState          `json:"state,omitempty"`
-	IndexUserState     IndexUserState               `json:"indexUserState,omitempty"`
-	IndexUserSecretRef *corev1.LocalObjectReference `json:"indexUserSecret,omitempty"`
+	Conditions     []string            `json:"conditions,omitempty"`
+	State          LoggingClusterState `json:"state,omitempty"`
+	IndexUserState IndexUserState      `json:"indexUserState,omitempty"`
 }
 
 //+kubebuilder:object:root=true

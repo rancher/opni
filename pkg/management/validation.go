@@ -32,6 +32,9 @@ func (r *ListClustersRequest) Validate() error {
 }
 
 func (r *EditClusterRequest) Validate() error {
+	if r.Cluster == nil {
+		return validation.Errorf("%w: %s", validation.ErrMissingRequiredField, "cluster")
+	}
 	if err := validation.Validate(r.Cluster); err != nil {
 		return err
 	}

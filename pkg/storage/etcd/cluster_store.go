@@ -28,9 +28,12 @@ func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *core.Cluster) er
 func (e *EtcdStore) DeleteCluster(ctx context.Context, ref *core.Reference) error {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := e.client.Delete(ctx, path.Join(e.namespace, clusterKey, ref.Id), clientv3.WithPrefix())
+	resp, err := e.client.Delete(ctx, path.Join(e.namespace, clusterKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete cluster: %w", err)
+	}
+	if resp.Deleted == 0 {
+		return storage.ErrNotFound
 	}
 	return nil
 }

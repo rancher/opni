@@ -128,4 +128,5 @@ type EtcdStorageSpec struct {
 }
 
 type CustomResourcesStorageSpec struct {
+	Namespace string `json:"namespace,omitempty"`
 }

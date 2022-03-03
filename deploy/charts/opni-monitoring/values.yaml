@@ -40,6 +40,9 @@ gateway:
     #   cpu: "2"
     #   memory: "2Gi"
 
+# "etcd" or "customResources"
+storageType: etcd
+
 service:
   type: LoadBalancer
   port: 8080

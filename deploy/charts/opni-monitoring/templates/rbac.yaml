@@ -1,0 +1,49 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: opni-monitoring-crd
+  labels:
+    {{- include "opni-monitoring.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+    - monitoring.opni.io
+    resources:
+    - bootstraptokens
+    - clusters
+    - rolebindings
+    - roles
+    verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - ""
+    resources:
+    - secrets
+    verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: opni-monitoring-crd
+  labels:
+    {{- include "opni-monitoring.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: opni-monitoring-crd
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "opni-monitoring.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

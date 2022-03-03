@@ -81,6 +81,22 @@ func ControllerGen() error {
 			}
 		}
 	}
+	// copy pkg/sdk/crd/* to deploy/charts/opni-monitoring/crds
+	if err := os.RemoveAll("deploy/charts/opni-monitoring/crds"); err != nil {
+		return err
+	}
+	if err := os.MkdirAll("deploy/charts/opni-monitoring/crds", 0755); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir("pkg/sdk/crd")
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if err := sh.Copy(path.Join("deploy/charts/opni-monitoring/crds", entry.Name()), path.Join("pkg/sdk/crd", entry.Name())); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

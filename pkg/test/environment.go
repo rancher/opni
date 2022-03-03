@@ -21,8 +21,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/mattn/go-tty"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/phayes/freeport"
+	"github.com/pkg/browser"
 	"github.com/rancher/opni-monitoring/pkg/agent"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
@@ -656,7 +658,25 @@ func StartStandaloneTestEnvironment() {
 	}()
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt)
-	lg.Info(chalk.Blue.Color("Press Ctrl+C to stop test environment"))
+	lg.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
+	// listen for spacebar on stdin
+	t, err := tty.Open()
+	if err == nil {
+		lg.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
+		go func() {
+			for {
+				rn, err := t.ReadRune()
+				if err != nil {
+					lg.Fatal(err)
+				}
+				if rn == ' ' {
+					if err := browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb)); err != nil {
+						lg.Error(err)
+					}
+				}
+			}
+		}()
+	}
 	<-c
 	lg.Info("\nStopping test environment")
 	if err := environment.Stop(); err != nil {

@@ -103,8 +103,15 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 			storageBackend.Use(store)
 		}
 	case v1beta1.StorageTypeCRDs:
-		crdStore := crds.NewCRDStore()
-		secretStore := secrets.NewSecretsStore()
+		options := conf.Spec.Storage.CustomResources
+		crdOpts := []crds.CRDStoreOption{}
+		secOpts := []secrets.SecretsStoreOption{}
+		if options != nil {
+			crdOpts = append(crdOpts, crds.WithNamespace(options.Namespace))
+			secOpts = append(secOpts, secrets.WithNamespace(options.Namespace))
+		}
+		crdStore := crds.NewCRDStore(crdOpts...)
+		secretStore := secrets.NewSecretsStore(secOpts...)
 		storageBackend.Use(crdStore)
 		storageBackend.Use(secretStore)
 	case v1beta1.StorageTypeSecret:

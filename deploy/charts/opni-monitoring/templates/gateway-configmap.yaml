@@ -32,6 +32,7 @@ data:
         servingCert: /run/opni-monitoring/certs/tls.crt
         servingKey: /run/opni-monitoring/certs/tls.key
       storage:
+{{- if eq .Values.storageType "etcd" }}
         type: etcd
         etcd:
           endpoints:
@@ -41,6 +42,11 @@ data:
             clientCA: /run/etcd/certs/client/ca.crt
             clientCert: /run/etcd/certs/client/tls.crt
             clientKey: /run/etcd/certs/client/tls.key
+{{- else if eq .Values.storageType "customResources" }}
+        type: customResources
+        customResources:
+          namespace: {{ .Release.Namespace }}
+{{- end }}
     ---
     apiVersion: v1beta1
     kind: AuthProvider

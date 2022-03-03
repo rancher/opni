@@ -28,9 +28,12 @@ func (e *EtcdStore) CreateRole(ctx context.Context, role *core.Role) error {
 func (e *EtcdStore) DeleteRole(ctx context.Context, ref *core.Reference) error {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := e.client.Delete(ctx, path.Join(e.namespace, roleKey, ref.Id))
+	resp, err := e.client.Delete(ctx, path.Join(e.namespace, roleKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete role: %w", err)
+	}
+	if resp.Deleted == 0 {
+		return storage.ErrNotFound
 	}
 	return nil
 }
@@ -69,9 +72,12 @@ func (e *EtcdStore) CreateRoleBinding(ctx context.Context, roleBinding *core.Rol
 func (e *EtcdStore) DeleteRoleBinding(ctx context.Context, ref *core.Reference) error {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
-	_, err := e.client.Delete(ctx, path.Join(e.namespace, roleBindingKey, ref.Id))
+	resp, err := e.client.Delete(ctx, path.Join(e.namespace, roleBindingKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete role binding: %w", err)
+	}
+	if resp.Deleted == 0 {
+		return storage.ErrNotFound
 	}
 	return nil
 }

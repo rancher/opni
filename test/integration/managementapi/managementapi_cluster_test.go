@@ -142,8 +142,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 		Expect(clusterInfo.GetItems()).NotTo(BeNil())
 	})
 
-	//TODO: Once the delete issue is resolved, this test should be unignored
-	XIt("can delete individual clusters", func() {
+	It("can delete individual clusters", func() {
 		_, errG1 := client.GetCluster(context.Background(), &core.Reference{
 			Id: "test-cluster-id",
 		})
@@ -214,8 +213,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 		Expect(err.Error()).To(ContainSubstring("missing required field: id"))
 	})
 
-	//TODO: Once the error message is updated, this test should be unignored
-	XIt("cannot edit the label a cluster is using without providing Cluster information", func() {
+	It("cannot edit the label a cluster is using without providing Cluster information", func() {
 		token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
 		})
@@ -246,34 +244,48 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 		Expect(clusterList.GetItems()).To(HaveLen(0))
 	})
 
-	//TODO: Once the error message is updated, this test should be unignored
-	XIt("cannot edit the label a cluster is using without providing a label", func() {
-		token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
-			Ttl: durationpb.New(time.Minute),
-		})
-		Expect(err).NotTo(HaveOccurred())
+	When("editing a cluster without providing label information", func() {
+		It("can remove labels from a cluster", func() {
+			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+				Ttl: durationpb.New(time.Minute),
+			})
+			Expect(err).NotTo(HaveOccurred())
 
-		clusterName := uuid.NewString()
-		_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-		Consistently(errC).ShouldNot(Receive())
+			clusterName := uuid.NewString()
+			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
+			Consistently(errC).ShouldNot(Receive())
 
-		_, err = client.EditCluster(context.Background(), &management.EditClusterRequest{
-			Cluster: &core.Reference{
+			_, errE := client.EditCluster(context.Background(), &management.EditClusterRequest{
+				Cluster: &core.Reference{
+					Id: clusterName,
+				},
+				Labels: map[string]string{
+					"i": "999",
+				},
+			})
+			Expect(errE).NotTo(HaveOccurred())
+
+			_, err = client.EditCluster(context.Background(), &management.EditClusterRequest{
+				Cluster: &core.Reference{
+					Id: clusterName,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			clusterInfo, err := client.GetCluster(context.Background(), &core.Reference{
 				Id: clusterName,
-			},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(clusterInfo.Labels).To(BeEmpty())
 		})
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("missing required field: labels"))
 	})
 
-	//TODO: Once the below issue is resolved, this test should be unignored
-	// An error message should be generated when trying to delete a cluster that does not exist
-	XIt("cannot delete individual clusters without providing a valid ID", func() {
+	It("cannot delete individual clusters without providing a valid ID", func() {
 		_, err := client.DeleteCluster(context.Background(), &core.Reference{
 			Id: uuid.NewString(),
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to get cluster: not found"))
+		Expect(err.Error()).To(ContainSubstring("not found"))
 	})
 
 	It("cannot delete individual clusters without providing an ID", func() {

@@ -16,7 +16,7 @@ import (
 
 //#region Test Setup
 
-var _ = FDescribe("Management API Roles Management Tests", Ordered, func() {
+var _ = Describe("Management API Roles Management Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	BeforeAll(func() {
@@ -185,9 +185,7 @@ var _ = FDescribe("Management API Roles Management Tests", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	//TODO: Once the below issue is resolved, this test should be unignored
-	// Attempting to delete a non-existent role should return an error
-	XIt("cannot delete an existing role without specifying a valid Id", func() {
+	It("cannot delete an existing role without specifying a valid Id", func() {
 		_, err = client.CreateRole(context.Background(), &core.Role{
 			Id:         "test-role",
 			ClusterIDs: []string{"test-cluster"},
@@ -202,7 +200,7 @@ var _ = FDescribe("Management API Roles Management Tests", Ordered, func() {
 			Id: uuid.NewString(),
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to get role: not found"))
+		Expect(err.Error()).To(ContainSubstring("not found"))
 
 		_, err = client.DeleteRole(context.Background(), &core.Reference{
 			Id: "test-role",

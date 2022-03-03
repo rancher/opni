@@ -103,7 +103,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 
 		clusterNameList := make([]string, 10)
 		for i := 0; i < 10; i++ {
-			clusterName := "test-cluster-id-" + uuid.New().String()
+			clusterName := "cluster-id-" + uuid.New().String()
 			clusterNameList = append(clusterNameList, clusterName)
 
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})

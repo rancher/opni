@@ -15,7 +15,7 @@ type middleware struct {
 func (m *middleware) Handle(c *fiber.Ctx) error {
 	userID := c.Locals(UserIDKey)
 	if userID == nil {
-		return c.Next()
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 	clusters, err := m.provider.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
 		Subject: userID.(string),

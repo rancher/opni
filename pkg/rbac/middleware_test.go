@@ -97,7 +97,7 @@ var _ = Describe("Middleware", func() {
 			}
 		}
 	})
-	It("should skip the middleware if no user ID key is set", func() {
+	It("should return 401 unauthorized if no user ID key is set", func() {
 		By("setting up the test controller")
 		ctrl := gomock.NewController(GinkgoT())
 		mockProvider := mock_rbac.NewMockProvider(ctrl)
@@ -125,7 +125,7 @@ var _ = Describe("Middleware", func() {
 		for i := 0; i < 50; i++ {
 			resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(fiber.StatusOK))
+			Expect(resp.StatusCode).To(Equal(fiber.StatusUnauthorized))
 		}
 	})
 })

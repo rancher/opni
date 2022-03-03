@@ -27,6 +27,6 @@ func Error(msg string) error {
 
 func Errorf(format string, args ...interface{}) error {
 	return &ValidationError{
-		message: fmt.Sprintf(format, args...),
+		message: fmt.Errorf(format, args...).Error(),
 	}
 }

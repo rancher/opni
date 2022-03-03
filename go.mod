@@ -6,7 +6,7 @@ require (
 	emperror.dev/errors v0.8.0
 	github.com/AlecAivazis/survey/v2 v2.3.2
 	github.com/NVIDIA/gpu-operator v1.8.1
-	github.com/banzaicloud/logging-operator v1.12.4-alpine-2
+	github.com/banzaicloud/logging-operator v0.0.0-20220225205714-b06e7ad17676
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.19
 	github.com/banzaicloud/operator-tools v0.28.2
 	github.com/go-logr/logr v1.2.2
@@ -121,8 +121,8 @@ require (
 
 replace (
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
-	github.com/banzaicloud/logging-operator => github.com/dbason/logging-operator v0.0.0-20220225035016-dcba64481f26
-	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/dbason/logging-operator/pkg/sdk v0.0.0-20220225035016-dcba64481f26
+
+	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.0.0-20220225205714-b06e7ad17676
 	// github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
 	// Because of a dependency chain to Coretx

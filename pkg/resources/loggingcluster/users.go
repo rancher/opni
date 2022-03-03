@@ -3,7 +3,6 @@ package loggingcluster
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/rancher/opni/apis/v2beta1"
 	"github.com/rancher/opni/pkg/util/opensearch"
@@ -11,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	opensearchv1 "opensearch.opster.io/api/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -40,17 +38,6 @@ var (
 )
 
 func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.OpenSearchCluster) (retResult *reconcile.Result, retErr error) {
-	lg := log.FromContext(r.ctx)
-
-	// We should have a user secret when we get to here.  If not requeue the reconciliation loop
-	if r.loggingCluster.Status.IndexUserSecretRef == nil {
-		lg.V(1).Error(ErrorMissingUserSecret, "indexUserSecret not set, reqeueing")
-		retResult = &reconcile.Result{
-			RequeueAfter: time.Second * 5,
-		}
-		return
-	}
-
 	indexUser.Attributes = map[string]string{
 		"cluster": r.loggingCluster.Labels[v2beta1.IDLabel],
 	}
@@ -61,14 +48,14 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 	secret := &corev1.Secret{}
 
 	retErr = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      r.loggingCluster.Status.IndexUserSecretRef.Name,
+		Name:      fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name),
 		Namespace: r.loggingCluster.Namespace,
 	}, secret)
 	if retErr != nil {
 		return
 	}
 
-	indexUser.UserName = secret.Name
+	indexUser.UserName = fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name)
 	indexUser.Password = string(secret.Data["password"])
 
 	osPassword, retErr := r.fetchOpensearchAdminPassword(opensearchCluster)
@@ -76,7 +63,13 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 		return
 	}
 
-	reconciler := opensearch.NewReconciler(r.ctx, opensearchCluster.Namespace, osPassword, fmt.Sprintf("%s-os", opensearchCluster.Name))
+	reconciler := opensearch.NewReconciler(
+		r.ctx,
+		opensearchCluster.Spec.General.ClusterName,
+		osPassword,
+		opensearchCluster.Spec.General.ServiceName,
+		"todo", // TODO fix dashboards name
+	)
 
 	retErr = reconciler.MaybeCreateRole(clusterReadRole)
 	if retErr != nil {

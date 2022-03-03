@@ -40,14 +40,14 @@ type ExtendedClient struct {
 	Security *SecurityAPI
 }
 
-func NewReconciler(ctx context.Context, namespace string, password string, urlPrefix string) *Reconciler {
+func NewReconciler(ctx context.Context, namespace string, password string, osServiceName string, kbServiceName string) *Reconciler {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: true,
 	}
 	esCfg := opensearch.Config{
 		Addresses: []string{
-			fmt.Sprintf("https://%s-client.%s:9200", urlPrefix, namespace),
+			fmt.Sprintf("https://%s.%s:9200", osServiceName, namespace),
 		},
 		Username:             "admin",
 		Password:             password,
@@ -55,7 +55,7 @@ func NewReconciler(ctx context.Context, namespace string, password string, urlPr
 		Transport:            transport,
 	}
 	kbCfg := kibana.Config{
-		URL:      fmt.Sprintf("http://%s-kibana.%s:5601", urlPrefix, namespace),
+		URL:      fmt.Sprintf("http://%s.%s:5601", kbServiceName, namespace),
 		Username: "admin",
 		Password: password,
 	}

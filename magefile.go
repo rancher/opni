@@ -51,7 +51,7 @@ func Generate() {
 
 func ControllerGen() error {
 	cmd := exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/controller-tools/cmd/controller-gen",
-		"crd", "object", "paths=./pkg/sdk/api/...", "output:crd:artifacts:config=pkg/sdk/crd",
+		"crd:maxDescLen=0", "object", "paths=./pkg/sdk/api/...", "output:crd:artifacts:config=pkg/sdk/crd",
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf

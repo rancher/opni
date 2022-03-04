@@ -12,12 +12,12 @@ import (
 type DiscoverySpec struct {
 	// Relative path at which to find the openid configuration. If not set,
 	// defaults to '/.well-known/openid-configuration'.
-	Path *string `mapstructure:"path"`
+	Path *string `json:"path"`
 
 	// The OP's Issuer identifier. This must exactly match the issuer URL
 	// obtained from the discovery endpoint, and will match the `iss' claim
 	// in the ID Tokens issued by the OP.
-	Issuer string `mapstructure:"issuer"`
+	Issuer string `json:"issuer"`
 }
 
 var ErrIssuerMismatch = errors.New("issuer mismatch")

@@ -1,0 +1,63 @@
+package controllers
+
+import (
+	"context"
+
+	"github.com/rancher/opni-monitoring/pkg/sdk/api/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/sdk/resources/gateway"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// +kubebuilder:rbac:groups=monitoring.opni.io,resources=gateways,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.opni.io,resources=gateways/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=monitoring.opni.io,resources=gateways/finalizers,verbs=update
+// +kubebuilder:rbac:groups=monitoring.opni.io,resources=bootstraptokens,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.opni.io,resources=clusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.opni.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.opni.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+
+type GatewayReconciler struct {
+	client.Client
+	scheme *runtime.Scheme
+}
+
+func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	gw := &v1beta1.Gateway{}
+	err := r.Get(ctx, req.NamespacedName, gw)
+	if err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	gwReconciler := gateway.NewReconciler(ctx, r.Client, gw)
+	result, err := gwReconciler.Reconcile()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if result != nil {
+		return *result, nil
+	}
+	return ctrl.Result{}, nil
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.Client = mgr.GetClient()
+	r.scheme = mgr.GetScheme()
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&v1beta1.Gateway{}).
+		Owns(&v1beta1.BootstrapToken{}).
+		Owns(&v1beta1.Cluster{}).
+		Owns(&v1beta1.Role{}).
+		Owns(&v1beta1.RoleBinding{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Secret{}).
+		Complete(r)
+}

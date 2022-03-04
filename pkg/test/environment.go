@@ -172,6 +172,9 @@ func (e *Environment) StartK8s() (*rest.Config, error) {
 	}
 	e.k8sEnv = &envtest.Environment{
 		BinaryAssetsDirectory: "../../testbin/bin",
+		CRDDirectoryPaths: []string{
+			"../sdk/crd",
+		},
 		ControlPlane: envtest.ControlPlane{
 			APIServer: &envtest.APIServer{
 				SecureServing: envtest.SecureServing{

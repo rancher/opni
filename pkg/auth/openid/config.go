@@ -3,6 +3,8 @@ package openid
 import (
 	"errors"
 	"fmt"
+
+	"github.com/rancher/opni-monitoring/pkg/util"
 )
 
 type WellKnownConfiguration struct {
@@ -26,12 +28,12 @@ type OpenidConfig struct {
 	// If the OP (openid provider) has a discovery endpoint, it should be
 	// configured in the Discovery field, otherwise the well-known configuration
 	// fields can be set manually.
-	Discovery              *DiscoverySpec          `mapstructure:"discovery"`
-	WellKnownConfiguration *WellKnownConfiguration `mapstructure:"wellKnownConfiguration"`
+	Discovery              *DiscoverySpec          `json:"discovery"`
+	WellKnownConfiguration *WellKnownConfiguration `json:"wellKnownConfiguration"`
 
 	// IdentifyingClaim is the claim that will be used to identify the user
 	// (e.g. "sub", "email", etc). Defaults to "sub".
-	IdentifyingClaim string `mapstructure:"identifyingClaim"`
+	IdentifyingClaim string `json:"identifyingClaim"`
 }
 
 var ErrMissingRequiredField = errors.New("openid configuration missing required field")
@@ -53,4 +55,12 @@ func (w WellKnownConfiguration) CheckRequiredFields() error {
 		return fmt.Errorf("%w: jwks_uri", ErrMissingRequiredField)
 	}
 	return nil
+}
+
+func (in *OpenidConfig) DeepCopyInto(out *OpenidConfig) {
+	util.DeepCopyInto(out, in)
+}
+
+func (in *OpenidConfig) DeepCopy() *OpenidConfig {
+	return util.DeepCopy(in)
 }

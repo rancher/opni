@@ -17,6 +17,7 @@ import (
 )
 
 //#region Test Setup
+
 var _ = Describe("Management API User/Subject Access Management Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
@@ -102,7 +103,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 
 		clusterNameList := make([]string, 10)
 		for i := 0; i < 10; i++ {
-			clusterName := "test-cluster-id-" + uuid.New().String()
+			clusterName := "cluster-id-" + uuid.New().String()
 			clusterNameList = append(clusterNameList, clusterName)
 
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
@@ -141,7 +142,23 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 
 	//#region Edge Case Tests
 
-	//TODO: Add User Access Edge Case Tests
+	When("provided an invalid Subject", func() {
+		It("returns an empty list", func() {
+			clusterList, errS := client.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
+				Subject: uuid.NewString(),
+			})
+			Expect(errS).NotTo(HaveOccurred())
+			Expect(clusterList.GetItems()).To(HaveLen(0))
+		})
+	})
+
+	When("not provided with a Subject", func() {
+		It("cannot return a list of Cluster IDs that a specific User (Subject) can access", func() {
+			_, errS := client.SubjectAccess(context.Background(), &core.SubjectAccessRequest{})
+			Expect(errS).To(HaveOccurred())
+			Expect(errS.Error()).To(ContainSubstring("missing required field: subject"))
+		})
+	})
 
 	//#endregion
 })

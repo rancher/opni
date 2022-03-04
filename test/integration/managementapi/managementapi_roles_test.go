@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni-monitoring/pkg/core"
@@ -14,6 +15,7 @@ import (
 )
 
 //#region Test Setup
+
 var _ = Describe("Management API Roles Management Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
@@ -176,6 +178,29 @@ var _ = Describe("Management API Roles Management Tests", Ordered, func() {
 		_, err = client.DeleteRole(context.Background(), &core.Reference{})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("missing required field: id"))
+
+		_, err = client.DeleteRole(context.Background(), &core.Reference{
+			Id: "test-role",
+		})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("cannot delete an existing role without specifying a valid Id", func() {
+		_, err = client.CreateRole(context.Background(), &core.Role{
+			Id:         "test-role",
+			ClusterIDs: []string{"test-cluster"},
+			MatchLabels: &core.LabelSelector{
+				MatchLabels: map[string]string{"test-label": "test-value"},
+			},
+		},
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = client.DeleteRole(context.Background(), &core.Reference{
+			Id: uuid.NewString(),
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("not found"))
 
 		_, err = client.DeleteRole(context.Background(), &core.Reference{
 			Id: "test-role",

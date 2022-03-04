@@ -6,17 +6,30 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/test"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 //#region Test Setup
 
-var _ = Describe("Management API Cerificate Management Tests", Ordered, func() {
+type fingerprintsData struct {
+	TestData []fingerprintsTestData `json:"testData"`
+}
+
+type fingerprintsTestData struct {
+	Cert         string             `json:"cert"`
+	Fingerprints map[pkp.Alg]string `json:"fingerprints"`
+}
+
+var testFingerprints fingerprintsData
+var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
+	var fingerprint string
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
@@ -25,6 +38,11 @@ var _ = Describe("Management API Cerificate Management Tests", Ordered, func() {
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()
 		Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
+
+		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
+		Expect(err).NotTo(HaveOccurred())
+		fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
+		Expect(fingerprint).NotTo(BeEmpty())
 	})
 
 	AfterAll(func() {
@@ -35,29 +53,15 @@ var _ = Describe("Management API Cerificate Management Tests", Ordered, func() {
 
 	//#region Happy Path Tests
 
-	It("can retrieve full certification chain information", func() {
-		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
-
-		leaf := certsInfo.Chain[0]
-		root := certsInfo.Chain[len(certsInfo.Chain)-1]
-
-		Expect(root.Issuer).To(Equal("CN=Example Root CA"))
-		Expect(root.Subject).To(Equal("CN=Example Root CA"))
-		Expect(root.IsCA).To(BeTrue())
-		Expect(root.Fingerprint).NotTo(BeEmpty())
-
-		Expect(leaf.Issuer).To(Equal("CN=Example Root CA"))
-		Expect(leaf.Subject).To(Equal("CN=leaf"))
-		Expect(leaf.IsCA).To(BeFalse())
-		Expect(leaf.Fingerprint).NotTo(BeEmpty())
+	It("can do something", func() {
+		println("Do something")
 	})
 
 	//#endregion
 
 	//#region Edge Case Tests
 
-	//TODO: Add Certificate Edge Case Tests
+	//TODO: Add edge case tests
 
 	//#endregion
 })

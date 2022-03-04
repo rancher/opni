@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni-monitoring/pkg/core"
@@ -142,23 +143,156 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 	})
 
 	It("can delete individual clusters", func() {
-		_, err := client.DeleteCluster(context.Background(), &core.Reference{
+		_, errG1 := client.GetCluster(context.Background(), &core.Reference{
 			Id: "test-cluster-id",
 		})
-		Expect(err).NotTo(HaveOccurred())
+		Expect(errG1).NotTo(HaveOccurred())
 
-		_, err = client.GetCluster(context.Background(), &core.Reference{
+		_, errG2 := client.GetCluster(context.Background(), &core.Reference{
+			Id: "test-cluster-id-2",
+		})
+		Expect(errG2).NotTo(HaveOccurred())
+
+		_, errD := client.DeleteCluster(context.Background(), &core.Reference{
+			Id: "test-cluster-id",
+		})
+		Expect(errD).NotTo(HaveOccurred())
+
+		_, err := client.GetCluster(context.Background(), &core.Reference{
 			Id: "test-cluster-id",
 		})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("failed to get cluster: not found"))
+
+		clusterInfo, err := client.GetCluster(context.Background(), &core.Reference{
+			Id: "test-cluster-id-2",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(clusterInfo.Id).To(Equal("test-cluster-id-2"))
 	})
 
 	//#endregion
 
 	//#region Edge Case Tests
 
-	//TODO: Need to add cluster Edge Case Tests
+	It("cannot get information about a specific cluster without providing a valid ID", func() {
+		_, err := client.GetCluster(context.Background(), &core.Reference{
+			Id: uuid.NewString(),
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to get cluster: not found"))
+	})
+
+	It("cannot get information about a specific cluster without providing an ID", func() {
+		_, err := client.GetCluster(context.Background(), &core.Reference{})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("missing required field: id"))
+	})
+
+	It("cannot edit the label a cluster is using without providing a valid ID", func() {
+		_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
+			Cluster: &core.Reference{
+				Id: uuid.NewString(),
+			},
+			Labels: map[string]string{
+				"i": "999",
+			},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("failed to get cluster: not found"))
+	})
+
+	It("cannot edit the label a cluster is using without providing an ID", func() {
+		_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
+			Cluster: &core.Reference{},
+			Labels: map[string]string{
+				"i": "999",
+			},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("missing required field: id"))
+	})
+
+	It("cannot edit the label a cluster is using without providing Cluster information", func() {
+		token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			Ttl: durationpb.New(time.Minute),
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		clusterName := uuid.NewString()
+		_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
+		Consistently(errC).ShouldNot(Receive())
+
+		_, err = client.EditCluster(context.Background(), &management.EditClusterRequest{
+			Labels: map[string]string{
+				"i": "999",
+			},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("missing required field: cluster"))
+	})
+
+	It("cannot list clusters by label without providing a valid label", func() {
+		clusterList, err := client.ListClusters(context.Background(), &management.ListClustersRequest{
+			MatchLabels: &core.LabelSelector{
+				MatchLabels: map[string]string{
+					"i": "99",
+				},
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(clusterList.GetItems()).To(HaveLen(0))
+	})
+
+	When("editing a cluster without providing label information", func() {
+		It("can remove labels from a cluster", func() {
+			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+				Ttl: durationpb.New(time.Minute),
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			clusterName := uuid.NewString()
+			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
+			Consistently(errC).ShouldNot(Receive())
+
+			_, errE := client.EditCluster(context.Background(), &management.EditClusterRequest{
+				Cluster: &core.Reference{
+					Id: clusterName,
+				},
+				Labels: map[string]string{
+					"i": "999",
+				},
+			})
+			Expect(errE).NotTo(HaveOccurred())
+
+			_, err = client.EditCluster(context.Background(), &management.EditClusterRequest{
+				Cluster: &core.Reference{
+					Id: clusterName,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			clusterInfo, err := client.GetCluster(context.Background(), &core.Reference{
+				Id: clusterName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(clusterInfo.Labels).To(BeEmpty())
+		})
+	})
+
+	It("cannot delete individual clusters without providing a valid ID", func() {
+		_, err := client.DeleteCluster(context.Background(), &core.Reference{
+			Id: uuid.NewString(),
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("not found"))
+	})
+
+	It("cannot delete individual clusters without providing an ID", func() {
+		_, err := client.DeleteCluster(context.Background(), &core.Reference{})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("missing required field: id"))
+	})
 
 	//#endregion
 })

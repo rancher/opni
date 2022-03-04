@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -49,7 +50,7 @@ var _ = FDescribe("Gateway - Prometheus Communication Tests", Ordered, func() {
 	//#region Happy Path Tests
 
 	//TODO: Joe to look into how to make this work
-	XWhen("querying metrics from the gateway", func() {
+	When("querying metrics from the gateway", func() {
 		It("can return Prometheus metrics", func() {
 			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
@@ -79,23 +80,26 @@ var _ = FDescribe("Gateway - Prometheus Communication Tests", Ordered, func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			//this should work
-			httpClient := &http.Client{}
+			httpClient := &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+					},
+				},
+			}
 			req, err := http.NewRequest("GET", environment.PrometheusAPIEndpoint()+"/labels", nil)
 			Expect(err).NotTo(HaveOccurred())
-			req.Close = true
 
 			req.Header.Add("Content-Type", "application/json")
 			req.Header.Add("Authorization", "user@example.com")
 
 			resp, httpErr := httpClient.Do(req)
-			time.Sleep(time.Hour)
 			Expect(httpErr).NotTo(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			defer resp.Body.Close()
 			b, err := ioutil.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
-			fmt.Println(b)
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			fmt.Println(string(b))
 		})
 	})
 

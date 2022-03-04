@@ -7,7 +7,9 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -16,7 +18,7 @@ func (c *CRDStore) CreateToken(ctx context.Context, ttl time.Duration, labels ma
 	token := tokens.NewToken().ToBootstrapToken()
 	token.Metadata = &core.BootstrapTokenMetadata{
 		LeaseID:    -1,
-		Ttl:        -1,
+		Ttl:        int64(ttl.Seconds()),
 		UsageCount: 0,
 		Labels:     labels,
 	}
@@ -52,6 +54,14 @@ func (c *CRDStore) GetToken(ctx context.Context, ref *core.Reference) (*core.Boo
 	if err != nil {
 		return nil, err
 	}
+	patchTTL(token)
+	if token.Spec.Metadata.Ttl <= 0 {
+		go c.garbageCollectToken(token)
+		return nil, errors.NewNotFound(schema.GroupResource{
+			Group:    "monitoring.opni.io",
+			Resource: "BootstrapToken",
+		}, token.GetName())
+	}
 	return token.Spec, nil
 }
 
@@ -63,6 +73,11 @@ func (c *CRDStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, erro
 	}
 	tokens := make([]*core.BootstrapToken, len(list.Items))
 	for i, item := range list.Items {
+		patchTTL(&item)
+		if item.Spec.Metadata.Ttl <= 0 {
+			go c.garbageCollectToken(&item)
+			continue
+		}
 		tokens[i] = item.Spec
 	}
 	return tokens, nil
@@ -86,4 +101,27 @@ func (c *CRDStore) IncrementUsageCount(ctx context.Context, ref *core.Reference)
 			Spec: token,
 		})
 	})
+}
+
+// garbageCollectToken performs a best-effort deletion of an expired token.
+func (c *CRDStore) garbageCollectToken(token *v1beta1.BootstrapToken) {
+	c.logger.With(
+		"token", token.GetName(),
+	).Debug("garbage-collecting expired token")
+	retry.OnError(retry.DefaultBackoff, func(err error) bool {
+		return !errors.IsNotFound(err)
+	}, func() error {
+		return c.client.Delete(context.Background(), token)
+	})
+}
+
+func patchTTL(token *v1beta1.BootstrapToken) {
+	created := token.ObjectMeta.CreationTimestamp
+	ttl := token.Spec.Metadata.Ttl
+	// edit the ttl to reflect the current ttl of the token
+	newTtl := int64(ttl - (time.Now().Unix() - created.Unix()))
+	if newTtl < 0 {
+		newTtl = 0
+	}
+	token.Spec.Metadata.Ttl = newTtl
 }

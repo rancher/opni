@@ -112,15 +112,21 @@ type StorageType string
 
 const (
 	StorageTypeEtcd   StorageType = "etcd"
+	StorageTypeCRDs   StorageType = "customResources"
 	StorageTypeSecret StorageType = "secret"
 )
 
 type StorageSpec struct {
-	Type StorageType      `json:"type,omitempty"`
-	Etcd *EtcdStorageSpec `json:"etcd,omitempty"`
+	Type            StorageType                 `json:"type,omitempty"`
+	Etcd            *EtcdStorageSpec            `json:"etcd,omitempty"`
+	CustomResources *CustomResourcesStorageSpec `json:"customResources,omitempty"`
 }
 
 type EtcdStorageSpec struct {
 	Endpoints []string  `json:"endpoints,omitempty"`
 	Certs     *MTLSSpec `json:"certs,omitempty"`
+}
+
+type CustomResourcesStorageSpec struct {
+	Namespace string `json:"namespace,omitempty"`
 }

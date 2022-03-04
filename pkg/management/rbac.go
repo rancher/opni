@@ -12,21 +12,21 @@ func (s *Server) CreateRole(ctx context.Context, in *core.Role) (*emptypb.Empty,
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, grpcError(s.rbacStore.CreateRole(ctx, in))
+	return &emptypb.Empty{}, grpcError(s.storageBackend.CreateRole(ctx, in))
 }
 
 func (s *Server) DeleteRole(ctx context.Context, in *core.Reference) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, grpcError(s.rbacStore.DeleteRole(ctx, in))
+	return &emptypb.Empty{}, grpcError(s.storageBackend.DeleteRole(ctx, in))
 }
 
 func (s *Server) GetRole(ctx context.Context, in *core.Reference) (*core.Role, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	role, err := s.rbacStore.GetRole(ctx, in)
+	role, err := s.storageBackend.GetRole(ctx, in)
 	return role, grpcError(err)
 }
 
@@ -37,31 +37,31 @@ func (s *Server) CreateRoleBinding(ctx context.Context, in *core.RoleBinding) (*
 	if len(in.Taints) > 0 {
 		return nil, validation.ErrReadOnlyField
 	}
-	return &emptypb.Empty{}, grpcError(s.rbacStore.CreateRoleBinding(ctx, in))
+	return &emptypb.Empty{}, grpcError(s.storageBackend.CreateRoleBinding(ctx, in))
 }
 
 func (s *Server) DeleteRoleBinding(ctx context.Context, in *core.Reference) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, grpcError(s.rbacStore.DeleteRoleBinding(ctx, in))
+	return &emptypb.Empty{}, grpcError(s.storageBackend.DeleteRoleBinding(ctx, in))
 }
 
 func (s *Server) GetRoleBinding(ctx context.Context, in *core.Reference) (*core.RoleBinding, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	rb, err := s.rbacStore.GetRoleBinding(ctx, in)
+	rb, err := s.storageBackend.GetRoleBinding(ctx, in)
 	return rb, grpcError(err)
 }
 
 func (s *Server) ListRoles(ctx context.Context, _ *emptypb.Empty) (*core.RoleList, error) {
-	rl, err := s.rbacStore.ListRoles(ctx)
+	rl, err := s.storageBackend.ListRoles(ctx)
 	return rl, grpcError(err)
 }
 
 func (s *Server) ListRoleBindings(ctx context.Context, _ *emptypb.Empty) (*core.RoleBindingList, error) {
-	rbl, err := s.rbacStore.ListRoleBindings(ctx)
+	rbl, err := s.storageBackend.ListRoleBindings(ctx)
 	return rbl, grpcError(err)
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/ory/fosite"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -20,13 +21,13 @@ import (
 )
 
 type ServerConfig struct {
-	Issuer                string `mapstructure:"issuer"`
-	ClientID              string `mapstructure:"clientID"`
-	ClientSecret          string `mapstructure:"clientSecret"`
-	RedirectURI           string `mapstructure:"redirectURI"`
-	ManagementAPIEndpoint string `mapstructure:"managementAPIEndpoint"`
-	Port                  int    `mapstructure:"port"`
-	Debug                 bool   `mapstructure:"debug"`
+	Issuer                string `json:"issuer"`
+	ClientID              string `json:"clientID"`
+	ClientSecret          string `json:"clientSecret"`
+	RedirectURI           string `json:"redirectURI"`
+	ManagementAPIEndpoint string `json:"managementAPIEndpoint"`
+	Port                  int    `json:"port"`
+	Debug                 bool   `json:"debug"`
 
 	Logger *zap.SugaredLogger
 }
@@ -131,4 +132,12 @@ func (s *Server) connectToManagementAPI(ctx context.Context) error {
 
 func (s *Server) configureWebServer(ctx context.Context, mux *http.ServeMux) {
 	mux.Handle("/web/", http.FileServer(http.FS(webFS)))
+}
+
+func (in *ServerConfig) DeepCopyInto(out *ServerConfig) {
+	util.DeepCopyInto(out, in)
+}
+
+func (in *ServerConfig) DeepCopy() *ServerConfig {
+	return util.DeepCopy(in)
 }

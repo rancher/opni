@@ -15,6 +15,320 @@ import (
 	storage "github.com/rancher/opni-monitoring/pkg/storage"
 )
 
+// MockBackend is a mock of Backend interface.
+type MockBackend struct {
+	ctrl     *gomock.Controller
+	recorder *MockBackendMockRecorder
+}
+
+// MockBackendMockRecorder is the mock recorder for MockBackend.
+type MockBackendMockRecorder struct {
+	mock *MockBackend
+}
+
+// NewMockBackend creates a new mock instance.
+func NewMockBackend(ctrl *gomock.Controller) *MockBackend {
+	mock := &MockBackend{ctrl: ctrl}
+	mock.recorder = &MockBackendMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
+	return m.recorder
+}
+
+// CreateCluster mocks base method.
+func (m *MockBackend) CreateCluster(ctx context.Context, cluster *core.Cluster) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateCluster", ctx, cluster)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateCluster indicates an expected call of CreateCluster.
+func (mr *MockBackendMockRecorder) CreateCluster(ctx, cluster interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCluster", reflect.TypeOf((*MockBackend)(nil).CreateCluster), ctx, cluster)
+}
+
+// CreateRole mocks base method.
+func (m *MockBackend) CreateRole(arg0 context.Context, arg1 *core.Role) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateRole", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateRole indicates an expected call of CreateRole.
+func (mr *MockBackendMockRecorder) CreateRole(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRole", reflect.TypeOf((*MockBackend)(nil).CreateRole), arg0, arg1)
+}
+
+// CreateRoleBinding mocks base method.
+func (m *MockBackend) CreateRoleBinding(arg0 context.Context, arg1 *core.RoleBinding) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateRoleBinding", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateRoleBinding indicates an expected call of CreateRoleBinding.
+func (mr *MockBackendMockRecorder) CreateRoleBinding(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoleBinding", reflect.TypeOf((*MockBackend)(nil).CreateRoleBinding), arg0, arg1)
+}
+
+// CreateToken mocks base method.
+func (m *MockBackend) CreateToken(ctx context.Context, ttl time.Duration, labels map[string]string) (*core.BootstrapToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateToken", ctx, ttl, labels)
+	ret0, _ := ret[0].(*core.BootstrapToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateToken indicates an expected call of CreateToken.
+func (mr *MockBackendMockRecorder) CreateToken(ctx, ttl, labels interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateToken", reflect.TypeOf((*MockBackend)(nil).CreateToken), ctx, ttl, labels)
+}
+
+// DeleteCluster mocks base method.
+func (m *MockBackend) DeleteCluster(ctx context.Context, ref *core.Reference) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteCluster", ctx, ref)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteCluster indicates an expected call of DeleteCluster.
+func (mr *MockBackendMockRecorder) DeleteCluster(ctx, ref interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCluster", reflect.TypeOf((*MockBackend)(nil).DeleteCluster), ctx, ref)
+}
+
+// DeleteRole mocks base method.
+func (m *MockBackend) DeleteRole(arg0 context.Context, arg1 *core.Reference) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRole", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRole indicates an expected call of DeleteRole.
+func (mr *MockBackendMockRecorder) DeleteRole(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRole", reflect.TypeOf((*MockBackend)(nil).DeleteRole), arg0, arg1)
+}
+
+// DeleteRoleBinding mocks base method.
+func (m *MockBackend) DeleteRoleBinding(arg0 context.Context, arg1 *core.Reference) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRoleBinding", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRoleBinding indicates an expected call of DeleteRoleBinding.
+func (mr *MockBackendMockRecorder) DeleteRoleBinding(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRoleBinding", reflect.TypeOf((*MockBackend)(nil).DeleteRoleBinding), arg0, arg1)
+}
+
+// DeleteToken mocks base method.
+func (m *MockBackend) DeleteToken(ctx context.Context, ref *core.Reference) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteToken", ctx, ref)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteToken indicates an expected call of DeleteToken.
+func (mr *MockBackendMockRecorder) DeleteToken(ctx, ref interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteToken", reflect.TypeOf((*MockBackend)(nil).DeleteToken), ctx, ref)
+}
+
+// GetCluster mocks base method.
+func (m *MockBackend) GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCluster", ctx, ref)
+	ret0, _ := ret[0].(*core.Cluster)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCluster indicates an expected call of GetCluster.
+func (mr *MockBackendMockRecorder) GetCluster(ctx, ref interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCluster", reflect.TypeOf((*MockBackend)(nil).GetCluster), ctx, ref)
+}
+
+// GetRole mocks base method.
+func (m *MockBackend) GetRole(arg0 context.Context, arg1 *core.Reference) (*core.Role, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRole", arg0, arg1)
+	ret0, _ := ret[0].(*core.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRole indicates an expected call of GetRole.
+func (mr *MockBackendMockRecorder) GetRole(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRole", reflect.TypeOf((*MockBackend)(nil).GetRole), arg0, arg1)
+}
+
+// GetRoleBinding mocks base method.
+func (m *MockBackend) GetRoleBinding(arg0 context.Context, arg1 *core.Reference) (*core.RoleBinding, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRoleBinding", arg0, arg1)
+	ret0, _ := ret[0].(*core.RoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRoleBinding indicates an expected call of GetRoleBinding.
+func (mr *MockBackendMockRecorder) GetRoleBinding(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRoleBinding", reflect.TypeOf((*MockBackend)(nil).GetRoleBinding), arg0, arg1)
+}
+
+// GetToken mocks base method.
+func (m *MockBackend) GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetToken", ctx, ref)
+	ret0, _ := ret[0].(*core.BootstrapToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetToken indicates an expected call of GetToken.
+func (mr *MockBackendMockRecorder) GetToken(ctx, ref interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetToken", reflect.TypeOf((*MockBackend)(nil).GetToken), ctx, ref)
+}
+
+// IncrementUsageCount mocks base method.
+func (m *MockBackend) IncrementUsageCount(ctx context.Context, ref *core.Reference) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IncrementUsageCount", ctx, ref)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// IncrementUsageCount indicates an expected call of IncrementUsageCount.
+func (mr *MockBackendMockRecorder) IncrementUsageCount(ctx, ref interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrementUsageCount", reflect.TypeOf((*MockBackend)(nil).IncrementUsageCount), ctx, ref)
+}
+
+// KeyValueStore mocks base method.
+func (m *MockBackend) KeyValueStore(namespace string) (storage.KeyValueStore, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KeyValueStore", namespace)
+	ret0, _ := ret[0].(storage.KeyValueStore)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// KeyValueStore indicates an expected call of KeyValueStore.
+func (mr *MockBackendMockRecorder) KeyValueStore(namespace interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyValueStore", reflect.TypeOf((*MockBackend)(nil).KeyValueStore), namespace)
+}
+
+// KeyringStore mocks base method.
+func (m *MockBackend) KeyringStore(ctx context.Context, namespace string, ref *core.Reference) (storage.KeyringStore, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KeyringStore", ctx, namespace, ref)
+	ret0, _ := ret[0].(storage.KeyringStore)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// KeyringStore indicates an expected call of KeyringStore.
+func (mr *MockBackendMockRecorder) KeyringStore(ctx, namespace, ref interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyringStore", reflect.TypeOf((*MockBackend)(nil).KeyringStore), ctx, namespace, ref)
+}
+
+// ListClusters mocks base method.
+func (m *MockBackend) ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListClusters", ctx, matchLabels, matchOptions)
+	ret0, _ := ret[0].(*core.ClusterList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListClusters indicates an expected call of ListClusters.
+func (mr *MockBackendMockRecorder) ListClusters(ctx, matchLabels, matchOptions interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListClusters", reflect.TypeOf((*MockBackend)(nil).ListClusters), ctx, matchLabels, matchOptions)
+}
+
+// ListRoleBindings mocks base method.
+func (m *MockBackend) ListRoleBindings(arg0 context.Context) (*core.RoleBindingList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListRoleBindings", arg0)
+	ret0, _ := ret[0].(*core.RoleBindingList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListRoleBindings indicates an expected call of ListRoleBindings.
+func (mr *MockBackendMockRecorder) ListRoleBindings(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoleBindings", reflect.TypeOf((*MockBackend)(nil).ListRoleBindings), arg0)
+}
+
+// ListRoles mocks base method.
+func (m *MockBackend) ListRoles(arg0 context.Context) (*core.RoleList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListRoles", arg0)
+	ret0, _ := ret[0].(*core.RoleList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListRoles indicates an expected call of ListRoles.
+func (mr *MockBackendMockRecorder) ListRoles(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoles", reflect.TypeOf((*MockBackend)(nil).ListRoles), arg0)
+}
+
+// ListTokens mocks base method.
+func (m *MockBackend) ListTokens(ctx context.Context) ([]*core.BootstrapToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListTokens", ctx)
+	ret0, _ := ret[0].([]*core.BootstrapToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListTokens indicates an expected call of ListTokens.
+func (mr *MockBackendMockRecorder) ListTokens(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTokens", reflect.TypeOf((*MockBackend)(nil).ListTokens), ctx)
+}
+
+// UpdateCluster mocks base method.
+func (m *MockBackend) UpdateCluster(ctx context.Context, cluster *core.Cluster) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCluster", ctx, cluster)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateCluster indicates an expected call of UpdateCluster.
+func (mr *MockBackendMockRecorder) UpdateCluster(ctx, cluster interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCluster", reflect.TypeOf((*MockBackend)(nil).UpdateCluster), ctx, cluster)
+}
+
 // MockTokenStore is a mock of TokenStore interface.
 type MockTokenStore struct {
 	ctrl     *gomock.Controller
@@ -177,21 +491,6 @@ func (mr *MockClusterStoreMockRecorder) GetCluster(ctx, ref interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCluster", reflect.TypeOf((*MockClusterStore)(nil).GetCluster), ctx, ref)
 }
 
-// KeyringStore mocks base method.
-func (m *MockClusterStore) KeyringStore(ctx context.Context, ref *core.Reference) (storage.KeyringStore, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KeyringStore", ctx, ref)
-	ret0, _ := ret[0].(storage.KeyringStore)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// KeyringStore indicates an expected call of KeyringStore.
-func (mr *MockClusterStoreMockRecorder) KeyringStore(ctx, ref interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyringStore", reflect.TypeOf((*MockClusterStore)(nil).KeyringStore), ctx, ref)
-}
-
 // ListClusters mocks base method.
 func (m *MockClusterStore) ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
 	m.ctrl.T.Helper()
@@ -208,12 +507,11 @@ func (mr *MockClusterStoreMockRecorder) ListClusters(ctx, matchLabels, matchOpti
 }
 
 // UpdateCluster mocks base method.
-func (m *MockClusterStore) UpdateCluster(ctx context.Context, cluster *core.Cluster) (*core.Cluster, error) {
+func (m *MockClusterStore) UpdateCluster(ctx context.Context, cluster *core.Cluster) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCluster", ctx, cluster)
-	ret0, _ := ret[0].(*core.Cluster)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // UpdateCluster indicates an expected call of UpdateCluster.
@@ -480,6 +778,44 @@ func (mr *MockKeyValueStoreMockRecorder) Put(ctx, key, value interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKeyValueStore)(nil).Put), ctx, key, value)
 }
 
+// MockKeyringStoreBroker is a mock of KeyringStoreBroker interface.
+type MockKeyringStoreBroker struct {
+	ctrl     *gomock.Controller
+	recorder *MockKeyringStoreBrokerMockRecorder
+}
+
+// MockKeyringStoreBrokerMockRecorder is the mock recorder for MockKeyringStoreBroker.
+type MockKeyringStoreBrokerMockRecorder struct {
+	mock *MockKeyringStoreBroker
+}
+
+// NewMockKeyringStoreBroker creates a new mock instance.
+func NewMockKeyringStoreBroker(ctrl *gomock.Controller) *MockKeyringStoreBroker {
+	mock := &MockKeyringStoreBroker{ctrl: ctrl}
+	mock.recorder = &MockKeyringStoreBrokerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockKeyringStoreBroker) EXPECT() *MockKeyringStoreBrokerMockRecorder {
+	return m.recorder
+}
+
+// KeyringStore mocks base method.
+func (m *MockKeyringStoreBroker) KeyringStore(ctx context.Context, namespace string, ref *core.Reference) (storage.KeyringStore, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KeyringStore", ctx, namespace, ref)
+	ret0, _ := ret[0].(storage.KeyringStore)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// KeyringStore indicates an expected call of KeyringStore.
+func (mr *MockKeyringStoreBrokerMockRecorder) KeyringStore(ctx, namespace, ref interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyringStore", reflect.TypeOf((*MockKeyringStoreBroker)(nil).KeyringStore), ctx, namespace, ref)
+}
+
 // MockKeyValueStoreBroker is a mock of KeyValueStoreBroker interface.
 type MockKeyValueStoreBroker struct {
 	ctrl     *gomock.Controller
@@ -503,17 +839,17 @@ func (m *MockKeyValueStoreBroker) EXPECT() *MockKeyValueStoreBrokerMockRecorder 
 	return m.recorder
 }
 
-// NewKeyValueStore mocks base method.
-func (m *MockKeyValueStoreBroker) NewKeyValueStore(namespace string) (storage.KeyValueStore, error) {
+// KeyValueStore mocks base method.
+func (m *MockKeyValueStoreBroker) KeyValueStore(namespace string) (storage.KeyValueStore, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewKeyValueStore", namespace)
+	ret := m.ctrl.Call(m, "KeyValueStore", namespace)
 	ret0, _ := ret[0].(storage.KeyValueStore)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewKeyValueStore indicates an expected call of NewKeyValueStore.
-func (mr *MockKeyValueStoreBrokerMockRecorder) NewKeyValueStore(namespace interface{}) *gomock.Call {
+// KeyValueStore indicates an expected call of KeyValueStore.
+func (mr *MockKeyValueStoreBrokerMockRecorder) KeyValueStore(namespace interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyValueStore", reflect.TypeOf((*MockKeyValueStoreBroker)(nil).NewKeyValueStore), namespace)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyValueStore", reflect.TypeOf((*MockKeyValueStoreBroker)(nil).KeyValueStore), namespace)
 }

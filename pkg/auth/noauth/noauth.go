@@ -4,12 +4,12 @@ import (
 	"context"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/mitchellh/mapstructure"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/auth/openid"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/noauth"
+	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"go.uber.org/zap"
 )
@@ -28,13 +28,14 @@ func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware,
 	if err != nil {
 		return nil, err
 	}
+	conf, err := util.DecodeStruct[noauth.ServerConfig](config.Options)
+	if err != nil {
+		return nil, err
+	}
 	m := &NoauthMiddleware{
 		openidMiddleware: openidMw,
-		noauthConfig:     &noauth.ServerConfig{},
+		noauthConfig:     conf,
 		logger:           lg,
-	}
-	if err := mapstructure.Decode(config.Options, m.noauthConfig); err != nil {
-		return nil, err
 	}
 	m.noauthConfig.Logger = lg
 

@@ -14,6 +14,7 @@ import (
 
 type ClusterMiddleware struct {
 	clusterStore storage.ClusterStore
+	keyringStore storage.KeyringStoreBroker
 }
 
 var _ auth.Middleware = (*ClusterMiddleware)(nil)
@@ -40,7 +41,7 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).SendString(err.Error())
 	}
 
-	ks, err := m.clusterStore.KeyringStore(context.Background(), &core.Reference{
+	ks, err := m.keyringStore.KeyringStore(context.Background(), "cluster", &core.Reference{
 		Id: clusterID,
 	})
 	if err != nil {

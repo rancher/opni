@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang/mock/gomock"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
@@ -22,11 +21,9 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/ecdh"
-	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/test"
-	mock_storage "github.com/rancher/opni-monitoring/pkg/test/mock/storage"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
@@ -38,37 +35,14 @@ var _ = Describe("Server", func() {
 	var addr string
 	var mockTokenStore storage.TokenStore
 	var mockClusterStore storage.ClusterStore
+	var mockKeyringStoreBroker storage.KeyringStoreBroker
 
 	BeforeEach(func() {
 		ctx, ca := context.WithCancel(context.Background())
 		DeferCleanup(ca)
 		mockTokenStore = test.NewTestTokenStore(ctx, ctrl)
 		mockClusterStore = test.NewTestClusterStore(ctrl)
-
-		var storedKeyring keyring.Keyring
-		mockKeyringStore := mock_storage.NewMockKeyringStore(ctrl)
-		mockKeyringStore.EXPECT().
-			Put(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ context.Context, kr keyring.Keyring) error {
-				storedKeyring = kr
-				return nil
-			}).
-			AnyTimes()
-
-		mockKeyringStore.EXPECT().
-			Get(gomock.Any()).
-			DoAndReturn(func(context.Context) (keyring.Keyring, error) {
-				if storedKeyring == nil {
-					return nil, storage.ErrNotFound
-				}
-				return storedKeyring, nil
-			}).
-			AnyTimes()
-
-		mockClusterStore.(*mock_storage.MockClusterStore).EXPECT().
-			KeyringStore(gomock.Any(), gomock.Any()).
-			Return(mockKeyringStore, nil).
-			AnyTimes()
+		mockKeyringStoreBroker = test.NewTestKeyringStoreBroker(ctrl)
 
 		token, _ = mockTokenStore.CreateToken(context.Background(), 1*time.Hour,
 			map[string]string{"foo": "bar"})
@@ -85,9 +59,10 @@ var _ = Describe("Server", func() {
 		})
 		logger.ConfigureAppLogger(app, "test")
 		server := bootstrap.ServerConfig{
-			Certificate:  cert,
-			TokenStore:   mockTokenStore,
-			ClusterStore: mockClusterStore,
+			Certificate:        cert,
+			TokenStore:         mockTokenStore,
+			ClusterStore:       mockClusterStore,
+			KeyringStoreBroker: mockKeyringStoreBroker,
 		}
 		app.Post("/bootstrap/*", server.Handle)
 		tlsConfig := &tls.Config{
@@ -209,6 +184,15 @@ var _ = Describe("Server", func() {
 						Expect(err).NotTo(HaveOccurred())
 						Expect(clusterList.Items).To(HaveLen(1))
 						Expect(clusterList.Items[0].Labels).To(HaveKeyWithValue("foo", "bar"))
+
+						By("checking that the cluster's keyring was stored")
+						ks, err := mockKeyringStoreBroker.KeyringStore(context.Background(), "gateway", &core.Reference{
+							Id: "foo",
+						})
+						Expect(err).NotTo(HaveOccurred())
+						kr, err := ks.Get(context.Background())
+						Expect(err).NotTo(HaveOccurred())
+						Expect(kr).NotTo(BeNil())
 					})
 				})
 			})

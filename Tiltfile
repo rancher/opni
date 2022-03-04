@@ -43,6 +43,8 @@ helm_remote('grafana',
     ],
 )
 
+k8s_yaml(listdir('pkg/sdk/crd'))
+
 k8s_yaml(helm('deploy/charts/opni-monitoring',
     name='opni-monitoring',
     namespace='opni-monitoring',
@@ -63,6 +65,8 @@ local_resource('Watch & Compile', 'mage build',
         '**/*.pb.*.go',
         '**/*.swagger.json',
         'pkg/test/mock/*',
+        'pkg/sdk/crd/*',
+        '**/zz_generated.*',
     ])
 
 if "defaultRegistry" in settings:

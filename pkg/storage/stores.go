@@ -11,6 +11,14 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
+type Backend interface {
+	TokenStore
+	ClusterStore
+	RBACStore
+	KeyringStoreBroker
+	KeyValueStoreBroker
+}
+
 type TokenStore interface {
 	CreateToken(ctx context.Context, ttl time.Duration, labels map[string]string) (*core.BootstrapToken, error)
 	DeleteToken(ctx context.Context, ref *core.Reference) error
@@ -23,9 +31,8 @@ type ClusterStore interface {
 	CreateCluster(ctx context.Context, cluster *core.Cluster) error
 	DeleteCluster(ctx context.Context, ref *core.Reference) error
 	GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error)
-	UpdateCluster(ctx context.Context, cluster *core.Cluster) (*core.Cluster, error)
+	UpdateCluster(ctx context.Context, cluster *core.Cluster) error
 	ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error)
-	KeyringStore(ctx context.Context, ref *core.Reference) (KeyringStore, error)
 }
 
 type RBACStore interface {
@@ -50,6 +57,10 @@ type KeyValueStore interface {
 	ListKeys(ctx context.Context, prefix string) ([]string, error)
 }
 
+type KeyringStoreBroker interface {
+	KeyringStore(ctx context.Context, namespace string, ref *core.Reference) (KeyringStore, error)
+}
+
 type KeyValueStoreBroker interface {
-	NewKeyValueStore(namespace string) (KeyValueStore, error)
+	KeyValueStore(namespace string) (KeyValueStore, error)
 }

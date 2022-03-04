@@ -62,12 +62,10 @@ type Server struct {
 var _ ManagementServer = (*Server)(nil)
 
 type ManagementServerOptions struct {
-	tokenStore   storage.TokenStore
-	clusterStore storage.ClusterStore
-	rbacStore    storage.RBACStore
-	lifecycler   config.Lifecycler
-	tlsConfig    *tls.Config
-	plugins      []plugins.ActivePlugin
+	storageBackend storage.Backend
+	lifecycler     config.Lifecycler
+	tlsConfig      *tls.Config
+	plugins        []plugins.ActivePlugin
 }
 
 type ManagementServerOption func(*ManagementServerOptions)
@@ -78,21 +76,9 @@ func (o *ManagementServerOptions) Apply(opts ...ManagementServerOption) {
 	}
 }
 
-func TokenStore(tokenStore storage.TokenStore) ManagementServerOption {
+func StorageBackend(storageBackend storage.Backend) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
-		o.tokenStore = tokenStore
-	}
-}
-
-func ClusterStore(tenantStore storage.ClusterStore) ManagementServerOption {
-	return func(o *ManagementServerOptions) {
-		o.clusterStore = tenantStore
-	}
-}
-
-func RBACStore(rbacStore storage.RBACStore) ManagementServerOption {
-	return func(o *ManagementServerOptions) {
-		o.rbacStore = rbacStore
+		o.storageBackend = storageBackend
 	}
 }
 
@@ -115,23 +101,18 @@ func Lifecycler(lc config.Lifecycler) ManagementServerOption {
 }
 
 func NewServer(ctx context.Context, conf *v1beta1.ManagementSpec, opts ...ManagementServerOption) *Server {
+	lg := logger.New().Named("mgmt")
 	options := ManagementServerOptions{}
 	options.Apply(opts...)
-	if options.tokenStore == nil {
-		panic("token store is required")
-	}
-	if options.clusterStore == nil {
-		panic("cluster store is required")
-	}
-	if options.rbacStore == nil {
-		panic("rbac store is required")
+	if options.storageBackend == nil {
+		lg.Panic("storage backend not configured")
 	}
 	return &Server{
 		ManagementServerOptions: options,
 		ctx:                     ctx,
 		config:                  conf,
-		logger:                  logger.New().Named("mgmt"),
-		rbacProvider:            storage.NewRBACProvider(options.rbacStore, options.clusterStore),
+		logger:                  lg,
+		rbacProvider:            storage.NewRBACProvider(options.storageBackend, options.storageBackend),
 	}
 }
 

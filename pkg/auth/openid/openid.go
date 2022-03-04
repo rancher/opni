@@ -11,11 +11,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/mitchellh/mapstructure"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/rbac"
+	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"go.uber.org/zap"
 )
@@ -40,13 +40,14 @@ type OpenidMiddleware struct {
 var _ auth.Middleware = (*OpenidMiddleware)(nil)
 
 func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
+	conf, err := util.DecodeStruct[OpenidConfig](config.Options)
+	if err != nil {
+		return nil, err
+	}
 	m := &OpenidMiddleware{
 		keyRefresher: jwk.NewAutoRefresh(ctx),
-		conf:         &OpenidConfig{},
+		conf:         conf,
 		logger:       logger.New().Named("openid"),
-	}
-	if err := mapstructure.Decode(config.Options, m.conf); err != nil {
-		return nil, err
 	}
 	if m.conf.IdentifyingClaim == "" {
 		m.conf.IdentifyingClaim = "sub"

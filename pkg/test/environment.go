@@ -21,8 +21,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/mattn/go-tty"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/phayes/freeport"
+	"github.com/pkg/browser"
 	"github.com/rancher/opni-monitoring/pkg/agent"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
@@ -33,14 +35,17 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
+	"github.com/rancher/opni-monitoring/pkg/sdk/api"
 	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
+	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
@@ -60,14 +65,18 @@ type RunningAgent struct {
 }
 
 type Environment struct {
-	TestBin string
-	Logger  *zap.SugaredLogger
+	TestBin           string
+	Logger            *zap.SugaredLogger
+	CRDDirectoryPaths []string
 
 	mockCtrl *gomock.Controller
-	ctx      context.Context
-	cancel   context.CancelFunc
-	tempDir  string
-	ports    servicePorts
+
+	ctx    context.Context
+	cancel context.CancelFunc
+	once   sync.Once
+
+	tempDir string
+	ports   servicePorts
 
 	runningAgents   map[string]RunningAgent
 	runningAgentsMu sync.Mutex
@@ -80,9 +89,9 @@ func (e *Environment) Start() error {
 	lg := e.Logger
 	lg.Info("Starting test environment")
 
+	e.initCtx()
 	e.runningAgents = make(map[string]RunningAgent)
 
-	e.ctx, e.cancel = context.WithCancel(waitctx.FromContext(context.Background()))
 	var t gomock.TestReporter
 	if strings.HasSuffix(os.Args[0], ".test") {
 		t = ginkgo.GinkgoT()
@@ -163,12 +172,18 @@ func (e *Environment) Start() error {
 }
 
 func (e *Environment) StartK8s() (*rest.Config, error) {
+	e.initCtx()
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
 	}
+	scheme := api.NewScheme()
+
 	e.k8sEnv = &envtest.Environment{
-		BinaryAssetsDirectory: "../../testbin/bin",
+		BinaryAssetsDirectory: e.TestBin,
+		CRDDirectoryPaths:     e.CRDDirectoryPaths,
+		Scheme:                scheme,
+		CRDs:                  downloadCertManagerCRDs(scheme),
 		ControlPlane: envtest.ControlPlane{
 			APIServer: &envtest.APIServer{
 				SecureServing: envtest.SecureServing{
@@ -183,13 +198,36 @@ func (e *Environment) StartK8s() (*rest.Config, error) {
 	return e.k8sEnv.Start()
 }
 
-func (e *Environment) Stop() error {
-	if e.k8sEnv != nil {
-		e.k8sEnv.Stop()
+type Reconciler interface {
+	SetupWithManager(ctrl.Manager) error
+}
+
+func (e *Environment) StartManager(restConfig *rest.Config, reconcilers ...Reconciler) ctrl.Manager {
+	ports := util.Must(freeport.GetFreePorts(2))
+
+	manager := util.Must(ctrl.NewManager(restConfig, ctrl.Options{
+		Scheme:                 e.k8sEnv.Scheme,
+		MetricsBindAddress:     fmt.Sprintf(":%d", ports[0]),
+		HealthProbeBindAddress: fmt.Sprintf(":%d", ports[1]),
+	}))
+	for _, reconciler := range reconcilers {
+		util.Must(reconciler.SetupWithManager(manager))
 	}
+	go func() {
+		if err := manager.Start(e.ctx); err != nil {
+			panic(err)
+		}
+	}()
+	return manager
+}
+
+func (e *Environment) Stop() error {
 	if e.cancel != nil {
 		e.cancel()
 		waitctx.Wait(e.ctx, 5*time.Second)
+	}
+	if e.k8sEnv != nil {
+		e.k8sEnv.Stop()
 	}
 	if e.mockCtrl != nil {
 		e.mockCtrl.Finish()
@@ -198,6 +236,12 @@ func (e *Environment) Stop() error {
 		os.RemoveAll(e.tempDir)
 	}
 	return nil
+}
+
+func (e *Environment) initCtx() {
+	e.once.Do(func() {
+		e.ctx, e.cancel = context.WithCancel(waitctx.FromContext(context.Background()))
+	})
 }
 
 func (e *Environment) startEtcd() {
@@ -249,7 +293,7 @@ type cortexTemplateOptions struct {
 func (e *Environment) startCortex() {
 	lg := e.Logger
 	configTemplate := TestData("cortex/config.yaml")
-	t := template.Must(template.New("config").Parse(string(configTemplate)))
+	t := util.Must(template.New("config").Parse(string(configTemplate)))
 	configFile, err := os.Create(path.Join(e.tempDir, "cortex", "config.yaml"))
 	if err != nil {
 		panic(err)
@@ -308,7 +352,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 		panic(err)
 	}
 	configTemplate := TestData("prometheus/config.yaml")
-	t := template.Must(template.New("config").Parse(string(configTemplate)))
+	t := util.Must(template.New("config").Parse(string(configTemplate)))
 	configFile, err := os.Create(path.Join(e.tempDir, "prometheus", "config.yaml"))
 	if err != nil {
 		panic(err)
@@ -659,7 +703,25 @@ func StartStandaloneTestEnvironment() {
 	}()
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt)
-	lg.Info(chalk.Blue.Color("Press Ctrl+C to stop test environment"))
+	lg.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
+	// listen for spacebar on stdin
+	t, err := tty.Open()
+	if err == nil {
+		lg.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
+		go func() {
+			for {
+				rn, err := t.ReadRune()
+				if err != nil {
+					lg.Fatal(err)
+				}
+				if rn == ' ' {
+					if err := browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb)); err != nil {
+						lg.Error(err)
+					}
+				}
+			}
+		}()
+	}
 	<-c
 	lg.Info("\nStopping test environment")
 	if err := environment.Stop(); err != nil {

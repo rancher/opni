@@ -3,12 +3,12 @@ module github.com/rancher/opni-monitoring
 go 1.18
 
 require (
-	emperror.dev/errors v0.8.0
+	emperror.dev/errors v0.8.1
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
 	github.com/andybalholm/brotli v1.0.4
 	github.com/banzaicloud/operator-tools v0.28.2
 	github.com/go-logr/logr v1.2.2
-	github.com/gofiber/fiber/v2 v2.27.0
+	github.com/gofiber/fiber/v2 v2.28.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-hclog v1.1.0
@@ -19,9 +19,10 @@ require (
 	github.com/jhump/protoreflect v1.12.0
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc
+	github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6
 	github.com/kralicky/spellbook v0.0.0-20220204185758-6c5ad9d29ee2
 	github.com/lestrrat-go/backoff/v2 v2.0.8
-	github.com/lestrrat-go/jwx v1.2.19
+	github.com/lestrrat-go/jwx v1.2.20
 	github.com/magefile/mage v1.12.1
 	github.com/mattn/go-tty v0.0.4
 	github.com/mitchellh/mapstructure v1.4.3
@@ -43,10 +44,11 @@ require (
 	golang.org/x/mod v0.6.0-dev.0.20211013180041-c96bc1413d57
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gonum.org/v1/gonum v0.9.3
-	google.golang.org/genproto v0.0.0-20220222154240-daf995802d7b
+	google.golang.org/genproto v0.0.0-20220304144024-325a89244dc8
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.23.4
+	k8s.io/apiextensions-apiserver v0.23.4
 	k8s.io/apimachinery v0.23.4
 	k8s.io/client-go v0.23.4
 	k8s.io/kubectl v0.23.4
@@ -109,7 +111,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.14.1 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
-	github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6 // indirect
 	github.com/kralicky/ragu v0.2.5 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
 	github.com/lestrrat-go/httpcc v1.0.0 // indirect
@@ -183,7 +184,6 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	k8s.io/apiextensions-apiserver v0.23.1 // indirect
 	k8s.io/cli-runtime v0.23.4 // indirect
 	k8s.io/component-base v0.23.4 // indirect
 	k8s.io/klog/v2 v2.40.1 // indirect

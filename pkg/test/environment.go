@@ -35,6 +35,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
+	"github.com/rancher/opni-monitoring/pkg/sdk/api"
 	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	"github.com/rancher/opni-monitoring/pkg/util"
@@ -44,6 +45,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
@@ -63,14 +65,18 @@ type RunningAgent struct {
 }
 
 type Environment struct {
-	TestBin string
-	Logger  *zap.SugaredLogger
+	TestBin           string
+	Logger            *zap.SugaredLogger
+	CRDDirectoryPaths []string
 
 	mockCtrl *gomock.Controller
-	ctx      context.Context
-	cancel   context.CancelFunc
-	tempDir  string
-	ports    servicePorts
+
+	ctx    context.Context
+	cancel context.CancelFunc
+	once   sync.Once
+
+	tempDir string
+	ports   servicePorts
 
 	runningAgents   map[string]RunningAgent
 	runningAgentsMu sync.Mutex
@@ -83,9 +89,9 @@ func (e *Environment) Start() error {
 	lg := e.Logger
 	lg.Info("Starting test environment")
 
+	e.initCtx()
 	e.runningAgents = make(map[string]RunningAgent)
 
-	e.ctx, e.cancel = context.WithCancel(waitctx.FromContext(context.Background()))
 	var t gomock.TestReporter
 	if strings.HasSuffix(os.Args[0], ".test") {
 		t = ginkgo.GinkgoT()
@@ -166,15 +172,18 @@ func (e *Environment) Start() error {
 }
 
 func (e *Environment) StartK8s() (*rest.Config, error) {
+	e.initCtx()
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
 	}
+	scheme := api.NewScheme()
+
 	e.k8sEnv = &envtest.Environment{
-		BinaryAssetsDirectory: "../../testbin/bin",
-		CRDDirectoryPaths: []string{
-			"../sdk/crd",
-		},
+		BinaryAssetsDirectory: e.TestBin,
+		CRDDirectoryPaths:     e.CRDDirectoryPaths,
+		Scheme:                scheme,
+		CRDs:                  downloadCertManagerCRDs(scheme),
 		ControlPlane: envtest.ControlPlane{
 			APIServer: &envtest.APIServer{
 				SecureServing: envtest.SecureServing{
@@ -189,13 +198,36 @@ func (e *Environment) StartK8s() (*rest.Config, error) {
 	return e.k8sEnv.Start()
 }
 
-func (e *Environment) Stop() error {
-	if e.k8sEnv != nil {
-		e.k8sEnv.Stop()
+type Reconciler interface {
+	SetupWithManager(ctrl.Manager) error
+}
+
+func (e *Environment) StartManager(restConfig *rest.Config, reconcilers ...Reconciler) ctrl.Manager {
+	ports := util.Must(freeport.GetFreePorts(2))
+
+	manager := util.Must(ctrl.NewManager(restConfig, ctrl.Options{
+		Scheme:                 e.k8sEnv.Scheme,
+		MetricsBindAddress:     fmt.Sprintf(":%d", ports[0]),
+		HealthProbeBindAddress: fmt.Sprintf(":%d", ports[1]),
+	}))
+	for _, reconciler := range reconcilers {
+		util.Must(reconciler.SetupWithManager(manager))
 	}
+	go func() {
+		if err := manager.Start(e.ctx); err != nil {
+			panic(err)
+		}
+	}()
+	return manager
+}
+
+func (e *Environment) Stop() error {
 	if e.cancel != nil {
 		e.cancel()
 		waitctx.Wait(e.ctx, 5*time.Second)
+	}
+	if e.k8sEnv != nil {
+		e.k8sEnv.Stop()
 	}
 	if e.mockCtrl != nil {
 		e.mockCtrl.Finish()
@@ -204,6 +236,12 @@ func (e *Environment) Stop() error {
 		os.RemoveAll(e.tempDir)
 	}
 	return nil
+}
+
+func (e *Environment) initCtx() {
+	e.once.Do(func() {
+		e.ctx, e.cancel = context.WithCancel(waitctx.FromContext(context.Background()))
+	})
 }
 
 func (e *Environment) startEtcd() {

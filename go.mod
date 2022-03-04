@@ -109,6 +109,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.14.1 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
+	github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6 // indirect
 	github.com/kralicky/ragu v0.2.5 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
 	github.com/lestrrat-go/httpcc v1.0.0 // indirect

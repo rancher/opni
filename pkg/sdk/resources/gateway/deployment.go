@@ -15,7 +15,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.gateway.Name,
+			Name:      "opni-gateway",
 			Namespace: r.gateway.Namespace,
 			Labels:    labels,
 		},
@@ -31,9 +31,9 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:            r.gateway.Name,
-							Image:           r.gateway.Spec.Image.ImageOrDefault("rancher/opni-gateway:latest"),
-							ImagePullPolicy: r.gateway.Spec.Image.ImagePullPolicyOrDefault(),
+							Name:            "gateway",
+							Image:           r.gateway.Spec.Image.GetImageWithDefault("rancher/opni-gateway:latest"),
+							ImagePullPolicy: r.gateway.Spec.Image.GetImagePullPolicy(),
 							Args:            []string{"gateway"},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -66,10 +66,6 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 									Name:          "http",
 									ContainerPort: 8080,
 								},
-								{
-									Name:          "grpc",
-									ContainerPort: 9090,
-								},
 							},
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
@@ -97,7 +93,6 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 								SuccessThreshold: 1,
 								FailureThreshold: 3,
 							},
-
 							StartupProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{

@@ -8,9 +8,11 @@ import (
 	cfgv1beta1 "github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func (r *Reconciler) optionalContainerPorts() ([]corev1.ContainerPort, error) {
+	lg := r.logger
 	var ports []corev1.ContainerPort
 	if addr := r.gateway.Spec.Management.GRPCListenAddress; strings.HasPrefix(addr, "tcp://") {
 		parts := strings.Split(addr, ":")
@@ -57,10 +59,19 @@ func (r *Reconciler) optionalContainerPorts() ([]corev1.ContainerPort, error) {
 			Protocol:      corev1.ProtocolTCP,
 		})
 	}
-	if r.gateway.Spec.Auth.Provider == string(cfgv1beta1.AuthProviderNoAuth) {
+	if r.gateway.Spec.Auth.Provider == cfgv1beta1.AuthProviderNoAuth {
+		if r.gateway.Spec.Auth.Noauth == nil {
+			return nil, field.Required(field.NewPath("spec", "auth", "noauth"),
+				"must provide noauth config when it is used as the auth provider")
+		}
+		noauthPort := r.gateway.Spec.Auth.Noauth.Port
+		if noauthPort == 0 {
+			lg.Warn("noauth port is not set, using default port 4000")
+			noauthPort = 4000
+		}
 		ports = append(ports, corev1.ContainerPort{
 			Name:          "noauth",
-			ContainerPort: int32(r.gateway.Spec.Auth.Noauth.Port),
+			ContainerPort: int32(noauthPort),
 			Protocol:      corev1.ProtocolTCP,
 		})
 	}

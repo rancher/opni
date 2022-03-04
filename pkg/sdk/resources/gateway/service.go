@@ -14,6 +14,7 @@ func (r *Reconciler) service() (resources.Resource, error) {
 			Namespace: r.gateway.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
+			Type:     r.gateway.Spec.ServiceType,
 			Selector: resources.Labels(),
 			Ports: []corev1.ServicePort{
 				{

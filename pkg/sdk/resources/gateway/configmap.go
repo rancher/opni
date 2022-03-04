@@ -31,7 +31,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 					ClientKey:  "/run/cortex/certs/client/tls.key",
 				},
 			},
-			AuthProvider: r.gateway.Spec.Auth.Provider,
+			AuthProvider: string(r.gateway.Spec.Auth.Provider),
 			Certs: cfgv1beta1.CertsSpec{
 				CACert:      util.Pointer("/run/opni-monitoring/certs/ca.crt"),
 				ServingCert: util.Pointer("/run/opni-monitoring/certs/tls.crt"),
@@ -68,7 +68,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			APIVersion: "v1beta1",
 		},
 		ObjectMeta: cfgmeta.ObjectMeta{
-			Name: r.gateway.Spec.Auth.Provider,
+			Name: string(r.gateway.Spec.Auth.Provider),
 		},
 		Spec: apSpec,
 	}

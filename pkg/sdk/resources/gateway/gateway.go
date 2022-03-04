@@ -2,11 +2,13 @@ package gateway
 
 import (
 	"context"
+	"fmt"
 
-	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/sdk/resources"
+	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -16,6 +18,7 @@ type Reconciler struct {
 	ctx     context.Context
 	client  client.Client
 	gateway *v1beta1.Gateway
+	logger  *zap.SugaredLogger
 }
 
 func NewReconciler(
@@ -24,9 +27,11 @@ func NewReconciler(
 	gw *v1beta1.Gateway,
 ) *Reconciler {
 	return &Reconciler{
-		ctx:     ctx,
-		client:  client,
-		gateway: gw,
+		ResourceReconciler: reconciler.NewReconcilerWith(client),
+		ctx:                ctx,
+		client:             client,
+		gateway:            gw,
+		logger:             logger.New().Named("controller").Named("gateway"),
 	}
 }
 
@@ -61,12 +66,14 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 	for _, factory := range allResources {
 		o, state, err := factory()
 		if err != nil {
-			return nil, errors.WrapIf(err, "failed to create object")
+			return nil, fmt.Errorf("failed to create object: %w", err)
+		}
+		if o == nil {
+			panic(fmt.Sprintf("reconciler %#v created a nil object", factory))
 		}
 		result, err := r.ReconcileResource(o, state)
 		if err != nil {
-			return nil, errors.WrapWithDetails(err, "failed to reconcile resource",
-				"resource", o.GetObjectKind().GroupVersionKind())
+			return nil, fmt.Errorf("failed to reconcile resource %#T: %w", o, err)
 		}
 		if result != nil {
 			return result, nil

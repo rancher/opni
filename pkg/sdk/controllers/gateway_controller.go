@@ -3,8 +3,11 @@ package controllers
 import (
 	"context"
 
+	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/sdk/resources/gateway"
+	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,9 +29,11 @@ import (
 type GatewayReconciler struct {
 	client.Client
 	scheme *runtime.Scheme
+	logger *zap.SugaredLogger
 }
 
 func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	lg := r.logger
 	gw := &v1beta1.Gateway{}
 	err := r.Get(ctx, req.NamespacedName, gw)
 	if err != nil {
@@ -38,6 +43,11 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	gwReconciler := gateway.NewReconciler(ctx, r.Client, gw)
 	result, err := gwReconciler.Reconcile()
 	if err != nil {
+		lg.With(
+			zap.String("gateway", gw.Name),
+			zap.String("namespace", gw.Namespace),
+			zap.Error(err),
+		).Error("failed to reconcile gateway")
 		return ctrl.Result{}, err
 	}
 	if result != nil {
@@ -48,6 +58,7 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.logger = logger.New().Named("controller")
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
@@ -55,6 +66,9 @@ func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1beta1.BootstrapToken{}).
 		Owns(&v1beta1.Cluster{}).
 		Owns(&v1beta1.Role{}).
+		Owns(&cmv1.Certificate{}).
+		Owns(&cmv1.Issuer{}).
+		Owns(&cmv1.ClusterIssuer{}).
 		Owns(&v1beta1.RoleBinding{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).

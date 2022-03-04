@@ -3,6 +3,7 @@ package v1beta1
 import (
 	"github.com/rancher/opni-monitoring/pkg/auth/openid"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
+	cfgv1beta1 "github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/noauth"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,14 +15,14 @@ type ImageSpec struct {
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
-func (i *ImageSpec) ImageOrDefault(def string) string {
+func (i *ImageSpec) GetImageWithDefault(def string) string {
 	if i == nil || i.Image == nil {
 		return def
 	}
 	return *i.Image
 }
 
-func (i *ImageSpec) ImagePullPolicyOrDefault() corev1.PullPolicy {
+func (i *ImageSpec) GetImagePullPolicy() corev1.PullPolicy {
 	if i == nil || i.ImagePullPolicy == nil {
 		return corev1.PullPolicy("")
 	}
@@ -36,11 +37,13 @@ type ExtraVolumeMount struct {
 }
 
 type GatewaySpec struct {
+	//+kubebuilder:validation:Required
+	Auth AuthSpec `json:"auth,omitempty"`
+
 	Image            *ImageSpec             `json:"image,omitempty"`
-	Auth             AuthSpec               `json:"auth,omitempty"`
-	PluginSearchDirs []string               `json:"pluginSearchDirs,omitempty"`
 	DNSNames         []string               `json:"dnsNames,omitempty"`
-	ServiceType      string                 `json:"serviceType,omitempty"`
+	PluginSearchDirs []string               `json:"pluginSearchDirs,omitempty"`
+	ServiceType      corev1.ServiceType     `json:"serviceType,omitempty"`
 	Management       v1beta1.ManagementSpec `json:"management,omitempty"`
 
 	NodeSelector      map[string]string   `json:"nodeSelector,omitempty"`
@@ -49,10 +52,18 @@ type GatewaySpec struct {
 	ExtraVolumeMounts []ExtraVolumeMount  `json:"extraVolumeMounts,omitempty"`
 }
 
+func (g *GatewaySpec) GetServiceType() corev1.ServiceType {
+	if g == nil || g.ServiceType == corev1.ServiceType("") {
+		return corev1.ServiceTypeClusterIP
+	}
+	return g.ServiceType
+}
+
 type AuthSpec struct {
-	Provider string               `json:"provider,omitempty"`
-	Openid   *openid.OpenidConfig `json:"openid,omitempty"`
-	Noauth   *noauth.ServerConfig `json:"noauth,omitempty"`
+	//+kubebuilder:validation:Required
+	Provider cfgv1beta1.AuthProviderType `json:"provider,omitempty"`
+	Openid   *openid.OpenidConfig        `json:"openid,omitempty"`
+	Noauth   *noauth.ServerConfig        `json:"noauth,omitempty"`
 }
 
 //+kubebuilder:object:root=true

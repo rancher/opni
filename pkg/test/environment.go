@@ -467,6 +467,10 @@ func (e *Environment) NewManagementClient() management.ManagementClient {
 	return c
 }
 
+func (e *Environment) PrometheusAPIEndpoint() string {
+	return fmt.Sprintf("http://localhost:%d/prometheus/api/v1", e.ports.Gateway)
+}
+
 func (e *Environment) startGateway() {
 	lg := e.Logger
 	e.gatewayConfig = e.newGatewayConfig()

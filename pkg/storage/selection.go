@@ -31,7 +31,7 @@ func (p ClusterSelector) Predicate() SelectorPredicate {
 		if p.LabelSelector == nil {
 			return false
 		}
-		return labelSelectorMatches(p.LabelSelector, c.Labels)
+		return labelSelectorMatches(p.LabelSelector, c.GetMetadata().GetLabels())
 	}
 }
 

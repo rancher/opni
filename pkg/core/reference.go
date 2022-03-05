@@ -40,7 +40,3 @@ func (r *RoleBinding) RoleReference() *Reference {
 		Id: r.RoleId,
 	}
 }
-
-func (r *Reference) Equal(other *Reference) bool {
-	return r.Id == other.Id
-}

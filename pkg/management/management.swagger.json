@@ -629,6 +629,12 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreTokenCapability"
+          }
         }
       }
     },
@@ -661,11 +667,16 @@
         "id": {
           "type": "string"
         },
-        "labels": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
+        "metadata": {
+          "$ref": "#/definitions/coreClusterMetadata"
+        }
+      }
+    },
+    "coreClusterCapability": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
         }
       }
     },
@@ -676,6 +687,23 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/coreCluster"
+          }
+        }
+      }
+    },
+    "coreClusterMetadata": {
+      "type": "object",
+      "properties": {
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreClusterCapability"
           }
         }
       }
@@ -803,6 +831,17 @@
         }
       }
     },
+    "coreTokenCapability": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "reference": {
+          "$ref": "#/definitions/coreReference"
+        }
+      }
+    },
     "managementAPIExtensionInfo": {
       "type": "object",
       "properties": {
@@ -871,6 +910,12 @@
           "type": "object",
           "additionalProperties": {
             "type": "string"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreTokenCapability"
           }
         }
       }

@@ -138,8 +138,11 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 					clusterName := "test-cluster-id-" + uuid.New().String()
 
 					_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-					Consistently(errC).ShouldNot(Receive())
-					time.Sleep(time.Second)
+					select {
+					case err := <-errC:
+						Expect(err).NotTo(HaveOccurred())
+					case <-time.After(time.Second * 2):
+					}
 
 					_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
 						Cluster: &core.Reference{
@@ -176,7 +179,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 				return int(tokenUsage.Metadata.UsageCount)
-			}).Should((Equal(10)))
+			}, 5*time.Second, 100*time.Millisecond).Should((Equal(10)))
 		})
 	})
 

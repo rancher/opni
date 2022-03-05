@@ -68,15 +68,20 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		}).
 		AnyTimes()
 	mockClusterStore.EXPECT().
-		UpdateCluster(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, cluster *core.Cluster) (*core.Cluster, error) {
+		UpdateCluster(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.Cluster]) (*core.Cluster, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			cloned := proto.Clone(cluster).(*core.Cluster)
-			if _, ok := clusters[cloned.Id]; !ok {
+			if _, ok := clusters[ref.Id]; !ok {
 				return nil, storage.ErrNotFound
 			}
-			clusters[cloned.Id] = cloned
+			cluster := clusters[ref.Id]
+			cloned := proto.Clone(cluster).(*core.Cluster)
+			mutator(cloned)
+			if _, ok := clusters[ref.Id]; !ok {
+				return nil, storage.ErrNotFound
+			}
+			clusters[ref.Id] = cloned
 			return cloned, nil
 		}).
 		AnyTimes()

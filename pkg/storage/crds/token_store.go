@@ -6,6 +6,7 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,19 +15,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (c *CRDStore) CreateToken(ctx context.Context, ttl time.Duration, labels map[string]string) (*core.BootstrapToken, error) {
+func (c *CRDStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*core.BootstrapToken, error) {
+	options := storage.NewTokenCreateOptions()
+	options.Apply(opts...)
+
 	token := tokens.NewToken().ToBootstrapToken()
 	token.Metadata = &core.BootstrapTokenMetadata{
-		LeaseID:    -1,
-		Ttl:        int64(ttl.Seconds()),
-		UsageCount: 0,
-		Labels:     labels,
+		LeaseID:      -1,
+		Ttl:          int64(ttl.Seconds()),
+		UsageCount:   0,
+		Labels:       options.Labels,
+		Capabilities: options.Capabilities,
 	}
 	err := c.client.Create(ctx, &v1beta1.BootstrapToken{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      token.TokenID,
 			Namespace: c.namespace,
-			Labels:    labels,
+			Labels:    options.Labels,
 		},
 		Spec: token,
 	})
@@ -83,24 +88,29 @@ func (c *CRDStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, erro
 	return tokens, nil
 }
 
-func (c *CRDStore) IncrementUsageCount(ctx context.Context, ref *core.Reference) error {
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+func (c *CRDStore) UpdateToken(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.BootstrapToken]) (*core.BootstrapToken, error) {
+	var token *core.BootstrapToken
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		token, err := c.GetToken(ctx, ref)
 		if err != nil {
 			return err
 		}
-		if token.Metadata == nil {
-			token.Metadata = &core.BootstrapTokenMetadata{}
-		}
-		token.Metadata.UsageCount++
+		clone := token.DeepCopy()
+		mutator(clone)
+		token = clone
 		return c.client.Update(ctx, &v1beta1.BootstrapToken{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      ref.Id,
 				Namespace: c.namespace,
+				Labels:    clone.Metadata.Labels,
 			},
-			Spec: token,
+			Spec: clone,
 		})
 	})
+	if err != nil {
+		return nil, err
+	}
+	return token, nil
 }
 
 // garbageCollectToken performs a best-effort deletion of an expired token.

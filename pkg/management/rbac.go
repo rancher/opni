@@ -12,14 +12,14 @@ func (s *Server) CreateRole(ctx context.Context, in *core.Role) (*emptypb.Empty,
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, grpcError(s.storageBackend.CreateRole(ctx, in))
+	return &emptypb.Empty{}, s.storageBackend.CreateRole(ctx, in)
 }
 
 func (s *Server) DeleteRole(ctx context.Context, in *core.Reference) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, grpcError(s.storageBackend.DeleteRole(ctx, in))
+	return &emptypb.Empty{}, s.storageBackend.DeleteRole(ctx, in)
 }
 
 func (s *Server) GetRole(ctx context.Context, in *core.Reference) (*core.Role, error) {
@@ -27,7 +27,7 @@ func (s *Server) GetRole(ctx context.Context, in *core.Reference) (*core.Role, e
 		return nil, err
 	}
 	role, err := s.storageBackend.GetRole(ctx, in)
-	return role, grpcError(err)
+	return role, err
 }
 
 func (s *Server) CreateRoleBinding(ctx context.Context, in *core.RoleBinding) (*emptypb.Empty, error) {
@@ -37,14 +37,14 @@ func (s *Server) CreateRoleBinding(ctx context.Context, in *core.RoleBinding) (*
 	if len(in.Taints) > 0 {
 		return nil, validation.ErrReadOnlyField
 	}
-	return &emptypb.Empty{}, grpcError(s.storageBackend.CreateRoleBinding(ctx, in))
+	return &emptypb.Empty{}, s.storageBackend.CreateRoleBinding(ctx, in)
 }
 
 func (s *Server) DeleteRoleBinding(ctx context.Context, in *core.Reference) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, grpcError(s.storageBackend.DeleteRoleBinding(ctx, in))
+	return &emptypb.Empty{}, s.storageBackend.DeleteRoleBinding(ctx, in)
 }
 
 func (s *Server) GetRoleBinding(ctx context.Context, in *core.Reference) (*core.RoleBinding, error) {
@@ -52,17 +52,17 @@ func (s *Server) GetRoleBinding(ctx context.Context, in *core.Reference) (*core.
 		return nil, err
 	}
 	rb, err := s.storageBackend.GetRoleBinding(ctx, in)
-	return rb, grpcError(err)
+	return rb, err
 }
 
 func (s *Server) ListRoles(ctx context.Context, _ *emptypb.Empty) (*core.RoleList, error) {
 	rl, err := s.storageBackend.ListRoles(ctx)
-	return rl, grpcError(err)
+	return rl, err
 }
 
 func (s *Server) ListRoleBindings(ctx context.Context, _ *emptypb.Empty) (*core.RoleBindingList, error) {
 	rbl, err := s.storageBackend.ListRoleBindings(ctx)
-	return rbl, grpcError(err)
+	return rbl, err
 }
 
 func (s *Server) SubjectAccess(ctx context.Context, sar *core.SubjectAccessRequest) (*core.ReferenceList, error) {
@@ -70,5 +70,5 @@ func (s *Server) SubjectAccess(ctx context.Context, sar *core.SubjectAccessReque
 		return nil, err
 	}
 	rl, err := s.rbacProvider.SubjectAccess(ctx, sar)
-	return rl, grpcError(err)
+	return rl, err
 }

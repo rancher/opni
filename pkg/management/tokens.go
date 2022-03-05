@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,7 +18,10 @@ func (m *Server) CreateBootstrapToken(
 	if err := validation.Validate(req); err != nil {
 		return nil, err
 	}
-	token, err := m.storageBackend.CreateToken(ctx, req.Ttl.AsDuration(), req.GetLabels())
+	token, err := m.storageBackend.CreateToken(ctx, req.Ttl.AsDuration(),
+		storage.WithLabels(req.GetLabels()),
+		storage.WithCapabilities(req.GetCapabilities()),
+	)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -31,7 +35,7 @@ func (m *Server) RevokeBootstrapToken(
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, grpcError(m.storageBackend.DeleteToken(ctx, ref))
+	return &emptypb.Empty{}, m.storageBackend.DeleteToken(ctx, ref)
 }
 
 func (m *Server) ListBootstrapTokens(

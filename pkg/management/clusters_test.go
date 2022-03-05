@@ -48,8 +48,10 @@ var _ = Describe("Clusters", Ordered, func() {
 				ids[id] = struct{}{}
 				err := tv.storageBackend.CreateCluster(context.Background(), &core.Cluster{
 					Id: id,
-					Labels: map[string]string{
-						"i": fmt.Sprint(i + (x * 10)),
+					Metadata: &core.ClusterMetadata{
+						Labels: map[string]string{
+							"i": fmt.Sprint(i + (x * 10)),
+						},
 					},
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -64,7 +66,7 @@ var _ = Describe("Clusters", Ordered, func() {
 						Id: event.Cluster.Id,
 					})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(cluster.Labels).To(HaveKey("i"))
+					Expect(cluster.Metadata.Labels).To(HaveKey("i"))
 					delete(ids, event.Cluster.Id)
 				case <-timeout:
 					Fail("timed out waiting for cluster create events")
@@ -99,11 +101,11 @@ var _ = Describe("Clusters", Ordered, func() {
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(updated.Labels).To(HaveKeyWithValue("i", "999"))
+		Expect(updated.Metadata.Labels).To(HaveKeyWithValue("i", "999"))
 
 		updatedQueried, err := tv.client.GetCluster(context.Background(), ref)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(updatedQueried.Labels).To(HaveKeyWithValue("i", "999"))
+		Expect(updatedQueried.Metadata.Labels).To(HaveKeyWithValue("i", "999"))
 	})
 	It("should delete clusters", func() {
 		clusters, err := tv.client.ListClusters(context.Background(), &management.ListClustersRequest{})

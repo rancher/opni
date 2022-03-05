@@ -2,7 +2,6 @@ package etcd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path"
 	"time"
@@ -11,10 +10,15 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
+	"k8s.io/client-go/util/retry"
 )
 
-func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, labels map[string]string) (*core.BootstrapToken, error) {
+func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*core.BootstrapToken, error) {
+	options := storage.NewTokenCreateOptions()
+	options.Apply(opts...)
+
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
 	lease, err := e.client.Grant(ctx, int64(ttl.Seconds()))
@@ -23,9 +27,10 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, labels m
 	}
 	token := tokens.NewToken().ToBootstrapToken()
 	token.Metadata = &core.BootstrapTokenMetadata{
-		LeaseID:    int64(lease.ID),
-		UsageCount: 0,
-		Labels:     labels,
+		LeaseID:      int64(lease.ID),
+		UsageCount:   0,
+		Labels:       options.Labels,
+		Capabilities: options.Capabilities,
 	}
 	data, err := protojson.Marshal(token)
 	if err != nil {
@@ -66,24 +71,29 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, ref *core.Reference) error 
 }
 
 func (e *EtcdStore) GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
+	t, _, err := e.getToken(ctx, ref)
+	return t, err
+}
+
+func (e *EtcdStore) getToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, int64, error) {
 	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
 	defer ca()
 	resp, err := e.client.Get(ctx, path.Join(e.prefix, tokensKey, ref.Id))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get token: %w", err)
+		return nil, 0, fmt.Errorf("failed to get token: %w", err)
 	}
 	if len(resp.Kvs) == 0 {
-		return nil, fmt.Errorf("failed to get token: %w", storage.ErrNotFound)
+		return nil, 0, storage.ErrNotFound
 	}
 	kv := resp.Kvs[0]
 	token := &core.BootstrapToken{}
 	if err := protojson.Unmarshal(kv.Value, token); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal token: %w", err)
+		return nil, 0, fmt.Errorf("failed to unmarshal token: %w", err)
 	}
 	if err := e.addLeaseMetadata(ctx, token, kv.Lease); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return token, nil
+	return token, kv.Version, nil
 }
 
 func (e *EtcdStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, error) {
@@ -107,56 +117,41 @@ func (e *EtcdStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, err
 	return items, nil
 }
 
-var retryErr = errors.New("failed to increment token usage count: the token has been modified, retrying")
-
-func (e *EtcdStore) IncrementUsageCount(ctx context.Context, ref *core.Reference) error {
-	key := path.Join(e.prefix, tokensKey, ref.Id)
-	for {
-		err := e.tryIncrementUsageCount(ctx, key)
+func (e *EtcdStore) UpdateToken(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.BootstrapToken]) (*core.BootstrapToken, error) {
+	var retToken *core.BootstrapToken
+	err := retry.OnError(defaultBackoff, isRetryErr, func() error {
+		ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+		defer ca()
+		txn := e.client.Txn(ctx)
+		key := path.Join(e.prefix, tokensKey, ref.Id)
+		token, version, err := e.getToken(ctx, ref)
 		if err != nil {
-			if errors.Is(err, retryErr) {
-				e.logger.Warn(err)
-				continue
-			}
 			return err
 		}
+		mutator(token)
+		data, err := protojson.Marshal(token)
+		if err != nil {
+			return fmt.Errorf("failed to marshal token: %w", err)
+		}
+		txnResp, err := txn.If(clientv3.Compare(clientv3.Version(key), "=", version)).
+			Then(clientv3.OpPut(key, string(data), clientv3.WithIgnoreLease())).
+			Commit()
+		if err != nil {
+			e.logger.With(
+				zap.Error(err),
+			).Error("error updating token")
+			return err
+		}
+		if !txnResp.Succeeded {
+			return retryErr
+		}
+		retToken = token
 		return nil
-	}
-}
-
-func (e *EtcdStore) tryIncrementUsageCount(ctx context.Context, key string) error {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
-	defer ca()
-	txn := e.client.Txn(ctx)
-	resp, err := e.client.Get(ctx, key)
+	})
 	if err != nil {
-		return fmt.Errorf("failed to get token: %w", err)
+		return nil, err
 	}
-	if len(resp.Kvs) == 0 {
-		return fmt.Errorf("failed to get token: %w", storage.ErrNotFound)
-	}
-	kv := resp.Kvs[0]
-	token := &core.BootstrapToken{}
-	if err := protojson.Unmarshal(kv.Value, token); err != nil {
-		return fmt.Errorf("failed to unmarshal token: %w", err)
-	}
-
-	token.Metadata.UsageCount++
-	data, err := protojson.Marshal(token)
-	if err != nil {
-		return fmt.Errorf("failed to marshal token: %w", err)
-	}
-
-	txnResp, err := txn.If(clientv3.Compare(clientv3.Version(key), "=", kv.Version)).
-		Then(clientv3.OpPut(key, string(data), clientv3.WithIgnoreLease())).
-		Commit()
-	if err != nil {
-		return fmt.Errorf("failed to increment token usage count: %w", err)
-	}
-	if !txnResp.Succeeded {
-		return retryErr
-	}
-	return nil
+	return retToken, nil
 }
 
 func (e *EtcdStore) addLeaseMetadata(

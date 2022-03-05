@@ -29,9 +29,19 @@ spec:
             properties:
               id:
                 type: string
-              labels:
-                additionalProperties:
-                  type: string
+              metadata:
+                properties:
+                  capabilities:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                      type: object
+                    type: array
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
                 type: object
             type: object
         type: object

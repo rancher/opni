@@ -12,6 +12,8 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/test"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -78,7 +80,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(clusterInfo.Id).To(Equal("test-cluster-id"))
-		Expect(clusterInfo.Labels).To(BeNil())
+		Expect(clusterInfo.GetLabels()).To(BeNil())
 	})
 
 	It("can edit the label a cluster is using", func() {
@@ -98,7 +100,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(clusterInfo.Id).To(Equal("test-cluster-id"))
-		Expect(clusterInfo.Labels).To(HaveKeyWithValue("i", "999"))
+		Expect(clusterInfo.GetLabels()).To(HaveKeyWithValue("i", "999"))
 	})
 
 	var fingerprint2 string
@@ -162,7 +164,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 			Id: "test-cluster-id",
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to get cluster: not found"))
+		Expect(status.Convert(err).Code()).To(Equal(codes.NotFound))
 
 		clusterInfo, err := client.GetCluster(context.Background(), &core.Reference{
 			Id: "test-cluster-id-2",
@@ -180,7 +182,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 			Id: uuid.NewString(),
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to get cluster: not found"))
+		Expect(status.Convert(err).Code()).To(Equal(codes.NotFound))
 	})
 
 	It("cannot get information about a specific cluster without providing an ID", func() {
@@ -276,7 +278,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 				Id: clusterName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(clusterInfo.Labels).To(BeEmpty())
+			Expect(clusterInfo.GetLabels()).To(BeEmpty())
 		})
 	})
 

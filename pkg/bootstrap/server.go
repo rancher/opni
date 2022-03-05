@@ -12,6 +12,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/core/capabilities"
 	"github.com/rancher/opni-monitoring/pkg/ecdh"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/storage"
@@ -137,14 +138,25 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	}
 	kr := keyring.New(keyring.NewSharedKeys(sharedSecret))
 	newCluster := &core.Cluster{
-		Id:     clientReq.ClientID,
-		Labels: bootstrapToken.GetMetadata().GetLabels(),
+		Id: clientReq.ClientID,
+		Metadata: &core.ClusterMetadata{
+			Labels: bootstrapToken.GetMetadata().GetLabels(),
+		},
 	}
 	if err := h.ClusterStore.CreateCluster(context.Background(), newCluster); err != nil {
 		lg.Printf("error creating cluster: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
-	if err := h.TokenStore.IncrementUsageCount(context.Background(), token.Reference()); err != nil {
+	_, err = h.TokenStore.UpdateToken(context.Background(), token.Reference(),
+		storage.NewCompositeMutator(
+			storage.NewIncrementUsageCountMutator(),
+			storage.NewAddCapabilityMutator[*core.BootstrapToken](&core.TokenCapability{
+				Type:      string(capabilities.JoinExistingCluster),
+				Reference: newCluster.Reference(),
+			}),
+		),
+	)
+	if err != nil {
 		lg.Printf("error incrementing usage count: %v", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}

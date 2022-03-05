@@ -18,11 +18,13 @@ func TestStorage(t *testing.T) {
 
 func cluster(id string, labels ...string) *core.Cluster {
 	cluster := &core.Cluster{
-		Id:     id,
-		Labels: map[string]string{},
+		Id: id,
+		Metadata: &core.ClusterMetadata{
+			Labels: map[string]string{},
+		},
 	}
 	for i := 0; i < len(labels); i += 2 {
-		cluster.Labels[labels[i]] = labels[i+1]
+		cluster.Metadata.Labels[labels[i]] = labels[i+1]
 	}
 	return cluster
 }

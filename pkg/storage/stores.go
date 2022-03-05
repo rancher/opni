@@ -2,14 +2,11 @@ package storage
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 )
-
-var ErrNotFound = errors.New("not found")
 
 type Backend interface {
 	TokenStore
@@ -19,19 +16,24 @@ type Backend interface {
 	KeyValueStoreBroker
 }
 
+type MutatorFunc[T any] func(T)
+
+type TokenMutator = MutatorFunc[*core.BootstrapToken]
+type ClusterMutator = MutatorFunc[*core.Cluster]
+
 type TokenStore interface {
-	CreateToken(ctx context.Context, ttl time.Duration, labels map[string]string) (*core.BootstrapToken, error)
+	CreateToken(ctx context.Context, ttl time.Duration, opts ...TokenCreateOption) (*core.BootstrapToken, error)
 	DeleteToken(ctx context.Context, ref *core.Reference) error
 	GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error)
+	UpdateToken(ctx context.Context, ref *core.Reference, mutator TokenMutator) (*core.BootstrapToken, error)
 	ListTokens(ctx context.Context) ([]*core.BootstrapToken, error)
-	IncrementUsageCount(ctx context.Context, ref *core.Reference) error
 }
 
 type ClusterStore interface {
 	CreateCluster(ctx context.Context, cluster *core.Cluster) error
 	DeleteCluster(ctx context.Context, ref *core.Reference) error
 	GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error)
-	UpdateCluster(ctx context.Context, cluster *core.Cluster) error
+	UpdateCluster(ctx context.Context, ref *core.Reference, mutator ClusterMutator) (*core.Cluster, error)
 	ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error)
 }
 

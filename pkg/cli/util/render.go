@@ -76,7 +76,7 @@ func RenderClusterList(list *core.ClusterList) string {
 	w.AppendHeader(table.Row{"ID", "LABELS"})
 	for _, t := range list.Items {
 		labels := []string{}
-		for k, v := range t.Labels {
+		for k, v := range t.GetMetadata().GetLabels() {
 			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 		}
 		w.AppendRow(table.Row{t.GetId(), strings.Join(labels, ",")})

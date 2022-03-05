@@ -3,6 +3,7 @@ package etcd
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"time"
 
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
@@ -12,9 +13,24 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/util"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-var defaultEtcdTimeout = 5 * time.Second
+var (
+	defaultEtcdTimeout = 5 * time.Second
+	retryErr           = errors.New("the object has been modified, retrying")
+	defaultBackoff     = wait.Backoff{
+		Steps:    20,
+		Duration: 10 * time.Millisecond,
+		Cap:      1 * time.Second,
+		Factor:   1.5,
+		Jitter:   0.1,
+	}
+)
+
+func isRetryErr(err error) bool {
+	return errors.Is(err, retryErr)
+}
 
 const (
 	tokensKey      = "tokens"

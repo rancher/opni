@@ -16,7 +16,7 @@ func (c *CRDStore) CreateCluster(ctx context.Context, cluster *core.Cluster) err
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cluster.Id,
 			Namespace: c.namespace,
-			Labels:    cluster.Labels,
+			Labels:    cluster.GetMetadata().GetLabels(),
 		},
 		Spec: cluster,
 	})
@@ -43,22 +43,29 @@ func (c *CRDStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.C
 	return cluster.Spec, nil
 }
 
-func (c *CRDStore) UpdateCluster(ctx context.Context, cluster *core.Cluster) error {
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		existing, err := c.GetCluster(ctx, cluster.Reference())
+func (c *CRDStore) UpdateCluster(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.Cluster]) (*core.Cluster, error) {
+	var cluster *core.Cluster
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		existing, err := c.GetCluster(ctx, ref)
 		if err != nil {
 			return err
 		}
-		existing.Labels = cluster.Labels
+		clone := existing.DeepCopy()
+		mutator(clone)
+		cluster = clone
 		return c.client.Update(ctx, &v1beta1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      existing.Id,
+				Name:      ref.Id,
 				Namespace: c.namespace,
-				Labels:    existing.Labels,
+				Labels:    clone.GetMetadata().GetLabels(),
 			},
-			Spec: existing,
+			Spec: clone,
 		})
 	})
+	if err != nil {
+		return nil, err
+	}
+	return cluster, nil
 }
 
 func (c *CRDStore) ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {

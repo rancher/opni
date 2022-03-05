@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/storage"
@@ -34,16 +35,19 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 
 	mockTokenStore.EXPECT().
 		CreateToken(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ttl time.Duration, labels map[string]string) (*core.BootstrapToken, error) {
+		DoAndReturn(func(_ context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*core.BootstrapToken, error) {
 			mu.Lock()
 			defer mu.Unlock()
+			options := storage.NewTokenCreateOptions()
+			options.Apply(opts...)
 			t := tokens.NewToken().ToBootstrapToken()
 			lease := leaseStore.New(t.TokenID, ttl)
 			t.Metadata = &core.BootstrapTokenMetadata{
-				LeaseID:    int64(lease.ID),
-				Ttl:        int64(ttl),
-				UsageCount: 0,
-				Labels:     labels,
+				LeaseID:      int64(lease.ID),
+				Ttl:          int64(ttl),
+				UsageCount:   0,
+				Labels:       options.Labels,
+				Capabilities: options.Capabilities,
 			}
 			tks[t.TokenID] = t
 			return t, nil
@@ -85,16 +89,21 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 		}).
 		AnyTimes()
 	mockTokenStore.EXPECT().
-		IncrementUsageCount(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference) error {
+		UpdateToken(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.BootstrapToken]) (*core.BootstrapToken, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			if tk, ok := tks[ref.Id]; !ok {
-				return storage.ErrNotFound
-			} else {
-				tk.Metadata.UsageCount++
+			if _, ok := tks[ref.Id]; !ok {
+				return nil, storage.ErrNotFound
 			}
-			return nil
+			token := tks[ref.Id]
+			cloned := proto.Clone(token).(*core.BootstrapToken)
+			mutator(cloned)
+			if _, ok := tks[ref.Id]; !ok {
+				return nil, storage.ErrNotFound
+			}
+			tks[ref.Id] = cloned
+			return cloned, nil
 		}).
 		AnyTimes()
 

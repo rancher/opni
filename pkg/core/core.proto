@@ -9,10 +9,16 @@ message BootstrapToken {
 }
 
 message BootstrapTokenMetadata {
-  int64 leaseID = 3;
-  int64 ttl = 4;
-  int64 usageCount = 5;
-  map<string, string> labels = 6;
+  int64 leaseID = 1;
+  int64 ttl = 2;
+  int64 usageCount = 3;
+  map<string, string> labels = 4;
+  repeated TokenCapability capabilities = 5;
+}
+
+message TokenCapability {
+  string type = 1;
+  Reference reference = 2;
 }
 
 message BootstrapTokenList {
@@ -21,7 +27,16 @@ message BootstrapTokenList {
 
 message Cluster {
   string id = 1;
-  map<string, string> labels = 2;
+  ClusterMetadata metadata = 2;
+}
+
+message ClusterMetadata {
+  map<string, string> labels = 1;
+  repeated ClusterCapability capabilities = 2;
+}
+
+message ClusterCapability {
+  string name = 1;
 }
 
 message ClusterList {

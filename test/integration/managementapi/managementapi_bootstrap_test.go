@@ -14,6 +14,8 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/test"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -129,7 +131,7 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, func
 			Id: "nonexistent",
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("NotFound desc = failed to get token: not found"))
+		Expect(status.Convert(err).Code()).To(Equal(codes.NotFound))
 
 		_, err = client.RevokeBootstrapToken(context.Background(), token.Reference())
 		Expect(err).NotTo(HaveOccurred())

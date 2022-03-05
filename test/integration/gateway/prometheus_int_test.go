@@ -22,7 +22,7 @@ import (
 
 //#region Test Setup
 
-var _ = FDescribe("Gateway - Prometheus Communication Tests", Ordered, func() {
+var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	var fingerprint string

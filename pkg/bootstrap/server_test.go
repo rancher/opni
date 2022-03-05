@@ -20,6 +20,7 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
 	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/core/capabilities"
 	"github.com/rancher/opni-monitoring/pkg/ecdh"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/storage"
@@ -45,7 +46,8 @@ var _ = Describe("Server", func() {
 		mockKeyringStoreBroker = test.NewTestKeyringStoreBroker(ctrl)
 
 		token, _ = mockTokenStore.CreateToken(context.Background(), 1*time.Hour,
-			map[string]string{"foo": "bar"})
+			storage.WithLabels(map[string]string{"foo": "bar"}),
+		)
 	})
 	JustBeforeEach(func() {
 		var err error
@@ -179,11 +181,19 @@ var _ = Describe("Server", func() {
 						resp, err := client.Do(req)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(resp.StatusCode).To(Equal(http.StatusOK))
+						token, err := mockTokenStore.GetToken(context.Background(), rawToken.Reference())
+						Expect(err).NotTo(HaveOccurred())
 						Expect(token.GetMetadata().GetUsageCount()).To(Equal(int64(1)))
+						Expect(token.GetMetadata().GetCapabilities()).To(ContainElement(BeEquivalentTo(&core.TokenCapability{
+							Type: string(capabilities.JoinExistingCluster),
+							Reference: &core.Reference{
+								Id: "foo",
+							},
+						})))
 						clusterList, err := mockClusterStore.ListClusters(context.Background(), &core.LabelSelector{}, 0)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(clusterList.Items).To(HaveLen(1))
-						Expect(clusterList.Items[0].Labels).To(HaveKeyWithValue("foo", "bar"))
+						Expect(clusterList.Items[0].GetLabels()).To(HaveKeyWithValue("foo", "bar"))
 
 						By("checking that the cluster's keyring was stored")
 						ks, err := mockKeyringStoreBroker.KeyringStore(context.Background(), "gateway", &core.Reference{

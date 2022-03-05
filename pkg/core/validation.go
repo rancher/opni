@@ -13,7 +13,7 @@ func (c *Cluster) Validate() error {
 	if err := validation.ValidateID(c.Id); err != nil {
 		return err
 	}
-	if err := validation.ValidateLabels(c.Labels); err != nil {
+	if err := validation.ValidateLabels(c.GetMetadata().GetLabels()); err != nil {
 		return err
 	}
 	return nil

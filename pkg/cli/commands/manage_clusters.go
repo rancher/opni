@@ -80,7 +80,7 @@ func BuildClustersLabelCmd() *cobra.Command {
 				lg.Fatal(err)
 			}
 			currentLabels := map[string]string{}
-			for k, v := range cluster.Labels {
+			for k, v := range cluster.GetLabels() {
 				currentLabels[k] = v
 			}
 			for k, v := range labels {
@@ -110,7 +110,7 @@ func BuildClustersLabelCmd() *cobra.Command {
 					zap.Error(err),
 				).Fatal("Failed to edit cluster")
 			}
-			if reflect.DeepEqual(cluster.Labels, updatedCluster.Labels) {
+			if reflect.DeepEqual(cluster.GetLabels(), updatedCluster.GetLabels()) {
 				lg.Error("Updating cluster labels failed (unknown error)")
 				return
 			}

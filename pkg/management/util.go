@@ -1,13 +1,8 @@
 package management
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
-
-	"github.com/rancher/opni-monitoring/pkg/storage"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func DefaultManagementSocket() string {
@@ -20,14 +15,4 @@ func DefaultManagementSocket() string {
 		return "unix://" + filepath.Join(runUser, "opni-monitoring/management.sock")
 	}
 	return "unix:///tmp/opni-monitoring/management.sock"
-}
-
-func grpcError(err error) error {
-	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
-			return status.Error(codes.NotFound, err.Error())
-		}
-		return status.Error(codes.Internal, err.Error())
-	}
-	return nil
 }

@@ -45133,6 +45133,72 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    controller-gen.kubebuilder.io/version: v0.5.0
+  creationTimestamp: null
+  name: multiclusterrolebindings.opni.io
+spec:
+  group: opni.io
+  names:
+    kind: MulticlusterRoleBinding
+    listKind: MulticlusterRoleBindingList
+    plural: multiclusterrolebindings
+    singular: multiclusterrolebinding
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.state
+      name: State
+      type: boolean
+    name: v2beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              opensearch:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
+              opensearchExternalURL:
+                type: string
+            type: object
+          status:
+            properties:
+              conditions:
+                items:
+                  type: string
+                type: array
+              state:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: opensearchclusters.opensearch.opster.io

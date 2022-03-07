@@ -31,7 +31,8 @@ type MulticlusterRoleBindingStatus struct {
 }
 
 type MulticlusterRoleBindingSpec struct {
-	OpensearchCluster *OpensearchClusterRef `json:"opensearch,omitempty"`
+	OpensearchCluster     *OpensearchClusterRef `json:"opensearch,omitempty"`
+	OpensearchExternalURL string                `json:"opensearchExternalURL,omitempty"`
 }
 
 // +kubebuilder:object:root=true

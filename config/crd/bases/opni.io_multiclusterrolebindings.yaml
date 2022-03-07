@@ -42,6 +42,8 @@ spec:
                   namespace:
                     type: string
                 type: object
+              opensearchExternalURL:
+                type: string
             type: object
           status:
             properties:

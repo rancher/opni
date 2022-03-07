@@ -14,7 +14,7 @@ var _ = Describe("MAC", func() {
 	It("should correctly generate a MAC", func() {
 		_, key, err := ed25519.GenerateKey(nil)
 		Expect(err).NotTo(HaveOccurred())
-		tenantID := uuid.NewString()
+		tenantID := []byte(uuid.NewString())
 		payload := []byte("test")
 		uuid, mac, err := b2bmac.New512(tenantID, payload, key)
 		Expect(err).NotTo(HaveOccurred())
@@ -23,7 +23,7 @@ var _ = Describe("MAC", func() {
 	})
 	It("should error if the key is the wrong length", func() {
 		key := make([]byte, 65)
-		tenantID := uuid.NewString()
+		tenantID := []byte(uuid.NewString())
 		payload := []byte("test")
 		_, _, err := b2bmac.New512(tenantID, payload, key)
 		Expect(err).To(MatchError("blake2b: invalid key size"))
@@ -33,7 +33,7 @@ var _ = Describe("MAC", func() {
 	It("should correctly verify MACs", func() {
 		_, key, err := ed25519.GenerateKey(nil)
 		Expect(err).NotTo(HaveOccurred())
-		tenantID := uuid.NewString()
+		tenantID := []byte(uuid.NewString())
 		payload := []byte("test")
 		uuid, mac, err := b2bmac.New512(tenantID, payload, key)
 		Expect(err).NotTo(HaveOccurred())

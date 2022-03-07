@@ -136,11 +136,11 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
 	lg := a.logger
-	nonce, sig, err := b2bmac.New512(a.tenantID, c.Body(), a.sharedKeys.ClientKey)
+	nonce, sig, err := b2bmac.New512([]byte(a.tenantID), c.Body(), a.sharedKeys.ClientKey)
 	if err != nil {
 		lg.With(zap.Error(err)).Fatal("error generating MAC")
 	}
-	authHeader, err := b2bmac.EncodeAuthHeader(a.tenantID, nonce, sig)
+	authHeader, err := b2bmac.EncodeAuthHeader([]byte(a.tenantID), nonce, sig)
 	if err != nil {
 		lg.With(zap.Error(err)).Fatal("error encoding auth header")
 	}

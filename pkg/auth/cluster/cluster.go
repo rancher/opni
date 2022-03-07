@@ -42,7 +42,7 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 	}
 
 	ks, err := m.keyringStore.KeyringStore(context.Background(), "cluster", &core.Reference{
-		Id: clusterID,
+		Id: string(clusterID),
 	})
 	if err != nil {
 		lg.Printf("unauthorized: no keyring store found for cluster %s: %v", clusterID, err)
@@ -68,6 +68,6 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	c.Request().Header.Add("X-Scope-OrgID", clusterID)
+	c.Request().Header.Add("X-Scope-OrgID", string(clusterID))
 	return c.Next()
 }

@@ -106,3 +106,89 @@ var ManagementAPIExtension_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "pkg/plugins/apis/apiextensions/apiextensions.proto",
 }
+
+// GatewayAPIExtensionClient is the client API for GatewayAPIExtension service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type GatewayAPIExtensionClient interface {
+	Configure(ctx context.Context, in *CertConfig, opts ...grpc.CallOption) (*GatewayAPIExtensionConfig, error)
+}
+
+type gatewayAPIExtensionClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewGatewayAPIExtensionClient(cc grpc.ClientConnInterface) GatewayAPIExtensionClient {
+	return &gatewayAPIExtensionClient{cc}
+}
+
+func (c *gatewayAPIExtensionClient) Configure(ctx context.Context, in *CertConfig, opts ...grpc.CallOption) (*GatewayAPIExtensionConfig, error) {
+	out := new(GatewayAPIExtensionConfig)
+	err := c.cc.Invoke(ctx, "/apiextensions.GatewayAPIExtension/Configure", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GatewayAPIExtensionServer is the server API for GatewayAPIExtension service.
+// All implementations must embed UnimplementedGatewayAPIExtensionServer
+// for forward compatibility
+type GatewayAPIExtensionServer interface {
+	Configure(context.Context, *CertConfig) (*GatewayAPIExtensionConfig, error)
+	mustEmbedUnimplementedGatewayAPIExtensionServer()
+}
+
+// UnimplementedGatewayAPIExtensionServer must be embedded to have forward compatible implementations.
+type UnimplementedGatewayAPIExtensionServer struct {
+}
+
+func (UnimplementedGatewayAPIExtensionServer) Configure(context.Context, *CertConfig) (*GatewayAPIExtensionConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Configure not implemented")
+}
+func (UnimplementedGatewayAPIExtensionServer) mustEmbedUnimplementedGatewayAPIExtensionServer() {}
+
+// UnsafeGatewayAPIExtensionServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to GatewayAPIExtensionServer will
+// result in compilation errors.
+type UnsafeGatewayAPIExtensionServer interface {
+	mustEmbedUnimplementedGatewayAPIExtensionServer()
+}
+
+func RegisterGatewayAPIExtensionServer(s grpc.ServiceRegistrar, srv GatewayAPIExtensionServer) {
+	s.RegisterService(&GatewayAPIExtension_ServiceDesc, srv)
+}
+
+func _GatewayAPIExtension_Configure_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CertConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GatewayAPIExtensionServer).Configure(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/apiextensions.GatewayAPIExtension/Configure",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GatewayAPIExtensionServer).Configure(ctx, req.(*CertConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// GatewayAPIExtension_ServiceDesc is the grpc.ServiceDesc for GatewayAPIExtension service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var GatewayAPIExtension_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "apiextensions.GatewayAPIExtension",
+	HandlerType: (*GatewayAPIExtensionServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Configure",
+			Handler:    _GatewayAPIExtension_Configure_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "pkg/plugins/apis/apiextensions/apiextensions.proto",
+}

@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
+	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"google.golang.org/grpc"
 )
@@ -46,7 +47,7 @@ func NewApiExtensionTestPlugin(
 		impl:    impl,
 	}
 	scheme := meta.NewScheme()
-	scheme.Add(apiextensions.ManagementAPIExtensionPluginID, p)
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, p)
 
 	cfg := plugins.ServeConfig(scheme)
 	ch := make(chan *plugin.ReattachConfig)

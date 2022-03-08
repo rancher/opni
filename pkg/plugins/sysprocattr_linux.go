@@ -1,6 +1,6 @@
 //go:build linux
 
-package test
+package plugins
 
 import (
 	"os/exec"

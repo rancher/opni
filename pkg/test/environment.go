@@ -35,6 +35,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
+	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api"
 	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
@@ -258,7 +259,7 @@ func (e *Environment) startEtcd() {
 	cmd.Env = []string{"ALLOW_NONE_AUTHENTICATION=yes"}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	ConfigureSysProcAttr(cmd)
+	plugins.ConfigureSysProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
@@ -313,7 +314,7 @@ func (e *Environment) startCortex() {
 	cmd := exec.CommandContext(e.ctx, cortexBin, defaultArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	ConfigureSysProcAttr(cmd)
+	plugins.ConfigureSysProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
@@ -376,7 +377,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 	cmd := exec.CommandContext(e.ctx, prometheusBin, defaultArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	ConfigureSysProcAttr(cmd)
+	plugins.ConfigureSysProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)

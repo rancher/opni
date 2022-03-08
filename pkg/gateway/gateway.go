@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"runtime/debug"
@@ -13,7 +11,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
-	"github.com/gofiber/fiber/v2/utils"
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni-monitoring/pkg/auth/cluster"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
@@ -24,6 +21,8 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
+	gatewayext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/gateway"
+	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	pluginmeta "github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"github.com/rancher/opni-monitoring/pkg/rbac"
@@ -32,9 +31,9 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/storage/etcd"
 	"github.com/rancher/opni-monitoring/pkg/storage/secrets"
 	"github.com/rancher/opni-monitoring/pkg/util"
+	"github.com/rancher/opni-monitoring/pkg/util/fwd"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/rancher/opni-monitoring/pkg/webui"
-	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 	"golang.org/x/mod/module"
 	"google.golang.org/grpc/codes"
@@ -154,7 +153,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 		return c.SendStatus(http.StatusOK)
 	})
 
-	servingCertBundle, err := loadServingCertBundle(conf.Spec.Certs)
+	servingCertBundle, caPool, err := util.LoadServingCertBundle(conf.Spec.Certs)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
@@ -163,10 +162,11 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 
 	tlsConfig := &tls.Config{
 		MinVersion:   tls.VersionTLS12,
+		RootCAs:      caPool,
 		Certificates: []tls.Certificate{*servingCertBundle},
 	}
 
-	apiExtensionPlugins := pluginLoader.DispenseAll(apiextensions.ManagementAPIExtensionPluginID)
+	apiExtensionPlugins := pluginLoader.DispenseAll(managementext.ManagementAPIExtensionPluginID)
 
 	mgmtSrv := management.NewServer(ctx, &conf.Spec.Management,
 		management.StorageBackend(storageBackend),
@@ -190,6 +190,20 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 	g.loadCortexCerts()
 	g.setupCortexRoutes(storageBackend, storageBackend)
 
+	gatewayExtensionPlugins := plugins.DispenseAllAs[apiextensions.GatewayAPIExtensionClient](
+		pluginLoader, gatewayext.GatewayAPIExtensionPluginID)
+
+	for _, plugin := range gatewayExtensionPlugins {
+		cfg, err := plugin.Typed.Configure(ctx, apiextensions.NewCertConfig(g.config.Spec.Certs))
+		if err != nil {
+			lg.With(
+				zap.String("plugin", plugin.Metadata.Module),
+				zap.Error(err),
+			).Fatal("failed to configure routes")
+		}
+		g.setupPluginRoutes(cfg)
+	}
+
 	app.Post("/bootstrap/*", bootstrap.ServerConfig{
 		Certificate:        servingCertBundle,
 		TokenStore:         storageBackend,
@@ -206,6 +220,18 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 	})
 
 	return g
+}
+
+func (g *Gateway) setupPluginRoutes(cfg *apiextensions.GatewayAPIExtensionConfig) {
+	lg := g.logger
+	forwarder := fwd.To(cfg.HttpAddr, fwd.WithTLS(g.tlsConfig))
+	for _, route := range cfg.Routes {
+		g.app.Add(route.Method, route.Path, forwarder)
+		lg.With(
+			zap.String("method", route.Method),
+			zap.String("path", route.Path),
+		).Info("added route from plugin")
+	}
 }
 
 func (g *Gateway) Listen() error {
@@ -290,33 +316,6 @@ func (g *Gateway) Listen() error {
 	return g.app.Listener(listener)
 }
 
-func (g *Gateway) newCortexForwarder(addr string) func(*fiber.Ctx) error {
-	if addr == "" {
-		panic("newCortexForwarder: address is empty")
-	}
-	hostClient := &fasthttp.HostClient{
-		NoDefaultUserAgentHeader: true,
-		DisablePathNormalizing:   true,
-		Addr:                     addr,
-		IsTLS:                    true,
-		TLSConfig:                g.cortexTLSConfig,
-	}
-	return func(c *fiber.Ctx) error {
-		req := c.Request()
-		resp := c.Response()
-		req.Header.Del(fiber.HeaderConnection)
-		req.SetRequestURI(utils.UnsafeString(req.RequestURI()))
-		if err := hostClient.Do(req, resp); err != nil {
-			return fmt.Errorf("cortex error: %w", err)
-		}
-		resp.Header.Del(fiber.HeaderConnection)
-		if resp.StatusCode() != http.StatusOK {
-			resp.Header.SetStatusMessage([]byte(fmt.Sprintf("cortex: %s", resp.Header.StatusMessage())))
-		}
-		return nil
-	}
-}
-
 func (g *Gateway) loadCortexCerts() {
 	lg := g.logger
 	cortexServerCA := g.config.Spec.Cortex.Certs.ServerCA
@@ -362,10 +361,10 @@ func (g *Gateway) setupCortexRoutes(
 	rbacStore storage.RBACStore,
 	clusterStore storage.ClusterStore,
 ) {
-	queryFrontend := g.newCortexForwarder(g.config.Spec.Cortex.QueryFrontend.Address)
-	alertmanager := g.newCortexForwarder(g.config.Spec.Cortex.Alertmanager.Address)
-	ruler := g.newCortexForwarder(g.config.Spec.Cortex.Ruler.Address)
-	distributor := g.newCortexForwarder(g.config.Spec.Cortex.Distributor.Address)
+	queryFrontend := fwd.To(g.config.Spec.Cortex.QueryFrontend.Address, fwd.WithTLS(g.cortexTLSConfig), fwd.WithName("cortex.query-frontend"))
+	alertmanager := fwd.To(g.config.Spec.Cortex.Alertmanager.Address, fwd.WithTLS(g.cortexTLSConfig), fwd.WithName("cortex.alertmanager"))
+	ruler := fwd.To(g.config.Spec.Cortex.Ruler.Address, fwd.WithTLS(g.cortexTLSConfig), fwd.WithName("cortex.ruler"))
+	distributor := fwd.To(g.config.Spec.Cortex.Distributor.Address, fwd.WithTLS(g.cortexTLSConfig), fwd.WithName("cortex.distributor"))
 
 	rbacProvider := storage.NewRBACProvider(rbacStore, clusterStore)
 	rbacMiddleware := rbac.NewMiddleware(rbacProvider)
@@ -407,65 +406,6 @@ func (g *Gateway) setupCortexRoutes(
 	v1.Post("/push", distributor)
 }
 
-// Returns a complete cert chain including the root CA, and a tls serving cert.
-func loadServingCertBundle(certsSpec v1beta1.CertsSpec) (*tls.Certificate, error) {
-	var caCertData, servingCertData, servingKeyData []byte
-	switch {
-	case certsSpec.CACert != nil:
-		data, err := os.ReadFile(*certsSpec.CACert)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load CA cert: %w", err)
-		}
-		caCertData = data
-	case certsSpec.CACertData != nil:
-		caCertData = []byte(*certsSpec.CACertData)
-	default:
-		return nil, errors.New("no CA cert configured")
-	}
-	switch {
-	case certsSpec.ServingCert != nil:
-		data, err := os.ReadFile(*certsSpec.ServingCert)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load serving cert: %w", err)
-		}
-		servingCertData = data
-	case certsSpec.ServingCertData != nil:
-		servingCertData = []byte(*certsSpec.ServingCertData)
-	default:
-		return nil, errors.New("no serving cert configured")
-	}
-	switch {
-	case certsSpec.ServingKey != nil:
-		data, err := os.ReadFile(*certsSpec.ServingKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load serving key: %w", err)
-		}
-		servingKeyData = data
-	case certsSpec.ServingKeyData != nil:
-		servingKeyData = []byte(*certsSpec.ServingKeyData)
-	default:
-		return nil, errors.New("no serving key configured")
-	}
-
-	rootCA, err := util.ParsePEMEncodedCert(caCertData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse CA cert: %w", err)
-	}
-	servingCert, err := tls.X509KeyPair(servingCertData, servingKeyData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load TLS certificate: %w", err)
-	}
-	servingRootData := servingCert.Certificate[len(servingCert.Certificate)-1]
-	servingRoot, err := x509.ParseCertificate(servingRootData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse serving root certificate: %w", err)
-	}
-	if !rootCA.Equal(servingRoot) {
-		servingCert.Certificate = append(servingCert.Certificate, rootCA.Raw)
-	}
-	return &servingCert, nil
-}
-
 func loadPlugins(loader *plugins.PluginLoader, conf v1beta1.PluginsSpec) {
 	for _, dir := range conf.Dirs {
 		pluginPaths, err := plugin.Discover("plugin_*", dir)
@@ -480,7 +420,7 @@ func loadPlugins(loader *plugins.PluginLoader, conf v1beta1.PluginsSpec) {
 				).Error("failed to read plugin metadata", zap.Error(err))
 				continue
 			}
-			cc := plugins.ClientConfig(md, plugins.Scheme)
+			cc := plugins.ClientConfig(md, plugins.ClientScheme)
 			loader.Load(md, cc)
 		}
 	}

@@ -13,12 +13,14 @@ import (
 
 func ClientConfig(md meta.PluginMeta, scheme meta.Scheme) *plugin.ClientConfig {
 	//#nosec G204
+	cmd := exec.Command(md.BinaryPath)
+	ConfigureSysProcAttr(cmd)
 	return &plugin.ClientConfig{
 		Plugins:          scheme.PluginMap(),
 		HandshakeConfig:  Handshake,
-		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC, plugin.ProtocolNetRPC},
 		Managed:          true,
-		Cmd:              exec.Command(md.BinaryPath),
+		Cmd:              cmd,
 		Logger:           logger.NewHCLogger(logger.New()).Named("plugin"),
 		SyncStdout:       os.Stdout,
 		SyncStderr:       os.Stderr,
@@ -39,9 +41,10 @@ func Serve(scheme meta.Scheme) {
 }
 
 type ActivePlugin struct {
-	Metadata meta.PluginMeta
-	Client   *grpc.ClientConn
-	Raw      interface{}
+	Metadata   meta.PluginMeta
+	GRPCClient *grpc.ClientConn
+	RPCClient  *plugin.RPCClient
+	Raw        interface{}
 }
 
 type PluginLoader struct {
@@ -84,14 +87,41 @@ func (pl *PluginLoader) Load(md meta.PluginMeta, cc *plugin.ClientConfig) {
 			"plugin", md.Module,
 			"id", id,
 		).Debug("implementation found")
-		pl.ActivePlugins[id] = append(pl.ActivePlugins[id], ActivePlugin{
-			Metadata: md,
-			Client:   rpcClient.(*plugin.GRPCClient).Conn,
-			Raw:      raw,
-		})
+		switch c := rpcClient.(type) {
+		case *plugin.GRPCClient:
+			pl.ActivePlugins[id] = append(pl.ActivePlugins[id], ActivePlugin{
+				Metadata:   md,
+				GRPCClient: c.Conn,
+				Raw:        raw,
+			})
+		case *plugin.RPCClient:
+			pl.ActivePlugins[id] = append(pl.ActivePlugins[id], ActivePlugin{
+				Metadata:  md,
+				RPCClient: c,
+				Raw:       raw,
+			})
+		}
 	}
 }
 
 func (pl *PluginLoader) DispenseAll(id string) []ActivePlugin {
 	return pl.ActivePlugins[id]
+}
+
+type TypedActivePlugin[T any] struct {
+	Metadata meta.PluginMeta
+	Client   *grpc.ClientConn
+	Typed    T
+}
+
+func DispenseAllAs[T any](pl *PluginLoader, id string) []TypedActivePlugin[T] {
+	var typed []TypedActivePlugin[T]
+	for _, ap := range pl.DispenseAll(id) {
+		typed = append(typed, TypedActivePlugin[T]{
+			Metadata: ap.Metadata,
+			Client:   ap.GRPCClient,
+			Typed:    ap.Raw.(T),
+		})
+	}
+	return typed
 }

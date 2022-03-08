@@ -124,7 +124,7 @@ func (s *systemPluginHandler) ServeKeyValueStore(store storage.KeyValueStore) {
 }
 
 func init() {
-	plugins.Scheme.Add(SystemPluginID, NewPlugin(nil))
+	plugins.ClientScheme.Add(SystemPluginID, NewPlugin(nil))
 }
 
 func (s *systemPluginHandler) serveSystemApi(regCallback func(*grpc.Server), useCallback func(uint32)) {

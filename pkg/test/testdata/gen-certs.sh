@@ -7,7 +7,7 @@ step certificate create "Example Intermediate CA 1" intermediate_ca_1.crt interm
 step certificate create "Example Intermediate CA 2" intermediate_ca_2.crt intermediate_ca_2.key --profile=intermediate-ca --ca=intermediate_ca_1.crt --ca-key=intermediate_ca_1.key "${args[@]}"
 step certificate create "Example Intermediate CA 3" intermediate_ca_3.crt intermediate_ca_3.key --profile=intermediate-ca --ca=intermediate_ca_2.crt --ca-key=intermediate_ca_2.key "${args[@]}"
 step certificate create "example.com" example.com.crt example.com.key --profile=leaf --ca=intermediate_ca_3.crt --ca-key=intermediate_ca_3.key "${args[@]}"
-step certificate create "leaf" localhost.crt localhost.key --profile=leaf --ca=root_ca.crt --ca-key=root_ca.key --san=localhost "${args[@]}"
+step certificate create "leaf" localhost.crt localhost.key --profile=leaf --ca=root_ca.crt --ca-key=root_ca.key --san=localhost --san=127.0.0.1 "${args[@]}"
 step certificate create "self-signed-leaf" self_signed_leaf.crt self_signed_leaf.key --profile=self-signed --subtle "${args[@]}"
 
 cat example.com.crt intermediate_ca_3.crt intermediate_ca_2.crt intermediate_ca_1.crt root_ca.crt >full_chain.crt

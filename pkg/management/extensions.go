@@ -46,7 +46,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.Stream
 			continue
 		}
 		reflectClient := grpcreflect.NewClient(ctx,
-			rpb.NewServerReflectionClient(plugin.Client))
+			rpb.NewServerReflectionClient(plugin.GRPCClient))
 		sd, err := ext.Descriptor(ctx, &emptypb.Empty{})
 		if err != nil {
 			m.logger.With(
@@ -77,7 +77,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.Stream
 			lg.With(
 				"name", fullName,
 			).Info("loading method")
-			methodTable[fullName] = plugin.Client
+			methodTable[fullName] = plugin.GRPCClient
 		}
 		httpRules := loadHttpRuleDescriptors(svcDesc)
 		if len(httpRules) > 0 {
@@ -96,7 +96,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.Stream
 		}
 		m.apiExtensions = append(m.apiExtensions, apiExtension{
 			client:      ext,
-			clientConn:  plugin.Client,
+			clientConn:  plugin.GRPCClient,
 			serviceDesc: svcDesc,
 			httpRules:   httpRules,
 		})

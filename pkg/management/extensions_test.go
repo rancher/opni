@@ -23,6 +23,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
+	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"github.com/rancher/opni-monitoring/pkg/test"
 	mock_apiextensions "github.com/rancher/opni-monitoring/pkg/test/mock/apiextensions"
@@ -127,7 +128,7 @@ var _ = Describe("Extensions", Ordered, func() {
 			}, cc2)
 		}
 
-		extensions := pl.DispenseAll(apiextensions.ManagementAPIExtensionPluginID)
+		extensions := pl.DispenseAll(managementext.ManagementAPIExtensionPluginID)
 		setupManagementServer(&tv, management.APIExtensions(extensions))()
 		DeferCleanup(plugin.CleanupClients)
 	})

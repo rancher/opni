@@ -1,4 +1,4 @@
-package apiextensions
+package managementext
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -15,7 +16,7 @@ import (
 type managementApiExtensionPlugin struct {
 	plugin.NetRPCUnsupportedPlugin
 
-	extensionSrv *apiExtensionServerImpl
+	extensionSrv *mgmtExtensionServerImpl
 }
 
 var _ plugin.GRPCPlugin = (*managementApiExtensionPlugin)(nil)
@@ -25,7 +26,7 @@ func (p *managementApiExtensionPlugin) GRPCServer(
 	broker *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
-	RegisterManagementAPIExtensionServer(s, p.extensionSrv)
+	apiextensions.RegisterManagementAPIExtensionServer(s, p.extensionSrv)
 	s.RegisterService(p.extensionSrv.rawServiceDesc, p.extensionSrv.serviceImpl)
 	return nil
 }
@@ -35,7 +36,7 @@ func (p *managementApiExtensionPlugin) GRPCClient(
 	broker *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
-	return NewManagementAPIExtensionClient(c), nil
+	return apiextensions.NewManagementAPIExtensionClient(c), nil
 }
 
 func NewPlugin(desc *grpc.ServiceDesc, impl interface{}) plugin.Plugin {
@@ -45,7 +46,7 @@ func NewPlugin(desc *grpc.ServiceDesc, impl interface{}) plugin.Plugin {
 	}
 
 	return &managementApiExtensionPlugin{
-		extensionSrv: &apiExtensionServerImpl{
+		extensionSrv: &mgmtExtensionServerImpl{
 			rawServiceDesc: desc,
 			serviceDesc:    descriptor,
 			serviceImpl:    impl,
@@ -55,23 +56,24 @@ func NewPlugin(desc *grpc.ServiceDesc, impl interface{}) plugin.Plugin {
 
 const ManagementAPIExtensionPluginID = "apiextensions.ManagementAPIExtension"
 
-type apiExtensionServerImpl struct {
-	UnimplementedManagementAPIExtensionServer
+type mgmtExtensionServerImpl struct {
+	apiextensions.UnimplementedManagementAPIExtensionServer
 	rawServiceDesc *grpc.ServiceDesc
 	serviceDesc    *desc.ServiceDescriptor
 	serviceImpl    interface{}
 }
 
-func (e *apiExtensionServerImpl) Descriptor(ctx context.Context, _ *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
+func (e *mgmtExtensionServerImpl) Descriptor(ctx context.Context, _ *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
 	fqn := e.serviceDesc.GetFullyQualifiedName()
 	sd := e.serviceDesc.AsServiceDescriptorProto()
 	sd.Name = &fqn
 	return sd, nil
 }
 
-var _ ManagementAPIExtensionServer = (*apiExtensionServerImpl)(nil)
+var _ apiextensions.ManagementAPIExtensionServer = (*mgmtExtensionServerImpl)(nil)
 
 func init() {
-	plugins.Scheme.Add(ManagementAPIExtensionPluginID,
-		NewPlugin(&ManagementAPIExtension_ServiceDesc, UnimplementedManagementAPIExtensionServer{}))
+	plugins.ClientScheme.Add(ManagementAPIExtensionPluginID,
+		NewPlugin(&apiextensions.ManagementAPIExtension_ServiceDesc,
+			apiextensions.UnimplementedManagementAPIExtensionServer{}))
 }

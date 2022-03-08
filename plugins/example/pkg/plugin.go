@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
@@ -58,4 +59,13 @@ func (s *ExamplePlugin) UseKeyValueStore(kv system.KVStoreClient) {
 		lg.Error("kv store error", "error", err)
 	}
 	lg.Info("successfully retrieved stored value", "message", out.Message)
+}
+
+func (s *ExamplePlugin) ConfigureRoutes(app *fiber.App) {
+	app.Get("/example", func(c *fiber.Ctx) error {
+		s.Logger.Debug("handling /example")
+		return c.JSON(map[string]string{
+			"message": "hello world",
+		})
+	})
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 )
 
-var Scheme = meta.NewScheme()
+var ClientScheme = meta.NewScheme()
 
 var Handshake = plugin.HandshakeConfig{
 	ProtocolVersion:  plugin.CoreProtocolVersion,

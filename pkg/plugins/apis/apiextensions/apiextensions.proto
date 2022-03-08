@@ -8,3 +8,28 @@ package apiextensions;
 service ManagementAPIExtension {
   rpc Descriptor(google.protobuf.Empty) returns (google.protobuf.ServiceDescriptorProto);
 }
+
+service GatewayAPIExtension {
+  rpc Configure(CertConfig) returns (GatewayAPIExtensionConfig);
+}
+
+message CertConfig {
+  string ca = 1;
+  string caData = 2;
+  string cert = 3;
+  string certData = 4;
+  string key = 5;
+  string keyData = 6;
+}
+
+message GatewayAPIExtensionConfig {
+  string HttpAddr = 1;
+  repeated Route routes = 2;
+}
+
+message Route {
+  string method = 1;
+  string name = 2;
+  string path = 3;
+  repeated string params = 4;
+}

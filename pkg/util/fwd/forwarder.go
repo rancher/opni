@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"
@@ -57,6 +58,8 @@ func To(addr string, opts ...ForwarderOption) func(*fiber.Ctx) error {
 	}
 
 	hostClient := &fasthttp.HostClient{
+		MaxConnWaitTimeout:       2 * time.Second,
+		MaxConns:                 4096,
 		NoDefaultUserAgentHeader: true,
 		DisablePathNormalizing:   true,
 		Addr:                     addr,

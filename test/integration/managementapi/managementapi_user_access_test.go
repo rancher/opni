@@ -109,6 +109,13 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
 			Consistently(errC).ShouldNot(Receive())
 
+			Eventually(func() error {
+				_, err := client.GetCluster(context.Background(), &core.Reference{
+					Id: clusterName,
+				})
+				return err
+			}).Should(Succeed())
+
 			_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
 				Cluster: &core.Reference{
 					Id: clusterName,

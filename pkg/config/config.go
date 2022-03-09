@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,24 +30,12 @@ var configLog = logger.New().Named("config")
 type GatewayConfig = v1beta1.GatewayConfig
 
 func LoadObjectsFromFile(path string) (meta.ObjectList, error) {
-	f, err := os.Open(path)
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	// 1MB buffer for all documents
-	decoder := yaml.NewDocumentDecoder(f)
-	var documents [][]byte
-	for {
-		buf := bytes.NewBuffer(make([]byte, 0, 1024*1024))
-		if _, err := buf.ReadFrom(decoder); err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return nil, err
-		}
-		documents = append(documents, buf.Bytes())
-	}
 	objects := []meta.Object{}
+	documents := bytes.Split(data, []byte("\n---\n"))
 	for i, document := range documents {
 		lg := configLog.With(
 			"path", path,
@@ -65,6 +53,44 @@ func LoadObjectsFromFile(path string) (meta.ObjectList, error) {
 	}
 	return objects, nil
 }
+
+// func LoadObjectsFromFile(path string) (meta.ObjectList, error) {
+// 	f, err := os.Open(path)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	// 1MB buffer for all documents
+// 	decoder := yaml.NewDocumentDecoder(f)
+// 	var documents [][]byte
+// 	for {
+// 		buf := bytes.NewBuffer(make([]byte, 0, 1024*1024))
+// 		n, err := buf.ReadFrom(decoder)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		if n == 0 {
+// 			break
+// 		}
+// 		documents = append(documents, buf.Bytes())
+// 	}
+// 	objects := []meta.Object{}
+// 	for i, document := range documents {
+// 		lg := configLog.With(
+// 			"path", path,
+// 			"documentIndex", i,
+// 		)
+// 		if len(strings.TrimSpace(string(document))) == 0 {
+// 			continue
+// 		}
+// 		object, err := LoadObject(document)
+// 		if err != nil {
+// 			lg.Error("error loading config", zap.Error(err))
+// 			continue
+// 		}
+// 		objects = append(objects, object)
+// 	}
+// 	return objects, nil
+// }
 
 func LoadObject(document []byte) (meta.Object, error) {
 	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(document), 4096)

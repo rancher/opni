@@ -9,12 +9,15 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/b2bmac"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/storage"
+	"go.uber.org/zap"
 )
 
 type ClusterMiddleware struct {
 	keyringStore storage.KeyringStoreBroker
 	headerKey    string
+	logger       *zap.SugaredLogger
 }
 
 var _ auth.Middleware = (*ClusterMiddleware)(nil)
@@ -23,6 +26,7 @@ func New(keyringStore storage.KeyringStoreBroker, headerKey string) *ClusterMidd
 	return &ClusterMiddleware{
 		keyringStore: keyringStore,
 		headerKey:    headerKey,
+		logger:       logger.New().Named("auth").Named("cluster"),
 	}
 }
 
@@ -31,28 +35,31 @@ func (m *ClusterMiddleware) Description() string {
 }
 
 func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
-	lg := c.Context().Logger()
+	lg := m.logger
+	lg.Debug("handling auth request")
 	authHeader := c.Get("Authorization")
 	if authHeader == "" {
+		lg.Debug("unauthorized: authorization header required")
 		return c.Status(fiber.StatusUnauthorized).SendString("Authorization header required")
 	}
 
 	clusterID, nonce, mac, err := b2bmac.DecodeAuthHeader(authHeader)
 	if err != nil {
+		lg.Debug("unauthorized: malformed MAC in auth header")
 		return c.Status(fiber.StatusUnauthorized).SendString(err.Error())
 	}
 
-	ks, err := m.keyringStore.KeyringStore(context.Background(), "cluster", &core.Reference{
+	ks, err := m.keyringStore.KeyringStore(context.Background(), "gateway", &core.Reference{
 		Id: string(clusterID),
 	})
 	if err != nil {
-		lg.Printf("unauthorized: no keyring store found for cluster %s: %v", clusterID, err)
+		lg.Debugf("unauthorized: no keyring store found for cluster %s: %v", clusterID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
 	kr, err := ks.Get(context.Background())
 	if err != nil {
-		lg.Printf("unauthorized: no keyring found for cluster %s: %v", clusterID, err)
+		lg.Debugf("unauthorized: no keyring found for cluster %s: %v", clusterID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
@@ -60,12 +67,12 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 	if ok := kr.Try(func(shared *keyring.SharedKeys) {
 		clientKey = shared.ClientKey
 	}); !ok {
-		lg.Printf("unauthorized: invalid keyring for cluster %s: %v", clusterID, err)
+		lg.Debugf("unauthorized: invalid keyring for cluster %s: %v", clusterID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
 	if err := b2bmac.Verify(mac, clusterID, nonce, c.Body(), clientKey); err != nil {
-		lg.Printf("unauthorized: invalid mac for cluster %s: %v", clusterID, err)
+		lg.Debugf("unauthorized: invalid mac for cluster %s: %v", clusterID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 

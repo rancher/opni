@@ -72,6 +72,7 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 	m.lock.Unlock()
 
 	lg := c.Context().Logger()
+	lg.Printf("handling auth request")
 	// Some providers serve their JWKS URI at `/.well-known/jwks.json`, which is
 	// not a registered well-known URI. openid-configuration is, however.
 	ctx, ca := context.WithTimeout(c.Context(), time.Second*5)

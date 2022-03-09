@@ -84,7 +84,10 @@ func To(addr string, opts ...ForwarderOption) func(*fiber.Ctx) error {
 		}
 		resp.Header.Del(fiber.HeaderConnection)
 		if resp.StatusCode() != http.StatusOK {
-			resp.Header.SetStatusMessage([]byte(fmt.Sprintf("%sforwarder: %s", options.name, resp.Header.StatusMessage())))
+			options.logger.With(
+				"response", string(resp.Body()),
+				"req", c.Path(),
+			).Error("error forwarding request")
 		}
 		return nil
 	}

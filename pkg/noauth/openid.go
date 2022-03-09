@@ -226,7 +226,7 @@ func (s *Server) handleAuthorizeRequest(w http.ResponseWriter, r *http.Request) 
 		session.Claims.Add("email", emailify(username))
 	}
 	if ar.GetGrantedScopes().Has("profile") {
-		session.Claims.Add("grafana_role", "admin")
+		session.Claims.Add("grafana_role", "Admin")
 	}
 
 	resp, err := s.noauthProvider.NewAuthorizeResponse(ctx, ar, session)

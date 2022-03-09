@@ -22,6 +22,7 @@ type NoauthMiddleware struct {
 
 var _ auth.Middleware = (*NoauthMiddleware)(nil)
 
+// todo: move noauth server start somewhere else
 func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
 	lg := logger.New().Named("noauth")
 	openidMw, err := openid.New(ctx, config)

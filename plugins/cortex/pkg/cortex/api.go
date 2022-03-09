@@ -9,7 +9,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/auth/cluster"
-	"github.com/rancher/opni-monitoring/pkg/machinery"
 	"github.com/rancher/opni-monitoring/pkg/rbac"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/util/fwd"
@@ -25,7 +24,8 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 	ruler := fwd.To(config.Spec.Cortex.Ruler.Address, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.ruler"))
 	distributor := fwd.To(config.Spec.Cortex.Distributor.Address, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.distributor"))
 
-	rbacProvider := storage.NewRBACProvider(machinery.SubjectAccessCapableStore(p.mgmtApi.Get()))
+	storageBackend := p.storageBackend.Get()
+	rbacProvider := storage.NewRBACProvider(storageBackend)
 	rbacMiddleware := rbac.NewMiddleware(rbacProvider, orgIDCodec)
 
 	authMiddleware, err := auth.GetMiddleware(config.Spec.AuthProvider)
@@ -68,7 +68,7 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 	promv1.Post("/read", queryFrontend)
 
 	// Remote-write API
-	clusterMiddleware := cluster.New(p.storageBackend.Get(), orgIDCodec.Key())
+	clusterMiddleware := cluster.New(storageBackend, orgIDCodec.Key())
 	v1 := app.Group("/api/v1", clusterMiddleware.Handle)
 	v1.Post("/push", distributor)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/retry"
@@ -57,6 +58,9 @@ func (c *CRDStore) GetToken(ctx context.Context, ref *core.Reference) (*core.Boo
 		Namespace: c.namespace,
 	}, token)
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, storage.ErrNotFound
+		}
 		return nil, err
 	}
 	patchTTL(token)
@@ -91,23 +95,23 @@ func (c *CRDStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, erro
 func (c *CRDStore) UpdateToken(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.BootstrapToken]) (*core.BootstrapToken, error) {
 	var token *core.BootstrapToken
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		token, err := c.GetToken(ctx, ref)
+		token := &v1beta1.BootstrapToken{}
+		err := c.client.Get(ctx, client.ObjectKey{
+			Name:      ref.Id,
+			Namespace: c.namespace,
+		}, token)
 		if err != nil {
 			return err
 		}
 		clone := token.DeepCopy()
-		mutator(clone)
+		mutator(clone.Spec)
 		token = clone
-		return c.client.Update(ctx, &v1beta1.BootstrapToken{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      ref.Id,
-				Namespace: c.namespace,
-				Labels:    clone.Metadata.Labels,
-			},
-			Spec: clone,
-		})
+		return c.client.Update(ctx, clone)
 	})
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, storage.ErrNotFound
+		}
 		return nil, err
 	}
 	return token, nil

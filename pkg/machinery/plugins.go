@@ -8,7 +8,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func LoadPlugins(loader *plugins.PluginLoader, conf v1beta1.PluginsSpec) {
+func LoadPlugins(loader *plugins.PluginLoader, conf v1beta1.PluginsSpec) int {
+	numLoaded := 0
 	for _, dir := range conf.Dirs {
 		pluginPaths, err := plugin.Discover("plugin_*", dir)
 		if err != nil {
@@ -24,6 +25,8 @@ func LoadPlugins(loader *plugins.PluginLoader, conf v1beta1.PluginsSpec) {
 			}
 			cc := plugins.ClientConfig(md, plugins.ClientScheme)
 			loader.Load(md, cc)
+			numLoaded++
 		}
 	}
+	return numLoaded
 }

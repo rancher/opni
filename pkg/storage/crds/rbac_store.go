@@ -5,6 +5,8 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/storage"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -35,6 +37,9 @@ func (c *CRDStore) GetRole(ctx context.Context, ref *core.Reference) (*core.Role
 		Namespace: c.namespace,
 	}, role)
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, storage.ErrNotFound
+		}
 		return nil, err
 	}
 	return role.Spec, nil
@@ -66,6 +71,9 @@ func (c *CRDStore) GetRoleBinding(ctx context.Context, ref *core.Reference) (*co
 		Namespace: c.namespace,
 	}, rb)
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, storage.ErrNotFound
+		}
 		return nil, err
 	}
 	return rb.Spec, nil

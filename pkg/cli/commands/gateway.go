@@ -55,6 +55,7 @@ func BuildGatewayCmd() *cobra.Command {
 				zap.Error(err),
 			).Fatal("failed to load config")
 		}
+		machinery.LoadAuthProviders(ctx, objects)
 		var gatewayConfig *v1beta1.GatewayConfig
 		objects.Visit(
 			func(config *v1beta1.GatewayConfig) {
@@ -64,8 +65,12 @@ func BuildGatewayCmd() *cobra.Command {
 			},
 		)
 
+		lg.With(
+			"dirs", gatewayConfig.Spec.Plugins.Dirs,
+		).Info("loading plugins")
 		pluginLoader := plugins.NewPluginLoader()
-		machinery.LoadPlugins(pluginLoader, gatewayConfig.Spec.Plugins)
+		numLoaded := machinery.LoadPlugins(pluginLoader, gatewayConfig.Spec.Plugins)
+		lg.Infof("loaded %d plugins", numLoaded)
 		mgmtExtensionPlugins := plugins.DispenseAllAs[apiextensions.ManagementAPIExtensionClient](
 			pluginLoader, managementext.ManagementAPIExtensionPluginID)
 		gatewayExtensionPlugins := plugins.DispenseAllAs[apiextensions.GatewayAPIExtensionClient](

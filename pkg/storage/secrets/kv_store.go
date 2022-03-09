@@ -5,8 +5,10 @@ import (
 	"strings"
 
 	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/storage"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,6 +63,9 @@ func (s *secretKeyValueStore) Get(ctx context.Context, key string) ([]byte, erro
 	secret := &corev1.Secret{}
 	err := s.client.Get(ctx, s.NamespacedName(), secret)
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, storage.ErrNotFound
+		}
 		return nil, err
 	}
 	return secret.Data[key], nil

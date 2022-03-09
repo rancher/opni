@@ -6,6 +6,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/storage"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,6 +39,9 @@ func (c *CRDStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.C
 		Namespace: c.namespace,
 	}, cluster)
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, storage.ErrNotFound
+		}
 		return nil, err
 	}
 	return cluster.Spec, nil
@@ -46,23 +50,23 @@ func (c *CRDStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.C
 func (c *CRDStore) UpdateCluster(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.Cluster]) (*core.Cluster, error) {
 	var cluster *core.Cluster
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		existing, err := c.GetCluster(ctx, ref)
+		existing := &v1beta1.Cluster{}
+		err := c.client.Get(ctx, client.ObjectKey{
+			Name:      ref.Id,
+			Namespace: c.namespace,
+		}, existing)
 		if err != nil {
 			return err
 		}
 		clone := existing.DeepCopy()
-		mutator(clone)
-		cluster = clone
-		return c.client.Update(ctx, &v1beta1.Cluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      ref.Id,
-				Namespace: c.namespace,
-				Labels:    clone.GetMetadata().GetLabels(),
-			},
-			Spec: clone,
-		})
+		mutator(clone.Spec)
+		cluster = clone.Spec
+		return c.client.Update(ctx, clone)
 	})
 	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, storage.ErrNotFound
+		}
 		return nil, err
 	}
 	return cluster, nil

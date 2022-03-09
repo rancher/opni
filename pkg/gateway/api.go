@@ -166,7 +166,9 @@ func (s *GatewayAPIServer) Shutdown() error {
 }
 
 func (s *GatewayAPIServer) setupPluginRoutes(cfg *apiextensions.GatewayAPIExtensionConfig) {
-	forwarder := fwd.To(cfg.HttpAddr, fwd.WithTLS(s.tlsConfig))
+	tlsConfig := s.tlsConfig.Clone()
+	tlsConfig.InsecureSkipVerify = true
+	forwarder := fwd.To(cfg.HttpAddr, fwd.WithTLS(tlsConfig), fwd.WithLogger(s.logger))
 	for _, route := range cfg.Routes {
 		s.app.Add(route.Method, route.Path, forwarder)
 		s.logger.With(
@@ -179,12 +181,12 @@ func (s *GatewayAPIServer) setupPluginRoutes(cfg *apiextensions.GatewayAPIExtens
 func (s *GatewayAPIServer) ConfigureBootstrapRoutes(storageBackend storage.Backend) {
 	limiterCfg := limiter.ConfigDefault
 	limiterCfg.Max = 60 // 60 requests per minute
-	s.app.Post("/bootstrap/*", bootstrap.ServerConfig{
+	s.app.Post("/bootstrap/*", limiter.New(limiterCfg), bootstrap.ServerConfig{
 		Certificate:        &s.tlsConfig.Certificates[0],
 		TokenStore:         storageBackend,
 		ClusterStore:       storageBackend,
 		KeyringStoreBroker: storageBackend,
-	}.Handle).Use(limiter.New(limiterCfg))
+	}.Handle)
 }
 
 func loadTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, error) {

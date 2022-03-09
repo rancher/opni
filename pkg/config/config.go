@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +13,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"go.uber.org/zap"
-	"sigs.k8s.io/yaml"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 var (
@@ -30,12 +30,24 @@ var configLog = logger.New().Named("config")
 type GatewayConfig = v1beta1.GatewayConfig
 
 func LoadObjectsFromFile(path string) (meta.ObjectList, error) {
-	data, err := ioutil.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
+	// 1MB buffer for all documents
+	decoder := yaml.NewDocumentDecoder(f)
+	var documents [][]byte
+	for {
+		buf := bytes.NewBuffer(make([]byte, 0, 1024*1024))
+		if _, err := buf.ReadFrom(decoder); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
+		}
+		documents = append(documents, buf.Bytes())
+	}
 	objects := []meta.Object{}
-	documents := bytes.Split(data, []byte("\n---\n"))
 	for i, document := range documents {
 		lg := configLog.With(
 			"path", path,
@@ -55,8 +67,9 @@ func LoadObjectsFromFile(path string) (meta.ObjectList, error) {
 }
 
 func LoadObject(document []byte) (meta.Object, error) {
+	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(document), 4096)
 	typeMeta := meta.TypeMeta{}
-	if err := yaml.Unmarshal(document, &typeMeta); err != nil {
+	if err := decoder.Decode(&typeMeta); err != nil {
 		return nil, errors.New("object has missing or invalid TypeMeta")
 	}
 	if typeMeta.APIVersion == "" || typeMeta.Kind == "" {

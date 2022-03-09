@@ -11,17 +11,12 @@ import (
 	"go.uber.org/zap"
 )
 
-type ClusterRBACStore interface {
-	ClusterStore
-	RBACStore
-}
-
 type rbacProvider struct {
-	store  ClusterRBACStore
+	store  SubjectAccessCapableStore
 	logger *zap.SugaredLogger
 }
 
-func NewRBACProvider(store ClusterRBACStore) rbac.Provider {
+func NewRBACProvider(store SubjectAccessCapableStore) rbac.Provider {
 	return &rbacProvider{
 		store:  store,
 		logger: logger.New().Named("rbac"),

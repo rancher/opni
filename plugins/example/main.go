@@ -7,7 +7,7 @@ import (
 	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
-	example "github.com/rancher/opni-monitoring/plugins/example/pkg"
+	"github.com/rancher/opni-monitoring/plugins/example/pkg/example"
 )
 
 func main() {

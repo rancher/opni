@@ -17,6 +17,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/rbac"
 	mock_rbac "github.com/rancher/opni-monitoring/pkg/test/mock/rbac"
+	"github.com/rancher/opni-monitoring/pkg/util"
 )
 
 var testUsers = map[string][]string{
@@ -62,7 +63,7 @@ var _ = Describe("Middleware", func() {
 		})
 
 		By("adding the rbac middleware")
-		app.Use(rbac.NewMiddleware(mockProvider))
+		app.Use(rbac.NewMiddleware(mockProvider, util.NewDelimiterCodec("foo", "|")))
 
 		By("adding test middleware to check the resulting headers")
 		app.Use(func(c *fiber.Ctx) error {
@@ -71,7 +72,7 @@ var _ = Describe("Middleware", func() {
 			userId := c.Locals(rbac.UserIDKey)
 			Expect(userId).NotTo(BeNil())
 			req := c.Request()
-			orgId := string(req.Header.Peek("X-Scope-OrgID"))
+			orgId := string(req.Header.Peek("foo"))
 			Expect(orgId).NotTo(BeEmpty())
 			tenants := testUsers[userId.(string)]
 			Expect(tenants).NotTo(BeEmpty())
@@ -114,7 +115,7 @@ var _ = Describe("Middleware", func() {
 		logger.ConfigureAppLogger(app, "test")
 
 		By("adding the rbac middleware")
-		app.Use(rbac.NewMiddleware(mockProvider))
+		app.Use(rbac.NewMiddleware(mockProvider, util.NewDelimiterCodec("foo", "|")))
 
 		By("adding a default 200 handler")
 		app.Get("/", func(c *fiber.Ctx) error {

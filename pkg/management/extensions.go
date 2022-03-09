@@ -37,15 +37,16 @@ func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionIn
 
 func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.StreamDirector {
 	lg := m.logger
-	lg.Infof("loading api extensions from %d plugins", len(m.plugins))
+	lg.Infof("loading api extensions from %d plugins", len(m.apiExtPlugins))
 	methodTable := map[string]*grpc.ClientConn{}
-	for _, plugin := range m.plugins {
+	for _, plugin := range m.apiExtPlugins {
 		reflectClient := grpcreflect.NewClient(ctx,
 			rpb.NewServerReflectionClient(plugin.Client))
 		sd, err := plugin.Typed.Descriptor(ctx, &emptypb.Empty{})
 		if err != nil {
 			m.logger.With(
 				zap.Error(err),
+				zap.String("plugin", plugin.Metadata.Module),
 			).Error("failed to get extension descriptor")
 			continue
 		}

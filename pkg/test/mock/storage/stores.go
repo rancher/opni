@@ -867,3 +867,71 @@ func (mr *MockKeyValueStoreBrokerMockRecorder) KeyValueStore(namespace interface
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyValueStore", reflect.TypeOf((*MockKeyValueStoreBroker)(nil).KeyValueStore), namespace)
 }
+
+// MockSubjectAccessCapableStore is a mock of SubjectAccessCapableStore interface.
+type MockSubjectAccessCapableStore struct {
+	ctrl     *gomock.Controller
+	recorder *MockSubjectAccessCapableStoreMockRecorder
+}
+
+// MockSubjectAccessCapableStoreMockRecorder is the mock recorder for MockSubjectAccessCapableStore.
+type MockSubjectAccessCapableStoreMockRecorder struct {
+	mock *MockSubjectAccessCapableStore
+}
+
+// NewMockSubjectAccessCapableStore creates a new mock instance.
+func NewMockSubjectAccessCapableStore(ctrl *gomock.Controller) *MockSubjectAccessCapableStore {
+	mock := &MockSubjectAccessCapableStore{ctrl: ctrl}
+	mock.recorder = &MockSubjectAccessCapableStoreMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSubjectAccessCapableStore) EXPECT() *MockSubjectAccessCapableStoreMockRecorder {
+	return m.recorder
+}
+
+// GetRole mocks base method.
+func (m *MockSubjectAccessCapableStore) GetRole(ctx context.Context, ref *core.Reference) (*core.Role, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRole", ctx, ref)
+	ret0, _ := ret[0].(*core.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRole indicates an expected call of GetRole.
+func (mr *MockSubjectAccessCapableStoreMockRecorder) GetRole(ctx, ref interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRole", reflect.TypeOf((*MockSubjectAccessCapableStore)(nil).GetRole), ctx, ref)
+}
+
+// ListClusters mocks base method.
+func (m *MockSubjectAccessCapableStore) ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListClusters", ctx, matchLabels, matchOptions)
+	ret0, _ := ret[0].(*core.ClusterList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListClusters indicates an expected call of ListClusters.
+func (mr *MockSubjectAccessCapableStoreMockRecorder) ListClusters(ctx, matchLabels, matchOptions interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListClusters", reflect.TypeOf((*MockSubjectAccessCapableStore)(nil).ListClusters), ctx, matchLabels, matchOptions)
+}
+
+// ListRoleBindings mocks base method.
+func (m *MockSubjectAccessCapableStore) ListRoleBindings(ctx context.Context) (*core.RoleBindingList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListRoleBindings", ctx)
+	ret0, _ := ret[0].(*core.RoleBindingList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListRoleBindings indicates an expected call of ListRoleBindings.
+func (mr *MockSubjectAccessCapableStoreMockRecorder) ListRoleBindings(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRoleBindings", reflect.TypeOf((*MockSubjectAccessCapableStore)(nil).ListRoleBindings), ctx)
+}

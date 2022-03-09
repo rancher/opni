@@ -1,9 +1,11 @@
 package util
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/iancoleman/strcase"
 	"github.com/mitchellh/mapstructure"
@@ -65,4 +67,38 @@ func DeepCopy[T any](in *T) *T {
 
 func Pointer[T any](t T) *T {
 	return &t
+}
+
+type Future[T any] struct {
+	once   sync.Once
+	object T
+	wait   chan struct{}
+}
+
+func NewFuture[T any]() *Future[T] {
+	return &Future[T]{
+		wait: make(chan struct{}),
+	}
+}
+
+func (f *Future[T]) Set(object T) {
+	f.once.Do(func() {
+		f.object = object
+		close(f.wait)
+	})
+}
+
+func (f *Future[T]) Get() T {
+	<-f.wait
+	return f.object
+}
+
+func (f *Future[T]) GetContext(ctx context.Context) (_ T, err error) {
+	select {
+	case <-f.wait:
+	case <-ctx.Done():
+		err = ctx.Err()
+		return
+	}
+	return f.object, nil
 }

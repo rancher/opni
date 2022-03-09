@@ -1,4 +1,4 @@
-package util
+package machinery
 
 import (
 	"github.com/hashicorp/go-plugin"

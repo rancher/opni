@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/machinery"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
@@ -39,7 +40,7 @@ type Gateway struct {
 type GatewayOptions struct {
 	apiServerOptions []APIServerOption
 	lifecycler       config.Lifecycler
-	systemPlugins    []SystemPlugin
+	systemPlugins    []plugins.ActivePlugin
 }
 
 type GatewayOption func(*GatewayOptions)
@@ -58,7 +59,7 @@ func WithLifecycler(lc config.Lifecycler) GatewayOption {
 	}
 }
 
-func WithSystemPlugins(plugins []SystemPlugin) GatewayOption {
+func WithSystemPlugins(plugins []plugins.ActivePlugin) GatewayOption {
 	return func(o *GatewayOptions) {
 		o.systemPlugins = plugins
 	}
@@ -80,7 +81,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 
 	conf.Spec.SetDefaults()
 
-	storageBackend, err := ConfigureStorageBackend(ctx, &conf.Spec.Storage)
+	storageBackend, err := machinery.ConfigureStorageBackend(ctx, &conf.Spec.Storage)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
@@ -100,12 +101,6 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 		apiServer:       apiServer,
 	}
 
-	// ************************************************
-	// temporary code
-	g.loadCortexCerts()
-	g.setupCortexRoutes(storageBackend, storageBackend)
-	// ************************************************
-
 	waitctx.Go(ctx, func() {
 		<-ctx.Done()
 		lg.Info("shutting down plugins")
@@ -113,6 +108,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 	})
 
 	return g
+}
+
+type keyValueStoreServer interface {
+	ServeKeyValueStore(store storage.KeyValueStore)
 }
 
 func (g *Gateway) ListenAndServe() error {
@@ -165,7 +164,7 @@ func (g *Gateway) ListenAndServe() error {
 		if err != nil {
 			return err
 		}
-		go systemPlugin.Typed.ServeKeyValueStore(store)
+		go systemPlugin.Raw.(keyValueStoreServer).ServeKeyValueStore(store)
 	}
 
 	return g.apiServer.ListenAndServe()

@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"net/http"
 	"runtime/debug"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -26,6 +27,7 @@ type GatewayAPIServer struct {
 	conf      *v1beta1.GatewayConfigSpec
 	logger    *zap.SugaredLogger
 	tlsConfig *tls.Config
+	wait      chan struct{}
 }
 
 type APIServerOptions struct {
@@ -103,6 +105,7 @@ func NewAPIServer(
 		conf:             cfg,
 		logger:           lg,
 		tlsConfig:        tlsConfig,
+		wait:             make(chan struct{}),
 	}
 
 	for _, middleware := range options.fiberMiddlewares {
@@ -117,22 +120,32 @@ func NewAPIServer(
 		return c.SendStatus(http.StatusOK)
 	})
 
-	for _, plugin := range options.apiExtensions {
-		cfg, err := plugin.Typed.Configure(ctx, apiextensions.NewCertConfig(cfg.Certs))
-		if err != nil {
-			lg.With(
-				zap.String("plugin", plugin.Metadata.Module),
-				zap.Error(err),
-			).Fatal("failed to configure routes")
+	go func() {
+		for _, plugin := range options.apiExtensions {
+			ctx, ca := context.WithTimeout(ctx, 5*time.Second)
+			defer ca()
+			cfg, err := plugin.Typed.Configure(ctx, apiextensions.NewCertConfig(cfg.Certs))
+			if err != nil {
+				lg.With(
+					zap.String("plugin", plugin.Metadata.Module),
+					zap.Error(err),
+				).Fatal("failed to configure routes")
+			}
+			srv.setupPluginRoutes(cfg)
 		}
-		srv.setupPluginRoutes(cfg)
-	}
+		close(srv.wait)
+	}()
 
 	// app.Use(default404Handler)
 	return srv
 }
 
 func (s *GatewayAPIServer) ListenAndServe() error {
+	select {
+	case <-s.wait:
+	case <-time.After(10 * time.Second):
+		s.logger.Fatal("failed to start api server: timed out waiting for route setup")
+	}
 	listener, err := tls.Listen("tcp4",
 		s.conf.ListenAddress, s.tlsConfig)
 	if err != nil {
@@ -159,7 +172,7 @@ func (s *GatewayAPIServer) setupPluginRoutes(cfg *apiextensions.GatewayAPIExtens
 		s.logger.With(
 			zap.String("method", route.Method),
 			zap.String("path", route.Path),
-		).Info("added route from plugin")
+		).Debug("added route from plugin")
 	}
 }
 

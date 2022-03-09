@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - ragù               v0.2.3
-// source: plugins/example/pkg/example.proto
+// source: plugins/example/pkg/example/example.proto
 
 package example
 
@@ -101,5 +101,5 @@ var ExampleAPIExtension_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "plugins/example/pkg/example.proto",
+	Metadata: "plugins/example/pkg/example/example.proto",
 }

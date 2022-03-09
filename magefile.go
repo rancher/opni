@@ -156,6 +156,7 @@ func init() {
 	build.Config.ExtraTargets = map[string]string{
 		"./internal/cmd/testenv": "bin/testenv",
 		"./plugins/example":      "bin/plugin_example",
+		"./plugins/cortex":       "bin/plugin_cortex",
 	}
 	build.Config.ExtraEnv = map[string]string{
 		"GOOS": "linux",

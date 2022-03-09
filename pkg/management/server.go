@@ -73,8 +73,9 @@ var _ ManagementServer = (*Server)(nil)
 type APIExtensionPlugin = plugins.TypedActivePlugin[apiextensions.ManagementAPIExtensionClient]
 
 type ManagementServerOptions struct {
-	lifecycler config.Lifecycler
-	plugins    []APIExtensionPlugin
+	lifecycler    config.Lifecycler
+	apiExtPlugins []APIExtensionPlugin
+	systemPlugins []plugins.ActivePlugin
 }
 
 type ManagementServerOption func(*ManagementServerOptions)
@@ -87,7 +88,13 @@ func (o *ManagementServerOptions) Apply(opts ...ManagementServerOption) {
 
 func WithAPIExtensions(exts []APIExtensionPlugin) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
-		o.plugins = append(o.plugins, exts...)
+		o.apiExtPlugins = append(o.apiExtPlugins, exts...)
+	}
+}
+
+func WithSystemPlugins(plugins []plugins.ActivePlugin) ManagementServerOption {
+	return func(o *ManagementServerOptions) {
+		o.systemPlugins = plugins
 	}
 }
 
@@ -119,6 +126,10 @@ func NewServer(
 	}
 }
 
+type managementApiServer interface {
+	ServeManagementAPI(ManagementServer)
+}
+
 func (m *Server) ListenAndServe() error {
 	if m.config.GRPCListenAddress == "" {
 		return errors.New("GRPCListenAddress not configured")
@@ -137,6 +148,10 @@ func (m *Server) ListenAndServe() error {
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
 	)
 	RegisterManagementServer(srv, m)
+
+	for _, plugin := range m.systemPlugins {
+		go plugin.Raw.(managementApiServer).ServeManagementAPI(m)
+	}
 	waitctx.Go(m.ctx, func() {
 		<-m.ctx.Done()
 		srv.GracefulStop()

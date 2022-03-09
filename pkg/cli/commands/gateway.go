@@ -8,13 +8,11 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni-monitoring/pkg/auth"
-	"github.com/rancher/opni-monitoring/pkg/auth/noauth"
-	"github.com/rancher/opni-monitoring/pkg/auth/openid"
-	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/gateway"
 	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/machinery"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
@@ -64,48 +62,15 @@ func BuildGatewayCmd() *cobra.Command {
 					gatewayConfig = config
 				}
 			},
-			func(ap *v1beta1.AuthProvider) {
-				switch ap.Spec.Type {
-				case v1beta1.AuthProviderOpenID:
-					mw, err := openid.New(ctx, ap.Spec)
-					if err != nil {
-						lg.With(
-							zap.Error(err),
-						).Fatal("failed to create OpenID auth provider")
-					}
-					if err := auth.RegisterMiddleware(ap.GetName(), mw); err != nil {
-						lg.With(
-							zap.Error(err),
-						).Fatal("failed to register OpenID auth provider")
-					}
-				case v1beta1.AuthProviderNoAuth:
-					mw, err := noauth.New(ctx, ap.Spec)
-					if err != nil {
-						lg.With(
-							zap.Error(err),
-						).Fatal("failed to create noauth auth provider")
-					}
-					if err := auth.RegisterMiddleware(ap.GetName(), mw); err != nil {
-						lg.With(
-							zap.Error(err),
-						).Fatal("failed to register noauth auth provider")
-					}
-				default:
-					lg.With(
-						"type", ap.Spec.Type,
-					).Fatal("unsupported auth provider type")
-				}
-			},
 		)
 
 		pluginLoader := plugins.NewPluginLoader()
-		cliutil.LoadPlugins(pluginLoader, gatewayConfig.Spec.Plugins)
+		machinery.LoadPlugins(pluginLoader, gatewayConfig.Spec.Plugins)
 		mgmtExtensionPlugins := plugins.DispenseAllAs[apiextensions.ManagementAPIExtensionClient](
 			pluginLoader, managementext.ManagementAPIExtensionPluginID)
 		gatewayExtensionPlugins := plugins.DispenseAllAs[apiextensions.GatewayAPIExtensionClient](
 			pluginLoader, gatewayext.GatewayAPIExtensionPluginID)
-		systemPlugins := plugins.DispenseAllAs[system.SystemPluginServer](
-			pluginLoader, system.SystemPluginID)
+		systemPlugins := pluginLoader.DispenseAll(system.SystemPluginID)
 
 		lifecycler := config.NewLifecycler(objects)
 		g := gateway.NewGateway(ctx, gatewayConfig,
@@ -118,6 +83,7 @@ func BuildGatewayCmd() *cobra.Command {
 		)
 
 		m := management.NewServer(ctx, &gatewayConfig.Spec.Management, g,
+			management.WithSystemPlugins(systemPlugins),
 			management.WithAPIExtensions(mgmtExtensionPlugins),
 			management.WithLifecycler(lifecycler),
 		)

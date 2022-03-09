@@ -66,3 +66,10 @@ type KeyringStoreBroker interface {
 type KeyValueStoreBroker interface {
 	KeyValueStore(namespace string) (KeyValueStore, error)
 }
+
+// A store that can be used to compute subject access rules
+type SubjectAccessCapableStore interface {
+	ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error)
+	GetRole(ctx context.Context, ref *core.Reference) (*core.Role, error)
+	ListRoleBindings(ctx context.Context) (*core.RoleBindingList, error)
+}

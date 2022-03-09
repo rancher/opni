@@ -13,15 +13,16 @@ import (
 )
 
 type ClusterMiddleware struct {
-	clusterStore storage.ClusterStore
 	keyringStore storage.KeyringStoreBroker
+	headerKey    string
 }
 
 var _ auth.Middleware = (*ClusterMiddleware)(nil)
 
-func New(clusterStore storage.ClusterStore) *ClusterMiddleware {
+func New(keyringStore storage.KeyringStoreBroker, headerKey string) *ClusterMiddleware {
 	return &ClusterMiddleware{
-		clusterStore: clusterStore,
+		keyringStore: keyringStore,
+		headerKey:    headerKey,
 	}
 }
 
@@ -68,6 +69,6 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	c.Request().Header.Add("X-Scope-OrgID", string(clusterID))
+	c.Request().Header.Add(m.headerKey, string(clusterID))
 	return c.Next()
 }

@@ -27,15 +27,23 @@ import (
 	"github.com/pkg/browser"
 	"github.com/rancher/opni-monitoring/pkg/agent"
 	"github.com/rancher/opni-monitoring/pkg/auth"
+	testauth "github.com/rancher/opni-monitoring/pkg/auth/test"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
+	"github.com/rancher/opni-monitoring/pkg/config"
+	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/gateway"
 	"github.com/rancher/opni-monitoring/pkg/ident"
 	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/machinery"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
+	gatewayext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/gateway"
+	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api"
 	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
@@ -100,8 +108,8 @@ func (e *Environment) Start() error {
 	e.mockCtrl = gomock.NewController(t)
 
 	if _, err := auth.GetMiddleware("test"); err != nil {
-		if err := auth.RegisterMiddleware("test", &TestAuthMiddleware{
-			Strategy: AuthStrategyUserIDInAuthHeader,
+		if err := auth.RegisterMiddleware("test", &testauth.TestAuthMiddleware{
+			Strategy: testauth.AuthStrategyUserIDInAuthHeader,
 		}); err != nil {
 			return fmt.Errorf("failed to install test auth middleware: %w", err)
 		}
@@ -332,10 +340,12 @@ func (e *Environment) startCortex() {
 		if err == nil && resp.StatusCode == http.StatusOK {
 			break
 		}
-		lg.With(
-			zap.Error(err),
-			"status", resp.Status,
-		).Info("Waiting for cortex to start...")
+		if resp != nil {
+			lg.With(
+				zap.Error(err),
+				"status", resp.Status,
+			).Info("Waiting for cortex to start...")
+		}
 		time.Sleep(time.Second)
 	}
 	lg.Info("Cortex started")
@@ -411,9 +421,20 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 	servingCertData := string(TestData("localhost.crt"))
 	servingKeyData := string(TestData("localhost.key"))
 	return &v1beta1.GatewayConfig{
+		TypeMeta: meta.TypeMeta{
+			APIVersion: "v1beta1",
+			Kind:       "GatewayConfig",
+		},
 		Spec: v1beta1.GatewayConfigSpec{
 			Plugins: v1beta1.PluginsSpec{
-				Dirs: []string{"bin", "../../bin"},
+				Dirs: []string{ // ¯\_(ツ)_/¯
+					"bin",
+					"../bin",
+					"../../bin",
+					"../../../bin",
+					"../../../../bin",
+					"../../../../../bin",
+				},
 			},
 			ListenAddress: fmt.Sprintf("localhost:%d", e.ports.Gateway),
 			EnableMonitor: true,
@@ -479,12 +500,39 @@ func (e *Environment) PrometheusAPIEndpoint() string {
 func (e *Environment) startGateway() {
 	lg := e.Logger
 	e.gatewayConfig = e.newGatewayConfig()
+	pluginLoader := plugins.NewPluginLoader()
+	machinery.LoadPlugins(pluginLoader, e.gatewayConfig.Spec.Plugins)
+	mgmtExtensionPlugins := plugins.DispenseAllAs[apiextensions.ManagementAPIExtensionClient](
+		pluginLoader, managementext.ManagementAPIExtensionPluginID)
+	gatewayExtensionPlugins := plugins.DispenseAllAs[apiextensions.GatewayAPIExtensionClient](
+		pluginLoader, gatewayext.GatewayAPIExtensionPluginID)
+	systemPlugins := pluginLoader.DispenseAll(system.SystemPluginID)
+
+	lifecycler := config.NewLifecycler(meta.ObjectList{e.gatewayConfig, &v1beta1.AuthProvider{
+		TypeMeta: meta.TypeMeta{
+			APIVersion: "v1beta1",
+			Kind:       "AuthProvider",
+		},
+		ObjectMeta: meta.ObjectMeta{
+			Name: "test",
+		},
+		Spec: v1beta1.AuthProviderSpec{
+			Type: "test",
+		},
+	}})
 	g := gateway.NewGateway(e.ctx, e.gatewayConfig,
+		gateway.WithSystemPlugins(systemPlugins),
+		gateway.WithLifecycler(lifecycler),
 		gateway.WithAPIServerOptions(
+			gateway.WithAPIExtensions(gatewayExtensionPlugins),
 			gateway.WithAuthMiddleware(e.gatewayConfig.Spec.AuthProvider),
 		),
 	)
-	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g)
+	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g,
+		management.WithSystemPlugins(systemPlugins),
+		management.WithLifecycler(lifecycler),
+		management.WithAPIExtensions(mgmtExtensionPlugins),
+	)
 	go func() {
 		if err := g.ListenAndServe(); err != nil {
 			lg.Errorf("gateway error: %v", err)

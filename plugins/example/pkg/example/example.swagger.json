@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "plugins/example/pkg/example.proto",
+    "title": "plugins/example/pkg/example/example.proto",
     "version": "version not set"
   },
   "tags": [

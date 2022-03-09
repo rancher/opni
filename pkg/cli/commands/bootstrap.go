@@ -127,20 +127,6 @@ func BuildBootstrapCmd() *cobra.Command {
 
 			lg.Info("Agent bootstrapped successfully.")
 
-			// Check if the deployment needs to be restarted
-			for _, cond := range dep.Status.Conditions {
-				if cond.Type == appsv1.DeploymentProgressing &&
-					cond.Status == corev1.ConditionFalse &&
-					cond.Reason == "ProgressDeadlineExceeded" {
-					lg.Info("Agent deployment is stuck, restarting...")
-					if err := doRolloutRestart(ctx, clientset, dep); err != nil {
-						lg.With(
-							zap.Error(err),
-						).Error("Failed to restart agent deployment. You might have to restart the agent manually.")
-					}
-				}
-			}
-
 			lg.Info("Waiting for agent to be ready...")
 
 			for {
@@ -150,9 +136,25 @@ func BuildBootstrapCmd() *cobra.Command {
 						zap.Error(err),
 					).Error("Failed to look up agent deployment")
 				}
+
 				if dep.Status.AvailableReplicas == pointer.Int32Deref(dep.Spec.Replicas, 1) {
 					break
 				}
+
+				// Check if the deployment needs to be restarted
+				for _, cond := range dep.Status.Conditions {
+					if cond.Type == appsv1.DeploymentProgressing &&
+						cond.Status == corev1.ConditionFalse &&
+						cond.Reason == "ProgressDeadlineExceeded" {
+						lg.Info("Agent deployment is stuck, restarting...")
+						if err := doRolloutRestart(ctx, clientset, dep); err != nil {
+							lg.With(
+								zap.Error(err),
+							).Error("Failed to restart agent deployment. You might have to restart the agent manually.")
+						}
+					}
+				}
+
 				time.Sleep(time.Second)
 			}
 

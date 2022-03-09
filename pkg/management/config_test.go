@@ -36,7 +36,7 @@ var _ = Describe("Config", Ordered, func() {
 			},
 		}
 		lifecycler = config.NewLifecycler(sampleObjects)
-		setupManagementServer(&tv, management.Lifecycler(lifecycler))()
+		setupManagementServer(&tv, management.WithLifecycler(lifecycler))()
 	})
 
 	It("should retrieve the current config", func() {

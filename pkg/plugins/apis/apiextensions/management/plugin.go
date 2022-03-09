@@ -13,6 +13,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+const ManagementAPIExtensionPluginID = "apiextensions.ManagementAPIExtension"
+
 type managementApiExtensionPlugin struct {
 	plugin.NetRPCUnsupportedPlugin
 
@@ -53,8 +55,6 @@ func NewPlugin(desc *grpc.ServiceDesc, impl interface{}) plugin.Plugin {
 		},
 	}
 }
-
-const ManagementAPIExtensionPluginID = "apiextensions.ManagementAPIExtension"
 
 type mgmtExtensionServerImpl struct {
 	apiextensions.UnimplementedManagementAPIExtensionServer

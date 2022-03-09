@@ -18,7 +18,7 @@ func (m *Server) CreateBootstrapToken(
 	if err := validation.Validate(req); err != nil {
 		return nil, err
 	}
-	token, err := m.storageBackend.CreateToken(ctx, req.Ttl.AsDuration(),
+	token, err := m.coreDataSource.StorageBackend().CreateToken(ctx, req.Ttl.AsDuration(),
 		storage.WithLabels(req.GetLabels()),
 		storage.WithCapabilities(req.GetCapabilities()),
 	)
@@ -35,14 +35,14 @@ func (m *Server) RevokeBootstrapToken(
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, m.storageBackend.DeleteToken(ctx, ref)
+	return &emptypb.Empty{}, m.coreDataSource.StorageBackend().DeleteToken(ctx, ref)
 }
 
 func (m *Server) ListBootstrapTokens(
 	ctx context.Context,
 	_ *emptypb.Empty,
 ) (*core.BootstrapTokenList, error) {
-	tokens, err := m.storageBackend.ListTokens(ctx)
+	tokens, err := m.coreDataSource.StorageBackend().ListTokens(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -58,7 +58,7 @@ func (m *Server) GetBootstrapToken(
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
-	token, err := m.storageBackend.GetToken(ctx, ref)
+	token, err := m.coreDataSource.StorageBackend().GetToken(ctx, ref)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

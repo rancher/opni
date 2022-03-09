@@ -31,6 +31,20 @@ type testVars struct {
 	grpcEndpoint   string
 	httpEndpoint   string
 	storageBackend storage.Backend
+	coreDataSource management.CoreDataSource
+}
+
+type testCoreDataSource struct {
+	storageBackend storage.Backend
+	tlsConfig      *tls.Config
+}
+
+func (t *testCoreDataSource) StorageBackend() storage.Backend {
+	return t.storageBackend
+}
+
+func (t *testCoreDataSource) TLSConfig() *tls.Config {
+	return t.tlsConfig
 }
 
 func setupManagementServer(vars **testVars, opts ...management.ManagementServerOption) func() {
@@ -51,13 +65,14 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 		}
 		cert, err := tls.X509KeyPair(test.TestData("localhost.crt"), test.TestData("localhost.key"))
 		Expect(err).NotTo(HaveOccurred())
-		server := management.NewServer(ctx, conf,
-			append([]management.ManagementServerOption{
-				management.StorageBackend(tv.storageBackend),
-				management.TLSConfig(&tls.Config{
-					Certificates: []tls.Certificate{cert},
-				}),
-			}, opts...)...)
+		cds := &testCoreDataSource{
+			storageBackend: tv.storageBackend,
+			tlsConfig: &tls.Config{
+				Certificates: []tls.Certificate{cert},
+			},
+		}
+		server := management.NewServer(ctx, conf, cds, opts...)
+		tv.coreDataSource = cds
 		go func() {
 			defer GinkgoRecover()
 			if err := server.ListenAndServe(); err != nil {

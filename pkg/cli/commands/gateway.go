@@ -10,10 +10,17 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/auth/noauth"
 	"github.com/rancher/opni-monitoring/pkg/auth/openid"
+	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/gateway"
 	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/plugins"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
+	gatewayext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/gateway"
+	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -91,11 +98,37 @@ func BuildGatewayCmd() *cobra.Command {
 			},
 		)
 
+		pluginLoader := plugins.NewPluginLoader()
+		cliutil.LoadPlugins(pluginLoader, gatewayConfig.Spec.Plugins)
+		mgmtExtensionPlugins := plugins.DispenseAllAs[apiextensions.ManagementAPIExtensionClient](
+			pluginLoader, managementext.ManagementAPIExtensionPluginID)
+		gatewayExtensionPlugins := plugins.DispenseAllAs[apiextensions.GatewayAPIExtensionClient](
+			pluginLoader, gatewayext.GatewayAPIExtensionPluginID)
+		systemPlugins := plugins.DispenseAllAs[system.SystemPluginServer](
+			pluginLoader, system.SystemPluginID)
+
 		lifecycler := config.NewLifecycler(objects)
 		g := gateway.NewGateway(ctx, gatewayConfig,
+			gateway.WithSystemPlugins(systemPlugins),
 			gateway.WithLifecycler(lifecycler),
-			gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
+			gateway.WithAPIServerOptions(
+				gateway.WithAPIExtensions(gatewayExtensionPlugins),
+				gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
+			),
 		)
+
+		m := management.NewServer(ctx, &gatewayConfig.Spec.Management, g,
+			management.WithAPIExtensions(mgmtExtensionPlugins),
+			management.WithLifecycler(lifecycler),
+		)
+
+		go func() {
+			if err := m.ListenAndServe(); err != nil {
+				lg.With(
+					zap.Error(err),
+				).Fatal("management server exited with error")
+			}
+		}()
 
 		style := chalk.Yellow.NewStyle().
 			WithBackground(chalk.ResetColor).
@@ -114,7 +147,7 @@ func BuildGatewayCmd() *cobra.Command {
 			close(reloadC)
 		}()
 
-		if err := g.Listen(); err != nil {
+		if err := g.ListenAndServe(); err != nil {
 			lg.With(
 				zap.Error(err),
 			).Error("gateway server exited with error")

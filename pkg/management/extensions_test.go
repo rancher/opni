@@ -128,8 +128,9 @@ var _ = Describe("Extensions", Ordered, func() {
 			}, cc2)
 		}
 
-		extensions := pl.DispenseAll(managementext.ManagementAPIExtensionPluginID)
-		setupManagementServer(&tv, management.APIExtensions(extensions))()
+		extensions := plugins.DispenseAllAs[apiextensions.ManagementAPIExtensionClient](
+			pl, managementext.ManagementAPIExtensionPluginID)
+		setupManagementServer(&tv, management.WithAPIExtensions(extensions))()
 		DeferCleanup(plugin.CleanupClients)
 	})
 	It("should load API extensions", func() {

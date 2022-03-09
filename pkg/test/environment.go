@@ -332,6 +332,10 @@ func (e *Environment) startCortex() {
 		if err == nil && resp.StatusCode == http.StatusOK {
 			break
 		}
+		lg.With(
+			zap.Error(err),
+			"status", resp.Status,
+		).Info("Waiting for cortex to start...")
 		time.Sleep(time.Second)
 	}
 	lg.Info("Cortex started")
@@ -476,11 +480,19 @@ func (e *Environment) startGateway() {
 	lg := e.Logger
 	e.gatewayConfig = e.newGatewayConfig()
 	g := gateway.NewGateway(e.ctx, e.gatewayConfig,
-		gateway.WithAuthMiddleware(e.gatewayConfig.Spec.AuthProvider),
+		gateway.WithAPIServerOptions(
+			gateway.WithAuthMiddleware(e.gatewayConfig.Spec.AuthProvider),
+		),
 	)
+	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g)
 	go func() {
-		if err := g.Listen(); err != nil {
+		if err := g.ListenAndServe(); err != nil {
 			lg.Errorf("gateway error: %v", err)
+		}
+	}()
+	go func() {
+		if err := m.ListenAndServe(); err != nil {
+			lg.Errorf("management server error: %v", err)
 		}
 	}()
 	lg.Info("Waiting for gateway to start...")

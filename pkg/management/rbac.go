@@ -12,21 +12,21 @@ func (s *Server) CreateRole(ctx context.Context, in *core.Role) (*emptypb.Empty,
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, s.storageBackend.CreateRole(ctx, in)
+	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().CreateRole(ctx, in)
 }
 
 func (s *Server) DeleteRole(ctx context.Context, in *core.Reference) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, s.storageBackend.DeleteRole(ctx, in)
+	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().DeleteRole(ctx, in)
 }
 
 func (s *Server) GetRole(ctx context.Context, in *core.Reference) (*core.Role, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	role, err := s.storageBackend.GetRole(ctx, in)
+	role, err := s.coreDataSource.StorageBackend().GetRole(ctx, in)
 	return role, err
 }
 
@@ -37,31 +37,31 @@ func (s *Server) CreateRoleBinding(ctx context.Context, in *core.RoleBinding) (*
 	if len(in.Taints) > 0 {
 		return nil, validation.ErrReadOnlyField
 	}
-	return &emptypb.Empty{}, s.storageBackend.CreateRoleBinding(ctx, in)
+	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().CreateRoleBinding(ctx, in)
 }
 
 func (s *Server) DeleteRoleBinding(ctx context.Context, in *core.Reference) (*emptypb.Empty, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, s.storageBackend.DeleteRoleBinding(ctx, in)
+	return &emptypb.Empty{}, s.coreDataSource.StorageBackend().DeleteRoleBinding(ctx, in)
 }
 
 func (s *Server) GetRoleBinding(ctx context.Context, in *core.Reference) (*core.RoleBinding, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	rb, err := s.storageBackend.GetRoleBinding(ctx, in)
+	rb, err := s.coreDataSource.StorageBackend().GetRoleBinding(ctx, in)
 	return rb, err
 }
 
 func (s *Server) ListRoles(ctx context.Context, _ *emptypb.Empty) (*core.RoleList, error) {
-	rl, err := s.storageBackend.ListRoles(ctx)
+	rl, err := s.coreDataSource.StorageBackend().ListRoles(ctx)
 	return rl, err
 }
 
 func (s *Server) ListRoleBindings(ctx context.Context, _ *emptypb.Empty) (*core.RoleBindingList, error) {
-	rbl, err := s.storageBackend.ListRoleBindings(ctx)
+	rbl, err := s.coreDataSource.StorageBackend().ListRoleBindings(ctx)
 	return rbl, err
 }
 

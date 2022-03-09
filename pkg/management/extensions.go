@@ -13,7 +13,6 @@ import (
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/mwitkow/grpc-proxy/proxy"
 	"github.com/rancher/opni-monitoring/pkg/logger"
-	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/api/annotations"
@@ -41,13 +40,9 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.Stream
 	lg.Infof("loading api extensions from %d plugins", len(m.plugins))
 	methodTable := map[string]*grpc.ClientConn{}
 	for _, plugin := range m.plugins {
-		ext, ok := plugin.Raw.(apiextensions.ManagementAPIExtensionClient)
-		if !ok {
-			continue
-		}
 		reflectClient := grpcreflect.NewClient(ctx,
-			rpb.NewServerReflectionClient(plugin.GRPCClient))
-		sd, err := ext.Descriptor(ctx, &emptypb.Empty{})
+			rpb.NewServerReflectionClient(plugin.Client))
+		sd, err := plugin.Typed.Descriptor(ctx, &emptypb.Empty{})
 		if err != nil {
 			m.logger.With(
 				zap.Error(err),
@@ -77,7 +72,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.Stream
 			lg.With(
 				"name", fullName,
 			).Info("loading method")
-			methodTable[fullName] = plugin.GRPCClient
+			methodTable[fullName] = plugin.Client
 		}
 		httpRules := loadHttpRuleDescriptors(svcDesc)
 		if len(httpRules) > 0 {
@@ -95,8 +90,8 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.Stream
 			).Info("service has no http rules")
 		}
 		m.apiExtensions = append(m.apiExtensions, apiExtension{
-			client:      ext,
-			clientConn:  plugin.GRPCClient,
+			client:      plugin.Typed,
+			clientConn:  plugin.Client,
 			serviceDesc: svcDesc,
 			httpRules:   httpRules,
 		})

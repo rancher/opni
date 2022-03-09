@@ -18,7 +18,7 @@ func (m *Server) ListClusters(
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	clusterList, err := m.storageBackend.ListClusters(ctx, in.MatchLabels, in.MatchOptions)
+	clusterList, err := m.coreDataSource.StorageBackend().ListClusters(ctx, in.MatchLabels, in.MatchOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func (m *Server) DeleteCluster(
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, m.storageBackend.DeleteCluster(ctx, ref)
+	return &emptypb.Empty{}, m.coreDataSource.StorageBackend().DeleteCluster(ctx, ref)
 }
 
 func (m *Server) GetCluster(
@@ -42,7 +42,7 @@ func (m *Server) GetCluster(
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
-	if cluster, err := m.storageBackend.GetCluster(ctx, ref); err != nil {
+	if cluster, err := m.coreDataSource.StorageBackend().GetCluster(ctx, ref); err != nil {
 		return nil, err
 	} else {
 		return cluster, nil
@@ -65,7 +65,7 @@ func (m *Server) WatchClusters(
 	for {
 		select {
 		case <-tick.C:
-			clusters, err := m.storageBackend.ListClusters(context.Background(), nil, 0)
+			clusters, err := m.coreDataSource.StorageBackend().ListClusters(context.Background(), nil, 0)
 			updatedIds := map[string]struct{}{}
 			if err != nil {
 				return err
@@ -107,7 +107,7 @@ func (m *Server) EditCluster(
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return m.storageBackend.UpdateCluster(ctx, in.GetCluster(), func(cluster *core.Cluster) {
+	return m.coreDataSource.StorageBackend().UpdateCluster(ctx, in.GetCluster(), func(cluster *core.Cluster) {
 		if cluster.Metadata == nil {
 			cluster.Metadata = &core.ClusterMetadata{}
 		}

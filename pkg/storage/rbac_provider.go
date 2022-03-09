@@ -11,17 +11,20 @@ import (
 	"go.uber.org/zap"
 )
 
-type rbacProvider struct {
-	rbacStore    RBACStore
-	clusterStore ClusterStore
-	logger       *zap.SugaredLogger
+type ClusterRBACStore interface {
+	ClusterStore
+	RBACStore
 }
 
-func NewRBACProvider(rbacStore RBACStore, clusterStore ClusterStore) rbac.Provider {
+type rbacProvider struct {
+	store  ClusterRBACStore
+	logger *zap.SugaredLogger
+}
+
+func NewRBACProvider(store ClusterRBACStore) rbac.Provider {
 	return &rbacProvider{
-		rbacStore:    rbacStore,
-		clusterStore: clusterStore,
-		logger:       logger.New().Named("rbac"),
+		store:  store,
+		logger: logger.New().Named("rbac"),
 	}
 }
 
@@ -32,7 +35,7 @@ func (p *rbacProvider) SubjectAccess(
 	// Look up all role bindings which exist for this user, then look up the roles
 	// referenced by those role bindings. Aggregate the resulting tenant IDs from
 	// the roles and filter out any duplicates.
-	rbs, err := p.rbacStore.ListRoleBindings(ctx)
+	rbs, err := p.store.ListRoleBindings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}
@@ -56,7 +59,7 @@ func (p *rbacProvider) SubjectAccess(
 			).Warn("skipping tainted role binding")
 			continue
 		}
-		role, err := p.rbacStore.GetRole(ctx, roleBinding.RoleReference())
+		role, err := p.store.GetRole(ctx, roleBinding.RoleReference())
 		if err != nil {
 			p.logger.With(
 				zap.Error(err),
@@ -71,7 +74,7 @@ func (p *rbacProvider) SubjectAccess(
 		}
 
 		// Add any clusters to the list which match the role's label selector
-		filteredList, err := p.clusterStore.ListClusters(ctx, role.MatchLabels,
+		filteredList, err := p.store.ListClusters(ctx, role.MatchLabels,
 			core.MatchOptions_EmptySelectorMatchesNone)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list clusters: %w", err)

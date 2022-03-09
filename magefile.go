@@ -187,32 +187,7 @@ func init() {
 			Types:  []string{"ManagementAPIExtensionServer"},
 		},
 	}
-	protobuf.Config.Protos = []protobuf.Proto{
-		{
-			Source:  "pkg/core/core.proto",
-			DestDir: "pkg/core",
-		},
-		{
-			Source:  "pkg/management/management.proto",
-			DestDir: "pkg/management",
-		},
-		{
-			Source:  "pkg/plugins/apis/apiextensions/apiextensions.proto",
-			DestDir: "pkg/plugins/apis/apiextensions",
-		},
-		{
-			Source:  "pkg/plugins/apis/system/system.proto",
-			DestDir: "pkg/plugins/apis/system",
-		},
-		{
-			Source:  "plugins/example/pkg/example.proto",
-			DestDir: "plugins/example/pkg",
-		},
-		{
-			Source:  "pkg/test/testdata/plugins/ext/ext.proto",
-			DestDir: "pkg/test/testdata/plugins/ext",
-		},
-	}
+	protobuf.Config.Protos = findProtos()
 	// protobuf.Config.Options = []ragu.GenerateCodeOption{
 	// 	ragu.ExperimentalHideEmptyMessages(),
 	// }
@@ -423,4 +398,22 @@ func numFilesRecursive(dir string) int64 {
 		return nil
 	})
 	return count
+}
+
+func findProtos() []protobuf.Proto {
+	var protos []protobuf.Proto
+	filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(path, ".proto") {
+			return nil
+		}
+		protos = append(protos, protobuf.Proto{
+			Source:  path,
+			DestDir: filepath.Dir(path),
+		})
+		return nil
+	})
+	return protos
 }

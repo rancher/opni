@@ -52,7 +52,13 @@ var _ = Describe("RBAC Provider", Ordered, func() {
 			err := clusterStore.CreateCluster(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 		}
-		provider := storage.NewRBACProvider(rbacStore, clusterStore)
+		provider := storage.NewRBACProvider(struct {
+			storage.RBACStore
+			storage.ClusterStore
+		}{
+			RBACStore:    rbacStore,
+			ClusterStore: clusterStore,
+		})
 
 		for _, obj := range objects.roles {
 			err := rbacStore.CreateRole(context.Background(), obj())

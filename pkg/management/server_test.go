@@ -7,7 +7,6 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/management"
-	"github.com/rancher/opni-monitoring/pkg/test"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -34,17 +33,11 @@ var _ = Describe("Server", Ordered, func() {
 		Expect(body.String()).To(ContainSubstring(`"swagger": "2.0"`))
 	})
 	It("should handle configuration errors", func() {
-		By("checking required options are set")
-		Expect(func() {
-			management.NewServer(context.Background(), &v1beta1.ManagementSpec{})
-		}).To(PanicWith("storage backend not configured"))
-
 		By("checking required config fields are set")
 		conf := &v1beta1.ManagementSpec{
 			HTTPListenAddress: "127.0.0.1:0",
 		}
-		server := management.NewServer(context.Background(), conf,
-			management.StorageBackend(test.NewTestStorageBackend(context.Background(), tv.ctrl)))
+		server := management.NewServer(context.Background(), conf, tv.coreDataSource)
 		Expect(server.ListenAndServe()).To(MatchError("GRPCListenAddress not configured"))
 
 		By("checking that invalid config fields cause errors")

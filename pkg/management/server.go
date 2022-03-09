@@ -14,6 +14,7 @@ import (
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/mwitkow/grpc-proxy/proxy"
 	"github.com/rancher/opni-monitoring/pkg/config"
+	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/logger"
@@ -41,6 +42,13 @@ func OpenAPISpec() []byte {
 	return buf
 }
 
+// CoreDataSource provides a way to obtain data which the management
+// server needs to serve its core API
+type CoreDataSource interface {
+	StorageBackend() storage.Backend
+	TLSConfig() *tls.Config
+}
+
 type apiExtension struct {
 	client      apiextensions.ManagementAPIExtensionClient
 	clientConn  *grpc.ClientConn
@@ -51,21 +59,22 @@ type apiExtension struct {
 type Server struct {
 	UnimplementedManagementServer
 	ManagementServerOptions
-	config       *v1beta1.ManagementSpec
-	logger       *zap.SugaredLogger
-	rbacProvider rbac.Provider
-	ctx          context.Context
+	config         *v1beta1.ManagementSpec
+	logger         *zap.SugaredLogger
+	rbacProvider   rbac.Provider
+	ctx            context.Context
+	coreDataSource CoreDataSource
 
 	apiExtensions []apiExtension
 }
 
 var _ ManagementServer = (*Server)(nil)
 
+type APIExtensionPlugin = plugins.TypedActivePlugin[apiextensions.ManagementAPIExtensionClient]
+
 type ManagementServerOptions struct {
-	storageBackend storage.Backend
-	lifecycler     config.Lifecycler
-	tlsConfig      *tls.Config
-	plugins        []plugins.ActivePlugin
+	lifecycler config.Lifecycler
+	plugins    []APIExtensionPlugin
 }
 
 type ManagementServerOption func(*ManagementServerOptions)
@@ -76,43 +85,37 @@ func (o *ManagementServerOptions) Apply(opts ...ManagementServerOption) {
 	}
 }
 
-func StorageBackend(storageBackend storage.Backend) ManagementServerOption {
-	return func(o *ManagementServerOptions) {
-		o.storageBackend = storageBackend
-	}
-}
-
-func TLSConfig(config *tls.Config) ManagementServerOption {
-	return func(o *ManagementServerOptions) {
-		o.tlsConfig = config
-	}
-}
-
-func APIExtensions(exts []plugins.ActivePlugin) ManagementServerOption {
+func WithAPIExtensions(exts []APIExtensionPlugin) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
 		o.plugins = append(o.plugins, exts...)
 	}
 }
 
-func Lifecycler(lc config.Lifecycler) ManagementServerOption {
+func WithLifecycler(lc config.Lifecycler) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
 		o.lifecycler = lc
 	}
 }
 
-func NewServer(ctx context.Context, conf *v1beta1.ManagementSpec, opts ...ManagementServerOption) *Server {
+func NewServer(
+	ctx context.Context,
+	conf *v1beta1.ManagementSpec,
+	cds CoreDataSource,
+	opts ...ManagementServerOption,
+) *Server {
 	lg := logger.New().Named("mgmt")
-	options := ManagementServerOptions{}
-	options.Apply(opts...)
-	if options.storageBackend == nil {
-		lg.Panic("storage backend not configured")
+	options := ManagementServerOptions{
+		lifecycler: config.NewUnavailableLifecycler(meta.ObjectList{}),
 	}
+	options.Apply(opts...)
+
 	return &Server{
 		ManagementServerOptions: options,
 		ctx:                     ctx,
 		config:                  conf,
 		logger:                  lg,
-		rbacProvider:            storage.NewRBACProvider(options.storageBackend, options.storageBackend),
+		coreDataSource:          cds,
+		rbacProvider:            storage.NewRBACProvider(cds.StorageBackend()),
 	}
 }
 
@@ -193,7 +196,7 @@ func (m *Server) CertsInfo(ctx context.Context, _ *emptypb.Empty) (*CertsInfoRes
 	resp := &CertsInfoResponse{
 		Chain: []*core.CertInfo{},
 	}
-	for _, tlsCert := range m.tlsConfig.Certificates[:1] {
+	for _, tlsCert := range m.coreDataSource.TLSConfig().Certificates[:1] {
 		for _, der := range tlsCert.Certificate {
 			cert, err := x509.ParseCertificate(der)
 			if err != nil {

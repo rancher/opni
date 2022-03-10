@@ -130,9 +130,11 @@ func init() {
 func (s *systemPluginHandler) serveSystemApi(regCallback func(*grpc.Server), useCallback func(uint32)) {
 	id := s.broker.NextId()
 	var srv *grpc.Server
+	srvLock := make(chan struct{})
 	once := sync.Once{}
 	go s.broker.AcceptAndServe(id, func(so []grpc.ServerOption) *grpc.Server {
 		srv = grpc.NewServer(so...)
+		close(srvLock)
 		go func() {
 			<-s.ctx.Done()
 			once.Do(srv.Stop)
@@ -145,11 +147,11 @@ func (s *systemPluginHandler) serveSystemApi(regCallback func(*grpc.Server), use
 		defer close(done)
 		useCallback(id)
 	}()
-
 	select {
 	case <-s.ctx.Done():
 	case <-done:
 	}
+	<-srvLock
 	if srv != nil {
 		once.Do(srv.Stop)
 	}

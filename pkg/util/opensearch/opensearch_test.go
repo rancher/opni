@@ -485,7 +485,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion)
+					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, "")
 					if err != nil {
 						log.Println(err)
 					}
@@ -534,7 +534,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion)
+					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, "")
 					if err != nil {
 						log.Println(err)
 					}
@@ -570,7 +570,7 @@ var _ = Describe("Indices", Label("unit"), func() {
 					httpmock.NewJsonResponderOrPanic(200, kibanaResponse).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion)
+					err := reconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, "")
 					if err != nil {
 						log.Println(err)
 					}

@@ -171,7 +171,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		retErr = errors.Combine(retErr, err)
 	}
 
-	err = r.osReconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion)
+	err = r.osReconciler.ImportKibanaObjects(kibanaDashboardVersionIndex, kibanaDashboardVersionDocID, kibanaDashboardVersion, kibanaObjects)
 	if err != nil {
 		conditions = append(conditions, err.Error())
 		retErr = errors.Combine(retErr, err)

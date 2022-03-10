@@ -8,10 +8,10 @@ require (
 	github.com/andybalholm/brotli v1.0.4
 	github.com/banzaicloud/operator-tools v0.28.2
 	github.com/go-logr/logr v1.2.2
-	github.com/gofiber/fiber/v2 v2.28.0
+	github.com/gofiber/fiber/v2 v2.29.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
-	github.com/hashicorp/go-hclog v1.1.0
+	github.com/hashicorp/go-hclog v1.2.0
 	github.com/hashicorp/go-plugin v1.4.3
 	github.com/iancoleman/strcase v0.2.0
 	github.com/jedib0t/go-pretty/v6 v6.2.7
@@ -20,7 +20,7 @@ require (
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc
 	github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6
-	github.com/kralicky/spellbook v0.0.0-20220204185758-6c5ad9d29ee2
+	github.com/kralicky/spellbook v0.0.0-20220310213110-a1cf7cc8a7e5
 	github.com/lestrrat-go/backoff/v2 v2.0.8
 	github.com/lestrrat-go/jwx v1.2.20
 	github.com/magefile/mage v1.12.1
@@ -33,19 +33,19 @@ require (
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/schollz/progressbar/v3 v3.8.6
-	github.com/spf13/cobra v1.3.0
+	github.com/spf13/cobra v1.4.0
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
-	github.com/valyala/fasthttp v1.33.0
+	github.com/valyala/fasthttp v1.34.0
 	github.com/vearutop/statigz v1.1.7
 	go.etcd.io/etcd/client/v3 v3.5.2
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
-	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
+	golang.org/x/crypto v0.0.0-20220307211146-efcb8507fb70
 	golang.org/x/mod v0.6.0-dev.0.20211013180041-c96bc1413d57
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gonum.org/v1/gonum v0.9.3
-	google.golang.org/genproto v0.0.0-20220304144024-325a89244dc8
-	google.golang.org/grpc v1.44.0
+	google.golang.org/genproto v0.0.0-20220310185008-1973136f34c6
+	google.golang.org/grpc v1.45.0
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.23.4
 	k8s.io/apiextensions-apiserver v0.23.4
@@ -109,7 +109,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.14.1 // indirect
+	github.com/klauspost/compress v1.15.0 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/kralicky/ragu v0.2.5 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
@@ -169,9 +169,9 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.5.2 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
-	golang.org/x/net v0.0.0-20220114011407-0dd24b26b47d // indirect
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.0.0-20220128215802-99c3d69c2c27 // indirect
+	golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11 // indirect

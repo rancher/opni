@@ -33,6 +33,8 @@ import (
 	protobuf "github.com/kralicky/spellbook/protobuf/ragu"
 	// mage:import
 	"github.com/kralicky/spellbook/testbin"
+	// mage:import
+	_ "github.com/kralicky/spellbook/upgrade"
 )
 
 var Default = All

@@ -48,7 +48,7 @@ var _ = Describe("Simple Test", Ordered, func() {
 			port, errC := environment.StartAgent("foo", token, []string{fingerprint})
 			promAgentPort := environment.StartPrometheus(port)
 			Expect(promAgentPort).NotTo(BeZero())
-			Consistently(errC).ShouldNot(Receive())
+			Consistently(errC).ShouldNot(Receive(HaveOccurred()))
 		})
 	})
 })

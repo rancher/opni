@@ -11,8 +11,10 @@ import (
 )
 
 type Backend interface {
+	// Returns an error if installing the capability would fail.
+	CanInstall() error
+	// Any error returned from this method is fatal.
 	Install(cluster *core.Reference) error
-	Uninstall() error
 }
 
 const CapabilityBackendPluginID = "backends.Capability"
@@ -56,6 +58,17 @@ func (b *backendServerImpl) Info(
 	return &InfoResponse{
 		CapabilityName: b.capabilityName,
 	}, nil
+}
+
+func (b *backendServerImpl) CanInstall(
+	ctx context.Context,
+	in *emptypb.Empty,
+) (*emptypb.Empty, error) {
+	err := b.impl.CanInstall()
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
 func (b *backendServerImpl) Install(

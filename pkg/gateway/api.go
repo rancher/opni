@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
+	"github.com/rancher/opni-monitoring/pkg/capabilities"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
@@ -178,14 +179,18 @@ func (s *GatewayAPIServer) setupPluginRoutes(cfg *apiextensions.GatewayAPIExtens
 	}
 }
 
-func (s *GatewayAPIServer) ConfigureBootstrapRoutes(storageBackend storage.Backend) {
+func (s *GatewayAPIServer) ConfigureBootstrapRoutes(
+	storageBackend storage.Backend,
+	installer capabilities.Installer,
+) {
 	limiterCfg := limiter.ConfigDefault
 	limiterCfg.Max = 60 // 60 requests per minute
 	s.app.Post("/bootstrap/*", limiter.New(limiterCfg), bootstrap.ServerConfig{
-		Certificate:        &s.tlsConfig.Certificates[0],
-		TokenStore:         storageBackend,
-		ClusterStore:       storageBackend,
-		KeyringStoreBroker: storageBackend,
+		Certificate:         &s.tlsConfig.Certificates[0],
+		TokenStore:          storageBackend,
+		ClusterStore:        storageBackend,
+		KeyringStoreBroker:  storageBackend,
+		CapabilityInstaller: installer,
 	}.Handle)
 }
 

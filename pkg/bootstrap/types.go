@@ -5,6 +5,7 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/ident"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
+	"github.com/rancher/opni-monitoring/pkg/validation"
 )
 
 type Bootstrapper interface {
@@ -19,8 +20,22 @@ type BootstrapJoinResponse struct {
 type BootstrapAuthRequest struct {
 	ClientID     string `json:"client_id"`
 	ClientPubKey []byte `json:"client_pub_key"`
+	Capability   string `json:"capability"`
 }
 
 type BootstrapAuthResponse struct {
 	ServerPubKey []byte `json:"server_pub_key"`
+}
+
+func (h BootstrapAuthRequest) Validate() error {
+	if h.ClientID == "" {
+		return validation.Errorf("%w: %s", validation.ErrMissingRequiredField, "client_id")
+	}
+	if len(h.ClientPubKey) == 0 {
+		return validation.Errorf("%w: %s", validation.ErrMissingRequiredField, "client_pub_key")
+	}
+	if h.Capability == "" {
+		return validation.Errorf("%w: %s", validation.ErrMissingRequiredField, "capability")
+	}
+	return nil
 }

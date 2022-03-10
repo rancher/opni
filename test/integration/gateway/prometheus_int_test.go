@@ -65,7 +65,7 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, func() {
 			port, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
 			promAgentPort := environment.StartPrometheus(port)
 			Expect(promAgentPort).NotTo(BeZero())
-			Consistently(errC).ShouldNot(Receive())
+			Consistently(errC).ShouldNot(Receive(HaveOccurred()))
 
 			//http request to the gateway endpoint including auth header
 			_, err = client.CreateRole(context.Background(), &core.Role{

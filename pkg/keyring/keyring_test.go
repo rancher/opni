@@ -73,7 +73,7 @@ var _ = Describe("Keyring", func() {
 			By("ensuring Marshal returns the correct object")
 			j, err := kr.Marshal()
 			Expect(err).NotTo(HaveOccurred())
-			jsonString := `{"pkpKey":{"pinnedKeys":[{"alg":"sha256","fingerprint":"dGVzdA=="}]}}`
+			jsonString := `{"pkpKey":[{"pinnedKeys":[{"alg":"sha256","fingerprint":"dGVzdA=="}]}]}`
 			Expect(string(j)).To(Equal(jsonString))
 
 			By("ensuring Unmarshal returns the correct object")

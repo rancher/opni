@@ -7,15 +7,14 @@ import (
 )
 
 var (
-	ErrInvalidKeyType            = errors.New("invalid key type")
-	ErrSignatureValidationFailed = errors.New("signature validation failed")
+	ErrInvalidKeyType = errors.New("invalid key type")
 )
 
 var allowedKeyTypes = map[reflect.Type]struct{}{}
 
 type completeKeyring struct {
-	SharedKeys *SharedKeys `json:"sharedKeys,omitempty"`
-	PKPKey     *PKPKey     `json:"pkpKey,omitempty"`
+	SharedKeys []*SharedKeys `json:"sharedKeys,omitempty"`
+	PKPKey     []*PKPKey     `json:"pkpKey,omitempty"`
 }
 
 func init() {
@@ -23,7 +22,7 @@ func init() {
 	fields := reflect.TypeOf(complete).NumField()
 	for i := 0; i < fields; i++ {
 		field := reflect.TypeOf(complete).Field(i)
-		fieldType := field.Type
+		fieldType := field.Type.Elem()
 		allowedKeyTypes[fieldType] = struct{}{}
 	}
 }
@@ -34,24 +33,36 @@ type Keyring interface {
 	Try(...UseKeyFn) bool
 	ForEach(func(key interface{}))
 	Marshal() ([]byte, error)
+	Merge(Keyring) Keyring
 }
 
 type keyring struct {
-	Keys map[reflect.Type]interface{}
+	Keys map[reflect.Type][]interface{}
 }
 
 func New(keys ...interface{}) Keyring {
-	m := map[reflect.Type]interface{}{}
+	m := map[reflect.Type][]interface{}{}
 	for _, key := range keys {
 		t := reflect.TypeOf(key)
 		if _, ok := allowedKeyTypes[t]; !ok {
 			panic(ErrInvalidKeyType)
 		}
-		m[t] = key
+		m[t] = append(m[t], key)
 	}
 	return &keyring{
 		Keys: m,
 	}
+}
+
+func (kr *keyring) Merge(other Keyring) Keyring {
+	keys := []interface{}{}
+	kr.ForEach(func(key interface{}) {
+		keys = append(keys, key)
+	})
+	other.ForEach(func(key interface{}) {
+		keys = append(keys, key)
+	})
+	return New(keys...)
 }
 
 func (kr *keyring) Try(fns ...UseKeyFn) bool {
@@ -68,15 +79,19 @@ func (kr *keyring) Try(fns ...UseKeyFn) bool {
 		argType := fnType.In(0)
 		if f, ok := kr.Keys[argType]; ok {
 			found = true
-			fnValue.Call([]reflect.Value{reflect.ValueOf(f)})
+			for _, k := range f {
+				fnValue.Call([]reflect.Value{reflect.ValueOf(k)})
+			}
 		}
 	}
 	return found
 }
 
 func (kr *keyring) ForEach(fn func(key interface{})) {
-	for _, k := range kr.Keys {
-		fn(k)
+	for _, l := range kr.Keys {
+		for _, k := range l {
+			fn(k)
+		}
 	}
 }
 
@@ -86,9 +101,13 @@ func (kr *keyring) Marshal() ([]byte, error) {
 	fields := reflect.TypeOf(complete).NumField()
 	for i := 0; i < fields; i++ {
 		field := reflect.TypeOf(complete).Field(i)
-		fieldType := field.Type
+		fieldType := field.Type.Elem()
 		if f, ok := kr.Keys[fieldType]; ok {
-			completePtr.Elem().Field(i).Set(reflect.ValueOf(f))
+			keys := reflect.ValueOf(f)
+			for j := 0; j < keys.Len(); j++ {
+				a := reflect.Append(completePtr.Elem().Field(i), reflect.ValueOf(keys.Index(j).Interface()))
+				completePtr.Elem().Field(i).Set(a)
+			}
 		}
 	}
 	return json.Marshal(complete)
@@ -104,8 +123,10 @@ func Unmarshal(data []byte) (Keyring, error) {
 	values := []interface{}{}
 	for i := 0; i < fields; i++ {
 		field := completePtr.Elem().Field(i)
-		if !field.IsNil() {
-			values = append(values, field.Interface())
+		if !field.IsNil() && field.Kind() == reflect.Slice {
+			for i := 0; i < field.Len(); i++ {
+				values = append(values, field.Index(i).Interface())
+			}
 		}
 	}
 	return New(values...), nil

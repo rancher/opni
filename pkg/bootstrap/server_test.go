@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang/mock/gomock"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
@@ -19,12 +20,13 @@ import (
 	"github.com/valyala/fasthttp/fasthttputil"
 
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
+	"github.com/rancher/opni-monitoring/pkg/capabilities"
 	"github.com/rancher/opni-monitoring/pkg/core"
-	"github.com/rancher/opni-monitoring/pkg/core/capabilities"
 	"github.com/rancher/opni-monitoring/pkg/ecdh"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/test"
+	mock_capability "github.com/rancher/opni-monitoring/pkg/test/mock/capability"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
@@ -59,12 +61,19 @@ var _ = Describe("Server", func() {
 		app = fiber.New(fiber.Config{
 			DisableStartupMessage: true,
 		})
+		lg := logger.New().Named("test")
 		logger.ConfigureAppLogger(app, "test")
+		capBackendStore := capabilities.NewBackendStore(lg)
+		mockBackend := mock_capability.NewMockBackend(ctrl)
+		mockBackend.EXPECT().CanInstall().Return(nil).AnyTimes()
+		mockBackend.EXPECT().Install(gomock.Any()).Return(nil).AnyTimes()
+		capBackendStore.Add("test", mockBackend)
 		server := bootstrap.ServerConfig{
-			Certificate:        cert,
-			TokenStore:         mockTokenStore,
-			ClusterStore:       mockClusterStore,
-			KeyringStoreBroker: mockKeyringStoreBroker,
+			CapabilityInstaller: capBackendStore,
+			Certificate:         cert,
+			TokenStore:          mockTokenStore,
+			ClusterStore:        mockClusterStore,
+			KeyringStoreBroker:  mockKeyringStoreBroker,
 		}
 		app.Post("/bootstrap/*", server.Handle)
 		tlsConfig := &tls.Config{
@@ -172,6 +181,7 @@ var _ = Describe("Server", func() {
 						req.Header.Add("Authorization", "Bearer "+string(sig))
 						ekp := ecdh.NewEphemeralKeyPair()
 						authReq := bootstrap.BootstrapAuthRequest{
+							Capability:   "test",
 							ClientID:     "foo",
 							ClientPubKey: ekp.PublicKey,
 						}
@@ -203,6 +213,15 @@ var _ = Describe("Server", func() {
 						kr, err := ks.Get(context.Background())
 						Expect(err).NotTo(HaveOccurred())
 						Expect(kr).NotTo(BeNil())
+
+						By("checking that the capability was added to the cluster")
+						cluster, err := mockClusterStore.GetCluster(context.Background(), &core.Reference{
+							Id: "foo",
+						})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(cluster.GetCapabilities()).To(ContainElement(BeEquivalentTo(&core.ClusterCapability{
+							Name: "test",
+						})))
 					})
 				})
 			})
@@ -243,7 +262,7 @@ var _ = Describe("Server", func() {
 					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 				})
 			})
-			When("the client ID already exists", func() {
+			When("the requested capability already exists", func() {
 				It("should return http 409", func() {
 					rawToken, err := tokens.FromBootstrapToken(token)
 					Expect(err).NotTo(HaveOccurred())
@@ -256,6 +275,7 @@ var _ = Describe("Server", func() {
 					req.Header.Add("Authorization", "Bearer "+string(sig))
 					ekp := ecdh.NewEphemeralKeyPair()
 					authReq := bootstrap.BootstrapAuthRequest{
+						Capability:   "test",
 						ClientID:     "foo",
 						ClientPubKey: ekp.PublicKey,
 					}

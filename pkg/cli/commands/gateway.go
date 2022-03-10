@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	gatewayext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/gateway"
 	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/capability"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/spf13/cobra"
@@ -76,11 +77,14 @@ func BuildGatewayCmd() *cobra.Command {
 		gatewayExtensionPlugins := plugins.DispenseAllAs[apiextensions.GatewayAPIExtensionClient](
 			pluginLoader, gatewayext.GatewayAPIExtensionPluginID)
 		systemPlugins := pluginLoader.DispenseAll(system.SystemPluginID)
+		capBackendPlugins := plugins.DispenseAllAs[capability.BackendClient](
+			pluginLoader, capability.CapabilityBackendPluginID)
 
 		lifecycler := config.NewLifecycler(objects)
 		g := gateway.NewGateway(ctx, gatewayConfig,
 			gateway.WithSystemPlugins(systemPlugins),
 			gateway.WithLifecycler(lifecycler),
+			gateway.WithCapabilityBackendPlugins(capBackendPlugins),
 			gateway.WithAPIServerOptions(
 				gateway.WithAPIExtensions(gatewayExtensionPlugins),
 				gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),

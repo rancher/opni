@@ -2,7 +2,6 @@ package cluster
 
 import (
 	"context"
-	"crypto/ed25519"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rancher/opni-monitoring/pkg/auth"
@@ -63,19 +62,19 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	var clientKey ed25519.PrivateKey
+	authorized := false
 	if ok := kr.Try(func(shared *keyring.SharedKeys) {
-		clientKey = shared.ClientKey
+		if err := b2bmac.Verify(mac, clusterID, nonce, c.Body(), shared.ClientKey); err == nil {
+			authorized = true
+		}
 	}); !ok {
 		lg.Debugf("unauthorized: invalid keyring for cluster %s: %v", clusterID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
-
-	if err := b2bmac.Verify(mac, clusterID, nonce, c.Body(), clientKey); err != nil {
+	if !authorized {
 		lg.Debugf("unauthorized: invalid mac for cluster %s: %v", clusterID, err)
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
-
 	c.Request().Header.Add(m.headerKey, string(clusterID))
 	return c.Next()
 }

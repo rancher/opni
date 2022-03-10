@@ -187,6 +187,11 @@ func init() {
 			Dest:   "pkg/test/mock/ext/ext.go",
 			Types:  []string{"ManagementAPIExtensionServer"},
 		},
+		{
+			Source: "pkg/plugins/apis/capability/plugin.go",
+			Dest:   "pkg/test/mock/capability/capability.go",
+			Types:  []string{"Backend"},
+		},
 	}
 	protobuf.Config.Protos = findProtos()
 	// protobuf.Config.Options = []ragu.GenerateCodeOption{

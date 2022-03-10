@@ -7,6 +7,7 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/agent"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
+	"github.com/rancher/opni-monitoring/pkg/capabilities/wellknown"
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
@@ -78,9 +79,10 @@ agent remote-write requests to add dynamic authentication.`,
 					}
 				}
 				bootstrapper = &bootstrap.ClientConfig{
-					Token:    token,
-					Pins:     publicKeyPins,
-					Endpoint: agentConfig.Spec.GatewayAddress,
+					Capability: wellknown.CapabilityMetrics,
+					Token:      token,
+					Pins:       publicKeyPins,
+					Endpoint:   agentConfig.Spec.GatewayAddress,
 				}
 			}
 

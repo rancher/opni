@@ -29,6 +29,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	testauth "github.com/rancher/opni-monitoring/pkg/auth/test"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
+	"github.com/rancher/opni-monitoring/pkg/capabilities/wellknown"
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
@@ -43,6 +44,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	gatewayext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/gateway"
 	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/capability"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api"
 	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
@@ -507,6 +509,8 @@ func (e *Environment) startGateway() {
 	gatewayExtensionPlugins := plugins.DispenseAllAs[apiextensions.GatewayAPIExtensionClient](
 		pluginLoader, gatewayext.GatewayAPIExtensionPluginID)
 	systemPlugins := pluginLoader.DispenseAll(system.SystemPluginID)
+	capBackendPlugins := plugins.DispenseAllAs[capability.BackendClient](
+		pluginLoader, capability.CapabilityBackendPluginID)
 
 	lifecycler := config.NewLifecycler(meta.ObjectList{e.gatewayConfig, &v1beta1.AuthProvider{
 		TypeMeta: meta.TypeMeta{
@@ -523,6 +527,7 @@ func (e *Environment) startGateway() {
 	g := gateway.NewGateway(e.ctx, e.gatewayConfig,
 		gateway.WithSystemPlugins(systemPlugins),
 		gateway.WithLifecycler(lifecycler),
+		gateway.WithCapabilityBackendPlugins(capBackendPlugins),
 		gateway.WithAPIServerOptions(
 			gateway.WithAPIExtensions(gatewayExtensionPlugins),
 			gateway.WithAuthMiddleware(e.gatewayConfig.Spec.AuthProvider),
@@ -643,9 +648,10 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 		mu.Lock()
 		a, err = agent.New(e.ctx, agentConfig,
 			agent.WithBootstrapper(&bootstrap.ClientConfig{
-				Token:    bt,
-				Pins:     publicKeyPins,
-				Endpoint: fmt.Sprintf("http://localhost:%d", e.ports.Gateway),
+				Capability: wellknown.CapabilityMetrics,
+				Token:      bt,
+				Pins:       publicKeyPins,
+				Endpoint:   fmt.Sprintf("http://localhost:%d", e.ports.Gateway),
 			}))
 		if err != nil {
 			errC <- err

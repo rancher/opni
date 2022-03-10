@@ -32,6 +32,7 @@ var (
 )
 
 type ClientConfig struct {
+	Capability   string
 	Token        *tokens.Token
 	Pins         []*pkp.PublicKeyPin
 	Endpoint     string
@@ -74,6 +75,7 @@ func (c *ClientConfig) Bootstrap(
 	authReq, err := json.Marshal(BootstrapAuthRequest{
 		ClientID:     id,
 		ClientPubKey: ekp.PublicKey,
+		Capability:   c.Capability,
 	})
 	if err != nil {
 		return nil, err

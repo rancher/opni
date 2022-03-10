@@ -6,41 +6,43 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-plugin"
+	"github.com/rancher/opni-monitoring/pkg/capabilities"
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/machinery"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/capability"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/rancher/opni-monitoring/pkg/webui"
 	"go.uber.org/zap"
 	"golang.org/x/mod/module"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type APIExtensionPlugin = plugins.TypedActivePlugin[apiextensions.GatewayAPIExtensionClient]
+type CapabilityBackendPlugin = plugins.TypedActivePlugin[capability.BackendClient]
 type SystemPlugin = plugins.TypedActivePlugin[system.SystemPluginServer]
 
 type Gateway struct {
 	GatewayOptions
-	config *config.GatewayConfig
-	ctx    context.Context
-	logger *zap.SugaredLogger
-
-	storageBackend  storage.Backend
-	capBackendStore *CapabilityBackendStore
-
+	config    *config.GatewayConfig
+	ctx       context.Context
+	logger    *zap.SugaredLogger
 	apiServer *GatewayAPIServer
 
-	cortexTLSConfig *tls.Config // *** temporary code ***
+	storageBackend  storage.Backend
+	capBackendStore *capabilities.BackendStore
 }
 
 type GatewayOptions struct {
-	apiServerOptions []APIServerOption
-	lifecycler       config.Lifecycler
-	systemPlugins    []plugins.ActivePlugin
+	apiServerOptions  []APIServerOption
+	lifecycler        config.Lifecycler
+	systemPlugins     []plugins.ActivePlugin
+	capBackendPlugins []CapabilityBackendPlugin
 }
 
 type GatewayOption func(*GatewayOptions)
@@ -62,6 +64,12 @@ func WithLifecycler(lc config.Lifecycler) GatewayOption {
 func WithSystemPlugins(plugins []plugins.ActivePlugin) GatewayOption {
 	return func(o *GatewayOptions) {
 		o.systemPlugins = plugins
+	}
+}
+
+func WithCapabilityBackendPlugins(plugins []CapabilityBackendPlugin) GatewayOption {
+	return func(o *GatewayOptions) {
+		o.capBackendPlugins = plugins
 	}
 }
 
@@ -88,17 +96,34 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 		).Error("failed to configure storage backend")
 	}
 
+	capBackendStore := capabilities.NewBackendStore(lg)
+	for _, p := range options.capBackendPlugins {
+		info, err := p.Typed.Info(ctx, &emptypb.Empty{})
+		if err != nil {
+			lg.With(
+				zap.String("plugin", p.Metadata.Module),
+			).Error("failed to get capability info")
+			continue
+		}
+		backend := capabilities.NewBackend(p.Typed)
+		if err := capBackendStore.Add(info.CapabilityName, backend); err != nil {
+			lg.With(
+				zap.String("plugin", p.Metadata.Module),
+				zap.Error(err),
+			).Error("failed to add capability backend")
+		}
+	}
+
 	apiServer := NewAPIServer(ctx, &conf.Spec, lg, options.apiServerOptions...)
-	apiServer.ConfigureBootstrapRoutes(storageBackend)
+	apiServer.ConfigureBootstrapRoutes(storageBackend, capBackendStore)
 
 	g := &Gateway{
-		GatewayOptions:  options,
-		ctx:             ctx,
-		config:          conf,
-		logger:          lg,
-		storageBackend:  storageBackend,
-		capBackendStore: NewCapabilityBackendStore(lg),
-		apiServer:       apiServer,
+		GatewayOptions: options,
+		ctx:            ctx,
+		config:         conf,
+		logger:         lg,
+		storageBackend: storageBackend,
+		apiServer:      apiServer,
 	}
 
 	waitctx.Go(ctx, func() {

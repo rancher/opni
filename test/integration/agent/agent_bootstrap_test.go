@@ -71,7 +71,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 			port, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
 			promAgentPort := environment.StartPrometheus(port)
 			Expect(promAgentPort).NotTo(BeZero())
-			Consistently(errC).ShouldNot(Receive())
+			Consistently(errC).ShouldNot(Receive(HaveOccurred()))
 
 		})
 

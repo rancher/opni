@@ -6,9 +6,10 @@ option go_package = "github.com/rancher/opni-monitoring/pkg/plugins/apis/capabil
 package capability;
 
 service Backend {
-  rpc Info(google.protobuf.Empty) returns (InfoResponse) {}
-  rpc Install(InstallRequest) returns (google.protobuf.Empty) {}
-  rpc Uninstall(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Info(google.protobuf.Empty) returns (InfoResponse);
+  rpc CanInstall(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Install(InstallRequest) returns (google.protobuf.Empty);
+  rpc Uninstall(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 message InfoResponse {

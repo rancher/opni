@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: /home/runner/work/opni-monitoring/opni-monitoring/web/dist
-          key: cache-webdist-${{ steps.opni-ui.version }}
+          key: cache-webdist-${{ steps.opni-ui.outputs.version }}
       - name: Set up Go
         uses: actions/setup-go@v2
         with:

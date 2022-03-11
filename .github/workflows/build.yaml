@@ -21,17 +21,27 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Go Module Cache
-        uses: actions/cache@v2.1.7
+        uses: actions/cache@v2
         with:
           path: ~/go
           key: cache-go-${{ runner.os }}-${{ github.sha }}
           restore-keys: cache-go-${{ runner.os }}-
       - name: Test Binary Cache
-        uses: actions/cache@v2.1.7
+        uses: actions/cache@v2
         with:
           path: /home/runner/work/opni-monitoring/opni-monitoring/testbin
           key: cache-testbin-${{ runner.os }}-${{ github.sha }}
           restore-keys: cache-testbin-${{ runner.os }}-
+      - name: Get opni-ui version
+        id: opni-ui
+        run: |
+          echo "::set-output version=sha::$(curl -sf 'https://api.github.com/repos/rancher/opni-ui/git/refs/heads/monitoring' | jq -r '.object.sha')"
+        shell: bash
+      - name: Web Assets Cache
+        uses: actions/cache@v2
+        with:
+          path: /home/runner/work/opni-monitoring/opni-monitoring/web/dist
+          key: cache-webdist-${{ steps.opni-ui.version }}
       - name: Set up Go
         uses: actions/setup-go@v2
         with:

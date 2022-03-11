@@ -81,23 +81,23 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return c.SendStatus(fasthttp.StatusOK)
 	})
 
-	agent := &Agent{
-		AgentOptions:    options,
-		AgentConfigSpec: conf.Spec,
-		app:             app,
-		logger:          lg,
-	}
-
-	var err error
-	agent.identityProvider, err = ident.GetProvider(conf.Spec.IdentityProvider)
+	ip, err := ident.GetProvider(conf.Spec.IdentityProvider)
 	if err != nil {
 		return nil, fmt.Errorf("configuration error: %w", err)
 	}
-
-	id, err := agent.identityProvider.UniqueIdentifier(ctx)
+	id, err := ip.UniqueIdentifier(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting unique identifier: %w", err)
 	}
+	agent := &Agent{
+		AgentOptions:     options,
+		AgentConfigSpec:  conf.Spec,
+		app:              app,
+		logger:           lg,
+		tenantID:         id,
+		identityProvider: ip,
+	}
+
 	switch agent.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
 		etcdStore := etcd.NewEtcdStore(ctx, agent.Storage.Etcd)
@@ -172,12 +172,6 @@ func (a *Agent) Shutdown() error {
 
 func (a *Agent) bootstrap(ctx context.Context) error {
 	lg := a.logger
-	// Look up our tenant ID
-	id, err := a.identityProvider.UniqueIdentifier(ctx)
-	if err != nil {
-		return fmt.Errorf("error getting unique identifier: %w", err)
-	}
-	a.tenantID = id
 
 	// Load the stored keyring, or bootstrap a new one if it doesn't exist
 	if _, err := a.keyringStore.Get(ctx); errors.Is(err, storage.ErrNotFound) {

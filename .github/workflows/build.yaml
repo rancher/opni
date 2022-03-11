@@ -32,16 +32,6 @@ jobs:
           path: /home/runner/work/opni-monitoring/opni-monitoring/testbin
           key: cache-testbin-${{ runner.os }}-${{ github.sha }}
           restore-keys: cache-testbin-${{ runner.os }}-
-      - name: Get opni-ui version
-        id: opni-ui
-        run: |
-          echo "::set-output name=version::$(curl -sf 'https://api.github.com/repos/rancher/opni-ui/git/refs/heads/monitoring' | jq -r '.object.sha')"
-        shell: bash
-      - name: Web Assets Cache
-        uses: actions/cache@v2
-        with:
-          path: /home/runner/work/opni-monitoring/opni-monitoring/web/dist
-          key: cache-webdist-${{ steps.opni-ui.outputs.version }}
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -50,6 +40,7 @@ jobs:
       - name: Install dependencies
         run: go mod download
       - name: Build
+        id: build
         run: go run github.com/magefile/mage
       - name: Test
         run: go run github.com/magefile/mage test
@@ -81,6 +72,12 @@ jobs:
           context: .
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Push UI image
+        if: ${{ steps.build.outputs.push_ui_image != "" }}
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: ${{ steps.build.outputs.push_ui_image }}
       - name: Upload test results to Codecov
         uses: codecov/codecov-action@v1
         with:

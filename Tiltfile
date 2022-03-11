@@ -11,7 +11,6 @@ if "allowedContexts" in settings:
 # min_k8s_version('1.22')
 deploy_cert_manager(version="v1.5.3")
 k8s_yaml(kustomize('config/default'))
-k8s_yaml('test/resources/opensearchcrds.yaml')
 
 deps = ['controllers', 'main.go', 'apis', 'pkg/demo', 'pkg/util/manager',
         'pkg/resources', 'pkg/providers',]

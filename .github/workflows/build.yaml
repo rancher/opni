@@ -35,7 +35,7 @@ jobs:
       - name: Get opni-ui version
         id: opni-ui
         run: |
-          echo "::set-output version=sha::$(curl -sf 'https://api.github.com/repos/rancher/opni-ui/git/refs/heads/monitoring' | jq -r '.object.sha')"
+          echo "::set-output name=version::$(curl -sf 'https://api.github.com/repos/rancher/opni-ui/git/refs/heads/monitoring' | jq -r '.object.sha')"
         shell: bash
       - name: Web Assets Cache
         uses: actions/cache@v2
@@ -46,7 +46,7 @@ jobs:
         uses: actions/setup-go@v2
         with:
           stable: false
-          go-version: "1.18.0-beta2"
+          go-version: "1.18.0-rc1"
       - name: Install dependencies
         run: go mod download
       - name: Build

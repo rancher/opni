@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-plugin"
+	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	"google.golang.org/grpc"
@@ -45,6 +46,7 @@ func (p *gatewayApiExtensionPlugin) GRPCServer(
 	p.app = fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 	})
+	logger.ConfigureAppLogger(p.app, "gateway-ext")
 	apiextensions.RegisterGatewayAPIExtensionServer(s, p)
 	return nil
 }

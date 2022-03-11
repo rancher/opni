@@ -79,14 +79,14 @@ func (l *extendedSugaredLogger) AtomicLevel() zap.AtomicLevel {
 func (l *extendedSugaredLogger) XWith(args ...interface{}) ExtendedSugaredLogger {
 	return &extendedSugaredLogger{
 		SugaredLogger: l.With(args...),
-		level:         l.level,
+		level:         zap.NewAtomicLevelAt(l.level.Level()),
 	}
 }
 
 func (l *extendedSugaredLogger) XNamed(name string) ExtendedSugaredLogger {
 	return &extendedSugaredLogger{
 		SugaredLogger: l.Named(name),
-		level:         l.level,
+		level:         zap.NewAtomicLevelAt(l.level.Level()),
 	}
 }
 
@@ -224,7 +224,7 @@ func ConfigureAppLogger(app *fiber.App, name string) {
 
 func NewForPlugin() hclog.Logger {
 	opts := &hclog.LoggerOptions{
-		Level:       hclog.Debug,
+		Level:       hclog.DefaultLevel,
 		JSONFormat:  true,
 		DisableTime: true,
 	}

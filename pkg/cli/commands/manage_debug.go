@@ -4,9 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
+	"time"
 
+	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
+	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/spf13/cobra"
+	"go.etcd.io/etcd/etcdctl/v3/ctlv3"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"sigs.k8s.io/yaml"
 )
@@ -18,6 +24,7 @@ func BuildDebugCmd() *cobra.Command {
 	}
 	debugCmd.AddCommand(BuildDebugReloadCmd())
 	debugCmd.AddCommand(BuildDebugGetConfigCmd())
+	debugCmd.AddCommand(BuildDebugEtcdctlCmd())
 	return debugCmd
 }
 
@@ -83,4 +90,53 @@ func BuildDebugReloadCmd() *cobra.Command {
 		},
 	}
 	return debugReloadCmd
+}
+
+const (
+	defaultDialTimeout      = 2 * time.Second
+	defaultCommandTimeOut   = 5 * time.Second
+	defaultKeepAliveTime    = 2 * time.Second
+	defaultKeepAliveTimeOut = 6 * time.Second
+)
+
+func BuildDebugEtcdctlCmd() *cobra.Command {
+	debugEtcdctlCmd := &cobra.Command{
+		Use:                "etcdctl",
+		Short:              "embedded auto-configured etcdctl",
+		Long:               "To specify a config location, use the OPNIM_CONFIG environment variable.",
+		DisableFlagParsing: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			objects := cliutil.LoadConfigObjectsOrDie(os.Getenv("OPNIM_CONFIG"), lg)
+			var gatewayConfig *v1beta1.GatewayConfig
+			objects.Visit(
+				func(config *v1beta1.GatewayConfig) {
+					if gatewayConfig == nil {
+						gatewayConfig = config
+					}
+				},
+			)
+			if gatewayConfig == nil {
+				return fmt.Errorf("no gateway config found")
+			}
+			if gatewayConfig.Spec.Storage.Type != v1beta1.StorageTypeEtcd {
+				return fmt.Errorf("storage type is not etcd")
+			}
+			if gatewayConfig.Spec.Storage.Etcd.Certs == nil {
+				return fmt.Errorf("etcd config is missing certs")
+			}
+			endpoints := gatewayConfig.Spec.Storage.Etcd.Endpoints
+			cert := gatewayConfig.Spec.Storage.Etcd.Certs.ClientCert
+			key := gatewayConfig.Spec.Storage.Etcd.Certs.ClientKey
+			ca := gatewayConfig.Spec.Storage.Etcd.Certs.ServerCA
+
+			os.Args = append([]string{"etcdctl",
+				fmt.Sprintf("--endpoints=%s", strings.Join(endpoints, ",")),
+				fmt.Sprintf("--cacert=%s", ca),
+				fmt.Sprintf("--cert=%s", cert),
+				fmt.Sprintf("--key=%s", key),
+			}, args...)
+			return ctlv3.Start()
+		},
+	}
+	return debugEtcdctlCmd
 }

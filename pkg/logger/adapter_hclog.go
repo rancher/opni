@@ -19,7 +19,7 @@ var _ hclog.Logger = (*hclogAdapter)(nil)
 func (la *hclogAdapter) Log(level hclog.Level, msg string, args ...interface{}) {
 	switch level {
 	case hclog.Trace:
-		la.Debug(msg, args...)
+		la.Trace(msg, args...)
 	case hclog.Debug:
 		la.Debug(msg, args...)
 	case hclog.Info:
@@ -37,22 +37,37 @@ func (la *hclogAdapter) Log(level hclog.Level, msg string, args ...interface{}) 
 }
 
 func (la *hclogAdapter) Trace(msg string, args ...interface{}) {
+	if !la.IsTrace() {
+		return
+	}
 	la.logger.Debugw(msg, stripTimestamp(args...)...)
 }
 
 func (la *hclogAdapter) Debug(msg string, args ...interface{}) {
+	if !la.IsDebug() {
+		return
+	}
 	la.logger.Debugw(msg, stripTimestamp(args...)...)
 }
 
 func (la *hclogAdapter) Info(msg string, args ...interface{}) {
+	if !la.IsInfo() {
+		return
+	}
 	la.logger.Infow(msg, stripTimestamp(args...)...)
 }
 
 func (la *hclogAdapter) Warn(msg string, args ...interface{}) {
+	if !la.IsWarn() {
+		return
+	}
 	la.logger.Warnw(msg, stripTimestamp(args...)...)
 }
 
 func (la *hclogAdapter) Error(msg string, args ...interface{}) {
+	if !la.IsError() {
+		return
+	}
 	la.logger.Errorw(msg, stripTimestamp(args...)...)
 }
 

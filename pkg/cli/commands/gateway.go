@@ -2,12 +2,11 @@ package commands
 
 import (
 	"context"
-	"errors"
-	"os"
 	"sync/atomic"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni-monitoring/pkg/auth"
+	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/gateway"
@@ -31,31 +30,9 @@ func BuildGatewayCmd() *cobra.Command {
 	var configLocation string
 
 	run := func() error {
-		if configLocation == "" {
-			// find config file
-			path, err := config.FindConfig()
-			if err != nil {
-				if errors.Is(err, config.ErrConfigNotFound) {
-					wd, _ := os.Getwd()
-					lg.Fatalf(`could not find a config file in ["%s","/etc/opni-monitoring"], and --config was not given`, wd)
-				}
-				lg.With(
-					zap.Error(err),
-				).Fatal("an error occurred while searching for a config file")
-			}
-			lg.With(
-				"path", path,
-			).Info("using config file")
-			configLocation = path
-		}
+		objects := cliutil.LoadConfigObjectsOrDie(configLocation, lg)
 
 		ctx, cancel := context.WithCancel(waitctx.FromContext(context.Background()))
-		objects, err := config.LoadObjectsFromFile(configLocation)
-		if err != nil {
-			lg.With(
-				zap.Error(err),
-			).Fatal("failed to load config")
-		}
 		machinery.LoadAuthProviders(ctx, objects)
 		var gatewayConfig *v1beta1.GatewayConfig
 		objects.Visit(

@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -61,6 +62,6 @@ func NewApiExtensionTestPlugin(
 		Plugins:         scheme.PluginMap(),
 		Reattach:        <-ch,
 		Managed:         true,
-		Logger:          logger.NewHCLogger(logger.New()).Named("plugin"),
+		Logger:          logger.NewHCLogger(logger.New(logger.WithLogLevel(zap.WarnLevel))).Named("plugin"),
 	}
 }

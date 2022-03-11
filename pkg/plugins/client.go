@@ -21,7 +21,7 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme) *plugin.ClientConfig {
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC, plugin.ProtocolNetRPC},
 		Managed:          true,
 		Cmd:              cmd,
-		Logger:           logger.NewHCLogger(logger.New()).Named("plugin"),
+		Logger:           logger.NewHCLogger(logger.New(logger.WithLogLevel(zap.WarnLevel))).Named("plugin"),
 		SyncStdout:       os.Stdout,
 		SyncStderr:       os.Stderr,
 	}

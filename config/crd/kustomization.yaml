@@ -9,6 +9,7 @@ resources:
 - logging/logging.opni.io_outputs.yaml
 - nvidia/nvidia.opni.io_clusterpolicies.yaml
 - nfd/nfd.opni.io_nodefeaturediscoveries.yaml
+- opensearch/opensearch.opster.io_opensearchclusters.yaml
 - bases/opni.io_opniclusters.yaml
 - bases/opni.io_logadapters.yaml
 - bases/demo.opni.io_opnidemoes.yaml

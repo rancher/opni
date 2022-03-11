@@ -449,8 +449,7 @@ func (r *Reconciler) upsertKibanaObjectDoc(indexName string, docID string, versi
 	return nil
 }
 
-func (r *Reconciler) ImportKibanaObjects(indexName string, docID string, version string) error {
-	var kibanaObjects string
+func (r *Reconciler) ImportKibanaObjects(indexName string, docID string, version string, kibanaObjects string) error {
 	lg := log.FromContext(r.ctx)
 	update, err := r.shouldUpdateKibana(indexName, docID, version)
 	if err != nil {

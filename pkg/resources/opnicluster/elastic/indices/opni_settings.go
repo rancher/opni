@@ -707,4 +707,9 @@ var (
 			},
 		},
 	}
+
+	// kibanaObjects contains the ndjson form data for creating the kibana
+	// index patterns and dashboards
+	//go:embed dashboard.ndjson
+	kibanaObjects string
 )

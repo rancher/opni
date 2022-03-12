@@ -269,7 +269,7 @@ func WebDist() error {
 			return err
 		}
 	}
-	if err := copyAssetsFromUiImage(); err != nil {
+	if err := copyAssetsFromUiImage(version); err != nil {
 		fmt.Printf(chalk.Red.Color("=>")+" %v\n", err)
 		return err
 	}
@@ -420,7 +420,7 @@ func buildOrPullUiImage(version string) error {
 	return nil
 }
 
-func copyAssetsFromUiImage() error {
+func copyAssetsFromUiImage(version string) error {
 	fmt.Println(chalk.Blue.Color("=>") + " Copying UI assets from image")
 	pwd, err := os.Getwd()
 	if err != nil {
@@ -430,9 +430,10 @@ func copyAssetsFromUiImage() error {
 	if err != nil {
 		return err
 	}
+	taggedImage := fmt.Sprintf("%s:%s", uiBuildImage, version)
 	err = sh.Run("docker", "run", "-t", "--rm", "-v",
 		filepath.Join(pwd, "web/dist")+":/dist",
-		"opni-monitoring-ui-build", fmt.Sprintf("%s:%s", curUser.Uid, curUser.Gid))
+		taggedImage, fmt.Sprintf("%s:%s", curUser.Uid, curUser.Gid))
 	if err != nil {
 		return err
 	}

@@ -73,7 +73,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
       - name: Push UI image
-        if: ${{ steps.build.outputs.push_ui_image != "" }}
+        if: ${{ steps.build.outputs.push_ui_image != '' }}
         uses: docker/build-push-action@v2
         with:
           push: true

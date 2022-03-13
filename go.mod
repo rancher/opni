@@ -32,6 +32,7 @@ require (
 	github.com/ory/fosite v0.42.1
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
+	github.com/rancher/opni v0.3.1
 	github.com/schollz/progressbar/v3 v3.8.6
 	github.com/spf13/cobra v1.4.0
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
@@ -50,9 +51,10 @@ require (
 	k8s.io/api v0.23.4
 	k8s.io/apiextensions-apiserver v0.23.4
 	k8s.io/apimachinery v0.23.4
-	k8s.io/client-go v0.23.4
+	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kubectl v0.23.4
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
+	opensearch.opster.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.11.1
 	sigs.k8s.io/controller-tools v0.8.0
 	sigs.k8s.io/yaml v1.3.0
@@ -61,10 +63,12 @@ require (
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
+	github.com/NVIDIA/gpu-operator v1.8.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0 // indirect
+	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.19 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/briandowns/spinner v1.12.0 // indirect
@@ -151,6 +155,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.12 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.52.0 // indirect
 	github.com/prometheus/client_golang v1.11.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
@@ -211,4 +216,15 @@ require (
 	sigs.k8s.io/kustomize/api v0.10.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
+)
+
+replace (
+	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
+
+	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.0.0-20220225205714-b06e7ad17676
+	// github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
+	// Because of a dependency chain to Coretx
+	k8s.io/client-go => k8s.io/client-go v0.23.4
+	opensearch.opster.io => github.com/Opster/opensearch-k8s-operator/opensearch-operator v0.0.0-20220221125137-07e7c4a0839e
 )

@@ -32,13 +32,14 @@ require (
 	github.com/ory/fosite v0.42.1
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
-	github.com/rancher/opni v0.3.1
+	github.com/rancher/opni v0.3.1-0.20220313230301-5b5b78d9249a
 	github.com/schollz/progressbar/v3 v3.8.6
 	github.com/spf13/cobra v1.4.0
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/valyala/fasthttp v1.34.0
 	github.com/vearutop/statigz v1.1.7
 	go.etcd.io/etcd/client/v3 v3.5.2
+	go.etcd.io/etcd/etcdctl/v3 v3.5.2
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20220307211146-efcb8507fb70
@@ -180,7 +181,6 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.2 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.2 // indirect
 	go.etcd.io/etcd/client/v2 v2.305.2 // indirect
-	go.etcd.io/etcd/etcdctl/v3 v3.5.2 // indirect
 	go.etcd.io/etcd/etcdutl/v3 v3.5.2 // indirect
 	go.etcd.io/etcd/pkg/v3 v3.5.2 // indirect
 	go.etcd.io/etcd/raft/v3 v3.5.2 // indirect

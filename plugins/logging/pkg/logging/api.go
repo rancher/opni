@@ -64,6 +64,7 @@ func (p *Plugin) handleGetOpensearchDetails(c *fiber.Ctx) error {
 	}
 
 	// Return details
+	// TODO add auth headers for client to verify
 	return c.Status(fiber.StatusOK).JSON(OpensearchDetailsResponse{
 		Username:    secrets.Items[0].Name,
 		Password:    string(secrets.Items[0].Data["password"]),

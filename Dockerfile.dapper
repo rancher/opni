@@ -5,7 +5,6 @@ ENV DOCKER_VERSION=20.10.5
 RUN go install sigs.k8s.io/kustomize/kustomize/v4@v4.5.2 \
   && go install sigs.k8s.io/kubebuilder/v3/cmd@v3.1.0 \
   && go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 \
-  && curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.44.2 \
   && apt update \
   && apt -y install jq \
   && curl -sL https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz -o docker-${DOCKER_VERSION}.tgz \
@@ -14,6 +13,11 @@ RUN go install sigs.k8s.io/kustomize/kustomize/v4@v4.5.2 \
   && mv /go/bin/* /usr/bin/ \
   && rm -rf /go/bin/* \
   && go clean -cache -modcache
+
+RUN cd /go \
+  && git clone --depth 1 https://github.com/golangci/golangci-lint.git \
+  && cd golangci-lint \
+  && go build -o ../bin/golangci-lint ./cmd/golangci-lint
 
 ENV PATH /go/bin:$PATH
 ENV DAPPER_SOURCE /workspace

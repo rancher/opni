@@ -47936,32 +47936,6 @@ rules:
 - apiGroups:
   - opni.io
   resources:
-  - loggingclusterbindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - opni.io
-  resources:
-  - loggingclusterbindings/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - loggingclusterbindings/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - opni.io
-  resources:
   - datapreppers
   verbs:
   - create
@@ -47981,32 +47955,6 @@ rules:
   - opni.io
   resources:
   - datapreppers/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - multiclusterrolebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - opni.io
-  resources:
-  - multiclusterrolebindings/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - multiclusterrolebindings/status
   verbs:
   - get
   - patch
@@ -48069,6 +48017,32 @@ rules:
 - apiGroups:
   - opni.io
   resources:
+  - loggingclusterbindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusterbindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusterbindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
   - loggingclusters
   verbs:
   - create
@@ -48088,6 +48062,32 @@ rules:
   - opni.io
   resources:
   - loggingclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - multiclusterrolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - multiclusterrolebindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - multiclusterrolebindings/status
   verbs:
   - get
   - patch

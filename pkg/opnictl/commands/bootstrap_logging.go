@@ -67,7 +67,7 @@ func BuildBootstrapLoggingCommand() *cobra.Command {
 }
 
 func doBootstrap(cmd *cobra.Command, args []string) error {
-	clusterID, err := getClusterId(cmd.Context())
+	clusterID, err := getClusterID(cmd.Context())
 	if err != nil {
 		return err
 	}
@@ -84,10 +84,16 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 	}
 
 	authHeader, err := b2bmac.EncodeAuthHeader([]byte(clusterID), nonce, sig)
+	if err != nil {
+		return err
+	}
 
 	// error already checked in auth
 	url, _ := getClusterDetailsURL()
 	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+	if err != nil {
+		return err
+	}
 	req.Header.Add("Authorization", authHeader)
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -194,7 +200,7 @@ func findValidSignature(
 	return nil, bootstrap.ErrNoValidSignature
 }
 
-func getClusterId(ctx context.Context) (string, error) {
+func getClusterID(ctx context.Context) (string, error) {
 	systemNamespace := &corev1.Namespace{}
 	if err := common.K8sClient.Get(ctx, types.NamespacedName{
 		Name: "kube-system",

@@ -3,6 +3,7 @@ package v2beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type IndexUserState string
@@ -51,6 +52,7 @@ type LoggingClusterStatus struct {
 	Conditions     []string            `json:"conditions,omitempty"`
 	State          LoggingClusterState `json:"state,omitempty"`
 	IndexUserState IndexUserState      `json:"indexUserState,omitempty"`
+	ReadRole       string              `json:"readRole,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -62,4 +64,11 @@ type LoggingClusterList struct {
 
 func init() {
 	SchemeBuilder.Register(&LoggingCluster{}, &LoggingClusterList{})
+}
+
+func (o *OpensearchClusterRef) ObjectKeyFromRef() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      o.Name,
+		Namespace: o.Namespace,
+	}
 }

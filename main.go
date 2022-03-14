@@ -149,6 +149,16 @@ func run() error {
 		return err
 	}
 
+	if err = (&controllers.MulticlusterRoleBindingReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MulticlusterRoleBinding")
+		return err
+	}
+
+	if err = (&controllers.LoggingClusterBindingReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoggingClusterBinding")
+		return err
+	}
+
 	if err = (&controllers.PretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PretrainedModel")
 		return err

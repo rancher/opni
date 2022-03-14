@@ -21,7 +21,6 @@ require (
 	github.com/longhorn/upgrade-responder v0.1.2-0.20210521005936-d72e5ddbc541
 	github.com/mattn/go-isatty v0.0.14
 	github.com/nats-io/nkeys v0.3.0
-	github.com/onsi/ginkgo v1.16.6-0.20211118180735-4e1925ba4c95
 	github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega v1.18.1
 	github.com/opensearch-project/opensearch-go v1.1.0
@@ -107,6 +106,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/oklog/run v1.0.0 // indirect
+	github.com/onsi/ginkgo v1.16.6-0.20211118180735-4e1925ba4c95 // indirect
 	github.com/openshift/api v3.9.0+incompatible // indirect
 	github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47 // indirect
 	github.com/openshift/custom-resource-status v0.0.0-20210221154447-420d9ecf2a00 // indirect

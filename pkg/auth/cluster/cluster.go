@@ -13,6 +13,11 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	ClusterIDKey  = "cluster_auth_cluster_id"
+	SharedKeysKey = "cluster_auth_shared_keys"
+)
+
 type ClusterMiddleware struct {
 	keyringStore storage.KeyringStoreBroker
 	headerKey    string
@@ -63,9 +68,11 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 	}
 
 	authorized := false
+	var sharedKeys *keyring.SharedKeys
 	if ok := kr.Try(func(shared *keyring.SharedKeys) {
 		if err := b2bmac.Verify(mac, clusterID, nonce, c.Body(), shared.ClientKey); err == nil {
 			authorized = true
+			sharedKeys = shared
 		}
 	}); !ok {
 		lg.Debugf("unauthorized: invalid keyring for cluster %s: %v", clusterID, err)
@@ -76,5 +83,14 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 	c.Request().Header.Add(m.headerKey, string(clusterID))
+	c.Locals(SharedKeysKey, sharedKeys)
 	return c.Next()
+}
+
+func AuthorizedKeys(c *fiber.Ctx) *keyring.SharedKeys {
+	return c.Locals(SharedKeysKey).(*keyring.SharedKeys)
+}
+
+func AuthorizedID(c *fiber.Ctx) string {
+	return c.Locals(ClusterIDKey).(string)
 }

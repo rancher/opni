@@ -1,8 +1,11 @@
 package logging
 
 import (
+	"encoding/json"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/rancher/opni-monitoring/pkg/auth/cluster"
+	"github.com/rancher/opni-monitoring/pkg/b2bmac"
 	opniv2beta1 "github.com/rancher/opni/apis/v2beta1"
 	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
@@ -31,12 +34,8 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 func (p *Plugin) handleGetOpensearchDetails(c *fiber.Ctx) error {
 	lg := c.Context().Logger()
 
-	// Fetch the cluster ID
-	headers := c.GetReqHeaders()
-	id, ok := headers[ClusterIDHeader]
-	if !ok {
-		return ErrClusterIDMissing
-	}
+	// Fetch the cluster ID which is set by the middleware
+	id := cluster.AuthorizedID(c)
 
 	// Get the external URL
 	binding := &opniv2beta1.MulticlusterRoleBinding{}
@@ -64,11 +63,22 @@ func (p *Plugin) handleGetOpensearchDetails(c *fiber.Ctx) error {
 	}
 
 	// Return details
-	// TODO add auth headers for client to verify
-	return c.Status(fiber.StatusOK).JSON(OpensearchDetailsResponse{
+	response := OpensearchDetailsResponse{
 		Username:    secrets.Items[0].Name,
 		Password:    string(secrets.Items[0].Data["password"]),
 		ExternalURL: binding.Spec.OpensearchExternalURL,
-	})
+	}
+	responseData, err := json.Marshal(response)
+	if err != nil {
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
 
+	sharedKeys := cluster.AuthorizedKeys(c)
+	header, err := b2bmac.NewEncodedHeader([]byte(id), responseData, sharedKeys.ServerKey)
+	if err != nil {
+		lg.Printf("error generating response auth header: %v", err)
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+	c.Response().Header.Add("Authorization", header)
+	return c.Status(fiber.StatusOK).Send(responseData)
 }

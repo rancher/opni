@@ -65,7 +65,7 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 
 	reconciler := opensearch.NewReconciler(
 		r.ctx,
-		opensearchCluster.Spec.General.ClusterName,
+		opensearchCluster.Namespace,
 		osPassword,
 		opensearchCluster.Spec.General.ServiceName,
 		"todo", // TODO fix dashboards name

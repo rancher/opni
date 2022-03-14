@@ -236,10 +236,13 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 			_, errC := environment.StartAgent("test-cluster-1", token, []string{fingerprint})
 			Consistently(errC).ShouldNot(Receive())
 
-			cluster, err := client.GetCluster(context.Background(), &core.Reference{
-				Id: "test-cluster-1",
-			})
-			Expect(err).NotTo(HaveOccurred())
+			var cluster *core.Cluster
+			Eventually(func() (err error) {
+				cluster, err = client.GetCluster(context.Background(), &core.Reference{
+					Id: "test-cluster-1",
+				})
+				return
+			}).Should(Succeed())
 
 			Expect(cluster.GetLabels()).To(HaveLen(1))
 			Expect(cluster.GetLabels()).To(HaveKeyWithValue("i", "999"))

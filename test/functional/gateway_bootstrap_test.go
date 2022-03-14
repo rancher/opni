@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -32,23 +33,18 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, func() {
+var _ = FDescribe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	var fingerprint string
 	BeforeAll(func() {
 		environment = &test.Environment{
-			TestBin: "../../../testbin/bin",
+			TestBin: "../../testbin/bin",
 			Logger:  logger.New().Named("test"),
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()
 		Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
-
-		certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
-		Expect(err).NotTo(HaveOccurred())
-		fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
-		Expect(fingerprint).NotTo(BeEmpty())
 	})
 
 	AfterAll(func() {
@@ -59,8 +55,8 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, func() {
 
 	//#region Happy Path Tests
 
-	When("querying metrics from the gateway", func() {
-		It("can return Prometheus metrics", func() {
+	When("mulitple clusters are associated to a user", func() {
+		It("can return metrics associated with that user", func() {
 			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
@@ -71,23 +67,61 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, func() {
 			fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
 			Expect(fingerprint).NotTo(BeEmpty())
 
-			port, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
+			var clusterNameList []string
+			var uUClusterNameList []string
+			name := "test-cluster-id-" + uuid.New().String()
+			clusterNameList = append(clusterNameList, name)
+
+			port, errC := environment.StartAgent(name, token, []string{fingerprint})
+			Consistently(errC).ShouldNot(Receive())
 			promAgentPort := environment.StartPrometheus(port)
 			Expect(promAgentPort).NotTo(BeZero())
-			Consistently(errC).ShouldNot(Receive(HaveOccurred()))
 
-			//http request to the gateway endpoint including auth header
-			_, err = client.CreateRole(context.Background(), &core.Role{
-				Id:         "test-role",
-				ClusterIDs: []string{"test-cluster-id"},
+			for i := 0; i < 99; i++ {
+				//Clusters that will be associated to the user
+				clusterName := "test-cluster-id-" + uuid.New().String()
+				_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
+				Consistently(errC).ShouldNot(Receive())
+				clusterNameList = append(clusterNameList, clusterName)
+			}
+
+			//Clusters that will not be associated to the user
+			token2, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
+
+			for i := 0; i < 5; i++ {
+				uUClusterName := "test-cluster-id-" + uuid.New().String()
+				_, errU := environment.StartAgent(uUClusterName, token2, []string{fingerprint})
+				Consistently(errU).ShouldNot(Receive())
+				uUClusterNameList = append(uUClusterNameList, uUClusterName)
+			}
+
+			_, err = client.CreateRole(context.Background(), &core.Role{
+				Id:         "test-role",
+				ClusterIDs: clusterNameList,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
 			_, err = client.CreateRoleBinding(context.Background(), &core.RoleBinding{
-				Id:       "test-role-binding",
+				Id:       "test-rolebinding",
 				RoleId:   "test-role",
 				Subjects: []string{"user@example.com"},
 			})
 			Expect(err).NotTo(HaveOccurred())
+
+			accessList, err := client.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
+				Subject: "user@example.com",
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(accessList.Items).To(HaveLen(100))
+			var idList []string
+			for _, id := range accessList.Items {
+				idList = append(idList, id.Id)
+			}
+			Expect(idList).To(ContainElements(clusterNameList))
+			Expect(idList).NotTo(ContainElements(uUClusterNameList))
 
 			httpClient := &http.Client{
 				Transport: &http.Transport{
@@ -105,18 +139,41 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, func() {
 			resp, httpErr := httpClient.Do(req)
 			Expect(httpErr).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			Expect(resp.Header.Get("Content-Type")).To(Equal("application/json"))
-			Expect(resp.Header.Get("Results-Cache-Gen-Number")).To(BeEmpty())
-
 			now := time.Now().Unix()
 			layout := "Mon, 02 Jan 2006 15:04:05 MST"
 			respTime, errT := time.Parse(layout, resp.Header.Get("Date"))
 			Expect(errT).NotTo(HaveOccurred())
 			Expect(respTime.Unix()).To(BeNumerically("<=", (now)))
+			Expect(resp.Header.Get("Content-Type")).To(Equal("application/json"))
+			Expect(resp.Header.Get("Results-Cache-Gen-Number")).To(BeEmpty())
+
 			defer resp.Body.Close()
 			b, err := ioutil.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(string(b)).To(Equal(`{"status":"success","data":[]})=`))
+			Expect(string(b)).To(Equal(`{"status":"success","data":["__tenant_id__"]}`))
+
+			//
+			invReq, err := http.NewRequest("GET", environment.PrometheusAPIEndpoint()+"/labels", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			invReq.Header.Add("Content-Type", "application/json")
+			invReq.Header.Add("Authorization", "invaliduser@example.com")
+
+			invResp, httpErr := httpClient.Do(req)
+			Expect(httpErr).NotTo(HaveOccurred())
+			Expect(invResp.StatusCode).To(Equal(http.StatusOK))
+			// layout = "Mon, 02 Jan 2006 15:04:05 MST"
+			// invResp, errI := time.Parse(layout, invResp.Header.Get("Date"))
+			// Expect(errI).NotTo(HaveOccurred())
+			// Expect(invResp.Unix()).To(BeNumerically("<=", (now)))
+			Expect(invResp.Header.Get("Content-Type")).To(Equal("application/json"))
+			Expect(invResp.Header.Get("Results-Cache-Gen-Number")).To(BeEmpty())
+
+			defer resp.Body.Close()
+			b2, err := ioutil.ReadAll(invResp.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(b2)).To(Equal(`{"status":"success","data":["__tenant_id__"]}`))
+
 		})
 	})
 

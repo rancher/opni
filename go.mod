@@ -155,5 +155,5 @@ replace (
 
 	// Because of a dependency chain to Coretx
 	k8s.io/client-go => k8s.io/client-go v0.23.4
-	opensearch.opster.io => github.com/Opster/opensearch-k8s-operator/opensearch-operator v0.0.0-20220313145308-637d49a43eed
+	opensearch.opster.io => github.com/Opster/opensearch-k8s-operator/opensearch-operator v0.0.0-20220314153037-ac99aeec44e5
 )

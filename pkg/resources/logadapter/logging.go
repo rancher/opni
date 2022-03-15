@@ -25,7 +25,7 @@ func BuildLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 			),
 		},
 		Spec: loggingv1beta1.LoggingSpec{
-			ControlNamespace: adapter.Spec.OpniCluster.Namespace,
+			ControlNamespace: controlNamespace(adapter),
 			FluentbitSpec:    adapter.Spec.FluentConfig.Fluentbit,
 			FluentdSpec:      adapter.Spec.FluentConfig.Fluentd,
 		},
@@ -40,7 +40,7 @@ func BuildRootLogging(adapter *v1beta1.LogAdapter) *loggingv1beta1.Logging {
 			Name: fmt.Sprintf("opni-%s", adapter.GetName()),
 		},
 		Spec: loggingv1beta1.LoggingSpec{
-			ControlNamespace: adapter.Spec.OpniCluster.Namespace,
+			ControlNamespace: controlNamespace(adapter),
 			FluentbitSpec:    adapter.Spec.RootFluentConfig.Fluentbit,
 			FluentdSpec:      adapter.Spec.RootFluentConfig.Fluentd,
 			GlobalFilters: []loggingv1beta1.Filter{
@@ -148,12 +148,21 @@ end
 
 func BuildK3SConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 	var buffer bytes.Buffer
-	fluentBitK3sTemplate.Execute(&buffer, adapter)
+	// If the opni cluster is nil, copy the object to use for generating the config
+	if adapter.Spec.OpniCluster == nil {
+		copy := adapter.DeepCopy()
+		copy.Spec.OpniCluster = &v1beta1.OpniClusterNameSpec{
+			Namespace: "opni-system",
+		}
+		fluentBitK3sTemplate.Execute(&buffer, copy)
+	} else {
+		fluentBitK3sTemplate.Execute(&buffer, adapter)
+	}
 
 	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("opni-%s-k3s", adapter.GetName()),
-			Namespace: adapter.Spec.OpniCluster.Namespace,
+			Namespace: controlNamespace(adapter),
 		},
 		Data: map[string]string{
 			"fluent-bit.conf": buffer.String(),
@@ -172,7 +181,7 @@ func BuildK3SJournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 	daemonset := appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: adapter.Spec.OpniCluster.Namespace,
+			Namespace: controlNamespace(adapter),
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
@@ -253,18 +262,27 @@ func BuildK3SServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount 
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: adapter.Spec.OpniCluster.Namespace,
+			Namespace: controlNamespace(adapter),
 		},
 	}
 }
 
 func BuildRKEConfig(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 	var buffer bytes.Buffer
-	fluentBitRKETemplate.Execute(&buffer, adapter)
+	// If the opni cluster is nil, copy the object to use for generating the config
+	if adapter.Spec.OpniCluster == nil {
+		copy := adapter.DeepCopy()
+		copy.Spec.OpniCluster = &v1beta1.OpniClusterNameSpec{
+			Namespace: "opni-system",
+		}
+		fluentBitRKETemplate.Execute(&buffer, copy)
+	} else {
+		fluentBitRKETemplate.Execute(&buffer, adapter)
+	}
 	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("opni-%s-rke", adapter.GetName()),
-			Namespace: adapter.Spec.OpniCluster.Namespace,
+			Namespace: controlNamespace(adapter),
 		},
 		Data: map[string]string{
 			"fluent-bit.conf": buffer.String(),
@@ -283,7 +301,7 @@ func BuildRKEAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet {
 	daemonset := appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: adapter.Spec.OpniCluster.Namespace,
+			Namespace: controlNamespace(adapter),
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
@@ -387,19 +405,28 @@ func BuildRKEServiceAccount(adapter *v1beta1.LogAdapter) *corev1.ServiceAccount 
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: adapter.Spec.OpniCluster.Namespace,
+			Namespace: controlNamespace(adapter),
 		},
 	}
 }
 
 func BuildRKE2Config(adapter *v1beta1.LogAdapter) *corev1.ConfigMap {
 	var buffer bytes.Buffer
-	fluentBitRKE2Template.Execute(&buffer, adapter)
+	// If the opni cluster is nil, copy the object to use for generating the config
+	if adapter.Spec.OpniCluster == nil {
+		copy := adapter.DeepCopy()
+		copy.Spec.OpniCluster = &v1beta1.OpniClusterNameSpec{
+			Namespace: "opni-system",
+		}
+		fluentBitRKE2Template.Execute(&buffer, copy)
+	} else {
+		fluentBitRKE2Template.Execute(&buffer, adapter)
+	}
 
 	configmap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("opni-%s-rke2", adapter.GetName()),
-			Namespace: adapter.Spec.OpniCluster.Namespace,
+			Namespace: controlNamespace(adapter),
 		},
 		Data: map[string]string{
 			"fluent-bit.conf": buffer.String(),
@@ -419,7 +446,7 @@ func BuildRKE2JournaldAggregator(adapter *v1beta1.LogAdapter) *appsv1.DaemonSet 
 	daemonset := appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: adapter.Spec.OpniCluster.Namespace,
+			Namespace: controlNamespace(adapter),
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
@@ -539,4 +566,11 @@ func setOwnerReference(adapter *v1beta1.LogAdapter, object client.Object) {
 			BlockOwnerDeletion: pointer.Bool(true),
 		},
 	})
+}
+
+func controlNamespace(adapter *v1beta1.LogAdapter) string {
+	if adapter.Spec.OpniCluster == nil {
+		return "opni-system"
+	}
+	return adapter.Spec.OpniCluster.Namespace
 }

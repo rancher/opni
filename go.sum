@@ -118,8 +118,8 @@ github.com/NYTimes/gziphandler v1.1.1/go.mod h1:n/CVRwUEOgIxrgPvAQhUUr9oeUtvrhMo
 github.com/Netflix/go-expect v0.0.0-20180615182759-c93bf25de8e8 h1:xzYJEypr/85nBpB11F9br+3HUrpgb+fcm5iADzXXYEw=
 github.com/Netflix/go-expect v0.0.0-20180615182759-c93bf25de8e8/go.mod h1:oX5x61PbNXchhh0oikYAH+4Pcfw5LKv21+Jnpr6r6Pc=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
-github.com/Opster/opensearch-k8s-operator/opensearch-operator v0.0.0-20220313145308-637d49a43eed h1:rkNVg9RfBUD1sW2wHQ0mulLrqtVD3MKrJEzdhdfkUQA=
-github.com/Opster/opensearch-k8s-operator/opensearch-operator v0.0.0-20220313145308-637d49a43eed/go.mod h1:mgPAZ7rdmxv2GS9D2gtSE1TVaYIe4SJmWnF/psFtmR8=
+github.com/Opster/opensearch-k8s-operator/opensearch-operator v0.0.0-20220314153037-ac99aeec44e5 h1:p+I3BxAi35N1leH6ZrNh6b7Ylm/echJK5vUb3X92t1U=
+github.com/Opster/opensearch-k8s-operator/opensearch-operator v0.0.0-20220314153037-ac99aeec44e5/go.mod h1:mgPAZ7rdmxv2GS9D2gtSE1TVaYIe4SJmWnF/psFtmR8=
 github.com/PuerkitoBio/goquery v1.5.0/go.mod h1:qD2PgZ9lccMbQlc7eEOjaeRlFQON7xY8kdmcsrnKqMg=
 github.com/PuerkitoBio/purell v1.0.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=

@@ -95,7 +95,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 					K3S: &v1beta1.K3SSpec{
 						ContainerEngine: v1beta1.ContainerEngineOpenRC,
 					},
-					OpniCluster: v1beta1.OpniClusterNameSpec{
+					OpniCluster: &v1beta1.OpniClusterNameSpec{
 						Name:      clusterCrName,
 						Namespace: clusterCrNamespace,
 					},

@@ -5,11 +5,13 @@ import (
 	"fmt"
 
 	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/opensearch"
 	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	opensearchv1 "opensearch.opster.io/api/v1"
+	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -43,7 +45,7 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 	}
 
 	clusterReadRole.RoleName = r.loggingCluster.Name
-	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(`{"term":{"cluster_id.keyword": "%s"}}`, r.loggingCluster.Labels[v2beta1.IDLabel])
+	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(`{"term":{"cluster_id.keyword": "%s"}}`, r.loggingCluster.Labels[resources.OpniClusterID])
 
 	secret := &corev1.Secret{}
 
@@ -58,7 +60,7 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 	indexUser.UserName = fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name)
 	indexUser.Password = string(secret.Data["password"])
 
-	osPassword, retErr := r.fetchOpensearchAdminPassword(opensearchCluster)
+	username, password, retErr := helpers.UsernameAndPassword(r.client, r.ctx, opensearchCluster)
 	if retErr != nil {
 		return
 	}
@@ -66,7 +68,8 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 	reconciler := opensearch.NewReconciler(
 		r.ctx,
 		opensearchCluster.Namespace,
-		osPassword,
+		username,
+		password,
 		opensearchCluster.Spec.General.ServiceName,
 		"todo", // TODO fix dashboards name
 	)

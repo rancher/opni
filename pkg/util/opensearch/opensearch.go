@@ -40,7 +40,14 @@ type ExtendedClient struct {
 	Security *SecurityAPI
 }
 
-func NewReconciler(ctx context.Context, namespace string, password string, osServiceName string, kbServiceName string) *Reconciler {
+func NewReconciler(
+	ctx context.Context,
+	namespace string,
+	username string,
+	password string,
+	osServiceName string,
+	kbServiceName string,
+) *Reconciler {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: true,
@@ -56,7 +63,7 @@ func NewReconciler(ctx context.Context, namespace string, password string, osSer
 	}
 	kbCfg := kibana.Config{
 		URL:      fmt.Sprintf("http://%s.%s:5601", kbServiceName, namespace),
-		Username: "admin",
+		Username: username,
 		Password: password,
 	}
 	kbClient, _ := kibana.NewClient(kbCfg)

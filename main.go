@@ -159,12 +159,26 @@ func run() error {
 		return err
 	}
 
+	if err = (&controllers.MulticlusterUserReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "MulticlusterUser")
+		return err
+	}
+
+	if err = (&controllers.DataPrepperReconciler{}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DataPrepper")
+		return err
+	}
+
 	if err = (&controllers.PretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PretrainedModel")
 		return err
 	}
 
-	if err = (&opensearchcontrollers.OpenSearchClusterReconciler{}).SetupWithManager(mgr); err != nil {
+	if err = (&opensearchcontrollers.OpenSearchClusterReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("containerset-controller"),
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OpenSearchCluster")
 		return err
 	}

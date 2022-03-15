@@ -23,6 +23,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	loggingplugin "github.com/rancher/opni-monitoring/plugins/logging/pkg/logging"
+	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/apis/v2beta1"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/spf13/cobra"
@@ -44,6 +45,7 @@ var (
 	rancherLogging  bool
 	gatewayEndpoint string
 	bootstrapToken  string
+	provider        string
 
 	httpClient *http.Client
 )
@@ -59,6 +61,7 @@ func BuildBootstrapLoggingCommand() *cobra.Command {
 	command.Flags().BoolVar(&skipTLSVerify, "insecure-skip-tls-verify", false, "skip endpoint tls verification")
 	command.Flags().BoolVar(&rancherLogging, "use-rancher-logging", false, "manually configure log shipping with rancher-logging")
 	command.Flags().StringVar(&gatewayEndpoint, "gateway-url", "https://localhost:8443", "upstream Opni gateway")
+	command.Flags().StringVar(&provider, "provider", "rke", "the Kubernetes distribution")
 	command.Flags().StringVar(&bootstrapToken, "token", "", "bootstrap token")
 
 	command.MarkFlagRequired("token")
@@ -125,6 +128,9 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if err := createOpniClusterFlow(cmd.Context(), clusterID); err != nil {
+			return err
+		}
+		if err := createLogAdapter(cmd.Context()); err != nil {
 			return err
 		}
 	}
@@ -264,7 +270,7 @@ func createOpniClusterOutput(ctx context.Context) error {
 		Spec: loggingv1beta1.ClusterOutputSpec{
 			OutputSpec: loggingv1beta1.OutputSpec{
 				HTTPOutput: &output.HTTPOutputConfig{
-					Endpoint:    fmt.Sprintf("http://%s.%s", dataPrepperName, common.NamespaceFlagValue),
+					Endpoint:    fmt.Sprintf("http://%s.%s:2021/log/ingest", dataPrepperName, common.NamespaceFlagValue),
 					ContentType: "application/json",
 					JsonArray:   true,
 					Buffer: &output.Buffer{
@@ -346,6 +352,19 @@ func createOpniClusterFlow(ctx context.Context, clusterID string) error {
 	}
 
 	return common.K8sClient.Create(ctx, clusterFlow)
+}
+
+func createLogAdapter(ctx context.Context) error {
+	lga := &v1beta1.LogAdapter{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-logging",
+			Namespace: common.NamespaceFlagValue,
+		},
+		Spec: v1beta1.LogAdapterSpec{
+			Provider: v1beta1.LogProvider(provider),
+		},
+	}
+	return common.K8sClient.Create(ctx, lga)
 }
 
 func doBootstrapAuth(clusterID string) (*keyring.SharedKeys, error) {

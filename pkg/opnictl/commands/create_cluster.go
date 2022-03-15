@@ -167,7 +167,7 @@ func buildLogAdapter(vars *flagVars) *v1beta1.LogAdapter {
 		},
 		Spec: v1beta1.LogAdapterSpec{
 			Provider: v1beta1.LogProvider(vars.provider),
-			OpniCluster: v1beta1.OpniClusterNameSpec{
+			OpniCluster: &v1beta1.OpniClusterNameSpec{
 				Name:      vars.name,
 				Namespace: common.NamespaceFlagValue,
 			},

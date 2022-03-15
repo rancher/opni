@@ -6,14 +6,14 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
-  name: loggingclusterbindings.opni.io
+  name: multiclusterusers.opni.io
 spec:
   group: opni.io
   names:
-    kind: LoggingClusterBinding
-    listKind: LoggingClusterBindingList
-    plural: loggingclusterbindings
-    singular: loggingclusterbinding
+    kind: MulticlusterUser
+    listKind: MulticlusterUserList
+    plural: multiclusterusers
+    singular: multiclusteruser
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -35,18 +35,6 @@ spec:
             type: object
           spec:
             properties:
-              loggingCluster:
-                properties:
-                  id:
-                    type: string
-                  loggingClusterName:
-                    properties:
-                      name:
-                        type: string
-                      namespace:
-                        type: string
-                    type: object
-                type: object
               opensearchClusterRef:
                 properties:
                   name:
@@ -54,13 +42,8 @@ spec:
                   namespace:
                     type: string
                 type: object
-              user:
-                properties:
-                  name:
-                    type: string
-                  namespace:
-                    type: string
-                type: object
+              password:
+                type: string
             required:
             - opensearchClusterRef
             type: object

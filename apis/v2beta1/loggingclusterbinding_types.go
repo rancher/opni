@@ -1,6 +1,9 @@
 package v2beta1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+)
 
 type LoggingClusterBindingState string
 
@@ -24,11 +27,24 @@ type LoggingClusterBinding struct {
 }
 
 type LoggingClusterBindingSpec struct {
-	DowmstreamClusters      []string              `json:"downstreamClusters,omitempty"`
-	DownstreamLabelSelector *metav1.LabelSelector `json:"downstreamLabelSelector,omitempty"`
-	OpensearchClusterRef    *OpensearchClusterRef `json:"opensearchClusterRef"`
-	Username                string                `json:"username,omitempty"`
-	Password                string                `json:"password,omitempty"`
+	MulticlusterUser     *MulticlusterUserRef  `json:"user,omitempty"`
+	LoggingCluster       *LoggingClusterRef    `json:"loggingCluster,omitempty"`
+	OpensearchClusterRef *OpensearchClusterRef `json:"opensearchClusterRef"`
+}
+
+type MulticlusterUserRef struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
+type LoggingClusterRef struct {
+	ID                   string                   `json:"id,omitempty"`
+	LoggingClusterObject *LoggingClusterObjectRef `json:"loggingClusterName,omitempty"`
+}
+
+type LoggingClusterObjectRef struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 type LoggingClusterBindingStatus struct {
@@ -47,4 +63,18 @@ type LoggingClusterBindingList struct {
 
 func init() {
 	SchemeBuilder.Register(&LoggingClusterBinding{}, &LoggingClusterBindingList{})
+}
+
+func (m *MulticlusterUserRef) ObjectKeyFromRef() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      m.Name,
+		Namespace: m.Namespace,
+	}
+}
+
+func (l *LoggingClusterObjectRef) ObjectKeyFromRef() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      l.Name,
+		Namespace: l.Namespace,
+	}
 }

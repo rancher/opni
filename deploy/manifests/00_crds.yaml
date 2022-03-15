@@ -1,188 +1,3 @@
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.5.0
-  creationTimestamp: null
-  name: loggingclusters.opni.io
-spec:
-  group: opni.io
-  names:
-    kind: LoggingCluster
-    listKind: LoggingClusterList
-    plural: loggingclusters
-    singular: loggingcluster
-  scope: Namespaced
-  versions:
-  - additionalPrinterColumns:
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    - jsonPath: .status.indexUserState
-      name: IndexUser
-      type: boolean
-    name: v2beta1
-    schema:
-      openAPIV3Schema:
-        properties:
-          apiVersion:
-            type: string
-          kind:
-            type: string
-          metadata:
-            type: object
-          spec:
-            properties:
-              opensearchCluster:
-                properties:
-                  name:
-                    type: string
-                  namespace:
-                    type: string
-                type: object
-            type: object
-          status:
-            properties:
-              conditions:
-                items:
-                  type: string
-                type: array
-              indexUserSecret:
-                properties:
-                  name:
-                    type: string
-                type: object
-              indexUserState:
-                type: string
-              state:
-                type: string
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.5.0
-  creationTimestamp: null
-  name: datapreppers.opni.io
-spec:
-  group: opni.io
-  names:
-    kind: DataPrepper
-    listKind: DataPrepperList
-    plural: datapreppers
-    singular: dataprepper
-  scope: Namespaced
-  versions:
-  - additionalPrinterColumns:
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v2beta1
-    schema:
-      openAPIV3Schema:
-        properties:
-          apiVersion:
-            type: string
-          kind:
-            type: string
-          metadata:
-            type: object
-          spec:
-            properties:
-              cluster:
-                type: string
-              defaultRepo:
-                type: string
-              image:
-                type: string
-              imagePullPolicy:
-                type: string
-              imagePullSecrets:
-                items:
-                  properties:
-                    name:
-                      type: string
-                  type: object
-                type: array
-              nodeSelector:
-                additionalProperties:
-                  type: string
-                type: object
-              opensearch:
-                properties:
-                  endpoint:
-                    type: string
-                  insecureDisableSSLVerify:
-                    type: boolean
-                type: object
-              passwordFrom:
-                properties:
-                  key:
-                    type: string
-                  name:
-                    type: string
-                  optional:
-                    type: boolean
-                required:
-                - key
-                type: object
-              tolerations:
-                items:
-                  properties:
-                    effect:
-                      type: string
-                    key:
-                      type: string
-                    operator:
-                      type: string
-                    tolerationSeconds:
-                      format: int64
-                      type: integer
-                    value:
-                      type: string
-                  type: object
-                type: array
-              username:
-                type: string
-              version:
-                default: latest
-                type: string
-            required:
-            - username
-            - version
-            type: object
-          status:
-            properties:
-              conditions:
-                items:
-                  type: string
-                type: array
-              state:
-                type: string
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -45194,6 +45009,7 @@ status:
     plural: ""
   conditions: []
   storedVersions: []
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -45229,31 +45045,16 @@ spec:
             type: object
           spec:
             properties:
-              downstreamClusters:
-                items:
-                  type: string
-                type: array
-              downstreamLabelSelector:
+              loggingCluster:
                 properties:
-                  matchExpressions:
-                    items:
-                      properties:
-                        key:
-                          type: string
-                        operator:
-                          type: string
-                        values:
-                          items:
-                            type: string
-                          type: array
-                      required:
-                      - key
-                      - operator
-                      type: object
-                    type: array
-                  matchLabels:
-                    additionalProperties:
-                      type: string
+                  id:
+                    type: string
+                  loggingClusterName:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
                     type: object
                 type: object
               opensearchClusterRef:
@@ -45263,10 +45064,13 @@ spec:
                   namespace:
                     type: string
                 type: object
-              password:
-                type: string
-              username:
-                type: string
+              user:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
             required:
             - opensearchClusterRef
             type: object
@@ -46528,6 +46332,264 @@ spec:
                 type: string
             required:
             - componentsStatus
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.5.0
+  creationTimestamp: null
+  name: loggingclusters.opni.io
+spec:
+  group: opni.io
+  names:
+    kind: LoggingCluster
+    listKind: LoggingClusterList
+    plural: loggingclusters
+    singular: loggingcluster
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.indexUserState
+      name: IndexUser
+      type: boolean
+    name: v2beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              friendlyName:
+                type: string
+              indexUser:
+                properties:
+                  name:
+                    type: string
+                type: object
+              opensearchCluster:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
+            type: object
+          status:
+            properties:
+              conditions:
+                items:
+                  type: string
+                type: array
+              indexUserState:
+                type: string
+              readRole:
+                type: string
+              state:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.5.0
+  creationTimestamp: null
+  name: datapreppers.opni.io
+spec:
+  group: opni.io
+  names:
+    kind: DataPrepper
+    listKind: DataPrepperList
+    plural: datapreppers
+    singular: dataprepper
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v2beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              cluster:
+                type: string
+              defaultRepo:
+                type: string
+              image:
+                type: string
+              imagePullPolicy:
+                type: string
+              imagePullSecrets:
+                items:
+                  properties:
+                    name:
+                      type: string
+                  type: object
+                type: array
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                type: object
+              opensearch:
+                properties:
+                  endpoint:
+                    type: string
+                  insecureDisableSSLVerify:
+                    type: boolean
+                type: object
+              passwordFrom:
+                properties:
+                  key:
+                    type: string
+                  name:
+                    type: string
+                  optional:
+                    type: boolean
+                required:
+                - key
+                type: object
+              tolerations:
+                items:
+                  properties:
+                    effect:
+                      type: string
+                    key:
+                      type: string
+                    operator:
+                      type: string
+                    tolerationSeconds:
+                      format: int64
+                      type: integer
+                    value:
+                      type: string
+                  type: object
+                type: array
+              username:
+                type: string
+              version:
+                default: latest
+                type: string
+            required:
+            - username
+            - version
+            type: object
+          status:
+            properties:
+              conditions:
+                items:
+                  type: string
+                type: array
+              state:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.5.0
+  creationTimestamp: null
+  name: multiclusterusers.opni.io
+spec:
+  group: opni.io
+  names:
+    kind: MulticlusterUser
+    listKind: MulticlusterUserList
+    plural: multiclusterusers
+    singular: multiclusteruser
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.state
+      name: State
+      type: boolean
+    name: v2beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              opensearchClusterRef:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
+              password:
+                type: string
+            required:
+            - opensearchClusterRef
+            type: object
+          status:
+            properties:
+              conditions:
+                items:
+                  type: string
+                type: array
+              state:
+                type: string
             type: object
         type: object
     served: true

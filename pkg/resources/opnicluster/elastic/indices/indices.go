@@ -49,7 +49,7 @@ func NewReconciler(ctx context.Context, opniCluster *v1beta1.OpniCluster, c clie
 		password = string(secret.Data[opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Key])
 	}
 
-	osReconciler := opensearch.NewReconciler(ctx, opniCluster.Namespace, password, "opni-es-client", "opni-es-kibana")
+	osReconciler := opensearch.NewReconciler(ctx, opniCluster.Namespace, "admin", password, "opni-es-client", "opni-es-kibana")
 	return &Reconciler{
 		cluster:      opniCluster,
 		osReconciler: osReconciler,

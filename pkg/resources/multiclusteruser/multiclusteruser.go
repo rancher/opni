@@ -1,4 +1,4 @@
-package loggingclusterbinding
+package multiclusteruser
 
 import (
 	"context"
@@ -17,23 +17,23 @@ import (
 
 type Reconciler struct {
 	reconciler.ResourceReconciler
-	client                client.Client
-	loggingClusterBinding *v2beta1.LoggingClusterBinding
-	ctx                   context.Context
+	client           client.Client
+	multiclusterUser *v2beta1.MulticlusterUser
+	ctx              context.Context
 }
 
 func NewReconciler(
 	ctx context.Context,
-	loggingClusterBinding *v2beta1.LoggingClusterBinding,
+	multiclusterUser *v2beta1.MulticlusterUser,
 	c client.Client,
 	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(c,
 			append(opts, reconciler.WithLog(log.FromContext(ctx)))...),
-		client:                c,
-		loggingClusterBinding: loggingClusterBinding,
-		ctx:                   ctx,
+		client:           c,
+		multiclusterUser: multiclusterUser,
+		ctx:              ctx,
 	}
 }
 
@@ -46,25 +46,25 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		// is and set it in the state field accordingly.
 		op := util.LoadResult(retResult, retErr)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingClusterBinding), r.loggingClusterBinding); err != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.multiclusterUser), r.multiclusterUser); err != nil {
 				return err
 			}
-			r.loggingClusterBinding.Status.Conditions = conditions
+			r.multiclusterUser.Status.Conditions = conditions
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
-					r.loggingClusterBinding.Status.State = v2beta1.LoggingClusterBindingStateError
+					r.multiclusterUser.Status.State = v2beta1.MulticlusterUserStateError
 				} else {
 					// If no error occurred, but we need to requeue, the state should be
 					// set to working
-					r.loggingClusterBinding.Status.State = v2beta1.LoggingClusterBindingStateWorking
+					r.multiclusterUser.Status.State = v2beta1.MulticlusterUserStatePending
 				}
-			} else if len(r.loggingClusterBinding.Status.Conditions) == 0 {
+			} else if len(r.multiclusterUser.Status.Conditions) == 0 {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
-				r.loggingClusterBinding.Status.State = v2beta1.LoggingClusterBindingStateReady
+				r.multiclusterUser.Status.State = v2beta1.MulticlusterUserStateCreated
 			}
-			return r.client.Status().Update(r.ctx, r.loggingClusterBinding)
+			return r.client.Status().Update(r.ctx, r.multiclusterUser)
 		})
 
 		if err != nil {
@@ -72,28 +72,18 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}()
 
-	if r.loggingClusterBinding.Spec.OpensearchClusterRef == nil {
-		retErr = errors.New("opensearch cluster not provided")
+	if r.multiclusterUser.Spec.Password == "" {
+		retErr = errors.New("must set password")
 		return
 	}
 
 	opensearch := &opensearchv1.OpenSearchCluster{}
 	if err := r.client.Get(
 		r.ctx,
-		r.loggingClusterBinding.Spec.OpensearchClusterRef.ObjectKeyFromRef(),
+		r.multiclusterUser.Spec.OpensearchClusterRef.ObjectKeyFromRef(),
 		opensearch,
 	); err != nil {
 		retErr = err
-		return
-	}
-
-	if r.loggingClusterBinding.Spec.MulticlusterUser == nil {
-		retErr = errors.New("multicluster user must be provided")
-		return
-	}
-
-	if r.loggingClusterBinding.Spec.LoggingCluster == nil {
-		retErr = errors.New("logging cluster must be provided")
 		return
 	}
 

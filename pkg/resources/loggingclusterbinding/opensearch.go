@@ -1,100 +1,73 @@
 package loggingclusterbinding
 
 import (
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"errors"
+
 	"github.com/rancher/opni/apis/v2beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/opensearch"
-	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	opensearchv1 "opensearch.opster.io/api/v1"
+	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
-	var clustersToReconcile []v2beta1.LoggingCluster
-
-	if len(r.loggingClusterBinding.Spec.DowmstreamClusters) > 0 {
-		clusters, err := r.getClusterListFromIDs()
-		if err != nil {
-			return err
-		}
-		clustersToReconcile = clusters
-	} else if r.loggingClusterBinding.Spec.DownstreamLabelSelector != nil {
-		selector := labels.SelectorFromSet(labels.Set(r.loggingClusterBinding.Spec.DownstreamLabelSelector.MatchLabels))
-		for _, expression := range r.loggingClusterBinding.Spec.DownstreamLabelSelector.MatchExpressions {
-			req, err := labels.NewRequirement(expression.Key, selection.Operator(expression.Operator), expression.Values)
-			if err != nil {
-				return err
-			}
-			selector.Add(*req)
-		}
-
-		clusterList := &v2beta1.LoggingClusterList{}
-		if err := r.client.List(
-			r.ctx,
-			clusterList,
-			client.InNamespace(r.loggingClusterBinding.Namespace),
-			client.MatchingLabelsSelector{Selector: selector},
-		); err != nil {
-			return err
-		}
-		clustersToReconcile = clusterList.Items
-	}
-
-	osPassword, err := r.fetchOpensearchAdminPassword(cluster)
+	user := &v2beta1.MulticlusterUser{}
+	err := r.client.Get(r.ctx, r.loggingClusterBinding.Spec.MulticlusterUser.ObjectKeyFromRef(), user)
 	if err != nil {
 		return err
 	}
-	result := reconciler.CombinedResult{}
+
+	loggingCluster := &v2beta1.LoggingCluster{}
+	if r.loggingClusterBinding.Spec.LoggingCluster.ID != "" {
+		list := &v2beta1.LoggingClusterList{}
+		err = r.client.List(
+			r.ctx,
+			list,
+			client.InNamespace(r.loggingClusterBinding.Namespace),
+			client.MatchingLabels{resources.OpniClusterID: r.loggingClusterBinding.Spec.LoggingCluster.ID},
+		)
+		if err != nil {
+			return err
+		}
+		if len(list.Items) != 1 {
+			return errors.New("invalid number of logging clusters returned")
+		}
+		loggingCluster = &list.Items[0]
+	} else {
+		if r.loggingClusterBinding.Spec.LoggingCluster.LoggingClusterObject == nil {
+			return errors.New("either id or logging cluster object must be specified")
+		}
+		err = r.client.Get(
+			r.ctx,
+			r.loggingClusterBinding.Spec.LoggingCluster.LoggingClusterObject.ObjectKeyFromRef(),
+			loggingCluster,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Verify all objects are referring to the same cluster
+	if (user.Spec.OpensearchClusterRef == nil || loggingCluster.Spec.OpensearchClusterRef == nil) ||
+		(user.Spec.OpensearchClusterRef.Name != cluster.Name || loggingCluster.Spec.OpensearchClusterRef.Name != cluster.Name) ||
+		(user.Spec.OpensearchClusterRef.Namespace != cluster.Namespace || loggingCluster.Spec.OpensearchClusterRef.Namespace != cluster.Namespace) {
+		return errors.New("opensearch cluster refs must match")
+	}
+
+	username, password, err := helpers.UsernameAndPassword(r.client, r.ctx, cluster)
+	if err != nil {
+		return err
+	}
 
 	osReconciler := opensearch.NewReconciler(
 		r.ctx,
 		cluster.Namespace,
-		osPassword,
+		username,
+		password,
 		cluster.Spec.General.ServiceName,
 		"todo", // TODO fix dashboards name
 	)
 
-	user := opensearchapiext.UserSpec{
-		UserName: r.loggingClusterBinding.Spec.Username,
-		Password: r.loggingClusterBinding.Spec.Password,
-	}
-
-	err = osReconciler.MaybeCreateUser(user)
-	if err != nil {
-		return err
-	}
-
-	for _, cluster := range clustersToReconcile {
-		result.CombineErr(osReconciler.MaybeUpdateRolesMapping(cluster.Name, r.loggingClusterBinding.Spec.Username))
-	}
-
-	return result.Err
-}
-
-// TODO When operator supports alternative passwords fix this up
-func (r *Reconciler) fetchOpensearchAdminPassword(cluster *opensearchv1.OpenSearchCluster) (string, error) {
-	return "admin", nil
-}
-
-func (r *Reconciler) getClusterListFromIDs() ([]v2beta1.LoggingCluster, error) {
-	var clusterList []v2beta1.LoggingCluster
-
-	for _, id := range r.loggingClusterBinding.Spec.DowmstreamClusters {
-		objectList := &v2beta1.LoggingClusterList{}
-		if err := r.client.List(
-			r.ctx,
-			objectList,
-			client.InNamespace(r.loggingClusterBinding.Namespace),
-			client.MatchingLabels{resources.OpniClusterID: id},
-		); err != nil {
-			return clusterList, err
-		}
-		if len(objectList.Items) == 1 {
-			clusterList = append(clusterList, objectList.Items[0])
-		}
-	}
-	return clusterList, nil
+	return osReconciler.MaybeUpdateRolesMapping(loggingCluster.Name, user.Name)
 }

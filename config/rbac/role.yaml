@@ -634,6 +634,32 @@ rules:
 - apiGroups:
   - opni.io
   resources:
+  - multiclusterusers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - multiclusterusers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - multiclusterusers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
   - opniclusters
   verbs:
   - create

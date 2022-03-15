@@ -5,6 +5,7 @@ import (
 	"github.com/rancher/opni/pkg/util/opensearch"
 	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	opensearchv1 "opensearch.opster.io/api/v1"
+	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -24,6 +25,7 @@ var (
 				},
 				AllowedActions: []string{
 					"index",
+					"indices:admin/get",
 				},
 			},
 		},
@@ -49,7 +51,7 @@ var (
 )
 
 func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.OpenSearchCluster) (retResult *reconcile.Result, retErr error) {
-	password, retErr := r.fetchOpensearchAdminPassword(opensearchCluster)
+	username, password, retErr := helpers.UsernameAndPassword(r.client, r.ctx, opensearchCluster)
 	if retErr != nil {
 		return
 	}
@@ -57,6 +59,7 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 	reconciler := opensearch.NewReconciler(
 		r.ctx,
 		opensearchCluster.Namespace,
+		username,
 		password,
 		opensearchCluster.Spec.General.ServiceName,
 		"todo", // TODO fix dashboards name

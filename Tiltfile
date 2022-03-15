@@ -28,7 +28,7 @@ helm_remote('cortex',
     repo_name='cortex-helm',
     repo_url='https://cortexproject.github.io/cortex-helm-chart',
     namespace='opni-monitoring',
-    values="deploy/values/cortex.yaml",
+    values=["deploy/values/cortex.yaml", "deploy/custom/cortex.yaml"],
 )
 helm_remote('grafana',
     repo_name='grafana',
@@ -60,7 +60,7 @@ k8s_yaml(helm('deploy/charts/opni-monitoring',
 k8s_resource(workload='opni-gateway', port_forwards=[11090, 11080, 12080])
 
 local_resource('Watch & Compile', 'mage build', 
-    deps=['pkg'], ignore=[
+    deps=['pkg','plugins'], ignore=[
         '**/*.pb.go',
         '**/*.pb.*.go',
         '**/*.swagger.json',

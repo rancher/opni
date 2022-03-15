@@ -31,6 +31,9 @@ func (h BootstrapAuthRequest) Validate() error {
 	if h.ClientID == "" {
 		return validation.Errorf("%w: %s", validation.ErrMissingRequiredField, "client_id")
 	}
+	if err := validation.ValidateID(h.ClientID); err != nil {
+		return validation.ErrInvalidID
+	}
 	if len(h.ClientPubKey) == 0 {
 		return validation.Errorf("%w: %s", validation.ErrMissingRequiredField, "client_pub_key")
 	}

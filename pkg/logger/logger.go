@@ -2,12 +2,14 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-hclog"
+	"github.com/kralicky/gpkg/sync"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
@@ -95,6 +97,7 @@ type LoggerOptions struct {
 	writer     io.Writer
 	color      *bool
 	zapOptions []zap.Option
+	sampling   *zap.SamplingConfig
 }
 
 type LoggerOption func(*LoggerOptions)
@@ -126,6 +129,17 @@ func WithColor(color bool) LoggerOption {
 func WithZapOptions(opts ...zap.Option) LoggerOption {
 	return func(o *LoggerOptions) {
 		o.zapOptions = append(o.zapOptions, opts...)
+	}
+}
+
+func WithSampling(cfg *zap.SamplingConfig) LoggerOption {
+	return func(o *LoggerOptions) {
+		s := &sampler{}
+		o.sampling = &zap.SamplingConfig{
+			Initial:    cfg.Initial,
+			Thereafter: cfg.Thereafter,
+			Hook:       s.Hook,
+		}
 	}
 }
 
@@ -161,14 +175,35 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 			}
 		},
 		EncodeName: func(s string, enc zapcore.PrimitiveArrayEncoder) {
-			if color {
-				if strings.HasPrefix(s, "plugin.") {
-					enc.AppendString(Color(s, chalk.Cyan))
-				} else {
-					enc.AppendString(Color(s, chalk.Green))
+			if len(s) == 0 {
+				return
+			}
+			var name string
+			if s[0] == 'x' {
+				// if the string starts with 'x', check if the name is prefixed with the
+				// dropped sample count of the form "x## " and if so, color it differently
+			LOOP:
+				for i := 1; i < len(s); i++ {
+					switch s[i] {
+					case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+						continue
+					case ' ':
+						enc.AppendString(Color(s[:i], chalk.White))
+						name = s[i+1:]
+						break LOOP
+					default:
+						name = s
+						break LOOP
+					}
 				}
 			} else {
-				enc.AppendString(s)
+				name = s
+			}
+
+			if strings.HasPrefix(name, "plugin.") {
+				enc.AppendString(Color(name, chalk.Cyan))
+			} else {
+				enc.AppendString(Color(name, chalk.Green))
 			}
 		},
 		EncodeDuration:   zapcore.SecondsDurationEncoder,
@@ -190,7 +225,7 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 		Development:       false,
 		DisableCaller:     false,
 		DisableStacktrace: true,
-		Sampling:          nil,
+		Sampling:          options.sampling,
 		Encoding:          "console",
 		EncoderConfig:     encoderConfig,
 		OutputPaths:       []string{"stdout"},
@@ -232,4 +267,22 @@ func NewForPlugin() hclog.Logger {
 		opts.Output = ginkgo.GinkgoWriter
 	}
 	return hclog.New(opts)
+}
+
+type sampler struct {
+	dropped sync.Map[string, uint64]
+}
+
+func (s *sampler) Hook(e *zapcore.Entry, sd zapcore.SamplingDecision) {
+	key := e.Message
+	count, _ := s.dropped.LoadOrStore(key, 0)
+	switch sd {
+	case zapcore.LogDropped:
+		s.dropped.Store(key, count+1)
+	case zapcore.LogSampled:
+		if count > 0 {
+			numDropped, _ := s.dropped.LoadAndDelete(key)
+			e.LoggerName = fmt.Sprintf("x%d %s", numDropped+1, e.LoggerName)
+		}
+	}
 }

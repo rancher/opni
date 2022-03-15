@@ -58,7 +58,9 @@ var (
 		"",
 		"😎",
 		"{foo}",
-		string(make([]byte, 129)),
+		".",
+		"..",
+		string(make([]byte, 151)),
 	}
 
 	// names that match subjectNameRegex

@@ -47,7 +47,12 @@ func WithTLS(tlsConfig *tls.Config) ForwarderOption {
 }
 
 func To(addr string, opts ...ForwarderOption) func(*fiber.Ctx) error {
-	defaultLogger := logger.New().Named("fwd")
+	defaultLogger := logger.New(
+		logger.WithSampling(&zap.SamplingConfig{
+			Initial:    1,
+			Thereafter: 0,
+		}),
+	).Named("fwd")
 	options := &ForwarderOptions{
 		logger: defaultLogger,
 	}

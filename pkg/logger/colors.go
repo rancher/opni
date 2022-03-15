@@ -13,7 +13,10 @@ var colorEnabled = supportscolor.SupportsColor(
 ).SupportsColor
 
 func ColorEnabled() bool {
-	return colorEnabled || inTest
+	// todo: make this logic better
+	// even if we're not in a real tty colors are pretty much supported everywhere
+	return true
+	// return colorEnabled || inTest
 }
 
 func TextStyle(text string, textStyle chalk.TextStyle) string {

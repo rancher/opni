@@ -310,6 +310,12 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 
 			_, errC := environment.StartAgent("test-cluster-3", tempToken, []string{fingerprint})
 			Consistently(errC).ShouldNot(Receive())
+			Eventually(func() error {
+				_, err := client.GetCluster(context.Background(), &core.Reference{
+					Id: "test-cluster-3",
+				})
+				return err
+			}).Should(Succeed())
 
 			Expect(environment.GetAgent("test-cluster-3").Shutdown()).To(Succeed())
 

@@ -162,6 +162,7 @@ func init() {
 		"./internal/cmd/testenv": "bin/testenv",
 		"./plugins/example":      "bin/plugin_example",
 		"./plugins/cortex":       "bin/plugin_cortex",
+		"./plugins/logging":      "bin/plugin_logging",
 	}
 	build.Config.ExtraEnv = map[string]string{
 		"GOOS": "linux",

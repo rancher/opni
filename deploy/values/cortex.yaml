@@ -125,12 +125,16 @@ query_frontend:
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 store_gateway:
+  persistentVolume:
+    enabled: false
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 compactor:
+  persistentVolume:
+    enabled: false
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe

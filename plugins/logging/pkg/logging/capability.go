@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/rancher/opni-monitoring/pkg/core"
 	opniv2beta1 "github.com/rancher/opni/apis/v2beta1"
@@ -73,7 +74,7 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 
 	userSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("index-%s", userSuffix),
+			Name:      fmt.Sprintf("index-%s", strings.ToLower(userSuffix)),
 			Namespace: p.storageNamespace,
 			Labels:    labels,
 		},

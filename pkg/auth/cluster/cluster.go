@@ -84,6 +84,7 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 	}
 	c.Request().Header.Add(m.headerKey, string(clusterID))
 	c.Locals(SharedKeysKey, sharedKeys)
+	c.Locals(ClusterIDKey, string(clusterID))
 	return c.Next()
 }
 

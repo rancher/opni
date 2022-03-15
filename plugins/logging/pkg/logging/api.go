@@ -32,7 +32,7 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 }
 
 func (p *Plugin) handleGetOpensearchDetails(c *fiber.Ctx) error {
-	lg := c.Context().Logger()
+	lg := p.logger
 
 	// Fetch the cluster ID which is set by the middleware
 	id := cluster.AuthorizedID(c)
@@ -43,7 +43,7 @@ func (p *Plugin) handleGetOpensearchDetails(c *fiber.Ctx) error {
 		Name:      OpensearchBindingName,
 		Namespace: p.storageNamespace,
 	}, binding); err != nil {
-		lg.Printf("error fetching opensearch details: %v", err)
+		lg.Error("error fetching opensearch details", "err", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 
@@ -53,12 +53,12 @@ func (p *Plugin) handleGetOpensearchDetails(c *fiber.Ctx) error {
 	}
 	secrets := &corev1.SecretList{}
 	if err := p.k8sClient.List(p.ctx, secrets, client.InNamespace(p.storageNamespace), client.MatchingLabels(labels)); err != nil {
-		lg.Printf("error fetching opensearch details: %v", err)
+		lg.Error("error fetching opensearch details", "err", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 
 	if len(secrets.Items) != 1 {
-		lg.Printf("failed to list creds")
+		lg.Error("failed to list creds")
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 
@@ -76,7 +76,7 @@ func (p *Plugin) handleGetOpensearchDetails(c *fiber.Ctx) error {
 	sharedKeys := cluster.AuthorizedKeys(c)
 	header, err := b2bmac.NewEncodedHeader([]byte(id), responseData, sharedKeys.ServerKey)
 	if err != nil {
-		lg.Printf("error generating response auth header: %v", err)
+		lg.Error("error generating response auth header", "err", err)
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 	c.Response().Header.Add("Authorization", header)

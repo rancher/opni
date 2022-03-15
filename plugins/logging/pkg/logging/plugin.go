@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	opniv2beta1 "github.com/rancher/opni/apis/v2beta1"
@@ -28,6 +29,7 @@ type Plugin struct {
 	k8sClient      client.Client
 	logger         hclog.Logger
 	storageBackend *util.Future[storage.Backend]
+	mgmtApi        *util.Future[management.ManagementClient]
 }
 
 type PluginOptions struct {
@@ -80,5 +82,6 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		k8sClient:      cli,
 		logger:         lg,
 		storageBackend: util.NewFuture[storage.Backend](),
+		mgmtApi:        util.NewFuture[management.ManagementClient](),
 	}
 }

@@ -3,6 +3,7 @@ package validation
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 var (
@@ -22,7 +23,7 @@ var (
 
 	labelNameRegex   = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9-_./]{0,63}$`)
 	labelValueRegex  = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9-_.]{0,63}$`)
-	idRegex          = regexp.MustCompile(`^[a-zA-Z0-9-_.]{1,128}$`)
+	idRegex          = regexp.MustCompile(`^[a-zA-Z0-9-_.\(\)]{1,128}$`)
 	subjectNameRegex = regexp.MustCompile(`^[^\\*"'\s]{1,256}$`)
 )
 
@@ -58,6 +59,10 @@ func ValidateLabelValue(value string) error {
 
 func ValidateID(id string) error {
 	if !idRegex.MatchString(id) {
+		return ErrInvalidID
+	}
+	// as a special case, ids containing only '.' characters are invalid
+	if strings.Repeat(".", len(id)) == id {
 		return ErrInvalidID
 	}
 	return nil

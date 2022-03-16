@@ -30,7 +30,12 @@ func New(keyringStore storage.KeyringStoreBroker, headerKey string) *ClusterMidd
 	return &ClusterMiddleware{
 		keyringStore: keyringStore,
 		headerKey:    headerKey,
-		logger:       logger.New().Named("auth").Named("cluster"),
+		logger: logger.New(
+			logger.WithSampling(&zap.SamplingConfig{
+				Initial:    1,
+				Thereafter: 0,
+			}),
+		).Named("auth").Named("cluster"),
 	}
 }
 
@@ -40,7 +45,6 @@ func (m *ClusterMiddleware) Description() string {
 
 func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 	lg := m.logger
-	lg.Debug("handling auth request")
 	authHeader := c.Get("Authorization")
 	if authHeader == "" {
 		lg.Debug("unauthorized: authorization header required")
@@ -49,7 +53,7 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 
 	clusterID, nonce, mac, err := b2bmac.DecodeAuthHeader(authHeader)
 	if err != nil {
-		lg.Debug("unauthorized: malformed MAC in auth header")
+		lg.Debug("unauthorized: malformed MAC in auth header: " + authHeader)
 		return c.Status(fiber.StatusUnauthorized).SendString(err.Error())
 	}
 

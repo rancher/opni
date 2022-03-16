@@ -18,6 +18,7 @@ require (
 	github.com/jetstack/cert-manager v1.7.1
 	github.com/jhump/protoreflect v1.12.0
 	github.com/jwalton/go-supportscolor v1.1.0
+	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc
 	github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6
 	github.com/kralicky/spellbook v0.0.0-20220310213110-a1cf7cc8a7e5
@@ -42,11 +43,11 @@ require (
 	go.etcd.io/etcd/etcdctl/v3 v3.5.2
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
-	golang.org/x/crypto v0.0.0-20220307211146-efcb8507fb70
+	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
 	golang.org/x/mod v0.6.0-dev.0.20211013180041-c96bc1413d57
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gonum.org/v1/gonum v0.9.3
-	google.golang.org/genproto v0.0.0-20220310185008-1973136f34c6
+	google.golang.org/genproto v0.0.0-20220314164441-57ef72a4c106
 	google.golang.org/grpc v1.45.0
 	google.golang.org/protobuf v1.27.1
 	k8s.io/api v0.23.4
@@ -224,7 +225,9 @@ replace (
 	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.0.0-20220225205714-b06e7ad17676
 	// github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.7.7
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
-	// Because of a dependency chain to Coretx
+
+	go.uber.org/zap => github.com/kralicky/zap v1.19.2-0.20220311060549-c0d473b28cca
+	// Because of a dependency chain to Cortex
 	k8s.io/client-go => k8s.io/client-go v0.23.4
 	opensearch.opster.io => github.com/Opster/opensearch-k8s-operator/opensearch-operator v0.0.0-20220221125137-07e7c4a0839e
 )

@@ -113,6 +113,17 @@ func NewAPIServer(
 		app.Use(middleware)
 	}
 
+	sampledLog := logger.New(
+		logger.WithSampling(&zap.SamplingConfig{
+			Initial:    1,
+			Thereafter: 0,
+		}),
+	).Named("api")
+	app.Use(func(c *fiber.Ctx) error {
+		sampledLog.Debugf("%s %s", c.Method(), c.Request().URI().FullURI())
+		return c.Next()
+	})
+
 	if cfg.EnableMonitor {
 		app.Get("/monitor", monitor.New())
 	}
@@ -169,7 +180,13 @@ func (s *GatewayAPIServer) Shutdown() error {
 func (s *GatewayAPIServer) setupPluginRoutes(cfg *apiextensions.GatewayAPIExtensionConfig) {
 	tlsConfig := s.tlsConfig.Clone()
 	tlsConfig.InsecureSkipVerify = true
-	forwarder := fwd.To(cfg.HttpAddr, fwd.WithTLS(tlsConfig), fwd.WithLogger(s.logger))
+	sampledLogger := logger.New(
+		logger.WithSampling(&zap.SamplingConfig{
+			Initial:    1,
+			Thereafter: 0,
+		}),
+	).Named("api")
+	forwarder := fwd.To(cfg.HttpAddr, fwd.WithTLS(tlsConfig), fwd.WithLogger(sampledLogger))
 	for _, route := range cfg.Routes {
 		s.app.Add(route.Method, route.Path, forwarder)
 		s.logger.With(

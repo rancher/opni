@@ -30,6 +30,10 @@ grafana.ini:
     enabled: true
   auth.basic:
     enabled: false
+  unified_alerting:
+    enabled: true
+  alerting:
+    enabled: false
 extraSecretMounts:
   - name: opni-cacert
     mountPath: /run/opni-monitoring/certs

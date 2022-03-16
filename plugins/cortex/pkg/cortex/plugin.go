@@ -20,11 +20,13 @@ type Plugin struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
+	lg := logger.NewForPlugin()
+	lg.SetLevel(hclog.Debug)
 	return &Plugin{
 		ctx:            ctx,
 		config:         util.NewFuture[*v1beta1.GatewayConfig](),
 		mgmtApi:        util.NewFuture[management.ManagementClient](),
 		storageBackend: util.NewFuture[storage.Backend](),
-		logger:         logger.NewForPlugin(),
+		logger:         lg,
 	}
 }

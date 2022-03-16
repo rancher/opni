@@ -19,6 +19,7 @@ config:
       tls_key_path: /run/cortex/certs/client/tls.key
       tls_ca_path: /run/cortex/certs/client/ca.crt
       tls_server_name: cortex-server
+    enable_api: true
   querier:
     store_gateway_client: *tls_client_config
   frontend:

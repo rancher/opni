@@ -7,7 +7,7 @@ tenant_federation:
   enabled: true
 
 server:
-  log_level: debug
+  log_level: error
   http_listen_port: {{ .HttpListenPort }}
   grpc_listen_port: {{ .GrpcListenPort }}
   http_tls_config: &tls_server_config

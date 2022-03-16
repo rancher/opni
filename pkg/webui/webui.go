@@ -39,6 +39,8 @@ func NewWebUIServer(config *v1beta1.GatewayConfig) (*WebUIServer, error) {
 }
 
 func (ws *WebUIServer) ListenAndServe() error {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
 	lg := ws.logger
 	listener, err := net.Listen("tcp4", ws.config.Spec.Management.WebListenAddress)
 	if err != nil {
@@ -127,8 +129,6 @@ func (ws *WebUIServer) ListenAndServe() error {
 		// serve 200.html
 		rw.Write(twoHundred)
 	})
-	ws.mu.Lock()
-	defer ws.mu.Unlock()
 	return ws.server.Serve(listener)
 }
 

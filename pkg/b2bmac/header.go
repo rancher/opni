@@ -1,6 +1,7 @@
 package b2bmac
 
 import (
+	"crypto/ed25519"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -80,4 +81,12 @@ func DecodeAuthHeader(header string) (id []byte, nonce uuid.UUID, mac []byte, er
 		err = fmt.Errorf("Header is missing signature")
 	}
 	return
+}
+
+func NewEncodedHeader(id []byte, payload []byte, key ed25519.PrivateKey) (string, error) {
+	nonce, mac, err := New512(id, payload, key)
+	if err != nil {
+		return "", err
+	}
+	return EncodeAuthHeader(id, nonce, mac)
 }

@@ -16,6 +16,7 @@ func BuildRootCmd() *cobra.Command {
 	rootCmd.AddCommand(commands.BuildGatewayCmd())
 	rootCmd.AddCommand(commands.BuildAgentCmd())
 	rootCmd.AddCommand(commands.BuildManageCmd())
+	rootCmd.AddCommand(commands.BuildVersionCmd())
 	return rootCmd
 }
 

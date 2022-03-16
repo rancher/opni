@@ -1,4 +1,4 @@
-FROM golang:1.18rc1
+FROM golang:1.18
 
 ENV DOCKER_VERSION=20.10.5
 

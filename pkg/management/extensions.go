@@ -186,10 +186,11 @@ func newHandler(
 ) runtime.HandlerFunc {
 	lg := logger.New().Named("apiext")
 	return func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		lg.With(
+		lg := lg.With(
 			"method", rule.Method.GetName(),
 			"path", path,
-		).Debug("handling http request")
+		)
+		lg.Debug("handling http request")
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		methodDesc := svcDesc.FindMethodByName(rule.Method.GetName())
@@ -197,32 +198,41 @@ func newHandler(
 
 		rctx, err := runtime.AnnotateContext(ctx, mux, req, methodDesc.GetFullyQualifiedName(), runtime.WithHTTPPathPattern(path))
 		if err != nil {
+			lg.Error(err)
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 		b, err := ioutil.ReadAll(req.Body)
 		if err != nil {
+			lg.Error(err)
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
 		}
 		reqMsg := dynamic.NewMessage(methodDesc.GetInputType())
 		if err := reqMsg.UnmarshalJSON(b); err != nil {
+			lg.Error(err)
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
 		}
 		var metadata runtime.ServerMetadata
 
 		resp, err := stub.InvokeRpc(rctx, methodDesc, reqMsg,
 			grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 		if err != nil {
+			lg.Error(err)
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
 		jsonData, err := resp.(*dynamic.Message).MarshalJSON()
 		if err != nil {
+			lg.Error(err)
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
+		if w.Header().Get("Content-Type") == "" {
+			w.Header().Set("Content-Type", "application/json")
+		}
 		if _, err := w.Write(jsonData); err != nil {
 			lg.With(
 				zap.Error(err),

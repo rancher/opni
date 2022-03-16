@@ -453,19 +453,22 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 			},
 			Cortex: v1beta1.CortexSpec{
 				Distributor: v1beta1.DistributorSpec{
-					Address: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 				},
 				Ingester: v1beta1.IngesterSpec{
-					Address: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 				},
 				Alertmanager: v1beta1.AlertmanagerSpec{
-					Address: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 				},
 				Ruler: v1beta1.RulerSpec{
-					Address: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 				},
 				QueryFrontend: v1beta1.QueryFrontendSpec{
-					Address: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 				},
 				Certs: v1beta1.MTLSSpec{
 					ServerCA:   path.Join(e.tempDir, "cortex/root.crt"),

@@ -259,7 +259,7 @@ func ConfigureAppLogger(app *fiber.App, name string) {
 
 func NewForPlugin() hclog.Logger {
 	opts := &hclog.LoggerOptions{
-		Level:       hclog.DefaultLevel,
+		Level:       hclog.Debug,
 		JSONFormat:  true,
 		DisableTime: true,
 	}

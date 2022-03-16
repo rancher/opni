@@ -1,0 +1,83 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/rancher/opni-monitoring/pkg/plugins/cortex/pkg/apis/cortexadmin";
+
+package cortexadmin;
+
+service CortexAdmin {
+  rpc AllUserStats(google.protobuf.Empty) returns (UserStatsList) {
+    option (google.api.http) = {
+      get: "/all_user_stats"
+    };
+  }
+  rpc WriteMetrics(WriteRequest) returns (WriteResponse) {
+    option (google.api.http) = {
+      post: "/write_metrics"
+      body: "*"
+    };
+  }
+}
+
+message UserStatsList {
+  google.protobuf.Timestamp now = 1;
+  repeated UserIDStats stats = 2;
+  int32 replicationFactor = 3;
+}
+
+message UserIDStats {
+  string userID = 1;
+  double ingestionRate = 2;
+  uint64 numSeries = 3;
+  double APIIngestionRate = 4; // title case to match cortex
+  double RuleIngestionRate = 5; // title case to match cortex
+}
+
+message WriteRequest {
+  string clusterID = 1;
+  repeated TimeSeries timeseries = 2;
+  repeated MetricMetadata metadata = 3;
+}
+
+message WriteResponse {}
+
+message TimeSeries {
+  repeated Label labels = 1;
+  repeated Sample samples = 2;
+  repeated Exemplar exemplars = 3;
+}
+
+message Label {
+  string name = 1;
+  string value = 2;
+}
+
+message Sample {
+  double value = 1;
+  int64 timestampMs = 2;
+}
+
+message Exemplar {
+  repeated Label labels = 1;
+  double value = 2;
+  int64 timestampMs = 3;
+}
+
+message MetricMetadata {
+  enum MetricType {
+    UNKNOWN        = 0;
+    COUNTER        = 1;
+    GAUGE          = 2;
+    HISTOGRAM      = 3;
+    GAUGEHISTOGRAM = 4;
+    SUMMARY        = 5;
+    INFO           = 6;
+    STATESET       = 7;
+  }
+
+  MetricType type = 1;
+  string metricFamilyName = 2;
+  string help = 4;
+  string unit = 5;
+}

@@ -19,10 +19,10 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 
 	cortexTLSConfig := p.loadCortexCerts()
 
-	queryFrontend := fwd.To(config.Spec.Cortex.QueryFrontend.Address, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.query-frontend"))
-	alertmanager := fwd.To(config.Spec.Cortex.Alertmanager.Address, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.alertmanager"))
-	ruler := fwd.To(config.Spec.Cortex.Ruler.Address, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.ruler"))
-	distributor := fwd.To(config.Spec.Cortex.Distributor.Address, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.distributor"))
+	queryFrontend := fwd.To(config.Spec.Cortex.QueryFrontend.HTTPAddress, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.query-frontend"))
+	alertmanager := fwd.To(config.Spec.Cortex.Alertmanager.HTTPAddress, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.alertmanager"))
+	ruler := fwd.To(config.Spec.Cortex.Ruler.HTTPAddress, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.ruler"))
+	distributor := fwd.To(config.Spec.Cortex.Distributor.HTTPAddress, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.distributor"))
 
 	storageBackend := p.storageBackend.Get()
 	rbacProvider := storage.NewRBACProvider(storageBackend)

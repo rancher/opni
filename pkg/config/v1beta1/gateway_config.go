@@ -38,23 +38,26 @@ type CortexSpec struct {
 }
 
 type DistributorSpec struct {
-	Address string `json:"address,omitempty"`
+	HTTPAddress string `json:"httpAddress,omitempty"`
+	GRPCAddress string `json:"grpcAddress,omitempty"`
 }
 
 type IngesterSpec struct {
-	Address string `json:"address,omitempty"`
+	HTTPAddress string `json:"httpAddress,omitempty"`
+	GRPCAddress string `json:"grpcAddress,omitempty"`
 }
 
 type AlertmanagerSpec struct {
-	Address string `json:"address,omitempty"`
+	HTTPAddress string `json:"httpAddress,omitempty"`
 }
 
 type RulerSpec struct {
-	Address string `json:"address,omitempty"`
+	HTTPAddress string `json:"httpAddress,omitempty"`
 }
 
 type QueryFrontendSpec struct {
-	Address string `json:"address,omitempty"`
+	HTTPAddress string `json:"httpAddress,omitempty"`
+	GRPCAddress string `json:"grpcAddress,omitempty"`
 }
 
 type MTLSSpec struct {
@@ -91,20 +94,23 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	if s.ListenAddress == "" {
 		s.ListenAddress = ":8080"
 	}
-	if s.Cortex.Distributor.Address == "" {
-		s.Cortex.Distributor.Address = "cortex-distributor:8080"
+	if s.Cortex.Distributor.HTTPAddress == "" {
+		s.Cortex.Distributor.HTTPAddress = "cortex-distributor:8080"
+		s.Cortex.Distributor.GRPCAddress = "cortex-distributor-headless:9095"
 	}
-	if s.Cortex.Ingester.Address == "" {
-		s.Cortex.Ingester.Address = "cortex-ingester:8080"
+	if s.Cortex.Ingester.HTTPAddress == "" {
+		s.Cortex.Ingester.HTTPAddress = "cortex-ingester:8080"
+		s.Cortex.Ingester.HTTPAddress = "cortex-ingester-headless:9095"
 	}
-	if s.Cortex.Alertmanager.Address == "" {
-		s.Cortex.Alertmanager.Address = "cortex-alertmanager:8080"
+	if s.Cortex.Alertmanager.HTTPAddress == "" {
+		s.Cortex.Alertmanager.HTTPAddress = "cortex-alertmanager:8080"
 	}
-	if s.Cortex.Ruler.Address == "" {
-		s.Cortex.Ruler.Address = "cortex-ruler:8080"
+	if s.Cortex.Ruler.HTTPAddress == "" {
+		s.Cortex.Ruler.HTTPAddress = "cortex-ruler:8080"
 	}
-	if s.Cortex.QueryFrontend.Address == "" {
-		s.Cortex.QueryFrontend.Address = "cortex-query-frontend:8080"
+	if s.Cortex.QueryFrontend.HTTPAddress == "" {
+		s.Cortex.QueryFrontend.HTTPAddress = "cortex-query-frontend:8080"
+		s.Cortex.QueryFrontend.GRPCAddress = "cortex-query-frontend-headless:8080"
 	}
 }
 

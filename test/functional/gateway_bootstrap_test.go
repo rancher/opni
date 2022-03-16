@@ -162,10 +162,6 @@ var _ = FDescribe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 			invResp, httpErr := httpClient.Do(req)
 			Expect(httpErr).NotTo(HaveOccurred())
 			Expect(invResp.StatusCode).To(Equal(http.StatusOK))
-			// layout = "Mon, 02 Jan 2006 15:04:05 MST"
-			// invResp, errI := time.Parse(layout, invResp.Header.Get("Date"))
-			// Expect(errI).NotTo(HaveOccurred())
-			// Expect(invResp.Unix()).To(BeNumerically("<=", (now)))
 			Expect(invResp.Header.Get("Content-Type")).To(Equal("application/json"))
 			Expect(invResp.Header.Get("Results-Cache-Gen-Number")).To(BeEmpty())
 

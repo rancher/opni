@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/prometheus/prometheus/model/rulefmt"
-	"github.com/rancher/opni-monitoring/pkg/clients"
 	"github.com/rancher/opni-monitoring/pkg/rules"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"go.uber.org/zap"
@@ -81,11 +80,49 @@ func (a *Agent) marshalRuleGroups(ruleGroups []rulefmt.RuleGroup) [][]byte {
 	return yamlDocs
 }
 
-func (a *Agent) streamRulesToGateway(ctx context.Context, client clients.GatewayHTTPClient) error {
+func (a *Agent) streamRulesToGateway(ctx context.Context) error {
+	lg := a.logger
 	updateC, err := a.streamRuleGroupUpdates(ctx)
 	if err != nil {
 		return err
 	}
+	pending := make(chan [][]byte, 1)
+	go func() {
+		defer close(pending)
+		for {
+			var docs [][]byte
+			select {
+			case docs = <-pending:
+			case <-ctx.Done():
+				return
+			}
+		RETRY:
+			for {
+				for _, doc := range docs {
+					ctx, ca := context.WithTimeout(ctx, time.Second*2)
+					defer ca()
+					code, _, err := a.gatewayClient.Post(ctx, "/api/v1/sync_rules").
+						Header("Content-Type", "application/yaml").
+						Body(doc).
+						Send()
+					if err != nil || code != 200 {
+						// retry, unless another update is received from the channel
+						lg.With(
+							zap.Error(err),
+						).Error("failed to send alert rules to gateway (retry in 5 seconds)")
+						select {
+						case docs = <-pending:
+							goto RETRY
+						case <-time.After(5 * time.Second):
+							goto RETRY
+						case <-ctx.Done():
+							return
+						}
+					}
+				}
+			}
+		}
+	}()
 	for {
 		select {
 		case <-ctx.Done():
@@ -94,16 +131,8 @@ func (a *Agent) streamRulesToGateway(ctx context.Context, client clients.Gateway
 			if !ok {
 				return nil
 			}
-			for _, yamlDoc := range yamlDocs {
-				code, _, err := client.Post(ctx, "/api/agent/rules").
-					Header("Content-Type", "application/yaml").
-					Body(yamlDoc).
-					Send()
-				if err != nil || code != 200 {
-
-					// retry, unless another update is received from the channel
-				}
-			}
+			lg.Info("sending updated alert rules to gateway")
+			pending <- yamlDocs
 		}
 	}
 }

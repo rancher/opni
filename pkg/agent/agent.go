@@ -2,20 +2,18 @@ package agent
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/rancher/opni-monitoring/pkg/b2bmac"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
+	"github.com/rancher/opni-monitoring/pkg/clients"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/ident"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/logger"
-	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/storage/etcd"
 	"github.com/rancher/opni-monitoring/pkg/storage/secrets"
@@ -30,14 +28,10 @@ type Agent struct {
 	app    *fiber.App
 	logger *zap.SugaredLogger
 
-	tenantID  string
-	tlsConfig *tls.Config
-
+	tenantID         string
 	identityProvider ident.Provider
 	keyringStore     storage.KeyringStore
-
-	sharedKeys *keyring.SharedKeys
-	pkpKey     *keyring.PKPKey
+	gatewayClient    clients.GatewayHTTPClient
 }
 
 type AgentOptions struct {
@@ -113,20 +107,23 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, errors.New("unknown storage type")
 	}
 
+	var kr keyring.Keyring
 	if options.bootstrapper != nil {
-		if err := agent.bootstrap(ctx); err != nil {
+		if kr, err = agent.bootstrap(ctx); err != nil {
 			return nil, fmt.Errorf("bootstrap error: %w", err)
 		}
 	} else {
-		if err := agent.loadKeyring(ctx); err != nil {
+		if kr, err = agent.loadKeyring(ctx); err != nil {
 			return nil, fmt.Errorf("error loading keyring: %w", err)
 		}
 	}
 
-	agent.tlsConfig, err = pkp.TLSConfig(agent.pkpKey.PinnedKeys)
+	agent.gatewayClient, err = clients.NewGatewayHTTPClient(
+		conf.Spec.GatewayAddress, ip, kr)
 	if err != nil {
-		return nil, fmt.Errorf("error creating TLS config: %w", err)
+		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}
+	go agent.streamRulesToGateway(ctx)
 
 	app.Post("/api/v1/push", agent.handlePushRequest)
 	app.Use(default404Handler)
@@ -135,30 +132,12 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 }
 
 func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
-	lg := a.logger
-	nonce, sig, err := b2bmac.New512([]byte(a.tenantID), c.Body(), a.sharedKeys.ClientKey)
-	if err != nil {
-		lg.With(zap.Error(err)).Fatal("error generating MAC")
-	}
-	authHeader, err := b2bmac.EncodeAuthHeader([]byte(a.tenantID), nonce, sig)
-	if err != nil {
-		lg.With(zap.Error(err)).Fatal("error encoding auth header")
-	}
-
-	p := fiber.Post(a.GatewayAddress+"/api/v1/push").
-		Set("Authorization", authHeader).
+	code, body, err := a.gatewayClient.Post(context.Background(), "/api/v1/push").
 		Body(c.Body()).
-		TLSConfig(a.tlsConfig)
-
-	if err := p.Parse(); err != nil {
-		panic(err)
+		Send()
+	if err != nil {
+		return err
 	}
-
-	code, body, errs := p.Bytes()
-	for _, err := range errs {
-		lg.With(zap.Error(err)).Error("error sending reqest to gateway")
-	}
-
 	return c.Status(code).Send(body)
 }
 
@@ -170,7 +149,7 @@ func (a *Agent) Shutdown() error {
 	return a.app.Shutdown()
 }
 
-func (a *Agent) bootstrap(ctx context.Context) error {
+func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {
 	lg := a.logger
 
 	// Load the stored keyring, or bootstrap a new one if it doesn't exist
@@ -178,7 +157,7 @@ func (a *Agent) bootstrap(ctx context.Context) error {
 		lg.Info("performing initial bootstrap")
 		newKeyring, err := a.bootstrapper.Bootstrap(ctx, a.identityProvider)
 		if err != nil {
-			return fmt.Errorf("bootstrap failed: %w", err)
+			return nil, fmt.Errorf("bootstrap failed: %w", err)
 		}
 		lg.Info("bootstrap completed successfully")
 		for {
@@ -193,7 +172,7 @@ func (a *Agent) bootstrap(ctx context.Context) error {
 			}
 		}
 	} else if err != nil {
-		return fmt.Errorf("error loading keyring: %w", err)
+		return nil, fmt.Errorf("error loading keyring: %w", err)
 	} else {
 		lg.Warn("this agent has already been bootstrapped but may have been interrupted - will use existing keyring")
 	}
@@ -207,27 +186,13 @@ func (a *Agent) bootstrap(ctx context.Context) error {
 	return a.loadKeyring(ctx)
 }
 
-func (a *Agent) loadKeyring(ctx context.Context) error {
+func (a *Agent) loadKeyring(ctx context.Context) (keyring.Keyring, error) {
 	lg := a.logger
 	lg.Info("loading keyring")
 	kr, err := a.keyringStore.Get(ctx)
 	if err != nil {
-		return fmt.Errorf("error loading keyring: %w", err)
-	}
-	kr.Try(
-		func(shared *keyring.SharedKeys) {
-			a.sharedKeys = shared
-		},
-		func(pkp *keyring.PKPKey) {
-			a.pkpKey = pkp
-		},
-	)
-	if a.sharedKeys == nil || a.pkpKey == nil {
-		return errors.New("keyring is missing keys")
-	}
-	if len(a.pkpKey.PinnedKeys) == 0 {
-		return errors.New("keyring does not contain any pinned public keys")
+		return nil, fmt.Errorf("error loading keyring: %w", err)
 	}
 	lg.Info("keyring loaded successfully")
-	return nil
+	return kr, nil
 }

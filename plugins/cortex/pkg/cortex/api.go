@@ -71,6 +71,7 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 	clusterMiddleware := cluster.New(storageBackend, orgIDCodec.Key())
 	v1 := app.Group("/api/v1", clusterMiddleware.Handle)
 	v1.Post("/push", distributor)
+	v1.Post("/sync_rules", p.preprocessRules, ruler)
 }
 
 func (p *Plugin) loadCortexCerts() *tls.Config {
@@ -119,4 +120,13 @@ func (p *Plugin) loadCortexCerts() *tls.Config {
 		ClientCAs:    clientCAPool,
 		RootCAs:      serverCAPool,
 	}
+}
+
+func (p *Plugin) preprocessRules(c *fiber.Ctx) error {
+	id := cluster.AuthorizedID(c)
+	p.logger.With(
+		"id", id,
+	).Info("syncing cluster alert rules")
+	c.Path("/api/v1/rules/" + id)
+	return c.Next()
 }

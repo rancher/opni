@@ -48,28 +48,28 @@ func NewGatewayHTTPClient(
 	var pkpKey *keyring.PKPKey
 	kr.Try(
 		func(sk *keyring.SharedKeys) {
-			if sk != nil {
+			if sharedKeys != nil {
 				err = errors.New("keyring contains multiple shared key sets")
 				return
 			}
 			sharedKeys = sk
 		},
 		func(pk *keyring.PKPKey) {
-			if pk != nil {
+			if pkpKey != nil {
 				err = errors.New("keyring contains multiple PKP key sets")
 				return
 			}
 			pkpKey = pk
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
 	if sharedKeys == nil {
 		return nil, errors.New("keyring is missing shared keys")
 	}
 	if pkpKey == nil {
 		return nil, errors.New("keyring is missing PKP key")
-	}
-	if err != nil {
-		return nil, err
 	}
 	tlsConfig, err := pkp.TLSConfig(pkpKey.PinnedKeys)
 	if err != nil {

@@ -225,6 +225,13 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 		_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
 		Consistently(errC).ShouldNot(Receive())
 
+		Eventually(func() error {
+			_, err := client.GetCluster(context.Background(), &core.Reference{
+				Id: clusterName,
+			})
+			return err
+		}).Should(Succeed())
+
 		_, err = client.EditCluster(context.Background(), &management.EditClusterRequest{
 			Labels: map[string]string{
 				"i": "999",
@@ -256,6 +263,13 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
 			clusterName := uuid.NewString()
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
 			Consistently(errC).ShouldNot(Receive())
+
+			Eventually(func() error {
+				_, err := client.GetCluster(context.Background(), &core.Reference{
+					Id: clusterName,
+				})
+				return err
+			}).Should(Succeed())
 
 			_, errE := client.EditCluster(context.Background(), &management.EditClusterRequest{
 				Cluster: &core.Reference{

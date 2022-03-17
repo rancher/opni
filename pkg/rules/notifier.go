@@ -11,16 +11,20 @@ import (
 type updateNotifier struct {
 	finder         RuleFinder
 	updateChannels []chan []rulefmt.RuleGroup
-	channelsMu     sync.Mutex
+	channelsMu     *sync.Mutex
+	startCond      *sync.Cond
 
 	latest   []rulefmt.RuleGroup
 	latestMu sync.Mutex
 }
 
 func newUpdateNotifier(finder RuleFinder) *updateNotifier {
+	mu := &sync.Mutex{}
 	return &updateNotifier{
 		finder:         finder,
 		updateChannels: []chan []rulefmt.RuleGroup{},
+		startCond:      sync.NewCond(mu),
+		channelsMu:     mu,
 		latest:         []rulefmt.RuleGroup{},
 	}
 }
@@ -30,6 +34,11 @@ func (u *updateNotifier) NotifyC(ctx context.Context) <-chan []rulefmt.RuleGroup
 	defer u.channelsMu.Unlock()
 	updateC := make(chan []rulefmt.RuleGroup, 3)
 	u.updateChannels = append(u.updateChannels, updateC)
+	if len(u.updateChannels) == 1 {
+		// If this was the first channel to be added, unlock any calls to
+		// fetchRules which might be waiting.
+		u.startCond.Broadcast()
+	}
 	go func() {
 		<-ctx.Done()
 		u.channelsMu.Lock()
@@ -46,6 +55,12 @@ func (u *updateNotifier) NotifyC(ctx context.Context) <-chan []rulefmt.RuleGroup
 }
 
 func (u *updateNotifier) fetchRules(ctx context.Context) {
+	u.channelsMu.Lock()
+	for len(u.updateChannels) == 0 {
+		// If there are no channels yet, wait until one is added.
+		u.startCond.Wait()
+	}
+	u.channelsMu.Unlock()
 	groups, err := u.finder.FindGroups(context.Background())
 	if err != nil {
 		return
@@ -62,6 +77,8 @@ func (u *updateNotifier) fetchRules(ctx context.Context) {
 				break
 			}
 		}
+	} else {
+		modified = true
 	}
 	if !modified {
 		return

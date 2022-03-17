@@ -100,7 +100,7 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	}
 	if s.Cortex.Ingester.HTTPAddress == "" {
 		s.Cortex.Ingester.HTTPAddress = "cortex-ingester:8080"
-		s.Cortex.Ingester.HTTPAddress = "cortex-ingester-headless:9095"
+		s.Cortex.Ingester.GRPCAddress = "cortex-ingester-headless:9095"
 	}
 	if s.Cortex.Alertmanager.HTTPAddress == "" {
 		s.Cortex.Alertmanager.HTTPAddress = "cortex-alertmanager:8080"

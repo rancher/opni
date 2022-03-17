@@ -151,13 +151,19 @@ spec:
     name: cortex-intermediate-ca-issuer
   dnsNames:
     - cortex-server
-    - cortex-distributor
-    - cortex-ingester
     - cortex-alertmanager
+    - cortex-alertmanager-headless
+    - cortex-compactor
+    - cortex-distributor
+    - cortex-distributor-headless
+    - cortex-ingester
+    - cortex-ingester-headless
     - cortex-querier
     - cortex-query-frontend
     - cortex-query-frontend-headless
     - cortex-ruler
+    - cortex-store-gateway
+    - cortex-store-gateway-headless
 
 ---
 apiVersion: cert-manager.io/v1

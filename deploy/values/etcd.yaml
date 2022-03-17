@@ -14,5 +14,3 @@ livenessProbe:
   initialDelaySeconds: 5
 readinessProbe:
   initialDelaySeconds: 5
-persistence:
-  enabled: false

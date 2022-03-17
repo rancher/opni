@@ -9,10 +9,24 @@ datasources:
       - name: Opni
         type: prometheus
         access: proxy
-        url: https://opni-monitoring.opni-monitoring.svc:8080/prometheus
+        url: https://opni-monitoring.opni-monitoring.svc:8080/api/prom
         withCredentials: true
-        editable: false
+        editable: true
         jsonData:
+          alertmanagerUid: opni_alertmanager
+          tlsAuthWithCACert: true
+          oauthPassThru: true
+        secureJsonData:
+          tlsCACert: "$__file{/run/opni-monitoring/certs/ca.crt}"
+      - name: Opni Alertmanager
+        uid: opni_alertmanager
+        type: alertmanager
+        access: proxy
+        url: https://opni-monitoring.opni-monitoring.svc:8080
+        withCredentials: true
+        editable: true
+        jsonData:
+          implementation: cortex
           tlsAuthWithCACert: true
           oauthPassThru: true
         secureJsonData:

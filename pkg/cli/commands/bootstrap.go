@@ -97,6 +97,13 @@ func BuildBootstrapCmd() *cobra.Command {
 						Token: token,
 						Pins:  pins,
 					},
+					Rules: &v1beta1.RulesSpec{
+						Discovery: v1beta1.DiscoverySpec{
+							PrometheusRules: &v1beta1.PrometheusRulesSpec{
+								SearchNamespaces: []string{},
+							},
+						},
+					},
 				},
 			}
 

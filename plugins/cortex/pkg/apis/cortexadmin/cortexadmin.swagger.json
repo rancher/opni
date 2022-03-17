@@ -23,7 +23,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/cortexadminUserStatsList"
+              "$ref": "#/definitions/cortexadminUserIDStatsList"
             }
           }
         },
@@ -181,22 +181,14 @@
         }
       }
     },
-    "cortexadminUserStatsList": {
+    "cortexadminUserIDStatsList": {
       "type": "object",
       "properties": {
-        "now": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "stats": {
+        "items": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/cortexadminUserIDStats"
           }
-        },
-        "replicationFactor": {
-          "type": "integer",
-          "format": "int32"
         }
       }
     },

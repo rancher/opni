@@ -32,26 +32,28 @@ config:
     ruler_client: *tls_client_config
   alertmanager_storage:
     backend: filesystem
-    filesystem:
-      dir: /opt/cortex-data/alertmanager
+    # filesystem:
+    #   dir: /opt/cortex-data/alertmanager
   auth_enabled: true
   blocks_storage:
     backend: filesystem
-    bucket_store:
-      sync_dir: /data
-    filesystem:
-      dir: /opt/cortex-data/blocks
+    # bucket_store:
+    #   sync_dir: /data
+    # filesystem:
+    #   dir: /opt/cortex-data/blocks
     tsdb:
       dir: /data
   ruler_storage:
     backend: filesystem
-    filesystem:
-      dir: /opt/cortex-data/ruler
+    # filesystem:
+    #   dir: /opt/cortex-data/ruler
   storage:
     engine: blocks
   tenant_federation:
     enabled: true
 alertmanager:
+  statefulSet:
+    enabled: true
   startupProbe: &mtls_probe
     exec:
       command:
@@ -104,10 +106,14 @@ querier:
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 ingester:
+  statefulSet:
+    enabled: true
   readinessProbe: *mtls_probe
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 distributor:
+  statefulSet:
+    enabled: true
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe
@@ -126,16 +132,12 @@ query_frontend:
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 store_gateway:
-  persistentVolume:
-    enabled: false
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 compactor:
-  persistentVolume:
-    enabled: false
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe

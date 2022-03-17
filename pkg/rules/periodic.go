@@ -16,6 +16,7 @@ func NewPeriodicUpdateNotifier(ctx context.Context, finder RuleFinder, interval 
 	go func() {
 		timer := time.NewTimer(interval)
 		for {
+			// this will block until there is at least one listener on the update notifier
 			notifier.fetchRules(ctx)
 			select {
 			case <-timer.C:

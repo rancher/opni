@@ -23,7 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CortexAdminClient interface {
-	AllUserStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UserStatsList, error)
+	AllUserStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UserIDStatsList, error)
 	WriteMetrics(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*WriteResponse, error)
 }
 
@@ -35,8 +35,8 @@ func NewCortexAdminClient(cc grpc.ClientConnInterface) CortexAdminClient {
 	return &cortexAdminClient{cc}
 }
 
-func (c *cortexAdminClient) AllUserStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UserStatsList, error) {
-	out := new(UserStatsList)
+func (c *cortexAdminClient) AllUserStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UserIDStatsList, error) {
+	out := new(UserIDStatsList)
 	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/AllUserStats", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (c *cortexAdminClient) WriteMetrics(ctx context.Context, in *WriteRequest, 
 // All implementations must embed UnimplementedCortexAdminServer
 // for forward compatibility
 type CortexAdminServer interface {
-	AllUserStats(context.Context, *emptypb.Empty) (*UserStatsList, error)
+	AllUserStats(context.Context, *emptypb.Empty) (*UserIDStatsList, error)
 	WriteMetrics(context.Context, *WriteRequest) (*WriteResponse, error)
 	mustEmbedUnimplementedCortexAdminServer()
 }
@@ -66,7 +66,7 @@ type CortexAdminServer interface {
 type UnimplementedCortexAdminServer struct {
 }
 
-func (UnimplementedCortexAdminServer) AllUserStats(context.Context, *emptypb.Empty) (*UserStatsList, error) {
+func (UnimplementedCortexAdminServer) AllUserStats(context.Context, *emptypb.Empty) (*UserIDStatsList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllUserStats not implemented")
 }
 func (UnimplementedCortexAdminServer) WriteMetrics(context.Context, *WriteRequest) (*WriteResponse, error) {

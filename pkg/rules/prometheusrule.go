@@ -8,7 +8,6 @@ import (
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -73,16 +72,12 @@ func NewPrometheusRuleFinder(k8sClient client.Client, opts ...PrometheusRuleFind
 }
 
 func (f *PrometheusRuleFinder) FindGroups(ctx context.Context) ([]rulefmt.RuleGroup, error) {
-	lg := f.logger.With("namespaces", f.namespaces)
-	var ruleGroups []rulefmt.RuleGroup
-	lg.Debug("searching for PrometheusRules")
-
 	// Find all PrometheusRules
 	searchNamespaces := []string{}
 	switch {
 	case len(f.namespaces) == 0:
 		// No namespaces specified, search all namespaces
-		f.namespaces = append(f.namespaces, "")
+		searchNamespaces = append(searchNamespaces, "")
 	case len(f.namespaces) > 1:
 		// If multiple namespaces are specified, filter out empty strings, which
 		// would otherwise match all namespaces.
@@ -92,10 +87,15 @@ func (f *PrometheusRuleFinder) FindGroups(ctx context.Context) ([]rulefmt.RuleGr
 			}
 		}
 	}
-	for _, namespace := range f.namespaces {
+	lg := f.logger.With("namespaces", searchNamespaces)
+	var ruleGroups []rulefmt.RuleGroup
+	lg.Debug("searching for PrometheusRules")
+
+	for _, namespace := range searchNamespaces {
 		groups, err := f.findRulesInNamespace(ctx, namespace)
 		if err != nil {
 			lg.With(
+				zap.Error(err),
 				"namespace", namespace,
 			).Warn("failed to find PrometheusRules in namespace, skipping")
 			continue
@@ -122,33 +122,50 @@ func (f *PrometheusRuleFinder) findRulesInNamespace(
 	var ruleGroups []rulefmt.RuleGroup
 	for _, promRule := range promRules.Items {
 		for _, group := range promRule.Spec.Groups {
-			interval, err := model.ParseDuration(group.Interval)
-			if err != nil {
-				lg.With(
-					"group", group.Name,
-				).Warn("skipping rule group: failed to parse group.Interval")
-			}
-			rules := []rulefmt.RuleNode{}
-			for _, rule := range group.Rules {
-				ruleFor, err := model.ParseDuration(rule.For)
+			var interval model.Duration
+			var err error
+			if group.Interval != "" {
+				interval, err = model.ParseDuration(group.Interval)
 				if err != nil {
 					lg.With(
 						"group", group.Name,
-					).Warn("skipping rule: failed to parse rule.For")
+					).Warn("skipping rule group: failed to parse group.Interval")
+					continue
 				}
-				rules = append(rules, rulefmt.RuleNode{
-					Record:      yaml.Node{Value: rule.Record},
-					Alert:       yaml.Node{Value: rule.Alert},
-					Expr:        yaml.Node{Value: rule.Expr.String()},
+			}
+			ruleNodes := []rulefmt.RuleNode{}
+			for _, rule := range group.Rules {
+				var ruleFor model.Duration
+				if rule.For != "" {
+					ruleFor, err = model.ParseDuration(rule.For)
+					if err != nil {
+						lg.With(
+							"group", group.Name,
+						).Warn("skipping rule: failed to parse rule.For")
+						continue
+					}
+				}
+				node := rulefmt.RuleNode{
 					For:         ruleFor,
 					Labels:      rule.Labels,
 					Annotations: rule.Annotations,
-				})
+				}
+				node.Record.SetString(rule.Record)
+				node.Alert.SetString(rule.Alert)
+				node.Expr.SetString(rule.Expr.String())
+				if errs := node.Validate(); len(errs) > 0 {
+					lg.With(
+						"group", group.Name,
+						"errs", errs,
+					).Warn("skipping rule: invalid node")
+					continue
+				}
+				ruleNodes = append(ruleNodes, node)
 			}
 			ruleGroups = append(ruleGroups, rulefmt.RuleGroup{
 				Name:     group.Name,
 				Interval: interval,
-				Rules:    rules,
+				Rules:    ruleNodes,
 			})
 		}
 	}

@@ -7,7 +7,7 @@ option go_package = "github.com/rancher/opni-monitoring/pkg/plugins/cortex/pkg/a
 package cortexadmin;
 
 service CortexAdmin {
-  rpc AllUserStats(google.protobuf.Empty) returns (UserStatsList) {
+  rpc AllUserStats(google.protobuf.Empty) returns (UserIDStatsList) {
     option (google.api.http) = {
       get: "/all_user_stats"
     };
@@ -20,10 +20,8 @@ service CortexAdmin {
   }
 }
 
-message UserStatsList {
-  google.protobuf.Timestamp now = 1;
-  repeated UserIDStats stats = 2;
-  int32 replicationFactor = 3;
+message UserIDStatsList {
+  repeated UserIDStats items = 2;
 }
 
 message UserIDStats {

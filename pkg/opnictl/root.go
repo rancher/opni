@@ -14,6 +14,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var Version string
+
 func BuildRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use: "opnictl",
@@ -28,6 +30,7 @@ func BuildRootCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
+		Version: Version,
 	}
 
 	// Flags
@@ -46,6 +49,7 @@ func BuildRootCmd() *cobra.Command {
 	rootCmd.AddCommand(commands.BuildCreateCmd())
 	rootCmd.AddCommand(commands.BuildDeleteCmd())
 	rootCmd.AddCommand(commands.BuildGetCmd())
+	rootCmd.AddCommand(commands.BuildBootstrapCmd())
 	rootCmd.AddCommand(commands.CompletionCmd)
 
 	// Help topics

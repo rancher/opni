@@ -6,22 +6,22 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
-  name: loggingclusters.opni.io
+  name: loggingclusterbindings.opni.io
 spec:
   group: opni.io
   names:
-    kind: LoggingCluster
-    listKind: LoggingClusterList
-    plural: loggingclusters
-    singular: loggingcluster
+    kind: LoggingClusterBinding
+    listKind: LoggingClusterBindingList
+    plural: loggingclusterbindings
+    singular: loggingclusterbinding
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    - jsonPath: .status.indexUserState
-      name: IndexUser
+    - jsonPath: .status.state
+      name: State
       type: boolean
     name: v2beta1
     schema:
@@ -35,20 +35,34 @@ spec:
             type: object
           spec:
             properties:
-              friendlyName:
-                type: string
-              indexUser:
+              loggingCluster:
                 properties:
-                  name:
+                  id:
                     type: string
+                  loggingClusterName:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    type: object
                 type: object
-              opensearchCluster:
+              opensearchClusterRef:
                 properties:
                   name:
                     type: string
                   namespace:
                     type: string
                 type: object
+              user:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
+            required:
+            - opensearchClusterRef
             type: object
           status:
             properties:
@@ -56,10 +70,6 @@ spec:
                 items:
                   type: string
                 type: array
-              indexUserState:
-                type: string
-              readRole:
-                type: string
               state:
                 type: string
             type: object

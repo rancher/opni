@@ -5,7 +5,7 @@ import (
 
 	nvidiav1 "github.com/NVIDIA/gpu-operator/api/v1"
 	. "github.com/kralicky/kmatch"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1beta1 "github.com/rancher/opni/apis/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

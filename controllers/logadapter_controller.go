@@ -18,16 +18,13 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	"github.com/rancher/opni/apis/v1beta1"
-	opnierrors "github.com/rancher/opni/pkg/errors"
 	"github.com/rancher/opni/pkg/resources/logadapter"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -55,20 +52,6 @@ func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	err := r.Get(ctx, req.NamespacedName, &logAdapter)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
-	// Look up the referenced OpniCluster to make sure it exists.
-	opniCluster := v1beta1.OpniCluster{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      logAdapter.Spec.OpniCluster.Name,
-		Namespace: logAdapter.Spec.OpniCluster.Namespace,
-	},
-		&opniCluster); err != nil {
-		logAdapter.Status.Phase = "Error"
-		logAdapter.Status.Message = opnierrors.InvalidReference.Error()
-		r.Status().Update(ctx, &logAdapter)
-		return ctrl.Result{}, fmt.Errorf("%w: { name: %s, namespace: %s }",
-			opnierrors.InvalidReference, logAdapter.Spec.OpniCluster.Name, logAdapter.Spec.OpniCluster.Namespace)
 	}
 
 	logAdapter.Status.Conditions = []string{}

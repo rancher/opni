@@ -1,7 +1,7 @@
 package gpuadapter_test
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/pkg/providers"
 	testdata "github.com/rancher/opni/pkg/resources/gpuadapter/testdata"

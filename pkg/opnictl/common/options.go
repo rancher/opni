@@ -24,7 +24,7 @@ var (
 )
 
 const (
-	DefaultOpniNamespace                  = "opni"
+	DefaultOpniNamespace                  = "opni-system"
 	DefaultOpniDemoName                   = "opni-demo"
 	DefaultOpniDemoNamespace              = "opni-demo"
 	DefaultOpniDemoMinioAccessKey         = "minioadmin"

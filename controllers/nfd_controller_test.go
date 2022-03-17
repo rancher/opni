@@ -5,7 +5,7 @@ import (
 
 	. "github.com/kralicky/kmatch"
 	nfdv1 "github.com/kubernetes-sigs/node-feature-discovery-operator/api/v1"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

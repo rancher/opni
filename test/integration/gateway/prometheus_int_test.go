@@ -116,7 +116,7 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, func() {
 			defer resp.Body.Close()
 			b, err := ioutil.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(string(b)).To(Equal(`{"status":"success","data":[]})=`))
+			Expect(string(b)).To(Equal(`{"status":"success","data":[]}`))
 		})
 	})
 

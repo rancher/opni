@@ -33,7 +33,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = FDescribe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
+var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	var fingerprint string
@@ -77,11 +77,11 @@ var _ = FDescribe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 			promAgentPort := environment.StartPrometheus(port)
 			Expect(promAgentPort).NotTo(BeZero())
 
-			for i := 0; i < 99; i++ {
+			for i := 0; i < 5; i++ {
 				//Clusters that will be associated to the user
 				clusterName := "test-cluster-id-" + uuid.New().String()
 				_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-				Consistently(errC).ShouldNot(Receive())
+				Consistently(errC).ShouldNot(Receive(HaveOccurred()))
 				clusterNameList = append(clusterNameList, clusterName)
 			}
 
@@ -115,7 +115,7 @@ var _ = FDescribe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 				Subject: "user@example.com",
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(accessList.Items).To(HaveLen(100))
+			Expect(accessList.Items).To(HaveLen(6))
 			var idList []string
 			for _, id := range accessList.Items {
 				idList = append(idList, id.Id)

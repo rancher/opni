@@ -125,7 +125,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	}
 	go agent.streamRulesToGateway(ctx)
 
-	app.Post("/api/agent/push", agent.handlePushRequest)
+	app.Post("/api/v1/push", agent.handlePushRequest)
 	app.Use(default404Handler)
 
 	return agent, nil

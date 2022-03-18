@@ -13,7 +13,7 @@ spec:
         - "--storage.agent.path=/prometheus"
         - "--enable-feature=agent"
   remoteWrite:
-    - url: "http://opni-monitoring-agent.{{ .Release.Namespace }}.svc/api/v1/push"
+    - url: "http://opni-monitoring-agent.{{ .Release.Namespace }}.svc/api/agent/push"
   replicas: 1
   podMonitorNamespaceSelector: {}
   podMonitorSelector: {}

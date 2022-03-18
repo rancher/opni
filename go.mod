@@ -39,7 +39,7 @@ require (
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.55.0
 	github.com/prometheus/common v0.32.1
 	github.com/prometheus/prometheus v1.8.2-0.20211119115433-692a54649ed7
-	github.com/rancher/opni v0.3.1-0.20220313230301-5b5b78d9249a
+	github.com/rancher/opni v0.3.2-0.20220318001725-dc38d0d882db
 	github.com/samber/lo v1.10.1
 	github.com/schollz/progressbar/v3 v3.8.6
 	github.com/spf13/cobra v1.4.0
@@ -75,14 +75,12 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
-	github.com/NVIDIA/gpu-operator v1.8.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/aws/aws-sdk-go v1.43.10 // indirect
 	github.com/banzaicloud/k8s-objectmatcher v1.8.0 // indirect
-	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.19 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/briandowns/spinner v1.12.0 // indirect

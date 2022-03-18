@@ -6,7 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/rancher/opni-monitoring/pkg/auth/cluster"
 	"github.com/rancher/opni-monitoring/pkg/b2bmac"
-	opniv2beta1 "github.com/rancher/opni/apis/v2beta1"
+	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,7 +38,7 @@ func (p *Plugin) handleGetOpensearchDetails(c *fiber.Ctx) error {
 	id := cluster.AuthorizedID(c)
 
 	// Get the external URL
-	binding := &opniv2beta1.MulticlusterRoleBinding{}
+	binding := &opniv1beta2.MulticlusterRoleBinding{}
 	if err := p.k8sClient.Get(p.ctx, types.NamespacedName{
 		Name:      OpensearchBindingName,
 		Namespace: p.storageNamespace,

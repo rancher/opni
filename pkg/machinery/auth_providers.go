@@ -33,11 +33,9 @@ func LoadAuthProviders(ctx context.Context, objects meta.ObjectList) {
 					panic(fmt.Errorf("failed to register noauth auth provider: %w", err))
 				}
 			case "test":
-				if err := auth.RegisterMiddleware("test", &test.TestAuthMiddleware{
+				auth.RegisterMiddleware("test", &test.TestAuthMiddleware{
 					Strategy: test.AuthStrategyUserIDInAuthHeader,
-				}); err != nil {
-					panic(fmt.Errorf("failed to install test auth middleware: %w", err))
-				}
+				})
 			default:
 				panic(fmt.Errorf("unsupported auth provider type: %s", ap.Spec.Type))
 			}

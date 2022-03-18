@@ -111,7 +111,7 @@ func (a *Agent) streamRulesToGateway(ctx context.Context) error {
 				for _, doc := range docs {
 					reqCtx, ca := context.WithTimeout(ctx, time.Second*2)
 					defer ca()
-					code, _, err := a.gatewayClient.Post(reqCtx, "/api/v1/sync_rules").
+					code, _, err := a.gatewayClient.Post(reqCtx, "/api/agent/sync_rules").
 						Header("Content-Type", "application/yaml").
 						Body(doc).
 						Send()

@@ -22,7 +22,7 @@ datasources:
         uid: opni_alertmanager
         type: alertmanager
         access: proxy
-        url: https://opni-monitoring.opni-monitoring.svc:8080
+        url: https://opni-monitoring.opni-monitoring.svc:8080/api/prom
         withCredentials: true
         editable: true
         jsonData:

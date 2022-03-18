@@ -24,12 +24,5 @@ message CertConfig {
 
 message GatewayAPIExtensionConfig {
   string HttpAddr = 1;
-  repeated Route routes = 2;
-}
-
-message Route {
-  string method = 1;
-  string name = 2;
-  string path = 3;
-  repeated string params = 4;
+  repeated string pathPrefixes = 2;
 }

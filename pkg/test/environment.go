@@ -37,7 +37,6 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/gateway"
 	"github.com/rancher/opni-monitoring/pkg/ident"
 	"github.com/rancher/opni-monitoring/pkg/logger"
-	"github.com/rancher/opni-monitoring/pkg/machinery"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
@@ -506,7 +505,7 @@ func (e *Environment) startGateway() {
 	lg := e.Logger
 	e.gatewayConfig = e.newGatewayConfig()
 	pluginLoader := plugins.NewPluginLoader()
-	machinery.LoadPlugins(pluginLoader, e.gatewayConfig.Spec.Plugins)
+	LoadPlugins(pluginLoader)
 	mgmtExtensionPlugins := plugins.DispenseAllAs[apiextensions.ManagementAPIExtensionClient](
 		pluginLoader, managementext.ManagementAPIExtensionPluginID)
 	gatewayExtensionPlugins := plugins.DispenseAllAs[apiextensions.GatewayAPIExtensionClient](

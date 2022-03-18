@@ -11,10 +11,15 @@ import (
 	"google.golang.org/grpc"
 )
 
-func ClientConfig(md meta.PluginMeta, scheme meta.Scheme) *plugin.ClientConfig {
+func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, reattach ...*plugin.ReattachConfig) *plugin.ClientConfig {
 	//#nosec G204
 	cmd := exec.Command(md.BinaryPath)
 	ConfigureSysProcAttr(cmd)
+	var rc *plugin.ReattachConfig
+	if len(reattach) > 0 {
+		rc = reattach[0]
+		cmd = nil
+	}
 	return &plugin.ClientConfig{
 		Plugins:          scheme.PluginMap(),
 		HandshakeConfig:  Handshake,
@@ -24,6 +29,7 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme) *plugin.ClientConfig {
 		Logger:           logger.NewHCLogger(logger.New(logger.WithLogLevel(zap.DebugLevel))).Named("plugin"),
 		SyncStdout:       os.Stdout,
 		SyncStderr:       os.Stderr,
+		Reattach:         rc,
 	}
 }
 

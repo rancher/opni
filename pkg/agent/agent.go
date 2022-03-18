@@ -125,14 +125,14 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	}
 	go agent.streamRulesToGateway(ctx)
 
-	app.Post("/api/v1/push", agent.handlePushRequest)
+	app.Post("/api/agent/push", agent.handlePushRequest)
 	app.Use(default404Handler)
 
 	return agent, nil
 }
 
 func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
-	code, body, err := a.gatewayClient.Post(context.Background(), "/api/v1/push").
+	code, body, err := a.gatewayClient.Post(context.Background(), "/api/agent/push").
 		Body(c.Body()).
 		Send()
 	if err != nil {

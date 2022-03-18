@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"runtime"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni-monitoring/pkg/logger"
@@ -9,6 +10,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
 	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
+	"github.com/rancher/opni-monitoring/plugins/cortex/pkg/cortex"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -64,4 +66,34 @@ func NewApiExtensionTestPlugin(
 		Managed:         true,
 		Logger:          logger.NewHCLogger(logger.New(logger.WithLogLevel(zap.WarnLevel))).Named("plugin"),
 	}
+}
+
+type testPlugin struct {
+	Scheme   meta.Scheme
+	Metadata meta.PluginMeta
+}
+
+func LoadPlugins(loader *plugins.PluginLoader) int {
+	testPlugins := []testPlugin{
+		{
+			Scheme: cortex.Scheme(context.Background()),
+			Metadata: meta.PluginMeta{
+				BinaryPath: "plugin_cortex",
+				GoVersion:  runtime.Version(),
+				Module:     "github.com/rancher/opni-monitoring/plugins/cortex",
+			},
+		},
+	}
+	for _, p := range testPlugins {
+		sc := plugins.ServeConfig(p.Scheme)
+		ch := make(chan *plugin.ReattachConfig, 1)
+		sc.Test = &plugin.ServeTestConfig{
+			ReattachConfigCh: ch,
+		}
+		go plugin.Serve(sc)
+		rc := <-ch
+		cc := plugins.ClientConfig(p.Metadata, plugins.ClientScheme, rc)
+		loader.Load(p.Metadata, cc)
+	}
+	return len(testPlugins)
 }

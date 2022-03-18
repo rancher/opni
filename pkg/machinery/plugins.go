@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func LoadPlugins(loader *plugins.PluginLoader, conf v1beta1.PluginsSpec) int {
+func LoadPlugins(loader *plugins.PluginLoader, conf v1beta1.PluginsSpec, reattach ...*plugin.ReattachConfig) int {
 	numLoaded := 0
 	for _, dir := range conf.Dirs {
 		pluginPaths, err := plugin.Discover("plugin_*", dir)
@@ -23,7 +23,7 @@ func LoadPlugins(loader *plugins.PluginLoader, conf v1beta1.PluginsSpec) int {
 				).Error("failed to read plugin metadata", zap.Error(err))
 				continue
 			}
-			cc := plugins.ClientConfig(md, plugins.ClientScheme)
+			cc := plugins.ClientConfig(md, plugins.ClientScheme, reattach...)
 			loader.Load(md, cc)
 			numLoaded++
 		}

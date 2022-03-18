@@ -8,6 +8,7 @@ require (
 	github.com/andybalholm/brotli v1.0.4
 	github.com/banzaicloud/operator-tools v0.28.2
 	github.com/cortexproject/cortex v1.10.1-0.20220307161325-45f043f0d121
+	github.com/dghubble/trie v0.0.0-20211002190126-ca25329b35c6
 	github.com/go-logr/logr v1.2.2
 	github.com/gofiber/fiber/v2 v2.29.0
 	github.com/golang/mock v1.6.0
@@ -57,7 +58,6 @@ require (
 	google.golang.org/genproto v0.0.0-20220314164441-57ef72a4c106
 	google.golang.org/grpc v1.45.0
 	google.golang.org/protobuf v1.27.1
-	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8s.io/api v0.23.4
 	k8s.io/apiextensions-apiserver v0.23.4
@@ -243,6 +243,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.2 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/cli-runtime v0.23.4 // indirect
 	k8s.io/component-base v0.23.4 // indirect
 	k8s.io/klog/v2 v2.40.1 // indirect

@@ -3,7 +3,9 @@ package gatewayext
 import (
 	"context"
 	"crypto/tls"
+	"strings"
 
+	"github.com/dghubble/trie"
 	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni-monitoring/pkg/logger"
@@ -70,24 +72,29 @@ func (p *gatewayApiExtensionPlugin) Configure(
 		}
 	}()
 	return &apiextensions.GatewayAPIExtensionConfig{
-		HttpAddr: listener.Addr().String(),
-		Routes:   stackToRoutes(p.app.Stack()),
+		HttpAddr:     listener.Addr().String(),
+		PathPrefixes: findPathPrefixes(p.app.Stack()),
 	}, nil
 }
 
-func stackToRoutes(stack [][]*fiber.Route) []*apiextensions.Route {
-	list := make([]*apiextensions.Route, 0)
-	for _, routes := range stack {
-		for _, route := range routes {
-			list = append(list, &apiextensions.Route{
-				Method: route.Method,
-				Name:   route.Name,
-				Path:   route.Path,
-				Params: route.Params,
-			})
+func findPathPrefixes(stack [][]*fiber.Route) []string {
+	t := trie.NewPathTrie()
+	for _, routesByMethod := range stack {
+		for _, route := range routesByMethod {
+			t.Put(route.Path, route)
 		}
 	}
-	return list
+	topLevelPaths := []string{}
+	t.Walk(func(key string, value interface{}) error {
+		for _, p := range topLevelPaths {
+			if strings.HasPrefix(key, p) {
+				return nil
+			}
+		}
+		topLevelPaths = append(topLevelPaths, key)
+		return nil
+	})
+	return topLevelPaths
 }
 
 // Gateway side

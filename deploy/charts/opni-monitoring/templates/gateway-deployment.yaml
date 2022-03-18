@@ -38,14 +38,19 @@ spec:
               mountPath: /etc/opni-monitoring
             - name: certs
               mountPath: /run/opni-monitoring/certs
+              readOnly: true
             - name: cortex-client-certs
               mountPath: /run/cortex/certs/client
+              readOnly: true
             - name: cortex-server-cacert
               mountPath: /run/cortex/certs/server
+              readOnly: true
             - name: etcd-client-certs
               mountPath: /run/etcd/certs/client
+              readOnly: true
             - name: etcd-server-cacert
               mountPath: /run/etcd/certs/server
+              readOnly: true
           {{- range .Values.extraVolumeMounts }}
             - name: {{ .name }}
               mountPath: {{ .mountPath }}

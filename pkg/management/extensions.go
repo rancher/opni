@@ -3,7 +3,7 @@ package management
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/jhump/protoreflect/desc"
@@ -202,20 +202,23 @@ func newHandler(
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		b, err := ioutil.ReadAll(req.Body)
+
+		reqMsg := dynamic.NewMessage(methodDesc.GetInputType())
+		body, err := io.ReadAll(req.Body)
+		req.Body.Close()
 		if err != nil {
 			lg.Error(err)
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
+		} else if len(body) > 0 {
+			if err := reqMsg.UnmarshalJSON(body); err != nil {
+				lg.Error(err)
+				runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+				return
+			}
 		}
-		reqMsg := dynamic.NewMessage(methodDesc.GetInputType())
-		if err := reqMsg.UnmarshalJSON(b); err != nil {
-			lg.Error(err)
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		var metadata runtime.ServerMetadata
 
+		var metadata runtime.ServerMetadata
 		resp, err := stub.InvokeRpc(rctx, methodDesc, reqMsg,
 			grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 		if err != nil {

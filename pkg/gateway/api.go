@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -16,6 +17,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/util/fwd"
@@ -29,6 +31,8 @@ type GatewayAPIServer struct {
 	logger    *zap.SugaredLogger
 	tlsConfig *tls.Config
 	wait      chan struct{}
+
+	reservedPrefixRoutes []string
 }
 
 type APIServerOptions struct {
@@ -107,6 +111,11 @@ func NewAPIServer(
 		logger:           lg,
 		tlsConfig:        tlsConfig,
 		wait:             make(chan struct{}),
+		reservedPrefixRoutes: []string{
+			"/monitor",
+			"/healthz",
+			"/bootstrap",
+		},
 	}
 
 	for _, middleware := range options.fiberMiddlewares {
@@ -134,7 +143,7 @@ func NewAPIServer(
 
 	go func() {
 		for _, plugin := range options.apiExtensions {
-			ctx, ca := context.WithTimeout(ctx, 5*time.Second)
+			ctx, ca := context.WithTimeout(ctx, 5000*time.Second)
 			defer ca()
 			cfg, err := plugin.Typed.Configure(ctx, apiextensions.NewCertConfig(cfg.Certs))
 			if err != nil {
@@ -143,21 +152,20 @@ func NewAPIServer(
 					zap.Error(err),
 				).Fatal("failed to configure routes")
 			}
-			srv.setupPluginRoutes(cfg)
+			srv.setupPluginRoutes(cfg, plugin.Metadata)
 		}
 		close(srv.wait)
 	}()
-
-	// app.Use(default404Handler)
 	return srv
 }
 
 func (s *GatewayAPIServer) ListenAndServe() error {
 	select {
 	case <-s.wait:
-	case <-time.After(10 * time.Second):
+	case <-time.After(10000 * time.Second):
 		s.logger.Fatal("failed to start api server: timed out waiting for route setup")
 	}
+	s.app.Use(default404Handler)
 	listener, err := tls.Listen("tcp4",
 		s.conf.ListenAddress, s.tlsConfig)
 	if err != nil {
@@ -177,7 +185,10 @@ func (s *GatewayAPIServer) Shutdown() error {
 	return s.app.Shutdown()
 }
 
-func (s *GatewayAPIServer) setupPluginRoutes(cfg *apiextensions.GatewayAPIExtensionConfig) {
+func (s *GatewayAPIServer) setupPluginRoutes(
+	cfg *apiextensions.GatewayAPIExtensionConfig,
+	pluginMeta meta.PluginMeta,
+) {
 	tlsConfig := s.tlsConfig.Clone()
 	tlsConfig.InsecureSkipVerify = true
 	sampledLogger := logger.New(
@@ -187,12 +198,25 @@ func (s *GatewayAPIServer) setupPluginRoutes(cfg *apiextensions.GatewayAPIExtens
 		}),
 	).Named("api")
 	forwarder := fwd.To(cfg.HttpAddr, fwd.WithTLS(tlsConfig), fwd.WithLogger(sampledLogger))
-	for _, route := range cfg.Routes {
-		s.app.Add(route.Method, route.Path, forwarder)
+PREFIXES:
+	for _, prefix := range cfg.PathPrefixes {
+		// check if the prefix would conflict with any reserved routes
+		for _, reserved := range s.reservedPrefixRoutes {
+			if strings.HasPrefix(prefix, reserved) {
+				s.logger.With(
+					"prefix", prefix,
+					"existing", prefix,
+					"plugin", pluginMeta.Module,
+				).Error("requested prefix conflicts with existing route")
+				continue PREFIXES
+			}
+		}
+		s.reservedPrefixRoutes = append(s.reservedPrefixRoutes, prefix)
+		s.app.Use(prefix, forwarder)
 		s.logger.With(
-			zap.String("method", route.Method),
-			zap.String("path", route.Path),
-		).Debug("added route from plugin")
+			"route", prefix,
+			"plugin", pluginMeta.Module,
+		).Debug("configured prefix route for plugin")
 	}
 }
 

@@ -3,8 +3,8 @@ package cortex
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"os"
-	"time"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/ingester/client"
@@ -12,13 +12,33 @@ import (
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (p *Plugin) AllUserStats(context.Context, *emptypb.Empty) (*cortexadmin.UserStatsList, error) {
-	return p.UnimplementedCortexAdminServer.AllUserStats(context.Background(), &emptypb.Empty{})
+type fakeClusterIDGetter struct{}
+
+func (f fakeClusterIDGetter) GetClusterID() string {
+	return "1"
+}
+
+func (p *Plugin) AllUserStats(ctx context.Context, _ *emptypb.Empty) (*cortexadmin.UserIDStatsList, error) {
+	resp, err := p.distributorClient.Get().AllUserStats(
+		outgoingContext(ctx, fakeClusterIDGetter{}), &client.UserStatsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user stats: %v", err)
+	}
+	return &cortexadmin.UserIDStatsList{
+		Items: lo.Map(resp.Stats, func(s *client.UserIDStatsResponse, i int) *cortexadmin.UserIDStats {
+			return &cortexadmin.UserIDStats{
+				UserID:            s.UserId,
+				IngestionRate:     s.Data.ApiIngestionRate,
+				NumSeries:         s.Data.NumSeries,
+				APIIngestionRate:  s.Data.ApiIngestionRate,
+				RuleIngestionRate: s.Data.RuleIngestionRate,
+			}
+		}),
+	}, nil
 }
 
 func mapLabels(l *cortexadmin.Label, i int) cortexpb.LabelAdapter {
@@ -89,14 +109,9 @@ func outgoingContext(ctx context.Context, in clusterIDGetter) context.Context {
 
 func (p *Plugin) configureDistributorClient(tlsConfig *tls.Config) {
 	cfg := p.config.Get()
-	cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Distributor.GRPCAddress,
+	cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Ingester.GRPCAddress,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                time.Second * 20,
-			Timeout:             time.Second * 10,
-			PermitWithoutStream: true,
-		},
-		))
+	)
 	if err != nil {
 		p.logger.With(
 			"err", err,

@@ -124,8 +124,8 @@ func Unmarshal(data []byte) (Keyring, error) {
 	for i := 0; i < fields; i++ {
 		field := completePtr.Elem().Field(i)
 		if !field.IsNil() && field.Kind() == reflect.Slice {
-			for i := 0; i < field.Len(); i++ {
-				values = append(values, field.Index(i).Interface())
+			for j := 0; j < field.Len(); j++ {
+				values = append(values, field.Index(j).Interface())
 			}
 		}
 	}

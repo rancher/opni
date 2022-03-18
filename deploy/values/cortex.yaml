@@ -1,6 +1,6 @@
 image:
-  repository: docker.io/joekralicky/cortex
-  tag: v1.11.0
+  repository: kralicky/cortex
+  tag: latest
 nginx:
   enabled: false
 config:
@@ -13,6 +13,7 @@ config:
       client_auth_type: RequireAndVerifyClientCert
     grpc_tls_config: *tls_server_config
   alertmanager:
+    fallback_config_file: /etc/alertmanager/fallback.yaml
     alertmanager_client: &tls_client_config
       tls_enabled: true
       tls_cert_path: /run/cortex/certs/client/tls.crt
@@ -20,6 +21,18 @@ config:
       tls_ca_path: /run/cortex/certs/client/ca.crt
       tls_server_name: cortex-server
     enable_api: true
+    sharding_enabled: true
+    sharding_ring:
+      kvstore: &kvstore_config
+        store: etcd
+        etcd:
+          endpoints: [etcd:2379]
+          dial_timeout: 60s
+          max_retries: 100
+          tls_enabled: true
+          tls_cert_path: /run/etcd/certs/client/tls.crt
+          tls_key_path: /run/etcd/certs/client/tls.key
+          tls_ca_path: /run/etcd/certs/server/ca.crt
   querier:
     store_gateway_client: *tls_client_config
   frontend:
@@ -29,30 +42,47 @@ config:
   ingester_client:
     grpc_client_config: *tls_client_config
   ruler:
+    enable_alertmanager_v2: true
     ruler_client: *tls_client_config
+    ring:
+      kvstore: *kvstore_config
+  ingester:
+    lifecycler:
+      ring:
+        kvstore: *kvstore_config
+  distributor:
+    ring:
+      kvstore: *kvstore_config
+    ha_tracker:
+      enable_ha_tracker: true
+      kvstore: *kvstore_config
+  compactor:
+    sharding_enabled: true
+    sharding_ring:
+      kvstore: *kvstore_config
+  store_gateway:
+    sharding_enabled: true
+    sharding_ring:
+      kvstore: *kvstore_config
   alertmanager_storage:
     backend: filesystem
-    filesystem:
-      dir: /opt/cortex-data/alertmanager
   auth_enabled: true
   blocks_storage:
     backend: filesystem
-    bucket_store:
-      sync_dir: /data
-    filesystem:
-      dir: /opt/cortex-data/blocks
-    tsdb:
-      dir: /data
   ruler_storage:
     backend: filesystem
-    filesystem:
-      dir: /opt/cortex-data/ruler
   storage:
     engine: blocks
   tenant_federation:
     enabled: true
 alertmanager:
+  replicas: 3
+  env: &env_vars
+    # - name: JAEGER_AGENT_HOST
+    #   value: simplest-agent.observability.svc
+
   startupProbe: &mtls_probe
+    initialDelaySeconds: 5
     exec:
       command:
         - /usr/bin/curl
@@ -74,6 +104,15 @@ alertmanager:
     - mountPath: /run/cortex/certs/client
       name: client-certs
       readOnly: true
+    - name: etcd-client-certs
+      mountPath: /run/etcd/certs/client
+      readOnly: true
+    - name: etcd-server-cacert
+      mountPath: /run/etcd/certs/server
+      readOnly: true
+    - name: fallback-config
+      mountPath: /etc/alertmanager/fallback.yaml
+      subPath: fallback.yaml
   extraVolumes: &cert_volumes
     - name: server-certs
       secret:
@@ -97,49 +136,82 @@ alertmanager:
             path: tls.key
           - key: ca.crt
             path: ca.crt
+    - name: etcd-client-certs
+      secret:
+        secretName: etcd-client-cert-keys
+        defaultMode: 256
+        items:
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
+          - key: ca.crt
+            path: ca.crt
+    - name: etcd-server-cacert
+      secret:
+        secretName: etcd-serving-cert-keys
+        defaultMode: 256
+        items:
+          - key: ca.crt
+            path: ca.crt
+    - name: fallback-config
+      configMap:
+        name: alertmanager-fallback-config
+        items:
+          - key: fallback.yaml
+            path: fallback.yaml
 querier:
+  replicas: 3
+  env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 ingester:
+  replicas: 3
+  env: *env_vars
   readinessProbe: *mtls_probe
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 distributor:
+  replicas: 3
+  env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 ruler:
+  replicas: 3
+  env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 query_frontend:
+  replicas: 3
+  env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 store_gateway:
-  persistentVolume:
-    enabled: false
+  replicas: 3
+  env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 compactor:
-  persistentVolume:
-    enabled: false
+  replicas: 3
+  env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
   readinessProbe: *mtls_probe
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
-kvstore:
-  store: memberlist
+kvstore: *kvstore_config

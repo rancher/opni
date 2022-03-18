@@ -10,7 +10,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/util"
-	opniv2beta1 "github.com/rancher/opni/apis/v2beta1"
+	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -34,7 +34,7 @@ type Plugin struct {
 
 type PluginOptions struct {
 	storageNamespace  string
-	opensearchCluster *opniv2beta1.OpensearchClusterRef
+	opensearchCluster *opniv1beta2.OpensearchClusterRef
 }
 
 type PluginOption func(*PluginOptions)
@@ -51,7 +51,7 @@ func WithNamespace(namespace string) PluginOption {
 	}
 }
 
-func WithOpensearchCluster(cluster *opniv2beta1.OpensearchClusterRef) PluginOption {
+func WithOpensearchCluster(cluster *opniv1beta2.OpensearchClusterRef) PluginOption {
 	return func(o *PluginOptions) {
 		o.opensearchCluster = cluster
 	}
@@ -65,7 +65,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(opniv2beta1.AddToScheme(scheme))
+	utilruntime.Must(opniv1beta2.AddToScheme(scheme))
 	utilruntime.Must(opensearchv1.AddToScheme(scheme))
 
 	cli, err := client.New(ctrl.GetConfigOrDie(), client.Options{

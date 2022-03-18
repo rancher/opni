@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/rancher/opni-monitoring/pkg/core"
-	opniv2beta1 "github.com/rancher/opni/apis/v2beta1"
+	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,7 +47,7 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 	labels := map[string]string{
 		resources.OpniClusterID: cluster.Id,
 	}
-	loggingClusterList := &opniv2beta1.LoggingClusterList{}
+	loggingClusterList := &opniv1beta2.LoggingClusterList{}
 	if err := p.k8sClient.List(
 		p.ctx,
 		loggingClusterList,
@@ -87,13 +87,13 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 		return ErrStoreUserCredentialsFailed(err)
 	}
 
-	loggingCluster := &opniv2beta1.LoggingCluster{
+	loggingCluster := &opniv1beta2.LoggingCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "logging-",
 			Namespace:    p.storageNamespace,
 			Labels:       labels,
 		},
-		Spec: opniv2beta1.LoggingClusterSpec{
+		Spec: opniv1beta2.LoggingClusterSpec{
 			IndexUserSecret: &corev1.LocalObjectReference{
 				Name: userSecret.Name,
 			},

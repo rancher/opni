@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/rancher/opni-monitoring/plugins/logging/pkg/logging"
-	opniv2beta1 "github.com/rancher/opni/apis/v2beta1"
+	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 )
 
 func main() {
@@ -19,7 +19,7 @@ func main() {
 	ctx, ca := context.WithCancel(waitctx.FromContext(context.Background()))
 	defer ca()
 
-	opniCluster := &opniv2beta1.OpensearchClusterRef{
+	opniCluster := &opniv1beta2.OpensearchClusterRef{
 		Name:      "opni",
 		Namespace: "opni-cluster-system",
 	}

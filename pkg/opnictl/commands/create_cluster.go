@@ -12,6 +12,7 @@ import (
 	nfdv1 "github.com/kubernetes-sigs/node-feature-discovery-operator/api/v1"
 	"github.com/mattn/go-isatty"
 	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/rancher/opni/pkg/providers"
@@ -120,17 +121,17 @@ func buildPretrainedModel(cmd *cobra.Command, vars *flagVars) (*v1beta1.Pretrain
 	return pretrainedModel, nil
 }
 
-func buildOpniCluster(vars *flagVars) *v1beta1.OpniCluster {
-	return &v1beta1.OpniCluster{
+func buildOpniCluster(vars *flagVars) *v1beta2.OpniCluster {
+	return &v1beta2.OpniCluster{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      vars.name,
 			Namespace: common.NamespaceFlagValue,
 		},
-		Spec: v1beta1.OpniClusterSpec{
+		Spec: v1beta2.OpniClusterSpec{
 			Version:            vars.version,
 			DeployLogCollector: pointer.Bool(true),
-			Services: v1beta1.ServicesSpec{
-				Inference: v1beta1.InferenceServiceSpec{
+			Services: v1beta2.ServicesSpec{
+				Inference: v1beta2.InferenceServiceSpec{
 					PretrainedModels: []corev1.LocalObjectReference{
 						{
 							Name: "control-plane",
@@ -138,12 +139,12 @@ func buildOpniCluster(vars *flagVars) *v1beta1.OpniCluster {
 					},
 				},
 			},
-			Elastic: v1beta1.ElasticSpec{
+			Elastic: v1beta2.ElasticSpec{
 				Version: "1.13.2",
 			},
-			S3: v1beta1.S3Spec{
-				Internal: &v1beta1.InternalSpec{
-					Persistence: &v1beta1.PersistenceSpec{
+			S3: v1beta2.S3Spec{
+				Internal: &v1beta2.InternalSpec{
+					Persistence: &v1beta2.PersistenceSpec{
 						Enabled: true,
 						AccessModes: []corev1.PersistentVolumeAccessMode{
 							corev1.ReadWriteOnce,
@@ -152,8 +153,8 @@ func buildOpniCluster(vars *flagVars) *v1beta1.OpniCluster {
 					},
 				},
 			},
-			Nats: v1beta1.NatsSpec{
-				AuthMethod: v1beta1.NatsAuthNkey,
+			Nats: v1beta2.NatsSpec{
+				AuthMethod: v1beta2.NatsAuthNkey,
 			},
 		},
 	}
@@ -315,7 +316,7 @@ on, unless the --context flag is provided to select a specific context.`,
 					}
 					return err
 				}
-				opniCluster = obj.(*v1beta1.OpniCluster)
+				opniCluster = obj.(*v1beta2.OpniCluster)
 			}
 
 			err = common.K8sClient.Create(cmd.Context(), opniCluster)

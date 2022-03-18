@@ -24,7 +24,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	loggingplugin "github.com/rancher/opni-monitoring/plugins/logging/pkg/logging"
 	"github.com/rancher/opni/apis/v1beta1"
-	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -237,12 +237,12 @@ func createDataPrepper(
 	clusterID string,
 	opensearchEndpoint string,
 ) error {
-	dataPrepper := v2beta1.DataPrepper{
+	dataPrepper := v1beta2.DataPrepper{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dataPrepperName,
 			Namespace: common.NamespaceFlagValue,
 		},
-		Spec: v2beta1.DataPrepperSpec{
+		Spec: v1beta2.DataPrepperSpec{
 			Username: username,
 			PasswordFrom: &corev1.SecretKeySelector{
 				Key: secretKey,
@@ -250,7 +250,7 @@ func createDataPrepper(
 					Name: secretName,
 				},
 			},
-			Opensearch: &v2beta1.OpensearchSpec{
+			Opensearch: &v1beta2.OpensearchSpec{
 				Endpoint:                 opensearchEndpoint,
 				InsecureDisableSSLVerify: skipTLSVerify,
 			},

@@ -3,7 +3,7 @@ package loggingclusterbinding
 import (
 	"errors"
 
-	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/opensearch"
 	opensearchv1 "opensearch.opster.io/api/v1"
@@ -12,15 +12,15 @@ import (
 )
 
 func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
-	user := &v2beta1.MulticlusterUser{}
+	user := &v1beta2.MulticlusterUser{}
 	err := r.client.Get(r.ctx, r.loggingClusterBinding.Spec.MulticlusterUser.ObjectKeyFromRef(), user)
 	if err != nil {
 		return err
 	}
 
-	loggingCluster := &v2beta1.LoggingCluster{}
+	loggingCluster := &v1beta2.LoggingCluster{}
 	if r.loggingClusterBinding.Spec.LoggingCluster.ID != "" {
-		list := &v2beta1.LoggingClusterList{}
+		list := &v1beta2.LoggingClusterList{}
 		err = r.client.List(
 			r.ctx,
 			list,

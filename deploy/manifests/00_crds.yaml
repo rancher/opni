@@ -45838,7 +45838,7 @@ spec:
     - jsonPath: .status.state
       name: State
       type: boolean
-    name: v2beta1
+    name: v1beta2
     schema:
       openAPIV3Schema:
         properties:
@@ -45904,7 +45904,7 @@ spec:
     - jsonPath: .status.state
       name: State
       type: boolean
-    name: v2beta1
+    name: v1beta2
     schema:
       openAPIV3Schema:
         properties:
@@ -47239,7 +47239,7 @@ spec:
     - jsonPath: .status.indexUserState
       name: IndexUser
       type: boolean
-    name: v2beta1
+    name: v1beta2
     schema:
       openAPIV3Schema:
         properties:
@@ -47311,7 +47311,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v2beta1
+    name: v1beta2
     schema:
       openAPIV3Schema:
         properties:
@@ -47429,7 +47429,7 @@ spec:
     - jsonPath: .status.state
       name: State
       type: boolean
-    name: v2beta1
+    name: v1beta2
     schema:
       openAPIV3Schema:
         properties:

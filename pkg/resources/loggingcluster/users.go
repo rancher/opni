@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util/opensearch"
 	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
@@ -41,7 +41,7 @@ var (
 
 func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.OpenSearchCluster) (retResult *reconcile.Result, retErr error) {
 	indexUser.Attributes = map[string]string{
-		"cluster": r.loggingCluster.Labels[v2beta1.IDLabel],
+		"cluster": r.loggingCluster.Labels[v1beta2.IDLabel],
 	}
 
 	clusterReadRole.RoleName = r.loggingCluster.Name

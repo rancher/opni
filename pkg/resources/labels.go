@@ -1,7 +1,7 @@
 package resources
 
 import (
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 )
 
 const (
@@ -33,7 +33,7 @@ func NewElasticLabels() ElasticLabels {
 	}
 }
 
-func (l ElasticLabels) WithRole(role v1beta1.ElasticRole) ElasticLabels {
+func (l ElasticLabels) WithRole(role v1beta2.ElasticRole) ElasticLabels {
 	copied := map[string]string{}
 	for k, v := range l {
 		copied[k] = v
@@ -42,10 +42,10 @@ func (l ElasticLabels) WithRole(role v1beta1.ElasticRole) ElasticLabels {
 	return copied
 }
 
-func (l ElasticLabels) Role() v1beta1.ElasticRole {
+func (l ElasticLabels) Role() v1beta2.ElasticRole {
 	role, ok := l["role"]
 	if !ok {
 		return ""
 	}
-	return v1beta1.ElasticRole(role)
+	return v1beta2.ElasticRole(role)
 }

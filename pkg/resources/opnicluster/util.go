@@ -1,12 +1,12 @@
 package opnicluster
 
 import (
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func (r *Reconciler) serviceLabels(service v1beta1.ServiceKind) map[string]string {
+func (r *Reconciler) serviceLabels(service v1beta2.ServiceKind) map[string]string {
 	return map[string]string{
 		resources.AppNameLabel: service.ServiceName(),
 		resources.ServiceLabel: service.String(),
@@ -28,8 +28,8 @@ func (r *Reconciler) pretrainedModelLabels(modelName string) map[string]string {
 	}
 }
 
-func (r *Reconciler) serviceImageSpec(service v1beta1.ServiceKind) v1beta1.ImageSpec {
-	return v1beta1.ImageResolver{
+func (r *Reconciler) serviceImageSpec(service v1beta2.ServiceKind) v1beta2.ImageSpec {
+	return v1beta2.ImageResolver{
 		Version:             r.opniCluster.Spec.Version,
 		ImageName:           service.ImageName(),
 		DefaultRepo:         "docker.io/rancher",
@@ -38,7 +38,7 @@ func (r *Reconciler) serviceImageSpec(service v1beta1.ServiceKind) v1beta1.Image
 	}.Resolve()
 }
 
-func (r *Reconciler) serviceNodeSelector(service v1beta1.ServiceKind) map[string]string {
+func (r *Reconciler) serviceNodeSelector(service v1beta2.ServiceKind) map[string]string {
 	if s := service.GetNodeSelector(r.opniCluster); len(s) > 0 {
 		return s
 	}
@@ -52,7 +52,7 @@ func (r *Reconciler) natsNodeSelector() map[string]string {
 	return r.opniCluster.Spec.GlobalNodeSelector
 }
 
-func (r *Reconciler) serviceTolerations(service v1beta1.ServiceKind) []corev1.Toleration {
+func (r *Reconciler) serviceTolerations(service v1beta2.ServiceKind) []corev1.Toleration {
 	return append(r.opniCluster.Spec.GlobalTolerations, service.GetTolerations(r.opniCluster)...)
 }
 

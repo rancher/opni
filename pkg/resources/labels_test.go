@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 )
 
@@ -20,12 +20,12 @@ var _ = Describe("Labels", Label("unit"), func() {
 	})
 	When("adding a role", func() {
 		It("should contain the role label", func() {
-			labelsWithRole := labels.WithRole(v1beta1.ElasticClientRole)
+			labelsWithRole := labels.WithRole(v1beta2.ElasticClientRole)
 			Expect(labelsWithRole).To(BeEquivalentTo(map[string]string{
 				"app":  "opendistro-es",
 				"role": "client",
 			}))
-			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta1.ElasticClientRole))
+			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta2.ElasticClientRole))
 		})
 		It("should not mutate the original instance", func() {
 			Expect(labels).To(BeEquivalentTo(map[string]string{
@@ -35,18 +35,18 @@ var _ = Describe("Labels", Label("unit"), func() {
 	})
 	When("a role already exists", func() {
 		It("should replace it", func() {
-			labelsWithRole := labels.WithRole(v1beta1.ElasticClientRole)
+			labelsWithRole := labels.WithRole(v1beta2.ElasticClientRole)
 			Expect(labelsWithRole).To(BeEquivalentTo(map[string]string{
 				"app":  "opendistro-es",
 				"role": "client",
 			}))
-			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta1.ElasticClientRole))
-			labelsWithRole = labelsWithRole.WithRole(v1beta1.ElasticDataRole)
+			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta2.ElasticClientRole))
+			labelsWithRole = labelsWithRole.WithRole(v1beta2.ElasticDataRole)
 			Expect(labelsWithRole).To(BeEquivalentTo(map[string]string{
 				"app":  "opendistro-es",
 				"role": "data",
 			}))
-			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta1.ElasticDataRole))
+			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta2.ElasticDataRole))
 		})
 	})
 })

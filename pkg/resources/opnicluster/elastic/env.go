@@ -5,7 +5,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -59,26 +59,26 @@ var (
 	}
 )
 
-func (r *Reconciler) elasticNodeTypeEnv(role v1beta1.ElasticRole) []corev1.EnvVar {
+func (r *Reconciler) elasticNodeTypeEnv(role v1beta2.ElasticRole) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{
 		{
 			Name:  "node.master",
-			Value: fmt.Sprint(role == v1beta1.ElasticMasterRole),
+			Value: fmt.Sprint(role == v1beta2.ElasticMasterRole),
 		},
 		{
 			Name:  "node.ingest",
-			Value: fmt.Sprint(role == v1beta1.ElasticDataRole),
+			Value: fmt.Sprint(role == v1beta2.ElasticDataRole),
 		},
 		{
 			Name:  "node.data",
-			Value: fmt.Sprint(role == v1beta1.ElasticDataRole),
+			Value: fmt.Sprint(role == v1beta2.ElasticDataRole),
 		},
 		{
 			Name:  "discovery.seed_hosts",
 			Value: "opni-es-discovery",
 		},
 	}
-	if role == v1beta1.ElasticMasterRole && (r.masterSingleton() || !r.opniCluster.Status.OpensearchState.Initialized) {
+	if role == v1beta2.ElasticMasterRole && (r.masterSingleton() || !r.opniCluster.Status.OpensearchState.Initialized) {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "cluster.initial_master_nodes",
 			Value: "opni-es-master-0",
@@ -87,25 +87,25 @@ func (r *Reconciler) elasticNodeTypeEnv(role v1beta1.ElasticRole) []corev1.EnvVa
 	return envVars
 }
 
-func (r *Reconciler) javaOptsEnv(role v1beta1.ElasticRole) []corev1.EnvVar {
+func (r *Reconciler) javaOptsEnv(role v1beta2.ElasticRole) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name: "OPENSEARCH_JAVA_OPTS",
 			Value: javaOpts(func() *corev1.ResourceRequirements {
 				switch role {
-				case v1beta1.ElasticDataRole:
+				case v1beta2.ElasticDataRole:
 					if res := r.opniCluster.Spec.Elastic.Workloads.Data.Resources; res != nil {
 						return res
 					}
-				case v1beta1.ElasticClientRole:
+				case v1beta2.ElasticClientRole:
 					if res := r.opniCluster.Spec.Elastic.Workloads.Client.Resources; res != nil {
 						return res
 					}
-				case v1beta1.ElasticMasterRole:
+				case v1beta2.ElasticMasterRole:
 					if res := r.opniCluster.Spec.Elastic.Workloads.Master.Resources; res != nil {
 						return res
 					}
-				case v1beta1.ElasticKibanaRole:
+				case v1beta2.ElasticKibanaRole:
 					if res := r.opniCluster.Spec.Elastic.Workloads.Kibana.Resources; res != nil {
 						return res
 					}

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/util"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
@@ -18,13 +18,13 @@ import (
 type Reconciler struct {
 	reconciler.ResourceReconciler
 	client                client.Client
-	loggingClusterBinding *v2beta1.LoggingClusterBinding
+	loggingClusterBinding *v1beta2.LoggingClusterBinding
 	ctx                   context.Context
 }
 
 func NewReconciler(
 	ctx context.Context,
-	loggingClusterBinding *v2beta1.LoggingClusterBinding,
+	loggingClusterBinding *v1beta2.LoggingClusterBinding,
 	c client.Client,
 	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
@@ -53,16 +53,16 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
-					r.loggingClusterBinding.Status.State = v2beta1.LoggingClusterBindingStateError
+					r.loggingClusterBinding.Status.State = v1beta2.LoggingClusterBindingStateError
 				} else {
 					// If no error occurred, but we need to requeue, the state should be
 					// set to working
-					r.loggingClusterBinding.Status.State = v2beta1.LoggingClusterBindingStateWorking
+					r.loggingClusterBinding.Status.State = v1beta2.LoggingClusterBindingStateWorking
 				}
 			} else if len(r.loggingClusterBinding.Status.Conditions) == 0 {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
-				r.loggingClusterBinding.Status.State = v2beta1.LoggingClusterBindingStateReady
+				r.loggingClusterBinding.Status.State = v1beta2.LoggingClusterBindingStateReady
 			}
 			return r.client.Status().Update(r.ctx, r.loggingClusterBinding)
 		})

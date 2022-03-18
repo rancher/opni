@@ -6,7 +6,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"k8s.io/client-go/util/retry"
@@ -18,13 +18,13 @@ import (
 type Reconciler struct {
 	reconciler.ResourceReconciler
 	client      client.Client
-	dataPrepper *v2beta1.DataPrepper
+	dataPrepper *v1beta2.DataPrepper
 	ctx         context.Context
 }
 
 func NewReconciler(
 	ctx context.Context,
-	dataPrepper *v2beta1.DataPrepper,
+	dataPrepper *v1beta2.DataPrepper,
 	c client.Client,
 	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
@@ -53,16 +53,16 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
-					r.dataPrepper.Status.State = v2beta1.DataprepperStateError
+					r.dataPrepper.Status.State = v1beta2.DataprepperStateError
 				} else {
 					// If no error occurred, but we need to requeue, the state should be
 					// set to working
-					r.dataPrepper.Status.State = v2beta1.DataPrepperStatePending
+					r.dataPrepper.Status.State = v1beta2.DataPrepperStatePending
 				}
 			} else if len(r.dataPrepper.Status.Conditions) == 0 {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
-				r.dataPrepper.Status.State = v2beta1.DataPrepperStateReady
+				r.dataPrepper.Status.State = v1beta2.DataPrepperStateReady
 			}
 			return r.client.Status().Update(r.ctx, r.dataPrepper)
 		})

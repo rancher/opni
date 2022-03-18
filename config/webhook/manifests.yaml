@@ -77,3 +77,24 @@ webhooks:
     resources:
     - opniclusters
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /highlander-opni-io-v1beta1-opnicluster
+  failurePolicy: Fail
+  name: highlander.opni.io
+  rules:
+  - apiGroups:
+    - opni.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - opniclusters
+  sideEffects: None

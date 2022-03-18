@@ -8,7 +8,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic"
 	"github.com/rancher/opni/pkg/util"
@@ -36,13 +36,13 @@ type Reconciler struct {
 	reconciler.ResourceReconciler
 	ctx         context.Context
 	client      client.Client
-	opniCluster *v1beta1.OpniCluster
+	opniCluster *v1beta2.OpniCluster
 }
 
 func NewReconciler(
 	ctx context.Context,
 	client client.Client,
-	opniCluster *v1beta1.OpniCluster,
+	opniCluster *v1beta2.OpniCluster,
 	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
 	return &Reconciler{
@@ -70,16 +70,16 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
-					r.opniCluster.Status.State = v1beta1.OpniClusterStateError
+					r.opniCluster.Status.State = v1beta2.OpniClusterStateError
 				} else {
 					// If no error occurred, but we need to requeue, the state should be
 					// set to working
-					r.opniCluster.Status.State = v1beta1.OpniClusterStateWorking
+					r.opniCluster.Status.State = v1beta2.OpniClusterStateWorking
 				}
 			} else if len(r.opniCluster.Status.Conditions) == 0 {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
-				r.opniCluster.Status.State = v1beta1.OpniClusterStateReady
+				r.opniCluster.Status.State = v1beta2.OpniClusterStateReady
 				// Set the opensearch version once it's been created
 				if r.opniCluster.Status.OpensearchState.Version == nil {
 					r.opniCluster.Status.OpensearchState.Version = &r.opniCluster.Spec.Elastic.Version
@@ -221,6 +221,10 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 func (r *Reconciler) ReconcileElasticUpgrade() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
+	if r.opniCluster.Spec.Elastic.ExternalOpensearch != nil {
+		return
+	}
+
 	if r.opniCluster.Status.OpensearchState.Version == nil || *r.opniCluster.Status.OpensearchState.Version == r.opniCluster.Spec.Elastic.Version {
 		return
 	}
@@ -274,7 +278,7 @@ func (r *Reconciler) cleanupPrometheusRule() (retResult *reconcile.Result, retEr
 	}
 	prometheusRule := &monitoringv1.PrometheusRule{}
 	err := r.client.Get(r.ctx, types.NamespacedName{
-		Name:      fmt.Sprintf("%s-%s", v1beta1.MetricsService.ServiceName(), r.generateSHAID()),
+		Name:      fmt.Sprintf("%s-%s", v1beta2.MetricsService.ServiceName(), r.generateSHAID()),
 		Namespace: r.opniCluster.Status.PrometheusRuleNamespace,
 	}, prometheusRule)
 	if k8serrors.IsNotFound(err) {
@@ -314,16 +318,16 @@ func (r *Reconciler) ReconcileLogCollector() (retResult *reconcile.Result, retEr
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
-					r.opniCluster.Status.LogCollectorState = v1beta1.OpniClusterStateError
+					r.opniCluster.Status.LogCollectorState = v1beta2.OpniClusterStateError
 				} else {
 					// If no error occurred, but we need to requeue, the state should be
 					// set to working
-					r.opniCluster.Status.LogCollectorState = v1beta1.OpniClusterStateWorking
+					r.opniCluster.Status.LogCollectorState = v1beta2.OpniClusterStateWorking
 				}
 			} else if len(r.opniCluster.Status.Conditions) == 0 {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
-				r.opniCluster.Status.LogCollectorState = v1beta1.OpniClusterStateReady
+				r.opniCluster.Status.LogCollectorState = v1beta2.OpniClusterStateReady
 			}
 			return r.client.Status().Update(r.ctx, r.opniCluster)
 		})

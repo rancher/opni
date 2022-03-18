@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"html/template"
 
-	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -118,7 +118,7 @@ func (r *Reconciler) service() resources.Resource {
 }
 
 func (r *Reconciler) deployment() resources.Resource {
-	imageSpec := v2beta1.ImageResolver{
+	imageSpec := v1beta2.ImageResolver{
 		Version:             r.dataPrepper.Spec.Version,
 		ImageName:           "data-prepper",
 		DefaultRepo:         "docker.io/opensearchproject",

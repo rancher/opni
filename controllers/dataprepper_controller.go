@@ -3,7 +3,7 @@ package controllers
 import (
 	"context"
 
-	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/dataprepper"
 	"github.com/rancher/opni/pkg/util"
@@ -24,7 +24,7 @@ type DataPrepperReconciler struct {
 // +kubebuilder:rbac:groups=opni.io,resources=datapreppers/finalizers,verbs=update
 
 func (r *DataPrepperReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	DataPrepper := &v2beta1.DataPrepper{}
+	DataPrepper := &v1beta2.DataPrepper{}
 	err := r.Get(ctx, req.NamespacedName, DataPrepper)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -51,7 +51,7 @@ func (r *DataPrepperReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v2beta1.DataPrepper{}).
+		For(&v1beta2.DataPrepper{}).
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.Deployment{}).

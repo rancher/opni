@@ -7,7 +7,7 @@ import (
 	opninfdv1 "github.com/rancher/opni/apis/nfd/v1"
 	opninvidiav1 "github.com/rancher/opni/apis/nvidia/v1"
 	"github.com/rancher/opni/apis/v1beta1"
-	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -20,7 +20,7 @@ func InitScheme(scheme *runtime.Scheme) {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(apiextv1.AddToScheme(scheme))
 	utilruntime.Must(v1beta1.AddToScheme(scheme))
-	utilruntime.Must(v2beta1.AddToScheme(scheme))
+	utilruntime.Must(v1beta2.AddToScheme(scheme))
 	utilruntime.Must(helmv1.AddToScheme(scheme))
 	utilruntime.Must(opniloggingv1beta1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))

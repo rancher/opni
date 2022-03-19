@@ -73,7 +73,10 @@ func (p *Plugin) preprocessRules(c *fiber.Ctx) error {
 
 func (p *Plugin) configureAgentAPI(app *fiber.App, f *forwarders, m *middlewares) {
 	g := app.Group("/api/agent", m.Cluster)
-	g.Post("/push", f.Distributor)
+	g.Post("/push", func(c *fiber.Ctx) error {
+		c.Path("/api/v1/push")
+		return c.Next()
+	}, f.Distributor)
 	g.Post("/sync_rules", p.preprocessRules, f.Ruler)
 }
 

@@ -93,14 +93,18 @@ func (p *Plugin) configureAlertmanager(app *fiber.App, f *forwarders, m *middlew
 }
 
 func (p *Plugin) configureRuler(app *fiber.App, f *forwarders, m *middlewares) {
-	app.Get("/prometheus/api/v1/rules", m.Auth, m.RBAC, f.Ruler)
+	jsonAggregator := NewMultiTenantRuleAggregator(
+		p.mgmtApi.Get(), f.Ruler, orgIDCodec, PrometheusRuleGroupsJSON)
+	app.Get("/prometheus/api/v1/rules", m.Auth, m.RBAC, jsonAggregator.Handle)
+	app.Get("/api/prom/api/v1/rules", m.Auth, m.RBAC, jsonAggregator.Handle)
+
 	app.Get("/prometheus/api/v1/alerts", m.Auth, m.RBAC, f.Ruler)
-
-	app.Use("/api/v1/rules", m.Auth, m.RBAC, f.Ruler)
-
-	app.Get("/api/prom/api/v1/rules", m.Auth, m.RBAC, f.Ruler)
 	app.Get("/api/prom/api/v1/alerts", m.Auth, m.RBAC, f.Ruler)
-	app.Use("/api/prom/rules", m.Auth, m.RBAC, f.Ruler)
+
+	yamlAggregator := NewMultiTenantRuleAggregator(
+		p.mgmtApi.Get(), f.Ruler, orgIDCodec, NamespaceKeyedYAML)
+	app.Use("/api/v1/rules", m.Auth, m.RBAC, yamlAggregator.Handle)
+	app.Use("/api/prom/rules", m.Auth, m.RBAC, yamlAggregator.Handle)
 }
 
 func (p *Plugin) configureQueryFrontend(app *fiber.App, f *forwarders, m *middlewares) {

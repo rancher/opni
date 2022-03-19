@@ -9,8 +9,12 @@ import (
 
 type middleware struct {
 	provider Provider
-	codec    Codec
+	codec    HeaderCodec
 }
+
+const (
+	AuthorizedClusterIDsKey = "authorized_cluster_ids"
+)
 
 func (m *middleware) Handle(c *fiber.Ctx) error {
 	userID := c.Locals(UserIDKey)
@@ -31,13 +35,18 @@ func (m *middleware) Handle(c *fiber.Ctx) error {
 		ids[i] = cluster.Id
 	}
 	c.Request().Header.Set(m.codec.Key(), m.codec.Encode(ids))
+	c.Locals(AuthorizedClusterIDsKey, ids)
 	return c.Next()
 }
 
-func NewMiddleware(provider Provider, codec Codec) func(*fiber.Ctx) error {
+func NewMiddleware(provider Provider, codec HeaderCodec) func(*fiber.Ctx) error {
 	mw := &middleware{
 		provider: provider,
 		codec:    codec,
 	}
 	return mw.Handle
+}
+
+func AuthorizedClusterIDs(c *fiber.Ctx) []string {
+	return c.Locals(AuthorizedClusterIDsKey).([]string)
 }

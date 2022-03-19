@@ -1,6 +1,6 @@
 package rbac
 
-type Codec interface {
+type HeaderCodec interface {
 	Key() string
 	Encode(ids []string) string
 	Decode(s string) []string

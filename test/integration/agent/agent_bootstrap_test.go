@@ -317,6 +317,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 				return err
 			}).Should(Succeed())
 
+			Eventually(environment.GetAgent("test-cluster-3")).ShouldNot(BeNil())
 			Expect(environment.GetAgent("test-cluster-3").Shutdown()).To(Succeed())
 
 			etcdClient, err := environment.EtcdClient()

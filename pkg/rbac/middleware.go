@@ -17,12 +17,12 @@ const (
 )
 
 func (m *middleware) Handle(c *fiber.Ctx) error {
-	userID := c.Locals(UserIDKey)
-	if userID == nil {
+	userID, ok := AuthorizedUserID(c)
+	if !ok {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 	clusters, err := m.provider.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
-		Subject: userID.(string),
+		Subject: userID,
 	})
 	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)

@@ -11,7 +11,8 @@ datasources:
         access: proxy
         url: https://opni-monitoring.opni-monitoring.svc:8080/api/prom
         withCredentials: true
-        editable: true
+        editable: false
+        isDefault: true
         jsonData:
           alertmanagerUid: opni_alertmanager
           tlsAuthWithCACert: true
@@ -24,7 +25,7 @@ datasources:
         access: proxy
         url: https://opni-monitoring.opni-monitoring.svc:8080/api/prom
         withCredentials: true
-        editable: true
+        editable: false
         jsonData:
           implementation: cortex
           tlsAuthWithCACert: true

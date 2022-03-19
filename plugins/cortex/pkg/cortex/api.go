@@ -81,15 +81,27 @@ func (p *Plugin) configureAgentAPI(app *fiber.App, f *forwarders, m *middlewares
 }
 
 func (p *Plugin) configureAlertmanager(app *fiber.App, f *forwarders, m *middlewares) {
-	app.Use("/api/prom/alertmanager", m.Auth, m.RBAC, f.Alertmanager)
+	orgIdLimiter := func(c *fiber.Ctx) error {
+		ids := rbac.AuthorizedClusterIDs(c)
+		if len(ids) > 1 {
+			user, _ := rbac.AuthorizedUserID(c)
+			p.logger.With(
+				"request", c.Path(),
+				"user", user,
+			).Debug("multiple org ids found, limiting to first")
+			c.Request().Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(ids[:1]))
+		}
+		return c.Next()
+	}
+	app.Use("/api/prom/alertmanager", m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
 
-	app.Use("/api/v1/alerts", m.Auth, m.RBAC, f.Alertmanager)
+	app.Use("/api/v1/alerts", m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
 	app.Use("/api/prom/api/v1/alerts", func(c *fiber.Ctx) error {
 		c.Path("/api/v1/alerts")
 		return c.Next()
-	}, m.Auth, m.RBAC, f.Alertmanager)
+	}, m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
 
-	app.Use("/multitenant_alertmanager", m.Auth, m.RBAC, f.Alertmanager)
+	app.Use("/multitenant_alertmanager", m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
 }
 
 func (p *Plugin) configureRuler(app *fiber.App, f *forwarders, m *middlewares) {

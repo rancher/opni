@@ -5,6 +5,7 @@ import (
 
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -448,8 +449,8 @@ func internalusersVolume() corev1.Volume {
 	}
 }
 
-func (r *Reconciler) openDistroImageSpec() v1beta2.ImageSpec {
-	return v1beta2.ImageResolver{
+func (r *Reconciler) openDistroImageSpec() opnimeta.ImageSpec {
+	return opnimeta.ImageResolver{
 		Version:             r.opniCluster.Spec.Elastic.Version,
 		ImageName:           "opensearch",
 		DefaultRepo:         "docker.io/opensearchproject",
@@ -458,8 +459,8 @@ func (r *Reconciler) openDistroImageSpec() v1beta2.ImageSpec {
 	}.Resolve()
 }
 
-func (r *Reconciler) kibanaImageSpec() v1beta2.ImageSpec {
-	return v1beta2.ImageResolver{
+func (r *Reconciler) kibanaImageSpec() opnimeta.ImageSpec {
+	return opnimeta.ImageResolver{
 		Version:             r.opniCluster.Spec.Elastic.Version,
 		ImageName:           "opensearch-dashboards",
 		DefaultRepo:         "docker.io/opensearchproject",

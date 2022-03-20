@@ -18,17 +18,11 @@ limitations under the License.
 package v1beta1
 
 import (
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-type ImageSpec struct {
-	Image            *string                       `json:"image,omitempty"`
-	ImagePullPolicy  *corev1.PullPolicy            `json:"imagePullPolicy,omitempty"`
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-}
 
 // +kubebuilder:validation:Enum=username;nkey
 type NatsAuthMethod string
@@ -90,8 +84,6 @@ type OpensearchStatus struct {
 	Initialized bool             `json:"initialized,omitempty"`
 }
 
-//+kubebuilder:webhook:path=/highlander-opni-io-v1beta1-opnicluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=opniclusters,verbs=create;update,versions=v1beta1,name=highlander.opni.io,admissionReviewVersions={v1,v1beta1}
-
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
@@ -118,72 +110,72 @@ type ServicesSpec struct {
 }
 
 type DrainServiceSpec struct {
-	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	opnimeta.ImageSpec `json:",inline,omitempty"`
+	Enabled            *bool               `json:"enabled,omitempty"`
+	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type InferenceServiceSpec struct {
-	ImageSpec        `json:",inline,omitempty"`
-	Enabled          *bool                         `json:"enabled,omitempty"`
-	PretrainedModels []corev1.LocalObjectReference `json:"pretrainedModels,omitempty"`
-	NodeSelector     map[string]string             `json:"nodeSelector,omitempty"`
-	Tolerations      []corev1.Toleration           `json:"tolerations,omitempty"`
+	opnimeta.ImageSpec `json:",inline,omitempty"`
+	Enabled            *bool                         `json:"enabled,omitempty"`
+	PretrainedModels   []corev1.LocalObjectReference `json:"pretrainedModels,omitempty"`
+	NodeSelector       map[string]string             `json:"nodeSelector,omitempty"`
+	Tolerations        []corev1.Toleration           `json:"tolerations,omitempty"`
 }
 
 type PreprocessingServiceSpec struct {
-	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	opnimeta.ImageSpec `json:",inline,omitempty"`
+	Enabled            *bool               `json:"enabled,omitempty"`
+	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type PayloadReceiverServiceSpec struct {
-	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	opnimeta.ImageSpec `json:",inline,omitempty"`
+	Enabled            *bool               `json:"enabled,omitempty"`
+	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type GPUControllerServiceSpec struct {
-	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	RuntimeClass *string             `json:"runtimeClass,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	opnimeta.ImageSpec `json:",inline,omitempty"`
+	Enabled            *bool               `json:"enabled,omitempty"`
+	RuntimeClass       *string             `json:"runtimeClass,omitempty"`
+	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type MetricsServiceSpec struct {
-	ImageSpec           `json:",inline,omitempty"`
-	Enabled             *bool                `json:"enabled,omitempty"`
-	NodeSelector        map[string]string    `json:"nodeSelector,omitempty"`
-	Tolerations         []corev1.Toleration  `json:"tolerations,omitempty"`
-	PrometheusEndpoint  string               `json:"prometheusEndpoint,omitempty"`
-	PrometheusReference *PrometheusReference `json:"prometheus,omitempty"`
+	opnimeta.ImageSpec  `json:",inline,omitempty"`
+	Enabled             *bool                         `json:"enabled,omitempty"`
+	NodeSelector        map[string]string             `json:"nodeSelector,omitempty"`
+	Tolerations         []corev1.Toleration           `json:"tolerations,omitempty"`
+	PrometheusEndpoint  string                        `json:"prometheusEndpoint,omitempty"`
+	PrometheusReference *opnimeta.PrometheusReference `json:"prometheus,omitempty"`
 }
 
 type InsightsServiceSpec struct {
-	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	opnimeta.ImageSpec `json:",inline,omitempty"`
+	Enabled            *bool               `json:"enabled,omitempty"`
+	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type UIServiceSpec struct {
-	ImageSpec    `json:",inline,omitempty"`
-	Enabled      *bool               `json:"enabled,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	opnimeta.ImageSpec `json:",inline,omitempty"`
+	Enabled            *bool               `json:"enabled,omitempty"`
+	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 type ElasticSpec struct {
-	Version     string              `json:"version"`
-	Workloads   ElasticWorkloadSpec `json:"workloads,omitempty"`
-	DefaultRepo *string             `json:"defaultRepo,omitempty"`
-	Image       *ImageSpec          `json:"image,omitempty"`
-	KibanaImage *ImageSpec          `json:"kibanaImage,omitempty"`
-	Persistence *PersistenceSpec    `json:"persistence,omitempty"`
+	Version     string                    `json:"version"`
+	Workloads   ElasticWorkloadSpec       `json:"workloads,omitempty"`
+	DefaultRepo *string                   `json:"defaultRepo,omitempty"`
+	Image       *opnimeta.ImageSpec       `json:"image,omitempty"`
+	KibanaImage *opnimeta.ImageSpec       `json:"kibanaImage,omitempty"`
+	Persistence *opnimeta.PersistenceSpec `json:"persistence,omitempty"`
 	// Secret containing an item "logging.yml" with the contents of the
 	// elasticsearch logging config.
 	ConfigSecret *corev1.LocalObjectReference `json:"configSecret,omitempty"`
@@ -206,14 +198,6 @@ type ElasticWorkloadOptions struct {
 	Tolerations  []corev1.Toleration          `json:"tolerations,omitempty"`
 }
 
-type PersistenceSpec struct {
-	Enabled          bool                                `json:"enabled,omitempty"`
-	StorageClassName *string                             `json:"storageClass,omitempty"`
-	AccessModes      []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
-	// Storage size request. Defaults to 10Gi.
-	Request resource.Quantity `json:"request,omitempty"`
-}
-
 type S3Spec struct {
 	// If set, Opni will deploy an S3 pod to use internally.
 	// Cannot be set at the same time as `external`.
@@ -232,7 +216,7 @@ type S3Spec struct {
 type InternalSpec struct {
 	// Persistence configuration for internal S3 deployment. If unset, internal
 	// S3 storage is not persistent.
-	Persistence *PersistenceSpec `json:"persistence,omitempty"`
+	Persistence *opnimeta.PersistenceSpec `json:"persistence,omitempty"`
 }
 
 type ExternalSpec struct {
@@ -260,12 +244,6 @@ type NatsSpec struct {
 	PasswordFrom *corev1.SecretKeySelector `json:"passwordFrom,omitempty"`
 	NodeSelector map[string]string         `json:"nodeSelector,omitempty"`
 	Tolerations  []corev1.Toleration       `json:"tolerations,omitempty"`
-}
-
-// PrometheusReference refers to a Prometheus object
-type PrometheusReference struct {
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
 }
 
 // +kubebuilder:object:root=true

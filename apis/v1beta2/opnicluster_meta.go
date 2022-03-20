@@ -1,6 +1,7 @@
 package v1beta2
 
 import (
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -64,7 +65,7 @@ func (s ServiceKind) ImageName() string {
 	}
 }
 
-func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *ImageSpec {
+func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *opnimeta.ImageSpec {
 	switch s {
 	case InferenceService:
 		return &opniCluster.Spec.Services.Inference.ImageSpec

@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -37,7 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 	// +kubebuilder:scaffold:imports
@@ -175,8 +176,8 @@ type opniClusterOpts struct {
 	UsePrometheusRef    bool
 }
 
-func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
-	imageSpec := v1beta1.ImageSpec{
+func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
+	imageSpec := opnimeta.ImageSpec{
 		ImagePullPolicy: (*corev1.PullPolicy)(pointer.String(string(corev1.PullNever))),
 		ImagePullSecrets: []corev1.LocalObjectReference{
 			{
@@ -184,9 +185,9 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 			},
 		},
 	}
-	return &v1beta1.OpniCluster{
+	return &v1beta2.OpniCluster{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1beta1.GroupVersion.String(),
+			APIVersion: v1beta2.GroupVersion.String(),
 			Kind:       "OpniCluster",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -198,7 +199,7 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 				return opts.Namespace
 			}(),
 		},
-		Spec: v1beta1.OpniClusterSpec{
+		Spec: v1beta2.OpniClusterSpec{
 			Version:     "test",
 			DefaultRepo: pointer.String("docker.biz/rancher"), // nonexistent repo
 			GlobalNodeSelector: map[string]string{
@@ -210,11 +211,11 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 					Operator: corev1.TolerationOpExists,
 				},
 			},
-			Nats: v1beta1.NatsSpec{
-				AuthMethod: v1beta1.NatsAuthUsername,
+			Nats: v1beta2.NatsSpec{
+				AuthMethod: v1beta2.NatsAuthUsername,
 			},
-			Services: v1beta1.ServicesSpec{
-				Inference: v1beta1.InferenceServiceSpec{
+			Services: v1beta2.ServicesSpec{
+				Inference: v1beta2.InferenceServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 					PretrainedModels: func() []corev1.LocalObjectReference {
@@ -227,23 +228,23 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 						return ret
 					}(),
 				},
-				Drain: v1beta1.DrainServiceSpec{
+				Drain: v1beta2.DrainServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
-				Preprocessing: v1beta1.PreprocessingServiceSpec{
+				Preprocessing: v1beta2.PreprocessingServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
-				PayloadReceiver: v1beta1.PayloadReceiverServiceSpec{
+				PayloadReceiver: v1beta2.PayloadReceiverServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
-				GPUController: v1beta1.GPUControllerServiceSpec{
+				GPUController: v1beta2.GPUControllerServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
-				Metrics: v1beta1.MetricsServiceSpec{
+				Metrics: v1beta2.MetricsServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 					PrometheusEndpoint: func() string {
@@ -255,9 +256,9 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 						}
 						return "http://dummy-endpoint"
 					}(),
-					PrometheusReference: func() *v1beta1.PrometheusReference {
+					PrometheusReference: func() *opnimeta.PrometheusReference {
 						if opts.UsePrometheusRef {
-							return &v1beta1.PrometheusReference{
+							return &opnimeta.PrometheusReference{
 								Name:      "test-prometheus",
 								Namespace: "prometheus",
 							}
@@ -265,11 +266,11 @@ func buildCluster(opts opniClusterOpts) *v1beta1.OpniCluster {
 						return nil
 					}(),
 				},
-				Insights: v1beta1.InsightsServiceSpec{
+				Insights: v1beta2.InsightsServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
-				UI: v1beta1.UIServiceSpec{
+				UI: v1beta2.UIServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},

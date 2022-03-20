@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
+	"opensearch.opster.io/pkg/helpers"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -436,11 +437,30 @@ func (r *Reconciler) genericEnvAndVolumes() (
 		envVars = append(envVars, newEnvVars...)
 	}
 	envVars = append(envVars, corev1.EnvVar{
-		Name:  "ES_ENDPOINT",
-		Value: fmt.Sprintf("http://opni-es-client.%s.svc:9200", r.opniCluster.Namespace),
+		Name: "ES_ENDPOINT",
+		Value: func() string {
+			if r.opensearchCluster != nil {
+				return fmt.Sprintf(
+					"http://%s.%s.svc:9200",
+					r.opensearchCluster.Spec.General.ServiceName,
+					r.opensearchCluster.Namespace,
+				)
+			}
+			return fmt.Sprintf("http://opni-es-client.%s.svc:9200", r.opniCluster.Namespace)
+		}(),
 	}, corev1.EnvVar{
-		Name:  "ES_USERNAME",
-		Value: "admin",
+		Name: "ES_USERNAME",
+		Value: func() string {
+			if r.opensearchCluster != nil {
+				user, _, _ := helpers.UsernameAndPassword(
+					r.client,
+					r.ctx,
+					r.opensearchCluster,
+				)
+				return user
+			}
+			return "admin"
+		}(),
 	}, corev1.EnvVar{
 		Name: "ES_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
@@ -939,4 +959,38 @@ func insertHyperparametersVolume(deployment *appsv1.Deployment, modelName string
 		})
 		deployment.Spec.Template.Spec.Containers[i] = container
 	}
+}
+
+func (r *Reconciler) externalOpensearchConfig() (retResources []resources.Resource, retErr error) {
+	_, password, retErr := helpers.UsernameAndPassword(r.client, r.ctx, r.opensearchCluster)
+	if retErr != nil {
+		return
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "external-os-password",
+			Namespace: r.opniCluster.Namespace,
+		},
+		StringData: map[string]string{
+			"password": password,
+		},
+	}
+	ctrl.SetControllerReference(r.opensearchCluster, secret, r.client.Scheme())
+	retResources = append(retResources, resources.Present(secret))
+
+	retErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			return err
+		}
+		r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef = &corev1.SecretKeySelector{
+			Key: "password",
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: secret.Name,
+			},
+		}
+		return r.client.Status().Update(r.ctx, r.opniCluster)
+	})
+
+	return
 }

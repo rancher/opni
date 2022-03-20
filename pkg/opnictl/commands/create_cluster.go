@@ -16,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/rancher/opni/pkg/providers"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	cliutil "github.com/rancher/opni/pkg/util/opnictl"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -144,7 +145,7 @@ func buildOpniCluster(vars *flagVars) *v1beta2.OpniCluster {
 			},
 			S3: v1beta2.S3Spec{
 				Internal: &v1beta2.InternalSpec{
-					Persistence: &v1beta2.PersistenceSpec{
+					Persistence: &opnimeta.PersistenceSpec{
 						Enabled: true,
 						AccessModes: []corev1.PersistentVolumeAccessMode{
 							corev1.ReadWriteOnce,

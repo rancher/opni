@@ -38,6 +38,28 @@ webhooks:
 - admissionReviewVersions:
   - v1
   - v1beta1
+  - v1beta2
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /highlander-opni-io-v1beta1-opnicluster
+  failurePolicy: Fail
+  name: highlander.opni.io
+  rules:
+  - apiGroups:
+    - opni.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - opniclusters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
   clientConfig:
     service:
       name: webhook-service
@@ -55,46 +77,4 @@ webhooks:
     - UPDATE
     resources:
     - logadapters
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /highlander-opni-io-v1beta1-opnicluster
-  failurePolicy: Fail
-  name: highlander.opni.io
-  rules:
-  - apiGroups:
-    - opni.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - opniclusters
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /highlander-opni-io-v1beta1-opnicluster
-  failurePolicy: Fail
-  name: highlander.opni.io
-  rules:
-  - apiGroups:
-    - opni.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - opniclusters
   sideEffects: None

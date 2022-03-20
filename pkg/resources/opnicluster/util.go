@@ -3,6 +3,7 @@ package opnicluster
 import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -28,8 +29,8 @@ func (r *Reconciler) pretrainedModelLabels(modelName string) map[string]string {
 	}
 }
 
-func (r *Reconciler) serviceImageSpec(service v1beta2.ServiceKind) v1beta2.ImageSpec {
-	return v1beta2.ImageResolver{
+func (r *Reconciler) serviceImageSpec(service v1beta2.ServiceKind) opnimeta.ImageSpec {
+	return opnimeta.ImageResolver{
 		Version:             r.opniCluster.Spec.Version,
 		ImageName:           service.ImageName(),
 		DefaultRepo:         "docker.io/rancher",

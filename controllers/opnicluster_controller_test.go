@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -21,13 +22,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 )
 
 var _ = Describe("OpniCluster Controller", Label("controller"), func() {
-	cluster := &v1beta1.OpniCluster{}
+	cluster := &v1beta2.OpniCluster{}
 
-	createCluster := func(c *v1beta1.OpniCluster) {
+	createCluster := func(c *v1beta2.OpniCluster) {
 		err := k8sClient.Create(context.Background(), c)
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(Object(c)).Should(Exist())
@@ -43,19 +45,19 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		wg := &sync.WaitGroup{}
 		createCluster(buildCluster(opniClusterOpts{Name: "test"}))
 
-		for _, kind := range []v1beta1.ServiceKind{
-			v1beta1.DrainService,
-			v1beta1.InferenceService,
-			v1beta1.PayloadReceiverService,
-			v1beta1.PreprocessingService,
-			v1beta1.GPUControllerService,
-			v1beta1.MetricsService,
-			v1beta1.InsightsService,
+		for _, kind := range []v1beta2.ServiceKind{
+			v1beta2.DrainService,
+			v1beta2.InferenceService,
+			v1beta2.PayloadReceiverService,
+			v1beta2.PreprocessingService,
+			v1beta2.GPUControllerService,
+			v1beta2.MetricsService,
+			v1beta2.InsightsService,
 		} {
 			wg.Add(1)
 
 			By(fmt.Sprintf("checking %s service metadata and containers", kind.String()))
-			go func(kind v1beta1.ServiceKind) {
+			go func(kind v1beta2.ServiceKind) {
 				defer GinkgoRecover()
 				defer wg.Done()
 				Eventually(Object(&appsv1.Deployment{
@@ -91,7 +93,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		By("checking the gpu service data mount exists")
 		Eventually(Object(&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      v1beta1.GPUControllerService.ServiceName(),
+				Name:      v1beta2.GPUControllerService.ServiceName(),
 				Namespace: cluster.Namespace,
 			},
 		})).Should(ExistAnd(
@@ -100,7 +102,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 				HaveVolumeSource("EmptyDir"),
 			)),
 			HaveMatchingContainer(And(
-				HaveName(v1beta1.GPUControllerService.ServiceName()),
+				HaveName(v1beta2.GPUControllerService.ServiceName()),
 				HaveVolumeMounts(corev1.VolumeMount{
 					Name:      "data",
 					MountPath: "/var/opni-data",
@@ -227,7 +229,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		))
 		Eventually(Object(&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      v1beta1.InferenceService.ServiceName(),
+				Name:      v1beta2.InferenceService.ServiceName(),
 				Namespace: cluster.Namespace,
 			},
 		})).Should(ExistAnd(
@@ -246,7 +248,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		))
 		Eventually(Object(&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      v1beta1.GPUControllerService.ServiceName(),
+				Name:      v1beta2.GPUControllerService.ServiceName(),
 				Namespace: cluster.Namespace,
 			},
 		})).Should(ExistAnd(
@@ -274,7 +276,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		By("ensuring the metrics service is not created.")
 		Consistently(Object(&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      v1beta1.MetricsService.ServiceName(),
+				Name:      v1beta2.MetricsService.ServiceName(),
 				Namespace: cluster.Namespace,
 			},
 		})).ShouldNot(Exist())
@@ -314,26 +316,26 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		By("checking the metrics service is created")
 		Eventually(Object(&appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      v1beta1.MetricsService.ServiceName(),
+				Name:      v1beta2.MetricsService.ServiceName(),
 				Namespace: cluster.Namespace,
 			},
 		})).Should(ExistAnd(
 			HaveLabels(
-				resources.AppNameLabel, v1beta1.MetricsService.ServiceName(),
-				resources.ServiceLabel, v1beta1.MetricsService.String(),
+				resources.AppNameLabel, v1beta2.MetricsService.ServiceName(),
+				resources.ServiceLabel, v1beta2.MetricsService.String(),
 				resources.PartOfLabel, "opni",
 			),
 			HaveOwner(cluster),
 		))
 		Eventually(Object(&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      v1beta1.MetricsService.ServiceName(),
+				Name:      v1beta2.MetricsService.ServiceName(),
 				Namespace: cluster.Namespace,
 			},
 		})).Should(ExistAnd(
 			HaveLabels(
-				resources.AppNameLabel, v1beta1.MetricsService.ServiceName(),
-				resources.ServiceLabel, v1beta1.MetricsService.String(),
+				resources.AppNameLabel, v1beta2.MetricsService.ServiceName(),
+				resources.ServiceLabel, v1beta2.MetricsService.String(),
 				resources.PartOfLabel, "opni",
 			),
 			HavePorts("metrics"),
@@ -342,7 +344,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		By("checking the monitoring resources are created")
 		Eventually(Object(&monitoringv1.ServiceMonitor{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      v1beta1.MetricsService.ServiceName(),
+				Name:      v1beta2.MetricsService.ServiceName(),
 				Namespace: cluster.Namespace,
 			},
 		})).Should(ExistAnd(
@@ -350,7 +352,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		))
 		Eventually(Object(&monitoringv1.PrometheusRule{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-%s", v1beta1.MetricsService.ServiceName(), generateSHAID(cluster.Name, cluster.Namespace)),
+				Name:      fmt.Sprintf("%s-%s", v1beta2.MetricsService.ServiceName(), generateSHAID(cluster.Name, cluster.Namespace)),
 				Namespace: "prometheus",
 			},
 		})).Should(ExistAnd(
@@ -364,7 +366,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		By("checking the prometheus rule is deleted")
 		Eventually(Object(&monitoringv1.PrometheusRule{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-%s", v1beta1.MetricsService.ServiceName(), generateSHAID(cluster.Name, cluster.Namespace)),
+				Name:      fmt.Sprintf("%s-%s", v1beta2.MetricsService.ServiceName(), generateSHAID(cluster.Name, cluster.Namespace)),
 				Namespace: "prometheus",
 			},
 		})).ShouldNot(Exist())
@@ -506,7 +508,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		c := buildCluster(opniClusterOpts{
 			Name: "test-cluster",
 		})
-		c.Spec.Nats.AuthMethod = v1beta1.NatsAuthNkey
+		c.Spec.Nats.AuthMethod = v1beta2.NatsAuthNkey
 
 		By("creating an opnicluster")
 		createCluster(c)
@@ -532,7 +534,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 
 		By("checking if cluster status is updated")
 		Eventually(Object(cluster)).Should(
-			MatchStatus(func(s v1beta1.OpniClusterStatus) bool {
+			MatchStatus(func(s v1beta2.OpniClusterStatus) bool {
 				return s.Auth.NKeyUser != "" &&
 					s.Auth.NatsAuthSecretKeyRef != nil &&
 					s.Auth.NatsAuthSecretKeyRef.Name == fmt.Sprintf("%s-nats-client", cluster.Name)
@@ -544,7 +546,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		testData := map[string]intstr.IntOrString{
 			"meaning-of-life": intstr.FromInt(42),
 		}
-		updateObject(cluster, func(c *v1beta1.OpniCluster) {
+		updateObject(cluster, func(c *v1beta2.OpniCluster) {
 			c.Spec.NulogHyperparameters = testData
 		})
 		testBytes, _ := json.MarshalIndent(testData, "", "  ")
@@ -735,7 +737,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		Expect(k8sClient.Create(context.Background(), &model)).To(Succeed())
 
 		By("adding the model to the opnicluster")
-		updateObject(cluster, func(c *v1beta1.OpniCluster) {
+		updateObject(cluster, func(c *v1beta2.OpniCluster) {
 			c.Spec.Services.Inference.PretrainedModels =
 				append(c.Spec.Services.Inference.PretrainedModels,
 					corev1.LocalObjectReference{
@@ -800,7 +802,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		})).Should(HaveLen(1))
 
 		By("deleting the model from the opnicluster")
-		updateObject(cluster, func(c *v1beta1.OpniCluster) {
+		updateObject(cluster, func(c *v1beta2.OpniCluster) {
 			c.Spec.Services.Inference.PretrainedModels =
 				c.Spec.Services.Inference.PretrainedModels[:0]
 		})
@@ -812,7 +814,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		})).Should(BeEmpty())
 
 		By("adding the model back to the opnicluster")
-		updateObject(cluster, func(c *v1beta1.OpniCluster) {
+		updateObject(cluster, func(c *v1beta2.OpniCluster) {
 			c.Spec.Services.Inference.PretrainedModels =
 				append(c.Spec.Services.Inference.PretrainedModels,
 					corev1.LocalObjectReference{
@@ -870,8 +872,8 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		}()
 		// Ensure the state is set to error
 		Eventually(Object(cluster)).Should(MatchStatus(
-			func(s v1beta1.OpniClusterStatus) bool {
-				return s.State == v1beta1.OpniClusterStateError &&
+			func(s v1beta2.OpniClusterStatus) bool {
+				return s.State == v1beta2.OpniClusterStateError &&
 					len(s.Conditions) > 0
 			},
 		))
@@ -896,8 +898,8 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		By("verifying the cluster state has changed")
 		Expect(k8sClient.Create(context.Background(), &model)).To(Succeed())
 		Eventually(Object(cluster)).Should(MatchStatus(
-			func(s v1beta1.OpniClusterStatus) bool {
-				return s.State != v1beta1.OpniClusterStateError
+			func(s v1beta2.OpniClusterStatus) bool {
+				return s.State != v1beta2.OpniClusterStateError
 			},
 		))
 	})
@@ -915,20 +917,20 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 			Name:                "test-elastic",
 			DisableOpniServices: true,
 		})
-		c.Spec.Elastic = v1beta1.ElasticSpec{
+		c.Spec.Elastic = v1beta2.ElasticSpec{
 			Version: "1.0.0",
-			Persistence: &v1beta1.PersistenceSpec{
+			Persistence: &opnimeta.PersistenceSpec{
 				Enabled:          true,
 				StorageClassName: pointer.String("test-storageclass"),
 			},
-			Workloads: v1beta1.ElasticWorkloadSpec{
-				Master: v1beta1.ElasticWorkloadOptions{
+			Workloads: v1beta2.ElasticWorkloadSpec{
+				Master: v1beta2.ElasticWorkloadOptions{
 					Replicas: pointer.Int32(1),
 				},
-				Data: v1beta1.ElasticWorkloadOptions{
+				Data: v1beta2.ElasticWorkloadOptions{
 					Replicas: pointer.Int32(3),
 				},
-				Client: v1beta1.ElasticWorkloadOptions{
+				Client: v1beta2.ElasticWorkloadOptions{
 					Replicas: pointer.Int32(5),
 					Resources: &corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
@@ -945,7 +947,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 						},
 					},
 				},
-				Kibana: v1beta1.ElasticWorkloadOptions{
+				Kibana: v1beta2.ElasticWorkloadOptions{
 					Replicas: pointer.Int32(7),
 				},
 			},
@@ -1140,7 +1142,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		))
 
 		By("adjusting the elastic workload replicas")
-		updateObject(cluster, func(obj *v1beta1.OpniCluster) {
+		updateObject(cluster, func(obj *v1beta2.OpniCluster) {
 			obj.Spec.Elastic.Workloads.Data.Replicas = pointer.Int32(1)
 			obj.Spec.Elastic.Workloads.Client.Replicas = pointer.Int32(1)
 			obj.Spec.Elastic.Workloads.Kibana.Replicas = pointer.Int32(1)
@@ -1212,8 +1214,8 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		c := buildCluster(opniClusterOpts{
 			Name: "test",
 		})
-		c.Spec.S3.Internal = &v1beta1.InternalSpec{
-			Persistence: &v1beta1.PersistenceSpec{
+		c.Spec.S3.Internal = &v1beta2.InternalSpec{
+			Persistence: &opnimeta.PersistenceSpec{
 				Enabled:          true,
 				StorageClassName: pointer.String("testing"),
 				Request:          resource.MustParse("64Gi"),
@@ -1267,7 +1269,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		))
 
 		By("checking that the cluster status contains key references")
-		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta1.OpniClusterStatus) bool {
+		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta2.OpniClusterStatus) bool {
 			return status.Auth.S3AccessKey != nil &&
 				status.Auth.S3SecretKey != nil &&
 				status.Auth.S3Endpoint != ""
@@ -1279,7 +1281,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		c := buildCluster(opniClusterOpts{
 			Name: "test",
 		})
-		c.Spec.S3.External = &v1beta1.ExternalSpec{
+		c.Spec.S3.External = &v1beta2.ExternalSpec{
 			Endpoint: "http://s3.amazonaws.biz",
 			Credentials: &corev1.SecretReference{
 				Name: "missing-secret",
@@ -1296,7 +1298,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		})).ShouldNot(Exist())
 
 		By("checking that s3 info in the cluster status should be unset")
-		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta1.OpniClusterStatus) bool {
+		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta2.OpniClusterStatus) bool {
 			return status.Auth.S3Endpoint == "" &&
 				status.Auth.S3AccessKey == nil &&
 				status.Auth.S3SecretKey == nil
@@ -1333,7 +1335,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		})).ShouldNot(Exist())
 
 		By("checking that s3 info in the cluster status should be set")
-		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta1.OpniClusterStatus) bool {
+		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta2.OpniClusterStatus) bool {
 			return status.Auth.S3Endpoint == "http://s3.amazonaws.biz" &&
 				status.Auth.S3AccessKey != nil &&
 				status.Auth.S3SecretKey != nil
@@ -1346,7 +1348,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		c := buildCluster(opniClusterOpts{
 			Name: "test",
 		})
-		c.Spec.S3.Internal = &v1beta1.InternalSpec{}
+		c.Spec.S3.Internal = &v1beta2.InternalSpec{}
 		createCluster(c)
 
 		By("checking the seaweedfs statefulset is created")
@@ -1371,7 +1373,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		))
 
 		By("checking that s3 info in the cluster status should be set")
-		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta1.OpniClusterStatus) bool {
+		Eventually(Object(cluster)).Should(MatchStatus(func(status v1beta2.OpniClusterStatus) bool {
 			return status.Auth.S3Endpoint == fmt.Sprintf("http://opni-seaweed-s3.%s.svc", cluster.Namespace) &&
 				status.Auth.S3AccessKey != nil &&
 				status.Auth.S3SecretKey != nil

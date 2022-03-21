@@ -2,11 +2,12 @@ package indices
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"emperror.dev/errors"
 	"github.com/hashicorp/go-version"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/opensearch"
 	esapiext "github.com/rancher/opni/pkg/util/opensearch/types"
@@ -14,6 +15,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	opensearchv1 "opensearch.opster.io/api/v1"
+	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -26,12 +29,18 @@ const (
 type Reconciler struct {
 	osReconciler *opensearch.Reconciler
 	client       client.Client
-	cluster      *v1beta1.OpniCluster
+	cluster      *v1beta2.OpniCluster
+	opensearch   *opensearchv1.OpenSearchCluster
 	ctx          context.Context
 }
 
-func NewReconciler(ctx context.Context, opniCluster *v1beta1.OpniCluster, c client.Client) *Reconciler {
+func NewReconciler(ctx context.Context, opniCluster *v1beta2.OpniCluster, c client.Client) *Reconciler {
 	// Need to fetch the elasticsearch password from the status
+	reconciler := &Reconciler{
+		cluster: opniCluster,
+		ctx:     ctx,
+		client:  c,
+	}
 	lg := log.FromContext(ctx)
 	password := "admin"
 	if err := c.Get(ctx, client.ObjectKeyFromObject(opniCluster), opniCluster); err != nil {
@@ -49,13 +58,31 @@ func NewReconciler(ctx context.Context, opniCluster *v1beta1.OpniCluster, c clie
 		password = string(secret.Data[opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Key])
 	}
 
-	osReconciler := opensearch.NewReconciler(ctx, opniCluster.Namespace, "admin", password, "opni-es-client", "opni-es-kibana")
-	return &Reconciler{
-		cluster:      opniCluster,
-		osReconciler: osReconciler,
-		ctx:          ctx,
-		client:       c,
+	// Handle external opensearch cluster
+	username := "admin"
+	osSvcName := "opni-es-client"
+	kbSvcName := "opni-es-kibana"
+
+	if opniCluster.Spec.Elastic.ExternalOpensearch != nil {
+		opensearchCluster := &opensearchv1.OpenSearchCluster{}
+		err := c.Get(ctx, opniCluster.Spec.Elastic.ExternalOpensearch.ObjectKeyFromRef(), opensearchCluster)
+		if err != nil {
+			lg.Error(err, "failed to fetch opensearch, index reconciliation will continue with defaults")
+		}
+
+		reconciler.opensearch = opensearchCluster
+
+		username, _, err = helpers.UsernameAndPassword(c, ctx, opensearchCluster)
+		if err != nil {
+			lg.Error(err, "fetching username from opensearch failed")
+		}
+
+		osSvcName = opensearchCluster.Spec.General.ServiceName
+		kbSvcName = fmt.Sprintf("%s-dashboards", opensearchCluster.Spec.General.ServiceName)
 	}
+
+	reconciler.osReconciler = opensearch.NewReconciler(ctx, opniCluster.Namespace, username, password, osSvcName, kbSvcName)
+	return reconciler
 }
 
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
@@ -73,16 +100,16 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
-					r.cluster.Status.OpensearchState.IndexState = v1beta1.OpniClusterStateError
+					r.cluster.Status.OpensearchState.IndexState = v1beta2.OpniClusterStateError
 				} else {
 					// If no error occurred, but we need to requeue, the state should be
 					// set to working
-					r.cluster.Status.OpensearchState.IndexState = v1beta1.OpniClusterStateWorking
+					r.cluster.Status.OpensearchState.IndexState = v1beta2.OpniClusterStateWorking
 				}
 			} else if len(r.cluster.Status.Conditions) == 0 {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
-				r.cluster.Status.OpensearchState.IndexState = v1beta1.OpniClusterStateReady
+				r.cluster.Status.OpensearchState.IndexState = v1beta2.OpniClusterStateReady
 			}
 			return r.client.Status().Update(r.ctx, r.cluster)
 		})
@@ -94,30 +121,40 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	oldVersion := false
 	changeVersion, _ := version.NewVersion(ISMChangeVersion)
-	desiredVersion, err := version.NewVersion(r.cluster.Spec.Elastic.Version)
+
+	var desiredVersion *version.Version
+	var err error
+	if r.opensearch != nil {
+		desiredVersion, err = version.NewVersion(r.opensearch.Spec.General.Version)
+	} else {
+		desiredVersion, err = version.NewVersion(r.cluster.Spec.Elastic.Version)
+	}
+
 	if err != nil {
 		lg.V(1).Error(err, "failed to parse opensearch version")
 	} else {
 		oldVersion = desiredVersion.LessThan(changeVersion)
 	}
 
-	kibanaDeployment := &appsv1.Deployment{}
-	lg.V(1).Info("reconciling elastic indices")
-	err = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      "opni-es-kibana",
-		Namespace: r.cluster.Namespace,
-	}, kibanaDeployment)
-	if err != nil {
-		conditions = append(conditions, err.Error())
-		retErr = errors.Combine(retErr, err)
-		return
-	}
+	if r.opensearch == nil {
+		kibanaDeployment := &appsv1.Deployment{}
+		lg.V(1).Info("reconciling elastic indices")
+		err = r.client.Get(r.ctx, types.NamespacedName{
+			Name:      "opni-es-kibana",
+			Namespace: r.cluster.Namespace,
+		}, kibanaDeployment)
+		if err != nil {
+			conditions = append(conditions, err.Error())
+			retErr = errors.Combine(retErr, err)
+			return
+		}
 
-	if kibanaDeployment.Status.AvailableReplicas < 1 {
-		lg.Info("waiting for elastic stack")
-		conditions = append(conditions, "waiting for elastic cluster to be available")
-		retResult = &reconcile.Result{RequeueAfter: 5 * time.Second}
-		return
+		if kibanaDeployment.Status.AvailableReplicas < 1 {
+			lg.Info("waiting for elastic stack")
+			conditions = append(conditions, "waiting for elastic cluster to be available")
+			retResult = &reconcile.Result{RequeueAfter: 5 * time.Second}
+			return
+		}
 	}
 
 	var policies []interface{}

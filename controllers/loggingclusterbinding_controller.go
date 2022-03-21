@@ -3,7 +3,7 @@ package controllers
 import (
 	"context"
 
-	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/loggingclusterbinding"
 	"github.com/rancher/opni/pkg/util"
@@ -25,7 +25,7 @@ type LoggingClusterBindingReconciler struct {
 // +kubebuilder:rbac:groups=opensearch.opster.io,resources=opensearchclusters/finalizers,verbs=update
 
 func (r *LoggingClusterBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	loggingClusterBinding := &v2beta1.LoggingClusterBinding{}
+	loggingClusterBinding := &v1beta2.LoggingClusterBinding{}
 	err := r.Get(ctx, req.NamespacedName, loggingClusterBinding)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -52,6 +52,6 @@ func (r *LoggingClusterBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v2beta1.LoggingClusterBinding{}).
+		For(&v1beta2.LoggingClusterBinding{}).
 		Complete(r)
 }

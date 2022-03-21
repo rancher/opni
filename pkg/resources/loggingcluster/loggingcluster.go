@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"k8s.io/apimachinery/pkg/types"
@@ -19,13 +19,13 @@ import (
 type Reconciler struct {
 	reconciler.ResourceReconciler
 	client         client.Client
-	loggingCluster *v2beta1.LoggingCluster
+	loggingCluster *v1beta2.LoggingCluster
 	ctx            context.Context
 }
 
 func NewReconciler(
 	ctx context.Context,
-	loggingCluster *v2beta1.LoggingCluster,
+	loggingCluster *v1beta2.LoggingCluster,
 	c client.Client,
 	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
@@ -54,7 +54,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
-					r.loggingCluster.Status.State = v2beta1.LoggingClusterStateError
+					r.loggingCluster.Status.State = v1beta2.LoggingClusterStateError
 				}
 			}
 			return r.client.Status().Update(r.ctx, r.loggingCluster)
@@ -90,8 +90,8 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingCluster), r.loggingCluster); err != nil {
 				return err
 			}
-			r.loggingCluster.Status.State = v2beta1.LoggingClusterStateCreated
-			r.loggingCluster.Status.IndexUserState = v2beta1.IndexUserStatePending
+			r.loggingCluster.Status.State = v1beta2.LoggingClusterStateCreated
+			r.loggingCluster.Status.IndexUserState = v1beta2.IndexUserStatePending
 			return r.client.Status().Update(r.ctx, r.loggingCluster)
 		})
 		return
@@ -106,8 +106,8 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingCluster), r.loggingCluster); err != nil {
 					return err
 				}
-				r.loggingCluster.Status.State = v2beta1.LoggingClusterStateRegistered
-				r.loggingCluster.Status.IndexUserState = v2beta1.IndexUserStateCreated
+				r.loggingCluster.Status.State = v1beta2.LoggingClusterStateRegistered
+				r.loggingCluster.Status.IndexUserState = v1beta2.IndexUserStateCreated
 				return r.client.Status().Update(r.ctx, r.loggingCluster)
 			})
 		}

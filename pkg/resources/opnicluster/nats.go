@@ -19,7 +19,7 @@ import (
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/nats-io/nkeys"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"k8s.io/client-go/util/retry"
@@ -82,7 +82,7 @@ cluster {
 )
 
 type natsConfigData struct {
-	AuthMethod      v1beta1.NatsAuthMethod
+	AuthMethod      v1beta2.NatsAuthMethod
 	Username        string
 	Password        string
 	NKeyUser        string
@@ -372,7 +372,7 @@ func (r *Reconciler) natsConfig() (*corev1.Secret, error) {
 	natsConfig.ClusterPassword = string(passwordBytes)
 
 	switch r.opniCluster.Spec.Nats.AuthMethod {
-	case v1beta1.NatsAuthUsername:
+	case v1beta2.NatsAuthUsername:
 		if r.opniCluster.Spec.Nats.Username == "" {
 			natsConfig.Username = "nats-user"
 		} else {
@@ -383,7 +383,7 @@ func (r *Reconciler) natsConfig() (*corev1.Secret, error) {
 			return &corev1.Secret{}, err
 		}
 		natsConfig.Password = string(password)
-	case v1beta1.NatsAuthNkey:
+	case v1beta2.NatsAuthNkey:
 		nKeyUser, _, err := r.getNKeyUser()
 		if err != nil {
 			return &corev1.Secret{}, err
@@ -411,7 +411,7 @@ func (r *Reconciler) natsConfig() (*corev1.Secret, error) {
 
 func (r *Reconciler) natsAuthSecret() (*corev1.Secret, error) {
 	switch r.opniCluster.Spec.Nats.AuthMethod {
-	case v1beta1.NatsAuthUsername:
+	case v1beta2.NatsAuthUsername:
 		password, err := r.getNatsUserPassword()
 		if err != nil {
 			return nil, err
@@ -435,7 +435,7 @@ func (r *Reconciler) natsAuthSecret() (*corev1.Secret, error) {
 			return nil, err
 		}
 		return secret, nil
-	case v1beta1.NatsAuthNkey:
+	case v1beta2.NatsAuthNkey:
 		_, seed, err := r.getNKeyUser()
 		if err != nil {
 			return nil, err

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/opensearch-project/opensearch-go"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -17,13 +17,13 @@ const (
 )
 
 type Reconciler struct {
-	opniCluster *v1beta1.OpniCluster
+	opniCluster *v1beta2.OpniCluster
 	client      client.Client
 	ctx         context.Context
 	esClient    *opensearch.Client
 }
 
-func NewReconciler(ctx context.Context, client client.Client, opniCluster *v1beta1.OpniCluster) *Reconciler {
+func NewReconciler(ctx context.Context, client client.Client, opniCluster *v1beta2.OpniCluster) *Reconciler {
 	return &Reconciler{
 		client:      client,
 		opniCluster: opniCluster,

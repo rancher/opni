@@ -36,6 +36,7 @@ import (
 
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/util"
@@ -200,12 +201,17 @@ func run() error {
 			return err
 		}
 	}
-	// +kubebuilder:scaffold:builder
+
+	if err = (&v1beta2.OpniCluster{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "OpniCluster")
+		return err
+	}
 
 	if err := highlander.NewFor(&v1beta1.OpniCluster{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "OpniCluster")
 		return err
 	}
+	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

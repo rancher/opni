@@ -1,10 +1,15 @@
-package v2beta1
+// +kubebuilder:object:generate=true
+
+// meta package contains generic kubernetes type implementations for Opni.
+
+package meta
 
 import (
 	"fmt"
 	"path"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 )
 
@@ -65,4 +70,17 @@ func (r ImageResolver) Resolve() (result ImageSpec) {
 	result.Image = pointer.String(fmt.Sprintf("%s:%s",
 		path.Join(defaultRepo, r.ImageName), version))
 	return
+}
+
+type PrometheusReference struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
+type PersistenceSpec struct {
+	Enabled          bool                                `json:"enabled,omitempty"`
+	StorageClassName *string                             `json:"storageClass,omitempty"`
+	AccessModes      []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
+	// Storage size request. Defaults to 10Gi.
+	Request resource.Quantity `json:"request,omitempty"`
 }

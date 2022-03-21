@@ -27,6 +27,7 @@ import (
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	v1beta1 "github.com/rancher/opni/apis/v1beta1"
+	v1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
@@ -58,7 +59,7 @@ type OpniClusterReconciler struct {
 // +kubebuilder:rbac:groups=batch,resources=jobs;cronjobs,verbs=get;list;watch
 
 func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	opniCluster := &v1beta1.OpniCluster{}
+	opniCluster := &v1beta2.OpniCluster{}
 	err := r.Get(ctx, req.NamespacedName, opniCluster)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -91,7 +92,7 @@ func (r *OpniClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta1.OpniCluster{}).
+		For(&v1beta2.OpniCluster{}).
 		Owns(&v1beta1.LogAdapter{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&appsv1.Deployment{}).

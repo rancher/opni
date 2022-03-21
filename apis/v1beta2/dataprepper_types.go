@@ -1,6 +1,7 @@
-package v2beta1
+package v1beta2
 
 import (
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -29,7 +30,7 @@ type DataPrepperStatus struct {
 }
 
 type DataPrepperSpec struct {
-	*ImageSpec `json:",inline,omitempty"`
+	*opnimeta.ImageSpec `json:",inline,omitempty"`
 	// +kubebuilder:default:=latest
 	Version string `json:"version"`
 	// +optional

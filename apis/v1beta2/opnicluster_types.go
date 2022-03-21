@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // +kubebuilder:validation:Optional
-package v1beta1
+package v1beta2
 
 import (
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
@@ -84,10 +84,13 @@ type OpensearchStatus struct {
 	Initialized bool             `json:"initialized,omitempty"`
 }
 
+//+kubebuilder:webhook:path=/highlander-opni-io-v1beta1-opnicluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=opniclusters,verbs=create;update,versions=v1beta1,name=highlander.opni.io,admissionReviewVersions={v1,v1beta1,v1beta2}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +kubebuilder:printcolumn:name="State",type=boolean,JSONPath=`.status.state`
+// +kubebuilder:storageversion
 
 // OpniCluster is the Schema for the opniclusters API
 type OpniCluster struct {
@@ -170,12 +173,13 @@ type UIServiceSpec struct {
 }
 
 type ElasticSpec struct {
-	Version     string                    `json:"version"`
-	Workloads   ElasticWorkloadSpec       `json:"workloads,omitempty"`
-	DefaultRepo *string                   `json:"defaultRepo,omitempty"`
-	Image       *opnimeta.ImageSpec       `json:"image,omitempty"`
-	KibanaImage *opnimeta.ImageSpec       `json:"kibanaImage,omitempty"`
-	Persistence *opnimeta.PersistenceSpec `json:"persistence,omitempty"`
+	ExternalOpensearch *OpensearchClusterRef     `json:"externalOpensearch"`
+	Version            string                    `json:"version"`
+	Workloads          ElasticWorkloadSpec       `json:"workloads,omitempty"`
+	DefaultRepo        *string                   `json:"defaultRepo,omitempty"`
+	Image              *opnimeta.ImageSpec       `json:"image,omitempty"`
+	KibanaImage        *opnimeta.ImageSpec       `json:"kibanaImage,omitempty"`
+	Persistence        *opnimeta.PersistenceSpec `json:"persistence,omitempty"`
 	// Secret containing an item "logging.yml" with the contents of the
 	// elasticsearch logging config.
 	ConfigSecret *corev1.LocalObjectReference `json:"configSecret,omitempty"`

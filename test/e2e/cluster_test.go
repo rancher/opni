@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rancher/opni/apis/v1beta1"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	opensearchutil "github.com/rancher/opni/pkg/util/opensearch"
 	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	corev1 "k8s.io/api/core/v1"
@@ -121,7 +122,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 						},
 						Metrics: v1beta1.MetricsServiceSpec{
 							Enabled: pointer.BoolPtr(true),
-							PrometheusReference: &v1beta1.PrometheusReference{
+							PrometheusReference: &opnimeta.PrometheusReference{
 								Name:      "test-prometheus",
 								Namespace: "prometheus",
 							},

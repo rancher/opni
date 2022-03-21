@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/hyperparameters"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
+	"opensearch.opster.io/pkg/helpers"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -147,10 +149,10 @@ func (r *Reconciler) pretrainedModelDeployment(
 
 	return func() (runtime.Object, reconciler.DesiredState, error) {
 		labels := resources.CombineLabels(
-			r.serviceLabels(v1beta1.InferenceService),
+			r.serviceLabels(v1beta2.InferenceService),
 			r.pretrainedModelLabels(model.Name),
 		)
-		imageSpec := r.serviceImageSpec(v1beta1.InferenceService)
+		imageSpec := r.serviceImageSpec(v1beta2.InferenceService)
 		lg, _ := logr.FromContext(r.ctx)
 		lg.V(1).Info("generating pretrained model deployment", "name", model.Name)
 		envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
@@ -204,8 +206,8 @@ func (r *Reconciler) pretrainedModelDeployment(
 							},
 						},
 						ImagePullSecrets: maybeImagePullSecrets(model),
-						Tolerations:      r.serviceTolerations(v1beta1.InferenceService),
-						NodeSelector:     r.serviceNodeSelector(v1beta1.InferenceService),
+						Tolerations:      r.serviceTolerations(v1beta2.InferenceService),
+						NodeSelector:     r.serviceNodeSelector(v1beta2.InferenceService),
 					},
 				},
 			},
@@ -261,7 +263,7 @@ func containerSidecar(model v1beta1.PretrainedModel) corev1.Container {
 }
 
 func (r *Reconciler) gpuWorkerContainer() corev1.Container {
-	imageSpec := r.serviceImageSpec(v1beta1.InferenceService)
+	imageSpec := r.serviceImageSpec(v1beta2.InferenceService)
 	envVars, volumeMounts, _ := r.genericEnvAndVolumes()
 	envVars = append(envVars, r.s3EnvVars()...)
 	envVars = append(envVars, []corev1.EnvVar{
@@ -321,7 +323,7 @@ func (r *Reconciler) findPretrainedModel(
 	return model, nil
 }
 
-func (r *Reconciler) genericDeployment(service v1beta1.ServiceKind) *appsv1.Deployment {
+func (r *Reconciler) genericDeployment(service v1beta2.ServiceKind) *appsv1.Deployment {
 	labels := r.serviceLabels(service)
 	imageSpec := r.serviceImageSpec(service)
 	envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
@@ -380,7 +382,7 @@ func (r *Reconciler) genericEnvAndVolumes() (
 			r.opniCluster.Name, r.opniCluster.Namespace, natsDefaultClientPort),
 	})
 	switch r.opniCluster.Spec.Nats.AuthMethod {
-	case v1beta1.NatsAuthUsername:
+	case v1beta2.NatsAuthUsername:
 		if r.opniCluster.Status.Auth.NatsAuthSecretKeyRef == nil {
 			break
 		}
@@ -403,7 +405,7 @@ func (r *Reconciler) genericEnvAndVolumes() (
 			},
 		}
 		envVars = append(envVars, newEnvVars...)
-	case v1beta1.NatsAuthNkey:
+	case v1beta2.NatsAuthNkey:
 		if r.opniCluster.Status.Auth.NatsAuthSecretKeyRef == nil {
 			break
 		}
@@ -435,11 +437,30 @@ func (r *Reconciler) genericEnvAndVolumes() (
 		envVars = append(envVars, newEnvVars...)
 	}
 	envVars = append(envVars, corev1.EnvVar{
-		Name:  "ES_ENDPOINT",
-		Value: fmt.Sprintf("http://opni-es-client.%s.svc:9200", r.opniCluster.Namespace),
+		Name: "ES_ENDPOINT",
+		Value: func() string {
+			if r.opensearchCluster != nil {
+				return fmt.Sprintf(
+					"http://%s.%s.svc:9200",
+					r.opensearchCluster.Spec.General.ServiceName,
+					r.opensearchCluster.Namespace,
+				)
+			}
+			return fmt.Sprintf("http://opni-es-client.%s.svc:9200", r.opniCluster.Namespace)
+		}(),
 	}, corev1.EnvVar{
-		Name:  "ES_USERNAME",
-		Value: "admin",
+		Name: "ES_USERNAME",
+		Value: func() string {
+			if r.opensearchCluster != nil {
+				user, _, _ := helpers.UsernameAndPassword(
+					r.client,
+					r.ctx,
+					r.opensearchCluster,
+				)
+				return user
+			}
+			return "admin"
+		}(),
 	}, corev1.EnvVar{
 		Name: "ES_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
@@ -499,7 +520,7 @@ func (r *Reconciler) nulogHyperparameters() (runtime.Object, reconciler.DesiredS
 }
 
 func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta1.InferenceService)
+	deployment := r.genericDeployment(v1beta2.InferenceService)
 	s3EnvVars := r.s3EnvVars()
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
 	if r.opniCluster.Spec.S3.NulogS3Bucket != "" {
@@ -514,7 +535,7 @@ func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredSt
 }
 
 func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta1.DrainService)
+	deployment := r.genericDeployment(v1beta2.DrainService)
 	// temporary
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
 		corev1.EnvVar{
@@ -534,12 +555,12 @@ func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState,
 }
 
 func (r *Reconciler) payloadReceiverDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta1.PayloadReceiverService)
+	deployment := r.genericDeployment(v1beta2.PayloadReceiverService)
 	return deployment, deploymentState(r.opniCluster.Spec.Services.PayloadReceiver.Enabled), nil
 }
 
 func (r *Reconciler) payloadReceiverService() (runtime.Object, reconciler.DesiredState, error) {
-	labels := r.serviceLabels(v1beta1.PayloadReceiverService)
+	labels := r.serviceLabels(v1beta2.PayloadReceiverService)
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
@@ -567,12 +588,12 @@ func (r *Reconciler) payloadReceiverService() (runtime.Object, reconciler.Desire
 }
 
 func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta1.PreprocessingService)
+	deployment := r.genericDeployment(v1beta2.PreprocessingService)
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Preprocessing.Enabled), nil
 }
 
 func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta1.GPUControllerService)
+	deployment := r.genericDeployment(v1beta2.GPUControllerService)
 	dataVolume := corev1.Volume{
 		Name: "data",
 		VolumeSource: corev1.VolumeSource{
@@ -632,7 +653,7 @@ func (r *Reconciler) getPrometheusEndpoint() (endpoint string) {
 }
 
 func (r *Reconciler) metricsDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta1.MetricsService)
+	deployment := r.genericDeployment(v1beta2.MetricsService)
 	prometheusEndpoint := r.getPrometheusEndpoint()
 	_, err := url.ParseRequestURI(prometheusEndpoint)
 	if err != nil && (r.opniCluster.Spec.Services.Metrics.Enabled == nil || *r.opniCluster.Spec.Services.Metrics.Enabled) {
@@ -646,7 +667,7 @@ func (r *Reconciler) metricsDeployment() (runtime.Object, reconciler.DesiredStat
 }
 
 func (r *Reconciler) metricsService() (runtime.Object, reconciler.DesiredState, error) {
-	labels := r.serviceLabels(v1beta1.MetricsService)
+	labels := r.serviceLabels(v1beta2.MetricsService)
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
@@ -669,7 +690,7 @@ func (r *Reconciler) metricsService() (runtime.Object, reconciler.DesiredState, 
 }
 
 func (r *Reconciler) metricsServiceMonitor() (runtime.Object, reconciler.DesiredState, error) {
-	labels := r.serviceLabels(v1beta1.MetricsService)
+	labels := r.serviceLabels(v1beta2.MetricsService)
 	serviceMonitor := &monitoringv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
@@ -696,7 +717,7 @@ func (r *Reconciler) metricsServiceMonitor() (runtime.Object, reconciler.Desired
 }
 
 func (r *Reconciler) metricsPrometheusRule() (runtime.Object, reconciler.DesiredState, error) {
-	labels := r.serviceLabels(v1beta1.MetricsService)
+	labels := r.serviceLabels(v1beta2.MetricsService)
 	prometheusRule := &monitoringv1.PrometheusRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", labels[resources.AppNameLabel], r.generateSHAID()),
@@ -780,7 +801,7 @@ func (r *Reconciler) metricsPrometheusRule() (runtime.Object, reconciler.Desired
 }
 
 func (r *Reconciler) insightsServiceAccount() (runtime.Object, reconciler.DesiredState, error) {
-	labels := r.serviceLabels(v1beta1.InsightsService)
+	labels := r.serviceLabels(v1beta2.InsightsService)
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
@@ -801,7 +822,7 @@ func (r *Reconciler) insightsServiceAccount() (runtime.Object, reconciler.Desire
 }
 
 func (r *Reconciler) insightsClusterRoleBinding() (runtime.Object, reconciler.DesiredState, error) {
-	labels := r.serviceLabels(v1beta1.InsightsService)
+	labels := r.serviceLabels(v1beta2.InsightsService)
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   fmt.Sprintf("%s-%s", labels[resources.AppNameLabel], r.generateSHAID()),
@@ -832,13 +853,13 @@ func (r *Reconciler) insightsClusterRoleBinding() (runtime.Object, reconciler.De
 }
 
 func (r *Reconciler) insightsDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta1.InsightsService)
-	deployment.Spec.Template.Spec.ServiceAccountName = v1beta1.InsightsService.ServiceName()
+	deployment := r.genericDeployment(v1beta2.InsightsService)
+	deployment.Spec.Template.Spec.ServiceAccountName = v1beta2.InsightsService.ServiceName()
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Insights.Enabled), nil
 }
 
 func (r *Reconciler) insightsService() (runtime.Object, reconciler.DesiredState, error) {
-	labels := r.serviceLabels(v1beta1.InsightsService)
+	labels := r.serviceLabels(v1beta2.InsightsService)
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
@@ -866,18 +887,18 @@ func (r *Reconciler) insightsService() (runtime.Object, reconciler.DesiredState,
 }
 
 func (r *Reconciler) uiDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta1.UIService)
+	deployment := r.genericDeployment(v1beta2.UIService)
 	deployment.Spec.Template.Spec.Containers[0].Env = []corev1.EnvVar{
 		{
 			Name:  "OPNI_API",
-			Value: fmt.Sprintf("http://%s.%s", v1beta1.InsightsService.ServiceName(), r.opniCluster.Namespace),
+			Value: fmt.Sprintf("http://%s.%s", v1beta2.InsightsService.ServiceName(), r.opniCluster.Namespace),
 		},
 	}
 	return deployment, deploymentState(r.opniCluster.Spec.Services.UI.Enabled), nil
 }
 
 func (r *Reconciler) uiService() (runtime.Object, reconciler.DesiredState, error) {
-	labels := r.serviceLabels(v1beta1.UIService)
+	labels := r.serviceLabels(v1beta2.UIService)
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
@@ -938,4 +959,38 @@ func insertHyperparametersVolume(deployment *appsv1.Deployment, modelName string
 		})
 		deployment.Spec.Template.Spec.Containers[i] = container
 	}
+}
+
+func (r *Reconciler) externalOpensearchConfig() (retResources []resources.Resource, retErr error) {
+	_, password, retErr := helpers.UsernameAndPassword(r.client, r.ctx, r.opensearchCluster)
+	if retErr != nil {
+		return
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "external-os-password",
+			Namespace: r.opniCluster.Namespace,
+		},
+		StringData: map[string]string{
+			"password": password,
+		},
+	}
+	ctrl.SetControllerReference(r.opensearchCluster, secret, r.client.Scheme())
+	retResources = append(retResources, resources.Present(secret))
+
+	retErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			return err
+		}
+		r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef = &corev1.SecretKeySelector{
+			Key: "password",
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: secret.Name,
+			},
+		}
+		return r.client.Status().Update(r.ctx, r.opniCluster)
+	})
+
+	return
 }

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	"github.com/rancher/opni/apis/v2beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/util"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
@@ -18,13 +18,13 @@ import (
 type Reconciler struct {
 	reconciler.ResourceReconciler
 	client           client.Client
-	multiclusterUser *v2beta1.MulticlusterUser
+	multiclusterUser *v1beta2.MulticlusterUser
 	ctx              context.Context
 }
 
 func NewReconciler(
 	ctx context.Context,
-	multiclusterUser *v2beta1.MulticlusterUser,
+	multiclusterUser *v1beta2.MulticlusterUser,
 	c client.Client,
 	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
@@ -53,16 +53,16 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			if op.ShouldRequeue() {
 				if retErr != nil {
 					// If an error occurred, the state should be set to error
-					r.multiclusterUser.Status.State = v2beta1.MulticlusterUserStateError
+					r.multiclusterUser.Status.State = v1beta2.MulticlusterUserStateError
 				} else {
 					// If no error occurred, but we need to requeue, the state should be
 					// set to working
-					r.multiclusterUser.Status.State = v2beta1.MulticlusterUserStatePending
+					r.multiclusterUser.Status.State = v1beta2.MulticlusterUserStatePending
 				}
 			} else if len(r.multiclusterUser.Status.Conditions) == 0 {
 				// If we are not requeueing and there are no conditions, the state should
 				// be set to ready
-				r.multiclusterUser.Status.State = v2beta1.MulticlusterUserStateCreated
+				r.multiclusterUser.Status.State = v1beta2.MulticlusterUserStateCreated
 			}
 			return r.client.Status().Update(r.ctx, r.multiclusterUser)
 		})

@@ -3,8 +3,9 @@ package elastic
 import (
 	"fmt"
 
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -25,7 +26,7 @@ func (r *Reconciler) elasticWorkloads() []resources.Resource {
 
 func (r *Reconciler) elasticDataWorkload() resources.Resource {
 	labels := resources.NewElasticLabels().
-		WithRole(v1beta1.ElasticDataRole)
+		WithRole(v1beta2.ElasticDataRole)
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -127,20 +128,20 @@ func (r *Reconciler) elasticPodTemplate(
 	}
 }
 
-func containerPortsForRole(role v1beta1.ElasticRole) []corev1.ContainerPort {
+func containerPortsForRole(role v1beta2.ElasticRole) []corev1.ContainerPort {
 	switch role {
-	case v1beta1.ElasticDataRole:
+	case v1beta2.ElasticDataRole:
 		return []corev1.ContainerPort{
 			containerPort(transportPort),
 		}
-	case v1beta1.ElasticClientRole, v1beta1.ElasticMasterRole:
+	case v1beta2.ElasticClientRole, v1beta2.ElasticMasterRole:
 		return []corev1.ContainerPort{
 			containerPort(httpPort),
 			containerPort(transportPort),
 			containerPort(metricsPort),
 			containerPort(rcaPort),
 		}
-	case v1beta1.ElasticKibanaRole:
+	case v1beta2.ElasticKibanaRole:
 		return []corev1.ContainerPort{
 			containerPort(kibanaPort),
 		}
@@ -151,7 +152,7 @@ func containerPortsForRole(role v1beta1.ElasticRole) []corev1.ContainerPort {
 
 func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 	labels := resources.NewElasticLabels().
-		WithRole(v1beta1.ElasticMasterRole)
+		WithRole(v1beta2.ElasticMasterRole)
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -268,7 +269,7 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 
 func (r *Reconciler) elasticClientWorkload() resources.Resource {
 	labels := resources.NewElasticLabels().
-		WithRole(v1beta1.ElasticClientRole)
+		WithRole(v1beta2.ElasticClientRole)
 
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -298,7 +299,7 @@ func (r *Reconciler) elasticClientWorkload() resources.Resource {
 
 func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 	labels := resources.NewElasticLabels().
-		WithRole(v1beta1.ElasticKibanaRole)
+		WithRole(v1beta2.ElasticKibanaRole)
 
 	imageSpec := r.kibanaImageSpec()
 	workload := &appsv1.Deployment{
@@ -448,8 +449,8 @@ func internalusersVolume() corev1.Volume {
 	}
 }
 
-func (r *Reconciler) openDistroImageSpec() v1beta1.ImageSpec {
-	return v1beta1.ImageResolver{
+func (r *Reconciler) openDistroImageSpec() opnimeta.ImageSpec {
+	return opnimeta.ImageResolver{
 		Version:             r.opniCluster.Spec.Elastic.Version,
 		ImageName:           "opensearch",
 		DefaultRepo:         "docker.io/opensearchproject",
@@ -458,8 +459,8 @@ func (r *Reconciler) openDistroImageSpec() v1beta1.ImageSpec {
 	}.Resolve()
 }
 
-func (r *Reconciler) kibanaImageSpec() v1beta1.ImageSpec {
-	return v1beta1.ImageResolver{
+func (r *Reconciler) kibanaImageSpec() opnimeta.ImageSpec {
+	return opnimeta.ImageResolver{
 		Version:             r.opniCluster.Spec.Elastic.Version,
 		ImageName:           "opensearch-dashboards",
 		DefaultRepo:         "docker.io/opensearchproject",
@@ -468,13 +469,13 @@ func (r *Reconciler) kibanaImageSpec() v1beta1.ImageSpec {
 	}.Resolve()
 }
 
-func (r *Reconciler) elasticNodeSelector(role v1beta1.ElasticRole) map[string]string {
+func (r *Reconciler) elasticNodeSelector(role v1beta2.ElasticRole) map[string]string {
 	if s := role.GetNodeSelector(r.opniCluster); len(s) > 0 {
 		return s
 	}
 	return r.opniCluster.Spec.GlobalNodeSelector
 }
 
-func (r *Reconciler) elasticTolerations(role v1beta1.ElasticRole) []corev1.Toleration {
+func (r *Reconciler) elasticTolerations(role v1beta2.ElasticRole) []corev1.Toleration {
 	return append(r.opniCluster.Spec.GlobalTolerations, role.GetTolerations(r.opniCluster)...)
 }

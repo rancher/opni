@@ -50,6 +50,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
+	"github.com/rancher/opni-monitoring/pkg/webui"
 	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
@@ -60,13 +61,14 @@ import (
 )
 
 type servicePorts struct {
-	Etcd           int
-	Gateway        int
-	ManagementGRPC int
-	ManagementHTTP int
-	ManagementWeb  int
-	CortexGRPC     int
-	CortexHTTP     int
+	Etcd            int
+	Gateway         int
+	ManagementGRPC  int
+	ManagementHTTP  int
+	ManagementWeb   int
+	CortexGRPC      int
+	CortexHTTP      int
+	TestEnvironment int
 }
 
 type RunningAgent struct {
@@ -115,18 +117,19 @@ func (e *Environment) Start() error {
 			return fmt.Errorf("failed to install test auth middleware: %w", err)
 		}
 	}
-	ports, err := freeport.GetFreePorts(7)
+	ports, err := freeport.GetFreePorts(8)
 	if err != nil {
 		panic(err)
 	}
 	e.ports = servicePorts{
-		Etcd:           ports[0],
-		Gateway:        ports[1],
-		ManagementGRPC: ports[2],
-		ManagementHTTP: ports[3],
-		ManagementWeb:  ports[4],
-		CortexGRPC:     ports[5],
-		CortexHTTP:     ports[6],
+		Etcd:            ports[0],
+		Gateway:         ports[1],
+		ManagementGRPC:  ports[2],
+		ManagementHTTP:  ports[3],
+		ManagementWeb:   ports[4],
+		CortexGRPC:      ports[5],
+		CortexHTTP:      ports[6],
+		TestEnvironment: ports[7],
 	}
 	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
 		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
@@ -150,6 +153,12 @@ func (e *Environment) Start() error {
 		e.ports.Gateway, err = strconv.Atoi(portNum)
 		if err != nil {
 			return fmt.Errorf("failed to parse gateway port: %w", err)
+		}
+	}
+	if portNum, ok := os.LookupEnv("TEST_ENV_API_PORT"); ok {
+		e.ports.TestEnvironment, err = strconv.Atoi(portNum)
+		if err != nil {
+			panic(err)
 		}
 	}
 
@@ -619,7 +628,7 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 	agentConfig := &v1beta1.AgentConfig{
 		Spec: v1beta1.AgentConfigSpec{
 			ListenAddress:    fmt.Sprintf("localhost:%d", port),
-			GatewayAddress:   fmt.Sprintf("localhost:%d", e.ports.Gateway),
+			GatewayAddress:   fmt.Sprintf("https://localhost:%d", e.ports.Gateway),
 			IdentityProvider: id,
 			Storage: v1beta1.StorageSpec{
 				Type: v1beta1.StorageTypeEtcd,
@@ -720,10 +729,8 @@ func StartStandaloneTestEnvironment() {
 		TestBin: "testbin/bin",
 		Logger:  lg,
 	}
-	if err := environment.Start(); err != nil {
-		panic(err)
-	}
-	http.Handle("/agents", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+	addAgent := func(rw http.ResponseWriter, r *http.Request) {
+		lg.Infof("%s %s", r.Method, r.URL.Path)
 		switch r.Method {
 		case http.MethodPost:
 			body := struct {
@@ -747,24 +754,20 @@ func StartStandaloneTestEnvironment() {
 				rw.WriteHeader(http.StatusInternalServerError)
 				rw.Write([]byte(err.Error()))
 				return
-			default:
-				rw.WriteHeader(http.StatusOK)
+			case <-time.After(time.Second):
 			}
+			environment.StartPrometheus(port)
+			rw.WriteHeader(http.StatusOK)
 			rw.Write([]byte(fmt.Sprintf("%d", port)))
 		}
-	}))
-	port, err := freeport.GetFreePort()
-	if err != nil {
+	}
+	webui.AddExtraHandler("/opni-test/agents", addAgent)
+	http.HandleFunc("/agents", addAgent)
+	if err := environment.Start(); err != nil {
 		panic(err)
 	}
-	if portNum, ok := os.LookupEnv("TEST_ENV_API_PORT"); ok {
-		port, err = strconv.Atoi(portNum)
-		if err != nil {
-			panic(err)
-		}
-	}
 	go func() {
-		addr := fmt.Sprintf("127.0.0.1:%d", port)
+		addr := fmt.Sprintf("127.0.0.1:%d", environment.ports.TestEnvironment)
 		lg.Infof(chalk.Green.Color("Test environment API listening on %s"), addr)
 		if err := http.ListenAndServe(addr, nil); err != nil {
 			panic(err)

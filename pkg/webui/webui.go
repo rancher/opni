@@ -18,6 +18,22 @@ import (
 	"go.uber.org/zap"
 )
 
+type ExtraHandler struct {
+	Path    string
+	Handler http.HandlerFunc
+}
+
+var (
+	ExtraHandlers = []ExtraHandler{}
+)
+
+func AddExtraHandler(path string, handler http.HandlerFunc) {
+	ExtraHandlers = append(ExtraHandlers, ExtraHandler{
+		Path:    path,
+		Handler: handler,
+	})
+}
+
 type WebUIServer struct {
 	config *v1beta1.GatewayConfig
 	server *http.Server
@@ -123,6 +139,10 @@ func (ws *WebUIServer) ListenAndServe() error {
 		rw.WriteHeader(resp.StatusCode)
 		io.Copy(rw, resp.Body)
 	})
+	for _, h := range ExtraHandlers {
+		lg.With(zap.String("path", h.Path)).Debug("adding extra handler")
+		mux.HandleFunc(h.Path, h.Handler)
+	}
 	mux.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("Content-Type", "text/html")
 		rw.WriteHeader(200)

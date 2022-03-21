@@ -1,5 +1,6 @@
 syntax = "proto3";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "github.com/rancher/opni-monitoring/pkg/plugins/cortex/pkg/apis/cortexadmin";
@@ -16,6 +17,24 @@ service CortexAdmin {
     option (google.api.http) = {
       post: "/write_metrics"
       body: "*"
+    };
+  }
+  rpc Query(QueryRequest) returns (QueryResponse) {
+    option (google.api.http) = {
+      get: "/query"
+      additional_bindings {
+        post: "/query"
+        body: "*"
+      }
+    };
+  }
+  rpc QueryRange(QueryRangeRequest) returns (QueryResponse) {
+    option (google.api.http) = {
+      get: "/query_range"
+      additional_bindings {
+        post: "/query_range"
+        body: "*"
+      }
     };
   }
 }
@@ -52,8 +71,8 @@ message Label {
 }
 
 message Sample {
-  double value = 1;
-  int64 timestampMs = 2;
+  int64 timestampMs = 1;
+  double value = 2;
 }
 
 message Exemplar {
@@ -78,4 +97,21 @@ message MetricMetadata {
   string metricFamilyName = 2;
   string help = 4;
   string unit = 5;
+}
+
+message QueryRequest {
+  repeated string tenants = 1;
+  string query = 2;
+}
+
+message QueryRangeRequest {
+  repeated string tenants = 1;
+  string query = 2;
+  google.protobuf.Timestamp start = 3;
+  google.protobuf.Timestamp end = 4;
+  google.protobuf.Duration step = 5;
+}
+
+message QueryResponse {
+  bytes data = 2;
 }

@@ -25,6 +25,7 @@ func BuildDebugCmd() *cobra.Command {
 	debugCmd.AddCommand(BuildDebugReloadCmd())
 	debugCmd.AddCommand(BuildDebugGetConfigCmd())
 	debugCmd.AddCommand(BuildDebugEtcdctlCmd())
+	ConfigureManagementCommand(debugCmd)
 	return debugCmd
 }
 

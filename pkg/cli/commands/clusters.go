@@ -20,6 +20,7 @@ func BuildClustersCmd() *cobra.Command {
 	clustersCmd.AddCommand(BuildClustersListCmd())
 	clustersCmd.AddCommand(BuildClustersDeleteCmd())
 	clustersCmd.AddCommand(BuildClustersLabelCmd())
+	ConfigureManagementCommand(clustersCmd)
 	return clustersCmd
 }
 

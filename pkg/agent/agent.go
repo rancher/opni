@@ -118,6 +118,9 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		}
 	}
 
+	if conf.Spec.GatewayAddress == "" {
+		return nil, errors.New("gateway address not set")
+	}
 	agent.gatewayClient, err = clients.NewGatewayHTTPClient(
 		conf.Spec.GatewayAddress, ip, kr)
 	if err != nil {
@@ -132,10 +135,12 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 }
 
 func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
+	a.logger.Debugf("%s %s", c.Method(), c.Path())
 	code, body, err := a.gatewayClient.Post(context.Background(), "/api/agent/push").
 		Body(c.Body()).
 		Send()
 	if err != nil {
+		a.logger.Error(err)
 		return err
 	}
 	return c.Status(code).Send(body)

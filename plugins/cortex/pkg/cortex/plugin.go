@@ -2,8 +2,9 @@ package cortex
 
 import (
 	"context"
+	"net/http"
 
-	"github.com/cortexproject/cortex/pkg/ingester/client"
+	ingesterclient "github.com/cortexproject/cortex/pkg/ingester/client"
 	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni-monitoring/pkg/capabilities/wellknown"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
@@ -21,24 +22,26 @@ import (
 
 type Plugin struct {
 	cortexadmin.UnimplementedCortexAdminServer
-	ctx               context.Context
-	config            *util.Future[*v1beta1.GatewayConfig]
-	mgmtApi           *util.Future[management.ManagementClient]
-	storageBackend    *util.Future[storage.Backend]
-	distributorClient *util.Future[client.IngesterClient]
-	logger            hclog.Logger
+	ctx              context.Context
+	config           *util.Future[*v1beta1.GatewayConfig]
+	mgmtApi          *util.Future[management.ManagementClient]
+	storageBackend   *util.Future[storage.Backend]
+	ingesterClient   *util.Future[ingesterclient.IngesterClient]
+	cortexHttpClient *util.Future[http.Client]
+	logger           hclog.Logger
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewForPlugin()
 	lg.SetLevel(hclog.Debug)
 	return &Plugin{
-		ctx:               ctx,
-		config:            util.NewFuture[*v1beta1.GatewayConfig](),
-		mgmtApi:           util.NewFuture[management.ManagementClient](),
-		storageBackend:    util.NewFuture[storage.Backend](),
-		distributorClient: util.NewFuture[client.IngesterClient](),
-		logger:            lg,
+		ctx:              ctx,
+		config:           util.NewFuture[*v1beta1.GatewayConfig](),
+		mgmtApi:          util.NewFuture[management.ManagementClient](),
+		storageBackend:   util.NewFuture[storage.Backend](),
+		ingesterClient:   util.NewFuture[ingesterclient.IngesterClient](),
+		cortexHttpClient: util.NewFuture[http.Client](),
+		logger:           lg,
 	}
 }
 

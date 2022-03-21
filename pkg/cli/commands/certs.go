@@ -14,6 +14,7 @@ func BuildCertsCmd() *cobra.Command {
 		Short: "Manage certificates",
 	}
 	certsCmd.AddCommand(BuildCertsInfoCmd())
+	ConfigureManagementCommand(certsCmd)
 	return certsCmd
 }
 

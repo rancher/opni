@@ -21,6 +21,7 @@ func BuildTokensCmd() *cobra.Command {
 	tokensCmd.AddCommand(BuildTokensCreateCmd())
 	tokensCmd.AddCommand(BuildTokensRevokeCmd())
 	tokensCmd.AddCommand(BuildTokensListCmd())
+	ConfigureManagementCommand(tokensCmd)
 	return tokensCmd
 }
 

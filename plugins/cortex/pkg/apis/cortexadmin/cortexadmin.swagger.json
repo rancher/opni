@@ -32,6 +32,142 @@
         ]
       }
     },
+    "/query": {
+      "get": {
+        "operationId": "CortexAdmin_Query",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tenants",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      },
+      "post": {
+        "operationId": "CortexAdmin_Query2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryRequest"
+            }
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      }
+    },
+    "/query_range": {
+      "get": {
+        "operationId": "CortexAdmin_QueryRange",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tenants",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "date-time"
+          },
+          {
+            "name": "step",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      },
+      "post": {
+        "operationId": "CortexAdmin_QueryRange2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryRangeRequest"
+            }
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      }
+    },
     "/write_metrics": {
       "post": {
         "operationId": "CortexAdmin_WriteMetrics",
@@ -121,16 +257,64 @@
         }
       }
     },
+    "cortexadminQueryRangeRequest": {
+      "type": "object",
+      "properties": {
+        "tenants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "query": {
+          "type": "string"
+        },
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "step": {
+          "type": "string"
+        }
+      }
+    },
+    "cortexadminQueryRequest": {
+      "type": "object",
+      "properties": {
+        "tenants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "query": {
+          "type": "string"
+        }
+      }
+    },
+    "cortexadminQueryResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
     "cortexadminSample": {
       "type": "object",
       "properties": {
-        "value": {
-          "type": "number",
-          "format": "double"
-        },
         "timestampMs": {
           "type": "string",
           "format": "int64"
+        },
+        "value": {
+          "type": "number",
+          "format": "double"
         }
       }
     },

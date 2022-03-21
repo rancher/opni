@@ -25,6 +25,8 @@ const _ = grpc.SupportPackageIsVersion7
 type CortexAdminClient interface {
 	AllUserStats(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UserIDStatsList, error)
 	WriteMetrics(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*WriteResponse, error)
+	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
+	QueryRange(ctx context.Context, in *QueryRangeRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 }
 
 type cortexAdminClient struct {
@@ -53,12 +55,32 @@ func (c *cortexAdminClient) WriteMetrics(ctx context.Context, in *WriteRequest, 
 	return out, nil
 }
 
+func (c *cortexAdminClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
+	out := new(QueryResponse)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/Query", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexAdminClient) QueryRange(ctx context.Context, in *QueryRangeRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
+	out := new(QueryResponse)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/QueryRange", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CortexAdminServer is the server API for CortexAdmin service.
 // All implementations must embed UnimplementedCortexAdminServer
 // for forward compatibility
 type CortexAdminServer interface {
 	AllUserStats(context.Context, *emptypb.Empty) (*UserIDStatsList, error)
 	WriteMetrics(context.Context, *WriteRequest) (*WriteResponse, error)
+	Query(context.Context, *QueryRequest) (*QueryResponse, error)
+	QueryRange(context.Context, *QueryRangeRequest) (*QueryResponse, error)
 	mustEmbedUnimplementedCortexAdminServer()
 }
 
@@ -71,6 +93,12 @@ func (UnimplementedCortexAdminServer) AllUserStats(context.Context, *emptypb.Emp
 }
 func (UnimplementedCortexAdminServer) WriteMetrics(context.Context, *WriteRequest) (*WriteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WriteMetrics not implemented")
+}
+func (UnimplementedCortexAdminServer) Query(context.Context, *QueryRequest) (*QueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")
+}
+func (UnimplementedCortexAdminServer) QueryRange(context.Context, *QueryRangeRequest) (*QueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method QueryRange not implemented")
 }
 func (UnimplementedCortexAdminServer) mustEmbedUnimplementedCortexAdminServer() {}
 
@@ -121,6 +149,42 @@ func _CortexAdmin_WriteMetrics_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CortexAdmin_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).Query(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexadmin.CortexAdmin/Query",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).Query(ctx, req.(*QueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexAdmin_QueryRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryRangeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).QueryRange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexadmin.CortexAdmin/QueryRange",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).QueryRange(ctx, req.(*QueryRangeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CortexAdmin_ServiceDesc is the grpc.ServiceDesc for CortexAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -135,6 +199,14 @@ var CortexAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "WriteMetrics",
 			Handler:    _CortexAdmin_WriteMetrics_Handler,
+		},
+		{
+			MethodName: "Query",
+			Handler:    _CortexAdmin_Query_Handler,
+		},
+		{
+			MethodName: "QueryRange",
+			Handler:    _CortexAdmin_QueryRange_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

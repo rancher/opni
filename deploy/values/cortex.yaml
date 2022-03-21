@@ -36,6 +36,7 @@ config:
   querier:
     store_gateway_client: *tls_client_config
   frontend:
+    query_stats_enabled: true
     grpc_client_config: *tls_client_config
   frontend_worker:
     grpc_client_config: *tls_client_config
@@ -80,6 +81,7 @@ alertmanager:
   env: &env_vars
     # - name: JAEGER_AGENT_HOST
     #   value: simplest-agent.observability.svc
+
 
   startupProbe: &mtls_probe
     initialDelaySeconds: 5

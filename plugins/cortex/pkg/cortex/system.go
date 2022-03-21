@@ -39,7 +39,7 @@ func (p *Plugin) UseManagementAPI(client management.ManagementClient) {
 		}
 		p.storageBackend.Set(backend)
 		p.config.Set(config)
-		p.configureDistributorClient(p.loadCortexCerts())
+		p.configureAdminClients(p.loadCortexCerts())
 	})
 	<-p.ctx.Done()
 }

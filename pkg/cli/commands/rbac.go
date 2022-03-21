@@ -21,6 +21,7 @@ func BuildRolesCmd() *cobra.Command {
 	rolesCmd.AddCommand(BuildRolesDeleteCmd())
 	rolesCmd.AddCommand(BuildRolesShowCmd())
 	rolesCmd.AddCommand(BuildRolesListCmd())
+	ConfigureManagementCommand(rolesCmd)
 	return rolesCmd
 }
 
@@ -34,6 +35,7 @@ func BuildRoleBindingsCmd() *cobra.Command {
 	roleBindingsCmd.AddCommand(BuildRoleBindingsDeleteCmd())
 	roleBindingsCmd.AddCommand(BuildRoleBindingsShowCmd())
 	roleBindingsCmd.AddCommand(BuildRoleBindingsListCmd())
+	ConfigureManagementCommand(roleBindingsCmd)
 	return roleBindingsCmd
 }
 
@@ -204,7 +206,7 @@ func BuildRoleBindingsListCmd() *cobra.Command {
 }
 
 func BuildAccessMatrixCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "access-matrix",
 		Short: "Print an access matrix showing all users and their allowed clusters",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -256,4 +258,6 @@ func BuildAccessMatrixCmd() *cobra.Command {
 			}))
 		},
 	}
+	ConfigureManagementCommand(cmd)
+	return cmd
 }

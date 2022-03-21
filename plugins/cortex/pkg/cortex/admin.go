@@ -1,10 +1,17 @@
 package cortex
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/ingester/client"
@@ -23,7 +30,7 @@ func (f fakeClusterIDGetter) GetClusterID() string {
 }
 
 func (p *Plugin) AllUserStats(ctx context.Context, _ *emptypb.Empty) (*cortexadmin.UserIDStatsList, error) {
-	resp, err := p.distributorClient.Get().AllUserStats(
+	resp, err := p.ingesterClient.Get().AllUserStats(
 		outgoingContext(ctx, fakeClusterIDGetter{}), &client.UserStatsRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user stats: %v", err)
@@ -87,7 +94,7 @@ func (p *Plugin) WriteMetrics(ctx context.Context, in *cortexadmin.WriteRequest)
 		Source:     cortexpb.API,
 		Metadata:   lo.Map(in.Metadata, mapMetadata),
 	}
-	_, err := p.distributorClient.Get().Push(outgoingContext(ctx, in), cortexReq)
+	_, err := p.ingesterClient.Get().Push(outgoingContext(ctx, in), cortexReq)
 	if err != nil {
 		p.logger.With(
 			"err", err,
@@ -107,7 +114,7 @@ func outgoingContext(ctx context.Context, in clusterIDGetter) context.Context {
 	))
 }
 
-func (p *Plugin) configureDistributorClient(tlsConfig *tls.Config) {
+func (p *Plugin) configureAdminClients(tlsConfig *tls.Config) {
 	cfg := p.config.Get()
 	cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Ingester.GRPCAddress,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
@@ -118,5 +125,109 @@ func (p *Plugin) configureDistributorClient(tlsConfig *tls.Config) {
 		).Error("Failed to dial distributor")
 		os.Exit(1)
 	}
-	p.distributorClient.Set(client.NewIngesterClient(cc))
+	p.ingesterClient.Set(client.NewIngesterClient(cc))
+	httpClient := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+	p.cortexHttpClient.Set(httpClient)
+}
+
+func (p *Plugin) Query(
+	ctx context.Context,
+	in *cortexadmin.QueryRequest,
+) (*cortexadmin.QueryResponse, error) {
+	lg := p.logger.With(
+		"query", in.Query,
+	)
+	lg.Debug("handling query")
+	client := p.cortexHttpClient.Get()
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		fmt.Sprintf("https://%s/prometheus/api/v1/query", p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress), nil)
+	if err != nil {
+		return nil, err
+	}
+	values := url.Values{}
+	values.Add("query", in.Query)
+	req.Body = io.NopCloser(strings.NewReader(values.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(in.Tenants))
+	resp, err := client.Do(req)
+	if err != nil {
+		lg.With(
+			"error", err,
+		).Error("query failed")
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		lg.With(
+			"status", resp.Status,
+		).Error("query failed")
+		return nil, fmt.Errorf("query failed: %s", resp.Status)
+	}
+	defer resp.Body.Close()
+	responseBuf := new(bytes.Buffer)
+	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
+		lg.With(
+			"error", err,
+		).Error("failed to read response body")
+		return nil, err
+	}
+	return &cortexadmin.QueryResponse{
+		Data: responseBuf.Bytes(),
+	}, nil
+}
+
+func (p *Plugin) QueryRange(
+	ctx context.Context,
+	in *cortexadmin.QueryRangeRequest,
+) (*cortexadmin.QueryResponse, error) {
+	lg := p.logger.With(
+		"query", in.Query,
+	)
+	client := p.cortexHttpClient.Get()
+	values := url.Values{}
+	values.Add("query", in.Query)
+	values.Add("start", formatTime(in.Start.AsTime()))
+	values.Add("end", formatTime(in.End.AsTime()))
+	values.Add("step", in.Step.AsDuration().String())
+
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		fmt.Sprintf("https://%s/prometheus/api/v1/query_range", p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress),
+		strings.NewReader(values.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(in.Tenants))
+
+	lg.Debug(req.URL.RawQuery)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		lg.With(
+			"status", resp.Status,
+		).Error("query failed")
+		return nil, fmt.Errorf("query failed: %s", resp.Status)
+	}
+	defer resp.Body.Close()
+	responseBuf := new(bytes.Buffer)
+	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
+		lg.With(
+			"error", err,
+		).Error("failed to read response body")
+		return nil, err
+	}
+	return &cortexadmin.QueryResponse{
+		Data: responseBuf.Bytes(),
+	}, nil
+}
+
+func formatTime(t time.Time) string {
+	return strconv.FormatFloat(float64(t.Unix())+float64(t.Nanosecond())/1e9, 'f', -1, 64)
 }

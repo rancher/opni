@@ -12,10 +12,17 @@ func BuildRootCmd() *cobra.Command {
 		Use:  "opnim",
 		Long: logger.AsciiLogo(),
 	}
-	rootCmd.AddCommand(commands.BuildBootstrapCmd())
-	rootCmd.AddCommand(commands.BuildGatewayCmd())
+	rootCmd.AddCommand(commands.BuildAccessMatrixCmd())
+	rootCmd.AddCommand(commands.BuildAdminCmd())
 	rootCmd.AddCommand(commands.BuildAgentCmd())
-	rootCmd.AddCommand(commands.BuildManageCmd())
+	rootCmd.AddCommand(commands.BuildBootstrapCmd())
+	rootCmd.AddCommand(commands.BuildCertsCmd())
+	rootCmd.AddCommand(commands.BuildClustersCmd())
+	rootCmd.AddCommand(commands.BuildDebugCmd())
+	rootCmd.AddCommand(commands.BuildGatewayCmd())
+	rootCmd.AddCommand(commands.BuildRoleBindingsCmd())
+	rootCmd.AddCommand(commands.BuildRolesCmd())
+	rootCmd.AddCommand(commands.BuildTokensCmd())
 	rootCmd.AddCommand(commands.BuildVersionCmd())
 	return rootCmd
 }

@@ -69,6 +69,7 @@ func BuildGatewayCmd() *cobra.Command {
 		)
 
 		m := management.NewServer(ctx, &gatewayConfig.Spec.Management, g,
+			management.WithCapabilitiesDataSource(g),
 			management.WithSystemPlugins(systemPlugins),
 			management.WithAPIExtensions(mgmtExtensionPlugins),
 			management.WithLifecycler(lifecycler),

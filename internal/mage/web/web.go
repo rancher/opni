@@ -30,6 +30,20 @@ const (
 	uiBuildImage = "kralicky/opni-monitoring-ui-build"
 )
 
+var (
+	uiRepo       = "rancher/opni-ui"
+	uiRepoBranch = "monitoring"
+)
+
+func init() {
+	if repo, ok := os.LookupEnv("OPNI_UI_REPO"); ok {
+		uiRepo = repo
+	}
+	if branch, ok := os.LookupEnv("OPNI_UI_BRANCH"); ok {
+		uiRepoBranch = branch
+	}
+}
+
 func Dist() error {
 	version, err := getOpniUiVersion()
 	if err != nil {
@@ -101,7 +115,7 @@ func numFilesRecursive(dir string) int64 {
 
 func getOpniUiVersion() (string, error) {
 	fmt.Print(chalk.Blue.Color("=>") + " Fetching latest UI Version... ")
-	url := "https://api.github.com/repos/rancher/opni-ui/git/refs/heads/monitoring"
+	url := fmt.Sprintf("https://api.github.com/repos/%s/git/refs/heads/%s", uiRepo, uiRepoBranch)
 	response, err := http.Get(url)
 	if err != nil {
 		fmt.Println(chalk.Red.Color("error"))
@@ -168,7 +182,12 @@ func buildOrPullUiImage(version string) error {
 		fmt.Println(chalk.Blue.Color("=>") + " Building UI image...")
 		err := sh.RunWith(map[string]string{
 			"DOCKER_BUILDKIT": "1",
-		}, "docker", "build", "-t", taggedImage, "-f", "Dockerfile.ui", ".")
+		}, "docker", "build",
+			"-t", taggedImage,
+			"-f", "Dockerfile.ui",
+			"--build-arg", "REPO="+uiRepo,
+			"--build-arg", "BRANCH="+uiRepoBranch,
+			".")
 		if err != nil {
 			return err
 		}

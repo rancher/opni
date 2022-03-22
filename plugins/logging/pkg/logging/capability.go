@@ -108,6 +108,10 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 	return nil
 }
 
+func (p *Plugin) InstallerTemplate() string {
+	return "dan fill this in"
+}
+
 func generateRandomString(n int) (string, error) {
 	const letters = "0123456789BCDFGHJKLMNPQRSTVWXZbcdfghjklmnpqrstvwxz"
 	ret := make([]byte, n)

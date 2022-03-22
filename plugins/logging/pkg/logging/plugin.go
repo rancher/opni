@@ -6,8 +6,13 @@ import (
 	"os"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/rancher/opni-monitoring/pkg/capabilities/wellknown"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	gatewayext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/gateway"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/capability"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
+	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
@@ -84,4 +89,24 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		storageBackend: util.NewFuture[storage.Backend](),
 		mgmtApi:        util.NewFuture[management.ManagementClient](),
 	}
+}
+
+func Scheme(ctx context.Context) meta.Scheme {
+	scheme := meta.NewScheme()
+
+	opniCluster := &opniv1beta2.OpensearchClusterRef{
+		Name:      "opni",
+		Namespace: "opni-cluster-system",
+	}
+
+	p := NewPlugin(
+		ctx,
+		WithNamespace("opni-cluster-system"),
+		WithOpensearchCluster(opniCluster),
+	)
+
+	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
+	scheme.Add(gatewayext.GatewayAPIExtensionPluginID, gatewayext.NewPlugin(p))
+	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(wellknown.CapabilityLogs, p))
+	return scheme
 }

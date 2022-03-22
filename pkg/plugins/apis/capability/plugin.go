@@ -15,6 +15,10 @@ type Backend interface {
 	CanInstall() error
 	// Any error returned from this method is fatal.
 	Install(cluster *core.Reference) error
+	// Returns a go template string which will generate a shell command used to
+	// install the capability. This will be displayed to the user in the UI.
+	// See InstallerTemplateSpec above for the available template fields.
+	InstallerTemplate() string
 }
 
 const CapabilityBackendPluginID = "backends.Capability"
@@ -80,6 +84,15 @@ func (b *backendServerImpl) Install(
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (b *backendServerImpl) InstallerTemplate(
+	ctx context.Context,
+	in *emptypb.Empty,
+) (*InstallerTemplateResponse, error) {
+	return &InstallerTemplateResponse{
+		Template: b.impl.InstallerTemplate(),
+	}, nil
 }
 
 func NewPlugin(capabilityName string, backend Backend) plugin.Plugin {

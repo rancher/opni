@@ -8,10 +8,13 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/kralicky/grpc-gateway/v2/runtime"
+	"github.com/rancher/opni-monitoring/pkg/capabilities"
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
@@ -48,6 +51,12 @@ type CoreDataSource interface {
 	TLSConfig() *tls.Config
 }
 
+// CapabilitiesDataSource provides a way to obtain data which the management
+// server needs to serve capabilities-related endpoints
+type CapabilitiesDataSource interface {
+	CapabilitiesStore() capabilities.BackendStore
+}
+
 type apiExtension struct {
 	client      apiextensions.ManagementAPIExtensionClient
 	clientConn  *grpc.ClientConn
@@ -72,9 +81,10 @@ var _ ManagementServer = (*Server)(nil)
 type APIExtensionPlugin = plugins.TypedActivePlugin[apiextensions.ManagementAPIExtensionClient]
 
 type ManagementServerOptions struct {
-	lifecycler    config.Lifecycler
-	apiExtPlugins []APIExtensionPlugin
-	systemPlugins []plugins.ActivePlugin
+	lifecycler             config.Lifecycler
+	apiExtPlugins          []APIExtensionPlugin
+	systemPlugins          []plugins.ActivePlugin
+	capabilitiesDataSource CapabilitiesDataSource
 }
 
 type ManagementServerOption func(*ManagementServerOptions)
@@ -100,6 +110,12 @@ func WithSystemPlugins(plugins []plugins.ActivePlugin) ManagementServerOption {
 func WithLifecycler(lc config.Lifecycler) ManagementServerOption {
 	return func(o *ManagementServerOptions) {
 		o.lifecycler = lc
+	}
+}
+
+func WithCapabilitiesDataSource(src CapabilitiesDataSource) ManagementServerOption {
+	return func(o *ManagementServerOptions) {
+		o.capabilitiesDataSource = src
 	}
 }
 
@@ -227,4 +243,49 @@ func (m *Server) CertsInfo(ctx context.Context, _ *emptypb.Empty) (*CertsInfoRes
 		}
 	}
 	return resp, nil
+}
+
+func (m *Server) ListCapabilities(ctx context.Context, _ *emptypb.Empty) (*CapabilityList, error) {
+	if m.capabilitiesDataSource == nil {
+		return nil, status.Error(codes.Unavailable, "capability backend store not configured")
+	}
+
+	return &CapabilityList{
+		Items: m.capabilitiesDataSource.CapabilitiesStore().List(),
+	}, nil
+}
+
+func (m *Server) CapabilityInstaller(
+	ctx context.Context,
+	req *CapabilityInstallerRequest,
+) (*CapabilityInstallerResponse, error) {
+	if m.capabilitiesDataSource == nil {
+		return nil, status.Error(codes.Unavailable, "capability backend store not configured")
+	}
+	addr := req.Address
+	if !strings.HasPrefix(req.Address, "http://") && !strings.HasPrefix(req.Address, "https://") {
+		addr = "https://" + addr
+	}
+	u, err := url.Parse(addr)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	u.Scheme = "https"
+	if u.Port() == "" {
+		u.Host += ":8080"
+	}
+
+	cmd, err := m.capabilitiesDataSource.
+		CapabilitiesStore().
+		RenderInstaller(req.Name, capabilities.InstallerTemplateSpec{
+			Token:   req.Token,
+			Pin:     req.Pin,
+			Address: u.String(),
+		})
+	if err != nil {
+		return nil, err
+	}
+	return &CapabilityInstallerResponse{
+		Command: cmd,
+	}, nil
 }

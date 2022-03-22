@@ -8,19 +8,28 @@ import (
 	"go.uber.org/zap"
 )
 
-type BackendStore struct {
+type BackendStore interface {
+	Get(name string) (capability.Backend, error)
+	Add(name string, backend capability.Backend) error
+	List() []string
+	RenderInstaller(name string, spec InstallerTemplateSpec) (string, error)
+	CanInstall(capabilities ...string) error
+	InstallCapabilities(cluster *core.Reference, capabilities ...string)
+}
+
+type backendStore struct {
 	backends map[string]capability.Backend
 	logger   *zap.SugaredLogger
 }
 
-func NewBackendStore(logger *zap.SugaredLogger) *BackendStore {
-	return &BackendStore{
+func NewBackendStore(logger *zap.SugaredLogger) BackendStore {
+	return &backendStore{
 		backends: make(map[string]capability.Backend),
 		logger:   logger,
 	}
 }
 
-func (s *BackendStore) Get(name string) (capability.Backend, error) {
+func (s *backendStore) Get(name string) (capability.Backend, error) {
 	if backend, ok := s.backends[name]; !ok {
 		return nil, fmt.Errorf("backend %q does not exist", name)
 	} else {
@@ -28,7 +37,7 @@ func (s *BackendStore) Get(name string) (capability.Backend, error) {
 	}
 }
 
-func (s *BackendStore) Add(name string, backend capability.Backend) error {
+func (s *backendStore) Add(name string, backend capability.Backend) error {
 	if _, ok := s.backends[name]; ok {
 		return fmt.Errorf("backend for capability %q already exists", name)
 	}
@@ -36,7 +45,23 @@ func (s *BackendStore) Add(name string, backend capability.Backend) error {
 	return nil
 }
 
-func (s *BackendStore) CanInstall(capabilities ...string) error {
+func (s *backendStore) List() []string {
+	var capabilities []string
+	for capability := range s.backends {
+		capabilities = append(capabilities, capability)
+	}
+	return capabilities
+}
+
+func (s *backendStore) RenderInstaller(name string, spec InstallerTemplateSpec) (string, error) {
+	backend, err := s.Get(name)
+	if err != nil {
+		return "", err
+	}
+	return RenderInstallerCommand(backend.InstallerTemplate(), spec)
+}
+
+func (s *backendStore) CanInstall(capabilities ...string) error {
 	for _, capability := range capabilities {
 		if b, ok := s.backends[capability]; !ok {
 			return fmt.Errorf("backend for capability %q does not exist", capability)
@@ -49,7 +74,7 @@ func (s *BackendStore) CanInstall(capabilities ...string) error {
 	return nil
 }
 
-func (s *BackendStore) InstallCapabilities(
+func (s *backendStore) InstallCapabilities(
 	cluster *core.Reference,
 	capabilities ...string,
 ) {

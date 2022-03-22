@@ -61,3 +61,17 @@ func (mr *MockBackendMockRecorder) Install(cluster interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Install", reflect.TypeOf((*MockBackend)(nil).Install), cluster)
 }
+
+// InstallerTemplate mocks base method.
+func (m *MockBackend) InstallerTemplate() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InstallerTemplate")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// InstallerTemplate indicates an expected call of InstallerTemplate.
+func (mr *MockBackendMockRecorder) InstallerTemplate() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstallerTemplate", reflect.TypeOf((*MockBackend)(nil).InstallerTemplate))
+}

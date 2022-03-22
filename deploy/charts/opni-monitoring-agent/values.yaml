@@ -54,3 +54,13 @@ affinity: {}
 prometheusAgent:
   enabled: true
   rbac: true
+
+# If the following values are set, the agent-config secret will be created.
+# Otherwise, it can be manually created using `opnim bootstrap`
+
+# Bootstrap token
+token: ""
+# Gateway public key pin
+pin: ""
+# Gateway address
+address: ""

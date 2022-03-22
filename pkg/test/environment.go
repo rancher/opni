@@ -545,6 +545,7 @@ func (e *Environment) startGateway() {
 		),
 	)
 	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g,
+		management.WithCapabilitiesDataSource(g),
 		management.WithSystemPlugins(systemPlugins),
 		management.WithLifecycler(lifecycler),
 		management.WithAPIExtensions(mgmtExtensionPlugins),

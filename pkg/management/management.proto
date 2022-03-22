@@ -137,6 +137,17 @@ service Management {
       body: "*"
     };
   }
+  rpc ListCapabilities(google.protobuf.Empty) returns (CapabilityList) {
+    option (google.api.http) = {
+      get: "/management/capabilities"
+    };
+  }
+  rpc CapabilityInstaller(CapabilityInstallerRequest) returns (CapabilityInstallerResponse) {
+    option (google.api.http) = {
+      post: "/management/capabilities/{name}/installer"
+      body: "*"
+    };
+  }
 }
 
 message CreateBootstrapTokenRequest {
@@ -202,4 +213,19 @@ message ConfigDocument {
 
 message UpdateConfigRequest {
   repeated ConfigDocument documents = 1;
+}
+
+message CapabilityList {
+  repeated string items = 1;
+}
+
+message CapabilityInstallerRequest {
+  string name = 1;
+  string token = 2;
+  string pin = 3;
+  string address = 4;
+}
+
+message CapabilityInstallerResponse {
+  string command = 1;
 }

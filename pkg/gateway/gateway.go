@@ -35,7 +35,7 @@ type Gateway struct {
 	apiServer *GatewayAPIServer
 
 	storageBackend  storage.Backend
-	capBackendStore *capabilities.BackendStore
+	capBackendStore capabilities.BackendStore
 }
 
 type GatewayOptions struct {
@@ -118,12 +118,13 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 	apiServer.ConfigureBootstrapRoutes(storageBackend, capBackendStore)
 
 	g := &Gateway{
-		GatewayOptions: options,
-		ctx:            ctx,
-		config:         conf,
-		logger:         lg,
-		storageBackend: storageBackend,
-		apiServer:      apiServer,
+		GatewayOptions:  options,
+		ctx:             ctx,
+		config:          conf,
+		logger:          lg,
+		storageBackend:  storageBackend,
+		capBackendStore: capBackendStore,
+		apiServer:       apiServer,
 	}
 
 	waitctx.Go(ctx, func() {
@@ -203,4 +204,9 @@ func (g *Gateway) StorageBackend() storage.Backend {
 // Implements management.CoreDataSource
 func (g *Gateway) TLSConfig() *tls.Config {
 	return g.apiServer.tlsConfig
+}
+
+// Implements management.CapabilitiesDataSource
+func (g *Gateway) CapabilitiesStore() capabilities.BackendStore {
+	return g.capBackendStore
 }

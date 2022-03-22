@@ -36,6 +36,65 @@
         ]
       }
     },
+    "/management/capabilities": {
+      "get": {
+        "operationId": "Management_ListCapabilities",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/managementCapabilityList"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/capabilities/{name}/installer": {
+      "post": {
+        "operationId": "Management_CapabilityInstaller",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/managementCapabilityInstallerResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "token": {
+                  "type": "string"
+                },
+                "pin": {
+                  "type": "string"
+                },
+                "address": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
     "/management/certs": {
       "get": {
         "operationId": "Management_CertsInfo",
@@ -863,6 +922,25 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/managementAPIExtensionInfo"
+          }
+        }
+      }
+    },
+    "managementCapabilityInstallerResponse": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string"
+        }
+      }
+    },
+    "managementCapabilityList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         }
       }

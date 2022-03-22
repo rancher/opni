@@ -46,6 +46,8 @@ type ManagementClient interface {
 	APIExtensions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*APIExtensionInfoList, error)
 	GetConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GatewayConfig, error)
 	UpdateConfig(ctx context.Context, in *UpdateConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListCapabilities(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityList, error)
+	CapabilityInstaller(ctx context.Context, in *CapabilityInstallerRequest, opts ...grpc.CallOption) (*CapabilityInstallerResponse, error)
 }
 
 type managementClient struct {
@@ -277,6 +279,24 @@ func (c *managementClient) UpdateConfig(ctx context.Context, in *UpdateConfigReq
 	return out, nil
 }
 
+func (c *managementClient) ListCapabilities(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityList, error) {
+	out := new(CapabilityList)
+	err := c.cc.Invoke(ctx, "/management.Management/ListCapabilities", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) CapabilityInstaller(ctx context.Context, in *CapabilityInstallerRequest, opts ...grpc.CallOption) (*CapabilityInstallerResponse, error) {
+	out := new(CapabilityInstallerResponse)
+	err := c.cc.Invoke(ctx, "/management.Management/CapabilityInstaller", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ManagementServer is the server API for Management service.
 // All implementations must embed UnimplementedManagementServer
 // for forward compatibility
@@ -303,6 +323,8 @@ type ManagementServer interface {
 	APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionInfoList, error)
 	GetConfig(context.Context, *emptypb.Empty) (*GatewayConfig, error)
 	UpdateConfig(context.Context, *UpdateConfigRequest) (*emptypb.Empty, error)
+	ListCapabilities(context.Context, *emptypb.Empty) (*CapabilityList, error)
+	CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error)
 	mustEmbedUnimplementedManagementServer()
 }
 
@@ -375,6 +397,12 @@ func (UnimplementedManagementServer) GetConfig(context.Context, *emptypb.Empty) 
 }
 func (UnimplementedManagementServer) UpdateConfig(context.Context, *UpdateConfigRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateConfig not implemented")
+}
+func (UnimplementedManagementServer) ListCapabilities(context.Context, *emptypb.Empty) (*CapabilityList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCapabilities not implemented")
+}
+func (UnimplementedManagementServer) CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CapabilityInstaller not implemented")
 }
 func (UnimplementedManagementServer) mustEmbedUnimplementedManagementServer() {}
 
@@ -788,6 +816,42 @@ func _Management_UpdateConfig_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Management_ListCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).ListCapabilities(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/ListCapabilities",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).ListCapabilities(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_CapabilityInstaller_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CapabilityInstallerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).CapabilityInstaller(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/CapabilityInstaller",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).CapabilityInstaller(ctx, req.(*CapabilityInstallerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Management_ServiceDesc is the grpc.ServiceDesc for Management service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -878,6 +942,14 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateConfig",
 			Handler:    _Management_UpdateConfig_Handler,
+		},
+		{
+			MethodName: "ListCapabilities",
+			Handler:    _Management_ListCapabilities_Handler,
+		},
+		{
+			MethodName: "CapabilityInstaller",
+			Handler:    _Management_CapabilityInstaller_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

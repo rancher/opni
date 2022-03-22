@@ -49,6 +49,14 @@ func (cb *capabilityBackend) Uninstall() error {
 	return err
 }
 
+func (cb *capabilityBackend) InstallerTemplate() string {
+	resp, err := cb.client.InstallerTemplate(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		return "(error)"
+	}
+	return resp.Template
+}
+
 func NewBackend(client capability.BackendClient) capability.Backend {
 	return &capabilityBackend{
 		client: client,

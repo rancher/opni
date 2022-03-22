@@ -92,7 +92,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 				return int(token.Metadata.UsageCount)
-			}).Should((Equal(11)))
+			}, 10*time.Second, 500*time.Millisecond).Should(Equal(11))
 		})
 	})
 

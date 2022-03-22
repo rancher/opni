@@ -27,6 +27,7 @@ type BackendClient interface {
 	CanInstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Uninstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	InstallerTemplate(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallerTemplateResponse, error)
 }
 
 type backendClient struct {
@@ -73,6 +74,15 @@ func (c *backendClient) Uninstall(ctx context.Context, in *emptypb.Empty, opts .
 	return out, nil
 }
 
+func (c *backendClient) InstallerTemplate(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallerTemplateResponse, error) {
+	out := new(InstallerTemplateResponse)
+	err := c.cc.Invoke(ctx, "/capability.Backend/InstallerTemplate", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BackendServer is the server API for Backend service.
 // All implementations must embed UnimplementedBackendServer
 // for forward compatibility
@@ -81,6 +91,7 @@ type BackendServer interface {
 	CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	Install(context.Context, *InstallRequest) (*emptypb.Empty, error)
 	Uninstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	InstallerTemplate(context.Context, *emptypb.Empty) (*InstallerTemplateResponse, error)
 	mustEmbedUnimplementedBackendServer()
 }
 
@@ -99,6 +110,9 @@ func (UnimplementedBackendServer) Install(context.Context, *InstallRequest) (*em
 }
 func (UnimplementedBackendServer) Uninstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Uninstall not implemented")
+}
+func (UnimplementedBackendServer) InstallerTemplate(context.Context, *emptypb.Empty) (*InstallerTemplateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InstallerTemplate not implemented")
 }
 func (UnimplementedBackendServer) mustEmbedUnimplementedBackendServer() {}
 
@@ -185,6 +199,24 @@ func _Backend_Uninstall_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Backend_InstallerTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BackendServer).InstallerTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/capability.Backend/InstallerTemplate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BackendServer).InstallerTemplate(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Backend_ServiceDesc is the grpc.ServiceDesc for Backend service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -207,6 +239,10 @@ var Backend_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Uninstall",
 			Handler:    _Backend_Uninstall_Handler,
+		},
+		{
+			MethodName: "InstallerTemplate",
+			Handler:    _Backend_InstallerTemplate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

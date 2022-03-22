@@ -22,26 +22,26 @@ import (
 
 type Plugin struct {
 	cortexadmin.UnimplementedCortexAdminServer
-	ctx              context.Context
-	config           *util.Future[*v1beta1.GatewayConfig]
-	mgmtApi          *util.Future[management.ManagementClient]
-	storageBackend   *util.Future[storage.Backend]
-	ingesterClient   *util.Future[ingesterclient.IngesterClient]
-	cortexHttpClient *util.Future[http.Client]
-	logger           hclog.Logger
+	ctx               context.Context
+	config            *util.Future[*v1beta1.GatewayConfig]
+	mgmtApi           *util.Future[management.ManagementClient]
+	storageBackend    *util.Future[storage.Backend]
+	distributorClient *util.Future[ingesterclient.IngesterClient]
+	cortexHttpClient  *util.Future[http.Client]
+	logger            hclog.Logger
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewForPlugin()
 	lg.SetLevel(hclog.Debug)
 	return &Plugin{
-		ctx:              ctx,
-		config:           util.NewFuture[*v1beta1.GatewayConfig](),
-		mgmtApi:          util.NewFuture[management.ManagementClient](),
-		storageBackend:   util.NewFuture[storage.Backend](),
-		ingesterClient:   util.NewFuture[ingesterclient.IngesterClient](),
-		cortexHttpClient: util.NewFuture[http.Client](),
-		logger:           lg,
+		ctx:               ctx,
+		config:            util.NewFuture[*v1beta1.GatewayConfig](),
+		mgmtApi:           util.NewFuture[management.ManagementClient](),
+		storageBackend:    util.NewFuture[storage.Backend](),
+		distributorClient: util.NewFuture[ingesterclient.IngesterClient](),
+		cortexHttpClient:  util.NewFuture[http.Client](),
+		logger:            lg,
 	}
 }
 

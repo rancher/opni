@@ -10,6 +10,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
+	"github.com/rancher/opni-monitoring/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/ttacon/chalk"
 )
 
@@ -70,16 +71,33 @@ func RenderCertInfoChain(chain []*core.CertInfo) string {
 	return buf.String()
 }
 
-func RenderClusterList(list *core.ClusterList) string {
+func RenderClusterList(list *core.ClusterList, stats *cortexadmin.UserIDStatsList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	w.AppendHeader(table.Row{"ID", "LABELS"})
+	if stats == nil {
+		w.AppendHeader(table.Row{"ID", "LABELS"})
+	} else {
+		w.AppendHeader(table.Row{"ID", "LABELS", "NUM SERIES", "SAMPLE RATE", "RULE RATE"})
+	}
 	for _, t := range list.Items {
 		labels := []string{}
 		for k, v := range t.GetMetadata().GetLabels() {
 			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 		}
-		w.AppendRow(table.Row{t.GetId(), strings.Join(labels, ",")})
+		row := table.Row{t.GetId(), strings.Join(labels, ",")}
+		if stats != nil {
+			for _, s := range stats.Items {
+				if string(s.UserID) == t.GetId() {
+					row = append(row,
+						fmt.Sprint(s.NumSeries),
+						fmt.Sprintf("%.1f/s", s.APIIngestionRate),
+						fmt.Sprintf("%.1f/s", s.RuleIngestionRate),
+					)
+					break
+				}
+			}
+		}
+		w.AppendRow(row)
 	}
 	return w.Render()
 }

@@ -11,13 +11,13 @@ import (
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/grpc-gateway/v2/runtime"
-	"github.com/mwitkow/grpc-proxy/proxy"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -35,13 +35,20 @@ func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionIn
 	return resp, nil
 }
 
-func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.StreamDirector {
+type UnknownStreamMetadata struct {
+	Conn       *grpc.ClientConn
+	InputType  *desc.MessageDescriptor
+	OutputType *desc.MessageDescriptor
+}
+
+type StreamDirector func(ctx context.Context, fullMethodName string) (context.Context, *UnknownStreamMetadata, error)
+
+func (m *Server) configureApiExtensionDirector(ctx context.Context) StreamDirector {
 	lg := m.logger
 	lg.Infof("loading api extensions from %d plugins", len(m.apiExtPlugins))
-	methodTable := map[string]*grpc.ClientConn{}
+	methodTable := map[string]*UnknownStreamMetadata{}
 	for _, plugin := range m.apiExtPlugins {
-		reflectClient := grpcreflect.NewClient(ctx,
-			rpb.NewServerReflectionClient(plugin.Client))
+		reflectClient := grpcreflect.NewClient(ctx, rpb.NewServerReflectionClient(plugin.Client))
 		sd, err := plugin.Typed.Descriptor(ctx, &emptypb.Empty{})
 		if err != nil {
 			m.logger.With(
@@ -63,17 +70,22 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.Stream
 			).Error("failed to resolve extension service")
 			continue
 		}
+
 		svcName := sd.GetName()
 		lg.With(
 			"name", svcName,
 		).Info("loading service")
-		svcMethods := sd.GetMethod()
-		for _, mtd := range svcMethods {
+		for _, mtd := range svcDesc.GetMethods() {
 			fullName := fmt.Sprintf("/%s/%s", svcName, mtd.GetName())
 			lg.With(
 				"name", fullName,
 			).Info("loading method")
-			methodTable[fullName] = plugin.Client
+
+			methodTable[fullName] = &UnknownStreamMetadata{
+				Conn:       plugin.Client,
+				InputType:  mtd.GetInputType(),
+				OutputType: mtd.GetOutputType(),
+			}
 		}
 		httpRules := loadHttpRuleDescriptors(svcDesc)
 		if len(httpRules) > 0 {
@@ -101,8 +113,10 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) proxy.Stream
 		lg.Info("no api extensions found")
 	}
 
-	return func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error) {
+	return func(ctx context.Context, fullMethodName string) (context.Context, *UnknownStreamMetadata, error) {
 		if conn, ok := methodTable[fullMethodName]; ok {
+			md, _ := metadata.FromIncomingContext(ctx)
+			ctx = metadata.NewOutgoingContext(ctx, md.Copy())
 			return ctx, conn, nil
 		}
 		return nil, nil, status.Errorf(codes.Unimplemented, "unknown method %q", fullMethodName)
@@ -241,5 +255,28 @@ func newHandler(
 				zap.Error(err),
 			).Error("failed to write response")
 		}
+	}
+}
+
+func unknownServiceHandler(director StreamDirector) grpc.StreamHandler {
+	return func(srv interface{}, stream grpc.ServerStream) error {
+		fullMethodName, ok := grpc.MethodFromServerStream(stream)
+		if !ok {
+			return status.Errorf(codes.Internal, "method does not exist")
+		}
+		outgoingCtx, meta, err := director(stream.Context(), fullMethodName)
+		if err != nil {
+			return err
+		}
+		request := dynamic.NewMessage(meta.InputType)
+		if err := stream.RecvMsg(request); err != nil {
+			return err
+		}
+		reply := dynamic.NewMessage(meta.OutputType)
+		err = meta.Conn.Invoke(outgoingCtx, fullMethodName, request, reply)
+		if err != nil {
+			return err
+		}
+		return stream.SendMsg(reply)
 	}
 }

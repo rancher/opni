@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,23 +30,49 @@ func (f fakeClusterIDGetter) GetClusterID() string {
 	return "1"
 }
 
+// this is 'github.com/cortexproject/cortex/pkg/distributor.UserIDStats'
+// but importing it causes impossible dependency errors
+type CortexUserIDStats struct {
+	UserID            string  `json:"userID"`
+	IngestionRate     float64 `json:"ingestionRate"`
+	NumSeries         uint64  `json:"numSeries"`
+	APIIngestionRate  float64 `json:"APIIngestionRate"`
+	RuleIngestionRate float64 `json:"RuleIngestionRate"`
+}
+
 func (p *Plugin) AllUserStats(ctx context.Context, _ *emptypb.Empty) (*cortexadmin.UserIDStatsList, error) {
-	resp, err := p.ingesterClient.Get().AllUserStats(
-		outgoingContext(ctx, fakeClusterIDGetter{}), &client.UserStatsRequest{})
+	client := p.cortexHttpClient.Get()
+	req, err := http.NewRequestWithContext(ctx, "GET",
+		fmt.Sprintf("https://%s/distributor/all_user_stats", p.config.Get().Spec.Cortex.Distributor.HTTPAddress), nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user stats: %v", err)
+		return nil, err
 	}
-	return &cortexadmin.UserIDStatsList{
-		Items: lo.Map(resp.Stats, func(s *client.UserIDStatsResponse, i int) *cortexadmin.UserIDStats {
-			return &cortexadmin.UserIDStats{
-				UserID:            s.UserId,
-				IngestionRate:     s.Data.ApiIngestionRate,
-				NumSeries:         s.Data.NumSeries,
-				APIIngestionRate:  s.Data.ApiIngestionRate,
-				RuleIngestionRate: s.Data.RuleIngestionRate,
-			}
-		}),
-	}, nil
+	req.Header.Set("Accept", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster stats: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get cluster stats: %v", resp.StatusCode)
+	}
+	var stats []CortexUserIDStats
+	if err = json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		return nil, fmt.Errorf("failed to decode user stats: %v", err)
+	}
+	statsList := &cortexadmin.UserIDStatsList{
+		Items: make([]*cortexadmin.UserIDStats, len(stats)),
+	}
+	for i, s := range stats {
+		statsList.Items[i] = &cortexadmin.UserIDStats{
+			UserID:            s.UserID,
+			IngestionRate:     s.IngestionRate,
+			NumSeries:         s.NumSeries,
+			APIIngestionRate:  s.APIIngestionRate,
+			RuleIngestionRate: s.RuleIngestionRate,
+		}
+	}
+	return statsList, nil
 }
 
 func mapLabels(l *cortexadmin.Label, i int) cortexpb.LabelAdapter {
@@ -94,7 +121,7 @@ func (p *Plugin) WriteMetrics(ctx context.Context, in *cortexadmin.WriteRequest)
 		Source:     cortexpb.API,
 		Metadata:   lo.Map(in.Metadata, mapMetadata),
 	}
-	_, err := p.ingesterClient.Get().Push(outgoingContext(ctx, in), cortexReq)
+	_, err := p.distributorClient.Get().Push(outgoingContext(ctx, in), cortexReq)
 	if err != nil {
 		p.logger.With(
 			"err", err,
@@ -116,7 +143,7 @@ func outgoingContext(ctx context.Context, in clusterIDGetter) context.Context {
 
 func (p *Plugin) configureAdminClients(tlsConfig *tls.Config) {
 	cfg := p.config.Get()
-	cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Ingester.GRPCAddress,
+	cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Distributor.GRPCAddress,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 	)
 	if err != nil {
@@ -125,7 +152,7 @@ func (p *Plugin) configureAdminClients(tlsConfig *tls.Config) {
 		).Error("Failed to dial distributor")
 		os.Exit(1)
 	}
-	p.ingesterClient.Set(client.NewIngesterClient(cc))
+	p.distributorClient.Set(client.NewIngesterClient(cc))
 	httpClient := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: tlsConfig,

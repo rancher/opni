@@ -7,8 +7,10 @@ import (
 	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func BuildClustersCmd() *cobra.Command {
@@ -25,7 +27,8 @@ func BuildClustersCmd() *cobra.Command {
 }
 
 func BuildClustersListCmd() *cobra.Command {
-	return &cobra.Command{
+	var verbose bool
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List clusters",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -33,9 +36,19 @@ func BuildClustersListCmd() *cobra.Command {
 			if err != nil {
 				lg.Fatal(err)
 			}
-			fmt.Println(cliutil.RenderClusterList(t))
+			var clusterStats *cortexadmin.UserIDStatsList
+			if verbose {
+				stats, err := adminClient.AllUserStats(cmd.Context(), &emptypb.Empty{})
+				if err != nil {
+					lg.Fatalf("Failed to get cluster stats: %v", err)
+				}
+				clusterStats = stats
+			}
+			fmt.Println(cliutil.RenderClusterList(t, clusterStats))
 		},
 	}
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	return cmd
 }
 
 func BuildClustersDeleteCmd() *cobra.Command {

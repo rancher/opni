@@ -166,6 +166,7 @@ func findProtos() []protobuf.Proto {
 }
 
 func init() {
+	build.Deps(Generate)
 	docker.Deps(build.Build)
 	test.Deps(testbin.Testbin, build.Build, HelmLint)
 

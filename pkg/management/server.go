@@ -12,7 +12,6 @@ import (
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/kralicky/grpc-gateway/v2/runtime"
-	"github.com/mwitkow/grpc-proxy/proxy"
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
@@ -145,7 +144,7 @@ func (m *Server) ListenAndServe() error {
 	director := m.configureApiExtensionDirector(m.ctx)
 	srv := grpc.NewServer(
 		grpc.Creds(insecure.NewCredentials()),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
+		grpc.UnknownServiceHandler(unknownServiceHandler(director)),
 	)
 	RegisterManagementServer(srv, m)
 

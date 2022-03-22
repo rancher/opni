@@ -392,7 +392,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 	prometheusBin := path.Join(e.TestBin, "prometheus")
 	defaultArgs := []string{
 		fmt.Sprintf("--config.file=%s", path.Join(e.tempDir, "prometheus/config.yaml")),
-		fmt.Sprintf("--storage.agent.path=%s", path.Join(e.tempDir, "prometheus")),
+		fmt.Sprintf("--storage.agent.path=%s", path.Join(e.tempDir, "prometheus", fmt.Sprint(opniAgentPort))),
 		fmt.Sprintf("--web.listen-address=127.0.0.1:%d", port),
 		"--log.level=error",
 		"--web.enable-lifecycle",

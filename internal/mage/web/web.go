@@ -31,8 +31,8 @@ const (
 )
 
 var (
-	uiRepo       = "rancher/opni-ui"
-	uiRepoBranch = "monitoring"
+	uiRepo       = "kralicky/opni-ui"
+	uiRepoBranch = "installer-commands"
 )
 
 func init() {

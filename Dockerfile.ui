@@ -2,8 +2,8 @@ FROM node:14-alpine3.10 as builder
 
 WORKDIR /app
 
-ARG REPO=kralicky/opni-ui
-ARG BRANCH=installer-commands
+ARG REPO=rancher/opni-ui
+ARG BRANCH=monitoring
 
 RUN apk add --no-cache git
 ADD https://api.github.com/repos/${REPO}/git/refs/heads/${BRANCH} /tmp/version.json

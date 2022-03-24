@@ -2,14 +2,14 @@ package gpuadapter_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/providers"
 	testdata "github.com/rancher/opni/pkg/resources/gpuadapter/testdata"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
-	imageSpecs = []v1beta1.ImagesSpec{
+	imageSpecs = []v1beta2.ImagesSpec{
 		{},
 		{DriverManager: "foo:bar"},
 		{DCGM: "foo:bar"},
@@ -40,11 +40,11 @@ var (
 		"rke",
 		"none",
 	}
-	runtimes = []v1beta1.ContainerRuntime{
-		v1beta1.Auto,
-		v1beta1.Docker,
-		v1beta1.Containerd,
-		v1beta1.Crio,
+	runtimes = []v1beta2.ContainerRuntime{
+		v1beta2.Auto,
+		v1beta2.Docker,
+		v1beta2.Containerd,
+		v1beta2.Crio,
 	}
 	discoveredProviders = []providers.Provider{
 		providers.K3S,
@@ -52,7 +52,7 @@ var (
 		providers.RKE2,
 		providers.Unknown,
 	}
-	vgpuSpecs = []*v1beta1.VGPUSpec{
+	vgpuSpecs = []*v1beta2.VGPUSpec{
 		nil,
 		{
 			LicenseConfigMap:  "foo",
@@ -72,16 +72,16 @@ var _ = Describe("GpuAdapter", Label("unit"), func() {
 				for _, runtime := range runtimes {
 					for _, manualProvider := range manualProviders {
 						for _, imageSpec := range imageSpecs {
-							testdata.Check(&v1beta1.GpuPolicyAdapter{
+							testdata.Check(&v1beta2.GpuPolicyAdapter{
 								TypeMeta: metav1.TypeMeta{
-									APIVersion: v1beta1.GroupVersion.Identifier(),
+									APIVersion: v1beta2.GroupVersion.Identifier(),
 									Kind:       "GpuPolicyAdapter",
 								},
 								ObjectMeta: metav1.ObjectMeta{
 									Name:      "test",
 									Namespace: "test",
 								},
-								Spec: v1beta1.GpuPolicyAdapterSpec{
+								Spec: v1beta2.GpuPolicyAdapterSpec{
 									ContainerRuntime:   runtime,
 									KubernetesProvider: manualProvider,
 									Images:             imageSpec,

@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	v1beta1 "github.com/rancher/opni/apis/v1beta1"
 	v1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
@@ -96,7 +95,7 @@ func (r *OpniClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.recorder = mgr.GetEventRecorderFor("opni-controller")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta2.OpniCluster{}).
-		Owns(&v1beta1.LogAdapter{}).
+		Owns(&v1beta2.LogAdapter{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).

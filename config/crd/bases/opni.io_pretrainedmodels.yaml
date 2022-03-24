@@ -72,6 +72,65 @@ spec:
             type: object
         type: object
     served: true
+    storage: false
+    subresources:
+      status: {}
+  - name: v1beta2
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              hyperparameters:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  x-kubernetes-int-or-string: true
+                type: object
+              source:
+                properties:
+                  container:
+                    properties:
+                      image:
+                        type: string
+                      imagePullSecrets:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                          type: object
+                        type: array
+                    required:
+                    - image
+                    type: object
+                  http:
+                    properties:
+                      url:
+                        type: string
+                    required:
+                    - url
+                    type: object
+                type: object
+            required:
+            - source
+            type: object
+          status:
+            properties:
+              configMap:
+                properties:
+                  name:
+                    type: string
+                type: object
+            type: object
+        type: object
+    served: true
     storage: true
     subresources:
       status: {}

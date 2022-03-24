@@ -20,7 +20,7 @@ import (
 	"context"
 
 	nvidiav1 "github.com/NVIDIA/gpu-operator/api/v1"
-	v1beta1 "github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources/gpuadapter"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,7 +57,7 @@ func (r *GpuPolicyAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	_ = log.FromContext(ctx)
 
 	// Look up the object from the request.
-	gpuAdapter := v1beta1.GpuPolicyAdapter{}
+	gpuAdapter := v1beta2.GpuPolicyAdapter{}
 	err := r.Get(ctx, req.NamespacedName, &gpuAdapter)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -71,7 +71,7 @@ func (r *GpuPolicyAdapterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta1.GpuPolicyAdapter{}).
+		For(&v1beta2.GpuPolicyAdapter{}).
 		Owns(&nvidiav1.ClusterPolicy{}).
 		Complete(r)
 }

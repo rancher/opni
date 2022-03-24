@@ -9,7 +9,6 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
@@ -217,14 +216,14 @@ func (r *Reconciler) pretrainedModelDeployment(
 	}, nil
 }
 
-func maybeImagePullSecrets(model v1beta1.PretrainedModel) []corev1.LocalObjectReference {
+func maybeImagePullSecrets(model v1beta2.PretrainedModel) []corev1.LocalObjectReference {
 	if model.Spec.Container != nil {
 		return model.Spec.Container.ImagePullSecrets
 	}
 	return nil
 }
 
-func httpSidecar(model v1beta1.PretrainedModel) corev1.Container {
+func httpSidecar(model v1beta2.PretrainedModel) corev1.Container {
 	return corev1.Container{
 		Name:  "download-model",
 		Image: "docker.io/curlimages/curl:latest",
@@ -244,7 +243,7 @@ func httpSidecar(model v1beta1.PretrainedModel) corev1.Container {
 	}
 }
 
-func containerSidecar(model v1beta1.PretrainedModel) corev1.Container {
+func containerSidecar(model v1beta2.PretrainedModel) corev1.Container {
 	return corev1.Container{
 		Name:    "copy-model",
 		Image:   model.Spec.Container.Image,
@@ -311,8 +310,8 @@ func (r *Reconciler) gpuWorkerContainer() corev1.Container {
 
 func (r *Reconciler) findPretrainedModel(
 	modelRef corev1.LocalObjectReference,
-) (v1beta1.PretrainedModel, error) {
-	model := v1beta1.PretrainedModel{}
+) (v1beta2.PretrainedModel, error) {
+	model := v1beta2.PretrainedModel{}
 	err := r.client.Get(r.ctx, types.NamespacedName{
 		Name:      modelRef.Name,
 		Namespace: r.opniCluster.Namespace,

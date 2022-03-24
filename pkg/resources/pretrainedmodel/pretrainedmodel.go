@@ -8,7 +8,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/hyperparameters"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,13 +21,13 @@ type Reconciler struct {
 	reconciler.ResourceReconciler
 	ctx    context.Context
 	client client.Client
-	model  *v1beta1.PretrainedModel
+	model  *v1beta2.PretrainedModel
 }
 
 func NewReconciler(
 	ctx context.Context,
 	client client.Client,
-	model *v1beta1.PretrainedModel,
+	model *v1beta2.PretrainedModel,
 	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
 	return &Reconciler{

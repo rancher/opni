@@ -8,7 +8,7 @@ import (
 	nvidiav1 "github.com/NVIDIA/gpu-operator/api/v1"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/imdario/mergo"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/providers"
 	"github.com/rancher/opni/pkg/util"
 	corev1 "k8s.io/api/core/v1"
@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	DefaultImages = v1beta1.ImagesSpec{
+	DefaultImages = v1beta2.ImagesSpec{
 		Driver:        "nvcr.io/nvidia/driver:470.57.02",
 		DriverManager: "nvcr.io/nvidia/cloud-native/k8s-driver-manager:v0.1.0",
 		DCGM:          "nvcr.io/nvidia/cloud-native/dcgm:2.2.3-ubuntu20.04",
@@ -37,7 +37,7 @@ var (
 func ReconcileGPUAdapter(
 	ctx context.Context,
 	cli client.Client,
-	gpa *v1beta1.GpuPolicyAdapter,
+	gpa *v1beta2.GpuPolicyAdapter,
 ) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
 	rec := reconciler.NewReconcilerWith(cli,
@@ -77,18 +77,18 @@ func ReconcileGPUAdapter(
 }
 
 func BuildClusterPolicy(
-	gpa *v1beta1.GpuPolicyAdapter,
+	gpa *v1beta2.GpuPolicyAdapter,
 	provider providers.Provider,
 ) (*nvidiav1.ClusterPolicy, error) {
 	mergo.Merge(&gpa.Spec.Images, &DefaultImages)
-	var containerRuntime v1beta1.ContainerRuntime
+	var containerRuntime v1beta2.ContainerRuntime
 	switch cr := gpa.Spec.ContainerRuntime; cr {
-	case v1beta1.Auto:
+	case v1beta2.Auto:
 		containerRuntime = provider.ContainerRuntime()
-	case v1beta1.Docker, v1beta1.Containerd, v1beta1.Crio:
+	case v1beta2.Docker, v1beta2.Containerd, v1beta2.Crio:
 		containerRuntime = cr
 	default:
-		containerRuntime = v1beta1.Containerd
+		containerRuntime = v1beta2.Containerd
 	}
 	policy := &nvidiav1.ClusterPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -260,7 +260,7 @@ func BuildClusterPolicy(
 			Toolkit: nvidiav1.ToolkitSpec{
 				Enabled: pointer.Bool(true),
 				Env: func() (vars []corev1.EnvVar) {
-					if containerRuntime == v1beta1.Containerd {
+					if containerRuntime == v1beta2.Containerd {
 						vars = append(vars, corev1.EnvVar{
 							Name:  "CONTAINERD_RUNTIME_CLASS",
 							Value: "nvidia",

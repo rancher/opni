@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // +kubebuilder:validation:Optional
-package v1beta1
+package v1beta2
 
 import (
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
@@ -108,6 +108,7 @@ type LogAdapterStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:scope=Cluster
+// +kubebuilder:storageversion
 
 // LogAdapter is the Schema for the logadapters API
 type LogAdapter struct {

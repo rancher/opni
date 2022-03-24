@@ -5,7 +5,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,12 +39,12 @@ func Detect(ctx context.Context, c client.Client) (Provider, error) {
 	return Unknown, nil
 }
 
-func (p Provider) ContainerRuntime() v1beta1.ContainerRuntime {
+func (p Provider) ContainerRuntime() v1beta2.ContainerRuntime {
 	switch p {
 	case RKE:
-		return v1beta1.Docker
+		return v1beta2.Docker
 	default:
-		return v1beta1.Containerd
+		return v1beta2.Containerd
 	}
 }
 

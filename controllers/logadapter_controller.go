@@ -20,7 +20,7 @@ import (
 	"context"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources/logadapter"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -48,7 +48,7 @@ type LogAdapterReconciler struct {
 func (r *LogAdapterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// lg := log.FromContext(ctx)
 	// Look up the object from the request.
-	logAdapter := v1beta1.LogAdapter{}
+	logAdapter := v1beta2.LogAdapter{}
 	err := r.Get(ctx, req.NamespacedName, &logAdapter)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -84,7 +84,7 @@ func (r *LogAdapterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta1.LogAdapter{}).
+		For(&v1beta2.LogAdapter{}).
 		Owns(&loggingv1beta1.Logging{}).
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&corev1.ConfigMap{}).

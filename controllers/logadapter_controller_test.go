@@ -9,48 +9,49 @@ import (
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 )
 
 var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 	var (
-		logadapter v1beta1.LogAdapter
-		cluster    v1beta1.OpniCluster
+		logadapter v1beta2.LogAdapter
+		cluster    v1beta2.OpniCluster
 		err        error
 		testNs     string
 	)
 	Specify("setup", func() {
 		testNs = makeTestNamespace()
-		cluster = v1beta1.OpniCluster{
+		cluster = v1beta2.OpniCluster{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: v1beta1.GroupVersion.String(),
+				APIVersion: v1beta2.GroupVersion.String(),
 				Kind:       "OpniCluster",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test",
 				Namespace: testNs,
 			},
-			Spec: v1beta1.OpniClusterSpec{
-				Elastic: v1beta1.ElasticSpec{},
-				Nats: v1beta1.NatsSpec{
-					AuthMethod: v1beta1.NatsAuthUsername,
+			Spec: v1beta2.OpniClusterSpec{
+				Elastic: v1beta2.ElasticSpec{},
+				Nats: v1beta2.NatsSpec{
+					AuthMethod: v1beta2.NatsAuthUsername,
 				},
 			},
 		}
 		k8sClient.Create(context.Background(), &cluster)
-		logadapter = v1beta1.LogAdapter{
+		logadapter = v1beta2.LogAdapter{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
 			},
-			Spec: v1beta1.LogAdapterSpec{
-				Provider: v1beta1.LogProviderEKS,
-				OpniCluster: &v1beta1.OpniClusterNameSpec{
+			Spec: v1beta2.LogAdapterSpec{
+				Provider: v1beta2.LogProviderEKS,
+				OpniCluster: &v1beta2.OpniClusterNameSpec{
 					Name:      "doesnotexist",
 					Namespace: testNs,
 				},
@@ -75,7 +76,7 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 		})
 		When("the OpniCluster exists", func() {
 			Specify("update opni cluster", func() {
-				updateObject(&logadapter, func(l *v1beta1.LogAdapter) {
+				updateObject(&logadapter, func(l *v1beta2.LogAdapter) {
 					l.Spec.OpniCluster.Name = "test"
 				})
 			})
@@ -92,8 +93,8 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 		})
 		Context("with the RKE provider", func() {
 			Specify("update opni cluster", func() {
-				updateObject(&logadapter, func(l *v1beta1.LogAdapter) {
-					l.Spec.Provider = v1beta1.LogProviderRKE
+				updateObject(&logadapter, func(l *v1beta2.LogAdapter) {
+					l.Spec.Provider = v1beta2.LogProviderRKE
 					l.Default()
 				})
 			})
@@ -117,16 +118,16 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 					})).Should(ExistAnd(
 						HaveOwner(&logadapter),
 						HaveData("fluent-bit.conf", func(d string) bool {
-							return strings.Contains(d, fmt.Sprintf("Log_Level         %s", v1beta1.LogLevelInfo))
+							return strings.Contains(d, fmt.Sprintf("Log_Level         %s", opnimeta.LogLevelInfo))
 						}),
 					))
 				})
 			})
 			When("warning log level is specified", func() {
 				Specify("update opni cluster", func() {
-					updateObject(&logadapter, func(l *v1beta1.LogAdapter) {
-						l.Spec.RKE = &v1beta1.RKESpec{
-							LogLevel: v1beta1.LogLevelWarn,
+					updateObject(&logadapter, func(l *v1beta2.LogAdapter) {
+						l.Spec.RKE = &v1beta2.RKESpec{
+							LogLevel: opnimeta.LogLevelWarn,
 						}
 					})
 				})
@@ -139,7 +140,7 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 					})).Should(ExistAnd(
 						HaveOwner(&logadapter),
 						HaveData("fluent-bit.conf", func(d string) bool {
-							return strings.Contains(d, fmt.Sprintf("Log_Level         %s", v1beta1.LogLevelWarn))
+							return strings.Contains(d, fmt.Sprintf("Log_Level         %s", opnimeta.LogLevelWarn))
 						}),
 					))
 				})
@@ -147,8 +148,8 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 		})
 		Context("with the RKE2 provider", func() {
 			Specify("update opni cluster", func() {
-				updateObject(&logadapter, func(l *v1beta1.LogAdapter) {
-					l.Spec.Provider = v1beta1.LogProviderRKE2
+				updateObject(&logadapter, func(l *v1beta2.LogAdapter) {
+					l.Spec.Provider = v1beta2.LogProviderRKE2
 					l.Default()
 				})
 			})
@@ -204,13 +205,13 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 			})
 			When("a log path is specified", func() {
 				BeforeEach(func() {
-					logadapter.Spec.RKE2 = &v1beta1.RKE2Spec{
+					logadapter.Spec.RKE2 = &v1beta2.RKE2Spec{
 						LogPath: systemdLogPath,
 					}
 				})
 				Specify("update opni cluster", func() {
-					updateObject(&logadapter, func(l *v1beta1.LogAdapter) {
-						l.Spec.RKE2 = &v1beta1.RKE2Spec{
+					updateObject(&logadapter, func(l *v1beta2.LogAdapter) {
+						l.Spec.RKE2 = &v1beta2.RKE2Spec{
 							LogPath: systemdLogPath,
 						}
 					})
@@ -259,16 +260,16 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 		})
 		Context("with the K3s provider", func() {
 			Specify("update opni cluster", func() {
-				updateObject(&logadapter, func(l *v1beta1.LogAdapter) {
-					l.Spec.Provider = v1beta1.LogProviderK3S
+				updateObject(&logadapter, func(l *v1beta2.LogAdapter) {
+					l.Spec.Provider = v1beta2.LogProviderK3S
 					l.Default()
 				})
 			})
 			When("the container engine is systemd", func() {
 				Specify("update opni cluster", func() {
-					updateObject(&logadapter, func(l *v1beta1.LogAdapter) {
-						l.Spec.K3S = &v1beta1.K3SSpec{
-							ContainerEngine: v1beta1.ContainerEngineSystemd,
+					updateObject(&logadapter, func(l *v1beta2.LogAdapter) {
+						l.Spec.K3S = &v1beta2.K3SSpec{
+							ContainerEngine: v1beta2.ContainerEngineSystemd,
 						}
 						l.Default()
 					})
@@ -332,7 +333,7 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 				})
 				When("a log path is specified", func() {
 					Specify("update opni cluster", func() {
-						updateObject(&logadapter, func(l *v1beta1.LogAdapter) {
+						updateObject(&logadapter, func(l *v1beta2.LogAdapter) {
 							l.Spec.K3S.LogPath = systemdLogPath
 						})
 					})
@@ -380,9 +381,9 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 			})
 			When("the container engine is openrc", func() {
 				Specify("update opni cluster", func() {
-					updateObject(&logadapter, func(l *v1beta1.LogAdapter) {
-						l.Spec.K3S = &v1beta1.K3SSpec{
-							ContainerEngine: v1beta1.ContainerEngineOpenRC,
+					updateObject(&logadapter, func(l *v1beta2.LogAdapter) {
+						l.Spec.K3S = &v1beta2.K3SSpec{
+							ContainerEngine: v1beta2.ContainerEngineOpenRC,
 						}
 						l.Spec.K3S.LogPath = ""
 						l.Default()
@@ -422,7 +423,7 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 				})
 				When("a log path is specified", func() {
 					Specify("update opni cluster", func() {
-						updateObject(&logadapter, func(l *v1beta1.LogAdapter) {
+						updateObject(&logadapter, func(l *v1beta2.LogAdapter) {
 							l.Spec.K3S.LogPath = openrcLogPath
 							l.Default()
 						})

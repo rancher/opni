@@ -21,7 +21,6 @@ import (
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 )
@@ -378,14 +377,14 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		// Not testing that the pretrained model controller works here, as that
 		// is tested in the pretrained model controller test.
 		By("creating a pretrained model")
-		Expect(k8sClient.Create(context.Background(), &v1beta1.PretrainedModel{
+		Expect(k8sClient.Create(context.Background(), &v1beta2.PretrainedModel{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-model",
 				Namespace: ns,
 			},
-			Spec: v1beta1.PretrainedModelSpec{
-				ModelSource: v1beta1.ModelSource{
-					HTTP: &v1beta1.HTTPSource{
+			Spec: v1beta2.PretrainedModelSpec{
+				ModelSource: v1beta2.ModelSource{
+					HTTP: &v1beta2.HTTPSource{
 						URL: "https://foo.bar/model.tar.gz",
 					},
 				},
@@ -571,14 +570,14 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 					"test-model",
 				},
 			}))
-			Expect(k8sClient.Create(context.Background(), &v1beta1.PretrainedModel{
+			Expect(k8sClient.Create(context.Background(), &v1beta2.PretrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-model",
 					Namespace: cluster.Namespace,
 				},
-				Spec: v1beta1.PretrainedModelSpec{
-					ModelSource: v1beta1.ModelSource{
-						HTTP: &v1beta1.HTTPSource{
+				Spec: v1beta2.PretrainedModelSpec{
+					ModelSource: v1beta2.ModelSource{
+						HTTP: &v1beta2.HTTPSource{
 							URL: "https://foo.bar/model.tar.gz",
 						},
 					},
@@ -597,14 +596,14 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		It("should work with multiple different models", func() {
 			ns := makeTestNamespace()
 			// Create 2 different pretrained models
-			model1 := v1beta1.PretrainedModel{
+			model1 := v1beta2.PretrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-model-1",
 					Namespace: ns,
 				},
-				Spec: v1beta1.PretrainedModelSpec{
-					ModelSource: v1beta1.ModelSource{
-						HTTP: &v1beta1.HTTPSource{
+				Spec: v1beta2.PretrainedModelSpec{
+					ModelSource: v1beta2.ModelSource{
+						HTTP: &v1beta2.HTTPSource{
 							URL: "https://foo.bar/model.tar.gz",
 						},
 					},
@@ -613,14 +612,14 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 					},
 				},
 			}
-			model2 := v1beta1.PretrainedModel{
+			model2 := v1beta2.PretrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-model-2",
 					Namespace: ns,
 				},
-				Spec: v1beta1.PretrainedModelSpec{
-					ModelSource: v1beta1.ModelSource{
-						HTTP: &v1beta1.HTTPSource{
+				Spec: v1beta2.PretrainedModelSpec{
+					ModelSource: v1beta2.ModelSource{
+						HTTP: &v1beta2.HTTPSource{
 							URL: "https://bar.baz/model.tar.gz",
 						},
 					},
@@ -656,14 +655,14 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		It("should work with models with different source configurations", func() {
 			ns := makeTestNamespace()
 			// Create 2 different pretrained models
-			model1 := v1beta1.PretrainedModel{
+			model1 := v1beta2.PretrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-model-1",
 					Namespace: ns,
 				},
-				Spec: v1beta1.PretrainedModelSpec{
-					ModelSource: v1beta1.ModelSource{
-						HTTP: &v1beta1.HTTPSource{
+				Spec: v1beta2.PretrainedModelSpec{
+					ModelSource: v1beta2.ModelSource{
+						HTTP: &v1beta2.HTTPSource{
 							URL: "https://foo.bar/model.tar.gz",
 						},
 					},
@@ -672,14 +671,14 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 					},
 				},
 			}
-			model2 := v1beta1.PretrainedModel{
+			model2 := v1beta2.PretrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-model-2",
 					Namespace: ns,
 				},
-				Spec: v1beta1.PretrainedModelSpec{
-					ModelSource: v1beta1.ModelSource{
-						Container: &v1beta1.ContainerSource{
+				Spec: v1beta2.PretrainedModelSpec{
+					ModelSource: v1beta2.ModelSource{
+						Container: &v1beta2.ContainerSource{
 							Image: "gcr.io/foo/bar:latest",
 						},
 					},
@@ -720,14 +719,14 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 		}))
 
 		By("creating a model")
-		model := v1beta1.PretrainedModel{
+		model := v1beta2.PretrainedModel{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-model",
 				Namespace: cluster.Namespace,
 			},
-			Spec: v1beta1.PretrainedModelSpec{
-				ModelSource: v1beta1.ModelSource{
-					HTTP: &v1beta1.HTTPSource{
+			Spec: v1beta2.PretrainedModelSpec{
+				ModelSource: v1beta2.ModelSource{
+					HTTP: &v1beta2.HTTPSource{
 						URL: "https://foo.bar/model.tar.gz",
 					},
 				},
@@ -761,14 +760,14 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 	It("should handle editing models in an existing opnicluster", func() {
 		By("creating a model")
 		ns := makeTestNamespace()
-		model := v1beta1.PretrainedModel{
+		model := v1beta2.PretrainedModel{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-model",
 				Namespace: ns,
 			},
-			Spec: v1beta1.PretrainedModelSpec{
-				ModelSource: v1beta1.ModelSource{
-					HTTP: &v1beta1.HTTPSource{
+			Spec: v1beta2.PretrainedModelSpec{
+				ModelSource: v1beta2.ModelSource{
+					HTTP: &v1beta2.HTTPSource{
 						URL: "https://foo.bar/model.tar.gz",
 					},
 				},
@@ -835,7 +834,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 
 		// Look up the matching pretrainedmodel
 		By("verifying the pretrainedmodel was not deleted")
-		Consistently(Object(&v1beta1.PretrainedModel{
+		Consistently(Object(&v1beta2.PretrainedModel{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-model",
 				Namespace: cluster.Namespace,
@@ -883,14 +882,14 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 
 		By("creating the previously invalid model")
 		// Create the previouslinvalid model
-		model := v1beta1.PretrainedModel{
+		model := v1beta2.PretrainedModel{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "invalid-model",
 				Namespace: cluster.Namespace,
 			},
-			Spec: v1beta1.PretrainedModelSpec{
-				ModelSource: v1beta1.ModelSource{
-					HTTP: &v1beta1.HTTPSource{
+			Spec: v1beta2.PretrainedModelSpec{
+				ModelSource: v1beta2.ModelSource{
+					HTTP: &v1beta2.HTTPSource{
 						URL: "http://invalid-model",
 					},
 				},

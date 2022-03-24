@@ -45,7 +45,7 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.payloadReceiverDeployment,
 		r.payloadReceiverService,
 		r.preprocessingDeployment,
-		r.gpuCtrlDeployment,
+		//r.gpuCtrlDeployment,
 		r.metricsDeployment,
 		r.metricsService,
 		r.metricsServiceMonitor,

@@ -51,7 +51,7 @@ var (
 )
 
 const (
-	upgradeResponderAddress = "https://opni-usage.danbason.dev/v1/checkupgrade"
+	upgradeResponderAddress = "https://upgrades.opni-upgrade-responder.livestock.rancher.io/v1/checkupgrade"
 )
 
 func init() {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -32,6 +33,7 @@ type Agent struct {
 	identityProvider ident.Provider
 	keyringStore     storage.KeyringStore
 	gatewayClient    clients.GatewayHTTPClient
+	shutdownLock     sync.Mutex
 }
 
 type AgentOptions struct {
@@ -91,6 +93,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		tenantID:         id,
 		identityProvider: ip,
 	}
+	agent.shutdownLock.Lock()
 
 	switch agent.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
@@ -147,10 +150,12 @@ func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
 }
 
 func (a *Agent) ListenAndServe() error {
+	a.shutdownLock.Unlock()
 	return a.app.Listen(a.ListenAddress)
 }
 
 func (a *Agent) Shutdown() error {
+	a.shutdownLock.Lock()
 	return a.app.Shutdown()
 }
 

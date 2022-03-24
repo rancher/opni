@@ -11,24 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type FooOptions struct {
-	bar string
-}
-
-type FooOption func(*FooOptions)
-
-func (o *FooOptions) Apply(opts ...FooOption) {
-	for _, op := range opts {
-		op(o)
-	}
-}
-
-func WithBar(bar string) FooOption {
-	return func(o *FooOptions) {
-		o.bar = bar
-	}
-}
-
 // PrometheusRuleFinder can find rules defined in PrometheusRule CRDs.
 type PrometheusRuleFinder struct {
 	PrometheusRuleFinderOptions

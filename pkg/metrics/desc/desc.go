@@ -2,6 +2,7 @@ package desc
 
 import (
 	"reflect"
+	sync "sync"
 	"unsafe"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -10,11 +11,15 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-var descpbContentOffset uintptr
+var (
+	contentOffset uintptr
+	contentSize   uintptr
+	once          sync.Once
+)
 
 // preliminary type-checking
 func init() {
-	msg := "the definition of prometheus.Desc has changed; update pkg/metrics/descpb"
+	msg := "the definition of prometheus.Desc has changed; update pkg/metrics/desc"
 	protoType := reflect.TypeOf(Desc{})
 	promType := reflect.TypeOf(prometheus.Desc{})
 	if protoType.Align() != promType.Align() {
@@ -26,11 +31,18 @@ func init() {
 	for i := 0; i < protoType.NumField(); i++ {
 		field := protoType.Field(i)
 		if protoType.Field(i).IsExported() {
-			// save the offset for later use
-			descpbContentOffset = field.Offset
-			firstExportedFieldIndex = i
-			break
+			contentSize += field.Type.Size()
+			once.Do(func() {
+				// save the offset for later use
+				contentOffset = field.Offset
+				firstExportedFieldIndex = i
+			})
 		}
+	}
+
+	// make sure the content sizes match
+	if contentSize != promType.Size() {
+		panic(msg)
 	}
 
 	// prometheus.Desc has an error field at the end which we ignore
@@ -49,13 +61,13 @@ func init() {
 	}
 }
 
-// ToPrometheusDescUnsafe returns a descpb.Desc reinterpreted as a prometheus.Desc.
+// ToPrometheusDescUnsafe returns a desc.Desc reinterpreted as a prometheus.Desc.
 // It is *not* safe to use the original object after calling this function.
 func (d *Desc) ToPrometheusDescUnsafe() *prometheus.Desc {
-	return (*prometheus.Desc)(unsafe.Add(unsafe.Pointer(d), descpbContentOffset))
+	return (*prometheus.Desc)(unsafe.Add(unsafe.Pointer(d), contentOffset))
 }
 
-// ToPrometheusDesc converts a deep-copy of a descpb.Desc to a prometheus.Desc.
+// ToPrometheusDesc converts a deep-copy of a desc.Desc to a prometheus.Desc.
 // It is safe to use the original object after calling this function.
 func (d *Desc) ToPrometheusDesc() *prometheus.Desc {
 	cloned := &Desc{
@@ -69,12 +81,12 @@ func (d *Desc) ToPrometheusDesc() *prometheus.Desc {
 	return cloned.ToPrometheusDescUnsafe()
 }
 
-// FromPrometheusDesc returns a prometheus.Desc reinterpreted as a descpb.Desc.
+// FromPrometheusDesc returns a prometheus.Desc reinterpreted as a desc.Desc.
 // This function performs a shallow-copy, so it may not be safe to use the
 // original object afterwards.
 func FromPrometheusDesc(desc *prometheus.Desc) *Desc {
 	d := &Desc{}
-	*(*prometheus.Desc)(unsafe.Add(unsafe.Pointer(d), descpbContentOffset)) = *desc
+	*(*prometheus.Desc)(unsafe.Add(unsafe.Pointer(d), contentOffset)) = *desc
 	return d
 }
 

@@ -1,11 +1,11 @@
-package b2bmac_test
+package b2mac_test
 
 import (
 	"bytes"
 	"strings"
 	"testing"
 
-	"github.com/rancher/opni-monitoring/pkg/b2bmac"
+	"github.com/rancher/opni-monitoring/pkg/b2mac"
 )
 
 func FuzzDecodeAuthHeader(f *testing.F) {
@@ -38,7 +38,7 @@ func FuzzDecodeAuthHeader(f *testing.F) {
 		f.Add(entry)
 	}
 	f.Fuzz(func(t *testing.T, header string) {
-		id, nonce, mac, err := b2bmac.DecodeAuthHeader(header)
+		id, nonce, mac, err := b2mac.DecodeAuthHeader(header)
 		if err == nil {
 			// \r and \n are silently ignored in the base64 decoding algorithm, so
 			// remove any of these characters from the input
@@ -49,11 +49,11 @@ func FuzzDecodeAuthHeader(f *testing.F) {
 				t.Errorf("decoded header does not match expected regex")
 			}
 
-			str, err := b2bmac.EncodeAuthHeader(id, nonce, mac)
+			str, err := b2mac.EncodeAuthHeader(id, nonce, mac)
 			if err != nil {
 				t.Errorf("re-encoded header failed: %v", err)
 			}
-			id2, nonce2, mac2, err2 := b2bmac.DecodeAuthHeader(str)
+			id2, nonce2, mac2, err2 := b2mac.DecodeAuthHeader(str)
 			if err2 != nil {
 				t.Errorf("decoding re-encoded header failed: %v", err2)
 			}

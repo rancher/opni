@@ -14,7 +14,7 @@ import (
 	"github.com/ory/fosite"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/util"
-	"github.com/rancher/opni-monitoring/pkg/waitctx"
+	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

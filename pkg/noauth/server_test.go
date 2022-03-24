@@ -19,7 +19,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/noauth"
 	"github.com/rancher/opni-monitoring/pkg/test"
-	"github.com/rancher/opni-monitoring/pkg/waitctx"
+	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
 )
 
 var _ = Describe("Server", Ordered, func() {

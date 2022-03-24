@@ -3,11 +3,11 @@ package commands
 import (
 	"strings"
 
-	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	cliutil "github.com/rancher/opni-monitoring/pkg/opnim/util"
 	"github.com/rancher/opni-monitoring/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
 )

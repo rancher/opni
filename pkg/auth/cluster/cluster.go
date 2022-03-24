@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rancher/opni-monitoring/pkg/auth"
-	"github.com/rancher/opni-monitoring/pkg/b2bmac"
+	"github.com/rancher/opni-monitoring/pkg/b2mac"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/logger"
@@ -51,7 +51,7 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).SendString("Authorization header required")
 	}
 
-	clusterID, nonce, mac, err := b2bmac.DecodeAuthHeader(authHeader)
+	clusterID, nonce, mac, err := b2mac.DecodeAuthHeader(authHeader)
 	if err != nil {
 		lg.Debug("unauthorized: malformed MAC in auth header: " + authHeader)
 		return c.Status(fiber.StatusUnauthorized).SendString(err.Error())
@@ -74,7 +74,7 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 	authorized := false
 	var sharedKeys *keyring.SharedKeys
 	if ok := kr.Try(func(shared *keyring.SharedKeys) {
-		if err := b2bmac.Verify(mac, clusterID, nonce, c.Body(), shared.ClientKey); err == nil {
+		if err := b2mac.Verify(mac, clusterID, nonce, c.Body(), shared.ClientKey); err == nil {
 			authorized = true
 			sharedKeys = shared
 		}

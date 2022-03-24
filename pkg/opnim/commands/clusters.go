@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"reflect"
 
-	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	cliutil "github.com/rancher/opni-monitoring/pkg/opnim/util"
 	"github.com/rancher/opni-monitoring/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"

@@ -1,4 +1,4 @@
-package b2bmac_test
+package b2mac_test
 
 import (
 	"crypto/ed25519"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/rancher/opni-monitoring/pkg/b2bmac"
+	"github.com/rancher/opni-monitoring/pkg/b2mac"
 )
 
 var _ = Describe("MAC", func() {
@@ -16,7 +16,7 @@ var _ = Describe("MAC", func() {
 		Expect(err).NotTo(HaveOccurred())
 		tenantID := []byte(uuid.NewString())
 		payload := []byte("test")
-		uuid, mac, err := b2bmac.New512(tenantID, payload, key)
+		uuid, mac, err := b2mac.New512(tenantID, payload, key)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(uuid).NotTo(BeNil())
 		Expect(mac).To(HaveLen(512 / 8))
@@ -25,9 +25,9 @@ var _ = Describe("MAC", func() {
 		key := make([]byte, 65)
 		tenantID := []byte(uuid.NewString())
 		payload := []byte("test")
-		_, _, err := b2bmac.New512(tenantID, payload, key)
+		_, _, err := b2mac.New512(tenantID, payload, key)
 		Expect(err).To(MatchError("blake2b: invalid key size"))
-		err = b2bmac.Verify([]byte(""), tenantID, uuid.Nil, payload, key)
+		err = b2mac.Verify([]byte(""), tenantID, uuid.Nil, payload, key)
 		Expect(err).To(MatchError("blake2b: invalid key size"))
 	})
 	It("should correctly verify MACs", func() {
@@ -35,13 +35,13 @@ var _ = Describe("MAC", func() {
 		Expect(err).NotTo(HaveOccurred())
 		tenantID := []byte(uuid.NewString())
 		payload := []byte("test")
-		uuid, mac, err := b2bmac.New512(tenantID, payload, key)
+		uuid, mac, err := b2mac.New512(tenantID, payload, key)
 		Expect(err).NotTo(HaveOccurred())
-		err = b2bmac.Verify(mac, tenantID, uuid, payload, key)
+		err = b2mac.Verify(mac, tenantID, uuid, payload, key)
 		Expect(err).NotTo(HaveOccurred())
 		_, wrongKey, err := ed25519.GenerateKey(nil)
 		Expect(err).NotTo(HaveOccurred())
-		err = b2bmac.Verify(mac, tenantID, uuid, payload, wrongKey)
+		err = b2mac.Verify(mac, tenantID, uuid, payload, wrongKey)
 		Expect(err).To(MatchError("verification failed"))
 	})
 })

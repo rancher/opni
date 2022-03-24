@@ -17,7 +17,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/capability"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/storage"
-	"github.com/rancher/opni-monitoring/pkg/waitctx"
+	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
 	"github.com/rancher/opni-monitoring/pkg/webui"
 	"go.uber.org/zap"
 	"golang.org/x/mod/module"

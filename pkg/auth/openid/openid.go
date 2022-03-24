@@ -16,7 +16,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/rbac"
 	"github.com/rancher/opni-monitoring/pkg/util"
-	"github.com/rancher/opni-monitoring/pkg/waitctx"
+	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
 	"go.uber.org/zap"
 )
 

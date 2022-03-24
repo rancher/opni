@@ -16,7 +16,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/test"
-	"github.com/rancher/opni-monitoring/pkg/waitctx"
+	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
 	"google.golang.org/grpc"
 )
 

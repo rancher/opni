@@ -1,8 +1,8 @@
-package cli
+package opnim
 
 import (
-	"github.com/rancher/opni-monitoring/pkg/cli/commands"
 	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/rancher/opni-monitoring/pkg/opnim/commands"
 
 	"github.com/spf13/cobra"
 )

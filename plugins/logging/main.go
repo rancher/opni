@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni-monitoring/pkg/plugins"
-	"github.com/rancher/opni-monitoring/pkg/waitctx"
+	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
 	"github.com/rancher/opni-monitoring/plugins/logging/pkg/logging"
 )
 

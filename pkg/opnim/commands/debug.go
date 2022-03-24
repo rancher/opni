@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	cliutil "github.com/rancher/opni-monitoring/pkg/opnim/util"
 	"github.com/spf13/cobra"
 	"go.etcd.io/etcd/etcdctl/v3/ctlv3"
 	"google.golang.org/protobuf/types/known/emptypb"

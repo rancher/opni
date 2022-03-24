@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sort"
 
-	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	cliutil "github.com/rancher/opni-monitoring/pkg/opnim/util"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

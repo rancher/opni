@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 
-	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
+	cliutil "github.com/rancher/opni-monitoring/pkg/opnim/util"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

@@ -1,4 +1,4 @@
-package b2bmac_test
+package b2mac_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestB2bmac(t *testing.T) {
+func TestB2mac(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Blake2b MAC Suite")
 }

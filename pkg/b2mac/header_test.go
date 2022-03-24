@@ -1,4 +1,4 @@
-package b2bmac_test
+package b2mac_test
 
 import (
 	"encoding/base64"
@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni-monitoring/pkg/b2bmac"
+	"github.com/rancher/opni-monitoring/pkg/b2mac"
 )
 
 var headerRegex = regexp.MustCompile(
@@ -21,7 +21,7 @@ var headerRegex = regexp.MustCompile(
 var _ = Describe("Headers", func() {
 	DescribeTable("Encode Auth Headers",
 		func(id []byte, nonce uuid.UUID, mac []byte, matchErr interface{}) {
-			header, err := b2bmac.EncodeAuthHeader(id, nonce, mac)
+			header, err := b2mac.EncodeAuthHeader(id, nonce, mac)
 			if matchErr == nil {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(headerRegex.MatchString(header)).To(BeTrue(), header)
@@ -37,7 +37,7 @@ var _ = Describe("Headers", func() {
 	var corruptInputErr base64.CorruptInputError
 	DescribeTable("Decode Auth Headers",
 		func(header string, id []byte, nonce uuid.UUID, mac []byte, matchErr interface{}) {
-			i, n, m, err := b2bmac.DecodeAuthHeader(header)
+			i, n, m, err := b2mac.DecodeAuthHeader(header)
 			if matchErr == nil {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(i).To(Equal(id))

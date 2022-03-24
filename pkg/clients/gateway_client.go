@@ -7,7 +7,7 @@ import (
 	"emperror.dev/errors"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/rancher/opni-monitoring/pkg/b2bmac"
+	"github.com/rancher/opni-monitoring/pkg/b2mac"
 	"github.com/rancher/opni-monitoring/pkg/ident"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
@@ -158,12 +158,12 @@ func (rb *requestBuilder) Body(body []byte) RequestBuilder {
 
 // Sends the request
 func (rb *requestBuilder) Send() (code int, body []byte, err error) {
-	nonce, mac, err := b2bmac.New512([]byte(rb.gatewayClient.id),
+	nonce, mac, err := b2mac.New512([]byte(rb.gatewayClient.id),
 		rb.req.Request().Body(), rb.gatewayClient.sharedKeys.ClientKey)
 	if err != nil {
 		return 0, nil, err
 	}
-	authHeader, err := b2bmac.EncodeAuthHeader([]byte(rb.gatewayClient.id), nonce, mac)
+	authHeader, err := b2mac.EncodeAuthHeader([]byte(rb.gatewayClient.id), nonce, mac)
 	if err != nil {
 		return 0, nil, err
 	}

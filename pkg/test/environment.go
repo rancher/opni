@@ -51,7 +51,7 @@ import (
 	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	"github.com/rancher/opni-monitoring/pkg/util"
-	"github.com/rancher/opni-monitoring/pkg/waitctx"
+	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
 	"github.com/rancher/opni-monitoring/pkg/webui"
 	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"

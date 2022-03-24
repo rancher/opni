@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rancher/opni-monitoring/pkg/auth/cluster"
-	"github.com/rancher/opni-monitoring/pkg/b2bmac"
+	"github.com/rancher/opni-monitoring/pkg/b2mac"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
@@ -74,7 +74,7 @@ func (p *Plugin) handleGetOpensearchDetails(c *fiber.Ctx) error {
 	}
 
 	sharedKeys := cluster.AuthorizedKeys(c)
-	header, err := b2bmac.NewEncodedHeader([]byte(id), responseData, sharedKeys.ServerKey)
+	header, err := b2mac.NewEncodedHeader([]byte(id), responseData, sharedKeys.ServerKey)
 	if err != nil {
 		lg.Error("error generating response auth header", "err", err)
 		return c.SendStatus(fiber.StatusInternalServerError)

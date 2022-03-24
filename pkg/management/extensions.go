@@ -12,7 +12,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/rancher/opni-monitoring/pkg/logger"
-	"github.com/rancher/opni-monitoring/pkg/waitctx"
+	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/grpc"

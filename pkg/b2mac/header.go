@@ -1,4 +1,4 @@
-package b2bmac
+package b2mac
 
 import (
 	"crypto/ed25519"

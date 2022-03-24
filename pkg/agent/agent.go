@@ -141,6 +141,11 @@ func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
 	a.logger.Debugf("%s %s", c.Method(), c.Path())
 	code, body, err := a.gatewayClient.Post(context.Background(), "/api/agent/push").
 		Body(c.Body()).
+		Header("User-Agent", c.Get("opni-monitoring-agent")).
+		Header("Content-Type", c.Get("Content-Type")).
+		Header("Content-Length", c.Get("Content-Length")).
+		Header("Content-Encoding", c.Get("Content-Encoding")).
+		Header("X-Prometheus-Remote-Write-Version", c.Get("X-Prometheus-Remote-Write-Version")).
 		Send()
 	if err != nil {
 		a.logger.Error(err)

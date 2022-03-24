@@ -43,6 +43,15 @@ func BuildGatewayCmd() *cobra.Command {
 					gatewayConfig = config
 				}
 			},
+			func(ap *v1beta1.AuthProvider) {
+				// noauth is a special case, we need to start a noauth server but only
+				// once - other auth provider consumers such as plugins can load
+				// auth providers themselves, but we don't want them to start their
+				// own noauth server.
+				if ap.Name == "noauth" {
+					machinery.SetupNoauthServer(ctx, lg, ap)
+				}
+			},
 		)
 
 		lg.With(

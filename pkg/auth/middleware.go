@@ -73,3 +73,7 @@ func GetMiddleware(name string) (NamedMiddleware, error) {
 func ResetMiddlewares() {
 	authMiddlewares = make(map[string]Middleware)
 }
+
+func NamedMiddlewareAs[T Middleware](nmw NamedMiddleware) T {
+	return nmw.(*namedMiddlewareImpl).Middleware.(T)
+}

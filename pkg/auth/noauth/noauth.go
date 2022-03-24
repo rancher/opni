@@ -10,7 +10,6 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/noauth"
 	"github.com/rancher/opni-monitoring/pkg/util"
-	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
 	"go.uber.org/zap"
 )
 
@@ -22,7 +21,6 @@ type NoauthMiddleware struct {
 
 var _ auth.Middleware = (*NoauthMiddleware)(nil)
 
-// todo: move noauth server start somewhere else
 func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
 	lg := logger.New().Named("noauth")
 	openidMw, err := openid.New(ctx, config)
@@ -40,15 +38,6 @@ func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware,
 	}
 	m.noauthConfig.Logger = lg
 
-	srv := noauth.NewServer(m.noauthConfig)
-	waitctx.Go(ctx, func() {
-		if err := srv.Run(ctx); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Warn("noauth server stopped")
-		}
-	})
-
 	return m, nil
 }
 
@@ -58,4 +47,8 @@ func (m *NoauthMiddleware) Description() string {
 
 func (m *NoauthMiddleware) Handle(c *fiber.Ctx) error {
 	return m.openidMiddleware.Handle(c)
+}
+
+func (m *NoauthMiddleware) ServerConfig() *noauth.ServerConfig {
+	return m.noauthConfig
 }

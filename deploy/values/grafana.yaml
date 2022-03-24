@@ -32,6 +32,18 @@ datasources:
           oauthPassThru: true
         secureJsonData:
           tlsCACert: "$__file{/run/opni-monitoring/certs/ca.crt}"
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: "opni-monitoring"
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: true
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards/opni-monitoring
 grafana.ini:
   server:
     domain: "grafana.localhost"
@@ -60,6 +72,8 @@ extraSecretMounts:
             items:
               - key: ca.crt
                 path: ca.crt
+dashboardsConfigMaps:
+  opni-monitoring: opni-monitoring-dashboards
 tls:
   - secretName: grafana-tls-keys
     hosts:

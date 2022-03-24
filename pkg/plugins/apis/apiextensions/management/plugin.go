@@ -13,7 +13,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const ManagementAPIExtensionPluginID = "apiextensions.ManagementAPIExtension"
+const (
+	ManagementAPIExtensionPluginID = "opni.apiextensions.ManagementAPIExtension"
+	ServiceID                      = "apiextensions.ManagementAPIExtension"
+)
 
 type managementApiExtensionPlugin struct {
 	plugin.NetRPCUnsupportedPlugin
@@ -38,6 +41,9 @@ func (p *managementApiExtensionPlugin) GRPCClient(
 	broker *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
+	if err := plugins.CheckAvailability(ctx, c, ServiceID); err != nil {
+		return nil, err
+	}
 	return apiextensions.NewManagementAPIExtensionClient(c), nil
 }
 

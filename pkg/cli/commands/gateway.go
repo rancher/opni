@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/hashicorp/go-plugin"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	cliutil "github.com/rancher/opni-monitoring/pkg/cli/util"
 	"github.com/rancher/opni-monitoring/pkg/config"
@@ -18,6 +19,7 @@ import (
 	gatewayext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/gateway"
 	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/capability"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/metrics"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/waitctx"
 	"github.com/spf13/cobra"
@@ -56,6 +58,8 @@ func BuildGatewayCmd() *cobra.Command {
 		systemPlugins := pluginLoader.DispenseAll(system.SystemPluginID)
 		capBackendPlugins := plugins.DispenseAllAs[capability.BackendClient](
 			pluginLoader, capability.CapabilityBackendPluginID)
+		metricsPlugins := plugins.DispenseAllAs[prometheus.Collector](
+			pluginLoader, metrics.MetricsPluginID)
 
 		lifecycler := config.NewLifecycler(objects)
 		g := gateway.NewGateway(ctx, gatewayConfig,
@@ -65,6 +69,7 @@ func BuildGatewayCmd() *cobra.Command {
 			gateway.WithAPIServerOptions(
 				gateway.WithAPIExtensions(gatewayExtensionPlugins),
 				gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
+				gateway.WithMetricsPlugins(metricsPlugins),
 			),
 		)
 

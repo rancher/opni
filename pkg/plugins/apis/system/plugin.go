@@ -22,7 +22,11 @@ type SystemPluginServer interface {
 	ServeKeyValueStore(storage.KeyValueStore)
 }
 
-const SystemPluginID = "system"
+const (
+	SystemPluginID  = "opni.System"
+	KVServiceID     = "system.KeyValueStore"
+	SystemServiceID = "system.System"
+)
 
 type systemPlugin struct {
 	plugin.NetRPCUnsupportedPlugin
@@ -81,6 +85,12 @@ func (c *systemPluginClientImpl) UseKeyValueStore(ctx context.Context, in *Broke
 // Gateway side
 
 func (p *systemPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
+	systemErr := plugins.CheckAvailability(ctx, c, SystemServiceID)
+	kvErr := plugins.CheckAvailability(ctx, c, KVServiceID)
+	if systemErr != nil && kvErr != nil {
+		return nil, systemErr
+	}
+
 	return &systemPluginHandler{
 		ctx:    ctx,
 		broker: broker,

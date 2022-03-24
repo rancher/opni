@@ -3,6 +3,8 @@ package gateway
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
+	"net"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -11,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
 	"github.com/rancher/opni-monitoring/pkg/capabilities"
@@ -22,6 +25,18 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/util/fwd"
 	"go.uber.org/zap"
+)
+
+var (
+	httpRequestsTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "opni",
+		Subsystem: "gateway",
+		Name:      "http_requests_total",
+		Help:      "Total number of HTTP requests handled by the gateway API",
+	})
+	apiCollectors = []prometheus.Collector{
+		httpRequestsTotal,
+	}
 )
 
 type GatewayAPIServer struct {
@@ -39,6 +54,7 @@ type APIServerOptions struct {
 	fiberMiddlewares []FiberMiddleware
 	authMiddleware   auth.NamedMiddleware
 	apiExtensions    []APIExtensionPlugin
+	metricsPlugins   []MetricsPlugin
 }
 
 type APIServerOption func(*APIServerOptions)
@@ -68,6 +84,12 @@ func WithAuthMiddleware(name string) APIServerOption {
 func WithAPIExtensions(plugins []APIExtensionPlugin) APIServerOption {
 	return func(o *APIServerOptions) {
 		o.apiExtensions = plugins
+	}
+}
+
+func WithMetricsPlugins(plugins []MetricsPlugin) APIServerOption {
+	return func(o *APIServerOptions) {
+		o.metricsPlugins = plugins
 	}
 }
 
@@ -115,6 +137,7 @@ func NewAPIServer(
 			"/monitor",
 			"/healthz",
 			"/bootstrap",
+			"/metrics",
 		},
 	}
 
@@ -130,6 +153,7 @@ func NewAPIServer(
 	).Named("api")
 	app.Use(func(c *fiber.Ctx) error {
 		sampledLog.Debugf("%s %s", c.Method(), c.Request().URI().FullURI())
+		httpRequestsTotal.Inc()
 		return c.Next()
 	})
 
@@ -141,9 +165,29 @@ func NewAPIServer(
 		return c.SendStatus(http.StatusOK)
 	})
 
+	metricsHandler := NewMetricsEndpointHandler()
+	metricsHandler.MustRegister(apiCollectors...)
+	for _, plugin := range options.metricsPlugins {
+		metricsHandler.MustRegister(plugin.Typed)
+	}
+
+	if listener, err := net.Listen("tcp4", fmt.Sprintf(":%d", cfg.MetricsPort)); err != nil {
+		lg.With(
+			zap.Error(err),
+		).Error("failed to start metrics listener")
+	} else {
+		go func() {
+			if err := metricsHandler.ListenAndServe(listener); err != nil {
+				lg.With(
+					zap.Error(err),
+				).Error("metrics handler stopped")
+			}
+		}()
+	}
+
 	go func() {
 		for _, plugin := range options.apiExtensions {
-			ctx, ca := context.WithTimeout(ctx, 5000*time.Second)
+			ctx, ca := context.WithTimeout(ctx, 5*time.Second)
 			defer ca()
 			cfg, err := plugin.Typed.Configure(ctx, apiextensions.NewCertConfig(cfg.Certs))
 			if err != nil {
@@ -162,7 +206,7 @@ func NewAPIServer(
 func (s *GatewayAPIServer) ListenAndServe() error {
 	select {
 	case <-s.wait:
-	case <-time.After(10000 * time.Second):
+	case <-time.After(10 * time.Second):
 		s.logger.Fatal("failed to start api server: timed out waiting for route setup")
 	}
 	s.app.Use(default404Handler)

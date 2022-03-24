@@ -43,18 +43,31 @@ gateway:
 # "etcd" or "customResources"
 storageType: etcd
 
-service:
-  type: LoadBalancer
-  port: 8080
+services:
+  public:
+    type: LoadBalancer
+    port: 8080
+  internal:
+    type: ClusterIP
+
+metrics:
+  port: 8086
+
+serviceMonitor:
+  enabled: true
+  # interval:
+  # scrapeTimeout:
+  # relabelings:
+  # metricRelabelings:
 
 management:
   # The management service can listen on a unix socket or a TCP port.
   # For example:
   #   unix:///path/to/management.sock
-  #   tcp://0.0.0.0:9090
-  grpcListenAddress: unix:///run/opni-monitoring/management.sock
-  httpListenAddress: 127.0.0.1:11080
-  webListenAddress: 127.0.0.1:12080
+  #   tcp://0.0.0.0:11090
+  grpcListenAddress: tcp://0.0.0.0:11090
+  httpListenAddress: 0.0.0.0:11080
+  webListenAddress: 0.0.0.0:12080
 
 serviceAccount:
   # Specifies whether a service account should be created

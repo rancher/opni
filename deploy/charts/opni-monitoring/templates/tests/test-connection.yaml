@@ -11,5 +11,5 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "opni-monitoring.fullname" . }}:{{ .Values.service.port }}']
+      args: ['{{ include "opni-monitoring.fullname" . }}:{{ .Values.services.public.port }}']
   restartPolicy: Never

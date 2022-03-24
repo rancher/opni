@@ -12,6 +12,7 @@ type GatewayConfig struct {
 
 type GatewayConfigSpec struct {
 	ListenAddress  string         `json:"listenAddress,omitempty"`
+	MetricsPort    int            `json:"metricsPort,omitempty"`
 	Management     ManagementSpec `json:"management,omitempty"`
 	EnableMonitor  bool           `json:"enableMonitor,omitempty"`
 	TrustedProxies []string       `json:"trustedProxies,omitempty"`
@@ -93,6 +94,9 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	}
 	if s.ListenAddress == "" {
 		s.ListenAddress = ":8080"
+	}
+	if s.MetricsPort == 0 {
+		s.MetricsPort = 8086
 	}
 	if s.Cortex.Distributor.HTTPAddress == "" {
 		s.Cortex.Distributor.HTTPAddress = "cortex-distributor:8080"

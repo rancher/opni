@@ -14,7 +14,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-const GatewayAPIExtensionPluginID = "apiextensions.GatewayAPIExtension"
+const (
+	GatewayAPIExtensionPluginID = "opni.apiextensions.GatewayAPIExtension"
+	ServiceID                   = "apiextensions.GatewayAPIExtension"
+)
 
 // Plugin side
 
@@ -103,6 +106,9 @@ func (p *gatewayApiExtensionPlugin) GRPCClient(
 	broker *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
+	if err := plugins.CheckAvailability(ctx, c, ServiceID); err != nil {
+		return nil, err
+	}
 	return apiextensions.NewGatewayAPIExtensionClient(c), nil
 }
 

@@ -10,9 +10,11 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/metrics/collector"
 	gatewayext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/gateway"
 	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/capability"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/metrics"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"github.com/rancher/opni-monitoring/pkg/storage"
@@ -22,6 +24,7 @@ import (
 
 type Plugin struct {
 	cortexadmin.UnimplementedCortexAdminServer
+	collector.CollectorServer
 	ctx               context.Context
 	config            *util.Future[*v1beta1.GatewayConfig]
 	mgmtApi           *util.Future[management.ManagementClient]
@@ -35,6 +38,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewForPlugin()
 	lg.SetLevel(hclog.Debug)
 	return &Plugin{
+		CollectorServer:   collectorServer,
 		ctx:               ctx,
 		config:            util.NewFuture[*v1beta1.GatewayConfig](),
 		mgmtApi:           util.NewFuture[management.ManagementClient](),
@@ -55,5 +59,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(&cortexadmin.CortexAdmin_ServiceDesc, p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(wellknown.CapabilityMetrics, p))
+	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))
 	return scheme
 }

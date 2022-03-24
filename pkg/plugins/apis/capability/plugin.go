@@ -21,7 +21,10 @@ type Backend interface {
 	InstallerTemplate() string
 }
 
-const CapabilityBackendPluginID = "backends.Capability"
+const (
+	CapabilityBackendPluginID = "opni.backends.Capability"
+	ServiceID                 = "capability.Backend"
+)
 
 type capabilityBackendPlugin struct {
 	plugin.NetRPCUnsupportedPlugin
@@ -45,6 +48,9 @@ func (p *capabilityBackendPlugin) GRPCClient(
 	broker *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
+	if err := plugins.CheckAvailability(ctx, c, ServiceID); err != nil {
+		return nil, err
+	}
 	return NewBackendClient(c), nil
 }
 

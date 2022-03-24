@@ -59,7 +59,10 @@ spec:
           {{- end }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: {{ .Values.services.public.port }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.metrics.port | default 8086 }}
               protocol: TCP
           {{- if hasPrefix "tcp://" .Values.management.grpcListenAddress }}
             - name: management-grpc

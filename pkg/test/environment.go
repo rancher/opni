@@ -25,6 +25,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/phayes/freeport"
 	"github.com/pkg/browser"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni-monitoring/pkg/agent"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	testauth "github.com/rancher/opni-monitoring/pkg/auth/test"
@@ -44,6 +45,7 @@ import (
 	gatewayext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/gateway"
 	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/capability"
+	"github.com/rancher/opni-monitoring/pkg/plugins/apis/metrics"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api"
 	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
@@ -522,6 +524,8 @@ func (e *Environment) startGateway() {
 	systemPlugins := pluginLoader.DispenseAll(system.SystemPluginID)
 	capBackendPlugins := plugins.DispenseAllAs[capability.BackendClient](
 		pluginLoader, capability.CapabilityBackendPluginID)
+	metricsPlugins := plugins.DispenseAllAs[prometheus.Collector](
+		pluginLoader, metrics.MetricsPluginID)
 
 	lifecycler := config.NewLifecycler(meta.ObjectList{e.gatewayConfig, &v1beta1.AuthProvider{
 		TypeMeta: meta.TypeMeta{
@@ -542,6 +546,7 @@ func (e *Environment) startGateway() {
 		gateway.WithAPIServerOptions(
 			gateway.WithAPIExtensions(gatewayExtensionPlugins),
 			gateway.WithAuthMiddleware(e.gatewayConfig.Spec.AuthProvider),
+			gateway.WithMetricsPlugins(metricsPlugins),
 		),
 	)
 	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g,

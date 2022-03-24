@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-plugin"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni-monitoring/pkg/capabilities"
 	"github.com/rancher/opni-monitoring/pkg/config"
 	"github.com/rancher/opni-monitoring/pkg/config/meta"
@@ -26,6 +27,7 @@ import (
 type APIExtensionPlugin = plugins.TypedActivePlugin[apiextensions.GatewayAPIExtensionClient]
 type CapabilityBackendPlugin = plugins.TypedActivePlugin[capability.BackendClient]
 type SystemPlugin = plugins.TypedActivePlugin[system.SystemPluginServer]
+type MetricsPlugin = plugins.TypedActivePlugin[prometheus.Collector]
 
 type Gateway struct {
 	GatewayOptions

@@ -5,11 +5,35 @@ metadata:
   labels:
     {{- include "opni-monitoring.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.services.public.type }}
+  selector:
+    {{- include "opni-monitoring.selectorLabels" . | nindent 4 }}
   ports:
     - name: http
-      port: {{ .Values.service.port }}
+      port: {{ .Values.services.public.port }}
       targetPort: http
+      protocol: TCP
+{{- if eq .Values.auth.provider "noauth" }}
+    - name: noauth
+      port: {{ .Values.auth.noauth.port }}
+      targetPort: noauth
+      protocol: TCP
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "opni-monitoring.fullname" . }}-internal
+  labels:
+    {{- include "opni-monitoring.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.services.internal.type }}
+  selector:
+    {{- include "opni-monitoring.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: metrics
+      port: {{ .Values.metrics.port | default 8086 }}
+      targetPort: metrics
       protocol: TCP
 {{- if hasPrefix "tcp://" .Values.management.grpcListenAddress }}
     - name: management
@@ -32,11 +56,3 @@ spec:
       targetPort: management-web
       protocol: TCP
 {{- end }}
-{{- if eq .Values.auth.provider "noauth" }}
-    - name: noauth
-      port: {{ .Values.auth.noauth.port }}
-      targetPort: noauth
-      protocol: TCP
-{{- end }}
-  selector:
-    {{- include "opni-monitoring.selectorLabels" . | nindent 4 }}

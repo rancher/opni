@@ -15,7 +15,7 @@ data:
         {{- range $d := .Values.pluginSearchDirs }}
           - {{ $d }}
         {{- end }}
-      listenAddress: ":{{ .Values.service.port }}"
+      listenAddress: ":{{ .Values.services.public.port }}"
       management:
         grpcListenAddress: "{{ .Values.management.grpcListenAddress }}"
         httpListenAddress: "{{ .Values.management.httpListenAddress }}"

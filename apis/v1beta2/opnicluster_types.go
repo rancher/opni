@@ -84,7 +84,7 @@ type OpensearchStatus struct {
 	Initialized bool             `json:"initialized,omitempty"`
 }
 
-//+kubebuilder:webhook:path=/highlander-opni-io-v1beta1-opnicluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=opniclusters,verbs=create;update,versions=v1beta1,name=highlander.opni.io,admissionReviewVersions={v1,v1beta1,v1beta2}
+//+kubebuilder:webhook:path=/highlander-opni-io-v1beta1-opnicluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=opniclusters,verbs=create;update,versions={v1beta1,v1beta2},name=highlander.opni.io,admissionReviewVersions={v1,v1beta1}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status

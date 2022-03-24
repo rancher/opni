@@ -135,11 +135,6 @@ func run() error {
 		return err
 	}
 
-	if err = (&v1beta1.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
-		return err
-	}
-
 	if err = (&controllers.PretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PretrainedModel")
 		return err
@@ -204,6 +199,18 @@ func run() error {
 
 	if err = (&v1beta2.OpniCluster{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "OpniCluster")
+		return err
+	}
+	if err = (&v1beta2.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
+		return err
+	}
+	if err = (&v1beta2.GpuPolicyAdapter{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "GpuPolicyAdapter")
+		return err
+	}
+	if err = (&v1beta2.PretrainedModel{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "PretrainedModel")
 		return err
 	}
 

@@ -28,3 +28,28 @@ func (src *PretrainedModel) ConvertTo(dstRaw conversion.Hub) error {
 
 	return nil
 }
+
+//nolint:golint
+func (dst *PretrainedModel) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1beta2.PretrainedModel)
+
+	dst.ObjectMeta = src.ObjectMeta
+	dst.Spec.Hyperparameters = src.Spec.Hyperparameters
+
+	if src.Spec.HTTP != nil {
+		http := &HTTPSource{
+			URL: src.Spec.HTTP.URL,
+		}
+		dst.Spec.HTTP = http
+	}
+
+	if src.Spec.Container != nil {
+		container := &ContainerSource{
+			Image:            src.Spec.Container.Image,
+			ImagePullSecrets: src.Spec.Container.ImagePullSecrets,
+		}
+		dst.Spec.Container = container
+	}
+
+	return nil
+}

@@ -21,27 +21,7 @@ webhooks:
     - opni.io
     apiVersions:
     - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - logadapters
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /mutate-opni-io-v1beta1-logadapter
-  failurePolicy: Fail
-  name: mlogadapter.kb.io
-  rules:
-  - apiGroups:
-    - opni.io
-    apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -70,7 +50,8 @@ webhooks:
   - apiGroups:
     - opni.io
     apiVersions:
-    - v1beta1
+    - v1beta2
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -80,7 +61,6 @@ webhooks:
 - admissionReviewVersions:
   - v1
   - v1beta1
-  - v1beta2
   clientConfig:
     service:
       name: webhook-service
@@ -93,30 +73,10 @@ webhooks:
     - opni.io
     apiVersions:
     - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
     resources:
     - opniclusters
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-opni-io-v1beta1-logadapter
-  failurePolicy: Fail
-  name: vlogadapter.kb.io
-  rules:
-  - apiGroups:
-    - opni.io
-    apiVersions:
-    - v1beta1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - logadapters
   sideEffects: None

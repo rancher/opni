@@ -64,7 +64,7 @@ func (r *LogAdapter) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-opni-io-v1beta2-logadapter,mutating=true,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=logadapters,verbs=create;update,versions=v1beta1,name=mlogadapter.kb.io,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/mutate-opni-io-v1beta2-logadapter,mutating=true,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=logadapters,verbs=create;update,versions={v1beta1,v1beta2},name=mlogadapter.kb.io,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Defaulter = &LogAdapter{}
 
@@ -155,7 +155,7 @@ func (r *LogAdapter) Default() {
 	}).SetDefaults()
 }
 
-//+kubebuilder:webhook:path=/validate-opni-io-v1beta2-logadapter,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=logadapters,verbs=create;update,versions=v1beta1,name=vlogadapter.kb.io,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:webhook:path=/validate-opni-io-v1beta2-logadapter,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=logadapters,verbs=create;update,versions={v1beta2,v1beta2},name=vlogadapter.kb.io,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Validator = &LogAdapter{}
 

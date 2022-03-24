@@ -171,7 +171,7 @@ webhooks:
     service:
       name: opni-webhook-service
       namespace: opni-system
-      path: /mutate-opni-io-v1beta1-logadapter
+      path: /mutate-opni-io-v1beta2-logadapter
   failurePolicy: Fail
   name: mlogadapter.kb.io
   rules:
@@ -179,6 +179,7 @@ webhooks:
     - opni.io
     apiVersions:
     - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -200,14 +201,15 @@ webhooks:
     service:
       name: opni-webhook-service
       namespace: opni-system
-      path: /validate-opni-io-v1beta1-logadapter
+      path: /validate-opni-io-v1beta2-logadapter
   failurePolicy: Fail
   name: vlogadapter.kb.io
   rules:
   - apiGroups:
     - opni.io
     apiVersions:
-    - v1beta1
+    - v1beta2
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -229,9 +231,11 @@ webhooks:
     - opni.io
     apiVersions:
     - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
     resources:
     - opniclusters
   sideEffects: None
+

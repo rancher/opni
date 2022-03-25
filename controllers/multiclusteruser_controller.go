@@ -7,9 +7,11 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/multiclusteruser"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type MulticlusterUserReconciler struct {
@@ -29,6 +31,15 @@ func (r *MulticlusterUserReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	err := r.Get(ctx, req.NamespacedName, multiclusterUser)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Add finalizer to resource if it's not deleted
+	if multiclusterUser.DeletionTimestamp == nil {
+		controllerutil.AddFinalizer(multiclusterUser, meta.OpensearchFinalizer)
+		err = r.Update(ctx, multiclusterUser)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	multiclusterUserReconciler := multiclusteruser.NewReconciler(ctx, multiclusterUser, r.Client)

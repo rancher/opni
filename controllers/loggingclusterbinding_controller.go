@@ -7,9 +7,11 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/loggingclusterbinding"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type LoggingClusterBindingReconciler struct {
@@ -29,6 +31,15 @@ func (r *LoggingClusterBindingReconciler) Reconcile(ctx context.Context, req ctr
 	err := r.Get(ctx, req.NamespacedName, loggingClusterBinding)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Add finalizer to resource if it's not deleted
+	if loggingClusterBinding.DeletionTimestamp == nil {
+		controllerutil.AddFinalizer(loggingClusterBinding, meta.OpensearchFinalizer)
+		err = r.Update(ctx, loggingClusterBinding)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	loggingClusterBindingReconciler := loggingclusterbinding.NewReconciler(ctx, loggingClusterBinding, r.Client)

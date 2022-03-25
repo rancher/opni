@@ -68,7 +68,11 @@ spec:
                 items:
                   type: string
                 type: array
+              rolename:
+                type: string
               state:
+                type: string
+              username:
                 type: string
             type: object
         type: object

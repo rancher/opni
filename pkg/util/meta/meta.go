@@ -13,6 +13,10 @@ import (
 	"k8s.io/utils/pointer"
 )
 
+const (
+	OpensearchFinalizer = "opni.io/opensearch"
+)
+
 type LogLevel string
 
 const (

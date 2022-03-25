@@ -7,10 +7,12 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/loggingcluster"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type LoggingClusterReconciler struct {
@@ -30,6 +32,15 @@ func (r *LoggingClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	err := r.Get(ctx, req.NamespacedName, loggingCluster)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Add finalizer to resource if it's not deleted
+	if loggingCluster.DeletionTimestamp == nil {
+		controllerutil.AddFinalizer(loggingCluster, meta.OpensearchFinalizer)
+		err = r.Update(ctx, loggingCluster)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	loggingClusterReconciler := loggingcluster.NewReconciler(ctx, loggingCluster, r.Client)

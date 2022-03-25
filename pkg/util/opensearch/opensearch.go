@@ -517,6 +517,26 @@ func (r *Reconciler) MaybeCreateRole(role opensearchapiext.RoleSpec) error {
 	return nil
 }
 
+func (r *Reconciler) MaybeDeleteRole(rolename string) error {
+	absent, err := r.shouldCreateRole(rolename)
+	if err != nil {
+		return err
+	}
+	if absent {
+		return nil
+	}
+
+	resp, err := r.osClient.Security.DeleteRole(r.ctx, rolename)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to delete role: %s", resp.String())
+	}
+	return nil
+}
+
 func (r *Reconciler) shouldCreateUser(name string) (bool, error) {
 	resp, err := r.osClient.Security.GetUser(r.ctx, name)
 	if err != nil {
@@ -534,11 +554,11 @@ func (r *Reconciler) shouldCreateUser(name string) (bool, error) {
 }
 
 func (r *Reconciler) MaybeCreateUser(user opensearchapiext.UserSpec) error {
-	createRole, err := r.shouldCreateUser(user.UserName)
+	createUser, err := r.shouldCreateUser(user.UserName)
 	if err != nil {
 		return err
 	}
-	if !createRole {
+	if !createUser {
 		return nil
 	}
 
@@ -549,6 +569,26 @@ func (r *Reconciler) MaybeCreateUser(user opensearchapiext.UserSpec) error {
 	defer resp.Body.Close()
 	if resp.IsError() {
 		return fmt.Errorf("failed to create user: %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) MaybeDeleteUser(username string) error {
+	absent, err := r.shouldCreateUser(username)
+	if err != nil {
+		return err
+	}
+	if absent {
+		return nil
+	}
+
+	resp, err := r.osClient.Security.DeleteUser(r.ctx, username)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to delete user: %s", resp.String())
 	}
 	return nil
 }
@@ -597,6 +637,41 @@ func (r *Reconciler) MaybeUpdateRolesMapping(roleName string, userName string) e
 	defer resp.Body.Close()
 	if resp.IsError() {
 		return fmt.Errorf("failed to create rolesmapping: %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) MaybeRemoveRolesMapping(roleName string, userName string) error {
+	userAbsent, mapping, err := r.checkRolesMapping(roleName, userName)
+	if err != nil {
+		return err
+	}
+
+	if userAbsent {
+		return nil
+	}
+
+	var users []string
+	for _, user := range mapping.Users {
+		if user != userName {
+			users = append(users, userName)
+		}
+	}
+
+	var resp *opensearchapi.Response
+	if len(users) == 0 {
+		resp, err = r.osClient.Security.DeleteRolesMapping(r.ctx, roleName)
+	} else {
+		// If there are still users we update the mapping
+		mapping.Users = users
+		resp, err = r.osClient.Security.CreateRolesMapping(r.ctx, roleName, opensearchutil.NewJSONReader(mapping))
+	}
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return fmt.Errorf("failed to remove user role mapping: %s", resp.String())
 	}
 	return nil
 }

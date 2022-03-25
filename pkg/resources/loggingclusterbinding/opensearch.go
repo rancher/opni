@@ -5,10 +5,13 @@ import (
 
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/pkg/util/opensearch"
+	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
@@ -55,6 +58,19 @@ func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearch
 		return errors.New("opensearch cluster refs must match")
 	}
 
+	// Update the status with the referenced objects to allow cleanup
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingClusterBinding), r.loggingClusterBinding); err != nil {
+			return err
+		}
+		r.loggingClusterBinding.Status.Username = user.Name
+		r.loggingClusterBinding.Status.Rolename = loggingCluster.Name
+		return r.client.Status().Update(r.ctx, r.loggingClusterBinding)
+	})
+	if err != nil {
+		return err
+	}
+
 	username, password, err := helpers.UsernameAndPassword(r.client, r.ctx, cluster)
 	if err != nil {
 		return err
@@ -70,4 +86,33 @@ func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearch
 	)
 
 	return osReconciler.MaybeUpdateRolesMapping(loggingCluster.Name, user.Name)
+}
+
+func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
+	username, password, err := helpers.UsernameAndPassword(r.client, r.ctx, cluster)
+	if err != nil {
+		return err
+	}
+
+	osReconciler := opensearch.NewReconciler(
+		r.ctx,
+		cluster.Namespace,
+		username,
+		password,
+		cluster.Spec.General.ServiceName,
+		"todo", // TODO fix dashboards name
+	)
+
+	err = osReconciler.MaybeRemoveRolesMapping(r.loggingClusterBinding.Status.Rolename, r.loggingClusterBinding.Status.Username)
+	if err != nil {
+		return err
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingClusterBinding), r.loggingClusterBinding); err != nil {
+			return err
+		}
+		controllerutil.RemoveFinalizer(r.loggingClusterBinding, meta.OpensearchFinalizer)
+		return r.client.Update(r.ctx, r.loggingClusterBinding)
+	})
 }

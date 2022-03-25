@@ -70,6 +70,9 @@ var _ = Describe("Config", Ordered, func() {
 		reloadC, err := lifecycler.ReloadC()
 		Expect(err).NotTo(HaveOccurred())
 
+		go func() {
+			<-reloadC
+		}()
 		_, err = tv.client.UpdateConfig(context.Background(), &management.UpdateConfigRequest{
 			Documents: []*management.ConfigDocument{
 				{
@@ -78,7 +81,6 @@ var _ = Describe("Config", Ordered, func() {
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(reloadC).To(Receive())
 
 		docs, err := tv.client.GetConfig(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())

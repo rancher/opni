@@ -32,7 +32,7 @@ const (
 
 var (
 	uiRepo       = "kralicky/opni-ui"
-	uiRepoBranch = "installer-commands"
+	uiRepoBranch = "updates"
 )
 
 func init() {

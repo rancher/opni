@@ -204,7 +204,8 @@ message GatewayConfig {
 
 message ConfigDocumentWithSchema {
   bytes json = 1;
-  bytes schema = 2;
+  bytes yaml = 2;
+  bytes schema = 3;
 }
 
 message ConfigDocument {

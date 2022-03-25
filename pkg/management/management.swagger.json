@@ -972,6 +972,10 @@
           "type": "string",
           "format": "byte"
         },
+        "yaml": {
+          "type": "string",
+          "format": "byte"
+        },
         "schema": {
           "type": "string",
           "format": "byte"

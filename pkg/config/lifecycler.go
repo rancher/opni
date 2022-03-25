@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+
 	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,7 +22,7 @@ type lifecycler struct {
 func NewLifecycler(objects meta.ObjectList) *lifecycler {
 	return &lifecycler{
 		objects: objects,
-		reloadC: make(chan struct{}, 1),
+		reloadC: make(chan struct{}),
 	}
 }
 
@@ -34,7 +36,11 @@ func (l *lifecycler) GetObjectList() (meta.ObjectList, error) {
 
 func (l *lifecycler) UpdateObjectList(objects meta.ObjectList) error {
 	l.objects = objects
-	l.reloadC <- struct{}{}
+	select {
+	case l.reloadC <- struct{}{}:
+	default:
+		return errors.New("no reload handler available")
+	}
 	return nil
 }
 

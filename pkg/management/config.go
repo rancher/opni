@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/validation"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"sigs.k8s.io/yaml"
 )
 
 func (m *Server) GetConfig(
@@ -30,12 +31,17 @@ func (m *Server) GetConfig(
 		if err != nil {
 			return
 		}
+		yamlData, err := yaml.Marshal(obj)
+		if err != nil {
+			return
+		}
 		schemaData, err := schema.MarshalJSON()
 		if err != nil {
 			return
 		}
 		gc.Documents = append(gc.Documents, &ConfigDocumentWithSchema{
 			Json:   jsonData,
+			Yaml:   yamlData,
 			Schema: schemaData,
 		})
 	})

@@ -1,0 +1,23 @@
+@import "typography";
+
+.td-navbar .td-search-input {
+  background: $light;
+}
+
+.td-navbar {
+  background: $lightest;
+  box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.15);
+
+  .navbar-brand {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  svg {
+    shape-rendering: geometricPrecision;
+    max-width: fit-content;
+    margin: 0 !important;
+    min-height: 48px;
+  }
+
+}

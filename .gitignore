@@ -10,6 +10,7 @@ deploy/custom/opni-monitoring.yaml
 
 /.*
 !/.gitignore
+!/.gitmodules
 !/.github
 !/.dockerignore
 !/.golangci.yaml
@@ -18,3 +19,10 @@ deploy/custom/opni-monitoring.yaml
 /cover.out
 /cover.profile
 **/*.tgz
+
+docs/public/
+docs/resources/
+docs/node_modules/
+docs/tech-doc-hugo
+docs/*.sw?
+docs/.hugo_build.lock

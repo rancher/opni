@@ -1,15 +1,22 @@
 # Copy this to a file named grafana.yaml and edit it with your own values.
+
 grafana.ini:
-  auth.proxy:
-    enabled: true
-  auth.basic:
-    enabled: false
-  auth.generic_oauth:
-    enabled: true
-    client-id: ""
-    client-secret: ""
-    auth-url: ""
-    token-url: ""
-    api-url: ""
-    allowed-domains: ""
-    role-attribute-path: "" # See grafana docs. Example: "contains(resource_access.grafana.roles[*], 'Admin') && 'Admin' || contains(resource_access.grafana.roles[*], 'Editor') && 'Editor' || 'Viewer'"
+  server:
+    domain: ""
+    root_url: ""
+  auth.generic_oauth: # See grafana docs for this section
+    client_id: ""
+    client_secret: ""
+    auth_url: ""
+    token_url: ""
+    api_url: ""
+    allowed_domains: ""
+    role_attribute_path: ""
+tls:
+  - secretName: grafana-tls-keys
+    hosts:
+      - ""
+ingress:
+  enabled: true
+  hosts:
+    - ""

@@ -2,36 +2,102 @@
 title: "Quick Start"
 linkTitle: "Quick Start"
 weight: 2
-tags: ["intro"]
-description: >
-  What does your user need to know to try your project?
 ---
  
-{{% pageinfo %}}
-This is a placeholder page that shows you how to use this template site.
-{{% /pageinfo %}}
+This guide will walk you through setting up a "demo" Opni Monitoring installation. This setup is *not* production-ready. If that is what you are looking for, check out the full [Installation](/installation) guide.
 
-Information in this section helps your user try your project themselves.
-
-* What do your users need to do to start using your project? This could include downloading/installation instructions, including any prerequisites or system requirements.
-
-* Introductory “Hello World” example, if appropriate. More complex tutorials should live in the Tutorials section.
-
-Consider using the headings below for your getting started page. You can delete any that are not applicable to your project.
+{{% alert color="info" title="Important" %}}
+Before proceeding, please read the section on [Terminology](/architecture/terminology) to familiarize yourself with a few key terms.
+{{% /alert %}}
 
 ## Prerequisites
 
-Are there any system requirements for using your project? What languages are supported (if any)? Do users need to already have any software or tools installed?
+### Infrastructure
+- One **main** cluster where the Opni Monitoring control-plane components will be installed.
+- One or more **downstream** clusters which will be configured to send metrics to the **main** cluster
 
-## Installation
+{{% alert color="info" title="Important" %}}
+The main cluster must be accessible to all downstream clusters from a persistent DNS name.
+{{% /alert %}}
 
-Where can your user find your project code? How can they install it (binaries, installable package, build from source)? Are there multiple options/versions they can install and how should they choose the right one for them?
+### Dependencies
+- All clusters should have the [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) helm chart installed, with grafana and the default prometheus deployment disabled:
 
-## Setup
+  ```bash
+  $ helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  $ helm repo update
+  $ helm install -n monitoring kube-prometheus prometheus-community/kube-prometheus-stack --set grafana.enabled=false --set prometheus.enabled=false --wait
+  ```
 
-Is there any initial setup users need to do after installation to try your project?
+- Install [helmfile](https://github.com/roboll/helmfile) using your distribution's package manager or from the GitHub release page.
 
-## Try it out!
+- Clone the opni-monitoring repo:
 
-Can your users test their installation, for example by running a commmand or deploying a Hello World example?
+  ```bash
+  $ git clone https://github.com/rancher/opni-monitoring
+  ```
+
+
+## Setting up the main cluster
+
+### DNS Setup
+
+1. Identify the DNS name of your main cluster. This will be referenced in the following sections as `<gateway_address>`. 
+2. Configure `A` records such that `<gateway_address>` and `grafana.<gateway_address>` both route to the IP address of your main cluster's load balancer.
+
+### Chart configuration
+
+Inside the opni-monitoring repo, change directories to `deploy/charts/opni-monitoring/custom`. There are three template files in this directory which you will need to copy and edit before continuing.
+
+1. Copy `cortex-template.yaml` to `cortex.yaml` and leave it empty.
+2. Copy `grafana-template.yaml` to `grafana.yaml` and edit it as follows, substituting `<gateway_address>`:
+```yaml
+grafana.ini:
+  server:
+    domain: "grafana.<gateway_address>"
+    root_url: "https://<gateway_address>"
+  auth.generic_oauth:
+    client_id: "grafana"
+    client_secret: "supersecret" # (this can be whatever you want)
+    auth_url: "http://<gateway_address>:4000/oauth2/authorize"
+    token_url: "http://<gateway_address>:4000/oauth2/token"
+    api_url: "http://<gateway_address>:4000/oauth2/userinfo"
+    allowed_domains: example.com # (this can be whatever you want, but remember it for later)
+    role_attribute_path: grafana_role
+    use_pkce: false
+tls:
+  - secretName: grafana-tls-keys
+    hosts:
+      - "grafana.<gateway_address>"
+ingress:
+  enabled: true
+  hosts:
+    - "grafana.<gateway_address>"
+
+```
+
+3. Copy `opni-monitoring-template.yaml` to `opni-monitoring.yaml` and edit it as follows:
+```yaml
+auth:
+  provider: noauth
+  noauth:
+    discovery:
+      issuer: "http://<gateway_address>:4000/oauth2"
+    clientID: grafana
+    clientSecret: supersecret # (this must match client_secret in grafana.yaml)
+    redirectURI: "https://grafana.<gateway_address>/login/generic_oauth"
+    managementAPIEndpoint: "opni-monitoring-internal:11090"
+    port: 4000
+gateway:
+  dnsNames:
+    - "<gateway_address>"
+```
+
+### Chart Installation
+
+Inside the opni-monitoring repo, change directories to `deploy/`.
+
+1. Ensure your current kubeconfig points to the main cluster.
+2. Run `helmfile apply`
+3. Wait for all resources to become healthy. This may take a few minutes.
 

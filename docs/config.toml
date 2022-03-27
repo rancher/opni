@@ -65,6 +65,8 @@ weight = 1
   [markup.goldmark]
     [markup.goldmark.renderer]
       unsafe = true
+	[markup.highlight]
+		style = "tango"
 
 # Comment out this section to disable the "Print entire section" feature
 # See https://www.docsy.dev/docs/adding-content/print/

@@ -4,3 +4,5 @@ auth:
   provider: openid
   openid:
     issuer: "" # OpenID issuer URL (as shown in /.well-known/openid-configuration)
+gateway:
+  dnsNames: []

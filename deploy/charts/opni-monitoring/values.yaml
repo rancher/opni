@@ -21,7 +21,8 @@ gateway:
   replicaCount: 1
   podAnnotations: {}
   podSecurityContext: {}
-  dnsNames: [] # TLS SANs to add to the gateway serving cert (required)
+  dnsNames: [] # DNS Names to add to the gateway serving cert SAN list (required)
+  ipAddresses: [] # IP Addresses to add to the gateway serving cert SAN list (optional)
   securityContext:
     {}
     # capabilities:

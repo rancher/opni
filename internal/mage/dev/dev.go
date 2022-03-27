@@ -22,3 +22,11 @@ tilt logs -f | awk 'tolower($0) !~ /health|push|ready|memberlist_logger|cleanup/
 `)
 	return cmd.Run()
 }
+
+func Docs() error {
+	cmd := exec.Command("hugo", "server")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = "docs"
+	return cmd.Run()
+}

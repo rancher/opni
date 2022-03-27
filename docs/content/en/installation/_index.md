@@ -1,5 +1,5 @@
 ---
 title: "Installation"
-linkTitle: "Installation and Upgrades"
+linkTitle: "Installation"
 weight: 3
 ---

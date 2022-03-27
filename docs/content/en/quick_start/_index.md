@@ -1,6 +1,6 @@
 ---
-title: "Quick Start Guide"
-linkTitle: "Quick Start Guide"
+title: "Quick Start"
+linkTitle: "Quick Start"
 weight: 2
 tags: ["intro"]
 description: >

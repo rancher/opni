@@ -1,8 +1,7 @@
 ---
-title: "Opni Monitoring Overview"
+title: ""
 linkTitle: "Overview"
 type: "docs"
-tags: ["intro"]
 weight: 20
 
 cascade:
@@ -20,28 +19,26 @@ cascade:
   type: "home"
 ---
 
-The Overview is where your users find out about your project. Depending on the size of your docset, you can have a separate overview page (like this one) or put your overview contents in the Documentation landing page (like in the Docsy User Guide). 
+![](/static/logo.png)
 
-Try answering these questions for your user in this page:
+Opni Monitoring is an open-source multi-cluster monitoring platform. It ingests Prometheus metrics from all your Kubernetes clusters and provides a centralized observability plane for your infrastructure. Use Opni Monitoring to visualize metrics from all your clusters at once, and give each of your users their own customized view using granular access control.
 
-## What is it?
+## ⚡ Powered by Open-Source
 
-Introduce your project, including what it does or lets you do, why you would use it, and its primary goal (and how it achieves it). This should be similar to your README description, though you can go into a little more detail here if you want.
+Opni Monitoring is completely free (as in freedom, *and* beer) Apache-licensed open-source software. It builds upon existing, ubiquitous open-source systems - [Prometheus](https://prometheus.io), [Grafana](https://grafana.com), and [Cortex](https://cortexmetrics.io) - and extends them with a number of powerful enterprise features typically only found in SaaS platforms and other proprietery solutions.
 
-## Why do I want it?
+## 🔋 Batteries Included
 
-Help your user know if your project will help them. Useful information can include: 
+Opni Monitoring comes out of the box with all the tools you need to get started with multi-cluster monitoring. Manage your clusters and configure access control rules with the built-in dashboard, command-line interface, or REST API. 
 
-* **What is it good for?**: What types of problems does your project solve? What are the benefits of using it?
+Opni Monitoring is secure-by-default and uses a zero-trust architecture for inter-cluster communication, with no extra setup required.
 
-* **What is it not good for?**: For example, point out situations that might intuitively seem suited for your project, but aren't for some reason. Also mention known limitations, scaling issues, or anything else that might let your users know if the project is not for them.
+## 🔒 You Own Your Data
 
-* **What is it *not yet* good for?**: Highlight any useful features that are coming soon.
+With Opni Monitoring, you have complete control over how and where your data is stored. Metric storage is powered by [Cortex](https://cortexmetrics.io), which provides comprehensive configuration options for data storage and retention. Several storage backends are available including S3 (cloud or self-hosted), Swift, and Kubernetes Persistent Volumes.
 
-## Where should I go next?
+## Get Started
 
-Give your users next steps from the Overview. For example: 
-
-* [Getting Started](/getting-started/): Get started with $project
-* [Examples](/examples/): Check out some example code!
+* Try out Opni Monitoring in a demo environment with the [Quick Start](/quick_start) guide
+* Install Opni Monitoring in a production environment with the [Installation](/installation) guide
 

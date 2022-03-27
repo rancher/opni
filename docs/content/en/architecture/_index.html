@@ -1,0 +1,67 @@
+---
+title: ""
+linkTitle: "Architecture"
+weight: 1
+---
+
+<style>
+  .td-sidebar-toc {
+    display: none !important;
+  }
+
+  .diagram {
+    padding-right: 20px;
+  }
+</style>
+
+<script>
+  var main = document.querySelector('main');
+  console.log(main)
+  main.classList.remove('col-xl-8');
+  main.classList.add('col-xl-10');
+</script>
+
+<body>
+  <img class="diagram" src="/static/architecture.png" />
+  <hr />
+  <h2>Components</h2>
+  <br />
+  <h3>Opni Monitoring Cluster</h3>
+  <p>
+    The Opni Monitoring cluster is the cluster in which the Opni Monitoring control-plane components are installed. This
+    is the central cluster where all downstream clusters send their metrics to. Deployed in this cluster are the
+    following components:
+  <ul>
+    <li> Opni Gateway </li>
+    <li> Cortex </li>
+    <li> Grafana </li>
+    <li> Etcd </li>
+    <li> (optional) Opni Agent </li>
+  </ul>
+  </p>
+
+  <h3>Downstream Clusters</h3>
+  <p>
+    Downstream clusters are the clusters that send their metrics to the Opni Monitoring cluster. Deployed in these
+    clusters are the following components:
+  <ul>
+    <li> Opni Agent </li>
+    <li> Prometheus Agent </li>
+  </ul>
+  </p>
+
+  <h3>OpenID Provider</h3>
+  <p>
+    A production deployment of Opni Monitoring must use an OpenID Provider to authenticate users. The Grafana
+    dashboard deployed in the Opni Monitoring cluster will be configured to use the OpenID Provider for user login.
+    <br />
+    <br />
+    Support for other authentication mechanisms (LDAP, SAML, etc.) may be added in the future.
+  </p>
+
+  <h3>Long-Term Storage</h3>
+  <p>
+    A production deployment of Opni Monitoring should be configured to use long-term metric storage. For example, this
+    could be an S3-compatible object storage service.
+  </p>
+</body>

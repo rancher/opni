@@ -109,7 +109,10 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 }
 
 func (p *Plugin) InstallerTemplate() string {
-	return "dan fill this in"
+	return "opnictl bootstrap logging [CLUSTER-NAME] " +
+		"[--provider=[rke|rke2|k3s|aks|eks|gke]] " +
+		`--token={{ .Token }} --pin={{ .Pin }}` +
+		`--gateway-url={{ .Address }}`
 }
 
 func generateRandomString(n int) (string, error) {

@@ -8,9 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/rancher/opni-monitoring/pkg/ecdh"
 	"github.com/rancher/opni-monitoring/pkg/ident"
@@ -63,8 +65,13 @@ func (c *ClientConfig) Bootstrap(
 
 	client := http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
+			Dial: (&net.Dialer{
+				Timeout: 5 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout: 5 * time.Second,
+			TLSClientConfig:     tlsConfig,
 		},
+		Timeout: 10 * time.Second,
 	}
 
 	ekp := ecdh.NewEphemeralKeyPair()

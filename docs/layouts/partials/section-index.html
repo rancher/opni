@@ -1,11 +1,12 @@
-<hr />
+{{ $parent := .Page }}
+{{ $pages := (where .Site.Pages "Section" .Section).ByWeight }}
+{{ $pages = (where $pages "Type" "!=" "search") }}
+{{ $pages = (where $pages ".Params.hide_summary" "!=" true) }}
+{{ $pages = (where $pages ".Parent" "!=" nil) }}
+{{ $pages = (where $pages "Parent.File.UniqueID" "==" $parent.File.UniqueID) }}
+{{- if gt (len $pages) 0 }}
+<hr class="section-index-hr" />
 <div class="section-index">
-    {{ $parent := .Page }}
-    {{ $pages := (where .Site.Pages "Section" .Section).ByWeight }}
-    {{ $pages = (where $pages "Type" "!=" "search") }}
-    {{ $pages = (where $pages ".Params.hide_summary" "!=" true) }}
-    {{ $pages = (where $pages ".Parent" "!=" nil) }}
-    {{ $pages = (where $pages "Parent.File.UniqueID" "==" $parent.File.UniqueID) }}
     {{ if or $parent.Params.no_list (eq (len $pages) 0) }}
     {{/* If no_list is true or we don't have subpages we don't show a list of subpages */}}
     {{ else if $parent.Params.simple_list }}
@@ -36,3 +37,4 @@
     {{ end }}
     {{ end }}
 </div>
+{{ end }}

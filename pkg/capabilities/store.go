@@ -12,20 +12,22 @@ type BackendStore interface {
 	Get(name string) (capability.Backend, error)
 	Add(name string, backend capability.Backend) error
 	List() []string
-	RenderInstaller(name string, spec InstallerTemplateSpec) (string, error)
+	RenderInstaller(name string, spec UserInstallerTemplateSpec) (string, error)
 	CanInstall(capabilities ...string) error
 	InstallCapabilities(cluster *core.Reference, capabilities ...string)
 }
 
 type backendStore struct {
-	backends map[string]capability.Backend
-	logger   *zap.SugaredLogger
+	serverSpec ServerInstallerTemplateSpec
+	backends   map[string]capability.Backend
+	logger     *zap.SugaredLogger
 }
 
-func NewBackendStore(logger *zap.SugaredLogger) BackendStore {
+func NewBackendStore(serverSpec ServerInstallerTemplateSpec, logger *zap.SugaredLogger) BackendStore {
 	return &backendStore{
-		backends: make(map[string]capability.Backend),
-		logger:   logger,
+		serverSpec: serverSpec,
+		backends:   make(map[string]capability.Backend),
+		logger:     logger,
 	}
 }
 
@@ -53,12 +55,15 @@ func (s *backendStore) List() []string {
 	return capabilities
 }
 
-func (s *backendStore) RenderInstaller(name string, spec InstallerTemplateSpec) (string, error) {
+func (s *backendStore) RenderInstaller(name string, spec UserInstallerTemplateSpec) (string, error) {
 	backend, err := s.Get(name)
 	if err != nil {
 		return "", err
 	}
-	return RenderInstallerCommand(backend.InstallerTemplate(), spec)
+	return RenderInstallerCommand(backend.InstallerTemplate(), InstallerTemplateSpec{
+		UserInstallerTemplateSpec:   spec,
+		ServerInstallerTemplateSpec: s.serverSpec,
+	})
 }
 
 func (s *backendStore) CanInstall(capabilities ...string) error {

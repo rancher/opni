@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"crypto/tls"
+	"net"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-plugin"
@@ -98,7 +99,17 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 		).Error("failed to configure storage backend")
 	}
 
-	capBackendStore := capabilities.NewBackendStore(lg)
+	_, port, err := net.SplitHostPort(conf.Spec.ListenAddress)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Fatal("failed to parse listen address")
+	}
+
+	capBackendStore := capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{
+		Address: "https://" + conf.Spec.Hostname + ":" + port,
+	}, lg)
+
 	for _, p := range options.capBackendPlugins {
 		info, err := p.Typed.Info(ctx, &emptypb.Empty{})
 		if err != nil {

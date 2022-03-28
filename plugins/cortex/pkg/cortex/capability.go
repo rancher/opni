@@ -11,8 +11,10 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 }
 
 func (p *Plugin) InstallerTemplate() string {
-	return "helm install opni-monitoring-agent -n opni-monitoring-agent " +
-		"oci://ghcr.io/kralicky/helm/opni-monitoring-agent --version=0.1.0 " +
-		`--set token={{ .Token }},pin={{ .Pin }},address={{ .Address }} ` +
-		"--create-namespace"
+	return `helm install opni-monitoring-agent ` +
+		`{{ arg "input" "Namespace" "+omitEmpty" "+default:opni-monitoring-agent" "+format:-n {{ value }}" }} ` +
+		`oci://ghcr.io/kralicky/helm/opni-monitoring-agent --version=0.1.0 ` +
+		`--set "token={{ .Token }},pin={{ .Pin }},address={{ .Address }}" ` +
+		`{{ arg "toggle" "Install Prometheus Operator" "+omitEmpty" "+default:false" "+format:--set kube-prometheus-operator.enabled={{ value }}" }} ` +
+		`--create-namespace`
 }

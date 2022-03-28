@@ -109,9 +109,9 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 }
 
 func (p *Plugin) InstallerTemplate() string {
-	return "opnictl bootstrap logging [CLUSTER-NAME] " +
-		"[--provider=[rke|rke2|k3s|aks|eks|gke]] " +
-		`--token={{ .Token }} --pin={{ .Pin }}` +
+	return fmt.Sprintf(`opnictl bootstrap logging {{ arg "input" "Opensearch Cluster Name" "+required" "+default:%s" }} `, p.opensearchCluster.Name) +
+		`{{ arg "select" "Kubernetes Provider" "" "rke" "rke2" "k3s" "aks" "eks" "gke" "+omitEmpty" "+format:--provider={{ value }}" }} ` +
+		`--token={{ .Token }} --pin={{ .Pin }} ` +
 		`--gateway-url={{ .Address }}`
 }
 

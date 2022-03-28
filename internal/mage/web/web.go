@@ -72,6 +72,42 @@ func Dist() error {
 	return nil
 }
 
+func Local() error {
+	dir, ok := os.LookupEnv("UI_DIR")
+	if !ok {
+		return fmt.Errorf("UI_DIR not set")
+	}
+	here, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if err := os.Chdir(dir); err != nil {
+		return err
+	}
+
+	fmt.Println(chalk.Blue.Color("=>") + " Building UI from local directory")
+	if err := sh.RunV("node_modules/.bin/nuxt", "generate", "-c", "product/opni/nuxt.config.js"); err != nil {
+		fmt.Printf(chalk.Red.Color("=>")+" %v\n", err)
+		return err
+	}
+	fmt.Print(chalk.Blue.Color("=>") + " Copying UI assets... ")
+	if err := sh.Run("rsync", "-a", "--exclude=favicon.ico", "dist/", filepath.Join(here, "web/dist/")); err != nil {
+		fmt.Printf(chalk.Red.Color("=>")+" %v\n", err)
+		return err
+	}
+	fmt.Println(chalk.Green.Color("=>") + " Done.")
+	if err := os.Chdir(here); err != nil {
+		return err
+	}
+	if err := compressAssets(); err != nil {
+		fmt.Printf(chalk.Red.Color("=>")+" %v\n", err)
+		return err
+	}
+	fmt.Println(chalk.Green.Color("=>") + " Done.")
+	return nil
+
+}
+
 func Clean() error {
 	if _, err := os.Stat("web/dist/_nuxt"); err == nil {
 		fmt.Println("Removing web/dist/_nuxt")
@@ -235,6 +271,9 @@ func compressAssets() error {
 				cf, ok := <-compressedFiles
 				if !ok {
 					return
+				}
+				if cf == nil {
+					panic("nil webAssetFile")
 				}
 				f, err := os.OpenFile(cf.Path, os.O_WRONLY|os.O_TRUNC, 0644)
 				if err != nil {

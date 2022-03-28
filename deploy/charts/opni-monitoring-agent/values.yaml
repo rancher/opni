@@ -64,3 +64,11 @@ token: ""
 pin: ""
 # Gateway address
 address: ""
+
+kube-prometheus-stack:
+  enabled: false
+  values:
+    grafana:
+      enabled: false # disable the default Grafana deployment
+    prometheus:
+      enabled: false # disable the default Prometheus deployment

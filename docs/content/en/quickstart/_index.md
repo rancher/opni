@@ -14,20 +14,12 @@ Before proceeding, please read the section on [Terminology](/architecture/termin
 
 ### Infrastructure
 - One **main** cluster where the Opni Monitoring control-plane components will be installed.
+  - The main cluster must be accessible to all downstream clusters from a persistent DNS name. For demo purposes, you can use [sslip.io](https://sslip.io) if you do not have a domain name available.
 - One or more **downstream** clusters which will be configured to send metrics to the **main** cluster
 
-{{% alert color="info" title="Important" %}}
-The main cluster must be accessible to all downstream clusters from a persistent DNS name.
-{{% /alert %}}
+- All clusters must have a default storage class available.
 
 ### Dependencies
-- All clusters should have the [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) helm chart installed, with grafana and the default prometheus deployment disabled:
-
-  ```bash
-  $ helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-  $ helm repo update
-  $ helm install -n monitoring kube-prometheus prometheus-community/kube-prometheus-stack --set grafana.enabled=false --set prometheus.enabled=false --wait
-  ```
 
 - Install [helmfile](https://github.com/roboll/helmfile) using your distribution's package manager or from the GitHub release page.
 
@@ -37,13 +29,12 @@ The main cluster must be accessible to all downstream clusters from a persistent
   $ git clone https://github.com/rancher/opni-monitoring
   ```
 
-
 ## Setting up the main cluster
 
-### DNS Setup
+### DNS Configuration
 
 1. Identify the DNS name of your main cluster. This will be referenced in the following sections as `<gateway_address>`. 
-2. Configure `A` records such that `<gateway_address>` and `grafana.<gateway_address>` both route to the IP address of your main cluster's load balancer.
+2. Configure `A` records such that `<gateway_address>` and `grafana.<gateway_address>` both route to the IP address of your main cluster's load balancer (skip this step if you are using [sslip.io](https://sslip.io) or a similar service).
 
 ### Chart configuration
 
@@ -76,7 +67,8 @@ ingress:
 
 ```
 
-3. Copy `opni-monitoring-template.yaml` to `opni-monitoring.yaml` and edit it as follows:
+3. Copy `opni-monitoring-template.yaml` to `opni-monitoring.yaml` and edit it as follows, substituting `<gateway_address>`:
+
 ```yaml
 auth:
   provider: noauth
@@ -89,6 +81,7 @@ auth:
     managementAPIEndpoint: "opni-monitoring-internal:11090"
     port: 4000
 gateway:
+  hostname: "<gateway_address>"
   dnsNames:
     - "<gateway_address>"
 ```

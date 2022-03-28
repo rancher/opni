@@ -7,9 +7,11 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/multiclusterrolebinding"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type MulticlusterRoleBindingReconciler struct {
@@ -29,6 +31,14 @@ func (r *MulticlusterRoleBindingReconciler) Reconcile(ctx context.Context, req c
 	err := r.Get(ctx, req.NamespacedName, multiclusterRoleBinding)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	// Add finalizer to resource if it's not deleted
+	if multiclusterRoleBinding.DeletionTimestamp == nil {
+		controllerutil.AddFinalizer(multiclusterRoleBinding, meta.OpensearchFinalizer)
+		err = r.Update(ctx, multiclusterRoleBinding)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	multiclusterRoleBindingReconciler := multiclusterrolebinding.NewReconciler(ctx, multiclusterRoleBinding, r.Client)

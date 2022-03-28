@@ -84,7 +84,7 @@ type OpensearchStatus struct {
 	Initialized bool             `json:"initialized,omitempty"`
 }
 
-//+kubebuilder:webhook:path=/highlander-opni-io-v1beta1-opnicluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=opniclusters,verbs=create;update,versions=v1beta1,name=highlander.opni.io,admissionReviewVersions={v1,v1beta1,v1beta2}
+//+kubebuilder:webhook:path=/highlander-opni-io-v1beta1-opnicluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=opni.io,resources=opniclusters,verbs=create;update,versions={v1beta1,v1beta2},name=highlander.opni.io,admissionReviewVersions={v1,v1beta1}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -102,14 +102,15 @@ type OpniCluster struct {
 }
 
 type ServicesSpec struct {
-	Drain           DrainServiceSpec           `json:"drain,omitempty"`
-	Inference       InferenceServiceSpec       `json:"inference,omitempty"`
-	Preprocessing   PreprocessingServiceSpec   `json:"preprocessing,omitempty"`
-	PayloadReceiver PayloadReceiverServiceSpec `json:"payloadReceiver,omitempty"`
-	GPUController   GPUControllerServiceSpec   `json:"gpuController,omitempty"`
-	Metrics         MetricsServiceSpec         `json:"metrics,omitempty"`
-	Insights        InsightsServiceSpec        `json:"insights,omitempty"`
-	UI              UIServiceSpec              `json:"ui,omitempty"`
+	Drain             DrainServiceSpec             `json:"drain,omitempty"`
+	Inference         InferenceServiceSpec         `json:"inference,omitempty"`
+	Preprocessing     PreprocessingServiceSpec     `json:"preprocessing,omitempty"`
+	PayloadReceiver   PayloadReceiverServiceSpec   `json:"payloadReceiver,omitempty"`
+	GPUController     GPUControllerServiceSpec     `json:"gpuController,omitempty"`
+	Metrics           MetricsServiceSpec           `json:"metrics,omitempty"`
+	Insights          InsightsServiceSpec          `json:"insights,omitempty"`
+	UI                UIServiceSpec                `json:"ui,omitempty"`
+	OpensearchFetcher OpensearchFetcherServiceSpec `json:"opensearchFetcher,omitempty"`
 }
 
 type DrainServiceSpec struct {
@@ -172,14 +173,22 @@ type UIServiceSpec struct {
 	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
+type OpensearchFetcherServiceSpec struct {
+	opnimeta.ImageSpec `json:",inline,omitempty"`
+	Enabled            *bool               `json:"enabled,omitempty"`
+	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
+}
+
 type ElasticSpec struct {
-	ExternalOpensearch *OpensearchClusterRef     `json:"externalOpensearch"`
-	Version            string                    `json:"version"`
-	Workloads          ElasticWorkloadSpec       `json:"workloads,omitempty"`
-	DefaultRepo        *string                   `json:"defaultRepo,omitempty"`
-	Image              *opnimeta.ImageSpec       `json:"image,omitempty"`
-	KibanaImage        *opnimeta.ImageSpec       `json:"kibanaImage,omitempty"`
-	Persistence        *opnimeta.PersistenceSpec `json:"persistence,omitempty"`
+	ExternalOpensearch       *OpensearchClusterRef     `json:"externalOpensearch"`
+	Version                  string                    `json:"version"`
+	Workloads                ElasticWorkloadSpec       `json:"workloads,omitempty"`
+	DefaultRepo              *string                   `json:"defaultRepo,omitempty"`
+	Image                    *opnimeta.ImageSpec       `json:"image,omitempty"`
+	KibanaImage              *opnimeta.ImageSpec       `json:"kibanaImage,omitempty"`
+	Persistence              *opnimeta.PersistenceSpec `json:"persistence,omitempty"`
+	EnableLogIndexManagement *bool                     `json:"enableLogIndexManagement"`
 	// Secret containing an item "logging.yml" with the contents of the
 	// elasticsearch logging config.
 	ConfigSecret *corev1.LocalObjectReference `json:"configSecret,omitempty"`

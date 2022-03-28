@@ -50,6 +50,8 @@ type LoggingClusterObjectRef struct {
 type LoggingClusterBindingStatus struct {
 	Conditions []string                   `json:"conditions,omitempty"`
 	State      LoggingClusterBindingState `json:"state,omitempty"`
+	Username   string                     `json:"username,omitempty"`
+	Rolename   string                     `json:"rolename,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -1,35 +1,27 @@
 package commands
 
 import (
-	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
-	"net/url"
-	"time"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/filter"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/output"
-	"github.com/rancher/opni-monitoring/pkg/b2bmac"
 	"github.com/rancher/opni-monitoring/pkg/bootstrap"
 	"github.com/rancher/opni-monitoring/pkg/capabilities/wellknown"
-	"github.com/rancher/opni-monitoring/pkg/ecdh"
-	"github.com/rancher/opni-monitoring/pkg/keyring"
+	gatewayclients "github.com/rancher/opni-monitoring/pkg/clients"
+	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	loggingplugin "github.com/rancher/opni-monitoring/plugins/logging/pkg/logging"
-	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -46,9 +38,12 @@ var (
 	gatewayEndpoint string
 	bootstrapToken  string
 	provider        string
-
-	httpClient *http.Client
+	pins            []string
 )
+
+type simpleIdentProvider struct {
+	Client *client.Client
+}
 
 func BuildBootstrapLoggingCommand() *cobra.Command {
 	command := &cobra.Command{
@@ -63,6 +58,7 @@ func BuildBootstrapLoggingCommand() *cobra.Command {
 	command.Flags().StringVar(&gatewayEndpoint, "gateway-url", "https://localhost:8443", "upstream Opni gateway")
 	command.Flags().StringVar(&provider, "provider", "rke", "the Kubernetes distribution")
 	command.Flags().StringVar(&bootstrapToken, "token", "", "bootstrap token")
+	command.Flags().StringSliceVar(&pins, "pin", []string{}, "Gateway server public key to pin (repeatable)")
 
 	command.MarkFlagRequired("token")
 
@@ -70,43 +66,42 @@ func BuildBootstrapLoggingCommand() *cobra.Command {
 }
 
 func doBootstrap(cmd *cobra.Command, args []string) error {
-	clusterID, err := getClusterID(cmd.Context())
+	identifier := &simpleIdentProvider{
+		Client: &common.K8sClient,
+	}
+
+	clusterID, err := identifier.UniqueIdentifier(cmd.Context())
 	if err != nil {
 		return err
 	}
 
-	sharedKeys, err := doBootstrapAuth(clusterID)
+	bootstrapConfig, err := buildBoostrapClient()
 	if err != nil {
 		return err
 	}
 
-	// Generate auth.  Body is empty as we are sending a get request
-	nonce, sig, err := b2bmac.New512([]byte(clusterID), []byte{}, sharedKeys.ClientKey)
+	keyring, err := bootstrapConfig.Bootstrap(cmd.Context(), identifier)
 	if err != nil {
 		return err
 	}
 
-	authHeader, err := b2bmac.EncodeAuthHeader([]byte(clusterID), nonce, sig)
+	gatewayClient, err := gatewayclients.NewGatewayHTTPClient(gatewayEndpoint, identifier, keyring)
 	if err != nil {
 		return err
 	}
+	rb := gatewayClient.Get(cmd.Context(), "/logging/v1/cluster")
 
-	// error already checked in auth
-	url, _ := getClusterDetailsURL()
-	req, err := http.NewRequest(http.MethodGet, url.String(), nil)
+	code, body, err := rb.Send()
 	if err != nil {
 		return err
 	}
-	req.Header.Add("Authorization", authHeader)
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return err
+	if code != 200 {
+		return errors.New("unsuccessful request to fetch credentials")
 	}
-	defer resp.Body.Close()
 
 	var detailsResp loggingplugin.OpensearchDetailsResponse
 
-	if err := json.NewDecoder(resp.Body).Decode(&detailsResp); err != nil {
+	if err := json.Unmarshal(body, &detailsResp); err != nil {
 		return err
 	}
 
@@ -136,85 +131,6 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-func bootstrapJoinURL() (*url.URL, error) {
-	u, err := url.Parse(gatewayEndpoint)
-	if err != nil {
-		return nil, err
-	}
-	u.Scheme = "https"
-	u.Path = "bootstrap/join"
-	return u, nil
-}
-
-func bootstrapAuthURL() (*url.URL, error) {
-	u, err := url.Parse(gatewayEndpoint)
-	if err != nil {
-		return nil, err
-	}
-	u.Scheme = "https"
-	u.Path = "bootstrap/auth"
-	return u, nil
-}
-
-func getClusterDetailsURL() (*url.URL, error) {
-	u, err := url.Parse(gatewayEndpoint)
-	if err != nil {
-		return nil, err
-	}
-	u.Scheme = "https"
-	u.Path = "logging/v1/cluster"
-	return u, nil
-}
-
-func bootStrapJoin() (*bootstrap.BootstrapJoinResponse, *x509.Certificate, error) {
-	url, err := bootstrapJoinURL()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	resp, err := httpClient.Post(url.String(), "application/json", nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, nil, fmt.Errorf(resp.Status)
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, nil, err
-	}
-	bootstrapResponse := &bootstrap.BootstrapJoinResponse{}
-	if err := json.Unmarshal(body, bootstrapResponse); err != nil {
-		return nil, nil, err
-	}
-
-	return bootstrapResponse, resp.TLS.PeerCertificates[0], nil
-}
-
-func findValidSignature(
-	token *tokens.Token,
-	signatures map[string][]byte,
-	pubKey interface{},
-) ([]byte, error) {
-	if sig, ok := signatures[token.HexID()]; ok {
-		return token.VerifyDetached(sig, pubKey)
-	}
-	return nil, bootstrap.ErrNoValidSignature
-}
-
-func getClusterID(ctx context.Context) (string, error) {
-	systemNamespace := &corev1.Namespace{}
-	if err := common.K8sClient.Get(ctx, types.NamespacedName{
-		Name: "kube-system",
-	}, systemNamespace); err != nil {
-		return "", err
-	}
-
-	return string(systemNamespace.GetUID()), nil
 }
 
 func createAuthSecret(ctx context.Context, password string) error {
@@ -355,101 +271,49 @@ func createOpniClusterFlow(ctx context.Context, clusterID string) error {
 }
 
 func createLogAdapter(ctx context.Context) error {
-	lga := &v1beta1.LogAdapter{
+	lga := &v1beta2.LogAdapter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-logging",
 			Namespace: common.NamespaceFlagValue,
 		},
-		Spec: v1beta1.LogAdapterSpec{
-			Provider: v1beta1.LogProvider(provider),
+		Spec: v1beta2.LogAdapterSpec{
+			Provider: v1beta2.LogProvider(provider),
 		},
 	}
 	return common.K8sClient.Create(ctx, lga)
 }
 
-func doBootstrapAuth(clusterID string) (*keyring.SharedKeys, error) {
-	// parse the token
+func buildBoostrapClient() (*bootstrap.ClientConfig, error) {
 	token, err := tokens.ParseHex(bootstrapToken)
 	if err != nil {
 		return nil, err
 	}
 
-	// configure http client
-	tlsConfig := &tls.Config{
-		MinVersion:         tls.VersionTLS12,
-		InsecureSkipVerify: skipTLSVerify,
+	publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
+	for i, pin := range pins {
+		publicKeyPins[i], err = pkp.DecodePin(pin)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	netTransport := &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout: 5 * time.Second,
-		}).Dial,
-		TLSHandshakeTimeout: 5 * time.Second,
-		TLSClientConfig:     tlsConfig,
-	}
-
-	httpClient = &http.Client{
-		Timeout:   10 * time.Second,
-		Transport: netTransport,
-	}
-
-	bootstrapResponse, serverLeafCert, err := bootStrapJoin()
-	if err != nil {
-		return nil, err
-	}
-
-	// find valid signature from server response
-	jws, err := findValidSignature(
-		token,
-		bootstrapResponse.Signatures,
-		serverLeafCert.PublicKey,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	ekp := ecdh.NewEphemeralKeyPair()
-
-	authReq, err := json.Marshal(bootstrap.BootstrapAuthRequest{
-		ClientID:     clusterID,
-		ClientPubKey: ekp.PublicKey,
+	return &bootstrap.ClientConfig{
 		Capability:   wellknown.CapabilityLogs,
-	})
-	if err != nil {
-		return nil, err
+		Token:        token,
+		Pins:         publicKeyPins,
+		Endpoint:     gatewayEndpoint,
+		K8sNamespace: common.NamespaceFlagValue,
+		K8sConfig:    common.RestConfig,
+	}, nil
+}
+
+func (p *simpleIdentProvider) UniqueIdentifier(ctx context.Context) (string, error) {
+	systemNamespace := &corev1.Namespace{}
+	if err := common.K8sClient.Get(ctx, types.NamespacedName{
+		Name: "kube-system",
+	}, systemNamespace); err != nil {
+		return "", err
 	}
 
-	// error already checked in join
-	url, _ := bootstrapAuthURL()
-
-	req, err := http.NewRequest(http.MethodPost, url.String(), bytes.NewReader(authReq))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Request", "application/json")
-	req.Header.Add("Authorization", "Bearer "+string(jws))
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%w: %s", bootstrap.ErrBootstrapFailed, resp.Status)
-	}
-
-	var authResp bootstrap.BootstrapAuthResponse
-	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
-		return nil, err
-	}
-
-	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, ecdh.PeerPublicKey{
-		PublicKey: authResp.ServerPubKey,
-		PeerType:  ecdh.PeerTypeServer,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return keyring.NewSharedKeys(sharedSecret), nil
+	return string(systemNamespace.GetUID()), nil
 }

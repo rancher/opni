@@ -6,12 +6,16 @@ import (
 
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/pkg/util/opensearch"
 	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -60,7 +64,7 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 	indexUser.UserName = fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name)
 	indexUser.Password = string(secret.Data["password"])
 
-	username, password, retErr := helpers.UsernameAndPassword(r.client, r.ctx, opensearchCluster)
+	username, password, retErr := helpers.UsernameAndPassword(r.ctx, r.client, opensearchCluster)
 	if retErr != nil {
 		return
 	}
@@ -89,7 +93,36 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 	return
 }
 
-// TODO When operator supports alternative passwords fix this up
-func (r *Reconciler) fetchOpensearchAdminPassword(cluster *opensearchv1.OpenSearchCluster) (string, error) {
-	return "admin", nil
+func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
+	username, password, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
+	if err != nil {
+		return err
+	}
+
+	osReconciler := opensearch.NewReconciler(
+		r.ctx,
+		cluster.Namespace,
+		username,
+		password,
+		cluster.Spec.General.ServiceName,
+		"todo", // TODO fix dashboards name
+	)
+
+	err = osReconciler.MaybeDeleteRole(r.loggingCluster.Name)
+	if err != nil {
+		return err
+	}
+
+	err = osReconciler.MaybeDeleteUser(r.loggingCluster.Spec.IndexUserSecret.Name)
+	if err != nil {
+		return err
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingCluster), r.loggingCluster); err != nil {
+			return err
+		}
+		controllerutil.RemoveFinalizer(r.loggingCluster, meta.OpensearchFinalizer)
+		return r.client.Update(r.ctx, r.loggingCluster)
+	})
 }

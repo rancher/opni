@@ -8,9 +8,11 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -95,6 +97,12 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		retResult = &reconcile.Result{
 			RequeueAfter: 5 * time.Second,
 		}
+		return
+	}
+
+	// Handle finalizer
+	if r.multiclusterUser.DeletionTimestamp != nil && controllerutil.ContainsFinalizer(r.multiclusterUser, meta.OpensearchFinalizer) {
+		retErr = r.deleteOpensearchObjects(opensearch)
 		return
 	}
 

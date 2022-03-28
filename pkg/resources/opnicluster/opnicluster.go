@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/pointer"
 	opensearchv1 "opensearch.opster.io/api/v1"
@@ -37,6 +38,7 @@ type Reconciler struct {
 	reconciler.ResourceReconciler
 	ctx               context.Context
 	client            client.Client
+	recorder          record.EventRecorder
 	opniCluster       *v1beta2.OpniCluster
 	opensearchCluster *opensearchv1.OpenSearchCluster
 }
@@ -44,6 +46,7 @@ type Reconciler struct {
 func NewReconciler(
 	ctx context.Context,
 	client client.Client,
+	recorder record.EventRecorder,
 	opniCluster *v1beta2.OpniCluster,
 	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
@@ -52,6 +55,7 @@ func NewReconciler(
 			append(opts, reconciler.WithLog(log.FromContext(ctx)))...),
 		ctx:         ctx,
 		client:      client,
+		recorder:    recorder,
 		opniCluster: opniCluster,
 	}
 }
@@ -101,6 +105,12 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		if retErr != nil || retResult != nil {
 			return
 		}
+	}
+
+	// GPU learning is currently unsupported but will be added back in soon
+	if pointer.BoolDeref(r.opniCluster.Spec.Services.GPUController.Enabled, true) {
+		lg.Info("gpu learning is currently not supported, but will return in a later release")
+		r.recorder.Event(r.opniCluster, "Normal", "GPU service not supported", "the GPU service will be available in a later release")
 	}
 
 	if r.opniCluster.Spec.Elastic.ExternalOpensearch != nil {

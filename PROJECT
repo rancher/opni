@@ -29,7 +29,7 @@ resources:
     webhookVersion: v1
 - api:
     crdVersion: v1
-    namespaced: true
+    namespaced: false
   controller: true
   domain: opni.io
   kind: LogAdapter
@@ -64,6 +64,41 @@ resources:
   version: v1beta2
   webhooks:
     conversion: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: opni.io
+  kind: GpuPolicyAdapter
+  path: github.com/rancher/opni/apis/v1beta2
+  version: v1beta2
+  webhooks:
+    conversion: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: opni.io
+  kind: PretrainedModel
+  path: github.com/rancher/opni/apis/v1beta2
+  version: v1beta2
+  webhooks:
+    conversion: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: false
+  controller: true
+  domain: opni.io
+  kind: LogAdapter
+  path: github.com/rancher/opni/apis/v1beta2
+  version: v1beta2
+  webhooks:
+    conversion: true
+    defaulting: true
+    validation: true
     webhookVersion: v1
 - api:
     crdVersion: v1

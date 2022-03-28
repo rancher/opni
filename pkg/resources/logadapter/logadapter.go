@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -13,7 +13,7 @@ import (
 func ReconcileLogAdapter(
 	ctx context.Context,
 	cli client.Client,
-	logAdapter *v1beta1.LogAdapter,
+	logAdapter *v1beta2.LogAdapter,
 ) (ctrl.Result, error) {
 	result := reconciler.CombinedResult{}
 
@@ -26,13 +26,13 @@ func ReconcileLogAdapter(
 
 	reconcileRootLogging(rec, logAdapter, &result)
 	switch logAdapter.Spec.Provider {
-	case v1beta1.LogProviderAKS, v1beta1.LogProviderEKS, v1beta1.LogProviderGKE:
+	case v1beta2.LogProviderAKS, v1beta2.LogProviderEKS, v1beta2.LogProviderGKE:
 		reconcileGenericCloud(rec, logAdapter, &result)
-	case v1beta1.LogProviderK3S:
+	case v1beta2.LogProviderK3S:
 		reconcileK3S(rec, logAdapter, &result)
-	case v1beta1.LogProviderRKE:
+	case v1beta2.LogProviderRKE:
 		reconcileRKE(rec, logAdapter, &result)
-	case v1beta1.LogProviderRKE2:
+	case v1beta2.LogProviderRKE2:
 		reconcileRKE2(rec, logAdapter, &result)
 	}
 
@@ -40,7 +40,7 @@ func ReconcileLogAdapter(
 }
 
 func reconcileRootLogging(rec reconciler.ResourceReconciler,
-	logAdapter *v1beta1.LogAdapter,
+	logAdapter *v1beta2.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {
 	rootLogging := BuildRootLogging(logAdapter)
@@ -49,7 +49,7 @@ func reconcileRootLogging(rec reconciler.ResourceReconciler,
 
 func reconcileGenericCloud(
 	rec reconciler.ResourceReconciler,
-	logAdapter *v1beta1.LogAdapter,
+	logAdapter *v1beta2.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {
 	logging := BuildLogging(logAdapter)
@@ -58,7 +58,7 @@ func reconcileGenericCloud(
 
 func reconcileK3S(
 	rec reconciler.ResourceReconciler,
-	logAdapter *v1beta1.LogAdapter,
+	logAdapter *v1beta2.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {
 	logging := BuildLogging(logAdapter)
@@ -67,12 +67,12 @@ func reconcileK3S(
 	svcAcct := BuildK3SServiceAccount(logAdapter)
 
 	switch logAdapter.Spec.K3S.ContainerEngine {
-	case v1beta1.ContainerEngineSystemd:
+	case v1beta2.ContainerEngineSystemd:
 		result.Combine(rec.ReconcileResource(logging, reconciler.StateAbsent))
 		result.Combine(rec.ReconcileResource(config, reconciler.StatePresent))
 		result.Combine(rec.ReconcileResource(aggregator, reconciler.StatePresent))
 		result.Combine(rec.ReconcileResource(svcAcct, reconciler.StatePresent))
-	case v1beta1.ContainerEngineOpenRC:
+	case v1beta2.ContainerEngineOpenRC:
 		result.Combine(rec.ReconcileResource(logging, reconciler.StatePresent))
 		result.Combine(rec.ReconcileResource(config, reconciler.StateAbsent))
 		result.Combine(rec.ReconcileResource(aggregator, reconciler.StateAbsent))
@@ -82,7 +82,7 @@ func reconcileK3S(
 
 func reconcileRKE(
 	rec reconciler.ResourceReconciler,
-	logAdapter *v1beta1.LogAdapter,
+	logAdapter *v1beta2.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {
 	config := BuildRKEConfig(logAdapter)
@@ -96,7 +96,7 @@ func reconcileRKE(
 
 func reconcileRKE2(
 	rec reconciler.ResourceReconciler,
-	logAdapter *v1beta1.LogAdapter,
+	logAdapter *v1beta2.LogAdapter,
 	result *reconciler.CombinedResult,
 ) {
 	config := BuildRKE2Config(logAdapter)

@@ -20,7 +20,7 @@ import (
 	"github.com/phayes/freeport"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	opensearchutil "github.com/rancher/opni/pkg/util/opensearch"
 	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
@@ -57,21 +57,21 @@ func queryAnomalyCountWithExtendedClient(esClient *opensearchutil.ExtendedClient
 
 var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 	var (
-		pretrained  v1beta1.PretrainedModel
-		logadapter  v1beta1.LogAdapter
-		opnicluster v1beta1.OpniCluster
+		pretrained  v1beta2.PretrainedModel
+		logadapter  v1beta2.LogAdapter
+		opnicluster v1beta2.OpniCluster
 		esClient    opensearchutil.ExtendedClient
 	)
 	When("creating a pretrained model", func() {
 		It("should succeed", func() {
-			pretrained = v1beta1.PretrainedModel{
+			pretrained = v1beta2.PretrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterCrName,
 					Namespace: clusterCrNamespace,
 				},
-				Spec: v1beta1.PretrainedModelSpec{
-					ModelSource: v1beta1.ModelSource{
-						HTTP: &v1beta1.HTTPSource{
+				Spec: v1beta2.PretrainedModelSpec{
+					ModelSource: v1beta2.ModelSource{
+						HTTP: &v1beta2.HTTPSource{
 							URL: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model-v0.1.2.zip",
 						},
 					},
@@ -87,16 +87,16 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 	})
 	When("creating a logadapter", func() {
 		It("should succeed", func() {
-			logadapter = v1beta1.LogAdapter{
+			logadapter = v1beta2.LogAdapter{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: clusterCrName,
 				},
-				Spec: v1beta1.LogAdapterSpec{
-					Provider: v1beta1.LogProviderK3S,
-					K3S: &v1beta1.K3SSpec{
-						ContainerEngine: v1beta1.ContainerEngineOpenRC,
+				Spec: v1beta2.LogAdapterSpec{
+					Provider: v1beta2.LogProviderK3S,
+					K3S: &v1beta2.K3SSpec{
+						ContainerEngine: v1beta2.ContainerEngineOpenRC,
 					},
-					OpniCluster: &v1beta1.OpniClusterNameSpec{
+					OpniCluster: &v1beta2.OpniClusterNameSpec{
 						Name:      clusterCrName,
 						Namespace: clusterCrNamespace,
 					},
@@ -108,26 +108,26 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 	})
 	When("creating an opnicluster", func() {
 		It("should succeed", func() {
-			opnicluster = v1beta1.OpniCluster{
+			opnicluster = v1beta2.OpniCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      clusterCrName,
 					Namespace: clusterCrNamespace,
 				},
-				Spec: v1beta1.OpniClusterSpec{
+				Spec: v1beta2.OpniClusterSpec{
 					Version:            "v0.3.1",
 					DeployLogCollector: pointer.BoolPtr(true),
-					Services: v1beta1.ServicesSpec{
-						GPUController: v1beta1.GPUControllerServiceSpec{
+					Services: v1beta2.ServicesSpec{
+						GPUController: v1beta2.GPUControllerServiceSpec{
 							Enabled: pointer.BoolPtr(false),
 						},
-						Metrics: v1beta1.MetricsServiceSpec{
+						Metrics: v1beta2.MetricsServiceSpec{
 							Enabled: pointer.BoolPtr(true),
 							PrometheusReference: &opnimeta.PrometheusReference{
 								Name:      "test-prometheus",
 								Namespace: "prometheus",
 							},
 						},
-						Inference: v1beta1.InferenceServiceSpec{
+						Inference: v1beta2.InferenceServiceSpec{
 							PretrainedModels: []corev1.LocalObjectReference{
 								{
 									Name: clusterCrName,
@@ -135,18 +135,18 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 							},
 						},
 					},
-					Elastic: v1beta1.ElasticSpec{
+					Elastic: v1beta2.ElasticSpec{
 						Version: "1.1.0",
 					},
-					S3: v1beta1.S3Spec{
-						Internal: &v1beta1.InternalSpec{},
+					S3: v1beta2.S3Spec{
+						Internal: &v1beta2.InternalSpec{},
 					},
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), &opnicluster)).To(Succeed())
 		})
 		It("should become ready", func() {
-			opnicluster := v1beta1.OpniCluster{}
+			opnicluster := v1beta2.OpniCluster{}
 			i := 0
 			Eventually(func() error {
 				err := k8sClient.Get(context.Background(), types.NamespacedName{
@@ -360,7 +360,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 				}
 				return false
 			}()).To(BeFalse())
-			Expect(respDoc.Source.DashboardVersion).To(Equal("v0.1.3"))
+			Expect(respDoc.Source.DashboardVersion).To(Equal("v0.4.0"))
 		})
 	})
 	Context("verify logs are being shipped to elasticsearch", func() {

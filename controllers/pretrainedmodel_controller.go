@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources/pretrainedmodel"
 	"github.com/rancher/opni/pkg/util"
 	corev1 "k8s.io/api/core/v1"
@@ -41,7 +41,7 @@ type PretrainedModelReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
 func (r *PretrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	model := &v1beta1.PretrainedModel{}
+	model := &v1beta2.PretrainedModel{}
 	err := r.Get(ctx, req.NamespacedName, model)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -60,7 +60,7 @@ func (r *PretrainedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta1.PretrainedModel{}).
+		For(&v1beta2.PretrainedModel{}).
 		Owns(&corev1.ConfigMap{}).
 		Complete(r)
 }

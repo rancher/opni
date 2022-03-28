@@ -7,19 +7,19 @@ import (
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1beta1 "github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("GpuPolicyAdapter Controller", func() {
 	When("creating a GpuPolicyAdapter", func() {
 		It("should create a ClusterPolicy", func() {
-			adapter := &v1beta1.GpuPolicyAdapter{
+			adapter := &v1beta2.GpuPolicyAdapter{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "test",
 					Namespace: "default",
 				},
-				Spec: v1beta1.GpuPolicyAdapterSpec{},
+				Spec: v1beta2.GpuPolicyAdapterSpec{},
 			}
 			Expect(k8sClient.Create(context.Background(), adapter)).To(Succeed())
 			Eventually(Object(&nvidiav1.ClusterPolicy{

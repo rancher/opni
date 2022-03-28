@@ -9,7 +9,6 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
@@ -45,7 +44,7 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.payloadReceiverDeployment,
 		r.payloadReceiverService,
 		r.preprocessingDeployment,
-		r.gpuCtrlDeployment,
+		//r.gpuCtrlDeployment,
 		r.metricsDeployment,
 		r.metricsService,
 		r.metricsServiceMonitor,
@@ -56,6 +55,7 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.insightsService,
 		r.uiDeployment,
 		r.uiService,
+		r.opensearchFetcherDeployment,
 	}, nil
 }
 
@@ -217,14 +217,14 @@ func (r *Reconciler) pretrainedModelDeployment(
 	}, nil
 }
 
-func maybeImagePullSecrets(model v1beta1.PretrainedModel) []corev1.LocalObjectReference {
+func maybeImagePullSecrets(model v1beta2.PretrainedModel) []corev1.LocalObjectReference {
 	if model.Spec.Container != nil {
 		return model.Spec.Container.ImagePullSecrets
 	}
 	return nil
 }
 
-func httpSidecar(model v1beta1.PretrainedModel) corev1.Container {
+func httpSidecar(model v1beta2.PretrainedModel) corev1.Container {
 	return corev1.Container{
 		Name:  "download-model",
 		Image: "docker.io/curlimages/curl:latest",
@@ -244,7 +244,7 @@ func httpSidecar(model v1beta1.PretrainedModel) corev1.Container {
 	}
 }
 
-func containerSidecar(model v1beta1.PretrainedModel) corev1.Container {
+func containerSidecar(model v1beta2.PretrainedModel) corev1.Container {
 	return corev1.Container{
 		Name:    "copy-model",
 		Image:   model.Spec.Container.Image,
@@ -311,8 +311,8 @@ func (r *Reconciler) gpuWorkerContainer() corev1.Container {
 
 func (r *Reconciler) findPretrainedModel(
 	modelRef corev1.LocalObjectReference,
-) (v1beta1.PretrainedModel, error) {
-	model := v1beta1.PretrainedModel{}
+) (v1beta2.PretrainedModel, error) {
+	model := v1beta2.PretrainedModel{}
 	err := r.client.Get(r.ctx, types.NamespacedName{
 		Name:      modelRef.Name,
 		Namespace: r.opniCluster.Namespace,
@@ -453,8 +453,8 @@ func (r *Reconciler) genericEnvAndVolumes() (
 		Value: func() string {
 			if r.opensearchCluster != nil {
 				user, _, _ := helpers.UsernameAndPassword(
-					r.client,
 					r.ctx,
+					r.client,
 					r.opensearchCluster,
 				)
 				return user
@@ -925,6 +925,11 @@ func (r *Reconciler) uiService() (runtime.Object, reconciler.DesiredState, error
 	return service, reconciler.StateCreated, nil
 }
 
+func (r *Reconciler) opensearchFetcherDeployment() (runtime.Object, reconciler.DesiredState, error) {
+	deployment := r.genericDeployment(v1beta2.PayloadReceiverService)
+	return deployment, deploymentState(r.opniCluster.Spec.Services.OpensearchFetcher.Enabled), nil
+}
+
 func (r *Reconciler) generateSHAID() string {
 	hash := sha1.New()
 	hash.Write([]byte(r.opniCluster.Name + r.opniCluster.Namespace))
@@ -962,7 +967,7 @@ func insertHyperparametersVolume(deployment *appsv1.Deployment, modelName string
 }
 
 func (r *Reconciler) externalOpensearchConfig() (retResources []resources.Resource, retErr error) {
-	_, password, retErr := helpers.UsernameAndPassword(r.client, r.ctx, r.opensearchCluster)
+	_, password, retErr := helpers.UsernameAndPassword(r.ctx, r.client, r.opensearchCluster)
 	if retErr != nil {
 		return
 	}

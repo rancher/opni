@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/providers"
 	"github.com/rancher/opni/pkg/resources/gpuadapter"
 	corev1 "k8s.io/api/core/v1"
@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	constants, err := gpuadapter.BuildClusterPolicy(&v1beta1.GpuPolicyAdapter{}, providers.Unknown)
+	constants, err := gpuadapter.BuildClusterPolicy(&v1beta2.GpuPolicyAdapter{}, providers.Unknown)
 	if err != nil {
 		panic(err)
 	}
@@ -71,23 +71,23 @@ func init() {
 	})
 
 	If(func(ti TestItem) bool {
-		return ti.Input.Spec.ContainerRuntime == v1beta1.Auto
+		return ti.Input.Spec.ContainerRuntime == v1beta2.Auto
 	}).Then(func(ti TestItem) {
 		Expect(ti.Output.Spec.Operator.DefaultRuntime).To(
 			BeEquivalentTo(ti.Provider.ContainerRuntime()))
 	})
 
 	If(func(ti TestItem) bool {
-		return ti.Input.Spec.ContainerRuntime == v1beta1.Docker ||
-			ti.Input.Spec.ContainerRuntime == v1beta1.Containerd ||
-			ti.Input.Spec.ContainerRuntime == v1beta1.Crio
+		return ti.Input.Spec.ContainerRuntime == v1beta2.Docker ||
+			ti.Input.Spec.ContainerRuntime == v1beta2.Containerd ||
+			ti.Input.Spec.ContainerRuntime == v1beta2.Crio
 	}).Then(func(ti TestItem) {
 		Expect(ti.Output.Spec.Operator.DefaultRuntime).To(
 			BeEquivalentTo(ti.Input.Spec.ContainerRuntime))
 	})
 
 	IfAndOnlyIf(func(ti TestItem) bool {
-		return string(ti.Output.Spec.Operator.DefaultRuntime) == string(v1beta1.Containerd)
+		return string(ti.Output.Spec.Operator.DefaultRuntime) == string(v1beta2.Containerd)
 	}).Then(func(ti TestItem) {
 		Expect(ti.Output.Spec.Toolkit.Env).To(ContainElements(
 			corev1.EnvVar{
@@ -102,7 +102,7 @@ func init() {
 	})
 
 	IfAndOnlyIf(func(ti TestItem) bool {
-		return string(ti.Output.Spec.Operator.DefaultRuntime) == string(v1beta1.Containerd) &&
+		return string(ti.Output.Spec.Operator.DefaultRuntime) == string(v1beta2.Containerd) &&
 			ti.Provider == providers.K3S
 	}).Then(func(ti TestItem) {
 		Expect(ti.Output.Spec.Toolkit.Env).To(ContainElements(
@@ -118,7 +118,7 @@ func init() {
 	})
 
 	IfAndOnlyIf(func(ti TestItem) bool {
-		return string(ti.Output.Spec.Operator.DefaultRuntime) == string(v1beta1.Containerd) &&
+		return string(ti.Output.Spec.Operator.DefaultRuntime) == string(v1beta2.Containerd) &&
 			ti.Provider == providers.RKE2
 	}).Then(func(ti TestItem) {
 		Expect(ti.Output.Spec.Toolkit.Env).To(ContainElements(

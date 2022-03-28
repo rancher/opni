@@ -22,11 +22,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	v1beta1 "github.com/rancher/opni/apis/v1beta1"
 	v1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
@@ -37,7 +37,8 @@ import (
 // OpniClusterReconciler reconciles a OpniCluster object
 type OpniClusterReconciler struct {
 	client.Client
-	scheme *runtime.Scheme
+	recorder record.EventRecorder
+	scheme   *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=opni.io,resources=opniclusters,verbs=get;list;watch;create;update;patch;delete
@@ -52,6 +53,7 @@ type OpniClusterReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=events,verbs=create;update;patch
 
 // Required for insights service
 // +kubebuilder:rbac:groups=core,resources=namespaces;endpoints;pods,verbs=get;list;watch
@@ -65,7 +67,7 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	opniReconciler := opnicluster.NewReconciler(ctx, r, opniCluster,
+	opniReconciler := opnicluster.NewReconciler(ctx, r, r.recorder, opniCluster,
 		reconciler.WithEnableRecreateWorkload(),
 		reconciler.WithScheme(r.scheme),
 	)
@@ -91,9 +93,10 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 func (r *OpniClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
+	r.recorder = mgr.GetEventRecorderFor("opni-controller")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta2.OpniCluster{}).
-		Owns(&v1beta1.LogAdapter{}).
+		Owns(&v1beta2.LogAdapter{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).

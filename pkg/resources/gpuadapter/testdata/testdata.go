@@ -3,7 +3,7 @@ package testdata
 import (
 	nvidiav1 "github.com/NVIDIA/gpu-operator/api/v1"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/providers"
 	"github.com/rancher/opni/pkg/resources/gpuadapter"
 )
@@ -13,7 +13,7 @@ var (
 )
 
 type TestItem struct {
-	Input    *v1beta1.GpuPolicyAdapter
+	Input    *v1beta2.GpuPolicyAdapter
 	Provider providers.Provider
 	Output   *nvidiav1.ClusterPolicy
 }
@@ -97,7 +97,7 @@ func (b *iffTestBuilder) Else(assertion AssertionFunc) {
 	panic("IfAndOnlyIf does not support Else")
 }
 
-func Check(input *v1beta1.GpuPolicyAdapter, provider providers.Provider) {
+func Check(input *v1beta2.GpuPolicyAdapter, provider providers.Provider) {
 	Expect(input).NotTo(BeNil())
 	output, err := gpuadapter.BuildClusterPolicy(input, provider)
 	Expect(err).NotTo(HaveOccurred())

@@ -121,7 +121,7 @@ func (p *Plugin) WriteMetrics(ctx context.Context, in *cortexadmin.WriteRequest)
 		Source:     cortexpb.API,
 		Metadata:   lo.Map(in.Metadata, mapMetadata),
 	}
-	_, err := p.distributorClient.Get().Push(outgoingContext(ctx, in), cortexReq)
+	_, err := p.ingesterClient.Get().Push(outgoingContext(ctx, in), cortexReq)
 	if err != nil {
 		p.logger.With(
 			"err", err,
@@ -143,22 +143,38 @@ func outgoingContext(ctx context.Context, in clusterIDGetter) context.Context {
 
 func (p *Plugin) configureAdminClients(tlsConfig *tls.Config) {
 	cfg := p.config.Get()
-	cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Distributor.GRPCAddress,
-		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
-	)
-	if err != nil {
-		p.logger.With(
-			"err", err,
-		).Error("Failed to dial distributor")
-		os.Exit(1)
+	{
+		cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Distributor.GRPCAddress,
+			grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+		)
+		if err != nil {
+			p.logger.With(
+				"err", err,
+			).Error("Failed to dial distributor")
+			os.Exit(1)
+		}
+		p.distributorClient.Set(client.NewIngesterClient(cc))
 	}
-	p.distributorClient.Set(client.NewIngesterClient(cc))
-	httpClient := http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
+	{
+		cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Ingester.GRPCAddress,
+			grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+		)
+		if err != nil {
+			p.logger.With(
+				"err", err,
+			).Error("Failed to dial distributor")
+			os.Exit(1)
+		}
+		p.ingesterClient.Set(client.NewIngesterClient(cc))
 	}
-	p.cortexHttpClient.Set(httpClient)
+	{
+		httpClient := http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConfig,
+			},
+		}
+		p.cortexHttpClient.Set(httpClient)
+	}
 }
 
 func (p *Plugin) Query(

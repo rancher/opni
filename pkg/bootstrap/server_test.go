@@ -63,7 +63,7 @@ var _ = Describe("Server", func() {
 		})
 		lg := logger.New().Named("test")
 		logger.ConfigureAppLogger(app, "test")
-		capBackendStore := capabilities.NewBackendStore(lg)
+		capBackendStore := capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, lg)
 		mockBackend := mock_capability.NewMockBackend(ctrl)
 		mockBackend.EXPECT().CanInstall().Return(nil).AnyTimes()
 		mockBackend.EXPECT().Install(gomock.Any()).Return(nil).AnyTimes()

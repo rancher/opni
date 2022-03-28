@@ -82,9 +82,6 @@
                 },
                 "pin": {
                   "type": "string"
-                },
-                "address": {
-                  "type": "string"
                 }
               }
             }

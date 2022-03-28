@@ -8,8 +8,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/jhump/protoreflect/desc"
@@ -262,25 +260,12 @@ func (m *Server) CapabilityInstaller(
 	if m.capabilitiesDataSource == nil {
 		return nil, status.Error(codes.Unavailable, "capability backend store not configured")
 	}
-	addr := req.Address
-	if !strings.HasPrefix(req.Address, "http://") && !strings.HasPrefix(req.Address, "https://") {
-		addr = "https://" + addr
-	}
-	u, err := url.Parse(addr)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	u.Scheme = "https"
-	if u.Port() == "" {
-		u.Host += ":8080"
-	}
 
 	cmd, err := m.capabilitiesDataSource.
 		CapabilitiesStore().
-		RenderInstaller(req.Name, capabilities.InstallerTemplateSpec{
-			Token:   req.Token,
-			Pin:     req.Pin,
-			Address: u.String(),
+		RenderInstaller(req.Name, capabilities.UserInstallerTemplateSpec{
+			Token: req.Token,
+			Pin:   req.Pin,
 		})
 	if err != nil {
 		return nil, err

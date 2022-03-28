@@ -224,7 +224,6 @@ message CapabilityInstallerRequest {
   string name = 1;
   string token = 2;
   string pin = 3;
-  string address = 4;
 }
 
 message CapabilityInstallerResponse {

@@ -12,8 +12,15 @@ import (
 )
 
 type InstallerTemplateSpec struct {
-	Token   string
-	Pin     string
+	UserInstallerTemplateSpec
+	ServerInstallerTemplateSpec
+}
+type UserInstallerTemplateSpec struct {
+	Token string
+	Pin   string
+}
+
+type ServerInstallerTemplateSpec struct {
 	Address string
 }
 

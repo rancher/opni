@@ -78,8 +78,6 @@ config:
     enabled: true
 alertmanager:
   replicas: 3
-  serviceMonitor:
-    enabled: true
   env: &env_vars
     # - name: JAEGER_AGENT_HOST
     #   value: simplest-agent.observability.svc
@@ -166,8 +164,6 @@ alertmanager:
             path: fallback.yaml
 querier:
   replicas: 3
-  serviceMonitor:
-    enabled: true
   env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
@@ -176,16 +172,12 @@ querier:
   extraVolumes: *cert_volumes
 ingester:
   replicas: 3
-  serviceMonitor:
-    enabled: true
   env: *env_vars
   readinessProbe: *mtls_probe
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 distributor:
   replicas: 3
-  serviceMonitor:
-    enabled: true
   env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
@@ -194,8 +186,6 @@ distributor:
   extraVolumes: *cert_volumes
 ruler:
   replicas: 3
-  serviceMonitor:
-    enabled: true
   env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
@@ -204,8 +194,6 @@ ruler:
   extraVolumes: *cert_volumes
 query_frontend:
   replicas: 3
-  serviceMonitor:
-    enabled: true
   env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
@@ -214,8 +202,6 @@ query_frontend:
   extraVolumes: *cert_volumes
 store_gateway:
   replicas: 3
-  serviceMonitor:
-    enabled: true
   env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe
@@ -224,8 +210,6 @@ store_gateway:
   extraVolumes: *cert_volumes
 compactor:
   replicas: 3
-  serviceMonitor:
-    enabled: true
   env: *env_vars
   startupProbe: *mtls_probe
   livenessProbe: *mtls_probe

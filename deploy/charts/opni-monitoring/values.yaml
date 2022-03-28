@@ -54,7 +54,7 @@ metrics:
   port: 8086
 
 serviceMonitor:
-  enabled: true
+  enabled: false
   # interval:
   # scrapeTimeout:
   # relabelings:

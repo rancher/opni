@@ -15,6 +15,6 @@ func (p *Plugin) InstallerTemplate() string {
 		`{{ arg "input" "Namespace" "+omitEmpty" "+default:opni-monitoring-agent" "+format:-n {{ value }}" }} ` +
 		`oci://ghcr.io/kralicky/helm/opni-monitoring-agent --version=0.1.0 ` +
 		`--set "token={{ .Token }},pin={{ .Pin }},address={{ .Address }}" ` +
-		`{{ arg "toggle" "Install Prometheus Operator" "+omitEmpty" "+default:false" "+format:--set kube-prometheus-operator.enabled={{ value }}" }} ` +
+		`{{ arg "toggle" "Install Prometheus Operator" "+omitEmpty" "+default:false" "+format:--set kube-prometheus-stack.enabled={{ value }}" }} ` +
 		`--create-namespace`
 }

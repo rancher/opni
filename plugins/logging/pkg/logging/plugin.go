@@ -16,6 +16,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -39,7 +40,7 @@ type Plugin struct {
 
 type PluginOptions struct {
 	storageNamespace  string
-	opensearchCluster *opniv1beta2.OpensearchClusterRef
+	opensearchCluster *opnimeta.OpensearchClusterRef
 }
 
 type PluginOption func(*PluginOptions)
@@ -56,7 +57,7 @@ func WithNamespace(namespace string) PluginOption {
 	}
 }
 
-func WithOpensearchCluster(cluster *opniv1beta2.OpensearchClusterRef) PluginOption {
+func WithOpensearchCluster(cluster *opnimeta.OpensearchClusterRef) PluginOption {
 	return func(o *PluginOptions) {
 		o.opensearchCluster = cluster
 	}
@@ -94,7 +95,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 
-	opniCluster := &opniv1beta2.OpensearchClusterRef{
+	opniCluster := &opnimeta.OpensearchClusterRef{
 		Name:      "opni",
 		Namespace: "opni-cluster-system",
 	}

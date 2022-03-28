@@ -1,6 +1,7 @@
 package v1beta2
 
 import (
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,8 +32,8 @@ type MulticlusterRoleBindingStatus struct {
 }
 
 type MulticlusterRoleBindingSpec struct {
-	OpensearchCluster     *OpensearchClusterRef `json:"opensearch,omitempty"`
-	OpensearchExternalURL string                `json:"opensearchExternalURL,omitempty"`
+	OpensearchCluster     *opnimeta.OpensearchClusterRef `json:"opensearch,omitempty"`
+	OpensearchExternalURL string                         `json:"opensearchExternalURL,omitempty"`
 }
 
 // +kubebuilder:object:root=true

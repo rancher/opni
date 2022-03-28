@@ -56,24 +56,24 @@ func (src *OpniCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.GlobalNodeSelector = src.Spec.GlobalNodeSelector
 	dst.Spec.GlobalTolerations = src.Spec.GlobalTolerations
 
-	elastic := v1beta2.ElasticSpec{}
+	elastic := v1beta2.OpensearchClusterSpec{}
 	elastic.Version = src.Spec.Elastic.Version
 	elastic.DefaultRepo = src.Spec.Elastic.DefaultRepo
 	elastic.Image = src.Spec.Elastic.Image
-	elastic.KibanaImage = src.Spec.Elastic.KibanaImage
+	elastic.DashboardsImage = src.Spec.Elastic.KibanaImage
 	elastic.Persistence = src.Spec.Elastic.Persistence
 	elastic.ConfigSecret = src.Spec.Elastic.ConfigSecret
 	elastic.AdminPasswordFrom = src.Spec.Elastic.AdminPasswordFrom
 
-	workloads := v1beta2.ElasticWorkloadSpec{}
-	workloads.Master = v1beta2.ElasticWorkloadOptions(src.Spec.Elastic.Workloads.Master)
-	workloads.Data = v1beta2.ElasticWorkloadOptions(src.Spec.Elastic.Workloads.Data)
-	workloads.Client = v1beta2.ElasticWorkloadOptions(src.Spec.Elastic.Workloads.Client)
-	workloads.Kibana = v1beta2.ElasticWorkloadOptions(src.Spec.Elastic.Workloads.Kibana)
+	workloads := v1beta2.OpensearchWorkloadSpec{}
+	workloads.Master = v1beta2.OpensearchWorkloadOptions(src.Spec.Elastic.Workloads.Master)
+	workloads.Data = v1beta2.OpensearchWorkloadOptions(src.Spec.Elastic.Workloads.Data)
+	workloads.Client = v1beta2.OpensearchWorkloadOptions(src.Spec.Elastic.Workloads.Client)
+	workloads.Dashboards = v1beta2.OpensearchWorkloadOptions(src.Spec.Elastic.Workloads.Kibana)
 
 	elastic.ExternalOpensearch = nil
 
-	dst.Spec.Elastic = elastic
+	dst.Spec.Opensearch = elastic
 
 	return nil
 }
@@ -131,19 +131,19 @@ func (dst *OpniCluster) ConvertFrom(srcRaw conversion.Hub) error {
 	dst.Spec.GlobalTolerations = src.Spec.GlobalTolerations
 
 	elastic := ElasticSpec{}
-	elastic.Version = src.Spec.Elastic.Version
-	elastic.DefaultRepo = src.Spec.Elastic.DefaultRepo
-	elastic.Image = src.Spec.Elastic.Image
-	elastic.KibanaImage = src.Spec.Elastic.KibanaImage
-	elastic.Persistence = src.Spec.Elastic.Persistence
-	elastic.ConfigSecret = src.Spec.Elastic.ConfigSecret
-	elastic.AdminPasswordFrom = src.Spec.Elastic.AdminPasswordFrom
+	elastic.Version = src.Spec.Opensearch.Version
+	elastic.DefaultRepo = src.Spec.Opensearch.DefaultRepo
+	elastic.Image = src.Spec.Opensearch.Image
+	elastic.KibanaImage = src.Spec.Opensearch.DashboardsImage
+	elastic.Persistence = src.Spec.Opensearch.Persistence
+	elastic.ConfigSecret = src.Spec.Opensearch.ConfigSecret
+	elastic.AdminPasswordFrom = src.Spec.Opensearch.AdminPasswordFrom
 
 	workloads := ElasticWorkloadSpec{}
-	workloads.Master = ElasticWorkloadOptions(src.Spec.Elastic.Workloads.Master)
-	workloads.Data = ElasticWorkloadOptions(src.Spec.Elastic.Workloads.Data)
-	workloads.Client = ElasticWorkloadOptions(src.Spec.Elastic.Workloads.Client)
-	workloads.Kibana = ElasticWorkloadOptions(src.Spec.Elastic.Workloads.Kibana)
+	workloads.Master = ElasticWorkloadOptions(src.Spec.Opensearch.Workloads.Master)
+	workloads.Data = ElasticWorkloadOptions(src.Spec.Opensearch.Workloads.Data)
+	workloads.Client = ElasticWorkloadOptions(src.Spec.Opensearch.Workloads.Client)
+	workloads.Kibana = ElasticWorkloadOptions(src.Spec.Opensearch.Workloads.Dashboards)
 
 	dst.Spec.Elastic = elastic
 

@@ -20,13 +20,13 @@ func (r *Reconciler) elasticWorkloads() []resources.Resource {
 		r.elasticMasterWorkload(),
 		r.elasticDataWorkload(),
 		r.elasticClientWorkload(),
-		r.elasticKibanaWorkload(),
+		r.elasticDashboardsWorkload(),
 	}
 }
 
 func (r *Reconciler) elasticDataWorkload() resources.Resource {
-	labels := resources.NewElasticLabels().
-		WithRole(v1beta2.ElasticDataRole)
+	labels := resources.NewOpensearchLabels().
+		WithRole(v1beta2.OpensearchDataRole)
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -35,7 +35,7 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 			Labels:    labels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: r.opniCluster.Spec.Elastic.Workloads.Data.Replicas,
+			Replicas: r.opniCluster.Spec.Opensearch.Workloads.Data.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -47,10 +47,10 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 	}
 
 	workload.Spec.Template.Spec.Affinity =
-		r.opniCluster.Spec.Elastic.Workloads.Data.Affinity
-	if r.opniCluster.Spec.Elastic.Workloads.Data.Resources != nil {
+		r.opniCluster.Spec.Opensearch.Workloads.Data.Affinity
+	if r.opniCluster.Spec.Opensearch.Workloads.Data.Resources != nil {
 		workload.Spec.Template.Spec.Containers[0].Resources =
-			*r.opniCluster.Spec.Elastic.Workloads.Data.Resources
+			*r.opniCluster.Spec.Opensearch.Workloads.Data.Resources
 	}
 
 	ctrl.SetControllerReference(r.opniCluster, workload, r.client.Scheme())
@@ -59,7 +59,7 @@ func (r *Reconciler) elasticDataWorkload() resources.Resource {
 }
 
 func (r *Reconciler) elasticPodTemplate(
-	labels resources.ElasticLabels,
+	labels resources.OpensearchLabels,
 ) corev1.PodTemplateSpec {
 	imageSpec := r.openDistroImageSpec()
 	return corev1.PodTemplateSpec{
@@ -128,20 +128,20 @@ func (r *Reconciler) elasticPodTemplate(
 	}
 }
 
-func containerPortsForRole(role v1beta2.ElasticRole) []corev1.ContainerPort {
+func containerPortsForRole(role v1beta2.OpensearchRole) []corev1.ContainerPort {
 	switch role {
-	case v1beta2.ElasticDataRole:
+	case v1beta2.OpensearchDataRole:
 		return []corev1.ContainerPort{
 			containerPort(transportPort),
 		}
-	case v1beta2.ElasticClientRole, v1beta2.ElasticMasterRole:
+	case v1beta2.OpensearchClientRole, v1beta2.OpensearchMasterRole:
 		return []corev1.ContainerPort{
 			containerPort(httpPort),
 			containerPort(transportPort),
 			containerPort(metricsPort),
 			containerPort(rcaPort),
 		}
-	case v1beta2.ElasticKibanaRole:
+	case v1beta2.OpensearchDashboardsRole:
 		return []corev1.ContainerPort{
 			containerPort(kibanaPort),
 		}
@@ -151,8 +151,8 @@ func containerPortsForRole(role v1beta2.ElasticRole) []corev1.ContainerPort {
 }
 
 func (r *Reconciler) elasticMasterWorkload() resources.Resource {
-	labels := resources.NewElasticLabels().
-		WithRole(v1beta2.ElasticMasterRole)
+	labels := resources.NewOpensearchLabels().
+		WithRole(v1beta2.OpensearchMasterRole)
 
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -161,7 +161,7 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 			Labels:    labels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: r.opniCluster.Spec.Elastic.Workloads.Master.Replicas,
+			Replicas: r.opniCluster.Spec.Opensearch.Workloads.Master.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -171,10 +171,10 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 						if r.opniCluster.Status.OpensearchState.Version == nil {
 							return pointer.Int32(0)
 						}
-						if *r.opniCluster.Status.OpensearchState.Version == r.opniCluster.Spec.Elastic.Version {
+						if *r.opniCluster.Status.OpensearchState.Version == r.opniCluster.Spec.Opensearch.Version {
 							return pointer.Int32(0)
 						}
-						return r.opniCluster.Spec.Elastic.Workloads.Master.Replicas
+						return r.opniCluster.Spec.Opensearch.Workloads.Master.Replicas
 					}(),
 				},
 			},
@@ -183,10 +183,10 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 	}
 
 	workload.Spec.Template.Spec.Affinity =
-		r.opniCluster.Spec.Elastic.Workloads.Master.Affinity
-	if r.opniCluster.Spec.Elastic.Workloads.Master.Resources != nil {
+		r.opniCluster.Spec.Opensearch.Workloads.Master.Affinity
+	if r.opniCluster.Spec.Opensearch.Workloads.Master.Resources != nil {
 		workload.Spec.Template.Spec.Containers[0].Resources =
-			*r.opniCluster.Spec.Elastic.Workloads.Master.Resources
+			*r.opniCluster.Spec.Opensearch.Workloads.Master.Resources
 	}
 
 	ctrl.SetControllerReference(r.opniCluster, workload, r.client.Scheme())
@@ -219,7 +219,7 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 	}
 
 	usePersistence := false
-	if p := r.opniCluster.Spec.Elastic.Persistence; p != nil {
+	if p := r.opniCluster.Spec.Opensearch.Persistence; p != nil {
 		if !p.Enabled {
 			// Persistence disabled
 			return
@@ -268,8 +268,8 @@ func (r *Reconciler) configurePVC(workload *appsv1.StatefulSet) {
 }
 
 func (r *Reconciler) elasticClientWorkload() resources.Resource {
-	labels := resources.NewElasticLabels().
-		WithRole(v1beta2.ElasticClientRole)
+	labels := resources.NewOpensearchLabels().
+		WithRole(v1beta2.OpensearchClientRole)
 
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -278,7 +278,7 @@ func (r *Reconciler) elasticClientWorkload() resources.Resource {
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: r.opniCluster.Spec.Elastic.Workloads.Client.Replicas,
+			Replicas: r.opniCluster.Spec.Opensearch.Workloads.Client.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -287,29 +287,29 @@ func (r *Reconciler) elasticClientWorkload() resources.Resource {
 	}
 
 	workload.Spec.Template.Spec.Affinity =
-		r.opniCluster.Spec.Elastic.Workloads.Client.Affinity
-	if r.opniCluster.Spec.Elastic.Workloads.Client.Resources != nil {
+		r.opniCluster.Spec.Opensearch.Workloads.Client.Affinity
+	if r.opniCluster.Spec.Opensearch.Workloads.Client.Resources != nil {
 		workload.Spec.Template.Spec.Containers[0].Resources =
-			*r.opniCluster.Spec.Elastic.Workloads.Client.Resources
+			*r.opniCluster.Spec.Opensearch.Workloads.Client.Resources
 	}
 
 	ctrl.SetControllerReference(r.opniCluster, workload, r.client.Scheme())
 	return resources.Present(workload)
 }
 
-func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
-	labels := resources.NewElasticLabels().
-		WithRole(v1beta2.ElasticKibanaRole)
+func (r *Reconciler) elasticDashboardsWorkload() resources.Resource {
+	labels := resources.NewOpensearchLabels().
+		WithRole(v1beta2.OpensearchDashboardsRole)
 
 	imageSpec := r.kibanaImageSpec()
 	workload := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OpniKibanaWorkload,
+			Name:      OpniDashboardsWorkload,
 			Namespace: r.opniCluster.Namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: r.opniCluster.Spec.Elastic.Workloads.Kibana.Replicas,
+			Replicas: r.opniCluster.Spec.Opensearch.Workloads.Dashboards.Replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -318,10 +318,10 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					Affinity: r.opniCluster.Spec.Elastic.Workloads.Kibana.Affinity,
+					Affinity: r.opniCluster.Spec.Opensearch.Workloads.Dashboards.Affinity,
 					Containers: []corev1.Container{
 						{
-							Name:            OpniKibanaWorkload,
+							Name:            OpniDashboardsWorkload,
 							Image:           imageSpec.GetImage(),
 							ImagePullPolicy: imageSpec.GetImagePullPolicy(),
 							Env:             kibanaEnv,
@@ -365,9 +365,9 @@ func (r *Reconciler) elasticKibanaWorkload() resources.Resource {
 			},
 		},
 	}
-	if r.opniCluster.Spec.Elastic.Workloads.Kibana.Resources != nil {
+	if r.opniCluster.Spec.Opensearch.Workloads.Dashboards.Resources != nil {
 		workload.Spec.Template.Spec.Containers[0].Resources =
-			*r.opniCluster.Spec.Elastic.Workloads.Kibana.Resources
+			*r.opniCluster.Spec.Opensearch.Workloads.Dashboards.Resources
 	}
 
 	ctrl.SetControllerReference(r.opniCluster, workload, r.client.Scheme())
@@ -451,31 +451,31 @@ func internalusersVolume() corev1.Volume {
 
 func (r *Reconciler) openDistroImageSpec() opnimeta.ImageSpec {
 	return opnimeta.ImageResolver{
-		Version:             r.opniCluster.Spec.Elastic.Version,
+		Version:             r.opniCluster.Spec.Opensearch.Version,
 		ImageName:           "opensearch",
 		DefaultRepo:         "docker.io/opensearchproject",
-		DefaultRepoOverride: r.opniCluster.Spec.Elastic.DefaultRepo,
-		ImageOverride:       r.opniCluster.Spec.Elastic.Image,
+		DefaultRepoOverride: r.opniCluster.Spec.Opensearch.DefaultRepo,
+		ImageOverride:       r.opniCluster.Spec.Opensearch.Image,
 	}.Resolve()
 }
 
 func (r *Reconciler) kibanaImageSpec() opnimeta.ImageSpec {
 	return opnimeta.ImageResolver{
-		Version:             r.opniCluster.Spec.Elastic.Version,
+		Version:             r.opniCluster.Spec.Opensearch.Version,
 		ImageName:           "opensearch-dashboards",
 		DefaultRepo:         "docker.io/opensearchproject",
-		DefaultRepoOverride: r.opniCluster.Spec.Elastic.DefaultRepo,
-		ImageOverride:       r.opniCluster.Spec.Elastic.KibanaImage,
+		DefaultRepoOverride: r.opniCluster.Spec.Opensearch.DefaultRepo,
+		ImageOverride:       r.opniCluster.Spec.Opensearch.DashboardsImage,
 	}.Resolve()
 }
 
-func (r *Reconciler) elasticNodeSelector(role v1beta2.ElasticRole) map[string]string {
+func (r *Reconciler) elasticNodeSelector(role v1beta2.OpensearchRole) map[string]string {
 	if s := role.GetNodeSelector(r.opniCluster); len(s) > 0 {
 		return s
 	}
 	return r.opniCluster.Spec.GlobalNodeSelector
 }
 
-func (r *Reconciler) elasticTolerations(role v1beta2.ElasticRole) []corev1.Toleration {
+func (r *Reconciler) elasticTolerations(role v1beta2.OpensearchRole) []corev1.Toleration {
 	return append(r.opniCluster.Spec.GlobalTolerations, role.GetTolerations(r.opniCluster)...)
 }

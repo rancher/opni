@@ -48,15 +48,15 @@ func NewReconciler(ctx context.Context, opniCluster *v1beta2.OpniCluster, c clie
 		lg.Error(err, "error fetching cluster status, using default password")
 	}
 	// TODO this will always be nil the first time an opnicluster is reconciled. Clean up the logic for this.
-	if opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef != nil {
+	if opniCluster.Status.Auth.OpensearchAuthSecretKeyRef != nil {
 		secret := &corev1.Secret{}
 		if err := c.Get(ctx, types.NamespacedName{
-			Name:      opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Name,
+			Name:      opniCluster.Status.Auth.OpensearchAuthSecretKeyRef.Name,
 			Namespace: opniCluster.Namespace,
 		}, secret); err != nil {
 			lg.Error(err, "error fetching password secret, using default password")
 		}
-		password = string(secret.Data[opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Key])
+		password = string(secret.Data[opniCluster.Status.Auth.OpensearchAuthSecretKeyRef.Key])
 	}
 
 	// Handle external opensearch cluster
@@ -64,9 +64,9 @@ func NewReconciler(ctx context.Context, opniCluster *v1beta2.OpniCluster, c clie
 	osSvcName := "opni-es-client"
 	kbSvcName := "opni-es-kibana"
 
-	if opniCluster.Spec.Elastic.ExternalOpensearch != nil {
+	if opniCluster.Spec.Opensearch.ExternalOpensearch != nil {
 		opensearchCluster := &opensearchv1.OpenSearchCluster{}
-		err := c.Get(ctx, opniCluster.Spec.Elastic.ExternalOpensearch.ObjectKeyFromRef(), opensearchCluster)
+		err := c.Get(ctx, opniCluster.Spec.Opensearch.ExternalOpensearch.ObjectKeyFromRef(), opensearchCluster)
 		if err != nil {
 			lg.Error(err, "failed to fetch opensearch, index reconciliation will continue with defaults")
 		}
@@ -128,7 +128,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	if r.opensearch != nil {
 		desiredVersion, err = version.NewVersion(r.opensearch.Spec.General.Version)
 	} else {
-		desiredVersion, err = version.NewVersion(r.cluster.Spec.Elastic.Version)
+		desiredVersion, err = version.NewVersion(r.cluster.Spec.Opensearch.Version)
 	}
 
 	if err != nil {
@@ -160,13 +160,13 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	var policies []interface{}
 	if oldVersion {
-		if pointer.BoolDeref(r.cluster.Spec.Elastic.EnableLogIndexManagement, true) {
+		if pointer.BoolDeref(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
 			policies = append(policies, oldOpniLogPolicy)
 		}
 		policies = append(policies, oldOpniDrainModelStatusPolicy)
 		policies = append(policies, oldOpniMetricPolicy)
 	} else {
-		if pointer.BoolDeref(r.cluster.Spec.Elastic.EnableLogIndexManagement, true) {
+		if pointer.BoolDeref(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
 			policies = append(policies, OpniLogPolicy)
 		}
 		policies = append(policies, opniDrainModelStatusPolicy)
@@ -186,7 +186,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		opniMetricTemplate,
 	}
 
-	if pointer.BoolDeref(r.cluster.Spec.Elastic.EnableLogIndexManagement, true) {
+	if pointer.BoolDeref(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
 		templates = append(templates, OpniLogTemplate)
 	}
 
@@ -204,7 +204,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		metricIndexPrefix:      metricIndexAlias,
 	}
 
-	if pointer.BoolDeref(r.cluster.Spec.Elastic.EnableLogIndexManagement, true) {
+	if pointer.BoolDeref(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
 		prefixes[LogIndexPrefix] = LogIndexAlias
 	}
 

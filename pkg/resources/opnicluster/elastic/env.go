@@ -59,26 +59,26 @@ var (
 	}
 )
 
-func (r *Reconciler) elasticNodeTypeEnv(role v1beta2.ElasticRole) []corev1.EnvVar {
+func (r *Reconciler) elasticNodeTypeEnv(role v1beta2.OpensearchRole) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{
 		{
 			Name:  "node.master",
-			Value: fmt.Sprint(role == v1beta2.ElasticMasterRole),
+			Value: fmt.Sprint(role == v1beta2.OpensearchMasterRole),
 		},
 		{
 			Name:  "node.ingest",
-			Value: fmt.Sprint(role == v1beta2.ElasticDataRole),
+			Value: fmt.Sprint(role == v1beta2.OpensearchDataRole),
 		},
 		{
 			Name:  "node.data",
-			Value: fmt.Sprint(role == v1beta2.ElasticDataRole),
+			Value: fmt.Sprint(role == v1beta2.OpensearchDataRole),
 		},
 		{
 			Name:  "discovery.seed_hosts",
 			Value: "opni-es-discovery",
 		},
 	}
-	if role == v1beta2.ElasticMasterRole && (r.masterSingleton() || !r.opniCluster.Status.OpensearchState.Initialized) {
+	if role == v1beta2.OpensearchMasterRole && (r.masterSingleton() || !r.opniCluster.Status.OpensearchState.Initialized) {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "cluster.initial_master_nodes",
 			Value: "opni-es-master-0",
@@ -87,26 +87,26 @@ func (r *Reconciler) elasticNodeTypeEnv(role v1beta2.ElasticRole) []corev1.EnvVa
 	return envVars
 }
 
-func (r *Reconciler) javaOptsEnv(role v1beta2.ElasticRole) []corev1.EnvVar {
+func (r *Reconciler) javaOptsEnv(role v1beta2.OpensearchRole) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name: "OPENSEARCH_JAVA_OPTS",
 			Value: javaOpts(func() *corev1.ResourceRequirements {
 				switch role {
-				case v1beta2.ElasticDataRole:
-					if res := r.opniCluster.Spec.Elastic.Workloads.Data.Resources; res != nil {
+				case v1beta2.OpensearchDataRole:
+					if res := r.opniCluster.Spec.Opensearch.Workloads.Data.Resources; res != nil {
 						return res
 					}
-				case v1beta2.ElasticClientRole:
-					if res := r.opniCluster.Spec.Elastic.Workloads.Client.Resources; res != nil {
+				case v1beta2.OpensearchClientRole:
+					if res := r.opniCluster.Spec.Opensearch.Workloads.Client.Resources; res != nil {
 						return res
 					}
-				case v1beta2.ElasticMasterRole:
-					if res := r.opniCluster.Spec.Elastic.Workloads.Master.Resources; res != nil {
+				case v1beta2.OpensearchMasterRole:
+					if res := r.opniCluster.Spec.Opensearch.Workloads.Master.Resources; res != nil {
 						return res
 					}
-				case v1beta2.ElasticKibanaRole:
-					if res := r.opniCluster.Spec.Elastic.Workloads.Kibana.Resources; res != nil {
+				case v1beta2.OpensearchDashboardsRole:
+					if res := r.opniCluster.Spec.Opensearch.Workloads.Dashboards.Resources; res != nil {
 						return res
 					}
 				}
@@ -117,10 +117,10 @@ func (r *Reconciler) javaOptsEnv(role v1beta2.ElasticRole) []corev1.EnvVar {
 }
 
 func (r *Reconciler) zenMastersEnv() []corev1.EnvVar {
-	if r.opniCluster.Spec.Elastic.Workloads.Master.Replicas == nil {
+	if r.opniCluster.Spec.Opensearch.Workloads.Master.Replicas == nil {
 		return []corev1.EnvVar{}
 	}
-	quorum := math.Round(float64(*r.opniCluster.Spec.Elastic.Workloads.Master.Replicas) / 2)
+	quorum := math.Round(float64(*r.opniCluster.Spec.Opensearch.Workloads.Master.Replicas) / 2)
 	return []corev1.EnvVar{
 		{
 			Name:  "discovery.zen.minimum_master_nodes",
@@ -134,17 +134,17 @@ func (r *Reconciler) esPasswordEnv() []corev1.EnvVar {
 		{
 			Name: "ES_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef,
+				SecretKeyRef: r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef,
 			},
 		},
 	}
 }
 
 func (r *Reconciler) masterSingleton() bool {
-	return (r.opniCluster.Spec.Elastic.Workloads.Master.Replicas == nil ||
-		*r.opniCluster.Spec.Elastic.Workloads.Master.Replicas == int32(1)) &&
-		(r.opniCluster.Spec.Elastic.Persistence == nil ||
-			!r.opniCluster.Spec.Elastic.Persistence.Enabled)
+	return (r.opniCluster.Spec.Opensearch.Workloads.Master.Replicas == nil ||
+		*r.opniCluster.Spec.Opensearch.Workloads.Master.Replicas == int32(1)) &&
+		(r.opniCluster.Spec.Opensearch.Persistence == nil ||
+			!r.opniCluster.Spec.Opensearch.Persistence.Enabled)
 }
 
 func javaOpts(req *corev1.ResourceRequirements) string {

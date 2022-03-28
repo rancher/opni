@@ -25,15 +25,15 @@ func CombineLabels(maps ...map[string]string) map[string]string {
 	return result
 }
 
-type ElasticLabels map[string]string
+type OpensearchLabels map[string]string
 
-func NewElasticLabels() ElasticLabels {
+func NewOpensearchLabels() OpensearchLabels {
 	return map[string]string{
-		"app": "opendistro-es",
+		"app": "opensearch",
 	}
 }
 
-func (l ElasticLabels) WithRole(role v1beta2.ElasticRole) ElasticLabels {
+func (l OpensearchLabels) WithRole(role v1beta2.OpensearchRole) OpensearchLabels {
 	copied := map[string]string{}
 	for k, v := range l {
 		copied[k] = v
@@ -42,10 +42,10 @@ func (l ElasticLabels) WithRole(role v1beta2.ElasticRole) ElasticLabels {
 	return copied
 }
 
-func (l ElasticLabels) Role() v1beta2.ElasticRole {
+func (l OpensearchLabels) Role() v1beta2.OpensearchRole {
 	role, ok := l["role"]
 	if !ok {
 		return ""
 	}
-	return v1beta2.ElasticRole(role)
+	return v1beta2.OpensearchRole(role)
 }

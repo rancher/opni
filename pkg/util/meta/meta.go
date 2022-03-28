@@ -10,6 +10,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 )
 
@@ -96,4 +97,16 @@ type PersistenceSpec struct {
 	AccessModes      []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 	// Storage size request. Defaults to 10Gi.
 	Request resource.Quantity `json:"request,omitempty"`
+}
+
+type OpensearchClusterRef struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
+func (o *OpensearchClusterRef) ObjectKeyFromRef() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      o.Name,
+		Namespace: o.Namespace,
+	}
 }

@@ -47029,7 +47029,81 @@ spec:
                 type: string
               deployLogCollector:
                 type: boolean
-              elastic:
+              globalNodeSelector:
+                additionalProperties:
+                  type: string
+                type: object
+              globalTolerations:
+                items:
+                  properties:
+                    effect:
+                      type: string
+                    key:
+                      type: string
+                    operator:
+                      type: string
+                    tolerationSeconds:
+                      format: int64
+                      type: integer
+                    value:
+                      type: string
+                  type: object
+                type: array
+              nats:
+                properties:
+                  authMethod:
+                    default: username
+                    enum:
+                    - username
+                    - nkey
+                    type: string
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  passwordFrom:
+                    properties:
+                      key:
+                        type: string
+                      name:
+                        type: string
+                      optional:
+                        type: boolean
+                    required:
+                    - key
+                    type: object
+                  replicas:
+                    format: int32
+                    type: integer
+                  tolerations:
+                    items:
+                      properties:
+                        effect:
+                          type: string
+                        key:
+                          type: string
+                        operator:
+                          type: string
+                        tolerationSeconds:
+                          format: int64
+                          type: integer
+                        value:
+                          type: string
+                      type: object
+                    type: array
+                  username:
+                    type: string
+                required:
+                - authMethod
+                type: object
+              nulogHyperparameters:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  x-kubernetes-int-or-string: true
+                type: object
+              opensearch:
                 properties:
                   adminPasswordFrom:
                     properties:
@@ -47047,18 +47121,7 @@ spec:
                       name:
                         type: string
                     type: object
-                  defaultRepo:
-                    type: string
-                  enableLogIndexManagement:
-                    type: boolean
-                  externalOpensearch:
-                    properties:
-                      name:
-                        type: string
-                      namespace:
-                        type: string
-                    type: object
-                  image:
+                  dashboardsImage:
                     properties:
                       image:
                         type: string
@@ -47072,7 +47135,18 @@ spec:
                           type: object
                         type: array
                     type: object
-                  kibanaImage:
+                  defaultRepo:
+                    type: string
+                  enableLogIndexManagement:
+                    type: boolean
+                  externalOpensearch:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    type: object
+                  image:
                     properties:
                       image:
                         type: string
@@ -47506,7 +47580,7 @@ spec:
                               type: object
                             type: array
                         type: object
-                      data:
+                      dashboards:
                         properties:
                           affinity:
                             properties:
@@ -47905,7 +47979,7 @@ spec:
                               type: object
                             type: array
                         type: object
-                      kibana:
+                      data:
                         properties:
                           affinity:
                             properties:
@@ -48705,80 +48779,6 @@ spec:
                         type: object
                     type: object
                 type: object
-              globalNodeSelector:
-                additionalProperties:
-                  type: string
-                type: object
-              globalTolerations:
-                items:
-                  properties:
-                    effect:
-                      type: string
-                    key:
-                      type: string
-                    operator:
-                      type: string
-                    tolerationSeconds:
-                      format: int64
-                      type: integer
-                    value:
-                      type: string
-                  type: object
-                type: array
-              nats:
-                properties:
-                  authMethod:
-                    default: username
-                    enum:
-                    - username
-                    - nkey
-                    type: string
-                  nodeSelector:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  passwordFrom:
-                    properties:
-                      key:
-                        type: string
-                      name:
-                        type: string
-                      optional:
-                        type: boolean
-                    required:
-                    - key
-                    type: object
-                  replicas:
-                    format: int32
-                    type: integer
-                  tolerations:
-                    items:
-                      properties:
-                        effect:
-                          type: string
-                        key:
-                          type: string
-                        operator:
-                          type: string
-                        tolerationSeconds:
-                          format: int64
-                          type: integer
-                        value:
-                          type: string
-                      type: object
-                    type: array
-                  username:
-                    type: string
-                required:
-                - authMethod
-                type: object
-              nulogHyperparameters:
-                additionalProperties:
-                  anyOf:
-                  - type: integer
-                  - type: string
-                  x-kubernetes-int-or-string: true
-                type: object
               s3:
                 properties:
                   drainS3Bucket:
@@ -49174,7 +49174,11 @@ spec:
             properties:
               auth:
                 properties:
-                  elasticsearchAuthSecretKeyRef:
+                  generateOpensearchHash:
+                    type: boolean
+                  nKeyUser:
+                    type: string
+                  natsAuthSecretKeyRef:
                     properties:
                       key:
                         type: string
@@ -49185,11 +49189,7 @@ spec:
                     required:
                     - key
                     type: object
-                  generateElasticsearchHash:
-                    type: boolean
-                  nKeyUser:
-                    type: string
-                  natsAuthSecretKeyRef:
+                  opensearchAuthSecretKeyRef:
                     properties:
                       key:
                         type: string

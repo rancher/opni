@@ -918,20 +918,20 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 			Name:                "test-elastic",
 			DisableOpniServices: true,
 		})
-		c.Spec.Elastic = v1beta2.ElasticSpec{
+		c.Spec.Opensearch = v1beta2.OpensearchClusterSpec{
 			Version: "1.0.0",
 			Persistence: &opnimeta.PersistenceSpec{
 				Enabled:          true,
 				StorageClassName: pointer.String("test-storageclass"),
 			},
-			Workloads: v1beta2.ElasticWorkloadSpec{
-				Master: v1beta2.ElasticWorkloadOptions{
+			Workloads: v1beta2.OpensearchWorkloadSpec{
+				Master: v1beta2.OpensearchWorkloadOptions{
 					Replicas: pointer.Int32(1),
 				},
-				Data: v1beta2.ElasticWorkloadOptions{
+				Data: v1beta2.OpensearchWorkloadOptions{
 					Replicas: pointer.Int32(3),
 				},
-				Client: v1beta2.ElasticWorkloadOptions{
+				Client: v1beta2.OpensearchWorkloadOptions{
 					Replicas: pointer.Int32(5),
 					Resources: &corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
@@ -948,7 +948,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 						},
 					},
 				},
-				Kibana: v1beta2.ElasticWorkloadOptions{
+				Dashboards: v1beta2.OpensearchWorkloadOptions{
 					Replicas: pointer.Int32(7),
 				},
 			},
@@ -971,7 +971,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 			})).Should(ExistAnd(
 				HaveOwner(cluster),
 				HaveLabels(
-					"app", "opendistro-es",
+					"app", "opensearch",
 					"role", "master",
 				),
 				HaveReplicaCount(1),
@@ -1010,7 +1010,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 			})).Should(ExistAnd(
 				HaveOwner(cluster),
 				HaveLabels(
-					"app", "opendistro-es",
+					"app", "opensearch",
 					"role", "data",
 				),
 				HaveReplicaCount(3),
@@ -1048,7 +1048,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 			})).Should(ExistAnd(
 				HaveOwner(cluster),
 				HaveLabels(
-					"app", "opendistro-es",
+					"app", "opensearch",
 					"role", "client",
 				),
 				HaveReplicaCount(5),
@@ -1082,7 +1082,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 			})).Should(ExistAnd(
 				HaveOwner(cluster),
 				HaveLabels(
-					"app", "opendistro-es",
+					"app", "opensearch",
 					"role", "kibana",
 				),
 				HaveReplicaCount(7),
@@ -1144,9 +1144,9 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 
 		By("adjusting the elastic workload replicas")
 		updateObject(cluster, func(obj *v1beta2.OpniCluster) {
-			obj.Spec.Elastic.Workloads.Data.Replicas = pointer.Int32(1)
-			obj.Spec.Elastic.Workloads.Client.Replicas = pointer.Int32(1)
-			obj.Spec.Elastic.Workloads.Kibana.Replicas = pointer.Int32(1)
+			obj.Spec.Opensearch.Workloads.Data.Replicas = pointer.Int32(1)
+			obj.Spec.Opensearch.Workloads.Client.Replicas = pointer.Int32(1)
+			obj.Spec.Opensearch.Workloads.Dashboards.Replicas = pointer.Int32(1)
 		})
 
 		By("checking that replica counts are updated")

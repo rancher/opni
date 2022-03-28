@@ -38,7 +38,7 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 				Namespace: testNs,
 			},
 			Spec: v1beta2.OpniClusterSpec{
-				Elastic: v1beta2.ElasticSpec{},
+				Opensearch: v1beta2.OpensearchClusterSpec{},
 				Nats: v1beta2.NatsSpec{
 					AuthMethod: v1beta2.NatsAuthUsername,
 				},

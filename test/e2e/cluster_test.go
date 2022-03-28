@@ -135,7 +135,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 							},
 						},
 					},
-					Elastic: v1beta2.ElasticSpec{
+					Opensearch: v1beta2.OpensearchClusterSpec{
 						Version: "1.1.0",
 					},
 					S3: v1beta2.S3Spec{

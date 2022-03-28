@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	OpniMasterWorkload = "opni-es-master"
-	OpniDataWorkload   = "opni-es-data"
-	OpniClientWorkload = "opni-es-client"
-	OpniKibanaWorkload = "opni-es-kibana"
+	OpniMasterWorkload     = "opni-es-master"
+	OpniDataWorkload       = "opni-es-data"
+	OpniClientWorkload     = "opni-es-client"
+	OpniDashboardsWorkload = "opni-es-kibana"
 )
 
 type Reconciler struct {
@@ -31,7 +31,7 @@ func NewReconciler(ctx context.Context, client client.Client, opniCluster *v1bet
 	}
 }
 
-func (r *Reconciler) ElasticResources() (resourceList []resources.Resource, _ error) {
+func (r *Reconciler) OpensearchResources() (resourceList []resources.Resource, _ error) {
 	// Generate the elasticsearch password resources and return any errors
 	err := r.elasticPasswordResourcces()
 	if err != nil {

@@ -129,10 +129,10 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 	}
 
 	var deleteOrdinal int
-	if r.opniCluster.Spec.Elastic.Workloads.Data.Replicas == nil {
+	if r.opniCluster.Spec.Opensearch.Workloads.Data.Replicas == nil {
 		deleteOrdinal = 0
 	} else {
-		deleteOrdinal = int(*r.opniCluster.Spec.Elastic.Workloads.Data.Replicas) - 1 - int(statefulset.Status.UpdatedReplicas)
+		deleteOrdinal = int(*r.opniCluster.Spec.Opensearch.Workloads.Data.Replicas) - 1 - int(statefulset.Status.UpdatedReplicas)
 	}
 
 	r.client.Delete(r.ctx, &corev1.Pod{
@@ -148,15 +148,15 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 func (r *Reconciler) createClient() error {
 	// Fetch the admin password
 	var password string
-	if r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef != nil {
+	if r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef != nil {
 		secret := &corev1.Secret{}
 		if err := r.client.Get(r.ctx, types.NamespacedName{
-			Name:      r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Name,
+			Name:      r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef.Name,
 			Namespace: r.opniCluster.Namespace,
 		}, secret); err != nil {
 			return err
 		}
-		password = string(secret.Data[r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef.Key])
+		password = string(secret.Data[r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef.Key])
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()

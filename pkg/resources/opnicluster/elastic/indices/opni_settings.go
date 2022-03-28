@@ -23,7 +23,7 @@ const (
 	metricIndexTemplateName      = "opni-metric_rollover_mapping"
 	normalIntervalIndexName      = "opni-normal-intervals"
 	kibanaDashboardVersionDocID  = "latest"
-	kibanaDashboardVersion       = "v0.1.3"
+	kibanaDashboardVersion       = "v0.4.0"
 	kibanaDashboardVersionIndex  = "opni-dashboard-version"
 )
 

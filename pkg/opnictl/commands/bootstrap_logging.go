@@ -15,7 +15,6 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	loggingplugin "github.com/rancher/opni-monitoring/plugins/logging/pkg/logging"
-	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/opnictl/common"
 	"github.com/spf13/cobra"
@@ -272,13 +271,13 @@ func createOpniClusterFlow(ctx context.Context, clusterID string) error {
 }
 
 func createLogAdapter(ctx context.Context) error {
-	lga := &v1beta1.LogAdapter{
+	lga := &v1beta2.LogAdapter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-logging",
 			Namespace: common.NamespaceFlagValue,
 		},
-		Spec: v1beta1.LogAdapterSpec{
-			Provider: v1beta1.LogProvider(provider),
+		Spec: v1beta2.LogAdapterSpec{
+			Provider: v1beta2.LogProvider(provider),
 		},
 	}
 	return common.K8sClient.Create(ctx, lga)

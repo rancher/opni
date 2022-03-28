@@ -55,6 +55,7 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.insightsService,
 		r.uiDeployment,
 		r.uiService,
+		r.opensearchFetcherDeployment,
 	}, nil
 }
 
@@ -452,8 +453,8 @@ func (r *Reconciler) genericEnvAndVolumes() (
 		Value: func() string {
 			if r.opensearchCluster != nil {
 				user, _, _ := helpers.UsernameAndPassword(
-					r.client,
 					r.ctx,
+					r.client,
 					r.opensearchCluster,
 				)
 				return user
@@ -924,6 +925,11 @@ func (r *Reconciler) uiService() (runtime.Object, reconciler.DesiredState, error
 	return service, reconciler.StateCreated, nil
 }
 
+func (r *Reconciler) opensearchFetcherDeployment() (runtime.Object, reconciler.DesiredState, error) {
+	deployment := r.genericDeployment(v1beta2.PayloadReceiverService)
+	return deployment, deploymentState(r.opniCluster.Spec.Services.OpensearchFetcher.Enabled), nil
+}
+
 func (r *Reconciler) generateSHAID() string {
 	hash := sha1.New()
 	hash.Write([]byte(r.opniCluster.Name + r.opniCluster.Namespace))
@@ -961,7 +967,7 @@ func insertHyperparametersVolume(deployment *appsv1.Deployment, modelName string
 }
 
 func (r *Reconciler) externalOpensearchConfig() (retResources []resources.Resource, retErr error) {
-	_, password, retErr := helpers.UsernameAndPassword(r.client, r.ctx, r.opensearchCluster)
+	_, password, retErr := helpers.UsernameAndPassword(r.ctx, r.client, r.opensearchCluster)
 	if retErr != nil {
 		return
 	}

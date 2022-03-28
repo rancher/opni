@@ -64,7 +64,7 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 	indexUser.UserName = fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name)
 	indexUser.Password = string(secret.Data["password"])
 
-	username, password, retErr := helpers.UsernameAndPassword(r.client, r.ctx, opensearchCluster)
+	username, password, retErr := helpers.UsernameAndPassword(r.ctx, r.client, opensearchCluster)
 	if retErr != nil {
 		return
 	}
@@ -94,7 +94,7 @@ func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.Op
 }
 
 func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
-	username, password, err := helpers.UsernameAndPassword(r.client, r.ctx, cluster)
+	username, password, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
 	if err != nil {
 		return err
 	}

@@ -16,6 +16,7 @@ const (
 	MetricsService
 	InsightsService
 	UIService
+	OpensearchFetcher
 )
 
 type ElasticRole string
@@ -45,6 +46,8 @@ func (s ServiceKind) String() string {
 		return "insights"
 	case UIService:
 		return "ui"
+	case OpensearchFetcher:
+		return "opensearch-fetcher"
 	default:
 		return ""
 	}
@@ -60,6 +63,8 @@ func (s ServiceKind) ImageName() string {
 		return "opni-gpu-service-controller"
 	case UIService:
 		return "opni-ui"
+	case OpensearchFetcher:
+		return "opni-opensearch-fetcher"
 	default:
 		return "opni-" + s.String() + "-service"
 	}

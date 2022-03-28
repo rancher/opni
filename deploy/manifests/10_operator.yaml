@@ -178,7 +178,6 @@ webhooks:
   - apiGroups:
     - opni.io
     apiVersions:
-    - v1beta1
     - v1beta2
     operations:
     - CREATE
@@ -209,7 +208,6 @@ webhooks:
     - opni.io
     apiVersions:
     - v1beta2
-    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -238,4 +236,3 @@ webhooks:
     resources:
     - opniclusters
   sideEffects: None
-

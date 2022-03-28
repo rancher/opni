@@ -360,7 +360,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 				}
 				return false
 			}()).To(BeFalse())
-			Expect(respDoc.Source.DashboardVersion).To(Equal("v0.1.3"))
+			Expect(respDoc.Source.DashboardVersion).To(Equal("v0.4.0"))
 		})
 	})
 	Context("verify logs are being shipped to elasticsearch", func() {

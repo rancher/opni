@@ -12,7 +12,7 @@ import (
 )
 
 func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
-	username, password, err := helpers.UsernameAndPassword(r.client, r.ctx, cluster)
+	username, password, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearch
 }
 
 func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
-	username, password, err := helpers.UsernameAndPassword(r.client, r.ctx, cluster)
+	username, password, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
 	if err != nil {
 		return err
 	}

@@ -4,7 +4,7 @@ kind: Namespace
 metadata:
   name: opni
 ---
-apiVersion: opni.io/v1beta1
+apiVersion: opni.io/v1beta2
 kind: PretrainedModel
 metadata:
   name: control-plane
@@ -28,7 +28,7 @@ spec:
   deployLogCollector: true
   services:
     gpuController:
-      enabled: false  # Set this to true for a a cluster with a GPU
+      enabled: false  # Currently not supported
     inference:
       pretrainedModels:
       - name: control-plane

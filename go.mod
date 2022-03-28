@@ -53,6 +53,7 @@ require (
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
+	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b // indirect
@@ -187,5 +188,5 @@ replace (
 
 	// Because of a dependency chain to Coretx
 	k8s.io/client-go => k8s.io/client-go v0.23.4
-	opensearch.opster.io => github.com/Opster/opensearch-k8s-operator/opensearch-operator v0.0.0-20220314153037-ac99aeec44e5
+	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220324190819-fb7a5ce3587e
 )

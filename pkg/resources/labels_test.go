@@ -9,44 +9,44 @@ import (
 )
 
 var _ = Describe("Labels", Label("unit"), func() {
-	var labels resources.ElasticLabels
-	When("creating an instance of ElasticLabels", func() {
+	var labels resources.OpensearchLabels
+	When("creating an instance of OpensearchLabels", func() {
 		It("should contain only the app label", func() {
-			labels = resources.NewElasticLabels()
+			labels = resources.NewOpensearchLabels()
 			Expect(labels).To(BeEquivalentTo(map[string]string{
-				"app": "opendistro-es",
+				"app": "opensearch",
 			}))
 		})
 	})
 	When("adding a role", func() {
 		It("should contain the role label", func() {
-			labelsWithRole := labels.WithRole(v1beta2.ElasticClientRole)
+			labelsWithRole := labels.WithRole(v1beta2.OpensearchClientRole)
 			Expect(labelsWithRole).To(BeEquivalentTo(map[string]string{
-				"app":  "opendistro-es",
+				"app":  "opensearch",
 				"role": "client",
 			}))
-			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta2.ElasticClientRole))
+			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta2.OpensearchClientRole))
 		})
 		It("should not mutate the original instance", func() {
 			Expect(labels).To(BeEquivalentTo(map[string]string{
-				"app": "opendistro-es",
+				"app": "opensearch",
 			}))
 		})
 	})
 	When("a role already exists", func() {
 		It("should replace it", func() {
-			labelsWithRole := labels.WithRole(v1beta2.ElasticClientRole)
+			labelsWithRole := labels.WithRole(v1beta2.OpensearchClientRole)
 			Expect(labelsWithRole).To(BeEquivalentTo(map[string]string{
-				"app":  "opendistro-es",
+				"app":  "opensearch",
 				"role": "client",
 			}))
-			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta2.ElasticClientRole))
-			labelsWithRole = labelsWithRole.WithRole(v1beta2.ElasticDataRole)
+			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta2.OpensearchClientRole))
+			labelsWithRole = labelsWithRole.WithRole(v1beta2.OpensearchDataRole)
 			Expect(labelsWithRole).To(BeEquivalentTo(map[string]string{
-				"app":  "opendistro-es",
+				"app":  "opensearch",
 				"role": "data",
 			}))
-			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta2.ElasticDataRole))
+			Expect(labelsWithRole.Role()).To(BeEquivalentTo(v1beta2.OpensearchDataRole))
 		})
 	})
 })

@@ -140,7 +140,7 @@ func buildOpniCluster(vars *flagVars) *v1beta2.OpniCluster {
 					},
 				},
 			},
-			Elastic: v1beta2.ElasticSpec{
+			Opensearch: v1beta2.OpensearchClusterSpec{
 				Version: "1.13.2",
 			},
 			S3: v1beta2.S3Spec{

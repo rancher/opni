@@ -48,7 +48,7 @@ type OpniClusterSpec struct {
 	DefaultRepo *string `json:"defaultRepo,omitempty"`
 
 	Services             ServicesSpec                  `json:"services,omitempty"`
-	Elastic              ElasticSpec                   `json:"elastic,omitempty"`
+	Opensearch           OpensearchClusterSpec         `json:"opensearch,omitempty"`
 	Nats                 NatsSpec                      `json:"nats,omitempty"`
 	S3                   S3Spec                        `json:"s3,omitempty"`
 	NulogHyperparameters map[string]intstr.IntOrString `json:"nulogHyperparameters,omitempty"`
@@ -69,13 +69,13 @@ type OpniClusterStatus struct {
 }
 
 type AuthStatus struct {
-	NKeyUser                      string                    `json:"nKeyUser,omitempty"`
-	NatsAuthSecretKeyRef          *corev1.SecretKeySelector `json:"natsAuthSecretKeyRef,omitempty"`
-	GenerateElasticsearchHash     *bool                     `json:"generateElasticsearchHash"`
-	ElasticsearchAuthSecretKeyRef *corev1.SecretKeySelector `json:"elasticsearchAuthSecretKeyRef,omitempty"`
-	S3Endpoint                    string                    `json:"s3Endpoint,omitempty"`
-	S3AccessKey                   *corev1.SecretKeySelector `json:"s3AccessKey,omitempty"`
-	S3SecretKey                   *corev1.SecretKeySelector `json:"s3SecretKey,omitempty"`
+	NKeyUser                   string                    `json:"nKeyUser,omitempty"`
+	NatsAuthSecretKeyRef       *corev1.SecretKeySelector `json:"natsAuthSecretKeyRef,omitempty"`
+	GenerateOpensearchHash     *bool                     `json:"generateOpensearchHash"`
+	OpensearchAuthSecretKeyRef *corev1.SecretKeySelector `json:"opensearchAuthSecretKeyRef,omitempty"`
+	S3Endpoint                 string                    `json:"s3Endpoint,omitempty"`
+	S3AccessKey                *corev1.SecretKeySelector `json:"s3AccessKey,omitempty"`
+	S3SecretKey                *corev1.SecretKeySelector `json:"s3SecretKey,omitempty"`
 }
 
 type OpensearchStatus struct {
@@ -180,15 +180,15 @@ type OpensearchFetcherServiceSpec struct {
 	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
-type ElasticSpec struct {
-	ExternalOpensearch       *OpensearchClusterRef     `json:"externalOpensearch"`
-	Version                  string                    `json:"version"`
-	Workloads                ElasticWorkloadSpec       `json:"workloads,omitempty"`
-	DefaultRepo              *string                   `json:"defaultRepo,omitempty"`
-	Image                    *opnimeta.ImageSpec       `json:"image,omitempty"`
-	KibanaImage              *opnimeta.ImageSpec       `json:"kibanaImage,omitempty"`
-	Persistence              *opnimeta.PersistenceSpec `json:"persistence,omitempty"`
-	EnableLogIndexManagement *bool                     `json:"enableLogIndexManagement"`
+type OpensearchClusterSpec struct {
+	ExternalOpensearch       *opnimeta.OpensearchClusterRef `json:"externalOpensearch"`
+	Version                  string                         `json:"version"`
+	Workloads                OpensearchWorkloadSpec         `json:"workloads,omitempty"`
+	DefaultRepo              *string                        `json:"defaultRepo,omitempty"`
+	Image                    *opnimeta.ImageSpec            `json:"image,omitempty"`
+	DashboardsImage          *opnimeta.ImageSpec            `json:"dashboardsImage,omitempty"`
+	Persistence              *opnimeta.PersistenceSpec      `json:"persistence,omitempty"`
+	EnableLogIndexManagement *bool                          `json:"enableLogIndexManagement"`
 	// Secret containing an item "logging.yml" with the contents of the
 	// elasticsearch logging config.
 	ConfigSecret *corev1.LocalObjectReference `json:"configSecret,omitempty"`
@@ -196,14 +196,14 @@ type ElasticSpec struct {
 	AdminPasswordFrom *corev1.SecretKeySelector `json:"adminPasswordFrom,omitempty"`
 }
 
-type ElasticWorkloadSpec struct {
-	Master ElasticWorkloadOptions `json:"master,omitempty"`
-	Data   ElasticWorkloadOptions `json:"data,omitempty"`
-	Client ElasticWorkloadOptions `json:"client,omitempty"`
-	Kibana ElasticWorkloadOptions `json:"kibana,omitempty"`
+type OpensearchWorkloadSpec struct {
+	Master     OpensearchWorkloadOptions `json:"master,omitempty"`
+	Data       OpensearchWorkloadOptions `json:"data,omitempty"`
+	Client     OpensearchWorkloadOptions `json:"client,omitempty"`
+	Dashboards OpensearchWorkloadOptions `json:"dashboards,omitempty"`
 }
 
-type ElasticWorkloadOptions struct {
+type OpensearchWorkloadOptions struct {
 	Replicas     *int32                       `json:"replicas,omitempty"`
 	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
 	Affinity     *corev1.Affinity             `json:"affinity,omitempty"`

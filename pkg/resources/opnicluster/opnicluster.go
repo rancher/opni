@@ -88,7 +88,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 				r.opniCluster.Status.State = v1beta2.OpniClusterStateReady
 				// Set the opensearch version once it's been created
 				if r.opniCluster.Status.OpensearchState.Version == nil {
-					r.opniCluster.Status.OpensearchState.Version = &r.opniCluster.Spec.Elastic.Version
+					r.opniCluster.Status.OpensearchState.Version = &r.opniCluster.Spec.Opensearch.Version
 				}
 			}
 			return r.client.Status().Update(r.ctx, r.opniCluster)
@@ -113,9 +113,9 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		r.recorder.Event(r.opniCluster, "Normal", "GPU service not supported", "the GPU service will be available in a later release")
 	}
 
-	if r.opniCluster.Spec.Elastic.ExternalOpensearch != nil {
+	if r.opniCluster.Spec.Opensearch.ExternalOpensearch != nil {
 		r.opensearchCluster = &opensearchv1.OpenSearchCluster{}
-		err := r.client.Get(r.ctx, r.opniCluster.Spec.Elastic.ExternalOpensearch.ObjectKeyFromRef(), r.opensearchCluster)
+		err := r.client.Get(r.ctx, r.opniCluster.Spec.Opensearch.ExternalOpensearch.ObjectKeyFromRef(), r.opensearchCluster)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +139,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	var es []resources.Resource
 	if r.opensearchCluster == nil {
-		es, err = elastic.NewReconciler(r.ctx, r.client, r.opniCluster).ElasticResources()
+		es, err = elastic.NewReconciler(r.ctx, r.client, r.opniCluster).OpensearchResources()
 		if err != nil {
 			retErr = errors.Combine(retErr, err)
 			conditions = append(conditions, err.Error())
@@ -267,31 +267,31 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	return
 }
 
-func (r *Reconciler) ReconcileElasticUpgrade() (retResult *reconcile.Result, retErr error) {
+func (r *Reconciler) ReconcileOpensearchUpgrade() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
 
 	// IF we're using an external Opensearch do nothing
-	if r.opniCluster.Spec.Elastic.ExternalOpensearch != nil {
+	if r.opniCluster.Spec.Opensearch.ExternalOpensearch != nil {
 		return
 	}
 
-	if r.opniCluster.Status.OpensearchState.Version == nil || *r.opniCluster.Status.OpensearchState.Version == r.opniCluster.Spec.Elastic.Version {
+	if r.opniCluster.Status.OpensearchState.Version == nil || *r.opniCluster.Status.OpensearchState.Version == r.opniCluster.Spec.Opensearch.Version {
 		return
 	}
 
 	// If no persistence and only one data replica we can't safely upgrade so log an error and return
-	if (r.opniCluster.Spec.Elastic.Workloads.Data.Replicas == nil ||
-		*r.opniCluster.Spec.Elastic.Workloads.Data.Replicas == int32(1)) &&
-		(r.opniCluster.Spec.Elastic.Persistence == nil ||
-			!r.opniCluster.Spec.Elastic.Persistence.Enabled) {
+	if (r.opniCluster.Spec.Opensearch.Workloads.Data.Replicas == nil ||
+		*r.opniCluster.Spec.Opensearch.Workloads.Data.Replicas == int32(1)) &&
+		(r.opniCluster.Spec.Opensearch.Persistence == nil ||
+			!r.opniCluster.Spec.Opensearch.Persistence.Enabled) {
 		lg.Error(ErrOpensearchUpgradeFailed, "insufficient data node persistence")
 		return
 	}
 
-	if (r.opniCluster.Spec.Elastic.Workloads.Master.Replicas == nil ||
-		*r.opniCluster.Spec.Elastic.Workloads.Master.Replicas == int32(1)) &&
-		(r.opniCluster.Spec.Elastic.Persistence == nil ||
-			!r.opniCluster.Spec.Elastic.Persistence.Enabled) {
+	if (r.opniCluster.Spec.Opensearch.Workloads.Master.Replicas == nil ||
+		*r.opniCluster.Spec.Opensearch.Workloads.Master.Replicas == int32(1)) &&
+		(r.opniCluster.Spec.Opensearch.Persistence == nil ||
+			!r.opniCluster.Spec.Opensearch.Persistence.Enabled) {
 		lg.Error(ErrOpensearchUpgradeFailed, "insufficient master node persistence")
 		return
 	}
@@ -314,7 +314,7 @@ func (r *Reconciler) ReconcileElasticUpgrade() (retResult *reconcile.Result, ret
 		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 			return err
 		}
-		r.opniCluster.Status.OpensearchState.Version = &r.opniCluster.Spec.Elastic.Version
+		r.opniCluster.Status.OpensearchState.Version = &r.opniCluster.Spec.Opensearch.Version
 		return r.client.Status().Update(r.ctx, r.opniCluster)
 	})
 

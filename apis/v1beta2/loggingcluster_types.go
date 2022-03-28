@@ -1,9 +1,9 @@
 package v1beta2
 
 import (
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type IndexUserState string
@@ -38,14 +38,9 @@ type LoggingCluster struct {
 }
 
 type LoggingClusterSpec struct {
-	OpensearchClusterRef *OpensearchClusterRef        `json:"opensearchCluster,omitempty"`
-	IndexUserSecret      *corev1.LocalObjectReference `json:"indexUser,omitempty"`
-	FriendlyName         string                       `json:"friendlyName,omitempty"`
-}
-
-type OpensearchClusterRef struct {
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
+	OpensearchClusterRef *opnimeta.OpensearchClusterRef `json:"opensearchCluster,omitempty"`
+	IndexUserSecret      *corev1.LocalObjectReference   `json:"indexUser,omitempty"`
+	FriendlyName         string                         `json:"friendlyName,omitempty"`
 }
 
 type LoggingClusterStatus struct {
@@ -64,11 +59,4 @@ type LoggingClusterList struct {
 
 func init() {
 	SchemeBuilder.Register(&LoggingCluster{}, &LoggingClusterList{})
-}
-
-func (o *OpensearchClusterRef) ObjectKeyFromRef() types.NamespacedName {
-	return types.NamespacedName{
-		Name:      o.Name,
-		Namespace: o.Namespace,
-	}
 }

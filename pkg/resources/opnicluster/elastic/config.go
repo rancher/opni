@@ -59,10 +59,10 @@ kibanaserver:
 
 func (r *Reconciler) elasticConfigSecret() resources.Resource {
 	secretName := "opni-es-config"
-	if r.opniCluster.Spec.Elastic.ConfigSecret != nil {
+	if r.opniCluster.Spec.Opensearch.ConfigSecret != nil {
 		// If auth secret is provided, use it instead of creating a new one. If
 		// the secret doesn't exist, create one with the given name.
-		secretName = r.opniCluster.Spec.Elastic.ConfigSecret.Name
+		secretName = r.opniCluster.Spec.Opensearch.ConfigSecret.Name
 	}
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -86,14 +86,14 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 	var ok bool
 
 	lg := log.FromContext(r.ctx)
-	generatePassword := r.opniCluster.Status.Auth.GenerateElasticsearchHash == nil || *r.opniCluster.Status.Auth.GenerateElasticsearchHash
+	generatePassword := r.opniCluster.Status.Auth.GenerateOpensearchHash == nil || *r.opniCluster.Status.Auth.GenerateOpensearchHash
 
 	// Fetch or create the password secret
-	if r.opniCluster.Spec.Elastic.AdminPasswordFrom != nil {
-		passwordSecretRef = r.opniCluster.Spec.Elastic.AdminPasswordFrom
+	if r.opniCluster.Spec.Opensearch.AdminPasswordFrom != nil {
+		passwordSecretRef = r.opniCluster.Spec.Opensearch.AdminPasswordFrom
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      r.opniCluster.Spec.Elastic.AdminPasswordFrom.Name,
+				Name:      r.opniCluster.Spec.Opensearch.AdminPasswordFrom.Name,
 				Namespace: r.opniCluster.Namespace,
 			},
 		}
@@ -101,9 +101,9 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 		if err != nil {
 			return
 		}
-		password, ok = secret.Data[r.opniCluster.Spec.Elastic.AdminPasswordFrom.Key]
+		password, ok = secret.Data[r.opniCluster.Spec.Opensearch.AdminPasswordFrom.Key]
 		if !ok {
-			return fmt.Errorf("%s key does not exist in %s", r.opniCluster.Spec.Elastic.AdminPasswordFrom.Key, r.opniCluster.Spec.Elastic.AdminPasswordFrom.Name)
+			return fmt.Errorf("%s key does not exist in %s", r.opniCluster.Spec.Opensearch.AdminPasswordFrom.Key, r.opniCluster.Spec.Opensearch.AdminPasswordFrom.Name)
 		}
 
 	} else {
@@ -138,7 +138,7 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 					if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 						return err
 					}
-					r.opniCluster.Status.Auth.GenerateElasticsearchHash = pointer.BoolPtr(true)
+					r.opniCluster.Status.Auth.GenerateOpensearchHash = pointer.BoolPtr(true)
 					return r.client.Status().Update(r.ctx, r.opniCluster)
 				})
 				return errors.New("password secret not found, will recreate on next loop")
@@ -201,8 +201,8 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 			return err
 		}
-		r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef = passwordSecretRef
-		r.opniCluster.Status.Auth.GenerateElasticsearchHash = pointer.BoolPtr(false)
+		r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef = passwordSecretRef
+		r.opniCluster.Status.Auth.GenerateOpensearchHash = pointer.BoolPtr(false)
 		return r.client.Status().Update(r.ctx, r.opniCluster)
 	})
 	return

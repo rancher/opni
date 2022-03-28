@@ -464,7 +464,7 @@ func (r *Reconciler) genericEnvAndVolumes() (
 	}, corev1.EnvVar{
 		Name: "ES_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef,
+			SecretKeyRef: r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef,
 		},
 	})
 	return
@@ -988,7 +988,7 @@ func (r *Reconciler) externalOpensearchConfig() (retResources []resources.Resour
 		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 			return err
 		}
-		r.opniCluster.Status.Auth.ElasticsearchAuthSecretKeyRef = &corev1.SecretKeySelector{
+		r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef = &corev1.SecretKeySelector{
 			Key: "password",
 			LocalObjectReference: corev1.LocalObjectReference{
 				Name: secret.Name,

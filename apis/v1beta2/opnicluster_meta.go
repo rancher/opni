@@ -19,13 +19,13 @@ const (
 	OpensearchFetcher
 )
 
-type ElasticRole string
+type OpensearchRole string
 
 const (
-	ElasticDataRole   ElasticRole = "data"
-	ElasticClientRole ElasticRole = "client"
-	ElasticMasterRole ElasticRole = "master"
-	ElasticKibanaRole ElasticRole = "kibana"
+	OpensearchDataRole       OpensearchRole = "data"
+	OpensearchClientRole     OpensearchRole = "client"
+	OpensearchMasterRole     OpensearchRole = "master"
+	OpensearchDashboardsRole OpensearchRole = "kibana"
 )
 
 func (s ServiceKind) String() string {
@@ -137,31 +137,31 @@ func (s ServiceKind) GetTolerations(opniCluster *OpniCluster) []corev1.Toleratio
 	}
 }
 
-func (e ElasticRole) GetNodeSelector(opniCluster *OpniCluster) map[string]string {
+func (e OpensearchRole) GetNodeSelector(opniCluster *OpniCluster) map[string]string {
 	switch e {
-	case ElasticDataRole:
-		return opniCluster.Spec.Elastic.Workloads.Data.NodeSelector
-	case ElasticMasterRole:
-		return opniCluster.Spec.Elastic.Workloads.Master.NodeSelector
-	case ElasticClientRole:
-		return opniCluster.Spec.Elastic.Workloads.Client.NodeSelector
-	case ElasticKibanaRole:
-		return opniCluster.Spec.Elastic.Workloads.Kibana.NodeSelector
+	case OpensearchDataRole:
+		return opniCluster.Spec.Opensearch.Workloads.Data.NodeSelector
+	case OpensearchMasterRole:
+		return opniCluster.Spec.Opensearch.Workloads.Master.NodeSelector
+	case OpensearchClientRole:
+		return opniCluster.Spec.Opensearch.Workloads.Client.NodeSelector
+	case OpensearchDashboardsRole:
+		return opniCluster.Spec.Opensearch.Workloads.Dashboards.NodeSelector
 	default:
 		return map[string]string{}
 	}
 }
 
-func (e ElasticRole) GetTolerations(opniCluster *OpniCluster) []corev1.Toleration {
+func (e OpensearchRole) GetTolerations(opniCluster *OpniCluster) []corev1.Toleration {
 	switch e {
-	case ElasticDataRole:
-		return opniCluster.Spec.Elastic.Workloads.Data.Tolerations
-	case ElasticMasterRole:
-		return opniCluster.Spec.Elastic.Workloads.Master.Tolerations
-	case ElasticClientRole:
-		return opniCluster.Spec.Elastic.Workloads.Client.Tolerations
-	case ElasticKibanaRole:
-		return opniCluster.Spec.Elastic.Workloads.Kibana.Tolerations
+	case OpensearchDataRole:
+		return opniCluster.Spec.Opensearch.Workloads.Data.Tolerations
+	case OpensearchMasterRole:
+		return opniCluster.Spec.Opensearch.Workloads.Master.Tolerations
+	case OpensearchClientRole:
+		return opniCluster.Spec.Opensearch.Workloads.Client.Tolerations
+	case OpensearchDashboardsRole:
+		return opniCluster.Spec.Opensearch.Workloads.Dashboards.Tolerations
 	default:
 		return []corev1.Toleration{}
 	}

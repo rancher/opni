@@ -11,12 +11,19 @@ type AgentConfig struct {
 }
 
 type AgentConfigSpec struct {
-	ListenAddress    string         `json:"listenAddress,omitempty"`
-	GatewayAddress   string         `json:"gatewayAddress,omitempty"`
-	IdentityProvider string         `json:"identityProvider,omitempty"`
-	Storage          StorageSpec    `json:"storage,omitempty"`
-	Bootstrap        *BootstrapSpec `json:"bootstrap,omitempty"`
-	Rules            *RulesSpec     `json:"rules,omitempty"`
+	// The address which the agent will listen on for incoming connections.
+	// This should be in the format "host:port" or ":port", and must not
+	// include a scheme.
+	ListenAddress string `json:"listenAddress,omitempty"`
+	// The address of the gateway's public HTTP API. This should be of the format
+	// "https://host:port". The scheme must be "https".
+	GatewayAddress string `json:"gatewayAddress,omitempty"`
+	// The name of the identity provider to use. Defaults to "kubernetes".
+	IdentityProvider string `json:"identityProvider,omitempty"`
+	// Configuration for agent keyring storage.
+	Storage   StorageSpec    `json:"storage,omitempty"`
+	Bootstrap *BootstrapSpec `json:"bootstrap,omitempty"`
+	Rules     *RulesSpec     `json:"rules,omitempty"`
 }
 
 type BootstrapSpec struct {

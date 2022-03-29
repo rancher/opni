@@ -23,11 +23,11 @@ cascade:
 <br />
 <br />
 
-Opni Monitoring is an open-source multi-cluster monitoring platform. It ingests Prometheus metrics from all your Kubernetes clusters and provides a centralized observability plane for your infrastructure. Use Opni Monitoring to visualize metrics from all your clusters at once, and give each of your users their own customized view using granular access control.
+Opni Monitoring is an open-source multi-cluster monitoring platform. It ingests Prometheus metrics from any number of Kubernetes clusters and provides a centralized observability plane for your infrastructure. Use Opni Monitoring to visualize metrics from all your clusters at once, and give every user their own customized view using granular access control.
 
 ## ⚡ Powered by Open-Source
 
-Opni Monitoring is completely free (as in freedom, *and* beer) Apache-licensed open-source software. It builds upon existing, ubiquitous open-source systems - [Prometheus](https://prometheus.io), [Grafana](https://grafana.com), and [Cortex](https://cortexmetrics.io) - and extends them with a number of powerful enterprise features typically only found in SaaS platforms and other proprietery solutions.
+Opni Monitoring is completely free Apache-licensed open-source software. It builds upon existing, ubiquitous open-source systems - [Prometheus](https://prometheus.io), [Grafana](https://grafana.com), and [Cortex](https://cortexmetrics.io) - and extends them with a number of powerful enterprise features typically only found in SaaS platforms and other proprietery solutions.
 
 ## 🔋 Batteries Included
 
@@ -41,6 +41,6 @@ With Opni Monitoring, you have complete control over how and where your data is 
 
 ## Get Started
 
-* Try out Opni Monitoring in a demo environment with the [Quick Start](/quick_start) guide
-* Install Opni Monitoring in a production environment with the [Installation](/installation) guide
+* Try out Opni Monitoring in a demo environment with the [Quick Start](../quickstart) guide
+* Install Opni Monitoring in a production environment with the [Installation](../installation) guide
 

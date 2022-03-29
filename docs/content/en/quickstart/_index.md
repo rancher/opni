@@ -4,10 +4,10 @@ linkTitle: "Quick Start"
 weight: 2
 ---
  
-This guide will walk you through setting up a "demo" Opni Monitoring installation. This setup is *not* production-ready. If that is what you are looking for, check out the full [Installation](/installation) guide.
+This guide will walk you through setting up a "demo" Opni Monitoring installation. This setup is *not* production-ready. If that is what you are looking for, check out the full [Installation](../installation) guide.
 
 {{% alert color="info" title="Important" %}}
-Before proceeding, please read the section on [Terminology](/architecture/terminology) to familiarize yourself with a few key terms.
+Before proceeding, please read the section on [Terminology](../reference/terminology) to familiarize yourself with a few key terms.
 {{% /alert %}}
 
 ## Prerequisites
@@ -119,7 +119,7 @@ Tokens are used to authenticate new clusters during the bootstrap process. To cr
 3. Use the default fields, and click **Create**. The new token will appear in the table.
 
 {{% alert color="warning" title="Token Expiration" %}}
-All tokens will expire after a certain amount of time. The default value is 10 minutes.
+All tokens will expire after a certain amount of time. The default value is 10 minutes, but you can choose any duration you like. If your token expires, you can simply create a new one.
 {{% /alert %}}
 
 #### Add a cluster
@@ -133,3 +133,16 @@ All tokens will expire after a certain amount of time. The default value is 10 m
 6. Click on the install command to copy it to the clipboard
 7. In a terminal, ensure your `KUBECONFIG` environment variable or `~/.kube/config` context points to the main cluster, then paste and run the command.
 8. In a few seconds, you should see a green banner informing you that the cluster has been added. Click **Finish** to return to the cluster list.
+
+
+9. Repeat the above steps for any additional clusters you want to add.
+
+#### Next Steps
+
+Read the section on [Access Control](../guides/access_control) to learn how to configure roles and role bindings. Then, head to <br /> `https://grafana.<gateway_address>` in your browser to sign in.
+
+{{% alert color="warning" title="Demo Authentication" %}}
+With the demo setup, there is no authentication - when signing in to Grafana, you will instead be presented with a list of all known users in the system (the set of all subjects in the current list of role bindings) and can choose any user to view metrics from the perspective of that user. 
+{{% /alert %}}
+
+Check out the [Guides](../guides) section for more. Happy monitoring!

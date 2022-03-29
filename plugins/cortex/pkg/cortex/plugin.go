@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
 	ingesterclient "github.com/cortexproject/cortex/pkg/ingester/client"
 	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni-monitoring/pkg/capabilities/wellknown"
@@ -29,7 +30,7 @@ type Plugin struct {
 	config            *util.Future[*v1beta1.GatewayConfig]
 	mgmtApi           *util.Future[management.ManagementClient]
 	storageBackend    *util.Future[storage.Backend]
-	distributorClient *util.Future[ingesterclient.IngesterClient]
+	distributorClient *util.Future[distributorpb.DistributorClient]
 	ingesterClient    *util.Future[ingesterclient.IngesterClient]
 	cortexHttpClient  *util.Future[http.Client]
 	logger            hclog.Logger
@@ -44,7 +45,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		config:            util.NewFuture[*v1beta1.GatewayConfig](),
 		mgmtApi:           util.NewFuture[management.ManagementClient](),
 		storageBackend:    util.NewFuture[storage.Backend](),
-		distributorClient: util.NewFuture[ingesterclient.IngesterClient](),
+		distributorClient: util.NewFuture[distributorpb.DistributorClient](),
 		ingesterClient:    util.NewFuture[ingesterclient.IngesterClient](),
 		cortexHttpClient:  util.NewFuture[http.Client](),
 		logger:            lg,

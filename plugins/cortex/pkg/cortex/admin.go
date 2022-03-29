@@ -15,12 +15,15 @@ import (
 	"time"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
+	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
 	"github.com/cortexproject/cortex/pkg/ingester/client"
 	"github.com/rancher/opni-monitoring/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -116,11 +119,19 @@ func mapTimeSeries(t *cortexadmin.TimeSeries, i int) cortexpb.PreallocTimeseries
 }
 
 func (p *Plugin) WriteMetrics(ctx context.Context, in *cortexadmin.WriteRequest) (*cortexadmin.WriteResponse, error) {
+	lg := p.logger.With(
+		"clusterID", in.ClusterID,
+		"seriesCount", len(in.Timeseries),
+	)
+	if in.ClusterID == "" {
+		return nil, status.Error(codes.InvalidArgument, "clusterID is required")
+	}
 	cortexReq := &cortexpb.WriteRequest{
 		Timeseries: lo.Map(in.Timeseries, mapTimeSeries),
 		Source:     cortexpb.API,
 		Metadata:   lo.Map(in.Metadata, mapMetadata),
 	}
+	lg.Debug("writing metrics to cortex")
 	_, err := p.ingesterClient.Get().Push(outgoingContext(ctx, in), cortexReq)
 	if err != nil {
 		p.logger.With(
@@ -153,7 +164,7 @@ func (p *Plugin) configureAdminClients(tlsConfig *tls.Config) {
 			).Error("Failed to dial distributor")
 			os.Exit(1)
 		}
-		p.distributorClient.Set(client.NewIngesterClient(cc))
+		p.distributorClient.Set(distributorpb.NewDistributorClient(cc))
 	}
 	{
 		cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Ingester.GRPCAddress,

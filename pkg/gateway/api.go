@@ -24,6 +24,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/util/fwd"
+	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
 	"go.uber.org/zap"
 )
 
@@ -171,18 +172,19 @@ func NewAPIServer(
 		metricsHandler.MustRegister(plugin.Typed)
 	}
 
-	if listener, err := net.Listen("tcp4", fmt.Sprintf(":%d", cfg.MetricsPort)); err != nil {
+	var lc net.ListenConfig
+	if listener, err := lc.Listen(ctx, "tcp4", fmt.Sprintf(":%d", cfg.MetricsPort)); err != nil {
 		lg.With(
 			zap.Error(err),
 		).Error("failed to start metrics listener")
 	} else {
-		go func() {
+		waitctx.Go(ctx, func() {
 			if err := metricsHandler.ListenAndServe(listener); err != nil {
 				lg.With(
 					zap.Error(err),
 				).Error("metrics handler stopped")
 			}
-		}()
+		})
 	}
 
 	go func() {

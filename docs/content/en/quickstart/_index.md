@@ -92,5 +92,44 @@ Inside the opni-monitoring repo, change directories to `deploy/`.
 
 1. Ensure your current kubeconfig points to the main cluster.
 2. Run `helmfile apply`
-3. Wait for all resources to become healthy. This may take a few minutes.
+3. Wait for all resources to become ready. This may take a few minutes.
 
+
+### Accessing the dashboard
+
+Once all the pods in the `opni-monitoring` namespace are running, open the web dashboard:
+
+1. Port-forward to the `opni-monitoring-internal` service:
+```bash
+kubectl -n opni-monitoring port-forward svc/opni-monitoring-internal management-web:management-web
+```
+
+2. Open your browser to <a href="http://localhost:12080" target="_blank">http://localhost:12080</a>.
+
+### Adding a cluster
+
+First, let's add the main cluster itself - this allows us to gather metrics from the Opni Gateway and Cortex. Follow these steps to add the cluster to Opni Monitoring:
+
+#### Create a token
+
+Tokens are used to authenticate new clusters during the bootstrap process. To create one:
+
+1. Navigate to the **Tokens** tab in the sidebar
+2. Click **Create Token**
+3. Use the default fields, and click **Create**. The new token will appear in the table.
+
+{{% alert color="warning" title="Token Expiration" %}}
+All tokens will expire after a certain amount of time. The default value is 10 minutes.
+{{% /alert %}}
+
+#### Add a cluster
+
+1. Navigate to the **Clusters** tab in the sidebar
+2. Click **Add Cluster**
+3. In the **Capabilities** drop-down menu, select **metrics**
+4. In the **Token** drop-down menu, select the token we just created. When a capability and token have been selected, an install command will appear below. 
+
+5. Check the box that says **Install Prometheus Operator** (however, if you already have Prometheus Operator installed on a cluster you want to add, leave it unchecked).
+6. Click on the install command to copy it to the clipboard
+7. In a terminal, ensure your `KUBECONFIG` environment variable or `~/.kube/config` context points to the main cluster, then paste and run the command.
+8. In a few seconds, you should see a green banner informing you that the cluster has been added. Click **Finish** to return to the cluster list.

@@ -1,4 +1,4 @@
-baseURL = "/"
+baseURL = "https://rancher.github.io/opni-monitoring"
 title = "Opni Monitoring"
 
 enableRobotsTXT = true

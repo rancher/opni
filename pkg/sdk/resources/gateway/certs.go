@@ -3,8 +3,8 @@ package gateway
 import (
 	"fmt"
 
-	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	cmmetav1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
+	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cmmetav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/rancher/opni-monitoring/pkg/sdk/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"

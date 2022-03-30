@@ -41,6 +41,6 @@ With Opni Monitoring, you have complete control over how and where your data is 
 
 ## Get Started
 
-* Try out Opni Monitoring in a demo environment with the [Quick Start](../quickstart) guide
-* Install Opni Monitoring in a production environment with the [Installation](../installation) guide
+* Try out Opni Monitoring in a demo environment with the [Quick Start](quickstart) guide
+* Install Opni Monitoring in a production environment with the [Installation](installation) guide
 

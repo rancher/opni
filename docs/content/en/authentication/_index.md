@@ -1,6 +1,7 @@
 ---
-title: "Authentication Strategies"
-linkTitle: "Authentication Strategies"
+title: "Authentication"
+linkTitle: "Authentication"
+description: "Configuring user authentication"
 weight: 4
 ---
  

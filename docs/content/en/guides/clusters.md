@@ -42,3 +42,18 @@ If the token originally used to create the cluster expired or was deleted, you c
 1. Navigate to the **Tokens** tab in the sidebar
 2. Click **Create Token**
 3. Under "Extended Capabilities", select **Join Existing Cluster**, then click **Create**. The new token will be created with the `join` capability for the cluster you selected.
+
+### Deleting a cluster
+
+To remove a cluster from Opni Monitoring, select the cluster or clusters you wish to delete from the clusters list and click **Delete**. Once deleted, the downstream cluster will no longer have permissions to access the Opni Gateway API and forward metrics or other data.
+
+Currently, the following limitations apply with regards to deleting clusters:
+
+- Deleting a cluster will not delete any of its stored metrics.
+- Deleting a cluster will not uninstall any resources from the downstream Kubernetes cluster. 
+
+#### Cleaning up a deleted Cluster
+
+To clean up Kubernetes resources in a deleted downstream cluster, simply delete the `opni-monitoring-agent` namespace. It may take a while for all resources in the namespace to be fully deleted.
+
+Alternatively, uninstalling the `opni-monitoring-agent` helm chart and deleting the `keyring-agent-<cluster-id>` secret will have the same effect.

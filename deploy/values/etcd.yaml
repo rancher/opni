@@ -1,3 +1,5 @@
+image:
+  tag: "3"
 auth:
   rbac:
     enabled: true

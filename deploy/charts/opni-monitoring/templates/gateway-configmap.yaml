@@ -16,6 +16,7 @@ data:
           - {{ $d }}
         {{- end }}
       listenAddress: ":{{ .Values.services.public.port }}"
+      hostname: "{{ .Values.gateway.hostname }}"
       management:
         grpcListenAddress: "{{ .Values.management.grpcListenAddress }}"
         httpListenAddress: "{{ .Values.management.httpListenAddress }}"

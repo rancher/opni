@@ -118,7 +118,7 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	}
 	if s.Cortex.QueryFrontend.HTTPAddress == "" {
 		s.Cortex.QueryFrontend.HTTPAddress = "cortex-query-frontend:8080"
-		s.Cortex.QueryFrontend.GRPCAddress = "cortex-query-frontend-headless:8080"
+		s.Cortex.QueryFrontend.GRPCAddress = "cortex-query-frontend-headless:9095"
 	}
 }
 

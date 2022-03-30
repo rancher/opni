@@ -51,7 +51,10 @@ else:
         repo_url='https://charts.bitnami.com/bitnami',
         namespace='opni-monitoring',
         values="deploy/values/etcd.yaml",
-        set=['auth.rbac.rootPassword=tilt']
+        set=[
+            'auth.rbac.rootPassword=tilt',
+            'image.tag=3'
+        ]
     )
     helm_remote('cortex',
         repo_name='cortex-helm',
@@ -78,12 +81,6 @@ else:
         name='opni-monitoring',
         namespace='opni-monitoring',
         values=['deploy/custom/opni-monitoring.yaml'],
-        set=[
-            'gateway.dnsNames={%s}' % hostname,
-            'management.grpcListenAddress=tcp://0.0.0.0:11090',
-            'management.httpListenAddress=0.0.0.0:11080',
-            'management.webListenAddress=0.0.0.0:12080',
-        ]
     ))
 
     k8s_resource(workload='opni-gateway', port_forwards=[11090, 11080, 12080])

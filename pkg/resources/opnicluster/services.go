@@ -521,6 +521,7 @@ func (r *Reconciler) nulogHyperparameters() (runtime.Object, reconciler.DesiredS
 
 func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta2.InferenceService)
+	addCPUInferenceLabel(deployment)
 	s3EnvVars := r.s3EnvVars()
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
 	if r.opniCluster.Spec.S3.NulogS3Bucket != "" {

@@ -128,14 +128,13 @@ All tokens will expire after a certain amount of time. The default value is 10 m
 2. Click **Add Cluster**
 3. In the **Capabilities** drop-down menu, select **metrics**
 4. In the **Token** drop-down menu, select the token we just created. When a capability and token have been selected, an install command will appear below. 
-
 5. Check the box that says **Install Prometheus Operator** (however, if you already have Prometheus Operator installed on a cluster you want to add, leave it unchecked).
 6. Click on the install command to copy it to the clipboard
-7. In a terminal, ensure your `KUBECONFIG` environment variable or `~/.kube/config` context points to the main cluster, then paste and run the command.
+7. In a terminal, ensure your `KUBECONFIG` environment variable or `~/.kube/config` context points to the cluster you want to add (in this case, the main cluster), then paste and run the command.
 8. In a few seconds, you should see a green banner informing you that the cluster has been added. Click **Finish** to return to the cluster list.
 
 
-9. Repeat the above steps for any additional clusters you want to add.
+9. Repeat the above steps for any additional clusters you want to add. 
 
 #### Next Steps
 

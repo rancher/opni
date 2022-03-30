@@ -12,10 +12,10 @@ metadata:
 spec:
   source:
     http:
-      url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model-v0.1.2.zip"
+      url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model-v0.4.0.zip"
   hyperparameters:
     modelThreshold: "0.6"
-    minLogTokens: 4
+    minLogTokens: 1
     isControlPlane: "true"
 ---
 apiVersion: opni.io/v1beta1

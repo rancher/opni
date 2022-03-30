@@ -25,6 +25,7 @@ releases:
     chart: ./charts/opni-monitoring
     namespace: opni-monitoring
     values:
+      - values/opni-monitoring.yaml
       - custom/opni-monitoring.yaml
     needs:
       - etcd
@@ -34,6 +35,7 @@ releases:
     namespace: opni-monitoring
     values:
       - values/cortex.yaml
+      - custom/cortex.yaml
     needs:
       - opni-monitoring
   - name: grafana

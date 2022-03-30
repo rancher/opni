@@ -4,6 +4,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -59,4 +60,10 @@ func (r *Reconciler) serviceTolerations(service v1beta2.ServiceKind) []corev1.To
 
 func (r *Reconciler) natsTolerations() []corev1.Toleration {
 	return append(r.opniCluster.Spec.GlobalTolerations, r.opniCluster.Spec.Nats.Tolerations...)
+}
+
+func addCPUInferenceLabel(deployment *appsv1.Deployment) {
+	deployment.Labels[resources.OpniInferenceType] = "cpu"
+	deployment.Spec.Template.Labels[resources.OpniInferenceType] = "cpu"
+	deployment.Spec.Selector.MatchLabels[resources.OpniInferenceType] = "cpu"
 }

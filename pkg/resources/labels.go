@@ -13,6 +13,7 @@ const (
 	HostTopologyKey      = "kubernetes.io/hostname"
 	OpniClusterID        = "opni.io/cluster-id"
 	OpniBootstrapToken   = "opni.io/bootstrap-token"
+	OpniInferenceType    = "opni.io/inference-type"
 )
 
 func CombineLabels(maps ...map[string]string) map[string]string {

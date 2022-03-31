@@ -82,8 +82,10 @@ var _ = Describe("Server", Ordered, func() {
 		}()
 		defer srv.Close()
 
-		_, err := http.Get(fmt.Sprintf("http://localhost:%d", ports[0]) + "/oauth2/authorize?client_id=foo&redirect_uri=http%3A%2F%2Flocalhost%3A" + fmt.Sprint(ports[1]) + "&response_type=code&scope=openid+profile+email&state=1234567890&username=admin%40example.com")
-		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() error {
+			_, err := http.Get(fmt.Sprintf("http://localhost:%d", ports[0]) + "/oauth2/authorize?client_id=foo&redirect_uri=http%3A%2F%2Flocalhost%3A" + fmt.Sprint(ports[1]) + "&response_type=code&scope=openid+profile+email&state=1234567890&username=admin%40example.com")
+			return err
+		}, 5000, 200).Should(Succeed())
 
 		var code string
 		select {

@@ -223,3 +223,7 @@ func (g *Gateway) TLSConfig() *tls.Config {
 func (g *Gateway) CapabilitiesStore() capabilities.BackendStore {
 	return g.capBackendStore
 }
+
+func (g *Gateway) MustRegisterCollector(collector prometheus.Collector) {
+	g.apiServer.metricsHandler.MustRegister(collector)
+}

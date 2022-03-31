@@ -89,6 +89,8 @@ func BuildGatewayCmd() *cobra.Command {
 			management.WithLifecycler(lifecycler),
 		)
 
+		g.MustRegisterCollector(m)
+
 		go func() {
 			if err := m.ListenAndServe(); err != nil {
 				lg.With(

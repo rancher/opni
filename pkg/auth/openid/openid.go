@@ -67,6 +67,7 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 	m.lock.Lock()
 	if m.wellKnownConfig == nil {
 		c.Status(http.StatusServiceUnavailable)
+		m.lock.Unlock()
 		return c.SendString("auth provider is not ready")
 	}
 	m.lock.Unlock()

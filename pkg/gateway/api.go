@@ -42,11 +42,12 @@ var (
 
 type GatewayAPIServer struct {
 	APIServerOptions
-	app       *fiber.App
-	conf      *v1beta1.GatewayConfigSpec
-	logger    *zap.SugaredLogger
-	tlsConfig *tls.Config
-	wait      chan struct{}
+	app            *fiber.App
+	conf           *v1beta1.GatewayConfigSpec
+	logger         *zap.SugaredLogger
+	tlsConfig      *tls.Config
+	wait           chan struct{}
+	metricsHandler *MetricsEndpointHandler
 
 	reservedPrefixRoutes []string
 }
@@ -134,6 +135,7 @@ func NewAPIServer(
 		logger:           lg,
 		tlsConfig:        tlsConfig,
 		wait:             make(chan struct{}),
+		metricsHandler:   NewMetricsEndpointHandler(),
 		reservedPrefixRoutes: []string{
 			"/monitor",
 			"/healthz",
@@ -166,10 +168,9 @@ func NewAPIServer(
 		return c.SendStatus(http.StatusOK)
 	})
 
-	metricsHandler := NewMetricsEndpointHandler()
-	metricsHandler.MustRegister(apiCollectors...)
+	srv.metricsHandler.MustRegister(apiCollectors...)
 	for _, plugin := range options.metricsPlugins {
-		metricsHandler.MustRegister(plugin.Typed)
+		srv.metricsHandler.MustRegister(plugin.Typed)
 	}
 
 	var lc net.ListenConfig
@@ -179,7 +180,7 @@ func NewAPIServer(
 		).Error("failed to start metrics listener")
 	} else {
 		waitctx.Go(ctx, func() {
-			if err := metricsHandler.ListenAndServe(listener); err != nil {
+			if err := srv.metricsHandler.ListenAndServe(listener); err != nil {
 				lg.With(
 					zap.Error(err),
 				).Error("metrics handler stopped")

@@ -3,7 +3,6 @@ package fwd
 import (
 	"crypto/tls"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -63,8 +62,9 @@ func To(addr string, opts ...ForwarderOption) func(*fiber.Ctx) error {
 	}
 
 	hostClient := &fasthttp.HostClient{
-		MaxConnWaitTimeout:       2 * time.Second,
-		MaxConns:                 4096,
+		MaxConns:                 1024 * 8,
+		ReadTimeout:              10 * time.Second,
+		WriteTimeout:             10 * time.Second,
 		NoDefaultUserAgentHeader: true,
 		DisablePathNormalizing:   true,
 		Addr:                     addr,
@@ -91,10 +91,10 @@ func To(addr string, opts ...ForwarderOption) func(*fiber.Ctx) error {
 			return fmt.Errorf("error forwarding request: %w", err)
 		}
 		resp.Header.Del(fiber.HeaderConnection)
-		if resp.StatusCode() != http.StatusOK {
+		if resp.StatusCode()/100 >= 4 {
 			options.logger.With(
-				"response", string(resp.Body()),
 				"req", c.Path(),
+				"status", resp.StatusCode(),
 			).Error("error forwarding request")
 		}
 		return nil

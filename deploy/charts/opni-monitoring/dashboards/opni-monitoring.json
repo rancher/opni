@@ -22,7 +22,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "links": [],
-  "liveNow": true,
+  "liveNow": false,
   "panels": [
     {
       "fieldConfig": {
@@ -106,10 +106,10 @@
             "uid": "P0BEE70D62F42845E"
           },
           "exemplar": false,
-          "expr": "rate(opni_gateway_remote_write_cluster_ingest_bytes[5m])",
+          "expr": "rate(opni_gateway_remote_write_cluster_ingest_bytes[5m]) * on (cluster_id) group_left(friendly_name) opni_monitoring_cluster_info",
           "instant": false,
           "interval": "",
-          "legendFormat": "{{cluster_id}}",
+          "legendFormat": "{{friendly_name}}",
           "refId": "A"
         }
       ],
@@ -769,6 +769,6 @@
   "timezone": "",
   "title": "Opni Monitoring",
   "uid": "DKa1Akynk",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"strings"
+	"time"
 
 	"github.com/dghubble/trie"
 	"github.com/gofiber/fiber/v2"
@@ -50,6 +51,10 @@ func (p *gatewayApiExtensionPlugin) GRPCServer(
 ) error {
 	p.app = fiber.New(fiber.Config{
 		DisableStartupMessage: true,
+		StrictRouting:         true,
+		ReadTimeout:           10 * time.Second,
+		WriteTimeout:          10 * time.Second,
+		IdleTimeout:           10 * time.Second,
 	})
 	logger.ConfigureAppLogger(p.app, "gateway-ext")
 	apiextensions.RegisterGatewayAPIExtensionServer(s, p)

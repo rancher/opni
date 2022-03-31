@@ -72,5 +72,3 @@ grafana.ini:
     use_pkce:
 
 ```
-
-3. Apply the configuration using `helmfile sync`.

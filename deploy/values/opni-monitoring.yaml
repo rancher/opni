@@ -1,4 +1,3 @@
 gateway:
   dnsNames:
     - "localhost"
-storageType: etcd

@@ -73,15 +73,27 @@ func To(addr string, opts ...ForwarderOption) func(*fiber.Ctx) error {
 	}
 
 	return func(c *fiber.Ctx) error {
+		forwardedFor := c.IP()
+		forwardedHost := c.Hostname()
+		forwardedProto := c.Protocol()
 		options.logger.With(
 			"method", c.Method(),
 			"path", c.Path(),
 			"to", addr,
-		).Debug("forwarding request")
+			"for", forwardedFor,
+			"host", forwardedHost,
+		).Debugf("=>")
 
 		req := c.Request()
 		resp := c.Response()
 		req.Header.Del(fiber.HeaderConnection)
+		req.Header.Set(fiber.HeaderXForwardedFor, forwardedFor)
+		req.Header.Set(fiber.HeaderXForwardedHost, forwardedHost)
+		req.Header.Set(fiber.HeaderXForwardedProto, forwardedProto)
+		if hostClient.IsTLS {
+			req.Header.Set(fiber.HeaderXForwardedSsl, "on")
+		}
+
 		req.SetRequestURI(utils.UnsafeString(req.RequestURI()))
 		if err := hostClient.Do(req, resp); err != nil {
 			options.logger.With(
@@ -95,7 +107,7 @@ func To(addr string, opts ...ForwarderOption) func(*fiber.Ctx) error {
 			options.logger.With(
 				"req", c.Path(),
 				"status", resp.StatusCode(),
-			).Error("error forwarding request")
+			).Info("server replied with error")
 		}
 		return nil
 	}

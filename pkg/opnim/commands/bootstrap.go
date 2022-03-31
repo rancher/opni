@@ -13,10 +13,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/kubectl/pkg/polymorphichelpers"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/yaml"
 )
@@ -148,20 +146,6 @@ func BuildBootstrapCmd() *cobra.Command {
 					break
 				}
 
-				// Check if the deployment needs to be restarted
-				for _, cond := range dep.Status.Conditions {
-					if cond.Type == appsv1.DeploymentProgressing &&
-						cond.Status == corev1.ConditionFalse &&
-						cond.Reason == "ProgressDeadlineExceeded" {
-						lg.Info("Agent deployment is stuck, restarting...")
-						if err := doRolloutRestart(ctx, clientset, dep); err != nil {
-							lg.With(
-								zap.Error(err),
-							).Error("Failed to restart agent deployment. You might have to restart the agent manually.")
-						}
-					}
-				}
-
 				time.Sleep(time.Second)
 			}
 
@@ -180,21 +164,6 @@ func BuildBootstrapCmd() *cobra.Command {
 	bootstrapCmd.MarkFlagRequired("pin")
 
 	return bootstrapCmd
-}
-
-func doRolloutRestart(ctx context.Context, clientset *kubernetes.Clientset, dep *appsv1.Deployment) error {
-	patch, err := polymorphichelpers.ObjectRestarterFn(dep)
-	if err != nil {
-		return err
-	}
-	_, err = clientset.AppsV1().
-		Deployments(dep.Namespace).
-		Patch(ctx,
-			dep.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{
-				FieldManager: "kubectl-rollout",
-			},
-		)
-	return err
 }
 
 func getAgentDeployment(ctx context.Context, clientset *kubernetes.Clientset, namespace string) (*appsv1.Deployment, error) {

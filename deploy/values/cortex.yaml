@@ -183,7 +183,7 @@ ingester:
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 distributor:
-  replicas: 3
+  replicas: 1
   serviceMonitor:
     enabled: true
   env: *env_vars
@@ -203,7 +203,7 @@ ruler:
   extraVolumeMounts: *cert_volume_mounts
   extraVolumes: *cert_volumes
 query_frontend:
-  replicas: 3
+  replicas: 1
   serviceMonitor:
     enabled: true
   env: *env_vars

@@ -125,7 +125,8 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 	lg := m.logger
 	p := backoff.Exponential(
 		backoff.WithMaxInterval(time.Minute),
-		backoff.WithJitterFactor(0.1),
+		backoff.WithMultiplier(1.2),
+		backoff.WithJitterFactor(0.05),
 	)
 	b := p.Start(ctx)
 	for backoff.Continue(b) {
@@ -138,10 +139,13 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 			} else {
 				lg.With(
 					zap.Error(err),
-				).Error("failed to fetch openid configuration (will retry)")
+				).Warn("failed to fetch openid configuration (will retry)")
 			}
 			continue
 		}
+		lg.With(
+			"issuer", wellKnownCfg.Issuer,
+		).Info("successfully fetched openid configuration")
 		m.lock.Lock()
 		defer m.lock.Unlock()
 		m.wellKnownConfig = wellKnownCfg

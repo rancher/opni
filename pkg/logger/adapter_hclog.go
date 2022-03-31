@@ -106,9 +106,14 @@ func (la *hclogAdapter) Name() string {
 }
 
 func (la *hclogAdapter) Named(name string) hclog.Logger {
-	return &hclogAdapter{
+	newAdapter := &hclogAdapter{
 		logger: la.logger.XNamed(name),
 	}
+	// go-plugin stdio logs are particularly noisy
+	if newAdapter.Name() == "plugin.stdio" {
+		newAdapter.SetLevel(hclog.Warn)
+	}
+	return newAdapter
 }
 
 func (la *hclogAdapter) SetLevel(level hclog.Level) {

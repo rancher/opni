@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/andybalholm/brotli"
+	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 	"github.com/schollz/progressbar/v3"
 	"github.com/ttacon/chalk"
@@ -45,6 +46,7 @@ func init() {
 }
 
 func Dist() error {
+	mg.Deps(Clean)
 	version, err := getOpniUiVersion()
 	if err != nil {
 		return err

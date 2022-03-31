@@ -50,11 +50,14 @@ func (p *gatewayApiExtensionPlugin) GRPCServer(
 	s *grpc.Server,
 ) error {
 	p.app = fiber.New(fiber.Config{
-		DisableStartupMessage: true,
-		StrictRouting:         true,
-		ReadTimeout:           10 * time.Second,
-		WriteTimeout:          10 * time.Second,
-		IdleTimeout:           10 * time.Second,
+		DisableStartupMessage:   true,
+		StrictRouting:           true,
+		ReadTimeout:             10 * time.Second,
+		WriteTimeout:            10 * time.Second,
+		IdleTimeout:             10 * time.Second,
+		EnableTrustedProxyCheck: true,
+		TrustedProxies:          []string{"127.0.0.1"},
+		ProxyHeader:             fiber.HeaderXForwardedFor,
 	})
 	logger.ConfigureAppLogger(p.app, "gateway-ext")
 	apiextensions.RegisterGatewayAPIExtensionServer(s, p)

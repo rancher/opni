@@ -71,3 +71,5 @@ kube-prometheus-stack:
     enabled: false # disable the default Grafana deployment
   prometheus:
     enabled: false # disable the default Prometheus deployment
+  alertmanager:
+    enabled: false # disable the default Alertmanager deployment

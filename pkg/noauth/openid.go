@@ -85,6 +85,11 @@ func newClient(conf *ServerConfig) NoauthClient {
 	if err != nil {
 		panic(err)
 	}
+	conf.Logger.With(
+		"client_id", conf.ClientID,
+		"client_secret", conf.ClientSecret,
+		"redirect_uri", conf.RedirectURI,
+	).Debug("configured noauth client")
 	oidcClient := &fosite.DefaultOpenIDConnectClient{
 		DefaultClient: &fosite.DefaultClient{
 			ID:            conf.ClientID,

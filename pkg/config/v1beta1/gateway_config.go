@@ -54,19 +54,26 @@ type AlertmanagerSpec struct {
 }
 
 type RulerSpec struct {
+	// HTTP address of the cortex ruler
 	HTTPAddress string `json:"httpAddress,omitempty"`
 }
 
 type QueryFrontendSpec struct {
+	// HTTP address of the cortex query frontend
 	HTTPAddress string `json:"httpAddress,omitempty"`
+	// GRPC address of the cortex query frontend
 	GRPCAddress string `json:"grpcAddress,omitempty"`
 }
 
 type MTLSSpec struct {
-	ServerCA   string `json:"serverCA,omitempty"`
-	ClientCA   string `json:"clientCA,omitempty"`
+	// Path to the server CA certificate.
+	ServerCA string `json:"serverCA,omitempty"`
+	// Path to the client CA certificate (not needed in all cases).
+	ClientCA string `json:"clientCA,omitempty"`
+	// Path to the certificate used for client-cert auth.
 	ClientCert string `json:"clientCert,omitempty"`
-	ClientKey  string `json:"clientKey,omitempty"`
+	// Path to the private key used for client-cert auth.
+	ClientKey string `json:"clientKey,omitempty"`
 }
 
 type CertsSpec struct {
@@ -125,8 +132,16 @@ func (s *GatewayConfigSpec) SetDefaults() {
 type StorageType string
 
 const (
-	StorageTypeEtcd   StorageType = "etcd"
-	StorageTypeCRDs   StorageType = "customResources"
+	// Use etcd for key-value storage. This is the recommended default.
+	StorageTypeEtcd StorageType = "etcd"
+	// Use Kubernetes custom resources to store objects. This is experimental,
+	// and it is recommended to use the etcd storage type instead for performance
+	// reasons.
+	StorageTypeCRDs StorageType = "customResources"
+	// Use Kubernetes secrets as key-value storage. This is only supported for
+	// some resources. If customResources is used as the storage type, some of
+	// the data will be stored in secrets, such as generic key-value entries
+	// for plugins.
 	StorageTypeSecret StorageType = "secret"
 )
 
@@ -137,10 +152,13 @@ type StorageSpec struct {
 }
 
 type EtcdStorageSpec struct {
-	Endpoints []string  `json:"endpoints,omitempty"`
-	Certs     *MTLSSpec `json:"certs,omitempty"`
+	// List of etcd endpoints to connect to.
+	Endpoints []string `json:"endpoints,omitempty"`
+	// Configuration for etcd client-cert auth.
+	Certs *MTLSSpec `json:"certs,omitempty"`
 }
 
 type CustomResourcesStorageSpec struct {
+	// Kubernetes namespace where custom resource objects will be stored.
 	Namespace string `json:"namespace,omitempty"`
 }

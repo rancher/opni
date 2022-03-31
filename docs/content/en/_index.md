@@ -1,11 +1,27 @@
-![](./docs/content/en/static/logo-light.svg)
+---
+title: ""
+linkTitle: "Overview"
+type: "docs"
+weight: 20
 
-[![Build](https://github.com/rancher/opni-monitoring/actions/workflows/build.yaml/badge.svg)](https://github.com/rancher/opni-monitoring/actions/workflows/build.yaml)
-[![codecov](https://codecov.io/gh/rancher/opni-monitoring/branch/main/graph/badge.svg?token=EAJW6K3HXP)](https://codecov.io/gh/rancher/opni-monitoring)
-[![Go Report Card](https://goreportcard.com/badge/github.com/rancher/opni-monitoring)](https://goreportcard.com/report/github.com/rancher/opni-monitoring)
-[![Maintainability](https://api.codeclimate.com/v1/badges/2284f4b5cb8fb71750ce/maintainability)](https://codeclimate.com/github/rancher/opni-monitoring/maintainability)
+cascade:
+- _target:
+    path: "/**"
+    kind: "page"
+  type: "docs"
+- _target: 
+    path: "/**"
+    kind: "section"
+  type: "docs"
+- _target:
+    path: "/**" 
+    kind: "section"
+  type: "home"
+---
 
-------
+<img src="static/logo.svg" />
+<br />
+<br />
 
 Opni Monitoring is an open-source multi-cluster monitoring platform. It ingests Prometheus metrics from any number of Kubernetes clusters and provides a centralized observability plane for your infrastructure. Use Opni Monitoring to visualize metrics from all your clusters at once, and give every user their own customized view using granular access control.
 
@@ -23,6 +39,7 @@ Opni Monitoring is secure-by-default and uses a zero-trust architecture for inte
 
 With Opni Monitoring, you have complete control over how and where your data is stored. Metric storage is powered by [Cortex](https://cortexmetrics.io), which provides comprehensive configuration options for data storage and retention. Several storage backends are available including S3 (cloud or self-hosted), Swift, and Kubernetes Persistent Volumes.
 
-## Get started
+## Get Started
 
-Check out the [Opni Monitoring Documentation](https://rancher.github.io/opni-monitoring/) for installation guides and more.
+* See [Installation](installation/) for instructions on how to set up Opni Monitoring.
+* Take a look at the [Architecture Overview](architecture/) for details on how Opni Monitoring works.

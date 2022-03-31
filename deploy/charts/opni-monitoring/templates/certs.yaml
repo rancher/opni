@@ -63,6 +63,12 @@ spec:
     - {{ . }}
 {{- end }}
 {{- end }}
+{{- if .Values.gateway.ipAddresses }}
+  ipAddresses:
+{{- range .Values.gateway.ipAddresses }}
+    - {{ . }}
+{{- end }}
+{{- end }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate

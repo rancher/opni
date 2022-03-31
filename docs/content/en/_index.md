@@ -23,7 +23,7 @@ cascade:
 <br />
 <br />
 
-Opni Monitoring is an open-source multi-cluster monitoring platform. It ingests Prometheus metrics from any number of Kubernetes clusters and provides a centralized observability plane for your infrastructure. Use Opni Monitoring to visualize metrics from all your clusters at once, and give every user their own customized view using granular access control.
+Opni Monitoring is an open-source multi-cluster monitoring system. It ingests Prometheus metrics from any number of Kubernetes clusters and provides a centralized observability plane for your infrastructure. Use Opni Monitoring to visualize metrics from all your clusters at once, and give every user their own customized view using granular access control.
 
 ## ⚡ Powered by Open-Source
 

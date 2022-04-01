@@ -137,6 +137,11 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 								},
 							},
 						},
+						PayloadReceiver: v1beta2.PayloadReceiverServiceSpec{
+							ImageSpec: opnimeta.ImageSpec{
+								ImagePullPolicy: pullPolicyPtr(corev1.PullAlways),
+							},
+						},
 					},
 					Opensearch: v1beta2.OpensearchClusterSpec{
 						Version: "1.1.0",
@@ -457,3 +462,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 		k8sClient.DeleteAllOf(context.Background(), &corev1.Pod{}, client.InNamespace("default"))
 	})
 })
+
+func pullPolicyPtr(policy corev1.PullPolicy) *corev1.PullPolicy {
+	return &policy
+}

@@ -114,10 +114,13 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 					Namespace: clusterCrNamespace,
 				},
 				Spec: v1beta2.OpniClusterSpec{
-					Version:            "v0.3.1",
+					Version:            "v0.4.0",
 					DeployLogCollector: pointer.BoolPtr(true),
 					Services: v1beta2.ServicesSpec{
 						GPUController: v1beta2.GPUControllerServiceSpec{
+							Enabled: pointer.BoolPtr(false),
+						},
+						OpensearchFetcher: v1beta2.OpensearchFetcherServiceSpec{
 							Enabled: pointer.BoolPtr(false),
 						},
 						Metrics: v1beta2.MetricsServiceSpec{
@@ -132,6 +135,11 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 								{
 									Name: clusterCrName,
 								},
+							},
+						},
+						PayloadReceiver: v1beta2.PayloadReceiverServiceSpec{
+							ImageSpec: opnimeta.ImageSpec{
+								ImagePullPolicy: pullPolicyPtr(corev1.PullAlways),
 							},
 						},
 					},
@@ -454,3 +462,7 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 		k8sClient.DeleteAllOf(context.Background(), &corev1.Pod{}, client.InNamespace("default"))
 	})
 })
+
+func pullPolicyPtr(policy corev1.PullPolicy) *corev1.PullPolicy {
+	return &policy
+}

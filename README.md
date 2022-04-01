@@ -6,78 +6,146 @@ Opni currently features log anomaly detection for Kubernetes.
 * AI generated insights on your cluster's log messages
   * **Control Plane & etcd** insights
     * Pretrained models maintained by Rancher Labs
-    * Only for RKE1, RKE2, k3s clusters
-  * **Workload & application** insights
-    * Automatically learns what steady-state is in your workloads & applications
-    * For any Kubernetes cluster  
 * Every log message sent to Opni will be marked as:
   * **Normal**
   * **Suspicious** - Operators may want to investigate
   * **Anomalous** - Operators definitely should investigate  
-* Open Distro for Elasticsearch + Kibana 
+* Opensearch + Opensearch Dashboards
   * Opni dashboard to consume log insights & explore logs 
-  * Ability to setup & send alerts (slack/email/etc) based on Opni log insights
 
 ![alt text](https://opni-public.s3.us-east-2.amazonaws.com/opni-inside-cluster-diagram.png)
 
 ----
 
 ### Deprecation Notice
-The Opnidemo API has been removed in the v0.2.1 release.
+  - GPU Learning is temporarily disabled in the v0.4.0 release as Opni moves to a multicluster architecture.  This will be returning in a future release
+  - The v1beta1 API has been deprecated in this release.  Please migrate to v1beta2.
+  - The UI and Insights services, which were experimental, have been removed
 
-Opnictl is currently deprecated.
 ## Getting started with Opni
 
 ### Full Install Opni in your Kubernetes cluster:
 
 #### Manifests install (recommended):
 Prerequisites:
-  * *1 Nvidia GPU* required if you want the AI to learn from your workloads
-    * You will need the nvidia [k8s-device-plugin](https://github.com/NVIDIA/k8s-device-plugin) deployed to the cluster.  The simplest way is to use the nvidia operator.  [This blog post](https://rancher.com/blog/2020/get-up-and-running-with-nvidia-gpus) contains instructions on how to deploy it.  If you are using a host that already has nvidia drivers (e.g an EKS cluster) deploy the Daemonset with the following command:
-      ```bash
-      kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.9.0/nvidia-device-plugin.yml
-      ```
-    * The Opni manager has alpha support for automatically setting up GPU configuration.  For more details please visit the [GPU Configuration](https://opni.io/setup/gpu/) page.
   * Cert manager installed.  This can be installed with the following command:
     ```bash
-    kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.7.2/cert-manager.yaml
     ```
+  * Opni Gateway installed - see the [Main Cluster docs](https://rancher.github.io/opni-monitoring/installation/#setting-up-the-main-cluster) for Opni Monitoring
 
 Installation:
-  1) Run the deploy helper script:
-     ```bash
-     curl -sfL https://raw.githubusercontent.com/rancher/opni/main/deploy/deploy.sh | sh -
-     ```
-     OR
-     Deploy the manifests in [deploy/manifests](https://github.com/rancher/opni/tree/main/deploy/manifests) in order
-  1) Deploy a matching logAdapter from [deploy/examples/logAdapters](https://github.com/rancher/opni/tree/main/deploy/examples/logAdapters)
+  1) All clusters (both the main cluster and clusters to collect logs from) the manifests in [deploy/manifests](https://github.com/rancher/opni/tree/main/deploy/manifests) in order from 00 - 10.
+  1) Deploy an Opensearch cluster e.g (node this cluster will need to be exposed via a LoadBalancer or Ingress to allow logs to be indexed)
+      ```yaml
+      apiVersion: opensearch.opster.io/v1
+      kind: OpenSearchCluster
+      metadata:
+        name: opni
+        namespace: opni-cluster-system
+      spec:
+        # Add fields here
+        general:
+          httpPort: 9200
+          vendor: opensearch
+          version: 1.2.3
+          serviceName: os-svc
+          setVMMaxMapCount: true
+        confMgmt:
+          autoScaler: false
+          monitoring: false
+        dashboards:
+          enable: true
+          version: 1.2.0
+          replicas: 1
+        nodePools:
+        - component: master
+          replicas: 3
+          diskSize: 32
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              memory: 1Gi
+          roles:
+          - master
+          persistence:
+            emptyDir: {}
+        - component: nodes
+          replicas: 2
+          diskSize: 32
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              memory: 2Gi
+          jvm: "-Xmx1G -Xms1G"
+          roles:
+          - data
+          persistence:
+            emptyDir: {}
+      ```
+  1) Bind Opni to the Opensearch cluster:
+      ```yaml
+      apiVersion: opni.io/v1beta2
+      kind: MulticlusterRoleBinding
+      metadata:
+        name: opni-logging
+        namespace: opni-cluster-system
+      spec:
+        opensearch:
+          name: opni
+          namespace: opni-cluster-system
+        opensearchExternalURL: https://external.opensearch.url
+      ```
+  1) Deploy the Opni pretrained Kubernetes model
+      ```yaml
+      apiVersion: opni.io/v1beta2
+      kind: PretrainedModel
+      metadata:
+        name: control-plane
+        namespace: opni-cluster-system
+      spec:
+        source:
+          http:
+            url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model-v0.4.0.zip"
+        hyperparameters:
+          modelThreshold: "0.6"
+          minLogTokens: 1
+          isControlPlane: "true"
+      ```
+  1) Deploy Opni AI services
+      ```yaml
+      apiVersion: opni.io/v1beta2
+      kind: OpniCluster
+      metadata:
+        name: demo
+        namespace: opni-cluster-system
+      spec:
+        version: v0.4.0
+        deployLogCollector: false
+        services:
+          gpuController:
+            enabled: false
+          inference:
+            pretrainedModels:
+            - name: control-plane
+        opensearch:
+          externalOpensearch:
+            name: opni
+            namespace: opni-cluster-system
+          enableLogIndexManagement: false
+        s3:
+          internal: {}
+        nats:
+          authMethod: nkey
+      ```
+  1) Add additional Logging clusters from the Opni Gateway UI
 
 
-*If you want to deploy the GPU service edit the opnicluster resource and set the [deploy option](https://github.com/rancher/opni/blob/main/deploy/manifests/20_cluster.yaml#L31) to true*
-#### Opnictl install (deprecated)
-* Download the `opnictl` binary from the [latest release](https://github.com/rancher/opni/releases/tag/v0.1.3)
-* Install Opni using `opnictl`
-  ```
-  opnictl install
-  opnictl create demo
-  ```
-  * Will use your current kubeconfig context
-  * Cluster Hardware requirements: 4 vCPUs, 16GB RAM
-    * *1 Nvidia GPU* required if you want the AI to learn from your workloads (recommended)
-
-Consume insights from the Opni Dashboard in Kibana. You will need to expose the Kibana service or port forward to do this.
-
-### Demo Opni in a sandbox environment
-* What you need: **an Ubuntu VM with 4 vCPUs & 16 GB RAM**
-* 1-command installer that creates an RKE2 cluster with Opni installed and simulates [a failure](https://github.com/rancher/opni-docs/blob/22ed683e2b9e810b04561967d65682654350d787/quickstart_files/install_opni.sh#L72)
-  ```
-  curl -sfL https://raw.githubusercontent.com/rancher/opni-docs/main/quickstart_files/install_opni.sh | sh -
-  ```
-
-  * Experiment with injecting your own control plane failures to see how Opni responds
-    * Can refer to [these failures](https://github.com/rancher/opni-docs/blob/main/examples/fault-injection.md) and this [anomaly injection script](https://github.com/rancher/opni-docs/blob/main/quickstart_files/errors_injection.sh) as starting points
-
-The default username and password is admin/admin You must be in the Global Tenant mode if you are not already. Navigate to `Dashboard` then `Opni Logs Dashboard`.
+Consume insights from the Opni Dashboard in Opensearch Dashboards. You will need to expose the Dashboards service or port forward to do this.
  
 ----
 

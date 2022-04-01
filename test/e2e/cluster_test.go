@@ -120,6 +120,9 @@ var _ = Describe("OpniCluster E2E Test", Label("e2e"), func() {
 						GPUController: v1beta2.GPUControllerServiceSpec{
 							Enabled: pointer.BoolPtr(false),
 						},
+						OpensearchFetcher: v1beta2.OpensearchFetcherServiceSpec{
+							Enabled: pointer.BoolPtr(false),
+						},
 						Metrics: v1beta2.MetricsServiceSpec{
 							Enabled: pointer.BoolPtr(true),
 							PrometheusReference: &opnimeta.PrometheusReference{

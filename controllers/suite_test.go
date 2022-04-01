@@ -214,6 +214,9 @@ func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
 			Nats: v1beta2.NatsSpec{
 				AuthMethod: v1beta2.NatsAuthUsername,
 			},
+			Opensearch: v1beta2.OpensearchClusterSpec{
+				Version: "1.0.0",
+			},
 			Services: v1beta2.ServicesSpec{
 				Inference: v1beta2.InferenceServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
@@ -266,11 +269,7 @@ func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
 						return nil
 					}(),
 				},
-				Insights: v1beta2.InsightsServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-				},
-				UI: v1beta2.UIServiceSpec{
+				OpensearchFetcher: v1beta2.OpensearchFetcherServiceSpec{
 					Enabled:   pointer.Bool(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},

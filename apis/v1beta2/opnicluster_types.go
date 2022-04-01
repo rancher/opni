@@ -108,8 +108,6 @@ type ServicesSpec struct {
 	PayloadReceiver   PayloadReceiverServiceSpec   `json:"payloadReceiver,omitempty"`
 	GPUController     GPUControllerServiceSpec     `json:"gpuController,omitempty"`
 	Metrics           MetricsServiceSpec           `json:"metrics,omitempty"`
-	Insights          InsightsServiceSpec          `json:"insights,omitempty"`
-	UI                UIServiceSpec                `json:"ui,omitempty"`
 	OpensearchFetcher OpensearchFetcherServiceSpec `json:"opensearchFetcher,omitempty"`
 }
 

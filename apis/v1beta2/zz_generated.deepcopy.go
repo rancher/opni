@@ -1889,8 +1889,6 @@ func (in *ServicesSpec) DeepCopyInto(out *ServicesSpec) {
 	in.PayloadReceiver.DeepCopyInto(&out.PayloadReceiver)
 	in.GPUController.DeepCopyInto(&out.GPUController)
 	in.Metrics.DeepCopyInto(&out.Metrics)
-	in.Insights.DeepCopyInto(&out.Insights)
-	in.UI.DeepCopyInto(&out.UI)
 	in.OpensearchFetcher.DeepCopyInto(&out.OpensearchFetcher)
 }
 

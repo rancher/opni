@@ -14,8 +14,6 @@ const (
 	PayloadReceiverService
 	GPUControllerService
 	MetricsService
-	InsightsService
-	UIService
 	OpensearchFetcher
 )
 
@@ -42,10 +40,6 @@ func (s ServiceKind) String() string {
 		return "gpu-controller"
 	case MetricsService:
 		return "metrics"
-	case InsightsService:
-		return "insights"
-	case UIService:
-		return "ui"
 	case OpensearchFetcher:
 		return "opensearch-fetcher"
 	default:
@@ -61,8 +55,6 @@ func (s ServiceKind) ImageName() string {
 	switch s {
 	case GPUControllerService:
 		return "opni-gpu-service-controller"
-	case UIService:
-		return "opni-ui"
 	case OpensearchFetcher:
 		return "opni-opensearch-fetcher"
 	default:
@@ -84,10 +76,8 @@ func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *opnimeta.ImageSpec 
 		return &opniCluster.Spec.Services.GPUController.ImageSpec
 	case MetricsService:
 		return &opniCluster.Spec.Services.Metrics.ImageSpec
-	case InsightsService:
-		return &opniCluster.Spec.Services.Insights.ImageSpec
-	case UIService:
-		return &opniCluster.Spec.Services.UI.ImageSpec
+	case OpensearchFetcher:
+		return &opniCluster.Spec.Services.OpensearchFetcher.ImageSpec
 	default:
 		return nil
 	}
@@ -107,10 +97,8 @@ func (s ServiceKind) GetNodeSelector(opniCluster *OpniCluster) map[string]string
 		return opniCluster.Spec.Services.GPUController.NodeSelector
 	case MetricsService:
 		return opniCluster.Spec.Services.Metrics.NodeSelector
-	case InsightsService:
-		return opniCluster.Spec.Services.Insights.NodeSelector
-	case UIService:
-		return opniCluster.Spec.Services.UI.NodeSelector
+	case OpensearchFetcher:
+		return opniCluster.Spec.Services.OpensearchFetcher.NodeSelector
 	default:
 		return map[string]string{}
 	}
@@ -130,8 +118,8 @@ func (s ServiceKind) GetTolerations(opniCluster *OpniCluster) []corev1.Toleratio
 		return opniCluster.Spec.Services.GPUController.Tolerations
 	case MetricsService:
 		return opniCluster.Spec.Services.Metrics.Tolerations
-	case UIService:
-		return opniCluster.Spec.Services.UI.Tolerations
+	case OpensearchFetcher:
+		return opniCluster.Spec.Services.OpensearchFetcher.Tolerations
 	default:
 		return []corev1.Toleration{}
 	}

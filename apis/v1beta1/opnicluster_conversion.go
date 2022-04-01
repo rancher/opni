@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	"github.com/rancher/opni/apis/v1beta2"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -20,8 +21,6 @@ func (src *OpniCluster) ConvertTo(dstRaw conversion.Hub) error {
 	services.PayloadReceiver = v1beta2.PayloadReceiverServiceSpec(src.Spec.Services.PayloadReceiver)
 	services.GPUController = v1beta2.GPUControllerServiceSpec(src.Spec.Services.GPUController)
 	services.Metrics = v1beta2.MetricsServiceSpec(src.Spec.Services.Metrics)
-	services.Insights = v1beta2.InsightsServiceSpec(src.Spec.Services.Insights)
-	services.UI = v1beta2.UIServiceSpec(src.Spec.Services.UI)
 	dst.Spec.Services = services
 
 	nats := v1beta2.NatsSpec{}
@@ -94,8 +93,12 @@ func (dst *OpniCluster) ConvertFrom(srcRaw conversion.Hub) error {
 	services.PayloadReceiver = PayloadReceiverServiceSpec(src.Spec.Services.PayloadReceiver)
 	services.GPUController = GPUControllerServiceSpec(src.Spec.Services.GPUController)
 	services.Metrics = MetricsServiceSpec(src.Spec.Services.Metrics)
-	services.Insights = InsightsServiceSpec(src.Spec.Services.Insights)
-	services.UI = UIServiceSpec(src.Spec.Services.UI)
+	services.Insights = InsightsServiceSpec{
+		Enabled: pointer.BoolPtr(false),
+	}
+	services.UI = UIServiceSpec{
+		Enabled: pointer.BoolPtr(false),
+	}
 	dst.Spec.Services = services
 
 	nats := NatsSpec{}

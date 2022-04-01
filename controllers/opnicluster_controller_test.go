@@ -51,7 +51,7 @@ var _ = Describe("OpniCluster Controller", Label("controller"), func() {
 			v1beta2.PreprocessingService,
 			//v1beta2.GPUControllerService,
 			v1beta2.MetricsService,
-			v1beta2.InsightsService,
+			v1beta2.OpensearchFetcher,
 		} {
 			wg.Add(1)
 

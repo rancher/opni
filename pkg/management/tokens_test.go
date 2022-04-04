@@ -7,11 +7,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/test"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("Tokens", Ordered, func() {
+var _ = Describe("Tokens", Ordered, Label(test.Unit, test.Slow), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv))
 

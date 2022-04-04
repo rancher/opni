@@ -6,9 +6,10 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/test"
 )
 
-var _ = Describe("Selection", func() {
+var _ = Describe("Selection", Label(test.Unit), func() {
 	entries := []TableEntry{
 		Entry(nil, selector("c1"), cluster("c1"), true),
 		Entry(nil, selector("c1"), cluster("c2"), false),

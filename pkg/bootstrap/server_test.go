@@ -30,7 +30,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
-var _ = Describe("Server", func() {
+var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 	var token *core.BootstrapToken
 	var client *http.Client
 	var cert *tls.Certificate

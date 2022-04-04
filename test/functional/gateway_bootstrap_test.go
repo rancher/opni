@@ -33,7 +33,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, func() {
+var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label(test.Integration), func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	var fingerprint string

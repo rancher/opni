@@ -32,7 +32,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, func() {
+var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label(test.Integration), func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	var fingerprint string

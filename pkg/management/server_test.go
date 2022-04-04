@@ -7,6 +7,7 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/test"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -14,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Server", Ordered, func() {
+var _ = Describe("Server", Ordered, Label(test.Unit, test.Slow), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv))
 	It("should return valid cert info", func() {

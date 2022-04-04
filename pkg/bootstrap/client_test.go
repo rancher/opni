@@ -42,7 +42,7 @@ func (p *errProvider) UniqueIdentifier(context.Context) (string, error) {
 	return "", errors.New("test")
 }
 
-var _ = Describe("Client", Ordered, func() {
+var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 	token := tokens.NewToken()
 	var fooIdent ident.Provider
 	var cert *tls.Certificate

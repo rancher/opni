@@ -9,13 +9,14 @@ import (
 	cfgv1beta1 "github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/noauth"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/test"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("Gateway Controller", func() {
+var _ = Describe("Gateway Controller", Label(test.Integration, test.Slow), func() {
 	When("creating a gateway resource", func() {
 		var gw *v1beta1.Gateway
 		It("should succeed", func() {

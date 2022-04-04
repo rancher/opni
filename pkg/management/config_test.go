@@ -11,10 +11,11 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/config/meta"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/test"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("Config", Ordered, func() {
+var _ = Describe("Config", Ordered, Label(test.Unit, test.Slow), func() {
 	var tv *testVars
 	var sampleObjects []meta.Object
 	var lifecycler config.Lifecycler

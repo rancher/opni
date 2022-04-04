@@ -14,7 +14,7 @@ import (
 
 //#region Test Setup
 
-var _ = Describe("Management API Cerificate Management Tests", Ordered, func() {
+var _ = Describe("Management API Cerificate Management Tests", Ordered, Label(test.Integration), func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	BeforeAll(func() {

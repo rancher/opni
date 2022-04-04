@@ -170,6 +170,10 @@ func init() {
 	docker.Deps(build.Build)
 	test.Deps(testbin.Testbin, build.Build)
 
+	if filter, ok := os.LookupEnv("GINKGO_LABEL_FILTER"); ok {
+		test.Config.GinkgoArgs = append(test.Config.GinkgoArgs, "--label-filter="+filter)
+	}
+
 	k8sVersion := k8sModuleVersion()
 
 	build.Config.ExtraTargets = map[string]string{

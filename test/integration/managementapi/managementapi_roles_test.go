@@ -16,7 +16,7 @@ import (
 
 //#region Test Setup
 
-var _ = Describe("Management API Roles Management Tests", Ordered, func() {
+var _ = Describe("Management API Roles Management Tests", Ordered, Label(test.Integration), func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	BeforeAll(func() {

@@ -10,11 +10,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/test"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-var _ = Describe("Clusters", Ordered, func() {
+var _ = Describe("Clusters", Ordered, Label(test.Unit, test.Slow), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv))
 

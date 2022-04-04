@@ -7,10 +7,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/rancher/opni-monitoring/pkg/test"
 	"github.com/rancher/opni-monitoring/pkg/util"
 )
 
-var _ = Describe("Listener", func() {
+var _ = Describe("Listener", Label(test.Unit), func() {
 	When("the given address uses the tcp or tcp4 scheme", func() {
 		It("should return a tcp listener", func() {
 			listener, err := util.NewProtocolListener("tcp://:0")

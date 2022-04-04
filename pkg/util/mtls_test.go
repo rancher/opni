@@ -7,10 +7,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
+	"github.com/rancher/opni-monitoring/pkg/test"
 	"github.com/rancher/opni-monitoring/pkg/util"
 )
 
-var _ = Describe("mTLS", func() {
+var _ = Describe("mTLS", Label(test.Unit), func() {
 	It("should load mTLS configurations", func() {
 		spec := &v1beta1.MTLSSpec{
 			ServerCA:   "../test/testdata/cortex/root.crt",

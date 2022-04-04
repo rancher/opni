@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/test"
 )
 
-var _ = Describe("RBAC Provider", Ordered, func() {
+var _ = Describe("RBAC Provider", Ordered, Label(test.Unit), func() {
 	clusters := []*core.Cluster{
 		cluster("c1"),
 		cluster("c2", "foo", "bar"),

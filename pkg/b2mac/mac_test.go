@@ -6,11 +6,11 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"github.com/rancher/opni-monitoring/pkg/b2mac"
+	"github.com/rancher/opni-monitoring/pkg/test"
 )
 
-var _ = Describe("MAC", func() {
+var _ = Describe("MAC", Label(test.Unit), func() {
 	It("should correctly generate a MAC", func() {
 		_, key, err := ed25519.GenerateKey(nil)
 		Expect(err).NotTo(HaveOccurred())

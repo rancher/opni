@@ -19,7 +19,7 @@ import (
 )
 
 //#region Test Setup
-var _ = Describe("Management API Cluster Management Tests", Ordered, func() {
+var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.Integration), func() {
 	var environment *test.Environment
 	var client management.ManagementClient
 	var fingerprint string

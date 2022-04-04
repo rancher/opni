@@ -6,9 +6,10 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/ecdh"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
+	"github.com/rancher/opni-monitoring/pkg/test"
 )
 
-var _ = Describe("ECDH", func() {
+var _ = Describe("ECDH", Label(test.Unit), func() {
 	It("should generate a key pair", func() {
 		ekp := ecdh.NewEphemeralKeyPair()
 		Expect(ekp.PrivateKey).NotTo(BeNil())

@@ -7,13 +7,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni-monitoring/pkg/core"
+	"github.com/rancher/opni-monitoring/pkg/test"
 	"github.com/rancher/opni-monitoring/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("RBAC", Ordered, func() {
+var _ = Describe("RBAC", Ordered, Label(test.Unit, test.Slow), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv))
 

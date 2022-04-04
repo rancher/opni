@@ -10,9 +10,10 @@ import (
 	"gonum.org/v1/gonum/stat/combin"
 
 	"github.com/rancher/opni-monitoring/pkg/pkp"
+	"github.com/rancher/opni-monitoring/pkg/test"
 )
 
-var _ = Describe("TLS Config", func() {
+var _ = Describe("TLS Config", Label(test.Unit), func() {
 	When("creating a tls config with no pins", func() {
 		It("should error", func() {
 			conf, err := pkp.TLSConfig([]*pkp.PublicKeyPin{})

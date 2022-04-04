@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/test"
 )
 
-var _ = Describe("Taints", Ordered, func() {
+var _ = Describe("Taints", Ordered, Label(test.Unit), func() {
 	var ctrl *gomock.Controller
 	BeforeAll(func() {
 		ctrl = gomock.NewController(GinkgoT())

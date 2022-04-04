@@ -2,8 +2,10 @@ package logging
 
 import (
 	"encoding/json"
+	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/rancher/opni-monitoring/pkg/auth/cluster"
 	"github.com/rancher/opni-monitoring/pkg/b2mac"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
@@ -25,9 +27,17 @@ type OpensearchDetailsResponse struct {
 
 func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 	storageBackend := p.storageBackend.Get()
-	clusterMiddleware := cluster.New(storageBackend, ClusterIDHeader)
+	clusterMiddleware, err := cluster.New(storageBackend, ClusterIDHeader)
+	if err != nil {
+		p.logger.With(
+			"err", err,
+		).Error("failed to set up cluster middleware")
+		os.Exit(1)
+	}
 
-	v1 := app.Group("/logging/v1", clusterMiddleware.Handle)
+	v1 := app.Group("/logging/v1", limiter.New(limiter.Config{
+		SkipSuccessfulRequests: true,
+	}), clusterMiddleware.Handle)
 	v1.Get("cluster", p.handleGetOpensearchDetails)
 }
 

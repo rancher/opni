@@ -41,10 +41,6 @@ func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware,
 	return m, nil
 }
 
-func (m *NoauthMiddleware) Description() string {
-	return "noauth"
-}
-
 func (m *NoauthMiddleware) Handle(c *fiber.Ctx) error {
 	return m.openidMiddleware.Handle(c)
 }

@@ -16,10 +16,6 @@ type TestAuthMiddleware struct {
 	Strategy AuthStrategy
 }
 
-func (m *TestAuthMiddleware) Description() string {
-	return "Test"
-}
-
 func (m *TestAuthMiddleware) Handle(c *fiber.Ctx) error {
 	switch m.Strategy {
 	case AuthStrategyDenyAll:

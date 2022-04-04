@@ -59,10 +59,6 @@ func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware,
 	return m, nil
 }
 
-func (m *OpenidMiddleware) Description() string {
-	return "OpenID Connect"
-}
-
 func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 	m.lock.Lock()
 	if m.wellKnownConfig == nil {

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/rancher/opni-monitoring/pkg/auth"
 	"github.com/rancher/opni-monitoring/pkg/auth/cluster"
 	"github.com/rancher/opni-monitoring/pkg/rbac"
@@ -40,7 +41,13 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 		).Error("failed to get auth middleware")
 		os.Exit(1)
 	}
-	clusterMiddleware := cluster.New(storageBackend, orgIDCodec.Key())
+	clusterMiddleware, err := cluster.New(storageBackend, orgIDCodec.Key())
+	if err != nil {
+		p.logger.With(
+			"err", err,
+		).Error("failed to set up cluster middleware")
+		os.Exit(1)
+	}
 
 	fwds := &forwarders{
 		QueryFrontend: fwd.To(config.Spec.Cortex.QueryFrontend.HTTPAddress, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.query-frontend")),
@@ -73,7 +80,9 @@ func (p *Plugin) preprocessRules(c *fiber.Ctx) error {
 }
 
 func (p *Plugin) configureAgentAPI(app *fiber.App, f *forwarders, m *middlewares) {
-	g := app.Group("/api/agent", m.Cluster)
+	g := app.Group("/api/agent", limiter.New(limiter.Config{
+		SkipSuccessfulRequests: true,
+	}), m.Cluster)
 	g.Post("/push", func(c *fiber.Ctx) error {
 		clusterID := cluster.AuthorizedID(c)
 		len := c.Get("Content-Length", "0")

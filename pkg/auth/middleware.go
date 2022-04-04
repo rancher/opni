@@ -10,7 +10,6 @@ import (
 )
 
 type Middleware interface {
-	Description() string
 	Handle(*fiber.Ctx) error
 }
 

@@ -241,5 +241,5 @@ replace (
 	go.uber.org/zap => github.com/kralicky/zap v1.19.2-0.20220311060549-c0d473b28cca
 	// Because of a dependency chain to Cortex
 	k8s.io/client-go => k8s.io/client-go v0.23.4
-	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220405031910-f30e558f0399
+	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220405232819-82b73065a2ca
 )

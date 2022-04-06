@@ -44,7 +44,7 @@ var _ = PDescribe("Secret", Ordered, func() {
 			Skip("skipping test on non-linux OS")
 		}
 		env := &test.Environment{
-			TestBin: "../../testbin/bin",
+			TestBin: "../../../testbin/bin",
 			Logger:  logger.New().Named("test"),
 		}
 		var err error

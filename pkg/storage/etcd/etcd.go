@@ -83,6 +83,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 		Endpoints: conf.Endpoints,
 		TLS:       tlsConfig,
 		Context:   ctx,
+		Logger:    lg.Desugar(),
 	}
 	cli, err := clientv3.New(clientConfig)
 	if err != nil {

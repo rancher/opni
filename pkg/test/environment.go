@@ -244,7 +244,7 @@ func (e *Environment) StartManager(restConfig *rest.Config, reconcilers ...Recon
 func (e *Environment) Stop() error {
 	if e.cancel != nil {
 		e.cancel()
-		waitctx.Wait(e.ctx, 5*time.Second)
+		waitctx.Wait(e.ctx, 20*time.Second)
 	}
 	if e.k8sEnv != nil {
 		e.k8sEnv.Stop()

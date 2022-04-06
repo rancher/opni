@@ -149,18 +149,6 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 		}
 	}
 
-	// Check if the capability exists and can be installed
-	if err := h.CapabilityInstaller.CanInstall(clientReq.Capability); err != nil {
-		if errors.Is(err, capabilities.ErrUnknownCapability) {
-			lg.Printf("unknown capability: %s", clientReq.Capability)
-			return c.Status(fiber.StatusBadRequest).
-				SendString(fmt.Sprintf("Unknown capability %s", clientReq.Capability))
-		}
-		lg.Printf("capability cannot be installed: %v", err)
-		return c.Status(fiber.StatusServiceUnavailable).
-			SendString(fmt.Sprintf("Capability cannot be installed: %v", err))
-	}
-
 	ekp := ecdh.NewEphemeralKeyPair()
 	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, ecdh.PeerPublicKey{
 		PublicKey: clientReq.ClientPubKey,
@@ -172,8 +160,21 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	}
 	kr := keyring.New(keyring.NewSharedKeys(sharedSecret))
 
+	// Check if the capability exists and can be installed
+	if err := h.CapabilityInstaller.CanInstall(clientReq.Capability); err != nil {
+		if errors.Is(err, capabilities.ErrUnknownCapability) {
+			lg.Printf("unknown capability: %s", clientReq.Capability)
+			return c.Status(fiber.StatusNotFound).
+				SendString(fmt.Sprintf("Unknown capability %s", clientReq.Capability))
+		}
+		lg.Printf("capability cannot be installed: %v", err)
+		return c.Status(fiber.StatusServiceUnavailable).
+			SendString(fmt.Sprintf("Capability cannot be installed: %v", err))
+	}
+
 	if shouldEditExisting {
 		if err := h.handleEdit(existing, clientReq.Capability, bootstrapToken, kr); err != nil {
+			lg.Printf("error editing cluster capabilities: %v", err)
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 		}
 	} else {
@@ -189,6 +190,7 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 			},
 		}
 		if err := h.handleCreate(newCluster, clientReq.Capability, bootstrapToken, kr); err != nil {
+			lg.Printf("error creating cluster: %v", err)
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 		}
 	}

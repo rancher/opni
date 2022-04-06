@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -30,17 +31,28 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
+type testCapBackend struct {
+	Name       string
+	CanInstall bool
+}
+
 var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 	var token *core.BootstrapToken
+	var token2 *core.BootstrapToken
 	var client *http.Client
 	var cert *tls.Certificate
 	var app *fiber.App
-	var addr string
+	var addr = new(string)
 	var mockTokenStore storage.TokenStore
 	var mockClusterStore storage.ClusterStore
 	var mockKeyringStoreBroker storage.KeyringStoreBroker
+	var testCapBackends []testCapBackend
 
 	BeforeEach(func() {
+		testCapBackends = append(testCapBackends, testCapBackend{
+			Name:       "test",
+			CanInstall: true,
+		})
 		ctx, ca := context.WithCancel(context.Background())
 		DeferCleanup(ca)
 		mockTokenStore = test.NewTestTokenStore(ctx, ctrl)
@@ -50,6 +62,10 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 		token, _ = mockTokenStore.CreateToken(context.Background(), 1*time.Hour,
 			storage.WithLabels(map[string]string{"foo": "bar"}),
 		)
+		token2, _ = mockTokenStore.CreateToken(context.Background(), 1*time.Hour)
+	})
+	AfterEach(func() {
+		testCapBackends = []testCapBackend{}
 	})
 	JustBeforeEach(func() {
 		var err error
@@ -64,10 +80,25 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 		lg := logger.New().Named("test")
 		logger.ConfigureAppLogger(app, "test")
 		capBackendStore := capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, lg)
-		mockBackend := mock_capability.NewMockBackend(ctrl)
-		mockBackend.EXPECT().CanInstall().Return(nil).AnyTimes()
-		mockBackend.EXPECT().Install(gomock.Any()).Return(nil).AnyTimes()
-		capBackendStore.Add("test", mockBackend)
+		for _, backend := range testCapBackends {
+			mockBackend := mock_capability.NewMockBackend(ctrl)
+			mockBackend.EXPECT().
+				CanInstall().
+				DoAndReturn(func(backend testCapBackend) func() error {
+					return func() error {
+						if backend.CanInstall {
+							return nil
+						}
+						return errors.New("can't install")
+					}
+				}(backend)).
+				AnyTimes()
+			mockBackend.EXPECT().
+				Install(gomock.Any()).
+				Return(nil).
+				AnyTimes()
+			capBackendStore.Add(backend.Name, mockBackend)
+		}
 		server := bootstrap.ServerConfig{
 			CapabilityInstaller: capBackendStore,
 			Certificate:         cert,
@@ -81,7 +112,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 		}
 		app.Server().TLSConfig = tlsConfig
 		listener := fasthttputil.NewInmemoryListener()
-		addr = "https://" + listener.Addr().String()
+		*addr = "https://" + listener.Addr().String()
 		go app.Listener(listener)
 		client = &http.Client{
 			Transport: &http.Transport{
@@ -99,7 +130,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 	When("sending a bootstrap join request", func() {
 		When("an Authorization header is given", func() {
 			It("should return http 400", func() {
-				req, err := http.NewRequest("POST", addr+"/bootstrap/join", nil)
+				req, err := http.NewRequest("POST", *addr+"/bootstrap/join", nil)
 				Expect(err).NotTo(HaveOccurred())
 				req.Header.Add("Authorization", "Bearer token")
 				resp, err := client.Do(req)
@@ -109,7 +140,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 		})
 		When("no Authorization header is given", func() {
 			It("should return the correct bootstrap join response", func() {
-				req, err := http.NewRequest("POST", addr+"/bootstrap/join", nil)
+				req, err := http.NewRequest("POST", *addr+"/bootstrap/join", nil)
 				Expect(err).NotTo(HaveOccurred())
 				resp, err := client.Do(req)
 				Expect(err).NotTo(HaveOccurred())
@@ -118,7 +149,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 				body, _ := io.ReadAll(resp.Body)
 				joinResp := bootstrap.BootstrapJoinResponse{}
 				Expect(json.Unmarshal(body, &joinResp)).To(Succeed())
-				Expect(joinResp.Signatures).To(HaveLen(1))
+				Expect(joinResp.Signatures).To(HaveLen(2))
 
 				rawToken, err := tokens.FromBootstrapToken(token)
 				Expect(err).NotTo(HaveOccurred())
@@ -129,9 +160,10 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 		When("no tokens are available", func() {
 			BeforeEach(func() {
 				mockTokenStore.DeleteToken(context.Background(), token.Reference())
+				mockTokenStore.DeleteToken(context.Background(), token2.Reference())
 			})
 			It("should return http 409", func() {
-				req, err := http.NewRequest("POST", addr+"/bootstrap/join", nil)
+				req, err := http.NewRequest("POST", *addr+"/bootstrap/join", nil)
 				Expect(err).NotTo(HaveOccurred())
 				resp, err := client.Do(req)
 				Expect(err).NotTo(HaveOccurred())
@@ -143,7 +175,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 	When("sending a bootstrap auth request", func() {
 		When("an Authorization header is not given", func() {
 			It("should return http 401", func() {
-				req, err := http.NewRequest("POST", addr+"/bootstrap/auth", nil)
+				req, err := http.NewRequest("POST", *addr+"/bootstrap/auth", nil)
 				Expect(err).NotTo(HaveOccurred())
 				resp, err := client.Do(req)
 				Expect(err).NotTo(HaveOccurred())
@@ -160,7 +192,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 						Expect(err).NotTo(HaveOccurred())
 						sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
 						Expect(err).NotTo(HaveOccurred())
-						req, err := http.NewRequest("POST", addr+"/bootstrap/auth", nil)
+						req, err := http.NewRequest("POST", *addr+"/bootstrap/auth", nil)
 						Expect(err).NotTo(HaveOccurred())
 						req.Header.Add("Authorization", "Bearer "+string(sig))
 						resp, err := client.Do(req)
@@ -176,7 +208,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 						Expect(err).NotTo(HaveOccurred())
 						sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
 						Expect(err).NotTo(HaveOccurred())
-						req, err := http.NewRequest("POST", addr+"/bootstrap/auth", nil)
+						req, err := http.NewRequest("POST", *addr+"/bootstrap/auth", nil)
 						Expect(err).NotTo(HaveOccurred())
 						req.Header.Add("Authorization", "Bearer "+string(sig))
 						ekp := ecdh.NewEphemeralKeyPair()
@@ -227,7 +259,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 			})
 			When("the token is invalid", func() {
 				It("should return http 401", func() {
-					req, err := http.NewRequest("POST", addr+"/bootstrap/auth", nil)
+					req, err := http.NewRequest("POST", *addr+"/bootstrap/auth", nil)
 					Expect(err).NotTo(HaveOccurred())
 					req.Header.Add("Authorization", "Bearer invalid")
 					resp, err := client.Do(req)
@@ -246,7 +278,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 					Expect(err).NotTo(HaveOccurred())
 					sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
 					Expect(err).NotTo(HaveOccurred())
-					req, err := http.NewRequest("POST", addr+"/bootstrap/auth", nil)
+					req, err := http.NewRequest("POST", *addr+"/bootstrap/auth", nil)
 					Expect(err).NotTo(HaveOccurred())
 					req.Header.Add("Authorization", "Bearer "+string(sig))
 					ekp := ecdh.NewEphemeralKeyPair()
@@ -262,49 +294,152 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 				})
 			})
-			When("the requested capability already exists", func() {
-				It("should return http 409", func() {
+			When("joining with an additional capability", func() {
+				var ekp ecdh.EphemeralKeyPair
+				var newReq func() *http.Request
+				JustBeforeEach(func() {
 					rawToken, err := tokens.FromBootstrapToken(token)
 					Expect(err).NotTo(HaveOccurred())
 					jsonData, err := json.Marshal(rawToken)
 					Expect(err).NotTo(HaveOccurred())
 					sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
 					Expect(err).NotTo(HaveOccurred())
-					req, err := http.NewRequest("POST", addr+"/bootstrap/auth", nil)
-					Expect(err).NotTo(HaveOccurred())
-					req.Header.Add("Authorization", "Bearer "+string(sig))
-					ekp := ecdh.NewEphemeralKeyPair()
+					newReq = func() *http.Request {
+						req, err := http.NewRequest("POST", *addr+"/bootstrap/auth", nil)
+						Expect(err).NotTo(HaveOccurred())
+						req.Header.Add("Authorization", "Bearer "+string(sig))
+						return req
+					}
+					ekp = ecdh.NewEphemeralKeyPair()
+
 					authReq := bootstrap.BootstrapAuthRequest{
 						Capability:   "test",
 						ClientID:     "foo",
 						ClientPubKey: ekp.PublicKey,
 					}
 
-					{
-						reqCopy := req.Clone(req.Context())
+					req := newReq()
+					j, _ := json.Marshal(authReq)
+					req.Header.Set("Content-Type", "application/json")
+					req.Body = io.NopCloser(bytes.NewReader(j))
+					resp, err := client.Do(req)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(http.StatusOK))
+				})
+				When("the requested capability already exists", func() {
+					It("should return http 409", func() {
+						authReq := bootstrap.BootstrapAuthRequest{
+							Capability:   "test",
+							ClientID:     "foo",
+							ClientPubKey: ekp.PublicKey,
+						}
+
+						req := newReq()
 						j, _ := json.Marshal(authReq)
-						reqCopy.Header.Set("Content-Type", "application/json")
-						reqCopy.Body = io.NopCloser(bytes.NewReader(j))
-						resp, err := client.Do(reqCopy)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(resp.StatusCode).To(Equal(http.StatusOK))
-					}
-					{
-						reqCopy := req.Clone(context.Background())
-						j, _ := json.Marshal(authReq)
-						reqCopy.Header.Set("Content-Type", "application/json")
-						reqCopy.Body = io.NopCloser(bytes.NewReader(j))
-						resp, err := client.Do(reqCopy)
+						req.Header.Set("Content-Type", "application/json")
+						req.Body = io.NopCloser(bytes.NewReader(j))
+						resp, err := client.Do(req)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(resp.StatusCode).To(Equal(http.StatusConflict))
-					}
+					})
+				})
+				When("the requested capability does not yet exist", func() {
+					BeforeEach(func() {
+						testCapBackends = append(testCapBackends,
+							testCapBackend{
+								Name:       "test2",
+								CanInstall: true,
+							},
+							testCapBackend{
+								Name:       "test3",
+								CanInstall: false,
+							},
+						)
+					})
+					When("a backend for the capability does not exist", func() {
+						It("should return http 404", func() {
+							authReq := bootstrap.BootstrapAuthRequest{
+								Capability:   "test1.5",
+								ClientID:     "foo",
+								ClientPubKey: ekp.PublicKey,
+							}
+
+							req := newReq()
+							j, _ := json.Marshal(authReq)
+							req.Header.Set("Content-Type", "application/json")
+							req.Body = io.NopCloser(bytes.NewReader(j))
+							resp, err := client.Do(req)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
+						})
+					})
+					When("a backend for the capability exists", func() {
+						It("should succeed", func() {
+							authReq := bootstrap.BootstrapAuthRequest{
+								Capability:   "test2",
+								ClientID:     "foo",
+								ClientPubKey: ekp.PublicKey,
+							}
+
+							req := newReq()
+							j, _ := json.Marshal(authReq)
+							req.Header.Set("Content-Type", "application/json")
+							req.Body = io.NopCloser(bytes.NewReader(j))
+							resp, err := client.Do(req)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(resp.StatusCode).To(Equal(http.StatusOK))
+						})
+					})
+					When("the capability cannot be installed", func() {
+						It("should return http 503", func() {
+							authReq := bootstrap.BootstrapAuthRequest{
+								Capability:   "test3",
+								ClientID:     "foo",
+								ClientPubKey: ekp.PublicKey,
+							}
+
+							req := newReq()
+							j, _ := json.Marshal(authReq)
+							req.Header.Set("Content-Type", "application/json")
+							req.Body = io.NopCloser(bytes.NewReader(j))
+							resp, err := client.Do(req)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(resp.StatusCode).To(Equal(http.StatusServiceUnavailable))
+						})
+					})
+					When("the token used does not have the correct join capability", func() {
+						It("should return http 401", func() {
+							rawToken2, err := tokens.FromBootstrapToken(token2)
+							Expect(err).NotTo(HaveOccurred())
+							jsonData, err := json.Marshal(rawToken2)
+							Expect(err).NotTo(HaveOccurred())
+							sig, err := jws.Sign(jsonData, jwa.EdDSA, cert.PrivateKey)
+							Expect(err).NotTo(HaveOccurred())
+
+							req, err := http.NewRequest("POST", *addr+"/bootstrap/auth", nil)
+							Expect(err).NotTo(HaveOccurred())
+							req.Header.Add("Authorization", "Bearer "+string(sig))
+
+							authReq := bootstrap.BootstrapAuthRequest{
+								Capability:   "test2",
+								ClientID:     "foo",
+								ClientPubKey: ekp.PublicKey,
+							}
+							j, _ := json.Marshal(authReq)
+							req.Header.Set("Content-Type", "application/json")
+							req.Body = io.NopCloser(bytes.NewReader(j))
+							resp, err := client.Do(req)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+						})
+					})
 				})
 			})
 		})
 	})
 	When("sending a request to an invalid path", func() {
 		It("should return http 404", func() {
-			req, err := http.NewRequest("POST", addr+"/bootstrap/foo", nil)
+			req, err := http.NewRequest("POST", *addr+"/bootstrap/foo", nil)
 			Expect(err).NotTo(HaveOccurred())
 			resp, err := client.Do(req)
 			Expect(err).NotTo(HaveOccurred())

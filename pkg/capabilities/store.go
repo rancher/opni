@@ -68,12 +68,23 @@ func (s *backendStore) RenderInstaller(name string, spec UserInstallerTemplateSp
 
 func (s *backendStore) CanInstall(capabilities ...string) error {
 	for _, capability := range capabilities {
+		lg := s.logger.With(
+			"capability", capability,
+		)
+		lg.Info("checking if capability can be installed")
 		if b, ok := s.backends[capability]; !ok {
-			return fmt.Errorf("backend for capability %q does not exist", capability)
+			lg.With(
+				zap.Error(ErrUnknownCapability),
+			).Error("cannot install capability")
+			return fmt.Errorf("cannot install capability %s: %w", capability, ErrUnknownCapability)
 		} else {
 			if err := b.CanInstall(); err != nil {
+				lg.With(
+					zap.Error(err),
+				).Error("cannot install capability")
 				return fmt.Errorf("cannot install capability %q: %w", capability, err)
 			}
+			lg.Info("capability can be installed")
 		}
 	}
 	return nil

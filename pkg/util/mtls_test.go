@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/util"
 )
 
-var _ = Describe("mTLS", Label(test.Unit), func() {
+var _ = Describe("mTLS Utils", Label(test.Unit), func() {
 	It("should load mTLS configurations", func() {
 		spec := &v1beta1.MTLSSpec{
 			ServerCA:   "../test/testdata/cortex/root.crt",

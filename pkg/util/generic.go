@@ -21,11 +21,11 @@ var (
 func Must[T any](t T, err ...error) T {
 	if len(err) > 0 {
 		if err[0] != nil {
-			stackLg.Fatal(err)
+			stackLg.Panic(err)
 		}
 	}
 	if typ := reflect.TypeOf(t); typ != nil && typ.Implements(errType) {
-		stackLg.Fatal(err)
+		stackLg.Panic(err)
 	}
 	return t
 }
@@ -43,11 +43,9 @@ func DecodeStruct[T any](input interface{}) (*T, error) {
 		},
 	}
 
-	decoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		return nil, err
-	}
-
+	// NewDecoder cannot fail - the only error condition is if
+	// config.Result is not a pointer
+	decoder := Must(mapstructure.NewDecoder(config))
 	if err := decoder.Decode(input); err != nil {
 		return nil, err
 	}
@@ -55,8 +53,7 @@ func DecodeStruct[T any](input interface{}) (*T, error) {
 }
 
 func DeepCopyInto[T any](out, in *T) {
-	d, _ := json.Marshal(in)
-	json.Unmarshal(d, out)
+	json.Unmarshal(Must(json.Marshal(in)), out)
 }
 
 func DeepCopy[T any](in *T) *T {

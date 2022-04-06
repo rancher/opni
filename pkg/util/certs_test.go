@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/test"
 	"github.com/rancher/opni-monitoring/pkg/util"
 )
@@ -59,5 +60,70 @@ MC4CAQAwBQYDK2VwBCIEIM6i0VYYKNegxVFfCMXXbIBjjhDhfC30JPtkAImgL1Xw
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("x509: "))
 		})
+	})
+	It("should load a serving cert bundle", func() {
+		_, _, err := util.LoadServingCertBundle(v1beta1.CertsSpec{
+			CACertData:      util.Pointer(string(test.TestData("root_ca.crt"))),
+			ServingCertData: util.Pointer(string(test.TestData("localhost.crt"))),
+			ServingKeyData:  util.Pointer(string(test.TestData("localhost.key"))),
+		})
+		Expect(err).NotTo(HaveOccurred())
+		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
+			CACert:      util.Pointer("../test/testdata/root_ca.crt"),
+			ServingCert: util.Pointer("../test/testdata/localhost.crt"),
+			ServingKey:  util.Pointer("../test/testdata/localhost.key"),
+		})
+		Expect(err).NotTo(HaveOccurred())
+	})
+	It("should handle errors when loading serving cert bundles", func() {
+		_, _, err := util.LoadServingCertBundle(v1beta1.CertsSpec{
+			CACertData:      util.Pointer(string(test.TestData("root_ca.crt"))),
+			ServingCertData: util.Pointer(string(test.TestData("localhost.crt"))),
+		})
+		Expect(err).To(HaveOccurred())
+		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
+			CACertData: util.Pointer(string(test.TestData("root_ca.crt"))),
+		})
+		Expect(err).To(HaveOccurred())
+		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{})
+		Expect(err).To(HaveOccurred())
+
+		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
+			CACert:      util.Pointer("/does/not/exist"),
+			ServingCert: util.Pointer("../test/testdata/localhost.crt"),
+			ServingKey:  util.Pointer("../test/testdata/localhost.key"),
+		})
+		Expect(err).To(HaveOccurred())
+		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
+			CACert:      util.Pointer("../test/testdata/root_ca.crt"),
+			ServingCert: util.Pointer("/does/not/exist"),
+			ServingKey:  util.Pointer("../test/testdata/localhost.key"),
+		})
+		Expect(err).To(HaveOccurred())
+		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
+			CACert:      util.Pointer("../test/testdata/root_ca.crt"),
+			ServingCert: util.Pointer("../test/testdata/localhost.crt"),
+			ServingKey:  util.Pointer("/does/not/exist"),
+		})
+		Expect(err).To(HaveOccurred())
+
+		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
+			CACertData:  util.Pointer("invalid"),
+			ServingCert: util.Pointer("../test/testdata/localhost.crt"),
+			ServingKey:  util.Pointer("../test/testdata/localhost.key"),
+		})
+		Expect(err).To(HaveOccurred())
+		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
+			CACert:          util.Pointer("../test/testdata/root_ca.crt"),
+			ServingCertData: util.Pointer("invalid"),
+			ServingKey:      util.Pointer("../test/testdata/localhost.key"),
+		})
+		Expect(err).To(HaveOccurred())
+		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
+			CACert:         util.Pointer("../test/testdata/root_ca.crt"),
+			ServingCert:    util.Pointer("../test/testdata/localhost.crt"),
+			ServingKeyData: util.Pointer("invalid"),
+		})
+		Expect(err).To(HaveOccurred())
 	})
 })

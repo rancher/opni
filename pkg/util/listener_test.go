@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/util"
 )
 
-var _ = Describe("Listener", Label(test.Unit), func() {
+var _ = Describe("Listener Utils", Label(test.Unit), func() {
 	When("the given address uses the tcp or tcp4 scheme", func() {
 		It("should return a tcp listener", func() {
 			listener, err := util.NewProtocolListener("tcp://:0")

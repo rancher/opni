@@ -13,7 +13,7 @@ func (d DelimiterCodec) Key() string {
 }
 
 func (d DelimiterCodec) Encode(ids []string) string {
-	var filtered []string
+	filtered := make([]string, 0, len(ids))
 	for _, id := range ids {
 		if id == "" {
 			continue

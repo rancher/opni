@@ -37,12 +37,10 @@ func namedMiddleware(name string, mw Middleware) NamedMiddleware {
 var (
 	authMiddlewares = make(map[string]Middleware)
 
-	ErrInvalidMiddlewareName    = errors.New("invalid or empty auth middleware name")
-	ErrMiddlewareAlreadyExists  = errors.New("auth middleware already exists")
-	ErrNilMiddleware            = errors.New("auth middleware is nil")
-	ErrInvalidConfig            = errors.New("middleware config must be a non-nil pointer to a struct")
-	ErrMiddlewareNotFound       = errors.New("auth middleware not found")
-	ErrMiddlewareConfigNotFound = errors.New("auth middleware config not found")
+	ErrInvalidMiddlewareName   = errors.New("invalid or empty auth middleware name")
+	ErrMiddlewareAlreadyExists = errors.New("auth middleware already exists")
+	ErrNilMiddleware           = errors.New("auth middleware is nil")
+	ErrMiddlewareNotFound      = errors.New("auth middleware not found")
 
 	authLogger = logger.New().Named("auth")
 )

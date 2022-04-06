@@ -20,7 +20,7 @@ var _ = Describe("mTLS", Label(test.Unit), func() {
 			ClientKey:  "../test/testdata/cortex/client.key",
 		}
 		tlsConfig, err := util.LoadClientMTLSConfig(spec)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		Expect(tlsConfig.RootCAs.Subjects()).To(HaveLen(1))
 		Expect(tlsConfig.ClientCAs.Subjects()).To(HaveLen(1))
 		Expect(tlsConfig.Certificates).To(HaveLen(1))

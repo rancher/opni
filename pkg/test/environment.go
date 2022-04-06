@@ -48,7 +48,6 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/metrics"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api"
-	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
@@ -619,12 +618,7 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 	}
 
 	if err := ident.RegisterProvider(id, func() ident.Provider {
-		mockIdent := mock_ident.NewMockProvider(e.mockCtrl)
-		mockIdent.EXPECT().
-			UniqueIdentifier(gomock.Any()).
-			Return(id, nil).
-			AnyTimes()
-		return mockIdent
+		return NewTestIdentProvider(e.mockCtrl, id)
 	}); err != nil {
 		if !errors.Is(err, ident.ErrProviderAlreadyExists) {
 			panic(err)

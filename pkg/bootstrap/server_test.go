@@ -6,14 +6,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"io"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang/mock/gomock"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
@@ -27,7 +25,6 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/test"
-	mock_capability "github.com/rancher/opni-monitoring/pkg/test/mock/capability"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
@@ -46,10 +43,10 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 	var mockTokenStore storage.TokenStore
 	var mockClusterStore storage.ClusterStore
 	var mockKeyringStoreBroker storage.KeyringStoreBroker
-	var testCapBackends []testCapBackend
+	var testCapBackends []*test.CapabilityInfo
 
 	BeforeEach(func() {
-		testCapBackends = append(testCapBackends, testCapBackend{
+		testCapBackends = append(testCapBackends, &test.CapabilityInfo{
 			Name:       "test",
 			CanInstall: true,
 		})
@@ -65,7 +62,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 		token2, _ = mockTokenStore.CreateToken(context.Background(), 1*time.Hour)
 	})
 	AfterEach(func() {
-		testCapBackends = []testCapBackend{}
+		testCapBackends = []*test.CapabilityInfo{}
 	})
 	JustBeforeEach(func() {
 		var err error
@@ -81,23 +78,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 		logger.ConfigureAppLogger(app, "test")
 		capBackendStore := capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, lg)
 		for _, backend := range testCapBackends {
-			mockBackend := mock_capability.NewMockBackend(ctrl)
-			mockBackend.EXPECT().
-				CanInstall().
-				DoAndReturn(func(backend testCapBackend) func() error {
-					return func() error {
-						if backend.CanInstall {
-							return nil
-						}
-						return errors.New("can't install")
-					}
-				}(backend)).
-				AnyTimes()
-			mockBackend.EXPECT().
-				Install(gomock.Any()).
-				Return(nil).
-				AnyTimes()
-			capBackendStore.Add(backend.Name, mockBackend)
+			capBackendStore.Add(backend.Name, test.NewTestCapabilityBackend(ctrl, backend))
 		}
 		server := bootstrap.ServerConfig{
 			CapabilityInstaller: capBackendStore,
@@ -346,11 +327,11 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 				When("the requested capability does not yet exist", func() {
 					BeforeEach(func() {
 						testCapBackends = append(testCapBackends,
-							testCapBackend{
+							&test.CapabilityInfo{
 								Name:       "test2",
 								CanInstall: true,
 							},
-							testCapBackend{
+							&test.CapabilityInfo{
 								Name:       "test3",
 								CanInstall: false,
 							},

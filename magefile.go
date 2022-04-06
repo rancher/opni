@@ -213,8 +213,13 @@ func init() {
 		},
 		{
 			Source: "pkg/plugins/apis/capability/plugin.go",
-			Dest:   "pkg/test/mock/capability/capability.go",
+			Dest:   "pkg/test/mock/capability/backend.go",
 			Types:  []string{"Backend"},
+		},
+		{
+			Source: "pkg/plugins/apis/capability/capability_grpc.pb.go",
+			Dest:   "pkg/test/mock/capability/backend_client.go",
+			Types:  []string{"BackendClient"},
 		},
 	}
 	protobuf.Config.Protos = findProtos()

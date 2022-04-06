@@ -5,8 +5,8 @@ type Capability[T any] interface {
 }
 
 type MetadataAccessor[T Capability[T]] interface {
-	SetCapabilities(capabilities []T)
 	GetCapabilities() []T
+	SetCapabilities(capabilities []T)
 	GetLabels() map[string]string
 	SetLabels(labels map[string]string)
 }

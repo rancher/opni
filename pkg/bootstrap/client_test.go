@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/golang/mock/gomock"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
@@ -32,7 +31,6 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/test"
-	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 )
 
@@ -51,12 +49,7 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 		if runtime.GOOS != "linux" {
 			Skip("skipping test on non-linux OS")
 		}
-		mockIdent := mock_ident.NewMockProvider(ctrl)
-		mockIdent.EXPECT().
-			UniqueIdentifier(gomock.Any()).
-			Return("foo", nil).
-			AnyTimes()
-		fooIdent = mockIdent
+		fooIdent = test.NewTestIdentProvider(ctrl, "foo")
 		var err error
 		crt, err := tls.X509KeyPair(test.TestData("self_signed_leaf.crt"), test.TestData("self_signed_leaf.key"))
 		Expect(err).NotTo(HaveOccurred())

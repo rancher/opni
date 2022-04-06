@@ -8,6 +8,11 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	ErrBackendNotFound      = fmt.Errorf("backend not found")
+	ErrBackendAlreadyExists = fmt.Errorf("backend already exists")
+)
+
 type BackendStore interface {
 	Get(name string) (capability.Backend, error)
 	Add(name string, backend capability.Backend) error
@@ -33,7 +38,7 @@ func NewBackendStore(serverSpec ServerInstallerTemplateSpec, logger *zap.Sugared
 
 func (s *backendStore) Get(name string) (capability.Backend, error) {
 	if backend, ok := s.backends[name]; !ok {
-		return nil, fmt.Errorf("backend %q does not exist", name)
+		return nil, fmt.Errorf("%w: %s", ErrBackendNotFound, name)
 	} else {
 		return backend, nil
 	}
@@ -41,14 +46,14 @@ func (s *backendStore) Get(name string) (capability.Backend, error) {
 
 func (s *backendStore) Add(name string, backend capability.Backend) error {
 	if _, ok := s.backends[name]; ok {
-		return fmt.Errorf("backend for capability %q already exists", name)
+		return fmt.Errorf("%w: %s", ErrBackendAlreadyExists, name)
 	}
 	s.backends[name] = backend
 	return nil
 }
 
 func (s *backendStore) List() []string {
-	var capabilities []string
+	capabilities := make([]string, 0, len(s.backends))
 	for capability := range s.backends {
 		capabilities = append(capabilities, capability)
 	}

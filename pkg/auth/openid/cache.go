@@ -13,13 +13,10 @@ type UserInfo struct {
 }
 
 func (uid *UserInfo) UserID() (string, error) {
-	if uid.identifyingClaim == "" {
-		panic("no identifying claim set")
-	}
 	if v, ok := uid.raw[uid.identifyingClaim]; ok {
 		return fmt.Sprint(v), nil
 	}
-	return "", fmt.Errorf("identifying claim not found in user info")
+	return "", fmt.Errorf("identifying claim %q not found in user info", uid.identifyingClaim)
 }
 
 type UserInfoCache struct {
@@ -33,16 +30,22 @@ type UserInfoCache struct {
 
 func NewUserInfoCache(
 	config *OpenidConfig,
-	wellKnown *WellKnownConfiguration,
 	logger *zap.SugaredLogger,
-) *UserInfoCache {
+) (*UserInfoCache, error) {
+	wellKnown, err := config.GetWellKnownConfiguration()
+	if err != nil {
+		return nil, err
+	}
+	if config.IdentifyingClaim == "" {
+		return nil, fmt.Errorf("no identifying claim set")
+	}
 	return &UserInfoCache{
 		cache:      make(map[string]*UserInfo),
 		knownUsers: make(map[string]string),
 		config:     config,
 		wellKnown:  wellKnown,
 		logger:     logger,
-	}
+	}, nil
 }
 
 func (c *UserInfoCache) Get(accessToken string) (*UserInfo, error) {

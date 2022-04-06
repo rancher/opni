@@ -14,8 +14,8 @@ import (
 type TokenType string
 
 const (
-	AccessToken TokenType = "access_token"
-	IDToken     TokenType = "id_token"
+	Opaque  TokenType = "opaque"
+	IDToken TokenType = "id_token"
 )
 
 // Claims required for valid ID tokens
@@ -31,7 +31,7 @@ func GetTokenType(token string) TokenType {
 	if isIDToken(token) {
 		return IDToken
 	}
-	return AccessToken
+	return Opaque
 }
 
 func isIDToken(token string) bool {

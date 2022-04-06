@@ -1,24 +1,17 @@
 package main
 
 import (
-	"github.com/rancher/opni-monitoring/pkg/logger"
+	"context"
+	"time"
+
 	"github.com/rancher/opni-monitoring/pkg/plugins"
-	gatewayext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/gateway"
-	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
-	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
-	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
-	"github.com/rancher/opni-monitoring/plugins/example/pkg/example"
+	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
+	"github.com/rancher/opni-monitoring/plugins/cortex/pkg/cortex"
 )
 
 func main() {
-	scheme := meta.NewScheme()
-	p := &example.ExamplePlugin{
-		Logger: logger.NewForPlugin(),
-	}
-	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(&example.ExampleAPIExtension_ServiceDesc, p))
-	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(gatewayext.GatewayAPIExtensionPluginID,
-		gatewayext.NewPlugin(p))
-	plugins.Serve(scheme)
+	ctx, ca := context.WithCancel(waitctx.FromContext(context.Background()))
+	plugins.Serve(cortex.Scheme(ctx))
+	ca()
+	waitctx.Wait(ctx, 5*time.Second)
 }

@@ -17,6 +17,6 @@ const (
 )
 
 type AuthProviderSpec struct {
-	Type    AuthProviderType       `json:"type,omitempty"`
-	Options map[string]interface{} `json:"options,omitempty"`
+	Type    AuthProviderType `json:"type,omitempty"`
+	Options map[string]any   `json:"options,omitempty"`
 }

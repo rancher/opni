@@ -11,6 +11,7 @@ import (
 	managementext "github.com/rancher/opni-monitoring/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni-monitoring/pkg/plugins/meta"
 	"github.com/rancher/opni-monitoring/plugins/cortex/pkg/cortex"
+	"github.com/rancher/opni-monitoring/plugins/example/pkg/example"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -81,6 +82,14 @@ func LoadPlugins(loader *plugins.PluginLoader) int {
 				BinaryPath: "plugin_cortex",
 				GoVersion:  runtime.Version(),
 				Module:     "github.com/rancher/opni-monitoring/plugins/cortex",
+			},
+		},
+		{
+			Scheme: example.Scheme(),
+			Metadata: meta.PluginMeta{
+				BinaryPath: "plugin_example",
+				GoVersion:  runtime.Version(),
+				Module:     "github.com/rancher/opni-monitoring/plugins/example",
 			},
 		},
 	}

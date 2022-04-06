@@ -17,6 +17,8 @@ This guide will walk you through installing Opni Monitoring and adding clusters 
 
 ### Dependencies
 
+- Helm version 3.8 or later
+
 - Install [helmfile](https://github.com/roboll/helmfile) using your distribution's package manager or from the GitHub release page.
 
 - Clone the opni-monitoring repo:

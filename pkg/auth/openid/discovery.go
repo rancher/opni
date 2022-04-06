@@ -1,12 +1,14 @@
 package openid
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"path"
+	"time"
 )
 
 type DiscoverySpec struct {
@@ -20,21 +22,30 @@ type DiscoverySpec struct {
 	Issuer string `json:"issuer"`
 }
 
-var ErrIssuerMismatch = errors.New("issuer mismatch")
+var (
+	ErrIssuerMismatch         = errors.New("issuer mismatch")
+	ErrMissingDiscoveryConfig = errors.New("at least one of 'discovery' or 'wellKnownConfiguration' fields must be set")
+)
 
 func isDiscoveryErrFatal(err error) bool {
-	return errors.Is(err, ErrIssuerMismatch)
+	return errors.Is(err, ErrIssuerMismatch) ||
+		errors.Is(err, ErrMissingDiscoveryConfig)
 }
 
 func (oc *OpenidConfig) GetWellKnownConfiguration() (*WellKnownConfiguration, error) {
-	if (oc.Discovery == nil) == (oc.WellKnownConfiguration == nil) {
-		return nil, errors.New("exactly one of 'discovery' or 'wellKnownConfiguration' fields must be set")
+	if oc.Discovery == nil && oc.WellKnownConfiguration == nil {
+		return nil, ErrMissingDiscoveryConfig
 	}
 	if oc.WellKnownConfiguration != nil {
 		return oc.WellKnownConfiguration, nil
 	}
 
-	return fetchWellKnownConfig(oc.Discovery)
+	wkc, err := fetchWellKnownConfig(oc.Discovery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch configuration from discovery endpoint: %w", err)
+	}
+	oc.WellKnownConfiguration = wkc
+	return wkc, nil
 }
 
 func fetchWellKnownConfig(dc *DiscoverySpec) (*WellKnownConfiguration, error) {
@@ -56,7 +67,9 @@ func fetchWellKnownConfig(dc *DiscoverySpec) (*WellKnownConfiguration, error) {
 	}
 	u.Path = path.Join(u.Path, rel)
 
-	req, err := http.NewRequest("GET", u.String(), nil)
+	ctx, ca := context.WithTimeout(context.Background(), 2*time.Second)
+	defer ca()
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
 		return nil, err
 	}

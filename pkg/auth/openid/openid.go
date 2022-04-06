@@ -99,7 +99,7 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusUnauthorized)
 		}
 		userID = fmt.Sprint(claim)
-	case AccessToken:
+	case Opaque:
 		userInfo, err := m.cache.Get(bearerToken)
 		if err != nil {
 			lg.Printf("failed to get user info: %v", err)
@@ -120,8 +120,9 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 	lg := m.logger
 	p := backoff.Exponential(
+		backoff.WithMinInterval(50*time.Millisecond),
 		backoff.WithMaxInterval(time.Minute),
-		backoff.WithMultiplier(1.2),
+		backoff.WithMultiplier(2),
 		backoff.WithJitterFactor(0.05),
 	)
 	b := p.Start(ctx)
@@ -146,7 +147,12 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 		defer m.lock.Unlock()
 		m.wellKnownConfig = wellKnownCfg
 		m.keyRefresher.Configure(wellKnownCfg.JwksUri)
-		m.cache = NewUserInfoCache(m.conf, wellKnownCfg, m.logger)
+		m.cache, err = NewUserInfoCache(m.conf, m.logger)
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Fatal("failed to create user info cache")
+		}
 		break
 	}
 }

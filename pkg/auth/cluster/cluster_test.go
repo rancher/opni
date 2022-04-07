@@ -23,6 +23,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/test"
+	"github.com/rancher/opni-monitoring/pkg/util/testutil"
 )
 
 func bodyStr(body io.ReadCloser) string {
@@ -208,7 +209,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableInCI[FlakeAttempts](5), Lab
 							Expect(err).NotTo(HaveOccurred())
 							Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 						}, gmeasure.SamplingConfig{
-							N: 1000,
+							N: testutil.IfCI(200).Else(1000),
 						}, gmeasure.Precision(time.Microsecond))
 					}()
 
@@ -221,7 +222,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableInCI[FlakeAttempts](5), Lab
 							Expect(err).NotTo(HaveOccurred())
 							Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 						}, gmeasure.SamplingConfig{
-							N: 1000,
+							N: testutil.IfCI(200).Else(1000),
 						}, gmeasure.Precision(time.Microsecond))
 					}()
 
@@ -234,7 +235,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableInCI[FlakeAttempts](5), Lab
 							Expect(err).NotTo(HaveOccurred())
 							Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 						}, gmeasure.SamplingConfig{
-							N: 1000,
+							N: testutil.IfCI(200).Else(1000),
 						}, gmeasure.Precision(time.Microsecond))
 					}()
 

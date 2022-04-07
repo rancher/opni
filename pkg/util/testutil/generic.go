@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"os"
 	"reflect"
 
 	. "github.com/onsi/gomega"
@@ -32,5 +33,22 @@ func Must[T any](t T, err ...error) T {
 			),
 		),
 	)
+	return t
+}
+
+type ifCIExpr[T any] struct {
+	value T
+}
+
+func IfCI[T any](t T) ifCIExpr[T] {
+	return ifCIExpr[T]{
+		value: t,
+	}
+}
+
+func (e ifCIExpr[T]) Else(t T) T {
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		return e.value
+	}
 	return t
 }

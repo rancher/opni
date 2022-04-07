@@ -31,7 +31,7 @@ func bodyStr(body io.ReadCloser) string {
 	return buf.String()
 }
 
-var _ = Describe("Cluster Auth", Ordered, Label(test.Unit, test.Slow, test.TimeSensitive), func() {
+var _ = Describe("Cluster Auth", Ordered, test.EnableInCI[FlakeAttempts](5), Label(test.Unit, test.Slow, test.TimeSensitive), func() {
 	var app *fiber.App
 	var ctrl *gomock.Controller
 	BeforeAll(func() {

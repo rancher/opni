@@ -30,17 +30,25 @@ func (ls *LabelSelector) ExpressionString() string {
 		}).ExpressionString())
 	}
 	for _, expr := range ls.MatchExpressions {
+		if expr == nil {
+			continue
+		}
 		expressions = append(expressions, expr.ExpressionString())
 	}
 
-	return strings.Join(expressions, "&&")
+	return strings.Join(expressions, " && ")
 }
 
 func (lsr *LabelSelectorRequirement) ExpressionString() string {
 	if lsr == nil {
 		return ""
 	}
-	return keyWithOperatorSymbol(lsr.Key, lsr.Operator) + " [" + strings.Join(lsr.Values, ",") + "]"
+	switch lsr.Operator {
+	case string(LabelSelectorOpExists), string(LabelSelectorOpDoesNotExist):
+		return keyWithOperatorSymbol(lsr.Key, lsr.Operator)
+	default:
+		return keyWithOperatorSymbol(lsr.Key, lsr.Operator) + " {" + strings.Join(lsr.Values, ",") + "}"
+	}
 }
 
 func keyWithOperatorSymbol(key string, operator string) string {
@@ -54,7 +62,7 @@ func keyWithOperatorSymbol(key string, operator string) string {
 	case LabelSelectorOpDoesNotExist:
 		return "∄ " + key
 	default:
-		return "?"
+		return key + " ?"
 	}
 }
 

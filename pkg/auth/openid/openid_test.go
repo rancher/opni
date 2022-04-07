@@ -21,7 +21,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
 )
 
-var _ = Describe("OpenID Middleware", Ordered, Label(test.Unit, test.TimeSensitive), func() {
+var _ = Describe("OpenID Middleware", Ordered, test.EnableInCI[FlakeAttempts](5), Label(test.Unit, test.TimeSensitive), func() {
 	var app *fiber.App
 
 	Context("no server errors", func() {

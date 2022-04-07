@@ -14,7 +14,10 @@ func (c *ClusterCapability) Equal(other *ClusterCapability) bool {
 }
 
 func (r *Reference) Equal(other *Reference) bool {
-	return equalNonzeroOperator(r.GetId(), other.GetId())
+	if r == nil || other == nil {
+		return r == other
+	}
+	return equalNonzeroOperator(r.Id, other.Id)
 }
 
 func equalNonzeroFunc[T Comparator[T]](a, b T) bool {

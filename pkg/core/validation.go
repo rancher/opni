@@ -119,7 +119,7 @@ func (sar *SubjectAccessRequest) Validate() error {
 
 func (o MatchOptions) Validate() error {
 	if _, ok := MatchOptions_name[int32(o)]; !ok {
-		return validation.Error("invalid match options")
+		return fmt.Errorf("%w: MatchOptions(%d)", validation.ErrInvalidValue, o)
 	}
 	return nil
 }

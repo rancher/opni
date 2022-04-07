@@ -126,6 +126,40 @@ var _ = Describe("Keyring", Label(test.Unit), func() {
 			Expect(kr).To(BeEquivalentTo(kr2))
 		})
 	})
+	It("should merge keyrings", func() {
+		By("creating a new keyring")
+		kr := keyring.New(keyring.NewPKPKey([]*pkp.PublicKeyPin{
+			{
+				Algorithm:   "sha256",
+				Fingerprint: []byte("test"),
+			},
+		}))
+		Expect(kr).NotTo(BeNil())
+
+		By("creating a second keyring")
+		kr2 := keyring.New(keyring.NewPKPKey([]*pkp.PublicKeyPin{
+			{
+				Algorithm:   "blake2b",
+				Fingerprint: []byte("test2"),
+			},
+		}))
+		Expect(kr2).NotTo(BeNil())
+
+		By("merging the two keyrings")
+		kr3 := kr.Merge(kr2)
+		found := [2]bool{}
+		kr3.Try(func(pk *keyring.PKPKey) {
+			if string(pk.PinnedKeys[0].Algorithm) == "sha256" &&
+				string(pk.PinnedKeys[0].Fingerprint) == "test" {
+				found[0] = true
+			} else if string(pk.PinnedKeys[0].Algorithm) == "blake2b" &&
+				string(pk.PinnedKeys[0].Fingerprint) == "test2" {
+				found[1] = true
+			}
+		})
+		Expect(found[0]).To(BeTrue())
+		Expect(found[1]).To(BeTrue())
+	})
 	It("should handle errors", func() {
 		Expect(func() {
 			keyring.New("not_an_allowed_keytype")

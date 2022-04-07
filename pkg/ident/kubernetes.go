@@ -3,6 +3,7 @@ package ident
 import (
 	"context"
 
+	"github.com/rancher/opni-monitoring/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -35,11 +36,7 @@ func NewKubernetesProvider(opts ...KubernetesIdentOption) Provider {
 	options := KubernetesIdentOptions{}
 	options.Apply(opts...)
 	if options.restConfig == nil {
-		rc, err := rest.InClusterConfig()
-		if err != nil {
-			panic(err)
-		}
-		options.restConfig = rc
+		options.restConfig = util.Must(rest.InClusterConfig())
 	}
 	cs := kubernetes.NewForConfigOrDie(options.restConfig)
 	return &kubernetesProvider{
@@ -58,9 +55,7 @@ func (p *kubernetesProvider) UniqueIdentifier(ctx context.Context) (string, erro
 }
 
 func init() {
-	if err := RegisterProvider("kubernetes", func() Provider {
+	util.Must(RegisterProvider("kubernetes", func() Provider {
 		return NewKubernetesProvider()
-	}); err != nil {
-		panic(err)
-	}
+	}))
 }

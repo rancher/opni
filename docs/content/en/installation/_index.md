@@ -19,6 +19,12 @@ This guide will walk you through installing Opni Monitoring and adding clusters 
 
 - Helm version 3.8 or later
 
+- Install the `helm-diff` plugin:
+
+  ```bash
+  $ helm plugin install https://github.com/databus23/helm-diff
+  ```
+
 - Install [helmfile](https://github.com/roboll/helmfile) using your distribution's package manager or from the GitHub release page.
 
 - Clone the opni-monitoring repo:

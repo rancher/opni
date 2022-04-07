@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/storage"
@@ -30,8 +30,11 @@ type testVars struct {
 	client         management.ManagementClient
 	grpcEndpoint   string
 	httpEndpoint   string
-	storageBackend storage.Backend
 	coreDataSource management.CoreDataSource
+	storageBackend storage.Backend
+	ifaces         struct {
+		collector prometheus.Collector
+	}
 }
 
 type testCoreDataSource struct {
@@ -73,10 +76,11 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 		}
 		server := management.NewServer(ctx, conf, cds, opts...)
 		tv.coreDataSource = cds
+		tv.ifaces.collector = server
 		go func() {
 			defer GinkgoRecover()
 			if err := server.ListenAndServe(); err != nil {
-				log.Println(err)
+				test.Log.Error(err)
 			}
 		}()
 		tv.client, err = management.NewClient(ctx,

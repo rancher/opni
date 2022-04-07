@@ -19,7 +19,7 @@ import (
 )
 
 type ExamplePlugin struct {
-	UnimplementedExampleAPIExtensionServer
+	UnsafeExampleAPIExtensionServer
 	Logger hclog.Logger
 }
 

@@ -61,6 +61,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
+var Log = logger.New(logger.WithLogLevel(zap.DebugLevel)).Named("test")
+
 type servicePorts struct {
 	Etcd            int
 	Gateway         int
@@ -724,13 +726,11 @@ func (e *Environment) EtcdClient() (*clientv3.Client, error) {
 }
 
 func StartStandaloneTestEnvironment() {
-	lg := logger.New().Named("test")
 	environment := &Environment{
 		TestBin: "testbin/bin",
-		Logger:  lg,
 	}
 	addAgent := func(rw http.ResponseWriter, r *http.Request) {
-		lg.Infof("%s %s", r.Method, r.URL.Path)
+		Log.Infof("%s %s", r.Method, r.URL.Path)
 		switch r.Method {
 		case http.MethodPost:
 			body := struct {
@@ -768,34 +768,34 @@ func StartStandaloneTestEnvironment() {
 	}
 	go func() {
 		addr := fmt.Sprintf("127.0.0.1:%d", environment.ports.TestEnvironment)
-		lg.Infof(chalk.Green.Color("Test environment API listening on %s"), addr)
+		Log.Infof(chalk.Green.Color("Test environment API listening on %s"), addr)
 		if err := http.ListenAndServe(addr, nil); err != nil {
 			panic(err)
 		}
 	}()
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt)
-	lg.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
+	Log.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
 	// listen for spacebar on stdin
 	t, err := tty.Open()
 	if err == nil {
-		lg.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
+		Log.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
 		go func() {
 			for {
 				rn, err := t.ReadRune()
 				if err != nil {
-					lg.Fatal(err)
+					Log.Fatal(err)
 				}
 				if rn == ' ' {
 					if err := browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb)); err != nil {
-						lg.Error(err)
+						Log.Error(err)
 					}
 				}
 			}
 		}()
 	}
 	<-c
-	lg.Info("\nStopping test environment")
+	Log.Info("\nStopping test environment")
 	if err := environment.Stop(); err != nil {
 		panic(err)
 	}

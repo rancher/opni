@@ -16,7 +16,6 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/rancher/opni-monitoring/pkg/core"
-	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/noauth"
 	"github.com/rancher/opni-monitoring/pkg/test"
 	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
@@ -27,7 +26,7 @@ var _ = Describe("Server", Ordered, Label(test.Unit, test.Slow), func() {
 	BeforeAll(func() {
 		env := test.Environment{
 			TestBin: "../../testbin/bin",
-			Logger:  logger.New().Named("test"),
+			Logger:  test.Log,
 		}
 		Expect(env.Start()).To(Succeed())
 
@@ -58,7 +57,7 @@ var _ = Describe("Server", Ordered, Label(test.Unit, test.Slow), func() {
 			RedirectURI:           fmt.Sprintf("http://localhost:%d", ports[1]),
 			ManagementAPIEndpoint: addr,
 			Port:                  ports[0],
-			Logger:                logger.New().Named("test"),
+			Logger:                test.Log,
 		})
 		ctx, ca := context.WithCancel(waitctx.FromContext(context.Background()))
 		go func() {

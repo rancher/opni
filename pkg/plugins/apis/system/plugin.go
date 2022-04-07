@@ -52,7 +52,7 @@ func (p *systemPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) err
 }
 
 type systemPluginClientImpl struct {
-	UnimplementedSystemServer
+	UnsafeSystemServer
 	broker *plugin.GRPCBroker
 	server *grpc.Server
 	client SystemPluginClient

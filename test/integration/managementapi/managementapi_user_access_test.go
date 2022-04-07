@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni-monitoring/pkg/core"
-	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/test"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -25,7 +24,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
-			Logger:  logger.New().Named("test"),
+			Logger:  test.Log,
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()

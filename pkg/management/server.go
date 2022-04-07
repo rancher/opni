@@ -63,7 +63,7 @@ type apiExtension struct {
 }
 
 type Server struct {
-	UnimplementedManagementServer
+	UnsafeManagementServer
 	ManagementServerOptions
 	config         *v1beta1.ManagementSpec
 	logger         *zap.SugaredLogger

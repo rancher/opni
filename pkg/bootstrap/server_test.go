@@ -74,7 +74,7 @@ var _ = Describe("Server", Label(test.Unit, test.Slow), func() {
 		app = fiber.New(fiber.Config{
 			DisableStartupMessage: true,
 		})
-		lg := logger.New().Named("test")
+		lg := test.Log
 		logger.ConfigureAppLogger(app, "test")
 		capBackendStore := capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, lg)
 		for _, backend := range testCapBackends {

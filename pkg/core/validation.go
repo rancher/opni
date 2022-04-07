@@ -123,3 +123,22 @@ func (o MatchOptions) Validate() error {
 	}
 	return nil
 }
+
+func (tc *TokenCapability) Validate() error {
+	if tc.Type == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "type")
+	}
+	if ref := tc.GetReference(); ref != nil {
+		if err := ref.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cc *ClusterCapability) Validate() error {
+	if cc.Name == "" {
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "name")
+	}
+	return nil
+}

@@ -6,11 +6,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni-monitoring/pkg/capabilities"
 	"github.com/rancher/opni-monitoring/pkg/core"
-	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/test"
 )
 
-var lg = logger.New().Named("test")
+var lg = test.Log
 
 var _ = Describe("Store", Ordered, Label("unit"), func() {
 	var store capabilities.BackendStore

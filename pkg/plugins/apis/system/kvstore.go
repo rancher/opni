@@ -9,7 +9,7 @@ import (
 )
 
 type kvStoreServer struct {
-	UnimplementedKeyValueStoreServer
+	UnsafeKeyValueStoreServer
 	store storage.KeyValueStore
 }
 

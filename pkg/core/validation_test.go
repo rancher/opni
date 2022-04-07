@@ -17,7 +17,7 @@ func validateEntry[T validation.Validator](in T, expected error) {
 }
 
 var _ = Describe("Validation", func() {
-	DescribeTable("should validate Clusters", validateEntry[*core.Cluster],
+	DescribeTable("Cluster", validateEntry[*core.Cluster],
 		Entry(nil, &core.Cluster{Id: "foo"}, nil),
 		Entry(nil, &core.Cluster{}, validation.ErrMissingRequiredField),
 		Entry(nil, &core.Cluster{Id: "$"}, validation.ErrInvalidID),
@@ -28,7 +28,7 @@ var _ = Describe("Validation", func() {
 			},
 		}, validation.ErrInvalidLabelName),
 	)
-	DescribeTable("should validate LabelSelectors", validateEntry[*core.LabelSelector],
+	DescribeTable("LabelSelector", validateEntry[*core.LabelSelector],
 		Entry(nil, &core.LabelSelector{}, nil),
 		Entry(nil, &core.LabelSelector{
 			MatchLabels: map[string]string{"foo": "\\"},
@@ -40,7 +40,7 @@ var _ = Describe("Validation", func() {
 			},
 		}, validation.ErrInvalidValue),
 	)
-	DescribeTable("should validate LabelSelectorRequirements", validateEntry[*core.LabelSelectorRequirement],
+	DescribeTable("LabelSelectorRequirement", validateEntry[*core.LabelSelectorRequirement],
 		Entry(nil, &core.LabelSelectorRequirement{}, validation.ErrMissingRequiredField),
 		Entry(nil, &core.LabelSelectorRequirement{Key: "foo"}, validation.ErrMissingRequiredField),
 		Entry(nil, &core.LabelSelectorRequirement{
@@ -62,7 +62,7 @@ var _ = Describe("Validation", func() {
 			Values:   []string{"bar"},
 		}, nil),
 	)
-	DescribeTable("should validate Roles", validateEntry[*core.Role],
+	DescribeTable("Role", validateEntry[*core.Role],
 		Entry(nil, &core.Role{}, validation.ErrMissingRequiredField),
 		Entry(nil, &core.Role{Id: "\\"}, validation.ErrInvalidID),
 		Entry(nil, &core.Role{
@@ -88,7 +88,7 @@ var _ = Describe("Validation", func() {
 			},
 		}, nil),
 	)
-	DescribeTable("should validate RoleBindings", validateEntry[*core.RoleBinding],
+	DescribeTable("RoleBinding", validateEntry[*core.RoleBinding],
 		Entry(nil, &core.RoleBinding{}, validation.ErrMissingRequiredField),
 		Entry(nil, &core.RoleBinding{Id: "foo"}, validation.ErrMissingRequiredField),
 		Entry(nil, &core.RoleBinding{Id: "\\", RoleId: "foo"}, validation.ErrInvalidID),
@@ -104,20 +104,32 @@ var _ = Describe("Validation", func() {
 			Subjects: []string{"bar"},
 		}, nil),
 	)
-	DescribeTable("should validate References", validateEntry[*core.Reference],
+	DescribeTable("Reference", validateEntry[*core.Reference],
 		Entry(nil, &core.Reference{}, validation.ErrMissingRequiredField),
 		Entry(nil, &core.Reference{Id: "\\"}, validation.ErrInvalidID),
 		Entry(nil, &core.Reference{Id: "foo"}, nil),
 	)
-	DescribeTable("should validate SubjectAccessRequests", validateEntry[*core.SubjectAccessRequest],
+	DescribeTable("SubjectAccessRequest", validateEntry[*core.SubjectAccessRequest],
 		Entry(nil, &core.SubjectAccessRequest{}, validation.ErrMissingRequiredField),
 		Entry(nil, &core.SubjectAccessRequest{Subject: "\\"}, validation.ErrInvalidSubjectName),
 		Entry(nil, &core.SubjectAccessRequest{Subject: "foo"}, nil),
 	)
-	DescribeTable("should validate MatchOptions", validateEntry[core.MatchOptions],
+	DescribeTable("MatchOptions", validateEntry[core.MatchOptions],
 		Entry(nil, core.MatchOptions_Default, nil),
 		Entry(nil, core.MatchOptions_EmptySelectorMatchesNone, nil),
 		Entry(nil, core.MatchOptions(100), validation.ErrInvalidValue),
 		Entry(nil, core.MatchOptions(-1), validation.ErrInvalidValue),
+	)
+	DescribeTable("TokenCapability", validateEntry[*core.TokenCapability],
+		Entry(nil, &core.TokenCapability{}, validation.ErrMissingRequiredField),
+		Entry(nil, &core.TokenCapability{Type: "foo"}, nil),
+		Entry(nil, &core.TokenCapability{
+			Type:      "foo",
+			Reference: &core.Reference{Id: "\\"},
+		}, validation.ErrInvalidID),
+		Entry(nil, &core.TokenCapability{
+			Type:      "foo",
+			Reference: &core.Reference{Id: "foo"},
+		}, nil),
 	)
 })

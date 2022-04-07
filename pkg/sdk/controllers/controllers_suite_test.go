@@ -7,7 +7,6 @@ import (
 	"github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/sdk/controllers"
 	"github.com/rancher/opni-monitoring/pkg/test"
 	"github.com/rancher/opni-monitoring/pkg/util/testutil"
@@ -41,7 +40,7 @@ var (
 var _ = BeforeSuite(func() {
 	testEnv = &test.Environment{
 		TestBin:           "../../../testbin/bin",
-		Logger:            logger.New().Named("test"),
+		Logger:            test.Log,
 		CRDDirectoryPaths: []string{"../crd"},
 	}
 	restConfig = testutil.Must(testEnv.StartK8s())

@@ -2,19 +2,25 @@ package management
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/rancher/opni-monitoring/pkg/validation"
 )
 
 func (r *CreateBootstrapTokenRequest) Validate() error {
 	if err := r.GetTtl().CheckValid(); err != nil {
-		return validation.Error(err.Error())
+		return fmt.Errorf("%w (ttl): %s", validation.ErrInvalidValue, err.Error())
 	}
 	if r.GetTtl().AsDuration() <= 0 {
-		return validation.Error("ttl cannot be negative or zero")
+		return fmt.Errorf("%w: %s", validation.ErrInvalidValue, "ttl cannot be negative or zero")
 	}
 	if err := validation.ValidateLabels(r.GetLabels()); err != nil {
 		return err
+	}
+	for _, cap := range r.GetCapabilities() {
+		if err := validation.Validate(cap); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -33,7 +39,7 @@ func (r *ListClustersRequest) Validate() error {
 
 func (r *EditClusterRequest) Validate() error {
 	if r.Cluster == nil {
-		return validation.Errorf("%w: %s", validation.ErrMissingRequiredField, "cluster")
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "cluster")
 	}
 	if err := validation.Validate(r.Cluster); err != nil {
 		return err
@@ -55,11 +61,11 @@ func (r *WatchClustersRequest) Validate() error {
 
 func (r *UpdateConfigRequest) Validate() error {
 	if len(r.Documents) == 0 {
-		return validation.Error("no config documents provided")
+		return fmt.Errorf("%w: %s", validation.ErrMissingRequiredField, "documents")
 	}
 	for i, doc := range r.Documents {
 		if ok := json.Valid(doc.Json); !ok {
-			return validation.Errorf("malformed json in document %d", i)
+			return fmt.Errorf("%w: malformed json in document %d", validation.ErrInvalidValue, i)
 		}
 	}
 	return nil

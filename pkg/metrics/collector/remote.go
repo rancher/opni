@@ -74,7 +74,7 @@ type CollectorServer interface {
 }
 
 type remoteCollectorServer struct {
-	UnimplementedRemoteCollectorServer
+	UnsafeRemoteCollectorServer
 
 	collectors []prometheus.Collector
 	lock       sync.RWMutex

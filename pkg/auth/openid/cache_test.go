@@ -11,13 +11,12 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/rancher/opni-monitoring/pkg/auth/openid"
-	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/test"
 )
 
 var _ = Describe("User Info Cache", Ordered, Label(test.Unit), func() {
 	var cache *openid.UserInfoCache
-	lg := logger.New().Named("test")
+	lg := test.Log
 	var addr string
 	requestCount := atomic.NewInt32(0)
 	userMap := map[string]string{} // token: sub

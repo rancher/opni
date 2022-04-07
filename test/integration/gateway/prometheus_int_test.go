@@ -14,7 +14,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/rancher/opni-monitoring/pkg/core"
-	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/test"
@@ -39,7 +38,7 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label(test
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
-			Logger:  logger.New().Named("test"),
+			Logger:  test.Log,
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()

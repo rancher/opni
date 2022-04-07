@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/rancher/opni-monitoring/pkg/capabilities"
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/management"
 	"github.com/rancher/opni-monitoring/pkg/test"
@@ -15,9 +16,24 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type testCapabilityDataSource struct {
+	store capabilities.BackendStore
+}
+
+func (t testCapabilityDataSource) CapabilitiesStore() capabilities.BackendStore {
+	return t.store
+}
+
 var _ = Describe("Server", Ordered, Label(test.Unit, test.Slow), func() {
 	var tv *testVars
-	BeforeAll(setupManagementServer(&tv))
+	var capBackendStore capabilities.BackendStore
+	BeforeAll(func() {
+		capBackendStore = capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, test.Log)
+
+		setupManagementServer(&tv, management.WithCapabilitiesDataSource(testCapabilityDataSource{
+			store: capBackendStore,
+		}))()
+	})
 	It("should return valid cert info", func() {
 		info, err := tv.client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
@@ -44,5 +60,49 @@ var _ = Describe("Server", Ordered, Label(test.Unit, test.Slow), func() {
 		By("checking that invalid config fields cause errors")
 		conf.GRPCListenAddress = "foo://bar"
 		Expect(server.ListenAndServe()).To(MatchError(util.ErrUnsupportedProtocolScheme))
+	})
+	It("should allow querying capabilities from the data source", func() {
+		list, err := tv.client.ListCapabilities(context.Background(), &emptypb.Empty{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list.Items).To(BeEmpty())
+
+		backend1 := test.NewTestCapabilityBackend(tv.ctrl, &test.CapabilityInfo{
+			Name:              "capability1",
+			CanInstall:        true,
+			InstallerTemplate: "foo",
+		})
+		backend2 := test.NewTestCapabilityBackend(tv.ctrl, &test.CapabilityInfo{
+			Name:              "capability2",
+			CanInstall:        true,
+			InstallerTemplate: "bar",
+		})
+		capBackendStore.Add("capability1", backend1)
+		capBackendStore.Add("capability2", backend2)
+
+		list, err = tv.client.ListCapabilities(context.Background(), &emptypb.Empty{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list.Items).To(HaveLen(2))
+		found := [2]bool{}
+		for _, cap := range list.Items {
+			switch cap {
+			case "capability1":
+				found[0] = true
+			case "capability2":
+				found[1] = true
+			default:
+				Fail("unexpected capability name")
+			}
+		}
+
+		cmd, err := tv.client.CapabilityInstaller(context.Background(), &management.CapabilityInstallerRequest{
+			Name: "capability1",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cmd.Command).To(Equal("foo"))
+
+		cmd, err = tv.client.CapabilityInstaller(context.Background(), &management.CapabilityInstallerRequest{
+			Name: "capability2",
+		})
+		Expect(err).NotTo(HaveOccurred())
 	})
 })

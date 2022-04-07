@@ -28,7 +28,6 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/ecdh"
 	"github.com/rancher/opni-monitoring/pkg/ident"
-	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/test"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
@@ -118,7 +117,7 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 			}
 			env := test.Environment{
 				TestBin: "../../testbin/bin",
-				Logger:  logger.New().Named("test"),
+				Logger:  test.Log,
 			}
 			k8sConfig, err := env.StartK8s()
 			Expect(err).NotTo(HaveOccurred())

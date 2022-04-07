@@ -7,6 +7,8 @@ import (
 	core "github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/plugins"
 	"google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -55,7 +57,7 @@ func (p *capabilityBackendPlugin) GRPCClient(
 }
 
 type backendServerImpl struct {
-	UnimplementedBackendServer
+	UnsafeBackendServer
 
 	capabilityName string
 	impl           Backend
@@ -90,6 +92,13 @@ func (b *backendServerImpl) Install(
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (b *backendServerImpl) Uninstall(
+	ctx context.Context,
+	in *emptypb.Empty,
+) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Uninstall not implemented")
 }
 
 func (b *backendServerImpl) InstallerTemplate(

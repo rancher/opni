@@ -20,7 +20,6 @@ import (
 
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
-	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/storage/secrets"
 	"github.com/rancher/opni-monitoring/pkg/test"
@@ -45,7 +44,7 @@ var _ = PDescribe("Secret", Ordered, func() {
 		}
 		env := &test.Environment{
 			TestBin: "../../../testbin/bin",
-			Logger:  logger.New().Named("test"),
+			Logger:  test.Log,
 		}
 		var err error
 		cfg, err = env.StartK8s()

@@ -57,6 +57,16 @@ var _ = Describe("Tokens", Ordered, Label(test.Unit, test.Slow), func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(tokens.Items).To(HaveLen(100))
 	})
+	It("should get bootstrap tokens", func() {
+		tokens, err := tv.client.ListBootstrapTokens(context.Background(), &emptypb.Empty{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tokens.Items).To(HaveLen(100))
+		for _, token := range tokens.Items {
+			token2, err := tv.client.GetBootstrapToken(context.Background(), token.Reference())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(token.TokenID).To(Equal(token2.TokenID))
+		}
+	})
 	It("should revoke bootstrap tokens", func() {
 		tokens, err := tv.client.ListBootstrapTokens(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())

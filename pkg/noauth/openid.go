@@ -305,20 +305,6 @@ func (s *Server) handleRevokeRequest(rw http.ResponseWriter, req *http.Request) 
 	s.noauthProvider.WriteRevocationResponse(rw, err)
 }
 
-func (s *Server) handleIntrospectionRequest(rw http.ResponseWriter, req *http.Request) {
-	lg := s.Logger
-	session := newSession(&s.ServerConfig, "")
-	ir, err := s.noauthProvider.NewIntrospectionRequest(req.Context(), req, session)
-	if err != nil {
-		lg.With(
-			zap.Error(err),
-		).Error("introspection request failed")
-		s.noauthProvider.WriteIntrospectionError(rw, err)
-		return
-	}
-	s.noauthProvider.WriteIntrospectionResponse(rw, ir)
-}
-
 func (s *Server) handleUserInfoRequest(rw http.ResponseWriter, req *http.Request) {
 	lg := s.Logger.With(
 		"remote_addr", req.RemoteAddr,

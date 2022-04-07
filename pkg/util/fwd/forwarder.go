@@ -58,7 +58,7 @@ func To(addr string, opts ...ForwarderOption) func(*fiber.Ctx) error {
 	options.Apply(opts...)
 
 	if options.name != "" {
-		defaultLogger = defaultLogger.Named(options.name)
+		options.logger = options.logger.Named(options.name)
 	}
 
 	hostClient := &fasthttp.HostClient{

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/management"
@@ -92,13 +91,6 @@ func BuildDebugReloadCmd() *cobra.Command {
 	}
 	return debugReloadCmd
 }
-
-const (
-	defaultDialTimeout      = 2 * time.Second
-	defaultCommandTimeOut   = 5 * time.Second
-	defaultKeepAliveTime    = 2 * time.Second
-	defaultKeepAliveTimeOut = 6 * time.Second
-)
 
 func BuildDebugEtcdctlCmd() *cobra.Command {
 	debugEtcdctlCmd := &cobra.Command{

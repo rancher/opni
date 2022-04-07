@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/rancher/opni-monitoring/pkg/logger"
 )
 
 type Middleware interface {
@@ -41,8 +40,6 @@ var (
 	ErrMiddlewareAlreadyExists = errors.New("auth middleware already exists")
 	ErrNilMiddleware           = errors.New("auth middleware is nil")
 	ErrMiddlewareNotFound      = errors.New("auth middleware not found")
-
-	authLogger = logger.New().Named("auth")
 )
 
 func RegisterMiddleware(name string, m Middleware) error {

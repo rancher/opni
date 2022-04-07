@@ -9,9 +9,6 @@ run:
     - magefile.go
     - tools.go
 linters:
-  presets:
-    - bugs
-    - performance
   disable:
     - errcheck
     - noctx

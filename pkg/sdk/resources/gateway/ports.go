@@ -19,7 +19,7 @@ func (r *Reconciler) optionalContainerPorts() ([]corev1.ContainerPort, error) {
 		if len(parts) != 3 {
 			return nil, fmt.Errorf("invalid GRPC listen address %q", addr)
 		}
-		portNum, err := strconv.Atoi(parts[2])
+		portNum, err := strconv.ParseInt(parts[2], 10, 32)
 		if err != nil {
 			return nil, fmt.Errorf("invalid GRPC listen address %q", addr)
 		}
@@ -34,7 +34,7 @@ func (r *Reconciler) optionalContainerPorts() ([]corev1.ContainerPort, error) {
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid HTTP listen address %q", addr)
 		}
-		portNum, err := strconv.Atoi(parts[1])
+		portNum, err := strconv.ParseInt(parts[1], 10, 32)
 		if err != nil {
 			return nil, fmt.Errorf("invalid HTTP listen address %q", addr)
 		}
@@ -49,7 +49,7 @@ func (r *Reconciler) optionalContainerPorts() ([]corev1.ContainerPort, error) {
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid Web listen address %q", addr)
 		}
-		portNum, err := strconv.Atoi(parts[1])
+		portNum, err := strconv.ParseInt(parts[1], 10, 32)
 		if err != nil {
 			return nil, fmt.Errorf("invalid Web listen address %q", addr)
 		}
@@ -83,7 +83,7 @@ func (r *Reconciler) optionalServicePorts() ([]corev1.ServicePort, error) {
 	if err != nil {
 		return nil, err
 	}
-	var svcPorts []corev1.ServicePort
+	svcPorts := make([]corev1.ServicePort, 0, len(ports))
 	for _, port := range ports {
 		svcPorts = append(svcPorts, corev1.ServicePort{
 			Name:       port.Name,

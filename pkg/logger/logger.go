@@ -41,7 +41,6 @@ var (
 		zapcore.PanicLevel:  chalk.Red,
 		zapcore.FatalLevel:  chalk.Red,
 	}
-	unknownLevelColor = chalk.Red
 
 	levelToColorString = make(map[zapcore.Level]string, len(levelToColor))
 )

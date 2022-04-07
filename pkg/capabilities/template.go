@@ -128,7 +128,7 @@ func Arg(kind ArgKind, args ...string) (string, error) {
 	}
 	argJson, err := json.Marshal(argSpec)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal arg spec: %v", err)
+		return "", fmt.Errorf("failed to marshal arg spec: %w", err)
 	}
 	return fmt.Sprintf("%%%s%%", argJson), nil
 }

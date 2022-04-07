@@ -207,7 +207,7 @@ func (h ServerConfig) handleCreate(
 	kr keyring.Keyring,
 ) error {
 	if err := h.ClusterStore.CreateCluster(context.Background(), newCluster); err != nil {
-		return fmt.Errorf("error creating cluster: %v", err)
+		return fmt.Errorf("error creating cluster: %w", err)
 	}
 	_, err := h.TokenStore.UpdateToken(context.Background(), token.Reference(),
 		storage.NewCompositeMutator(
@@ -219,14 +219,14 @@ func (h ServerConfig) handleCreate(
 		),
 	)
 	if err != nil {
-		return fmt.Errorf("error incrementing usage count: %v", err)
+		return fmt.Errorf("error incrementing usage count: %w", err)
 	}
 	krStore, err := h.KeyringStoreBroker.KeyringStore(context.Background(), "gateway", newCluster.Reference())
 	if err != nil {
-		return fmt.Errorf("error getting keyring store: %v", err)
+		return fmt.Errorf("error getting keyring store: %w", err)
 	}
 	if err := krStore.Put(context.Background(), kr); err != nil {
-		return fmt.Errorf("error storing keyring: %v", err)
+		return fmt.Errorf("error storing keyring: %w", err)
 	}
 	h.CapabilityInstaller.InstallCapabilities(newCluster.Reference(), newCapability)
 	return nil
@@ -241,7 +241,7 @@ func (h ServerConfig) handleEdit(
 	_, err := h.TokenStore.UpdateToken(context.Background(), token.Reference(),
 		storage.NewIncrementUsageCountMutator())
 	if err != nil {
-		return fmt.Errorf("error incrementing usage count: %v", err)
+		return fmt.Errorf("error incrementing usage count: %w", err)
 	}
 	_, err = h.ClusterStore.UpdateCluster(context.Background(), existingCluster,
 		storage.NewAddCapabilityMutator[*core.Cluster](capabilities.Cluster(newCapability)),
@@ -251,14 +251,14 @@ func (h ServerConfig) handleEdit(
 	}
 	krStore, err := h.KeyringStoreBroker.KeyringStore(context.Background(), "gateway", existingCluster)
 	if err != nil {
-		return fmt.Errorf("error getting keyring store: %v", err)
+		return fmt.Errorf("error getting keyring store: %w", err)
 	}
 	kr, err := krStore.Get(context.Background())
 	if err != nil {
-		return fmt.Errorf("error getting existing keyring: %v", err)
+		return fmt.Errorf("error getting existing keyring: %w", err)
 	}
 	if err := krStore.Put(context.Background(), keyring.Merge(kr)); err != nil {
-		return fmt.Errorf("error storing keyring: %v", err)
+		return fmt.Errorf("error storing keyring: %w", err)
 	}
 	h.CapabilityInstaller.InstallCapabilities(existingCluster, newCapability)
 	return nil

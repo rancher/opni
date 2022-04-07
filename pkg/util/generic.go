@@ -53,7 +53,7 @@ func DecodeStruct[T any](input interface{}) (*T, error) {
 }
 
 func DeepCopyInto[T any](out, in *T) {
-	json.Unmarshal(Must(json.Marshal(in)), out)
+	Must(json.Unmarshal(Must(json.Marshal(in)), out))
 }
 
 func DeepCopy[T any](in *T) *T {

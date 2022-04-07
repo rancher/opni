@@ -33,7 +33,7 @@ var _ auth.Middleware = (*ClusterMiddleware)(nil)
 func New(keyringStore storage.KeyringStoreBroker, headerKey string) (*ClusterMiddleware, error) {
 	fakeKeyringStore, err := initFakeKeyring(keyringStore)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set up keyring store: %v", err)
+		return nil, fmt.Errorf("failed to set up keyring store: %w", err)
 	}
 
 	return &ClusterMiddleware{

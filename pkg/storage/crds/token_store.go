@@ -82,9 +82,9 @@ func (c *CRDStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, erro
 	}
 	tokens := make([]*core.BootstrapToken, len(list.Items))
 	for i, item := range list.Items {
-		patchTTL(&item)
+		patchTTL(&list.Items[i])
 		if item.Spec.Metadata.Ttl <= 0 {
-			go c.garbageCollectToken(&item)
+			go c.garbageCollectToken(&list.Items[i])
 			continue
 		}
 		tokens[i] = item.Spec

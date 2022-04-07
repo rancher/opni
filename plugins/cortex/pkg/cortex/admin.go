@@ -27,12 +27,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type fakeClusterIDGetter struct{}
-
-func (f fakeClusterIDGetter) GetClusterID() string {
-	return "1"
-}
-
 // this is 'github.com/cortexproject/cortex/pkg/distributor.UserIDStats'
 // but importing it causes impossible dependency errors
 type CortexUserIDStats struct {
@@ -53,7 +47,7 @@ func (p *Plugin) AllUserStats(ctx context.Context, _ *emptypb.Empty) (*cortexadm
 	req.Header.Set("Accept", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster stats: %v", err)
+		return nil, fmt.Errorf("failed to get cluster stats: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -61,7 +55,7 @@ func (p *Plugin) AllUserStats(ctx context.Context, _ *emptypb.Empty) (*cortexadm
 	}
 	var stats []CortexUserIDStats
 	if err = json.NewDecoder(resp.Body).Decode(&stats); err != nil {
-		return nil, fmt.Errorf("failed to decode user stats: %v", err)
+		return nil, fmt.Errorf("failed to decode user stats: %w", err)
 	}
 	statsList := &cortexadmin.UserIDStatsList{
 		Items: make([]*cortexadmin.UserIDStats, len(stats)),

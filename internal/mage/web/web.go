@@ -153,8 +153,7 @@ func numFilesRecursive(dir string) int64 {
 
 func getOpniUiVersion() (string, error) {
 	fmt.Print(chalk.Blue.Color("=>") + " Fetching latest UI Version... ")
-	url := fmt.Sprintf("https://api.github.com/repos/%s/git/refs/heads/%s", uiRepo, uiRepoBranch)
-	response, err := http.Get(url)
+	response, err := http.Get(fmt.Sprintf("https://api.github.com/repos/%s/git/refs/heads/%s", uiRepo, uiRepoBranch))
 	if err != nil {
 		fmt.Println(chalk.Red.Color("error"))
 		return "", err
@@ -318,6 +317,9 @@ func compressAssets() error {
 		}()
 	}
 	if err := filepath.WalkDir("web/dist/_nuxt", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		// skip dirs
 		if d.IsDir() {
 			return nil

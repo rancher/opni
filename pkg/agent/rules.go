@@ -70,7 +70,7 @@ func (a *Agent) streamRuleGroupUpdates(ctx context.Context) (<-chan [][]byte, er
 }
 
 func (a *Agent) marshalRuleGroups(ruleGroups []rulefmt.RuleGroup) [][]byte {
-	var yamlDocs [][]byte
+	yamlDocs := make([][]byte, 0, len(ruleGroups))
 	for _, ruleGroup := range ruleGroups {
 		doc, err := yaml.Marshal(ruleGroup)
 		if err != nil {
@@ -112,9 +112,9 @@ func (a *Agent) streamRulesToGateway(ctx context.Context) error {
 					reqCtx, ca := context.WithTimeout(ctx, time.Second*2)
 					defer ca()
 					code, _, err := a.gatewayClient.Post(reqCtx, "/api/agent/sync_rules").
-						Header("Content-Type", "application/yaml").
+						Set("Content-Type", "application/yaml").
 						Body(doc).
-						Send()
+						Do()
 					if err != nil || code != http.StatusAccepted {
 						// retry, unless another update is received from the channel
 						lg.With(

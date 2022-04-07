@@ -15,12 +15,16 @@ import (
 
 type RequestBuilder interface {
 	// Sets a request header
-	Header(key, value string) RequestBuilder
+	Set(key, value string) RequestBuilder
 	// Sets the request body
 	Body(body []byte) RequestBuilder
-
 	// Sends the request
+	Do() (code int, body []byte, err error)
+
+	// Deprecated: use Do() instead
 	Send() (code int, body []byte, err error)
+	// Deprecated: use Set() instead
+	Header(key, value string) RequestBuilder
 }
 
 type GatewayHTTPClient interface {
@@ -157,7 +161,7 @@ func (rb *requestBuilder) Body(body []byte) RequestBuilder {
 }
 
 // Sends the request
-func (rb *requestBuilder) Send() (code int, body []byte, err error) {
+func (rb *requestBuilder) Do() (code int, body []byte, err error) {
 	nonce, mac, err := b2mac.New512([]byte(rb.gatewayClient.id),
 		rb.req.Request().Body(), rb.gatewayClient.sharedKeys.ClientKey)
 	if err != nil {
@@ -178,4 +182,14 @@ func (rb *requestBuilder) Send() (code int, body []byte, err error) {
 		return 0, nil, errors.Combine(errs...)
 	}
 	return code, body, nil
+}
+
+// Deprecated: use Do() instead
+func (rb *requestBuilder) Send() (code int, body []byte, err error) {
+	return rb.Do()
+}
+
+// Deprecated: use Do() instead
+func (rb *requestBuilder) Set(key string, value string) RequestBuilder {
+	return rb.Header(key, value)
 }

@@ -106,6 +106,8 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		agent.keyringStore = util.Must(secStore.KeyringStore(ctx, "agent", &core.Reference{
 			Id: id,
 		}))
+	case v1beta1.StorageTypeCRDs:
+		return nil, errors.New("unsupported storage type in agent mode")
 	default:
 		return nil, errors.New("unknown storage type")
 	}
@@ -140,11 +142,11 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
 	code, body, err := a.gatewayClient.Post(context.Background(), "/api/agent/push").
 		Body(c.Body()).
-		Header(fiber.HeaderContentType, c.Get(fiber.HeaderContentType)).
-		Header(fiber.HeaderContentLength, c.Get(fiber.HeaderContentLength)).
-		Header(fiber.HeaderContentEncoding, c.Get(fiber.HeaderContentEncoding)).
-		Header("X-Prometheus-Remote-Write-Version", c.Get("X-Prometheus-Remote-Write-Version")).
-		Send()
+		Set(fiber.HeaderContentType, c.Get(fiber.HeaderContentType)).
+		Set(fiber.HeaderContentLength, c.Get(fiber.HeaderContentLength)).
+		Set(fiber.HeaderContentEncoding, c.Get(fiber.HeaderContentEncoding)).
+		Set("X-Prometheus-Remote-Write-Version", c.Get("X-Prometheus-Remote-Write-Version")).
+		Do()
 	if err != nil {
 		a.logger.Error(err)
 		return err

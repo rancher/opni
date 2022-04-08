@@ -11,6 +11,23 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+//   Prometheus Desc Clone Memory Model
+//
+//                            Clone
+//                     ┌─────────────────┐
+//                     │ state           │
+//   Prometheus Desc   │ sizeCache       │
+// ┌─────────────────┐ │ unknownFields   │
+// │          fqName │ │ FQName          │
+// │            help │ │ Help            │
+// │ constLabelPairs │ │ ConstLabelPairs │
+// │  variableLabels │ │ VariableLabels  │
+// │              id │ │ ID              │
+// │         dimHash │ │ DimHash         │
+// │             err │ │ padding         │
+// └─────────────────┘ └─────────────────┘
+//
+
 var (
 	contentOffset uintptr
 	contentSize   uintptr
@@ -22,9 +39,6 @@ func init() {
 	msg := "the definition of prometheus.Desc has changed; update pkg/metrics/desc"
 	protoType := reflect.TypeOf(Desc{})
 	promType := reflect.TypeOf(prometheus.Desc{})
-	if protoType.Align() != promType.Align() {
-		panic(msg)
-	}
 
 	// Find the offset of the first exported field in the proto message.
 	firstExportedFieldIndex := -1
@@ -39,19 +53,16 @@ func init() {
 			})
 		}
 	}
-
+	// Make sure the alignments match
+	wrongAlign := protoType.Align() != promType.Align()
 	// make sure the content sizes match
-	if contentSize != promType.Size() {
-		panic(msg)
-	}
-
+	wrongContentSize := contentSize != promType.Size()
 	// prometheus.Desc has an error field at the end which we ignore
-	if promType.Field(promType.NumField()-1).Type != reflect.TypeOf((*error)(nil)).Elem() {
-		panic(msg)
-	}
-
+	missingErr := promType.Field(promType.NumField()-1).Type != reflect.TypeOf((*error)(nil)).Elem()
 	// +1 to account for the two 8-byte padding fields to match error (16 bytes)
-	if protoType.NumField()-firstExportedFieldIndex != promType.NumField()+1 {
+	wrongFieldCount := protoType.NumField()-firstExportedFieldIndex != promType.NumField()+1
+
+	if wrongAlign || wrongContentSize || missingErr || wrongFieldCount {
 		panic(msg)
 	}
 	for i := 0; i < promType.NumField()-1; i++ {

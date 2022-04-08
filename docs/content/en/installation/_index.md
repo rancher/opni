@@ -9,36 +9,41 @@ This guide will walk you through installing Opni Monitoring and adding clusters 
 ## Prerequisites
 
 ### Infrastructure
-- One **main** cluster where the Opni Monitoring control-plane components will be installed.
-  - The main cluster must be accessible to all downstream clusters from a persistent DNS name. For a demo or testing installation, you can use [sslip.io](https://sslip.io) if you do not have a domain name available.
+- One **main** cluster where the Opni Monitoring control-plane components will be installed. The main cluster must be accessible to all downstream clusters.
+  
 - One or more **downstream** clusters which will be configured to send metrics to the **main** cluster
+
+- A domain name or subdomain at which to host the Opni Gateway public API. For a demo or testing installation, you can use [sslip.io](https://sslip.io). In the rest of this guide, the domain name will be referred to as `<gateway_address>`.
 
 - All clusters must have a default storage class available.
 
 ### Dependencies
 
-- Helm version 3.8 or later
+- [helm](https://helm.sh) version **3.8** or later
 
-- Install the `helm-diff` plugin:
+- [helm-diff](https://github.com/databus23/helm-diff) plugin, which can be installed with the following command:
 
   ```bash
   $ helm plugin install https://github.com/databus23/helm-diff
   ```
 
-- Install [helmfile](https://github.com/roboll/helmfile) using your distribution's package manager or from the GitHub release page.
+- [helmfile](https://github.com/roboll/helmfile), which can be installed using your distribution's package manager or from the GitHub release page.
 
-- Clone the opni-monitoring repo:
+
+## Setting up the main cluster
+
+First, clone the opni-monitoring repo:
 
   ```bash
   $ git clone https://github.com/rancher/opni-monitoring
   ```
 
-## Setting up the main cluster
-
-### DNS Configuration
-
-1. Identify the public DNS name of your main cluster or load balancer. This will be referenced in the following sections as `<gateway_address>`. 
-2. Configure `A` records such that `<gateway_address>` and `grafana.<gateway_address>` both route to the IP address of your main cluster's load balancer (skip this step if you are using [sslip.io](https://sslip.io) or a similar service).
+Ensure you are running helm version 3.8 or later:
+ 
+  ```bash
+  $ helm version
+  version.BuildInfo{Version:"v3.8.1", GitCommit:"5cb9af4b1b271d11d7a97a71df3ac337dd94ad37", GitTreeState:"clean", GoVersion:"go1.17.8"}
+  ```
 
 ### Chart configuration
 
@@ -46,8 +51,8 @@ Inside the opni-monitoring repo, there are a few template yaml files in `deploy/
 
 ##### 1. Authentication
 
-* For a demo or testing installation, follow the instructions in the [Demo Auth](../authentication/noauth.md) section.
-* For a production installation, follow the instructions in the [OpenID Connect](../authentication/oidc.md) section.
+* For a demo or testing installation, follow the instructions in the [Demo Auth](../authentication/noauth) section.
+* For a production installation, follow the instructions in the [OpenID Connect](../authentication/oidc) section.
 
 ##### 2. Cortex
 
@@ -62,6 +67,11 @@ Inside the opni-monitoring repo, change directories to `deploy/`.
 1. Ensure your current kubeconfig points to the main cluster.
 2. Run `helmfile apply`
 3. Wait for all resources to become ready. This may take a few minutes.
+
+### DNS Configuration
+
+1. Identify the external IP of the `opni-monitoring` load balancer. 
+2. Configure `A` records such that `<gateway_address>` and `grafana.<gateway_address>` both resolve to the IP address of the load balancer (skip this step if you are using [sslip.io](https://sslip.io) or a similar service).
 
 
 ### Accessing the dashboard

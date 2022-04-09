@@ -14,13 +14,13 @@ import (
 )
 
 func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *core.Cluster) error {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
-	defer ca()
 	data, err := protojson.Marshal(cluster)
 	if err != nil {
 		return fmt.Errorf("failed to marshal cluster: %w", err)
 	}
-	_, err = e.client.Put(ctx, path.Join(e.prefix, clusterKey, cluster.Id), string(data))
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
+	defer ca()
+	_, err = e.Client.Put(ctx, path.Join(e.Prefix, clusterKey, cluster.Id), string(data))
 	if err != nil {
 		return fmt.Errorf("failed to create cluster: %w", err)
 	}
@@ -28,9 +28,9 @@ func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *core.Cluster) er
 }
 
 func (e *EtcdStore) DeleteCluster(ctx context.Context, ref *core.Reference) error {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Delete(ctx, path.Join(e.prefix, clusterKey, ref.Id))
+	resp, err := e.Client.Delete(ctx, path.Join(e.Prefix, clusterKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete cluster: %w", err)
 	}
@@ -40,24 +40,14 @@ func (e *EtcdStore) DeleteCluster(ctx context.Context, ref *core.Reference) erro
 	return nil
 }
 
-func (e *EtcdStore) ClusterExists(ctx context.Context, ref *core.Reference) (bool, error) {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
-	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.prefix, clusterKey, ref.Id))
-	if err != nil {
-		return false, fmt.Errorf("failed to get cluster: %w", err)
-	}
-	return len(resp.Kvs) > 0, nil
-}
-
 func (e *EtcdStore) ListClusters(
 	ctx context.Context,
 	matchLabels *core.LabelSelector,
 	matchOptions core.MatchOptions,
 ) (*core.ClusterList, error) {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.prefix, clusterKey),
+	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, clusterKey),
 		clientv3.WithPrefix(),
 		clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend))
 	if err != nil {
@@ -84,14 +74,16 @@ func (e *EtcdStore) ListClusters(
 }
 
 func (e *EtcdStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error) {
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
+	defer ca()
 	c, _, err := e.getCluster(ctx, ref)
 	return c, err
 }
 
 func (e *EtcdStore) getCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, int64, error) {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.prefix, clusterKey, ref.Id))
+	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, clusterKey, ref.Id))
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get cluster: %w", err)
 	}
@@ -112,10 +104,10 @@ func (e *EtcdStore) UpdateCluster(
 ) (*core.Cluster, error) {
 	var retCluster *core.Cluster
 	err := retry.OnError(defaultBackoff, isRetryErr, func() error {
-		ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+		ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 		defer ca()
-		txn := e.client.Txn(ctx)
-		key := path.Join(e.prefix, clusterKey, ref.Id)
+		txn := e.Client.Txn(ctx)
+		key := path.Join(e.Prefix, clusterKey, ref.Id)
 		cluster, version, err := e.getCluster(ctx, ref)
 		if err != nil {
 			return fmt.Errorf("failed to get cluster: %w", err)
@@ -129,7 +121,7 @@ func (e *EtcdStore) UpdateCluster(
 			Then(clientv3.OpPut(key, string(data))).
 			Commit()
 		if err != nil {
-			e.logger.With(
+			e.Logger.With(
 				zap.Error(err),
 			).Error("error updating cluster")
 			return err

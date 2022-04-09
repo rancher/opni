@@ -43,12 +43,19 @@ func (c *CRDStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...s
 }
 
 func (c *CRDStore) DeleteToken(ctx context.Context, ref *core.Reference) error {
-	return c.client.Delete(ctx, &v1beta1.BootstrapToken{
+	err := c.client.Delete(ctx, &v1beta1.BootstrapToken{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
 			Namespace: c.namespace,
 		},
 	})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return storage.ErrNotFound
+		}
+		return err
+	}
+	return nil
 }
 
 func (c *CRDStore) GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
@@ -94,19 +101,18 @@ func (c *CRDStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, erro
 
 func (c *CRDStore) UpdateToken(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.BootstrapToken]) (*core.BootstrapToken, error) {
 	var token *core.BootstrapToken
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		token := &v1beta1.BootstrapToken{}
+	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
+		existing := &v1beta1.BootstrapToken{}
 		err := c.client.Get(ctx, client.ObjectKey{
 			Name:      ref.Id,
 			Namespace: c.namespace,
-		}, token)
+		}, existing)
 		if err != nil {
 			return err
 		}
-		clone := token.DeepCopy()
-		mutator(clone.Spec)
-		token = clone
-		return c.client.Update(ctx, clone)
+		mutator(existing.Spec)
+		token = existing.Spec
+		return c.client.Update(ctx, existing)
 	})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {

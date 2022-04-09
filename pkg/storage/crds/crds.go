@@ -2,6 +2,7 @@ package crds
 
 import (
 	"os"
+	"time"
 
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api"
@@ -23,8 +24,9 @@ var _ storage.ClusterStore = (*CRDStore)(nil)
 var _ storage.RBACStore = (*CRDStore)(nil)
 
 type CRDStoreOptions struct {
-	namespace  string
-	restConfig *rest.Config
+	namespace      string
+	restConfig     *rest.Config
+	commandTimeout time.Duration
 }
 
 type CRDStoreOption func(*CRDStoreOptions)
@@ -47,10 +49,17 @@ func WithRestConfig(rc *rest.Config) CRDStoreOption {
 	}
 }
 
+func WithCommandTimeout(timeout time.Duration) CRDStoreOption {
+	return func(o *CRDStoreOptions) {
+		o.commandTimeout = timeout
+	}
+}
+
 func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	lg := logger.New().Named("crd-store")
 	options := CRDStoreOptions{
-		namespace: os.Getenv("POD_NAMESPACE"),
+		namespace:      os.Getenv("POD_NAMESPACE"),
+		commandTimeout: time.Second * 5,
 	}
 	options.Apply(opts...)
 	if options.namespace == "" {
@@ -60,6 +69,7 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	if options.restConfig == nil {
 		options.restConfig = util.Must(rest.InClusterConfig())
 	}
+	options.restConfig.Timeout = options.commandTimeout
 	return &CRDStore{
 		CRDStoreOptions: options,
 		client: util.Must(client.New(options.restConfig, client.Options{

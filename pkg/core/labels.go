@@ -83,3 +83,7 @@ func (ls *LabelSelector) ToLabelSelector() *metav1.LabelSelector {
 	}
 	return s
 }
+
+func (ls *LabelSelector) IsEmpty() bool {
+	return ls == nil || (len(ls.MatchLabels) == 0 && len(ls.MatchExpressions) == 0)
+}

@@ -2,14 +2,26 @@ package crds
 
 import (
 	"context"
+	"time"
 
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api/v1beta1"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	defaultBackoff = wait.Backoff{
+		Steps:    20,
+		Duration: 10 * time.Millisecond,
+		Cap:      1 * time.Second,
+		Factor:   1.5,
+		Jitter:   0.1,
+	}
 )
 
 func (c *CRDStore) CreateCluster(ctx context.Context, cluster *core.Cluster) error {
@@ -49,7 +61,7 @@ func (c *CRDStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.C
 
 func (c *CRDStore) UpdateCluster(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.Cluster]) (*core.Cluster, error) {
 	var cluster *core.Cluster
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
 		existing := &v1beta1.Cluster{}
 		err := c.client.Get(ctx, client.ObjectKey{
 			Name:      ref.Id,
@@ -58,10 +70,9 @@ func (c *CRDStore) UpdateCluster(ctx context.Context, ref *core.Reference, mutat
 		if err != nil {
 			return err
 		}
-		clone := existing.DeepCopy()
-		mutator(clone.Spec)
-		cluster = clone.Spec
-		return c.client.Update(ctx, clone)
+		mutator(existing.Spec)
+		cluster = existing.Spec
+		return c.client.Update(ctx, existing)
 	})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {

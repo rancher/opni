@@ -17,9 +17,8 @@ import (
 )
 
 var (
-	defaultEtcdTimeout = 5 * time.Second
-	retryErr           = errors.New("the object has been modified, retrying")
-	defaultBackoff     = wait.Backoff{
+	retryErr       = errors.New("the object has been modified, retrying")
+	defaultBackoff = wait.Backoff{
 		Steps:    20,
 		Duration: 10 * time.Millisecond,
 		Cap:      1 * time.Second,
@@ -43,14 +42,15 @@ const (
 // EtcdStore implements TokenStore and TenantStore.
 type EtcdStore struct {
 	EtcdStoreOptions
-	logger *zap.SugaredLogger
-	client *clientv3.Client
+	Logger *zap.SugaredLogger
+	Client *clientv3.Client
 }
 
 var _ storage.Backend = (*EtcdStore)(nil)
 
 type EtcdStoreOptions struct {
-	prefix string
+	Prefix         string
+	CommandTimeout time.Duration
 }
 
 type EtcdStoreOption func(*EtcdStoreOptions)
@@ -63,12 +63,20 @@ func (o *EtcdStoreOptions) Apply(opts ...EtcdStoreOption) {
 
 func WithPrefix(prefix string) EtcdStoreOption {
 	return func(o *EtcdStoreOptions) {
-		o.prefix = prefix
+		o.Prefix = prefix
+	}
+}
+
+func WithCommandTimeout(timeout time.Duration) EtcdStoreOption {
+	return func(o *EtcdStoreOptions) {
+		o.CommandTimeout = timeout
 	}
 }
 
 func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) *EtcdStore {
-	options := EtcdStoreOptions{}
+	options := EtcdStoreOptions{
+		CommandTimeout: 5 * time.Second,
+	}
 	options.Apply(opts...)
 	lg := logger.New().Named("etcd")
 	var tlsConfig *tls.Config
@@ -96,30 +104,32 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	).Info("connecting to etcd")
 	return &EtcdStore{
 		EtcdStoreOptions: options,
-		logger:           lg,
-		client:           cli,
+		Logger:           lg,
+		Client:           cli,
 	}
 }
 
 func (e *EtcdStore) KeyringStore(ctx context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
-	pfx := e.prefix
+	pfx := e.Prefix
 	if prefix != "" {
 		pfx = prefix
 	}
 	return &etcdKeyringStore{
-		client: e.client,
-		ref:    ref,
-		prefix: pfx,
+		EtcdStoreOptions: e.EtcdStoreOptions,
+		client:           e.Client,
+		ref:              ref,
+		prefix:           pfx,
 	}, nil
 }
 
 func (e *EtcdStore) KeyValueStore(prefix string) (storage.KeyValueStore, error) {
-	pfx := e.prefix
+	pfx := e.Prefix
 	if prefix != "" {
 		pfx = prefix
 	}
 	return &genericKeyValueStore{
-		client: e.client,
-		prefix: pfx,
+		EtcdStoreOptions: e.EtcdStoreOptions,
+		client:           e.Client,
+		prefix:           pfx,
 	}, nil
 }

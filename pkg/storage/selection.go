@@ -11,7 +11,8 @@ type ClusterSelector struct {
 }
 
 func (p ClusterSelector) Predicate() SelectorPredicate {
-	if p.LabelSelector == nil && len(p.ClusterIDs) == 0 {
+	emptyLabelSelector := p.LabelSelector.IsEmpty()
+	if emptyLabelSelector && len(p.ClusterIDs) == 0 {
 		switch {
 		case p.MatchOptions&core.MatchOptions_EmptySelectorMatchesNone != 0:
 			return func(cluster *core.Cluster) bool { return false }
@@ -28,7 +29,7 @@ func (p ClusterSelector) Predicate() SelectorPredicate {
 		if _, ok := idSet[id]; ok {
 			return true
 		}
-		if p.LabelSelector == nil {
+		if emptyLabelSelector {
 			return false
 		}
 		return labelSelectorMatches(p.LabelSelector, c.GetMetadata().GetLabels())

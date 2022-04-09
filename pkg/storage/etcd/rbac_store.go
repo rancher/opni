@@ -12,13 +12,13 @@ import (
 )
 
 func (e *EtcdStore) CreateRole(ctx context.Context, role *core.Role) error {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
 	data, err := protojson.Marshal(role)
 	if err != nil {
 		return fmt.Errorf("failed to marshal role: %w", err)
 	}
-	_, err = e.client.Put(ctx, path.Join(e.prefix, roleKey, role.Id), string(data))
+	_, err = e.Client.Put(ctx, path.Join(e.Prefix, roleKey, role.Id), string(data))
 	if err != nil {
 		return fmt.Errorf("failed to create role: %w", err)
 	}
@@ -26,9 +26,9 @@ func (e *EtcdStore) CreateRole(ctx context.Context, role *core.Role) error {
 }
 
 func (e *EtcdStore) DeleteRole(ctx context.Context, ref *core.Reference) error {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Delete(ctx, path.Join(e.prefix, roleKey, ref.Id))
+	resp, err := e.Client.Delete(ctx, path.Join(e.Prefix, roleKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete role: %w", err)
 	}
@@ -39,9 +39,9 @@ func (e *EtcdStore) DeleteRole(ctx context.Context, ref *core.Reference) error {
 }
 
 func (e *EtcdStore) GetRole(ctx context.Context, ref *core.Reference) (*core.Role, error) {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.prefix, roleKey, ref.Id))
+	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, roleKey, ref.Id))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
@@ -56,13 +56,13 @@ func (e *EtcdStore) GetRole(ctx context.Context, ref *core.Reference) (*core.Rol
 }
 
 func (e *EtcdStore) CreateRoleBinding(ctx context.Context, roleBinding *core.RoleBinding) error {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
 	data, err := protojson.Marshal(roleBinding)
 	if err != nil {
 		return fmt.Errorf("failed to marshal role binding: %w", err)
 	}
-	_, err = e.client.Put(ctx, path.Join(e.prefix, roleBindingKey, roleBinding.Id), string(data))
+	_, err = e.Client.Put(ctx, path.Join(e.Prefix, roleBindingKey, roleBinding.Id), string(data))
 	if err != nil {
 		return fmt.Errorf("failed to create role binding: %w", err)
 	}
@@ -70,9 +70,9 @@ func (e *EtcdStore) CreateRoleBinding(ctx context.Context, roleBinding *core.Rol
 }
 
 func (e *EtcdStore) DeleteRoleBinding(ctx context.Context, ref *core.Reference) error {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Delete(ctx, path.Join(e.prefix, roleBindingKey, ref.Id))
+	resp, err := e.Client.Delete(ctx, path.Join(e.Prefix, roleBindingKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete role binding: %w", err)
 	}
@@ -83,9 +83,9 @@ func (e *EtcdStore) DeleteRoleBinding(ctx context.Context, ref *core.Reference) 
 }
 
 func (e *EtcdStore) GetRoleBinding(ctx context.Context, ref *core.Reference) (*core.RoleBinding, error) {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.prefix, roleBindingKey, ref.Id))
+	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, roleBindingKey, ref.Id))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role binding: %w", err)
 	}
@@ -103,9 +103,9 @@ func (e *EtcdStore) GetRoleBinding(ctx context.Context, ref *core.Reference) (*c
 }
 
 func (e *EtcdStore) ListRoles(ctx context.Context) (*core.RoleList, error) {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.prefix, roleKey), clientv3.WithPrefix())
+	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, roleKey), clientv3.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list roles: %w", err)
 	}
@@ -115,7 +115,7 @@ func (e *EtcdStore) ListRoles(ctx context.Context) (*core.RoleList, error) {
 	for i, kv := range resp.Kvs {
 		role := &core.Role{}
 		if err := protojson.Unmarshal(kv.Value, role); err != nil {
-			return nil, fmt.Errorf("failed to decode role: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal role: %w", err)
 		}
 		roleList.Items[i] = role
 	}
@@ -123,9 +123,9 @@ func (e *EtcdStore) ListRoles(ctx context.Context) (*core.RoleList, error) {
 }
 
 func (e *EtcdStore) ListRoleBindings(ctx context.Context) (*core.RoleBindingList, error) {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.prefix, roleBindingKey), clientv3.WithPrefix())
+	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, roleBindingKey), clientv3.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}

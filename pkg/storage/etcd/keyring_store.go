@@ -12,13 +12,14 @@ import (
 )
 
 type etcdKeyringStore struct {
+	EtcdStoreOptions
 	client *clientv3.Client
 	ref    *core.Reference
 	prefix string
 }
 
 func (ks *etcdKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) error {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, ks.CommandTimeout)
 	defer ca()
 	k, err := keyring.Marshal()
 	if err != nil {
@@ -32,7 +33,7 @@ func (ks *etcdKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) er
 }
 
 func (ks *etcdKeyringStore) Get(ctx context.Context) (keyring.Keyring, error) {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, ks.CommandTimeout)
 	defer ca()
 	resp, err := ks.client.Get(ctx, path.Join(ks.prefix, keyringKey, ks.ref.Id))
 	if err != nil {

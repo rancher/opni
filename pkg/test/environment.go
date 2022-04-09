@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -80,6 +81,8 @@ type RunningAgent struct {
 }
 
 type Environment struct {
+	EnvironmentOptions
+
 	TestBin           string
 	Logger            *zap.SugaredLogger
 	CRDDirectoryPaths []string
@@ -98,9 +101,56 @@ type Environment struct {
 
 	gatewayConfig *v1beta1.GatewayConfig
 	k8sEnv        *envtest.Environment
+
+	Processes struct {
+		Etcd      *util.Future[*os.Process]
+		APIServer *util.Future[*os.Process]
+	}
 }
 
-func (e *Environment) Start() error {
+type EnvironmentOptions struct {
+	enableEtcd    bool
+	enableGateway bool
+	enableCortex  bool
+}
+
+type EnvironmentOption func(*EnvironmentOptions)
+
+func (o *EnvironmentOptions) Apply(opts ...EnvironmentOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithEnableEtcd(enableEtcd bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.enableEtcd = enableEtcd
+	}
+}
+
+func WithEnableGateway(enableGateway bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.enableGateway = enableGateway
+	}
+}
+
+func WithEnableCortex(enableCortex bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.enableCortex = enableCortex
+	}
+}
+
+func (e *Environment) Start(opts ...EnvironmentOption) error {
+	options := EnvironmentOptions{
+		enableEtcd:    true,
+		enableGateway: true,
+		enableCortex:  true,
+	}
+	options.Apply(opts...)
+
+	e.EnvironmentOptions = options
+	e.Processes.Etcd = util.NewFuture[*os.Process]()
+
 	lg := e.Logger
 	lg.Info("Starting test environment")
 
@@ -169,32 +219,47 @@ func (e *Environment) Start() error {
 	if err != nil {
 		return err
 	}
-	if err := os.Mkdir(path.Join(e.tempDir, "etcd"), 0700); err != nil {
-		return err
-	}
-	cortexTempDir := path.Join(e.tempDir, "cortex")
-	if err := os.MkdirAll(path.Join(cortexTempDir, "rules"), 0700); err != nil {
-		return err
-	}
-	entries, _ := fs.ReadDir(TestDataFS, "testdata/cortex")
-	lg.Infof("Copying %d files from embedded testdata/cortex to %s", len(entries), cortexTempDir)
-	for _, entry := range entries {
-		if err := os.WriteFile(path.Join(cortexTempDir, entry.Name()), TestData("cortex/"+entry.Name()), 0644); err != nil {
+	if options.enableEtcd {
+		if err := os.Mkdir(path.Join(e.tempDir, "etcd"), 0700); err != nil {
 			return err
 		}
 	}
-	if err := os.Mkdir(path.Join(e.tempDir, "prometheus"), 0700); err != nil {
-		return err
+	if options.enableCortex {
+		cortexTempDir := path.Join(e.tempDir, "cortex")
+		if err := os.MkdirAll(path.Join(cortexTempDir, "rules"), 0700); err != nil {
+			return err
+		}
+
+		entries, _ := fs.ReadDir(TestDataFS, "testdata/cortex")
+		lg.Infof("Copying %d files from embedded testdata/cortex to %s", len(entries), cortexTempDir)
+		for _, entry := range entries {
+			if err := os.WriteFile(path.Join(cortexTempDir, entry.Name()), TestData("cortex/"+entry.Name()), 0644); err != nil {
+				return err
+			}
+		}
+	}
+	if options.enableGateway {
+		if err := os.Mkdir(path.Join(e.tempDir, "prometheus"), 0700); err != nil {
+			return err
+		}
 	}
 
-	e.startEtcd()
-	e.startGateway()
-	e.startCortex()
+	if options.enableEtcd {
+		e.startEtcd()
+	}
+	if options.enableGateway {
+		e.startGateway()
+	}
+	if options.enableCortex {
+		e.startCortex()
+	}
 	return nil
 }
 
 func (e *Environment) StartK8s() (*rest.Config, error) {
 	e.initCtx()
+	e.Processes.APIServer = util.NewFuture[*os.Process]()
+
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
@@ -217,7 +282,51 @@ func (e *Environment) StartK8s() (*rest.Config, error) {
 			},
 		},
 	}
-	return e.k8sEnv.Start()
+
+	cfg, err := e.k8sEnv.Start()
+	if err != nil {
+		return nil, err
+	}
+	pid := os.Getpid()
+	threads, err := os.ReadDir(fmt.Sprintf("/proc/%d/task/", pid))
+	if err != nil {
+		panic(err)
+	}
+	possiblePIDs := []int{}
+	for _, thread := range threads {
+		childProcessIDs, err := os.ReadFile(fmt.Sprintf("/proc/%d/task/%s/children", pid, thread.Name()))
+		if err != nil {
+			continue
+		}
+		if len(childProcessIDs) > 0 {
+			parts := strings.Split(string(childProcessIDs), " ")
+			for _, part := range parts {
+				if pid, err := strconv.Atoi(part); err == nil {
+					possiblePIDs = append(possiblePIDs, pid)
+				}
+			}
+		}
+	}
+	var apiserverPID int
+	for _, pid := range possiblePIDs {
+		exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid))
+		if err != nil {
+			continue
+		}
+		if filepath.Base(exe) == "kube-apiserver" {
+			apiserverPID = pid
+			break
+		}
+	}
+	if apiserverPID == 0 {
+		panic("could not find kube-apiserver PID")
+	}
+	proc, err := os.FindProcess(apiserverPID)
+	if err != nil {
+		panic(err)
+	}
+	e.Processes.APIServer.Set(proc)
+	return cfg, nil
 }
 
 type Reconciler interface {
@@ -267,6 +376,9 @@ func (e *Environment) initCtx() {
 }
 
 func (e *Environment) startEtcd() {
+	if !e.enableEtcd {
+		e.Logger.Panic("etcd disabled")
+	}
 	lg := e.Logger
 	defaultArgs := []string{
 		fmt.Sprintf("--listen-client-urls=http://localhost:%d", e.ports.Etcd),
@@ -288,6 +400,8 @@ func (e *Environment) startEtcd() {
 			return
 		}
 	}
+	e.Processes.Etcd.Set(cmd.Process)
+
 	lg.Info("Waiting for etcd to start...")
 	for e.ctx.Err() == nil {
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/health", e.ports.Etcd))
@@ -313,6 +427,9 @@ type cortexTemplateOptions struct {
 }
 
 func (e *Environment) startCortex() {
+	if !e.enableCortex {
+		e.Logger.Panic("cortex disabled")
+	}
 	lg := e.Logger
 	configTemplate := TestData("cortex/config.yaml")
 	t := util.Must(template.New("config").Parse(string(configTemplate)))
@@ -374,6 +491,9 @@ type prometheusTemplateOptions struct {
 }
 
 func (e *Environment) StartPrometheus(opniAgentPort int) int {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
 	lg := e.Logger
 	port, err := freeport.GetFreePort()
 	if err != nil {
@@ -499,6 +619,9 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 }
 
 func (e *Environment) NewManagementClient() management.ManagementClient {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
 	c, err := management.NewClient(e.ctx,
 		management.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
 		management.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
@@ -510,10 +633,16 @@ func (e *Environment) NewManagementClient() management.ManagementClient {
 }
 
 func (e *Environment) PrometheusAPIEndpoint() string {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
 	return fmt.Sprintf("https://localhost:%d/prometheus/api/v1", e.ports.Gateway)
 }
 
 func (e *Environment) startGateway() {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
 	lg := e.Logger
 	e.gatewayConfig = e.newGatewayConfig()
 	pluginLoader := plugins.NewPluginLoader()
@@ -608,6 +737,9 @@ func WithContext(ctx context.Context) StartAgentOption {
 }
 
 func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []string, opts ...StartAgentOption) (int, <-chan error) {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
 	options := &StartAgentOptions{
 		ctx: context.Background(),
 	}
@@ -719,9 +851,13 @@ func (e *Environment) GatewayConfig() *v1beta1.GatewayConfig {
 }
 
 func (e *Environment) EtcdClient() (*clientv3.Client, error) {
+	if !e.enableEtcd {
+		e.Logger.Panic("etcd disabled")
+	}
 	return clientv3.New(clientv3.Config{
 		Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
 		Context:   e.ctx,
+		Logger:    e.Logger.Desugar(),
 	})
 }
 

@@ -19,9 +19,9 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...
 	options := storage.NewTokenCreateOptions()
 	options.Apply(opts...)
 
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	opCtx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	lease, err := e.client.Grant(ctx, int64(ttl.Seconds()))
+	lease, err := e.Client.Grant(opCtx, int64(ttl.Seconds()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create lease: %w", err)
 	}
@@ -36,7 +36,9 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal token: %w", err)
 	}
-	_, err = e.client.Put(ctx, path.Join(e.prefix, tokensKey, token.TokenID), string(data),
+	opCtx, ca2 := context.WithTimeout(opCtx, e.CommandTimeout)
+	defer ca2()
+	_, err = e.Client.Put(opCtx, path.Join(e.Prefix, tokensKey, token.TokenID), string(data),
 		clientv3.WithLease(lease.ID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token %w", err)
@@ -52,15 +54,15 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, ref *core.Reference) error 
 	}
 	if t.Metadata.LeaseID != 0 {
 		defer func(id int64) {
-			_, err := e.client.Revoke(context.Background(), clientv3.LeaseID(id))
+			_, err := e.Client.Revoke(context.Background(), clientv3.LeaseID(id))
 			if err != nil {
-				e.logger.Warnf("failed to revoke lease: %v", err)
+				e.Logger.Warnf("failed to revoke lease: %v", err)
 			}
 		}(t.Metadata.LeaseID)
 	}
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Delete(ctx, path.Join(e.prefix, tokensKey, ref.Id))
+	resp, err := e.Client.Delete(ctx, path.Join(e.Prefix, tokensKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete token: %w", err)
 	}
@@ -76,9 +78,9 @@ func (e *EtcdStore) GetToken(ctx context.Context, ref *core.Reference) (*core.Bo
 }
 
 func (e *EtcdStore) getToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, int64, error) {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.prefix, tokensKey, ref.Id))
+	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, tokensKey, ref.Id))
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get token: %w", err)
 	}
@@ -97,9 +99,9 @@ func (e *EtcdStore) getToken(ctx context.Context, ref *core.Reference) (*core.Bo
 }
 
 func (e *EtcdStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, error) {
-	ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
-	resp, err := e.client.Get(ctx, path.Join(e.prefix, tokensKey), clientv3.WithPrefix())
+	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, tokensKey), clientv3.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tokens: %w", err)
 	}
@@ -120,10 +122,10 @@ func (e *EtcdStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, err
 func (e *EtcdStore) UpdateToken(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.BootstrapToken]) (*core.BootstrapToken, error) {
 	var retToken *core.BootstrapToken
 	err := retry.OnError(defaultBackoff, isRetryErr, func() error {
-		ctx, ca := context.WithTimeout(ctx, defaultEtcdTimeout)
+		ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 		defer ca()
-		txn := e.client.Txn(ctx)
-		key := path.Join(e.prefix, tokensKey, ref.Id)
+		txn := e.Client.Txn(ctx)
+		key := path.Join(e.Prefix, tokensKey, ref.Id)
 		token, version, err := e.getToken(ctx, ref)
 		if err != nil {
 			return err
@@ -137,7 +139,7 @@ func (e *EtcdStore) UpdateToken(ctx context.Context, ref *core.Reference, mutato
 			Then(clientv3.OpPut(key, string(data), clientv3.WithIgnoreLease())).
 			Commit()
 		if err != nil {
-			e.logger.With(
+			e.Logger.With(
 				zap.Error(err),
 			).Error("error updating token")
 			return err
@@ -162,7 +164,7 @@ func (e *EtcdStore) addLeaseMetadata(
 	if lease != 0 {
 		token.Metadata.LeaseID = lease
 		// lookup lease
-		leaseResp, err := e.client.TimeToLive(ctx, clientv3.LeaseID(lease))
+		leaseResp, err := e.Client.TimeToLive(ctx, clientv3.LeaseID(lease))
 		if err != nil {
 			return fmt.Errorf("failed to get lease: %w", err)
 		} else {

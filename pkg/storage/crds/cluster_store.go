@@ -70,9 +70,10 @@ func (c *CRDStore) UpdateCluster(ctx context.Context, ref *core.Reference, mutat
 		if err != nil {
 			return err
 		}
-		mutator(existing.Spec)
-		cluster = existing.Spec
-		return c.client.Update(ctx, existing)
+		clone := existing.DeepCopy()
+		mutator(clone.Spec)
+		cluster = clone.Spec
+		return c.client.Update(ctx, clone)
 	})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {

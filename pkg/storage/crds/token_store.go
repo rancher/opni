@@ -110,9 +110,10 @@ func (c *CRDStore) UpdateToken(ctx context.Context, ref *core.Reference, mutator
 		if err != nil {
 			return err
 		}
-		mutator(existing.Spec)
-		token = existing.Spec
-		return c.client.Update(ctx, existing)
+		clone := existing.DeepCopy()
+		mutator(clone.Spec)
+		token = clone.Spec
+		return c.client.Update(ctx, clone)
 	})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {

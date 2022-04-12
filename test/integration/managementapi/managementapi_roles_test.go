@@ -21,7 +21,6 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label(test.In
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
-			Logger:  test.Log,
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()

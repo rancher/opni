@@ -26,7 +26,6 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths: []string{
 			"../../../deploy/charts/opni-monitoring/crds",
 		},
-		Logger: test.Log,
 	}
 	config, err := env.StartK8s()
 	Expect(err).NotTo(HaveOccurred())

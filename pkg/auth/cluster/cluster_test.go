@@ -24,8 +24,8 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/test"
+	"github.com/rancher/opni-monitoring/pkg/test/testutil"
 	"github.com/rancher/opni-monitoring/pkg/util"
-	"github.com/rancher/opni-monitoring/pkg/util/testutil"
 	"github.com/valyala/fasthttp/fasthttputil"
 )
 

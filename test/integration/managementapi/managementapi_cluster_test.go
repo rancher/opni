@@ -25,7 +25,6 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
-			Logger:  test.Log,
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()

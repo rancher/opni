@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni-monitoring/pkg/sdk/controllers"
 	"github.com/rancher/opni-monitoring/pkg/test"
-	"github.com/rancher/opni-monitoring/pkg/util/testutil"
+	"github.com/rancher/opni-monitoring/pkg/test/testutil"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -40,7 +40,6 @@ var (
 var _ = BeforeSuite(func() {
 	testEnv = &test.Environment{
 		TestBin:           "../../../testbin/bin",
-		Logger:            test.Log,
 		CRDDirectoryPaths: []string{"../crd"},
 	}
 	restConfig = testutil.Must(testEnv.StartK8s())

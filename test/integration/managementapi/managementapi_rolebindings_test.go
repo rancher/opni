@@ -20,7 +20,6 @@ var _ = Describe("Management API Rolebinding Management Tests", Ordered, Label(t
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
-			Logger:  test.Log,
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()

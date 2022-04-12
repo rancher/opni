@@ -24,7 +24,6 @@ var errCtrl = util.NewFuture[conformance.ErrorController]()
 var _ = BeforeSuite(func() {
 	env := test.Environment{
 		TestBin: "../../../testbin/bin",
-		Logger:  test.Log,
 	}
 	env.Start(test.WithEnableCortex(false), test.WithEnableGateway(false))
 	proc := env.Processes.Etcd.Get()

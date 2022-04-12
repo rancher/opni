@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/pkp"
 	"github.com/rancher/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/test/testutil"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/samber/lo"
 )
@@ -114,7 +115,7 @@ func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
 
 			var wg sync.WaitGroup
 			start := make(chan struct{})
-			for i := 0; i < 10; i++ {
+			for i := 0; i < testutil.IfCI(5).Else(10); i++ {
 				wg.Add(1)
 				go func() {
 					defer GinkgoRecover()

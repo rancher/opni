@@ -24,7 +24,6 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
-			Logger:  test.Log,
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()

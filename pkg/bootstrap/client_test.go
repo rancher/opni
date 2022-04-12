@@ -117,7 +117,6 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 			}
 			env := test.Environment{
 				TestBin: "../../testbin/bin",
-				Logger:  test.Log,
 			}
 			k8sConfig, err := env.StartK8s()
 			Expect(err).NotTo(HaveOccurred())

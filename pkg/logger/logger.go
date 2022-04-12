@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-hclog"
 	"github.com/kralicky/gpkg/sync"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/rancher/opni-monitoring/pkg/test/testutil"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -61,8 +61,6 @@ func AsciiLogo() string {
 type loggerContextKey struct{}
 
 var key = loggerContextKey{}
-
-var inTest = strings.HasSuffix(os.Args[0], ".test")
 
 type extendedSugaredLogger struct {
 	SugaredLogger
@@ -146,7 +144,7 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	options := &LoggerOptions{
 		logLevel: zap.DebugLevel,
 	}
-	if inTest {
+	if testutil.IsTesting {
 		options.writer = ginkgo.GinkgoWriter
 	}
 	options.Apply(opts...)
@@ -262,7 +260,7 @@ func NewForPlugin() hclog.Logger {
 		JSONFormat:  true,
 		DisableTime: true,
 	}
-	if inTest {
+	if testutil.IsTesting {
 		opts.Output = ginkgo.GinkgoWriter
 	}
 	return hclog.New(opts)

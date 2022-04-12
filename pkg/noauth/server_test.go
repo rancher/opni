@@ -26,7 +26,6 @@ var _ = Describe("Server", Ordered, Label(test.Unit, test.Slow), func() {
 	BeforeAll(func() {
 		env := test.Environment{
 			TestBin: "../../testbin/bin",
-			Logger:  test.Log,
 		}
 		Expect(env.Start()).To(Succeed())
 

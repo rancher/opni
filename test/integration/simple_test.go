@@ -19,7 +19,6 @@ var _ = Describe("Simple Test", Ordered, func() {
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../testbin/bin",
-			Logger:  test.Log,
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()

@@ -49,6 +49,7 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/metrics"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/system"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api"
+	"github.com/rancher/opni-monitoring/pkg/test/testutil"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/rancher/opni-monitoring/pkg/util/waitctx"
@@ -147,6 +148,8 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		enableCortex:  true,
 	}
 	options.Apply(opts...)
+
+	e.Logger = Log.Named("env")
 
 	e.EnvironmentOptions = options
 	e.Processes.Etcd = util.NewFuture[*os.Process]()
@@ -390,10 +393,9 @@ func (e *Environment) startEtcd() {
 	etcdBin := path.Join(e.TestBin, "etcd")
 	cmd := exec.CommandContext(e.ctx, etcdBin, defaultArgs...)
 	cmd.Env = []string{"ALLOW_NONE_AUTHENTICATION=yes"}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 	plugins.ConfigureSysProcAttr(cmd)
-	if err := cmd.Start(); err != nil {
+	session, err := testutil.StartCmd(cmd)
+	if err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
 		} else {
@@ -416,7 +418,7 @@ func (e *Environment) startEtcd() {
 	lg.Info("Etcd started")
 	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
-		cmd.Wait()
+		session.Wait()
 	})
 }
 
@@ -450,10 +452,9 @@ func (e *Environment) startCortex() {
 		fmt.Sprintf("-config.file=%s", path.Join(e.tempDir, "cortex/config.yaml")),
 	}
 	cmd := exec.CommandContext(e.ctx, cortexBin, defaultArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 	plugins.ConfigureSysProcAttr(cmd)
-	if err := cmd.Start(); err != nil {
+	session, err := testutil.StartCmd(cmd)
+	if err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
 		}
@@ -481,7 +482,7 @@ func (e *Environment) startCortex() {
 	lg.Info("Cortex started")
 	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
-		cmd.Wait()
+		session.Wait()
 	})
 }
 
@@ -522,10 +523,9 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 		"--enable-feature=agent",
 	}
 	cmd := exec.CommandContext(e.ctx, prometheusBin, defaultArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 	plugins.ConfigureSysProcAttr(cmd)
-	if err := cmd.Start(); err != nil {
+	session, err := testutil.StartCmd(cmd)
+	if err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
 		}
@@ -544,7 +544,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 	lg.Info("Prometheus started")
 	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
-		cmd.Wait()
+		session.Wait()
 	})
 	return port
 }

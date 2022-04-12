@@ -19,7 +19,6 @@ var _ = Describe("Management API Cerificate Management Tests", Ordered, Label(te
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
-			Logger:  test.Log,
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()

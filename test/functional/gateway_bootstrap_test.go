@@ -39,7 +39,6 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label(tes
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../testbin/bin",
-			Logger:  test.Log,
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()

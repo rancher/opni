@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/test/testutil"
 	"github.com/rancher/opni-monitoring/pkg/util"
 )
 
@@ -204,7 +205,7 @@ func TokenStoreTestSuite[T storage.TokenStore](
 
 				wg := sync.WaitGroup{}
 				start := make(chan struct{})
-				count := 50
+				count := testutil.IfCI(5).Else(10)
 				for i := 0; i < count; i++ {
 					wg.Add(1)
 					go func() {

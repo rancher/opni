@@ -36,7 +36,6 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Labe
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
-			Logger:  test.Log,
 		}
 		Expect(environment.Start()).To(Succeed())
 		client = environment.NewManagementClient()

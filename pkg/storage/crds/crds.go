@@ -1,9 +1,11 @@
 package crds
 
 import (
+	"context"
 	"os"
 	"time"
 
+	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/sdk/api"
 	"github.com/rancher/opni-monitoring/pkg/storage"
@@ -22,6 +24,7 @@ type CRDStore struct {
 var _ storage.TokenStore = (*CRDStore)(nil)
 var _ storage.ClusterStore = (*CRDStore)(nil)
 var _ storage.RBACStore = (*CRDStore)(nil)
+var _ storage.KeyringStoreBroker = (*CRDStore)(nil)
 
 type CRDStoreOptions struct {
 	namespace      string
@@ -59,7 +62,7 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	lg := logger.New().Named("crd-store")
 	options := CRDStoreOptions{
 		namespace:      os.Getenv("POD_NAMESPACE"),
-		commandTimeout: time.Second * 5,
+		commandTimeout: 5 * time.Second,
 	}
 	options.Apply(opts...)
 	if options.namespace == "" {
@@ -77,4 +80,13 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 		})),
 		logger: lg,
 	}
+}
+
+func (e *CRDStore) KeyringStore(ctx context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+	return &crdKeyringStore{
+		CRDStoreOptions: e.CRDStoreOptions,
+		client:          e.client,
+		ref:             ref,
+		prefix:          prefix,
+	}, nil
 }

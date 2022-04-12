@@ -748,6 +748,20 @@ func (m *MockKeyValueStore) EXPECT() *MockKeyValueStoreMockRecorder {
 	return m.recorder
 }
 
+// Delete mocks base method.
+func (m *MockKeyValueStore) Delete(ctx context.Context, key string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, key)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockKeyValueStoreMockRecorder) Delete(ctx, key interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockKeyValueStore)(nil).Delete), ctx, key)
+}
+
 // Get mocks base method.
 func (m *MockKeyValueStore) Get(ctx context.Context, key string) ([]byte, error) {
 	m.ctrl.T.Helper()

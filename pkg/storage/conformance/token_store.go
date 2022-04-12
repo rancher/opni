@@ -210,7 +210,7 @@ func TokenStoreTestSuite[T storage.TokenStore](
 					go func() {
 						defer wg.Done()
 						<-start
-						_, err = ts.UpdateToken(context.Background(), tk.Reference(),
+						ts.UpdateToken(context.Background(), tk.Reference(),
 							storage.NewIncrementUsageCountMutator())
 					}()
 				}

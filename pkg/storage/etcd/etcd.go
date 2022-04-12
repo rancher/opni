@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"path"
 	"time"
 
 	"github.com/rancher/opni-monitoring/pkg/config/v1beta1"
@@ -130,6 +131,6 @@ func (e *EtcdStore) KeyValueStore(prefix string) (storage.KeyValueStore, error) 
 	return &genericKeyValueStore{
 		EtcdStoreOptions: e.EtcdStoreOptions,
 		client:           e.Client,
-		prefix:           pfx,
+		prefix:           path.Join(pfx, "kv"),
 	}, nil
 }

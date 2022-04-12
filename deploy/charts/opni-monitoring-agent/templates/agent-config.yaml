@@ -17,7 +17,7 @@ stringData:
         discovery:
           prometheusRules: {}
       storage:
-        type: secret
+        type: customResources
       bootstrap:
         token: {{ .Values.token }}
         pins: [{{ .Values.pin }}]

@@ -89,7 +89,7 @@ func BuildBootstrapCmd() *cobra.Command {
 					GatewayAddress:   gatewayAddress,
 					IdentityProvider: "kubernetes",
 					Storage: v1beta1.StorageSpec{
-						Type: v1beta1.StorageTypeSecret,
+						Type: v1beta1.StorageTypeCRDs,
 					},
 					Bootstrap: &v1beta1.BootstrapSpec{
 						Token: token,

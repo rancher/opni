@@ -861,6 +861,15 @@ func (e *Environment) EtcdClient() (*clientv3.Client, error) {
 	})
 }
 
+func (e *Environment) EtcdConfig() *v1beta1.EtcdStorageSpec {
+	if !e.enableEtcd {
+		e.Logger.Panic("etcd disabled")
+	}
+	return &v1beta1.EtcdStorageSpec{
+		Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
+	}
+}
+
 func StartStandaloneTestEnvironment() {
 	environment := &Environment{
 		TestBin: "testbin/bin",

@@ -40,3 +40,4 @@ var _ = BeforeSuite(func() {
 var _ = Describe("Token Store", Ordered, conformance.TokenStoreTestSuite(store, errCtrl))
 var _ = Describe("Cluster Store", Ordered, conformance.ClusterStoreTestSuite(store, errCtrl))
 var _ = Describe("RBAC Store", Ordered, conformance.RBACStoreTestSuite(store, errCtrl))
+var _ = Describe("Keyring Store", Ordered, conformance.KeyringStoreTestSuite(store, errCtrl))

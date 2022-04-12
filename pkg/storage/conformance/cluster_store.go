@@ -25,7 +25,6 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 		BeforeAll(func() {
 			ts = tsF.Get()
 			errCtrl = errCtrlF.Get()
-			_ = errCtrl
 		})
 		It("should initially have no clusters", func() {
 			clusters, err := ts.ListClusters(context.Background(), &core.LabelSelector{}, 0)
@@ -232,7 +231,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				go func() {
 					defer wg.Done()
 					<-start
-					_, err = ts.UpdateCluster(context.Background(), cluster.Reference(),
+					ts.UpdateCluster(context.Background(), cluster.Reference(),
 						func(c *core.Cluster) {
 							c.Metadata.Labels["value"] = strconv.Itoa(util.Must(strconv.Atoi(c.Metadata.Labels["value"])) + 1)
 						},

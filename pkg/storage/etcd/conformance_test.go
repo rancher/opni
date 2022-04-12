@@ -1,6 +1,7 @@
 package etcd_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -26,19 +27,13 @@ var _ = BeforeSuite(func() {
 		Logger:  test.Log,
 	}
 	env.Start(test.WithEnableCortex(false), test.WithEnableGateway(false))
-	client, err := env.EtcdClient()
-	Expect(err).NotTo(HaveOccurred())
-
 	proc := env.Processes.Etcd.Get()
 
 	timeout := 50 * time.Millisecond
-	store.Set(&etcd.EtcdStore{
-		EtcdStoreOptions: etcd.EtcdStoreOptions{
-			CommandTimeout: timeout,
-		},
-		Client: client,
-		Logger: test.Log.Named("etcd"),
-	})
+	store.Set(etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),
+		etcd.WithCommandTimeout(timeout),
+		etcd.WithPrefix("test"),
+	))
 
 	errCtrl.Set(conformance.NewProcessErrorController(proc))
 	DeferCleanup(env.Stop)
@@ -47,3 +42,5 @@ var _ = BeforeSuite(func() {
 var _ = Describe("Token Store", Ordered, conformance.TokenStoreTestSuite(store, errCtrl))
 var _ = Describe("Cluster Store", Ordered, conformance.ClusterStoreTestSuite(store, errCtrl))
 var _ = Describe("RBAC Store", Ordered, conformance.RBACStoreTestSuite(store, errCtrl))
+var _ = Describe("Keyring Store", Ordered, conformance.KeyringStoreTestSuite(store, errCtrl))
+var _ = Describe("KV Store", Ordered, conformance.KeyValueStoreTestSuite(store, errCtrl))

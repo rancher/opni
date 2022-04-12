@@ -97,6 +97,9 @@ func ControllerGen() error {
 		if err := sh.Copy(path.Join("deploy/charts/opni-monitoring/crds", entry.Name()), path.Join("pkg/sdk/crd", entry.Name())); err != nil {
 			return err
 		}
+		if err := sh.Copy(path.Join("deploy/charts/opni-monitoring-agent/crds", entry.Name()), path.Join("pkg/sdk/crd", entry.Name())); err != nil {
+			return err
+		}
 	}
 	return nil
 }

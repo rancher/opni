@@ -16,9 +16,8 @@ import (
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/logger"
 	"github.com/rancher/opni-monitoring/pkg/storage"
+	"github.com/rancher/opni-monitoring/pkg/storage/crds"
 	"github.com/rancher/opni-monitoring/pkg/storage/etcd"
-	"github.com/rancher/opni-monitoring/pkg/storage/secrets"
-	"github.com/rancher/opni-monitoring/pkg/util"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -95,21 +94,20 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	}
 	agent.shutdownLock.Lock()
 
+	var keyringStoreBroker storage.KeyringStoreBroker
 	switch agent.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
-		etcdStore := etcd.NewEtcdStore(ctx, agent.Storage.Etcd)
-		agent.keyringStore = util.Must(etcdStore.KeyringStore(ctx, "agent", &core.Reference{
-			Id: id,
-		}))
-	case v1beta1.StorageTypeSecret:
-		secStore := secrets.NewSecretsStore()
-		agent.keyringStore = util.Must(secStore.KeyringStore(ctx, "agent", &core.Reference{
-			Id: id,
-		}))
+		keyringStoreBroker = etcd.NewEtcdStore(ctx, agent.Storage.Etcd)
 	case v1beta1.StorageTypeCRDs:
-		return nil, errors.New("unsupported storage type in agent mode")
+		keyringStoreBroker = crds.NewCRDStore()
 	default:
-		return nil, errors.New("unknown storage type")
+		return nil, fmt.Errorf("unknown storage type: %s", agent.Storage.Type)
+	}
+	agent.keyringStore, err = keyringStoreBroker.KeyringStore(ctx, "agent", &core.Reference{
+		Id: id,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error creating keyring store: %w", err)
 	}
 
 	var kr keyring.Keyring

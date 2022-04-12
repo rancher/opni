@@ -22,7 +22,6 @@ func RBACStoreTestSuite[T storage.RBACStore](
 		BeforeAll(func() {
 			ts = tsF.Get()
 			errCtrl = errCtrlF.Get()
-			_ = errCtrl
 		})
 		Context("Roles", func() {
 			It("should initially have no roles", func() {

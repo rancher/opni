@@ -8,10 +8,7 @@ rules:
   - apiGroups:
     - monitoring.opni.io
     resources:
-    - bootstraptokens
-    - clusters
-    - rolebindings
-    - roles
+    - "*"
     verbs:
     - get
     - list

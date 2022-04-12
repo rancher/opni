@@ -138,11 +138,6 @@ const (
 	// and it is recommended to use the etcd storage type instead for performance
 	// reasons.
 	StorageTypeCRDs StorageType = "customResources"
-	// Use Kubernetes secrets as key-value storage. This is only supported for
-	// some resources. If customResources is used as the storage type, some of
-	// the data will be stored in secrets, such as generic key-value entries
-	// for plugins.
-	StorageTypeSecret StorageType = "secret"
 )
 
 type StorageSpec struct {

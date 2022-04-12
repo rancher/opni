@@ -1,6 +1,8 @@
 package storage
 
-import "github.com/rancher/opni-monitoring/pkg/core"
+import (
+	"github.com/rancher/opni-monitoring/pkg/core"
+)
 
 func NewCompositeMutator[T any](mutators ...MutatorFunc[T]) MutatorFunc[T] {
 	return func(t T) {

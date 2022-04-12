@@ -61,11 +61,26 @@ type RoleBindingList struct {
 	Items           []RoleBinding `json:"items"`
 }
 
+//+kubebuilder:object:root=true
+type Keyring struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Data              []byte `json:"data,omitempty"`
+}
+
+//+kubebuilder:object:root=true
+type KeyringList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Keyring `json:"items"`
+}
+
 func init() {
 	SchemeBuilder.Register(
 		&BootstrapToken{}, &BootstrapTokenList{},
 		&Cluster{}, &ClusterList{},
 		&Role{}, &RoleList{},
 		&RoleBinding{}, &RoleBindingList{},
+		&Keyring{}, &KeyringList{},
 	)
 }

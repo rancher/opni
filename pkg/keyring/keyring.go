@@ -65,6 +65,14 @@ func (kr *keyring) Merge(other Keyring) Keyring {
 	return New(keys...)
 }
 
+func (kr *keyring) DeepCopy() Keyring {
+	keys := []interface{}{}
+	kr.ForEach(func(key interface{}) {
+		keys = append(keys, key)
+	})
+	return New(keys...)
+}
+
 func (kr *keyring) Try(fns ...UseKeyFn) bool {
 	found := false
 	for _, fn := range fns {

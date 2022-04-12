@@ -253,8 +253,10 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			It("should handle errors when creating clusters", func() {
 				errCtrl.EnableErrors()
 				defer errCtrl.DisableErrors()
-				err := ts.CreateCluster(context.Background(), &core.Cluster{Id: uuid.NewString()})
-				Expect(err).To(HaveOccurred())
+				Eventually(func() error {
+					err := ts.CreateCluster(context.Background(), &core.Cluster{Id: uuid.NewString()})
+					return err
+				}).Should(HaveOccurred())
 			})
 
 			It("should handle errors when getting clusters", func() {
@@ -269,15 +271,19 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 
 				errCtrl.EnableErrors()
 				defer errCtrl.DisableErrors()
-				_, err = ts.GetCluster(context.Background(), cluster.Reference())
-				Expect(err).To(HaveOccurred())
+				Eventually(func() error {
+					_, err = ts.GetCluster(context.Background(), cluster.Reference())
+					return err
+				}).Should(HaveOccurred())
 			})
 
 			It("should handle errors when listing clusters", func() {
 				errCtrl.EnableErrors()
 				defer errCtrl.DisableErrors()
-				_, err := ts.ListClusters(context.Background(), nil, 0)
-				Expect(err).To(HaveOccurred())
+				Eventually(func() error {
+					_, err := ts.ListClusters(context.Background(), nil, 0)
+					return err
+				}).Should(HaveOccurred())
 			})
 
 			It("should handle errors when updating clusters", func() {
@@ -292,25 +298,18 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 
 				errCtrl.EnableErrors()
 				defer errCtrl.DisableErrors()
-				_, err = ts.UpdateCluster(context.Background(), cluster.Reference(), func(c *core.Cluster) {
-					c.Metadata.Labels["foo"] = "bar"
-				})
-				Expect(err).To(HaveOccurred())
+				Eventually(func() error {
+					_, err = ts.UpdateCluster(context.Background(), cluster.Reference(), func(c *core.Cluster) {
+						c.Metadata.Labels["foo"] = "bar"
+					})
+					return err
+				}).Should(HaveOccurred())
 			})
 
 			It("should handle errors when deleting clusters", func() {
 				err := ts.DeleteCluster(context.Background(), &core.Reference{
 					Id: uuid.NewString(),
 				})
-				Expect(err).To(HaveOccurred())
-
-				cluster := &core.Cluster{Id: uuid.NewString()}
-				err = ts.CreateCluster(context.Background(), cluster)
-				Expect(err).NotTo(HaveOccurred())
-
-				errCtrl.EnableErrors()
-				defer errCtrl.DisableErrors()
-				err = ts.DeleteCluster(context.Background(), cluster.Reference())
 				Expect(err).To(HaveOccurred())
 			})
 		})

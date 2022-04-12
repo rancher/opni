@@ -134,10 +134,14 @@ func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
 		It("should handle errors", func() {
 			errCtrl.EnableErrors()
 			defer errCtrl.DisableErrors()
-			err := ts.Put(context.Background(), keyring.New())
-			Expect(err).To(HaveOccurred())
-			_, err = ts.Get(context.Background())
-			Expect(err).To(HaveOccurred())
+			Eventually(func() error {
+				err := ts.Put(context.Background(), keyring.New())
+				return err
+			}).Should(HaveOccurred())
+			Eventually(func() error {
+				_, err := ts.Get(context.Background())
+				return err
+			}).Should(HaveOccurred())
 		})
 	}
 }

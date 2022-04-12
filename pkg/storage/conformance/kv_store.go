@@ -79,10 +79,12 @@ func KeyValueStoreTestSuite[T storage.KeyValueStoreBroker](
 				errCtrl.EnableErrors()
 				defer errCtrl.DisableErrors()
 
-				_, err := ts.Get(context.Background(), "foo")
-				Expect(err).To(HaveOccurred())
+				Eventually(func() error {
+					_, err := ts.Get(context.Background(), "foo")
+					return err
+				}).Should(HaveOccurred())
 
-				err = ts.Put(context.Background(), "bar", []byte("baz"))
+				err := ts.Put(context.Background(), "bar", []byte("baz"))
 				Expect(err).To(HaveOccurred())
 
 				err = ts.Delete(context.Background(), "foo")

@@ -18,7 +18,7 @@ This demo auth mechanism allows Opni Monitoring to be its own OpenID Provider. W
 grafana.ini:
   server:
     domain: "grafana.<gateway_address>"
-    root_url: "https://<gateway_address>"
+    root_url: "https://grafana.<gateway_address>"
   auth.generic_oauth:
     client_id: "grafana"
     client_secret: "supersecret" # (this can be whatever you want)

@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kralicky/gpkg/sync/atomic"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/model/rulefmt"
@@ -91,9 +92,10 @@ var _ = Describe("Update Notifier", func() {
 		recv.Wait()
 	})
 	It("should handle deleting receivers", func() {
-		groups := testGroups1
+		groups := atomic.Value[[]rulefmt.RuleGroup]{}
+		groups.Store(testGroups1)
 		un := rules.NewUpdateNotifier(test.NewTestRuleFinder(ctrl, func() []rulefmt.RuleGroup {
-			return rules.CloneRuleGroupList(groups)
+			return rules.CloneRuleGroupList(groups.Load())
 		}))
 
 		count := 100
@@ -121,7 +123,7 @@ var _ = Describe("Update Notifier", func() {
 			Eventually(channels[i]).Should(Receive(Equal(testGroups1)))
 		}
 
-		groups = testGroups2
+		groups.Store(testGroups2)
 
 		for i := 0; i < count; i++ {
 			contexts[i].ca()
@@ -135,9 +137,10 @@ var _ = Describe("Update Notifier", func() {
 		}
 	})
 	It("should handle rule updates", func() {
-		groups := testGroups1
+		groups := atomic.Value[[]rulefmt.RuleGroup]{}
+		groups.Store(testGroups1)
 		un := rules.NewUpdateNotifier(test.NewTestRuleFinder(ctrl, func() []rulefmt.RuleGroup {
-			return rules.CloneRuleGroupList(groups)
+			return rules.CloneRuleGroupList(groups.Load())
 		}))
 
 		count := 100
@@ -152,7 +155,7 @@ var _ = Describe("Update Notifier", func() {
 			Eventually(channels[i]).Should(Receive(Equal(testGroups1)))
 		}
 
-		groups = testGroups2
+		groups.Store(testGroups2)
 
 		go un.FetchRules(context.Background())
 
@@ -166,7 +169,7 @@ var _ = Describe("Update Notifier", func() {
 			Expect(channels[i]).NotTo(Receive())
 		}
 
-		groups = testGroups3
+		groups.Store(testGroups3)
 
 		go un.FetchRules(context.Background())
 

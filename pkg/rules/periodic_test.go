@@ -41,12 +41,20 @@ var _ = Describe("Periodic Update Notifier", Label(test.Unit, test.TimeSensitive
 		}()
 		<-ctx.Done()
 		ctrl.Finish()
-		close(tc)
 
 		// ensure all timestamps are ~interval apart
 		timestamps := make([]time.Time, 0, len(tc))
-		for t := range tc {
-			timestamps = append(timestamps, t)
+	READ:
+		for {
+			select {
+			case t, ok := <-tc:
+				if !ok {
+					break READ
+				}
+				timestamps = append(timestamps, t)
+			default:
+				break READ
+			}
 		}
 		for i := 1; i < len(tc); i++ {
 			Expect(timestamps[i].Sub(timestamps[i-1])).To(BeNumerically("~", interval, interval/10))

@@ -195,6 +195,11 @@ func init() {
 			Types:  []string{"Provider"},
 		},
 		{
+			Source: "pkg/rules/types.go",
+			Dest:   "pkg/test/mock/rules/rules.go",
+			Types:  []string{"RuleFinder"},
+		},
+		{
 			Source: "pkg/storage/stores.go",
 			Dest:   "pkg/test/mock/storage/stores.go",
 			Types:  []string{"TokenStore", "TenantStore"},

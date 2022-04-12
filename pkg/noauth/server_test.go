@@ -58,7 +58,7 @@ var _ = Describe("Server", Ordered, Label(test.Unit, test.Slow), func() {
 			Port:                  ports[0],
 			Logger:                test.Log,
 		})
-		ctx, ca := context.WithCancel(waitctx.FromContext(context.Background()))
+		ctx, ca := context.WithCancel(waitctx.Background())
 		go func() {
 			Expect(srv.Run(ctx)).To(Succeed())
 		}()

@@ -58,7 +58,7 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 		} else {
 			tv.ctrl = gomock.NewController(GinkgoT())
 		}
-		ctx, ca := context.WithCancel(waitctx.FromContext(context.Background()))
+		ctx, ca := context.WithCancel(waitctx.Background())
 		tv.storageBackend = test.NewTestStorageBackend(ctx, tv.ctrl)
 		ports, err := freeport.GetFreePorts(2)
 		Expect(err).NotTo(HaveOccurred())

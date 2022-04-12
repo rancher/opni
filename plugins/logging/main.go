@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	ctx, ca := context.WithCancel(waitctx.FromContext(context.Background()))
+	ctx, ca := context.WithCancel(waitctx.Background())
 	plugins.Serve(logging.Scheme(ctx))
 	ca()
 	waitctx.Wait(ctx, 5*time.Second)

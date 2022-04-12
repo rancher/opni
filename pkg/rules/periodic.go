@@ -11,17 +11,17 @@ type periodicUpdateNotifier struct {
 
 func NewPeriodicUpdateNotifier(ctx context.Context, finder RuleFinder, interval time.Duration) UpdateNotifier {
 	notifier := &periodicUpdateNotifier{
-		updateNotifier: newUpdateNotifier(finder),
+		updateNotifier: NewUpdateNotifier(finder),
 	}
 	go func() {
-		timer := time.NewTimer(interval)
+		t := time.NewTicker(interval)
 		for {
 			// this will block until there is at least one listener on the update notifier
-			notifier.fetchRules(ctx)
+			notifier.FetchRules(ctx)
 			select {
-			case <-timer.C:
+			case <-t.C:
 			case <-ctx.Done():
-				timer.Stop()
+				t.Stop()
 				return
 			}
 		}

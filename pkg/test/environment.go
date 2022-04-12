@@ -374,7 +374,7 @@ func (e *Environment) Stop() error {
 
 func (e *Environment) initCtx() {
 	e.once.Do(func() {
-		e.ctx, e.cancel = context.WithCancel(waitctx.FromContext(context.Background()))
+		e.ctx, e.cancel = context.WithCancel(waitctx.Background())
 	})
 }
 

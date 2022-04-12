@@ -7,13 +7,16 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/ident"
 	"github.com/rancher/opni-monitoring/pkg/keyring"
 	"github.com/rancher/opni-monitoring/pkg/plugins/apis/capability"
+	"github.com/rancher/opni-monitoring/pkg/rules"
 	"github.com/rancher/opni-monitoring/pkg/storage"
 	mock_capability "github.com/rancher/opni-monitoring/pkg/test/mock/capability"
 	mock_ident "github.com/rancher/opni-monitoring/pkg/test/mock/ident"
+	mock_rules "github.com/rancher/opni-monitoring/pkg/test/mock/rules"
 	mock_storage "github.com/rancher/opni-monitoring/pkg/test/mock/storage"
 	"github.com/rancher/opni-monitoring/pkg/tokens"
 	"google.golang.org/grpc"
@@ -485,4 +488,19 @@ func NewTestIdentProvider(ctrl *gomock.Controller, id string) ident.Provider {
 		Return(id, nil).
 		AnyTimes()
 	return mockIdent
+}
+
+/******************************************************************************
+ * Rules                                                                      *
+ ******************************************************************************/
+
+func NewTestRuleFinder(ctrl *gomock.Controller, groups func() []rulefmt.RuleGroup) rules.RuleFinder {
+	mockRuleFinder := mock_rules.NewMockRuleFinder(ctrl)
+	mockRuleFinder.EXPECT().
+		FindGroups(gomock.Any()).
+		DoAndReturn(func(ctx context.Context) ([]rulefmt.RuleGroup, error) {
+			return groups(), nil
+		}).
+		AnyTimes()
+	return mockRuleFinder
 }

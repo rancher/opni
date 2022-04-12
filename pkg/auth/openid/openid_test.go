@@ -26,7 +26,7 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableInCI[FlakeAttempts](5)
 
 	Context("no server errors", func() {
 		BeforeEach(func() {
-			mw, err := openid.New(waitctx.FromContext(context.Background()), v1beta1.AuthProviderSpec{
+			mw, err := openid.New(waitctx.Background(), v1beta1.AuthProviderSpec{
 				Type: "openid",
 				Options: map[string]any{
 					"discovery": map[string]string{
@@ -131,7 +131,7 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableInCI[FlakeAttempts](5)
 				port, err := freeport.GetFreePort()
 				Expect(err).NotTo(HaveOccurred())
 
-				mw, err := openid.New(waitctx.FromContext(context.Background()), v1beta1.AuthProviderSpec{
+				mw, err := openid.New(waitctx.Background(), v1beta1.AuthProviderSpec{
 					Type: "openid",
 					Options: map[string]any{
 						"discovery": map[string]string{
@@ -172,7 +172,7 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableInCI[FlakeAttempts](5)
 		})
 		When("an id token is missing the identifying claim", func() {
 			It("should return http 401", func() {
-				mw, err := openid.New(waitctx.FromContext(context.Background()), v1beta1.AuthProviderSpec{
+				mw, err := openid.New(waitctx.Background(), v1beta1.AuthProviderSpec{
 					Type: "openid",
 					Options: map[string]any{
 						"discovery": map[string]string{

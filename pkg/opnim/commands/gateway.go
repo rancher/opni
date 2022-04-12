@@ -34,7 +34,7 @@ func BuildGatewayCmd() *cobra.Command {
 	run := func() error {
 		objects := cliutil.LoadConfigObjectsOrDie(configLocation, lg)
 
-		ctx, cancel := context.WithCancel(waitctx.FromContext(context.Background()))
+		ctx, cancel := context.WithCancel(waitctx.Background())
 		machinery.LoadAuthProviders(ctx, objects)
 		var gatewayConfig *v1beta1.GatewayConfig
 		objects.Visit(

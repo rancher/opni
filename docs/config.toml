@@ -92,7 +92,7 @@ privacy_policy = "https://www.suse.com/company/legal/"
 version_menu = "Releases"
 
 # Repository configuration (URLs for in-page links to opening issues and suggesting changes)
-github_repo = "https://github.com/rancher/opni-monitoring-docs"
+github_repo = "https://github.com/rancher/opni-monitoring"
 github_branch = "main"
 # An optional link to a related project repo. For example, the sibling repository where your product code lives.
 github_project_repo = "https://github.com/rancher/opni-monitoring"

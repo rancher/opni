@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni-monitoring/pkg/logger"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -55,20 +56,14 @@ func NewPrometheusRuleFinder(k8sClient client.Client, opts ...PrometheusRuleFind
 
 func (f *PrometheusRuleFinder) FindGroups(ctx context.Context) ([]rulefmt.RuleGroup, error) {
 	// Find all PrometheusRules
-	searchNamespaces := []string{}
-	switch {
-	case len(f.namespaces) == 0:
+	searchNamespaces := lo.Filter(f.namespaces, func(v string, i int) bool {
+		return v != ""
+	})
+	if len(searchNamespaces) == 0 {
 		// No namespaces specified, search all namespaces
 		searchNamespaces = append(searchNamespaces, "")
-	case len(f.namespaces) > 1:
-		// If multiple namespaces are specified, filter out empty strings, which
-		// would otherwise match all namespaces.
-		for _, ns := range f.namespaces {
-			if ns != "" {
-				searchNamespaces = append(searchNamespaces, ns)
-			}
-		}
 	}
+
 	lg := f.logger.With("namespaces", searchNamespaces)
 	var ruleGroups []rulefmt.RuleGroup
 	lg.Debug("searching for PrometheusRules")
@@ -138,7 +133,9 @@ func (f *PrometheusRuleFinder) findRulesInNamespace(
 				if errs := node.Validate(); len(errs) > 0 {
 					lg.With(
 						"group", group.Name,
-						"errs", errs,
+						"errs", lo.Map(errs, func(t rulefmt.WrappedError, i int) string {
+							return t.Error()
+						}),
 					).Warn("skipping rule: invalid node")
 					continue
 				}

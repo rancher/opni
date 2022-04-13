@@ -11,10 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lestrrat-go/jwx/jwk"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
 
+	openidauth "github.com/rancher/opni-monitoring/pkg/auth/openid"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/noauth"
 	"github.com/rancher/opni-monitoring/pkg/test"
@@ -64,6 +66,8 @@ var _ = Describe("Server", Ordered, Label(test.Unit, test.Slow), func() {
 		}()
 		DeferCleanup(ca)
 	})
+	var accessCode string
+	var accessToken string
 	It("should issue an access code", func() {
 		recv := make(chan *http.Request, 10)
 		http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
@@ -95,11 +99,13 @@ var _ = Describe("Server", Ordered, Label(test.Unit, test.Slow), func() {
 		case <-time.After(2 * time.Second):
 			Fail("timeout")
 		}
-
+		accessCode = code
+	})
+	It("should issue an access token", func() {
 		values := url.Values{
 			"client_id":     []string{"foo"},
 			"client_secret": []string{"bar"},
-			"code":          []string{code},
+			"code":          []string{accessCode},
 			"grant_type":    []string{"authorization_code"},
 			"redirect_uri":  []string{fmt.Sprintf("http://localhost:%d", ports[1])},
 		}
@@ -121,5 +127,70 @@ var _ = Describe("Server", Ordered, Label(test.Unit, test.Slow), func() {
 		Expect(respData.ExpiresIn).To(BeNumerically(">", 0))
 		Expect(respData.IdToken).NotTo(BeEmpty())
 		Expect(respData.Scope).To(Equal("openid profile email"))
+		accessToken = respData.AccessToken
+	})
+	It("should get user info", func() {
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/oauth2/userinfo", ports[0]), nil)
+		Expect(err).NotTo(HaveOccurred())
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		resp, err := http.DefaultClient.Do(req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		defer resp.Body.Close()
+		jsonData, _ := io.ReadAll(resp.Body)
+		mapClaims := map[string]interface{}{}
+		Expect(json.Unmarshal(jsonData, &mapClaims)).To(Succeed())
+		Expect(mapClaims["sub"]).To(Equal("admin@example.com"))
+	})
+	It("should check access token validity", func() {
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/oauth2/userinfo", ports[0]), nil)
+		Expect(err).NotTo(HaveOccurred())
+		req.Header.Set("Authorization", "Bearer foo")
+		resp, err := http.DefaultClient.Do(req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+
+		req, err = http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/oauth2/userinfo", ports[0]), nil)
+		Expect(err).NotTo(HaveOccurred())
+		resp, err = http.DefaultClient.Do(req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+
+		req, err = http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/oauth2/userinfo", ports[0]), nil)
+		Expect(err).NotTo(HaveOccurred())
+		req.Header.Set("Authorization", "Bearer "+accessCode)
+		resp, err = http.DefaultClient.Do(req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+	})
+	It("should serve the discovery endpoint", func() {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/oauth2/.well-known/openid-configuration", ports[0]))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Expect(resp.Header.Get("Content-Type")).To(Equal("application/json"))
+		defer resp.Body.Close()
+		jsonData, _ := io.ReadAll(resp.Body)
+		wk := openidauth.WellKnownConfiguration{}
+		Expect(json.Unmarshal(jsonData, &wk)).To(Succeed())
+		Expect(wk.Issuer).To(Equal(fmt.Sprintf("http://localhost:%d/oauth2", ports[0])))
+	})
+	It("should serve the jwk set", func() {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/oauth2/.well-known/jwks.json", ports[0]))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Expect(resp.Header.Get("Content-Type")).To(Equal("application/jwk-set+json"))
+		defer resp.Body.Close()
+		jsonData, err := io.ReadAll(resp.Body)
+		Expect(err).NotTo(HaveOccurred())
+		jwks, err := jwk.Parse(jsonData)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(jwks.Len()).To(Equal(1))
+	})
+	It("should serve the login page", func() {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/oauth2/authorize?client_id=foo&redirect_uri=http%3A%2F%2Flocalhost%3A"+fmt.Sprint(ports[1])+"&response_type=code&scope=openid+profile+email&state=1234567890", ports[0]))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Expect(resp.Header.Get("Content-Type")).To(Equal("text/html; charset=utf-8"))
+		defer resp.Body.Close()
 	})
 })

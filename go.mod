@@ -8,8 +8,8 @@ require (
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
 	github.com/andybalholm/brotli v1.0.4
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
-	github.com/banzaicloud/operator-tools v0.28.3
-	github.com/cert-manager/cert-manager v1.8.0-alpha.2
+	github.com/banzaicloud/operator-tools v0.28.4
+	github.com/cert-manager/cert-manager v1.8.0
 	github.com/cortexproject/cortex v1.12.0-rc.0
 	github.com/dghubble/trie v0.0.0-20211002190126-ca25329b35c6
 	github.com/go-logr/logr v1.2.3
@@ -28,7 +28,7 @@ require (
 	github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6
 	github.com/kralicky/spellbook v0.0.0-20220322004259-9900ddc1e90a
 	github.com/lestrrat-go/backoff/v2 v2.0.8
-	github.com/lestrrat-go/jwx v1.2.21
+	github.com/lestrrat-go/jwx v1.2.22
 	github.com/magefile/mage v1.13.0
 	github.com/mattn/go-tty v0.0.4
 	github.com/mitchellh/mapstructure v1.4.3
@@ -43,21 +43,20 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.33.0
 	github.com/prometheus/prometheus v1.8.2-0.20211119115433-692a54649ed7
-	github.com/rancher/opni v0.3.2-0.20220328222758-fce749e2d4a5
-	github.com/samber/lo v1.11.0
+	github.com/rancher/opni v0.4.0
+	github.com/samber/lo v1.12.0
 	github.com/schollz/progressbar/v3 v3.8.6
 	github.com/spf13/cobra v1.4.0
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
-	github.com/valyala/fasthttp v1.34.0
+	github.com/valyala/fasthttp v1.35.0
 	github.com/vearutop/statigz v1.1.8
 	go.etcd.io/etcd/client/v3 v3.5.2
 	go.etcd.io/etcd/etcdctl/v3 v3.5.2
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
-	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064
-	golang.org/x/exp v0.0.0-20220328175248-053ad81199eb
+	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
+	golang.org/x/exp v0.0.0-20220407100705-7b9b53b0aca4
 	golang.org/x/mod v0.6.0-dev.0.20211013180041-c96bc1413d57
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gonum.org/v1/gonum v0.11.0
 	google.golang.org/genproto v0.0.0-20220329172620-7be39ac1afc7
 	google.golang.org/grpc v1.45.0
@@ -69,7 +68,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	opensearch.opster.io v0.0.0-00010101000000-000000000000
-	sigs.k8s.io/controller-runtime v0.11.1
+	sigs.k8s.io/controller-runtime v0.11.2
 	sigs.k8s.io/controller-tools v0.8.0
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -139,7 +138,7 @@ require (
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/kralicky/ragu v0.2.7-0.20220323195938-430b56cdb12d // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
-	github.com/lestrrat-go/httpcc v1.0.0 // indirect
+	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/iter v1.0.1 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
@@ -212,6 +211,7 @@ require (
 	go.uber.org/multierr v1.7.0 // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b // indirect
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220330033206-e17cdc41300f // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
@@ -238,8 +238,9 @@ replace (
 
 	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.0.0-20220225205714-b06e7ad17676
 
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
 	go.uber.org/zap => github.com/kralicky/zap v1.19.2-0.20220311060549-c0d473b28cca
 	// Because of a dependency chain to Cortex
-	k8s.io/client-go => k8s.io/client-go v0.23.4
+	k8s.io/client-go => k8s.io/client-go v0.23.5
 	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220405232819-82b73065a2ca
 )

@@ -58,6 +58,9 @@ func (m *Server) WatchClusters(
 	}
 	known := map[string]*core.Reference{}
 	for _, cluster := range in.KnownClusters.Items {
+		if _, err := m.coreDataSource.StorageBackend().GetCluster(context.Background(), cluster); err != nil {
+			return err
+		}
 		known[cluster.Id] = cluster
 	}
 	tick := time.NewTicker(1 * time.Second)

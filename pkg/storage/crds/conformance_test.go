@@ -24,7 +24,7 @@ var _ = BeforeSuite(func() {
 	env := test.Environment{
 		TestBin: "../../../testbin/bin",
 		CRDDirectoryPaths: []string{
-			"../../../deploy/charts/opni-monitoring/crds",
+			"../../sdk/crd",
 		},
 	}
 	config, err := env.StartK8s()

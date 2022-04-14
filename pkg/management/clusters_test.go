@@ -10,7 +10,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni-monitoring/pkg/core"
 	"github.com/rancher/opni-monitoring/pkg/management"
+	"github.com/rancher/opni-monitoring/pkg/storage"
 	"github.com/rancher/opni-monitoring/pkg/test"
+	"github.com/rancher/opni-monitoring/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -25,9 +27,14 @@ var _ = Describe("Clusters", Ordered, Label(test.Unit, test.Slow), func() {
 		Expect(clusters.Items).To(BeEmpty())
 	})
 	events := make(chan *management.WatchEvent, 1000)
+	var streamCancel context.CancelFunc
 	It("should handle watching create and delete events", func() {
-		stream, err := tv.client.WatchClusters(context.Background(), &management.WatchClustersRequest{
-			KnownClusters: &core.ReferenceList{},
+		ctx, ca := context.WithCancel(context.Background())
+		streamCancel = ca
+		stream, err := tv.client.WatchClusters(ctx, &management.WatchClustersRequest{
+			KnownClusters: &core.ReferenceList{
+				Items: []*core.Reference{},
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		go func() {
@@ -149,6 +156,7 @@ var _ = Describe("Clusters", Ordered, Label(test.Unit, test.Slow), func() {
 		clusters, err = tv.client.ListClusters(context.Background(), &management.ListClustersRequest{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(clusters.Items).To(BeEmpty())
+		streamCancel()
 	})
 	When("attempting to edit a nonexistent cluster", func() {
 		It("should error", func() {
@@ -168,5 +176,64 @@ var _ = Describe("Clusters", Ordered, Label(test.Unit, test.Slow), func() {
 			})
 			Expect(status.Code(err)).To(Equal(codes.NotFound))
 		})
+	})
+	It("should handle validation errors", func() {
+		_, err := tv.client.ListClusters(context.Background(), &management.ListClustersRequest{
+			MatchLabels: &core.LabelSelector{
+				MatchLabels: map[string]string{
+					"\\": "bar",
+				},
+			},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(validation.ErrInvalidLabelName.Error()))
+
+		_, err = tv.client.GetCluster(context.Background(), &core.Reference{
+			Id: "\\",
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(validation.ErrInvalidID.Error()))
+
+		_, err = tv.client.EditCluster(context.Background(), &management.EditClusterRequest{
+			Cluster: &core.Reference{
+				Id: "\\",
+			},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(validation.ErrInvalidID.Error()))
+
+		_, err = tv.client.DeleteCluster(context.Background(), &core.Reference{
+			Id: "\\",
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(validation.ErrInvalidID.Error()))
+
+		stream, err := tv.client.WatchClusters(context.Background(), &management.WatchClustersRequest{
+			KnownClusters: &core.ReferenceList{
+				Items: []*core.Reference{
+					{
+						Id: "\\",
+					},
+				},
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = stream.Recv()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(validation.ErrInvalidID.Error()))
+
+		stream, err = tv.client.WatchClusters(context.Background(), &management.WatchClustersRequest{
+			KnownClusters: &core.ReferenceList{
+				Items: []*core.Reference{
+					{
+						Id: "nonexistent",
+					},
+				},
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = stream.Recv()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(storage.ErrNotFound.Error()))
 	})
 })

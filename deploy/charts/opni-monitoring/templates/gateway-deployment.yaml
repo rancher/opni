@@ -1,0 +1,184 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opni-gateway
+  labels:
+    {{- include "opni-monitoring.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.gateway.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "opni-monitoring.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.gateway.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "opni-monitoring.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "opni-monitoring.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.gateway.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.gateway.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - gateway
+          volumeMounts:
+            - name: config
+              mountPath: /etc/opni-monitoring
+            - name: certs
+              mountPath: /run/opni-monitoring/certs
+              readOnly: true
+            - name: cortex-client-certs
+              mountPath: /run/cortex/certs/client
+              readOnly: true
+            - name: cortex-server-cacert
+              mountPath: /run/cortex/certs/server
+              readOnly: true
+            - name: etcd-client-certs
+              mountPath: /run/etcd/certs/client
+              readOnly: true
+            - name: etcd-server-cacert
+              mountPath: /run/etcd/certs/server
+              readOnly: true
+          {{- range .Values.extraVolumeMounts }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+              readOnly: {{ .readOnly }}
+              subPath: {{ .subPath | default "" }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.services.public.port }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.metrics.port | default 8086 }}
+              protocol: TCP
+          {{- if hasPrefix "tcp://" .Values.management.grpcListenAddress }}
+            - name: management-grpc
+          {{- $a := split ":" .Values.management.grpcListenAddress }}
+              containerPort: {{ $a._2 }}
+              protocol: TCP
+          {{- end }}
+          {{- if .Values.management.httpListenAddress }}
+            - name: management-http
+          {{- $a := split ":" .Values.management.httpListenAddress }}
+              containerPort: {{ $a._1 }}
+              protocol: TCP
+          {{- end }}
+          {{- if .Values.management.webListenAddress }}
+            - name: management-web
+          {{- $a := split ":" .Values.management.webListenAddress }}
+              containerPort: {{ $a._1 }}
+              protocol: TCP
+          {{- end }}
+          {{- if eq .Values.auth.provider "noauth" }}
+            - name: noauth
+              containerPort: {{ .Values.auth.noauth.port }}
+              protocol: TCP
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTPS
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTPS
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTPS
+            timeoutSeconds: 1
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 10
+          resources:
+            {{- toYaml .Values.gateway.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: opni-gateway
+            defaultMode: 256
+        - name: certs
+          secret:
+            secretName: opni-gateway-serving-cert
+            defaultMode: 256
+        - name: cortex-client-certs
+          secret:
+            secretName: cortex-client-cert-keys
+            defaultMode: 256
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+              - key: ca.crt
+                path: ca.crt
+        - name: cortex-server-cacert
+          secret:
+            secretName: cortex-serving-cert-keys
+            defaultMode: 256
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: etcd-client-certs
+          secret:
+            secretName: etcd-client-cert-keys
+            defaultMode: 256
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+              - key: ca.crt
+                path: ca.crt
+        - name: etcd-server-cacert
+          secret:
+            secretName: etcd-serving-cert-keys
+            defaultMode: 256
+            items:
+              - key: ca.crt
+                path: ca.crt
+      {{- range .Values.extraVolumeMounts }}
+        - name: {{ .name }}
+          {{- if .projected }}
+          projected: {{- toYaml .projected | nindent 12 }}
+          {{- else if .hostPath }}
+          hostPath:
+            path: {{ .hostPath }}
+          {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

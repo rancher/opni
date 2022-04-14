@@ -1,0 +1,83 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: opni-monitoring-agent
+  labels:
+    {{- include "opni-monitoring-agent.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+    - monitoring.opni.io
+    resources:
+    - "*"
+    verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - "monitoring.coreos.com"
+    resources:
+      - prometheusrules
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: opni-monitoring-agent
+  labels:
+    {{- include "opni-monitoring-agent.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: opni-monitoring-agent
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "opni-monitoring-agent.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Role
+metadata:
+  name: opni-monitoring-agent
+  labels:
+    {{- include "opni-monitoring-agent.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: opni-monitoring-agent
+  labels:
+    {{- include "opni-monitoring-agent.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: opni-monitoring-agent
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "opni-monitoring-agent.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

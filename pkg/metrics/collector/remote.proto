@@ -1,0 +1,25 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+import "github.com/prometheus/client_model/metrics.proto";
+import "../desc/desc.proto";
+option go_package = "github.com/rancher/opni/pkg/metrics/collector";
+
+package collector;
+
+service RemoteCollector {
+  rpc Describe(google.protobuf.Empty) returns (DescriptorList);
+  rpc Collect(google.protobuf.Empty) returns (MetricList);
+}
+
+message DescriptorList {
+  repeated desc.Desc descriptors = 1;
+}
+
+message MetricList {
+  repeated Metric metrics = 1;
+}
+
+message Metric {
+  desc.Desc desc = 1;
+  io.prometheus.client.Metric metric = 2;
+}

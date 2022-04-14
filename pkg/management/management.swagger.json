@@ -1,0 +1,1181 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Opni Monitoring Management API",
+    "version": "1.0",
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://github.com/rancher/opni/blob/main/LICENSE"
+    }
+  },
+  "tags": [
+    {
+      "name": "Management"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/management/apiextensions": {
+      "get": {
+        "operationId": "Management_APIExtensions",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/managementAPIExtensionInfoList"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/capabilities": {
+      "get": {
+        "operationId": "Management_ListCapabilities",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/managementCapabilityList"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/capabilities/{name}/installer": {
+      "post": {
+        "operationId": "Management_CapabilityInstaller",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/managementCapabilityInstallerResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "token": {
+                  "type": "string"
+                },
+                "pin": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/certs": {
+      "get": {
+        "operationId": "Management_CertsInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/managementCertsInfoResponse"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters": {
+      "get": {
+        "operationId": "Management_ListClusters",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreClusterList"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "matchOptions",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "Default",
+              "EmptySelectorMatchesNone"
+            ],
+            "default": "Default"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters/watch": {
+      "post": {
+        "operationId": "Management_WatchClusters",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/managementWatchEvent"
+                }
+              },
+              "title": "Stream result of managementWatchEvent"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/managementWatchClustersRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters/{cluster.id}": {
+      "put": {
+        "operationId": "Management_EditCluster",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreCluster"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cluster.id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/managementEditClusterRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters/{id}": {
+      "get": {
+        "operationId": "Management_GetCluster",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreCluster"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      },
+      "delete": {
+        "operationId": "Management_DeleteCluster",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/config": {
+      "get": {
+        "operationId": "Management_GetConfig",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/managementGatewayConfig"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      },
+      "put": {
+        "operationId": "Management_UpdateConfig",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/managementUpdateConfigRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/rolebindings": {
+      "get": {
+        "operationId": "Management_ListRoleBindings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreRoleBindingList"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      },
+      "post": {
+        "operationId": "Management_CreateRoleBinding",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/coreRoleBinding"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/rolebindings/{id}": {
+      "get": {
+        "operationId": "Management_GetRoleBinding",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreRoleBinding"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      },
+      "delete": {
+        "operationId": "Management_DeleteRoleBinding",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/roles": {
+      "get": {
+        "operationId": "Management_ListRoles",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreRoleList"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      },
+      "post": {
+        "operationId": "Management_CreateRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/coreRole"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/roles/{id}": {
+      "get": {
+        "operationId": "Management_GetRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreRole"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      },
+      "delete": {
+        "operationId": "Management_DeleteRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/subjectaccess": {
+      "get": {
+        "operationId": "Management_SubjectAccess",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreReferenceList"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "subject",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/tokens": {
+      "get": {
+        "operationId": "Management_ListBootstrapTokens",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreBootstrapTokenList"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      },
+      "post": {
+        "operationId": "Management_CreateBootstrapToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreBootstrapToken"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/managementCreateBootstrapTokenRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/tokens/{id}": {
+      "get": {
+        "operationId": "Management_GetBootstrapToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreBootstrapToken"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      },
+      "delete": {
+        "operationId": "Management_RevokeBootstrapToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "MethodOptionsIdempotencyLevel": {
+      "type": "string",
+      "enum": [
+        "IDEMPOTENCY_UNKNOWN",
+        "NO_SIDE_EFFECTS",
+        "IDEMPOTENT"
+      ],
+      "default": "IDEMPOTENCY_UNKNOWN"
+    },
+    "UninterpretedOptionNamePart": {
+      "type": "object",
+      "properties": {
+        "name_part": {
+          "type": "string"
+        },
+        "is_extension": {
+          "type": "boolean"
+        }
+      }
+    },
+    "apiCustomHttpPattern": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "apiHttpRule": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string"
+        },
+        "get": {
+          "type": "string"
+        },
+        "put": {
+          "type": "string"
+        },
+        "post": {
+          "type": "string"
+        },
+        "delete": {
+          "type": "string"
+        },
+        "patch": {
+          "type": "string"
+        },
+        "custom": {
+          "$ref": "#/definitions/apiCustomHttpPattern"
+        },
+        "body": {
+          "type": "string"
+        },
+        "response_body": {
+          "type": "string"
+        },
+        "additional_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/apiHttpRule"
+          }
+        }
+      }
+    },
+    "coreBootstrapToken": {
+      "type": "object",
+      "properties": {
+        "tokenID": {
+          "type": "string"
+        },
+        "secret": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/coreBootstrapTokenMetadata"
+        }
+      }
+    },
+    "coreBootstrapTokenList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreBootstrapToken"
+          }
+        }
+      }
+    },
+    "coreBootstrapTokenMetadata": {
+      "type": "object",
+      "properties": {
+        "leaseID": {
+          "type": "string",
+          "format": "int64"
+        },
+        "ttl": {
+          "type": "string",
+          "format": "int64"
+        },
+        "usageCount": {
+          "type": "string",
+          "format": "int64"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreTokenCapability"
+          }
+        }
+      }
+    },
+    "coreCertInfo": {
+      "type": "object",
+      "properties": {
+        "issuer": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "isCA": {
+          "type": "boolean"
+        },
+        "notBefore": {
+          "type": "string"
+        },
+        "notAfter": {
+          "type": "string"
+        },
+        "fingerprint": {
+          "type": "string"
+        }
+      }
+    },
+    "coreCluster": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/coreClusterMetadata"
+        }
+      }
+    },
+    "coreClusterCapability": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "coreClusterList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreCluster"
+          }
+        }
+      }
+    },
+    "coreClusterMetadata": {
+      "type": "object",
+      "properties": {
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreClusterCapability"
+          }
+        }
+      }
+    },
+    "coreLabelSelector": {
+      "type": "object",
+      "properties": {
+        "matchLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "matchExpressions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreLabelSelectorRequirement"
+          }
+        }
+      }
+    },
+    "coreLabelSelectorRequirement": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "coreMatchOptions": {
+      "type": "string",
+      "enum": [
+        "Default",
+        "EmptySelectorMatchesNone"
+      ],
+      "default": "Default"
+    },
+    "coreReference": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "coreReferenceList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreReference"
+          }
+        }
+      }
+    },
+    "coreRole": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "clusterIDs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "matchLabels": {
+          "$ref": "#/definitions/coreLabelSelector"
+        }
+      }
+    },
+    "coreRoleBinding": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "roleId": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "taints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "coreRoleBindingList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreRoleBinding"
+          }
+        }
+      }
+    },
+    "coreRoleList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreRole"
+          }
+        }
+      }
+    },
+    "coreTokenCapability": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "reference": {
+          "$ref": "#/definitions/coreReference"
+        }
+      }
+    },
+    "managementAPIExtensionInfo": {
+      "type": "object",
+      "properties": {
+        "serviceDesc": {
+          "$ref": "#/definitions/protobufServiceDescriptorProto"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/managementHTTPRuleDescriptor"
+          }
+        }
+      }
+    },
+    "managementAPIExtensionInfoList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/managementAPIExtensionInfo"
+          }
+        }
+      }
+    },
+    "managementCapabilityInstallerResponse": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string"
+        }
+      }
+    },
+    "managementCapabilityList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "managementCertsInfoResponse": {
+      "type": "object",
+      "properties": {
+        "chain": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreCertInfo"
+          }
+        }
+      }
+    },
+    "managementConfigDocument": {
+      "type": "object",
+      "properties": {
+        "json": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "managementConfigDocumentWithSchema": {
+      "type": "object",
+      "properties": {
+        "json": {
+          "type": "string",
+          "format": "byte"
+        },
+        "yaml": {
+          "type": "string",
+          "format": "byte"
+        },
+        "schema": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "managementCreateBootstrapTokenRequest": {
+      "type": "object",
+      "properties": {
+        "ttl": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreTokenCapability"
+          }
+        }
+      }
+    },
+    "managementEditClusterRequest": {
+      "type": "object",
+      "properties": {
+        "cluster": {
+          "$ref": "#/definitions/coreReference"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "managementGatewayConfig": {
+      "type": "object",
+      "properties": {
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/managementConfigDocumentWithSchema"
+          }
+        }
+      }
+    },
+    "managementHTTPRuleDescriptor": {
+      "type": "object",
+      "properties": {
+        "http": {
+          "$ref": "#/definitions/apiHttpRule"
+        },
+        "method": {
+          "$ref": "#/definitions/protobufMethodDescriptorProto"
+        }
+      }
+    },
+    "managementUpdateConfigRequest": {
+      "type": "object",
+      "properties": {
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/managementConfigDocument"
+          }
+        }
+      }
+    },
+    "managementWatchClustersRequest": {
+      "type": "object",
+      "properties": {
+        "knownClusters": {
+          "$ref": "#/definitions/coreReferenceList"
+        }
+      }
+    },
+    "managementWatchEvent": {
+      "type": "object",
+      "properties": {
+        "cluster": {
+          "$ref": "#/definitions/coreReference"
+        },
+        "type": {
+          "$ref": "#/definitions/managementWatchEventType"
+        }
+      }
+    },
+    "managementWatchEventType": {
+      "type": "string",
+      "enum": [
+        "Added",
+        "Deleted"
+      ],
+      "default": "Added"
+    },
+    "protobufMethodDescriptorProto": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "input_type": {
+          "type": "string"
+        },
+        "output_type": {
+          "type": "string"
+        },
+        "options": {
+          "$ref": "#/definitions/protobufMethodOptions"
+        },
+        "client_streaming": {
+          "type": "boolean"
+        },
+        "server_streaming": {
+          "type": "boolean"
+        }
+      }
+    },
+    "protobufMethodOptions": {
+      "type": "object",
+      "properties": {
+        "deprecated": {
+          "type": "boolean"
+        },
+        "idempotency_level": {
+          "$ref": "#/definitions/MethodOptionsIdempotencyLevel"
+        },
+        "uninterpreted_option": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufUninterpretedOption"
+          }
+        }
+      }
+    },
+    "protobufServiceDescriptorProto": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "method": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufMethodDescriptorProto"
+          }
+        },
+        "options": {
+          "$ref": "#/definitions/protobufServiceOptions"
+        }
+      }
+    },
+    "protobufServiceOptions": {
+      "type": "object",
+      "properties": {
+        "deprecated": {
+          "type": "boolean"
+        },
+        "uninterpreted_option": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufUninterpretedOption"
+          }
+        }
+      }
+    },
+    "protobufUninterpretedOption": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/UninterpretedOptionNamePart"
+          }
+        },
+        "identifier_value": {
+          "type": "string"
+        },
+        "positive_int_value": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "negative_int_value": {
+          "type": "string",
+          "format": "int64"
+        },
+        "double_value": {
+          "type": "number",
+          "format": "double"
+        },
+        "string_value": {
+          "type": "string",
+          "format": "byte"
+        },
+        "aggregate_value": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

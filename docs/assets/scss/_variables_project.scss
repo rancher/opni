@@ -1,0 +1,49 @@
+$primary: #a453b9;
+$primary-light: lighten($primary, 75%);
+$secondary: #614ea2;
+$success: #5d995d;
+$info: #a453b9;
+$warning: #dac342;
+$danger: #f64747;
+$white: #fff;
+
+$blue: #2453ff;
+$darkest: #141419;
+$darker: #6c6c76;
+$dark: #b6b6c2;
+$medium: #dcdee7;
+$light: #eeeff4;
+$lighter: #f4f5fa;
+$lightest: #ffffff;
+$disabled: $medium;
+
+$navbar-dark-color: $darker;
+
+// links
+$link-color: darken($primary, 15%);
+$link-decoration: none;
+$link-hover-color: darken($link-color, 15%);
+$link-hover-decoration: none;
+
+
+// fonts
+$td-enable-google-fonts: false;
+@import url(https://fonts.googleapis.com/css?family=Lato|Poppins|Roboto+Mono:400italic,700italic,400,700);
+
+$header-font: 'Poppins',
+'Times New Roman';
+$body-font: 'Lato',
+'Times New Roman';
+$mono-font: 'Roboto Mono',
+'Times New Roman';
+
+$td-fonts-serif: $body-font;
+$font-family-sans-serif: $body-font;
+
+$font-family-monospace: $mono-font;
+$font-family-base: $font-family-sans-serif;
+
+$font-size-base: 1.1rem;
+
+// nav
+$navbar-dark-hover-color: $primary !default;

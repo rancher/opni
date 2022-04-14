@@ -1,0 +1,86 @@
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: kralicky/opni-monitoring # Overrides the image tag whose default is the chart appVersion.
+  tag: latest
+  pullPolicy: Always
+
+auth:
+  provider: openid
+  openid:
+    # OpenID issuer URL (as shown in /.well-known/openid-configuration)
+    issuer: ""
+
+# Directories to search for plugin binaries in
+# /var/lib/opnim/plugins is automatically included in this list
+pluginSearchDirs: []
+
+gateway:
+  replicaCount: 1
+  podAnnotations: {}
+  podSecurityContext: {}
+  dnsNames: [] # DNS Names to add to the gateway serving cert SAN list (required)
+  ipAddresses: [] # IP Addresses to add to the gateway serving cert SAN list (optional)
+  securityContext:
+    {}
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1000
+
+  resources:
+    {}
+    # requests:
+    #   cpu: "500m"
+    #   memory: "512Mi"
+    # limits:
+    #   cpu: "2"
+    #   memory: "2Gi"
+
+# "etcd" or "customResources"
+storageType: etcd
+
+services:
+  public:
+    type: LoadBalancer
+    port: 8080
+  internal:
+    type: ClusterIP
+
+metrics:
+  port: 8086
+
+serviceMonitor:
+  enabled: true
+  # interval:
+  # scrapeTimeout:
+  # relabelings:
+  # metricRelabelings:
+
+management:
+  # The management service can listen on a unix socket or a TCP port.
+  # For example:
+  #   unix:///path/to/management.sock
+  #   tcp://0.0.0.0:11090
+  grpcListenAddress: tcp://0.0.0.0:11090
+  httpListenAddress: 0.0.0.0:11080
+  webListenAddress: 0.0.0.0:12080
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

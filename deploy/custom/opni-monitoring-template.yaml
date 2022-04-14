@@ -1,0 +1,9 @@
+# Copy this to a file named opni-monitoring.yaml and edit it with your own values.
+
+auth:
+  provider: openid
+  openid:
+    issuer: "" # OpenID issuer URL (as shown in /.well-known/openid-configuration)
+gateway:
+  hostname: ""
+  dnsNames: []

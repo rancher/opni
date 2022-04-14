@@ -1,0 +1,50 @@
+repositories:
+  - name: cortex
+    url: https://cortexproject.github.io/cortex-helm-chart
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+missingFileHandler: Error
+releases:
+  - name: etcd
+    chart: bitnami/etcd
+    namespace: opni-monitoring
+    createNamespace: true
+    values:
+      - values/etcd.yaml
+  - name: prometheus-operator-crds
+    chart: prometheus-community/kube-prometheus-stack
+    namespace: opni-monitoring
+    createNamespace: true
+    values:
+      - values/prometheus-operator-crds.yaml
+  - name: opni-monitoring
+    chart: ./charts/opni-monitoring
+    namespace: opni-monitoring
+    values:
+      - values/opni-monitoring.yaml
+      - custom/opni-monitoring.yaml
+    needs:
+      - etcd
+      - prometheus-operator-crds
+  - name: cortex
+    chart: cortex/cortex
+    namespace: opni-monitoring
+    values:
+      - values/cortex.yaml
+      - custom/cortex.yaml
+    needs:
+      - opni-monitoring
+  - name: grafana
+    chart: grafana/grafana
+    namespace: opni-monitoring
+    values:
+      - values/grafana.yaml
+      - custom/grafana.yaml
+    needs:
+      - opni-monitoring
+helmfiles:
+  - helmfiles/cert-manager.yaml

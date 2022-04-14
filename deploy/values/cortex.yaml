@@ -1,0 +1,235 @@
+image:
+  repository: kralicky/cortex
+  tag: latest
+nginx:
+  enabled: false
+config:
+  server:
+    log_level: debug
+    http_tls_config: &tls_server_config
+      cert_file: /run/cortex/certs/server/tls.crt
+      key_file: /run/cortex/certs/server/tls.key
+      client_ca_file: /run/cortex/certs/client/ca.crt
+      client_auth_type: RequireAndVerifyClientCert
+    grpc_tls_config: *tls_server_config
+  alertmanager:
+    fallback_config_file: /etc/alertmanager/fallback.yaml
+    alertmanager_client: &tls_client_config
+      tls_enabled: true
+      tls_cert_path: /run/cortex/certs/client/tls.crt
+      tls_key_path: /run/cortex/certs/client/tls.key
+      tls_ca_path: /run/cortex/certs/client/ca.crt
+      tls_server_name: cortex-server
+    enable_api: true
+    sharding_enabled: true
+    sharding_ring:
+      kvstore: &kvstore_config
+        store: etcd
+        etcd:
+          endpoints: [etcd:2379]
+          dial_timeout: 60s
+          max_retries: 100
+          tls_enabled: true
+          tls_cert_path: /run/etcd/certs/client/tls.crt
+          tls_key_path: /run/etcd/certs/client/tls.key
+          tls_ca_path: /run/etcd/certs/server/ca.crt
+  querier:
+    store_gateway_client: *tls_client_config
+  frontend:
+    query_stats_enabled: true
+    grpc_client_config: *tls_client_config
+  frontend_worker:
+    grpc_client_config: *tls_client_config
+  ingester_client:
+    grpc_client_config: *tls_client_config
+  ruler:
+    enable_alertmanager_v2: true
+    ruler_client: *tls_client_config
+    ring:
+      kvstore: *kvstore_config
+  ingester:
+    lifecycler:
+      ring:
+        kvstore: *kvstore_config
+  distributor:
+    ring:
+      kvstore: *kvstore_config
+    ha_tracker:
+      enable_ha_tracker: true
+      kvstore: *kvstore_config
+  compactor:
+    sharding_enabled: true
+    sharding_ring:
+      kvstore: *kvstore_config
+  store_gateway:
+    sharding_enabled: true
+    sharding_ring:
+      kvstore: *kvstore_config
+  alertmanager_storage:
+    backend: filesystem
+  auth_enabled: true
+  blocks_storage:
+    backend: filesystem
+  ruler_storage:
+    backend: filesystem
+  storage:
+    engine: blocks
+  tenant_federation:
+    enabled: true
+alertmanager:
+  replicas: 3
+  serviceMonitor:
+    enabled: true
+  env: &env_vars
+    # - name: JAEGER_AGENT_HOST
+    #   value: simplest-agent.observability.svc
+
+
+  startupProbe: &mtls_probe
+    initialDelaySeconds: 5
+    exec:
+      command:
+        - /usr/bin/curl
+        - -k
+        - https://127.0.0.1:8080/ready
+        - --key
+        - /run/cortex/certs/client/tls.key
+        - --cert
+        - /run/cortex/certs/client/tls.crt
+        - --cacert
+        - /run/cortex/certs/client/ca.crt
+    httpGet: null
+  livenessProbe: *mtls_probe
+  readinessProbe: *mtls_probe
+  extraVolumeMounts: &cert_volume_mounts
+    - mountPath: /run/cortex/certs/server
+      name: server-certs
+      readOnly: true
+    - mountPath: /run/cortex/certs/client
+      name: client-certs
+      readOnly: true
+    - name: etcd-client-certs
+      mountPath: /run/etcd/certs/client
+      readOnly: true
+    - name: etcd-server-cacert
+      mountPath: /run/etcd/certs/server
+      readOnly: true
+    - name: fallback-config
+      mountPath: /etc/alertmanager/fallback.yaml
+      subPath: fallback.yaml
+  extraVolumes: &cert_volumes
+    - name: server-certs
+      secret:
+        secretName: cortex-serving-cert-keys
+        defaultMode: 256
+        items:
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
+          - key: ca.crt
+            path: ca.crt
+    - name: client-certs
+      secret:
+        secretName: cortex-client-cert-keys
+        defaultMode: 256
+        items:
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
+          - key: ca.crt
+            path: ca.crt
+    - name: etcd-client-certs
+      secret:
+        secretName: etcd-client-cert-keys
+        defaultMode: 256
+        items:
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
+          - key: ca.crt
+            path: ca.crt
+    - name: etcd-server-cacert
+      secret:
+        secretName: etcd-serving-cert-keys
+        defaultMode: 256
+        items:
+          - key: ca.crt
+            path: ca.crt
+    - name: fallback-config
+      configMap:
+        name: alertmanager-fallback-config
+        items:
+          - key: fallback.yaml
+            path: fallback.yaml
+querier:
+  replicas: 3
+  serviceMonitor:
+    enabled: true
+  env: *env_vars
+  startupProbe: *mtls_probe
+  livenessProbe: *mtls_probe
+  readinessProbe: *mtls_probe
+  extraVolumeMounts: *cert_volume_mounts
+  extraVolumes: *cert_volumes
+ingester:
+  replicas: 3
+  serviceMonitor:
+    enabled: true
+  env: *env_vars
+  readinessProbe: *mtls_probe
+  extraVolumeMounts: *cert_volume_mounts
+  extraVolumes: *cert_volumes
+distributor:
+  replicas: 1
+  serviceMonitor:
+    enabled: true
+  env: *env_vars
+  startupProbe: *mtls_probe
+  livenessProbe: *mtls_probe
+  readinessProbe: *mtls_probe
+  extraVolumeMounts: *cert_volume_mounts
+  extraVolumes: *cert_volumes
+ruler:
+  replicas: 3
+  serviceMonitor:
+    enabled: true
+  env: *env_vars
+  startupProbe: *mtls_probe
+  livenessProbe: *mtls_probe
+  readinessProbe: *mtls_probe
+  extraVolumeMounts: *cert_volume_mounts
+  extraVolumes: *cert_volumes
+query_frontend:
+  replicas: 1
+  serviceMonitor:
+    enabled: true
+  env: *env_vars
+  startupProbe: *mtls_probe
+  livenessProbe: *mtls_probe
+  readinessProbe: *mtls_probe
+  extraVolumeMounts: *cert_volume_mounts
+  extraVolumes: *cert_volumes
+store_gateway:
+  replicas: 3
+  serviceMonitor:
+    enabled: true
+  env: *env_vars
+  startupProbe: *mtls_probe
+  livenessProbe: *mtls_probe
+  readinessProbe: *mtls_probe
+  extraVolumeMounts: *cert_volume_mounts
+  extraVolumes: *cert_volumes
+compactor:
+  replicas: 3
+  serviceMonitor:
+    enabled: true
+  env: *env_vars
+  startupProbe: *mtls_probe
+  livenessProbe: *mtls_probe
+  readinessProbe: *mtls_probe
+  extraVolumeMounts: *cert_volume_mounts
+  extraVolumes: *cert_volumes
+kvstore: *kvstore_config

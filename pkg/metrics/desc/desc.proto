@@ -1,0 +1,16 @@
+syntax = "proto3";
+import "github.com/prometheus/client_model/metrics.proto";
+option go_package = "github.com/rancher/opni/pkg/metrics/desc";
+
+package desc;
+
+message Desc {
+  string FQName = 1;
+  string Help = 2;
+  repeated io.prometheus.client.LabelPair ConstLabelPairs = 3;
+  repeated string VariableLabels = 4;
+  uint64 ID = 5;
+  uint64 DimHash = 6;
+  fixed64 _padding1 = 7;
+  fixed64 _padding2 = 8;
+}

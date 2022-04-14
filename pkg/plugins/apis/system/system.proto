@@ -1,0 +1,37 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+option go_package = "github.com/rancher/opni/pkg/plugins/apis/system";
+
+package system;
+
+service System {
+  rpc UseManagementAPI(BrokerID) returns (google.protobuf.Empty);
+  rpc UseKeyValueStore(BrokerID) returns (google.protobuf.Empty);
+}
+
+service KeyValueStore {
+  rpc Put(KeyValue) returns (google.protobuf.Empty);
+  rpc Get(Key) returns (Value);
+  rpc ListKeys(Key) returns (KeyList);
+}
+
+message BrokerID {
+  uint32 id = 1;
+}
+
+message Key {
+  string key = 1;
+}
+
+message Value {
+  bytes value = 1;
+}
+
+message KeyValue {
+  string key = 1;
+  bytes value = 2;
+}
+
+message KeyList {
+  repeated string items = 1;
+}

@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opni-gateway
+  labels:
+    {{- include "opni-monitoring.labels" . | nindent 4 }}
+data:
+  config.yaml: |-
+    apiVersion: v1beta1
+    kind: GatewayConfig
+    spec:
+      plugins:
+        dirs:
+          - /var/lib/opnim/plugins
+        {{- range $d := .Values.pluginSearchDirs }}
+          - {{ $d }}
+        {{- end }}
+      listenAddress: ":{{ .Values.services.public.port }}"
+      hostname: "{{ .Values.gateway.hostname }}"
+      management:
+        grpcListenAddress: "{{ .Values.management.grpcListenAddress }}"
+        httpListenAddress: "{{ .Values.management.httpListenAddress }}"
+        webListenAddress: "{{ .Values.management.webListenAddress }}"
+      cortex:
+        certs:
+          serverCA: /run/cortex/certs/server/ca.crt
+          clientCA: /run/cortex/certs/client/ca.crt
+          clientCert: /run/cortex/certs/client/tls.crt
+          clientKey: /run/cortex/certs/client/tls.key
+      authProvider: {{ .Values.auth.provider }}
+      certs:
+        caCert: /run/opni-monitoring/certs/ca.crt
+        servingCert: /run/opni-monitoring/certs/tls.crt
+        servingKey: /run/opni-monitoring/certs/tls.key
+      storage:
+{{- if eq .Values.storageType "etcd" }}
+        type: etcd
+        etcd:
+          endpoints:
+            - etcd:2379
+          certs:
+            serverCA: /run/etcd/certs/server/ca.crt
+            clientCA: /run/etcd/certs/client/ca.crt
+            clientCert: /run/etcd/certs/client/tls.crt
+            clientKey: /run/etcd/certs/client/tls.key
+{{- else if eq .Values.storageType "customResources" }}
+        type: customResources
+        customResources:
+          namespace: {{ .Release.Namespace }}
+{{- end }}
+    ---
+    apiVersion: v1beta1
+    kind: AuthProvider
+    metadata:
+      name: {{ .Values.auth.provider }}
+    spec:
+      type: {{ .Values.auth.provider }}
+      options:
+{{- if eq .Values.auth.provider "openid" }}
+{{ .Values.auth.openid | toYaml | indent 8 }}
+{{- end }}
+{{- if eq .Values.auth.provider "noauth" }}
+{{ .Values.auth.noauth | toYaml | indent 8 }}
+{{- end }}
+    

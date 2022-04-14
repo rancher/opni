@@ -1,0 +1,22 @@
+# Copy this to a file named grafana.yaml and edit it with your own values.
+
+grafana.ini:
+  server:
+    domain: ""
+    root_url: ""
+  auth.generic_oauth: # See grafana docs for this section
+    client_id: ""
+    client_secret: ""
+    auth_url: ""
+    token_url: ""
+    api_url: ""
+    allowed_domains: ""
+    role_attribute_path: ""
+tls:
+  - secretName: grafana-tls-keys
+    hosts:
+      - ""
+ingress:
+  enabled: true
+  hosts:
+    - ""

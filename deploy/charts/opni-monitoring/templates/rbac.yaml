@@ -1,0 +1,130 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: opni-monitoring-crd
+  labels:
+    {{- include "opni-monitoring.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+    - monitoring.opni.io
+    resources:
+    - "*"
+    verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - ""
+    resources:
+    - secrets
+    verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: opni-monitoring-crd
+  labels:
+    {{- include "opni-monitoring.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: opni-monitoring-crd
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "opni-monitoring.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: opni-monitoring-cr
+  labels:
+    {{- include "opni-monitoring.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+    - ""
+    resources:
+    - namespaces
+    - secrets
+    verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - opni.io
+    resources:
+    - multiclusterrolebindings
+    verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+  - apiGroups:
+    - opni.io
+    resources:
+    - loggingclusterbindings
+    verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+  - apiGroups:
+    - opni.io
+    resources:
+    - loggingclusters
+    verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+  - apiGroups:
+    - opensearch.opster.io
+    resources:
+    - opensearchclusters
+    verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: opni-monitoring-cr
+  labels:
+    {{- include "opni-monitoring.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: opni-monitoring-cr
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "opni-monitoring.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

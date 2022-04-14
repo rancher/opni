@@ -1,0 +1,30 @@
+run:
+  tests: false
+  timeout: 5m
+  skip-dirs:
+    - test
+    - pkg/test/mock
+    - pkg/test/testdata
+  skip-files:
+    - magefile.go
+    - tools.go
+linters:
+  disable:
+    - errcheck
+    - noctx
+    - maligned
+    - scopelint
+  enable:
+    - importas
+linters-settings:
+  importas:
+    no-unaliased: true
+    alias:
+      - pkg: k8s.io/api/(\w+)/(v\w+)
+        alias: $1$2
+      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+        alias: metav1
+      - pkg: k8s.io/apimachinery/pkg/api/errors"
+        alias: k8serrors
+      - pkg: "go.etcd.io/etcd/client/v3"
+        alias: clientv3

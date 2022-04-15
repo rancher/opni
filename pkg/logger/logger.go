@@ -17,20 +17,14 @@ import (
 )
 
 var (
-	coloredAsciiLogo = "                     _         \n" +
-		"  ____  ____  ____  (_)\x1b[33m___ ___\x1b[0m\n" +
-		" / __ \\/ __ \\/ __ \\/ \x1b[33m/ __ " + "`" + "__ \\\x1b[0m\n" +
-		"/ /_/ / /_/ / / / / \x1b[33m/ / / / / /\x1b[0m\n" +
-		"\\____/ .___/_/ /_/_\x1b[33m/_/ /_/ /_/\x1b[0m\n" +
-		"    /_/                        \n" +
-		"\x1b[33mMulti-Cluster Monitoring\x1b[0m for Kubernetes\n"
-	asciiLogo = "                     _         \n" +
-		"  ____  ____  ____  (_)___ ___ \n" +
-		" / __ \\/ __ \\/ __ \\/ / __ `__ \\\n" +
-		"/ /_/ / /_/ / / / / / / / / / /\n" +
-		"\\____/ .___/_/ /_/_/_/ /_/ /_/ \n" +
-		"    /_/                        \n" +
-		"Multi-Cluster Monitoring for Kubernetes\n"
+	asciiLogo = `                     _ 
+  ____  ____  ____  (_)
+ / __ \/ __ \/ __ \/ / 
+/ /_/ / /_/ / / / / /  
+\____/ .___/_/ /_/_/   
+    /_/                
+ Observability + AIOps for Kubernetes
+`
 
 	levelToColor = map[zapcore.Level]chalk.Color{
 		zapcore.DebugLevel:  chalk.Magenta,
@@ -52,9 +46,6 @@ func init() {
 }
 
 func AsciiLogo() string {
-	if ColorEnabled() {
-		return coloredAsciiLogo
-	}
 	return asciiLogo
 }
 

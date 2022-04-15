@@ -53,13 +53,13 @@ var _ = Describe("Remote Collector", func() {
 		cc1, err := grpc.Dial("bufconn", grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithDialer(func(s string, d time.Duration) (net.Conn, error) {
 				return listener1.Dial()
-			}))
+			}), grpc.WithBlock())
 		Expect(err).NotTo(HaveOccurred())
 
 		cc2, err := grpc.Dial("bufconn", grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithDialer(func(s string, d time.Duration) (net.Conn, error) {
 				return listener2.Dial()
-			}))
+			}), grpc.WithBlock())
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create a remote collector

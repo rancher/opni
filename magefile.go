@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -43,16 +44,16 @@ func All() {
 	if _, err := os.Stat("web/dist/_nuxt"); os.IsNotExist(err) {
 		mg.Deps(web.Dist)
 	}
-	mg.Deps(build.Build)
+	mg.SerialDeps(Generate, build.Build)
 }
 
 func Generate() {
-	mg.Deps(mockgen.Mockgen, protobuf.Protobuf, ControllerGen)
+	mg.SerialDeps(protobuf.Protobuf, mockgen.Mockgen, ControllerGen)
 }
 
 func ControllerGen() error {
 	cmd := exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/controller-tools/cmd/controller-gen",
-		"crd:maxDescLen=0", "object", "paths=./pkg/sdk/api/...", "output:crd:artifacts:config=pkg/sdk/crd",
+		"crd:maxDescLen=0", "rbac:roleName=manager-role", "webhook", "object", "paths=./...", "output:crd:artifacts:config=config/crd/bases",
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
@@ -61,7 +62,7 @@ func ControllerGen() error {
 	if err != nil {
 		if ex, ok := err.(*exec.ExitError); ok {
 			if ex.ExitCode() != 1 {
-				return err
+				return errors.New(buf.String())
 			}
 			bufStr := buf.String()
 			lines := strings.Split(bufStr, "\n")
@@ -77,7 +78,7 @@ func ControllerGen() error {
 					strings.Contains(line, "exit status 1") {
 					continue
 				}
-				fmt.Fprintln(os.Stderr, bufStr)
+				fmt.Fprintln(os.Stderr, line)
 				return err
 			}
 		}
@@ -120,6 +121,27 @@ func HelmLint() error {
 	return nil
 }
 
+func E2e() error {
+	regName := "registry.local"
+	regPort := 5000
+	mg.Deps(testbin.Testbin)
+	output, err := sh.Output("kubectl",
+		strings.Fields(`get nodes -o go-template --template='{{range .items}}{{printf "%s\n" .metadata.name}}{{end}}`)...)
+	if err != nil {
+		return err
+	}
+	nodes := strings.Fields(output)
+	for _, node := range nodes {
+		if err := sh.Run("kubectl", "annotate", "node", node,
+			fmt.Sprintf("tilt.dev/registry=k3dsvc:%d", regPort),
+			fmt.Sprintf("tilt.dev/registry-from-cluster=%s:%d", regName, regPort),
+		); err != nil {
+			return err
+		}
+	}
+	return sh.Run("tilt", "ci", "e2e-tests-prod")
+}
+
 // "prometheus, version x.y.z"
 // "etcd Version: x.y.z"
 // "Cortex, version x.y.z"
@@ -137,6 +159,14 @@ func getKubeVersion(binary string) string {
 		panic(fmt.Sprintf("failed to query version for %s: %v", binary, err))
 	}
 	return strings.TrimSpace(strings.TrimPrefix(version, "Kubernetes v"))
+}
+
+func getKubectlVersion(binary string) string {
+	version, err := sh.Output(binary, "version", "--client", "--short")
+	if err != nil {
+		panic(fmt.Sprintf("failed to query version for %s: %v", binary, err))
+	}
+	return strings.TrimSpace(strings.TrimPrefix(version, "Client Version: v"))
 }
 
 func k8sModuleVersion() string {
@@ -169,25 +199,65 @@ func findProtos() []protobuf.Proto {
 }
 
 func init() {
-	build.Deps(Generate)
 	docker.Deps(build.Build)
 	test.Deps(testbin.Testbin, build.Build)
 
+	labelFilter := "!e2e"
 	if filter, ok := os.LookupEnv("GINKGO_LABEL_FILTER"); ok {
-		test.Config.GinkgoArgs = append(test.Config.GinkgoArgs, "--label-filter="+filter)
+		labelFilter = filter
 	}
+	test.Config.GinkgoArgs = append(test.Config.GinkgoArgs, "--label-filter="+labelFilter)
 
 	k8sVersion := k8sModuleVersion()
 
-	build.Config.ExtraTargets = map[string]string{
-		"./internal/cmd/testenv": "bin/testenv",
-		"./plugins/example":      "bin/plugin_example",
-		"./plugins/cortex":       "bin/plugin_cortex",
-		"./plugins/logging":      "bin/plugin_logging",
+	extraTargets := map[string]string{}
+	// find plugins
+	entries, err := os.ReadDir("./plugins")
+	if err != nil {
+		panic(err)
 	}
-	build.Config.ExtraEnv = map[string]string{
-		"GOOS": "linux",
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		extraTargets["./plugins/"+entry.Name()] = "bin/plugins/plugin_" + entry.Name()
 	}
+	// find (optional) internal cmds
+	if entries, err = os.ReadDir("./internal/cmd"); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			extraTargets["./internal/cmd/"+entry.Name()] = "bin/" + entry.Name()
+		}
+	}
+
+	// get version info
+	dirty := true
+	if output, err := sh.Output("git", "status", "--porcelain", "--untracked-files=no"); err != nil {
+		panic(err)
+	} else if strings.TrimSpace(output) == "" {
+		dirty = false
+	}
+	var tag string
+	if droneTag, ok := os.LookupEnv("DRONE_TAG"); ok {
+		tag = droneTag
+	} else {
+		tag, err = sh.Output("git", "tag", "-l", "--points-at", "HEAD")
+		if err != nil {
+			panic(err)
+		}
+	}
+	tag = strings.TrimSpace(tag)
+
+	version := "dev"
+	if !dirty && tag != "" {
+		version = tag
+	}
+
+	build.Config.LDFlags = append(build.Config.LDFlags, "-X", "github.com/rancher/opni/pkg/util.Version="+version)
+	build.Config.ExtraTargets = extraTargets
+
 	mockgen.Config.Mocks = []mockgen.Mock{
 		{
 			Source: "pkg/rbac/rbac.go",
@@ -266,6 +336,18 @@ func init() {
 				Version:    k8sVersion,
 				URL:        "https://dl.k8s.io/v{{.Version}}/bin/linux/{{.GOARCH}}/kube-apiserver",
 				GetVersion: getKubeVersion,
+			},
+			testbin.Binary{
+				Name:       "kube-controller-manager",
+				Version:    k8sVersion,
+				URL:        "https://dl.k8s.io/v{{.Version}}/bin/linux/{{.GOARCH}}/kube-controller-manager",
+				GetVersion: getKubeVersion,
+			},
+			testbin.Binary{
+				Name:       "kubectl",
+				Version:    k8sVersion,
+				URL:        "https://dl.k8s.io/v{{.Version}}/bin/linux/{{.GOARCH}}/kubectl",
+				GetVersion: getKubectlVersion,
 			},
 		)
 	}

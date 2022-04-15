@@ -8,6 +8,7 @@ run:
   skip-files:
     - magefile.go
     - tools.go
+    - /zz_generated
 linters:
   disable:
     - errcheck

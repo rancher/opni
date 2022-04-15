@@ -72,14 +72,6 @@ var _ = Describe("Listener Utils", Label(test.Unit), func() {
 
 			os.RemoveAll("/tmp/opni-monitoring-test-util-dir")
 		})
-		When("the user does not have permissions to create the requested directory", func() {
-			It("should return an error", func() {
-				listener, err := util.NewProtocolListener(
-					"unix:///var/lib/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock")
-				Expect(err).To(HaveOccurred())
-				Expect(listener).To(BeNil())
-			})
-		})
 	})
 	When("the given address uses an unsupported scheme", func() {
 		It("should return an error", func() {

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/prometheus/prometheus/model/rulefmt"
+	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/rules"
-	"github.com/rancher/opni/pkg/sdk/api"
 	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -19,7 +19,7 @@ func (a *Agent) configureRuleFinder() (rules.RuleFinder, error) {
 		if pr := a.Rules.Discovery.PrometheusRules; pr != nil {
 			client, err := util.NewK8sClient(util.ClientOptions{
 				Kubeconfig: pr.Kubeconfig,
-				Scheme:     api.NewScheme(),
+				Scheme:     apis.NewScheme(),
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create k8s client: %w", err)

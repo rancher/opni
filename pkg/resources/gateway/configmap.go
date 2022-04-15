@@ -7,7 +7,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	cfgmeta "github.com/rancher/opni/pkg/config/meta"
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/sdk/resources"
+	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +22,11 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			APIVersion: "v1beta1",
 		},
 		Spec: cfgv1beta1.GatewayConfigSpec{
+			Plugins: cfgv1beta1.PluginsSpec{
+				Dirs: append([]string{"/var/lib/opnim/plugins"}, r.gateway.Spec.PluginSearchDirs...),
+			},
 			ListenAddress: ":8080",
+			Hostname:      r.gateway.Spec.Hostname,
 			Cortex: cfgv1beta1.CortexSpec{
 				Certs: cfgv1beta1.MTLSSpec{
 					ServerCA:   "/run/cortex/certs/server/ca.crt",
@@ -38,12 +42,26 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 				ServingKey:  util.Pointer("/run/opni-monitoring/certs/tls.key"),
 			},
 			Storage: cfgv1beta1.StorageSpec{
-				Type: cfgv1beta1.StorageTypeCRDs,
-				CustomResources: &cfgv1beta1.CustomResourcesStorageSpec{
-					Namespace: r.gateway.Namespace,
-				},
+				Type: r.gateway.Spec.StorageType,
 			},
 		},
+	}
+
+	switch r.gateway.Spec.StorageType {
+	case cfgv1beta1.StorageTypeEtcd:
+		gatewayConf.Spec.Storage.Etcd = &cfgv1beta1.EtcdStorageSpec{
+			Endpoints: []string{"etcd:2379"},
+			Certs: &cfgv1beta1.MTLSSpec{
+				ServerCA:   "/run/etcd/certs/server/ca.crt",
+				ClientCA:   "/run/etcd/certs/client/ca.crt",
+				ClientCert: "/run/etcd/certs/client/tls.crt",
+				ClientKey:  "/run/etcd/certs/client/tls.key",
+			},
+		}
+	case cfgv1beta1.StorageTypeCRDs:
+		gatewayConf.Spec.Storage.CustomResources = &cfgv1beta1.CustomResourcesStorageSpec{
+			Namespace: r.gateway.Namespace,
+		}
 	}
 
 	var apSpec cfgv1beta1.AuthProviderSpec
@@ -86,7 +104,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",
 			Namespace: r.gateway.Namespace,
-			Labels:    resources.Labels(),
+			Labels:    resources.NewGatewayLabels(),
 		},
 		Data: map[string]string{
 			"config.yaml": fmt.Sprintf("%s\n---\n%s", gatewayConfData, authProviderData),

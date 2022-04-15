@@ -4,9 +4,9 @@ import (
 	"context"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/sdk/api/v1beta1"
-	"github.com/rancher/opni/pkg/sdk/resources/gateway"
+	"github.com/rancher/opni/pkg/resources/gateway"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

@@ -5,7 +5,7 @@ import (
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmetav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
-	"github.com/rancher/opni/pkg/sdk/resources"
+	"github.com/rancher/opni/pkg/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -108,7 +108,7 @@ func (r *Reconciler) gatewayServingCert() client.Object {
 			DNSNames: append([]string{
 				fmt.Sprintf("opni-monitoring.%s.svc", r.gateway.Namespace),
 				fmt.Sprintf("opni-monitoring.%s.svc.cluster.local", r.gateway.Namespace),
-			}, r.gateway.Spec.DNSNames...),
+			}, r.gateway.Spec.Hostname),
 		},
 	}
 }
@@ -248,13 +248,19 @@ func (r *Reconciler) cortexServingCert() client.Object {
 			},
 			DNSNames: []string{
 				"cortex-server",
-				"cortex-distributor",
-				"cortex-ingester",
 				"cortex-alertmanager",
+				"cortex-alertmanager-headless",
+				"cortex-compactor",
+				"cortex-distributor",
+				"cortex-distributor-headless",
+				"cortex-ingester",
+				"cortex-ingester-headless",
 				"cortex-querier",
 				"cortex-query-frontend",
 				"cortex-query-frontend-headless",
 				"cortex-ruler",
+				"cortex-store-gateway",
+				"cortex-store-gateway-headless",
 			},
 		},
 	}

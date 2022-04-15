@@ -14,7 +14,7 @@ import (
 
 var downloadAddr = "https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.crds.yaml"
 
-func downloadCertManagerCRDs(scheme *runtime.Scheme) []*apiextensionsv1.CustomResourceDefinition {
+func DownloadCertManagerCRDs(scheme *runtime.Scheme) []*apiextensionsv1.CustomResourceDefinition {
 	resp, err := http.Get(downloadAddr)
 	if err != nil {
 		panic(err)

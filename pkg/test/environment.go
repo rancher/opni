@@ -27,6 +27,7 @@ import (
 	"github.com/phayes/freeport"
 	"github.com/pkg/browser"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/auth"
 	testauth "github.com/rancher/opni/pkg/auth/test"
@@ -48,7 +49,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/metrics"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
-	"github.com/rancher/opni/pkg/sdk/api"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/util"
@@ -267,13 +267,13 @@ func (e *Environment) StartK8s() (*rest.Config, error) {
 	if err != nil {
 		panic(err)
 	}
-	scheme := api.NewScheme()
+	scheme := apis.NewScheme()
 
 	e.k8sEnv = &envtest.Environment{
 		BinaryAssetsDirectory: e.TestBin,
 		CRDDirectoryPaths:     e.CRDDirectoryPaths,
 		Scheme:                scheme,
-		CRDs:                  downloadCertManagerCRDs(scheme),
+		CRDs:                  DownloadCertManagerCRDs(scheme),
 		ControlPlane: envtest.ControlPlane{
 			APIServer: &envtest.APIServer{
 				SecureServing: envtest.SecureServing{

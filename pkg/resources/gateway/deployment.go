@@ -1,7 +1,7 @@
 package gateway
 
 import (
-	"github.com/rancher/opni/pkg/sdk/resources"
+	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -11,7 +11,7 @@ import (
 )
 
 func (r *Reconciler) deployment() (resources.Resource, error) {
-	labels := resources.Labels()
+	labels := resources.NewGatewayLabels()
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

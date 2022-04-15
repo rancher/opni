@@ -1,4 +1,4 @@
-package controllers_test
+package controllers
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/apis/monitoring/v1beta1"
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/noauth"
-	"github.com/rancher/opni/pkg/sdk/api/v1beta1"
 	"github.com/rancher/opni/pkg/test"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -23,7 +23,7 @@ var _ = Describe("Gateway Controller", Label(test.Integration, test.Slow), func(
 			gw = &v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
-					Namespace: "default",
+					Namespace: makeTestNamespace(),
 				},
 				Spec: v1beta1.GatewaySpec{
 					Auth: v1beta1.AuthSpec{
@@ -82,7 +82,7 @@ var _ = Describe("Gateway Controller", Label(test.Integration, test.Slow), func(
 		It("should create the gateway service", func() {
 			Eventually(Object(&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "opni-gateway",
+					Name:      "opni-monitoring",
 					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(

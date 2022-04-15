@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/sdk/api/v1beta1"
-	"github.com/rancher/opni/pkg/sdk/resources"
+	"github.com/rancher/opni/pkg/resources"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"

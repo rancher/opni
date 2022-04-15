@@ -1,7 +1,7 @@
 package gateway
 
 import (
-	"github.com/rancher/opni/pkg/sdk/resources"
+	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -10,12 +10,12 @@ import (
 func (r *Reconciler) service() (resources.Resource, error) {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-gateway",
+			Name:      "opni-monitoring",
 			Namespace: r.gateway.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     r.gateway.Spec.ServiceType,
-			Selector: resources.Labels(),
+			Selector: resources.NewGatewayLabels(),
 			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/rancher/opni/apis/monitoring/v1beta1"
 	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/sdk/api/v1beta1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/tokens"
 	"k8s.io/apimachinery/pkg/api/errors"

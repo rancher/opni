@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/sdk/api"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
@@ -76,7 +76,7 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	return &CRDStore{
 		CRDStoreOptions: options,
 		client: util.Must(client.New(options.restConfig, client.Options{
-			Scheme: api.NewScheme(),
+			Scheme: apis.NewScheme(),
 		})),
 		logger: lg,
 	}

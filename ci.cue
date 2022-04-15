@@ -92,7 +92,6 @@ dagger.#Plan & {
 		_baseimage: alpine.#Build & {
 			packages: {
 				"ca-certificates": _
-				curl:              _
 			}
 		}
 		// Copy the build output to the destination image
@@ -107,13 +106,11 @@ dagger.#Plan & {
 				docker.#Copy & {
 					// input connects to previous step's output
 					contents: build.plugins
-					source:   "*"
 					dest:     "/var/lib/opnim/plugins/"
-					exclude: ["plugins_example"]
+					exclude: ["plugin_example"]
 				},
 				docker.#Copy & {
 					contents: build.opt
-					source:   "*"
 					dest:     "/opt/"
 				},
 				docker.#Set & {

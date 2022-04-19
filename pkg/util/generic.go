@@ -36,6 +36,7 @@ func DecodeStruct[T any](input interface{}) (*T, error) {
 		Metadata: nil,
 		Result:   output,
 		TagName:  "json",
+		Squash:   true,
 		MatchName: func(mapKey, fieldName string) bool {
 			return strings.EqualFold(mapKey, fieldName) ||
 				strings.EqualFold(strcase.ToSnake(mapKey), fieldName) ||

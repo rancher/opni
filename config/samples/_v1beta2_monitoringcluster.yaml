@@ -1,0 +1,9 @@
+apiVersion: opni.io/v1beta2
+kind: MonitoringCluster
+metadata:
+  name: opni-monitoring
+spec:
+  gateway:
+    hostname: tilt-opni-gateway.os.lan
+    auth:
+      provider: noauth

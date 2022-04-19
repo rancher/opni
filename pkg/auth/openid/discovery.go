@@ -14,7 +14,8 @@ import (
 type DiscoverySpec struct {
 	// Relative path at which to find the openid configuration. If not set,
 	// defaults to '/.well-known/openid-configuration'.
-	Path *string `json:"path"`
+	//+kubebuilder:default=/.well-known/openid-configuration
+	Path *string `json:"path,omitempty"`
 
 	// The OP's Issuer identifier. This must exactly match the issuer URL
 	// obtained from the discovery endpoint, and will match the `iss' claim

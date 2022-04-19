@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/rancher/opni/apis/monitoring/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/storage"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,7 +25,7 @@ var (
 )
 
 func (c *CRDStore) CreateCluster(ctx context.Context, cluster *core.Cluster) error {
-	return c.client.Create(ctx, &v1beta1.Cluster{
+	return c.client.Create(ctx, &v1beta2.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cluster.Id,
 			Namespace: c.namespace,
@@ -36,7 +36,7 @@ func (c *CRDStore) CreateCluster(ctx context.Context, cluster *core.Cluster) err
 }
 
 func (c *CRDStore) DeleteCluster(ctx context.Context, ref *core.Reference) error {
-	return c.client.Delete(ctx, &v1beta1.Cluster{
+	return c.client.Delete(ctx, &v1beta2.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
 			Namespace: c.namespace,
@@ -45,7 +45,7 @@ func (c *CRDStore) DeleteCluster(ctx context.Context, ref *core.Reference) error
 }
 
 func (c *CRDStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error) {
-	cluster := &v1beta1.Cluster{}
+	cluster := &v1beta2.Cluster{}
 	err := c.client.Get(ctx, client.ObjectKey{
 		Name:      ref.Id,
 		Namespace: c.namespace,
@@ -62,7 +62,7 @@ func (c *CRDStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.C
 func (c *CRDStore) UpdateCluster(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.Cluster]) (*core.Cluster, error) {
 	var cluster *core.Cluster
 	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
-		existing := &v1beta1.Cluster{}
+		existing := &v1beta2.Cluster{}
 		err := c.client.Get(ctx, client.ObjectKey{
 			Name:      ref.Id,
 			Namespace: c.namespace,
@@ -85,7 +85,7 @@ func (c *CRDStore) UpdateCluster(ctx context.Context, ref *core.Reference, mutat
 }
 
 func (c *CRDStore) ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
-	list := &v1beta1.ClusterList{}
+	list := &v1beta2.ClusterList{}
 	err := c.client.List(ctx, list, client.InNamespace(c.namespace))
 	if err != nil {
 		return nil, err

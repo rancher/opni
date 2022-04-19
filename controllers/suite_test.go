@@ -83,7 +83,7 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths: []string{
 			"../config/crd/bases",
 			"../config/crd/logging",
-			"../config/crd/monitoring",
+			"../config/crd/grafana",
 			"../config/crd/nvidia",
 			"../config/crd/nfd",
 			"../test/resources",
@@ -106,7 +106,7 @@ var _ = BeforeSuite(func() {
 		&LogAdapterReconciler{},
 		&PretrainedModelReconciler{},
 		&LoggingReconciler{},
-		&GatewayReconciler{},
+		&MonitoringReconciler{},
 	)
 	kmatch.SetDefaultObjectClient(k8sClient)
 })

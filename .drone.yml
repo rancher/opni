@@ -28,7 +28,7 @@ steps:
         - main
       event:
         exclude:
-        - pull_request
+          - pull_request
   - name: publish-python-builder2
     image: plugins/docker
     settings:
@@ -39,8 +39,8 @@ steps:
       context: images/python/
       dockerfile: images/python/Dockerfile
       cache_from:
-      - rancher/opni-python-base:builder1
-      - rancher/opni-python-base:builder2
+        - rancher/opni-python-base:builder1
+        - rancher/opni-python-base:builder2
       target: builder2
       repo: rancher/opni-python-base
       tags:
@@ -52,7 +52,7 @@ steps:
         - main
       event:
         exclude:
-        - pull_request
+          - pull_request
   - name: publish-python-base
     image: plugins/docker
     settings:
@@ -63,9 +63,9 @@ steps:
       context: images/python/
       dockerfile: images/python/Dockerfile
       cache_from:
-      - rancher/opni-python-base:builder1
-      - rancher/opni-python-base:builder2
-      - rancher/opni-python-base:3.8
+        - rancher/opni-python-base:builder1
+        - rancher/opni-python-base:builder2
+        - rancher/opni-python-base:3.8
       target: base-final
       repo: rancher/opni-python-base
       tags:
@@ -77,7 +77,7 @@ steps:
         - main
       event:
         exclude:
-        - pull_request
+          - pull_request
   - name: publish-python-torch
     image: plugins/docker
     settings:
@@ -88,10 +88,10 @@ steps:
       context: images/python/
       dockerfile: images/python/Dockerfile
       cache_from:
-      - rancher/opni-python-base:builder1
-      - rancher/opni-python-base:builder2
-      - rancher/opni-python-base:3.8
-      - rancher/opni-python-base:3.8-torch
+        - rancher/opni-python-base:builder1
+        - rancher/opni-python-base:builder2
+        - rancher/opni-python-base:3.8
+        - rancher/opni-python-base:3.8-torch
       target: torch
       repo: rancher/opni-python-base
       tags:
@@ -103,7 +103,7 @@ steps:
         - main
       event:
         exclude:
-        - pull_request
+          - pull_request
   - name: publish-python-elasticdump
     image: plugins/docker
     settings:
@@ -114,7 +114,7 @@ steps:
       context: images/python/
       dockerfile: images/python/Dockerfile.elasticdump
       cache_from:
-      - rancher/opni-python-base:3.8-node14-elasticdump
+        - rancher/opni-python-base:3.8-node14-elasticdump
       repo: rancher/opni-python-base
       tags:
         - "3.8-node14-elasticdump"
@@ -125,7 +125,7 @@ steps:
         - main
       event:
         exclude:
-        - pull_request
+          - pull_request
   - name: build-and-package
     image: rancher/dapper:v0.5.5
     commands:
@@ -162,7 +162,7 @@ steps:
         from_secret: docker_username
       context: package/
       dockerfile: package/Dockerfile
-      repo: rancher/opni-manager
+      repo: rancher/opni
       tags:
         - ${DRONE_TAG}
     when:
@@ -182,7 +182,7 @@ steps:
         from_secret: docker_username
       context: package/
       dockerfile: package/Dockerfile
-      repo: rancher/opni-manager
+      repo: rancher/opni
       tags:
         - latest
     when:

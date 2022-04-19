@@ -11,8 +11,11 @@ type GatewayConfig struct {
 }
 
 type GatewayConfigSpec struct {
-	ListenAddress  string         `json:"listenAddress,omitempty"`
-	Hostname       string         `json:"hostname,omitempty"`
+	//+kubebuilder:default=":8080"
+	ListenAddress string `json:"listenAddress,omitempty"`
+	//+kubebuilder:default=":8080"
+	Hostname string `json:"hostname,omitempty"`
+	//+kubebuilder:default=8086
 	MetricsPort    int            `json:"metricsPort,omitempty"`
 	Management     ManagementSpec `json:"management,omitempty"`
 	EnableMonitor  bool           `json:"enableMonitor,omitempty"`
@@ -25,9 +28,33 @@ type GatewayConfigSpec struct {
 }
 
 type ManagementSpec struct {
+	//+kubebuilder:default="tcp://0.0.0.0:11090"
 	GRPCListenAddress string `json:"grpcListenAddress,omitempty"`
+	//+kubebuilder:default="0.0.0.0:11080"
 	HTTPListenAddress string `json:"httpListenAddress,omitempty"`
-	WebListenAddress  string `json:"webListenAddress,omitempty"`
+	//+kubebuilder:default="0.0.0.0:12080"
+	WebListenAddress string `json:"webListenAddress,omitempty"`
+}
+
+func (m ManagementSpec) GetGRPCListenAddress() string {
+	if m.GRPCListenAddress == "" {
+		return "tcp://0.0.0.0:11090"
+	}
+	return m.GRPCListenAddress
+}
+
+func (m ManagementSpec) GetHTTPListenAddress() string {
+	if m.HTTPListenAddress == "" {
+		return "0.0.0.0:11080"
+	}
+	return m.HTTPListenAddress
+}
+
+func (m ManagementSpec) GetWebListenAddress() string {
+	if m.WebListenAddress == "" {
+		return "0.0.0.0:12080"
+	}
+	return m.WebListenAddress
 }
 
 type CortexSpec struct {
@@ -40,28 +67,33 @@ type CortexSpec struct {
 }
 
 type DistributorSpec struct {
+	//+kubebuilder:default="cortex-distributor:8080"
 	HTTPAddress string `json:"httpAddress,omitempty"`
+	//+kubebuilder:default="cortex-distributor-headless:9095"
 	GRPCAddress string `json:"grpcAddress,omitempty"`
 }
 
 type IngesterSpec struct {
+	//+kubebuilder:default="cortex-ingester:8080"
 	HTTPAddress string `json:"httpAddress,omitempty"`
+	//+kubebuilder:default="cortex-ingester-headless:9095"
 	GRPCAddress string `json:"grpcAddress,omitempty"`
 }
 
 type AlertmanagerSpec struct {
+	//+kubebuilder:default="cortex-alertmanager:8080"
 	HTTPAddress string `json:"httpAddress,omitempty"`
 }
 
 type RulerSpec struct {
-	// HTTP address of the cortex ruler
+	// +kubebuilder:default="cortex-ruler:8080"
 	HTTPAddress string `json:"httpAddress,omitempty"`
 }
 
 type QueryFrontendSpec struct {
-	// HTTP address of the cortex query frontend
+	// +kubebuilder:default="cortex-query-frontend:8080"
 	HTTPAddress string `json:"httpAddress,omitempty"`
-	// GRPC address of the cortex query frontend
+	// +kubebuilder:default="cortex-query-frontend-headless:9095"
 	GRPCAddress string `json:"grpcAddress,omitempty"`
 }
 
@@ -99,6 +131,15 @@ type PluginsSpec struct {
 func (s *GatewayConfigSpec) SetDefaults() {
 	if s == nil {
 		return
+	}
+	if s.Management.GRPCListenAddress == "" {
+		s.Management.GRPCListenAddress = s.Management.GetGRPCListenAddress()
+	}
+	if s.Management.HTTPListenAddress == "" {
+		s.Management.HTTPListenAddress = s.Management.GetHTTPListenAddress()
+	}
+	if s.Management.WebListenAddress == "" {
+		s.Management.WebListenAddress = s.Management.GetWebListenAddress()
 	}
 	if s.ListenAddress == "" {
 		s.ListenAddress = ":8080"

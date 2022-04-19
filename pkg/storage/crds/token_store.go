@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/rancher/opni/apis/monitoring/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/tokens"
@@ -28,7 +28,7 @@ func (c *CRDStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...s
 		Labels:       options.Labels,
 		Capabilities: options.Capabilities,
 	}
-	err := c.client.Create(ctx, &v1beta1.BootstrapToken{
+	err := c.client.Create(ctx, &v1beta2.BootstrapToken{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      token.TokenID,
 			Namespace: c.namespace,
@@ -43,7 +43,7 @@ func (c *CRDStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...s
 }
 
 func (c *CRDStore) DeleteToken(ctx context.Context, ref *core.Reference) error {
-	err := c.client.Delete(ctx, &v1beta1.BootstrapToken{
+	err := c.client.Delete(ctx, &v1beta2.BootstrapToken{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
 			Namespace: c.namespace,
@@ -59,7 +59,7 @@ func (c *CRDStore) DeleteToken(ctx context.Context, ref *core.Reference) error {
 }
 
 func (c *CRDStore) GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
-	token := &v1beta1.BootstrapToken{}
+	token := &v1beta2.BootstrapToken{}
 	err := c.client.Get(ctx, client.ObjectKey{
 		Name:      ref.Id,
 		Namespace: c.namespace,
@@ -82,7 +82,7 @@ func (c *CRDStore) GetToken(ctx context.Context, ref *core.Reference) (*core.Boo
 }
 
 func (c *CRDStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, error) {
-	list := &v1beta1.BootstrapTokenList{}
+	list := &v1beta2.BootstrapTokenList{}
 	err := c.client.List(ctx, list, client.InNamespace(c.namespace))
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func (c *CRDStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, erro
 func (c *CRDStore) UpdateToken(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.BootstrapToken]) (*core.BootstrapToken, error) {
 	var token *core.BootstrapToken
 	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
-		existing := &v1beta1.BootstrapToken{}
+		existing := &v1beta2.BootstrapToken{}
 		err := c.client.Get(ctx, client.ObjectKey{
 			Name:      ref.Id,
 			Namespace: c.namespace,
@@ -125,7 +125,7 @@ func (c *CRDStore) UpdateToken(ctx context.Context, ref *core.Reference, mutator
 }
 
 // garbageCollectToken performs a best-effort deletion of an expired token.
-func (c *CRDStore) garbageCollectToken(token *v1beta1.BootstrapToken) {
+func (c *CRDStore) garbageCollectToken(token *v1beta2.BootstrapToken) {
 	c.logger.With(
 		"token", token.GetName(),
 	).Debug("garbage-collecting expired token")
@@ -136,7 +136,7 @@ func (c *CRDStore) garbageCollectToken(token *v1beta1.BootstrapToken) {
 	})
 }
 
-func patchTTL(token *v1beta1.BootstrapToken) {
+func patchTTL(token *v1beta2.BootstrapToken) {
 	created := token.ObjectMeta.CreationTimestamp
 	ttl := token.Spec.Metadata.Ttl
 	// edit the ttl to reflect the current ttl of the token

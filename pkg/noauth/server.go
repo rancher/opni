@@ -12,6 +12,7 @@ import (
 
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/ory/fosite"
+	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
@@ -21,15 +22,16 @@ import (
 )
 
 type ServerConfig struct {
-	Issuer                string `json:"issuer"`
-	ClientID              string `json:"clientID"`
-	ClientSecret          string `json:"clientSecret"`
-	RedirectURI           string `json:"redirectURI"`
-	ManagementAPIEndpoint string `json:"managementAPIEndpoint"`
-	Port                  int    `json:"port"`
-	Debug                 bool   `json:"debug"`
+	Issuer                string              `json:"issuer,omitempty"`
+	ClientID              string              `json:"clientID,omitempty"`
+	ClientSecret          string              `json:"clientSecret,omitempty"`
+	RedirectURI           string              `json:"redirectURI,omitempty"`
+	ManagementAPIEndpoint string              `json:"managementAPIEndpoint,omitempty"`
+	Port                  int                 `json:"port,omitempty"`
+	Debug                 bool                `json:"debug,omitempty"`
+	OpenID                openid.OpenidConfig `json:"openid,omitempty"`
 
-	Logger *zap.SugaredLogger
+	Logger *zap.SugaredLogger `json:"-"`
 }
 
 type Server struct {

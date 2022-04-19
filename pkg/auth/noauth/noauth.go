@@ -23,11 +23,18 @@ var _ auth.Middleware = (*NoauthMiddleware)(nil)
 
 func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
 	lg := logger.New().Named("noauth")
-	openidMw, err := openid.New(ctx, config)
+	conf, err := util.DecodeStruct[noauth.ServerConfig](config.Options)
 	if err != nil {
 		return nil, err
 	}
-	conf, err := util.DecodeStruct[noauth.ServerConfig](config.Options)
+	openidConf, err := util.DecodeStruct[map[string]any](conf.OpenID)
+	if err != nil {
+		return nil, err
+	}
+	openidMw, err := openid.New(ctx, v1beta1.AuthProviderSpec{
+		Type:    "openid",
+		Options: *openidConf,
+	})
 	if err != nil {
 		return nil, err
 	}

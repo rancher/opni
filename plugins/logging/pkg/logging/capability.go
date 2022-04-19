@@ -1,14 +1,13 @@
 package logging
 
 import (
-	"crypto/rand"
 	"fmt"
-	"math/big"
 	"strings"
 
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,15 +61,9 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 	}
 
 	// Generate credentials
-	userSuffix, err := generateRandomString(6)
-	if err != nil {
-		return ErrGenerateCredentialsFailed(err)
-	}
+	userSuffix := string(util.GenerateRandomString(6))
 
-	password, err := generateRandomString(20)
-	if err != nil {
-		return ErrGenerateCredentialsFailed(err)
-	}
+	password := string(util.GenerateRandomString(20))
 
 	userSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -113,18 +106,4 @@ func (p *Plugin) InstallerTemplate() string {
 		`{{ arg "select" "Kubernetes Provider" "" "rke" "rke2" "k3s" "aks" "eks" "gke" "+omitEmpty" "+format:--provider={{ value }}" }} ` +
 		`--token={{ .Token }} --pin={{ .Pin }} ` +
 		`--gateway-url={{ .Address }}`
-}
-
-func generateRandomString(n int) (string, error) {
-	const letters = "0123456789BCDFGHJKLMNPQRSTVWXZbcdfghjklmnpqrstvwxz"
-	ret := make([]byte, n)
-	for i := 0; i < n; i++ {
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
-		if err != nil {
-			return "", err
-		}
-		ret[i] = letters[num.Int64()]
-	}
-
-	return string(ret), nil
 }

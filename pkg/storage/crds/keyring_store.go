@@ -3,7 +3,7 @@ package crds
 import (
 	"context"
 
-	"github.com/rancher/opni/apis/monitoring/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
@@ -26,7 +26,7 @@ func (ks *crdKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) err
 	if err != nil {
 		return err
 	}
-	kr := &v1beta1.Keyring{}
+	kr := &v1beta2.Keyring{}
 	if err := ks.client.Get(ctx, types.NamespacedName{
 		Name:      ks.ref.Id,
 		Namespace: ks.namespace,
@@ -34,7 +34,7 @@ func (ks *crdKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) err
 		if !k8serrors.IsNotFound(err) {
 			return err
 		}
-		kr = &v1beta1.Keyring{
+		kr = &v1beta2.Keyring{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      ks.ref.Id,
 				Namespace: ks.namespace,
@@ -44,7 +44,7 @@ func (ks *crdKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) err
 		return ks.client.Create(ctx, kr)
 	}
 	return retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
-		kr := &v1beta1.Keyring{}
+		kr := &v1beta2.Keyring{}
 		if err := ks.client.Get(ctx, types.NamespacedName{
 			Name:      ks.ref.Id,
 			Namespace: ks.namespace,
@@ -57,7 +57,7 @@ func (ks *crdKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) err
 }
 
 func (ks *crdKeyringStore) Get(ctx context.Context) (keyring.Keyring, error) {
-	kr := &v1beta1.Keyring{}
+	kr := &v1beta2.Keyring{}
 	if err := ks.client.Get(ctx, types.NamespacedName{
 		Name:      ks.ref.Id,
 		Namespace: ks.namespace,

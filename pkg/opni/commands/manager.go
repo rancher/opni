@@ -130,6 +130,26 @@ func BuildManagerCmd() *cobra.Command {
 				return err
 			}
 
+			if err = (&controllers.MonitoringReconciler{}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "MonitoringCluster")
+				return err
+			}
+
+			if err = (&controllers.GrafanaReconciler{}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "Grafana")
+				return err
+			}
+
+			if err = (&controllers.GrafanaDashboardReconciler{}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "GrafanaDashboard")
+				return err
+			}
+
+			if err = (&controllers.GrafanaDatasourceReconciler{}).SetupWithManager(mgr); err != nil {
+				setupLog.Error(err, "unable to create controller", "controller", "GrafanaDatasource")
+				return err
+			}
+
 			if err = (&opensearchcontrollers.OpenSearchClusterReconciler{
 				Client:   mgr.GetClient(),
 				Scheme:   mgr.GetScheme(),

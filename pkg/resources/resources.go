@@ -29,6 +29,12 @@ func Present(obj client.Object) Resource {
 	}
 }
 
+func Created(obj client.Object) Resource {
+	return func() (runtime.Object, reconciler.DesiredState, error) {
+		return obj, reconciler.StateCreated, nil
+	}
+}
+
 func Error(obj client.Object, err error) Resource {
 	return func() (runtime.Object, reconciler.DesiredState, error) {
 		return obj, reconciler.StatePresent, err

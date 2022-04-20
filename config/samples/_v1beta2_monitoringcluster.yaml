@@ -3,6 +3,12 @@ kind: MonitoringCluster
 metadata:
   name: opni-monitoring
 spec:
+  cortex:
+    storage:
+      backend: filesystem
+      filesystem:
+        directory: /data/tmp
+    logLevel: debug
   gateway:
     hostname: tilt-opni-gateway.os.lan
     auth:

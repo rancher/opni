@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -27,11 +28,16 @@ func NewReconciler(
 	mc *v1beta2.MonitoringCluster,
 ) *Reconciler {
 	return &Reconciler{
-		ResourceReconciler: reconciler.NewReconcilerWith(client),
-		ctx:                ctx,
-		client:             client,
-		mc:                 mc,
-		logger:             logger.New().Named("controller").Named("gateway"),
+		ResourceReconciler: reconciler.NewReconcilerWith(client,
+			reconciler.WithEnableRecreateWorkload(),
+			reconciler.WithRecreateErrorMessageCondition(reconciler.MatchImmutableErrorMessages),
+			reconciler.WithLog(log.FromContext(ctx)),
+			reconciler.WithScheme(client.Scheme()),
+		),
+		ctx:    ctx,
+		client: client,
+		mc:     mc,
+		logger: logger.New().Named("controller").Named("gateway"),
 	}
 }
 

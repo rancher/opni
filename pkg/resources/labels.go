@@ -36,7 +36,7 @@ func NewOpensearchLabels() OpensearchLabels {
 
 func NewGatewayLabels() map[string]string {
 	return map[string]string{
-		"app": "opni-gateway",
+		"app.kubernetes.io/name": "opni-gateway",
 	}
 }
 

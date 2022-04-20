@@ -25,6 +25,7 @@ func BuildRootCmd() *cobra.Command {
 	rootCmd.AddCommand(commands.BuildTokensCmd())
 	rootCmd.AddCommand(commands.BuildVersionCmd())
 	rootCmd.AddCommand(commands.BuildManagerCmd())
+	rootCmd.AddCommand(commands.BuildCortexCmd())
 	return rootCmd
 }
 

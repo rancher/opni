@@ -92,6 +92,7 @@ dagger.#Plan & {
 		_baseimage: alpine.#Build & {
 			packages: {
 				"ca-certificates": _
+				"curl":            _
 			}
 		}
 		// Copy the build output to the destination image

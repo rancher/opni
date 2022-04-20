@@ -17,7 +17,8 @@ import (
 )
 
 var etcdLabels = map[string]string{
-	"app": "etcd",
+	"app.kubernetes.io/name":    "etcd",
+	"app.kubernetes.io/part-of": "opni",
 }
 
 func (r *Reconciler) etcd() ([]resources.Resource, error) {

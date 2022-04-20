@@ -33,6 +33,7 @@ local_resource('Deployment YAML', 'kubectl apply -k ./deploy',
 
 DOCKERFILE = '''FROM golang:alpine
 WORKDIR /
+RUN apk add --no-cache curl
 COPY ./bin/opni /usr/bin/opni
 COPY ./package/assets/nfd/ /opt/nfd/
 COPY ./package/assets/gpu-operator/ /opt/gpu-operator/

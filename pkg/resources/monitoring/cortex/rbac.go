@@ -12,11 +12,9 @@ func (r *Reconciler) serviceAccount() resources.Resource {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex",
 			Namespace: r.mc.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name": "cortex",
-			},
+			Labels:    cortexAppLabel,
 		},
 		AutomountServiceAccountToken: util.Pointer(true),
 	}
-	return resources.Present(sa)
+	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, sa)
 }

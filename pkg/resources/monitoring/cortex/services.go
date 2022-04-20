@@ -48,9 +48,7 @@ func (r *Reconciler) memberlistService() resources.Resource {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-memberlist",
 			Namespace: r.mc.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name": "cortex",
-			},
+			Labels:    cortexAppLabel,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:      corev1.ServiceTypeClusterIP,
@@ -70,5 +68,5 @@ func (r *Reconciler) memberlistService() resources.Resource {
 		},
 	}
 	ctrl.SetControllerReference(r.mc, memberlist, r.client.Scheme())
-	return resources.Present(memberlist)
+	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, memberlist)
 }

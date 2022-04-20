@@ -51,6 +51,16 @@ import (
 )
 
 func (r *Reconciler) config() (resources.Resource, error) {
+	if !r.mc.Spec.Cortex.Enabled {
+		return resources.Absent(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cortex",
+				Namespace: r.mc.Namespace,
+				Labels:    cortexAppLabel,
+			},
+		}), nil
+	}
+
 	storageConfig, err := util.DecodeStruct[bucket.Config](r.mc.Spec.Cortex.Storage)
 	if err != nil {
 		return nil, err
@@ -276,9 +286,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex",
 			Namespace: r.mc.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name": "cortex",
-			},
+			Labels:    cortexAppLabel,
 		},
 		Data: map[string][]byte{
 			"cortex.yaml": configData,
@@ -294,16 +302,14 @@ func (r *Reconciler) runtimeConfig() resources.Resource {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-runtime-config",
 			Namespace: r.mc.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name": "cortex",
-			},
+			Labels:    cortexAppLabel,
 		},
 		Data: map[string]string{
 			"runtime_config.yaml": "{}",
 		},
 	}
 	ctrl.SetControllerReference(r.mc, cm, r.client.Scheme())
-	return resources.Created(cm)
+	return resources.CreatedIff(r.mc.Spec.Cortex.Enabled, cm)
 }
 
 func (r *Reconciler) alertmanagerFallbackConfig() resources.Resource {
@@ -311,9 +317,7 @@ func (r *Reconciler) alertmanagerFallbackConfig() resources.Resource {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "alertmanager-fallback-config",
 			Namespace: r.mc.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name": "cortex",
-			},
+			Labels:    cortexAppLabel,
 		},
 		Data: map[string]string{
 			"fallback.yaml": `global: {}
@@ -327,5 +331,5 @@ mute_time_intervals: []`,
 		},
 	}
 	ctrl.SetControllerReference(r.mc, cm, r.client.Scheme())
-	return resources.Present(cm)
+	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, cm)
 }

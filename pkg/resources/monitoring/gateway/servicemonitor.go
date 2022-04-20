@@ -4,7 +4,7 @@ import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/pkg/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func (r *Reconciler) serviceMonitor() resources.Resource {
@@ -28,6 +28,6 @@ func (r *Reconciler) serviceMonitor() resources.Resource {
 			},
 		},
 	}
-	ctrl.SetControllerReference(r.mc, svcMonitor, r.client.Scheme())
+	controllerutil.SetOwnerReference(r.mc, svcMonitor, r.client.Scheme())
 	return resources.Present(svcMonitor)
 }

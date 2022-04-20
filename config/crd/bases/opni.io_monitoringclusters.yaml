@@ -29,6 +29,8 @@ spec:
             properties:
               cortex:
                 properties:
+                  enabled:
+                    type: boolean
                   logLevel:
                     type: string
                   storage:
@@ -609,6 +611,14 @@ spec:
                         type: object
                       openid:
                         properties:
+                          allowedDomains:
+                            items:
+                              type: string
+                            type: array
+                          clientID:
+                            type: string
+                          clientSecret:
+                            type: string
                           discovery:
                             properties:
                               issuer:
@@ -622,6 +632,18 @@ spec:
                           identifyingClaim:
                             default: sub
                             type: string
+                          insecureSkipVerify:
+                            type: boolean
+                          roleAttributePath:
+                            type: string
+                          scopes:
+                            default:
+                            - openid
+                            - profile
+                            - email
+                            items:
+                              type: string
+                            type: array
                           wellKnownConfiguration:
                             properties:
                               authorization_endpoint:
@@ -1411,6 +1433,16 @@ spec:
                     type: array
                 required:
                 - auth
+                type: object
+              grafana:
+                properties:
+                  enabled:
+                    type: boolean
+                  image:
+                    default: grafana/grafana:latest
+                    type: string
+                  logLevel:
+                    type: string
                 type: object
             type: object
           status:

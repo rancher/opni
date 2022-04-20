@@ -3,7 +3,11 @@ kind: MonitoringCluster
 metadata:
   name: opni-monitoring
 spec:
+  grafana:
+    enabled: true
+    logLevel: info
   cortex:
+    enabled: true
     storage:
       backend: filesystem
       filesystem:
@@ -11,5 +15,3 @@ spec:
     logLevel: debug
   gateway:
     hostname: tilt-opni-gateway.os.lan
-    auth:
-      provider: noauth

@@ -157,7 +157,8 @@ rules:
 - apiGroups:
   - apps
   resources:
-  - statefulsets
+  - deployments
+  - deployments/finalizers
   verbs:
   - create
   - delete
@@ -168,10 +169,8 @@ rules:
   - watch
 - apiGroups:
   - apps
-  - extensions
   resources:
-  - deployments
-  - deployments/finalizers
+  - statefulsets
   verbs:
   - create
   - delete

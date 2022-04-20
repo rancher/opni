@@ -2,7 +2,6 @@ package cortex
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/rancher/opni/apis/v1beta2"
@@ -67,21 +66,8 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 	services := r.services()
 	allResources = append(allResources, services...)
 
-	for _, factory := range allResources {
-		o, state, err := factory()
-		if err != nil {
-			return nil, fmt.Errorf("failed to create object: %w", err)
-		}
-		if o == nil {
-			panic(fmt.Sprintf("reconciler %#v created a nil object", factory))
-		}
-		result, err := r.ReconcileResource(o, state)
-		if err != nil {
-			return nil, fmt.Errorf("failed to reconcile resource %#T: %w", o, err)
-		}
-		if result != nil {
-			return result, nil
-		}
+	if op := resources.ReconcileAll(r, allResources); op.ShouldRequeue() {
+		return op.ResultPtr()
 	}
 	return nil, nil
 }

@@ -1,8 +1,11 @@
 package resources
 
 import (
+	"fmt"
+
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
+	"github.com/rancher/opni/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -39,4 +42,42 @@ func Error(obj client.Object, err error) Resource {
 	return func() (runtime.Object, reconciler.DesiredState, error) {
 		return obj, reconciler.StatePresent, err
 	}
+}
+
+func PresentIff(condition bool, obj client.Object) Resource {
+	return func() (runtime.Object, reconciler.DesiredState, error) {
+		if condition {
+			return obj, reconciler.StatePresent, nil
+		}
+		return obj, reconciler.StateAbsent, nil
+	}
+}
+
+func CreatedIff(condition bool, obj client.Object) Resource {
+	return func() (runtime.Object, reconciler.DesiredState, error) {
+		if condition {
+			return obj, reconciler.StateCreated, nil
+		}
+		return obj, reconciler.StateAbsent, nil
+	}
+}
+
+func ReconcileAll(r reconciler.ResourceReconciler, resources []Resource) util.RequeueOp {
+	for _, factory := range resources {
+		o, state, err := factory()
+		if err != nil {
+			return util.RequeueErr(fmt.Errorf("failed to create object: %w", err))
+		}
+		if o == nil {
+			panic(fmt.Sprintf("reconciler %#v created a nil object", factory))
+		}
+		result, err := r.ReconcileResource(o, state)
+		if err != nil {
+			return util.RequeueErr(fmt.Errorf("failed to reconcile resource %#T: %w", o, err))
+		}
+		if result != nil {
+			return util.LoadResult(result, err)
+		}
+	}
+	return util.DoNotRequeue()
 }

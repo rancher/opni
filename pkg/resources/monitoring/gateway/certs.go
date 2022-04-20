@@ -7,8 +7,8 @@ import (
 	cmmetav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/rancher/opni/pkg/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func (r *Reconciler) certs() ([]resources.Resource, error) {
@@ -30,7 +30,7 @@ func (r *Reconciler) certs() ([]resources.Resource, error) {
 		r.etcdServingCert(),
 		r.grafanaCert(),
 	} {
-		ctrl.SetControllerReference(r.mc, obj, r.client.Scheme())
+		controllerutil.SetOwnerReference(r.mc, obj, r.client.Scheme())
 		list = append(list, resources.Present(obj))
 	}
 	return list, nil

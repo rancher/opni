@@ -56,6 +56,29 @@ var _ = Describe("Generic Utils", func() {
 			Expect(ts.Field1).To(Equal("test"))
 			Expect(ts.Field2).To(Equal(1))
 		})
+		It("should decode a struct with embedded structs", func() {
+			type TestStruct struct {
+				Field1 string
+				Field2 int
+			}
+			type TestStruct2 struct {
+				TestStruct `json:",squash"`
+				Field3     string
+			}
+			ts, err := util.DecodeStruct[map[string]any](TestStruct2{
+				TestStruct: TestStruct{
+					Field1: "test",
+					Field2: 1,
+				},
+				Field3: "test2",
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*ts).To(Equal(map[string]any{
+				"Field1": "test",
+				"Field2": 1,
+				"Field3": "test2",
+			}))
+		})
 		It("should handle an invalid input type", func() {
 			_, err := util.DecodeStruct[struct{}](1)
 			Expect(err).To(HaveOccurred())

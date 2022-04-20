@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type Port string
@@ -20,6 +21,12 @@ const (
 	HTTP   Port = "http"
 	Gossip Port = "gossip"
 	GRPC   Port = "grpc"
+)
+
+var (
+	cortexAppLabel = map[string]string{
+		"app.kubernetes.io/name": "cortex",
+	}
 )
 
 func cortexWorkloadLabels(target string) map[string]string {
@@ -116,20 +123,25 @@ func (r *Reconciler) buildCortexDeployment(
 			Namespace: r.mc.Namespace,
 			Labels:    labels,
 		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &options.replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Strategy: appsv1.DeploymentStrategy{
-				Type: appsv1.RollingUpdateDeploymentStrategyType,
-				RollingUpdate: &appsv1.RollingUpdateDeployment{
-					MaxSurge:       util.Pointer(intstr.FromInt(0)),
-					MaxUnavailable: util.Pointer(intstr.FromInt(1)),
-				},
-			},
-			Template: r.cortexWorkloadPodTemplate(target, options),
+	}
+
+	if !r.mc.Spec.Cortex.Enabled {
+		return resources.Absent(dep)
+	}
+
+	dep.Spec = appsv1.DeploymentSpec{
+		Replicas: &options.replicas,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: labels,
 		},
+		Strategy: appsv1.DeploymentStrategy{
+			Type: appsv1.RollingUpdateDeploymentStrategyType,
+			RollingUpdate: &appsv1.RollingUpdateDeployment{
+				MaxSurge:       util.Pointer(intstr.FromInt(0)),
+				MaxUnavailable: util.Pointer(intstr.FromInt(1)),
+			},
+		},
+		Template: r.cortexWorkloadPodTemplate(target, options),
 	}
 
 	ctrl.SetControllerReference(r.mc, dep, r.client.Scheme())
@@ -156,27 +168,32 @@ func (r *Reconciler) buildCortexStatefulSet(
 			Namespace: r.mc.Namespace,
 			Labels:    labels,
 		},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: &options.replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
-				Type: appsv1.RollingUpdateStatefulSetStrategyType,
-			},
-			ServiceName: options.serviceName,
-			Template:    r.cortexWorkloadPodTemplate(target, options),
-			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "storage",
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: resource.MustParse(options.storageSize),
-							},
+	}
+
+	if !r.mc.Spec.Cortex.Enabled {
+		return resources.Absent(statefulSet)
+	}
+
+	statefulSet.Spec = appsv1.StatefulSetSpec{
+		Replicas: &options.replicas,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: labels,
+		},
+		UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+			Type: appsv1.RollingUpdateStatefulSetStrategyType,
+		},
+		ServiceName: options.serviceName,
+		Template:    r.cortexWorkloadPodTemplate(target, options),
+		VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "storage",
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse(options.storageSize),
 						},
 					},
 				},
@@ -185,7 +202,7 @@ func (r *Reconciler) buildCortexStatefulSet(
 	}
 
 	ctrl.SetControllerReference(r.mc, statefulSet, r.client.Scheme())
-	return resources.Present(statefulSet)
+	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, statefulSet)
 }
 
 func (r *Reconciler) cortexWorkloadPodTemplate(
@@ -502,7 +519,7 @@ func (r *Reconciler) buildCortexWorkloadServices(
 			},
 		}
 		services = append(services, resources.Present(sm))
-		ctrl.SetControllerReference(r.mc, sm, r.client.Scheme())
+		controllerutil.SetOwnerReference(r.mc, sm, r.client.Scheme())
 	}
 
 	return services

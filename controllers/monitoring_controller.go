@@ -3,12 +3,9 @@ package controllers
 import (
 	"context"
 
-	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/go-logr/logr"
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources/monitoring"
-	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,7 +33,7 @@ import (
 type MonitoringReconciler struct {
 	client.Client
 	scheme *runtime.Scheme
-	logger *zap.SugaredLogger
+	logger logr.Logger
 }
 
 func (r *MonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -50,11 +47,10 @@ func (r *MonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	rec := monitoring.NewReconciler(ctx, r.Client, mc)
 	result, err := rec.Reconcile()
 	if err != nil {
-		lg.With(
-			zap.String("gateway", mc.Name),
-			zap.String("namespace", mc.Namespace),
-			zap.Error(err),
-		).Error("failed to reconcile monitoring cluster")
+		lg.WithValues(
+			"gateway", mc.Name,
+			"namespace", mc.Namespace,
+		).Error(err, "failed to reconcile monitoring cluster")
 		return ctrl.Result{}, err
 	}
 	return result, nil
@@ -62,22 +58,15 @@ func (r *MonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MonitoringReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.logger = logger.New().Named("controller").Named("monitoring")
+	r.logger = mgr.GetLogger().WithName("monitoring")
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta2.MonitoringCluster{}).
-		Owns(&v1beta2.BootstrapToken{}).
-		Owns(&v1beta2.Cluster{}).
-		Owns(&v1beta2.Role{}).
-		Owns(&cmv1.Certificate{}).
-		Owns(&cmv1.Issuer{}).
-		Owns(&cmv1.ClusterIssuer{}).
-		Owns(&monitoringv1.ServiceMonitor{}).
-		Owns(&v1beta2.RoleBinding{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
+		Owns(&corev1.Service{}).
 		Complete(r)
 }

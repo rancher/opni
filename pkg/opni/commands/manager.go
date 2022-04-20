@@ -44,6 +44,7 @@ func BuildManagerCmd() *cobra.Command {
 		probeAddr            string
 		disableUsage         bool
 		echoVersion          bool
+		logLevel             string
 	)
 	cmd := &cobra.Command{
 		Use:   "manager",
@@ -59,6 +60,7 @@ func BuildManagerCmd() *cobra.Command {
 			}
 
 			ctrl.SetLogger(zap.New(
+				zap.Level(util.Must(zapcore.ParseLevel(logLevel))),
 				zap.Encoder(zapcore.NewConsoleEncoder(util.EncoderConfig)),
 			))
 
@@ -221,6 +223,7 @@ func BuildManagerCmd() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warning, error)")
 	cmd.Flags().StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	cmd.Flags().StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	cmd.Flags().BoolVar(&enableLeaderElection, "leader-elect", false,

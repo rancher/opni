@@ -66,8 +66,20 @@ func (g *GatewaySpec) GetServiceType() corev1.ServiceType {
 type AuthSpec struct {
 	//+kubebuilder:validation:Required
 	Provider cfgv1beta1.AuthProviderType `json:"provider,omitempty"`
-	Openid   *openid.OpenidConfig        `json:"openid,omitempty"`
+	Openid   *OpenIDConfigSpec           `json:"openid,omitempty"`
 	Noauth   *noauth.ServerConfig        `json:"noauth,omitempty"`
+}
+
+type OpenIDConfigSpec struct {
+	openid.OpenidConfig `json:",inline,omitempty,squash"`
+	ClientID            string `json:"clientID,omitempty"`
+	ClientSecret        string `json:"clientSecret,omitempty"`
+	//+kubebuilder:default=openid;profile;email
+	Scopes            []string `json:"scopes,omitempty"`
+	AllowedDomains    []string `json:"allowedDomains,omitempty"`
+	RoleAttributePath string   `json:"roleAttributePath,omitempty"`
+
+	InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
 }
 
 type StorageBackendType string
@@ -81,6 +93,7 @@ const (
 )
 
 type CortexSpec struct {
+	Enabled  bool              `json:"enabled,omitempty"`
 	LogLevel string            `json:"logLevel,omitempty"`
 	Storage  CortexStorageSpec `json:"storage,omitempty"`
 }
@@ -221,9 +234,17 @@ type FilesystemStorageSpec struct {
 	Directory string `json:"directory,omitempty"`
 }
 
+type GrafanaSpec struct {
+	Enabled bool `json:"enabled,omitempty"`
+	//+kubebuilder:default="grafana/grafana:latest"
+	Image    string `json:"image,omitempty"`
+	LogLevel string `json:"logLevel,omitempty"`
+}
+
 type MonitoringClusterSpec struct {
 	Gateway GatewaySpec `json:"gateway,omitempty"`
 	Cortex  CortexSpec  `json:"cortex,omitempty"`
+	Grafana GrafanaSpec `json:"grafana,omitempty"`
 }
 
 type MonitoringClusterStatus struct {

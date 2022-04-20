@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/kralicky/highlander"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
@@ -48,10 +49,13 @@ func BuildManagerCmd() *cobra.Command {
 		Use:   "manager",
 		Short: "Run the Opni Manager",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			if echoVersion {
 				fmt.Println(Version)
 				return nil
+			}
+
+			if os.Getenv("DO_NOT_TRACK") == "1" {
+				disableUsage = true
 			}
 
 			ctrl.SetLogger(zap.New(

@@ -116,6 +116,7 @@ type DrainServiceSpec struct {
 	Enabled            *bool               `json:"enabled,omitempty"`
 	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
 	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
+	Replicas           *int32              `json:"replicas,omitempty"`
 }
 
 type InferenceServiceSpec struct {
@@ -131,6 +132,7 @@ type PreprocessingServiceSpec struct {
 	Enabled            *bool               `json:"enabled,omitempty"`
 	NodeSelector       map[string]string   `json:"nodeSelector,omitempty"`
 	Tolerations        []corev1.Toleration `json:"tolerations,omitempty"`
+	Replicas           *int32              `json:"replicas,omitempty"`
 }
 
 type PayloadReceiverServiceSpec struct {

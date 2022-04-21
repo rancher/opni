@@ -179,6 +179,7 @@ func (r *Reconciler) pretrainedModelDeployment(
 				Selector: &metav1.LabelSelector{
 					MatchLabels: labels,
 				},
+				Replicas: model.Spec.Replicas,
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: labels,
@@ -545,6 +546,7 @@ func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState,
 				Value: r.opniCluster.Spec.S3.DrainS3Bucket,
 			})
 	}
+	deployment.Spec.Replicas = r.opniCluster.Spec.Services.Drain.Replicas
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Drain.Enabled), nil
 }
 
@@ -583,6 +585,7 @@ func (r *Reconciler) payloadReceiverService() (runtime.Object, reconciler.Desire
 
 func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta2.PreprocessingService)
+	deployment.Spec.Replicas = r.opniCluster.Spec.Services.Preprocessing.Replicas
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Preprocessing.Enabled), nil
 }
 

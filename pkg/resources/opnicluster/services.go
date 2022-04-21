@@ -434,7 +434,7 @@ func (r *Reconciler) genericEnvAndVolumes() (
 		Value: func() string {
 			if r.opensearchCluster != nil {
 				return fmt.Sprintf(
-					"http://%s.%s.svc:9200",
+					"https://%s.%s.svc:9200",
 					r.opensearchCluster.Spec.General.ServiceName,
 					r.opensearchCluster.Namespace,
 				)

@@ -6,15 +6,126 @@ import (
 	"universe.dagger.io/docker"
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
+	"encoding/json"
 )
+
+scratch: docker.#Image & {
+	rootfs: dagger.#Scratch
+	config: {}
+}
+
+#Web: {
+	repo:           string
+	branch:         string
+	revision:       string
+	buildImage:     string
+	pullBuildImage: bool
+
+	build: _
+	if pullBuildImage {
+		build: docker.#Build & {
+			steps: [
+				docker.#Pull & {
+					source: buildImage
+				},
+			]
+		}
+	}
+	if !pullBuildImage {
+		build: docker.#Build & {
+			steps: [
+				docker.#Pull & {
+					source: "node:14-alpine3.10"
+				},
+				docker.#Run & {
+					command: {
+						name: "apk"
+						args: ["add", "--no-cache", "git", "brotli"]
+					}
+				},
+				docker.#Run & {
+					command: {
+						name: "echo"
+						args: [revision]
+					}
+				},
+				docker.#Run & {
+					workdir: "/app"
+					command: {
+						name: "git"
+						args: [
+							"clone",
+							"--depth=1",
+							"--branch=\(branch)",
+							"https://github.com/\(repo).git",
+							".",
+						]
+					}
+				},
+				docker.#Run & {
+					workdir: "/app"
+					command: {
+						name: "git"
+						args: [
+							"checkout",
+							revision,
+						]
+					}
+				},
+				docker.#Run & {
+					workdir: "/app"
+					command: {
+						name: "yarn"
+						args: ["install"]
+					}
+				},
+				docker.#Run & {
+					workdir: "/app"
+					command: {
+						name: "node_modules/.bin/nuxt"
+						args: ["generate", "-c", "product/opni/nuxt.config.js"]
+					}
+				},
+				docker.#Run & {
+					workdir: "/app"
+					command: {
+						name: "find"
+						args: ["/app/dist", "-type", "f", "-exec", "brotli", "-jf", "{}", "+"]
+					}
+				},
+			]
+		}
+	}
+
+	dist:        dagger.#FS & _distSubdir.output
+	_distSubdir: core.#Subdir & {
+		input: build.output.rootfs
+		path:  "/app/dist"
+	}
+
+	cache: docker.#Build & {
+		steps: [
+			docker.#Copy & {
+				input:    scratch
+				contents: dist
+				dest:     "/app/dist"
+			},
+		]
+	}
+
+	output: cache.output
+}
 
 dagger.#Plan & {
 	client: {
 		env: {
-			DRONE_TAG?:  string
-			KUBECONFIG?: string
-			TAG:         string | *"latest"
-			REPO:        string | *"rancher"
+			DRONE_TAG?:          string
+			KUBECONFIG?:         string
+			TAG:                 string | *"latest"
+			REPO:                string | *"rancher"
+			OPNI_UI_REPO:        string | *"rancher/opni-ui"
+			OPNI_UI_BRANCH:      string | *"main"
+			OPNI_UI_BUILD_IMAGE: string | *"kralicky/opni-monitoring-ui-build"
 		}
 		filesystem: {
 			".": read: {
@@ -28,12 +139,52 @@ dagger.#Plan & {
 					"internal/cmd/testenv",
 				]
 			}
-			bin: write: contents: actions.build.bin
+			"bin": write: contents:      actions.build.bin
+			"web/dist": write: contents: actions.web.dist
+		}
+		commands: {
+			uiVersion: {
+				name: "curl"
+				args: [
+					"-s",
+					"https://api.github.com/repos/\(env.OPNI_UI_REPO)/git/refs/heads/\(env.OPNI_UI_BRANCH)",
+				]
+			}
+			buildCacheImageExists: {
+				name: "curl"
+				args: [
+					"-s",
+					"https://index.docker.io/v1/repositories/\(env.OPNI_UI_BUILD_IMAGE)/tags/\(actions.web.revision)",
+				]
+			}
 		}
 		network: "unix:///var/run/docker.sock": connect: dagger.#Socket
 	}
 
 	actions: {
+		// - Build web assets
+		web: #Web & {
+			_githubApiResponse: json.Unmarshal(client.commands.uiVersion.stdout)
+			_existsLocal:       cli.#Run & {
+				command: {
+					name: "image"
+					args: [
+						"inspect", _taggedImage,
+					]
+				}
+			}
+
+			revision:      _githubApiResponse.object.sha
+			_taggedImage:  "\(client.env.OPNI_UI_BUILD_IMAGE):\(revision)"
+			_existsLocal:  _existsLocal.stderr == ""
+			_existsRemote: client.commands.buildCacheImageExists.stdout == "[]"
+
+			repo:           client.env.OPNI_UI_REPO
+			branch:         client.env.OPNI_UI_BRANCH
+			buildImage:     _taggedImage
+			pullBuildImage: _existsLocal || _existsRemote | *false
+		}
+
 		// Build golang image with mage installed
 		_builder: docker.#Build & {
 			steps: [
@@ -48,7 +199,8 @@ dagger.#Plan & {
 				},
 			]
 		}
-		// Build with mage using the builder image
+
+		// - Build with mage using the builder image
 		build: {
 			docker.#Build & {
 				steps: [
@@ -66,6 +218,10 @@ dagger.#Plan & {
 						contents: client.filesystem.".".read.contents
 						source:   "package/assets/gpu-operator"
 						dest:     "/opt/gpu-operator/"
+					},
+					docker.#Copy & {
+						contents: actions.web.dist
+						dest:     "/src/web/dist/"
 					},
 					#MageRun & {
 						mageArgs: ["-v", "build"]
@@ -133,13 +289,22 @@ dagger.#Plan & {
 			tag:   "\(client.env.REPO)/opni:\(_tag)"
 		}
 
-		// - Run tests
+		// - Load web asset cache image into the local docker daemon
+		webcache: cli.#Load & {
+			image: web.output
+			host:  client.network."unix:///var/run/docker.sock".connect
+			tag:   web.buildImage
+		}
+
+		// - Run unit and integration tests
 		test: #MageRun & {
 			input:       build.output
 			mountSource: client.filesystem.".".read.contents
 			mageArgs: ["-v", "test"]
 			always: true
 		}
+
+		// - Run end-to-end tests
 		e2e: #MageRun & {
 			input:       build.output
 			mountSource: client.filesystem.".".read.contents

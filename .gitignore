@@ -37,3 +37,4 @@ docs/node_modules/
 docs/tech-doc-hugo
 docs/*.sw?
 docs/.hugo_build.lock
+web/dist/

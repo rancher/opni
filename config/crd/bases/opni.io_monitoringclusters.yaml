@@ -1375,20 +1375,6 @@ spec:
                     type: array
                   hostname:
                     type: string
-                  image:
-                    properties:
-                      image:
-                        type: string
-                      imagePullPolicy:
-                        type: string
-                      imagePullSecrets:
-                        items:
-                          properties:
-                            name:
-                              type: string
-                          type: object
-                        type: array
-                    type: object
                   management:
                     properties:
                       grpcListenAddress:
@@ -1443,6 +1429,20 @@ spec:
                     type: string
                   logLevel:
                     type: string
+                type: object
+              image:
+                properties:
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    type: string
+                  imagePullSecrets:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                      type: object
+                    type: array
                 type: object
             type: object
           status:

@@ -1,1 +1,1 @@
-module: "opni-monitoring"
+module: "opni"

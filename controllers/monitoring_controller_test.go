@@ -11,6 +11,7 @@ import (
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/noauth"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -27,6 +28,9 @@ var _ = Describe("Monitoring Controller", Label(test.Integration, test.Slow), fu
 					Namespace: makeTestNamespace(),
 				},
 				Spec: v1beta2.MonitoringClusterSpec{
+					Image: &v1beta2.ImageSpec{
+						Image: util.Pointer("rancher/opni:latest"),
+					},
 					Gateway: v1beta2.GatewaySpec{
 						Auth: v1beta2.AuthSpec{
 							Provider: cfgv1beta1.AuthProviderNoAuth,

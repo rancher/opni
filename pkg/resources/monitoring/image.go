@@ -12,31 +12,35 @@ import (
 )
 
 func (r *Reconciler) updateImageStatus() (bool, error) {
-	deploymentNamespace := os.Getenv("DEPLOYMENT_NAMESPACE")
-	if deploymentNamespace == "" {
-		panic("missing downward API env vars")
-	}
 	lg := r.logger
-	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-controller-manager",
-			Namespace: deploymentNamespace,
-		},
-	}
-	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(deployment), deployment); err != nil {
-		return false, err
-	}
 	var image string
 	var pullPolicy corev1.PullPolicy
-	for _, container := range deployment.Spec.Template.Spec.Containers {
-		if container.Name == "manager" {
-			image = container.Image
-			pullPolicy = container.ImagePullPolicy
+	if imgOverride := r.mc.Spec.Image.GetImageWithDefault(""); imgOverride != "" {
+		image = imgOverride
+	} else {
+		deploymentNamespace := os.Getenv("OPNI_SYSTEM_NAMESPACE")
+		if deploymentNamespace == "" {
+			panic("missing downward API env vars")
 		}
-	}
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-controller-manager",
+				Namespace: deploymentNamespace,
+			},
+		}
+		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(deployment), deployment); err != nil {
+			return false, err
+		}
+		for _, container := range deployment.Spec.Template.Spec.Containers {
+			if container.Name == "manager" {
+				image = container.Image
+				pullPolicy = container.ImagePullPolicy
+			}
+		}
 
-	if image == "" {
-		panic(fmt.Sprintf("manager container not found in deployment %s/opni-controller-manager", deploymentNamespace))
+		if image == "" {
+			panic(fmt.Sprintf("manager container not found in deployment %s/opni-controller-manager", deploymentNamespace))
+		}
 	}
 
 	if r.mc.Status.Image != image {

@@ -40,10 +40,9 @@ type ExtraVolumeMount struct {
 
 type GatewaySpec struct {
 	//+kubebuilder:validation:Required
-	Auth             AuthSpec   `json:"auth,omitempty"`
-	Image            *ImageSpec `json:"image,omitempty"`
-	Hostname         string     `json:"hostname,omitempty"`
-	PluginSearchDirs []string   `json:"pluginSearchDirs,omitempty"`
+	Auth             AuthSpec `json:"auth,omitempty"`
+	Hostname         string   `json:"hostname,omitempty"`
+	PluginSearchDirs []string `json:"pluginSearchDirs,omitempty"`
 	//+kubebuilder:default=LoadBalancer
 	ServiceType corev1.ServiceType     `json:"serviceType,omitempty"`
 	Management  v1beta1.ManagementSpec `json:"management,omitempty"`
@@ -242,6 +241,7 @@ type GrafanaSpec struct {
 }
 
 type MonitoringClusterSpec struct {
+	Image   *ImageSpec  `json:"image,omitempty"`
 	Gateway GatewaySpec `json:"gateway,omitempty"`
 	Cortex  CortexSpec  `json:"cortex,omitempty"`
 	Grafana GrafanaSpec `json:"grafana,omitempty"`

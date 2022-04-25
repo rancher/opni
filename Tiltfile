@@ -49,8 +49,8 @@ DOCKERFILE = '''FROM golang:alpine
 WORKDIR /
 RUN apk add --no-cache curl
 COPY ./bin/opni /usr/bin/opni
-COPY ./package/assets/nfd/ /opt/nfd/
-COPY ./package/assets/gpu-operator/ /opt/gpu-operator/
+COPY ./config/assets/nfd/ /opt/nfd/
+COPY ./config/assets/gpu-operator/ /opt/gpu-operator/
 ENTRYPOINT ["/usr/bin/opni"]
 '''
 
@@ -59,7 +59,7 @@ if "defaultRegistry" in settings:
 
 docker_build("rancher/opni", '.', 
   dockerfile_contents=DOCKERFILE,
-  only=['./bin/opni', './package/assets'],
+  only=['./bin/opni', './config/assets'],
   # live_update=[sync('./bin/opni', '/opni')]
 )
 

@@ -6,6 +6,7 @@ import (
 	"universe.dagger.io/docker"
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
+	"universe.dagger.io/git"
 	"encoding/json"
 )
 
@@ -116,9 +117,13 @@ scratch: docker.#Image & {
 	output: cache.output
 }
 
-#Chart:  {
-	crds:     dagger.#FS
+#Chart: {
+	crds: [...dagger.#FS]
 	chartDir: dagger.#FS
+
+	_merged: core.#Merge & {
+		inputs: crds
+	}
 
 	build: docker.#Build & {
 		steps: [
@@ -130,15 +135,8 @@ scratch: docker.#Image & {
 				dest:     "/src"
 			},
 			docker.#Copy & {
-				contents: crds
-				dest:     "/crds"
-			},
-			docker.#Run & {
-				workdir: "/crds"
-				command: {
-					name: "kubectl"
-					args: ["kustomize", "--output", "/src/crds"]
-				}
+				contents: _merged.output
+				dest:     "/src/crds"
 			},
 			docker.#Run & {
 				workdir: "/src"
@@ -260,12 +258,12 @@ dagger.#Plan & {
 					},
 					docker.#Copy & {
 						contents: client.filesystem.".".read.contents
-						source:   "package/assets/nfd"
+						source:   "config/assets/nfd"
 						dest:     "/opt/nfd/"
 					},
 					docker.#Copy & {
 						contents: client.filesystem.".".read.contents
-						source:   "package/assets/gpu-operator"
+						source:   "config/assets/gpu-operator"
 						dest:     "/opt/gpu-operator/"
 					},
 					docker.#Copy & {
@@ -366,11 +364,51 @@ dagger.#Plan & {
 			}
 		}
 
+		// - Build and package helm charts (writes to dist/charts/)
 		charts: {
-			_crds: core.#Subdir & {
+			_bases: core.#Subdir & {
 				input: client.filesystem.".".read.contents
-				path:  "config/crd"
+				path:  "/config/crd/bases"
 			}
+			_grafana: core.#Subdir & {
+				input: client.filesystem.".".read.contents
+				path:  "/config/crd/grafana"
+			}
+			_logging: core.#Subdir & {
+				input: client.filesystem.".".read.contents
+				path:  "/config/crd/logging"
+			}
+			_nfd: core.#Subdir & {
+				input: client.filesystem.".".read.contents
+				path:  "/config/crd/nfd"
+			}
+			_nvidia: core.#Subdir & {
+				input: client.filesystem.".".read.contents
+				path:  "/config/crd/nvidia"
+			}
+			_opensearch: core.#Subdir & {
+				input: client.filesystem.".".read.contents
+				path:  "/config/crd/opensearch"
+			}
+
+			_promOperatorRepo: git.#Pull & {
+				remote: "https://github.com/prometheus-community/helm-charts.git"
+				ref:    "main"
+			}
+			_promOperatorCrds: core.#Subdir & {
+				input: _promOperatorRepo.output
+				path:  "charts/kube-prometheus-stack/crds"
+			}
+
+			_opniCrds: [
+				_bases.output,
+				_grafana.output,
+				_logging.output,
+				_nfd.output,
+				_nvidia.output,
+				_opensearch.output,
+			]
+
 			agent: #Chart & {
 				_chartDir: core.#Subdir & {
 					input: client.filesystem.".".read.contents
@@ -378,7 +416,7 @@ dagger.#Plan & {
 				}
 
 				chartDir: _chartDir.output
-				crds: _crds.output
+				crds:     _opniCrds
 			}
 
 			opni: #Chart & {
@@ -388,7 +426,7 @@ dagger.#Plan & {
 				}
 
 				chartDir: _chartDir.output
-				crds: _crds.output
+				crds:     _opniCrds + [_promOperatorCrds.output]
 			}
 
 			_output: core.#Merge & {

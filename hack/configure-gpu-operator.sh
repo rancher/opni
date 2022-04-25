@@ -19,7 +19,7 @@ mkdir -p "${config_dir}"/crd/nvidia
 mv ${bases} "${config_dir}/crd/nvidia"
 popd &>/dev/null
 
-rm -rf "${project_dir}/package/assets/gpu-operator"
-mv assets "${project_dir}/package/assets/gpu-operator"
+rm -rf "${config_dir}/assets/gpu-operator"
+mv assets "${config_dir}/assets/gpu-operator"
 
 popd &>/dev/null

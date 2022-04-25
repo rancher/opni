@@ -116,6 +116,54 @@ scratch: docker.#Image & {
 	output: cache.output
 }
 
+#Chart:  {
+	crds:     dagger.#FS
+	chartDir: dagger.#FS
+
+	build: docker.#Build & {
+		steps: [
+			docker.#Pull & {
+				source: "dtzar/helm-kubectl"
+			},
+			docker.#Copy & {
+				contents: chartDir
+				dest:     "/src"
+			},
+			docker.#Copy & {
+				contents: crds
+				dest:     "/crds"
+			},
+			docker.#Run & {
+				workdir: "/crds"
+				command: {
+					name: "kubectl"
+					args: ["kustomize", "--output", "/src/crds"]
+				}
+			},
+			docker.#Run & {
+				workdir: "/src"
+				command: {
+					name: "helm"
+					args: ["dep", "update"]
+				}
+			},
+			docker.#Run & {
+				workdir: "/src"
+				command: {
+					name: "helm"
+					args: ["package", "-d", "/dist", "."]
+				}
+			},
+		]
+	}
+
+	_dist: core.#Subdir & {
+		input: build.output.rootfs
+		path:  "/dist"
+	}
+	output: _dist.output
+}
+
 dagger.#Plan & {
 	client: {
 		env: {
@@ -139,8 +187,9 @@ dagger.#Plan & {
 					"internal/cmd/testenv",
 				]
 			}
-			"bin": write: contents:      actions.build.bin
-			"web/dist": write: contents: actions.web.dist
+			"bin": write: contents:         actions.build.bin
+			"web/dist": write: contents:    actions.web.dist
+			"dist/charts": write: contents: actions.charts.output
 		}
 		commands: {
 			uiVersion: {
@@ -263,7 +312,7 @@ dagger.#Plan & {
 				docker.#Copy & {
 					// input connects to previous step's output
 					contents: build.plugins
-					dest:     "/var/lib/opnim/plugins/"
+					dest:     "/var/lib/opni/plugins/"
 					exclude: ["plugin_example"]
 				},
 				docker.#Copy & {
@@ -272,7 +321,7 @@ dagger.#Plan & {
 				},
 				docker.#Set & {
 					config: {
-						entrypoint: ["/usr/bin/opnim"]
+						entrypoint: ["/usr/bin/opni"]
 						env: {
 							NVIDIA_VISIBLE_DEVICES: "void"
 						}
@@ -315,6 +364,40 @@ dagger.#Plan & {
 					"KUBECONFIG": client.env.KUBECONFIG
 				}
 			}
+		}
+
+		charts: {
+			_crds: core.#Subdir & {
+				input: client.filesystem.".".read.contents
+				path:  "config/crd"
+			}
+			agent: #Chart & {
+				_chartDir: core.#Subdir & {
+					input: client.filesystem.".".read.contents
+					path:  "deploy/charts/opni-monitoring-agent"
+				}
+
+				chartDir: _chartDir.output
+				crds: _crds.output
+			}
+
+			opni: #Chart & {
+				_chartDir: core.#Subdir & {
+					input: client.filesystem.".".read.contents
+					path:  "deploy/charts/opni"
+				}
+
+				chartDir: _chartDir.output
+				crds: _crds.output
+			}
+
+			_output: core.#Merge & {
+				inputs: [
+					charts.agent.output,
+					charts.opni.output,
+				]
+			}
+			output: _output.output
 		}
 	}
 }

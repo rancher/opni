@@ -9,6 +9,7 @@ import (
 	"github.com/grafana-operator/grafana-operator/v4/controllers/grafana"
 	"github.com/grafana-operator/grafana-operator/v4/controllers/grafanadashboard"
 	"github.com/grafana-operator/grafana-operator/v4/controllers/grafanadatasource"
+	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -52,16 +53,16 @@ type GrafanaDatasourceReconciler struct {
 func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
-	r.Log = mgr.GetLogger().WithName("controllers").WithName("Grafana")
+	r.Log = mgr.GetLogger().WithName("controllers").WithName("Grafana").V(int(zapcore.WarnLevel))
 	ctx, ca := context.WithCancel(context.Background())
 	gc := &grafana.ReconcileGrafana{
 		Client:   r.Client,
 		Scheme:   r.scheme,
-		Log:      r.Log,
 		Plugins:  grafana.NewPluginsHelper(),
 		Context:  ctx,
 		Cancel:   ca,
 		Config:   grafanaconfig.GetControllerConfig(),
+		Log:      r.Log,
 		Recorder: mgr.GetEventRecorderFor("GrafanaDashboard"),
 	}
 	return ctrl.NewControllerManagedBy(mgr).
@@ -79,14 +80,18 @@ func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *GrafanaDashboardReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
-	r.Log = mgr.GetLogger().WithName("controllers").WithName("GrafanaDashboard")
-	return grafanadashboard.Add(mgr, "")
+	r.Log = mgr.GetLogger().WithName("controllers").WithName("GrafanaDashboard").V(int(zapcore.WarnLevel))
+
+	reconciler := grafanadashboard.NewReconciler(mgr)
+	reconciler.(*grafanadashboard.GrafanaDashboardReconciler).Log = r.Log
+
+	return grafanadashboard.SetupWithManager(mgr, reconciler, "")
 }
 
 func (r *GrafanaDatasourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
-	r.Log = mgr.GetLogger().WithName("controllers").WithName("GrafanaDatasource")
+	r.Log = mgr.GetLogger().WithName("controllers").WithName("GrafanaDatasource").V(int(zapcore.WarnLevel))
 	ctx, ca := context.WithCancel(context.Background())
 	gc := &grafanadatasource.GrafanaDatasourceReconciler{
 		Client:   r.Client,

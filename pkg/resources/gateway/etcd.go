@@ -1,4 +1,4 @@
-package monitoring
+package gateway
 
 import (
 	"context"
@@ -49,7 +49,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 	statefulset := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "etcd",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: util.Pointer[int32](1),
@@ -76,7 +76,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 										LabelSelector: &metav1.LabelSelector{
 											MatchLabels: etcdLabels,
 										},
-										Namespaces: []string{r.mc.Namespace},
+										Namespaces: []string{r.gw.Namespace},
 									},
 								},
 							},
@@ -176,7 +176,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 								// },
 								{
 									Name:  "ETCD_ADVERTISE_CLIENT_URLS",
-									Value: fmt.Sprintf("https://$(MY_POD_NAME).etcd-headless.%[1]s.svc.cluster.local:2379,https://etcd.%[1]s.svc.cluster.local:2379", r.mc.Namespace),
+									Value: fmt.Sprintf("https://$(MY_POD_NAME).etcd-headless.%[1]s.svc.cluster.local:2379,https://etcd.%[1]s.svc.cluster.local:2379", r.gw.Namespace),
 								},
 								{
 									Name:  "ETCD_LISTEN_CLIENT_URLS",
@@ -184,7 +184,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 								},
 								{
 									Name:  "ETCD_INITIAL_ADVERTISE_PEER_URLS",
-									Value: fmt.Sprintf("http://$(MY_POD_NAME).etcd-headless.%s.svc.cluster.local:2380", r.mc.Namespace),
+									Value: fmt.Sprintf("http://$(MY_POD_NAME).etcd-headless.%s.svc.cluster.local:2380", r.gw.Namespace),
 								},
 								{
 									Name:  "ETCD_LISTEN_PEER_URLS",
@@ -192,7 +192,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 								},
 								{
 									Name:  "ETCD_CLUSTER_DOMAIN",
-									Value: fmt.Sprintf("etcd-headless.%s.svc.cluster.local", r.mc.Namespace),
+									Value: fmt.Sprintf("etcd-headless.%s.svc.cluster.local", r.gw.Namespace),
 								},
 								{
 									Name:  "ETCD_CERT_FILE",
@@ -285,7 +285,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 		},
 	}
 
-	ctrl.SetControllerReference(r.mc, statefulset, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, statefulset, r.client.Scheme())
 	return resources.Present(statefulset), nil
 }
 
@@ -293,7 +293,7 @@ func (r *Reconciler) etcdSecrets() ([]resources.Resource, error) {
 	sec := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "etcd",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    etcdLabels,
 		},
 	}
@@ -317,7 +317,7 @@ func (r *Reconciler) etcdSecrets() ([]resources.Resource, error) {
 	// err = r.client.Get(context.Background(), client.ObjectKeyFromObject(token), token)
 	// if err != nil && k8serrors.IsNotFound(err) {
 
-	ctrl.SetControllerReference(r.mc, sec, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, sec, r.client.Scheme())
 	return []resources.Resource{
 		resources.Present(sec),
 	}, nil
@@ -339,7 +339,7 @@ func (r *Reconciler) etcdServices() ([]resources.Resource, error) {
 	headless := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "etcd-headless",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    etcdLabels,
 		},
 		Spec: corev1.ServiceSpec{
@@ -354,7 +354,7 @@ func (r *Reconciler) etcdServices() ([]resources.Resource, error) {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "etcd",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    etcdLabels,
 		},
 		Spec: corev1.ServiceSpec{
@@ -365,8 +365,8 @@ func (r *Reconciler) etcdServices() ([]resources.Resource, error) {
 		},
 	}
 
-	ctrl.SetControllerReference(r.mc, headless, r.client.Scheme())
-	ctrl.SetControllerReference(r.mc, svc, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, headless, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, svc, r.client.Scheme())
 	return []resources.Resource{
 		resources.Present(headless),
 		resources.Present(svc),

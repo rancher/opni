@@ -18,39 +18,37 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("Monitoring Controller", Label(test.Integration, test.Slow), func() {
-	When("creating a MonitoringCluster resource", func() {
-		var mc *v1beta2.MonitoringCluster
+var _ = Describe("Gateway Controller", Label(test.Integration, test.Slow), func() {
+	When("creating a Gateway resource", func() {
+		var gw *v1beta2.Gateway
 		It("should succeed", func() {
-			mc = &v1beta2.MonitoringCluster{
+			gw = &v1beta2.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
 					Namespace: makeTestNamespace(),
 				},
-				Spec: v1beta2.MonitoringClusterSpec{
+				Spec: v1beta2.GatewaySpec{
 					Image: &v1beta2.ImageSpec{
 						Image: util.Pointer("rancher/opni:latest"),
 					},
-					Gateway: v1beta2.GatewaySpec{
-						Auth: v1beta2.AuthSpec{
-							Provider: cfgv1beta1.AuthProviderNoAuth,
-							Noauth:   &noauth.ServerConfig{},
-						},
+					Auth: v1beta2.AuthSpec{
+						Provider: cfgv1beta1.AuthProviderNoAuth,
+						Noauth:   &noauth.ServerConfig{},
 					},
 				},
 			}
-			Expect(k8sClient.Create(context.Background(), mc)).To(Succeed())
-			Eventually(Object(mc)).Should(Exist())
+			Expect(k8sClient.Create(context.Background(), gw)).To(Succeed())
+			Eventually(Object(gw)).Should(Exist())
 		})
 
 		It("should create the gateway deployment", func() {
 			Eventually(Object(&appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "opni-gateway",
-					Namespace: mc.Namespace,
+					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
-				HaveOwner(mc),
+				HaveOwner(gw),
 				HaveMatchingContainer(And(
 					HaveImage("rancher/opni:latest"),
 					HavePorts(
@@ -91,10 +89,10 @@ var _ = Describe("Monitoring Controller", Label(test.Integration, test.Slow), fu
 			Eventually(Object(&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "opni-monitoring",
-					Namespace: mc.Namespace,
+					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
-				HaveOwner(mc),
+				HaveOwner(gw),
 				HavePorts(
 					"http",
 				),
@@ -103,10 +101,10 @@ var _ = Describe("Monitoring Controller", Label(test.Integration, test.Slow), fu
 			Eventually(Object(&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "opni-monitoring-internal",
-					Namespace: mc.Namespace,
+					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
-				HaveOwner(mc),
+				HaveOwner(gw),
 				HavePorts(
 					"management-grpc",
 					"management-http",
@@ -119,10 +117,10 @@ var _ = Describe("Monitoring Controller", Label(test.Integration, test.Slow), fu
 			Eventually(Object(&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "opni-gateway",
-					Namespace: mc.Namespace,
+					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
-				HaveOwner(mc),
+				HaveOwner(gw),
 				HaveData("config.yaml", nil),
 			))
 		})
@@ -131,26 +129,26 @@ var _ = Describe("Monitoring Controller", Label(test.Integration, test.Slow), fu
 			Eventually(Object(&corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "opni-monitoring",
-					Namespace: mc.Namespace,
+					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
-				HaveOwner(mc),
+				HaveOwner(gw),
 			))
 			Eventually(Object(&rbacv1.Role{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "opni-monitoring-crd",
-					Namespace: mc.Namespace,
+					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
-				HaveOwner(mc),
+				HaveOwner(gw),
 			))
 			Eventually(Object(&rbacv1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "opni-monitoring-crd",
-					Namespace: mc.Namespace,
+					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
-				HaveOwner(mc),
+				HaveOwner(gw),
 			))
 		})
 
@@ -158,10 +156,10 @@ var _ = Describe("Monitoring Controller", Label(test.Integration, test.Slow), fu
 			Eventually(Object(&monitoringv1.ServiceMonitor{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "opni-gateway",
-					Namespace: mc.Namespace,
+					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
-				HaveOwner(mc),
+				HaveOwner(gw),
 			))
 		})
 	})

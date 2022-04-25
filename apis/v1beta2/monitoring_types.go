@@ -39,6 +39,7 @@ type ExtraVolumeMount struct {
 }
 
 type GatewaySpec struct {
+	Image *ImageSpec `json:"image,omitempty"`
 	//+kubebuilder:validation:Required
 	Auth             AuthSpec `json:"auth,omitempty"`
 	Hostname         string   `json:"hostname,omitempty"`
@@ -93,6 +94,7 @@ const (
 
 type CortexSpec struct {
 	Enabled  bool              `json:"enabled,omitempty"`
+	Image    *ImageSpec        `json:"image,omitempty"`
 	LogLevel string            `json:"logLevel,omitempty"`
 	Storage  CortexStorageSpec `json:"storage,omitempty"`
 }
@@ -235,16 +237,18 @@ type FilesystemStorageSpec struct {
 
 type GrafanaSpec struct {
 	Enabled bool `json:"enabled,omitempty"`
+	//+kubebuilder:validation:Required
+	Hostname string `json:"hostname,omitempty"`
 	//+kubebuilder:default="grafana/grafana:latest"
 	Image    string `json:"image,omitempty"`
 	LogLevel string `json:"logLevel,omitempty"`
 }
 
 type MonitoringClusterSpec struct {
-	Image   *ImageSpec  `json:"image,omitempty"`
-	Gateway GatewaySpec `json:"gateway,omitempty"`
-	Cortex  CortexSpec  `json:"cortex,omitempty"`
-	Grafana GrafanaSpec `json:"grafana,omitempty"`
+	//+kubebuilder:validation:Required
+	Gateway corev1.LocalObjectReference `json:"gateway,omitempty"`
+	Cortex  CortexSpec                  `json:"cortex,omitempty"`
+	Grafana GrafanaSpec                 `json:"grafana,omitempty"`
 }
 
 type MonitoringClusterStatus struct {
@@ -268,6 +272,30 @@ type MonitoringClusterList struct {
 	Items           []MonitoringCluster `json:"items"`
 }
 
+type GatewayStatus struct {
+	Image           string            `json:"image,omitempty"`
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+}
+
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+type Gateway struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              GatewaySpec   `json:"spec,omitempty"`
+	Status            GatewayStatus `json:"status,omitempty"`
+}
+
+//+kubebuilder:object:root=true
+type GatewayList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Gateway `json:"items"`
+}
+
 func init() {
-	SchemeBuilder.Register(&MonitoringCluster{}, &MonitoringClusterList{})
+	SchemeBuilder.Register(
+		&MonitoringCluster{}, &MonitoringClusterList{},
+		&Gateway{}, &GatewayList{},
+	)
 }

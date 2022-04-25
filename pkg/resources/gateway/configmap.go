@@ -24,9 +24,9 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 		},
 		Spec: cfgv1beta1.GatewayConfigSpec{
 			Plugins: cfgv1beta1.PluginsSpec{
-				Dirs: append([]string{"/var/lib/opnim/plugins"}, r.mc.Spec.Gateway.PluginSearchDirs...),
+				Dirs: append([]string{"/var/lib/opni/plugins"}, r.gw.Spec.PluginSearchDirs...),
 			},
-			Hostname: r.mc.Spec.Gateway.Hostname,
+			Hostname: r.gw.Spec.Hostname,
 			Cortex: cfgv1beta1.CortexSpec{
 				Certs: cfgv1beta1.MTLSSpec{
 					ServerCA:   "/run/cortex/certs/server/ca.crt",
@@ -35,20 +35,20 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 					ClientKey:  "/run/cortex/certs/client/tls.key",
 				},
 			},
-			AuthProvider: string(r.mc.Spec.Gateway.Auth.Provider),
+			AuthProvider: string(r.gw.Spec.Auth.Provider),
 			Certs: cfgv1beta1.CertsSpec{
 				CACert:      util.Pointer("/run/opni-monitoring/certs/ca.crt"),
 				ServingCert: util.Pointer("/run/opni-monitoring/certs/tls.crt"),
 				ServingKey:  util.Pointer("/run/opni-monitoring/certs/tls.key"),
 			},
 			Storage: cfgv1beta1.StorageSpec{
-				Type: r.mc.Spec.Gateway.StorageType,
+				Type: r.gw.Spec.StorageType,
 			},
 		},
 	}
 	gatewayConf.Spec.SetDefaults()
 
-	switch r.mc.Spec.Gateway.StorageType {
+	switch r.gw.Spec.StorageType {
 	case cfgv1beta1.StorageTypeEtcd:
 		gatewayConf.Spec.Storage.Etcd = &cfgv1beta1.EtcdStorageSpec{
 			Endpoints: []string{"etcd:2379"},
@@ -61,27 +61,27 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 		}
 	case cfgv1beta1.StorageTypeCRDs:
 		gatewayConf.Spec.Storage.CustomResources = &cfgv1beta1.CustomResourcesStorageSpec{
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		}
 	}
 
 	var apSpec cfgv1beta1.AuthProviderSpec
-	switch t := cfgv1beta1.AuthProviderType(r.mc.Spec.Gateway.Auth.Provider); t {
+	switch t := cfgv1beta1.AuthProviderType(r.gw.Spec.Auth.Provider); t {
 	case cfgv1beta1.AuthProviderOpenID:
 		apSpec.Type = cfgv1beta1.AuthProviderOpenID
-		if options, err := util.DecodeStruct[map[string]any](r.mc.Spec.Gateway.Auth.Openid); err != nil {
+		if options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Openid); err != nil {
 			return nil, errors.WrapIf(err, "failed to decode openid auth provider options")
 		} else {
 			apSpec.Options = *options
 		}
 	case cfgv1beta1.AuthProviderNoAuth:
 		apSpec.Type = cfgv1beta1.AuthProviderNoAuth
-		issuer := fmt.Sprintf("http://%s:4000/oauth2", r.mc.Spec.Gateway.Hostname)
-		r.mc.Spec.Gateway.Auth.Noauth = &noauth.ServerConfig{
+		issuer := fmt.Sprintf("http://%s:4000/oauth2", r.gw.Spec.Hostname)
+		r.gw.Spec.Auth.Noauth = &noauth.ServerConfig{
 			Issuer:                issuer,
 			ClientID:              "grafana",
 			ClientSecret:          "noauth",
-			RedirectURI:           fmt.Sprintf("https://grafana.%s/login/generic_oauth", r.mc.Spec.Gateway.Hostname),
+			RedirectURI:           fmt.Sprintf("https://grafana.%s/login/generic_oauth", r.gw.Spec.Hostname),
 			ManagementAPIEndpoint: "opni-monitoring-internal:11090",
 			Port:                  4000,
 			OpenID: openid.OpenidConfig{
@@ -90,7 +90,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 				},
 			},
 		}
-		if options, err := util.DecodeStruct[map[string]any](r.mc.Spec.Gateway.Auth.Noauth); err != nil {
+		if options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Noauth); err != nil {
 			return nil, errors.WrapIf(err, "failed to decode noauth auth provider options")
 		} else {
 			apSpec.Options = *options
@@ -105,7 +105,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			APIVersion: "v1beta1",
 		},
 		ObjectMeta: cfgmeta.ObjectMeta{
-			Name: string(r.mc.Spec.Gateway.Auth.Provider),
+			Name: string(r.gw.Spec.Auth.Provider),
 		},
 		Spec: apSpec,
 	}
@@ -122,13 +122,13 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 		Data: map[string]string{
 			"config.yaml": fmt.Sprintf("%s\n---\n%s", gatewayConfData, authProviderData),
 		},
 	}
-	ctrl.SetControllerReference(r.mc, cm, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, cm, r.client.Scheme())
 	return resources.Present(cm), nil
 }

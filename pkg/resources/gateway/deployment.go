@@ -25,7 +25,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -41,8 +41,8 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 					Containers: []corev1.Container{
 						{
 							Name:            "gateway",
-							Image:           r.mc.Status.Image,
-							ImagePullPolicy: r.mc.Status.ImagePullPolicy,
+							Image:           r.gw.Status.Image,
+							ImagePullPolicy: r.gw.Status.ImagePullPolicy,
 							Command:         []string{"opni"},
 							Args:            []string{"gateway"},
 							VolumeMounts: []corev1.VolumeMount{
@@ -216,15 +216,15 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							},
 						},
 					},
-					NodeSelector: r.mc.Spec.Gateway.NodeSelector,
-					Affinity:     r.mc.Spec.Gateway.Affinity,
-					Tolerations:  r.mc.Spec.Gateway.Tolerations,
+					NodeSelector: r.gw.Spec.NodeSelector,
+					Affinity:     r.gw.Spec.Affinity,
+					Tolerations:  r.gw.Spec.Tolerations,
 				},
 			},
 		},
 	}
 
-	for _, extraVol := range r.mc.Spec.Gateway.ExtraVolumeMounts {
+	for _, extraVol := range r.gw.Spec.ExtraVolumeMounts {
 		vol := corev1.Volume{
 			Name:         extraVol.Name,
 			VolumeSource: extraVol.VolumeSource,
@@ -239,6 +239,6 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 			append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
 	}
 
-	ctrl.SetControllerReference(r.mc, dep, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, dep, r.client.Scheme())
 	return resources.Present(dep), nil
 }

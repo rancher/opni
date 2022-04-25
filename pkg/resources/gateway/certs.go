@@ -30,7 +30,7 @@ func (r *Reconciler) certs() ([]resources.Resource, error) {
 		r.etcdServingCert(),
 		r.grafanaCert(),
 	} {
-		controllerutil.SetOwnerReference(r.mc, obj, r.client.Scheme())
+		controllerutil.SetOwnerReference(r.gw, obj, r.client.Scheme())
 		list = append(list, resources.Present(obj))
 	}
 	return list, nil
@@ -40,7 +40,7 @@ func (r *Reconciler) selfsignedIssuer() client.Object {
 	return &cmv1.ClusterIssuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway-selfsigned-issuer",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.IssuerSpec{
 			IssuerConfig: cmv1.IssuerConfig{
@@ -54,7 +54,7 @@ func (r *Reconciler) gatewayCA() client.Object {
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway-ca",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.CertificateSpec{
 			IsCA:       true,
@@ -77,7 +77,7 @@ func (r *Reconciler) gatewayCAIssuer() client.Object {
 	return &cmv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway-ca-issuer",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.IssuerSpec{
 			IssuerConfig: cmv1.IssuerConfig{
@@ -93,7 +93,7 @@ func (r *Reconciler) gatewayServingCert() client.Object {
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway-serving-cert",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.CertificateSpec{
 			SecretName: "opni-gateway-serving-cert",
@@ -107,9 +107,9 @@ func (r *Reconciler) gatewayServingCert() client.Object {
 				Name:  "opni-gateway-ca-issuer",
 			},
 			DNSNames: []string{
-				r.mc.Spec.Gateway.Hostname,
-				fmt.Sprintf("opni-monitoring.%s.svc", r.mc.Namespace),
-				fmt.Sprintf("opni-monitoring.%s.svc.cluster.local", r.mc.Namespace),
+				r.gw.Spec.Hostname,
+				fmt.Sprintf("opni-monitoring.%s.svc", r.gw.Namespace),
+				fmt.Sprintf("opni-monitoring.%s.svc.cluster.local", r.gw.Namespace),
 			},
 		},
 	}
@@ -118,7 +118,7 @@ func (r *Reconciler) grafanaCert() client.Object {
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "grafana-datasource-cert",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.CertificateSpec{
 			SecretName: "grafana-datasource-cert",
@@ -132,8 +132,8 @@ func (r *Reconciler) grafanaCert() client.Object {
 				Name:  "opni-gateway-ca-issuer",
 			},
 			DNSNames: []string{
-				fmt.Sprintf("grafana.%s.svc", r.mc.Namespace),
-				fmt.Sprintf("grafana.%s.svc.cluster.local", r.mc.Namespace),
+				fmt.Sprintf("grafana.%s.svc", r.gw.Namespace),
+				fmt.Sprintf("grafana.%s.svc.cluster.local", r.gw.Namespace),
 			},
 		},
 	}
@@ -143,7 +143,7 @@ func (r *Reconciler) cortexIntermediateCA() client.Object {
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-intermediate-ca",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.CertificateSpec{
 			IsCA:       true,
@@ -168,7 +168,7 @@ func (r *Reconciler) cortexIntermediateCAIssuer() client.Object {
 	return &cmv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-intermediate-ca-issuer",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.IssuerSpec{
 			IssuerConfig: cmv1.IssuerConfig{
@@ -184,7 +184,7 @@ func (r *Reconciler) cortexClientCA() client.Object {
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-client-ca",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.CertificateSpec{
 			IsCA:       true,
@@ -214,7 +214,7 @@ func (r *Reconciler) cortexClientCAIssuer() client.Object {
 	return &cmv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-client-ca-issuer",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.IssuerSpec{
 			IssuerConfig: cmv1.IssuerConfig{
@@ -230,7 +230,7 @@ func (r *Reconciler) cortexClientCert() client.Object {
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-client-cert",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.CertificateSpec{
 			SecretName: "cortex-client-cert-keys",
@@ -259,7 +259,7 @@ func (r *Reconciler) cortexServingCert() client.Object {
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-serving-cert",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.CertificateSpec{
 			SecretName: "cortex-serving-cert-keys",
@@ -296,7 +296,7 @@ func (r *Reconciler) etcdIntermediateCA() client.Object {
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "etcd-intermediate-ca",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.CertificateSpec{
 			IsCA:       true,
@@ -327,7 +327,7 @@ func (r *Reconciler) etcdIntermediateCAIssuer() client.Object {
 	return &cmv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "etcd-intermediate-ca-issuer",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.IssuerSpec{
 			IssuerConfig: cmv1.IssuerConfig{
@@ -343,7 +343,7 @@ func (r *Reconciler) etcdClientCert() client.Object {
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "etcd-client-cert",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.CertificateSpec{
 			CommonName: "root", // etcd user
@@ -373,7 +373,7 @@ func (r *Reconciler) etcdServingCert() client.Object {
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "etcd-serving-cert",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.CertificateSpec{
 			CommonName: "root", // etcd user
@@ -389,10 +389,10 @@ func (r *Reconciler) etcdServingCert() client.Object {
 			},
 			DNSNames: []string{
 				"etcd",
-				fmt.Sprintf("etcd.%s.svc.cluster.local", r.mc.Namespace),
-				fmt.Sprintf("etcd.%s.svc", r.mc.Namespace),
-				fmt.Sprintf("*.etcd-headless.%s.svc.cluster.local", r.mc.Namespace),
-				fmt.Sprintf("*.etcd-headless.%s.svc", r.mc.Namespace),
+				fmt.Sprintf("etcd.%s.svc.cluster.local", r.gw.Namespace),
+				fmt.Sprintf("etcd.%s.svc", r.gw.Namespace),
+				fmt.Sprintf("*.etcd-headless.%s.svc.cluster.local", r.gw.Namespace),
+				fmt.Sprintf("*.etcd-headless.%s.svc", r.gw.Namespace),
 			},
 			Usages: []cmv1.KeyUsage{
 				cmv1.UsageDigitalSignature,

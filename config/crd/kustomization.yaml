@@ -27,6 +27,7 @@ resources:
 - bases/opni.io_bootstraptokens.yaml
 - bases/opni.io_clusters.yaml
 - bases/opni.io_keyrings.yaml
+- bases/opni.io_gateways.yaml
 - bases/opni.io_monitoringclusters.yaml
 - bases/opni.io_roles.yaml
 - bases/opni.io_rolebindings.yaml

@@ -14,7 +14,7 @@ auth:
     issuer: ""
 
 # Directories to search for plugin binaries in
-# /var/lib/opnim/plugins is automatically included in this list
+# /var/lib/opni/plugins is automatically included in this list
 pluginSearchDirs: []
 
 gateway:

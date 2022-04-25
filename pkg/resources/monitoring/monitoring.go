@@ -8,9 +8,9 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/monitoring/cortex"
-	"github.com/rancher/opni/pkg/resources/monitoring/gateway"
 	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -21,6 +21,7 @@ type Reconciler struct {
 	ctx    context.Context
 	client client.Client
 	mc     *v1beta2.MonitoringCluster
+	gw     *v1beta2.Gateway
 	logger *zap.SugaredLogger
 }
 
@@ -45,6 +46,17 @@ func NewReconciler(
 }
 
 func (r *Reconciler) Reconcile() (reconcile.Result, error) {
+	// Look up referenced gateway
+	gw := &v1beta2.Gateway{}
+	err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      r.mc.Spec.Gateway.Name,
+		Namespace: r.mc.Namespace,
+	}, gw)
+	if err != nil {
+		return util.RequeueErr(err).Result()
+	}
+	r.gw = gw
+
 	updated, err := r.updateImageStatus()
 	if err != nil {
 		return util.RequeueErr(err).Result()
@@ -54,12 +66,6 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	}
 
 	allResources := []resources.Resource{}
-
-	etcdResources, err := r.etcd()
-	if err != nil {
-		return util.RequeueErr(err).Result()
-	}
-	allResources = append(allResources, etcdResources...)
 
 	grafanaResources, err := r.grafana()
 	if err != nil {
@@ -75,15 +81,6 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	cortexResult, err := cortexRec.Reconcile()
 	if err != nil {
 		result := util.LoadResult(cortexResult, err)
-		if result.ShouldRequeue() {
-			return result.Result()
-		}
-	}
-
-	gatewayRec := gateway.NewReconciler(r.ctx, r.client, r.mc)
-	gatewayResult, err := gatewayRec.Reconcile()
-	if err != nil {
-		result := util.LoadResult(gatewayResult, err)
 		if result.ShouldRequeue() {
 			return result.Result()
 		}

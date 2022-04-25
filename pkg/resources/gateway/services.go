@@ -15,10 +15,10 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	publicSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     r.mc.Spec.Gateway.ServiceType,
+			Type:     r.gw.Spec.ServiceType,
 			Selector: resources.NewGatewayLabels(),
 			Ports:    servicePorts(publicPorts),
 		},
@@ -31,7 +31,7 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	internalSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring-internal",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     corev1.ServiceTypeClusterIP,
@@ -39,8 +39,8 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 			Ports:    servicePorts(internalPorts),
 		},
 	}
-	ctrl.SetControllerReference(r.mc, publicSvc, r.client.Scheme())
-	ctrl.SetControllerReference(r.mc, internalSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, publicSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, internalSvc, r.client.Scheme())
 	return []resources.Resource{
 		resources.Present(publicSvc),
 		resources.Present(internalSvc),

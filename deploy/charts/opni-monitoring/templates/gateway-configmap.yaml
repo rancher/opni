@@ -11,7 +11,7 @@ data:
     spec:
       plugins:
         dirs:
-          - /var/lib/opnim/plugins
+          - /var/lib/opni/plugins
         {{- range $d := .Values.pluginSearchDirs }}
           - {{ $d }}
         {{- end }}

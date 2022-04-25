@@ -11,7 +11,7 @@ func (r *Reconciler) serviceMonitor() resources.Resource {
 	svcMonitor := &monitoringv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",
-			Namespace: r.mc.Namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
@@ -19,7 +19,7 @@ func (r *Reconciler) serviceMonitor() resources.Resource {
 				MatchLabels: resources.NewGatewayLabels(),
 			},
 			NamespaceSelector: monitoringv1.NamespaceSelector{
-				MatchNames: []string{r.mc.Namespace},
+				MatchNames: []string{r.gw.Namespace},
 			},
 			Endpoints: []monitoringv1.Endpoint{
 				{
@@ -28,6 +28,6 @@ func (r *Reconciler) serviceMonitor() resources.Resource {
 			},
 		},
 	}
-	controllerutil.SetOwnerReference(r.mc, svcMonitor, r.client.Scheme())
+	controllerutil.SetOwnerReference(r.gw, svcMonitor, r.client.Scheme())
 	return resources.Present(svcMonitor)
 }

@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: opni-manager-metrics
+  labels:
+    {{- include "opni.labels" . | nindent 4 }}
+spec:
+  ports:
+    - name: https
+      port: 8443
+      targetPort: https
+  selector:
+    {{- include "opni.selectorLabels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opni-webhook
+  labels:
+    {{- include "opni.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: 443
+      targetPort: 9443
+  selector:
+    {{- include "opni.selectorLabels" . | nindent 4 }}

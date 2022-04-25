@@ -56,7 +56,7 @@ prometheusAgent:
   rbac: true
 
 # If the following values are set, the agent-config secret will be created.
-# Otherwise, it can be manually created using `opnim bootstrap`
+# Otherwise, it can be manually created using `opni bootstrap`
 
 # Bootstrap token
 token: ""

@@ -9,7 +9,7 @@ import (
 
 func BuildRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:  "opnim",
+		Use:  "opni",
 		Long: logger.AsciiLogo(),
 	}
 	rootCmd.AddCommand(commands.BuildAccessMatrixCmd())

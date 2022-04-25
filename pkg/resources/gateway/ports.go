@@ -20,12 +20,12 @@ func (r *Reconciler) publicContainerPorts() ([]corev1.ContainerPort, error) {
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}
-	if r.mc.Spec.Gateway.Auth.Provider == cfgv1beta1.AuthProviderNoAuth {
-		if r.mc.Spec.Gateway.Auth.Noauth == nil {
+	if r.gw.Spec.Auth.Provider == cfgv1beta1.AuthProviderNoAuth {
+		if r.gw.Spec.Auth.Noauth == nil {
 			return nil, field.Required(field.NewPath("spec", "auth", "noauth"),
 				"must provide noauth config when it is used as the auth provider")
 		}
-		noauthPort := r.mc.Spec.Gateway.Auth.Noauth.Port
+		noauthPort := r.gw.Spec.Auth.Noauth.Port
 		if noauthPort == 0 {
 			lg.Warn("noauth port is not set, using default port 4000")
 			noauthPort = 4000
@@ -41,7 +41,7 @@ func (r *Reconciler) publicContainerPorts() ([]corev1.ContainerPort, error) {
 
 func (r *Reconciler) managementContainerPorts() ([]corev1.ContainerPort, error) {
 	var ports []corev1.ContainerPort
-	if addr := r.mc.Spec.Gateway.Management.GetGRPCListenAddress(); strings.HasPrefix(addr, "tcp://") {
+	if addr := r.gw.Spec.Management.GetGRPCListenAddress(); strings.HasPrefix(addr, "tcp://") {
 		parts := strings.Split(addr, ":")
 		if len(parts) != 3 {
 			return nil, fmt.Errorf("invalid GRPC listen address %q", addr)
@@ -56,7 +56,7 @@ func (r *Reconciler) managementContainerPorts() ([]corev1.ContainerPort, error) 
 			Protocol:      corev1.ProtocolTCP,
 		})
 	}
-	if addr := r.mc.Spec.Gateway.Management.GetHTTPListenAddress(); addr != "" {
+	if addr := r.gw.Spec.Management.GetHTTPListenAddress(); addr != "" {
 		parts := strings.Split(addr, ":")
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid HTTP listen address %q", addr)
@@ -71,7 +71,7 @@ func (r *Reconciler) managementContainerPorts() ([]corev1.ContainerPort, error) 
 			Protocol:      corev1.ProtocolTCP,
 		})
 	}
-	if addr := r.mc.Spec.Gateway.Management.GetWebListenAddress(); addr != "" {
+	if addr := r.gw.Spec.Management.GetWebListenAddress(); addr != "" {
 		parts := strings.Split(addr, ":")
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid Web listen address %q", addr)

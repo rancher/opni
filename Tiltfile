@@ -31,6 +31,20 @@ local_resource('Sample YAML', 'kubectl apply -k ./config/samples',
 local_resource('Deployment YAML', 'kubectl apply -k ./deploy', 
   deps=["./config/deploy"], resource_deps=["opni-controller-manager"], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
+if "hostname" in settings:
+  yaml = '''
+  apiVersion: opni.io/v1beta2
+  kind: Gateway
+  metadata:
+    name: opni-gateway
+    namespace: opni
+  spec:
+    auth:
+      provider: noauth
+    hostname: {}
+  '''.format(settings["hostname"])
+  k8s_yaml(blob(yaml))
+
 DOCKERFILE = '''FROM golang:alpine
 WORKDIR /
 RUN apk add --no-cache curl

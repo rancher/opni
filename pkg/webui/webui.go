@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -10,11 +11,12 @@ import (
 	"net/url"
 	"sync"
 
+	"github.com/andybalholm/brotli"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/web"
 	"github.com/vearutop/statigz"
-	"github.com/vearutop/statigz/brotli"
+	brotlifs "github.com/vearutop/statigz/brotli"
 	"go.uber.org/zap"
 )
 
@@ -72,23 +74,29 @@ func (ws *WebUIServer) ListenAndServe() error {
 	}
 
 	// 200.html (app entrypoint)
-	twoHundred, err := web.DistFS.ReadFile("dist/200.html")
+	entrypointCompressed, err := web.DistFS.ReadFile("dist/200.html.br")
 	if err != nil {
 		return err
 	}
+	buf := new(bytes.Buffer)
+	br := brotli.NewReader(bytes.NewReader(entrypointCompressed))
+	_, err = io.Copy(buf, br)
+	if err != nil {
+		return err
+	}
+	entrypoint := buf.Bytes()
 
 	// Static assets
 	sub, err := fs.Sub(web.DistFS, "dist")
 	if err != nil {
 		return err
 	}
-	brotliSrv := statigz.FileServer(sub.(fs.ReadDirFS), brotli.AddEncoding)
-	fileSrv := http.FileServer(http.FS(sub))
+	brotliSrv := statigz.FileServer(sub.(fs.ReadDirFS), brotlifs.AddEncoding)
 	mux.Handle("/_nuxt/", brotliSrv)
-	mux.Handle("/.nojekyll", fileSrv)
-	mux.Handle("/favicon.ico", fileSrv)
-	mux.Handle("/favicon.png", fileSrv)
-	mux.Handle("/loading-indicator.html", fileSrv)
+	mux.Handle("/.nojekyll", brotliSrv)
+	mux.Handle("/favicon.ico", brotliSrv)
+	mux.Handle("/favicon.png", brotliSrv)
+	mux.Handle("/loading-indicator.html", brotliSrv)
 
 	// Fake out Steve and Norman
 	mux.HandleFunc("/v1/", func(rw http.ResponseWriter, r *http.Request) {
@@ -147,7 +155,7 @@ func (ws *WebUIServer) ListenAndServe() error {
 		rw.Header().Set("Content-Type", "text/html")
 		rw.WriteHeader(200)
 		// serve 200.html
-		rw.Write(twoHundred)
+		rw.Write(entrypoint)
 	})
 	return ws.server.Serve(listener)
 }

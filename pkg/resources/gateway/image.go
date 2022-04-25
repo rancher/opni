@@ -1,4 +1,4 @@
-package monitoring
+package gateway
 
 import (
 	"github.com/rancher/opni/pkg/resources"
@@ -10,7 +10,7 @@ func (r *Reconciler) updateImageStatus() (bool, error) {
 	lg := r.logger
 	var image string
 	var pullPolicy corev1.PullPolicy
-	if imgOverride := r.mc.Spec.Cortex.Image.GetImageWithDefault(""); imgOverride != "" {
+	if imgOverride := r.gw.Spec.Image.GetImageWithDefault(""); imgOverride != "" {
 		image = imgOverride
 	} else {
 		var err error
@@ -20,11 +20,11 @@ func (r *Reconciler) updateImageStatus() (bool, error) {
 		}
 	}
 
-	if r.mc.Status.Image != image {
+	if r.gw.Status.Image != image {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			r.mc.Status.Image = image
-			r.mc.Status.ImagePullPolicy = pullPolicy
-			return r.client.Status().Update(r.ctx, r.mc)
+			r.gw.Status.Image = image
+			r.gw.Status.ImagePullPolicy = pullPolicy
+			return r.client.Status().Update(r.ctx, r.gw)
 		})
 		if err != nil {
 			lg.Error(err, "failed to update monitoring cluster status")

@@ -36,6 +36,11 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		}, nil
 	}
 
+	grafanaHostname := fmt.Sprintf("grafana.%s", r.gw.Spec.Hostname)
+	if r.mc.Spec.Grafana.Hostname != "" {
+		grafanaHostname = r.mc.Spec.Grafana.Hostname
+	}
+
 	baseImage := r.mc.Spec.Grafana.Image
 	if baseImage == "" {
 		baseImage = "grafana/grafana:latest"
@@ -47,8 +52,8 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				Level: r.mc.Spec.Grafana.LogLevel,
 			},
 			Server: &grafanav1alpha1.GrafanaConfigServer{
-				Domain:  fmt.Sprintf("grafana.%s", r.mc.Spec.Gateway.Hostname),
-				RootUrl: fmt.Sprintf("https://grafana.%s", r.mc.Spec.Gateway.Hostname),
+				Domain:  grafanaHostname,
+				RootUrl: "https://" + grafanaHostname,
 			},
 			Auth: &grafanav1alpha1.GrafanaConfigAuth{
 				DisableLoginForm: util.Pointer(true),
@@ -72,7 +77,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		},
 		Ingress: &grafanav1alpha1.GrafanaIngress{
 			Enabled:       true,
-			Hostname:      fmt.Sprintf("grafana.%s", r.mc.Spec.Gateway.Hostname),
+			Hostname:      grafanaHostname,
 			TLSEnabled:    true,
 			TLSSecretName: "grafana-dashboard-tls",
 			Path:          "/",
@@ -127,16 +132,16 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		},
 	}
 
-	switch r.mc.Spec.Gateway.Auth.Provider {
+	switch r.gw.Spec.Auth.Provider {
 	case v1beta1.AuthProviderNoAuth:
 		grafana.Spec.Config.AuthGenericOauth.ClientId = "grafana"
 		grafana.Spec.Config.AuthGenericOauth.ClientSecret = "noauth"
-		grafana.Spec.Config.AuthGenericOauth.AuthUrl = fmt.Sprintf("http://%s:4000/oauth2/authorize", r.mc.Spec.Gateway.Hostname)
-		grafana.Spec.Config.AuthGenericOauth.TokenUrl = fmt.Sprintf("http://%s:4000/oauth2/token", r.mc.Spec.Gateway.Hostname)
-		grafana.Spec.Config.AuthGenericOauth.ApiUrl = fmt.Sprintf("http://%s:4000/oauth2/userinfo", r.mc.Spec.Gateway.Hostname)
+		grafana.Spec.Config.AuthGenericOauth.AuthUrl = fmt.Sprintf("http://%s:4000/oauth2/authorize", r.gw.Spec.Hostname)
+		grafana.Spec.Config.AuthGenericOauth.TokenUrl = fmt.Sprintf("http://%s:4000/oauth2/token", r.gw.Spec.Hostname)
+		grafana.Spec.Config.AuthGenericOauth.ApiUrl = fmt.Sprintf("http://%s:4000/oauth2/userinfo", r.gw.Spec.Hostname)
 		grafana.Spec.Config.AuthGenericOauth.RoleAttributePath = "grafana_role"
 	case v1beta1.AuthProviderOpenID:
-		spec := r.mc.Spec.Gateway.Auth.Openid
+		spec := r.gw.Spec.Auth.Openid
 		if spec.Discovery == nil && spec.WellKnownConfiguration == nil {
 			return nil, openid.ErrMissingDiscoveryConfig
 		}

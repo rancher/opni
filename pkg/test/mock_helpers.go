@@ -214,10 +214,13 @@ func NewTestKeyringStoreBroker(ctrl *gomock.Controller, handler ...KeyringStoreH
 
 func NewTestKeyringStore(ctrl *gomock.Controller, prefix string, ref *core.Reference) storage.KeyringStore {
 	mockKeyringStore := mock_storage.NewMockKeyringStore(ctrl)
+	mu := sync.Mutex{}
 	keyrings := map[string]keyring.Keyring{}
 	mockKeyringStore.EXPECT().
 		Put(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, keyring keyring.Keyring) error {
+			mu.Lock()
+			defer mu.Unlock()
 			keyrings[prefix+ref.Id] = keyring
 			return nil
 		}).
@@ -225,6 +228,8 @@ func NewTestKeyringStore(ctrl *gomock.Controller, prefix string, ref *core.Refer
 	mockKeyringStore.EXPECT().
 		Get(gomock.Any()).
 		DoAndReturn(func(_ context.Context) (keyring.Keyring, error) {
+			mu.Lock()
+			defer mu.Unlock()
 			keyring, ok := keyrings[prefix+ref.Id]
 			if !ok {
 				return nil, storage.ErrNotFound
@@ -255,10 +260,13 @@ func NewTestKeyValueStoreBroker(ctrl *gomock.Controller) storage.KeyValueStoreBr
 
 func NewTestKeyValueStore(ctrl *gomock.Controller) storage.KeyValueStore {
 	mockKvStore := mock_storage.NewMockKeyValueStore(ctrl)
+	mu := sync.Mutex{}
 	kvs := map[string][]byte{}
 	mockKvStore.EXPECT().
 		Put(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, key string, value []byte) error {
+			mu.Lock()
+			defer mu.Unlock()
 			kvs[key] = value
 			return nil
 		}).
@@ -266,6 +274,8 @@ func NewTestKeyValueStore(ctrl *gomock.Controller) storage.KeyValueStore {
 	mockKvStore.EXPECT().
 		Get(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, key string) ([]byte, error) {
+			mu.Lock()
+			defer mu.Unlock()
 			v, ok := kvs[key]
 			if !ok {
 				return nil, storage.ErrNotFound

@@ -148,17 +148,19 @@ dagger.#Plan & {
 			image: _multistage.output
 		}
 
-		// Build docker image and load it into the local docker daemon
-		package: cli.#Load & _opniImage & {
-			host: client.network."unix:///var/run/docker.sock".connect
+		// Build docker images and load them into the local docker daemon
+		load: {
+			opni: cli.#Load & _opniImage & {
+				host: client.network."unix:///var/run/docker.sock".connect
+			}
+
+			webcache: cli.#Load & {
+				image: web.output
+				host:  client.network."unix:///var/run/docker.sock".connect
+				tag:   web.buildImage
+			}
 		}
 
-		// Load web asset cache image into the local docker daemon
-		webcache: cli.#Load & {
-			image: web.output
-			host:  client.network."unix:///var/run/docker.sock".connect
-			tag:   web.buildImage
-		}
 
 		// Run unit and integration tests
 		test: mage.#Run & {
@@ -264,12 +266,12 @@ dagger.#Plan & {
 					secret:   client.env.DOCKER_PASSWORD
 				}
 			}
-			pushOpni: docker.#Push & {
+			opni: docker.#Push & {
 				dest:  _opniImage.tag
 				image: _opniImage.image
 				auth?: auth
 			}
-			pushWebcache: docker.#Push & {
+			webcache: docker.#Push & {
 				dest:  web.buildImage
 				image: web.output
 				auth?: auth

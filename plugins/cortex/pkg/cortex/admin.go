@@ -147,7 +147,14 @@ func outgoingContext(ctx context.Context, in clusterIDGetter) context.Context {
 }
 
 func (p *Plugin) configureAdminClients(tlsConfig *tls.Config) {
-	cfg := p.config.Get()
+	ctx, ca := context.WithTimeout(context.Background(), 2*time.Second)
+	defer ca()
+	cfg, err := p.config.GetContext(ctx)
+	if err != nil {
+		p.logger.With("err", err).Error("plugin startup failed: config was not loaded")
+		os.Exit(1)
+	}
+
 	{
 		cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Distributor.GRPCAddress,
 			grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
@@ -190,7 +197,10 @@ func (p *Plugin) Query(
 		"query", in.Query,
 	)
 	lg.Debug("handling query")
-	client := p.cortexHttpClient.Get()
+	client, err := p.cortexHttpClient.GetContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
+	}
 	req, err := http.NewRequestWithContext(ctx, "POST",
 		fmt.Sprintf("https://%s/prometheus/api/v1/query", p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress), nil)
 	if err != nil {

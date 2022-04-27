@@ -21,7 +21,7 @@ func FindManagerImage(ctx context.Context, c client.Client) (string, corev1.Pull
 	}
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-controller-manager",
+			Name:      "opni-manager",
 			Namespace: deploymentNamespace,
 		},
 	}
@@ -36,7 +36,7 @@ func FindManagerImage(ctx context.Context, c client.Client) (string, corev1.Pull
 	}
 
 	if image == "" {
-		panic(fmt.Sprintf("manager container not found in deployment %s/opni-controller-manager", deploymentNamespace))
+		panic(fmt.Sprintf("manager container not found in deployment %s/opni-manager", deploymentNamespace))
 	}
 
 	return image, pullPolicy, nil

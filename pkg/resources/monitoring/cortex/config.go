@@ -180,8 +180,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 		Distributor: distributor.Config{
 			HATrackerConfig: distributor.HATrackerConfig{
-				EnableHATracker: true,
-				KVStore:         etcdKVConfig,
+				EnableHATracker: false,
 			},
 			PoolConfig: distributor.PoolConfig{
 				HealthCheckIngesters: true,
@@ -214,7 +213,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				ObservePeriod: 10 * time.Second,
 				RingConfig: ring.Config{
 					KVStore:           etcdKVConfig,
-					ReplicationFactor: 3,
+					ReplicationFactor: 1,
 				},
 			},
 		},

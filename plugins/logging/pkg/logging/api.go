@@ -27,7 +27,7 @@ type OpensearchDetailsResponse struct {
 
 func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 	storageBackend := p.storageBackend.Get()
-	clusterMiddleware, err := cluster.New(storageBackend, ClusterIDHeader)
+	clusterMiddleware, err := cluster.New(p.ctx, storageBackend, ClusterIDHeader)
 	if err != nil {
 		p.logger.With(
 			"err", err,

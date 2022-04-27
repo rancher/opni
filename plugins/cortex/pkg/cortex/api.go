@@ -1,8 +1,10 @@
 package cortex
 
 import (
+	"context"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -27,11 +29,24 @@ type middlewares struct {
 }
 
 func (p *Plugin) ConfigureRoutes(app *fiber.App) {
-	config := p.config.Get()
+	futureCtx, ca := context.WithTimeout(context.Background(), 2*time.Second)
+	defer ca()
+	config, err := p.config.GetContext(futureCtx)
+	if err != nil {
+		p.logger.With("err", err).Error("plugin startup failed: config was not loaded")
+		os.Exit(1)
+	}
 
 	cortexTLSConfig := p.loadCortexCerts()
 
-	storageBackend := p.storageBackend.Get()
+	futureCtx, ca = context.WithTimeout(context.Background(), 2*time.Second)
+	defer ca()
+	storageBackend, err := p.storageBackend.GetContext(futureCtx)
+	if err != nil {
+		p.logger.With("err", err).Error("plugin startup failed: storage backend was not loaded")
+		os.Exit(1)
+	}
+
 	rbacProvider := storage.NewRBACProvider(storageBackend)
 	rbacMiddleware := rbac.NewMiddleware(rbacProvider, orgIDCodec)
 	authMiddleware, err := auth.GetMiddleware(config.Spec.AuthProvider)
@@ -41,7 +56,7 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 		).Error("failed to get auth middleware")
 		os.Exit(1)
 	}
-	clusterMiddleware, err := cluster.New(storageBackend, orgIDCodec.Key())
+	clusterMiddleware, err := cluster.New(p.ctx, storageBackend, orgIDCodec.Key())
 	if err != nil {
 		p.logger.With(
 			"err", err,

@@ -37,7 +37,7 @@ spec:
                 fieldPath: metadata.name
           - name: NODE_FEATURE_DISCOVERY_IMAGE
             value: k8s.gcr.io/nfd/node-feature-discovery:v0.7.0
-          - name: OPERATOR_NAMESPACE
+          - name: OPNI_SYSTEM_NAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace

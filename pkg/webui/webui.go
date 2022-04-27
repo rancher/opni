@@ -1,22 +1,20 @@
 package webui
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
 	"io/fs"
+	"mime"
 	"net"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"sync"
 
-	"github.com/andybalholm/brotli"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/web"
-	"github.com/vearutop/statigz"
-	brotlifs "github.com/vearutop/statigz/brotli"
 	"go.uber.org/zap"
 )
 
@@ -74,29 +72,39 @@ func (ws *WebUIServer) ListenAndServe() error {
 	}
 
 	// 200.html (app entrypoint)
-	entrypointCompressed, err := web.DistFS.ReadFile("dist/200.html.br")
+	entrypoint, err := web.DistFS.ReadFile("dist/200.html.br")
 	if err != nil {
 		return err
 	}
-	buf := new(bytes.Buffer)
-	br := brotli.NewReader(bytes.NewReader(entrypointCompressed))
-	_, err = io.Copy(buf, br)
-	if err != nil {
-		return err
-	}
-	entrypoint := buf.Bytes()
-
 	// Static assets
 	sub, err := fs.Sub(web.DistFS, "dist")
 	if err != nil {
 		return err
 	}
-	brotliSrv := statigz.FileServer(sub.(fs.ReadDirFS), brotlifs.AddEncoding)
-	mux.Handle("/_nuxt/", brotliSrv)
-	mux.Handle("/.nojekyll", brotliSrv)
-	mux.Handle("/favicon.ico", brotliSrv)
-	mux.Handle("/favicon.png", brotliSrv)
-	mux.Handle("/loading-indicator.html", brotliSrv)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path + ".br"
+		if path[0] == '/' {
+			path = path[1:]
+		}
+		data, err := fs.ReadFile(sub, path)
+		if err != nil {
+			lg.With(
+				"client", r.RemoteAddr,
+			).Error(err)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Add("Content-Encoding", "br")
+		w.Header().Add("Content-Type", mime.TypeByExtension(filepath.Ext(r.URL.Path)))
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	})
+	mux.Handle("/_nuxt/", handler)
+	mux.Handle("/.nojekyll", handler)
+	mux.Handle("/favicon.ico", handler)
+	mux.Handle("/favicon.png", handler)
+	mux.Handle("/loading-indicator.html", handler)
 
 	// Fake out Steve and Norman
 	mux.HandleFunc("/v1/", func(rw http.ResponseWriter, r *http.Request) {
@@ -153,8 +161,9 @@ func (ws *WebUIServer) ListenAndServe() error {
 	}
 	mux.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("Content-Type", "text/html")
+		rw.Header().Set("Content-Encoding", "br")
 		rw.WriteHeader(200)
-		// serve 200.html
+		// serve 200.html.br
 		rw.Write(entrypoint)
 	})
 	return ws.server.Serve(listener)

@@ -52,7 +52,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableInCI[FlakeAttempts](5), Lab
 				DisableStartupMessage: true,
 			})
 			broker := test.NewTestKeyringStoreBroker(ctrl)
-			cm, err := cluster.New(broker, "X-Test")
+			cm, err := cluster.New(context.Background(), broker, "X-Test")
 			Expect(err).NotTo(HaveOccurred())
 			app.Use(cm.Handle)
 			app.Post("/", func(c *fiber.Ctx) error {
@@ -117,7 +117,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableInCI[FlakeAttempts](5), Lab
 					DisableStartupMessage: true,
 				})
 				broker := test.NewTestKeyringStoreBroker(ctrl, handler)
-				cm, err := cluster.New(broker, "X-Test")
+				cm, err := cluster.New(context.Background(), broker, "X-Test")
 				Expect(err).NotTo(HaveOccurred())
 				app.Use(cm.Handle)
 				app.Post("/", func(c *fiber.Ctx) error {
@@ -333,7 +333,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableInCI[FlakeAttempts](5), Lab
 					DisableStartupMessage: true,
 				})
 				broker := test.NewTestKeyringStoreBroker(ctrl, handler)
-				cm, err := cluster.New(broker, "X-Test")
+				cm, err := cluster.New(context.Background(), broker, "X-Test")
 				Expect(err).NotTo(HaveOccurred())
 				app.Use(cm.Handle)
 				app.Post("/", func(c *fiber.Ctx) error {

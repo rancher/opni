@@ -2,6 +2,10 @@ package gateway
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 
 	"github.com/rancher/opni/pkg/resources"
@@ -153,7 +157,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 								},
 								{
 									Name:  "ETCD_LOG_LEVEL",
-									Value: "debug",
+									Value: "info",
 								},
 								{
 									Name:  "ALLOW_NONE_AUTHENTICATION",
@@ -170,10 +174,10 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 										},
 									},
 								},
-								// {
-								// 	Name:  "ETCD_AUTH_TOKEN",
-								// 	Value: "jwt,priv-key=/opt/bitnami/etcd/certs/token/jwt-token.pem,sign-method=RS256,ttl=10m",
-								// },
+								{
+									Name:  "ETCD_AUTH_TOKEN",
+									Value: "jwt,priv-key=/opt/bitnami/etcd/certs/token/jwt-token.pem,sign-method=RS256,ttl=10m",
+								},
 								{
 									Name:  "ETCD_ADVERTISE_CLIENT_URLS",
 									Value: fmt.Sprintf("https://$(MY_POD_NAME).etcd-headless.%[1]s.svc.cluster.local:2379,https://etcd.%[1]s.svc.cluster.local:2379", r.gw.Namespace),
@@ -232,11 +236,11 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 									Name:      "data",
 									MountPath: "/bitnami/etcd",
 								},
-								// {
-								// 	Name:      "etcd-jwt-token",
-								// 	MountPath: "/opt/bitnami/etcd/certs/token/",
-								// 	ReadOnly:  true,
-								// },
+								{
+									Name:      "etcd-jwt-token",
+									MountPath: "/opt/bitnami/etcd/certs/token/",
+									ReadOnly:  true,
+								},
 								{
 									Name:      "etcd-client-certs",
 									MountPath: "/opt/bitnami/etcd/certs/client/",
@@ -246,15 +250,15 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 						},
 					},
 					Volumes: []corev1.Volume{
-						// {
-						// 	Name: "etcd-jwt-token",
-						// 	VolumeSource: corev1.VolumeSource{
-						// 		Secret: &corev1.SecretVolumeSource{
-						// 			SecretName:  "etcd-jwt-token",
-						// 			DefaultMode: util.Pointer[int32](0400),
-						// 		},
-						// 	},
-						// },
+						{
+							Name: "etcd-jwt-token",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName:  "etcd-jwt-token",
+									DefaultMode: util.Pointer[int32](0400),
+								},
+							},
+						},
 						{
 							Name: "etcd-client-certs",
 							VolumeSource: corev1.VolumeSource{
@@ -290,36 +294,47 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 }
 
 func (r *Reconciler) etcdSecrets() ([]resources.Resource, error) {
-	sec := &corev1.Secret{
+	password := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "etcd",
 			Namespace: r.gw.Namespace,
 			Labels:    etcdLabels,
 		},
 	}
-	err := r.client.Get(context.Background(), client.ObjectKeyFromObject(sec), sec)
+	err := r.client.Get(context.Background(), client.ObjectKeyFromObject(password), password)
 	if err != nil && k8serrors.IsNotFound(err) {
-		sec.Type = corev1.SecretTypeOpaque
-		sec.StringData = map[string]string{
+		password.Type = corev1.SecretTypeOpaque
+		password.StringData = map[string]string{
 			"etcd-root-password": string(util.GenerateRandomString(32)),
 		}
 	}
 
-	// token := &corev1.Secret{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name:      "etcd-jwt-token",
-	// 		Namespace: r.mc.Namespace,
-	// 		Labels: map[string]string{
-	// 			"app": "etcd",
-	// 		},
-	// 	},
-	// }
-	// err = r.client.Get(context.Background(), client.ObjectKeyFromObject(token), token)
-	// if err != nil && k8serrors.IsNotFound(err) {
+	token := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "etcd-jwt-token",
+			Namespace: r.gw.Namespace,
+			Labels: map[string]string{
+				"app": "etcd",
+			},
+		},
+	}
+	err = r.client.Get(context.Background(), client.ObjectKeyFromObject(token), token)
+	if err != nil && k8serrors.IsNotFound(err) {
+		token.Type = corev1.SecretTypeOpaque
+		privateKey := util.Must(rsa.GenerateKey(rand.Reader, 2048))
+		data := pem.EncodeToMemory(&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+		})
+		token.Data = map[string][]byte{
+			"jwt-token.pem": data,
+		}
+	}
 
-	ctrl.SetControllerReference(r.gw, sec, r.client.Scheme())
+	ctrl.SetControllerReference(r.gw, password, r.client.Scheme())
 	return []resources.Resource{
-		resources.Present(sec),
+		resources.Present(password),
+		resources.Present(token),
 	}, nil
 }
 

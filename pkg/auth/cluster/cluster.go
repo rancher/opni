@@ -3,9 +3,11 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/b2mac"
 	"github.com/rancher/opni/pkg/core"
@@ -30,8 +32,14 @@ type ClusterMiddleware struct {
 
 var _ auth.Middleware = (*ClusterMiddleware)(nil)
 
-func New(keyringStore storage.KeyringStoreBroker, headerKey string) (*ClusterMiddleware, error) {
-	fakeKeyringStore, err := initFakeKeyring(keyringStore)
+func New(ctx context.Context, keyringStore storage.KeyringStoreBroker, headerKey string) (*ClusterMiddleware, error) {
+	lg := logger.New(
+		logger.WithSampling(&zap.SamplingConfig{
+			Initial:    1,
+			Thereafter: 0,
+		}),
+	).Named("auth").Named("cluster")
+	fakeKeyringStore, err := initFakeKeyring(ctx, keyringStore, lg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up keyring store: %w", err)
 	}
@@ -40,18 +48,17 @@ func New(keyringStore storage.KeyringStoreBroker, headerKey string) (*ClusterMid
 		keyringStoreBroker: keyringStore,
 		fakeKeyringStore:   fakeKeyringStore,
 		headerKey:          headerKey,
-		logger: logger.New(
-			logger.WithSampling(&zap.SamplingConfig{
-				Initial:    1,
-				Thereafter: 0,
-			}),
-		).Named("auth").Named("cluster"),
+		logger:             lg,
 	}, nil
 }
 
 var fakeKeyring keyring.Keyring
 
-func initFakeKeyring(broker storage.KeyringStoreBroker) (storage.KeyringStore, error) {
+func initFakeKeyring(
+	ctx context.Context,
+	broker storage.KeyringStoreBroker,
+	lg *zap.SugaredLogger,
+) (storage.KeyringStore, error) {
 	store, err := broker.KeyringStore(context.Background(), "gateway-internal", &core.Reference{
 		Id: "fake",
 	})
@@ -69,7 +76,37 @@ func initFakeKeyring(broker storage.KeyringStoreBroker) (storage.KeyringStore, e
 		return nil, err
 	}
 	fakeKeyring = keyring.New(keyring.NewSharedKeys(sec))
-	store.Put(context.Background(), fakeKeyring)
+	go func() {
+		p := backoff.Exponential(
+			backoff.WithMaxRetries(0),
+			backoff.WithMinInterval(10*time.Millisecond),
+			backoff.WithMaxInterval(10*time.Second),
+			backoff.WithMultiplier(2.0),
+		)
+		bctx, ca := context.WithCancel(ctx)
+		defer ca()
+		b := p.Start(bctx)
+		// print a warning every 10 failed attempts
+		numFailedAttempts := 0
+		for backoff.Continue(b) {
+			ctx, ca := context.WithTimeout(bctx, 1*time.Second)
+			defer ca()
+			err := store.Put(ctx, fakeKeyring)
+			if err == nil {
+				if numFailedAttempts > 0 {
+					lg.Infof("storage backend recovered after %d failed attempts", numFailedAttempts)
+				}
+				break
+			}
+			numFailedAttempts++
+			if numFailedAttempts%10 == 0 {
+				lg.With(
+					"lastError", err,
+					"attempt", numFailedAttempts,
+				).Warn("the storage backend appears to be unresponsive, will continue to retry")
+			}
+		}
+	}()
 	return store, nil
 }
 

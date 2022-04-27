@@ -1,15 +1,22 @@
 package cortex
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"os"
+	"time"
 )
 
 func (p *Plugin) loadCortexCerts() *tls.Config {
 	lg := p.logger
-	config := p.config.Get()
-
+	ctx, ca := context.WithTimeout(context.Background(), 2*time.Second)
+	defer ca()
+	config, err := p.config.GetContext(ctx)
+	if err != nil {
+		lg.With("err", err).Error("plugin startup failed: config was not loaded")
+		os.Exit(1)
+	}
 	cortexServerCA := config.Spec.Cortex.Certs.ServerCA
 	cortexClientCA := config.Spec.Cortex.Certs.ClientCA
 	cortexClientCert := config.Spec.Cortex.Certs.ClientCert

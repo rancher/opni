@@ -26,8 +26,15 @@ steps:
     environment:
       <<: *env
     commands:
-      - bin/dagger do --cache-from type=local,src=/cache --cache-to type=local,mode=max,dest=/cache test
+      - bin/dagger do test
     volumes: *volumes
+  - name: coverage
+    image: plugins/codecov
+    settings:
+      token:
+        from_secret: codecov_token
+      files:
+        - cover.out
   - name: publish-dockerhub-tag
     image: docker
     environment:
@@ -38,7 +45,7 @@ steps:
         from_secret: docker_password
       TAG: ${DRONE_TAG}
     commands:
-      - bin/dagger do --cache-from type=local,src=/cache --cache-to type=local,mode=max,dest=/cache push
+      - bin/dagger do push
     volumes: *volumes
     when:
       event:
@@ -58,7 +65,7 @@ steps:
         from_secret: docker_password
       TAG: main
     commands:
-      - bin/dagger do --cache-from type=local,src=/cache --cache-to type=local,mode=max,dest=/cache push
+      - bin/dagger do push
     volumes: *volumes
     when:
       event:

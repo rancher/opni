@@ -18,7 +18,7 @@ Scratch: docker.#Image & {
 
 	_fetch: core.#HTTPFetch & {
 		"source": source
-		dest:   "/response"
+		dest:     "/response"
 	}
 	_read: core.#ReadFile & {
 		input: _fetch.output
@@ -29,21 +29,21 @@ Scratch: docker.#Image & {
 }
 
 // #MergeSubdirs: {
-// 	input: dagger.#FS
-// 	paths: [...string]
+//  input: dagger.#FS
+//  paths: [...string]
 
-// 	core.#Merge & {
-// 		"inputs": [
-// 			for _, subdir in [
-// 				for _, path in paths {
-// 					core.#Subdir & {
-// 						"input":  input
-// 						"path":   path
-// 					}
-// 				},
-// 			] {
-// 				subdir.output
-// 			},
-// 		]
-// 	}
+//  core.#Merge & {
+//   "inputs": [
+//    for _, subdir in [
+//     for _, path in paths {
+//      core.#Subdir & {
+//       "input":  input
+//       "path":   path
+//      }
+//     },
+//    ] {
+//     subdir.output
+//    },
+//   ]
+//  }
 // }

@@ -15,14 +15,15 @@ import (
 dagger.#Plan & {
 	client: {
 		env: {
-			KUBECONFIG?:         string
-			TAG:                 string | *"latest"
-			REPO:                string | *"rancher"
-			OPNI_UI_REPO:        string | *"rancher/opni-ui"
-			OPNI_UI_BRANCH:      string | *"main"
-			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
-			DOCKER_USERNAME?:    string
-			DOCKER_PASSWORD?:    string
+			GINKGO_LABEL_FILTER?: string
+			KUBECONFIG?:          string
+			TAG:                  string | *"latest"
+			REPO:                 string | *"rancher"
+			OPNI_UI_REPO:         string | *"rancher/opni-ui"
+			OPNI_UI_BRANCH:       string | *"main"
+			OPNI_UI_BUILD_IMAGE:  string | *"rancher/opni-monitoring-ui-build"
+			DOCKER_USERNAME?:     string
+			DOCKER_PASSWORD?:     string
 		}
 		filesystem: {
 			".": read: {
@@ -39,6 +40,7 @@ dagger.#Plan & {
 			"bin": write: contents:         actions.build.bin
 			"web/dist": write: contents:    actions.web.dist
 			"dist/charts": write: contents: actions.charts.output
+			"cover.out": write: contents:   actions.test.export.files["/src/cover.out"]
 		}
 		network: "unix:///var/run/docker.sock": connect: dagger.#Socket
 	}
@@ -53,11 +55,11 @@ dagger.#Plan & {
 
 		// Build web assets
 		web: builders.#Web & {
-			revision:           _uiVersion.output.object.sha
-			buildImage:         "\(client.env.OPNI_UI_BUILD_IMAGE):\(revision)"
-			repo:               client.env.OPNI_UI_REPO
-			branch:             client.env.OPNI_UI_BRANCH
-			pullBuildImage:     _buildCacheImageExists.output == [] | *false
+			revision:       _uiVersion.output.object.sha
+			buildImage:     "\(client.env.OPNI_UI_BUILD_IMAGE):\(revision)"
+			repo:           client.env.OPNI_UI_REPO
+			branch:         client.env.OPNI_UI_BRANCH
+			pullBuildImage: _buildCacheImageExists.output == [] | *false
 		}
 
 		_mageImage: mage.#Image
@@ -161,25 +163,25 @@ dagger.#Plan & {
 			}
 		}
 
-
 		// Run unit and integration tests
 		test: mage.#Run & {
-			input:       build.output
-			mountSource: client.filesystem.".".read.contents
+			input: build.output
 			mageArgs: ["-v", "test"]
 			always: true
+			env: {
+				"GINKGO_LABEL_FILTER"?: client.env.GINKGO_LABEL_FILTER
+			}
+			export: files: "/src/cover.out": string
 		}
 
 		// Run end-to-end tests
 		e2e: mage.#Run & {
-			input:       build.output
-			mountSource: client.filesystem.".".read.contents
+			input: build.output
 			mageArgs: ["-v", "e2e"]
 			always: true
 			env: {
-				if client.env.KUBECONFIG != "" {
-					"KUBECONFIG": client.env.KUBECONFIG
-				}
+				"KUBECONFIG"?:          client.env.KUBECONFIG
+				"GINKGO_LABEL_FILTER"?: client.env.GINKGO_LABEL_FILTER
 			}
 		}
 

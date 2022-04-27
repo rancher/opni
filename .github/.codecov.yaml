@@ -5,6 +5,7 @@ coverage:
       pkg: # declare a new status context "pkg"
         paths:
           - pkg/* # only include coverage in "pkg/" folder
+          - controllers/
         informational: true # Always pass check
     patch: off # disable the commit only checks
 ignore:

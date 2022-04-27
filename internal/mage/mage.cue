@@ -7,7 +7,6 @@ import (
 )
 
 #Run: {
-	mountSource?: dagger.#FS
 	mageArgs: [...string]
 	input: docker.#Image
 	env: [string]: string | dagger.#Secret
@@ -20,12 +19,6 @@ import (
 	docker.#Run & {
 		workdir: "/src"
 		mounts: {
-			if mountSource != _|_ {
-				"source": {
-					contents: mountSource
-					dest:     "/src"
-				}
-			}
 			"go mod cache": {
 				contents: core.#CacheDir & {
 					id: "go_mod"
@@ -39,7 +32,7 @@ import (
 				dest: "/root/.cache/go-build"
 			}
 		}
-		env: env & _defaultEnv
+		"env": env & _defaultEnv
 		command: {
 			name: "mage"
 			args: mageArgs
@@ -48,15 +41,15 @@ import (
 }
 
 #Image: docker.#Build & {
-  steps: [
-    docker.#Pull & {
-      source: "golang:1.18"
-    },
-    docker.#Run & {
-      command: {
-        name: "go"
-        args: ["install", "github.com/magefile/mage@latest"]
-      }
-    },
-  ]
+	steps: [
+		docker.#Pull & {
+			source: "golang:1.18"
+		},
+		docker.#Run & {
+			command: {
+				name: "go"
+				args: ["install", "github.com/magefile/mage@latest"]
+			}
+		},
+	]
 }

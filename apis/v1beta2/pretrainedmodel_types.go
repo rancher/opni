@@ -28,6 +28,7 @@ type PretrainedModelSpec struct {
 	ModelSource `json:"source"`
 	// +optional
 	Hyperparameters map[string]intstr.IntOrString `json:"hyperparameters,omitempty"`
+	Replicas        *int32                        `json:"replicas,omitempty"`
 }
 
 type ModelSource struct {

@@ -367,9 +367,8 @@ replace (
 	go.uber.org/zap => github.com/kralicky/zap v1.19.2-0.20220311060549-c0d473b28cca
 	k8s.io/api => k8s.io/api v0.23.5
 	k8s.io/client-go => k8s.io/client-go v0.23.5
-	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220405232819-82b73065a2ca
+	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220427221203-1428ac8c22eb
 )
-
 // Cortex replacements
 replace (
 	git.apache.org/thrift.git => github.com/apache/thrift v0.0.0-20180902110319-2566ecd5d999
@@ -377,4 +376,5 @@ replace (
 	github.com/gocql/gocql => github.com/grafana/gocql v0.0.0-20200605141915-ba5dc39ece85
 	github.com/mitchellh/mapstructure => github.com/kralicky/mapstructure v1.4.4-0.20220420171759-7bbefaa2a042
 	github.com/thanos-io/thanos v0.22.0 => github.com/thanos-io/thanos v0.19.1-0.20211208205607-d1acaea2a11a
+
 )

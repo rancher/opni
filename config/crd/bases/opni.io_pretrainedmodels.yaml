@@ -93,6 +93,9 @@ spec:
                   - type: string
                   x-kubernetes-int-or-string: true
                 type: object
+              replicas:
+                format: int32
+                type: integer
               source:
                 properties:
                   container:

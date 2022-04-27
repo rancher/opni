@@ -117,7 +117,10 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		r.opensearchCluster = &opensearchv1.OpenSearchCluster{}
 		err := r.client.Get(r.ctx, r.opniCluster.Spec.Opensearch.ExternalOpensearch.ObjectKeyFromRef(), r.opensearchCluster)
 		if err != nil {
-			return nil, err
+			if !k8serrors.IsNotFound(err) {
+				return nil, err
+			}
+			lg.V(1).Error(err, "external opensearch object does not exist")
 		}
 	}
 

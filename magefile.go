@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -19,18 +18,15 @@ import (
 
 	// mage:import
 	"github.com/kralicky/spellbook/build"
+	"github.com/kralicky/spellbook/docker"
 	// mage:import
 	test "github.com/kralicky/spellbook/test/ginkgo"
-	// mage:import
-	"github.com/kralicky/spellbook/docker"
 	// mage:import
 	"github.com/kralicky/spellbook/mockgen"
 	// mage:import
 	protobuf "github.com/kralicky/spellbook/protobuf/ragu"
 	// mage:import
 	"github.com/kralicky/spellbook/testbin"
-	// mage:import web
-	"github.com/rancher/opni/internal/mage/web"
 	// mage:import test
 	_ "github.com/rancher/opni/internal/mage/test"
 	// mage:import dev
@@ -40,10 +36,6 @@ import (
 var Default = All
 
 func All() {
-	// Only run webdist once, if web/dist/_nuxt doesn't exist yet
-	if _, err := os.Stat("web/dist/_nuxt"); os.IsNotExist(err) {
-		mg.Deps(web.Dist)
-	}
 	mg.SerialDeps(Generate, build.Build)
 }
 
@@ -81,22 +73,6 @@ func ControllerGen() error {
 				fmt.Fprintln(os.Stderr, line)
 				return err
 			}
-		}
-	}
-	return nil
-}
-
-func HelmLint() error {
-	chartDirs, err := os.ReadDir("deploy/charts")
-	if err != nil {
-		return err
-	}
-	for _, chartDir := range chartDirs {
-		if !chartDir.IsDir() {
-			continue
-		}
-		if err := sh.Run("helm", "lint", path.Join("deploy/charts", chartDir.Name())); err != nil {
-			return err
 		}
 	}
 	return nil
@@ -285,7 +261,6 @@ func init() {
 	// protobuf.Config.Options = []ragu.GenerateCodeOption{
 	// 	ragu.ExperimentalHideEmptyMessages(),
 	// }
-	docker.Config.Tag = "kralicky/opni-monitoring"
 	ext := ".tar.gz"
 	if runtime.GOOS == "darwin" {
 		ext = ".zip"

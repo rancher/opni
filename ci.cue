@@ -7,171 +7,22 @@ import (
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
 	"universe.dagger.io/git"
-	"encoding/json"
+	"github.com/rancher/opni/internal/builders"
+	"github.com/rancher/opni/internal/mage"
+	"github.com/rancher/opni/internal/util"
 )
-
-scratch: docker.#Image & {
-	rootfs: dagger.#Scratch
-	config: {}
-}
-
-#Web: {
-	repo:           string
-	branch:         string
-	revision:       string
-	buildImage:     string
-	pullBuildImage: bool
-
-	build: _
-	if pullBuildImage {
-		build: docker.#Build & {
-			steps: [
-				docker.#Pull & {
-					source: buildImage
-				},
-			]
-		}
-	}
-	if !pullBuildImage {
-		build: docker.#Build & {
-			steps: [
-				docker.#Pull & {
-					source: "node:14-alpine3.10"
-				},
-				docker.#Run & {
-					command: {
-						name: "apk"
-						args: ["add", "--no-cache", "git", "brotli"]
-					}
-				},
-				docker.#Run & {
-					command: {
-						name: "echo"
-						args: [revision]
-					}
-				},
-				docker.#Run & {
-					workdir: "/app"
-					command: {
-						name: "git"
-						args: [
-							"clone",
-							"--depth=1",
-							"--branch=\(branch)",
-							"https://github.com/\(repo).git",
-							".",
-						]
-					}
-				},
-				docker.#Run & {
-					workdir: "/app"
-					command: {
-						name: "git"
-						args: [
-							"checkout",
-							revision,
-						]
-					}
-				},
-				docker.#Run & {
-					workdir: "/app"
-					command: {
-						name: "yarn"
-						args: ["install"]
-					}
-				},
-				docker.#Run & {
-					workdir: "/app"
-					command: {
-						name: "node_modules/.bin/nuxt"
-						args: ["generate", "-c", "product/opni/nuxt.config.js"]
-					}
-				},
-				docker.#Run & {
-					workdir: "/app"
-					command: {
-						name: "find"
-						args: ["/app/dist", "-type", "f", "-exec", "brotli", "-jf", "{}", "+"]
-					}
-				},
-			]
-		}
-	}
-
-	dist:        dagger.#FS & _distSubdir.output
-	_distSubdir: core.#Subdir & {
-		input: build.output.rootfs
-		path:  "/app/dist"
-	}
-
-	cache: docker.#Build & {
-		steps: [
-			docker.#Copy & {
-				input:    scratch
-				contents: dist
-				dest:     "/app/dist"
-			},
-		]
-	}
-
-	output: cache.output
-}
-
-#Chart: {
-	crds: [...dagger.#FS]
-	chartDir: dagger.#FS
-
-	_merged: core.#Merge & {
-		inputs: crds
-	}
-
-	build: docker.#Build & {
-		steps: [
-			docker.#Pull & {
-				source: "dtzar/helm-kubectl"
-			},
-			docker.#Copy & {
-				contents: chartDir
-				dest:     "/src"
-			},
-			docker.#Copy & {
-				contents: _merged.output
-				dest:     "/src/crds"
-			},
-			docker.#Run & {
-				workdir: "/src"
-				command: {
-					name: "helm"
-					args: ["dep", "update"]
-				}
-			},
-			docker.#Run & {
-				workdir: "/src"
-				command: {
-					name: "helm"
-					args: ["package", "-d", "/dist", "."]
-				}
-			},
-		]
-	}
-
-	_dist: core.#Subdir & {
-		input: build.output.rootfs
-		path:  "/dist"
-	}
-	output: _dist.output
-}
 
 dagger.#Plan & {
 	client: {
 		env: {
-			DRONE_TAG?:          string
 			KUBECONFIG?:         string
 			TAG:                 string | *"latest"
 			REPO:                string | *"rancher"
 			OPNI_UI_REPO:        string | *"rancher/opni-ui"
 			OPNI_UI_BRANCH:      string | *"main"
-			OPNI_UI_BUILD_IMAGE: string | *"kralicky/opni-monitoring-ui-build"
+			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
+			DOCKER_USERNAME?:    string
+			DOCKER_PASSWORD?:    string
 		}
 		filesystem: {
 			".": read: {
@@ -189,70 +40,34 @@ dagger.#Plan & {
 			"web/dist": write: contents:    actions.web.dist
 			"dist/charts": write: contents: actions.charts.output
 		}
-		commands: {
-			uiVersion: {
-				name: "curl"
-				args: [
-					"-s",
-					"https://api.github.com/repos/\(env.OPNI_UI_REPO)/git/refs/heads/\(env.OPNI_UI_BRANCH)",
-				]
-			}
-			buildCacheImageExists: {
-				name: "curl"
-				args: [
-					"-s",
-					"https://index.docker.io/v1/repositories/\(env.OPNI_UI_BUILD_IMAGE)/tags/\(actions.web.revision)",
-				]
-			}
-		}
 		network: "unix:///var/run/docker.sock": connect: dagger.#Socket
 	}
 
 	actions: {
-		// - Build web assets
-		web: #Web & {
-			_githubApiResponse: json.Unmarshal(client.commands.uiVersion.stdout)
-			_existsLocal:       cli.#Run & {
-				command: {
-					name: "image"
-					args: [
-						"inspect", _taggedImage,
-					]
-				}
-			}
-
-			revision:      _githubApiResponse.object.sha
-			_taggedImage:  "\(client.env.OPNI_UI_BUILD_IMAGE):\(revision)"
-			_existsLocal:  _existsLocal.stderr == ""
-			_existsRemote: client.commands.buildCacheImageExists.stdout == "[]"
-
-			repo:           client.env.OPNI_UI_REPO
-			branch:         client.env.OPNI_UI_BRANCH
-			buildImage:     _taggedImage
-			pullBuildImage: _existsLocal || _existsRemote | *false
+		_uiVersion: util.#FetchJSON & {
+			source: "https://api.github.com/repos/\(client.env.OPNI_UI_REPO)/git/refs/heads/\(client.env.OPNI_UI_BRANCH)"
+		}
+		_buildCacheImageExists: util.#FetchJSON & {
+			source: "https://index.docker.io/v1/repositories/\(client.env.OPNI_UI_BUILD_IMAGE)/tags/\(actions.web.revision)"
 		}
 
-		// Build golang image with mage installed
-		_builder: docker.#Build & {
-			steps: [
-				docker.#Pull & {
-					source: "golang:1.18"
-				},
-				docker.#Run & {
-					command: {
-						name: "go"
-						args: ["install", "github.com/magefile/mage@latest"]
-					}
-				},
-			]
+		// Build web assets
+		web: builders.#Web & {
+			revision:           _uiVersion.output.object.sha
+			buildImage:         "\(client.env.OPNI_UI_BUILD_IMAGE):\(revision)"
+			repo:               client.env.OPNI_UI_REPO
+			branch:             client.env.OPNI_UI_BRANCH
+			pullBuildImage:     _buildCacheImageExists.output == [] | *false
 		}
 
-		// - Build with mage using the builder image
+		_mageImage: mage.#Image
+
+		// Build with mage using the builder image
 		build: {
 			docker.#Build & {
 				steps: [
 					docker.#Copy & {
-						input:    _builder.output
+						input:    _mageImage.output
 						contents: client.filesystem.".".read.contents
 						dest:     "/src"
 					},
@@ -270,7 +85,7 @@ dagger.#Plan & {
 						contents: actions.web.dist
 						dest:     "/src/web/dist/"
 					},
-					#MageRun & {
+					mage.#Run & {
 						mageArgs: ["-v", "build"]
 					},
 				]
@@ -328,31 +143,33 @@ dagger.#Plan & {
 			]
 		}
 
-		// - Build docker image and load it into the local docker daemon
-		package: cli.#Load & {
-			_tag:  client.env.DRONE_TAG | *client.env.TAG
+		_opniImage: {
+			tag:   docker.#Ref & "\(client.env.REPO)/opni:\(client.env.TAG)"
 			image: _multistage.output
-			host:  client.network."unix:///var/run/docker.sock".connect
-			tag:   "\(client.env.REPO)/opni:\(_tag)"
 		}
 
-		// - Load web asset cache image into the local docker daemon
+		// Build docker image and load it into the local docker daemon
+		package: cli.#Load & _opniImage & {
+			host: client.network."unix:///var/run/docker.sock".connect
+		}
+
+		// Load web asset cache image into the local docker daemon
 		webcache: cli.#Load & {
 			image: web.output
 			host:  client.network."unix:///var/run/docker.sock".connect
 			tag:   web.buildImage
 		}
 
-		// - Run unit and integration tests
-		test: #MageRun & {
+		// Run unit and integration tests
+		test: mage.#Run & {
 			input:       build.output
 			mountSource: client.filesystem.".".read.contents
 			mageArgs: ["-v", "test"]
 			always: true
 		}
 
-		// - Run end-to-end tests
-		e2e: #MageRun & {
+		// Run end-to-end tests
+		e2e: mage.#Run & {
 			input:       build.output
 			mountSource: client.filesystem.".".read.contents
 			mageArgs: ["-v", "e2e"]
@@ -364,7 +181,7 @@ dagger.#Plan & {
 			}
 		}
 
-		// - Build and package helm charts (writes to dist/charts/)
+		// Build and package helm charts (writes to dist/charts/)
 		charts: {
 			_bases: core.#Subdir & {
 				input: client.filesystem.".".read.contents
@@ -409,7 +226,7 @@ dagger.#Plan & {
 				_opensearch.output,
 			]
 
-			agent: #Chart & {
+			agent: builders.#Chart & {
 				_chartDir: core.#Subdir & {
 					input: client.filesystem.".".read.contents
 					path:  "deploy/charts/opni-monitoring-agent"
@@ -419,7 +236,7 @@ dagger.#Plan & {
 				crds:     _opniCrds
 			}
 
-			opni: #Chart & {
+			opni: builders.#Chart & {
 				_chartDir: core.#Subdir & {
 					input: client.filesystem.".".read.contents
 					path:  "deploy/charts/opni"
@@ -437,46 +254,26 @@ dagger.#Plan & {
 			}
 			output: _output.output
 		}
-	}
-}
 
-#MageRun: {
-	mountSource?: dagger.#FS
-	mageArgs: [...string]
-	input: docker.#Image
-	env: [string]: string | dagger.#Secret
-	_defaultEnv: {
-		GOMODCACHE: "/root/.cache/go-mod"
-		GOOS:       "linux"
-		GOARCH:     "amd64"
-	}
-
-	docker.#Run & {
-		workdir: "/src"
-		mounts: {
-			if mountSource != _|_ {
-				"source": {
-					contents: mountSource
-					dest:     "/src"
+		// Push docker images
+		push: {
+			auth?: _|_
+			if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+				auth: {
+					username: client.env.DOCKER_USERNAME
+					secret:   client.env.DOCKER_PASSWORD
 				}
 			}
-			"go mod cache": {
-				contents: core.#CacheDir & {
-					id: "go_mod"
-				}
-				dest: "/root/.cache/go-mod"
+			pushOpni: docker.#Push & {
+				dest:  _opniImage.tag
+				image: _opniImage.image
+				auth?: auth
 			}
-			"go build cache": {
-				contents: core.#CacheDir & {
-					id: "go_build"
-				}
-				dest: "/root/.cache/go-build"
+			pushWebcache: docker.#Push & {
+				dest:  web.buildImage
+				image: web.output
+				auth?: auth
 			}
-		}
-		env: env & _defaultEnv
-		command: {
-			name: "mage"
-			args: mageArgs
 		}
 	}
 }

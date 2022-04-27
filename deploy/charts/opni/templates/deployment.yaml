@@ -1,13 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "opni.fullname" . }}
+  name: {{ include "opni.fullname" . }}-manager
   labels:
     {{- include "opni.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
-  {{- end }}
   selector:
     matchLabels:
       {{- include "opni.selectorLabels" . | nindent 6 }}
@@ -20,12 +18,11 @@ spec:
       labels:
         {{- include "opni.selectorLabels" . | nindent 8 }}
     spec:
-      replicas: 1
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "opni.serviceAccountName" . }}
+      serviceAccountName: opni-manager
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:

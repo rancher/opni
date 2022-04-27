@@ -40,6 +40,22 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  - persistentvolumeclaims
+  - secrets
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - endpoints
   - namespaces
   - pods
@@ -75,12 +91,30 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - nodes
   verbs:
   - get
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - apps
@@ -124,6 +158,19 @@ rules:
 - apiGroups:
   - apps
   resources:
+  - deployments
+  - deployments/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
   - statefulsets
   verbs:
   - create
@@ -148,6 +195,42 @@ rules:
   - jobs
   verbs:
   - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - clusterissuers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - issuers
+  verbs:
+  - create
+  - delete
   - get
   - list
   - patch
@@ -330,6 +413,67 @@ rules:
   - list
   - watch
 - apiGroups:
+  - grafana.opni.io
+  resources:
+  - grafanadashboards
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - grafana.opni.io
+  resources:
+  - grafanadashboards/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - grafana.opni.io
+  resources:
+  - grafanadatasources
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - grafana.opni.io
+  resources:
+  - grafanadatasources/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - grafana.opni.io
+  resources:
+  - grafanas
+  - grafanas/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - grafana.opni.io
+  resources:
+  - grafanas/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - logging.opni.io
   resources:
   - '*'
@@ -377,6 +521,18 @@ rules:
   - monitoring.coreos.com
   resources:
   - servicemonitors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
   verbs:
   - create
   - delete
@@ -447,6 +603,108 @@ rules:
   - update
   - watch
 - apiGroups:
+  - opensearch.opster.io
+  resources:
+  - opensearchclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opensearch.opster.io
+  resources:
+  - opensearchclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opensearch.opster.io
+  resources:
+  - opensearchclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - bootstraptokens
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - clusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - datapreppers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - datapreppers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - datapreppers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - gateways
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - gateways/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - gateways/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - opni.io
   resources:
   - gpupolicyadapters
@@ -475,6 +733,18 @@ rules:
 - apiGroups:
   - opni.io
   resources:
+  - keyrings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
   - logadapters
   - opniclusters
   verbs:
@@ -497,6 +767,136 @@ rules:
   resources:
   - logadapters
   - opniclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusterbindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusterbindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusterbindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - loggingclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - monitoringclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - monitoringclusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - monitoringclusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - multiclusterrolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - multiclusterrolebindings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - multiclusterrolebindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - multiclusterusers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - multiclusterusers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - opni.io
+  resources:
+  - multiclusterusers/status
   verbs:
   - get
   - patch
@@ -553,6 +953,30 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - opni.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opni.io
+  resources:
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - policy
   resources:
@@ -691,162 +1115,6 @@ rules:
   - storageclasses
   verbs:
   - watch
-- apiGroups:
-  - opensearch.opster.io
-  resources:
-  - opensearchclusters
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - opensearch.opster.io
-  resources:
-  - opensearchclusters/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - opensearch.opster.io
-  resources:
-  - opensearchclusters/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - datapreppers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - opni.io
-  resources:
-  - datapreppers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - datapreppers/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - loggingclusters
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - opni.io
-  resources:
-  - loggingclusters/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - loggingclusters/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - loggingclusterbindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - opni.io
-  resources:
-  - loggingclusterbindings/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - loggingclusterbindings/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - multiclusterrolebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - opni.io
-  resources:
-  - multiclusterrolebindings/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - multiclusterrolebindings/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - multiclusterusers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - opni.io
-  resources:
-  - multiclusterusers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - multiclusterusers/status
-  verbs:
-  - get
-  - patch
-  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

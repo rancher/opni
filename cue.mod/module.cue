@@ -1,1 +1,1 @@
-module: "opni"
+module: "github.com/rancher/opni"

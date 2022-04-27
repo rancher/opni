@@ -56,6 +56,7 @@ steps:
         from_secret: docker_username
       DOCKER_PASSWORD:
         from_secret: docker_password
+      TAG: main
     commands:
       - bin/dagger do --cache-from type=local,src=/cache --cache-to type=local,mode=max,dest=/cache push
     volumes: *volumes

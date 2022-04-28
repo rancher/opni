@@ -13,12 +13,14 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/jaypipes/ghw"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 
 	// mage:import
 	"github.com/kralicky/spellbook/build"
 	"github.com/kralicky/spellbook/docker"
+
 	// mage:import
 	test "github.com/kralicky/spellbook/test/ginkgo"
 	// mage:import
@@ -29,6 +31,9 @@ import (
 	"github.com/kralicky/spellbook/testbin"
 	// mage:import test
 	_ "github.com/rancher/opni/internal/mage/test"
+	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/util"
+
 	// mage:import dev
 	_ "github.com/rancher/opni/internal/mage/dev"
 )
@@ -155,9 +160,22 @@ func findProtos() []protobuf.Proto {
 	return protos
 }
 
+func SysInfo() {
+	fmt.Println("System Info:")
+	cpu := util.Must(ghw.CPU())
+	for _, proc := range cpu.Processors {
+		fmt.Printf(" %v (%d cores, %d threads)\n", proc.Model, proc.NumCores, proc.NumThreads)
+	}
+	fmt.Printf(" %v\n", util.Must(ghw.Topology()))
+	fmt.Printf(" %v\n", util.Must(ghw.Memory()))
+	fmt.Printf(" %v\n", util.Must(ghw.Block()))
+	fmt.Printf("CI Environment: %s\n", testutil.IfCI("yes").Else("no"))
+}
+
 func init() {
 	docker.Deps(build.Build)
 	test.Deps(testbin.Testbin, build.Build)
+	test.SerialDeps(SysInfo)
 
 	labelFilter := "!e2e"
 	if filter, ok := os.LookupEnv("GINKGO_LABEL_FILTER"); ok {

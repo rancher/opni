@@ -15,6 +15,7 @@ import (
 var (
 	IsTesting       = strings.HasSuffix(os.Args[0], ".test")
 	IsGithubActions = os.Getenv("GITHUB_ACTIONS") == "true"
+	IsDrone         = os.Getenv("DRONE") == "true"
 	StdoutWriter    = lo.Ternary[io.Writer](IsTesting, ginkgo.GinkgoWriter, os.Stdout)
 	StderrWriter    = lo.Ternary[io.Writer](IsTesting, ginkgo.GinkgoWriter, os.Stderr)
 )
@@ -26,7 +27,7 @@ type ifExpr[T any] struct {
 
 func IfCI[T any](t T) ifExpr[T] {
 	return ifExpr[T]{
-		cond:  IsGithubActions,
+		cond:  IsGithubActions || IsDrone,
 		value: t,
 	}
 }

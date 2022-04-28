@@ -1,9 +1,8 @@
 package test
 
 import (
-	"os"
-
 	"github.com/onsi/ginkgo/v2"
+	"github.com/rancher/opni/pkg/test/testutil"
 )
 
 const (
@@ -14,9 +13,6 @@ const (
 	TimeSensitive = "time-sensitive"
 )
 
-func EnableInCI[T any](decorator T) any {
-	if os.Getenv("GITHUB_ACTIONS") == "true" {
-		return decorator
-	}
-	return ginkgo.Labels{}
+func EnableIfCI[T any](decorator T) any {
+	return testutil.IfCI[any](decorator).Else(ginkgo.Labels{})
 }

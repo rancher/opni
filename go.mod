@@ -7,7 +7,6 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/NVIDIA/gpu-operator v1.8.1
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
-	github.com/andybalholm/brotli v1.0.4
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/banzaicloud/logging-operator v0.0.0-20220225205714-b06e7ad17676
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.19
@@ -29,6 +28,7 @@ require (
 	github.com/iancoleman/strcase v0.2.0
 	github.com/imdario/mergo v0.3.12
 	github.com/jarcoal/httpmock v1.0.8
+	github.com/jaypipes/ghw v0.9.0
 	github.com/jedib0t/go-pretty/v6 v6.2.7
 	github.com/jhump/protoreflect v1.12.0
 	github.com/jwalton/go-supportscolor v1.1.0
@@ -61,12 +61,10 @@ require (
 	github.com/prometheus/node_exporter v1.0.0-rc.0.0.20200428091818-01054558c289
 	github.com/prometheus/prometheus v1.8.2-0.20220411232225-ce6a643ee88f
 	github.com/samber/lo v1.11.0
-	github.com/schollz/progressbar/v3 v3.8.6
 	github.com/spf13/cobra v1.4.0
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/valyala/fasthttp v1.34.0
 	github.com/vbauerster/mpb/v7 v7.1.3
-	github.com/vearutop/statigz v1.1.7
 	github.com/weaveworks/common v0.0.0-20210913144402-035033b78a78
 	go.etcd.io/etcd/client/v3 v3.5.2
 	go.etcd.io/etcd/etcdctl/v3 v3.5.2
@@ -117,11 +115,13 @@ require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
+	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883 // indirect
+	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/armon/go-metrics v0.3.9 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/aws/aws-sdk-go v1.43.31 // indirect
@@ -164,6 +164,7 @@ require (
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.2.0 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/analysis v0.21.2 // indirect
 	github.com/go-openapi/errors v0.20.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
@@ -218,6 +219,7 @@ require (
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jaypipes/pcidb v1.0.0 // indirect
 	github.com/jessevdk/go-flags v1.5.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jonboulle/clockwork v0.2.2 // indirect
@@ -249,7 +251,6 @@ require (
 	github.com/minio/md5-simd v1.1.0 // indirect
 	github.com/minio/minio-go/v7 v7.0.10 // indirect
 	github.com/minio/sha256-simd v0.1.1 // indirect
-	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
@@ -349,6 +350,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.2 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
+	howett.net/plist v1.0.0 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.40.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220114203427-a0453230fd26 // indirect

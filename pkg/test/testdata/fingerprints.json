@@ -1,0 +1,39 @@
+{
+  "testData": [
+    {
+      "cert": "example.com.crt",
+      "fingerprints": {
+        "sha256": "sha256:0xdt7bQFHJHj_bSRowpbulDAlAAmAWoEzvG9Rwsb0ZA",
+        "b2b256": "b2b256:OV2swz78SBRLGLw7slCqYj7JE6Bd5v8BlP_qUkvIoig"
+      }
+    },
+    {
+      "cert": "intermediate_ca_3.crt",
+      "fingerprints": {
+        "sha256": "sha256:v4zUrhJqK9YM8IBwwYC6JweBuiFNdqYsT4xCSjogUFY",
+        "b2b256": "b2b256:I_Aq7TsOvy_GJbHHpmRbKEgPsRQ8j4BSTT03pqiac9M"
+      }
+    },
+    {
+      "cert": "intermediate_ca_2.crt",
+      "fingerprints": {
+        "sha256": "sha256:XfA90eIO3pW4-nUkrPU-bnYxNG2tsBSzsiZqOTppJR0",
+        "b2b256": "b2b256:R7n5-3RqpAvGKx_Zcaynvf5Eo1K2XCcTzI0U0KuNjoI"
+      }
+    },
+    {
+      "cert": "intermediate_ca_1.crt",
+      "fingerprints": {
+        "sha256": "sha256:0ExZRsVmQj1J4LJJ_apD0F4kzqVszSVB-rq75KuR2RQ",
+        "b2b256": "b2b256:5dTG4t3t4hNh8oWF53Suc_1xPOLgtTcFJ1G-8dYVS8U"
+      }
+    },
+    {
+      "cert": "root_ca.crt",
+      "fingerprints": {
+        "sha256": "sha256:V4f9UAWkcDUfNqmOdOT2go1F3ucX2eEJJoVAhyaiknQ",
+        "b2b256": "b2b256:W_ZOmtleCpY9V-L9MVfW1WP9f3X1RFxAAtsl4pjJW10"
+      }
+    }
+  ]
+}

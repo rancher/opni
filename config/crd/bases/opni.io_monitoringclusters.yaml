@@ -1,0 +1,227 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.1-0.20220428122951-32ad71090a62
+  creationTimestamp: null
+  name: monitoringclusters.opni.io
+spec:
+  group: opni.io
+  names:
+    kind: MonitoringCluster
+    listKind: MonitoringClusterList
+    plural: monitoringclusters
+    singular: monitoringcluster
+  scope: Namespaced
+  versions:
+  - name: v1beta2
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              cortex:
+                properties:
+                  enabled:
+                    type: boolean
+                  image:
+                    properties:
+                      image:
+                        type: string
+                      imagePullPolicy:
+                        type: string
+                      imagePullSecrets:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                          type: object
+                        type: array
+                    type: object
+                  logLevel:
+                    type: string
+                  storage:
+                    properties:
+                      azure:
+                        properties:
+                          accountKey:
+                            type: string
+                          accountName:
+                            type: string
+                          containerName:
+                            type: string
+                          endpointSuffix:
+                            type: string
+                          http:
+                            properties:
+                              expectContinueTimeout:
+                                format: int64
+                                type: integer
+                              idleConnTimeout:
+                                format: int64
+                                type: integer
+                              insecureSkipVerify:
+                                type: boolean
+                              maxConnectionsPerHost:
+                                type: integer
+                              maxIdleConnections:
+                                type: integer
+                              maxIdleConnectionsPerHost:
+                                type: integer
+                              responseHeaderTimeout:
+                                format: int64
+                                type: integer
+                              tlsHandshakeTimeout:
+                                format: int64
+                                type: integer
+                            type: object
+                          maxRetries:
+                            type: integer
+                        type: object
+                      backend:
+                        type: string
+                      filesystem:
+                        properties:
+                          directory:
+                            type: string
+                        type: object
+                      gcs:
+                        properties:
+                          bucketName:
+                            type: string
+                          serviceAccount:
+                            type: string
+                        type: object
+                      s3:
+                        properties:
+                          accessKeyID:
+                            type: string
+                          bucketName:
+                            type: string
+                          endpoint:
+                            type: string
+                          http:
+                            properties:
+                              expectContinueTimeout:
+                                format: int64
+                                type: integer
+                              idleConnTimeout:
+                                format: int64
+                                type: integer
+                              insecureSkipVerify:
+                                type: boolean
+                              maxConnectionsPerHost:
+                                type: integer
+                              maxIdleConnections:
+                                type: integer
+                              maxIdleConnectionsPerHost:
+                                type: integer
+                              responseHeaderTimeout:
+                                format: int64
+                                type: integer
+                              tlsHandshakeTimeout:
+                                format: int64
+                                type: integer
+                            type: object
+                          insecure:
+                            type: boolean
+                          region:
+                            type: string
+                          secretAccessKey:
+                            type: string
+                          signatureVersion:
+                            type: string
+                          sse:
+                            properties:
+                              kmsEncryptionContext:
+                                type: string
+                              kmsKeyID:
+                                type: string
+                              typ:
+                                type: string
+                            type: object
+                        type: object
+                      swift:
+                        properties:
+                          authUrl:
+                            type: string
+                          authVersion:
+                            type: integer
+                          connectTimeout:
+                            format: int64
+                            type: integer
+                          containerName:
+                            type: string
+                          domainID:
+                            type: string
+                          domainName:
+                            type: string
+                          maxRetries:
+                            type: integer
+                          password:
+                            type: string
+                          projectDomainID:
+                            type: string
+                          projectDomainName:
+                            type: string
+                          projectID:
+                            type: string
+                          projectName:
+                            type: string
+                          regionName:
+                            type: string
+                          requestTimeout:
+                            format: int64
+                            type: integer
+                          userDomainID:
+                            type: string
+                          userDomainName:
+                            type: string
+                          userID:
+                            type: string
+                          username:
+                            type: string
+                        type: object
+                    type: object
+                type: object
+              gateway:
+                properties:
+                  name:
+                    type: string
+                type: object
+              grafana:
+                properties:
+                  enabled:
+                    type: boolean
+                  hostname:
+                    type: string
+                  image:
+                    default: grafana/grafana:latest
+                    type: string
+                  logLevel:
+                    type: string
+                required:
+                - hostname
+                type: object
+            required:
+            - gateway
+            type: object
+          status:
+            properties:
+              image:
+                type: string
+              imagePullPolicy:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

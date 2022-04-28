@@ -1,0 +1,51 @@
+{{- if ( and .Values.monitoring.enabled .Values.gateway.enabled ) }}
+apiVersion: opni.io/v1beta2
+kind: MonitoringCluster
+metadata:
+  name: opni-monitoring
+  labels:
+    {{- include "opni.labels" . | nindent 4 }}
+spec:
+  gateway:
+    name: opni-gateway
+  cortex:
+    enabled: true
+    {{- with .Values.monitoring.cortex.storage }}
+    storage:
+      backend: {{ .backend }}
+      {{- if eq .backend "s3" }}
+      {{- with .s3 }}
+      s3:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- if eq .backend "gcs" }}
+      {{- with .gcs }}
+      gcs:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- if eq .backend "azure" }}
+      {{- with .azure }}
+      azure:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- if eq .backend "swift" }}
+      {{- with .swift }}
+      swift:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- if eq .backend "filesystem" }}
+      {{- with .filesystem }}
+      filesystem:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+    {{- end }}
+  grafana:
+    enabled: true
+    hostname: {{ .Values.monitoring.grafana.hostname }}
+    image: {{ .Values.monitoring.grafana.image | default "grafana/grafana:latest" }}
+{{- end }}

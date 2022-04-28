@@ -1,0 +1,20 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/example";
+package example;
+
+service ExampleAPIExtension {
+  rpc Echo(EchoRequest) returns (EchoResponse) {
+    option (google.api.http) = {
+      post: "/echo"
+      body: "*"
+    };
+  }
+}
+
+message EchoRequest {
+  string message = 1;
+}
+
+message EchoResponse {
+  string message = 1;
+}

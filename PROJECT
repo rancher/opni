@@ -140,4 +140,20 @@ resources:
   kind: MutliclusterUser
   path: github.com/rancher/opni/apis/v1beta2
   version: v1beta2
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: opni.io
+  kind: Gateway
+  path: github.com/rancher/opni/apis/v1beta2
+  version: v1beta2
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: opni.io
+  kind: MonitoringCluster
+  path: github.com/rancher/opni/apis/v1beta2
+  version: v1beta2
 version: "3"

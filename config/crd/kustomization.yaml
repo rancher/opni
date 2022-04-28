@@ -10,6 +10,10 @@ resources:
 - nvidia/nvidia.opni.io_clusterpolicies.yaml
 - nfd/nfd.opni.io_nodefeaturediscoveries.yaml
 - opensearch/opensearch.opster.io_opensearchclusters.yaml
+- grafana/grafana.opni.io_grafanadashboards.yaml
+- grafana/grafana.opni.io_grafanadatasources.yaml
+- grafana/grafana.opni.io_grafananotificationchannels.yaml
+- grafana/grafana.opni.io_grafanas.yaml
 - bases/opni.io_opniclusters.yaml
 - bases/opni.io_logadapters.yaml
 - bases/demo.opni.io_opnidemoes.yaml
@@ -20,6 +24,13 @@ resources:
 - bases/opni.io_multiclusterrolebindings.yaml
 - bases/opni.io_loggingclusterbindings.yaml
 - bases/opni.io_multiclusterusers.yaml
+- bases/opni.io_bootstraptokens.yaml
+- bases/opni.io_clusters.yaml
+- bases/opni.io_keyrings.yaml
+- bases/opni.io_gateways.yaml
+- bases/opni.io_monitoringclusters.yaml
+- bases/opni.io_roles.yaml
+- bases/opni.io_rolebindings.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

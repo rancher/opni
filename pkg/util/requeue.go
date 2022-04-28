@@ -63,3 +63,11 @@ func (r RequeueOp) ShouldRequeue() bool {
 func (r RequeueOp) Result() (ctrl.Result, error) {
 	return r.res, r.err
 }
+
+func (r RequeueOp) ResultPtr() (result *ctrl.Result, err error) {
+	if !r.res.IsZero() {
+		result = &r.res
+	}
+	err = r.err
+	return
+}

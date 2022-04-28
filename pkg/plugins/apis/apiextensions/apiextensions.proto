@@ -1,0 +1,28 @@
+syntax = "proto3";
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/any.proto";
+option go_package = "github.com/rancher/opni/pkg/plugin/apis/apiextensions";
+package apiextensions;
+
+service ManagementAPIExtension {
+  rpc Descriptor(google.protobuf.Empty) returns (google.protobuf.ServiceDescriptorProto);
+}
+
+service GatewayAPIExtension {
+  rpc Configure(CertConfig) returns (GatewayAPIExtensionConfig);
+}
+
+message CertConfig {
+  string ca = 1;
+  string caData = 2;
+  string cert = 3;
+  string certData = 4;
+  string key = 5;
+  string keyData = 6;
+}
+
+message GatewayAPIExtensionConfig {
+  string HttpAddr = 1;
+  repeated string pathPrefixes = 2;
+}

@@ -1,0 +1,26 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+import "../../../core/core.proto";
+option go_package = "github.com/rancher/opni/pkg/plugins/apis/capability";
+
+package capability;
+
+service Backend {
+  rpc Info(google.protobuf.Empty) returns (InfoResponse);
+  rpc CanInstall(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Install(InstallRequest) returns (google.protobuf.Empty);
+  rpc Uninstall(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc InstallerTemplate(google.protobuf.Empty) returns (InstallerTemplateResponse);
+}
+
+message InfoResponse {
+  string capabilityName = 1;
+}
+
+message InstallRequest {
+  core.Reference cluster = 1;
+}
+
+message InstallerTemplateResponse {
+  string template = 1;
+}

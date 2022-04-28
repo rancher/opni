@@ -1,0 +1,289 @@
+questions:
+  - variable: gateway.enabled
+    description: "Enable the default Opni Gateway deployment"
+    type: boolean
+    default: "true"
+    group: "Gateway"
+    label: "Enable Opni Gateway"
+    show_subquestion_if: true
+    subquestions:
+      - variable: gateway.hostname
+        show_if: "gateway.enabled=true"
+        description: "Hostname where the public gateway service will be accessible"
+        group: "Gateway"
+        required: true
+        type: hostname
+        min_length: 1
+        label: "Hostname"
+      - variable: gateway.serviceType
+        show_if: "gateway.enabled=true"
+        description: "Public gateway service type"
+        group: "Gateway"
+        type: enum
+        default: "LoadBalancer"
+        label: "Service Type"
+        options:
+          - LoadBalancer
+          - ClusterIP
+  - variable: gateway.auth.provider
+    show_if: "gateway.enabled=true"
+    description: "Gateway authentication provider"
+    group: "Auth Settings"
+    type: enum
+    default: "noauth"
+    label: "Auth Provider"
+    options:
+      - noauth
+      - openid
+    subquestions:
+      - variable: gateway.auth.openid.discovery.issuer
+        show_if: "gateway.auth.provider=openid"
+        group: "Auth Settings"
+        default: ""
+        type: string
+        description: "OpenID Issuer URL"
+        required: true
+        label: "Issuer URL"
+        valid_chars: 'https:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)'
+      - variable: gateway.auth.openid.discovery.identifyingClaim
+        show_if: "gateway.auth.provider=openid"
+        group: "Auth Settings"
+        default: "sub"
+        type: string
+        description: 'Claim used to uniquely identify users (e.g. "sub", "email", etc)'
+        required: true
+        label: "Identifying Claim"
+      - variable: gateway.auth.openid.clientID
+        show_if: "gateway.auth.provider=openid"
+        group: "Auth Settings"
+        default: ""
+        type: string
+        description: "Client ID"
+        required: true
+        label: "Client ID"
+      - variable: gateway.auth.openid.clientSecret
+        show_if: "gateway.auth.provider=openid"
+        group: "Auth Settings"
+        default: ""
+        type: string
+        description: "Client Secret"
+        required: true
+        label: "Client Secret"
+      - variable: gateway.auth.openid.roleAttributePath
+        show_if: "gateway.auth.provider=openid"
+        group: "Auth Settings"
+        default: ""
+        type: string
+        description: "https://grafana.com/docs/grafana/latest/auth/generic-oauth/#roles"
+        required: true
+        label: "Grafana Role Attribute Path"
+  - variable: monitoring.enabled
+    type: boolean
+    default: "false"
+    group: "Monitoring"
+    label: "Enable Monitoring"
+    show_subquestion_if: true
+    subquestions:
+      - variable: monitoring.grafana.hostname
+        type: string
+        default: ""
+        required: true
+        label: "Grafana Hostname"
+      - variable: monitoring.cortex.storage.backend
+        type: enum
+        default: "s3"
+        label: "Storage Backend"
+        required: true
+        options:
+          - s3
+          - gcs
+          - azure
+          - swift
+          - filesystem
+      - variable: monitoring.cortex.storage.s3.endpoint
+        show_if: "monitoring.cortex.storage.backend=s3"
+        type: string
+        default: ""
+        label: "S3 Endpoint"
+        required: true
+        description: >-
+          The S3 bucket endpoint. It could be an AWS S3 endpoint listed at
+          https://docs.aws.amazon.com/general/latest/gr/s3.html or the address of an
+          S3-compatible service in hostname:port format.
+      - variable: monitoring.cortex.storage.s3.region
+        show_if: "monitoring.cortex.storage.backend=s3"
+        type: string
+        default: ""
+        label: "S3 Region"
+        description: >-
+          S3 region. If unset, the client will issue a S3 GetBucketLocation API call
+          to autodetect it.
+      - variable: monitoring.cortex.storage.s3.bucketName
+        show_if: "monitoring.cortex.storage.backend=s3"
+        type: string
+        default: ""
+        required: true
+        label: "S3 Bucket Name"
+      - variable: monitoring.cortex.storage.s3.accessKeyID
+        show_if: "monitoring.cortex.storage.backend=s3"
+        type: string
+        default: ""
+        required: true
+        label: "S3 Access Key ID"
+      - variable: monitoring.cortex.storage.s3.secretAccessKey
+        show_if: "monitoring.cortex.storage.backend=s3"
+        type: string
+        default: ""
+        required: true
+        label: "S3 Secret Access Key"
+      - variable: monitoring.cortex.storage.s3.signatureVersion
+        show_if: "monitoring.cortex.storage.backend=s3"
+        type: enum
+        default: "v4"
+        required: true
+        label: "S3 Signature Version"
+        options:
+          - v4
+          - v2
+      - variable: monitoring.cortex.storage.s3.insecure
+        show_if: "monitoring.cortex.storage.backend=s3"
+        type: boolean
+        default: "false"
+        label: "Insecure"
+        description: >-
+          If enabled, use http:// for the S3 endpoint instead of https://. This could
+          be useful in local dev/test environments while using an S3-compatible
+          backend storage, like Minio.
+
+      - variable: monitoring.cortex.storage.gcs.bucketName
+        show_if: "monitoring.cortex.storage.backend=gcs"
+        type: string
+        default: ""
+        required: true
+        label: "GCS Bucket Name"
+      - variable: monitoring.cortex.storage.gcs.serviceAccount
+        show_if: "monitoring.cortex.storage.backend=gcs"
+        type: multiline
+        default: ""
+        required: true
+        label: "GCS Service Account"
+        description: >-
+          JSON representing either a Google Developers Console client_credentials.json file
+          or a Google Developers service account key file. If empty, fallback to Google default logic.
+
+      - variable: monitoring.cortex.storage.azure.accountName
+        show_if: "monitoring.cortex.storage.backend=azure"
+        type: string
+        default: ""
+        required: true
+        label: "Azure storage account name"
+      - variable: monitoring.cortex.storage.azure.accountKey
+        show_if: "monitoring.cortex.storage.backend=azure"
+        type: string
+        default: ""
+        required: true
+        label: "Azure storage account key"
+      - variable: monitoring.cortex.storage.azure.containerName
+        show_if: "monitoring.cortex.storage.backend=azure"
+        type: string
+        default: ""
+        required: true
+        label: "Azure storage container name"
+      - variable: monitoring.cortex.storage.azure.endpointSuffix
+        show_if: "monitoring.cortex.storage.backend=azure"
+        type: string
+        default: ""
+        required: true
+        label: "Azure storage endpoint suffix"
+        description: >-
+          Azure storage endpoint suffix without schema. The account name will be
+          prefixed to this value to create the FQDN
+
+      - variable: monitoring.cortex.storage.swift.authVersion
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: int
+        default: "0"
+        label: "OpenStack Swift authentication API version. 0 to autodetect."
+      - variable: monitoring.cortex.storage.swift.authUrl
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        required: true
+        label: "OpenStack Swift authentication URL"
+      - variable: monitoring.cortex.storage.swift.username
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: "OpenStack Swift username"
+      - variable: monitoring.cortex.storage.swift.userDomainName
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: "OpenStack Swift user's domain name."
+      - variable: monitoring.cortex.storage.swift.userDomainID
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: "OpenStack Swift user's domain ID."
+      - variable: monitoring.cortex.storage.swift.userID
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: "OpenStack Swift user ID."
+      - variable: monitoring.cortex.storage.swift.password
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: "OpenStack Swift API key."
+      - variable: monitoring.cortex.storage.swift.domainID
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: "OpenStack Swift user's domain ID."
+      - variable: monitoring.cortex.storage.swift.domainName
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: "OpenStack Swift user's domain name."
+      - variable: monitoring.cortex.storage.swift.projectID
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: "OpenStack Swift project ID (v2,v3 auth only)."
+      - variable: monitoring.cortex.storage.swift.projectName
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: "OpenStack Swift project name (v2,v3 auth only)."
+      - variable: monitoring.cortex.storage.swift.projectDomainID
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: >-
+          ID of the OpenStack Swift project's domain (v3 auth only), only needed 
+          if it differs the from user domain.
+      - variable: monitoring.cortex.storage.swift.projectDomainName
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: >-
+          Name of the OpenStack Swift project's domain (v3 auth only), only needed 
+          if it differs from the user domain.
+      - variable: monitoring.cortex.storage.swift.regionName
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        label: "OpenStack Swift Region to use (v2,v3 auth only)."
+      - variable: monitoring.cortex.storage.swift.containerName
+        show_if: "monitoring.cortex.storage.backend=swift"
+        type: string
+        default: ""
+        required: true
+        label: "Name of the OpenStack Swift container to use. The container must already exist."
+
+      - variable: monitoring.cortex.storage.filesystem.directory
+        show_if: "monitoring.cortex.storage.backend=filesystem"
+        type: string
+        default: "/data/store"
+        required: true
+        label: "Directory"

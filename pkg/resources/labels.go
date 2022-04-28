@@ -34,6 +34,12 @@ func NewOpensearchLabels() OpensearchLabels {
 	}
 }
 
+func NewGatewayLabels() map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/name": "opni-gateway",
+	}
+}
+
 func (l OpensearchLabels) WithRole(role v1beta2.OpensearchRole) OpensearchLabels {
 	copied := map[string]string{}
 	for k, v := range l {

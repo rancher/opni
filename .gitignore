@@ -1,5 +1,6 @@
-bin
-testbin/*
+bin/
+dev/
+testbin/
 *.test
 **/__debug_bin
 *.out
@@ -15,8 +16,23 @@ Dockerfile.dapper*
 # Distribution/packaging
 dist/
 build/
-package/*
-!package/assets/
 /.dapper
 config/samples/_v1beta1_gpupolicyadapter-vgpu.yaml
 deploy/examples/gpu/vgpu.yaml
+deploy/manifests
+deploy/custom/cortex.yaml
+deploy/custom/grafana.yaml
+deploy/custom/opni-monitoring.yaml
+
+/report.json
+/cover.out
+/cover.profile
+**/*.tgz
+
+docs/public/
+docs/resources/
+docs/node_modules/
+docs/tech-doc-hugo
+docs/*.sw?
+docs/.hugo_build.lock
+web/dist/

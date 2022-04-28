@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
+	"github.com/rancher/opni/apis"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,10 +76,14 @@ var _ = BeforeSuite(func() {
 	port, err := freeport.GetFreePort()
 	Expect(err).NotTo(HaveOccurred())
 	By("bootstrapping test environment")
+	scheme := apis.NewScheme()
 	testEnv = &envtest.Environment{
+		Scheme: scheme,
+		CRDs:   test.DownloadCertManagerCRDs(scheme),
 		CRDDirectoryPaths: []string{
 			"../config/crd/bases",
 			"../config/crd/logging",
+			"../config/crd/grafana",
 			"../config/crd/nvidia",
 			"../config/crd/nfd",
 			"../test/resources",
@@ -101,6 +106,8 @@ var _ = BeforeSuite(func() {
 		&LogAdapterReconciler{},
 		&PretrainedModelReconciler{},
 		&LoggingReconciler{},
+		&GatewayReconciler{},
+		&MonitoringReconciler{},
 	)
 	kmatch.SetDefaultObjectClient(k8sClient)
 })

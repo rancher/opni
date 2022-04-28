@@ -15,12 +15,24 @@ func (src *OpniCluster) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.DefaultRepo = src.Spec.DefaultRepo
 
 	services := v1beta2.ServicesSpec{}
-	services.Drain = v1beta2.DrainServiceSpec(src.Spec.Services.Drain)
 	services.Inference = v1beta2.InferenceServiceSpec(src.Spec.Services.Inference)
-	services.Preprocessing = v1beta2.PreprocessingServiceSpec(src.Spec.Services.Preprocessing)
 	services.PayloadReceiver = v1beta2.PayloadReceiverServiceSpec(src.Spec.Services.PayloadReceiver)
 	services.GPUController = v1beta2.GPUControllerServiceSpec(src.Spec.Services.GPUController)
 	services.Metrics = v1beta2.MetricsServiceSpec(src.Spec.Services.Metrics)
+
+	services.Preprocessing = v1beta2.PreprocessingServiceSpec{
+		ImageSpec:    src.Spec.Services.Preprocessing.ImageSpec,
+		Enabled:      src.Spec.Services.Preprocessing.Enabled,
+		NodeSelector: src.Spec.Services.Preprocessing.NodeSelector,
+		Tolerations:  src.Spec.Services.Preprocessing.Tolerations,
+	}
+	services.Drain = v1beta2.DrainServiceSpec{
+		ImageSpec:    src.Spec.Services.Drain.ImageSpec,
+		Enabled:      src.Spec.Services.Drain.Enabled,
+		NodeSelector: src.Spec.Services.Drain.NodeSelector,
+		Tolerations:  src.Spec.Services.Drain.Tolerations,
+	}
+
 	dst.Spec.Services = services
 
 	nats := v1beta2.NatsSpec{}
@@ -87,9 +99,7 @@ func (dst *OpniCluster) ConvertFrom(srcRaw conversion.Hub) error {
 	dst.Spec.DefaultRepo = src.Spec.DefaultRepo
 
 	services := ServicesSpec{}
-	services.Drain = DrainServiceSpec(src.Spec.Services.Drain)
 	services.Inference = InferenceServiceSpec(src.Spec.Services.Inference)
-	services.Preprocessing = PreprocessingServiceSpec(src.Spec.Services.Preprocessing)
 	services.PayloadReceiver = PayloadReceiverServiceSpec(src.Spec.Services.PayloadReceiver)
 	services.GPUController = GPUControllerServiceSpec(src.Spec.Services.GPUController)
 	services.Metrics = MetricsServiceSpec(src.Spec.Services.Metrics)
@@ -99,6 +109,19 @@ func (dst *OpniCluster) ConvertFrom(srcRaw conversion.Hub) error {
 	services.UI = UIServiceSpec{
 		Enabled: pointer.BoolPtr(false),
 	}
+	services.Preprocessing = PreprocessingServiceSpec{
+		ImageSpec:    src.Spec.Services.Preprocessing.ImageSpec,
+		Enabled:      src.Spec.Services.Preprocessing.Enabled,
+		NodeSelector: src.Spec.Services.Preprocessing.NodeSelector,
+		Tolerations:  src.Spec.Services.Preprocessing.Tolerations,
+	}
+	services.Drain = DrainServiceSpec{
+		ImageSpec:    src.Spec.Services.Drain.ImageSpec,
+		Enabled:      src.Spec.Services.Drain.Enabled,
+		NodeSelector: src.Spec.Services.Drain.NodeSelector,
+		Tolerations:  src.Spec.Services.Drain.Tolerations,
+	}
+
 	dst.Spec.Services = services
 
 	nats := NatsSpec{}

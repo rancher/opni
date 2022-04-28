@@ -1,0 +1,228 @@
+<!doctype html><html lang=en class=no-js>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no">
+<meta name=generator content="Hugo 0.91.2">
+<meta name=robots content="index, follow">
+<link rel="shortcut icon" href=/opni-monitoring/favicons/favicon.ico>
+<link rel=apple-touch-icon href=/opni-monitoring/favicons/apple-touch-icon-180x180.png sizes=180x180>
+<link rel=icon type=image/png href=/opni-monitoring/favicons/favicon-16x16.png sizes=16x16>
+<link rel=icon type=image/png href=/opni-monitoring/favicons/favicon-32x32.png sizes=32x32>
+<link rel=icon type=image/png href=/opni-monitoring/favicons/android-36x36.png sizes=36x36>
+<link rel=icon type=image/png href=/opni-monitoring/favicons/android-48x48.png sizes=48x48>
+<link rel=icon type=image/png href=/opni-monitoring/favicons/android-72x72.png sizes=72x72>
+<link rel=icon type=image/png href=/opni-monitoring/favicons/android-96x96.png sizes=96x96>
+<link rel=icon type=image/png href=/opni-monitoring/favicons/android-144x144.png sizes=144x144>
+<link rel=icon type=image/png href=/opni-monitoring/favicons/android-192x192.png sizes=192x192>
+<title>Opni Monitoring</title>
+<meta name=description content="
+
+
+">
+<meta property="og:title" content>
+<meta property="og:description" content="Opni Monitoring Documentation">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://rancher.github.io/opni-monitoring/architecture/"><meta property="og:site_name" content="Opni Monitoring">
+<meta itemprop=name content>
+<meta itemprop=description content="Opni Monitoring Documentation"><meta name=twitter:card content="summary">
+<meta name=twitter:title content>
+<meta name=twitter:description content="Opni Monitoring Documentation">
+<link rel=preload href=/opni-monitoring/scss/main.min.01e4803b6505aa3ad0dd8dadb1a77805e73e21acd9732936c2baec87e1d88bc9.css as=style>
+<link href=/opni-monitoring/scss/main.min.01e4803b6505aa3ad0dd8dadb1a77805e73e21acd9732936c2baec87e1d88bc9.css rel=stylesheet integrity>
+<script src=https://code.jquery.com/jquery-3.6.0.min.js integrity=sha384-vtXRMe3mGCbOeY7l30aIg8H9p3GdeSe4IFlP6G8JMa7o7lXvnz3GFKzPxzJdPfGK crossorigin=anonymous></script>
+<script src=https://unpkg.com/lunr@2.3.9/lunr.min.js integrity=sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli crossorigin=anonymous></script>
+</head>
+<body class=td-section>
+<header>
+<nav class="js-navbar-scroll navbar navbar-expand navbar-dark flex-column flex-md-row td-navbar">
+<a class=navbar-brand href=/opni-monitoring/>
+<span class=navbar-logo><svg width="235.98935mm" height="43.65625mm" viewBox="0 0 235.98935 43.65625" id="svg5" inkscape:version="1.1.2 (0a00cf5339, 2022-02-04, custom)" sodipodi:docname="opni-monitoring-logo.svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><sodipodi:namedview id="namedview7" pagecolor="#ffffff" bordercolor="#666666" borderopacity="1" inkscape:pageshadow="2" inkscape:pageopacity="0" inkscape:pagecheckerboard="0" inkscape:document-units="mm" showgrid="false" showguides="false" gridtolerance="1e4" objecttolerance="1e4" inkscape:snap-path-clip="false" inkscape:snap-path-mask="false" guidetolerance="20" inkscape:guide-bbox="true" inkscape:zoom="1.4142136" inkscape:cx="475.88286" inkscape:cy="103.9447" inkscape:window-width="2507" inkscape:window-height="1411" inkscape:window-x="1973" inkscape:window-y="29" inkscape:window-maximized="1" inkscape:current-layer="g6210"><inkscape:grid type="xygrid" id="grid444" units="mm" spacingx="1.83" spacingy="1.83" originx="-30.427084" originy="-56.885416"/><sodipodi:guide position="47.625017,43.651662" inkscape:color="rgb(167,0,255)" orientation="-0,1" id="guide4680"/><sodipodi:guide position="47.625017,0.0016614999" inkscape:color="rgb(167,0,255)" inkscape:label="End" orientation="-0,1" id="guide4684"/><sodipodi:guide position="47.625017,0.0016614999" inkscape:color="rgb(167,0,255)" inkscape:label="Crossing 1" orientation="-0,-1" id="guide4688"/><sodipodi:guide position="60.85417,50.270762" orientation="1,0" id="guide5731"/><sodipodi:guide position="74.975608,65.402062" orientation="0,-1" id="guide5733"/><sodipodi:guide position="74.275348,28.160262" orientation="0,-1" id="guide5735"/><sodipodi:guide position="74.275348,14.766262" orientation="0,-1" id="guide5737"/><sodipodi:guide position="52.91667,55.562462" orientation="1,0" id="guide5741"/><sodipodi:guide position="106.10988,76.454562" orientation="1,0" id="guide5743"/></sodipodi:namedview><defs id="defs2"><style id="style1092">.st0{fill:#a453b9}.st1{fill:#fff}.st2{fill:#344845}.st3{fill:#d13306}.st4{fill:#004d93}.st5{fill:#0081be}.st6{fill:#1167f1}.st7{fill:#ffc400}.st8{fill:#ff7a3d}.st9{fill:#00a580}.st10{fill:#53c3d0}.st11{fill:#671c4c}.st12{fill:#00e3c2}.st13{fill:#bc2a46}.st14{fill:#ff192e}.st15{fill:#00b056}</style></defs><g inkscape:label="Layer 1" inkscape:groupmode="layer" id="layer1" transform="translate(-30.427083,-56.885416)"><style id="style9">.st0{fill:#a453b9}.st1{fill:#fff}.st2{fill:#344845}.st3{fill:#d13306}.st4{fill:#004d93}.st5{fill:#0081be}.st6{fill:#1167f1}.st7{fill:#ffc400}.st8{fill:#ff7a3d}.st9{fill:#00a580}.st10{fill:#53c3d0}.st11{fill:#671c4c}.st12{fill:#00e3c2}.st13{fill:#bc2a46}.st14{fill:#ff192e}.st15{fill:#00b056}</style><g id="g838" transform="translate(21.738209,1.3576042)"><g id="g35" transform="matrix(0.26458333,0,0,0.26458333,7.9723685,56.611375)"/><g id="g694" transform="translate(0.24780241,-0.57965157)"/><g id="g6210"><g id="g23" transform="matrix(0.26458333,0,0,0.26458333,8.6888743,55.527812)"><path class="st0" d="M180 165H20c-11 0-20-9-20-20V20C0 9 9 0 20 0h160c11 0 20 9 20 20v125c0 11-9 20-20 20z" id="path11"/><g id="g21"><path class="st1" d="m171.77148 50.336914c0-4.142578-3.35742-7.5-7.5-7.5-4.14257.0-7.5 3.357422-7.5 7.5v2.758545C144.69751 43.200195 125.02417 31.361328 1e2 31.361328c-42.074219.0-69.027344 33.46875-70.154297 34.893555-2.56543 3.24414-2.015625 7.945312 1.222656 10.518554 3.239258 2.57129 7.955078 2.03125 10.532227-1.201171C41.833984 75.280273 65.314453 46.361328 1e2 46.361328c19.37988.0 35.25806 9.027344 45.5415 17.045898h-1.84033c-4.14258.0-7.5 3.357422-7.5 7.500001.0 4.142578 3.35742 7.5 7.5 7.5h20.57031c98e-5.0.002.0.002.0 97e-5.0.002.0.002.0.003.0.005-733e-6.008-733e-6.36963-488e-6.72998-.03638 1.0852-.08862.073-.01074.14527-.02026.21827-.0332.35693-.06323.70483-.149658 1.04248-.261475.0562-.01855.11059-.04102.1665-.06104.74561-.266846 1.43579-.646728 2.05103-1.121826.0244-.0188.0517-.03101.0762-.05029.0181-.0144.0337-.03076.0518-.04541.11425-.09204.22216-.191162.33081-.289795.0781-.0708.15918-.138916.23364-.212402.0855-.08423.16406-.175049.24536-.263428.0872-.09424.17725-.186523.25855-.284424.0569-.06836.10693-.141846.16137-.212158.095-.123047.1919-.244629.27832-.372315.0435-.06396.0801-.132568.12158-.197753.0872-.13794.17603-.274903.25342-.417237.0581-.106445.10669-.21875.15967-.328125.051-.105957.10718-.209961.15308-.317871.0647-.151611.11816-.308838.17285-.465332.0247-.07056.0547-.139404.0771-.210693.0471-.14917.0832-.303223.12109-.456543.021-.08374.0466-.166016.0644-.250244.0269-.126465.0435-.256348.0637-.385254.0186-.116699.0405-.23291.0535-.350342.0115-.104492.0146-.211426.022-.317383.01-.145752.0205-.291015.022-.437256.0-.02319.003-.04565.003-.06885V50.336914z" id="path13"/><path class="st1" d="m168.93164 88.226562c-3.23926-2.570312-7.9541-2.03125-10.53223 1.201172-.23339.291993-23.71386 29.210936-58.39941 29.210936-19.379883.0-35.258057-9.02734-45.541504-17.0459h1.840332c4.142578.0 7.5-3.357418 7.5-7.499996.0-4.142579-3.357422-7.5-7.5-7.5H35.728516c-.08936.0-.176026.01025-.264649.01343-.134765.0046-.269043.0085-.403808.02026-.119873.01074-.237549.02808-.355713.04419-.124268.01709-.248291.03345-.371826.05688-.12378.02319-.245118.05274-.3667.08203-.115478.02783-.230713.05542-.345214.08887-.124756.03662-.246582.07886-.368653.121582-.107666.0376-.215332.07495-.321777.117675-.125244.05029-.246826.10669-.368408.163575-.09936.04639-.198975.0918-.296631.142822-.125977.06567-.247803.137695-.369629.210449-.08887.05298-.178223.104248-.265625.161377-.126709.08301-.248047.172608-.369385.26294-.06079.04517-.124512.08374-.184326.131103-.01807.0144-.03369.03076-.05176.04541-.114258.09204-.222168.191162-.33081.289795-.07813.0708-.15918.138916-.233643.212403-.08545.08423-.164062.175048-.245361.263427-.08716.09424-.177246.186524-.258545.284424-.05688.06836-.106934.141846-.161377.212158-.09497.123047-.191895.244629-.27832.372315-.04297.06323-.07935.131103-.120362.195801-.08765.138671-.177002.276367-.254883.419433-.05811.10669-.106689.218994-.159668.328613-.05102.105713-.106933.209229-.152832.316895-.0647.151855-.118164.309326-.173095.466309-.02466.07031-.05444.138916-.07691.20996-.04712.149415-.08325.303223-.121093.456543-.021.08374-.04663.166016-.06445.250245-.02686.126464-.04346.256347-.06372.385253-.01856.1167-.04053.232911-.05347.350342-.01148.104492-.01465.211426-.02197.317383-.0098.145752-.02051.291016-.02197.437256.0.02319-.0034.04565-.0034.06885v20.570318c0 4.14257 3.357422 7.5 7.5 7.5s7.5-3.35743 7.5-7.5v-2.75855C55.30249 121.7998 74.97583 133.63867 1e2 133.63867c42.07422.0 69.02734-33.46875 70.1543-34.893553 2.56543-3.24414 2.01562-7.945312-1.22266-10.518555z" id="path15"/><path class="st1" d="m74.6521 82.503418c0 12.045898 8.520263 22.099852 19.862548 24.469242L97.989502 87.474609H86.643799L104.67261 58.008301c-1.62183-.330567-3.30078-.504883-5.02051-.504883-13.807129.0-25 11.192871-25 25z" id="path17"/><path class="st1" d="m99.6521 107.50342c13.80713.0 25-11.192873 25-25.000002.0-12.047852-8.52319-22.103027-19.86816-24.470459l-3.469 19.465332H112.6604L94.612793 106.99536c1.627685.33325 3.312988.50806 5.039307.50806z" id="path19"/></g></g><path class="st2" d="m69.013877 76.929088c0-4.82167 2.559791-6.746359 6.151304-6.746359 3.532089.0 6.09188 1.924689 6.09188 6.746359.0 5.357812-2.639116 7.123855-6.09188 7.123855-3.591513.0-6.151304-1.924947-6.151304-7.123855zm8.849853.0c0-3.333389-1.309482-4.404899-2.73834-4.404899-1.428594.0-2.718438 1.07151-2.718438 4.404899.0 3.710626 1.289844 4.782395 2.718438 4.782395 1.428858.0 2.73834-1.07177 2.73834-4.782395z" id="path25" style="stroke-width:.264583"/><path class="st2" d="m138.40823 76.929086c0-4.821669 2.55979-6.746358 6.1513-6.746358 3.53209.0 6.09188 1.924689 6.09188 6.746358.0 5.357813-2.63911 7.123857-6.09188 7.123857-3.59151.0-6.1513-1.924947-6.1513-7.123857zm8.84985.0c0-3.333388-1.30948-4.404899-2.73834-4.404899-1.42859.0-2.71844 1.071511-2.71844 4.404899.0 3.710627 1.28985 4.782396 2.71844 4.782396 1.42886.0 2.73834-1.071769 2.73834-4.782396z" id="path25-6" style="fill:#344845;stroke-width:.264583"/><path class="st2" d="m83.036791 70.420828h5.615421c2.639116.0 4.544166 1.329634 4.544166 4.008283.0 2.916876-1.845622 4.603595-4.544166 4.603595h-2.301668v4.782138h-3.313753zm3.313753 2.401145v3.809845h1.547709c1.031719.0 1.964478-.55578 1.964478-2.004271.0-1.369167-.932759-1.805574-1.964478-1.805574z" id="path27" style="stroke-width:.264583"/><path class="st2" d="m94.791369 70.420828h3.551722l3.512199 6.647397c.29765.575417.69454 1.587501 1.01209 2.38125h.0793c-.0395-.754217-.13875-1.825728-.13875-2.599583v-6.429064h2.71844V83.814844H102.0537L98.402778 77.18734c-.337446-.595313-.694531-1.468386-.972293-2.182812h-.07958c.05969.753959.158906 1.646928.158906 2.38125v6.429066H94.79137z" id="path29" style="stroke-width:.264583"/><path class="st2" d="m107.88153 70.420828h6.90526v2.34146h-1.80557v8.711096h1.80557v2.34146h-6.90526v-2.34146h1.78568v-8.711096h-1.78568z" id="path31" style="stroke-width:.264583"/><path class="st2" d="m152.4247 70.420828h3.55172l3.51219 6.647397c.29765.575416.69453 1.587501 1.01208 2.38125h.0793c-.0395-.754218-.13875-1.825729-.13875-2.599584v-6.429064h2.71844v13.394015h-3.47265l-3.65094-6.627501c-.33745-.595314-.69454-1.468386-.9723-2.182813h-.0796c.0597.753959.15891 1.646928.15891 2.38125v6.429066h-2.71844z" id="path29-7" style="fill:#344845;stroke-width:.264583"/><path class="st2" d="m220.52884 70.420828h3.55172l3.51219 6.647397c.29766.575418.69454 1.587499 1.01209 2.381249h.0793c-.0395-.754215-.13875-1.825728-.13875-2.599582v-6.429064h2.71844v13.394015h-3.47266l-3.65094-6.627504c-.33745-.595312-.69453-1.468386-.97229-2.182812h-.0796c.0597.753959.1589 1.646927.1589 2.38125v6.429066h-2.71844z" id="path29-7-9" style="fill:#344845;stroke-width:.264583"/><path class="st2" d="m165.26187 70.420828h6.90526v2.341459h-1.80557v8.711095h1.80557v2.341461h-6.90526v-2.341462h1.78568v-8.711094h-1.78568z" id="path31-5" style="fill:#344845;stroke-width:.264583"/><path class="st2" d="m184.88921 76.929086c0-4.82167 2.55979-6.746359 6.1513-6.746359 3.53209.0 6.09188 1.924689 6.09188 6.746359.0 5.357814-2.63912 7.123858-6.09188 7.123858-3.59151.0-6.1513-1.924947-6.1513-7.123858zm8.84985.0c0-3.333389-1.30948-4.404899-2.73834-4.404899-1.4286.0-2.71844 1.07151-2.71844 4.404899.0 3.710626 1.28984 4.782396 2.71844 4.782396 1.42886.0 2.73834-1.07177 2.73834-4.782396z" id="path25-6-5" style="fill:#344845;stroke-width:.264583"/><path class="st2" d="m211.718 70.420828h6.90526v2.341459h-1.80557v8.711095h1.80557v2.341461H211.718v-2.341462h1.78568V72.762286H211.718z" id="path31-5-2" style="fill:#344845;stroke-width:.264583"/><path class="st2" d="m199.03793 70.391116h5.5162c2.61922.0 4.38526 1.269947 4.38526 3.730521.0 2.004013-1.36917 3.214532-2.69854 3.631303.39687.337188.69453.79375.9325 1.269947.55578 1.130941.93276 2.380993 2.10349 2.380993.29765.0.53562-.09922.53562-.09922l-.25786 2.361355s-.71443.17854-1.32938.17854c-1.5875.0-2.50036-.614947-3.43286-2.738332-.39688-.952396-.95266-2.619221-1.68672-2.619221h-.75396v5.298128h-3.31375zm3.31375 2.401144v3.293856h1.19036c.95266.0 2.0637-.297657 2.0637-1.72651.0-1.170728-.75396-1.567346-1.66682-1.567346z" id="path80-6" style="fill:#344845;stroke-width:.264583"/><path class="st2" d="m123.08231 70.65893h4.1075l2.18255 5.972763c.33745.952399.57542 1.92469.57542 1.92469h.0796s.23797-1.011826.57542-1.92469l2.12313-5.972763h3.90906v13.394014h-3.09542v-6.766509c0-.793751.21807-2.659014.21807-2.659014h-.0793s-.39687 1.88516-.65474 2.559793l-2.57969 6.86573h-1.48828l-2.59932-6.86573c-.27776-.714169-.61521-2.440679-.61521-2.440679h-.0793s.13901 1.746147.13901 2.539897v6.76651h-2.71844z" id="path68-3" style="fill:#344845;stroke-width:.264583"/><path class="st2" d="m239.16177 77.048201h5.51646v6.766513h-2.24224v-2.262137c-.4762 1.488281-1.54771 2.500365-3.84964 2.500365-3.09542.0-5.41698-2.143022-5.41698-7.00474.0-4.861462 2.34146-6.865473 5.9924-6.865473 4.1075.0 5.71489 2.321564 5.25859 4.682919l-3.11557.337188c.23823-1.845365-.67464-2.678647-1.98412-2.678647-1.44849.0-2.71843 1.051615-2.71843 4.583699.0 3.531825 1.09114 4.524012 2.69854 4.524012 1.48828.0 2.32156-.912605 2.36135-1.825469v-.37698h-2.50036z" id="path1106-2" style="fill:#344845;stroke-width:.264583"/><path class="st2" d="m173.61143 70.420828h10.69521V72.8814h-3.73026v10.933443h-3.31375V72.8814h-3.6512z" id="path126-3" style="fill:#344845;stroke-width:.264583"/></g><style id="style4850">.st0{fill:#a453b9}.st1{fill:#fff}.st2{fill:#344845}.st3{fill:#d13306}.st4{fill:#004d93}.st5{fill:#0081be}.st6{fill:#1167f1}.st7{fill:#ffc400}.st8{fill:#ff7a3d}.st9{fill:#00a580}.st10{fill:#53c3d0}.st11{fill:#671c4c}.st12{fill:#00e3c2}.st13{fill:#bc2a46}.st14{fill:#ff192e}.st15{fill:#00b056}</style><style id="style4999">.st0{fill:#a453b9}.st1{fill:#fff}.st2{fill:#344845}.st3{fill:#d13306}.st4{fill:#004d93}.st5{fill:#0081be}.st6{fill:#1167f1}.st7{fill:#ffc400}.st8{fill:#ff7a3d}.st9{fill:#00a580}.st10{fill:#53c3d0}.st11{fill:#671c4c}.st12{fill:#00e3c2}.st13{fill:#bc2a46}.st14{fill:#ff192e}.st15{fill:#00b056}</style></g><style id="style56">.st0{fill:#a453b9}.st1{fill:#fff}.st2{fill:#344845}.st3{fill:#d13306}.st4{fill:#004d93}.st5{fill:#0081be}.st6{fill:#1167f1}.st7{fill:#ffc400}.st8{fill:#ff7a3d}.st9{fill:#00a580}.st10{fill:#53c3d0}.st11{fill:#671c4c}.st12{fill:#00e3c2}.st13{fill:#bc2a46}.st14{fill:#ff192e}.st15{fill:#00b056}</style><style id="style106">.st0{fill:#a453b9}.st1{fill:#fff}.st2{fill:#344845}.st3{fill:#d13306}.st4{fill:#004d93}.st5{fill:#0081be}.st6{fill:#1167f1}.st7{fill:#ffc400}.st8{fill:#ff7a3d}.st9{fill:#00a580}.st10{fill:#53c3d0}.st11{fill:#671c4c}.st12{fill:#00e3c2}.st13{fill:#bc2a46}.st14{fill:#ff192e}.st15{fill:#00b056}</style></g></svg></span><span class=font-weight-bold>Opni Monitoring</span>
+</a>
+<div class="td-navbar-nav-scroll ml-md-auto" id=main_navbar>
+<ul class="navbar-nav mt-2 mt-lg-0">
+<li class="nav-item mr-4 mb-2 mb-lg-0">
+<a class=nav-link href=https://github.com/rancher/opni target=_blank><i class="fab fa-github"></i><span>GitHub</span></a>
+</li>
+</ul>
+</div>
+<div class="navbar-nav d-none d-lg-block"><input type=search class="form-control td-search-input" placeholder="&#xf002; Search this site…" aria-label="Search this site…" autocomplete=off data-offline-search-index-json-src=/opni-monitoring/offline-search-index.52f45c85f50b4617933c42d9c8961a07.json data-offline-search-base-href=/ data-offline-search-max-results=10>
+</div>
+</nav>
+</header>
+<div class="container-fluid td-outer">
+<div class=td-main>
+<div class="row flex-xl-nowrap">
+<aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+<div id=td-sidebar-menu class=td-sidebar__inner>
+<form class="td-sidebar__search d-flex align-items-center">
+<input type=search class="form-control td-search-input" placeholder="&#xf002; Search this site…" aria-label="Search this site…" autocomplete=off data-offline-search-index-json-src=/opni-monitoring/offline-search-index.52f45c85f50b4617933c42d9c8961a07.json data-offline-search-base-href=/ data-offline-search-max-results=10>
+<button class="btn btn-link td-sidebar__toggle d-md-none p-0 ml-3 fas fa-bars" type=button data-toggle=collapse data-target=#td-section-nav aria-controls=td-docs-nav aria-expanded=false aria-label="Toggle section navigation">
+</button>
+</form>
+<nav class="collapse td-sidebar-nav" id=td-section-nav>
+<ul class="td-sidebar-nav__section pr-md-3 ul-0">
+<li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id=m-opni-monitoring-li>
+<a href=/opni-monitoring/ title class="align-left pl-0 td-sidebar-link td-sidebar-link__section tree-root" id=m-opni-monitoring><span>Overview</span></a>
+<ul class=ul-1>
+<li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id=m-opni-monitoringarchitecture-li>
+<a href=/opni-monitoring/architecture/ title class="align-left pl-0 active td-sidebar-link td-sidebar-link__section" id=m-opni-monitoringarchitecture><span class=td-sidebar-nav-active-item>Architecture</span></a>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id=m-opni-monitoringinstallation-li>
+<a href=/opni-monitoring/installation/ class="align-left pl-0 td-sidebar-link td-sidebar-link__section" id=m-opni-monitoringinstallation><span>Installation</span></a>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id=m-opni-monitoringguides-li>
+<a href=/opni-monitoring/guides/ class="align-left pl-0 td-sidebar-link td-sidebar-link__section" id=m-opni-monitoringguides><span>Guides</span></a>
+<ul class="ul-2 foldable">
+<li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id=m-opni-monitoringguidesaccess_control-li>
+<a href=/opni-monitoring/guides/access_control/ class="align-left pl-0 td-sidebar-link td-sidebar-link__page" id=m-opni-monitoringguidesaccess_control><span>Access Control</span></a>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id=m-opni-monitoringguidesclusters-li>
+<a href=/opni-monitoring/guides/clusters/ class="align-left pl-0 td-sidebar-link td-sidebar-link__page" id=m-opni-monitoringguidesclusters><span>Managing Clusters</span></a>
+</li>
+</ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id=m-opni-monitoringauthentication-li>
+<a href=/opni-monitoring/authentication/ class="align-left pl-0 td-sidebar-link td-sidebar-link__section" id=m-opni-monitoringauthentication><span>Authentication</span></a>
+<ul class="ul-2 foldable">
+<li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id=m-opni-monitoringauthenticationoidc-li>
+<a href=/opni-monitoring/authentication/oidc/ class="align-left pl-0 td-sidebar-link td-sidebar-link__page" id=m-opni-monitoringauthenticationoidc><span>OpenID Connect</span></a>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id=m-opni-monitoringauthenticationnoauth-li>
+<a href=/opni-monitoring/authentication/noauth/ class="align-left pl-0 td-sidebar-link td-sidebar-link__page" id=m-opni-monitoringauthenticationnoauth><span>Demo Auth</span></a>
+</li>
+</ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id=m-opni-monitoringreference-li>
+<a href=/opni-monitoring/reference/ class="align-left pl-0 td-sidebar-link td-sidebar-link__section" id=m-opni-monitoringreference><span>Reference</span></a>
+<ul class="ul-2 foldable">
+<li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id=m-opni-monitoringreferenceterminology-li>
+<a href=/opni-monitoring/reference/terminology/ class="align-left pl-0 td-sidebar-link td-sidebar-link__page" id=m-opni-monitoringreferenceterminology><span>Terminology</span></a>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</aside>
+<aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+<div class="td-page-meta ml-2 pb-1 pt-2 mb-0">
+<a href=https://github.com/rancher/opni/tree/main/content/en/architecture/_index.html class=td-page-meta--view target=_blank rel=noopener><i class="fa fa-file-alt fa-fw"></i> View page source</a>
+<a href=https://github.com/rancher/opni/edit/main/content/en/architecture/_index.html class=td-page-meta--edit target=_blank rel=noopener><i class="fa fa-edit fa-fw"></i> Edit this page</a>
+<a href="https://github.com/rancher/opni/new/main/content/en/architecture/_index.html?filename=change-me.md&value=---%0Atitle%3A+%22Long+Page+Title%22%0AlinkTitle%3A+%22Short+Nav+Title%22%0Aweight%3A+100%0Adescription%3A+%3E-%0A+++++Page+description+for+heading+and+indexes.%0A---%0A%0A%23%23+Heading%0A%0AEdit+this+template+to+create+your+new+page.%0A%0A%2A+Give+it+a+good+name%2C+ending+in+%60.md%60+-+e.g.+%60getting-started.md%60%0A%2A+Edit+the+%22front+matter%22+section+at+the+top+of+the+page+%28weight+controls+how+its+ordered+amongst+other+pages+in+the+same+directory%3B+lowest+number+first%29.%0A%2A+Add+a+good+commit+message+at+the+bottom+of+the+page+%28%3C80+characters%3B+use+the+extended+description+field+for+more+detail%29.%0A%2A+Create+a+new+branch+so+you+can+preview+your+new+file+and+request+a+review+via+Pull+Request.%0A" class=td-page-meta--child target=_blank rel=noopener><i class="fa fa-edit fa-fw"></i> Create child page</a>
+<a href="https://github.com/rancher/opni/issues/new?title=" class=td-page-meta--issue target=_blank rel=noopener><i class="fab fa-github fa-fw"></i> Create documentation issue</a>
+<a href=https://github.com/rancher/opni/issues/new class=td-page-meta--project-issue target=_blank rel=noopener><i class="fas fa-tasks fa-fw"></i> Create project issue</a>
+</div>
+</aside>
+<main class="col-12 col-md-9 col-xl-8 pl-md-5" role=main>
+<nav aria-label=breadcrumb class="td-breadcrumbs td-breadcrumbs__single">
+<ol class=breadcrumb>
+<li class="breadcrumb-item active" aria-current=page>
+<a href=https://rancher.github.io/opni-monitoring/architecture/>Architecture</a>
+</li>
+</ol>
+</nav>
+<div class=td-content>
+<h1></h1>
+<header class=article-meta>
+</header>
+<style>.td-sidebar-toc{display:none!important}.diagram{padding-right:20px}</style>
+<script>var main=document.querySelector('main');console.log(main),main.classList.remove('col-xl-8'),main.classList.add('col-xl-10')</script>
+<body>
+<img class=diagram src=../static/opni-monitoring-architecture.svg>
+<hr>
+<h2>Components</h2>
+<br>
+<h3>Opni Monitoring Cluster</h3>
+<p>
+The Opni Monitoring cluster is the cluster in which the Opni Monitoring control-plane components are installed. This
+is the central cluster where all downstream clusters send their metrics to. Deployed in this cluster are the
+following components:
+<ul>
+<li> Opni Gateway </li>
+<li> Cortex </li>
+<li> Grafana </li>
+<li> Etcd </li>
+<li> (optional) Opni Agent </li>
+</ul>
+</p>
+<h3>Downstream Clusters</h3>
+<p>
+Downstream clusters are the clusters that send their metrics to the Opni Monitoring cluster. Deployed in these
+clusters are the following components:
+<ul>
+<li> Opni Agent </li>
+<li> Prometheus Agent </li>
+</ul>
+</p>
+<h3>OpenID Provider</h3>
+<p>
+A production deployment of Opni Monitoring must use an OpenID Provider to authenticate users. The Grafana
+dashboard deployed in the Opni Monitoring cluster will be configured to use the OpenID Provider for user login.
+<br>
+<br>
+Support for other authentication mechanisms (LDAP, SAML, etc.) may be added in the future.
+</p>
+<h3>Long-Term Storage</h3>
+<p>
+A production deployment of Opni Monitoring should be configured to use long-term metric storage. For example, this
+could be an S3-compatible object storage service.
+</p>
+</body>
+<div class="text-muted mt-5 pt-3 border-top">
+Last modified March 30, 2022: <a href=https://github.com/rancher/opni/commit/94b8d2353b2b34f90a0a1b9674c712f72f507985>add oauth docs; update architecture diagram (94b8d23)</a>
+</div>
+</div>
+</main>
+</div>
+</div>
+<footer class="bg-dark py-5 row d-print-none">
+<div class="container-fluid mx-sm-5">
+<div class=row>
+<div class="col-6 col-sm-4 text-xs-center order-sm-2">
+<ul class="list-inline mb-0">
+<li class="list-inline-item mx-2 h3" data-toggle=tooltip data-placement=top title=Twitter aria-label=Twitter>
+<a class=text-white target=_blank rel=noopener href=https://twitter.com/Rancher_Labs aria-label=Twitter>
+<i class="fab fa-twitter"></i>
+</a>
+</li>
+<li class="list-inline-item mx-2 h3" data-toggle=tooltip data-placement=top title=LinkedIn aria-label=LinkedIn>
+<a class=text-white target=_blank rel=noopener href=https://www.linkedin.com/company/rancher aria-label=LinkedIn>
+<i class="fab fa-linkedin"></i>
+</a>
+</li>
+<li class="list-inline-item mx-2 h3" data-toggle=tooltip data-placement=top title=Facebook aria-label=Facebook>
+<a class=text-white target=_blank rel=noopener href=https://www.facebook.com/rancherlabs/ aria-label=Facebook>
+<i class="fab fa-facebook"></i>
+</a>
+</li>
+<li class="list-inline-item mx-2 h3" data-toggle=tooltip data-placement=top title=Facebook aria-label=Facebook>
+<a class=text-white target=_blank rel=noopener href=https://www.youtube.com/channel/UCh5Xtp82q8wjijP8npkVTBA aria-label=Facebook>
+<i class="fab fa-youtube"></i>
+</a>
+</li>
+</ul>
+</div>
+<div class="col-6 col-sm-4 text-right text-xs-center order-sm-3">
+<ul class="list-inline mb-0">
+<li class="list-inline-item mx-2 h3" data-toggle=tooltip data-placement=top title=GitHub aria-label=GitHub>
+<a class=text-white target=_blank rel=noopener href=https://github.com/rancher/opni aria-label=GitHub>
+<i class="fab fa-github"></i>
+</a>
+</li>
+<li class="list-inline-item mx-2 h3" data-toggle=tooltip data-placement=top title=Slack aria-label=Slack>
+<a class=text-white target=_blank rel=noopener href=https://slack.rancher.io/ aria-label=Slack>
+<i class="fab fa-slack"></i>
+</a>
+</li>
+</ul>
+</div>
+<div class="col-12 col-sm-4 text-center py-2 order-sm-2">
+<small class=text-white>&copy; 2022 Rancher. All Rights Reserved</small>
+<small class=ml-1><a href=https://www.suse.com/company/legal/ target=_blank rel=noopener>Privacy Policy</a></small>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<script src=https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js integrity=sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN crossorigin=anonymous></script>
+<script src=https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/js/bootstrap.min.js integrity="sha512-UR25UO94eTnCVwjbXozyeVd6ZqpaAE9naiEUBK/A+QDbfSTQFhPGj5lOR6d8tsgbBk84Ggb5A3EkjsOgPRPcKA==" crossorigin=anonymous></script>
+<script src=/opni-monitoring/js/tabpane-persist.js></script>
+<script src=/opni-monitoring/js/main.min.8ab8f81ff7e1454d30024cd6f956d4d341c3a97e2a673f988065f2ee4e147922.js integrity="sha256-irj4H/fhRU0wAkzW+VbU00HDqX4qZz+YgGXy7k4UeSI=" crossorigin=anonymous></script>
+</body>
+</html>

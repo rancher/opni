@@ -271,22 +271,25 @@ dagger.#Plan & {
 
 		// Push docker images
 		push: {
-			auth?: _
-			if client.env.DOCKER_USERNAME != "" && client.env.DOCKER_PASSWORD != "" {
-				auth: {
-					username: client.env.DOCKER_USERNAME
-					secret:   client.env.DOCKER_PASSWORD
-				}
-			}
 			opni: docker.#Push & {
 				dest:  _opniImage.tag
 				image: _opniImage.image
-				auth?: auth
+				if client.env.DOCKER_USERNAME != "" && client.env.DOCKER_PASSWORD != "" {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
 			}
 			webcache: docker.#Push & {
 				dest:  web.buildImage
 				image: web.output
-				auth?: auth
+				if client.env.DOCKER_USERNAME != "" && client.env.DOCKER_PASSWORD != "" {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
 			}
 		}
 	}

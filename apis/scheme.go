@@ -2,7 +2,6 @@ package apis
 
 import (
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	helmv1 "github.com/k3s-io/helm-controller/pkg/apis/helm.cattle.io/v1"
 	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	opnigrafanav1alpha1 "github.com/rancher/opni/apis/grafana/v1alpha1"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
@@ -23,7 +22,6 @@ func InitScheme(scheme *runtime.Scheme) {
 	utilruntime.Must(apiextv1.AddToScheme(scheme))
 	utilruntime.Must(v1beta1.AddToScheme(scheme))
 	utilruntime.Must(v1beta2.AddToScheme(scheme))
-	utilruntime.Must(helmv1.AddToScheme(scheme))
 	utilruntime.Must(opniloggingv1beta1.AddToScheme(scheme))
 	utilruntime.Must(monitoringcoreosv1.AddToScheme(scheme))
 	utilruntime.Must(opninvidiav1.AddToScheme(scheme))

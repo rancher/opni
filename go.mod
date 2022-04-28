@@ -49,6 +49,7 @@ require (
 	github.com/olebedev/when v0.0.0-20211212231525-59bd4edcf9d6
 	github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega v1.18.1
+	github.com/opencontainers/runc v1.1.0
 	github.com/opensearch-project/opensearch-go v1.1.0
 	github.com/ory/fosite v0.42.1
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -141,6 +142,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/cppforlife/go-patch v0.2.0 // indirect
+	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d // indirect
 	github.com/dennwc/varint v1.0.0 // indirect
@@ -181,6 +183,7 @@ require (
 	github.com/gobuffalo/flect v0.2.3 // indirect
 	github.com/goccy/go-json v0.9.4 // indirect
 	github.com/gocql/gocql v0.0.0-20200526081602-cd04bd7f22a7 // indirect
+	github.com/godbus/dbus/v5 v5.0.6 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/gogo/googleapis v1.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -257,6 +260,7 @@ require (
 	github.com/mitchellh/hashstructure v1.1.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
+	github.com/moby/sys/mountinfo v0.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
@@ -267,6 +271,7 @@ require (
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/onsi/ginkgo v1.16.6-0.20211118180735-4e1925ba4c95 // indirect
+	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417 // indirect
 	github.com/openshift/api v3.9.0+incompatible // indirect
 	github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47 // indirect
 	github.com/openshift/custom-resource-status v0.0.0-20210221154447-420d9ecf2a00 // indirect
@@ -371,6 +376,7 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.23.5
 	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220427221203-1428ac8c22eb
 )
+
 // Cortex replacements
 replace (
 	git.apache.org/thrift.git => github.com/apache/thrift v0.0.0-20180902110319-2566ecd5d999

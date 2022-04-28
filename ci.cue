@@ -15,15 +15,16 @@ import (
 dagger.#Plan & {
 	client: {
 		env: {
-			GINKGO_LABEL_FILTER?: string
-			KUBECONFIG?:          string
-			TAG:                  string | *"latest"
-			REPO:                 string | *"rancher"
-			OPNI_UI_REPO:         string | *"rancher/opni-ui"
-			OPNI_UI_BRANCH:       string | *"main"
-			OPNI_UI_BUILD_IMAGE:  string | *"rancher/opni-monitoring-ui-build"
-			DOCKER_USERNAME?:     string
-			DOCKER_PASSWORD?:     string
+			GINKGO_LABEL_FILTER: string | *""
+			DRONE:               string | *""
+			KUBECONFIG:          string | *""
+			TAG:                 string | *"latest"
+			REPO:                string | *"rancher"
+			OPNI_UI_REPO:        string | *"rancher/opni-ui"
+			OPNI_UI_BRANCH:      string | *"main"
+			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
+			DOCKER_USERNAME:     string | *""
+			DOCKER_PASSWORD:     string | *""
 		}
 		filesystem: {
 			".": read: {
@@ -169,7 +170,12 @@ dagger.#Plan & {
 			mageArgs: ["-v", "test"]
 			always: true
 			env: {
-				"GINKGO_LABEL_FILTER"?: client.env.GINKGO_LABEL_FILTER
+				if client.env.DRONE != "" {
+					"DRONE": client.env.DRONE
+				}
+				if client.env.GINKGO_LABEL_FILTER != "" {
+					"GINKGO_LABEL_FILTER": client.env.GINKGO_LABEL_FILTER
+				}
 			}
 			export: files: "/src/cover.out": string
 		}
@@ -180,8 +186,12 @@ dagger.#Plan & {
 			mageArgs: ["-v", "e2e"]
 			always: true
 			env: {
-				"KUBECONFIG"?:          client.env.KUBECONFIG
-				"GINKGO_LABEL_FILTER"?: client.env.GINKGO_LABEL_FILTER
+				if client.env.KUBECONFIG != "" {
+					"KUBECONFIG": client.env.KUBECONFIG
+				}
+				if client.env.GINKGO_LABEL_FILTER != "" {
+					"GINKGO_LABEL_FILTER": client.env.GINKGO_LABEL_FILTER
+				}
 			}
 		}
 
@@ -261,8 +271,8 @@ dagger.#Plan & {
 
 		// Push docker images
 		push: {
-			auth?: _|_
-			if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+			auth?: _
+			if client.env.DOCKER_USERNAME != "" && client.env.DOCKER_PASSWORD != "" {
 				auth: {
 					username: client.env.DOCKER_USERNAME
 					secret:   client.env.DOCKER_PASSWORD

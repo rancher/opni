@@ -104,12 +104,14 @@ var _ = Describe("Remote Collector", func() {
 		`
 
 		// Collect metrics from the remote collector
-		Expect(promtestutil.GatherAndCompare(reg,
-			strings.NewReader(expectedExpfmt),
-			"local_test",
-			"remote_test1",
-			"remote_test2",
-		)).To(Succeed())
+		Eventually(func() error {
+			return promtestutil.GatherAndCompare(reg,
+				strings.NewReader(expectedExpfmt),
+				"local_test",
+				"remote_test1",
+				"remote_test2",
+			)
+		}).Should(Succeed())
 
 		localCollector.WithLabelValues("test1").Set(5)
 		gauge1.WithLabelValues("a", "b").Set(10)
@@ -129,20 +131,24 @@ var _ = Describe("Remote Collector", func() {
 		remote_test2{label1="c",label2="d"} 20
 		`
 
-		Expect(promtestutil.GatherAndCompare(reg,
-			strings.NewReader(expectedExpfmt),
-			"local_test",
-			"remote_test1",
-			"remote_test2",
-		)).To(Succeed())
+		Eventually(func() error {
+			return promtestutil.GatherAndCompare(reg,
+				strings.NewReader(expectedExpfmt),
+				"local_test",
+				"remote_test1",
+				"remote_test2",
+			)
+		}).Should(Succeed())
 
 		cc1.Close()
 
-		Expect(promtestutil.GatherAndCompare(reg,
-			strings.NewReader(expectedExpfmt),
-			"local_test",
-			"remote_test1",
-			"remote_test2",
-		)).To(MatchError("gathering metrics failed: rpc error: code = Canceled desc = grpc: the client connection is closing"))
+		Eventually(func() error {
+			return promtestutil.GatherAndCompare(reg,
+				strings.NewReader(expectedExpfmt),
+				"local_test",
+				"remote_test1",
+				"remote_test2",
+			)
+		}).Should(MatchError("gathering metrics failed: rpc error: code = Canceled desc = grpc: the client connection is closing"))
 	})
 })

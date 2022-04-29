@@ -24,7 +24,6 @@ import (
 	"github.com/cortexproject/cortex/pkg/querier/worker"
 	"github.com/cortexproject/cortex/pkg/ring"
 	"github.com/cortexproject/cortex/pkg/ring/kv"
-	"github.com/cortexproject/cortex/pkg/ring/kv/etcd"
 	"github.com/cortexproject/cortex/pkg/ring/kv/memberlist"
 	"github.com/cortexproject/cortex/pkg/ruler"
 	"github.com/cortexproject/cortex/pkg/ruler/rulestore"
@@ -85,21 +84,24 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		ClientCAs:   "/run/cortex/certs/client/ca.crt",
 	}
 
+	// etcdKVConfig := kv.Config{
+	// 	Store: "etcd",
+	// 	StoreConfig: kv.StoreConfig{
+	// 		Etcd: etcd.Config{
+	// 			Endpoints:   []string{"etcd:2379"},
+	// 			DialTimeout: time.Minute,
+	// 			MaxRetries:  100,
+	// 			EnableTLS:   true,
+	// 			TLS: tls.ClientConfig{
+	// 				CAPath:   "/run/etcd/certs/server/ca.crt",
+	// 				CertPath: "/run/etcd/certs/client/tls.crt",
+	// 				KeyPath:  "/run/etcd/certs/client/tls.key",
+	// 			},
+	// 		},
+	// 	},
+	// }
 	etcdKVConfig := kv.Config{
-		Store: "etcd",
-		StoreConfig: kv.StoreConfig{
-			Etcd: etcd.Config{
-				Endpoints:   []string{"etcd:2379"},
-				DialTimeout: time.Minute,
-				MaxRetries:  100,
-				EnableTLS:   true,
-				TLS: tls.ClientConfig{
-					CAPath:   "/run/etcd/certs/server/ca.crt",
-					CertPath: "/run/etcd/certs/client/tls.crt",
-					KeyPath:  "/run/etcd/certs/client/tls.key",
-				},
-			},
-		},
+		Store: "memberlist",
 	}
 	config := cortex.Config{
 		AuthEnabled: true,

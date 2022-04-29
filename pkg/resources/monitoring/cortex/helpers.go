@@ -513,7 +513,36 @@ func (r *Reconciler) buildCortexWorkloadServices(
 				},
 				Endpoints: []monitoringv1.Endpoint{
 					{
-						Port: "http-metrics",
+						Port:   "http-metrics",
+						Path:   "/metrics",
+						Scheme: "https",
+						TLSConfig: &monitoringv1.TLSConfig{
+							SafeTLSConfig: monitoringv1.SafeTLSConfig{
+								CA: monitoringv1.SecretOrConfigMap{
+									Secret: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "cortex-client-cert-keys",
+										},
+										Key: "ca.crt",
+									},
+								},
+								Cert: monitoringv1.SecretOrConfigMap{
+									Secret: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "cortex-client-cert-keys",
+										},
+										Key: "tls.crt",
+									},
+								},
+								KeySecret: &corev1.SecretKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cortex-client-cert-keys",
+									},
+									Key: "tls.key",
+								},
+								ServerName: "cortex-server",
+							},
+						},
 					},
 				},
 			},

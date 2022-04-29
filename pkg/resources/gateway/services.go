@@ -16,6 +16,7 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
 			Namespace: r.gw.Namespace,
+			Labels:    resources.NewGatewayLabels(),
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     r.gw.Spec.ServiceType,
@@ -32,6 +33,7 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring-internal",
 			Namespace: r.gw.Namespace,
+			Labels:    resources.NewGatewayLabels(),
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     corev1.ServiceTypeClusterIP,

@@ -309,7 +309,7 @@ dagger.#Plan & {
 				]
 			}
 			push: docker.#Push & {
-				dest: "\(client.env.REPO)/opensearch-dashboards:\(client.env.TAG)"
+				dest: "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)"
 				image: dashboards.build.output
 				auth: {
 					username: client.env.DOCKER_USERNAME

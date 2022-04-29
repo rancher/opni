@@ -19,7 +19,7 @@ build/
 /.dapper
 config/samples/_v1beta1_gpupolicyadapter-vgpu.yaml
 deploy/examples/gpu/vgpu.yaml
-deploy/manifests
+# deploy/manifests
 deploy/custom/cortex.yaml
 deploy/custom/grafana.yaml
 deploy/custom/opni-monitoring.yaml

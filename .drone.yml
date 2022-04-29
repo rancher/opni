@@ -64,6 +64,26 @@ steps:
       refs:
         - refs/heads/main
         - refs/tags/*
+  - name: publish-dockerhub-latest
+    image: docker
+    environment:
+      <<: *env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
+      TAG: latest
+    commands:
+      - bin/dagger do push
+    volumes: *volumes
+    when:
+      event:
+        - tag
+      instance:
+        - drone-publish.rancher.io
+      refs:
+        - refs/heads/main
+        - refs/tags/*
   - name: publish-dockerhub-main
     image: docker
     environment:
@@ -109,7 +129,6 @@ steps:
         from_secret: docker_username
       DOCKER_PASSWORD:
         from_secret: docker_password
-      TAG: ${DRONE_TAG}
     commands:
       - bin/dagger do dashboards
     volumes: *volumes

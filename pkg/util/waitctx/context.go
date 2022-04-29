@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ttacon/chalk"
+	"go.uber.org/atomic"
 )
 
 type waitCtxDataKeyType struct{}
@@ -15,12 +16,15 @@ type waitCtxDataKeyType struct{}
 var waitCtxDataKey waitCtxDataKeyType
 
 type waitCtxData struct {
-	wg sync.WaitGroup
+	wg      sync.WaitGroup
+	waiting *atomic.Bool
+	cond    *sync.Cond
 }
 
 func FromContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, waitCtxDataKey, &waitCtxData{
-		wg: sync.WaitGroup{},
+		waiting: atomic.NewBool(false),
+		cond:    sync.NewCond(&sync.Mutex{}),
 	})
 }
 
@@ -59,7 +63,13 @@ func (restrictive) AddOne(ctx RestrictiveContext) {
 	if data == nil {
 		panic("context is not a WaitContext")
 	}
-	data.(*waitCtxData).wg.Add(1)
+	d := data.(*waitCtxData)
+	d.cond.L.Lock()
+	for d.waiting.Load() {
+		d.cond.Wait()
+	}
+	d.wg.Add(1)
+	d.cond.L.Unlock()
 }
 
 func (restrictive) Done(ctx RestrictiveContext) {
@@ -78,7 +88,13 @@ func (restrictive) Wait(ctx RestrictiveContext, notifyAfter ...time.Duration) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		data.(*waitCtxData).wg.Wait()
+		d := data.(*waitCtxData)
+		d.cond.L.Lock()
+		d.waiting.Store(true)
+		d.wg.Wait()
+		d.waiting.Store(false)
+		d.cond.Broadcast()
+		d.cond.L.Unlock()
 	}()
 	if len(notifyAfter) > 0 {
 		go func(d time.Duration) {
@@ -106,7 +122,13 @@ type permissive struct{}
 
 func (permissive) AddOne(ctx PermissiveContext) {
 	if data := ctx.Value(waitCtxDataKey); data != nil {
-		data.(*waitCtxData).wg.Add(1)
+		d := data.(*waitCtxData)
+		d.cond.L.Lock()
+		for d.waiting.Load() {
+			d.cond.Wait()
+		}
+		d.wg.Add(1)
+		d.cond.L.Unlock()
 	}
 }
 
@@ -124,7 +146,13 @@ func (permissive) Wait(ctx PermissiveContext, notifyAfter ...time.Duration) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		data.(*waitCtxData).wg.Wait()
+		d := data.(*waitCtxData)
+		d.cond.L.Lock()
+		d.waiting.Store(true)
+		d.wg.Wait()
+		d.waiting.Store(false)
+		d.cond.Broadcast()
+		d.cond.L.Unlock()
 	}()
 	if len(notifyAfter) > 0 {
 		go func(d time.Duration) {

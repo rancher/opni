@@ -23,8 +23,10 @@ dagger.#Plan & {
 			OPNI_UI_REPO:        string | *"rancher/opni-ui"
 			OPNI_UI_BRANCH:      string | *"main"
 			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
+			DASHBOARDS_VERSION:  string | *"1.3.1"
+			PLUGIN_VERSION:      string | *"0.4.1"
 			DOCKER_USERNAME:     string | *""
-			DOCKER_PASSWORD:     dagger.#Secret
+			DOCKER_PASSWORD:    dagger.#Secret
 		}
 		filesystem: {
 			".": read: {
@@ -282,6 +284,33 @@ dagger.#Plan & {
 			webcache: docker.#Push & {
 				dest:  web.buildImage
 				image: web.output
+				auth: {
+					username: client.env.DOCKER_USERNAME
+					secret:   client.env.DOCKER_PASSWORD
+				}
+			}
+		}
+
+		dashboards: {
+			build: docker.#Build & {
+				steps: [
+					docker.#Pull & {
+						source: "opensearchproject/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)"
+					},
+					docker.#Run & {
+						command: {
+							name: "opensearch-dashboards-plugin"
+							args: [
+								"install",
+								"https://github.com/rancher/opni-ui/releases/download/plugin-\(client.env.PLUGIN_VERSION)/opni-dashboards-plugin-\(client.env.PLUGIN_VERSION)-os-\(client.env.DASHBOARDS_VERSION).zip",
+							]
+						}
+					},
+				]
+			}
+			push: docker.#Push & {
+				dest: "\(client.env.REPO)/opensearch-dashboards:\(client.env.TAG)"
+				image: dashboards.build.output
 				auth: {
 					username: client.env.DOCKER_USERNAME
 					secret:   client.env.DOCKER_PASSWORD

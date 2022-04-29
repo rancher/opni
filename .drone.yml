@@ -83,6 +83,44 @@ steps:
         - drone-publish.rancher.io
       branch:
         - main
+  - name: publish-opensearch-dashboards-latest
+    image: docker
+    environment:
+      <<: *env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
+    commands:
+      - bin/dagger do dashboards
+    volumes: *volumes
+    when:
+      event:
+        - push
+      instance:
+        - drone-publish.rancher.io
+      branch:
+        - main
+  - name: publish-opensearch-dashboards-tag
+    image: docker
+    environment:
+      <<: *env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
+      TAG: ${DRONE_TAG}
+    commands:
+      - bin/dagger do dashboards
+    volumes: *volumes
+    when:
+      event:
+        - tag
+      instance:
+        - drone-publish.rancher.io
+      refs:
+        - refs/heads/main
+        - refs/tags/*
 volumes:
   - name: docker
     host:

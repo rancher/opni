@@ -23,8 +23,8 @@ dagger.#Plan & {
 			OPNI_UI_REPO:        string | *"rancher/opni-ui"
 			OPNI_UI_BRANCH:      string | *"main"
 			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
-			DOCKER_USERNAME?:     string
-			DOCKER_PASSWORD?:     dagger.#Secret
+			DOCKER_USERNAME:     string | *""
+			DOCKER_PASSWORD:     dagger.#Secret
 		}
 		filesystem: {
 			".": read: {
@@ -274,21 +274,17 @@ dagger.#Plan & {
 			opni: docker.#Push & {
 				dest:  _opniImage.tag
 				image: _opniImage.image
-				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
-					auth: {
-						username: client.env.DOCKER_USERNAME
-						secret:   client.env.DOCKER_PASSWORD
-					}
+				auth: {
+					username: client.env.DOCKER_USERNAME
+					secret:   client.env.DOCKER_PASSWORD
 				}
 			}
 			webcache: docker.#Push & {
 				dest:  web.buildImage
 				image: web.output
-				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
-					auth: {
-						username: client.env.DOCKER_USERNAME
-						secret:   client.env.DOCKER_PASSWORD
-					}
+				auth: {
+					username: client.env.DOCKER_USERNAME
+					secret:   client.env.DOCKER_PASSWORD
 				}
 			}
 		}

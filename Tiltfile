@@ -10,6 +10,11 @@ if "allowedContexts" in settings:
 
 min_k8s_version('1.22')
 deploy_cert_manager(version="v1.8.0")
+
+bundle = local("curl -fsSL https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.56.0/bundle.yaml", quiet=True)
+k8s_yaml(bundle)
+
+
 k8s_yaml(kustomize('config/default'))
 
 deps = ['controllers', 'apis', 'pkg']

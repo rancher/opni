@@ -10,6 +10,7 @@ const (
 	OpniClusterName      = "opni.io/cluster-name"
 	AppNameLabel         = "app.kubernetes.io/name"
 	PartOfLabel          = "app.kubernetes.io/part-of"
+	InstanceLabel        = "app.kubernetes.io/instance"
 	HostTopologyKey      = "kubernetes.io/hostname"
 	OpniClusterID        = "opni.io/cluster-id"
 	OpniBootstrapToken   = "opni.io/bootstrap-token"

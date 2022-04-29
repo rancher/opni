@@ -1,7 +1,7 @@
 package cortex
 
 import (
-	"flag"
+	"bytes"
 	"fmt"
 	"net/url"
 	"time"
@@ -33,18 +33,14 @@ import (
 	"github.com/cortexproject/cortex/pkg/storegateway"
 	"github.com/cortexproject/cortex/pkg/util/flagext"
 	"github.com/cortexproject/cortex/pkg/util/grpcclient"
-	"github.com/cortexproject/cortex/pkg/util/log"
 	"github.com/cortexproject/cortex/pkg/util/runtimeconfig"
 	"github.com/cortexproject/cortex/pkg/util/tls"
-	"github.com/cortexproject/cortex/pkg/util/validation"
-	"github.com/imdario/mergo"
-	"github.com/prometheus/common/model"
+	kyamlv3 "github.com/kralicky/yaml/v3"
 	"github.com/prometheus/node_exporter/https"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
-	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -88,6 +84,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		ClientAuth:  "RequireAndVerifyClientCert",
 		ClientCAs:   "/run/cortex/certs/client/ca.crt",
 	}
+
 	etcdKVConfig := kv.Config{
 		Store: "etcd",
 		StoreConfig: kv.StoreConfig{
@@ -117,8 +114,8 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			HTTPListenPort:                 8080,
 			GRPCListenPort:                 9095,
 			GPRCServerMaxConcurrentStreams: 10000,
-			GRPCServerMaxSendMsgSize:       10485760,
-			GPRCServerMaxRecvMsgSize:       10485760, // typo in upstream
+			GRPCServerMaxSendMsgSize:       100 << 20,
+			GPRCServerMaxRecvMsgSize:       100 << 20, // typo in upstream
 			GRPCTLSConfig:                  tlsServerConfig,
 			HTTPTLSConfig:                  tlsServerConfig,
 			LogLevel:                       logLevel,
@@ -147,9 +144,6 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			LoadPath: "/etc/cortex-runtime-config/runtime_config.yaml",
 		},
 		MemberlistKV: memberlist.KVConfig{
-			TCPTransport: memberlist.TCPTransportConfig{
-				BindPort: 7946,
-			},
 			JoinMembers: flagext.StringSlice{"cortex-memberlist"},
 		},
 
@@ -179,9 +173,6 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		Distributor: distributor.Config{
-			HATrackerConfig: distributor.HATrackerConfig{
-				EnableHATracker: false,
-			},
 			PoolConfig: distributor.PoolConfig{
 				HealthCheckIngesters: true,
 			},
@@ -199,7 +190,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		Worker: worker.Config{
-			FrontendAddress: fmt.Sprintf("-querier.frontend-address=cortex-query-frontend-headless.%s.svc.cluster.local:9095", r.mc.Namespace),
+			FrontendAddress: fmt.Sprintf("cortex-query-frontend-headless.%s.svc.cluster.local:9095", r.mc.Namespace),
 			GRPCClientConfig: grpcclient.Config{
 				TLSEnabled: true,
 				TLS:        tlsClientConfig,
@@ -208,28 +199,19 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		Ingester: ingester.Config{
 			LifecyclerConfig: ring.LifecyclerConfig{
 				JoinAfter:     10 * time.Second,
-				FinalSleep:    30 * time.Second,
 				NumTokens:     512,
 				ObservePeriod: 10 * time.Second,
 				RingConfig: ring.Config{
-					KVStore:           etcdKVConfig,
-					ReplicationFactor: 1,
+					KVStore: etcdKVConfig,
 				},
 			},
 		},
 		IngesterClient: client.Config{
 			GRPCClientConfig: grpcclient.Config{
-				MaxRecvMsgSize: 10485760,
-				MaxSendMsgSize: 10485760,
+				MaxSendMsgSize: 100 << 20,
 				TLSEnabled:     true,
 				TLS:            tlsClientConfig,
 			},
-		},
-		LimitsConfig: validation.Limits{
-			EnforceMetricName:      true,
-			MaxQueryLookback:       0,
-			RejectOldSamples:       true,
-			RejectOldSamplesMaxAge: model.Duration(168 * time.Hour),
 		},
 		Querier: querier.Config{
 			ActiveQueryTrackerDir: "/data/active-query-tracker",
@@ -244,7 +226,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			SplitQueriesByInterval: 24 * time.Hour,
 		},
 		Ruler: ruler.Config{
-			AlertmanagerURL:          fmt.Sprintf("http://cortex-alertmanager.%s.svc.cluster.local:8080/api/prom/alertmanager/", r.mc.Namespace),
+			AlertmanagerURL:          fmt.Sprintf("https://cortex-alertmanager.%s.svc.cluster.local:8080/api/prom/alertmanager/", r.mc.Namespace),
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
 			Ring: ruler.RingConfig{
@@ -267,20 +249,14 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 	}
 
-	defaultConfig := cortex.Config{}
-	defaultFS := flag.NewFlagSet("", flag.PanicOnError)
-	defaultConfig.RegisterFlags(defaultFS)
-	flagext.DefaultValues(&defaultConfig)
-	util.Must(mergo.Merge(&config, defaultConfig))
-
-	if err := config.Validate(log.Logger); err != nil {
-		return nil, err
-	}
-
-	configData, err := yaml.Marshal(config)
+	buf := new(bytes.Buffer)
+	encoder := kyamlv3.NewEncoder(buf)
+	encoder.SetAlwaysOmitEmpty(true)
+	err = encoder.Encode(config)
 	if err != nil {
 		return nil, err
 	}
+
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex",
@@ -288,7 +264,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			Labels:    cortexAppLabel,
 		},
 		Data: map[string][]byte{
-			"cortex.yaml": configData,
+			"cortex.yaml": buf.Bytes(),
 		},
 	}
 

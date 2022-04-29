@@ -37,6 +37,7 @@ require (
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
 	github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6
 	github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f
+	github.com/kralicky/yaml/v3 v3.0.0-20220429180258-2353b970eeac
 	github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208
 	github.com/lestrrat-go/backoff/v2 v2.0.8
 	github.com/lestrrat-go/jwx v1.2.23
@@ -368,7 +369,7 @@ require (
 replace (
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
 	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.0.0-20220225205714-b06e7ad17676
-	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220425180438-8a4153b52190
+	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220429185852-781cc9b71c68
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
 	go.uber.org/zap => github.com/kralicky/zap v1.19.2-0.20220311060549-c0d473b28cca
 	k8s.io/api => k8s.io/api v0.23.6

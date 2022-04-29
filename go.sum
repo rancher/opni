@@ -1723,8 +1723,8 @@ github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555 h1:w/v9aYd9gdL0pEofC
 github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555/go.mod h1:EJrGSfmocDg2CBjHDm3zy9oxNKCSGhf+MNTiN1DRbKA=
 github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be h1:j8X7zwJNBX6qcG0P8FZ90mhWpL7MIO7J51XOEglxx7Q=
 github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be/go.mod h1:EPT66jj/bM0PXxncqIeD6QEXKM+ddXtQ2tPh7KZsLX8=
-github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220425180438-8a4153b52190 h1:8LgMZYbG91Nm0fHORLzvQN1rExXmtsVU0tsxZ6GB4XU=
-github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220425180438-8a4153b52190/go.mod h1:JysYjgUxb35b4qVwDbf43cTsasWRXgp7vbqiirWa1S0=
+github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220429185852-781cc9b71c68 h1:xACTujxiyDuAE5mOq37F56Z6NUKxdifi1VPklq6IMGs=
+github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220429185852-781cc9b71c68/go.mod h1:DRjHse4H3M56/obSTJi4vlFprS4efDubcf5dsoAAvc8=
 github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc h1:wWH+vMHS2OTdn0V252Q2VDpZV6rmPpCVrGWddmAh6g8=
 github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc/go.mod h1:3s9VeWyad2dZ+vJ5PVgIHCl9s3Db7mJjePhmzspPGLo=
 github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a h1:I5tncrQ/dxOPY7jNN5hhubtkpvoIhz4qckT62C0kdTQ=
@@ -1735,6 +1735,8 @@ github.com/kralicky/ragu v0.2.7-0.20220323195938-430b56cdb12d h1:j8i5dPhmzyvekFN
 github.com/kralicky/ragu v0.2.7-0.20220323195938-430b56cdb12d/go.mod h1:33HZuFG7OFfbpTANJUizr620IyAtBL5a//xy5fps66E=
 github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f h1:4RbsbrpC4vlwanS7WNoFpA+ujI4k6GlE/A5VYOVN2TY=
 github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f/go.mod h1:zirR1JOaqwbLM3JDo+GkLb/e/OLifMsapYRXgt/iI9U=
+github.com/kralicky/yaml/v3 v3.0.0-20220429180258-2353b970eeac h1:PmDTERblQARd8PwqRZYqSzf4i03L67hKVikT9HWyihk=
+github.com/kralicky/yaml/v3 v3.0.0-20220429180258-2353b970eeac/go.mod h1:z4cKsjE0B5RlhFSbWcZNh70UEjtwrj8fpG1QXyU2KuI=
 github.com/kralicky/zap v1.19.2-0.20220311060549-c0d473b28cca h1:E1d+dyF5WstBNQgYPiB7yrLppu57jaLgqkqptosVync=
 github.com/kralicky/zap v1.19.2-0.20220311060549-c0d473b28cca/go.mod h1:wjWOCqI0f2ZZrJF/UufIOkiC8ii6tm1iqIsLo76RfJw=
 github.com/kshvakov/clickhouse v1.3.5/go.mod h1:DMzX7FxRymoNkVgizH0DWAL8Cur7wHLgx3MUnGwJqpE=

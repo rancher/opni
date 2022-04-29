@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -20,7 +21,18 @@ import (
 //go:embed dashboards/dashboards.json
 var dashboardsJson []byte
 
+//go:embed dashboards/opni-gateway.json
+var opniGatewayJson []byte
+
 func (r *Reconciler) grafana() ([]resources.Resource, error) {
+	dashboardSelector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			resources.AppNameLabel:  "grafana",
+			resources.PartOfLabel:   "opni",
+			resources.InstanceLabel: r.mc.Name,
+		},
+	}
+
 	grafana := &grafanav1alpha1.Grafana{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
@@ -33,19 +45,45 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			Namespace: r.mc.Namespace,
 		},
 	}
-	dashboards := &grafanav1alpha1.GrafanaDashboard{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring",
-			Namespace: r.mc.Namespace,
+	grafanaDashboards := []*grafanav1alpha1.GrafanaDashboard{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-gateway",
+				Namespace: r.mc.Namespace,
+				Labels:    dashboardSelector.MatchLabels,
+			},
+			Spec: grafanav1alpha1.GrafanaDashboardSpec{
+				Json: string(opniGatewayJson),
+			},
 		},
 	}
 
+	dashboards := map[string]json.RawMessage{}
+	if err := json.Unmarshal(dashboardsJson, &dashboards); err != nil {
+		return nil, err
+	}
+	for name, jsonData := range dashboards {
+		grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: r.mc.Namespace,
+				Labels:    dashboardSelector.MatchLabels,
+			},
+			Spec: grafanav1alpha1.GrafanaDashboardSpec{
+				Json: string(jsonData),
+			},
+		})
+	}
+
 	if !r.mc.Spec.Grafana.Enabled {
-		return []resources.Resource{
+		absentResources := []resources.Resource{
 			resources.Absent(grafana),
 			resources.Absent(datasource),
-			resources.Absent(dashboards),
-		}, nil
+		}
+		for _, dashboard := range grafanaDashboards {
+			absentResources = append(absentResources, resources.Absent(dashboard))
+		}
+		return absentResources, nil
 	}
 
 	grafanaHostname := fmt.Sprintf("grafana.%s", r.gw.Spec.Hostname)
@@ -58,7 +96,11 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		baseImage = "grafana/grafana:latest"
 	}
 	grafana.Spec = grafanav1alpha1.GrafanaSpec{
-		BaseImage: baseImage,
+		DashboardLabelSelector: []*metav1.LabelSelector{dashboardSelector},
+		BaseImage:              baseImage,
+		Client: &grafanav1alpha1.GrafanaClient{
+			PreferService: util.Pointer(true),
+		},
 		Config: grafanav1alpha1.GrafanaConfig{
 			Log: &grafanav1alpha1.GrafanaConfigLog{
 				Level: r.mc.Spec.Grafana.LogLevel,
@@ -73,12 +115,6 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			AuthGenericOauth: &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
 				Enabled: util.Pointer(true),
 				Scopes:  "openid profile email",
-			},
-			AuthProxy: &grafanav1alpha1.GrafanaConfigAuthProxy{
-				Enabled: util.Pointer(true),
-			},
-			AuthBasic: &grafanav1alpha1.GrafanaConfigAuthBasic{
-				Enabled: util.Pointer(false),
 			},
 			UnifiedAlerting: &grafanav1alpha1.GrafanaConfigUnifiedAlerting{
 				Enabled: util.Pointer(true),
@@ -144,10 +180,6 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		},
 	}
 
-	dashboards.Spec = grafanav1alpha1.GrafanaDashboardSpec{
-		Json: string(dashboardsJson),
-	}
-
 	switch r.gw.Spec.Auth.Provider {
 	case v1beta1.AuthProviderNoAuth:
 		grafana.Spec.Config.AuthGenericOauth.ClientId = "grafana"
@@ -182,11 +214,15 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 
 	controllerutil.SetOwnerReference(r.mc, grafana, r.client.Scheme())
 	controllerutil.SetOwnerReference(r.mc, datasource, r.client.Scheme())
-	controllerutil.SetOwnerReference(r.mc, dashboards, r.client.Scheme())
 
-	return []resources.Resource{
+	presentResources := []resources.Resource{
 		resources.Present(grafana),
 		resources.Present(datasource),
-		resources.Present(dashboards),
-	}, nil
+	}
+	for _, dashboard := range grafanaDashboards {
+		controllerutil.SetOwnerReference(r.mc, dashboard, r.client.Scheme())
+		presentResources = append(presentResources, resources.Present(dashboard))
+	}
+
+	return presentResources, nil
 }

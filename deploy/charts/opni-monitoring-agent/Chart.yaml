@@ -2,8 +2,8 @@ apiVersion: v2
 name: opni-monitoring-agent
 description: Opni Monitoring Agent
 type: application
-version: 0.4.0
-appVersion: "0.4.0"
+version: 0.4.1
+appVersion: "0.4.1"
 dependencies:
   - name: kube-prometheus-stack
     version: "34.1.1"

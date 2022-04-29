@@ -47,7 +47,7 @@ subjects:
     name: {{ include "opni-monitoring-agent.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 ---
-apiVersion: v1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: opni-monitoring-agent

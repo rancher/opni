@@ -26,29 +26,28 @@ local_resource('Watch & Compile',
   ])
 
 local_resource('Sample YAML', 'kubectl apply -k ./config/samples', 
-  deps=["./config/samples"], resource_deps=["opni-controller-manager"], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+  deps=["./config/samples"], resource_deps=["opni-manager"], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 local_resource('Deployment YAML', 'kubectl apply -k ./deploy', 
-  deps=["./config/deploy"], resource_deps=["opni-controller-manager"], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
+  deps=["./config/deploy"], resource_deps=["opni-manager"], trigger_mode=TRIGGER_MODE_MANUAL, auto_init=False)
 
 if "hostname" in settings:
-  yaml = '''
-  apiVersion: opni.io/v1beta2
-  kind: Gateway
-  metadata:
-    name: opni-gateway
-    namespace: opni
-  spec:
-    auth:
-      provider: noauth
-    hostname: {}
-  '''.format(settings["hostname"])
-  k8s_yaml(blob(yaml))
+  objects = read_yaml_stream('config/samples/tilt/gateway.yaml')
+  ns = objects[0]
+  gateway = objects[1]
+  gateway["spec"]["hostname"] = settings["hostname"]
+  k8s_yaml(encode_yaml_stream([ns, gateway]))
+
+  monitoring = read_yaml('config/samples/tilt/monitoring.yaml')
+  monitoring["spec"]["grafana"]["hostname"] = "grafana."+settings["hostname"]
+  k8s_yaml(encode_yaml(monitoring))
 
 DOCKERFILE = '''FROM golang:alpine
 WORKDIR /
 RUN apk add --no-cache curl
 COPY ./bin/opni /usr/bin/opni
+COPY ./bin/plugins/plugin_cortex /var/lib/opni/plugins/
+COPY ./bin/plugins/plugin_logging /var/lib/opni/plugins/
 COPY ./config/assets/nfd/ /opt/nfd/
 COPY ./config/assets/gpu-operator/ /opt/gpu-operator/
 ENTRYPOINT ["/usr/bin/opni"]
@@ -59,8 +58,8 @@ if "defaultRegistry" in settings:
 
 docker_build("rancher/opni", '.', 
   dockerfile_contents=DOCKERFILE,
-  only=['./bin/opni', './config/assets'],
+  only=['./bin', './config/assets'],
   # live_update=[sync('./bin/opni', '/opni')]
 )
 
-include('Tiltfile.tests')
+# include('Tiltfile.tests')

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: opni
+---
+apiVersion: opni.io/v1beta2
+kind: Gateway
+metadata:
+  name: opni-gateway
+  namespace: opni
+spec:
+  auth:
+    provider: noauth
+  hostname: ""

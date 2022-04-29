@@ -69,4 +69,4 @@ test_go('e2e-tests-prod', './test/e2e --ginkgo.label-filter="e2e && !demo"', '.'
 
         # run this test automatically in CI mode; otherwise, only on manual trigger
         auto_init=config.tilt_subcommand == 'ci',
-        resource_deps=["opni-controller-manager", "prometheus"])
+        resource_deps=["opni-manager", "prometheus"])

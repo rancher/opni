@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	_ "embed"
+
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -14,6 +16,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+//go:embed dashboards/dashboards.json
+var dashboardsJson []byte
 
 func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	grafana := &grafanav1alpha1.Grafana{
@@ -28,11 +33,18 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			Namespace: r.mc.Namespace,
 		},
 	}
+	dashboards := &grafanav1alpha1.GrafanaDashboard{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-monitoring",
+			Namespace: r.mc.Namespace,
+		},
+	}
 
 	if !r.mc.Spec.Grafana.Enabled {
 		return []resources.Resource{
 			resources.Absent(grafana),
 			resources.Absent(datasource),
+			resources.Absent(dashboards),
 		}, nil
 	}
 
@@ -132,6 +144,10 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		},
 	}
 
+	dashboards.Spec = grafanav1alpha1.GrafanaDashboardSpec{
+		Json: string(dashboardsJson),
+	}
+
 	switch r.gw.Spec.Auth.Provider {
 	case v1beta1.AuthProviderNoAuth:
 		grafana.Spec.Config.AuthGenericOauth.ClientId = "grafana"
@@ -166,9 +182,11 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 
 	controllerutil.SetOwnerReference(r.mc, grafana, r.client.Scheme())
 	controllerutil.SetOwnerReference(r.mc, datasource, r.client.Scheme())
+	controllerutil.SetOwnerReference(r.mc, dashboards, r.client.Scheme())
 
 	return []resources.Resource{
 		resources.Present(grafana),
 		resources.Present(datasource),
+		resources.Present(dashboards),
 	}, nil
 }

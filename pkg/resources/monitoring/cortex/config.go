@@ -39,7 +39,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/validation"
 	"github.com/imdario/mergo"
 	"github.com/prometheus/common/model"
-	"github.com/prometheus/exporter-toolkit/web"
+	"github.com/prometheus/node_exporter/https"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/weaveworks/common/logging"
@@ -82,7 +82,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		KeyPath:    "/run/cortex/certs/client/tls.key",
 		ServerName: "cortex-server",
 	}
-	tlsServerConfig := web.TLSStruct{
+	tlsServerConfig := https.TLSStruct{
 		TLSCertPath: "/run/cortex/certs/server/tls.crt",
 		TLSKeyPath:  "/run/cortex/certs/server/tls.key",
 		ClientAuth:  "RequireAndVerifyClientCert",

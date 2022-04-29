@@ -8,21 +8,21 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
+  name: manager
   namespace: system
   labels:
-    app: opni-controller-manager
+    app: opni-manager
     control-plane: controller-manager
 spec:
   selector:
     matchLabels:
-      app: opni-controller-manager
+      app: opni-manager
       control-plane: controller-manager
   replicas: 1
   template:
     metadata:
       labels:
-        app: opni-controller-manager
+        app: opni-manager
         control-plane: controller-manager
     spec:
       containers:

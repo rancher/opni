@@ -1,0 +1,18 @@
+apiVersion: opni.io/v1beta2
+kind: MonitoringCluster
+metadata:
+  name: opni-monitoring
+  namespace: opni
+spec:
+  gateway:
+    name: opni-gateway
+  cortex:
+    enabled: true
+    storage:
+      backend: filesystem
+      filesystem:
+        path: /data/store
+  grafana:
+    enabled: true
+    hostname: ""
+    image: grafana/grafana:latest

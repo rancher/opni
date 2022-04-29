@@ -38,6 +38,7 @@ func NewReconciler(
 		mc:     mc,
 		logger: logger.New().Named("controller").Named("cortex"),
 	}
+
 }
 
 func (r *Reconciler) Reconcile() (*reconcile.Result, error) {

@@ -3,7 +3,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 image:
-  repository: kralicky/opni-monitoring
+  repository: rancher/opni
   # Overrides the image tag whose default is the chart appVersion.
   tag: latest
   pullPolicy: Always

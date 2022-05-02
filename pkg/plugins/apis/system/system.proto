@@ -12,6 +12,7 @@ service System {
 service KeyValueStore {
   rpc Put(KeyValue) returns (google.protobuf.Empty);
   rpc Get(Key) returns (Value);
+  rpc Delete(Key) returns (google.protobuf.Empty);
   rpc ListKeys(Key) returns (KeyList);
 }
 

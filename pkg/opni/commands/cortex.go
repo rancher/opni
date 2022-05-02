@@ -10,7 +10,7 @@ import (
 func BuildCortexCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "cortex",
-		Short:              "embedded cortex",
+		Short:              "Embedded cortex",
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			flag.CommandLine = flag.NewFlagSet("cortex", flag.ExitOnError)

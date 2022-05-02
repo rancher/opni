@@ -32,6 +32,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -42,6 +43,7 @@ import (
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/realtime"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
@@ -52,6 +54,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/client-go/rest"
@@ -71,6 +74,7 @@ type servicePorts struct {
 	CortexGRPC      int
 	CortexHTTP      int
 	TestEnvironment int
+	RTMetrics       int
 }
 
 type RunningAgent struct {
@@ -107,9 +111,10 @@ type Environment struct {
 }
 
 type EnvironmentOptions struct {
-	enableEtcd    bool
-	enableGateway bool
-	enableCortex  bool
+	enableEtcd           bool
+	enableGateway        bool
+	enableCortex         bool
+	enableRealtimeServer bool
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -120,29 +125,36 @@ func (o *EnvironmentOptions) apply(opts ...EnvironmentOption) {
 	}
 }
 
-func WithEnableEtcd(enableEtcd bool) EnvironmentOption {
+func WithEnableEtcd(enable bool) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
-		o.enableEtcd = enableEtcd
+		o.enableEtcd = enable
 	}
 }
 
-func WithEnableGateway(enableGateway bool) EnvironmentOption {
+func WithEnableGateway(enable bool) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
-		o.enableGateway = enableGateway
+		o.enableGateway = enable
 	}
 }
 
-func WithEnableCortex(enableCortex bool) EnvironmentOption {
+func WithEnableCortex(enable bool) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
-		o.enableCortex = enableCortex
+		o.enableCortex = enable
+	}
+}
+
+func WithEnableRealtimeServer(enable bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.enableRealtimeServer = enable
 	}
 }
 
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	options := EnvironmentOptions{
-		enableEtcd:    true,
-		enableGateway: true,
-		enableCortex:  true,
+		enableEtcd:           true,
+		enableGateway:        true,
+		enableCortex:         true,
+		enableRealtimeServer: true,
 	}
 	options.apply(opts...)
 
@@ -163,7 +175,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	e.mockCtrl = gomock.NewController(t)
 
-	ports, err := freeport.GetFreePorts(9)
+	ports, err := freeport.GetFreePorts(10)
 	if err != nil {
 		panic(err)
 	}
@@ -177,6 +189,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		CortexGRPC:      ports[6],
 		CortexHTTP:      ports[7],
 		TestEnvironment: ports[8],
+		RTMetrics:       ports[9],
 	}
 	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
 		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
@@ -253,6 +266,9 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	if options.enableCortex {
 		e.startCortex()
+	}
+	if options.enableRealtimeServer {
+		e.startRealtimeServer()
 	}
 	return nil
 }
@@ -480,8 +496,28 @@ func (e *Environment) startCortex() {
 	})
 }
 
+func (e *Environment) startRealtimeServer() {
+	if !e.enableRealtimeServer {
+		e.Logger.Panic("realtime disabled")
+	}
+
+	srv, err := realtime.NewServer(&v1beta1.RealtimeServerSpec{
+		ManagementClient: v1beta1.ManagementClientSpec{
+			Address: fmt.Sprintf("localhost:%d", e.ports.ManagementGRPC),
+		},
+		Metrics: v1beta1.MetricsSpec{
+			Port: e.ports.RTMetrics,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	go srv.Start(e.ctx)
+}
+
 type prometheusTemplateOptions struct {
 	ListenPort    int
+	RTMetricsPort int
 	OpniAgentPort int
 }
 
@@ -503,6 +539,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 	if err := t.Execute(configFile, prometheusTemplateOptions{
 		ListenPort:    port,
 		OpniAgentPort: opniAgentPort,
+		RTMetricsPort: e.ports.RTMetrics,
 	}); err != nil {
 		panic(err)
 	}
@@ -617,14 +654,28 @@ func (e *Environment) NewManagementClient() managementv1.ManagementClient {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
 	}
-	c, err := management.NewClient(e.ctx,
-		management.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
-		management.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
+	c, err := clients.NewManagementClient(e.ctx,
+		clients.WithAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		clients.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
 	)
 	if err != nil {
 		panic(err)
 	}
 	return c
+}
+
+func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
+	cc, err := grpc.DialContext(e.ctx, fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC),
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return cc
 }
 
 func (e *Environment) PrometheusAPIEndpoint() string {

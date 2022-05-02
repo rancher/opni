@@ -50,7 +50,8 @@ func (s *ExamplePlugin) UseManagementAPI(api managementv1.ManagementClient) {
 	}
 }
 
-func (s *ExamplePlugin) UseKeyValueStore(kv system.KVStoreClient) {
+func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
+	kv := system.NewKVStoreClient[*EchoRequest](context.Background(), client)
 	lg := s.Logger
 	err := kv.Put("foo", &EchoRequest{
 		Message: "hello",
@@ -59,12 +60,11 @@ func (s *ExamplePlugin) UseKeyValueStore(kv system.KVStoreClient) {
 		lg.Error("kv store error", "error", err)
 	}
 
-	out := &EchoRequest{}
-	err = kv.Get("foo", out)
+	value, err := kv.Get("foo")
 	if err != nil {
 		lg.Error("kv store error", "error", err)
 	}
-	lg.Info("successfully retrieved stored value", "message", out.Message)
+	lg.Info("successfully retrieved stored value", "message", value.Message)
 }
 
 func (s *ExamplePlugin) ConfigureRoutes(app *fiber.App) {

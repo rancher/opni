@@ -147,6 +147,7 @@ var System_ServiceDesc = grpc.ServiceDesc{
 type KeyValueStoreClient interface {
 	Put(ctx context.Context, in *KeyValue, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Get(ctx context.Context, in *Key, opts ...grpc.CallOption) (*Value, error)
+	Delete(ctx context.Context, in *Key, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListKeys(ctx context.Context, in *Key, opts ...grpc.CallOption) (*KeyList, error)
 }
 
@@ -176,6 +177,15 @@ func (c *keyValueStoreClient) Get(ctx context.Context, in *Key, opts ...grpc.Cal
 	return out, nil
 }
 
+func (c *keyValueStoreClient) Delete(ctx context.Context, in *Key, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/system.KeyValueStore/Delete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *keyValueStoreClient) ListKeys(ctx context.Context, in *Key, opts ...grpc.CallOption) (*KeyList, error) {
 	out := new(KeyList)
 	err := c.cc.Invoke(ctx, "/system.KeyValueStore/ListKeys", in, out, opts...)
@@ -191,6 +201,7 @@ func (c *keyValueStoreClient) ListKeys(ctx context.Context, in *Key, opts ...grp
 type KeyValueStoreServer interface {
 	Put(context.Context, *KeyValue) (*emptypb.Empty, error)
 	Get(context.Context, *Key) (*Value, error)
+	Delete(context.Context, *Key) (*emptypb.Empty, error)
 	ListKeys(context.Context, *Key) (*KeyList, error)
 	mustEmbedUnimplementedKeyValueStoreServer()
 }
@@ -204,6 +215,9 @@ func (UnimplementedKeyValueStoreServer) Put(context.Context, *KeyValue) (*emptyp
 }
 func (UnimplementedKeyValueStoreServer) Get(context.Context, *Key) (*Value, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedKeyValueStoreServer) Delete(context.Context, *Key) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
 }
 func (UnimplementedKeyValueStoreServer) ListKeys(context.Context, *Key) (*KeyList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListKeys not implemented")
@@ -257,6 +271,24 @@ func _KeyValueStore_Get_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KeyValueStore_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Key)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KeyValueStoreServer).Delete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/system.KeyValueStore/Delete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KeyValueStoreServer).Delete(ctx, req.(*Key))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _KeyValueStore_ListKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Key)
 	if err := dec(in); err != nil {
@@ -289,6 +321,10 @@ var KeyValueStore_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Get",
 			Handler:    _KeyValueStore_Get_Handler,
+		},
+		{
+			MethodName: "Delete",
+			Handler:    _KeyValueStore_Delete_Handler,
 		},
 		{
 			MethodName: "ListKeys",

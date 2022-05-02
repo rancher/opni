@@ -32,4 +32,4 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	<-p.ctx.Done()
 }
 
-func (p *Plugin) UseKeyValueStore(system.KVStoreClient) {}
+func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {}

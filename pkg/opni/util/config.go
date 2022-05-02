@@ -20,7 +20,7 @@ func LoadConfigObjectsOrDie(
 		if err != nil {
 			if errors.Is(err, config.ErrConfigNotFound) {
 				wd, _ := os.Getwd()
-				lg.Fatalf(`could not find a config file in ["%s","/etc/opni-monitoring"], and --config was not given`, wd)
+				lg.Fatalf(`could not find a config file in ["%s","/etc/opni"], and --config was not given`, wd)
 			}
 			lg.With(
 				zap.Error(err),

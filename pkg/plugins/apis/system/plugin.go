@@ -14,7 +14,7 @@ import (
 
 type SystemPluginClient interface {
 	UseManagementAPI(managementv1.ManagementClient)
-	UseKeyValueStore(KVStoreClient)
+	UseKeyValueStore(KeyValueStoreClient)
 }
 
 type SystemPluginServer interface {
@@ -75,10 +75,7 @@ func (c *systemPluginClientImpl) UseKeyValueStore(ctx context.Context, in *Broke
 		return nil, err
 	}
 	defer cc.Close()
-	c.client.UseKeyValueStore(&kvStoreClientImpl{
-		ctx:    ctx,
-		client: NewKeyValueStoreClient(cc),
-	})
+	c.client.UseKeyValueStore(NewKeyValueStoreClient(cc))
 	return &emptypb.Empty{}, nil
 }
 

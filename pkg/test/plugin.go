@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/plugins/cortex/pkg/cortex"
 	"github.com/rancher/opni/plugins/example/pkg/example"
+	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -91,6 +92,14 @@ func LoadPlugins(loader *plugins.PluginLoader) int {
 				BinaryPath: "plugin_example",
 				GoVersion:  runtime.Version(),
 				Module:     "github.com/rancher/opni/plugins/example",
+			},
+		},
+		{
+			Scheme: slo.Scheme(context.Background()),
+			Metadata: meta.PluginMeta{
+				BinaryPath: "plugin_slo",
+				GoVersion:  runtime.Version(),
+				Module:     "github.com/rancher/opni/plugins/slo",
 			},
 		},
 	}

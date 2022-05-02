@@ -1,0 +1,168 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/plugins/slo/pkg/apis/slo";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/api/http.proto";
+import "google/api/annotations.proto";
+import "../../../../../pkg/apis/core/v1/core.proto";
+
+
+package slo;
+
+service SLO {
+  rpc CreateSLO(ServiceLevelObjective) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/slos"
+      body: "*"
+    };
+  }
+  rpc GetSLO(core.Reference) returns (ServiceLevelObjective) {
+    option (google.api.http) = {
+      get: "/slos/{id}"
+    };
+  }
+  rpc ListSLOs(google.protobuf.Empty) returns (ServiceLevelObjectiveList) {
+    option (google.api.http) = {
+      get: "/slos"
+    };
+  }
+  rpc UpdateSLO(ServiceLevelObjective) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/slos/{id}"
+      body: "*"
+    };
+  }
+  rpc DeleteSLO(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/slos/{id}"
+    };
+  }
+  rpc CloneSLO(core.Reference) returns (ServiceLevelObjective) {
+    option (google.api.http) = {
+      post: "/slos/{id}/clone"
+    };
+  }
+  rpc Status(core.Reference) returns (SLOStatus) {
+    option (google.api.http) = {
+      get: "/slos/{id}/status"
+    };
+  }
+
+  rpc GetService(core.Reference) returns (Service) {
+    option (google.api.http) = {
+      get: "/services/{id}"
+    };
+  }
+  rpc ListServices(google.protobuf.Empty) returns (ServiceList) {
+    option (google.api.http) = {
+      get: "/services"
+    };
+  }
+  rpc CloneService(CloneServiceRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/services/{service.id}/clone"
+      body: "*"
+    };
+  }
+  
+  rpc GetMetric(core.Reference) returns (Metric) {
+    option (google.api.http) = {
+      get: "/metrics/{id}"
+    };
+  }
+  rpc ListMetrics(google.protobuf.Empty) returns (MetricList) {
+    option (google.api.http) = {
+      get: "/metrics"
+    };
+  }
+
+  rpc GetFormula(core.Reference) returns (Formula) {
+    option (google.api.http) = {
+      get: "/formulas/{id}"
+    };
+  }
+  rpc ListFormulas(google.protobuf.Empty) returns (FormulaList) {
+    option (google.api.http) = {
+      get: "/formulas"
+    };
+  }
+
+  rpc SetState(SetStateRequest) returns (google.protobuf.Empty);
+  rpc GetState(core.Reference) returns (State);
+}
+
+message Evaluation {
+  double rate = 1;
+  double period = 2;
+}
+
+message ServiceLevelObjective {
+  string id = 1;
+  string name = 2;
+  string clusterId = 3;
+  string serviceId = 4;
+  string formulaId = 5;
+  repeated Target targets = 6;
+}
+
+message Target {
+  uint64 ValueX100 = 1;
+  google.protobuf.Duration timeWindow = 2;
+}
+
+message SLOStatus {
+  core.Reference slo = 1;
+  int64 timestamp = 2;
+  Evaluation status = 3;
+  Evaluation budget = 4;
+}
+
+message ServiceLevelObjectiveList {
+  repeated ServiceLevelObjective items = 1;
+}
+
+message Service {
+  string id = 1;
+  string name = 2;
+  string clusterId = 3;
+  string description = 4;
+}
+
+message ServiceList {
+  repeated Service items = 1;
+}
+
+message Metric {
+  string id = 1;
+  string name = 2;
+}
+
+message MetricList {
+  repeated Metric items = 1;
+}
+
+message Formula {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message FormulaList {
+  repeated Formula items = 1;
+}
+
+message CloneServiceRequest {
+  core.Reference service = 1;
+  string newClusterId = 2;
+  string newServiceId = 3;
+}
+
+message SetStateRequest {
+  core.Reference slo = 1;
+  State state = 2;
+}
+
+message State {
+  bytes data = 1;
+}

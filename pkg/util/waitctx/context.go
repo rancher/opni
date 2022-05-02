@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -103,7 +104,8 @@ func (restrictive) Wait(ctx RestrictiveContext, notifyAfter ...time.Duration) {
 				case <-done:
 					return
 				case <-time.After(d):
-					fmt.Fprint(os.Stderr, chalk.Yellow.Color("\n=== WARNING: waiting longer than expected for context to cancel ===\n"))
+					fmt.Fprint(os.Stderr, chalk.Yellow.Color("\n=== WARNING: waiting longer than expected for context to cancel ===\n"+string(debug.Stack())+"\n"))
+
 				}
 			}
 		}(notifyAfter[0])

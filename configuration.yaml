@@ -1,0 +1,3 @@
+validate:
+  url: https://github.com/rancher/opni.git
+  branch: charts-repo

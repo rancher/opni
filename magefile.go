@@ -48,7 +48,7 @@ func All() {
 }
 
 func Generate() {
-	mg.SerialDeps(protobuf.Protobuf, mockgen.Mockgen, ControllerGen)
+	mg.SerialDeps(protobuf.Protobuf, mockgen.Mockgen, ControllerGen, CRDGen)
 }
 
 func ControllerGen() error {
@@ -76,6 +76,33 @@ func ControllerGen() error {
 					strings.Contains(line, "not all generators ran successfully") ||
 					strings.Contains(line, "for usage") ||
 					strings.Contains(line, "exit status 1") {
+					continue
+				}
+				fmt.Fprintln(os.Stderr, line)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func CRDGen() error {
+	cmd := exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
+		"build", "./config/crd", "-o", "./deploy/charts/opni/templates/crds/crds.yaml",
+	)
+	buf := new(bytes.Buffer)
+	cmd.Stderr = buf
+	cmd.Stdout = buf
+	err := cmd.Run()
+	if err != nil {
+		if ex, ok := err.(*exec.ExitError); ok {
+			if ex.ExitCode() != 1 {
+				return errors.New(buf.String())
+			}
+			bufStr := buf.String()
+			lines := strings.Split(bufStr, "\n")
+			for _, line := range lines {
+				if strings.TrimSpace(line) == "" {
 					continue
 				}
 				fmt.Fprintln(os.Stderr, line)

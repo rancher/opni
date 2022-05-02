@@ -35,6 +35,8 @@ import (
 	_ "github.com/rancher/opni/internal/mage/test"
 	// mage:import dev
 	_ "github.com/rancher/opni/internal/mage/dev"
+	// mage:import charts
+	_ "github.com/rancher/charts-build-scripts/pkg/actions"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
 	"github.com/rancher/opni/pkg/test/testutil"
@@ -88,7 +90,7 @@ func ControllerGen() error {
 
 func CRDGen() error {
 	cmd := exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
-		"build", "./config/crd", "-o", "./deploy/charts/opni/templates/crds/crds.yaml",
+		"build", "./config/crd", "-o", "./packages/opni/charts/crds/crds.yaml",
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf

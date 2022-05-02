@@ -1,0 +1,15 @@
+coverage:
+  status:
+    project:
+      default: false
+      pkg:
+        paths:
+          - pkg/*
+          - controllers/
+        informational: true
+    patch: off
+ignore:
+  - "**/*.pb.go"
+  - "**/*.pb*.go"
+  - "**/zz_*.go"
+  - "pkg/test"

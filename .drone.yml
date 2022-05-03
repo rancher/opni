@@ -12,8 +12,6 @@ steps:
       DAGGER_LOG_FORMAT: "plain"
       DAGGER_CACHE_FROM: type=local,src=/cache
       DAGGER_CACHE_TO: type=local,mode=max,dest=/cache
-      DOCKER_USERNAME: "none"
-      DOCKER_PASSWORD: "none"
     commands:
       - apk add --no-cache curl
       - curl -sL https://dl.dagger.io/dagger/install.sh | sh

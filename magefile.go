@@ -89,26 +89,32 @@ func ControllerGen() error {
 }
 
 func CRDGen() error {
-	cmd := exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
+	var commands []*exec.Cmd
+	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
 		"build", "./config/crd", "-o", "./packages/opni/charts/crds/crds.yaml",
-	)
-	buf := new(bytes.Buffer)
-	cmd.Stderr = buf
-	cmd.Stdout = buf
-	err := cmd.Run()
-	if err != nil {
-		if ex, ok := err.(*exec.ExitError); ok {
-			if ex.ExitCode() != 1 {
-				return errors.New(buf.String())
-			}
-			bufStr := buf.String()
-			lines := strings.Split(bufStr, "\n")
-			for _, line := range lines {
-				if strings.TrimSpace(line) == "" {
-					continue
+	))
+	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
+		"build", "./config/crd", "-o", "./packages/opni-agent/charts/crds/crds.yaml",
+	))
+	for _, cmd := range commands {
+		buf := new(bytes.Buffer)
+		cmd.Stderr = buf
+		cmd.Stdout = buf
+		err := cmd.Run()
+		if err != nil {
+			if ex, ok := err.(*exec.ExitError); ok {
+				if ex.ExitCode() != 1 {
+					return errors.New(buf.String())
 				}
-				fmt.Fprintln(os.Stderr, line)
-				return err
+				bufStr := buf.String()
+				lines := strings.Split(bufStr, "\n")
+				for _, line := range lines {
+					if strings.TrimSpace(line) == "" {
+						continue
+					}
+					fmt.Fprintln(os.Stderr, line)
+					return err
+				}
 			}
 		}
 	}

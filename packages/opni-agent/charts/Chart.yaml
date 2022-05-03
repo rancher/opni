@@ -1,11 +1,11 @@
 apiVersion: v2
-name: opni-monitoring-agent
+appVersion: 0.4.1
+dependencies:
+- condition: kube-prometheus-stack.enabled
+  name: kube-prometheus-stack
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 35.0.3
 description: Opni Monitoring Agent
+name: opni-monitoring-agent
 type: application
 version: 0.4.1
-appVersion: "0.4.1"
-dependencies:
-  - name: kube-prometheus-stack
-    version: "35.0.3"
-    repository: "https://prometheus-community.github.io/helm-charts"
-    condition: "kube-prometheus-stack.enabled"

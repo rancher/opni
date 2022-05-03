@@ -1,0 +1,39 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: opni.io/v1beta2
+kind: Gateway
+metadata:
+  name: opni-gateway
+  labels:
+    {{- include "opni.labels" . | nindent 4 }}
+spec:
+  hostname: {{ .Values.gateway.hostname }}
+  serviceType: {{ .Values.gateway.serviceType }}
+  {{- with .Values.gateway.auth }}
+  auth:
+    provider: {{ .provider }}
+    {{- if eq .provider "openid" }}
+    openid:
+      issuer: {{ .openid.issuer }}
+      identifyingClaim: {{ .openid.identifyingClaim }}
+      clientID: {{ .openid.clientID }}
+      clientSecret: {{ .openid.clientSecret }}
+      roleAttributePath: {{ .openid.roleAttributePath }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.nodeSelector }}
+  nodeSelector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.tolerations }}
+  tolerations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.affinity }}
+  affinity:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.gateway.extraVolumeMounts }}
+  extraVolumeMounts:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

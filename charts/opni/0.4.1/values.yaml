@@ -1,0 +1,121 @@
+replicaCount: 1
+
+image:
+  repository: rancher/opni
+  pullPolicy: Always
+  tag: "v0.4.0"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+gateway:
+  enabled: true
+  # Service type for the external gateway APIs
+  serviceType: LoadBalancer
+  # Gateway hostname (required if gateway.enabled is true)
+  hostname: ""
+  # Auth provider config (required if gateway.enabled is true)
+  auth:
+    # Noauth provider:
+    provider: noauth
+
+    # Openid provider:
+    # provider: openid
+    # openid:
+    #   {} # see docs
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraVolumeMounts: []
+
+monitoring:
+  enabled: false
+  cortex:
+    storage:
+      backend: s3
+      s3:
+        # The S3 bucket endpoint. It could be an AWS S3 endpoint listed at
+        # https://docs.aws.amazon.com/general/latest/gr/s3.html or the address of an
+        # S3-compatible service in hostname:port format.
+        endpoint: ""
+        # S3 region. If unset, the client will issue a S3 GetBucketLocation API call
+        # to autodetect it.
+        region: ""
+        # S3 bucket name
+        bucketName: "opni-monitoring"
+        # S3 access key ID
+        accessKeyID: ""
+        # S3 secret access key
+        secretAccessKey: ""
+        # If enabled, use http:// for the S3 endpoint instead of https://. This could
+        # be useful in local dev/test environments while using an S3-compatible
+        # backend storage, like Minio.
+        insecure: false
+        # The signature version to use for authenticating against S3.
+        # Supported values are: v4, v2
+        signatureVersion: ""
+      gcs:
+        # // GCS bucket name
+        bucketName: ""
+        # // JSON representing either a Google Developers Console client_credentials.json file
+        # // or a Google Developers service account key file. If empty, fallback to Google default logic.
+        serviceAccount: ""
+      azure:
+        # Azure storage account name
+        accountName: ""
+        # Azure storage account key
+        accountKey: ""
+        # Azure storage container name
+        containerName: ""
+        # Azure storage endpoint suffix without schema. The account name will be
+        # prefixed to this value to create the FQDN
+        endpointSuffix: ""
+      swift:
+        # OpenStack Swift authentication API version. 0 to autodetect.
+        authVersion: 0
+        # OpenStack Swift authentication URL.
+        authUrl: ""
+        # OpenStack Swift username.
+        username: ""
+        # OpenStack Swift user's domain name.
+        userDomainName: ""
+        # OpenStack Swift user's domain ID.
+        userDomainID: ""
+        # OpenStack Swift user ID.
+        userID: ""
+        # OpenStack Swift API key.
+        password: ""
+        # OpenStack Swift user's domain ID.
+        domainID: ""
+        # OpenStack Swift user's domain name.
+        domainName: ""
+        # OpenStack Swift project ID (v2,v3 auth only).
+        projectID: ""
+        # OpenStack Swift project name (v2,v3 auth only).
+        projectName: ""
+        # ID of the OpenStack Swift project's domain (v3 auth only), only needed
+        # if it differs the from user domain.
+        projectDomainID: ""
+        # Name of the OpenStack Swift project's domain (v3 auth only), only needed
+        # if it differs from the user domain.
+        projectDomainName: ""
+        # OpenStack Swift Region to use (v2,v3 auth only).
+        regionName: ""
+        # Name of the OpenStack Swift container to use. The container must already
+        # exist.
+        containerName: ""
+      filesystem:
+        directory: /data/store
+  grafana:
+    # Grafana hostname.
+    hostname: ""

@@ -1,0 +1,19 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: opni-selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: opni-serving-cert
+spec:
+  dnsNames:
+    - "opni-webhook-service.{{ .Release.Namespace }}.svc"
+    - "opni-webhook-service.{{ .Release.Namespace }}.svc.cluster.local"
+  issuerRef:
+    kind: Issuer
+    name: opni-selfsigned-issuer
+  secretName: webhook-server-cert

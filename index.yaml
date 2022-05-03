@@ -8,10 +8,10 @@ entries:
       catalog.rancher.io/namespace: opni-system
       catalog.rancher.io/release-name: opni
     apiVersion: v2
-    appVersion: 0.4.0
-    created: "2022-05-03T11:53:56.7092096+12:00"
+    appVersion: 0.4.1
+    created: "2022-05-03T16:13:25.5153855+12:00"
     description: Multi-cluster Monitoring and Logging System
-    digest: f4e4e3f434e9c963fdcba8c60f2645d54de43e708c7dc6b306b6c4a8dcf841b0
+    digest: 33061238279e41106aaaadf02c47a23f12513cf05823b003161e17ea6ef38b8a
     icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
     keywords:
     - opni
@@ -30,15 +30,34 @@ entries:
     urls:
     - assets/opni/opni-0.4.1.tgz
     version: 0.4.1
+  opni-agent-crd:
+  - annotations:
+      catalog.cattle.io/hidden: "true"
+      catalog.cattle.io/namespace: opni-system
+      catalog.cattle.io/release-name: opni-agent-crd
+    apiVersion: v1
+    created: "2022-05-03T16:13:56.3717677+12:00"
+    description: Installs the CRDs for Opni.
+    digest: 2e8da2af8a30c9c7f3d6fe0cc5926f520f1709c770a6a97f120f9bc14bb114b6
+    maintainers:
+    - email: joe.kralicky@suse.com
+      name: Joe Kralicky
+    - email: dan.bason@suse.com
+      name: Dan Bason
+    name: opni-agent-crd
+    type: application
+    urls:
+    - assets/opni-agent-crd/opni-agent-crd-0.4.1.tgz
+    version: 0.4.1
   opni-crd:
   - annotations:
       catalog.cattle.io/hidden: "true"
       catalog.cattle.io/namespace: opni-system
       catalog.cattle.io/release-name: opni-crd
     apiVersion: v1
-    created: "2022-05-03T11:53:56.7173744+12:00"
+    created: "2022-05-03T16:13:25.5223257+12:00"
     description: Installs the CRDs for Opni.
-    digest: 705539c76f1e5f5b0c7b49b68c892197f9a92e2c516e253443bd088619ccf651
+    digest: 00a9b84917815a6897b2b3285e5da5db78c687e542ef0759f4adb778a8c37799
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky
@@ -48,5 +67,20 @@ entries:
     type: application
     urls:
     - assets/opni-crd/opni-crd-0.4.1.tgz
+    version: 0.4.1
+  opni-monitoring-agent:
+  - apiVersion: v2
+    appVersion: 0.4.1
+    created: "2022-05-03T16:13:56.4062841+12:00"
+    dependencies:
+    - condition: kube-prometheus-stack.enabled
+      name: kube-prometheus-stack
+      repository: file://./charts/kube-prometheus-stack
+    description: Opni Monitoring Agent
+    digest: 702779225d5a43998d03a61dc67bfba4415a5c812b7d02a4b0fc8bc50de9bb6e
+    name: opni-monitoring-agent
+    type: application
+    urls:
+    - assets/opni-monitoring-agent/opni-monitoring-agent-0.4.1.tgz
     version: 0.4.1
 generated: "2022-05-03T11:53:56.708549+12:00"

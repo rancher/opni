@@ -1,0 +1,24 @@
+{{- if (and .Values.token .Values.pin .Values.address) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: agent-config
+  labels:
+    {{- include "opni-monitoring-agent.labels" . | nindent 4 }}
+stringData:
+  config.yaml: |-
+    apiVersion: v1beta1
+    kind: AgentConfig
+    spec:
+      gatewayAddress: {{ .Values.address }}
+      identityProvider: kubernetes
+      listenAddress: :8080
+      rules:
+        discovery:
+          prometheusRules: {}
+      storage:
+        type: customResources
+      bootstrap:
+        token: {{ .Values.token }}
+        pins: [{{ .Values.pin }}]
+{{- end }}

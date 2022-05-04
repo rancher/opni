@@ -14,7 +14,6 @@ keywords:
 - logging
 - rancher
 - observability
-kubeVersion: '>=1.20.0'
 maintainers:
 - email: joe.kralicky@suse.com
   name: Joe Kralicky

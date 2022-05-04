@@ -293,7 +293,7 @@ questions:
     group: "Logging"
     label: "Enable Logging"
     show_subquestion_if: true
-    subqeustions:
+    subquestions:
     - variable: logging.externalURL
       type: string
       default: ""

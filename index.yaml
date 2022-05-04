@@ -9,9 +9,9 @@ entries:
       catalog.rancher.io/release-name: opni
     apiVersion: v2
     appVersion: 0.4.1
-    created: "2022-05-04T16:38:32.2409586+12:00"
+    created: "2022-05-04T20:05:22.6399342+12:00"
     description: Multi-cluster Monitoring and Logging System
-    digest: 962db3f840dc5ec9070ccee1c0bf0c5de67048284ec27e4530b5dd31e2b8937a
+    digest: 08ac378958e2579a6be4ff2bfab0ace6378d2a2cae55fba62298ade4cc3a47a9
     icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
     keywords:
     - opni
@@ -19,7 +19,7 @@ entries:
     - logging
     - rancher
     - observability
-    kubeVersion: '>=1.22.0'
+    kubeVersion: '>=1.20.0'
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky
@@ -36,9 +36,9 @@ entries:
       catalog.cattle.io/namespace: opni-system
       catalog.cattle.io/release-name: opni-agent-crd
     apiVersion: v1
-    created: "2022-05-04T16:38:59.6017036+12:00"
+    created: "2022-05-04T20:05:14.9548827+12:00"
     description: Installs the CRDs for Opni.
-    digest: b1167b386d8bbe09ca71752625996d75fdd040b9e3b6feed6d3cb32ecd56dd98
+    digest: 8442ec62bb36eacb484d4d3dff64b6fec7d892a06a1b41d3b6da642bb6c0bad6
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky
@@ -55,9 +55,9 @@ entries:
       catalog.cattle.io/namespace: opni-system
       catalog.cattle.io/release-name: opni-crd
     apiVersion: v1
-    created: "2022-05-04T16:38:32.2461137+12:00"
+    created: "2022-05-04T20:05:22.6528389+12:00"
     description: Installs the CRDs for Opni.
-    digest: ccbf9d68c17fefcbc0b1d732f78ef6785a60701a9eb50ca5077126320bd4b034
+    digest: 5604c6a4708a8b2e69c1590f507b9199f8c692e309c1eec31aadb7c3ce7f9a9f
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky
@@ -71,13 +71,13 @@ entries:
   opni-monitoring-agent:
   - apiVersion: v2
     appVersion: 0.4.1
-    created: "2022-05-04T16:38:59.6221774+12:00"
+    created: "2022-05-04T20:05:14.9718942+12:00"
     dependencies:
     - condition: kube-prometheus-stack.enabled
       name: kube-prometheus-stack
       repository: file://./charts/kube-prometheus-stack
     description: Opni Monitoring Agent
-    digest: 5dc8100a0b41e9c32e1fe6b078f9a08050ada5cdda741c6246be43ed202a5afe
+    digest: fcc7ad90d5c4d91eb6b80f782055319950b0eac590025e6ffa30a4314407e515
     name: opni-monitoring-agent
     type: application
     urls:

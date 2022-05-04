@@ -121,7 +121,7 @@ monitoring:
     hostname: ""
 
 logging:
-  enabled: true
+  enabled: false
 
   opensearch:
     image:

@@ -293,7 +293,7 @@ questions:
     group: "Logging"
     label: "Enable Logging"
     show_subquestion_if: true
-    subqeustions:
+    subquestions:
     - variable: logging.externalURL
       type: string
       default: ""
@@ -306,4 +306,18 @@ questions:
       show_if: logging.opensearch.persistence.enabled=true
       default: ""
       type: storageclass
-      label: Storage Class
+    - variable: logging.opensearch.exposeDataNodes.enabled
+      type: boolean
+      default: false
+      label: Expose Opensearch data nodes
+    - variable: logging.opensearch.exposeDataNodes.serviceType
+      show_if: "logging.opensearch.exposeDataNodes.enabled=true"
+      description: "Opensearch data nodes service type"
+      type: enum
+      default: "LoadBalancer"
+      label: "Service Type"
+      options:
+        - LoadBalancer
+        - NodePort
+        - ClusterIP
+    

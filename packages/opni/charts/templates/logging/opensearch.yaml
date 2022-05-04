@@ -1,0 +1,70 @@
+{{- if .Values.logging.enabled }}
+apiVersion: opensearch.opster.io/v1
+kind: OpenSearchCluster
+metadata:
+  name: opni
+  namespace: {{ include "opni.namespace" . }}
+spec:
+  general:
+    httpPort: 9200
+    vendor: opensearch
+    version: {{ .Values.logging.opensearch.version }}
+    serviceName: {{ include "opni.fullname" . }}-os-svc
+    setVMMaxMapCount: true
+    image: "{{ template "system_default_registry" . }}{{ .Values.logging.opensearch.image.repository }}:{{ .Values.logging.dashboards.version }}"
+  confMgmt:
+    autoScaler: false
+    monitoring: false
+  dashboards:
+    enable: true
+    version: {{ .Values.logging.dashboards.version }}
+    replicas: {{ .Values.logging.dashboards.replicas }}
+    image: "{{ template "system_default_registry" . }}{{ .Values.logging.dashboards.image.repository }}:{{ .Values.logging.dashboards.version }}"
+  nodePools:
+  - component: master
+    replicas: {{ .Values.logging.opensearch.controlplane.replicas }}
+    diskSize: 20Gi
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        memory: 1Gi
+    roles:
+    - master
+  {{- if .Values.logging.opensearch.persistence.enabled }}
+    {{- if .Values.logging.opensearch.persistence.storageClass }}
+    persistence:
+      pvc:
+        storageClass: {{ .Values.logging.opensearch.persistence.storageClass }}
+        accessModes:
+        - ReadWriteOnce
+    {{- end}}
+    {{- end}}
+  {{- else }}
+    persistence:
+      emptyDir: {}
+  {{- end }}
+  - component: nodes
+    replicas: {{ .Values.logging.opensearch.data.replicas }}
+    diskSize: {{ .Values.logging.opensearch.data.diskSize }}
+    {{- with .Values.logging.opensearch.data.resources }}
+    resources:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    jvm: {{ .Values.logging.opensearch.data.jvm }}
+    roles:
+    - data
+  {{- if .Values.logging.opensearch.persistence.enabled }}
+    {{- if .Values.logging.opensearch.persistence.storageClass }}
+    persistence:
+      pvc:
+        storageClass: {{ .Values.logging.opensearch.persistence.storageClass }}
+        accessModes:
+        - ReadWriteOnce
+    {{- end}}
+  {{- else }}
+    persistence:
+      emptyDir: {}
+  {{- end }}
+{{- end }}

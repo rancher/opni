@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: opni-manager-metrics
+  namespace: {{ include "opni.namespace" . }}
   labels:
     {{- include "opni.labels" . | nindent 4 }}
 spec:
@@ -16,6 +17,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: opni-webhook
+  namespace: {{ include "opni.namespace" . }}
   labels:
     {{- include "opni.labels" . | nindent 4 }}
 spec:

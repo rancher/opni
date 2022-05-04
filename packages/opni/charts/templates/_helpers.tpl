@@ -1,3 +1,10 @@
+# Rancher
+{{- define "system_default_registry" -}}
+{{- if .Values.global.cattle.systemDefaultRegistry -}}
+{{- printf "%s/" .Values.global.cattle.systemDefaultRegistry -}}
+{{- end -}}
+{{- end -}}
+
 {{/*
 Expand the name of the chart.
 */}}
@@ -60,3 +67,15 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Provides the namespace the chart will be installed in using the builtin .Release.Namespace,
+or, if provided, a manually overwritten namespace value.
+*/}}
+{{- define "opni.namespace" -}}
+{{- if .Values.namespaceOverride -}}
+{{ .Values.namespaceOverride -}}
+{{- else -}}
+{{ .Release.Namespace }}
+{{- end -}}
+{{- end -}}

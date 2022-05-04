@@ -2,6 +2,7 @@ annotations:
   catalog.cattle.io/auto-install: opni-crd=match
   catalog.cattle.io/display-name: Opni
   catalog.cattle.io/os: linux
+  catalog.cattle.io/requires-gvr: prometheuses.monitoring.coreos.com/v1
   catalog.rancher.io/namespace: opni-cluster-system
   catalog.rancher.io/release-name: opni
 apiVersion: v2

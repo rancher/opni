@@ -52,12 +52,12 @@ entries:
   opni-crd:
   - annotations:
       catalog.cattle.io/hidden: "true"
-      catalog.cattle.io/namespace: opni-system
+      catalog.cattle.io/namespace: opni-cluster-system
       catalog.cattle.io/release-name: opni-crd
     apiVersion: v1
-    created: "2022-05-05T11:23:45.5209143+12:00"
+    created: "2022-05-05T11:32:59.2664892+12:00"
     description: Installs the CRDs for Opni.
-    digest: 115a413affe537396d42ba334a2f86b9cd8320e6080d5a654d8c18d2901b4c51
+    digest: c9834a3fde9af6020019f5e39f8c16bb65eebe47dea5a86d1d119f55d993e8be
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky
@@ -85,13 +85,13 @@ entries:
     version: 0.4.1
   opni-prometheus-crd:
   - annotations:
-      catalog.cattle.io/namespace: opni-system
+      catalog.cattle.io/namespace: opni-cluster-system
       catalog.cattle.io/provides-gvr: prometheuses.monitoring.coreos.com/v1
       catalog.cattle.io/release-name: opni-prometheus-crd
     apiVersion: v1
-    created: "2022-05-05T11:23:45.5406734+12:00"
+    created: "2022-05-05T11:33:09.1967797+12:00"
     description: Installs the Prometheus CRDs for Opni.
-    digest: 5a9d7f2ff81441e16ba7e8a0f413981bc9eeace884ea4010b3102cdbd9032c06
+    digest: 6af7343ece06174bdc496613e48439680bd602eca71ec786c1ad041938a1321b
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky

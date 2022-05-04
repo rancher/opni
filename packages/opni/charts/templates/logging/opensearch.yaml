@@ -40,7 +40,6 @@ spec:
         accessModes:
         - ReadWriteOnce
     {{- end}}
-    {{- end}}
   {{- else }}
     persistence:
       emptyDir: {}

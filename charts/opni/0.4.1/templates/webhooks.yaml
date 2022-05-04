@@ -1,8 +1,9 @@
+{{- $namespace := printf "%s" (include "opni.namespace" .) }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/opni-serving-cert
+    cert-manager.io/inject-ca-from: {{ $namespace }}/opni-serving-cert
   name: opni-mutating-webhook-configuration
 webhooks:
   - admissionReviewVersions:
@@ -11,7 +12,7 @@ webhooks:
     clientConfig:
       service:
         name: opni-webhook
-        namespace: {{ .Release.Namespace }}
+        namespace: {{ $namespace }}
         path: /mutate-opni-io-v1beta2-logadapter
     failurePolicy: Fail
     name: mlogadapter.kb.io
@@ -31,7 +32,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/opni-serving-cert
+    cert-manager.io/inject-ca-from: {{ $namespace }}/opni-serving-cert
   name: opni-validating-webhook-configuration
 webhooks:
   - admissionReviewVersions:
@@ -40,7 +41,7 @@ webhooks:
     clientConfig:
       service:
         name: opni-webhook
-        namespace: {{ .Release.Namespace }}
+        namespace: {{ $namespace }}
         path: /validate-opni-io-v1beta2-logadapter
     failurePolicy: Fail
     name: vlogadapter.kb.io
@@ -61,7 +62,7 @@ webhooks:
     clientConfig:
       service:
         name: opni-webhook
-        namespace: {{ .Release.Namespace }}
+        namespace: {{ $namespace }}
         path: /highlander-opni-io-v1beta1-opnicluster
     failurePolicy: Fail
     name: highlander.opni.io

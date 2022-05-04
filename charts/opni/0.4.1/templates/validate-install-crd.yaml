@@ -29,6 +29,14 @@
 # {{- set $found "opni.io/v1beta1/PretrainedModel" false -}}
 # {{- set $found "opni.io/v1beta2/RoleBinding" false -}}
 # {{- set $found "opni.io/v1beta2/Role" false -}}
+# {{- set $found "monitoring.coreos.com/v1alpha1/AlertmanagerConfig" false -}}
+# {{- set $found "monitoring.coreos.com/v1/Alertmanager" false -}}
+# {{- set $found "monitoring.coreos.com/v1/PodMonitor" false -}}
+# {{- set $found "monitoring.coreos.com/v1/Probe" false -}}
+# {{- set $found "monitoring.coreos.com/v1/Prometheus" false -}}
+# {{- set $found "monitoring.coreos.com/v1/PrometheusRule" false -}}
+# {{- set $found "monitoring.coreos.com/v1/ServiceMonitor" false -}}
+# {{- set $found "monitoring.coreos.com/v1/ThanosRuler" false -}}
 # {{- range .Capabilities.APIVersions -}}
 # {{- if hasKey $found (toString .) -}}
 # 	{{- set $found (toString .) true -}}

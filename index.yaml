@@ -9,9 +9,9 @@ entries:
       catalog.rancher.io/release-name: opni
     apiVersion: v2
     appVersion: 0.4.1
-    created: "2022-05-05T08:10:42.5946369+12:00"
+    created: "2022-05-05T10:04:13.0745843+12:00"
     description: Multi-cluster Monitoring and Logging System
-    digest: efe9327d7e08d9542d33e63da4952dd61a4ffd73d9dd0c38dcadb717c3eca10c
+    digest: 11513946afc3f2de1dc088de01b1470c2c5c80dfe5ed389b0ad044e158bb7658
     icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
     keywords:
     - opni
@@ -36,9 +36,9 @@ entries:
       catalog.cattle.io/namespace: opni-system
       catalog.cattle.io/release-name: opni-agent-crd
     apiVersion: v1
-    created: "2022-05-04T20:05:14.9548827+12:00"
+    created: "2022-05-05T09:51:50.7061112+12:00"
     description: Installs the CRDs for Opni.
-    digest: 8442ec62bb36eacb484d4d3dff64b6fec7d892a06a1b41d3b6da642bb6c0bad6
+    digest: 98bc0df2ee757df5a275e0ec46c6f62e2dea0acb574a3fb70488fee77b4bcdcc
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky
@@ -55,9 +55,9 @@ entries:
       catalog.cattle.io/namespace: opni-system
       catalog.cattle.io/release-name: opni-crd
     apiVersion: v1
-    created: "2022-05-04T20:05:22.6528389+12:00"
+    created: "2022-05-05T10:04:13.092793+12:00"
     description: Installs the CRDs for Opni.
-    digest: 5604c6a4708a8b2e69c1590f507b9199f8c692e309c1eec31aadb7c3ce7f9a9f
+    digest: 18a704681c196b23c34f1305fb952cd6b8d47904d0108b2a36a56beb1e50898f
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky
@@ -71,13 +71,13 @@ entries:
   opni-monitoring-agent:
   - apiVersion: v2
     appVersion: 0.4.1
-    created: "2022-05-04T20:05:14.9718942+12:00"
+    created: "2022-05-05T09:51:50.7350745+12:00"
     dependencies:
     - condition: kube-prometheus-stack.enabled
       name: kube-prometheus-stack
       repository: file://./charts/kube-prometheus-stack
     description: Opni Monitoring Agent
-    digest: fcc7ad90d5c4d91eb6b80f782055319950b0eac590025e6ffa30a4314407e515
+    digest: eb256391993a3f7499ad0b3e205271bd7c352b980be1c6e4006fe57a570189f3
     name: opni-monitoring-agent
     type: application
     urls:

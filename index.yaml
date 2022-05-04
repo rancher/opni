@@ -5,14 +5,13 @@ entries:
       catalog.cattle.io/auto-install: opni-crd=match
       catalog.cattle.io/display-name: Opni
       catalog.cattle.io/os: linux
-      catalog.cattle.io/requires-gvr: prometheuses.monitoring.coreos.com/v1
       catalog.rancher.io/namespace: opni-cluster-system
       catalog.rancher.io/release-name: opni
     apiVersion: v2
     appVersion: 0.4.1
-    created: "2022-05-05T11:23:45.5110123+12:00"
+    created: "2022-05-05T11:39:54.3330555+12:00"
     description: Multi-cluster Monitoring and Logging System
-    digest: 74dfdf2ccc395a8ba6a818bcd9d89fc279bb88f1d64b240fd49f72aedca39f2a
+    digest: 5888c3e2083ec53ecf162598b07696a0a137fbde152e3443d17a89de3d3cf64a
     icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
     keywords:
     - opni

@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   name: grafanadatasources.grafana.opni.io
 spec:
@@ -19,22 +18,14 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: GrafanaDataSource is the Schema for the grafanadatasources API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
           spec:
-            description: GrafanaDataSourceSpec defines the desired state of GrafanaDataSource
             properties:
               datasources:
                 items:
@@ -54,24 +45,16 @@ spec:
                     isDefault:
                       type: boolean
                     jsonData:
-                      description: GrafanaDataSourceJsonData contains the most common
-                        json options See https://grafana.com/docs/administration/provisioning/#datasources
                       properties:
                         addCorsHeader:
-                          description: Useful fields for clickhouse datasource See
-                            https://github.com/Vertamedia/clickhouse-grafana/tree/master/dist/README.md#configure-the-datasource-with-provisioning
-                            See https://github.com/Vertamedia/clickhouse-grafana/tree/master/src/datasource.ts#L44
                           type: boolean
                         alertmanagerUid:
-                          description: AlertManagerUID if null use the internal grafana
-                            alertmanager
                           type: string
                         allowInfraExplore:
                           type: boolean
                         apiToken:
                           type: string
                         appInsightsAppId:
-                          description: Fields for Azure data sources
                           type: string
                         assumeRoleArn:
                           type: string
@@ -94,7 +77,6 @@ spec:
                         customMetricsNamespaces:
                           type: string
                         customQueryParameters:
-                          description: Fields for Prometheus data sources
                           type: string
                         defaultBucket:
                           type: string
@@ -135,12 +117,10 @@ spec:
                             type: object
                           type: array
                         githubUrl:
-                          description: Fields for Github data sources
                           type: string
                         graphiteVersion:
                           type: string
                         httpHeaderName1:
-                          description: Custom HTTP headers for datasources See https://grafana.com/docs/grafana/latest/administration/provisioning/#datasources
                           type: string
                         httpHeaderName2:
                           type: string
@@ -161,10 +141,8 @@ spec:
                         httpMethod:
                           type: string
                         httpMode:
-                          description: Fields for InfluxDB data sources
                           type: string
                         implementation:
-                          description: Fields for Alertmanager data sources
                           type: string
                         interval:
                           type: string
@@ -181,13 +159,10 @@ spec:
                         logMessageField:
                           type: string
                         manageAlerts:
-                          description: ManageAlerts turns on alert management from
-                            UI
                           type: boolean
                         maxIdleConns:
                           type: integer
                         maxLines:
-                          description: Fields for Loki data sources
                           type: integer
                         maxOpenConns:
                           type: integer
@@ -210,7 +185,6 @@ spec:
                               type: boolean
                           type: object
                         server:
-                          description: Fields for Grafana Clickhouse data sources
                           type: string
                         serviceMap:
                           properties:
@@ -222,7 +196,6 @@ spec:
                         sigV4AssumeRoleArn:
                           type: string
                         sigV4Auth:
-                          description: Fields for AWS Prometheus data sources
                           type: boolean
                         sigV4AuthType:
                           type: string
@@ -245,7 +218,6 @@ spec:
                         timescaledb:
                           type: boolean
                         timezone:
-                          description: Extra field for MySQL data source
                           type: string
                         tlsAuth:
                           type: boolean
@@ -254,10 +226,8 @@ spec:
                         tlsSkipVerify:
                           type: boolean
                         tokenUri:
-                          description: Fields for Stackdriver data sources
                           type: string
                         tracesToLogs:
-                          description: Fields for tracing data sources
                           properties:
                             datasourceUid:
                               type: string
@@ -281,7 +251,6 @@ spec:
                         tsdbVersion:
                           type: string
                         url:
-                          description: Fields for Instana data sources See https://github.com/instana/instana-grafana-datasource/blob/main/provisioning/datasources/datasource.yml
                           type: string
                         usePOST:
                           type: boolean
@@ -305,23 +274,18 @@ spec:
                     password:
                       type: string
                     secureJsonData:
-                      description: GrafanaDataSourceSecureJsonData contains the most
-                        common secure json options See https://grafana.com/docs/administration/provisioning/#datasources
                       properties:
                         accessKey:
                           type: string
                         accessToken:
-                          description: Fields for Github data sources
                           type: string
                         appInsightsApiKey:
                           type: string
                         basicAuthPassword:
                           type: string
                         clientSecret:
-                          description: Fields for Azure data sources
                           type: string
                         httpHeaderValue1:
-                          description: Custom HTTP headers for datasources See https://grafana.com/docs/grafana/latest/administration/provisioning/#datasources
                           type: string
                         httpHeaderValue2:
                           type: string
@@ -344,12 +308,10 @@ spec:
                         password:
                           type: string
                         privateKey:
-                          description: Fields for Stackdriver data sources
                           type: string
                         secretKey:
                           type: string
                         sigV4AccessKey:
-                          description: Fields for AWS data sources
                           type: string
                         sigV4SecretKey:
                           type: string
@@ -360,7 +322,6 @@ spec:
                         tlsClientKey:
                           type: string
                         token:
-                          description: Fields for InfluxDB data sources
                           type: string
                       type: object
                     type:

@@ -8,6 +8,8 @@ import (
 	_ "embed"
 
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
+	"github.com/grafana-operator/grafana-operator/v4/controllers/config"
+	"github.com/grafana-operator/grafana-operator/v4/controllers/constants"
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
@@ -121,6 +123,28 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			},
 			Alerting: &grafanav1alpha1.GrafanaConfigAlerting{
 				Enabled: util.Pointer(false),
+			},
+		},
+		Deployment: &grafanav1alpha1.GrafanaDeployment{
+			ExtraInitContainers: []corev1.Container{
+				{
+					Name:  "chown-grafana-dir",
+					Image: "busybox",
+					Command: []string{
+						"chown",
+					},
+					Args: []string{
+						"-R",
+						"472",
+						"/var/lib/grafana",
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      constants.GrafanaPluginsVolumeName,
+							MountPath: config.GrafanaDataPath,
+						},
+					},
+				},
 			},
 		},
 		Ingress: &grafanav1alpha1.GrafanaIngress{

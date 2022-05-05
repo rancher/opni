@@ -10,6 +10,8 @@ import (
 )
 
 func (r *Reconciler) serviceMonitor() resources.Resource {
+	publicSvcLabels := resources.NewGatewayLabels()
+	publicSvcLabels["service-type"] = "public"
 	svcMonitor := &monitoringv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",
@@ -18,7 +20,7 @@ func (r *Reconciler) serviceMonitor() resources.Resource {
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Selector: metav1.LabelSelector{
-				MatchLabels: resources.NewGatewayLabels(),
+				MatchLabels: publicSvcLabels,
 			},
 			NamespaceSelector: monitoringv1.NamespaceSelector{
 				MatchNames: []string{r.gw.Namespace},

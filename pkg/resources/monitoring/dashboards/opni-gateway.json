@@ -106,7 +106,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "exemplar": false,
-          "expr": "rate(opni_gateway_remote_write_cluster_ingest_bytes[5m]) * on (cluster_id) group_left(friendly_name) opni_monitoring_cluster_info",
+          "expr": "sum by(cluster_id) (rate(opni_gateway_remote_write_cluster_ingest_bytes[5m])) * on(cluster_id) group_left(friendly_name) opni_monitoring_cluster_info",
           "instant": false,
           "interval": "",
           "legendFormat": "{{friendly_name}}",
@@ -288,7 +288,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "exemplar": true,
-          "expr": "(sum(irate(container_network_receive_bytes_total{namespace=\"opni-monitoring\"}[$__rate_interval])\n* on (pod)\ngroup_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni-monitoring\"}) by (workload))\n",
+          "expr": "(sum(irate(container_network_receive_bytes_total{namespace=\"opni\"}[$__rate_interval])\n* on (pod)\ngroup_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni\"}) by (workload))\n",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -385,7 +385,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "exemplar": true,
-          "expr": "(sum(irate(container_network_transmit_bytes_total{namespace=\"opni-monitoring\"}[$__rate_interval])\n* on (namespace,pod)\ngroup_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni-monitoring\"}) by (workload))\n",
+          "expr": "(sum(irate(container_network_transmit_bytes_total{namespace=\"opni\"}[$__rate_interval])\n* on (namespace,pod)\ngroup_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni\"}) by (workload))\n",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -563,7 +563,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "exemplar": true,
-          "expr": "sum(\n  node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace=\"opni-monitoring\"}\n* on(namespace,pod)\n  group_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni-monitoring\"}\n) by (workload)\n",
+          "expr": "sum(\n  node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace=\"opni\"}\n* on(namespace,pod)\n  group_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni\"}\n) by (workload)\n",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -741,7 +741,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "exemplar": true,
-          "expr": "sum(\n    container_memory_working_set_bytes{namespace=\"opni-monitoring\", container!=\"\", image!=\"\"}\n  * on(pod)\n    group_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni-monitoring\"}\n) by (workload)\n",
+          "expr": "sum(\n    container_memory_working_set_bytes{namespace=\"opni\", container!=\"\", image!=\"\"}\n  * on(pod)\n    group_left(workload) namespace_workload_pod:kube_pod_owner:relabel{namespace=\"opni\"}\n) by (workload)\n",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,

@@ -16,7 +16,7 @@ import (
 var _ = Describe("TLS Config", Label(test.Unit), func() {
 	When("creating a tls config with no pins", func() {
 		It("should error", func() {
-			conf, err := pkp.TLSConfig([]*pkp.PublicKeyPin{})
+			conf, err := pkp.TLSConfig([]*pkp.PublicKeyPin{}, false)
 			Expect(conf).To(BeNil())
 			Expect(err).To(MatchError(pkp.ErrNoPins))
 		})
@@ -28,7 +28,7 @@ var _ = Describe("TLS Config", Label(test.Unit), func() {
 					Algorithm:   pkp.Alg("sha257"),
 					Fingerprint: make([]byte, 32),
 				},
-			})
+			}, false)
 			Expect(conf).To(BeNil())
 			Expect(err).To(MatchError(pkp.ErrUnsupportedAlgorithm))
 			conf, err = pkp.TLSConfig([]*pkp.PublicKeyPin{
@@ -36,7 +36,7 @@ var _ = Describe("TLS Config", Label(test.Unit), func() {
 					Algorithm:   pkp.AlgSHA256,
 					Fingerprint: []byte("sha256:AApyGp-JsUj8_5AapE2L3SqHR40IVe39jyay1Ul1Nn0"),
 				},
-			})
+			}, false)
 			Expect(conf).To(BeNil())
 			Expect(err).To(MatchError(pkp.ErrMalformedPin))
 		})
@@ -54,7 +54,7 @@ var _ = Describe("TLS Config", Label(test.Unit), func() {
 					cs := tls.ConnectionState{
 						PeerCertificates: fullChain,
 					}
-					tlsConfig, err := pkp.TLSConfig(pins)
+					tlsConfig, err := pkp.TLSConfig(pins, false)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(tlsConfig.VerifyConnection(cs)).To(Succeed())
 				}
@@ -82,7 +82,7 @@ var _ = Describe("TLS Config", Label(test.Unit), func() {
 						cs := tls.ConnectionState{
 							PeerCertificates: peerCerts,
 						}
-						tlsConfig, err := pkp.TLSConfig(pins)
+						tlsConfig, err := pkp.TLSConfig(pins, false)
 						Expect(err).NotTo(HaveOccurred())
 						if shouldVerify {
 							Expect(tlsConfig.VerifyConnection(cs)).To(
@@ -124,7 +124,7 @@ var _ = Describe("TLS Config", Label(test.Unit), func() {
 					cs := tls.ConnectionState{
 						PeerCertificates: badChain,
 					}
-					tlsConfig, err := pkp.TLSConfig(pins)
+					tlsConfig, err := pkp.TLSConfig(pins, false)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(tlsConfig.VerifyConnection(cs)).To(MatchError(pkp.ErrCertValidationFailed))
 				}

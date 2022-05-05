@@ -35,9 +35,11 @@ const (
 var (
 	skipTLSVerify   bool
 	rancherLogging  bool
+	disablePins     bool
 	gatewayEndpoint string
 	bootstrapToken  string
 	provider        string
+	namespace       string
 	pins            []string
 )
 
@@ -54,10 +56,12 @@ func BuildBootstrapLoggingCmd() *cobra.Command {
 	}
 
 	command.Flags().BoolVar(&skipTLSVerify, "insecure-skip-tls-verify", false, "skip endpoint tls verification")
+	command.Flags().BoolVar(&disablePins, "insecure-disable-pins", false, "disable cert pinning")
 	command.Flags().BoolVar(&rancherLogging, "use-rancher-logging", false, "manually configure log shipping with rancher-logging")
 	command.Flags().StringVar(&gatewayEndpoint, "gateway-url", "https://localhost:8443", "upstream Opni gateway")
 	command.Flags().StringVar(&provider, "provider", "rke", "the Kubernetes distribution")
 	command.Flags().StringVar(&bootstrapToken, "token", "", "bootstrap token")
+	command.Flags().StringVar(&namespace, "namespace", common.DefaultOpniNamespace, "namespace to use")
 	command.Flags().StringSliceVar(&pins, "pin", []string{}, "Gateway server public key to pin (repeatable)")
 
 	command.MarkFlagRequired("token")
@@ -85,7 +89,7 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	gatewayClient, err := gatewayclients.NewGatewayHTTPClient(gatewayEndpoint, identifier, keyring)
+	gatewayClient, err := gatewayclients.NewGatewayHTTPClient(gatewayEndpoint, identifier, keyring, disablePins)
 	if err != nil {
 		return err
 	}
@@ -137,7 +141,7 @@ func createAuthSecret(ctx context.Context, password string) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
-			Namespace: common.NamespaceFlagValue,
+			Namespace: namespace,
 		},
 		StringData: map[string]string{
 			secretKey: password,
@@ -156,7 +160,7 @@ func createDataPrepper(
 	dataPrepper := v1beta2.DataPrepper{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dataPrepperName,
-			Namespace: common.NamespaceFlagValue,
+			Namespace: namespace,
 		},
 		Spec: v1beta2.DataPrepperSpec{
 			Username: username,
@@ -181,12 +185,12 @@ func createOpniClusterOutput(ctx context.Context) error {
 	clusterOutput := &loggingv1beta1.ClusterOutput{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterOutputName,
-			Namespace: common.NamespaceFlagValue,
+			Namespace: namespace,
 		},
 		Spec: loggingv1beta1.ClusterOutputSpec{
 			OutputSpec: loggingv1beta1.OutputSpec{
 				HTTPOutput: &output.HTTPOutputConfig{
-					Endpoint:    fmt.Sprintf("http://%s.%s:2021/log/ingest", dataPrepperName, common.NamespaceFlagValue),
+					Endpoint:    fmt.Sprintf("http://%s.%s:2021/log/ingest", dataPrepperName, namespace),
 					ContentType: "application/json",
 					JsonArray:   true,
 					Buffer: &output.Buffer{
@@ -205,7 +209,7 @@ func createOpniClusterFlow(ctx context.Context, clusterID string) error {
 	clusterFlow := &loggingv1beta1.ClusterFlow{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterFlowName,
-			Namespace: common.NamespaceFlagValue,
+			Namespace: namespace,
 		},
 		Spec: loggingv1beta1.ClusterFlowSpec{
 			Filters: []loggingv1beta1.Filter{

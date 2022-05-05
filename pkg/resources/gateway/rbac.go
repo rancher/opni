@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"fmt"
+
 	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -29,6 +31,8 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 				},
 				Resources: []string{
 					"bootstraptokens",
+					"loggingclusters",
+					"multiclusterrolebindings",
 					"clusters",
 					"keyrings",
 					"rolebindings",
@@ -42,6 +46,19 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 					"update",
 					"patch",
 					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					"opensearch.opster.io",
+				},
+				Resources: []string{
+					"opensearchclusters",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
 				},
 			},
 			{
@@ -60,6 +77,26 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 					"patch",
 					"delete",
 				},
+			},
+		},
+	}
+
+	// TODO: This will leak.  Add a finalizer to fix it up or come up with alternative
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   fmt.Sprintf("opni-monitoring-ns-%s", r.gw.Name),
+			Labels: resources.NewGatewayLabels(),
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "opni-monitoring-ns",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      serviceAccount.Name,
+				Namespace: r.gw.Namespace,
 			},
 		},
 	}
@@ -90,5 +127,6 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 		resources.Present(serviceAccount),
 		resources.Present(role),
 		resources.Present(roleBinding),
+		resources.Present(clusterRoleBinding),
 	}, nil
 }

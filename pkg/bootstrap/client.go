@@ -34,12 +34,13 @@ var (
 )
 
 type ClientConfig struct {
-	Capability   string
-	Token        *tokens.Token
-	Pins         []*pkp.PublicKeyPin
-	Endpoint     string
-	K8sConfig    *rest.Config
-	K8sNamespace string
+	Capability          string
+	Token               *tokens.Token
+	Pins                []*pkp.PublicKeyPin
+	InsecureDisablePins bool
+	Endpoint            string
+	K8sConfig           *rest.Config
+	K8sNamespace        string
 }
 
 func (c *ClientConfig) Bootstrap(
@@ -61,7 +62,7 @@ func (c *ClientConfig) Bootstrap(
 	}
 
 	// error already checked in bootstrapJoin
-	tlsConfig, _ := pkp.TLSConfig(c.Pins)
+	tlsConfig, _ := pkp.TLSConfig(c.Pins, c.InsecureDisablePins)
 
 	client := http.Client{
 		Transport: &http.Transport{
@@ -164,7 +165,7 @@ func (c *ClientConfig) bootstrapJoin() (*BootstrapJoinResponse, *x509.Certificat
 		return nil, nil, err
 	}
 
-	tlsConfig, err := pkp.TLSConfig(c.Pins)
+	tlsConfig, err := pkp.TLSConfig(c.Pins, c.InsecureDisablePins)
 	if err != nil {
 		return nil, nil, err
 	}

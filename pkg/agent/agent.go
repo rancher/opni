@@ -125,7 +125,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, errors.New("gateway address not set")
 	}
 	agent.gatewayClient, err = clients.NewGatewayHTTPClient(
-		conf.Spec.GatewayAddress, ip, kr)
+		conf.Spec.GatewayAddress, ip, kr, false)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}

@@ -11,4 +11,4 @@ maintainers:
 annotations:
   catalog.cattle.io/hidden: "true"
   catalog.cattle.io/release-name: opni-crd
-  catalog.cattle.io/namespace: opni-system
+  catalog.cattle.io/namespace: opni-cluster-system

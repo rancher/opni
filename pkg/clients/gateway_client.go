@@ -40,6 +40,7 @@ func NewGatewayHTTPClient(
 	address string,
 	ip ident.Provider,
 	kr keyring.Keyring,
+	disablePins bool,
 ) (GatewayHTTPClient, error) {
 	if address[len(address)-1] == '/' {
 		address = address[:len(address)-1]
@@ -75,7 +76,7 @@ func NewGatewayHTTPClient(
 	if pkpKey == nil {
 		return nil, errors.New("keyring is missing PKP key")
 	}
-	tlsConfig, err := pkp.TLSConfig(pkpKey.PinnedKeys)
+	tlsConfig, err := pkp.TLSConfig(pkpKey.PinnedKeys, disablePins)
 	if err != nil {
 		return nil, err
 	}

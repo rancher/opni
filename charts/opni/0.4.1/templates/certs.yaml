@@ -13,8 +13,8 @@ metadata:
   namespace: {{ $namespace }}
 spec:
   dnsNames:
-    - "opni-webhook-service.{{ $namespace }}.svc"
-    - "opni-webhook-service.{{ $namespace }}.svc.cluster.local"
+    - "opni-webhook.{{ $namespace }}.svc"
+    - "opni-webhook.{{ $namespace }}.svc.cluster.local"
   issuerRef:
     kind: Issuer
     name: opni-selfsigned-issuer

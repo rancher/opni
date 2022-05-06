@@ -3,6 +3,7 @@ package clients
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 
 	"emperror.dev/errors"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/b2mac"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
-	"github.com/rancher/opni/pkg/pkp"
+	"github.com/rancher/opni/pkg/trust"
 )
 
 type RequestBuilder interface {
@@ -40,7 +41,7 @@ func NewGatewayHTTPClient(
 	address string,
 	ip ident.Provider,
 	kr keyring.Keyring,
-	disablePins bool,
+	trustStrategy trust.Strategy,
 ) (GatewayHTTPClient, error) {
 	if address[len(address)-1] == '/' {
 		address = address[:len(address)-1]
@@ -50,36 +51,25 @@ func NewGatewayHTTPClient(
 		return nil, err
 	}
 	var sharedKeys *keyring.SharedKeys
-	var pkpKey *keyring.PKPKey
-	kr.Try(
-		func(sk *keyring.SharedKeys) {
-			if sharedKeys != nil {
-				err = errors.New("keyring contains multiple shared key sets")
-				return
-			}
-			sharedKeys = sk
-		},
-		func(pk *keyring.PKPKey) {
-			if pkpKey != nil {
-				err = errors.New("keyring contains multiple PKP key sets")
-				return
-			}
-			pkpKey = pk
-		},
-	)
+	kr.Try(func(sk *keyring.SharedKeys) {
+		if sharedKeys != nil {
+			err = errors.New("keyring contains multiple shared key sets")
+			return
+		}
+		sharedKeys = sk
+	})
 	if err != nil {
 		return nil, err
 	}
 	if sharedKeys == nil {
 		return nil, errors.New("keyring is missing shared keys")
 	}
-	if pkpKey == nil {
-		return nil, errors.New("keyring is missing PKP key")
-	}
-	tlsConfig, err := pkp.TLSConfig(pkpKey.PinnedKeys, disablePins)
+
+	tlsConfig, err := trustStrategy.TLSConfig()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create TLS config: %w", err)
 	}
+
 	return &gatewayClient{
 		address:    address,
 		id:         id,

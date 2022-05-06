@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/storage/crds"
 	"github.com/rancher/opni/pkg/storage/etcd"
+	"github.com/rancher/opni/pkg/trust"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
@@ -124,8 +125,43 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	if conf.Spec.GatewayAddress == "" {
 		return nil, errors.New("gateway address not set")
 	}
+
+	var trustStrategy trust.Strategy
+	switch conf.Spec.TrustStrategy {
+	case v1beta1.TrustStrategyPKP:
+		conf := trust.StrategyConfig{
+			PKP: &trust.PKPConfig{
+				Pins: trust.NewKeyringPinSource(kr),
+			},
+		}
+		trustStrategy, err = conf.Build()
+		if err != nil {
+			return nil, fmt.Errorf("error configuring pkp trust from keyring: %w", err)
+		}
+	case v1beta1.TrustStrategyCACerts:
+		conf := trust.StrategyConfig{
+			CACerts: &trust.CACertsConfig{
+				CACerts: trust.NewKeyringCACertsSource(kr),
+			},
+		}
+		trustStrategy, err = conf.Build()
+		if err != nil {
+			return nil, fmt.Errorf("error configuring ca certs trust from keyring: %w", err)
+		}
+	case v1beta1.TrustStrategyInsecure:
+		conf := trust.StrategyConfig{
+			Insecure: &trust.InsecureConfig{},
+		}
+		trustStrategy, err = conf.Build()
+		if err != nil {
+			return nil, fmt.Errorf("error configuring insecure trust: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("unknown trust strategy: %s", conf.Spec.TrustStrategy)
+	}
+
 	agent.gatewayClient, err = clients.NewGatewayHTTPClient(
-		conf.Spec.GatewayAddress, ip, kr, false)
+		conf.Spec.GatewayAddress, ip, kr, trustStrategy)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}

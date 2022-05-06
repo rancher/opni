@@ -11,16 +11,14 @@ var (
 	ErrCertValidationFailed = errors.New("peer certificate validation failed")
 )
 
-func TLSConfig(pins []*PublicKeyPin, disablePins bool) (*tls.Config, error) {
-	if len(pins) == 0 && !disablePins {
+func TLSConfig(pins []*PublicKeyPin) (*tls.Config, error) {
+	if len(pins) == 0 {
 		return nil, ErrNoPins
 	}
 	copiedPins := make([]*PublicKeyPin, len(pins))
 	for i, pin := range pins {
 		if err := pin.Validate(); err != nil {
-			if !disablePins {
-				return nil, err
-			}
+			return nil, err
 		}
 		copiedPins[i] = pin.DeepCopy()
 	}
@@ -30,9 +28,6 @@ func TLSConfig(pins []*PublicKeyPin, disablePins bool) (*tls.Config, error) {
 		MinVersion:         tls.VersionTLS12,
 		InsecureSkipVerify: true,
 		VerifyConnection: func(cs tls.ConnectionState) error {
-			if disablePins {
-				return nil
-			}
 			peerCerts := cs.PeerCertificates
 			// Validate the peer's certificate chain.
 			for i := 0; i < len(peerCerts)-1; i++ {

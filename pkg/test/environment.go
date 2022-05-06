@@ -51,6 +51,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
+	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
@@ -757,6 +758,7 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 
 	agentConfig := &v1beta1.AgentConfig{
 		Spec: v1beta1.AgentConfigSpec{
+			TrustStrategy:    v1beta1.TrustStrategyPKP,
 			ListenAddress:    fmt.Sprintf("localhost:%d", port),
 			GatewayAddress:   fmt.Sprintf("https://localhost:%d", e.ports.Gateway),
 			IdentityProvider: id,
@@ -787,12 +789,31 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 	mu := &sync.Mutex{}
 	go func() {
 		mu.Lock()
+		publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
+		for i, pin := range pins {
+			d, err := pkp.DecodePin(pin)
+			if err != nil {
+				errC <- err
+				return
+			}
+			publicKeyPins[i] = d
+		}
+		conf := trust.StrategyConfig{
+			PKP: &trust.PKPConfig{
+				Pins: trust.NewPinSource(publicKeyPins),
+			},
+		}
+		strategy, err := conf.Build()
+		if err != nil {
+			errC <- err
+			return
+		}
 		a, err = agent.New(e.ctx, agentConfig,
 			agent.WithBootstrapper(&bootstrap.ClientConfig{
-				Capability: wellknown.CapabilityMetrics,
-				Token:      bt,
-				Pins:       publicKeyPins,
-				Endpoint:   fmt.Sprintf("http://localhost:%d", e.ports.Gateway),
+				Capability:    wellknown.CapabilityMetrics,
+				Token:         bt,
+				Endpoint:      fmt.Sprintf("http://localhost:%d", e.ports.Gateway),
+				TrustStrategy: strategy,
 			}))
 		if err != nil {
 			errC <- err

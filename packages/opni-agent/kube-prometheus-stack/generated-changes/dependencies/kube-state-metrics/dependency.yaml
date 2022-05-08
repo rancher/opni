@@ -1,0 +1,2 @@
+workingDir: ""
+url: https://github.com/prometheus-community/helm-charts/releases/download/kube-state-metrics-4.7.0/kube-state-metrics-4.7.0.tgz

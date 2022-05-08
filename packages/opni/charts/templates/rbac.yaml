@@ -1,3 +1,32 @@
+{{- $namespace := printf "%s" (include "opni.namespace" .) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: opni-leader-election-role
+  namespace: {{ $namespace }}
+rules:
+- apiGroups:
+  - ""
+  - coordination.k8s.io
+  resources:
+  - configmaps
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -1186,10 +1215,26 @@ rules:
   - list
   - watch
 ---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: opni-monitoring-ns
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: opni-leader-election-rolebinding
+  namespace: {{ $namespace }}
   labels:
     {{- include "opni.labels" . | nindent 4 }}
 roleRef:
@@ -1199,7 +1244,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: opni-manager
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -1214,7 +1259,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: opni-manager
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -1229,7 +1274,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: opni-manager
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $namespace }}
 ---
 apiVersion: v1
 kind: ServiceAccount

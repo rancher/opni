@@ -2,10 +2,10 @@ annotations:
   catalog.cattle.io/auto-install: opni-crd=match
   catalog.cattle.io/display-name: Opni
   catalog.cattle.io/os: linux
-  catalog.rancher.io/namespace: opni-system
+  catalog.rancher.io/namespace: opni-cluster-system
   catalog.rancher.io/release-name: opni
 apiVersion: v2
-appVersion: 0.4.0
+appVersion: 0.4.1
 description: Multi-cluster Monitoring and Logging System
 icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
 keywords:
@@ -14,7 +14,6 @@ keywords:
 - logging
 - rancher
 - observability
-kubeVersion: '>=1.22.0'
 maintainers:
 - email: joe.kralicky@suse.com
   name: Joe Kralicky
@@ -22,4 +21,4 @@ maintainers:
   name: Dan Bason
 name: opni
 type: application
-version: 0.4.0
+version: 0.4.1

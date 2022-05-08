@@ -1,0 +1,12 @@
+{{- if .Values.logging.enabled }}
+apiVersion: opni.io/v1beta2
+kind: MulticlusterRoleBinding
+metadata:
+  name: opni-logging
+  namespace: {{ include "opni.namespace" . }}
+spec:
+  opensearch:
+    name: opni
+    namespace: {{ include "opni.namespace" . }}
+  opensearchExternalURL: {{ .Values.logging.externalURL }}
+{{- end }}

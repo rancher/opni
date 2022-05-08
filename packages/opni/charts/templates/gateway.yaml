@@ -3,6 +3,7 @@ apiVersion: opni.io/v1beta2
 kind: Gateway
 metadata:
   name: opni-gateway
+  namespace: {{ include "opni.namespace" . }}
   labels:
     {{- include "opni.labels" . | nindent 4 }}
 spec:

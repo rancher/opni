@@ -3,6 +3,7 @@ apiVersion: opni.io/v1beta2
 kind: MonitoringCluster
 metadata:
   name: opni-monitoring
+  namespace: {{ include "opni.namespace" . }}
   labels:
     {{- include "opni.labels" . | nindent 4 }}
 spec:

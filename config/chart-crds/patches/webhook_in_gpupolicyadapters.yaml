@@ -2,14 +2,14 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: logadapters.opni.io
+  name: gpupolicyadapters.opni.io
 spec:
   conversion:
     strategy: Webhook
     webhook:
       clientConfig:
         service:
-          namespace: system
+          namespace: replace-me
           name: opni-webhook
           path: /convert
       conversionReviewVersions:

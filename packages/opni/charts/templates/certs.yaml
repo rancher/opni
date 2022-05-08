@@ -1,3 +1,4 @@
+{{- $namespace := printf "%s" (include "opni.namespace" .) }}
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -9,10 +10,11 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: opni-serving-cert
+  namespace: {{ $namespace }}
 spec:
   dnsNames:
-    - "opni-webhook-service.{{ .Release.Namespace }}.svc"
-    - "opni-webhook-service.{{ .Release.Namespace }}.svc.cluster.local"
+    - "opni-webhook.{{ $namespace }}.svc"
+    - "opni-webhook.{{ $namespace }}.svc.cluster.local"
   issuerRef:
     kind: Issuer
     name: opni-selfsigned-issuer

@@ -9,7 +9,7 @@ spec:
     webhook:
       clientConfig:
         service:
-          namespace: system
+          namespace: replace-me
           name: opni-webhook
           path: /convert
       conversionReviewVersions:

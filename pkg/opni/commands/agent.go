@@ -252,13 +252,15 @@ func runLoggingControllers(ctx context.Context) error {
 		return err
 	}
 
-	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		return err
-	}
-	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		return err
+	if !enableMetrics {
+		if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
+			setupLog.Error(err, "unable to set up health check")
+			return err
+		}
+		if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
+			setupLog.Error(err, "unable to set up ready check")
+			return err
+		}
 	}
 
 	ctx, _ = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)

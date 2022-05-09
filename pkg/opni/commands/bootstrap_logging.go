@@ -54,7 +54,7 @@ func BuildBootstrapLoggingCmd() *cobra.Command {
 		RunE:  doBootstrap,
 	}
 
-	command.Flags().BoolVar(&skipTLSVerify, "insecure-skip-tls-verify", false, "skip endpoint tls verification")
+	command.Flags().BoolVar(&skipTLSVerify, "opensearch-insecure", false, "skip Opensearch tls verification")
 	command.Flags().BoolVar(&rancherLogging, "use-rancher-logging", false, "manually configure log shipping with rancher-logging")
 	command.Flags().StringVar(&gatewayEndpoint, "gateway-url", "https://localhost:8443", "upstream Opni gateway")
 	command.Flags().StringVar(&provider, "provider", "rke", "the Kubernetes distribution")

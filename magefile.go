@@ -7,12 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/jaypipes/ghw"
@@ -38,7 +36,6 @@ import (
 	// mage:import charts
 	_ "github.com/rancher/charts-build-scripts/pkg/actions"
 
-	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
 )
@@ -198,50 +195,10 @@ func findProtos() []protobuf.Proto {
 	return protos
 }
 
-func guessEffectiveCoreCount() (int, bool) {
-	// if /sys/fs/cgroup/cpu.max exists, read it (cgroups v2)
-	// otherwise, try to read /sys/fs/cgroup/cpu/cpu.cfs_{quota,period}_us (cgroups v1)
-	var max, period int64
-	if data, err := os.ReadFile("/sys/fs/cgroup/cpu.max"); err == nil {
-		fields := strings.Fields(string(data))
-		if len(fields) != 2 {
-			return 0, false
-		}
-		m, p := fields[0], fields[1]
-		if m == "max" {
-			return runtime.NumCPU(), true
-		}
-		max, err = strconv.ParseInt(m, 10, 64)
-		if err != nil {
-			return 0, false
-		}
-		period, err = strconv.ParseInt(p, 10, 64)
-		if err != nil {
-			return 0, false
-		}
-	} else {
-		max, err = fscommon.GetCgroupParamInt("/sys/fs/cgroup/cpu", "cpu.cfs_quota_us")
-		if err != nil {
-			return 0, false
-		}
-		period, err = fscommon.GetCgroupParamInt("/sys/fs/cgroup/cpu", "cpu.cfs_period_us")
-		if err != nil {
-			return 0, false
-		}
-		if max < 0 {
-			return runtime.NumCPU(), true
-		}
-	}
-	return int(math.Max(1, math.Ceil(float64(max)/float64(period)))), true
-}
-
 func SysInfo() {
 	fmt.Println("System Info:")
 	for _, proc := range util.Must(ghw.CPU()).Processors {
 		fmt.Printf(" %v (%d cores, %d threads)\n", proc.Model, proc.NumCores, proc.NumThreads)
-	}
-	if ecc, ok := guessEffectiveCoreCount(); ok && ecc < runtime.NumCPU() {
-		fmt.Printf(" => effective core count (limited by cgroup bandwidth): %d\n", ecc)
 	}
 	fmt.Printf(" %v\n", util.Must(ghw.Topology()))
 	fmt.Printf(" %v\n", util.Must(ghw.Memory()))

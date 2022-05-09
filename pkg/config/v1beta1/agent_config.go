@@ -10,6 +10,14 @@ type AgentConfig struct {
 	Spec AgentConfigSpec `json:"spec,omitempty"`
 }
 
+type TrustStrategyKind string
+
+const (
+	TrustStrategyPKP      TrustStrategyKind = "pkp"
+	TrustStrategyCACerts  TrustStrategyKind = "cacerts"
+	TrustStrategyInsecure TrustStrategyKind = "insecure"
+)
+
 type AgentConfigSpec struct {
 	// The address which the agent will listen on for incoming connections.
 	// This should be in the format "host:port" or ":port", and must not
@@ -20,15 +28,23 @@ type AgentConfigSpec struct {
 	GatewayAddress string `json:"gatewayAddress,omitempty"`
 	// The name of the identity provider to use. Defaults to "kubernetes".
 	IdentityProvider string `json:"identityProvider,omitempty"`
+	// The type of trust strategy to use for verifying the authenticity of the
+	// gateway server. Defaults to "pkp".
+	TrustStrategy TrustStrategyKind `json:"trustStrategy,omitempty"`
 	// Configuration for agent keyring storage.
 	Storage   StorageSpec    `json:"storage,omitempty"`
-	Bootstrap *BootstrapSpec `json:"bootstrap,omitempty"`
 	Rules     *RulesSpec     `json:"rules,omitempty"`
+	Bootstrap *BootstrapSpec `json:"bootstrap,omitempty"`
 }
 
 type BootstrapSpec struct {
-	Token string   `json:"token,omitempty"`
-	Pins  []string `json:"pins,omitempty"`
+	// Bootstrap token
+	Token string `json:"token,omitempty"`
+	// List of public key pins. Used when the trust strategy is "pkp".
+	Pins []string `json:"pins,omitempty"`
+	// List of paths to CA Certs. Used when the trust strategy is "pkp".
+	// If empty, the system certs will be used.
+	CACerts []string `json:"caCerts,omitempty"`
 }
 
 func (s *AgentConfigSpec) SetDefaults() {
@@ -40,6 +56,9 @@ func (s *AgentConfigSpec) SetDefaults() {
 	}
 	if s.ListenAddress == "" {
 		s.ListenAddress = ":8080"
+	}
+	if s.TrustStrategy == "" {
+		s.TrustStrategy = "pkp"
 	}
 }
 

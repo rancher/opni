@@ -17,8 +17,8 @@ import (
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
-	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/tokens"
+	"github.com/rancher/opni/pkg/trust"
 	"k8s.io/client-go/rest"
 )
 
@@ -34,12 +34,12 @@ var (
 )
 
 type ClientConfig struct {
-	Capability   string
-	Token        *tokens.Token
-	Pins         []*pkp.PublicKeyPin
-	Endpoint     string
-	K8sConfig    *rest.Config
-	K8sNamespace string
+	Capability    string
+	Token         *tokens.Token
+	Endpoint      string
+	K8sConfig     *rest.Config
+	K8sNamespace  string
+	TrustStrategy trust.Strategy
 }
 
 func (c *ClientConfig) Bootstrap(
@@ -60,8 +60,10 @@ func (c *ClientConfig) Bootstrap(
 		return nil, err
 	}
 
-	// error already checked in bootstrapJoin
-	tlsConfig, _ := pkp.TLSConfig(c.Pins)
+	tlsConfig, err := c.TrustStrategy.TLSConfig()
+	if err != nil {
+		return nil, err
+	}
 
 	client := http.Client{
 		Transport: &http.Transport{
@@ -120,10 +122,12 @@ func (c *ClientConfig) Bootstrap(
 	if err != nil {
 		return nil, err
 	}
-	return keyring.New(
-		keyring.NewSharedKeys(sharedSecret),
-		keyring.NewPKPKey(c.Pins),
-	), nil
+
+	keys := []any{keyring.NewSharedKeys(sharedSecret)}
+	if k := c.TrustStrategy.PersistentKey(); k != nil {
+		keys = append(keys, k)
+	}
+	return keyring.New(keys...), nil
 }
 
 func (c *ClientConfig) Finalize(ctx context.Context) error {
@@ -164,7 +168,7 @@ func (c *ClientConfig) bootstrapJoin() (*BootstrapJoinResponse, *x509.Certificat
 		return nil, nil, err
 	}
 
-	tlsConfig, err := pkp.TLSConfig(c.Pins)
+	tlsConfig, err := c.TrustStrategy.TLSConfig()
 	if err != nil {
 		return nil, nil, err
 	}

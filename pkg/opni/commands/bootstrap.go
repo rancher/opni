@@ -9,6 +9,5 @@ func BuildBootstrapCmd() *cobra.Command {
 		Long:  "See subcommands for more information.",
 	}
 	command.AddCommand(BuildBootstrapLoggingCmd())
-	command.AddCommand(BuildBootstrapMonitoringCmd())
 	return command
 }

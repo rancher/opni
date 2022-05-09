@@ -31,12 +31,23 @@ import (
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/tokens"
+	"github.com/rancher/opni/pkg/trust"
+	"github.com/rancher/opni/pkg/util"
 )
 
 type errProvider struct{}
 
 func (p *errProvider) UniqueIdentifier(context.Context) (string, error) {
 	return "", errors.New("test")
+}
+
+func pkpTrustStrategy(cert *x509.Certificate) trust.Strategy {
+	conf := trust.StrategyConfig{
+		PKP: &trust.PKPConfig{
+			Pins: trust.NewPinSource([]*pkp.PublicKeyPin{pkp.NewSha256(cert)}),
+		},
+	}
+	return util.Must(conf.Build())
 }
 
 var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
@@ -102,9 +113,9 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 		defer server.Close()
 
 		cc := bootstrap.ClientConfig{
-			Token:    token,
-			Pins:     []*pkp.PublicKeyPin{pkp.NewSha256(server.Certificate())},
-			Endpoint: server.URL,
+			Token:         token,
+			Endpoint:      server.URL,
+			TrustStrategy: pkpTrustStrategy(server.Certificate()),
 		}
 
 		_, err := cc.Bootstrap(context.Background(), fooIdent)
@@ -131,6 +142,7 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 					Kind:       "AgentConfig",
 				},
 				Spec: v1beta1.AgentConfigSpec{
+					TrustStrategy:    v1beta1.TrustStrategyPKP,
 					IdentityProvider: "foo",
 					Bootstrap: &v1beta1.BootstrapSpec{
 						Token: "foo",
@@ -208,33 +220,21 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 		When("an invalid endpoint is given", func() {
 			It("should error", func() {
 				cc := bootstrap.ClientConfig{
-					Token:    token,
-					Pins:     []*pkp.PublicKeyPin{pkp.NewSha256(cert.Leaf)},
-					Endpoint: "\x7f",
+					Token:         token,
+					Endpoint:      "\x7f",
+					TrustStrategy: pkpTrustStrategy(cert.Leaf),
 				}
 				kr, err := cc.Bootstrap(context.Background(), fooIdent)
 				Expect(kr).To(BeNil())
 				Expect(err.Error()).To(ContainSubstring("net/url"))
 			})
 		})
-		When("invalid pins are given", func() {
-			It("should error", func() {
-				cc := bootstrap.ClientConfig{
-					Token:    token,
-					Pins:     []*pkp.PublicKeyPin{},
-					Endpoint: "https://localhost",
-				}
-				kr, err := cc.Bootstrap(context.Background(), fooIdent)
-				Expect(kr).To(BeNil())
-				Expect(err).To(MatchError(pkp.ErrNoPins))
-			})
-		})
 		When("the client fails to send a request to the server", func() {
 			It("should error", func() {
 				cc := bootstrap.ClientConfig{
-					Token:    token,
-					Pins:     []*pkp.PublicKeyPin{pkp.NewSha256(cert.Leaf)},
-					Endpoint: "https://localhost:65545",
+					Token:         token,
+					Endpoint:      "https://localhost:65545",
+					TrustStrategy: pkpTrustStrategy(cert.Leaf),
 				}
 				kr, err := cc.Bootstrap(context.Background(), fooIdent)
 				Expect(kr).To(BeNil())
@@ -246,9 +246,9 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 				server := httptest.NewTLSServer(http.NewServeMux())
 				defer server.Close()
 				cc := bootstrap.ClientConfig{
-					Token:    token,
-					Pins:     []*pkp.PublicKeyPin{pkp.NewSha256(server.Certificate())},
-					Endpoint: server.URL,
+					Token:         token,
+					Endpoint:      server.URL,
+					TrustStrategy: pkpTrustStrategy(server.Certificate()),
 				}
 				kr, err := cc.Bootstrap(context.Background(), fooIdent)
 				Expect(kr).To(BeNil())
@@ -264,9 +264,9 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 				server := httptest.NewTLSServer(mux)
 				defer server.Close()
 				cc := bootstrap.ClientConfig{
-					Token:    token,
-					Pins:     []*pkp.PublicKeyPin{pkp.NewSha256(server.Certificate())},
-					Endpoint: server.URL,
+					Token:         token,
+					Endpoint:      server.URL,
+					TrustStrategy: pkpTrustStrategy(server.Certificate()),
 				}
 				kr, err := cc.Bootstrap(context.Background(), fooIdent)
 				Expect(kr).To(BeNil())
@@ -287,9 +287,9 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 				server := httptest.NewTLSServer(mux)
 				defer server.Close()
 				cc := bootstrap.ClientConfig{
-					Token:    token,
-					Pins:     []*pkp.PublicKeyPin{pkp.NewSha256(server.Certificate())},
-					Endpoint: server.URL,
+					Token:         token,
+					Endpoint:      server.URL,
+					TrustStrategy: pkpTrustStrategy(server.Certificate()),
 				}
 				kr, err := cc.Bootstrap(context.Background(), fooIdent)
 				Expect(kr).To(BeNil())
@@ -322,9 +322,9 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 				defer server.Close()
 
 				cc := bootstrap.ClientConfig{
-					Token:    token,
-					Pins:     []*pkp.PublicKeyPin{pkp.NewSha256(server.Certificate())},
-					Endpoint: server.URL,
+					Token:         token,
+					Endpoint:      server.URL,
+					TrustStrategy: pkpTrustStrategy(server.Certificate()),
 				}
 
 				_, err := cc.Bootstrap(context.Background(), &errProvider{})
@@ -360,9 +360,9 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 				defer server.Close()
 
 				cc := bootstrap.ClientConfig{
-					Token:    token,
-					Pins:     []*pkp.PublicKeyPin{pkp.NewSha256(server.Certificate())},
-					Endpoint: server.URL,
+					Token:         token,
+					Endpoint:      server.URL,
+					TrustStrategy: pkpTrustStrategy(server.Certificate()),
 				}
 
 				_, err := cc.Bootstrap(context.Background(), fooIdent)
@@ -401,9 +401,9 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 				defer server.Close()
 
 				cc := bootstrap.ClientConfig{
-					Token:    token,
-					Pins:     []*pkp.PublicKeyPin{pkp.NewSha256(server.Certificate())},
-					Endpoint: server.URL,
+					Token:         token,
+					Endpoint:      server.URL,
+					TrustStrategy: pkpTrustStrategy(server.Certificate()),
 				}
 
 				_, err := cc.Bootstrap(context.Background(), fooIdent)
@@ -445,9 +445,9 @@ var _ = Describe("Client", Ordered, Label(test.Unit, test.Slow), func() {
 				defer server.Close()
 
 				cc := bootstrap.ClientConfig{
-					Token:    token,
-					Pins:     []*pkp.PublicKeyPin{pkp.NewSha256(server.Certificate())},
-					Endpoint: server.URL,
+					Token:         token,
+					Endpoint:      server.URL,
+					TrustStrategy: pkpTrustStrategy(server.Certificate()),
 				}
 
 				_, err := cc.Bootstrap(context.Background(), fooIdent)

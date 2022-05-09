@@ -14,8 +14,8 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	gatewayclients "github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/opni/common"
-	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/tokens"
+	"github.com/rancher/opni/pkg/trust"
 	loggingplugin "github.com/rancher/opni/plugins/logging/pkg/logging"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +38,7 @@ var (
 	gatewayEndpoint string
 	bootstrapToken  string
 	provider        string
+	namespace       string
 	pins            []string
 )
 
@@ -53,19 +54,29 @@ func BuildBootstrapLoggingCmd() *cobra.Command {
 		RunE:  doBootstrap,
 	}
 
-	command.Flags().BoolVar(&skipTLSVerify, "insecure-skip-tls-verify", false, "skip endpoint tls verification")
+	command.Flags().BoolVar(&skipTLSVerify, "opensearch-insecure", false, "skip Opensearch tls verification")
 	command.Flags().BoolVar(&rancherLogging, "use-rancher-logging", false, "manually configure log shipping with rancher-logging")
 	command.Flags().StringVar(&gatewayEndpoint, "gateway-url", "https://localhost:8443", "upstream Opni gateway")
 	command.Flags().StringVar(&provider, "provider", "rke", "the Kubernetes distribution")
 	command.Flags().StringVar(&bootstrapToken, "token", "", "bootstrap token")
-	command.Flags().StringSliceVar(&pins, "pin", []string{}, "Gateway server public key to pin (repeatable)")
-
+	command.Flags().StringVar(&namespace, "namespace", common.DefaultOpniNamespace, "namespace to use")
+	trust.BindFlags(command.Flags())
 	command.MarkFlagRequired("token")
 
 	return command
 }
 
 func doBootstrap(cmd *cobra.Command, args []string) error {
+	trustConfig, err := trust.BuildConfigFromFlags(cmd.Flags())
+	if err != nil {
+		return err
+	}
+	trustStrategy, err := trustConfig.Build()
+	if err != nil {
+		return err
+	}
+
+	common.LoadDefaultClientConfig()
 	identifier := &simpleIdentProvider{
 		Client: &common.K8sClient,
 	}
@@ -75,7 +86,7 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	bootstrapConfig, err := buildBoostrapClient()
+	bootstrapConfig, err := buildBoostrapClient(trustStrategy)
 	if err != nil {
 		return err
 	}
@@ -85,7 +96,7 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	gatewayClient, err := gatewayclients.NewGatewayHTTPClient(gatewayEndpoint, identifier, keyring)
+	gatewayClient, err := gatewayclients.NewGatewayHTTPClient(gatewayEndpoint, identifier, keyring, trustStrategy)
 	if err != nil {
 		return err
 	}
@@ -137,7 +148,7 @@ func createAuthSecret(ctx context.Context, password string) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
-			Namespace: common.NamespaceFlagValue,
+			Namespace: namespace,
 		},
 		StringData: map[string]string{
 			secretKey: password,
@@ -156,7 +167,7 @@ func createDataPrepper(
 	dataPrepper := v1beta2.DataPrepper{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dataPrepperName,
-			Namespace: common.NamespaceFlagValue,
+			Namespace: namespace,
 		},
 		Spec: v1beta2.DataPrepperSpec{
 			Username: username,
@@ -181,12 +192,12 @@ func createOpniClusterOutput(ctx context.Context) error {
 	clusterOutput := &loggingv1beta1.ClusterOutput{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterOutputName,
-			Namespace: common.NamespaceFlagValue,
+			Namespace: namespace,
 		},
 		Spec: loggingv1beta1.ClusterOutputSpec{
 			OutputSpec: loggingv1beta1.OutputSpec{
 				HTTPOutput: &output.HTTPOutputConfig{
-					Endpoint:    fmt.Sprintf("http://%s.%s:2021/log/ingest", dataPrepperName, common.NamespaceFlagValue),
+					Endpoint:    fmt.Sprintf("http://%s.%s:2021/log/ingest", dataPrepperName, namespace),
 					ContentType: "application/json",
 					JsonArray:   true,
 					Buffer: &output.Buffer{
@@ -205,7 +216,7 @@ func createOpniClusterFlow(ctx context.Context, clusterID string) error {
 	clusterFlow := &loggingv1beta1.ClusterFlow{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterFlowName,
-			Namespace: common.NamespaceFlagValue,
+			Namespace: namespace,
 		},
 		Spec: loggingv1beta1.ClusterFlowSpec{
 			Filters: []loggingv1beta1.Filter{
@@ -283,27 +294,19 @@ func createLogAdapter(ctx context.Context) error {
 	return common.K8sClient.Create(ctx, lga)
 }
 
-func buildBoostrapClient() (*bootstrap.ClientConfig, error) {
+func buildBoostrapClient(trustStrategy trust.Strategy) (*bootstrap.ClientConfig, error) {
 	token, err := tokens.ParseHex(bootstrapToken)
 	if err != nil {
 		return nil, err
 	}
 
-	publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
-	for i, pin := range pins {
-		publicKeyPins[i], err = pkp.DecodePin(pin)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return &bootstrap.ClientConfig{
-		Capability:   wellknown.CapabilityLogs,
-		Token:        token,
-		Pins:         publicKeyPins,
-		Endpoint:     gatewayEndpoint,
-		K8sNamespace: common.NamespaceFlagValue,
-		K8sConfig:    common.RestConfig,
+		Capability:    wellknown.CapabilityLogs,
+		Token:         token,
+		Endpoint:      gatewayEndpoint,
+		TrustStrategy: trustStrategy,
+		K8sNamespace:  common.NamespaceFlagValue,
+		K8sConfig:     common.RestConfig,
 	}, nil
 }
 

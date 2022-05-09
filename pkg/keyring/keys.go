@@ -2,8 +2,10 @@ package keyring
 
 import (
 	"crypto/ed25519"
+	"crypto/x509"
 
 	"github.com/rancher/opni/pkg/pkp"
+	"golang.org/x/exp/slices"
 )
 
 // Key types are used indirectly via an interface, as most key values would
@@ -16,6 +18,11 @@ type SharedKeys struct {
 
 type PKPKey struct {
 	PinnedKeys []*pkp.PublicKeyPin `json:"pinnedKeys"`
+}
+
+type CACertsKey struct {
+	// DER-encoded certificates
+	CACerts [][]byte `json:"caCerts"`
 }
 
 func NewSharedKeys(secret []byte) *SharedKeys {
@@ -34,6 +41,16 @@ func NewPKPKey(pinnedKeys []*pkp.PublicKeyPin) *PKPKey {
 	}
 	for i, pinnedKey := range pinnedKeys {
 		key.PinnedKeys[i] = pinnedKey.DeepCopy()
+	}
+	return key
+}
+
+func NewCACertsKey(certs []*x509.Certificate) *CACertsKey {
+	key := &CACertsKey{
+		CACerts: make([][]byte, len(certs)),
+	}
+	for i, cert := range certs {
+		key.CACerts[i] = slices.Clone(cert.Raw)
 	}
 	return key
 }

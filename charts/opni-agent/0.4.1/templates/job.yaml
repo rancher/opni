@@ -20,24 +20,24 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: bootstrap
-          image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args:
-          - bootstrap
-          - logging
-          - {{ .Release.Name }}
-          - --provider={{ .Values.logging.provider }}
-          - --token={{ .Values.token }}
-          - --pin={{ .Values.pin }}
-          - --gateway-url={{ .Values.address }}
-          - --namespace={{ include "opni-agent.namespace" . }}
-          {{- if .Values.logging.insecure }}
-          - --insecure
-          {{- end }}
-          {{- if .Values.logging.disableOpensearchTLSVerify }}
-          - --opensearch-insecure
-          {{- end }}
-          restartPolicy: Never
+      - name: bootstrap
+        image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - bootstrap
+        - logging
+        - {{ .Release.Name }}
+        - --provider={{ .Values.logging.provider }}
+        - --token={{ .Values.token }}
+        - --pin={{ .Values.pin }}
+        - --gateway-url={{ .Values.address }}
+        - --namespace={{ include "opni-agent.namespace" . }}
+        {{- if .Values.logging.insecure }}
+        - --insecure
+        {{- end }}
+        {{- if .Values.logging.disableOpensearchTLSVerify }}
+        - --opensearch-insecure
+        {{- end }}
+      restartPolicy: Never
   backoffLimit: 3
 {{- end }}

@@ -21,9 +21,9 @@ import (
 	loggingplugin "github.com/rancher/opni/plugins/logging/pkg/logging"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	webhook "k8s.io/apiserver/pkg/util/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -301,7 +301,11 @@ func createLogAdapter(ctx context.Context) error {
 	}
 	for {
 		err := k8sClient.Create(ctx, lga)
-		if !isWebhookError(err) {
+		if err == nil {
+			return nil
+		}
+		// TODO: fix k8s apiserver and check for webserver error instead
+		if !k8serrors.IsInternalError(err) {
 			return err
 		}
 		retryBackoff := backoff.NewExponentialBackOff()
@@ -339,11 +343,4 @@ func (p *simpleIdentProvider) UniqueIdentifier(ctx context.Context) (string, err
 	}
 
 	return string(systemNamespace.GetUID()), nil
-}
-
-func isWebhookError(err error) bool {
-	if errors.As(err, &webhook.ErrCallingWebhook{}) {
-		return true
-	}
-	return false
 }

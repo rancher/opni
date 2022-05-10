@@ -27,6 +27,7 @@ spec:
         - bootstrap
         - logging
         - {{ .Release.Name }}
+        - --in-cluster
         - --provider={{ .Values.logging.provider }}
         - --token={{ .Values.token }}
         - --pin={{ .Values.pin }}

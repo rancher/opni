@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/filter"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/output"
+	"github.com/cenkalti/backoff"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -21,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	webhook "k8s.io/apiserver/pkg/util/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -286,6 +289,7 @@ func createOpniClusterFlow(ctx context.Context, clusterID string) error {
 }
 
 func createLogAdapter(ctx context.Context) error {
+	i := 1
 	lga := &v1beta2.LogAdapter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-logging",
@@ -295,7 +299,19 @@ func createLogAdapter(ctx context.Context) error {
 			Provider: v1beta2.LogProvider(provider),
 		},
 	}
-	return k8sClient.Create(ctx, lga)
+	for {
+		err := k8sClient.Create(ctx, lga)
+		if !isWebhookError(err) {
+			return err
+		}
+		retryBackoff := backoff.NewExponentialBackOff()
+		if i == 5 {
+			return err
+		}
+		time.Sleep(retryBackoff.NextBackOff())
+		i += 1
+	}
+
 }
 
 func buildBoostrapClient(trustStrategy trust.Strategy) (*bootstrap.ClientConfig, error) {
@@ -323,4 +339,11 @@ func (p *simpleIdentProvider) UniqueIdentifier(ctx context.Context) (string, err
 	}
 
 	return string(systemNamespace.GetUID()), nil
+}
+
+func isWebhookError(err error) bool {
+	if errors.As(err, &webhook.ErrCallingWebhook{}) {
+		return true
+	}
+	return false
 }

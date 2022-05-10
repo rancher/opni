@@ -1,6 +1,8 @@
 package common
 
 import (
+	"fmt"
+	"os"
 	"time"
 
 	cliutil "github.com/rancher/opni/pkg/opni/util"
@@ -57,4 +59,26 @@ func MaybeContextOverride() []cliutil.ClientOption {
 func LoadDefaultClientConfig() {
 	APIConfig, RestConfig, K8sClient = cliutil.CreateClientOrDie(
 		append(MaybeContextOverride(), cliutil.WithExplicitPath(ExplicitPathFlagValue))...)
+}
+
+func GetClientOrDie(inCluster bool) client.Client {
+	if inCluster {
+		scheme := cliutil.CreateScheme()
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+		k8sClient, err := client.New(config, client.Options{
+			Scheme: scheme,
+		})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+		return k8sClient
+	}
+	_, _, k8sClient := cliutil.CreateClientOrDie(
+		append(MaybeContextOverride(), cliutil.WithExplicitPath(ExplicitPathFlagValue))...)
+	return k8sClient
 }

@@ -35,15 +35,18 @@ const (
 var (
 	skipTLSVerify   bool
 	rancherLogging  bool
+	inCluster       bool
 	gatewayEndpoint string
 	bootstrapToken  string
 	provider        string
 	namespace       string
 	pins            []string
+
+	k8sClient client.Client
 )
 
 type simpleIdentProvider struct {
-	Client *client.Client
+	Client client.Client
 }
 
 func BuildBootstrapLoggingCmd() *cobra.Command {
@@ -56,6 +59,7 @@ func BuildBootstrapLoggingCmd() *cobra.Command {
 
 	command.Flags().BoolVar(&skipTLSVerify, "opensearch-insecure", false, "skip Opensearch tls verification")
 	command.Flags().BoolVar(&rancherLogging, "use-rancher-logging", false, "manually configure log shipping with rancher-logging")
+	command.Flags().BoolVar(&inCluster, "in-cluster", false, "set bootstrap to run in cluster")
 	command.Flags().StringVar(&gatewayEndpoint, "gateway-url", "https://localhost:8443", "upstream Opni gateway")
 	command.Flags().StringVar(&provider, "provider", "rke", "the Kubernetes distribution")
 	command.Flags().StringVar(&bootstrapToken, "token", "", "bootstrap token")
@@ -76,9 +80,9 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	common.LoadDefaultClientConfig()
+	k8sClient = common.GetClientOrDie(inCluster)
 	identifier := &simpleIdentProvider{
-		Client: &common.K8sClient,
+		Client: k8sClient,
 	}
 
 	clusterID, err := identifier.UniqueIdentifier(cmd.Context())
@@ -155,7 +159,7 @@ func createAuthSecret(ctx context.Context, password string) error {
 		},
 	}
 
-	return common.K8sClient.Create(ctx, secret)
+	return k8sClient.Create(ctx, secret)
 }
 
 func createDataPrepper(
@@ -185,7 +189,7 @@ func createDataPrepper(
 		},
 	}
 
-	return common.K8sClient.Create(ctx, &dataPrepper)
+	return k8sClient.Create(ctx, &dataPrepper)
 }
 
 func createOpniClusterOutput(ctx context.Context) error {
@@ -209,7 +213,7 @@ func createOpniClusterOutput(ctx context.Context) error {
 			},
 		},
 	}
-	return common.K8sClient.Create(ctx, clusterOutput)
+	return k8sClient.Create(ctx, clusterOutput)
 }
 
 func createOpniClusterFlow(ctx context.Context, clusterID string) error {
@@ -278,7 +282,7 @@ func createOpniClusterFlow(ctx context.Context, clusterID string) error {
 		},
 	}
 
-	return common.K8sClient.Create(ctx, clusterFlow)
+	return k8sClient.Create(ctx, clusterFlow)
 }
 
 func createLogAdapter(ctx context.Context) error {
@@ -291,7 +295,7 @@ func createLogAdapter(ctx context.Context) error {
 			Provider: v1beta2.LogProvider(provider),
 		},
 	}
-	return common.K8sClient.Create(ctx, lga)
+	return k8sClient.Create(ctx, lga)
 }
 
 func buildBoostrapClient(trustStrategy trust.Strategy) (*bootstrap.ClientConfig, error) {
@@ -312,7 +316,7 @@ func buildBoostrapClient(trustStrategy trust.Strategy) (*bootstrap.ClientConfig,
 
 func (p *simpleIdentProvider) UniqueIdentifier(ctx context.Context) (string, error) {
 	systemNamespace := &corev1.Namespace{}
-	if err := common.K8sClient.Get(ctx, types.NamespacedName{
+	if err := p.Client.Get(ctx, types.NamespacedName{
 		Name: "kube-system",
 	}, systemNamespace); err != nil {
 		return "", err

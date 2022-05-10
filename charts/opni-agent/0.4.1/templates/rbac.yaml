@@ -86,7 +86,7 @@ roleRef:
   name: opni-agent
 subjects:
   - kind: ServiceAccount
-    name: {{ include "opni-agent.serviceAccountName" . }}
+    name: opni-agent
     namespace: {{ $namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

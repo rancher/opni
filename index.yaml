@@ -38,13 +38,13 @@ entries:
       catalog.rancher.io/release-name: opni-agent
     apiVersion: v2
     appVersion: 0.4.1
-    created: "2022-05-10T18:52:44.4913407+12:00"
+    created: "2022-05-10T19:12:39.0441291+12:00"
     dependencies:
     - condition: kube-prometheus-stack.enabled
       name: kube-prometheus-stack
       repository: file://./charts/kube-prometheus-stack
     description: Opni Agent
-    digest: 1f14fff68bee1a3b10932969928efdc98d3e9eb17a2a500aaf1530eef3619872
+    digest: 439c2b4222616f0ff3409765fa84588ff9c6837554f49201733f4f9f6293a8bd
     name: opni-agent
     type: application
     urls:

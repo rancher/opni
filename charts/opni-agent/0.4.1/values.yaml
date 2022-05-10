@@ -8,14 +8,24 @@ image:
   tag: latest
   pullPolicy: Always
 
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
+
+metrics:
+  enabled: false
+  insecure: false
+  prometheusAgent:
+    enabled: true
+    rbac: true
+
+logging:
+  enabled: false
+  insecure: false
+  disableOpensearchTLSVerify: false
+  provider: rke
+  jobTTL: 0
+
+address: https://localhost:8080
+token: ""
+pin: ""
 
 podAnnotations: {}
 
@@ -51,10 +61,6 @@ tolerations: []
 
 affinity: {}
 
-prometheusAgent:
-  enabled: true
-  rbac: true
-
 # If the following values are set, the agent-config secret will be created.
 # Otherwise, it can be manually created using `opni bootstrap`
 
@@ -73,3 +79,8 @@ kube-prometheus-stack:
     enabled: false # disable the default Prometheus deployment
   alertmanager:
     enabled: false # disable the default Alertmanager deployment
+
+
+global:
+  cattle:
+    systemDefaultRegistry: ""

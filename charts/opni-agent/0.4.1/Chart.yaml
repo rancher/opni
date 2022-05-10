@@ -4,7 +4,7 @@ dependencies:
 - condition: kube-prometheus-stack.enabled
   name: kube-prometheus-stack
   repository: file://./charts/kube-prometheus-stack
-description: Opni Monitoring Agent
-name: opni-monitoring-agent
+description: Opni Agent
+name: opni-agent
 type: application
 version: 0.4.1

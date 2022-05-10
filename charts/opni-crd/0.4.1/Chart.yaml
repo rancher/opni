@@ -1,6 +1,6 @@
 annotations:
   catalog.cattle.io/hidden: "true"
-  catalog.cattle.io/namespace: opni-system
+  catalog.cattle.io/namespace: opni-cluster-system
   catalog.cattle.io/release-name: opni-crd
 apiVersion: v1
 description: Installs the CRDs for Opni.

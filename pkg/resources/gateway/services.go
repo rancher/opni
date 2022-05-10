@@ -12,11 +12,13 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
+	publicSvcLabels := resources.NewGatewayLabels()
+	publicSvcLabels["service-type"] = "public"
 	publicSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
 			Namespace: r.gw.Namespace,
-			Labels:    resources.NewGatewayLabels(),
+			Labels:    publicSvcLabels,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     r.gw.Spec.ServiceType,
@@ -29,11 +31,13 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
+	internalSvcLabels := resources.NewGatewayLabels()
+	internalSvcLabels["service-type"] = "internal"
 	internalSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring-internal",
 			Namespace: r.gw.Namespace,
-			Labels:    resources.NewGatewayLabels(),
+			Labels:    internalSvcLabels,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     corev1.ServiceTypeClusterIP,

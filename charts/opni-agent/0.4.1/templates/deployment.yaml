@@ -52,11 +52,16 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-        {{- if .Values.metrics.enabled }}
           volumeMounts:
+          {{- if .Values.metrics.enabled }}
             - name: config
               mountPath: /etc/opni-monitoring
-        {{- end }}
+          {{- end }}
+          {{- if .Values.logging.enabled }}
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -98,8 +103,8 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-    {{- if .Values.metrics.enabled }}
       volumes:
+      {{- if .Values.metrics.enabled }}
         - name: config
           secret:
             secretName: agent-config
@@ -107,4 +112,10 @@ spec:
               - key: config.yaml
                 path: config.yaml
             defaultMode: 256
+      {{- end }}
+      {{- if .Values.logging.enabled }}
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: webhook-server-cert
     {{- end }}

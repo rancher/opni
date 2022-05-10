@@ -14,7 +14,7 @@ stringData:
       gatewayAddress: {{ .Values.address }}
       identityProvider: kubernetes
       listenAddress: :8080
-      trustStrategy: {{ .Values.metrics.insecure | "insecure" "pkp" }}
+      trustStrategy: {{ .Values.metrics.insecure | ternary "insecure" "pkp" }}
       rules:
         discovery:
           prometheusRules: {}

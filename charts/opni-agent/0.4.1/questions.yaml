@@ -32,6 +32,7 @@ questions:
   default: "false"
   type: boolean
   group: "Logging"
+  show_subquestion_if: true
   subquestions:
   - variable: logging.insecure
     label: Disable Gateway TLS Security

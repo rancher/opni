@@ -30,15 +30,21 @@ entries:
     - assets/opni/opni-0.4.1.tgz
     version: 0.4.1
   opni-agent:
-  - apiVersion: v2
+  - annotations:
+      catalog.cattle.io/auto-install: opni-agent-crd=match
+      catalog.cattle.io/display-name: Opni Agent
+      catalog.cattle.io/os: linux
+      catalog.rancher.io/namespace: opni-system
+      catalog.rancher.io/release-name: opni-agent
+    apiVersion: v2
     appVersion: 0.4.1
-    created: "2022-05-10T14:14:33.0243702+12:00"
+    created: "2022-05-10T16:36:57.3821017+12:00"
     dependencies:
     - condition: kube-prometheus-stack.enabled
       name: kube-prometheus-stack
       repository: file://./charts/kube-prometheus-stack
     description: Opni Agent
-    digest: 5305fccc71095b4c59bec5707c5e977900b61689696e128383e0eac5fc3e2c58
+    digest: cc8a35d0381a8b5e485921e1c4d0521437bd0d6464545af27b4bbb5385a2ff6c
     name: opni-agent
     type: application
     urls:

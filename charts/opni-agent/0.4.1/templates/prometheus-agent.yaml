@@ -24,7 +24,7 @@ spec:
   serviceMonitorSelector: {}
   serviceAccountName: opni-prometheus-agent
 ---
-{{- if .Values.prometheusAgent.rbac }}
+{{- if .Values.metrics.prometheusAgent.rbac }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:

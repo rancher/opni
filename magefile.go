@@ -91,7 +91,7 @@ func CRDGen() error {
 		"build", "./config/chart-crds", "-o", "./packages/opni/charts/crds/crds.yaml",
 	))
 	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
-		"build", "./config/chart-crds", "-o", "./packages/opni-agent/opni-agent/charts/crds/crds.yaml",
+		"build", "./config/agent-chart-crds", "-o", "./packages/opni-agent/opni-agent/charts/crds/crds.yaml",
 	))
 	for _, cmd := range commands {
 		buf := new(bytes.Buffer)

@@ -11,6 +11,7 @@ require (
 	github.com/banzaicloud/logging-operator v0.0.0-20220225205714-b06e7ad17676
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.19
 	github.com/banzaicloud/operator-tools v0.28.2
+	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cert-manager/cert-manager v1.8.0
 	github.com/cortexproject/cortex v1.12.0-rc.0.0.20220414211054-347aacd2c836
 	github.com/dghubble/trie v0.0.0-20211002190126-ca25329b35c6
@@ -63,6 +64,7 @@ require (
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/samber/lo v1.18.0
 	github.com/spf13/cobra v1.4.0
+	github.com/spf13/pflag v1.0.5
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/valyala/fasthttp v1.36.0
 	github.com/vbauerster/mpb/v7 v7.4.1
@@ -339,7 +341,6 @@ require (
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.7.1 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect

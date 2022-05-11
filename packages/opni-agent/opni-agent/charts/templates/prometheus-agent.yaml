@@ -1,8 +1,9 @@
-{{- if .Values.prometheusAgent.enabled }}
+{{- if (and .Values.metrics.prometheusAgent.enabled .Values.metrics.enabled) }}
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
 metadata:
   name: opni-prometheus-agent
+  namespace: {{ include "opni-agent.namespace" . }}
 spec:
   image: quay.io/prometheus/prometheus:latest
   containers:
@@ -13,7 +14,7 @@ spec:
         - "--storage.agent.path=/prometheus"
         - "--enable-feature=agent"
   remoteWrite:
-    - url: "http://opni-monitoring-agent.{{ .Release.Namespace }}.svc/api/agent/push"
+    - url: "http://opni-agent.{{ .Release.Namespace }}.svc/api/agent/push"
   replicas: 1
   podMonitorNamespaceSelector: {}
   podMonitorSelector: {}
@@ -23,11 +24,12 @@ spec:
   serviceMonitorSelector: {}
   serviceAccountName: opni-prometheus-agent
 ---
-{{- if .Values.prometheusAgent.rbac }}
+{{- if .Values.metrics.prometheusAgent.rbac }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: opni-prometheus-agent
+  namespace: {{ include "opni-agent.namespace" . }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -65,7 +67,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: opni-prometheus-agent
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ include "opni-agent.namespace" . }}
 {{- end }}
 
 {{- end }}

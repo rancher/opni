@@ -1,6 +1,8 @@
 package opni
 
 import (
+	"os"
+
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/opni/commands"
 
@@ -30,5 +32,7 @@ func BuildRootCmd() *cobra.Command {
 }
 
 func Execute() {
-	BuildRootCmd().Execute()
+	if err := BuildRootCmd().Execute(); err != nil {
+		os.Exit(1)
+	}
 }

@@ -5,7 +5,7 @@ metadata:
   name: opni
   namespace: {{ include "opni.namespace" . }}
 spec:
-  version: {{ .Chart.AppVersion }}
+  version: v{{ .Chart.AppVersion }}
   deployLogCollector: false
   services:
     payloadReceiver:

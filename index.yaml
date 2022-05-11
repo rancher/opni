@@ -9,9 +9,9 @@ entries:
       catalog.rancher.io/release-name: opni
     apiVersion: v2
     appVersion: 0.4.1
-    created: "2022-05-12T10:41:01.9087159+12:00"
+    created: "2022-05-12T11:21:38.71258+12:00"
     description: Multi-cluster Monitoring and Logging System
-    digest: 7ceac01c24034cb07c2e3af265308fbb60a08b5d82cfbef1448241d7c76b7aa7
+    digest: b5fec953f6fa141cd514b48c88691e82b6d0d86b85e80c230de1d099bb41f365
     icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
     keywords:
     - opni

@@ -320,4 +320,9 @@ questions:
         - LoadBalancer
         - NodePort
         - ClusterIP
+  - variable: ai.enabled
+    type: boolean
+    default: "false"
+    group: "AI Services"
+    label: "Enable AI Services"
     

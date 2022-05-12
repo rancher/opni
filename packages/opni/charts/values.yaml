@@ -171,6 +171,11 @@ logging:
 
     replicas: 1
 
+ai:
+  enabled: false
+  s3:
+    internal: {}
+
 
 global:
   cattle:

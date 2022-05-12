@@ -21,7 +21,6 @@ import (
 	loggingplugin "github.com/rancher/opni/plugins/logging/pkg/logging"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -305,9 +304,6 @@ func createLogAdapter(ctx context.Context) error {
 			return nil
 		}
 		// TODO: fix k8s apiserver and check for webserver error instead
-		if !k8serrors.IsInternalError(err) {
-			return err
-		}
 		retryBackoff := backoff.NewExponentialBackOff()
 		if i == 5 {
 			return err

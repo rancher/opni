@@ -47,7 +47,7 @@ func All() {
 }
 
 func Generate() {
-	mg.SerialDeps(protobuf.Protobuf, mockgen.Mockgen, ControllerGen, CRDGen)
+	mg.SerialDeps(protobuf.Protobuf, mockgen.Mockgen, ControllerGen)
 }
 
 func ControllerGen() error {

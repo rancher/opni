@@ -8,6 +8,7 @@ metadata:
     {{- include "opni.labels" . | nindent 4 }}
 spec:
   hostname: {{ .Values.gateway.hostname }}
+  grafanaHostname: {{ .Values.monitoring.grafana.hostname }}
   serviceType: {{ .Values.gateway.serviceType }}
   {{- with .Values.gateway.auth }}
   auth:

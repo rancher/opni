@@ -43,6 +43,7 @@ type GatewaySpec struct {
 	//+kubebuilder:validation:Required
 	Auth             AuthSpec `json:"auth,omitempty"`
 	Hostname         string   `json:"hostname,omitempty"`
+	GrafanaHostname  string   `json:"grafanaHostname,omitempty"`
 	PluginSearchDirs []string `json:"pluginSearchDirs,omitempty"`
 	//+kubebuilder:default=LoadBalancer
 	ServiceType corev1.ServiceType     `json:"serviceType,omitempty"`

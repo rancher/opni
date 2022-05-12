@@ -1221,6 +1221,8 @@ spec:
                       type: object
                   type: object
                 type: array
+              grafanaHostname:
+                type: string
               hostname:
                 type: string
               image:

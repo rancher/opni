@@ -1,3 +1,4 @@
+@if(!test)
 package main
 
 import (

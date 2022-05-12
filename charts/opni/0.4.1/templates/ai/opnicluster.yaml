@@ -17,7 +17,7 @@ spec:
       pretrainedModels:
       - name: control-plane
     metrics:
-      enabled: {{ .Values.monitoring.enabled }}
+      enabled: false
     opensearchFetcher:
       enabled: true
   opensearch:

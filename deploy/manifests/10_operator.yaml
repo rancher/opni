@@ -36,7 +36,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: opni-webhook-service
+  name: opni-webhook
   namespace: opni-system
 spec:
   ports:
@@ -143,8 +143,8 @@ metadata:
   namespace: opni-system
 spec:
   dnsNames:
-    - opni-webhook-service.opni-system.svc
-    - opni-webhook-service.opni-system.svc.cluster.local
+    - opni-webhook.opni-system.svc
+    - opni-webhook.opni-system.svc.cluster.local
   issuerRef:
     kind: Issuer
     name: opni-selfsigned-issuer
@@ -170,7 +170,7 @@ webhooks:
       - v1beta1
     clientConfig:
       service:
-        name: opni-webhook-service
+        name: opni-webhook
         namespace: opni-system
         path: /mutate-opni-io-v1beta2-logadapter
     failurePolicy: Fail
@@ -199,7 +199,7 @@ webhooks:
       - v1beta1
     clientConfig:
       service:
-        name: opni-webhook-service
+        name: opni-webhook
         namespace: opni-system
         path: /validate-opni-io-v1beta2-logadapter
     failurePolicy: Fail
@@ -220,7 +220,7 @@ webhooks:
       - v1beta1
     clientConfig:
       service:
-        name: opni-webhook-service
+        name: opni-webhook
         namespace: opni-system
         path: /highlander-opni-io-v1beta1-opnicluster
     failurePolicy: Fail

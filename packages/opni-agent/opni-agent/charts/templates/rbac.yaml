@@ -7,6 +7,18 @@ metadata:
     {{- include "opni-agent.labels" . | nindent 4 }}
 rules:
 - apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheusrule
+  - servicemonitors
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - monitoring.opni.io
   resources:
   - "*"
@@ -77,7 +89,9 @@ rules:
   - rbac.authorization.k8s.io
   resources:
   - clusterroles
+  - roles
   - clusterrolebindings
+  - rolebindings
   verbs:
   - create
   - delete
@@ -85,6 +99,19 @@ rules:
   - list
   - patch
   - update
+  - watch
+  - apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - use
   - watch
 - apiGroups:
   - ""

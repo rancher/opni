@@ -64,6 +64,7 @@ func Test() error {
 	}
 	coverProfiles := []string{}
 	wg := sync.WaitGroup{}
+	var testErr error
 	for iter.Next() {
 		action := iter.Value()
 		command := action.LookupPath(cue.ParsePath("command"))
@@ -91,13 +92,16 @@ func Test() error {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				sh.RunV(cmd.Name, cmd.Args...)
+				testErr = sh.RunV(cmd.Name, cmd.Args...)
 			}()
 		} else {
-			sh.RunV(cmd.Name, cmd.Args...)
+			testErr = sh.RunV(cmd.Name, cmd.Args...)
 		}
 	}
 	wg.Wait()
+	if testErr != nil {
+		return testErr
+	}
 	if len(coverProfiles) > 0 {
 		enabled, err := tests.LookupPath(cue.ParsePath("coverage.mergeReports")).Bool()
 		if err != nil {

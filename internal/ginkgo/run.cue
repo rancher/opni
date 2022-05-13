@@ -23,9 +23,10 @@ import "strings"
 	timeout:         string | *"10m"
 
 	command: {
-		name: "ginkgo"
+		name: "go"
 		args: [
 			"run",
+			"github.com/onsi/ginkgo/v2/ginkgo",
 			if randomizeSuites {"--randomize-suites"},
 			if keepGoing {"--keep-going"},
 			if race {"--race"},

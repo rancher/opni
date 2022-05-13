@@ -8,3 +8,4 @@
 /universe.dagger.io/python
 /universe.dagger.io/x
 /universe.dagger.io/yarn
+**/test/

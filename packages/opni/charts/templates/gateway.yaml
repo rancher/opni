@@ -21,6 +21,10 @@ spec:
       clientSecret: {{ .openid.clientSecret }}
       roleAttributePath: {{ .openid.roleAttributePath }}
     {{- end }}
+    {{- if eq .provider "noauth "}}
+    noauth:
+      grafanaHostname: {{ .Values.monitoring.grafana.hostname }}
+    {{- end }}
   {{- end }}
   {{- with .Values.nodeSelector }}
   nodeSelector:

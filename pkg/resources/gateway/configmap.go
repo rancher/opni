@@ -81,7 +81,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			Issuer:                issuer,
 			ClientID:              "grafana",
 			ClientSecret:          "noauth",
-			RedirectURI:           fmt.Sprintf("https://%s/generic_oauth", r.gw.Spec.GrafanaHostname),
+			RedirectURI:           fmt.Sprintf("https://%s/generic_oauth", r.gw.Spec.Auth.Noauth.GrafanaHostname),
 			ManagementAPIEndpoint: "opni-monitoring-internal:11090",
 			Port:                  4000,
 			OpenID: openid.OpenidConfig{

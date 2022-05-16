@@ -391,6 +391,8 @@ spec:
                         type: string
                       debug:
                         type: boolean
+                      grafanaHostname:
+                        type: string
                       issuer:
                         type: string
                       managementAPIEndpoint:
@@ -1221,8 +1223,6 @@ spec:
                       type: object
                   type: object
                 type: array
-              grafanaHostname:
-                type: string
               hostname:
                 type: string
               image:

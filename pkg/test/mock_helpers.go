@@ -55,6 +55,10 @@ func NewTestCapabilityBackend(
 		Return(nil).
 		AnyTimes()
 	backend.EXPECT().
+		Uninstall(gomock.Any()).
+		Return(nil).
+		AnyTimes()
+	backend.EXPECT().
 		InstallerTemplate().
 		Return(capBackend.InstallerTemplate).
 		AnyTimes()
@@ -86,7 +90,9 @@ func NewTestCapabilityBackendClient(
 		AnyTimes()
 	client.EXPECT().
 		Uninstall(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil, nil).
+		DoAndReturn(func(context.Context, *capability.UninstallRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+			return nil, nil
+		}).
 		AnyTimes()
 	client.EXPECT().
 		InstallerTemplate(gomock.Any(), gomock.Any(), gomock.Any()).

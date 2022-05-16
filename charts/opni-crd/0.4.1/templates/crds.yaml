@@ -17000,6 +17000,8 @@ spec:
                         type: string
                       debug:
                         type: boolean
+                      grafanaHostname:
+                        type: string
                       issuer:
                         type: string
                       managementAPIEndpoint:

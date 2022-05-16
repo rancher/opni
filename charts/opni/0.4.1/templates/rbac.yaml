@@ -1219,21 +1219,6 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: opni-monitoring-ns
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - create
-  - get
-  - list
-  - watch
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: opni-monitoring-ns
   labels:
     {{- include "opni.labels" . | nindent 4 }}
 rules:

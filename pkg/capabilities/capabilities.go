@@ -26,6 +26,7 @@ func Has[T core.MetadataAccessor[U], U core.Capability[U]](
 type Installer interface {
 	CanInstall(capabilities ...string) error
 	InstallCapabilities(target *core.Reference, capabilities ...string)
+	UninstallCapabilities(target *core.Reference, capabilities ...string)
 }
 
 type capabilityBackend struct {
@@ -44,8 +45,10 @@ func (cb *capabilityBackend) Install(cluster *core.Reference) error {
 	return err
 }
 
-func (cb *capabilityBackend) Uninstall() error {
-	_, err := cb.client.Uninstall(context.Background(), &emptypb.Empty{})
+func (cb *capabilityBackend) Uninstall(cluster *core.Reference) error {
+	_, err := cb.client.Uninstall(context.Background(), &capability.UninstallRequest{
+		Cluster: cluster,
+	})
 	return err
 }
 

@@ -10,6 +10,10 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 	return nil
 }
 
+func (p *Plugin) Uninstall(clustre *core.Reference) error {
+	return nil
+}
+
 func (p *Plugin) InstallerTemplate() string {
 	return `helm install opni-monitoring-agent ` +
 		`{{ arg "input" "Namespace" "+omitEmpty" "+default:opni-monitoring-agent" "+format:-n {{ value }}" }} ` +

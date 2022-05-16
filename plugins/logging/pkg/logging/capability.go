@@ -101,6 +101,68 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 	return nil
 }
 
+func (p *Plugin) Uninstall(cluster *core.Reference) error {
+	loggingClusterList := &opniv1beta2.LoggingClusterList{}
+	if err := p.k8sClient.List(
+		p.ctx,
+		loggingClusterList,
+		client.InNamespace(p.storageNamespace),
+		client.MatchingLabels{resources.OpniClusterID: cluster.Id},
+	); err != nil {
+		return ErrListingClustersFaled(err)
+	}
+
+	if len(loggingClusterList.Items) != 1 {
+		return ErrDeleteClusterInvalidList(cluster.Id)
+	}
+
+	secretList := &corev1.SecretList{}
+	if err := p.k8sClient.List(
+		p.ctx,
+		secretList,
+		client.InNamespace(p.storageNamespace),
+		client.MatchingLabels{resources.OpniClusterID: cluster.Id},
+	); err != nil {
+		return ErrListingClustersFaled(err)
+	}
+
+	if len(secretList.Items) != 1 {
+		return ErrDeleteClusterInvalidList(cluster.Id)
+	}
+
+	loggingCluster := loggingClusterList.Items[0]
+	secret := secretList.Items[0]
+	if err := p.k8sClient.Delete(p.ctx, &loggingCluster); err != nil {
+		return err
+	}
+
+	if err := p.k8sClient.Delete(p.ctx, &secret); err != nil {
+		// Try and be transactionally safe so recreate logging cluster
+		labels := map[string]string{
+			resources.OpniClusterID: cluster.Id,
+		}
+		loggingCluster := &opniv1beta2.LoggingCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "logging-",
+				Namespace:    p.storageNamespace,
+				Labels:       labels,
+			},
+			Spec: opniv1beta2.LoggingClusterSpec{
+				IndexUserSecret: &corev1.LocalObjectReference{
+					Name: secret.Name,
+				},
+				OpensearchClusterRef: p.opensearchCluster,
+			},
+		}
+		// error doesn't matter at this point
+		p.k8sClient.Create(p.ctx, loggingCluster)
+
+		return err
+	}
+
+	return nil
+}
+
 func (p *Plugin) InstallerTemplate() string {
 	return fmt.Sprintf(`opnictl bootstrap logging {{ arg "input" "Opensearch Cluster Name" "+required" "+default:%s" }} `, p.opensearchCluster.Name) +
 		`{{ arg "select" "Kubernetes Provider" "" "rke" "rke2" "k3s" "aks" "eks" "gke" "+omitEmpty" "+format:--provider={{ value }}" }} ` +

@@ -25,6 +25,7 @@ type ServerConfig struct {
 	Issuer                string              `json:"issuer,omitempty"`
 	ClientID              string              `json:"clientID,omitempty"`
 	ClientSecret          string              `json:"clientSecret,omitempty"`
+	GrafanaHostname       string              `json:"grafanaHostname,omitempty"`
 	RedirectURI           string              `json:"redirectURI,omitempty"`
 	ManagementAPIEndpoint string              `json:"managementAPIEndpoint,omitempty"`
 	Port                  int                 `json:"port,omitempty"`

@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/apis/v1beta2"
+	"github.com/rancher/opni/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -19,13 +20,13 @@ func marshal(hp map[string]intstr.IntOrString) string {
 	return string(b)
 }
 
-var _ = Describe("PretrainedModel Controller", Label("controller"), func() {
+var _ = Describe("PretrainedModel Controller", Ordered, Label(test.Controller), func() {
 	It("should reconcile pretrained model resources", func() {
 		By("Creating a pretrainedmodel")
 		model := &v1beta2.PretrainedModel{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test",
-				Namespace: "default",
+				Namespace: makeTestNamespace(),
 			},
 			Spec: v1beta2.PretrainedModelSpec{
 				ModelSource: v1beta2.ModelSource{
@@ -44,7 +45,7 @@ var _ = Describe("PretrainedModel Controller", Label("controller"), func() {
 		hpConfigMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "opni-test-hyperparameters",
-				Namespace: "default",
+				Namespace: model.Namespace,
 			},
 		}
 		Eventually(Object(hpConfigMap)).Should(ExistAnd(

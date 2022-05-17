@@ -9,10 +9,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 )
 
-var _ = Describe("Generic Utils", func() {
+var _ = Describe("Generic Utils", Label(test.Unit), func() {
 	Context("Must", func() {
 		It("should panic if a non-nil error is given", func() {
 			Expect(func() {

@@ -8,10 +8,11 @@ import (
 
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/pkp"
+	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/trust"
 )
 
-var _ = Describe("Strategy", func() {
+var _ = Describe("Strategy", Label(test.Unit), func() {
 	When("configuring the PKP trust strategy", func() {
 		It("should build the correct tls config", func() {
 			pin := pkp.NewSha256(newTestCert())

@@ -8,10 +8,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
+	"github.com/rancher/opni/pkg/test"
 	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 )
 
-var _ = Describe("Indices", Label("unit"), func() {
+var _ = Describe("Indices", Label(test.Unit), func() {
 	var (
 		reconciler *Reconciler
 		transport  *httpmock.MockTransport

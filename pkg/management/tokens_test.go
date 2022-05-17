@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("Tokens", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Tokens", Ordered, Label(test.Slow), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv))
 

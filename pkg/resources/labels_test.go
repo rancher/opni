@@ -6,9 +6,10 @@ import (
 
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("Labels", Label("unit"), func() {
+var _ = Describe("Labels", Label(test.Unit), func() {
 	var labels resources.OpensearchLabels
 	When("creating an instance of OpensearchLabels", func() {
 		It("should contain only the app label", func() {

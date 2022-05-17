@@ -8,6 +8,7 @@ import (
 const (
 	Unit          = "unit"
 	Integration   = "integration"
+	Controller    = "controller"
 	E2E           = "e2e"
 	Slow          = "slow"
 	TimeSensitive = "time-sensitive"

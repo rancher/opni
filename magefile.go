@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -13,7 +14,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/jaypipes/ghw"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 
@@ -22,22 +22,17 @@ import (
 	"github.com/kralicky/spellbook/docker"
 
 	// mage:import
-	test "github.com/kralicky/spellbook/test/ginkgo"
-	// mage:import
 	"github.com/kralicky/spellbook/mockgen"
 	// mage:import
 	protobuf "github.com/kralicky/spellbook/protobuf/ragu"
 	// mage:import
 	"github.com/kralicky/spellbook/testbin"
-	// mage:import test
-	_ "github.com/rancher/opni/internal/mage/test"
 	// mage:import dev
 	_ "github.com/rancher/opni/internal/mage/dev"
 	// mage:import charts
 	_ "github.com/rancher/charts-build-scripts/pkg/actions"
-
-	"github.com/rancher/opni/pkg/test/testutil"
-	"github.com/rancher/opni/pkg/util"
+	// mage:import test
+	test "github.com/rancher/opni/internal/mage/test"
 )
 
 var Default = All
@@ -48,6 +43,10 @@ func All() {
 
 func Generate() {
 	mg.SerialDeps(protobuf.Protobuf, mockgen.Mockgen, ControllerGen)
+}
+
+func Test() {
+	mg.Deps(test.Test)
 }
 
 func ControllerGen() error {
@@ -195,26 +194,8 @@ func findProtos() []protobuf.Proto {
 	return protos
 }
 
-func SysInfo() {
-	fmt.Println("System Info:")
-	for _, proc := range util.Must(ghw.CPU()).Processors {
-		fmt.Printf(" %v (%d cores, %d threads)\n", proc.Model, proc.NumCores, proc.NumThreads)
-	}
-	fmt.Printf(" %v\n", util.Must(ghw.Topology()))
-	fmt.Printf(" %v\n", util.Must(ghw.Memory()))
-	fmt.Printf("CI Environment: %s\n", testutil.IfCI("yes").Else("no"))
-}
-
 func init() {
 	docker.Deps(build.Build)
-	test.Deps(testbin.Testbin, build.Build)
-	test.SerialDeps(SysInfo)
-
-	labelFilter := "!e2e"
-	if filter, ok := os.LookupEnv("GINKGO_LABEL_FILTER"); ok {
-		labelFilter = filter
-	}
-	test.Config.GinkgoArgs = append(test.Config.GinkgoArgs, "--label-filter="+labelFilter)
 
 	k8sVersion := k8sModuleVersion()
 

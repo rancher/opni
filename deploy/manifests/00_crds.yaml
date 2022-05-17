@@ -30646,7 +30646,7 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: opni-webhook-service
+          name: opni-webhook
           namespace: opni-system
           path: /convert
       conversionReviewVersions:
@@ -44790,7 +44790,7 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: opni-webhook-service
+          name: opni-webhook
           namespace: opni-system
           path: /convert
       conversionReviewVersions:
@@ -49380,7 +49380,7 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: opni-webhook-service
+          name: opni-webhook
           namespace: opni-system
           path: /convert
       conversionReviewVersions:
@@ -49535,7 +49535,7 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: opni-webhook-service
+          name: opni-webhook
           namespace: opni-system
           path: /convert
       conversionReviewVersions:

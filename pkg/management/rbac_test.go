@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("RBAC", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("RBAC", Ordered, Label(test.Slow), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv))
 

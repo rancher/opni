@@ -24,7 +24,7 @@ func (t testCapabilityDataSource) CapabilitiesStore() capabilities.BackendStore 
 	return t.store
 }
 
-var _ = Describe("Server", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Server", Ordered, Label(test.Slow), func() {
 	var tv *testVars
 	var capBackendStore capabilities.BackendStore
 	BeforeAll(func() {

@@ -22,7 +22,7 @@ func descriptorString(fqName, help string, constLabels, varLabels []string) stri
 	)
 }
 
-var _ = Describe("Collector", Ordered, Label(test.Unit), func() {
+var _ = Describe("Collector", Ordered, Label(test.Slow), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv))
 

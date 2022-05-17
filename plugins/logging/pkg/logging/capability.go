@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/rancher/opni/apis/v1beta2"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/resources"
@@ -102,6 +103,9 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 }
 
 func (p *Plugin) Uninstall(cluster *core.Reference) error {
+	var loggingCluster *v1beta2.LoggingCluster
+	var secret *corev1.Secret
+
 	loggingClusterList := &opniv1beta2.LoggingClusterList{}
 	if err := p.k8sClient.List(
 		p.ctx,
@@ -112,8 +116,11 @@ func (p *Plugin) Uninstall(cluster *core.Reference) error {
 		return ErrListingClustersFaled(err)
 	}
 
-	if len(loggingClusterList.Items) != 1 {
+	if len(loggingClusterList.Items) >= 1 {
 		return ErrDeleteClusterInvalidList(cluster.Id)
+	}
+	if len(loggingClusterList.Items) == 1 {
+		loggingCluster = &loggingClusterList.Items[0]
 	}
 
 	secretList := &corev1.SecretList{}
@@ -126,38 +133,43 @@ func (p *Plugin) Uninstall(cluster *core.Reference) error {
 		return ErrListingClustersFaled(err)
 	}
 
-	if len(secretList.Items) != 1 {
+	if len(secretList.Items) >= 1 {
 		return ErrDeleteClusterInvalidList(cluster.Id)
 	}
-
-	loggingCluster := loggingClusterList.Items[0]
-	secret := secretList.Items[0]
-	if err := p.k8sClient.Delete(p.ctx, &loggingCluster); err != nil {
-		return err
+	if len(secretList.Items) == 1 {
+		secret = &secretList.Items[0]
 	}
 
-	if err := p.k8sClient.Delete(p.ctx, &secret); err != nil {
-		// Try and be transactionally safe so recreate logging cluster
-		labels := map[string]string{
-			resources.OpniClusterID: cluster.Id,
+	if loggingCluster != nil {
+		if err := p.k8sClient.Delete(p.ctx, loggingCluster); err != nil {
+			return err
 		}
-		loggingCluster := &opniv1beta2.LoggingCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "logging-",
-				Namespace:    p.storageNamespace,
-				Labels:       labels,
-			},
-			Spec: opniv1beta2.LoggingClusterSpec{
-				IndexUserSecret: &corev1.LocalObjectReference{
-					Name: secret.Name,
-				},
-				OpensearchClusterRef: p.opensearchCluster,
-			},
-		}
-		// error doesn't matter at this point
-		p.k8sClient.Create(p.ctx, loggingCluster)
+	}
 
-		return err
+	if secret != nil {
+		if err := p.k8sClient.Delete(p.ctx, secret); err != nil {
+			// Try and be transactionally safe so recreate logging cluster
+			labels := map[string]string{
+				resources.OpniClusterID: cluster.Id,
+			}
+			loggingClusterCreate := &opniv1beta2.LoggingCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      loggingCluster.Name,
+					Namespace: p.storageNamespace,
+					Labels:    labels,
+				},
+				Spec: opniv1beta2.LoggingClusterSpec{
+					IndexUserSecret: &corev1.LocalObjectReference{
+						Name: secret.Name,
+					},
+					OpensearchClusterRef: p.opensearchCluster,
+				},
+			}
+			// error doesn't matter at this point
+			p.k8sClient.Create(p.ctx, loggingClusterCreate)
+
+			return err
+		}
 	}
 
 	return nil

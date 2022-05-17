@@ -123,6 +123,11 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				Enabled: util.Pointer(false),
 			},
 		},
+		Deployment: &grafanav1alpha1.GrafanaDeployment{
+			SecurityContext: &corev1.PodSecurityContext{
+				FSGroup: util.Pointer(int64(472)),
+			},
+		},
 		Ingress: &grafanav1alpha1.GrafanaIngress{
 			Enabled:       true,
 			Hostname:      grafanaHostname,

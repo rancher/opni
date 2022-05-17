@@ -3,30 +3,35 @@ package main
 
 import (
 	"github.com/rancher/opni/internal/ginkgo"
+	"strings"
 )
 
+testPackages: string @tag(packages)
+
 tests: ginkgo.#TestPlan & {
-	parallel: true
-	actions: {
+	Parallel: false
+	Actions: {
 		unit: ginkgo.#Run & {
-			packages: "./pkg/..."
-			cover: {
-				enabled: true
-				coverpkg: ["github.com/rancher/opni/pkg/..."]
-			}
+			_pkgs: strings.Split(testPackages, ",")
+			_filtered: [ for p in _pkgs if strings.HasPrefix(p, "./pkg/") {p}]
+			Packages: strings.Join(_filtered, ",")
 		}
-		controllers: ginkgo.#Run & {
-			packages: "./controllers"
-			cover: {
-				enabled: true
-				coverpkg: [
-					"github.com/rancher/opni/controllers",
-					"github.com/rancher/opni/pkg/resources/.../..."
-				]
-			}
+		controller: ginkgo.#Run & {
+			Packages: "./controllers"
+			Build: CoverPkg: "github.com/rancher/opni/controllers,github.com/rancher/opni/pkg/resources/.../..."
+		}
+		integration: ginkgo.#Run & {
+			Packages: "./test/functional/...,./test/integration/..."
+			Build: CoverPkg: "github.com/rancher/opni/pkg/agent,github.com/rancher/opni/pkg/gateway"
 		}
 	}
-	coverage: {
-		mergeReports: true
+	Coverage: {
+		MergeProfiles: true
+		ExcludePatterns: [
+			"**/*.pb.go",
+			"**/*.pb*.go",
+			"**/zz_*.go",
+			"pkg/test",
+		]
 	}
 }

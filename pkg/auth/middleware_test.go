@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/auth"
+	"github.com/rancher/opni/pkg/test"
 )
 
 type testMiddleware struct{}
@@ -13,7 +14,7 @@ func (tm *testMiddleware) Handle(ctx *fiber.Ctx) error {
 	return nil
 }
 
-var _ = Describe("Middleware", func() {
+var _ = Describe("Middleware", Label(test.Unit), func() {
 	AfterEach(func() {
 		auth.ResetMiddlewares()
 	})

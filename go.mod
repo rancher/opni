@@ -12,6 +12,7 @@ require (
 	github.com/banzaicloud/logging-operator v0.0.0-20220225205714-b06e7ad17676
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.19
 	github.com/banzaicloud/operator-tools v0.28.2
+	github.com/bmatcuk/doublestar/v4 v4.0.2
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cert-manager/cert-manager v1.8.0
 	github.com/cortexproject/cortex v1.12.0-rc.0.0.20220414211054-347aacd2c836
@@ -37,7 +38,7 @@ require (
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
-	github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6
+	github.com/kralicky/kmatch v0.0.0-20220516173937-745c3d52252c
 	github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f
 	github.com/kralicky/yaml/v3 v3.0.0-20220429180258-2353b970eeac
 	github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208
@@ -77,6 +78,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3
+	golang.org/x/tools v0.1.10
 	gonum.org/v1/gonum v0.11.0
 	google.golang.org/genproto v0.0.0-20220324131243-acbaeb5b85eb
 	google.golang.org/grpc v1.45.0
@@ -391,7 +393,6 @@ require (
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
-	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/api v0.74.0 // indirect

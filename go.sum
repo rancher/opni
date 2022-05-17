@@ -356,6 +356,8 @@ github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnweb
 github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM=
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
 github.com/bmatcuk/doublestar/v2 v2.0.3/go.mod h1:QMmcs3H2AUQICWhfzLXz+IYln8lRQmTZRptLie8RgRw=
+github.com/bmatcuk/doublestar/v4 v4.0.2 h1:X0krlUVAVmtr2cRoTqR8aDMrDqnB36ht8wpWTiQ3jsA=
+github.com/bmatcuk/doublestar/v4 v4.0.2/go.mod h1:xBQ8jztBU6kakFMg+8WGxn0c6z1fTSPVIjEY1Wr7jzc=
 github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 h1:DDGfHa7BWjL4YnC6+E63dPcxHo2sUxDIu8g3QgEJdRY=
 github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869/go.mod h1:Ekp36dRnpXw/yCqJaO+ZrUyxD+3VXMFFr56k5XYrpB4=
 github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40/go.mod h1:8rLXio+WjiTceGBHIoTvn60HIbs7Hm7bcHjyrSqYB9c=
@@ -1827,8 +1829,8 @@ github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc h1:wWH+
 github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc/go.mod h1:3s9VeWyad2dZ+vJ5PVgIHCl9s3Db7mJjePhmzspPGLo=
 github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a h1:I5tncrQ/dxOPY7jNN5hhubtkpvoIhz4qckT62C0kdTQ=
 github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a/go.mod h1:ie5ARlfZVi2fyaApaZ/5JFhIs5DaIIFKxwM6rjYa8SE=
-github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6 h1:2EyVCvuVcVMG+UIUUurmTIMkBsgC42stXr1gVqKxCLk=
-github.com/kralicky/kmatch v0.0.0-20210910033132-e5a80a7a45e6/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
+github.com/kralicky/kmatch v0.0.0-20220516173937-745c3d52252c h1:C5h3ICzBELWqdbTXm11QS0WdzwnEkMj46wDgJm0W0GQ=
+github.com/kralicky/kmatch v0.0.0-20220516173937-745c3d52252c/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
 github.com/kralicky/ragu v0.2.7-0.20220323195938-430b56cdb12d h1:j8i5dPhmzyvekFNQcpq7u5G2YZy7mk6Z8yyvzSXIiTk=
 github.com/kralicky/ragu v0.2.7-0.20220323195938-430b56cdb12d/go.mod h1:33HZuFG7OFfbpTANJUizr620IyAtBL5a//xy5fps66E=
 github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f h1:4RbsbrpC4vlwanS7WNoFpA+ujI4k6GlE/A5VYOVN2TY=

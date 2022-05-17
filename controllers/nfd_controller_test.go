@@ -7,10 +7,11 @@ import (
 	nfdv1 "github.com/kubernetes-sigs/node-feature-discovery-operator/api/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("NfdController", func() {
+var _ = Describe("NfdController", Ordered, Label(test.Controller), func() {
 	When("creating a NodeFeatureDiscovery", func() {
 		It("should succeed", func() {
 			nfd := &nfdv1.NodeFeatureDiscovery{

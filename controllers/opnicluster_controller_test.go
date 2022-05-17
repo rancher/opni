@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/rancher/opni/pkg/test"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -25,7 +26,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 )
 
-var _ = Describe("OpniCluster Controller", Label("controller"), func() {
+var _ = Describe("OpniCluster Controller", Ordered, Label(test.Controller), func() {
 	cluster := &v1beta2.OpniCluster{}
 
 	createCluster := func(c *v1beta2.OpniCluster) {

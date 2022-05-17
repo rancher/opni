@@ -9,6 +9,7 @@ import (
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/test"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +20,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 )
 
-var _ = Describe("LogAdapter Controller", Label("controller"), func() {
+var _ = Describe("LogAdapter Controller", Ordered, Label(test.Controller), func() {
 	var (
 		logadapter v1beta2.LogAdapter
 		cluster    v1beta2.OpniCluster
@@ -47,7 +48,8 @@ var _ = Describe("LogAdapter Controller", Label("controller"), func() {
 		k8sClient.Create(context.Background(), &cluster)
 		logadapter = v1beta2.LogAdapter{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test",
+				Name:      "test",
+				Namespace: testNs,
 			},
 			Spec: v1beta2.LogAdapterSpec{
 				Provider: v1beta2.LogProviderEKS,

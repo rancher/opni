@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var _ = Describe("Clusters", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Clusters", Ordered, Label(test.Slow), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv))
 

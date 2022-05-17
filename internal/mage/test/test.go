@@ -1,10 +1,10 @@
 package test
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"cuelang.org/go/cue"
@@ -15,8 +15,14 @@ import (
 	"github.com/kralicky/spellbook/testbin"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/onsi/ginkgo/v2/types"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
+	"golang.org/x/exp/slices"
+)
+
+const (
+	ginkgoPkg = "github.com/onsi/ginkgo/v2/ginkgo"
 )
 
 func SysInfo() {
@@ -29,109 +35,193 @@ func SysInfo() {
 	fmt.Printf("CI Environment: %s\n", testutil.IfCI("yes").Else("no"))
 }
 
+var actions []string
+
+func init() {
+	idx := slices.Index(os.Args, "test")
+	if idx != -1 {
+		actions = os.Args[idx+1:]
+		os.Args = os.Args[:idx+1]
+	}
+}
+
 func Test() error {
 	mg.Deps(testbin.Testbin, build.Build, SysInfo)
 
-	instances := load.Instances([]string{}, &load.Config{
-		Tags: []string{"test"},
+	rt, err := NewTestPlanRuntime()
+	if err != nil {
+		return err
+	}
+
+	return rt.Run(actions...)
+}
+
+type TestPlanSpec struct {
+	Parallel bool
+	Actions  map[string]RunSpec
+	Coverage CoverageSpec
+}
+
+type RunSpec struct {
+	Name     string
+	Packages string
+
+	Suite    *types.SuiteConfig
+	Build    *types.GoFlagsConfig
+	Run      *types.CLIConfig
+	Reporter *types.ReporterConfig
+}
+
+func (rs *RunSpec) CommandLine() (string, []string, error) {
+	flags := types.SuiteConfigFlags
+	flags = flags.CopyAppend(types.ReporterConfigFlags...)
+	flags = flags.CopyAppend(types.GinkgoCLISharedFlags...)
+	flags = flags.CopyAppend(types.GinkgoCLIRunAndWatchFlags...)
+	flags = flags.CopyAppend(types.GinkgoCLIRunFlags...)
+	flags = flags.CopyAppend(types.GoBuildFlags...)
+	flags = flags.CopyAppend(types.GoRunFlags...)
+
+	args, err := types.GenerateFlagArgs(flags, map[string]interface{}{
+		"S":  rs.Suite,
+		"R":  rs.Reporter,
+		"C":  rs.Run,
+		"Go": rs.Build,
 	})
-	cc := cuecontext.New()
+	if err != nil {
+		return "", nil, err
+	}
+	args = append(args, strings.Split(rs.Packages, ",")...)
+	return mg.GoCmd(), append([]string{"run", ginkgoPkg}, args...), nil
+}
+
+type CoverageSpec struct {
+	MergeProfiles     bool
+	MergedProfileName string
+	ExcludePatterns   []string
+}
+
+type TestPlanRuntime struct {
+	ctx          *cue.Context
+	spec         TestPlanSpec
+	testPackages []string
+}
+
+func NewTestPlanRuntime() (*TestPlanRuntime, error) {
+	pkgs, err := findTestPackages()
+	if err != nil {
+		return nil, err
+	}
+
+	instances := load.Instances([]string{}, &load.Config{
+		Tags: []string{
+			"test",
+			"packages=" + strings.Join(pkgs, ","),
+		},
+	})
 	if len(instances) != 1 {
-		return errors.New("expected 1 main package")
+		return nil, errors.New("expected 1 main package")
 	}
-	value := cc.BuildInstance(instances[0])
+	ctx := cuecontext.New()
+	value := ctx.BuildInstance(instances[0])
+
 	if err := value.Err(); err != nil {
-		return fmt.Errorf("cue compiler error: %w", err)
+		return nil, fmt.Errorf("cue compiler error: %w", err)
 	}
-	tests := value.LookupPath(cue.ParsePath("tests"))
-	if err := tests.Err(); err != nil {
-		return err
+
+	plan := value.LookupPath(cue.ParsePath("tests"))
+
+	var spec TestPlanSpec
+	if err := plan.Decode(&spec); err != nil {
+		return nil, fmt.Errorf("error decoding test plan: %w", err)
 	}
-	if err := tests.Validate(cue.Concrete(true)); err != nil {
-		return fmt.Errorf("cue validation error: %w", err)
+	return &TestPlanRuntime{
+		ctx:          ctx,
+		spec:         spec,
+		testPackages: pkgs,
+	}, nil
+}
+
+func (rt *TestPlanRuntime) Run(actions ...string) (testErr error) {
+	var once sync.Once
+	var wg sync.WaitGroup
+
+	if len(actions) > 0 {
+		fmt.Println("only running the following actions:", actions)
 	}
-	actions := tests.LookupPath(cue.ParsePath("actions"))
-	if err := actions.Err(); err != nil {
-		return err
-	}
-	parallel, err := tests.LookupPath(cue.ParsePath("parallel")).Bool()
-	if err != nil {
-		return err
-	}
-	iter, err := actions.Fields()
-	if err != nil {
-		return err
-	}
-	coverProfiles := []string{}
-	wg := sync.WaitGroup{}
-	var testErr error
-	for iter.Next() {
-		action := iter.Value()
-		command := action.LookupPath(cue.ParsePath("command"))
-		if err := command.Err(); err != nil {
-			return err
+
+	for _, run := range rt.spec.Actions {
+		if len(actions) > 0 && !slices.Contains(actions, run.Name) {
+			continue
 		}
-		cover := action.LookupPath(cue.ParsePath("cover"))
-		if err := cover.Err(); err == nil {
-			if enabled, err := cover.LookupPath(cue.ParsePath("enabled")).Bool(); err == nil && enabled {
-				profile, err := cover.LookupPath(cue.ParsePath("coverprofile")).String()
-				if err != nil {
-					return err
-				}
-				coverProfiles = append(coverProfiles, profile)
-			}
-		}
-		cmd := struct {
-			Name string
-			Args []string
-		}{}
-		if err := command.Decode(&cmd); err != nil {
-			return err
-		}
-		if parallel {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				testErr = sh.RunV(cmd.Name, cmd.Args...)
-			}()
-		} else {
-			testErr = sh.RunV(cmd.Name, cmd.Args...)
-		}
-	}
-	wg.Wait()
-	if testErr != nil {
-		return testErr
-	}
-	if len(coverProfiles) > 0 {
-		enabled, err := tests.LookupPath(cue.ParsePath("coverage.mergeReports")).Bool()
+		name, args, err := run.CommandLine()
 		if err != nil {
 			return err
 		}
-		wroteHeader := false
-		if enabled {
-			mergedCoverProfile, err := tests.LookupPath(cue.ParsePath("coverage.mergedCoverProfile")).String()
-			if err != nil {
-				return err
-			}
-			merged := new(bytes.Buffer)
-			for _, profile := range coverProfiles {
-				contents, err := os.ReadFile(profile)
+		if rt.spec.Parallel {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := sh.RunV(name, args...)
 				if err != nil {
-					return err
+					once.Do(func() {
+						testErr = err
+					})
 				}
-				header, rest, ok := bytes.Cut(contents, []byte("\n"))
-				if !ok {
-					return errors.New("failed to find header in coverprofile")
-				}
-				if !wroteHeader {
-					merged.Write(append(header, '\n'))
-					wroteHeader = true
-				}
-				merged.Write(rest)
-				os.Remove(profile)
+			}()
+		} else {
+			err := sh.RunV(name, args...)
+			if err != nil {
+				once.Do(func() {
+					testErr = err
+				})
 			}
-			os.WriteFile(mergedCoverProfile, merged.Bytes(), 0644)
 		}
 	}
-	return nil
+	wg.Wait()
+
+	// merge coverage profiles
+	coverProfiles := []string{}
+	for _, run := range rt.spec.Actions {
+		if len(actions) > 0 && !slices.Contains(actions, run.Name) {
+			continue
+		}
+		if run.Build.CoverProfile != "" {
+			coverProfiles = append(coverProfiles, run.Build.CoverProfile)
+		}
+	}
+	if len(coverProfiles) > 0 && rt.spec.Coverage.MergeProfiles {
+		mergedProfileName := rt.spec.Coverage.MergedProfileName
+		f, err := os.Create(mergedProfileName)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if err := testutil.MergeCoverProfiles(coverProfiles, f,
+			testutil.WithExcludePatterns(rt.spec.Coverage.ExcludePatterns...),
+		); err != nil {
+			return err
+		}
+	}
+
+	return
+}
+
+func findTestPackages() ([]string, error) {
+	out, err := sh.Output(mg.GoCmd(), "list", "-f",
+		`{{if (or .TestGoFiles .XTestGoFiles) }} {{.Dir}} {{end}}`,
+		"./...",
+	)
+	if err != nil {
+		return nil, err
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	dirs := strings.Split(out, "\n")
+	for i, dir := range dirs {
+		dirs[i] = strings.TrimSpace(strings.Replace(dir, cwd, ".", 1))
+	}
+
+	return dirs, nil
 }

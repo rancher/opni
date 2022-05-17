@@ -8,16 +8,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/apis/v1beta2"
+	"github.com/rancher/opni/pkg/test"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("GpuPolicyAdapter Controller", func() {
+var _ = Describe("GpuPolicyAdapter Controller", Ordered, Label(test.Controller), func() {
 	When("creating a GpuPolicyAdapter", func() {
 		It("should create a ClusterPolicy", func() {
 			adapter := &v1beta2.GpuPolicyAdapter{
 				ObjectMeta: v1.ObjectMeta{
-					Name:      "test",
-					Namespace: "default",
+					Name: "test",
 				},
 				Spec: v1beta2.GpuPolicyAdapterSpec{},
 			}
@@ -25,7 +25,7 @@ var _ = Describe("GpuPolicyAdapter Controller", func() {
 			Eventually(Object(&nvidiav1.ClusterPolicy{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "test",
-					Namespace: "default",
+					Namespace: adapter.Namespace,
 				},
 			})).Should(ExistAnd(HaveOwner(adapter)))
 		})

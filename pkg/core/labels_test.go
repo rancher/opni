@@ -6,9 +6,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/rancher/opni/pkg/core"
+	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("Labels", func() {
+var _ = Describe("Labels", Label(test.Unit), func() {
 	selector := &core.LabelSelector{
 		MatchLabels: map[string]string{
 			"foo": "bar",

@@ -4,10 +4,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 )
 
-var _ = Describe("Codecs", func() {
+var _ = Describe("Codecs", Label(test.Unit), func() {
 	Context("DelimiterCodec", func() {
 		It("should encode string slices with a delimiter", func() {
 			codec := util.NewDelimiterCodec("key", ",")

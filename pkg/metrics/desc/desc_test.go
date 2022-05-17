@@ -8,10 +8,11 @@ import (
 	client_model "github.com/prometheus/client_model/go"
 
 	"github.com/rancher/opni/pkg/metrics/desc"
+	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 )
 
-var _ = Describe("Desc", func() {
+var _ = Describe("Desc", Label(test.Unit), func() {
 	It("should convert between Desc types", func() {
 		d := &desc.Desc{
 			FQName: "foo",

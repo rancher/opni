@@ -1,12 +1,13 @@
 package ginkgo
 
 #TestPlan: {
-	parallel: bool | *false
-	actions: [action=string]: #Run & {
-		name: action
+	Parallel: bool | *false
+	Actions: [action=string]: #Run & {
+		Name: action
 	}
-	coverage: {
-		mergeReports: bool | *false
-		mergedCoverProfile: string | *"cover.out"
+	Coverage: {
+		MergeProfiles:     bool | *false
+		MergedProfileName: string | *"cover.out"
+		ExcludePatterns?: [...string]
 	}
 }

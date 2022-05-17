@@ -7,9 +7,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/rancher/opni/pkg/core"
+	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("Deep Copy", func() {
+var _ = Describe("Deep Copy", Label(test.Unit), func() {
 	It("should deep copy tokens", func() {
 		token := &core.BootstrapToken{
 			TokenID: "foo",

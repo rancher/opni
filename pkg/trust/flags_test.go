@@ -8,10 +8,11 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/rancher/opni/pkg/pkp"
+	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/trust"
 )
 
-var _ = Describe("Flags", func() {
+var _ = Describe("Flags", Label(test.Unit), func() {
 	It("should build the pkp strategy from flags", func() {
 		pin := pkp.NewSha256(newTestCert())
 		flagset := pflag.NewFlagSet("test", pflag.ContinueOnError)

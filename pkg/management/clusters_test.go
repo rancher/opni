@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/storage"
@@ -19,7 +20,14 @@ import (
 
 var _ = Describe("Clusters", Ordered, Label(test.Slow), func() {
 	var tv *testVars
-	BeforeAll(setupManagementServer(&tv))
+	var capBackendStore capabilities.BackendStore
+	BeforeAll(func() {
+		capBackendStore = capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, test.Log)
+
+		setupManagementServer(&tv, management.WithCapabilitiesDataSource(testCapabilityDataSource{
+			store: capBackendStore,
+		}))()
+	})
 
 	It("should initially have no clusters", func() {
 		clusters, err := tv.client.ListClusters(context.Background(), &management.ListClustersRequest{})

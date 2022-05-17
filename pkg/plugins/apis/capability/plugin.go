@@ -7,8 +7,6 @@ import (
 	core "github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/plugins"
 	"google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -21,6 +19,9 @@ type Backend interface {
 	// install the capability. This will be displayed to the user in the UI.
 	// See InstallerTemplateSpec above for the available template fields.
 	InstallerTemplate() string
+	// Should clean up any resources created by capability
+	// Errors are handled gracefully
+	Uninstall(cluster *core.Reference) error
 }
 
 const (
@@ -96,9 +97,13 @@ func (b *backendServerImpl) Install(
 
 func (b *backendServerImpl) Uninstall(
 	ctx context.Context,
-	in *emptypb.Empty,
+	in *UninstallRequest,
 ) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Uninstall not implemented")
+	err := b.impl.Uninstall(in.Cluster)
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
 func (b *backendServerImpl) InstallerTemplate(

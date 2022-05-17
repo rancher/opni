@@ -118,7 +118,7 @@ func (mr *MockBackendClientMockRecorder) InstallerTemplate(ctx, in interface{}, 
 }
 
 // Uninstall mocks base method.
-func (m *MockBackendClient) Uninstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (m *MockBackendClient) Uninstall(ctx context.Context, in *capability.UninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
@@ -221,7 +221,7 @@ func (mr *MockBackendServerMockRecorder) InstallerTemplate(arg0, arg1 interface{
 }
 
 // Uninstall mocks base method.
-func (m *MockBackendServer) Uninstall(arg0 context.Context, arg1 *emptypb.Empty) (*emptypb.Empty, error) {
+func (m *MockBackendServer) Uninstall(arg0 context.Context, arg1 *capability.UninstallRequest) (*emptypb.Empty, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Uninstall", arg0, arg1)
 	ret0, _ := ret[0].(*emptypb.Empty)

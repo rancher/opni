@@ -84,6 +84,10 @@ func (p *ExamplePlugin) Install(cluster *core.Reference) error {
 	return nil
 }
 
+func (p *ExamplePlugin) Uninstall(clustre *core.Reference) error {
+	return nil
+}
+
 func (p *ExamplePlugin) InstallerTemplate() string {
 	return `foo {{ arg "input" "Input" "+omitEmpty" "+default:default" "+format:--bar={{ value }}" }} ` +
 		`{{ arg "toggle" "Toggle" "+omitEmpty" "+default:false" "+format:--reticulateSplines" }} ` +

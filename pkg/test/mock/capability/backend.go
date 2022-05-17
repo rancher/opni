@@ -75,3 +75,17 @@ func (mr *MockBackendMockRecorder) InstallerTemplate() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstallerTemplate", reflect.TypeOf((*MockBackend)(nil).InstallerTemplate))
 }
+
+// Uninstall mocks base method.
+func (m *MockBackend) Uninstall(cluster *core.Reference) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Uninstall", cluster)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Uninstall indicates an expected call of Uninstall.
+func (mr *MockBackendMockRecorder) Uninstall(cluster interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Uninstall", reflect.TypeOf((*MockBackend)(nil).Uninstall), cluster)
+}

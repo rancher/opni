@@ -32,6 +32,20 @@ func (m *Server) DeleteCluster(
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
+	cluster, err := m.coreDataSource.StorageBackend().GetCluster(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	capabilities := cluster.GetMetadata().GetCapabilities()
+	var capabilityNames []string
+	for _, cap := range capabilities {
+		capabilityNames = append(capabilityNames, cap.Name)
+	}
+	err = m.capabilitiesDataSource.CapabilitiesStore().UninstallCapabilities(ref, capabilityNames...)
+	if err != nil {
+		return nil, err
+	}
+
 	return &emptypb.Empty{}, m.coreDataSource.StorageBackend().DeleteCluster(ctx, ref)
 }
 

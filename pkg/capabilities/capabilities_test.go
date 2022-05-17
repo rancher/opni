@@ -19,6 +19,7 @@ var _ = Describe("Capabilities", Label(test.Unit), func() {
 		Expect(backend.InstallerTemplate()).To(Equal("foo"))
 		Expect(backend.CanInstall()).To(Succeed())
 		Expect(backend.Install(nil)).To(Succeed())
+		Expect(backend.Uninstall(nil)).To(Succeed())
 
 		client = test.NewTestCapabilityBackendClient(ctrl, &test.CapabilityInfo{
 			Name:              "test2",

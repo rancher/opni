@@ -9,7 +9,7 @@ service Backend {
   rpc Info(google.protobuf.Empty) returns (InfoResponse);
   rpc CanInstall(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc Install(InstallRequest) returns (google.protobuf.Empty);
-  rpc Uninstall(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Uninstall(UninstallRequest) returns (google.protobuf.Empty);
   rpc InstallerTemplate(google.protobuf.Empty) returns (InstallerTemplateResponse);
 }
 
@@ -18,6 +18,10 @@ message InfoResponse {
 }
 
 message InstallRequest {
+  core.Reference cluster = 1;
+}
+
+message UninstallRequest {
   core.Reference cluster = 1;
 }
 

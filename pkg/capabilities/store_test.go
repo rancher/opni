@@ -158,4 +158,18 @@ var _ = Describe("Store", Ordered, Label(test.Unit), func() {
 
 		store.InstallCapabilities(&core.Reference{}, "capability1", "capability2")
 	})
+	It("should uninstall capabilities", func() {
+		backend1 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+			Name:       "capability1",
+			CanInstall: true,
+		})
+		backend2 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
+			Name:       "capability2",
+			CanInstall: false,
+		})
+		Expect(store.Add("capability1", backend1)).To(Succeed())
+		Expect(store.Add("capability2", backend2)).To(Succeed())
+
+		store.UninstallCapabilities(&core.Reference{}, "capability1", "capability2")
+	})
 })

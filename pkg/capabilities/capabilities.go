@@ -26,7 +26,7 @@ func Has[T core.MetadataAccessor[U], U core.Capability[U]](
 type Installer interface {
 	CanInstall(capabilities ...string) error
 	InstallCapabilities(target *core.Reference, capabilities ...string)
-	UninstallCapabilities(target *core.Reference, capabilities ...string)
+	UninstallCapabilities(target *core.Reference, capabilities ...string) error
 }
 
 type capabilityBackend struct {

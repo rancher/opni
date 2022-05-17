@@ -41,7 +41,11 @@ func (m *Server) DeleteCluster(
 	for _, cap := range capabilities {
 		capabilityNames = append(capabilityNames, cap.Name)
 	}
-	m.capabilitiesDataSource.CapabilitiesStore().UninstallCapabilities(ref, capabilityNames...)
+	err = m.capabilitiesDataSource.CapabilitiesStore().UninstallCapabilities(ref, capabilityNames...)
+	if err != nil {
+		return nil, err
+	}
+
 	return &emptypb.Empty{}, m.coreDataSource.StorageBackend().DeleteCluster(ctx, ref)
 }
 

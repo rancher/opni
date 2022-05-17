@@ -20,7 +20,7 @@ type BackendStore interface {
 	RenderInstaller(name string, spec UserInstallerTemplateSpec) (string, error)
 	CanInstall(capabilities ...string) error
 	InstallCapabilities(cluster *core.Reference, capabilities ...string)
-	UninstallCapabilities(cluster *core.Reference, capabilities ...string)
+	UninstallCapabilities(cluster *core.Reference, capabilities ...string) error
 }
 
 type backendStore struct {
@@ -124,7 +124,7 @@ func (s *backendStore) InstallCapabilities(
 func (s *backendStore) UninstallCapabilities(
 	cluster *core.Reference,
 	capabilities ...string,
-) {
+) error {
 	lg := s.logger.With(
 		"cluster", cluster.GetId(),
 	)
@@ -138,7 +138,9 @@ func (s *backendStore) UninstallCapabilities(
 			lg.With(
 				"capability", capability,
 				"error", err,
-			).Fatal("failed to uninstall capability")
+			).Error("failed to uninstall capability")
+			return err
 		}
 	}
+	return nil
 }

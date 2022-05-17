@@ -20,6 +20,7 @@ type Backend interface {
 	// See InstallerTemplateSpec above for the available template fields.
 	InstallerTemplate() string
 	// Should clean up any resources created by capability
+	// Errors are handled gracefully
 	Uninstall(cluster *core.Reference) error
 }
 

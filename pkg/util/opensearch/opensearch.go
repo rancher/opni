@@ -80,6 +80,7 @@ func NewReconciler(
 	}
 }
 
+// TODO Refactor into options function
 func newElasticsearchReconcilerWithTransport(ctx context.Context, namespace string, transport http.RoundTripper) *Reconciler {
 	esCfg := opensearch.Config{
 		Addresses: []string{
@@ -99,8 +100,9 @@ func newElasticsearchReconcilerWithTransport(ctx context.Context, namespace stri
 	kbClient, _ := kibana.NewClient(kbCfg)
 	esClient, _ := opensearch.NewClient(esCfg)
 	esExtendedclient := ExtendedClient{
-		Client: esClient,
-		ISM:    &ISMApi{Client: esClient},
+		Client:   esClient,
+		ISM:      &ISMApi{Client: esClient},
+		Security: &SecurityAPI{Client: esClient},
 	}
 	return &Reconciler{
 		osClient:     esExtendedclient,
@@ -481,6 +483,7 @@ func (r *Reconciler) ImportKibanaObjects(indexName string, docID string, version
 	return nil
 }
 
+// TODO check role content to see if role should be updated.
 func (r *Reconciler) shouldCreateRole(name string) (bool, error) {
 	resp, err := r.osClient.Security.GetRole(r.ctx, name)
 	if err != nil {

@@ -300,6 +300,12 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				defer errCtrl.DisableErrors()
 				Eventually(func() error {
 					_, err = ts.UpdateCluster(context.Background(), cluster.Reference(), func(c *core.Cluster) {
+						if c.Metadata == nil {
+							c.Metadata = &core.ClusterMetadata{}
+						}
+						if c.Metadata.Labels == nil {
+							c.Metadata.Labels = map[string]string{}
+						}
 						c.Metadata.Labels["foo"] = "bar"
 					})
 					return err

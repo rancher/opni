@@ -8,7 +8,7 @@ platform:
 steps:
   - name: login
     image: docker
-    env: &docker_env
+    environment: &docker_env
       DOCKER_USERNAME:
         from_secret: docker_username
       DOCKER_PASSWORD:

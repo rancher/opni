@@ -13,6 +13,11 @@ steps:
         from_secret: docker_username
       DOCKER_PASSWORD:
         from_secret: docker_password
+    volumes: &volumes
+      - name: docker
+        path: /var/run/docker.sock
+      - name: docker-config
+        path: /root/.docker
     commands:
       - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
   - name: build-and-package
@@ -25,9 +30,7 @@ steps:
       - apk add --no-cache curl
       - curl -sL https://dl.dagger.io/dagger/install.sh | sh
       - bin/dagger do build
-    volumes: &volumes
-      - name: docker
-        path: /var/run/docker.sock
+    volumes: *volumes
   - name: test
     image: docker
     environment:
@@ -134,3 +137,6 @@ volumes:
   - name: docker
     host:
       path: /var/run/docker.sock
+  - name: docker-config
+    host:
+      path: /root/.docker

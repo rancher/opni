@@ -24,8 +24,8 @@ steps:
     image: docker
     environment: &dagger_env
       DAGGER_LOG_FORMAT: "plain"
-      DAGGER_CACHE_FROM: type=registry,mode=max,ref=rancher/opni-buildkit-cache
-      DAGGER_CACHE_TO: type=registry,mode=max,ref=rancher/opni-buildkit-cache
+      # DAGGER_CACHE_FROM: type=registry,mode=max,ref=rancher/opni-buildkit-cache
+      # DAGGER_CACHE_TO: type=registry,mode=max,ref=rancher/opni-buildkit-cache
     commands:
       - apk add --no-cache curl
       - curl -sL https://dl.dagger.io/dagger/install.sh | sh

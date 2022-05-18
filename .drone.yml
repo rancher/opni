@@ -6,9 +6,18 @@ platform:
   os: linux
   arch: amd64
 steps:
+  - name: login
+    image: docker
+    env: &docker_env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
+    commands:
+      - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
   - name: build-and-package
     image: docker
-    environment: &env
+    environment: &dagger_env
       DAGGER_LOG_FORMAT: "plain"
       DAGGER_CACHE_FROM: type=registry,mode=max,ref=rancher/opni-buildkit-cache
       DAGGER_CACHE_TO: type=registry,mode=max,ref=rancher/opni-buildkit-cache
@@ -22,7 +31,7 @@ steps:
   - name: test
     image: docker
     environment:
-      <<: *env
+      <<: *dagger_env
     commands:
       - bin/dagger do test
     volumes: *volumes
@@ -43,11 +52,8 @@ steps:
   - name: publish-dockerhub-tag
     image: docker
     environment:
-      <<: *env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
+      <<: *dagger_env
+      <<: *docker_env
       TAG: ${DRONE_TAG}
     commands:
       - bin/dagger do push
@@ -63,11 +69,8 @@ steps:
   - name: publish-dockerhub-latest
     image: docker
     environment:
-      <<: *env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
+      <<: *dagger_env
+      <<: *docker_env
       TAG: latest
     commands:
       - bin/dagger do push
@@ -83,11 +86,8 @@ steps:
   - name: publish-dockerhub-main
     image: docker
     environment:
-      <<: *env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
+      <<: *dagger_env
+      <<: *docker_env
       TAG: main
     commands:
       - bin/dagger do push
@@ -102,11 +102,8 @@ steps:
   - name: publish-opensearch-dashboards-latest
     image: docker
     environment:
-      <<: *env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
+      <<: *dagger_env
+      <<: *docker_env
     commands:
       - bin/dagger do dashboards
     volumes: *volumes
@@ -120,11 +117,8 @@ steps:
   - name: publish-opensearch-dashboards-tag
     image: docker
     environment:
-      <<: *env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
+      <<: *dagger_env
+      <<: *docker_env
     commands:
       - bin/dagger do dashboards
     volumes: *volumes

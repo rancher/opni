@@ -16,7 +16,11 @@ steps:
       - apk add --no-cache curl
       - curl -sL https://dl.dagger.io/dagger/install.sh | sh
       - bin/dagger do build
-    volumes: *volumes
+    volumes: &volumes
+      - name: docker
+        path: /var/run/docker.sock
+      - name: docker-config
+        path: /root/.docker
   - name: test
     image: docker
     environment:
@@ -42,7 +46,10 @@ steps:
     image: docker
     environment:
       <<: *dagger_env
-      <<: *docker_env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
       TAG: ${DRONE_TAG}
     commands:
       - bin/dagger do push
@@ -59,7 +66,10 @@ steps:
     image: docker
     environment:
       <<: *dagger_env
-      <<: *docker_env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
       TAG: latest
     commands:
       - bin/dagger do push
@@ -76,7 +86,10 @@ steps:
     image: docker
     environment:
       <<: *dagger_env
-      <<: *docker_env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
       TAG: main
     commands:
       - bin/dagger do push
@@ -92,7 +105,10 @@ steps:
     image: docker
     environment:
       <<: *dagger_env
-      <<: *docker_env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
     commands:
       - bin/dagger do dashboards
     volumes: *volumes
@@ -107,7 +123,10 @@ steps:
     image: docker
     environment:
       <<: *dagger_env
-      <<: *docker_env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
     commands:
       - bin/dagger do dashboards
     volumes: *volumes

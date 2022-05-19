@@ -314,7 +314,7 @@ dagger.#Plan & {
 				]
 			}
 			push: docker.#Push & {
-				dest:  "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)-\(client.env.DASHBOARDS_VERSION)"
+				dest:  "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)-\(client.env.PLUGIN_VERSION)"
 				image: dashboards.build.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {

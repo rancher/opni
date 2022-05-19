@@ -6,20 +6,6 @@ platform:
   os: linux
   arch: amd64
 steps:
-  - name: login
-    image: docker
-    environment: &docker_env
-      DOCKER_USERNAME:
-        from_secret: docker_username
-      DOCKER_PASSWORD:
-        from_secret: docker_password
-    volumes: &volumes
-      - name: docker
-        path: /var/run/docker.sock
-      - name: docker-config
-        path: /root/.docker
-    commands:
-      - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
   - name: build-and-package
     image: docker
     environment: &dagger_env

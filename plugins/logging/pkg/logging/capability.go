@@ -116,7 +116,7 @@ func (p *Plugin) Uninstall(cluster *core.Reference) error {
 		return ErrListingClustersFaled(err)
 	}
 
-	if len(loggingClusterList.Items) >= 1 {
+	if len(loggingClusterList.Items) > 1 {
 		return ErrDeleteClusterInvalidList(cluster.Id)
 	}
 	if len(loggingClusterList.Items) == 1 {
@@ -133,7 +133,7 @@ func (p *Plugin) Uninstall(cluster *core.Reference) error {
 		return ErrListingClustersFaled(err)
 	}
 
-	if len(secretList.Items) >= 1 {
+	if len(secretList.Items) > 1 {
 		return ErrDeleteClusterInvalidList(cluster.Id)
 	}
 	if len(secretList.Items) == 1 {

@@ -1,0 +1,42 @@
+#{{- if gt (len (lookup "rbac.authorization.k8s.io/v1" "ClusterRole" "" "")) 0 -}}
+# {{- $found := dict -}}
+# {{- set $found "opni.io/v1beta2/BootstrapToken" false -}}
+# {{- set $found "logging.opni.io/v1alpha1/ClusterFlow" false -}}
+# {{- set $found "logging.opni.io/v1alpha1/ClusterOutput" false -}}
+# {{- set $found "nvidia.opni.io/v1/ClusterPolicy" false -}}
+# {{- set $found "opni.io/v1beta2/Cluster" false -}}
+# {{- set $found "opni.io/v1beta2/DataPrepper" false -}}
+# {{- set $found "logging.opni.io/v1alpha1/Flow" false -}}
+# {{- set $found "opni.io/v1beta2/Gateway" false -}}
+# {{- set $found "opni.io/v1beta1/GpuPolicyAdapter" false -}}
+# {{- set $found "grafana.opni.io/v1alpha1/GrafanaDashboard" false -}}
+# {{- set $found "grafana.opni.io/v1alpha1/GrafanaDataSource" false -}}
+# {{- set $found "grafana.opni.io/v1alpha1/GrafanaNotificationChannel" false -}}
+# {{- set $found "grafana.opni.io/v1alpha1/Grafana" false -}}
+# {{- set $found "opni.io/v1beta2/Keyring" false -}}
+# {{- set $found "opni.io/v1beta1/LogAdapter" false -}}
+# {{- set $found "opni.io/v1beta2/LoggingClusterBinding" false -}}
+# {{- set $found "opni.io/v1beta2/LoggingCluster" false -}}
+# {{- set $found "logging.opni.io/v1alpha1/Logging" false -}}
+# {{- set $found "opni.io/v1beta2/MonitoringCluster" false -}}
+# {{- set $found "opni.io/v1beta2/MulticlusterRoleBinding" false -}}
+# {{- set $found "opni.io/v1beta2/MulticlusterUser" false -}}
+# {{- set $found "nfd.opni.io/v1/NodeFeatureDiscovery" false -}}
+# {{- set $found "opensearch.opster.io/v1/OpenSearchCluster" false -}}
+# {{- set $found "opni.io/v1beta1/OpniCluster" false -}}
+# {{- set $found "demo.opni.io/v1alpha1/OpniDemo" false -}}
+# {{- set $found "logging.opni.io/v1alpha1/Output" false -}}
+# {{- set $found "opni.io/v1beta1/PretrainedModel" false -}}
+# {{- set $found "opni.io/v1beta2/RoleBinding" false -}}
+# {{- set $found "opni.io/v1beta2/Role" false -}}
+# {{- range .Capabilities.APIVersions -}}
+# {{- if hasKey $found (toString .) -}}
+# 	{{- set $found (toString .) true -}}
+# {{- end -}}
+# {{- end -}}
+# {{- range $_, $exists := $found -}}
+# {{- if (eq $exists false) -}}
+# 	{{- required "Required CRDs are missing. Please install the corresponding CRD chart before installing this chart." "" -}}
+# {{- end -}}
+# {{- end -}}
+#{{- end -}}

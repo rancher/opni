@@ -1,0 +1,26 @@
+{{- if (and .Values.token .Values.metrics.enabled) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: agent-config
+  namespace: {{ include "opni-agent.namespace" . }}
+  labels:
+    {{- include "opni-agent.labels" . | nindent 4 }}
+stringData:
+  config.yaml: |-
+    apiVersion: v1beta1
+    kind: AgentConfig
+    spec:
+      gatewayAddress: {{ .Values.address }}
+      identityProvider: kubernetes
+      listenAddress: :8080
+      trustStrategy: {{ .Values.metrics.insecure | ternary "insecure" "pkp" }}
+      rules:
+        discovery:
+          prometheusRules: {}
+      storage:
+        type: customResources
+      bootstrap:
+        token: {{ .Values.token }}
+        pins: [{{ .Values.pin }}]
+{{- end }}

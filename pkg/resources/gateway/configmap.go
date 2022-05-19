@@ -78,10 +78,15 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 		apSpec.Type = cfgv1beta1.AuthProviderNoAuth
 		issuer := fmt.Sprintf("http://%s:4000/oauth2", r.gw.Spec.Hostname)
 		r.gw.Spec.Auth.Noauth = &noauth.ServerConfig{
-			Issuer:                issuer,
-			ClientID:              "grafana",
-			ClientSecret:          "noauth",
-			RedirectURI:           fmt.Sprintf("https://%s/generic_oauth", r.gw.Spec.Auth.Noauth.GrafanaHostname),
+			Issuer:       issuer,
+			ClientID:     "grafana",
+			ClientSecret: "noauth",
+			RedirectURI: func() string {
+				if r.gw.Spec.Auth.Noauth != nil {
+					return fmt.Sprintf("https://%s/generic_oauth", r.gw.Spec.Auth.Noauth.GrafanaHostname)
+				}
+				return fmt.Sprintf("https://grafana.%s/generic_oauth", r.gw.Spec.Hostname)
+			}(),
 			ManagementAPIEndpoint: "opni-monitoring-internal:11090",
 			Port:                  4000,
 			OpenID: openid.OpenidConfig{

@@ -1,0 +1,34 @@
+{{- if .Values.ai.enabled }}
+apiVersion: opni.io/v1beta2
+kind: OpniCluster
+metadata:
+  name: opni
+  namespace: {{ include "opni.namespace" . }}
+spec:
+  version: v{{ .Chart.AppVersion }}
+  deployLogCollector: false
+  services:
+    payloadReceiver:
+      enabled: false
+    gpuController:
+      enabled: false
+    inference:
+      enabled: true
+      pretrainedModels:
+      - name: control-plane
+    metrics:
+      enabled: false
+    opensearchFetcher:
+      enabled: true
+  opensearch:
+    externalOpensearch:
+      name: opni
+      namespace: {{ include "opni.namespace" . }}
+    enableLogIndexManagement: true
+{{- with .Values.ai.s3 }}
+  s3:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
+  nats:
+    authMethod: nkey
+{{- end }}

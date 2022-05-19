@@ -288,7 +288,6 @@ func createOpniClusterFlow(ctx context.Context, clusterID string) error {
 }
 
 func createLogAdapter(ctx context.Context) error {
-	i := 1
 	lga := &v1beta2.LogAdapter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-logging",
@@ -298,19 +297,13 @@ func createLogAdapter(ctx context.Context) error {
 			Provider: v1beta2.LogProvider(provider),
 		},
 	}
-	for {
-		err := k8sClient.Create(ctx, lga)
-		if err == nil {
-			return nil
-		}
-		// TODO: fix k8s apiserver and check for webserver error instead
-		retryBackoff := backoff.NewExponentialBackOff()
-		if i == 5 {
-			return err
-		}
-		time.Sleep(retryBackoff.NextBackOff())
-		i += 1
-	}
+	retryBackoff := backoff.NewExponentialBackOff()
+	retryBackoff.InitialInterval = time.Second
+	retryBackoff.MaxElapsedTime = 5 * time.Minute
+
+	return backoff.Retry(func() error {
+		return k8sClient.Create(ctx, lga)
+	}, retryBackoff)
 
 }
 

@@ -100,7 +100,7 @@ rules:
   - patch
   - update
   - watch
-  - apiGroups:
+- apiGroups:
   - policy
   resources:
   - podsecuritypolicies

@@ -25,7 +25,7 @@ dagger.#Plan & {
 			OPNI_UI_BRANCH:      string | *"main"
 			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
 			DASHBOARDS_VERSION:  string | *"1.3.1"
-			PLUGIN_VERSION:      string | *"0.4.1"
+			PLUGIN_VERSION:      string | *"0.4.2"
 			DOCKER_USERNAME?:    string
 			DOCKER_PASSWORD?:    dagger.#Secret
 		}
@@ -314,7 +314,7 @@ dagger.#Plan & {
 				]
 			}
 			push: docker.#Push & {
-				dest:  "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)"
+				dest:  "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)-\(client.env.DASHBOARDS_VERSION)"
 				image: dashboards.build.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {

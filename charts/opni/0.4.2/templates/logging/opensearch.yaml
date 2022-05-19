@@ -19,7 +19,7 @@ spec:
     enable: true
     version: {{ .Values.logging.dashboards.version }}
     replicas: {{ .Values.logging.dashboards.replicas }}
-    image: "{{ template "system_default_registry" . }}{{ .Values.logging.dashboards.image.repository }}:{{ .Values.logging.dashboards.version }}"
+    image: "{{ template "system_default_registry" . }}{{ .Values.logging.dashboards.image.repository }}:{{ .Values.logging.dashboards.version }}-{{ .Chart.AppVersion }}"
   nodePools:
   - component: master
     replicas: {{ .Values.logging.opensearch.controlplane.replicas }}

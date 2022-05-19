@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: rancher/opni
   pullPolicy: Always
-  tag: "v0.4.1"
+  tag: "latest"
 
 imagePullSecrets: []
 nameOverride: ""

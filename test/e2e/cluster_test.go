@@ -56,7 +56,7 @@ func queryAnomalyCountWithExtendedClient(esClient *opensearchutil.ExtendedClient
 	return countResp.Count, nil
 }
 
-var _ = Describe("OpniCluster E2E Test", Label(test.E2E), func() {
+var _ = XDescribe("OpniCluster E2E Test", Label(test.E2E), func() {
 	var (
 		pretrained  v1beta2.PretrainedModel
 		logadapter  v1beta2.LogAdapter

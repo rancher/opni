@@ -8,6 +8,7 @@ import (
 #Run: #RunConfig & {
 	Name:     string
 	Packages: string
+	Explicit: bool | *false
 
 	Suite: {
 		RandomSeed:            int64 | *0

@@ -24,6 +24,10 @@ tests: ginkgo.#TestPlan & {
 			Packages: "./test/functional/...,./test/integration/..."
 			Build: CoverPkg: "github.com/rancher/opni/pkg/agent,github.com/rancher/opni/pkg/gateway"
 		}
+		e2e: ginkgo.#Run & {
+			Packages: "./test/e2e/..."
+			Explicit: true
+		}
 	}
 	Coverage: {
 		MergeProfiles: true

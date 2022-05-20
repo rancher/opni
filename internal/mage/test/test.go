@@ -76,6 +76,7 @@ type TestPlanSpec struct {
 type RunSpec struct {
 	Name     string
 	Packages string
+	Explicit bool
 
 	Suite    *types.SuiteConfig
 	Build    *types.GoFlagsConfig
@@ -161,7 +162,11 @@ func (rt *TestPlanRuntime) Run(actions ...string) (testErr error) {
 	}
 
 	for _, run := range rt.spec.Actions {
-		if len(actions) > 0 && !slices.Contains(actions, run.Name) {
+		if len(actions) > 0 {
+			if !slices.Contains(actions, run.Name) {
+				continue
+			}
+		} else if run.Explicit {
 			continue
 		}
 		name, args, err := run.CommandLine()

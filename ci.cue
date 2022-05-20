@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
 	"github.com/rancher/opni/internal/util"
+	"universe.dagger.io/x/ezequiel@foncubierta.com/terraform"
 )
 
 dagger.#Plan & {
@@ -32,6 +33,7 @@ dagger.#Plan & {
 			DOCKER_PASSWORD?:    dagger.#Secret
 		}
 		filesystem: {
+			"dev/terraform.tfvars.json": read: contents: dagger.#Secret
 			".": read: {
 				contents: dagger.#FS
 				exclude: [
@@ -191,17 +193,60 @@ dagger.#Plan & {
 		}
 
 		// Run end-to-end tests
-		e2e: mage.#Run & {
-			input: build.output
-			mageArgs: ["-v", "e2e"]
-			always: true
-			env: {
-				if client.env.KUBECONFIG != "" {
-					"KUBECONFIG": client.env.KUBECONFIG
+		e2e: {
+			_secrets: _
+			_vars:    client.filesystem."dev/terraform.tfvars.json".read.contents
+			if _vars != _|_ {
+				_decoded: core.#DecodeSecret & {
+					input:  _vars
+					format: "json"
 				}
-				if client.env.GINKGO_LABEL_FILTER != "" {
-					"GINKGO_LABEL_FILTER": client.env.GINKGO_LABEL_FILTER
+				_secrets: {
+					TF_VAR_rancher_api_url:   _decoded.output.rancher_api_url.contents
+					TF_VAR_rancher_api_token: _decoded.output.rancher_api_token.contents
+					TF_VAR_rancher_ssh_key:   _decoded.output.rancher_ssh_key.contents
+					TF_VAR_aws_access_key:    _decoded.output.aws_access_key.contents
+					TF_VAR_aws_secret_key:    _decoded.output.aws_secret_key.contents
 				}
+			}
+
+			_src: core.#Subdir & {
+				input: client.filesystem.".".read.contents
+				path:  "test/tf"
+			}
+
+			plan: terraform.#Plan & {
+				source: _src.output
+				env:    _secrets
+			}
+
+			apply: terraform.#Apply & {
+				source: plan.output
+				env:    _secrets
+			}
+
+			_testImage: docker.#Build & {
+				steps: [
+					docker.#Copy & {
+						input:    build.output
+						dest:     "/src"
+						contents: apply.output
+					},
+				]
+			}
+
+			test: mage.#Run & {
+				input: _testImage.output
+				mageArgs: ["-v", "test", "e2e"]
+				always: true
+				env: {
+					KUBECONFIG: "/src/kubeconfig.yaml"
+				}
+			}
+
+			destroy: terraform.#Destroy & {
+				source: _src.output
+				env:    _secrets
 			}
 		}
 

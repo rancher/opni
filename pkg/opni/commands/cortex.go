@@ -25,6 +25,7 @@ import (
 func BuildCortexCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "cortex",
+		Hidden:             true,
 		Short:              "embedded cortex",
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {

@@ -3,7 +3,6 @@ package common
 import (
 	"fmt"
 	"os"
-	"time"
 
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"k8s.io/client-go/rest"
@@ -16,7 +15,6 @@ import (
 // in by the root command using persistent flags.
 
 var (
-	TimeoutFlagValue         time.Duration
 	NamespaceFlagValue       string
 	ContextOverrideFlagValue string
 	ExplicitPathFlagValue    string
@@ -26,21 +24,7 @@ var (
 )
 
 const (
-	DefaultOpniNamespace                  = "opni-system"
-	DefaultOpniDemoName                   = "opni-demo"
-	DefaultOpniDemoNamespace              = "opni-demo"
-	DefaultOpniDemoMinioAccessKey         = "minioadmin"
-	DefaultOpniDemoMinioSecretKey         = "minioadmin"
-	DefaultOpniDemoMinioVersion           = "8.0.10"
-	DefaultOpniDemoNatsVersion            = "2.2.1"
-	DefaultOpniDemoNatsPassword           = "password"
-	DefaultOpniDemoNatsReplicas           = 3
-	DefaultOpniDemoNatsMaxPayload         = 10485760
-	DefaultOpniDemoNvidiaVersion          = "1.0.0-beta6"
-	DefaultOpniDemoElasticUser            = "admin"
-	DefaultOpniDemoElasticPassword        = "admin"
-	DefaultOpniDemoNulogServiceCPURequest = "1"
-	DefaultOpniDemoQuickstart             = false
+	DefaultOpniNamespace = "opni-system"
 )
 
 // MaybeContextOverride will return 0 or 1 ClientOptions, depending on if the

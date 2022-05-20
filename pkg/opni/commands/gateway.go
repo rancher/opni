@@ -134,8 +134,9 @@ func BuildGatewayCmd() *cobra.Command {
 	}
 
 	serveCmd := &cobra.Command{
-		Use:   "gateway",
-		Short: "Run the Opni Monitoring Gateway",
+		Use:    "gateway",
+		Hidden: true,
+		Short:  "Run the Opni Monitoring Gateway",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for {
 				if err := run(); err != nil {

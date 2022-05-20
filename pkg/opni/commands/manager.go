@@ -47,8 +47,9 @@ func BuildManagerCmd() *cobra.Command {
 		logLevel             string
 	)
 	cmd := &cobra.Command{
-		Use:   "manager",
-		Short: "Run the Opni Manager",
+		Use:    "manager",
+		Hidden: true,
+		Short:  "Run the Opni Manager",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if echoVersion {
 				fmt.Println(Version)

@@ -42,8 +42,9 @@ var (
 
 func BuildAgentCmd() *cobra.Command {
 	agentCmd := &cobra.Command{
-		Use:   "agent",
-		Short: "Run the Opni Monitoring Agent",
+		Use:    "agent",
+		Hidden: true,
+		Short:  "Run the Opni Monitoring Agent",
 		Long: `The client component of the opni gateway, used to proxy the prometheus
 agent remote-write requests to add dynamic authentication.`,
 		Run: func(cmd *cobra.Command, args []string) {

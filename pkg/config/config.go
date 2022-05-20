@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -68,6 +69,17 @@ func LoadObject(document []byte) (meta.Object, error) {
 		return nil, fmt.Errorf("failed to decode object: %w", err)
 	}
 	return object, nil
+}
+
+func DecodeDocument[T meta.Object](document []byte) (T, error) {
+	object, err := LoadObject(document)
+	if err != nil {
+		return lo.Empty[T](), err
+	}
+	if typedObject, ok := object.(T); ok {
+		return typedObject, nil
+	}
+	return lo.Empty[T](), fmt.Errorf("object is not of type %T", lo.Empty[T]())
 }
 
 func decodeObject(typeMeta meta.TypeMeta, document []byte) (meta.Object, error) {

@@ -131,9 +131,11 @@ func WithSampling(cfg *zap.SamplingConfig) LoggerOption {
 	}
 }
 
+var DefaultLogLevel = zap.NewAtomicLevelAt(zap.DebugLevel)
+
 func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	options := &LoggerOptions{
-		logLevel: zap.DebugLevel,
+		logLevel: DefaultLogLevel.Level(),
 	}
 	if testutil.IsTesting {
 		options.writer = ginkgo.GinkgoWriter

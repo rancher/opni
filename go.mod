@@ -40,7 +40,7 @@ require (
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
 	github.com/kralicky/kmatch v0.0.0-20220516173937-745c3d52252c
 	github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f
-	github.com/kralicky/yaml/v3 v3.0.0-20220429180258-2353b970eeac
+	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
 	github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208
 	github.com/lestrrat-go/backoff/v2 v2.0.8
 	github.com/lestrrat-go/jwx v1.2.23

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"reflect"
 	"time"
 
 	"github.com/cortexproject/cortex/pkg/alertmanager"
@@ -28,6 +29,12 @@ import (
 	"github.com/cortexproject/cortex/pkg/ruler"
 	"github.com/cortexproject/cortex/pkg/ruler/rulestore"
 	"github.com/cortexproject/cortex/pkg/storage/bucket"
+	"github.com/cortexproject/cortex/pkg/storage/bucket/azure"
+	"github.com/cortexproject/cortex/pkg/storage/bucket/filesystem"
+	"github.com/cortexproject/cortex/pkg/storage/bucket/gcs"
+	bucket_http "github.com/cortexproject/cortex/pkg/storage/bucket/http"
+	"github.com/cortexproject/cortex/pkg/storage/bucket/s3"
+	"github.com/cortexproject/cortex/pkg/storage/bucket/swift"
 	"github.com/cortexproject/cortex/pkg/storage/tsdb"
 	"github.com/cortexproject/cortex/pkg/storegateway"
 	"github.com/cortexproject/cortex/pkg/util/flagext"
@@ -36,6 +43,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/tls"
 	kyamlv3 "github.com/kralicky/yaml/v3"
 	"github.com/prometheus/node_exporter/https"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/weaveworks/common/logging"
@@ -44,6 +52,40 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+func bucketHttpConfig(spec v1beta2.HTTPConfig) bucket_http.Config {
+	return bucket_http.Config{
+		IdleConnTimeout:       spec.IdleConnTimeout,
+		ResponseHeaderTimeout: spec.ResponseHeaderTimeout,
+		InsecureSkipVerify:    spec.InsecureSkipVerify,
+		TLSHandshakeTimeout:   spec.TLSHandshakeTimeout,
+		ExpectContinueTimeout: spec.ExpectContinueTimeout,
+		MaxIdleConns:          spec.MaxIdleConns,
+		MaxIdleConnsPerHost:   spec.MaxIdleConnsPerHost,
+		MaxConnsPerHost:       spec.MaxConnsPerHost,
+	}
+}
+
+func valueOrDefault[T any](t *T) (_ T) {
+	if t == nil {
+		return
+	}
+	return *t
+}
+
+type overrideMarshaler[T kyamlv3.Marshaler] struct {
+	fn func(T) (interface{}, error)
+}
+
+func (m *overrideMarshaler[T]) MarshalYAML(v interface{}) (interface{}, error) {
+	return m.fn(v.(T))
+}
+
+func newOverrideMarshaler[T kyamlv3.Marshaler](fn func(T) (interface{}, error)) *overrideMarshaler[T] {
+	return &overrideMarshaler[T]{
+		fn: fn,
+	}
+}
 
 func (r *Reconciler) config() (resources.Resource, error) {
 	if !r.mc.Spec.Cortex.Enabled {
@@ -56,9 +98,72 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		}), nil
 	}
 
-	storageConfig, err := util.DecodeStruct[bucket.Config](r.mc.Spec.Cortex.Storage)
-	if err != nil {
-		return nil, err
+	s3Spec := valueOrDefault(r.mc.Spec.Cortex.Storage.S3)
+	gcsSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.GCS)
+	azureSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.Azure)
+	swiftSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.Swift)
+	filesystemSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.Filesystem)
+
+	storageConfig := bucket.Config{
+		Backend: string(r.mc.Spec.Cortex.Storage.Backend),
+		S3: s3.Config{
+			Endpoint:   s3Spec.Endpoint,
+			Region:     s3Spec.Region,
+			BucketName: s3Spec.BucketName,
+			SecretAccessKey: flagext.Secret{
+				Value: s3Spec.SecretAccessKey,
+			},
+			AccessKeyID:      s3Spec.AccessKeyID,
+			Insecure:         s3Spec.Insecure,
+			SignatureVersion: s3Spec.SignatureVersion,
+			SSE: s3.SSEConfig{
+				Type:                 s3Spec.SSE.Type,
+				KMSKeyID:             s3Spec.SSE.KMSKeyID,
+				KMSEncryptionContext: s3Spec.SSE.KMSEncryptionContext,
+			},
+			HTTP: s3.HTTPConfig{
+				Config: bucketHttpConfig(s3Spec.HTTP),
+			},
+		},
+		GCS: gcs.Config{
+			BucketName: gcsSpec.BucketName,
+			ServiceAccount: flagext.Secret{
+				Value: gcsSpec.ServiceAccount,
+			},
+		},
+		Azure: azure.Config{
+			StorageAccountName: azureSpec.StorageAccountName,
+			StorageAccountKey: flagext.Secret{
+				Value: azureSpec.StorageAccountKey,
+			},
+			ContainerName: azureSpec.ContainerName,
+			Endpoint:      azureSpec.Endpoint,
+			MaxRetries:    azureSpec.MaxRetries,
+			Config:        bucketHttpConfig(azureSpec.HTTP),
+		},
+		Swift: swift.Config{
+			AuthVersion:       swiftSpec.AuthVersion,
+			AuthURL:           swiftSpec.AuthURL,
+			Username:          swiftSpec.Username,
+			UserDomainName:    swiftSpec.UserDomainName,
+			UserDomainID:      swiftSpec.UserDomainID,
+			UserID:            swiftSpec.UserID,
+			Password:          swiftSpec.Password,
+			DomainID:          swiftSpec.DomainID,
+			DomainName:        swiftSpec.DomainName,
+			ProjectID:         swiftSpec.ProjectID,
+			ProjectName:       swiftSpec.ProjectName,
+			ProjectDomainID:   swiftSpec.ProjectDomainID,
+			ProjectDomainName: swiftSpec.ProjectDomainName,
+			RegionName:        swiftSpec.RegionName,
+			ContainerName:     swiftSpec.ContainerName,
+			MaxRetries:        swiftSpec.MaxRetries,
+			ConnectTimeout:    swiftSpec.ConnectTimeout,
+			RequestTimeout:    swiftSpec.RequestTimeout,
+		},
+		Filesystem: filesystem.Config{
+			Directory: filesystemSpec.Directory,
+		},
 	}
 	logLevel := logging.Level{}
 	level := r.mc.Spec.Cortex.LogLevel
@@ -130,7 +235,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			TSDB: tsdb.TSDBConfig{
 				Dir: "/data/tsdb",
 			},
-			Bucket: *storageConfig,
+			Bucket: storageConfig,
 			BucketStore: tsdb.BucketStoreConfig{
 				BucketIndex: tsdb.BucketIndexConfig{
 					Enabled: true,
@@ -139,7 +244,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		RulerStorage: rulestore.Config{
-			Config: *storageConfig,
+			Config: storageConfig,
 		},
 
 		RuntimeConfig: runtimeconfig.Config{
@@ -165,7 +270,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		AlertmanagerStorage: alertstore.Config{
-			Config: *storageConfig,
+			Config: storageConfig,
 		},
 
 		Compactor: compactor.Config{
@@ -254,7 +359,12 @@ func (r *Reconciler) config() (resources.Resource, error) {
 	buf := new(bytes.Buffer)
 	encoder := kyamlv3.NewEncoder(buf)
 	encoder.SetAlwaysOmitEmpty(true)
-	err = encoder.Encode(config)
+	encoder.OverrideMarshalerForType(reflect.TypeOf(flagext.Secret{}),
+		newOverrideMarshaler(func(s flagext.Secret) (any, error) {
+			return s.Value, nil
+		}),
+	)
+	err := encoder.Encode(config)
 	if err != nil {
 		return nil, err
 	}

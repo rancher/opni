@@ -2,7 +2,9 @@ package opensearch
 
 import (
 	"context"
+	"encoding/json"
 	"log"
+	"net/http"
 
 	"github.com/jarcoal/httpmock"
 	. "github.com/onsi/ginkgo/v2"
@@ -12,7 +14,7 @@ import (
 	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 )
 
-var _ = Describe("Indices", Label(test.Unit), func() {
+var _ = Describe("Opensearch", Label(test.Unit), func() {
 	var (
 		reconciler *Reconciler
 		transport  *httpmock.MockTransport
@@ -457,6 +459,212 @@ var _ = Describe("Indices", Label(test.Unit), func() {
 					return err
 				}()).To(BeNil())
 				// Confirm all responders have been called
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+		})
+	})
+	Context("reconciling security objects", func() {
+		var (
+			role  opensearchapiext.RoleSpec
+			user  opensearchapiext.UserSpec
+			users []string
+		)
+		BeforeEach(func() {
+			role = opensearchapiext.RoleSpec{
+				RoleName: "test_role",
+				ClusterPermissions: []string{
+					"cluster_composite_ops_ro",
+				},
+				IndexPermissions: []opensearchapiext.IndexPermissionSpec{
+					{
+						IndexPatterns: []string{
+							"logs*",
+						},
+						AllowedActions: []string{
+							"read",
+							"search",
+						},
+					},
+				},
+			}
+			user = opensearchapiext.UserSpec{
+				UserName: "test",
+				Password: "test",
+			}
+			// roleMapping = map[string]opensearchapiext.RoleMappingSpec{
+			// 	role.RoleName: opensearchapiext.RoleMappingSpec{
+			// 		Users: []string{
+			// 			user.UserName,
+			// 		},
+			// 	},
+			// }
+		})
+		When("role does not exist", func() {
+			It("should the role", func() {
+				transport.RegisterResponder(
+					"GET",
+					"https://opni-es-client.test:9200/_plugins/_security/api/roles/test_role",
+					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
+				)
+				transport.RegisterResponder(
+					"PUT",
+					"https://opni-es-client.test:9200/_plugins/_security/api/roles/test_role",
+					httpmock.NewStringResponder(200, `{"status": "created"}`).Once(),
+				)
+				Expect(func() error {
+					err := reconciler.MaybeCreateRole(role)
+					if err != nil {
+						log.Println(err)
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+		})
+		When("role exists", func() {
+			It("should do nothing", func() {
+				transport.RegisterResponder(
+					"GET",
+					"https://opni-es-client.test:9200/_plugins/_security/api/roles/test_role",
+					httpmock.NewStringResponder(200, `{"status": "ok"}`).Once(),
+				)
+				Expect(func() error {
+					err := reconciler.MaybeCreateRole(role)
+					if err != nil {
+						log.Println(err)
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+		})
+		When("user does not exist", func() {
+			It("should create the user", func() {
+				transport.RegisterResponder(
+					"GET",
+					"https://opni-es-client.test:9200/_plugins/_security/api/internalusers/test",
+					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
+				)
+				transport.RegisterResponder(
+					"PUT",
+					"https://opni-es-client.test:9200/_plugins/_security/api/internalusers/test",
+					httpmock.NewStringResponder(200, `{"status": "created"}`).Once(),
+				)
+				Expect(func() error {
+					err := reconciler.MaybeCreateUser(user)
+					if err != nil {
+						log.Println(err)
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+		})
+		When("user exists", func() {
+			It("should do nothing", func() {
+				transport.RegisterResponder(
+					"GET",
+					"https://opni-es-client.test:9200/_plugins/_security/api/internalusers/test",
+					httpmock.NewStringResponder(200, `{"status": "ok"}`).Once(),
+				)
+				Expect(func() error {
+					err := reconciler.MaybeCreateUser(user)
+					if err != nil {
+						log.Println(err)
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+			})
+		})
+		When("role mappiing does not exist", func() {
+			It("should create the role mapping", func() {
+				transport.RegisterResponder(
+					"GET",
+					"https://opni-es-client.test:9200/_plugins/_security/api/rolesmapping/test_role",
+					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
+				)
+				transport.RegisterResponder(
+					"PUT",
+					"https://opni-es-client.test:9200/_plugins/_security/api/rolesmapping/test_role",
+					func(req *http.Request) (*http.Response, error) {
+						mapping := &opensearchapiext.RoleMappingSpec{}
+						if err := json.NewDecoder(req.Body).Decode(&mapping); err != nil {
+							return httpmock.NewStringResponse(501, ""), nil
+						}
+						users = mapping.Users
+						return httpmock.NewStringResponse(200, ""), nil
+					},
+				)
+				Expect(func() error {
+					err := reconciler.MaybeUpdateRolesMapping(role.RoleName, user.UserName)
+					if err != nil {
+						log.Println(err)
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+				Expect(users).To(ContainElement(user.UserName))
+			})
+		})
+		When("role mapping exists and doesn't contain user", func() {
+			It("should update the role mapping", func() {
+				users = []string{
+					"otheruser",
+				}
+				roleMappingBody := opensearchapiext.RoleMappingReponse{
+					role.RoleName: opensearchapiext.RoleMappingSpec{
+						Users: users,
+					},
+				}
+				transport.RegisterResponder(
+					"GET",
+					"https://opni-es-client.test:9200/_plugins/_security/api/rolesmapping/test_role",
+					httpmock.NewJsonResponderOrPanic(200, roleMappingBody).Once(),
+				)
+				transport.RegisterResponder(
+					"PUT",
+					"https://opni-es-client.test:9200/_plugins/_security/api/rolesmapping/test_role",
+					func(req *http.Request) (*http.Response, error) {
+						mapping := &opensearchapiext.RoleMappingSpec{}
+						if err := json.NewDecoder(req.Body).Decode(&mapping); err != nil {
+							return httpmock.NewStringResponse(501, ""), nil
+						}
+						users = mapping.Users
+						return httpmock.NewStringResponse(200, ""), nil
+					},
+				)
+				Expect(func() error {
+					err := reconciler.MaybeUpdateRolesMapping(role.RoleName, user.UserName)
+					if err != nil {
+						log.Println(err)
+					}
+					return err
+				}()).To(BeNil())
+				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
+				Expect(users).To(ContainElement(user.UserName))
+				Expect(users).To(ContainElement("otheruser"))
+			})
+		})
+		When("role mapping exists and contains the user", func() {
+			It("should do nothing", func() {
+				roleMappingBody := opensearchapiext.RoleMappingReponse{
+					role.RoleName: opensearchapiext.RoleMappingSpec{
+						Users: users,
+					},
+				}
+				transport.RegisterResponder(
+					"GET",
+					"https://opni-es-client.test:9200/_plugins/_security/api/rolesmapping/test_role",
+					httpmock.NewJsonResponderOrPanic(200, roleMappingBody).Once(),
+				)
+				Expect(func() error {
+					err := reconciler.MaybeUpdateRolesMapping(role.RoleName, user.UserName)
+					if err != nil {
+						log.Println(err)
+					}
+					return err
+				}()).To(BeNil())
 				Expect(transport.GetTotalCallCount()).To(Equal(transport.NumResponders()))
 			})
 		})

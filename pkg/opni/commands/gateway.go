@@ -6,7 +6,6 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/gateway"
@@ -77,7 +76,6 @@ func BuildGatewayCmd() *cobra.Command {
 			gateway.WithCapabilityBackendPlugins(capBackendPlugins),
 			gateway.WithAPIServerOptions(
 				gateway.WithAPIExtensions(gatewayExtensionPlugins),
-				gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
 				gateway.WithMetricsPlugins(metricsPlugins),
 			),
 		)
@@ -127,7 +125,6 @@ func BuildGatewayCmd() *cobra.Command {
 		lg.Info(style.Style("waiting for servers to shut down"))
 		waitctx.Wait(ctx)
 
-		auth.ResetMiddlewares()
 		atomic.StoreUint32(&plugin.Killed, 0)
 		lg.Info(style.Style("--- reloading ---"))
 		return nil

@@ -39,7 +39,7 @@ type OpenidMiddleware struct {
 
 var _ auth.Middleware = (*OpenidMiddleware)(nil)
 
-func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
+func New(ctx context.Context, config v1beta1.AuthProviderSpec) (*OpenidMiddleware, error) {
 	conf, err := util.DecodeStruct[OpenidConfig](config.Options)
 	if err != nil {
 		return nil, err

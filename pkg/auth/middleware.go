@@ -2,23 +2,49 @@ package auth
 
 import (
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"google.golang.org/grpc"
 )
 
-type Middleware interface {
+type Protocol uint32
+
+const (
+	ProtocolHTTP Protocol = 1 << iota
+	ProtocolUnaryGRPC
+	ProtocolStreamGRPC
+)
+
+type Middleware any
+
+func SupportedProtocols(mw Middleware) Protocol {
+	var p Protocol
+	if _, ok := mw.(HTTPMiddleware); ok {
+		p |= ProtocolHTTP
+	}
+	if _, ok := mw.(UnaryGRPCMiddleware); ok {
+		p |= ProtocolUnaryGRPC
+	}
+	if _, ok := mw.(StreamGRPCMiddleware); ok {
+		p |= ProtocolStreamGRPC
+	}
+	return p
+}
+
+type HTTPMiddleware interface {
 	Handle(*fiber.Ctx) error
 }
 
-type NamedMiddleware interface {
-	Middleware
-	Name() string
+type UnaryGRPCMiddleware interface {
+	UnaryServerInterceptor() grpc.UnaryClientInterceptor
+}
+
+type StreamGRPCMiddleware interface {
+	StreamServerInterceptor() grpc.StreamServerInterceptor
 }
 
 type namedMiddlewareImpl struct {
-	Middleware
+	any
 	name string
 }
 
@@ -26,48 +52,16 @@ func (nm *namedMiddlewareImpl) Name() string {
 	return nm.name
 }
 
-func namedMiddleware(name string, mw Middleware) NamedMiddleware {
+func NamedMiddleware(name string, mw any) Middleware {
 	return &namedMiddlewareImpl{
-		Middleware: mw,
-		name:       name,
+		any:  mw,
+		name: name,
 	}
 }
 
 var (
-	authMiddlewares = make(map[string]Middleware)
-
 	ErrInvalidMiddlewareName   = errors.New("invalid or empty auth middleware name")
 	ErrMiddlewareAlreadyExists = errors.New("auth middleware already exists")
 	ErrNilMiddleware           = errors.New("auth middleware is nil")
 	ErrMiddlewareNotFound      = errors.New("auth middleware not found")
 )
-
-func RegisterMiddleware(name string, m Middleware) error {
-	name = strings.TrimSpace(name)
-	if len(name) == 0 {
-		return ErrInvalidMiddlewareName
-	}
-	if _, ok := authMiddlewares[name]; ok {
-		return fmt.Errorf("%w: %s", ErrMiddlewareAlreadyExists, name)
-	}
-	if m == nil {
-		return ErrNilMiddleware
-	}
-	authMiddlewares[name] = m
-	return nil
-}
-
-func GetMiddleware(name string) (NamedMiddleware, error) {
-	if m, ok := authMiddlewares[name]; ok {
-		return namedMiddleware(name, m), nil
-	}
-	return nil, fmt.Errorf("%w: %s", ErrMiddlewareNotFound, name)
-}
-
-func ResetMiddlewares() {
-	authMiddlewares = make(map[string]Middleware)
-}
-
-func NamedMiddlewareAs[T Middleware](nmw NamedMiddleware) T {
-	return nmw.(*namedMiddlewareImpl).Middleware.(T)
-}

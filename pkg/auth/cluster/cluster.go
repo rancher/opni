@@ -3,9 +3,11 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gogo/status"
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/rancher/opni/pkg/auth"
@@ -15,12 +17,21 @@ import (
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+)
+
+type (
+	clusterIDKeyType  string
+	sharedKeysKeyType string
 )
 
 const (
-	ClusterIDKey  = "cluster_auth_cluster_id"
-	SharedKeysKey = "cluster_auth_shared_keys"
+	ClusterIDKey  clusterIDKeyType  = "cluster_auth_cluster_id"
+	SharedKeysKey sharedKeysKeyType = "cluster_auth_shared_keys"
 )
 
 type ClusterMiddleware struct {
@@ -129,10 +140,73 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("authorization header required")
 	}
 
+	code, clusterID, sharedKeys := m.doKeyringVerify(authHeader, c.Body())
+	if code != http.StatusOK {
+		return c.SendStatus(code)
+	}
+
+	c.Request().Header.Add(m.headerKey, string(clusterID))
+	c.Locals(string(SharedKeysKey), sharedKeys)
+	c.Locals(string(ClusterIDKey), string(clusterID))
+	return c.Next()
+}
+
+func AuthorizedKeys(c *fiber.Ctx) *keyring.SharedKeys {
+	return c.Locals(string(SharedKeysKey)).(*keyring.SharedKeys)
+}
+
+func AuthorizedID(c *fiber.Ctx) string {
+	return c.Locals(string(ClusterIDKey)).(string)
+}
+
+func StreamAuthorizedKeys(ctx context.Context) *keyring.SharedKeys {
+	return ctx.Value(SharedKeysKey).(*keyring.SharedKeys)
+}
+
+func StreamAuthorizedID(ctx context.Context) string {
+	return ctx.Value(ClusterIDKey).(string)
+}
+
+func (m *ClusterMiddleware) StreamServerInterceptor() grpc.StreamServerInterceptor {
+	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		md, ok := metadata.FromIncomingContext(ss.Context())
+		if !ok {
+			return grpc.Errorf(codes.InvalidArgument, "no metadata in context")
+		}
+		authHeader := md.Get(m.headerKey)
+		if len(authHeader) > 0 && authHeader[0] == "" {
+			return grpc.Errorf(codes.InvalidArgument, "authorization header required")
+		}
+
+		code, clusterID, sharedKeys := m.doKeyringVerify(authHeader[0], []byte(info.FullMethod))
+
+		switch code {
+		case http.StatusOK:
+		case http.StatusUnauthorized:
+			return status.Error(codes.Unauthenticated, http.StatusText(code))
+		case http.StatusBadRequest:
+			return status.Error(codes.InvalidArgument, http.StatusText(code))
+		case http.StatusInternalServerError:
+			return status.Error(codes.Internal, http.StatusText(code))
+		default:
+			return status.Error(codes.Unknown, http.StatusText(code))
+		}
+
+		ctx := context.WithValue(ss.Context(), SharedKeysKey, sharedKeys)
+		ctx = context.WithValue(ctx, ClusterIDKey, string(clusterID))
+
+		return handler(srv, &util.ServerStreamWithContext{
+			Stream: ss,
+			Ctx:    ctx,
+		})
+	}
+}
+
+func (m *ClusterMiddleware) doKeyringVerify(authHeader string, msgBody []byte) (int, string, *keyring.SharedKeys) {
+	lg := m.logger
 	clusterID, nonce, mac, err := b2mac.DecodeAuthHeader(authHeader)
 	if err != nil {
-		lg.Debug("unauthorized: malformed MAC in auth header: " + authHeader)
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return http.StatusBadRequest, "", nil
 	}
 
 	ks, err := m.keyringStoreBroker.KeyringStore(context.Background(), "gateway", &core.Reference{
@@ -140,42 +214,32 @@ func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
 	})
 	if err != nil {
 		lg.Debugf("unauthorized: error looking up keyring store for cluster %s: %v", clusterID, err)
-		m.doFakeKeyringVerify(mac, clusterID, nonce, c.Body())
-		return c.SendStatus(fiber.StatusUnauthorized)
+		m.doFakeKeyringVerify(mac, clusterID, nonce, msgBody)
+		return http.StatusUnauthorized, "", nil
 	}
 
 	kr, err := ks.Get(context.Background())
 	if err != nil {
 		lg.Debugf("unauthorized: error looking up keyring for cluster %s: %v", clusterID, err)
-		m.doFakeKeyringVerify(mac, clusterID, nonce, c.Body())
-		return c.SendStatus(fiber.StatusUnauthorized)
+		m.doFakeKeyringVerify(mac, clusterID, nonce, msgBody)
+		return http.StatusUnauthorized, "", nil
 	}
 
 	authorized := false
 	var sharedKeys *keyring.SharedKeys
 	if ok := kr.Try(func(shared *keyring.SharedKeys) {
-		if err := b2mac.Verify(mac, clusterID, nonce, c.Body(), shared.ClientKey); err == nil {
+		if err := b2mac.Verify(mac, clusterID, nonce, msgBody, shared.ClientKey); err == nil {
 			authorized = true
 			sharedKeys = shared
 		}
 	}); !ok {
 		lg.Errorf("unauthorized: invalid or corrupted keyring for cluster %s: %v", clusterID, err)
-		return c.Status(fiber.StatusInternalServerError).SendString("invalid or corrupted keyring")
+		return http.StatusInternalServerError, "", nil
 	}
 	if !authorized {
 		lg.Debugf("unauthorized: invalid mac for cluster %s", clusterID)
-		return c.SendStatus(fiber.StatusUnauthorized)
+		return http.StatusUnauthorized, "", nil
 	}
-	c.Request().Header.Add(m.headerKey, string(clusterID))
-	c.Locals(SharedKeysKey, sharedKeys)
-	c.Locals(ClusterIDKey, string(clusterID))
-	return c.Next()
-}
 
-func AuthorizedKeys(c *fiber.Ctx) *keyring.SharedKeys {
-	return c.Locals(SharedKeysKey).(*keyring.SharedKeys)
-}
-
-func AuthorizedID(c *fiber.Ctx) string {
-	return c.Locals(ClusterIDKey).(string)
+	return http.StatusOK, string(clusterID), sharedKeys
 }

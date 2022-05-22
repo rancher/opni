@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/kralicky/totem"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/core"
+	"github.com/rancher/opni/pkg/gateway/stream"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
@@ -21,9 +23,13 @@ import (
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/durationpb"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Agent struct {
+	UnsafeRemoteControlServer
 	AgentOptions
 	v1beta1.AgentConfigSpec
 	app    *fiber.App
@@ -160,12 +166,42 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, fmt.Errorf("unknown trust strategy: %s", conf.Spec.TrustStrategy)
 	}
 
-	agent.gatewayClient, err = clients.NewGatewayHTTPClient(
+	agent.gatewayClient, err = clients.NewGatewayClient(
 		conf.Spec.GatewayAddress, ip, kr, trustStrategy)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}
 	go agent.streamRulesToGateway(ctx)
+
+	cc, err := agent.gatewayClient.DialGRPC(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error dialing gateway: %w", err)
+	}
+	streamClient := stream.NewStreamClient(cc)
+
+	go func() {
+		stream, err := streamClient.Connect(ctx, grpc.WaitForReady(true))
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("error connecting to gateway")
+			return
+		}
+
+		ts := totem.NewServer(stream)
+		RegisterRemoteControlServer(ts, agent)
+
+		_, errC := ts.Serve()
+
+		select {
+		case <-ctx.Done():
+			return
+		case err := <-errC:
+			lg.With(
+				zap.Error(err),
+			).Error("stream server error")
+		}
+	}()
 
 	app.Post("/api/agent/push", agent.handlePushRequest)
 	app.Use(default404Handler)
@@ -244,4 +280,12 @@ func (a *Agent) loadKeyring(ctx context.Context) (keyring.Keyring, error) {
 	}
 	lg.Info("keyring loaded successfully")
 	return kr, nil
+}
+
+var startTime = time.Now()
+
+func (a *Agent) GetHealth(ctx context.Context, _ *emptypb.Empty) (*AgentHealth, error) {
+	return &AgentHealth{
+		Uptime: durationpb.New(time.Since(startTime)),
+	}, nil
 }

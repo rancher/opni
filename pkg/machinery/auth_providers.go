@@ -12,7 +12,8 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 )
 
-func LoadAuthProviders(ctx context.Context, objects meta.ObjectList) {
+func LoadAuthProviders(ctx context.Context, objects meta.ObjectList) map[string]auth.Middleware {
+	authProviders := make(map[string]auth.Middleware)
 	objects.Visit(
 		func(ap *v1beta1.AuthProvider) {
 			switch ap.Spec.Type {
@@ -21,24 +22,21 @@ func LoadAuthProviders(ctx context.Context, objects meta.ObjectList) {
 				if err != nil {
 					panic(fmt.Errorf("failed to create OpenID auth provider: %w", err))
 				}
-				if err := auth.RegisterMiddleware(ap.GetName(), mw); err != nil {
-					panic(fmt.Errorf("failed to register OpenID auth provider: %w", err))
-				}
+				authProviders[ap.Name] = mw
 			case v1beta1.AuthProviderNoAuth:
 				mw, err := noauth.New(ctx, ap.Spec)
 				if err != nil {
 					panic(fmt.Errorf("failed to create noauth auth provider: %w", err))
 				}
-				if err := auth.RegisterMiddleware(ap.GetName(), mw); err != nil {
-					panic(fmt.Errorf("failed to register noauth auth provider: %w", err))
-				}
+				authProviders[ap.Name] = mw
 			case "test":
-				auth.RegisterMiddleware("test", &test.TestAuthMiddleware{
+				authProviders["test"] = &test.TestAuthMiddleware{
 					Strategy: test.AuthStrategyUserIDInAuthHeader,
-				})
+				}
 			default:
 				panic(fmt.Errorf("unsupported auth provider type: %s", ap.Spec.Type))
 			}
 		},
 	)
+	return authProviders
 }

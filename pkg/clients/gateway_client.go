@@ -6,6 +6,9 @@ import (
 	"fmt"
 
 	"emperror.dev/errors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rancher/opni/pkg/b2mac"
@@ -35,9 +38,11 @@ type GatewayHTTPClient interface {
 	Put(ctx context.Context, path string) RequestBuilder
 	Patch(ctx context.Context, path string) RequestBuilder
 	Delete(ctx context.Context, path string) RequestBuilder
+
+	DialGRPC(ctx context.Context) (grpc.ClientConnInterface, error)
 }
 
-func NewGatewayHTTPClient(
+func NewGatewayClient(
 	address string,
 	ip ident.Provider,
 	kr keyring.Keyring,
@@ -132,6 +137,34 @@ func (gc *gatewayClient) Delete(ctx context.Context, path string) RequestBuilder
 		gatewayClient: gc,
 		req:           fiber.Delete(gc.requestPath(path)).TLSConfig(gc.tlsConfig),
 	}
+}
+
+func (gc *gatewayClient) DialGRPC(ctx context.Context) (grpc.ClientConnInterface, error) {
+	return grpc.DialContext(ctx, gc.address,
+		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
+		grpc.WithStreamInterceptor(gc.streamClientInterceptor),
+	)
+}
+
+func (gc *gatewayClient) streamClientInterceptor(
+	ctx context.Context,
+	desc *grpc.StreamDesc,
+	cc *grpc.ClientConn,
+	method string,
+	streamer grpc.Streamer,
+	opts ...grpc.CallOption,
+) (grpc.ClientStream, error) {
+	nonce, mac, err := b2mac.New512([]byte(gc.id), []byte(method), gc.sharedKeys.ClientKey)
+	if err != nil {
+		return nil, err
+	}
+	authHeader, err := b2mac.EncodeAuthHeader([]byte(gc.id), nonce, mac)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", authHeader)
+	return streamer(ctx, desc, cc, method, opts...)
 }
 
 type requestBuilder struct {

@@ -8,9 +8,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rancher/opni/pkg/agent"
+	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/meta"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins"
@@ -18,10 +21,14 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
+	"github.com/soheilhy/cmux"
 	"go.uber.org/zap"
 	"golang.org/x/mod/module"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -32,10 +39,12 @@ type MetricsPlugin = plugins.TypedActivePlugin[prometheus.Collector]
 
 type Gateway struct {
 	GatewayOptions
-	config    *config.GatewayConfig
-	ctx       context.Context
-	logger    *zap.SugaredLogger
-	apiServer *GatewayAPIServer
+	config       *config.GatewayConfig
+	ctx          context.Context
+	tlsConfig    *tls.Config
+	logger       *zap.SugaredLogger
+	apiServer    *GatewayAPIServer
+	streamServer *StreamServer
 
 	storageBackend  storage.Backend
 	capBackendStore capabilities.BackendStore
@@ -127,18 +136,39 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 		}
 	}
 
+	tlsConfig, err := loadTLSConfig(&conf.Spec)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Fatal("failed to load TLS config")
+	}
+
 	apiServer := NewAPIServer(ctx, &conf.Spec, lg, options.apiServerOptions...)
 	apiServer.ConfigureBootstrapRoutes(storageBackend, capBackendStore)
 
 	g := &Gateway{
 		GatewayOptions:  options,
 		ctx:             ctx,
+		tlsConfig:       tlsConfig,
 		config:          conf,
 		logger:          lg,
 		storageBackend:  storageBackend,
 		capBackendStore: capBackendStore,
 		apiServer:       apiServer,
 	}
+
+	clusterAuth, err := cluster.New(ctx, storageBackend, "authorization")
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Fatal("failed to create stream interceptor")
+	}
+
+	streamServer := NewStreamServer(&conf.Spec, lg, g,
+		grpc.Creds(credentials.NewTLS(tlsConfig)),
+		grpc.StreamInterceptor(clusterAuth.StreamServerInterceptor()),
+	)
+	g.streamServer = streamServer
 
 	waitctx.Go(ctx, func() {
 		<-ctx.Done()
@@ -155,6 +185,17 @@ type keyValueStoreServer interface {
 
 func (g *Gateway) ListenAndServe() error {
 	lg := g.logger
+
+	listener, err := tls.Listen("tcp4",
+		g.config.Spec.ListenAddress, g.tlsConfig)
+	if err != nil {
+		lg.Fatal(err)
+	}
+
+	cl := cmux.New(listener)
+	http1 := cl.Match(cmux.TLS(tls.VersionTLS12, tls.VersionTLS13), cmux.HTTP1())
+	http2 := cl.Match(cmux.TLS(tls.VersionTLS12, tls.VersionTLS13), cmux.HTTP2())
+
 	waitctx.Go(g.ctx, func() {
 		<-g.ctx.Done()
 		lg.Info("shutting down gateway api")
@@ -206,7 +247,21 @@ func (g *Gateway) ListenAndServe() error {
 		go systemPlugin.Raw.(keyValueStoreServer).ServeKeyValueStore(store)
 	}
 
-	return g.apiServer.ListenAndServe()
+	go func() {
+		if err := g.apiServer.Serve(http1); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("API server exited with error")
+		}
+	}()
+	go func() {
+		if err := g.streamServer.Serve(http2); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("stream server exited with error")
+		}
+	}()
+	return cl.Serve()
 }
 
 // Implements management.CoreDataSource
@@ -226,4 +281,28 @@ func (g *Gateway) CapabilitiesStore() capabilities.BackendStore {
 
 func (g *Gateway) MustRegisterCollector(collector prometheus.Collector) {
 	g.apiServer.metricsHandler.MustRegister(collector)
+}
+
+func (g *Gateway) HandleAgentConnection(ctx context.Context, clientset agent.ClientSet) {
+	g.logger.Info("Agent connected")
+	defer g.logger.Info("Agent disconnected")
+	health, err := clientset.GetHealth(ctx, &emptypb.Empty{})
+	if err != nil {
+		g.logger.Error(err)
+	} else {
+		g.logger.Info("Agent health: " + health.String())
+	}
+	<-ctx.Done()
+}
+
+func loadTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, error) {
+	servingCertBundle, caPool, err := util.LoadServingCertBundle(cfg.Certs)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		RootCAs:      caPool,
+		Certificates: []tls.Certificate{*servingCertBundle},
+	}, nil
 }

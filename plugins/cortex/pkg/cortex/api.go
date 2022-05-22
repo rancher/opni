@@ -49,11 +49,11 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 
 	rbacProvider := storage.NewRBACProvider(storageBackend)
 	rbacMiddleware := rbac.NewMiddleware(rbacProvider, orgIDCodec)
-	authMiddleware, err := auth.GetMiddleware(config.Spec.AuthProvider)
-	if err != nil {
+	authMiddleware, ok := p.authMiddlewares.Get()[config.Spec.AuthProvider]
+	if !ok {
 		p.logger.With(
-			"err", err,
-		).Error("failed to get auth middleware")
+			"name", config.Spec.AuthProvider,
+		).Error("auth provider not found")
 		os.Exit(1)
 	}
 	clusterMiddleware, err := cluster.New(p.ctx, storageBackend, orgIDCodec.Key())
@@ -73,7 +73,7 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 
 	mws := &middlewares{
 		RBAC:    rbacMiddleware,
-		Auth:    authMiddleware.Handle,
+		Auth:    authMiddleware.(auth.HTTPMiddleware).Handle,
 		Cluster: clusterMiddleware.Handle,
 	}
 

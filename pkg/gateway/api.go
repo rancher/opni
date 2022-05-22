@@ -14,7 +14,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -22,7 +21,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/fwd"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.uber.org/zap"
@@ -54,7 +52,6 @@ type GatewayAPIServer struct {
 
 type APIServerOptions struct {
 	fiberMiddlewares []FiberMiddleware
-	authMiddleware   auth.NamedMiddleware
 	apiExtensions    []APIExtensionPlugin
 	metricsPlugins   []MetricsPlugin
 }
@@ -70,16 +67,6 @@ func (o *APIServerOptions) Apply(opts ...APIServerOption) {
 func WithFiberMiddleware(middlewares ...FiberMiddleware) APIServerOption {
 	return func(o *APIServerOptions) {
 		o.fiberMiddlewares = append(o.fiberMiddlewares, middlewares...)
-	}
-}
-
-func WithAuthMiddleware(name string) APIServerOption {
-	return func(o *APIServerOptions) {
-		var err error
-		o.authMiddleware, err = auth.GetMiddleware(name)
-		if err != nil {
-			panic(err)
-		}
 	}
 }
 
@@ -105,10 +92,6 @@ func NewAPIServer(
 
 	options := APIServerOptions{}
 	options.Apply(opts...)
-
-	if options.authMiddleware == nil {
-		lg.Fatal("auth middleware is required")
-	}
 
 	app := fiber.New(fiber.Config{
 		StrictRouting:           false,
@@ -206,18 +189,14 @@ func NewAPIServer(
 	return srv
 }
 
-func (s *GatewayAPIServer) ListenAndServe() error {
+func (s *GatewayAPIServer) Serve(listener net.Listener) error {
 	select {
 	case <-s.wait:
 	case <-time.After(10 * time.Second):
 		s.logger.Fatal("failed to start api server: timed out waiting for route setup")
 	}
 	s.app.Use(default404Handler)
-	listener, err := tls.Listen("tcp4",
-		s.conf.ListenAddress, s.tlsConfig)
-	if err != nil {
-		return err
-	}
+
 	info, _ := debug.ReadBuildInfo()
 	s.logger.With(
 		"address", listener.Addr().String(),
@@ -280,18 +259,6 @@ func (s *GatewayAPIServer) ConfigureBootstrapRoutes(
 		KeyringStoreBroker:  storageBackend,
 		CapabilityInstaller: installer,
 	}.Handle)
-}
-
-func loadTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, error) {
-	servingCertBundle, caPool, err := util.LoadServingCertBundle(cfg.Certs)
-	if err != nil {
-		return nil, err
-	}
-	return &tls.Config{
-		MinVersion:   tls.VersionTLS12,
-		RootCAs:      caPool,
-		Certificates: []tls.Certificate{*servingCertBundle},
-	}, nil
 }
 
 func default404Handler(c *fiber.Ctx) error {

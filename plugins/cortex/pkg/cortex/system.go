@@ -41,6 +41,8 @@ func (p *Plugin) UseManagementAPI(client management.ManagementClient) {
 		p.config.Set(config)
 		p.configureAdminClients(p.loadCortexCerts())
 	})
+
+	p.authMiddlewares.Set(machinery.LoadAuthProviders(p.ctx, objectList))
 	<-p.ctx.Done()
 }
 

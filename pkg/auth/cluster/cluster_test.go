@@ -83,7 +83,6 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
-				Expect(bodyStr(resp.Body)).To(ContainSubstring("authorization header required"))
 			})
 		})
 		When("the auth header has the wrong type", func() {
@@ -94,7 +93,6 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
-				Expect(bodyStr(resp.Body)).To(ContainSubstring("incorrect authorization type"))
 			})
 		})
 		When("the auth mac is malformed", func() {
@@ -105,7 +103,6 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
-				Expect(bodyStr(resp.Body)).To(ContainSubstring("malformed"))
 			})
 		})
 	})

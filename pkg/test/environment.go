@@ -29,8 +29,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/agent"
-	"github.com/rancher/opni/pkg/auth"
-	testauth "github.com/rancher/opni/pkg/auth/test"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/config"
@@ -167,13 +165,6 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	e.mockCtrl = gomock.NewController(t)
 
-	if _, err := auth.GetMiddleware("test"); err != nil {
-		if err := auth.RegisterMiddleware("test", &testauth.TestAuthMiddleware{
-			Strategy: testauth.AuthStrategyUserIDInAuthHeader,
-		}); err != nil {
-			return fmt.Errorf("failed to install test auth middleware: %w", err)
-		}
-	}
 	ports, err := freeport.GetFreePorts(8)
 	if err != nil {
 		panic(err)
@@ -672,7 +663,6 @@ func (e *Environment) startGateway() {
 		gateway.WithCapabilityBackendPlugins(capBackendPlugins),
 		gateway.WithAPIServerOptions(
 			gateway.WithAPIExtensions(gatewayExtensionPlugins),
-			gateway.WithAuthMiddleware(e.gatewayConfig.Spec.AuthProvider),
 			gateway.WithMetricsPlugins(metricsPlugins),
 		),
 	)

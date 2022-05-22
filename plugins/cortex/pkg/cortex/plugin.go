@@ -7,6 +7,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
 	ingesterclient "github.com/cortexproject/cortex/pkg/ingester/client"
 	"github.com/hashicorp/go-hclog"
+	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -28,6 +29,7 @@ type Plugin struct {
 	collector.CollectorServer
 	ctx               context.Context
 	config            *util.Future[*v1beta1.GatewayConfig]
+	authMiddlewares   *util.Future[map[string]auth.Middleware]
 	mgmtApi           *util.Future[management.ManagementClient]
 	storageBackend    *util.Future[storage.Backend]
 	distributorClient *util.Future[distributorpb.DistributorClient]
@@ -43,6 +45,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		CollectorServer:   collectorServer,
 		ctx:               ctx,
 		config:            util.NewFuture[*v1beta1.GatewayConfig](),
+		authMiddlewares:   util.NewFuture[map[string]auth.Middleware](),
 		mgmtApi:           util.NewFuture[management.ManagementClient](),
 		storageBackend:    util.NewFuture[storage.Backend](),
 		distributorClient: util.NewFuture[distributorpb.DistributorClient](),

@@ -25,6 +25,7 @@ dagger.#Plan & {
 			OPNI_UI_BRANCH:      string | *"main"
 			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
 			DASHBOARDS_VERSION:  string | *"1.3.1"
+			OPENSEARCH_VERSION:  string | *"1.3.1"
 			PLUGIN_VERSION:      string | *"0.4.2"
 			DOCKER_USERNAME?:    string
 			DOCKER_PASSWORD?:    dagger.#Secret
@@ -315,6 +316,36 @@ dagger.#Plan & {
 			}
 			push: docker.#Push & {
 				dest:  "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)-\(client.env.PLUGIN_VERSION)"
+				image: dashboards.build.output
+				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
+			}
+		}
+		opensearch: {
+			build: docker.#Build & {
+				steps: [
+					docker.#Pull & {
+						source: "opensearchproject/opensearch:\(client.env.DASHBOARDS_VERSION)"
+					},
+					docker.#Run & {
+						command: {
+							name: "opensearch-plugin"
+							args: [
+								"-s",
+								"install",
+								"-b",
+								"https://github.com/tybalex/opni-preprocessing-plugin/releases/download/\(client.env.PLUGIN_VERSION)/opnipreprocessing.zip",
+							]
+						}
+					},
+				]
+			}
+			push: docker.#Push & {
+				dest:  "\(client.env.REPO)/opensearch:\(client.env.OPENSEARCH_VERSION)-\(client.env.PLUGIN_VERSION)"
 				image: dashboards.build.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {

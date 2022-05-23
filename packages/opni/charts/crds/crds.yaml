@@ -48695,6 +48695,11 @@ spec:
                   namespace:
                     type: string
                 type: object
+              opensearchConfig:
+                properties:
+                  indexRetention:
+                    type: string
+                type: object
               opensearchExternalURL:
                 type: string
             type: object
@@ -52977,6 +52982,8 @@ spec:
                     type: object
                   defaultRepo:
                     type: string
+                  enableIngestPreprocessing:
+                    type: boolean
                   enableLogIndexManagement:
                     type: boolean
                   externalOpensearch:

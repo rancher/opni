@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	opsterv1 "opensearch.opster.io/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -64,5 +65,6 @@ func (r *LoggingClusterBindingReconciler) SetupWithManager(mgr ctrl.Manager) err
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta2.LoggingClusterBinding{}).
+		Owns(&opsterv1.OpenSearchCluster{}).
 		Complete(r)
 }

@@ -209,9 +209,9 @@ var _ = Describe("Indices", Label(test.Unit), func() {
 		})
 	})
 	Context("reconciling index templates", func() {
-		var indexTemplate *opensearchapiext.IndexTemplateSpec
+		var indexTemplate opensearchapiext.IndexTemplateSpec
 		BeforeEach(func() {
-			indexTemplate = &opensearchapiext.IndexTemplateSpec{
+			indexTemplate = opensearchapiext.IndexTemplateSpec{
 				TemplateName: "testtemplate",
 				IndexPatterns: []string{
 					"test*",

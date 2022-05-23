@@ -2348,6 +2348,8 @@ spec:
                     type: object
                   defaultRepo:
                     type: string
+                  enableIngestPreprocessing:
+                    type: boolean
                   enableLogIndexManagement:
                     type: boolean
                   externalOpensearch:

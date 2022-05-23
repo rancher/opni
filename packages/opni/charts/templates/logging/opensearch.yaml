@@ -11,7 +11,19 @@ spec:
     version: {{ .Values.logging.opensearch.version }}
     serviceName: {{ include "opni.fullname" . }}-os-svc
     setVMMaxMapCount: true
-    image: "{{ template "system_default_registry" . }}{{ .Values.logging.opensearch.image.repository }}:{{ .Values.logging.dashboards.version }}"
+    image: "{{ template "system_default_registry" . }}{{ .Values.logging.opensearch.image.repository }}:{{ .Values.logging.opensearch.version }}-{{ .Chart.AppVersion }}"
+  {{- if .Values.ai.enabled }}
+    additionalVolumes:
+    - name: nkey
+      path: /etc/nkey
+      secret:
+        defaultMode: 420
+        secretName: opni-nats-client
+    - configMap:
+        name: opni-preprocessing-config
+      name: pluginsettings
+      path: /usr/share/opensearch/config/preprocessing
+  {{- end }}
   confMgmt:
     autoScaler: false
     monitoring: false
@@ -65,5 +77,30 @@ spec:
   {{- else }}
     persistence:
       emptyDir: {}
+  {{- end }}
+  {{- if .Values.ai.enabled }}
+  - component: ingest
+    replicas: 2
+    diskSize: 30Gi
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        memory: 1Gi
+    roles:
+    - ingest
+  {{- if .Values.logging.opensearch.persistence.enabled }}
+    {{- if .Values.logging.opensearch.persistence.storageClass }}
+    persistence:
+      pvc:
+        storageClass: {{ .Values.logging.opensearch.persistence.storageClass }}
+        accessModes:
+        - ReadWriteOnce
+    {{- end}}
+  {{- else }}
+    persistence:
+      emptyDir: {}
+  {{- end }}
   {{- end }}
 {{- end }}

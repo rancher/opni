@@ -17,6 +17,7 @@ type TemplateSettingsSpec struct {
 	NumberOfReplicas int    `json:"number_of_replicas,omitempty"`
 	ISMPolicyID      string `json:"opendistro.index_state_management.policy_id,omitempty"`
 	RolloverAlias    string `json:"opendistro.index_state_management.rollover_alias,omitempty"`
+	DefaultPipeline  string `json:"default_pipeline,omitempty"`
 }
 
 type TemplateMappingsSpec struct {

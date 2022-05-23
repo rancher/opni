@@ -181,14 +181,15 @@ type OpensearchFetcherServiceSpec struct {
 }
 
 type OpensearchClusterSpec struct {
-	ExternalOpensearch       *opnimeta.OpensearchClusterRef `json:"externalOpensearch"`
-	Version                  string                         `json:"version"`
-	Workloads                OpensearchWorkloadSpec         `json:"workloads,omitempty"`
-	DefaultRepo              *string                        `json:"defaultRepo,omitempty"`
-	Image                    *opnimeta.ImageSpec            `json:"image,omitempty"`
-	DashboardsImage          *opnimeta.ImageSpec            `json:"dashboardsImage,omitempty"`
-	Persistence              *opnimeta.PersistenceSpec      `json:"persistence,omitempty"`
-	EnableLogIndexManagement *bool                          `json:"enableLogIndexManagement"`
+	ExternalOpensearch        *opnimeta.OpensearchClusterRef `json:"externalOpensearch"`
+	Version                   string                         `json:"version"`
+	Workloads                 OpensearchWorkloadSpec         `json:"workloads,omitempty"`
+	DefaultRepo               *string                        `json:"defaultRepo,omitempty"`
+	Image                     *opnimeta.ImageSpec            `json:"image,omitempty"`
+	DashboardsImage           *opnimeta.ImageSpec            `json:"dashboardsImage,omitempty"`
+	Persistence               *opnimeta.PersistenceSpec      `json:"persistence,omitempty"`
+	EnableLogIndexManagement  *bool                          `json:"enableLogIndexManagement"`
+	EnableIngestPreprocessing bool                           `json:"enableIngestPreprocessing,omitempty"`
 	// Secret containing an item "logging.yml" with the contents of the
 	// elasticsearch logging config.
 	ConfigSecret *corev1.LocalObjectReference `json:"configSecret,omitempty"`

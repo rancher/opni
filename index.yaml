@@ -9,6 +9,34 @@ entries:
       catalog.rancher.io/release-name: opni
     apiVersion: v2
     appVersion: 0.4.2
+    created: "2022-05-24T15:42:40.7011795+12:00"
+    description: Multi-cluster Monitoring and Logging System
+    digest: c9f9c2c29b40d8821f19fc448a86a010e7f2366f82ca2211b351f78c83d80aff
+    icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
+    keywords:
+    - opni
+    - monitoring
+    - logging
+    - rancher
+    - observability
+    maintainers:
+    - email: joe.kralicky@suse.com
+      name: Joe Kralicky
+    - email: dan.bason@suse.com
+      name: Dan Bason
+    name: opni
+    type: application
+    urls:
+    - assets/opni/opni-0.4.3.tgz
+    version: 0.4.3
+  - annotations:
+      catalog.cattle.io/auto-install: opni-crd=match
+      catalog.cattle.io/display-name: Opni
+      catalog.cattle.io/os: linux
+      catalog.rancher.io/namespace: opni-cluster-system
+      catalog.rancher.io/release-name: opni
+    apiVersion: v2
+    appVersion: 0.4.2
     created: "2022-05-24T15:32:11.7896567+12:00"
     description: Multi-cluster Monitoring and Logging System
     digest: d8f21b17ad524de0d582870f689b4fc07f6892603ae60232e8ecaaec773b81d5
@@ -164,6 +192,24 @@ entries:
     - assets/opni-agent-crd/opni-agent-crd-0.4.1.tgz
     version: 0.4.1
   opni-crd:
+  - annotations:
+      catalog.cattle.io/hidden: "true"
+      catalog.cattle.io/namespace: opni-cluster-system
+      catalog.cattle.io/release-name: opni-crd
+    apiVersion: v1
+    created: "2022-05-24T15:42:40.7545585+12:00"
+    description: Installs the CRDs for Opni.
+    digest: f1edef7722e435213955dd072312c7388361d997a429fd9f920c0b5f440fe1e5
+    maintainers:
+    - email: joe.kralicky@suse.com
+      name: Joe Kralicky
+    - email: dan.bason@suse.com
+      name: Dan Bason
+    name: opni-crd
+    type: application
+    urls:
+    - assets/opni-crd/opni-crd-0.4.3.tgz
+    version: 0.4.3
   - annotations:
       catalog.cattle.io/hidden: "true"
       catalog.cattle.io/namespace: opni-cluster-system

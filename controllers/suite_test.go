@@ -91,6 +91,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			"../config/crd/grafana",
 			"../config/crd/nvidia",
 			"../config/crd/nfd",
+			"../config/crd/opensearch",
 			"../test/resources",
 		},
 		BinaryAssetsDirectory: "../testbin/bin",

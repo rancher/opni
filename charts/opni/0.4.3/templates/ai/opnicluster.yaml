@@ -18,8 +18,6 @@ spec:
       - name: control-plane
     metrics:
       enabled: false
-    opensearchFetcher:
-      enabled: true
   opensearch:
     externalOpensearch:
       name: opni

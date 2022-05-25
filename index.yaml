@@ -9,9 +9,9 @@ entries:
       catalog.rancher.io/release-name: opni
     apiVersion: v2
     appVersion: 0.4.2
-    created: "2022-05-24T15:42:40.7011795+12:00"
+    created: "2022-05-25T14:15:56.5329023+12:00"
     description: Multi-cluster Monitoring and Logging System
-    digest: c9f9c2c29b40d8821f19fc448a86a010e7f2366f82ca2211b351f78c83d80aff
+    digest: 3b9a9a3e59d66f769b584d9504cedab3d9d88118a1a260e97b06371b8f972136
     icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
     keywords:
     - opni
@@ -197,9 +197,9 @@ entries:
       catalog.cattle.io/namespace: opni-cluster-system
       catalog.cattle.io/release-name: opni-crd
     apiVersion: v1
-    created: "2022-05-24T15:42:40.7545585+12:00"
+    created: "2022-05-25T14:15:56.5945301+12:00"
     description: Installs the CRDs for Opni.
-    digest: f1edef7722e435213955dd072312c7388361d997a429fd9f920c0b5f440fe1e5
+    digest: 654b6f9172c2719d5b6297dd52f4d6966642c13a1a98dbab91a2c712d8c56c5b
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky

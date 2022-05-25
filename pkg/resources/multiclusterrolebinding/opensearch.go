@@ -1,6 +1,8 @@
 package multiclusterrolebinding
 
 import (
+	"fmt"
+
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
 	"github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/pkg/util/opensearch"
@@ -56,12 +58,12 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		return
 	}
 
-	retErr = reconciler.ReconcileISM(indices.OpniLogPolicy)
+	retErr = reconciler.ReconcileISM(r.ismPolicy())
 	if retErr != nil {
 		return
 	}
 
-	retErr = reconciler.MaybeCreateIndexTemplate(&indices.OpniLogTemplate)
+	retErr = reconciler.MaybeCreateIndexTemplate(indices.OpniLogTemplate)
 	if retErr != nil {
 		return
 	}
@@ -98,4 +100,117 @@ func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchClu
 		controllerutil.RemoveFinalizer(r.multiClusterRoleBinding, meta.OpensearchFinalizer)
 		return r.client.Update(r.ctx, r.multiClusterRoleBinding)
 	})
+}
+
+func (r *Reconciler) ismPolicy() osapiext.ISMPolicySpec {
+	return osapiext.ISMPolicySpec{
+		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
+			PolicyID:   indices.LogPolicyName,
+			MarshallID: false,
+		},
+		Description:  "Opni policy with hot-warm-cold workflow",
+		DefaultState: "hot",
+		States: []osapiext.StateSpec{
+			{
+				Name: "hot",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							Rollover: &osapiext.RolloverOperation{
+								MinIndexAge: "1d",
+								MinSize:     "20gb",
+							},
+						},
+						Retry: &indices.DefaultRetry,
+					},
+				},
+				Transitions: []osapiext.TransitionSpec{
+					{
+						StateName: "warm",
+					},
+				},
+			},
+			{
+				Name: "warm",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							ReplicaCount: &osapiext.ReplicaCountOperation{
+								NumberOfReplicas: 0,
+							},
+						},
+						Retry: &indices.DefaultRetry,
+					},
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							IndexPriority: &osapiext.IndexPriorityOperation{
+								Priority: 50,
+							},
+						},
+						Retry: &indices.DefaultRetry,
+					},
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							ForceMerge: &osapiext.ForceMergeOperation{
+								MaxNumSegments: 1,
+							},
+						},
+						Retry: &indices.DefaultRetry,
+					},
+				},
+				Transitions: []osapiext.TransitionSpec{
+					{
+						StateName: "cold",
+						Conditions: &osapiext.ConditionSpec{
+							MinIndexAge: "2d",
+						},
+					},
+				},
+			},
+			{
+				Name: "cold",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							ReadOnly: &osapiext.ReadOnlyOperation{},
+						},
+						Retry: &indices.DefaultRetry,
+					},
+				},
+				Transitions: []osapiext.TransitionSpec{
+					{
+						StateName: "delete",
+						Conditions: &osapiext.ConditionSpec{
+							MinIndexAge: func() string {
+								if r.multiClusterRoleBinding.Spec.OpensearchConfig != nil {
+									return r.multiClusterRoleBinding.Spec.OpensearchConfig.IndexRetention
+								}
+								return "7d"
+							}(),
+						},
+					},
+				},
+			},
+			{
+				Name: "delete",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							Delete: &osapiext.DeleteOperation{},
+						},
+						Retry: &indices.DefaultRetry,
+					},
+				},
+				Transitions: make([]osapiext.TransitionSpec, 0),
+			},
+		},
+		ISMTemplate: []osapiext.ISMTemplateSpec{
+			{
+				IndexPatterns: []string{
+					fmt.Sprintf("%s*", indices.LogIndexPrefix),
+				},
+				Priority: 100,
+			},
+		},
+	}
 }

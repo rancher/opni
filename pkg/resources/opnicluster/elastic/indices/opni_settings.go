@@ -3,7 +3,7 @@ package indices
 import (
 	"fmt"
 
-	esapiext "github.com/rancher/opni/pkg/util/opensearch/types"
+	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 
 	_ "embed" // embed should be a blank import
 )
@@ -13,6 +13,7 @@ const (
 	LogIndexPrefix               = "logs-v0.1.3"
 	LogIndexAlias                = "logs"
 	LogIndexTemplateName         = "logs_rollover_mapping"
+	PreProcessingPipelineName    = "opni-ingest-pipeline"
 	drainStatusPolicyName        = "opni-drain-model-status-policy"
 	drainStatusIndexPrefix       = "opni-drain-model-status-v0.1.3"
 	drainStatusIndexAlias        = "opni-drain-model-status"
@@ -28,27 +29,32 @@ const (
 )
 
 var (
-	OpniLogPolicy = esapiext.ISMPolicySpec{
-		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+	DefaultRetry = osapiext.RetrySpec{
+		Count:   3,
+		Backoff: "exponential",
+		Delay:   "1m",
+	}
+	OpniLogPolicy = osapiext.ISMPolicySpec{
+		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
 			PolicyID:   LogPolicyName,
 			MarshallID: false,
 		},
 		Description:  "Opni policy with hot-warm-cold workflow",
 		DefaultState: "hot",
-		States: []esapiext.StateSpec{
+		States: []osapiext.StateSpec{
 			{
 				Name: "hot",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Rollover: &esapiext.RolloverOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							Rollover: &osapiext.RolloverOperation{
 								MinIndexAge: "1d",
 								MinSize:     "20gb",
 							},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "warm",
 					},
@@ -56,33 +62,33 @@ var (
 			},
 			{
 				Name: "warm",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReplicaCount: &esapiext.ReplicaCountOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ReplicaCount: &osapiext.ReplicaCountOperation{
 								NumberOfReplicas: 0,
 							},
 						},
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							IndexPriority: &esapiext.IndexPriorityOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							IndexPriority: &osapiext.IndexPriorityOperation{
 								Priority: 50,
 							},
 						},
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ForceMerge: &esapiext.ForceMergeOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ForceMerge: &osapiext.ForceMergeOperation{
 								MaxNumSegments: 1,
 							},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "cold",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "2d",
 						},
 					},
@@ -90,17 +96,17 @@ var (
 			},
 			{
 				Name: "cold",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReadOnly: &esapiext.ReadOnlyOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							ReadOnly: &osapiext.ReadOnlyOperation{},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "delete",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "7d",
 						},
 					},
@@ -108,17 +114,17 @@ var (
 			},
 			{
 				Name: "delete",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Delete: &esapiext.DeleteOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							Delete: &osapiext.DeleteOperation{},
 						},
 					},
 				},
-				Transitions: make([]esapiext.TransitionSpec, 0),
+				Transitions: make([]osapiext.TransitionSpec, 0),
 			},
 		},
-		ISMTemplate: []esapiext.ISMTemplateSpec{
+		ISMTemplate: []osapiext.ISMTemplateSpec{
 			{
 				IndexPatterns: []string{
 					fmt.Sprintf("%s*", LogIndexPrefix),
@@ -128,27 +134,27 @@ var (
 		},
 	}
 
-	oldOpniLogPolicy = esapiext.OldISMPolicySpec{
-		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+	oldOpniLogPolicy = osapiext.OldISMPolicySpec{
+		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
 			PolicyID:   LogPolicyName,
 			MarshallID: false,
 		},
 		Description:  "Opni policy with hot-warm-cold workflow",
 		DefaultState: "hot",
-		States: []esapiext.StateSpec{
+		States: []osapiext.StateSpec{
 			{
 				Name: "hot",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Rollover: &esapiext.RolloverOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							Rollover: &osapiext.RolloverOperation{
 								MinIndexAge: "1d",
 								MinSize:     "20gb",
 							},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "warm",
 					},
@@ -156,33 +162,33 @@ var (
 			},
 			{
 				Name: "warm",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReplicaCount: &esapiext.ReplicaCountOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ReplicaCount: &osapiext.ReplicaCountOperation{
 								NumberOfReplicas: 0,
 							},
 						},
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							IndexPriority: &esapiext.IndexPriorityOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							IndexPriority: &osapiext.IndexPriorityOperation{
 								Priority: 50,
 							},
 						},
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ForceMerge: &esapiext.ForceMergeOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ForceMerge: &osapiext.ForceMergeOperation{
 								MaxNumSegments: 1,
 							},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "cold",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "2d",
 						},
 					},
@@ -190,17 +196,17 @@ var (
 			},
 			{
 				Name: "cold",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReadOnly: &esapiext.ReadOnlyOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							ReadOnly: &osapiext.ReadOnlyOperation{},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "delete",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "7d",
 						},
 					},
@@ -208,44 +214,45 @@ var (
 			},
 			{
 				Name: "delete",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Delete: &esapiext.DeleteOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							Delete: &osapiext.DeleteOperation{},
 						},
 					},
 				},
-				Transitions: make([]esapiext.TransitionSpec, 0),
+				Transitions: make([]osapiext.TransitionSpec, 0),
 			},
 		},
-		ISMTemplate: &esapiext.ISMTemplateSpec{
+		ISMTemplate: &osapiext.ISMTemplateSpec{
 			IndexPatterns: []string{
 				fmt.Sprintf("%s*", LogIndexPrefix),
 			},
 			Priority: 100,
 		},
 	}
-	opniDrainModelStatusPolicy = esapiext.ISMPolicySpec{
-		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+	opniDrainModelStatusPolicy = osapiext.ISMPolicySpec{
+		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
 			PolicyID:   drainStatusPolicyName,
 			MarshallID: false,
 		},
 		Description:  "A hot-warm-cold-delete workflow for the opni-drain-model-status index.",
 		DefaultState: "hot",
-		States: []esapiext.StateSpec{
+		States: []osapiext.StateSpec{
 			{
 				Name: "hot",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Rollover: &esapiext.RolloverOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							Rollover: &osapiext.RolloverOperation{
 								MinSize:     "1gb",
 								MinIndexAge: "1d",
 							},
 						},
+						Retry: &DefaultRetry,
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "warm",
 					},
@@ -253,33 +260,36 @@ var (
 			},
 			{
 				Name: "warm",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReplicaCount: &esapiext.ReplicaCountOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ReplicaCount: &osapiext.ReplicaCountOperation{
 								NumberOfReplicas: 0,
 							},
 						},
+						Retry: &DefaultRetry,
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							IndexPriority: &esapiext.IndexPriorityOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							IndexPriority: &osapiext.IndexPriorityOperation{
 								Priority: 50,
 							},
 						},
+						Retry: &DefaultRetry,
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ForceMerge: &esapiext.ForceMergeOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ForceMerge: &osapiext.ForceMergeOperation{
 								MaxNumSegments: 1,
 							},
 						},
+						Retry: &DefaultRetry,
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "cold",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "5d",
 						},
 					},
@@ -287,17 +297,18 @@ var (
 			},
 			{
 				Name: "cold",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReadOnly: &esapiext.ReadOnlyOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							ReadOnly: &osapiext.ReadOnlyOperation{},
 						},
+						Retry: &DefaultRetry,
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "delete",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "30d",
 						},
 					},
@@ -305,17 +316,18 @@ var (
 			},
 			{
 				Name: "delete",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Delete: &esapiext.DeleteOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							Delete: &osapiext.DeleteOperation{},
 						},
+						Retry: &DefaultRetry,
 					},
 				},
-				Transitions: make([]esapiext.TransitionSpec, 0),
+				Transitions: make([]osapiext.TransitionSpec, 0),
 			},
 		},
-		ISMTemplate: []esapiext.ISMTemplateSpec{
+		ISMTemplate: []osapiext.ISMTemplateSpec{
 			{
 				IndexPatterns: []string{
 					fmt.Sprintf("%s*", drainStatusIndexPrefix),
@@ -324,27 +336,27 @@ var (
 			},
 		},
 	}
-	oldOpniDrainModelStatusPolicy = esapiext.OldISMPolicySpec{
-		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+	oldOpniDrainModelStatusPolicy = osapiext.OldISMPolicySpec{
+		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
 			PolicyID:   drainStatusPolicyName,
 			MarshallID: false,
 		},
 		Description:  "A hot-warm-cold-delete workflow for the opni-drain-model-status index.",
 		DefaultState: "hot",
-		States: []esapiext.StateSpec{
+		States: []osapiext.StateSpec{
 			{
 				Name: "hot",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Rollover: &esapiext.RolloverOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							Rollover: &osapiext.RolloverOperation{
 								MinSize:     "1gb",
 								MinIndexAge: "1d",
 							},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "warm",
 					},
@@ -352,33 +364,33 @@ var (
 			},
 			{
 				Name: "warm",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReplicaCount: &esapiext.ReplicaCountOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ReplicaCount: &osapiext.ReplicaCountOperation{
 								NumberOfReplicas: 0,
 							},
 						},
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							IndexPriority: &esapiext.IndexPriorityOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							IndexPriority: &osapiext.IndexPriorityOperation{
 								Priority: 50,
 							},
 						},
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ForceMerge: &esapiext.ForceMergeOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ForceMerge: &osapiext.ForceMergeOperation{
 								MaxNumSegments: 1,
 							},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "cold",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "5d",
 						},
 					},
@@ -386,17 +398,17 @@ var (
 			},
 			{
 				Name: "cold",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReadOnly: &esapiext.ReadOnlyOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							ReadOnly: &osapiext.ReadOnlyOperation{},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "delete",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "30d",
 						},
 					},
@@ -404,17 +416,17 @@ var (
 			},
 			{
 				Name: "delete",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Delete: &esapiext.DeleteOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							Delete: &osapiext.DeleteOperation{},
 						},
 					},
 				},
-				Transitions: make([]esapiext.TransitionSpec, 0),
+				Transitions: make([]osapiext.TransitionSpec, 0),
 			},
 		},
-		ISMTemplate: &esapiext.ISMTemplateSpec{
+		ISMTemplate: &osapiext.ISMTemplateSpec{
 			IndexPatterns: []string{
 				fmt.Sprintf("%s*", drainStatusIndexPrefix),
 			},
@@ -422,27 +434,28 @@ var (
 		},
 	}
 
-	opniMetricPolicy = esapiext.ISMPolicySpec{
-		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+	opniMetricPolicy = osapiext.ISMPolicySpec{
+		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
 			PolicyID:   metricPolicyName,
 			MarshallID: false,
 		},
 		Description:  "A hot-warm-cold-delete workflow for the opni-metric index.",
 		DefaultState: "hot",
-		States: []esapiext.StateSpec{
+		States: []osapiext.StateSpec{
 			{
 				Name: "hot",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Rollover: &esapiext.RolloverOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							Rollover: &osapiext.RolloverOperation{
 								MinSize:     "1gb",
 								MinIndexAge: "1d",
 							},
 						},
+						Retry: &DefaultRetry,
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "warm",
 					},
@@ -450,33 +463,36 @@ var (
 			},
 			{
 				Name: "warm",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReplicaCount: &esapiext.ReplicaCountOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ReplicaCount: &osapiext.ReplicaCountOperation{
 								NumberOfReplicas: 0,
 							},
 						},
+						Retry: &DefaultRetry,
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							IndexPriority: &esapiext.IndexPriorityOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							IndexPriority: &osapiext.IndexPriorityOperation{
 								Priority: 50,
 							},
 						},
+						Retry: &DefaultRetry,
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ForceMerge: &esapiext.ForceMergeOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ForceMerge: &osapiext.ForceMergeOperation{
 								MaxNumSegments: 1,
 							},
 						},
+						Retry: &DefaultRetry,
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "cold",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "7d",
 						},
 					},
@@ -484,17 +500,18 @@ var (
 			},
 			{
 				Name: "cold",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReadOnly: &esapiext.ReadOnlyOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							ReadOnly: &osapiext.ReadOnlyOperation{},
 						},
+						Retry: &DefaultRetry,
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "delete",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "30d",
 						},
 					},
@@ -502,17 +519,18 @@ var (
 			},
 			{
 				Name: "delete",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Delete: &esapiext.DeleteOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							Delete: &osapiext.DeleteOperation{},
 						},
+						Retry: &DefaultRetry,
 					},
 				},
-				Transitions: make([]esapiext.TransitionSpec, 0),
+				Transitions: make([]osapiext.TransitionSpec, 0),
 			},
 		},
-		ISMTemplate: []esapiext.ISMTemplateSpec{
+		ISMTemplate: []osapiext.ISMTemplateSpec{
 			{
 				IndexPatterns: []string{
 					fmt.Sprintf("%s*", metricIndexPrefix),
@@ -522,27 +540,27 @@ var (
 		},
 	}
 
-	oldOpniMetricPolicy = esapiext.OldISMPolicySpec{
-		ISMPolicyIDSpec: &esapiext.ISMPolicyIDSpec{
+	oldOpniMetricPolicy = osapiext.OldISMPolicySpec{
+		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
 			PolicyID:   metricPolicyName,
 			MarshallID: false,
 		},
 		Description:  "A hot-warm-cold-delete workflow for the opni-metric index.",
 		DefaultState: "hot",
-		States: []esapiext.StateSpec{
+		States: []osapiext.StateSpec{
 			{
 				Name: "hot",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Rollover: &esapiext.RolloverOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							Rollover: &osapiext.RolloverOperation{
 								MinSize:     "1gb",
 								MinIndexAge: "1d",
 							},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "warm",
 					},
@@ -550,33 +568,33 @@ var (
 			},
 			{
 				Name: "warm",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReplicaCount: &esapiext.ReplicaCountOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ReplicaCount: &osapiext.ReplicaCountOperation{
 								NumberOfReplicas: 0,
 							},
 						},
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							IndexPriority: &esapiext.IndexPriorityOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							IndexPriority: &osapiext.IndexPriorityOperation{
 								Priority: 50,
 							},
 						},
 					},
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ForceMerge: &esapiext.ForceMergeOperation{
+						ActionOperation: &osapiext.ActionOperation{
+							ForceMerge: &osapiext.ForceMergeOperation{
 								MaxNumSegments: 1,
 							},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "cold",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "7d",
 						},
 					},
@@ -584,17 +602,17 @@ var (
 			},
 			{
 				Name: "cold",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							ReadOnly: &esapiext.ReadOnlyOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							ReadOnly: &osapiext.ReadOnlyOperation{},
 						},
 					},
 				},
-				Transitions: []esapiext.TransitionSpec{
+				Transitions: []osapiext.TransitionSpec{
 					{
 						StateName: "delete",
-						Conditions: &esapiext.ConditionSpec{
+						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: "30d",
 						},
 					},
@@ -602,17 +620,17 @@ var (
 			},
 			{
 				Name: "delete",
-				Actions: []esapiext.ActionSpec{
+				Actions: []osapiext.ActionSpec{
 					{
-						ActionOperation: &esapiext.ActionOperation{
-							Delete: &esapiext.DeleteOperation{},
+						ActionOperation: &osapiext.ActionOperation{
+							Delete: &osapiext.DeleteOperation{},
 						},
 					},
 				},
-				Transitions: make([]esapiext.TransitionSpec, 0),
+				Transitions: make([]osapiext.TransitionSpec, 0),
 			},
 		},
-		ISMTemplate: &esapiext.ISMTemplateSpec{
+		ISMTemplate: &osapiext.ISMTemplateSpec{
 			IndexPatterns: []string{
 				fmt.Sprintf("%s*", metricIndexPrefix),
 			},
@@ -620,20 +638,20 @@ var (
 		},
 	}
 
-	OpniLogTemplate = esapiext.IndexTemplateSpec{
+	OpniLogTemplate = osapiext.IndexTemplateSpec{
 		TemplateName: LogIndexTemplateName,
 		IndexPatterns: []string{
 			fmt.Sprintf("%s*", LogIndexPrefix),
 		},
-		Template: esapiext.TemplateSpec{
-			Settings: esapiext.TemplateSettingsSpec{
+		Template: osapiext.TemplateSpec{
+			Settings: osapiext.TemplateSettingsSpec{
 				NumberOfShards:   1,
 				NumberOfReplicas: 1,
 				ISMPolicyID:      LogPolicyName,
 				RolloverAlias:    LogIndexAlias,
 			},
-			Mappings: esapiext.TemplateMappingsSpec{
-				Properties: map[string]esapiext.PropertySettings{
+			Mappings: osapiext.TemplateMappingsSpec{
+				Properties: map[string]osapiext.PropertySettings{
 					"timestamp": {
 						Type: "date",
 					},
@@ -642,20 +660,33 @@ var (
 		},
 	}
 
-	opniMetricTemplate = esapiext.IndexTemplateSpec{
+	IngestPipelineTemplate = osapiext.IndexTemplateSpec{
+		TemplateName: "logs-ingest-pipeline",
+		IndexPatterns: []string{
+			fmt.Sprintf("%s*", LogIndexPrefix),
+		},
+		Template: osapiext.TemplateSpec{
+			Settings: osapiext.TemplateSettingsSpec{
+				DefaultPipeline: PreProcessingPipelineName,
+			},
+		},
+		Priority: 50,
+	}
+
+	opniMetricTemplate = osapiext.IndexTemplateSpec{
 		TemplateName: metricIndexTemplateName,
 		IndexPatterns: []string{
 			fmt.Sprintf("%s*", metricIndexPrefix),
 		},
-		Template: esapiext.TemplateSpec{
-			Settings: esapiext.TemplateSettingsSpec{
+		Template: osapiext.TemplateSpec{
+			Settings: osapiext.TemplateSettingsSpec{
 				NumberOfShards:   2,
 				NumberOfReplicas: 1,
 				ISMPolicyID:      metricPolicyName,
 				RolloverAlias:    metricIndexAlias,
 			},
-			Mappings: esapiext.TemplateMappingsSpec{
-				Properties: map[string]esapiext.PropertySettings{
+			Mappings: osapiext.TemplateMappingsSpec{
+				Properties: map[string]osapiext.PropertySettings{
 					"timestamp": {
 						Type: "date",
 					},
@@ -664,20 +695,20 @@ var (
 		},
 	}
 
-	drainStatusTemplate = esapiext.IndexTemplateSpec{
+	drainStatusTemplate = osapiext.IndexTemplateSpec{
 		TemplateName: drainStatusIndexTemplateName,
 		IndexPatterns: []string{
 			fmt.Sprintf("%s*", drainStatusIndexPrefix),
 		},
-		Template: esapiext.TemplateSpec{
-			Settings: esapiext.TemplateSettingsSpec{
+		Template: osapiext.TemplateSpec{
+			Settings: osapiext.TemplateSettingsSpec{
 				NumberOfShards:   2,
 				NumberOfReplicas: 1,
 				ISMPolicyID:      drainStatusPolicyName,
 				RolloverAlias:    drainStatusIndexAlias,
 			},
-			Mappings: esapiext.TemplateMappingsSpec{
-				Properties: map[string]esapiext.PropertySettings{
+			Mappings: osapiext.TemplateMappingsSpec{
+				Properties: map[string]osapiext.PropertySettings{
 					"num_log_clusters": {
 						Type: "integer",
 					},
@@ -693,9 +724,9 @@ var (
 		},
 	}
 
-	normalIntervalIndexSettings = map[string]esapiext.TemplateMappingsSpec{
+	normalIntervalIndexSettings = map[string]osapiext.TemplateMappingsSpec{
 		"mappings": {
-			Properties: map[string]esapiext.PropertySettings{
+			Properties: map[string]osapiext.PropertySettings{
 				"start_ts": {
 					Type:   "date",
 					Format: "epoch_millis",
@@ -703,6 +734,18 @@ var (
 				"end_ts": {
 					Type:   "date",
 					Format: "epoch_millis",
+				},
+			},
+		},
+	}
+
+	PreprocessingPipeline = osapiext.IngestPipeline{
+		Description: "Opni preprocessing ingest pipeline",
+		Processors: []osapiext.Processor{
+			{
+				OpniPreProcessor: &osapiext.OpniPreProcessor{
+					Field:       "log",
+					TargetField: "masked_log",
 				},
 			},
 		},

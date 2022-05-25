@@ -1,5 +1,6 @@
 package opensearch
 
+// TODO move opensearch out of util
 import (
 	"context"
 	"crypto/tls"
@@ -8,12 +9,14 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
 	"github.com/rancher/opni/pkg/util/kibana"
 	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
+	"github.com/tidwall/sjson"
 	"golang.org/x/mod/semver"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -149,6 +152,8 @@ func (r *Reconciler) shouldCreateTemplate(name string) (bool, error) {
 		return false, fmt.Errorf("failed to check index template %s: %s", name, resp.String())
 	}
 
+	// TODO: Check settings (not mappings) and update if they are different.
+
 	return false, nil
 }
 
@@ -255,7 +260,7 @@ func (r *Reconciler) ReconcileISM(policy interface{}) error {
 	return nil
 }
 
-func (r *Reconciler) MaybeCreateIndexTemplate(template *opensearchapiext.IndexTemplateSpec) error {
+func (r *Reconciler) MaybeCreateIndexTemplate(template opensearchapiext.IndexTemplateSpec) error {
 	createTemplate, err := r.shouldCreateTemplate(template.TemplateName)
 	if err != nil {
 		return err
@@ -275,6 +280,32 @@ func (r *Reconciler) MaybeCreateIndexTemplate(template *opensearchapiext.IndexTe
 		if resp.IsError() {
 			return fmt.Errorf("failed to create template %s: %s", template.TemplateName, resp.String())
 		}
+	}
+
+	return nil
+}
+
+func (r *Reconciler) MaybeDeleteIndexTemplate(name string) error {
+	absent, err := r.shouldCreateTemplate(name)
+	if err != nil {
+		return err
+	}
+
+	if absent {
+		return nil
+	}
+
+	resp, err := r.osClient.Indices.DeleteIndexTemplate(
+		name,
+		r.osClient.Indices.DeleteIndexTemplate.WithContext(r.ctx),
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return fmt.Errorf("failed to delete template %s: %s", name, resp.String())
 	}
 
 	return nil
@@ -676,5 +707,112 @@ func (r *Reconciler) MaybeRemoveRolesMapping(roleName string, userName string) e
 	if resp.IsError() {
 		return fmt.Errorf("failed to remove user role mapping: %s", resp.String())
 	}
+	return nil
+}
+
+func (r *Reconciler) shouldCreateIngestPipeline(name string) (bool, error) {
+	resp, err := r.osClient.Ingest.GetPipeline(
+		r.osClient.Ingest.GetPipeline.WithContext(r.ctx),
+		r.osClient.Ingest.GetPipeline.WithPipelineID(name),
+	)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return true, nil
+	} else if resp.IsError() {
+		return false, fmt.Errorf("response from API is %s", resp.Status())
+	}
+
+	// TODO compare content of pipeline
+	return false, nil
+}
+
+func (r *Reconciler) MaybeCreateIngestPipeline(name string, pipeline opensearchapiext.IngestPipeline) error {
+	shouldCreate, err := r.shouldCreateIngestPipeline(name)
+	if err != nil {
+		return err
+	}
+
+	if !shouldCreate {
+		return nil
+	}
+
+	req := opensearchapi.IngestPutPipelineRequest{
+		PipelineID: name,
+		Body:       opensearchutil.NewJSONReader(pipeline),
+	}
+
+	resp, err := req.Do(r.ctx, r.osClient)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return fmt.Errorf("failed to create ingest pipeline: %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) MaybeDeleteIngestPipeline(name string) error {
+	absent, err := r.shouldCreateIngestPipeline(name)
+	if err != nil {
+		return err
+	}
+
+	if absent {
+		return nil
+	}
+
+	resp, err := r.osClient.Ingest.DeletePipeline(
+		name,
+		r.osClient.Ingest.DeletePipeline.WithContext(r.ctx),
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return fmt.Errorf("failed to delete ingest pipeline: %s", resp.String())
+	}
+	return nil
+}
+
+func (r *Reconciler) UpdateDefaultIngestPipelineForIndex(index string, pipelineName string) error {
+	indexExists, err := r.indexExists(index)
+	if err != nil {
+		return err
+	}
+
+	if !indexExists {
+		return nil
+	}
+
+	setting, err := sjson.Set("", "index.default_pipeline", pipelineName)
+	if err != nil {
+		return err
+	}
+
+	req := opensearchapi.IndicesPutSettingsRequest{
+		Index: []string{
+			index,
+		},
+		Body: strings.NewReader(setting),
+	}
+
+	resp, err := req.Do(r.ctx, r.osClient)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		return fmt.Errorf("failed to update index settings: %s", resp.String())
+	}
+
 	return nil
 }

@@ -18,13 +18,12 @@ spec:
       - name: control-plane
     metrics:
       enabled: false
-    opensearchFetcher:
-      enabled: true
   opensearch:
     externalOpensearch:
       name: opni
       namespace: {{ include "opni.namespace" . }}
-    enableLogIndexManagement: true
+    enableLogIndexManagement: false
+    enableIngestPreprocessing: true
 {{- with .Values.ai.s3 }}
   s3:
     {{- toYaml . | nindent 4 }}

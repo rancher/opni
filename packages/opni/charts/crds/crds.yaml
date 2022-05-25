@@ -48695,6 +48695,11 @@ spec:
                   namespace:
                     type: string
                 type: object
+              opensearchConfig:
+                properties:
+                  indexRetention:
+                    type: string
+                type: object
               opensearchExternalURL:
                 type: string
             type: object
@@ -52977,6 +52982,8 @@ spec:
                     type: object
                   defaultRepo:
                     type: string
+                  enableIngestPreprocessing:
+                    type: boolean
                   enableLogIndexManagement:
                     type: boolean
                   externalOpensearch:
@@ -54811,42 +54818,6 @@ spec:
                         type: object
                       prometheusEndpoint:
                         type: string
-                      tolerations:
-                        items:
-                          properties:
-                            effect:
-                              type: string
-                            key:
-                              type: string
-                            operator:
-                              type: string
-                            tolerationSeconds:
-                              format: int64
-                              type: integer
-                            value:
-                              type: string
-                          type: object
-                        type: array
-                    type: object
-                  opensearchFetcher:
-                    properties:
-                      enabled:
-                        type: boolean
-                      image:
-                        type: string
-                      imagePullPolicy:
-                        type: string
-                      imagePullSecrets:
-                        items:
-                          properties:
-                            name:
-                              type: string
-                          type: object
-                        type: array
-                      nodeSelector:
-                        additionalProperties:
-                          type: string
-                        type: object
                       tolerations:
                         items:
                           properties:

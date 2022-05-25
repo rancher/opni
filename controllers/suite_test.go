@@ -91,6 +91,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			"../config/crd/grafana",
 			"../config/crd/nvidia",
 			"../config/crd/nfd",
+			"../config/crd/opensearch",
 			"../test/resources",
 		},
 		BinaryAssetsDirectory: "../testbin/bin",
@@ -323,10 +324,6 @@ func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
 						}
 						return nil
 					}(),
-				},
-				OpensearchFetcher: v1beta2.OpensearchFetcherServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
 				},
 			},
 		},

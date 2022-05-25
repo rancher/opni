@@ -181,6 +181,15 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}
 
+	if r.cluster.Spec.Opensearch.EnableIngestPreprocessing {
+		err = r.osReconciler.MaybeCreateIngestPipeline(PreProcessingPipelineName, PreprocessingPipeline)
+		if err != nil {
+			conditions = append(conditions, err.Error())
+			retErr = errors.Combine(retErr, err)
+			return
+		}
+	}
+
 	templates := []esapiext.IndexTemplateSpec{
 		drainStatusTemplate,
 		opniMetricTemplate,
@@ -190,8 +199,41 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		templates = append(templates, OpniLogTemplate)
 	}
 
+	if r.cluster.Spec.Opensearch.EnableIngestPreprocessing {
+		templates = append(templates, IngestPipelineTemplate)
+	} else {
+		err = r.osReconciler.MaybeDeleteIndexTemplate(IngestPipelineTemplate.TemplateName)
+		if err != nil {
+			conditions = append(conditions, err.Error())
+			retErr = errors.Combine(retErr, err)
+		}
+	}
+
 	for _, template := range templates {
-		err = r.osReconciler.MaybeCreateIndexTemplate(&template)
+		err = r.osReconciler.MaybeCreateIndexTemplate(template)
+		if err != nil {
+			conditions = append(conditions, err.Error())
+			retErr = errors.Combine(retErr, err)
+			return
+		}
+	}
+
+	// Update existing indices for ingest pipeline
+	if r.cluster.Spec.Opensearch.EnableIngestPreprocessing {
+		err = r.osReconciler.UpdateDefaultIngestPipelineForIndex(
+			fmt.Sprintf("%s*", LogIndexPrefix),
+			PreProcessingPipelineName,
+		)
+		if err != nil {
+			conditions = append(conditions, err.Error())
+			retErr = errors.Combine(retErr, err)
+			return
+		}
+	} else {
+		err = r.osReconciler.UpdateDefaultIngestPipelineForIndex(
+			fmt.Sprintf("%s*", LogIndexPrefix),
+			"_none",
+		)
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)

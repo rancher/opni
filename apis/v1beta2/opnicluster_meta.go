@@ -14,7 +14,6 @@ const (
 	PayloadReceiverService
 	GPUControllerService
 	MetricsService
-	OpensearchFetcher
 )
 
 type OpensearchRole string
@@ -40,8 +39,6 @@ func (s ServiceKind) String() string {
 		return "gpu-controller"
 	case MetricsService:
 		return "metrics"
-	case OpensearchFetcher:
-		return "opensearch-fetcher"
 	default:
 		return ""
 	}
@@ -55,8 +52,6 @@ func (s ServiceKind) ImageName() string {
 	switch s {
 	case GPUControllerService:
 		return "opni-gpu-service-controller"
-	case OpensearchFetcher:
-		return "opni-opensearch-fetcher"
 	default:
 		return "opni-" + s.String() + "-service"
 	}
@@ -76,8 +71,6 @@ func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *opnimeta.ImageSpec 
 		return &opniCluster.Spec.Services.GPUController.ImageSpec
 	case MetricsService:
 		return &opniCluster.Spec.Services.Metrics.ImageSpec
-	case OpensearchFetcher:
-		return &opniCluster.Spec.Services.OpensearchFetcher.ImageSpec
 	default:
 		return nil
 	}
@@ -97,8 +90,6 @@ func (s ServiceKind) GetNodeSelector(opniCluster *OpniCluster) map[string]string
 		return opniCluster.Spec.Services.GPUController.NodeSelector
 	case MetricsService:
 		return opniCluster.Spec.Services.Metrics.NodeSelector
-	case OpensearchFetcher:
-		return opniCluster.Spec.Services.OpensearchFetcher.NodeSelector
 	default:
 		return map[string]string{}
 	}
@@ -118,8 +109,6 @@ func (s ServiceKind) GetTolerations(opniCluster *OpniCluster) []corev1.Toleratio
 		return opniCluster.Spec.Services.GPUController.Tolerations
 	case MetricsService:
 		return opniCluster.Spec.Services.Metrics.Tolerations
-	case OpensearchFetcher:
-		return opniCluster.Spec.Services.OpensearchFetcher.Tolerations
 	default:
 		return []corev1.Toleration{}
 	}

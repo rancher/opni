@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	opsterv1 "opensearch.opster.io/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -66,5 +67,6 @@ func (r *LoggingClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta2.LoggingCluster{}).
 		Owns(&corev1.Secret{}).
+		Owns(&opsterv1.OpenSearchCluster{}).
 		Complete(r)
 }

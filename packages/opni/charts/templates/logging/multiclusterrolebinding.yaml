@@ -8,5 +8,7 @@ spec:
   opensearch:
     name: opni
     namespace: {{ include "opni.namespace" . }}
+  opensearchConfig:
+    indexRetention: {{ .Values.logging.retention }}
   opensearchExternalURL: {{ .Values.logging.externalURL }}
 {{- end }}

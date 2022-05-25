@@ -41,6 +41,11 @@ spec:
                   namespace:
                     type: string
                 type: object
+              opensearchConfig:
+                properties:
+                  indexRetention:
+                    type: string
+                type: object
               opensearchExternalURL:
                 type: string
             type: object

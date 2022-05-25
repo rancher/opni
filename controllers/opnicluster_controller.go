@@ -32,6 +32,7 @@ import (
 	"github.com/rancher/opni/pkg/resources/opnicluster"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
 	"github.com/rancher/opni/pkg/util"
+	opsterv1 "opensearch.opster.io/api/v1"
 )
 
 // OpniClusterReconciler reconciles a OpniCluster object
@@ -102,5 +103,6 @@ func (r *OpniClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
 		Owns(&corev1.Secret{}).
+		Owns(&opsterv1.OpenSearchCluster{}).
 		Complete(r)
 }

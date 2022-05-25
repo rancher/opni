@@ -324,10 +324,6 @@ func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
 						return nil
 					}(),
 				},
-				OpensearchFetcher: v1beta2.OpensearchFetcherServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
-					ImageSpec: imageSpec,
-				},
 			},
 		},
 	}

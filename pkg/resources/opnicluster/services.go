@@ -48,7 +48,6 @@ func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 		r.metricsService,
 		r.metricsServiceMonitor,
 		r.metricsPrometheusRule,
-		r.opensearchFetcherDeployment,
 	}, nil
 }
 
@@ -795,11 +794,6 @@ func (r *Reconciler) metricsPrometheusRule() (runtime.Object, reconciler.Desired
 		return prometheusRule, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
 	}
 	return prometheusRule, reconciler.StateAbsent, nil
-}
-
-func (r *Reconciler) opensearchFetcherDeployment() (runtime.Object, reconciler.DesiredState, error) {
-	deployment := r.genericDeployment(v1beta2.OpensearchFetcher)
-	return deployment, deploymentState(r.opniCluster.Spec.Services.OpensearchFetcher.Enabled), nil
 }
 
 func (r *Reconciler) generateSHAID() string {

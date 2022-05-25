@@ -52,7 +52,6 @@ var _ = Describe("OpniCluster Controller", Ordered, Label(test.Controller), func
 			v1beta2.PreprocessingService,
 			//v1beta2.GPUControllerService,
 			v1beta2.MetricsService,
-			v1beta2.OpensearchFetcher,
 		} {
 			wg.Add(1)
 

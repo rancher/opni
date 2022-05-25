@@ -18,8 +18,15 @@ func (src *OpniCluster) ConvertTo(dstRaw conversion.Hub) error {
 	services.Inference = v1beta2.InferenceServiceSpec(src.Spec.Services.Inference)
 	services.PayloadReceiver = v1beta2.PayloadReceiverServiceSpec(src.Spec.Services.PayloadReceiver)
 	services.GPUController = v1beta2.GPUControllerServiceSpec(src.Spec.Services.GPUController)
-	services.Metrics = v1beta2.MetricsServiceSpec(src.Spec.Services.Metrics)
 
+	services.Metrics = v1beta2.MetricsServiceSpec{
+		ImageSpec:           src.Spec.Services.Metrics.ImageSpec,
+		Enabled:             src.Spec.Services.Metrics.Enabled,
+		NodeSelector:        src.Spec.Services.Metrics.NodeSelector,
+		Tolerations:         src.Spec.Services.Metrics.Tolerations,
+		PrometheusEndpoint:  src.Spec.Services.Metrics.PrometheusEndpoint,
+		PrometheusReference: src.Spec.Services.Metrics.PrometheusReference,
+	}
 	services.Preprocessing = v1beta2.PreprocessingServiceSpec{
 		ImageSpec:    src.Spec.Services.Preprocessing.ImageSpec,
 		Enabled:      src.Spec.Services.Preprocessing.Enabled,
@@ -102,7 +109,14 @@ func (dst *OpniCluster) ConvertFrom(srcRaw conversion.Hub) error {
 	services.Inference = InferenceServiceSpec(src.Spec.Services.Inference)
 	services.PayloadReceiver = PayloadReceiverServiceSpec(src.Spec.Services.PayloadReceiver)
 	services.GPUController = GPUControllerServiceSpec(src.Spec.Services.GPUController)
-	services.Metrics = MetricsServiceSpec(src.Spec.Services.Metrics)
+	services.Metrics = MetricsServiceSpec{
+		ImageSpec:           src.Spec.Services.Metrics.ImageSpec,
+		Enabled:             src.Spec.Services.Metrics.Enabled,
+		NodeSelector:        src.Spec.Services.Metrics.NodeSelector,
+		Tolerations:         src.Spec.Services.Metrics.Tolerations,
+		PrometheusEndpoint:  src.Spec.Services.Metrics.PrometheusEndpoint,
+		PrometheusReference: src.Spec.Services.Metrics.PrometheusReference,
+	}
 	services.Insights = InsightsServiceSpec{
 		Enabled: pointer.BoolPtr(false),
 	}

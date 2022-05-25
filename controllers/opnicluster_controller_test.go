@@ -327,6 +327,13 @@ var _ = Describe("OpniCluster Controller", Ordered, Label(test.Controller), func
 				resources.PartOfLabel, "opni",
 			),
 			HaveOwner(cluster),
+			HaveMatchingVolume(And(
+				HaveName("test-volume"),
+				HaveVolumeSource("EmptyDir"),
+			)),
+			HaveMatchingContainer(And(
+				HaveVolumeMounts("test-volume"),
+			)),
 		))
 		Eventually(Object(&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{

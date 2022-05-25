@@ -154,6 +154,7 @@ type MetricsServiceSpec struct {
 	Enabled             *bool                         `json:"enabled,omitempty"`
 	NodeSelector        map[string]string             `json:"nodeSelector,omitempty"`
 	Tolerations         []corev1.Toleration           `json:"tolerations,omitempty"`
+	ExtraVolumeMounts   []opnimeta.ExtraVolumeMount   `json:"extraVolumeMounts,omitempty"`
 	PrometheusEndpoint  string                        `json:"prometheusEndpoint,omitempty"`
 	PrometheusReference *opnimeta.PrometheusReference `json:"prometheus,omitempty"`
 }

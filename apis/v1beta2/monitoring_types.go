@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/noauth"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -31,13 +32,6 @@ func (i *ImageSpec) GetImagePullPolicy() corev1.PullPolicy {
 	return *i.ImagePullPolicy
 }
 
-type ExtraVolumeMount struct {
-	Name         string              `json:"name,omitempty"`
-	MountPath    string              `json:"mountPath,omitempty"`
-	ReadOnly     bool                `json:"readOnly,omitempty"`
-	VolumeSource corev1.VolumeSource `json:",inline"`
-}
-
 type GatewaySpec struct {
 	Image *ImageSpec `json:"image,omitempty"`
 	//+kubebuilder:validation:Required
@@ -50,10 +44,10 @@ type GatewaySpec struct {
 	//+kubebuilder:default=etcd
 	StorageType cfgv1beta1.StorageType `json:"storageType,omitempty"`
 
-	NodeSelector      map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations       []corev1.Toleration `json:"tolerations,omitempty"`
-	Affinity          *corev1.Affinity    `json:"affinity,omitempty"`
-	ExtraVolumeMounts []ExtraVolumeMount  `json:"extraVolumeMounts,omitempty"`
+	NodeSelector      map[string]string           `json:"nodeSelector,omitempty"`
+	Tolerations       []corev1.Toleration         `json:"tolerations,omitempty"`
+	Affinity          *corev1.Affinity            `json:"affinity,omitempty"`
+	ExtraVolumeMounts []opnimeta.ExtraVolumeMount `json:"extraVolumeMounts,omitempty"`
 }
 
 func (g *GatewaySpec) GetServiceType() corev1.ServiceType {

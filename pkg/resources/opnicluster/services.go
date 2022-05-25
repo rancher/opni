@@ -38,7 +38,7 @@ const (
 func (r *Reconciler) opniServices() ([]resources.Resource, error) {
 	return []resources.Resource{
 		r.nulogHyperparameters,
-		r.inferenceDeployment,
+		//r.inferenceDeployment,
 		r.drainDeployment,
 		r.payloadReceiverDeployment,
 		r.payloadReceiverService,

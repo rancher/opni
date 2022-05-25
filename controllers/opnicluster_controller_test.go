@@ -47,7 +47,7 @@ var _ = Describe("OpniCluster Controller", Ordered, Label(test.Controller), func
 
 		for _, kind := range []v1beta2.ServiceKind{
 			v1beta2.DrainService,
-			v1beta2.InferenceService,
+			//v1beta2.InferenceService,
 			v1beta2.PayloadReceiverService,
 			v1beta2.PreprocessingService,
 			//v1beta2.GPUControllerService,
@@ -226,25 +226,25 @@ var _ = Describe("OpniCluster Controller", Ordered, Label(test.Controller), func
 			HaveData("hyperparameters.json", string(defaultHyperParameters)),
 			HaveOwner(cluster),
 		))
-		Eventually(Object(&appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      v1beta2.InferenceService.ServiceName(),
-				Namespace: cluster.Namespace,
-			},
-		})).Should(ExistAnd(
-			HaveMatchingVolume(And(
-				HaveName("hyperparameters"),
-				HaveVolumeSource("ConfigMap"),
-			)),
-			HaveMatchingContainer(
-				HaveVolumeMounts(corev1.VolumeMount{
-					Name:      "hyperparameters",
-					MountPath: "/etc/opni/hyperparameters.json",
-					SubPath:   "hyperparameters.json",
-					ReadOnly:  true,
-				}),
-			),
-		))
+		// Eventually(Object(&appsv1.Deployment{
+		// 	ObjectMeta: metav1.ObjectMeta{
+		// 		Name:      v1beta2.InferenceService.ServiceName(),
+		// 		Namespace: cluster.Namespace,
+		// 	},
+		// })).Should(ExistAnd(
+		// 	HaveMatchingVolume(And(
+		// 		HaveName("hyperparameters"),
+		// 		HaveVolumeSource("ConfigMap"),
+		// 	)),
+		// 	HaveMatchingContainer(
+		// 		HaveVolumeMounts(corev1.VolumeMount{
+		// 			Name:      "hyperparameters",
+		// 			MountPath: "/etc/opni/hyperparameters.json",
+		// 			SubPath:   "hyperparameters.json",
+		// 			ReadOnly:  true,
+		// 		}),
+		// 	),
+		// ))
 		// Eventually(Object(&appsv1.Deployment{
 		// 	ObjectMeta: metav1.ObjectMeta{
 		// 		Name:      v1beta2.GPUControllerService.ServiceName(),

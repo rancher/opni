@@ -17,7 +17,29 @@ spec:
       pretrainedModels:
       - name: control-plane
     metrics:
-      enabled: false
+      enabled: {{ .Values.monitoring.enabled }}
+      prometheusEndpoint: https://cortex-query-frontend:8080
+      extraVolumeMounts:
+      - name: cortex-client-certs
+        mountPath: /run/cortex/certs/client
+        secret:
+          secretName: cortex-client-cert-keys
+          defaultMode: 256
+          items:
+            - key: tls.crt
+              path: tls.crt
+            - key: tls.key
+              path: tls.key
+            - key: ca.crt
+              path: ca.crt
+      - name: cortex-server-cacert
+        mountPath: /run/cortex/certs/server
+        secret:
+          secretName: cortex-serving-cert-keys
+          defaultMode: 256
+          items:
+            - key: ca.crt
+              path: ca.crt
   opensearch:
     externalOpensearch:
       name: opni

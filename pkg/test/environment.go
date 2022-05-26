@@ -440,9 +440,9 @@ func (e *Environment) startCortex() {
 		panic(err)
 	}
 	configFile.Close()
-	cortexBin := path.Join(e.TestBin, "cortex")
+	cortexBin := filepath.Join(e.TestBin, "../../bin/opni")
 	defaultArgs := []string{
-		fmt.Sprintf("-config.file=%s", path.Join(e.tempDir, "cortex/config.yaml")),
+		"cortex", fmt.Sprintf("-config.file=%s", path.Join(e.tempDir, "cortex/config.yaml")),
 	}
 	cmd := exec.CommandContext(e.ctx, cortexBin, defaultArgs...)
 	plugins.ConfigureSysProcAttr(cmd)
@@ -943,9 +943,7 @@ func StartStandaloneTestEnvironment() {
 				}
 				switch rn {
 				case ' ':
-					if err := browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb)); err != nil {
-						Log.Error(err)
-					}
+					go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb))
 				case 'a':
 					go func() {
 						bt, err := client.CreateBootstrapToken(environment.ctx, &managementv1.CreateBootstrapTokenRequest{

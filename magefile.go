@@ -306,14 +306,8 @@ func init() {
 		},
 		{
 			Name:       "prometheus",
-			Version:    "2.32.1",
+			Version:    "2.35.0",
 			URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
-			GetVersion: getVersion,
-		},
-		{
-			Name:       "cortex",
-			Version:    "1.11.0",
-			URL:        "https://github.com/cortexproject/cortex/releases/download/v{{.Version}}/cortex-{{.GOOS}}-{{.GOARCH}}",
 			GetVersion: getVersion,
 		},
 	}

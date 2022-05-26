@@ -308,7 +308,7 @@ dagger.#Plan & {
 							name: "opensearch-dashboards-plugin"
 							args: [
 								"install",
-								"https://github.com/rancher/opni-ui/releases/download/plugin-\(client.env.PLUGIN_VERSION)/opni-dashboards-plugin-\(client.env.PLUGIN_VERSION)-os-\(client.env.DASHBOARDS_VERSION).zip",
+								"https://github.com/rancher/opni-ui/releases/download/plugin-\(client.env.PLUGIN_VERSION)/opni-dashboards-plugin-\(client.env.PLUGIN_VERSION).zip",
 							]
 						}
 					},

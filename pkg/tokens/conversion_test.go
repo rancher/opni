@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/tokens"
 	"google.golang.org/protobuf/proto"
@@ -29,14 +29,14 @@ var _ = Describe("Conversion", Label(test.Unit), func() {
 	})
 	When("converting from core.BootstrapToken to tokens.Token", func() {
 		It("should handle decoding errors", func() {
-			bt := &core.BootstrapToken{
+			bt := &corev1.BootstrapToken{
 				TokenID: "invalid",
 				Secret:  hex.EncodeToString([]byte("secret")),
 			}
 			_, err := tokens.FromBootstrapToken(bt)
 			Expect(err).To(HaveOccurred())
 
-			bt = &core.BootstrapToken{
+			bt = &corev1.BootstrapToken{
 				TokenID: hex.EncodeToString([]byte("id")),
 				Secret:  "invalid",
 			}

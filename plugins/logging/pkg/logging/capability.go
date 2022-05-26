@@ -6,7 +6,7 @@ import (
 
 	"github.com/rancher/opni/apis/v1beta2"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/core"
+	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	corev1 "k8s.io/api/core/v1"
@@ -43,7 +43,7 @@ func (p *Plugin) CanInstall() error {
 	return nil
 }
 
-func (p *Plugin) Install(cluster *core.Reference) error {
+func (p *Plugin) Install(cluster *opnicorev1.Reference) error {
 	labels := map[string]string{
 		resources.OpniClusterID: cluster.Id,
 	}
@@ -102,7 +102,7 @@ func (p *Plugin) Install(cluster *core.Reference) error {
 	return nil
 }
 
-func (p *Plugin) Uninstall(cluster *core.Reference) error {
+func (p *Plugin) Uninstall(cluster *opnicorev1.Reference) error {
 	var loggingCluster *v1beta2.LoggingCluster
 	var secret *corev1.Secret
 

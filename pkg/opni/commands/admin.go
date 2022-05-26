@@ -6,7 +6,7 @@ import (
 
 	"github.com/araddon/dateparse"
 	"github.com/olebedev/when"
-	"github.com/rancher/opni/pkg/management"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -32,7 +32,7 @@ func BuildQueryCmd() *cobra.Command {
 		Short: "Query time-series metrics from Cortex",
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(clusters) == 0 {
-				cl, err := mgmtClient.ListClusters(cmd.Context(), &management.ListClustersRequest{})
+				cl, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 				if err != nil {
 					lg.Fatal(err)
 				}
@@ -66,7 +66,7 @@ func BuildQueryRangeCmd() *cobra.Command {
 			startTime := parseTimeOrDie(start)
 			endTime := parseTimeOrDie(end)
 			if len(clusters) == 0 {
-				cl, err := mgmtClient.ListClusters(cmd.Context(), &management.ListClustersRequest{})
+				cl, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 				if err != nil {
 					lg.Fatal(err)
 				}

@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	core "github.com/rancher/opni/pkg/core"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
 // MockBackend is a mock of Backend interface.
@@ -49,7 +49,7 @@ func (mr *MockBackendMockRecorder) CanInstall() *gomock.Call {
 }
 
 // Install mocks base method.
-func (m *MockBackend) Install(cluster *core.Reference) error {
+func (m *MockBackend) Install(cluster *v1.Reference) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Install", cluster)
 	ret0, _ := ret[0].(error)
@@ -77,7 +77,7 @@ func (mr *MockBackendMockRecorder) InstallerTemplate() *gomock.Call {
 }
 
 // Uninstall mocks base method.
-func (m *MockBackend) Uninstall(cluster *core.Reference) error {
+func (m *MockBackend) Uninstall(cluster *v1.Reference) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Uninstall", cluster)
 	ret0, _ := ret[0].(error)

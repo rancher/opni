@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 )
 
@@ -16,10 +16,10 @@ func TestStorage(t *testing.T) {
 	RunSpecs(t, "Storage Suite")
 }
 
-func cluster(id string, labels ...string) *core.Cluster {
-	cluster := &core.Cluster{
+func cluster(id string, labels ...string) *corev1.Cluster {
+	cluster := &corev1.Cluster{
 		Id: id,
-		Metadata: &core.ClusterMetadata{
+		Metadata: &corev1.ClusterMetadata{
 			Labels: map[string]string{},
 		},
 	}
@@ -31,17 +31,17 @@ func cluster(id string, labels ...string) *core.Cluster {
 
 func selector(idsOrSelectorOrOptions ...interface{}) storage.ClusterSelector {
 	var ids []string
-	var selector *core.LabelSelector
-	var options core.MatchOptions
+	var selector *corev1.LabelSelector
+	var options corev1.MatchOptions
 	for _, arg := range idsOrSelectorOrOptions {
 		switch value := arg.(type) {
 		case string:
 			ids = append(ids, value)
 		case []string:
 			ids = append(ids, value...)
-		case *core.LabelSelector:
+		case *corev1.LabelSelector:
 			selector = value
-		case core.MatchOptions:
+		case corev1.MatchOptions:
 			options |= value
 		}
 	}
@@ -52,8 +52,8 @@ func selector(idsOrSelectorOrOptions ...interface{}) storage.ClusterSelector {
 	}
 }
 
-func matchLabels(labels ...string) *core.LabelSelector {
-	ls := &core.LabelSelector{
+func matchLabels(labels ...string) *corev1.LabelSelector {
+	ls := &corev1.LabelSelector{
 		MatchLabels: map[string]string{},
 	}
 	for i := 0; i < len(labels); i += 2 {
@@ -62,19 +62,19 @@ func matchLabels(labels ...string) *core.LabelSelector {
 	return ls
 }
 
-func matchExprs(exprs ...string) *core.LabelSelector {
-	ls := &core.LabelSelector{}
+func matchExprs(exprs ...string) *corev1.LabelSelector {
+	ls := &corev1.LabelSelector{}
 	for _, expr := range exprs {
 		parts := strings.Split(expr, " ")
 		switch len(parts) {
 		case 3:
-			ls.MatchExpressions = append(ls.MatchExpressions, &core.LabelSelectorRequirement{
+			ls.MatchExpressions = append(ls.MatchExpressions, &corev1.LabelSelectorRequirement{
 				Key:      parts[0],
 				Operator: parts[1],
 				Values:   strings.Split(parts[2], ","),
 			})
 		case 2:
-			ls.MatchExpressions = append(ls.MatchExpressions, &core.LabelSelectorRequirement{
+			ls.MatchExpressions = append(ls.MatchExpressions, &corev1.LabelSelectorRequirement{
 				Key:      parts[0],
 				Operator: parts[1],
 			})
@@ -84,26 +84,26 @@ func matchExprs(exprs ...string) *core.LabelSelector {
 }
 
 type rbacObjects struct {
-	roles        []func() *core.Role
-	roleBindings []func() *core.RoleBinding
+	roles        []func() *corev1.Role
+	roleBindings []func() *corev1.RoleBinding
 }
 
 func rbacs(objects ...interface{}) rbacObjects {
 	objs := rbacObjects{}
 	for _, o := range objects {
 		switch v := o.(type) {
-		case func() *core.Role:
+		case func() *corev1.Role:
 			objs.roles = append(objs.roles, v)
-		case func() *core.RoleBinding:
+		case func() *corev1.RoleBinding:
 			objs.roleBindings = append(objs.roleBindings, v)
 		}
 	}
 	return objs
 }
 
-func role(id string, clusterIdOrSelector ...interface{}) func() *core.Role {
-	return func() *core.Role {
-		r := &core.Role{
+func role(id string, clusterIdOrSelector ...interface{}) func() *corev1.Role {
+	return func() *corev1.Role {
+		r := &corev1.Role{
 			Id: id,
 		}
 		for _, i := range clusterIdOrSelector {
@@ -112,7 +112,7 @@ func role(id string, clusterIdOrSelector ...interface{}) func() *core.Role {
 				r.ClusterIDs = append(r.ClusterIDs, v)
 			case []string:
 				r.ClusterIDs = append(r.ClusterIDs, v...)
-			case *core.LabelSelector:
+			case *corev1.LabelSelector:
 				r.MatchLabels = v
 			}
 		}
@@ -122,9 +122,9 @@ func role(id string, clusterIdOrSelector ...interface{}) func() *core.Role {
 
 var rbacStore storage.RBACStore
 
-func rb(id string, roleName string, subjects ...string) func() *core.RoleBinding {
-	return func() *core.RoleBinding {
-		rb := &core.RoleBinding{
+func rb(id string, roleName string, subjects ...string) func() *corev1.RoleBinding {
+	return func() *corev1.RoleBinding {
+		rb := &corev1.RoleBinding{
 			Id:       id,
 			RoleId:   roleName,
 			Subjects: subjects,

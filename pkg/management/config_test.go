@@ -7,10 +7,12 @@ import (
 	"github.com/alecthomas/jsonschema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -28,7 +30,8 @@ var _ = Describe("Config", Ordered, Label(test.Unit, test.Slow), func() {
 					APIVersion: "v1beta1",
 				},
 				Spec: v1beta1.GatewayConfigSpec{
-					ListenAddress: "foo",
+					GRPCListenAddress: "foo",
+					HTTPListenAddress: "bar",
 					Management: v1beta1.ManagementSpec{
 						GRPCListenAddress: "bar",
 						HTTPListenAddress: "baz",
@@ -37,7 +40,7 @@ var _ = Describe("Config", Ordered, Label(test.Unit, test.Slow), func() {
 			},
 		}
 		lifecycler = config.NewLifecycler(sampleObjects)
-		setupManagementServer(&tv, management.WithLifecycler(lifecycler))()
+		setupManagementServer(&tv, plugins.NoopLoader, management.WithLifecycler(lifecycler))()
 	})
 
 	It("should retrieve the current config", func() {
@@ -63,7 +66,7 @@ var _ = Describe("Config", Ordered, Label(test.Unit, test.Slow), func() {
 				APIVersion: "v1beta1",
 			},
 			Spec: v1beta1.GatewayConfigSpec{
-				ListenAddress: "baz",
+				GRPCListenAddress: "foo2",
 			},
 		}
 		doc, err := json.Marshal(newObj)
@@ -74,8 +77,8 @@ var _ = Describe("Config", Ordered, Label(test.Unit, test.Slow), func() {
 		go func() {
 			<-reloadC
 		}()
-		_, err = tv.client.UpdateConfig(context.Background(), &management.UpdateConfigRequest{
-			Documents: []*management.ConfigDocument{
+		_, err = tv.client.UpdateConfig(context.Background(), &managementv1.UpdateConfigRequest{
+			Documents: []*managementv1.ConfigDocument{
 				{
 					Json: doc,
 				},

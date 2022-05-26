@@ -26,27 +26,22 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/phayes/freeport"
 	"github.com/pkg/browser"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/agent"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/gateway"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	gatewayext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
-	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
-	"github.com/rancher/opni/pkg/plugins/apis/capability"
-	"github.com/rancher/opni/pkg/plugins/apis/metrics"
-	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
@@ -57,6 +52,8 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -66,7 +63,8 @@ var Log = logger.New(logger.WithLogLevel(zap.DebugLevel)).Named("test")
 
 type servicePorts struct {
 	Etcd            int
-	Gateway         int
+	GatewayGRPC     int
+	GatewayHTTP     int
 	ManagementGRPC  int
 	ManagementHTTP  int
 	ManagementWeb   int
@@ -165,19 +163,20 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	e.mockCtrl = gomock.NewController(t)
 
-	ports, err := freeport.GetFreePorts(8)
+	ports, err := freeport.GetFreePorts(9)
 	if err != nil {
 		panic(err)
 	}
 	e.ports = servicePorts{
 		Etcd:            ports[0],
-		Gateway:         ports[1],
-		ManagementGRPC:  ports[2],
-		ManagementHTTP:  ports[3],
-		ManagementWeb:   ports[4],
-		CortexGRPC:      ports[5],
-		CortexHTTP:      ports[6],
-		TestEnvironment: ports[7],
+		GatewayGRPC:     ports[1],
+		GatewayHTTP:     ports[2],
+		ManagementGRPC:  ports[3],
+		ManagementHTTP:  ports[4],
+		ManagementWeb:   ports[5],
+		CortexGRPC:      ports[6],
+		CortexHTTP:      ports[7],
+		TestEnvironment: ports[8],
 	}
 	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
 		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
@@ -197,8 +196,14 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			return fmt.Errorf("failed to parse management web port: %w", err)
 		}
 	}
-	if portNum, ok := os.LookupEnv("OPNI_GATEWAY_PORT"); ok {
-		e.ports.Gateway, err = strconv.Atoi(portNum)
+	if portNum, ok := os.LookupEnv("OPNI_GATEWAY_GRPC_PORT"); ok {
+		e.ports.GatewayGRPC, err = strconv.Atoi(portNum)
+		if err != nil {
+			return fmt.Errorf("failed to parse gateway port: %w", err)
+		}
+	}
+	if portNum, ok := os.LookupEnv("OPNI_GATEWAY_HTTP_PORT"); ok {
+		e.ports.GatewayHTTP, err = strconv.Atoi(portNum)
 		if err != nil {
 			return fmt.Errorf("failed to parse gateway port: %w", err)
 		}
@@ -449,7 +454,7 @@ func (e *Environment) startCortex() {
 	}
 	lg.Info("Waiting for cortex to start...")
 	for e.ctx.Err() == nil {
-		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.Gateway), nil)
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.GatewayHTTP), nil)
 		client := http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: e.GatewayTLSConfig(),
@@ -557,8 +562,9 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 					"../../../../../bin",
 				},
 			},
-			ListenAddress: fmt.Sprintf("localhost:%d", e.ports.Gateway),
-			EnableMonitor: true,
+			HTTPListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayHTTP),
+			GRPCListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
+			EnableMonitor:     true,
 			Management: v1beta1.ManagementSpec{
 				GRPCListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", e.ports.ManagementGRPC),
 				HTTPListenAddress: fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementHTTP),
@@ -606,7 +612,7 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 	}
 }
 
-func (e *Environment) NewManagementClient() management.ManagementClient {
+func (e *Environment) NewManagementClient() managementv1.ManagementClient {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
 	}
@@ -624,7 +630,7 @@ func (e *Environment) PrometheusAPIEndpoint() string {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
 	}
-	return fmt.Sprintf("https://localhost:%d/prometheus/api/v1", e.ports.Gateway)
+	return fmt.Sprintf("https://localhost:%d/prometheus/api/v1", e.ports.GatewayHTTP)
 }
 
 func (e *Environment) startGateway() {
@@ -634,16 +640,6 @@ func (e *Environment) startGateway() {
 	lg := e.Logger
 	e.gatewayConfig = e.newGatewayConfig()
 	pluginLoader := plugins.NewPluginLoader()
-	LoadPlugins(pluginLoader)
-	mgmtExtensionPlugins := plugins.DispenseAllAs[apiextensions.ManagementAPIExtensionClient](
-		pluginLoader, managementext.ManagementAPIExtensionPluginID)
-	gatewayExtensionPlugins := plugins.DispenseAllAs[apiextensions.GatewayAPIExtensionClient](
-		pluginLoader, gatewayext.GatewayAPIExtensionPluginID)
-	systemPlugins := pluginLoader.DispenseAll(system.SystemPluginID)
-	capBackendPlugins := plugins.DispenseAllAs[capability.BackendClient](
-		pluginLoader, capability.CapabilityBackendPluginID)
-	metricsPlugins := plugins.DispenseAllAs[prometheus.Collector](
-		pluginLoader, metrics.MetricsPluginID)
 
 	lifecycler := config.NewLifecycler(meta.ObjectList{e.gatewayConfig, &v1beta1.AuthProvider{
 		TypeMeta: meta.TypeMeta{
@@ -657,35 +653,40 @@ func (e *Environment) startGateway() {
 			Type: "test",
 		},
 	}})
-	g := gateway.NewGateway(e.ctx, e.gatewayConfig,
-		gateway.WithSystemPlugins(systemPlugins),
+	g := gateway.NewGateway(e.ctx, e.gatewayConfig, pluginLoader,
 		gateway.WithLifecycler(lifecycler),
-		gateway.WithCapabilityBackendPlugins(capBackendPlugins),
-		gateway.WithAPIServerOptions(
-			gateway.WithAPIExtensions(gatewayExtensionPlugins),
-			gateway.WithMetricsPlugins(metricsPlugins),
-		),
 	)
-	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g,
+	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
 		management.WithCapabilitiesDataSource(g),
-		management.WithSystemPlugins(systemPlugins),
 		management.WithLifecycler(lifecycler),
-		management.WithAPIExtensions(mgmtExtensionPlugins),
 	)
-	go func() {
-		if err := g.ListenAndServe(); err != nil {
-			lg.Errorf("gateway error: %v", err)
+
+	pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
+		lg.Infof("loaded %d plugins", numLoaded)
+	}))
+
+	pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
+		if err := m.ListenAndServe(e.ctx); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Fatal("management server exited with error")
 		}
-	}()
-	go func() {
-		if err := m.ListenAndServe(); err != nil {
-			lg.Errorf("management server error: %v", err)
+	}))
+
+	pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
+		if err := g.ListenAndServe(e.ctx); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("gateway server exited with error")
 		}
-	}()
+	}))
+
+	LoadPlugins(pluginLoader)
+
 	lg.Info("Waiting for gateway to start...")
 	for i := 0; i < 10; i++ {
 		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://%s/healthz",
-			e.gatewayConfig.Spec.ListenAddress), nil)
+			e.gatewayConfig.Spec.HTTPListenAddress), nil)
 		client := http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: e.GatewayTLSConfig(),
@@ -723,7 +724,7 @@ func WithContext(ctx context.Context) StartAgentOption {
 	}
 }
 
-func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []string, opts ...StartAgentOption) (int, <-chan error) {
+func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins []string, opts ...StartAgentOption) (int, <-chan error) {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
 	}
@@ -750,7 +751,7 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 		Spec: v1beta1.AgentConfigSpec{
 			TrustStrategy:    v1beta1.TrustStrategyPKP,
 			ListenAddress:    fmt.Sprintf("localhost:%d", port),
-			GatewayAddress:   fmt.Sprintf("https://localhost:%d", e.ports.Gateway),
+			GatewayAddress:   fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
 			IdentityProvider: id,
 			Storage: v1beta1.StorageSpec{
 				Type: v1beta1.StorageTypeEtcd,
@@ -802,7 +803,7 @@ func (e *Environment) StartAgent(id string, token *core.BootstrapToken, pins []s
 			agent.WithBootstrapper(&bootstrap.ClientConfig{
 				Capability:    wellknown.CapabilityMetrics,
 				Token:         bt,
-				Endpoint:      fmt.Sprintf("http://localhost:%d", e.ports.Gateway),
+				Endpoint:      fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
 				TrustStrategy: strategy,
 			}))
 		if err != nil {
@@ -932,15 +933,47 @@ func StartStandaloneTestEnvironment() {
 	t, err := tty.Open()
 	if err == nil {
 		Log.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
+		Log.Info(chalk.Blue.Color("Press (a) to launch a new agent"))
 		go func() {
+			client := environment.NewManagementClient()
 			for {
 				rn, err := t.ReadRune()
 				if err != nil {
 					Log.Fatal(err)
 				}
-				if rn == ' ' {
+				switch rn {
+				case ' ':
 					if err := browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb)); err != nil {
 						Log.Error(err)
+					}
+				case 'a':
+					// create bt
+					bt, err := client.CreateBootstrapToken(environment.ctx, &managementv1.CreateBootstrapTokenRequest{
+						Ttl: durationpb.New(1 * time.Minute),
+					})
+					if err != nil {
+						Log.Error(err)
+						continue
+					}
+					token, err := tokens.FromBootstrapToken(bt)
+					if err != nil {
+						Log.Error(err)
+						continue
+					}
+					certInfo, err := client.CertsInfo(environment.ctx, &emptypb.Empty{})
+					if err != nil {
+						Log.Error(err)
+						continue
+					}
+					resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.ports.TestEnvironment), "application/json",
+						strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"]}`, token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint)))
+					if err != nil {
+						Log.Error(err)
+						continue
+					}
+					if resp.StatusCode != http.StatusOK {
+						Log.Errorf("%s", resp.Status)
+						continue
 					}
 				}
 			}

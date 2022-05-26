@@ -7,8 +7,8 @@ import (
 	"path"
 	"time"
 
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -79,7 +79,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 		CommandTimeout: 5 * time.Second,
 	}
 	options.Apply(opts...)
-	lg := logger.New().Named("etcd")
+	lg := logger.New(logger.WithLogLevel(zap.WarnLevel)).Named("etcd")
 	var tlsConfig *tls.Config
 	if conf.Certs != nil {
 		var err error
@@ -110,7 +110,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	}
 }
 
-func (e *EtcdStore) KeyringStore(ctx context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+func (e *EtcdStore) KeyringStore(ctx context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 	pfx := e.Prefix
 	if prefix != "" {
 		pfx = prefix

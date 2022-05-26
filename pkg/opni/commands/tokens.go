@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/management"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -41,7 +41,7 @@ func BuildTokensCreateCmd() *cobra.Command {
 				lg.Fatal(err)
 			}
 			t, err := mgmtClient.CreateBootstrapToken(cmd.Context(),
-				&management.CreateBootstrapTokenRequest{
+				&managementv1.CreateBootstrapTokenRequest{
 					Ttl:    durationpb.New(duration),
 					Labels: labelMap,
 				})
@@ -64,7 +64,7 @@ func BuildTokensRevokeCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, token := range args {
 				_, err := mgmtClient.RevokeBootstrapToken(cmd.Context(),
-					&core.Reference{
+					&corev1.Reference{
 						Id: token,
 					})
 				if err != nil {
@@ -96,9 +96,9 @@ func BuildTokensGetCmd() *cobra.Command {
 		Short: "get bootstrap tokens",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			tokenList := []*core.BootstrapToken{}
+			tokenList := []*corev1.BootstrapToken{}
 			for _, id := range args {
-				t, err := mgmtClient.GetBootstrapToken(cmd.Context(), &core.Reference{
+				t, err := mgmtClient.GetBootstrapToken(cmd.Context(), &corev1.Reference{
 					Id: id,
 				})
 				if err != nil {
@@ -106,7 +106,7 @@ func BuildTokensGetCmd() *cobra.Command {
 				}
 				tokenList = append(tokenList, t)
 			}
-			cliutil.RenderBootstrapTokenList(&core.BootstrapTokenList{
+			cliutil.RenderBootstrapTokenList(&corev1.BootstrapTokenList{
 				Items: tokenList,
 			})
 		},

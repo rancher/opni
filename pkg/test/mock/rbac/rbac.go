@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	core "github.com/rancher/opni/pkg/core"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
 // MockProvider is a mock of Provider interface.
@@ -36,10 +36,10 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 }
 
 // SubjectAccess mocks base method.
-func (m *MockProvider) SubjectAccess(arg0 context.Context, arg1 *core.SubjectAccessRequest) (*core.ReferenceList, error) {
+func (m *MockProvider) SubjectAccess(arg0 context.Context, arg1 *v1.SubjectAccessRequest) (*v1.ReferenceList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubjectAccess", arg0, arg1)
-	ret0, _ := ret[0].(*core.ReferenceList)
+	ret0, _ := ret[0].(*v1.ReferenceList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -1,9 +1,9 @@
 package capabilities
 
-import "github.com/rancher/opni/pkg/core"
+import corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 
-func Cluster(name string) *core.ClusterCapability {
-	return &core.ClusterCapability{
+func Cluster(name string) *corev1.ClusterCapability {
+	return &corev1.ClusterCapability{
 		Name: name,
 	}
 }

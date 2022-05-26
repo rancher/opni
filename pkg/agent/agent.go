@@ -9,11 +9,12 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kralicky/totem"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/gateway/stream"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
@@ -21,15 +22,15 @@ import (
 	"github.com/rancher/opni/pkg/storage/crds"
 	"github.com/rancher/opni/pkg/storage/etcd"
 	"github.com/rancher/opni/pkg/trust"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Agent struct {
-	UnsafeRemoteControlServer
+	controlv1.UnsafeAgentControlServer
 	AgentOptions
 	v1beta1.AgentConfigSpec
 	app    *fiber.App
@@ -38,8 +39,11 @@ type Agent struct {
 	tenantID         string
 	identityProvider ident.Provider
 	keyringStore     storage.KeyringStore
-	gatewayClient    clients.GatewayHTTPClient
+	gatewayClient    clients.GatewayGRPCClient
 	shutdownLock     sync.Mutex
+
+	remoteWriteMu     sync.Mutex
+	remoteWriteClient remotewrite.RemoteWriteClient
 }
 
 type AgentOptions struct {
@@ -110,7 +114,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	default:
 		return nil, fmt.Errorf("unknown storage type: %s", agent.Storage.Type)
 	}
-	agent.keyringStore, err = keyringStoreBroker.KeyringStore(ctx, "agent", &core.Reference{
+	agent.keyringStore, err = keyringStoreBroker.KeyringStore(ctx, "agent", &corev1.Reference{
 		Id: id,
 	})
 	if err != nil {
@@ -120,7 +124,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	var kr keyring.Keyring
 	if options.bootstrapper != nil {
 		if kr, err = agent.bootstrap(ctx); err != nil {
-			return nil, fmt.Errorf("bootstrap error: %w", err)
+			return nil, err
 		}
 	} else {
 		if kr, err = agent.loadKeyring(ctx); err != nil {
@@ -166,40 +170,56 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, fmt.Errorf("unknown trust strategy: %s", conf.Spec.TrustStrategy)
 	}
 
-	agent.gatewayClient, err = clients.NewGatewayClient(
+	agent.gatewayClient, err = clients.NewGatewayGRPCClient(
 		conf.Spec.GatewayAddress, ip, kr, trustStrategy)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}
 	go agent.streamRulesToGateway(ctx)
 
-	cc, err := agent.gatewayClient.DialGRPC(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error dialing gateway: %w", err)
-	}
-	streamClient := stream.NewStreamClient(cc)
-
 	go func() {
-		stream, err := streamClient.Connect(ctx, grpc.WaitForReady(true))
-		if err != nil {
-			lg.With(
-				zap.Error(err),
-			).Error("error connecting to gateway")
-			return
-		}
+		for {
+			cc, err := agent.gatewayClient.Dial(ctx)
+			if err != nil {
+				lg.With(
+					zap.Error(err),
+				).Error("error dialing gateway")
+				time.Sleep(time.Second)
+				continue
+			}
+			streamClient := streamv1.NewStreamClient(cc)
+			lg.Info("establishing streaming connection with gateway")
+			stream, err := streamClient.Connect(ctx)
+			if err != nil {
+				lg.With(
+					zap.Error(err),
+				).Error("error connecting to gateway")
+				time.Sleep(time.Second)
+				continue
+			}
+			lg.Info("stream connected")
+			defer lg.Info("stream disconnected")
 
-		ts := totem.NewServer(stream)
-		RegisterRemoteControlServer(ts, agent)
+			ts := totem.NewServer(stream)
+			controlv1.RegisterAgentControlServer(ts, agent)
 
-		_, errC := ts.Serve()
+			tc, errC := ts.Serve()
+			agent.remoteWriteMu.Lock()
+			agent.remoteWriteClient = remotewrite.NewRemoteWriteClient(tc)
+			agent.remoteWriteMu.Unlock()
 
-		select {
-		case <-ctx.Done():
-			return
-		case err := <-errC:
-			lg.With(
-				zap.Error(err),
-			).Error("stream server error")
+			select {
+			case <-ctx.Done():
+				return
+			case err := <-errC:
+				lg.With(
+					zap.Error(err),
+				).Error("stream server error")
+			}
+
+			agent.remoteWriteMu.Lock()
+			agent.remoteWriteClient = nil
+			agent.remoteWriteMu.Unlock()
 		}
 	}()
 
@@ -210,18 +230,20 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 }
 
 func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
-	code, body, err := a.gatewayClient.Post(context.Background(), "/api/agent/push").
-		Body(c.Body()).
-		Set(fiber.HeaderContentType, c.Get(fiber.HeaderContentType)).
-		Set(fiber.HeaderContentLength, c.Get(fiber.HeaderContentLength)).
-		Set(fiber.HeaderContentEncoding, c.Get(fiber.HeaderContentEncoding)).
-		Set("X-Prometheus-Remote-Write-Version", c.Get("X-Prometheus-Remote-Write-Version")).
-		Do()
+	a.remoteWriteMu.Lock()
+	defer a.remoteWriteMu.Unlock()
+	if a.remoteWriteClient == nil {
+		return c.SendStatus(fiber.StatusServiceUnavailable)
+	}
+	_, err := a.remoteWriteClient.Push(c.Context(), &remotewrite.Payload{
+		AuthorizedClusterID: a.tenantID,
+		Contents:            c.Body(),
+	})
 	if err != nil {
 		a.logger.Error(err)
-		return err
+		return c.SendStatus(fiber.StatusServiceUnavailable)
 	}
-	return c.Status(code).Send(body)
+	return c.SendStatus(fiber.StatusOK)
 }
 
 func (a *Agent) ListenAndServe() error {
@@ -242,7 +264,7 @@ func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {
 		lg.Info("performing initial bootstrap")
 		newKeyring, err := a.bootstrapper.Bootstrap(ctx, a.identityProvider)
 		if err != nil {
-			return nil, fmt.Errorf("bootstrap failed: %w", err)
+			return nil, err
 		}
 		lg.Info("bootstrap completed successfully")
 		for {
@@ -284,8 +306,8 @@ func (a *Agent) loadKeyring(ctx context.Context) (keyring.Keyring, error) {
 
 var startTime = time.Now()
 
-func (a *Agent) GetHealth(ctx context.Context, _ *emptypb.Empty) (*AgentHealth, error) {
-	return &AgentHealth{
+func (a *Agent) GetHealth(ctx context.Context, _ *emptypb.Empty) (*controlv1.AgentHealth, error) {
+	return &controlv1.AgentHealth{
 		Uptime: durationpb.New(time.Since(startTime)),
 	}, nil
 }

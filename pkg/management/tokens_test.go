@@ -6,7 +6,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/management"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -14,7 +15,7 @@ import (
 
 var _ = Describe("Tokens", Ordered, Label(test.Slow), func() {
 	var tv *testVars
-	BeforeAll(setupManagementServer(&tv))
+	BeforeAll(setupManagementServer(&tv, plugins.NoopLoader))
 
 	It("should initially have no tokens", func() {
 		tokens, err := tv.client.ListBootstrapTokens(context.Background(), &emptypb.Empty{})
@@ -27,7 +28,7 @@ var _ = Describe("Tokens", Ordered, Label(test.Slow), func() {
 		secrets := map[string]struct{}{}
 		leaseIds := map[int64]struct{}{}
 		for i := 0; i < 100; i++ {
-			token, err := tv.client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			token, err := tv.client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 				Labels: map[string]string{
 					"foo": "bar",

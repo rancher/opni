@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +17,7 @@ import (
 type crdKeyringStore struct {
 	CRDStoreOptions
 	client client.Client
-	ref    *core.Reference
+	ref    *corev1.Reference
 	prefix string
 }
 

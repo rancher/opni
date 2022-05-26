@@ -2,46 +2,44 @@ package gateway
 
 import (
 	"context"
-	"net"
-	"time"
 
 	"github.com/kralicky/totem"
 	"github.com/rancher/opni/pkg/agent"
-	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/gateway/stream"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/keepalive"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-type ConnectionHandler interface {
-	HandleAgentConnection(context.Context, agent.ClientSet)
+type remote struct {
+	services []*descriptorpb.ServiceDescriptorProto
+	stream   totem.ClientStream
 }
 
 type StreamServer struct {
-	stream.UnsafeStreamServer
-	conf       *v1beta1.GatewayConfigSpec
-	logger     *zap.SugaredLogger
-	handler    ConnectionHandler
-	serverOpts []grpc.ServerOption
+	streamv1.UnsafeStreamServer
+	logger   *zap.SugaredLogger
+	handler  ConnectionHandler
+	services []service
+	remotes  []remote
 }
 
-func NewStreamServer(
-	cfg *v1beta1.GatewayConfigSpec,
-	lg *zap.SugaredLogger,
-	handler ConnectionHandler,
-	opts ...grpc.ServerOption,
-) *StreamServer {
+func NewStreamServer(handler ConnectionHandler, lg *zap.SugaredLogger) *StreamServer {
 	return &StreamServer{
-		conf:       cfg,
-		logger:     lg,
-		handler:    handler,
-		serverOpts: opts,
+		logger:  lg.Named("grpc"),
+		handler: handler,
 	}
 }
 
-func (s *StreamServer) Connect(stream stream.Stream_ConnectServer) error {
+func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
+	s.logger.Debug("handling new stream connection")
 	ts := totem.NewServer(stream)
+	for _, services := range s.services {
+		ts.RegisterService(services.desc, services.impl)
+	}
+	for _, r := range s.remotes {
+		ts.Splice(r.stream, r.services...)
+	}
 	cc, errC := ts.Serve()
 
 	ctx, ca := context.WithCancel(stream.Context())
@@ -57,16 +55,27 @@ func (s *StreamServer) Connect(stream stream.Stream_ConnectServer) error {
 	return err
 }
 
-func (s *StreamServer) Serve(listener net.Listener) error {
-	server := grpc.NewServer(append(s.serverOpts,
-		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             15 * time.Second,
-			PermitWithoutStream: true,
-		}),
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Time:    15 * time.Second,
-			Timeout: 5 * time.Second,
-		}),
-	)...)
-	return server.Serve(listener)
+func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
+	if len(desc.Streams) > 0 {
+		s.logger.With(
+			zap.String("service", desc.ServiceName),
+		).Fatal("failed to register service: nested streams are currently not supported")
+	}
+	s.services = append(s.services, service{
+		desc: desc,
+		impl: impl,
+	})
+}
+
+func (s *StreamServer) Splice(services []*descriptorpb.ServiceDescriptorProto, cc *grpc.ClientConn) error {
+	streamClient := streamv1.NewStreamClient(cc)
+	splicedStream, err := streamClient.Connect(context.Background())
+	if err != nil {
+		return err
+	}
+	s.remotes = append(s.remotes, remote{
+		services: services,
+		stream:   splicedStream,
+	})
+	return nil
 }

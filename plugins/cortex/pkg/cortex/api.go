@@ -3,11 +3,9 @@ package cortex
 import (
 	"context"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/rbac"
@@ -29,7 +27,7 @@ type middlewares struct {
 }
 
 func (p *Plugin) ConfigureRoutes(app *fiber.App) {
-	futureCtx, ca := context.WithTimeout(context.Background(), 2*time.Second)
+	futureCtx, ca := context.WithTimeout(context.Background(), 10*time.Second)
 	defer ca()
 	config, err := p.config.GetContext(futureCtx)
 	if err != nil {
@@ -37,9 +35,9 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 		os.Exit(1)
 	}
 
-	cortexTLSConfig := p.loadCortexCerts()
+	cortexTLSConfig := p.getOrLoadCortexCerts()
 
-	futureCtx, ca = context.WithTimeout(context.Background(), 2*time.Second)
+	futureCtx, ca = context.WithTimeout(context.Background(), 10*time.Second)
 	defer ca()
 	storageBackend, err := p.storageBackend.GetContext(futureCtx)
 	if err != nil {
@@ -79,7 +77,7 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 
 	app.Get("/ready", fwds.QueryFrontend)
 
-	p.configureAgentAPI(app, fwds, mws)
+	// p.configureAgentAPI(app, fwds, mws)
 	p.configureAlertmanager(app, fwds, mws)
 	p.configureRuler(app, fwds, mws)
 	p.configureQueryFrontend(app, fwds, mws)
@@ -94,25 +92,25 @@ func (p *Plugin) preprocessRules(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func (p *Plugin) configureAgentAPI(app *fiber.App, f *forwarders, m *middlewares) {
-	g := app.Group("/api/agent", limiter.New(limiter.Config{
-		SkipSuccessfulRequests: true,
-	}), m.Cluster)
-	g.Post("/push", func(c *fiber.Ctx) error {
-		clusterID := cluster.AuthorizedID(c)
-		len := c.Get("Content-Length", "0")
-		if i, err := strconv.ParseInt(len, 10, 64); err == nil && i > 0 {
-			flen := float64(i)
-			ingestBytesTotal.Add(flen)
-			ingestBytesByID.With(map[string]string{
-				"cluster_id": clusterID,
-			}).Add(flen)
-		}
-		c.Path("/api/v1/push")
-		return c.Next()
-	}, f.Distributor)
-	g.Post("/sync_rules", p.preprocessRules, f.Ruler)
-}
+// func (p *Plugin) configureAgentAPI(app *fiber.App, f *forwarders, m *middlewares) {
+// g := app.Group("/api/agent", limiter.New(limiter.Config{
+// 	SkipSuccessfulRequests: true,
+// }), m.Cluster)
+// g.Post("/push", func(c *fiber.Ctx) error {
+// 	clusterID := cluster.AuthorizedID(c)
+// 	len := c.Get("Content-Length", "0")
+// 	if i, err := strconv.ParseInt(len, 10, 64); err == nil && i > 0 {
+// 		flen := float64(i)
+// 		ingestBytesTotal.Add(flen)
+// 		ingestBytesByID.With(map[string]string{
+// 			"cluster_id": clusterID,
+// 		}).Add(flen)
+// 	}
+// 	c.Path("/api/v1/push")
+// 	return c.Next()
+// }, f.Distributor)
+// g.Post("/sync_rules", p.preprocessRules, f.Ruler)
+// }
 
 func (p *Plugin) configureAlertmanager(app *fiber.App, f *forwarders, m *middlewares) {
 	orgIdLimiter := func(c *fiber.Ctx) error {

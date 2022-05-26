@@ -6,7 +6,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/tokens"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*core.BootstrapToken, error) {
+func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*corev1.BootstrapToken, error) {
 	options := storage.NewTokenCreateOptions()
 	options.Apply(opts...)
 
@@ -26,7 +26,7 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...
 		return nil, fmt.Errorf("failed to create lease: %w", err)
 	}
 	token := tokens.NewToken().ToBootstrapToken()
-	token.Metadata = &core.BootstrapTokenMetadata{
+	token.Metadata = &corev1.BootstrapTokenMetadata{
 		LeaseID:      int64(lease.ID),
 		UsageCount:   0,
 		Labels:       options.Labels,
@@ -47,7 +47,7 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...
 	return token, nil
 }
 
-func (e *EtcdStore) DeleteToken(ctx context.Context, ref *core.Reference) error {
+func (e *EtcdStore) DeleteToken(ctx context.Context, ref *corev1.Reference) error {
 	t, err := e.GetToken(ctx, ref)
 	if err != nil {
 		return err
@@ -72,12 +72,12 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, ref *core.Reference) error 
 	return nil
 }
 
-func (e *EtcdStore) GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
+func (e *EtcdStore) GetToken(ctx context.Context, ref *corev1.Reference) (*corev1.BootstrapToken, error) {
 	t, _, err := e.getToken(ctx, ref)
 	return t, err
 }
 
-func (e *EtcdStore) getToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, int64, error) {
+func (e *EtcdStore) getToken(ctx context.Context, ref *corev1.Reference) (*corev1.BootstrapToken, int64, error) {
 	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
 	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, tokensKey, ref.Id))
@@ -88,7 +88,7 @@ func (e *EtcdStore) getToken(ctx context.Context, ref *core.Reference) (*core.Bo
 		return nil, 0, storage.ErrNotFound
 	}
 	kv := resp.Kvs[0]
-	token := &core.BootstrapToken{}
+	token := &corev1.BootstrapToken{}
 	if err := protojson.Unmarshal(kv.Value, token); err != nil {
 		return nil, 0, fmt.Errorf("failed to unmarshal token: %w", err)
 	}
@@ -98,16 +98,16 @@ func (e *EtcdStore) getToken(ctx context.Context, ref *core.Reference) (*core.Bo
 	return token, kv.Version, nil
 }
 
-func (e *EtcdStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, error) {
+func (e *EtcdStore) ListTokens(ctx context.Context) ([]*corev1.BootstrapToken, error) {
 	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
 	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, tokensKey), clientv3.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tokens: %w", err)
 	}
-	items := make([]*core.BootstrapToken, len(resp.Kvs))
+	items := make([]*corev1.BootstrapToken, len(resp.Kvs))
 	for i, kv := range resp.Kvs {
-		token := &core.BootstrapToken{}
+		token := &corev1.BootstrapToken{}
 		if err := protojson.Unmarshal(kv.Value, token); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal token: %w", err)
 		}
@@ -119,8 +119,8 @@ func (e *EtcdStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, err
 	return items, nil
 }
 
-func (e *EtcdStore) UpdateToken(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.BootstrapToken]) (*core.BootstrapToken, error) {
-	var retToken *core.BootstrapToken
+func (e *EtcdStore) UpdateToken(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.BootstrapToken]) (*corev1.BootstrapToken, error) {
+	var retToken *corev1.BootstrapToken
 	err := retry.OnError(defaultBackoff, isRetryErr, func() error {
 		ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 		defer ca()
@@ -158,7 +158,7 @@ func (e *EtcdStore) UpdateToken(ctx context.Context, ref *core.Reference, mutato
 
 func (e *EtcdStore) addLeaseMetadata(
 	ctx context.Context,
-	token *core.BootstrapToken,
+	token *corev1.BootstrapToken,
 	lease int64,
 ) error {
 	if lease != 0 {

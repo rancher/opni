@@ -10,7 +10,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/storage"
@@ -68,7 +68,7 @@ func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
 		var errCtrl ErrorController
 		BeforeAll(func() {
 			var err error
-			ts, err = tsF.Get().KeyringStore(context.Background(), "test", &core.Reference{
+			ts, err = tsF.Get().KeyringStore(context.Background(), "test", &corev1.Reference{
 				Id: "test",
 			})
 			Expect(err).NotTo(HaveOccurred())

@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/tokens"
 )
@@ -154,7 +154,7 @@ var _ = Describe("Token", Label(test.Unit), func() {
 	})
 	It("should correctly generate a reference", func() {
 		t := tokens.NewToken()
-		Expect(t.Reference()).To(Equal(&core.Reference{
+		Expect(t.Reference()).To(Equal(&corev1.Reference{
 			Id: t.HexID(),
 		}))
 	})

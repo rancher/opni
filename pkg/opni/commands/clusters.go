@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/management"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
@@ -32,7 +32,7 @@ func BuildClustersListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List clusters",
 		Run: func(cmd *cobra.Command, args []string) {
-			t, err := mgmtClient.ListClusters(cmd.Context(), &management.ListClustersRequest{})
+			t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 			if err != nil {
 				lg.Fatal(err)
 			}
@@ -60,7 +60,7 @@ func BuildClustersDeleteCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, cluster := range args {
 				_, err := mgmtClient.DeleteCluster(cmd.Context(),
-					&core.Reference{
+					&corev1.Reference{
 						Id: cluster,
 					},
 				)
@@ -83,7 +83,7 @@ func BuildClustersLabelCmd() *cobra.Command {
 		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			clusterID := args[0]
-			cluster, err := mgmtClient.GetCluster(cmd.Context(), &core.Reference{
+			cluster, err := mgmtClient.GetCluster(cmd.Context(), &corev1.Reference{
 				Id: clusterID,
 			})
 			if err != nil {
@@ -115,7 +115,7 @@ func BuildClustersLabelCmd() *cobra.Command {
 					}
 				}
 			}
-			updatedCluster, err := mgmtClient.EditCluster(cmd.Context(), &management.EditClusterRequest{
+			updatedCluster, err := mgmtClient.EditCluster(cmd.Context(), &managementv1.EditClusterRequest{
 				Cluster: cluster.Reference(),
 				Labels:  currentLabels,
 			})

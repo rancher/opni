@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
@@ -32,9 +32,9 @@ func TokenStoreTestSuite[T storage.TokenStore](
 			Expect(tokens).To(BeEmpty())
 		})
 		When("creating a token", func() {
-			var ref *core.Reference
+			var ref *corev1.Reference
 			It("should be retrievable", func() {
-				var tk *core.BootstrapToken
+				var tk *corev1.BootstrapToken
 				Eventually(func() (err error) {
 					tk, err = ts.CreateToken(context.Background(), time.Hour)
 					return
@@ -59,7 +59,7 @@ func TokenStoreTestSuite[T storage.TokenStore](
 			})
 		})
 		It("should handle token create options", func() {
-			check := func(tk *core.BootstrapToken) {
+			check := func(tk *corev1.BootstrapToken) {
 				Expect(tk).NotTo(BeNil())
 				Expect(tk.GetLabels()).To(HaveKeyWithValue("foo", "bar"))
 				Expect(tk.GetLabels()).To(HaveKeyWithValue("bar", "baz"))
@@ -81,17 +81,17 @@ func TokenStoreTestSuite[T storage.TokenStore](
 			Expect(err).NotTo(HaveOccurred())
 			Expect(list).To(HaveLen(2))
 
-			check = func(tk *core.BootstrapToken) {
+			check = func(tk *corev1.BootstrapToken) {
 				Expect(tk).NotTo(BeNil())
 				Expect(tk.GetCapabilities()).To(HaveLen(1))
 				Expect(tk.GetCapabilities()[0].Type).To(Equal("foo"))
 				Expect(tk.GetCapabilities()[0].Reference.Id).To(Equal("bar"))
 			}
 			tk, err = ts.CreateToken(context.Background(), time.Hour, storage.WithCapabilities(
-				[]*core.TokenCapability{
+				[]*corev1.TokenCapability{
 					{
 						Type: "foo",
-						Reference: &core.Reference{
+						Reference: &corev1.Reference{
 							Id: "bar",
 						},
 					},
@@ -133,7 +133,7 @@ func TokenStoreTestSuite[T storage.TokenStore](
 					before, err := ts.ListTokens(context.Background())
 					Expect(err).NotTo(HaveOccurred())
 
-					err = ts.DeleteToken(context.Background(), &core.Reference{
+					err = ts.DeleteToken(context.Background(), &corev1.Reference{
 						Id: "doesnotexist",
 					})
 					Expect(err).To(MatchError(storage.ErrNotFound))
@@ -145,7 +145,7 @@ func TokenStoreTestSuite[T storage.TokenStore](
 			})
 		})
 		Context("updating tokens", func() {
-			var ref *core.Reference
+			var ref *corev1.Reference
 			BeforeEach(func() {
 				tk, err := ts.CreateToken(context.Background(), time.Hour)
 				Expect(err).NotTo(HaveOccurred())
@@ -166,9 +166,9 @@ func TokenStoreTestSuite[T storage.TokenStore](
 				Expect(err).NotTo(HaveOccurred())
 				oldCapabilities := tk.GetCapabilities()
 				tk, err = ts.UpdateToken(context.Background(), ref,
-					storage.NewAddCapabilityMutator[*core.BootstrapToken](&core.TokenCapability{
+					storage.NewAddCapabilityMutator[*corev1.BootstrapToken](&corev1.TokenCapability{
 						Type: "foo",
-						Reference: &core.Reference{
+						Reference: &corev1.Reference{
 							Id: "bar",
 						},
 					}),
@@ -186,9 +186,9 @@ func TokenStoreTestSuite[T storage.TokenStore](
 				tk, err = ts.UpdateToken(context.Background(), ref,
 					storage.NewCompositeMutator(
 						storage.NewIncrementUsageCountMutator(),
-						storage.NewAddCapabilityMutator[*core.BootstrapToken](&core.TokenCapability{
+						storage.NewAddCapabilityMutator[*corev1.BootstrapToken](&corev1.TokenCapability{
 							Type: "foo",
-							Reference: &core.Reference{
+							Reference: &corev1.Reference{
 								Id: "bar",
 							},
 						}),
@@ -272,7 +272,7 @@ func TokenStoreTestSuite[T storage.TokenStore](
 			})
 
 			It("should handle errors when deleting tokens", func() {
-				err := ts.DeleteToken(context.Background(), &core.Reference{
+				err := ts.DeleteToken(context.Background(), &corev1.Reference{
 					Id: uuid.NewString(),
 				})
 				Expect(err).To(HaveOccurred())

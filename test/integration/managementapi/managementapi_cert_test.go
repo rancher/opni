@@ -6,7 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/management"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -15,7 +15,7 @@ import (
 
 var _ = Describe("Management API Cerificate Management Tests", Ordered, Label(test.Integration), func() {
 	var environment *test.Environment
-	var client management.ManagementClient
+	var client managementv1.ManagementClient
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",

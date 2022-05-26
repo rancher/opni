@@ -2,29 +2,30 @@ package gateway
 
 import (
 	"context"
+	"crypto"
 	"crypto/tls"
 	"net"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rancher/opni/pkg/agent"
+	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
-	"github.com/rancher/opni/pkg/config/meta"
+	cfgmeta "github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	"github.com/rancher/opni/pkg/plugins/apis/capability"
-	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
-	"github.com/soheilhy/cmux"
 	"go.uber.org/zap"
 	"golang.org/x/mod/module"
 	"google.golang.org/grpc"
@@ -32,29 +33,20 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type APIExtensionPlugin = plugins.TypedActivePlugin[apiextensions.GatewayAPIExtensionClient]
-type CapabilityBackendPlugin = plugins.TypedActivePlugin[capability.BackendClient]
-type SystemPlugin = plugins.TypedActivePlugin[system.SystemPluginServer]
-type MetricsPlugin = plugins.TypedActivePlugin[prometheus.Collector]
-
 type Gateway struct {
 	GatewayOptions
-	config       *config.GatewayConfig
-	ctx          context.Context
-	tlsConfig    *tls.Config
-	logger       *zap.SugaredLogger
-	apiServer    *GatewayAPIServer
-	streamServer *StreamServer
+	config     *config.GatewayConfig
+	tlsConfig  *tls.Config
+	logger     *zap.SugaredLogger
+	httpServer *GatewayHTTPServer
+	grpcServer *GatewayGRPCServer
 
 	storageBackend  storage.Backend
 	capBackendStore capabilities.BackendStore
 }
 
 type GatewayOptions struct {
-	apiServerOptions  []APIServerOption
-	lifecycler        config.Lifecycler
-	systemPlugins     []plugins.ActivePlugin
-	capBackendPlugins []CapabilityBackendPlugin
+	lifecycler config.Lifecycler
 }
 
 type GatewayOption func(*GatewayOptions)
@@ -65,40 +57,19 @@ func (o *GatewayOptions) Apply(opts ...GatewayOption) {
 	}
 }
 
-type FiberMiddleware = func(*fiber.Ctx) error
-
 func WithLifecycler(lc config.Lifecycler) GatewayOption {
 	return func(o *GatewayOptions) {
 		o.lifecycler = lc
 	}
 }
 
-func WithSystemPlugins(plugins []plugins.ActivePlugin) GatewayOption {
-	return func(o *GatewayOptions) {
-		o.systemPlugins = plugins
-	}
-}
-
-func WithCapabilityBackendPlugins(plugins []CapabilityBackendPlugin) GatewayOption {
-	return func(o *GatewayOptions) {
-		o.capBackendPlugins = plugins
-	}
-}
-
-func WithAPIServerOptions(opts ...APIServerOption) GatewayOption {
-	return func(o *GatewayOptions) {
-		o.apiServerOptions = opts
-	}
-}
-
-func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...GatewayOption) *Gateway {
+func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.LoaderInterface, opts ...GatewayOption) *Gateway {
 	options := GatewayOptions{
-		lifecycler: config.NewUnavailableLifecycler(meta.ObjectList{conf}),
+		lifecycler: config.NewUnavailableLifecycler(cfgmeta.ObjectList{conf}),
 	}
 	options.Apply(opts...)
 
 	lg := logger.New().Named("gateway")
-
 	conf.Spec.SetDefaults()
 
 	storageBackend, err := machinery.ConfigureStorageBackend(ctx, &conf.Spec.Storage)
@@ -108,67 +79,111 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, opts ...Gateway
 		).Error("failed to configure storage backend")
 	}
 
-	_, port, err := net.SplitHostPort(conf.Spec.ListenAddress)
+	// configure the server-side installer template with the external hostname
+	// and grpc port which agents will connect to
+	_, port, err := net.SplitHostPort(conf.Spec.GRPCListenAddress)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
 		).Fatal("failed to parse listen address")
 	}
-
 	capBackendStore := capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{
 		Address: "https://" + conf.Spec.Hostname + ":" + port,
 	}, lg)
 
-	for _, p := range options.capBackendPlugins {
-		info, err := p.Typed.Info(ctx, &emptypb.Empty{})
+	// add capabilities from plugins
+	pl.Hook(hooks.OnLoadM(func(p types.CapabilityBackendPlugin, md meta.PluginMeta) {
+		info, err := p.Info(ctx, &emptypb.Empty{})
 		if err != nil {
 			lg.With(
-				zap.String("plugin", p.Metadata.Module),
+				zap.String("plugin", md.Module),
 			).Error("failed to get capability info")
-			continue
+			return
 		}
-		backend := capabilities.NewBackend(p.Typed)
+		backend := capabilities.NewBackend(p)
 		if err := capBackendStore.Add(info.CapabilityName, backend); err != nil {
 			lg.With(
-				zap.String("plugin", p.Metadata.Module),
+				zap.String("plugin", md.Module),
 				zap.Error(err),
 			).Error("failed to add capability backend")
 		}
-	}
+	}))
 
-	tlsConfig, err := loadTLSConfig(&conf.Spec)
+	// serve system plugin kv stores
+	pl.Hook(hooks.OnLoadM(func(p types.SystemPlugin, md meta.PluginMeta) {
+		ns := md.Module
+		if err := module.CheckPath(ns); err != nil {
+			lg.With(
+				zap.String("namespace", ns),
+				zap.Error(err),
+			).Warn("system plugin module name is invalid")
+			return
+		}
+		store, err := storageBackend.KeyValueStore(ns)
+		if err != nil {
+			lg.With(
+				zap.String("namespace", ns),
+				zap.Error(err),
+			).Error("failed to get key value store for plugin")
+		}
+		go p.ServeKeyValueStore(store)
+	}))
+
+	// set up http server
+	tlsConfig, pkey, err := loadTLSConfig(&conf.Spec)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
 		).Fatal("failed to load TLS config")
 	}
 
-	apiServer := NewAPIServer(ctx, &conf.Spec, lg, options.apiServerOptions...)
-	apiServer.ConfigureBootstrapRoutes(storageBackend, capBackendStore)
-
-	g := &Gateway{
-		GatewayOptions:  options,
-		ctx:             ctx,
-		tlsConfig:       tlsConfig,
-		config:          conf,
-		logger:          lg,
-		storageBackend:  storageBackend,
-		capBackendStore: capBackendStore,
-		apiServer:       apiServer,
-	}
+	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl)
 
 	clusterAuth, err := cluster.New(ctx, storageBackend, "authorization")
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-		).Fatal("failed to create stream interceptor")
+		).Fatal("failed to create cluster auth")
 	}
 
-	streamServer := NewStreamServer(&conf.Spec, lg, g,
+	// set up grpc server
+	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.StreamInterceptor(clusterAuth.StreamServerInterceptor()),
 	)
-	g.streamServer = streamServer
+
+	// set up stream server
+	monitor := &AgentMonitor{
+		logger: lg.Named("monitor"),
+	}
+	streamSvc := NewStreamServer(monitor, lg)
+	streamv1.RegisterStreamServer(grpcServer, streamSvc)
+
+	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
+		services, err := ext.Services(ctx, &emptypb.Empty{})
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+				"plugin", md.Module,
+			).Error("failed to load stream services from plugin")
+		}
+		streamSvc.Splice(services.Descriptors, cc)
+	}))
+
+	// set up bootstrap server
+	bootstrapSvc := bootstrap.NewServer(storageBackend, pkey, capBackendStore)
+	bootstrapv1.RegisterBootstrapServer(grpcServer, bootstrapSvc)
+
+	g := &Gateway{
+		GatewayOptions:  options,
+		tlsConfig:       tlsConfig,
+		config:          conf,
+		logger:          lg,
+		storageBackend:  storageBackend,
+		capBackendStore: capBackendStore,
+		httpServer:      httpServer,
+		grpcServer:      grpcServer,
+	}
 
 	waitctx.Go(ctx, func() {
 		<-ctx.Done()
@@ -183,85 +198,46 @@ type keyValueStoreServer interface {
 	ServeKeyValueStore(store storage.KeyValueStore)
 }
 
-func (g *Gateway) ListenAndServe() error {
+func (g *Gateway) ListenAndServe(ctx context.Context) error {
 	lg := g.logger
 
-	listener, err := tls.Listen("tcp4",
-		g.config.Spec.ListenAddress, g.tlsConfig)
-	if err != nil {
-		lg.Fatal(err)
-	}
-
-	cl := cmux.New(listener)
-	http1 := cl.Match(cmux.TLS(tls.VersionTLS12, tls.VersionTLS13), cmux.HTTP1())
-	http2 := cl.Match(cmux.TLS(tls.VersionTLS12, tls.VersionTLS13), cmux.HTTP2())
-
-	waitctx.Go(g.ctx, func() {
-		<-g.ctx.Done()
-		lg.Info("shutting down gateway api")
-		if err := g.apiServer.Shutdown(); err != nil {
+	// start http server
+	waitctx.Go(ctx, func() {
+		if err := g.httpServer.ListenAndServe(ctx); err != nil {
 			lg.With(
 				zap.Error(err),
-			).Error("error shutting down gateway api")
+			).Warn("http server exited with error")
 		}
 	})
 
+	// start grpc server
+	waitctx.Go(ctx, func() {
+		if err := g.grpcServer.ListenAndServe(ctx); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Warn("grpc server exited with error")
+		}
+	})
+
+	// start web server
 	webuiSrv, err := webui.NewWebUIServer(g.config)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
 		).Warn("not starting web ui server")
 	} else {
-		go func() {
-			if err := webuiSrv.ListenAndServe(); err != nil {
+		waitctx.Go(ctx, func() {
+			if err := webuiSrv.ListenAndServe(ctx); err != nil {
 				lg.With(
 					zap.Error(err),
-				).Warn("ui server stopped")
-			}
-		}()
-		waitctx.Go(g.ctx, func() {
-			<-g.ctx.Done()
-			lg.Info("shutting down ui server")
-			if err := webuiSrv.Shutdown(context.Background()); err != nil {
-				lg.With(
-					zap.Error(err),
-				).Error("error shutting down ui server")
+				).Warn("ui server exited with error")
 			}
 		})
 	}
 
-	g.logger.Infof("serving management api for %d system plugins", len(g.systemPlugins))
-	for _, systemPlugin := range g.systemPlugins {
-		ns := systemPlugin.Metadata.Module
-		if err := module.CheckPath(ns); err != nil {
-			g.logger.With(
-				zap.String("namespace", ns),
-				zap.Error(err),
-			).Warn("system plugin module name is invalid")
-			continue
-		}
-		store, err := g.storageBackend.KeyValueStore(ns)
-		if err != nil {
-			return err
-		}
-		go systemPlugin.Raw.(keyValueStoreServer).ServeKeyValueStore(store)
-	}
-
-	go func() {
-		if err := g.apiServer.Serve(http1); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Error("API server exited with error")
-		}
-	}()
-	go func() {
-		if err := g.streamServer.Serve(http2); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Error("stream server exited with error")
-		}
-	}()
-	return cl.Serve()
+	<-ctx.Done()
+	waitctx.Wait(ctx)
+	return ctx.Err()
 }
 
 // Implements management.CoreDataSource
@@ -271,7 +247,7 @@ func (g *Gateway) StorageBackend() storage.Backend {
 
 // Implements management.CoreDataSource
 func (g *Gateway) TLSConfig() *tls.Config {
-	return g.apiServer.tlsConfig
+	return g.httpServer.tlsConfig
 }
 
 // Implements management.CapabilitiesDataSource
@@ -280,29 +256,17 @@ func (g *Gateway) CapabilitiesStore() capabilities.BackendStore {
 }
 
 func (g *Gateway) MustRegisterCollector(collector prometheus.Collector) {
-	g.apiServer.metricsHandler.MustRegister(collector)
+	g.httpServer.metricsHandler.MustRegister(collector)
 }
 
-func (g *Gateway) HandleAgentConnection(ctx context.Context, clientset agent.ClientSet) {
-	g.logger.Info("Agent connected")
-	defer g.logger.Info("Agent disconnected")
-	health, err := clientset.GetHealth(ctx, &emptypb.Empty{})
-	if err != nil {
-		g.logger.Error(err)
-	} else {
-		g.logger.Info("Agent health: " + health.String())
-	}
-	<-ctx.Done()
-}
-
-func loadTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, error) {
+func loadTLSConfig(cfg *v1beta1.GatewayConfigSpec) (*tls.Config, crypto.Signer, error) {
 	servingCertBundle, caPool, err := util.LoadServingCertBundle(cfg.Certs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return &tls.Config{
 		MinVersion:   tls.VersionTLS12,
 		RootCAs:      caPool,
 		Certificates: []tls.Certificate{*servingCertBundle},
-	}, nil
+	}, servingCertBundle.PrivateKey.(crypto.Signer), nil
 }

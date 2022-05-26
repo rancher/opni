@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/management"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("Management API User/Subject Access Management Tests", Ordered, Label(test.Integration), func() {
 	var environment *test.Environment
-	var client management.ManagementClient
+	var client managementv1.ManagementClient
 	var fingerprint string
 	BeforeAll(func() {
 		environment = &test.Environment{
@@ -29,7 +29,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 		client = environment.NewManagementClient()
 		Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 
-		token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -54,21 +54,21 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 	//#region Happy Path Tests
 
 	It("can return a list of all Cluster IDs that a specific User (Subject) can access", func() {
-		_, err := client.CreateRole(context.Background(), &core.Role{
+		_, err := client.CreateRole(context.Background(), &corev1.Role{
 			Id:         "test-role",
 			ClusterIDs: []string{"test-cluster-id"},
 		},
 		)
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = client.CreateRoleBinding(context.Background(), &core.RoleBinding{
+		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
 			Id:       "test-rolebinding",
 			RoleId:   "test-role",
 			Subjects: []string{"test-subject"},
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		accessList, err := client.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
+		accessList, err := client.SubjectAccess(context.Background(), &corev1.SubjectAccessRequest{
 			Subject: "test-subject",
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -78,23 +78,23 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 	})
 
 	It("can return a list of all Cluster IDs that a specific User (Subject) can access via labels", func() {
-		_, err := client.CreateRole(context.Background(), &core.Role{
+		_, err := client.CreateRole(context.Background(), &corev1.Role{
 			Id: "test-role",
-			MatchLabels: &core.LabelSelector{
+			MatchLabels: &corev1.LabelSelector{
 				MatchLabels: map[string]string{"i": "999"},
 			},
 		},
 		)
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = client.CreateRoleBinding(context.Background(), &core.RoleBinding{
+		_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
 			Id:       "test-rolebinding",
 			RoleId:   "test-role",
 			Subjects: []string{"test-subject"},
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -108,14 +108,14 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 			Consistently(errC).ShouldNot(Receive())
 
 			Eventually(func() error {
-				_, err := client.GetCluster(context.Background(), &core.Reference{
+				_, err := client.GetCluster(context.Background(), &corev1.Reference{
 					Id: clusterName,
 				})
 				return err
 			}).Should(Succeed())
 
-			_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
-				Cluster: &core.Reference{
+			_, err := client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+				Cluster: &corev1.Reference{
 					Id: clusterName,
 				},
 				Labels: map[string]string{
@@ -125,7 +125,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 			Expect(err).NotTo(HaveOccurred())
 		}
 
-		accessList, err := client.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
+		accessList, err := client.SubjectAccess(context.Background(), &corev1.SubjectAccessRequest{
 			Subject: "test-subject",
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -149,7 +149,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 
 	When("provided an invalid Subject", func() {
 		It("returns an empty list", func() {
-			clusterList, errS := client.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
+			clusterList, errS := client.SubjectAccess(context.Background(), &corev1.SubjectAccessRequest{
 				Subject: uuid.NewString(),
 			})
 			Expect(errS).NotTo(HaveOccurred())
@@ -159,7 +159,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 
 	When("not provided with a Subject", func() {
 		It("cannot return a list of Cluster IDs that a specific User (Subject) can access", func() {
-			_, errS := client.SubjectAccess(context.Background(), &core.SubjectAccessRequest{})
+			_, errS := client.SubjectAccess(context.Background(), &corev1.SubjectAccessRequest{})
 			Expect(errS).To(HaveOccurred())
 			Expect(errS.Error()).To(ContainSubstring("missing required field: subject"))
 		})

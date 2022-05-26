@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
 const (
@@ -12,7 +12,7 @@ const (
 )
 
 type Provider interface {
-	SubjectAccess(context.Context, *core.SubjectAccessRequest) (*core.ReferenceList, error)
+	SubjectAccess(context.Context, *corev1.SubjectAccessRequest) (*corev1.ReferenceList, error)
 }
 
 func AuthorizedUserID(c *fiber.Ctx) (string, bool) {

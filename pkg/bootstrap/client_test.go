@@ -2,34 +2,35 @@ package bootstrap_test
 
 import (
 	"context"
-	"crypto/ed25519"
+	"crypto"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
+	"net"
 	"os"
 	"runtime"
-	"strings"
+	"time"
 
-	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/jwx/jws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 
+	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
+	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/pkp"
+	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
@@ -51,9 +52,10 @@ func pkpTrustStrategy(cert *x509.Certificate) trust.Strategy {
 }
 
 var _ = Describe("Client", Ordered, Label(test.Slow), func() {
-	token := tokens.NewToken()
 	var fooIdent ident.Provider
 	var cert *tls.Certificate
+	var store storage.Backend
+	var endpoint string
 
 	BeforeAll(func() {
 		if runtime.GOOS != "linux" {
@@ -66,56 +68,41 @@ var _ = Describe("Client", Ordered, Label(test.Slow), func() {
 		crt.Leaf, err = x509.ParseCertificate(crt.Certificate[0])
 		Expect(err).NotTo(HaveOccurred())
 		cert = &crt
+		store = test.NewTestStorageBackend(context.Background(), ctrl)
+		capBackendStore := capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, test.Log)
+		for _, backend := range []*test.CapabilityInfo{
+			{
+				Name:       "test",
+				CanInstall: true,
+			},
+		} {
+			capBackendStore.Add(backend.Name, test.NewTestCapabilityBackend(ctrl, backend))
+		}
+
+		srv := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
+			Certificates: []tls.Certificate{*cert},
+		})))
+
+		server := bootstrap.NewServer(store, cert.PrivateKey.(crypto.Signer), capBackendStore)
+		bootstrapv1.RegisterBootstrapServer(srv, server)
+
+		listener, err := net.Listen("tcp4", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		endpoint = listener.Addr().String()
+
+		go srv.Serve(listener)
+
+		DeferCleanup(func() {
+			srv.Stop()
+		})
 	})
 	It("should bootstrap with the server", func() {
-		mux := http.NewServeMux()
-
-		mux.HandleFunc("/bootstrap/join", func(rw http.ResponseWriter, r *http.Request) {
-			defer GinkgoRecover()
-			Expect(r.Header.Get("Authorization")).To(BeEmpty())
-			data, err := token.SignDetached(cert.PrivateKey)
-			Expect(err).NotTo(HaveOccurred())
-			rw.WriteHeader(http.StatusOK)
-			j, _ := json.Marshal(bootstrap.BootstrapJoinResponse{
-				Signatures: map[string][]byte{
-					token.HexID(): data,
-				},
-			})
-			_, err = rw.Write(j)
-			Expect(err).NotTo(HaveOccurred())
-		})
-		mux.HandleFunc("/bootstrap/auth", func(rw http.ResponseWriter, r *http.Request) {
-			defer GinkgoRecover()
-			Expect(r.Header.Get("Authorization")).NotTo(BeEmpty())
-			authHeader := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-
-			_, err := jws.Verify([]byte(authHeader), jwa.EdDSA, cert.PrivateKey.(ed25519.PrivateKey).Public())
-			Expect(err).NotTo(HaveOccurred())
-
-			req := bootstrap.BootstrapAuthRequest{}
-			Expect(json.NewDecoder(r.Body).Decode(&req)).To(Succeed())
-			Expect(req.ClientID).To(Equal("foo"))
-			Expect(req.ClientPubKey).To(HaveLen(32))
-
-			ekp := ecdh.NewEphemeralKeyPair()
-			rw.WriteHeader(http.StatusOK)
-			resp, _ := json.Marshal(bootstrap.BootstrapAuthResponse{
-				ServerPubKey: ekp.PublicKey,
-			})
-			_, err = rw.Write(resp)
-			Expect(err).NotTo(HaveOccurred())
-		})
-		server := httptest.NewUnstartedServer(mux)
-		server.TLS = &tls.Config{
-			Certificates: []tls.Certificate{*cert},
-		}
-		server.StartTLS()
-		defer server.Close()
-
+		token, _ := store.CreateToken(context.Background(), 1*time.Minute)
 		cc := bootstrap.ClientConfig{
-			Token:         token,
-			Endpoint:      server.URL,
-			TrustStrategy: pkpTrustStrategy(server.Certificate()),
+			Token:         testutil.Must(tokens.FromBootstrapToken(token)),
+			Endpoint:      endpoint,
+			TrustStrategy: pkpTrustStrategy(cert.Leaf),
+			Capability:    "test",
 		}
 
 		_, err := cc.Bootstrap(context.Background(), fooIdent)
@@ -219,8 +206,9 @@ var _ = Describe("Client", Ordered, Label(test.Slow), func() {
 		})
 		When("an invalid endpoint is given", func() {
 			It("should error", func() {
+				token, _ := store.CreateToken(context.Background(), 1*time.Minute)
 				cc := bootstrap.ClientConfig{
-					Token:         token,
+					Token:         testutil.Must(tokens.FromBootstrapToken(token)),
 					Endpoint:      "\x7f",
 					TrustStrategy: pkpTrustStrategy(cert.Leaf),
 				}
@@ -231,227 +219,15 @@ var _ = Describe("Client", Ordered, Label(test.Slow), func() {
 		})
 		When("the client fails to send a request to the server", func() {
 			It("should error", func() {
+				token, _ := store.CreateToken(context.Background(), 1*time.Minute)
 				cc := bootstrap.ClientConfig{
-					Token:         token,
-					Endpoint:      "https://localhost:65545",
+					Token:         testutil.Must(tokens.FromBootstrapToken(token)),
+					Endpoint:      "localhost:65545",
 					TrustStrategy: pkpTrustStrategy(cert.Leaf),
 				}
 				kr, err := cc.Bootstrap(context.Background(), fooIdent)
 				Expect(kr).To(BeNil())
 				Expect(err.Error()).To(ContainSubstring("invalid port"))
-			})
-		})
-		When("the server returns a non-200 error code", func() {
-			It("should error", func() {
-				server := httptest.NewTLSServer(http.NewServeMux())
-				defer server.Close()
-				cc := bootstrap.ClientConfig{
-					Token:         token,
-					Endpoint:      server.URL,
-					TrustStrategy: pkpTrustStrategy(server.Certificate()),
-				}
-				kr, err := cc.Bootstrap(context.Background(), fooIdent)
-				Expect(kr).To(BeNil())
-				Expect(err.Error()).To(ContainSubstring("404"))
-			})
-		})
-		When("the server returns invalid response data", func() {
-			It("should error", func() {
-				mux := http.NewServeMux()
-				mux.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
-					rw.WriteHeader(http.StatusOK)
-				})
-				server := httptest.NewTLSServer(mux)
-				defer server.Close()
-				cc := bootstrap.ClientConfig{
-					Token:         token,
-					Endpoint:      server.URL,
-					TrustStrategy: pkpTrustStrategy(server.Certificate()),
-				}
-				kr, err := cc.Bootstrap(context.Background(), fooIdent)
-				Expect(kr).To(BeNil())
-				Expect(err.Error()).To(ContainSubstring("unexpected end of JSON input"))
-			})
-		})
-		When("the client can't find a matching signature sent by the server", func() {
-			It("should error", func() {
-				mux := http.NewServeMux()
-				mux.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
-					rw.WriteHeader(http.StatusOK)
-					j, _ := json.Marshal(bootstrap.BootstrapJoinResponse{
-						Signatures: make(map[string][]byte),
-					})
-					_, err := rw.Write(j)
-					Expect(err).NotTo(HaveOccurred())
-				})
-				server := httptest.NewTLSServer(mux)
-				defer server.Close()
-				cc := bootstrap.ClientConfig{
-					Token:         token,
-					Endpoint:      server.URL,
-					TrustStrategy: pkpTrustStrategy(server.Certificate()),
-				}
-				kr, err := cc.Bootstrap(context.Background(), fooIdent)
-				Expect(kr).To(BeNil())
-				Expect(err).To(MatchError(bootstrap.ErrNoValidSignature))
-			})
-		})
-		When("the client can't find a unique identifier", func() {
-			It("should error", func() {
-				mux := http.NewServeMux()
-
-				mux.HandleFunc("/bootstrap/join", func(rw http.ResponseWriter, r *http.Request) {
-					defer GinkgoRecover()
-					Expect(r.Header.Get("Authorization")).To(BeEmpty())
-					data, err := token.SignDetached(cert.PrivateKey)
-					Expect(err).NotTo(HaveOccurred())
-					rw.WriteHeader(http.StatusOK)
-					j, _ := json.Marshal(bootstrap.BootstrapJoinResponse{
-						Signatures: map[string][]byte{
-							token.HexID(): data,
-						},
-					})
-					_, err = rw.Write(j)
-					Expect(err).NotTo(HaveOccurred())
-				})
-				server := httptest.NewUnstartedServer(mux)
-				server.TLS = &tls.Config{
-					Certificates: []tls.Certificate{*cert},
-				}
-				server.StartTLS()
-				defer server.Close()
-
-				cc := bootstrap.ClientConfig{
-					Token:         token,
-					Endpoint:      server.URL,
-					TrustStrategy: pkpTrustStrategy(server.Certificate()),
-				}
-
-				_, err := cc.Bootstrap(context.Background(), &errProvider{})
-				Expect(err).To(MatchError("failed to obtain unique identifier: test"))
-			})
-		})
-		When("the bootstrap auth request fails", func() {
-			It("should error", func() {
-				mux := http.NewServeMux()
-
-				mux.HandleFunc("/bootstrap/join", func(rw http.ResponseWriter, r *http.Request) {
-					defer GinkgoRecover()
-					Expect(r.Header.Get("Authorization")).To(BeEmpty())
-					data, err := token.SignDetached(cert.PrivateKey)
-					Expect(err).NotTo(HaveOccurred())
-					rw.WriteHeader(http.StatusOK)
-					j, _ := json.Marshal(bootstrap.BootstrapJoinResponse{
-						Signatures: map[string][]byte{
-							token.HexID(): data,
-						},
-					})
-					_, err = rw.Write(j)
-					Expect(err).NotTo(HaveOccurred())
-				})
-				mux.HandleFunc("/bootstrap/auth", func(rw http.ResponseWriter, r *http.Request) {
-					rw.WriteHeader(http.StatusInternalServerError)
-				})
-				server := httptest.NewUnstartedServer(mux)
-				server.TLS = &tls.Config{
-					Certificates: []tls.Certificate{*cert},
-				}
-				server.StartTLS()
-				defer server.Close()
-
-				cc := bootstrap.ClientConfig{
-					Token:         token,
-					Endpoint:      server.URL,
-					TrustStrategy: pkpTrustStrategy(server.Certificate()),
-				}
-
-				_, err := cc.Bootstrap(context.Background(), fooIdent)
-				Expect(err).To(MatchError("bootstrap failed: 500 Internal Server Error"))
-			})
-		})
-		When("the server sends invalid response data", func() {
-			It("should error", func() {
-				mux := http.NewServeMux()
-
-				mux.HandleFunc("/bootstrap/join", func(rw http.ResponseWriter, r *http.Request) {
-					defer GinkgoRecover()
-					Expect(r.Header.Get("Authorization")).To(BeEmpty())
-					data, err := token.SignDetached(cert.PrivateKey)
-					Expect(err).NotTo(HaveOccurred())
-					rw.WriteHeader(http.StatusOK)
-					j, _ := json.Marshal(bootstrap.BootstrapJoinResponse{
-						Signatures: map[string][]byte{
-							token.HexID(): data,
-						},
-					})
-					_, err = rw.Write(j)
-					Expect(err).NotTo(HaveOccurred())
-				})
-				mux.HandleFunc("/bootstrap/auth", func(rw http.ResponseWriter, r *http.Request) {
-					defer GinkgoRecover()
-					rw.WriteHeader(http.StatusOK)
-					_, err := rw.Write([]byte("$"))
-					Expect(err).NotTo(HaveOccurred())
-				})
-				server := httptest.NewUnstartedServer(mux)
-				server.TLS = &tls.Config{
-					Certificates: []tls.Certificate{*cert},
-				}
-				server.StartTLS()
-				defer server.Close()
-
-				cc := bootstrap.ClientConfig{
-					Token:         token,
-					Endpoint:      server.URL,
-					TrustStrategy: pkpTrustStrategy(server.Certificate()),
-				}
-
-				_, err := cc.Bootstrap(context.Background(), fooIdent)
-				Expect(err.Error()).To(ContainSubstring("invalid character"))
-			})
-		})
-		When("the server sends an invalid public key", func() {
-			It("should error", func() {
-				mux := http.NewServeMux()
-
-				mux.HandleFunc("/bootstrap/join", func(rw http.ResponseWriter, r *http.Request) {
-					defer GinkgoRecover()
-					Expect(r.Header.Get("Authorization")).To(BeEmpty())
-					data, err := token.SignDetached(cert.PrivateKey)
-					Expect(err).NotTo(HaveOccurred())
-					rw.WriteHeader(http.StatusOK)
-					j, _ := json.Marshal(bootstrap.BootstrapJoinResponse{
-						Signatures: map[string][]byte{
-							token.HexID(): data,
-						},
-					})
-					_, err = rw.Write(j)
-					Expect(err).NotTo(HaveOccurred())
-				})
-				mux.HandleFunc("/bootstrap/auth", func(rw http.ResponseWriter, r *http.Request) {
-					defer GinkgoRecover()
-					rw.WriteHeader(http.StatusOK)
-					j, _ := json.Marshal(bootstrap.BootstrapAuthResponse{
-						ServerPubKey: []byte("invalid"),
-					})
-					_, err := rw.Write(j)
-					Expect(err).NotTo(HaveOccurred())
-				})
-				server := httptest.NewUnstartedServer(mux)
-				server.TLS = &tls.Config{
-					Certificates: []tls.Certificate{*cert},
-				}
-				server.StartTLS()
-				defer server.Close()
-
-				cc := bootstrap.ClientConfig{
-					Token:         token,
-					Endpoint:      server.URL,
-					TrustStrategy: pkpTrustStrategy(server.Certificate()),
-				}
-
-				_, err := cc.Bootstrap(context.Background(), fooIdent)
-				Expect(err.Error()).To(ContainSubstring("bad point length"))
 			})
 		})
 	})

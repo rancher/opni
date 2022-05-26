@@ -38,11 +38,13 @@ type GatewayHTTPClient interface {
 	Put(ctx context.Context, path string) RequestBuilder
 	Patch(ctx context.Context, path string) RequestBuilder
 	Delete(ctx context.Context, path string) RequestBuilder
-
-	DialGRPC(ctx context.Context) (grpc.ClientConnInterface, error)
 }
 
-func NewGatewayClient(
+type GatewayGRPCClient interface {
+	Dial(ctx context.Context) (grpc.ClientConnInterface, error)
+}
+
+func NewGatewayHTTPClient(
 	address string,
 	ip ident.Provider,
 	kr keyring.Keyring,
@@ -51,9 +53,35 @@ func NewGatewayClient(
 	if address[len(address)-1] == '/' {
 		address = address[:len(address)-1]
 	}
+	client := &gatewayClient{
+		httpAddress: address,
+	}
+	initClientShared(client, ip, kr, trustStrategy)
+	return client, nil
+}
+
+func NewGatewayGRPCClient(
+	address string,
+	ip ident.Provider,
+	kr keyring.Keyring,
+	trustStrategy trust.Strategy,
+) (GatewayGRPCClient, error) {
+	client := &gatewayClient{
+		grpcAddress: address,
+	}
+	initClientShared(client, ip, kr, trustStrategy)
+	return client, nil
+}
+
+func initClientShared(
+	client *gatewayClient,
+	ip ident.Provider,
+	kr keyring.Keyring,
+	trustStrategy trust.Strategy,
+) error {
 	id, err := ip.UniqueIdentifier(context.Background())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	var sharedKeys *keyring.SharedKeys
 	kr.Try(func(sk *keyring.SharedKeys) {
@@ -64,37 +92,36 @@ func NewGatewayClient(
 		sharedKeys = sk
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if sharedKeys == nil {
-		return nil, errors.New("keyring is missing shared keys")
+		return errors.New("keyring is missing shared keys")
 	}
 
 	tlsConfig, err := trustStrategy.TLSConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create TLS config: %w", err)
+		return fmt.Errorf("failed to create TLS config: %w", err)
 	}
 
-	return &gatewayClient{
-		address:    address,
-		id:         id,
-		sharedKeys: sharedKeys,
-		tlsConfig:  tlsConfig,
-	}, nil
+	client.id = id
+	client.sharedKeys = sharedKeys
+	client.tlsConfig = tlsConfig
+	return nil
 }
 
 type gatewayClient struct {
-	address    string
-	id         string
-	sharedKeys *keyring.SharedKeys
-	tlsConfig  *tls.Config
+	httpAddress string
+	grpcAddress string
+	id          string
+	sharedKeys  *keyring.SharedKeys
+	tlsConfig   *tls.Config
 }
 
 func (gc *gatewayClient) requestPath(path string) string {
 	if path[0] != '/' {
 		path = "/" + path
 	}
-	return gc.address + path
+	return gc.httpAddress + path
 }
 
 func (gc *gatewayClient) Get(ctx context.Context, path string) RequestBuilder {
@@ -139,8 +166,8 @@ func (gc *gatewayClient) Delete(ctx context.Context, path string) RequestBuilder
 	}
 }
 
-func (gc *gatewayClient) DialGRPC(ctx context.Context) (grpc.ClientConnInterface, error) {
-	return grpc.DialContext(ctx, gc.address,
+func (gc *gatewayClient) Dial(ctx context.Context) (grpc.ClientConnInterface, error) {
+	return grpc.DialContext(ctx, gc.grpcAddress,
 		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
 		grpc.WithStreamInterceptor(gc.streamClientInterceptor),
 	)

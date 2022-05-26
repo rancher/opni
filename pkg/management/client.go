@@ -3,6 +3,7 @@ package management
 import (
 	"context"
 
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -32,7 +33,7 @@ func WithDialOptions(options ...grpc.DialOption) ManagementClientOption {
 	}
 }
 
-func NewClient(ctx context.Context, opts ...ManagementClientOption) (ManagementClient, error) {
+func NewClient(ctx context.Context, opts ...ManagementClientOption) (managementv1.ManagementClient, error) {
 	options := ManagementClientOptions{
 		listenAddr: DefaultManagementSocket(),
 		dialOptions: []grpc.DialOption{
@@ -44,5 +45,5 @@ func NewClient(ctx context.Context, opts ...ManagementClientOption) (ManagementC
 	if err != nil {
 		return nil, err
 	}
-	return NewManagementClient(cc), nil
+	return managementv1.NewManagementClient(cc), nil
 }

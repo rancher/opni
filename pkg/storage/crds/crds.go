@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -82,7 +82,7 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	}
 }
 
-func (e *CRDStore) KeyringStore(ctx context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+func (e *CRDStore) KeyringStore(ctx context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 	return &crdKeyringStore{
 		CRDStoreOptions: e.CRDStoreOptions,
 		client:          e.client,

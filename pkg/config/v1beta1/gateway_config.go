@@ -12,11 +12,12 @@ type GatewayConfig struct {
 
 type GatewayConfigSpec struct {
 	//+kubebuilder:default=":8080"
-	ListenAddress string `json:"listenAddress,omitempty"`
-	//+kubebuilder:default=":8080"
-	Hostname string `json:"hostname,omitempty"`
-	//+kubebuilder:default=8086
-	MetricsPort    int            `json:"metricsPort,omitempty"`
+	HTTPListenAddress string `json:"httpListenAddress,omitempty"`
+	//+kubebuilder:default=":9090"
+	GRPCListenAddress string `json:"grpcListenAddress,omitempty"`
+	//+kubebuilder:default="localhost"
+	Hostname       string         `json:"hostname,omitempty"`
+	Metrics        MetricsSpec    `json:"metrics,omitempty"`
 	Management     ManagementSpec `json:"management,omitempty"`
 	EnableMonitor  bool           `json:"enableMonitor,omitempty"`
 	TrustedProxies []string       `json:"trustedProxies,omitempty"`
@@ -25,6 +26,27 @@ type GatewayConfigSpec struct {
 	Storage        StorageSpec    `json:"storage,omitempty"`
 	Certs          CertsSpec      `json:"certs,omitempty"`
 	Plugins        PluginsSpec    `json:"plugins,omitempty"`
+}
+
+type MetricsSpec struct {
+	//+kubebuilder:default=8086
+	Port int `json:"port,omitempty"`
+	//+kubebuilder:default="/metrics"
+	Path string `json:"path,omitempty"`
+}
+
+func (s MetricsSpec) GetPort() int {
+	if s.Port == 0 {
+		return 8086
+	}
+	return s.Port
+}
+
+func (s MetricsSpec) GetPath() string {
+	if s.Path == "" {
+		return "/metrics"
+	}
+	return s.Path
 }
 
 type ManagementSpec struct {
@@ -141,21 +163,28 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	if s.Management.WebListenAddress == "" {
 		s.Management.WebListenAddress = s.Management.GetWebListenAddress()
 	}
-	if s.ListenAddress == "" {
-		s.ListenAddress = ":8080"
+	if s.HTTPListenAddress == "" {
+		s.HTTPListenAddress = ":8080"
+	}
+	if s.GRPCListenAddress == "" {
+		s.GRPCListenAddress = ":9090"
 	}
 	if s.Hostname == "" {
 		s.Hostname = "localhost"
 	}
-	if s.MetricsPort == 0 {
-		s.MetricsPort = 8086
+	if s.Metrics.Port == 0 {
+		s.Metrics.Port = 8086
 	}
 	if s.Cortex.Distributor.HTTPAddress == "" {
 		s.Cortex.Distributor.HTTPAddress = "cortex-distributor:8080"
+	}
+	if s.Cortex.Distributor.GRPCAddress == "" {
 		s.Cortex.Distributor.GRPCAddress = "cortex-distributor-headless:9095"
 	}
 	if s.Cortex.Ingester.HTTPAddress == "" {
 		s.Cortex.Ingester.HTTPAddress = "cortex-ingester:8080"
+	}
+	if s.Cortex.Ingester.GRPCAddress == "" {
 		s.Cortex.Ingester.GRPCAddress = "cortex-ingester-headless:9095"
 	}
 	if s.Cortex.Alertmanager.HTTPAddress == "" {
@@ -166,6 +195,8 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	}
 	if s.Cortex.QueryFrontend.HTTPAddress == "" {
 		s.Cortex.QueryFrontend.HTTPAddress = "cortex-query-frontend:8080"
+	}
+	if s.Cortex.QueryFrontend.GRPCAddress == "" {
 		s.Cortex.QueryFrontend.GRPCAddress = "cortex-query-frontend-headless:9095"
 	}
 }

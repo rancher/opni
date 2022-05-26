@@ -12,8 +12,8 @@ import (
 
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/ory/fosite"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/openid"
-	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.uber.org/zap"
@@ -37,7 +37,7 @@ type ServerConfig struct {
 
 type Server struct {
 	ServerConfig
-	mgmtApiClient  management.ManagementClient
+	mgmtApiClient  managementv1.ManagementClient
 	noauthProvider fosite.OAuth2Provider
 	key            jwk.Key
 }
@@ -129,7 +129,7 @@ func (s *Server) connectToManagementAPI(ctx context.Context) error {
 		<-ctx.Done()
 		cc.Close()
 	})
-	s.mgmtApiClient = management.NewManagementClient(cc)
+	s.mgmtApiClient = managementv1.NewManagementClient(cc)
 	return nil
 }
 

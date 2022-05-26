@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type ServerStreamWithContext struct {
@@ -67,4 +69,8 @@ func (s *ClientStreamWithContext) SendMsg(m interface{}) error {
 
 func (s *ClientStreamWithContext) RecvMsg(m interface{}) error {
 	return s.Stream.RecvMsg(m)
+}
+
+func StatusError(code codes.Code) error {
+	return status.Error(code, code.String())
 }

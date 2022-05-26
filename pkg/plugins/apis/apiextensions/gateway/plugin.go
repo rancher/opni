@@ -42,7 +42,6 @@ type gatewayApiExtensionPlugin struct {
 }
 
 var _ plugin.Plugin = (*gatewayApiExtensionPlugin)(nil)
-var _ plugin.Plugin = (*gatewayApiExtensionPlugin)(nil)
 
 // Plugin side
 func (p *gatewayApiExtensionPlugin) GRPCServer(

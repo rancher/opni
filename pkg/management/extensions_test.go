@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/grpcreflect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,10 +19,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/utils/pointer"
 
-	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/test"
 	mock_apiextensions "github.com/rancher/opni/pkg/test/mock/apiextensions"
@@ -74,6 +71,11 @@ var _ = Describe("Extensions", Ordered, Label(test.Slow), func() {
 			}).
 			AnyTimes()
 
+		// Create the management server, which installs hooks into the plugin loader
+		setupManagementServer(&tv, pl)()
+
+		// Loading the plugins after installing the hooks ensures LoadOne will block
+		// until all hooks return.
 		if shouldLoadExt1.Load() {
 			apiextSrv := &apiExtensionSrvImpl{
 				MockManagementAPIExtensionServer: mock_apiextensions.NewMockManagementAPIExtensionServer(tv.ctrl),
@@ -94,7 +96,7 @@ var _ = Describe("Extensions", Ordered, Label(test.Slow), func() {
 			cc := test.NewApiExtensionTestPlugin(apiextSrv, &ext.Ext_ServiceDesc, &extSrvImpl{
 				MockExtServer: extSrv,
 			})
-			pl.Load(meta.PluginMeta{
+			pl.LoadOne(meta.PluginMeta{
 				BinaryPath: "test1",
 				GoVersion:  "test1",
 				Module:     "test1",
@@ -121,17 +123,14 @@ var _ = Describe("Extensions", Ordered, Label(test.Slow), func() {
 			cc2 := test.NewApiExtensionTestPlugin(apiextSrv2, &ext.Ext2_ServiceDesc, &ext2SrvImpl{
 				MockExt2Server: ext2Srv,
 			})
-			pl.Load(meta.PluginMeta{
+			pl.LoadOne(meta.PluginMeta{
 				BinaryPath: "test2",
 				GoVersion:  "test2",
 				Module:     "test2",
 			}, cc2)
 		}
 
-		extensions := plugins.DispenseAllAs[apiextensions.ManagementAPIExtensionClient](
-			pl, managementext.ManagementAPIExtensionPluginID)
-		setupManagementServer(&tv, management.WithAPIExtensions(extensions))()
-		DeferCleanup(plugin.CleanupClients)
+		pl.Complete()
 	})
 	It("should load API extensions", func() {
 		extensions, err := tv.client.APIExtensions(context.Background(), &emptypb.Empty{})
@@ -168,7 +167,7 @@ var _ = Describe("Extensions", Ordered, Label(test.Slow), func() {
 		for {
 			resp, err := http.Post(tv.httpEndpoint+"/Ext/foo",
 				"application/json", strings.NewReader(`{"request": "hello"}`))
-			if err != nil && tries > 0 {
+			if (err != nil || resp.StatusCode != 200) && tries > 0 {
 				tries--
 				time.Sleep(100 * time.Millisecond)
 				continue

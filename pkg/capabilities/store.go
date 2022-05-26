@@ -2,8 +2,9 @@ package capabilities
 
 import (
 	"fmt"
+	"sync"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"go.uber.org/zap"
 )
@@ -19,12 +20,13 @@ type BackendStore interface {
 	List() []string
 	RenderInstaller(name string, spec UserInstallerTemplateSpec) (string, error)
 	CanInstall(capabilities ...string) error
-	InstallCapabilities(cluster *core.Reference, capabilities ...string)
-	UninstallCapabilities(cluster *core.Reference, capabilities ...string) error
+	InstallCapabilities(cluster *corev1.Reference, capabilities ...string)
+	UninstallCapabilities(cluster *corev1.Reference, capabilities ...string) error
 }
 
 type backendStore struct {
 	serverSpec ServerInstallerTemplateSpec
+	mu         sync.RWMutex
 	backends   map[string]capability.Backend
 	logger     *zap.SugaredLogger
 }
@@ -38,6 +40,8 @@ func NewBackendStore(serverSpec ServerInstallerTemplateSpec, logger *zap.Sugared
 }
 
 func (s *backendStore) Get(name string) (capability.Backend, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if backend, ok := s.backends[name]; !ok {
 		return nil, fmt.Errorf("%w: %s", ErrBackendNotFound, name)
 	} else {
@@ -46,6 +50,8 @@ func (s *backendStore) Get(name string) (capability.Backend, error) {
 }
 
 func (s *backendStore) Add(name string, backend capability.Backend) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if _, ok := s.backends[name]; ok {
 		return fmt.Errorf("%w: %s", ErrBackendAlreadyExists, name)
 	}
@@ -54,6 +60,8 @@ func (s *backendStore) Add(name string, backend capability.Backend) error {
 }
 
 func (s *backendStore) List() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	capabilities := make([]string, 0, len(s.backends))
 	for capability := range s.backends {
 		capabilities = append(capabilities, capability)
@@ -73,6 +81,8 @@ func (s *backendStore) RenderInstaller(name string, spec UserInstallerTemplateSp
 }
 
 func (s *backendStore) CanInstall(capabilities ...string) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for _, capability := range capabilities {
 		lg := s.logger.With(
 			"capability", capability,
@@ -97,9 +107,11 @@ func (s *backendStore) CanInstall(capabilities ...string) error {
 }
 
 func (s *backendStore) InstallCapabilities(
-	cluster *core.Reference,
+	cluster *corev1.Reference,
 	capabilities ...string,
 ) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	lg := s.logger.With(
 		"cluster", cluster.GetId(),
 	)
@@ -122,9 +134,11 @@ func (s *backendStore) InstallCapabilities(
 }
 
 func (s *backendStore) UninstallCapabilities(
-	cluster *core.Reference,
+	cluster *corev1.Reference,
 	capabilities ...string,
 ) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	lg := s.logger.With(
 		"cluster", cluster.GetId(),
 	)

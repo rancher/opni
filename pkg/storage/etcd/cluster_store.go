@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *core.Cluster) error {
+func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) error {
 	data, err := protojson.Marshal(cluster)
 	if err != nil {
 		return fmt.Errorf("failed to marshal cluster: %w", err)
@@ -27,7 +27,7 @@ func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *core.Cluster) er
 	return nil
 }
 
-func (e *EtcdStore) DeleteCluster(ctx context.Context, ref *core.Reference) error {
+func (e *EtcdStore) DeleteCluster(ctx context.Context, ref *corev1.Reference) error {
 	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
 	resp, err := e.Client.Delete(ctx, path.Join(e.Prefix, clusterKey, ref.Id))
@@ -42,9 +42,9 @@ func (e *EtcdStore) DeleteCluster(ctx context.Context, ref *core.Reference) erro
 
 func (e *EtcdStore) ListClusters(
 	ctx context.Context,
-	matchLabels *core.LabelSelector,
-	matchOptions core.MatchOptions,
-) (*core.ClusterList, error) {
+	matchLabels *corev1.LabelSelector,
+	matchOptions corev1.MatchOptions,
+) (*corev1.ClusterList, error) {
 	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
 	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, clusterKey),
@@ -53,8 +53,8 @@ func (e *EtcdStore) ListClusters(
 	if err != nil {
 		return nil, fmt.Errorf("failed to list clusters: %w", err)
 	}
-	clusters := &core.ClusterList{
-		Items: []*core.Cluster{},
+	clusters := &corev1.ClusterList{
+		Items: []*corev1.Cluster{},
 	}
 	selectorPredicate := storage.ClusterSelector{
 		LabelSelector: matchLabels,
@@ -62,7 +62,7 @@ func (e *EtcdStore) ListClusters(
 	}.Predicate()
 
 	for _, kv := range resp.Kvs {
-		cluster := &core.Cluster{}
+		cluster := &corev1.Cluster{}
 		if err := protojson.Unmarshal(kv.Value, cluster); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal cluster: %w", err)
 		}
@@ -73,14 +73,14 @@ func (e *EtcdStore) ListClusters(
 	return clusters, nil
 }
 
-func (e *EtcdStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error) {
+func (e *EtcdStore) GetCluster(ctx context.Context, ref *corev1.Reference) (*corev1.Cluster, error) {
 	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
 	c, _, err := e.getCluster(ctx, ref)
 	return c, err
 }
 
-func (e *EtcdStore) getCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, int64, error) {
+func (e *EtcdStore) getCluster(ctx context.Context, ref *corev1.Reference) (*corev1.Cluster, int64, error) {
 	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 	defer ca()
 	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, clusterKey, ref.Id))
@@ -90,7 +90,7 @@ func (e *EtcdStore) getCluster(ctx context.Context, ref *core.Reference) (*core.
 	if len(resp.Kvs) == 0 {
 		return nil, 0, storage.ErrNotFound
 	}
-	cluster := &core.Cluster{}
+	cluster := &corev1.Cluster{}
 	if err := protojson.Unmarshal(resp.Kvs[0].Value, cluster); err != nil {
 		return nil, 0, fmt.Errorf("failed to unmarshal cluster: %w", err)
 	}
@@ -99,10 +99,10 @@ func (e *EtcdStore) getCluster(ctx context.Context, ref *core.Reference) (*core.
 
 func (e *EtcdStore) UpdateCluster(
 	ctx context.Context,
-	ref *core.Reference,
-	mutator storage.MutatorFunc[*core.Cluster],
-) (*core.Cluster, error) {
-	var retCluster *core.Cluster
+	ref *corev1.Reference,
+	mutator storage.MutatorFunc[*corev1.Cluster],
+) (*corev1.Cluster, error) {
+	var retCluster *corev1.Cluster
 	err := retry.OnError(defaultBackoff, isRetryErr, func() error {
 		ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
 		defer ca()

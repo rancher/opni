@@ -1,0 +1,19 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/rancher/opni/pkg/plugins/cortex/pkg/apis/remotewrite";
+
+package remotewrite;
+
+service RemoteWrite {
+  rpc Push(Payload) returns (google.protobuf.Empty);
+  rpc SyncRules(Payload) returns (google.protobuf.Empty);
+}
+
+message Payload {
+  string AuthorizedClusterID = 1;
+  map<string, string> Headers = 3;
+  bytes Contents = 4;
+}

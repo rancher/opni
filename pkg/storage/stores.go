@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
 )
 
@@ -18,34 +18,34 @@ type Backend interface {
 
 type MutatorFunc[T any] func(T)
 
-type TokenMutator = MutatorFunc[*core.BootstrapToken]
-type ClusterMutator = MutatorFunc[*core.Cluster]
+type TokenMutator = MutatorFunc[*corev1.BootstrapToken]
+type ClusterMutator = MutatorFunc[*corev1.Cluster]
 
 type TokenStore interface {
-	CreateToken(ctx context.Context, ttl time.Duration, opts ...TokenCreateOption) (*core.BootstrapToken, error)
-	DeleteToken(ctx context.Context, ref *core.Reference) error
-	GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error)
-	UpdateToken(ctx context.Context, ref *core.Reference, mutator TokenMutator) (*core.BootstrapToken, error)
-	ListTokens(ctx context.Context) ([]*core.BootstrapToken, error)
+	CreateToken(ctx context.Context, ttl time.Duration, opts ...TokenCreateOption) (*corev1.BootstrapToken, error)
+	DeleteToken(ctx context.Context, ref *corev1.Reference) error
+	GetToken(ctx context.Context, ref *corev1.Reference) (*corev1.BootstrapToken, error)
+	UpdateToken(ctx context.Context, ref *corev1.Reference, mutator TokenMutator) (*corev1.BootstrapToken, error)
+	ListTokens(ctx context.Context) ([]*corev1.BootstrapToken, error)
 }
 
 type ClusterStore interface {
-	CreateCluster(ctx context.Context, cluster *core.Cluster) error
-	DeleteCluster(ctx context.Context, ref *core.Reference) error
-	GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error)
-	UpdateCluster(ctx context.Context, ref *core.Reference, mutator ClusterMutator) (*core.Cluster, error)
-	ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error)
+	CreateCluster(ctx context.Context, cluster *corev1.Cluster) error
+	DeleteCluster(ctx context.Context, ref *corev1.Reference) error
+	GetCluster(ctx context.Context, ref *corev1.Reference) (*corev1.Cluster, error)
+	UpdateCluster(ctx context.Context, ref *corev1.Reference, mutator ClusterMutator) (*corev1.Cluster, error)
+	ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error)
 }
 
 type RBACStore interface {
-	CreateRole(context.Context, *core.Role) error
-	DeleteRole(context.Context, *core.Reference) error
-	GetRole(context.Context, *core.Reference) (*core.Role, error)
-	CreateRoleBinding(context.Context, *core.RoleBinding) error
-	DeleteRoleBinding(context.Context, *core.Reference) error
-	GetRoleBinding(context.Context, *core.Reference) (*core.RoleBinding, error)
-	ListRoles(context.Context) (*core.RoleList, error)
-	ListRoleBindings(context.Context) (*core.RoleBindingList, error)
+	CreateRole(context.Context, *corev1.Role) error
+	DeleteRole(context.Context, *corev1.Reference) error
+	GetRole(context.Context, *corev1.Reference) (*corev1.Role, error)
+	CreateRoleBinding(context.Context, *corev1.RoleBinding) error
+	DeleteRoleBinding(context.Context, *corev1.Reference) error
+	GetRoleBinding(context.Context, *corev1.Reference) (*corev1.RoleBinding, error)
+	ListRoles(context.Context) (*corev1.RoleList, error)
+	ListRoleBindings(context.Context) (*corev1.RoleBindingList, error)
 }
 
 type KeyringStore interface {
@@ -61,7 +61,7 @@ type KeyValueStore interface {
 }
 
 type KeyringStoreBroker interface {
-	KeyringStore(ctx context.Context, namespace string, ref *core.Reference) (KeyringStore, error)
+	KeyringStore(ctx context.Context, namespace string, ref *corev1.Reference) (KeyringStore, error)
 }
 
 type KeyValueStoreBroker interface {
@@ -70,7 +70,7 @@ type KeyValueStoreBroker interface {
 
 // A store that can be used to compute subject access rules
 type SubjectAccessCapableStore interface {
-	ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error)
-	GetRole(ctx context.Context, ref *core.Reference) (*core.Role, error)
-	ListRoleBindings(ctx context.Context) (*core.RoleBindingList, error)
+	ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error)
+	GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.Role, error)
+	ListRoleBindings(ctx context.Context) (*corev1.RoleBindingList, error)
 }

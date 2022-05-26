@@ -10,7 +10,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	core "github.com/rancher/opni/pkg/core"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	keyring "github.com/rancher/opni/pkg/keyring"
 	storage "github.com/rancher/opni/pkg/storage"
 )
@@ -39,7 +39,7 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // CreateCluster mocks base method.
-func (m *MockBackend) CreateCluster(ctx context.Context, cluster *core.Cluster) error {
+func (m *MockBackend) CreateCluster(ctx context.Context, cluster *v1.Cluster) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateCluster", ctx, cluster)
 	ret0, _ := ret[0].(error)
@@ -53,7 +53,7 @@ func (mr *MockBackendMockRecorder) CreateCluster(ctx, cluster interface{}) *gomo
 }
 
 // CreateRole mocks base method.
-func (m *MockBackend) CreateRole(arg0 context.Context, arg1 *core.Role) error {
+func (m *MockBackend) CreateRole(arg0 context.Context, arg1 *v1.Role) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRole", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -67,7 +67,7 @@ func (mr *MockBackendMockRecorder) CreateRole(arg0, arg1 interface{}) *gomock.Ca
 }
 
 // CreateRoleBinding mocks base method.
-func (m *MockBackend) CreateRoleBinding(arg0 context.Context, arg1 *core.RoleBinding) error {
+func (m *MockBackend) CreateRoleBinding(arg0 context.Context, arg1 *v1.RoleBinding) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRoleBinding", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -81,14 +81,14 @@ func (mr *MockBackendMockRecorder) CreateRoleBinding(arg0, arg1 interface{}) *go
 }
 
 // CreateToken mocks base method.
-func (m *MockBackend) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*core.BootstrapToken, error) {
+func (m *MockBackend) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*v1.BootstrapToken, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, ttl}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateToken", varargs...)
-	ret0, _ := ret[0].(*core.BootstrapToken)
+	ret0, _ := ret[0].(*v1.BootstrapToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -101,7 +101,7 @@ func (mr *MockBackendMockRecorder) CreateToken(ctx, ttl interface{}, opts ...int
 }
 
 // DeleteCluster mocks base method.
-func (m *MockBackend) DeleteCluster(ctx context.Context, ref *core.Reference) error {
+func (m *MockBackend) DeleteCluster(ctx context.Context, ref *v1.Reference) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteCluster", ctx, ref)
 	ret0, _ := ret[0].(error)
@@ -115,7 +115,7 @@ func (mr *MockBackendMockRecorder) DeleteCluster(ctx, ref interface{}) *gomock.C
 }
 
 // DeleteRole mocks base method.
-func (m *MockBackend) DeleteRole(arg0 context.Context, arg1 *core.Reference) error {
+func (m *MockBackend) DeleteRole(arg0 context.Context, arg1 *v1.Reference) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRole", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -129,7 +129,7 @@ func (mr *MockBackendMockRecorder) DeleteRole(arg0, arg1 interface{}) *gomock.Ca
 }
 
 // DeleteRoleBinding mocks base method.
-func (m *MockBackend) DeleteRoleBinding(arg0 context.Context, arg1 *core.Reference) error {
+func (m *MockBackend) DeleteRoleBinding(arg0 context.Context, arg1 *v1.Reference) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRoleBinding", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -143,7 +143,7 @@ func (mr *MockBackendMockRecorder) DeleteRoleBinding(arg0, arg1 interface{}) *go
 }
 
 // DeleteToken mocks base method.
-func (m *MockBackend) DeleteToken(ctx context.Context, ref *core.Reference) error {
+func (m *MockBackend) DeleteToken(ctx context.Context, ref *v1.Reference) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteToken", ctx, ref)
 	ret0, _ := ret[0].(error)
@@ -157,10 +157,10 @@ func (mr *MockBackendMockRecorder) DeleteToken(ctx, ref interface{}) *gomock.Cal
 }
 
 // GetCluster mocks base method.
-func (m *MockBackend) GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error) {
+func (m *MockBackend) GetCluster(ctx context.Context, ref *v1.Reference) (*v1.Cluster, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCluster", ctx, ref)
-	ret0, _ := ret[0].(*core.Cluster)
+	ret0, _ := ret[0].(*v1.Cluster)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -172,10 +172,10 @@ func (mr *MockBackendMockRecorder) GetCluster(ctx, ref interface{}) *gomock.Call
 }
 
 // GetRole mocks base method.
-func (m *MockBackend) GetRole(arg0 context.Context, arg1 *core.Reference) (*core.Role, error) {
+func (m *MockBackend) GetRole(arg0 context.Context, arg1 *v1.Reference) (*v1.Role, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRole", arg0, arg1)
-	ret0, _ := ret[0].(*core.Role)
+	ret0, _ := ret[0].(*v1.Role)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -187,10 +187,10 @@ func (mr *MockBackendMockRecorder) GetRole(arg0, arg1 interface{}) *gomock.Call 
 }
 
 // GetRoleBinding mocks base method.
-func (m *MockBackend) GetRoleBinding(arg0 context.Context, arg1 *core.Reference) (*core.RoleBinding, error) {
+func (m *MockBackend) GetRoleBinding(arg0 context.Context, arg1 *v1.Reference) (*v1.RoleBinding, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRoleBinding", arg0, arg1)
-	ret0, _ := ret[0].(*core.RoleBinding)
+	ret0, _ := ret[0].(*v1.RoleBinding)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -202,10 +202,10 @@ func (mr *MockBackendMockRecorder) GetRoleBinding(arg0, arg1 interface{}) *gomoc
 }
 
 // GetToken mocks base method.
-func (m *MockBackend) GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
+func (m *MockBackend) GetToken(ctx context.Context, ref *v1.Reference) (*v1.BootstrapToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetToken", ctx, ref)
-	ret0, _ := ret[0].(*core.BootstrapToken)
+	ret0, _ := ret[0].(*v1.BootstrapToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -232,7 +232,7 @@ func (mr *MockBackendMockRecorder) KeyValueStore(namespace interface{}) *gomock.
 }
 
 // KeyringStore mocks base method.
-func (m *MockBackend) KeyringStore(ctx context.Context, namespace string, ref *core.Reference) (storage.KeyringStore, error) {
+func (m *MockBackend) KeyringStore(ctx context.Context, namespace string, ref *v1.Reference) (storage.KeyringStore, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyringStore", ctx, namespace, ref)
 	ret0, _ := ret[0].(storage.KeyringStore)
@@ -247,10 +247,10 @@ func (mr *MockBackendMockRecorder) KeyringStore(ctx, namespace, ref interface{})
 }
 
 // ListClusters mocks base method.
-func (m *MockBackend) ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
+func (m *MockBackend) ListClusters(ctx context.Context, matchLabels *v1.LabelSelector, matchOptions v1.MatchOptions) (*v1.ClusterList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListClusters", ctx, matchLabels, matchOptions)
-	ret0, _ := ret[0].(*core.ClusterList)
+	ret0, _ := ret[0].(*v1.ClusterList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -262,10 +262,10 @@ func (mr *MockBackendMockRecorder) ListClusters(ctx, matchLabels, matchOptions i
 }
 
 // ListRoleBindings mocks base method.
-func (m *MockBackend) ListRoleBindings(arg0 context.Context) (*core.RoleBindingList, error) {
+func (m *MockBackend) ListRoleBindings(arg0 context.Context) (*v1.RoleBindingList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListRoleBindings", arg0)
-	ret0, _ := ret[0].(*core.RoleBindingList)
+	ret0, _ := ret[0].(*v1.RoleBindingList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -277,10 +277,10 @@ func (mr *MockBackendMockRecorder) ListRoleBindings(arg0 interface{}) *gomock.Ca
 }
 
 // ListRoles mocks base method.
-func (m *MockBackend) ListRoles(arg0 context.Context) (*core.RoleList, error) {
+func (m *MockBackend) ListRoles(arg0 context.Context) (*v1.RoleList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListRoles", arg0)
-	ret0, _ := ret[0].(*core.RoleList)
+	ret0, _ := ret[0].(*v1.RoleList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -292,10 +292,10 @@ func (mr *MockBackendMockRecorder) ListRoles(arg0 interface{}) *gomock.Call {
 }
 
 // ListTokens mocks base method.
-func (m *MockBackend) ListTokens(ctx context.Context) ([]*core.BootstrapToken, error) {
+func (m *MockBackend) ListTokens(ctx context.Context) ([]*v1.BootstrapToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTokens", ctx)
-	ret0, _ := ret[0].([]*core.BootstrapToken)
+	ret0, _ := ret[0].([]*v1.BootstrapToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -307,10 +307,10 @@ func (mr *MockBackendMockRecorder) ListTokens(ctx interface{}) *gomock.Call {
 }
 
 // UpdateCluster mocks base method.
-func (m *MockBackend) UpdateCluster(ctx context.Context, ref *core.Reference, mutator storage.ClusterMutator) (*core.Cluster, error) {
+func (m *MockBackend) UpdateCluster(ctx context.Context, ref *v1.Reference, mutator storage.ClusterMutator) (*v1.Cluster, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCluster", ctx, ref, mutator)
-	ret0, _ := ret[0].(*core.Cluster)
+	ret0, _ := ret[0].(*v1.Cluster)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -322,10 +322,10 @@ func (mr *MockBackendMockRecorder) UpdateCluster(ctx, ref, mutator interface{}) 
 }
 
 // UpdateToken mocks base method.
-func (m *MockBackend) UpdateToken(ctx context.Context, ref *core.Reference, mutator storage.TokenMutator) (*core.BootstrapToken, error) {
+func (m *MockBackend) UpdateToken(ctx context.Context, ref *v1.Reference, mutator storage.TokenMutator) (*v1.BootstrapToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateToken", ctx, ref, mutator)
-	ret0, _ := ret[0].(*core.BootstrapToken)
+	ret0, _ := ret[0].(*v1.BootstrapToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -360,14 +360,14 @@ func (m *MockTokenStore) EXPECT() *MockTokenStoreMockRecorder {
 }
 
 // CreateToken mocks base method.
-func (m *MockTokenStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*core.BootstrapToken, error) {
+func (m *MockTokenStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*v1.BootstrapToken, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, ttl}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateToken", varargs...)
-	ret0, _ := ret[0].(*core.BootstrapToken)
+	ret0, _ := ret[0].(*v1.BootstrapToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -380,7 +380,7 @@ func (mr *MockTokenStoreMockRecorder) CreateToken(ctx, ttl interface{}, opts ...
 }
 
 // DeleteToken mocks base method.
-func (m *MockTokenStore) DeleteToken(ctx context.Context, ref *core.Reference) error {
+func (m *MockTokenStore) DeleteToken(ctx context.Context, ref *v1.Reference) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteToken", ctx, ref)
 	ret0, _ := ret[0].(error)
@@ -394,10 +394,10 @@ func (mr *MockTokenStoreMockRecorder) DeleteToken(ctx, ref interface{}) *gomock.
 }
 
 // GetToken mocks base method.
-func (m *MockTokenStore) GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
+func (m *MockTokenStore) GetToken(ctx context.Context, ref *v1.Reference) (*v1.BootstrapToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetToken", ctx, ref)
-	ret0, _ := ret[0].(*core.BootstrapToken)
+	ret0, _ := ret[0].(*v1.BootstrapToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -409,10 +409,10 @@ func (mr *MockTokenStoreMockRecorder) GetToken(ctx, ref interface{}) *gomock.Cal
 }
 
 // ListTokens mocks base method.
-func (m *MockTokenStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, error) {
+func (m *MockTokenStore) ListTokens(ctx context.Context) ([]*v1.BootstrapToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTokens", ctx)
-	ret0, _ := ret[0].([]*core.BootstrapToken)
+	ret0, _ := ret[0].([]*v1.BootstrapToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -424,10 +424,10 @@ func (mr *MockTokenStoreMockRecorder) ListTokens(ctx interface{}) *gomock.Call {
 }
 
 // UpdateToken mocks base method.
-func (m *MockTokenStore) UpdateToken(ctx context.Context, ref *core.Reference, mutator storage.TokenMutator) (*core.BootstrapToken, error) {
+func (m *MockTokenStore) UpdateToken(ctx context.Context, ref *v1.Reference, mutator storage.TokenMutator) (*v1.BootstrapToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateToken", ctx, ref, mutator)
-	ret0, _ := ret[0].(*core.BootstrapToken)
+	ret0, _ := ret[0].(*v1.BootstrapToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -462,7 +462,7 @@ func (m *MockClusterStore) EXPECT() *MockClusterStoreMockRecorder {
 }
 
 // CreateCluster mocks base method.
-func (m *MockClusterStore) CreateCluster(ctx context.Context, cluster *core.Cluster) error {
+func (m *MockClusterStore) CreateCluster(ctx context.Context, cluster *v1.Cluster) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateCluster", ctx, cluster)
 	ret0, _ := ret[0].(error)
@@ -476,7 +476,7 @@ func (mr *MockClusterStoreMockRecorder) CreateCluster(ctx, cluster interface{}) 
 }
 
 // DeleteCluster mocks base method.
-func (m *MockClusterStore) DeleteCluster(ctx context.Context, ref *core.Reference) error {
+func (m *MockClusterStore) DeleteCluster(ctx context.Context, ref *v1.Reference) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteCluster", ctx, ref)
 	ret0, _ := ret[0].(error)
@@ -490,10 +490,10 @@ func (mr *MockClusterStoreMockRecorder) DeleteCluster(ctx, ref interface{}) *gom
 }
 
 // GetCluster mocks base method.
-func (m *MockClusterStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error) {
+func (m *MockClusterStore) GetCluster(ctx context.Context, ref *v1.Reference) (*v1.Cluster, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCluster", ctx, ref)
-	ret0, _ := ret[0].(*core.Cluster)
+	ret0, _ := ret[0].(*v1.Cluster)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -505,10 +505,10 @@ func (mr *MockClusterStoreMockRecorder) GetCluster(ctx, ref interface{}) *gomock
 }
 
 // ListClusters mocks base method.
-func (m *MockClusterStore) ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
+func (m *MockClusterStore) ListClusters(ctx context.Context, matchLabels *v1.LabelSelector, matchOptions v1.MatchOptions) (*v1.ClusterList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListClusters", ctx, matchLabels, matchOptions)
-	ret0, _ := ret[0].(*core.ClusterList)
+	ret0, _ := ret[0].(*v1.ClusterList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -520,10 +520,10 @@ func (mr *MockClusterStoreMockRecorder) ListClusters(ctx, matchLabels, matchOpti
 }
 
 // UpdateCluster mocks base method.
-func (m *MockClusterStore) UpdateCluster(ctx context.Context, ref *core.Reference, mutator storage.ClusterMutator) (*core.Cluster, error) {
+func (m *MockClusterStore) UpdateCluster(ctx context.Context, ref *v1.Reference, mutator storage.ClusterMutator) (*v1.Cluster, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCluster", ctx, ref, mutator)
-	ret0, _ := ret[0].(*core.Cluster)
+	ret0, _ := ret[0].(*v1.Cluster)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -558,7 +558,7 @@ func (m *MockRBACStore) EXPECT() *MockRBACStoreMockRecorder {
 }
 
 // CreateRole mocks base method.
-func (m *MockRBACStore) CreateRole(arg0 context.Context, arg1 *core.Role) error {
+func (m *MockRBACStore) CreateRole(arg0 context.Context, arg1 *v1.Role) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRole", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -572,7 +572,7 @@ func (mr *MockRBACStoreMockRecorder) CreateRole(arg0, arg1 interface{}) *gomock.
 }
 
 // CreateRoleBinding mocks base method.
-func (m *MockRBACStore) CreateRoleBinding(arg0 context.Context, arg1 *core.RoleBinding) error {
+func (m *MockRBACStore) CreateRoleBinding(arg0 context.Context, arg1 *v1.RoleBinding) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRoleBinding", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -586,7 +586,7 @@ func (mr *MockRBACStoreMockRecorder) CreateRoleBinding(arg0, arg1 interface{}) *
 }
 
 // DeleteRole mocks base method.
-func (m *MockRBACStore) DeleteRole(arg0 context.Context, arg1 *core.Reference) error {
+func (m *MockRBACStore) DeleteRole(arg0 context.Context, arg1 *v1.Reference) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRole", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -600,7 +600,7 @@ func (mr *MockRBACStoreMockRecorder) DeleteRole(arg0, arg1 interface{}) *gomock.
 }
 
 // DeleteRoleBinding mocks base method.
-func (m *MockRBACStore) DeleteRoleBinding(arg0 context.Context, arg1 *core.Reference) error {
+func (m *MockRBACStore) DeleteRoleBinding(arg0 context.Context, arg1 *v1.Reference) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRoleBinding", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -614,10 +614,10 @@ func (mr *MockRBACStoreMockRecorder) DeleteRoleBinding(arg0, arg1 interface{}) *
 }
 
 // GetRole mocks base method.
-func (m *MockRBACStore) GetRole(arg0 context.Context, arg1 *core.Reference) (*core.Role, error) {
+func (m *MockRBACStore) GetRole(arg0 context.Context, arg1 *v1.Reference) (*v1.Role, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRole", arg0, arg1)
-	ret0, _ := ret[0].(*core.Role)
+	ret0, _ := ret[0].(*v1.Role)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -629,10 +629,10 @@ func (mr *MockRBACStoreMockRecorder) GetRole(arg0, arg1 interface{}) *gomock.Cal
 }
 
 // GetRoleBinding mocks base method.
-func (m *MockRBACStore) GetRoleBinding(arg0 context.Context, arg1 *core.Reference) (*core.RoleBinding, error) {
+func (m *MockRBACStore) GetRoleBinding(arg0 context.Context, arg1 *v1.Reference) (*v1.RoleBinding, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRoleBinding", arg0, arg1)
-	ret0, _ := ret[0].(*core.RoleBinding)
+	ret0, _ := ret[0].(*v1.RoleBinding)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -644,10 +644,10 @@ func (mr *MockRBACStoreMockRecorder) GetRoleBinding(arg0, arg1 interface{}) *gom
 }
 
 // ListRoleBindings mocks base method.
-func (m *MockRBACStore) ListRoleBindings(arg0 context.Context) (*core.RoleBindingList, error) {
+func (m *MockRBACStore) ListRoleBindings(arg0 context.Context) (*v1.RoleBindingList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListRoleBindings", arg0)
-	ret0, _ := ret[0].(*core.RoleBindingList)
+	ret0, _ := ret[0].(*v1.RoleBindingList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -659,10 +659,10 @@ func (mr *MockRBACStoreMockRecorder) ListRoleBindings(arg0 interface{}) *gomock.
 }
 
 // ListRoles mocks base method.
-func (m *MockRBACStore) ListRoles(arg0 context.Context) (*core.RoleList, error) {
+func (m *MockRBACStore) ListRoles(arg0 context.Context) (*v1.RoleList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListRoles", arg0)
-	ret0, _ := ret[0].(*core.RoleList)
+	ret0, _ := ret[0].(*v1.RoleList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -830,7 +830,7 @@ func (m *MockKeyringStoreBroker) EXPECT() *MockKeyringStoreBrokerMockRecorder {
 }
 
 // KeyringStore mocks base method.
-func (m *MockKeyringStoreBroker) KeyringStore(ctx context.Context, namespace string, ref *core.Reference) (storage.KeyringStore, error) {
+func (m *MockKeyringStoreBroker) KeyringStore(ctx context.Context, namespace string, ref *v1.Reference) (storage.KeyringStore, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyringStore", ctx, namespace, ref)
 	ret0, _ := ret[0].(storage.KeyringStore)
@@ -906,10 +906,10 @@ func (m *MockSubjectAccessCapableStore) EXPECT() *MockSubjectAccessCapableStoreM
 }
 
 // GetRole mocks base method.
-func (m *MockSubjectAccessCapableStore) GetRole(ctx context.Context, ref *core.Reference) (*core.Role, error) {
+func (m *MockSubjectAccessCapableStore) GetRole(ctx context.Context, ref *v1.Reference) (*v1.Role, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRole", ctx, ref)
-	ret0, _ := ret[0].(*core.Role)
+	ret0, _ := ret[0].(*v1.Role)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -921,10 +921,10 @@ func (mr *MockSubjectAccessCapableStoreMockRecorder) GetRole(ctx, ref interface{
 }
 
 // ListClusters mocks base method.
-func (m *MockSubjectAccessCapableStore) ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
+func (m *MockSubjectAccessCapableStore) ListClusters(ctx context.Context, matchLabels *v1.LabelSelector, matchOptions v1.MatchOptions) (*v1.ClusterList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListClusters", ctx, matchLabels, matchOptions)
-	ret0, _ := ret[0].(*core.ClusterList)
+	ret0, _ := ret[0].(*v1.ClusterList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -936,10 +936,10 @@ func (mr *MockSubjectAccessCapableStoreMockRecorder) ListClusters(ctx, matchLabe
 }
 
 // ListRoleBindings mocks base method.
-func (m *MockSubjectAccessCapableStore) ListRoleBindings(ctx context.Context) (*core.RoleBindingList, error) {
+func (m *MockSubjectAccessCapableStore) ListRoleBindings(ctx context.Context) (*v1.RoleBindingList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListRoleBindings", ctx)
-	ret0, _ := ret[0].(*core.RoleBindingList)
+	ret0, _ := ret[0].(*v1.RoleBindingList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

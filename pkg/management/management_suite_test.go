@@ -12,8 +12,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
 	"github.com/prometheus/client_golang/prometheus"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/pkg/plugins"
+	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util/waitctx"
@@ -27,7 +30,7 @@ func TestManagement(t *testing.T) {
 
 type testVars struct {
 	ctrl           *gomock.Controller
-	client         management.ManagementClient
+	client         managementv1.ManagementClient
 	grpcEndpoint   string
 	httpEndpoint   string
 	coreDataSource management.CoreDataSource
@@ -50,7 +53,7 @@ func (t *testCoreDataSource) TLSConfig() *tls.Config {
 	return t.tlsConfig
 }
 
-func setupManagementServer(vars **testVars, opts ...management.ManagementServerOption) func() {
+func setupManagementServer(vars **testVars, pl plugins.LoaderInterface, opts ...management.ManagementServerOption) func() {
 	return func() {
 		tv := &testVars{}
 		if *vars != nil && (*vars).ctrl != nil {
@@ -74,15 +77,15 @@ func setupManagementServer(vars **testVars, opts ...management.ManagementServerO
 				Certificates: []tls.Certificate{cert},
 			},
 		}
-		server := management.NewServer(ctx, conf, cds, opts...)
+		server := management.NewServer(ctx, conf, cds, pl, opts...)
 		tv.coreDataSource = cds
 		tv.ifaces.collector = server
-		go func() {
+		pl.Hook(hooks.OnLoadingCompleted(func(int) {
 			defer GinkgoRecover()
-			if err := server.ListenAndServe(); err != nil {
+			if err := server.ListenAndServe(ctx); err != nil {
 				test.Log.Error(err)
 			}
-		}()
+		}))
 		tv.client, err = management.NewClient(ctx,
 			management.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", ports[0])),
 			management.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),

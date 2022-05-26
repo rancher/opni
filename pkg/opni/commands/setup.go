@@ -3,6 +3,7 @@ package commands
 import (
 	"strings"
 
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -12,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var mgmtClient management.ManagementClient
+var mgmtClient managementv1.ManagementClient
 var adminClient cortexadmin.CortexAdminClient
 var lg = logger.New()
 

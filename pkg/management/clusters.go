@@ -4,7 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -13,8 +14,8 @@ import (
 
 func (m *Server) ListClusters(
 	ctx context.Context,
-	in *ListClustersRequest,
-) (*core.ClusterList, error) {
+	in *managementv1.ListClustersRequest,
+) (*corev1.ClusterList, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
@@ -27,7 +28,7 @@ func (m *Server) ListClusters(
 
 func (m *Server) DeleteCluster(
 	ctx context.Context,
-	ref *core.Reference,
+	ref *corev1.Reference,
 ) (*emptypb.Empty, error) {
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
@@ -51,8 +52,8 @@ func (m *Server) DeleteCluster(
 
 func (m *Server) GetCluster(
 	ctx context.Context,
-	ref *core.Reference,
-) (*core.Cluster, error) {
+	ref *corev1.Reference,
+) (*corev1.Cluster, error) {
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}
@@ -64,13 +65,13 @@ func (m *Server) GetCluster(
 }
 
 func (m *Server) WatchClusters(
-	in *WatchClustersRequest,
-	stream Management_WatchClustersServer,
+	in *managementv1.WatchClustersRequest,
+	stream managementv1.Management_WatchClustersServer,
 ) error {
 	if err := validation.Validate(in); err != nil {
 		return err
 	}
-	known := map[string]*core.Reference{}
+	known := map[string]*corev1.Reference{}
 	for _, cluster := range in.KnownClusters.Items {
 		if _, err := m.coreDataSource.StorageBackend().GetCluster(context.Background(), cluster); err != nil {
 			return err
@@ -92,9 +93,9 @@ func (m *Server) WatchClusters(
 				if _, ok := known[cluster.Id]; !ok {
 					ref := cluster.Reference()
 					known[cluster.Id] = ref
-					if err := stream.Send(&WatchEvent{
+					if err := stream.Send(&managementv1.WatchEvent{
 						Cluster: ref,
-						Type:    WatchEventType_Added,
+						Type:    managementv1.WatchEventType_Added,
 					}); err != nil {
 						return status.Error(codes.Internal, err.Error())
 					}
@@ -103,9 +104,9 @@ func (m *Server) WatchClusters(
 			for id, cluster := range known {
 				if _, ok := updatedIds[id]; !ok {
 					delete(known, id)
-					if err := stream.Send(&WatchEvent{
+					if err := stream.Send(&managementv1.WatchEvent{
 						Cluster: cluster,
-						Type:    WatchEventType_Deleted,
+						Type:    managementv1.WatchEventType_Deleted,
 					}); err != nil {
 						return status.Error(codes.Internal, err.Error())
 					}
@@ -119,14 +120,14 @@ func (m *Server) WatchClusters(
 
 func (m *Server) EditCluster(
 	ctx context.Context,
-	in *EditClusterRequest,
-) (*core.Cluster, error) {
+	in *managementv1.EditClusterRequest,
+) (*corev1.Cluster, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
-	return m.coreDataSource.StorageBackend().UpdateCluster(ctx, in.GetCluster(), func(cluster *core.Cluster) {
+	return m.coreDataSource.StorageBackend().UpdateCluster(ctx, in.GetCluster(), func(cluster *corev1.Cluster) {
 		if cluster.Metadata == nil {
-			cluster.Metadata = &core.ClusterMetadata{}
+			cluster.Metadata = &corev1.ClusterMetadata{}
 		}
 		cluster.Metadata.Labels = in.GetLabels()
 	})

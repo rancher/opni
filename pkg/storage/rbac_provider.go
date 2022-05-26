@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
 	"go.uber.org/zap"
@@ -25,8 +25,8 @@ func NewRBACProvider(store SubjectAccessCapableStore) rbac.Provider {
 
 func (p *rbacProvider) SubjectAccess(
 	ctx context.Context,
-	req *core.SubjectAccessRequest,
-) (*core.ReferenceList, error) {
+	req *corev1.SubjectAccessRequest,
+) (*corev1.ReferenceList, error) {
 	// Look up all role bindings which exist for this user, then look up the roles
 	// referenced by those role bindings. Aggregate the resulting tenant IDs from
 	// the roles and filter out any duplicates.
@@ -70,7 +70,7 @@ func (p *rbacProvider) SubjectAccess(
 
 		// Add any clusters to the list which match the role's label selector
 		filteredList, err := p.store.ListClusters(ctx, role.MatchLabels,
-			core.MatchOptions_EmptySelectorMatchesNone)
+			corev1.MatchOptions_EmptySelectorMatchesNone)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list clusters: %w", err)
 		}
@@ -78,16 +78,16 @@ func (p *rbacProvider) SubjectAccess(
 			allowedClusters[cluster.Id] = struct{}{}
 		}
 	}
-	sortedReferences := make([]*core.Reference, 0, len(allowedClusters))
+	sortedReferences := make([]*corev1.Reference, 0, len(allowedClusters))
 	for clusterID := range allowedClusters {
-		sortedReferences = append(sortedReferences, &core.Reference{
+		sortedReferences = append(sortedReferences, &corev1.Reference{
 			Id: clusterID,
 		})
 	}
 	sort.Slice(sortedReferences, func(i, j int) bool {
 		return sortedReferences[i].Id < sortedReferences[j].Id
 	})
-	return &core.ReferenceList{
+	return &corev1.ReferenceList{
 		Items: sortedReferences,
 	}, nil
 }

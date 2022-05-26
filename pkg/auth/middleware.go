@@ -43,22 +43,6 @@ type StreamGRPCMiddleware interface {
 	StreamServerInterceptor() grpc.StreamServerInterceptor
 }
 
-type namedMiddlewareImpl struct {
-	any
-	name string
-}
-
-func (nm *namedMiddlewareImpl) Name() string {
-	return nm.name
-}
-
-func NamedMiddleware(name string, mw any) Middleware {
-	return &namedMiddlewareImpl{
-		any:  mw,
-		name: name,
-	}
-}
-
 var (
 	ErrInvalidMiddlewareName   = errors.New("invalid or empty auth middleware name")
 	ErrMiddlewareAlreadyExists = errors.New("auth middleware already exists")

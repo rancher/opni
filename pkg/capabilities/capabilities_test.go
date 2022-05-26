@@ -3,8 +3,8 @@ package capabilities_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
-	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/test"
 )
 
@@ -46,7 +46,7 @@ var _ = Describe("Capabilities", Label(test.Unit), func() {
 		clusterCap := capabilities.Cluster("test")
 		Expect(clusterCap.Name).To(Equal("test"))
 
-		tokenCap := capabilities.JoinExistingCluster.For(&core.Reference{
+		tokenCap := capabilities.JoinExistingCluster.For(&corev1.Reference{
 			Id: "foo",
 		})
 		Expect(tokenCap.Type).To(BeEquivalentTo(capabilities.JoinExistingCluster))

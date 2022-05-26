@@ -7,9 +7,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-hclog"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/management"
 	gatewayext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
@@ -29,10 +29,10 @@ func (s *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse
 	}, nil
 }
 
-func (s *ExamplePlugin) UseManagementAPI(api management.ManagementClient) {
+func (s *ExamplePlugin) UseManagementAPI(api managementv1.ManagementClient) {
 	lg := s.Logger
 	lg.Info("querying management API...")
-	var list *management.APIExtensionInfoList
+	var list *managementv1.APIExtensionInfoList
 	for {
 		var err error
 		list, err = api.APIExtensions(context.Background(), &emptypb.Empty{})
@@ -80,11 +80,11 @@ func (p *ExamplePlugin) CanInstall() error {
 	return nil
 }
 
-func (p *ExamplePlugin) Install(cluster *core.Reference) error {
+func (p *ExamplePlugin) Install(cluster *corev1.Reference) error {
 	return nil
 }
 
-func (p *ExamplePlugin) Uninstall(clustre *core.Reference) error {
+func (p *ExamplePlugin) Uninstall(clustre *corev1.Reference) error {
 	return nil
 }
 

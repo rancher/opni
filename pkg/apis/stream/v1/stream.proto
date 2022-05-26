@@ -1,0 +1,8 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/apis/stream/v1";
+import "github.com/kralicky/totem/totem.proto";
+package stream;
+
+service Stream {
+  rpc Connect(stream totem.RPC) returns (stream totem.RPC);
+}

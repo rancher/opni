@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
@@ -28,20 +28,20 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			errCtrl = errCtrlF.Get()
 		})
 		It("should initially have no clusters", func() {
-			clusters, err := ts.ListClusters(context.Background(), &core.LabelSelector{}, 0)
+			clusters, err := ts.ListClusters(context.Background(), &corev1.LabelSelector{}, 0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(BeEmpty())
 		})
 		When("creating a cluster", func() {
 			It("should be retrievable", func() {
-				cluster := &core.Cluster{
+				cluster := &corev1.Cluster{
 					Id: "foo",
-					Metadata: &core.ClusterMetadata{
+					Metadata: &corev1.ClusterMetadata{
 						Labels: map[string]string{
 							"foo": "bar",
 							"bar": "baz",
 						},
-						Capabilities: []*core.ClusterCapability{
+						Capabilities: []*corev1.ClusterCapability{
 							{
 								Name: "foo",
 							},
@@ -61,7 +61,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				Expect(cluster.Metadata.Capabilities[0].Name).To(Equal("foo"))
 			})
 			It("should appear in the list of clusters", func() {
-				clusters, err := ts.ListClusters(context.Background(), &core.LabelSelector{}, 0)
+				clusters, err := ts.ListClusters(context.Background(), &corev1.LabelSelector{}, 0)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(clusters.Items).To(HaveLen(1))
 				Expect(clusters.Items[0].GetId()).To(Equal("foo"))
@@ -72,10 +72,10 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			})
 		})
 		It("should list clusters with a label selector", func() {
-			create := func(labels map[string]string) *core.Cluster {
-				cluster := &core.Cluster{
+			create := func(labels map[string]string) *corev1.Cluster {
+				cluster := &corev1.Cluster{
 					Id: uuid.NewString(),
-					Metadata: &core.ClusterMetadata{
+					Metadata: &corev1.ClusterMetadata{
 						Labels: labels,
 					},
 				}
@@ -90,7 +90,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				create(map[string]string{"testing": "bar"})
 			}
 			sel := storage.ClusterSelector{
-				LabelSelector: &core.LabelSelector{
+				LabelSelector: &corev1.LabelSelector{
 					MatchLabels: map[string]string{
 						"testing": "foo",
 					},
@@ -103,7 +103,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				Expect(sel.Predicate()(cluster)).To(BeTrue())
 			}
 			sel = storage.ClusterSelector{
-				LabelSelector: &core.LabelSelector{
+				LabelSelector: &corev1.LabelSelector{
 					MatchLabels: map[string]string{
 						"testing": "bar",
 					},
@@ -117,16 +117,16 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			}
 		})
 		It("should respect match options", func() {
-			clusters, err := ts.ListClusters(context.Background(), nil, core.MatchOptions_EmptySelectorMatchesNone)
+			clusters, err := ts.ListClusters(context.Background(), nil, corev1.MatchOptions_EmptySelectorMatchesNone)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(BeEmpty())
-			clusters, err = ts.ListClusters(context.Background(), &core.LabelSelector{}, core.MatchOptions_EmptySelectorMatchesNone)
+			clusters, err = ts.ListClusters(context.Background(), &corev1.LabelSelector{}, corev1.MatchOptions_EmptySelectorMatchesNone)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(BeEmpty())
-			clusters, err = ts.ListClusters(context.Background(), &core.LabelSelector{
+			clusters, err = ts.ListClusters(context.Background(), &corev1.LabelSelector{
 				MatchLabels:      map[string]string{},
-				MatchExpressions: []*core.LabelSelectorRequirement{},
-			}, core.MatchOptions_EmptySelectorMatchesNone)
+				MatchExpressions: []*corev1.LabelSelectorRequirement{},
+			}, corev1.MatchOptions_EmptySelectorMatchesNone)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(clusters.Items).To(BeEmpty())
 		})
@@ -145,9 +145,9 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(all.Items).To(BeEmpty())
 		})
 		It("should be able to edit labels", func() {
-			cluster := &core.Cluster{
+			cluster := &corev1.Cluster{
 				Id: uuid.NewString(),
-				Metadata: &core.ClusterMetadata{
+				Metadata: &corev1.ClusterMetadata{
 					Labels: map[string]string{
 						"foo": "bar",
 					},
@@ -156,7 +156,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			err := ts.CreateCluster(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			cluster, err = ts.UpdateCluster(context.Background(), cluster.Reference(), func(c *core.Cluster) {
+			cluster, err = ts.UpdateCluster(context.Background(), cluster.Reference(), func(c *corev1.Cluster) {
 				c.Metadata.Labels["foo"] = "baz"
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -166,9 +166,9 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(cluster.Metadata.Labels).To(HaveKeyWithValue("foo", "baz"))
 		})
 		It("should be able to add capabilities", func() {
-			cluster := &core.Cluster{
+			cluster := &corev1.Cluster{
 				Id: uuid.NewString(),
-				Metadata: &core.ClusterMetadata{
+				Metadata: &corev1.ClusterMetadata{
 					Labels: map[string]string{
 						"foo": "bar",
 					},
@@ -177,7 +177,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			err := ts.CreateCluster(context.Background(), cluster)
 			Expect(err).NotTo(HaveOccurred())
 			cluster, err = ts.UpdateCluster(context.Background(), cluster.Reference(),
-				storage.NewAddCapabilityMutator[*core.Cluster](&core.ClusterCapability{
+				storage.NewAddCapabilityMutator[*corev1.Cluster](&corev1.ClusterCapability{
 					Name: "foo",
 				}),
 			)
@@ -186,9 +186,9 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(cluster.GetCapabilities()[0].Name).To(Equal("foo"))
 		})
 		It("should be able to edit multiple properties at once", func() {
-			cluster := &core.Cluster{
+			cluster := &corev1.Cluster{
 				Id: uuid.NewString(),
-				Metadata: &core.ClusterMetadata{
+				Metadata: &corev1.ClusterMetadata{
 					Labels: map[string]string{
 						"foo": "bar",
 					},
@@ -199,10 +199,10 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 
 			cluster, err = ts.UpdateCluster(context.Background(), cluster.Reference(),
 				storage.NewCompositeMutator(
-					storage.NewAddCapabilityMutator[*core.Cluster](&core.ClusterCapability{
+					storage.NewAddCapabilityMutator[*corev1.Cluster](&corev1.ClusterCapability{
 						Name: "foo",
 					}),
-					func(c *core.Cluster) {
+					func(c *corev1.Cluster) {
 						c.Metadata.Labels["foo"] = "baz"
 					},
 				),
@@ -213,9 +213,9 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(cluster.Metadata.Labels).To(HaveKeyWithValue("foo", "baz"))
 		})
 		It("should handle multiple concurrent update requests on the same resource", func() {
-			cluster := &core.Cluster{
+			cluster := &corev1.Cluster{
 				Id: uuid.NewString(),
-				Metadata: &core.ClusterMetadata{
+				Metadata: &corev1.ClusterMetadata{
 					Labels: map[string]string{
 						"value": "0",
 					},
@@ -233,7 +233,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 					defer wg.Done()
 					<-start
 					ts.UpdateCluster(context.Background(), cluster.Reference(),
-						func(c *core.Cluster) {
+						func(c *corev1.Cluster) {
 							c.Metadata.Labels["value"] = strconv.Itoa(util.Must(strconv.Atoi(c.Metadata.Labels["value"])) + 1)
 						},
 					)
@@ -254,18 +254,18 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 				errCtrl.EnableErrors()
 				defer errCtrl.DisableErrors()
 				Eventually(func() error {
-					err := ts.CreateCluster(context.Background(), &core.Cluster{Id: uuid.NewString()})
+					err := ts.CreateCluster(context.Background(), &corev1.Cluster{Id: uuid.NewString()})
 					return err
 				}).Should(HaveOccurred())
 			})
 
 			It("should handle errors when getting clusters", func() {
-				_, err := ts.GetCluster(context.Background(), &core.Reference{
+				_, err := ts.GetCluster(context.Background(), &corev1.Reference{
 					Id: uuid.NewString(),
 				})
 				Expect(err).To(HaveOccurred())
 
-				cluster := &core.Cluster{Id: uuid.NewString()}
+				cluster := &corev1.Cluster{Id: uuid.NewString()}
 				err = ts.CreateCluster(context.Background(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -287,21 +287,21 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			})
 
 			It("should handle errors when updating clusters", func() {
-				_, err := ts.UpdateCluster(context.Background(), &core.Reference{
+				_, err := ts.UpdateCluster(context.Background(), &corev1.Reference{
 					Id: uuid.NewString(),
-				}, func(c *core.Cluster) {})
+				}, func(c *corev1.Cluster) {})
 				Expect(err).To(HaveOccurred())
 
-				cluster := &core.Cluster{Id: uuid.NewString()}
+				cluster := &corev1.Cluster{Id: uuid.NewString()}
 				err = ts.CreateCluster(context.Background(), cluster)
 				Expect(err).NotTo(HaveOccurred())
 
 				errCtrl.EnableErrors()
 				defer errCtrl.DisableErrors()
 				Eventually(func() error {
-					_, err = ts.UpdateCluster(context.Background(), cluster.Reference(), func(c *core.Cluster) {
+					_, err = ts.UpdateCluster(context.Background(), cluster.Reference(), func(c *corev1.Cluster) {
 						if c.Metadata == nil {
-							c.Metadata = &core.ClusterMetadata{}
+							c.Metadata = &corev1.ClusterMetadata{}
 						}
 						if c.Metadata.Labels == nil {
 							c.Metadata.Labels = map[string]string{}
@@ -313,7 +313,7 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			})
 
 			It("should handle errors when deleting clusters", func() {
-				err := ts.DeleteCluster(context.Background(), &core.Reference{
+				err := ts.DeleteCluster(context.Background(), &corev1.Reference{
 					Id: uuid.NewString(),
 				})
 				Expect(err).To(HaveOccurred())

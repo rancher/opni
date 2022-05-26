@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/tokens"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -16,12 +16,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (c *CRDStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*core.BootstrapToken, error) {
+func (c *CRDStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*corev1.BootstrapToken, error) {
 	options := storage.NewTokenCreateOptions()
 	options.Apply(opts...)
 
 	token := tokens.NewToken().ToBootstrapToken()
-	token.Metadata = &core.BootstrapTokenMetadata{
+	token.Metadata = &corev1.BootstrapTokenMetadata{
 		LeaseID:      -1,
 		Ttl:          int64(ttl.Seconds()),
 		UsageCount:   0,
@@ -42,7 +42,7 @@ func (c *CRDStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...s
 	return token, nil
 }
 
-func (c *CRDStore) DeleteToken(ctx context.Context, ref *core.Reference) error {
+func (c *CRDStore) DeleteToken(ctx context.Context, ref *corev1.Reference) error {
 	err := c.client.Delete(ctx, &v1beta2.BootstrapToken{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
@@ -58,7 +58,7 @@ func (c *CRDStore) DeleteToken(ctx context.Context, ref *core.Reference) error {
 	return nil
 }
 
-func (c *CRDStore) GetToken(ctx context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
+func (c *CRDStore) GetToken(ctx context.Context, ref *corev1.Reference) (*corev1.BootstrapToken, error) {
 	token := &v1beta2.BootstrapToken{}
 	err := c.client.Get(ctx, client.ObjectKey{
 		Name:      ref.Id,
@@ -81,13 +81,13 @@ func (c *CRDStore) GetToken(ctx context.Context, ref *core.Reference) (*core.Boo
 	return token.Spec, nil
 }
 
-func (c *CRDStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, error) {
+func (c *CRDStore) ListTokens(ctx context.Context) ([]*corev1.BootstrapToken, error) {
 	list := &v1beta2.BootstrapTokenList{}
 	err := c.client.List(ctx, list, client.InNamespace(c.namespace))
 	if err != nil {
 		return nil, err
 	}
-	tokens := make([]*core.BootstrapToken, len(list.Items))
+	tokens := make([]*corev1.BootstrapToken, len(list.Items))
 	for i, item := range list.Items {
 		patchTTL(&list.Items[i])
 		if item.Spec.Metadata.Ttl <= 0 {
@@ -99,8 +99,8 @@ func (c *CRDStore) ListTokens(ctx context.Context) ([]*core.BootstrapToken, erro
 	return tokens, nil
 }
 
-func (c *CRDStore) UpdateToken(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.BootstrapToken]) (*core.BootstrapToken, error) {
-	var token *core.BootstrapToken
+func (c *CRDStore) UpdateToken(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.BootstrapToken]) (*corev1.BootstrapToken, error) {
+	var token *corev1.BootstrapToken
 	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
 		existing := &v1beta2.BootstrapToken{}
 		err := c.client.Get(ctx, client.ObjectKey{

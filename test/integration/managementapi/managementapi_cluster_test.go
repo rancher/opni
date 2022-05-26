@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/management"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,7 +20,7 @@ import (
 //#region Test Setup
 var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.Integration), func() {
 	var environment *test.Environment
-	var client management.ManagementClient
+	var client managementv1.ManagementClient
 	var fingerprint string
 	BeforeAll(func() {
 		environment = &test.Environment{
@@ -30,7 +30,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 		client = environment.NewManagementClient()
 		Expect(json.Unmarshal(test.TestData("fingerprints.json"), &testFingerprints)).To(Succeed())
 
-		token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -53,10 +53,10 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 
 	//#region Happy Path Tests
 
-	events := make(chan *management.WatchEvent, 1000)
+	events := make(chan *managementv1.WatchEvent, 1000)
 	It("should handle watching create and delete events", func() {
-		stream, err := client.WatchClusters(context.Background(), &management.WatchClustersRequest{
-			KnownClusters: &core.ReferenceList{},
+		stream, err := client.WatchClusters(context.Background(), &managementv1.WatchClustersRequest{
+			KnownClusters: &corev1.ReferenceList{},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		go func() {
@@ -72,7 +72,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	})
 
 	It("can get information about a specific cluster", func() {
-		clusterInfo, err := client.GetCluster(context.Background(), &core.Reference{
+		clusterInfo, err := client.GetCluster(context.Background(), &corev1.Reference{
 			Id: "test-cluster-id",
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -82,8 +82,8 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	})
 
 	It("can edit the label a cluster is using", func() {
-		_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
-			Cluster: &core.Reference{
+		_, err := client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+			Cluster: &corev1.Reference{
 				Id: "test-cluster-id",
 			},
 			Labels: map[string]string{
@@ -92,7 +92,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		clusterInfo, err := client.GetCluster(context.Background(), &core.Reference{
+		clusterInfo, err := client.GetCluster(context.Background(), &corev1.Reference{
 			Id: "test-cluster-id",
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -103,7 +103,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 
 	var fingerprint2 string
 	It("can list all clusters using the same label", func() {
-		token2, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+		token2, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -116,12 +116,12 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 		_, errC := environment.StartAgent("test-cluster-id-2", token2, []string{fingerprint2})
 		Consistently(errC).ShouldNot(Receive())
 
-		Eventually(events).Should(Receive(WithTransform(func(event *management.WatchEvent) string {
+		Eventually(events).Should(Receive(WithTransform(func(event *managementv1.WatchEvent) string {
 			return event.Cluster.Id
 		}, Equal("test-cluster-id-2"))))
 
-		_, err = client.EditCluster(context.Background(), &management.EditClusterRequest{
-			Cluster: &core.Reference{
+		_, err = client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+			Cluster: &corev1.Reference{
 				Id: "test-cluster-id-2",
 			},
 			Labels: map[string]string{
@@ -130,8 +130,8 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		clusterInfo, err := client.ListClusters(context.Background(), &management.ListClustersRequest{
-			MatchLabels: &core.LabelSelector{
+		clusterInfo, err := client.ListClusters(context.Background(), &managementv1.ListClustersRequest{
+			MatchLabels: &corev1.LabelSelector{
 				MatchLabels: map[string]string{
 					"i": "999",
 				},
@@ -143,28 +143,28 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	})
 
 	It("can delete individual clusters", func() {
-		_, errG1 := client.GetCluster(context.Background(), &core.Reference{
+		_, errG1 := client.GetCluster(context.Background(), &corev1.Reference{
 			Id: "test-cluster-id",
 		})
 		Expect(errG1).NotTo(HaveOccurred())
 
-		_, errG2 := client.GetCluster(context.Background(), &core.Reference{
+		_, errG2 := client.GetCluster(context.Background(), &corev1.Reference{
 			Id: "test-cluster-id-2",
 		})
 		Expect(errG2).NotTo(HaveOccurred())
 
-		_, errD := client.DeleteCluster(context.Background(), &core.Reference{
+		_, errD := client.DeleteCluster(context.Background(), &corev1.Reference{
 			Id: "test-cluster-id",
 		})
 		Expect(errD).NotTo(HaveOccurred())
 
-		_, err := client.GetCluster(context.Background(), &core.Reference{
+		_, err := client.GetCluster(context.Background(), &corev1.Reference{
 			Id: "test-cluster-id",
 		})
 		Expect(err).To(HaveOccurred())
 		Expect(status.Convert(err).Code()).To(Equal(codes.NotFound))
 
-		clusterInfo, err := client.GetCluster(context.Background(), &core.Reference{
+		clusterInfo, err := client.GetCluster(context.Background(), &corev1.Reference{
 			Id: "test-cluster-id-2",
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -176,7 +176,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	//#region Edge Case Tests
 
 	It("cannot get information about a specific cluster without providing a valid ID", func() {
-		_, err := client.GetCluster(context.Background(), &core.Reference{
+		_, err := client.GetCluster(context.Background(), &corev1.Reference{
 			Id: uuid.NewString(),
 		})
 		Expect(err).To(HaveOccurred())
@@ -184,14 +184,14 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	})
 
 	It("cannot get information about a specific cluster without providing an ID", func() {
-		_, err := client.GetCluster(context.Background(), &core.Reference{})
+		_, err := client.GetCluster(context.Background(), &corev1.Reference{})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("missing required field: id"))
 	})
 
 	It("cannot edit the label a cluster is using without providing a valid ID", func() {
-		_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
-			Cluster: &core.Reference{
+		_, err := client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+			Cluster: &corev1.Reference{
 				Id: uuid.NewString(),
 			},
 			Labels: map[string]string{
@@ -203,8 +203,8 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	})
 
 	It("cannot edit the label a cluster is using without providing an ID", func() {
-		_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
-			Cluster: &core.Reference{},
+		_, err := client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+			Cluster: &corev1.Reference{},
 			Labels: map[string]string{
 				"i": "999",
 			},
@@ -214,7 +214,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	})
 
 	It("cannot edit the label a cluster is using without providing Cluster information", func() {
-		token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -224,13 +224,13 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 		Consistently(errC).ShouldNot(Receive())
 
 		Eventually(func() error {
-			_, err := client.GetCluster(context.Background(), &core.Reference{
+			_, err := client.GetCluster(context.Background(), &corev1.Reference{
 				Id: clusterName,
 			})
 			return err
 		}).Should(Succeed())
 
-		_, err = client.EditCluster(context.Background(), &management.EditClusterRequest{
+		_, err = client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
 			Labels: map[string]string{
 				"i": "999",
 			},
@@ -240,8 +240,8 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	})
 
 	It("cannot list clusters by label without providing a valid label", func() {
-		clusterList, err := client.ListClusters(context.Background(), &management.ListClustersRequest{
-			MatchLabels: &core.LabelSelector{
+		clusterList, err := client.ListClusters(context.Background(), &managementv1.ListClustersRequest{
+			MatchLabels: &corev1.LabelSelector{
 				MatchLabels: map[string]string{
 					"i": "99",
 				},
@@ -253,7 +253,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 
 	When("editing a cluster without providing label information", func() {
 		It("can remove labels from a cluster", func() {
-			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -263,14 +263,14 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 			Consistently(errC).ShouldNot(Receive())
 
 			Eventually(func() error {
-				_, err := client.GetCluster(context.Background(), &core.Reference{
+				_, err := client.GetCluster(context.Background(), &corev1.Reference{
 					Id: clusterName,
 				})
 				return err
 			}).Should(Succeed())
 
-			_, errE := client.EditCluster(context.Background(), &management.EditClusterRequest{
-				Cluster: &core.Reference{
+			_, errE := client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+				Cluster: &corev1.Reference{
 					Id: clusterName,
 				},
 				Labels: map[string]string{
@@ -279,14 +279,14 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 			})
 			Expect(errE).NotTo(HaveOccurred())
 
-			_, err = client.EditCluster(context.Background(), &management.EditClusterRequest{
-				Cluster: &core.Reference{
+			_, err = client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+				Cluster: &corev1.Reference{
 					Id: clusterName,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			clusterInfo, err := client.GetCluster(context.Background(), &core.Reference{
+			clusterInfo, err := client.GetCluster(context.Background(), &corev1.Reference{
 				Id: clusterName,
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -295,7 +295,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	})
 
 	It("cannot delete individual clusters without providing a valid ID", func() {
-		_, err := client.DeleteCluster(context.Background(), &core.Reference{
+		_, err := client.DeleteCluster(context.Background(), &corev1.Reference{
 			Id: uuid.NewString(),
 		})
 		Expect(err).To(HaveOccurred())
@@ -303,7 +303,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	})
 
 	It("cannot delete individual clusters without providing an ID", func() {
-		_, err := client.DeleteCluster(context.Background(), &core.Reference{})
+		_, err := client.DeleteCluster(context.Background(), &corev1.Reference{})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("missing required field: id"))
 	})

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 )
 
 var (
@@ -21,9 +22,9 @@ func (s *Server) Describe(c chan<- *prometheus.Desc) {
 }
 
 func (s *Server) Collect(c chan<- prometheus.Metric) {
-	ctx, ca := context.WithTimeout(s.ctx, 500*time.Millisecond)
+	ctx, ca := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer ca()
-	clusters, err := s.ListClusters(ctx, &ListClustersRequest{})
+	clusters, err := s.ListClusters(ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
 		return
 	}

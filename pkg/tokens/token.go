@@ -13,7 +13,7 @@ import (
 
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
 var ErrMalformedToken = errors.New("malformed token")
@@ -61,8 +61,8 @@ func (t *Token) HexSecret() string {
 	return hex.EncodeToString(t.Secret)
 }
 
-func (t *Token) Reference() *core.Reference {
-	return &core.Reference{
+func (t *Token) Reference() *corev1.Reference {
+	return &corev1.Reference{
 		Id: t.HexID(),
 	}
 }

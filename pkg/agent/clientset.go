@@ -1,17 +1,20 @@
 package agent
 
-import grpc "google.golang.org/grpc"
+import (
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	"google.golang.org/grpc"
+)
 
 type ClientSet interface {
-	RemoteControlClient
+	controlv1.AgentControlClient
 }
 
 type clientSet struct {
-	RemoteControlClient
+	controlv1.AgentControlClient
 }
 
 func NewClientSet(cc grpc.ClientConnInterface) ClientSet {
 	return &clientSet{
-		RemoteControlClient: NewRemoteControlClient(cc),
+		AgentControlClient: controlv1.NewAgentControlClient(cc),
 	}
 }

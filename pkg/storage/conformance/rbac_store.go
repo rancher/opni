@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 )
@@ -31,7 +31,7 @@ func RBACStoreTestSuite[T storage.RBACStore](
 			})
 			When("creating a role", func() {
 				It("should be retrievable", func() {
-					role := &core.Role{
+					role := &corev1.Role{
 						Id: "foo",
 					}
 					Eventually(func() error {
@@ -68,7 +68,7 @@ func RBACStoreTestSuite[T storage.RBACStore](
 					errCtrl.EnableErrors()
 					defer errCtrl.DisableErrors()
 					Eventually(func() error {
-						err := ts.CreateRole(context.Background(), &core.Role{
+						err := ts.CreateRole(context.Background(), &corev1.Role{
 							Id: uuid.NewString(),
 						})
 						return err
@@ -76,13 +76,13 @@ func RBACStoreTestSuite[T storage.RBACStore](
 
 				})
 				It("should handle errors when getting a role", func() {
-					_, err := ts.GetRole(context.Background(), &core.Reference{
+					_, err := ts.GetRole(context.Background(), &corev1.Reference{
 						Id: uuid.NewString(),
 					})
 					Expect(err).To(HaveOccurred())
 
 					id := uuid.NewString()
-					err = ts.CreateRole(context.Background(), &core.Role{
+					err = ts.CreateRole(context.Background(), &corev1.Role{
 						Id: id,
 					})
 					Expect(err).NotTo(HaveOccurred())
@@ -90,7 +90,7 @@ func RBACStoreTestSuite[T storage.RBACStore](
 					errCtrl.EnableErrors()
 					defer errCtrl.DisableErrors()
 					Eventually(func() error {
-						_, err = ts.GetRole(context.Background(), &core.Reference{
+						_, err = ts.GetRole(context.Background(), &corev1.Reference{
 							Id: id,
 						})
 						return err
@@ -105,7 +105,7 @@ func RBACStoreTestSuite[T storage.RBACStore](
 					}).Should(HaveOccurred())
 				})
 				It("should handle errors when deleting a role", func() {
-					Expect(ts.DeleteRole(context.Background(), &core.Reference{
+					Expect(ts.DeleteRole(context.Background(), &corev1.Reference{
 						Id: uuid.NewString(),
 					})).NotTo(Succeed())
 				})
@@ -119,7 +119,7 @@ func RBACStoreTestSuite[T storage.RBACStore](
 			})
 			When("creating a role binding", func() {
 				It("should be retrievable", func() {
-					rb := &core.RoleBinding{
+					rb := &corev1.RoleBinding{
 						Id: "foo",
 					}
 					err := ts.CreateRoleBinding(context.Background(), rb)
@@ -154,19 +154,19 @@ func RBACStoreTestSuite[T storage.RBACStore](
 				It("should handle errors when creating a role binding", func() {
 					errCtrl.EnableErrors()
 					defer errCtrl.DisableErrors()
-					err := ts.CreateRoleBinding(context.Background(), &core.RoleBinding{
+					err := ts.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
 						Id: uuid.NewString(),
 					})
 					Expect(err).To(HaveOccurred())
 				})
 				It("should handle errors when getting a role binding", func() {
-					_, err := ts.GetRoleBinding(context.Background(), &core.Reference{
+					_, err := ts.GetRoleBinding(context.Background(), &corev1.Reference{
 						Id: uuid.NewString(),
 					})
 					Expect(err).To(HaveOccurred())
 
 					id := uuid.NewString()
-					err = ts.CreateRoleBinding(context.Background(), &core.RoleBinding{
+					err = ts.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
 						Id: id,
 					})
 					Expect(err).NotTo(HaveOccurred())
@@ -174,7 +174,7 @@ func RBACStoreTestSuite[T storage.RBACStore](
 					errCtrl.EnableErrors()
 					defer errCtrl.DisableErrors()
 					Eventually(func() error {
-						_, err := ts.GetRoleBinding(context.Background(), &core.Reference{
+						_, err := ts.GetRoleBinding(context.Background(), &corev1.Reference{
 							Id: id,
 						})
 						return err
@@ -189,7 +189,7 @@ func RBACStoreTestSuite[T storage.RBACStore](
 					}).Should(HaveOccurred())
 				})
 				It("should handle errors when deleting a role binding", func() {
-					Expect(ts.DeleteRoleBinding(context.Background(), &core.Reference{
+					Expect(ts.DeleteRoleBinding(context.Background(), &corev1.Reference{
 						Id: uuid.NewString(),
 					})).NotTo(Succeed())
 				})

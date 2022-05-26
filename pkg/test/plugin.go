@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"runtime"
+	"sync"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni/pkg/logger"
@@ -93,6 +94,7 @@ func LoadPlugins(loader *plugins.PluginLoader) int {
 			},
 		},
 	}
+	wg := &sync.WaitGroup{}
 	for _, p := range testPlugins {
 		sc := plugins.ServeConfig(p.Scheme)
 		ch := make(chan *plugin.ReattachConfig, 1)
@@ -102,7 +104,14 @@ func LoadPlugins(loader *plugins.PluginLoader) int {
 		go plugin.Serve(sc)
 		rc := <-ch
 		cc := plugins.ClientConfig(p.Metadata, plugins.ClientScheme, rc)
-		loader.Load(p.Metadata, cc)
+		wg.Add(1)
+		p := p
+		go func() {
+			defer wg.Done()
+			loader.LoadOne(p.Metadata, cc)
+		}()
 	}
+	wg.Wait()
+	loader.Complete()
 	return len(testPlugins)
 }

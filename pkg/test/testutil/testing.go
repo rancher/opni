@@ -61,6 +61,9 @@ func (s *sessionWrapper) G() (*gexec.Session, bool) {
 }
 
 func (s *sessionWrapper) Wait() error {
+	if s == nil {
+		return nil
+	}
 	if s.g != nil {
 		ws := s.g.Wait()
 		if ws.ExitCode() != 0 {
@@ -82,5 +85,10 @@ func StartCmd(cmd *exec.Cmd) (Session, error) {
 			cmd: cmd,
 		}, nil
 	}
-	return nil, cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	return &sessionWrapper{
+		cmd: cmd,
+	}, nil
 }

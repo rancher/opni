@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/prometheus/prometheus/model/rulefmt"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
@@ -110,12 +110,12 @@ func NewTestCapabilityBackendClient(
 func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 	mockClusterStore := mock_storage.NewMockClusterStore(ctrl)
 
-	clusters := map[string]*core.Cluster{}
+	clusters := map[string]*corev1.Cluster{}
 	mu := sync.Mutex{}
 
 	mockClusterStore.EXPECT().
 		CreateCluster(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, cluster *core.Cluster) error {
+		DoAndReturn(func(_ context.Context, cluster *corev1.Cluster) error {
 			mu.Lock()
 			defer mu.Unlock()
 			clusters[cluster.Id] = cluster
@@ -124,7 +124,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		DeleteCluster(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference) error {
+		DoAndReturn(func(_ context.Context, ref *corev1.Reference) error {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := clusters[ref.Id]; !ok {
@@ -136,10 +136,10 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		ListClusters(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
+		DoAndReturn(func(_ context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			clusterList := &core.ClusterList{}
+			clusterList := &corev1.ClusterList{}
 			selectorPredicate := storage.ClusterSelector{
 				LabelSelector: matchLabels,
 				MatchOptions:  matchOptions,
@@ -154,7 +154,7 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		GetCluster(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference) (*core.Cluster, error) {
+		DoAndReturn(func(_ context.Context, ref *corev1.Reference) (*corev1.Cluster, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := clusters[ref.Id]; !ok {
@@ -165,14 +165,14 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 		AnyTimes()
 	mockClusterStore.EXPECT().
 		UpdateCluster(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.Cluster]) (*core.Cluster, error) {
+		DoAndReturn(func(_ context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.Cluster]) (*corev1.Cluster, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := clusters[ref.Id]; !ok {
 				return nil, storage.ErrNotFound
 			}
 			cluster := clusters[ref.Id]
-			cloned := proto.Clone(cluster).(*core.Cluster)
+			cloned := proto.Clone(cluster).(*corev1.Cluster)
 			mutator(cloned)
 			if _, ok := clusters[ref.Id]; !ok {
 				return nil, storage.ErrNotFound
@@ -184,12 +184,12 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 	return mockClusterStore
 }
 
-type KeyringStoreHandler = func(_ context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error)
+type KeyringStoreHandler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error)
 
 func NewTestKeyringStoreBroker(ctrl *gomock.Controller, handler ...KeyringStoreHandler) storage.KeyringStoreBroker {
 	mockKeyringStoreBroker := mock_storage.NewMockKeyringStoreBroker(ctrl)
 	keyringStores := map[string]storage.KeyringStore{}
-	defaultHandler := func(_ context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+	defaultHandler := func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 		if keyringStore, ok := keyringStores[prefix+ref.Id]; !ok {
 			s := NewTestKeyringStore(ctrl, prefix, ref)
 			keyringStores[prefix+ref.Id] = s
@@ -208,7 +208,7 @@ func NewTestKeyringStoreBroker(ctrl *gomock.Controller, handler ...KeyringStoreH
 
 	mockKeyringStoreBroker.EXPECT().
 		KeyringStore(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+		DoAndReturn(func(ctx context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 			if prefix == "gateway-internal" {
 				return defaultHandler(ctx, prefix, ref)
 			}
@@ -218,7 +218,7 @@ func NewTestKeyringStoreBroker(ctrl *gomock.Controller, handler ...KeyringStoreH
 	return mockKeyringStoreBroker
 }
 
-func NewTestKeyringStore(ctrl *gomock.Controller, prefix string, ref *core.Reference) storage.KeyringStore {
+func NewTestKeyringStore(ctrl *gomock.Controller, prefix string, ref *corev1.Reference) storage.KeyringStore {
 	mockKeyringStore := mock_storage.NewMockKeyringStore(ctrl)
 	mu := sync.Mutex{}
 	keyrings := map[string]keyring.Keyring{}
@@ -295,13 +295,13 @@ func NewTestKeyValueStore(ctrl *gomock.Controller) storage.KeyValueStore {
 func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 	mockRBACStore := mock_storage.NewMockRBACStore(ctrl)
 
-	roles := map[string]*core.Role{}
-	rbs := map[string]*core.RoleBinding{}
+	roles := map[string]*corev1.Role{}
+	rbs := map[string]*corev1.RoleBinding{}
 	mu := sync.Mutex{}
 
 	mockRBACStore.EXPECT().
 		CreateRole(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, role *core.Role) error {
+		DoAndReturn(func(_ context.Context, role *corev1.Role) error {
 			mu.Lock()
 			defer mu.Unlock()
 			roles[role.Id] = role
@@ -310,7 +310,7 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		AnyTimes()
 	mockRBACStore.EXPECT().
 		DeleteRole(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference) error {
+		DoAndReturn(func(_ context.Context, ref *corev1.Reference) error {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := roles[ref.Id]; !ok {
@@ -322,7 +322,7 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		AnyTimes()
 	mockRBACStore.EXPECT().
 		GetRole(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference) (*core.Role, error) {
+		DoAndReturn(func(_ context.Context, ref *corev1.Reference) (*corev1.Role, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := roles[ref.Id]; !ok {
@@ -333,10 +333,10 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		AnyTimes()
 	mockRBACStore.EXPECT().
 		ListRoles(gomock.Any()).
-		DoAndReturn(func(_ context.Context) (*core.RoleList, error) {
+		DoAndReturn(func(_ context.Context) (*corev1.RoleList, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			roleList := &core.RoleList{}
+			roleList := &corev1.RoleList{}
 			for _, role := range roles {
 				roleList.Items = append(roleList.Items, role)
 			}
@@ -345,7 +345,7 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		AnyTimes()
 	mockRBACStore.EXPECT().
 		CreateRoleBinding(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, rb *core.RoleBinding) error {
+		DoAndReturn(func(_ context.Context, rb *corev1.RoleBinding) error {
 			mu.Lock()
 			defer mu.Unlock()
 			rbs[rb.Id] = rb
@@ -354,7 +354,7 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		AnyTimes()
 	mockRBACStore.EXPECT().
 		DeleteRoleBinding(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference) error {
+		DoAndReturn(func(_ context.Context, ref *corev1.Reference) error {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := rbs[ref.Id]; !ok {
@@ -366,13 +366,13 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		AnyTimes()
 	mockRBACStore.EXPECT().
 		GetRoleBinding(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, ref *core.Reference) (*core.RoleBinding, error) {
+		DoAndReturn(func(ctx context.Context, ref *corev1.Reference) (*corev1.RoleBinding, error) {
 			mu.Lock()
 			if _, ok := rbs[ref.Id]; !ok {
 				mu.Unlock()
 				return nil, storage.ErrNotFound
 			}
-			cloned := proto.Clone(rbs[ref.Id]).(*core.RoleBinding)
+			cloned := proto.Clone(rbs[ref.Id]).(*corev1.RoleBinding)
 			mu.Unlock()
 			storage.ApplyRoleBindingTaints(ctx, mockRBACStore, cloned)
 			return cloned, nil
@@ -380,11 +380,11 @@ func NewTestRBACStore(ctrl *gomock.Controller) storage.RBACStore {
 		AnyTimes()
 	mockRBACStore.EXPECT().
 		ListRoleBindings(gomock.Any()).
-		DoAndReturn(func(ctx context.Context) (*core.RoleBindingList, error) {
+		DoAndReturn(func(ctx context.Context) (*corev1.RoleBindingList, error) {
 			mu.Lock()
-			rbList := &core.RoleBindingList{}
+			rbList := &corev1.RoleBindingList{}
 			for _, rb := range rbs {
-				cloned := proto.Clone(rb).(*core.RoleBinding)
+				cloned := proto.Clone(rb).(*corev1.RoleBinding)
 				rbList.Items = append(rbList.Items, cloned)
 			}
 			mu.Unlock()
@@ -401,7 +401,7 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 	mockTokenStore := mock_storage.NewMockTokenStore(ctrl)
 
 	leaseStore := NewLeaseStore(ctx)
-	tks := map[string]*core.BootstrapToken{}
+	tks := map[string]*corev1.BootstrapToken{}
 	mu := sync.Mutex{}
 	go func() {
 		for {
@@ -409,7 +409,7 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 			case <-ctx.Done():
 				return
 			case tokenID := <-leaseStore.LeaseExpired():
-				mockTokenStore.DeleteToken(ctx, &core.Reference{
+				mockTokenStore.DeleteToken(ctx, &corev1.Reference{
 					Id: tokenID,
 				})
 			}
@@ -418,14 +418,14 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 
 	mockTokenStore.EXPECT().
 		CreateToken(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*core.BootstrapToken, error) {
+		DoAndReturn(func(_ context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*corev1.BootstrapToken, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			options := storage.NewTokenCreateOptions()
 			options.Apply(opts...)
 			t := tokens.NewToken().ToBootstrapToken()
 			lease := leaseStore.New(t.TokenID, ttl)
-			t.Metadata = &core.BootstrapTokenMetadata{
+			t.Metadata = &corev1.BootstrapTokenMetadata{
 				LeaseID:      int64(lease.ID),
 				Ttl:          int64(ttl),
 				UsageCount:   0,
@@ -438,7 +438,7 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 		AnyTimes()
 	mockTokenStore.EXPECT().
 		DeleteToken(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference) error {
+		DoAndReturn(func(_ context.Context, ref *corev1.Reference) error {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := tks[ref.Id]; !ok {
@@ -450,7 +450,7 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 		AnyTimes()
 	mockTokenStore.EXPECT().
 		GetToken(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference) (*core.BootstrapToken, error) {
+		DoAndReturn(func(_ context.Context, ref *corev1.Reference) (*corev1.BootstrapToken, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := tks[ref.Id]; !ok {
@@ -461,10 +461,10 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 		AnyTimes()
 	mockTokenStore.EXPECT().
 		ListTokens(gomock.Any()).
-		DoAndReturn(func(_ context.Context) ([]*core.BootstrapToken, error) {
+		DoAndReturn(func(_ context.Context) ([]*corev1.BootstrapToken, error) {
 			mu.Lock()
 			defer mu.Unlock()
-			tokens := make([]*core.BootstrapToken, 0, len(tks))
+			tokens := make([]*corev1.BootstrapToken, 0, len(tks))
 			for _, t := range tks {
 				tokens = append(tokens, t)
 			}
@@ -473,14 +473,14 @@ func NewTestTokenStore(ctx context.Context, ctrl *gomock.Controller) storage.Tok
 		AnyTimes()
 	mockTokenStore.EXPECT().
 		UpdateToken(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.BootstrapToken]) (*core.BootstrapToken, error) {
+		DoAndReturn(func(_ context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.BootstrapToken]) (*corev1.BootstrapToken, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			if _, ok := tks[ref.Id]; !ok {
 				return nil, storage.ErrNotFound
 			}
 			token := tks[ref.Id]
-			cloned := proto.Clone(token).(*core.BootstrapToken)
+			cloned := proto.Clone(token).(*corev1.BootstrapToken)
 			mutator(cloned)
 			if _, ok := tks[ref.Id]; !ok {
 				return nil, storage.ErrNotFound

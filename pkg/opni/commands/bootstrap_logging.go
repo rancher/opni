@@ -102,7 +102,7 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	gatewayClient, err := gatewayclients.NewGatewayClient(gatewayEndpoint, identifier, keyring, trustStrategy)
+	gatewayClient, err := gatewayclients.NewGatewayHTTPClient(gatewayEndpoint, identifier, keyring, trustStrategy)
 	if err != nil {
 		return err
 	}

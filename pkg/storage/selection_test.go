@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
 )
@@ -16,10 +16,10 @@ var _ = Describe("Selection", Label(test.Unit), func() {
 		Entry(nil, selector("c1", "c2"), cluster("c2"), true),
 		Entry(nil, selector(), cluster("c1"), true),
 		Entry(nil, selector(), cluster("c2"), true),
-		Entry(nil, selector(core.MatchOptions_EmptySelectorMatchesNone), cluster("c2"), false),
-		Entry(nil, selector(matchLabels(), core.MatchOptions_EmptySelectorMatchesNone), cluster("c2"), false),
-		Entry(nil, selector(matchExprs(), core.MatchOptions_EmptySelectorMatchesNone), cluster("c2"), false),
-		Entry(nil, selector(matchLabels(), matchExprs(), core.MatchOptions_EmptySelectorMatchesNone), cluster("c2"), false),
+		Entry(nil, selector(corev1.MatchOptions_EmptySelectorMatchesNone), cluster("c2"), false),
+		Entry(nil, selector(matchLabels(), corev1.MatchOptions_EmptySelectorMatchesNone), cluster("c2"), false),
+		Entry(nil, selector(matchExprs(), corev1.MatchOptions_EmptySelectorMatchesNone), cluster("c2"), false),
+		Entry(nil, selector(matchLabels(), matchExprs(), corev1.MatchOptions_EmptySelectorMatchesNone), cluster("c2"), false),
 		Entry(nil, selector(matchLabels("foo", "bar")), cluster("c1"), false),
 		Entry(nil, selector(matchLabels("foo", "bar")), cluster("c1", "foo", "baz"), false),
 		Entry(nil, selector(matchLabels("foo", "bar")), cluster("c1", "foo", "bar"), true),
@@ -42,7 +42,7 @@ var _ = Describe("Selection", Label(test.Unit), func() {
 		Entry(nil, selector(matchExprs("bar DoesNotExist", "bar Exists")), cluster("c1", "bar", "quux"), false),
 		Entry(nil, selector(matchExprs("bar DoesNotExist", "bar Exists")), cluster("c1", "foo", "quux"), false),
 	}
-	DescribeTable("Label Selector", func(selector storage.ClusterSelector, c *core.Cluster, expected bool) {
+	DescribeTable("Label Selector", func(selector storage.ClusterSelector, c *corev1.Cluster, expected bool) {
 		Expect(selector.Predicate()(c)).To(Equal(expected))
 	}, entries)
 })

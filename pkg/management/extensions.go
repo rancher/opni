@@ -10,8 +10,15 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	"github.com/jhump/protoreflect/grpcreflect"
+	gsync "github.com/kralicky/gpkg/sync"
 	"github.com/kralicky/grpc-gateway/v2/runtime"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/plugins"
+	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/api/annotations"
@@ -24,10 +31,12 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*APIExtensionInfoList, error) {
-	resp := &APIExtensionInfoList{}
+func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*managementv1.APIExtensionInfoList, error) {
+	m.apiExtMu.RLock()
+	defer m.apiExtMu.RUnlock()
+	resp := &managementv1.APIExtensionInfoList{}
 	for _, ext := range m.apiExtensions {
-		resp.Items = append(resp.Items, &APIExtensionInfo{
+		resp.Items = append(resp.Items, &managementv1.APIExtensionInfo{
 			ServiceDesc: ext.serviceDesc.AsServiceDescriptorProto(),
 			Rules:       ext.httpRules,
 		})
@@ -43,19 +52,18 @@ type UnknownStreamMetadata struct {
 
 type StreamDirector func(ctx context.Context, fullMethodName string) (context.Context, *UnknownStreamMetadata, error)
 
-func (m *Server) configureApiExtensionDirector(ctx context.Context) StreamDirector {
+func (m *Server) configureApiExtensionDirector(ctx waitctx.RestrictiveContext, pl plugins.LoaderInterface) StreamDirector {
 	lg := m.logger
-	lg.Infof("loading api extensions from %d plugins", len(m.apiExtPlugins))
-	methodTable := map[string]*UnknownStreamMetadata{}
-	for _, plugin := range m.apiExtPlugins {
-		reflectClient := grpcreflect.NewClient(ctx, rpb.NewServerReflectionClient(plugin.Client))
-		sd, err := plugin.Typed.Descriptor(ctx, &emptypb.Empty{})
+	methodTable := gsync.Map[string, *UnknownStreamMetadata]{}
+	pl.Hook(hooks.OnLoadMC(func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
+		reflectClient := grpcreflect.NewClient(ctx, rpb.NewServerReflectionClient(cc))
+		sd, err := p.Descriptor(ctx, &emptypb.Empty{})
 		if err != nil {
 			m.logger.With(
 				zap.Error(err),
-				zap.String("plugin", plugin.Metadata.Module),
+				zap.String("plugin", md.Module),
 			).Error("failed to get extension descriptor")
-			continue
+			return
 		}
 		lg.Info("got extension descriptor for service " + sd.GetName())
 		waitctx.Go(ctx, func() {
@@ -68,7 +76,7 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) StreamDirect
 			m.logger.With(
 				zap.Error(err),
 			).Error("failed to resolve extension service")
-			continue
+			return
 		}
 
 		svcName := sd.GetName()
@@ -81,11 +89,11 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) StreamDirect
 				"name", fullName,
 			).Info("loading method")
 
-			methodTable[fullName] = &UnknownStreamMetadata{
-				Conn:       plugin.Client,
+			methodTable.Store(fullName, &UnknownStreamMetadata{
+				Conn:       cc,
 				InputType:  mtd.GetInputType(),
 				OutputType: mtd.GetOutputType(),
-			}
+			})
 		}
 		httpRules := loadHttpRuleDescriptors(svcDesc)
 		if len(httpRules) > 0 {
@@ -102,19 +110,20 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) StreamDirect
 				"name", svcName,
 			).Info("service has no http rules")
 		}
+
+		client := apiextensions.NewManagementAPIExtensionClient(cc)
+		m.apiExtMu.Lock()
+		defer m.apiExtMu.Unlock()
 		m.apiExtensions = append(m.apiExtensions, apiExtension{
-			client:      plugin.Typed,
-			clientConn:  plugin.Client,
+			client:      client,
+			clientConn:  cc,
 			serviceDesc: svcDesc,
 			httpRules:   httpRules,
 		})
-	}
-	if len(methodTable) == 0 {
-		lg.Info("no api extensions found")
-	}
+	}))
 
 	return func(ctx context.Context, fullMethodName string) (context.Context, *UnknownStreamMetadata, error) {
-		if conn, ok := methodTable[fullMethodName]; ok {
+		if conn, ok := methodTable.Load(fullMethodName); ok {
 			md, _ := metadata.FromIncomingContext(ctx)
 			ctx = metadata.NewOutgoingContext(ctx, md.Copy())
 			return ctx, conn, nil
@@ -125,6 +134,8 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context) StreamDirect
 
 func (m *Server) configureHttpApiExtensions(mux *runtime.ServeMux) {
 	lg := m.logger
+	m.apiExtMu.RLock()
+	defer m.apiExtMu.RUnlock()
 	for _, ext := range m.apiExtensions {
 		stub := grpcdynamic.NewStub(ext.clientConn)
 		svcDesc := ext.serviceDesc
@@ -165,8 +176,8 @@ func (m *Server) configureHttpApiExtensions(mux *runtime.ServeMux) {
 	}
 }
 
-func loadHttpRuleDescriptors(svc *desc.ServiceDescriptor) []*HTTPRuleDescriptor {
-	httpRule := []*HTTPRuleDescriptor{}
+func loadHttpRuleDescriptors(svc *desc.ServiceDescriptor) []*managementv1.HTTPRuleDescriptor {
+	httpRule := []*managementv1.HTTPRuleDescriptor{}
 	for _, method := range svc.GetMethods() {
 		protoMethodDesc := method.AsMethodDescriptorProto()
 		protoOptions := protoMethodDesc.GetOptions()
@@ -176,12 +187,12 @@ func loadHttpRuleDescriptors(svc *desc.ServiceDescriptor) []*HTTPRuleDescriptor 
 			if !ok {
 				continue
 			}
-			httpRule = append(httpRule, &HTTPRuleDescriptor{
+			httpRule = append(httpRule, &managementv1.HTTPRuleDescriptor{
 				Http:   rule,
 				Method: protoMethodDesc,
 			})
 			for _, additionalRule := range rule.AdditionalBindings {
-				httpRule = append(httpRule, &HTTPRuleDescriptor{
+				httpRule = append(httpRule, &managementv1.HTTPRuleDescriptor{
 					Http:   additionalRule,
 					Method: protoMethodDesc,
 				})
@@ -195,7 +206,7 @@ func newHandler(
 	stub grpcdynamic.Stub,
 	svcDesc *desc.ServiceDescriptor,
 	mux *runtime.ServeMux,
-	rule *HTTPRuleDescriptor,
+	rule *managementv1.HTTPRuleDescriptor,
 	path string,
 ) runtime.HandlerFunc {
 	lg := logger.New().Named("apiext")

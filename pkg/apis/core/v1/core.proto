@@ -1,0 +1,102 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
+package core;
+
+message BootstrapToken {
+  string tokenID = 1;
+  string secret = 2;
+  BootstrapTokenMetadata metadata = 3;
+}
+
+message BootstrapTokenMetadata {
+  int64 leaseID = 1;
+  int64 ttl = 2;
+  int64 usageCount = 3;
+  map<string, string> labels = 4;
+  repeated TokenCapability capabilities = 5;
+}
+
+message TokenCapability {
+  string type = 1;
+  Reference reference = 2;
+}
+
+message BootstrapTokenList {
+  repeated BootstrapToken items = 1;
+}
+
+message Cluster {
+  string id = 1;
+  ClusterMetadata metadata = 2;
+}
+
+message ClusterMetadata {
+  map<string, string> labels = 1;
+  repeated ClusterCapability capabilities = 2;
+}
+
+message ClusterCapability {
+  string name = 1;
+}
+
+message ClusterList {
+  repeated Cluster items = 1;
+}
+
+message LabelSelector { 
+  map<string, string> matchLabels = 1; 
+  repeated LabelSelectorRequirement matchExpressions = 2;
+}
+
+message LabelSelectorRequirement {
+  string key = 1;
+  string operator = 2;
+  repeated string values = 3;
+}
+
+enum MatchOptions {
+  Default = 0;
+  EmptySelectorMatchesNone = 1;
+}
+
+message Role {
+  string id = 1;
+  repeated string clusterIDs = 2;
+  LabelSelector matchLabels = 3;
+}
+
+message RoleBinding {
+  string id = 1;
+  string roleId = 2;
+  repeated string subjects = 3;
+  repeated string taints = 4;
+}
+
+message RoleList {
+  repeated Role items = 1;
+}
+
+message RoleBindingList {
+  repeated RoleBinding items = 1;
+}
+
+message CertInfo {
+  string issuer = 1;
+  string subject = 2;
+  bool isCA = 3;
+  string notBefore = 4;
+  string notAfter = 5;
+  string fingerprint = 6;
+}
+
+message Reference {
+  string id = 1;
+}
+
+message ReferenceList {
+  repeated Reference items = 1;
+}
+
+message SubjectAccessRequest {
+  string subject = 1;
+}

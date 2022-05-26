@@ -6,13 +6,13 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
 )
 
 var _ = Describe("RBAC Provider", Ordered, Label(test.Unit), func() {
-	clusters := []*core.Cluster{
+	clusters := []*corev1.Cluster{
 		cluster("c1"),
 		cluster("c2", "foo", "bar"),
 		cluster("c3", "foo", "baz"),
@@ -68,7 +68,7 @@ var _ = Describe("RBAC Provider", Ordered, Label(test.Unit), func() {
 			err := rbacStore.CreateRoleBinding(context.Background(), obj())
 			Expect(err).NotTo(HaveOccurred())
 		}
-		refs, err := provider.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
+		refs, err := provider.SubjectAccess(context.Background(), &corev1.SubjectAccessRequest{
 			Subject: subject,
 		})
 		Expect(err).NotTo(HaveOccurred())

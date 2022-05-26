@@ -6,7 +6,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
 var ctrl *gomock.Controller
@@ -31,7 +31,7 @@ type testResourceWithMetadata struct {
 	labels       map[string]string
 }
 
-var _ core.MetadataAccessor[testCapability] = (*testResourceWithMetadata)(nil)
+var _ corev1.MetadataAccessor[testCapability] = (*testResourceWithMetadata)(nil)
 
 func (t *testResourceWithMetadata) GetCapabilities() []testCapability {
 	return t.capabilities

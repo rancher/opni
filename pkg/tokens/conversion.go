@@ -3,10 +3,10 @@ package tokens
 import (
 	"encoding/hex"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
-func FromBootstrapToken(t *core.BootstrapToken) (*Token, error) {
+func FromBootstrapToken(t *corev1.BootstrapToken) (*Token, error) {
 	tokenID := t.GetTokenID()
 	tokenSecret := t.GetSecret()
 	token := &Token{
@@ -26,11 +26,11 @@ func FromBootstrapToken(t *core.BootstrapToken) (*Token, error) {
 	return token, nil
 }
 
-func (t *Token) ToBootstrapToken() *core.BootstrapToken {
-	return &core.BootstrapToken{
+func (t *Token) ToBootstrapToken() *corev1.BootstrapToken {
+	return &corev1.BootstrapToken{
 		TokenID: t.HexID(),
 		Secret:  t.HexSecret(),
-		Metadata: &core.BootstrapTokenMetadata{
+		Metadata: &corev1.BootstrapTokenMetadata{
 			Labels: map[string]string{},
 		},
 	}

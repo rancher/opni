@@ -324,6 +324,15 @@ func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
 						}
 						return nil
 					}(),
+					ExtraVolumeMounts: []opnimeta.ExtraVolumeMount{
+						{
+							Name:      "test-volume",
+							MountPath: "/var/test-volume",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
 				},
 			},
 		},

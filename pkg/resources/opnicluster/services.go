@@ -659,6 +659,17 @@ func (r *Reconciler) metricsDeployment() (runtime.Object, reconciler.DesiredStat
 		Name:  "PROMETHEUS_ENDPOINT",
 		Value: prometheusEndpoint,
 	})
+	for _, extraVolume := range r.opniCluster.Spec.Services.Metrics.ExtraVolumeMounts {
+		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, corev1.Volume{
+			Name:         extraVolume.Name,
+			VolumeSource: extraVolume.VolumeSource,
+		})
+		deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      extraVolume.Name,
+			ReadOnly:  extraVolume.ReadOnly,
+			MountPath: extraVolume.MountPath,
+		})
+	}
 	return deployment, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
 }
 

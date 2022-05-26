@@ -99,6 +99,13 @@ type PersistenceSpec struct {
 	Request resource.Quantity `json:"request,omitempty"`
 }
 
+type ExtraVolumeMount struct {
+	Name                string `json:"name,omitempty"`
+	MountPath           string `json:"mountPath,omitempty"`
+	ReadOnly            bool   `json:"readOnly,omitempty"`
+	corev1.VolumeSource `json:",inline"`
+}
+
 type OpensearchClusterRef struct {
 	Name      string `json:"name,omitempty"`
 	Namespace string `json:"namespace,omitempty"`

@@ -382,4 +382,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 			})
 		})
 	})
+	Context("Stream Interceptor", func() {
+
+	})
 })

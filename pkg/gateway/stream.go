@@ -13,7 +13,7 @@ import (
 
 type remote struct {
 	services []*descriptorpb.ServiceDescriptorProto
-	stream   totem.ClientStream
+	cc       *grpc.ClientConn
 }
 
 type StreamServer struct {
@@ -34,11 +34,16 @@ func NewStreamServer(handler ConnectionHandler, lg *zap.SugaredLogger) *StreamSe
 func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	s.logger.Debug("handling new stream connection")
 	ts := totem.NewServer(stream)
-	for _, services := range s.services {
-		ts.RegisterService(services.desc, services.impl)
+	for _, service := range s.services {
+		ts.RegisterService(service.desc, service.impl)
 	}
 	for _, r := range s.remotes {
-		ts.Splice(r.stream, r.services...)
+		streamClient := streamv1.NewStreamClient(r.cc)
+		splicedStream, err := streamClient.Connect(context.Background())
+		if err != nil {
+			return err
+		}
+		ts.Splice(splicedStream, r.services...)
 	}
 	cc, errC := ts.Serve()
 
@@ -67,15 +72,10 @@ func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	})
 }
 
-func (s *StreamServer) Splice(services []*descriptorpb.ServiceDescriptorProto, cc *grpc.ClientConn) error {
-	streamClient := streamv1.NewStreamClient(cc)
-	splicedStream, err := streamClient.Connect(context.Background())
-	if err != nil {
-		return err
-	}
+func (s *StreamServer) AddRemote(cc *grpc.ClientConn, services []*descriptorpb.ServiceDescriptorProto) error {
 	s.remotes = append(s.remotes, remote{
 		services: services,
-		stream:   splicedStream,
+		cc:       cc,
 	})
 	return nil
 }

@@ -167,7 +167,12 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 				"plugin", md.Module,
 			).Error("failed to load stream services from plugin")
 		}
-		streamSvc.Splice(services.Descriptors, cc)
+		if err := streamSvc.AddRemote(cc, services.Descriptors); err != nil {
+			lg.With(
+				zap.Error(err),
+				"plugin", md.Module,
+			).Error("failed to add plugin remote stream service")
+		}
 	}))
 
 	// set up bootstrap server

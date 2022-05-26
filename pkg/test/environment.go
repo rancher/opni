@@ -947,34 +947,35 @@ func StartStandaloneTestEnvironment() {
 						Log.Error(err)
 					}
 				case 'a':
-					// create bt
-					bt, err := client.CreateBootstrapToken(environment.ctx, &managementv1.CreateBootstrapTokenRequest{
-						Ttl: durationpb.New(1 * time.Minute),
-					})
-					if err != nil {
-						Log.Error(err)
-						continue
-					}
-					token, err := tokens.FromBootstrapToken(bt)
-					if err != nil {
-						Log.Error(err)
-						continue
-					}
-					certInfo, err := client.CertsInfo(environment.ctx, &emptypb.Empty{})
-					if err != nil {
-						Log.Error(err)
-						continue
-					}
-					resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.ports.TestEnvironment), "application/json",
-						strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"]}`, token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint)))
-					if err != nil {
-						Log.Error(err)
-						continue
-					}
-					if resp.StatusCode != http.StatusOK {
-						Log.Errorf("%s", resp.Status)
-						continue
-					}
+					go func() {
+						bt, err := client.CreateBootstrapToken(environment.ctx, &managementv1.CreateBootstrapTokenRequest{
+							Ttl: durationpb.New(1 * time.Minute),
+						})
+						if err != nil {
+							Log.Error(err)
+							return
+						}
+						token, err := tokens.FromBootstrapToken(bt)
+						if err != nil {
+							Log.Error(err)
+							return
+						}
+						certInfo, err := client.CertsInfo(environment.ctx, &emptypb.Empty{})
+						if err != nil {
+							Log.Error(err)
+							return
+						}
+						resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.ports.TestEnvironment), "application/json",
+							strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"]}`, token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint)))
+						if err != nil {
+							Log.Error(err)
+							return
+						}
+						if resp.StatusCode != http.StatusOK {
+							Log.Errorf("%s", resp.Status)
+							return
+						}
+					}()
 				}
 			}
 		}()

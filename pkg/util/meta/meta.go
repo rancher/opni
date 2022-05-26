@@ -100,10 +100,10 @@ type PersistenceSpec struct {
 }
 
 type ExtraVolumeMount struct {
-	Name         string              `json:"name,omitempty"`
-	MountPath    string              `json:"mountPath,omitempty"`
-	ReadOnly     bool                `json:"readOnly,omitempty"`
-	VolumeSource corev1.VolumeSource `json:",inline"`
+	Name                string `json:"name,omitempty"`
+	MountPath           string `json:"mountPath,omitempty"`
+	ReadOnly            bool   `json:"readOnly,omitempty"`
+	corev1.VolumeSource `json:",inline"`
 }
 
 type OpensearchClusterRef struct {

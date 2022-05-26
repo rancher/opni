@@ -26,7 +26,7 @@ dagger.#Plan & {
 			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
 			DASHBOARDS_VERSION:  string | *"1.3.1"
 			OPENSEARCH_VERSION:  string | *"1.3.1"
-			PLUGIN_VERSION:      string | *"0.4.2"
+			PLUGIN_VERSION:      string | *"0.5.0"
 			DOCKER_USERNAME?:    string
 			DOCKER_PASSWORD?:    dagger.#Secret
 		}
@@ -308,7 +308,7 @@ dagger.#Plan & {
 							name: "opensearch-dashboards-plugin"
 							args: [
 								"install",
-								"https://github.com/rancher/opni-ui/releases/download/plugin-\(client.env.PLUGIN_VERSION)/opni-dashboards-plugin-\(client.env.PLUGIN_VERSION)-os-\(client.env.DASHBOARDS_VERSION).zip",
+								"https://github.com/rancher/opni-ui/releases/download/plugin-\(client.env.PLUGIN_VERSION)/opni-dashboards-plugin-\(client.env.PLUGIN_VERSION).zip",
 							]
 						}
 					},

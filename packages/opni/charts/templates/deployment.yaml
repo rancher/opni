@@ -1,3 +1,4 @@
+{{- $versionTag := printf "v%s" .Chart.AppVersion }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -48,7 +49,7 @@ spec:
           - --leader-elect
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: 9443

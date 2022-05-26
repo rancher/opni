@@ -1,3 +1,4 @@
+{{- $versionTag := printf "v%s" .Chart.AppVersion }}
 {{- if .Values.logging.enabled }}
 apiVersion: batch/v1
 kind: Job
@@ -21,7 +22,7 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
       - name: bootstrap
-        image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args:
         - bootstrap

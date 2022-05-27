@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"net"
 
-	"github.com/gogo/status"
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
@@ -34,6 +33,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

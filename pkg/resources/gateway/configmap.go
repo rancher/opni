@@ -83,9 +83,9 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			ClientSecret: "noauth",
 			RedirectURI: func() string {
 				if r.gw.Spec.Auth.Noauth != nil {
-					return fmt.Sprintf("https://%s/generic_oauth", r.gw.Spec.Auth.Noauth.GrafanaHostname)
+					return fmt.Sprintf("https://%s/login/generic_oauth", r.gw.Spec.Auth.Noauth.GrafanaHostname)
 				}
-				return fmt.Sprintf("https://grafana.%s/generic_oauth", r.gw.Spec.Hostname)
+				return fmt.Sprintf("https://grafana.%s/login/generic_oauth", r.gw.Spec.Hostname)
 			}(),
 			ManagementAPIEndpoint: "opni-monitoring-internal:11090",
 			Port:                  4000,

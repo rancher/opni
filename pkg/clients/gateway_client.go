@@ -6,6 +6,9 @@ import (
 	"fmt"
 
 	"emperror.dev/errors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rancher/opni/pkg/b2mac"
@@ -37,6 +40,10 @@ type GatewayHTTPClient interface {
 	Delete(ctx context.Context, path string) RequestBuilder
 }
 
+type GatewayGRPCClient interface {
+	Dial(ctx context.Context) (grpc.ClientConnInterface, error)
+}
+
 func NewGatewayHTTPClient(
 	address string,
 	ip ident.Provider,
@@ -46,9 +53,35 @@ func NewGatewayHTTPClient(
 	if address[len(address)-1] == '/' {
 		address = address[:len(address)-1]
 	}
+	client := &gatewayClient{
+		httpAddress: address,
+	}
+	initClientShared(client, ip, kr, trustStrategy)
+	return client, nil
+}
+
+func NewGatewayGRPCClient(
+	address string,
+	ip ident.Provider,
+	kr keyring.Keyring,
+	trustStrategy trust.Strategy,
+) (GatewayGRPCClient, error) {
+	client := &gatewayClient{
+		grpcAddress: address,
+	}
+	initClientShared(client, ip, kr, trustStrategy)
+	return client, nil
+}
+
+func initClientShared(
+	client *gatewayClient,
+	ip ident.Provider,
+	kr keyring.Keyring,
+	trustStrategy trust.Strategy,
+) error {
 	id, err := ip.UniqueIdentifier(context.Background())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	var sharedKeys *keyring.SharedKeys
 	kr.Try(func(sk *keyring.SharedKeys) {
@@ -59,37 +92,36 @@ func NewGatewayHTTPClient(
 		sharedKeys = sk
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if sharedKeys == nil {
-		return nil, errors.New("keyring is missing shared keys")
+		return errors.New("keyring is missing shared keys")
 	}
 
 	tlsConfig, err := trustStrategy.TLSConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create TLS config: %w", err)
+		return fmt.Errorf("failed to create TLS config: %w", err)
 	}
 
-	return &gatewayClient{
-		address:    address,
-		id:         id,
-		sharedKeys: sharedKeys,
-		tlsConfig:  tlsConfig,
-	}, nil
+	client.id = id
+	client.sharedKeys = sharedKeys
+	client.tlsConfig = tlsConfig
+	return nil
 }
 
 type gatewayClient struct {
-	address    string
-	id         string
-	sharedKeys *keyring.SharedKeys
-	tlsConfig  *tls.Config
+	httpAddress string
+	grpcAddress string
+	id          string
+	sharedKeys  *keyring.SharedKeys
+	tlsConfig   *tls.Config
 }
 
 func (gc *gatewayClient) requestPath(path string) string {
 	if path[0] != '/' {
 		path = "/" + path
 	}
-	return gc.address + path
+	return gc.httpAddress + path
 }
 
 func (gc *gatewayClient) Get(ctx context.Context, path string) RequestBuilder {
@@ -132,6 +164,34 @@ func (gc *gatewayClient) Delete(ctx context.Context, path string) RequestBuilder
 		gatewayClient: gc,
 		req:           fiber.Delete(gc.requestPath(path)).TLSConfig(gc.tlsConfig),
 	}
+}
+
+func (gc *gatewayClient) Dial(ctx context.Context) (grpc.ClientConnInterface, error) {
+	return grpc.DialContext(ctx, gc.grpcAddress,
+		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
+		grpc.WithStreamInterceptor(gc.streamClientInterceptor),
+	)
+}
+
+func (gc *gatewayClient) streamClientInterceptor(
+	ctx context.Context,
+	desc *grpc.StreamDesc,
+	cc *grpc.ClientConn,
+	method string,
+	streamer grpc.Streamer,
+	opts ...grpc.CallOption,
+) (grpc.ClientStream, error) {
+	nonce, mac, err := b2mac.New512([]byte(gc.id), []byte(method), gc.sharedKeys.ClientKey)
+	if err != nil {
+		return nil, err
+	}
+	authHeader, err := b2mac.EncodeAuthHeader([]byte(gc.id), nonce, mac)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", authHeader)
+	return streamer(ctx, desc, cc, method, opts...)
 }
 
 type requestBuilder struct {

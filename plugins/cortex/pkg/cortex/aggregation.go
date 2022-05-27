@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/gofiber/fiber/v2"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/rbac"
 	"go.uber.org/zap"
 )
@@ -30,7 +30,7 @@ const (
 )
 
 type MultiTenantRuleAggregator struct {
-	client      management.ManagementClient
+	client      managementv1.ManagementClient
 	forwarder   fiber.Handler
 	headerCodec rbac.HeaderCodec
 	bufferPool  *sync.Pool
@@ -39,7 +39,7 @@ type MultiTenantRuleAggregator struct {
 }
 
 func NewMultiTenantRuleAggregator(
-	client management.ManagementClient,
+	client managementv1.ManagementClient,
 	forwarder fiber.Handler,
 	headerCodec rbac.HeaderCodec,
 	format DataFormat,

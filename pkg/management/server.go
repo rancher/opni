@@ -8,19 +8,23 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/kralicky/grpc-gateway/v2/runtime"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
-	"github.com/rancher/opni/pkg/config/meta"
+	cfgmeta "github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -32,15 +36,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-//go:embed management.swagger.json
-var managementSwaggerJson []byte
-
-func OpenAPISpec() []byte {
-	buf := make([]byte, len(managementSwaggerJson))
-	copy(buf, managementSwaggerJson)
-	return buf
-}
 
 // CoreDataSource provides a way to obtain data which the management
 // server needs to serve its core API
@@ -55,95 +50,104 @@ type CapabilitiesDataSource interface {
 	CapabilitiesStore() capabilities.BackendStore
 }
 
+type HealthStatusDataSource interface {
+	ClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthStatus, error)
+}
+
 type apiExtension struct {
 	client      apiextensions.ManagementAPIExtensionClient
 	clientConn  *grpc.ClientConn
 	serviceDesc *desc.ServiceDescriptor
-	httpRules   []*HTTPRuleDescriptor
+	httpRules   []*managementv1.HTTPRuleDescriptor
 }
 
 type Server struct {
-	UnsafeManagementServer
-	ManagementServerOptions
+	managementv1.UnsafeManagementServer
+	managementServerOptions
 	config         *v1beta1.ManagementSpec
 	logger         *zap.SugaredLogger
 	rbacProvider   rbac.Provider
-	ctx            context.Context
 	coreDataSource CoreDataSource
+	grpcServer     *grpc.Server
 
+	apiExtMu      sync.RWMutex
 	apiExtensions []apiExtension
 }
 
-var _ ManagementServer = (*Server)(nil)
+var _ managementv1.ManagementServer = (*Server)(nil)
 
-type APIExtensionPlugin = plugins.TypedActivePlugin[apiextensions.ManagementAPIExtensionClient]
-
-type ManagementServerOptions struct {
+type managementServerOptions struct {
 	lifecycler             config.Lifecycler
-	apiExtPlugins          []APIExtensionPlugin
-	systemPlugins          []plugins.ActivePlugin
 	capabilitiesDataSource CapabilitiesDataSource
+	healthStatusDataSource HealthStatusDataSource
 }
 
-type ManagementServerOption func(*ManagementServerOptions)
+type ManagementServerOption func(*managementServerOptions)
 
-func (o *ManagementServerOptions) Apply(opts ...ManagementServerOption) {
+func (o *managementServerOptions) apply(opts ...ManagementServerOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithAPIExtensions(exts []APIExtensionPlugin) ManagementServerOption {
-	return func(o *ManagementServerOptions) {
-		o.apiExtPlugins = append(o.apiExtPlugins, exts...)
-	}
-}
-
-func WithSystemPlugins(plugins []plugins.ActivePlugin) ManagementServerOption {
-	return func(o *ManagementServerOptions) {
-		o.systemPlugins = plugins
-	}
-}
-
 func WithLifecycler(lc config.Lifecycler) ManagementServerOption {
-	return func(o *ManagementServerOptions) {
+	return func(o *managementServerOptions) {
 		o.lifecycler = lc
 	}
 }
 
 func WithCapabilitiesDataSource(src CapabilitiesDataSource) ManagementServerOption {
-	return func(o *ManagementServerOptions) {
+	return func(o *managementServerOptions) {
 		o.capabilitiesDataSource = src
 	}
 }
 
+func WithHealthStatusDataSource(src HealthStatusDataSource) ManagementServerOption {
+	return func(o *managementServerOptions) {
+		o.healthStatusDataSource = src
+	}
+}
+
 func NewServer(
-	ctx context.Context,
+	ctx waitctx.RestrictiveContext,
 	conf *v1beta1.ManagementSpec,
 	cds CoreDataSource,
+	pluginLoader plugins.LoaderInterface,
 	opts ...ManagementServerOption,
 ) *Server {
 	lg := logger.New().Named("mgmt")
-	options := ManagementServerOptions{
-		lifecycler: config.NewUnavailableLifecycler(meta.ObjectList{}),
+	options := managementServerOptions{
+		lifecycler: config.NewUnavailableLifecycler(cfgmeta.ObjectList{}),
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 
-	return &Server{
-		ManagementServerOptions: options,
-		ctx:                     ctx,
+	m := &Server{
+		managementServerOptions: options,
 		config:                  conf,
 		logger:                  lg,
 		coreDataSource:          cds,
 		rbacProvider:            storage.NewRBACProvider(cds.StorageBackend()),
 	}
+
+	director := m.configureApiExtensionDirector(ctx, pluginLoader)
+	m.grpcServer = grpc.NewServer(
+		grpc.Creds(insecure.NewCredentials()),
+		grpc.UnknownServiceHandler(unknownServiceHandler(director)),
+	)
+	managementv1.RegisterManagementServer(m.grpcServer, m)
+
+	pluginLoader.Hook(hooks.OnLoad(func(sp types.SystemPlugin) {
+		go sp.ServeManagementAPI(m)
+	}))
+
+	return m
 }
 
 type managementApiServer interface {
-	ServeManagementAPI(ManagementServer)
+	ServeManagementAPI(managementv1.ManagementServer)
 }
 
-func (m *Server) ListenAndServe() error {
+func (m *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 	if m.config.GRPCListenAddress == "" {
 		return errors.New("GRPCListenAddress not configured")
 	}
@@ -155,42 +159,33 @@ func (m *Server) ListenAndServe() error {
 	lg.With(
 		"address", listener.Addr().String(),
 	).Info("management gRPC server starting")
-	director := m.configureApiExtensionDirector(m.ctx)
-	srv := grpc.NewServer(
-		grpc.Creds(insecure.NewCredentials()),
-		grpc.UnknownServiceHandler(unknownServiceHandler(director)),
-	)
-	RegisterManagementServer(srv, m)
 
-	for _, plugin := range m.systemPlugins {
-		go plugin.Raw.(managementApiServer).ServeManagementAPI(m)
-	}
-	waitctx.Go(m.ctx, func() {
-		<-m.ctx.Done()
-		srv.GracefulStop()
+	waitctx.Go(ctx, func() {
+		<-ctx.Done()
+		m.grpcServer.GracefulStop()
 	})
 	if m.config.HTTPListenAddress != "" {
-		go m.listenAndServeHttp(listener)
+		go m.listenAndServeHttp(ctx, listener)
 	}
 
-	waitctx.AddOne(m.ctx)
-	defer waitctx.Done(m.ctx)
-	return srv.Serve(listener)
+	waitctx.AddOne(ctx)
+	defer waitctx.Done(ctx)
+	return m.grpcServer.Serve(listener)
 }
 
-func (m *Server) listenAndServeHttp(listener net.Listener) {
+func (m *Server) listenAndServeHttp(ctx waitctx.RestrictiveContext, listener net.Listener) {
 	lg := m.logger
 	lg.With(
 		"address", m.config.HTTPListenAddress,
 	).Info("management HTTP server starting")
 	mux := http.NewServeMux()
 	mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, _ *http.Request) {
-		if _, err := w.Write(OpenAPISpec()); err != nil {
+		if _, err := w.Write(managementv1.OpenAPISpec()); err != nil {
 			lg.Error(err)
 		}
 	})
 	gwmux := runtime.NewServeMux()
-	if err := RegisterManagementHandlerFromEndpoint(m.ctx, gwmux, listener.Addr().String(),
+	if err := managementv1.RegisterManagementHandlerFromEndpoint(ctx, gwmux, listener.Addr().String(),
 		[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
 		lg.With(
 			zap.Error(err),
@@ -202,11 +197,11 @@ func (m *Server) listenAndServeHttp(listener net.Listener) {
 		Addr:    m.config.HTTPListenAddress,
 		Handler: mux,
 		BaseContext: func(net.Listener) context.Context {
-			return m.ctx
+			return ctx
 		},
 	}
-	waitctx.Go(m.ctx, func() {
-		<-m.ctx.Done()
+	waitctx.Go(ctx, func() {
+		<-ctx.Done()
 		if err := server.Close(); err != nil {
 			lg.With(
 				zap.Error(err),
@@ -220,9 +215,9 @@ func (m *Server) listenAndServeHttp(listener net.Listener) {
 	}
 }
 
-func (m *Server) CertsInfo(ctx context.Context, _ *emptypb.Empty) (*CertsInfoResponse, error) {
-	resp := &CertsInfoResponse{
-		Chain: []*core.CertInfo{},
+func (m *Server) CertsInfo(ctx context.Context, _ *emptypb.Empty) (*managementv1.CertsInfoResponse, error) {
+	resp := &managementv1.CertsInfoResponse{
+		Chain: []*corev1.CertInfo{},
 	}
 	for _, tlsCert := range m.coreDataSource.TLSConfig().Certificates[:1] {
 		for _, der := range tlsCert.Certificate {
@@ -230,7 +225,7 @@ func (m *Server) CertsInfo(ctx context.Context, _ *emptypb.Empty) (*CertsInfoRes
 			if err != nil {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
-			resp.Chain = append(resp.Chain, &core.CertInfo{
+			resp.Chain = append(resp.Chain, &corev1.CertInfo{
 				Issuer:      cert.Issuer.String(),
 				Subject:     cert.Subject.String(),
 				IsCA:        cert.IsCA,
@@ -243,20 +238,20 @@ func (m *Server) CertsInfo(ctx context.Context, _ *emptypb.Empty) (*CertsInfoRes
 	return resp, nil
 }
 
-func (m *Server) ListCapabilities(ctx context.Context, _ *emptypb.Empty) (*CapabilityList, error) {
+func (m *Server) ListCapabilities(ctx context.Context, _ *emptypb.Empty) (*managementv1.CapabilityList, error) {
 	if m.capabilitiesDataSource == nil {
 		return nil, status.Error(codes.Unavailable, "capability backend store not configured")
 	}
 
-	return &CapabilityList{
+	return &managementv1.CapabilityList{
 		Items: m.capabilitiesDataSource.CapabilitiesStore().List(),
 	}, nil
 }
 
 func (m *Server) CapabilityInstaller(
 	ctx context.Context,
-	req *CapabilityInstallerRequest,
-) (*CapabilityInstallerResponse, error) {
+	req *managementv1.CapabilityInstallerRequest,
+) (*managementv1.CapabilityInstallerResponse, error) {
 	if m.capabilitiesDataSource == nil {
 		return nil, status.Error(codes.Unavailable, "capability backend store not configured")
 	}
@@ -270,7 +265,7 @@ func (m *Server) CapabilityInstaller(
 	if err != nil {
 		return nil, err
 	}
-	return &CapabilityInstallerResponse{
+	return &managementv1.CapabilityInstallerResponse{
 		Command: cmd,
 	}, nil
 }

@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/management"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/spf13/cobra"
 	"go.etcd.io/etcd/etcdctl/v3/ctlv3"
@@ -77,13 +77,13 @@ func BuildDebugReloadCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			docsNoSchema := []*management.ConfigDocument{}
+			docsNoSchema := []*managementv1.ConfigDocument{}
 			for _, doc := range config.Documents {
-				docsNoSchema = append(docsNoSchema, &management.ConfigDocument{
+				docsNoSchema = append(docsNoSchema, &managementv1.ConfigDocument{
 					Json: doc.Json,
 				})
 			}
-			_, err = mgmtClient.UpdateConfig(cmd.Context(), &management.UpdateConfigRequest{
+			_, err = mgmtClient.UpdateConfig(cmd.Context(), &managementv1.UpdateConfigRequest{
 				Documents: docsNoSchema,
 			})
 			return err

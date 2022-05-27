@@ -4,8 +4,8 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
-	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/test"
 )
 
@@ -156,7 +156,7 @@ var _ = Describe("Store", Ordered, Label(test.Unit), func() {
 		Expect(store.Add("capability1", backend1)).To(Succeed())
 		Expect(store.Add("capability2", backend2)).To(Succeed())
 
-		store.InstallCapabilities(&core.Reference{}, "capability1", "capability2")
+		store.InstallCapabilities(&corev1.Reference{}, "capability1", "capability2")
 	})
 	It("should uninstall capabilities", func() {
 		backend1 := test.NewTestCapabilityBackend(ctrl, &test.CapabilityInfo{
@@ -170,6 +170,6 @@ var _ = Describe("Store", Ordered, Label(test.Unit), func() {
 		Expect(store.Add("capability1", backend1)).To(Succeed())
 		Expect(store.Add("capability2", backend2)).To(Succeed())
 
-		store.UninstallCapabilities(&core.Reference{}, "capability1", "capability2")
+		store.UninstallCapabilities(&corev1.Reference{}, "capability1", "capability2")
 	})
 })

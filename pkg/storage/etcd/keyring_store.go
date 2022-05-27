@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -14,7 +14,7 @@ import (
 type etcdKeyringStore struct {
 	EtcdStoreOptions
 	client *clientv3.Client
-	ref    *core.Reference
+	ref    *corev1.Reference
 	prefix string
 }
 

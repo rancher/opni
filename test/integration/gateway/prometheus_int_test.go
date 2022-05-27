@@ -13,8 +13,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/management"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/test"
 )
@@ -33,7 +33,7 @@ type fingerprintsTestData struct {
 var testFingerprints fingerprintsData
 var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label(test.Integration), func() {
 	var environment *test.Environment
-	var client management.ManagementClient
+	var client managementv1.ManagementClient
 	var fingerprint string
 	BeforeAll(func() {
 		environment = &test.Environment{
@@ -59,7 +59,7 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label(test
 
 	When("querying metrics from the gateway", func() {
 		It("can return Prometheus metrics", func() {
-			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -75,12 +75,12 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label(test
 			Consistently(errC).ShouldNot(Receive(HaveOccurred()))
 
 			//http request to the gateway endpoint including auth header
-			_, err = client.CreateRole(context.Background(), &core.Role{
+			_, err = client.CreateRole(context.Background(), &corev1.Role{
 				Id:         "test-role",
 				ClusterIDs: []string{"test-cluster-id"},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			_, err = client.CreateRoleBinding(context.Background(), &core.RoleBinding{
+			_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
 				Id:       "test-role-binding",
 				RoleId:   "test-role",
 				Subjects: []string{"user@example.com"},

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -34,7 +34,7 @@ type CRDStoreOptions struct {
 
 type CRDStoreOption func(*CRDStoreOptions)
 
-func (o *CRDStoreOptions) Apply(opts ...CRDStoreOption) {
+func (o *CRDStoreOptions) apply(opts ...CRDStoreOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -64,7 +64,7 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 		namespace:      os.Getenv("POD_NAMESPACE"),
 		commandTimeout: 5 * time.Second,
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 	if options.namespace == "" {
 		lg.Warn("namespace is not set, using \"default\"")
 		options.namespace = "default"
@@ -82,7 +82,7 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	}
 }
 
-func (e *CRDStore) KeyringStore(ctx context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+func (e *CRDStore) KeyringStore(ctx context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 	return &crdKeyringStore{
 		CRDStoreOptions: e.CRDStoreOptions,
 		client:          e.client,

@@ -16,7 +16,6 @@ import (
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
-	"github.com/cortexproject/cortex/pkg/ingester/client"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/samber/lo"
 	"google.golang.org/grpc"
@@ -126,7 +125,7 @@ func (p *Plugin) WriteMetrics(ctx context.Context, in *cortexadmin.WriteRequest)
 		Metadata:   lo.Map(in.Metadata, mapMetadata),
 	}
 	lg.Debug("writing metrics to cortex")
-	_, err := p.ingesterClient.Get().Push(outgoingContext(ctx, in), cortexReq)
+	_, err := p.distributorClient.Get().Push(outgoingContext(ctx, in), cortexReq)
 	if err != nil {
 		p.logger.With(
 			"err", err,
@@ -147,7 +146,7 @@ func outgoingContext(ctx context.Context, in clusterIDGetter) context.Context {
 }
 
 func (p *Plugin) configureAdminClients(tlsConfig *tls.Config) {
-	ctx, ca := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, ca := context.WithTimeout(context.Background(), 10*time.Second)
 	defer ca()
 	cfg, err := p.config.GetContext(ctx)
 	if err != nil {
@@ -168,19 +167,7 @@ func (p *Plugin) configureAdminClients(tlsConfig *tls.Config) {
 		p.distributorClient.Set(distributorpb.NewDistributorClient(cc))
 	}
 	{
-		cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Ingester.GRPCAddress,
-			grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
-		)
-		if err != nil {
-			p.logger.With(
-				"err", err,
-			).Error("Failed to dial distributor")
-			os.Exit(1)
-		}
-		p.ingesterClient.Set(client.NewIngesterClient(cc))
-	}
-	{
-		httpClient := http.Client{
+		httpClient := &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: tlsConfig,
 			},

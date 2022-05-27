@@ -285,6 +285,7 @@ func (r *Reconciler) cortexServingCert() client.Object {
 				"cortex-query-frontend",
 				"cortex-query-frontend-headless",
 				"cortex-ruler",
+				"cortex-ruler-headless",
 				"cortex-store-gateway",
 				"cortex-store-gateway-headless",
 			},

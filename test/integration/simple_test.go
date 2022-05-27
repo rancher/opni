@@ -6,8 +6,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/management"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -15,7 +15,7 @@ import (
 
 var _ = Describe("Simple Test", Ordered, func() {
 	var environment *test.Environment
-	var client management.ManagementClient
+	var client managementv1.ManagementClient
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../testbin/bin",
@@ -28,11 +28,11 @@ var _ = Describe("Simple Test", Ordered, func() {
 		Expect(environment.Stop()).To(Succeed())
 	})
 
-	var token *core.BootstrapToken
+	var token *corev1.BootstrapToken
 	var fingerprint string
 	It("should create a bootstrap token", func() {
 		var err error
-		token, err = client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+		token, err = client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
 		})
 		Expect(err).NotTo(HaveOccurred())

@@ -1,7 +1,7 @@
 package v1beta2
 
 import (
-	"github.com/rancher/opni/pkg/core"
+	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -9,7 +9,7 @@ import (
 type BootstrapToken struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              *core.BootstrapToken `json:"spec,omitempty"`
+	Spec              *opnicorev1.BootstrapToken `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -23,7 +23,7 @@ type BootstrapTokenList struct {
 type Cluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              *core.Cluster `json:"spec,omitempty"`
+	Spec              *opnicorev1.Cluster `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -37,7 +37,7 @@ type ClusterList struct {
 type Role struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              *core.Role `json:"spec,omitempty"`
+	Spec              *opnicorev1.Role `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -51,7 +51,7 @@ type RoleList struct {
 type RoleBinding struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              *core.RoleBinding `json:"spec,omitempty"`
+	Spec              *opnicorev1.RoleBinding `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true

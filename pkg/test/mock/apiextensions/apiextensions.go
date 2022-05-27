@@ -270,3 +270,131 @@ func (mr *MockUnsafeGatewayAPIExtensionServerMockRecorder) mustEmbedUnimplemente
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedGatewayAPIExtensionServer", reflect.TypeOf((*MockUnsafeGatewayAPIExtensionServer)(nil).mustEmbedUnimplementedGatewayAPIExtensionServer))
 }
+
+// MockStreamAPIExtensionClient is a mock of StreamAPIExtensionClient interface.
+type MockStreamAPIExtensionClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockStreamAPIExtensionClientMockRecorder
+}
+
+// MockStreamAPIExtensionClientMockRecorder is the mock recorder for MockStreamAPIExtensionClient.
+type MockStreamAPIExtensionClientMockRecorder struct {
+	mock *MockStreamAPIExtensionClient
+}
+
+// NewMockStreamAPIExtensionClient creates a new mock instance.
+func NewMockStreamAPIExtensionClient(ctrl *gomock.Controller) *MockStreamAPIExtensionClient {
+	mock := &MockStreamAPIExtensionClient{ctrl: ctrl}
+	mock.recorder = &MockStreamAPIExtensionClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStreamAPIExtensionClient) EXPECT() *MockStreamAPIExtensionClientMockRecorder {
+	return m.recorder
+}
+
+// Services mocks base method.
+func (m *MockStreamAPIExtensionClient) Services(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*apiextensions.ServiceDescriptorList, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Services", varargs...)
+	ret0, _ := ret[0].(*apiextensions.ServiceDescriptorList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Services indicates an expected call of Services.
+func (mr *MockStreamAPIExtensionClientMockRecorder) Services(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Services", reflect.TypeOf((*MockStreamAPIExtensionClient)(nil).Services), varargs...)
+}
+
+// MockStreamAPIExtensionServer is a mock of StreamAPIExtensionServer interface.
+type MockStreamAPIExtensionServer struct {
+	ctrl     *gomock.Controller
+	recorder *MockStreamAPIExtensionServerMockRecorder
+}
+
+// MockStreamAPIExtensionServerMockRecorder is the mock recorder for MockStreamAPIExtensionServer.
+type MockStreamAPIExtensionServerMockRecorder struct {
+	mock *MockStreamAPIExtensionServer
+}
+
+// NewMockStreamAPIExtensionServer creates a new mock instance.
+func NewMockStreamAPIExtensionServer(ctrl *gomock.Controller) *MockStreamAPIExtensionServer {
+	mock := &MockStreamAPIExtensionServer{ctrl: ctrl}
+	mock.recorder = &MockStreamAPIExtensionServerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStreamAPIExtensionServer) EXPECT() *MockStreamAPIExtensionServerMockRecorder {
+	return m.recorder
+}
+
+// Services mocks base method.
+func (m *MockStreamAPIExtensionServer) Services(arg0 context.Context, arg1 *emptypb.Empty) (*apiextensions.ServiceDescriptorList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Services", arg0, arg1)
+	ret0, _ := ret[0].(*apiextensions.ServiceDescriptorList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Services indicates an expected call of Services.
+func (mr *MockStreamAPIExtensionServerMockRecorder) Services(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Services", reflect.TypeOf((*MockStreamAPIExtensionServer)(nil).Services), arg0, arg1)
+}
+
+// mustEmbedUnimplementedStreamAPIExtensionServer mocks base method.
+func (m *MockStreamAPIExtensionServer) mustEmbedUnimplementedStreamAPIExtensionServer() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "mustEmbedUnimplementedStreamAPIExtensionServer")
+}
+
+// mustEmbedUnimplementedStreamAPIExtensionServer indicates an expected call of mustEmbedUnimplementedStreamAPIExtensionServer.
+func (mr *MockStreamAPIExtensionServerMockRecorder) mustEmbedUnimplementedStreamAPIExtensionServer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedStreamAPIExtensionServer", reflect.TypeOf((*MockStreamAPIExtensionServer)(nil).mustEmbedUnimplementedStreamAPIExtensionServer))
+}
+
+// MockUnsafeStreamAPIExtensionServer is a mock of UnsafeStreamAPIExtensionServer interface.
+type MockUnsafeStreamAPIExtensionServer struct {
+	ctrl     *gomock.Controller
+	recorder *MockUnsafeStreamAPIExtensionServerMockRecorder
+}
+
+// MockUnsafeStreamAPIExtensionServerMockRecorder is the mock recorder for MockUnsafeStreamAPIExtensionServer.
+type MockUnsafeStreamAPIExtensionServerMockRecorder struct {
+	mock *MockUnsafeStreamAPIExtensionServer
+}
+
+// NewMockUnsafeStreamAPIExtensionServer creates a new mock instance.
+func NewMockUnsafeStreamAPIExtensionServer(ctrl *gomock.Controller) *MockUnsafeStreamAPIExtensionServer {
+	mock := &MockUnsafeStreamAPIExtensionServer{ctrl: ctrl}
+	mock.recorder = &MockUnsafeStreamAPIExtensionServerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockUnsafeStreamAPIExtensionServer) EXPECT() *MockUnsafeStreamAPIExtensionServerMockRecorder {
+	return m.recorder
+}
+
+// mustEmbedUnimplementedStreamAPIExtensionServer mocks base method.
+func (m *MockUnsafeStreamAPIExtensionServer) mustEmbedUnimplementedStreamAPIExtensionServer() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "mustEmbedUnimplementedStreamAPIExtensionServer")
+}
+
+// mustEmbedUnimplementedStreamAPIExtensionServer indicates an expected call of mustEmbedUnimplementedStreamAPIExtensionServer.
+func (mr *MockUnsafeStreamAPIExtensionServerMockRecorder) mustEmbedUnimplementedStreamAPIExtensionServer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedStreamAPIExtensionServer", reflect.TypeOf((*MockUnsafeStreamAPIExtensionServer)(nil).mustEmbedUnimplementedStreamAPIExtensionServer))
+}

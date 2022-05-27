@@ -23,7 +23,7 @@ type ClientOptions struct {
 
 type ClientOption func(*ClientOptions)
 
-func (o *ClientOptions) Apply(opts ...ClientOption) {
+func (o *ClientOptions) apply(opts ...ClientOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -63,7 +63,7 @@ func CreateClientOrDie(opts ...ClientOption) (*api.Config, *rest.Config, client.
 // LoadClientConfig loads the user's kubeconfig using the same logic as kubectl.
 func LoadClientConfig(opts ...ClientOption) (*api.Config, *rest.Config) {
 	options := ClientOptions{}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	// the loading rules check for empty string in the ExplicitPath, so it is

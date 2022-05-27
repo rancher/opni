@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
 func NewCompositeMutator[T any](mutators ...MutatorFunc[T]) MutatorFunc[T] {
@@ -12,13 +12,13 @@ func NewCompositeMutator[T any](mutators ...MutatorFunc[T]) MutatorFunc[T] {
 	}
 }
 
-func NewIncrementUsageCountMutator() MutatorFunc[*core.BootstrapToken] {
-	return func(obj *core.BootstrapToken) {
+func NewIncrementUsageCountMutator() MutatorFunc[*corev1.BootstrapToken] {
+	return func(obj *corev1.BootstrapToken) {
 		obj.Metadata.UsageCount++
 	}
 }
 
-func NewAddCapabilityMutator[O core.MetadataAccessor[T], T core.Capability[T]](capability T) MutatorFunc[O] {
+func NewAddCapabilityMutator[O corev1.MetadataAccessor[T], T corev1.Capability[T]](capability T) MutatorFunc[O] {
 	return func(obj O) {
 		exists := false
 		for _, c := range obj.GetCapabilities() {
@@ -34,7 +34,7 @@ func NewAddCapabilityMutator[O core.MetadataAccessor[T], T core.Capability[T]](c
 	}
 }
 
-func NewRemoveCapabilityMutator[O core.MetadataAccessor[T], T core.Capability[T]](capability T) MutatorFunc[O] {
+func NewRemoveCapabilityMutator[O corev1.MetadataAccessor[T], T corev1.Capability[T]](capability T) MutatorFunc[O] {
 	return func(obj O) {
 		capabilities := []T{}
 		for _, c := range obj.GetCapabilities() {

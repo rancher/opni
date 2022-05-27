@@ -5,8 +5,6 @@ import (
 	"sync/atomic"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/gateway"
@@ -15,12 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/management"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	gatewayext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
-	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
-	"github.com/rancher/opni/pkg/plugins/apis/capability"
-	"github.com/rancher/opni/pkg/plugins/apis/metrics"
-	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -58,46 +51,41 @@ func BuildGatewayCmd() *cobra.Command {
 			"dirs", gatewayConfig.Spec.Plugins.Dirs,
 		).Info("loading plugins")
 		pluginLoader := plugins.NewPluginLoader()
-		numLoaded := machinery.LoadPlugins(pluginLoader, gatewayConfig.Spec.Plugins)
-		lg.Infof("loaded %d plugins", numLoaded)
-		mgmtExtensionPlugins := plugins.DispenseAllAs[apiextensions.ManagementAPIExtensionClient](
-			pluginLoader, managementext.ManagementAPIExtensionPluginID)
-		gatewayExtensionPlugins := plugins.DispenseAllAs[apiextensions.GatewayAPIExtensionClient](
-			pluginLoader, gatewayext.GatewayAPIExtensionPluginID)
-		systemPlugins := pluginLoader.DispenseAll(system.SystemPluginID)
-		capBackendPlugins := plugins.DispenseAllAs[capability.BackendClient](
-			pluginLoader, capability.CapabilityBackendPluginID)
-		metricsPlugins := plugins.DispenseAllAs[prometheus.Collector](
-			pluginLoader, metrics.MetricsPluginID)
 
 		lifecycler := config.NewLifecycler(objects)
-		g := gateway.NewGateway(ctx, gatewayConfig,
-			gateway.WithSystemPlugins(systemPlugins),
+		g := gateway.NewGateway(ctx, gatewayConfig, pluginLoader,
 			gateway.WithLifecycler(lifecycler),
-			gateway.WithCapabilityBackendPlugins(capBackendPlugins),
-			gateway.WithAPIServerOptions(
-				gateway.WithAPIExtensions(gatewayExtensionPlugins),
-				gateway.WithAuthMiddleware(gatewayConfig.Spec.AuthProvider),
-				gateway.WithMetricsPlugins(metricsPlugins),
-			),
 		)
 
-		m := management.NewServer(ctx, &gatewayConfig.Spec.Management, g,
+		m := management.NewServer(ctx, &gatewayConfig.Spec.Management, g, pluginLoader,
 			management.WithCapabilitiesDataSource(g),
-			management.WithSystemPlugins(systemPlugins),
-			management.WithAPIExtensions(mgmtExtensionPlugins),
+			management.WithHealthStatusDataSource(g),
 			management.WithLifecycler(lifecycler),
 		)
 
 		g.MustRegisterCollector(m)
 
-		go func() {
-			if err := m.ListenAndServe(); err != nil {
+		pluginLoader.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
+			lg.Infof("loaded %d plugins", numLoaded)
+		}))
+
+		pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
+			if err := m.ListenAndServe(ctx); err != nil {
 				lg.With(
 					zap.Error(err),
 				).Fatal("management server exited with error")
 			}
-		}()
+		}))
+
+		pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
+			if err := g.ListenAndServe(ctx); err != nil {
+				lg.With(
+					zap.Error(err),
+				).Error("gateway server exited with error")
+			}
+		}))
+
+		pluginLoader.LoadPlugins(gatewayConfig.Spec.Plugins)
 
 		style := chalk.Yellow.NewStyle().
 			WithBackground(chalk.ResetColor).
@@ -116,18 +104,10 @@ func BuildGatewayCmd() *cobra.Command {
 			close(reloadC)
 		}()
 
-		if err := g.ListenAndServe(); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Error("gateway server exited with error")
-			return err
-		}
-
 		<-reloadC
 		lg.Info(style.Style("waiting for servers to shut down"))
 		waitctx.Wait(ctx)
 
-		auth.ResetMiddlewares()
 		atomic.StoreUint32(&plugin.Killed, 0)
 		lg.Info(style.Style("--- reloading ---"))
 		return nil

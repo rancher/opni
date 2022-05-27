@@ -6,47 +6,48 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/test"
+	"google.golang.org/grpc"
 )
 
-type testMiddleware struct{}
+type testHttp struct{}
 
-func (tm *testMiddleware) Handle(ctx *fiber.Ctx) error {
+func (*testHttp) Handle(ctx *fiber.Ctx) error {
+	return nil
+}
+
+type testUnaryGrpc struct{}
+
+func (*testUnaryGrpc) UnaryServerInterceptor() grpc.UnaryClientInterceptor {
+	return nil
+}
+
+type testStreamGrpc struct{}
+
+func (*testStreamGrpc) StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return nil
 }
 
 var _ = Describe("Middleware", Label(test.Unit), func() {
-	AfterEach(func() {
-		auth.ResetMiddlewares()
-	})
-	When("registering a new middleware object", func() {
-		It("should succeed if the middleware does not exist yet", func() {
-			Expect(auth.RegisterMiddleware("test", &testMiddleware{})).To(Succeed())
-		})
-		It("should return an error if the middleware name is empty", func() {
-			Expect(auth.RegisterMiddleware("", &testMiddleware{})).To(MatchError(auth.ErrInvalidMiddlewareName))
-		})
-		It("should return an error if the middleware already exists", func() {
-			auth.RegisterMiddleware("test", &testMiddleware{})
-			Expect(auth.RegisterMiddleware("test", &testMiddleware{})).To(MatchError(auth.ErrMiddlewareAlreadyExists))
-		})
-		It("should return an error if the middleware is nil", func() {
-			Expect(auth.RegisterMiddleware("test", nil)).To(MatchError(auth.ErrNilMiddleware))
-		})
-	})
-
-	When("getting a middleware object by name", func() {
-		It("should return an error if the middleware is not found", func() {
-			_, err := auth.GetMiddleware("test")
-			Expect(err).To(MatchError(auth.ErrMiddlewareNotFound))
-		})
-		It("should return the middleware object if it is found", func() {
-			auth.RegisterMiddleware("test", &testMiddleware{})
-			mw, err := auth.GetMiddleware("test")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(mw.Name()).To(Equal("test"))
-
-			tm := auth.NamedMiddlewareAs[*testMiddleware](mw)
-			Expect(tm).NotTo(BeNil())
-		})
+	It("should detect supported protocols", func() {
+		Expect(auth.SupportedProtocols(&testHttp{})).To(Equal(auth.ProtocolHTTP))
+		Expect(auth.SupportedProtocols(&testUnaryGrpc{})).To(Equal(auth.ProtocolUnaryGRPC))
+		Expect(auth.SupportedProtocols(&testStreamGrpc{})).To(Equal(auth.ProtocolStreamGRPC))
+		Expect(auth.SupportedProtocols(&struct {
+			*testHttp
+			*testUnaryGrpc
+		}{})).To(Equal(auth.ProtocolHTTP | auth.ProtocolUnaryGRPC))
+		Expect(auth.SupportedProtocols(&struct {
+			*testHttp
+			*testStreamGrpc
+		}{})).To(Equal(auth.ProtocolHTTP | auth.ProtocolStreamGRPC))
+		Expect(auth.SupportedProtocols(&struct {
+			*testUnaryGrpc
+			*testStreamGrpc
+		}{})).To(Equal(auth.ProtocolUnaryGRPC | auth.ProtocolStreamGRPC))
+		Expect(auth.SupportedProtocols(&struct {
+			*testHttp
+			*testUnaryGrpc
+			*testStreamGrpc
+		}{})).To(Equal(auth.ProtocolHTTP | auth.ProtocolUnaryGRPC | auth.ProtocolStreamGRPC))
 	})
 })

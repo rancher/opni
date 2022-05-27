@@ -1,16 +1,16 @@
 package cortex
 
-import "github.com/rancher/opni/pkg/core"
+import corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 
 func (p *Plugin) CanInstall() error {
 	return nil
 }
 
-func (p *Plugin) Install(cluster *core.Reference) error {
+func (p *Plugin) Install(cluster *corev1.Reference) error {
 	return nil
 }
 
-func (p *Plugin) Uninstall(clustre *core.Reference) error {
+func (p *Plugin) Uninstall(clustre *corev1.Reference) error {
 	return nil
 }
 

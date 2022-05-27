@@ -6,7 +6,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
@@ -16,7 +17,7 @@ import (
 
 var _ = Describe("RBAC", Ordered, Label(test.Slow), func() {
 	var tv *testVars
-	BeforeAll(setupManagementServer(&tv))
+	BeforeAll(setupManagementServer(&tv, plugins.NoopLoader))
 
 	It("should initially have no RBAC objects", func() {
 		roles, err := tv.client.ListRoles(context.Background(), &emptypb.Empty{})
@@ -28,7 +29,7 @@ var _ = Describe("RBAC", Ordered, Label(test.Slow), func() {
 	})
 	It("should create roles", func() {
 		for i := 0; i < 100; i++ {
-			role := &core.Role{
+			role := &corev1.Role{
 				Id:         fmt.Sprintf("role-%d", i),
 				ClusterIDs: []string{fmt.Sprintf("cluster-%d", i)},
 			}
@@ -46,7 +47,7 @@ var _ = Describe("RBAC", Ordered, Label(test.Slow), func() {
 	})
 	It("should create role bindings", func() {
 		for i := 0; i < 100; i++ {
-			rb := &core.RoleBinding{
+			rb := &corev1.RoleBinding{
 				Id:       fmt.Sprintf("rb-%d", i),
 				RoleId:   fmt.Sprintf("role-%d", i),
 				Subjects: []string{fmt.Sprintf("user-%d", i)},
@@ -66,7 +67,7 @@ var _ = Describe("RBAC", Ordered, Label(test.Slow), func() {
 
 	It("should compute subject access", func() {
 		for i := 0; i < 100; i++ {
-			refList, err := tv.client.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
+			refList, err := tv.client.SubjectAccess(context.Background(), &corev1.SubjectAccessRequest{
 				Subject: fmt.Sprintf("user-%d", i),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -77,7 +78,7 @@ var _ = Describe("RBAC", Ordered, Label(test.Slow), func() {
 
 	It("should delete roles", func() {
 		for i := 0; i < 100; i++ {
-			role := &core.Role{
+			role := &corev1.Role{
 				Id: fmt.Sprintf("role-%d", i),
 			}
 			_, err := tv.client.DeleteRole(context.Background(), role.Reference())
@@ -94,7 +95,7 @@ var _ = Describe("RBAC", Ordered, Label(test.Slow), func() {
 
 	It("should delete role bindings", func() {
 		for i := 0; i < 100; i++ {
-			rb := &core.RoleBinding{
+			rb := &corev1.RoleBinding{
 				Id: fmt.Sprintf("rb-%d", i),
 			}
 			_, err := tv.client.DeleteRoleBinding(context.Background(), rb.Reference())
@@ -112,7 +113,7 @@ var _ = Describe("RBAC", Ordered, Label(test.Slow), func() {
 	Context("error handling", func() {
 		When("creating a rolebinding with taints", func() {
 			It("should error indicating the field is read-only", func() {
-				rb := &core.RoleBinding{
+				rb := &corev1.RoleBinding{
 					Id:       "rb-1",
 					RoleId:   "role-1",
 					Subjects: []string{"user-1"},

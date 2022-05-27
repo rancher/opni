@@ -14,14 +14,14 @@ import (
 )
 
 type NoauthMiddleware struct {
-	openidMiddleware auth.Middleware
+	openidMiddleware auth.HTTPMiddleware
 	noauthConfig     *noauth.ServerConfig
 	logger           *zap.SugaredLogger
 }
 
 var _ auth.Middleware = (*NoauthMiddleware)(nil)
 
-func New(ctx context.Context, config v1beta1.AuthProviderSpec) (auth.Middleware, error) {
+func New(ctx context.Context, config v1beta1.AuthProviderSpec) (*NoauthMiddleware, error) {
 	lg := logger.New().Named("noauth")
 	conf, err := util.DecodeStruct[noauth.ServerConfig](config.Options)
 	if err != nil {

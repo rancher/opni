@@ -9,12 +9,13 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/rancher/opni/pkg/bootstrap"
-	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/management"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/test"
 )
@@ -33,7 +34,7 @@ type fingerprintsTestData struct {
 var testFingerprints fingerprintsData
 var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.EnableIfCI[FlakeAttempts](5), Label(test.Integration, test.Slow, test.TimeSensitive), func() {
 	var environment *test.Environment
-	var client management.ManagementClient
+	var client managementv1.ManagementClient
 	var fingerprint string
 	BeforeAll(func() {
 		environment = &test.Environment{
@@ -57,11 +58,11 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 
 	//#region Happy Path Tests
 
-	var token *core.BootstrapToken
+	var token *corev1.BootstrapToken
 	When("one bootstrap token is available", func() {
 		It("should allow an agent to bootstrap using the token", func() {
 			var err error
-			token, err = client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			token, err = client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -85,7 +86,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 
 		It("should increment the usage count of the token", func() {
 			Eventually(func() int {
-				token, err := client.GetBootstrapToken(context.Background(), &core.Reference{
+				token, err := client.GetBootstrapToken(context.Background(), &corev1.Reference{
 					Id: token.TokenID,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -100,12 +101,12 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 
 	When("the token is revoked", func() {
 		It("should not allow any agents to bootstrap", func() {
-			_, err := client.RevokeBootstrapToken(context.Background(), &core.Reference{
+			_, err := client.RevokeBootstrapToken(context.Background(), &corev1.Reference{
 				Id: token.TokenID,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
-				_, err := client.GetBootstrapToken(context.Background(), &core.Reference{
+				_, err := client.GetBootstrapToken(context.Background(), &corev1.Reference{
 					Id: token.TokenID,
 				})
 				return err
@@ -114,14 +115,14 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			clusterName := "test-cluster-id-" + uuid.New().String()
 
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-			Eventually(errC).Should(Receive(MatchError("bootstrap error: bootstrap failed: 405 Method Not Allowed")))
+			Eventually(errC).Should(Receive(WithTransform(status.Code, Equal(codes.Unavailable))))
 		})
 	})
 
 	When("several agents bootstrap at the same time", func() {
 		It("should correctly bootstrap each agent", func() {
 			var err error
-			token, err = client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			token, err = client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -142,8 +143,8 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 					case <-time.After(time.Second * 2):
 					}
 
-					_, err := client.EditCluster(context.Background(), &management.EditClusterRequest{
-						Cluster: &core.Reference{
+					_, err := client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+						Cluster: &corev1.Reference{
 							Id: clusterName,
 						},
 						Labels: map[string]string{
@@ -158,8 +159,8 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			close(ch)                         // start all goroutines at the same time
 			wg.Wait()                         // wait until they all finish
 
-			clusterList, err := client.ListClusters(context.Background(), &management.ListClustersRequest{
-				MatchLabels: &core.LabelSelector{
+			clusterList, err := client.ListClusters(context.Background(), &managementv1.ListClustersRequest{
+				MatchLabels: &corev1.LabelSelector{
 					MatchLabels: map[string]string{
 						"i": "998",
 					},
@@ -172,7 +173,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 		})
 		It("should increment the usage count of the token correctly", func() {
 			Eventually(func() int {
-				tokenUsage, err := client.GetBootstrapToken(context.Background(), &core.Reference{
+				tokenUsage, err := client.GetBootstrapToken(context.Background(), &corev1.Reference{
 					Id: token.TokenID,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -183,9 +184,9 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 
 	When("multiple tokens are available", func() {
 		It("should allow agents to bootstrap using any token", func() {
-			tokens := []*core.BootstrapToken{}
+			tokens := []*corev1.BootstrapToken{}
 			for i := 0; i < 10; i++ {
-				newToken, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+				newToken, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 					Ttl: durationpb.New(time.Minute),
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -204,13 +205,13 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 
 	When("a token expires but other tokens are available", func() {
 		It("should not allow agents to use the expired token", func() {
-			exToken, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			exToken, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Second),
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() error {
-				_, err := client.GetBootstrapToken(context.Background(), &core.Reference{
+				_, err := client.GetBootstrapToken(context.Background(), &corev1.Reference{
 					Id: exToken.TokenID,
 				})
 				return err
@@ -223,7 +224,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 
 	When("a token is created with labels", func() {
 		It("should automatically add those labels to any clusters who use it", func() {
-			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 				Labels: map[string]string{
 					"i": "999",
@@ -234,9 +235,9 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			_, errC := environment.StartAgent("test-cluster-1", token, []string{fingerprint})
 			Consistently(errC).ShouldNot(Receive())
 
-			var cluster *core.Cluster
+			var cluster *corev1.Cluster
 			Eventually(func() (err error) {
-				cluster, err = client.GetCluster(context.Background(), &core.Reference{
+				cluster, err = client.GetCluster(context.Background(), &corev1.Reference{
 					Id: "test-cluster-1",
 				})
 				return
@@ -248,7 +249,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 	})
 
 	It("should allow agents to bootstrap using any available certificate", func() {
-		token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -264,10 +265,9 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 		}
 	})
 
-	//TODO: This test is not working.
-	XWhen("an agent tries to bootstrap twice", func() {
+	When("an agent tries to bootstrap twice", func() {
 		It("should reject the bootstrap request", func() {
-			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -283,25 +283,25 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			Expect(err).NotTo(HaveOccurred())
 			defer etcdClient.Close()
 
-			_, err = etcdClient.Delete(context.Background(), "/agent/keyrings/"+id)
+			_, err = etcdClient.Delete(context.Background(), "agent/keyrings/"+id)
 			Expect(err).NotTo(HaveOccurred())
 
 			_, errC = environment.StartAgent(id, token, []string{fingerprint})
 
-			Eventually(errC).Should(Receive(MatchError(bootstrap.ErrBootstrapFailed)))
+			Eventually(errC).Should(Receive(HaveOccurred()))
 		})
 	})
 
 	When("an agent requests an ID that is already in use", func() {
 		var prevUsageCount int32
 		It("should reject the bootstrap request", func() {
-			tokenUsage, err := client.GetBootstrapToken(context.Background(), &core.Reference{
+			tokenUsage, err := client.GetBootstrapToken(context.Background(), &corev1.Reference{
 				Id: token.TokenID,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			prevUsageCount = int32(tokenUsage.Metadata.UsageCount)
 
-			tempToken, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			tempToken, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -309,7 +309,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			_, errC := environment.StartAgent("test-cluster-3", tempToken, []string{fingerprint})
 			Consistently(errC).ShouldNot(Receive())
 			Eventually(func() error {
-				_, err := client.GetCluster(context.Background(), &core.Reference{
+				_, err := client.GetCluster(context.Background(), &corev1.Reference{
 					Id: "test-cluster-3",
 				})
 				return err
@@ -327,11 +327,11 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			Expect(resp.Deleted).To(BeEquivalentTo(1))
 
 			_, errC = environment.StartAgent("test-cluster-3", token, []string{fingerprint})
-			Eventually(errC).Should(Receive(MatchError("bootstrap error: bootstrap failed: bootstrap failed: 409 Conflict")))
+			Eventually(errC).Should(Receive(WithTransform(status.Code, Equal(codes.AlreadyExists))))
 		})
 
 		It("should not increment the usage count of the token ", func() {
-			tokenUsage, err := client.GetBootstrapToken(context.Background(), &core.Reference{
+			tokenUsage, err := client.GetBootstrapToken(context.Background(), &corev1.Reference{
 				Id: token.TokenID,
 			})
 			Expect(err).NotTo(HaveOccurred())

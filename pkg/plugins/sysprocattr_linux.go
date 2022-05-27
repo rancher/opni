@@ -10,6 +10,6 @@ import (
 func ConfigureSysProcAttr(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid:   true,
-		Pdeathsig: syscall.SIGKILL,
+		Pdeathsig: syscall.SIGTERM,
 	}
 }

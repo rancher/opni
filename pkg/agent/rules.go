@@ -2,14 +2,15 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
@@ -29,6 +30,8 @@ func (a *Agent) configureRuleFinder() (rules.RuleFinder, error) {
 				rules.WithNamespaces(pr.SearchNamespaces...),
 			)
 			return finder, nil
+		} else if a.Rules.Discovery.Filesystem != nil {
+			return rules.NewFilesystemRuleFinder(a.Rules.Discovery.Filesystem), nil
 		}
 	}
 	return nil, fmt.Errorf("missing configuration")
@@ -111,15 +114,26 @@ func (a *Agent) streamRulesToGateway(ctx context.Context) error {
 				for _, doc := range docs {
 					reqCtx, ca := context.WithTimeout(ctx, time.Second*2)
 					defer ca()
-					code, _, err := a.gatewayClient.Post(reqCtx, "/api/agent/sync_rules").
-						Set("Content-Type", "application/yaml").
-						Body(doc).
-						Do()
-					if err != nil || code != http.StatusAccepted {
+					a.remoteWriteMu.Lock()
+					var err error
+					if a.remoteWriteClient != nil {
+						_, err = a.remoteWriteClient.SyncRules(reqCtx, &remotewrite.Payload{
+							AuthorizedClusterID: a.tenantID,
+							Headers: map[string]string{
+								"Content-Type": "application/yaml",
+							},
+							Contents: doc,
+						})
+					} else {
+						err = errors.New("gateway is not connected")
+					}
+					a.remoteWriteMu.Unlock()
+
+					if err != nil {
+						a.conditions.Store(condRuleSync, statusFailure)
 						// retry, unless another update is received from the channel
 						lg.With(
 							zap.Error(err),
-							zap.Int("code", code),
 						).Error("failed to send alert rules to gateway (retry in 5 seconds)")
 						select {
 						case docs = <-pending:
@@ -134,6 +148,7 @@ func (a *Agent) streamRulesToGateway(ctx context.Context) error {
 					}
 				}
 				lg.Infof("successfully sent %d alert rules to gateway", len(docs))
+				a.conditions.Delete(condRuleSync)
 				break
 			}
 		}

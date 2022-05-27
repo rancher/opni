@@ -23,8 +23,8 @@ type AgentConfigSpec struct {
 	// This should be in the format "host:port" or ":port", and must not
 	// include a scheme.
 	ListenAddress string `json:"listenAddress,omitempty"`
-	// The address of the gateway's public HTTP API. This should be of the format
-	// "https://host:port". The scheme must be "https".
+	// The address of the gateway's public GRPC API. This should be of the format
+	// "host:port" with no scheme.
 	GatewayAddress string `json:"gatewayAddress,omitempty"`
 	// The name of the identity provider to use. Defaults to "kubernetes".
 	IdentityProvider string `json:"identityProvider,omitempty"`
@@ -68,8 +68,13 @@ type RulesSpec struct {
 
 type DiscoverySpec struct {
 	PrometheusRules *PrometheusRulesSpec `json:"prometheusRules,omitempty"`
+	Filesystem      *FilesystemRulesSpec `json:"filesystem,omitempty"`
 	// Search interval. Defaults to "15m"
 	Interval string `json:"interval,omitempty"`
+}
+
+type FilesystemRulesSpec struct {
+	PathExpressions []string `json:"pathExpressions,omitempty"`
 }
 
 type PrometheusRulesSpec struct {

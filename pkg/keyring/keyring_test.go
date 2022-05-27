@@ -1,6 +1,8 @@
 package keyring_test
 
 import (
+	"crypto/x509"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
@@ -87,26 +89,42 @@ var _ = Describe("Keyring", Label(test.Unit), func() {
 	When("creating a keyring with multiple keys", func() {
 		It("should function correctly", func() {
 			By("creating a new keyring")
-			kr := keyring.New(keyring.NewPKPKey([]*pkp.PublicKeyPin{
-				{
-					Algorithm:   "sha256",
-					Fingerprint: []byte("test"),
-				},
-			}), keyring.NewSharedKeys(make([]byte, 64)))
+			kr := keyring.New(
+				keyring.NewPKPKey([]*pkp.PublicKeyPin{
+					{
+						Algorithm:   "sha256",
+						Fingerprint: []byte("test"),
+					},
+				}),
+				keyring.NewSharedKeys(make([]byte, 64)),
+				keyring.NewCACertsKey([]*x509.Certificate{
+					{
+						Raw: []byte("foo"),
+					},
+				}),
+			)
 			Expect(kr).NotTo(BeNil())
 
 			By("ensuring Try calls all functions")
 			counterA := atomic.NewInt32(0)
 			counterB := atomic.NewInt32(0)
-			kr.Try(func(keys *keyring.SharedKeys) {
-				counterA.Inc()
-				Expect(keys.ClientKey).To(HaveLen(64))
-				Expect(keys.ServerKey).To(HaveLen(64))
-			}, func(key *keyring.PKPKey) {
-				counterB.Inc()
-				Expect(key.PinnedKeys[0].Algorithm).To(BeEquivalentTo("sha256"))
-				Expect(key.PinnedKeys[0].Fingerprint).To(BeEquivalentTo("test"))
-			})
+			counterC := atomic.NewInt32(0)
+			kr.Try(
+				func(keys *keyring.SharedKeys) {
+					counterA.Inc()
+					Expect(keys.ClientKey).To(HaveLen(64))
+					Expect(keys.ServerKey).To(HaveLen(64))
+				},
+				func(key *keyring.PKPKey) {
+					counterB.Inc()
+					Expect(key.PinnedKeys[0].Algorithm).To(BeEquivalentTo("sha256"))
+					Expect(key.PinnedKeys[0].Fingerprint).To(BeEquivalentTo("test"))
+				},
+				func(key *keyring.CACertsKey) {
+					counterC.Inc()
+					Expect(key.CACerts[0]).To(BeEquivalentTo("foo"))
+				},
+			)
 			Expect(counterA.Load()).To(Equal(int32(1)))
 			Expect(counterB.Load()).To(Equal(int32(1)))
 
@@ -115,7 +133,7 @@ var _ = Describe("Keyring", Label(test.Unit), func() {
 			kr.ForEach(func(key interface{}) {
 				counter.Inc()
 			})
-			Expect(counter.Load()).To(Equal(int32(2)))
+			Expect(counter.Load()).To(Equal(int32(3)))
 
 			By("ensuring Marshal followed by Unmarshal returns the same data")
 			data, err := kr.Marshal()

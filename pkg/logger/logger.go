@@ -90,7 +90,7 @@ type LoggerOptions struct {
 
 type LoggerOption func(*LoggerOptions)
 
-func (o *LoggerOptions) Apply(opts ...LoggerOption) {
+func (o *LoggerOptions) apply(opts ...LoggerOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -138,7 +138,7 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	if testutil.IsTesting {
 		options.writer = ginkgo.GinkgoWriter
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 	var color bool
 	if options.color != nil {
 		color = *options.color

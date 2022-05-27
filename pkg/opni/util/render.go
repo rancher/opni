@@ -8,19 +8,19 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/ttacon/chalk"
 )
 
-func RenderBootstrapToken(token *core.BootstrapToken) string {
-	return RenderBootstrapTokenList(&core.BootstrapTokenList{
-		Items: []*core.BootstrapToken{token},
+func RenderBootstrapToken(token *corev1.BootstrapToken) string {
+	return RenderBootstrapTokenList(&corev1.BootstrapTokenList{
+		Items: []*corev1.BootstrapToken{token},
 	})
 }
 
-func RenderBootstrapTokenList(list *core.BootstrapTokenList) string {
+func RenderBootstrapTokenList(list *corev1.BootstrapTokenList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"ID", "TOKEN", "TTL", "USAGES", "LABELS"})
@@ -41,7 +41,7 @@ func RenderBootstrapTokenList(list *core.BootstrapTokenList) string {
 	return w.Render()
 }
 
-func RenderCertInfoChain(chain []*core.CertInfo) string {
+func RenderCertInfoChain(chain []*corev1.CertInfo) string {
 	buf := new(bytes.Buffer)
 	for i, cert := range chain {
 		fp := []byte(cert.Fingerprint)
@@ -71,7 +71,7 @@ func RenderCertInfoChain(chain []*core.CertInfo) string {
 	return buf.String()
 }
 
-func RenderClusterList(list *core.ClusterList, stats *cortexadmin.UserIDStatsList) string {
+func RenderClusterList(list *corev1.ClusterList, stats *cortexadmin.UserIDStatsList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	if stats == nil {
@@ -102,13 +102,13 @@ func RenderClusterList(list *core.ClusterList, stats *cortexadmin.UserIDStatsLis
 	return w.Render()
 }
 
-func RenderRole(role *core.Role) string {
-	return RenderRoleList(&core.RoleList{
-		Items: []*core.Role{role},
+func RenderRole(role *corev1.Role) string {
+	return RenderRoleList(&corev1.RoleList{
+		Items: []*corev1.Role{role},
 	})
 }
 
-func RenderRoleList(list *core.RoleList) string {
+func RenderRoleList(list *corev1.RoleList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.AppendHeader(table.Row{"ID", "SELECTOR", "CLUSTER IDS"})
@@ -126,13 +126,13 @@ func RenderRoleList(list *core.RoleList) string {
 	return w.Render()
 }
 
-func RenderRoleBinding(binding *core.RoleBinding) string {
-	return RenderRoleBindingList(&core.RoleBindingList{
-		Items: []*core.RoleBinding{binding},
+func RenderRoleBinding(binding *corev1.RoleBinding) string {
+	return RenderRoleBindingList(&corev1.RoleBindingList{
+		Items: []*corev1.RoleBinding{binding},
 	})
 }
 
-func RenderRoleBindingList(list *core.RoleBindingList) string {
+func RenderRoleBindingList(list *corev1.RoleBindingList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	header := table.Row{"ID", "ROLE ID", "SUBJECTS"}

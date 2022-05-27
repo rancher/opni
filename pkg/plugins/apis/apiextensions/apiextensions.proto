@@ -13,6 +13,10 @@ service GatewayAPIExtension {
   rpc Configure(CertConfig) returns (GatewayAPIExtensionConfig);
 }
 
+service StreamAPIExtension {
+  rpc Services(google.protobuf.Empty) returns (ServiceDescriptorList);
+}
+
 message CertConfig {
   string ca = 1;
   string caData = 2;
@@ -25,4 +29,8 @@ message CertConfig {
 message GatewayAPIExtensionConfig {
   string HttpAddr = 1;
   repeated string pathPrefixes = 2;
+}
+
+message ServiceDescriptorList {
+  repeated google.protobuf.ServiceDescriptorProto descriptors = 1;
 }

@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/test"
@@ -35,15 +35,15 @@ var _ = Describe("Middleware", Label(test.Unit), func() {
 		mockProvider := mock_rbac.NewMockProvider(ctrl)
 		mockProvider.EXPECT().
 			SubjectAccess(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, sar *core.SubjectAccessRequest) (*core.ReferenceList, error) {
+			DoAndReturn(func(ctx context.Context, sar *corev1.SubjectAccessRequest) (*corev1.ReferenceList, error) {
 				if clusters, ok := testUsers[sar.Subject]; ok {
-					items := make([]*core.Reference, len(clusters))
+					items := make([]*corev1.Reference, len(clusters))
 					for i, cluster := range clusters {
-						items[i] = &core.Reference{
+						items[i] = &corev1.Reference{
 							Id: cluster,
 						}
 					}
-					return &core.ReferenceList{
+					return &corev1.ReferenceList{
 						Items: items,
 					}, nil
 				}
@@ -105,7 +105,7 @@ var _ = Describe("Middleware", Label(test.Unit), func() {
 		mockProvider := mock_rbac.NewMockProvider(ctrl)
 		mockProvider.EXPECT().
 			SubjectAccess(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, sar *core.SubjectAccessRequest) ([]string, error) {
+			DoAndReturn(func(ctx context.Context, sar *corev1.SubjectAccessRequest) ([]string, error) {
 				defer GinkgoRecover()
 				Fail("this should not be called")
 				return nil, nil

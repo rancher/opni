@@ -8,10 +8,14 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	gsync "github.com/kralicky/gpkg/sync"
+	"github.com/kralicky/totem"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
@@ -19,11 +23,36 @@ import (
 	"github.com/rancher/opni/pkg/storage/crds"
 	"github.com/rancher/opni/pkg/storage/etcd"
 	"github.com/rancher/opni/pkg/trust"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+)
+
+type conditionStatus int32
+
+const (
+	statusPending conditionStatus = 0
+	statusFailure conditionStatus = 1
+)
+
+func (s conditionStatus) String() string {
+	switch s {
+	case statusPending:
+		return "Pending"
+	case statusFailure:
+		return "Failure"
+	}
+	return ""
+}
+
+const (
+	condRemoteWrite = "Remote Write"
+	condRuleSync    = "Rule Sync"
 )
 
 type Agent struct {
+	controlv1.UnsafeAgentControlServer
 	AgentOptions
 	v1beta1.AgentConfigSpec
 	app    *fiber.App
@@ -32,8 +61,13 @@ type Agent struct {
 	tenantID         string
 	identityProvider ident.Provider
 	keyringStore     storage.KeyringStore
-	gatewayClient    clients.GatewayHTTPClient
+	gatewayClient    clients.GatewayGRPCClient
 	shutdownLock     sync.Mutex
+
+	remoteWriteMu     sync.Mutex
+	remoteWriteClient remotewrite.RemoteWriteClient
+
+	conditions gsync.Map[string, conditionStatus]
 }
 
 type AgentOptions struct {
@@ -42,7 +76,7 @@ type AgentOptions struct {
 
 type AgentOption func(*AgentOptions)
 
-func (o *AgentOptions) Apply(opts ...AgentOption) {
+func (o *AgentOptions) apply(opts ...AgentOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -61,7 +95,7 @@ func default404Handler(c *fiber.Ctx) error {
 func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*Agent, error) {
 	lg := logger.New().Named("agent")
 	options := AgentOptions{}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	app := fiber.New(fiber.Config{
 		Prefork:               false,
@@ -93,6 +127,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		tenantID:         id,
 		identityProvider: ip,
 	}
+	agent.initConditions()
 	agent.shutdownLock.Lock()
 
 	var keyringStoreBroker storage.KeyringStoreBroker
@@ -104,7 +139,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	default:
 		return nil, fmt.Errorf("unknown storage type: %s", agent.Storage.Type)
 	}
-	agent.keyringStore, err = keyringStoreBroker.KeyringStore(ctx, "agent", &core.Reference{
+	agent.keyringStore, err = keyringStoreBroker.KeyringStore(ctx, "agent", &corev1.Reference{
 		Id: id,
 	})
 	if err != nil {
@@ -114,7 +149,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	var kr keyring.Keyring
 	if options.bootstrapper != nil {
 		if kr, err = agent.bootstrap(ctx); err != nil {
-			return nil, fmt.Errorf("bootstrap error: %w", err)
+			return nil, err
 		}
 	} else {
 		if kr, err = agent.loadKeyring(ctx); err != nil {
@@ -160,12 +195,63 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, fmt.Errorf("unknown trust strategy: %s", conf.Spec.TrustStrategy)
 	}
 
-	agent.gatewayClient, err = clients.NewGatewayHTTPClient(
+	agent.gatewayClient, err = clients.NewGatewayGRPCClient(
 		conf.Spec.GatewayAddress, ip, kr, trustStrategy)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}
-	go agent.streamRulesToGateway(ctx)
+
+	var startRuleStreamOnce sync.Once
+
+	go func() {
+		for {
+			cc, err := agent.gatewayClient.Dial(ctx)
+			if err != nil {
+				lg.With(
+					zap.Error(err),
+				).Error("error dialing gateway")
+				time.Sleep(time.Second)
+				continue
+			}
+			streamClient := streamv1.NewStreamClient(cc)
+			lg.Info("establishing streaming connection with gateway")
+			stream, err := streamClient.Connect(ctx)
+			if err != nil {
+				lg.With(
+					zap.Error(err),
+				).Error("error connecting to gateway")
+				time.Sleep(time.Second)
+				continue
+			}
+			lg.Info("stream connected")
+			defer lg.Info("stream disconnected")
+
+			ts := totem.NewServer(stream)
+			controlv1.RegisterAgentControlServer(ts, agent)
+
+			tc, errC := ts.Serve()
+			agent.remoteWriteMu.Lock()
+			agent.remoteWriteClient = remotewrite.NewRemoteWriteClient(tc)
+			agent.remoteWriteMu.Unlock()
+
+			startRuleStreamOnce.Do(func() {
+				go agent.streamRulesToGateway(ctx)
+			})
+
+			select {
+			case <-ctx.Done():
+				return
+			case err := <-errC:
+				lg.With(
+					zap.Error(err),
+				).Error("stream server error")
+			}
+
+			agent.remoteWriteMu.Lock()
+			agent.remoteWriteClient = nil
+			agent.remoteWriteMu.Unlock()
+		}
+	}()
 
 	app.Post("/api/agent/push", agent.handlePushRequest)
 	app.Use(default404Handler)
@@ -174,18 +260,23 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 }
 
 func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
-	code, body, err := a.gatewayClient.Post(context.Background(), "/api/agent/push").
-		Body(c.Body()).
-		Set(fiber.HeaderContentType, c.Get(fiber.HeaderContentType)).
-		Set(fiber.HeaderContentLength, c.Get(fiber.HeaderContentLength)).
-		Set(fiber.HeaderContentEncoding, c.Get(fiber.HeaderContentEncoding)).
-		Set("X-Prometheus-Remote-Write-Version", c.Get("X-Prometheus-Remote-Write-Version")).
-		Do()
+	a.remoteWriteMu.Lock()
+	defer a.remoteWriteMu.Unlock()
+	if a.remoteWriteClient == nil {
+		a.conditions.Store(condRemoteWrite, statusPending)
+		return c.SendStatus(fiber.StatusServiceUnavailable)
+	}
+	_, err := a.remoteWriteClient.Push(c.Context(), &remotewrite.Payload{
+		AuthorizedClusterID: a.tenantID,
+		Contents:            c.Body(),
+	})
 	if err != nil {
 		a.logger.Error(err)
-		return err
+		a.conditions.Store(condRemoteWrite, statusFailure)
+		return c.SendStatus(fiber.StatusServiceUnavailable)
 	}
-	return c.Status(code).Send(body)
+	a.conditions.Delete(condRemoteWrite)
+	return c.SendStatus(fiber.StatusOK)
 }
 
 func (a *Agent) ListenAndServe() error {
@@ -206,7 +297,7 @@ func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {
 		lg.Info("performing initial bootstrap")
 		newKeyring, err := a.bootstrapper.Bootstrap(ctx, a.identityProvider)
 		if err != nil {
-			return nil, fmt.Errorf("bootstrap failed: %w", err)
+			return nil, err
 		}
 		lg.Info("bootstrap completed successfully")
 		for {
@@ -228,7 +319,7 @@ func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {
 
 	lg.Info("running post-bootstrap finalization steps")
 	if err := a.bootstrapper.Finalize(ctx); err != nil {
-		lg.With(zap.Error(err)).Error("error in post-bootstrap finalization")
+		lg.With(zap.Error(err)).Warn("error in post-bootstrap finalization")
 	} else {
 		lg.Info("bootstrap completed successfully")
 	}
@@ -244,4 +335,23 @@ func (a *Agent) loadKeyring(ctx context.Context) (keyring.Keyring, error) {
 	}
 	lg.Info("keyring loaded successfully")
 	return kr, nil
+}
+
+func (a *Agent) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health, error) {
+
+	conditions := []string{}
+	a.conditions.Range(func(key string, value conditionStatus) bool {
+		conditions = append(conditions, fmt.Sprintf("%s %s", key, value))
+		return true
+	})
+
+	return &corev1.Health{
+		Ready:      len(conditions) == 0,
+		Conditions: conditions,
+	}, nil
+}
+
+func (a *Agent) initConditions() {
+	a.conditions.Store(condRemoteWrite, statusPending)
+	a.conditions.Store(condRuleSync, statusPending)
 }

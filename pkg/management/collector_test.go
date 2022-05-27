@@ -8,7 +8,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/test"
 )
 
@@ -24,7 +25,7 @@ func descriptorString(fqName, help string, constLabels, varLabels []string) stri
 
 var _ = Describe("Collector", Ordered, Label(test.Slow), func() {
 	var tv *testVars
-	BeforeAll(setupManagementServer(&tv))
+	BeforeAll(setupManagementServer(&tv, plugins.NoopLoader))
 
 	When("no clusters are present", func() {
 		It("should collect descriptors but no metrics", func() {
@@ -46,18 +47,18 @@ var _ = Describe("Collector", Ordered, Label(test.Slow), func() {
 	})
 	When("clusters are present", func() {
 		It("should collect metrics for each cluster", func() {
-			tv.storageBackend.CreateCluster(context.Background(), &core.Cluster{
+			tv.storageBackend.CreateCluster(context.Background(), &corev1.Cluster{
 				Id: "cluster-1",
-				Metadata: &core.ClusterMetadata{
+				Metadata: &corev1.ClusterMetadata{
 					Labels:       map[string]string{"kubernetes.io/metadata.name": "cluster-1"},
-					Capabilities: []*core.ClusterCapability{{Name: "test"}},
+					Capabilities: []*corev1.ClusterCapability{{Name: "test"}},
 				},
 			})
-			tv.storageBackend.CreateCluster(context.Background(), &core.Cluster{
+			tv.storageBackend.CreateCluster(context.Background(), &corev1.Cluster{
 				Id: "cluster-2",
-				Metadata: &core.ClusterMetadata{
+				Metadata: &corev1.ClusterMetadata{
 					Labels:       map[string]string{"kubernetes.io/metadata.name": "cluster-2"},
-					Capabilities: []*core.ClusterCapability{{Name: "test"}},
+					Capabilities: []*corev1.ClusterCapability{{Name: "test"}},
 				},
 			})
 

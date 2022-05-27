@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/alecthomas/jsonschema"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/validation"
@@ -16,7 +17,7 @@ import (
 func (m *Server) GetConfig(
 	ctx context.Context,
 	_ *emptypb.Empty,
-) (*GatewayConfig, error) {
+) (*managementv1.GatewayConfig, error) {
 	lg := m.logger
 	objects, err := m.lifecycler.GetObjectList()
 	if err != nil {
@@ -25,7 +26,7 @@ func (m *Server) GetConfig(
 		).Error("failed to get object list")
 		return nil, err
 	}
-	gc := &GatewayConfig{}
+	gc := &managementv1.GatewayConfig{}
 	objects.Visit(func(obj interface{}, schema *jsonschema.Schema) {
 		jsonData, err := json.Marshal(obj)
 		if err != nil {
@@ -39,7 +40,7 @@ func (m *Server) GetConfig(
 		if err != nil {
 			return
 		}
-		gc.Documents = append(gc.Documents, &ConfigDocumentWithSchema{
+		gc.Documents = append(gc.Documents, &managementv1.ConfigDocumentWithSchema{
 			Json:   jsonData,
 			Yaml:   yamlData,
 			Schema: schemaData,
@@ -50,7 +51,7 @@ func (m *Server) GetConfig(
 
 func (m *Server) UpdateConfig(
 	ctx context.Context,
-	in *UpdateConfigRequest,
+	in *managementv1.UpdateConfigRequest,
 ) (*emptypb.Empty, error) {
 	lg := m.logger
 	if err := validation.Validate(in); err != nil {

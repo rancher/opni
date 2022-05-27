@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
 
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	openidauth "github.com/rancher/opni/pkg/auth/openid"
-	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/noauth"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util/waitctx"
@@ -32,10 +32,10 @@ var _ = Describe("Server", Ordered, Label(test.Slow), func() {
 		Expect(env.Start()).To(Succeed())
 
 		client := env.NewManagementClient()
-		client.CreateRole(context.Background(), &core.Role{
+		client.CreateRole(context.Background(), &corev1.Role{
 			Id: "admin",
-			MatchLabels: &core.LabelSelector{
-				MatchExpressions: []*core.LabelSelectorRequirement{
+			MatchLabels: &corev1.LabelSelector{
+				MatchExpressions: []*corev1.LabelSelectorRequirement{
 					{
 						Key:      "foo",
 						Operator: "Exists",
@@ -43,7 +43,7 @@ var _ = Describe("Server", Ordered, Label(test.Slow), func() {
 				},
 			},
 		})
-		client.CreateRoleBinding(context.Background(), &core.RoleBinding{
+		client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
 			Id:       "admin-rb",
 			RoleId:   "admin",
 			Subjects: []string{"admin@example.com"},

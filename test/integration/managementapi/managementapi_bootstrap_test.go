@@ -9,8 +9,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/management"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/grpc/codes"
@@ -32,7 +32,7 @@ type fingerprintsTestData struct {
 var testFingerprints fingerprintsData
 var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Label(test.Integration), func() {
 	var environment *test.Environment
-	var client management.ManagementClient
+	var client managementv1.ManagementClient
 	BeforeAll(func() {
 		environment = &test.Environment{
 			TestBin: "../../../testbin/bin",
@@ -49,11 +49,11 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Labe
 	//#endregion
 
 	//#region Happy Path Tests
-	var token *core.BootstrapToken
+	var token *corev1.BootstrapToken
 	var fingerprint string
 	It("can create a bootstrap token", func() {
 		var err error
-		token, err = client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+		token, err = client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Hour),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -68,7 +68,7 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Labe
 	})
 
 	It("can get information about a specific token", func() {
-		tokenInfo, err := client.GetBootstrapToken(context.Background(), &core.Reference{
+		tokenInfo, err := client.GetBootstrapToken(context.Background(), &corev1.Reference{
 			Id: token.TokenID,
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -115,17 +115,17 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Labe
 			Expect(fingerprint).NotTo(BeEmpty())
 
 			_, errC := environment.StartAgent("foo", token, []string{fingerprint})
-			Eventually(errC).Should(Receive(MatchError("bootstrap error: bootstrap failed: 405 Method Not Allowed")))
+			Eventually(errC).Should(Receive(WithTransform(status.Code, Equal(codes.Unavailable))))
 		})
 	})
 
 	It("cannot revoke a bootstrap token without specifying a Token ID", func() {
-		token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = client.RevokeBootstrapToken(context.Background(), &core.Reference{
+		_, err = client.RevokeBootstrapToken(context.Background(), &corev1.Reference{
 			Id: "nonexistent",
 		})
 		Expect(err).To(HaveOccurred())
@@ -136,7 +136,7 @@ var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Labe
 	})
 
 	It("can create a bootstrap token with a specific TTL duration", func() {
-		token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Minute),
 		})
 		Expect(err).NotTo(HaveOccurred())

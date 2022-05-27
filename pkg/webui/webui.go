@@ -11,9 +11,11 @@ import (
 	"net/url"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/web"
 	"go.uber.org/zap"
 )
@@ -54,7 +56,7 @@ func NewWebUIServer(config *v1beta1.GatewayConfig) (*WebUIServer, error) {
 	}, nil
 }
 
-func (ws *WebUIServer) ListenAndServe() error {
+func (ws *WebUIServer) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 	ws.mu.Lock()
 	defer ws.mu.Unlock()
 	lg := ws.logger
@@ -166,14 +168,17 @@ func (ws *WebUIServer) ListenAndServe() error {
 		// serve 200.html.br
 		rw.Write(entrypoint)
 	})
-	return ws.server.Serve(listener)
-}
 
-func (ws *WebUIServer) Shutdown(ctx context.Context) error {
-	ws.mu.Lock()
-	defer ws.mu.Unlock()
-	if ws.server == nil {
-		return nil
-	}
-	return ws.server.Shutdown(ctx)
+	waitctx.Go(ctx, func() {
+		<-ctx.Done()
+		ws.mu.Lock()
+		defer ws.mu.Unlock()
+		if ws.server == nil {
+			return
+		}
+		tctx, ca := context.WithTimeout(ctx, 5*time.Second)
+		defer ca()
+		ws.server.Shutdown(tctx)
+	})
+	return ws.server.Serve(listener)
 }

@@ -1,0 +1,37 @@
+ignoreGeneratedHeader = false
+severity = "warning"
+confidence = 0.8
+errorCode = 0
+warningCode = 0
+
+[rule.atomic]
+[rule.context-as-argument]
+[rule.context-keys-type]
+[rule.empty-block]
+[rule.errorf]
+[rule.error-naming]
+[rule.error-return]
+[rule.error-strings]
+[rule.imports-blacklist]
+  arguments = [
+    "crypto/md5",
+    "crypto/sha1",
+    "grpc.go4.org/**",
+    "github.com/gogo/status",
+    "github.com/gogo/codes"
+  ]
+[rule.increment-decrement]
+[rule.indent-error-flow]
+[rule.package-comments]
+[rule.range]
+[rule.receiver-naming]
+[rule.redefines-builtin-id]
+[rule.superfluous-else]
+[rule.time-naming]
+[rule.unexported-return]
+[rule.unnecessary-stmt]
+[rule.unreachable-code]
+[rule.unused-parameter]
+[rule.useless-break]
+[rule.var-declaration]
+[rule.waitgroup-by-value]

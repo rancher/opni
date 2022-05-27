@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/rancher/opni/pkg/management"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
 	"google.golang.org/grpc"
@@ -13,12 +13,12 @@ import (
 )
 
 type SystemPluginClient interface {
-	UseManagementAPI(management.ManagementClient)
+	UseManagementAPI(managementv1.ManagementClient)
 	UseKeyValueStore(KVStoreClient)
 }
 
 type SystemPluginServer interface {
-	ServeManagementAPI(management.ManagementServer)
+	ServeManagementAPI(managementv1.ManagementServer)
 	ServeKeyValueStore(storage.KeyValueStore)
 }
 
@@ -64,7 +64,7 @@ func (c *systemPluginClientImpl) UseManagementAPI(ctx context.Context, in *Broke
 		return nil, err
 	}
 	defer cc.Close()
-	client := management.NewManagementClient(cc)
+	client := managementv1.NewManagementClient(cc)
 	c.client.UseManagementAPI(client)
 	return &emptypb.Empty{}, nil
 }
@@ -104,10 +104,10 @@ type systemPluginHandler struct {
 	client SystemClient
 }
 
-func (s *systemPluginHandler) ServeManagementAPI(api management.ManagementServer) {
+func (s *systemPluginHandler) ServeManagementAPI(api managementv1.ManagementServer) {
 	s.serveSystemApi(
 		func(srv *grpc.Server) {
-			management.RegisterManagementServer(srv, api)
+			managementv1.RegisterManagementServer(srv, api)
 		},
 		func(id uint32) {
 			s.client.UseManagementAPI(s.ctx, &BrokerID{

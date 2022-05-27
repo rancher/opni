@@ -11,7 +11,7 @@ testPackages: string @tag(packages)
 tests: ginkgo.#TestPlan & {
 	Parallel: false
 	Actions: {
-		unit: ginkgo.#Run & {
+		pkg: ginkgo.#Run & {
 			_pkgs: strings.Split(testPackages, ",")
 			_filtered: [ for p in _pkgs if strings.HasPrefix(p, "./pkg/") {p}]
 			Packages: strings.Join(_filtered, ",")

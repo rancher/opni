@@ -5,11 +5,14 @@ import (
 	"context"
 	"net/http"
 
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/management"
+	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/waitctx"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,7 +33,7 @@ var _ = Describe("Server", Ordered, Label(test.Slow), func() {
 	BeforeAll(func() {
 		capBackendStore = capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{}, test.Log)
 
-		setupManagementServer(&tv, management.WithCapabilitiesDataSource(testCapabilityDataSource{
+		setupManagementServer(&tv, plugins.NoopLoader, management.WithCapabilitiesDataSource(testCapabilityDataSource{
 			store: capBackendStore,
 		}))()
 	})
@@ -54,12 +57,13 @@ var _ = Describe("Server", Ordered, Label(test.Slow), func() {
 		conf := &v1beta1.ManagementSpec{
 			HTTPListenAddress: "127.0.0.1:0",
 		}
-		server := management.NewServer(context.Background(), conf, tv.coreDataSource)
-		Expect(server.ListenAndServe()).To(MatchError("GRPCListenAddress not configured"))
+		ctx := waitctx.Background()
+		server := management.NewServer(ctx, conf, tv.coreDataSource, plugins.NoopLoader)
+		Expect(server.ListenAndServe(ctx)).To(MatchError("GRPCListenAddress not configured"))
 
 		By("checking that invalid config fields cause errors")
 		conf.GRPCListenAddress = "foo://bar"
-		Expect(server.ListenAndServe()).To(MatchError(util.ErrUnsupportedProtocolScheme))
+		Expect(server.ListenAndServe(ctx)).To(MatchError(util.ErrUnsupportedProtocolScheme))
 	})
 	It("should allow querying capabilities from the data source", func() {
 		list, err := tv.client.ListCapabilities(context.Background(), &emptypb.Empty{})
@@ -94,13 +98,13 @@ var _ = Describe("Server", Ordered, Label(test.Slow), func() {
 			}
 		}
 
-		cmd, err := tv.client.CapabilityInstaller(context.Background(), &management.CapabilityInstallerRequest{
+		cmd, err := tv.client.CapabilityInstaller(context.Background(), &managementv1.CapabilityInstallerRequest{
 			Name: "capability1",
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cmd.Command).To(Equal("foo"))
 
-		cmd, err = tv.client.CapabilityInstaller(context.Background(), &management.CapabilityInstallerRequest{
+		cmd, err = tv.client.CapabilityInstaller(context.Background(), &managementv1.CapabilityInstallerRequest{
 			Name: "capability2",
 		})
 		Expect(err).NotTo(HaveOccurred())

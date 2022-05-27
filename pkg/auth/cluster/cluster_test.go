@@ -19,8 +19,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gmeasure"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
-	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
@@ -83,7 +83,6 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
-				Expect(bodyStr(resp.Body)).To(ContainSubstring("authorization header required"))
 			})
 		})
 		When("the auth header has the wrong type", func() {
@@ -94,7 +93,6 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
-				Expect(bodyStr(resp.Body)).To(ContainSubstring("incorrect authorization type"))
 			})
 		})
 		When("the auth mac is malformed", func() {
@@ -105,7 +103,6 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
-				Expect(bodyStr(resp.Body)).To(ContainSubstring("malformed"))
 			})
 		})
 	})
@@ -148,7 +145,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 
 			When("the keyring store does not exist for the requested cluster", func() {
 				BeforeEach(func() {
-					handler = func(_ context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+					handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 						return nil, errors.New("not found")
 					}
 				})
@@ -165,10 +162,10 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 
 			When("the keyring does not exist in the cluster's keyring store", func() {
 				BeforeEach(func() {
-					store := test.NewTestKeyringStore(ctrl, "", &core.Reference{
+					store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
 						Id: "does-not-exist",
 					})
-					handler = func(_ context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+					handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 						return store, nil
 					}
 				})
@@ -186,31 +183,30 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 			When("the keyring exists in the cluster's keyring store", func() {
 				When("the keyring is missing the required key", func() {
 					BeforeEach(func() {
-						store := test.NewTestKeyringStore(ctrl, "", &core.Reference{
+						store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
 							Id: "cluster-1",
 						})
 						store.Put(context.Background(), keyring.New())
-						handler = func(_ context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+						handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 							return store, nil
 						}
 					})
-					It("should return http 401", func() {
+					It("should return an internal server error", func() {
 						req := newRequest(http.MethodPost, "/", nil)
 						req.Header.Set("Authorization", validAuthHeader("cluster-1", ""))
 						resp, err := client.Do(req)
 						Expect(err).NotTo(HaveOccurred())
 						defer resp.Body.Close()
 						Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
-						Expect(bodyStr(resp.Body)).To(Equal("invalid or corrupted keyring"))
 					})
 				})
 				When("the request MAC does not match the request body", func() {
 					BeforeEach(func() {
-						store := test.NewTestKeyringStore(ctrl, "", &core.Reference{
+						store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
 							Id: "cluster-1",
 						})
 						store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-						handler = func(_ context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+						handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 							return store, nil
 						}
 					})
@@ -235,11 +231,11 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 					})
 				})
 				BeforeEach(func() {
-					store := test.NewTestKeyringStore(ctrl, "", &core.Reference{
+					store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
 						Id: "cluster-1",
 					})
 					store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-					handler = func(_ context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+					handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 						if ref.Id == "cluster-1" {
 							return store, nil
 						}
@@ -364,11 +360,11 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 
 			When("the request MAC matches the request body", func() {
 				BeforeEach(func() {
-					store := test.NewTestKeyringStore(ctrl, "", &core.Reference{
+					store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
 						Id: "cluster-1",
 					})
 					store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-					handler = func(_ context.Context, prefix string, ref *core.Reference) (storage.KeyringStore, error) {
+					handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 						if ref.Id == "cluster-1" {
 							return store, nil
 						}
@@ -385,5 +381,8 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 				})
 			})
 		})
+	})
+	Context("Stream Interceptor", func() {
+
 	})
 })

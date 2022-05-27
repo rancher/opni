@@ -25,7 +25,7 @@ type PrometheusRuleFinderOptions struct {
 
 type PrometheusRuleFinderOption func(*PrometheusRuleFinderOptions)
 
-func (o *PrometheusRuleFinderOptions) Apply(opts ...PrometheusRuleFinderOption) {
+func (o *PrometheusRuleFinderOptions) apply(opts ...PrometheusRuleFinderOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -43,11 +43,11 @@ func WithLogger(lg *zap.SugaredLogger) PrometheusRuleFinderOption {
 	}
 }
 
-func NewPrometheusRuleFinder(k8sClient client.Client, opts ...PrometheusRuleFinderOption) RuleFinder {
+func NewPrometheusRuleFinder(k8sClient client.Client, opts ...PrometheusRuleFinderOption) *PrometheusRuleFinder {
 	options := PrometheusRuleFinderOptions{
 		logger: logger.New().Named("rules"),
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 	return &PrometheusRuleFinder{
 		PrometheusRuleFinderOptions: options,
 		k8sClient:                   k8sClient,

@@ -4,15 +4,15 @@ import (
 	"context"
 	"os"
 
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
-	"github.com/rancher/opni/pkg/management"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (p *Plugin) UseManagementAPI(client management.ManagementClient) {
+func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	p.mgmtApi.Set(client)
 	cfg, err := client.GetConfig(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
@@ -39,8 +39,10 @@ func (p *Plugin) UseManagementAPI(client management.ManagementClient) {
 		}
 		p.storageBackend.Set(backend)
 		p.config.Set(config)
-		p.configureAdminClients(p.loadCortexCerts())
+		p.configureAdminClients(p.getOrLoadCortexCerts())
 	})
+
+	p.authMiddlewares.Set(machinery.LoadAuthProviders(p.ctx, objectList))
 	<-p.ctx.Done()
 }
 

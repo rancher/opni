@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
 type middleware struct {
@@ -21,7 +21,7 @@ func (m *middleware) Handle(c *fiber.Ctx) error {
 	if !ok {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
-	clusters, err := m.provider.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
+	clusters, err := m.provider.SubjectAccess(context.Background(), &corev1.SubjectAccessRequest{
 		Subject: userID,
 	})
 	if err != nil {

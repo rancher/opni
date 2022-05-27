@@ -11,13 +11,17 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
+type RemoteCollector interface {
+	prometheus.Collector
+}
+
 type remoteCollector struct {
 	client RemoteCollectorClient
 }
 
 var _ prometheus.Collector = (*remoteCollector)(nil)
 
-func NewRemoteCollector(client RemoteCollectorClient) prometheus.Collector {
+func NewRemoteCollector(client RemoteCollectorClient) RemoteCollector {
 	return &remoteCollector{
 		client: client,
 	}

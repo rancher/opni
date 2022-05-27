@@ -15,7 +15,7 @@ type AdminClientOptions struct {
 
 type AdminClientOption func(*AdminClientOptions)
 
-func (o *AdminClientOptions) Apply(opts ...AdminClientOption) {
+func (o *AdminClientOptions) apply(opts ...AdminClientOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -40,7 +40,7 @@ func NewClient(ctx context.Context, opts ...AdminClientOption) (CortexAdminClien
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		},
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 	cc, err := grpc.DialContext(ctx, options.listenAddr, options.dialOptions...)
 	if err != nil {
 		return nil, err

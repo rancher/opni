@@ -5,6 +5,7 @@ import (
 
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"golang.org/x/exp/maps"
+	"gopkg.in/yaml.v3"
 )
 
 type RuleFinder interface {
@@ -35,11 +36,24 @@ func CloneRuleGroup(g rulefmt.RuleGroup) rulefmt.RuleGroup {
 		Interval: g.Interval,
 		Rules:    make([]rulefmt.RuleNode, len(g.Rules)),
 	}
+
 	for i, r := range g.Rules {
 		cloned.Rules[i] = rulefmt.RuleNode{
-			Record:      r.Record,
-			Alert:       r.Alert,
-			Expr:        r.Expr,
+			Record: yaml.Node{
+				Kind:  r.Record.Kind,
+				Tag:   r.Record.Tag,
+				Value: r.Record.Value,
+			},
+			Alert: yaml.Node{
+				Kind:  r.Alert.Kind,
+				Tag:   r.Alert.Tag,
+				Value: r.Alert.Value,
+			},
+			Expr: yaml.Node{
+				Kind:  r.Expr.Kind,
+				Tag:   r.Expr.Tag,
+				Value: r.Expr.Value,
+			},
 			For:         r.For,
 			Labels:      maps.Clone(r.Labels),
 			Annotations: maps.Clone(r.Annotations),

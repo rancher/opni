@@ -4,7 +4,7 @@ import (
 	context "context"
 
 	"github.com/hashicorp/go-plugin"
-	core "github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -14,14 +14,14 @@ type Backend interface {
 	// Returns an error if installing the capability would fail.
 	CanInstall() error
 	// Any error returned from this method is fatal.
-	Install(cluster *core.Reference) error
+	Install(cluster *corev1.Reference) error
 	// Returns a go template string which will generate a shell command used to
 	// install the capability. This will be displayed to the user in the UI.
 	// See InstallerTemplateSpec above for the available template fields.
 	InstallerTemplate() string
 	// Should clean up any resources created by capability
 	// Errors are handled gracefully
-	Uninstall(cluster *core.Reference) error
+	Uninstall(cluster *corev1.Reference) error
 }
 
 const (

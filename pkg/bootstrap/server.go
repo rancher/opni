@@ -3,98 +3,100 @@ package bootstrap
 import (
 	"context"
 	"crypto"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
+	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
-	"github.com/rancher/opni/pkg/core"
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/tokens"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
-type ServerConfig struct {
-	Certificate         *tls.Certificate
-	TokenStore          storage.TokenStore
-	ClusterStore        storage.ClusterStore
-	KeyringStoreBroker  storage.KeyringStoreBroker
-	CapabilityInstaller capabilities.Installer
+type Storage interface {
+	storage.TokenStore
+	storage.ClusterStore
+	storage.KeyringStoreBroker
 }
 
-func (h ServerConfig) bootstrapJoinResponse(
-	ctx context.Context,
-) (BootstrapJoinResponse, error) {
+type StorageConfig struct {
+	storage.TokenStore
+	storage.ClusterStore
+	storage.KeyringStoreBroker
+}
+
+type Server struct {
+	bootstrapv1.UnsafeBootstrapServer
+	privateKey crypto.Signer
+	storage    Storage
+	installer  capabilities.Installer
+}
+
+func NewServer(storage Storage, privateKey crypto.Signer, installer capabilities.Installer) *Server {
+	return &Server{
+		privateKey: privateKey,
+		storage:    storage,
+		installer:  installer,
+	}
+}
+
+func (h *Server) Join(ctx context.Context, _ *bootstrapv1.BootstrapJoinRequest) (*bootstrapv1.BootstrapJoinResponse, error) {
 	signatures := map[string][]byte{}
-	tokenList, err := h.TokenStore.ListTokens(ctx)
+	tokenList, err := h.storage.ListTokens(ctx)
 	if err != nil {
-		return BootstrapJoinResponse{}, err
+		return nil, err
 	}
 	for _, token := range tokenList {
 		// Generate a JWS containing the signature of the detached secret token
 		rawToken, err := tokens.FromBootstrapToken(token)
 		if err != nil {
-			return BootstrapJoinResponse{}, err
+			return nil, err
 		}
-		sig, err := rawToken.SignDetached(h.Certificate.PrivateKey)
+		sig, err := rawToken.SignDetached(h.privateKey)
 		if err != nil {
-			return BootstrapJoinResponse{}, fmt.Errorf("error signing token: %w", err)
+			return nil, fmt.Errorf("error signing token: %w", err)
 		}
 		signatures[rawToken.HexID()] = sig
 	}
-	return BootstrapJoinResponse{
+	if len(signatures) == 0 {
+		return nil, status.Error(codes.Unavailable, "server is not accepting bootstrap requests")
+	}
+	return &bootstrapv1.BootstrapJoinResponse{
 		Signatures: signatures,
 	}, nil
 }
 
-func (h ServerConfig) Handle(c *fiber.Ctx) error {
-	switch c.Path() {
-	case "/bootstrap/join":
-		return h.handleBootstrapJoin(c)
-	case "/bootstrap/auth":
-		return h.handleBootstrapAuth(c)
-	default:
-		return c.SendStatus(fiber.StatusNotFound)
+func (h Server) Auth(ctx context.Context, authReq *bootstrapv1.BootstrapAuthRequest) (*bootstrapv1.BootstrapAuthResponse, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, util.StatusError(codes.Unauthenticated)
 	}
-}
-
-func (h ServerConfig) handleBootstrapJoin(c *fiber.Ctx) error {
-	authHeader := strings.TrimSpace(c.Get("Authorization"))
-	if authHeader == "" {
-		if resp, err := h.bootstrapJoinResponse(context.Background()); err != nil {
-			return c.SendStatus(fiber.StatusInternalServerError)
-		} else {
-			if len(resp.Signatures) == 0 {
-				// No tokens - server is not accepting bootstrap requests
-				return c.SendStatus(fiber.StatusMethodNotAllowed)
-			}
-			return c.Status(fiber.StatusOK).JSON(resp)
-		}
+	var authHeader string
+	if v := md.Get("Authorization"); len(v) > 0 {
+		authHeader = strings.TrimSpace(v[0])
 	} else {
-		return c.SendStatus(fiber.StatusBadRequest)
+		return nil, util.StatusError(codes.Unauthenticated)
 	}
-}
-
-func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
-	lg := c.Context().Logger()
-	authHeader := strings.TrimSpace(c.Get("Authorization"))
-	if strings.TrimSpace(authHeader) == "" {
-		return c.SendStatus(fiber.StatusUnauthorized)
+	if authHeader == "" {
+		return nil, util.StatusError(codes.Unauthenticated)
 	}
 	// Authorization is given, check the authToken
 	// Remove "Bearer " from the header
 	bearerToken := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
 	// Verify the token
-	privKey := h.Certificate.PrivateKey.(crypto.Signer)
-	payload, err := jws.Verify([]byte(bearerToken), jwa.EdDSA, privKey.Public())
+	payload, err := jws.Verify([]byte(bearerToken), jwa.EdDSA, h.privateKey.Public())
 	if err != nil {
-		return c.SendStatus(fiber.StatusUnauthorized)
+		return nil, util.StatusError(codes.PermissionDenied)
 	}
 
 	// The payload should contain the entire token encoded as JSON
@@ -102,117 +104,103 @@ func (h ServerConfig) handleBootstrapAuth(c *fiber.Ctx) error {
 	if err != nil {
 		panic("bug: jws.Verify returned a malformed token")
 	}
-	bootstrapToken, err := h.TokenStore.GetToken(context.Background(), token.Reference())
+	bootstrapToken, err := h.storage.GetToken(ctx, token.Reference())
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
-			return c.SendStatus(fiber.StatusUnauthorized)
+			return nil, util.StatusError(codes.PermissionDenied)
 		}
-		lg.Printf("error checking if token exists: %v")
-		return c.SendStatus(fiber.StatusInternalServerError)
+		return nil, util.StatusError(codes.Unavailable)
 	}
 
-	// Token is valid and not expired. Check the client's requested UUID
-	clientReq := BootstrapAuthRequest{}
-	if err := c.BodyParser(&clientReq); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid request body")
-	}
-	if err := validation.Validate(clientReq); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	// after this point, we can return useful errors
+
+	if err := validation.Validate(authReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	// If the cluster with the requested ID does not exist, it can be created
 	// normally. If it does exist, and the client advertises a capability that
 	// the cluster does not yet have, and the token has the capability to edit
 	// this cluster, the cluster will be updated with the new capability.
-	existing := &core.Reference{
-		Id: clientReq.ClientID,
+	existing := &corev1.Reference{
+		Id: authReq.ClientID,
 	}
 	var shouldEditExisting bool
 
-	if cluster, err := h.ClusterStore.GetCluster(context.Background(), existing); err != nil {
+	if cluster, err := h.storage.GetCluster(ctx, existing); err != nil {
 		if !errors.Is(err, storage.ErrNotFound) {
-			lg.Printf("error checking if cluster exists: %v", err)
-			return c.SendStatus(fiber.StatusInternalServerError)
+			return nil, status.Error(codes.Unavailable, err.Error())
 		}
 	} else {
-		if capabilities.Has(cluster, capabilities.Cluster(clientReq.Capability)) {
-			return c.Status(fiber.StatusConflict).
-				SendString("Capability is already installed on this cluster")
+		if capabilities.Has(cluster, capabilities.Cluster(authReq.Capability)) {
+			return nil, status.Error(codes.AlreadyExists, "capability is already installed on this cluster")
 		}
 
 		// the cluster capability is new, check if the token can edit it
 		if capabilities.Has(bootstrapToken, capabilities.JoinExistingCluster.For(existing)) {
 			shouldEditExisting = true
 		} else {
-			return c.Status(fiber.StatusUnauthorized).
-				SendString("Insufficient permissions for this cluster")
+			return nil, status.Error(codes.PermissionDenied, "insufficient permissions for this cluster")
 		}
 	}
 
 	ekp := ecdh.NewEphemeralKeyPair()
 	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, ecdh.PeerPublicKey{
-		PublicKey: clientReq.ClientPubKey,
+		PublicKey: authReq.ClientPubKey,
 		PeerType:  ecdh.PeerTypeClient,
 	})
 	if err != nil {
-		lg.Printf("error computing shared secret: %v", err)
-		return c.SendStatus(fiber.StatusInternalServerError)
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	kr := keyring.New(keyring.NewSharedKeys(sharedSecret))
 
 	// Check if the capability exists and can be installed
-	if err := h.CapabilityInstaller.CanInstall(clientReq.Capability); err != nil {
+	if err := h.installer.CanInstall(authReq.Capability); err != nil {
 		if errors.Is(err, capabilities.ErrUnknownCapability) {
-			lg.Printf("unknown capability: %s", clientReq.Capability)
-			return c.Status(fiber.StatusNotFound).
-				SendString(fmt.Sprintf("Unknown capability %s", clientReq.Capability))
+			return nil, status.Errorf(codes.NotFound, "unknown capability %q", authReq.Capability)
 		}
-		lg.Printf("capability cannot be installed: %v", err)
-		return c.Status(fiber.StatusServiceUnavailable).
-			SendString(fmt.Sprintf("Capability cannot be installed: %v", err))
+		return nil, status.Errorf(codes.Unavailable, "capability %q cannot be installed: %v", authReq.Capability, err)
 	}
 
 	if shouldEditExisting {
-		if err := h.handleEdit(existing, clientReq.Capability, bootstrapToken, kr); err != nil {
-			lg.Printf("error editing cluster capabilities: %v", err)
-			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		if err := h.handleEdit(existing, authReq.Capability, bootstrapToken, kr); err != nil {
+			return nil, status.Errorf(codes.Internal, "error installing capability %q: %v", authReq.Capability, err)
 		}
 	} else {
-		newCluster := &core.Cluster{
-			Id: clientReq.ClientID,
-			Metadata: &core.ClusterMetadata{
+		newCluster := &corev1.Cluster{
+			Id: authReq.ClientID,
+			Metadata: &corev1.ClusterMetadata{
 				Labels: bootstrapToken.GetMetadata().GetLabels(),
-				Capabilities: []*core.ClusterCapability{
+				Capabilities: []*corev1.ClusterCapability{
 					{
-						Name: clientReq.Capability,
+						Name: authReq.Capability,
 					},
 				},
 			},
 		}
-		if err := h.handleCreate(newCluster, clientReq.Capability, bootstrapToken, kr); err != nil {
-			lg.Printf("error creating cluster: %v", err)
-			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		if err := h.handleCreate(newCluster, authReq.Capability, bootstrapToken, kr); err != nil {
+			return nil, status.Errorf(codes.Internal, "error installing capability %q: %v", authReq.Capability, err)
 		}
 	}
 
-	return c.Status(fiber.StatusOK).JSON(BootstrapAuthResponse{
+	return &bootstrapv1.BootstrapAuthResponse{
 		ServerPubKey: ekp.PublicKey,
-	})
+	}, nil
 }
 
-func (h ServerConfig) handleCreate(
-	newCluster *core.Cluster,
+func (h Server) handleCreate(
+	newCluster *corev1.Cluster,
 	newCapability string,
-	token *core.BootstrapToken,
+	token *corev1.BootstrapToken,
 	kr keyring.Keyring,
 ) error {
-	if err := h.ClusterStore.CreateCluster(context.Background(), newCluster); err != nil {
+	if err := h.storage.CreateCluster(context.Background(), newCluster); err != nil {
 		return fmt.Errorf("error creating cluster: %w", err)
 	}
-	_, err := h.TokenStore.UpdateToken(context.Background(), token.Reference(),
+	_, err := h.storage.UpdateToken(context.Background(), token.Reference(),
 		storage.NewCompositeMutator(
 			storage.NewIncrementUsageCountMutator(),
-			storage.NewAddCapabilityMutator[*core.BootstrapToken](&core.TokenCapability{
+			storage.NewAddCapabilityMutator[*corev1.BootstrapToken](&corev1.TokenCapability{
 				Type:      string(capabilities.JoinExistingCluster),
 				Reference: newCluster.Reference(),
 			}),
@@ -221,35 +209,35 @@ func (h ServerConfig) handleCreate(
 	if err != nil {
 		return fmt.Errorf("error incrementing usage count: %w", err)
 	}
-	krStore, err := h.KeyringStoreBroker.KeyringStore(context.Background(), "gateway", newCluster.Reference())
+	krStore, err := h.storage.KeyringStore(context.Background(), "gateway", newCluster.Reference())
 	if err != nil {
 		return fmt.Errorf("error getting keyring store: %w", err)
 	}
 	if err := krStore.Put(context.Background(), kr); err != nil {
 		return fmt.Errorf("error storing keyring: %w", err)
 	}
-	h.CapabilityInstaller.InstallCapabilities(newCluster.Reference(), newCapability)
+	h.installer.InstallCapabilities(newCluster.Reference(), newCapability)
 	return nil
 }
 
-func (h ServerConfig) handleEdit(
-	existingCluster *core.Reference,
+func (h Server) handleEdit(
+	existingCluster *corev1.Reference,
 	newCapability string,
-	token *core.BootstrapToken,
+	token *corev1.BootstrapToken,
 	keyring keyring.Keyring,
 ) error {
-	_, err := h.TokenStore.UpdateToken(context.Background(), token.Reference(),
+	_, err := h.storage.UpdateToken(context.Background(), token.Reference(),
 		storage.NewIncrementUsageCountMutator())
 	if err != nil {
 		return fmt.Errorf("error incrementing usage count: %w", err)
 	}
-	_, err = h.ClusterStore.UpdateCluster(context.Background(), existingCluster,
-		storage.NewAddCapabilityMutator[*core.Cluster](capabilities.Cluster(newCapability)),
+	_, err = h.storage.UpdateCluster(context.Background(), existingCluster,
+		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(newCapability)),
 	)
 	if err != nil {
 		return err
 	}
-	krStore, err := h.KeyringStoreBroker.KeyringStore(context.Background(), "gateway", existingCluster)
+	krStore, err := h.storage.KeyringStore(context.Background(), "gateway", existingCluster)
 	if err != nil {
 		return fmt.Errorf("error getting keyring store: %w", err)
 	}
@@ -260,6 +248,6 @@ func (h ServerConfig) handleEdit(
 	if err := krStore.Put(context.Background(), keyring.Merge(kr)); err != nil {
 		return fmt.Errorf("error storing keyring: %w", err)
 	}
-	h.CapabilityInstaller.InstallCapabilities(existingCluster, newCapability)
+	h.installer.InstallCapabilities(existingCluster, newCapability)
 	return nil
 }

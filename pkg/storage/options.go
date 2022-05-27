@@ -1,16 +1,16 @@
 package storage
 
-import "github.com/rancher/opni/pkg/core"
+import corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 
 type TokenCreateOptions struct {
 	Labels       map[string]string
-	Capabilities []*core.TokenCapability
+	Capabilities []*corev1.TokenCapability
 }
 
 func NewTokenCreateOptions() TokenCreateOptions {
 	return TokenCreateOptions{
 		Labels:       map[string]string{},
-		Capabilities: []*core.TokenCapability{},
+		Capabilities: []*corev1.TokenCapability{},
 	}
 }
 
@@ -28,7 +28,7 @@ func WithLabels(labels map[string]string) TokenCreateOption {
 	}
 }
 
-func WithCapabilities(capabilities []*core.TokenCapability) TokenCreateOption {
+func WithCapabilities(capabilities []*corev1.TokenCapability) TokenCreateOption {
 	return func(o *TokenCreateOptions) {
 		o.Capabilities = capabilities
 	}

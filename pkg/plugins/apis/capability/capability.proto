@@ -1,6 +1,6 @@
 syntax = "proto3";
 import "google/protobuf/empty.proto";
-import "../../../core/core.proto";
+import "../../../apis/core/v1/core.proto";
 option go_package = "github.com/rancher/opni/pkg/plugins/apis/capability";
 
 package capability;

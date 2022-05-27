@@ -3,7 +3,8 @@ package management
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
@@ -13,8 +14,8 @@ import (
 
 func (m *Server) CreateBootstrapToken(
 	ctx context.Context,
-	req *CreateBootstrapTokenRequest,
-) (*core.BootstrapToken, error) {
+	req *managementv1.CreateBootstrapTokenRequest,
+) (*corev1.BootstrapToken, error) {
 	if err := validation.Validate(req); err != nil {
 		return nil, err
 	}
@@ -30,7 +31,7 @@ func (m *Server) CreateBootstrapToken(
 
 func (m *Server) RevokeBootstrapToken(
 	ctx context.Context,
-	ref *core.Reference,
+	ref *corev1.Reference,
 ) (*emptypb.Empty, error) {
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
@@ -41,20 +42,20 @@ func (m *Server) RevokeBootstrapToken(
 func (m *Server) ListBootstrapTokens(
 	ctx context.Context,
 	_ *emptypb.Empty,
-) (*core.BootstrapTokenList, error) {
+) (*corev1.BootstrapTokenList, error) {
 	tokens, err := m.coreDataSource.StorageBackend().ListTokens(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	tokenList := &core.BootstrapTokenList{}
+	tokenList := &corev1.BootstrapTokenList{}
 	tokenList.Items = append(tokenList.Items, tokens...)
 	return tokenList, nil
 }
 
 func (m *Server) GetBootstrapToken(
 	ctx context.Context,
-	ref *core.Reference,
-) (*core.BootstrapToken, error) {
+	ref *corev1.Reference,
+) (*corev1.BootstrapToken, error) {
 	if err := validation.Validate(ref); err != nil {
 		return nil, err
 	}

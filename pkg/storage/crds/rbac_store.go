@@ -4,14 +4,14 @@ import (
 	"context"
 
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (c *CRDStore) CreateRole(ctx context.Context, role *core.Role) error {
+func (c *CRDStore) CreateRole(ctx context.Context, role *corev1.Role) error {
 	return c.client.Create(ctx, &v1beta2.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      role.Id,
@@ -21,7 +21,7 @@ func (c *CRDStore) CreateRole(ctx context.Context, role *core.Role) error {
 	})
 }
 
-func (c *CRDStore) DeleteRole(ctx context.Context, ref *core.Reference) error {
+func (c *CRDStore) DeleteRole(ctx context.Context, ref *corev1.Reference) error {
 	return c.client.Delete(ctx, &v1beta2.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
@@ -30,7 +30,7 @@ func (c *CRDStore) DeleteRole(ctx context.Context, ref *core.Reference) error {
 	})
 }
 
-func (c *CRDStore) GetRole(ctx context.Context, ref *core.Reference) (*core.Role, error) {
+func (c *CRDStore) GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.Role, error) {
 	role := &v1beta2.Role{}
 	err := c.client.Get(ctx, client.ObjectKey{
 		Name:      ref.Id,
@@ -45,7 +45,7 @@ func (c *CRDStore) GetRole(ctx context.Context, ref *core.Reference) (*core.Role
 	return role.Spec, nil
 }
 
-func (c *CRDStore) CreateRoleBinding(ctx context.Context, rb *core.RoleBinding) error {
+func (c *CRDStore) CreateRoleBinding(ctx context.Context, rb *corev1.RoleBinding) error {
 	return c.client.Create(ctx, &v1beta2.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rb.Id,
@@ -55,7 +55,7 @@ func (c *CRDStore) CreateRoleBinding(ctx context.Context, rb *core.RoleBinding) 
 	})
 }
 
-func (c *CRDStore) DeleteRoleBinding(ctx context.Context, ref *core.Reference) error {
+func (c *CRDStore) DeleteRoleBinding(ctx context.Context, ref *corev1.Reference) error {
 	return c.client.Delete(ctx, &v1beta2.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
@@ -64,7 +64,7 @@ func (c *CRDStore) DeleteRoleBinding(ctx context.Context, ref *core.Reference) e
 	})
 }
 
-func (c *CRDStore) GetRoleBinding(ctx context.Context, ref *core.Reference) (*core.RoleBinding, error) {
+func (c *CRDStore) GetRoleBinding(ctx context.Context, ref *corev1.Reference) (*corev1.RoleBinding, error) {
 	rb := &v1beta2.RoleBinding{}
 	err := c.client.Get(ctx, client.ObjectKey{
 		Name:      ref.Id,
@@ -79,14 +79,14 @@ func (c *CRDStore) GetRoleBinding(ctx context.Context, ref *core.Reference) (*co
 	return rb.Spec, nil
 }
 
-func (c *CRDStore) ListRoles(ctx context.Context) (*core.RoleList, error) {
+func (c *CRDStore) ListRoles(ctx context.Context) (*corev1.RoleList, error) {
 	list := &v1beta2.RoleList{}
 	err := c.client.List(ctx, list, client.InNamespace(c.namespace))
 	if err != nil {
 		return nil, err
 	}
-	roles := &core.RoleList{
-		Items: make([]*core.Role, 0, len(list.Items)),
+	roles := &corev1.RoleList{
+		Items: make([]*corev1.Role, 0, len(list.Items)),
 	}
 	for _, item := range list.Items {
 		roles.Items = append(roles.Items, item.Spec)
@@ -94,14 +94,14 @@ func (c *CRDStore) ListRoles(ctx context.Context) (*core.RoleList, error) {
 	return roles, nil
 }
 
-func (c *CRDStore) ListRoleBindings(ctx context.Context) (*core.RoleBindingList, error) {
+func (c *CRDStore) ListRoleBindings(ctx context.Context) (*corev1.RoleBindingList, error) {
 	list := &v1beta2.RoleBindingList{}
 	err := c.client.List(ctx, list, client.InNamespace(c.namespace))
 	if err != nil {
 		return nil, err
 	}
-	rb := &core.RoleBindingList{
-		Items: make([]*core.RoleBinding, 0, len(list.Items)),
+	rb := &corev1.RoleBindingList{
+		Items: make([]*corev1.RoleBinding, 0, len(list.Items)),
 	}
 	for _, item := range list.Items {
 		rb.Items = append(rb.Items, item.Spec)

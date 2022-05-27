@@ -14,8 +14,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/management"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/test"
 )
@@ -34,7 +34,7 @@ type fingerprintsTestData struct {
 var testFingerprints fingerprintsData
 var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label(test.Integration), func() {
 	var environment *test.Environment
-	var client management.ManagementClient
+	var client managementv1.ManagementClient
 	var fingerprint string
 	BeforeAll(func() {
 		environment = &test.Environment{
@@ -55,7 +55,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label(tes
 
 	When("mulitple clusters are associated to a user", func() {
 		It("can return metrics associated with that user", func() {
-			token, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -84,7 +84,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label(tes
 			}
 
 			//Clusters that will not be associated to the user
-			token2, err := client.CreateBootstrapToken(context.Background(), &management.CreateBootstrapTokenRequest{
+			token2, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -96,20 +96,20 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label(tes
 				uUClusterNameList = append(uUClusterNameList, uUClusterName)
 			}
 
-			_, err = client.CreateRole(context.Background(), &core.Role{
+			_, err = client.CreateRole(context.Background(), &corev1.Role{
 				Id:         "test-role",
 				ClusterIDs: clusterNameList,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = client.CreateRoleBinding(context.Background(), &core.RoleBinding{
+			_, err = client.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
 				Id:       "test-rolebinding",
 				RoleId:   "test-role",
 				Subjects: []string{"user@example.com"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			accessList, err := client.SubjectAccess(context.Background(), &core.SubjectAccessRequest{
+			accessList, err := client.SubjectAccess(context.Background(), &corev1.SubjectAccessRequest{
 				Subject: "user@example.com",
 			})
 			Expect(err).NotTo(HaveOccurred())

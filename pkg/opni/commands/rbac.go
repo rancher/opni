@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/rancher/opni/pkg/core"
-	"github.com/rancher/opni/pkg/management"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -57,10 +57,10 @@ func BuildRolesCreateCmd() *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			role := &core.Role{
+			role := &corev1.Role{
 				Id:         args[0],
 				ClusterIDs: clusterIDs,
-				MatchLabels: &core.LabelSelector{
+				MatchLabels: &corev1.LabelSelector{
 					MatchLabels: matchLabels,
 				},
 			}
@@ -85,7 +85,7 @@ func BuildRolesDeleteCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			for _, role := range args {
 				_, err := mgmtClient.DeleteRole(cmd.Context(),
-					&core.Reference{
+					&corev1.Reference{
 						Id: role,
 					})
 				if err != nil {
@@ -104,7 +104,7 @@ func BuildRolesShowCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			role, err := mgmtClient.GetRole(cmd.Context(),
-				&core.Reference{
+				&corev1.Reference{
 					Id: args[0],
 				})
 			if err != nil {
@@ -135,7 +135,7 @@ func BuildRoleBindingsCreateCmd() *cobra.Command {
 		Short: "Create a role binding",
 		Args:  cobra.MinimumNArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
-			rb := &core.RoleBinding{
+			rb := &corev1.RoleBinding{
 				Id:       args[0],
 				RoleId:   args[1],
 				Subjects: args[2:],
@@ -161,7 +161,7 @@ func BuildRoleBindingsDeleteCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			_, err := mgmtClient.DeleteRoleBinding(cmd.Context(),
-				&core.Reference{
+				&corev1.Reference{
 					Id: args[0],
 				})
 			if err != nil {
@@ -179,7 +179,7 @@ func BuildRoleBindingsShowCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			rb, err := mgmtClient.GetRoleBinding(cmd.Context(),
-				&core.Reference{
+				&corev1.Reference{
 					Id: args[0],
 				})
 			if err != nil {
@@ -223,7 +223,7 @@ func BuildAccessMatrixCmd() *cobra.Command {
 					allUsers[subject] = struct{}{}
 				}
 			}
-			clusters, err := mgmtClient.ListClusters(cmd.Context(), &management.ListClustersRequest{})
+			clusters, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 			if err != nil {
 				lg.Fatal(err)
 			}
@@ -233,7 +233,7 @@ func BuildAccessMatrixCmd() *cobra.Command {
 			}
 			for user := range allUsers {
 				clusterIds, err := mgmtClient.SubjectAccess(cmd.Context(),
-					&core.SubjectAccessRequest{
+					&corev1.SubjectAccessRequest{
 						Subject: user,
 					})
 				if err != nil {

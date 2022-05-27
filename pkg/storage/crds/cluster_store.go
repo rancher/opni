@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/core"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,7 +24,7 @@ var (
 	}
 )
 
-func (c *CRDStore) CreateCluster(ctx context.Context, cluster *core.Cluster) error {
+func (c *CRDStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) error {
 	return c.client.Create(ctx, &v1beta2.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cluster.Id,
@@ -35,7 +35,7 @@ func (c *CRDStore) CreateCluster(ctx context.Context, cluster *core.Cluster) err
 	})
 }
 
-func (c *CRDStore) DeleteCluster(ctx context.Context, ref *core.Reference) error {
+func (c *CRDStore) DeleteCluster(ctx context.Context, ref *corev1.Reference) error {
 	return c.client.Delete(ctx, &v1beta2.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
@@ -44,7 +44,7 @@ func (c *CRDStore) DeleteCluster(ctx context.Context, ref *core.Reference) error
 	})
 }
 
-func (c *CRDStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.Cluster, error) {
+func (c *CRDStore) GetCluster(ctx context.Context, ref *corev1.Reference) (*corev1.Cluster, error) {
 	cluster := &v1beta2.Cluster{}
 	err := c.client.Get(ctx, client.ObjectKey{
 		Name:      ref.Id,
@@ -59,8 +59,8 @@ func (c *CRDStore) GetCluster(ctx context.Context, ref *core.Reference) (*core.C
 	return cluster.Spec, nil
 }
 
-func (c *CRDStore) UpdateCluster(ctx context.Context, ref *core.Reference, mutator storage.MutatorFunc[*core.Cluster]) (*core.Cluster, error) {
-	var cluster *core.Cluster
+func (c *CRDStore) UpdateCluster(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.Cluster]) (*corev1.Cluster, error) {
+	var cluster *corev1.Cluster
 	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
 		existing := &v1beta2.Cluster{}
 		err := c.client.Get(ctx, client.ObjectKey{
@@ -84,7 +84,7 @@ func (c *CRDStore) UpdateCluster(ctx context.Context, ref *core.Reference, mutat
 	return cluster, nil
 }
 
-func (c *CRDStore) ListClusters(ctx context.Context, matchLabels *core.LabelSelector, matchOptions core.MatchOptions) (*core.ClusterList, error) {
+func (c *CRDStore) ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error) {
 	list := &v1beta2.ClusterList{}
 	err := c.client.List(ctx, list, client.InNamespace(c.namespace))
 	if err != nil {
@@ -94,8 +94,8 @@ func (c *CRDStore) ListClusters(ctx context.Context, matchLabels *core.LabelSele
 		LabelSelector: matchLabels,
 		MatchOptions:  matchOptions,
 	}.Predicate()
-	clusters := &core.ClusterList{
-		Items: make([]*core.Cluster, 0, len(list.Items)),
+	clusters := &corev1.ClusterList{
+		Items: make([]*corev1.Cluster, 0, len(list.Items)),
 	}
 	for _, item := range list.Items {
 		if selectorPredicate(item.Spec) {

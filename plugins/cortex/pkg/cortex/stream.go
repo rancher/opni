@@ -16,6 +16,7 @@ func (p *Plugin) StreamServers() []streamext.Server {
 			Impl: &remoteWriteForwarder{
 				distClient: p.distributorClient,
 				httpClient: p.cortexHttpClient,
+				config:     p.config,
 			},
 		},
 	}

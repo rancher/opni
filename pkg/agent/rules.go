@@ -30,6 +30,8 @@ func (a *Agent) configureRuleFinder() (rules.RuleFinder, error) {
 				rules.WithNamespaces(pr.SearchNamespaces...),
 			)
 			return finder, nil
+		} else if a.Rules.Discovery.Filesystem != nil {
+			return rules.NewFilesystemRuleFinder(a.Rules.Discovery.Filesystem), nil
 		}
 	}
 	return nil, fmt.Errorf("missing configuration")
@@ -113,7 +115,6 @@ func (a *Agent) streamRulesToGateway(ctx context.Context) error {
 					reqCtx, ca := context.WithTimeout(ctx, time.Second*2)
 					defer ca()
 					a.remoteWriteMu.Lock()
-					defer a.remoteWriteMu.Unlock()
 					var err error
 					if a.remoteWriteClient != nil {
 						_, err = a.remoteWriteClient.SyncRules(reqCtx, &remotewrite.Payload{
@@ -126,6 +127,7 @@ func (a *Agent) streamRulesToGateway(ctx context.Context) error {
 					} else {
 						err = errors.New("gateway is not connected")
 					}
+					a.remoteWriteMu.Unlock()
 
 					if err != nil {
 						// retry, unless another update is received from the channel

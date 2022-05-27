@@ -68,8 +68,13 @@ type RulesSpec struct {
 
 type DiscoverySpec struct {
 	PrometheusRules *PrometheusRulesSpec `json:"prometheusRules,omitempty"`
+	Filesystem      *FilesystemRulesSpec `json:"filesystem,omitempty"`
 	// Search interval. Defaults to "15m"
 	Interval string `json:"interval,omitempty"`
+}
+
+type FilesystemRulesSpec struct {
+	PathExpressions []string `json:"pathExpressions,omitempty"`
 }
 
 type PrometheusRulesSpec struct {

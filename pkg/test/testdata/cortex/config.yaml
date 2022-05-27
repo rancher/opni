@@ -88,6 +88,6 @@ compactor:
       store: inmemory
 
 ruler_storage:
-  backend: local
-  local:
-    directory: "{{ .StorageDir }}/rules"
+  backend: filesystem
+  filesystem:
+    dir: "{{ .StorageDir }}/rules"

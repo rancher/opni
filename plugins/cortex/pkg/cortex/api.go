@@ -92,26 +92,6 @@ func (p *Plugin) preprocessRules(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-// func (p *Plugin) configureAgentAPI(app *fiber.App, f *forwarders, m *middlewares) {
-// g := app.Group("/api/agent", limiter.New(limiter.Config{
-// 	SkipSuccessfulRequests: true,
-// }), m.Cluster)
-// g.Post("/push", func(c *fiber.Ctx) error {
-// 	clusterID := cluster.AuthorizedID(c)
-// 	len := c.Get("Content-Length", "0")
-// 	if i, err := strconv.ParseInt(len, 10, 64); err == nil && i > 0 {
-// 		flen := float64(i)
-// 		ingestBytesTotal.Add(flen)
-// 		ingestBytesByID.With(map[string]string{
-// 			"cluster_id": clusterID,
-// 		}).Add(flen)
-// 	}
-// 	c.Path("/api/v1/push")
-// 	return c.Next()
-// }, f.Distributor)
-// g.Post("/sync_rules", p.preprocessRules, f.Ruler)
-// }
-
 func (p *Plugin) configureAlertmanager(app *fiber.App, f *forwarders, m *middlewares) {
 	orgIdLimiter := func(c *fiber.Ctx) error {
 		ids := rbac.AuthorizedClusterIDs(c)

@@ -175,7 +175,8 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}
-	go agent.streamRulesToGateway(ctx)
+
+	var startRuleStreamOnce sync.Once
 
 	go func() {
 		for {
@@ -207,6 +208,10 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			agent.remoteWriteMu.Lock()
 			agent.remoteWriteClient = remotewrite.NewRemoteWriteClient(tc)
 			agent.remoteWriteMu.Unlock()
+
+			startRuleStreamOnce.Do(func() {
+				go agent.streamRulesToGateway(ctx)
+			})
 
 			select {
 			case <-ctx.Done():
@@ -286,7 +291,7 @@ func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {
 
 	lg.Info("running post-bootstrap finalization steps")
 	if err := a.bootstrapper.Finalize(ctx); err != nil {
-		lg.With(zap.Error(err)).Error("error in post-bootstrap finalization")
+		lg.With(zap.Error(err)).Warn("error in post-bootstrap finalization")
 	} else {
 		lg.Info("bootstrap completed successfully")
 	}

@@ -85,6 +85,8 @@ func StartCmd(cmd *exec.Cmd) (Session, error) {
 			cmd: cmd,
 		}, nil
 	}
+	cmd.Stdout = StdoutWriter
+	cmd.Stderr = StderrWriter
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}

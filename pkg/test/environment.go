@@ -242,6 +242,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		if err := os.Mkdir(path.Join(e.tempDir, "prometheus"), 0700); err != nil {
 			return err
 		}
+		os.WriteFile(path.Join(e.tempDir, "prometheus", "sample-rules.yaml"), TestData("prometheus/sample-rules.yaml"), 0644)
 	}
 
 	if options.enableEtcd {
@@ -753,6 +754,15 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 			ListenAddress:    fmt.Sprintf("localhost:%d", port),
 			GatewayAddress:   fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
 			IdentityProvider: id,
+			Rules: &v1beta1.RulesSpec{
+				Discovery: v1beta1.DiscoverySpec{
+					Filesystem: &v1beta1.FilesystemRulesSpec{
+						PathExpressions: []string{
+							path.Join(e.tempDir, "prometheus", "sample-rules.yaml"),
+						},
+					},
+				},
+			},
 			Storage: v1beta1.StorageSpec{
 				Type: v1beta1.StorageTypeEtcd,
 				Etcd: &v1beta1.EtcdStorageSpec{
@@ -979,7 +989,7 @@ func StartStandaloneTestEnvironment() {
 		}()
 	}
 	<-c
-	Log.Info("\nStopping test environment")
+	fmt.Println(chalk.Yellow.Color("\nStopping test environment"))
 	if err := environment.Stop(); err != nil {
 		panic(err)
 	}

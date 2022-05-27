@@ -265,8 +265,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 		}
 	})
 
-	//TODO: This test is not working.
-	XWhen("an agent tries to bootstrap twice", func() {
+	When("an agent tries to bootstrap twice", func() {
 		It("should reject the bootstrap request", func() {
 			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Minute),
@@ -284,7 +283,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			Expect(err).NotTo(HaveOccurred())
 			defer etcdClient.Close()
 
-			_, err = etcdClient.Delete(context.Background(), "/agent/keyrings/"+id)
+			_, err = etcdClient.Delete(context.Background(), "agent/keyrings/"+id)
 			Expect(err).NotTo(HaveOccurred())
 
 			_, errC = environment.StartAgent(id, token, []string{fingerprint})

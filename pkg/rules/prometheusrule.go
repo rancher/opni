@@ -43,7 +43,7 @@ func WithLogger(lg *zap.SugaredLogger) PrometheusRuleFinderOption {
 	}
 }
 
-func NewPrometheusRuleFinder(k8sClient client.Client, opts ...PrometheusRuleFinderOption) RuleFinder {
+func NewPrometheusRuleFinder(k8sClient client.Client, opts ...PrometheusRuleFinderOption) *PrometheusRuleFinder {
 	options := PrometheusRuleFinderOptions{
 		logger: logger.New().Named("rules"),
 	}

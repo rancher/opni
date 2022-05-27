@@ -11,6 +11,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/rancher/opni/pkg/logger"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -99,4 +100,8 @@ func (f *Future[T]) GetContext(ctx context.Context) (_ T, err error) {
 		return
 	}
 	return f.object, nil
+}
+
+func ProtoClone[T proto.Message](msg T) T {
+	return proto.Clone(msg).(T)
 }

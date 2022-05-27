@@ -2,7 +2,6 @@ package rules
 
 import (
 	"context"
-	"io"
 	"io/fs"
 	"os"
 	"strings"
@@ -69,17 +68,9 @@ func (f *FilesystemRuleFinder) FindGroups(context.Context) ([]rulefmt.RuleGroup,
 		}
 
 		lg.Debugf("found %d rules files matching path expression", len(matched))
-
 		for _, path := range matched {
-			file, err := f.fs.Open(path)
 			lg := lg.With("path", path)
-			if err != nil {
-				lg.With(
-					zap.Error(err),
-				).Warn("error opening rules file")
-				continue
-			}
-			data, err := io.ReadAll(file)
+			data, err := fs.ReadFile(f.fs, path)
 			if err != nil {
 				lg.With(
 					zap.Error(err),

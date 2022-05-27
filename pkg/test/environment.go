@@ -114,7 +114,7 @@ type EnvironmentOptions struct {
 
 type EnvironmentOption func(*EnvironmentOptions)
 
-func (o *EnvironmentOptions) Apply(opts ...EnvironmentOption) {
+func (o *EnvironmentOptions) apply(opts ...EnvironmentOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -144,7 +144,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		enableGateway: true,
 		enableCortex:  true,
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	e.Logger = Log.Named("env")
 
@@ -659,6 +659,7 @@ func (e *Environment) startGateway() {
 	)
 	m := management.NewServer(e.ctx, &e.gatewayConfig.Spec.Management, g, pluginLoader,
 		management.WithCapabilitiesDataSource(g),
+		management.WithHealthStatusDataSource(g),
 		management.WithLifecycler(lifecycler),
 	)
 
@@ -713,7 +714,7 @@ type StartAgentOptions struct {
 
 type StartAgentOption func(*StartAgentOptions)
 
-func (o *StartAgentOptions) Apply(opts ...StartAgentOption) {
+func (o *StartAgentOptions) apply(opts ...StartAgentOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -732,7 +733,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	options := &StartAgentOptions{
 		ctx: context.Background(),
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	errC := make(chan error, 1)
 	port, err := freeport.GetFreePort()

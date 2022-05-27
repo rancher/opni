@@ -247,6 +247,30 @@
         ]
       }
     },
+    "/management/clusters/{id}/health": {
+      "get": {
+        "operationId": "Management_GetClusterHealthStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreHealthStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
     "/management/config": {
       "get": {
         "operationId": "Management_GetConfig",
@@ -764,6 +788,34 @@
         }
       }
     },
+    "coreHealth": {
+      "type": "object",
+      "properties": {
+        "Ready": {
+          "type": "boolean"
+        },
+        "Conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "Uptime": {
+          "type": "string"
+        }
+      }
+    },
+    "coreHealthStatus": {
+      "type": "object",
+      "properties": {
+        "Health": {
+          "$ref": "#/definitions/coreHealth"
+        },
+        "Status": {
+          "$ref": "#/definitions/coreStatus"
+        }
+      }
+    },
     "coreLabelSelector": {
       "type": "object",
       "properties": {
@@ -884,6 +936,14 @@
           "items": {
             "$ref": "#/definitions/coreRole"
           }
+        }
+      }
+    },
+    "coreStatus": {
+      "type": "object",
+      "properties": {
+        "Connected": {
+          "type": "boolean"
         }
       }
     },

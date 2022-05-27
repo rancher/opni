@@ -50,6 +50,10 @@ type CapabilitiesDataSource interface {
 	CapabilitiesStore() capabilities.BackendStore
 }
 
+type HealthStatusDataSource interface {
+	ClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthStatus, error)
+}
+
 type apiExtension struct {
 	client      apiextensions.ManagementAPIExtensionClient
 	clientConn  *grpc.ClientConn
@@ -59,7 +63,7 @@ type apiExtension struct {
 
 type Server struct {
 	managementv1.UnsafeManagementServer
-	ManagementServerOptions
+	managementServerOptions
 	config         *v1beta1.ManagementSpec
 	logger         *zap.SugaredLogger
 	rbacProvider   rbac.Provider
@@ -72,28 +76,35 @@ type Server struct {
 
 var _ managementv1.ManagementServer = (*Server)(nil)
 
-type ManagementServerOptions struct {
+type managementServerOptions struct {
 	lifecycler             config.Lifecycler
 	capabilitiesDataSource CapabilitiesDataSource
+	healthStatusDataSource HealthStatusDataSource
 }
 
-type ManagementServerOption func(*ManagementServerOptions)
+type ManagementServerOption func(*managementServerOptions)
 
-func (o *ManagementServerOptions) Apply(opts ...ManagementServerOption) {
+func (o *managementServerOptions) apply(opts ...ManagementServerOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
 func WithLifecycler(lc config.Lifecycler) ManagementServerOption {
-	return func(o *ManagementServerOptions) {
+	return func(o *managementServerOptions) {
 		o.lifecycler = lc
 	}
 }
 
 func WithCapabilitiesDataSource(src CapabilitiesDataSource) ManagementServerOption {
-	return func(o *ManagementServerOptions) {
+	return func(o *managementServerOptions) {
 		o.capabilitiesDataSource = src
+	}
+}
+
+func WithHealthStatusDataSource(src HealthStatusDataSource) ManagementServerOption {
+	return func(o *managementServerOptions) {
+		o.healthStatusDataSource = src
 	}
 }
 
@@ -105,13 +116,13 @@ func NewServer(
 	opts ...ManagementServerOption,
 ) *Server {
 	lg := logger.New().Named("mgmt")
-	options := ManagementServerOptions{
+	options := managementServerOptions{
 		lifecycler: config.NewUnavailableLifecycler(cfgmeta.ObjectList{}),
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	m := &Server{
-		ManagementServerOptions: options,
+		managementServerOptions: options,
 		config:                  conf,
 		logger:                  lg,
 		coreDataSource:          cds,

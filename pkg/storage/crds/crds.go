@@ -34,7 +34,7 @@ type CRDStoreOptions struct {
 
 type CRDStoreOption func(*CRDStoreOptions)
 
-func (o *CRDStoreOptions) Apply(opts ...CRDStoreOption) {
+func (o *CRDStoreOptions) apply(opts ...CRDStoreOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -64,7 +64,7 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 		namespace:      os.Getenv("POD_NAMESPACE"),
 		commandTimeout: 5 * time.Second,
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 	if options.namespace == "" {
 		lg.Warn("namespace is not set, using \"default\"")
 		options.namespace = "default"

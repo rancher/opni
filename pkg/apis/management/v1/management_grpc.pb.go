@@ -33,6 +33,7 @@ type ManagementClient interface {
 	DeleteCluster(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CertsInfo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CertsInfoResponse, error)
 	GetCluster(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.Cluster, error)
+	GetClusterHealthStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.HealthStatus, error)
 	EditCluster(ctx context.Context, in *EditClusterRequest, opts ...grpc.CallOption) (*v1.Cluster, error)
 	CreateRole(ctx context.Context, in *v1.Role, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteRole(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -156,6 +157,15 @@ func (c *managementClient) CertsInfo(ctx context.Context, in *emptypb.Empty, opt
 func (c *managementClient) GetCluster(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.Cluster, error) {
 	out := new(v1.Cluster)
 	err := c.cc.Invoke(ctx, "/management.Management/GetCluster", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) GetClusterHealthStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.HealthStatus, error) {
+	out := new(v1.HealthStatus)
+	err := c.cc.Invoke(ctx, "/management.Management/GetClusterHealthStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -310,6 +320,7 @@ type ManagementServer interface {
 	DeleteCluster(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	CertsInfo(context.Context, *emptypb.Empty) (*CertsInfoResponse, error)
 	GetCluster(context.Context, *v1.Reference) (*v1.Cluster, error)
+	GetClusterHealthStatus(context.Context, *v1.Reference) (*v1.HealthStatus, error)
 	EditCluster(context.Context, *EditClusterRequest) (*v1.Cluster, error)
 	CreateRole(context.Context, *v1.Role) (*emptypb.Empty, error)
 	DeleteRole(context.Context, *v1.Reference) (*emptypb.Empty, error)
@@ -358,6 +369,9 @@ func (UnimplementedManagementServer) CertsInfo(context.Context, *emptypb.Empty) 
 }
 func (UnimplementedManagementServer) GetCluster(context.Context, *v1.Reference) (*v1.Cluster, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCluster not implemented")
+}
+func (UnimplementedManagementServer) GetClusterHealthStatus(context.Context, *v1.Reference) (*v1.HealthStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClusterHealthStatus not implemented")
 }
 func (UnimplementedManagementServer) EditCluster(context.Context, *EditClusterRequest) (*v1.Cluster, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EditCluster not implemented")
@@ -578,6 +592,24 @@ func _Management_GetCluster_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ManagementServer).GetCluster(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_GetClusterHealthStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).GetClusterHealthStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/GetClusterHealthStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).GetClusterHealthStatus(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -890,6 +922,10 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCluster",
 			Handler:    _Management_GetCluster_Handler,
+		},
+		{
+			MethodName: "GetClusterHealthStatus",
+			Handler:    _Management_GetClusterHealthStatus_Handler,
 		},
 		{
 			MethodName: "EditCluster",

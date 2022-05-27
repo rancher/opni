@@ -45,7 +45,7 @@ type PluginOptions struct {
 
 type PluginOption func(*PluginOptions)
 
-func (o *PluginOptions) Apply(opts ...PluginOption) {
+func (o *PluginOptions) apply(opts ...PluginOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -65,7 +65,7 @@ func WithOpensearchCluster(cluster *opnimeta.OpensearchClusterRef) PluginOption 
 
 func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	options := PluginOptions{}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	lg := logger.NewForPlugin()
 

@@ -8,6 +8,7 @@ package v1
 
 import (
 	context "context"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -23,7 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AgentControlClient interface {
-	GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AgentHealth, error)
+	GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Health, error)
 }
 
 type agentControlClient struct {
@@ -34,8 +35,8 @@ func NewAgentControlClient(cc grpc.ClientConnInterface) AgentControlClient {
 	return &agentControlClient{cc}
 }
 
-func (c *agentControlClient) GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AgentHealth, error) {
-	out := new(AgentHealth)
+func (c *agentControlClient) GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Health, error) {
+	out := new(v1.Health)
 	err := c.cc.Invoke(ctx, "/control.AgentControl/GetHealth", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -47,7 +48,7 @@ func (c *agentControlClient) GetHealth(ctx context.Context, in *emptypb.Empty, o
 // All implementations must embed UnimplementedAgentControlServer
 // for forward compatibility
 type AgentControlServer interface {
-	GetHealth(context.Context, *emptypb.Empty) (*AgentHealth, error)
+	GetHealth(context.Context, *emptypb.Empty) (*v1.Health, error)
 	mustEmbedUnimplementedAgentControlServer()
 }
 
@@ -55,7 +56,7 @@ type AgentControlServer interface {
 type UnimplementedAgentControlServer struct {
 }
 
-func (UnimplementedAgentControlServer) GetHealth(context.Context, *emptypb.Empty) (*AgentHealth, error) {
+func (UnimplementedAgentControlServer) GetHealth(context.Context, *emptypb.Empty) (*v1.Health, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetHealth not implemented")
 }
 func (UnimplementedAgentControlServer) mustEmbedUnimplementedAgentControlServer() {}

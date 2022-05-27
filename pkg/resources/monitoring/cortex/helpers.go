@@ -51,7 +51,7 @@ type CortexWorkloadOptions struct {
 
 type CortexWorkloadOption func(*CortexWorkloadOptions)
 
-func (o *CortexWorkloadOptions) Apply(opts ...CortexWorkloadOption) {
+func (o *CortexWorkloadOptions) apply(opts ...CortexWorkloadOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -113,7 +113,7 @@ func (r *Reconciler) buildCortexDeployment(
 		replicas: 3,
 		ports:    []Port{HTTP, Gossip, GRPC},
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	labels := cortexWorkloadLabels(target)
 
@@ -158,7 +158,7 @@ func (r *Reconciler) buildCortexStatefulSet(
 		serviceName: fmt.Sprintf("cortex-%s", target),
 		storageSize: "2Gi",
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	labels := cortexWorkloadLabels(target)
 
@@ -424,7 +424,7 @@ type CortexServiceOptions struct {
 
 type CortexServiceOption func(*CortexServiceOptions)
 
-func (o *CortexServiceOptions) Apply(opts ...CortexServiceOption) {
+func (o *CortexServiceOptions) apply(opts ...CortexServiceOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -448,7 +448,7 @@ func (r *Reconciler) buildCortexWorkloadServices(
 	opts ...CortexServiceOption,
 ) []resources.Resource {
 	options := CortexServiceOptions{}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	httpPort := corev1.ServicePort{
 		Name:       "http-metrics",

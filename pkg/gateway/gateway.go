@@ -6,9 +6,11 @@ import (
 	"crypto/tls"
 	"net"
 
+	"github.com/gogo/status"
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/bootstrap"
@@ -16,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/config"
 	cfgmeta "github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins"
@@ -29,17 +32,19 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/mod/module"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Gateway struct {
 	GatewayOptions
-	config     *config.GatewayConfig
-	tlsConfig  *tls.Config
-	logger     *zap.SugaredLogger
-	httpServer *GatewayHTTPServer
-	grpcServer *GatewayGRPCServer
+	config        *config.GatewayConfig
+	tlsConfig     *tls.Config
+	logger        *zap.SugaredLogger
+	httpServer    *GatewayHTTPServer
+	grpcServer    *GatewayGRPCServer
+	statusQuerier health.HealthStatusQuerier
 
 	storageBackend  storage.Backend
 	capBackendStore capabilities.BackendStore
@@ -51,7 +56,7 @@ type GatewayOptions struct {
 
 type GatewayOption func(*GatewayOptions)
 
-func (o *GatewayOptions) Apply(opts ...GatewayOption) {
+func (o *GatewayOptions) apply(opts ...GatewayOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -67,7 +72,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	options := GatewayOptions{
 		lifecycler: config.NewUnavailableLifecycler(cfgmeta.ObjectList{conf}),
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	lg := logger.New().Named("gateway")
 	conf.Spec.SetDefaults()
@@ -153,10 +158,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	)
 
 	// set up stream server
-	monitor := &AgentMonitor{
-		logger: lg.Named("monitor"),
-	}
-	streamSvc := NewStreamServer(monitor, lg)
+	listener := health.NewListener()
+	monitor := health.NewMonitor(health.WithLogger(lg.Named("agent-monitor")))
+	go monitor.Run(ctx, listener)
+	streamSvc := NewStreamServer(listener, lg)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
@@ -188,6 +193,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		capBackendStore: capBackendStore,
 		httpServer:      httpServer,
 		grpcServer:      grpcServer,
+		statusQuerier:   monitor,
 	}
 
 	waitctx.Go(ctx, func() {
@@ -258,6 +264,15 @@ func (g *Gateway) TLSConfig() *tls.Config {
 // Implements management.CapabilitiesDataSource
 func (g *Gateway) CapabilitiesStore() capabilities.BackendStore {
 	return g.capBackendStore
+}
+
+// Implements management.HealthStatusDataSource
+func (g *Gateway) ClusterHealthStatus(ref *corev1.Reference) (*corev1.HealthStatus, error) {
+	hs := g.statusQuerier.GetHealthStatus(ref.Id)
+	if hs.Health == nil && hs.Status == nil {
+		return nil, status.Error(codes.NotFound, "no health or status has been reported for this cluster yet")
+	}
+	return hs, nil
 }
 
 func (g *Gateway) MustRegisterCollector(collector prometheus.Collector) {

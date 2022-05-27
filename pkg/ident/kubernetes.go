@@ -20,7 +20,7 @@ type KubernetesIdentOptions struct {
 
 type KubernetesIdentOption func(*KubernetesIdentOptions)
 
-func (o *KubernetesIdentOptions) Apply(opts ...KubernetesIdentOption) {
+func (o *KubernetesIdentOptions) apply(opts ...KubernetesIdentOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -34,7 +34,7 @@ func WithRestConfig(rc *rest.Config) KubernetesIdentOption {
 
 func NewKubernetesProvider(opts ...KubernetesIdentOption) Provider {
 	options := KubernetesIdentOptions{}
-	options.Apply(opts...)
+	options.apply(opts...)
 	if options.restConfig == nil {
 		options.restConfig = util.Must(rest.InClusterConfig())
 	}

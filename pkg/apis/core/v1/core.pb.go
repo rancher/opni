@@ -9,6 +9,7 @@ package v1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	reflect "reflect"
 	sync "sync"
 )
@@ -1088,12 +1089,179 @@ func (x *SubjectAccessRequest) GetSubject() string {
 	return ""
 }
 
+type Status struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Connected bool `protobuf:"varint,1,opt,name=Connected,proto3" json:"Connected,omitempty"`
+}
+
+func (x *Status) Reset() {
+	*x = Status{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_apis_core_v1_core_proto_msgTypes[18]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Status) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Status) ProtoMessage() {}
+
+func (x *Status) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_apis_core_v1_core_proto_msgTypes[18]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Status.ProtoReflect.Descriptor instead.
+func (*Status) Descriptor() ([]byte, []int) {
+	return file_pkg_apis_core_v1_core_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *Status) GetConnected() bool {
+	if x != nil {
+		return x.Connected
+	}
+	return false
+}
+
+type Health struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Ready      bool                 `protobuf:"varint,2,opt,name=Ready,proto3" json:"Ready,omitempty"`
+	Conditions []string             `protobuf:"bytes,3,rep,name=Conditions,proto3" json:"Conditions,omitempty"`
+	Uptime     *durationpb.Duration `protobuf:"bytes,4,opt,name=Uptime,proto3" json:"Uptime,omitempty"`
+}
+
+func (x *Health) Reset() {
+	*x = Health{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_apis_core_v1_core_proto_msgTypes[19]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Health) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Health) ProtoMessage() {}
+
+func (x *Health) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_apis_core_v1_core_proto_msgTypes[19]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Health.ProtoReflect.Descriptor instead.
+func (*Health) Descriptor() ([]byte, []int) {
+	return file_pkg_apis_core_v1_core_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *Health) GetReady() bool {
+	if x != nil {
+		return x.Ready
+	}
+	return false
+}
+
+func (x *Health) GetConditions() []string {
+	if x != nil {
+		return x.Conditions
+	}
+	return nil
+}
+
+func (x *Health) GetUptime() *durationpb.Duration {
+	if x != nil {
+		return x.Uptime
+	}
+	return nil
+}
+
+type HealthStatus struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Health *Health `protobuf:"bytes,1,opt,name=Health,proto3" json:"Health,omitempty"`
+	Status *Status `protobuf:"bytes,2,opt,name=Status,proto3" json:"Status,omitempty"`
+}
+
+func (x *HealthStatus) Reset() {
+	*x = HealthStatus{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_apis_core_v1_core_proto_msgTypes[20]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *HealthStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HealthStatus) ProtoMessage() {}
+
+func (x *HealthStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_apis_core_v1_core_proto_msgTypes[20]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HealthStatus.ProtoReflect.Descriptor instead.
+func (*HealthStatus) Descriptor() ([]byte, []int) {
+	return file_pkg_apis_core_v1_core_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *HealthStatus) GetHealth() *Health {
+	if x != nil {
+		return x.Health
+	}
+	return nil
+}
+
+func (x *HealthStatus) GetStatus() *Status {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
 var File_pkg_apis_core_v1_core_proto protoreflect.FileDescriptor
 
 var file_pkg_apis_core_v1_core_proto_rawDesc = []byte{
 	0x0a, 0x1b, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2f,
 	0x76, 0x31, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x04, 0x63,
-	0x6f, 0x72, 0x65, 0x22, 0x69, 0x0a, 0x0e, 0x42, 0x6f, 0x6f, 0x74, 0x73, 0x74, 0x72, 0x61, 0x70,
+	0x6f, 0x72, 0x65, 0x1a, 0x1e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x62, 0x75, 0x66, 0x2f, 0x64, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x2e, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x22, 0x69, 0x0a, 0x0e, 0x42, 0x6f, 0x6f, 0x74, 0x73, 0x74, 0x72, 0x61, 0x70,
 	0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x12, 0x11, 0x0a, 0x07, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x49, 0x44,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x00, 0x12, 0x10, 0x0a, 0x06, 0x73, 0x65, 0x63, 0x72,
 	0x65, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x42, 0x00, 0x12, 0x30, 0x0a, 0x08, 0x6d, 0x65,
@@ -1196,14 +1364,27 @@ var file_pkg_apis_core_v1_core_proto_rawDesc = []byte{
 	0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x42, 0x00, 0x3a, 0x00, 0x22, 0x2b, 0x0a,
 	0x14, 0x53, 0x75, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x41, 0x63, 0x63, 0x65, 0x73, 0x73, 0x52, 0x65,
 	0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x11, 0x0a, 0x07, 0x73, 0x75, 0x62, 0x6a, 0x65, 0x63, 0x74,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x00, 0x3a, 0x00, 0x2a, 0x3b, 0x0a, 0x0c, 0x4d, 0x61,
-	0x74, 0x63, 0x68, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x0b, 0x0a, 0x07, 0x44, 0x65,
-	0x66, 0x61, 0x75, 0x6c, 0x74, 0x10, 0x00, 0x12, 0x1c, 0x0a, 0x18, 0x45, 0x6d, 0x70, 0x74, 0x79,
-	0x53, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x4d, 0x61, 0x74, 0x63, 0x68, 0x65, 0x73, 0x4e,
-	0x6f, 0x6e, 0x65, 0x10, 0x01, 0x1a, 0x00, 0x42, 0x2a, 0x5a, 0x28, 0x67, 0x69, 0x74, 0x68, 0x75,
-	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f, 0x6f, 0x70,
-	0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x63, 0x6f, 0x72, 0x65,
-	0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x42, 0x00, 0x3a, 0x00, 0x22, 0x1f, 0x0a, 0x06, 0x53, 0x74,
+	0x61, 0x74, 0x75, 0x73, 0x12, 0x13, 0x0a, 0x09, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x65,
+	0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x42, 0x00, 0x3a, 0x00, 0x22, 0x5e, 0x0a, 0x06, 0x48,
+	0x65, 0x61, 0x6c, 0x74, 0x68, 0x12, 0x0f, 0x0a, 0x05, 0x52, 0x65, 0x61, 0x64, 0x79, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x08, 0x42, 0x00, 0x12, 0x14, 0x0a, 0x0a, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74,
+	0x69, 0x6f, 0x6e, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x42, 0x00, 0x12, 0x2b, 0x0a, 0x06,
+	0x55, 0x70, 0x74, 0x69, 0x6d, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x67,
+	0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x44,
+	0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x42, 0x00, 0x3a, 0x00, 0x22, 0x50, 0x0a, 0x0c, 0x48,
+	0x65, 0x61, 0x6c, 0x74, 0x68, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1e, 0x0a, 0x06, 0x48,
+	0x65, 0x61, 0x6c, 0x74, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0c, 0x2e, 0x63, 0x6f,
+	0x72, 0x65, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x42, 0x00, 0x12, 0x1e, 0x0a, 0x06, 0x53,
+	0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0c, 0x2e, 0x63, 0x6f,
+	0x72, 0x65, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x42, 0x00, 0x3a, 0x00, 0x2a, 0x3b, 0x0a,
+	0x0c, 0x4d, 0x61, 0x74, 0x63, 0x68, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x0b, 0x0a,
+	0x07, 0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x10, 0x00, 0x12, 0x1c, 0x0a, 0x18, 0x45, 0x6d,
+	0x70, 0x74, 0x79, 0x53, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x4d, 0x61, 0x74, 0x63, 0x68,
+	0x65, 0x73, 0x4e, 0x6f, 0x6e, 0x65, 0x10, 0x01, 0x1a, 0x00, 0x42, 0x2a, 0x5a, 0x28, 0x67, 0x69,
+	0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72,
+	0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x63,
+	0x6f, 0x72, 0x65, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1219,7 +1400,7 @@ func file_pkg_apis_core_v1_core_proto_rawDescGZIP() []byte {
 }
 
 var file_pkg_apis_core_v1_core_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pkg_apis_core_v1_core_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_pkg_apis_core_v1_core_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_pkg_apis_core_v1_core_proto_goTypes = []interface{}{
 	(MatchOptions)(0),                // 0: core.MatchOptions
 	(*BootstrapToken)(nil),           // 1: core.BootstrapToken
@@ -1240,31 +1421,38 @@ var file_pkg_apis_core_v1_core_proto_goTypes = []interface{}{
 	(*Reference)(nil),                // 16: core.Reference
 	(*ReferenceList)(nil),            // 17: core.ReferenceList
 	(*SubjectAccessRequest)(nil),     // 18: core.SubjectAccessRequest
-	nil,                              // 19: core.BootstrapTokenMetadata.LabelsEntry
-	nil,                              // 20: core.ClusterMetadata.LabelsEntry
-	nil,                              // 21: core.LabelSelector.MatchLabelsEntry
+	(*Status)(nil),                   // 19: core.Status
+	(*Health)(nil),                   // 20: core.Health
+	(*HealthStatus)(nil),             // 21: core.HealthStatus
+	nil,                              // 22: core.BootstrapTokenMetadata.LabelsEntry
+	nil,                              // 23: core.ClusterMetadata.LabelsEntry
+	nil,                              // 24: core.LabelSelector.MatchLabelsEntry
+	(*durationpb.Duration)(nil),      // 25: google.protobuf.Duration
 }
 var file_pkg_apis_core_v1_core_proto_depIdxs = []int32{
 	2,  // 0: core.BootstrapToken.metadata:type_name -> core.BootstrapTokenMetadata
-	19, // 1: core.BootstrapTokenMetadata.labels:type_name -> core.BootstrapTokenMetadata.LabelsEntry
+	22, // 1: core.BootstrapTokenMetadata.labels:type_name -> core.BootstrapTokenMetadata.LabelsEntry
 	3,  // 2: core.BootstrapTokenMetadata.capabilities:type_name -> core.TokenCapability
 	16, // 3: core.TokenCapability.reference:type_name -> core.Reference
 	1,  // 4: core.BootstrapTokenList.items:type_name -> core.BootstrapToken
 	6,  // 5: core.Cluster.metadata:type_name -> core.ClusterMetadata
-	20, // 6: core.ClusterMetadata.labels:type_name -> core.ClusterMetadata.LabelsEntry
+	23, // 6: core.ClusterMetadata.labels:type_name -> core.ClusterMetadata.LabelsEntry
 	7,  // 7: core.ClusterMetadata.capabilities:type_name -> core.ClusterCapability
 	5,  // 8: core.ClusterList.items:type_name -> core.Cluster
-	21, // 9: core.LabelSelector.matchLabels:type_name -> core.LabelSelector.MatchLabelsEntry
+	24, // 9: core.LabelSelector.matchLabels:type_name -> core.LabelSelector.MatchLabelsEntry
 	10, // 10: core.LabelSelector.matchExpressions:type_name -> core.LabelSelectorRequirement
 	9,  // 11: core.Role.matchLabels:type_name -> core.LabelSelector
 	11, // 12: core.RoleList.items:type_name -> core.Role
 	12, // 13: core.RoleBindingList.items:type_name -> core.RoleBinding
 	16, // 14: core.ReferenceList.items:type_name -> core.Reference
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	25, // 15: core.Health.Uptime:type_name -> google.protobuf.Duration
+	20, // 16: core.HealthStatus.Health:type_name -> core.Health
+	19, // 17: core.HealthStatus.Status:type_name -> core.Status
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_pkg_apis_core_v1_core_proto_init() }
@@ -1489,6 +1677,42 @@ func file_pkg_apis_core_v1_core_proto_init() {
 				return nil
 			}
 		}
+		file_pkg_apis_core_v1_core_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Status); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_apis_core_v1_core_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Health); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_apis_core_v1_core_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*HealthStatus); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1496,7 +1720,7 @@ func file_pkg_apis_core_v1_core_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_apis_core_v1_core_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   21,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

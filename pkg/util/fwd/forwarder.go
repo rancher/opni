@@ -21,7 +21,7 @@ type ForwarderOptions struct {
 
 type ForwarderOption func(*ForwarderOptions)
 
-func (o *ForwarderOptions) Apply(opts ...ForwarderOption) {
+func (o *ForwarderOptions) apply(opts ...ForwarderOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -55,7 +55,7 @@ func To(addr string, opts ...ForwarderOption) func(*fiber.Ctx) error {
 	options := &ForwarderOptions{
 		logger: defaultLogger,
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	if options.name != "" {
 		options.logger = options.logger.Named(options.name)

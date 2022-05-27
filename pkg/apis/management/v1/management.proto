@@ -68,6 +68,11 @@ service Management {
       get: "/management/clusters/{id}"
     };
   }
+  rpc GetClusterHealthStatus(core.Reference) returns (core.HealthStatus) {
+    option (google.api.http) = {
+      get: "/management/clusters/{id}/health"
+    };
+  }
   rpc EditCluster(EditClusterRequest) returns (core.Cluster) {
     option (google.api.http) = {
       put: "/management/clusters/{cluster.id}"

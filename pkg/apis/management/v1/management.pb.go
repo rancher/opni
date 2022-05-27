@@ -1027,7 +1027,7 @@ var file_pkg_apis_management_v1_management_proto_rawDesc = []byte{
 	0x42, 0x00, 0x3a, 0x00, 0x2a, 0x2a, 0x0a, 0x0e, 0x57, 0x61, 0x74, 0x63, 0x68, 0x45, 0x76, 0x65,
 	0x6e, 0x74, 0x54, 0x79, 0x70, 0x65, 0x12, 0x09, 0x0a, 0x05, 0x41, 0x64, 0x64, 0x65, 0x64, 0x10,
 	0x00, 0x12, 0x0b, 0x0a, 0x07, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x10, 0x02, 0x1a, 0x00,
-	0x32, 0x8b, 0x1f, 0x0a, 0x0a, 0x4d, 0x61, 0x6e, 0x61, 0x67, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x12,
+	0x32, 0xbb, 0x20, 0x0a, 0x0a, 0x4d, 0x61, 0x6e, 0x61, 0x67, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x12,
 	0xb6, 0x01, 0x0a, 0x14, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x42, 0x6f, 0x6f, 0x74, 0x73, 0x74,
 	0x72, 0x61, 0x70, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x12, 0x27, 0x2e, 0x6d, 0x61, 0x6e, 0x61, 0x67,
 	0x65, 0x6d, 0x65, 0x6e, 0x74, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x42, 0x6f, 0x6f, 0x74,
@@ -1119,6 +1119,17 @@ var file_pkg_apis_management_v1_management_proto_rawDesc = []byte{
 	0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x68, 0x74, 0x74, 0x70, 0x10, 0x01, 0x42,
 	0x21, 0x7b, 0x67, 0x65, 0x74, 0x3a, 0x22, 0x2f, 0x6d, 0x61, 0x6e, 0x61, 0x67, 0x65, 0x6d, 0x65,
 	0x6e, 0x74, 0x2f, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x73, 0x2f, 0x7b, 0x69, 0x64, 0x7d,
+	0x22, 0x7d, 0x28, 0x00, 0x30, 0x00, 0x12, 0xad, 0x01, 0x0a, 0x16, 0x47, 0x65, 0x74, 0x43, 0x6c,
+	0x75, 0x73, 0x74, 0x65, 0x72, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x53, 0x74, 0x61, 0x74, 0x75,
+	0x73, 0x12, 0x0f, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e,
+	0x63, 0x65, 0x1a, 0x12, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68,
+	0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x22, 0x6a, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x22, 0x12, 0x20,
+	0x2f, 0x6d, 0x61, 0x6e, 0x61, 0x67, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x2f, 0x63, 0x6c, 0x75, 0x73,
+	0x74, 0x65, 0x72, 0x73, 0x2f, 0x7b, 0x69, 0x64, 0x7d, 0x2f, 0x68, 0x65, 0x61, 0x6c, 0x74, 0x68,
+	0xba, 0x3e, 0x3f, 0x12, 0x13, 0x0a, 0x0f, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x61, 0x70,
+	0x69, 0x2e, 0x68, 0x74, 0x74, 0x70, 0x10, 0x01, 0x42, 0x28, 0x7b, 0x67, 0x65, 0x74, 0x3a, 0x22,
+	0x2f, 0x6d, 0x61, 0x6e, 0x61, 0x67, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x2f, 0x63, 0x6c, 0x75, 0x73,
+	0x74, 0x65, 0x72, 0x73, 0x2f, 0x7b, 0x69, 0x64, 0x7d, 0x2f, 0x68, 0x65, 0x61, 0x6c, 0x74, 0x68,
 	0x22, 0x7d, 0x28, 0x00, 0x30, 0x00, 0x12, 0xba, 0x01, 0x0a, 0x0b, 0x45, 0x64, 0x69, 0x74, 0x43,
 	0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x12, 0x1e, 0x2e, 0x6d, 0x61, 0x6e, 0x61, 0x67, 0x65, 0x6d,
 	0x65, 0x6e, 0x74, 0x2e, 0x45, 0x64, 0x69, 0x74, 0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x52,
@@ -1354,8 +1365,9 @@ var file_pkg_apis_management_v1_management_proto_goTypes = []interface{}{
 	(*v1.BootstrapTokenList)(nil),               // 34: core.BootstrapTokenList
 	(*v1.ClusterList)(nil),                      // 35: core.ClusterList
 	(*v1.Cluster)(nil),                          // 36: core.Cluster
-	(*v1.RoleList)(nil),                         // 37: core.RoleList
-	(*v1.RoleBindingList)(nil),                  // 38: core.RoleBindingList
+	(*v1.HealthStatus)(nil),                     // 37: core.HealthStatus
+	(*v1.RoleList)(nil),                         // 38: core.RoleList
+	(*v1.RoleBindingList)(nil),                  // 39: core.RoleBindingList
 }
 var file_pkg_apis_management_v1_management_proto_depIdxs = []int32{
 	19, // 0: management.CreateBootstrapTokenRequest.ttl:type_name -> google.protobuf.Duration
@@ -1385,47 +1397,49 @@ var file_pkg_apis_management_v1_management_proto_depIdxs = []int32{
 	24, // 24: management.Management.DeleteCluster:input_type -> core.Reference
 	29, // 25: management.Management.CertsInfo:input_type -> google.protobuf.Empty
 	24, // 26: management.Management.GetCluster:input_type -> core.Reference
-	4,  // 27: management.Management.EditCluster:input_type -> management.EditClusterRequest
-	30, // 28: management.Management.CreateRole:input_type -> core.Role
-	24, // 29: management.Management.DeleteRole:input_type -> core.Reference
-	24, // 30: management.Management.GetRole:input_type -> core.Reference
-	31, // 31: management.Management.CreateRoleBinding:input_type -> core.RoleBinding
-	24, // 32: management.Management.DeleteRoleBinding:input_type -> core.Reference
-	24, // 33: management.Management.GetRoleBinding:input_type -> core.Reference
-	29, // 34: management.Management.ListRoles:input_type -> google.protobuf.Empty
-	29, // 35: management.Management.ListRoleBindings:input_type -> google.protobuf.Empty
-	32, // 36: management.Management.SubjectAccess:input_type -> core.SubjectAccessRequest
-	29, // 37: management.Management.APIExtensions:input_type -> google.protobuf.Empty
-	29, // 38: management.Management.GetConfig:input_type -> google.protobuf.Empty
-	13, // 39: management.Management.UpdateConfig:input_type -> management.UpdateConfigRequest
-	29, // 40: management.Management.ListCapabilities:input_type -> google.protobuf.Empty
-	15, // 41: management.Management.CapabilityInstaller:input_type -> management.CapabilityInstallerRequest
-	33, // 42: management.Management.CreateBootstrapToken:output_type -> core.BootstrapToken
-	29, // 43: management.Management.RevokeBootstrapToken:output_type -> google.protobuf.Empty
-	34, // 44: management.Management.ListBootstrapTokens:output_type -> core.BootstrapTokenList
-	33, // 45: management.Management.GetBootstrapToken:output_type -> core.BootstrapToken
-	35, // 46: management.Management.ListClusters:output_type -> core.ClusterList
-	6,  // 47: management.Management.WatchClusters:output_type -> management.WatchEvent
-	29, // 48: management.Management.DeleteCluster:output_type -> google.protobuf.Empty
-	2,  // 49: management.Management.CertsInfo:output_type -> management.CertsInfoResponse
-	36, // 50: management.Management.GetCluster:output_type -> core.Cluster
-	36, // 51: management.Management.EditCluster:output_type -> core.Cluster
-	29, // 52: management.Management.CreateRole:output_type -> google.protobuf.Empty
-	29, // 53: management.Management.DeleteRole:output_type -> google.protobuf.Empty
-	30, // 54: management.Management.GetRole:output_type -> core.Role
-	29, // 55: management.Management.CreateRoleBinding:output_type -> google.protobuf.Empty
-	29, // 56: management.Management.DeleteRoleBinding:output_type -> google.protobuf.Empty
-	31, // 57: management.Management.GetRoleBinding:output_type -> core.RoleBinding
-	37, // 58: management.Management.ListRoles:output_type -> core.RoleList
-	38, // 59: management.Management.ListRoleBindings:output_type -> core.RoleBindingList
-	25, // 60: management.Management.SubjectAccess:output_type -> core.ReferenceList
-	7,  // 61: management.Management.APIExtensions:output_type -> management.APIExtensionInfoList
-	10, // 62: management.Management.GetConfig:output_type -> management.GatewayConfig
-	29, // 63: management.Management.UpdateConfig:output_type -> google.protobuf.Empty
-	14, // 64: management.Management.ListCapabilities:output_type -> management.CapabilityList
-	16, // 65: management.Management.CapabilityInstaller:output_type -> management.CapabilityInstallerResponse
-	42, // [42:66] is the sub-list for method output_type
-	18, // [18:42] is the sub-list for method input_type
+	24, // 27: management.Management.GetClusterHealthStatus:input_type -> core.Reference
+	4,  // 28: management.Management.EditCluster:input_type -> management.EditClusterRequest
+	30, // 29: management.Management.CreateRole:input_type -> core.Role
+	24, // 30: management.Management.DeleteRole:input_type -> core.Reference
+	24, // 31: management.Management.GetRole:input_type -> core.Reference
+	31, // 32: management.Management.CreateRoleBinding:input_type -> core.RoleBinding
+	24, // 33: management.Management.DeleteRoleBinding:input_type -> core.Reference
+	24, // 34: management.Management.GetRoleBinding:input_type -> core.Reference
+	29, // 35: management.Management.ListRoles:input_type -> google.protobuf.Empty
+	29, // 36: management.Management.ListRoleBindings:input_type -> google.protobuf.Empty
+	32, // 37: management.Management.SubjectAccess:input_type -> core.SubjectAccessRequest
+	29, // 38: management.Management.APIExtensions:input_type -> google.protobuf.Empty
+	29, // 39: management.Management.GetConfig:input_type -> google.protobuf.Empty
+	13, // 40: management.Management.UpdateConfig:input_type -> management.UpdateConfigRequest
+	29, // 41: management.Management.ListCapabilities:input_type -> google.protobuf.Empty
+	15, // 42: management.Management.CapabilityInstaller:input_type -> management.CapabilityInstallerRequest
+	33, // 43: management.Management.CreateBootstrapToken:output_type -> core.BootstrapToken
+	29, // 44: management.Management.RevokeBootstrapToken:output_type -> google.protobuf.Empty
+	34, // 45: management.Management.ListBootstrapTokens:output_type -> core.BootstrapTokenList
+	33, // 46: management.Management.GetBootstrapToken:output_type -> core.BootstrapToken
+	35, // 47: management.Management.ListClusters:output_type -> core.ClusterList
+	6,  // 48: management.Management.WatchClusters:output_type -> management.WatchEvent
+	29, // 49: management.Management.DeleteCluster:output_type -> google.protobuf.Empty
+	2,  // 50: management.Management.CertsInfo:output_type -> management.CertsInfoResponse
+	36, // 51: management.Management.GetCluster:output_type -> core.Cluster
+	37, // 52: management.Management.GetClusterHealthStatus:output_type -> core.HealthStatus
+	36, // 53: management.Management.EditCluster:output_type -> core.Cluster
+	29, // 54: management.Management.CreateRole:output_type -> google.protobuf.Empty
+	29, // 55: management.Management.DeleteRole:output_type -> google.protobuf.Empty
+	30, // 56: management.Management.GetRole:output_type -> core.Role
+	29, // 57: management.Management.CreateRoleBinding:output_type -> google.protobuf.Empty
+	29, // 58: management.Management.DeleteRoleBinding:output_type -> google.protobuf.Empty
+	31, // 59: management.Management.GetRoleBinding:output_type -> core.RoleBinding
+	38, // 60: management.Management.ListRoles:output_type -> core.RoleList
+	39, // 61: management.Management.ListRoleBindings:output_type -> core.RoleBindingList
+	25, // 62: management.Management.SubjectAccess:output_type -> core.ReferenceList
+	7,  // 63: management.Management.APIExtensions:output_type -> management.APIExtensionInfoList
+	10, // 64: management.Management.GetConfig:output_type -> management.GatewayConfig
+	29, // 65: management.Management.UpdateConfig:output_type -> google.protobuf.Empty
+	14, // 66: management.Management.ListCapabilities:output_type -> management.CapabilityList
+	16, // 67: management.Management.CapabilityInstaller:output_type -> management.CapabilityInstallerResponse
+	43, // [43:68] is the sub-list for method output_type
+	18, // [18:43] is the sub-list for method input_type
 	18, // [18:18] is the sub-list for extension type_name
 	18, // [18:18] is the sub-list for extension extendee
 	0,  // [0:18] is the sub-list for field type_name

@@ -56,7 +56,7 @@ type EtcdStoreOptions struct {
 
 type EtcdStoreOption func(*EtcdStoreOptions)
 
-func (o *EtcdStoreOptions) Apply(opts ...EtcdStoreOption) {
+func (o *EtcdStoreOptions) apply(opts ...EtcdStoreOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -78,7 +78,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	options := EtcdStoreOptions{
 		CommandTimeout: 5 * time.Second,
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 	lg := logger.New(logger.WithLogLevel(zap.WarnLevel)).Named("etcd")
 	var tlsConfig *tls.Config
 	if conf.Certs != nil {

@@ -19,7 +19,7 @@ type ProfileOptions struct {
 
 type ProfileOption func(*ProfileOptions)
 
-func (o *ProfileOptions) Apply(opts ...ProfileOption) {
+func (o *ProfileOptions) apply(opts ...ProfileOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -39,7 +39,7 @@ func WithKeepMergedProfiles(keep bool) ProfileOption {
 
 func MergeCoverProfiles(filenames []string, output io.Writer, opts ...ProfileOption) error {
 	options := ProfileOptions{}
-	options.Apply(opts...)
+	options.apply(opts...)
 	// read contents of all files into a single buffer, keeping only one mode line
 	mode := ""
 	buf := new(bytes.Buffer)

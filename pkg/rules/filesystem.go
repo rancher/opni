@@ -15,37 +15,37 @@ import (
 )
 
 type FilesystemRuleFinder struct {
-	StaticRuleFinderOptions
+	staticRuleFinderOptions
 	config *v1beta1.FilesystemRulesSpec
 	logger *zap.SugaredLogger
 }
 
-type StaticRuleFinderOptions struct {
+type staticRuleFinderOptions struct {
 	fs fs.FS
 }
 
-type FilesystemRuleFinderOption func(*StaticRuleFinderOptions)
+type FilesystemRuleFinderOption func(*staticRuleFinderOptions)
 
-func (o *StaticRuleFinderOptions) Apply(opts ...FilesystemRuleFinderOption) {
+func (o *staticRuleFinderOptions) apply(opts ...FilesystemRuleFinderOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
 func WithFS(fs fs.FS) FilesystemRuleFinderOption {
-	return func(o *StaticRuleFinderOptions) {
+	return func(o *staticRuleFinderOptions) {
 		o.fs = fs
 	}
 }
 
 func NewFilesystemRuleFinder(config *v1beta1.FilesystemRulesSpec, opts ...FilesystemRuleFinderOption) *FilesystemRuleFinder {
-	options := StaticRuleFinderOptions{
+	options := staticRuleFinderOptions{
 		fs: os.DirFS("/"),
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	return &FilesystemRuleFinder{
-		StaticRuleFinderOptions: options,
+		staticRuleFinderOptions: options,
 		config:                  config,
 		logger:                  logger.New().Named("rules"),
 	}

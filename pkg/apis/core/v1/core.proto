@@ -1,4 +1,5 @@
 syntax = "proto3";
+import "google/protobuf/duration.proto";
 option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
 package core;
 
@@ -99,4 +100,19 @@ message ReferenceList {
 
 message SubjectAccessRequest {
   string subject = 1;
+}
+
+message Status {
+  bool Connected = 1;
+}
+
+message Health {
+  bool Ready = 2;
+  repeated string Conditions = 3;
+  google.protobuf.Duration Uptime = 4;
+}
+
+message HealthStatus {
+  Health Health = 1;
+  Status Status = 2;
 }

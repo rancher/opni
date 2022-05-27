@@ -15,7 +15,7 @@ type ManagementClientOptions struct {
 
 type ManagementClientOption func(*ManagementClientOptions)
 
-func (o *ManagementClientOptions) Apply(opts ...ManagementClientOption) {
+func (o *ManagementClientOptions) apply(opts ...ManagementClientOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -40,7 +40,7 @@ func NewClient(ctx context.Context, opts ...ManagementClientOption) (managementv
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		},
 	}
-	options.Apply(opts...)
+	options.apply(opts...)
 	cc, err := grpc.DialContext(ctx, options.listenAddr, options.dialOptions...)
 	if err != nil {
 		return nil, err

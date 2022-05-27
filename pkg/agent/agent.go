@@ -52,7 +52,7 @@ type AgentOptions struct {
 
 type AgentOption func(*AgentOptions)
 
-func (o *AgentOptions) Apply(opts ...AgentOption) {
+func (o *AgentOptions) apply(opts ...AgentOption) {
 	for _, op := range opts {
 		op(o)
 	}
@@ -71,7 +71,7 @@ func default404Handler(c *fiber.Ctx) error {
 func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*Agent, error) {
 	lg := logger.New().Named("agent")
 	options := AgentOptions{}
-	options.Apply(opts...)
+	options.apply(opts...)
 
 	app := fiber.New(fiber.Config{
 		Prefork:               false,
@@ -311,8 +311,9 @@ func (a *Agent) loadKeyring(ctx context.Context) (keyring.Keyring, error) {
 
 var startTime = time.Now()
 
-func (a *Agent) GetHealth(ctx context.Context, _ *emptypb.Empty) (*controlv1.AgentHealth, error) {
-	return &controlv1.AgentHealth{
+func (a *Agent) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health, error) {
+	return &corev1.Health{
+		Ready:  true,
 		Uptime: durationpb.New(time.Since(startTime)),
 	}, nil
 }

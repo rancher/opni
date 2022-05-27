@@ -49,16 +49,33 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label(test.Integration),
 				if err != nil {
 					return err
 				}
-				if !hs.Status.Connected {
+				if !hs.GetStatus().GetConnected() {
 					return fmt.Errorf("not connected")
 				}
-				if !hs.Health.Ready {
+				conds := hs.GetHealth().GetConditions()
+				if len(conds) == 1 && conds[0] == "Remote Write Pending" {
+					return nil
+				}
+				return fmt.Errorf("waiting for remote write pending condition")
+			}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+
+			environment.StartPrometheus(port)
+
+			Eventually(func() error {
+				hs, err := client.GetClusterHealthStatus(context.Background(), &v1.Reference{
+					Id: "agent1",
+				})
+				if err != nil {
+					return err
+				}
+				if !hs.GetStatus().GetConnected() {
+					return fmt.Errorf("not connected")
+				}
+				if !hs.GetHealth().GetReady() {
 					return fmt.Errorf("not ready")
 				}
 				return nil
-			}).Should(Succeed())
-
-			environment.StartPrometheus(port)
+			}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 		})
 	})
 })

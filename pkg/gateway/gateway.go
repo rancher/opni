@@ -159,7 +159,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	// set up stream server
 	listener := health.NewListener()
-	monitor := health.NewMonitor(health.WithLogger(lg.Named("agent-monitor")))
+	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
 	go monitor.Run(ctx, listener)
 	streamSvc := NewStreamServer(listener, lg)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)

@@ -55,17 +55,18 @@ func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdater) {
 		case update := <-updater.HealthC():
 			m.mu.Lock()
 			m.lg.With(
-				zap.String("id", update.ID),
-				zap.String("health", update.Health.String()),
-			).Info("health update")
+				"id", update.ID,
+				"ready", update.Health.Ready,
+				"conditions", update.Health.Conditions,
+			).Info("received health update")
 			m.currentHealth[update.ID] = update.Health
 			m.mu.Unlock()
 		case update := <-updater.StatusC():
 			m.mu.Lock()
 			m.lg.With(
-				zap.String("id", update.ID),
-				zap.String("status", update.Status.String()),
-			).Info("status update")
+				"id", update.ID,
+				"connected", update.Status.Connected,
+			).Info("received status update")
 			m.currentStatus[update.ID] = update.Status
 			m.mu.Unlock()
 		}

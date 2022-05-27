@@ -23,11 +23,11 @@ type HealthStatusQuerier interface {
 }
 
 type StatusUpdate struct {
-	ID     string
-	Status *corev1.Status
+	ID     string         `json:"id"`
+	Status *corev1.Status `json:"status"`
 }
 
 type HealthUpdate struct {
-	ID     string
-	Health *corev1.Health
+	ID     string         `json:"id"`
+	Health *corev1.Health `json:"health"`
 }

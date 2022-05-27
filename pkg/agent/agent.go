@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	gsync "github.com/kralicky/gpkg/sync"
 	"github.com/kralicky/totem"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -25,8 +26,29 @@ import (
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/durationpb"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+)
+
+type conditionStatus int32
+
+const (
+	statusPending conditionStatus = 0
+	statusFailure conditionStatus = 1
+)
+
+func (s conditionStatus) String() string {
+	switch s {
+	case statusPending:
+		return "Pending"
+	case statusFailure:
+		return "Failure"
+	}
+	return ""
+}
+
+const (
+	condRemoteWrite = "Remote Write"
+	condRuleSync    = "Rule Sync"
 )
 
 type Agent struct {
@@ -44,6 +66,8 @@ type Agent struct {
 
 	remoteWriteMu     sync.Mutex
 	remoteWriteClient remotewrite.RemoteWriteClient
+
+	conditions gsync.Map[string, conditionStatus]
 }
 
 type AgentOptions struct {
@@ -103,6 +127,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		tenantID:         id,
 		identityProvider: ip,
 	}
+	agent.initConditions()
 	agent.shutdownLock.Lock()
 
 	var keyringStoreBroker storage.KeyringStoreBroker
@@ -238,6 +263,7 @@ func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
 	a.remoteWriteMu.Lock()
 	defer a.remoteWriteMu.Unlock()
 	if a.remoteWriteClient == nil {
+		a.conditions.Store(condRemoteWrite, statusPending)
 		return c.SendStatus(fiber.StatusServiceUnavailable)
 	}
 	_, err := a.remoteWriteClient.Push(c.Context(), &remotewrite.Payload{
@@ -246,8 +272,10 @@ func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
 	})
 	if err != nil {
 		a.logger.Error(err)
+		a.conditions.Store(condRemoteWrite, statusFailure)
 		return c.SendStatus(fiber.StatusServiceUnavailable)
 	}
+	a.conditions.Delete(condRemoteWrite)
 	return c.SendStatus(fiber.StatusOK)
 }
 
@@ -309,11 +337,21 @@ func (a *Agent) loadKeyring(ctx context.Context) (keyring.Keyring, error) {
 	return kr, nil
 }
 
-var startTime = time.Now()
-
 func (a *Agent) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health, error) {
+
+	conditions := []string{}
+	a.conditions.Range(func(key string, value conditionStatus) bool {
+		conditions = append(conditions, fmt.Sprintf("%s %s", key, value))
+		return true
+	})
+
 	return &corev1.Health{
-		Ready:  true,
-		Uptime: durationpb.New(time.Since(startTime)),
+		Ready:      len(conditions) == 0,
+		Conditions: conditions,
 	}, nil
+}
+
+func (a *Agent) initConditions() {
+	a.conditions.Store(condRemoteWrite, statusPending)
+	a.conditions.Store(condRuleSync, statusPending)
 }

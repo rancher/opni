@@ -130,6 +130,7 @@ func (a *Agent) streamRulesToGateway(ctx context.Context) error {
 					a.remoteWriteMu.Unlock()
 
 					if err != nil {
+						a.conditions.Store(condRuleSync, statusFailure)
 						// retry, unless another update is received from the channel
 						lg.With(
 							zap.Error(err),
@@ -147,6 +148,7 @@ func (a *Agent) streamRulesToGateway(ctx context.Context) error {
 					}
 				}
 				lg.Infof("successfully sent %d alert rules to gateway", len(docs))
+				a.conditions.Delete(condRuleSync)
 				break
 			}
 		}

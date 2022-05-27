@@ -791,27 +791,24 @@
     "coreHealth": {
       "type": "object",
       "properties": {
-        "Ready": {
+        "ready": {
           "type": "boolean"
         },
-        "Conditions": {
+        "conditions": {
           "type": "array",
           "items": {
             "type": "string"
           }
-        },
-        "Uptime": {
-          "type": "string"
         }
       }
     },
     "coreHealthStatus": {
       "type": "object",
       "properties": {
-        "Health": {
+        "health": {
           "$ref": "#/definitions/coreHealth"
         },
-        "Status": {
+        "status": {
           "$ref": "#/definitions/coreStatus"
         }
       }
@@ -942,7 +939,7 @@
     "coreStatus": {
       "type": "object",
       "properties": {
-        "Connected": {
+        "connected": {
           "type": "boolean"
         }
       }

@@ -103,16 +103,15 @@ message SubjectAccessRequest {
 }
 
 message Status {
-  bool Connected = 1;
+  bool connected = 1;
 }
 
 message Health {
-  bool Ready = 2;
-  repeated string Conditions = 3;
-  google.protobuf.Duration Uptime = 4;
+  bool ready = 2;
+  repeated string conditions = 3;
 }
 
 message HealthStatus {
-  Health Health = 1;
-  Status Status = 2;
+  Health health = 1;
+  Status status = 2;
 }

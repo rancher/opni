@@ -2,6 +2,7 @@ package opensearch
 
 // TODO move opensearch out of util
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -14,8 +15,10 @@ import (
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/kibana"
 	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"golang.org/x/mod/semver"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -311,7 +314,7 @@ func (r *Reconciler) MaybeDeleteIndexTemplate(name string) error {
 	return nil
 }
 
-func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string) error {
+func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixes []string) error {
 	bootstrap, err := r.shouldBootstrapIndex(prefix)
 	lg := log.FromContext(r.ctx)
 	if err != nil {
@@ -335,6 +338,14 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string) error {
 		if err != nil {
 			return err
 		}
+
+		var oldPrefixesExist bool
+		if len(oldPrefixes) > 0 {
+			oldPrefixesExist, err = r.oldIndicesExist(oldPrefixes)
+			if err != nil {
+				return err
+			}
+		}
 		aliasRequestBody := opensearchapiext.UpdateAliasRequest{
 			Actions: []opensearchapiext.AliasActionSpec{
 				{
@@ -349,12 +360,42 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string) error {
 			},
 		}
 
-		if aliasIsIndex {
+		if oldPrefixesExist {
+			for _, prefix := range oldPrefixes {
+				aliasRequestBody.Actions = append(aliasRequestBody.Actions, opensearchapiext.AliasActionSpec{
+					AliasAtomicAction: &opensearchapiext.AliasAtomicAction{
+						Remove: &opensearchapiext.AliasGenericAction{
+							Index: prefix,
+							Alias: alias,
+						},
+					},
+				})
+			}
+			aliasReq := opensearchapi.IndicesUpdateAliasesRequest{
+				Body: opensearchutil.NewJSONReader(aliasRequestBody),
+			}
+
+			aliasResp, err := aliasReq.Do(r.ctx, r.osClient)
+			if err != nil {
+				return err
+			}
+			defer aliasResp.Body.Close()
+			if aliasResp.IsError() {
+				return fmt.Errorf("failed to update alias %s: %s", alias, aliasResp.String())
+			}
+		}
+
+		if oldPrefixesExist || aliasIsIndex {
 			body := opensearchapiext.ReindexSpec{
-				Source: opensearchapiext.ReindexIndexSpec{
-					Index: alias,
+				Source: opensearchapiext.ReindexSourceSpec{
+					Index: func() []string {
+						if oldPrefixesExist {
+							return oldPrefixes
+						}
+						return []string{alias}
+					}(),
 				},
-				Destination: opensearchapiext.ReindexIndexSpec{
+				Destination: opensearchapiext.ReindexDestSpec{
 					Index: fmt.Sprintf("%s-000001", prefix),
 				},
 			}
@@ -371,7 +412,21 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string) error {
 			if reindexResp.IsError() {
 				return fmt.Errorf("failed to reindex %s: %s", alias, reindexResp.String())
 			}
+		}
 
+		if oldPrefixesExist {
+			deleteResp, err := r.osClient.Indices.Delete(
+				oldPrefixes,
+				r.osClient.Indices.Delete.WithContext(r.ctx),
+			)
+			if err != nil {
+				return err
+			}
+			defer deleteResp.Body.Close()
+			if deleteResp.IsError() {
+				return fmt.Errorf("failed to delete old indices %s", deleteResp.String())
+			}
+		} else if aliasIsIndex {
 			aliasRequestBody.Actions = append(aliasRequestBody.Actions, opensearchapiext.AliasActionSpec{
 				AliasAtomicAction: &opensearchapiext.AliasAtomicAction{
 					RemoveIndex: &opensearchapiext.AliasGenericAction{
@@ -379,23 +434,48 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string) error {
 					},
 				},
 			})
+			aliasReq := opensearchapi.IndicesUpdateAliasesRequest{
+				Body: opensearchutil.NewJSONReader(aliasRequestBody),
+			}
+
+			aliasResp, err := aliasReq.Do(r.ctx, r.osClient)
+			if err != nil {
+				return err
+			}
+			defer aliasResp.Body.Close()
+			if aliasResp.IsError() {
+				return fmt.Errorf("failed to update alias %s: %s", alias, aliasResp.String())
+			}
 		}
 
-		aliasReq := opensearchapi.IndicesUpdateAliasesRequest{
-			Body: opensearchutil.NewJSONReader(aliasRequestBody),
-		}
-
-		aliasResp, err := aliasReq.Do(r.ctx, r.osClient)
-		if err != nil {
-			return err
-		}
-		defer aliasResp.Body.Close()
-		if aliasResp.IsError() {
-			return fmt.Errorf("failed to update alias %s: %s", alias, aliasResp.String())
-		}
 	}
 
 	return nil
+}
+
+func (r *Reconciler) oldIndicesExist(oldPrexifes []string) (bool, error) {
+	req := opensearchapi.CatIndicesRequest{
+		Index:  oldPrexifes,
+		Format: "json",
+	}
+	resp, err := req.Do(r.ctx, r.osClient)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	if resp.IsError() {
+		return false, fmt.Errorf("failed to cat indices %s", resp.String())
+	}
+
+	var b bytes.Buffer
+	b.ReadFrom(resp.Body)
+	var indices []string
+	gjson.Get(b.String(), "#.index").ForEach(func(key, value gjson.Result) bool {
+		indices = append(indices, value.String())
+		return true
+	})
+
+	return len(indices) > 0, nil
 }
 
 func (r *Reconciler) MaybeCreateIndex(name string, settings map[string]opensearchapiext.TemplateMappingsSpec) error {
@@ -801,7 +881,8 @@ func (r *Reconciler) UpdateDefaultIngestPipelineForIndex(index string, pipelineN
 		Index: []string{
 			index,
 		},
-		Body: strings.NewReader(setting),
+		Body:             strings.NewReader(setting),
+		PreserveExisting: util.Pointer(true),
 	}
 
 	resp, err := req.Do(r.ctx, r.osClient)

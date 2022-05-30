@@ -314,7 +314,7 @@ var _ = Describe("Opensearch", Label(test.Unit), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeBootstrapIndex(prefix, alias)
+					err := reconciler.MaybeBootstrapIndex(prefix, alias, []string{})
 					if err != nil {
 						log.Println(err)
 					}
@@ -361,7 +361,7 @@ var _ = Describe("Opensearch", Label(test.Unit), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeBootstrapIndex(prefix, alias)
+					err := reconciler.MaybeBootstrapIndex(prefix, alias, []string{})
 					if err != nil {
 						log.Println(err)
 					}
@@ -382,7 +382,7 @@ var _ = Describe("Opensearch", Label(test.Unit), func() {
 					httpmock.NewStringResponder(200, `[{"test-000002": "thisexists"}, {"test-000003": "this also exists"}]`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeBootstrapIndex(prefix, alias)
+					err := reconciler.MaybeBootstrapIndex(prefix, alias, []string{})
 					if err != nil {
 						log.Println(err)
 					}

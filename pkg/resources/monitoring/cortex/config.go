@@ -189,23 +189,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		ClientCAs:   "/run/cortex/certs/client/ca.crt",
 	}
 
-	// etcdKVConfig := kv.Config{
-	// 	Store: "etcd",
-	// 	StoreConfig: kv.StoreConfig{
-	// 		Etcd: etcd.Config{
-	// 			Endpoints:   []string{"etcd:2379"},
-	// 			DialTimeout: time.Minute,
-	// 			MaxRetries:  100,
-	// 			EnableTLS:   true,
-	// 			TLS: tls.ClientConfig{
-	// 				CAPath:   "/run/etcd/certs/server/ca.crt",
-	// 				CertPath: "/run/etcd/certs/client/tls.crt",
-	// 				KeyPath:  "/run/etcd/certs/client/tls.key",
-	// 			},
-	// 		},
-	// 	},
-	// }
-	etcdKVConfig := kv.Config{
+	kvConfig := kv.Config{
 		Store: "memberlist",
 	}
 	config := cortex.Config{
@@ -266,7 +250,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			FallbackConfigFile: "/etc/alertmanager/fallback.yaml",
 			ShardingEnabled:    true,
 			ShardingRing: alertmanager.RingConfig{
-				KVStore: etcdKVConfig,
+				KVStore: kvConfig,
 			},
 		},
 		AlertmanagerStorage: alertstore.Config{
@@ -276,7 +260,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		Compactor: compactor.Config{
 			ShardingEnabled: true,
 			ShardingRing: compactor.RingConfig{
-				KVStore: etcdKVConfig,
+				KVStore: kvConfig,
 			},
 		},
 		Distributor: distributor.Config{
@@ -284,7 +268,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				HealthCheckIngesters: true,
 			},
 			DistributorRing: distributor.RingConfig{
-				KVStore: etcdKVConfig,
+				KVStore: kvConfig,
 			},
 			ShardByAllLabels: true,
 		},
@@ -309,7 +293,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				NumTokens:     512,
 				ObservePeriod: 10 * time.Second,
 				RingConfig: ring.Config{
-					KVStore: etcdKVConfig,
+					KVStore: kvConfig,
 				},
 			},
 		},
@@ -337,7 +321,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
 			Ring: ruler.RingConfig{
-				KVStore: etcdKVConfig,
+				KVStore: kvConfig,
 			},
 			ClientTLSConfig: grpcclient.Config{
 				TLSEnabled: true,
@@ -347,7 +331,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		StoreGateway: storegateway.Config{
 			ShardingEnabled: true,
 			ShardingRing: storegateway.RingConfig{
-				KVStore: etcdKVConfig,
+				KVStore: kvConfig,
 			},
 		},
 		PurgerConfig: purger.Config{

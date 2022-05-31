@@ -12,8 +12,6 @@ import (
 	env: [string]: string | dagger.#Secret
 	_defaultEnv: {
 		GOMODCACHE: "/root/.cache/go-mod"
-		GOOS:       "linux"
-		GOARCH:     "amd64"
 	}
 
 	docker.#Run & {

@@ -1,12 +1,12 @@
-aiohttp==3.7.4.post0
+aiohttp==3.8.1
 boto3==1.17.45
 botocore==1.20.45
 cachetools==4.2.1
 elasticsearch[async]==7.13.0
-fastapi==0.63.0
+fastapi==0.65.2
 jsonpickle==1.5.1
 kubernetes==12.0.1
-numpy==1.20.3
+numpy==1.21
 opni-nats==0.0.0.4
 pandas==1.2.3
 prometheus_api_client==0.4.2

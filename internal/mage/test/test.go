@@ -17,7 +17,6 @@ import (
 	"github.com/magefile/mage/sh"
 	"github.com/onsi/ginkgo/v2/types"
 	"github.com/rancher/opni/pkg/test/testutil"
-	"github.com/rancher/opni/pkg/util"
 	"golang.org/x/exp/slices"
 )
 
@@ -26,12 +25,24 @@ const (
 )
 
 func SysInfo() {
+	cpuInfo, err := ghw.CPU()
+	if err != nil {
+		return
+	}
+	topologyInfo, err := ghw.Topology()
+	if err != nil {
+		return
+	}
+	memInfo, err := ghw.Memory()
+	if err != nil {
+		return
+	}
 	fmt.Println("System Info:")
-	for _, proc := range util.Must(ghw.CPU()).Processors {
+	for _, proc := range cpuInfo.Processors {
 		fmt.Printf(" %v (%d cores, %d threads)\n", proc.Model, proc.NumCores, proc.NumThreads)
 	}
-	fmt.Printf(" %v\n", util.Must(ghw.Topology()))
-	fmt.Printf(" %v\n", util.Must(ghw.Memory()))
+	fmt.Printf(" %v\n", topologyInfo)
+	fmt.Printf(" %v\n", memInfo)
 	fmt.Printf("CI Environment: %s\n", testutil.IfCI("yes").Else("no"))
 }
 

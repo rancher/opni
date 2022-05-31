@@ -62,7 +62,6 @@ type Agent struct {
 	identityProvider ident.Provider
 	keyringStore     storage.KeyringStore
 	gatewayClient    clients.GatewayGRPCClient
-	shutdownLock     sync.Mutex
 
 	remoteWriteMu     sync.Mutex
 	remoteWriteClient remotewrite.RemoteWriteClient
@@ -128,7 +127,6 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		identityProvider: ip,
 	}
 	agent.initConditions()
-	agent.shutdownLock.Lock()
 
 	var keyringStoreBroker storage.KeyringStoreBroker
 	switch agent.Storage.Type {
@@ -280,12 +278,10 @@ func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
 }
 
 func (a *Agent) ListenAndServe() error {
-	a.shutdownLock.Unlock()
 	return a.app.Listen(a.ListenAddress)
 }
 
 func (a *Agent) Shutdown() error {
-	a.shutdownLock.Lock()
 	return a.app.Shutdown()
 }
 

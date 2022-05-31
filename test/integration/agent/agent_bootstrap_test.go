@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/rancher/opni/pkg/agent"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/pkp"
@@ -315,7 +316,9 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 				return err
 			}).Should(Succeed())
 
-			Eventually(environment.GetAgent("test-cluster-3")).ShouldNot(BeNil())
+			Eventually(func() *agent.Agent {
+				return environment.GetAgent("test-cluster-3").Agent
+			}).ShouldNot(BeNil())
 			Expect(environment.GetAgent("test-cluster-3").Shutdown()).To(Succeed())
 
 			etcdClient, err := environment.EtcdClient()

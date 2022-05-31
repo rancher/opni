@@ -138,7 +138,45 @@ func (r *Reconciler) indexExists(name string) (bool, error) {
 	return true, nil
 }
 
-func (r *Reconciler) shouldCreateTemplate(name string) (bool, error) {
+func (r *Reconciler) shouldCreateTemplate(template opensearchapiext.IndexTemplateSpec) (bool, error) {
+	lg := log.FromContext(r.ctx)
+	req := opensearchapi.IndicesGetIndexTemplateRequest{
+		Name: []string{
+			template.TemplateName,
+		},
+	}
+	resp, err := req.Do(r.ctx, r.osClient)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 404 {
+		return true, nil
+	} else if resp.IsError() {
+		return false, fmt.Errorf("failed to check index template %s: %s", template.TemplateName, resp.String())
+	}
+
+	getTemplateResp := &opensearchapiext.GetIndexTemplateResponse{}
+	err = json.NewDecoder(resp.Body).Decode(getTemplateResp)
+	if err != nil {
+		return false, err
+	}
+	for _, remoteTemplate := range getTemplateResp.IndexTemplates {
+		if remoteTemplate.Name == template.TemplateName {
+			compared := remoteTemplate.Template
+			compared.TemplateName = remoteTemplate.Name
+			if reflect.DeepEqual(compared, template) {
+				return false, nil
+			}
+			lg.Info("template exists but is different, updating", "template", template.TemplateName)
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (r *Reconciler) templateExists(name string) (bool, error) {
 	req := opensearchapi.IndicesGetIndexTemplateRequest{
 		Name: []string{
 			name,
@@ -150,14 +188,12 @@ func (r *Reconciler) shouldCreateTemplate(name string) (bool, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 404 {
-		return true, nil
+		return false, nil
 	} else if resp.IsError() {
 		return false, fmt.Errorf("failed to check index template %s: %s", name, resp.String())
 	}
 
-	// TODO: Check settings (not mappings) and update if they are different.
-
-	return false, nil
+	return true, nil
 }
 
 func (r *Reconciler) shouldBootstrapIndex(prefix string) (bool, error) {
@@ -264,16 +300,15 @@ func (r *Reconciler) ReconcileISM(policy interface{}) error {
 }
 
 func (r *Reconciler) MaybeCreateIndexTemplate(template opensearchapiext.IndexTemplateSpec) error {
-	createTemplate, err := r.shouldCreateTemplate(template.TemplateName)
+	createTemplate, err := r.shouldCreateTemplate(template)
 	if err != nil {
 		return err
 	}
 
 	if createTemplate {
 		req := opensearchapi.IndicesPutIndexTemplateRequest{
-			Body:   opensearchutil.NewJSONReader(template),
-			Name:   template.TemplateName,
-			Create: opensearchapi.BoolPtr(true),
+			Body: opensearchutil.NewJSONReader(template),
+			Name: template.TemplateName,
 		}
 		resp, err := req.Do(r.ctx, r.osClient)
 		if err != nil {
@@ -289,12 +324,12 @@ func (r *Reconciler) MaybeCreateIndexTemplate(template opensearchapiext.IndexTem
 }
 
 func (r *Reconciler) MaybeDeleteIndexTemplate(name string) error {
-	absent, err := r.shouldCreateTemplate(name)
+	exists, err := r.templateExists(name)
 	if err != nil {
 		return err
 	}
 
-	if absent {
+	if !exists {
 		return nil
 	}
 
@@ -360,16 +395,18 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixe
 			},
 		}
 
-		if oldPrefixesExist {
-			for _, prefix := range oldPrefixes {
-				aliasRequestBody.Actions = append(aliasRequestBody.Actions, opensearchapiext.AliasActionSpec{
-					AliasAtomicAction: &opensearchapiext.AliasAtomicAction{
-						Remove: &opensearchapiext.AliasGenericAction{
-							Index: prefix,
-							Alias: alias,
+		if oldPrefixesExist || !aliasIsIndex {
+			if oldPrefixesExist {
+				for _, prefix := range oldPrefixes {
+					aliasRequestBody.Actions = append(aliasRequestBody.Actions, opensearchapiext.AliasActionSpec{
+						AliasAtomicAction: &opensearchapiext.AliasAtomicAction{
+							Remove: &opensearchapiext.AliasGenericAction{
+								Index: prefix,
+								Alias: alias,
+							},
 						},
-					},
-				})
+					})
+				}
 			}
 			aliasReq := opensearchapi.IndicesUpdateAliasesRequest{
 				Body: opensearchutil.NewJSONReader(aliasRequestBody),

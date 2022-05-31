@@ -242,12 +242,9 @@ var _ = Describe("Opensearch", Label(test.Unit), func() {
 					"https://opni-es-client.test:9200/_index_template/testtemplate",
 					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
 				)
-				transport.RegisterResponderWithQuery(
+				transport.RegisterResponder(
 					"PUT",
 					"https://opni-es-client.test:9200/_index_template/testtemplate",
-					map[string]string{
-						"create": "true",
-					},
 					httpmock.NewStringResponder(200, `{"status": "complete"}`).Once(),
 				)
 				Expect(func() error {

@@ -7,12 +7,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 )
 
 func KeyValueStoreTestSuite[T storage.KeyValueStoreBroker](
-	tsF *util.Future[T],
-	errCtrlF *util.Future[ErrorController],
+	tsF future.Future[T],
+	errCtrlF future.Future[ErrorController],
 ) func() {
 	return func() {
 		var ts storage.KeyValueStore

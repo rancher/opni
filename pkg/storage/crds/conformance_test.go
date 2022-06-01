@@ -9,7 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/storage/conformance"
 	"github.com/rancher/opni/pkg/storage/crds"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 )
 
 func TestCrds(t *testing.T) {
@@ -17,8 +17,8 @@ func TestCrds(t *testing.T) {
 	RunSpecs(t, "CRDs Storage Suite")
 }
 
-var store = util.NewFuture[*crds.CRDStore]()
-var errCtrl = util.NewFuture[conformance.ErrorController]()
+var store = future.New[*crds.CRDStore]()
+var errCtrl = future.New[conformance.ErrorController]()
 
 var _ = BeforeSuite(func() {
 	env := test.Environment{

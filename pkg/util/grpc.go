@@ -9,6 +9,22 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type ServicePack[T any] struct {
+	desc *grpc.ServiceDesc
+	impl T
+}
+
+func (s *ServicePack[T]) Unpack() (*grpc.ServiceDesc, any) {
+	return s.desc, s.impl
+}
+
+func PackService[T any](desc *grpc.ServiceDesc, impl T) ServicePack[T] {
+	return ServicePack[T]{
+		desc: desc,
+		impl: impl,
+	}
+}
+
 type ServerStreamWithContext struct {
 	Stream grpc.ServerStream
 	Ctx    context.Context

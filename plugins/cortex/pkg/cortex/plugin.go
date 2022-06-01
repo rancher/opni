@@ -22,7 +22,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 )
 
@@ -30,14 +30,14 @@ type Plugin struct {
 	cortexadmin.UnsafeCortexAdminServer
 	collector.CollectorServer
 	ctx               context.Context
-	config            *util.Future[*v1beta1.GatewayConfig]
-	authMiddlewares   *util.Future[map[string]auth.Middleware]
-	mgmtApi           *util.Future[managementv1.ManagementClient]
-	storageBackend    *util.Future[storage.Backend]
-	distributorClient *util.Future[distributorpb.DistributorClient]
-	rulerClient       *util.Future[ruler.RulerClient]
-	ingesterClient    *util.Future[ingesterclient.IngesterClient]
-	cortexHttpClient  *util.Future[*http.Client]
+	config            future.Future[*v1beta1.GatewayConfig]
+	authMiddlewares   future.Future[map[string]auth.Middleware]
+	mgmtApi           future.Future[managementv1.ManagementClient]
+	storageBackend    future.Future[storage.Backend]
+	distributorClient future.Future[distributorpb.DistributorClient]
+	rulerClient       future.Future[ruler.RulerClient]
+	ingesterClient    future.Future[ingesterclient.IngesterClient]
+	cortexHttpClient  future.Future[*http.Client]
 	logger            hclog.Logger
 }
 
@@ -47,13 +47,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 	return &Plugin{
 		CollectorServer:   collectorServer,
 		ctx:               ctx,
-		config:            util.NewFuture[*v1beta1.GatewayConfig](),
-		authMiddlewares:   util.NewFuture[map[string]auth.Middleware](),
-		mgmtApi:           util.NewFuture[managementv1.ManagementClient](),
-		storageBackend:    util.NewFuture[storage.Backend](),
-		distributorClient: util.NewFuture[distributorpb.DistributorClient](),
-		ingesterClient:    util.NewFuture[ingesterclient.IngesterClient](),
-		cortexHttpClient:  util.NewFuture[*http.Client](),
+		config:            future.New[*v1beta1.GatewayConfig](),
+		authMiddlewares:   future.New[map[string]auth.Middleware](),
+		mgmtApi:           future.New[managementv1.ManagementClient](),
+		storageBackend:    future.New[storage.Backend](),
+		distributorClient: future.New[distributorpb.DistributorClient](),
+		ingesterClient:    future.New[ingesterclient.IngesterClient](),
+		cortexHttpClient:  future.New[*http.Client](),
 		logger:            lg,
 	}
 }

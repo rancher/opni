@@ -46,6 +46,7 @@ import (
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
 	"github.com/ttacon/chalk"
@@ -101,8 +102,8 @@ type Environment struct {
 	k8sEnv        *envtest.Environment
 
 	Processes struct {
-		Etcd      *util.Future[*os.Process]
-		APIServer *util.Future[*os.Process]
+		Etcd      future.Future[*os.Process]
+		APIServer future.Future[*os.Process]
 	}
 }
 
@@ -149,7 +150,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	e.Logger = Log.Named("env")
 
 	e.EnvironmentOptions = options
-	e.Processes.Etcd = util.NewFuture[*os.Process]()
+	e.Processes.Etcd = future.New[*os.Process]()
 
 	lg := e.Logger
 	lg.Info("Starting test environment")
@@ -259,7 +260,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 
 func (e *Environment) StartK8s() (*rest.Config, error) {
 	e.initCtx()
-	e.Processes.APIServer = util.NewFuture[*os.Process]()
+	e.Processes.APIServer = future.New[*os.Process]()
 
 	port, err := freeport.GetFreePort()
 	if err != nil {

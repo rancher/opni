@@ -114,21 +114,19 @@ func (a *Agent) streamRulesToGateway(ctx context.Context) error {
 				for _, doc := range docs {
 					reqCtx, ca := context.WithTimeout(ctx, time.Second*2)
 					defer ca()
-					a.remoteWriteMu.Lock()
 					var err error
-					if a.remoteWriteClient != nil {
-						_, err = a.remoteWriteClient.SyncRules(reqCtx, &remotewrite.Payload{
+					ok := a.remoteWriteClient.Use(func(rwc remotewrite.RemoteWriteClient) {
+						_, err = rwc.SyncRules(reqCtx, &remotewrite.Payload{
 							AuthorizedClusterID: a.tenantID,
 							Headers: map[string]string{
 								"Content-Type": "application/yaml",
 							},
 							Contents: doc,
 						})
-					} else {
-						err = errors.New("gateway is not connected")
+					})
+					if !ok {
+						err = errors.New("not connected")
 					}
-					a.remoteWriteMu.Unlock()
-
 					if err != nil {
 						a.conditions.Store(condRuleSync, statusFailure)
 						// retry, unless another update is received from the channel

@@ -15,7 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testutil"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 	"github.com/samber/lo"
 )
 
@@ -60,8 +60,8 @@ func (*testInvalidKeyring) Merge(keyring.Keyring) keyring.Keyring {
 }
 
 func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
-	tsF *util.Future[T],
-	errCtrlF *util.Future[ErrorController],
+	tsF future.Future[T],
+	errCtrlF future.Future[ErrorController],
 ) func() {
 	return func() {
 		var ts storage.KeyringStore

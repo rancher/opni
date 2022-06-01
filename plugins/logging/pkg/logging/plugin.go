@@ -15,7 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -34,8 +34,8 @@ type Plugin struct {
 	ctx            context.Context
 	k8sClient      client.Client
 	logger         hclog.Logger
-	storageBackend *util.Future[storage.Backend]
-	mgmtApi        *util.Future[managementv1.ManagementClient]
+	storageBackend future.Future[storage.Backend]
+	mgmtApi        future.Future[managementv1.ManagementClient]
 }
 
 type PluginOptions struct {
@@ -87,8 +87,8 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		ctx:            ctx,
 		k8sClient:      cli,
 		logger:         lg,
-		storageBackend: util.NewFuture[storage.Backend](),
-		mgmtApi:        util.NewFuture[managementv1.ManagementClient](),
+		storageBackend: future.New[storage.Backend](),
+		mgmtApi:        future.New[managementv1.ManagementClient](),
 	}
 }
 

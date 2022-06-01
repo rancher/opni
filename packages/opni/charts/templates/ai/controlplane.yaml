@@ -10,9 +10,9 @@ spec:
   replicas: 1
   source:
     http:
-      url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model-v0.4.1.zip"
+      url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model-v0.4.2.zip"
   hyperparameters:
     modelThreshold: "0.6"
     minLogTokens: 1
-    isControlPlane: "true"
+    serviceType: "control-plane"
 {{- end }}

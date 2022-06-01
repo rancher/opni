@@ -242,12 +242,9 @@ var _ = Describe("Opensearch", Label(test.Unit), func() {
 					"https://opni-es-client.test:9200/_index_template/testtemplate",
 					httpmock.NewStringResponder(404, `{"mesg": "Not found"}`).Once(),
 				)
-				transport.RegisterResponderWithQuery(
+				transport.RegisterResponder(
 					"PUT",
 					"https://opni-es-client.test:9200/_index_template/testtemplate",
-					map[string]string{
-						"create": "true",
-					},
 					httpmock.NewStringResponder(200, `{"status": "complete"}`).Once(),
 				)
 				Expect(func() error {
@@ -314,7 +311,7 @@ var _ = Describe("Opensearch", Label(test.Unit), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeBootstrapIndex(prefix, alias)
+					err := reconciler.MaybeBootstrapIndex(prefix, alias, []string{})
 					if err != nil {
 						log.Println(err)
 					}
@@ -361,7 +358,7 @@ var _ = Describe("Opensearch", Label(test.Unit), func() {
 					httpmock.NewStringResponder(200, "OK").Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeBootstrapIndex(prefix, alias)
+					err := reconciler.MaybeBootstrapIndex(prefix, alias, []string{})
 					if err != nil {
 						log.Println(err)
 					}
@@ -382,7 +379,7 @@ var _ = Describe("Opensearch", Label(test.Unit), func() {
 					httpmock.NewStringResponder(200, `[{"test-000002": "thisexists"}, {"test-000003": "this also exists"}]`).Once(),
 				)
 				Expect(func() error {
-					err := reconciler.MaybeBootstrapIndex(prefix, alias)
+					err := reconciler.MaybeBootstrapIndex(prefix, alias, []string{})
 					if err != nil {
 						log.Println(err)
 					}

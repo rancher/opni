@@ -61,7 +61,7 @@ type KeyValueStore interface {
 }
 
 type KeyringStoreBroker interface {
-	KeyringStore(ctx context.Context, namespace string, ref *corev1.Reference) (KeyringStore, error)
+	KeyringStore(namespace string, ref *corev1.Reference) (KeyringStore, error)
 }
 
 type KeyValueStoreBroker interface {

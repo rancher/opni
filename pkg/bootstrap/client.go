@@ -86,10 +86,7 @@ func (c *ClientConfig) Bootstrap(
 		"authorization", "Bearer "+string(completeJws),
 	)), authReq)
 	if err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth request failed: %v", err)
 	}
 
 	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, ecdh.PeerPublicKey{
@@ -135,7 +132,7 @@ func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.Bootstra
 	var peer peer.Peer
 	resp, err := client.Join(ctx, &bootstrapv1.BootstrapJoinRequest{}, grpc.Peer(&peer))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("join request failed: %v", err)
 	}
 
 	tlsInfo, ok := peer.AuthInfo.(credentials.TLSInfo)

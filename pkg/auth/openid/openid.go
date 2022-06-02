@@ -2,6 +2,8 @@ package openid
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -18,9 +20,13 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 )
 
-var ErrNoSigningKeyFound = fmt.Errorf("no signing key found in the JWK set")
+var (
+	ErrNoSigningKeyFound = fmt.Errorf("no signing key found in the JWK set")
+	sfGroup              singleflight.Group
+)
 
 const (
 	TokenKey = "token"
@@ -34,7 +40,8 @@ type OpenidMiddleware struct {
 	wellKnownConfig *WellKnownConfiguration
 	lock            sync.Mutex
 
-	cache *UserInfoCache
+	cache    *UserInfoCache
+	configId string
 }
 
 var _ auth.Middleware = (*OpenidMiddleware)(nil)
@@ -44,11 +51,15 @@ func New(ctx context.Context, config v1beta1.AuthProviderSpec) (*OpenidMiddlewar
 	if err != nil {
 		return nil, err
 	}
+	sum := sha256.Sum256(util.Must(json.Marshal(conf)))
+
 	m := &OpenidMiddleware{
 		keyRefresher: jwk.NewAutoRefresh(ctx),
 		conf:         conf,
 		logger:       logger.New().Named("openid"),
+		configId:     string(sum[:]),
 	}
+
 	if m.conf.IdentifyingClaim == "" {
 		m.conf.IdentifyingClaim = "sub"
 	}
@@ -119,40 +130,45 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 
 func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 	lg := m.logger
-	p := backoff.Exponential(
-		backoff.WithMinInterval(50*time.Millisecond),
-		backoff.WithMaxInterval(time.Minute),
-		backoff.WithMultiplier(2),
-		backoff.WithJitterFactor(0.05),
-	)
-	b := p.Start(ctx)
-	for backoff.Continue(b) {
-		wellKnownCfg, err := m.conf.GetWellKnownConfiguration()
-		if err != nil {
-			if isDiscoveryErrFatal(err) {
-				lg.With(
-					zap.Error(err),
-				).Fatal("fatal error fetching openid configuration")
-			} else {
-				lg.With(
-					zap.Error(err),
-				).Warn("failed to fetch openid configuration (will retry)")
+	result, err, _ := sfGroup.Do(m.configId, func() (interface{}, error) {
+		p := backoff.Exponential(
+			backoff.WithMaxRetries(0),
+			backoff.WithMinInterval(50*time.Millisecond),
+			backoff.WithMaxInterval(time.Minute),
+			backoff.WithMultiplier(2),
+			backoff.WithJitterFactor(0.05),
+		)
+		b := p.Start(ctx)
+		for backoff.Continue(b) {
+			wellKnownCfg, err := m.conf.GetWellKnownConfiguration()
+			if err != nil {
+				if isDiscoveryErrFatal(err) {
+					lg.With(
+						zap.Error(err),
+					).Fatal("fatal error fetching openid configuration")
+				} else {
+					lg.With(
+						zap.Error(err),
+					).Warn("failed to fetch openid configuration (will retry)")
+				}
+				continue
 			}
-			continue
+			return wellKnownCfg, nil
 		}
+		panic("unreachable")
+	})
+	wellKnownCfg := result.(*WellKnownConfiguration)
+	lg.With(
+		"issuer", wellKnownCfg.Issuer,
+	).Info("successfully fetched openid configuration")
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.wellKnownConfig = wellKnownCfg
+	m.keyRefresher.Configure(wellKnownCfg.JwksUri)
+	m.cache, err = NewUserInfoCache(m.conf, m.logger)
+	if err != nil {
 		lg.With(
-			"issuer", wellKnownCfg.Issuer,
-		).Info("successfully fetched openid configuration")
-		m.lock.Lock()
-		defer m.lock.Unlock()
-		m.wellKnownConfig = wellKnownCfg
-		m.keyRefresher.Configure(wellKnownCfg.JwksUri)
-		m.cache, err = NewUserInfoCache(m.conf, m.logger)
-		if err != nil {
-			lg.With(
-				zap.Error(err),
-			).Fatal("failed to create user info cache")
-		}
-		break
+			zap.Error(err),
+		).Fatal("failed to create user info cache")
 	}
 }

@@ -2,11 +2,11 @@ package cortex
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 
 	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
 	ingesterclient "github.com/cortexproject/cortex/pkg/ingester/client"
-	"github.com/cortexproject/cortex/pkg/ruler"
 	"github.com/hashicorp/go-hclog"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -35,9 +35,9 @@ type Plugin struct {
 	mgmtApi           future.Future[managementv1.ManagementClient]
 	storageBackend    future.Future[storage.Backend]
 	distributorClient future.Future[distributorpb.DistributorClient]
-	rulerClient       future.Future[ruler.RulerClient]
 	ingesterClient    future.Future[ingesterclient.IngesterClient]
 	cortexHttpClient  future.Future[*http.Client]
+	cortexTlsConfig   future.Future[*tls.Config]
 	logger            hclog.Logger
 }
 
@@ -54,6 +54,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		distributorClient: future.New[distributorpb.DistributorClient](),
 		ingesterClient:    future.New[ingesterclient.IngesterClient](),
 		cortexHttpClient:  future.New[*http.Client](),
+		cortexTlsConfig:   future.New[*tls.Config](),
 		logger:            lg,
 	}
 }

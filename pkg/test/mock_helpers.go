@@ -207,7 +207,7 @@ func NewTestKeyringStoreBroker(ctrl *gomock.Controller, handler ...KeyringStoreH
 	}
 
 	mockKeyringStoreBroker.EXPECT().
-		KeyringStore(gomock.Any(), gomock.Any(), gomock.Any()).
+		KeyringStore(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 			if prefix == "gateway-internal" {
 				return defaultHandler(ctx, prefix, ref)

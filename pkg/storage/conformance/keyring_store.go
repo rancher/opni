@@ -68,7 +68,7 @@ func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
 		var errCtrl ErrorController
 		BeforeAll(func() {
 			var err error
-			ts, err = tsF.Get().KeyringStore(context.Background(), "test", &corev1.Reference{
+			ts, err = tsF.Get().KeyringStore("test", &corev1.Reference{
 				Id: "test",
 			})
 			Expect(err).NotTo(HaveOccurred())

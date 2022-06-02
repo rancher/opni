@@ -11,6 +11,7 @@ type Locker[T any] interface {
 	// Use obtains exclusive ownership of the client, then calls the provided
 	// function with the client. Ownership of the client is maintained until the
 	// function returns.
+	// It is safe to call Use if the Locker is nil; it will simply return false.
 	Use(func(T)) bool
 	// Close releases the client. After Close is called, it is no longer safe to
 	// call Use.
@@ -18,9 +19,6 @@ type Locker[T any] interface {
 }
 
 func NewLocker[T any](cc grpc.ClientConnInterface, builder func(grpc.ClientConnInterface) T) Locker[T] {
-	if cc == nil {
-		return (*clientLocker[T])(nil)
-	}
 	return &clientLocker[T]{
 		client: builder(cc),
 	}
@@ -29,6 +27,7 @@ func NewLocker[T any](cc grpc.ClientConnInterface, builder func(grpc.ClientConnI
 type clientLocker[T any] struct {
 	sync.Mutex
 	client T
+	closed bool
 }
 
 func (cl *clientLocker[T]) Close() {
@@ -37,7 +36,10 @@ func (cl *clientLocker[T]) Close() {
 	}
 	cl.Lock()
 	defer cl.Unlock()
-	cl.client = lo.Empty[T]()
+	if !cl.closed {
+		cl.client = lo.Empty[T]()
+		cl.closed = true
+	}
 }
 
 func (cl *clientLocker[T]) Use(fn func(T)) bool {
@@ -46,6 +48,9 @@ func (cl *clientLocker[T]) Use(fn func(T)) bool {
 	}
 	cl.Lock()
 	defer cl.Unlock()
+	if cl.closed {
+		return false
+	}
 	fn(cl.client)
 	return true
 }

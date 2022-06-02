@@ -107,11 +107,14 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return c.SendStatus(fasthttp.StatusOK)
 	})
 
+	initCtx, initCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer initCancel()
+
 	ip, err := ident.GetProvider(conf.Spec.IdentityProvider)
 	if err != nil {
 		return nil, fmt.Errorf("configuration error: %w", err)
 	}
-	id, err := ip.UniqueIdentifier(ctx)
+	id, err := ip.UniqueIdentifier(initCtx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting unique identifier: %w", err)
 	}
@@ -134,7 +137,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	default:
 		return nil, fmt.Errorf("unknown storage type: %s", agent.Storage.Type)
 	}
-	agent.keyringStore, err = keyringStoreBroker.KeyringStore(ctx, "agent", &corev1.Reference{
+	agent.keyringStore, err = keyringStoreBroker.KeyringStore("agent", &corev1.Reference{
 		Id: id,
 	})
 	if err != nil {
@@ -143,11 +146,11 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	var kr keyring.Keyring
 	if options.bootstrapper != nil {
-		if kr, err = agent.bootstrap(ctx); err != nil {
-			return nil, err
+		if kr, err = agent.bootstrap(initCtx); err != nil {
+			return nil, fmt.Errorf("error during bootstrap: %w", err)
 		}
 	} else {
-		if kr, err = agent.loadKeyring(ctx); err != nil {
+		if kr, err = agent.loadKeyring(initCtx); err != nil {
 			return nil, fmt.Errorf("error loading keyring: %w", err)
 		}
 	}
@@ -201,11 +204,13 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	go func() {
 		for ctx.Err() == nil {
 			cc, errF := agent.gatewayClient.Connect(ctx)
-			agent.remoteWriteClient = clients.NewLocker(cc, remotewrite.NewRemoteWriteClient)
+			if !errF.IsSet() {
+				agent.remoteWriteClient = clients.NewLocker(cc, remotewrite.NewRemoteWriteClient)
 
-			startRuleStreamOnce.Do(func() {
-				go agent.streamRulesToGateway(ctx)
-			})
+				startRuleStreamOnce.Do(func() {
+					go agent.streamRulesToGateway(ctx)
+				})
+			}
 
 			lg.Error(errF.Get())
 			agent.remoteWriteClient.Close()
@@ -224,6 +229,7 @@ func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
 		if rwc == nil {
 			a.conditions.Store(condRemoteWrite, statusPending)
 			status = fiber.StatusServiceUnavailable
+			return
 		}
 		_, err := rwc.Push(c.Context(), &remotewrite.Payload{
 			AuthorizedClusterID: a.tenantID,
@@ -233,6 +239,7 @@ func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
 			a.logger.Error(err)
 			a.conditions.Store(condRemoteWrite, statusFailure)
 			status = fiber.StatusServiceUnavailable
+			return
 		}
 		a.conditions.Delete(condRemoteWrite)
 		status = fiber.StatusOK

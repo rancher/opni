@@ -70,7 +70,7 @@ func initFakeKeyring(
 	broker storage.KeyringStoreBroker,
 	lg *zap.SugaredLogger,
 ) (storage.KeyringStore, error) {
-	store, err := broker.KeyringStore(context.Background(), "gateway-internal", &corev1.Reference{
+	store, err := broker.KeyringStore("gateway-internal", &corev1.Reference{
 		Id: "fake",
 	})
 	if err != nil {
@@ -209,7 +209,7 @@ func (m *ClusterMiddleware) doKeyringVerify(authHeader string, msgBody []byte) (
 		return http.StatusBadRequest, "", nil
 	}
 
-	ks, err := m.keyringStoreBroker.KeyringStore(context.Background(), "gateway", &corev1.Reference{
+	ks, err := m.keyringStoreBroker.KeyringStore("gateway", &corev1.Reference{
 		Id: string(clusterID),
 	})
 	if err != nil {

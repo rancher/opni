@@ -108,9 +108,10 @@ type Environment struct {
 }
 
 type EnvironmentOptions struct {
-	enableEtcd    bool
-	enableGateway bool
-	enableCortex  bool
+	enableEtcd       bool
+	enableGateway    bool
+	enableCortex     bool
+	defaultAgentOpts []StartAgentOption
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -136,6 +137,12 @@ func WithEnableGateway(enableGateway bool) EnvironmentOption {
 func WithEnableCortex(enableCortex bool) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.enableCortex = enableCortex
+	}
+}
+
+func WithDefaultAgentOpts(opts ...StartAgentOption) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.defaultAgentOpts = opts
 	}
 }
 
@@ -239,12 +246,10 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			}
 		}
 	}
-	if options.enableGateway {
-		if err := os.Mkdir(path.Join(e.tempDir, "prometheus"), 0700); err != nil {
-			return err
-		}
-		os.WriteFile(path.Join(e.tempDir, "prometheus", "sample-rules.yaml"), TestData("prometheus/sample-rules.yaml"), 0644)
+	if err := os.Mkdir(path.Join(e.tempDir, "prometheus"), 0700); err != nil {
+		return err
 	}
+	os.WriteFile(path.Join(e.tempDir, "prometheus", "sample-rules.yaml"), TestData("prometheus/sample-rules.yaml"), 0644)
 
 	if options.enableEtcd {
 		e.startEtcd()
@@ -487,9 +492,6 @@ type prometheusTemplateOptions struct {
 }
 
 func (e *Environment) StartPrometheus(opniAgentPort int) int {
-	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
-	}
 	lg := e.Logger
 	port, err := freeport.GetFreePort()
 	if err != nil {
@@ -629,9 +631,6 @@ func (e *Environment) NewManagementClient() managementv1.ManagementClient {
 }
 
 func (e *Environment) PrometheusAPIEndpoint() string {
-	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
-	}
 	return fmt.Sprintf("https://localhost:%d/prometheus/api/v1", e.ports.GatewayHTTP)
 }
 
@@ -710,7 +709,8 @@ func (e *Environment) startGateway() {
 }
 
 type StartAgentOptions struct {
-	ctx context.Context
+	ctx                  context.Context
+	remoteGatewayAddress string
 }
 
 type StartAgentOption func(*StartAgentOptions)
@@ -727,14 +727,20 @@ func WithContext(ctx context.Context) StartAgentOption {
 	}
 }
 
-func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins []string, opts ...StartAgentOption) (int, <-chan error) {
-	if !e.enableGateway {
-		e.Logger.Panic("gateway disabled")
+func WithRemoteGatewayAddress(addr string) StartAgentOption {
+	return func(o *StartAgentOptions) {
+		o.remoteGatewayAddress = addr
 	}
+}
+
+func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins []string, opts ...StartAgentOption) (int, <-chan error) {
 	options := &StartAgentOptions{
 		ctx: context.Background(),
 	}
 	options.apply(opts...)
+	if !e.enableGateway && options.remoteGatewayAddress == "" {
+		e.Logger.Panic("gateway disabled")
+	}
 
 	errC := make(chan error, 1)
 	port, err := freeport.GetFreePort()
@@ -750,11 +756,16 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		}
 	}
 
+	gatewayAddress := fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC)
+	if options.remoteGatewayAddress != "" {
+		gatewayAddress = options.remoteGatewayAddress
+	}
+
 	agentConfig := &v1beta1.AgentConfig{
 		Spec: v1beta1.AgentConfigSpec{
 			TrustStrategy:    v1beta1.TrustStrategyPKP,
 			ListenAddress:    fmt.Sprintf("localhost:%d", port),
-			GatewayAddress:   fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
+			GatewayAddress:   gatewayAddress,
 			IdentityProvider: id,
 			Rules: &v1beta1.RulesSpec{
 				Discovery: v1beta1.DiscoverySpec{
@@ -815,7 +826,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 			agent.WithBootstrapper(&bootstrap.ClientConfig{
 				Capability:    wellknown.CapabilityMetrics,
 				Token:         bt,
-				Endpoint:      fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
+				Endpoint:      gatewayAddress,
 				TrustStrategy: strategy,
 			}))
 		if err != nil {
@@ -830,8 +841,9 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		}
 		e.runningAgentsMu.Unlock()
 		mu.Unlock()
+		errC <- nil
 		if err := a.ListenAndServe(); err != nil {
-			errC <- err
+			Log.Error(err)
 		}
 	}()
 	waitctx.Go(e.ctx, func() {
@@ -890,7 +902,15 @@ func (e *Environment) EtcdConfig() *v1beta1.EtcdStorageSpec {
 	}
 }
 
-func StartStandaloneTestEnvironment() {
+func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
+	options := &EnvironmentOptions{
+		enableGateway:    true,
+		enableEtcd:       true,
+		enableCortex:     true,
+		defaultAgentOpts: []StartAgentOption{},
+	}
+	options.apply(opts...)
+
 	environment := &Environment{
 		TestBin: "testbin/bin",
 	}
@@ -913,13 +933,11 @@ func StartStandaloneTestEnvironment() {
 				rw.Write([]byte(err.Error()))
 				return
 			}
-			port, errC := environment.StartAgent(uuid.New().String(), token.ToBootstrapToken(), body.Pins)
-			select {
-			case err := <-errC:
+			port, errC := environment.StartAgent(uuid.New().String(), token.ToBootstrapToken(), body.Pins, options.defaultAgentOpts...)
+			if err := <-errC; err != nil {
 				rw.WriteHeader(http.StatusInternalServerError)
 				rw.Write([]byte(err.Error()))
 				return
-			case <-time.After(time.Second):
 			}
 			environment.StartPrometheus(port)
 			rw.WriteHeader(http.StatusOK)
@@ -928,7 +946,7 @@ func StartStandaloneTestEnvironment() {
 	}
 	webui.AddExtraHandler("/opni-test/agents", addAgent)
 	http.HandleFunc("/agents", addAgent)
-	if err := environment.Start(); err != nil {
+	if err := environment.Start(opts...); err != nil {
 		panic(err)
 	}
 	go func() {
@@ -943,7 +961,7 @@ func StartStandaloneTestEnvironment() {
 	Log.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
 	// listen for spacebar on stdin
 	t, err := tty.Open()
-	if err == nil {
+	if err == nil && options.enableGateway {
 		Log.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
 		Log.Info(chalk.Blue.Color("Press (a) to launch a new agent"))
 		go func() {

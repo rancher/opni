@@ -3520,8 +3520,6 @@ spec:
                   skip:
                     type: boolean
                 type: object
-            required:
-            - config
             type: object
           status:
             properties:

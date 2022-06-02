@@ -45,8 +45,5 @@ spec:
       {{- end }}
       {{- end }}
     {{- end }}
-  grafana:
-    enabled: true
-    hostname: {{ .Values.monitoring.grafana.hostname }}
-    image: {{ .Values.monitoring.grafana.image | default "grafana/grafana:latest" }}
+  grafana: {{ toYaml .Values.monitoring.grafana | nindent 4 }}
 {{- end }}

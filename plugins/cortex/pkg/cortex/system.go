@@ -39,7 +39,9 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		}
 		p.storageBackend.Set(backend)
 		p.config.Set(config)
-		p.configureAdminClients(p.getOrLoadCortexCerts())
+		p.cortexTlsConfig.Set(p.loadCortexCerts())
+
+		p.configureAdminClients()
 	})
 
 	p.authMiddlewares.Set(machinery.LoadAuthProviders(p.ctx, objectList))

@@ -11,10 +11,14 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/kralicky/totem"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/b2mac"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/trust"
+	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 )
 
 type RequestBuilder interface {
@@ -41,7 +45,8 @@ type GatewayHTTPClient interface {
 }
 
 type GatewayGRPCClient interface {
-	Dial(ctx context.Context) (grpc.ClientConnInterface, error)
+	grpc.ServiceRegistrar
+	Connect(context.Context) (grpc.ClientConnInterface, future.Future[error])
 }
 
 func NewGatewayHTTPClient(
@@ -115,6 +120,8 @@ type gatewayClient struct {
 	id          string
 	sharedKeys  *keyring.SharedKeys
 	tlsConfig   *tls.Config
+
+	services []util.ServicePack[any]
 }
 
 func (gc *gatewayClient) requestPath(path string) string {
@@ -166,11 +173,42 @@ func (gc *gatewayClient) Delete(ctx context.Context, path string) RequestBuilder
 	}
 }
 
-func (gc *gatewayClient) Dial(ctx context.Context) (grpc.ClientConnInterface, error) {
-	return grpc.DialContext(ctx, gc.grpcAddress,
+func (gc *gatewayClient) RegisterService(desc *grpc.ServiceDesc, impl any) {
+	gc.services = append(gc.services, util.PackService(desc, impl))
+}
+
+func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface, future.Future[error]) {
+	gcc, err := grpc.DialContext(ctx, gc.grpcAddress,
 		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
 		grpc.WithStreamInterceptor(gc.streamClientInterceptor),
+		grpc.WithBlock(),
 	)
+	if err != nil {
+		return nil, future.Instant(fmt.Errorf("failed to dial gateway: %w", err))
+	}
+
+	streamClient := streamv1.NewStreamClient(gcc)
+	stream, err := streamClient.Connect(ctx)
+	if err != nil {
+		return nil, future.Instant(fmt.Errorf("failed to connect to gateway: %w", err))
+	}
+
+	ts := totem.NewServer(stream)
+	for _, sp := range gc.services {
+		ts.RegisterService(sp.Unpack())
+	}
+
+	cc, errC := ts.Serve()
+	f := future.New[error]()
+	go func() {
+		select {
+		case <-ctx.Done():
+			f.Set(ctx.Err())
+		case err := <-errC:
+			f.Set(err)
+		}
+	}()
+	return cc, f
 }
 
 func (gc *gatewayClient) streamClientInterceptor(

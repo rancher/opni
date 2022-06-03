@@ -10,7 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/storage/conformance"
 	"github.com/rancher/opni/pkg/storage/etcd"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 )
 
 func TestEtcd(t *testing.T) {
@@ -18,8 +18,8 @@ func TestEtcd(t *testing.T) {
 	RunSpecs(t, "Etcd Storage Suite")
 }
 
-var store = util.NewFuture[*etcd.EtcdStore]()
-var errCtrl = util.NewFuture[conformance.ErrorController]()
+var store = future.New[*etcd.EtcdStore]()
+var errCtrl = future.New[conformance.ErrorController]()
 
 var _ = BeforeSuite(func() {
 	env := test.Environment{

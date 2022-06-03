@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/agent"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -19,18 +20,13 @@ type ConnectionHandler interface {
 	HandleAgentConnection(context.Context, agent.ClientSet)
 }
 
-type service struct {
-	desc *grpc.ServiceDesc
-	impl any
-}
-
 type GatewayGRPCServer struct {
 	streamv1.UnsafeStreamServer
 	conf       *v1beta1.GatewayConfigSpec
 	logger     *zap.SugaredLogger
 	serverOpts []grpc.ServerOption
 
-	services []service
+	services []util.ServicePack[any]
 }
 
 func NewGRPCServer(
@@ -63,7 +59,7 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 	)...)
 	healthv1.RegisterHealthServer(server, health.NewServer())
 	for _, services := range s.services {
-		server.RegisterService(services.desc, services.impl)
+		server.RegisterService(services.Unpack())
 	}
 
 	s.logger.With(
@@ -74,8 +70,5 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 }
 
 func (s *GatewayGRPCServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
-	s.services = append(s.services, service{
-		desc: desc,
-		impl: impl,
-	})
+	s.services = append(s.services, util.PackService(desc, impl))
 }

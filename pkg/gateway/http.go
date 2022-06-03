@@ -143,6 +143,11 @@ func (s *GatewayHTTPServer) ListenAndServe(ctx waitctx.RestrictiveContext) error
 		<-ctx.Done()
 		s.app.Shutdown()
 	})
+
+	// 404 handler
+	s.app.Use(func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNotFound)
+	})
 	return s.app.Listener(listener)
 }
 

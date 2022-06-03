@@ -5,10 +5,6 @@ import (
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
 )
 
-const (
-	maxRecvMsgSize = 100 << 20
-)
-
 func (p *Plugin) StreamServers() []streamext.Server {
 	return []streamext.Server{
 		{

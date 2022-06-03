@@ -1,9 +1,7 @@
 package util_test
 
 import (
-	"context"
 	"errors"
-	"time"
 	"unsafe"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -106,43 +104,6 @@ var _ = Describe("Generic Utils", Label(test.Unit), func() {
 			Expect(ts3).To(Equal(ts))
 			Expect(uintptr(unsafe.Pointer(ts.Field1))).NotTo(Equal(uintptr(unsafe.Pointer(ts3.Field1))))
 			Expect(uintptr(unsafe.Pointer(ts.Field2))).NotTo(Equal(uintptr(unsafe.Pointer(ts3.Field2))))
-		})
-	})
-
-	Context("Future", func() {
-		Specify("Get should block until Set is called", func() {
-			f := util.NewFuture[string]()
-			go func() {
-				time.Sleep(time.Millisecond * 100)
-				f.Set("test")
-			}()
-			start := time.Now()
-			Expect(f.Get()).To(Equal("test"))
-			Expect(time.Since(start)).To(BeNumerically(">=", time.Millisecond*100))
-		})
-		Specify("GetContext should allow Get to be canceled", func() {
-			f := util.NewFuture[string]()
-			ctx, ca := context.WithTimeout(context.Background(), 50*time.Millisecond)
-			defer ca()
-			go func() {
-				time.Sleep(time.Millisecond * 100)
-				f.Set("test")
-			}()
-			start := time.Now()
-			_, err := f.GetContext(ctx)
-			Expect(err).To(MatchError(context.DeadlineExceeded))
-			Expect(time.Since(start)).To(BeNumerically("~", time.Millisecond*50, time.Millisecond*10))
-
-			f2 := util.NewFuture[string]()
-			ctx, ca = context.WithTimeout(context.Background(), 100*time.Millisecond)
-			defer ca()
-			go func() {
-				time.Sleep(time.Millisecond * 25)
-				f2.Set("test")
-			}()
-			start = time.Now()
-			Expect(f2.GetContext(ctx)).To(Equal("test"))
-			Expect(time.Since(start)).To(BeNumerically("~", time.Millisecond*25, time.Millisecond*10))
 		})
 	})
 })

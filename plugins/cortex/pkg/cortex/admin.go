@@ -3,7 +3,6 @@ package cortex
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -145,7 +144,7 @@ func outgoingContext(ctx context.Context, in clusterIDGetter) context.Context {
 	))
 }
 
-func (p *Plugin) configureAdminClients(tlsConfig *tls.Config) {
+func (p *Plugin) configureAdminClients() {
 	ctx, ca := context.WithTimeout(context.Background(), 10*time.Second)
 	defer ca()
 	cfg, err := p.config.GetContext(ctx)
@@ -156,7 +155,7 @@ func (p *Plugin) configureAdminClients(tlsConfig *tls.Config) {
 
 	{
 		cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Distributor.GRPCAddress,
-			grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+			grpc.WithTransportCredentials(credentials.NewTLS(p.cortexTlsConfig.Get())),
 		)
 		if err != nil {
 			p.logger.With(
@@ -169,7 +168,7 @@ func (p *Plugin) configureAdminClients(tlsConfig *tls.Config) {
 	{
 		httpClient := &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: tlsConfig,
+				TLSClientConfig: p.cortexTlsConfig.Get(),
 			},
 		}
 		p.cortexHttpClient.Set(httpClient)

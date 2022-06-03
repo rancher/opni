@@ -232,18 +232,18 @@ func (mr *MockBackendMockRecorder) KeyValueStore(namespace interface{}) *gomock.
 }
 
 // KeyringStore mocks base method.
-func (m *MockBackend) KeyringStore(ctx context.Context, namespace string, ref *v1.Reference) (storage.KeyringStore, error) {
+func (m *MockBackend) KeyringStore(namespace string, ref *v1.Reference) (storage.KeyringStore, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KeyringStore", ctx, namespace, ref)
+	ret := m.ctrl.Call(m, "KeyringStore", namespace, ref)
 	ret0, _ := ret[0].(storage.KeyringStore)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // KeyringStore indicates an expected call of KeyringStore.
-func (mr *MockBackendMockRecorder) KeyringStore(ctx, namespace, ref interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) KeyringStore(namespace, ref interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyringStore", reflect.TypeOf((*MockBackend)(nil).KeyringStore), ctx, namespace, ref)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyringStore", reflect.TypeOf((*MockBackend)(nil).KeyringStore), namespace, ref)
 }
 
 // ListClusters mocks base method.
@@ -830,18 +830,18 @@ func (m *MockKeyringStoreBroker) EXPECT() *MockKeyringStoreBrokerMockRecorder {
 }
 
 // KeyringStore mocks base method.
-func (m *MockKeyringStoreBroker) KeyringStore(ctx context.Context, namespace string, ref *v1.Reference) (storage.KeyringStore, error) {
+func (m *MockKeyringStoreBroker) KeyringStore(namespace string, ref *v1.Reference) (storage.KeyringStore, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KeyringStore", ctx, namespace, ref)
+	ret := m.ctrl.Call(m, "KeyringStore", namespace, ref)
 	ret0, _ := ret[0].(storage.KeyringStore)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // KeyringStore indicates an expected call of KeyringStore.
-func (mr *MockKeyringStoreBrokerMockRecorder) KeyringStore(ctx, namespace, ref interface{}) *gomock.Call {
+func (mr *MockKeyringStoreBrokerMockRecorder) KeyringStore(namespace, ref interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyringStore", reflect.TypeOf((*MockKeyringStoreBroker)(nil).KeyringStore), ctx, namespace, ref)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeyringStore", reflect.TypeOf((*MockKeyringStoreBroker)(nil).KeyringStore), namespace, ref)
 }
 
 // MockKeyValueStoreBroker is a mock of KeyValueStoreBroker interface.

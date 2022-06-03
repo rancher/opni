@@ -67,7 +67,7 @@ func (c *ClientConfig) Bootstrap(
 		append(c.DialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial gateway: %v", err)
+		return nil, fmt.Errorf("failed to dial gateway: %w", err)
 	}
 	client := bootstrapv1.NewBootstrapClient(cc)
 
@@ -86,10 +86,7 @@ func (c *ClientConfig) Bootstrap(
 		"authorization", "Bearer "+string(completeJws),
 	)), authReq)
 	if err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth request failed: %w", err)
 	}
 
 	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, ecdh.PeerPublicKey{
@@ -128,14 +125,14 @@ func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.Bootstra
 		append(c.DialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))...,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to dial gateway: %v", err)
+		return nil, nil, fmt.Errorf("failed to dial gateway: %w", err)
 	}
 	client := bootstrapv1.NewBootstrapClient(cc)
 
 	var peer peer.Peer
 	resp, err := client.Join(ctx, &bootstrapv1.BootstrapJoinRequest{}, grpc.Peer(&peer))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("join request failed: %w", err)
 	}
 
 	tlsInfo, ok := peer.AuthInfo.(credentials.TLSInfo)

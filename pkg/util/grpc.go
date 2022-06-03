@@ -2,12 +2,29 @@ package util
 
 import (
 	"context"
+	"errors"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
+
+type ServicePack[T any] struct {
+	desc *grpc.ServiceDesc
+	impl T
+}
+
+func (s *ServicePack[T]) Unpack() (*grpc.ServiceDesc, any) {
+	return s.desc, s.impl
+}
+
+func PackService[T any](desc *grpc.ServiceDesc, impl T) ServicePack[T] {
+	return ServicePack[T]{
+		desc: desc,
+		impl: impl,
+	}
+}
 
 type ServerStreamWithContext struct {
 	Stream grpc.ServerStream
@@ -73,4 +90,14 @@ func (s *ClientStreamWithContext) RecvMsg(m interface{}) error {
 
 func StatusError(code codes.Code) error {
 	return status.Error(code, code.String())
+}
+
+// Like status.Code(), but supports wrapped errors.
+func StatusCode(err error) codes.Code {
+	var grpcStatus interface{ GRPCStatus() *status.Status }
+	code := codes.Unknown
+	if errors.As(err, &grpcStatus) {
+		code = grpcStatus.GRPCStatus().Code()
+	}
+	return code
 }

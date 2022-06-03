@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/samber/lo"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -117,6 +118,7 @@ func (p *PluginLoader) LoadOne(md meta.PluginMeta, cc *plugin.ClientConfig) {
 	}
 	lg.With(
 		"plugin", md.Module,
+		"interfaces", lo.Keys(cc.Plugins),
 	).Debug("checking if plugin implements any interfaces in the scheme")
 	wg := &sync.WaitGroup{}
 	for id := range cc.Plugins {

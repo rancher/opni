@@ -71,7 +71,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label(tes
 			clusterNameList = append(clusterNameList, name)
 
 			port, errC := environment.StartAgent(name, token, []string{fingerprint})
-			Consistently(errC).ShouldNot(Receive())
+			Eventually(errC).Should(Receive(BeNil()))
 			promAgentPort := environment.StartPrometheus(port)
 			Expect(promAgentPort).NotTo(BeZero())
 
@@ -79,7 +79,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label(tes
 				//Clusters that will be associated to the user
 				clusterName := "test-cluster-id-" + uuid.New().String()
 				_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-				Consistently(errC).ShouldNot(Receive(HaveOccurred()))
+				Eventually(errC).Should(Receive(BeNil()))
 				clusterNameList = append(clusterNameList, clusterName)
 			}
 
@@ -91,8 +91,8 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label(tes
 
 			for i := 0; i < 5; i++ {
 				uUClusterName := "test-cluster-id-" + uuid.New().String()
-				_, errU := environment.StartAgent(uUClusterName, token2, []string{fingerprint})
-				Consistently(errU).ShouldNot(Receive())
+				_, errC := environment.StartAgent(uUClusterName, token2, []string{fingerprint})
+				Eventually(errC).Should(Receive(BeNil()))
 				uUClusterNameList = append(uUClusterNameList, uUClusterName)
 			}
 

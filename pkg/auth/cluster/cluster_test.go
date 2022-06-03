@@ -145,7 +145,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 
 			When("the keyring store does not exist for the requested cluster", func() {
 				BeforeEach(func() {
-					handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+					handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 						return nil, errors.New("not found")
 					}
 				})
@@ -165,7 +165,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 					store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
 						Id: "does-not-exist",
 					})
-					handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+					handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 						return store, nil
 					}
 				})
@@ -187,7 +187,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 							Id: "cluster-1",
 						})
 						store.Put(context.Background(), keyring.New())
-						handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+						handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 							return store, nil
 						}
 					})
@@ -206,7 +206,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 							Id: "cluster-1",
 						})
 						store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-						handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+						handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 							return store, nil
 						}
 					})
@@ -235,7 +235,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 						Id: "cluster-1",
 					})
 					store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-					handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+					handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 						if ref.Id == "cluster-1" {
 							return store, nil
 						}
@@ -364,7 +364,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 						Id: "cluster-1",
 					})
 					store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-					handler = func(_ context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+					handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 						if ref.Id == "cluster-1" {
 							return store, nil
 						}

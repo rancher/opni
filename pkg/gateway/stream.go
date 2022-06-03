@@ -6,6 +6,7 @@ import (
 	"github.com/kralicky/totem"
 	"github.com/rancher/opni/pkg/agent"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
+	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -20,7 +21,7 @@ type StreamServer struct {
 	streamv1.UnsafeStreamServer
 	logger   *zap.SugaredLogger
 	handler  ConnectionHandler
-	services []service
+	services []util.ServicePack[any]
 	remotes  []remote
 }
 
@@ -35,7 +36,7 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	s.logger.Debug("handling new stream connection")
 	ts := totem.NewServer(stream)
 	for _, service := range s.services {
-		ts.RegisterService(service.desc, service.impl)
+		ts.RegisterService(service.Unpack())
 	}
 	for _, r := range s.remotes {
 		streamClient := streamv1.NewStreamClient(r.cc)
@@ -66,10 +67,7 @@ func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
 			zap.String("service", desc.ServiceName),
 		).Fatal("failed to register service: nested streams are currently not supported")
 	}
-	s.services = append(s.services, service{
-		desc: desc,
-		impl: impl,
-	})
+	s.services = append(s.services, util.PackService(desc, impl))
 }
 
 func (s *StreamServer) AddRemote(cc *grpc.ClientConn, services []*descriptorpb.ServiceDescriptorProto) error {

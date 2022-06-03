@@ -62,9 +62,14 @@ var _ = Describe("Server", Ordered, Label(test.Slow), func() {
 		})
 		ctx, ca := context.WithCancel(waitctx.Background())
 		go func() {
-			Expect(srv.Run(ctx)).To(Succeed())
+			defer GinkgoRecover()
+			err := srv.Run(ctx)
+			Expect(err).To(Or(BeNil(), MatchError(context.Canceled)))
 		}()
-		DeferCleanup(ca)
+		DeferCleanup(func() {
+			ca()
+			waitctx.Wait(ctx, 5*time.Second)
+		})
 	})
 	var accessCode string
 	var accessToken string
@@ -87,7 +92,7 @@ var _ = Describe("Server", Ordered, Label(test.Slow), func() {
 		Eventually(func() error {
 			_, err := http.Get(fmt.Sprintf("http://localhost:%d", ports[0]) + "/oauth2/authorize?client_id=foo&redirect_uri=http%3A%2F%2Flocalhost%3A" + fmt.Sprint(ports[1]) + "&response_type=code&scope=openid+profile+email&state=1234567890&username=admin%40example.com")
 			return err
-		}, 5000, 200).Should(Succeed())
+		}, 5*time.Second, 200*time.Millisecond).Should(Succeed())
 
 		var code string
 		select {

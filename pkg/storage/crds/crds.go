@@ -1,7 +1,6 @@
 package crds
 
 import (
-	"context"
 	"os"
 	"time"
 
@@ -82,7 +81,7 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	}
 }
 
-func (e *CRDStore) KeyringStore(ctx context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+func (e *CRDStore) KeyringStore(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 	return &crdKeyringStore{
 		CRDStoreOptions: e.CRDStoreOptions,
 		client:          e.client,

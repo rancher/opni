@@ -8,10 +8,12 @@ import (
 	_ "embed"
 
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
+	"github.com/imdario/mergo"
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/ttacon/chalk"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -91,20 +93,13 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		grafanaHostname = r.mc.Spec.Grafana.Hostname
 	}
 
-	baseImage := r.mc.Spec.Grafana.Image
-	if baseImage == "" {
-		baseImage = "grafana/grafana:latest"
-	}
-	grafana.Spec = grafanav1alpha1.GrafanaSpec{
+	defaults := grafanav1alpha1.GrafanaSpec{
 		DashboardLabelSelector: []*metav1.LabelSelector{dashboardSelector},
-		BaseImage:              baseImage,
+		BaseImage:              "grafana/grafana:latest",
 		Client: &grafanav1alpha1.GrafanaClient{
 			PreferService: util.Pointer(true),
 		},
 		Config: grafanav1alpha1.GrafanaConfig{
-			Log: &grafanav1alpha1.GrafanaConfigLog{
-				Level: r.mc.Spec.Grafana.LogLevel,
-			},
 			Server: &grafanav1alpha1.GrafanaConfigServer{
 				Domain:  grafanaHostname,
 				RootUrl: "https://" + grafanaHostname,
@@ -128,22 +123,33 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				FSGroup: util.Pointer(int64(472)),
 			},
 		},
-		Ingress: &grafanav1alpha1.GrafanaIngress{
-			Enabled:       true,
-			Hostname:      grafanaHostname,
-			TLSEnabled:    true,
-			TLSSecretName: "grafana-dashboard-tls",
-			Path:          "/",
-			PathType:      "Prefix",
-		},
 		Secrets: []string{"grafana-datasource-cert"},
 		DataStorage: &grafanav1alpha1.GrafanaDataStorage{
 			Size: resource.MustParse("10Gi"),
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				corev1.ReadWriteOnce,
-			},
 		},
 	}
+
+	spec := r.mc.Spec.Grafana.GrafanaSpec
+
+	// apply defaults to user-provided config
+	// ensure label selectors and secrets are appended to any user defined ones
+	if err := mergo.Merge(&spec, defaults, mergo.WithAppendSlice); err != nil {
+		return nil, err
+	}
+
+	// special case as we don't want the append slice logic for access modes
+	if spec.DataStorage.AccessModes == nil {
+		spec.DataStorage.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+	}
+
+	// special case to fill the ingress hostname if not set
+	if spec.Ingress != nil {
+		if spec.Ingress.Hostname == "" {
+			spec.Ingress.Hostname = grafanaHostname
+		}
+	}
+
+	grafana.Spec = spec
 
 	datasource.Spec = grafanav1alpha1.GrafanaDataSourceSpec{
 		Name: "opni-monitoring-datasources",
@@ -187,12 +193,16 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 
 	switch r.gw.Spec.Auth.Provider {
 	case v1beta1.AuthProviderNoAuth:
-		grafana.Spec.Config.AuthGenericOauth.ClientId = "grafana"
-		grafana.Spec.Config.AuthGenericOauth.ClientSecret = "noauth"
-		grafana.Spec.Config.AuthGenericOauth.AuthUrl = fmt.Sprintf("http://%s:4000/oauth2/authorize", r.gw.Spec.Hostname)
-		grafana.Spec.Config.AuthGenericOauth.TokenUrl = fmt.Sprintf("http://%s:4000/oauth2/token", r.gw.Spec.Hostname)
-		grafana.Spec.Config.AuthGenericOauth.ApiUrl = fmt.Sprintf("http://%s:4000/oauth2/userinfo", r.gw.Spec.Hostname)
-		grafana.Spec.Config.AuthGenericOauth.RoleAttributePath = "grafana_role"
+		grafana.Spec.Config.AuthGenericOauth = &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
+			Enabled:           util.Pointer(true),
+			ClientId:          "grafana",
+			ClientSecret:      "noauth",
+			Scopes:            "openid profile email",
+			AuthUrl:           fmt.Sprintf("http://%s:4000/oauth2/authorize", r.gw.Spec.Hostname),
+			TokenUrl:          fmt.Sprintf("http://%s:4000/oauth2/token", r.gw.Spec.Hostname),
+			ApiUrl:            fmt.Sprintf("http://%s:4000/oauth2/userinfo", r.gw.Spec.Hostname),
+			RoleAttributePath: "grafana_role",
+		}
 	case v1beta1.AuthProviderOpenID:
 		spec := r.gw.Spec.Auth.Openid
 		if spec.Discovery == nil && spec.WellKnownConfiguration == nil {
@@ -202,18 +212,27 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch configuration from openid provider: %w", err)
 		}
-
-		grafana.Spec.Config.AuthGenericOauth.ClientId = spec.ClientID
-		grafana.Spec.Config.AuthGenericOauth.ClientSecret = spec.ClientSecret
-		grafana.Spec.Config.AuthGenericOauth.Scopes = strings.Join(spec.Scopes, " ")
-		grafana.Spec.Config.AuthGenericOauth.AuthUrl = wkc.AuthEndpoint
-		grafana.Spec.Config.AuthGenericOauth.TokenUrl = wkc.TokenEndpoint
-		grafana.Spec.Config.AuthGenericOauth.ApiUrl = wkc.UserinfoEndpoint
-		grafana.Spec.Config.AuthGenericOauth.RoleAttributePath = spec.RoleAttributePath
+		grafana.Spec.Config.AuthGenericOauth = &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
+			Enabled:               util.Pointer(true),
+			ClientId:              spec.ClientID,
+			ClientSecret:          spec.ClientSecret,
+			Scopes:                strings.Join(spec.Scopes, " "),
+			AuthUrl:               wkc.AuthEndpoint,
+			TokenUrl:              wkc.TokenEndpoint,
+			ApiUrl:                wkc.UserinfoEndpoint,
+			RoleAttributePath:     spec.RoleAttributePath,
+			AllowSignUp:           spec.AllowSignUp,
+			AllowedDomains:        strings.Join(spec.AllowedDomains, " "),
+			RoleAttributeStrict:   spec.RoleAttributeStrict,
+			EmailAttributePath:    spec.EmailAttributePath,
+			TLSSkipVerifyInsecure: spec.InsecureSkipVerify,
+			TLSClientCert:         spec.TLSClientCert,
+			TLSClientKey:          spec.TLSClientKey,
+			TLSClientCa:           spec.TLSClientCA,
+		}
 
 		if spec.InsecureSkipVerify != nil && *spec.InsecureSkipVerify {
-			r.logger.Warn("InsecureSkipVerify enabled for openid auth")
-			grafana.Spec.Config.AuthGenericOauth.TLSSkipVerifyInsecure = spec.InsecureSkipVerify
+			r.logger.Warn(chalk.Yellow.Color("InsecureSkipVerify enabled for openid auth"))
 		}
 	}
 

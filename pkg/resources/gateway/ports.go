@@ -15,8 +15,8 @@ func (r *Reconciler) publicContainerPorts() ([]corev1.ContainerPort, error) {
 	lg := r.logger
 	ports := []corev1.ContainerPort{
 		{
-			Name:          "http",
-			ContainerPort: 8080,
+			Name:          "grpc",
+			ContainerPort: 9090,
 			Protocol:      corev1.ProtocolTCP,
 		},
 	}
@@ -40,7 +40,13 @@ func (r *Reconciler) publicContainerPorts() ([]corev1.ContainerPort, error) {
 }
 
 func (r *Reconciler) managementContainerPorts() ([]corev1.ContainerPort, error) {
-	var ports []corev1.ContainerPort
+	ports := []corev1.ContainerPort{
+		{
+			Name:          "http",
+			ContainerPort: 8080,
+			Protocol:      corev1.ProtocolTCP,
+		},
+	}
 	if addr := r.gw.Spec.Management.GetGRPCListenAddress(); strings.HasPrefix(addr, "tcp://") {
 		parts := strings.Split(addr, ":")
 		if len(parts) != 3 {

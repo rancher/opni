@@ -190,6 +190,10 @@ func (rt *TestPlanRuntime) Run(actions ...string) (testErr error) {
 	}
 	wg.Wait()
 
+	if testErr != nil {
+		return
+	}
+
 	// merge coverage profiles
 	coverProfiles := []string{}
 	for _, run := range rt.spec.Actions {

@@ -88,9 +88,9 @@ func (a *Agent) marshalRuleGroups(ruleGroups []rulefmt.RuleGroup) [][]byte {
 	return yamlDocs
 }
 
-func (a *Agent) streamRulesToGateway(ctx context.Context) error {
+func (a *Agent) streamRulesToGateway(actx context.Context) error {
 	lg := a.logger
-	updateC, err := a.streamRuleGroupUpdates(ctx)
+	updateC, err := a.streamRuleGroupUpdates(actx)
 	if err != nil {
 		a.logger.With(
 			zap.Error(err),
@@ -98,15 +98,16 @@ func (a *Agent) streamRulesToGateway(ctx context.Context) error {
 		return err
 	}
 	pending := make(chan [][]byte, 1)
+	defer close(pending)
+	ctx, ca := context.WithCancel(actx)
+	defer ca()
 	go func() {
-		defer close(pending)
 		for {
 			var docs [][]byte
 			select {
-			case docs = <-pending:
 			case <-ctx.Done():
-				lg.Error(ctx.Err())
 				return
+			case docs = <-pending:
 			}
 		RETRY:
 			lg.Debug("sending alert rules to gateway")
@@ -140,7 +141,6 @@ func (a *Agent) streamRulesToGateway(ctx context.Context) error {
 						case <-time.After(5 * time.Second):
 							goto RETRY
 						case <-ctx.Done():
-							lg.Error(ctx.Err())
 							return
 						}
 					}

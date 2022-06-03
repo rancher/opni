@@ -742,7 +742,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		e.Logger.Panic("gateway disabled")
 	}
 
-	errC := make(chan error, 1)
+	errC := make(chan error, 2)
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)

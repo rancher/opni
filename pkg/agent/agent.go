@@ -210,10 +210,12 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 				startRuleStreamOnce.Do(func() {
 					go agent.streamRulesToGateway(ctx)
 				})
-			}
 
-			lg.Error(errF.Get())
-			agent.remoteWriteClient.Close()
+				lg.Error(errF.Get())
+				agent.remoteWriteClient.Close()
+			} else {
+				lg.Error(errF.Get())
+			}
 		}
 	}()
 
@@ -236,7 +238,7 @@ func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
 			Contents:            c.Body(),
 		})
 		if err != nil {
-			a.logger.Error(err)
+			a.logger.Errorf("remote write error: %v", err)
 			a.conditions.Store(condRemoteWrite, statusFailure)
 			status = fiber.StatusServiceUnavailable
 			return

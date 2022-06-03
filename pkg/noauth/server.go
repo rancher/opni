@@ -70,7 +70,7 @@ type templateData struct {
 //go:embed web
 var webFS embed.FS
 
-func (s *Server) Run(ctx context.Context) error {
+func (s *Server) Run(ctx waitctx.RestrictiveContext) error {
 	lg := s.Logger
 	listener, err := net.Listen("tcp4", fmt.Sprintf("0.0.0.0:%d", s.Port))
 	if err != nil {

@@ -15,9 +15,9 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var _ = Describe("Clusters", Ordered, Label(test.Slow), func() {
@@ -146,7 +146,7 @@ var _ = Describe("Clusters", Ordered, Label(test.Slow), func() {
 				_, err := tv.client.GetCluster(context.Background(), &corev1.Reference{
 					Id: event.Cluster.Id,
 				})
-				Expect(status.Code(err)).To(Equal(codes.NotFound))
+				Expect(util.StatusCode(err)).To(Equal(codes.NotFound))
 				if len(ids) == 0 {
 					return
 				}
@@ -176,7 +176,7 @@ var _ = Describe("Clusters", Ordered, Label(test.Slow), func() {
 				},
 				Labels: map[string]string{},
 			})
-			Expect(status.Code(err)).To(Equal(codes.NotFound))
+			Expect(util.StatusCode(err)).To(Equal(codes.NotFound))
 		})
 	})
 	When("attempting to delete a nonexistent cluster", func() {
@@ -184,7 +184,7 @@ var _ = Describe("Clusters", Ordered, Label(test.Slow), func() {
 			_, err := tv.client.DeleteCluster(context.Background(), &corev1.Reference{
 				Id: "nonexistent",
 			})
-			Expect(status.Code(err)).To(Equal(codes.NotFound))
+			Expect(util.StatusCode(err)).To(Equal(codes.NotFound))
 		})
 	})
 	It("should handle validation errors", func() {

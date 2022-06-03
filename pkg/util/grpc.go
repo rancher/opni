@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"errors"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -89,4 +90,14 @@ func (s *ClientStreamWithContext) RecvMsg(m interface{}) error {
 
 func StatusError(code codes.Code) error {
 	return status.Error(code, code.String())
+}
+
+// Like status.Code(), but supports wrapped errors.
+func StatusCode(err error) codes.Code {
+	var grpcStatus interface{ GRPCStatus() *status.Status }
+	code := codes.Unknown
+	if errors.As(err, &grpcStatus) {
+		code = grpcStatus.GRPCStatus().Code()
+	}
+	return code
 }

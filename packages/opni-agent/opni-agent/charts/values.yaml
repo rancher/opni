@@ -8,7 +8,6 @@ image:
   tag: ""
   pullPolicy: Always
 
-
 metrics:
   enabled: false
   insecure: false
@@ -46,7 +45,8 @@ service:
   type: ClusterIP
   port: 80
 
-resources: {}
+resources:
+  {}
   # requests:
   #   cpu: 500m
   #   memory: 512Mi
@@ -70,6 +70,14 @@ pin: ""
 # Gateway address
 address: ""
 
+bootstrapInCluster:
+  # If enabled, the agent will bootstrap itself automatically by interacting
+  # directly with the management API. Use this when running the agent in the
+  # same cluster as the gateway.
+  enabled: false
+  # The address of the internal management api (name.namespace.svc:port)
+  managementAddress: ""
+
 kube-prometheus-stack:
   enabled: false
   grafana:
@@ -78,7 +86,6 @@ kube-prometheus-stack:
     enabled: false # disable the default Prometheus deployment
   alertmanager:
     enabled: false # disable the default Alertmanager deployment
-
 
 global:
   cattle:

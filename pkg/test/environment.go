@@ -769,6 +769,7 @@ func (e *Environment) startGateway() {
 type StartAgentOptions struct {
 	ctx                  context.Context
 	remoteGatewayAddress string
+	remoteKubeconfig     string
 }
 
 type StartAgentOption func(*StartAgentOptions)
@@ -788,6 +789,12 @@ func WithContext(ctx context.Context) StartAgentOption {
 func WithRemoteGatewayAddress(addr string) StartAgentOption {
 	return func(o *StartAgentOptions) {
 		o.remoteGatewayAddress = addr
+	}
+}
+
+func WithRemoteKubeconfig(kubeconfig string) StartAgentOption {
+	return func(o *StartAgentOptions) {
+		o.remoteKubeconfig = kubeconfig
 	}
 }
 
@@ -969,6 +976,9 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	}
 	options.apply(opts...)
 
+	agentOptions := &StartAgentOptions{}
+	agentOptions.apply(options.defaultAgentOpts...)
+
 	environment := &Environment{
 		TestBin: "testbin/bin",
 	}
@@ -1019,11 +1029,27 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	Log.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
 	// listen for spacebar on stdin
 	t, err := tty.Open()
-	if err == nil && options.enableGateway {
-		Log.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
-		Log.Info(chalk.Blue.Color("Press (a) to launch a new agent"))
+	if err == nil {
+		if options.enableGateway {
+			Log.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
+		}
+		if options.enableGateway || agentOptions.remoteKubeconfig != "" {
+			Log.Info(chalk.Blue.Color("Press (a) to launch a new agent"))
+		}
+		var client managementv1.ManagementClient
+		if options.enableGateway {
+			client = environment.NewManagementClient()
+		} else if agentOptions.remoteKubeconfig != "" {
+			// c, err := util.NewK8sClient(util.ClientOptions{
+			// 	Kubeconfig: &agentOptions.remoteKubeconfig,
+			// })
+			// if err != nil {
+			// 	panic(err)
+			// }
+			// port-forward to service/opni-monitoring-internal:11090
+
+		}
 		go func() {
-			client := environment.NewManagementClient()
 			for {
 				rn, err := t.ReadRune()
 				if err != nil {

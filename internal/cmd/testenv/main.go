@@ -11,12 +11,13 @@ import (
 
 func main() {
 	var enableGateway, enableEtcd, enableCortex bool
-	var remoteGatewayAddress string
+	var remoteGatewayAddress, remoteKubeconfig string
 
 	pflag.BoolVar(&enableGateway, "enable-gateway", true, "enable gateway")
 	pflag.BoolVar(&enableEtcd, "enable-etcd", true, "enable etcd")
 	pflag.BoolVar(&enableCortex, "enable-cortex", true, "enable cortex")
 	pflag.StringVar(&remoteGatewayAddress, "remote-gateway-address", "", "remote gateway address")
+	pflag.StringVar(&remoteKubeconfig, "remote-kubeconfig", "", "remote kubeconfig (for accessing the management api)")
 	pflag.Parse()
 
 	defaultAgentOpts := []test.StartAgentOption{}
@@ -25,6 +26,9 @@ func main() {
 		enableGateway = false
 		enableCortex = false
 		defaultAgentOpts = append(defaultAgentOpts, test.WithRemoteGatewayAddress(remoteGatewayAddress))
+	}
+	if remoteKubeconfig != "" {
+		defaultAgentOpts = append(defaultAgentOpts, test.WithRemoteKubeconfig(remoteKubeconfig))
 	}
 
 	test.StartStandaloneTestEnvironment(

@@ -38,11 +38,16 @@ type AgentConfigSpec struct {
 }
 
 type BootstrapSpec struct {
+	// Address of the internal management GRPC API. Used for auto-bootstrapping
+	// when direct management api access is available, such as when running in
+	// the main cluster.
+	InClusterManagementAddress *string `json:"inClusterManagementAddress,omitempty"`
+
 	// Bootstrap token
 	Token string `json:"token,omitempty"`
 	// List of public key pins. Used when the trust strategy is "pkp".
 	Pins []string `json:"pins,omitempty"`
-	// List of paths to CA Certs. Used when the trust strategy is "pkp".
+	// List of paths to CA Certs. Used when the trust strategy is "cacerts".
 	// If empty, the system certs will be used.
 	CACerts []string `json:"caCerts,omitempty"`
 }

@@ -6,6 +6,8 @@ resource "random_string" "random" {
   special = false
 }
 
+data "aws_default_tags" "current" {}
+
 data "aws_route53_zone" "zone" {
   zone_id = var.route53_zone_id
 }
@@ -25,7 +27,7 @@ resource "aws_acm_certificate" "cert" {
 }
 
 resource "aws_route53_record" "cert_validation_records" {
-  count   = length(aws_acm_certificate.cert.subject_alternative_names)
+  count   = 1
   name    = aws_acm_certificate.cert.domain_validation_options.*.resource_record_name[count.index]
   records = [aws_acm_certificate.cert.domain_validation_options.*.resource_record_value[count.index]]
   type    = aws_acm_certificate.cert.domain_validation_options.*.resource_record_type[count.index]
@@ -59,7 +61,10 @@ resource "rancher2_cluster" "opni_e2e_test_eks" {
       max_size      = 3
       disk_size     = 64
       ec2_ssh_key   = var.rancher_ssh_key
+      tags          = data.aws_default_tags.current.tags
+      resource_tags = data.aws_default_tags.current.tags
     }
+    tags           = data.aws_default_tags.current.tags
     private_access = true
     public_access  = true
   }
@@ -67,6 +72,7 @@ resource "rancher2_cluster" "opni_e2e_test_eks" {
 
 locals {
   kubeconfig = yamldecode(rancher2_cluster.opni_e2e_test_eks.kube_config)
+  # kubeconfig = yamldecode(file("kubeconfig.yaml"))
 }
 
 resource "local_file" "kubeconfig" {
@@ -137,7 +143,8 @@ resource "helm_release" "opni" {
   chart            = "../../charts/opni/0.5.0"
   values = [yamlencode({
     image = {
-      tag = "main"
+      repository = var.image_repository
+      tag        = var.image_tag
     }
     gateway = {
       enabled     = true
@@ -149,7 +156,7 @@ resource "helm_release" "opni" {
           discovery = {
             issuer = "https://${aws_cognito_user_pool.user_pool.endpoint}"
           }
-          identifyingClaim  = "sub"
+          identifyingClaim  = "email"
           clientID          = "${aws_cognito_user_pool_client.grafana.id}"
           clientSecret      = "${aws_cognito_user_pool_client.grafana.client_secret}"
           scopes            = ["openid", "profile", "email"]
@@ -184,6 +191,33 @@ resource "helm_release" "opni" {
     }
     logging = {
       enabled = false
+    }
+  })]
+}
+
+resource "helm_release" "opni_agent" {
+  depends_on = [
+    helm_release.opni,
+  ]
+  name             = "opni-agent"
+  namespace        = "opni-agent"
+  create_namespace = true
+  chart            = "../../charts/opni-agent/0.5.0"
+  values = [yamlencode({
+    address = "opni-monitoring.opni.svc:9090"
+    image = {
+      repository = var.image_repository
+      tag        = var.image_tag
+    }
+    metrics = {
+      enabled = true
+    }
+    bootstrapInCluster = {
+      enabled           = true
+      managementAddress = "opni-monitoring-internal.opni.svc:11090"
+    }
+    kube-prometheus-stack = {
+      enabled = true
     }
   })]
 }
@@ -314,4 +348,17 @@ resource "aws_cognito_user_pool_client" "grafana" {
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   generate_secret                      = true
   supported_identity_providers         = ["COGNITO"]
+}
+
+output "kubeconfig" {
+  value     = local_file.kubeconfig.content
+  sensitive = true
+}
+
+output "grafana_url" {
+  value = "https://${local.grafana_fqdn}"
+}
+
+output "gateway_url" {
+  value = "https://${local.gateway_fqdn}"
 }

@@ -27,3 +27,13 @@ variable "route53_zone_id" {
   type      = string
   sensitive = true
 }
+
+variable "image_tag" {
+  type    = string
+  default = "main"
+}
+
+variable "image_repository" {
+  type    = string
+  default = "rancher/opni"
+}

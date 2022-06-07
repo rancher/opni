@@ -5,7 +5,7 @@ annotations:
   catalog.rancher.io/namespace: opni-cluster-system
   catalog.rancher.io/release-name: opni
 apiVersion: v2
-appVersion: 0.5.1
+appVersion: 0.5.2
 description: Multi-cluster Monitoring and Logging System
 icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
 keywords:
@@ -21,4 +21,4 @@ maintainers:
   name: Dan Bason
 name: opni
 type: application
-version: 0.5.1
+version: 0.5.2

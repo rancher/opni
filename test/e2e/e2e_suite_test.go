@@ -31,15 +31,23 @@ var (
 	k8sClient  client.Client
 	restConfig *rest.Config
 	mgmtClient managementv1.ManagementClient
+	tfOutput   TerraformOutput
 )
 
-type terraformOutput struct {
-	GatewayURL struct {
-		Value string `json:"value"`
-	} `json:"gateway_url"`
-	Kubeconfig struct {
-		Value string `json:"value"`
-	} `json:"kubeconfig"`
+type OutputValue struct {
+	Type      string `json:"type"`
+	Value     string `json:"value"`
+	Sensitive bool   `json:"sensitive"`
+}
+
+type TerraformOutput struct {
+	GatewayURL        OutputValue `json:"gateway_url"`
+	GrafanaURL        OutputValue `json:"grafana_url"`
+	Kubeconfig        OutputValue `json:"kubeconfig"`
+	OAuthClientID     OutputValue `json:"oauth_client_id"`
+	OAuthClientSecret OutputValue `json:"oauth_client_secret"`
+	OAuthIssuerURL    OutputValue `json:"oauth_issuer_url"`
+	S3BucketURL       OutputValue `json:"s3_bucket_url"`
 }
 
 var _ = BeforeSuite(func() {
@@ -51,11 +59,16 @@ var _ = BeforeSuite(func() {
 	if !ok {
 		Fail("TF_OUTPUT env variable is not set")
 	}
-	var tfOutput terraformOutput
 	Expect(json.Unmarshal([]byte(tfOutputEnv), &tfOutput)).To(Succeed())
 
 	restConfig, err := clientcmd.RESTConfigFromKubeConfig([]byte(tfOutput.Kubeconfig.Value))
 	Expect(err).NotTo(HaveOccurred())
+
+	scheme := apis.NewScheme()
+
+	k8sClient, err = client.New(restConfig, client.Options{
+		Scheme: scheme,
+	})
 
 	ctx, ca := context.WithCancel(context.Background())
 	DeferCleanup(ca)
@@ -65,7 +78,7 @@ var _ = BeforeSuite(func() {
 		Name:      "opni-monitoring-internal",
 	}, []string{
 		"11090",
-	}, restConfig, apis.NewScheme())
+	}, restConfig, scheme)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(len(internalPorts)).To(Equal(1))
 

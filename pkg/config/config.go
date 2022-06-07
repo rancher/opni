@@ -34,11 +34,13 @@ func LoadObjectsFromFile(path string) (meta.ObjectList, error) {
 	if err != nil {
 		return nil, err
 	}
+	return LoadObjects(bytes.Split(data, []byte("\n---\n")))
+}
+
+func LoadObjects(documents [][]byte) (meta.ObjectList, error) {
 	objects := []meta.Object{}
-	documents := bytes.Split(data, []byte("\n---\n"))
 	for i, document := range documents {
 		lg := configLog.With(
-			"path", path,
 			"documentIndex", i,
 		)
 		if len(strings.TrimSpace(string(document))) == 0 {

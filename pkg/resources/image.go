@@ -4,40 +4,49 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func FindManagerImage(ctx context.Context, c client.Client) (string, corev1.PullPolicy, error) {
-	var image string
 	var pullPolicy corev1.PullPolicy
 
-	deploymentNamespace := os.Getenv("OPNI_SYSTEM_NAMESPACE")
-	if deploymentNamespace == "" {
-		panic("missing downward API env vars")
+	podName, ok := os.LookupEnv("POD_NAME")
+	if !ok {
+		return "", "", fmt.Errorf("POD_NAME not set")
 	}
-	deployment := &appsv1.Deployment{
+	podNamespace, ok := os.LookupEnv("POD_NAMESPACE")
+	if !ok {
+		return "", "", fmt.Errorf("POD_NAMESPACE not set")
+	}
+
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-manager",
-			Namespace: deploymentNamespace,
+			Name:      podName,
+			Namespace: podNamespace,
 		},
 	}
-	if err := c.Get(ctx, client.ObjectKeyFromObject(deployment), deployment); err != nil {
+	if err := c.Get(ctx, client.ObjectKeyFromObject(pod), pod); err != nil {
 		return "", "", err
 	}
-	for _, container := range deployment.Spec.Template.Spec.Containers {
-		if container.Name == "manager" {
-			image = container.Image
-			pullPolicy = container.ImagePullPolicy
+
+	var imageID string
+	for i, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == "manager" {
+			imageID = containerStatus.ImageID
+			pullPolicy = pod.Spec.Containers[i].ImagePullPolicy
 		}
 	}
-
-	if image == "" {
-		panic(fmt.Sprintf("manager container not found in deployment %s/opni-manager", deploymentNamespace))
+	if imageID == "" {
+		return "", "", fmt.Errorf("manager container not found")
 	}
 
-	return image, pullPolicy, nil
+	// depending on the container runtime, the prefix docker-pullable:// may
+	// be prepended to the image ID.
+	imageID = strings.TrimPrefix(imageID, "docker-pullable://")
+
+	return imageID, pullPolicy, nil
 }

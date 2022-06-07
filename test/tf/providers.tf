@@ -35,7 +35,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      "TestID" = "opni-e2e-${random_string.random.id}"
+      "TestID" = "opni-e2e-${random_id.test_id.hex}"
     }
   }
 }

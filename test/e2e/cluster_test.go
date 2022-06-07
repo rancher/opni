@@ -40,6 +40,16 @@ const (
 	clusterCrNamespace = "opnicluster-test"
 )
 
+type CountResponse struct {
+	Count  int `json:"count"`
+	Shards struct {
+		Total      int `json:"total"`
+		Successful int `json:"successful"`
+		Skipped    int `json:"skipped"`
+		Failed     int `json:"failed"`
+	} `json:"_shards"`
+}
+
 func queryAnomalyCountWithExtendedClient(esClient *opensearchutil.ExtendedClient) (int, error) {
 	response, err := esClient.Count(
 		esClient.Count.WithIndex("logs"),

@@ -40,7 +40,7 @@ func (b *InClusterBootstrapper) Bootstrap(ctx context.Context, ident ident.Provi
 		return nil, fmt.Errorf("server certificate chain is empty")
 	}
 	token, err := client.CreateBootstrapToken(ctx, &v1.CreateBootstrapTokenRequest{
-		Ttl: durationpb.New(10 * time.Minute),
+		Ttl: durationpb.New(5 * time.Minute),
 	})
 	if err != nil {
 		return nil, err
@@ -75,7 +75,10 @@ func (b *InClusterBootstrapper) Bootstrap(ctx context.Context, ident ident.Provi
 
 func (b *InClusterBootstrapper) Finalize(ctx context.Context) error {
 	if b.finalize == nil {
-		panic("bug: finalize called before bootstrap")
+		// this can happen when finalization is skipped or encounters an error,
+		// and attempts to run the finalization steps again later. In this case,
+		// we can safely do nothing and just let the token expire.
+		return nil
 	}
 	return b.finalize(ctx)
 }

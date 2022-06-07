@@ -1,9 +1,5 @@
-resource "random_string" "random" {
-  length  = 8
-  lower   = true
-  upper   = false
-  number  = false
-  special = false
+resource "random_id" "test_id" {
+  byte_length = 4
 }
 
 data "aws_default_tags" "current" {}
@@ -13,8 +9,8 @@ data "aws_route53_zone" "zone" {
 }
 
 locals {
-  gateway_fqdn = "${random_string.random.id}.opni-e2e-test.${data.aws_route53_zone.zone.name}"
-  grafana_fqdn = "grafana.${random_string.random.id}.opni-e2e-test.${data.aws_route53_zone.zone.name}"
+  gateway_fqdn = "${random_id.test_id.hex}.opni-e2e-test.${data.aws_route53_zone.zone.name}"
+  grafana_fqdn = "grafana.${random_id.test_id.hex}.opni-e2e-test.${data.aws_route53_zone.zone.name}"
 }
 
 resource "aws_acm_certificate" "cert" {
@@ -41,7 +37,7 @@ resource "aws_acm_certificate_validation" "cert_validation" {
 }
 
 resource "rancher2_cloud_credential" "cc" {
-  name = "opni-e2e-test-${random_string.random.id}"
+  name = "opni-e2e-test-${random_id.test_id.hex}"
   amazonec2_credential_config {
     access_key = var.aws_access_key
     secret_key = var.aws_secret_key
@@ -49,14 +45,14 @@ resource "rancher2_cloud_credential" "cc" {
 }
 
 resource "rancher2_cluster" "opni_e2e_test_eks" {
-  name = "opni-e2e-test-eks-${random_string.random.id}"
+  name = "opni-e2e-test-eks-${random_id.test_id.hex}"
   eks_config_v2 {
     cloud_credential_id = rancher2_cloud_credential.cc.id
     region              = "us-east-2"
     kubernetes_version  = "1.22"
     node_groups {
-      name          = "opni-e2e-test-nodes-${random_string.random.id}"
-      instance_type = "t3.large"
+      name          = "opni-e2e-test-nodes-${random_id.test_id.hex}"
+      instance_type = "t3.xlarge"
       desired_size  = 3
       max_size      = 3
       disk_size     = 64
@@ -72,7 +68,6 @@ resource "rancher2_cluster" "opni_e2e_test_eks" {
 
 locals {
   kubeconfig = yamldecode(rancher2_cluster.opni_e2e_test_eks.kube_config)
-  # kubeconfig = yamldecode(file("kubeconfig.yaml"))
 }
 
 resource "local_file" "kubeconfig" {
@@ -81,7 +76,7 @@ resource "local_file" "kubeconfig" {
 }
 
 resource "aws_s3_bucket" "s3_bucket" {
-  bucket        = "opni-e2e-test-${random_string.random.id}"
+  bucket        = "opni-e2e-test-${random_id.test_id.hex}"
   force_destroy = true
 }
 
@@ -99,7 +94,6 @@ resource "helm_release" "cert_manager" {
     value = "true"
   }
   depends_on = [
-    local.kubeconfig,
     rancher2_cluster.opni_e2e_test_eks,
   ]
 }
@@ -176,7 +170,7 @@ resource "helm_release" "opni" {
         hostname = local.grafana_fqdn
         config = {
           log = {
-            level = "debug"
+            level = "info"
           }
         }
       }
@@ -270,6 +264,11 @@ resource "kubernetes_ingress_v1" "grafana_ingress" {
   depends_on = [
     data.kubernetes_service_v1.nginx,
   ]
+  lifecycle {
+    ignore_changes = [
+      metadata[0].annotations
+    ]
+  }
   metadata {
     name      = "grafana"
     namespace = "opni"
@@ -300,7 +299,7 @@ resource "kubernetes_ingress_v1" "grafana_ingress" {
 }
 
 resource "aws_cognito_user_pool" "user_pool" {
-  name = "opni-e2e-test-${random_string.random.id}"
+  name = "opni-e2e-test-${random_id.test_id.hex}"
   password_policy {
     minimum_length                   = 6
     require_lowercase                = false
@@ -330,7 +329,7 @@ resource "aws_cognito_user_pool" "user_pool" {
 }
 
 resource "aws_cognito_user_pool_domain" "domain" {
-  domain       = "opni-e2e-test-${random_string.random.id}"
+  domain       = "opni-e2e-test-${random_id.test_id.hex}"
   user_pool_id = aws_cognito_user_pool.user_pool.id
 }
 
@@ -353,17 +352,4 @@ resource "aws_cognito_user_pool_client" "grafana" {
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   generate_secret                      = true
   supported_identity_providers         = ["COGNITO"]
-}
-
-output "kubeconfig" {
-  value     = local_file.kubeconfig.content
-  sensitive = true
-}
-
-output "grafana_url" {
-  value = "https://${local.grafana_fqdn}"
-}
-
-output "gateway_url" {
-  value = "https://${local.gateway_fqdn}"
 }

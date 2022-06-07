@@ -129,7 +129,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			},
 		},
 		Ingress: &grafanav1alpha1.GrafanaIngress{
-			Enabled:       true,
+			Enabled:       false,
 			Hostname:      grafanaHostname,
 			TLSEnabled:    true,
 			TLSSecretName: "grafana-dashboard-tls",

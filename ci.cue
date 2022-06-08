@@ -7,7 +7,6 @@ import (
 	"universe.dagger.io/docker"
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
-	"universe.dagger.io/git"
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
 	"github.com/rancher/opni/internal/util"
@@ -22,6 +21,7 @@ dagger.#Plan & {
 			KUBECONFIG:          string | *""
 			TAG:                 string | *"latest"
 			REPO:                string | *"rancher"
+			IMAGE_NAME:          string | *"opni"
 			OPNI_UI_REPO:        string | *"rancher/opni-ui"
 			OPNI_UI_BRANCH:      string | *"main"
 			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
@@ -31,24 +31,37 @@ dagger.#Plan & {
 			PLUGIN_PUBLISH:      string | *"0.5.4-rc3"
 			DOCKER_USERNAME?:    string
 			DOCKER_PASSWORD?:    dagger.#Secret
+			EXPECTED_REF?:       string // used by tilt
 		}
 		filesystem: {
-			"dev/terraform.tfvars.json": read: contents: dagger.#Secret
 			".": read: {
 				contents: dagger.#FS
 				exclude: [
 					"bin",
 					"dev",
 					"docs",
-					"build.cue",
+					"ci.cue",
 					"testbin",
+					"test/tf/",
 					"internal/cmd/testenv",
 				]
 			}
-			"bin": write: contents:         actions.build.bin
-			"web/dist": write: contents:    actions.web.dist
-			"dist/charts": write: contents: actions.charts.output
-			"cover.out": write: contents:   actions.test.export.files["/src/cover.out"]
+			"bin": write: contents:       actions.build.bin
+			"web/dist": write: contents:  actions.web.dist
+			"cover.out": write: contents: actions.test.export.files["/src/cover.out"]
+
+			"dev/terraform.tfvars.json": read: contents: dagger.#Secret
+			"test/tf/providers.tf": read: contents:      string
+			"test/tf/": {
+				read: {
+					contents: dagger.#FS
+					exclude: [
+						".terraform",
+						".terraform.lock.hcl",
+					]
+				}
+				write: contents: actions.e2eapply.output
+			}
 		}
 		network: "unix:///var/run/docker.sock": connect: dagger.#Socket
 	}
@@ -154,7 +167,13 @@ dagger.#Plan & {
 		}
 
 		_opniImage: {
-			tag:   docker.#Ref & "\(client.env.REPO)/opni:\(client.env.TAG)"
+			tag: docker.#Ref
+			if client.env.EXPECTED_REF == _|_ {
+				tag: docker.#Ref & "\(client.env.REPO)/\(client.env.IMAGE_NAME):\(client.env.TAG)"
+			}
+			if client.env.EXPECTED_REF != _|_ {
+				tag: docker.#Ref & client.env.EXPECTED_REF
+			}
 			image: _multistage.output
 		}
 
@@ -193,135 +212,43 @@ dagger.#Plan & {
 		}
 
 		// Run end-to-end tests
-		e2e: {
-			_secrets: _
-			_vars:    client.filesystem."dev/terraform.tfvars.json".read.contents
+
+		_e2evars: {
+			env: [string]: string | dagger.#Secret
+			_vars: client.filesystem."dev/terraform.tfvars.json".read.contents
 			if _vars != _|_ {
 				_decoded: core.#DecodeSecret & {
 					input:  _vars
 					format: "json"
 				}
-				_secrets: {
-					TF_VAR_rancher_api_url:   _decoded.output.rancher_api_url.contents
-					TF_VAR_rancher_api_token: _decoded.output.rancher_api_token.contents
-					TF_VAR_rancher_ssh_key:   _decoded.output.rancher_ssh_key.contents
-					TF_VAR_aws_access_key:    _decoded.output.aws_access_key.contents
-					TF_VAR_aws_secret_key:    _decoded.output.aws_secret_key.contents
-				}
-			}
-
-			_src: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "test/tf"
-			}
-
-			plan: terraform.#Plan & {
-				source: _src.output
-				env:    _secrets
-			}
-
-			apply: terraform.#Apply & {
-				source: plan.output
-				env:    _secrets
-			}
-
-			_testImage: docker.#Build & {
-				steps: [
-					docker.#Copy & {
-						input:    build.output
-						dest:     "/src"
-						contents: apply.output
-					},
-				]
-			}
-
-			test: mage.#Run & {
-				input: _testImage.output
-				mageArgs: ["-v", "test", "e2e"]
-				always: true
 				env: {
-					KUBECONFIG: "/src/kubeconfig.yaml"
+					for key, value in _decoded.output {
+						"TF_VAR_\(key)": value.contents
+					}
 				}
-			}
-
-			destroy: terraform.#Destroy & {
-				source: _src.output
-				env:    _secrets
 			}
 		}
 
-		// Build and package helm charts (writes to dist/charts/)
-		charts: {
-			_bases: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/bases"
+		e2einit: terraform.#Init & {
+			_src: core.#WriteFile & {
+				input:    dagger.#Scratch
+				path:     "providers.tf"
+				contents: client.filesystem."test/tf/providers.tf".read.contents
 			}
-			_grafana: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/grafana"
-			}
-			_logging: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/logging"
-			}
-			_nfd: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/nfd"
-			}
-			_nvidia: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/nvidia"
-			}
-			_opensearch: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/opensearch"
-			}
+			source: _src.output
+		}
 
-			_promOperatorRepo: git.#Pull & {
-				remote: "https://github.com/prometheus-community/helm-charts.git"
-				ref:    "main"
-			}
-			_promOperatorCrds: core.#Subdir & {
-				input: _promOperatorRepo.output
-				path:  "charts/kube-prometheus-stack/crds"
-			}
-
-			_opniCrds: [
-				_bases.output,
-				_grafana.output,
-				_logging.output,
-				_nfd.output,
-				_nvidia.output,
-				_opensearch.output,
-			]
-
-			agent: builders.#Chart & {
-				_chartDir: core.#Subdir & {
-					input: client.filesystem.".".read.contents
-					path:  "deploy/charts/opni-monitoring-agent"
-				}
-
-				chartDir: _chartDir.output
-				crds:     _opniCrds
-			}
-
-			opni: builders.#Chart & {
-				_chartDir: core.#Subdir & {
-					input: client.filesystem.".".read.contents
-					path:  "deploy/charts/opni"
-				}
-
-				chartDir: _chartDir.output
-				crds:     _opniCrds + [_promOperatorCrds.output]
-			}
-
-			_output: core.#Merge & {
+		e2eapply: terraform.#Run & _e2evars & {
+			always: true
+			cmd:    "apply"
+			cmdArgs: ["-auto-approve"]
+			_src: core.#Merge & {
 				inputs: [
-					charts.agent.output,
-					charts.opni.output,
+					e2einit.output,
+					client.filesystem."test/tf/".read.contents,
 				]
 			}
-			output: _output.output
+			source: _src.output
 		}
 
 		// Push docker images

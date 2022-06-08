@@ -1,11 +1,2 @@
 /universe.dagger.io/*
-!/universe.dagger.io/*/
-/universe.dagger.io/aws
-/universe.dagger.io/examples
-/universe.dagger.io/netlify
-/universe.dagger.io/nginx
-/universe.dagger.io/powershell
-/universe.dagger.io/python
-/universe.dagger.io/x
-/universe.dagger.io/yarn
 **/test/

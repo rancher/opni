@@ -398,3 +398,131 @@ func (mr *MockUnsafeStreamAPIExtensionServerMockRecorder) mustEmbedUnimplemented
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedStreamAPIExtensionServer", reflect.TypeOf((*MockUnsafeStreamAPIExtensionServer)(nil).mustEmbedUnimplementedStreamAPIExtensionServer))
 }
+
+// MockUnaryAPIExtensionClient is a mock of UnaryAPIExtensionClient interface.
+type MockUnaryAPIExtensionClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockUnaryAPIExtensionClientMockRecorder
+}
+
+// MockUnaryAPIExtensionClientMockRecorder is the mock recorder for MockUnaryAPIExtensionClient.
+type MockUnaryAPIExtensionClientMockRecorder struct {
+	mock *MockUnaryAPIExtensionClient
+}
+
+// NewMockUnaryAPIExtensionClient creates a new mock instance.
+func NewMockUnaryAPIExtensionClient(ctrl *gomock.Controller) *MockUnaryAPIExtensionClient {
+	mock := &MockUnaryAPIExtensionClient{ctrl: ctrl}
+	mock.recorder = &MockUnaryAPIExtensionClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockUnaryAPIExtensionClient) EXPECT() *MockUnaryAPIExtensionClientMockRecorder {
+	return m.recorder
+}
+
+// Descriptor mocks base method.
+func (m *MockUnaryAPIExtensionClient) Descriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Descriptor", varargs...)
+	ret0, _ := ret[0].(*descriptorpb.ServiceDescriptorProto)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Descriptor indicates an expected call of Descriptor.
+func (mr *MockUnaryAPIExtensionClientMockRecorder) Descriptor(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptor", reflect.TypeOf((*MockUnaryAPIExtensionClient)(nil).Descriptor), varargs...)
+}
+
+// MockUnaryAPIExtensionServer is a mock of UnaryAPIExtensionServer interface.
+type MockUnaryAPIExtensionServer struct {
+	ctrl     *gomock.Controller
+	recorder *MockUnaryAPIExtensionServerMockRecorder
+}
+
+// MockUnaryAPIExtensionServerMockRecorder is the mock recorder for MockUnaryAPIExtensionServer.
+type MockUnaryAPIExtensionServerMockRecorder struct {
+	mock *MockUnaryAPIExtensionServer
+}
+
+// NewMockUnaryAPIExtensionServer creates a new mock instance.
+func NewMockUnaryAPIExtensionServer(ctrl *gomock.Controller) *MockUnaryAPIExtensionServer {
+	mock := &MockUnaryAPIExtensionServer{ctrl: ctrl}
+	mock.recorder = &MockUnaryAPIExtensionServerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockUnaryAPIExtensionServer) EXPECT() *MockUnaryAPIExtensionServerMockRecorder {
+	return m.recorder
+}
+
+// Descriptor mocks base method.
+func (m *MockUnaryAPIExtensionServer) Descriptor(arg0 context.Context, arg1 *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Descriptor", arg0, arg1)
+	ret0, _ := ret[0].(*descriptorpb.ServiceDescriptorProto)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Descriptor indicates an expected call of Descriptor.
+func (mr *MockUnaryAPIExtensionServerMockRecorder) Descriptor(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptor", reflect.TypeOf((*MockUnaryAPIExtensionServer)(nil).Descriptor), arg0, arg1)
+}
+
+// mustEmbedUnimplementedUnaryAPIExtensionServer mocks base method.
+func (m *MockUnaryAPIExtensionServer) mustEmbedUnimplementedUnaryAPIExtensionServer() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "mustEmbedUnimplementedUnaryAPIExtensionServer")
+}
+
+// mustEmbedUnimplementedUnaryAPIExtensionServer indicates an expected call of mustEmbedUnimplementedUnaryAPIExtensionServer.
+func (mr *MockUnaryAPIExtensionServerMockRecorder) mustEmbedUnimplementedUnaryAPIExtensionServer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedUnaryAPIExtensionServer", reflect.TypeOf((*MockUnaryAPIExtensionServer)(nil).mustEmbedUnimplementedUnaryAPIExtensionServer))
+}
+
+// MockUnsafeUnaryAPIExtensionServer is a mock of UnsafeUnaryAPIExtensionServer interface.
+type MockUnsafeUnaryAPIExtensionServer struct {
+	ctrl     *gomock.Controller
+	recorder *MockUnsafeUnaryAPIExtensionServerMockRecorder
+}
+
+// MockUnsafeUnaryAPIExtensionServerMockRecorder is the mock recorder for MockUnsafeUnaryAPIExtensionServer.
+type MockUnsafeUnaryAPIExtensionServerMockRecorder struct {
+	mock *MockUnsafeUnaryAPIExtensionServer
+}
+
+// NewMockUnsafeUnaryAPIExtensionServer creates a new mock instance.
+func NewMockUnsafeUnaryAPIExtensionServer(ctrl *gomock.Controller) *MockUnsafeUnaryAPIExtensionServer {
+	mock := &MockUnsafeUnaryAPIExtensionServer{ctrl: ctrl}
+	mock.recorder = &MockUnsafeUnaryAPIExtensionServerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockUnsafeUnaryAPIExtensionServer) EXPECT() *MockUnsafeUnaryAPIExtensionServerMockRecorder {
+	return m.recorder
+}
+
+// mustEmbedUnimplementedUnaryAPIExtensionServer mocks base method.
+func (m *MockUnsafeUnaryAPIExtensionServer) mustEmbedUnimplementedUnaryAPIExtensionServer() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "mustEmbedUnimplementedUnaryAPIExtensionServer")
+}
+
+// mustEmbedUnimplementedUnaryAPIExtensionServer indicates an expected call of mustEmbedUnimplementedUnaryAPIExtensionServer.
+func (mr *MockUnsafeUnaryAPIExtensionServerMockRecorder) mustEmbedUnimplementedUnaryAPIExtensionServer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedUnaryAPIExtensionServer", reflect.TypeOf((*MockUnsafeUnaryAPIExtensionServer)(nil).mustEmbedUnimplementedUnaryAPIExtensionServer))
+}

@@ -155,6 +155,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.StreamInterceptor(clusterAuth.StreamServerInterceptor()),
+		grpc.UnaryInterceptor(clusterAuth.UnaryServerInterceptor()),
 	)
 
 	// set up stream server
@@ -183,6 +184,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	// set up bootstrap server
 	bootstrapSvc := bootstrap.NewServer(storageBackend, pkey, capBackendStore)
 	bootstrapv1.RegisterBootstrapServer(grpcServer, bootstrapSvc)
+
+	//set up unary plugins
+	unarySvc := NewUnaryService()
+	unarySvc.RegisterUnaryPlugins(ctx, grpcServer, pl)
 
 	g := &Gateway{
 		GatewayOptions:  options,

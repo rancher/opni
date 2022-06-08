@@ -37,6 +37,7 @@ gateway:
   tolerations: []
   affinity: {}
   extraVolumeMounts: []
+  serviceAnnotations: {}
 
 monitoring:
   enabled: false

@@ -17880,6 +17880,10 @@ spec:
                 items:
                   type: string
                 type: array
+              serviceAnnotations:
+                additionalProperties:
+                  type: string
+                type: object
               serviceType:
                 default: LoadBalancer
                 type: string

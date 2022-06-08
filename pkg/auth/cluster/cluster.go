@@ -202,6 +202,42 @@ func (m *ClusterMiddleware) StreamServerInterceptor() grpc.StreamServerIntercept
 	}
 }
 
+func (m *ClusterMiddleware) UnaryServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			err = grpc.Errorf(codes.InvalidArgument, "no metadata in context")
+			return
+		}
+		authHeader := md.Get(m.headerKey)
+		if len(authHeader) > 0 && authHeader[0] == "" {
+			err = grpc.Errorf(codes.InvalidArgument, "authorization header required")
+			return
+		}
+
+		code, clusterID, sharedKeys := m.doKeyringVerify(authHeader[0], []byte(info.FullMethod))
+
+		switch code {
+		case http.StatusOK:
+		case http.StatusUnauthorized:
+			err = status.Error(codes.Unauthenticated, http.StatusText(code))
+			return
+		case http.StatusBadRequest:
+			err = status.Error(codes.InvalidArgument, http.StatusText(code))
+			return
+		case http.StatusInternalServerError:
+			err = status.Error(codes.Internal, http.StatusText(code))
+			return
+		default:
+			err = status.Error(codes.Unknown, http.StatusText(code))
+		}
+
+		ctx = context.WithValue(ctx, SharedKeysKey, sharedKeys)
+		ctx = context.WithValue(ctx, ClusterIDKey, string(clusterID))
+		return handler(ctx, req)
+	}
+}
+
 func (m *ClusterMiddleware) doKeyringVerify(authHeader string, msgBody []byte) (int, string, *keyring.SharedKeys) {
 	lg := m.logger
 	clusterID, nonce, mac, err := b2mac.DecodeAuthHeader(authHeader)

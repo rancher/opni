@@ -283,7 +283,7 @@ var StreamAPIExtension_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type UnaryAPIExtensionClient interface {
-	Descriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error)
+	UnaryDescriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error)
 }
 
 type unaryAPIExtensionClient struct {
@@ -294,9 +294,9 @@ func NewUnaryAPIExtensionClient(cc grpc.ClientConnInterface) UnaryAPIExtensionCl
 	return &unaryAPIExtensionClient{cc}
 }
 
-func (c *unaryAPIExtensionClient) Descriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error) {
+func (c *unaryAPIExtensionClient) UnaryDescriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error) {
 	out := new(descriptorpb.ServiceDescriptorProto)
-	err := c.cc.Invoke(ctx, "/apiextensions.UnaryAPIExtension/Descriptor", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/apiextensions.UnaryAPIExtension/UnaryDescriptor", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +307,7 @@ func (c *unaryAPIExtensionClient) Descriptor(ctx context.Context, in *emptypb.Em
 // All implementations must embed UnimplementedUnaryAPIExtensionServer
 // for forward compatibility
 type UnaryAPIExtensionServer interface {
-	Descriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error)
+	UnaryDescriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error)
 	mustEmbedUnimplementedUnaryAPIExtensionServer()
 }
 
@@ -315,8 +315,8 @@ type UnaryAPIExtensionServer interface {
 type UnimplementedUnaryAPIExtensionServer struct {
 }
 
-func (UnimplementedUnaryAPIExtensionServer) Descriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Descriptor not implemented")
+func (UnimplementedUnaryAPIExtensionServer) UnaryDescriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnaryDescriptor not implemented")
 }
 func (UnimplementedUnaryAPIExtensionServer) mustEmbedUnimplementedUnaryAPIExtensionServer() {}
 
@@ -331,20 +331,20 @@ func RegisterUnaryAPIExtensionServer(s grpc.ServiceRegistrar, srv UnaryAPIExtens
 	s.RegisterService(&UnaryAPIExtension_ServiceDesc, srv)
 }
 
-func _UnaryAPIExtension_Descriptor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _UnaryAPIExtension_UnaryDescriptor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UnaryAPIExtensionServer).Descriptor(ctx, in)
+		return srv.(UnaryAPIExtensionServer).UnaryDescriptor(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/apiextensions.UnaryAPIExtension/Descriptor",
+		FullMethod: "/apiextensions.UnaryAPIExtension/UnaryDescriptor",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UnaryAPIExtensionServer).Descriptor(ctx, req.(*emptypb.Empty))
+		return srv.(UnaryAPIExtensionServer).UnaryDescriptor(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -357,8 +357,8 @@ var UnaryAPIExtension_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*UnaryAPIExtensionServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Descriptor",
-			Handler:    _UnaryAPIExtension_Descriptor_Handler,
+			MethodName: "UnaryDescriptor",
+			Handler:    _UnaryAPIExtension_UnaryDescriptor_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

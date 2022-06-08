@@ -13,8 +13,8 @@ import (
 
 type opensearchDetailsFetcher struct {
 	opensearch.OpensearchServer
-	k8sClient        client.Client
-	storageNamespace string
+	k8sClient           client.Client
+	opensearchNamespace string
 }
 
 func (o *opensearchDetailsFetcher) GetDetails(ctx context.Context, cluster *opensearch.ClusterReference) (*opensearch.OpensearchDetails, error) {
@@ -22,7 +22,7 @@ func (o *opensearchDetailsFetcher) GetDetails(ctx context.Context, cluster *open
 	binding := &opniv1beta2.MulticlusterRoleBinding{}
 	if err := o.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      OpensearchBindingName,
-		Namespace: o.storageNamespace,
+		Namespace: o.opensearchNamespace,
 	}, binding); err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func (o *opensearchDetailsFetcher) GetDetails(ctx context.Context, cluster *open
 		resources.OpniClusterID: cluster.AuthorizedClusterID,
 	}
 	secrets := &corev1.SecretList{}
-	if err := o.k8sClient.List(ctx, secrets, client.InNamespace(o.storageNamespace), client.MatchingLabels(labels)); err != nil {
+	if err := o.k8sClient.List(ctx, secrets, client.InNamespace(o.opensearchNamespace), client.MatchingLabels(labels)); err != nil {
 		return nil, err
 	}
 

@@ -43,7 +43,7 @@ func (u *UnaryService) RegisterUnaryPlugins(ctx waitctx.RestrictiveContext, s gr
 	lg := logger.New().Named("gateway.unary")
 	pl.Hook(hooks.OnLoadMC(func(p types.UnaryAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 		reflectClient := grpcreflect.NewClient(ctx, rpb.NewServerReflectionClient(cc))
-		sd, err := p.Descriptor(ctx, &emptypb.Empty{})
+		sd, err := p.UnaryDescriptor(ctx, &emptypb.Empty{})
 		if err != nil {
 			lg.With(
 				zap.Error(err),

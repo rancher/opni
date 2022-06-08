@@ -422,24 +422,24 @@ func (m *MockUnaryAPIExtensionClient) EXPECT() *MockUnaryAPIExtensionClientMockR
 	return m.recorder
 }
 
-// Descriptor mocks base method.
-func (m *MockUnaryAPIExtensionClient) Descriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error) {
+// UnaryDescriptor mocks base method.
+func (m *MockUnaryAPIExtensionClient) UnaryDescriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "Descriptor", varargs...)
+	ret := m.ctrl.Call(m, "UnaryDescriptor", varargs...)
 	ret0, _ := ret[0].(*descriptorpb.ServiceDescriptorProto)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Descriptor indicates an expected call of Descriptor.
-func (mr *MockUnaryAPIExtensionClientMockRecorder) Descriptor(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// UnaryDescriptor indicates an expected call of UnaryDescriptor.
+func (mr *MockUnaryAPIExtensionClientMockRecorder) UnaryDescriptor(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptor", reflect.TypeOf((*MockUnaryAPIExtensionClient)(nil).Descriptor), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnaryDescriptor", reflect.TypeOf((*MockUnaryAPIExtensionClient)(nil).UnaryDescriptor), varargs...)
 }
 
 // MockUnaryAPIExtensionServer is a mock of UnaryAPIExtensionServer interface.
@@ -465,19 +465,19 @@ func (m *MockUnaryAPIExtensionServer) EXPECT() *MockUnaryAPIExtensionServerMockR
 	return m.recorder
 }
 
-// Descriptor mocks base method.
-func (m *MockUnaryAPIExtensionServer) Descriptor(arg0 context.Context, arg1 *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
+// UnaryDescriptor mocks base method.
+func (m *MockUnaryAPIExtensionServer) UnaryDescriptor(arg0 context.Context, arg1 *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Descriptor", arg0, arg1)
+	ret := m.ctrl.Call(m, "UnaryDescriptor", arg0, arg1)
 	ret0, _ := ret[0].(*descriptorpb.ServiceDescriptorProto)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Descriptor indicates an expected call of Descriptor.
-func (mr *MockUnaryAPIExtensionServerMockRecorder) Descriptor(arg0, arg1 interface{}) *gomock.Call {
+// UnaryDescriptor indicates an expected call of UnaryDescriptor.
+func (mr *MockUnaryAPIExtensionServerMockRecorder) UnaryDescriptor(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptor", reflect.TypeOf((*MockUnaryAPIExtensionServer)(nil).Descriptor), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnaryDescriptor", reflect.TypeOf((*MockUnaryAPIExtensionServer)(nil).UnaryDescriptor), arg0, arg1)
 }
 
 // mustEmbedUnimplementedUnaryAPIExtensionServer mocks base method.

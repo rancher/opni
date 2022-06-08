@@ -43,7 +43,7 @@ func (p *unaryApiExtensionPlugin) GRPCClient(
 	if err := plugins.CheckAvailability(ctx, c, ServiceID); err != nil {
 		return nil, err
 	}
-	return apiextensions.NewManagementAPIExtensionClient(c), nil
+	return apiextensions.NewUnaryAPIExtensionClient(c), nil
 }
 
 func NewPlugin(desc *grpc.ServiceDesc, impl interface{}) plugin.Plugin {
@@ -68,7 +68,7 @@ type unaryExtensionServerImpl struct {
 	serviceImpl    interface{}
 }
 
-func (e *unaryExtensionServerImpl) Descriptor(ctx context.Context, _ *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
+func (e *unaryExtensionServerImpl) UnaryDescriptor(ctx context.Context, _ *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
 	fqn := e.serviceDesc.GetFullyQualifiedName()
 	sd := e.serviceDesc.AsServiceDescriptorProto()
 	sd.Name = &fqn

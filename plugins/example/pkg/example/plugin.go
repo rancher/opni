@@ -11,6 +11,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	gatewayext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
+	unaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/unary"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
@@ -20,12 +21,19 @@ import (
 
 type ExamplePlugin struct {
 	UnsafeExampleAPIExtensionServer
+	UnsafeExampleUnaryExtensionServer
 	Logger hclog.Logger
 }
 
 func (s *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse, error) {
 	return &EchoResponse{
 		Message: req.Message,
+	}, nil
+}
+
+func (s *ExamplePlugin) Hello(context.Context, *emptypb.Empty) (*EchoResponse, error) {
+	return &EchoResponse{
+		Message: "Hello World",
 	}, nil
 }
 
@@ -105,5 +113,6 @@ func Scheme() meta.Scheme {
 	scheme.Add(gatewayext.GatewayAPIExtensionPluginID,
 		gatewayext.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin("test", p))
+	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&ExampleUnaryExtension_ServiceDesc, p))
 	return scheme
 }

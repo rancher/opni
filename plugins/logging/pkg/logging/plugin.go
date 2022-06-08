@@ -11,12 +11,14 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/logger"
 	gatewayext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
+	unaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/unary"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/future"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -31,6 +33,7 @@ const (
 
 type Plugin struct {
 	PluginOptions
+	*opensearchDetailsFetcher
 	ctx            context.Context
 	k8sClient      client.Client
 	logger         hclog.Logger
@@ -89,6 +92,10 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		logger:         lg,
 		storageBackend: future.New[storage.Backend](),
 		mgmtApi:        future.New[managementv1.ManagementClient](),
+		opensearchDetailsFetcher: &opensearchDetailsFetcher{
+			k8sClient:           cli,
+			opensearchNamespace: options.storageNamespace,
+		},
 	}
 }
 
@@ -109,5 +116,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(gatewayext.GatewayAPIExtensionPluginID, gatewayext.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(wellknown.CapabilityLogs, p))
+	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&opensearch.Opensearch_ServiceDesc, p))
 	return scheme
 }

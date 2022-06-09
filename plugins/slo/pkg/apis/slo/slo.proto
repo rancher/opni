@@ -11,6 +11,7 @@ import "../../../../../pkg/apis/core/v1/core.proto";
 package slo;
 
 service SLO {
+  // ============== SLO
   rpc CreateSLO(ServiceLevelObjective) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/slos"
@@ -43,12 +44,41 @@ service SLO {
       post: "/slos/{id}/clone"
     };
   }
+
+  // ================ Poll SLO Status
   rpc Status(core.Reference) returns (SLOStatus) {
     option (google.api.http) = {
       get: "/slos/{id}/status"
     };
   }
 
+  // ================ Metric FIXME: Maybe don't need this
+  rpc GetMetric(core.Reference) returns (Metric) {
+    option (google.api.http) = {
+      get: "/metrics/{id}"
+    };
+  }
+  rpc ListMetrics(google.protobuf.Empty) returns (MetricList) {
+    option (google.api.http) = {
+      get: "/metrics"
+    };
+  }
+  // ================ Formula : Human readable format for metrics
+  rpc GetFormulas(core.Reference) returns (Formula) {
+    option (google.api.http) = {
+      get: "/formulas/{id}"
+    };
+  }
+  rpc ListFormulas(google.protobuf.Empty) returns (FormulaList) {
+    option (google.api.http) = {
+      get: "/formulas"
+    };
+  }
+
+  rpc SetState(SetStateRequest) returns (google.protobuf.Empty);
+  rpc GetState(core.Reference) returns (State);
+
+  // ========== Services API ===========
   rpc GetService(core.Reference) returns (Service) {
     option (google.api.http) = {
       get: "/services/{id}"
@@ -65,31 +95,6 @@ service SLO {
       body: "*"
     };
   }
-  
-  rpc GetMetric(core.Reference) returns (Metric) {
-    option (google.api.http) = {
-      get: "/metrics/{id}"
-    };
-  }
-  rpc ListMetrics(google.protobuf.Empty) returns (MetricList) {
-    option (google.api.http) = {
-      get: "/metrics"
-    };
-  }
-
-  rpc GetFormula(core.Reference) returns (Formula) {
-    option (google.api.http) = {
-      get: "/formulas/{id}"
-    };
-  }
-  rpc ListFormulas(google.protobuf.Empty) returns (FormulaList) {
-    option (google.api.http) = {
-      get: "/formulas"
-    };
-  }
-
-  rpc SetState(SetStateRequest) returns (google.protobuf.Empty);
-  rpc GetState(core.Reference) returns (State);
 }
 
 message Evaluation {
@@ -97,13 +102,31 @@ message Evaluation {
   double period = 2;
 }
 
+message Metric {
+  string name = 1;
+  string datasource = 2;
+  string MetricType = 3;
+  string MetricDescription = 4;
+}
+
+message Alert {
+  string name = 1;
+  string notificationTarget = 2; // enum of Slack, PagerDuty, Email, SMS, etc..
+  string description = 3;
+  string conditionType = 4;
+  
+}
+
 message ServiceLevelObjective {
   string id = 1;
   string name = 2;
   string clusterId = 3;
   string serviceId = 4;
-  string formulaId = 5;
-  repeated Target targets = 6;
+  string timeWindow = 5;
+  string metricType = 6;
+  string metricDescription = 7;
+  repeated Target targets = 8;
+  repeated Alert alerts = 9;
 }
 
 message Target {
@@ -111,15 +134,16 @@ message Target {
   google.protobuf.Duration timeWindow = 2;
 }
 
+message ServiceLevelObjectiveList {
+  repeated ServiceLevelObjective items = 1;
+}
+
+// TODO : rework this
 message SLOStatus {
   core.Reference slo = 1;
   int64 timestamp = 2;
   Evaluation status = 3;
   Evaluation budget = 4;
-}
-
-message ServiceLevelObjectiveList {
-  repeated ServiceLevelObjective items = 1;
 }
 
 message Service {
@@ -133,23 +157,8 @@ message ServiceList {
   repeated Service items = 1;
 }
 
-message Metric {
-  string id = 1;
-  string name = 2;
-}
-
 message MetricList {
   repeated Metric items = 1;
-}
-
-message Formula {
-  string id = 1;
-  string name = 2;
-  string description = 3;
-}
-
-message FormulaList {
-  repeated Formula items = 1;
 }
 
 message CloneServiceRequest {
@@ -163,6 +172,18 @@ message SetStateRequest {
   State state = 2;
 }
 
+// Contains all the SLO data like, error budget, burn rate, etc...
 message State {
   bytes data = 1;
+}
+
+/// Human readable pre-configured metrics
+message Formula {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message FormulaList {
+  repeated Formula items = 1;
 }

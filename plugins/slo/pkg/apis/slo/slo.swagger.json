@@ -34,7 +34,7 @@
     },
     "/formulas/{id}": {
       "get": {
-        "operationId": "SLO_GetFormula",
+        "operationId": "SLO_GetFormulas",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -286,13 +286,25 @@
                 "serviceId": {
                   "type": "string"
                 },
-                "formulaId": {
+                "timeWindow": {
+                  "type": "string"
+                },
+                "metricType": {
+                  "type": "string"
+                },
+                "metricDescription": {
                   "type": "string"
                 },
                 "targets": {
                   "type": "array",
                   "items": {
                     "$ref": "#/definitions/sloTarget"
+                  }
+                },
+                "alerts": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/sloAlert"
                   }
                 }
               }
@@ -362,6 +374,23 @@
         }
       }
     },
+    "sloAlert": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "notificationTarget": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "conditionType": {
+          "type": "string"
+        }
+      }
+    },
     "sloCloneServiceRequest": {
       "type": "object",
       "properties": {
@@ -417,10 +446,16 @@
     "sloMetric": {
       "type": "object",
       "properties": {
-        "id": {
+        "name": {
           "type": "string"
         },
-        "name": {
+        "datasource": {
+          "type": "string"
+        },
+        "MetricType": {
+          "type": "string"
+        },
+        "MetricDescription": {
           "type": "string"
         }
       }
@@ -486,13 +521,25 @@
         "serviceId": {
           "type": "string"
         },
-        "formulaId": {
+        "timeWindow": {
+          "type": "string"
+        },
+        "metricType": {
+          "type": "string"
+        },
+        "metricDescription": {
           "type": "string"
         },
         "targets": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/sloTarget"
+          }
+        },
+        "alerts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloAlert"
           }
         }
       }

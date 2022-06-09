@@ -47,6 +47,11 @@ func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjectiv
 		}
 	}
 
+	if err := slo.ValidateInput(); err != nil {
+		return nil, err
+	}
+
+	// Put in k,v store only if everything else succeeds
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", slo.Id), slo); err != nil {
 		return nil, err
 	}

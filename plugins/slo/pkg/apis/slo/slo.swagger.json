@@ -280,6 +280,12 @@
                 "name": {
                   "type": "string"
                 },
+                "datasource": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
                 "clusterId": {
                   "type": "string"
                 },
@@ -383,11 +389,26 @@
         "notificationTarget": {
           "type": "string"
         },
+        "notificationDescription": {
+          "type": "string"
+        },
         "description": {
           "type": "string"
         },
         "conditionType": {
           "type": "string"
+        },
+        "onNoData": {
+          "type": "boolean"
+        },
+        "onCreate": {
+          "type": "boolean"
+        },
+        "onBreanch": {
+          "type": "boolean"
+        },
+        "onResolved": {
+          "type": "boolean"
         }
       }
     },
@@ -513,6 +534,12 @@
           "type": "string"
         },
         "name": {
+          "type": "string"
+        },
+        "datasource": {
+          "type": "string"
+        },
+        "description": {
           "type": "string"
         },
         "clusterId": {

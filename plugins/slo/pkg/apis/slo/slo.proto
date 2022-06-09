@@ -112,26 +112,32 @@ message Metric {
 message Alert {
   string name = 1;
   string notificationTarget = 2; // enum of Slack, PagerDuty, Email, SMS, etc..
-  string description = 3;
-  string conditionType = 4;
-  
+  string notificationDescription = 3;
+  string description = 4;
+  string conditionType = 5;
+  bool onNoData = 6;
+  bool onCreate = 7;
+  bool onBreanch = 8;
+  bool onResolved = 9;
 }
 
 message ServiceLevelObjective {
   string id = 1;
   string name = 2;
-  string clusterId = 3;
-  string serviceId = 4;
-  string timeWindow = 5;
-  string metricType = 6;
-  string metricDescription = 7;
-  repeated Target targets = 8;
-  repeated Alert alerts = 9;
+  string datasource = 3;
+  string description = 4;
+  string clusterId = 5;
+  string serviceId = 6;
+  string timeWindow = 7;
+  string metricType = 8;
+  string metricDescription = 9;
+  repeated Target targets = 10;
+  repeated Alert alerts = 11;
 }
 
 message Target {
   uint64 ValueX100 = 1;
-  google.protobuf.Duration timeWindow = 2;
+  google.protobuf.Duration timeWindow = 2; // FIXME: should be changed to str
 }
 
 message ServiceLevelObjectiveList {

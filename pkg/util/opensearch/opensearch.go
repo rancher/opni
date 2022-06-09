@@ -196,7 +196,7 @@ func (r *Reconciler) templateExists(name string) (bool, error) {
 	return true, nil
 }
 
-func (r *Reconciler) shouldBootstrapIndex(prefix string) (bool, error) {
+func (r *Reconciler) prefixIndicesAbsent(prefix string) (bool, error) {
 	req := opensearchapi.CatIndicesRequest{
 		Index: []string{
 			fmt.Sprintf("%s*", prefix),
@@ -350,7 +350,7 @@ func (r *Reconciler) MaybeDeleteIndexTemplate(name string) error {
 }
 
 func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixes []string) error {
-	bootstrap, err := r.shouldBootstrapIndex(prefix)
+	bootstrap, err := r.prefixIndicesAbsent(prefix)
 	lg := log.FromContext(r.ctx)
 	if err != nil {
 		return err
@@ -900,12 +900,24 @@ func (r *Reconciler) MaybeDeleteIngestPipeline(name string) error {
 }
 
 func (r *Reconciler) UpdateDefaultIngestPipelineForIndex(index string, pipelineName string) error {
-	indexExists, err := r.indexExists(index)
-	if err != nil {
-		return err
+	var absent bool
+	var err error
+
+	if strings.HasSuffix(index, "*") {
+		absent, err = r.prefixIndicesAbsent(index)
+		if err != nil {
+			return err
+		}
+	} else {
+		exists, err := r.indexExists(index)
+		absent = !exists
+		if err != nil {
+			return err
+		}
 	}
 
-	if !indexExists {
+	// If indices don't exist we don't need to update anything
+	if absent {
 		return nil
 	}
 

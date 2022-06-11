@@ -26,7 +26,6 @@ warningCode = 0
 [rule.range]
 [rule.receiver-naming]
 [rule.redefines-builtin-id]
-[rule.superfluous-else]
 [rule.time-naming]
 [rule.unexported-return]
 [rule.unnecessary-stmt]

@@ -1,0 +1,18 @@
+config:
+  aws:skipCredentialsValidation: "true"
+  aws:skipRequestingAccountId: "true"
+  aws:region: "us-east-2"
+  opni:infra:
+    namePrefix: opni-e2e-test
+    nodeGroupDesiredSize: 2
+    nodeGroupMaxSize: 3
+    nodeGroupMinSize: 2
+    nodeInstanceType: t3.xlarge
+    zoneID:
+      secure: AAABAE4hUcgXi3jNfF89nz16fwg/9VMTur5HnecweZTWA51gG9SJqz12iZjreg==
+  opni:test:
+    cloud: aws
+    imageRepo: rancher/opni
+    imageTag: latest
+  pulumi:disable-default-providers:
+    - kubernetes

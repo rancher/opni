@@ -70,11 +70,8 @@ var _ = Describe("Gateway Test", Ordered, Label(test.E2E, test.Slow), func() {
 			objList, err := config.LoadObjects(docs.YAMLDocuments())
 			Expect(err).NotTo(HaveOccurred())
 
-			hostname, err := url.Parse(tfOutput.GatewayURL.Value)
-			Expect(err).NotTo(HaveOccurred())
-
 			foundConfig := objList.Visit(func(cfg *v1beta1.GatewayConfig) {
-				Expect(cfg.Spec.Hostname).To(Equal(hostname.Host))
+				Expect(cfg.Spec.Hostname).To(Equal(outputs.GatewayURL))
 			})
 			Expect(foundConfig).To(BeTrue())
 
@@ -84,7 +81,7 @@ var _ = Describe("Gateway Test", Ordered, Label(test.E2E, test.Slow), func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(openidConf.IdentifyingClaim).To(Equal("email"))
 				Expect(openidConf.Discovery).NotTo(BeNil())
-				Expect(openidConf.Discovery.Issuer).To(Equal(tfOutput.OAuthIssuerURL.Value))
+				Expect(openidConf.Discovery.Issuer).To(Equal(outputs.OAuthIssuerURL))
 			})
 			Expect(foundAuth).To(BeTrue())
 		})
@@ -108,7 +105,7 @@ var _ = Describe("Gateway Test", Ordered, Label(test.E2E, test.Slow), func() {
 
 			wkc, err := (&openid.OpenidConfig{
 				Discovery: &openid.DiscoverySpec{
-					Issuer: tfOutput.OAuthIssuerURL.Value,
+					Issuer: outputs.OAuthIssuerURL,
 				},
 			}).GetWellKnownConfiguration()
 			Expect(err).NotTo(HaveOccurred())
@@ -117,8 +114,8 @@ var _ = Describe("Gateway Test", Ordered, Label(test.E2E, test.Slow), func() {
 			Expect(kh).To(HaveKeyWithValue("auth_url", wkc.AuthEndpoint))
 			Expect(kh).To(HaveKeyWithValue("token_url", wkc.TokenEndpoint))
 			Expect(kh).To(HaveKeyWithValue("api_url", wkc.UserinfoEndpoint))
-			Expect(kh).To(HaveKeyWithValue("client_id", tfOutput.OAuthClientID.Value))
-			Expect(kh).To(HaveKeyWithValue("client_secret", tfOutput.OAuthClientSecret.Value))
+			Expect(kh).To(HaveKeyWithValue("client_id", outputs.OAuthClientID))
+			Expect(kh).To(HaveKeyWithValue("client_secret", outputs.OAuthClientSecret))
 			Expect(kh).To(HaveKeyWithValue("enabled", "true"))
 			Expect(strings.Fields(kh["scopes"])).To(ContainElements("openid", "profile", "email"))
 
@@ -141,10 +138,10 @@ var _ = Describe("Gateway Test", Ordered, Label(test.E2E, test.Slow), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			kh = server.KeysHash()
-			grafanaHostname, err := url.Parse(tfOutput.GrafanaURL.Value)
+			grafanaHostname, err := url.Parse(outputs.GrafanaURL)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kh).To(HaveKeyWithValue("domain", grafanaHostname.Host))
-			Expect(kh).To(HaveKeyWithValue("root_url", tfOutput.GrafanaURL.Value))
+			Expect(kh).To(HaveKeyWithValue("root_url", outputs.GrafanaURL))
 		})
 
 	})

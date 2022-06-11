@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/rancher/opni/apis"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
@@ -31,37 +32,30 @@ var (
 	k8sClient  client.Client
 	restConfig *rest.Config
 	mgmtClient managementv1.ManagementClient
-	tfOutput   TerraformOutput
+	outputs    StackOutputs
 )
 
-type OutputValue struct {
-	Type      string `json:"type"`
-	Value     string `json:"value"`
-	Sensitive bool   `json:"sensitive"`
-}
-
-type TerraformOutput struct {
-	GatewayURL        OutputValue `json:"gateway_url"`
-	GrafanaURL        OutputValue `json:"grafana_url"`
-	Kubeconfig        OutputValue `json:"kubeconfig"`
-	OAuthClientID     OutputValue `json:"oauth_client_id"`
-	OAuthClientSecret OutputValue `json:"oauth_client_secret"`
-	OAuthIssuerURL    OutputValue `json:"oauth_issuer_url"`
-	S3BucketURL       OutputValue `json:"s3_bucket_url"`
+type StackOutputs struct {
+	GatewayURL        string          `json:"gateway_url"`
+	GrafanaURL        string          `json:"grafana_url"`
+	Kubeconfig        json.RawMessage `json:"kubeconfig"`
+	OAuthClientID     string          `json:"oauth_client_id"`
+	OAuthClientSecret string          `json:"oauth_client_secret"`
+	OAuthIssuerURL    string          `json:"oauth_issuer_url"`
+	S3Bucket          string          `json:"s3_bucket"`
+	S3Endpoint        string          `json:"s3_endpoint"`
 }
 
 var _ = BeforeSuite(func() {
 	testEnv = &test.Environment{
 		TestBin: "../../testbin/bin",
 	}
-	// export TF_OUTPUT=$(terraform output -json)
-	tfOutputEnv, ok := os.LookupEnv("TF_OUTPUT")
-	if !ok {
-		Fail("TF_OUTPUT env variable is not set")
-	}
-	Expect(json.Unmarshal([]byte(tfOutputEnv), &tfOutput)).To(Succeed())
 
-	restConfig, err := clientcmd.RESTConfigFromKubeConfig([]byte(tfOutput.Kubeconfig.Value))
+	if value, ok := os.LookupEnv("STACK_OUTPUTS"); ok {
+		Expect(json.Unmarshal([]byte(value), &outputs)).To(Succeed())
+	}
+
+	restConfig, err := clientcmd.RESTConfigFromKubeConfig(outputs.Kubeconfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	scheme := apis.NewScheme()
@@ -85,7 +79,7 @@ var _ = BeforeSuite(func() {
 	Expect(testEnv.Start(
 		test.WithEnableCortex(false),
 		test.WithEnableGateway(false),
-		test.WithDefaultAgentOpts(test.WithRemoteGatewayAddress(tfOutput.GatewayURL.Value)),
+		test.WithDefaultAgentOpts(test.WithRemoteGatewayAddress(outputs.GatewayURL)),
 	)).To(Succeed())
 
 	mgmtClient, err = clients.NewManagementClient(ctx,
@@ -93,3 +87,11 @@ var _ = BeforeSuite(func() {
 	)
 	Expect(err).NotTo(HaveOccurred())
 })
+
+func unwrapOutputs(outputMap auto.OutputMap) map[string]any {
+	outputs := make(map[string]any)
+	for k, v := range outputMap {
+		outputs[k] = v.Value
+	}
+	return outputs
+}

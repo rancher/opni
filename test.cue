@@ -2,8 +2,8 @@
 package main
 
 import (
-	"github.com/rancher/opni/internal/ginkgo"
 	"strings"
+	"github.com/rancher/opni/internal/ginkgo"
 )
 
 testPackages: string @tag(packages)

@@ -1,0 +1,16 @@
+name: opni
+runtime: go
+description: opni test infrastructure
+main: infra/
+stackConfigDir: infra/
+template:
+  config:
+    aws:region:
+      description: AWS Region
+      default: us-east-2
+    aws:accessKey:
+      description: AWS Access Key
+      secret: true
+    aws:secretKey:
+      description: AWS Secret Key
+      secret: true

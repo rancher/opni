@@ -2,36 +2,42 @@
 package main
 
 import (
+	"strings"
+	"encoding/json"
 	"dagger.io/dagger"
 	"dagger.io/dagger/core"
 	"universe.dagger.io/docker"
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
+	"universe.dagger.io/x/david@rawkode.dev/pulumi"
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
 	"github.com/rancher/opni/internal/util"
-	"universe.dagger.io/x/ezequiel@foncubierta.com/terraform"
+	"github.com/rancher/opni/images"
 )
 
 dagger.#Plan & {
 	client: {
 		env: {
-			GINKGO_LABEL_FILTER: string | *""
-			DRONE:               string | *""
-			KUBECONFIG:          string | *""
-			TAG:                 string | *"latest"
-			REPO:                string | *"rancher"
-			IMAGE_NAME:          string | *"opni"
-			OPNI_UI_REPO:        string | *"rancher/opni-ui"
-			OPNI_UI_BRANCH:      string | *"main"
-			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
-			DASHBOARDS_VERSION:  string | *"1.3.1"
-			OPENSEARCH_VERSION:  string | *"1.3.1"
-			PLUGIN_VERSION:      string | *"0.5.3"
-			PLUGIN_PUBLISH:      string | *"0.5.4-rc3"
-			DOCKER_USERNAME?:    string
-			DOCKER_PASSWORD?:    dagger.#Secret
-			EXPECTED_REF?:       string // used by tilt
+			GINKGO_LABEL_FILTER:    string | *""
+			DRONE:                  string | *""
+			KUBECONFIG:             string | *""
+			TAG:                    string | *"latest"
+			REPO:                   string | *"rancher"
+			IMAGE_NAME:             string | *"opni"
+			OPNI_UI_REPO:           string | *"rancher/opni-ui"
+			OPNI_UI_BRANCH:         string | *"main"
+			OPNI_UI_BUILD_IMAGE:    string | *"rancher/opni-monitoring-ui-build"
+			DASHBOARDS_VERSION:     string | *"1.3.1"
+			OPENSEARCH_VERSION:     string | *"1.3.1"
+			PLUGIN_VERSION:         string | *"0.5.3"
+			PLUGIN_PUBLISH:         string | *"0.5.4-rc2"
+			EXPECTED_REF?:          string // used by tilt
+			DOCKER_USERNAME?:       string
+			DOCKER_PASSWORD?:       dagger.#Secret
+			PULUMI_ACCESS_TOKEN?:   dagger.#Secret
+			AWS_ACCESS_KEY_ID?:     dagger.#Secret
+			AWS_SECRET_ACCESS_KEY?: dagger.#Secret
 		}
 		filesystem: {
 			".": read: {
@@ -42,25 +48,23 @@ dagger.#Plan & {
 					"docs",
 					"ci.cue",
 					"testbin",
-					"test/tf/",
 					"internal/cmd/testenv",
 				]
 			}
 			"bin": write: contents:       actions.build.bin
 			"web/dist": write: contents:  actions.web.dist
 			"cover.out": write: contents: actions.test.export.files["/src/cover.out"]
-
-			"dev/terraform.tfvars.json": read: contents: dagger.#Secret
-			"test/tf/providers.tf": read: contents:      string
-			"test/tf/": {
-				read: {
-					contents: dagger.#FS
-					exclude: [
-						".terraform",
-						".terraform.lock.hcl",
-					]
-				}
-				write: contents: actions.e2eapply.output
+		}
+		commands: {
+			"aws-identity": {
+				name: "aws"
+				args: ["sts", "get-caller-identity"]
+				stdout: string
+			}
+			"ecr-password": {
+				name: "aws"
+				args: ["ecr", "get-login-password", "--region", "us-east-2"]
+				stdout: dagger.#Secret
 			}
 		}
 		network: "unix:///var/run/docker.sock": connect: dagger.#Socket
@@ -107,6 +111,13 @@ dagger.#Plan & {
 					docker.#Copy & {
 						contents: actions.web.dist
 						dest:     "/src/web/dist/"
+					},
+					docker.#Run & {
+						workdir: "/src"
+						command: {
+							name: "go"
+							args: ["mod", "download"]
+						}
 					},
 					mage.#Run & {
 						mageArgs: ["-v", "build"]
@@ -212,43 +223,97 @@ dagger.#Plan & {
 		}
 
 		// Run end-to-end tests
+		e2e: {
+			_accessToken: client.env.PULUMI_ACCESS_TOKEN | *_|_
+			_awsIdentity: json.Unmarshal(client.commands."aws-identity".stdout)
 
-		_e2evars: {
-			env: [string]: string | dagger.#Secret
-			_vars: client.filesystem."dev/terraform.tfvars.json".read.contents
-			if _vars != _|_ {
-				_decoded: core.#DecodeSecret & {
-					input:  _vars
-					format: "json"
+			_awsEnv: {
+				"AWS_ACCESS_KEY_ID":     client.env.AWS_ACCESS_KEY_ID
+				"AWS_SECRET_ACCESS_KEY": client.env.AWS_SECRET_ACCESS_KEY
+			}
+			_testImage: docker.#Push & {
+				dest:  "\(_awsIdentity.Account).dkr.ecr.us-east-2.amazonaws.com/opni-e2e-test"
+				image: _opniImage.image
+				auth: {
+					username: "AWS"
+					secret:   client.commands."ecr-password".stdout
 				}
-				env: {
-					for key, value in _decoded.output {
-						"TF_VAR_\(key)": value.contents
+			}
+
+			_e2eImage: docker.#Build & {
+				steps: [
+					mage.#Run & {
+						input: actions.build.output
+						mageArgs: ["charts:charts", "opni"]
+					},
+					mage.#Run & {
+						mageArgs: ["charts:charts", "opni-agent"]
+					},
+					mage.#Run & {
+						mageArgs: ["charts:charts", "opni-prometheus-crd"]
+					},
+					images.installers.debian.#AwsCli,
+				]
+			}
+
+			_fs: core.#Subdir & {
+				input: _e2eImage.output.rootfs
+				path:  "/src"
+			}
+
+			_pulumiImage: images.#Pulumi & {
+				plugins: [
+					images.#Plugin & {
+						name:    "aws"
+						version: "v5.7.1"
+					},
+					images.#Plugin & {
+						name:    "aws"
+						version: "v5.4.0"
+					},
+					images.#Plugin & {
+						name:    "awsx"
+						version: "v1.0.0-beta.8"
+					},
+					images.#Plugin & {
+						name: "kubernetes"
+					},
+					images.#Plugin & {
+						name:    "random"
+						version: "v4.7.0"
+					},
+					images.#Plugin & {
+						name: "eks"
+					},
+					images.#Plugin & {
+						name: "docker"
+					},
+				]
+			}
+
+			infra: pulumi.#Up & {
+				source:      _fs.output
+				version:     "3.34.1-debian-amd64"
+				runtime:     "go"
+				stack:       "e2e"
+				accessToken: _accessToken
+				container: {
+					input: _pulumiImage.output
+					env:   _awsEnv & {
+						"CLOUD":      "aws"
+						"IMAGE_REPO": _testImage.dest
+						"IMAGE_TAG":  strings.TrimPrefix(_testImage.result, "\(_testImage.dest):")
 					}
 				}
 			}
-		}
 
-		e2einit: terraform.#Init & {
-			_src: core.#WriteFile & {
-				input:    dagger.#Scratch
-				path:     "providers.tf"
-				contents: client.filesystem."test/tf/providers.tf".read.contents
+			test: mage.#Run & {
+				input: _e2eImage.output
+				mageArgs: ["-v", "test", "e2e"]
+				env: _awsEnv & {
+					"STACK_OUTPUTS": json.Marshal(infra.outputs)
+				}
 			}
-			source: _src.output
-		}
-
-		e2eapply: terraform.#Run & _e2evars & {
-			always: true
-			cmd:    "apply"
-			cmdArgs: ["-auto-approve"]
-			_src: core.#Merge & {
-				inputs: [
-					e2einit.output,
-					client.filesystem."test/tf/".read.contents,
-				]
-			}
-			source: _src.output
 		}
 
 		// Push docker images
@@ -341,14 +406,14 @@ dagger.#Plan & {
 					},
 					docker.#Copy & {
 						contents: client.filesystem.".".read.contents
-						source: "aiops/"
-						dest: "."
+						source:   "aiops/"
+						dest:     "."
 					},
 					docker.#Set & {
 						config: {
 							cmd: ["python", "opensearch-update-service/main.py"]
 						}
-					}	
+					},
 				]
 			}
 		}

@@ -182,6 +182,30 @@ steps:
         - refs/heads/main
         - refs/heads/release
         - refs/tags/*
+  - name: e2e-nightly
+    image: docker
+    environment:
+      <<: *dagger_env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
+      AWS_ACCESS_KEY_ID:
+        from_secret: aws_access_key_id
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: aws_secret_access_key
+      PULUMI_ACCESS_TOKEN:
+        from_secret: pulumi_access_token
+    commands:
+      - bin/dagger do e2e
+    volumes: *volumes
+    when:
+      event:
+        - cron
+      instance:
+        - drone-publish.rancher.io
+      cron:
+        - e2e-nightly
 volumes:
   - name: docker
     host:

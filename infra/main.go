@@ -11,7 +11,6 @@ import (
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
 	. "github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 	"github.com/rancher/opni/infra/pkg/aws"
 	"github.com/rancher/opni/infra/pkg/resources"
 	"golang.org/x/mod/semver"
@@ -24,13 +23,6 @@ func main() {
 	Run(run)
 }
 
-type ClusterConfig struct {
-	NodeInstanceType     string `json:"nodeInstanceType"`
-	NodeGroupMinSize     int    `json:"nodeGroupMinSize"`
-	NodeGroupMaxSize     int    `json:"nodeGroupMaxSize"`
-	NodeGroupDesiredSize int    `json:"nodeGroupDesiredSize"`
-}
-
 func run(ctx *Context) (runErr error) {
 	defer func() {
 		if sr, ok := runErr.(interface {
@@ -41,37 +33,15 @@ func run(ctx *Context) (runErr error) {
 		}
 	}()
 
-	var infraConfig ClusterConfig
-	namePrefix := config.Require(ctx, "namePrefix")
-	zoneID := config.Require(ctx, "zoneID")
-	useLocalCharts := config.GetBool(ctx, "useLocalCharts")
-	config.RequireObject(ctx, "cluster", &infraConfig)
-
-	var cloud, imageRepo, imageTag string
-
-	if value, ok := os.LookupEnv("CLOUD"); ok {
-		cloud = value
-	} else {
-		cloud = config.Require(ctx, "cloud")
-	}
-	if value, ok := os.LookupEnv("IMAGE_REPO"); ok {
-		imageRepo = value
-	} else {
-		imageRepo = config.Require(ctx, "imageRepo")
-	}
-	if value, ok := os.LookupEnv("IMAGE_TAG"); ok {
-		imageTag = value
-	} else {
-		imageTag = config.Require(ctx, "imageTag")
-	}
+	conf := LoadConfig(ctx)
 
 	var provisioner resources.Provisioner
 
-	switch cloud {
+	switch conf.Cloud {
 	case "aws":
 		provisioner = aws.NewProvisioner()
 	default:
-		return errors.Errorf("unsupported cloud: %s", cloud)
+		return errors.Errorf("unsupported cloud: %s", conf.Cloud)
 	}
 
 	var id StringOutput
@@ -83,27 +53,22 @@ func run(ctx *Context) (runErr error) {
 		id = rand.Hex
 	}
 
-	conf := resources.MainClusterConfig{
+	mainCluster, err := provisioner.ProvisionMainCluster(ctx, resources.MainClusterConfig{
 		ID:                   id,
-		NamePrefix:           namePrefix,
-		NodeInstanceType:     infraConfig.NodeInstanceType,
-		NodeGroupMinSize:     infraConfig.NodeGroupMinSize,
-		NodeGroupMaxSize:     infraConfig.NodeGroupMaxSize,
-		NodeGroupDesiredSize: infraConfig.NodeGroupDesiredSize,
-		ZoneID:               zoneID,
-	}
-
-	mainCluster, err := provisioner.ProvisionMainCluster(ctx, conf)
+		NamePrefix:           conf.NamePrefix,
+		NodeInstanceType:     conf.Cluster.NodeInstanceType,
+		NodeGroupMinSize:     conf.Cluster.NodeGroupMinSize,
+		NodeGroupMaxSize:     conf.Cluster.NodeGroupMaxSize,
+		NodeGroupDesiredSize: conf.Cluster.NodeGroupDesiredSize,
+		ZoneID:               conf.ZoneID,
+	})
 	if err != nil {
 		return err
 	}
 
 	var opniCrdChart, opniPrometheusCrdChart, opniChart, opniAgentChart string
 	var chartRepoOpts *helm.RepositoryOptsArgs
-	if useLocalCharts {
-		chartRepoOpts = &helm.RepositoryOptsArgs{
-			Repo: StringPtr("https://raw.githubusercontent.com/rancher/opni/charts-repo/"),
-		}
+	if conf.UseLocalCharts {
 		var ok bool
 		if opniCrdChart, ok = findLocalChartDir("opni-crd"); !ok {
 			return errors.New("could not find local opni-crd chart")
@@ -118,6 +83,9 @@ func run(ctx *Context) (runErr error) {
 			return errors.New("could not find local opni-agent chart")
 		}
 	} else {
+		chartRepoOpts = &helm.RepositoryOptsArgs{
+			Repo: StringPtr("https://raw.githubusercontent.com/rancher/opni/charts-repo/"),
+		}
 		opniCrdChart = "opni-crd"
 		opniPrometheusCrdChart = "opni-prometheus-crd"
 		opniChart = "opni"
@@ -155,8 +123,8 @@ func run(ctx *Context) (runErr error) {
 			Namespace:      String("opni"),
 			Values: Map{
 				"image": Map{
-					"repository": String(imageRepo),
-					"tag":        String(imageTag),
+					"repository": String(conf.ImageRepo),
+					"tag":        String(conf.ImageTag),
 				},
 				"gateway": Map{
 					"enabled":     Bool(true),
@@ -213,8 +181,8 @@ func run(ctx *Context) (runErr error) {
 			Values: Map{
 				"address": String("opni-monitoring.opni.svc:9090"),
 				"image": Map{
-					"repository": String(imageRepo),
-					"tag":        String(imageTag),
+					"repository": String(conf.ImageRepo),
+					"tag":        String(conf.ImageTag),
 				},
 				"metrics": Map{
 					"enabled": Bool(true),

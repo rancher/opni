@@ -70,7 +70,7 @@ func (p *provisioner) buildDnsResources(ctx *Context, conf resources.MainCluster
 		Type:   cert.DomainValidationOptions.Index(Int(0)).ResourceRecordType().Elem(),
 		Ttl:    Int(60),
 		ZoneId: String(zone.Id),
-	})
+	}, Parent(cert))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -78,7 +78,7 @@ func (p *provisioner) buildDnsResources(ctx *Context, conf resources.MainCluster
 	_, err = acm.NewCertificateValidation(ctx, "validation", &acm.CertificateValidationArgs{
 		CertificateArn:        cert.Arn,
 		ValidationRecordFqdns: StringArray{record.Fqdn},
-	})
+	}, Parent(cert))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -101,7 +101,7 @@ func (p *provisioner) buildS3Resources(ctx *Context, conf resources.MainClusterC
 	_, err = s3.NewBucketAclV2(ctx, "s3-bucket-acl", &s3.BucketAclV2Args{
 		Bucket: s3Bucket.ID(),
 		Acl:    String("private"),
-	})
+	}, Parent(s3Bucket))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -150,7 +150,7 @@ func (p *provisioner) buildCognitoResources(ctx *Context, conf resources.MainClu
 	_, err = cognito.NewUserPoolDomain(ctx, "domain", &cognito.UserPoolDomainArgs{
 		Domain:     p.clusterName,
 		UserPoolId: userPool.ID(),
-	})
+	}, Parent(userPool))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -163,7 +163,7 @@ func (p *provisioner) buildCognitoResources(ctx *Context, conf resources.MainClu
 			"email":        "test@example.com",
 			"grafana_role": "Admin",
 		}),
-	})
+	}, Parent(userPool))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -181,7 +181,7 @@ func (p *provisioner) buildCognitoResources(ctx *Context, conf resources.MainClu
 		AllowedOauthScopes:              ToStringArray([]string{"openid", "email", "profile"}),
 		GenerateSecret:                  Bool(true),
 		SupportedIdentityProviders:      ToStringArray([]string{"COGNITO"}),
-	})
+	}, Parent(userPool))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

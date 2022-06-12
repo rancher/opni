@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
@@ -13,6 +14,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 	"github.com/rancher/opni/infra/pkg/aws"
 	"github.com/rancher/opni/infra/pkg/resources"
+	"golang.org/x/mod/semver"
 
 	"github.com/pkg/errors"
 	"github.com/pulumi/pulumi-random/sdk/v4/go/random"
@@ -22,21 +24,11 @@ func main() {
 	Run(run)
 }
 
-type InfraConfig struct {
-	NamePrefix           string   `json:"namePrefix"`
-	VPCBlock             string   `json:"vpcBlock"`
-	SubnetBlocks         []string `json:"subnetBlocks"`
-	NodeInstanceType     string   `json:"nodeInstanceType"`
-	NodeGroupMinSize     int      `json:"nodeGroupMinSize"`
-	NodeGroupMaxSize     int      `json:"nodeGroupMaxSize"`
-	NodeGroupDesiredSize int      `json:"nodeGroupDesiredSize"`
-	ZoneID               string   `json:"zoneID"`
-}
-
-type TestConfig struct {
-	Cloud     string `json:"cloud"`
-	ImageRepo string `json:"imageRepo"`
-	ImageTag  string `json:"imageTag"`
+type ClusterConfig struct {
+	NodeInstanceType     string `json:"nodeInstanceType"`
+	NodeGroupMinSize     int    `json:"nodeGroupMinSize"`
+	NodeGroupMaxSize     int    `json:"nodeGroupMaxSize"`
+	NodeGroupDesiredSize int    `json:"nodeGroupDesiredSize"`
 }
 
 func run(ctx *Context) (runErr error) {
@@ -49,27 +41,37 @@ func run(ctx *Context) (runErr error) {
 		}
 	}()
 
-	var infraConfig InfraConfig
-	var testConfig TestConfig
-	config.RequireObject(ctx, "infra", &infraConfig)
-	config.GetObject(ctx, "test", &testConfig)
+	var infraConfig ClusterConfig
+	namePrefix := config.Require(ctx, "namePrefix")
+	zoneID := config.Require(ctx, "zoneID")
+	useLocalCharts := config.GetBool(ctx, "useLocalCharts")
+	config.RequireObject(ctx, "cluster", &infraConfig)
+
+	var cloud, imageRepo, imageTag string
+
 	if value, ok := os.LookupEnv("CLOUD"); ok {
-		testConfig.Cloud = value
+		cloud = value
+	} else {
+		cloud = config.Require(ctx, "cloud")
 	}
 	if value, ok := os.LookupEnv("IMAGE_REPO"); ok {
-		testConfig.ImageRepo = value
+		imageRepo = value
+	} else {
+		imageRepo = config.Require(ctx, "imageRepo")
 	}
 	if value, ok := os.LookupEnv("IMAGE_TAG"); ok {
-		testConfig.ImageTag = value
+		imageTag = value
+	} else {
+		imageTag = config.Require(ctx, "imageTag")
 	}
 
 	var provisioner resources.Provisioner
 
-	switch testConfig.Cloud {
+	switch cloud {
 	case "aws":
 		provisioner = aws.NewProvisioner()
 	default:
-		return errors.Errorf("unsupported cloud: %s", testConfig.Cloud)
+		return errors.Errorf("unsupported cloud: %s", cloud)
 	}
 
 	var id StringOutput
@@ -83,12 +85,12 @@ func run(ctx *Context) (runErr error) {
 
 	conf := resources.MainClusterConfig{
 		ID:                   id,
-		NamePrefix:           infraConfig.NamePrefix,
+		NamePrefix:           namePrefix,
 		NodeInstanceType:     infraConfig.NodeInstanceType,
 		NodeGroupMinSize:     infraConfig.NodeGroupMinSize,
 		NodeGroupMaxSize:     infraConfig.NodeGroupMaxSize,
 		NodeGroupDesiredSize: infraConfig.NodeGroupDesiredSize,
-		ZoneID:               infraConfig.ZoneID,
+		ZoneID:               zoneID,
 	}
 
 	mainCluster, err := provisioner.ProvisionMainCluster(ctx, conf)
@@ -96,39 +98,65 @@ func run(ctx *Context) (runErr error) {
 		return err
 	}
 
+	var opniCrdChart, opniPrometheusCrdChart, opniChart, opniAgentChart string
+	var chartRepoOpts *helm.RepositoryOptsArgs
+	if useLocalCharts {
+		chartRepoOpts = &helm.RepositoryOptsArgs{
+			Repo: StringPtr("https://raw.githubusercontent.com/rancher/opni/charts-repo/"),
+		}
+		var ok bool
+		if opniCrdChart, ok = findLocalChartDir("opni-crd"); !ok {
+			return errors.New("could not find local opni-crd chart")
+		}
+		if opniPrometheusCrdChart, ok = findLocalChartDir("opni-prometheus-crd"); !ok {
+			return errors.New("could not find local opni-prometheus-crd chart")
+		}
+		if opniChart, ok = findLocalChartDir("opni"); !ok {
+			return errors.New("could not find local opni chart")
+		}
+		if opniAgentChart, ok = findLocalChartDir("opni-agent"); !ok {
+			return errors.New("could not find local opni-agent chart")
+		}
+	} else {
+		opniCrdChart = "opni-crd"
+		opniPrometheusCrdChart = "opni-prometheus-crd"
+		opniChart = "opni"
+		opniAgentChart = "opni-agent"
+	}
+
 	opniServiceLB := mainCluster.Provider.ApplyT(func(k *kubernetes.Provider) (StringOutput, error) {
 		opniPrometheusCrd, err := helm.NewRelease(ctx, "opni-prometheus-crd", &helm.ReleaseArgs{
-			Name:        String("opni-prometheus-crd"),
-			Namespace:   String("opni"),
-			Chart:       String("../charts/opni-prometheus-crd/0.4.1"),
-			Atomic:      Bool(true),
-			ForceUpdate: Bool(true),
-			Timeout:     Int(60),
+			Chart:          String(opniPrometheusCrdChart),
+			RepositoryOpts: chartRepoOpts,
+			Namespace:      String("opni"),
+			Atomic:         Bool(true),
+			ForceUpdate:    Bool(true),
+			Timeout:        Int(60),
 		}, Provider(k))
 		if err != nil {
 			return StringOutput{}, errors.WithStack(err)
 		}
 
 		opniCrd, err := helm.NewRelease(ctx, "opni-crd", &helm.ReleaseArgs{
-			Name:        String("opni-crd"),
-			Namespace:   String("opni"),
-			Chart:       String("../charts/opni-crd/0.5.0"),
-			Atomic:      Bool(true),
-			ForceUpdate: Bool(true),
-			Timeout:     Int(60),
+			Chart:          String(opniCrdChart),
+			RepositoryOpts: chartRepoOpts,
+			Namespace:      String("opni"),
+			Atomic:         Bool(true),
+			ForceUpdate:    Bool(true),
+			Timeout:        Int(60),
 		}, Provider(k), DependsOn([]Resource{opniPrometheusCrd}))
 		if err != nil {
 			return StringOutput{}, errors.WithStack(err)
 		}
 
 		opni, err := helm.NewRelease(ctx, "opni", &helm.ReleaseArgs{
-			Chart:     String("../charts/opni/0.5.0"),
-			Name:      String("opni"),
-			Namespace: String("opni"),
+			Chart:          String(opniChart),
+			RepositoryOpts: chartRepoOpts,
+			Namespace:      String("opni"),
 			Values: Map{
 				"image": Map{
-					"repository": String(testConfig.ImageRepo),
-					"tag":        String(testConfig.ImageTag),
+					"repository": String(imageRepo),
+					"tag":        String(imageTag),
 				},
 				"gateway": Map{
 					"enabled":     Bool(true),
@@ -178,15 +206,15 @@ func run(ctx *Context) (runErr error) {
 		}
 
 		_, err = helm.NewRelease(ctx, "opni-agent", &helm.ReleaseArgs{
-			Chart:           String("../charts/opni-agent/0.5.0"),
-			Name:            String("opni-agent"),
+			Chart:           String(opniAgentChart),
+			RepositoryOpts:  chartRepoOpts,
 			Namespace:       String("opni"),
 			CreateNamespace: Bool(true),
 			Values: Map{
 				"address": String("opni-monitoring.opni.svc:9090"),
 				"image": Map{
-					"repository": String(testConfig.ImageRepo),
-					"tag":        String(testConfig.ImageTag),
+					"repository": String(imageRepo),
+					"tag":        String(imageTag),
 				},
 				"metrics": Map{
 					"enabled": Bool(true),
@@ -268,4 +296,27 @@ func run(ctx *Context) (runErr error) {
 	ctx.Export("oauth_client_secret", mainCluster.OAuth.ClientSecret)
 	ctx.Export("oauth_issuer_url", mainCluster.OAuth.Issuer)
 	return nil
+}
+
+func findLocalChartDir(chartName string) (string, bool) {
+	// find charts from ../charts/<chartName> and return the latest version
+	dir := fmt.Sprintf("../charts/%s", chartName)
+	if _, err := os.Stat(dir); err != nil {
+		return "", false
+	}
+	versions, err := os.ReadDir(dir)
+	if err != nil {
+		return "", false
+	}
+	if len(versions) == 0 {
+		return "", false
+	}
+	names := make([]string, 0, len(versions))
+	for _, version := range versions {
+		if version.IsDir() {
+			names = append(names, version.Name())
+		}
+	}
+	semver.Sort(names)
+	return filepath.Join(dir, names[len(names)-1]), true
 }

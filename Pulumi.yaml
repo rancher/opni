@@ -1,6 +1,6 @@
 name: opni
 runtime: go
-description: opni test infrastructure
+description: Deploy Opni on AWS
 main: infra/
 stackConfigDir: infra/
 template:
@@ -8,9 +8,8 @@ template:
     aws:region:
       description: AWS Region
       default: us-east-2
-    aws:accessKey:
-      description: AWS Access Key
-      secret: true
-    aws:secretKey:
-      description: AWS Secret Key
-      secret: true
+    opni:namePrefix:
+      description: "Deployment Name"
+      default: opni
+    opni:zoneID:
+      description: "AWS Route53 Zone ID"

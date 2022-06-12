@@ -276,17 +276,20 @@ dagger.#Plan & {
 						version: "v1.0.0-beta.8"
 					},
 					images.#Plugin & {
-						name: "kubernetes"
+						name:    "kubernetes"
+						version: "3.19.3"
 					},
 					images.#Plugin & {
 						name:    "random"
 						version: "v4.7.0"
 					},
 					images.#Plugin & {
-						name: "eks"
+						name:    "eks"
+						version: "0.40.0"
 					},
 					images.#Plugin & {
-						name: "docker"
+						name:    "docker"
+						version: "v3.2.0"
 					},
 				]
 			}

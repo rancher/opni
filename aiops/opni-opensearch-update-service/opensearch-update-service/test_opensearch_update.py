@@ -2,6 +2,8 @@ import asyncio
 import pandas as pd
 import unittest
 from unittest import IsolatedAsyncioTestCase
+
+import sys
 from main import doc_generator
 
 class TestStringMethods(IsolatedAsyncioTestCase):
@@ -32,11 +34,3 @@ class TestStringMethods(IsolatedAsyncioTestCase):
             self.assertEqual(res["doc"]["masked_log"], all_entries[idx]["masked_log"])
             self.assertEqual(res["doc"]["anomaly_level"], all_entries[idx]["anomaly_level"])
             idx += 1
-
-
-
-
-if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    task = loop.create_task(unittest.main())
-    loop.run_until_complete(task)

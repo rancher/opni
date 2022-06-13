@@ -12,6 +12,8 @@ import (
 	"errors"
 )
 
+type DiscoveryRule func(ctx context.Context) error
+
 type Discoverable interface {
 	Discover(ctx context.Context) error
 }
@@ -21,6 +23,7 @@ type ServiceGroup struct {
 }
 
 /// Service base class
+// TODO: refactor to interface
 type Service struct {
 	clusterId   string
 	serviceName string

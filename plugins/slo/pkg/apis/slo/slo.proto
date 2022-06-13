@@ -131,8 +131,10 @@ message ServiceLevelObjective {
   string timeWindow = 7;
   string metricType = 8;
   string metricDescription = 9;
-  repeated Target targets = 10;
-  repeated Alert alerts = 11;
+  string budgetingInterval = 10; // in the format 5m, 1h etc..
+  string monitorWindow = 11; // 7d, 28d or 30d
+  repeated Target targets = 12;
+  repeated Alert alerts = 13;
 }
 
 message Target {

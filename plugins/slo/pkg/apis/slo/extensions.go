@@ -14,8 +14,8 @@ import (
 
 const (
 	// Metric Enum
-	MetricLatency      = "latency"
-	MetricAvailability = "availability"
+	MetricLatency      = "http-latency"
+	MetricAvailability = "http-availability"
 
 	// Datasource Enum
 	LoggingDatasource    = "logging"
@@ -53,7 +53,7 @@ func (slo *ServiceLevelObjective) ParseToOpenSLO() ([]manifest.OpenSLOKind, erro
 	newSLOI := oslo.SLOSpec{
 		Description:     slo.GetDescription(),
 		Service:         slo.GetServiceId(),
-		BudgetingMethod: "30d", //FIXME: user should set this?
+		BudgetingMethod: slo.GetMonitorWindow(),
 	}
 	// actual SLO/SLI query
 	indicator, err := slo.ParseToIndicator()
@@ -81,8 +81,18 @@ func (slo *ServiceLevelObjective) ParseToIndicator() (*oslo.SLIInline, error) {
 	metadata := oslo.Metadata{
 		Name: fmt.Sprintf("sli-%s-%s", slo.GetMetricType(), slo.GetName()),
 	}
-	metric_type := "placeholder-string"                                    // TODO
-	metric_query_bad, metric_query_total, err := slo.fetchPreconfQueries() // TODO
+	metric_type := ""
+	if slo.GetDatasource() == MonitoringDatasource {
+
+		metric_type = "Prometheus" // OpenSLO standard
+	} else {
+		metric_type = "Opni" // Not OpenSLO standard, but custom
+	}
+	metric_query_bad, metric_query_total, err := slo.fetchPreconfQueries()
+
+	if err != nil {
+		return nil, err
+	}
 
 	bad_metric := oslo.MetricSource{
 		Type:             metric_type,
@@ -112,7 +122,7 @@ func (slo *ServiceLevelObjective) ParseToObjectives() []oslo.Objective {
 		newObjective := oslo.Objective{
 			DisplayName:     slo.GetName() + "-target" + strconv.Itoa(i),
 			Target:          float64(target.GetValueX100() / 100),
-			TimeSliceWindow: "5m", // FIXME: User should set this?
+			TimeSliceWindow: slo.GetMonitorWindow(),
 		}
 		objectives = append(objectives, newObjective)
 	}
@@ -160,5 +170,23 @@ func (slo *ServiceLevelObjective) ParseToAlerts() ([]oslo.AlertPolicy, []oslo.Al
 
 func (slo *ServiceLevelObjective) fetchPreconfQueries() (string, string, error) {
 	// TODO : implement
-	return "placeholder-bad", "placeholder-good", nil
+	// TODO : Need to test in standalone prometheus cluster
+	if slo.GetDatasource() == MonitoringDatasource {
+		switch slo.GetDatasource() {
+		case MetricAvailability:
+			//Note: preconfigured status codes could be subject to change
+			good_query := fmt.Sprintf("sum(rate(http_request_duration_seconds_count{job=\"%s\",code=~\"(2..|3..)\"}[{{.window}}]))", slo.GetServiceId())
+			total_query := fmt.Sprintf("sum(rate(http_request_duration_seconds_count{job=\"%s\"}[{{.window}}]))", slo.GetServiceId())
+			return good_query, total_query, nil
+		case MetricLatency:
+			// FIXME: untested with prometheus
+			good_query := "sum(rate(http_request_duration_seconds_count{job=\"%s\",le:\"0.5\",verb!=\"WATCH\"}[{{.window}}]))"
+			total_query := "sum(rate(apiserver_request_duration_seconds_count{verb!=\"WATCH\"}[{{.window}}]))"
+			return good_query, total_query, nil
+		default:
+			return "", "", fmt.Errorf("unsupported metric type")
+		}
+	} else {
+		return "", "", fmt.Errorf("preconfigured queries not implemented for datasource %s", slo.GetDatasource())
+	}
 }

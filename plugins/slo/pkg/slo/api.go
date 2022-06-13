@@ -51,6 +51,24 @@ func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjectiv
 		return nil, err
 	}
 
+	osloSpecs, err := slo.ParseToOpenSLO()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, spec := range osloSpecs {
+		switch slo.GetDatasource() {
+		case sloapi.LoggingDatasource:
+			// TODO translate OpenSLO to Transform OS api
+		case sloapi.MonitoringDatasource:
+			// TODO forward to "sloth"-like prometheus parser
+		default:
+			return nil, status.Error(codes.FailedPrecondition, "Invalid datasource should have already been checked")
+		}
+
+		fmt.Printf("%v", spec) // FIXME: remove
+	}
+
 	// Put in k,v store only if everything else succeeds
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", slo.Id), slo); err != nil {
 		return nil, err
@@ -77,6 +95,9 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.ServiceLevelObjectiv
 	if err != nil {
 		return nil, err
 	}
+
+	//TODO
+
 	proto.Merge(existing, req)
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", req.Id), existing); err != nil {
 		return nil, err
@@ -88,6 +109,9 @@ func (p *Plugin) DeleteSLO(ctx context.Context, ref *corev1.Reference) (*emptypb
 	if err := p.storage.Get().SLOs.Delete(path.Join("/slos", ref.Id)); err != nil {
 		return nil, err
 	}
+
+	//TODO remove prom rules / OS monitors based on config
+
 	p.storage.Get().SLOs.Delete(path.Join("/slo_state", ref.Id))
 	return &emptypb.Empty{}, nil
 }
@@ -108,7 +132,7 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 }
 
 func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOStatus, error) {
-	// TODO(yingbei): implement
+	// TODO implement
 	return &sloapi.SLOStatus{
 		Slo:       ref,
 		Timestamp: 0,

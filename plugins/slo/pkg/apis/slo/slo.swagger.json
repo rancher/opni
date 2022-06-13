@@ -301,6 +301,12 @@
                 "metricDescription": {
                   "type": "string"
                 },
+                "budgetingInterval": {
+                  "type": "string"
+                },
+                "monitorWindow": {
+                  "type": "string"
+                },
                 "targets": {
                   "type": "array",
                   "items": {
@@ -555,6 +561,12 @@
           "type": "string"
         },
         "metricDescription": {
+          "type": "string"
+        },
+        "budgetingInterval": {
+          "type": "string"
+        },
+        "monitorWindow": {
           "type": "string"
         },
         "targets": {

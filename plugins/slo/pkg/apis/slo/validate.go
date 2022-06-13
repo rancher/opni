@@ -55,8 +55,6 @@ func validateSLOAlertTarget(value string) error {
 	default:
 		return ErrInvalidAlertTarget
 	}
-
-	return nil
 }
 
 func validateSLOAlertCondition(value string) error {

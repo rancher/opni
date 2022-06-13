@@ -11,9 +11,8 @@ spec:
   serviceType: {{ .Values.gateway.serviceType }}
   {{- with .Values.gateway.serviceAnnotations }}
   serviceAnnotations:
-   {{- toYaml . | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
-  serviceAnnotations
   {{- with .Values.gateway.auth }}
   auth:
     provider: {{ .provider }}

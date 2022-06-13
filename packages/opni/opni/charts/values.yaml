@@ -180,6 +180,9 @@ ai:
   s3:
     internal: {}
 
+opni-prometheus-crd:
+  enabled: true
+
 global:
   cattle:
     systemDefaultRegistry: ""

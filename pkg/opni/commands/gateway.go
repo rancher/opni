@@ -22,6 +22,7 @@ import (
 	// Import all plugin apis to ensure they are added to the client scheme
 	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
 	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/stream"
+	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/unary"
 	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	_ "github.com/rancher/opni/pkg/plugins/apis/capability"
 	_ "github.com/rancher/opni/pkg/plugins/apis/metrics"

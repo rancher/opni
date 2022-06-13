@@ -210,6 +210,10 @@ func (m *ClusterMiddleware) UnaryServerInterceptor() grpc.UnaryServerInterceptor
 			return
 		}
 		authHeader := md.Get(m.headerKey)
+		if len(authHeader) == 0 {
+			err = grpc.Errorf(codes.InvalidArgument, "no auth header in metadata: %+v", md)
+			return
+		}
 		if len(authHeader) > 0 && authHeader[0] == "" {
 			err = grpc.Errorf(codes.InvalidArgument, "authorization header required")
 			return
@@ -230,6 +234,7 @@ func (m *ClusterMiddleware) UnaryServerInterceptor() grpc.UnaryServerInterceptor
 			return
 		default:
 			err = status.Error(codes.Unknown, http.StatusText(code))
+			return
 		}
 
 		ctx = context.WithValue(ctx, SharedKeysKey, sharedKeys)

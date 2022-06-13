@@ -11,18 +11,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type opensearchDetailsFetcher struct {
-	opensearch.OpensearchServer
-	k8sClient           client.Client
-	opensearchNamespace string
-}
-
-func (o *opensearchDetailsFetcher) GetDetails(ctx context.Context, cluster *opensearch.ClusterReference) (*opensearch.OpensearchDetails, error) {
+func (p *Plugin) GetDetails(ctx context.Context, cluster *opensearch.ClusterReference) (*opensearch.OpensearchDetails, error) {
 	// Get the external URL
 	binding := &opniv1beta2.MulticlusterRoleBinding{}
-	if err := o.k8sClient.Get(ctx, types.NamespacedName{
+	if err := p.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      OpensearchBindingName,
-		Namespace: o.opensearchNamespace,
+		Namespace: p.storageNamespace,
 	}, binding); err != nil {
 		return nil, err
 	}
@@ -31,7 +25,7 @@ func (o *opensearchDetailsFetcher) GetDetails(ctx context.Context, cluster *open
 		resources.OpniClusterID: cluster.AuthorizedClusterID,
 	}
 	secrets := &corev1.SecretList{}
-	if err := o.k8sClient.List(ctx, secrets, client.InNamespace(o.opensearchNamespace), client.MatchingLabels(labels)); err != nil {
+	if err := p.k8sClient.List(ctx, secrets, client.InNamespace(p.storageNamespace), client.MatchingLabels(labels)); err != nil {
 		return nil, err
 	}
 

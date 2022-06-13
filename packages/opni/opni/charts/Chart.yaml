@@ -5,7 +5,11 @@ annotations:
   catalog.rancher.io/namespace: opni-cluster-system
   catalog.rancher.io/release-name: opni
 apiVersion: v2
-appVersion: 0.5.0
+appVersion: 0.6.0
+dependencies:
+- condition: opni-prometheus-crd.enabled
+  name: opni-prometheus-crd
+  repository: file://./charts/opni-prometheus-crd
 description: Multi-cluster Monitoring and Logging System
 icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
 keywords:
@@ -21,4 +25,4 @@ maintainers:
   name: Dan Bason
 name: opni
 type: application
-version: 0.5.0
+version: 0.6.0

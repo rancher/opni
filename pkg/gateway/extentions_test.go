@@ -127,6 +127,7 @@ var _ = Describe("Extensions", Ordered, Label(test.Slow), func() {
 	It("should forward gRPC calls to the plugin", func() {
 		cc, err := grpc.Dial(tv.grpcEndpoint,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithUnaryInterceptor(tv.interceptor.unaryClientInterceptor),
 			grpc.WithBlock(),
 		)
 		Expect(err).NotTo(HaveOccurred())

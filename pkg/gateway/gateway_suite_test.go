@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/status"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,17 +19,22 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 func TestManagement(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Gateway Suite")
+	RunSpecs(t, "Gateway Extension Suite")
 }
 
 type testVars struct {
 	ctrl         *gomock.Controller
 	client       gatewayclients.GatewayGRPCClient
 	grpcEndpoint string
+	interceptor  mockInterceptor
 }
 
 type mockIdentifier struct {
@@ -37,6 +43,52 @@ type mockIdentifier struct {
 
 func (i *mockIdentifier) UniqueIdentifier(ctx context.Context) (string, error) {
 	return i.id, nil
+}
+
+type mockInterceptor struct {
+	AuthValue string
+}
+
+func (i *mockInterceptor) unaryClientInterceptor(
+	ctx context.Context,
+	method string,
+	req interface{},
+	reply interface{},
+	cc *grpc.ClientConn,
+	invoker grpc.UnaryInvoker,
+	opts ...grpc.CallOption,
+) error {
+	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", i.AuthValue)
+	return invoker(ctx, method, req, reply, cc, opts...)
+}
+
+func (i *mockInterceptor) unaryServerIntercemptor(
+	ctx context.Context,
+	req interface{},
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
+) (resp interface{}, err error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		err = grpc.Errorf(codes.InvalidArgument, "no metadata in context")
+		return
+	}
+	authHeader := md.Get("authorization")
+	if len(authHeader) == 0 {
+		err = grpc.Errorf(codes.InvalidArgument, "no auth header in metadata: %+v", md)
+		return
+	}
+	if len(authHeader) > 0 && authHeader[0] == "" {
+		err = grpc.Errorf(codes.InvalidArgument, "authorization header required")
+		return
+	}
+
+	if authHeader[0] != i.AuthValue {
+		err = status.Error(codes.Unauthenticated, "not authenticated")
+		return
+	}
+
+	return handler(ctx, req)
 }
 
 func setupGatewayGRPCServer(vars **testVars, pl plugins.LoaderInterface) func() {
@@ -61,7 +113,16 @@ func setupGatewayGRPCServer(vars **testVars, pl plugins.LoaderInterface) func() 
 
 		Expect(err).NotTo(HaveOccurred())
 
-		server := gateway.NewGRPCServer(conf, lg)
+		interceptor := mockInterceptor{
+			AuthValue: "teststring",
+		}
+		tv.interceptor = interceptor
+		Expect(err).NotTo(HaveOccurred())
+
+		server := gateway.NewGRPCServer(conf, lg,
+			grpc.Creds(insecure.NewCredentials()),
+			grpc.UnaryInterceptor(interceptor.unaryServerIntercemptor),
+		)
 		unarySvc := gateway.NewUnaryService()
 		unarySvc.RegisterUnaryPlugins(ctx, server, pl)
 		tv.grpcEndpoint = fmt.Sprintf("127.0.0.1:%d", ports[0])

@@ -33,7 +33,7 @@ const (
 
 type Plugin struct {
 	PluginOptions
-	*opensearchDetailsFetcher
+	opensearch.UnsafeOpensearchServer
 	ctx            context.Context
 	k8sClient      client.Client
 	logger         hclog.Logger
@@ -92,10 +92,6 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		logger:         lg,
 		storageBackend: future.New[storage.Backend](),
 		mgmtApi:        future.New[managementv1.ManagementClient](),
-		opensearchDetailsFetcher: &opensearchDetailsFetcher{
-			k8sClient:           cli,
-			opensearchNamespace: options.storageNamespace,
-		},
 	}
 }
 

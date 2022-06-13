@@ -35,15 +35,37 @@ const (
 )
 
 type ClusterMiddleware struct {
+	ClusterMiddlewareOptions
 	keyringStoreBroker storage.KeyringStoreBroker
 	fakeKeyringStore   storage.KeyringStore
 	headerKey          string
+	authJoinMethod     string
 	logger             *zap.SugaredLogger
+}
+
+type ClusterMiddlewareOptions struct {
+	grpcExcludeAuthMethods []string
+}
+
+type ClusterMiddlewareOption func(*ClusterMiddlewareOptions)
+
+func (o *ClusterMiddlewareOptions) apply(opts ...ClusterMiddlewareOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithExcludeGRPCMethodsFromAuth(methods ...string) ClusterMiddlewareOption {
+	return func(o *ClusterMiddlewareOptions) {
+		o.grpcExcludeAuthMethods = methods
+	}
 }
 
 var _ auth.Middleware = (*ClusterMiddleware)(nil)
 
-func New(ctx context.Context, keyringStore storage.KeyringStoreBroker, headerKey string) (*ClusterMiddleware, error) {
+func New(ctx context.Context, keyringStore storage.KeyringStoreBroker, headerKey string, opts ...ClusterMiddlewareOption) (*ClusterMiddleware, error) {
+	options := ClusterMiddlewareOptions{}
+	options.apply(opts...)
 	lg := logger.New(
 		logger.WithSampling(&zap.SamplingConfig{
 			Initial:    1,
@@ -56,10 +78,11 @@ func New(ctx context.Context, keyringStore storage.KeyringStoreBroker, headerKey
 	}
 
 	return &ClusterMiddleware{
-		keyringStoreBroker: keyringStore,
-		fakeKeyringStore:   fakeKeyringStore,
-		headerKey:          headerKey,
-		logger:             lg,
+		ClusterMiddlewareOptions: options,
+		keyringStoreBroker:       keyringStore,
+		fakeKeyringStore:         fakeKeyringStore,
+		headerKey:                headerKey,
+		logger:                   lg,
 	}, nil
 }
 
@@ -130,6 +153,15 @@ func (m *ClusterMiddleware) doFakeKeyringVerify(mac []byte, id []byte, nonce uui
 	fakeKeyring.Try(func(shared *keyring.SharedKeys) {
 		b2mac.Verify(mac, id, nonce, payload, shared.ClientKey)
 	})
+}
+
+func (m *ClusterMiddleware) methodInExcludeList(method string) bool {
+	for _, excludeMethod := range m.grpcExcludeAuthMethods {
+		if method == excludeMethod {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
@@ -204,6 +236,11 @@ func (m *ClusterMiddleware) StreamServerInterceptor() grpc.StreamServerIntercept
 
 func (m *ClusterMiddleware) UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		m.logger.Debugf("handling auth for %s", info.FullMethod)
+		if m.methodInExcludeList(info.FullMethod) {
+			m.logger.Debug("skipping auth for join method")
+			return handler(ctx, req)
+		}
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
 			err = grpc.Errorf(codes.InvalidArgument, "no metadata in context")

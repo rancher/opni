@@ -50,7 +50,7 @@ type GatewayGRPCClient interface {
 	// Connect returns a ClientConnInterface connected to the streaming server
 	Connect(context.Context) (grpc.ClientConnInterface, future.Future[error])
 	// Dial returns a standard ClientConnInterface for Unary connections
-	Dial() (grpc.ClientConnInterface, error)
+	Dial(context.Context) (grpc.ClientConnInterface, error)
 }
 
 func NewGatewayHTTPClient(
@@ -215,9 +215,8 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 	return cc, f
 }
 
-func (gc *gatewayClient) Dial() (grpc.ClientConnInterface, error) {
-	fmt.Println("Calling dial function with Unary Interceptor")
-	return grpc.Dial(gc.grpcAddress,
+func (gc *gatewayClient) Dial(ctx context.Context) (grpc.ClientConnInterface, error) {
+	return grpc.DialContext(ctx, gc.grpcAddress,
 		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
 		grpc.WithUnaryInterceptor(gc.unaryClientInterceptor),
 		grpc.WithBlock(),
@@ -287,8 +286,6 @@ func (gc *gatewayClient) unaryClientInterceptor(
 	}
 
 	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", authHeader)
-	debug, _ := metadata.FromOutgoingContext(ctx)
-	fmt.Printf("metadata is %+v", debug)
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
 

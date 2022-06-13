@@ -144,7 +144,9 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl)
 
-	clusterAuth, err := cluster.New(ctx, storageBackend, "authorization")
+	clusterAuth, err := cluster.New(ctx, storageBackend, "authorization",
+		cluster.WithExcludeGRPCMethodsFromAuth("/bootstrap.Bootstrap/Join", "/bootstrap.Bootstrap/Auth"),
+	)
 	if err != nil {
 		lg.With(
 			zap.Error(err),

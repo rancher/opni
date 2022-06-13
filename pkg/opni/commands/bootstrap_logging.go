@@ -104,7 +104,7 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	cc, err := gatewayClient.Dial()
+	cc, err := gatewayClient.Dial(cmd.Context())
 	if err != nil {
 		return err
 	}

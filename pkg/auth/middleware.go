@@ -7,6 +7,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	AuthorizationKey = "authorization"
+)
+
 type Protocol uint32
 
 const (

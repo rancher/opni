@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kralicky/totem"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
+	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/b2mac"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
@@ -240,7 +241,7 @@ func (gc *gatewayClient) streamClientInterceptor(
 		return nil, err
 	}
 
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", authHeader)
+	ctx = metadata.AppendToOutgoingContext(ctx, auth.AuthorizationKey, authHeader)
 	return streamer(ctx, desc, cc, method, opts...)
 }
 
@@ -259,7 +260,7 @@ func (gc *gatewayClient) GetRequestMetadata(ctx context.Context, uri ...string) 
 	if err != nil {
 		return authMap, err
 	}
-	authMap["authorization"] = authHeader
+	authMap[auth.AuthorizationKey] = authHeader
 	return authMap, nil
 }
 
@@ -276,16 +277,12 @@ func (gc *gatewayClient) unaryClientInterceptor(
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
 ) error {
-	nonce, mac, err := b2mac.New512([]byte(gc.id), []byte(method), gc.sharedKeys.ClientKey)
-	if err != nil {
-		return err
-	}
-	authHeader, err := b2mac.EncodeAuthHeader([]byte(gc.id), nonce, mac)
+	authHeader, err := b2mac.NewEncodedHeader([]byte(gc.id), []byte(method), gc.sharedKeys.ClientKey)
 	if err != nil {
 		return err
 	}
 
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", authHeader)
+	ctx = metadata.AppendToOutgoingContext(ctx, auth.AuthorizationKey, authHeader)
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
 

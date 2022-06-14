@@ -251,7 +251,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	for prefix, alias := range prefixes {
-		err = r.osReconciler.MaybeBootstrapIndex(prefix, alias)
+		err = r.osReconciler.MaybeBootstrapIndex(prefix, alias, OldIndexPrefixes)
 		if err != nil {
 			conditions = append(conditions, err.Error())
 			retErr = errors.Combine(retErr, err)

@@ -10,7 +10,7 @@ import (
 
 const (
 	LogPolicyName                = "log-policy"
-	LogIndexPrefix               = "logs-v0.1.3"
+	LogIndexPrefix               = "logs-v0.5.1"
 	LogIndexAlias                = "logs"
 	LogIndexTemplateName         = "logs_rollover_mapping"
 	PreProcessingPipelineName    = "opni-ingest-pipeline"
@@ -24,11 +24,14 @@ const (
 	metricIndexTemplateName      = "opni-metric_rollover_mapping"
 	normalIntervalIndexName      = "opni-normal-intervals"
 	kibanaDashboardVersionDocID  = "latest"
-	kibanaDashboardVersion       = "v0.4.0"
+	kibanaDashboardVersion       = "v0.5.0"
 	kibanaDashboardVersionIndex  = "opni-dashboard-version"
 )
 
 var (
+	OldIndexPrefixes = []string{
+		"logs-v0.1.3*",
+	}
 	DefaultRetry = osapiext.RetrySpec{
 		Count:   3,
 		Backoff: "exponential",
@@ -654,6 +657,21 @@ var (
 				Properties: map[string]osapiext.PropertySettings{
 					"timestamp": {
 						Type: "date",
+					},
+					"time": {
+						Type: "date",
+					},
+					"log": {
+						Type: "text",
+					},
+					"masked_log": {
+						Type: "text",
+					},
+					"log_type": {
+						Type: "keyword",
+					},
+					"kubernetes_component": {
+						Type: "keyword",
 					},
 				},
 			},

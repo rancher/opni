@@ -123,6 +123,14 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				FSGroup: util.Pointer(int64(472)),
 			},
 		},
+		Ingress: &grafanav1alpha1.GrafanaIngress{
+			Enabled:       false,
+			Hostname:      grafanaHostname,
+			TLSEnabled:    true,
+			TLSSecretName: "grafana-dashboard-tls",
+			Path:          "/",
+			PathType:      "Prefix",
+		},
 		Secrets: []string{"grafana-datasource-cert"},
 		DataStorage: &grafanav1alpha1.GrafanaDataStorage{
 			Size: resource.MustParse("10Gi"),

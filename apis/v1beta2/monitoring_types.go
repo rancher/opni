@@ -40,8 +40,9 @@ type GatewaySpec struct {
 	Hostname         string   `json:"hostname,omitempty"`
 	PluginSearchDirs []string `json:"pluginSearchDirs,omitempty"`
 	//+kubebuilder:default=LoadBalancer
-	ServiceType corev1.ServiceType     `json:"serviceType,omitempty"`
-	Management  v1beta1.ManagementSpec `json:"management,omitempty"`
+	ServiceType        corev1.ServiceType     `json:"serviceType,omitempty"`
+	ServiceAnnotations map[string]string      `json:"serviceAnnotations,omitempty"`
+	Management         v1beta1.ManagementSpec `json:"management,omitempty"`
 	//+kubebuilder:default=etcd
 	StorageType cfgv1beta1.StorageType `json:"storageType,omitempty"`
 

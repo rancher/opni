@@ -17880,6 +17880,10 @@ spec:
                 items:
                   type: string
                 type: array
+              serviceAnnotations:
+                additionalProperties:
+                  type: string
+                type: object
               serviceType:
                 default: LoadBalancer
                 type: string
@@ -17922,7 +17926,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: "replace-me/opni-serving-cert"
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/opni-serving-cert"
     controller-gen.kubebuilder.io/version: v0.8.1-0.20220428122951-32ad71090a62
   name: gpupolicyadapters.opni.io
 spec:
@@ -17932,7 +17936,7 @@ spec:
       clientConfig:
         service:
           name: opni-webhook
-          namespace: replace-me
+          namespace: {{ .Release.Namespace }}
           path: /convert
       conversionReviewVersions:
       - v1beta1
@@ -26006,7 +26010,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: "replace-me/opni-serving-cert"
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/opni-serving-cert"
     controller-gen.kubebuilder.io/version: v0.8.1-0.20220428122951-32ad71090a62
   name: logadapters.opni.io
 spec:
@@ -26016,7 +26020,7 @@ spec:
       clientConfig:
         service:
           name: opni-webhook
-          namespace: replace-me
+          namespace: {{ .Release.Namespace }}
           path: /convert
       conversionReviewVersions:
       - v1beta1
@@ -54124,7 +54128,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: "replace-me/opni-serving-cert"
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/opni-serving-cert"
     controller-gen.kubebuilder.io/version: v0.8.1-0.20220428122951-32ad71090a62
   name: opniclusters.opni.io
 spec:
@@ -54134,7 +54138,7 @@ spec:
       clientConfig:
         service:
           name: opni-webhook
-          namespace: replace-me
+          namespace: {{ .Release.Namespace }}
           path: /convert
       conversionReviewVersions:
       - v1beta1
@@ -69073,7 +69077,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: "replace-me/opni-serving-cert"
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/opni-serving-cert"
     controller-gen.kubebuilder.io/version: v0.8.1-0.20220428122951-32ad71090a62
   name: pretrainedmodels.opni.io
 spec:
@@ -69083,7 +69087,7 @@ spec:
       clientConfig:
         service:
           name: opni-webhook
-          namespace: replace-me
+          namespace: {{ .Release.Namespace }}
           path: /convert
       conversionReviewVersions:
       - v1beta1

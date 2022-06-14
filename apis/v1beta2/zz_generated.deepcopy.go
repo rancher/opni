@@ -712,6 +712,13 @@ func (in *GatewaySpec) DeepCopyInto(out *GatewaySpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.ServiceAnnotations != nil {
+		in, out := &in.ServiceAnnotations, &out.ServiceAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	out.Management = in.Management
 	if in.NodeSelector != nil {
 		in, out := &in.NodeSelector, &out.NodeSelector

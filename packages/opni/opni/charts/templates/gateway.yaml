@@ -9,6 +9,10 @@ metadata:
 spec:
   hostname: {{ .Values.gateway.hostname }}
   serviceType: {{ .Values.gateway.serviceType }}
+  {{- with .Values.gateway.serviceAnnotations }}
+  serviceAnnotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- with .Values.gateway.auth }}
   auth:
     provider: {{ .provider }}

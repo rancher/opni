@@ -37,6 +37,7 @@ gateway:
   tolerations: []
   affinity: {}
   extraVolumeMounts: []
+  serviceAnnotations: {}
 
 monitoring:
   enabled: false
@@ -178,6 +179,9 @@ ai:
   enabled: false
   s3:
     internal: {}
+
+opni-prometheus-crd:
+  enabled: true
 
 global:
   cattle:

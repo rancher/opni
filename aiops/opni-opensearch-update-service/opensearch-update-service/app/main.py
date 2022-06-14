@@ -27,7 +27,6 @@ async def doc_generator(df):
     df["_op_type"] = "update"
     df["_index"] = "logs"
     df.rename(columns={"log_id": "_id"}, inplace=True)
-    df["entry_processed"] = True
     for index, document in df.iterrows():
         doc_dict = document.to_dict()
         doc_dict["doc"] = {}
@@ -87,14 +86,13 @@ async def receive_logs(queue):
 
 async def update_logs(es, df):
     # This function will be updating Opensearch logs which were inferred on by the DRAIN model.
-    model_keywords_dict = {"drain": {"Normal":  ["_id", "_op_type", "_index", "masked_log", "drain_pretrained_template_matched", "inference_model"],
-                                    "Anomaly": ["_id", "_op_type", "_index", "masked_log", "drain_pretrained_template_matched", "anomaly_level","inference_model"]},
-                          "opnilog": {"Normal": ["_id", "_op_type", "_index", "masked_log", "opnilog_confidence", "inference_model"],
-                                      "Anomaly":  ["_id", "_op_type", "_index", "masked_log", "anomaly_level", "opnilog_confidence", "inference_model"]}}
+    model_keywords_dict = {"drain":  ["_id", "_op_type", "_index", "masked_log", "drain_pretrained_template_matched", "inference_model", "anomaly_level"],
+                          "opnilog":  ["_id", "_op_type", "_index", "masked_log", "anomaly_level", "opnilog_confidence", "inference_model"]}
+    anomaly_level_options = ["Normal", "Anomaly"]
     pretrained_model_logs_df = df.loc[(df["log_type"] != "workload")]
     for model_name in model_keywords_dict:
         model_df = pretrained_model_logs_df[pretrained_model_logs_df["inference_model"] == model_name]
-        for anomaly_level in model_keywords_dict[model_name]:
+        for anomaly_level in anomaly_level_options:
             anomaly_level_df = model_df[model_df["anomaly_level"] == anomaly_level]
             if len(anomaly_level_df) == 0:
                 continue
@@ -102,7 +100,7 @@ async def update_logs(es, df):
                 async for ok, result in async_streaming_bulk(
                         es,
                         doc_generator(
-                            anomaly_level_df[model_keywords_dict[model_name][anomaly_level]]
+                            anomaly_level_df[model_keywords_dict[model_name]]
                         ),
                         max_retries=1,
                         initial_backoff=1,

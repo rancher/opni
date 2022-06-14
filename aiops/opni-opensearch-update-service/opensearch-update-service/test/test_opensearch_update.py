@@ -4,7 +4,7 @@ import unittest
 from unittest import IsolatedAsyncioTestCase
 
 import sys
-from main import doc_generator
+from app.main import doc_generator
 
 class TestStringMethods(IsolatedAsyncioTestCase):
     #Testing one entry being sent over to the doc_generator function.
@@ -14,7 +14,6 @@ class TestStringMethods(IsolatedAsyncioTestCase):
         async for res in processed_results:
             self.assertEqual(res["_op_type"], "update")
             self.assertEqual(res["_index"], "logs")
-            self.assertEqual(res["doc"]["entry_processed"], True)
             self.assertEqual(res["doc"]["log"], "Initialization completed")
             self.assertEqual(res["doc"]["masked_log"], "initialization completed")
             self.assertEqual(res["doc"]["anomaly_level"], "Normal")
@@ -29,7 +28,6 @@ class TestStringMethods(IsolatedAsyncioTestCase):
         async for res in processed_results:
             self.assertEqual(res["_op_type"], "update")
             self.assertEqual(res["_index"], "logs")
-            self.assertEqual(res["doc"]["entry_processed"], True)
             self.assertEqual(res["doc"]["log"], all_entries[idx]["log"])
             self.assertEqual(res["doc"]["masked_log"], all_entries[idx]["masked_log"])
             self.assertEqual(res["doc"]["anomaly_level"], all_entries[idx]["anomaly_level"])

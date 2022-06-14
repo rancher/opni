@@ -2,7 +2,7 @@
 apiVersion: opni.io/v1beta2
 kind: PretrainedModel
 metadata:
-  name: control-plane
+  name: rancher
   namespace: {{ include "opni.namespace" . }}
   labels:
     {{- include "opni.labels" . | nindent 4 }}
@@ -10,9 +10,9 @@ spec:
   replicas: 1
   source:
     http:
-      url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/control-plane-model-v0.4.2.zip"
+      url: "https://opni-public.s3.us-east-2.amazonaws.com/pretrain-models/rancher-model-v0.4.2.zip"
   hyperparameters:
     modelThreshold: "0.6"
     minLogTokens: 1
-    serviceType: "control-plane"
+    serviceType: "rancher"
 {{- end }}

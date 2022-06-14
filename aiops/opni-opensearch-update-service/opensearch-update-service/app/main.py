@@ -86,8 +86,8 @@ async def receive_logs(queue):
 
 async def update_logs(es, df):
     # This function will be updating Opensearch logs which were inferred on by the DRAIN model.
-    model_keywords_dict = {"drain":  ["_id", "_op_type", "_index", "masked_log", "drain_pretrained_template_matched", "inference_model", "anomaly_level"],
-                          "opnilog":  ["_id", "_op_type", "_index", "masked_log", "anomaly_level", "opnilog_confidence", "inference_model"]}
+    model_keywords_dict = {"drain":  ["_id", "masked_log", "drain_pretrained_template_matched", "inference_model", "anomaly_level"],
+                          "opnilog":  ["_id", "masked_log", "anomaly_level", "opnilog_confidence", "inference_model"]}
     anomaly_level_options = ["Normal", "Anomaly"]
     pretrained_model_logs_df = df.loc[(df["log_type"] != "workload")]
     for model_name in model_keywords_dict:

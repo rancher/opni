@@ -2,8 +2,6 @@ package commands
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -18,7 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/opni/common"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
-	loggingplugin "github.com/rancher/opni/plugins/logging/pkg/logging"
+	gatewayopensearchext "github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -102,35 +100,32 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	gatewayClient, err := gatewayclients.NewGatewayHTTPClient(gatewayEndpoint, identifier, keyring, trustStrategy)
+	gatewayClient, err := gatewayclients.NewGatewayGRPCClient(gatewayEndpoint, identifier, keyring, trustStrategy)
 	if err != nil {
 		return err
 	}
-	rb := gatewayClient.Get(cmd.Context(), "/logging/v1/cluster")
-
-	code, body, err := rb.Send()
+	cc, err := gatewayClient.Dial(cmd.Context())
 	if err != nil {
 		return err
 	}
-	if code != 200 {
-		return errors.New("unsuccessful request to fetch credentials")
+
+	loggingClient := gatewayopensearchext.NewOpensearchClient(cc)
+
+	clusterRef := &gatewayopensearchext.ClusterReference{
+		AuthorizedClusterID: clusterID,
 	}
 
-	var detailsResp loggingplugin.OpensearchDetailsResponse
+	creds, err := loggingClient.GetDetails(cmd.Context(), clusterRef)
 
-	if err := json.Unmarshal(body, &detailsResp); err != nil {
-		return err
-	}
-
-	if err := createAuthSecret(cmd.Context(), detailsResp.Password); err != nil {
+	if err := createAuthSecret(cmd.Context(), creds.Password); err != nil {
 		return err
 	}
 
 	if err := createDataPrepper(
 		cmd.Context(),
-		detailsResp.Username,
+		creds.Username,
 		clusterID,
-		detailsResp.ExternalURL,
+		creds.ExternalURL,
 	); err != nil {
 		return err
 	}

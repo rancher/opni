@@ -461,6 +461,8 @@ spec:
                     type: object
                   openid:
                     properties:
+                      allowSignUp:
+                        type: boolean
                       allowedDomains:
                         items:
                           type: string
@@ -479,6 +481,8 @@ spec:
                         required:
                         - issuer
                         type: object
+                      emailAttributePath:
+                        type: string
                       identifyingClaim:
                         default: sub
                         type: string
@@ -486,6 +490,8 @@ spec:
                         type: boolean
                       roleAttributePath:
                         type: string
+                      roleAttributeStrict:
+                        type: boolean
                       scopes:
                         default:
                         - openid
@@ -494,6 +500,12 @@ spec:
                         items:
                           type: string
                         type: array
+                      tlsClientCA:
+                        type: string
+                      tlsClientCert:
+                        type: string
+                      tlsClientKey:
+                        type: string
                       wellKnownConfiguration:
                         properties:
                           authorization_endpoint:
@@ -1259,6 +1271,10 @@ spec:
                 items:
                   type: string
                 type: array
+              serviceAnnotations:
+                additionalProperties:
+                  type: string
+                type: object
               serviceType:
                 default: LoadBalancer
                 type: string

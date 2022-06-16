@@ -42,7 +42,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 		port, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
 		promAgentPort := environment.StartPrometheus(port)
 		Expect(promAgentPort).NotTo(BeZero())
-		Consistently(errC).ShouldNot(Receive())
+		Eventually(errC).Should(Receive(BeNil()))
 	})
 
 	AfterAll(func() {
@@ -105,7 +105,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 			clusterNameList = append(clusterNameList, clusterName)
 
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-			Consistently(errC).ShouldNot(Receive())
+			Eventually(errC).Should(Receive(BeNil()))
 
 			Eventually(func() error {
 				_, err := client.GetCluster(context.Background(), &corev1.Reference{

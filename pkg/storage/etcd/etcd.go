@@ -110,7 +110,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	}
 }
 
-func (e *EtcdStore) KeyringStore(ctx context.Context, prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+func (e *EtcdStore) KeyringStore(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
 	pfx := e.Prefix
 	if prefix != "" {
 		pfx = prefix

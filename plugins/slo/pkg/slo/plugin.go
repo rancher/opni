@@ -9,7 +9,7 @@ import (
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
@@ -17,8 +17,8 @@ type Plugin struct {
 	sloapi.UnsafeSLOServer
 	ctx        context.Context
 	logger     hclog.Logger
-	storage    *util.Future[StorageAPIs]
-	mgmtClient *util.Future[managementv1.ManagementClient]
+	storage    future.Future[StorageAPIs]
+	mgmtClient future.Future[managementv1.ManagementClient]
 }
 
 type StorageAPIs struct {
@@ -35,8 +35,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 	return &Plugin{
 		ctx:        ctx,
 		logger:     lg,
-		storage:    util.NewFuture[StorageAPIs](),
-		mgmtClient: util.NewFuture[managementv1.ManagementClient](),
+		storage:    future.New[StorageAPIs](),
+		mgmtClient: future.New[managementv1.ManagementClient](),
 	}
 }
 

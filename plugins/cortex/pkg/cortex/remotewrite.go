@@ -10,7 +10,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
 	"github.com/golang/snappy"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
 	"github.com/weaveworks/common/user"
 	"google.golang.org/grpc/codes"
@@ -20,9 +20,9 @@ import (
 
 type remoteWriteForwarder struct {
 	remotewrite.UnsafeRemoteWriteServer
-	distClient *util.Future[distributorpb.DistributorClient]
-	httpClient *util.Future[*http.Client]
-	config     *util.Future[*v1beta1.GatewayConfig]
+	distClient future.Future[distributorpb.DistributorClient]
+	httpClient future.Future[*http.Client]
+	config     future.Future[*v1beta1.GatewayConfig]
 }
 
 func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Payload) (*emptypb.Empty, error) {

@@ -17,6 +17,10 @@ service StreamAPIExtension {
   rpc Services(google.protobuf.Empty) returns (ServiceDescriptorList);
 }
 
+service UnaryAPIExtension {
+  rpc UnaryDescriptor(google.protobuf.Empty) returns (google.protobuf.ServiceDescriptorProto);
+}
+
 message CertConfig {
   string ca = 1;
   string caData = 2;

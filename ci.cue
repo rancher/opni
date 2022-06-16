@@ -26,7 +26,7 @@ dagger.#Plan & {
 			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
 			DASHBOARDS_VERSION:  string | *"1.3.1"
 			OPENSEARCH_VERSION:  string | *"1.3.1"
-			PLUGIN_VERSION:      string | *"0.5.0"
+			PLUGIN_VERSION:      string | *"0.5.3"
 			DOCKER_USERNAME?:    string
 			DOCKER_PASSWORD?:    dagger.#Secret
 		}
@@ -165,6 +165,11 @@ dagger.#Plan & {
 				image: web.output
 				host:  client.network."unix:///var/run/docker.sock".connect
 				tag:   web.buildImage
+			}
+			aiops: cli.#Load & {
+				image: actions.aiops.build.output
+				host:  client.network."unix:///var/run/docker.sock".connect
+				tag:   "\(client.env.REPO)/opni-aiops:\(client.env.TAG)"
 			}
 		}
 
@@ -353,6 +358,25 @@ dagger.#Plan & {
 						secret:   client.env.DOCKER_PASSWORD
 					}
 				}
+			}
+		}
+		aiops: {
+			build: docker.#Build & {
+				steps: [
+					docker.#Pull & {
+						source: "rancher/opni-python-base:3.8"
+					},
+					docker.#Copy & {
+						contents: client.filesystem.".".read.contents
+						source: "aiops/"
+						dest: "."
+					},
+					docker.#Set & {
+						config: {
+							cmd: ["python", "opensearch-update-service/main.py"]
+						}
+					}	
+				]
 			}
 		}
 	}

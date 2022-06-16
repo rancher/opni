@@ -61,7 +61,7 @@ require (
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.56.3
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.55.0
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.34.0
@@ -71,6 +71,7 @@ require (
 	github.com/samber/lo v1.21.0
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
+	github.com/tidwall/gjson v1.12.1
 	github.com/tidwall/sjson v1.2.4
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/valyala/fasthttp v1.37.0
@@ -354,7 +355,6 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/thanos-io/thanos v0.22.0 // indirect
 	github.com/therootcompany/xz v1.0.1 // indirect
-	github.com/tidwall/gjson v1.12.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/uber/jaeger-client-go v2.29.1+incompatible // indirect
@@ -425,14 +425,19 @@ require (
 )
 
 replace (
-	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
 	github.com/banzaicloud/logging-operator/pkg/sdk => github.com/banzaicloud/logging-operator/pkg/sdk v0.0.0-20220225205714-b06e7ad17676
-	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220505211443-4a1e526a9497
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210216211028-bb81baaf35cd
-	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
-	go.uber.org/zap => github.com/kralicky/zap v1.19.2-0.20220311060549-c0d473b28cca
 	k8s.io/api => k8s.io/api v0.23.6
 	k8s.io/client-go => k8s.io/client-go v0.23.6
+)
+
+// Forks
+replace (
+	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
+	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.12.0-rc.0.0.20220527230459-8efe7b8df3e4
+	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220602163320-c4f349ffe03f
+	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
+	go.uber.org/zap => github.com/kralicky/zap v1.19.2-0.20220311060549-c0d473b28cca
 	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220427221203-1428ac8c22eb
 )
 
@@ -444,5 +449,3 @@ replace (
 	github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.2.5-0.20211201083710-c7bc8e9df94b
 	github.com/thanos-io/thanos v0.22.0 => github.com/thanos-io/thanos v0.19.1-0.20211208205607-d1acaea2a11a
 )
-
-replace github.com/cortexproject/cortex => github.com/kralicky/cortex v1.12.0-rc.0.0.20220527230459-8efe7b8df3e4

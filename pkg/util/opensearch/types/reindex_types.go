@@ -1,10 +1,14 @@
 package types
 
 type ReindexSpec struct {
-	Source      ReindexIndexSpec `json:"source"`
-	Destination ReindexIndexSpec `json:"dest"`
+	Source      ReindexSourceSpec `json:"source"`
+	Destination ReindexDestSpec   `json:"dest"`
 }
 
-type ReindexIndexSpec struct {
+type ReindexSourceSpec struct {
+	Index []string `json:"index,omitempty"`
+}
+
+type ReindexDestSpec struct {
 	Index string `json:"index,omitempty"`
 }

@@ -2,6 +2,7 @@ package test
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc"
@@ -43,14 +44,14 @@ func (m *TestAuthMiddleware) StreamServerInterceptor() grpc.StreamServerIntercep
 		if !ok {
 			return grpc.Errorf(codes.InvalidArgument, "no metadata in context")
 		}
-		authHeader := md.Get("authorization")
+		authHeader := md.Get(auth.AuthorizationKey)
 		if len(authHeader) > 0 && authHeader[0] == "" {
 			return grpc.Errorf(codes.InvalidArgument, "authorization header required")
 		}
 		userId := authHeader[0]
 		ss = &util.ServerStreamWithContext{
 			Stream: ss,
-			Ctx:    metadata.NewIncomingContext(ss.Context(), metadata.New(map[string]string{"authorization": userId})),
+			Ctx:    metadata.NewIncomingContext(ss.Context(), metadata.New(map[string]string{auth.AuthorizationKey: userId})),
 		}
 		return handler(srv, ss)
 	}

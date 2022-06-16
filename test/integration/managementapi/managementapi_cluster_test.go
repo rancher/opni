@@ -114,7 +114,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 		Expect(fingerprint).NotTo(BeEmpty())
 
 		_, errC := environment.StartAgent("test-cluster-id-2", token2, []string{fingerprint2})
-		Consistently(errC).ShouldNot(Receive())
+		Eventually(errC).Should(Receive(BeNil()))
 
 		Eventually(events).Should(Receive(WithTransform(func(event *managementv1.WatchEvent) string {
 			return event.Cluster.Id
@@ -221,7 +221,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 
 		clusterName := uuid.NewString()
 		_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-		Consistently(errC).ShouldNot(Receive())
+		Eventually(errC).Should(Receive(BeNil()))
 
 		Eventually(func() error {
 			_, err := client.GetCluster(context.Background(), &corev1.Reference{
@@ -260,7 +260,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 
 			clusterName := uuid.NewString()
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-			Consistently(errC).ShouldNot(Receive())
+			Eventually(errC).Should(Receive(BeNil()))
 
 			Eventually(func() error {
 				_, err := client.GetCluster(context.Background(), &corev1.Reference{

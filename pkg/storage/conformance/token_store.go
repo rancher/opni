@@ -12,12 +12,12 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testutil"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/future"
 )
 
 func TokenStoreTestSuite[T storage.TokenStore](
-	tsF *util.Future[T],
-	errCtrlF *util.Future[ErrorController],
+	tsF future.Future[T],
+	errCtrlF future.Future[ErrorController],
 ) func() {
 	return func() {
 		var ts T

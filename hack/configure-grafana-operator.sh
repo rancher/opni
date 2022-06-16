@@ -5,7 +5,7 @@ cd "${config_dir}"
 
 tmp="$(mktemp -d)"
 
-git clone --depth=1 "https://github.com/grafana-operator/grafana-operator" "${tmp}"
+git clone --depth=1 "https://github.com/kralicky/grafana-operator" "${tmp}"
 pushd "${tmp}" &>/dev/null
 
 cd "config"

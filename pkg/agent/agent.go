@@ -9,10 +9,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	gsync "github.com/kralicky/gpkg/sync"
-	"github.com/kralicky/totem"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -63,8 +61,7 @@ type Agent struct {
 	keyringStore     storage.KeyringStore
 	gatewayClient    clients.GatewayGRPCClient
 
-	remoteWriteMu     sync.Mutex
-	remoteWriteClient remotewrite.RemoteWriteClient
+	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
 
 	conditions gsync.Map[string, conditionStatus]
 }
@@ -110,11 +107,14 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return c.SendStatus(fasthttp.StatusOK)
 	})
 
+	initCtx, initCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer initCancel()
+
 	ip, err := ident.GetProvider(conf.Spec.IdentityProvider)
 	if err != nil {
 		return nil, fmt.Errorf("configuration error: %w", err)
 	}
-	id, err := ip.UniqueIdentifier(ctx)
+	id, err := ip.UniqueIdentifier(initCtx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting unique identifier: %w", err)
 	}
@@ -137,7 +137,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	default:
 		return nil, fmt.Errorf("unknown storage type: %s", agent.Storage.Type)
 	}
-	agent.keyringStore, err = keyringStoreBroker.KeyringStore(ctx, "agent", &corev1.Reference{
+	agent.keyringStore, err = keyringStoreBroker.KeyringStore("agent", &corev1.Reference{
 		Id: id,
 	})
 	if err != nil {
@@ -146,11 +146,11 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	var kr keyring.Keyring
 	if options.bootstrapper != nil {
-		if kr, err = agent.bootstrap(ctx); err != nil {
-			return nil, err
+		if kr, err = agent.bootstrap(initCtx); err != nil {
+			return nil, fmt.Errorf("error during bootstrap: %w", err)
 		}
 	} else {
-		if kr, err = agent.loadKeyring(ctx); err != nil {
+		if kr, err = agent.loadKeyring(initCtx); err != nil {
 			return nil, fmt.Errorf("error loading keyring: %w", err)
 		}
 	}
@@ -198,62 +198,24 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}
+	controlv1.RegisterAgentControlServer(agent.gatewayClient, agent)
 
 	var startRuleStreamOnce sync.Once
-
 	go func() {
-		for {
-			cc, err := agent.gatewayClient.Dial(ctx)
-			if err != nil {
-				lg.With(
-					zap.Error(err),
-				).Error("error dialing gateway")
-				time.Sleep(time.Second)
-				continue
+		for ctx.Err() == nil {
+			cc, errF := agent.gatewayClient.Connect(ctx)
+			if !errF.IsSet() {
+				agent.remoteWriteClient = clients.NewLocker(cc, remotewrite.NewRemoteWriteClient)
+
+				startRuleStreamOnce.Do(func() {
+					go agent.streamRulesToGateway(ctx)
+				})
+
+				lg.Error(errF.Get())
+				agent.remoteWriteClient.Close()
+			} else {
+				lg.Error(errF.Get())
 			}
-			streamClient := streamv1.NewStreamClient(cc)
-			lg.Info("establishing streaming connection with gateway")
-			stream, err := streamClient.Connect(ctx)
-			if err != nil {
-				lg.With(
-					zap.Error(err),
-				).Error("error connecting to gateway")
-				time.Sleep(time.Second)
-				continue
-			}
-			lg.Info("stream connected")
-			defer lg.Info("stream disconnected")
-
-			ts := totem.NewServer(stream)
-			controlv1.RegisterAgentControlServer(ts, agent)
-			// TODO : register agent service discovery
-
-			tc, errC := ts.Serve()
-			agent.remoteWriteMu.Lock()
-			agent.remoteWriteClient = remotewrite.NewRemoteWriteClient(tc)
-			agent.remoteWriteMu.Unlock()
-
-			startRuleStreamOnce.Do(func() {
-				go agent.streamRulesToGateway(ctx)
-			})
-
-			// TODO service discovery stream
-			// startServiceDiscoverOnce.Do(func() {
-			// 	go agent.streamServiceDiscoveryToGateway(ctx)
-			// })
-
-			select {
-			case <-ctx.Done():
-				return
-			case err := <-errC:
-				lg.With(
-					zap.Error(err),
-				).Error("stream server error")
-			}
-
-			agent.remoteWriteMu.Lock()
-			agent.remoteWriteClient = nil
-			agent.remoteWriteMu.Unlock()
 		}
 	}()
 
@@ -264,23 +226,30 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 }
 
 func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
-	a.remoteWriteMu.Lock()
-	defer a.remoteWriteMu.Unlock()
-	if a.remoteWriteClient == nil {
-		a.conditions.Store(condRemoteWrite, statusPending)
-		return c.SendStatus(fiber.StatusServiceUnavailable)
-	}
-	_, err := a.remoteWriteClient.Push(c.Context(), &remotewrite.Payload{
-		AuthorizedClusterID: a.tenantID,
-		Contents:            c.Body(),
+	var status int
+	ok := a.remoteWriteClient.Use(func(rwc remotewrite.RemoteWriteClient) {
+		if rwc == nil {
+			a.conditions.Store(condRemoteWrite, statusPending)
+			status = fiber.StatusServiceUnavailable
+			return
+		}
+		_, err := rwc.Push(c.Context(), &remotewrite.Payload{
+			AuthorizedClusterID: a.tenantID,
+			Contents:            c.Body(),
+		})
+		if err != nil {
+			a.logger.Errorf("remote write error: %v", err)
+			a.conditions.Store(condRemoteWrite, statusFailure)
+			status = fiber.StatusServiceUnavailable
+			return
+		}
+		a.conditions.Delete(condRemoteWrite)
+		status = fiber.StatusOK
 	})
-	if err != nil {
-		a.logger.Error(err)
-		a.conditions.Store(condRemoteWrite, statusFailure)
-		return c.SendStatus(fiber.StatusServiceUnavailable)
+	if !ok {
+		status = fiber.StatusServiceUnavailable
 	}
-	a.conditions.Delete(condRemoteWrite)
-	return c.SendStatus(fiber.StatusOK)
+	return c.SendStatus(status)
 }
 
 func (a *Agent) ListenAndServe() error {

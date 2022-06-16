@@ -8,6 +8,7 @@ import (
 	"os"
 
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
+	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
@@ -67,7 +68,7 @@ func (c *ClientConfig) Bootstrap(
 		append(c.DialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial gateway: %v", err)
+		return nil, fmt.Errorf("failed to dial gateway: %w", err)
 	}
 	client := bootstrapv1.NewBootstrapClient(cc)
 
@@ -83,13 +84,10 @@ func (c *ClientConfig) Bootstrap(
 	}
 
 	authResp, err := client.Auth(metadata.NewOutgoingContext(ctx, metadata.Pairs(
-		"authorization", "Bearer "+string(completeJws),
+		auth.AuthorizationKey, "Bearer "+string(completeJws),
 	)), authReq)
 	if err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("auth request failed: %w", err)
 	}
 
 	sharedSecret, err := ecdh.DeriveSharedSecret(ekp, ecdh.PeerPublicKey{
@@ -128,14 +126,14 @@ func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.Bootstra
 		append(c.DialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))...,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to dial gateway: %v", err)
+		return nil, nil, fmt.Errorf("failed to dial gateway: %w", err)
 	}
 	client := bootstrapv1.NewBootstrapClient(cc)
 
 	var peer peer.Peer
 	resp, err := client.Join(ctx, &bootstrapv1.BootstrapJoinRequest{}, grpc.Peer(&peer))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("join request failed: %w", err)
 	}
 
 	tlsInfo, ok := peer.AuthInfo.(credentials.TLSInfo)

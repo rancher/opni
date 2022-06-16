@@ -278,3 +278,89 @@ var StreamAPIExtension_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "pkg/plugins/apis/apiextensions/apiextensions.proto",
 }
+
+// UnaryAPIExtensionClient is the client API for UnaryAPIExtension service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type UnaryAPIExtensionClient interface {
+	UnaryDescriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error)
+}
+
+type unaryAPIExtensionClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewUnaryAPIExtensionClient(cc grpc.ClientConnInterface) UnaryAPIExtensionClient {
+	return &unaryAPIExtensionClient{cc}
+}
+
+func (c *unaryAPIExtensionClient) UnaryDescriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error) {
+	out := new(descriptorpb.ServiceDescriptorProto)
+	err := c.cc.Invoke(ctx, "/apiextensions.UnaryAPIExtension/UnaryDescriptor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// UnaryAPIExtensionServer is the server API for UnaryAPIExtension service.
+// All implementations must embed UnimplementedUnaryAPIExtensionServer
+// for forward compatibility
+type UnaryAPIExtensionServer interface {
+	UnaryDescriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error)
+	mustEmbedUnimplementedUnaryAPIExtensionServer()
+}
+
+// UnimplementedUnaryAPIExtensionServer must be embedded to have forward compatible implementations.
+type UnimplementedUnaryAPIExtensionServer struct {
+}
+
+func (UnimplementedUnaryAPIExtensionServer) UnaryDescriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnaryDescriptor not implemented")
+}
+func (UnimplementedUnaryAPIExtensionServer) mustEmbedUnimplementedUnaryAPIExtensionServer() {}
+
+// UnsafeUnaryAPIExtensionServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to UnaryAPIExtensionServer will
+// result in compilation errors.
+type UnsafeUnaryAPIExtensionServer interface {
+	mustEmbedUnimplementedUnaryAPIExtensionServer()
+}
+
+func RegisterUnaryAPIExtensionServer(s grpc.ServiceRegistrar, srv UnaryAPIExtensionServer) {
+	s.RegisterService(&UnaryAPIExtension_ServiceDesc, srv)
+}
+
+func _UnaryAPIExtension_UnaryDescriptor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UnaryAPIExtensionServer).UnaryDescriptor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/apiextensions.UnaryAPIExtension/UnaryDescriptor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UnaryAPIExtensionServer).UnaryDescriptor(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// UnaryAPIExtension_ServiceDesc is the grpc.ServiceDesc for UnaryAPIExtension service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var UnaryAPIExtension_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "apiextensions.UnaryAPIExtension",
+	HandlerType: (*UnaryAPIExtensionServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "UnaryDescriptor",
+			Handler:    _UnaryAPIExtension_UnaryDescriptor_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "pkg/plugins/apis/apiextensions/apiextensions.proto",
+}

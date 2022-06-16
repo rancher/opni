@@ -3,6 +3,7 @@ package v1beta2
 import (
 	"time"
 
+	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
@@ -39,8 +40,9 @@ type GatewaySpec struct {
 	Hostname         string   `json:"hostname,omitempty"`
 	PluginSearchDirs []string `json:"pluginSearchDirs,omitempty"`
 	//+kubebuilder:default=LoadBalancer
-	ServiceType corev1.ServiceType     `json:"serviceType,omitempty"`
-	Management  v1beta1.ManagementSpec `json:"management,omitempty"`
+	ServiceType        corev1.ServiceType     `json:"serviceType,omitempty"`
+	ServiceAnnotations map[string]string      `json:"serviceAnnotations,omitempty"`
+	Management         v1beta1.ManagementSpec `json:"management,omitempty"`
 	//+kubebuilder:default=etcd
 	StorageType cfgv1beta1.StorageType `json:"storageType,omitempty"`
 
@@ -74,6 +76,14 @@ type OpenIDConfigSpec struct {
 	RoleAttributePath string   `json:"roleAttributePath,omitempty"`
 
 	InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
+
+	// extra options from grafana config
+	AllowSignUp         *bool  `json:"allowSignUp,omitempty"`
+	RoleAttributeStrict *bool  `json:"roleAttributeStrict,omitempty"`
+	EmailAttributePath  string `json:"emailAttributePath,omitempty"`
+	TLSClientCert       string `json:"tlsClientCert,omitempty"`
+	TLSClientKey        string `json:"tlsClientKey,omitempty"`
+	TLSClientCA         string `json:"tlsClientCA,omitempty"`
 }
 
 type StorageBackendType string
@@ -232,10 +242,11 @@ type FilesystemStorageSpec struct {
 type GrafanaSpec struct {
 	Enabled bool `json:"enabled,omitempty"`
 	//+kubebuilder:validation:Required
-	Hostname string `json:"hostname,omitempty"`
-	//+kubebuilder:default="grafana/grafana:latest"
-	Image    string `json:"image,omitempty"`
-	LogLevel string `json:"logLevel,omitempty"`
+	Hostname string `json:"hostname"`
+
+	// Contains any additional configuration or overrides for the Grafana
+	// installation spec.
+	grafanav1alpha1.GrafanaSpec `json:",inline,omitempty"`
 }
 
 type MonitoringClusterSpec struct {

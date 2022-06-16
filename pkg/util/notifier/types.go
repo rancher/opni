@@ -1,3 +1,4 @@
+/// Package for abstracting agent downstream updates and notifying upstream
 package notifier
 
 import (

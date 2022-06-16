@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -19,6 +18,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/util"
 )
 
 //#region Test Setup
@@ -49,10 +49,8 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 		Expect(err).NotTo(HaveOccurred())
 		fingerprint = certsInfo.Chain[len(certsInfo.Chain)-1].Fingerprint
 		Expect(fingerprint).NotTo(BeEmpty())
-	})
 
-	AfterAll(func() {
-		Expect(environment.Stop()).To(Succeed())
+		DeferCleanup(environment.Stop)
 	})
 
 	//#endregion
@@ -71,8 +69,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			port, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
 			promAgentPort := environment.StartPrometheus(port)
 			Expect(promAgentPort).NotTo(BeZero())
-			Consistently(errC).ShouldNot(Receive(HaveOccurred()))
-
+			Eventually(errC).Should(Receive(BeNil()))
 		})
 
 		It("should allow multiple agents to bootstrap using the token", func() {
@@ -80,9 +77,8 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 				clusterName := "test-cluster-id-" + uuid.New().String()
 
 				_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-				Consistently(errC).ShouldNot(Receive())
+				Eventually(errC).Should(Receive(BeNil()))
 			}
-
 		})
 
 		It("should increment the usage count of the token", func() {
@@ -116,7 +112,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			clusterName := "test-cluster-id-" + uuid.New().String()
 
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
-			Eventually(errC).Should(Receive(WithTransform(status.Code, Equal(codes.Unavailable))))
+			Eventually(errC).Should(Receive(WithTransform(util.StatusCode, Equal(codes.Unavailable))))
 		})
 	})
 
@@ -196,11 +192,11 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			}
 
 			_, errC := environment.StartAgent("multiple-token-cluster-1", tokens[0], []string{fingerprint})
-			Consistently(errC).ShouldNot(Receive())
+			Eventually(errC).Should(Receive(BeNil()))
 
 			time.Sleep(time.Second)
 			_, errC = environment.StartAgent("multiple-token-cluster-2", tokens[1], []string{fingerprint})
-			Consistently(errC).ShouldNot(Receive())
+			Eventually(errC).Should(Receive(BeNil()))
 		})
 	})
 
@@ -234,7 +230,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			Expect(err).NotTo(HaveOccurred())
 
 			_, errC := environment.StartAgent("test-cluster-1", token, []string{fingerprint})
-			Consistently(errC).ShouldNot(Receive())
+			Eventually(errC).Should(Receive(BeNil()))
 
 			var cluster *corev1.Cluster
 			Eventually(func() (err error) {
@@ -262,7 +258,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			clusterName := "test-cluster-2" + uuid.New().String()
 
 			_, errC := environment.StartAgent(clusterName, token, []string{fp})
-			Consistently(errC).ShouldNot(Receive())
+			Eventually(errC).Should(Receive(BeNil()))
 		}
 	})
 
@@ -277,7 +273,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			ctx, cancel := context.WithCancel(context.Background())
 			_, errC := environment.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctx))
 
-			Consistently(errC).ShouldNot(Receive())
+			Eventually(errC).Should(Receive(BeNil()))
 			cancel()
 
 			etcdClient, err := environment.EtcdClient()
@@ -308,7 +304,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			Expect(err).NotTo(HaveOccurred())
 
 			_, errC := environment.StartAgent("test-cluster-3", tempToken, []string{fingerprint})
-			Consistently(errC).ShouldNot(Receive())
+			Eventually(errC).Should(Receive(BeNil()))
 			Eventually(func() error {
 				_, err := client.GetCluster(context.Background(), &corev1.Reference{
 					Id: "test-cluster-3",
@@ -330,7 +326,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			Expect(resp.Deleted).To(BeEquivalentTo(1))
 
 			_, errC = environment.StartAgent("test-cluster-3", token, []string{fingerprint})
-			Eventually(errC).Should(Receive(WithTransform(status.Code, Equal(codes.AlreadyExists))))
+			Eventually(errC).Should(Receive(WithTransform(util.StatusCode, Equal(codes.AlreadyExists))))
 		})
 
 		It("should not increment the usage count of the token ", func() {

@@ -94,7 +94,7 @@ var _ = Describe("Gateway Controller", Ordered, Label(test.Controller, test.Slow
 			})).Should(ExistAnd(
 				HaveOwner(gw),
 				HavePorts(
-					"http",
+					"grpc",
 				),
 				HaveType(corev1.ServiceTypeLoadBalancer),
 			))
@@ -106,6 +106,7 @@ var _ = Describe("Gateway Controller", Ordered, Label(test.Controller, test.Slow
 			})).Should(ExistAnd(
 				HaveOwner(gw),
 				HavePorts(
+					"http",
 					"management-grpc",
 					"management-http",
 					"management-web",

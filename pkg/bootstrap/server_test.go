@@ -17,7 +17,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
@@ -28,6 +27,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/tokens"
+	"github.com/rancher/opni/pkg/util"
 )
 
 type testCapBackend struct {
@@ -120,7 +120,7 @@ var _ = Describe("Server", Label(test.Slow), func() {
 			})
 			It("should return http 409", func() {
 				_, err := client.Join(context.Background(), &bootstrapv1.BootstrapJoinRequest{})
-				Expect(status.Code(err)).To(Equal(codes.Unavailable))
+				Expect(util.StatusCode(err)).To(Equal(codes.Unavailable))
 			})
 		})
 	})
@@ -128,7 +128,7 @@ var _ = Describe("Server", Label(test.Slow), func() {
 		When("an Authorization header is not given", func() {
 			It("should return http 401", func() {
 				_, err := client.Auth(context.Background(), &bootstrapv1.BootstrapAuthRequest{})
-				Expect(status.Code(err)).To(Equal(codes.Unauthenticated))
+				Expect(util.StatusCode(err)).To(Equal(codes.Unauthenticated))
 			})
 		})
 		When("an Authorization header is given", func() {
@@ -143,7 +143,7 @@ var _ = Describe("Server", Label(test.Slow), func() {
 						ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+string(sig)))
 
 						_, err = client.Auth(ctx, &bootstrapv1.BootstrapAuthRequest{})
-						Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+						Expect(util.StatusCode(err)).To(Equal(codes.InvalidArgument))
 					})
 				})
 				When("the client sends a bootstrap auth request", func() {
@@ -180,7 +180,7 @@ var _ = Describe("Server", Label(test.Slow), func() {
 						Expect(clusterList.Items[0].GetLabels()).To(HaveKeyWithValue("foo", "bar"))
 
 						By("checking that the cluster's keyring was stored")
-						ks, err := mockKeyringStoreBroker.KeyringStore(context.Background(), "gateway", &corev1.Reference{
+						ks, err := mockKeyringStoreBroker.KeyringStore("gateway", &corev1.Reference{
 							Id: "foo",
 						})
 						Expect(err).NotTo(HaveOccurred())
@@ -210,7 +210,7 @@ var _ = Describe("Server", Label(test.Slow), func() {
 					}
 
 					_, err := client.Auth(ctx, &authReq)
-					Expect(status.Code(err)).To(Equal(codes.PermissionDenied))
+					Expect(util.StatusCode(err)).To(Equal(codes.PermissionDenied))
 				})
 			})
 			When("the token is valid but expired", func() {
@@ -234,7 +234,7 @@ var _ = Describe("Server", Label(test.Slow), func() {
 					}
 					_, err = client.Auth(ctx, &authReq)
 					Expect(err).To(HaveOccurred())
-					Expect(status.Code(err)).To(Equal(codes.PermissionDenied))
+					Expect(util.StatusCode(err)).To(Equal(codes.PermissionDenied))
 				})
 			})
 			When("joining with an additional capability", func() {
@@ -273,7 +273,7 @@ var _ = Describe("Server", Label(test.Slow), func() {
 						ctx := newCtx()
 						_, err := client.Auth(ctx, &authReq)
 						Expect(err).To(HaveOccurred())
-						Expect(status.Code(err)).To(Equal(codes.AlreadyExists))
+						Expect(util.StatusCode(err)).To(Equal(codes.AlreadyExists))
 					})
 				})
 				When("the requested capability does not yet exist", func() {
@@ -300,7 +300,7 @@ var _ = Describe("Server", Label(test.Slow), func() {
 							req := newCtx()
 							_, err := client.Auth(req, &authReq)
 							Expect(err).To(HaveOccurred())
-							Expect(status.Code(err)).To(Equal(codes.NotFound))
+							Expect(util.StatusCode(err)).To(Equal(codes.NotFound))
 						})
 					})
 					When("a backend for the capability exists", func() {
@@ -328,7 +328,7 @@ var _ = Describe("Server", Label(test.Slow), func() {
 							req := newCtx()
 							_, err := client.Auth(req, &authReq)
 							Expect(err).To(HaveOccurred())
-							Expect(status.Code(err)).To(Equal(codes.Unavailable))
+							Expect(util.StatusCode(err)).To(Equal(codes.Unavailable))
 						})
 					})
 					When("the token used does not have the correct join capability", func() {
@@ -349,7 +349,7 @@ var _ = Describe("Server", Label(test.Slow), func() {
 							}
 							_, err = client.Auth(ctx, &authReq)
 							Expect(err).To(HaveOccurred())
-							Expect(status.Code(err)).To(Equal(codes.PermissionDenied))
+							Expect(util.StatusCode(err)).To(Equal(codes.PermissionDenied))
 						})
 					})
 				})

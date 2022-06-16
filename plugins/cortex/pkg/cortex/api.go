@@ -35,7 +35,13 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 		os.Exit(1)
 	}
 
-	cortexTLSConfig := p.getOrLoadCortexCerts()
+	futureCtx, ca = context.WithTimeout(context.Background(), 10*time.Second)
+	defer ca()
+	cortexTLSConfig, err := p.cortexTlsConfig.GetContext(futureCtx)
+	if err != nil {
+		p.logger.With("err", err).Error("plugin startup failed: cortex TLS config was not loaded")
+		os.Exit(1)
+	}
 
 	futureCtx, ca = context.WithTimeout(context.Background(), 10*time.Second)
 	defer ca()

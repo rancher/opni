@@ -9,6 +9,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -85,7 +86,7 @@ var _ = Describe("RBAC", Ordered, Label(test.Slow), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = tv.client.GetRole(context.Background(), role.Reference())
-			Expect(status.Code(err)).To(Equal(codes.NotFound))
+			Expect(util.StatusCode(err)).To(Equal(codes.NotFound))
 
 			roles, err := tv.client.ListRoles(context.Background(), &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
@@ -102,7 +103,7 @@ var _ = Describe("RBAC", Ordered, Label(test.Slow), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = tv.client.GetRoleBinding(context.Background(), rb.Reference())
-			Expect(status.Code(err)).To(Equal(codes.NotFound))
+			Expect(util.StatusCode(err)).To(Equal(codes.NotFound))
 
 			rbs, err := tv.client.ListRoleBindings(context.Background(), &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())

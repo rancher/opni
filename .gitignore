@@ -23,6 +23,8 @@ deploy/examples/gpu/vgpu.yaml
 deploy/custom/cortex.yaml
 deploy/custom/grafana.yaml
 deploy/custom/opni-monitoring.yaml
+/charts/
+index.yaml
 
 /report.json
 /cover.out

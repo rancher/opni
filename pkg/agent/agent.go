@@ -226,6 +226,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 			ts := totem.NewServer(stream)
 			controlv1.RegisterAgentControlServer(ts, agent)
+			// TODO : register agent service discovery
 
 			tc, errC := ts.Serve()
 			agent.remoteWriteMu.Lock()
@@ -235,6 +236,11 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			startRuleStreamOnce.Do(func() {
 				go agent.streamRulesToGateway(ctx)
 			})
+
+			// TODO service discovery stream
+			// startServiceDiscoverOnce.Do(func() {
+			// 	go agent.streamServiceDiscoveryToGateway(ctx)
+			// })
 
 			select {
 			case <-ctx.Done():

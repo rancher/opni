@@ -6,16 +6,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
-func (a *Agent) configureRuleFinder() (rules.RuleFinder, error) {
+func (a *Agent) configureRuleFinder() (notifier.Finder[rules.RuleGroup], error) {
 	if a.Rules != nil {
 		if pr := a.Rules.Discovery.PrometheusRules; pr != nil {
 			client, err := util.NewK8sClient(util.ClientOptions{
@@ -50,7 +50,7 @@ func (a *Agent) streamRuleGroupUpdates(ctx context.Context) (<-chan [][]byte, er
 		}
 		searchInterval = duration
 	}
-	notifier := rules.NewPeriodicUpdateNotifier(ctx, finder, searchInterval)
+	notifier := notifier.NewPeriodicUpdateNotifier(ctx, finder, searchInterval)
 
 	notifierC := notifier.NotifyC(ctx)
 	a.logger.Debug("starting rule group update notifier")
@@ -72,7 +72,7 @@ func (a *Agent) streamRuleGroupUpdates(ctx context.Context) (<-chan [][]byte, er
 	return groupYamlDocs, nil
 }
 
-func (a *Agent) marshalRuleGroups(ruleGroups []rulefmt.RuleGroup) [][]byte {
+func (a *Agent) marshalRuleGroups(ruleGroups []rules.RuleGroup) [][]byte {
 	yamlDocs := make([][]byte, 0, len(ruleGroups))
 	for _, ruleGroup := range ruleGroups {
 		doc, err := yaml.Marshal(ruleGroup)

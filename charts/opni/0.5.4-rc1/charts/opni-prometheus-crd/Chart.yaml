@@ -1,0 +1,14 @@
+annotations:
+  catalog.cattle.io/namespace: opni-cluster-system
+  catalog.cattle.io/provides-gvr: prometheuses.monitoring.coreos.com/v1
+  catalog.cattle.io/release-name: opni-prometheus-crd
+apiVersion: v1
+description: Installs the Prometheus CRDs for Opni.
+maintainers:
+- email: joe.kralicky@suse.com
+  name: Joe Kralicky
+- email: dan.bason@suse.com
+  name: Dan Bason
+name: opni-prometheus-crd
+type: application
+version: 0.4.1

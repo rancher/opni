@@ -10,14 +10,75 @@ package prometheus
 
 import (
 	"context"
+	"fmt"
 
-	discovery "github.com/rancher/opni/pkg/discovery/v1alpha"
+	"github.com/rancher/opni/pkg/discovery"
 )
 
 type PrometheusService struct {
-	discovery.Service
+	clusterId   string
+	serviceName string
+	serviceId   string
+	metadata    string
 }
 
-func (p *PrometheusService) Discover(ctx context.Context) error {
-	return p.Service.Discover(ctx)
+type PrometheusServiceFinder struct {
+	appliedRules []discovery.DiscoveryRule
+}
+
+func NewPrometheusServiceFinder(drules ...discovery.DiscoveryRule) (*PrometheusServiceFinder, error) {
+	return &PrometheusServiceFinder{
+		appliedRules: drules,
+	}, nil
+}
+
+func (p *PrometheusService) Discover(ctx context.Context, drules ...discovery.DiscoveryRule) error {
+	for _, discover_func := range drules {
+		if _, err := discover_func(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *PrometheusService) GetClusterId() string {
+	return p.clusterId
+}
+
+func (p *PrometheusService) GetServiceName() string {
+	return p.serviceName
+}
+
+func (p *PrometheusService) GetServiceId() string {
+	return p.serviceId
+}
+
+func QueryAllPromEndpoints(ctx context.Context) (map[string]string, error) {
+	res := map[string]string{}
+	query_str := "/api/v1/label/__name__/values"
+	metadata_query_str := "/api/v1/metadata"
+
+	fmt.Print(query_str, metadata_query_str)
+	return res, nil
+}
+
+/// Test only : make sure the stream works, regardless of discovery implementation
+func FakePrometheusDiscover(ctx context.Context) ([]discovery.Service, error) {
+	return []discovery.Service{
+		&PrometheusService{
+			clusterId:   "cluster1",
+			serviceName: "service1",
+			serviceId:   "service1",
+		},
+		&PrometheusService{
+			clusterId:   "cluster2",
+			serviceName: "service2",
+			serviceId:   "service2",
+		},
+		&PrometheusService{
+			clusterId:   "cluster3",
+			serviceName: "service3",
+			serviceId:   "service3",
+		},
+	}, nil
 }

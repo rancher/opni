@@ -4,15 +4,9 @@
 package kubernetes
 
 import (
-	"context"
-
-	discovery "github.com/rancher/opni/pkg/discovery/v1alpha"
+	discovery "github.com/rancher/opni/pkg/discovery"
 )
 
 type KubernetesService struct {
 	service discovery.Service
-}
-
-func (k *KubernetesService) Discover(ctx context.Context) error {
-	return k.service.Discover(ctx)
 }

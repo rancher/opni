@@ -10,8 +10,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
-// TODO: calendar, time windows & budgeting are not responsive to user input
-
 const (
 	// Metric Enum
 	MetricLatency      = "http-latency"
@@ -139,13 +137,13 @@ func (slo *ServiceLevelObjective) ParseToAlerts() ([]oslo.AlertPolicy, []oslo.Al
 			Target:      alert.GetNotificationTarget(),
 			Description: alert.GetDescription(),
 		}
+
 		target := oslo.AlertNotificationTarget{
 			ObjectHeader: manifest.ObjectHeader{APIVersion: osloVersion}, //FIXME: subject to change in near future API
 			Spec:         target_spec,
 		}
 		// internal ref used by policy to find the notification target
 		gen_uuid := uuid.New().String() //TODO add this to the target metadata
-		print(target, gen_uuid)
 
 		// Create policy with inline condition
 		policy_spec := oslo.AlertPolicySpec{
@@ -161,6 +159,7 @@ func (slo *ServiceLevelObjective) ParseToAlerts() ([]oslo.AlertPolicy, []oslo.Al
 			Spec:         policy_spec,
 		}
 		policies = append(policies, wrapPolicy)
+		notifs = append(notifs, target)
 
 	}
 

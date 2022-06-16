@@ -35,7 +35,8 @@ spec:
         - --gateway-url={{ .Values.address }}
         - --namespace={{ include "opni-agent.namespace" . }}
         {{- if .Values.logging.insecure }}
-        - --insecure
+        - --trust-strategy=insecure
+        - --confirm-insecure
         {{- end }}
         {{- if .Values.logging.disableOpensearchTLSVerify }}
         - --opensearch-insecure

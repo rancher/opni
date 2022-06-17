@@ -371,12 +371,28 @@ dagger.#Plan & {
 						source: "aiops/"
 						dest: "."
 					},
+					docker.#Run & {
+						command: {
+							name: "pip"
+							args: ["install", "protobuf==3.19.4"]
+						}
+					},
 					docker.#Set & {
 						config: {
-							cmd: ["python", "opensearch-update-service/main.py"]
+							cmd: ["python", "opni-opensearch-update-service/opensearch-update-service/app/main.py"]
 						}
 					}	
 				]
+			}
+			push: docker.#Push & {
+				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
+				image: opensearch.build.output
+				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
 			}
 		}
 	}

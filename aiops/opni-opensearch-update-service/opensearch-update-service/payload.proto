@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package loganomaly;
+
+message Payload {
+    string _id = 1;
+    string cluster_id = 2;
+    string log = 3;
+    string masked_log = 4;
+    string anomaly_level = 5;
+    string log_type = 6;
+    string drain_pretrained_template_matched = 7;
+    string inference_model = 8;
+    float opnilog_confidence = 9;
+}
+
+message PayloadList {
+    repeated Payload items = 1;
+}

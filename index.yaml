@@ -8,6 +8,38 @@ entries:
       catalog.rancher.io/namespace: opni-cluster-system
       catalog.rancher.io/release-name: opni
     apiVersion: v2
+    appVersion: 0.5.4-rc2
+    created: "2022-06-18T09:02:11.6121091+12:00"
+    dependencies:
+    - condition: opni-prometheus-crd.enabled
+      name: opni-prometheus-crd
+      repository: file://./charts/opni-prometheus-crd
+    description: Multi-cluster Monitoring and Logging System
+    digest: 979cb6489bd89ed3d52f0adb433485438411ed319602b84d185a40ece1759d8d
+    icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
+    keywords:
+    - opni
+    - monitoring
+    - logging
+    - rancher
+    - observability
+    maintainers:
+    - email: joe.kralicky@suse.com
+      name: Joe Kralicky
+    - email: dan.bason@suse.com
+      name: Dan Bason
+    name: opni
+    type: application
+    urls:
+    - assets/opni/opni-0.5.4-rc2.tgz
+    version: 0.5.4-rc2
+  - annotations:
+      catalog.cattle.io/auto-install: opni-crd=match
+      catalog.cattle.io/display-name: Opni
+      catalog.cattle.io/os: linux
+      catalog.rancher.io/namespace: opni-cluster-system
+      catalog.rancher.io/release-name: opni
+    apiVersion: v2
     appVersion: 0.5.4-rc1
     created: "2022-06-17T10:56:33.2327983+12:00"
     dependencies:
@@ -181,6 +213,26 @@ entries:
       catalog.rancher.io/namespace: opni-system
       catalog.rancher.io/release-name: opni-agent
     apiVersion: v2
+    appVersion: 0.5.4-rc2
+    created: "2022-06-18T09:02:38.0452176+12:00"
+    dependencies:
+    - condition: kube-prometheus-stack.enabled
+      name: kube-prometheus-stack
+      repository: file://./charts/kube-prometheus-stack
+    description: Opni Agent
+    digest: c6362a31d828af93b5f7a621a487a0cad755938ee297459f0c2aea95fc1a1c95
+    name: opni-agent
+    type: application
+    urls:
+    - assets/opni-agent/opni-agent-0.5.4-rc2.tgz
+    version: 0.5.4-rc2
+  - annotations:
+      catalog.cattle.io/auto-install: opni-agent-crd=match
+      catalog.cattle.io/display-name: Opni Agent
+      catalog.cattle.io/os: linux
+      catalog.rancher.io/namespace: opni-system
+      catalog.rancher.io/release-name: opni-agent
+    apiVersion: v2
     appVersion: 0.5.4-rc1
     created: "2022-06-17T10:57:00.5971122+12:00"
     dependencies:
@@ -300,6 +352,24 @@ entries:
       catalog.cattle.io/namespace: opni-system
       catalog.cattle.io/release-name: opni-agent-crd
     apiVersion: v1
+    created: "2022-06-18T09:02:38.0666136+12:00"
+    description: Installs the CRDs for Opni.
+    digest: 4c042a3c6bfe2b6f2aecaa1a6779d86c3a5864870966413abc70525a63032ac8
+    maintainers:
+    - email: joe.kralicky@suse.com
+      name: Joe Kralicky
+    - email: dan.bason@suse.com
+      name: Dan Bason
+    name: opni-agent-crd
+    type: application
+    urls:
+    - assets/opni-agent-crd/opni-agent-crd-0.5.4-rc2.tgz
+    version: 0.5.4-rc2
+  - annotations:
+      catalog.cattle.io/hidden: "true"
+      catalog.cattle.io/namespace: opni-system
+      catalog.cattle.io/release-name: opni-agent-crd
+    apiVersion: v1
     created: "2022-06-17T10:57:00.6149081+12:00"
     description: Installs the CRDs for Opni.
     digest: 3d1e2a9f434ba24f68c8bb3e7461cb013c7db3c82d728ac94629217df50c3122
@@ -404,6 +474,24 @@ entries:
     - assets/opni-agent-crd/opni-agent-crd-0.4.1.tgz
     version: 0.4.1
   opni-crd:
+  - annotations:
+      catalog.cattle.io/hidden: "true"
+      catalog.cattle.io/namespace: opni-cluster-system
+      catalog.cattle.io/release-name: opni-crd
+    apiVersion: v1
+    created: "2022-06-18T09:02:11.7562426+12:00"
+    description: Installs the CRDs for Opni.
+    digest: fb12e0d1ed93a4b41c55f289b1cc2a1491ace2bb4ee18ed2f43a8097f152f1e5
+    maintainers:
+    - email: joe.kralicky@suse.com
+      name: Joe Kralicky
+    - email: dan.bason@suse.com
+      name: Dan Bason
+    name: opni-crd
+    type: application
+    urls:
+    - assets/opni-crd/opni-crd-0.5.4-rc2.tgz
+    version: 0.5.4-rc2
   - annotations:
       catalog.cattle.io/hidden: "true"
       catalog.cattle.io/namespace: opni-cluster-system

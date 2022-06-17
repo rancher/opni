@@ -110,6 +110,8 @@ func (r *Reconciler) gatewayServingCert() client.Object {
 				r.gw.Spec.Hostname,
 				fmt.Sprintf("opni-monitoring.%s.svc", r.gw.Namespace),
 				fmt.Sprintf("opni-monitoring.%s.svc.cluster.local", r.gw.Namespace),
+				fmt.Sprintf("opni-monitoring-internal.%s.svc", r.gw.Namespace),
+				fmt.Sprintf("opni-monitoring-internal.%s.svc.cluster.local", r.gw.Namespace),
 			},
 		},
 	}

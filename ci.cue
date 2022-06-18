@@ -371,12 +371,6 @@ dagger.#Plan & {
 						source: "aiops/"
 						dest: "."
 					},
-					docker.#Run & {
-						command: {
-							name: "pip"
-							args: ["install", "protobuf==3.19.4"]
-						}
-					},
 					docker.#Set & {
 						config: {
 							cmd: ["python", "opni-opensearch-update-service/opensearch-update-service/app/main.py"]

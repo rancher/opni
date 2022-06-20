@@ -410,7 +410,7 @@
         "onCreate": {
           "type": "boolean"
         },
-        "onBreanch": {
+        "onBreach": {
           "type": "boolean"
         },
         "onResolved": {

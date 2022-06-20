@@ -149,7 +149,7 @@ func (slo *ServiceLevelObjective) ParseToAlerts() ([]oslo.AlertPolicy, []oslo.Al
 		policy_spec := oslo.AlertPolicySpec{
 			Description:         alert.GetDescription(),
 			AlertWhenNoData:     alert.GetOnNoData(),
-			AlertWhenBreaching:  alert.GetOnBreanch(),
+			AlertWhenBreaching:  alert.GetOnBreach(),
 			AlertWhenResolved:   alert.GetOnResolved(),
 			Conditions:          []oslo.AlertPolicyCondition{},
 			NotificationTargets: []oslo.AlertPolicyNotificationTarget{{TargetRef: gen_uuid}},

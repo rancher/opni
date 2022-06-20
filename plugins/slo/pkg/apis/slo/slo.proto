@@ -117,7 +117,7 @@ message Alert {
   string conditionType = 5;
   bool onNoData = 6;
   bool onCreate = 7;
-  bool onBreanch = 8;
+  bool onBreach = 8;
   bool onResolved = 9;
 }
 

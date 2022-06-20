@@ -27,4 +27,5 @@ type Service interface {
 	GetClusterId() string
 	GetServiceName() string
 	GetServiceId() string
+	GetServiceType() string
 }

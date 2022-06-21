@@ -21,6 +21,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/tokens"
+	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/spf13/cobra"
@@ -50,6 +51,7 @@ func BuildAgentCmd() *cobra.Command {
 		Long: `The client component of the opni gateway, used to proxy the prometheus
 agent remote-write requests to add dynamic authentication.`,
 		Run: func(cmd *cobra.Command, args []string) {
+			tracing.Configure("agent")
 			agentlg = logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(agentLogLevel))))
 			wg := sync.WaitGroup{}
 

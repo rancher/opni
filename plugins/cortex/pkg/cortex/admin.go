@@ -17,6 +17,8 @@ import (
 	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -156,6 +158,8 @@ func (p *Plugin) configureAdminClients() {
 	{
 		cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Distributor.GRPCAddress,
 			grpc.WithTransportCredentials(credentials.NewTLS(p.cortexTlsConfig.Get())),
+			grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
+			grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 		)
 		if err != nil {
 			p.logger.With(
@@ -167,9 +171,9 @@ func (p *Plugin) configureAdminClients() {
 	}
 	{
 		httpClient := &http.Client{
-			Transport: &http.Transport{
+			Transport: otelhttp.NewTransport(&http.Transport{
 				TLSClientConfig: p.cortexTlsConfig.Get(),
-			},
+			}),
 		}
 		p.cortexHttpClient.Set(httpClient)
 	}

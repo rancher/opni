@@ -16,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -119,6 +120,8 @@ func (s *Server) connectToManagementAPI(ctx context.Context) error {
 	).Info("connecting to management api")
 	cc, err := grpc.DialContext(ctx, s.ManagementAPIEndpoint,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
+		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 		grpc.WithBlock(),
 	)
 	if err != nil {

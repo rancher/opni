@@ -3,6 +3,8 @@ package gateway
 import (
 	"context"
 	"crypto/tls"
+	"net/http"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -19,6 +21,7 @@ import (
 	"github.com/rancher/opni/pkg/util/fwd"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -40,6 +43,7 @@ type GatewayHTTPServer struct {
 	logger         *zap.SugaredLogger
 	tlsConfig      *tls.Config
 	metricsHandler *MetricsEndpointHandler
+	tracer         trace.Tracer
 
 	routesMu             sync.Mutex
 	reservedPrefixRoutes []string
@@ -55,6 +59,7 @@ func NewHTTPServer(
 
 	router := gin.New()
 	router.SetTrustedProxies(cfg.TrustedProxies)
+	router.Use(otelgin.Middleware("gateway"))
 
 	tlsConfig, _, err := loadTLSConfig(cfg)
 	if err != nil {

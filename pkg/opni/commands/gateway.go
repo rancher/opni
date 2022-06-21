@@ -14,6 +14,7 @@ import (
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -34,6 +35,8 @@ func BuildGatewayCmd() *cobra.Command {
 	var configLocation string
 
 	run := func() error {
+		tracing.Configure("gateway")
+
 		objects := cliutil.LoadConfigObjectsOrDie(configLocation, lg)
 
 		ctx, cancel := context.WithCancel(waitctx.Background())

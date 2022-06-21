@@ -12,6 +12,8 @@ import (
 	"os"
 	"path"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type DiscoverySpec struct {
@@ -71,11 +73,11 @@ func fetchWellKnownConfig(dc *DiscoverySpec) (*WellKnownConfiguration, error) {
 			return nil, fmt.Errorf("failed to read CA certificate: %w", err)
 		}
 		pool.AppendCertsFromPEM(cacert)
-		client.Transport = &http.Transport{
+		client.Transport = otelhttp.NewTransport(&http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs: pool,
 			},
-		}
+		})
 	}
 	u, err := url.Parse(dc.Issuer)
 	if err != nil {

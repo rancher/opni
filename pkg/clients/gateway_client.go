@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"emperror.dev/errors"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -185,7 +186,7 @@ func (gc *gatewayClient) RegisterService(desc *grpc.ServiceDesc, impl any) {
 func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface, future.Future[error]) {
 	gcc, err := grpc.DialContext(ctx, gc.grpcAddress,
 		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
-		grpc.WithStreamInterceptor(gc.streamClientInterceptor),
+		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor(), gc.streamClientInterceptor),
 		grpc.WithBlock(),
 	)
 	if err != nil {
@@ -219,7 +220,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 func (gc *gatewayClient) Dial(ctx context.Context) (grpc.ClientConnInterface, error) {
 	return grpc.DialContext(ctx, gc.grpcAddress,
 		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
-		grpc.WithUnaryInterceptor(gc.unaryClientInterceptor),
+		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor(), gc.unaryClientInterceptor),
 		grpc.WithBlock(),
 	)
 }

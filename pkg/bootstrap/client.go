@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -65,7 +66,11 @@ func (c *ClientConfig) Bootstrap(
 	}
 
 	cc, err := grpc.DialContext(ctx, c.Endpoint,
-		append(c.DialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))...,
+		append(c.DialOpts,
+			grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+			grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
+			grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
+		)...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial gateway: %w", err)
@@ -123,7 +128,11 @@ func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.Bootstra
 		return nil, nil, err
 	}
 	cc, err := grpc.DialContext(ctx, c.Endpoint,
-		append(c.DialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))...,
+		append(c.DialOpts,
+			grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+			grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
+			grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
+		)...,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to dial gateway: %w", err)

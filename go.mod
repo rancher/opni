@@ -23,6 +23,7 @@ require (
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-kit/log v0.2.0
 	github.com/go-logr/logr v1.2.3
+	github.com/go-logr/zapr v1.2.0
 	github.com/go-test/deep v1.0.8
 	github.com/gofiber/fiber/v2 v2.34.0
 	github.com/golang/mock v1.6.1-0.20220512030613-73266f9366fc
@@ -45,7 +46,7 @@ require (
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
 	github.com/kralicky/kmatch v0.0.0-20220516173937-745c3d52252c
 	github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f
-	github.com/kralicky/totem v1.0.0
+	github.com/kralicky/totem v1.0.1-0.20220620223146-99d6bdcbff46
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
 	github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208
 	github.com/lestrrat-go/backoff/v2 v2.0.8
@@ -89,6 +90,12 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.4
 	go.etcd.io/etcd/etcdctl/v3 v3.5.4
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.32.0
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.31.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.32.0
+	go.opentelemetry.io/contrib/propagators/autoprop v0.0.0-20220619223623-e0e74d25f89f
+	go.opentelemetry.io/otel v1.7.0
+	go.opentelemetry.io/otel/sdk v1.7.0
+	go.opentelemetry.io/otel/trace v1.7.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
@@ -207,7 +214,6 @@ require (
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-logr/zapr v1.2.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/analysis v0.21.2 // indirect
 	github.com/go-openapi/errors v0.20.2 // indirect
@@ -411,11 +417,11 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.4 // indirect
 	go.mongodb.org/mongo-driver v1.8.3 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.28.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.31.0 // indirect
-	go.opentelemetry.io/otel v1.7.0 // indirect
-	go.opentelemetry.io/otel/metric v0.28.0 // indirect
-	go.opentelemetry.io/otel/trace v1.7.0 // indirect
+	go.opentelemetry.io/contrib/propagators/aws v1.7.0 // indirect
+	go.opentelemetry.io/contrib/propagators/b3 v1.7.0 // indirect
+	go.opentelemetry.io/contrib/propagators/jaeger v1.7.0 // indirect
+	go.opentelemetry.io/contrib/propagators/ot v1.7.0 // indirect
+	go.opentelemetry.io/otel/metric v0.30.0 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/goleak v1.1.12 // indirect
 	go.uber.org/multierr v1.8.0 // indirect

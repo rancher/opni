@@ -6,6 +6,7 @@ import (
 	"emperror.dev/errors"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -41,6 +42,8 @@ func NewManagementClient(ctx context.Context, opts ...ManagementClientOption) (m
 		address: managementv1.DefaultManagementSocket(),
 		dialOptions: []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
+			grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 		},
 	}
 	options.Apply(opts...)

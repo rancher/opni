@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/valyala/fasthttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.uber.org/zap"
 )
 
@@ -67,9 +67,9 @@ func To(addr string, opts ...ForwarderOption) gin.HandlerFunc {
 		options.logger = options.logger.Named(options.name)
 	}
 
-	transport := &http.Transport{
+	transport := otelhttp.NewTransport(&http.Transport{
 		TLSClientConfig: options.tlsConfig,
-	}
+	})
 
 	tlsEnabled := options.tlsConfig != nil
 

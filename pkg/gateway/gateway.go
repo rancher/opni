@@ -157,8 +157,8 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	// set up grpc server
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
-		grpc.StreamInterceptor(clusterAuth.StreamServerInterceptor()),
-		grpc.UnaryInterceptor(clusterAuth.UnaryServerInterceptor()),
+		grpc.ChainStreamInterceptor(clusterAuth.StreamServerInterceptor()),
+		grpc.ChainUnaryInterceptor(clusterAuth.UnaryServerInterceptor()),
 	)
 
 	// set up stream server

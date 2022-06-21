@@ -284,6 +284,7 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 					SecurityContext: &corev1.SecurityContext{
 						ReadOnlyRootFilesystem: util.Pointer(true),
 					},
+					Env: r.mc.Spec.Cortex.ExtraEnvVars,
 					VolumeMounts: append([]corev1.VolumeMount{
 						{
 							Name:      "data",

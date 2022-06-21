@@ -116,6 +116,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 								SuccessThreshold: 1,
 								FailureThreshold: 10,
 							},
+							Env: r.gw.Spec.ExtraEnvVars,
 						},
 					},
 					Volumes: []corev1.Volume{

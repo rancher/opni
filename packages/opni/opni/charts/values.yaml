@@ -16,6 +16,8 @@ resources: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
+volumes: []
+volumeMounts: []
 
 gateway:
   enabled: true

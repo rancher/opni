@@ -50,6 +50,7 @@ type GatewaySpec struct {
 	Tolerations       []corev1.Toleration         `json:"tolerations,omitempty"`
 	Affinity          *corev1.Affinity            `json:"affinity,omitempty"`
 	ExtraVolumeMounts []opnimeta.ExtraVolumeMount `json:"extraVolumeMounts,omitempty"`
+	ExtraEnvVars      []corev1.EnvVar             `json:"extraEnvVars,omitempty"`
 }
 
 func (g *GatewaySpec) GetServiceType() corev1.ServiceType {
@@ -97,10 +98,11 @@ const (
 )
 
 type CortexSpec struct {
-	Enabled  bool              `json:"enabled,omitempty"`
-	Image    *ImageSpec        `json:"image,omitempty"`
-	LogLevel string            `json:"logLevel,omitempty"`
-	Storage  CortexStorageSpec `json:"storage,omitempty"`
+	Enabled      bool              `json:"enabled,omitempty"`
+	Image        *ImageSpec        `json:"image,omitempty"`
+	LogLevel     string            `json:"logLevel,omitempty"`
+	Storage      CortexStorageSpec `json:"storage,omitempty"`
+	ExtraEnvVars []corev1.EnvVar   `json:"extraEnvVars,omitempty"`
 }
 
 type CortexStorageSpec struct {

@@ -5,7 +5,6 @@ import (
 	"context"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/rancher/opni/pkg/discovery"
 	"github.com/rancher/opni/pkg/logger"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,8 +38,8 @@ func NewPrometheusServiceFinder(k8sClient client.Client, opts ...PrometheusServi
 	}
 }
 
-func (f *PrometheusServiceFinder) Find(ctx context.Context) ([]discovery.Service, error) {
-	res := make([]discovery.Service, 0)
+func (f *PrometheusServiceFinder) Find(ctx context.Context) ([]PrometheusService, error) {
+	res := make([]PrometheusService, 0)
 	kubeObjectsServices, err := f.findDiscoveryKubeObject(ctx)
 	if err != nil {
 		return nil, err
@@ -53,12 +52,14 @@ func (f *PrometheusServiceFinder) Find(ctx context.Context) ([]discovery.Service
 	}
 	res = append(res, promServerServices...)
 
+	//TODO : discover additional scrape configs https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/additional-scrape-config.md
+
 	return res, nil
 }
 
-func (f *PrometheusServiceFinder) findDiscoveryPromServer(ctx context.Context) ([]discovery.Service, error) {
+func (f *PrometheusServiceFinder) findDiscoveryPromServer(ctx context.Context) ([]PrometheusService, error) {
 	lg := f.logger
-	res := make([]discovery.Service, 0)
+	res := make([]PrometheusService, 0)
 	// TODO search for user defined scrape configs in fs in the prometheus operators
 
 	lg.Debug("Finding Prometheus server pods ...")
@@ -71,9 +72,9 @@ func (f *PrometheusServiceFinder) findDiscoveryPromServer(ctx context.Context) (
 	return res, nil
 }
 
-func (f *PrometheusServiceFinder) findDiscoveryKubeObject(ctx context.Context) ([]discovery.Service, error) {
+func (f *PrometheusServiceFinder) findDiscoveryKubeObject(ctx context.Context) ([]PrometheusService, error) {
 	lg := f.logger
-	res := make([]discovery.Service, 0)
+	res := make([]PrometheusService, 0)
 
 	lg.Debug("Finding Prometheus operator ServiceMonitors ...")
 	// "Service" exposed scrape targets with metrics
@@ -84,6 +85,11 @@ func (f *PrometheusServiceFinder) findDiscoveryKubeObject(ctx context.Context) (
 	lg.Debugf("Found %d PrometheusServiceMonitor CRDs", len(promServices.Items))
 
 	for _, promService := range promServices.Items {
+		//FIXME: query the job name Ids
+		// jobIds := make([]string, 0)
+		// for _, e := promService.Spec.Endpoints {
+		// 	jobIDs = append(jobIds)
+		// }
 		res = append(res, PrometheusService{
 			clusterId:   promService.ObjectMeta.ClusterName,
 			serviceId:   promService.Spec.JobLabel,
@@ -101,6 +107,7 @@ func (f *PrometheusServiceFinder) findDiscoveryKubeObject(ctx context.Context) (
 	lg.Debugf("Found %d PrometheusPodMonitor CRDs", len(promServices.Items))
 
 	for _, promPod := range promPods.Items {
+		//FIXME: the serviceId is not the job name that can be used in PromQL
 		res = append(res, PrometheusService{
 			clusterId:   promPod.ObjectMeta.ClusterName,
 			serviceId:   promPod.Spec.JobLabel,
@@ -117,6 +124,17 @@ type PrometheusService struct {
 	serviceName string
 	serviceId   string
 	serviceType string
+	JobName     string
+}
+
+func (p PrometheusService) Clone() PrometheusService {
+	return PrometheusService{
+		clusterId:   p.clusterId,
+		serviceName: p.serviceName,
+		serviceId:   p.serviceId,
+		serviceType: p.serviceType,
+		JobName:     p.JobName,
+	}
 }
 
 func (p PrometheusService) GetClusterId() string {

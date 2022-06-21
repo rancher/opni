@@ -60,6 +60,7 @@ type Agent struct {
 	identityProvider ident.Provider
 	keyringStore     storage.KeyringStore
 	gatewayClient    clients.GatewayGRPCClient
+	trust            trust.Strategy
 
 	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
 
@@ -159,42 +160,13 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, errors.New("gateway address not set")
 	}
 
-	var trustStrategy trust.Strategy
-	switch conf.Spec.TrustStrategy {
-	case v1beta1.TrustStrategyPKP:
-		conf := trust.StrategyConfig{
-			PKP: &trust.PKPConfig{
-				Pins: trust.NewKeyringPinSource(kr),
-			},
-		}
-		trustStrategy, err = conf.Build()
+	agent.trust, err = agent.buildTrustStrategy(kr)
 		if err != nil {
-			return nil, fmt.Errorf("error configuring pkp trust from keyring: %w", err)
-		}
-	case v1beta1.TrustStrategyCACerts:
-		conf := trust.StrategyConfig{
-			CACerts: &trust.CACertsConfig{
-				CACerts: trust.NewKeyringCACertsSource(kr),
-			},
-		}
-		trustStrategy, err = conf.Build()
-		if err != nil {
-			return nil, fmt.Errorf("error configuring ca certs trust from keyring: %w", err)
-		}
-	case v1beta1.TrustStrategyInsecure:
-		conf := trust.StrategyConfig{
-			Insecure: &trust.InsecureConfig{},
-		}
-		trustStrategy, err = conf.Build()
-		if err != nil {
-			return nil, fmt.Errorf("error configuring insecure trust: %w", err)
-		}
-	default:
-		return nil, fmt.Errorf("unknown trust strategy: %s", conf.Spec.TrustStrategy)
+		return nil, fmt.Errorf("error building trust strategy: %w", err)
 	}
 
 	agent.gatewayClient, err = clients.NewGatewayGRPCClient(
-		conf.Spec.GatewayAddress, ip, kr, trustStrategy)
+		conf.Spec.GatewayAddress, ip, kr, agent.trust)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}
@@ -331,4 +303,51 @@ func (a *Agent) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health, erro
 func (a *Agent) initConditions() {
 	a.conditions.Store(condRemoteWrite, statusPending)
 	a.conditions.Store(condRuleSync, statusPending)
+}
+
+func (a *Agent) buildTrustStrategy(kr keyring.Keyring) (trust.Strategy, error) {
+	var trustStrategy trust.Strategy
+	var err error
+	switch a.TrustStrategy {
+	case v1beta1.TrustStrategyPKP:
+		conf := trust.StrategyConfig{
+			PKP: &trust.PKPConfig{
+				Pins: trust.NewKeyringPinSource(kr),
+			},
+		}
+		trustStrategy, err = conf.Build()
+		if err != nil {
+			return nil, fmt.Errorf("error configuring pkp trust from keyring: %w", err)
+		}
+	case v1beta1.TrustStrategyCACerts:
+		conf := trust.StrategyConfig{
+			CACerts: &trust.CACertsConfig{
+				CACerts: trust.NewKeyringCACertsSource(kr),
+			},
+		}
+		trustStrategy, err = conf.Build()
+		if err != nil {
+			return nil, fmt.Errorf("error configuring ca certs trust from keyring: %w", err)
+		}
+	case v1beta1.TrustStrategyInsecure:
+		conf := trust.StrategyConfig{
+			Insecure: &trust.InsecureConfig{},
+		}
+		trustStrategy, err = conf.Build()
+		if err != nil {
+			return nil, fmt.Errorf("error configuring insecure trust: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("unknown trust strategy: %s", a.TrustStrategy)
+	}
+
+	return trustStrategy, nil
+}
+
+func (a *Agent) GetKeyring(ctx context.Context) (keyring.Keyring, error) {
+	return a.keyringStore.Get(ctx)
+}
+
+func (a *Agent) GetTrustStrategy() trust.Strategy {
+	return a.trust
 }

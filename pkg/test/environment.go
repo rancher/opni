@@ -51,6 +51,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
@@ -63,7 +64,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-var Log = logger.New(logger.WithLogLevel(zap.DebugLevel)).Named("test")
+var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")
 
 type servicePorts struct {
 	Etcd            int
@@ -673,7 +674,6 @@ func (e *Environment) NewManagementClient() managementv1.ManagementClient {
 	}
 	return c
 }
-
 func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
@@ -686,6 +686,19 @@ func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
 		panic(err)
 	}
 	return cc
+}
+func (e *Environment) NewCortexAdminClient() cortexadmin.CortexAdminClient {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
+	c, err := cortexadmin.NewClient(e.ctx,
+		cortexadmin.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		cortexadmin.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return c
 }
 
 func (e *Environment) PrometheusAPIEndpoint() string {
@@ -945,6 +958,28 @@ func (e *Environment) GatewayTLSConfig() *tls.Config {
 
 func (e *Environment) GatewayConfig() *v1beta1.GatewayConfig {
 	return e.gatewayConfig
+}
+
+func (e *Environment) NewGatewayHTTPClient(agentId string) (clients.GatewayHTTPClient, error) {
+	ip, err := ident.GetProvider(agentId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ident provider for agent %s: %w", agentId, err)
+	}
+
+	agent := e.GetAgent(agentId)
+
+	kr, err := agent.GetKeyring(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get keyring for agent %s: %w", agentId, err)
+	}
+
+	ts := agent.GetTrustStrategy()
+
+	client, err := clients.NewGatewayHTTPClient(fmt.Sprintf("https://localhost:%d", e.ports.GatewayHTTP), ip, kr, ts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gateway http client for agent %s: %w", agentId, err)
+	}
+	return client, nil
 }
 
 func (e *Environment) EtcdClient() (*clientv3.Client, error) {

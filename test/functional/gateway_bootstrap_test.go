@@ -163,7 +163,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label("in
 			Expect(invResp.Header.Get("Content-Type")).To(Equal("application/json"))
 			Expect(invResp.Header.Get("Results-Cache-Gen-Number")).To(BeEmpty())
 
-			defer resp.Body.Close()
+			defer invResp.Body.Close()
 			b2, err := ioutil.ReadAll(invResp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(b2)).To(Equal(`{"status":"success","data":["__tenant_id__"]}`))

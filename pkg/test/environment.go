@@ -289,6 +289,13 @@ func (e *Environment) StartK8s() (*rest.Config, error) {
 	}
 	scheme := apis.NewScheme()
 
+	for _, path := range e.CRDDirectoryPaths {
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			panic(fmt.Errorf("k8s CRDS : %v", err))
+		}
+	}
+
 	e.k8sEnv = &envtest.Environment{
 		BinaryAssetsDirectory: e.TestBin,
 		CRDDirectoryPaths:     e.CRDDirectoryPaths,

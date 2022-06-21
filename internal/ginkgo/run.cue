@@ -26,7 +26,7 @@ import (
 		ParallelHost:          string | *""
 	}
 	Build: {
-		Race:                 true
+		Race:                 bool | *true
 		Cover:                true
 		CoverMode:            string | *"atomic"
 		CoverPkg:             string | *""

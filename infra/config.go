@@ -53,6 +53,8 @@ type Config struct {
 	ImageRepo      string        `json:"imageRepo"`
 	ImageTag       string        `json:"imageTag"`
 	UseLocalCharts bool          `json:"useLocalCharts"`
+	ChartsRepo     string        `json:"chartsRepo"`
+	ChartVersion   string        `json:"chartVersion"`
 	Cluster        ClusterConfig `json:"cluster"`
 }
 
@@ -72,6 +74,9 @@ func (c *Config) LoadDefaults() {
 	}
 	if c.ImageTag == "" {
 		c.ImageTag = "latest"
+	}
+	if c.ChartsRepo == "" {
+		c.ChartsRepo = "https://raw.githubusercontent.com/rancher/opni/charts-repo/"
 	}
 	c.Cluster.LoadDefaults()
 }

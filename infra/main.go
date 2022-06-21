@@ -84,7 +84,7 @@ func run(ctx *Context) (runErr error) {
 		}
 	} else {
 		chartRepoOpts = &helm.RepositoryOptsArgs{
-			Repo: StringPtr("https://raw.githubusercontent.com/rancher/opni/charts-repo/"),
+			Repo: StringPtr(conf.ChartsRepo),
 		}
 		opniCrdChart = "opni-crd"
 		opniPrometheusCrdChart = "opni-prometheus-crd"
@@ -108,6 +108,7 @@ func run(ctx *Context) (runErr error) {
 		opniCrd, err := helm.NewRelease(ctx, "opni-crd", &helm.ReleaseArgs{
 			Chart:          String(opniCrdChart),
 			RepositoryOpts: chartRepoOpts,
+			Version:        StringPtr(conf.ChartVersion),
 			Namespace:      String("opni"),
 			Atomic:         Bool(true),
 			ForceUpdate:    Bool(true),
@@ -118,8 +119,10 @@ func run(ctx *Context) (runErr error) {
 		}
 
 		opni, err := helm.NewRelease(ctx, "opni", &helm.ReleaseArgs{
+			Name:           String("opni"),
 			Chart:          String(opniChart),
 			RepositoryOpts: chartRepoOpts,
+			Version:        StringPtr(conf.ChartVersion),
 			Namespace:      String("opni"),
 			Values: Map{
 				"image": Map{
@@ -175,6 +178,7 @@ func run(ctx *Context) (runErr error) {
 
 		_, err = helm.NewRelease(ctx, "opni-agent", &helm.ReleaseArgs{
 			Chart:           String(opniAgentChart),
+			Version:         StringPtr(conf.ChartVersion),
 			RepositoryOpts:  chartRepoOpts,
 			Namespace:       String("opni"),
 			CreateNamespace: Bool(true),

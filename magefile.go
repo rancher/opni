@@ -88,7 +88,7 @@ func ControllerGen() error {
 func CRDGen() error {
 	var commands []*exec.Cmd
 	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
-		"build", "./config/chart-crds", "-o", "./packages/opni/charts/crds/crds.yaml",
+		"build", "./config/chart-crds", "-o", "./packages/opni/opni/charts/crds/crds.yaml",
 	))
 	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
 		"build", "./config/agent-chart-crds", "-o", "./packages/opni-agent/opni-agent/charts/crds/crds.yaml",

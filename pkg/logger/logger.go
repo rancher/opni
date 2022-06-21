@@ -37,6 +37,7 @@ var (
 	}
 
 	levelToColorString = make(map[zapcore.Level]string, len(levelToColor))
+	DefaultLogLevel    = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 )
 
 func init() {
@@ -133,7 +134,7 @@ func WithSampling(cfg *zap.SamplingConfig) LoggerOption {
 
 func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	options := &LoggerOptions{
-		logLevel: zap.DebugLevel,
+		logLevel: DefaultLogLevel.Level(),
 	}
 	if testutil.IsTesting {
 		options.writer = ginkgo.GinkgoWriter
@@ -255,6 +256,10 @@ func NewForPlugin() hclog.Logger {
 		opts.Output = ginkgo.GinkgoWriter
 	}
 	return hclog.New(opts)
+}
+
+func NewPluginLogger() ExtendedSugaredLogger {
+	return New().XNamed("plugin")
 }
 
 type sampler struct {

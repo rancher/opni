@@ -4,8 +4,8 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -26,10 +26,16 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, reattach ...*plugin.Re
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		Managed:          true,
 		Cmd:              cmd,
+		Logger: hclog.New(&hclog.LoggerOptions{
+			Level: hclog.Error,
+		}),
 		GRPCDialOptions: []grpc.DialOption{
 			grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 			grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),
 		},
+		SyncStdout: os.Stdout,
+		SyncStderr: os.Stderr,
+		Reattach:   rc,
 	}
 }
 
@@ -44,6 +50,9 @@ func ServeConfig(scheme meta.Scheme) *plugin.ServeConfig {
 			)
 			return grpc.NewServer(opts...)
 		},
+		Logger: hclog.New(&hclog.LoggerOptions{
+			Level: hclog.Error,
+		}),
 	}
 }
 

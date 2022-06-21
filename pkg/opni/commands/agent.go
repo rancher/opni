@@ -50,6 +50,12 @@ func BuildAgentCmd() *cobra.Command {
 		Short: "Run the Opni Monitoring Agent",
 		Long: `The client component of the opni gateway, used to proxy the prometheus
 agent remote-write requests to add dynamic authentication.`,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if !enableMetrics && !enableLogging {
+				return errors.New("at least one of [--metrics, --logging] must be set")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			tracing.Configure("agent")
 			agentlg = logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(agentLogLevel))))

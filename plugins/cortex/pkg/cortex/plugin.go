@@ -7,7 +7,6 @@ import (
 
 	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
 	ingesterclient "github.com/cortexproject/cortex/pkg/ingester/client"
-	"github.com/hashicorp/go-hclog"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -24,6 +23,7 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"go.uber.org/zap"
 )
 
 type Plugin struct {
@@ -39,12 +39,10 @@ type Plugin struct {
 	ingesterClient    future.Future[ingesterclient.IngesterClient]
 	cortexHttpClient  future.Future[*http.Client]
 	cortexTlsConfig   future.Future[*tls.Config]
-	logger            hclog.Logger
+	logger            *zap.SugaredLogger
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewForPlugin()
-	lg.SetLevel(hclog.Debug)
 	return &Plugin{
 		CollectorServer:   collectorServer,
 		ctx:               ctx,
@@ -56,7 +54,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		ingesterClient:    future.New[ingesterclient.IngesterClient](),
 		cortexHttpClient:  future.New[*http.Client](),
 		cortexTlsConfig:   future.New[*tls.Config](),
-		logger:            lg,
+		logger:            logger.NewPluginLogger().Named("cortex"),
 	}
 }
 

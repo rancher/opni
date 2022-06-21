@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/util/fwd"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.uber.org/zap"
 )
 
@@ -34,7 +35,7 @@ var (
 )
 
 type GatewayHTTPServer struct {
-	app            *fiber.App
+	router         *gin.Engine
 	conf           *v1beta1.GatewayConfigSpec
 	logger         *zap.SugaredLogger
 	tlsConfig      *tls.Config
@@ -52,17 +53,8 @@ func NewHTTPServer(
 ) *GatewayHTTPServer {
 	lg = lg.Named("http")
 
-	app := fiber.New(fiber.Config{
-		StrictRouting:           false,
-		AppName:                 "Opni Gateway",
-		ReduceMemoryUsage:       false,
-		Network:                 "tcp4",
-		EnableTrustedProxyCheck: len(cfg.TrustedProxies) > 0,
-		TrustedProxies:          cfg.TrustedProxies,
-		DisableStartupMessage:   true,
-	})
-
-	logger.ConfigureAppLogger(app, "gateway")
+	router := gin.New()
+	router.SetTrustedProxies(cfg.TrustedProxies)
 
 	tlsConfig, _, err := loadTLSConfig(cfg)
 	if err != nil {
@@ -71,7 +63,7 @@ func NewHTTPServer(
 		).Fatal("failed to load serving cert bundle")
 	}
 	srv := &GatewayHTTPServer{
-		app:            app,
+		router:         router,
 		conf:           cfg,
 		logger:         lg,
 		tlsConfig:      tlsConfig,
@@ -88,14 +80,13 @@ func NewHTTPServer(
 			Thereafter: 0,
 		}),
 	).Named("http")
-	app.Use(func(c *fiber.Ctx) error {
-		sampledLog.Debugf("%s %s", c.Method(), c.Request().URI().FullURI())
+	router.Use(func(c *gin.Context) {
+		sampledLog.Debugf("%s %s", c.Request.Method, c.FullPath())
 		httpRequestsTotal.Inc()
-		return c.Next()
 	})
 
-	app.All("/healthz", func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusOK)
+	router.GET("/healthz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
 	})
 
 	srv.metricsHandler.MustRegister(apiCollectors...)
@@ -141,14 +132,10 @@ func (s *GatewayHTTPServer) ListenAndServe(ctx waitctx.RestrictiveContext) error
 
 	waitctx.Go(ctx, func() {
 		<-ctx.Done()
-		s.app.Shutdown()
+		listener.Close()
 	})
 
-	// 404 handler
-	s.app.Use(func(c *fiber.Ctx) error {
-		return c.SendStatus(fiber.StatusNotFound)
-	})
-	return s.app.Listener(listener)
+	return s.router.RunListener(listener)
 }
 
 func (s *GatewayHTTPServer) setupPluginRoutes(
@@ -165,25 +152,26 @@ func (s *GatewayHTTPServer) setupPluginRoutes(
 			Thereafter: 0,
 		}),
 	).Named("api")
-	forwarder := fwd.To(cfg.HttpAddr, fwd.WithTLS(tlsConfig), fwd.WithLogger(sampledLogger))
-PREFIXES:
-	for _, prefix := range cfg.PathPrefixes {
-		// check if the prefix would conflict with any reserved routes
-		for _, reserved := range s.reservedPrefixRoutes {
-			if strings.HasPrefix(prefix, reserved) {
+	forwarder := fwd.To(cfg.HttpAddr,
+		fwd.WithTLS(tlsConfig),
+		fwd.WithLogger(sampledLogger),
+		fwd.WithDestHint(path.Base(pluginMeta.BinaryPath)),
+	)
+ROUTES:
+	for _, route := range cfg.Routes {
+		for _, reservedPrefix := range s.reservedPrefixRoutes {
+			if strings.HasPrefix(route.Path, reservedPrefix) {
 				s.logger.With(
-					"prefix", prefix,
-					"existing", reserved,
+					"route", route.Method+" "+route.Path,
 					"plugin", pluginMeta.Module,
-				).Error("requested prefix conflicts with existing route")
-				continue PREFIXES
+				).Warn("skipping route for plugin as it conflicts with a reserved prefix")
+				continue ROUTES
 			}
 		}
-		s.reservedPrefixRoutes = append(s.reservedPrefixRoutes, prefix)
-		s.app.Use(prefix, forwarder)
 		s.logger.With(
-			"route", prefix,
+			"route", route.Method+" "+route.Path,
 			"plugin", pluginMeta.Module,
-		).Debug("configured prefix route for plugin")
+		).Debug("configured route for plugin")
+		s.router.Handle(route.Method, route.Path, forwarder)
 	}
 }

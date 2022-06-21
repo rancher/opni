@@ -2,8 +2,9 @@ package rbac
 
 import (
 	"context"
+	"net/http"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
@@ -16,30 +17,32 @@ const (
 	AuthorizedClusterIDsKey = "authorized_cluster_ids"
 )
 
-func (m *middleware) Handle(c *fiber.Ctx) error {
+func (m *middleware) Handle(c *gin.Context) {
 	userID, ok := AuthorizedUserID(c)
 	if !ok {
-		return c.SendStatus(fiber.StatusUnauthorized)
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
 	clusters, err := m.provider.SubjectAccess(context.Background(), &corev1.SubjectAccessRequest{
 		Subject: userID,
 	})
 	if err != nil {
-		return c.SendStatus(fiber.StatusUnauthorized)
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
 	if len(clusters.Items) == 0 {
-		return c.SendStatus(fiber.StatusUnauthorized)
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
 	ids := make([]string, len(clusters.Items))
 	for i, cluster := range clusters.Items {
 		ids[i] = cluster.Id
 	}
-	c.Request().Header.Set(m.codec.Key(), m.codec.Encode(ids))
-	c.Locals(AuthorizedClusterIDsKey, ids)
-	return c.Next()
+	c.Request.Header.Set(m.codec.Key(), m.codec.Encode(ids))
+	c.Set(AuthorizedClusterIDsKey, ids)
 }
 
-func NewMiddleware(provider Provider, codec HeaderCodec) func(*fiber.Ctx) error {
+func NewMiddleware(provider Provider, codec HeaderCodec) gin.HandlerFunc {
 	mw := &middleware{
 		provider: provider,
 		codec:    codec,
@@ -47,6 +50,10 @@ func NewMiddleware(provider Provider, codec HeaderCodec) func(*fiber.Ctx) error 
 	return mw.Handle
 }
 
-func AuthorizedClusterIDs(c *fiber.Ctx) []string {
-	return c.Locals(AuthorizedClusterIDsKey).([]string)
+func AuthorizedClusterIDs(c *gin.Context) []string {
+	value, ok := c.Get(AuthorizedClusterIDsKey)
+	if !ok {
+		return nil
+	}
+	return value.([]string)
 }

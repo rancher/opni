@@ -3,15 +3,12 @@ package gatewayext
 import (
 	"context"
 	"crypto/tls"
-	"strings"
-	"time"
 
-	"github.com/dghubble/trie"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-plugin"
-	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"google.golang.org/grpc"
 )
 
@@ -21,24 +18,16 @@ const (
 )
 
 // Plugin side
-
-// internal RPC
-type GatewayAPIExtensionServer interface {
-	HttpAddr() int
-	ConfigureRoutes() [][]*fiber.Route
-}
-
-// user-facing
 type GatewayAPIExtension interface {
-	ConfigureRoutes(*fiber.App)
+	ConfigureRoutes(*gin.Engine)
 }
 
 type gatewayApiExtensionPlugin struct {
 	plugin.NetRPCUnsupportedPlugin
 	apiextensions.UnimplementedGatewayAPIExtensionServer
 
-	app  *fiber.App
-	impl GatewayAPIExtension
+	router *gin.Engine
+	impl   GatewayAPIExtension
 }
 
 var _ plugin.Plugin = (*gatewayApiExtensionPlugin)(nil)
@@ -48,17 +37,8 @@ func (p *gatewayApiExtensionPlugin) GRPCServer(
 	broker *plugin.GRPCBroker,
 	s *grpc.Server,
 ) error {
-	p.app = fiber.New(fiber.Config{
-		DisableStartupMessage:   true,
-		StrictRouting:           true,
-		ReadTimeout:             10 * time.Second,
-		WriteTimeout:            10 * time.Second,
-		IdleTimeout:             10 * time.Second,
-		EnableTrustedProxyCheck: true,
-		TrustedProxies:          []string{"127.0.0.1"},
-		ProxyHeader:             fiber.HeaderXForwardedFor,
-	})
-	logger.ConfigureAppLogger(p.app, "gateway-ext")
+	p.router = gin.New()
+
 	apiextensions.RegisterGatewayAPIExtensionServer(s, p)
 	return nil
 }
@@ -75,36 +55,25 @@ func (p *gatewayApiExtensionPlugin) Configure(
 	if err != nil {
 		return nil, err
 	}
-	p.impl.ConfigureRoutes(p.app)
+	p.router.Use(otelgin.Middleware("gateway-api"))
+	p.impl.ConfigureRoutes(p.router)
+
 	go func() {
-		if err := p.app.Listener(listener); err != nil {
+		if err := p.router.RunListener(listener); err != nil {
 			panic(err)
 		}
 	}()
-	return &apiextensions.GatewayAPIExtensionConfig{
-		HttpAddr:     listener.Addr().String(),
-		PathPrefixes: findPathPrefixes(p.app.Stack()),
-	}, nil
-}
-
-func findPathPrefixes(stack [][]*fiber.Route) []string {
-	t := trie.NewPathTrie()
-	for _, routesByMethod := range stack {
-		for _, route := range routesByMethod {
-			t.Put(route.Path, route)
-		}
+	routes := []*apiextensions.RouteInfo{}
+	for _, rt := range p.router.Routes() {
+		routes = append(routes, &apiextensions.RouteInfo{
+			Path:   rt.Path,
+			Method: rt.Method,
+		})
 	}
-	topLevelPaths := []string{}
-	t.Walk(func(key string, value interface{}) error {
-		for _, p := range topLevelPaths {
-			if strings.HasPrefix(key, p) {
-				return nil
-			}
-		}
-		topLevelPaths = append(topLevelPaths, key)
-		return nil
-	})
-	return topLevelPaths
+	return &apiextensions.GatewayAPIExtensionConfig{
+		HttpAddr: listener.Addr().String(),
+		Routes:   routes,
+	}, nil
 }
 
 // Gateway side

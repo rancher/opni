@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
 )
 
 func main() {
+	gin.SetMode(gin.TestMode)
 	var enableGateway, enableEtcd, enableCortex bool
 	var remoteGatewayAddress, remoteKubeconfig string
 

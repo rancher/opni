@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,6 +22,7 @@ var (
 )
 
 func TestClusterAuth(t *testing.T) {
+	gin.SetMode(gin.TestMode)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cluster Suite")
 }

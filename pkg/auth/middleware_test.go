@@ -1,18 +1,16 @@
 package auth_test
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/auth"
-	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/grpc"
 )
 
 type testHttp struct{}
 
-func (*testHttp) Handle(ctx *fiber.Ctx) error {
-	return nil
+func (*testHttp) Handle(ctx *gin.Context) {
 }
 
 type testUnaryGrpc struct{}

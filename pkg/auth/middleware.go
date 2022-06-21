@@ -3,7 +3,7 @@ package auth
 import (
 	"errors"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
 )
 
@@ -36,7 +36,7 @@ func SupportedProtocols(mw Middleware) Protocol {
 }
 
 type HTTPMiddleware interface {
-	Handle(*fiber.Ctx) error
+	Handle(*gin.Context)
 }
 
 type UnaryGRPCMiddleware interface {

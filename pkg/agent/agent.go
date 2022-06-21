@@ -85,10 +85,6 @@ func WithBootstrapper(bootstrapper bootstrap.Bootstrapper) AgentOption {
 	}
 }
 
-func default404Handler(c *fiber.Ctx) error {
-	return c.SendStatus(fiber.StatusNotFound)
-}
-
 func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*Agent, error) {
 	lg := logger.New().Named("agent")
 	options := AgentOptions{}
@@ -161,7 +157,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	}
 
 	agent.trust, err = agent.buildTrustStrategy(kr)
-		if err != nil {
+	if err != nil {
 		return nil, fmt.Errorf("error building trust strategy: %w", err)
 	}
 
@@ -198,7 +194,6 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	}()
 
 	app.Post("/api/agent/push", agent.handlePushRequest)
-	app.Use(default404Handler)
 
 	return agent, nil
 }
@@ -287,7 +282,6 @@ func (a *Agent) loadKeyring(ctx context.Context) (keyring.Keyring, error) {
 }
 
 func (a *Agent) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health, error) {
-
 	conditions := []string{}
 	a.conditions.Range(func(key string, value conditionStatus) bool {
 		conditions = append(conditions, fmt.Sprintf("%s %s", key, value))

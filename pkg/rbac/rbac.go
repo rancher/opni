@@ -3,7 +3,7 @@ package rbac
 import (
 	"context"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
@@ -15,9 +15,9 @@ type Provider interface {
 	SubjectAccess(context.Context, *corev1.SubjectAccessRequest) (*corev1.ReferenceList, error)
 }
 
-func AuthorizedUserID(c *fiber.Ctx) (string, bool) {
-	userId := c.Locals(UserIDKey)
-	if userId == nil {
+func AuthorizedUserID(c *gin.Context) (string, bool) {
+	userId, exists := c.Get(UserIDKey)
+	if !exists {
 		return "", false
 	}
 	return userId.(string), true

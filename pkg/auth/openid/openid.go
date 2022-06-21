@@ -176,6 +176,9 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 	m.wellKnownConfig = wellKnownCfg
 	httpClient := http.DefaultClient
 	if m.conf.Discovery != nil && m.conf.Discovery.CACert != nil {
+		lg.With(
+			"filename", m.conf.Discovery.CACert,
+		).Info("using custom CA cert for openid discovery")
 		certPool := x509.NewCertPool()
 		data, err := os.ReadFile(*m.conf.Discovery.CACert)
 		if err != nil {
@@ -184,7 +187,9 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 				"filename", m.conf.Discovery.CACert,
 			).Fatal("openid discovery: failed to read CA cert")
 		}
-		certPool.AppendCertsFromPEM(data)
+		if !certPool.AppendCertsFromPEM(data) {
+			lg.Fatal("openid discovery: invalid ca cert")
+		}
 		httpClient = &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
@@ -196,7 +201,7 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 	m.keyRefresher.Configure(wellKnownCfg.JwksUri,
 		jwk.WithHTTPClient(httpClient),
 	)
-	m.cache, err = NewUserInfoCache(m.conf, m.logger)
+	m.cache, err = NewUserInfoCache(m.conf, m.logger, WithHTTPClient(httpClient))
 	if err != nil {
 		lg.With(
 			zap.Error(err),

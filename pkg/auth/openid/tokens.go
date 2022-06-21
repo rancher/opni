@@ -62,13 +62,18 @@ func ValidateIDToken(token string, keySet jwk.Set) (openid.Token, error) {
 	return j.(openid.Token), nil
 }
 
-func FetchUserInfo(endpoint, token string) (map[string]interface{}, error) {
+func FetchUserInfo(endpoint, token string, opts ...ClientOption) (map[string]interface{}, error) {
+	options := &ClientOptions{
+		client: http.DefaultClient,
+	}
+	options.apply(opts...)
+
 	req, err := http.NewRequest("POST", endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := options.client.Do(req)
 	if err != nil {
 		return nil, err
 	}

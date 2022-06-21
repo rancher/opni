@@ -27,7 +27,7 @@ func (*testStreamGrpc) StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return nil
 }
 
-var _ = Describe("Middleware", Label(test.Unit), func() {
+var _ = Describe("Middleware", Label("unit"), func() {
 	It("should detect supported protocols", func() {
 		Expect(auth.SupportedProtocols(&testHttp{})).To(Equal(auth.ProtocolHTTP))
 		Expect(auth.SupportedProtocols(&testUnaryGrpc{})).To(Equal(auth.ProtocolUnaryGRPC))

@@ -9,10 +9,9 @@ import (
 
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/pkp"
-	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("Keyring", Label(test.Unit), func() {
+var _ = Describe("Keyring", Label("unit"), func() {
 	When("creating an empty keyring", func() {
 		It("should function correctly", func() {
 			By("creating a new keyring")

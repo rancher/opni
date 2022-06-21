@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/test"
 )
 
 func descriptorString(fqName, help string, constLabels, varLabels []string) string {
@@ -23,7 +22,7 @@ func descriptorString(fqName, help string, constLabels, varLabels []string) stri
 	)
 }
 
-var _ = Describe("Collector", Ordered, Label(test.Slow), func() {
+var _ = Describe("Collector", Ordered, Label("slow"), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv, plugins.NoopLoader))
 

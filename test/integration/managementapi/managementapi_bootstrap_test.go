@@ -31,7 +31,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Label(test.Integration), func() {
+var _ = Describe("Management API Boostrap Token Management Tests", Ordered, Label("integration"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	BeforeAll(func() {

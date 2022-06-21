@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 )
 
-var _ = Describe("Cert Utils", Label(test.Unit), func() {
+var _ = Describe("Cert Utils", Label("unit"), func() {
 	testFullChain := test.TestData("full_chain.crt")
 	It("should load a full cert chain", func() {
 		chain, err := util.ParsePEMEncodedCertChain(testFullChain)

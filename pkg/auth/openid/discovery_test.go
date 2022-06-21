@@ -9,11 +9,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/auth/openid"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 )
 
-var _ = Describe("Discovery", Ordered, Label(test.Unit), func() {
+var _ = Describe("Discovery", Ordered, Label("unit"), func() {
 	It("should query the discovery endpoint if configured", func() {
 		cfg := &openid.OpenidConfig{
 			Discovery: &openid.DiscoverySpec{

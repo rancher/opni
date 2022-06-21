@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/test"
 )
 
 func tc(t string, id ...string) *v1.TokenCapability {
@@ -26,7 +25,7 @@ func cc(id string) *v1.ClusterCapability {
 	}
 }
 
-var _ = Describe("Comparator", Label(test.Unit), func() {
+var _ = Describe("Comparator", Label("unit"), func() {
 	DescribeTable("TokenCapability.Equal",
 		func(a, b *v1.TokenCapability, expected bool) {
 			Expect(v1.Comparator[*v1.TokenCapability].Equal(a, b)).To(Equal(expected))

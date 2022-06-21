@@ -7,10 +7,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/rancher/opni/pkg/auth/openid"
-	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("Config", Ordered, Label(test.Unit), func() {
+var _ = Describe("Config", Ordered, Label("unit"), func() {
 	It("should properly check required fields", func() {
 		cfg := openid.WellKnownConfiguration{}
 		Expect(cfg.CheckRequiredFields()).To(MatchError(openid.ErrMissingRequiredField))

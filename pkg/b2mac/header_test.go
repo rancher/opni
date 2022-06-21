@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/b2mac"
-	"github.com/rancher/opni/pkg/test"
 )
 
 var headerRegex = regexp.MustCompile(
@@ -19,7 +18,7 @@ var headerRegex = regexp.MustCompile(
 		`mac[\t\n\v\f\r ]*=[\t\n\v\f\r ]*\"(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?\"$`, // base64 RawUrlEncoding
 )
 
-var _ = Describe("Headers", Label(test.Unit), func() {
+var _ = Describe("Headers", Label("unit"), func() {
 	DescribeTable("Encode Auth Headers",
 		func(id []byte, nonce uuid.UUID, mac []byte, matchErr interface{}) {
 			header, err := b2mac.EncodeAuthHeader(id, nonce, mac)

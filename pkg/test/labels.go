@@ -6,12 +6,12 @@ import (
 )
 
 const (
-	Unit          = "unit"
-	Integration   = "integration"
-	Controller    = "controller"
-	E2E           = "e2e"
-	Slow          = "slow"
-	TimeSensitive = "time-sensitive"
+	Unit        = "unit"
+	Integration = "integration"
+	Controller  = "controller"
+	E2E         = "e2e"
+	Slow        = "slow"
+	Temporal    = "temporal"
 )
 
 func EnableIfCI[T any](decorator T) any {

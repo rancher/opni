@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/validation"
 )
 
@@ -17,7 +16,7 @@ func validateEntry[T validation.Validator](in T, expected error) {
 	}
 }
 
-var _ = Describe("Validation", Label(test.Unit), func() {
+var _ = Describe("Validation", Label("unit"), func() {
 	DescribeTable("Cluster", validateEntry[*v1.Cluster],
 		Entry(nil, &v1.Cluster{Id: "foo"}, nil),
 		Entry(nil, &v1.Cluster{}, validation.ErrMissingRequiredField),

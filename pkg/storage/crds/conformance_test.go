@@ -36,7 +36,7 @@ var _ = BeforeSuite(func() {
 	DeferCleanup(env.Stop)
 })
 
-var _ = Describe("Token Store", Ordered, Label(test.Integration, test.Slow, test.TimeSensitive), conformance.TokenStoreTestSuite(store, errCtrl))
-var _ = Describe("Cluster Store", Ordered, Label(test.Integration, test.Slow, test.TimeSensitive), conformance.ClusterStoreTestSuite(store, errCtrl))
-var _ = Describe("RBAC Store", Ordered, Label(test.Integration, test.Slow, test.TimeSensitive), conformance.RBACStoreTestSuite(store, errCtrl))
-var _ = Describe("Keyring Store", Ordered, Label(test.Integration, test.Slow, test.TimeSensitive), conformance.KeyringStoreTestSuite(store, errCtrl))
+var _ = Describe("Token Store", Ordered, Label("integration", "slow", "temporal"), conformance.TokenStoreTestSuite(store, errCtrl))
+var _ = Describe("Cluster Store", Ordered, Label("integration", "slow", "temporal"), conformance.ClusterStoreTestSuite(store, errCtrl))
+var _ = Describe("RBAC Store", Ordered, Label("integration", "slow", "temporal"), conformance.RBACStoreTestSuite(store, errCtrl))
+var _ = Describe("Keyring Store", Ordered, Label("integration", "slow", "temporal"), conformance.KeyringStoreTestSuite(store, errCtrl))

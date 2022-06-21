@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/validation"
 )
 
@@ -135,7 +134,7 @@ func (t *testValidator) Validate() error {
 	return errors.New("test")
 }
 
-var _ = Describe("Validation", Label(test.Unit), func() {
+var _ = Describe("Validation", Label("unit"), func() {
 	Specify("the Validate helper function should work", func() {
 		validator := &testValidator{}
 		Expect(validation.Validate(validator)).To(MatchError("test"))

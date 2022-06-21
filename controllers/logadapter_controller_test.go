@@ -9,7 +9,6 @@ import (
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/pkg/test"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -20,7 +19,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 )
 
-var _ = Describe("LogAdapter Controller", Ordered, Label(test.Controller), func() {
+var _ = Describe("LogAdapter Controller", Ordered, Label("controller"), func() {
 	var (
 		logadapter v1beta2.LogAdapter
 		cluster    v1beta2.OpniCluster

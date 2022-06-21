@@ -6,11 +6,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/validation"
 )
 
-var _ = Describe("Error", Label(test.Unit), func() {
+var _ = Describe("Error", Label("unit"), func() {
 	It("should convert to a GRPC error", func() {
 		err := validation.Error("foo")
 		Expect(err.Error()).To(Equal("foo"))

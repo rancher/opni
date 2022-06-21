@@ -7,10 +7,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/b2mac"
-	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("MAC", Label(test.Unit), func() {
+var _ = Describe("MAC", Label("unit"), func() {
 	It("should correctly generate a MAC", func() {
 		_, key, err := ed25519.GenerateKey(nil)
 		Expect(err).NotTo(HaveOccurred())

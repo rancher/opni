@@ -51,7 +51,7 @@ func pkpTrustStrategy(cert *x509.Certificate) trust.Strategy {
 	return util.Must(conf.Build())
 }
 
-var _ = Describe("Client", Ordered, Label(test.Slow), func() {
+var _ = Describe("Client", Ordered, Label("slow"), func() {
 	var fooIdent ident.Provider
 	var cert *tls.Certificate
 	var store storage.Backend

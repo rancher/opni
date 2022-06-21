@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("Agent - Remote Write Tests", Ordered, Label(test.Integration), func() {
+var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	var fingerprint string

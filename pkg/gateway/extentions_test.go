@@ -37,7 +37,7 @@ type ext2SrvImpl struct {
 	*mock_ext.MockExt2Server
 }
 
-var _ = Describe("Extensions", Ordered, Label(test.Slow), func() {
+var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 	var tv *testVars
 	var descriptorLogic func() (*descriptorpb.ServiceDescriptorProto, error)
 	shouldLoadExt1 := atomic.NewBool(true)

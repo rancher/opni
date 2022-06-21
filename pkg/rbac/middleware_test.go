@@ -16,7 +16,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
-	"github.com/rancher/opni/pkg/test"
 	mock_rbac "github.com/rancher/opni/pkg/test/mock/rbac"
 	"github.com/rancher/opni/pkg/util"
 )
@@ -28,7 +27,7 @@ var testUsers = map[string][]string{
 	"user3": {},
 }
 
-var _ = Describe("Middleware", Label(test.Unit), func() {
+var _ = Describe("Middleware", Label("unit"), func() {
 	It("should set tenant IDs for authorized users", func() {
 		By("setting up the test controller")
 		ctrl := gomock.NewController(GinkgoT())

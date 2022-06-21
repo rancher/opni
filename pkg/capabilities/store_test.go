@@ -11,7 +11,7 @@ import (
 
 var lg = test.Log
 
-var _ = Describe("Store", Ordered, Label(test.Unit), func() {
+var _ = Describe("Store", Ordered, Label("unit"), func() {
 	var store capabilities.BackendStore
 	var ctrl *gomock.Controller
 

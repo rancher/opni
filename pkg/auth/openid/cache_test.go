@@ -14,7 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("User Info Cache", Ordered, Label(test.Unit), func() {
+var _ = Describe("User Info Cache", Ordered, Label("unit"), func() {
 	var cache *openid.UserInfoCache
 	lg := test.Log
 	var addr string

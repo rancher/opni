@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("Simple Test", Ordered, func() {
+var _ = Describe("Simple Test", Ordered, Label("integration"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	BeforeAll(func() {

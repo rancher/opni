@@ -9,7 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 )
 
-var _ = Describe("Future", func() {
+var _ = Describe("Future", Label("unit"), func() {
 	Specify("Get should block until Set is called", func() {
 		f := future.New[string]()
 		go func() {

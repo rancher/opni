@@ -21,9 +21,8 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
-var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5), Label(test.TimeSensitive), func() {
-	var app *fiber.App
-
+var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5), Label("temporal"), func() {
+	var app *gin.Engine
 	Context("no server errors", func() {
 		BeforeEach(func() {
 			mw, err := openid.New(waitctx.Background(), v1beta1.AuthProviderSpec{

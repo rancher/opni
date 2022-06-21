@@ -10,11 +10,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
-	"github.com/rancher/opni/pkg/test"
 	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 )
 
-var _ = Describe("Opensearch", Label(test.Unit), func() {
+var _ = Describe("Opensearch", Label("unit"), func() {
 	var (
 		reconciler *Reconciler
 		transport  *httpmock.MockTransport

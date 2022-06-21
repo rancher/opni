@@ -10,7 +10,6 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/noauth"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("Gateway Controller", Ordered, Label(test.Controller, test.Slow), func() {
+var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), func() {
 	When("creating a Gateway resource", func() {
 		var gw *v1beta2.Gateway
 		It("should succeed", func() {

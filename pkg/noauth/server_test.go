@@ -23,7 +23,7 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
-var _ = Describe("Server", Ordered, Label(test.Slow), func() {
+var _ = Describe("Server", Ordered, Label("slow"), func() {
 	ports, _ := freeport.GetFreePorts(2)
 	BeforeAll(func() {
 		env := test.Environment{

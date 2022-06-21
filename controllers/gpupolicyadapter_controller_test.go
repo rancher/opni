@@ -8,11 +8,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/test"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("GpuPolicyAdapter Controller", Ordered, Label(test.Controller), func() {
+var _ = Describe("GpuPolicyAdapter Controller", Ordered, Label("controller"), func() {
 	When("creating a GpuPolicyAdapter", func() {
 		It("should create a ClusterPolicy", func() {
 			adapter := &v1beta2.GpuPolicyAdapter{

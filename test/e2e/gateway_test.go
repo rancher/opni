@@ -14,7 +14,6 @@ import (
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/ini.v1"
@@ -22,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("Gateway Test", Ordered, Label(test.E2E, test.Slow), func() {
+var _ = Describe("Gateway Test", Ordered, Label("e2e", "slow"), func() {
 	var mainClusterRef *corev1.Reference
 	It("should connect to the management server", func() {
 		resp, err := mgmtClient.CertsInfo(context.Background(), &emptypb.Empty{})

@@ -813,7 +813,7 @@ func WithRemoteKubeconfig(kubeconfig string) StartAgentOption {
 
 func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins []string, opts ...StartAgentOption) (int, <-chan error) {
 	options := &StartAgentOptions{
-		ctx: context.Background(),
+		ctx: e.ctx,
 	}
 	options.apply(opts...)
 	if !e.enableGateway && options.remoteGatewayAddress == "" {
@@ -900,7 +900,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 			errC <- err
 			return
 		}
-		a, err = agent.New(e.ctx, agentConfig,
+		a, err = agent.New(options.ctx, agentConfig,
 			agent.WithBootstrapper(&bootstrap.ClientConfig{
 				Capability:    wellknown.CapabilityMetrics,
 				Token:         bt,
@@ -920,9 +920,12 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		e.runningAgentsMu.Unlock()
 		mu.Unlock()
 		errC <- nil
-		if err := a.ListenAndServe(e.ctx); err != nil {
+		if err := a.ListenAndServe(options.ctx); err != nil {
 			Log.Error(err)
 		}
+		e.runningAgentsMu.Lock()
+		delete(e.runningAgents, id)
+		e.runningAgentsMu.Unlock()
 	}()
 	return port, errC
 }

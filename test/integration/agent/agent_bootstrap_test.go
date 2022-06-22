@@ -19,6 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
 //#region Test Setup
@@ -270,7 +271,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			Expect(err).NotTo(HaveOccurred())
 
 			id := uuid.NewString()
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(waitctx.Background())
 			_, errC := environment.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctx))
 
 			Eventually(errC).Should(Receive(BeNil()))

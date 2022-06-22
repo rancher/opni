@@ -64,7 +64,7 @@ type Agent struct {
 	tenantID         string
 	identityProvider ident.Provider
 	keyringStore     storage.KeyringStore
-	gatewayClient    clients.GatewayGRPCClient
+	gatewayClient    clients.GatewayClient
 	trust            trust.Strategy
 
 	remoteWriteClient clients.Locker[remotewrite.RemoteWriteClient]
@@ -159,7 +159,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, fmt.Errorf("error building trust strategy: %w", err)
 	}
 
-	agent.gatewayClient, err = clients.NewGatewayGRPCClient(
+	agent.gatewayClient, err = clients.NewGatewayClient(
 		conf.Spec.GatewayAddress, ip, kr, agent.trust)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)

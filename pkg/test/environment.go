@@ -32,7 +32,6 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -947,28 +946,6 @@ func (e *Environment) GatewayTLSConfig() *tls.Config {
 
 func (e *Environment) GatewayConfig() *v1beta1.GatewayConfig {
 	return e.gatewayConfig
-}
-
-func (e *Environment) NewGatewayHTTPClient(agentId string) (clients.GatewayHTTPClient, error) {
-	ip, err := ident.GetProvider(agentId)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ident provider for agent %s: %w", agentId, err)
-	}
-
-	agent := e.GetAgent(agentId)
-
-	kr, err := agent.GetKeyring(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get keyring for agent %s: %w", agentId, err)
-	}
-
-	ts := agent.GetTrustStrategy()
-
-	client, err := clients.NewGatewayHTTPClient(fmt.Sprintf("https://localhost:%d", e.ports.GatewayHTTP), ip, kr, ts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gateway http client for agent %s: %w", agentId, err)
-	}
-	return client, nil
 }
 
 func (e *Environment) EtcdClient() (*clientv3.Client, error) {

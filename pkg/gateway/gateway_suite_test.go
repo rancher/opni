@@ -34,7 +34,7 @@ func TestManagement(t *testing.T) {
 
 type testVars struct {
 	ctrl         *gomock.Controller
-	client       gatewayclients.GatewayGRPCClient
+	client       gatewayclients.GatewayClient
 	grpcEndpoint string
 	interceptor  mockInterceptor
 }

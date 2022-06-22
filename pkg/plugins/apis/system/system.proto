@@ -7,6 +7,7 @@ package system;
 service System {
   rpc UseManagementAPI(BrokerID) returns (google.protobuf.Empty);
   rpc UseKeyValueStore(BrokerID) returns (google.protobuf.Empty);
+  rpc UseAPIExtensions(DialAddress) returns (google.protobuf.Empty);
 }
 
 service KeyValueStore {
@@ -35,4 +36,8 @@ message KeyValue {
 
 message KeyList {
   repeated string items = 1;
+}
+
+message DialAddress {
+  string value = 1;
 }

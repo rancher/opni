@@ -138,6 +138,7 @@ func NewServer(
 
 	pluginLoader.Hook(hooks.OnLoad(func(sp types.SystemPlugin) {
 		go sp.ServeManagementAPI(m)
+		go sp.ServeAPIExtensions(m.config.GRPCListenAddress)
 	}))
 
 	return m

@@ -22,6 +22,7 @@ import (
 type ExamplePlugin struct {
 	UnsafeExampleAPIExtensionServer
 	UnsafeExampleUnaryExtensionServer
+	system.UnimplementedSystemPluginClient
 	Logger hclog.Logger
 }
 

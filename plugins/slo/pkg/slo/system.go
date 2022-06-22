@@ -7,6 +7,7 @@ import (
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -48,4 +49,14 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		Formulas: system.NewKVStoreClient[*sloapi.Formula](p.ctx, client),
 	})
 	<-p.ctx.Done()
+}
+
+func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
+	cc, err := intf.GetClientConn(context.TODO(), "CortexAdmin") // TODO(alex): configure this context
+	if err != nil {
+		p.logger.Error("failed to get cortex admin client", "error", err)
+		os.Exit(1)
+	}
+	/*adminClient*/ _ = cortexadmin.NewCortexAdminClient(cc)
+	// p.adminClient.Set(adminClient)
 }

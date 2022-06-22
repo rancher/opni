@@ -15,6 +15,7 @@ import (
 
 type Plugin struct {
 	sloapi.UnsafeSLOServer
+	system.UnimplementedSystemPluginClient
 	ctx        context.Context
 	logger     hclog.Logger
 	storage    future.Future[StorageAPIs]

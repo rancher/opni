@@ -2,6 +2,7 @@ package plugins_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,7 +19,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var env *test.Environment
 	BeforeAll(func() {
 		env = &test.Environment{
-			TestBin: "../../../../testbin/bin",
+			TestBin: "../../testbin/bin",
 		}
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
@@ -39,7 +40,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		It("should be able to discover services from downstream", func() {
 			sloClient := apis.NewSLOClient(env.ManagementClientConn())
 
-			_, err := sloClient.ListServices(ctx, &emptypb.Empty{})
+			svcList, err := sloClient.ListServices(ctx, &emptypb.Empty{})
+			fmt.Println(svcList.GetItems())
 			Expect(err).To(Succeed())
 		})
 	})

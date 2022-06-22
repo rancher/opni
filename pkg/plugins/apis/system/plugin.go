@@ -3,23 +3,36 @@ package system
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-plugin"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type SystemPluginClient interface {
 	UseManagementAPI(managementv1.ManagementClient)
 	UseKeyValueStore(KeyValueStoreClient)
+	UseAPIExtensions(ExtensionClientInterface)
+	mustEmbedUnimplementedSystemPluginClient()
 }
+
+// UnimplementedSystemPluginClient must be embedded to have forward compatible implementations.
+type UnimplementedSystemPluginClient struct{}
+
+func (UnimplementedSystemPluginClient) UseManagementAPI(managementv1.ManagementClient) {}
+func (UnimplementedSystemPluginClient) UseKeyValueStore(KeyValueStoreClient)           {}
+func (UnimplementedSystemPluginClient) UseAPIExtensions(ExtensionClientInterface)      {}
+func (UnimplementedSystemPluginClient) mustEmbedUnimplementedSystemPluginClient()      {}
 
 type SystemPluginServer interface {
 	ServeManagementAPI(managementv1.ManagementServer)
 	ServeKeyValueStore(storage.KeyValueStore)
+	ServeAPIExtensions(dialAddress string)
 }
 
 const (
@@ -79,6 +92,28 @@ func (c *systemPluginClientImpl) UseKeyValueStore(ctx context.Context, in *Broke
 	return &emptypb.Empty{}, nil
 }
 
+func (c *systemPluginClientImpl) UseAPIExtensions(ctx context.Context, addr *DialAddress) (*emptypb.Empty, error) {
+	cc, err := grpc.DialContext(ctx, addr.Value,
+		grpc.WithInsecure(),
+		grpc.WithBlock(),
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff: backoff.Config{
+				BaseDelay:  1.0 * time.Second,
+				Multiplier: 1.5,
+				Jitter:     0.2,
+				MaxDelay:   10 * time.Second,
+			},
+		}),
+	)
+	if err != nil {
+		return nil, err
+	}
+	c.client.UseAPIExtensions(&apiExtensionInterfaceImpl{
+		managementClientConn: cc,
+	})
+	return &emptypb.Empty{}, nil
+}
+
 // Gateway side
 
 func (p *systemPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
@@ -128,6 +163,12 @@ func (s *systemPluginHandler) ServeKeyValueStore(store storage.KeyValueStore) {
 			})
 		},
 	)
+}
+
+func (s *systemPluginHandler) ServeAPIExtensions(dialAddr string) {
+	s.client.UseAPIExtensions(s.ctx, &DialAddress{
+		Value: dialAddr,
+	})
 }
 
 func init() {

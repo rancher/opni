@@ -50,27 +50,27 @@ func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjectiv
 		}
 	}
 
-	// if err := ValidateInput(slo); err != nil {
-	// 	return nil, err
-	// }
+	if err := ValidateInput(slo); err != nil {
+		return nil, err
+	}
 
-	// osloSpecs, err := ParseToOpenSLO(slo, ctx, p.logger)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	osloSpecs, err := ParseToOpenSLO(slo, ctx, p.logger)
+	if err != nil {
+		return nil, err
+	}
 
-	// for _, spec := range osloSpecs {
-	// 	switch slo.GetDatasource() {
-	// 	case LoggingDatasource:
-	// 		// TODO translate OpenSLO to Transform OS api
-	// 	case MonitoringDatasource:
-	// 		// TODO forward to "sloth"-like prometheus parser
-	// 	default:
-	// 		return nil, status.Error(codes.FailedPrecondition, "Invalid datasource should have already been checked")
-	// 	}
+	for _, spec := range osloSpecs {
+		switch slo.GetDatasource() {
+		case LoggingDatasource:
+			return nil, ErrNotImplemented
+		case MonitoringDatasource:
+			// TODO forward to "sloth"-like prometheus parser
+		default:
+			return nil, status.Error(codes.FailedPrecondition, "Invalid datasource should have already been checked")
+		}
 
-	// 	fmt.Printf("%v", spec) // FIXME: remove
-	// }
+		fmt.Printf("%v", spec) // FIXME: remove
+	}
 
 	// Put in k,v store only if everything else succeeds
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", slo.Id), slo); err != nil {

@@ -64,7 +64,6 @@ func (y YAMLSpecLoader) MapSpecToModel(spec openslov1.SLO) (*prometheus.SLOGroup
 	if err != nil {
 		return nil, fmt.Errorf("could not map SLOs correctly: %w", err)
 	}
-
 	return &prometheus.SLOGroup{SLOs: slos}, nil
 }
 
@@ -157,10 +156,9 @@ func (y YAMLSpecLoader) GetSLOs(spec openslov1.SLO) ([]prometheus.SLO, error) {
 			timeWindow = time.Duration(30 /*spec.Spec.TimeWindow*/) * 24 * time.Hour // FIXME: convert to time.Duration
 		}
 
-		// TODO(slok): Think about using `slo.Value` insted of idx (`slo.Value` is not mandatory).
 		res = append(res, prometheus.SLO{
-			ID:              fmt.Sprintf("%s-%s-%d", spec.Spec.Service, "spec.Metadata.Name", idx), //FIXME: oslo correct headers
-			Name:            fmt.Sprintf("%s-%d", "spec.Metadata.Name", idx),                       //FIXME: oslo correct headers
+			ID:              fmt.Sprintf("%s-%s-%d", spec.Spec.Service, spec.Metadata.Name, idx), //FIXME: oslo correct headers
+			Name:            fmt.Sprintf("%s-%d", spec.Metadata.Name, idx),                       //FIXME: oslo correct headers
 			Service:         spec.Spec.Service,
 			Description:     spec.Spec.Description,
 			TimeWindow:      timeWindow,

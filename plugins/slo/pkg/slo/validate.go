@@ -16,6 +16,7 @@ var (
 	ErrInvalidAlertCondition = validation.Error("Invalid Alert Condition")
 	ErrInvalidAlertTarget    = validation.Error("Invalid Alert Target")
 	ErrInvalidId             = validation.Error("Internal error, unassigned SLO ID")
+	ErrNotImplemented        = validation.Error("Not implemented")
 )
 
 /// Validates Input based on the necessities of our preconfigured formant,

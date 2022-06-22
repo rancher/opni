@@ -1,10 +1,12 @@
 package slo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"html/template"
 	"strconv"
+	"strings"
 
 	"github.com/alexandreLamarre/oslo/pkg/manifest"
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
@@ -90,7 +92,7 @@ func ParseToIndicator(slo *api.ServiceLevelObjective, jobId string, ctx context.
 
 		metric_type = "prometheus" // OpenSLO standard
 	} else {
-		metric_type = "Opni" // Not OpenSLO standard, but custom
+		metric_type = "opni" // Not OpenSLO standard, but custom
 	}
 	metric_query_bad, metric_query_total, err := fetchPreconfQueries(slo, jobId, ctx, lg)
 
@@ -125,8 +127,8 @@ func ParseToObjectives(slo *api.ServiceLevelObjective, ctx context.Context, lg h
 	for i, target := range slo.GetTargets() {
 		newObjective := oslov1.Objective{
 			DisplayName:     slo.GetName() + "-target" + strconv.Itoa(i),
-			Target:          float64(target.GetValueX100() / 100),
-			TimeSliceWindow: slo.GetMonitorWindow(),
+			Target:          float64(target.GetValueX100()) / 100,
+			TimeSliceWindow: slo.GetBudgetingInterval(),
 		}
 		objectives = append(objectives, newObjective)
 	}
@@ -177,29 +179,31 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 }
 
 var totalQueryTempl = template.Must(template.New("").Parse(`
-	sum(rate({{.metricId}}{job=\"{{.serviceId}}\"}[{{.window}}]))
-`))
+	sum(rate({{.metricId}}{job="{{.serviceId}}"}[{{.window}}])) 
+`)) //FIXME: this might need a filter like status codes
 
 var goodQueryTempl = template.Must(template.New("").Parse(`
-sum(rate({{.metricId}}{job=\"{{.serviceId}}, {{.goodEvents}}\"}[{{.window}}]))
-`))
+sum(rate({{.metricId}}{job="{{.serviceId}}{{.goodEvents}}"}[{{.window}}]))
+`)) // FIXME: this might need a filter like status codes
 
+// @Note: Assumption is that JobID is valid
+// @returns goodQuery, totalQuery
 func fetchPreconfQueries(slo *api.ServiceLevelObjective, jobId string, ctx context.Context, lg hclog.Logger) (string, string, error) {
-	// TODO : Refactor to template
 	if slo.GetDatasource() == MonitoringDatasource {
-		switch slo.GetDatasource() {
-		case MetricAvailability:
-			good_query := fmt.Sprintf("sum(rate(http_request_duration_seconds_count{job=\"%s\",code=~\"(2..|3..)\"}[{{.window}}]))", "Hello" /*SLO.GetServiceId*/) //FIXME:
-			total_query := fmt.Sprintf("sum(rate(http_request_duration_seconds_count{job=\"%s\"}[{{.window}}]))", "Hello" /* SLO.GetServiceId*/)                   //FIXME:
-			return good_query, total_query, nil
-		case MetricLatency:
-			good_query := "sum(rate(http_request_duration_seconds_count{job=\"%s\",le:\"0.5\",verb!=\"WATCH\"}[{{.window}}]))"
-			total_query := "sum(rate(apiserver_request_duration_seconds_count{verb!=\"WATCH\"}[{{.window}}]))"
-			return good_query, total_query, nil
-		default:
-			return "", "", nil //FIXME: metric grouping
+		var goodQuery bytes.Buffer
+		var totalQuery bytes.Buffer
+		err := goodQueryTempl.Execute(&goodQuery, map[string]string{"metricId": "" /*FIXME:*/, "serviceId": jobId, "window": slo.GetBudgetingInterval(), "goodEvents": "" /*FIXME*/})
+		if err != nil {
+			return "", "", fmt.Errorf("Could not map SLO to goo query template")
 		}
+		totalQueryTempl.Execute(&totalQuery, map[string]string{"metricId": "" /*FIXME:*/, "serviceId": jobId, "window": slo.GetBudgetingInterval()})
+		if err != nil {
+			return "", "", fmt.Errorf("Could not map SLO to total query template")
+		}
+		return strings.TrimSpace(goodQuery.String()), strings.TrimSpace(totalQuery.String()), nil
+	} else if slo.GetDatasource() == LoggingDatasource {
+		return "", "", ErrNotImplemented
 	} else {
-		return "", "", fmt.Errorf("Preconfigured queries not implemented for datasource %s", slo.GetDatasource())
+		return "", "", ErrInvalidDatasource
 	}
 }

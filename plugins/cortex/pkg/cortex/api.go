@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/fwd"
@@ -26,6 +27,8 @@ type middlewares struct {
 }
 
 func (p *Plugin) ConfigureRoutes(router *gin.Engine) {
+	router.Use(logger.GinLogger(p.logger), gin.Recovery())
+
 	futureCtx, ca := context.WithTimeout(context.Background(), 10*time.Second)
 	defer ca()
 	config, err := p.config.GetContext(futureCtx)

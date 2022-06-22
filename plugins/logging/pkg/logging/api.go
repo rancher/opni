@@ -9,6 +9,7 @@ import (
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/b2mac"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -26,6 +27,8 @@ type OpensearchDetailsResponse struct {
 }
 
 func (p *Plugin) ConfigureRoutes(router *gin.Engine) {
+	router.Use(logger.GinLogger(p.logger), gin.Recovery())
+
 	storageBackend := p.storageBackend.Get()
 	clusterMiddleware, err := cluster.New(p.ctx, storageBackend, ClusterIDHeader)
 	if err != nil {

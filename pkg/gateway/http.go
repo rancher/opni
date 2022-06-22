@@ -59,7 +59,19 @@ func NewHTTPServer(
 
 	router := gin.New()
 	router.SetTrustedProxies(cfg.TrustedProxies)
-	router.Use(otelgin.Middleware("gateway"))
+
+	router.Use(
+		logger.GinLogger(lg),
+		gin.Recovery(),
+		otelgin.Middleware("gateway"),
+		func(c *gin.Context) {
+			httpRequestsTotal.Inc()
+		},
+	)
+
+	router.GET("/healthz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
 
 	tlsConfig, _, err := loadTLSConfig(cfg)
 	if err != nil {
@@ -78,21 +90,6 @@ func NewHTTPServer(
 			"/healthz",
 		},
 	}
-
-	sampledLog := logger.New(
-		logger.WithSampling(&zap.SamplingConfig{
-			Initial:    1,
-			Thereafter: 0,
-		}),
-	).Named("http")
-	router.Use(func(c *gin.Context) {
-		sampledLog.Debugf("%s %s", c.Request.Method, c.FullPath())
-		httpRequestsTotal.Inc()
-	})
-
-	router.GET("/healthz", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
 
 	srv.metricsHandler.MustRegister(apiCollectors...)
 	pl.Hook(hooks.OnLoad(func(p types.MetricsPlugin) {

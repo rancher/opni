@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-hclog"
 	"github.com/kralicky/gpkg/sync"
 	"github.com/onsi/ginkgo/v2"
@@ -240,10 +239,6 @@ func FromContext(ctx context.Context) ExtendedSugaredLogger {
 		panic("logger not found in context")
 	}
 	return lg
-}
-
-func ConfigureAppLogger(app *fiber.App, name string) {
-	app.Server().Logger = NewFasthttpLogger(name)
 }
 
 func NewForPlugin() hclog.Logger {

@@ -920,24 +920,10 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		e.runningAgentsMu.Unlock()
 		mu.Unlock()
 		errC <- nil
-		if err := a.ListenAndServe(); err != nil {
+		if err := a.ListenAndServe(e.ctx); err != nil {
 			Log.Error(err)
 		}
 	}()
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
-		mu.Lock()
-		defer mu.Unlock()
-		if a == nil {
-			return
-		}
-		if err := a.Shutdown(); err != nil {
-			errC <- err
-		}
-		e.runningAgentsMu.Lock()
-		delete(e.runningAgents, id)
-		e.runningAgentsMu.Unlock()
-	})
 	return port, errC
 }
 

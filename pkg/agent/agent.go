@@ -4,9 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gofiber/fiber/v2"
 	gsync "github.com/kralicky/gpkg/sync"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
@@ -21,9 +25,10 @@ import (
 	"github.com/rancher/opni/pkg/storage/crds"
 	"github.com/rancher/opni/pkg/storage/etcd"
 	"github.com/rancher/opni/pkg/trust"
+	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
-	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -53,7 +58,7 @@ type Agent struct {
 	controlv1.UnsafeAgentControlServer
 	AgentOptions
 	v1beta1.AgentConfigSpec
-	app    *fiber.App
+	app    *gin.Engine
 	logger *zap.SugaredLogger
 
 	tenantID         string
@@ -90,18 +95,11 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	options := AgentOptions{}
 	options.apply(opts...)
 
-	app := fiber.New(fiber.Config{
-		Prefork:               false,
-		StrictRouting:         false,
-		AppName:               "Opni Monitoring Agent",
-		ReduceMemoryUsage:     false,
-		Network:               "tcp4",
-		DisableStartupMessage: true,
-	})
-	logger.ConfigureAppLogger(app, "agent")
+	app := gin.New()
+	app.Use(logger.GinLogger(lg), gin.Recovery())
 
-	app.All("/healthz", func(c *fiber.Ctx) error {
-		return c.SendStatus(fasthttp.StatusOK)
+	app.GET("/healthz", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
 	})
 
 	initCtx, initCancel := context.WithTimeout(ctx, 10*time.Second)
@@ -171,9 +169,21 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	var startRuleStreamOnce sync.Once
 	// var startServiceDiscoveryStreamOnce sync.Once
 	go func() {
+		isRetry := false
 		for ctx.Err() == nil {
+			if isRetry {
+				time.Sleep(1 * time.Second)
+				lg.Info("attempting to reconnect...")
+			} else {
+				lg.Info("connecting to gateway...")
+			}
 			cc, errF := agent.gatewayClient.Connect(ctx)
 			if !errF.IsSet() {
+				if isRetry {
+					lg.Info("gateway connected")
+				} else {
+					lg.Info("gateway reconnected")
+				}
 				agent.remoteWriteClient = clients.NewLocker(cc, remotewrite.NewRemoteWriteClient)
 
 				startRuleStreamOnce.Do(func() {
@@ -185,52 +195,94 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 				// 	go agent.streamServiceDiscoveryToGateway(ctx)
 				// })
 
-				lg.Error(errF.Get())
+				lg.With(
+					zap.Error(errF.Get()),
+				).Warn("disconnected from gateway")
 				agent.remoteWriteClient.Close()
 			} else {
-				lg.Error(errF.Get())
+				lg.With(
+					zap.Error(errF.Get()),
+				).Warn("error connecting to gateway")
 			}
+			isRetry = true
 		}
+		lg.With(
+			ctx.Err(),
+		).Error("shutting down gateway client")
 	}()
 
-	app.Post("/api/agent/push", agent.handlePushRequest)
+	app.POST("/api/agent/push", agent.handlePushRequest)
 
 	return agent, nil
 }
 
-func (a *Agent) handlePushRequest(c *fiber.Ctx) error {
-	var status int
+func (a *Agent) handlePushRequest(c *gin.Context) {
+	var code int
 	ok := a.remoteWriteClient.Use(func(rwc remotewrite.RemoteWriteClient) {
 		if rwc == nil {
 			a.conditions.Store(condRemoteWrite, statusPending)
-			status = fiber.StatusServiceUnavailable
+			code = http.StatusServiceUnavailable
 			return
 		}
-		_, err := rwc.Push(c.Context(), &remotewrite.Payload{
+		body, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			c.Error(err)
+			code = http.StatusBadRequest
+			return
+		}
+		_, err = rwc.Push(c.Request.Context(), &remotewrite.Payload{
 			AuthorizedClusterID: a.tenantID,
-			Contents:            c.Body(),
+			Contents:            body,
 		})
 		if err != nil {
-			a.logger.Errorf("remote write error: %v", err)
-			a.conditions.Store(condRemoteWrite, statusFailure)
-			status = fiber.StatusServiceUnavailable
+			stat := status.Convert(err)
+			// check if statusCode is a valid HTTP status code
+			if stat.Code() >= 100 && stat.Code() <= 599 {
+				code = int(stat.Code())
+			} else {
+				code = http.StatusServiceUnavailable
+			}
+			// As a special case, status code 400 may indicate a success.
+			// Cortex handles a variety of cases where prometheus would normally
+			// return an error, such as duplicate or out of order samples. Cortex
+			// will return code 400 to prometheus, which prometheus will treat as
+			// a non-retriable error. In this case, the remote write status condition
+			// will be cleared as if the request succeeded.
+			if code == http.StatusBadRequest {
+				c.Error(errors.New("soft error: this request likely succeeded"))
+				a.conditions.Delete(condRemoteWrite)
+			} else {
+				a.conditions.Store(condRemoteWrite, statusFailure)
+			}
+			c.Error(err)
 			return
 		}
 		a.conditions.Delete(condRemoteWrite)
-		status = fiber.StatusOK
+		code = fiber.StatusOK
 	})
 	if !ok {
-		status = fiber.StatusServiceUnavailable
+		code = fiber.StatusServiceUnavailable
 	}
-	return c.SendStatus(status)
+	c.Status(code)
 }
 
-func (a *Agent) ListenAndServe() error {
-	return a.app.Listen(a.ListenAddress)
-}
-
-func (a *Agent) Shutdown() error {
-	return a.app.Shutdown()
+func (a *Agent) ListenAndServe(ctx context.Context) error {
+	lg := a.logger
+	lc := net.ListenConfig{}
+	listener, err := lc.Listen(ctx, "tcp4", a.AgentConfigSpec.ListenAddress)
+	if err != nil {
+		return err
+	}
+	waitctx.Go(ctx, func() {
+		if err := a.app.RunListener(listener); err != nil {
+			lg.With(
+				zap.Error(err),
+			).Warn("http server exited with error")
+		}
+	})
+	<-ctx.Done()
+	waitctx.Wait(ctx)
+	return ctx.Err()
 }
 
 func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {

@@ -24,6 +24,7 @@ import (
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
@@ -57,6 +58,7 @@ agent remote-write requests to add dynamic authentication.`,
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			ctx := waitctx.FromContext(cmd.Context())
 			tracing.Configure("agent")
 			agentlg = logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(agentLogLevel))))
 			wg := sync.WaitGroup{}
@@ -66,7 +68,7 @@ agent remote-write requests to add dynamic authentication.`,
 				go func(ctx context.Context) {
 					defer wg.Done()
 					runMonitoringAgent(ctx)
-				}(cmd.Context())
+				}(ctx)
 			}
 
 			if enableLogging {
@@ -77,7 +79,7 @@ agent remote-write requests to add dynamic authentication.`,
 					if err != nil {
 						agentlg.Fatalf("failed to start controllers: %v", err)
 					}
-				}(cmd.Context())
+				}(ctx)
 			}
 
 			if enableEventCollector {
@@ -240,7 +242,7 @@ func runMonitoringAgent(ctx context.Context) {
 		agentlg.Error(err)
 		return
 	}
-	if err := p.ListenAndServe(); err != nil {
+	if err := p.ListenAndServe(ctx); err != nil {
 		agentlg.Error(err)
 	}
 }

@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gofiber/fiber/v2"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -80,7 +80,7 @@ var _ = Describe("Middleware", Label("unit"), func() {
 
 		By("adding a default 200 handler")
 		app.GET("/", func(c *gin.Context) {
-			c.Status(fiber.StatusOK)
+			c.Status(http.StatusOK)
 		})
 
 		By("checking request status codes")
@@ -91,9 +91,9 @@ var _ = Describe("Middleware", Label("unit"), func() {
 			recorder := httptest.NewRecorder()
 			app.ServeHTTP(recorder, req)
 			if idNum > 2 {
-				Expect(recorder.Code).To(Equal(fiber.StatusUnauthorized), userId)
+				Expect(recorder.Code).To(Equal(http.StatusUnauthorized), userId)
 			} else {
-				Expect(recorder.Code).To(Equal(fiber.StatusOK), userId)
+				Expect(recorder.Code).To(Equal(http.StatusOK), userId)
 			}
 		}
 	})
@@ -117,7 +117,7 @@ var _ = Describe("Middleware", Label("unit"), func() {
 
 		By("adding a default 200 handler")
 		app.GET("/", func(c *gin.Context) {
-			c.Status(fiber.StatusOK)
+			c.Status(http.StatusOK)
 		})
 
 		By("checking request status codes")
@@ -125,7 +125,7 @@ var _ = Describe("Middleware", Label("unit"), func() {
 			req := httptest.NewRequest("GET", "/", nil)
 			recorder := httptest.NewRecorder()
 			app.ServeHTTP(recorder, req)
-			Expect(recorder.Code).To(Equal(fiber.StatusUnauthorized))
+			Expect(recorder.Code).To(Equal(http.StatusUnauthorized))
 		}
 	})
 })

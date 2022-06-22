@@ -25,7 +25,6 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.0
 	github.com/go-test/deep v1.0.8
-	github.com/gofiber/fiber/v2 v2.34.0
 	github.com/golang/mock v1.6.1-0.20220512030613-73266f9366fc
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.5.8
@@ -395,9 +394,6 @@ require (
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
-	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.37.0 // indirect
-	github.com/valyala/tcplisten v1.0.0 // indirect
 	github.com/wayneashleyberry/terminal-dimensions v1.0.0 // indirect
 	github.com/weaveworks/promrus v1.2.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect

@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gofiber/fiber/v2"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/util"
@@ -31,7 +30,7 @@ func (m *TestAuthMiddleware) Handle(c *gin.Context) {
 	case AuthStrategyUserIDInAuthHeader:
 		userId := c.GetHeader("Authorization")
 		if userId == "" {
-			c.Status(fiber.StatusUnauthorized)
+			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 		c.Header("Authorization", "")

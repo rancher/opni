@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gofiber/fiber/v2"
 	gsync "github.com/kralicky/gpkg/sync"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -258,10 +257,10 @@ func (a *Agent) handlePushRequest(c *gin.Context) {
 			return
 		}
 		a.conditions.Delete(condRemoteWrite)
-		code = fiber.StatusOK
+		code = http.StatusOK
 	})
 	if !ok {
-		code = fiber.StatusServiceUnavailable
+		code = http.StatusServiceUnavailable
 	}
 	c.Status(code)
 }

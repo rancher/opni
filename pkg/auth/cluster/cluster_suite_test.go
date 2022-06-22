@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/b2mac"
@@ -14,7 +13,6 @@ import (
 )
 
 var (
-	app              *fiber.App
 	testServerKey    ed25519.PrivateKey
 	testClientKey    ed25519.PrivateKey
 	invalidKey       ed25519.PrivateKey

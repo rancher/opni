@@ -12,7 +12,6 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/gin-gonic/gin"
-	"github.com/gofiber/fiber/v2"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
@@ -104,8 +103,8 @@ func (a *MultiTenantRuleAggregator) Handle(c *gin.Context) {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
-		if code := resp.StatusCode; code != fiber.StatusOK {
-			if code == fiber.StatusNotFound {
+		if code := resp.StatusCode; code != http.StatusOK {
+			if code == http.StatusNotFound {
 				// cortex will report 404 if there are no groups
 				continue
 			}

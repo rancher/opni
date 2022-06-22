@@ -2,10 +2,10 @@ package logging
 
 import (
 	"encoding/json"
+	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gofiber/fiber/v2"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/b2mac"
@@ -55,7 +55,7 @@ func (p *Plugin) handleGetOpensearchDetails(c *gin.Context) {
 		Namespace: p.storageNamespace,
 	}, binding); err != nil {
 		lg.Error("error fetching opensearch details", "err", err)
-		c.Status(fiber.StatusInternalServerError)
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 
@@ -66,13 +66,13 @@ func (p *Plugin) handleGetOpensearchDetails(c *gin.Context) {
 	secrets := &corev1.SecretList{}
 	if err := p.k8sClient.List(p.ctx, secrets, client.InNamespace(p.storageNamespace), client.MatchingLabels(labels)); err != nil {
 		lg.Error("error fetching opensearch details", "err", err)
-		c.Status(fiber.StatusInternalServerError)
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 
 	if len(secrets.Items) != 1 {
 		lg.Error("failed to list creds")
-		c.Status(fiber.StatusInternalServerError)
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 
@@ -84,7 +84,7 @@ func (p *Plugin) handleGetOpensearchDetails(c *gin.Context) {
 	}
 	responseData, err := json.Marshal(response)
 	if err != nil {
-		c.Status(fiber.StatusInternalServerError)
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 
@@ -92,9 +92,9 @@ func (p *Plugin) handleGetOpensearchDetails(c *gin.Context) {
 	header, err := b2mac.NewEncodedHeader([]byte(id), responseData, sharedKeys.ServerKey)
 	if err != nil {
 		lg.Error("error generating response auth header", "err", err)
-		c.Status(fiber.StatusInternalServerError)
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 	c.Header("Authorization", header)
-	c.Data(fiber.StatusOK, "application/json", responseData)
+	c.Data(http.StatusOK, "application/json", responseData)
 }

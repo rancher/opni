@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/kralicky/totem"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth"

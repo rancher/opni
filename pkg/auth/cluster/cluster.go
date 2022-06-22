@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -176,7 +175,7 @@ func (m *ClusterMiddleware) Handle(c *gin.Context) {
 
 	body, err := c.GetRawData()
 	if err != nil {
-		c.AbortWithError(fiber.StatusInternalServerError, err)
+		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 

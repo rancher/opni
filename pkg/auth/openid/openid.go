@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gofiber/fiber/v2"
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/rancher/opni/pkg/auth"
@@ -93,13 +92,13 @@ func (m *OpenidMiddleware) Handle(c *gin.Context) {
 	set, err := m.keyRefresher.Fetch(ctx, m.wellKnownConfig.JwksUri)
 	if err != nil {
 		lg.Errorf("failed to fetch JWK set: %v", err)
-		c.AbortWithStatus(fiber.StatusServiceUnavailable)
+		c.AbortWithStatus(http.StatusServiceUnavailable)
 		return
 	}
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
 		lg.Error("no authorization header in request")
-		c.AbortWithStatus(fiber.StatusUnauthorized)
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 	bearerToken := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
@@ -109,13 +108,13 @@ func (m *OpenidMiddleware) Handle(c *gin.Context) {
 		idt, err := ValidateIDToken(bearerToken, set)
 		if err != nil {
 			lg.Errorf("failed to validate ID token: %v", err)
-			c.AbortWithStatus(fiber.StatusUnauthorized)
+			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 		claim, ok := idt.Get(m.conf.IdentifyingClaim)
 		if !ok {
 			lg.Errorf("identifying claim %q not found in ID token", m.conf.IdentifyingClaim)
-			c.AbortWithStatus(fiber.StatusUnauthorized)
+			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 		userID = fmt.Sprint(claim)
@@ -123,13 +122,13 @@ func (m *OpenidMiddleware) Handle(c *gin.Context) {
 		userInfo, err := m.cache.Get(bearerToken)
 		if err != nil {
 			lg.Errorf("failed to get user info: %v", err)
-			c.AbortWithStatus(fiber.StatusUnauthorized)
+			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 		uid, err := userInfo.UserID()
 		if err != nil {
 			lg.Errorf("failed to get user id: %v", err)
-			c.AbortWithStatus(fiber.StatusUnauthorized)
+			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 		userID = uid

@@ -27,7 +27,7 @@ dagger.#Plan & {
 			DASHBOARDS_VERSION:  string | *"1.3.1"
 			OPENSEARCH_VERSION:  string | *"1.3.1"
 			PLUGIN_VERSION:      string | *"0.5.3"
-			PLUGIN_PUBLISH:      string | *"0.5.4-rc2"
+			PLUGIN_PUBLISH:      string | *"0.5.4-rc3"
 			DOCKER_USERNAME?:    string
 			DOCKER_PASSWORD?:    dagger.#Secret
 		}

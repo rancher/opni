@@ -121,9 +121,8 @@ message ServiceLevelObjective {
   string name = 2;
   string datasource = 3;
   string description = 4;
-  repeated Services services = 5;
+  repeated Service services = 5;
   string monitorWindow = 6; // 7d, 28d or 30d
-  string metricType = 7;
   string metricDescription = 8;
   string budgetingInterval = 9; // in the format 5m, 1h etc..
   repeated Label labels = 10;

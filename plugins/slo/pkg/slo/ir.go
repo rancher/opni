@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	openslov1 "github.com/OpenSLO/oslo/pkg/manifest/v1"
+	openslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
 	"gopkg.in/yaml.v2"
 )

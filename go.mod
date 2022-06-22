@@ -7,8 +7,8 @@ require (
 	emperror.dev/errors v0.8.1
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/NVIDIA/gpu-operator v1.8.1
-	github.com/OpenSLO/oslo v0.4.0
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
+	github.com/alexandreLamarre/oslo v0.4.1-0.20220622183136-9097b55785d9
 	github.com/alexandreLamarre/sloth v0.11.1-0.20220621184403-416cfe52767a
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/banzaicloud/logging-operator v0.0.0-20220225205714-b06e7ad17676
@@ -70,7 +70,7 @@ require (
 	github.com/prometheus/prometheus v1.8.2-0.20220411232225-ce6a643ee88f
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/samber/lo v1.21.0
-	github.com/spf13/cobra v1.4.0
+	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/tidwall/gjson v1.12.1
 	github.com/tidwall/sjson v1.2.4
@@ -355,8 +355,8 @@ require (
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/stretchr/objx v0.3.0 // indirect
-	github.com/stretchr/testify v1.7.2 // indirect
+	github.com/stretchr/objx v0.4.0 // indirect
+	github.com/stretchr/testify v1.7.4 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/thanos-io/thanos v0.22.0 // indirect
 	github.com/therootcompany/xz v1.0.1 // indirect

@@ -50,27 +50,27 @@ func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjectiv
 		}
 	}
 
-	if err := ValidateInput(slo); err != nil {
-		return nil, err
-	}
+	// if err := ValidateInput(slo); err != nil {
+	// 	return nil, err
+	// }
 
-	osloSpecs, err := ParseToOpenSLO(slo, ctx, p.logger)
-	if err != nil {
-		return nil, err
-	}
+	// osloSpecs, err := ParseToOpenSLO(slo, ctx, p.logger)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	for _, spec := range osloSpecs {
-		switch slo.GetDatasource() {
-		case LoggingDatasource:
-			// TODO translate OpenSLO to Transform OS api
-		case MonitoringDatasource:
-			// TODO forward to "sloth"-like prometheus parser
-		default:
-			return nil, status.Error(codes.FailedPrecondition, "Invalid datasource should have already been checked")
-		}
+	// for _, spec := range osloSpecs {
+	// 	switch slo.GetDatasource() {
+	// 	case LoggingDatasource:
+	// 		// TODO translate OpenSLO to Transform OS api
+	// 	case MonitoringDatasource:
+	// 		// TODO forward to "sloth"-like prometheus parser
+	// 	default:
+	// 		return nil, status.Error(codes.FailedPrecondition, "Invalid datasource should have already been checked")
+	// 	}
 
-		fmt.Printf("%v", spec) // FIXME: remove
-	}
+	// 	fmt.Printf("%v", spec) // FIXME: remove
+	// }
 
 	// Put in k,v store only if everything else succeeds
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", slo.Id), slo); err != nil {
@@ -153,16 +153,18 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
 		lg.Error(fmt.Sprintf("Failed to list clusters: %v", err))
+		return nil, err
 	}
 	if len(clusters.Items) == 0 {
-		//FIXME: Handle this appropriately
+		lg.Debug("Found no downstream clusters")
+		return &sloapi.ServiceList{}, nil
 	}
 	cl := make([]string, 0)
 	for _, c := range clusters.Items {
 		cl = append(cl, c.Id)
 	}
 
-	discoveryQuery := "group by(job)({__name__!=\"\"})"
+	discoveryQuery := `group by(job)({__name__!=""})`
 	adminClient := cortexadmin.NewCortexAdminClient(managementv1.UnderlyingConn(p.mgmtClient.Get()))
 	resp, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
 		Tenants: cl,
@@ -178,6 +180,7 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 	// Maybe TTL cache responses?
 	var s model.Sample
 	s.UnmarshalJSON(data)
+	lg.Debug(fmt.Sprintf("%v", s))
 
 	//TODO parse data into items
 
@@ -187,48 +190,6 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 	// }
 	return &sloapi.ServiceList{}, nil
 }
-
-// func (p *Plugin) CloneService(ctx context.Context, ref *sloapi.CloneServiceRequest) (*emptypb.Empty, error) {
-// 	// ensure new cluster exists
-// 	if _, err := p.mgmtClient.Get().GetCluster(ctx, &corev1.Reference{Id: ref.NewClusterId}); err != nil {
-// 		return nil, err
-// 	}
-// 	// ensure the new service exists
-// 	if _, err := p.GetService(ctx, &corev1.Reference{Id: ref.NewServiceId}); err != nil {
-// 		return nil, err
-// 	}
-// 	// find all SLOs in the existing service
-// 	existingSLOs, err := p.ListSLOs(ctx, &emptypb.Empty{})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	toClone := []*sloapi.ServiceLevelObjective{}
-// 	for _, slo := range existingSLOs.Items {
-// 		if slo.ServiceId == ref.GetService().GetId() {
-// 			toClone = append(toClone, slo)
-// 		}
-// 	}
-// 	if len(toClone) == 0 {
-// 		return nil, status.Error(codes.InvalidArgument, "No SLOs found for this service")
-// 	}
-
-// 	// clone the SLOs to the new service
-// 	p.logger.With(
-// 		"service", ref.GetService().GetId(),
-// 		"newService", ref.NewServiceId,
-// 		"newCluster", ref.NewClusterId,
-// 	).Debug(fmt.Sprintf("cloning service containing %d SLOs", len(toClone)))
-// 	for _, slo := range toClone {
-// 		clone := proto.Clone(slo).(*sloapi.ServiceLevelObjective)
-// 		clone.Id = uuid.NewString()
-// 		clone.ClusterId = ref.NewClusterId
-// 		clone.ServiceId = ref.NewServiceId
-// 		if _, err := p.CreateSLO(ctx, clone); err != nil {
-// 			return nil, err
-// 		}
-// 	}
-// 	return &emptypb.Empty{}, nil
-// }
 
 func (p *Plugin) GetMetric(ctx context.Context, ref *corev1.Reference) (*sloapi.Metric, error) {
 	return p.storage.Get().Metrics.Get(path.Join("/metrics", ref.Id))

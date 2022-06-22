@@ -254,16 +254,13 @@
                 "description": {
                   "type": "string"
                 },
-                "clusterId": {
-                  "type": "string"
-                },
-                "serviceId": {
-                  "type": "string"
+                "services": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/sloService"
+                  }
                 },
                 "monitorWindow": {
-                  "type": "string"
-                },
-                "metricType": {
                   "type": "string"
                 },
                 "metricDescription": {
@@ -507,16 +504,13 @@
         "description": {
           "type": "string"
         },
-        "clusterId": {
-          "type": "string"
-        },
-        "serviceId": {
-          "type": "string"
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloService"
+          }
         },
         "monitorWindow": {
-          "type": "string"
-        },
-        "metricType": {
           "type": "string"
         },
         "metricDescription": {

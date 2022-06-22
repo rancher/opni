@@ -30,7 +30,7 @@ func ValidateInput(slo *api.ServiceLevelObjective) error {
 	if err := validateSLODatasource(slo.GetDatasource()); err != nil {
 		return err
 	}
-	if err := validateSLOMetric(slo.GetMetricType()); err != nil {
+	if err := validateSLOMetric("Placeholder"); err != nil { //FIXME:
 		return err
 	}
 	for _, alert := range slo.Alerts {
@@ -46,6 +46,7 @@ func ValidateInput(slo *api.ServiceLevelObjective) error {
 }
 
 func validateSLOAlertTarget(value string) error {
+	// TODO : validate alert target
 	switch value {
 	case NotifMail:
 		return nil
@@ -59,7 +60,7 @@ func validateSLOAlertTarget(value string) error {
 }
 
 func validateSLOAlertCondition(value string) error {
-
+	// TODO : validate alert condition
 	switch value {
 	case AlertingBudget:
 		return nil
@@ -71,14 +72,9 @@ func validateSLOAlertCondition(value string) error {
 }
 
 func validateSLOMetric(value string) error {
-	switch value {
-	case MetricLatency:
-		return nil
-	case MetricAvailability:
-		return nil
-	default:
-		return ErrInvalidMetric
-	}
+	// TODO : validate metric type with grouping
+
+	return nil
 }
 
 func validateSLODatasource(value string) error {

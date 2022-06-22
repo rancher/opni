@@ -8,8 +8,11 @@ import (
 	"path"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -47,20 +50,20 @@ func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjectiv
 		}
 	}
 
-	if err := slo.ValidateInput(); err != nil {
+	if err := ValidateInput(slo); err != nil {
 		return nil, err
 	}
 
-	osloSpecs, err := slo.ParseToOpenSLO()
+	osloSpecs, err := ParseToOpenSLO(slo, ctx, p.logger)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, spec := range osloSpecs {
 		switch slo.GetDatasource() {
-		case sloapi.LoggingDatasource:
+		case LoggingDatasource:
 			// TODO translate OpenSLO to Transform OS api
-		case sloapi.MonitoringDatasource:
+		case MonitoringDatasource:
 			// TODO forward to "sloth"-like prometheus parser
 		default:
 			return nil, status.Error(codes.FailedPrecondition, "Invalid datasource should have already been checked")
@@ -146,56 +149,86 @@ func (p *Plugin) GetService(ctx context.Context, ref *corev1.Reference) (*sloapi
 }
 
 func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.ServiceList, error) {
-	items, err := list(p.storage.Get().Services, "/services")
+	lg := p.logger
+	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
-		return nil, err
+		lg.Error(fmt.Sprintf("Failed to list clusters: %v", err))
 	}
-	return &sloapi.ServiceList{
-		Items: items,
-	}, nil
-}
-
-func (p *Plugin) CloneService(ctx context.Context, ref *sloapi.CloneServiceRequest) (*emptypb.Empty, error) {
-	// ensure new cluster exists
-	if _, err := p.mgmtClient.Get().GetCluster(ctx, &corev1.Reference{Id: ref.NewClusterId}); err != nil {
-		return nil, err
+	if len(clusters.Items) == 0 {
+		//FIXME: Handle this appropriately
 	}
-	// ensure the new service exists
-	if _, err := p.GetService(ctx, &corev1.Reference{Id: ref.NewServiceId}); err != nil {
-		return nil, err
-	}
-	// find all SLOs in the existing service
-	existingSLOs, err := p.ListSLOs(ctx, &emptypb.Empty{})
-	if err != nil {
-		return nil, err
-	}
-	toClone := []*sloapi.ServiceLevelObjective{}
-	for _, slo := range existingSLOs.Items {
-		if slo.ServiceId == ref.GetService().GetId() {
-			toClone = append(toClone, slo)
-		}
-	}
-	if len(toClone) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "No SLOs found for this service")
+	cl := make([]string, 0)
+	for _, c := range clusters.Items {
+		cl = append(cl, c.Id)
 	}
 
-	// clone the SLOs to the new service
-	p.logger.With(
-		"service", ref.GetService().GetId(),
-		"newService", ref.NewServiceId,
-		"newCluster", ref.NewClusterId,
-	).Debug(fmt.Sprintf("cloning service containing %d SLOs", len(toClone)))
-	for _, slo := range toClone {
-		clone := proto.Clone(slo).(*sloapi.ServiceLevelObjective)
-		clone.Id = uuid.NewString()
-		clone.ClusterId = ref.NewClusterId
-		clone.ServiceId = ref.NewServiceId
-		if _, err := p.CreateSLO(ctx, clone); err != nil {
-			return nil, err
-		}
+	discoveryQuery := "group by(job)({__name__!=\"\"})"
+	adminClient := cortexadmin.NewCortexAdminClient(managementv1.UnderlyingConn(p.mgmtClient.Get()))
+	resp, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: cl,
+		Query:   discoveryQuery,
+	})
+
+	if err != nil {
+		lg.Error("Failed to get response for Query %s : %v", discoveryQuery, err)
 	}
-	return &emptypb.Empty{}, nil
+
+	data := resp.GetData()
+	lg.Debug("Received service data:\n ", data)
+	// Maybe TTL cache responses?
+	var s model.Sample
+	s.UnmarshalJSON(data)
+
+	//TODO parse data into items
+
+	// items, err := list(p.storage.Get().Services, "/services")
+	// if err != nil {
+	// 	return nil, err
+	// }
+	return &sloapi.ServiceList{}, nil
 }
+
+// func (p *Plugin) CloneService(ctx context.Context, ref *sloapi.CloneServiceRequest) (*emptypb.Empty, error) {
+// 	// ensure new cluster exists
+// 	if _, err := p.mgmtClient.Get().GetCluster(ctx, &corev1.Reference{Id: ref.NewClusterId}); err != nil {
+// 		return nil, err
+// 	}
+// 	// ensure the new service exists
+// 	if _, err := p.GetService(ctx, &corev1.Reference{Id: ref.NewServiceId}); err != nil {
+// 		return nil, err
+// 	}
+// 	// find all SLOs in the existing service
+// 	existingSLOs, err := p.ListSLOs(ctx, &emptypb.Empty{})
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	toClone := []*sloapi.ServiceLevelObjective{}
+// 	for _, slo := range existingSLOs.Items {
+// 		if slo.ServiceId == ref.GetService().GetId() {
+// 			toClone = append(toClone, slo)
+// 		}
+// 	}
+// 	if len(toClone) == 0 {
+// 		return nil, status.Error(codes.InvalidArgument, "No SLOs found for this service")
+// 	}
+
+// 	// clone the SLOs to the new service
+// 	p.logger.With(
+// 		"service", ref.GetService().GetId(),
+// 		"newService", ref.NewServiceId,
+// 		"newCluster", ref.NewClusterId,
+// 	).Debug(fmt.Sprintf("cloning service containing %d SLOs", len(toClone)))
+// 	for _, slo := range toClone {
+// 		clone := proto.Clone(slo).(*sloapi.ServiceLevelObjective)
+// 		clone.Id = uuid.NewString()
+// 		clone.ClusterId = ref.NewClusterId
+// 		clone.ServiceId = ref.NewServiceId
+// 		if _, err := p.CreateSLO(ctx, clone); err != nil {
+// 			return nil, err
+// 		}
+// 	}
+// 	return &emptypb.Empty{}, nil
+// }
 
 func (p *Plugin) GetMetric(ctx context.Context, ref *corev1.Reference) (*sloapi.Metric, error) {
 	return p.storage.Get().Metrics.Get(path.Join("/metrics", ref.Id))
@@ -211,7 +244,7 @@ func (p *Plugin) ListMetrics(ctx context.Context, _ *emptypb.Empty) (*sloapi.Met
 	}, nil
 }
 
-func (p *Plugin) GetFormula(ctx context.Context, ref *corev1.Reference) (*sloapi.Formula, error) {
+func (p *Plugin) GetFormulas(ctx context.Context, ref *corev1.Reference) (*sloapi.Formula, error) {
 	return p.storage.Get().Formulas.Get(path.Join("/formulas", ref.Id))
 }
 

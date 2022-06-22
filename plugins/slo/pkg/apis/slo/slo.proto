@@ -89,24 +89,19 @@ service SLO {
       get: "/services"
     };
   }
-  rpc CloneService(CloneServiceRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/services/{service.id}/clone"
-      body: "*"
-    };
-  }
 }
 
-message Evaluation {
-  double rate = 1;
-  double period = 2;
+message Service {
+  string jobId = 1;
+  string clusterId = 2;
 }
 
-message Metric {
+message ServiceList {
+  repeated Service items = 1;
+}
+
+message Label {
   string name = 1;
-  string datasource = 2;
-  string MetricType = 3;
-  string MetricDescription = 4;
 }
 
 message Alert {
@@ -126,15 +121,14 @@ message ServiceLevelObjective {
   string name = 2;
   string datasource = 3;
   string description = 4;
-  string clusterId = 5;
-  string serviceId = 6;
-  string timeWindow = 7;
-  string metricType = 8;
-  string metricDescription = 9;
-  string budgetingInterval = 10; // in the format 5m, 1h etc..
-  string monitorWindow = 11; // 7d, 28d or 30d
-  repeated Target targets = 12;
-  repeated Alert alerts = 13;
+  repeated Services services = 5;
+  string monitorWindow = 6; // 7d, 28d or 30d
+  string metricType = 7;
+  string metricDescription = 8;
+  string budgetingInterval = 9; // in the format 5m, 1h etc..
+  repeated Label labels = 10;
+  repeated Target targets = 11;
+  repeated Alert alerts = 12;
 }
 
 message Target {
@@ -154,26 +148,10 @@ message SLOStatus {
   Evaluation budget = 4;
 }
 
-message Service {
-  string id = 1;
-  string name = 2;
-  string clusterId = 3;
-  string description = 4;
-}
-
-message ServiceList {
-  repeated Service items = 1;
-}
-
 message MetricList {
   repeated Metric items = 1;
 }
 
-message CloneServiceRequest {
-  core.Reference service = 1;
-  string newClusterId = 2;
-  string newServiceId = 3;
-}
 
 message SetStateRequest {
   core.Reference slo = 1;
@@ -194,4 +172,16 @@ message Formula {
 
 message FormulaList {
   repeated Formula items = 1;
+}
+
+message Evaluation {
+  double rate = 1;
+  double period = 2;
+}
+
+message Metric {
+  string name = 1;
+  string datasource = 2;
+  string MetricType = 3;
+  string MetricDescription = 4;
 }

@@ -39,7 +39,6 @@ type SLOClient interface {
 	GetState(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*State, error)
 	GetService(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*Service, error)
 	ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error)
-	CloneService(ctx context.Context, in *CloneServiceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type sLOClient struct {
@@ -185,15 +184,6 @@ func (c *sLOClient) ListServices(ctx context.Context, in *emptypb.Empty, opts ..
 	return out, nil
 }
 
-func (c *sLOClient) CloneService(ctx context.Context, in *CloneServiceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/slo.SLO/CloneService", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // SLOServer is the server API for SLO service.
 // All implementations must embed UnimplementedSLOServer
 // for forward compatibility
@@ -213,7 +203,6 @@ type SLOServer interface {
 	GetState(context.Context, *v1.Reference) (*State, error)
 	GetService(context.Context, *v1.Reference) (*Service, error)
 	ListServices(context.Context, *emptypb.Empty) (*ServiceList, error)
-	CloneService(context.Context, *CloneServiceRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedSLOServer()
 }
 
@@ -265,9 +254,6 @@ func (UnimplementedSLOServer) GetService(context.Context, *v1.Reference) (*Servi
 }
 func (UnimplementedSLOServer) ListServices(context.Context, *emptypb.Empty) (*ServiceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
-}
-func (UnimplementedSLOServer) CloneService(context.Context, *CloneServiceRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CloneService not implemented")
 }
 func (UnimplementedSLOServer) mustEmbedUnimplementedSLOServer() {}
 
@@ -552,24 +538,6 @@ func _SLO_ListServices_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SLO_CloneService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CloneServiceRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SLOServer).CloneService(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/slo.SLO/CloneService",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SLOServer).CloneService(ctx, req.(*CloneServiceRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // SLO_ServiceDesc is the grpc.ServiceDesc for SLO service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -636,10 +604,6 @@ var SLO_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListServices",
 			Handler:    _SLO_ListServices_Handler,
-		},
-		{
-			MethodName: "CloneService",
-			Handler:    _SLO_CloneService_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

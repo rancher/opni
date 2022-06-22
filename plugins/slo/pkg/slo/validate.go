@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	validation "github.com/rancher/opni/pkg/validation"
+	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 // validation error descriptions
@@ -19,7 +20,7 @@ var (
 
 /// Validates Input based on the necessities of our preconfigured formant,
 /// NOT validating the OpenSLO / Sloth format
-func (slo *ServiceLevelObjective) ValidateInput() error {
+func ValidateInput(slo *api.ServiceLevelObjective) error {
 	if slo.GetId() == "" {
 		return ErrInvalidId
 	}

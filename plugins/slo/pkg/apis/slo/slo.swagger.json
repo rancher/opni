@@ -136,38 +136,6 @@
         ]
       }
     },
-    "/services/{service.id}/clone": {
-      "post": {
-        "operationId": "SLO_CloneService",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "properties": {}
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "service.id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/sloCloneServiceRequest"
-            }
-          }
-        ],
-        "tags": [
-          "SLO"
-        ]
-      }
-    },
     "/slos": {
       "get": {
         "operationId": "SLO_ListSLOs",
@@ -292,7 +260,7 @@
                 "serviceId": {
                   "type": "string"
                 },
-                "timeWindow": {
+                "monitorWindow": {
                   "type": "string"
                 },
                 "metricType": {
@@ -304,8 +272,11 @@
                 "budgetingInterval": {
                   "type": "string"
                 },
-                "monitorWindow": {
-                  "type": "string"
+                "labels": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/sloLabel"
+                  }
                 },
                 "targets": {
                   "type": "array",
@@ -418,20 +389,6 @@
         }
       }
     },
-    "sloCloneServiceRequest": {
-      "type": "object",
-      "properties": {
-        "service": {
-          "$ref": "#/definitions/coreReference"
-        },
-        "newClusterId": {
-          "type": "string"
-        },
-        "newServiceId": {
-          "type": "string"
-        }
-      }
-    },
     "sloEvaluation": {
       "type": "object",
       "properties": {
@@ -467,6 +424,14 @@
           "items": {
             "$ref": "#/definitions/sloFormula"
           }
+        }
+      }
+    },
+    "sloLabel": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
         }
       }
     },
@@ -519,16 +484,10 @@
     "sloService": {
       "type": "object",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
+        "jobId": {
           "type": "string"
         },
         "clusterId": {
-          "type": "string"
-        },
-        "description": {
           "type": "string"
         }
       }
@@ -554,7 +513,7 @@
         "serviceId": {
           "type": "string"
         },
-        "timeWindow": {
+        "monitorWindow": {
           "type": "string"
         },
         "metricType": {
@@ -566,8 +525,11 @@
         "budgetingInterval": {
           "type": "string"
         },
-        "monitorWindow": {
-          "type": "string"
+        "labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloLabel"
+          }
         },
         "targets": {
           "type": "array",

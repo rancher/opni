@@ -52,11 +52,11 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
-	cc, err := intf.GetClientConn(context.TODO(), "CortexAdmin") // TODO(alex): configure this context
+	cc, err := intf.GetClientConn(p.ctx, "CortexAdmin") // TODO(alex): configure this context
 	if err != nil {
 		p.logger.Error("failed to get cortex admin client", "error", err)
 		os.Exit(1)
 	}
-	/*adminClient*/ _ = cortexadmin.NewCortexAdminClient(cc)
-	// p.adminClient.Set(adminClient)
+	adminClient := cortexadmin.NewCortexAdminClient(cc)
+	p.adminClient.Set(adminClient)
 }

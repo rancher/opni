@@ -165,8 +165,8 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 	}
 
 	discoveryQuery := `group by(job)({__name__!=""})`
-	adminClient := cortexadmin.NewCortexAdminClient(managementv1.UnderlyingConn(p.mgmtClient.Get()))
-	resp, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+
+	resp, err := p.adminClient.Get().Query(ctx, &cortexadmin.QueryRequest{
 		Tenants: cl,
 		Query:   discoveryQuery,
 	})

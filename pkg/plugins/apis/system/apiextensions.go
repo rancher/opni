@@ -2,8 +2,13 @@ package system
 
 import (
 	"context"
+	"fmt"
+	"runtime"
+	"time"
 
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // ExtensionClientInterface allows plugins to obtain clients to API extensions
@@ -21,8 +26,41 @@ type apiExtensionInterfaceImpl struct {
 }
 
 func (c *apiExtensionInterfaceImpl) GetClientConn(ctx context.Context, serviceNames ...string) (grpc.ClientConnInterface, error) {
-	// TODO(alex): implement this function
+	//FIXME:(alex) Not being called
+	found := false
+	runtime.Breakpoint()
+	serviceMap := make(map[string]bool)
+	discovered := make(map[string]bool)
+	for k := range serviceNames {
+		serviceMap[serviceNames[k]] = true
+		discovered[serviceNames[k]] = false
+	}
 	// Use c.managementClientConn to obtain a management client, then query the api extension list for that name.
 	// Only when the extension becomes available, return c.managementClientConn.
-	return nil, nil
+	client := managementv1.NewManagementClient(c.managementClientConn)
+	for retries := 10; retries > 0; retries-- {
+		apiExtensions, err := client.APIExtensions(ctx, &emptypb.Empty{})
+		if err != nil {
+			time.Sleep(time.Second)
+			continue
+		}
+		for _, ext := range apiExtensions.Items {
+			if serviceMap[ext.ServiceDesc.GetName()] {
+				discovered[ext.ServiceDesc.GetName()] = true
+			}
+		}
+		for _, has := range discovered {
+			found = found && has
+		}
+
+		if found {
+			break
+		} else {
+			time.Sleep(time.Second)
+		}
+	}
+	if found {
+		return nil, fmt.Errorf("Failed to get one or more API extensions")
+	}
+	return c.managementClientConn, nil
 }

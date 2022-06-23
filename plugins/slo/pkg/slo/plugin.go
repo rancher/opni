@@ -10,16 +10,18 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 type Plugin struct {
 	sloapi.UnsafeSLOServer
 	system.UnimplementedSystemPluginClient
-	ctx        context.Context
-	logger     hclog.Logger
-	storage    future.Future[StorageAPIs]
-	mgmtClient future.Future[managementv1.ManagementClient]
+	ctx         context.Context
+	logger      hclog.Logger
+	storage     future.Future[StorageAPIs]
+	mgmtClient  future.Future[managementv1.ManagementClient]
+	adminClient future.Future[cortexadmin.CortexAdminClient]
 }
 
 type StorageAPIs struct {
@@ -34,10 +36,11 @@ func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewForPlugin()
 	lg.SetLevel(hclog.Debug)
 	return &Plugin{
-		ctx:        ctx,
-		logger:     lg,
-		storage:    future.New[StorageAPIs](),
-		mgmtClient: future.New[managementv1.ManagementClient](),
+		ctx:         ctx,
+		logger:      lg,
+		storage:     future.New[StorageAPIs](),
+		mgmtClient:  future.New[managementv1.ManagementClient](),
+		adminClient: future.New[cortexadmin.CortexAdminClient](),
 	}
 }
 

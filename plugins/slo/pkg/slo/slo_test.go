@@ -2,6 +2,7 @@ package slo_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -16,7 +17,7 @@ import (
 )
 
 var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label(test.Unit, test.Slow), func() {
-
+	sloTestDataDir := "../../../../pkg/test/testdata/slo/"
 	slo1 := &apis.ServiceLevelObjective{ // no alerts
 		Id:          "foo-id",
 		Name:        "foo-name",
@@ -35,8 +36,16 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Alerts: []*apis.Alert{},
 	}
 
-	slo2 := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
-	slo2.Alerts = []*apis.Alert{ // multiple alerts
+	multipleObjectives := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
+	multiClusterMultiService := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
+
+	alertSLO := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
+	alertSLO.Alerts = []*apis.Alert{ // multiple alerts
+		//TODO : populate
+	}
+
+	multiAlerts := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
+	multiAlerts.Alerts = []*apis.Alert{ // multiple alerts
 		//TODO : populate
 	}
 
@@ -64,18 +73,46 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	})
 	When("We convert a ServiceLevelObjective to OpenSLO", func() {
 		It("Should create a valid OpenSLO spec", func() {
+			//Monitoring SLOs
+
 			Expect(slo1.Datasource).To(Equal("monitoring")) // make sure we didn't mutate original message
-			yamlSpec, err := slo.ParseToOpenSLO(slo1, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			yamlSpecs, err := slo.ParseToOpenSLO(slo1, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			Expect(err).To(Succeed())
+			Expect(yamlSpecs).To(HaveLen(1))
+
+			expectedData, err := os.ReadFile(fmt.Sprintf("%s/slo1.yaml", sloTestDataDir))
 			Expect(err).To(Succeed())
 
-			data, err := yaml.Marshal(yamlSpec)
+			createdData, err := yaml.Marshal(&yamlSpecs[0])
+			Expect(createdData).To(MatchYAML(expectedData))
+			multipleObjectives.Targets = []*apis.Target{
+				{ValueX100: 9999},
+				{ValueX100: 9995},
+			}
+
+			objectiveSpecs, err := slo.ParseToOpenSLO(multipleObjectives, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 			Expect(err).To(Succeed())
 
-			expectedData, err := os.ReadFile("../../../../pkg/test/testdata/slo/slo1.yaml")
+			Expect(objectiveSpecs).To(HaveLen(1))
+			expectedObjectives, err := os.ReadFile(fmt.Sprintf("%s/objectives.yaml", sloTestDataDir))
+			Expect(yaml.Marshal(&objectiveSpecs[0])).To(MatchYAML(expectedObjectives))
 
+			multiClusterMultiService.Services = []*apis.Service{
+				{JobId: "foo-service", ClusterId: "foo-cluster"},
+				{JobId: "foo-service2", ClusterId: "foo-cluster"},
+				{JobId: "foo-service", ClusterId: "bar-cluster"},
+				{JobId: "foo-service2", ClusterId: "bar-cluster"},
+			}
+
+			multiSpecs, err := slo.ParseToOpenSLO(multiClusterMultiService, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 			Expect(err).To(Succeed())
-			Expect(data).ToNot(Equal(expectedData))
 
+			Expect(multiSpecs).To(HaveLen(4))
+			expectedMulti, err := os.ReadFile(fmt.Sprintf("%s/multiSpecs.yaml", sloTestDataDir))
+			Expect(err).To(Succeed())
+			Expect(yaml.Marshal(multiSpecs)).To(MatchYAML(expectedMulti))
+
+			// Logging SLOs
 			sloLogging := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 			sloLogging.Datasource = "logging"
 			_, err = slo.ParseToOpenSLO(sloLogging, context.Background(), hclog.New(&hclog.LoggerOptions{}))
@@ -85,6 +122,12 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 	When("We convert an OpenSLO to Sloth IR", func() {
 		It("should create a valid Sloth IR", func() {
+			//Monitoring SLOs
+			yamlSpecs, err := slo.ParseToOpenSLO(slo1, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			Expect(err).To(Succeed())
+
+			_, err = slo.ParseToPrometheusModel(yamlSpecs)
+			Expect(err).To(Succeed())
 
 		})
 	})

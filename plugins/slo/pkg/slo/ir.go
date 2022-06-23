@@ -31,6 +31,19 @@ var errorRatioRawQueryTpl = template.Must(template.New("").Parse(`
   )
 `))
 
+func ParseToPrometheusModel(slos []openslov1.SLO) ([]*prometheus.SLOGroup, error) {
+	res := make([]*prometheus.SLOGroup, 0)
+	y := NewYAMLSpecLoader(time.Hour * 24 * 30) // FIXME: hardcoded window period
+	for idx, slo := range slos {
+		m, err := y.MapSpecToModel(slo)
+		if err != nil {
+			return nil, fmt.Errorf("could not map SLO %d: %w", idx, err)
+		}
+		res = append(res, m)
+	}
+	return res, nil
+}
+
 type YAMLSpecLoader struct {
 	windowPeriod time.Duration
 }

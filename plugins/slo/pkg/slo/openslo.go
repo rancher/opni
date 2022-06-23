@@ -94,24 +94,24 @@ func ParseToIndicator(slo *api.ServiceLevelObjective, jobId string, ctx context.
 	} else {
 		metric_type = "opni" // Not OpenSLO standard, but custom
 	}
-	metric_query_bad, metric_query_total, err := fetchPreconfQueries(slo, jobId, ctx, lg)
+	metric_query_good, metric_query_total, err := fetchPreconfQueries(slo, jobId, ctx, lg)
 
 	if err != nil {
 		return nil, err
 	}
 
-	bad_metric := oslov1.MetricSource{
+	good_metric := oslov1.MetricSource{
 		Type:             metric_type,
-		MetricSourceSpec: map[string]string{"query": metric_query_bad},
+		MetricSourceSpec: map[string]string{"query": metric_query_good, "queryType": "promql"},
 	}
 	total_metric := oslov1.MetricSource{
 		Type:             metric_type,
-		MetricSourceSpec: map[string]string{"query": metric_query_total},
+		MetricSourceSpec: map[string]string{"query": metric_query_total, "queryType": "promql"},
 	}
 	spec := oslov1.SLISpec{
 		RatioMetric: &oslov1.RatioMetric{
 			Counter: true, //MAYBE : should not always be true in the future
-			Bad:     &oslov1.MetricSourceHolder{MetricSource: bad_metric},
+			Good:    &oslov1.MetricSourceHolder{MetricSource: good_metric},
 			Total:   oslov1.MetricSourceHolder{MetricSource: total_metric},
 		},
 	}

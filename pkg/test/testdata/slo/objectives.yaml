@@ -20,7 +20,7 @@ spec:
             type: prometheus
             spec:
               query: sum(rate({job="foo-service"}[5m]))
-              queryType : promql
+              queryType: promql
         total:
           metricSource:
             type: prometheus
@@ -32,5 +32,8 @@ spec:
   objectives:
   - displayName: foo-name-target0
     target: 99.99
+    timeSliceWindow: 5m
+  - displayName: foo-name-target1
+    target: 99.95
     timeSliceWindow: 5m
   alertPolicies: []

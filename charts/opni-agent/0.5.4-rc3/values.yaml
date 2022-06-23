@@ -20,6 +20,7 @@ logging:
   enabled: false
   insecure: false
   disableOpensearchTLSVerify: false
+  disableBootstrap: false
   provider: rke
   jobTTL: 0
 

@@ -1,5 +1,5 @@
 {{- $versionTag := printf "v%s" .Chart.AppVersion }}
-{{- if and (.Values.logging.enabled (not .Values.logging.disableBootstrap)) }}
+{{- if (and .Values.logging.enabled (not .Values.logging.disableBootstrap)) }}
 apiVersion: batch/v1
 kind: Job
 metadata:

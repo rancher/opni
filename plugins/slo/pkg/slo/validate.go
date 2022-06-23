@@ -17,6 +17,7 @@ var (
 	ErrInvalidAlertTarget    = validation.Error("Invalid Alert Target")
 	ErrInvalidId             = validation.Error("Internal error, unassigned SLO ID")
 	ErrNotImplemented        = validation.Error("Not implemented")
+	ErrPrometheusGenerator   = validation.Error("Prometheus generator failed to start")
 )
 
 /// Validates Input based on the necessities of our preconfigured formant,

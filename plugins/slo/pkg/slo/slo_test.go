@@ -6,6 +6,9 @@ import (
 	"os"
 	"strings"
 
+	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
+	"github.com/alexandreLamarre/sloth/core/app/generate"
+	"github.com/alexandreLamarre/sloth/core/prometheus"
 	"github.com/hashicorp/go-hclog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,6 +52,24 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		//TODO : populate
 	}
 
+	var simpleSpec []oslov1.SLO
+	var objectiveSpecs []oslov1.SLO
+	var multiClusterSpecs []oslov1.SLO
+	// var alertSpecs []oslov1.SLO //TODO : test alert specs
+	// var multiAlertSpecs []oslov1.SLO
+
+	var simplePrometheusIR []*prometheus.SLOGroup
+	var objectivePrometheusIR []*prometheus.SLOGroup
+	var multiClusterPrometheusIR []*prometheus.SLOGroup
+	// var alertPrometheusIR []*prometheus.SLOGroup //TODO : test alert IR
+	// var multiAlertPrometheusIR []*prometheus.SLOGroup
+
+	var simplePrometheusResponse []*generate.Response
+	var objectivePrometheusResponse []*generate.Response
+	var multiClusterPrometheusResponse []*generate.Response
+	// var alertPrometheusIR []*generate.Response
+	// var multiAlertPrometheusIR []*generate.Response
+
 	When("A ServiceLevelObjective message is given", func() {
 		It("should validate proper input", func() {
 			Expect(slo.ValidateInput(slo1)).To(Succeed())
@@ -74,23 +95,23 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	When("We convert a ServiceLevelObjective to OpenSLO", func() {
 		It("Should create a valid OpenSLO spec", func() {
 			//Monitoring SLOs
-
+			var err error
 			Expect(slo1.Datasource).To(Equal("monitoring")) // make sure we didn't mutate original message
-			yamlSpecs, err := slo.ParseToOpenSLO(slo1, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			simpleSpec, err = slo.ParseToOpenSLO(slo1, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 			Expect(err).To(Succeed())
-			Expect(yamlSpecs).To(HaveLen(1))
+			Expect(simpleSpec).To(HaveLen(1))
 
 			expectedData, err := os.ReadFile(fmt.Sprintf("%s/slo1.yaml", sloTestDataDir))
 			Expect(err).To(Succeed())
 
-			createdData, err := yaml.Marshal(&yamlSpecs[0])
+			createdData, err := yaml.Marshal(&simpleSpec[0])
 			Expect(createdData).To(MatchYAML(expectedData))
 			multipleObjectives.Targets = []*apis.Target{
 				{ValueX100: 9999},
 				{ValueX100: 9995},
 			}
 
-			objectiveSpecs, err := slo.ParseToOpenSLO(multipleObjectives, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			objectiveSpecs, err = slo.ParseToOpenSLO(multipleObjectives, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 			Expect(err).To(Succeed())
 
 			Expect(objectiveSpecs).To(HaveLen(1))
@@ -104,13 +125,13 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				{JobId: "foo-service2", ClusterId: "bar-cluster"},
 			}
 
-			multiSpecs, err := slo.ParseToOpenSLO(multiClusterMultiService, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			multiClusterSpecs, err = slo.ParseToOpenSLO(multiClusterMultiService, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 			Expect(err).To(Succeed())
 
-			Expect(multiSpecs).To(HaveLen(4))
+			Expect(multiClusterSpecs).To(HaveLen(4))
 			expectedMulti, err := os.ReadFile(fmt.Sprintf("%s/multiSpecs.yaml", sloTestDataDir))
 			Expect(err).To(Succeed())
-			Expect(yaml.Marshal(multiSpecs)).To(MatchYAML(expectedMulti))
+			Expect(yaml.Marshal(multiClusterSpecs)).To(MatchYAML(expectedMulti))
 
 			// Logging SLOs
 			sloLogging := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
@@ -120,20 +141,42 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		})
 	})
 
-	When("We convert an OpenSLO to Sloth IR", func() {
+	When("We convert an OpenSLO to Sloth IR for OpniMonitoring", func() {
 		It("should create a valid Sloth IR", func() {
-			//Monitoring SLOs
-			yamlSpecs, err := slo.ParseToOpenSLO(slo1, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			var err error
+			simplePrometheusIR, err = slo.ParseToPrometheusModel(simpleSpec)
 			Expect(err).To(Succeed())
+			Expect(simplePrometheusIR).To(HaveLen(1))
 
-			_, err = slo.ParseToPrometheusModel(yamlSpecs)
+			objectivePrometheusIR, err = slo.ParseToPrometheusModel(objectiveSpecs)
 			Expect(err).To(Succeed())
+			Expect(objectivePrometheusIR).To(HaveLen(1))
+			// For each objective defined by user we expect to have a corresponding SLOGroup
+			Expect(objectivePrometheusIR[0].SLOs).To(HaveLen(2))
 
+			multiClusterPrometheusIR, err = slo.ParseToPrometheusModel(multiClusterSpecs)
+			Expect(err).To(Succeed())
+			Expect(multiClusterPrometheusIR).To(HaveLen(4))
+			for _, ir := range multiClusterPrometheusIR {
+				Expect(ir.SLOs).To(HaveLen(1))
+			}
 		})
 	})
 
 	When("We convert Sloth IR to prometheus rules", func() {
 		It("Should create valid prometheus rules", func() {
+			var err error
+			simplePrometheusResponse, err = slo.GeneratePrometheusRule(simplePrometheusIR, context.Background())
+			Expect(err).To(MatchError("Prometheus generator failed to start"))
+			Expect(simplePrometheusResponse).To(BeNil())
+
+			objectivePrometheusResponse, err = slo.GeneratePrometheusRule(objectivePrometheusIR, context.Background())
+			Expect(err).To(MatchError("Prometheus generator failed to start"))
+			Expect(objectivePrometheusResponse).To(BeNil())
+
+			multiClusterPrometheusResponse, err = slo.GeneratePrometheusRule(multiClusterPrometheusIR, context.Background())
+			Expect(err).To(MatchError("Prometheus generator failed to start"))
+			Expect(multiClusterPrometheusResponse).To(BeNil())
 
 		})
 	})

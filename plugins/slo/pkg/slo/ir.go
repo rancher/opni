@@ -10,6 +10,8 @@ import (
 	"time"
 
 	openslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
+	"github.com/alexandreLamarre/sloth/core/app/generate"
+	"github.com/alexandreLamarre/sloth/core/info"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
 	"gopkg.in/yaml.v2"
 )
@@ -30,6 +32,34 @@ var errorRatioRawQueryTpl = template.Must(template.New("").Parse(`
     )
   )
 `))
+
+func GeneratePrometheusRule(slos []*prometheus.SLOGroup, ctx context.Context) ([]*generate.Response, error) {
+	res := make([]*generate.Response, 0)
+	var sliRuleGen generate.SLIRecordingRulesGenerator = prometheus.OptimizedSLIRecordingRulesGenerator
+	var metaRuleGen generate.MetadataRecordingRulesGenerator = prometheus.MetadataRecordingRulesGenerator
+	var alertRuleGen generate.SLOAlertRulesGenerator = prometheus.SLOAlertRulesGenerator
+	controller, err := generate.NewService(generate.ServiceConfig{
+		SLIRecordingRulesGenerator:  sliRuleGen,
+		MetaRecordingRulesGenerator: metaRuleGen,
+		SLOAlertRulesGenerator:      alertRuleGen,
+	})
+	if err != nil {
+		return nil, ErrPrometheusGenerator
+	}
+
+	for _, slo := range slos { //FIXME:
+		result, err := controller.Generate(ctx, generate.Request{
+			ExtraLabels: map[string]string{},
+			Info:        info.Info{},
+			SLOGroup:    *slo,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("could not generate SLO: %w", err)
+		}
+		res = append(res, result)
+	}
+	return res, nil
+}
 
 func ParseToPrometheusModel(slos []openslov1.SLO) ([]*prometheus.SLOGroup, error) {
 	res := make([]*prometheus.SLOGroup, 0)

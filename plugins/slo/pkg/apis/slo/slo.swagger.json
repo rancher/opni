@@ -372,6 +372,9 @@
         "conditionType": {
           "type": "string"
         },
+        "thresholdType": {
+          "type": "string"
+        },
         "onNoData": {
           "type": "boolean"
         },

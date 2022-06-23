@@ -14,27 +14,6 @@ import (
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
-const (
-	// Metric Enum
-	MetricLatency      = "http-latency"
-	MetricAvailability = "http-availability"
-
-	// Datasource Enum
-	LoggingDatasource    = "logging"
-	MonitoringDatasource = "monitoring"
-
-	// Alert Enum
-	AlertingBurnRate = "burnrate"
-	AlertingBudget   = "budget"
-
-	// Notification Enum
-	NotifSlack = "slack"
-	NotifMail  = "email"
-	NotifPager = "pager"
-
-	osloVersion = "openslo/v1"
-)
-
 /// Returns a list of all the components passed in the protobuf we need to translate to specs
 /// @errors: slo must have an id
 func ParseToOpenSLO(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) ([]oslov1.SLO, error) {
@@ -153,7 +132,8 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 			Spec: target_spec,
 		}
 
-		// Create policy with inline condition
+		//TODO(alex) : handle alert conditions
+
 		policy_spec := oslov1.AlertPolicySpec{
 			Description:         alert.GetDescription(),
 			AlertWhenNoData:     alert.GetOnNoData(),
@@ -162,6 +142,7 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 			Conditions:          []oslov1.AlertPolicyCondition{},
 			NotificationTargets: []oslov1.AlertNotificationTarget{},
 		}
+		policy_spec.NotificationTargets = append(policy_spec.NotificationTargets, target)
 
 		wrapPolicy := oslov1.AlertPolicy{
 			ObjectHeader: oslov1.ObjectHeader{
@@ -170,7 +151,6 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 			},
 			Spec: policy_spec,
 		}
-		policy_spec.NotificationTargets = append(policy_spec.NotificationTargets, target)
 		policies = append(policies, wrapPolicy)
 	}
 

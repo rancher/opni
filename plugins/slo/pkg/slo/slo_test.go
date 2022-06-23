@@ -44,24 +44,45 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 	alertSLO := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 	alertSLO.Alerts = []*apis.Alert{ // multiple alerts
-		//TODO : populate
+		{
+			Name:                    "alert-foo",
+			NotificationTarget:      "email",
+			NotificationDescription: "Send to email",
+			Description:             "Alert when we breach the objective",
+			ConditionType:           "budget",
+			ThresholdType:           ">",
+			OnNoData:                true,
+			OnCreate:                true,
+			OnBreach:                true,
+			OnResolved:              true,
+		},
 	}
 
 	multiAlerts := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
-	multiAlerts.Alerts = []*apis.Alert{ // multiple alerts
-		//TODO : populate
-	}
+	multiAlerts.Alerts = alertSLO.Alerts
+	multiAlerts.Alerts = append(multiAlerts.Alerts, &apis.Alert{
+		Name:                    "alert-bar",
+		NotificationTarget:      "slack",
+		NotificationDescription: "Send to slack",
+		Description:             "Alert on burn rate",
+		ConditionType:           "burnrate",
+		ThresholdType:           ">",
+		OnNoData:                true,
+		OnCreate:                true,
+		OnBreach:                true,
+		OnResolved:              true,
+	})
 
 	var simpleSpec []oslov1.SLO
 	var objectiveSpecs []oslov1.SLO
 	var multiClusterSpecs []oslov1.SLO
-	// var alertSpecs []oslov1.SLO //TODO : test alert specs
-	// var multiAlertSpecs []oslov1.SLO
+	var alertSpecs []oslov1.SLO
+	var multiAlertSpecs []oslov1.SLO
 
 	var simplePrometheusIR []*prometheus.SLOGroup
 	var objectivePrometheusIR []*prometheus.SLOGroup
 	var multiClusterPrometheusIR []*prometheus.SLOGroup
-	// var alertPrometheusIR []*prometheus.SLOGroup //TODO : test alert IR
+	// var alertPrometheusIR []*prometheus.SLOGroup
 	// var multiAlertPrometheusIR []*prometheus.SLOGroup
 
 	var simplePrometheusResponse []*generate.Response
@@ -77,19 +98,54 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			sloLogging := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 			sloLogging.Datasource = "logging"
 			Expect(slo.ValidateInput(sloLogging)).To(Succeed())
+
+			Expect(slo.ValidateInput(alertSLO)).To(Succeed())
+			Expect(slo.ValidateInput(multiAlerts)).To(Succeed())
+
+			for _, atype := range []string{slo.NotifHook, slo.NotifPager, slo.NotifMail, slo.NotifSlack} {
+				sloNewAlert := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
+				alertSLO.Alerts[0].NotificationTarget = atype
+				Expect(slo.ValidateInput(sloNewAlert)).To(Succeed())
+			}
+
+			for _, ctype := range []string{slo.AlertingBurnRate, slo.AlertingBudget, slo.AlertingTarget} {
+				sloNewAlert := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
+				alertSLO.Alerts[0].ConditionType = ctype
+				Expect(slo.ValidateInput(sloNewAlert)).To(Succeed())
+			}
+
+			for _, ttype := range []string{slo.GTThresholdType, slo.LTThresholdType} {
+				sloNewAlert := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
+				alertSLO.Alerts[0].ThresholdType = ttype
+				Expect(slo.ValidateInput(sloNewAlert)).To(Succeed())
+			}
+
 		})
 		It("should reject improper input", func() {
 			invalidDesc := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 			invalidDesc.Description = strings.Repeat("a", 1056)
-			Expect(slo.ValidateInput(invalidDesc)).To(MatchError("Description must be between 1-1050 characters in length"))
+			Expect(slo.ValidateInput(invalidDesc)).To(MatchError(slo.ErrInvalidDescription))
 
 			invalidSource := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 			invalidSource.Datasource = strings.Repeat("a", 256)
-			Expect(slo.ValidateInput(invalidSource)).To(MatchError("Invalid required datasource value"))
+			Expect(slo.ValidateInput(invalidSource)).To(MatchError(slo.ErrInvalidDatasource))
 
 			missingId := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 			missingId.Id = ""
-			Expect(slo.ValidateInput(missingId)).To(MatchError("Internal error, unassigned SLO ID"))
+			Expect(slo.ValidateInput(missingId)).To(MatchError(slo.ErrInvalidId))
+
+			sloInvalidAlertTarget := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
+			sloInvalidAlertTarget.Alerts[0].NotificationTarget = "invalid-234987ukjas"
+			Expect(slo.ValidateInput(sloInvalidAlertTarget)).To(MatchError(slo.ErrInvalidAlertTarget))
+
+			sloInvalidAlertCondition := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
+			sloInvalidAlertCondition.Alerts[0].ConditionType = "invalid-234987ukjas"
+			Expect(slo.ValidateInput(sloInvalidAlertCondition)).To(MatchError(slo.ErrInvalidAlertCondition))
+
+			sloInvalidAlertThreshold := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
+			sloInvalidAlertThreshold.Alerts[0].ThresholdType = "invalid-234987ukjas"
+			Expect(slo.ValidateInput(sloInvalidAlertThreshold)).To(MatchError(slo.ErrInvalidAlertThreshold))
+
 		})
 	})
 	When("We convert a ServiceLevelObjective to OpenSLO", func() {
@@ -132,6 +188,23 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			expectedMulti, err := os.ReadFile(fmt.Sprintf("%s/multiSpecs.yaml", sloTestDataDir))
 			Expect(err).To(Succeed())
 			Expect(yaml.Marshal(multiClusterSpecs)).To(MatchYAML(expectedMulti))
+
+			// Alerting SLOS
+			alertSpecs, err = slo.ParseToOpenSLO(alertSLO, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			Expect(err).To(Succeed())
+			Expect(alertSpecs).To(HaveLen(1))
+			Expect(alertSpecs[0].Spec.AlertPolicies).To(HaveLen(1))
+			//FIXME: this is a check to verify we haven't implemented this functionality yet
+			Expect(alertSpecs[0].Spec.AlertPolicies[0].Spec.Conditions).To(HaveLen(0))
+			expectedAlert, err := os.ReadFile(fmt.Sprintf("%s/alertSLO.yaml", sloTestDataDir))
+			Expect(err).To(Succeed())
+			Expect(yaml.Marshal(alertSpecs[0])).To(MatchYAML(expectedAlert))
+
+			multiAlertSpecs, err = slo.ParseToOpenSLO(multiAlerts, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			Expect(err).To(Succeed())
+			expectedMultiAlert, err := os.ReadFile(fmt.Sprintf("%s/multiAlertSLO.yaml", sloTestDataDir))
+			Expect(err).To(Succeed())
+			Expect(yaml.Marshal(multiAlertSpecs)).To(MatchYAML(expectedMultiAlert))
 
 			// Logging SLOs
 			sloLogging := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
@@ -177,7 +250,6 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			multiClusterPrometheusResponse, err = slo.GeneratePrometheusRule(multiClusterPrometheusIR, context.Background())
 			Expect(err).To(MatchError("Prometheus generator failed to start"))
 			Expect(multiClusterPrometheusResponse).To(BeNil())
-
 		})
 	})
 

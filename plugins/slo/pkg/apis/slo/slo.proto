@@ -110,10 +110,11 @@ message Alert {
   string notificationDescription = 3;
   string description = 4;
   string conditionType = 5;
-  bool onNoData = 6;
-  bool onCreate = 7;
-  bool onBreach = 8;
-  bool onResolved = 9;
+  string thresholdType = 6;
+  bool onNoData = 7;
+  bool onCreate = 8;
+  bool onBreach = 9;
+  bool onResolved = 10;
 }
 
 message ServiceLevelObjective {

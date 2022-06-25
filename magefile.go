@@ -82,6 +82,7 @@ func ControllerGen() error {
 			}
 		}
 	}
+
 	return nil
 }
 

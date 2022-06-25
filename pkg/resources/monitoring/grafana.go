@@ -212,11 +212,15 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch configuration from openid provider: %w", err)
 		}
+		scopes := spec.Scopes
+		if len(scopes) == 0 {
+			scopes = []string{"openid", "profile", "email"}
+		}
 		grafana.Spec.Config.AuthGenericOauth = &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
 			Enabled:               util.Pointer(true),
 			ClientId:              spec.ClientID,
 			ClientSecret:          spec.ClientSecret,
-			Scopes:                strings.Join(spec.Scopes, " "),
+			Scopes:                strings.Join(scopes, " "),
 			AuthUrl:               wkc.AuthEndpoint,
 			TokenUrl:              wkc.TokenEndpoint,
 			ApiUrl:                wkc.UserinfoEndpoint,

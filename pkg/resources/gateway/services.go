@@ -2,9 +2,11 @@ package gateway
 
 import (
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *Reconciler) services() ([]resources.Resource, error) {
@@ -27,6 +29,8 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 			Ports:    servicePorts(publicPorts),
 		},
 	}
+
+	r.gw.Status.ServiceName = publicSvc.Name
 
 	internalPorts, err := r.managementContainerPorts()
 	if err != nil {
@@ -52,4 +56,25 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 		resources.Present(publicSvc),
 		resources.Present(internalSvc),
 	}, nil
+}
+
+func (r *Reconciler) waitForLoadBalancer() util.RequeueOp {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-monitoring",
+			Namespace: r.gw.Namespace,
+		},
+	}
+	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(svc), svc); err != nil {
+		return util.RequeueErr(err)
+	}
+	if len(svc.Status.LoadBalancer.Ingress) == 0 {
+		return util.Requeue()
+	}
+	r.gw.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
+
+	if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
+		return util.RequeueErr(err)
+	}
+	return util.DoNotRequeue()
 }

@@ -249,9 +249,6 @@ dagger.#Plan & {
 					mage.#Run & {
 						mageArgs: ["charts:charts", "opni-agent"]
 					},
-					mage.#Run & {
-						mageArgs: ["charts:charts", "opni-prometheus-crd"]
-					},
 					images.installers.debian.#AwsCli,
 				]
 			}
@@ -265,7 +262,7 @@ dagger.#Plan & {
 				plugins: [
 					images.#Plugin & {
 						name:    "aws"
-						version: "v5.7.1"
+						version: "v5.9.1"
 					},
 					images.#Plugin & {
 						name:    "aws"
@@ -277,7 +274,7 @@ dagger.#Plan & {
 					},
 					images.#Plugin & {
 						name:    "kubernetes"
-						version: "3.19.3"
+						version: "3.19.4"
 					},
 					images.#Plugin & {
 						name:    "random"

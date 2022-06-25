@@ -69,12 +69,11 @@ type AuthSpec struct {
 
 type OpenIDConfigSpec struct {
 	openid.OpenidConfig `json:",inline,omitempty,squash"`
-	ClientID            string `json:"clientID,omitempty"`
-	ClientSecret        string `json:"clientSecret,omitempty"`
-	//+kubebuilder:default=openid;profile;email
-	Scopes            []string `json:"scopes,omitempty"`
-	AllowedDomains    []string `json:"allowedDomains,omitempty"`
-	RoleAttributePath string   `json:"roleAttributePath,omitempty"`
+	ClientID            string   `json:"clientID,omitempty"`
+	ClientSecret        string   `json:"clientSecret,omitempty"`
+	Scopes              []string `json:"scopes,omitempty"`
+	AllowedDomains      []string `json:"allowedDomains,omitempty"`
+	RoleAttributePath   string   `json:"roleAttributePath,omitempty"`
 
 	InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
 
@@ -280,8 +279,11 @@ type MonitoringClusterList struct {
 }
 
 type GatewayStatus struct {
-	Image           string            `json:"image,omitempty"`
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	Image           string                      `json:"image,omitempty"`
+	ImagePullPolicy corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
+	ServiceName     string                      `json:"serviceName,omitempty"`
+	LoadBalancer    *corev1.LoadBalancerIngress `json:"loadBalancer,omitempty"`
+	Ready           bool                        `json:"ready,omitempty"`
 }
 
 //+kubebuilder:object:root=true

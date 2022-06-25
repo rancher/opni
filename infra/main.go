@@ -1,11 +1,9 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
@@ -66,15 +64,12 @@ func run(ctx *Context) (runErr error) {
 		return err
 	}
 
-	var opniCrdChart, opniPrometheusCrdChart, opniChart, opniAgentChart string
+	var opniCrdChart, opniChart, opniAgentChart string
 	var chartRepoOpts *helm.RepositoryOptsArgs
 	if conf.UseLocalCharts {
 		var ok bool
 		if opniCrdChart, ok = findLocalChartDir("opni-crd"); !ok {
 			return errors.New("could not find local opni-crd chart")
-		}
-		if opniPrometheusCrdChart, ok = findLocalChartDir("opni-prometheus-crd"); !ok {
-			return errors.New("could not find local opni-prometheus-crd chart")
 		}
 		if opniChart, ok = findLocalChartDir("opni"); !ok {
 			return errors.New("could not find local opni chart")
@@ -87,24 +82,11 @@ func run(ctx *Context) (runErr error) {
 			Repo: StringPtr(conf.ChartsRepo),
 		}
 		opniCrdChart = "opni-crd"
-		opniPrometheusCrdChart = "opni-prometheus-crd"
 		opniChart = "opni"
 		opniAgentChart = "opni-agent"
 	}
 
 	opniServiceLB := mainCluster.Provider.ApplyT(func(k *kubernetes.Provider) (StringOutput, error) {
-		opniPrometheusCrd, err := helm.NewRelease(ctx, "opni-prometheus-crd", &helm.ReleaseArgs{
-			Chart:          String(opniPrometheusCrdChart),
-			RepositoryOpts: chartRepoOpts,
-			Namespace:      String("opni"),
-			Atomic:         Bool(true),
-			ForceUpdate:    Bool(true),
-			Timeout:        Int(60),
-		}, Provider(k))
-		if err != nil {
-			return StringOutput{}, errors.WithStack(err)
-		}
-
 		opniCrd, err := helm.NewRelease(ctx, "opni-crd", &helm.ReleaseArgs{
 			Chart:          String(opniCrdChart),
 			RepositoryOpts: chartRepoOpts,
@@ -113,7 +95,7 @@ func run(ctx *Context) (runErr error) {
 			Atomic:         Bool(true),
 			ForceUpdate:    Bool(true),
 			Timeout:        Int(60),
-		}, Provider(k), DependsOn([]Resource{opniPrometheusCrd}))
+		}, Provider(k))
 		if err != nil {
 			return StringOutput{}, errors.WithStack(err)
 		}
@@ -171,7 +153,8 @@ func run(ctx *Context) (runErr error) {
 			Atomic:      Bool(true),
 			ForceUpdate: Bool(true),
 			Timeout:     Int(300),
-		}, Provider(k), DependsOn([]Resource{opniPrometheusCrd, opniCrd}))
+			WaitForJobs: Bool(true),
+		}, Provider(k), DependsOn([]Resource{opniCrd}), RetainOnDelete(true))
 		if err != nil {
 			return StringOutput{}, errors.WithStack(err)
 		}
@@ -202,35 +185,21 @@ func run(ctx *Context) (runErr error) {
 			Atomic:      Bool(true),
 			ForceUpdate: Bool(true),
 			Timeout:     Int(300),
-		}, Provider(k), DependsOn([]Resource{opniPrometheusCrd, opniCrd, opni}))
+		}, Provider(k), DependsOn([]Resource{opniCrd, opni}), RetainOnDelete(true))
 		if err != nil {
 			return StringOutput{}, errors.WithStack(err)
 		}
 
 		opniServiceLB := All(opni.Status.Namespace(), opni.Status.Name()).
 			ApplyT(func(args []any) (StringOutput, error) {
-				timeout, ca := context.WithTimeout(context.Background(), 5*time.Minute)
-				defer ca()
 				namespace := args[0].(*string)
-				var opniLBSvc *corev1.Service
-				for timeout.Err() == nil {
-					opniLBSvc, err = corev1.GetService(ctx, "opni-monitoring", ID(
-						fmt.Sprintf("%s/opni-monitoring", *namespace),
-					), nil, Provider(k), Parent(opni), Timeouts(&CustomTimeouts{
-						Create: (5 * time.Minute).String(),
-						Update: (5 * time.Minute).String(),
-					}))
-					if err != nil {
-						time.Sleep(time.Second * 1)
-						continue
-					}
-					break
+				opniLBSvc, err := corev1.GetService(ctx, "opni-monitoring", ID(
+					fmt.Sprintf("%s/opni-monitoring", *namespace),
+				), nil, Provider(k), Parent(opni))
+				if err != nil {
+					return StringOutput{}, err
 				}
-				if timeout.Err() != nil {
-					return StringOutput{}, errors.WithStack(timeout.Err())
-				}
-				return opniLBSvc.Status.LoadBalancer().
-					Ingress().Index(Int(0)).Hostname().Elem(), nil
+				return opniLBSvc.Status.LoadBalancer().Ingress().Index(Int(0)).Hostname().Elem(), nil
 			}).(StringOutput)
 		return opniServiceLB, nil
 	}).(StringOutput)

@@ -1,9 +1,9 @@
 syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite";
+
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
-
-option go_package = "github.com/rancher/opni/pkg/plugins/cortex/pkg/apis/remotewrite";
 
 package remotewrite;
 

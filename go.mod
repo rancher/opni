@@ -43,6 +43,7 @@ require (
 	github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
 	github.com/kralicky/kmatch v0.0.0-20220516173937-745c3d52252c
+	github.com/kralicky/ragu v1.0.0-beta1
 	github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f
 	github.com/kralicky/totem v1.0.0
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
@@ -84,12 +85,12 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/exp v0.0.0-20220518171630-0b5c67f07fdf
+	golang.org/x/exp v0.0.0-20220613132600-b0d781184e0d
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/tools v0.1.10
 	gonum.org/v1/gonum v0.11.0
-	google.golang.org/genproto v0.0.0-20220429170224-98d788798c3e
+	google.golang.org/genproto v0.0.0-20220624142145-8cd45d7dbd1f
 	google.golang.org/grpc v1.45.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -150,6 +151,7 @@ require (
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
+	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/bradfitz/gomemcache v0.0.0-20190913173617-a41fca850d0b // indirect
 	github.com/briandowns/spinner v1.12.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.2 // indirect
@@ -186,6 +188,7 @@ require (
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/fgprof v0.9.1 // indirect
 	github.com/felixge/httpsnoop v1.0.2 // indirect
+	github.com/flosch/pongo2/v6 v6.0.0 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/fsouza/fake-gcs-server v1.7.0 // indirect
@@ -272,7 +275,6 @@ require (
 	github.com/klauspost/compress v1.15.0 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
-	github.com/kralicky/ragu v0.2.7-0.20220323195938-430b56cdb12d // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
@@ -376,7 +378,6 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
-	github.com/yoheimuta/go-protoparser/v4 v4.6.0 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.4 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.4 // indirect
@@ -401,7 +402,7 @@ require (
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/api v0.74.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
@@ -454,4 +455,5 @@ replace (
 	github.com/gocql/gocql => github.com/grafana/gocql v0.0.0-20200605141915-ba5dc39ece85
 	github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.2.5-0.20211201083710-c7bc8e9df94b
 	github.com/thanos-io/thanos v0.22.0 => github.com/thanos-io/thanos v0.19.1-0.20211208205607-d1acaea2a11a
+	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20220324131243-acbaeb5b85eb
 )

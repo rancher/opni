@@ -487,6 +487,12 @@
         "jobId": {
           "type": "string"
         },
+        "metricName": {
+          "type": "string"
+        },
+        "metricId": {
+          "type": "string"
+        },
         "clusterId": {
           "type": "string"
         }

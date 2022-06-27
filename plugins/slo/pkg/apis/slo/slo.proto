@@ -93,7 +93,9 @@ service SLO {
 
 message Service {
   string jobId = 1;
-  string clusterId = 2;
+  string metricName = 2; 
+  string metricId = 3;
+  string clusterId = 4;
 }
 
 message ServiceList {

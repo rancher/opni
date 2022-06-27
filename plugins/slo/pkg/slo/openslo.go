@@ -1,12 +1,9 @@
 package slo
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"strconv"
-	"strings"
 
 	"github.com/alexandreLamarre/oslo/pkg/manifest"
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
@@ -27,7 +24,7 @@ func ParseToOpenSLO(slo *api.ServiceLevelObjective, ctx context.Context, lg hclo
 			BudgetingMethod: slo.GetMonitorWindow(),
 		}
 		// actual SLO/SLI query
-		indicator, err := ParseToIndicator(slo, service.GetJobId(), ctx, lg)
+		indicator, err := ParseToIndicator(slo, service.GetJobId(), service.GetMetricName(), service.GetMetricId(), ctx, lg)
 		if err != nil {
 			return res, err
 		}
@@ -62,7 +59,7 @@ func ParseToOpenSLO(slo *api.ServiceLevelObjective, ctx context.Context, lg hclo
 
 /// @note : for now only one indicator per SLO is supported
 /// Indicator is OpenSLO's inline indicator
-func ParseToIndicator(slo *api.ServiceLevelObjective, jobId string, ctx context.Context, lg hclog.Logger) (*oslov1.SLIInline, error) {
+func ParseToIndicator(slo *api.ServiceLevelObjective, jobId string, metricName string, metricId string, ctx context.Context, lg hclog.Logger) (*oslov1.SLIInline, error) {
 	metadata := oslov1.Metadata{
 		Name: fmt.Sprintf("sli-%s", slo.GetName()),
 	}
@@ -73,7 +70,7 @@ func ParseToIndicator(slo *api.ServiceLevelObjective, jobId string, ctx context.
 	} else {
 		metric_type = "opni" // Not OpenSLO standard, but custom
 	}
-	metric_query_good, metric_query_total, err := fetchPreconfQueries(slo, jobId, ctx, lg)
+	ratioQuery, err := fetchPreconfQueries(slo, jobId, metricName, metricId, ctx, lg)
 
 	if err != nil {
 		return nil, err
@@ -81,11 +78,11 @@ func ParseToIndicator(slo *api.ServiceLevelObjective, jobId string, ctx context.
 
 	good_metric := oslov1.MetricSource{
 		Type:             metric_type,
-		MetricSourceSpec: map[string]string{"query": metric_query_good, "queryType": "promql"},
+		MetricSourceSpec: map[string]string{"query": ratioQuery.GoodQuery, "queryType": "promql"},
 	}
 	total_metric := oslov1.MetricSource{
 		Type:             metric_type,
-		MetricSourceSpec: map[string]string{"query": metric_query_total, "queryType": "promql"},
+		MetricSourceSpec: map[string]string{"query": ratioQuery.TotalQuery, "queryType": "promql"},
 	}
 	spec := oslov1.SLISpec{
 		RatioMetric: &oslov1.RatioMetric{
@@ -156,34 +153,4 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 
 	return policies, nil
 
-}
-
-var totalQueryTempl = template.Must(template.New("").Parse(`
-	sum(rate({{.metricId}}{job="{{.serviceId}}"}[{{.window}}])) 
-`)) //FIXME: this might need a filter like status codes
-
-var goodQueryTempl = template.Must(template.New("").Parse(`
-sum(rate({{.metricId}}{job="{{.serviceId}}{{.goodEvents}}"}[{{.window}}]))
-`)) // FIXME: this might need a filter like status codes
-
-// @Note: Assumption is that JobID is valid
-// @returns goodQuery, totalQuery
-func fetchPreconfQueries(slo *api.ServiceLevelObjective, jobId string, ctx context.Context, lg hclog.Logger) (string, string, error) {
-	if slo.GetDatasource() == MonitoringDatasource {
-		var goodQuery bytes.Buffer
-		var totalQuery bytes.Buffer
-		err := goodQueryTempl.Execute(&goodQuery, map[string]string{"metricId": "" /*FIXME:*/, "serviceId": jobId, "window": slo.GetBudgetingInterval(), "goodEvents": "" /*FIXME*/})
-		if err != nil {
-			return "", "", fmt.Errorf("Could not map SLO to goo query template")
-		}
-		totalQueryTempl.Execute(&totalQuery, map[string]string{"metricId": "" /*FIXME:*/, "serviceId": jobId, "window": slo.GetBudgetingInterval()})
-		if err != nil {
-			return "", "", fmt.Errorf("Could not map SLO to total query template")
-		}
-		return strings.TrimSpace(goodQuery.String()), strings.TrimSpace(totalQuery.String()), nil
-	} else if slo.GetDatasource() == LoggingDatasource {
-		return "", "", ErrNotImplemented
-	} else {
-		return "", "", ErrInvalidDatasource
-	}
 }

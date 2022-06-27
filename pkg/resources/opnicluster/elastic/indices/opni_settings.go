@@ -676,6 +676,7 @@ var (
 				},
 			},
 		},
+		Priority: 100,
 	}
 
 	IngestPipelineTemplate = osapiext.IndexTemplateSpec{

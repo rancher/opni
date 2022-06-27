@@ -23,6 +23,9 @@ var (
 	goodQueryTempl = template.Must(template.New("").Parse(`
 		sum(rate({{.metricId}}{job="{{.jobId}}", {{.filter}}}[{{.window}}]))
 	`))
+	GetDownstreamMetricQueryTempl = template.Must(template.New("").Parse(`
+		group by(__name__)({__name__="{{.Name}}" and {job="{{.serviceId}}"}})
+	`))
 )
 
 type RatioQuery struct {
@@ -31,15 +34,22 @@ type RatioQuery struct {
 }
 
 func InitMetricList() {
-	availableQueries["uptime"] = NewPrometheusQueryImpl("uptime", "[A-Za-z0-9]_(up){1}", "up=1", true, false)
+	availableQueries["uptime"] = NewPrometheusQueryImpl("uptime",
+		"[A-Za-z0-9]_(up){1}",
+		"up=1", true, false,
+		"Measures the uptime of a kubernetes service")
 	availableQueries["http-availability"] = NewPrometheusQueryImpl(
 		"http-availibility",
 		"[A-Za-z0-9]_(http_request_duration_seconds){1}(.*)",
-		"code=~\"(2..|3..)\"", true, false)
+		"code=~\"(2..|3..)\"", true, false,
+		`Measures the availability of a kubernetes service using http status codes. 
+		Codes 2XX and 3XX are considered as available.`)
 	availableQueries["http-latency"] = NewPrometheusQueryImpl(
 		"http-latency",
 		"le={0.3}",
-		"", true, false) //FIXME: fill in
+		"[A-Za-z0-9]_(request_duration_seconds_count){1}(.*)", true, false,
+		`Quantifiers the latency of http requests made against a kubernetes service
+		by classifying them as good (<=300ms) or bad(>=300ms)`)
 }
 
 type PrometheusQuery interface {
@@ -47,6 +57,8 @@ type PrometheusQuery interface {
 	ConstructRatio(metricId string, jobId string) (*RatioQuery, error)
 	IsRatio() bool
 	IsHistogram() bool
+	Description() string
+	Datasource() string
 }
 
 type PrometheusQueryImpl struct {
@@ -55,11 +67,16 @@ type PrometheusQueryImpl struct {
 	LabelRegex  regexp.Regexp
 	isRatio     bool
 	isHistogram bool
+	datasource  string
+	description string
 }
 
-func NewPrometheusQueryImpl(name string, labelRegex string, goodFilter string, isRatio bool, isHistogram bool) *PrometheusQueryImpl {
+func NewPrometheusQueryImpl(name string, labelRegex string, goodFilter string, isRatio bool,
+	isHistogram bool, description string) *PrometheusQueryImpl {
 	return &PrometheusQueryImpl{
 		name:        name,
+		datasource:  MonitoringDatasource,
+		description: description,
 		GoodFilter:  goodFilter,
 		LabelRegex:  *regexp.MustCompile(labelRegex),
 		isRatio:     isRatio,
@@ -91,6 +108,14 @@ func (p *PrometheusQueryImpl) ConstructRatio(jobId string, metricId string) (*Ra
 		GoodQuery:  strings.TrimSpace(goodQuery.String()),
 		TotalQuery: strings.TrimSpace(totalQuery.String()),
 	}, nil
+}
+
+func (p *PrometheusQueryImpl) Datasource() string {
+	return p.datasource
+}
+
+func (p *PrometheusQueryImpl) Description() string {
+	return p.description
 }
 
 func (p *PrometheusQueryImpl) Name() string {

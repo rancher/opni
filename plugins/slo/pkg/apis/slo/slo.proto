@@ -52,10 +52,10 @@ service SLO {
     };
   }
 
-  // ================ Metric FIXME: Maybe don't need this
-  rpc GetMetric(core.Reference) returns (Metric) {
+  // Can this metric run with this service & cluster? No == error
+  rpc GetMetric(MetricRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      get: "/metrics/{id}"
+      get: "/metrics/{name}/{serviceId}"
     };
   }
   rpc ListMetrics(google.protobuf.Empty) returns (MetricList) {
@@ -184,6 +184,11 @@ message Evaluation {
 message Metric {
   string name = 1;
   string datasource = 2;
-  string MetricType = 3;
-  string MetricDescription = 4;
+  string MetricDescription = 3;
+}
+
+message MetricRequest {
+  string name = 1;
+  string serviceId = 2;
+  string clusterId = 3;
 }

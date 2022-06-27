@@ -1,0 +1,58 @@
+apiVersion: openslo/v1
+kind: SLO
+metadata:
+  name: slo-foo-name-0-foo-cluster-foo-service
+  labels: {}
+  annotations: {}
+spec:
+  description: Some SLO
+  service: foo-service
+  indicator:
+    metadata:
+      name: sli-foo-name
+      labels: {}
+      annotations: {}
+    spec:
+      ratioMetric:
+        counter: true
+        good:
+          metricSource:
+            type: prometheus
+            spec:
+              query: sum(rate({job="foo-service"}[5m]))
+              queryType: promql
+        total:
+          metricSource:
+            type: prometheus
+            spec:
+              query: sum(rate({job="foo-service"}[5m]))
+              queryType: promql
+  budgetingMethod: 30d
+  timeWindow: []
+  objectives:
+  - displayName: foo-name-target0
+    target: 99.99
+    timeSliceWindow: 5m
+  alertPolicies:
+  - apiVersion: openslo/v1
+    kind: AlertPolicy
+    metadata:
+      name: ""
+      labels: {}
+      annotations: {}
+    spec:
+      description: Alert when we breach the objective
+      alertWhenNoData: true
+      alertWhenBreaching: true
+      alertWhenResolved: true
+      conditions: []
+      notificationTargets:
+      - apiVersion: openslo/v1
+        kind: AlertNotificationTarget
+        metadata:
+          name: ""
+          labels: {}
+          annotations: {}
+        spec:
+          target: slack
+          description: Alert when we breach the objective

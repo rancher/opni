@@ -313,6 +313,12 @@ func init() {
 			URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
 			GetVersion: getVersion,
 		},
+		{
+			Name:       "promtool",
+			Version:    "2.35.0",
+			URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+			GetVersion: getVersion,
+		},
 	}
 	if runtime.GOOS == "linux" {
 		testbin.Config.Binaries = append(testbin.Config.Binaries,

@@ -37,6 +37,7 @@ require (
 	github.com/jaypipes/ghw v0.9.0
 	github.com/jedib0t/go-pretty/v6 v6.3.1
 	github.com/jhump/protoreflect v1.12.0
+	github.com/json-iterator/go v1.1.12
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc
@@ -266,7 +267,6 @@ require (
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
-	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351 // indirect
 	github.com/klauspost/compress v1.15.0 // indirect

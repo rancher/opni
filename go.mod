@@ -495,4 +495,5 @@ replace (
 	github.com/gocql/gocql => github.com/grafana/gocql v0.0.0-20200605141915-ba5dc39ece85
 	github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.2.5-0.20211201083710-c7bc8e9df94b
 	github.com/thanos-io/thanos v0.22.0 => github.com/thanos-io/thanos v0.19.1-0.20211208205607-d1acaea2a11a
+	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20220324131243-acbaeb5b85eb
 )

@@ -176,7 +176,7 @@ func (r *Reconciler) shouldCreateTemplate(template opensearchapiext.IndexTemplat
 	return false, nil
 }
 
-func (r *Reconciler) templateExists(name string) (bool, error) {
+func (r *Reconciler) TemplateExists(name string) (bool, error) {
 	req := opensearchapi.IndicesGetIndexTemplateRequest{
 		Name: []string{
 			name,
@@ -324,7 +324,7 @@ func (r *Reconciler) MaybeCreateIndexTemplate(template opensearchapiext.IndexTem
 }
 
 func (r *Reconciler) MaybeDeleteIndexTemplate(name string) error {
-	exists, err := r.templateExists(name)
+	exists, err := r.TemplateExists(name)
 	if err != nil {
 		return err
 	}

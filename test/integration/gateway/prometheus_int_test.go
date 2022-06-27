@@ -97,7 +97,7 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 			req, err := http.NewRequest("GET", environment.PrometheusAPIEndpoint()+"/labels", nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			req.Header.Add("Content-Type", "application/json")
+			req.Header.Add("Accept", "application/json")
 			req.Header.Add("Authorization", "user@example.com")
 
 			resp, httpErr := httpClient.Do(req)

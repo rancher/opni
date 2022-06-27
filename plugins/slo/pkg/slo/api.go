@@ -7,11 +7,9 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"reflect"
 
 	"github.com/google/uuid"
 	json "github.com/json-iterator/go"
-	pv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -197,6 +195,7 @@ func (p *Plugin) GetService(ctx context.Context, ref *corev1.Reference) (*sloapi
 }
 
 func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.ServiceList, error) {
+	res := &sloapi.ServiceList{}
 	lg := p.logger
 	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
@@ -205,52 +204,46 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 	}
 	if len(clusters.Items) == 0 {
 		lg.Debug("Found no downstream clusters")
-		return &sloapi.ServiceList{}, nil
+		return res, nil
 	}
 	cl := make([]string, 0)
 	for _, c := range clusters.Items {
 		cl = append(cl, c.Id)
+		lg.Debug("Found cluster with id %v", c.Id)
 	}
-
 	discoveryQuery := `group by(job)({__name__!=""})`
 
-	resp, err := p.adminClient.Get().Query(ctx, &cortexadmin.QueryRequest{
-		Tenants: cl,
-		Query:   discoveryQuery,
-	})
+	for _, c := range clusters.Items {
+		resp, err := p.adminClient.Get().Query(ctx, &cortexadmin.QueryRequest{
+			Tenants: []string{c.Id},
+			Query:   discoveryQuery,
+		})
+		if err != nil {
+			lg.Error(fmt.Sprintf("Failed to query cluster %v: %v", c.Id, err))
+			return nil, err
+		}
+		data := resp.GetData()
+		lg.Debug(fmt.Sprintf("Received service data:\n %s from cluster %s ", string(data), c.Id))
+		var a apiResponse
+		var q queryResult
+		if err := json.Unmarshal(data, &a); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(a.Data, &q); err != nil {
+			return nil, err
+		}
+		var vv model.Vector = q.v.(model.Vector)
+		for _, v := range vv {
 
-	if err != nil {
-		lg.Error("Failed to get response for Query %s : %v", discoveryQuery, err)
+			res.Items = append(res.Items, &sloapi.Service{
+				JobId:      (string)(v.Metric["job"]),
+				ClusterId:  c.Id,
+				MetricName: "",
+				MetricId:   "",
+			})
+		}
 	}
-
-	data := resp.GetData()
-	lg.Debug(fmt.Sprintf("Received service data:\n %s ", string(data)))
-
-	var a apiResponse
-	var q queryResult
-	var metric pv1.MetricMetadata
-	if err := json.Unmarshal(data, &a); err != nil {
-		return nil, err
-	}
-	lg.Debug(fmt.Sprintf("Is nested data treated as nil? : %v ", a.Data == nil))
-	lg.Debug(fmt.Sprintf("Unmarshalled service data:\n %v", a.Status))
-
-	if err := json.Unmarshal(a.Data, &q); err != nil {
-		return nil, err
-	}
-	lg.Debug(fmt.Sprintf("Unmarshalled query result type:\n %v", q.Type.String()))
-	lg.Debug(fmt.Sprintf("Unmarshalled query result datatype:\n %v", reflect.TypeOf(q.Type)))
-	if err := json.Unmarshal(a.Data, &metric); err != nil {
-		return nil, err
-	}
-	lg.Debug(fmt.Sprintf("Unmarshalled metric metadata:\n %v", metric))
-	//TODO parse data into items
-
-	// items, err := list(p.storage.Get().Services, "/services")
-	// if err != nil {
-	// 	return nil, err
-	// }
-	return &sloapi.ServiceList{}, nil
+	return res, nil
 }
 
 func (p *Plugin) GetMetric(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Metric, error) {
@@ -312,9 +305,9 @@ func (p *Plugin) ListFormulas(ctx context.Context, _ *emptypb.Empty) (*sloapi.Fo
 }
 
 func (p *Plugin) SetState(ctx context.Context, req *sloapi.SetStateRequest) (*emptypb.Empty, error) {
-	if err := p.storage.Get().SLOState.Put(path.Join("/slo_state", req.Slo.Id), req.State); err != nil {
-		return nil, err
-	}
+	// if err := p.storage.Get().SLOState.Put(path.Join("/slo_state", req.Slo.Id), req.State); err != nil {
+	// 	return nil, err
+	// }
 	return &emptypb.Empty{}, ErrNotImplemented
 
 }

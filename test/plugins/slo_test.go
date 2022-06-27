@@ -35,6 +35,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		env.StartPrometheus(p)
+		p2, _ := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+		env.StartPrometheus(p2)
 		sloClient = apis.NewSLOClient(env.ManagementClientConn())
 	})
 
@@ -43,7 +45,12 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			sloSvcs, err := sloClient.ListServices(ctx, &emptypb.Empty{})
 			Expect(err).To(Succeed())
-			Expect(sloSvcs.Items).To(HaveLen(0))
+			Expect(sloSvcs.Items).To(HaveLen(2))
+
+			Expect(sloSvcs.Items[0].ClusterId).To(Equal("agent"))
+			Expect(sloSvcs.Items[0].JobId).To(Equal("prometheus"))
+			Expect(sloSvcs.Items[1].ClusterId).To(Equal("agent2"))
+			Expect(sloSvcs.Items[1].JobId).To(Equal("prometheus"))
 		})
 
 		It("should be able to fetch distinct services", func() {

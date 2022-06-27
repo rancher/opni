@@ -1,6 +1,9 @@
 syntax = "proto3";
-import "google/protobuf/empty.proto";
 option go_package = "github.com/rancher/opni/pkg/test/testdata/plugins/ext";
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+
 package ext;
 
 service Ext {

@@ -5,7 +5,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "google/api/http.proto";
 import "google/api/annotations.proto";
-import "../../../../../pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 
 package slo;

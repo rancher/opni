@@ -1,6 +1,7 @@
 syntax = "proto3";
-import "github.com/prometheus/client_model/metrics.proto";
 option go_package = "github.com/rancher/opni/pkg/metrics/desc";
+
+import "github.com/prometheus/client_model/metrics.proto";
 
 package desc;
 

@@ -2,6 +2,7 @@ package system
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -96,6 +98,7 @@ func (c *systemPluginClientImpl) UseAPIExtensions(ctx context.Context, addr *Dia
 	cc, err := grpc.DialContext(ctx, addr.Value,
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
+		grpc.WithContextDialer(util.DialProtocol),
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff: backoff.Config{
 				BaseDelay:  1.0 * time.Second,
@@ -166,9 +169,12 @@ func (s *systemPluginHandler) ServeKeyValueStore(store storage.KeyValueStore) {
 }
 
 func (s *systemPluginHandler) ServeAPIExtensions(dialAddr string) {
-	s.client.UseAPIExtensions(s.ctx, &DialAddress{
+	_, err := s.client.UseAPIExtensions(s.ctx, &DialAddress{
 		Value: dialAddr,
 	})
+	if err != nil {
+		panic(fmt.Errorf("UseAPIExtensions panic : %w", err))
+	}
 }
 
 func init() {

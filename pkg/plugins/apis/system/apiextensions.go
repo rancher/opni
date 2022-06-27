@@ -3,7 +3,6 @@ package system
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"time"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -28,7 +27,6 @@ type apiExtensionInterfaceImpl struct {
 func (c *apiExtensionInterfaceImpl) GetClientConn(ctx context.Context, serviceNames ...string) (grpc.ClientConnInterface, error) {
 	//FIXME:(alex) Not being called
 	found := false
-	runtime.Breakpoint()
 	serviceMap := make(map[string]bool)
 	discovered := make(map[string]bool)
 	for k := range serviceNames {

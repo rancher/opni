@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/metrics/unmarshall"
+	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
@@ -171,7 +171,7 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 		}
 		data := resp.GetData()
 		lg.Debug(fmt.Sprintf("Received service data:\n %s from cluster %s ", string(data), c.Id))
-		q, err := unmarshall.UnmarshallPrometheusResponse(data)
+		q, err := unmarshal.UnmarshallPrometheusResponse(data)
 		switch q.V.Type() {
 		case model.ValVector:
 			{

@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/lthibault/jitterbug/v2"
@@ -16,17 +17,27 @@ import (
 type Listener struct {
 	statusUpdate chan StatusUpdate
 	healthUpdate chan HealthUpdate
+	idLocks      map[string]*sync.Mutex
 }
 
 func NewListener() *Listener {
 	return &Listener{
 		statusUpdate: make(chan StatusUpdate, 100),
 		healthUpdate: make(chan HealthUpdate, 100),
+		idLocks:      make(map[string]*sync.Mutex),
 	}
 }
 
 func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientSet) {
 	id := cluster.StreamAuthorizedID(ctx)
+	if _, ok := l.idLocks[id]; !ok {
+		l.idLocks[id] = &sync.Mutex{}
+	}
+	// locks keyed based on agent id ensure this function is reentrant during
+	// agent reconnects
+	l.idLocks[id].Lock()
+	defer l.idLocks[id].Unlock()
+
 	l.statusUpdate <- StatusUpdate{
 		ID: id,
 		Status: &corev1.Status{

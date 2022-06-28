@@ -9,10 +9,10 @@ import (
 	"path"
 
 	"github.com/google/uuid"
-	json "github.com/json-iterator/go"
 	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/metrics/unmarshall"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
@@ -21,59 +21,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-// Struct for unmarshalling from github.com/prometheus/common/model
-type queryResult struct {
-	Type   model.ValueType `json:"resultType"`
-	Result interface{}     `json:"result"`
-
-	// The decoded value.
-	v model.Value
-}
-type ErrorType string
-
-// struct for unmarshalling from prometheus api responses
-type apiResponse struct {
-	Status    string          `json:"status"`
-	Data      json.RawMessage `json:"data"`
-	ErrorType ErrorType       `json:"errorType"`
-	Error     string          `json:"error"`
-	Warnings  []string        `json:"warnings,omitempty"`
-}
-
-// Unmarshalling for `queryResult`
-func (qr *queryResult) UnmarshalJSON(b []byte) error {
-	v := struct {
-		Type   model.ValueType `json:"resultType"`
-		Result json.RawMessage `json:"result"`
-	}{}
-
-	err := json.Unmarshal(b, &v)
-	if err != nil {
-		return err
-	}
-
-	switch v.Type {
-	case model.ValScalar:
-		var sv model.Scalar
-		err = json.Unmarshal(v.Result, &sv)
-		qr.v = &sv
-
-	case model.ValVector:
-		var vv model.Vector
-		err = json.Unmarshal(v.Result, &vv)
-		qr.v = vv
-
-	case model.ValMatrix:
-		var mv model.Matrix
-		err = json.Unmarshal(v.Result, &mv)
-		qr.v = mv
-
-	default:
-		err = fmt.Errorf("unexpected value type %q", v.Type)
-	}
-	return err
-}
 
 func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, error) {
 	keys, err := kvc.ListKeys(prefix)
@@ -224,24 +171,22 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 		}
 		data := resp.GetData()
 		lg.Debug(fmt.Sprintf("Received service data:\n %s from cluster %s ", string(data), c.Id))
-		var a apiResponse
-		var q queryResult
-		if err := json.Unmarshal(data, &a); err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(a.Data, &q); err != nil {
-			return nil, err
-		}
-		var vv model.Vector = q.v.(model.Vector)
-		for _, v := range vv {
+		q, err := unmarshall.UnmarshallPrometheusResponse(data)
+		switch q.V.Type() {
+		case model.ValVector:
+			{
+				var vv model.Vector = q.V.(model.Vector)
+				for _, v := range vv {
 
-			res.Items = append(res.Items, &sloapi.Service{
-				JobId:      (string)(v.Metric["job"]),
-				ClusterId:  c.Id,
-				MetricName: "",
-				MetricId:   "",
-			})
+					res.Items = append(res.Items, &sloapi.Service{
+						JobId:     (string)(v.Metric["job"]),
+						ClusterId: c.Id,
+					})
+				}
+
+			}
 		}
+
 	}
 	return res, nil
 }

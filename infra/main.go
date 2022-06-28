@@ -195,7 +195,10 @@ func run(ctx *Context) (runErr error) {
 				namespace := args[0].(*string)
 				opniLBSvc, err := corev1.GetService(ctx, "opni-monitoring", ID(
 					fmt.Sprintf("%s/opni-monitoring", *namespace),
-				), nil, Provider(k), Parent(opni))
+				), nil, Provider(k), Parent(opni), Timeouts(&CustomTimeouts{
+					Create: "5m",
+					Update: "5m",
+				}))
 				if err != nil {
 					return StringOutput{}, err
 				}

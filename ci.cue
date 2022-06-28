@@ -9,7 +9,8 @@ import (
 	"universe.dagger.io/docker"
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
-	"universe.dagger.io/x/david@rawkode.dev/pulumi"
+	"universe.dagger.io/git"
+	"universe.dagger.io/python"
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
 	"github.com/rancher/opni/internal/util"
@@ -51,21 +52,11 @@ dagger.#Plan & {
 					"internal/cmd/testenv",
 				]
 			}
-			"bin": write: contents:       actions.build.bin
-			"web/dist": write: contents:  actions.web.dist
-			"cover.out": write: contents: actions.test.export.files["/src/cover.out"]
-		}
-		commands: {
-			"aws-identity": {
-				name: "aws"
-				args: ["sts", "get-caller-identity"]
-				stdout: string
-			}
-			"ecr-password": {
-				name: "aws"
-				args: ["ecr", "get-login-password", "--region", "us-east-2"]
-				stdout: dagger.#Secret
-			}
+			"bin": write: contents:             actions.build.bin
+			"web/dist": write: contents:        actions.web.dist
+			"dist/charts": write: contents:     actions.charts.output
+			"cover.out": write: contents:       actions.test.export.files["/src/cover.out"]
+			"aiops/apis/dist": write: contents: actions.aiops.packages.output
 		}
 		network: "unix:///var/run/docker.sock": connect: dagger.#Socket
 	}
@@ -120,7 +111,7 @@ dagger.#Plan & {
 						}
 					},
 					mage.#Run & {
-						mageArgs: ["-v", "build"]
+						mageArgs: ["-v"]
 					},
 				]
 			}
@@ -399,6 +390,21 @@ dagger.#Plan & {
 			}
 		}
 		aiops: {
+			packages: {
+				sdist: python.#Run & {
+					script: {
+						directory: actions.build.output.rootfs
+						filename:  "src/aiops/apis/setup.py"
+					}
+					workdir: "/run/python/src/aiops/apis"
+					args: ["sdist", "-d", "/dist"]
+				}
+				_subdir: core.#Subdir & {
+					input: sdist.output.rootfs
+					path:  "/dist"
+				}
+				output: _subdir.output
+			}
 			build: docker.#Build & {
 				steps: [
 					docker.#Pull & {

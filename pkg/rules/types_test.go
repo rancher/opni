@@ -9,6 +9,7 @@ import (
 
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/util/notifier"
 )
 
 var _ = Describe("Types", func() {
@@ -16,7 +17,12 @@ var _ = Describe("Types", func() {
 		rg, errs := rulefmt.Parse(test.TestData("prometheus/sample-rules.yaml"))
 		Expect(errs).To(BeEmpty())
 		groups := rg.Groups
-		clone := rules.CloneRuleGroupList(groups)
+		groupsToInterface := []rules.RuleGroup{}
+		for _, group := range groups {
+			groupsToInterface = append(groupsToInterface, rules.RuleGroup(group))
+		}
+		// clone := rules.CloneRuleGroupList(groups)
+		clone := notifier.CloneList(groupsToInterface)
 		Expect(unsafe.Pointer(&clone)).NotTo(Equal(unsafe.Pointer(&groups)))
 		Expect(unsafe.Pointer(&clone[0].Rules)).NotTo(Equal(unsafe.Pointer(&groups[0].Rules)))
 		Expect(unsafe.Pointer(&clone[0].Rules[0].Labels)).NotTo(Equal(unsafe.Pointer(&groups[0].Rules[0].Labels)))

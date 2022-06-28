@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/notifier"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -86,7 +87,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label(test.Unit, te
 	}
 
 	var k8sClient client.Client
-	var finder rules.RuleFinder
+	var finder notifier.Finder[rules.RuleGroup]
 	BeforeAll(func() {
 		env := test.Environment{
 			TestBin: "../../testbin/bin",
@@ -121,7 +122,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label(test.Unit, te
 	})
 
 	It("should initially find no groups", func() {
-		groups, err := finder.FindGroups(context.Background())
+		groups, err := finder.Find(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(groups).To(BeEmpty())
 	})
@@ -139,7 +140,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label(test.Unit, te
 			})).To(Succeed())
 
 			By("finding the groups in the new PrometheusRule")
-			groups, err := finder.FindGroups(context.Background())
+			groups, err := finder.Find(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(groups).To(HaveLen(2))
 			Expect([]string{
@@ -159,7 +160,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label(test.Unit, te
 					Groups: testGroups2,
 				},
 			})).To(Succeed())
-			groups, err := finder.FindGroups(context.Background())
+			groups, err := finder.Find(context.Background())
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(groups).To(HaveLen(4))
@@ -184,7 +185,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label(test.Unit, te
 				},
 			})).To(Succeed())
 
-			groups, err := finder.FindGroups(context.Background())
+			groups, err := finder.Find(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 
 			// It should skip test6 and 2 of the rules in test5
@@ -206,7 +207,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label(test.Unit, te
 	})
 	It("should allow specifying namespaces to search in", func() {
 		finder1 := rules.NewPrometheusRuleFinder(k8sClient, rules.WithNamespaces("test1"))
-		groups, err := finder1.FindGroups(context.Background())
+		groups, err := finder1.Find(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(groups).To(HaveLen(2))
 		Expect([]string{
@@ -215,7 +216,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label(test.Unit, te
 		}).To(ContainElements("test", "test2"))
 
 		finder2 := rules.NewPrometheusRuleFinder(k8sClient, rules.WithNamespaces("test2"))
-		groups, err = finder2.FindGroups(context.Background())
+		groups, err = finder2.Find(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(groups).To(HaveLen(3))
 		Expect([]string{
@@ -233,7 +234,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label(test.Unit, te
 		} {
 			finder := rules.NewPrometheusRuleFinder(k8sClient,
 				rules.WithLogger(test.Log), rules.WithNamespaces(namespaces...))
-			groups, err = finder.FindGroups(context.Background())
+			groups, err = finder.Find(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(groups).To(HaveLen(5))
 		}

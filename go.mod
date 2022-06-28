@@ -8,6 +8,8 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/NVIDIA/gpu-operator v1.8.1
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
+	github.com/alexandreLamarre/oslo v0.4.1-0.20220622183136-9097b55785d9
+	github.com/alexandreLamarre/sloth v0.11.1-0.20220621184403-416cfe52767a
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/banzaicloud/logging-operator v0.0.0-20220225205714-b06e7ad17676
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.19
@@ -21,7 +23,7 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/go-test/deep v1.0.8
 	github.com/gofiber/fiber/v2 v2.34.0
-	github.com/golang/mock v1.6.0
+	github.com/golang/mock v1.6.1-0.20220512030613-73266f9366fc
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.5.8
 	github.com/google/uuid v1.3.0
@@ -35,6 +37,7 @@ require (
 	github.com/jaypipes/ghw v0.9.0
 	github.com/jedib0t/go-pretty/v6 v6.3.1
 	github.com/jhump/protoreflect v1.12.0
+	github.com/json-iterator/go v1.1.12
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc
@@ -61,14 +64,14 @@ require (
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.55.0
-	github.com/prometheus/client_golang v1.12.1
+	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.34.0
 	github.com/prometheus/node_exporter v1.0.0-rc.0.0.20200428091818-01054558c289
 	github.com/prometheus/prometheus v1.8.2-0.20220411232225-ce6a643ee88f
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/samber/lo v1.21.0
-	github.com/spf13/cobra v1.4.0
+	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/tidwall/gjson v1.12.1
 	github.com/tidwall/sjson v1.2.4
@@ -206,6 +209,9 @@ require (
 	github.com/go-openapi/strfmt v0.21.2 // indirect
 	github.com/go-openapi/swag v0.21.1 // indirect
 	github.com/go-openapi/validate v0.21.0 // indirect
+	github.com/go-playground/locales v0.14.0 // indirect
+	github.com/go-playground/universal-translator v0.18.0 // indirect
+	github.com/go-playground/validator/v10 v10.11.0 // indirect
 	github.com/go-redis/redis/v8 v8.11.4 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
@@ -261,7 +267,6 @@ require (
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
-	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351 // indirect
 	github.com/klauspost/compress v1.15.0 // indirect
@@ -270,6 +275,7 @@ require (
 	github.com/kralicky/ragu v0.2.7-0.20220323195938-430b56cdb12d // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
+	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/iter v1.0.1 // indirect
@@ -349,13 +355,14 @@ require (
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
-	github.com/stretchr/objx v0.2.0 // indirect
-	github.com/stretchr/testify v1.7.1 // indirect
+	github.com/stretchr/objx v0.4.0 // indirect
+	github.com/stretchr/testify v1.7.4 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/thanos-io/thanos v0.22.0 // indirect
 	github.com/therootcompany/xz v1.0.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
+	github.com/traefik/yaegi v0.12.0 // indirect
 	github.com/uber/jaeger-client-go v2.29.1+incompatible // indirect
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
@@ -432,11 +439,11 @@ replace (
 
 // Forks
 replace (
-	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.12.0-rc.0.0.20220527230459-8efe7b8df3e4
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
+	github.com/cortexproject/cortex => github.com/kralicky/cortex v1.12.0-rc.0.0.20220527230459-8efe7b8df3e4
 	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220602163320-c4f349ffe03f
-	go.uber.org/zap => github.com/kralicky/zap v1.19.2-0.20220311060549-c0d473b28cca
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
+	go.uber.org/zap => github.com/kralicky/zap v1.19.2-0.20220311060549-c0d473b28cca
 	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220427221203-1428ac8c22eb
 )
 

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -33,6 +34,25 @@ func NewProtocolListener(addr string) (net.Listener, error) {
 			}
 		}
 		return net.Listen("unix", socketPath)
+	default:
+		return nil, fmt.Errorf("%w: %q", ErrUnsupportedProtocolScheme, u.Scheme)
+	}
+}
+
+func DialProtocol(ctx context.Context, addr string) (net.Conn, error) {
+	u, err := url.Parse(addr)
+	if err != nil {
+		return nil, err
+	}
+	var d net.Dialer
+	switch u.Scheme {
+	case "tcp", "tcp4":
+		if u.Host == "" {
+			return nil, fmt.Errorf("missing host in address %s", addr)
+		}
+		return d.DialContext(ctx, "tcp4", u.Host)
+	case "unix":
+		return d.DialContext(ctx, "unix", u.Path)
 	default:
 		return nil, fmt.Errorf("%w: %q", ErrUnsupportedProtocolScheme, u.Scheme)
 	}

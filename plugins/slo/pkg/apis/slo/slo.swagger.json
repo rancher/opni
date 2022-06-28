@@ -1,0 +1,604 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "plugins/slo/pkg/apis/slo/slo.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "SLO"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/formulas": {
+      "get": {
+        "operationId": "SLO_ListFormulas",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloFormulaList"
+            }
+          }
+        },
+        "tags": [
+          "SLO"
+        ]
+      }
+    },
+    "/formulas/{id}": {
+      "get": {
+        "operationId": "SLO_GetFormulas",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloFormula"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "SLO_ListMetrics",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloMetricList"
+            }
+          }
+        },
+        "tags": [
+          "SLO"
+        ]
+      }
+    },
+    "/metrics/{name}/{serviceId}": {
+      "get": {
+        "operationId": "SLO_GetMetric",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloMetric"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "clusterId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      }
+    },
+    "/services": {
+      "get": {
+        "operationId": "SLO_ListServices",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloServiceList"
+            }
+          }
+        },
+        "tags": [
+          "SLO"
+        ]
+      }
+    },
+    "/services/{id}": {
+      "get": {
+        "operationId": "SLO_GetService",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloService"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      }
+    },
+    "/slos": {
+      "get": {
+        "operationId": "SLO_ListSLOs",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloServiceLevelObjectiveList"
+            }
+          }
+        },
+        "tags": [
+          "SLO"
+        ]
+      },
+      "post": {
+        "operationId": "SLO_CreateSLO",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/sloServiceLevelObjective"
+            }
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      }
+    },
+    "/slos/{id}": {
+      "get": {
+        "operationId": "SLO_GetSLO",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloServiceLevelObjective"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      },
+      "delete": {
+        "operationId": "SLO_DeleteSLO",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      },
+      "put": {
+        "operationId": "SLO_UpdateSLO",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "datasource": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "services": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/sloService"
+                  }
+                },
+                "monitorWindow": {
+                  "type": "string"
+                },
+                "metricDescription": {
+                  "type": "string"
+                },
+                "budgetingInterval": {
+                  "type": "string"
+                },
+                "labels": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/sloLabel"
+                  }
+                },
+                "targets": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/sloTarget"
+                  }
+                },
+                "alerts": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/sloAlert"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      }
+    },
+    "/slos/{id}/clone": {
+      "post": {
+        "operationId": "SLO_CloneSLO",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloServiceLevelObjective"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      }
+    },
+    "/slos/{id}/status": {
+      "get": {
+        "operationId": "SLO_Status",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloSLOStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "coreReference": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "sloAlert": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "notificationTarget": {
+          "type": "string"
+        },
+        "notificationDescription": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "conditionType": {
+          "type": "string"
+        },
+        "thresholdType": {
+          "type": "string"
+        },
+        "onNoData": {
+          "type": "boolean"
+        },
+        "onCreate": {
+          "type": "boolean"
+        },
+        "onBreach": {
+          "type": "boolean"
+        },
+        "onResolved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sloEvaluation": {
+      "type": "object",
+      "properties": {
+        "rate": {
+          "type": "number",
+          "format": "double"
+        },
+        "period": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
+    "sloFormula": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "sloFormulaList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloFormula"
+          }
+        }
+      }
+    },
+    "sloLabel": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "sloMetric": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "datasource": {
+          "type": "string"
+        },
+        "MetricDescription": {
+          "type": "string"
+        }
+      }
+    },
+    "sloMetricList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloMetric"
+          }
+        }
+      }
+    },
+    "sloSLOStatus": {
+      "type": "object",
+      "properties": {
+        "slo": {
+          "$ref": "#/definitions/coreReference"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "int64"
+        },
+        "status": {
+          "$ref": "#/definitions/sloEvaluation"
+        },
+        "budget": {
+          "$ref": "#/definitions/sloEvaluation"
+        }
+      }
+    },
+    "sloService": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "type": "string"
+        },
+        "metricName": {
+          "type": "string"
+        },
+        "metricId": {
+          "type": "string"
+        },
+        "clusterId": {
+          "type": "string"
+        }
+      }
+    },
+    "sloServiceLevelObjective": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "datasource": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloService"
+          }
+        },
+        "monitorWindow": {
+          "type": "string"
+        },
+        "metricDescription": {
+          "type": "string"
+        },
+        "budgetingInterval": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloLabel"
+          }
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloTarget"
+          }
+        },
+        "alerts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloAlert"
+          }
+        }
+      }
+    },
+    "sloServiceLevelObjectiveList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloServiceLevelObjective"
+          }
+        }
+      }
+    },
+    "sloServiceList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloService"
+          }
+        }
+      }
+    },
+    "sloState": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "sloTarget": {
+      "type": "object",
+      "properties": {
+        "ValueX100": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "timeWindow": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

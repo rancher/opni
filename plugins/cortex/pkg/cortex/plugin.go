@@ -28,6 +28,7 @@ import (
 
 type Plugin struct {
 	cortexadmin.UnsafeCortexAdminServer
+	system.UnimplementedSystemPluginClient
 	collector.CollectorServer
 	ctx               context.Context
 	config            future.Future[*v1beta1.GatewayConfig]

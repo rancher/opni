@@ -1,4 +1,4 @@
-package rules_test
+package notifier_test
 
 import (
 	"context"
@@ -8,18 +8,28 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/model/rulefmt"
-	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/test"
-	mock_rules "github.com/rancher/opni/pkg/test/mock/rules"
+	mock_notifier "github.com/rancher/opni/pkg/test/mock/notifier"
+	"github.com/rancher/opni/pkg/util/notifier"
 )
+
+//FIXME:
+type MockClone struct {
+	a int
+}
+
+func (c MockClone) Clone() MockClone {
+	return MockClone{c.a}
+}
 
 var _ = Describe("Periodic Update Notifier", Label(test.Unit, test.TimeSensitive), func() {
 	It("should periodically fetch rules", func() {
 		ctrl := gomock.NewController(GinkgoT())
-		finder := mock_rules.NewMockRuleFinder(ctrl)
+		// finder := mock_rules.NewMockRuleFinder(ctrl)
+		finder := mock_notifier.NewMockFinder[MockClone](ctrl)
 		tc := make(chan time.Time, 100)
 		finder.EXPECT().
-			FindGroups(gomock.Any()).
+			Find(gomock.Any()).
 			DoAndReturn(func(ctx context.Context) ([]rulefmt.RuleGroup, error) {
 				tc <- time.Now()
 				return []rulefmt.RuleGroup{}, nil
@@ -28,7 +38,8 @@ var _ = Describe("Periodic Update Notifier", Label(test.Unit, test.TimeSensitive
 		interval := 10 * time.Millisecond
 		ctx, ca := context.WithTimeout(context.Background(), interval*12)
 		defer ca()
-		notifier := rules.NewPeriodicUpdateNotifier(ctx, finder, interval)
+		//FIXME:
+		notifier := notifier.NewPeriodicUpdateNotifier(ctx, (notifier.Finder[MockClone])(finder), interval)
 		go func() {
 			ch := notifier.NotifyC(context.Background())
 			for {

@@ -201,6 +201,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	controlv1.RegisterAgentControlServer(agent.gatewayClient, agent)
 
 	var startRuleStreamOnce sync.Once
+	// var startServiceDiscoveryStreamOnce sync.Once
 	go func() {
 		for ctx.Err() == nil {
 			cc, errF := agent.gatewayClient.Connect(ctx)
@@ -210,6 +211,11 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 				startRuleStreamOnce.Do(func() {
 					go agent.streamRulesToGateway(ctx)
 				})
+
+				// TODO : Implement
+				// startServiceDiscoveryStreamOnce.Do(func() {
+				// 	go agent.streamServiceDiscoveryToGateway(ctx)
+				// })
 
 				lg.Error(errF.Get())
 				agent.remoteWriteClient.Close()

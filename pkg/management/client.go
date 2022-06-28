@@ -35,7 +35,7 @@ func WithDialOptions(options ...grpc.DialOption) ManagementClientOption {
 
 func NewClient(ctx context.Context, opts ...ManagementClientOption) (managementv1.ManagementClient, error) {
 	options := ManagementClientOptions{
-		listenAddr: DefaultManagementSocket(),
+		listenAddr: managementv1.DefaultManagementSocket(),
 		dialOptions: []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		},

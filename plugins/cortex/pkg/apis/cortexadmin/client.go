@@ -3,7 +3,7 @@ package cortexadmin
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/management"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -35,7 +35,7 @@ func WithDialOptions(options ...grpc.DialOption) AdminClientOption {
 
 func NewClient(ctx context.Context, opts ...AdminClientOption) (CortexAdminClient, error) {
 	options := AdminClientOptions{
-		listenAddr: management.DefaultManagementSocket(),
+		listenAddr: managementv1.DefaultManagementSocket(),
 		dialOptions: []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		},

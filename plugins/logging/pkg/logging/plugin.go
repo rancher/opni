@@ -33,6 +33,7 @@ const (
 
 type Plugin struct {
 	PluginOptions
+	system.UnimplementedSystemPluginClient
 	opensearch.UnsafeOpensearchServer
 	ctx            context.Context
 	k8sClient      client.Client

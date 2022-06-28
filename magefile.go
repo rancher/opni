@@ -253,11 +253,14 @@ func init() {
 			Dest:   "pkg/test/mock/rbac/rbac.go",
 			Types:  []string{"Provider"},
 		},
-		{
-			Source: "pkg/rules/types.go",
-			Dest:   "pkg/test/mock/rules/rules.go",
-			Types:  []string{"RuleFinder"},
-		},
+		//FIXME: github.com/golang/google/mock doesn't fully work with generic interfaces,
+		// For now need to manually fix some of the generated code
+		// Uncomment when https://github.com/golang/mock/issues/658 is fixed
+		// {
+		// 	Source: "pkg/util/notifier/types.go",
+		// 	Dest:   "pkg/test/mock/notifier/notifier.go",
+		// 	Types:  []string{"UpdateNotifier", "Finder", "Clonable"},
+		// },
 		{
 			Source: "pkg/storage/stores.go",
 			Dest:   "pkg/test/mock/storage/stores.go",
@@ -306,6 +309,12 @@ func init() {
 		},
 		{
 			Name:       "prometheus",
+			Version:    "2.35.0",
+			URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+			GetVersion: getVersion,
+		},
+		{
+			Name:       "promtool",
 			Version:    "2.35.0",
 			URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
 			GetVersion: getVersion,

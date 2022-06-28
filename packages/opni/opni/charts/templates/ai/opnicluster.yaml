@@ -16,6 +16,7 @@ spec:
       enabled: true
       pretrainedModels:
       - name: control-plane
+      - name: rancher
     metrics:
       enabled: {{ .Values.monitoring.enabled }}
       prometheusEndpoint: https://cortex-query-frontend:8080

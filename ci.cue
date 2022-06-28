@@ -8,6 +8,7 @@ import (
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
 	"universe.dagger.io/git"
+	"universe.dagger.io/python"
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
 	"github.com/rancher/opni/internal/util"
@@ -43,10 +44,11 @@ dagger.#Plan & {
 					"internal/cmd/testenv",
 				]
 			}
-			"bin": write: contents:         actions.build.bin
-			"web/dist": write: contents:    actions.web.dist
-			"dist/charts": write: contents: actions.charts.output
-			"cover.out": write: contents:   actions.test.export.files["/src/cover.out"]
+			"bin": write: contents:             actions.build.bin
+			"web/dist": write: contents:        actions.web.dist
+			"dist/charts": write: contents:     actions.charts.output
+			"cover.out": write: contents:       actions.test.export.files["/src/cover.out"]
+			"aiops/apis/dist": write: contents: actions.aiops.packages.output
 		}
 		network: "unix:///var/run/docker.sock": connect: dagger.#Socket
 	}
@@ -94,7 +96,7 @@ dagger.#Plan & {
 						dest:     "/src/web/dist/"
 					},
 					mage.#Run & {
-						mageArgs: ["-v", "build"]
+						mageArgs: ["-v"]
 					},
 				]
 			}
@@ -362,6 +364,21 @@ dagger.#Plan & {
 			}
 		}
 		aiops: {
+			packages: {
+				sdist: python.#Run & {
+					script: {
+						directory: actions.build.output.rootfs
+						filename:  "src/aiops/apis/setup.py"
+					}
+					workdir: "/run/python/src/aiops/apis"
+					args: ["sdist", "-d", "/dist"]
+				}
+				_subdir: core.#Subdir & {
+					input: sdist.output.rootfs
+					path:  "/dist"
+				}
+				output: _subdir.output
+			}
 			build: docker.#Build & {
 				steps: [
 					docker.#Pull & {
@@ -369,14 +386,14 @@ dagger.#Plan & {
 					},
 					docker.#Copy & {
 						contents: client.filesystem.".".read.contents
-						source: "aiops/"
-						dest: "."
+						source:   "aiops/"
+						dest:     "."
 					},
 					docker.#Set & {
 						config: {
 							cmd: ["python", "opensearch-update-service/main.py"]
 						}
-					}	
+					},
 				]
 			}
 		}

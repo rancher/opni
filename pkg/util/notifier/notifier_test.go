@@ -18,7 +18,7 @@ import (
 )
 
 var _ = Describe("Update Notifier", Label("unit"), func() {
-	testGroups1 := []rulefmt.RuleGroup{
+	testGroups1 := []rules.RuleGroup{
 		{
 			Name:  "foo",
 			Rules: []rulefmt.RuleNode{},

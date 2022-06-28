@@ -34,6 +34,9 @@ questions:
   group: "Logging"
   show_subquestion_if: true
   subquestions:
+  - variable: logging.disableBootstrap
+    type: boolean
+    label: Disable Bootstrap Job (this should be checked when upgrading an agent)
   - variable: logging.insecure
     label: Disable Gateway TLS Security
     type: boolean

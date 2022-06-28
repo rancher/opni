@@ -17,11 +17,11 @@ var (
 	templateRatio                                = ``
 	templateHistogram                            = ``
 	totalQueryTempl                              = template.Must(template.New("").Parse(`
-		sum(rate({{.metricId}}{job="{{.jobId}}"}[{{.window}}])) 
+		sum(rate({{.MetricId}}{job="{{.JobId}}"}[{{"{{.window}}"}}])) 
 	`))
 
 	goodQueryTempl = template.Must(template.New("").Parse(`
-		sum(rate({{.metricId}}{job="{{.jobId}}", {{.filter}}}[{{.window}}]))
+		sum(rate({{.MetricId}}{job="{{.JobId}}", {{.Filter}}}[{{"{{.window}}"}}]))
 	`))
 	GetDownstreamMetricQueryTempl = template.Must(template.New("").Parse(`
 		group by(__name__)({__name__="{{.Name}}" and {job="{{.serviceId}}"}})
@@ -31,6 +31,12 @@ var (
 type RatioQuery struct {
 	GoodQuery  string
 	TotalQuery string
+}
+
+type goodQueryPlaceholder struct {
+	JobId    string
+	MetricId string
+	Filter   string
 }
 
 func InitMetricList() {
@@ -54,7 +60,7 @@ func InitMetricList() {
 
 type PrometheusQuery interface {
 	Name() string
-	ConstructRatio(metricId string, jobId string) (*RatioQuery, error)
+	ConstructRatio(service *api.Service) (*RatioQuery, error)
 	IsRatio() bool
 	IsHistogram() bool
 	Description() string
@@ -85,22 +91,16 @@ func NewPrometheusQueryImpl(name string, labelRegex string, goodFilter string, i
 }
 
 // The actual metricId and window are only known at SLO creation time
-func (p *PrometheusQueryImpl) ConstructRatio(jobId string, metricId string) (*RatioQuery, error) {
+func (p *PrometheusQueryImpl) ConstructRatio(service *api.Service) (*RatioQuery, error) {
 	var goodQuery bytes.Buffer
 	var totalQuery bytes.Buffer
-	if err := goodQueryTempl.Execute(&goodQuery, map[string]string{ //NOTE: {{.window}} is filled by sloth generator
-		"metricId": metricId,
-		"jobId":    jobId,
-		"filter":   p.GoodFilter,
-		"window":   "{{.window}}",
-	}); err != nil {
+	if err := goodQueryTempl.Execute(&goodQuery,
+		goodQueryPlaceholder{MetricId: service.GetMetricId(), JobId: service.GetJobId(), Filter: p.GoodFilter}); err != nil {
 		return nil, err
 	}
-	if err := totalQueryTempl.Execute(&totalQuery, map[string]string{ //NOTE: {{.window}} is filled by sloth generator
-		"metricId": metricId,
-		"jobId":    jobId,
-		"window":   "{{.window}}",
-	}); err != nil {
+	if err := totalQueryTempl.Execute(
+		&totalQuery,
+		&service); err != nil {
 		return nil, err
 	}
 
@@ -136,23 +136,23 @@ func (p *PrometheusQueryImpl) IsHistogram() bool {
 
 // @Note: Assumption is that JobID is valid
 // @returns goodQuery, totalQuery
-func fetchPreconfQueries(slo *api.ServiceLevelObjective, jobId string, metricName string, metricId string, ctx context.Context, lg hclog.Logger) (*RatioQuery, error) {
+func fetchPreconfQueries(slo *api.ServiceLevelObjective, service *api.Service, ctx context.Context, lg hclog.Logger) (*RatioQuery, error) {
 	if slo.GetDatasource() == MonitoringDatasource {
 		if len(availableQueries) == 0 {
 			InitMetricList()
 		}
 		found := false
-		for k, _ := range availableQueries {
-			if k == metricName {
+		for k := range availableQueries {
+			if k == service.GetMetricName() {
 				found = true
 			}
 		}
 		if !found {
 			return nil, fmt.Errorf(
-				"Cannot create SLO with metric name %s ", metricName,
+				"Cannot create SLO with metric name %s ", service.GetMetricName(),
 			)
 		}
-		ratioQuery, err := availableQueries[metricName].ConstructRatio(jobId, metricId)
+		ratioQuery, err := availableQueries[service.GetMetricName()].ConstructRatio(service)
 		if err != nil {
 			return nil, err
 		}

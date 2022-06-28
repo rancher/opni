@@ -24,7 +24,7 @@ func ParseToOpenSLO(slo *api.ServiceLevelObjective, ctx context.Context, lg hclo
 			BudgetingMethod: slo.GetMonitorWindow(),
 		}
 		// actual SLO/SLI query
-		indicator, err := ParseToIndicator(slo, service.GetJobId(), service.GetMetricName(), service.GetMetricId(), ctx, lg)
+		indicator, err := ParseToIndicator(slo, service, ctx, lg)
 		if err != nil {
 			return res, err
 		}
@@ -59,29 +59,29 @@ func ParseToOpenSLO(slo *api.ServiceLevelObjective, ctx context.Context, lg hclo
 
 /// @note : for now only one indicator per SLO is supported
 /// Indicator is OpenSLO's inline indicator
-func ParseToIndicator(slo *api.ServiceLevelObjective, jobId string, metricName string, metricId string, ctx context.Context, lg hclog.Logger) (*oslov1.SLIInline, error) {
+func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.Service, ctx context.Context, lg hclog.Logger) (*oslov1.SLIInline, error) {
 	metadata := oslov1.Metadata{
 		Name: fmt.Sprintf("sli-%s", slo.GetName()),
 	}
-	metric_type := ""
+	metricType := ""
 	if slo.GetDatasource() == MonitoringDatasource {
 
-		metric_type = "prometheus" // OpenSLO standard
+		metricType = "prometheus" // OpenSLO standard
 	} else {
-		metric_type = "opni" // Not OpenSLO standard, but custom
+		metricType = "opni" // Not OpenSLO standard, but custom
 	}
-	ratioQuery, err := fetchPreconfQueries(slo, jobId, metricName, metricId, ctx, lg)
+	ratioQuery, err := fetchPreconfQueries(slo, service, ctx, lg)
 
 	if err != nil {
 		return nil, err
 	}
 
 	good_metric := oslov1.MetricSource{
-		Type:             metric_type,
+		Type:             metricType,
 		MetricSourceSpec: map[string]string{"query": ratioQuery.GoodQuery, "queryType": "promql"},
 	}
 	total_metric := oslov1.MetricSource{
-		Type:             metric_type,
+		Type:             metricType,
 		MetricSourceSpec: map[string]string{"query": ratioQuery.TotalQuery, "queryType": "promql"},
 	}
 	spec := oslov1.SLISpec{
@@ -116,7 +116,7 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 
 	for _, alert := range slo.Alerts {
 		// Create noticiation targets, and then store their refs in policy specs
-		target_spec := oslov1.AlertNotificationTargetSpec{
+		targetSpec := oslov1.AlertNotificationTargetSpec{
 			Target:      alert.GetNotificationTarget(),
 			Description: alert.GetDescription(),
 		}
@@ -126,12 +126,12 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 				ObjectHeader: manifest.ObjectHeader{APIVersion: osloVersion},
 				Kind:         "AlertNotificationTarget",
 			},
-			Spec: target_spec,
+			Spec: targetSpec,
 		}
 
 		//TODO(alex) : handle alert conditions
 
-		policy_spec := oslov1.AlertPolicySpec{
+		policySpec := oslov1.AlertPolicySpec{
 			Description:         alert.GetDescription(),
 			AlertWhenNoData:     alert.GetOnNoData(),
 			AlertWhenBreaching:  alert.GetOnBreach(),
@@ -139,14 +139,14 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 			Conditions:          []oslov1.AlertPolicyCondition{},
 			NotificationTargets: []oslov1.AlertNotificationTarget{},
 		}
-		policy_spec.NotificationTargets = append(policy_spec.NotificationTargets, target)
+		policySpec.NotificationTargets = append(policySpec.NotificationTargets, target)
 
 		wrapPolicy := oslov1.AlertPolicy{
 			ObjectHeader: oslov1.ObjectHeader{
 				ObjectHeader: manifest.ObjectHeader{APIVersion: osloVersion},
 				Kind:         "AlertPolicy",
 			},
-			Spec: policy_spec,
+			Spec: policySpec,
 		}
 		policies = append(policies, wrapPolicy)
 	}

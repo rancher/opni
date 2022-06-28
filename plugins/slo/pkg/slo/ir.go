@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"regexp"
 	"strings"
 	"time"
 
@@ -16,12 +15,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var (
-	specTypeV1AlphaRegexKind       = regexp.MustCompile(`(?m)^kind: +['"]?SLO['"]? *$`)
-	specTypeV1AlphaRegexAPIVersion = regexp.MustCompile(`(?m)^apiVersion: +['"]?openslo\/v1alpha['"]? *$`)
-)
-
-var errorRatioRawQueryTpl = template.Must(template.New("").Parse(`
+var errorRatioRawQueryTmpl = template.Must(template.New("").Parse(`
   1 - (
     (
       {{ .good }}
@@ -35,9 +29,9 @@ var errorRatioRawQueryTpl = template.Must(template.New("").Parse(`
 
 func GeneratePrometheusRule(slos []*prometheus.SLOGroup, ctx context.Context) ([]*generate.Response, error) {
 	res := make([]*generate.Response, 0)
-	var sliRuleGen generate.SLIRecordingRulesGenerator = prometheus.OptimizedSLIRecordingRulesGenerator
-	var metaRuleGen generate.MetadataRecordingRulesGenerator = prometheus.MetadataRecordingRulesGenerator
-	var alertRuleGen generate.SLOAlertRulesGenerator = prometheus.SLOAlertRulesGenerator
+	sliRuleGen := prometheus.OptimizedSLIRecordingRulesGenerator
+	metaRuleGen := prometheus.MetadataRecordingRulesGenerator
+	alertRuleGen := prometheus.SLOAlertRulesGenerator
 	controller, err := generate.NewService(generate.ServiceConfig{
 		SLIRecordingRulesGenerator:  sliRuleGen,
 		MetaRecordingRulesGenerator: metaRuleGen,
@@ -172,7 +166,7 @@ func (y YAMLSpecLoader) GetSLI(spec openslov1.SLOSpec, slo openslov1.Objective) 
 	var b bytes.Buffer
 	goodQuery := good.MetricSource.MetricSourceSpec["query"]
 	totalQuery := total.MetricSource.MetricSourceSpec["query"]
-	err := errorRatioRawQueryTpl.Execute(&b, map[string]string{"good": goodQuery, "total": totalQuery})
+	err := errorRatioRawQueryTmpl.Execute(&b, map[string]string{"good": goodQuery, "total": totalQuery})
 	if err != nil {
 		return nil, fmt.Errorf("could not execute mapping SLI template: %w", err)
 	}

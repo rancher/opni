@@ -129,12 +129,12 @@ message QueryRangeRequest {
 }
 
 message RuleRequest {
-  repeated string tenants = 1;
+  string tenant = 1;
   string groupName = 2;
 }
 
 message YamlRequest{
-  repeated string tenants = 1;
+  string tenant = 1;
   string yaml = 2;
 }
 

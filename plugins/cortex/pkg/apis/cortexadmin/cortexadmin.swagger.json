@@ -181,14 +181,10 @@
         },
         "parameters": [
           {
-            "name": "tenants",
+            "name": "tenant",
             "in": "query",
             "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
+            "type": "string"
           },
           {
             "name": "yaml",
@@ -221,14 +217,10 @@
             "type": "string"
           },
           {
-            "name": "tenants",
+            "name": "tenant",
             "in": "query",
             "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
+            "type": "string"
           }
         ],
         "tags": [
@@ -253,14 +245,10 @@
             "type": "string"
           },
           {
-            "name": "tenants",
+            "name": "tenant",
             "in": "query",
             "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
+            "type": "string"
           }
         ],
         "tags": [

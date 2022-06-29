@@ -17,6 +17,38 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+func expectRuleGroupToExist(adminClient apis.CortexAdminClient, ctx context.Context, tenant string, groupName string, expectedYaml []byte) error {
+	for i := 0; i < 10; i++ {
+		resp, err := adminClient.GetRule(ctx, &apis.RuleRequest{
+			Tenant:    tenant,
+			GroupName: groupName,
+		})
+		if err == nil {
+			Expect(resp.Data).To(Not(BeNil()))
+			Expect(resp.Data).To(MatchYAML(expectedYaml))
+			return nil
+		}
+		time.Sleep(1)
+	}
+	return fmt.Errorf("Rule %s should exist, but doesn't", groupName)
+}
+
+func expectRuleGroupToNotExist(adminClient apis.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
+	for i := 0; i < 10; i++ {
+		_, err := adminClient.GetRule(ctx, &apis.RuleRequest{
+			Tenant:    tenant,
+			GroupName: groupName,
+		})
+		if err != nil {
+			Expect(status.Code(err)).To(Equal(codes.NotFound))
+			return nil
+		}
+
+		time.Sleep(1)
+	}
+	return fmt.Errorf("Rule %s still exists, but shouldn't", groupName)
+}
+
 var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label(test.Unit, test.Slow), func() {
 	ctx := context.Background()
 	var env *test.Environment
@@ -51,8 +83,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
 				&apis.YamlRequest{
-					Tenants: []string{"agent"},
-					Yaml:    string(sampleRuleYamlString),
+					Tenant: "agent",
+					Yaml:   string(sampleRuleYamlString),
 				})
 			Expect(err).To(Succeed())
 
@@ -63,27 +95,16 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
 				&apis.YamlRequest{
-					Tenants: []string{"agent"},
-					Yaml:    string(slothGeneratedGroupYamlString),
+					Tenant: "agent",
+					Yaml:   string(slothGeneratedGroupYamlString),
 				})
 			Expect(err).To(Succeed())
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() error {
-				ruleGroupName := "opni-test-slo-rule"
-				for i := 0; i < 10; i++ {
-					resp, err := adminClient.GetRule(ctx, &apis.RuleRequest{
-						Tenants:   []string{"agent"},
-						GroupName: "opni-test-slo-rule",
-					})
-					if err == nil {
-						Expect(resp.Data).To(Not(BeNil()))
-						Expect(resp.Data).To(MatchYAML(sampleRuleYamlString))
-						return nil
-					}
-					time.Sleep(1)
-				}
-				return fmt.Errorf("Rule %s should exist, but doesn't", ruleGroupName)
+				return expectRuleGroupToExist(
+					adminClient, ctx, "agent",
+					"opni-test-slo-rule", sampleRuleYamlString)
 			}).Should(Succeed())
 
 		})
@@ -94,54 +115,84 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
 				&apis.YamlRequest{
-					Tenants: []string{"agent"},
-					Yaml:    string(sampleRuleYamlUpdateString),
+					Tenant: "agent",
+					Yaml:   string(sampleRuleYamlUpdateString),
 				})
 			Expect(err).To(Succeed())
 
 			Eventually(func() error {
-				ruleGroupName := "opni-test-slo-rule"
-				for i := 0; i < 10; i++ {
-					resp, err := adminClient.GetRule(ctx, &apis.RuleRequest{
-						Tenants:   []string{"agent"},
-						GroupName: "opni-test-slo-rule",
-					})
-					if err == nil {
-						Expect(resp.Data).To(Not(BeNil()))
-						Expect(resp.Data).To(MatchYAML(sampleRuleYamlUpdateString))
-						return nil
-					}
-					time.Sleep(1)
-				}
-				return fmt.Errorf("Rule %s should exist, but doesn't", ruleGroupName)
+				return expectRuleGroupToExist(
+					adminClient, ctx, "agent",
+					"opni-test-slo-rule", sampleRuleYamlUpdateString)
 			}).Should(Succeed())
 		})
 
 		It("Should be able to delete existing rule groups", func() {
 			deleteGroupName := "opni-test-slo-rule"
 			_, err := adminClient.DeleteRule(ctx, &apis.RuleRequest{
-				Tenants:   []string{"agent"},
+				Tenant:    "agent",
 				GroupName: deleteGroupName,
 			})
 			Expect(err).To(Succeed())
 
 			// Should find no rule named "opni-test-slo-rule" after deletion
 			Eventually(func() error {
-				ruleGroupName := "opni-test-slo-rule"
-				for i := 0; i < 10; i++ {
-					_, err := adminClient.GetRule(ctx, &apis.RuleRequest{
-						Tenants:   []string{"agent"},
-						GroupName: "opni-test-slo-rule",
-					})
-					if err != nil {
-						Expect(status.Code(err)).To(Equal(codes.NotFound))
-						return nil
-					}
-
-					time.Sleep(1)
-				}
-				return fmt.Errorf("Rule %s still exists, but shouldn't", ruleGroupName)
+				return expectRuleGroupToNotExist(
+					adminClient, ctx, "agent",
+					"opni-test-slo-rule")
 			}).Should(Succeed())
+		})
+	})
+	When("We are in a multitenant environment", func() {
+		It("Should be able to apply rules across tenants", func() {
+			sampleRule := fmt.Sprintf("%s/sampleRule.yaml", ruleTestDataDir)
+			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)
+			Expect(err).To(Succeed())
+			_, err = adminClient.LoadRules(ctx,
+				&apis.YamlRequest{
+					Tenant: "agent",
+					Yaml:   string(sampleRuleYamlString),
+				})
+			Expect(err).To(Succeed())
+			_, err = adminClient.LoadRules(ctx,
+				&apis.YamlRequest{
+					Tenant: "agent2",
+					Yaml:   string(sampleRuleYamlString),
+				})
+			Expect(err).To(Succeed())
+
+			Eventually(func() error {
+				return expectRuleGroupToExist(
+					adminClient, ctx,
+					"agent", "opni-test-slo-rule", sampleRuleYamlString)
+			}).Should(Succeed())
+
+			Eventually(func() error {
+				return expectRuleGroupToExist(
+					adminClient, ctx,
+					"agent2", "opni-test-slo-rule", sampleRuleYamlString,
+				)
+			}).Should(Succeed())
+
+			deleteGroupName := "opni-test-slo-rule"
+			_, err = adminClient.DeleteRule(ctx, &apis.RuleRequest{
+				Tenant:    "agent",
+				GroupName: deleteGroupName,
+			})
+			Expect(err).To(Succeed())
+
+			Eventually(func() error {
+				return expectRuleGroupToExist(
+					adminClient, ctx, "agent2",
+					"opni-test-slo-rule", sampleRuleYamlString)
+			}).Should(Succeed())
+
+			Eventually(func() error {
+				return expectRuleGroupToNotExist(
+					adminClient, ctx, "agent",
+					"opni-test-slo-rule")
+			}).Should(Succeed())
+
 		})
 	})
 })

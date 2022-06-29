@@ -289,7 +289,7 @@ func (p *Plugin) GetRule(ctx context.Context,
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(in.Tenants))
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
 	resp, err := client.Do(req)
 	if err != nil {
 		lg.With(
@@ -341,7 +341,7 @@ func (p *Plugin) LoadRules(ctx context.Context,
 	values.Add("yaml", in.Yaml)
 	req.Body = io.NopCloser(strings.NewReader(in.Yaml))
 	req.Header.Set("Content-Type", "application/yaml")
-	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(in.Tenants))
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
 	resp, err := client.Do(req)
 	if err != nil {
 		lg.With(
@@ -375,7 +375,7 @@ func (p *Plugin) DeleteRule(
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(in.Tenants))
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
 	resp, err := client.Do(req)
 	if err != nil {
 		lg.With(

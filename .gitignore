@@ -23,8 +23,6 @@ deploy/examples/gpu/vgpu.yaml
 deploy/custom/cortex.yaml
 deploy/custom/grafana.yaml
 deploy/custom/opni-monitoring.yaml
-/charts/
-index.yaml
 
 /report.json
 /cover.out
@@ -38,3 +36,8 @@ docs/tech-doc-hugo
 docs/*.sw?
 docs/.hugo_build.lock
 web/dist/
+
+# Chart builds
+assets/
+charts/
+index.yaml

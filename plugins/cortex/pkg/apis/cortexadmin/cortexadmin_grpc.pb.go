@@ -27,8 +27,9 @@ type CortexAdminClient interface {
 	WriteMetrics(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*WriteResponse, error)
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	QueryRange(ctx context.Context, in *QueryRangeRequest, opts ...grpc.CallOption) (*QueryResponse, error)
-	LoadRules(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
-	DeleteRules(ctx context.Context, in *DeleteRuleRequest, opts ...grpc.CallOption) (*QueryResponse, error)
+	GetRule(ctx context.Context, in *RuleRequest, opts ...grpc.CallOption) (*QueryResponse, error)
+	LoadRules(ctx context.Context, in *YamlRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteRule(ctx context.Context, in *RuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type cortexAdminClient struct {
@@ -75,8 +76,17 @@ func (c *cortexAdminClient) QueryRange(ctx context.Context, in *QueryRangeReques
 	return out, nil
 }
 
-func (c *cortexAdminClient) LoadRules(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
+func (c *cortexAdminClient) GetRule(ctx context.Context, in *RuleRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
 	out := new(QueryResponse)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/GetRule", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexAdminClient) LoadRules(ctx context.Context, in *YamlRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/LoadRules", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -84,9 +94,9 @@ func (c *cortexAdminClient) LoadRules(ctx context.Context, in *QueryRequest, opt
 	return out, nil
 }
 
-func (c *cortexAdminClient) DeleteRules(ctx context.Context, in *DeleteRuleRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
-	out := new(QueryResponse)
-	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/DeleteRules", in, out, opts...)
+func (c *cortexAdminClient) DeleteRule(ctx context.Context, in *RuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/DeleteRule", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -101,8 +111,9 @@ type CortexAdminServer interface {
 	WriteMetrics(context.Context, *WriteRequest) (*WriteResponse, error)
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
 	QueryRange(context.Context, *QueryRangeRequest) (*QueryResponse, error)
-	LoadRules(context.Context, *QueryRequest) (*QueryResponse, error)
-	DeleteRules(context.Context, *DeleteRuleRequest) (*QueryResponse, error)
+	GetRule(context.Context, *RuleRequest) (*QueryResponse, error)
+	LoadRules(context.Context, *YamlRequest) (*emptypb.Empty, error)
+	DeleteRule(context.Context, *RuleRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedCortexAdminServer()
 }
 
@@ -122,11 +133,14 @@ func (UnimplementedCortexAdminServer) Query(context.Context, *QueryRequest) (*Qu
 func (UnimplementedCortexAdminServer) QueryRange(context.Context, *QueryRangeRequest) (*QueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryRange not implemented")
 }
-func (UnimplementedCortexAdminServer) LoadRules(context.Context, *QueryRequest) (*QueryResponse, error) {
+func (UnimplementedCortexAdminServer) GetRule(context.Context, *RuleRequest) (*QueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRule not implemented")
+}
+func (UnimplementedCortexAdminServer) LoadRules(context.Context, *YamlRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LoadRules not implemented")
 }
-func (UnimplementedCortexAdminServer) DeleteRules(context.Context, *DeleteRuleRequest) (*QueryResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteRules not implemented")
+func (UnimplementedCortexAdminServer) DeleteRule(context.Context, *RuleRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteRule not implemented")
 }
 func (UnimplementedCortexAdminServer) mustEmbedUnimplementedCortexAdminServer() {}
 
@@ -213,8 +227,26 @@ func _CortexAdmin_QueryRange_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CortexAdmin_GetRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).GetRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexadmin.CortexAdmin/GetRule",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).GetRule(ctx, req.(*RuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CortexAdmin_LoadRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QueryRequest)
+	in := new(YamlRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -226,25 +258,25 @@ func _CortexAdmin_LoadRules_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/cortexadmin.CortexAdmin/LoadRules",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexAdminServer).LoadRules(ctx, req.(*QueryRequest))
+		return srv.(CortexAdminServer).LoadRules(ctx, req.(*YamlRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CortexAdmin_DeleteRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteRuleRequest)
+func _CortexAdmin_DeleteRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RuleRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CortexAdminServer).DeleteRules(ctx, in)
+		return srv.(CortexAdminServer).DeleteRule(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cortexadmin.CortexAdmin/DeleteRules",
+		FullMethod: "/cortexadmin.CortexAdmin/DeleteRule",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexAdminServer).DeleteRules(ctx, req.(*DeleteRuleRequest))
+		return srv.(CortexAdminServer).DeleteRule(ctx, req.(*RuleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -273,12 +305,16 @@ var CortexAdmin_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _CortexAdmin_QueryRange_Handler,
 		},
 		{
+			MethodName: "GetRule",
+			Handler:    _CortexAdmin_GetRule_Handler,
+		},
+		{
 			MethodName: "LoadRules",
 			Handler:    _CortexAdmin_LoadRules_Handler,
 		},
 		{
-			MethodName: "DeleteRules",
-			Handler:    _CortexAdmin_DeleteRules_Handler,
+			MethodName: "DeleteRule",
+			Handler:    _CortexAdmin_DeleteRule_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

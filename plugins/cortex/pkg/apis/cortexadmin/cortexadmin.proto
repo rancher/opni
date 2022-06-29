@@ -37,7 +37,17 @@ service CortexAdmin {
       }
     };
   }
-  rpc LoadRules(QueryRequest) returns (QueryResponse) {
+  rpc GetRule(RuleRequest) returns (QueryResponse) {
+    option (google.api.http) = {
+      get: "/get_rule/{groupName}"
+      additional_bindings {
+        post: "/get_rule/{groupName}"
+        body: "*"
+      }
+    };
+  }
+
+  rpc LoadRules(YamlRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       get: "/load_rules"
       additional_bindings {
@@ -46,11 +56,11 @@ service CortexAdmin {
       }
     };
   }
-  rpc DeleteRules(DeleteRuleRequest) returns (QueryResponse) {
+  rpc DeleteRule(RuleRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       get: "/delete_rules/{groupName}"
       additional_bindings {
-        post: "/delete_rules"
+        post: "/delete_rules/{groupName}"
         body : "*",
       }
     };
@@ -130,9 +140,14 @@ message QueryRangeRequest {
   google.protobuf.Duration step = 5;
 }
 
-message DeleteRuleRequest {
+message RuleRequest {
   repeated string tenants = 1;
   string groupName = 2;
+}
+
+message YamlRequest{
+  repeated string tenants = 1;
+  string yaml = 2;
 }
 
 message QueryResponse {

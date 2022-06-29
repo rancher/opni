@@ -272,41 +272,40 @@ func (p *Plugin) QueryRange(
 	}, nil
 }
 
-// This method is responsible for Creating and Updating Rules
-func (p *Plugin) LoadRules(ctx context.Context,
-	in *cortexadmin.QueryRequest,
+func (p *Plugin) GetRule(ctx context.Context,
+	in *cortexadmin.RuleRequest,
 ) (*cortexadmin.QueryResponse, error) {
 	lg := p.logger.With(
-		"query", in.Query,
+		"group name", in.GroupName,
 	)
 	client, err := p.cortexHttpClient.GetContext(ctx)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, "POST",
-		fmt.Sprintf("https://%s/api/v1/rules/monitoring", p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET",
+		fmt.Sprintf("https://%s/api/v1/rules/monitoring/%s",
+			p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress, in.GroupName), nil)
 	if err != nil {
 		return nil, err
 	}
-	values := url.Values{}
-	values.Add("query", in.Query)
-	req.Body = io.NopCloser(strings.NewReader(values.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/yaml")
+	req.Header.Set("Accept", "application/json")
 	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(in.Tenants))
 	resp, err := client.Do(req)
 	if err != nil {
 		lg.With(
 			"error", err,
-		).Error("query failed")
+		).Error("fetch failed")
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+	if resp.StatusCode == http.StatusNotFound {
+		err := status.Error(codes.NotFound, "fetch failed : 404 not found")
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
 		lg.With(
 			"status", resp.Status,
-		).Error("query failed")
-		return nil, fmt.Errorf("query failed: %s", resp.Status)
+		).Error("fetch failed")
+		return nil, fmt.Errorf("fetch failed: %s", resp.Status)
 	}
 	defer resp.Body.Close()
 	responseBuf := new(bytes.Buffer)
@@ -321,9 +320,47 @@ func (p *Plugin) LoadRules(ctx context.Context,
 	}, nil
 }
 
-func (p *Plugin) DeleteRules(
-	ctx context.Context, in *cortexadmin.DeleteRuleRequest,
-) (*cortexadmin.QueryResponse, error) {
+// This method is responsible for Creating and Updating Rules
+func (p *Plugin) LoadRules(ctx context.Context,
+	in *cortexadmin.YamlRequest,
+) (*emptypb.Empty, error) {
+	lg := p.logger.With(
+		"yaml", in.Yaml,
+	)
+	client, err := p.cortexHttpClient.GetContext(ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		fmt.Sprintf("https://%s/api/v1/rules/monitoring", p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress), nil)
+	if err != nil {
+		return nil, err
+	}
+	values := url.Values{}
+	values.Add("yaml", in.Yaml)
+	req.Body = io.NopCloser(strings.NewReader(in.Yaml))
+	req.Header.Set("Content-Type", "application/yaml")
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(in.Tenants))
+	resp, err := client.Do(req)
+	if err != nil {
+		lg.With(
+			"error", err,
+		).Error("loading rules failed")
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusAccepted {
+		lg.With(
+			"status", resp.Status,
+		).Error("loading rules failed")
+		return nil, fmt.Errorf("loading rules failed: %s", resp.Status)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (p *Plugin) DeleteRule(
+	ctx context.Context, in *cortexadmin.RuleRequest,
+) (*emptypb.Empty, error) {
 	lg := p.logger.With(
 		"delete request", in.GroupName,
 	)
@@ -338,8 +375,6 @@ func (p *Plugin) DeleteRules(
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/yaml")
 	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(in.Tenants))
 	resp, err := client.Do(req)
 	if err != nil {
@@ -348,23 +383,13 @@ func (p *Plugin) DeleteRules(
 		).Error("delete rule group failed")
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusAccepted {
 		lg.With(
 			"status", resp.Status,
-		).Error("query failed")
-		return nil, fmt.Errorf("query failed: %s", resp.Status)
+		).Error("delete rule group failed")
+		return nil, fmt.Errorf("delete rule group failed: %s", resp.Status)
 	}
-	defer resp.Body.Close()
-	responseBuf := new(bytes.Buffer)
-	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
-		lg.With(
-			"error", err,
-		).Error("failed to read response body")
-		return nil, err
-	}
-	return &cortexadmin.QueryResponse{
-		Data: responseBuf.Bytes(),
-	}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func formatTime(t time.Time) string {

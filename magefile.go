@@ -53,7 +53,6 @@ func ControllerGen() error {
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
-	cmd.Stdout = buf
 	err := cmd.Run()
 	if err != nil {
 		if ex, ok := err.(*exec.ExitError); ok {
@@ -71,10 +70,11 @@ func ControllerGen() error {
 				if strings.Contains(line, "without JSON tag in type") ||
 					strings.Contains(line, "not all generators ran successfully") ||
 					strings.Contains(line, "for usage") ||
-					strings.Contains(line, "exit status 1") {
+					strings.Contains(line, "exit status 1") ||
+					strings.HasPrefix(line, "go:") {
 					continue
 				}
-				fmt.Fprintln(os.Stderr, line)
+				fmt.Fprintln(os.Stderr, "[controller-gen] "+line)
 				return err
 			}
 		}

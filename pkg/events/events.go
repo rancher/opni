@@ -183,11 +183,13 @@ func (c *EventCollector) shipEvent(event *corev1.Event, timestamp time.Time) err
 		return err
 	}
 
-	output := EventOutput{
-		Event:     event,
-		ClusterID: string(systemNamespace.GetUID()),
-		LogType:   "event",
-		Time:      timestamp,
+	output := []EventOutput{
+		{
+			Event:     event,
+			ClusterID: string(systemNamespace.GetUID()),
+			LogType:   "event",
+			Time:      timestamp,
+		},
 	}
 
 	req, err := http.NewRequest(http.MethodPost, c.endpoint, opensearchutil.NewJSONReader(output))

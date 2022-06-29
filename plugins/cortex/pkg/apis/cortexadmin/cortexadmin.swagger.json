@@ -168,6 +168,94 @@
         ]
       }
     },
+    "/rules": {
+      "post": {
+        "operationId": "CortexAdmin_LoadRules",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "yaml",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      }
+    },
+    "/rules/{groupName}": {
+      "get": {
+        "operationId": "CortexAdmin_GetRule",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      },
+      "delete": {
+        "operationId": "CortexAdmin_DeleteRule",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "tenant",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      }
+    },
     "/write_metrics": {
       "post": {
         "operationId": "CortexAdmin_WriteMetrics",

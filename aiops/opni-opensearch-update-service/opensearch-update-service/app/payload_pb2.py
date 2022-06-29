@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rpayload.proto\x12\nloganomaly\"\xd4\x01\n\x07Payload\x12\x0b\n\x03_id\x18\x01 \x01(\t\x12\x12\n\ncluster_id\x18\x02 \x01(\t\x12\x0b\n\x03log\x18\x03 \x01(\t\x12\x12\n\nmasked_log\x18\x04 \x01(\t\x12\x15\n\ranomaly_level\x18\x05 \x01(\t\x12\x10\n\x08log_type\x18\x06 \x01(\t\x12)\n!drain_pretrained_template_matched\x18\x07 \x01(\t\x12\x17\n\x0finference_model\x18\x08 \x01(\t\x12\x1a\n\x12opnilog_confidence\x18\t \x01(\x02\"1\n\x0bPayloadList\x12\"\n\x05items\x18\x01 \x03(\x0b\x32\x13.loganomaly.Payloadb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rpayload.proto\x12\nloganomaly\"\xe0\x01\n\x07Payload\x12\x0b\n\x03_id\x18\x01 \x01(\t\x12\x12\n\ncluster_id\x18\x02 \x01(\t\x12\x0b\n\x03log\x18\x03 \x01(\t\x12\x12\n\nmasked_log\x18\x04 \x01(\t\x12\x15\n\ranomaly_level\x18\x05 \x01(\t\x12\x10\n\x08log_type\x18\x06 \x01(\t\x12\x18\n\x10template_matched\x18\x07 \x01(\t\x12\x1b\n\x13template_cluster_id\x18\x08 \x01(\x03\x12\x17\n\x0finference_model\x18\t \x01(\t\x12\x1a\n\x12opnilog_confidence\x18\n \x01(\x02\"1\n\x0bPayloadList\x12\"\n\x05items\x18\x01 \x03(\x0b\x32\x13.loganomaly.Payloadb\x06proto3')
 
 
 
@@ -38,7 +38,7 @@ if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   _PAYLOAD._serialized_start=30
-  _PAYLOAD._serialized_end=242
-  _PAYLOADLIST._serialized_start=244
-  _PAYLOADLIST._serialized_end=293
+  _PAYLOAD._serialized_end=254
+  _PAYLOADLIST._serialized_start=256
+  _PAYLOADLIST._serialized_end=305
 # @@protoc_insertion_point(module_scope)

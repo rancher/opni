@@ -24,7 +24,7 @@ script_for_anomaly = (
     "ctx._source.anomaly_predicted_count += 1; ctx._source.opnilog_anomaly = true;"
 )
 
-protobuf_conversion_dict = {"Id": "_id" ,"clusterId" : "cluster_id", "maskedLog": "masked_log", "anomalyLevel": "anomaly_level", "logType": "log_type","drainPretrainedTemplateMatched": "drain_pretrained_template_matched","inferenceModel": "inference_model","opnilogConfidence": "opnilog_confidence"}
+protobuf_conversion_dict = {"Id": "_id" ,"clusterId" : "cluster_id", "maskedLog": "masked_log", "anomalyLevel": "anomaly_level", "logType": "log_type","templateMatched": "template_matched","templateClusterId": "template_cluster_id","inferenceModel": "inference_model","opnilogConfidence": "opnilog_confidence"}
 
 
 async def doc_generator(df):
@@ -94,14 +94,15 @@ async def receive_logs(queue):
 
 async def update_logs(es, df):
     # This function will be updating Opensearch logs which were inferred on by the DRAIN model.
-    model_keywords_dict = {"drain":  ["_id", "masked_log", "drain_pretrained_template_matched", "inference_model", "anomaly_level"],
-                          "opnilog":  ["_id", "masked_log", "anomaly_level", "opnilog_confidence", "inference_model"]}
+    model_keywords_dict = {"drain":  ["_id", "masked_log", "template_matched","template_cluster_id","inference_model", "anomaly_level"],
+                          "opnilog":  ["_id", "masked_log", "anomaly_level", "template_matched","template_cluster_id","opnilog_confidence", "inference_model"]}
     anomaly_level_options = ["Normal", "Anomaly"]
     pretrained_model_logs_df = df.loc[(df["log_type"] != "workload")]
     for model_name in model_keywords_dict:
         model_df = pretrained_model_logs_df[pretrained_model_logs_df["inference_model"] == model_name]
         for anomaly_level in anomaly_level_options:
             anomaly_level_df = model_df[model_df["anomaly_level"] == anomaly_level]
+            logging.info(anomaly_level_df)
             if len(anomaly_level_df) == 0:
                 continue
             try:

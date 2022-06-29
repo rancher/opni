@@ -32,208 +32,6 @@
         ]
       }
     },
-    "/delete_rules/{groupName}": {
-      "get": {
-        "operationId": "CortexAdmin_DeleteRule",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "properties": {}
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "groupName",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "tenants",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          }
-        ],
-        "tags": [
-          "CortexAdmin"
-        ]
-      },
-      "post": {
-        "operationId": "CortexAdmin_DeleteRule2",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "properties": {}
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "groupName",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "tenants": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        ],
-        "tags": [
-          "CortexAdmin"
-        ]
-      }
-    },
-    "/get_rule/{groupName}": {
-      "get": {
-        "operationId": "CortexAdmin_GetRule",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/cortexadminQueryResponse"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "groupName",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "tenants",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          }
-        ],
-        "tags": [
-          "CortexAdmin"
-        ]
-      },
-      "post": {
-        "operationId": "CortexAdmin_GetRule2",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/cortexadminQueryResponse"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "groupName",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "tenants": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        ],
-        "tags": [
-          "CortexAdmin"
-        ]
-      }
-    },
-    "/load_rules": {
-      "get": {
-        "operationId": "CortexAdmin_LoadRules",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "properties": {}
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "tenants",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "yaml",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "CortexAdmin"
-        ]
-      },
-      "post": {
-        "operationId": "CortexAdmin_LoadRules2",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "properties": {}
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/cortexadminYamlRequest"
-            }
-          }
-        ],
-        "tags": [
-          "CortexAdmin"
-        ]
-      }
-    },
     "/query": {
       "get": {
         "operationId": "CortexAdmin_Query",
@@ -363,6 +161,106 @@
             "schema": {
               "$ref": "#/definitions/cortexadminQueryRangeRequest"
             }
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      }
+    },
+    "/rules": {
+      "post": {
+        "operationId": "CortexAdmin_LoadRules",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tenants",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "yaml",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      }
+    },
+    "/rules/{groupName}": {
+      "get": {
+        "operationId": "CortexAdmin_GetRule",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "tenants",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      },
+      "delete": {
+        "operationId": "CortexAdmin_DeleteRule",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "properties": {}
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "tenants",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
           }
         ],
         "tags": [
@@ -600,20 +498,6 @@
     },
     "cortexadminWriteResponse": {
       "type": "object"
-    },
-    "cortexadminYamlRequest": {
-      "type": "object",
-      "properties": {
-        "tenants": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "yaml": {
-          "type": "string"
-        }
-      }
     }
   }
 }

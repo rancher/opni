@@ -39,30 +39,18 @@ service CortexAdmin {
   }
   rpc GetRule(RuleRequest) returns (QueryResponse) {
     option (google.api.http) = {
-      get: "/get_rule/{groupName}"
-      additional_bindings {
-        post: "/get_rule/{groupName}"
-        body: "*"
-      }
+      get: "/rules/{groupName}"
     };
   }
 
   rpc LoadRules(YamlRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      get: "/load_rules"
-      additional_bindings {
-        post: "/load_rules"
-        body : "*",
-      }
+      post: "/rules"
     };
   }
   rpc DeleteRule(RuleRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      get: "/delete_rules/{groupName}"
-      additional_bindings {
-        post: "/delete_rules/{groupName}"
-        body : "*",
-      }
+      delete: "/rules/{groupName}"
     };
   }
 }

@@ -30,7 +30,7 @@ var _ = BeforeSuite(func() {
 	config, err := env.StartK8s()
 	Expect(err).NotTo(HaveOccurred())
 
-	store.Set(crds.NewCRDStore(crds.WithRestConfig(config), crds.WithCommandTimeout(100*time.Millisecond)))
+	store.Set(crds.NewCRDStore(crds.WithRestConfig(config), crds.WithCommandTimeout(1*time.Second)))
 	errCtrl.Set(conformance.NewProcessErrorController(env.Processes.APIServer.Get()))
 
 	DeferCleanup(env.Stop)

@@ -32,6 +32,124 @@
         ]
       }
     },
+    "/delete_rules": {
+      "post": {
+        "operationId": "CortexAdmin_DeleteRules2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/cortexadminDeleteRuleRequest"
+            }
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      }
+    },
+    "/delete_rules/{groupName}": {
+      "get": {
+        "operationId": "CortexAdmin_DeleteRules",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "tenants",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      }
+    },
+    "/load_rules": {
+      "get": {
+        "operationId": "CortexAdmin_LoadRules",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tenants",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      },
+      "post": {
+        "operationId": "CortexAdmin_LoadRules2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/cortexadminQueryRequest"
+            }
+          }
+        ],
+        "tags": [
+          "CortexAdmin"
+        ]
+      }
+    },
     "/query": {
       "get": {
         "operationId": "CortexAdmin_Query",
@@ -209,6 +327,20 @@
         "STATESET"
       ],
       "default": "UNKNOWN"
+    },
+    "cortexadminDeleteRuleRequest": {
+      "type": "object",
+      "properties": {
+        "tenants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "groupName": {
+          "type": "string"
+        }
+      }
     },
     "cortexadminExemplar": {
       "type": "object",

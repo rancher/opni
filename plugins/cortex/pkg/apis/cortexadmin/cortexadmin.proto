@@ -37,6 +37,24 @@ service CortexAdmin {
       }
     };
   }
+  rpc LoadRules(QueryRequest) returns (QueryResponse) {
+    option (google.api.http) = {
+      get: "/load_rules"
+      additional_bindings {
+        post: "/load_rules"
+        body : "*",
+      }
+    };
+  }
+  rpc DeleteRules(DeleteRuleRequest) returns (QueryResponse) {
+    option (google.api.http) = {
+      get: "/delete_rules/{groupName}"
+      additional_bindings {
+        post: "/delete_rules"
+        body : "*",
+      }
+    };
+  }
 }
 
 message UserIDStatsList {
@@ -110,6 +128,11 @@ message QueryRangeRequest {
   google.protobuf.Timestamp start = 3;
   google.protobuf.Timestamp end = 4;
   google.protobuf.Duration step = 5;
+}
+
+message DeleteRuleRequest {
+  repeated string tenants = 1;
+  string groupName = 2;
 }
 
 message QueryResponse {

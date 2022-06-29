@@ -17,6 +17,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/events"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/tokens"
@@ -32,10 +33,12 @@ import (
 )
 
 var (
-	configLocation string
-	agentLogLevel  string
-	enableMetrics  bool
-	enableLogging  bool
+	configLocation       string
+	agentLogLevel        string
+	eventOutputEndpoint  string
+	enableMetrics        bool
+	enableLogging        bool
+	enableEventCollector bool
 
 	agentlg logger.ExtendedSugaredLogger
 )
@@ -69,6 +72,17 @@ agent remote-write requests to add dynamic authentication.`,
 				}(cmd.Context())
 			}
 
+			if enableEventCollector {
+				wg.Add(1)
+				go func(ctx context.Context) {
+					defer wg.Done()
+					err := runEventsCollector(ctx)
+					if err != nil {
+						agentlg.Fatalf("failed to run event collector: %v", err)
+					}
+				}(cmd.Context())
+			}
+
 			wg.Wait()
 		},
 	}
@@ -76,7 +90,9 @@ agent remote-write requests to add dynamic authentication.`,
 	agentCmd.Flags().StringVar(&configLocation, "config", "", "Absolute path to a config file")
 	agentCmd.Flags().StringVar(&agentLogLevel, "log-level", "info", "log level (debug, info, warning, error)")
 	agentCmd.Flags().BoolVar(&enableMetrics, "metrics", false, "enable metrics agent")
-	agentCmd.Flags().BoolVar(&enableLogging, "logging", false, "enable metrics agent")
+	agentCmd.Flags().BoolVar(&enableLogging, "logging", false, "enable logging controllers")
+	agentCmd.Flags().BoolVar(&enableEventCollector, "events", false, "enable event collector")
+	agentCmd.Flags().StringVar(&eventOutputEndpoint, "events-output", "http://opni-shipper:2021/log/ingest", "endpoint to post events to")
 	return agentCmd
 }
 
@@ -270,4 +286,9 @@ func runLoggingControllers(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func runEventsCollector(ctx context.Context) error {
+	collector := events.NewEventCollector(ctx, eventOutputEndpoint)
+	return collector.Run(ctx.Done())
 }

@@ -35,7 +35,7 @@ const (
 	sloObjectiveLabelName = "sloth_objective"
 )
 
-type ruleFmtWrapper struct {
+type SLORuleFmtWrapper struct {
 	SLIrules   []rulefmt.Rule
 	MetaRules  []rulefmt.Rule
 	AlertRules []rulefmt.Rule
@@ -338,7 +338,7 @@ func defaultSLOAlertGenerator(slo prometheus.SLO, sloAlert prometheus.AlertMeta,
 	}, nil
 }
 
-func GenerateSLO(slo prometheus.SLO, ctx context.Context, info info.Info, lg hclog.Logger) (*ruleFmtWrapper, error) {
+func GenerateSLO(slo prometheus.SLO, ctx context.Context, info info.Info, lg hclog.Logger) (*SLORuleFmtWrapper, error) {
 
 	// Generate with the MWWB alerts
 
@@ -350,32 +350,35 @@ func GenerateSLO(slo prometheus.SLO, ctx context.Context, info info.Info, lg hcl
 	if err != nil {
 		return nil, fmt.Errorf("Could not generate SLO alerts: %w", err)
 	}
-	lg.Info("Multiwindow-multiburn alerts generated")
+	lg.Info("Multiwindow-multiburn alerts successfully generated")
 
 	sliRecordingRules, err := GenerateSLIRecordingRules(ctx, slo, *as)
 	if err != nil {
 		return nil, fmt.Errorf("Could not generate SLO recording rules: %w", err)
 	}
+	lg.Info("Raw SLI recording rules successfully generated")
 
 	metaRecordingRules, err := GenerateMetadataRecordingRules(ctx, slo, as)
 	if err != nil {
 		return nil, fmt.Errorf("Could not generate metadata recording rules %w", err)
 	}
+	lg.Info("Error budget recording rules successfully generated")
 
 	alertRules, err := GenerateSLOAlertRules(ctx, slo, *as)
 	if err != nil {
 		return nil, fmt.Errorf("Could not generate SLO alert rules: %w", err)
 	}
+	lg.Info("SLO alert rules successfully generated")
 
-	return &ruleFmtWrapper{
+	return &SLORuleFmtWrapper{
 		SLIrules:   sliRecordingRules,
 		MetaRules:  metaRecordingRules,
 		AlertRules: alertRules,
 	}, nil
 }
 
-func GenerateNoSloth(slos *prometheus.SLOGroup, ctx context.Context, lg hclog.Logger) ([][]byte, error) {
-	res := make([][]byte, 0)
+func GeneratePrometheusNoSlothGenerator(slos *prometheus.SLOGroup, ctx context.Context, lg hclog.Logger) ([]SLORuleFmtWrapper, error) {
+	res := make([]SLORuleFmtWrapper, 0)
 	err := Validate(slos)
 	if err != nil {
 		return nil, err
@@ -390,8 +393,7 @@ func GenerateNoSloth(slos *prometheus.SLOGroup, ctx context.Context, lg hclog.Lo
 		if err != nil {
 			return nil, err
 		}
-		lg.Info(fmt.Sprintf("SLO generated: %+v", result))
-		// res = append(res, result)
+		res = append(res, *result)
 	}
 	return res, nil
 }

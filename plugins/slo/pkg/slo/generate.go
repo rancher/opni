@@ -4,15 +4,35 @@ package slo
 // which crashes
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"html/template"
+	"sort"
 	"time"
 
 	"github.com/alexandreLamarre/sloth/core/alert"
 	"github.com/alexandreLamarre/sloth/core/info"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
 	"github.com/hashicorp/go-hclog"
+	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
+)
+
+const (
+	// Metrics.
+	sliErrorMetricFmt = "slo:sli_error:ratio_rate%s"
+
+	// Labels.
+	sloNameLabelName      = "sloth_slo"
+	sloIDLabelName        = "sloth_id"
+	sloServiceLabelName   = "sloth_service"
+	sloWindowLabelName    = "sloth_window"
+	sloSeverityLabelName  = "sloth_severity"
+	sloVersionLabelName   = "sloth_version"
+	sloModeLabelName      = "sloth_mode"
+	sloSpecLabelName      = "sloth_spec"
+	sloObjectiveLabelName = "sloth_objective"
 )
 
 type ruleFmtWrapper struct {
@@ -27,22 +47,18 @@ func Validate(slos *prometheus.SLOGroup) error {
 	return nil
 }
 
-func MergeLabels(sloLabel map[string]string, extraLabels map[string]string) map[string]string {
-	// TODO implement
-	return sloLabel
+func MergeLabels(ms ...map[string]string) map[string]string {
+	res := map[string]string{}
+	for _, m := range ms {
+		for k, v := range m {
+			res[k] = v
+		}
+	}
+	return res
 }
 
 func GenerateMWWBAlerts(ctx context.Context, alertSLO alert.SLO, timeWindow time.Duration) (*alert.MWMBAlertGroup, error) {
-	//TODO decouple this nightmare of filesystem repository builders from sloth
-	window, err := alert.NewFSWindowsRepo(alert.FSWindowsRepoConfig{})
-	if err != nil {
-		return nil, fmt.Errorf("Failed to initialize window")
-	}
-	windows, err := window.GetWindows(ctx, timeWindow)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get windows: %w", err)
-	}
-
+	windows := WindowDefaults(timeWindow)
 	errorBudget := 100 - alertSLO.Objective
 	group := alert.MWMBAlertGroup{
 		PageQuick: alert.MWMBAlert{
@@ -81,9 +97,84 @@ func GenerateMWWBAlerts(ctx context.Context, alertSLO alert.SLO, timeWindow time
 	return &group, nil
 }
 
-func GenerateSLIRecordingRUles(ctx context.Context, slo prometheus.SLO, alerts *alert.MWMBAlertGroup) ([]rulefmt.Rule, error) {
-	// TODO implement
-	return nil, nil
+func GenerateSLIRecordingRules(ctx context.Context, slo prometheus.SLO, alerts alert.MWMBAlertGroup) ([]rulefmt.Rule, error) {
+	// Get the windows we need the recording rules.
+	windows := getAlertGroupWindows(alerts)
+	windows = append(windows, slo.TimeWindow) // Add the total time window as a handy helper.
+
+	// Generate the rules
+	rules := make([]rulefmt.Rule, 0, len(windows))
+	for _, window := range windows {
+		rule, err := rawSLIRecordGenerator(slo, window, alerts) //s.genFunc(slo, window, alerts)
+		if err != nil {
+			return nil, fmt.Errorf("could not create %q SLO rule for window %s: %w", slo.ID, window, err)
+		}
+		rules = append(rules, *rule)
+	}
+
+	return rules, nil
+}
+
+// getAlertGroupWindows gets all the time windows from a multiwindow multiburn alert group.
+func getAlertGroupWindows(alerts alert.MWMBAlertGroup) []time.Duration {
+	// Use a map to avoid duplicated windows.
+	windows := map[string]time.Duration{
+		alerts.PageQuick.ShortWindow.String():   alerts.PageQuick.ShortWindow,
+		alerts.PageQuick.LongWindow.String():    alerts.PageQuick.LongWindow,
+		alerts.PageSlow.ShortWindow.String():    alerts.PageSlow.ShortWindow,
+		alerts.PageSlow.LongWindow.String():     alerts.PageSlow.LongWindow,
+		alerts.TicketQuick.ShortWindow.String(): alerts.TicketQuick.ShortWindow,
+		alerts.TicketQuick.LongWindow.String():  alerts.TicketQuick.LongWindow,
+		alerts.TicketSlow.ShortWindow.String():  alerts.TicketSlow.ShortWindow,
+		alerts.TicketSlow.LongWindow.String():   alerts.TicketSlow.LongWindow,
+	}
+
+	res := make([]time.Duration, 0, len(windows))
+	for _, w := range windows {
+		res = append(res, w)
+	}
+	sort.SliceStable(res, func(i, j int) bool { return res[i] < res[j] })
+
+	return res
+}
+
+const (
+	tplKeyWindow = "window"
+)
+
+func rawSLIRecordGenerator(slo prometheus.SLO, window time.Duration, alerts alert.MWMBAlertGroup) (*rulefmt.Rule, error) {
+	// Render with our templated data.
+	sliExprTpl := fmt.Sprintf(`(%s)`, slo.SLI.Raw.ErrorRatioQuery)
+	tpl, err := template.New("sliExpr").Option("missingkey=error").Parse(sliExprTpl)
+	if err != nil {
+		return nil, fmt.Errorf("could not create SLI expression template data: %w", err)
+	}
+
+	strWindow := timeDurationToPromStr(window)
+	var b bytes.Buffer
+	err = tpl.Execute(&b, map[string]string{
+		tplKeyWindow: strWindow,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not render SLI expression template: %w", err)
+	}
+
+	return &rulefmt.Rule{
+		Record: slo.GetSLIErrorMetric(window),
+		Expr:   b.String(),
+		Labels: MergeLabels(
+			slo.GetSLOIDPromLabels(),
+			map[string]string{
+				sloWindowLabelName: strWindow,
+			},
+			slo.Labels,
+		),
+	}, nil
+}
+
+// Pretty simple durations for prometheus.
+func timeDurationToPromStr(t time.Duration) string {
+	return prommodel.Duration(t).String()
 }
 
 func GenerateMetadataRecordingRules(ctx context.Context, slo prometheus.SLO, alerts *alert.MWMBAlertGroup) ([]rulefmt.Rule, error) {
@@ -110,7 +201,7 @@ func GenerateSLO(slo prometheus.SLO, ctx context.Context, info info.Info, lg hcl
 	}
 	lg.Info("Multiwindow-multiburn alerts generated")
 
-	sliRecordingRules, err := GenerateSLIRecordingRUles(ctx, slo, as)
+	sliRecordingRules, err := GenerateSLIRecordingRules(ctx, slo, *as)
 	if err != nil {
 		return nil, fmt.Errorf("Could not generate SLO recording rules: %w", err)
 	}

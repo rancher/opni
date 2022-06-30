@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/util/jsonpath"
 )
 
 func BuildHooksCmd() *cobra.Command {
@@ -26,11 +27,20 @@ func BuildHooksCmd() *cobra.Command {
 }
 
 func BuildWaitForResourceCmd() *cobra.Command {
-	var group, version, resource, namespace string
+	var group, version, resource, namespace, jsonPath string
+	jsonPathParser := jsonpath.New("jsonPath")
 	cmd := &cobra.Command{
-		Use:   "wait-for-resource [--namespace=<namespace>] [--group=<group>] [--version=<version>] --resource=<resource> <name>",
-		Short: "Wait for a resource to be created",
+		Use:   "wait-for-resource [--namespace=<namespace>] [--group=<group>] [--version=<version>] [--jsonpath='{...}'] --resource=<resource> <name>",
+		Short: "Wait for a resource to be created, and optionally match a JSONPath expression.",
 		Args:  cobra.ExactArgs(1),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if jsonPath != "" {
+				if err := jsonPathParser.Parse(jsonPath); err != nil {
+					return fmt.Errorf("failed to parse JSONPath expression: %v", err)
+				}
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts := util.ClientOptions{
 				Scheme: apis.NewScheme(),
@@ -63,6 +73,41 @@ func BuildWaitForResourceCmd() *cobra.Command {
 				return err
 			}
 			fmt.Println("Resource created.")
+
+			if jsonPath == "" {
+				return nil
+			}
+
+			fmt.Printf("Evaluating JSONPath expression: %s\n", jsonPath)
+			err = wait.PollImmediateUntil(1*time.Second, func() (bool, error) {
+				obj, err := client.Resource(gvr).Namespace(namespace).Get(cmd.Context(), args[0], v1.GetOptions{})
+				if err != nil {
+					fmt.Println(err)
+					return false, nil
+				}
+				parseResults, err := jsonPathParser.FindResults(obj.UnstructuredContent())
+				if err != nil {
+					fmt.Println(err)
+					return false, nil
+				}
+				if len(parseResults) != 1 {
+					fmt.Printf("Expected 1 result, got %d\n", len(parseResults))
+					return false, nil
+				}
+				value := parseResults[0][0]
+				if value.IsNil() || value.IsZero() {
+					fmt.Println("Expression did not match.")
+					return false, nil
+				}
+				fmt.Printf("Expression matched: %v\n", value.Interface())
+				return true, nil
+			}, cmd.Context().Done())
+
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("Success.")
 			return nil
 		},
 	}
@@ -70,6 +115,7 @@ func BuildWaitForResourceCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&version, "version", "v", "", "Version")
 	cmd.Flags().StringVarP(&resource, "resource", "r", "", "Resource")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace to use")
+	cmd.Flags().StringVarP(&jsonPath, "jsonpath", "j", "", "Wait for a JSONPath expression to evaluate to a non-zero value once the resource is created")
 	cmd.MarkFlagRequired("resource")
 	return cmd
 }

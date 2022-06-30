@@ -30,5 +30,6 @@ spec:
         - "--namespace={{ include "opni.namespace" . }}"
         - --version=v1
         - --resource=services
+        - --jsonpath={.status.loadBalancer.ingress}
         - opni-monitoring
 {{- end }}

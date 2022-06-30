@@ -20071,6 +20071,8 @@ spec:
                 type: object
               containerLogDir:
                 type: string
+              controlNamespace:
+                type: string
               eks:
                 type: object
               fluentConfig:

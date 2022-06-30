@@ -404,9 +404,9 @@ entries:
       catalog.cattle.io/namespace: opni-system
       catalog.cattle.io/release-name: opni-agent-crd
     apiVersion: v1
-    created: "2022-06-23T08:20:43.9239842+12:00"
+    created: "2022-07-01T11:15:59.8552497+12:00"
     description: Installs the CRDs for Opni.
-    digest: 895d9f180cb0292430a1b5c9cc850e3a028d24b96b43f8509362ac6720ff57ee
+    digest: 3ac299fad0ae5e13a86df795fbb1cadf18664337fcd491067c7b43c53b8d6f65
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky
@@ -549,9 +549,9 @@ entries:
       catalog.cattle.io/namespace: opni-cluster-system
       catalog.cattle.io/release-name: opni-crd
     apiVersion: v1
-    created: "2022-06-23T08:18:52.5017383+12:00"
+    created: "2022-07-01T09:48:23.2828229+12:00"
     description: Installs the CRDs for Opni.
-    digest: 660e464b4e89d3d65ad82028b916bd243d85e988b3a6684fc492f00a03667ab4
+    digest: bb8aa594d2040a1ebcd2f46f35b457815bd37c6c2c241ea08364ea579e24f538
     maintainers:
     - email: joe.kralicky@suse.com
       name: Joe Kralicky

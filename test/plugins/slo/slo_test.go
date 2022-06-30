@@ -71,8 +71,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(metrics.Items[1].Name).To(Equal("http-latency"))
 			Expect(metrics.Items[2].Name).To(Equal("uptime"))
 		})
-		It("Should be able to fetch distinct metrics", func() {
-			_, err := sloClient.GetMetric(ctx, &apis.MetricRequest{
+		It("Should be able to assign pre-configured metrics to discrete metric ids", func() {
+			_, err := sloClient.AssignMetric(ctx, &apis.MetricRequest{
 				Name:       "http-availability",
 				Datasource: slo.LoggingDatasource,
 				ServiceId:  "prometheus",
@@ -80,7 +80,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			})
 			Expect(err).To(HaveOccurred())
 
-			metric, err := sloClient.GetMetric(ctx, &apis.MetricRequest{
+			metric, err := sloClient.AssignMetric(ctx, &apis.MetricRequest{
 				Name:       "uptime",
 				Datasource: slo.MonitoringDatasource,
 				ServiceId:  "prometheus",
@@ -90,7 +90,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(metric.Name).To(Equal("uptime"))
 			Expect(metric.MetricId).To(Equal("up"))
 
-			_, err = sloClient.GetMetric(ctx, &apis.MetricRequest{
+			_, err = sloClient.AssignMetric(ctx, &apis.MetricRequest{
 				Name:       "http-latency",
 				Datasource: slo.MonitoringDatasource,
 				ServiceId:  "prometheus",

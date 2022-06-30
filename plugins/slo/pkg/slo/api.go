@@ -210,7 +210,7 @@ func (p *Plugin) initMetricCache(ctx context.Context) error {
 }
 
 // Assign a Job Id to a pre configured metric based on the service selected
-func (p *Plugin) GetMetric(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Metric, error) {
+func (p *Plugin) AssignMetric(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Metric, error) {
 	lg := p.logger
 	err := p.initMetricCache(ctx)
 	if err != nil {

@@ -13,28 +13,28 @@ type Windows struct {
 	TicketSlow  Window
 }
 
-//FIXME: set this to sensible defaults
+//https://sre.google/workbook/alerting-on-slos/
 func WindowDefaults(period time.Duration) *Windows {
 	return &Windows{
 		SLOPeriod: period,
 		PageQuick: Window{
-			LongWindow:         time.Minute * 30,
-			ShortWindow:        time.Minute * 2,
+			LongWindow:         time.Minute * 60,
+			ShortWindow:        time.Minute * 5,
 			ErrorBudgetPercent: 2,
 		},
 		PageSlow: Window{
-			LongWindow:         time.Minute * 60,
-			ShortWindow:        time.Minute * 5,
+			LongWindow:         time.Hour * 6,
+			ShortWindow:        time.Minute * 30,
 			ErrorBudgetPercent: 5,
 		},
 		TicketQuick: Window{
-			LongWindow:         period,
-			ShortWindow:        period,
+			LongWindow:         (time.Hour * 24) * 3,
+			ShortWindow:        time.Hour * 6,
 			ErrorBudgetPercent: 10,
 		},
 		TicketSlow: Window{
-			LongWindow:         period,
-			ShortWindow:        period,
+			LongWindow:         (time.Hour * 24) * 3,
+			ShortWindow:        time.Hour * 6,
 			ErrorBudgetPercent: 10,
 		},
 	}

@@ -10,6 +10,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -20,7 +21,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var sloClient apis.SLOClient
 	BeforeAll(func() {
 		env = &test.Environment{
-			TestBin: "../../testbin/bin",
+			TestBin: "../../../testbin/bin",
 		}
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
@@ -61,12 +62,31 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 	When("Configuring what metrics are available", func() {
 		It("should list available metrics", func() {
-			_, err := sloClient.ListMetrics(ctx, &emptypb.Empty{})
-			Expect(err).To(HaveOccurred())
+			metrics, err := sloClient.ListMetrics(ctx, &emptypb.Empty{})
+			Expect(err).To(Succeed())
+			Expect(metrics.Items).To(HaveLen(3))
+			Expect(metrics.Items[0].Name).To(Equal("http-availability"))
+			Expect(metrics.Items[1].Name).To(Equal("http-latency"))
+			Expect(metrics.Items[2].Name).To(Equal("uptime"))
 		})
 		It("Should be able to fetch distinct metrics", func() {
-			_, err := sloClient.GetMetric(ctx, &apis.MetricRequest{})
+			_, err := sloClient.GetMetric(ctx, &apis.MetricRequest{
+				Name:       "http-availability",
+				Datasource: slo.LoggingDatasource,
+				ServiceId:  "prometheus",
+				ClusterId:  "agent",
+			})
 			Expect(err).To(HaveOccurred())
+
+			metric, err := sloClient.GetMetric(ctx, &apis.MetricRequest{
+				Name:       "http-availability",
+				Datasource: slo.MonitoringDatasource,
+				ServiceId:  "prometheus",
+				ClusterId:  "agent",
+			})
+			//FIXME: this behavior is not correct
+			Expect(err).To(Succeed())
+			Expect(metric.Name).To(Equal("http-availability"))
 		})
 	})
 

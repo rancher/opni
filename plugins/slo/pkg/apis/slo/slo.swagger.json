@@ -97,6 +97,12 @@
             "type": "string"
           },
           {
+            "name": "datasource",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
             "name": "clusterId",
             "in": "query",
             "required": false,
@@ -456,7 +462,13 @@
         "datasource": {
           "type": "string"
         },
-        "MetricDescription": {
+        "clusterId": {
+          "type": "string"
+        },
+        "serviceId": {
+          "type": "string"
+        },
+        "metricId": {
           "type": "string"
         }
       }

@@ -398,14 +398,17 @@ func (r *Reconciler) MaybeBootstrapIndex(prefix string, alias string, oldPrefixe
 		if oldPrefixesExist || !aliasIsIndex {
 			if oldPrefixesExist {
 				for _, prefix := range oldPrefixes {
-					aliasRequestBody.Actions = append(aliasRequestBody.Actions, opensearchapiext.AliasActionSpec{
-						AliasAtomicAction: &opensearchapiext.AliasAtomicAction{
-							Remove: &opensearchapiext.AliasGenericAction{
-								Index: prefix,
-								Alias: alias,
+					exists, _ := r.oldIndicesExist([]string{prefix})
+					if exists {
+						aliasRequestBody.Actions = append(aliasRequestBody.Actions, opensearchapiext.AliasActionSpec{
+							AliasAtomicAction: &opensearchapiext.AliasAtomicAction{
+								Remove: &opensearchapiext.AliasGenericAction{
+									Index: prefix,
+									Alias: alias,
+								},
 							},
-						},
-					})
+						})
+					}
 				}
 			}
 			aliasReq := opensearchapi.IndicesUpdateAliasesRequest{

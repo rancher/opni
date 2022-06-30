@@ -43,6 +43,9 @@ spec:
           {{- end }}
           {{- if .Values.logging.enabled }}
             - --logging
+          {{- if .Values.events.enabled }}
+            - --events
+          {{- end }}
           {{- end }}
           ports:
             - name: http

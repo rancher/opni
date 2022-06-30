@@ -24,9 +24,8 @@ logging:
   provider: rke
   jobTTL: 0
 
-address: https://localhost:8080
-token: ""
-pin: ""
+events:
+  enabled: false
 
 podAnnotations: {}
 
@@ -47,8 +46,7 @@ service:
   type: ClusterIP
   port: 80
 
-resources:
-  {}
+resources: {}
   # requests:
   #   cpu: 500m
   #   memory: 512Mi

@@ -11,11 +11,13 @@ message Payload {
   string masked_log = 4;
   string anomaly_level = 5;
   string log_type = 6;
-  string drain_pretrained_template_matched = 7;
-  string inference_model = 8;
-  float opnilog_confidence = 9;
+  string template_matched = 7;
+  int64 template_cluster_id = 8;
+  string inference_model = 9;
+  float opnilog_confidence = 10;
 }
 
 message PayloadList {
   repeated Payload items = 1;
-} 
+}
+

@@ -37,9 +37,6 @@ spec:
             - agent
           {{- if .Values.metrics.enabled }}
             - --metrics
-          {{- if .Values.metrics.insecure }}
-            - --insecure
-          {{- end }}
           {{- end }}
           {{- if .Values.logging.enabled }}
             - --logging

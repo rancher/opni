@@ -10,7 +10,7 @@ import (
 
 const (
 	LogPolicyName                = "log-policy"
-	LogIndexPrefix               = "logs-v0.5.1"
+	LogIndexPrefix               = "logs-v0.5.4"
 	LogIndexAlias                = "logs"
 	LogIndexTemplateName         = "logs_rollover_mapping"
 	PreProcessingPipelineName    = "opni-ingest-pipeline"
@@ -31,6 +31,7 @@ const (
 var (
 	OldIndexPrefixes = []string{
 		"logs-v0.1.3*",
+		"logs-v0.5.1*",
 	}
 	DefaultRetry = osapiext.RetrySpec{
 		Count:   3,
@@ -671,6 +672,12 @@ var (
 						Type: "keyword",
 					},
 					"kubernetes_component": {
+						Type: "keyword",
+					},
+					"cluster_id": {
+						Type: "keyword",
+					},
+					"anomaly_level": {
 						Type: "keyword",
 					},
 				},

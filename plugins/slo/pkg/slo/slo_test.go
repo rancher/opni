@@ -282,6 +282,21 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(rules).To(HaveLen(7))
 		})
 
+		It("Should be able to generate alert rulefmt.Rules base on alertGroups and SLO definition", func() {
+			sampleSLO := simplePrometheusIR[0].SLOs[0]
+			ctx := context.Background()
+			alertSLO := alert.SLO{
+				ID:        "foo",
+				Objective: 99.99,
+			}
+			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24)
+			Expect(err).To(Succeed())
+			rules, err := slo.GenerateSLOAlertRules(ctx, sampleSLO, *alertGroup)
+			Expect(err).To(Succeed())
+			// TODO : better testing for this when the final format is more stable
+			Expect(rules).To(HaveLen(2))
+		})
+
 		It("Should create valid prometheus rules", func() {
 			var err error
 			simplePrometheusResponse, err = slo.GeneratePrometheusRule(simplePrometheusIR, context.Background())

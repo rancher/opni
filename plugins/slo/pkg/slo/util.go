@@ -16,6 +16,20 @@ var burnRateRecordingExprTpl = template.Must(template.New("burnRateExpr").Option
 {{ .ErrorBudgetRatioMetric }}{{ .MetricFilter }}
 `))
 
+// Multiburn multiwindow alert template.
+var mwmbAlertTpl = template.Must(template.New("mwmbAlertTpl").Option("missingkey=error").Parse(`(
+    max({{ .QuickShortMetric }}{{ .MetricFilter}} > ({{ .QuickShortBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }})
+    and
+    max({{ .QuickLongMetric }}{{ .MetricFilter}} > ({{ .QuickLongBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }})
+)
+or
+(
+    max({{ .SlowShortMetric }}{{ .MetricFilter }} > ({{ .SlowShortBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }})
+    and
+    max({{ .SlowQuickMetric }}{{ .MetricFilter }} > ({{ .SlowQuickBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }})
+)
+`))
+
 // Pretty simple durations for prometheus.
 func timeDurationToPromStr(t time.Duration) string {
 	return prommodel.Duration(t).String()

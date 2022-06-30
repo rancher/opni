@@ -259,8 +259,83 @@ func GenerateMetadataRecordingRules(ctx context.Context, slo prometheus.SLO, ale
 }
 
 func GenerateSLOAlertRules(ctx context.Context, slo prometheus.SLO, alerts alert.MWMBAlertGroup) ([]rulefmt.Rule, error) {
-	// TODO implement
-	return nil, nil
+	alertPageMetadata := prometheus.AlertMeta{
+		Disable: false,
+		Name:    fmt.Sprintf("opni-slo-alert-page-%s", slo.ID),
+	}
+	alertTicketMetadata := prometheus.AlertMeta{
+		Disable: false,
+		Name:    fmt.Sprintf("opni-slo-alert-ticket-%s", slo.ID),
+	}
+	rules := make([]rulefmt.Rule, 0)
+	pageRule, err := defaultSLOAlertGenerator(slo, alertPageMetadata, alerts.PageQuick, alerts.PageSlow)
+	if err != nil {
+		return nil, fmt.Errorf("Generate page rule failed : %w", err)
+	}
+	rules = append(rules, *pageRule)
+	ticketRule, err := defaultSLOAlertGenerator(slo, alertTicketMetadata, alerts.TicketQuick, alerts.TicketSlow)
+	if err != nil {
+		return nil, fmt.Errorf("Generate ticket rule failed : %w", err)
+	}
+	rules = append(rules, *ticketRule)
+	return rules, nil
+}
+
+func defaultSLOAlertGenerator(slo prometheus.SLO, sloAlert prometheus.AlertMeta, quick, slow alert.MWMBAlert) (*rulefmt.Rule, error) {
+	// Generate the filter labels based on the SLO ids.
+	metricFilter := labelsToPromFilter(slo.GetSLOIDPromLabels())
+
+	// Render the alert template.
+	tplData := struct {
+		MetricFilter         string
+		ErrorBudgetRatio     float64
+		QuickShortMetric     string
+		QuickShortBurnFactor float64
+		QuickLongMetric      string
+		QuickLongBurnFactor  float64
+		SlowShortMetric      string
+		SlowShortBurnFactor  float64
+		SlowQuickMetric      string
+		SlowQuickBurnFactor  float64
+		WindowLabel          string
+	}{
+		MetricFilter:         metricFilter,
+		ErrorBudgetRatio:     quick.ErrorBudget / 100, // Any(quick or slow) should work because are the same.
+		QuickShortMetric:     slo.GetSLIErrorMetric(quick.ShortWindow),
+		QuickShortBurnFactor: quick.BurnRateFactor,
+		QuickLongMetric:      slo.GetSLIErrorMetric(quick.LongWindow),
+		QuickLongBurnFactor:  quick.BurnRateFactor,
+		SlowShortMetric:      slo.GetSLIErrorMetric(slow.ShortWindow),
+		SlowShortBurnFactor:  slow.BurnRateFactor,
+		SlowQuickMetric:      slo.GetSLIErrorMetric(slow.LongWindow),
+		SlowQuickBurnFactor:  slow.BurnRateFactor,
+		WindowLabel:          sloWindowLabelName,
+	}
+	var expr bytes.Buffer
+	err := mwmbAlertTpl.Execute(&expr, tplData)
+	if err != nil {
+		return nil, fmt.Errorf("could not render alert expression: %w", err)
+	}
+
+	// Add specific annotations.
+	severity := quick.Severity.String() // Any(quick or slow) should work because are the same.
+	extraAnnotations := map[string]string{
+		"title":   fmt.Sprintf("(%s) {{$labels.%s}} {{$labels.%s}} SLO error budget burn rate is too fast.", severity, sloServiceLabelName, sloNameLabelName),
+		"summary": fmt.Sprintf("{{$labels.%s}} {{$labels.%s}} SLO error budget burn rate is over expected.", sloServiceLabelName, sloNameLabelName),
+	}
+
+	// Add specific labels. We don't add the labels from the rules because we will
+	// inherit on the alerts, this way we avoid warnings of overrided labels.
+	extraLabels := map[string]string{
+		sloSeverityLabelName: severity,
+	}
+
+	return &rulefmt.Rule{
+		Alert:       sloAlert.Name,
+		Expr:        expr.String(),
+		Annotations: MergeLabels(extraAnnotations, sloAlert.Annotations),
+		Labels:      MergeLabels(extraLabels, sloAlert.Labels),
+	}, nil
 }
 
 func GenerateSLO(slo prometheus.SLO, ctx context.Context, info info.Info, lg hclog.Logger) (*ruleFmtWrapper, error) {

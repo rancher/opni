@@ -6,9 +6,8 @@ import os
 import time
 
 # Third Party
-from google.protobuf import json_format
+from loganomaly import PayloadList
 import pandas as pd
-import payload_pb2
 from elasticsearch import AsyncElasticsearch, TransportError
 from elasticsearch.exceptions import ConnectionTimeout
 from elasticsearch.helpers import BulkIndexError, async_streaming_bulk
@@ -24,7 +23,7 @@ script_for_anomaly = (
     "ctx._source.anomaly_predicted_count += 1; ctx._source.opnilog_anomaly = true;"
 )
 
-protobuf_conversion_dict = {"Id": "_id" ,"clusterId" : "cluster_id", "maskedLog": "masked_log", "anomalyLevel": "anomaly_level", "logType": "log_type","templateMatched": "template_matched","templateClusterId": "template_cluster_id","inferenceModel": "inference_model","opnilogConfidence": "opnilog_confidence"}
+#protobuf_conversion_dict = {"Id": "_id" ,"clusterId" : "cluster_id", "maskedLog": "masked_log", "anomalyLevel": "anomaly_level", "logType": "log_type","templateMatched": "template_matched","templateClusterId": "template_cluster_id","inferenceModel": "inference_model","opnilogConfidence": "opnilog_confidence"}
 
 
 async def doc_generator(df):
@@ -73,9 +72,7 @@ async def setup_es_connection():
 async def consume_logs(nw, inferenced_logs_queue):
     async def subscribe_handler(msg):
         data = msg.data
-        log_payload_list = payload_pb2.PayloadList()
-        logs_df = pd.DataFrame(json_format.MessageToDict(log_payload_list.FromString(data))["items"])
-        logs_df = logs_df.rename(columns=protobuf_conversion_dict)
+        logs_df = pd.DataFrame(PayloadList().parse(data).items)
         await inferenced_logs_queue.put(logs_df)
 
     await nw.subscribe(
@@ -102,7 +99,6 @@ async def update_logs(es, df):
         model_df = pretrained_model_logs_df[pretrained_model_logs_df["inference_model"] == model_name]
         for anomaly_level in anomaly_level_options:
             anomaly_level_df = model_df[model_df["anomaly_level"] == anomaly_level]
-            logging.info(anomaly_level_df)
             if len(anomaly_level_df) == 0:
                 continue
             try:

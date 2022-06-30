@@ -9,13 +9,13 @@ import (
 	"fmt"
 	"html/template"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/alexandreLamarre/sloth/core/alert"
 	"github.com/alexandreLamarre/sloth/core/info"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
 	"github.com/hashicorp/go-hclog"
-	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 )
 
@@ -45,16 +45,6 @@ func Validate(slos *prometheus.SLOGroup) error {
 	// TODO implement
 	// use prometheus field validators
 	return nil
-}
-
-func MergeLabels(ms ...map[string]string) map[string]string {
-	res := map[string]string{}
-	for _, m := range ms {
-		for k, v := range m {
-			res[k] = v
-		}
-	}
-	return res
 }
 
 func GenerateMWWBAlerts(ctx context.Context, alertSLO alert.SLO, timeWindow time.Duration) (*alert.MWMBAlertGroup, error) {
@@ -138,10 +128,6 @@ func getAlertGroupWindows(alerts alert.MWMBAlertGroup) []time.Duration {
 	return res
 }
 
-const (
-	tplKeyWindow = "window"
-)
-
 func rawSLIRecordGenerator(slo prometheus.SLO, window time.Duration, alerts alert.MWMBAlertGroup) (*rulefmt.Rule, error) {
 	// Render with our templated data.
 	sliExprTpl := fmt.Sprintf(`(%s)`, slo.SLI.Raw.ErrorRatioQuery)
@@ -172,14 +158,104 @@ func rawSLIRecordGenerator(slo prometheus.SLO, window time.Duration, alerts aler
 	}, nil
 }
 
-// Pretty simple durations for prometheus.
-func timeDurationToPromStr(t time.Duration) string {
-	return prommodel.Duration(t).String()
-}
-
 func GenerateMetadataRecordingRules(ctx context.Context, slo prometheus.SLO, alerts *alert.MWMBAlertGroup) ([]rulefmt.Rule, error) {
-	// TODO implement
-	return nil, nil
+	labels := MergeLabels(slo.GetSLOIDPromLabels(), slo.Labels)
+
+	// Metatada Recordings.
+	const (
+		metricSLOObjectiveRatio                  = "slo:objective:ratio"
+		metricSLOErrorBudgetRatio                = "slo:error_budget:ratio"
+		metricSLOTimePeriodDays                  = "slo:time_period:days"
+		metricSLOCurrentBurnRateRatio            = "slo:current_burn_rate:ratio"
+		metricSLOPeriodBurnRateRatio             = "slo:period_burn_rate:ratio"
+		metricSLOPeriodErrorBudgetRemainingRatio = "slo:period_error_budget_remaining:ratio"
+		metricSLOInfo                            = "sloth_slo_info"
+	)
+
+	sloObjectiveRatio := slo.Objective / 100
+
+	sloFilter := labelsToPromFilter(slo.GetSLOIDPromLabels())
+
+	var currentBurnRateExpr bytes.Buffer
+	err := burnRateRecordingExprTpl.Execute(&currentBurnRateExpr, map[string]string{
+		"SLIErrorMetric":         slo.GetSLIErrorMetric(alerts.PageQuick.ShortWindow),
+		"MetricFilter":           sloFilter,
+		"SLOIDName":              sloIDLabelName,
+		"SLOLabelName":           sloNameLabelName,
+		"SLOServiceName":         sloServiceLabelName,
+		"ErrorBudgetRatioMetric": metricSLOErrorBudgetRatio,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not render current burn rate prometheus metadata recording rule expression: %w", err)
+	}
+
+	var periodBurnRateExpr bytes.Buffer
+	err = burnRateRecordingExprTpl.Execute(&periodBurnRateExpr, map[string]string{
+		"SLIErrorMetric":         slo.GetSLIErrorMetric(slo.TimeWindow),
+		"MetricFilter":           sloFilter,
+		"SLOIDName":              sloIDLabelName,
+		"SLOLabelName":           sloNameLabelName,
+		"SLOServiceName":         sloServiceLabelName,
+		"ErrorBudgetRatioMetric": metricSLOErrorBudgetRatio,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not render period burn rate prometheus metadata recording rule expression: %w", err)
+	}
+
+	rules := []rulefmt.Rule{
+		// SLO Objective.
+		{
+			Record: metricSLOObjectiveRatio,
+			Expr:   fmt.Sprintf(`vector(%g)`, sloObjectiveRatio),
+			Labels: labels,
+		},
+
+		// Error budget.
+		{
+			Record: metricSLOErrorBudgetRatio,
+			Expr:   fmt.Sprintf(`vector(1-%g)`, sloObjectiveRatio),
+			Labels: labels,
+		},
+
+		// Total period.
+		{
+			Record: metricSLOTimePeriodDays,
+			Expr:   fmt.Sprintf(`vector(%g)`, slo.TimeWindow.Hours()/24),
+			Labels: labels,
+		},
+
+		// Current burning speed.
+		{
+			Record: metricSLOCurrentBurnRateRatio,
+			Expr:   currentBurnRateExpr.String(),
+			Labels: labels,
+		},
+
+		// Total period burn rate.
+		{
+			Record: metricSLOPeriodBurnRateRatio,
+			Expr:   periodBurnRateExpr.String(),
+			Labels: labels,
+		},
+
+		// Total Error budget remaining period.
+		{
+			Record: metricSLOPeriodErrorBudgetRemainingRatio,
+			Expr:   fmt.Sprintf(`1 - %s%s`, metricSLOPeriodBurnRateRatio, sloFilter),
+			Labels: labels,
+		},
+
+		// Info.
+		{
+			Record: metricSLOInfo,
+			Expr:   `vector(1)`,
+			Labels: MergeLabels(labels, map[string]string{
+				sloVersionLabelName:   info.Version,
+				sloObjectiveLabelName: strconv.FormatFloat(slo.Objective, 'f', -1, 64),
+			}),
+		},
+	}
+	return rules, nil
 }
 
 func GenerateSLOAlertRules(ctx context.Context, slo prometheus.SLO, alerts alert.MWMBAlertGroup) ([]rulefmt.Rule, error) {

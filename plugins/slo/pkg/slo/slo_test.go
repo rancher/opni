@@ -251,7 +251,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(alertGroup).To(Not(BeNil()))
 		})
 
-		It("Should be able the generate rulefmt.Rules based on alertGroups", func() {
+		It("Should be able to generate SLI rulefmt.Rules based on alertGroups and SLO definition", func() {
 			sampleSLO := simplePrometheusIR[0].SLOs[0]
 			ctx := context.Background()
 			alertSLO := alert.SLO{
@@ -262,9 +262,24 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(Succeed())
 			rules, err := slo.GenerateSLIRecordingRules(ctx, sampleSLO, *alertGroup)
 			Expect(err).To(Succeed())
-			// TODO : better testing for this
+			// TODO : better testing for this when the final format is more stable
 			Expect(rules).To(HaveLen(6))
 
+		})
+
+		It("Should be able to generate metadata rulefmt.Rules based on alertGroups and SLO defintion", func() {
+			sampleSLO := simplePrometheusIR[0].SLOs[0]
+			ctx := context.Background()
+			alertSLO := alert.SLO{
+				ID:        "foo",
+				Objective: 99.99,
+			}
+			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24)
+			Expect(err).To(Succeed())
+			rules, err := slo.GenerateMetadataRecordingRules(ctx, sampleSLO, alertGroup)
+			Expect(err).To(Succeed())
+			// TODO : better testing for this when the final format is more stable
+			Expect(rules).To(HaveLen(7))
 		})
 
 		It("Should create valid prometheus rules", func() {

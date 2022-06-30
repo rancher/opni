@@ -45,6 +45,16 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							ImagePullPolicy: r.gw.Status.ImagePullPolicy,
 							Command:         []string{"opni"},
 							Args:            []string{"gateway"},
+							Env: []corev1.EnvVar{
+								{
+									Name: "OPNI_SYSTEM_NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "config",

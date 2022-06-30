@@ -222,6 +222,7 @@ func (p *Plugin) GetMetric(ctx context.Context, metricRequest *sloapi.MetricRequ
 		metricId, err = assignMetricToJobId(p, ctx, metricRequest)
 		if err != nil {
 			lg.Error(fmt.Sprintf("Unable to assign metric to job: %v", err))
+			return nil, err
 		}
 	case LoggingDatasource:
 		return nil, ErrNotImplemented

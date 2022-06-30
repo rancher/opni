@@ -26,7 +26,7 @@ var (
 		sum(rate({{.MetricId}}{job="{{.JobId}}", {{.Filter}}}[{{"{{.window}}"}}]))
 	`))
 	GetDownstreamMetricQueryTempl = template.Must(template.New("").Parse(`
-		group by(__name__)({__name__=~"{{.NameRegex}}" and {job="{{.ServiceId}}"}})
+		group by(__name__)({__name__=~"{{.NameRegex}}"} and {job="{{.ServiceId}}"})
 	`))
 )
 
@@ -48,7 +48,7 @@ type metricTemplate struct {
 
 func InitMetricList() {
 	availableQueries["uptime"] = NewPrometheusQueryImpl("uptime",
-		"[A-Za-z0-9]_(up){1}",
+		".*up.*",
 		"up=1", true, false,
 		"Measures the uptime of a kubernetes service")
 	availableQueries["http-availability"] = NewPrometheusQueryImpl(
@@ -57,7 +57,7 @@ func InitMetricList() {
 		"code=~\"(2..|3..)\"", true, false,
 		`Measures the availability of a kubernetes service using http status codes. 
 		Codes 2XX and 3XX are considered as available.`)
-	// TODO : http-latency needs to use buckets
+	// TODO : http-latency needs to use buckets in one of the ratios
 	availableQueries["http-latency"] = NewPrometheusQueryImpl(
 		"http-latency",
 		"le={0.3}",
@@ -143,6 +143,21 @@ func (p *PrometheusQueryImpl) IsHistogram() bool {
 	return p.isHistogram
 }
 
+func selectBestMatch(metrics []string) string {
+	min := int(^uint(0) >> 1) // largest int
+	metricId := ""
+	for _, m := range metrics {
+		if m == "" {
+			continue
+		}
+		if len(m) < min {
+			min = len(m)
+			metricId = m
+		}
+	}
+	return metricId
+}
+
 func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.MetricRequest) (string, error) {
 	lg := p.logger
 	var query bytes.Buffer
@@ -183,13 +198,12 @@ func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.Metr
 		}
 		// should always have one + metric
 		lg.Debug(fmt.Sprintf("Found metricIds : %v", res))
-		min := len(res[0])
-		metricId := res[0]
-		for _, m := range res {
-			if len(m) < min {
-				min = len(m)
-				metricId = m
-			}
+		metricId := selectBestMatch(res)
+		if metricId == "" {
+			err := status.Error(codes.NotFound,
+				fmt.Sprintf("No assignable metric '%s' for service '%s' in cluster '%s' ",
+					metricRequest.Name, metricRequest.ServiceId, metricRequest.ClusterId))
+			return "", err
 		}
 		return metricId, nil
 	}

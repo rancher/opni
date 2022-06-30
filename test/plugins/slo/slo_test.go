@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/gogo/status"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -11,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -79,14 +81,24 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(HaveOccurred())
 
 			metric, err := sloClient.GetMetric(ctx, &apis.MetricRequest{
-				Name:       "http-availability",
+				Name:       "uptime",
 				Datasource: slo.MonitoringDatasource,
 				ServiceId:  "prometheus",
 				ClusterId:  "agent",
 			})
-			//FIXME: this behavior is not correct
 			Expect(err).To(Succeed())
-			Expect(metric.Name).To(Equal("http-availability"))
+			Expect(metric.Name).To(Equal("uptime"))
+			Expect(metric.MetricId).To(Equal("up"))
+
+			_, err = sloClient.GetMetric(ctx, &apis.MetricRequest{
+				Name:       "http-latency",
+				Datasource: slo.MonitoringDatasource,
+				ServiceId:  "prometheus",
+				ClusterId:  "agent",
+			})
+			s, ok := status.FromError(err)
+			Expect(ok).To(BeTrue())
+			Expect(s.Code()).To(Equal(codes.NotFound))
 		})
 	})
 

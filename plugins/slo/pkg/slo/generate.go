@@ -6,6 +6,7 @@ package slo
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/alexandreLamarre/sloth/core/alert"
 	"github.com/alexandreLamarre/sloth/core/info"
@@ -31,9 +32,53 @@ func MergeLabels(sloLabel map[string]string, extraLabels map[string]string) map[
 	return sloLabel
 }
 
-func GenerateMWWBAlerts(ctx context.Context, alertSLO alert.SLO) (*alert.MWMBAlertGroup, error) {
-	// TODO implement
-	return nil, nil
+func GenerateMWWBAlerts(ctx context.Context, alertSLO alert.SLO, timeWindow time.Duration) (*alert.MWMBAlertGroup, error) {
+	//TODO decouple this nightmare of filesystem repository builders from sloth
+	window, err := alert.NewFSWindowsRepo(alert.FSWindowsRepoConfig{})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to initialize window")
+	}
+	windows, err := window.GetWindows(ctx, timeWindow)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get windows: %w", err)
+	}
+
+	errorBudget := 100 - alertSLO.Objective
+	group := alert.MWMBAlertGroup{
+		PageQuick: alert.MWMBAlert{
+			ID:             fmt.Sprintf("%s-page-quick", alertSLO.ID),
+			ShortWindow:    windows.PageQuick.ShortWindow,
+			LongWindow:     windows.PageQuick.LongWindow,
+			BurnRateFactor: windows.GetSpeedPageQuick(),
+			ErrorBudget:    errorBudget,
+			Severity:       alert.PageAlertSeverity,
+		},
+		PageSlow: alert.MWMBAlert{
+			ID:             fmt.Sprintf("%s-page-slow", alertSLO.ID),
+			ShortWindow:    windows.PageSlow.ShortWindow,
+			LongWindow:     windows.PageSlow.LongWindow,
+			BurnRateFactor: windows.GetSpeedPageSlow(),
+			ErrorBudget:    errorBudget,
+			Severity:       alert.PageAlertSeverity,
+		},
+		TicketQuick: alert.MWMBAlert{
+			ID:             fmt.Sprintf("%s-ticket-quick", alertSLO.ID),
+			ShortWindow:    windows.TicketQuick.ShortWindow,
+			LongWindow:     windows.TicketQuick.LongWindow,
+			BurnRateFactor: windows.GetSpeedTicketQuick(),
+			ErrorBudget:    errorBudget,
+			Severity:       alert.TicketAlertSeverity,
+		},
+		TicketSlow: alert.MWMBAlert{
+			ID:             fmt.Sprintf("%s-ticket-slow", alertSLO.ID),
+			ShortWindow:    windows.TicketSlow.ShortWindow,
+			LongWindow:     windows.TicketSlow.LongWindow,
+			BurnRateFactor: windows.GetSpeedTicketSlow(),
+			ErrorBudget:    errorBudget,
+			Severity:       alert.TicketAlertSeverity,
+		},
+	}
+	return &group, nil
 }
 
 func GenerateSLIRecordingRUles(ctx context.Context, slo prometheus.SLO, alerts *alert.MWMBAlertGroup) ([]rulefmt.Rule, error) {
@@ -59,7 +104,7 @@ func GenerateSLO(slo prometheus.SLO, ctx context.Context, info info.Info, lg hcl
 		ID:        slo.ID,
 		Objective: slo.Objective,
 	}
-	as, err := GenerateMWWBAlerts(ctx, alertSLO)
+	as, err := GenerateMWWBAlerts(ctx, alertSLO, slo.TimeWindow)
 	if err != nil {
 		return nil, fmt.Errorf("Could not generate SLO alerts: %w", err)
 	}

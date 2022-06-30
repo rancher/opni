@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
+	"github.com/alexandreLamarre/sloth/core/alert"
 	"github.com/alexandreLamarre/sloth/core/app/generate"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
 	"github.com/hashicorp/go-hclog"
@@ -237,6 +239,16 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	})
 
 	When("We convert Sloth IR to prometheus rules", func() {
+		It("Should create valid MWMB rates", func() {
+			var err error
+			alertSLO := alert.SLO{
+				ID:        "foo",
+				Objective: 99.99,
+			}
+			ctx := context.Background()
+			_, err = slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24)
+			Expect(err).To(HaveOccurred())
+		})
 		It("Should create valid prometheus rules", func() {
 			var err error
 			simplePrometheusResponse, err = slo.GeneratePrometheusRule(simplePrometheusIR, context.Background())

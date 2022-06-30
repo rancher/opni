@@ -18,7 +18,7 @@ func (p *provisioner) buildNamespace(ctx *Context, provider ProviderResource) (*
 		Metadata: &metav1.ObjectMetaArgs{
 			Name: String("opni"),
 		},
-	}, Provider(provider))
+	}, Provider(provider), RetainOnDelete(true))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -38,7 +38,7 @@ func (p *provisioner) buildCertManager(ctx *Context, provider ProviderResource) 
 			"installCRDs": String("true"),
 		},
 		WaitForJobs: Bool(true),
-	}, Provider(provider))
+	}, Provider(provider), RetainOnDelete(true))
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -69,7 +69,7 @@ func (p *provisioner) buildNginx(ctx *Context, provider ProviderResource) (loadB
 			},
 		},
 		WaitForJobs: Bool(true),
-	}, Provider(provider))
+	}, Provider(provider), RetainOnDelete(true))
 	if err != nil {
 		return StringOutput{}, errors.WithStack(err)
 	}
@@ -123,6 +123,6 @@ func (p *provisioner) buildGrafanaIngress(ctx *Context, namespace StringPtrInput
 				},
 			},
 		},
-	}, Provider(provider))
+	}, Provider(provider), RetainOnDelete(true))
 	return err
 }

@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/model/rulefmt"
-	"github.com/rancher/opni/pkg/test"
 	mock_notifier "github.com/rancher/opni/pkg/test/mock/notifier"
 	"github.com/rancher/opni/pkg/util/notifier"
 )
@@ -22,7 +21,7 @@ func (c MockClone) Clone() MockClone {
 	return MockClone{c.a}
 }
 
-var _ = Describe("Periodic Update Notifier", Label(test.Unit, test.TimeSensitive), func() {
+var _ = Describe("Periodic Update Notifier", Label("unit", "temporal"), func() {
 	It("should periodically fetch rules", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		// finder := mock_rules.NewMockRuleFinder(ctrl)

@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/tokens"
 )
 
@@ -35,7 +34,7 @@ var (
 	}
 )
 
-var _ = Describe("Token", Label(test.Unit), func() {
+var _ = Describe("Token", Label("unit"), func() {
 	DescribeTable("Token sections should contain the expected data", func(token *tokens.Token) {
 		Expect(len(token.ID)).To(Equal(6))
 		Expect(len(token.Secret)).To(Equal(26))

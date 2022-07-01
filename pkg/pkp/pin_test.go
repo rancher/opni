@@ -16,7 +16,7 @@ import (
 // [sha256] openssl x509 -in $f -pubkey | openssl ec -pubin -outform der 2>/dev/null | openssl dgst -binary | base64 | tr '/+' '_-' | tr -d '='
 // [b2b256] openssl x509 -in $f -pubkey | openssl ec -pubin -outform der 2>/dev/null | b2sum -l 256 | xxd -r -p | base64 | tr '/+' '_-' | tr -d '='
 
-var _ = Describe("Public Key Pinning", Label(test.Unit), func() {
+var _ = Describe("Public Key Pinning", Label("unit"), func() {
 	It("should correctly encode and decode pins", func() {
 		bytes := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
 		b64 := base64.RawURLEncoding.EncodeToString(bytes)

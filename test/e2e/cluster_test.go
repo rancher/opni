@@ -21,7 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/test"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	opensearchutil "github.com/rancher/opni/pkg/util/opensearch"
 	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
@@ -40,6 +39,16 @@ const (
 	clusterCrNamespace = "opnicluster-test"
 )
 
+type CountResponse struct {
+	Count  int `json:"count"`
+	Shards struct {
+		Total      int `json:"total"`
+		Successful int `json:"successful"`
+		Skipped    int `json:"skipped"`
+		Failed     int `json:"failed"`
+	} `json:"_shards"`
+}
+
 func queryAnomalyCountWithExtendedClient(esClient *opensearchutil.ExtendedClient) (int, error) {
 	response, err := esClient.Count(
 		esClient.Count.WithIndex("logs"),
@@ -56,7 +65,7 @@ func queryAnomalyCountWithExtendedClient(esClient *opensearchutil.ExtendedClient
 	return countResp.Count, nil
 }
 
-var _ = Describe("OpniCluster E2E Test", Label(test.E2E), func() {
+var _ = XDescribe("OpniCluster E2E Test", Label("e2e"), func() {
 	var (
 		pretrained  v1beta2.PretrainedModel
 		logadapter  v1beta2.LogAdapter

@@ -31,10 +31,15 @@ message CertConfig {
 }
 
 message GatewayAPIExtensionConfig {
-  string HttpAddr = 1;
-  repeated string pathPrefixes = 2;
+  string httpAddr = 1;
+  repeated RouteInfo routes = 2;
 }
 
 message ServiceDescriptorList {
   repeated google.protobuf.ServiceDescriptorProto descriptors = 1;
+}
+
+message RouteInfo {
+	string method = 1;
+	string path = 2;
 }

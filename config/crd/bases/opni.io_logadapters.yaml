@@ -3490,6 +3490,9 @@ spec:
                             maxSkew:
                               format: int32
                               type: integer
+                            minDomains:
+                              format: int32
+                              type: integer
                             topologyKey:
                               type: string
                             whenUnsatisfiable:
@@ -7014,6 +7017,9 @@ spec:
                                   type: object
                               type: object
                             maxSkew:
+                              format: int32
+                              type: integer
+                            minDomains:
                               format: int32
                               type: integer
                             topologyKey:
@@ -10545,6 +10551,9 @@ spec:
                             maxSkew:
                               format: int32
                               type: integer
+                            minDomains:
+                              format: int32
+                              type: integer
                             topologyKey:
                               type: string
                             whenUnsatisfiable:
@@ -14069,6 +14078,9 @@ spec:
                                   type: object
                               type: object
                             maxSkew:
+                              format: int32
+                              type: integer
+                            minDomains:
                               format: int32
                               type: integer
                             topologyKey:

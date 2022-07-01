@@ -8,12 +8,11 @@ import (
 	. "github.com/onsi/gomega"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/test"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("Tokens", Ordered, Label(test.Slow), func() {
+var _ = Describe("Tokens", Ordered, Label("slow"), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv, plugins.NoopLoader))
 

@@ -2,6 +2,7 @@ package openid
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 
 	"go.uber.org/zap"
@@ -20,6 +21,7 @@ func (uid *UserInfo) UserID() (string, error) {
 }
 
 type UserInfoCache struct {
+	ClientOptions
 	cache      map[string]*UserInfo // key=access token
 	knownUsers map[string]string    // key=user id, value=access token
 	mu         sync.Mutex
@@ -31,7 +33,13 @@ type UserInfoCache struct {
 func NewUserInfoCache(
 	config *OpenidConfig,
 	logger *zap.SugaredLogger,
+	opts ...ClientOption,
 ) (*UserInfoCache, error) {
+	options := ClientOptions{
+		client: http.DefaultClient,
+	}
+	options.apply(opts...)
+
 	wellKnown, err := config.GetWellKnownConfiguration()
 	if err != nil {
 		return nil, err
@@ -40,11 +48,12 @@ func NewUserInfoCache(
 		return nil, fmt.Errorf("no identifying claim set")
 	}
 	return &UserInfoCache{
-		cache:      make(map[string]*UserInfo),
-		knownUsers: make(map[string]string),
-		config:     config,
-		wellKnown:  wellKnown,
-		logger:     logger,
+		ClientOptions: options,
+		cache:         make(map[string]*UserInfo),
+		knownUsers:    make(map[string]string),
+		config:        config,
+		wellKnown:     wellKnown,
+		logger:        logger,
 	}, nil
 }
 
@@ -56,7 +65,9 @@ func (c *UserInfoCache) Get(accessToken string) (*UserInfo, error) {
 		return info, nil
 	}
 	lg.Debug("fetching user info from openid provider")
-	rawUserInfo, err := FetchUserInfo(c.wellKnown.UserinfoEndpoint, accessToken)
+	rawUserInfo, err := FetchUserInfo(c.wellKnown.UserinfoEndpoint, accessToken,
+		WithHTTPClient(c.client),
+	)
 	if err != nil {
 		lg.With(
 			zap.Error(err),

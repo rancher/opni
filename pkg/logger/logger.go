@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/hashicorp/go-hclog"
 	"github.com/kralicky/gpkg/sync"
 	"github.com/onsi/ginkgo/v2"
@@ -37,6 +36,7 @@ var (
 	}
 
 	levelToColorString = make(map[zapcore.Level]string, len(levelToColor))
+	DefaultLogLevel    = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 )
 
 func init() {
@@ -133,7 +133,7 @@ func WithSampling(cfg *zap.SamplingConfig) LoggerOption {
 
 func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	options := &LoggerOptions{
-		logLevel: zap.DebugLevel,
+		logLevel: DefaultLogLevel.Level(),
 	}
 	if testutil.IsTesting {
 		options.writer = ginkgo.GinkgoWriter
@@ -241,10 +241,6 @@ func FromContext(ctx context.Context) ExtendedSugaredLogger {
 	return lg
 }
 
-func ConfigureAppLogger(app *fiber.App, name string) {
-	app.Server().Logger = NewFasthttpLogger(name)
-}
-
 func NewForPlugin() hclog.Logger {
 	opts := &hclog.LoggerOptions{
 		Level:       hclog.Debug,
@@ -255,6 +251,10 @@ func NewForPlugin() hclog.Logger {
 		opts.Output = ginkgo.GinkgoWriter
 	}
 	return hclog.New(opts)
+}
+
+func NewPluginLogger() ExtendedSugaredLogger {
+	return New().XNamed("plugin")
 }
 
 type sampler struct {

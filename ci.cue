@@ -2,34 +2,42 @@
 package main
 
 import (
+	"strings"
+	"encoding/json"
 	"dagger.io/dagger"
 	"dagger.io/dagger/core"
 	"universe.dagger.io/docker"
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
-	"universe.dagger.io/git"
+	"universe.dagger.io/x/david@rawkode.dev/pulumi"
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
 	"github.com/rancher/opni/internal/util"
+	"github.com/rancher/opni/images"
 )
 
 dagger.#Plan & {
 	client: {
 		env: {
-			GINKGO_LABEL_FILTER: string | *""
-			DRONE:               string | *""
-			KUBECONFIG:          string | *""
-			TAG:                 string | *"latest"
-			REPO:                string | *"rancher"
-			OPNI_UI_REPO:        string | *"rancher/opni-ui"
-			OPNI_UI_BRANCH:      string | *"main"
-			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
-			DASHBOARDS_VERSION:  string | *"1.3.1"
-			OPENSEARCH_VERSION:  string | *"1.3.1"
-			PLUGIN_VERSION:      string | *"0.5.3"
-			PLUGIN_PUBLISH:      string | *"0.5.4-rc3"
-			DOCKER_USERNAME?:    string
-			DOCKER_PASSWORD?:    dagger.#Secret
+			GINKGO_LABEL_FILTER:    string | *""
+			DRONE:                  string | *""
+			KUBECONFIG:             string | *""
+			TAG:                    string | *"latest"
+			REPO:                   string | *"rancher"
+			IMAGE_NAME:             string | *"opni"
+			OPNI_UI_REPO:           string | *"rancher/opni-ui"
+			OPNI_UI_BRANCH:         string | *"main"
+			OPNI_UI_BUILD_IMAGE:    string | *"rancher/opni-monitoring-ui-build"
+			DASHBOARDS_VERSION:     string | *"1.3.1"
+			OPENSEARCH_VERSION:     string | *"1.3.1"
+			PLUGIN_VERSION:         string | *"0.5.3"
+			PLUGIN_PUBLISH:         string | *"0.5.4-rc2"
+			EXPECTED_REF?:          string // used by tilt
+			DOCKER_USERNAME?:       string
+			DOCKER_PASSWORD?:       dagger.#Secret
+			PULUMI_ACCESS_TOKEN?:   dagger.#Secret
+			AWS_ACCESS_KEY_ID?:     dagger.#Secret
+			AWS_SECRET_ACCESS_KEY?: dagger.#Secret
 		}
 		filesystem: {
 			".": read: {
@@ -38,15 +46,26 @@ dagger.#Plan & {
 					"bin",
 					"dev",
 					"docs",
-					"build.cue",
+					"ci.cue",
 					"testbin",
 					"internal/cmd/testenv",
 				]
 			}
-			"bin": write: contents:         actions.build.bin
-			"web/dist": write: contents:    actions.web.dist
-			"dist/charts": write: contents: actions.charts.output
-			"cover.out": write: contents:   actions.test.export.files["/src/cover.out"]
+			"bin": write: contents:       actions.build.bin
+			"web/dist": write: contents:  actions.web.dist
+			"cover.out": write: contents: actions.test.export.files["/src/cover.out"]
+		}
+		commands: {
+			"aws-identity": {
+				name: "aws"
+				args: ["sts", "get-caller-identity"]
+				stdout: string
+			}
+			"ecr-password": {
+				name: "aws"
+				args: ["ecr", "get-login-password", "--region", "us-east-2"]
+				stdout: dagger.#Secret
+			}
 		}
 		network: "unix:///var/run/docker.sock": connect: dagger.#Socket
 	}
@@ -92,6 +111,13 @@ dagger.#Plan & {
 					docker.#Copy & {
 						contents: actions.web.dist
 						dest:     "/src/web/dist/"
+					},
+					docker.#Run & {
+						workdir: "/src"
+						command: {
+							name: "go"
+							args: ["mod", "download"]
+						}
 					},
 					mage.#Run & {
 						mageArgs: ["-v", "build"]
@@ -152,7 +178,13 @@ dagger.#Plan & {
 		}
 
 		_opniImage: {
-			tag:   docker.#Ref & "\(client.env.REPO)/opni:\(client.env.TAG)"
+			tag: docker.#Ref
+			if client.env.EXPECTED_REF == _|_ {
+				tag: docker.#Ref & "\(client.env.REPO)/\(client.env.IMAGE_NAME):\(client.env.TAG)"
+			}
+			if client.env.EXPECTED_REF != _|_ {
+				tag: docker.#Ref & client.env.EXPECTED_REF
+			}
 			image: _multistage.output
 		}
 
@@ -191,92 +223,97 @@ dagger.#Plan & {
 		}
 
 		// Run end-to-end tests
-		e2e: mage.#Run & {
-			input: build.output
-			mageArgs: ["-v", "e2e"]
-			always: true
-			env: {
-				if client.env.KUBECONFIG != "" {
-					"KUBECONFIG": client.env.KUBECONFIG
+		e2e: {
+			_accessToken: client.env.PULUMI_ACCESS_TOKEN | *_|_
+			_awsIdentity: json.Unmarshal(client.commands."aws-identity".stdout)
+
+			_awsEnv: {
+				"AWS_ACCESS_KEY_ID":     client.env.AWS_ACCESS_KEY_ID
+				"AWS_SECRET_ACCESS_KEY": client.env.AWS_SECRET_ACCESS_KEY
+			}
+			_testImage: docker.#Push & {
+				dest:  "\(_awsIdentity.Account).dkr.ecr.us-east-2.amazonaws.com/opni-e2e-test"
+				image: _opniImage.image
+				auth: {
+					username: "AWS"
+					secret:   client.commands."ecr-password".stdout
 				}
-				if client.env.GINKGO_LABEL_FILTER != "" {
-					"GINKGO_LABEL_FILTER": client.env.GINKGO_LABEL_FILTER
-				}
-			}
-		}
-
-		// Build and package helm charts (writes to dist/charts/)
-		charts: {
-			_bases: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/bases"
-			}
-			_grafana: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/grafana"
-			}
-			_logging: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/logging"
-			}
-			_nfd: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/nfd"
-			}
-			_nvidia: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/nvidia"
-			}
-			_opensearch: core.#Subdir & {
-				input: client.filesystem.".".read.contents
-				path:  "/config/crd/opensearch"
 			}
 
-			_promOperatorRepo: git.#Pull & {
-				remote: "https://github.com/prometheus-community/helm-charts.git"
-				ref:    "main"
-			}
-			_promOperatorCrds: core.#Subdir & {
-				input: _promOperatorRepo.output
-				path:  "charts/kube-prometheus-stack/crds"
-			}
-
-			_opniCrds: [
-				_bases.output,
-				_grafana.output,
-				_logging.output,
-				_nfd.output,
-				_nvidia.output,
-				_opensearch.output,
-			]
-
-			agent: builders.#Chart & {
-				_chartDir: core.#Subdir & {
-					input: client.filesystem.".".read.contents
-					path:  "deploy/charts/opni-monitoring-agent"
-				}
-
-				chartDir: _chartDir.output
-				crds:     _opniCrds
-			}
-
-			opni: builders.#Chart & {
-				_chartDir: core.#Subdir & {
-					input: client.filesystem.".".read.contents
-					path:  "deploy/charts/opni"
-				}
-
-				chartDir: _chartDir.output
-				crds:     _opniCrds + [_promOperatorCrds.output]
-			}
-
-			_output: core.#Merge & {
-				inputs: [
-					charts.agent.output,
-					charts.opni.output,
+			_e2eImage: docker.#Build & {
+				steps: [
+					mage.#Run & {
+						input: actions.build.output
+						mageArgs: ["charts:charts", "opni"]
+					},
+					mage.#Run & {
+						mageArgs: ["charts:charts", "opni-agent"]
+					},
+					images.installers.debian.#AwsCli,
 				]
 			}
-			output: _output.output
+
+			_fs: core.#Subdir & {
+				input: _e2eImage.output.rootfs
+				path:  "/src"
+			}
+
+			_pulumiImage: images.#Pulumi & {
+				plugins: [
+					images.#Plugin & {
+						name:    "aws"
+						version: "v5.9.1"
+					},
+					images.#Plugin & {
+						name:    "aws"
+						version: "v5.4.0"
+					},
+					images.#Plugin & {
+						name:    "awsx"
+						version: "v1.0.0-beta.8"
+					},
+					images.#Plugin & {
+						name:    "kubernetes"
+						version: "3.19.4"
+					},
+					images.#Plugin & {
+						name:    "random"
+						version: "v4.7.0"
+					},
+					images.#Plugin & {
+						name:    "eks"
+						version: "0.40.0"
+					},
+					images.#Plugin & {
+						name:    "docker"
+						version: "v3.2.0"
+					},
+				]
+			}
+
+			infra: pulumi.#Up & {
+				source:      _fs.output
+				version:     "3.34.1-debian-amd64"
+				runtime:     "go"
+				stack:       "e2e"
+				accessToken: _accessToken
+				container: {
+					input: _pulumiImage.output
+					env:   _awsEnv & {
+						"CLOUD":      "aws"
+						"IMAGE_REPO": _testImage.dest
+						"IMAGE_TAG":  strings.TrimPrefix(_testImage.result, "\(_testImage.dest):")
+					}
+				}
+			}
+
+			test: mage.#Run & {
+				input: _e2eImage.output
+				mageArgs: ["-v", "test", "e2e"]
+				env: _awsEnv & {
+					"STACK_OUTPUTS": json.Marshal(infra.outputs)
+				}
+			}
 		}
 
 		// Push docker images
@@ -369,14 +406,14 @@ dagger.#Plan & {
 					},
 					docker.#Copy & {
 						contents: client.filesystem.".".read.contents
-						source: "aiops/"
-						dest: "."
+						source:   "aiops/"
+						dest:     "."
 					},
 					docker.#Set & {
 						config: {
 							cmd: ["python", "opensearch-update-service/main.py"]
 						}
-					}	
+					},
 				]
 			}
 		}

@@ -17,12 +17,7 @@ spec:
   auth:
     provider: {{ .provider }}
     {{- if eq .provider "openid" }}
-    openid:
-      issuer: {{ .openid.issuer }}
-      identifyingClaim: {{ .openid.identifyingClaim }}
-      clientID: {{ .openid.clientID }}
-      clientSecret: {{ .openid.clientSecret }}
-      roleAttributePath: {{ .openid.roleAttributePath }}
+    openid: {{ toYaml .openid | nindent 6 }}
     {{- end }}
   {{- end}}
     {{- if eq .Values.gateway.auth.provider "noauth" }}

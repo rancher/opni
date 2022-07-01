@@ -401,6 +401,8 @@ spec:
                         properties:
                           discovery:
                             properties:
+                              cacert:
+                                type: string
                               issuer:
                                 type: string
                               path:
@@ -473,6 +475,8 @@ spec:
                         type: string
                       discovery:
                         properties:
+                          cacert:
+                            type: string
                           issuer:
                             type: string
                           path:
@@ -493,10 +497,6 @@ spec:
                       roleAttributeStrict:
                         type: boolean
                       scopes:
-                        default:
-                        - openid
-                        - profile
-                        - email
                         items:
                           type: string
                         type: array
@@ -553,6 +553,66 @@ spec:
                 required:
                 - provider
                 type: object
+              extraEnvVars:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                    valueFrom:
+                      properties:
+                        configMapKeyRef:
+                          properties:
+                            key:
+                              type: string
+                            name:
+                              type: string
+                            optional:
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                        fieldRef:
+                          properties:
+                            apiVersion:
+                              type: string
+                            fieldPath:
+                              type: string
+                          required:
+                          - fieldPath
+                          type: object
+                        resourceFieldRef:
+                          properties:
+                            containerName:
+                              type: string
+                            divisor:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            resource:
+                              type: string
+                          required:
+                          - resource
+                          type: object
+                        secretKeyRef:
+                          properties:
+                            key:
+                              type: string
+                            name:
+                              type: string
+                            optional:
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                      type: object
+                  required:
+                  - name
+                  type: object
+                type: array
               extraVolumeMounts:
                 items:
                   properties:
@@ -1302,9 +1362,69 @@ spec:
             type: object
           status:
             properties:
+              endpoints:
+                items:
+                  properties:
+                    hostname:
+                      type: string
+                    ip:
+                      type: string
+                    nodeName:
+                      type: string
+                    targetRef:
+                      properties:
+                        apiVersion:
+                          type: string
+                        fieldPath:
+                          type: string
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                        resourceVersion:
+                          type: string
+                        uid:
+                          type: string
+                      type: object
+                  required:
+                  - ip
+                  type: object
+                type: array
               image:
                 type: string
               imagePullPolicy:
+                type: string
+              loadBalancer:
+                properties:
+                  hostname:
+                    type: string
+                  ip:
+                    type: string
+                  ports:
+                    items:
+                      properties:
+                        error:
+                          maxLength: 316
+                          pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                          type: string
+                        port:
+                          format: int32
+                          type: integer
+                        protocol:
+                          default: TCP
+                          type: string
+                      required:
+                      - port
+                      - protocol
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                type: object
+              ready:
+                type: boolean
+              serviceName:
                 type: string
             type: object
         type: object

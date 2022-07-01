@@ -1,7 +1,9 @@
 package test
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/util"
@@ -21,18 +23,18 @@ type TestAuthMiddleware struct {
 	Strategy AuthStrategy
 }
 
-func (m *TestAuthMiddleware) Handle(c *fiber.Ctx) error {
+func (m *TestAuthMiddleware) Handle(c *gin.Context) {
 	switch m.Strategy {
 	case AuthStrategyDenyAll:
-		return c.SendStatus(fiber.StatusUnauthorized)
+		c.Status(http.StatusUnauthorized)
 	case AuthStrategyUserIDInAuthHeader:
-		userId := c.Get("Authorization")
+		userId := c.GetHeader("Authorization")
 		if userId == "" {
-			return c.SendStatus(fiber.StatusUnauthorized)
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
-		c.Request().Header.Del("Authorization")
-		c.Locals(rbac.UserIDKey, userId)
-		return c.Next()
+		c.Header("Authorization", "")
+		c.Set(rbac.UserIDKey, userId)
 	default:
 		panic("unknown auth strategy")
 	}

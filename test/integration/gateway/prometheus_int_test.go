@@ -31,7 +31,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label(test.Integration), func() {
+var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("integration"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	var fingerprint string
@@ -97,7 +97,7 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label(test
 			req, err := http.NewRequest("GET", environment.PrometheusAPIEndpoint()+"/labels", nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			req.Header.Add("Content-Type", "application/json")
+			req.Header.Add("Accept", "application/json")
 			req.Header.Add("Authorization", "user@example.com")
 
 			resp, httpErr := httpClient.Do(req)

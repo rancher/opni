@@ -29,6 +29,7 @@ import (
 	"github.com/kralicky/spellbook/testbin"
 	// mage:import dev
 	_ "github.com/rancher/opni/internal/mage/dev"
+
 	// mage:import charts
 	_ "github.com/rancher/charts-build-scripts/pkg/actions"
 	// mage:import test
@@ -51,7 +52,7 @@ func Test() {
 
 func ControllerGen() error {
 	cmd := exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/controller-tools/cmd/controller-gen",
-		"crd:maxDescLen=0", "rbac:roleName=manager-role", "webhook", "object", "paths=./...", "output:crd:artifacts:config=config/crd/bases",
+		"crd:maxDescLen=0", "rbac:roleName=manager-role", "webhook", "object", "paths=./apis/...", "output:crd:artifacts:config=config/crd/bases",
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
@@ -81,13 +82,14 @@ func ControllerGen() error {
 			}
 		}
 	}
+
 	return nil
 }
 
 func CRDGen() error {
 	var commands []*exec.Cmd
 	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
-		"build", "./config/chart-crds", "-o", "./packages/opni/charts/crds/crds.yaml",
+		"build", "./config/chart-crds", "-o", "./packages/opni/opni/charts/crds/crds.yaml",
 	))
 	commands = append(commands, exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/kustomize/kustomize/v4",
 		"build", "./config/agent-chart-crds", "-o", "./packages/opni-agent/opni-agent/charts/crds/crds.yaml",
@@ -115,27 +117,6 @@ func CRDGen() error {
 		}
 	}
 	return nil
-}
-
-func E2e() error {
-	regName := "registry.local"
-	regPort := 5000
-	mg.Deps(testbin.Testbin)
-	output, err := sh.Output("kubectl",
-		strings.Fields(`get nodes -o go-template --template='{{range .items}}{{printf "%s\n" .metadata.name}}{{end}}`)...)
-	if err != nil {
-		return err
-	}
-	nodes := strings.Fields(output)
-	for _, node := range nodes {
-		if err := sh.Run("kubectl", "annotate", "node", node,
-			fmt.Sprintf("tilt.dev/registry=k3dsvc:%d", regPort),
-			fmt.Sprintf("tilt.dev/registry-from-cluster=%s:%d", regName, regPort),
-		); err != nil {
-			return err
-		}
-	}
-	return sh.Run("tilt", "ci", "e2e-tests-prod")
 }
 
 // "prometheus, version x.y.z"

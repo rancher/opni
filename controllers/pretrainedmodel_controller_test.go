@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -20,7 +19,7 @@ func marshal(hp map[string]intstr.IntOrString) string {
 	return string(b)
 }
 
-var _ = Describe("PretrainedModel Controller", Ordered, Label(test.Controller), func() {
+var _ = Describe("PretrainedModel Controller", Ordered, Label("controller"), func() {
 	It("should reconcile pretrained model resources", func() {
 		By("Creating a pretrainedmodel")
 		model := &v1beta2.PretrainedModel{

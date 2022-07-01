@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -76,6 +77,7 @@ type TestPlanSpec struct {
 type RunSpec struct {
 	Name     string
 	Packages string
+	Explicit bool
 
 	Suite    *types.SuiteConfig
 	Build    *types.GoFlagsConfig
@@ -114,7 +116,12 @@ type CoverageSpec struct {
 type TestPlanRuntime struct {
 	ctx          *cue.Context
 	spec         TestPlanSpec
-	testPackages []string
+	testPackages []testPkg
+}
+
+type testPkg struct {
+	dir    string
+	labels []string
 }
 
 func NewTestPlanRuntime() (*TestPlanRuntime, error) {
@@ -123,11 +130,26 @@ func NewTestPlanRuntime() (*TestPlanRuntime, error) {
 		return nil, err
 	}
 
+	allPkgs := make([]string, len(pkgs))
+	for i, pkg := range pkgs {
+		allPkgs[i] = pkg.dir
+	}
+	pkgsByLabel := map[string][]string{}
+	for _, pkg := range pkgs {
+		for _, label := range pkg.labels {
+			pkgsByLabel[label] = append(pkgsByLabel[label], pkg.dir)
+		}
+	}
+
+	tags := []string{
+		"test",
+		"packages=" + strings.Join(allPkgs, ","),
+	}
+	for label, pkgNames := range pkgsByLabel {
+		tags = append(tags, fmt.Sprintf("packages_%s=%s", label, strings.Join(pkgNames, ",")))
+	}
 	instances := load.Instances([]string{}, &load.Config{
-		Tags: []string{
-			"test",
-			"packages=" + strings.Join(pkgs, ","),
-		},
+		Tags: tags,
 	})
 	if len(instances) != 1 {
 		return nil, errors.New("expected 1 main package")
@@ -160,8 +182,14 @@ func (rt *TestPlanRuntime) Run(actions ...string) (testErr error) {
 		fmt.Println("only running the following actions:", actions)
 	}
 
+	completedActions := []RunSpec{}
+
 	for _, run := range rt.spec.Actions {
-		if len(actions) > 0 && !slices.Contains(actions, run.Name) {
+		if len(actions) > 0 {
+			if !slices.Contains(actions, run.Name) {
+				continue
+			}
+		} else if run.Explicit {
 			continue
 		}
 		name, args, err := run.CommandLine()
@@ -177,6 +205,8 @@ func (rt *TestPlanRuntime) Run(actions ...string) (testErr error) {
 					once.Do(func() {
 						testErr = err
 					})
+				} else {
+					completedActions = append(completedActions, run)
 				}
 			}()
 		} else {
@@ -185,6 +215,8 @@ func (rt *TestPlanRuntime) Run(actions ...string) (testErr error) {
 				once.Do(func() {
 					testErr = err
 				})
+			} else {
+				completedActions = append(completedActions, run)
 			}
 		}
 	}
@@ -196,7 +228,7 @@ func (rt *TestPlanRuntime) Run(actions ...string) (testErr error) {
 
 	// merge coverage profiles
 	coverProfiles := []string{}
-	for _, run := range rt.spec.Actions {
+	for _, run := range completedActions {
 		if len(actions) > 0 && !slices.Contains(actions, run.Name) {
 			continue
 		}
@@ -221,22 +253,47 @@ func (rt *TestPlanRuntime) Run(actions ...string) (testErr error) {
 	return
 }
 
-func findTestPackages() ([]string, error) {
-	out, err := sh.Output(mg.GoCmd(), "list", "-f",
+func findTestPackages() ([]testPkg, error) {
+	pkgsOut, err := sh.Output(mg.GoCmd(), "list", "-f",
 		`{{if (or .TestGoFiles .XTestGoFiles) }} {{.Dir}} {{end}}`,
 		"./...",
 	)
 	if err != nil {
 		return nil, err
 	}
+	labelsOut, err := sh.Output(mg.GoCmd(), append([]string{"run", ginkgoPkg, "labels"}, strings.Fields(pkgsOut)...)...)
+	if err != nil {
+		return nil, err
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
-	dirs := strings.Split(out, "\n")
-	for i, dir := range dirs {
-		dirs[i] = strings.TrimSpace(strings.Replace(dir, cwd, ".", 1))
+	dirs := strings.Fields(pkgsOut)
+	pkgs := make([]testPkg, 0, len(dirs))
+	for _, dir := range dirs {
+		pkgs = append(pkgs, testPkg{
+			dir: strings.TrimSpace(strings.Replace(dir, cwd, ".", 1)),
+		})
 	}
-
-	return dirs, nil
+	labels := strings.Split(labelsOut, "\n")
+	if len(labels) != len(pkgs) {
+		fmt.Println("labels:", labels)
+		fmt.Println("pkgs:", pkgs)
+		panic(fmt.Sprintf("labels and pkgs have different lengths (%d != %d)", len(labels), len(pkgs)))
+	}
+	regex := regexp.MustCompile(`"(.*?)"`)
+	for i, label := range labels {
+		// Parse the quoted labels from the format `name: ["label1", "label2", ...]`
+		// If no labels are found, the output is `name: No labels found`, which
+		// contains no quoted strings.
+		results := regex.FindAllStringSubmatch(label, -1)
+		labels := []string{}
+		for _, result := range results {
+			labels = append(labels, result[1])
+		}
+		pkgs[i].labels = labels
+	}
+	return pkgs, nil
 }

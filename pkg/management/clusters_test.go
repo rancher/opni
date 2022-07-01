@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-var _ = Describe("Clusters", Ordered, Label(test.Slow), func() {
+var _ = Describe("Clusters", Ordered, Label("slow"), func() {
 	var tv *testVars
 	var capBackendStore capabilities.BackendStore
 	BeforeAll(func() {

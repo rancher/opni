@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -14,7 +14,6 @@ import (
 	"github.com/rancher/opni/plugins/cortex/pkg/cortex"
 	"github.com/rancher/opni/plugins/example/pkg/example"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -67,7 +66,9 @@ func NewApiExtensionTestPlugin(
 		Plugins:         scheme.PluginMap(),
 		Reattach:        <-ch,
 		Managed:         true,
-		Logger:          logger.NewHCLogger(logger.New(logger.WithLogLevel(zap.WarnLevel))).Named("plugin"),
+		Logger: hclog.New(&hclog.LoggerOptions{
+			Level: hclog.Error,
+		}),
 	}
 }
 
@@ -117,7 +118,7 @@ func LoadPlugins(loader *plugins.PluginLoader) int {
 		p := p
 		go func() {
 			defer wg.Done()
-			loader.LoadOne(p.Metadata, cc)
+			loader.LoadOne(context.Background(), p.Metadata, cc)
 		}()
 	}
 	wg.Wait()

@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
+	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
 	"github.com/spf13/cobra"
@@ -50,6 +51,8 @@ func BuildManagerCmd() *cobra.Command {
 		Use:   "manager",
 		Short: "Run the Opni Manager",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			tracing.Configure("manager")
+
 			if echoVersion {
 				fmt.Println(Version)
 				return nil

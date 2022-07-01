@@ -5,7 +5,6 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/providers"
 	testdata "github.com/rancher/opni/pkg/resources/gpuadapter/testdata"
-	"github.com/rancher/opni/pkg/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -66,7 +65,7 @@ var (
 	}
 )
 
-var _ = Describe("GpuAdapter", Label(test.Unit), func() {
+var _ = Describe("GpuAdapter", Label("unit"), func() {
 	It("should handle all permutations of GpuAdapter", func() {
 		for _, vgpuSpec := range vgpuSpecs {
 			for _, discoveredProvider := range discoveredProviders {

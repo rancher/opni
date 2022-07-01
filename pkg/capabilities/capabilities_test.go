@@ -8,7 +8,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("Capabilities", Label(test.Unit), func() {
+var _ = Describe("Capabilities", Label("unit"), func() {
 	It("should allow creating backends from grpc clients", func() {
 		client := test.NewTestCapabilityBackendClient(ctrl, &test.CapabilityInfo{
 			Name:              "test",

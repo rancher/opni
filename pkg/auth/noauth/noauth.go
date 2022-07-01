@@ -3,7 +3,7 @@ package noauth
 import (
 	"context"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -48,8 +48,8 @@ func New(ctx context.Context, config v1beta1.AuthProviderSpec) (*NoauthMiddlewar
 	return m, nil
 }
 
-func (m *NoauthMiddleware) Handle(c *fiber.Ctx) error {
-	return m.openidMiddleware.Handle(c)
+func (m *NoauthMiddleware) Handle(c *gin.Context) {
+	m.openidMiddleware.Handle(c)
 }
 
 func (m *NoauthMiddleware) ServerConfig() *noauth.ServerConfig {

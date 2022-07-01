@@ -9,6 +9,7 @@ import (
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/util"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -37,7 +38,7 @@ func NewGRPCServer(
 	return &GatewayGRPCServer{
 		conf:       cfg,
 		logger:     lg.Named("grpc"),
-		serverOpts: opts,
+		serverOpts: opts, 
 	}
 }
 
@@ -56,6 +57,8 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 			Time:    15 * time.Second,
 			Timeout: 5 * time.Second,
 		}),
+		grpc.ChainStreamInterceptor(otelgrpc.StreamServerInterceptor()),
+		grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 	)...)
 	healthv1.RegisterHealthServer(server, health.NewServer())
 	for _, services := range s.services {

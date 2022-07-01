@@ -3,14 +3,17 @@ package openid
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/rancher/opni/pkg/auth"
@@ -70,30 +73,33 @@ func New(ctx context.Context, config v1beta1.AuthProviderSpec) (*OpenidMiddlewar
 	return m, nil
 }
 
-func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
+func (m *OpenidMiddleware) Handle(c *gin.Context) {
+	lg := m.logger
 	m.lock.Lock()
 	if m.wellKnownConfig == nil {
-		c.Status(http.StatusServiceUnavailable)
 		m.lock.Unlock()
-		return c.SendString("auth provider is not ready")
+		lg.Debug("error handling request: auth provider is not ready")
+		c.AbortWithStatus(http.StatusServiceUnavailable)
+		return
 	}
 	m.lock.Unlock()
 
-	lg := c.Context().Logger()
-	lg.Printf("handling auth request")
+	lg.Debug("handling auth request")
 	// Some providers serve their JWKS URI at `/.well-known/jwks.json`, which is
 	// not a registered well-known URI. openid-configuration is, however.
-	ctx, ca := context.WithTimeout(c.Context(), time.Second*5)
+	ctx, ca := context.WithTimeout(c.Request.Context(), time.Second*5)
 	defer ca()
 	set, err := m.keyRefresher.Fetch(ctx, m.wellKnownConfig.JwksUri)
 	if err != nil {
-		lg.Printf("failed to fetch JWK set: %v", err)
-		return c.SendStatus(fiber.StatusServiceUnavailable)
+		lg.Errorf("failed to fetch JWK set: %v", err)
+		c.AbortWithStatus(http.StatusServiceUnavailable)
+		return
 	}
-	authHeader := c.Get("Authorization")
+	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		lg.Printf("no authorization header in request")
-		return c.SendStatus(fiber.StatusUnauthorized)
+		lg.Error("no authorization header in request")
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
 	bearerToken := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
 	var userID string
@@ -101,31 +107,34 @@ func (m *OpenidMiddleware) Handle(c *fiber.Ctx) error {
 	case IDToken:
 		idt, err := ValidateIDToken(bearerToken, set)
 		if err != nil {
-			lg.Printf("failed to validate ID token: %v", err)
-			return c.SendStatus(fiber.StatusUnauthorized)
+			lg.Errorf("failed to validate ID token: %v", err)
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
 		claim, ok := idt.Get(m.conf.IdentifyingClaim)
 		if !ok {
-			lg.Printf("identifying claim %q not found in ID token", m.conf.IdentifyingClaim)
-			return c.SendStatus(fiber.StatusUnauthorized)
+			lg.Errorf("identifying claim %q not found in ID token", m.conf.IdentifyingClaim)
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
 		userID = fmt.Sprint(claim)
 	case Opaque:
 		userInfo, err := m.cache.Get(bearerToken)
 		if err != nil {
-			lg.Printf("failed to get user info: %v", err)
-			return c.SendStatus(fiber.StatusUnauthorized)
+			lg.Errorf("failed to get user info: %v", err)
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
 		uid, err := userInfo.UserID()
 		if err != nil {
-			lg.Printf("failed to get user id: %v", err)
-			return c.SendStatus(fiber.StatusUnauthorized)
+			lg.Errorf("failed to get user id: %v", err)
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
 		userID = uid
 	}
-	c.Request().Header.Del("Authorization")
-	c.Locals(rbac.UserIDKey, userID)
-	return c.Next()
+	c.Header("Authorization", "")
+	c.Set(rbac.UserIDKey, userID)
 }
 
 func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
@@ -164,8 +173,34 @@ func (m *OpenidMiddleware) tryConfigureKeyRefresher(ctx context.Context) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.wellKnownConfig = wellKnownCfg
-	m.keyRefresher.Configure(wellKnownCfg.JwksUri)
-	m.cache, err = NewUserInfoCache(m.conf, m.logger)
+	httpClient := http.DefaultClient
+	if m.conf.Discovery != nil && m.conf.Discovery.CACert != nil {
+		lg.With(
+			"filename", m.conf.Discovery.CACert,
+		).Info("using custom CA cert for openid discovery")
+		certPool := x509.NewCertPool()
+		data, err := os.ReadFile(*m.conf.Discovery.CACert)
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+				"filename", m.conf.Discovery.CACert,
+			).Fatal("openid discovery: failed to read CA cert")
+		}
+		if !certPool.AppendCertsFromPEM(data) {
+			lg.Fatal("openid discovery: invalid ca cert")
+		}
+		httpClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs: certPool,
+				},
+			},
+		}
+	}
+	m.keyRefresher.Configure(wellKnownCfg.JwksUri,
+		jwk.WithHTTPClient(httpClient),
+	)
+	m.cache, err = NewUserInfoCache(m.conf, m.logger, WithHTTPClient(httpClient))
 	if err != nil {
 		lg.With(
 			zap.Error(err),

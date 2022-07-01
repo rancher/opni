@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/rules"
 )
 
-var _ = Describe("Filesystem Rule Group Discovery", func() {
+var _ = Describe("Filesystem Rule Group Discovery", Label("unit"), func() {
 	testGroup1 := []byte(`groups: [{name: test1}]`)
 	testGroup2 := []byte(`groups: [{name: test2}, {name: test3}]`)
 	testGroup3 := []byte(`groups: [{name: test4}, {name: test5}, {name: test6}]`)

@@ -43,7 +43,7 @@ type ext2SrvImpl struct {
 	*mock_ext.MockExt2Server
 }
 
-var _ = Describe("Extensions", Ordered, Label(test.Slow), func() {
+var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 	var tv *testVars
 	var descriptorLogic func() (*descriptorpb.ServiceDescriptorProto, error)
 	shouldLoadExt1 := atomic.NewBool(true)
@@ -96,7 +96,7 @@ var _ = Describe("Extensions", Ordered, Label(test.Slow), func() {
 			cc := test.NewApiExtensionTestPlugin(apiextSrv, &ext.Ext_ServiceDesc, &extSrvImpl{
 				MockExtServer: extSrv,
 			})
-			pl.LoadOne(meta.PluginMeta{
+			pl.LoadOne(context.Background(), meta.PluginMeta{
 				BinaryPath: "test1",
 				GoVersion:  "test1",
 				Module:     "test1",
@@ -123,7 +123,7 @@ var _ = Describe("Extensions", Ordered, Label(test.Slow), func() {
 			cc2 := test.NewApiExtensionTestPlugin(apiextSrv2, &ext.Ext2_ServiceDesc, &ext2SrvImpl{
 				MockExt2Server: ext2Srv,
 			})
-			pl.LoadOne(meta.PluginMeta{
+			pl.LoadOne(context.Background(), meta.PluginMeta{
 				BinaryPath: "test2",
 				GoVersion:  "test2",
 				Module:     "test2",

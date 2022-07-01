@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
 	"github.com/weaveworks/common/user"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -23,9 +24,18 @@ type remoteWriteForwarder struct {
 	distClient future.Future[distributorpb.DistributorClient]
 	httpClient future.Future[*http.Client]
 	config     future.Future[*v1beta1.GatewayConfig]
+	logger     *zap.SugaredLogger
 }
 
-func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Payload) (*emptypb.Empty, error) {
+func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, pushErr error) {
+	defer func() {
+		if pushErr != nil {
+			f.logger.With(
+				"err", pushErr,
+				"clusterID", payload.AuthorizedClusterID,
+			).Error("error pushing metrics to cortex")
+		}
+	}()
 	writeReq := &cortexpb.WriteRequest{}
 	buf, err := snappy.Decode(nil, payload.Contents)
 	if err != nil {
@@ -45,7 +55,15 @@ func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 	return &emptypb.Empty{}, nil
 }
 
-func (f *remoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewrite.Payload) (*emptypb.Empty, error) {
+func (f *remoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, syncErr error) {
+	defer func() {
+		if syncErr != nil {
+			f.logger.With(
+				"err", syncErr,
+				"clusterID", payload.AuthorizedClusterID,
+			).Error("error syncing rules to cortex")
+		}
+	}()
 	url := fmt.Sprintf("https://%s/api/v1/rules/%s",
 		f.config.Get().Spec.Cortex.Ruler.HTTPAddress, payload.AuthorizedClusterID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url,

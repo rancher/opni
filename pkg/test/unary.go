@@ -99,7 +99,7 @@ func LoadUnaryPlugins(loader *plugins.PluginLoader) int {
 		p := p
 		go func() {
 			defer wg.Done()
-			loader.LoadOne(p.Metadata, cc)
+			loader.LoadOne(context.Background(), p.Metadata, cc)
 		}()
 	}
 	wg.Wait()

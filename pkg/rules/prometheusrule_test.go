@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("unit", "slow"), func() {
 	testGroups1 := []monitoringv1.RuleGroup{
 		{
 			Name: "test",

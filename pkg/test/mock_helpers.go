@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/kralicky/gpkg/sync/atomic"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
@@ -18,6 +20,7 @@ import (
 	mock_notifier "github.com/rancher/opni/pkg/test/mock/notifier"
 	mock_storage "github.com/rancher/opni/pkg/test/mock/storage"
 	"github.com/rancher/opni/pkg/tokens"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -519,4 +522,32 @@ func NewTestFinder(ctrl *gomock.Controller, groups func() []rules.RuleGroup) not
 		}).
 		AnyTimes()
 	return mockRuleFinder
+}
+
+/******************************************************************************
+ * Health and Status                                                          *
+ ******************************************************************************/
+
+type HealthStore struct {
+	health              atomic.Value[*corev1.Health]
+	GetHealthShouldFail bool
+}
+
+func (hb *HealthStore) SetHealth(health *corev1.Health) {
+	hb.health.Store(util.ProtoClone(health))
+}
+
+func (hb *HealthStore) GetHealth(context.Context, *emptypb.Empty, ...grpc.CallOption) (*corev1.Health, error) {
+	if hb.GetHealthShouldFail {
+		return nil, errors.New("error")
+	}
+	return hb.health.Load(), nil
+}
+
+/******************************************************************************
+ * Auth                                                                       *
+ ******************************************************************************/
+
+func ContextWithAuthorizedID(ctx context.Context, clusterID string) context.Context {
+	return context.WithValue(ctx, cluster.ClusterIDKey, clusterID)
 }

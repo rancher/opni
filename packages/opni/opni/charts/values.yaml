@@ -16,6 +16,8 @@ resources: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
+volumes: []
+volumeMounts: []
 
 gateway:
   enabled: true
@@ -52,8 +54,8 @@ monitoring:
         # S3 region. If unset, the client will issue a S3 GetBucketLocation API call
         # to autodetect it.
         region: ""
-        # S3 bucket name
-        bucketName: "opni-monitoring"
+        # S3 bucket name (bucket must already exist)
+        bucketName: ""
         # S3 access key ID
         accessKeyID: ""
         # S3 secret access key

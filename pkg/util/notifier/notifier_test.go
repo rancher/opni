@@ -17,7 +17,7 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
-var _ = Describe("Update Notifier", Label(test.Unit), func() {
+var _ = Describe("Update Notifier", Label("unit"), func() {
 	testGroups1 := []rules.RuleGroup{
 		{
 			Name:  "foo",

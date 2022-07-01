@@ -1,0 +1,21 @@
+name: opni
+runtime: go
+description: Deploy Opni on AWS
+main: infra/
+stackConfigDir: infra/
+template:
+  config:
+    opni:namePrefix:
+      description: "Deployment Name"
+      default: opni
+    opni:zoneID:
+      description: "AWS Route53 Zone ID"
+    aws:region:
+      description: AWS Region
+      default: us-east-2
+    aws:skipCredentialsValidation:
+      description: "Skip AWS Credentials Validation (set to true when using an IAM account)"
+      default: "true"
+    aws:skipRequestingAccountId:
+      description: "Skip Requesting AWS Account ID (set to true when using an IAM account)"
+      default: "true"

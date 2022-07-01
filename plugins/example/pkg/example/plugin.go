@@ -3,9 +3,10 @@ package example
 import (
 	"context"
 	"log"
+	"net/http"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-hclog"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -76,10 +77,10 @@ func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	lg.Info("successfully retrieved stored value", "message", value.Message)
 }
 
-func (s *ExamplePlugin) ConfigureRoutes(app *fiber.App) {
-	app.Get("/example", func(c *fiber.Ctx) error {
+func (s *ExamplePlugin) ConfigureRoutes(app *gin.Engine) {
+	app.GET("/example", func(c *gin.Context) {
 		s.Logger.Debug("handling /example")
-		return c.JSON(map[string]string{
+		c.JSON(http.StatusOK, map[string]string{
 			"message": "hello world",
 		})
 	})

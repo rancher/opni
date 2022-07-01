@@ -15,7 +15,7 @@ import (
 
 //#region Test Setup
 
-var _ = Describe("Management API Roles Management Tests", Ordered, Label(test.Integration), func() {
+var _ = Describe("Management API Roles Management Tests", Ordered, Label("integration"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	BeforeAll(func() {
@@ -56,9 +56,7 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label(test.In
 
 			Expect(roleInfo.Id).To(Equal("test-role"))
 			Expect(roleInfo.ClusterIDs).To(Equal([]string{"test-cluster"}))
-			Expect(roleInfo.MatchLabels).To(Equal(&corev1.LabelSelector{
-				MatchLabels: map[string]string{"test-label": "test-value"},
-			}))
+			Expect(roleInfo.MatchLabels.GetMatchLabels()).To(Equal(map[string]string{"test-label": "test-value"}))
 		})
 	})
 
@@ -71,9 +69,7 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label(test.In
 		for _, roleItem := range roleList {
 			Expect(roleItem.Id).To(Equal("test-role"))
 			Expect(roleItem.ClusterIDs).To(Equal([]string{"test-cluster"}))
-			Expect(roleItem.MatchLabels).To(Equal(&corev1.LabelSelector{
-				MatchLabels: map[string]string{"test-label": "test-value"},
-			}))
+			Expect(roleItem.MatchLabels.GetMatchLabels()).To(Equal(map[string]string{"test-label": "test-value"}))
 		}
 	})
 
@@ -129,9 +125,7 @@ var _ = Describe("Management API Roles Management Tests", Ordered, Label(test.In
 
 		Expect(roleInfo.Id).To(Equal("test-role"))
 		Expect(roleInfo.ClusterIDs).To(BeNil())
-		Expect(roleInfo.MatchLabels).To(Equal(&corev1.LabelSelector{
-			MatchLabels: map[string]string{"test-label": "test-value"},
-		}))
+		Expect(roleInfo.GetMatchLabels().GetMatchLabels()).To(Equal(map[string]string{"test-label": "test-value"}))
 
 		_, err = client.DeleteRole(context.Background(), &corev1.Reference{
 			Id: "test-role",

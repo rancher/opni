@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Kubernetes", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Kubernetes", Ordered, Label("unit", "slow"), func() {
 	var restConfig *rest.Config
 	BeforeAll(func() {
 		env := test.Environment{

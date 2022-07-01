@@ -8,6 +8,7 @@ import (
 #Run: #RunConfig & {
 	Name:     string
 	Packages: string
+	Explicit: bool | *false
 
 	Suite: {
 		RandomSeed:            int64 | *0
@@ -25,7 +26,7 @@ import (
 		ParallelHost:          string | *""
 	}
 	Build: {
-		Race:                 true
+		Race:                 bool | *true
 		Cover:                true
 		CoverMode:            string | *"atomic"
 		CoverPkg:             string | *""

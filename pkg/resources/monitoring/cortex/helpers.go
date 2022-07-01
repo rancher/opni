@@ -105,6 +105,12 @@ func StorageSize(storageSize string) CortexWorkloadOption {
 	}
 }
 
+func NoPersistentStorage() CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.storageSize = ""
+	}
+}
+
 func (r *Reconciler) buildCortexDeployment(
 	target string,
 	opts ...CortexWorkloadOption,
@@ -184,7 +190,10 @@ func (r *Reconciler) buildCortexStatefulSet(
 		},
 		ServiceName: options.serviceName,
 		Template:    r.cortexWorkloadPodTemplate(target, options),
-		VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+	}
+
+	if options.storageSize != "" {
+		statefulSet.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
 			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "storage",
@@ -198,7 +207,7 @@ func (r *Reconciler) buildCortexStatefulSet(
 					},
 				},
 			},
-		},
+		}
 	}
 
 	ctrl.SetControllerReference(r.mc, statefulSet, r.client.Scheme())
@@ -284,6 +293,7 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 					SecurityContext: &corev1.SecurityContext{
 						ReadOnlyRootFilesystem: util.Pointer(true),
 					},
+					Env: r.mc.Spec.Cortex.ExtraEnvVars,
 					VolumeMounts: append([]corev1.VolumeMount{
 						{
 							Name:      "data",

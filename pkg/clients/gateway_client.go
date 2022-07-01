@@ -6,11 +6,11 @@ import (
 	"fmt"
 
 	"emperror.dev/errors"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/kralicky/totem"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -22,30 +22,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 )
 
-type RequestBuilder interface {
-	// Sets a request header
-	Set(key, value string) RequestBuilder
-	// Sets the request body
-	Body(body []byte) RequestBuilder
-	// Sends the request
-	Do() (code int, body []byte, err error)
-
-	// Deprecated: use Do() instead
-	Send() (code int, body []byte, err error)
-	// Deprecated: use Set() instead
-	Header(key, value string) RequestBuilder
-}
-
-type GatewayHTTPClient interface {
-	Get(ctx context.Context, path string) RequestBuilder
-	Head(ctx context.Context, path string) RequestBuilder
-	Post(ctx context.Context, path string) RequestBuilder
-	Put(ctx context.Context, path string) RequestBuilder
-	Patch(ctx context.Context, path string) RequestBuilder
-	Delete(ctx context.Context, path string) RequestBuilder
-}
-
-type GatewayGRPCClient interface {
+type GatewayClient interface {
 	grpc.ServiceRegistrar
 	credentials.PerRPCCredentials
 	// Connect returns a ClientConnInterface connected to the streaming server
@@ -54,44 +31,18 @@ type GatewayGRPCClient interface {
 	Dial(context.Context) (grpc.ClientConnInterface, error)
 }
 
-func NewGatewayHTTPClient(
+func NewGatewayClient(
 	address string,
 	ip ident.Provider,
 	kr keyring.Keyring,
 	trustStrategy trust.Strategy,
-) (GatewayHTTPClient, error) {
-	if address[len(address)-1] == '/' {
-		address = address[:len(address)-1]
-	}
-	client := &gatewayClient{
-		httpAddress: address,
-	}
-	initClientShared(client, ip, kr, trustStrategy)
-	return client, nil
-}
-
-func NewGatewayGRPCClient(
-	address string,
-	ip ident.Provider,
-	kr keyring.Keyring,
-	trustStrategy trust.Strategy,
-) (GatewayGRPCClient, error) {
+) (GatewayClient, error) {
 	client := &gatewayClient{
 		grpcAddress: address,
 	}
-	initClientShared(client, ip, kr, trustStrategy)
-	return client, nil
-}
-
-func initClientShared(
-	client *gatewayClient,
-	ip ident.Provider,
-	kr keyring.Keyring,
-	trustStrategy trust.Strategy,
-) error {
 	id, err := ip.UniqueIdentifier(context.Background())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var sharedKeys *keyring.SharedKeys
 	kr.Try(func(sk *keyring.SharedKeys) {
@@ -102,80 +53,30 @@ func initClientShared(
 		sharedKeys = sk
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if sharedKeys == nil {
-		return errors.New("keyring is missing shared keys")
+		return nil, errors.New("keyring is missing shared keys")
 	}
 
 	tlsConfig, err := trustStrategy.TLSConfig()
 	if err != nil {
-		return fmt.Errorf("failed to create TLS config: %w", err)
+		return nil, fmt.Errorf("failed to create TLS config: %w", err)
 	}
 
 	client.id = id
 	client.sharedKeys = sharedKeys
 	client.tlsConfig = tlsConfig
-	return nil
+	return client, nil
 }
 
 type gatewayClient struct {
-	httpAddress string
 	grpcAddress string
 	id          string
 	sharedKeys  *keyring.SharedKeys
 	tlsConfig   *tls.Config
 
 	services []util.ServicePack[any]
-}
-
-func (gc *gatewayClient) requestPath(path string) string {
-	if path[0] != '/' {
-		path = "/" + path
-	}
-	return gc.httpAddress + path
-}
-
-func (gc *gatewayClient) Get(ctx context.Context, path string) RequestBuilder {
-	return &requestBuilder{
-		gatewayClient: gc,
-		req:           fiber.Get(gc.requestPath(path)).TLSConfig(gc.tlsConfig),
-	}
-}
-
-func (gc *gatewayClient) Head(ctx context.Context, path string) RequestBuilder {
-	return &requestBuilder{
-		gatewayClient: gc,
-		req:           fiber.Head(gc.requestPath(path)).TLSConfig(gc.tlsConfig),
-	}
-}
-
-func (gc *gatewayClient) Post(ctx context.Context, path string) RequestBuilder {
-	return &requestBuilder{
-		gatewayClient: gc,
-		req:           fiber.Post(gc.requestPath(path)).TLSConfig(gc.tlsConfig),
-	}
-}
-
-func (gc *gatewayClient) Put(ctx context.Context, path string) RequestBuilder {
-	return &requestBuilder{
-		gatewayClient: gc,
-		req:           fiber.Put(gc.requestPath(path)).TLSConfig(gc.tlsConfig),
-	}
-}
-
-func (gc *gatewayClient) Patch(ctx context.Context, path string) RequestBuilder {
-	return &requestBuilder{
-		gatewayClient: gc,
-		req:           fiber.Patch(gc.requestPath(path)).TLSConfig(gc.tlsConfig),
-	}
-}
-
-func (gc *gatewayClient) Delete(ctx context.Context, path string) RequestBuilder {
-	return &requestBuilder{
-		gatewayClient: gc,
-		req:           fiber.Delete(gc.requestPath(path)).TLSConfig(gc.tlsConfig),
-	}
 }
 
 func (gc *gatewayClient) RegisterService(desc *grpc.ServiceDesc, impl any) {
@@ -185,7 +86,7 @@ func (gc *gatewayClient) RegisterService(desc *grpc.ServiceDesc, impl any) {
 func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface, future.Future[error]) {
 	gcc, err := grpc.DialContext(ctx, gc.grpcAddress,
 		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
-		grpc.WithStreamInterceptor(gc.streamClientInterceptor),
+		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor(), gc.streamClientInterceptor),
 		grpc.WithBlock(),
 	)
 	if err != nil {
@@ -219,7 +120,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 func (gc *gatewayClient) Dial(ctx context.Context) (grpc.ClientConnInterface, error) {
 	return grpc.DialContext(ctx, gc.grpcAddress,
 		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
-		grpc.WithUnaryInterceptor(gc.unaryClientInterceptor),
+		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor(), gc.unaryClientInterceptor),
 		grpc.WithBlock(),
 	)
 }
@@ -284,55 +185,4 @@ func (gc *gatewayClient) unaryClientInterceptor(
 
 	ctx = metadata.AppendToOutgoingContext(ctx, auth.AuthorizationKey, authHeader)
 	return invoker(ctx, method, req, reply, cc, opts...)
-}
-
-type requestBuilder struct {
-	gatewayClient *gatewayClient
-	req           *fiber.Agent
-}
-
-// Sets a request header
-func (rb *requestBuilder) Header(key string, value string) RequestBuilder {
-	rb.req.Set(key, value)
-	return rb
-}
-
-// Sets the request body
-func (rb *requestBuilder) Body(body []byte) RequestBuilder {
-	rb.req.Body(body)
-	return rb
-}
-
-// Sends the request
-func (rb *requestBuilder) Do() (code int, body []byte, err error) {
-	nonce, mac, err := b2mac.New512([]byte(rb.gatewayClient.id),
-		rb.req.Request().Body(), rb.gatewayClient.sharedKeys.ClientKey)
-	if err != nil {
-		return 0, nil, err
-	}
-	authHeader, err := b2mac.EncodeAuthHeader([]byte(rb.gatewayClient.id), nonce, mac)
-	if err != nil {
-		return 0, nil, err
-	}
-	rb.req.Set("Authorization", authHeader)
-
-	if err := rb.req.Parse(); err != nil {
-		return 0, nil, err
-	}
-
-	code, body, errs := rb.req.Bytes()
-	if len(errs) > 0 {
-		return 0, nil, errors.Combine(errs...)
-	}
-	return code, body, nil
-}
-
-// Deprecated: use Do() instead
-func (rb *requestBuilder) Send() (code int, body []byte, err error) {
-	return rb.Do()
-}
-
-// Deprecated: use Do() instead
-func (rb *requestBuilder) Set(key string, value string) RequestBuilder {
-	return rb.Header(key, value)
 }

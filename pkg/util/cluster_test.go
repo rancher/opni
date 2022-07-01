@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-var _ = Describe("Cluster Utils", Ordered, Label(test.Unit, test.Slow), func() {
+var _ = Describe("Cluster Utils", Ordered, Label("unit", "slow"), func() {
 	var restConfig *rest.Config
 	var kubeconfigPath string
 	BeforeAll(func() {

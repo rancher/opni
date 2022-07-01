@@ -1,5 +1,7 @@
 # Opni = AIOps for Kubernetes + Observability Tools
 
+[![](https://get.pulumi.com/new/button.svg)](https://app.pulumi.com/new?template=https://github.com/rancher/opni)
+
 Opni currently features log anomaly detection for Kubernetes.
 
 ##### What does Opni give me?

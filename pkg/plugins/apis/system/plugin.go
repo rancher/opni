@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -187,6 +188,10 @@ func (s *systemPluginHandler) serveSystemApi(regCallback func(*grpc.Server), use
 	srvLock := make(chan struct{})
 	once := sync.Once{}
 	go s.broker.AcceptAndServe(id, func(so []grpc.ServerOption) *grpc.Server {
+		so = append(so,
+			grpc.ChainStreamInterceptor(otelgrpc.StreamServerInterceptor()),
+			grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+		)
 		srv = grpc.NewServer(so...)
 		close(srvLock)
 		go func() {

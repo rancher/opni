@@ -18,7 +18,7 @@ import (
 )
 
 //#region Test Setup
-var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.Integration), func() {
+var _ = Describe("Management API Cluster Management Tests", Ordered, Label("integration"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	var fingerprint string
@@ -52,24 +52,6 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 	//#endregion
 
 	//#region Happy Path Tests
-
-	events := make(chan *managementv1.WatchEvent, 1000)
-	It("should handle watching create and delete events", func() {
-		stream, err := client.WatchClusters(context.Background(), &managementv1.WatchClustersRequest{
-			KnownClusters: &corev1.ReferenceList{},
-		})
-		Expect(err).NotTo(HaveOccurred())
-		go func() {
-			defer close(events)
-			for {
-				event, err := stream.Recv()
-				if err != nil {
-					return
-				}
-				events <- event
-			}
-		}()
-	})
 
 	It("can get information about a specific cluster", func() {
 		clusterInfo, err := client.GetCluster(context.Background(), &corev1.Reference{
@@ -115,10 +97,6 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label(test.
 
 		_, errC := environment.StartAgent("test-cluster-id-2", token2, []string{fingerprint2})
 		Eventually(errC).Should(Receive(BeNil()))
-
-		Eventually(events).Should(Receive(WithTransform(func(event *managementv1.WatchEvent) string {
-			return event.Cluster.Id
-		}, Equal("test-cluster-id-2"))))
 
 		_, err = client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
 			Cluster: &corev1.Reference{

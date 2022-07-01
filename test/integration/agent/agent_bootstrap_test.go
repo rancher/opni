@@ -19,6 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
 //#region Test Setup
@@ -33,7 +34,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.EnableIfCI[FlakeAttempts](5), Label(test.Integration, test.Slow, test.TimeSensitive), func() {
+var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.EnableIfCI[FlakeAttempts](5), Label("integration", "slow", "temporal"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	var fingerprint string
@@ -270,7 +271,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			Expect(err).NotTo(HaveOccurred())
 
 			id := uuid.NewString()
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(waitctx.Background())
 			_, errC := environment.StartAgent(id, token, []string{fingerprint}, test.WithContext(ctx))
 
 			Eventually(errC).Should(Receive(BeNil()))
@@ -315,7 +316,6 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 			Eventually(func() *agent.Agent {
 				return environment.GetAgent("test-cluster-3").Agent
 			}).ShouldNot(BeNil())
-			Expect(environment.GetAgent("test-cluster-3").Shutdown()).To(Succeed())
 
 			etcdClient, err := environment.EtcdClient()
 			Expect(err).NotTo(HaveOccurred())

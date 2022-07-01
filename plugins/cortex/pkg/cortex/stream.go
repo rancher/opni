@@ -13,6 +13,7 @@ func (p *Plugin) StreamServers() []streamext.Server {
 				distClient: p.distributorClient,
 				httpClient: p.cortexHttpClient,
 				config:     p.config,
+				logger:     p.logger,
 			},
 		},
 	}

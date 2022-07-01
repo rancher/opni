@@ -5,28 +5,30 @@ import (
 	"os"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/fwd"
 )
 
 type forwarders struct {
-	QueryFrontend fiber.Handler
-	Alertmanager  fiber.Handler
-	Ruler         fiber.Handler
-	Distributor   fiber.Handler
+	QueryFrontend gin.HandlerFunc
+	Alertmanager  gin.HandlerFunc
+	Ruler         gin.HandlerFunc
 }
 
 type middlewares struct {
-	RBAC    fiber.Handler
-	Auth    fiber.Handler
-	Cluster fiber.Handler
+	RBAC    gin.HandlerFunc
+	Auth    gin.HandlerFunc
+	Cluster gin.HandlerFunc
 }
 
-func (p *Plugin) ConfigureRoutes(app *fiber.App) {
+func (p *Plugin) ConfigureRoutes(router *gin.Engine) {
+	router.Use(logger.GinLogger(p.logger), gin.Recovery())
+
 	futureCtx, ca := context.WithTimeout(context.Background(), 10*time.Second)
 	defer ca()
 	config, err := p.config.GetContext(futureCtx)
@@ -69,10 +71,9 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 	}
 
 	fwds := &forwarders{
-		QueryFrontend: fwd.To(config.Spec.Cortex.QueryFrontend.HTTPAddress, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.query-frontend")),
-		Alertmanager:  fwd.To(config.Spec.Cortex.Alertmanager.HTTPAddress, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.alertmanager")),
-		Ruler:         fwd.To(config.Spec.Cortex.Ruler.HTTPAddress, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.ruler")),
-		Distributor:   fwd.To(config.Spec.Cortex.Distributor.HTTPAddress, fwd.WithTLS(cortexTLSConfig), fwd.WithName("cortex.distributor")),
+		QueryFrontend: fwd.To(config.Spec.Cortex.QueryFrontend.HTTPAddress, fwd.WithLogger(p.logger), fwd.WithTLS(cortexTLSConfig), fwd.WithName("query-frontend")),
+		Alertmanager:  fwd.To(config.Spec.Cortex.Alertmanager.HTTPAddress, fwd.WithLogger(p.logger), fwd.WithTLS(cortexTLSConfig), fwd.WithName("alertmanager")),
+		Ruler:         fwd.To(config.Spec.Cortex.Ruler.HTTPAddress, fwd.WithLogger(p.logger), fwd.WithTLS(cortexTLSConfig), fwd.WithName("ruler")),
 	}
 
 	mws := &middlewares{
@@ -81,80 +82,65 @@ func (p *Plugin) ConfigureRoutes(app *fiber.App) {
 		Cluster: clusterMiddleware.Handle,
 	}
 
-	app.Get("/ready", fwds.QueryFrontend)
+	router.GET("/ready", fwds.QueryFrontend)
 
 	// p.configureAgentAPI(app, fwds, mws)
-	p.configureAlertmanager(app, fwds, mws)
-	p.configureRuler(app, fwds, mws)
-	p.configureQueryFrontend(app, fwds, mws)
+	p.configureAlertmanager(router, fwds, mws)
+	p.configureRuler(router, fwds, mws)
+	p.configureQueryFrontend(router, fwds, mws)
 }
 
-func (p *Plugin) preprocessRules(c *fiber.Ctx) error {
-	id := cluster.AuthorizedID(c)
-	p.logger.With(
-		"id", id,
-	).Info("syncing cluster alert rules")
-	c.Path("/api/v1/rules/" + id)
-	return c.Next()
-}
-
-func (p *Plugin) configureAlertmanager(app *fiber.App, f *forwarders, m *middlewares) {
-	orgIdLimiter := func(c *fiber.Ctx) error {
+func (p *Plugin) configureAlertmanager(router *gin.Engine, f *forwarders, m *middlewares) {
+	orgIdLimiter := func(c *gin.Context) {
 		ids := rbac.AuthorizedClusterIDs(c)
 		if len(ids) > 1 {
 			user, _ := rbac.AuthorizedUserID(c)
 			p.logger.With(
-				"request", c.Path(),
+				"request", c.FullPath(),
 				"user", user,
 			).Debug("multiple org ids found, limiting to first")
-			c.Request().Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(ids[:1]))
+			c.Header(orgIDCodec.Key(), orgIDCodec.Encode(ids[:1]))
 		}
-		return c.Next()
+		return
 	}
-	app.Use("/api/prom/alertmanager", m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
-
-	app.Use("/api/v1/alerts", m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
-	app.Use("/api/prom/api/v1/alerts", func(c *fiber.Ctx) error {
-		c.Path("/api/v1/alerts")
-		return c.Next()
-	}, m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
-
-	app.Use("/multitenant_alertmanager", m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
+	router.Any("/api/prom/alertmanager", m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
+	router.Any("/api/v1/alerts", m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
+	router.Any("/multitenant_alertmanager", m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
 }
 
-func (p *Plugin) configureRuler(app *fiber.App, f *forwarders, m *middlewares) {
+func (p *Plugin) configureRuler(router *gin.Engine, f *forwarders, m *middlewares) {
 	jsonAggregator := NewMultiTenantRuleAggregator(
-		p.mgmtApi.Get(), f.Ruler, orgIDCodec, PrometheusRuleGroupsJSON)
-	app.Get("/prometheus/api/v1/rules", m.Auth, m.RBAC, jsonAggregator.Handle)
-	app.Get("/api/prom/api/v1/rules", m.Auth, m.RBAC, jsonAggregator.Handle)
+		p.mgmtApi.Get(), p.cortexHttpClient.Get(), orgIDCodec, PrometheusRuleGroupsJSON)
+	router.GET("/prometheus/api/v1/rules", m.Auth, m.RBAC, jsonAggregator.Handle)
+	router.GET("/api/prom/api/v1/rules", m.Auth, m.RBAC, jsonAggregator.Handle)
 
-	app.Get("/prometheus/api/v1/alerts", m.Auth, m.RBAC, f.Ruler)
-	app.Get("/api/prom/api/v1/alerts", m.Auth, m.RBAC, f.Ruler)
+	router.GET("/prometheus/api/v1/alerts", m.Auth, m.RBAC, f.Ruler)
+	router.GET("/api/prom/api/v1/alerts", m.Auth, m.RBAC, f.Ruler)
 
 	yamlAggregator := NewMultiTenantRuleAggregator(
-		p.mgmtApi.Get(), f.Ruler, orgIDCodec, NamespaceKeyedYAML)
-	app.Use("/api/v1/rules", m.Auth, m.RBAC, yamlAggregator.Handle)
-	app.Use("/api/prom/rules", m.Auth, m.RBAC, yamlAggregator.Handle)
+		p.mgmtApi.Get(), p.cortexHttpClient.Get(), orgIDCodec, NamespaceKeyedYAML)
+	router.Any("/api/v1/rules", m.Auth, m.RBAC, yamlAggregator.Handle)
+	router.Any("/api/prom/rules", m.Auth, m.RBAC, yamlAggregator.Handle)
 }
 
-func (p *Plugin) configureQueryFrontend(app *fiber.App, f *forwarders, m *middlewares) {
-	for _, group := range []fiber.Router{
-		app.Group("/prometheus/api/v1", m.Auth, m.RBAC),
-		app.Group("/api/prom/api/v1", m.Auth, m.RBAC),
+func (p *Plugin) configureQueryFrontend(router *gin.Engine, f *forwarders, m *middlewares) {
+	for _, group := range []*gin.RouterGroup{
+		router.Group("/prometheus/api/v1", m.Auth, m.RBAC),
+		router.Group("/api/prom/api/v1", m.Auth, m.RBAC),
 	} {
-		group.Post("/read", f.QueryFrontend)
-		group.Get("/query", f.QueryFrontend)
-		group.Post("/query", f.QueryFrontend)
-		group.Get("/query_range", f.QueryFrontend)
-		group.Post("/query_range", f.QueryFrontend)
-		group.Get("/query_exemplars", f.QueryFrontend)
-		group.Post("/query_exemplars", f.QueryFrontend)
-		group.Get("/labels", f.QueryFrontend)
-		group.Post("/labels", f.QueryFrontend)
-		group.Get("/label/:name/values", f.QueryFrontend)
-		group.Get("/series", f.QueryFrontend)
-		group.Post("/series", f.QueryFrontend)
-		group.Delete("/series", f.QueryFrontend)
-		group.Get("/metadata", f.QueryFrontend)
+		group.POST("/read", f.QueryFrontend)
+		group.GET("/query", f.QueryFrontend)
+		group.POST("/query", f.QueryFrontend)
+		group.GET("/query_range", f.QueryFrontend)
+		group.POST("/query_range", f.QueryFrontend)
+		group.GET("/query_exemplars", f.QueryFrontend)
+		group.POST("/query_exemplars", f.QueryFrontend)
+		group.GET("/labels", f.QueryFrontend)
+		group.POST("/labels", f.QueryFrontend)
+		group.GET("/label/:name/values", f.QueryFrontend)
+		group.GET("/series", f.QueryFrontend)
+		group.POST("/series", f.QueryFrontend)
+		group.DELETE("/series", f.QueryFrontend)
+		group.GET("/metadata", f.QueryFrontend)
 	}
 }

@@ -43,7 +43,7 @@ func (o ObjectMeta) GetName() string {
 type ObjectList []Object
 
 type ObjectVisitorFunc = interface{} // func(*T) or func(*T, *jsonschema.Schema)
-func (l ObjectList) Visit(visitors ...ObjectVisitorFunc) {
+func (l ObjectList) Visit(visitors ...ObjectVisitorFunc) (visitedAny bool) {
 	// For each object in the list, call each visitor if its argument type
 	// matches the concrete type of the object.
 	for _, vf := range visitors {
@@ -58,6 +58,7 @@ func (l ObjectList) Visit(visitors ...ObjectVisitorFunc) {
 			fn := reflect.ValueOf(vf)
 			for _, o := range l {
 				if reflect.TypeOf(o) == t {
+					visitedAny = true
 					fn.Call([]reflect.Value{reflect.ValueOf(o)})
 				}
 			}
@@ -72,10 +73,12 @@ func (l ObjectList) Visit(visitors ...ObjectVisitorFunc) {
 			emptyIntfType := reflect.TypeOf(&emptyIntf).Elem()
 			for _, o := range l {
 				if t == emptyIntfType || reflect.TypeOf(o) == t {
+					visitedAny = true
 					schema := jsonschema.Reflect(o)
 					fn.Call([]reflect.Value{reflect.ValueOf(o), reflect.ValueOf(schema)})
 				}
 			}
 		}
 	}
+	return
 }

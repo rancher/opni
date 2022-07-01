@@ -51,6 +51,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
@@ -63,7 +64,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-var Log = logger.New(logger.WithLogLevel(zap.DebugLevel)).Named("test")
+var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")
 
 type servicePorts struct {
 	Etcd            int
@@ -673,7 +674,6 @@ func (e *Environment) NewManagementClient() managementv1.ManagementClient {
 	}
 	return c
 }
-
 func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
 	if !e.enableGateway {
 		e.Logger.Panic("gateway disabled")
@@ -686,6 +686,19 @@ func (e *Environment) ManagementClientConn() grpc.ClientConnInterface {
 		panic(err)
 	}
 	return cc
+}
+func (e *Environment) NewCortexAdminClient() cortexadmin.CortexAdminClient {
+	if !e.enableGateway {
+		e.Logger.Panic("gateway disabled")
+	}
+	c, err := cortexadmin.NewClient(e.ctx,
+		cortexadmin.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementGRPC)),
+		cortexadmin.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return c
 }
 
 func (e *Environment) PrometheusAPIEndpoint() string {
@@ -769,6 +782,7 @@ func (e *Environment) startGateway() {
 type StartAgentOptions struct {
 	ctx                  context.Context
 	remoteGatewayAddress string
+	remoteKubeconfig     string
 }
 
 type StartAgentOption func(*StartAgentOptions)
@@ -791,9 +805,15 @@ func WithRemoteGatewayAddress(addr string) StartAgentOption {
 	}
 }
 
+func WithRemoteKubeconfig(kubeconfig string) StartAgentOption {
+	return func(o *StartAgentOptions) {
+		o.remoteKubeconfig = kubeconfig
+	}
+}
+
 func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins []string, opts ...StartAgentOption) (int, <-chan error) {
 	options := &StartAgentOptions{
-		ctx: context.Background(),
+		ctx: e.ctx,
 	}
 	options.apply(opts...)
 	if !e.enableGateway && options.remoteGatewayAddress == "" {
@@ -880,7 +900,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 			errC <- err
 			return
 		}
-		a, err = agent.New(e.ctx, agentConfig,
+		a, err = agent.New(options.ctx, agentConfig,
 			agent.WithBootstrapper(&bootstrap.ClientConfig{
 				Capability:    wellknown.CapabilityMetrics,
 				Token:         bt,
@@ -900,24 +920,13 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		e.runningAgentsMu.Unlock()
 		mu.Unlock()
 		errC <- nil
-		if err := a.ListenAndServe(); err != nil {
+		if err := a.ListenAndServe(options.ctx); err != nil {
 			Log.Error(err)
-		}
-	}()
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
-		mu.Lock()
-		defer mu.Unlock()
-		if a == nil {
-			return
-		}
-		if err := a.Shutdown(); err != nil {
-			errC <- err
 		}
 		e.runningAgentsMu.Lock()
 		delete(e.runningAgents, id)
 		e.runningAgentsMu.Unlock()
-	})
+	}()
 	return port, errC
 }
 
@@ -969,6 +978,9 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	}
 	options.apply(opts...)
 
+	agentOptions := &StartAgentOptions{}
+	agentOptions.apply(options.defaultAgentOpts...)
+
 	environment := &Environment{
 		TestBin: "testbin/bin",
 	}
@@ -1019,11 +1031,27 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	Log.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
 	// listen for spacebar on stdin
 	t, err := tty.Open()
-	if err == nil && options.enableGateway {
-		Log.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
-		Log.Info(chalk.Blue.Color("Press (a) to launch a new agent"))
+	if err == nil {
+		if options.enableGateway {
+			Log.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
+		}
+		if options.enableGateway || agentOptions.remoteKubeconfig != "" {
+			Log.Info(chalk.Blue.Color("Press (a) to launch a new agent"))
+		}
+		var client managementv1.ManagementClient
+		if options.enableGateway {
+			client = environment.NewManagementClient()
+		} else if agentOptions.remoteKubeconfig != "" {
+			// c, err := util.NewK8sClient(util.ClientOptions{
+			// 	Kubeconfig: &agentOptions.remoteKubeconfig,
+			// })
+			// if err != nil {
+			// 	panic(err)
+			// }
+			// port-forward to service/opni-monitoring-internal:11090
+
+		}
 		go func() {
-			client := environment.NewManagementClient()
 			for {
 				rn, err := t.ReadRune()
 				if err != nil {

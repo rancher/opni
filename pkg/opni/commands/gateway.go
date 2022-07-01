@@ -14,6 +14,7 @@ import (
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -34,12 +35,14 @@ func BuildGatewayCmd() *cobra.Command {
 	var configLocation string
 
 	run := func() error {
+		tracing.Configure("gateway")
+
 		objects := cliutil.LoadConfigObjectsOrDie(configLocation, lg)
 
 		ctx, cancel := context.WithCancel(waitctx.Background())
 		machinery.LoadAuthProviders(ctx, objects)
 		var gatewayConfig *v1beta1.GatewayConfig
-		objects.Visit(
+		found := objects.Visit(
 			func(config *v1beta1.GatewayConfig) {
 				if gatewayConfig == nil {
 					gatewayConfig = config
@@ -55,6 +58,9 @@ func BuildGatewayCmd() *cobra.Command {
 				}
 			},
 		)
+		if !found {
+			lg.Fatal("config file does not contain a GatewayConfig object")
+		}
 
 		lg.With(
 			"dirs", gatewayConfig.Spec.Plugins.Dirs,
@@ -94,7 +100,7 @@ func BuildGatewayCmd() *cobra.Command {
 			}
 		}))
 
-		pluginLoader.LoadPlugins(gatewayConfig.Spec.Plugins)
+		pluginLoader.LoadPlugins(ctx, gatewayConfig.Spec.Plugins)
 
 		style := chalk.Yellow.NewStyle().
 			WithBackground(chalk.ResetColor).

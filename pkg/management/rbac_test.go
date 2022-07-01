@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
@@ -16,7 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var _ = Describe("RBAC", Ordered, Label(test.Slow), func() {
+var _ = Describe("RBAC", Ordered, Label("slow"), func() {
 	var tv *testVars
 	BeforeAll(setupManagementServer(&tv, plugins.NoopLoader))
 

@@ -6,12 +6,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/tokens"
 	"google.golang.org/protobuf/proto"
 )
 
-var _ = Describe("Conversion", Label(test.Unit), func() {
+var _ = Describe("Conversion", Label("unit"), func() {
 	Specify("Tokens should convert between API types", func() {
 		t := tokens.NewToken()
 

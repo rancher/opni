@@ -32,7 +32,7 @@ type fingerprintsTestData struct {
 }
 
 var testFingerprints fingerprintsData
-var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label(test.Integration), func() {
+var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label("integration"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
 	var fingerprint string
@@ -163,7 +163,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, Label(tes
 			Expect(invResp.Header.Get("Content-Type")).To(Equal("application/json"))
 			Expect(invResp.Header.Get("Results-Cache-Gen-Number")).To(BeEmpty())
 
-			defer resp.Body.Close()
+			defer invResp.Body.Close()
 			b2, err := ioutil.ReadAll(invResp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(b2)).To(Equal(`{"status":"success","data":["__tenant_id__"]}`))

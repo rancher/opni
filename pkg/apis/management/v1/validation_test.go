@@ -7,7 +7,6 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	v1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/validation"
 )
 
@@ -19,7 +18,7 @@ func validateEntry[T validation.Validator](in T, expected error) {
 	}
 }
 
-var _ = Describe("Validation", Label(test.Unit), func() {
+var _ = Describe("Validation", Label("unit"), func() {
 	DescribeTable("CreateBootstrapTokenRequest",
 		validateEntry[*v1.CreateBootstrapTokenRequest],
 		Entry(nil, &v1.CreateBootstrapTokenRequest{}, validation.ErrInvalidValue),

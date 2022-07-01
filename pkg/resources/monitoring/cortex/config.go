@@ -41,6 +41,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/grpcclient"
 	"github.com/cortexproject/cortex/pkg/util/runtimeconfig"
 	"github.com/cortexproject/cortex/pkg/util/tls"
+	"github.com/cortexproject/cortex/pkg/util/validation"
 	kyamlv3 "github.com/kralicky/yaml/v3"
 	"github.com/prometheus/node_exporter/https"
 	"github.com/rancher/opni/apis/v1beta2"
@@ -337,6 +338,11 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		PurgerConfig: purger.Config{
 			Enable:     true,
 			NumWorkers: 2,
+		},
+		LimitsConfig: validation.Limits{
+			IngestionRate:         1e6,
+			IngestionRateStrategy: "local",
+			IngestionBurstSize:    2e6,
 		},
 	}
 

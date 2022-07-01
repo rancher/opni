@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
+	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
 )
@@ -20,6 +21,7 @@ var lg = logger.New()
 func ConfigureManagementCommand(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringP("address", "a", "", "Management API address (default: auto-detect)")
 	cmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		tracing.Configure("cli")
 		address := cmd.Flag("address").Value.String()
 		if address == "" {
 			path, err := config.FindConfig()

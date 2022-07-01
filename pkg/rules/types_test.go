@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/util/notifier"
 )
 
-var _ = Describe("Types", func() {
+var _ = Describe("Types", Label("unit"), func() {
 	It("should clone rule groups", func() {
 		rg, errs := rulefmt.Parse(test.TestData("prometheus/sample-rules.yaml"))
 		Expect(errs).To(BeEmpty())

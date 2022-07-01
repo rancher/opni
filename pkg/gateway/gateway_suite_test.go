@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,13 +27,14 @@ import (
 )
 
 func TestManagement(t *testing.T) {
+	gin.SetMode(gin.TestMode)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Gateway Extension Suite")
 }
 
 type testVars struct {
 	ctrl         *gomock.Controller
-	client       gatewayclients.GatewayGRPCClient
+	client       gatewayclients.GatewayClient
 	grpcEndpoint string
 	interceptor  mockInterceptor
 }
@@ -121,7 +123,7 @@ func setupGatewayGRPCServer(vars **testVars, pl plugins.LoaderInterface) func() 
 
 		server := gateway.NewGRPCServer(conf, lg,
 			grpc.Creds(insecure.NewCredentials()),
-			grpc.UnaryInterceptor(interceptor.unaryServerIntercemptor),
+			grpc.ChainUnaryInterceptor(interceptor.unaryServerIntercemptor),
 		)
 		unarySvc := gateway.NewUnaryService()
 		unarySvc.RegisterUnaryPlugins(ctx, server, pl)

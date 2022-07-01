@@ -2,11 +2,16 @@ package cortex
 
 import (
 	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"sync"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/andybalholm/brotli"
+	"github.com/gin-gonic/gin"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
@@ -30,17 +35,17 @@ const (
 )
 
 type MultiTenantRuleAggregator struct {
-	client      managementv1.ManagementClient
-	forwarder   fiber.Handler
-	headerCodec rbac.HeaderCodec
-	bufferPool  *sync.Pool
-	logger      *zap.SugaredLogger
-	format      DataFormat
+	client       managementv1.ManagementClient
+	cortexClient *http.Client
+	headerCodec  rbac.HeaderCodec
+	bufferPool   *sync.Pool
+	logger       *zap.SugaredLogger
+	format       DataFormat
 }
 
 func NewMultiTenantRuleAggregator(
 	client managementv1.ManagementClient,
-	forwarder fiber.Handler,
+	cortexClient *http.Client,
 	headerCodec rbac.HeaderCodec,
 	format DataFormat,
 ) *MultiTenantRuleAggregator {
@@ -50,12 +55,12 @@ func NewMultiTenantRuleAggregator(
 		},
 	}
 	return &MultiTenantRuleAggregator{
-		client:      client,
-		forwarder:   forwarder,
-		headerCodec: headerCodec,
-		bufferPool:  pool,
-		logger:      logger.New().Named("aggregation"),
-		format:      format,
+		client:       client,
+		cortexClient: cortexClient,
+		headerCodec:  headerCodec,
+		bufferPool:   pool,
+		logger:       logger.New().Named("aggregation"),
+		format:       format,
 	}
 }
 
@@ -68,10 +73,10 @@ type rawPromJSONData struct {
 	Error     string `json:"error"`
 }
 
-func (a *MultiTenantRuleAggregator) Handle(c *fiber.Ctx) error {
+func (a *MultiTenantRuleAggregator) Handle(c *gin.Context) {
 	ids := rbac.AuthorizedClusterIDs(c)
 	a.logger.With(
-		"request", c.Path(),
+		"request", c.FullPath(),
 	).Debugf("aggregating query over %d tenants", len(ids))
 
 	buf := a.bufferPool.Get().(*bytes.Buffer)
@@ -85,41 +90,46 @@ func (a *MultiTenantRuleAggregator) Handle(c *fiber.Ctx) error {
 	// return the aggregated results.
 	groupCount := 0
 	for _, id := range ids {
-		req := c.Request()
+		c := c.Copy()
+		req := c.Request
 		req.Header.Set(a.headerCodec.Key(), a.headerCodec.Encode([]string{id}))
-		err := a.forwarder(c)
+
+		resp, err := a.cortexClient.Do(req)
 		if err != nil {
-			return err
+			a.logger.With(
+				"request", c.FullPath(),
+				"error", err,
+			).Error("error querying cortex")
+			c.AbortWithError(http.StatusInternalServerError, err)
+			return
 		}
-		resp := c.Response()
-		if code := resp.StatusCode(); code != fiber.StatusOK {
-			if code == fiber.StatusNotFound {
+		if code := resp.StatusCode; code != http.StatusOK {
+			if code == http.StatusNotFound {
 				// cortex will report 404 if there are no groups
 				continue
 			}
-			return nil
+			return
 		}
-		var body []byte
-		switch encoding := c.GetRespHeader("Content-Encoding", ""); encoding {
+		defer resp.Body.Close()
+		var bodyReader io.ReadCloser
+		switch encoding := c.GetHeader("Content-Encoding"); encoding {
 		case "gzip":
-			body, err = resp.BodyGunzip()
-			if err != nil {
-				return err
-			}
+			bodyReader, _ = gzip.NewReader(resp.Body)
 		case "brotli":
-			body, err = resp.BodyUnbrotli()
-			if err != nil {
-				return err
-			}
+			bodyReader = io.NopCloser(brotli.NewReader(resp.Body))
 		case "deflate":
-			body, err = resp.BodyInflate()
-			if err != nil {
-				return err
-			}
+			bodyReader = flate.NewReader(resp.Body)
 		case "":
-			body = resp.Body()
+			bodyReader = resp.Body
 		default:
-			return fmt.Errorf("unsupported Content-Encoding: %s", encoding)
+			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("unsupported Content-Encoding: %s", encoding))
+			return
+		}
+
+		body, err := io.ReadAll(bodyReader)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			return
 		}
 
 		switch a.format {
@@ -129,11 +139,12 @@ func (a *MultiTenantRuleAggregator) Handle(c *fiber.Ctx) error {
 		case PrometheusRuleGroupsJSON:
 			rawData := rawPromJSONData{}
 			if err := json.Unmarshal(body, &rawData); err != nil {
-				return err
+				c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("error parsing cortex response: %s", err))
+				return
 			}
 			if rawData.Status != "success" {
 				a.logger.With(
-					"request", c.Path(),
+					"request", c.FullPath(),
 					"status", rawData.Status,
 					"errorType", rawData.ErrorType,
 					"error", rawData.Error,
@@ -149,17 +160,13 @@ func (a *MultiTenantRuleAggregator) Handle(c *fiber.Ctx) error {
 				buf.Write(raw)
 			}
 		}
-		resp.Reset()
 	}
 
 	switch a.format {
 	case NamespaceKeyedYAML:
-		c.Set("Content-Type", "application/yaml")
+		c.Data(http.StatusOK, "application/yaml", buf.Bytes())
 	case PrometheusRuleGroupsJSON:
-		c.Set("Content-Type", "application/json")
 		buf.WriteString(`]},"errorType":"","error":""}`)
+		c.Data(http.StatusOK, "application/json", buf.Bytes())
 	}
-	c.Response().SetBody(buf.Bytes())
-	c.Status(fiber.StatusOK)
-	return nil
 }

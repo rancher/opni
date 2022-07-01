@@ -37,12 +37,12 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
-          - name: NODE_FEATURE_DISCOVERY_IMAGE
-            value: k8s.gcr.io/nfd/node-feature-discovery:v0.7.0
-          - name: OPNI_SYSTEM_NAMESPACE
+          - name: POD_NAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: NODE_FEATURE_DISCOVERY_IMAGE
+            value: k8s.gcr.io/nfd/node-feature-discovery:v0.7.0
           args:
           - --health-probe-bind-address=:8081
           - --metrics-bind-address=127.0.0.1:8080
@@ -75,6 +75,9 @@ spec:
               readOnly: true
             - mountPath: /host-etc/os-release
               name: host-os-release
+            {{- if .Values.volumeMounts }}
+            {{- toYaml .Values.volumeMounts | nindent 12 }}
+            {{- end }}
         - name: kube-rbac-proxy
           image: gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0
           args:
@@ -95,6 +98,9 @@ spec:
             path: /etc/os-release
             type: File
           name: host-os-release
+        {{- if .Values.volumes }}
+        {{- toYaml .Values.volumes | nindent 8 }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

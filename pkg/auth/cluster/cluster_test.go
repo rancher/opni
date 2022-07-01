@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,11 +22,12 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/keyring"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/valyala/fasthttp/fasthttputil"
+	"go.uber.org/zap/zapcore"
 )
 
 func bodyStr(body io.ReadCloser) string {
@@ -35,10 +36,9 @@ func bodyStr(body io.ReadCloser) string {
 	return buf.String()
 }
 
-var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Label(test.Slow, test.TimeSensitive), func() {
-	var app *fiber.App
+var _ = Describe("Cluster Auth", Ordered, Label("slow", "temporal"), func() {
+	var router *gin.Engine
 	var ctrl *gomock.Controller
-	var client *http.Client
 	var addr string
 	newRequest := func(method string, target string, body io.Reader) *http.Request {
 		return util.Must(http.NewRequest(method, "http://"+addr+target, body))
@@ -48,38 +48,31 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 	})
 	Context("invalid auth headers", func() {
 		BeforeAll(func() {
-			app = fiber.New(fiber.Config{
-				DisableStartupMessage: true,
-			})
+			router = gin.New()
 			broker := test.NewTestKeyringStoreBroker(ctrl)
 			cm, err := cluster.New(context.Background(), broker, "X-Test")
 			Expect(err).NotTo(HaveOccurred())
-			app.Use(cm.Handle)
-			app.Post("/", func(c *fiber.Ctx) error {
-				return c.SendStatus(http.StatusOK)
+			router.Use(cm.Handle)
+			router.POST("/", func(c *gin.Context) {
+				c.Status(http.StatusOK)
 			})
-			listener := fasthttputil.NewInmemoryListener()
-			go app.Listener(listener)
+			listener, err := net.Listen("tcp4", ":0")
+			Expect(err).NotTo(HaveOccurred())
+
+			go router.RunListener(listener)
 			addr = listener.Addr().String()
-			client = &http.Client{
-				Transport: &http.Transport{
-					Dial: func(network, addr string) (net.Conn, error) {
-						return listener.Dial()
-					},
-				},
-			}
 			for {
-				_, err := client.Get("http://" + addr)
+				_, err := http.Get("http://" + addr)
 				if err == nil {
 					break
 				}
 				time.Sleep(10 * time.Millisecond)
 			}
-			DeferCleanup(app.Shutdown)
+			DeferCleanup(listener.Close)
 		})
 		When("no auth header is provided", func() {
 			It("should return http 400", func() {
-				resp, err := client.Do(newRequest(http.MethodPost, "/", nil))
+				resp, err := http.DefaultClient.Do(newRequest(http.MethodPost, "/", nil))
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
@@ -89,7 +82,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 			It("should return http 400", func() {
 				req := newRequest(http.MethodPost, "/", nil)
 				req.Header.Set("Authorization", "foo")
-				resp, err := client.Do(req)
+				resp, err := http.DefaultClient.Do(req)
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
@@ -99,7 +92,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 			It("should return http 400", func() {
 				req := newRequest(http.MethodPost, "/", nil)
 				req.Header.Set("Authorization", "MAC foo")
-				resp, err := client.Do(req)
+				resp, err := http.DefaultClient.Do(req)
 				Expect(err).NotTo(HaveOccurred())
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
@@ -110,35 +103,28 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 		var handler test.KeyringStoreHandler
 		Context("invalid requests", func() {
 			JustBeforeEach(func() {
-				app = fiber.New(fiber.Config{
-					DisableStartupMessage: true,
-				})
+				router = gin.New()
 				broker := test.NewTestKeyringStoreBroker(ctrl, handler)
 				cm, err := cluster.New(context.Background(), broker, "X-Test")
 				Expect(err).NotTo(HaveOccurred())
-				app.Use(cm.Handle)
-				app.Post("/", func(c *fiber.Ctx) error {
-					return c.SendStatus(http.StatusOK)
+				router.Use(cm.Handle)
+				router.POST("/", func(c *gin.Context) {
+					c.Status(http.StatusOK)
 				})
-				listener := fasthttputil.NewInmemoryListener()
-				go app.Listener(listener)
+				listener, err := net.Listen("tcp4", ":0")
+				Expect(err).NotTo(HaveOccurred())
+
+				go router.RunListener(listener)
 				addr = listener.Addr().String()
-				client = &http.Client{
-					Transport: &http.Transport{
-						Dial: func(network, addr string) (net.Conn, error) {
-							return listener.Dial()
-						},
-					},
-				}
 				for {
-					_, err := client.Get("http://" + addr)
+					_, err := http.Get("http://" + addr)
 					if err == nil {
 						break
 					}
 					time.Sleep(10 * time.Millisecond)
 				}
 				DeferCleanup(func() {
-					app.Shutdown()
+					listener.Close()
 					handler = nil
 				})
 			})
@@ -152,11 +138,10 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 				It("should return http 401", func() {
 					req := newRequest(http.MethodPost, "/", nil)
 					req.Header.Set("Authorization", validAuthHeader("cluster-1", ""))
-					resp, err := client.Do(req)
+					resp, err := http.DefaultClient.Do(req)
 					Expect(err).NotTo(HaveOccurred())
 					defer resp.Body.Close()
 					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-					Expect(bodyStr(resp.Body)).To(Equal(http.StatusText(http.StatusUnauthorized)))
 				})
 			})
 
@@ -172,11 +157,10 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 				It("should return http 401", func() {
 					req := newRequest(http.MethodPost, "/", nil)
 					req.Header.Set("Authorization", validAuthHeader("cluster-1", ""))
-					resp, err := client.Do(req)
+					resp, err := http.DefaultClient.Do(req)
 					Expect(err).NotTo(HaveOccurred())
 					defer resp.Body.Close()
 					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-					Expect(bodyStr(resp.Body)).To(Equal(http.StatusText(http.StatusUnauthorized)))
 				})
 			})
 
@@ -194,7 +178,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 					It("should return an internal server error", func() {
 						req := newRequest(http.MethodPost, "/", nil)
 						req.Header.Set("Authorization", validAuthHeader("cluster-1", ""))
-						resp, err := client.Do(req)
+						resp, err := http.DefaultClient.Do(req)
 						Expect(err).NotTo(HaveOccurred())
 						defer resp.Body.Close()
 						Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
@@ -213,21 +197,22 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 					It("should return http 401", func() {
 						req := newRequest(http.MethodPost, "/", strings.NewReader("not-matching"))
 						req.Header.Set("Authorization", validAuthHeader("cluster-1", "Not_Matching"))
-						resp, err := client.Do(req)
+						resp, err := http.DefaultClient.Do(req)
 						Expect(err).NotTo(HaveOccurred())
 						defer resp.Body.Close()
 						Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-						Expect(bodyStr(resp.Body)).To(Equal(http.StatusText(http.StatusUnauthorized)))
 					})
 				})
 			})
 
 			Context("request timing", func() {
 				BeforeAll(func() {
-					// temporarily pause garbage collection to avoid interfering with timing
+					// temporarily pause garbage collection and debug logging to avoid interfering with timing
 					gcPercent := debug.SetGCPercent(-1)
+					logger.DefaultLogLevel.SetLevel(zapcore.ErrorLevel)
 					DeferCleanup(func() {
 						debug.SetGCPercent(gcPercent)
+						logger.DefaultLogLevel.SetLevel(zapcore.DebugLevel)
 					})
 				})
 				BeforeEach(func() {
@@ -261,7 +246,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 						exp.SampleDuration("valid mac, cluster does not exist", func(int) {
 							req := newRequest(http.MethodPost, "/", bytes.NewReader(largeBody))
 							req.Header.Set("Authorization", validDoesNotExist)
-							resp, err := client.Do(req)
+							resp, err := http.DefaultClient.Do(req)
 							Expect(err).NotTo(HaveOccurred())
 							defer resp.Body.Close()
 							Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
@@ -275,7 +260,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 						exp.SampleDuration("valid mac, cluster exists", func(int) {
 							req := newRequest(http.MethodPost, "/", bytes.NewReader(largeBody))
 							req.Header.Set("Authorization", invalidDoesNotExist)
-							resp, err := client.Do(req)
+							resp, err := http.DefaultClient.Do(req)
 							Expect(err).NotTo(HaveOccurred())
 							defer resp.Body.Close()
 							Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
@@ -289,7 +274,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 						exp.SampleDuration("invalid mac, cluster exists", func(int) {
 							req := newRequest(http.MethodPost, "/", bytes.NewReader(largeBody))
 							req.Header.Set("Authorization", invalidExists)
-							resp, err := client.Do(req)
+							resp, err := http.DefaultClient.Do(req)
 							Expect(err).NotTo(HaveOccurred())
 							defer resp.Body.Close()
 							Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
@@ -325,37 +310,31 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 		})
 		Context("valid requests", func() {
 			JustBeforeEach(func() {
-				app = fiber.New(fiber.Config{
-					DisableStartupMessage: true,
-				})
+				router = gin.New()
 				broker := test.NewTestKeyringStoreBroker(ctrl, handler)
 				cm, err := cluster.New(context.Background(), broker, "X-Test")
 				Expect(err).NotTo(HaveOccurred())
-				app.Use(cm.Handle)
-				app.Post("/", func(c *fiber.Ctx) error {
+				router.Use(cm.Handle)
+				router.POST("/", func(c *gin.Context) {
 					defer GinkgoRecover()
 					Expect(cluster.AuthorizedID(c)).To(Equal("cluster-1"))
 					Expect(cluster.AuthorizedKeys(c)).NotTo(BeNil())
-					return c.SendStatus(http.StatusOK)
+					c.Status(http.StatusOK)
 				})
-				listener := fasthttputil.NewInmemoryListener()
-				go app.Listener(listener)
+				listener, err := net.Listen("tcp4", ":0")
+				Expect(err).NotTo(HaveOccurred())
+
+				go router.RunListener(listener)
 				addr = listener.Addr().String()
-				client = &http.Client{
-					Transport: &http.Transport{
-						Dial: func(network, addr string) (net.Conn, error) {
-							return listener.Dial()
-						},
-					},
-				}
+
 				for {
-					_, err := client.Get("http://" + addr)
+					_, err := http.DefaultClient.Get("http://" + addr)
 					if err == nil {
 						break
 					}
 					time.Sleep(10 * time.Millisecond)
 				}
-				DeferCleanup(app.Shutdown)
+				DeferCleanup(listener.Close)
 			})
 
 			When("the request MAC matches the request body", func() {
@@ -374,7 +353,7 @@ var _ = Describe("Cluster Auth", Ordered, test.EnableIfCI[FlakeAttempts](5), Lab
 				It("should return http 200", func() {
 					req := newRequest(http.MethodPost, "/", strings.NewReader("payload"))
 					req.Header.Set("Authorization", validAuthHeader("cluster-1", "payload"))
-					resp, err := client.Do(req)
+					resp, err := http.DefaultClient.Do(req)
 					Expect(err).NotTo(HaveOccurred())
 					defer resp.Body.Close()
 					Expect(resp.StatusCode).To(Equal(http.StatusOK))

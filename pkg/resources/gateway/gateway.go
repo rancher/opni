@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -41,7 +42,7 @@ func NewReconciler(
 	}
 }
 
-func (r *Reconciler) Reconcile() (reconcile.Result, error) {
+func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 	updated, err := r.updateImageStatus()
 	if err != nil {
 		return util.RequeueErr(err).Result()
@@ -86,5 +87,21 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	if op := resources.ReconcileAll(r, allResources); op.ShouldRequeue() {
 		return op.Result()
 	}
+
+	// Post-reconcile, wait for the public service's load balancer to be ready
+	if op := r.waitForServiceEndpoints(); op.ShouldRequeue() {
+		return op.Result()
+	}
+	if r.gw.Spec.ServiceType == corev1.ServiceTypeLoadBalancer {
+		if op := r.waitForLoadBalancer(); op.ShouldRequeue() {
+			return op.Result()
+		}
+	}
+
+	r.gw.Status.Ready = true
+	if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
+		return util.RequeueErr(err).Result()
+	}
+
 	return util.DoNotRequeue().Result()
 }

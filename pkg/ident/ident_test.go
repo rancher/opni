@@ -19,7 +19,7 @@ func newTestProvider() ident.Provider {
 	return &testProvider{}
 }
 
-var _ = Describe("Ident", func() {
+var _ = Describe("Ident", Label("unit"), func() {
 	When("registering a new provider", func() {
 		It("should succeed if the provider does not exist yet", func() {
 			Expect(ident.RegisterProvider("test1", newTestProvider)).To(Succeed())

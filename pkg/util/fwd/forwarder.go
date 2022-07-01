@@ -1,15 +1,14 @@
 package fwd
 
 import (
+	"bufio"
 	"crypto/tls"
-	"fmt"
+	"net/http"
 	"strings"
-	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/valyala/fasthttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.uber.org/zap"
 )
 
@@ -17,6 +16,7 @@ type ForwarderOptions struct {
 	logger    *zap.SugaredLogger
 	tlsConfig *tls.Config
 	name      string
+	destHint  string
 }
 
 type ForwarderOption func(*ForwarderOptions)
@@ -35,7 +35,7 @@ func WithLogger(logger *zap.SugaredLogger) ForwarderOption {
 
 func WithName(name string) ForwarderOption {
 	return func(o *ForwarderOptions) {
-		o.name = strings.TrimSpace(name) + " "
+		o.name = strings.TrimSpace(name)
 	}
 }
 
@@ -45,7 +45,13 @@ func WithTLS(tlsConfig *tls.Config) ForwarderOption {
 	}
 }
 
-func To(addr string, opts ...ForwarderOption) func(*fiber.Ctx) error {
+func WithDestHint(hint string) ForwarderOption {
+	return func(o *ForwarderOptions) {
+		o.destHint = hint
+	}
+}
+
+func To(addr string, opts ...ForwarderOption) gin.HandlerFunc {
 	defaultLogger := logger.New(
 		logger.WithSampling(&zap.SamplingConfig{
 			Initial:    1,
@@ -61,54 +67,64 @@ func To(addr string, opts ...ForwarderOption) func(*fiber.Ctx) error {
 		options.logger = options.logger.Named(options.name)
 	}
 
-	hostClient := &fasthttp.HostClient{
-		MaxConns:                 1024 * 8,
-		ReadTimeout:              10 * time.Second,
-		WriteTimeout:             10 * time.Second,
-		NoDefaultUserAgentHeader: true,
-		DisablePathNormalizing:   true,
-		Addr:                     addr,
-		IsTLS:                    options.tlsConfig != nil,
-		TLSConfig:                options.tlsConfig,
-	}
+	transport := otelhttp.NewTransport(&http.Transport{
+		TLSClientConfig: options.tlsConfig,
+	})
 
-	return func(c *fiber.Ctx) error {
-		forwardedFor := c.IP()
-		forwardedHost := c.Hostname()
-		forwardedProto := c.Protocol()
+	tlsEnabled := options.tlsConfig != nil
+
+	return func(c *gin.Context) {
+		if tlsEnabled {
+			c.Request.URL.Scheme = "https"
+		} else {
+			c.Request.URL.Scheme = "http"
+		}
+		c.Request.URL.Host = addr
+
+		forwardedFor := c.RemoteIP()
+		forwardedHost := c.Request.Host
+		forwardedProto := c.Request.Proto
+		to := addr
+		if options.destHint != "" {
+			to += " (" + options.destHint + ")"
+		}
 		options.logger.With(
-			"method", c.Method(),
-			"path", c.Path(),
-			"to", addr,
+			"method", c.Request.Method,
+			"path", c.FullPath(),
+			"to", to,
 			"for", forwardedFor,
 			"host", forwardedHost,
+			"scheme", c.Request.URL.Scheme,
 		).Debugf("=>")
 
-		req := c.Request()
-		resp := c.Response()
-		req.Header.Del(fiber.HeaderConnection)
-		req.Header.Set(fiber.HeaderXForwardedFor, forwardedFor)
-		req.Header.Set(fiber.HeaderXForwardedHost, forwardedHost)
-		req.Header.Set(fiber.HeaderXForwardedProto, forwardedProto)
-		if hostClient.IsTLS {
-			req.Header.Set(fiber.HeaderXForwardedSsl, "on")
+		c.Header("X-Forwarded-For", forwardedFor)
+		c.Header("X-Forwarded-Host", forwardedHost)
+		c.Header("X-Forwarded-Proto", forwardedProto)
+		if options.tlsConfig != nil {
+			c.Header("X-Forwarded-Ssl", "on")
 		}
 
-		req.SetRequestURI(utils.UnsafeString(req.RequestURI()))
-		if err := hostClient.Do(req, resp); err != nil {
+		resp, err := transport.RoundTrip(c.Request)
+		if err != nil {
 			options.logger.With(
 				zap.Error(err),
-				"req", c.Path(),
+				"req", c.FullPath(),
 			).Error("error forwarding request")
-			return fmt.Errorf("error forwarding request: %w", err)
+			c.String(http.StatusInternalServerError, err.Error())
+			return
 		}
-		resp.Header.Del(fiber.HeaderConnection)
-		if resp.StatusCode()/100 >= 4 {
+		for k, vs := range resp.Header {
+			for _, v := range vs {
+				c.Header(k, v)
+			}
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode/100 >= 4 {
 			options.logger.With(
-				"req", c.Path(),
-				"status", resp.StatusCode(),
+				"req", c.FullPath(),
+				"status", resp.StatusCode,
 			).Info("server replied with error")
 		}
-		return nil
+		bufio.NewReader(resp.Body).WriteTo(c.Writer)
 	}
 }

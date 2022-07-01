@@ -206,7 +206,7 @@ func TokenStoreTestSuite[T storage.TokenStore](
 
 				wg := sync.WaitGroup{}
 				start := make(chan struct{})
-				count := testutil.IfCI(5).Else(10)
+				count := testutil.IfCI(3).Else(5)
 				for i := 0; i < count; i++ {
 					wg.Add(1)
 					go func() {

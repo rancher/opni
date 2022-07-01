@@ -17,6 +17,14 @@ func NewK8sClient(options ClientOptions) (client.Client, error) {
 	crOpts := client.Options{
 		Scheme: options.Scheme,
 	}
+	restConfig, err := NewRestConfig(options)
+	if err != nil {
+		return nil, err
+	}
+	return client.New(restConfig, crOpts)
+}
+
+func NewRestConfig(options ClientOptions) (*rest.Config, error) {
 	var restConfig *rest.Config
 	switch {
 	case options.Kubeconfig != nil:
@@ -40,5 +48,5 @@ func NewK8sClient(options ClientOptions) (client.Client, error) {
 			return nil, err
 		}
 	}
-	return client.New(restConfig, crOpts)
+	return restConfig, nil
 }

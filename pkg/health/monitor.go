@@ -48,11 +48,21 @@ func NewMonitor(opts ...MonitorOption) *Monitor {
 }
 
 func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdater) {
+	defer func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		m.currentHealth = make(map[string]*corev1.Health)
+		m.currentStatus = make(map[string]*corev1.Status)
+	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case update := <-updater.HealthC():
+		case update, ok := <-updater.HealthC():
+			if !ok {
+				m.lg.Debug("health update channel closed")
+				return
+			}
 			m.mu.Lock()
 			m.lg.With(
 				"id", update.ID,
@@ -61,7 +71,11 @@ func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdater) {
 			).Info("received health update")
 			m.currentHealth[update.ID] = update.Health
 			m.mu.Unlock()
-		case update := <-updater.StatusC():
+		case update, ok := <-updater.StatusC():
+			if !ok {
+				m.lg.Debug("status update channel closed")
+				return
+			}
 			m.mu.Lock()
 			m.lg.With(
 				"id", update.ID,

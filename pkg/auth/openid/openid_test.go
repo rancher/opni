@@ -3,11 +3,12 @@ package openid_test
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jwt"
 	jwtopenid "github.com/lestrrat-go/jwx/jwt/openid"
@@ -21,9 +22,8 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 )
 
-var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5), Label(test.TimeSensitive), func() {
-	var app *fiber.App
-
+var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5), Label("temporal"), func() {
+	var app *gin.Engine
 	Context("no server errors", func() {
 		BeforeEach(func() {
 			mw, err := openid.New(waitctx.Background(), v1beta1.AuthProviderSpec{
@@ -36,10 +36,10 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5)
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			app = fiber.New()
+			app = gin.New()
 			app.Use(mw.Handle)
-			app.All("/", func(c *fiber.Ctx) error {
-				return c.SendStatus(http.StatusOK)
+			app.Any("/", func(c *gin.Context) {
+				c.Status(http.StatusOK)
 			})
 		})
 
@@ -47,12 +47,10 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5)
 			Eventually(func() error {
 				req := httptest.NewRequest(http.MethodGet, "/", nil)
 				req.Header.Set("Authorization", "Bearer foo")
-				resp, err := app.Test(req)
-				if err != nil {
-					return err
-				}
-				if resp.StatusCode != http.StatusOK {
-					return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+				recorder := httptest.NewRecorder()
+				app.ServeHTTP(recorder, req)
+				if recorder.Code != http.StatusOK {
+					return fmt.Errorf("unexpected status code: %d", recorder.Code)
 				}
 				return nil
 			}, 2*time.Second, 50*time.Millisecond).Should(Succeed())
@@ -74,12 +72,10 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5)
 			Eventually(func() error {
 				req := httptest.NewRequest(http.MethodGet, "/", nil)
 				req.Header.Set("Authorization", "Bearer "+string(token))
-				resp, err := app.Test(req)
-				if err != nil {
-					return err
-				}
-				if resp.StatusCode != http.StatusOK {
-					return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+				recorder := httptest.NewRecorder()
+				app.ServeHTTP(recorder, req)
+				if recorder.Code != http.StatusOK {
+					return fmt.Errorf("unexpected status code: %d", recorder.Code)
 				}
 				return nil
 			}, 2*time.Second, 50*time.Millisecond).Should(Succeed())
@@ -103,11 +99,9 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5)
 				Eventually(func() int {
 					req := httptest.NewRequest(http.MethodGet, "/", nil)
 					req.Header.Set("Authorization", "Bearer "+string(token))
-					resp, err := app.Test(req)
-					if err != nil {
-						return -1
-					}
-					return resp.StatusCode
+					recorder := httptest.NewRecorder()
+					app.ServeHTTP(recorder, req)
+					return recorder.Code
 				}, 2*time.Second, 50*time.Millisecond).Should(Equal(http.StatusUnauthorized))
 			})
 		})
@@ -116,11 +110,9 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5)
 			It("should return http 401", func() {
 				Eventually(func() int {
 					req := httptest.NewRequest(http.MethodGet, "/", nil)
-					resp, err := app.Test(req)
-					if err != nil {
-						return -1
-					}
-					return resp.StatusCode
+					recorder := httptest.NewRecorder()
+					app.ServeHTTP(recorder, req)
+					return recorder.Code
 				}, 2*time.Second, 50*time.Millisecond).Should(Equal(http.StatusUnauthorized))
 			})
 		})
@@ -141,18 +133,17 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5)
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				app := fiber.New()
+				app := gin.New()
 				app.Use(mw.Handle)
-				app.All("/", func(c *fiber.Ctx) error {
-					return c.SendStatus(http.StatusOK)
+				app.Any("/", func(c *gin.Context) {
+					c.Status(http.StatusOK)
 				})
 
 				Consistently(func() int {
-					resp, err := app.Test(httptest.NewRequest(http.MethodGet, "/", nil))
-					if err != nil {
-						return -1
-					}
-					return resp.StatusCode
+					req := httptest.NewRequest(http.MethodGet, "/", nil)
+					recorder := httptest.NewRecorder()
+					app.ServeHTTP(recorder, req)
+					return recorder.Code
 				}, 250*time.Millisecond).Should(Equal(http.StatusServiceUnavailable))
 
 				ctx, ca := context.WithCancel(context.Background())
@@ -162,11 +153,9 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5)
 				Eventually(func() int {
 					req := httptest.NewRequest(http.MethodGet, "/", nil)
 					req.Header.Set("Authorization", "Bearer foo")
-					resp, err := app.Test(req)
-					if err != nil {
-						return -1
-					}
-					return resp.StatusCode
+					recorder := httptest.NewRecorder()
+					app.ServeHTTP(recorder, req)
+					return recorder.Code
 				}, 5*time.Second).Should(Equal(http.StatusOK))
 			})
 		})
@@ -183,11 +172,16 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5)
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				app := fiber.New()
+				app := gin.New()
 				app.Use(mw.Handle)
-				app.All("/", func(c *fiber.Ctx) error {
-					return c.SendStatus(http.StatusOK)
+				app.Any("/", func(c *gin.Context) {
+					c.Status(http.StatusOK)
 				})
+				listener, err := net.Listen("tcp4", ":0")
+				Expect(err).NotTo(HaveOccurred())
+				DeferCleanup(listener.Close)
+
+				go app.RunListener(listener)
 				idt, err := jwtopenid.NewBuilder().
 					Audience([]string{"foo"}).
 					Issuer("http://" + discovery.addr).
@@ -203,11 +197,9 @@ var _ = Describe("OpenID Middleware", Ordered, test.EnableIfCI[FlakeAttempts](5)
 				Eventually(func() int {
 					req := httptest.NewRequest(http.MethodGet, "/", nil)
 					req.Header.Set("Authorization", "Bearer "+string(token))
-					resp, err := app.Test(req)
-					if err != nil {
-						return -1
-					}
-					return resp.StatusCode
+					recorder := httptest.NewRecorder()
+					app.ServeHTTP(recorder, req)
+					return recorder.Code
 				}, 2*time.Second, 50*time.Millisecond).Should(Equal(http.StatusUnauthorized))
 			})
 		})

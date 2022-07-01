@@ -15,10 +15,9 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/rancher/opni/pkg/metrics/collector"
-	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("Remote Collector", Label(test.Unit), func() {
+var _ = Describe("Remote Collector", Label("unit"), func() {
 	It("should collect metrics from remote collectors", func() {
 		listener1 := bufconn.Listen(1024 * 1024)
 		listener2 := bufconn.Listen(1024 * 1024)

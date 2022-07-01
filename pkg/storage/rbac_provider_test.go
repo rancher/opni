@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 )
 
-var _ = Describe("RBAC Provider", Ordered, Label(test.Unit), func() {
+var _ = Describe("RBAC Provider", Ordered, Label("unit"), func() {
 	clusters := []*corev1.Cluster{
 		cluster("c1"),
 		cluster("c2", "foo", "bar"),

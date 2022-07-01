@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"sync"
@@ -12,6 +13,9 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
@@ -103,8 +107,12 @@ func (p *PluginLoader) Hook(h any) {
 
 // LoadOne loads a single plugin. It invokes PluginLoadHooks for the type of
 // the plugin being loaded and will block until all load hooks have completed.
-func (p *PluginLoader) LoadOne(md meta.PluginMeta, cc *plugin.ClientConfig) {
+func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plugin.ClientConfig) {
 	p.ensureNotCompleted()
+	tracer := otel.Tracer("pluginloader")
+	tc, span := tracer.Start(ctx, "LoadOne",
+		trace.WithAttributes(attribute.String("plugin", md.Module)))
+	defer span.End()
 
 	lg := p.logger
 	client := plugin.NewClient(cc)
@@ -143,6 +151,9 @@ func (p *PluginLoader) LoadOne(md meta.PluginMeta, cc *plugin.ClientConfig) {
 					wg.Add(1)
 					h := h
 					go func() {
+						_, span := tracer.Start(tc, "PluginLoadHook",
+							trace.WithAttributes(attribute.String("caller", h.caller)))
+						defer span.End()
 						defer wg.Done()
 						done := h.hook.Invoke(raw, md, c.Conn)
 						select {
@@ -178,7 +189,9 @@ func (p *PluginLoader) LoadOne(md meta.PluginMeta, cc *plugin.ClientConfig) {
 // is called, it is unsafe to call LoadPlugins() or LoadOne() again for this
 // plugin loader, although new hooks can still be added and will be invoked
 // immediately according to the current state of the plugin loader.
-func (p *PluginLoader) LoadPlugins(conf v1beta1.PluginsSpec, reattach ...*plugin.ReattachConfig) {
+func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec, reattach ...*plugin.ReattachConfig) {
+	tc, span := otel.Tracer("pluginloader").Start(ctx, "LoadPlugins")
+
 	wg := &sync.WaitGroup{}
 	for _, dir := range conf.Dirs {
 		pluginPaths, err := plugin.Discover("plugin_*", dir)
@@ -197,11 +210,12 @@ func (p *PluginLoader) LoadPlugins(conf v1beta1.PluginsSpec, reattach ...*plugin
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				p.LoadOne(md, cc)
+				p.LoadOne(tc, md, cc)
 			}()
 		}
 	}
 	go func() {
+		defer span.End()
 		wg.Wait()
 		p.Complete()
 	}()

@@ -2,13 +2,18 @@ package openid
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type DiscoverySpec struct {
@@ -21,6 +26,9 @@ type DiscoverySpec struct {
 	// obtained from the discovery endpoint, and will match the `iss' claim
 	// in the ID Tokens issued by the OP.
 	Issuer string `json:"issuer"`
+
+	// Optional path to the issuer's CA Certificate.
+	CACert *string `json:"cacert,omitempty"`
 }
 
 var (
@@ -57,6 +65,19 @@ func fetchWellKnownConfig(dc *DiscoverySpec) (*WellKnownConfiguration, error) {
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
+	}
+	if dc.CACert != nil {
+		pool := x509.NewCertPool()
+		cacert, err := os.ReadFile(*dc.CACert)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA certificate: %w", err)
+		}
+		pool.AppendCertsFromPEM(cacert)
+		client.Transport = otelhttp.NewTransport(&http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: pool,
+			},
+		})
 	}
 	u, err := url.Parse(dc.Issuer)
 	if err != nil {

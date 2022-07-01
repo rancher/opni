@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -164,31 +164,42 @@ func (m *ClusterMiddleware) methodInExcludeList(method string) bool {
 	return false
 }
 
-func (m *ClusterMiddleware) Handle(c *fiber.Ctx) error {
+func (m *ClusterMiddleware) Handle(c *gin.Context) {
 	lg := m.logger
-	authHeader := c.Get("Authorization")
+	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
 		lg.Debug("unauthorized: authorization header required")
-		return c.Status(fiber.StatusBadRequest).SendString("authorization header required")
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
 	}
 
-	code, clusterID, sharedKeys := m.doKeyringVerify(authHeader, c.Body())
+	body, err := c.GetRawData()
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	code, clusterID, sharedKeys := m.doKeyringVerify(authHeader, body)
 	if code != http.StatusOK {
-		return c.SendStatus(code)
+		c.AbortWithStatus(code)
+		return
 	}
 
-	c.Request().Header.Add(m.headerKey, string(clusterID))
-	c.Locals(string(SharedKeysKey), sharedKeys)
-	c.Locals(string(ClusterIDKey), string(clusterID))
-	return c.Next()
+	c.Header(m.headerKey, clusterID)
+	c.Set(string(SharedKeysKey), sharedKeys)
+	c.Set(string(ClusterIDKey), string(clusterID))
 }
 
-func AuthorizedKeys(c *fiber.Ctx) *keyring.SharedKeys {
-	return c.Locals(string(SharedKeysKey)).(*keyring.SharedKeys)
+func AuthorizedKeys(c *gin.Context) *keyring.SharedKeys {
+	value, exists := c.Get(string(SharedKeysKey))
+	if !exists {
+		return nil
+	}
+	return value.(*keyring.SharedKeys)
 }
 
-func AuthorizedID(c *fiber.Ctx) string {
-	return c.Locals(string(ClusterIDKey)).(string)
+func AuthorizedID(c *gin.Context) string {
+	return c.GetString(string(ClusterIDKey))
 }
 
 func StreamAuthorizedKeys(ctx context.Context) *keyring.SharedKeys {

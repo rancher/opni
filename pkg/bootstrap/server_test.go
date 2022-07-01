@@ -35,7 +35,7 @@ type testCapBackend struct {
 	CanInstall bool
 }
 
-var _ = Describe("Server", Label(test.Slow), func() {
+var _ = Describe("Server", Label("slow"), func() {
 	var token *corev1.BootstrapToken
 	var token2 *corev1.BootstrapToken
 	var cert *tls.Certificate

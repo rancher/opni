@@ -27,17 +27,20 @@ func BuildHooksCmd() *cobra.Command {
 }
 
 func BuildWaitForResourceCmd() *cobra.Command {
-	var group, version, resource, namespace, jsonPath string
-	jsonPathParser := jsonpath.New("jsonPath")
+	var group, version, resource, namespace string
+	var jsonPaths []string
+	var jsonPathParsers []*jsonpath.JSONPath
 	cmd := &cobra.Command{
-		Use:   "wait-for-resource [--namespace=<namespace>] [--group=<group>] [--version=<version>] [--jsonpath='{...}'] --resource=<resource> <name>",
+		Use:   "wait-for-resource [--namespace=<ns>] [--group=<group>] [--version=<version>] [--jsonpath={.expr} ...] --resource=<resource> <name>",
 		Short: "Wait for a resource to be created, and optionally match a JSONPath expression.",
 		Args:  cobra.ExactArgs(1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if jsonPath != "" {
-				if err := jsonPathParser.Parse(jsonPath); err != nil {
-					return fmt.Errorf("failed to parse JSONPath expression: %v", err)
+			for i, jsonPath := range jsonPaths {
+				path := jsonpath.New(fmt.Sprint(i))
+				if err := path.Parse(jsonPath); err != nil {
+					return err
 				}
+				jsonPathParsers = append(jsonPathParsers, path)
 			}
 			return nil
 		},
@@ -74,37 +77,35 @@ func BuildWaitForResourceCmd() *cobra.Command {
 			}
 			fmt.Println("Resource created.")
 
-			if jsonPath == "" {
-				return nil
-			}
+			for i, parser := range jsonPathParsers {
+				fmt.Printf("Evaluating JSONPath expression: %s\n", jsonPaths[i])
+				err = wait.PollImmediateUntil(1*time.Second, func() (bool, error) {
+					obj, err := client.Resource(gvr).Namespace(namespace).Get(cmd.Context(), args[0], v1.GetOptions{})
+					if err != nil {
+						fmt.Println(err)
+						return false, nil
+					}
+					parseResults, err := parser.FindResults(obj.UnstructuredContent())
+					if err != nil {
+						fmt.Println(err)
+						return false, nil
+					}
+					if len(parseResults) != 1 {
+						fmt.Printf("Expected 1 result, got %d\n", len(parseResults))
+						return false, nil
+					}
+					value := parseResults[0][0]
+					if value.IsNil() || value.IsZero() {
+						fmt.Println("Expression did not match.")
+						return false, nil
+					}
+					fmt.Printf("Expression matched: %v\n", value.Interface())
+					return true, nil
+				}, cmd.Context().Done())
 
-			fmt.Printf("Evaluating JSONPath expression: %s\n", jsonPath)
-			err = wait.PollImmediateUntil(1*time.Second, func() (bool, error) {
-				obj, err := client.Resource(gvr).Namespace(namespace).Get(cmd.Context(), args[0], v1.GetOptions{})
 				if err != nil {
-					fmt.Println(err)
-					return false, nil
+					return err
 				}
-				parseResults, err := jsonPathParser.FindResults(obj.UnstructuredContent())
-				if err != nil {
-					fmt.Println(err)
-					return false, nil
-				}
-				if len(parseResults) != 1 {
-					fmt.Printf("Expected 1 result, got %d\n", len(parseResults))
-					return false, nil
-				}
-				value := parseResults[0][0]
-				if value.IsNil() || value.IsZero() {
-					fmt.Println("Expression did not match.")
-					return false, nil
-				}
-				fmt.Printf("Expression matched: %v\n", value.Interface())
-				return true, nil
-			}, cmd.Context().Done())
-
-			if err != nil {
-				return err
 			}
 
 			fmt.Println("Success.")
@@ -115,7 +116,7 @@ func BuildWaitForResourceCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&version, "version", "v", "", "Version")
 	cmd.Flags().StringVarP(&resource, "resource", "r", "", "Resource")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Namespace to use")
-	cmd.Flags().StringVarP(&jsonPath, "jsonpath", "j", "", "Wait for a JSONPath expression to evaluate to a non-zero value once the resource is created")
+	cmd.Flags().StringSliceVarP(&jsonPaths, "jsonpath", "j", []string{}, "Wait for a JSONPath expression to evaluate to a non-zero value once the resource is created")
 	cmd.MarkFlagRequired("resource")
 	return cmd
 }

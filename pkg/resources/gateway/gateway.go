@@ -89,6 +89,9 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 	}
 
 	// Post-reconcile, wait for the public service's load balancer to be ready
+	if op := r.waitForServiceEndpoints(); op.ShouldRequeue() {
+		return op.Result()
+	}
 	if r.gw.Spec.ServiceType == corev1.ServiceTypeLoadBalancer {
 		if op := r.waitForLoadBalancer(); op.ShouldRequeue() {
 			return op.Result()

@@ -283,6 +283,7 @@ type GatewayStatus struct {
 	ImagePullPolicy corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	ServiceName     string                      `json:"serviceName,omitempty"`
 	LoadBalancer    *corev1.LoadBalancerIngress `json:"loadBalancer,omitempty"`
+	Endpoints       []corev1.EndpointAddress    `json:"endpoints,omitempty"`
 	Ready           bool                        `json:"ready,omitempty"`
 }
 

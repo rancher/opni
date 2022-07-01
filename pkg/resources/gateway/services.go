@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"time"
+
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	corev1 "k8s.io/api/core/v1"
@@ -73,6 +75,38 @@ func (r *Reconciler) waitForLoadBalancer() util.RequeueOp {
 	}
 	r.gw.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
 
+	if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
+		return util.RequeueErr(err)
+	}
+	return util.DoNotRequeue()
+}
+
+func (r *Reconciler) waitForServiceEndpoints() util.RequeueOp {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-monitoring",
+			Namespace: r.gw.Namespace,
+		},
+	}
+	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(svc), svc); err != nil {
+		return util.RequeueErr(err)
+	}
+	endpoints := &corev1.Endpoints{}
+	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(svc), endpoints); err != nil {
+		return util.RequeueErr(err)
+	}
+	addresses := []corev1.EndpointAddress{}
+	for _, subset := range endpoints.Subsets {
+		addresses = append(addresses, subset.Addresses...)
+	}
+	if len(addresses) == 0 {
+		r.gw.Status.Endpoints = nil
+		if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
+			return util.RequeueErr(err)
+		}
+		return util.RequeueAfter(1 * time.Second)
+	}
+	r.gw.Status.Endpoints = addresses
 	if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
 		return util.RequeueErr(err)
 	}

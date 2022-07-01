@@ -5,7 +5,7 @@ annotations:
   catalog.rancher.io/namespace: opni-cluster-system
   catalog.rancher.io/release-name: opni
 apiVersion: v2
-appVersion: 0.5.4-rc3
+appVersion: 0.5.4-rc4
 dependencies:
 - condition: opni-prometheus-crd.enabled
   name: opni-prometheus-crd
@@ -25,4 +25,4 @@ maintainers:
   name: Dan Bason
 name: opni
 type: application
-version: 0.5.4-rc3
+version: 0.5.4-rc4

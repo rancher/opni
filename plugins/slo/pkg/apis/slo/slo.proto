@@ -53,7 +53,7 @@ service SLO {
   }
 
   // Can this metric run with this service & cluster? No == error
-  rpc GetMetric(MetricRequest) returns (google.protobuf.Empty) {
+  rpc GetMetricId(MetricRequest) returns (Metric) {
     option (google.api.http) = {
       get: "/metrics/{name}/{serviceId}"
     };
@@ -184,11 +184,14 @@ message Evaluation {
 message Metric {
   string name = 1;
   string datasource = 2;
-  string MetricDescription = 3;
+  string clusterId = 3;
+  string serviceId = 4;
+  string metricId = 5;
 }
 
 message MetricRequest {
   string name = 1;
-  string serviceId = 2;
-  string clusterId = 3;
+  string datasource = 2;
+  string serviceId = 3;
+  string clusterId = 4;
 }

@@ -74,7 +74,7 @@
     },
     "/metrics/{name}/{serviceId}": {
       "get": {
-        "operationId": "SLO_GetMetric",
+        "operationId": "SLO_GetMetricId",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -94,6 +94,12 @@
             "name": "serviceId",
             "in": "path",
             "required": true,
+            "type": "string"
+          },
+          {
+            "name": "datasource",
+            "in": "query",
+            "required": false,
             "type": "string"
           },
           {
@@ -456,7 +462,13 @@
         "datasource": {
           "type": "string"
         },
-        "MetricDescription": {
+        "clusterId": {
+          "type": "string"
+        },
+        "serviceId": {
+          "type": "string"
+        },
+        "metricId": {
           "type": "string"
         }
       }

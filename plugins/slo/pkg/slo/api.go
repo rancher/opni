@@ -3,7 +3,6 @@
 package slo
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"path"
@@ -175,63 +174,52 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 		switch q.V.Type() {
 		case model.ValVector:
 			{
-				var vv model.Vector = q.V.(model.Vector)
+				vv := q.V.(model.Vector)
 				for _, v := range vv {
 
 					res.Items = append(res.Items, &sloapi.Service{
-						JobId:     (string)(v.Metric["job"]),
+						JobId:     string(v.Metric["job"]),
 						ClusterId: c.Id,
 					})
 				}
-
 			}
 		}
-
 	}
 	return res, nil
 }
 
-func (p *Plugin) GetMetric(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Metric, error) {
-	// validate we have the metrics persisted
-	_, err := p.storage.Get().Metrics.Get(path.Join("/metrics/", metricRequest.Name, "/", metricRequest.ServiceId))
-	if err != nil {
-		return nil, err
+// Assign a Job Id to a pre configured metric based on the service selected
+func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Metric, error) {
+	lg := p.logger
+	var metricId string
+	var err error
+	switch metricRequest.Datasource {
+	case MonitoringDatasource:
+		metricId, err = assignMetricToJobId(p, ctx, metricRequest)
+		if err != nil {
+			lg.Error(fmt.Sprintf("Unable to assign metric to job: %v", err))
+			return nil, err
+		}
+	case LoggingDatasource:
+		return nil, ErrNotImplemented
 	}
-	var query bytes.Buffer
-	if err = GetDownstreamMetricQueryTempl.Execute(&query, map[string]string{
-		"serviceId": metricRequest.ServiceId,
-		"Name":      metricRequest.Name,
-	}); err != nil {
-		return nil, err
-	}
-	//TODO(alex) : run the query against downstream cortex
-	return nil, ErrNotImplemented
+	return &sloapi.Metric{
+		Name:       metricRequest.Name,
+		Datasource: metricRequest.Datasource,
+		ClusterId:  metricRequest.ClusterId,
+		ServiceId:  metricRequest.ServiceId,
+		MetricId:   metricId,
+	}, nil
 }
 
 func (p *Plugin) ListMetrics(ctx context.Context, _ *emptypb.Empty) (*sloapi.MetricList, error) {
-	if len(availableQueries) == 0 {
-		InitMetricList()
-		items := make([]sloapi.Metric, len(availableQueries))
-		idx := 0
-		for _, q := range availableQueries {
-			items[idx] = sloapi.Metric{
-				Name:              q.Name(),
-				Datasource:        q.Datasource(),
-				MetricDescription: q.Description(),
-			}
-			idx += 1
-		}
-		if err := p.storage.Get().Metrics.Put(path.Join("/metrics", items[0].Name), &items[0]); err != nil {
-			return nil, err
-		}
-	}
 	items, err := list(p.storage.Get().Metrics, "/metrics")
 	if err != nil {
 		return nil, err
 	}
 	return &sloapi.MetricList{
 		Items: items,
-	}, ErrNotImplemented
+	}, nil
 }
 
 func (p *Plugin) GetFormulas(ctx context.Context, ref *corev1.Reference) (*sloapi.Formula, error) {

@@ -20,25 +20,22 @@ import (
 dagger.#Plan & {
 	client: {
 		env: {
-			GINKGO_LABEL_FILTER:    string | *""
-			DRONE:                  string | *""
-			KUBECONFIG:             string | *""
-			TAG:                    string | *"latest"
-			REPO:                   string | *"rancher"
-			IMAGE_NAME:             string | *"opni"
-			OPNI_UI_REPO:           string | *"rancher/opni-ui"
-			OPNI_UI_BRANCH:         string | *"main"
-			OPNI_UI_BUILD_IMAGE:    string | *"rancher/opni-monitoring-ui-build"
-			DASHBOARDS_VERSION:     string | *"1.3.1"
-			OPENSEARCH_VERSION:     string | *"1.3.1"
-			PLUGIN_VERSION:         string | *"0.5.4-rc4"
-			PLUGIN_PUBLISH:         string | *"0.5.4-rc4"
-			EXPECTED_REF?:          string // used by tilt
-			DOCKER_USERNAME?:       string
-			DOCKER_PASSWORD?:       dagger.#Secret
-			PULUMI_ACCESS_TOKEN?:   dagger.#Secret
-			AWS_ACCESS_KEY_ID?:     dagger.#Secret
-			AWS_SECRET_ACCESS_KEY?: dagger.#Secret
+			GINKGO_LABEL_FILTER: string | *""
+			DRONE:               string | *""
+			KUBECONFIG:          string | *""
+			TAG:                 string | *"latest"
+			REPO:                string | *"rancher"
+			OPNI_UI_REPO:        string | *"rancher/opni-ui"
+			OPNI_UI_BRANCH:      string | *"main"
+			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
+			DASHBOARDS_VERSION:  string | *"1.3.1"
+			OPENSEARCH_VERSION:  string | *"1.3.1"
+			PLUGIN_VERSION:      string | *"0.5.3"
+			PLUGIN_PUBLISH:      string | *"0.5.4-rc3"
+			DOCKER_USERNAME?:    string
+			DOCKER_PASSWORD?:    dagger.#Secret
+			TWINE_USERNAME:      string | *"__token__"
+			TWINE_PASSWORD?:     dagger.#Secret
 		}
 		filesystem: {
 			".": read: {
@@ -52,11 +49,10 @@ dagger.#Plan & {
 					"internal/cmd/testenv",
 				]
 			}
-			"bin": write: contents:             actions.build.bin
-			"web/dist": write: contents:        actions.web.dist
-			"dist/charts": write: contents:     actions.charts.output
-			"cover.out": write: contents:       actions.test.export.files["/src/cover.out"]
-			"aiops/apis/dist": write: contents: actions.aiops.packages.output
+			"bin": write: contents:         actions.build.bin
+			"web/dist": write: contents:    actions.web.dist
+			"dist/charts": write: contents: actions.charts.output
+			"cover.out": write: contents:   actions.test.export.files["/src/cover.out"]
 		}
 		network: "unix:///var/run/docker.sock": connect: dagger.#Socket
 	}
@@ -329,6 +325,16 @@ dagger.#Plan & {
 					}
 				}
 			}
+			aiops: docker.#Push & {
+				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
+				image: aiops.build.output
+				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
+			}
 		}
 
 		dashboards: {
@@ -390,20 +396,13 @@ dagger.#Plan & {
 			}
 		}
 		aiops: {
-			packages: {
-				sdist: python.#Run & {
-					script: {
-						directory: actions.build.output.rootfs
-						filename:  "src/aiops/apis/setup.py"
-					}
-					workdir: "/run/python/src/aiops/apis"
-					args: ["sdist", "-d", "/dist"]
+			sdist: python.#Run & {
+				script: {
+					directory: actions.build.output.rootfs
+					filename:  "src/aiops/apis/setup.py"
 				}
-				_subdir: core.#Subdir & {
-					input: sdist.output.rootfs
-					path:  "/dist"
-				}
-				output: _subdir.output
+				workdir: "/run/python/src/aiops/apis"
+				args: ["sdist", "-d", "/dist"]
 			}
 			build: docker.#Build & {
 				steps: [
@@ -415,12 +414,55 @@ dagger.#Plan & {
 						source:   "aiops/"
 						dest:     "."
 					},
+					docker.#Run & {
+						command: {
+							name: "pip"
+							args: ["install","-r", "requirements.txt"]
+						}
+					},
 					docker.#Set & {
 						config: {
-							cmd: ["python", "opensearch-update-service/main.py"]
+							cmd: ["python", "opni-opensearch-update-service/opensearch-update-service/app/main.py"]
 						}
 					},
 				]
+			}
+		}
+		pypi: {
+			_distImage: docker.#Build & {
+				steps: [
+					docker.#Run & {
+						input: aiops.sdist.output
+						command: {
+							name: "pip"
+							args: [ "install", "twine"]
+						}
+					},
+				]
+			}
+			upload: docker.#Run & {
+				input: _distImage.output
+				command: {
+					name: "twine"
+					args: [
+						"upload",
+						"--repository",
+						"pypi",
+						"/dist/*",
+					]
+				}
+				env: {
+					TWINE_USERNAME: client.env.TWINE_USERNAME
+					TWINE_PASSWORD: client.env.TWINE_PASSWORD
+			push: docker.#Push & {
+				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
+				image: opensearch.build.output
+				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
 			}
 		}
 	}

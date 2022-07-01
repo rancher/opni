@@ -207,6 +207,24 @@ steps:
         - drone-publish.rancher.io
       cron:
         - e2e-nightly
+  - name: publish-pypi-packages
+    image: docker
+    environment:
+      <<: *dagger_env
+      TWINE_PASSWORD:
+        from_secret: twine_password
+    commands:
+      - bin/dagger do pypi upload
+    volumes: *volumes
+    when:
+      event:
+        - tag
+      instance:
+        - drone-publish.rancher.io
+      refs:
+        - refs/heads/main
+        - refs/heads/release
+        - refs/tags/*
 volumes:
   - name: docker
     host:

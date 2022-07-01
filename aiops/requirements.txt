@@ -1,4 +1,4 @@
 elasticsearch[async]==7.13.0
 opni_nats==0.0.0.4
 pandas==1.2.3
-betterproto==1.2.5
+opni-aiops-apis==0.5.4

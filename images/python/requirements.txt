@@ -15,3 +15,4 @@ scikit_learn==0.24.1
 schedule==1.1.0
 statsmodels==0.12.2
 uvicorn==0.13.4
+opni-aiops-apis==0.5.4

@@ -3,6 +3,7 @@ package slo
 import (
 	"context"
 	"os"
+	"path"
 	"time"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -48,11 +49,28 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		Metrics:  system.NewKVStoreClient[*sloapi.Metric](p.ctx, client),
 		Formulas: system.NewKVStoreClient[*sloapi.Formula](p.ctx, client),
 	})
+	p.initMetricCache(p.ctx)
 	<-p.ctx.Done()
 }
 
+func (p *Plugin) initMetricCache(ctx context.Context) error {
+	items := make([]sloapi.Metric, len(availableQueries))
+	idx := 0
+	for _, q := range availableQueries {
+		items[idx] = sloapi.Metric{
+			Name:       q.Name(),
+			Datasource: q.Datasource(),
+		}
+		if err := p.storage.Get().Metrics.Put(path.Join("/metrics", items[idx].Name), &items[idx]); err != nil {
+			return err
+		}
+		idx += 1
+	}
+	return nil
+}
+
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
-	cc, err := intf.GetClientConn(p.ctx, "CortexAdmin") // TODO(alex): configure this context
+	cc, err := intf.GetClientConn(p.ctx, "CortexAdmin")
 	if err != nil {
 		p.logger.Error("failed to get cortex admin client", "error", err)
 		os.Exit(1)

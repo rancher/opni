@@ -174,49 +174,25 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 		switch q.V.Type() {
 		case model.ValVector:
 			{
-				var vv model.Vector = q.V.(model.Vector)
+				vv := q.V.(model.Vector)
 				for _, v := range vv {
 
 					res.Items = append(res.Items, &sloapi.Service{
-						JobId:     (string)(v.Metric["job"]),
+						JobId:     string(v.Metric["job"]),
 						ClusterId: c.Id,
 					})
 				}
-
 			}
 		}
-
 	}
 	return res, nil
 }
 
-func (p *Plugin) initMetricCache(ctx context.Context) error {
-	if len(availableQueries) == 0 {
-		InitMetricList()
-		items := make([]sloapi.Metric, len(availableQueries))
-		idx := 0
-		for _, q := range availableQueries {
-			items[idx] = sloapi.Metric{
-				Name:       q.Name(),
-				Datasource: q.Datasource(),
-			}
-			if err := p.storage.Get().Metrics.Put(path.Join("/metrics", items[idx].Name), &items[idx]); err != nil {
-				return err
-			}
-			idx += 1
-		}
-	}
-	return nil
-}
-
 // Assign a Job Id to a pre configured metric based on the service selected
-func (p *Plugin) AssignMetric(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Metric, error) {
+func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Metric, error) {
 	lg := p.logger
-	err := p.initMetricCache(ctx)
-	if err != nil {
-		return nil, err
-	}
 	var metricId string
+	var err error
 	switch metricRequest.Datasource {
 	case MonitoringDatasource:
 		metricId, err = assignMetricToJobId(p, ctx, metricRequest)
@@ -237,7 +213,6 @@ func (p *Plugin) AssignMetric(ctx context.Context, metricRequest *sloapi.MetricR
 }
 
 func (p *Plugin) ListMetrics(ctx context.Context, _ *emptypb.Empty) (*sloapi.MetricList, error) {
-	p.initMetricCache(ctx)
 	items, err := list(p.storage.Get().Metrics, "/metrics")
 	if err != nil {
 		return nil, err

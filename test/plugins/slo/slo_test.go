@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/gogo/status"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -13,6 +12,7 @@ import (
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -72,7 +72,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(metrics.Items[2].Name).To(Equal("uptime"))
 		})
 		It("Should be able to assign pre-configured metrics to discrete metric ids", func() {
-			_, err := sloClient.AssignMetric(ctx, &apis.MetricRequest{
+			_, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
 				Name:       "http-availability",
 				Datasource: slo.LoggingDatasource,
 				ServiceId:  "prometheus",
@@ -80,7 +80,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			})
 			Expect(err).To(HaveOccurred())
 
-			metric, err := sloClient.AssignMetric(ctx, &apis.MetricRequest{
+			metric, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
 				Name:       "uptime",
 				Datasource: slo.MonitoringDatasource,
 				ServiceId:  "prometheus",
@@ -90,7 +90,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(metric.Name).To(Equal("uptime"))
 			Expect(metric.MetricId).To(Equal("up"))
 
-			_, err = sloClient.AssignMetric(ctx, &apis.MetricRequest{
+			_, err = sloClient.GetMetricId(ctx, &apis.MetricRequest{
 				Name:       "http-latency",
 				Datasource: slo.MonitoringDatasource,
 				ServiceId:  "prometheus",

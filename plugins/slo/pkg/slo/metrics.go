@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"math"
 	"regexp"
 	"strings"
 
@@ -30,23 +31,7 @@ var (
 	`))
 )
 
-type RatioQuery struct {
-	GoodQuery  string
-	TotalQuery string
-}
-
-type goodQueryPlaceholder struct {
-	JobId    string
-	MetricId string
-	Filter   string
-}
-
-type metricTemplate struct {
-	NameRegex string
-	ServiceId string
-}
-
-func InitMetricList() {
+func init() {
 	availableQueries["uptime"] = NewPrometheusQueryImpl("uptime",
 		".*up.*",
 		"up=1", true, false,
@@ -66,6 +51,21 @@ func InitMetricList() {
 		by classifying them as good (<=300ms) or bad(>=300ms)`)
 }
 
+type RatioQuery struct {
+	GoodQuery  string
+	TotalQuery string
+}
+
+type goodQueryPlaceholder struct {
+	JobId    string
+	MetricId string
+	Filter   string
+}
+
+type metricTemplate struct {
+	NameRegex string
+	ServiceId string
+}
 type PrometheusQuery interface {
 	Name() string
 	ConstructRatio(service *api.Service) (*RatioQuery, error)
@@ -144,7 +144,7 @@ func (p *PrometheusQueryImpl) IsHistogram() bool {
 }
 
 func selectBestMatch(metrics []string) string {
-	min := int(^uint(0) >> 1) // largest int
+	min := math.MaxInt // largest int
 	metricId := ""
 	for _, m := range metrics {
 		if m == "" {
@@ -179,14 +179,14 @@ func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.Metr
 	}
 	res := make([]string, 0)
 	data := resp.GetData()
-	lg.Debug(fmt.Sprintf("Received service data:\n %s from cluster %s ", string(data), metricRequest.ClusterId))
+	lg.Debug(fmt.Sprintf("Received service data %s from cluster %s ", string(data), metricRequest.ClusterId))
 	q, err := unmarshal.UnmarshallPrometheusResponse(data)
 	if err != nil {
 		return "", err
 	}
 	switch q.V.Type() {
 	case model.ValVector:
-		var vv model.Vector = q.V.(model.Vector)
+		vv := q.V.(model.Vector)
 		if len(vv) == 0 {
 			err := status.Error(codes.NotFound,
 				fmt.Sprintf("No assignable metric '%s' for service '%s' in cluster '%s' ",
@@ -194,7 +194,7 @@ func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.Metr
 			return "", err
 		}
 		for _, v := range vv {
-			res = append(res, (string)(v.Metric["__name__"]))
+			res = append(res, string(v.Metric["__name__"]))
 		}
 		// should always have one + metric
 		lg.Debug(fmt.Sprintf("Found metricIds : %v", res))
@@ -214,9 +214,6 @@ func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.Metr
 // @returns goodQuery, totalQuery
 func fetchPreconfQueries(slo *api.ServiceLevelObjective, service *api.Service, ctx context.Context, lg hclog.Logger) (*RatioQuery, error) {
 	if slo.GetDatasource() == MonitoringDatasource {
-		if len(availableQueries) == 0 {
-			InitMetricList()
-		}
 		found := false
 		for k := range availableQueries {
 			if k == service.GetMetricName() {

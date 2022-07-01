@@ -74,7 +74,7 @@
     },
     "/metrics/{name}/{serviceId}": {
       "get": {
-        "operationId": "SLO_AssignMetric",
+        "operationId": "SLO_GetMetricId",
         "responses": {
           "200": {
             "description": "A successful response.",

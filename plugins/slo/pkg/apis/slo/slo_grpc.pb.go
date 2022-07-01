@@ -31,7 +31,7 @@ type SLOClient interface {
 	DeleteSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*ServiceLevelObjective, error)
 	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error)
-	AssignMetric(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Metric, error)
+	GetMetricId(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Metric, error)
 	ListMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricList, error)
 	GetFormulas(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*Formula, error)
 	ListFormulas(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*FormulaList, error)
@@ -112,9 +112,9 @@ func (c *sLOClient) Status(ctx context.Context, in *v1.Reference, opts ...grpc.C
 	return out, nil
 }
 
-func (c *sLOClient) AssignMetric(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Metric, error) {
+func (c *sLOClient) GetMetricId(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Metric, error) {
 	out := new(Metric)
-	err := c.cc.Invoke(ctx, "/slo.SLO/AssignMetric", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/slo.SLO/GetMetricId", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ type SLOServer interface {
 	DeleteSLO(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	CloneSLO(context.Context, *v1.Reference) (*ServiceLevelObjective, error)
 	Status(context.Context, *v1.Reference) (*SLOStatus, error)
-	AssignMetric(context.Context, *MetricRequest) (*Metric, error)
+	GetMetricId(context.Context, *MetricRequest) (*Metric, error)
 	ListMetrics(context.Context, *emptypb.Empty) (*MetricList, error)
 	GetFormulas(context.Context, *v1.Reference) (*Formula, error)
 	ListFormulas(context.Context, *emptypb.Empty) (*FormulaList, error)
@@ -231,8 +231,8 @@ func (UnimplementedSLOServer) CloneSLO(context.Context, *v1.Reference) (*Service
 func (UnimplementedSLOServer) Status(context.Context, *v1.Reference) (*SLOStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
-func (UnimplementedSLOServer) AssignMetric(context.Context, *MetricRequest) (*Metric, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AssignMetric not implemented")
+func (UnimplementedSLOServer) GetMetricId(context.Context, *MetricRequest) (*Metric, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMetricId not implemented")
 }
 func (UnimplementedSLOServer) ListMetrics(context.Context, *emptypb.Empty) (*MetricList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListMetrics not implemented")
@@ -394,20 +394,20 @@ func _SLO_Status_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SLO_AssignMetric_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _SLO_GetMetricId_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MetricRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SLOServer).AssignMetric(ctx, in)
+		return srv.(SLOServer).GetMetricId(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/slo.SLO/AssignMetric",
+		FullMethod: "/slo.SLO/GetMetricId",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SLOServer).AssignMetric(ctx, req.(*MetricRequest))
+		return srv.(SLOServer).GetMetricId(ctx, req.(*MetricRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -574,8 +574,8 @@ var SLO_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SLO_Status_Handler,
 		},
 		{
-			MethodName: "AssignMetric",
-			Handler:    _SLO_AssignMetric_Handler,
+			MethodName: "GetMetricId",
+			Handler:    _SLO_GetMetricId_Handler,
 		},
 		{
 			MethodName: "ListMetrics",

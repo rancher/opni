@@ -28,7 +28,7 @@ var _ = BeforeSuite(func() {
 	env.Start(test.WithEnableCortex(false), test.WithEnableGateway(false))
 	proc := env.Processes.Etcd.Get()
 
-	timeout := 50 * time.Millisecond
+	timeout := 500 * time.Millisecond
 	store.Set(etcd.NewEtcdStore(context.Background(), env.EtcdConfig(),
 		etcd.WithCommandTimeout(timeout),
 		etcd.WithPrefix("test"),

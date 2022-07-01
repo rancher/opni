@@ -14,7 +14,9 @@ scrape_configs:
     # scheme defaults to 'http'.
 
     static_configs:
-      - targets: ["localhost:{{ .ListenPort }}"]
+      - targets:
+          - "localhost:{{ .ListenPort }}"
+          - "localhost:{{ .RTMetricsPort }}"
 
 # When running prometheus in Agent mode, remote-write is required.
 remote_write:

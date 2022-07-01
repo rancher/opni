@@ -4,10 +4,10 @@ import (
 	"strings"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/management"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
@@ -31,10 +31,10 @@ func ConfigureManagementCommand(cmd *cobra.Command) {
 			}
 		}
 		if address == "" {
-			address = management.DefaultManagementSocket()
+			address = managementv1.DefaultManagementSocket()
 		}
-		c, err := management.NewClient(cmd.Context(),
-			management.WithListenAddress(address))
+		c, err := clients.NewManagementClient(cmd.Context(),
+			clients.WithAddress(address))
 		if err != nil {
 			return err
 		}

@@ -7,24 +7,22 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 
-	// mage:import
+	"github.com/kralicky/ragu/pkg/plugins/python"
+	"github.com/kralicky/ragu/pkg/ragu"
+
+	//mage:import
 	"github.com/kralicky/spellbook/build"
-	"github.com/kralicky/spellbook/docker"
 
 	// mage:import
 	"github.com/kralicky/spellbook/mockgen"
-	// mage:import
-	protobuf "github.com/kralicky/spellbook/protobuf/ragu"
 	// mage:import
 	"github.com/kralicky/spellbook/testbin"
 	// mage:import dev
@@ -42,7 +40,7 @@ func All() {
 }
 
 func Generate() {
-	mg.SerialDeps(protobuf.Protobuf, mockgen.Mockgen, ControllerGen)
+	mg.SerialDeps(Protobuf, mockgen.Mockgen, ControllerGen)
 }
 
 func Test() {
@@ -55,7 +53,6 @@ func ControllerGen() error {
 	)
 	buf := new(bytes.Buffer)
 	cmd.Stderr = buf
-	cmd.Stdout = buf
 	err := cmd.Run()
 	if err != nil {
 		if ex, ok := err.(*exec.ExitError); ok {
@@ -73,10 +70,11 @@ func ControllerGen() error {
 				if strings.Contains(line, "without JSON tag in type") ||
 					strings.Contains(line, "not all generators ran successfully") ||
 					strings.Contains(line, "for usage") ||
-					strings.Contains(line, "exit status 1") {
+					strings.Contains(line, "exit status 1") ||
+					strings.HasPrefix(line, "go:") {
 					continue
 				}
-				fmt.Fprintln(os.Stderr, line)
+				fmt.Fprintln(os.Stderr, "[controller-gen] "+line)
 				return err
 			}
 		}
@@ -176,27 +174,7 @@ func k8sModuleVersion() string {
 	return strings.TrimSpace(strings.Replace(strings.Split(out, " ")[1], "v0", "1", 1))
 }
 
-func findProtos() []protobuf.Proto {
-	var protos []protobuf.Proto
-	filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
-		if d.IsDir() {
-			return nil
-		}
-		if !strings.HasSuffix(path, ".proto") {
-			return nil
-		}
-		protos = append(protos, protobuf.Proto{
-			Source:  path,
-			DestDir: filepath.Dir(path),
-		})
-		return nil
-	})
-	return protos
-}
-
 func init() {
-	docker.Deps(build.Build)
-
 	k8sVersion := k8sModuleVersion()
 
 	extraTargets := map[string]string{}
@@ -253,11 +231,14 @@ func init() {
 			Dest:   "pkg/test/mock/rbac/rbac.go",
 			Types:  []string{"Provider"},
 		},
-		{
-			Source: "pkg/rules/types.go",
-			Dest:   "pkg/test/mock/rules/rules.go",
-			Types:  []string{"RuleFinder"},
-		},
+		//FIXME: github.com/golang/google/mock doesn't fully work with generic interfaces,
+		// For now need to manually fix some of the generated code
+		// Uncomment when https://github.com/golang/mock/issues/658 is fixed
+		// {
+		// 	Source: "pkg/util/notifier/types.go",
+		// 	Dest:   "pkg/test/mock/notifier/notifier.go",
+		// 	Types:  []string{"UpdateNotifier", "Finder", "Clonable"},
+		// },
 		{
 			Source: "pkg/storage/stores.go",
 			Dest:   "pkg/test/mock/storage/stores.go",
@@ -289,10 +270,7 @@ func init() {
 			Types:  []string{"BackendClient"},
 		},
 	}
-	protobuf.Config.Protos = findProtos()
-	// protobuf.Config.Options = []ragu.GenerateCodeOption{
-	// 	ragu.ExperimentalHideEmptyMessages(),
-	// }
+
 	ext := ".tar.gz"
 	if runtime.GOOS == "darwin" {
 		ext = ".zip"
@@ -306,6 +284,12 @@ func init() {
 		},
 		{
 			Name:       "prometheus",
+			Version:    "2.35.0",
+			URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
+			GetVersion: getVersion,
+		},
+		{
+			Name:       "promtool",
 			Version:    "2.35.0",
 			URL:        "https://github.com/prometheus/prometheus/releases/download/v{{.Version}}/prometheus-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
 			GetVersion: getVersion,
@@ -333,4 +317,39 @@ func init() {
 			},
 		)
 	}
+}
+
+func ProtobufGo() error {
+	out, err := ragu.GenerateCode(ragu.DefaultGenerators(),
+		"pkg/**/*.proto",
+		"plugins/**/*.proto",
+	)
+	if err != nil {
+		return err
+	}
+	for _, file := range out {
+		if err := file.WriteToDisk(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ProtobufPython() error {
+	out, err := ragu.GenerateCode([]ragu.Generator{python.Generator},
+		"aiops/**/*.proto",
+	)
+	if err != nil {
+		return err
+	}
+	for _, file := range out {
+		if err := file.WriteToDisk(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func Protobuf() {
+	mg.Deps(ProtobufGo, ProtobufPython)
 }

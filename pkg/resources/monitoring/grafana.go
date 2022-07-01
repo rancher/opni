@@ -158,7 +158,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				Name:            "Opni",
 				Type:            "prometheus",
 				Access:          "proxy",
-				Url:             fmt.Sprintf("https://opni-monitoring.%s.svc:8080/api/prom", r.mc.Namespace),
+				Url:             fmt.Sprintf("https://opni-monitoring-internal.%s.svc:8080/api/prom", r.mc.Namespace),
 				WithCredentials: true,
 				Editable:        false,
 				IsDefault:       true,
@@ -176,7 +176,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				Uid:             "opni_alertmanager",
 				Type:            "alertmanager",
 				Access:          "proxy",
-				Url:             fmt.Sprintf("https://opni-monitoring.%s.svc:8080/api/prom", r.mc.Namespace),
+				Url:             fmt.Sprintf("https://opni-monitoring-internal.%s.svc:8080/api/prom", r.mc.Namespace),
 				WithCredentials: true,
 				Editable:        false,
 				JsonData: grafanav1alpha1.GrafanaDataSourceJsonData{

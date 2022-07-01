@@ -69,7 +69,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 	switch t := cfgv1beta1.AuthProviderType(r.gw.Spec.Auth.Provider); t {
 	case cfgv1beta1.AuthProviderOpenID:
 		apSpec.Type = cfgv1beta1.AuthProviderOpenID
-		if options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Openid); err != nil {
+		if options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Openid.OpenidConfig); err != nil {
 			return nil, errors.WrapIf(err, "failed to decode openid auth provider options")
 		} else {
 			apSpec.Options = *options

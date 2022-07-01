@@ -8,6 +8,7 @@ import (
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
 	"universe.dagger.io/git"
+	"universe.dagger.io/python"
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
 	"github.com/rancher/opni/internal/util"
@@ -26,7 +27,8 @@ dagger.#Plan & {
 			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
 			DASHBOARDS_VERSION:  string | *"1.3.1"
 			OPENSEARCH_VERSION:  string | *"1.3.1"
-			PLUGIN_VERSION:      string | *"0.5.0"
+			PLUGIN_VERSION:      string | *"0.5.3"
+			PLUGIN_PUBLISH:      string | *"0.5.4-rc3"
 			DOCKER_USERNAME?:    string
 			DOCKER_PASSWORD?:    dagger.#Secret
 		}
@@ -42,10 +44,11 @@ dagger.#Plan & {
 					"internal/cmd/testenv",
 				]
 			}
-			"bin": write: contents:         actions.build.bin
-			"web/dist": write: contents:    actions.web.dist
-			"dist/charts": write: contents: actions.charts.output
-			"cover.out": write: contents:   actions.test.export.files["/src/cover.out"]
+			"bin": write: contents:             actions.build.bin
+			"web/dist": write: contents:        actions.web.dist
+			"dist/charts": write: contents:     actions.charts.output
+			"cover.out": write: contents:       actions.test.export.files["/src/cover.out"]
+			"aiops/apis/dist": write: contents: actions.aiops.packages.output
 		}
 		network: "unix:///var/run/docker.sock": connect: dagger.#Socket
 	}
@@ -93,7 +96,7 @@ dagger.#Plan & {
 						dest:     "/src/web/dist/"
 					},
 					mage.#Run & {
-						mageArgs: ["-v", "build"]
+						mageArgs: ["-v"]
 					},
 				]
 			}
@@ -320,7 +323,7 @@ dagger.#Plan & {
 				]
 			}
 			push: docker.#Push & {
-				dest:  "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)-\(client.env.PLUGIN_VERSION)"
+				dest:  "\(client.env.REPO)/opensearch-dashboards:\(client.env.DASHBOARDS_VERSION)-\(client.env.PLUGIN_PUBLISH)"
 				image: dashboards.build.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {
@@ -350,7 +353,7 @@ dagger.#Plan & {
 				]
 			}
 			push: docker.#Push & {
-				dest:  "\(client.env.REPO)/opensearch:\(client.env.OPENSEARCH_VERSION)-\(client.env.PLUGIN_VERSION)"
+				dest:  "\(client.env.REPO)/opensearch:\(client.env.OPENSEARCH_VERSION)-\(client.env.PLUGIN_PUBLISH)"
 				image: opensearch.build.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {
@@ -361,6 +364,21 @@ dagger.#Plan & {
 			}
 		}
 		aiops: {
+			packages: {
+				sdist: python.#Run & {
+					script: {
+						directory: actions.build.output.rootfs
+						filename:  "src/aiops/apis/setup.py"
+					}
+					workdir: "/run/python/src/aiops/apis"
+					args: ["sdist", "-d", "/dist"]
+				}
+				_subdir: core.#Subdir & {
+					input: sdist.output.rootfs
+					path:  "/dist"
+				}
+				output: _subdir.output
+			}
 			build: docker.#Build & {
 				steps: [
 					docker.#Pull & {
@@ -368,14 +386,14 @@ dagger.#Plan & {
 					},
 					docker.#Copy & {
 						contents: client.filesystem.".".read.contents
-						source: "aiops/"
-						dest: "."
+						source:   "aiops/"
+						dest:     "."
 					},
 					docker.#Set & {
 						config: {
 							cmd: ["python", "opni-opensearch-update-service/opensearch-update-service/app/main.py"]
 						}
-					}	
+					},
 				]
 			}
 			push: docker.#Push & {

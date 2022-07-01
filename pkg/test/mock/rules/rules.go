@@ -4,85 +4,136 @@
 // Package mock_rules is a generated GoMock package.
 package mock_rules
 
-import (
-	context "context"
-	reflect "reflect"
+// import (
+// 	context "context"
+// 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
-	rulefmt "github.com/prometheus/prometheus/model/rulefmt"
-)
+// 	gomock "github.com/golang/mock/gomock"
+// 	rules "github.com/rancher/opni/pkg/rules"
+// )
 
-// MockRuleFinder is a mock of RuleFinder interface.
-type MockRuleFinder struct {
-	ctrl     *gomock.Controller
-	recorder *MockRuleFinderMockRecorder
-}
+// // MockUpdateGroup is a mock of UpdateGroup interface.
+// type MockUpdateGroup struct {
+// 	ctrl     *gomock.Controller
+// 	recorder *MockUpdateGroupMockRecorder
+// }
 
-// MockRuleFinderMockRecorder is the mock recorder for MockRuleFinder.
-type MockRuleFinderMockRecorder struct {
-	mock *MockRuleFinder
-}
+// // MockUpdateGroupMockRecorder is the mock recorder for MockUpdateGroup.
+// type MockUpdateGroupMockRecorder struct {
+// 	mock *MockUpdateGroup
+// }
 
-// NewMockRuleFinder creates a new mock instance.
-func NewMockRuleFinder(ctrl *gomock.Controller) *MockRuleFinder {
-	mock := &MockRuleFinder{ctrl: ctrl}
-	mock.recorder = &MockRuleFinderMockRecorder{mock}
-	return mock
-}
+// // NewMockUpdateGroup creates a new mock instance.
+// func NewMockUpdateGroup(ctrl *gomock.Controller) *MockUpdateGroup {
+// 	mock := &MockUpdateGroup{ctrl: ctrl}
+// 	mock.recorder = &MockUpdateGroupMockRecorder{mock}
+// 	return mock
+// }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockRuleFinder) EXPECT() *MockRuleFinderMockRecorder {
-	return m.recorder
-}
+// // EXPECT returns an object that allows the caller to indicate expected use.
+// func (m *MockUpdateGroup) EXPECT() *MockUpdateGroupMockRecorder {
+// 	return m.recorder
+// }
 
-// FindGroups mocks base method.
-func (m *MockRuleFinder) FindGroups(ctx context.Context) ([]rulefmt.RuleGroup, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindGroups", ctx)
-	ret0, _ := ret[0].([]rulefmt.RuleGroup)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
+// // CloneRuleGroup mocks base method.
+// func (m *MockUpdateGroup) CloneRuleGroup(arg0 rules.UpdateGroup) rules.UpdateGroup {
+// 	m.ctrl.T.Helper()
+// 	ret := m.ctrl.Call(m, "CloneRuleGroup", arg0)
+// 	ret0, _ := ret[0].(rules.UpdateGroup)
+// 	return ret0
+// }
 
-// FindGroups indicates an expected call of FindGroups.
-func (mr *MockRuleFinderMockRecorder) FindGroups(ctx interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindGroups", reflect.TypeOf((*MockRuleFinder)(nil).FindGroups), ctx)
-}
+// // CloneRuleGroup indicates an expected call of CloneRuleGroup.
+// func (mr *MockUpdateGroupMockRecorder) CloneRuleGroup(arg0 interface{}) *gomock.Call {
+// 	mr.mock.ctrl.T.Helper()
+// 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloneRuleGroup", reflect.TypeOf((*MockUpdateGroup)(nil).CloneRuleGroup), arg0)
+// }
 
-// MockUpdateNotifier is a mock of UpdateNotifier interface.
-type MockUpdateNotifier struct {
-	ctrl     *gomock.Controller
-	recorder *MockUpdateNotifierMockRecorder
-}
+// // CloneRuleGroupList mocks base method.
+// func (m *MockUpdateGroup) CloneRuleGroupList(arg0 rules.UpdateGroup) []rules.UpdateGroup {
+// 	m.ctrl.T.Helper()
+// 	ret := m.ctrl.Call(m, "CloneRuleGroupList", arg0)
+// 	ret0, _ := ret[0].([]rules.UpdateGroup)
+// 	return ret0
+// }
 
-// MockUpdateNotifierMockRecorder is the mock recorder for MockUpdateNotifier.
-type MockUpdateNotifierMockRecorder struct {
-	mock *MockUpdateNotifier
-}
+// // CloneRuleGroupList indicates an expected call of CloneRuleGroupList.
+// func (mr *MockUpdateGroupMockRecorder) CloneRuleGroupList(arg0 interface{}) *gomock.Call {
+// 	mr.mock.ctrl.T.Helper()
+// 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloneRuleGroupList", reflect.TypeOf((*MockUpdateGroup)(nil).CloneRuleGroupList), arg0)
+// }
 
-// NewMockUpdateNotifier creates a new mock instance.
-func NewMockUpdateNotifier(ctrl *gomock.Controller) *MockUpdateNotifier {
-	mock := &MockUpdateNotifier{ctrl: ctrl}
-	mock.recorder = &MockUpdateNotifierMockRecorder{mock}
-	return mock
-}
+// // MockRuleFinder is a mock of RuleFinder interface.
+// type MockRuleFinder struct {
+// 	ctrl     *gomock.Controller
+// 	recorder *MockRuleFinderMockRecorder
+// }
 
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockUpdateNotifier) EXPECT() *MockUpdateNotifierMockRecorder {
-	return m.recorder
-}
+// // MockRuleFinderMockRecorder is the mock recorder for MockRuleFinder.
+// type MockRuleFinderMockRecorder struct {
+// 	mock *MockRuleFinder
+// }
 
-// NotifyC mocks base method.
-func (m *MockUpdateNotifier) NotifyC(ctx context.Context) <-chan []rulefmt.RuleGroup {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NotifyC", ctx)
-	ret0, _ := ret[0].(<-chan []rulefmt.RuleGroup)
-	return ret0
-}
+// // NewMockRuleFinder creates a new mock instance.
+// func NewMockRuleFinder(ctrl *gomock.Controller) *MockRuleFinder {
+// 	mock := &MockRuleFinder{ctrl: ctrl}
+// 	mock.recorder = &MockRuleFinderMockRecorder{mock}
+// 	return mock
+// }
 
-// NotifyC indicates an expected call of NotifyC.
-func (mr *MockUpdateNotifierMockRecorder) NotifyC(ctx interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyC", reflect.TypeOf((*MockUpdateNotifier)(nil).NotifyC), ctx)
-}
+// // EXPECT returns an object that allows the caller to indicate expected use.
+// func (m *MockRuleFinder) EXPECT() *MockRuleFinderMockRecorder {
+// 	return m.recorder
+// }
+
+// // FindGroups mocks base method.
+// func (m *MockRuleFinder) FindGroups(ctx context.Context) ([]rules.UpdateGroup, error) {
+// 	m.ctrl.T.Helper()
+// 	ret := m.ctrl.Call(m, "FindGroups", ctx)
+// 	ret0, _ := ret[0].([]rules.UpdateGroup)
+// 	ret1, _ := ret[1].(error)
+// 	return ret0, ret1
+// }
+
+// // FindGroups indicates an expected call of FindGroups.
+// func (mr *MockRuleFinderMockRecorder) FindGroups(ctx interface{}) *gomock.Call {
+// 	mr.mock.ctrl.T.Helper()
+// 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindGroups", reflect.TypeOf((*MockRuleFinder)(nil).FindGroups), ctx)
+// }
+
+// // MockUpdateNotifier is a mock of UpdateNotifier interface.
+// type MockUpdateNotifier struct {
+// 	ctrl     *gomock.Controller
+// 	recorder *MockUpdateNotifierMockRecorder
+// }
+
+// // MockUpdateNotifierMockRecorder is the mock recorder for MockUpdateNotifier.
+// type MockUpdateNotifierMockRecorder struct {
+// 	mock *MockUpdateNotifier
+// }
+
+// // NewMockUpdateNotifier creates a new mock instance.
+// func NewMockUpdateNotifier(ctrl *gomock.Controller) *MockUpdateNotifier {
+// 	mock := &MockUpdateNotifier{ctrl: ctrl}
+// 	mock.recorder = &MockUpdateNotifierMockRecorder{mock}
+// 	return mock
+// }
+
+// // EXPECT returns an object that allows the caller to indicate expected use.
+// func (m *MockUpdateNotifier) EXPECT() *MockUpdateNotifierMockRecorder {
+// 	return m.recorder
+// }
+
+// // NotifyC mocks base method.
+// func (m *MockUpdateNotifier) NotifyC(ctx context.Context) <-chan []rules.UpdateGroup {
+// 	m.ctrl.T.Helper()
+// 	ret := m.ctrl.Call(m, "NotifyC", ctx)
+// 	ret0, _ := ret[0].(<-chan []rules.UpdateGroup)
+// 	return ret0
+// }
+
+// // NotifyC indicates an expected call of NotifyC.
+// func (mr *MockUpdateNotifierMockRecorder) NotifyC(ctx interface{}) *gomock.Call {
+// 	mr.mock.ctrl.T.Helper()
+// 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NotifyC", reflect.TypeOf((*MockUpdateNotifier)(nil).NotifyC), ctx)
+// }

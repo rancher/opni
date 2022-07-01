@@ -8,6 +8,7 @@ import (
 	"os"
 
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
+	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
@@ -83,7 +84,7 @@ func (c *ClientConfig) Bootstrap(
 	}
 
 	authResp, err := client.Auth(metadata.NewOutgoingContext(ctx, metadata.Pairs(
-		"authorization", "Bearer "+string(completeJws),
+		auth.AuthorizationKey, "Bearer "+string(completeJws),
 	)), authReq)
 	if err != nil {
 		return nil, fmt.Errorf("auth request failed: %w", err)

@@ -11,6 +11,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	gatewayext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
+	unaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/unary"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
@@ -20,12 +21,20 @@ import (
 
 type ExamplePlugin struct {
 	UnsafeExampleAPIExtensionServer
+	UnsafeExampleUnaryExtensionServer
+	system.UnimplementedSystemPluginClient
 	Logger hclog.Logger
 }
 
 func (s *ExamplePlugin) Echo(_ context.Context, req *EchoRequest) (*EchoResponse, error) {
 	return &EchoResponse{
 		Message: req.Message,
+	}, nil
+}
+
+func (s *ExamplePlugin) Hello(context.Context, *emptypb.Empty) (*EchoResponse, error) {
+	return &EchoResponse{
+		Message: "Hello World",
 	}, nil
 }
 
@@ -50,7 +59,8 @@ func (s *ExamplePlugin) UseManagementAPI(api managementv1.ManagementClient) {
 	}
 }
 
-func (s *ExamplePlugin) UseKeyValueStore(kv system.KVStoreClient) {
+func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
+	kv := system.NewKVStoreClient[*EchoRequest](context.Background(), client)
 	lg := s.Logger
 	err := kv.Put("foo", &EchoRequest{
 		Message: "hello",
@@ -59,12 +69,11 @@ func (s *ExamplePlugin) UseKeyValueStore(kv system.KVStoreClient) {
 		lg.Error("kv store error", "error", err)
 	}
 
-	out := &EchoRequest{}
-	err = kv.Get("foo", out)
+	value, err := kv.Get("foo")
 	if err != nil {
 		lg.Error("kv store error", "error", err)
 	}
-	lg.Info("successfully retrieved stored value", "message", out.Message)
+	lg.Info("successfully retrieved stored value", "message", value.Message)
 }
 
 func (s *ExamplePlugin) ConfigureRoutes(app *fiber.App) {
@@ -105,5 +114,6 @@ func Scheme() meta.Scheme {
 	scheme.Add(gatewayext.GatewayAPIExtensionPluginID,
 		gatewayext.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin("test", p))
+	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&ExampleUnaryExtension_ServiceDesc, p))
 	return scheme
 }

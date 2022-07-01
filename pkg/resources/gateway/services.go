@@ -16,9 +16,10 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	publicSvcLabels["service-type"] = "public"
 	publicSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring",
-			Namespace: r.gw.Namespace,
-			Labels:    publicSvcLabels,
+			Name:        "opni-monitoring",
+			Namespace:   r.gw.Namespace,
+			Labels:      publicSvcLabels,
+			Annotations: r.gw.Spec.ServiceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     r.gw.Spec.ServiceType,

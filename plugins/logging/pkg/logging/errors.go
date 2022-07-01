@@ -31,6 +31,10 @@ func ErrDeleteClusterInvalidList(id string) error {
 	return fmt.Errorf("listing cluster %s failed: %w", id, ErrInvalidList)
 }
 
+func ErrGetDetailsInvalidList(id string) error {
+	return fmt.Errorf("fetching credentials for cluster %s failed: %w", id, ErrInvalidList)
+}
+
 func ErrGenerateCredentialsFailed(err error) error {
 	return fmt.Errorf("failed to generate Opensearch credentials: %w", err)
 }

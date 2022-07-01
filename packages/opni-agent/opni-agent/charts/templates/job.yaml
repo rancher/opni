@@ -1,5 +1,5 @@
 {{- $versionTag := printf "v%s" .Chart.AppVersion }}
-{{- if .Values.logging.enabled }}
+{{- if (and .Values.logging.enabled (not .Values.logging.disableBootstrap)) }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -35,7 +35,8 @@ spec:
         - --gateway-url={{ .Values.address }}
         - --namespace={{ include "opni-agent.namespace" . }}
         {{- if .Values.logging.insecure }}
-        - --insecure
+        - --trust-strategy=insecure
+        - --confirm-insecure
         {{- end }}
         {{- if .Values.logging.disableOpensearchTLSVerify }}
         - --opensearch-insecure

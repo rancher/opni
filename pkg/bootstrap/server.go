@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
+	"golang.org/x/exp/maps"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -167,10 +168,12 @@ func (h Server) Auth(ctx context.Context, authReq *bootstrapv1.BootstrapAuthRequ
 			return nil, status.Errorf(codes.Internal, "error installing capability %q: %v", authReq.Capability, err)
 		}
 	} else {
+		tokenLabels := maps.Clone(bootstrapToken.GetMetadata().GetLabels())
+		delete(tokenLabels, "kubernetes.io/metadata.name") // todo: this label should change
 		newCluster := &corev1.Cluster{
 			Id: authReq.ClientID,
 			Metadata: &corev1.ClusterMetadata{
-				Labels: bootstrapToken.GetMetadata().GetLabels(),
+				Labels: tokenLabels,
 				Capabilities: []*corev1.ClusterCapability{
 					{
 						Name: authReq.Capability,

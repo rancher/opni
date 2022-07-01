@@ -51,13 +51,11 @@ func NewFilesystemRuleFinder(config *v1beta1.FilesystemRulesSpec, opts ...Filesy
 	}
 }
 
-func (f *FilesystemRuleFinder) FindGroups(context.Context) ([]rulefmt.RuleGroup, error) {
+func (f *FilesystemRuleFinder) Find(context.Context) ([]RuleGroup, error) {
 	groups := []rulefmt.RuleGroup{}
 
 	for _, pathExpr := range f.config.PathExpressions {
-		if strings.HasPrefix(pathExpr, "/") {
-			pathExpr = pathExpr[1:]
-		}
+		pathExpr = strings.TrimPrefix(pathExpr, "/")
 		matched, err := glob.Glob(f.fs, pathExpr)
 		lg := f.logger.With("expression", pathExpr)
 		if err != nil {
@@ -90,5 +88,9 @@ func (f *FilesystemRuleFinder) FindGroups(context.Context) ([]rulefmt.RuleGroup,
 	}
 
 	f.logger.Infof("found %d rule groups in filesystem", len(groups))
-	return groups, nil
+	ruleGroups := []RuleGroup{}
+	for _, g := range groups {
+		ruleGroups = append(ruleGroups, RuleGroup(g))
+	}
+	return ruleGroups, nil
 }

@@ -25,7 +25,7 @@ var _ = Describe("Filesystem Rule Group Discovery", func() {
 			PathExpressions: []string{"foo/bar/baz.yaml"},
 		}, rules.WithFS(testFS))
 
-		groups, err := finder.FindGroups(context.Background())
+		groups, err := finder.Find(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(groups).To(HaveLen(1))
 		Expect(groups[0].Name).To(Equal("test1"))
@@ -35,7 +35,7 @@ var _ = Describe("Filesystem Rule Group Discovery", func() {
 			PathExpressions: []string{"*.yaml"},
 		}, rules.WithFS(testFS))
 
-		groups, err := finder.FindGroups(context.Background())
+		groups, err := finder.Find(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(groups).To(HaveLen(2))
 		Expect([]string{
@@ -48,7 +48,7 @@ var _ = Describe("Filesystem Rule Group Discovery", func() {
 			PathExpressions: []string{"*.yaml", "foo/bar/baz.yaml"},
 		}, rules.WithFS(testFS))
 
-		groups, err := finder.FindGroups(context.Background())
+		groups, err := finder.Find(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(groups).To(HaveLen(3))
 		Expect([]string{
@@ -62,7 +62,7 @@ var _ = Describe("Filesystem Rule Group Discovery", func() {
 			PathExpressions: []string{"**/f.yaml"},
 		}, rules.WithFS(testFS))
 
-		groups, err := finder.FindGroups(context.Background())
+		groups, err := finder.Find(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(groups).To(HaveLen(3))
 		Expect([]string{
@@ -75,7 +75,7 @@ var _ = Describe("Filesystem Rule Group Discovery", func() {
 			PathExpressions: []string{"**/*.yaml"},
 		}, rules.WithFS(testFS))
 
-		groups, err = finder.FindGroups(context.Background())
+		groups, err = finder.Find(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(groups).To(HaveLen(6))
 		Expect([]string{
@@ -103,7 +103,7 @@ var _ = Describe("Filesystem Rule Group Discovery", func() {
 			},
 		}, rules.WithFS(errFS))
 
-		groups, err := finder.FindGroups(context.Background())
+		groups, err := finder.Find(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(groups).To(BeEmpty())
 	})

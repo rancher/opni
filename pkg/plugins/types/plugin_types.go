@@ -11,6 +11,7 @@ type (
 	GatewayAPIExtensionPlugin    = apiextensions.GatewayAPIExtensionClient
 	ManagementAPIExtensionPlugin = apiextensions.ManagementAPIExtensionClient
 	StreamAPIExtensionPlugin     = apiextensions.StreamAPIExtensionClient
+	UnaryAPIExtensionPlugin      = apiextensions.UnaryAPIExtensionClient
 	CapabilityBackendPlugin      = capability.BackendClient
 	MetricsPlugin                = collector.RemoteCollector
 	SystemPlugin                 = system.SystemPluginServer

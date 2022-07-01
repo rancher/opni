@@ -1,17 +1,20 @@
 syntax = "proto3";
-import "google/protobuf/empty.proto";
 option go_package = "github.com/rancher/opni/pkg/plugins/apis/system";
+
+import "google/protobuf/empty.proto";
 
 package system;
 
 service System {
   rpc UseManagementAPI(BrokerID) returns (google.protobuf.Empty);
   rpc UseKeyValueStore(BrokerID) returns (google.protobuf.Empty);
+  rpc UseAPIExtensions(DialAddress) returns (google.protobuf.Empty);
 }
 
 service KeyValueStore {
   rpc Put(KeyValue) returns (google.protobuf.Empty);
   rpc Get(Key) returns (Value);
+  rpc Delete(Key) returns (google.protobuf.Empty);
   rpc ListKeys(Key) returns (KeyList);
 }
 
@@ -34,4 +37,8 @@ message KeyValue {
 
 message KeyList {
   repeated string items = 1;
+}
+
+message DialAddress {
+  string value = 1;
 }

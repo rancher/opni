@@ -54,7 +54,7 @@ func NewPrometheusRuleFinder(k8sClient client.Client, opts ...PrometheusRuleFind
 	}
 }
 
-func (f *PrometheusRuleFinder) FindGroups(ctx context.Context) ([]rulefmt.RuleGroup, error) {
+func (f *PrometheusRuleFinder) Find(ctx context.Context) ([]RuleGroup, error) {
 	// Find all PrometheusRules
 	searchNamespaces := lo.Filter(f.namespaces, func(v string, i int) bool {
 		return v != ""
@@ -65,7 +65,7 @@ func (f *PrometheusRuleFinder) FindGroups(ctx context.Context) ([]rulefmt.RuleGr
 	}
 
 	lg := f.logger.With("namespaces", searchNamespaces)
-	var ruleGroups []rulefmt.RuleGroup
+	var ruleGroups []RuleGroup
 	lg.Debug("searching for PrometheusRules")
 
 	for _, namespace := range searchNamespaces {
@@ -77,7 +77,10 @@ func (f *PrometheusRuleFinder) FindGroups(ctx context.Context) ([]rulefmt.RuleGr
 			).Warn("failed to find PrometheusRules in namespace, skipping")
 			continue
 		}
-		ruleGroups = append(ruleGroups, groups...)
+		for _, group := range groups {
+			// Use Finder[T] alias for rulefmt.RuleGroup
+			ruleGroups = append(ruleGroups, RuleGroup(group))
+		}
 	}
 
 	lg.Debugf("found %d PrometheusRules", len(ruleGroups))

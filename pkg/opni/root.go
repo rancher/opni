@@ -28,6 +28,8 @@ func BuildRootCmd() *cobra.Command {
 	rootCmd.AddCommand(commands.BuildVersionCmd())
 	rootCmd.AddCommand(commands.BuildManagerCmd())
 	rootCmd.AddCommand(commands.BuildCortexCmd())
+	rootCmd.AddCommand(commands.BuildRealtimeCmd())
+	rootCmd.AddCommand(commands.BuildEventsCmd())
 	return rootCmd
 }
 

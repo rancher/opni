@@ -272,6 +272,126 @@ func (p *Plugin) QueryRange(
 	}, nil
 }
 
+func (p *Plugin) GetRule(ctx context.Context,
+	in *cortexadmin.RuleRequest,
+) (*cortexadmin.QueryResponse, error) {
+	lg := p.logger.With(
+		"group name", in.GroupName,
+	)
+	client, err := p.cortexHttpClient.GetContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "GET",
+		fmt.Sprintf("https://%s/api/v1/rules/monitoring/%s",
+			p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress, in.GroupName), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
+	resp, err := client.Do(req)
+	if err != nil {
+		lg.With(
+			"error", err,
+		).Error("fetch failed")
+		return nil, err
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		err := status.Error(codes.NotFound, "fetch failed : 404 not found")
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		lg.With(
+			"status", resp.Status,
+		).Error("fetch failed")
+		return nil, fmt.Errorf("fetch failed: %s", resp.Status)
+	}
+	defer resp.Body.Close()
+	responseBuf := new(bytes.Buffer)
+	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
+		lg.With(
+			"error", err,
+		).Error("failed to read response body")
+		return nil, err
+	}
+	return &cortexadmin.QueryResponse{
+		Data: responseBuf.Bytes(),
+	}, nil
+}
+
+// This method is responsible for Creating and Updating Rules
+func (p *Plugin) LoadRules(ctx context.Context,
+	in *cortexadmin.YamlRequest,
+) (*emptypb.Empty, error) {
+	lg := p.logger.With(
+		"yaml", in.Yaml,
+	)
+	client, err := p.cortexHttpClient.GetContext(ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		fmt.Sprintf("https://%s/api/v1/rules/monitoring", p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress), nil)
+	if err != nil {
+		return nil, err
+	}
+	values := url.Values{}
+	values.Add("yaml", in.Yaml)
+	req.Body = io.NopCloser(strings.NewReader(in.Yaml))
+	req.Header.Set("Content-Type", "application/yaml")
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
+	resp, err := client.Do(req)
+	if err != nil {
+		lg.With(
+			"error", err,
+		).Error("loading rules failed")
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusAccepted {
+		lg.With(
+			"status", resp.Status,
+		).Error("loading rules failed")
+		return nil, fmt.Errorf("loading rules failed: %s", resp.Status)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (p *Plugin) DeleteRule(
+	ctx context.Context, in *cortexadmin.RuleRequest,
+) (*emptypb.Empty, error) {
+	lg := p.logger.With(
+		"delete request", in.GroupName,
+	)
+	client, err := p.cortexHttpClient.GetContext(ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "DELETE",
+		fmt.Sprintf("https://%s/api/v1/rules/monitoring/%s",
+			p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress, in.GroupName), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
+	resp, err := client.Do(req)
+	if err != nil {
+		lg.With(
+			"error", err,
+		).Error("delete rule group failed")
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusAccepted {
+		lg.With(
+			"status", resp.Status,
+		).Error("delete rule group failed")
+		return nil, fmt.Errorf("delete rule group failed: %s", resp.Status)
+	}
+	return &emptypb.Empty{}, nil
+}
+
 func formatTime(t time.Time) string {
 	return strconv.FormatFloat(float64(t.Unix())+float64(t.Nanosecond())/1e9, 'f', -1, 64)
 }

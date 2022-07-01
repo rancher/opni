@@ -11,6 +11,7 @@ import (
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
+	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities"
@@ -144,7 +145,9 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl)
 
-	clusterAuth, err := cluster.New(ctx, storageBackend, "authorization")
+	clusterAuth, err := cluster.New(ctx, storageBackend, auth.AuthorizationKey,
+		cluster.WithExcludeGRPCMethodsFromAuth("/bootstrap.Bootstrap/Join", "/bootstrap.Bootstrap/Auth"),
+	)
 	if err != nil {
 		lg.With(
 			zap.Error(err),
@@ -155,6 +158,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.StreamInterceptor(clusterAuth.StreamServerInterceptor()),
+		grpc.UnaryInterceptor(clusterAuth.UnaryServerInterceptor()),
 	)
 
 	// set up stream server
@@ -183,6 +187,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	// set up bootstrap server
 	bootstrapSvc := bootstrap.NewServer(storageBackend, pkey, capBackendStore)
 	bootstrapv1.RegisterBootstrapServer(grpcServer, bootstrapSvc)
+
+	//set up unary plugins
+	unarySvc := NewUnaryService()
+	unarySvc.RegisterUnaryPlugins(ctx, grpcServer, pl)
 
 	g := &Gateway{
 		GatewayOptions:  options,

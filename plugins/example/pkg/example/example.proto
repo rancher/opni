@@ -1,5 +1,9 @@
 syntax = "proto3";
-option go_package = "github.com/rancher/opni/plugins/example";
+option go_package = "github.com/rancher/opni/plugins/example/pkg/example";
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+
 package example;
 
 service ExampleAPIExtension {
@@ -9,6 +13,10 @@ service ExampleAPIExtension {
       body: "*"
     };
   }
+}
+
+service ExampleUnaryExtension {
+  rpc Hello(google.protobuf.Empty) returns (EchoResponse);
 }
 
 message EchoRequest {

@@ -2,6 +2,7 @@ package multiclusterrolebinding
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
 	"github.com/rancher/opni/pkg/util/meta"
@@ -68,7 +69,22 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 		return
 	}
 
-	retErr = reconciler.MaybeBootstrapIndex(indices.LogIndexPrefix, indices.LogIndexAlias)
+	exists, retErr := reconciler.TemplateExists(indices.OpniLogTemplate.TemplateName)
+	if retErr != nil {
+		return
+	}
+
+	if !exists {
+		retResult = &reconcile.Result{
+			Requeue:      true,
+			RequeueAfter: 5 * time.Second,
+		}
+	}
+
+	retErr = reconciler.MaybeBootstrapIndex(indices.LogIndexPrefix, indices.LogIndexAlias, indices.OldIndexPrefixes)
+	if retErr != nil {
+		return
+	}
 
 	return
 }

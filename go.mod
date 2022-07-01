@@ -52,7 +52,6 @@ require (
 	github.com/lestrrat-go/backoff/v2 v2.0.8
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/longhorn/upgrade-responder v0.1.2
-	github.com/lthibault/jitterbug/v2 v2.2.2
 	github.com/magefile/mage v1.13.0
 	github.com/mattn/go-tty v0.0.4
 	github.com/mitchellh/mapstructure v1.5.0

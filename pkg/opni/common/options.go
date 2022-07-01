@@ -43,6 +43,7 @@ const (
 	DefaultOpniDemoQuickstart             = false
 )
 
+// TODO: Cleanup - this is never called and won't work anyway as the flags are never bound
 // MaybeContextOverride will return 0 or 1 ClientOptions, depending on if the
 // user provided a specific kubectl context or not.
 func MaybeContextOverride() []cliutil.ClientOption {

@@ -1225,6 +1225,11 @@ func (in *LogAdapterSpec) DeepCopyInto(out *LogAdapterSpec) {
 		*out = new(OpniClusterNameSpec)
 		**out = **in
 	}
+	if in.ControlNamespace != nil {
+		in, out := &in.ControlNamespace, &out.ControlNamespace
+		*out = new(string)
+		**out = **in
+	}
 	if in.AKS != nil {
 		in, out := &in.AKS, &out.AKS
 		*out = new(AKSSpec)

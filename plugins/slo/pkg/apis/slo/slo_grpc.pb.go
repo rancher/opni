@@ -31,7 +31,7 @@ type SLOClient interface {
 	DeleteSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*ServiceLevelObjective, error)
 	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error)
-	GetMetricId(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Metric, error)
+	GetMetric(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricList, error)
 	GetFormulas(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*Formula, error)
 	ListFormulas(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*FormulaList, error)
@@ -112,9 +112,9 @@ func (c *sLOClient) Status(ctx context.Context, in *v1.Reference, opts ...grpc.C
 	return out, nil
 }
 
-func (c *sLOClient) GetMetricId(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Metric, error) {
-	out := new(Metric)
-	err := c.cc.Invoke(ctx, "/slo.SLO/GetMetricId", in, out, opts...)
+func (c *sLOClient) GetMetric(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/slo.SLO/GetMetric", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ type SLOServer interface {
 	DeleteSLO(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	CloneSLO(context.Context, *v1.Reference) (*ServiceLevelObjective, error)
 	Status(context.Context, *v1.Reference) (*SLOStatus, error)
-	GetMetricId(context.Context, *MetricRequest) (*Metric, error)
+	GetMetric(context.Context, *MetricRequest) (*emptypb.Empty, error)
 	ListMetrics(context.Context, *emptypb.Empty) (*MetricList, error)
 	GetFormulas(context.Context, *v1.Reference) (*Formula, error)
 	ListFormulas(context.Context, *emptypb.Empty) (*FormulaList, error)
@@ -231,8 +231,8 @@ func (UnimplementedSLOServer) CloneSLO(context.Context, *v1.Reference) (*Service
 func (UnimplementedSLOServer) Status(context.Context, *v1.Reference) (*SLOStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
-func (UnimplementedSLOServer) GetMetricId(context.Context, *MetricRequest) (*Metric, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetMetricId not implemented")
+func (UnimplementedSLOServer) GetMetric(context.Context, *MetricRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMetric not implemented")
 }
 func (UnimplementedSLOServer) ListMetrics(context.Context, *emptypb.Empty) (*MetricList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListMetrics not implemented")

@@ -570,7 +570,10 @@ func setOwnerReference(adapter *v1beta2.LogAdapter, object client.Object) {
 
 func controlNamespace(adapter *v1beta2.LogAdapter) string {
 	if adapter.Spec.OpniCluster == nil {
-		return "opni-system"
+		if adapter.Spec.ControlNamespace == nil {
+			return "opni-system"
+		}
+		return *adapter.Spec.ControlNamespace
 	}
 	return adapter.Spec.OpniCluster.Namespace
 }

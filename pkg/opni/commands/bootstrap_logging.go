@@ -285,11 +285,11 @@ func createOpniClusterFlow(ctx context.Context, clusterID string) error {
 func createLogAdapter(ctx context.Context) error {
 	lga := &v1beta2.LogAdapter{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-logging",
-			Namespace: common.NamespaceFlagValue,
+			Name: "opni-logging",
 		},
 		Spec: v1beta2.LogAdapterSpec{
-			Provider: v1beta2.LogProvider(provider),
+			Provider:         v1beta2.LogProvider(provider),
+			ControlNamespace: &namespace,
 		},
 	}
 	retryBackoff := backoff.NewExponentialBackOff()

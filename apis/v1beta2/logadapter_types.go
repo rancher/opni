@@ -48,7 +48,8 @@ type LogAdapterSpec struct {
 	// +kubebuilder:validation:Required
 	Provider LogProvider `json:"provider"`
 
-	OpniCluster *OpniClusterNameSpec `json:"opniCluster,omitempty"`
+	OpniCluster      *OpniClusterNameSpec `json:"opniCluster,omitempty"`
+	ControlNamespace *string              `json:"controlNamespace,omitempty"`
 
 	ContainerLogDir string `json:"containerLogDir,omitempty"`
 	SELinuxEnabled  bool   `json:"seLinuxEnabled,omitempty"`

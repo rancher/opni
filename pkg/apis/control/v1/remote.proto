@@ -1,7 +1,8 @@
 syntax = "proto3";
 option go_package = "github.com/rancher/opni/pkg/apis/control/v1";
+
 import "google/protobuf/empty.proto";
-import "../../core/v1/core.proto";
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 package control;
 

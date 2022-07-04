@@ -1,3 +1,4 @@
+/// Reference : https://github.dev/slok/sloth/tree/main/internal/alert/window.go
 package slo
 
 import (

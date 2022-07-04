@@ -47,6 +47,7 @@ func Validate(slos *prometheus.SLOGroup) error {
 	return nil
 }
 
+/// Reference : https://github.com/slok/sloth/blob/481c16f6602731d628dcbf6051e74c80cdc1acb2/internal/alert/alert.go#L30
 func GenerateMWWBAlerts(ctx context.Context, alertSLO alert.SLO, timeWindow time.Duration) (*alert.MWMBAlertGroup, error) {
 	windows := WindowDefaults(timeWindow)
 	errorBudget := 100 - alertSLO.Objective
@@ -128,6 +129,7 @@ func getAlertGroupWindows(alerts alert.MWMBAlertGroup) []time.Duration {
 	return res
 }
 
+/// Reference : https://github.com/slok/sloth/blob/eddd8145a696c3dc6d423e9d50cdb906186a52a3/internal/prometheus/recording_rules.go#L78
 func rawSLIRecordGenerator(slo prometheus.SLO, window time.Duration, alerts alert.MWMBAlertGroup) (*rulefmt.Rule, error) {
 	// Render with our templated data.
 	sliExprTpl := fmt.Sprintf(`(%s)`, slo.SLI.Raw.ErrorRatioQuery)
@@ -158,6 +160,7 @@ func rawSLIRecordGenerator(slo prometheus.SLO, window time.Duration, alerts aler
 	}, nil
 }
 
+/// Reference : https://github.com/slok/sloth/blob/eddd8145a696c3dc6d423e9d50cdb906186a52a3/internal/prometheus/recording_rules.go#L205
 func GenerateMetadataRecordingRules(ctx context.Context, slo prometheus.SLO, alerts *alert.MWMBAlertGroup) ([]rulefmt.Rule, error) {
 	labels := MergeLabels(slo.GetSLOIDPromLabels(), slo.Labels)
 
@@ -258,6 +261,7 @@ func GenerateMetadataRecordingRules(ctx context.Context, slo prometheus.SLO, ale
 	return rules, nil
 }
 
+/// Reference : https://github.com/slok/sloth/blob/2de193572284e36189fe78ab33beb7e2b339b0f8/internal/prometheus/alert_rules.go#L25
 func GenerateSLOAlertRules(ctx context.Context, slo prometheus.SLO, alerts alert.MWMBAlertGroup) ([]rulefmt.Rule, error) {
 	alertPageMetadata := prometheus.AlertMeta{
 		Disable: false,
@@ -281,6 +285,7 @@ func GenerateSLOAlertRules(ctx context.Context, slo prometheus.SLO, alerts alert
 	return rules, nil
 }
 
+/// Reference : https://github.com/slok/sloth/blob/2de193572284e36189fe78ab33beb7e2b339b0f8/internal/prometheus/alert_rules.go#L51
 func defaultSLOAlertGenerator(slo prometheus.SLO, sloAlert prometheus.AlertMeta, quick, slow alert.MWMBAlert) (*rulefmt.Rule, error) {
 	// Generate the filter labels based on the SLO ids.
 	metricFilter := labelsToPromFilter(slo.GetSLOIDPromLabels())

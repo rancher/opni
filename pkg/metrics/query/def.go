@@ -1,0 +1,216 @@
+package query
+
+/*
+Queries used by SLOs must follow a format like :
+
+totalQueryTempl = template.Must(template.New("").Parse(`
+		sum(rate({{.MetricId}}{job="{{.JobId}}"}[{{"{{.window}}"}}]))
+	`))
+goodQueryTempl = template.Must(template.New("").Parse(`
+	sum(rate({{.MetricId}}{job="{{.JobId}}", {{.Filter}}}[{{"{{.window}}"}}]))
+`))
+
+Must :
+
+1. Include a nested template with a {{.window}} for SLOs to fill in
+2. the templates must only include information that can be filled with the `templateExecutor` struct.
+   Note: templates are intended to be filled with *api.Service protobuf definitions, so expect only that information will
+   be available, when SLOs are created at runtime
+*/
+
+import (
+	"html/template"
+	"regexp"
+	"strings"
+
+	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	slodef "github.com/rancher/opni/plugins/slo/pkg/slo"
+)
+
+var (
+	AvailableQueries map[string]MetricQuery = make(map[string]MetricQuery)
+)
+
+func init() {
+	uptimeSLOQuery := New().
+		Name("uptime").
+		GoodQuery( /*".*up.*"*/
+			NewQueryBuilder().
+				Query(`
+					sum(rate({{.MetricId}}{job="{{.JobId}}", {{.JobId}}=1}[{{"{{.window}}"}}]))
+				`).
+					MetricFilter(`.*up.*`).
+					BuildRatio()).
+		TotalQuery( /* */
+			NewQueryBuilder().
+				Query(`
+					sum(rate({{.MetricId}}{job="{{.JobId}}"}[{{"{{.window}}"}}]))
+				`).
+				MetricFilter(`.*up.*`).BuildRatio()).
+		Description("Measures the uptime of a kubernetes service").
+		Datasource(slodef.MonitoringDatasource).Build()
+	AvailableQueries[uptimeSLOQuery.name] = &uptimeSLOQuery
+
+	httpAvailabilitySLOQuery := New().
+		Name("uptime").
+		GoodQuery(
+			NewQueryBuilder().
+				Query(`
+					sum(rate({{.MetricId}}{job="{{.JobId}}", codes={2??|3??}}{{.LabelRegex}}[{{"{{.window}}"}}]))
+				`).
+				MetricFilter(`.*_http_request_duration_seconds_count`).
+				BuildRatio()).
+		TotalQuery(
+			NewQueryBuilder().
+				Query(`
+					sum(rate({{.MetricId}}{job="{{.JobId}}"}[{{"{{.window}}"}}]))
+				`).
+				MetricFilter(`.*_http_request_duration_seconds_count`).BuildRatio()).
+		Description(`Measures the availability of a kubernetes service using http status codes. 
+		Codes 2XX and 3XX are considered as available.`).
+		Datasource(slodef.MonitoringDatasource).Build()
+	AvailableQueries[httpAvailabilitySLOQuery.name] = &httpAvailabilitySLOQuery
+
+	httpResponseTimeSLOQuery := New().
+		Name("uptime").
+		GoodQuery(
+			NewQueryBuilder().
+				Query(`
+					sum(rate({{.MetricId}}{job="{{.JobId}}", codes={2??|3??}}{{.LabelRegex}}[{{"{{.window}}"}}]))
+				`).
+				MetricFilter(`.*_http_request_duration_seconds_sum`).
+				BuildHistogram()).
+		TotalQuery(
+			NewQueryBuilder().
+				Query(`
+					sum(rate({{.MetricId}}{job="{{.JobId}}"}[{{"{{.window}}"}}]))
+				`).
+				MetricFilter(`.*_http_request_duration_seconds_sum`).BuildRatio()).
+		Description(`Quantifies the latency of http requests made against a kubernetes service
+			by classifying them as good (<=300ms) or bad(>=300ms)`).
+		Datasource(slodef.MonitoringDatasource).Build()
+	AvailableQueries[httpResponseTimeSLOQuery.name] = &httpResponseTimeSLOQuery
+}
+
+type templateExecutor struct {
+	MetricId string
+	JobId    string
+}
+type MetricQuery interface {
+	// User facing name of the pre-confured metric
+	Name() string
+	// User-facing description of the pre-configured metric
+	Description() string
+	// Each metric has a unique opni datasource (monitoring vs logging) by which it is filtered by
+	Datasource() string
+	Construct(service *api.Service) (*Query, error)
+	ResolveLabel() *regexp.Regexp
+}
+
+type Query interface {
+	FillQueryTemplate(info templateExecutor) string
+	GetMetricFilter() string
+	Validate() error
+	IsRatio() bool
+	IsHistogram() bool
+	Construct() (string, error)
+}
+
+type QueryBuilder interface {
+	Query(string) QueryBuilder
+	MetricFilter(string) QueryBuilder
+	BuildRatio() RatioQuery
+	BuildHistogram() HistogramQuery
+}
+
+type queryBuilder struct {
+	query  template.Template
+	filter regexp.Regexp
+}
+
+func NewQueryBuilder() QueryBuilder {
+	return queryBuilder{}
+}
+
+func (q queryBuilder) Query(query string) QueryBuilder {
+	tmpl := template.Must(template.New("").Parse(strings.TrimSpace(query)))
+	q.query = *tmpl
+	return q
+}
+
+func (q queryBuilder) MetricFilter(filter string) QueryBuilder {
+	regex := regexp.MustCompile(strings.TrimSpace(filter))
+	q.filter = *regex
+	return q
+}
+
+func (q queryBuilder) BuildRatio() RatioQuery {
+	return RatioQuery{
+		query:        q.query,
+		metricFilter: q.filter,
+	}
+}
+
+func (q queryBuilder) BuildHistogram() HistogramQuery {
+	return HistogramQuery{
+		query:        q.query,
+		metricFilter: q.filter,
+	}
+}
+
+type SloQueryBuilder interface {
+	Name(name string) SloQueryBuilder
+	GoodQuery(q Query) SloQueryBuilder
+	TotalQuery(q Query) SloQueryBuilder
+	Description(description string) SloQueryBuilder
+	Datasource(datasource string) SloQueryBuilder
+	Build() PrometheusQueryImpl
+}
+
+type sloQueryBuilder struct {
+	name         string
+	metricFilter regexp.Regexp
+	goodQuery    Query
+	totalQuery   Query
+	description  string
+	datasource   string
+}
+
+func New() SloQueryBuilder {
+	return sloQueryBuilder{}
+}
+
+func (s sloQueryBuilder) Name(name string) SloQueryBuilder {
+	s.name = name
+	return s
+}
+
+func (s sloQueryBuilder) GoodQuery(q Query) SloQueryBuilder {
+	s.goodQuery = q
+	return s
+}
+
+func (s sloQueryBuilder) TotalQuery(q Query) SloQueryBuilder {
+	s.totalQuery = q
+	return s
+}
+
+func (s sloQueryBuilder) Description(description string) SloQueryBuilder {
+	s.description = description
+	return s
+}
+
+func (s sloQueryBuilder) Datasource(datasource string) SloQueryBuilder {
+	s.datasource = datasource
+	return s
+}
+
+func (s sloQueryBuilder) Build() PrometheusQueryImpl {
+	return PrometheusQueryImpl{
+		name:        s.name,
+		datasource:  s.datasource,
+		description: s.description,
+		GoodQuery:   s.goodQuery,
+		TotalQuery:  s.totalQuery,
+	}
+}

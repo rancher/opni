@@ -10,6 +10,7 @@ import (
 type HistogramQuery struct {
 	query        template.Template
 	metricFilter regexp.Regexp
+	matcher      matcher
 }
 
 func (h HistogramQuery) FillQueryTemplate(info templateExecutor) string {

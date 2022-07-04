@@ -13,6 +13,7 @@ import (
 type RatioQuery struct {
 	query        template.Template
 	metricFilter regexp.Regexp // how to assign the metric to the query
+	matcher      matcher
 }
 
 func (r RatioQuery) FillQueryTemplate(info templateExecutor) string {

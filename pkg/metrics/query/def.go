@@ -56,7 +56,7 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricId}}{job="{{.JobId}}", codes={2??|3??}}{{.LabelRegex}}[{{"{{.window}}"}}]))
+					sum(rate({{.MetricId}}{job="{{.JobId}}", codes={2??|3??}}[{{"{{.window}}"}}]))
 				`).
 				MetricFilter(`.*_http_request_duration_seconds_count`).
 				BuildRatio()).
@@ -76,7 +76,7 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricId}}{job="{{.JobId}}", codes={2??|3??}}{{.LabelRegex}}[{{"{{.window}}"}}]))
+					sum(rate({{.MetricId}}{job="{{.JobId}}", codes={2??|3??}} [{{"{{window}}"}}]))
 				`).
 				MetricFilter(`.*_http_request_duration_seconds_sum`).
 				BuildHistogram()).
@@ -91,6 +91,8 @@ func init() {
 		Datasource(slodef.MonitoringDatasource).Build()
 	AvailableQueries[httpResponseTimeSLOQuery.name] = &httpResponseTimeSLOQuery
 }
+
+type matcher func([]string) string
 
 type templateExecutor struct {
 	MetricId string
@@ -119,13 +121,15 @@ type Query interface {
 type QueryBuilder interface {
 	Query(string) QueryBuilder
 	MetricFilter(string) QueryBuilder
+	Matcher(*matcher) QueryBuilder
 	BuildRatio() RatioQuery
 	BuildHistogram() HistogramQuery
 }
 
 type queryBuilder struct {
-	query  template.Template
-	filter regexp.Regexp
+	query   template.Template
+	filter  regexp.Regexp
+	matcher matcher
 }
 
 func NewQueryBuilder() QueryBuilder {
@@ -144,7 +148,20 @@ func (q queryBuilder) MetricFilter(filter string) QueryBuilder {
 	return q
 }
 
+// defaults to `minLengthMatch`
+func (q queryBuilder) Matcher(matcher *matcher) QueryBuilder {
+	if matcher == nil {
+		q.matcher = minLengthMatch
+	} else {
+		q.matcher = *matcher
+	}
+	return q
+}
+
 func (q queryBuilder) BuildRatio() RatioQuery {
+	if q.matcher == nil {
+		q.matcher = minLengthMatch
+	}
 	return RatioQuery{
 		query:        q.query,
 		metricFilter: q.filter,
@@ -152,6 +169,9 @@ func (q queryBuilder) BuildRatio() RatioQuery {
 }
 
 func (q queryBuilder) BuildHistogram() HistogramQuery {
+	if q.matcher == nil {
+		q.matcher = minLengthMatch
+	}
 	return HistogramQuery{
 		query:        q.query,
 		metricFilter: q.filter,

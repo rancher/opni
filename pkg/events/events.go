@@ -8,6 +8,7 @@ import (
 
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -172,6 +173,11 @@ func (c *EventCollector) processItem(obj interface{}) error {
 	event, _, err := c.informer.Informer().GetIndexer().GetByKey(eventObj.key)
 	if err != nil {
 		return err
+	}
+
+	if event == nil || util.IsInterfaceNil(event) {
+		c.logger.Info("nil event, skipping")
+		return nil
 	}
 
 	return c.shipEvent(event.(*corev1.Event), eventObj.time)

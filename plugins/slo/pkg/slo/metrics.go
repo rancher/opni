@@ -8,8 +8,8 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/prometheus/common/model"
-	"github.com/rancher/opni/pkg/metrics/query"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"

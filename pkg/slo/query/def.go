@@ -166,10 +166,10 @@ func (q queryBuilder) MetricFilter(filter string) QueryBuilder {
 	return q
 }
 
-// defaults to `minLengthMatch`
+// defaults to `MinLengthMatch`
 func (q queryBuilder) Matcher(matcher *matcher) QueryBuilder {
 	if matcher == nil {
-		q.matcher = minLengthMatch
+		q.matcher = MinLengthMatch
 	} else {
 		q.matcher = *matcher
 	}
@@ -178,7 +178,7 @@ func (q queryBuilder) Matcher(matcher *matcher) QueryBuilder {
 
 func (q queryBuilder) BuildRatio() RatioQuery {
 	if q.matcher == nil {
-		q.matcher = minLengthMatch
+		q.matcher = MinLengthMatch
 	}
 	return RatioQuery{
 		query:        q.query,
@@ -189,7 +189,7 @@ func (q queryBuilder) BuildRatio() RatioQuery {
 
 func (q queryBuilder) BuildHistogram() HistogramQuery {
 	if q.matcher == nil {
-		q.matcher = minLengthMatch
+		q.matcher = MinLengthMatch
 	}
 	return HistogramQuery{
 		query:        q.query,

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/metrics/query"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/types/known/emptypb"

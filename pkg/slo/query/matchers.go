@@ -7,7 +7,7 @@ This module defines matcher functions for finding the best match for the
 discovered downstream metrics
 */
 
-func minLengthMatch(metrics []string) string {
+func MinLengthMatch(metrics []string) string {
 	min := math.MaxInt // largest int
 	metricId := ""
 	for _, m := range metrics {

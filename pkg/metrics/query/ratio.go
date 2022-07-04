@@ -46,7 +46,12 @@ func (r RatioQuery) IsHistogram() bool {
 
 func (r RatioQuery) Construct(serv *api.Service) (string, error) {
 	return r.FillQueryTemplate(templateExecutor{
-		MetricId: serv.MetricId,
-		JobId:    serv.JobId,
+		MetricIdGood:  serv.MetricIdGood,
+		MetricIdTotal: serv.MetricIdTotal,
+		JobId:         serv.JobId,
 	})
+}
+
+func (r RatioQuery) BestMatch(in []string) string {
+	return r.matcher(in)
 }

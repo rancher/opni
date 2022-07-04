@@ -42,7 +42,12 @@ func (h HistogramQuery) IsHistogram() bool {
 
 func (h HistogramQuery) Construct(serv *api.Service) (string, error) {
 	return h.FillQueryTemplate(templateExecutor{
-		MetricId: serv.MetricId,
-		JobId:    serv.JobId,
+		MetricIdGood:  serv.MetricIdGood,
+		MetricIdTotal: serv.MetricIdTotal,
+		JobId:         serv.JobId,
 	})
+}
+
+func (h HistogramQuery) BestMatch(in []string) string {
+	return h.matcher(in)
 }

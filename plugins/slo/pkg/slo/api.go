@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/metrics/query"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/slo/shared"
@@ -192,11 +193,16 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 // Assign a Job Id to a pre configured metric based on the service selected
 func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Metric, error) {
 	lg := p.logger
-	var metricId string
+	var goodMetricId string
+	var totalMetricId string
 	var err error
+
+	if _, ok := query.AvailableQueries[metricRequest.Name]; !ok {
+		return nil, shared.ErrInvalidMetric
+	}
 	switch metricRequest.Datasource {
 	case shared.MonitoringDatasource:
-		metricId, err = assignMetricToJobId(p, ctx, metricRequest)
+		goodMetricId, totalMetricId, err = assignMetricToJobId(p, ctx, metricRequest)
 		if err != nil {
 			lg.Error(fmt.Sprintf("Unable to assign metric to job: %v", err))
 			return nil, err
@@ -205,11 +211,12 @@ func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRe
 		return nil, shared.ErrNotImplemented
 	}
 	return &sloapi.Metric{
-		Name:       metricRequest.Name,
-		Datasource: metricRequest.Datasource,
-		ClusterId:  metricRequest.ClusterId,
-		ServiceId:  metricRequest.ServiceId,
-		MetricId:   metricId,
+		Name:          metricRequest.Name,
+		Datasource:    metricRequest.Datasource,
+		ClusterId:     metricRequest.ClusterId,
+		ServiceId:     metricRequest.ServiceId,
+		MetricIdGood:  goodMetricId,
+		MetricIdTotal: totalMetricId,
 	}, nil
 }
 

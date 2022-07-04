@@ -45,6 +45,10 @@ func (p *PrometheusQueryImpl) Name() string {
 	return p.name
 }
 
-func (p *PrometheusQueryImpl) DownstreamLabel() *regexp.Regexp {
-	return &p.LabelRegex
+func (p *PrometheusQueryImpl) GetGoodQuery() Query {
+	return p.GoodQuery
+}
+
+func (p *PrometheusQueryImpl) GetTotalQuery() Query {
+	return p.TotalQuery
 }

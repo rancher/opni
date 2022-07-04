@@ -26,9 +26,6 @@ func ValidateInput(slo *api.ServiceLevelObjective) error {
 	if err := validateSLODatasource(slo.GetDatasource()); err != nil {
 		return err
 	}
-	if err := validateSLOMetric("Placeholder"); err != nil { //FIXME:
-		return err
-	}
 	if err := validateAlert(slo.GetAlerts()); err != nil {
 		return err
 	}
@@ -49,11 +46,6 @@ func validateAlert(alerts []*api.Alert) error {
 			return err
 		}
 	}
-	return nil
-}
-
-func validateSLOMetric(value string) error {
-	// TODO : validate metric type when metric grouping works
 	return nil
 }
 

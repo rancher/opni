@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"math"
 	"strings"
 
 	"github.com/hashicorp/go-hclog"
@@ -18,32 +17,17 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func selectBestMatch(metrics []string) string {
-	min := math.MaxInt // largest int
-	metricId := ""
-	for _, m := range metrics {
-		if m == "" {
-			continue
-		}
-		if len(m) < min {
-			min = len(m)
-			metricId = m
-		}
-	}
-	return metricId
-}
-
 type metricTemplate struct {
 	NameRegex string
 	ServiceId string
 }
 
-func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.MetricRequest) (string, error) {
+func doDownstreamQuery(p *Plugin, ctx context.Context, metricRequest *api.MetricRequest, q query.Query) (string, error) {
 	lg := p.logger
-	var q bytes.Buffer
-	if err := query.GetDownstreamMetricQueryTempl.Execute(&q,
+	var queryBytes bytes.Buffer
+	if err := query.GetDownstreamMetricQueryTempl.Execute(&queryBytes,
 		metricTemplate{
-			NameRegex: (query.AvailableQueries[metricRequest.GetName()].DownstreamLabel()).String(),
+			NameRegex: q.GetMetricFilter(),
 			ServiceId: metricRequest.ServiceId,
 		},
 	); err != nil {
@@ -51,7 +35,7 @@ func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.Metr
 	}
 	resp, err := p.adminClient.Get().Query(ctx, &cortexadmin.QueryRequest{
 		Tenants: []string{metricRequest.ClusterId},
-		Query:   strings.TrimSpace(q.String()),
+		Query:   strings.TrimSpace(queryBytes.String()),
 	})
 	if err != nil {
 		lg.Error(fmt.Sprintf("Failed to query cluster %v: %v", metricRequest.ClusterId, err))
@@ -78,7 +62,7 @@ func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.Metr
 		}
 		// should always have one + metric
 		lg.Debug(fmt.Sprintf("Found metricIds : %v", res))
-		metricId := selectBestMatch(res)
+		metricId := q.BestMatch(res)
 		if metricId == "" {
 			err := status.Error(codes.NotFound,
 				fmt.Sprintf("No assignable metric '%s' for service '%s' in cluster '%s' ",
@@ -90,20 +74,35 @@ func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.Metr
 	return "", fmt.Errorf("Could not unmarshall response into expected format")
 }
 
+func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.MetricRequest) (string, string, error) {
+	queryStruct := query.AvailableQueries[metricRequest.GetName()]
+	goodQuery, totalQuery := queryStruct.GetGoodQuery(), queryStruct.GetTotalQuery()
+
+	if goodQuery.GetMetricFilter() == totalQuery.GetMetricFilter() {
+		id, err := doDownstreamQuery(p, ctx, metricRequest, goodQuery)
+		if err != nil {
+			return "", "", err
+		}
+		return id, id, nil
+	} else {
+		idGood, err := doDownstreamQuery(p, ctx, metricRequest, goodQuery)
+		if err != nil {
+			return "", "", err
+		}
+		idTotal, err := doDownstreamQuery(p, ctx, metricRequest, totalQuery)
+		if err != nil {
+			return "", "", err
+		}
+		return idGood, idTotal, nil
+	}
+}
+
 // Note: Assumption is that JobID is valid
 // @returns goodQuery, totalQuery
 func fetchPreconfQueries(slo *api.ServiceLevelObjective, service *api.Service, ctx context.Context, lg hclog.Logger) (*query.SLOQueryResult, error) {
 	if slo.GetDatasource() == shared.MonitoringDatasource {
-		found := false
-		for k := range query.AvailableQueries {
-			if k == service.GetMetricName() {
-				found = true
-			}
-		}
-		if !found {
-			return nil, fmt.Errorf(
-				"Cannot create SLO with metric name %s ", service.GetMetricName(),
-			)
+		if _, ok := query.AvailableQueries[service.GetMetricName()]; !ok {
+			return nil, shared.ErrInvalidMetric
 		}
 		ratioQuery, err := query.AvailableQueries[service.GetMetricName()].Construct(service)
 		if err != nil {

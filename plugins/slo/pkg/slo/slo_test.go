@@ -28,7 +28,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Datasource:  "monitoring",
 		Description: "Some SLO",
 		Services: []*apis.Service{
-			{JobId: "foo-service", ClusterId: "foo-cluster", MetricName: "uptime", MetricId: "up"},
+			{JobId: "foo-service", ClusterId: "foo-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
 		},
 		MonitorWindow:     "30d",
 		MetricDescription: "Some metric",
@@ -176,10 +176,10 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(yaml.Marshal(&objectiveSpecs[0])).To(MatchYAML(expectedObjectives))
 
 			multiClusterMultiService.Services = []*apis.Service{
-				{JobId: "foo-service", ClusterId: "foo-cluster", MetricName: "uptime", MetricId: "up"},
-				{JobId: "foo-service2", ClusterId: "foo-cluster", MetricName: "uptime", MetricId: "up"},
-				{JobId: "foo-service", ClusterId: "bar-cluster", MetricName: "uptime", MetricId: "up"},
-				{JobId: "foo-service2", ClusterId: "bar-cluster", MetricName: "uptime", MetricId: "up"},
+				{JobId: "foo-service", ClusterId: "foo-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
+				{JobId: "foo-service2", ClusterId: "foo-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
+				{JobId: "foo-service", ClusterId: "bar-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
+				{JobId: "foo-service2", ClusterId: "bar-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
 			}
 
 			multiClusterSpecs, err = slo.ParseToOpenSLO(multiClusterMultiService, context.Background(), hclog.New(&hclog.LoggerOptions{}))

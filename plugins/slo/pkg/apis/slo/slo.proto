@@ -94,8 +94,9 @@ service SLO {
 message Service {
   string jobId = 1;
   string metricName = 2; 
-  string metricId = 3;
-  string clusterId = 4;
+  string metricIdGood = 3;
+  string metricIdTotal = 4;
+  string clusterId = 5;
 }
 
 message ServiceList {
@@ -186,7 +187,8 @@ message Metric {
   string datasource = 2;
   string clusterId = 3;
   string serviceId = 4;
-  string metricId = 5;
+  string metricIdGood = 5;
+  string metricIdTotal = 6;
 }
 
 message MetricRequest {

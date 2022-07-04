@@ -46,14 +46,14 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricId}}{job="{{.JobId}}", {{.MetricId}}=1}[{{"{{.window}}"}}]))
+					sum(rate({{.MetricIdGood}}{job="{{.JobId}}", {{.MetricIdGood}}=1}[{{"{{.window}}"}}]))
 				`).
 				MetricFilter(`.*up.*`).
 				BuildRatio()).
 		TotalQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricId}}{job="{{.JobId}}"}[{{"{{.window}}"}}]))
+					sum(rate({{.MetricIdTotal}}{job="{{.JobId}}"}[{{"{{.window}}"}}]))
 				`).
 				MetricFilter(`.*up.*`).BuildRatio()).
 		Description("Measures the uptime of a kubernetes service").
@@ -65,14 +65,14 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricId}}{job="{{.JobId}}", codes={2??|3??}}[{{"{{.window}}"}}]))
+					sum(rate({{.MetricIdGood}}{code="(2..|3..)"}[{{"{{.window}}"}}]))
 				`).
 				MetricFilter(`.*_http_request_duration_seconds_count`).
 				BuildRatio()).
 		TotalQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricId}}{job="{{.JobId}}"}[{{"{{.window}}"}}]))
+					sum(rate({{.MetricIdTotal}}[{{"{{.window}}"}}]))
 				`).
 				MetricFilter(`.*_http_request_duration_seconds_count`).BuildRatio()).
 		Description(`Measures the availability of a kubernetes service using http status codes. 
@@ -85,14 +85,14 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricId}}{job="{{.JobId}}", codes={2??|3??}} [{{"{{window}}"}}]))
+					sum(rate({{.MetricIdGood}}{le="0.3",verb!="WATCH"} [{{"{{window}}"}}]))
 				`).
-				MetricFilter(`.*_http_request_duration_seconds_sum`).
+				MetricFilter(`.*_http_request_duration_seconds_bucket`).
 				BuildHistogram()).
 		TotalQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricId}}{job="{{.JobId}}"}[{{"{{.window}}"}}]))
+					sum(rate({{.MetricIdTotal}}{verb!="WATCH"}[{{"{{.window}}"}}]))
 				`).
 				MetricFilter(`.*_http_request_duration_seconds_sum`).BuildRatio()).
 		Description(`Quantifies the latency of http requests made against a kubernetes service
@@ -109,8 +109,9 @@ type SLOQueryResult struct {
 }
 
 type templateExecutor struct {
-	MetricId string
-	JobId    string
+	MetricIdGood  string
+	MetricIdTotal string
+	JobId         string
 }
 type MetricQuery interface {
 	// User facing name of the pre-confured metric
@@ -120,7 +121,9 @@ type MetricQuery interface {
 	// Each metric has a unique opni datasource (monitoring vs logging) by which it is filtered by
 	Datasource() string
 	Construct(*api.Service) (*SLOQueryResult, error)
-	DownstreamLabel() *regexp.Regexp
+	// Some metrics will have different labels for metrics, so handle them independently
+	GetGoodQuery() Query
+	GetTotalQuery() Query
 }
 
 type Query interface {
@@ -128,6 +131,7 @@ type Query interface {
 	GetMetricFilter() string
 	Validate() error
 	IsRatio() bool
+	BestMatch([]string) string
 	IsHistogram() bool
 	Construct(*api.Service) (string, error)
 }
@@ -179,6 +183,7 @@ func (q queryBuilder) BuildRatio() RatioQuery {
 	return RatioQuery{
 		query:        q.query,
 		metricFilter: q.filter,
+		matcher:      q.matcher,
 	}
 }
 
@@ -189,6 +194,7 @@ func (q queryBuilder) BuildHistogram() HistogramQuery {
 	return HistogramQuery{
 		query:        q.query,
 		metricFilter: q.filter,
+		matcher:      q.matcher,
 	}
 }
 

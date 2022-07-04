@@ -7,6 +7,7 @@ import (
 	"time"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/metrics/query"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
@@ -54,9 +55,11 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 }
 
 func (p *Plugin) initMetricCache(ctx context.Context) error {
-	items := make([]sloapi.Metric, len(availableQueries))
+	lg := p.logger.With("func", "initMetricCache")
+	items := make([]sloapi.Metric, len(query.AvailableQueries))
 	idx := 0
-	for _, q := range availableQueries {
+	for _, q := range query.AvailableQueries {
+		lg.Debug("Adding preconfigured metric : ", q.Name)
 		items[idx] = sloapi.Metric{
 			Name:       q.Name(),
 			Datasource: q.Datasource(),

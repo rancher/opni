@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/test"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
@@ -102,19 +103,19 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(slo.ValidateInput(alertSLO)).To(Succeed())
 			Expect(slo.ValidateInput(multiAlerts)).To(Succeed())
 
-			for _, atype := range []string{slo.NotifHook, slo.NotifPager, slo.NotifMail, slo.NotifSlack} {
+			for _, atype := range []string{shared.NotifHook, shared.NotifPager, shared.NotifMail, shared.NotifSlack} {
 				sloNewAlert := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 				alertSLO.Alerts[0].NotificationTarget = atype
 				Expect(slo.ValidateInput(sloNewAlert)).To(Succeed())
 			}
 
-			for _, ctype := range []string{slo.AlertingBurnRate, slo.AlertingBudget, slo.AlertingTarget} {
+			for _, ctype := range []string{shared.AlertingBurnRate, shared.AlertingBudget, shared.AlertingTarget} {
 				sloNewAlert := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 				alertSLO.Alerts[0].ConditionType = ctype
 				Expect(slo.ValidateInput(sloNewAlert)).To(Succeed())
 			}
 
-			for _, ttype := range []string{slo.GTThresholdType, slo.LTThresholdType} {
+			for _, ttype := range []string{shared.GTThresholdType, shared.LTThresholdType} {
 				sloNewAlert := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 				alertSLO.Alerts[0].ThresholdType = ttype
 				Expect(slo.ValidateInput(sloNewAlert)).To(Succeed())
@@ -124,27 +125,27 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		It("should reject improper input", func() {
 			invalidDesc := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 			invalidDesc.Description = strings.Repeat("a", 1056)
-			Expect(slo.ValidateInput(invalidDesc)).To(MatchError(slo.ErrInvalidDescription))
+			Expect(slo.ValidateInput(invalidDesc)).To(MatchError(shared.ErrInvalidDescription))
 
 			invalidSource := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 			invalidSource.Datasource = strings.Repeat("a", 256)
-			Expect(slo.ValidateInput(invalidSource)).To(MatchError(slo.ErrInvalidDatasource))
+			Expect(slo.ValidateInput(invalidSource)).To(MatchError(shared.ErrInvalidDatasource))
 
 			missingId := proto.Clone(slo1).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 			missingId.Id = ""
-			Expect(slo.ValidateInput(missingId)).To(MatchError(slo.ErrInvalidId))
+			Expect(slo.ValidateInput(missingId)).To(MatchError(shared.ErrInvalidId))
 
 			sloInvalidAlertTarget := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 			sloInvalidAlertTarget.Alerts[0].NotificationTarget = "invalid-234987ukjas"
-			Expect(slo.ValidateInput(sloInvalidAlertTarget)).To(MatchError(slo.ErrInvalidAlertTarget))
+			Expect(slo.ValidateInput(sloInvalidAlertTarget)).To(MatchError(shared.ErrInvalidAlertTarget))
 
 			sloInvalidAlertCondition := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 			sloInvalidAlertCondition.Alerts[0].ConditionType = "invalid-234987ukjas"
-			Expect(slo.ValidateInput(sloInvalidAlertCondition)).To(MatchError(slo.ErrInvalidAlertCondition))
+			Expect(slo.ValidateInput(sloInvalidAlertCondition)).To(MatchError(shared.ErrInvalidAlertCondition))
 
 			sloInvalidAlertThreshold := proto.Clone(alertSLO).ProtoReflect().Interface().(*apis.ServiceLevelObjective)
 			sloInvalidAlertThreshold.Alerts[0].ThresholdType = "invalid-234987ukjas"
-			Expect(slo.ValidateInput(sloInvalidAlertThreshold)).To(MatchError(slo.ErrInvalidAlertThreshold))
+			Expect(slo.ValidateInput(sloInvalidAlertThreshold)).To(MatchError(shared.ErrInvalidAlertThreshold))
 
 		})
 	})

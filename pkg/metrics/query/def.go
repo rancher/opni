@@ -1,6 +1,9 @@
 package query
 
 /*
+This module defines the datatypes & interfaces used to define SLO queries.
+`AvailableQueries` contains the list of all preconfigured queries.
+
 Queries used by SLOs must follow a format like :
 
 totalQueryTempl = template.Must(template.New("").Parse(`
@@ -23,36 +26,42 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/rancher/opni/pkg/slo/shared"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
-	slodef "github.com/rancher/opni/plugins/slo/pkg/slo"
 )
 
 var (
-	AvailableQueries map[string]MetricQuery = make(map[string]MetricQuery)
+	AvailableQueries              map[string]MetricQuery = make(map[string]MetricQuery)
+	GetDownstreamMetricQueryTempl                        = template.Must(template.New("").Parse(`
+		group by(__name__)({__name__=~"{{.NameRegex}}"} and {job="{{.ServiceId}}"})
+	`))
 )
 
 func init() {
+	// Names should be unique for each pre-configured query, as they are used as keys
+	// in the map
+
 	uptimeSLOQuery := New().
 		Name("uptime").
-		GoodQuery( /*".*up.*"*/
+		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricId}}{job="{{.JobId}}", {{.JobId}}=1}[{{"{{.window}}"}}]))
+					sum(rate({{.MetricId}}{job="{{.JobId}}", {{.MetricId}}=1}[{{"{{.window}}"}}]))
 				`).
-					MetricFilter(`.*up.*`).
-					BuildRatio()).
-		TotalQuery( /* */
+				MetricFilter(`.*up.*`).
+				BuildRatio()).
+		TotalQuery(
 			NewQueryBuilder().
 				Query(`
 					sum(rate({{.MetricId}}{job="{{.JobId}}"}[{{"{{.window}}"}}]))
 				`).
 				MetricFilter(`.*up.*`).BuildRatio()).
 		Description("Measures the uptime of a kubernetes service").
-		Datasource(slodef.MonitoringDatasource).Build()
+		Datasource(shared.MonitoringDatasource).Build()
 	AvailableQueries[uptimeSLOQuery.name] = &uptimeSLOQuery
 
 	httpAvailabilitySLOQuery := New().
-		Name("uptime").
+		Name("http-availability").
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
@@ -68,11 +77,11 @@ func init() {
 				MetricFilter(`.*_http_request_duration_seconds_count`).BuildRatio()).
 		Description(`Measures the availability of a kubernetes service using http status codes. 
 		Codes 2XX and 3XX are considered as available.`).
-		Datasource(slodef.MonitoringDatasource).Build()
+		Datasource(shared.MonitoringDatasource).Build()
 	AvailableQueries[httpAvailabilitySLOQuery.name] = &httpAvailabilitySLOQuery
 
 	httpResponseTimeSLOQuery := New().
-		Name("uptime").
+		Name("http-latency").
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
@@ -88,11 +97,16 @@ func init() {
 				MetricFilter(`.*_http_request_duration_seconds_sum`).BuildRatio()).
 		Description(`Quantifies the latency of http requests made against a kubernetes service
 			by classifying them as good (<=300ms) or bad(>=300ms)`).
-		Datasource(slodef.MonitoringDatasource).Build()
+		Datasource(shared.MonitoringDatasource).Build()
 	AvailableQueries[httpResponseTimeSLOQuery.name] = &httpResponseTimeSLOQuery
 }
 
 type matcher func([]string) string
+
+type SLOQueryResult struct {
+	GoodQuery  string
+	TotalQuery string
+}
 
 type templateExecutor struct {
 	MetricId string
@@ -105,17 +119,17 @@ type MetricQuery interface {
 	Description() string
 	// Each metric has a unique opni datasource (monitoring vs logging) by which it is filtered by
 	Datasource() string
-	Construct(service *api.Service) (*Query, error)
-	ResolveLabel() *regexp.Regexp
+	Construct(*api.Service) (*SLOQueryResult, error)
+	DownstreamLabel() *regexp.Regexp
 }
 
 type Query interface {
-	FillQueryTemplate(info templateExecutor) string
+	FillQueryTemplate(info templateExecutor) (string, error)
 	GetMetricFilter() string
 	Validate() error
 	IsRatio() bool
 	IsHistogram() bool
-	Construct() (string, error)
+	Construct(*api.Service) (string, error)
 }
 
 type QueryBuilder interface {

@@ -8,6 +8,9 @@ import (
 	"bytes"
 	"html/template"
 	"regexp"
+	"strings"
+
+	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 type RatioQuery struct {
@@ -16,13 +19,15 @@ type RatioQuery struct {
 	matcher      matcher
 }
 
-func (r RatioQuery) FillQueryTemplate(info templateExecutor) string {
-	//TODO : implement
-	return ""
+func (r RatioQuery) FillQueryTemplate(info templateExecutor) (string, error) {
+	var query bytes.Buffer
+	if err := r.query.Execute(&query, info); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(query.String()), nil
 }
 
 func (r RatioQuery) GetMetricFilter() string {
-	//TODO : implement
 	return r.metricFilter.String()
 }
 
@@ -39,11 +44,9 @@ func (r RatioQuery) IsHistogram() bool {
 	return false
 }
 
-func (r RatioQuery) Construct() (string, error) {
-	// TODO : implement
-	var query bytes.Buffer
-	if err := r.query.Execute(&query, r); err != nil {
-		return "", err
-	}
-	return query.String(), nil
+func (r RatioQuery) Construct(serv *api.Service) (string, error) {
+	return r.FillQueryTemplate(templateExecutor{
+		MetricId: serv.MetricId,
+		JobId:    serv.JobId,
+	})
 }

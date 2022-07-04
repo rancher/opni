@@ -9,7 +9,6 @@ import (
 	"regexp"
 
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
-	slodef "github.com/rancher/opni/plugins/slo/pkg/slo"
 )
 
 type PrometheusQueryImpl struct {
@@ -22,25 +21,16 @@ type PrometheusQueryImpl struct {
 }
 
 // The actual metricId and window are only known at SLO creation time
-func (p *PrometheusQueryImpl) Construct(service *api.Service) (*Query, error) {
-	// var goodQuery bytes.Buffer
-	// var totalQuery bytes.Buffer
-	// if err := goodQueryTempl.Execute(&goodQuery,
-	// 	goodQueryPlaceholder{MetricId: service.GetMetricId(), JobId: service.GetJobId(), Filter: p.GoodFilter}); err != nil {
-	// 	return nil, err
-	// }
-	// if err := totalQueryTempl.Execute(
-	// 	&totalQuery,
-	// 	&service); err != nil {
-	// 	return nil, err
-	// }
-
-	// return &RatioQuery{
-	// 	GoodQuery:  strings.TrimSpace(goodQuery.String()),
-	// 	TotalQuery: strings.TrimSpace(totalQuery.String()),
-	// }, nil
-	// TODO : implement
-	return nil, slodef.ErrNotImplemented
+func (p *PrometheusQueryImpl) Construct(service *api.Service) (*SLOQueryResult, error) {
+	goodQueryStr, err := p.GoodQuery.Construct(service)
+	if err != nil {
+		return nil, err
+	}
+	totalQueryStr, err := p.TotalQuery.Construct(service)
+	if err != nil {
+		return nil, err
+	}
+	return &SLOQueryResult{GoodQuery: goodQueryStr, TotalQuery: totalQueryStr}, nil
 }
 
 func (p *PrometheusQueryImpl) Datasource() string {
@@ -55,6 +45,6 @@ func (p *PrometheusQueryImpl) Name() string {
 	return p.name
 }
 
-func (p *PrometheusQueryImpl) ResolveLabel() *regexp.Regexp {
+func (p *PrometheusQueryImpl) DownstreamLabel() *regexp.Regexp {
 	return &p.LabelRegex
 }

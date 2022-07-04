@@ -1,10 +1,12 @@
 package query
 
 import (
+	"bytes"
 	"html/template"
 	"regexp"
+	"strings"
 
-	slodef "github.com/rancher/opni/plugins/slo/pkg/slo"
+	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 type HistogramQuery struct {
@@ -13,14 +15,16 @@ type HistogramQuery struct {
 	matcher      matcher
 }
 
-func (h HistogramQuery) FillQueryTemplate(info templateExecutor) string {
-	// TODO : implement
-	return ""
+func (h HistogramQuery) FillQueryTemplate(info templateExecutor) (string, error) {
+	var query bytes.Buffer
+	if err := h.query.Execute(&query, info); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(query.String()), nil
 }
 
 func (h HistogramQuery) GetMetricFilter() string {
-	// TODO : implement
-	return ""
+	return h.metricFilter.String()
 }
 
 func (h HistogramQuery) Validate() error {
@@ -36,6 +40,9 @@ func (h HistogramQuery) IsHistogram() bool {
 	return true
 }
 
-func (h HistogramQuery) Construct() (string, error) {
-	return "", slodef.ErrNotImplemented
+func (h HistogramQuery) Construct(serv *api.Service) (string, error) {
+	return h.FillQueryTemplate(templateExecutor{
+		MetricId: serv.MetricId,
+		JobId:    serv.JobId,
+	})
 }

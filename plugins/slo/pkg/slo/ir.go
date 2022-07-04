@@ -12,6 +12,7 @@ import (
 	"github.com/alexandreLamarre/sloth/core/app/generate"
 	"github.com/alexandreLamarre/sloth/core/info"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
+	"github.com/rancher/opni/pkg/slo/shared"
 	"gopkg.in/yaml.v2"
 )
 
@@ -38,7 +39,7 @@ func GeneratePrometheusRule(slos []*prometheus.SLOGroup, ctx context.Context) ([
 		SLOAlertRulesGenerator:      alertRuleGen,
 	})
 	if err != nil {
-		return nil, ErrPrometheusGenerator
+		return nil, shared.ErrPrometheusGenerator
 	}
 
 	for _, slo := range slos { //FIXME:

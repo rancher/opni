@@ -27,6 +27,7 @@ type EventOutput struct {
 	*corev1.Event
 	ClusterID string    `json:"cluster_id,omitempty"`
 	LogType   string    `json:"log_type,omitempty"`
+	PodName   string    `json:"pod_name,omitempty"`
 	Time      time.Time `json:"time,omitempty"`
 }
 
@@ -194,7 +195,13 @@ func (c *EventCollector) shipEvent(event *corev1.Event, timestamp time.Time) err
 			Event:     event,
 			ClusterID: string(systemNamespace.GetUID()),
 			LogType:   "event",
-			Time:      timestamp,
+			PodName: func() string {
+				if event.InvolvedObject.Kind == "Pod" {
+					return event.InvolvedObject.Name
+				}
+				return ""
+			}(),
+			Time: timestamp,
 		},
 	}
 

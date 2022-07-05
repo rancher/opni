@@ -27,8 +27,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	})
 
 	When("We use matchers", func() {
-		It("Should use a MinLengthMatch to match the shortest metric", func() {
-			m := query.MinLengthMatch
+		It("Should use a MatchMinLength to match the shortest metric", func() {
+			m := query.MatchMinLength
 			discoveredMetrics := []string{
 				"alertmanager_http_request_duration_seconds_bucket",
 				"alertmanager_http_request_duration_seconds_count",

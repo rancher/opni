@@ -13,6 +13,8 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/slo/query"
+	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/grpc/codes"
@@ -62,9 +64,9 @@ func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjectiv
 
 	for _, spec := range osloSpecs {
 		switch slo.GetDatasource() {
-		case LoggingDatasource:
-			return nil, ErrNotImplemented
-		case MonitoringDatasource:
+		case shared.LoggingDatasource:
+			return nil, shared.ErrNotImplemented
+		case shared.MonitoringDatasource:
 			// TODO forward to "sloth"-like prometheus parser
 		default:
 			return nil, status.Error(codes.FailedPrecondition, "Invalid datasource should have already been checked")
@@ -91,7 +93,7 @@ func (p *Plugin) ListSLOs(ctx context.Context, _ *emptypb.Empty) (*sloapi.Servic
 	}
 	return &sloapi.ServiceLevelObjectiveList{
 		Items: items,
-	}, ErrNotImplemented
+	}, shared.ErrNotImplemented
 }
 
 func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.ServiceLevelObjective) (*emptypb.Empty, error) {
@@ -104,7 +106,7 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.ServiceLevelObjectiv
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", req.Id), existing); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, ErrNotImplemented
+	return &emptypb.Empty{}, shared.ErrNotImplemented
 }
 
 func (p *Plugin) DeleteSLO(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
@@ -113,7 +115,7 @@ func (p *Plugin) DeleteSLO(ctx context.Context, ref *corev1.Reference) (*emptypb
 	}
 
 	p.storage.Get().SLOs.Delete(path.Join("/slo_state", ref.Id))
-	return &emptypb.Empty{}, ErrNotImplemented
+	return &emptypb.Empty{}, shared.ErrNotImplemented
 }
 
 func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.ServiceLevelObjective, error) {
@@ -129,11 +131,11 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 		return nil, err
 	}
 
-	return clone, ErrNotImplemented
+	return clone, shared.ErrNotImplemented
 }
 
 func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOStatus, error) {
-	return nil, ErrNotImplemented
+	return nil, shared.ErrNotImplemented
 }
 
 func (p *Plugin) GetService(ctx context.Context, ref *corev1.Reference) (*sloapi.Service, error) {
@@ -191,24 +193,30 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 // Assign a Job Id to a pre configured metric based on the service selected
 func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Metric, error) {
 	lg := p.logger
-	var metricId string
+	var goodMetricId string
+	var totalMetricId string
 	var err error
+
+	if _, ok := query.AvailableQueries[metricRequest.Name]; !ok {
+		return nil, shared.ErrInvalidMetric
+	}
 	switch metricRequest.Datasource {
-	case MonitoringDatasource:
-		metricId, err = assignMetricToJobId(p, ctx, metricRequest)
+	case shared.MonitoringDatasource:
+		goodMetricId, totalMetricId, err = assignMetricToJobId(p, ctx, metricRequest)
 		if err != nil {
 			lg.Error(fmt.Sprintf("Unable to assign metric to job: %v", err))
 			return nil, err
 		}
-	case LoggingDatasource:
-		return nil, ErrNotImplemented
+	case shared.LoggingDatasource:
+		return nil, shared.ErrNotImplemented
 	}
 	return &sloapi.Metric{
-		Name:       metricRequest.Name,
-		Datasource: metricRequest.Datasource,
-		ClusterId:  metricRequest.ClusterId,
-		ServiceId:  metricRequest.ServiceId,
-		MetricId:   metricId,
+		Name:          metricRequest.Name,
+		Datasource:    metricRequest.Datasource,
+		ClusterId:     metricRequest.ClusterId,
+		ServiceId:     metricRequest.ServiceId,
+		MetricIdGood:  goodMetricId,
+		MetricIdTotal: totalMetricId,
 	}, nil
 }
 
@@ -224,7 +232,7 @@ func (p *Plugin) ListMetrics(ctx context.Context, _ *emptypb.Empty) (*sloapi.Met
 
 func (p *Plugin) GetFormulas(ctx context.Context, ref *corev1.Reference) (*sloapi.Formula, error) {
 	// return p.storage.Get().Formulas.Get(path.Join("/formulas", ref.Id))
-	return nil, ErrNotImplemented
+	return nil, shared.ErrNotImplemented
 }
 
 func (p *Plugin) ListFormulas(ctx context.Context, _ *emptypb.Empty) (*sloapi.FormulaList, error) {
@@ -234,18 +242,18 @@ func (p *Plugin) ListFormulas(ctx context.Context, _ *emptypb.Empty) (*sloapi.Fo
 	}
 	return &sloapi.FormulaList{
 		Items: items,
-	}, ErrNotImplemented
+	}, shared.ErrNotImplemented
 }
 
 func (p *Plugin) SetState(ctx context.Context, req *sloapi.SetStateRequest) (*emptypb.Empty, error) {
 	// if err := p.storage.Get().SLOState.Put(path.Join("/slo_state", req.Slo.Id), req.State); err != nil {
 	// 	return nil, err
 	// }
-	return &emptypb.Empty{}, ErrNotImplemented
+	return &emptypb.Empty{}, shared.ErrNotImplemented
 
 }
 
 func (p *Plugin) GetState(ctx context.Context, ref *corev1.Reference) (*sloapi.State, error) {
 	// return p.storage.Get().SLOState.Get(path.Join("/slo_state", ref.Id))
-	return nil, ErrNotImplemented
+	return nil, shared.ErrNotImplemented
 }

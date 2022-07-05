@@ -1,51 +1,8 @@
 package slo
 
 import (
-	"fmt"
-
-	validation "github.com/rancher/opni/pkg/validation"
+	"github.com/rancher/opni/pkg/slo/shared"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
-)
-
-// validation error descriptions
-var (
-	lengthConstraint         = func(i int) string { return fmt.Sprintf("must be between 1-%d characters in length", i) }
-	ErrInvalidDescription    = validation.Errorf("Description %s", lengthConstraint(1050))
-	ErrInvalidDatasource     = validation.Error("Invalid required datasource value")
-	ErrInvalidMetric         = validation.Error("Invalid preconfigured metric")
-	ErrInvalidAlertType      = validation.Error("Invalid alert type")
-	ErrInvalidAlertCondition = validation.Error("Invalid Alert Condition")
-	ErrInvalidAlertThreshold = validation.Error("Invalid Alert Threshold")
-	ErrInvalidAlertTarget    = validation.Error("Invalid Alert Target")
-	ErrInvalidId             = validation.Error("Internal error, unassigned SLO ID")
-	ErrNotImplemented        = validation.Error("Not implemented")
-	ErrPrometheusGenerator   = validation.Error("Prometheus generator failed to start")
-)
-
-const (
-	// Metric Enum
-	MetricLatency      = "http-latency"
-	MetricAvailability = "http-availability"
-
-	// Datasource Enum
-	LoggingDatasource    = "logging"
-	MonitoringDatasource = "monitoring"
-
-	// Alert Enum
-	AlertingBurnRate = "burnrate"
-	AlertingBudget   = "budget"
-	AlertingTarget   = "target"
-
-	GTThresholdType = ">"
-	LTThresholdType = "<"
-
-	// Notification Enum
-	NotifSlack = "slack"
-	NotifMail  = "email"
-	NotifPager = "pager"
-	NotifHook  = "webhook"
-
-	osloVersion = "openslo/v1"
 )
 
 func matchEnum(target string, enum []string, returnErr error) error {
@@ -61,15 +18,12 @@ func matchEnum(target string, enum []string, returnErr error) error {
 /// NOT validating the OpenSLO / Sloth format
 func ValidateInput(slo *api.ServiceLevelObjective) error {
 	if slo.GetId() == "" {
-		return ErrInvalidId
+		return shared.ErrInvalidId
 	}
 	if err := validateSLODescription(slo.GetDescription()); err != nil {
 		return err
 	}
 	if err := validateSLODatasource(slo.GetDatasource()); err != nil {
-		return err
-	}
-	if err := validateSLOMetric("Placeholder"); err != nil { //FIXME:
 		return err
 	}
 	if err := validateAlert(slo.GetAlerts()); err != nil {
@@ -81,31 +35,27 @@ func ValidateInput(slo *api.ServiceLevelObjective) error {
 
 func validateAlert(alerts []*api.Alert) error {
 	for _, alert := range alerts {
-		if err := matchEnum(alert.GetNotificationTarget(), []string{NotifSlack, NotifMail, NotifPager, NotifHook}, ErrInvalidAlertTarget); err != nil {
+		if err := matchEnum(alert.GetNotificationTarget(), []string{
+			shared.NotifSlack, shared.NotifMail, shared.NotifPager, shared.NotifHook}, shared.ErrInvalidAlertTarget); err != nil {
 			return err
 		}
-		if err := matchEnum(alert.GetConditionType(), []string{AlertingBurnRate, AlertingBudget, AlertingTarget}, ErrInvalidAlertCondition); err != nil {
+		if err := matchEnum(alert.GetConditionType(), []string{shared.AlertingBurnRate, shared.AlertingBudget, shared.AlertingTarget}, shared.ErrInvalidAlertCondition); err != nil {
 			return err
 		}
-		if err := matchEnum(alert.GetThresholdType(), []string{GTThresholdType, LTThresholdType}, ErrInvalidAlertThreshold); err != nil {
+		if err := matchEnum(alert.GetThresholdType(), []string{shared.GTThresholdType, shared.LTThresholdType}, shared.ErrInvalidAlertThreshold); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateSLOMetric(value string) error {
-	// TODO : validate metric type when metric grouping works
-	return nil
-}
-
 func validateSLODatasource(value string) error {
-	return matchEnum(value, []string{LoggingDatasource, MonitoringDatasource}, ErrInvalidDatasource)
+	return matchEnum(value, []string{shared.LoggingDatasource, shared.MonitoringDatasource}, shared.ErrInvalidDatasource)
 }
 
 func validateSLODescription(value string) error {
 	if len(value) > 1050 {
-		return ErrInvalidDescription
+		return shared.ErrInvalidDescription
 	}
 	return nil
 }

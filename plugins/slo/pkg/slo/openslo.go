@@ -8,6 +8,7 @@ import (
 	"github.com/alexandreLamarre/oslo/pkg/manifest"
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/hashicorp/go-hclog"
+	"github.com/rancher/opni/pkg/slo/shared"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
@@ -43,7 +44,7 @@ func ParseToOpenSLO(slo *api.ServiceLevelObjective, ctx context.Context, lg hclo
 
 		wrapSLOI := oslov1.SLO{
 			ObjectHeader: oslov1.ObjectHeader{
-				ObjectHeader: manifest.ObjectHeader{APIVersion: osloVersion},
+				ObjectHeader: manifest.ObjectHeader{APIVersion: shared.OsloVersion},
 				Kind:         "SLO",
 			},
 			Spec: newSLOI,
@@ -64,7 +65,7 @@ func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.Service, ctx 
 		Name: fmt.Sprintf("sli-%s", slo.GetName()),
 	}
 	metricType := ""
-	if slo.GetDatasource() == MonitoringDatasource {
+	if slo.GetDatasource() == shared.MonitoringDatasource {
 
 		metricType = "prometheus" // OpenSLO standard
 	} else {
@@ -123,7 +124,7 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 
 		target := oslov1.AlertNotificationTarget{
 			ObjectHeader: oslov1.ObjectHeader{
-				ObjectHeader: manifest.ObjectHeader{APIVersion: osloVersion},
+				ObjectHeader: manifest.ObjectHeader{APIVersion: shared.OsloVersion},
 				Kind:         "AlertNotificationTarget",
 			},
 			Spec: targetSpec,
@@ -143,7 +144,7 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 
 		wrapPolicy := oslov1.AlertPolicy{
 			ObjectHeader: oslov1.ObjectHeader{
-				ObjectHeader: manifest.ObjectHeader{APIVersion: osloVersion},
+				ObjectHeader: manifest.ObjectHeader{APIVersion: shared.OsloVersion},
 				Kind:         "AlertPolicy",
 			},
 			Spec: policySpec,

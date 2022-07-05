@@ -8,11 +8,9 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/test"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
-	"github.com/rancher/opni/plugins/slo/pkg/slo"
-	"google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -74,7 +72,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		It("Should be able to assign pre-configured metrics to discrete metric ids", func() {
 			_, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
 				Name:       "http-availability",
-				Datasource: slo.LoggingDatasource,
+				Datasource: shared.LoggingDatasource,
 				ServiceId:  "prometheus",
 				ClusterId:  "agent",
 			})
@@ -82,23 +80,33 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			metric, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
 				Name:       "uptime",
-				Datasource: slo.MonitoringDatasource,
+				Datasource: shared.MonitoringDatasource,
 				ServiceId:  "prometheus",
 				ClusterId:  "agent",
 			})
 			Expect(err).To(Succeed())
 			Expect(metric.Name).To(Equal("uptime"))
-			Expect(metric.MetricId).To(Equal("up"))
+			Expect(metric.MetricIdGood).To(Equal("up"))
+			Expect(metric.MetricIdTotal).To(Equal("up"))
 
-			_, err = sloClient.GetMetricId(ctx, &apis.MetricRequest{
+			latency, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
 				Name:       "http-latency",
-				Datasource: slo.MonitoringDatasource,
+				Datasource: shared.MonitoringDatasource,
 				ServiceId:  "prometheus",
 				ClusterId:  "agent",
 			})
-			s, ok := status.FromError(err)
-			Expect(ok).To(BeTrue())
-			Expect(s.Code()).To(Equal(codes.NotFound))
+			Expect(err).To(Succeed())
+
+			Expect(latency.MetricIdGood).To(Equal("prometheus_http_request_duration_seconds_bucket"))
+			Expect(latency.MetricIdTotal).To(Equal("prometheus_http_request_duration_seconds_sum"))
+
+			_, err = sloClient.GetMetricId(ctx, &apis.MetricRequest{
+				Name:       "does not exist",
+				Datasource: shared.MonitoringDatasource,
+				ServiceId:  "prometheus",
+				ClusterId:  "agent",
+			})
+			Expect(err).To(HaveOccurred())
 		})
 	})
 

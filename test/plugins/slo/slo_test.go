@@ -20,7 +20,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var sloClient apis.SLOClient
 	BeforeAll(func() {
 		env = &test.Environment{
-			TestBin: "../../testbin/bin",
+			TestBin: "../../../testbin/bin",
 		}
 		Expect(env.Start()).To(Succeed())
 		DeferCleanup(env.Stop)
@@ -72,8 +72,32 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 	When("CRUDing SLOs", func() {
 		It("Should create valid SLOs", func() {
-			_, err := sloClient.CreateSLO(ctx, &apis.ServiceLevelObjective{})
-			Expect(err).To(HaveOccurred())
+			input := &apis.ServiceLevelObjective{
+				Id:          "", // will be generated
+				Name:        "test-slo",
+				Datasource:  "monitoring",
+				Description: "test slo",
+				Services: []*apis.Service{
+					{
+						JobId:      "prometheus",
+						ClusterId:  "agent",
+						MetricName: "uptime",
+						MetricId:   "up",
+					},
+				},
+				MonitorWindow:     "5m",
+				MetricDescription: "test metric",
+				BudgetingInterval: "30d",
+				Labels:            []*apis.Label{},
+				Targets: []*apis.Target{
+					{
+						ValueX100: 9999,
+					},
+				},
+				Alerts: []*apis.Alert{},
+			}
+			_, err := sloClient.CreateSLO(ctx, input)
+			Expect(err).To(Succeed())
 		})
 		It("Should update valid SLOs", func() {
 			_, err := sloClient.UpdateSLO(ctx, &apis.ServiceLevelObjective{})

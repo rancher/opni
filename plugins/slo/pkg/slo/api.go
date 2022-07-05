@@ -6,7 +6,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"path"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/prometheus/common/model"
@@ -20,6 +22,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"gopkg.in/yaml.v2"
 )
 
 func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, error) {
@@ -39,6 +42,7 @@ func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, err
 }
 
 func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjective) (*emptypb.Empty, error) {
+	lg := p.logger
 	if slo.Id == "" {
 		slo.Id = uuid.New().String()
 	} else {
@@ -51,29 +55,70 @@ func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjectiv
 			return nil, status.Error(codes.AlreadyExists, "SLO with this ID already exists")
 		}
 	}
-
 	if err := ValidateInput(slo); err != nil {
 		return nil, err
 	}
-
 	osloSpecs, err := ParseToOpenSLO(slo, ctx, p.logger)
 	if err != nil {
 		return nil, err
 	}
-
-	for _, spec := range osloSpecs {
-		switch slo.GetDatasource() {
-		case LoggingDatasource:
-			return nil, ErrNotImplemented
-		case MonitoringDatasource:
-			// TODO forward to "sloth"-like prometheus parser
-		default:
-			return nil, status.Error(codes.FailedPrecondition, "Invalid datasource should have already been checked")
+	switch slo.GetDatasource() {
+	case LoggingDatasource:
+		return nil, ErrNotImplemented
+	case MonitoringDatasource:
+		v, err := ParseToPrometheusModel(osloSpecs)
+		if err != nil {
+			lg.Error("failed to parse prometheus model IR :", err)
+			return nil, err
 		}
+		for _, s := range v {
+			rw, err := GeneratePrometheusNoSlothGenerator(s, ctx, lg)
+			if err != nil {
+				lg.Error("Failed to generate prometheus : ", err)
+				return nil, err
+			}
+			yamlCortexRequest := ""
+			for index, rwgroup := range rw {
+				recording, metadata, alerts := rwgroup.SLIrules, rwgroup.MetaRules, rwgroup.AlertRules
 
-		fmt.Printf("%v", spec) // FIXME: remove
+				stringRules := make([]string, len(recording)+len(alerts)+len(metadata))
+				for i, r := range recording {
+					data, err := yaml.Marshal(r)
+					if err != nil {
+						return nil, err
+					}
+					stringRules[i] = string(data)
+				}
+				for i, m := range metadata {
+					data, err := yaml.Marshal(m)
+					if err != nil {
+						return nil, err
+					}
+					stringRules[i+len(recording)] = string(data)
+				}
+				for i, a := range alerts {
+					data, err := yaml.Marshal(a)
+					if err != nil {
+						return nil, err
+					}
+					stringRules[i+len(recording)+len(metadata)] = string(data)
+				}
+				yamlCortexRequest += strings.Join(stringRules, "---\n")
+				os.WriteFile(fmt.Sprintf("cortex%d.yaml", index), []byte(yamlCortexRequest), 0644)
+			}
+			_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
+				Yaml:   yamlCortexRequest,
+				Tenant: "agent",
+			})
+
+			if err != nil {
+				lg.Error("Failed to load rules : ", err)
+				return nil, err
+			}
+		}
+	default:
+		return nil, status.Error(codes.FailedPrecondition, "Invalid datasource should have already been checked")
 	}
-
 	// Put in k,v store only if everything else succeeds
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", slo.Id), slo); err != nil {
 		return nil, err

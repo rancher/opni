@@ -69,3 +69,7 @@ func Pointer[T any](t T) *T {
 func ProtoClone[T proto.Message](msg T) T {
 	return proto.Clone(msg).(T)
 }
+
+func IsInterfaceNil(i interface{}) bool {
+	return reflect.ValueOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()
+}

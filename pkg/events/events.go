@@ -8,6 +8,7 @@ import (
 
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +27,7 @@ type EventOutput struct {
 	*corev1.Event
 	ClusterID string    `json:"cluster_id,omitempty"`
 	LogType   string    `json:"log_type,omitempty"`
+	PodName   string    `json:"pod_name,omitempty"`
 	Time      time.Time `json:"time,omitempty"`
 }
 
@@ -174,6 +176,11 @@ func (c *EventCollector) processItem(obj interface{}) error {
 		return err
 	}
 
+	if event == nil || util.IsInterfaceNil(event) {
+		c.logger.Info("nil event, skipping")
+		return nil
+	}
+
 	return c.shipEvent(event.(*corev1.Event), eventObj.time)
 }
 
@@ -188,7 +195,13 @@ func (c *EventCollector) shipEvent(event *corev1.Event, timestamp time.Time) err
 			Event:     event,
 			ClusterID: string(systemNamespace.GetUID()),
 			LogType:   "event",
-			Time:      timestamp,
+			PodName: func() string {
+				if event.InvolvedObject.Kind == "Pod" {
+					return event.InvolvedObject.Name
+				}
+				return ""
+			}(),
+			Time: timestamp,
 		},
 	}
 

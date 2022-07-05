@@ -725,31 +725,31 @@ func (mr *MockKeyringStoreMockRecorder) Put(ctx, keyring interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKeyringStore)(nil).Put), ctx, keyring)
 }
 
-// MockKeyValueStore is a mock of KeyValueStore interface.
-type MockKeyValueStore struct {
+// MockKeyValueStoreT is a mock of KeyValueStoreT interface.
+type MockKeyValueStoreT[T any] struct {
 	ctrl     *gomock.Controller
-	recorder *MockKeyValueStoreMockRecorder
+	recorder *MockKeyValueStoreTMockRecorder[T]
 }
 
-// MockKeyValueStoreMockRecorder is the mock recorder for MockKeyValueStore.
-type MockKeyValueStoreMockRecorder struct {
-	mock *MockKeyValueStore
+// MockKeyValueStoreTMockRecorder is the mock recorder for MockKeyValueStoreT.
+type MockKeyValueStoreTMockRecorder[T any] struct {
+	mock *MockKeyValueStoreT[T]
 }
 
-// NewMockKeyValueStore creates a new mock instance.
-func NewMockKeyValueStore(ctrl *gomock.Controller) *MockKeyValueStore {
-	mock := &MockKeyValueStore{ctrl: ctrl}
-	mock.recorder = &MockKeyValueStoreMockRecorder{mock}
+// NewMockKeyValueStoreT creates a new mock instance.
+func NewMockKeyValueStoreT[T any](ctrl *gomock.Controller) *MockKeyValueStoreT[T] {
+	mock := &MockKeyValueStoreT[T]{ctrl: ctrl}
+	mock.recorder = &MockKeyValueStoreTMockRecorder[T]{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockKeyValueStore) EXPECT() *MockKeyValueStoreMockRecorder {
+func (m *MockKeyValueStoreT[T]) EXPECT() *MockKeyValueStoreTMockRecorder[T] {
 	return m.recorder
 }
 
 // Delete mocks base method.
-func (m *MockKeyValueStore) Delete(ctx context.Context, key string) error {
+func (m *MockKeyValueStoreT[T]) Delete(ctx context.Context, key string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", ctx, key)
 	ret0, _ := ret[0].(error)
@@ -757,28 +757,28 @@ func (m *MockKeyValueStore) Delete(ctx context.Context, key string) error {
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockKeyValueStoreMockRecorder) Delete(ctx, key interface{}) *gomock.Call {
+func (mr *MockKeyValueStoreTMockRecorder[T]) Delete(ctx, key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockKeyValueStore)(nil).Delete), ctx, key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockKeyValueStoreT[T])(nil).Delete), ctx, key)
 }
 
 // Get mocks base method.
-func (m *MockKeyValueStore) Get(ctx context.Context, key string) ([]byte, error) {
+func (m *MockKeyValueStoreT[T]) Get(ctx context.Context, key string) (T, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", ctx, key)
-	ret0, _ := ret[0].([]byte)
+	ret0, _ := ret[0].(T)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockKeyValueStoreMockRecorder) Get(ctx, key interface{}) *gomock.Call {
+func (mr *MockKeyValueStoreTMockRecorder[T]) Get(ctx, key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockKeyValueStore)(nil).Get), ctx, key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockKeyValueStoreT[T])(nil).Get), ctx, key)
 }
 
 // ListKeys mocks base method.
-func (m *MockKeyValueStore) ListKeys(ctx context.Context, prefix string) ([]string, error) {
+func (m *MockKeyValueStoreT[T]) ListKeys(ctx context.Context, prefix string) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListKeys", ctx, prefix)
 	ret0, _ := ret[0].([]string)
@@ -787,13 +787,13 @@ func (m *MockKeyValueStore) ListKeys(ctx context.Context, prefix string) ([]stri
 }
 
 // ListKeys indicates an expected call of ListKeys.
-func (mr *MockKeyValueStoreMockRecorder) ListKeys(ctx, prefix interface{}) *gomock.Call {
+func (mr *MockKeyValueStoreTMockRecorder[T]) ListKeys(ctx, prefix interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKeys", reflect.TypeOf((*MockKeyValueStore)(nil).ListKeys), ctx, prefix)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKeys", reflect.TypeOf((*MockKeyValueStoreT[T])(nil).ListKeys), ctx, prefix)
 }
 
 // Put mocks base method.
-func (m *MockKeyValueStore) Put(ctx context.Context, key string, value []byte) error {
+func (m *MockKeyValueStoreT[T]) Put(ctx context.Context, key string, value T) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", ctx, key, value)
 	ret0, _ := ret[0].(error)
@@ -801,9 +801,9 @@ func (m *MockKeyValueStore) Put(ctx context.Context, key string, value []byte) e
 }
 
 // Put indicates an expected call of Put.
-func (mr *MockKeyValueStoreMockRecorder) Put(ctx, key, value interface{}) *gomock.Call {
+func (mr *MockKeyValueStoreTMockRecorder[T]) Put(ctx, key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKeyValueStore)(nil).Put), ctx, key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKeyValueStoreT[T])(nil).Put), ctx, key, value)
 }
 
 // MockKeyringStoreBroker is a mock of KeyringStoreBroker interface.

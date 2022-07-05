@@ -11,22 +11,22 @@ import (
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
+	"github.com/rancher/opni/pkg/storage"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, error) {
-	keys, err := kvc.ListKeys(prefix)
+func list[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]T, error) {
+	keys, err := kvc.ListKeys(ctx, prefix)
 	if err != nil {
 		return nil, err
 	}
 	items := make([]T, len(keys))
 	for i, key := range keys {
-		item, err := kvc.Get(key)
+		item, err := kvc.Get(ctx, key)
 		if err != nil {
 			return nil, err
 		}
@@ -46,11 +46,11 @@ func checkDatasource(datasource string) error {
 }
 
 func (p *Plugin) GetSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOData, error) {
-	return p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
+	return p.storage.Get().SLOs.Get(ctx, path.Join("/slos", ref.Id))
 }
 
 func (p *Plugin) ListSLOs(ctx context.Context, _ *emptypb.Empty) (*sloapi.ServiceLevelObjectiveList, error) {
-	items, err := list(p.storage.Get().SLOs, "/slos")
+	items, err := list(ctx, p.storage.Get().SLOs, "/slos")
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 
 func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.Empty, error) {
 	lg := p.logger
-	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", req.Id))
+	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", req.Id))
 	if err != nil {
 		return nil, err
 	}
@@ -128,14 +128,14 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 
 	// Merge when everything else is done
 	proto.Merge(existing, newReq)
-	if err := p.storage.Get().SLOs.Put(path.Join("/slos", req.Id), existing); err != nil {
+	if err := p.storage.Get().SLOs.Put(ctx, path.Join("/slos", req.Id), existing); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, anyError
 }
 
 func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
-	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", req.Id))
+	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", req.Id))
 	if err != nil {
 		return nil, err
 	}
@@ -147,16 +147,16 @@ func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb
 	if err != nil {
 		return nil, err
 	}
-	if err := p.storage.Get().SLOs.Delete(path.Join("/slos", req.Id)); err != nil {
+	if err := p.storage.Get().SLOs.Delete(ctx, path.Join("/slos", req.Id)); err != nil {
 		return nil, err
 	}
 	// delete if found
-	p.storage.Get().SLOs.Delete(path.Join("/slo_state", req.Id))
+	p.storage.Get().SLOs.Delete(ctx, path.Join("/slo_state", req.Id))
 	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOData, error) {
-	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
+	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", ref.Id))
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 
 	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ref, ctx)
 	newId, err := sloStore.Clone(clone)
-	if err := p.storage.Get().SLOs.Put(path.Join("/slos", newId), clone); err != nil {
+	if err := p.storage.Get().SLOs.Put(ctx, path.Join("/slos", newId), clone); err != nil {
 		return nil, err
 	}
 
@@ -178,7 +178,7 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 }
 
 func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOStatus, error) {
-	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
+	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", ref.Id))
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRe
 
 func (p *Plugin) ListMetrics(ctx context.Context, services *sloapi.ServiceList) (*sloapi.MetricList, error) {
 	lg := p.logger
-	candidateMetrics, err := list(p.storage.Get().Metrics, "/metrics")
+	candidateMetrics, err := list(ctx, p.storage.Get().Metrics, "/metrics")
 	if err != nil {
 		return nil, err
 	}

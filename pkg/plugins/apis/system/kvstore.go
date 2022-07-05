@@ -51,20 +51,11 @@ func (s *kvStoreServer) ListKeys(ctx context.Context, key *Key) (*KeyList, error
 	}, nil
 }
 
-// T is a type such that *T is a proto.Message
-type KVStoreClient[T proto.Message] interface {
-	Put(key string, value T) error
-	Get(key string) (T, error)
-	Delete(key string) error
-	ListKeys(prefix string) ([]string, error)
-}
-
 type kvStoreClientImpl[T proto.Message] struct {
-	ctx    context.Context
 	client KeyValueStoreClient
 }
 
-func (c *kvStoreClientImpl[T]) Put(key string, value T) error {
+func (c *kvStoreClientImpl[T]) Put(ctx context.Context, key string, value T) error {
 	wire, err := proto.Marshal(value)
 	if err != nil {
 		return err
@@ -73,12 +64,12 @@ func (c *kvStoreClientImpl[T]) Put(key string, value T) error {
 		Key:   key,
 		Value: wire,
 	}
-	_, err = c.client.Put(c.ctx, kv)
+	_, err = c.client.Put(ctx, kv)
 	return err
 }
 
-func (c *kvStoreClientImpl[T]) Get(key string) (T, error) {
-	value, err := c.client.Get(c.ctx, &Key{
+func (c *kvStoreClientImpl[T]) Get(ctx context.Context, key string) (T, error) {
+	value, err := c.client.Get(ctx, &Key{
 		Key: key,
 	})
 	if err != nil {
@@ -95,15 +86,15 @@ func (c *kvStoreClientImpl[T]) Get(key string) (T, error) {
 	return rt, nil
 }
 
-func (c *kvStoreClientImpl[T]) Delete(key string) error {
-	_, err := c.client.Delete(c.ctx, &Key{
+func (c *kvStoreClientImpl[T]) Delete(ctx context.Context, key string) error {
+	_, err := c.client.Delete(ctx, &Key{
 		Key: key,
 	})
 	return err
 }
 
-func (c *kvStoreClientImpl[T]) ListKeys(prefix string) ([]string, error) {
-	resp, err := c.client.ListKeys(c.ctx, &Key{
+func (c *kvStoreClientImpl[T]) ListKeys(ctx context.Context, prefix string) ([]string, error) {
+	resp, err := c.client.ListKeys(ctx, &Key{
 		Key: prefix,
 	})
 	if err != nil {
@@ -112,9 +103,8 @@ func (c *kvStoreClientImpl[T]) ListKeys(prefix string) ([]string, error) {
 	return resp.Items, nil
 }
 
-func NewKVStoreClient[T proto.Message](ctx context.Context, client KeyValueStoreClient) KVStoreClient[T] {
+func NewKVStoreClient[T proto.Message](client KeyValueStoreClient) storage.KeyValueStoreT[T] {
 	return &kvStoreClientImpl[T]{
-		ctx:    ctx,
 		client: client,
 	}
 }

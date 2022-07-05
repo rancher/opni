@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-hclog"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -17,12 +18,15 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type ExamplePlugin struct {
 	UnsafeExampleAPIExtensionServer
 	UnsafeExampleUnaryExtensionServer
+	capabilityv1.UnsafeBackendServer
 	system.UnimplementedSystemPluginClient
 	Logger hclog.Logger
 }
@@ -61,16 +65,16 @@ func (s *ExamplePlugin) UseManagementAPI(api managementv1.ManagementClient) {
 }
 
 func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
-	kv := system.NewKVStoreClient[*EchoRequest](context.Background(), client)
+	kv := system.NewKVStoreClient[*EchoRequest](client)
 	lg := s.Logger
-	err := kv.Put("foo", &EchoRequest{
+	err := kv.Put(context.Background(), "foo", &EchoRequest{
 		Message: "hello",
 	})
 	if err != nil {
 		lg.Error("kv store error", "error", err)
 	}
 
-	value, err := kv.Get("foo")
+	value, err := kv.Get(context.Background(), "foo")
 	if err != nil {
 		lg.Error("kv store error", "error", err)
 	}
@@ -86,22 +90,38 @@ func (s *ExamplePlugin) ConfigureRoutes(app *gin.Engine) {
 	})
 }
 
-func (p *ExamplePlugin) CanInstall() error {
-	return nil
+func (s *ExamplePlugin) Info(context.Context, *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
+	return &capabilityv1.InfoResponse{
+		CapabilityName: "test",
+	}, nil
 }
 
-func (p *ExamplePlugin) Install(cluster *corev1.Reference) error {
-	return nil
+func (s *ExamplePlugin) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, nil
 }
 
-func (p *ExamplePlugin) Uninstall(clustre *corev1.Reference) error {
-	return nil
+func (s *ExamplePlugin) Install(context.Context, *capabilityv1.InstallRequest) (*emptypb.Empty, error) {
+	return nil, nil
 }
 
-func (p *ExamplePlugin) InstallerTemplate() string {
-	return `foo {{ arg "input" "Input" "+omitEmpty" "+default:default" "+format:--bar={{ value }}" }} ` +
-		`{{ arg "toggle" "Toggle" "+omitEmpty" "+default:false" "+format:--reticulateSplines" }} ` +
-		`{{ arg "select" "Select" "" "foo" "bar" "baz" "+omitEmpty" "+default:foo" "+format:--select={{ value }}" }}`
+func (s *ExamplePlugin) Uninstall(context.Context, *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Uninstall not implemented")
+}
+
+func (s *ExamplePlugin) UninstallStatus(context.Context, *emptypb.Empty) (*corev1.TaskStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UninstallStatus not implemented")
+}
+
+func (s *ExamplePlugin) CancelUninstall(context.Context, *emptypb.Empty) (*corev1.TaskStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelUninstall not implemented")
+}
+
+func (s *ExamplePlugin) InstallerTemplate(context.Context, *emptypb.Empty) (*capabilityv1.InstallerTemplateResponse, error) {
+	return &capabilityv1.InstallerTemplateResponse{
+		Template: `foo {{ arg "input" "Input" "+omitEmpty" "+default:default" "+format:--bar={{ value }}" }} ` +
+			`{{ arg "toggle" "Toggle" "+omitEmpty" "+default:false" "+format:--reticulateSplines" }} ` +
+			`{{ arg "select" "Select" "" "foo" "bar" "baz" "+omitEmpty" "+default:foo" "+format:--select={{ value }}" }}`,
+	}, nil
 }
 
 func Scheme() meta.Scheme {
@@ -114,7 +134,7 @@ func Scheme() meta.Scheme {
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(gatewayext.GatewayAPIExtensionPluginID,
 		gatewayext.NewPlugin(p))
-	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin("test", p))
+	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&ExampleUnaryExtension_ServiceDesc, p))
 	return scheme
 }

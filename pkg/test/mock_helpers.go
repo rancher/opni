@@ -22,6 +22,7 @@ import (
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/notifier"
+	"github.com/samber/lo"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -256,7 +257,7 @@ func NewTestKeyValueStoreBroker(ctrl *gomock.Controller) storage.KeyValueStoreBr
 		KeyValueStore(gomock.Any()).
 		DoAndReturn(func(namespace string) (storage.KeyValueStore, error) {
 			if kvStore, ok := kvStores[namespace]; !ok {
-				s := NewTestKeyValueStore(ctrl)
+				s := NewTestKeyValueStore[[]byte](ctrl)
 				kvStores[namespace] = s
 				return s, nil
 			} else {
@@ -267,13 +268,13 @@ func NewTestKeyValueStoreBroker(ctrl *gomock.Controller) storage.KeyValueStoreBr
 	return mockKvStoreBroker
 }
 
-func NewTestKeyValueStore(ctrl *gomock.Controller) storage.KeyValueStore {
-	mockKvStore := mock_storage.NewMockKeyValueStore(ctrl)
+func NewTestKeyValueStore[T any](ctrl *gomock.Controller) storage.KeyValueStoreT[T] {
+	mockKvStore := mock_storage.NewMockKeyValueStoreT[T](ctrl)
 	mu := sync.Mutex{}
-	kvs := map[string][]byte{}
+	kvs := map[string]T{}
 	mockKvStore.EXPECT().
 		Put(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, key string, value []byte) error {
+		DoAndReturn(func(_ context.Context, key string, value T) error {
 			mu.Lock()
 			defer mu.Unlock()
 			kvs[key] = value
@@ -282,12 +283,12 @@ func NewTestKeyValueStore(ctrl *gomock.Controller) storage.KeyValueStore {
 		AnyTimes()
 	mockKvStore.EXPECT().
 		Get(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, key string) ([]byte, error) {
+		DoAndReturn(func(_ context.Context, key string) (T, error) {
 			mu.Lock()
 			defer mu.Unlock()
 			v, ok := kvs[key]
 			if !ok {
-				return nil, storage.ErrNotFound
+				return lo.Empty[T](), storage.ErrNotFound
 			}
 			return v, nil
 		}).

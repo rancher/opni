@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
-	"github.com/alexandreLamarre/sloth/core/app/generate"
+	"github.com/alexandreLamarre/sloth/core/alert"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
 	"github.com/hashicorp/go-hclog"
 	. "github.com/onsi/ginkgo/v2"
@@ -86,11 +87,11 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	// var alertPrometheusIR []*prometheus.SLOGroup
 	// var multiAlertPrometheusIR []*prometheus.SLOGroup
 
-	var simplePrometheusResponse []*generate.Response
-	var objectivePrometheusResponse []*generate.Response
-	var multiClusterPrometheusResponse []*generate.Response
-	// var alertPrometheusIR []*generate.Response
-	// var multiAlertPrometheusIR []*generate.Response
+	var simplePrometheusResponse []slo.SLORuleFmtWrapper
+	var objectivePrometheusResponse []slo.SLORuleFmtWrapper
+	var multiClusterPrometheusResponse []slo.SLORuleFmtWrapper
+	// var alertPrometheusIR []slo.SLORuleFmtWrapper
+	// var multiAlertPrometheusIR []slo.SLORuleFmtWrapper
 
 	When("A ServiceLevelObjective message is given", func() {
 		It("should validate proper input", func() {
@@ -238,19 +239,87 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	})
 
 	When("We convert Sloth IR to prometheus rules", func() {
+		It("Should create valid MWMB rates", func() {
+			var err error
+			alertSLO := alert.SLO{
+				ID:        "foo",
+				Objective: 99.99,
+			}
+			ctx := context.Background()
+			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24)
+			Expect(err).To(Succeed())
+			Expect(alertGroup).To(Not(BeNil()))
+		})
+
+		It("Should be able to generate SLI rulefmt.Rules based on alertGroups and SLO definition", func() {
+			sampleSLO := simplePrometheusIR[0].SLOs[0]
+			ctx := context.Background()
+			alertSLO := alert.SLO{
+				ID:        "foo",
+				Objective: 99.99,
+			}
+			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24)
+			Expect(err).To(Succeed())
+			rules, err := slo.GenerateSLIRecordingRules(ctx, sampleSLO, *alertGroup)
+			Expect(err).To(Succeed())
+			// TODO : better testing for this when the final format is more stable
+			Expect(rules).To(HaveLen(6))
+
+		})
+
+		It("Should be able to generate metadata rulefmt.Rules based on alertGroups and SLO defintion", func() {
+			sampleSLO := simplePrometheusIR[0].SLOs[0]
+			ctx := context.Background()
+			alertSLO := alert.SLO{
+				ID:        "foo",
+				Objective: 99.99,
+			}
+			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24)
+			Expect(err).To(Succeed())
+			rules, err := slo.GenerateMetadataRecordingRules(ctx, sampleSLO, alertGroup)
+			Expect(err).To(Succeed())
+			// TODO : better testing for this when the final format is more stable
+			Expect(rules).To(HaveLen(7))
+		})
+
+		It("Should be able to generate alert rulefmt.Rules base on alertGroups and SLO definition", func() {
+			sampleSLO := simplePrometheusIR[0].SLOs[0]
+			ctx := context.Background()
+			alertSLO := alert.SLO{
+				ID:        "foo",
+				Objective: 99.99,
+			}
+			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24)
+			Expect(err).To(Succeed())
+			rules, err := slo.GenerateSLOAlertRules(ctx, sampleSLO, *alertGroup)
+			Expect(err).To(Succeed())
+			// TODO : better testing for this when the final format is more stable
+			Expect(rules).To(HaveLen(2))
+		})
+
 		It("Should create valid prometheus rules", func() {
 			var err error
-			simplePrometheusResponse, err = slo.GeneratePrometheusRule(simplePrometheusIR, context.Background())
-			Expect(err).To(MatchError("Prometheus generator failed to start"))
-			Expect(simplePrometheusResponse).To(BeNil())
 
-			objectivePrometheusResponse, err = slo.GeneratePrometheusRule(objectivePrometheusIR, context.Background())
-			Expect(err).To(MatchError("Prometheus generator failed to start"))
-			Expect(objectivePrometheusResponse).To(BeNil())
+			for _, sloGroup := range simplePrometheusIR {
+				simplePrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+				Expect(err).To(Succeed())
+				// TODO : better testing for this when the final format is more stable
+				Expect(len(simplePrometheusResponse)).Should(BeNumerically(">=", 1))
+			}
 
-			multiClusterPrometheusResponse, err = slo.GeneratePrometheusRule(multiClusterPrometheusIR, context.Background())
-			Expect(err).To(MatchError("Prometheus generator failed to start"))
-			Expect(multiClusterPrometheusResponse).To(BeNil())
+			for _, sloGroup := range objectivePrometheusIR {
+				objectivePrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+				Expect(err).To(Succeed())
+				// TODO : better testing for this when the final format is more stable
+				Expect(len(objectivePrometheusResponse)).Should(BeNumerically(">=", 1))
+			}
+
+			for _, sloGroup := range multiClusterPrometheusIR {
+				multiClusterPrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+				Expect(err).To(Succeed())
+				// TODO : better testing for this when the final format is more stable
+				Expect(len(multiClusterPrometheusResponse)).Should(BeNumerically(">=", 1))
+			}
 		})
 	})
 

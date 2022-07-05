@@ -5,6 +5,7 @@ package slo
 import (
 	"context"
 	"fmt"
+	"os"
 	"path"
 
 	"github.com/google/uuid"
@@ -40,6 +41,7 @@ func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, err
 }
 
 func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjective) (*emptypb.Empty, error) {
+	lg := p.logger
 	if slo.Id == "" {
 		slo.Id = uuid.New().String()
 	} else {
@@ -61,18 +63,39 @@ func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjectiv
 	if err != nil {
 		return nil, err
 	}
-
-	for _, spec := range osloSpecs {
-		switch slo.GetDatasource() {
-		case shared.LoggingDatasource:
-			return nil, shared.ErrNotImplemented
-		case shared.MonitoringDatasource:
-			// TODO forward to "sloth"-like prometheus parser
-		default:
-			return nil, status.Error(codes.FailedPrecondition, "Invalid datasource should have already been checked")
+	switch slo.GetDatasource() {
+	case shared.LoggingDatasource:
+		return nil, shared.ErrNotImplemented
+	case shared.MonitoringDatasource:
+		v, err := ParseToPrometheusModel(osloSpecs)
+		if err != nil {
+			lg.Error("failed to parse prometheus model IR :", err)
+			return nil, err
 		}
+		for _, s := range v {
+			rw, err := GeneratePrometheusNoSlothGenerator(s, ctx, lg)
+			if err != nil {
+				lg.Error("Failed to generate prometheus : ", err)
+				return nil, err
+			}
+			// yamlCortexRequest := ""
+			for idx, rwgroup := range rw {
+				group, err := toCortexRequest(rwgroup, fmt.Sprintf("id%d", idx))
+				if err != nil {
+					return nil, err
+				}
+				os.WriteFile(fmt.Sprintf("cortex%d.yaml", idx), []byte(group), 0644)
+				_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
+					Yaml:   group,
+					Tenant: "agent",
+				})
+				if err != nil {
+					lg.Error("Failed to load rules : ", err)
+					return nil, err
+				}
+			}
 
-		fmt.Printf("%v", spec) // FIXME: remove
+		}
 	}
 
 	// Put in k,v store only if everything else succeeds

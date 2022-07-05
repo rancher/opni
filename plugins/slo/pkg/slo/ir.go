@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"strings"
+	"text/template"
 	"time"
 
 	openslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"

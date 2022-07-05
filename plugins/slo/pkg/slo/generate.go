@@ -7,9 +7,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"sort"
 	"strconv"
+	"text/template"
 	"time"
 
 	"github.com/alexandreLamarre/sloth/core/alert"

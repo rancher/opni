@@ -48,20 +48,10 @@ dagger.#Plan & {
 					"internal/cmd/testenv",
 				]
 			}
-			"bin": write: contents:         actions.build.bin
-			"web/dist": write: contents:    actions.web.dist
-			"dist/charts": write: contents: actions.charts.output
-			"cover.out": write: contents:   actions.test.export.files["/src/cover.out"]
-			"bin": write: contents:       actions.build.bin
-			"web/dist": write: contents:  actions.web.dist
-			"cover.out": write: contents: actions.test.export.files["/src/cover.out"]
-			"aiops/apis/": write: {
-				_dist: core.#Subdir & {
-					input: actions.aiops.sdist.output.rootfs
-					path:  "/dist"
-				}
-				contents: _dist.output
-			}
+			"bin": write: contents:             actions.build.bin
+			"web/dist": write: contents:        actions.web.dist
+			"cover.out": write: contents:       actions.test.export.files["/src/cover.out"]
+			"aiops/apis/dist": write: contents: actions.aiops.sdist.output
 		}
 		commands: {
 			"aws-identity": {
@@ -208,7 +198,7 @@ dagger.#Plan & {
 				tag:   web.buildImage
 			}
 			aiops: cli.#Load & {
-				image: actions.aiops.build.output
+				image: actions.aiops.opensearchUpdateService.output
 				host:  client.network."unix:///var/run/docker.sock".connect
 				tag:   "\(client.env.REPO)/opni-aiops:\(client.env.TAG)"
 			}
@@ -348,7 +338,7 @@ dagger.#Plan & {
 			}
 			aiops: docker.#Push & {
 				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
-				image: actions.aiops.build.output
+				image: actions.aiops.opensearchUpdateService.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {
 						username: client.env.DOCKER_USERNAME
@@ -417,43 +407,27 @@ dagger.#Plan & {
 			}
 		}
 		aiops: {
-			sdist: python.#Run & {
-				script: {
-					directory: actions.build.output.rootfs
-					filename:  "src/aiops/apis/setup.py"
+			sdist: {
+				_dist: python.#Run & {
+					script: {
+						directory: actions.build.output.rootfs
+						filename:  "src/aiops/apis/setup.py"
+					}
+					workdir: "/run/python/src/aiops/apis"
+					args: ["sdist", "-d", "/dist"]
+					output: docker.#Image
 				}
-				workdir: "/run/python/src/aiops/apis"
-				args: ["sdist", "-d", "/dist"]
+				_distSubdir: core.#Subdir & {
+					input: _dist.output.rootfs
+					path:  "/dist"
+				}
+				image:  _dist.output
+				output: dagger.#FS & _distSubdir.output
 			}
-			build: docker.#Build & {
-				steps: [
-					docker.#Pull & {
-						source: "rancher/opni-python-base:3.8"
-					},
-					docker.#Copy & {
-						contents: client.filesystem.".".read.contents
-						source:   "aiops/"
-						dest:     "."
-					},
-					docker.#Run & {
-						command: {
-							name: "pip"
-							args: ["install","-r", "requirements.txt"]
-						}
-					},
-					docker.#Set & {
-						config: {
-							cmd: ["python", "opni-opensearch-update-service/opensearch-update-service/app/main.py"]
-						}
-					},
-				]
-			}
-		}
-		pypi: {
 			_distImage: docker.#Build & {
 				steps: [
 					docker.#Run & {
-						input: aiops.sdist.output
+						input:  sdist.image
 						command: {
 							name: "pip"
 							args: [ "install", "twine"]
@@ -484,6 +458,30 @@ dagger.#Plan & {
 						secret:   client.env.DOCKER_PASSWORD
 					}
 				}
+			}
+			opensearchUpdateService: docker.#Build & {
+				steps: [
+					docker.#Pull & {
+						source: "rancher/opni-python-base:3.8"
+					},
+					docker.#Copy & {
+						contents: client.filesystem.".".read.contents
+						source:   "aiops/"
+						dest:     "."
+					},
+					docker.#Run & {
+						command: {
+							name: "pip"
+							args: ["install", "-r", "requirements.txt"]
+						}
+						env: HACK: "\(upload.success)"
+					},
+					docker.#Set & {
+						config: {
+							cmd: ["python", "opni-opensearch-update-service/opensearch-update-service/app/main.py"]
+						}
+					},
+				]
 			}
 		}
 	}

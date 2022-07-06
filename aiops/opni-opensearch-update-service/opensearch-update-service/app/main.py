@@ -7,7 +7,7 @@ import sys
 import time
 
 # Third Party
-from loganomaly.loganomaly_pb import PayloadList
+from opni_proto.log_anomaly_payload_pb import PayloadList
 import pandas as pd
 from elasticsearch import AsyncElasticsearch, TransportError
 from elasticsearch.exceptions import ConnectionTimeout

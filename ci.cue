@@ -9,7 +9,6 @@ import (
 	"universe.dagger.io/docker"
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
-	"universe.dagger.io/git"
 	"universe.dagger.io/python"
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
@@ -53,6 +52,28 @@ dagger.#Plan & {
 			"web/dist": write: contents:    actions.web.dist
 			"dist/charts": write: contents: actions.charts.output
 			"cover.out": write: contents:   actions.test.export.files["/src/cover.out"]
+			"bin": write: contents:       actions.build.bin
+			"web/dist": write: contents:  actions.web.dist
+			"cover.out": write: contents: actions.test.export.files["/src/cover.out"]
+			"aiops/apis/": write: {
+				_dist: core.#Subdir & {
+					input: actions.aiops.sdist.output.rootfs
+					path:  "/dist"
+				}
+				contents: _dist.output
+			}
+		}
+		commands: {
+			"aws-identity": {
+				name: "aws"
+				args: ["sts", "get-caller-identity"]
+				stdout: string
+			}
+			"ecr-password": {
+				name: "aws"
+				args: ["ecr", "get-login-password", "--region", "us-east-2"]
+				stdout: dagger.#Secret
+			}
 		}
 		network: "unix:///var/run/docker.sock": connect: dagger.#Socket
 	}
@@ -327,7 +348,7 @@ dagger.#Plan & {
 			}
 			aiops: docker.#Push & {
 				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
-				image: aiops.build.output
+				image: actions.aiops.build.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {
 						username: client.env.DOCKER_USERNAME

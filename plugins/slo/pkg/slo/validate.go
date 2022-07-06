@@ -16,17 +16,20 @@ func matchEnum(target string, enum []string, returnErr error) error {
 
 /// Validates Input based on the necessities of our preconfigured formant,
 /// NOT validating the OpenSLO / Sloth format
-func ValidateInput(slo *api.ServiceLevelObjective) error {
-	if slo.GetId() == "" {
+func ValidateInput(slorequest *api.CreateSLORequest) error {
+	if slorequest.SLO.GetId() == "" {
 		return shared.ErrInvalidId
 	}
-	if err := validateSLODescription(slo.GetDescription()); err != nil {
+	if len(slorequest.Services) == 0 {
+		return shared.ErrMissingServices
+	}
+	if err := validateSLODescription(slorequest.SLO.GetDescription()); err != nil {
 		return err
 	}
-	if err := validateSLODatasource(slo.GetDatasource()); err != nil {
+	if err := validateSLODatasource(slorequest.SLO.GetDatasource()); err != nil {
 		return err
 	}
-	if err := validateAlert(slo.GetAlerts()); err != nil {
+	if err := validateAlert(slorequest.SLO.GetAlerts()); err != nil {
 		return err
 	}
 

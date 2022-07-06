@@ -56,6 +56,8 @@ func GeneratePrometheusRule(slos []*prometheus.SLOGroup, ctx context.Context) ([
 	return res, nil
 }
 
+// Returns the same number of SLO Groups as the number of OpenSLO specs
+//(Same number as the number of services in the request)
 func ParseToPrometheusModel(slos []openslov1.SLO) ([]*prometheus.SLOGroup, error) {
 	res := make([]*prometheus.SLOGroup, 0)
 	y := NewYAMLSpecLoader(time.Hour * 24 * 30) // FIXME: hardcoded window period

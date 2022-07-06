@@ -25,8 +25,8 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SLOClient interface {
 	// ============== SLO
-	CreateSLO(ctx context.Context, in *ServiceLevelObjective, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*ServiceLevelObjective, error)
+	CreateSLO(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*CreatedSLOs, error)
+	GetSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOImplData, error)
 	ListSLOs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceLevelObjectiveList, error)
 	UpdateSLO(ctx context.Context, in *ServiceLevelObjective, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -54,8 +54,8 @@ func NewSLOClient(cc grpc.ClientConnInterface) SLOClient {
 	return &sLOClient{cc}
 }
 
-func (c *sLOClient) CreateSLO(ctx context.Context, in *ServiceLevelObjective, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *sLOClient) CreateSLO(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*CreatedSLOs, error) {
+	out := new(CreatedSLOs)
 	err := c.cc.Invoke(ctx, "/slo.SLO/CreateSLO", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -63,8 +63,8 @@ func (c *sLOClient) CreateSLO(ctx context.Context, in *ServiceLevelObjective, op
 	return out, nil
 }
 
-func (c *sLOClient) GetSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*ServiceLevelObjective, error) {
-	out := new(ServiceLevelObjective)
+func (c *sLOClient) GetSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOImplData, error) {
+	out := new(SLOImplData)
 	err := c.cc.Invoke(ctx, "/slo.SLO/GetSLO", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -194,8 +194,8 @@ func (c *sLOClient) ListServices(ctx context.Context, in *emptypb.Empty, opts ..
 // for forward compatibility
 type SLOServer interface {
 	// ============== SLO
-	CreateSLO(context.Context, *ServiceLevelObjective) (*emptypb.Empty, error)
-	GetSLO(context.Context, *v1.Reference) (*ServiceLevelObjective, error)
+	CreateSLO(context.Context, *CreateSLORequest) (*CreatedSLOs, error)
+	GetSLO(context.Context, *v1.Reference) (*SLOImplData, error)
 	ListSLOs(context.Context, *emptypb.Empty) (*ServiceLevelObjectiveList, error)
 	UpdateSLO(context.Context, *ServiceLevelObjective) (*emptypb.Empty, error)
 	DeleteSLO(context.Context, *v1.Reference) (*emptypb.Empty, error)
@@ -220,10 +220,10 @@ type SLOServer interface {
 type UnimplementedSLOServer struct {
 }
 
-func (UnimplementedSLOServer) CreateSLO(context.Context, *ServiceLevelObjective) (*emptypb.Empty, error) {
+func (UnimplementedSLOServer) CreateSLO(context.Context, *CreateSLORequest) (*CreatedSLOs, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSLO not implemented")
 }
-func (UnimplementedSLOServer) GetSLO(context.Context, *v1.Reference) (*ServiceLevelObjective, error) {
+func (UnimplementedSLOServer) GetSLO(context.Context, *v1.Reference) (*SLOImplData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSLO not implemented")
 }
 func (UnimplementedSLOServer) ListSLOs(context.Context, *emptypb.Empty) (*ServiceLevelObjectiveList, error) {
@@ -279,7 +279,7 @@ func RegisterSLOServer(s grpc.ServiceRegistrar, srv SLOServer) {
 }
 
 func _SLO_CreateSLO_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ServiceLevelObjective)
+	in := new(CreateSLORequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ func _SLO_CreateSLO_Handler(srv interface{}, ctx context.Context, dec func(inter
 		FullMethod: "/slo.SLO/CreateSLO",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SLOServer).CreateSLO(ctx, req.(*ServiceLevelObjective))
+		return srv.(SLOServer).CreateSLO(ctx, req.(*CreateSLORequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

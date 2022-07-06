@@ -6,19 +6,19 @@ import "google/protobuf/empty.proto";
 import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-
+import "google/rpc/status.proto";
 
 package slo;
 
 service SLO {
   // ============== SLO
-  rpc CreateSLO(ServiceLevelObjective) returns (google.protobuf.Empty) {
+  rpc CreateSLO(CreateSLORequest) returns (CreatedSLOs) {
     option (google.api.http) = {
       post: "/slos"
       body: "*"
     };
   }
-  rpc GetSLO(core.Reference) returns (ServiceLevelObjective) {
+  rpc GetSLO(core.Reference) returns (SLOImplData) {
     option (google.api.http) = {
       get: "/slos/{id}"
     };
@@ -125,22 +125,37 @@ message ServiceLevelObjective {
   string name = 2;
   string datasource = 3;
   string description = 4;
-  repeated Service services = 5;
-  string monitorWindow = 6; // 7d, 28d or 30d
-  string metricDescription = 8;
-  string budgetingInterval = 9; // in the format 5m, 1h etc..
-  repeated Label labels = 10;
-  repeated Target targets = 11;
-  repeated Alert alerts = 12;
+  string monitorWindow = 5; // 7d, 28d or 30d
+  string budgetingInterval = 6; // in the format 5m, 1h etc..
+  Target target = 7;
+  repeated Label labels = 8;
+  repeated Alert alerts = 9;
+}
+
+message CreateSLORequest {
+  ServiceLevelObjective SLO = 1;
+  repeated Service services = 2;
+}
+
+message Services {
+  repeated Service items = 1;
+}
+
+message CreatedSLOs {
+  repeated core.Reference items = 1;
+}
+
+message SLOImplData {
+  ServiceLevelObjective SLO = 1;
+  Service service = 2;
 }
 
 message Target {
   uint64 ValueX100 = 1;
-  google.protobuf.Duration timeWindow = 2; // FIXME: should be changed to str
 }
 
 message ServiceLevelObjectiveList {
-  repeated ServiceLevelObjective items = 1;
+  repeated SLOImplData items = 1;
 }
 
 // TODO : rework this

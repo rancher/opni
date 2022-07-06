@@ -12,30 +12,33 @@ import (
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
-/// Returns a list of all the components passed in the protobuf we need to translate to specs
-/// @errors: slo must have an id
-func ParseToOpenSLO(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) ([]oslov1.SLO, error) {
+// Returns a list of all the components passed in the protobuf we need to translate to specs
+//
+// @errors: slo must have an id
+//
+// Number of oslo specs matches the number of services given in the SLO
+func ParseToOpenSLO(slorequest *api.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]oslov1.SLO, error) {
 	res := make([]oslov1.SLO, 0)
 
-	for idx, service := range slo.GetServices() {
+	for idx, service := range slorequest.GetServices() {
 		// Parse to inline SLO/SLIs
 		newSLOI := oslov1.SLOSpec{
-			Description:     slo.GetDescription(),
+			Description:     slorequest.SLO.GetDescription(),
 			Service:         service.GetJobId(),
-			BudgetingMethod: slo.GetMonitorWindow(),
+			BudgetingMethod: slorequest.SLO.GetMonitorWindow(),
 		}
 		// actual SLO/SLI query
-		indicator, err := ParseToIndicator(slo, service, ctx, lg)
+		indicator, err := ParseToIndicator(slorequest.SLO, service, ctx, lg)
 		if err != nil {
 			return res, err
 		}
 		newSLOI.Indicator = indicator
 
 		// targets
-		newSLOI.Objectives = ParseToObjectives(slo, ctx, lg)
+		newSLOI.Objectives = ParseToObjectives(slorequest.SLO, ctx, lg)
 
 		// Parse inline Alert Policies and Alert Notifications
-		policies, err := ParseToAlerts(slo, ctx, lg)
+		policies, err := ParseToAlerts(slorequest.SLO, ctx, lg)
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +54,7 @@ func ParseToOpenSLO(slo *api.ServiceLevelObjective, ctx context.Context, lg hclo
 		}
 
 		//Label SLO
-		wrapSLOI.Metadata.Name = fmt.Sprintf("slo-%s-%d-%s-%s", slo.GetName(), idx, service.GetClusterId(), service.GetJobId())
+		wrapSLOI.Metadata.Name = fmt.Sprintf("slo-%s-%d-%s-%s", slorequest.SLO.GetName(), idx, service.GetClusterId(), service.GetJobId())
 		res = append(res, wrapSLOI)
 	}
 

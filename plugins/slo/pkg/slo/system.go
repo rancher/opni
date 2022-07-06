@@ -44,7 +44,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	p.storage.Set(StorageAPIs{
-		SLOs:     system.NewKVStoreClient[*sloapi.ServiceLevelObjective](p.ctx, client),
+		SLOs:     system.NewKVStoreClient[*sloapi.SLOImplData](p.ctx, client),
 		SLOState: system.NewKVStoreClient[*sloapi.State](p.ctx, client),
 		Services: system.NewKVStoreClient[*sloapi.Service](p.ctx, client),
 		Metrics:  system.NewKVStoreClient[*sloapi.Metric](p.ctx, client),

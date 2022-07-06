@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/alexandreLamarre/sloth/core/prometheus"
 	"github.com/kralicky/yaml/v3"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
+	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 // these types are defined to support yaml v2 (instead of the new Prometheus
@@ -19,6 +21,26 @@ type ruleGroupYAMLv2 struct {
 	Name     string             `yaml:"name"`
 	Interval prommodel.Duration `yaml:"interval,omitempty"`
 	Rules    []rulefmt.Rule     `yaml:"rules"`
+}
+
+// Guess this could be generic
+type zipperHolder struct {
+	SLOGroup *prometheus.SLOGroup
+	Service  *apis.Service
+}
+
+func zipPrometheusModelWithServices(ps []*prometheus.SLOGroup, as []*apis.Service) ([]*zipperHolder, error) {
+	if len(as) != len(ps) {
+		return nil, fmt.Errorf("Expected Generated SLOGroups to match the number of Services provided in the request")
+	}
+	res := make([]*zipperHolder, 0)
+	for idx, p := range ps {
+		res = append(res, &zipperHolder{
+			SLOGroup: p,
+			Service:  as[idx],
+		})
+	}
+	return res, nil
 }
 
 // Marshal result SLORuleFmtWrapper to cortex-approved yaml
@@ -34,7 +56,7 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (string, error) {
 		return "", err
 	}
 
-	_, err = yaml.Marshal(ruleGroupYAMLv2{
+	rmetadata, err := yaml.Marshal(ruleGroupYAMLv2{
 		Name:  fmt.Sprintf("%s-metadata", sloId),
 		Rules: metadata,
 	})
@@ -42,13 +64,13 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (string, error) {
 		return "", err
 	}
 
-	_, err = yaml.Marshal(ruleGroupYAMLv2{
+	ralerts, err := yaml.Marshal(ruleGroupYAMLv2{
 		Name:  fmt.Sprintf("%s-alerts", sloId),
 		Rules: alerts,
 	})
 	if err != nil {
 		return "", err
 	}
-	res := strings.Join([]string{string(rrecording) /*string(rmetadata), string(ralerts)*/}, "---\n")
+	res := strings.Join([]string{string(rrecording), string(rmetadata), string(ralerts)}, "---\n")
 	return res, nil
 }

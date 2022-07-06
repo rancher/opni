@@ -40,30 +40,31 @@ func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, err
 	return items, nil
 }
 
-func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjective) (*emptypb.Empty, error) {
+func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequest) (*sloapi.CreatedSLOs, error) {
 	lg := p.logger
-	if slo.Id == "" {
-		slo.Id = uuid.New().String()
-	} else {
-		_, err := p.storage.Get().SLOs.Get(path.Join("/slos", slo.Id))
-		if err != nil {
-			if status.Code(err) != codes.NotFound {
-				return nil, err
-			}
-		} else {
-			return nil, status.Error(codes.AlreadyExists, "SLO with this ID already exists")
-		}
-	}
+	// if slo.Id == "" {
+	// 	slo.Id = uuid.New().String()
+	// } else {
+	// 	_, err := p.storage.Get().SLOs.Get(path.Join("/slos", slo.Id))
+	// 	if err != nil {
+	// 		if status.Code(err) != codes.NotFound {
+	// 			return nil, err
+	// 		}
+	// 	} else {
+	// 		return nil, status.Error(codes.AlreadyExists, "SLO with this ID already exists")
+	// 	}
+	// }
 
-	if err := ValidateInput(slo); err != nil {
+	if err := ValidateInput(slorequest); err != nil {
 		return nil, err
 	}
 
-	osloSpecs, err := ParseToOpenSLO(slo, ctx, p.logger)
+	osloSpecs, err := ParseToOpenSLO(slorequest, ctx, p.logger)
 	if err != nil {
 		return nil, err
 	}
-	switch slo.GetDatasource() {
+	lg.Debug(fmt.Sprintf("Length of osloSpecs : %d", len(osloSpecs)))
+	switch slorequest.SLO.GetDatasource() {
 	case shared.LoggingDatasource:
 		return nil, shared.ErrNotImplemented
 	case shared.MonitoringDatasource:
@@ -72,19 +73,27 @@ func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjectiv
 			lg.Error("failed to parse prometheus model IR :", err)
 			return nil, err
 		}
-		for _, s := range v {
-			rw, err := GeneratePrometheusNoSlothGenerator(s, ctx, lg)
+		lg.Debug(fmt.Sprintf("Size of generated rules : %d", len(v)))
+
+		vs, err := zipPrometheusModelWithServices(v, slorequest.Services)
+		if err != nil {
+			return nil, err
+		}
+		for outerIdx, zipped := range vs {
+			rw, err := GeneratePrometheusNoSlothGenerator(zipped.SLOGroup, ctx, lg)
 			if err != nil {
 				lg.Error("Failed to generate prometheus : ", err)
 				return nil, err
 			}
-			// yamlCortexRequest := ""
-			for idx, rwgroup := range rw {
-				group, err := toCortexRequest(rwgroup, fmt.Sprintf("id%d", idx))
+
+			returnedSloId := &sloapi.CreatedSLOs{}
+			for innerIdx, rwgroup := range rw {
+				newSloId := uuid.New().String()
+				group, err := toCortexRequest(rwgroup, fmt.Sprintf("%d", innerIdx))
 				if err != nil {
 					return nil, err
 				}
-				os.WriteFile(fmt.Sprintf("cortex%d.yaml", idx), []byte(group), 0644)
+				os.WriteFile(fmt.Sprintf("cortex%d-%d.yaml", outerIdx, innerIdx), []byte(group), 0644)
 				_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
 					Yaml:   group,
 					Tenant: "agent",
@@ -93,19 +102,34 @@ func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjectiv
 					lg.Error("Failed to load rules : ", err)
 					return nil, err
 				}
+
+				_, err = p.storage.Get().SLOs.Get(path.Join("/slos", newSloId))
+				if err != nil {
+					if status.Code(err) != codes.NotFound {
+						return nil, err
+					}
+				} else {
+					return nil, status.Error(codes.AlreadyExists, "SLO with this ID already exists")
+				}
+				returnedSloId.Items = append(returnedSloId.Items, &corev1.Reference{Id: newSloId})
+				dataToPersist := &sloapi.SLOImplData{
+					SLO:     slorequest.SLO,
+					Service: zipped.Service,
+				}
+				// Put in k,v store only if everything else succeeds
+				if err := p.storage.Get().SLOs.Put(path.Join("/slos", newSloId), dataToPersist); err != nil {
+					return nil, err
+				}
 			}
-
+			return returnedSloId, nil
 		}
+	default:
+		return nil, status.Error(codes.InvalidArgument, "Invalid datasource")
 	}
-
-	// Put in k,v store only if everything else succeeds
-	if err := p.storage.Get().SLOs.Put(path.Join("/slos", slo.Id), slo); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
+	return nil, nil
 }
 
-func (p *Plugin) GetSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.ServiceLevelObjective, error) {
+func (p *Plugin) GetSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOImplData, error) {
 	return p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
 }
 
@@ -150,9 +174,6 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 	clone := proto.Clone(existing).(*sloapi.ServiceLevelObjective)
 	clone.Id = ""
 	clone.Name = clone.Name + " - Copy"
-	if _, err := p.CreateSLO(ctx, clone); err != nil {
-		return nil, err
-	}
 
 	return clone, shared.ErrNotImplemented
 }

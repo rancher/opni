@@ -25,7 +25,7 @@ type Plugin struct {
 }
 
 type StorageAPIs struct {
-	SLOs     system.KVStoreClient[*sloapi.ServiceLevelObjective]
+	SLOs     system.KVStoreClient[*sloapi.SLOImplData]
 	SLOState system.KVStoreClient[*sloapi.State]
 	Services system.KVStoreClient[*sloapi.Service]
 	Metrics  system.KVStoreClient[*sloapi.Metric]
@@ -43,6 +43,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 		adminClient: future.New[cortexadmin.CortexAdminClient](),
 	}
 }
+
+var _ sloapi.SLOServer = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()

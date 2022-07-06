@@ -22,9 +22,9 @@ Must :
 */
 
 import (
-	"html/template"
 	"regexp"
 	"strings"
+	"text/template"
 
 	"github.com/rancher/opni/pkg/slo/shared"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
@@ -37,6 +37,12 @@ var (
 	`))
 )
 
+type templateExecutor struct {
+	MetricIdGood  string
+	MetricIdTotal string
+	JobId         string
+}
+
 func init() {
 	// Names should be unique for each pre-configured query, as they are used as keys
 	// in the map
@@ -46,16 +52,16 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdGood}}{job="{{.JobId}}", {{.MetricIdGood}}=1}[{{"{{.window}}"}}]))
+					(sum(rate({{.MetricIdGood}}{job="{{.JobId}}"} == 1)))[{{"{{.window}}"}}]
 				`).
-				MetricFilter(`.*up.*`).
+				MetricFilter(`up`).
 				BuildRatio()).
 		TotalQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdTotal}}{job="{{.JobId}}"}[{{"{{.window}}"}}]))
+					(sum(rate({{.MetricIdTotal}}{job="{{.JobId}}"}))[{{"{{.window}}"}}]
 				`).
-				MetricFilter(`.*up.*`).BuildRatio()).
+				MetricFilter(`up`).BuildRatio()).
 		Description("Measures the uptime of a kubernetes service").
 		Datasource(shared.MonitoringDatasource).Build()
 	AvailableQueries[uptimeSLOQuery.name] = &uptimeSLOQuery
@@ -65,40 +71,40 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdGood}}{code="(2..|3..)"}[{{"{{.window}}"}}]))
+					(sum(rate({{.MetricIdGood}}{job="{{.JobId}}",code=~"(5..|429)"}[{{"{{.window}}"}}])))
 				`).
-				MetricFilter(`.*_request_duration_seconds_count`).
+				MetricFilter(`http_request_duration_seconds_count`).
 				BuildRatio()).
 		TotalQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdTotal}}[{{"{{.window}}"}}]))
+				(sum(rate({{.MetricIdTotal}}{job="myservice"}[{{"{{.window}}"}}])))
 				`).
-				MetricFilter(`.*_request_duration_seconds_count`).BuildRatio()).
-		Description(`Measures the availability of a kubernetes service using http status codes. 
+				MetricFilter(`http_request_duration_seconds_count`).BuildRatio()).
+		Description(`Measures the availability of a kubernetes service using http status codes.
 		Codes 2XX and 3XX are considered as available.`).
 		Datasource(shared.MonitoringDatasource).Build()
 	AvailableQueries[httpAvailabilitySLOQuery.name] = &httpAvailabilitySLOQuery
 
-	httpResponseTimeSLOQuery := New().
-		Name("http-latency").
-		GoodQuery(
-			NewQueryBuilder().
-				Query(`
-					sum(rate({{.MetricIdGood}}{le="0.3",verb!="WATCH"} [{{"{{window}}"}}]))
-				`).
-				MetricFilter(`.*_request_duration_seconds_bucket`).
-				BuildHistogram()).
-		TotalQuery(
-			NewQueryBuilder().
-				Query(`
-					sum(rate({{.MetricIdTotal}}{verb!="WATCH"}[{{"{{.window}}"}}]))
-				`).
-				MetricFilter(`.*_request_duration_seconds_count`).BuildRatio()).
-		Description(`Quantifies the latency of http requests made against a kubernetes service
-			by classifying them as good (<=300ms) or bad(>=300ms)`).
-		Datasource(shared.MonitoringDatasource).Build()
-	AvailableQueries[httpResponseTimeSLOQuery.name] = &httpResponseTimeSLOQuery
+	// httpResponseTimeSLOQuery := New().
+	// 	Name("http-latency").
+	// 	GoodQuery(
+	// 		NewQueryBuilder().
+	// 			Query(`
+	// 				sum(rate({{.MetricIdGood}}{le="0.3",verb!="WATCH"} [{{"{{window}}"}}]))
+	// 			`).
+	// 			MetricFilter(`.*_request_duration_seconds_bucket`).
+	// 			BuildHistogram()).
+	// 	TotalQuery(
+	// 		NewQueryBuilder().
+	// 			Query(`
+	// 				sum(rate({{.MetricIdTotal}}{verb!="WATCH"}[{{"{{.window}}"}}]))
+	// 			`).
+	// 			MetricFilter(`.*_request_duration_seconds_count`).BuildRatio()).
+	// 	Description(`Quantifies the latency of http requests made against a kubernetes service
+	// 		by classifying them as good (<=300ms) or bad(>=300ms)`).
+	// 	Datasource(shared.MonitoringDatasource).Build()
+	// AvailableQueries[httpResponseTimeSLOQuery.name] = &httpResponseTimeSLOQuery
 }
 
 type matcher func([]string) string
@@ -108,11 +114,6 @@ type SLOQueryResult struct {
 	TotalQuery string
 }
 
-type templateExecutor struct {
-	MetricIdGood  string
-	MetricIdTotal string
-	JobId         string
-}
 type MetricQuery interface {
 	// User facing name of the pre-confured metric
 	Name() string
@@ -180,22 +181,32 @@ func (q queryBuilder) BuildRatio() RatioQuery {
 	if q.matcher == nil {
 		q.matcher = MatchMinLength
 	}
-	return RatioQuery{
+	r := RatioQuery{
 		query:        q.query,
 		metricFilter: q.filter,
 		matcher:      q.matcher,
 	}
+	err := r.Validate()
+	if err != nil {
+		panic(err)
+	}
+	return r
 }
 
 func (q queryBuilder) BuildHistogram() HistogramQuery {
 	if q.matcher == nil {
 		q.matcher = MatchMinLength
 	}
-	return HistogramQuery{
+	h := HistogramQuery{
 		query:        q.query,
 		metricFilter: q.filter,
 		matcher:      q.matcher,
 	}
+	err := h.Validate()
+	if err != nil {
+		panic(err)
+	}
+	return h
 }
 
 type SloQueryBuilder interface {

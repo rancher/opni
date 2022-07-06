@@ -2,9 +2,9 @@ package query
 
 import (
 	"bytes"
-	"html/template"
 	"regexp"
 	"strings"
+	"text/template"
 
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
@@ -28,8 +28,7 @@ func (h HistogramQuery) GetMetricFilter() string {
 }
 
 func (h HistogramQuery) Validate() error {
-	// TODO : implement
-	return nil
+	return validatePromQl(h.query)
 }
 
 func (h HistogramQuery) IsRatio() bool {

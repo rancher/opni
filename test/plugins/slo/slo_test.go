@@ -4,10 +4,14 @@ import (
 	"context"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/test"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
@@ -64,10 +68,14 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		It("should list available metrics", func() {
 			metrics, err := sloClient.ListMetrics(ctx, &emptypb.Empty{})
 			Expect(err).To(Succeed())
-			Expect(metrics.Items).To(HaveLen(3))
-			Expect(metrics.Items[0].Name).To(Equal("http-availability"))
-			Expect(metrics.Items[1].Name).To(Equal("http-latency"))
-			Expect(metrics.Items[2].Name).To(Equal("uptime"))
+			Expect(metrics.Items).ToNot(HaveLen(0))
+			keys := make([]string, 0, len(query.AvailableQueries))
+			for k := range query.AvailableQueries {
+				keys = append(keys, k)
+			}
+			for _, m := range metrics.Items {
+				Expect(keys).To(ContainElement(m.Name))
+			}
 		})
 		It("Should be able to assign pre-configured metrics to discrete metric ids", func() {
 			_, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
@@ -89,16 +97,16 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(metric.MetricIdGood).To(Equal("up"))
 			Expect(metric.MetricIdTotal).To(Equal("up"))
 
-			latency, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
-				Name:       "http-latency",
-				Datasource: shared.MonitoringDatasource,
-				ServiceId:  "prometheus",
-				ClusterId:  "agent",
-			})
-			Expect(err).To(Succeed())
+			// latency, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
+			// 	Name:       "http-latency",
+			// 	Datasource: shared.MonitoringDatasource,
+			// 	ServiceId:  "prometheus",
+			// 	ClusterId:  "agent",
+			// })
+			// Expect(err).To(Succeed())
 
-			Expect(latency.MetricIdGood).To(Equal("prometheus_http_request_duration_seconds_bucket"))
-			Expect(latency.MetricIdTotal).To(Equal("prometheus_http_request_duration_seconds_sum"))
+			// Expect(latency.MetricIdGood).To(Equal("prometheus_http_request_duration_seconds_bucket"))
+			// Expect(latency.MetricIdTotal).To(Equal("prometheus_http_request_duration_seconds_count"))
 
 			_, err = sloClient.GetMetricId(ctx, &apis.MetricRequest{
 				Name:       "does not exist",
@@ -112,8 +120,50 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 	When("CRUDing SLOs", func() {
 		It("Should create valid SLOs", func() {
-			_, err := sloClient.CreateSLO(ctx, &apis.ServiceLevelObjective{})
+			inputSLO := &apis.ServiceLevelObjective{
+				Id:                "", // initially empty
+				Name:              "test-slo",
+				Description:       "test slo",
+				Datasource:        "monitoring",
+				MonitorWindow:     "5m",
+				MetricDescription: "test metric",
+				BudgetingInterval: "30d",
+				Labels:            []*apis.Label{},
+				Targets: []*apis.Target{
+					{
+						ValueX100: 9999,
+					},
+				},
+				Alerts: []*apis.Alert{}, // do nothing for now
+			}
+
+			svcs := []*apis.Service{}
+
+			req := &apis.CreateSLORequest{
+				SLO:      inputSLO,
+				Services: svcs,
+			}
+			_, err := sloClient.CreateSLO(ctx, req)
 			Expect(err).To(HaveOccurred())
+			stat, ok := status.FromError(err)
+			Expect(ok).To(BeTrue())
+			Expect(stat.Code()).To(Equal(codes.InvalidArgument))
+			expected, ok := status.FromError(shared.ErrMissingServices)
+			Expect(stat.Message()).To(Equal(expected.Message()))
+
+			svcs = []*apis.Service{
+				{
+					JobId:         "prometheus",
+					MetricName:    "http-availability",
+					MetricIdGood:  "http_request_duration_seconds_count",
+					MetricIdTotal: "http_request_duration_seconds_count",
+					ClusterId:     "agent",
+				},
+			}
+			req.Services = svcs
+			_, err = sloClient.CreateSLO(ctx, req)
+			Expect(err).To(Succeed())
+
 		})
 		It("Should update valid SLOs", func() {
 			_, err := sloClient.UpdateSLO(ctx, &apis.ServiceLevelObjective{})

@@ -42,10 +42,10 @@ require (
 	github.com/jhump/protoreflect v1.12.0
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
-	github.com/kralicky/grpc-gateway/v2 v2.7.3-0.20220201000610-57444701bbdc
+	github.com/kralicky/grpc-gateway/v2 v2.10.4-0.20220705182157-3104b406871b
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
 	github.com/kralicky/kmatch v0.0.0-20220516173937-745c3d52252c
-	github.com/kralicky/ragu v1.0.0-beta1
+	github.com/kralicky/ragu v1.0.0-beta1.0.20220705184408-b1255c51a140
 	github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f
 	github.com/kralicky/totem v1.0.1-0.20220620223146-99d6bdcbff46
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d

@@ -12,18 +12,20 @@ import (
 
 // validation error descriptions
 var (
-	lengthConstraint         = func(i int) string { return fmt.Sprintf("must be between 1-%d characters in length", i) }
-	ErrInvalidDescription    = validation.Errorf("Description %s", lengthConstraint(1050))
-	ErrInvalidDatasource     = validation.Error("Invalid required datasource value")
-	ErrInvalidMetric         = validation.Error("Invalid preconfigured metric")
-	ErrInvalidAlertType      = validation.Error("Invalid alert type")
-	ErrInvalidAlertCondition = validation.Error("Invalid Alert Condition")
-	ErrInvalidAlertThreshold = validation.Error("Invalid Alert Threshold")
-	ErrInvalidAlertTarget    = validation.Error("Invalid Alert Target")
-	ErrNonNullId             = validation.Error("Slo Create requests must not have a set id")
-	ErrNotImplemented        = validation.Error("Not implemented")
-	ErrPrometheusGenerator   = validation.Error("Prometheus generator failed to start")
-	ErrMissingServices       = validation.Error("Service definitions are required to create an SLO")
+	lengthConstraint            = func(i int) string { return fmt.Sprintf("must be between 1-%d characters in length", i) }
+	ErrInvalidDescription       = validation.Errorf("Description %s", lengthConstraint(1050))
+	ErrInvalidDatasource        = validation.Error("Invalid required datasource value")
+	ErrInvalidMetric            = validation.Error("Invalid preconfigured metric")
+	ErrInvalidAlertType         = validation.Error("Invalid alert type")
+	ErrInvalidAlertCondition    = validation.Error("Invalid Alert Condition")
+	ErrInvalidAlertThreshold    = validation.Error("Invalid Alert Threshold")
+	ErrInvalidAlertTarget       = validation.Error("Invalid Alert Target")
+	ErrNonNullId                = validation.Error("Slo Create requests must not have a set id")
+	ErrNotImplemented           = validation.Error("Not implemented")
+	ErrPrometheusGenerator      = validation.Error("Prometheus generator failed to start")
+	ErrMissingServices          = validation.Error("Service definitions are required to create an SLO")
+	ErrInvalidMonitorWindow     = validation.Error("Invalid monitor window")
+	ErrInvalidBudgetingInterval = validation.Error("Invalid budgeting interval")
 )
 
 const (

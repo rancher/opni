@@ -382,6 +382,7 @@ func GenerateSLO(slo prometheus.SLO, ctx context.Context, info info.Info, lg hcl
 	}, nil
 }
 
+// Returns the same number of SLORuleWrappers as the number of SLOGroups
 func GeneratePrometheusNoSlothGenerator(slos *prometheus.SLOGroup, ctx context.Context, lg hclog.Logger) ([]SLORuleFmtWrapper, error) {
 	res := make([]SLORuleFmtWrapper, 0)
 	err := Validate(slos)

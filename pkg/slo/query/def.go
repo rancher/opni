@@ -47,6 +47,7 @@ func init() {
 	// Names should be unique for each pre-configured query, as they are used as keys
 	// in the map
 
+	//FIXME: doesn't turn into a prometheus range
 	uptimeSLOQuery := New().
 		Name("uptime").
 		GoodQuery(
@@ -71,14 +72,14 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					(sum(rate({{.MetricIdGood}}{job="{{.JobId}}",code=~"(5..|429)"}[{{"{{.window}}"}}])))
+					(sum(rate({{.MetricIdGood}}{job="{{.JobId}}",code=~"(2..|3..)"}[{{"{{.window}}"}}])))
 				`).
 				MetricFilter(`http_request_duration_seconds_count`).
 				BuildRatio()).
 		TotalQuery(
 			NewQueryBuilder().
 				Query(`
-				(sum(rate({{.MetricIdTotal}}{job="myservice"}[{{"{{.window}}"}}])))
+				(sum(rate({{.MetricIdTotal}}{job="{{.JobId}}"}[{{"{{.window}}"}}])))
 				`).
 				MetricFilter(`http_request_duration_seconds_count`).BuildRatio()).
 		Description(`Measures the availability of a kubernetes service using http status codes.

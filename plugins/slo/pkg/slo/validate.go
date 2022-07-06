@@ -1,7 +1,12 @@
 package slo
 
 import (
+	"regexp"
+	"strconv"
+
 	"github.com/rancher/opni/pkg/slo/shared"
+	"golang.org/x/exp/slices"
+
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
@@ -31,6 +36,24 @@ func ValidateInput(slorequest *api.CreateSLORequest) error {
 	}
 	if err := validateAlert(slorequest.SLO.GetAlerts()); err != nil {
 		return err
+	}
+	// Expected monitor window
+	validWindows := []string{"7d", "28d", "30d"}
+	if !slices.Contains(validWindows, slorequest.SLO.GetMonitorWindow()) {
+		return shared.ErrInvalidMonitorWindow
+	}
+
+	budgetingIntervalRegex := regexp.MustCompile(`(^\d+)[m]$`)
+	if !budgetingIntervalRegex.MatchString(slorequest.SLO.GetBudgetingInterval()) {
+		return shared.ErrInvalidBudgetingInterval
+	}
+	groups := budgetingIntervalRegex.FindStringSubmatch(slorequest.SLO.GetBudgetingInterval())
+	mins, err := strconv.Atoi(groups[1])
+	if err != nil {
+		return shared.ErrInvalidBudgetingInterval
+	}
+	if !(mins >= 1 && mins <= 60) {
+		return shared.ErrInvalidBudgetingInterval
 	}
 
 	return nil

@@ -42,18 +42,6 @@ func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, err
 
 func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequest) (*sloapi.CreatedSLOs, error) {
 	lg := p.logger
-	// if slo.Id == "" {
-	// 	slo.Id = uuid.New().String()
-	// } else {
-	// 	_, err := p.storage.Get().SLOs.Get(path.Join("/slos", slo.Id))
-	// 	if err != nil {
-	// 		if status.Code(err) != codes.NotFound {
-	// 			return nil, err
-	// 		}
-	// 	} else {
-	// 		return nil, status.Error(codes.AlreadyExists, "SLO with this ID already exists")
-	// 	}
-	// }
 
 	if err := ValidateInput(slorequest); err != nil {
 		return nil, err
@@ -74,29 +62,34 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 			return nil, err
 		}
 		lg.Debug(fmt.Sprintf("Size of generated rules : %d", len(v)))
-
 		vs, err := zipPrometheusModelWithServices(v, slorequest.Services)
 		if err != nil {
 			return nil, err
 		}
-		for outerIdx, zipped := range vs {
+		// one sloGroup per SLO for service
+		for _, zipped := range vs {
 			rw, err := GeneratePrometheusNoSlothGenerator(zipped.SLOGroup, ctx, lg)
+			lg.Debug("Generated cortex rule groups : %d", len(rw))
+			if len(rw) > 1 {
+				lg.Warn("Multiple cortex rule groups being applied")
+			}
 			if err != nil {
 				lg.Error("Failed to generate prometheus : ", err)
 				return nil, err
 			}
-
 			returnedSloId := &sloapi.CreatedSLOs{}
-			for innerIdx, rwgroup := range rw {
+			for _, rwgroup := range rw {
+				// Generate new uuid for each slo
 				newSloId := uuid.New().String()
-				group, err := toCortexRequest(rwgroup, fmt.Sprintf("%d", innerIdx))
+
+				group, err := toCortexRequest(rwgroup, newSloId)
 				if err != nil {
 					return nil, err
 				}
-				os.WriteFile(fmt.Sprintf("cortex%d-%d.yaml", outerIdx, innerIdx), []byte(group), 0644)
+				os.WriteFile(fmt.Sprintf("%s.yaml", newSloId), []byte(group), 0644)
 				_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
 					Yaml:   group,
-					Tenant: "agent",
+					Tenant: zipped.Service.ClusterId,
 				})
 				if err != nil {
 					lg.Error("Failed to load rules : ", err)
@@ -113,6 +106,7 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 				}
 				returnedSloId.Items = append(returnedSloId.Items, &corev1.Reference{Id: newSloId})
 				dataToPersist := &sloapi.SLOImplData{
+					Id:      newSloId,
 					SLO:     slorequest.SLO,
 					Service: zipped.Service,
 				}
@@ -148,6 +142,8 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.ServiceLevelObjectiv
 	if err != nil {
 		return nil, err
 	}
+	// TODO : Handle datasource
+	// TODO : apply update to cortex request
 
 	proto.Merge(existing, req)
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", req.Id), existing); err != nil {
@@ -160,6 +156,9 @@ func (p *Plugin) DeleteSLO(ctx context.Context, ref *corev1.Reference) (*emptypb
 	if err := p.storage.Get().SLOs.Delete(path.Join("/slos", ref.Id)); err != nil {
 		return nil, err
 	}
+
+	// TODO : Handle datasource
+	// TODO : delete cortex request
 
 	p.storage.Get().SLOs.Delete(path.Join("/slo_state", ref.Id))
 	return &emptypb.Empty{}, shared.ErrNotImplemented

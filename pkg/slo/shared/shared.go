@@ -23,6 +23,7 @@ var (
 	ErrInvalidId             = validation.Error("Internal error, unassigned SLO ID")
 	ErrNotImplemented        = validation.Error("Not implemented")
 	ErrPrometheusGenerator   = validation.Error("Prometheus generator failed to start")
+	ErrMissingServices       = validation.Error("Service definitions are required to create an SLO")
 )
 
 const (

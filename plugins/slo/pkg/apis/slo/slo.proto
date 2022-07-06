@@ -34,7 +34,7 @@ service SLO {
       body: "*"
     };
   }
-  rpc DeleteSLO(SLOImplData) returns (google.protobuf.Empty) {
+  rpc DeleteSLO(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/slos/{id}"
     };

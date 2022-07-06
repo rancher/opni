@@ -144,7 +144,7 @@ func (p *Plugin) ListSLOs(ctx context.Context, _ *emptypb.Empty) (*sloapi.Servic
 	}
 	return &sloapi.ServiceLevelObjectiveList{
 		Items: items,
-	}, shared.ErrNotImplemented
+	}, nil
 }
 
 func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*emptypb.Empty, error) {
@@ -188,7 +188,7 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*empty
 	return &emptypb.Empty{}, anyError
 }
 
-func (p *Plugin) DeleteSLO(ctx context.Context, req *sloapi.SLOImplData) (*emptypb.Empty, error) {
+func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
 	lg := p.logger
 	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", req.Id))
 	if err != nil {
@@ -218,7 +218,7 @@ func (p *Plugin) DeleteSLO(ctx context.Context, req *sloapi.SLOImplData) (*empty
 	}
 	// delete if found
 	p.storage.Get().SLOs.Delete(path.Join("/slo_state", req.Id))
-	return &emptypb.Empty{}, shared.ErrNotImplemented
+	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOImplData, error) {
@@ -242,6 +242,7 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 		if len(createdSlos.Items) > 1 {
 			anyError = status.Error(codes.Internal, "Created more than one SLO")
 		}
+		clone.Id = createdSlos.Items[0].Id
 		if err := p.storage.Get().SLOs.Put(path.Join("/slos", createdSlos.Items[0].Id), clone); err != nil {
 			return nil, err
 		}

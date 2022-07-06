@@ -162,22 +162,86 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				createdSlos = append(createdSlos, item)
 			}
 		})
+		It("Should list SLOs", func() {
+			slos, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).To(Succeed())
+			Expect(slos.Items).To(HaveLen(len(createdSlos)))
+		})
+
+		It("Should be able to get specific SLOs by Id", func() {
+			Expect(createdSlos).ToNot(HaveLen(0))
+			id := createdSlos[0].Id
+			slo, err := sloClient.GetSLO(ctx, &corev1.Reference{Id: id})
+			Expect(err).To(Succeed())
+			Expect(slo.Service.ClusterId).To(Equal("agent"))
+			Expect(slo.Service.JobId).To(Equal("prometheus"))
+		})
 		It("Should update valid SLOs", func() {
-			_, err := sloClient.UpdateSLO(ctx, &apis.SLOImplData{})
-			Expect(err).To(HaveOccurred())
+			Expect(createdSlos).ToNot(HaveLen(0))
+			id := createdSlos[0].Id
+			sloToUpdate, err := sloClient.GetSLO(ctx, &corev1.Reference{Id: id})
+			Expect(err).To(Succeed())
+			// change cluster of SLO
+			newsvc := sloToUpdate.Service
+			newsvc.ClusterId = "agent2"
+			_, err = sloClient.UpdateSLO(ctx, &apis.SLOImplData{
+				Id:      sloToUpdate.Id,
+				SLO:     sloToUpdate.SLO,
+				Service: newsvc,
+			})
+			Expect(err).To(Succeed())
+
+			updatedSLO, err := sloClient.GetSLO(ctx, &corev1.Reference{Id: id})
+			Expect(updatedSLO.Service.ClusterId).To(Equal("agent2"))
 		})
 		It("Should delete valid SLOs", func() {
-			_, err := sloClient.DeleteSLO(ctx, &apis.SLOImplData{})
-			Expect(err).To(HaveOccurred())
-		})
-		It("Should list SLOs", func() {
-			_, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
-			Expect(err).To(HaveOccurred())
+			Expect(createdSlos).ToNot(HaveLen(0))
+			id := createdSlos[0].Id
+			_, err := sloClient.DeleteSLO(ctx, &corev1.Reference{Id: id})
+			Expect(err).To(Succeed())
+			createdSlos = createdSlos[1:]
+
 		})
 
 		It("Should clone SLOs", func() {
-			_, err := sloClient.CloneSLO(ctx, &corev1.Reference{})
+			inputSLO := &apis.ServiceLevelObjective{
+				Name:              "test-slo",
+				Datasource:        "monitoring",
+				MonitorWindow:     "30d", // one of 30d, 28, 7d
+				BudgetingInterval: "5m",  // between 5m and 1h
+				Labels:            []*apis.Label{},
+				Target:            &apis.Target{ValueX100: 9999},
+				Alerts:            []*apis.Alert{}, // do nothing for now
+			}
+			svcs := []*apis.Service{
+				{
+					JobId:         "prometheus",
+					MetricName:    "http-availability",
+					MetricIdGood:  "http_request_duration_seconds_count",
+					MetricIdTotal: "http_request_duration_seconds_count",
+					ClusterId:     "agent",
+				},
+			}
+
+			req := &apis.CreateSLORequest{
+				SLO:      inputSLO,
+				Services: svcs,
+			}
+			createdItems, err := sloClient.CreateSLO(ctx, req)
+			Expect(err).To(Succeed())
+			Expect(createdItems.Items).To(HaveLen(1))
+			for _, data := range createdItems.Items {
+				createdSlos = append(createdSlos, data)
+			}
+			Expect(createdSlos).To(HaveLen(1))
+
+			_, err = sloClient.CloneSLO(ctx, &corev1.Reference{})
 			Expect(err).To(HaveOccurred())
+
+			creationData, err := sloClient.CloneSLO(ctx, &corev1.Reference{Id: createdSlos[0].Id})
+			Expect(err).To(Succeed())
+			Expect(creationData.Id).ToNot(Equal(""))
+			Expect(creationData.Id).ToNot(Equal(createdSlos[0].Id))
 		})
 	})
 

@@ -29,7 +29,7 @@ type SLOClient interface {
 	GetSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOImplData, error)
 	ListSLOs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceLevelObjectiveList, error)
 	UpdateSLO(ctx context.Context, in *SLOImplData, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	DeleteSLO(ctx context.Context, in *SLOImplData, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOImplData, error)
 	// ================ Poll SLO Status
 	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error)
@@ -90,7 +90,7 @@ func (c *sLOClient) UpdateSLO(ctx context.Context, in *SLOImplData, opts ...grpc
 	return out, nil
 }
 
-func (c *sLOClient) DeleteSLO(ctx context.Context, in *SLOImplData, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *sLOClient) DeleteSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/slo.SLO/DeleteSLO", in, out, opts...)
 	if err != nil {
@@ -198,7 +198,7 @@ type SLOServer interface {
 	GetSLO(context.Context, *v1.Reference) (*SLOImplData, error)
 	ListSLOs(context.Context, *emptypb.Empty) (*ServiceLevelObjectiveList, error)
 	UpdateSLO(context.Context, *SLOImplData) (*emptypb.Empty, error)
-	DeleteSLO(context.Context, *SLOImplData) (*emptypb.Empty, error)
+	DeleteSLO(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	CloneSLO(context.Context, *v1.Reference) (*SLOImplData, error)
 	// ================ Poll SLO Status
 	Status(context.Context, *v1.Reference) (*SLOStatus, error)
@@ -232,7 +232,7 @@ func (UnimplementedSLOServer) ListSLOs(context.Context, *emptypb.Empty) (*Servic
 func (UnimplementedSLOServer) UpdateSLO(context.Context, *SLOImplData) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateSLO not implemented")
 }
-func (UnimplementedSLOServer) DeleteSLO(context.Context, *SLOImplData) (*emptypb.Empty, error) {
+func (UnimplementedSLOServer) DeleteSLO(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSLO not implemented")
 }
 func (UnimplementedSLOServer) CloneSLO(context.Context, *v1.Reference) (*SLOImplData, error) {
@@ -351,7 +351,7 @@ func _SLO_UpdateSLO_Handler(srv interface{}, ctx context.Context, dec func(inter
 }
 
 func _SLO_DeleteSLO_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SLOImplData)
+	in := new(v1.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -363,7 +363,7 @@ func _SLO_DeleteSLO_Handler(srv interface{}, ctx context.Context, dec func(inter
 		FullMethod: "/slo.SLO/DeleteSLO",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SLOServer).DeleteSLO(ctx, req.(*SLOImplData))
+		return srv.(SLOServer).DeleteSLO(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }

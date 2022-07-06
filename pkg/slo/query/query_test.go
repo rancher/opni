@@ -54,8 +54,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(resp).To(Not(BeNil()))
 			Expect(resp.GoodQuery).To(Not(BeNil()))
 			Expect(resp.TotalQuery).To(Not(BeNil()))
-			Expect(resp.GoodQuery).To(Equal("(sum(up{job=\"prometheus\"} == 1) by (job))"))
-			Expect(resp.TotalQuery).To(Equal("(sum(up{job=\"prometheus\"}) by (job))"))
+			Expect(resp.GoodQuery).To(Equal("(sum(rate(up{job=\"prometheus\"} == 1)))[{{.window}}]"))
+			Expect(resp.TotalQuery).To(Equal("(sum(rate(up{job=\"prometheus\"})))[{{.window}}]"))
 
 		})
 	})

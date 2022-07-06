@@ -60,7 +60,7 @@ func init() {
 		TotalQuery(
 			NewQueryBuilder().
 				Query(`
-					(sum(rate({{.MetricIdTotal}}{job="{{.JobId}}"}))[{{"{{.window}}"}}]
+					(sum(rate({{.MetricIdTotal}}{job="{{.JobId}}"})))[{{"{{.window}}"}}]
 				`).
 				MetricFilter(`up`).BuildRatio()).
 		Description("Measures the uptime of a kubernetes service").

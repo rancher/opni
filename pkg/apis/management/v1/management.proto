@@ -6,6 +6,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/descriptor.proto";
 import "google/api/http.proto";
 import "google/api/annotations.proto";
+import "google/rpc/status.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "github.com/kralicky/grpc-gateway/v2/protoc-gen-openapiv2/options/annotations.proto";
 

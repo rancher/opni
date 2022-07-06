@@ -29,6 +29,12 @@
             "schema": {
               "$ref": "#/definitions/managementAPIExtensionInfoList"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "tags": [
@@ -45,6 +51,12 @@
             "schema": {
               "$ref": "#/definitions/managementCapabilityList"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "tags": [
@@ -60,6 +72,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/managementCapabilityInstallerResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -101,6 +119,12 @@
             "schema": {
               "$ref": "#/definitions/managementCertsInfoResponse"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "tags": [
@@ -116,6 +140,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/coreClusterList"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -148,9 +178,18 @@
               "properties": {
                 "result": {
                   "$ref": "#/definitions/managementWatchEvent"
+                },
+                "error": {
+                  "$ref": "#/definitions/googlerpcStatus"
                 }
               },
               "title": "Stream result of managementWatchEvent"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -178,6 +217,12 @@
             "schema": {
               "$ref": "#/definitions/coreCluster"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "parameters": [
@@ -192,7 +237,18 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/managementEditClusterRequest"
+              "type": "object",
+              "properties": {
+                "cluster": {
+                  "type": "object"
+                },
+                "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         ],
@@ -209,6 +265,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/coreCluster"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -230,7 +292,14 @@
           "200": {
             "description": "A successful response.",
             "schema": {
+              "type": "object",
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -256,6 +325,12 @@
             "schema": {
               "$ref": "#/definitions/coreHealthStatus"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "parameters": [
@@ -280,6 +355,12 @@
             "schema": {
               "$ref": "#/definitions/managementGatewayConfig"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "tags": [
@@ -292,7 +373,14 @@
           "200": {
             "description": "A successful response.",
             "schema": {
+              "type": "object",
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -320,6 +408,12 @@
             "schema": {
               "$ref": "#/definitions/coreRoleBindingList"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "tags": [
@@ -332,7 +426,14 @@
           "200": {
             "description": "A successful response.",
             "schema": {
+              "type": "object",
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -360,6 +461,12 @@
             "schema": {
               "$ref": "#/definitions/coreRoleBinding"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "parameters": [
@@ -380,7 +487,14 @@
           "200": {
             "description": "A successful response.",
             "schema": {
+              "type": "object",
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -406,6 +520,12 @@
             "schema": {
               "$ref": "#/definitions/coreRoleList"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "tags": [
@@ -418,7 +538,14 @@
           "200": {
             "description": "A successful response.",
             "schema": {
+              "type": "object",
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -446,6 +573,12 @@
             "schema": {
               "$ref": "#/definitions/coreRole"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "parameters": [
@@ -466,7 +599,14 @@
           "200": {
             "description": "A successful response.",
             "schema": {
+              "type": "object",
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -492,6 +632,12 @@
             "schema": {
               "$ref": "#/definitions/coreReferenceList"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "parameters": [
@@ -516,6 +662,12 @@
             "schema": {
               "$ref": "#/definitions/coreBootstrapTokenList"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "tags": [
@@ -529,6 +681,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/coreBootstrapToken"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -556,6 +714,12 @@
             "schema": {
               "$ref": "#/definitions/coreBootstrapToken"
             }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
           }
         },
         "parameters": [
@@ -576,7 +740,14 @@
           "200": {
             "description": "A successful response.",
             "schema": {
+              "type": "object",
               "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -955,6 +1126,24 @@
         }
       }
     },
+    "googlerpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
     "managementAPIExtensionInfo": {
       "type": "object",
       "properties": {
@@ -1056,20 +1245,6 @@
         }
       }
     },
-    "managementEditClusterRequest": {
-      "type": "object",
-      "properties": {
-        "cluster": {
-          "$ref": "#/definitions/coreReference"
-        },
-        "labels": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
-      }
-    },
     "managementGatewayConfig": {
       "type": "object",
       "properties": {
@@ -1129,6 +1304,15 @@
         "Deleted"
       ],
       "default": "Added"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
     },
     "protobufMethodDescriptorProto": {
       "type": "object",

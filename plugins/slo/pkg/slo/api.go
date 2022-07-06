@@ -189,13 +189,33 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*empty
 }
 
 func (p *Plugin) DeleteSLO(ctx context.Context, req *sloapi.SLOImplData) (*emptypb.Empty, error) {
-	if err := p.storage.Get().SLOs.Delete(path.Join("/slos", req.Id)); err != nil {
+	lg := p.logger
+	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", req.Id))
+	if err != nil {
 		return nil, err
 	}
 
-	// TODO : Handle datasource
-	// TODO : delete cortex request
+	switch existing.SLO.GetDatasource() {
+	case shared.LoggingDatasource:
+		return nil, shared.ErrNotImplemented
+	case shared.MonitoringDatasource:
+		// delete the slo
+		id, clusterId := existing.Id, existing.Service.ClusterId
+		_, err = p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+			Tenant:    clusterId,
+			GroupName: id,
+		})
+		if err != nil {
+			lg.Error(fmt.Sprintf("Failed to delete rule with id  %v: %v", id, err))
+			return nil, err
+		}
+	default:
+		return nil, status.Error(codes.InvalidArgument, "Invalid datasource")
+	}
 
+	if err := p.storage.Get().SLOs.Delete(path.Join("/slos", req.Id)); err != nil {
+		return nil, err
+	}
 	// delete if found
 	p.storage.Get().SLOs.Delete(path.Join("/slo_state", req.Id))
 	return &emptypb.Empty{}, shared.ErrNotImplemented
@@ -210,11 +230,31 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 	clone := proto.Clone(existing).(*sloapi.SLOImplData)
 	clone.Id = ""
 	clone.SLO.Name = clone.SLO.Name + " - Copy"
+	var anyError error
+	switch clone.SLO.GetDatasource() {
+	case shared.MonitoringDatasource:
+		// create the slo
+		createdSlos, err := p.CreateSLO(ctx, &sloapi.CreateSLORequest{
+			SLO:      clone.SLO,
+			Services: []*sloapi.Service{clone.Service},
+		})
+		// should only create one slo
+		if len(createdSlos.Items) > 1 {
+			anyError = status.Error(codes.Internal, "Created more than one SLO")
+		}
+		if err := p.storage.Get().SLOs.Put(path.Join("/slos", createdSlos.Items[0].Id), clone); err != nil {
+			return nil, err
+		}
+		if err != nil {
+			anyError = err
+		}
 
-	//TODO : Handle datasource
-	//TODO : clone cortex request & apply
-
-	return clone, shared.ErrNotImplemented
+	case shared.LoggingDatasource:
+		return nil, shared.ErrNotImplemented
+	default:
+		return nil, status.Error(codes.InvalidArgument, "Invalid datasource")
+	}
+	return clone, anyError
 }
 
 func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOStatus, error) {

@@ -30,7 +30,7 @@ type SLOClient interface {
 	ListSLOs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceLevelObjectiveList, error)
 	UpdateSLO(ctx context.Context, in *SLOImplData, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteSLO(ctx context.Context, in *SLOImplData, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*ServiceLevelObjective, error)
+	CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOImplData, error)
 	// ================ Poll SLO Status
 	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error)
 	// Can this metric run with this service & cluster? No == error
@@ -99,8 +99,8 @@ func (c *sLOClient) DeleteSLO(ctx context.Context, in *SLOImplData, opts ...grpc
 	return out, nil
 }
 
-func (c *sLOClient) CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*ServiceLevelObjective, error) {
-	out := new(ServiceLevelObjective)
+func (c *sLOClient) CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOImplData, error) {
+	out := new(SLOImplData)
 	err := c.cc.Invoke(ctx, "/slo.SLO/CloneSLO", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -199,7 +199,7 @@ type SLOServer interface {
 	ListSLOs(context.Context, *emptypb.Empty) (*ServiceLevelObjectiveList, error)
 	UpdateSLO(context.Context, *SLOImplData) (*emptypb.Empty, error)
 	DeleteSLO(context.Context, *SLOImplData) (*emptypb.Empty, error)
-	CloneSLO(context.Context, *v1.Reference) (*ServiceLevelObjective, error)
+	CloneSLO(context.Context, *v1.Reference) (*SLOImplData, error)
 	// ================ Poll SLO Status
 	Status(context.Context, *v1.Reference) (*SLOStatus, error)
 	// Can this metric run with this service & cluster? No == error
@@ -235,7 +235,7 @@ func (UnimplementedSLOServer) UpdateSLO(context.Context, *SLOImplData) (*emptypb
 func (UnimplementedSLOServer) DeleteSLO(context.Context, *SLOImplData) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSLO not implemented")
 }
-func (UnimplementedSLOServer) CloneSLO(context.Context, *v1.Reference) (*ServiceLevelObjective, error) {
+func (UnimplementedSLOServer) CloneSLO(context.Context, *v1.Reference) (*SLOImplData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CloneSLO not implemented")
 }
 func (UnimplementedSLOServer) Status(context.Context, *v1.Reference) (*SLOStatus, error) {

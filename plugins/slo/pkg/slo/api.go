@@ -41,94 +41,96 @@ func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, err
 	return items, nil
 }
 
-func applyMonitoringSLODownstream(osloSpecs []oslov1.SLO, p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]*sloapi.SLOImplData, error) {
-	v, err := ParseToPrometheusModel(osloSpecs)
+// Convert OpenSLO specs to Cortex Rule Groups & apply them
+func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, existingId string, p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]*sloapi.SLOImplData, error) {
+	slogroup, err := ParseToPrometheusModel(osloSpec)
 	if err != nil {
 		lg.Error("failed to parse prometheus model IR :", err)
 		return nil, err
 	}
-	lg.Debug(fmt.Sprintf("Size of generated rules : %d", len(v)))
-	vs, err := zipPrometheusModelWithServices(v, slorequest.Services)
-	if err != nil {
-		return nil, err
-	}
 
 	returnedSloImpl := []*sloapi.SLOImplData{}
-	for _, zipped := range vs {
-		rw, err := GeneratePrometheusNoSlothGenerator(zipped.SLOGroup, ctx, lg)
-		lg.Debug("Generated cortex rule groups : %d", len(rw))
-		if len(rw) > 1 {
-			lg.Warn("Multiple cortex rule groups being applied")
+	rw, err := GeneratePrometheusNoSlothGenerator(slogroup, ctx, lg)
+	if err != nil {
+		lg.Error("Failed to generate prometheus : ", err)
+		return nil, err
+	}
+	lg.Debug("Generated cortex rule groups : %d", len(rw))
+	if len(rw) > 1 {
+		lg.Warn("Multiple cortex rule groups being applied")
+	}
+	for _, rwgroup := range rw {
+		// Generate new uuid for each slo
+		if existingId == "" {
+			existingId = uuid.New().String()
 		}
+
+		group, err := toCortexRequest(rwgroup, existingId)
 		if err != nil {
-			lg.Error("Failed to generate prometheus : ", err)
 			return nil, err
 		}
-		for _, rwgroup := range rw {
-			// Generate new uuid for each slo
-			newSloId := uuid.New().String()
-
-			group, err := toCortexRequest(rwgroup, newSloId)
-			if err != nil {
-				return nil, err
-			}
-			// os.WriteFile(fmt.Sprintf("%s.yaml", newSloId), []byte(group), 0644)
-			_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
-				Yaml:   group,
-				Tenant: zipped.Service.ClusterId,
-			})
-			if err != nil {
-				lg.Error("Failed to load rules : ", err)
-				return nil, err
-			}
-			dataToPersist := &sloapi.SLOImplData{
-				Id:      newSloId,
-				SLO:     slorequest.SLO,
-				Service: zipped.Service,
-			}
-			returnedSloImpl = append(returnedSloImpl, dataToPersist)
+		// os.WriteFile(fmt.Sprintf("%s.yaml", newSloId), []byte(group), 0644)
+		_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
+			Yaml:   group,
+			Tenant: service.ClusterId,
+		})
+		if err != nil {
+			lg.Error("Failed to load rules : ", err)
+			return nil, err
 		}
+		dataToPersist := &sloapi.SLOImplData{
+			Id:      existingId,
+			SLO:     slorequest.SLO,
+			Service: service,
+		}
+		returnedSloImpl = append(returnedSloImpl, dataToPersist)
 	}
 	return returnedSloImpl, nil
 }
 
 func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequest) (*sloapi.CreatedSLOs, error) {
 	lg := p.logger
-
 	if err := ValidateInput(slorequest); err != nil {
 		return nil, err
 	}
-
 	osloSpecs, err := ParseToOpenSLO(slorequest, ctx, p.logger)
 	if err != nil {
 		return nil, err
 	}
 	lg.Debug(fmt.Sprintf("Length of osloSpecs : %d", len(osloSpecs)))
+
 	switch slorequest.SLO.GetDatasource() {
 	case shared.LoggingDatasource:
 		return nil, shared.ErrNotImplemented
 	case shared.MonitoringDatasource:
 		returnedSloId := &sloapi.CreatedSLOs{}
+		openSpecServices, err := zipOpenSLOWithServices(osloSpecs, slorequest.Services)
+		if err != nil {
+			return nil, err
+		}
 		// possible for partial success, but don't want to exit on error
 		var anyError error
-		createdSlos, err := applyMonitoringSLODownstream(osloSpecs, p, slorequest, ctx, lg)
-		if err != nil {
-			anyError = err
-		}
-		for _, data := range createdSlos {
-			returnedSloId.Items = append(returnedSloId.Items, &corev1.Reference{Id: data.Id})
-			if err := p.storage.Get().SLOs.Put(path.Join("/slos", data.Id), data); err != nil {
-				return nil, err
-			}
+		for _, zipped := range openSpecServices {
+			// existingId="" if this is a new slo
+			createdSlos, err := applyMonitoringSLODownstream(*zipped.Spec, zipped.Service, "", p, slorequest, ctx, lg)
+
 			if err != nil {
 				anyError = err
+			}
+			for _, data := range createdSlos {
+				returnedSloId.Items = append(returnedSloId.Items, &corev1.Reference{Id: data.Id})
+				if err := p.storage.Get().SLOs.Put(path.Join("/slos", data.Id), data); err != nil {
+					return nil, err
+				}
+				if err != nil {
+					anyError = err
+				}
 			}
 		}
 		return returnedSloId, anyError
 	default:
 		return nil, status.Error(codes.InvalidArgument, "Invalid datasource")
 	}
-	return nil, nil
 }
 
 func (p *Plugin) GetSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOImplData, error) {
@@ -146,27 +148,44 @@ func (p *Plugin) ListSLOs(ctx context.Context, _ *emptypb.Empty) (*sloapi.Servic
 }
 
 func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*emptypb.Empty, error) {
+	lg := p.logger
 	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", req.Id))
 	if err != nil {
 		return nil, err
 	}
-
+	createReq := &sloapi.CreateSLORequest{
+		SLO:      req.SLO,
+		Services: []*sloapi.Service{req.Service},
+	}
+	osloSpecs, err := ParseToOpenSLO(createReq, ctx, lg)
+	// possible for partial success, but don't want to exit on error
+	var anyError error
 	switch req.SLO.GetDatasource() {
 	case shared.MonitoringDatasource:
-		//TODO : apply update request to cortex
+		openSpecServices, err := zipOpenSLOWithServices(osloSpecs, []*sloapi.Service{req.Service})
+		if err != nil {
+			return nil, err
+		}
+		for _, zipped := range openSpecServices {
+			// don't need creation metadata
+			_, err := applyMonitoringSLODownstream(*zipped.Spec, zipped.Service, req.Id, p, createReq, ctx, lg)
 
-		return nil, shared.ErrNotImplemented
+			if err != nil {
+				anyError = err
+			}
+		}
 	case shared.LoggingDatasource:
 		return nil, shared.ErrNotImplemented
 	default:
 		return nil, status.Error(codes.InvalidArgument, "Invalid datasource")
 	}
 
+	// Merge when everything else is done
 	proto.Merge(existing, req)
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", req.Id), existing); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	return &emptypb.Empty{}, anyError
 }
 
 func (p *Plugin) DeleteSLO(ctx context.Context, req *sloapi.SLOImplData) (*emptypb.Empty, error) {
@@ -182,15 +201,18 @@ func (p *Plugin) DeleteSLO(ctx context.Context, req *sloapi.SLOImplData) (*empty
 	return &emptypb.Empty{}, shared.ErrNotImplemented
 }
 
-func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.ServiceLevelObjective, error) {
+func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOImplData, error) {
 	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
 	if err != nil {
 		return nil, err
 	}
 
-	clone := proto.Clone(existing).(*sloapi.ServiceLevelObjective)
+	clone := proto.Clone(existing).(*sloapi.SLOImplData)
 	clone.Id = ""
-	clone.Name = clone.Name + " - Copy"
+	clone.SLO.Name = clone.SLO.Name + " - Copy"
+
+	//TODO : Handle datasource
+	//TODO : clone cortex request & apply
 
 	return clone, shared.ErrNotImplemented
 }

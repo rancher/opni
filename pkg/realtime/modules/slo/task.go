@@ -20,12 +20,12 @@ type runningTask struct {
 	cancel context.CancelFunc
 }
 
-type newTaskFunc func(*slo.ServiceLevelObjective) task
+type newTaskFunc func(*slo.SLOImplData) task
 
 func (m *module) manageTasks(ctx context.Context, newTask newTaskFunc) {
 	tasks := sync.Map[string, *runningTask]{}
 
-	start := func(slo *slo.ServiceLevelObjective) {
+	start := func(slo *slo.SLOImplData) {
 		tctx, tca := context.WithCancel(ctx)
 		running := &runningTask{
 			task:   newTask(slo),
@@ -47,7 +47,7 @@ func (m *module) manageTasks(ctx context.Context, newTask newTaskFunc) {
 			}
 		}()
 	}
-	stop := func(slo *slo.ServiceLevelObjective) {
+	stop := func(slo *slo.SLOImplData) {
 		if value, ok := tasks.LoadAndDelete(slo.GetId()); ok {
 			value.cancel()
 		}
@@ -58,7 +58,7 @@ func (m *module) manageTasks(ctx context.Context, newTask newTaskFunc) {
 		case <-ctx.Done():
 			return
 		case event := <-m.events:
-			clone := proto.Clone(event.slo).(*slo.ServiceLevelObjective)
+			clone := proto.Clone(event.slo).(*slo.SLOImplData)
 			switch event.typ {
 			case sloAdded:
 				start(clone)

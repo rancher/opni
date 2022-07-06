@@ -9,10 +9,7 @@ import (
 	"time"
 
 	openslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
-	"github.com/alexandreLamarre/sloth/core/app/generate"
-	"github.com/alexandreLamarre/sloth/core/info"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
-	"github.com/rancher/opni/pkg/slo/shared"
 	"gopkg.in/yaml.v2"
 )
 
@@ -28,47 +25,15 @@ var errorRatioRawQueryTmpl = template.Must(template.New("").Parse(`
   )
 `))
 
-func GeneratePrometheusRule(slos []*prometheus.SLOGroup, ctx context.Context) ([]*generate.Response, error) {
-	res := make([]*generate.Response, 0)
-	sliRuleGen := prometheus.OptimizedSLIRecordingRulesGenerator
-	metaRuleGen := prometheus.MetadataRecordingRulesGenerator
-	alertRuleGen := prometheus.SLOAlertRulesGenerator
-	controller, err := generate.NewService(generate.ServiceConfig{
-		SLIRecordingRulesGenerator:  sliRuleGen,
-		MetaRecordingRulesGenerator: metaRuleGen,
-		SLOAlertRulesGenerator:      alertRuleGen,
-	})
-	if err != nil {
-		return nil, shared.ErrPrometheusGenerator
-	}
-
-	for _, slo := range slos { //FIXME:
-		result, err := controller.Generate(ctx, generate.Request{
-			ExtraLabels: map[string]string{},
-			Info:        info.Info{},
-			SLOGroup:    *slo,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("could not generate SLO: %w", err)
-		}
-		res = append(res, result)
-	}
-	return res, nil
-}
-
 // Returns the same number of SLO Groups as the number of OpenSLO specs
 //(Same number as the number of services in the request)
-func ParseToPrometheusModel(slos []openslov1.SLO) ([]*prometheus.SLOGroup, error) {
-	res := make([]*prometheus.SLOGroup, 0)
+func ParseToPrometheusModel(slo openslov1.SLO) (*prometheus.SLOGroup, error) {
 	y := NewYAMLSpecLoader(time.Hour * 24 * 30) // FIXME: hardcoded window period
-	for idx, slo := range slos {
-		m, err := y.MapSpecToModel(slo)
-		if err != nil {
-			return nil, fmt.Errorf("could not map SLO %d: %w", idx, err)
-		}
-		res = append(res, m)
+	m, err := y.MapSpecToModel(slo)
+	if err != nil {
+		return nil, fmt.Errorf("could not map SLO: %w", err)
 	}
-	return res, nil
+	return m, nil
 }
 
 type YAMLSpecLoader struct {

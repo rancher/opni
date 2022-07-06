@@ -39,7 +39,7 @@ service SLO {
       delete: "/slos/{id}"
     };
   }
-  rpc CloneSLO(core.Reference) returns (ServiceLevelObjective) {
+  rpc CloneSLO(core.Reference) returns (SLOImplData) {
     option (google.api.http) = {
       post: "/slos/{id}/clone"
     };
@@ -121,15 +121,13 @@ message Alert {
 }
 
 message ServiceLevelObjective {
-  string id = 1;
-  string name = 2;
-  string datasource = 3;
-  string description = 4;
-  string monitorWindow = 5; // 7d, 28d or 30d
-  string budgetingInterval = 6; // in the format 5m, 1h etc..
-  Target target = 7;
-  repeated Label labels = 8;
-  repeated Alert alerts = 9;
+  string name = 1;
+  string datasource = 2;
+  string monitorWindow = 3; // 7d, 28d or 30d
+  string budgetingInterval = 4; // in the format 5m, 1h etc..
+  Target target = 5;
+  repeated Label labels = 6;
+  repeated Alert alerts = 7;
 }
 
 message CreateSLORequest {

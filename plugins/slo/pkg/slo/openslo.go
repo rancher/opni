@@ -22,7 +22,7 @@ func ParseToOpenSLO(slorequest *api.CreateSLORequest, ctx context.Context, lg hc
 	for idx, service := range slorequest.GetServices() {
 		// Parse to inline SLO/SLIs
 		newSLOI := oslov1.SLOSpec{
-			Description:     slorequest.SLO.GetDescription(),
+			Description:     "",
 			Service:         service.GetJobId(),
 			BudgetingMethod: slorequest.SLO.GetMonitorWindow(),
 		}

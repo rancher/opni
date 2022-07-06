@@ -122,9 +122,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	When("CRUDing SLOs", func() {
 		It("Should create valid SLOs", func() {
 			inputSLO := &apis.ServiceLevelObjective{
-				Id:                "", // initially empty
 				Name:              "test-slo",
-				Description:       "test slo",
 				Datasource:        "monitoring",
 				MonitorWindow:     "30d", // one of 30d, 28, 7d
 				BudgetingInterval: "5m",  // between 5m and 1h

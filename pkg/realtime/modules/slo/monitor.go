@@ -15,7 +15,7 @@ import (
 )
 
 type monitor struct {
-	slo               *slo.ServiceLevelObjective
+	slo               *slo.SLOImplData
 	mgmtClient        managementv1.ManagementClient
 	cortexAdminClient cortexadmin.CortexAdminClient
 	sloClient         slo.SLOClient

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/alexandreLamarre/sloth/core/prometheus"
+	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/kralicky/yaml/v3"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
@@ -25,19 +25,19 @@ type ruleGroupYAMLv2 struct {
 
 // Guess this could be generic
 type zipperHolder struct {
-	SLOGroup *prometheus.SLOGroup
-	Service  *apis.Service
+	Spec    *oslov1.SLO
+	Service *apis.Service
 }
 
-func zipPrometheusModelWithServices(ps []*prometheus.SLOGroup, as []*apis.Service) ([]*zipperHolder, error) {
+func zipOpenSLOWithServices(ps []oslov1.SLO, as []*apis.Service) ([]*zipperHolder, error) {
 	if len(as) != len(ps) {
 		return nil, fmt.Errorf("Expected Generated SLOGroups to match the number of Services provided in the request")
 	}
 	res := make([]*zipperHolder, 0)
 	for idx, p := range ps {
 		res = append(res, &zipperHolder{
-			SLOGroup: p,
-			Service:  as[idx],
+			Spec:    &p,
+			Service: as[idx],
 		})
 	}
 	return res, nil

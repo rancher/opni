@@ -23,6 +23,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	ctx := context.Background()
 	var env *test.Environment
 	var sloClient apis.SLOClient
+	var createdSlos []*corev1.Reference
 	BeforeAll(func() {
 		env = &test.Environment{
 			TestBin: "../../../testbin/bin",
@@ -97,16 +98,16 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(metric.MetricIdGood).To(Equal("up"))
 			Expect(metric.MetricIdTotal).To(Equal("up"))
 
-			// latency, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
-			// 	Name:       "http-latency",
-			// 	Datasource: shared.MonitoringDatasource,
-			// 	ServiceId:  "prometheus",
-			// 	ClusterId:  "agent",
-			// })
-			// Expect(err).To(Succeed())
+			latency, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
+				Name:       "http-latency",
+				Datasource: shared.MonitoringDatasource,
+				ServiceId:  "prometheus",
+				ClusterId:  "agent",
+			})
+			Expect(err).To(Succeed())
 
-			// Expect(latency.MetricIdGood).To(Equal("prometheus_http_request_duration_seconds_bucket"))
-			// Expect(latency.MetricIdTotal).To(Equal("prometheus_http_request_duration_seconds_count"))
+			Expect(latency.MetricIdGood).To(Equal("prometheus_http_request_duration_seconds_bucket"))
+			Expect(latency.MetricIdTotal).To(Equal("prometheus_http_request_duration_seconds_count"))
 
 			_, err = sloClient.GetMetricId(ctx, &apis.MetricRequest{
 				Name:       "does not exist",
@@ -156,16 +157,19 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				},
 			}
 			req.Services = svcs
-			_, err = sloClient.CreateSLO(ctx, req)
+			createdItems, err := sloClient.CreateSLO(ctx, req)
 			Expect(err).To(Succeed())
-
+			Expect(createdItems.Items).To(HaveLen(1))
+			for _, item := range createdItems.Items {
+				createdSlos = append(createdSlos, item)
+			}
 		})
 		It("Should update valid SLOs", func() {
-			_, err := sloClient.UpdateSLO(ctx, &apis.ServiceLevelObjective{})
+			_, err := sloClient.UpdateSLO(ctx, &apis.SLOImplData{})
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should delete valid SLOs", func() {
-			_, err := sloClient.DeleteSLO(ctx, &corev1.Reference{})
+			_, err := sloClient.DeleteSLO(ctx, &apis.SLOImplData{})
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should list SLOs", func() {

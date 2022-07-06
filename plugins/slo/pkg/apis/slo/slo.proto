@@ -28,13 +28,13 @@ service SLO {
       get: "/slos"
     };
   }
-  rpc UpdateSLO(ServiceLevelObjective) returns (google.protobuf.Empty) {
+  rpc UpdateSLO(SLOImplData) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       put: "/slos/{id}"
       body: "*"
     };
   }
-  rpc DeleteSLO(core.Reference) returns (google.protobuf.Empty) {
+  rpc DeleteSLO(SLOImplData) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/slos/{id}"
     };

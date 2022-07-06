@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -112,12 +111,12 @@ func (t *monitor) Run(ctx context.Context, state io.ReadWriter) {
 		// 	}
 		// }
 
-		t.sloStatus.With(prometheus.Labels{
-			"metric_name": "foo",
-			"target":      strconv.FormatUint(t.slo.Targets[0].ValueX100, 10),
-			"desc":        "todo",
-		}).Set(0)
+		// t.sloStatus.With(prometheus.Labels{
+		// 	"metric_name": "foo",
+		// 	"target":      strconv.FormatUint(t.slo.Targets[0].ValueX100, 10),
+		// 	"desc":        "todo",
+		// }).Set(0)
 
-		time.Sleep(1)
+		// time.Sleep(1)
 	}
 }

@@ -3,7 +3,6 @@ package slo
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/alexandreLamarre/oslo/pkg/manifest"
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
@@ -35,7 +34,7 @@ func ParseToOpenSLO(slorequest *api.CreateSLORequest, ctx context.Context, lg hc
 		newSLOI.Indicator = indicator
 
 		// targets
-		newSLOI.Objectives = ParseToObjectives(slorequest.SLO, ctx, lg)
+		newSLOI.Objectives = append(newSLOI.Objectives, ParseToObjective(slorequest.SLO, ctx, lg))
 
 		// Parse inline Alert Policies and Alert Notifications
 		policies, err := ParseToAlerts(slorequest.SLO, ctx, lg)
@@ -102,17 +101,14 @@ func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.Service, ctx 
 	return &SLI, err
 }
 
-func ParseToObjectives(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) []oslov1.Objective {
-	objectives := make([]oslov1.Objective, 0)
-	for i, target := range slo.GetTargets() {
-		newObjective := oslov1.Objective{
-			DisplayName:     slo.GetName() + "-target" + strconv.Itoa(i),
-			Target:          float64(target.GetValueX100()) / 100,
-			TimeSliceWindow: slo.GetBudgetingInterval(),
-		}
-		objectives = append(objectives, newObjective)
+func ParseToObjective(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) oslov1.Objective {
+	target := slo.GetTarget()
+	newObjective := oslov1.Objective{
+		DisplayName:     slo.GetName() + "-target",
+		Target:          float64(target.GetValueX100()) / 100,
+		TimeSliceWindow: slo.GetBudgetingInterval(),
 	}
-	return objectives
+	return newObjective
 }
 
 func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) ([]oslov1.AlertPolicy, error) {
@@ -133,7 +129,7 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 			Spec: targetSpec,
 		}
 
-		//TODO(alex) : handle alert conditions
+		//TODO(alex) : handle alert notification targets
 
 		policySpec := oslov1.AlertPolicySpec{
 			Description:         alert.GetDescription(),

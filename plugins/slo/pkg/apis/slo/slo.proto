@@ -146,8 +146,9 @@ message CreatedSLOs {
 }
 
 message SLOImplData {
-  ServiceLevelObjective SLO = 1;
-  Service service = 2;
+  string id = 1;
+  ServiceLevelObjective SLO = 2;
+  Service service = 3;
 }
 
 message Target {

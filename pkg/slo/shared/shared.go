@@ -20,7 +20,7 @@ var (
 	ErrInvalidAlertCondition = validation.Error("Invalid Alert Condition")
 	ErrInvalidAlertThreshold = validation.Error("Invalid Alert Threshold")
 	ErrInvalidAlertTarget    = validation.Error("Invalid Alert Target")
-	ErrInvalidId             = validation.Error("Internal error, unassigned SLO ID")
+	ErrNonNullId             = validation.Error("Slo Create requests must not have a set id")
 	ErrNotImplemented        = validation.Error("Not implemented")
 	ErrPrometheusGenerator   = validation.Error("Prometheus generator failed to start")
 	ErrMissingServices       = validation.Error("Service definitions are required to create an SLO")

@@ -17,8 +17,8 @@ func matchEnum(target string, enum []string, returnErr error) error {
 /// Validates Input based on the necessities of our preconfigured formant,
 /// NOT validating the OpenSLO / Sloth format
 func ValidateInput(slorequest *api.CreateSLORequest) error {
-	if slorequest.SLO.GetId() == "" {
-		return shared.ErrInvalidId
+	if slorequest.SLO.GetId() != "" {
+		return shared.ErrNonNullId
 	}
 	if len(slorequest.Services) == 0 {
 		return shared.ErrMissingServices

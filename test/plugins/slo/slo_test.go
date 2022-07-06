@@ -125,16 +125,11 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				Name:              "test-slo",
 				Description:       "test slo",
 				Datasource:        "monitoring",
-				MonitorWindow:     "5m",
-				MetricDescription: "test metric",
-				BudgetingInterval: "30d",
+				MonitorWindow:     "30d", // one of 30d, 28, 7d
+				BudgetingInterval: "5m",  // between 5m and 1h
 				Labels:            []*apis.Label{},
-				Targets: []*apis.Target{
-					{
-						ValueX100: 9999,
-					},
-				},
-				Alerts: []*apis.Alert{}, // do nothing for now
+				Target:            &apis.Target{ValueX100: 9999},
+				Alerts:            []*apis.Alert{}, // do nothing for now
 			}
 
 			svcs := []*apis.Service{}

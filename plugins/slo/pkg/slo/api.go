@@ -124,7 +124,7 @@ func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, 
 		lg.Error("Failed to generate prometheus : ", err)
 		return nil, err
 	}
-	lg.Debug("Generated cortex rule groups : %d", len(rw))
+	lg.Debug(fmt.Sprintf("Generated cortex rule groups : %d", len(rw)))
 	if len(rw) > 1 {
 		lg.Warn("Multiple cortex rule groups being applied")
 	}
@@ -220,6 +220,9 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*empty
 		Services: []*sloapi.Service{req.Service},
 	}
 	osloSpecs, err := ParseToOpenSLO(createReq, ctx, lg)
+	if err != nil {
+		return nil, err
+	}
 	// possible for partial success, but don't want to exit on error
 	var anyError error
 	switch req.SLO.GetDatasource() {
@@ -251,7 +254,14 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*empty
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", req.Id), existing); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, anyError
+	lg.Debug("Merge successful")
+	// need this because retruning anyError along with empty protobuf cause it
+	// to be intercepted as dynamic message type, causing a panic
+	if anyError != nil {
+		return nil, anyError
+	}
+	lg.Debug("Update successful")
+	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
@@ -375,7 +385,7 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 }
 
 // Assign a Job Id to a pre configured metric based on the service selected
-func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Metric, error) {
+func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Service, error) {
 	lg := p.logger
 	var goodMetricId string
 	var totalMetricId string
@@ -394,11 +404,10 @@ func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRe
 	case shared.LoggingDatasource:
 		return nil, shared.ErrNotImplemented
 	}
-	return &sloapi.Metric{
-		Name:          metricRequest.Name,
-		Datasource:    metricRequest.Datasource,
+	return &sloapi.Service{
+		MetricName:    metricRequest.Name,
 		ClusterId:     metricRequest.ClusterId,
-		ServiceId:     metricRequest.ServiceId,
+		JobId:         metricRequest.ServiceId,
 		MetricIdGood:  goodMetricId,
 		MetricIdTotal: totalMetricId,
 	}, nil

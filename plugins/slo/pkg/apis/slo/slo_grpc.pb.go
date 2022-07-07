@@ -34,7 +34,7 @@ type SLOClient interface {
 	// ================ Poll SLO Status
 	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error)
 	// Can this metric run with this service & cluster? No == error
-	GetMetricId(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Metric, error)
+	GetMetricId(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Service, error)
 	ListMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricList, error)
 	// ================ Formula : Human readable format for metrics
 	GetFormulas(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*Formula, error)
@@ -117,8 +117,8 @@ func (c *sLOClient) Status(ctx context.Context, in *v1.Reference, opts ...grpc.C
 	return out, nil
 }
 
-func (c *sLOClient) GetMetricId(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Metric, error) {
-	out := new(Metric)
+func (c *sLOClient) GetMetricId(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Service, error) {
+	out := new(Service)
 	err := c.cc.Invoke(ctx, "/slo.SLO/GetMetricId", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -203,7 +203,7 @@ type SLOServer interface {
 	// ================ Poll SLO Status
 	Status(context.Context, *v1.Reference) (*SLOStatus, error)
 	// Can this metric run with this service & cluster? No == error
-	GetMetricId(context.Context, *MetricRequest) (*Metric, error)
+	GetMetricId(context.Context, *MetricRequest) (*Service, error)
 	ListMetrics(context.Context, *emptypb.Empty) (*MetricList, error)
 	// ================ Formula : Human readable format for metrics
 	GetFormulas(context.Context, *v1.Reference) (*Formula, error)
@@ -241,7 +241,7 @@ func (UnimplementedSLOServer) CloneSLO(context.Context, *v1.Reference) (*SLOImpl
 func (UnimplementedSLOServer) Status(context.Context, *v1.Reference) (*SLOStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
-func (UnimplementedSLOServer) GetMetricId(context.Context, *MetricRequest) (*Metric, error) {
+func (UnimplementedSLOServer) GetMetricId(context.Context, *MetricRequest) (*Service, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMetricId not implemented")
 }
 func (UnimplementedSLOServer) ListMetrics(context.Context, *emptypb.Empty) (*MetricList, error) {

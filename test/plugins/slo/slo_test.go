@@ -3,7 +3,6 @@ package plugins_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -61,7 +60,6 @@ func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx conte
 		})
 		if err == nil {
 			Expect(resp.Data).To(Not(BeNil()))
-			os.WriteFile(fmt.Sprintf("%s.yaml", groupName), resp.Data, 0644)
 			return nil
 		}
 		time.Sleep(1)
@@ -155,16 +153,16 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			})
 			Expect(err).To(HaveOccurred())
 
-			metric, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
+			svc, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
 				Name:       "uptime",
 				Datasource: shared.MonitoringDatasource,
 				ServiceId:  "prometheus",
 				ClusterId:  "agent",
 			})
 			Expect(err).To(Succeed())
-			Expect(metric.Name).To(Equal("uptime"))
-			Expect(metric.MetricIdGood).To(Equal("up"))
-			Expect(metric.MetricIdTotal).To(Equal("up"))
+			Expect(svc.MetricName).To(Equal("uptime"))
+			Expect(svc.MetricIdGood).To(Equal("up"))
+			Expect(svc.MetricIdTotal).To(Equal("up"))
 
 			latency, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
 				Name:       "http-latency",

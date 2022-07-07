@@ -168,7 +168,7 @@ func (y YAMLSpecLoader) GetSLOs(spec openslov1.SLO) ([]prometheus.SLO, error) {
 			Description:     spec.Spec.Description,
 			TimeWindow:      timeWindow,
 			SLI:             *sli,
-			Objective:       slo.Target * 100, // OpenSLO uses ratios, we use percents.
+			Objective:       slo.Target,
 			PageAlertMeta:   prometheus.AlertMeta{Disable: true},
 			TicketAlertMeta: prometheus.AlertMeta{Disable: true},
 		})

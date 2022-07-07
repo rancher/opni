@@ -2,13 +2,18 @@ package slo
 
 import (
 	"fmt"
-	"strings"
 
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/kralicky/yaml/v3"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+)
+
+var (
+	RecordingRuleSuffix = "-recording"
+	MetadataRuleSuffix  = "-metadata"
+	AlertRuleSuffix     = "-alerts"
 )
 
 // these types are defined to support yaml v2 (instead of the new Prometheus
@@ -29,6 +34,12 @@ type zipperHolder struct {
 	Service *apis.Service
 }
 
+type CortexRuleWrapper struct {
+	recording string
+	metadata  string
+	alerts    string
+}
+
 func zipOpenSLOWithServices(ps []oslov1.SLO, as []*apis.Service) ([]*zipperHolder, error) {
 	if len(as) != len(ps) {
 		return nil, fmt.Errorf("Expected Generated SLOGroups to match the number of Services provided in the request")
@@ -44,33 +55,36 @@ func zipOpenSLOWithServices(ps []oslov1.SLO, as []*apis.Service) ([]*zipperHolde
 }
 
 // Marshal result SLORuleFmtWrapper to cortex-approved yaml
-func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (string, error) {
+func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, error) {
 
 	recording, metadata, alerts := rw.SLIrules, rw.MetaRules, rw.AlertRules
 	// Check length is 0?
 	rrecording, err := yaml.Marshal(ruleGroupYAMLv2{
-		Name:  fmt.Sprintf("%s-recording", sloId),
+		Name:  fmt.Sprintf("%s%s", sloId, RecordingRuleSuffix),
 		Rules: recording,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	rmetadata, err := yaml.Marshal(ruleGroupYAMLv2{
-		Name:  fmt.Sprintf("%s-metadata", sloId),
+		Name:  fmt.Sprintf("%s%s", sloId, MetadataRuleSuffix),
 		Rules: metadata,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ralerts, err := yaml.Marshal(ruleGroupYAMLv2{
-		Name:  fmt.Sprintf("%s-alerts", sloId),
+		Name:  fmt.Sprintf("%s%s", sloId, AlertRuleSuffix),
 		Rules: alerts,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	res := strings.Join([]string{string(rrecording), string(rmetadata), string(ralerts)}, "---\n")
-	return res, nil
+	return &CortexRuleWrapper{
+		recording: string(rrecording),
+		metadata:  string(rmetadata),
+		alerts:    string(ralerts),
+	}, nil
 }

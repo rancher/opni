@@ -41,8 +41,77 @@ func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, err
 	return items, nil
 }
 
+// Cortex applies rule groups individually
+func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *sloapi.Service, existingId string, ctx context.Context, lg hclog.Logger) error {
+	var anyError error
+	_, err := p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
+		Yaml:   cortexRules.recording,
+		Tenant: service.ClusterId,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf(
+			"Failed to load recording rules for cluster %s, service %s, id %s : %v",
+			service.ClusterId, service.JobId, existingId, anyError))
+		anyError = err
+	}
+
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
+		Yaml:   cortexRules.metadata,
+		Tenant: service.ClusterId,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf(
+			"Failed to load metadata rules for cluster %s, service %s, id %s : %v",
+			service.ClusterId, service.JobId, existingId, anyError))
+		anyError = err
+	}
+
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
+		Yaml:   cortexRules.alerts,
+		Tenant: service.ClusterId,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf(
+			"Failed to load alerting rules for cluster %s, service %s, id %s : %v",
+			service.ClusterId, service.JobId, existingId, anyError))
+		anyError = err
+	}
+	return anyError
+}
+
+func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOImplData, ctx context.Context, lg hclog.Logger) error {
+	id, clusterId := toDelete.Id, toDelete.Service.ClusterId
+	var anyError error
+	_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+		Tenant:    clusterId,
+		GroupName: id + RecordingRuleSuffix,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf("Failed to delete recording rule group with id  %v: %v", id, err))
+		anyError = err
+	}
+	_, err = p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+		Tenant:    clusterId,
+		GroupName: id + MetadataRuleSuffix,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf("Failed to delete metadata rule group with id  %v: %v", id, err))
+		anyError = err
+	}
+	_, err = p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+		Tenant:    clusterId,
+		GroupName: id + AlertRuleSuffix,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf("Failed to delete alerting rule group with id  %v: %v", id, err))
+		anyError = err
+	}
+	return anyError
+}
+
 // Convert OpenSLO specs to Cortex Rule Groups & apply them
-func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, existingId string, p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]*sloapi.SLOImplData, error) {
+func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, existingId string,
+	p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]*sloapi.SLOImplData, error) {
 	slogroup, err := ParseToPrometheusModel(osloSpec)
 	if err != nil {
 		lg.Error("failed to parse prometheus model IR :", err)
@@ -60,24 +129,17 @@ func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, 
 		lg.Warn("Multiple cortex rule groups being applied")
 	}
 	for _, rwgroup := range rw {
-		// Generate new uuid for each slo
+		// Generate new uuid for new slo
 		if existingId == "" {
 			existingId = uuid.New().String()
 		}
 
-		group, err := toCortexRequest(rwgroup, existingId)
+		cortexRules, err := toCortexRequest(rwgroup, existingId)
 		if err != nil {
 			return nil, err
 		}
-		// os.WriteFile(fmt.Sprintf("%s.yaml", newSloId), []byte(group), 0644)
-		_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
-			Yaml:   group,
-			Tenant: service.ClusterId,
-		})
-		if err != nil {
-			lg.Error("Failed to load rules : ", err)
-			return nil, err
-		}
+		applyCortexSLORules(p, cortexRules, service, existingId, ctx, lg)
+
 		dataToPersist := &sloapi.SLOImplData{
 			Id:      existingId,
 			SLO:     slorequest.SLO,
@@ -166,6 +228,10 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*empty
 		if err != nil {
 			return nil, err
 		}
+		// changing clusters means we need to clean up the rules on the old cluster
+		if existing.Service.ClusterId != req.Service.ClusterId {
+			p.DeleteSLO(ctx, &corev1.Reference{Id: req.Id})
+		}
 		for _, zipped := range openSpecServices {
 			// don't need creation metadata
 			_, err := applyMonitoringSLODownstream(*zipped.Spec, zipped.Service, req.Id, p, createReq, ctx, lg)
@@ -199,26 +265,20 @@ func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb
 	case shared.LoggingDatasource:
 		return nil, shared.ErrNotImplemented
 	case shared.MonitoringDatasource:
-		// delete the slo
-		id, clusterId := existing.Id, existing.Service.ClusterId
-		_, err = p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-			Tenant:    clusterId,
-			GroupName: id,
-		})
+		// delete the rule groups that make up the SLO
+		err := deleteCortexSLORules(p, existing, ctx, lg)
 		if err != nil {
-			lg.Error(fmt.Sprintf("Failed to delete rule with id  %v: %v", id, err))
 			return nil, err
 		}
+		if err := p.storage.Get().SLOs.Delete(path.Join("/slos", req.Id)); err != nil {
+			return nil, err
+		}
+		// delete if found
+		p.storage.Get().SLOs.Delete(path.Join("/slo_state", req.Id))
+		return &emptypb.Empty{}, err
 	default:
 		return nil, status.Error(codes.InvalidArgument, "Invalid datasource")
 	}
-
-	if err := p.storage.Get().SLOs.Delete(path.Join("/slos", req.Id)); err != nil {
-		return nil, err
-	}
-	// delete if found
-	p.storage.Get().SLOs.Delete(path.Join("/slo_state", req.Id))
-	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOImplData, error) {

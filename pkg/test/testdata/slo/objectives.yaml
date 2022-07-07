@@ -19,13 +19,13 @@ spec:
           metricSource:
             type: prometheus
             spec:
-              query: sum(rate(up{job="foo-service", up=1}[{{.window}}])) 
+              query: (sum(rate(up{job="foo-service"} == 1)))[{{.window}}] 
               queryType: promql
         total:
           metricSource:
             type: prometheus
             spec:
-              query: sum(rate(up{job="foo-service"}[{{.window}}]))
+              query: (sum(rate(up{job="foo-service"})))[{{.window}}]
               queryType: promql
   budgetingMethod: 30d
   timeWindow: []

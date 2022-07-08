@@ -49,8 +49,8 @@ func (s SLOMonitoring) Create(osloSpecs []v1.SLO) (*apis.CreatedSLOs, error) {
 	return returnedSloId, anyError
 }
 
-func (s SLOMonitoring) Update(osloSpecs []v1.SLO, existing *sloapi.SLOImplData) (*sloapi.SLOImplData, error) {
-	req := (s.req).(*sloapi.SLOImplData) // Create is the same as Update if within the same cluster
+func (s SLOMonitoring) Update(osloSpecs []v1.SLO, existing *sloapi.SLOData) (*sloapi.SLOData, error) {
+	req := (s.req).(*sloapi.SLOData) // Create is the same as Update if within the same cluster
 	createReq := &sloapi.CreateSLORequest{
 		SLO:      req.SLO,
 		Services: []*sloapi.Service{req.Service},
@@ -77,12 +77,12 @@ func (s SLOMonitoring) Update(osloSpecs []v1.SLO, existing *sloapi.SLOImplData) 
 	return req, anyError
 }
 
-func (s SLOMonitoring) Delete(existing *sloapi.SLOImplData) error {
+func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 	err := deleteCortexSLORules(s.p, existing, s.ctx, s.lg)
 	return err
 }
 
-func (s SLOMonitoring) Clone(clone *sloapi.SLOImplData) (string, error) {
+func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (string, error) {
 	var anyError error
 	createdSlos, err := s.p.CreateSLO(s.ctx, &sloapi.CreateSLORequest{
 		SLO:      clone.SLO,
@@ -99,8 +99,8 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOImplData) (string, error) {
 	return clone.Id, anyError
 }
 
-func (s SLOMonitoring) Status(existing *sloapi.SLOImplData) (*sloapi.SLOStatus, error) {
-	defaultState := sloapi.SLOStatusState_SLO_STATUS_NO_DATA
+func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error) {
+	defaultState := sloapi.SLOStatusState_Ok
 	return &sloapi.SLOStatus{
 		State: defaultState,
 	}, nil

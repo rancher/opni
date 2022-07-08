@@ -272,7 +272,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			// change cluster of SLO
 			newsvc := sloToUpdate.Service
 			newsvc.ClusterId = "agent2"
-			_, err = sloClient.UpdateSLO(ctx, &apis.SLOImplData{
+			_, err = sloClient.UpdateSLO(ctx, &apis.SLOData{
 				Id:      sloToUpdate.Id,
 				SLO:     sloToUpdate.SLO,
 				Service: newsvc,

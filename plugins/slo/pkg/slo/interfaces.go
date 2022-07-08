@@ -20,10 +20,10 @@ type SLOStore interface {
 	// This method has to handle storage of the SLO in the KVStore itself
 	// since there can be partial successes inside the method
 	Create([]v1.SLO) (*apis.CreatedSLOs, error)
-	Update(osloSpecs []v1.SLO, existing *sloapi.SLOImplData) (*sloapi.SLOImplData, error)
-	Delete(existing *sloapi.SLOImplData) error
-	Clone(clone *sloapi.SLOImplData) (string, error)
-	Status(existing *sloapi.SLOImplData) (*sloapi.SLOStatus, error)
+	Update(osloSpecs []v1.SLO, existing *sloapi.SLOData) (*sloapi.SLOData, error)
+	Delete(existing *sloapi.SLOData) error
+	Clone(clone *sloapi.SLOData) (string, error)
+	Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error)
 	WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore
 }
 

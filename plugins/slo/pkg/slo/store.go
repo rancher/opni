@@ -130,7 +130,7 @@ func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *slo
 	return anyError
 }
 
-func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOImplData, ctx context.Context, lg hclog.Logger) error {
+func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOData, ctx context.Context, lg hclog.Logger) error {
 	id, clusterId := toDelete.Id, toDelete.Service.ClusterId
 	var anyError error
 	_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
@@ -162,14 +162,14 @@ func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOImplData, ctx context.C
 
 // Convert OpenSLO specs to Cortex Rule Groups & apply them
 func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, existingId string,
-	p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]*sloapi.SLOImplData, error) {
+	p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]*sloapi.SLOData, error) {
 	slogroup, err := ParseToPrometheusModel(osloSpec)
 	if err != nil {
 		lg.Error("failed to parse prometheus model IR :", err)
 		return nil, err
 	}
 
-	returnedSloImpl := []*sloapi.SLOImplData{}
+	returnedSloImpl := []*sloapi.SLOData{}
 	rw, err := GeneratePrometheusNoSlothGenerator(slogroup, ctx, lg)
 	if err != nil {
 		lg.Error("Failed to generate prometheus : ", err)
@@ -191,7 +191,7 @@ func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, 
 		}
 		applyCortexSLORules(p, cortexRules, service, existingId, ctx, lg)
 
-		dataToPersist := &sloapi.SLOImplData{
+		dataToPersist := &sloapi.SLOData{
 			Id:      existingId,
 			SLO:     slorequest.SLO,
 			Service: service,

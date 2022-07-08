@@ -18,7 +18,7 @@ service SLO {
       body: "*"
     };
   }
-  rpc GetSLO(core.Reference) returns (SLOImplData) {
+  rpc GetSLO(core.Reference) returns (SLOData) {
     option (google.api.http) = {
       get: "/slos/{id}"
     };
@@ -28,7 +28,7 @@ service SLO {
       get: "/slos"
     };
   }
-  rpc UpdateSLO(SLOImplData) returns (google.protobuf.Empty) {
+  rpc UpdateSLO(SLOData) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       put: "/slos/{id}"
       body: "*"
@@ -39,7 +39,7 @@ service SLO {
       delete: "/slos/{id}"
     };
   }
-  rpc CloneSLO(core.Reference) returns (SLOImplData) {
+  rpc CloneSLO(core.Reference) returns (SLOData) {
     option (google.api.http) = {
       post: "/slos/{id}/clone"
     };
@@ -129,7 +129,7 @@ message CreatedSLOs {
   repeated core.Reference items = 1;
 }
 
-message SLOImplData {
+message SLOData {
   string id = 1;
   ServiceLevelObjective SLO = 2;
   Service service = 3;
@@ -160,15 +160,15 @@ message MetricList {
 }
 
 message ServiceLevelObjectiveList {
-  repeated SLOImplData items = 1;
+  repeated SLOData items = 1;
 }
 
 enum SLOStatusState {
-  SLO_STATUS_NO_DATA = 0;
-  SLO_STATUS_OK = 1;
-  SLO_STATUS_WARNING = 2;
-  SLO_STATUS_BREACHING = 3;
-  SLO_STATUS_ERROR = 4;
+  NoData = 0;
+  Ok = 1;
+  Warning = 2;
+  Breaching = 3;
+  InternalError = 4;
 }
 
 message SLOStatus {

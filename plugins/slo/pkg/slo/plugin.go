@@ -25,7 +25,7 @@ type Plugin struct {
 }
 
 type StorageAPIs struct {
-	SLOs     system.KVStoreClient[*sloapi.SLOImplData]
+	SLOs     system.KVStoreClient[*sloapi.SLOData]
 	Services system.KVStoreClient[*sloapi.Service]
 	Metrics  system.KVStoreClient[*sloapi.Metric]
 }

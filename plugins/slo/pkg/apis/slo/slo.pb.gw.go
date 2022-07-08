@@ -138,7 +138,7 @@ func local_request_SLO_ListSLOs_0(ctx context.Context, marshaler runtime.Marshal
 }
 
 func request_SLO_UpdateSLO_0(ctx context.Context, marshaler runtime.Marshaler, client SLOClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq SLOImplData
+	var protoReq SLOData
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -172,7 +172,7 @@ func request_SLO_UpdateSLO_0(ctx context.Context, marshaler runtime.Marshaler, c
 }
 
 func local_request_SLO_UpdateSLO_0(ctx context.Context, marshaler runtime.Marshaler, server SLOServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq SLOImplData
+	var protoReq SLOData
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)

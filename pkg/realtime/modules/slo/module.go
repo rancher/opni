@@ -43,7 +43,7 @@ func (m *module) Run(ctx context.Context, mc *modules.ModuleContext) error {
 
 	lg.Debug("initialized gateway extension clients successfully")
 
-	go m.manageTasks(ctx, func(slo *slo.SLOImplData) task {
+	go m.manageTasks(ctx, func(slo *slo.SLOData) task {
 		return &monitor{
 			slo:               slo,
 			mgmtClient:        m.mc.Client,

@@ -43,7 +43,7 @@ func checkDatasource(datasource string) error {
 	return nil
 }
 
-func (p *Plugin) GetSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOImplData, error) {
+func (p *Plugin) GetSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOData, error) {
 	return p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
 }
 
@@ -75,7 +75,7 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 	return sloStore.Create(osloSpecs)
 }
 
-func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*emptypb.Empty, error) {
+func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.Empty, error) {
 	lg := p.logger
 	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", req.Id))
 	if err != nil {
@@ -123,7 +123,7 @@ func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOImplData, error) {
+func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOData, error) {
 	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 		return nil, err
 	}
 	var anyError error
-	clone := proto.Clone(existing).(*sloapi.SLOImplData)
+	clone := proto.Clone(existing).(*sloapi.SLOData)
 	clone.Id = ""
 	clone.SLO.Name = clone.SLO.Name + " - Copy"
 
@@ -158,7 +158,7 @@ func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLO
 	state, err := sloStore.Status(existing)
 	if err != nil {
 		return &sloapi.SLOStatus{
-			State: sloapi.SLOStatusState_SLO_STATUS_ERROR,
+			State: sloapi.SLOStatusState_InternalError,
 		}, nil
 	}
 	return state, nil

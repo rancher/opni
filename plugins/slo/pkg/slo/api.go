@@ -43,25 +43,6 @@ func checkDatasource(datasource string) error {
 	return nil
 }
 
-func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequest) (*sloapi.CreatedSLOs, error) {
-	lg := p.logger
-	lg.Debug(fmt.Sprintf("%d", len(datasourceToImpl)))
-	lg.Debug(fmt.Sprintf("%v", datasourceToImpl["monitoring"]))
-	if err := checkDatasource(slorequest.SLO.GetDatasource()); err != nil {
-		return nil, err
-	}
-	if err := ValidateInput(slorequest); err != nil {
-		return nil, err
-	}
-	osloSpecs, err := ParseToOpenSLO(slorequest, ctx, p.logger)
-	if err != nil {
-		return nil, err
-	}
-	lg.Debug(fmt.Sprintf("Length of osloSpecs : %d", len(osloSpecs)))
-	apiImpl := datasourceToImpl[slorequest.SLO.GetDatasource()].New(slorequest, p, ctx, lg)
-	return apiImpl.createSLOImpl(osloSpecs)
-}
-
 func (p *Plugin) GetSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOImplData, error) {
 	return p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
 }
@@ -74,6 +55,24 @@ func (p *Plugin) ListSLOs(ctx context.Context, _ *emptypb.Empty) (*sloapi.Servic
 	return &sloapi.ServiceLevelObjectiveList{
 		Items: items,
 	}, nil
+}
+
+func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequest) (*sloapi.CreatedSLOs, error) {
+	lg := p.logger
+
+	if err := checkDatasource(slorequest.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
+	if err := ValidateInput(slorequest); err != nil {
+		return nil, err
+	}
+	osloSpecs, err := ParseToOpenSLO(slorequest, ctx, p.logger)
+	if err != nil {
+		return nil, err
+	}
+	lg.Debug(fmt.Sprintf("Number of generated OpenSLO specs from create SLO request : %d", len(osloSpecs)))
+	sloStore := datasourceToImpl[slorequest.SLO.GetDatasource()].WithCurrentRequest(slorequest, ctx)
+	return sloStore.Create(osloSpecs)
 }
 
 func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*emptypb.Empty, error) {
@@ -92,8 +91,8 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*empty
 	if err != nil {
 		return nil, err
 	}
-	apiImpl := datasourceToImpl[existing.SLO.GetDatasource()].New(req, p, ctx, lg)
-	newReq, anyError := apiImpl.updateSLOImpl(osloSpecs, existing)
+	sloStore := datasourceToImpl[existing.SLO.GetDatasource()].WithCurrentRequest(req, ctx)
+	newReq, anyError := sloStore.Update(osloSpecs, existing)
 
 	// Merge when everything else is done
 	proto.Merge(existing, newReq)
@@ -104,7 +103,6 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*empty
 }
 
 func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
-	lg := p.logger
 	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", req.Id))
 	if err != nil {
 		return nil, err
@@ -112,8 +110,8 @@ func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb
 	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
 		return nil, err
 	}
-	apiImpl := datasourceToImpl[existing.SLO.GetDatasource()].New(existing, p, ctx, lg)
-	err = apiImpl.deleteSLOImpl(existing)
+	sloStore := datasourceToImpl[existing.SLO.GetDatasource()].WithCurrentRequest(req, ctx)
+	err = sloStore.Delete(existing)
 	if err != nil {
 		return nil, err
 	}
@@ -138,8 +136,8 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 	clone.Id = ""
 	clone.SLO.Name = clone.SLO.Name + " - Copy"
 
-	apiImpl := datasourceToImpl[existing.SLO.GetDatasource()].New(clone, p, ctx, p.logger)
-	newId, err := apiImpl.cloneSLOImpl(clone)
+	sloStore := datasourceToImpl[existing.SLO.GetDatasource()].WithCurrentRequest(ref, ctx)
+	newId, err := sloStore.Clone(clone)
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", newId), clone); err != nil {
 		return nil, err
 	}
@@ -156,8 +154,8 @@ func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLO
 		return nil, err
 	}
 
-	apiImpl := datasourceToImpl[existing.SLO.GetDatasource()].New(existing, p, ctx, p.logger)
-	state, err := apiImpl.status(existing)
+	sloStore := datasourceToImpl[existing.SLO.GetDatasource()].WithCurrentRequest(ref, ctx)
+	state, err := sloStore.Status(existing)
 	if err != nil {
 		return &sloapi.SLOStatus{
 			State: sloapi.SLOStatusState_SLO_STATUS_ERROR,

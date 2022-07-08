@@ -1,6 +1,7 @@
 package slo
 
 import (
+	"context"
 	"path"
 
 	v1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
@@ -9,10 +10,17 @@ import (
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
+func (s SLOMonitoring) WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore {
+	s.req = req
+	s.ctx = ctx
+	return s
+}
+
 // OsloSpecs ----> sloth IR ---> Prometheus SLO --> Cortex Rule groups
-func (s SLOMonitoring) createSLOImpl(osloSpecs []v1.SLO) (*apis.CreatedSLOs, error) {
+func (s SLOMonitoring) Create(osloSpecs []v1.SLO) (*apis.CreatedSLOs, error) {
 	returnedSloId := &sloapi.CreatedSLOs{}
 	req := (s.req).(*sloapi.CreateSLORequest)
 	openSpecServices, err := zipOpenSLOWithServices(osloSpecs, req.Services)
@@ -41,7 +49,7 @@ func (s SLOMonitoring) createSLOImpl(osloSpecs []v1.SLO) (*apis.CreatedSLOs, err
 	return returnedSloId, anyError
 }
 
-func (s SLOMonitoring) updateSLOImpl(osloSpecs []v1.SLO, existing *sloapi.SLOImplData) (*sloapi.SLOImplData, error) {
+func (s SLOMonitoring) Update(osloSpecs []v1.SLO, existing *sloapi.SLOImplData) (*sloapi.SLOImplData, error) {
 	req := (s.req).(*sloapi.SLOImplData) // Create is the same as Update if within the same cluster
 	createReq := &sloapi.CreateSLORequest{
 		SLO:      req.SLO,
@@ -69,12 +77,12 @@ func (s SLOMonitoring) updateSLOImpl(osloSpecs []v1.SLO, existing *sloapi.SLOImp
 	return req, anyError
 }
 
-func (s SLOMonitoring) deleteSLOImpl(existing *sloapi.SLOImplData) error {
+func (s SLOMonitoring) Delete(existing *sloapi.SLOImplData) error {
 	err := deleteCortexSLORules(s.p, existing, s.ctx, s.lg)
 	return err
 }
 
-func (s SLOMonitoring) cloneSLOImpl(clone *sloapi.SLOImplData) (string, error) {
+func (s SLOMonitoring) Clone(clone *sloapi.SLOImplData) (string, error) {
 	var anyError error
 	createdSlos, err := s.p.CreateSLO(s.ctx, &sloapi.CreateSLORequest{
 		SLO:      clone.SLO,
@@ -91,7 +99,7 @@ func (s SLOMonitoring) cloneSLOImpl(clone *sloapi.SLOImplData) (string, error) {
 	return clone.Id, anyError
 }
 
-func (s SLOMonitoring) status(existing *sloapi.SLOImplData) (*sloapi.SLOStatus, error) {
+func (s SLOMonitoring) Status(existing *sloapi.SLOImplData) (*sloapi.SLOStatus, error) {
 	defaultState := sloapi.SLOStatusState_SLO_STATUS_NO_DATA
 	return &sloapi.SLOStatus{
 		State: defaultState,

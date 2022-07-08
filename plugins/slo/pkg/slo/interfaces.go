@@ -5,27 +5,26 @@ import (
 
 	v1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/hashicorp/go-hclog"
-	"github.com/rancher/opni/pkg/slo/shared"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/proto"
 )
 
-var datasourceToImpl map[string]SLOImpl = make(map[string]SLOImpl)
+var datasourceToImpl map[string]SLOStore = make(map[string]SLOStore)
 
-func init() {
-	datasourceToImpl[shared.MonitoringDatasource] = SLOMonitoring{}
+func RegisterDatasource(datasource string, impl SLOStore) {
+	datasourceToImpl[datasource] = impl
 }
 
-type SLOImpl interface {
-	New(req proto.Message, p *Plugin, ctx context.Context, lg hclog.Logger) SLOImpl
-	// This method signature has to handle storage of the SLO in the KVStore
-	// Since there can be partial successes
-	createSLOImpl([]v1.SLO) (*apis.CreatedSLOs, error)
-	updateSLOImpl(osloSpecs []v1.SLO, existing *sloapi.SLOImplData) (*sloapi.SLOImplData, error)
-	deleteSLOImpl(existing *sloapi.SLOImplData) error
-	cloneSLOImpl(clone *sloapi.SLOImplData) (string, error)
-	status(existing *sloapi.SLOImplData) (*sloapi.SLOStatus, error)
+type SLOStore interface {
+	// This method has to handle storage of the SLO in the KVStore itself
+	// since there can be partial successes inside the method
+	Create([]v1.SLO) (*apis.CreatedSLOs, error)
+	Update(osloSpecs []v1.SLO, existing *sloapi.SLOImplData) (*sloapi.SLOImplData, error)
+	Delete(existing *sloapi.SLOImplData) error
+	Clone(clone *sloapi.SLOImplData) (string, error)
+	Status(existing *sloapi.SLOImplData) (*sloapi.SLOStatus, error)
+	WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore
 }
 
 type SLORequestBase struct {
@@ -43,22 +42,24 @@ type SLOLogging struct {
 	SLORequestBase
 }
 
-func (s SLOMonitoring) New(req proto.Message, p *Plugin, ctx context.Context, lg hclog.Logger) SLOImpl {
+func NewSLOMonitoringStore(p *Plugin, lg hclog.Logger) SLOStore {
 	return SLOMonitoring{
-		SLORequestBase{req: req,
+		SLORequestBase{
+			req: nil,
 			p:   p,
-			ctx: ctx,
+			ctx: context.TODO(),
 			lg:  lg,
 		},
 	}
 }
 
-func (s SLOLogging) New(req proto.Message, p *Plugin, ctx context.Context, lg hclog.Logger) SLOImpl {
-	return SLOMonitoring{
-		SLORequestBase{req: req,
-			p:   p,
-			ctx: ctx,
-			lg:  lg,
-		},
-	}
-}
+// func (s SLOLogging) NewSLOLoggingStore(req proto.Message, p *Plugin, ctx context.Context, lg hclog.Logger) SLOStore {
+// 	return SLOLogging{
+// 		SLORequestBase{
+// 			req: nil,
+// 			p:   p,
+// 			ctx: ctx,
+// 			lg:  lg,
+// 		},
+// 	}
+// }

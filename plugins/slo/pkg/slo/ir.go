@@ -4,15 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html/template"
+	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	openslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
-	"github.com/alexandreLamarre/sloth/core/app/generate"
-	"github.com/alexandreLamarre/sloth/core/info"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
-	"github.com/rancher/opni/pkg/slo/shared"
 	"gopkg.in/yaml.v2"
 )
 
@@ -28,45 +26,16 @@ var errorRatioRawQueryTmpl = template.Must(template.New("").Parse(`
   )
 `))
 
-func GeneratePrometheusRule(slos []*prometheus.SLOGroup, ctx context.Context) ([]*generate.Response, error) {
-	res := make([]*generate.Response, 0)
-	sliRuleGen := prometheus.OptimizedSLIRecordingRulesGenerator
-	metaRuleGen := prometheus.MetadataRecordingRulesGenerator
-	alertRuleGen := prometheus.SLOAlertRulesGenerator
-	controller, err := generate.NewService(generate.ServiceConfig{
-		SLIRecordingRulesGenerator:  sliRuleGen,
-		MetaRecordingRulesGenerator: metaRuleGen,
-		SLOAlertRulesGenerator:      alertRuleGen,
-	})
-	if err != nil {
-		return nil, shared.ErrPrometheusGenerator
-	}
-
-	for _, slo := range slos { //FIXME:
-		result, err := controller.Generate(ctx, generate.Request{
-			ExtraLabels: map[string]string{},
-			Info:        info.Info{},
-			SLOGroup:    *slo,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("could not generate SLO: %w", err)
-		}
-		res = append(res, result)
-	}
-	return res, nil
-}
-
-func ParseToPrometheusModel(slos []openslov1.SLO) ([]*prometheus.SLOGroup, error) {
-	res := make([]*prometheus.SLOGroup, 0)
+// Returns the same number of SLO Groups as the number of OpenSLO specs
+//(Same number as the number of services in the request)
+func ParseToPrometheusModel(slo openslov1.SLO) (*prometheus.SLOGroup, error) {
+	//TODO
 	y := NewYAMLSpecLoader(time.Hour * 24 * 30) // FIXME: hardcoded window period
-	for idx, slo := range slos {
-		m, err := y.MapSpecToModel(slo)
-		if err != nil {
-			return nil, fmt.Errorf("could not map SLO %d: %w", idx, err)
-		}
-		res = append(res, m)
+	m, err := y.MapSpecToModel(slo)
+	if err != nil {
+		return nil, fmt.Errorf("could not map SLO: %w", err)
 	}
-	return res, nil
+	return m, nil
 }
 
 type YAMLSpecLoader struct {
@@ -191,17 +160,22 @@ func (y YAMLSpecLoader) GetSLOs(spec openslov1.SLO) ([]prometheus.SLO, error) {
 
 		timeWindow := y.windowPeriod
 		if len(spec.Spec.TimeWindow) > 0 {
-			timeWindow = time.Duration(30 /*spec.Spec.TimeWindow*/) * 24 * time.Hour // FIXME: convert to time.Duration
+			// The time window is validated to be one of '7d', '28d' or '30d'
+			newTime, err := strconv.Atoi(strings.ReplaceAll(spec.Spec.TimeWindow[0].Duration, "d", ""))
+			if err != nil {
+				return nil, err
+			}
+			timeWindow = (time.Duration(newTime) * 24) * time.Hour
 		}
 
 		res = append(res, prometheus.SLO{
-			ID:              fmt.Sprintf("%s-%s-%d", spec.Spec.Service, spec.Metadata.Name, idx), //FIXME: oslo correct headers
-			Name:            fmt.Sprintf("%s-%d", spec.Metadata.Name, idx),                       //FIXME: oslo correct headers
+			ID:              fmt.Sprintf("%s-%s-%d", spec.Spec.Service, spec.Metadata.Name, idx),
+			Name:            fmt.Sprintf("%s-%d", spec.Metadata.Name, idx),
 			Service:         spec.Spec.Service,
 			Description:     spec.Spec.Description,
 			TimeWindow:      timeWindow,
 			SLI:             *sli,
-			Objective:       slo.Target * 100, // OpenSLO uses ratios, we use percents.
+			Objective:       slo.Target,
 			PageAlertMeta:   prometheus.AlertMeta{Disable: true},
 			TicketAlertMeta: prometheus.AlertMeta{Disable: true},
 		})

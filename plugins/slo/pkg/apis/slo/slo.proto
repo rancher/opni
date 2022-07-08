@@ -6,19 +6,19 @@ import "google/protobuf/empty.proto";
 import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-
+import "google/rpc/status.proto";
 
 package slo;
 
 service SLO {
   // ============== SLO
-  rpc CreateSLO(ServiceLevelObjective) returns (google.protobuf.Empty) {
+  rpc CreateSLO(CreateSLORequest) returns (core.ReferenceList) {
     option (google.api.http) = {
       post: "/slos"
       body: "*"
     };
   }
-  rpc GetSLO(core.Reference) returns (ServiceLevelObjective) {
+  rpc GetSLO(core.Reference) returns (SLOData) {
     option (google.api.http) = {
       get: "/slos/{id}"
     };
@@ -28,7 +28,7 @@ service SLO {
       get: "/slos"
     };
   }
-  rpc UpdateSLO(ServiceLevelObjective) returns (google.protobuf.Empty) {
+  rpc UpdateSLO(SLOData) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       put: "/slos/{id}"
       body: "*"
@@ -39,21 +39,14 @@ service SLO {
       delete: "/slos/{id}"
     };
   }
-  rpc CloneSLO(core.Reference) returns (ServiceLevelObjective) {
+  rpc CloneSLO(core.Reference) returns (SLOData) {
     option (google.api.http) = {
       post: "/slos/{id}/clone"
     };
   }
 
-  // ================ Poll SLO Status
-  rpc Status(core.Reference) returns (SLOStatus) {
-    option (google.api.http) = {
-      get: "/slos/{id}/status"
-    };
-  }
-
   // Can this metric run with this service & cluster? No == error
-  rpc GetMetricId(MetricRequest) returns (Metric) {
+  rpc GetMetricId(MetricRequest) returns (Service) {
     option (google.api.http) = {
       get: "/metrics/{name}/{serviceId}"
     };
@@ -63,22 +56,7 @@ service SLO {
       get: "/metrics"
     };
   }
-  // ================ Formula : Human readable format for metrics
-  rpc GetFormulas(core.Reference) returns (Formula) {
-    option (google.api.http) = {
-      get: "/formulas/{id}"
-    };
-  }
-  rpc ListFormulas(google.protobuf.Empty) returns (FormulaList) {
-    option (google.api.http) = {
-      get: "/formulas"
-    };
-  }
-
-  rpc SetState(SetStateRequest) returns (google.protobuf.Empty);
-  rpc GetState(core.Reference) returns (State);
-
-  // ========== Services API ===========
+    // ========== Services API ===========
   rpc GetService(core.Reference) returns (Service) {
     option (google.api.http) = {
       get: "/services/{id}"
@@ -89,6 +67,14 @@ service SLO {
       get: "/services"
     };
   }
+
+   // ================ Poll SLO Status
+  rpc Status(core.Reference) returns (SLOStatus) {
+    option (google.api.http) = {
+      get: "/slos/{id}/status"
+    };
+  }
+
 }
 
 message Service {
@@ -121,65 +107,34 @@ message Alert {
 }
 
 message ServiceLevelObjective {
+  string name = 1;
+  string datasource = 2;
+  string monitorWindow = 3; // 7d, 28d or 30d
+  google.protobuf.Duration budgetingInterval = 4; // budgeting interval should be between 1m and 60m
+  Target target = 5;
+  repeated Label labels = 6;
+  repeated Alert alerts = 7;
+}
+
+message CreateSLORequest {
+  ServiceLevelObjective SLO = 1;
+  repeated Service services = 2;
+}
+
+message Services {
+  repeated Service items = 1;
+}
+
+
+
+message SLOData {
   string id = 1;
-  string name = 2;
-  string datasource = 3;
-  string description = 4;
-  repeated Service services = 5;
-  string monitorWindow = 6; // 7d, 28d or 30d
-  string metricDescription = 8;
-  string budgetingInterval = 9; // in the format 5m, 1h etc..
-  repeated Label labels = 10;
-  repeated Target targets = 11;
-  repeated Alert alerts = 12;
+  ServiceLevelObjective SLO = 2;
+  Service service = 3;
 }
 
 message Target {
-  uint64 ValueX100 = 1;
-  google.protobuf.Duration timeWindow = 2; // FIXME: should be changed to str
-}
-
-message ServiceLevelObjectiveList {
-  repeated ServiceLevelObjective items = 1;
-}
-
-// TODO : rework this
-message SLOStatus {
-  core.Reference slo = 1;
-  int64 timestamp = 2;
-  Evaluation status = 3;
-  Evaluation budget = 4;
-}
-
-message MetricList {
-  repeated Metric items = 1;
-}
-
-
-message SetStateRequest {
-  core.Reference slo = 1;
-  State state = 2;
-}
-
-// Contains all the SLO data like, error budget, burn rate, etc...
-message State {
-  bytes data = 1;
-}
-
-/// Human readable pre-configured metrics
-message Formula {
-  string id = 1;
-  string name = 2;
-  string description = 3;
-}
-
-message FormulaList {
-  repeated Formula items = 1;
-}
-
-message Evaluation {
-  double rate = 1;
-  double period = 2;
+  uint64 valueX100 = 1;
 }
 
 message Metric {
@@ -196,4 +151,24 @@ message MetricRequest {
   string datasource = 2;
   string serviceId = 3;
   string clusterId = 4;
+}
+
+message MetricList {
+  repeated Metric items = 1;
+}
+
+message ServiceLevelObjectiveList {
+  repeated SLOData items = 1;
+}
+
+enum SLOStatusState {
+  NoData = 0;
+  Ok = 1;
+  Warning = 2;
+  Breaching = 3;
+  InternalError = 4;
+}
+
+message SLOStatus {
+  SLOStatusState state = 1;
 }

@@ -19,7 +19,7 @@ const (
 )
 
 type sloEvent struct {
-	slo *slo.ServiceLevelObjective
+	slo *slo.SLOData
 	typ sloEventType
 }
 
@@ -28,7 +28,7 @@ func (m *module) watchEvents(ctx context.Context) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	current := map[string]*slo.ServiceLevelObjective{}
+	current := map[string]*slo.SLOData{}
 	for {
 		select {
 		case <-ctx.Done():
@@ -40,16 +40,16 @@ func (m *module) watchEvents(ctx context.Context) {
 			if err != nil {
 				continue
 			}
-			latest := lo.KeyBy(list.Items, (*slo.ServiceLevelObjective).GetId)
-			added := lo.PickBy(latest, func(k string, _ *slo.ServiceLevelObjective) bool {
+			latest := lo.KeyBy(list.Items, (*slo.SLOData).GetId)
+			added := lo.PickBy(latest, func(k string, _ *slo.SLOData) bool {
 				_, ok := current[k]
 				return !ok
 			})
-			removed := lo.PickBy(current, func(k string, _ *slo.ServiceLevelObjective) bool {
+			removed := lo.PickBy(current, func(k string, _ *slo.SLOData) bool {
 				_, ok := latest[k]
 				return !ok
 			})
-			updated := lo.PickBy(latest, func(k string, v *slo.ServiceLevelObjective) bool {
+			updated := lo.PickBy(latest, func(k string, v *slo.SLOData) bool {
 				slo, ok := current[k]
 				if !ok {
 					return false

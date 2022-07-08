@@ -17,7 +17,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 	When("We define pre-configured metrics in def.go", func() {
 		It("Should produce valid templates and regex at compile time", func() {
-			Expect(query.AvailableQueries).To(HaveLen(3))
+			Expect(query.AvailableQueries).ToNot(HaveLen(0)) // > 0 available pre configured metrics
 		})
 
 		It("Query implementations should implement the interfaces required", func() {
@@ -54,8 +54,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(resp).To(Not(BeNil()))
 			Expect(resp.GoodQuery).To(Not(BeNil()))
 			Expect(resp.TotalQuery).To(Not(BeNil()))
-			Expect(resp.GoodQuery).To(Equal("sum(rate(up{job=\"prometheus\", up=1}[{{.window}}]))"))
-			Expect(resp.TotalQuery).To(Equal("sum(rate(up{job=\"prometheus\"}[{{.window}}]))"))
+			Expect(resp.GoodQuery).To(Equal("(sum(rate(up{job=\"prometheus\"} == 1)))[{{.window}}]"))
+			Expect(resp.TotalQuery).To(Equal("(sum(rate(up{job=\"prometheus\"})))[{{.window}}]"))
 
 		})
 	})

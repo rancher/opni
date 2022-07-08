@@ -251,8 +251,8 @@ func newHandler(
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
-		jsonData, err := resp.(*dynamic.Message).MarshalJSON()
+		d, err := dynamic.AsDynamicMessage(resp)
+		jsonData, err := d.MarshalJSON()
 		if err != nil {
 			lg.Error(err)
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)

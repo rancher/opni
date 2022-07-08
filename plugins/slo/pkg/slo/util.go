@@ -1,7 +1,7 @@
 package slo
 
 import (
-	"html/template"
+	"text/template"
 	"time"
 
 	prommodel "github.com/prometheus/common/model"

@@ -6,9 +6,9 @@ package query
 
 import (
 	"bytes"
-	"html/template"
 	"regexp"
 	"strings"
+	"text/template"
 
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
@@ -32,8 +32,7 @@ func (r RatioQuery) GetMetricFilter() string {
 }
 
 func (r RatioQuery) Validate() error {
-	//TODO : implement
-	return nil
+	return validatePromQl(r.query)
 }
 
 func (r RatioQuery) IsRatio() bool {

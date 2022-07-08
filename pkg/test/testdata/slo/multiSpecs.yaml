@@ -5,7 +5,6 @@
     labels: {}
     annotations: {}
   spec:
-    description: Some SLO
     service: foo-service
     indicator:
       metadata:
@@ -19,18 +18,18 @@
             metricSource:
               type: prometheus
               spec:
-                query: sum(rate(up{job="foo-service", up=1}[{{.window}}])) 
+                query: (sum(rate(up{job="foo-service"} == 1)))[{{.window}}]
                 queryType: promql
           total:
             metricSource:
               type: prometheus
               spec:
-                query: sum(rate(up{job="foo-service"}[{{.window}}]))
+                query: (sum(rate(up{job="foo-service"})))[{{.window}}]
                 queryType: promql
     budgetingMethod: 30d
     timeWindow: []
     objectives:
-    - displayName: foo-name-target0
+    - displayName: foo-name-target
       target: 99.99
       timeSliceWindow: 5m
     alertPolicies: []
@@ -41,7 +40,6 @@
     labels: {}
     annotations: {}
   spec:
-    description: Some SLO
     service: foo-service2
     indicator:
       metadata:
@@ -55,18 +53,18 @@
             metricSource:
               type: prometheus
               spec:
-                query: sum(rate(up{job="foo-service2", up=1}[{{.window}}]))
-                queryType : promql
+                query: (sum(rate(up{job="foo-service2"} == 1)))[{{.window}}]
+                queryType: promql
           total:
             metricSource:
               type: prometheus
               spec:
-                query: sum(rate(up{job="foo-service2"}[{{.window}}]))
-                queryType : promql
+                query: (sum(rate(up{job="foo-service2"})))[{{.window}}]
+                queryType: promql
     budgetingMethod: 30d
     timeWindow: []
     objectives:
-    - displayName: foo-name-target0
+    - displayName: foo-name-target
       target: 99.99
       timeSliceWindow: 5m
     alertPolicies: []
@@ -77,7 +75,6 @@
     labels: {}
     annotations: {}
   spec:
-    description: Some SLO
     service: foo-service
     indicator:
       metadata:
@@ -91,18 +88,18 @@
             metricSource:
               type: prometheus
               spec:
-                query: sum(rate(up{job="foo-service", up=1}[{{.window}}]))
-                queryType : promql
+                query: (sum(rate(up{job="foo-service"} == 1)))[{{.window}}]
+                queryType: promql
           total:
             metricSource:
               type: prometheus
               spec:
-                query: sum(rate(up{job="foo-service"}[{{.window}}]))
-                queryType : promql
+                query: (sum(rate(up{job="foo-service"})))[{{.window}}]
+                queryType: promql
     budgetingMethod: 30d
     timeWindow: []
     objectives:
-    - displayName: foo-name-target0
+    - displayName: foo-name-target
       target: 99.99
       timeSliceWindow: 5m
     alertPolicies: []
@@ -113,7 +110,6 @@
     labels: {}
     annotations: {}
   spec:
-    description: Some SLO
     service: foo-service2
     indicator:
       metadata:
@@ -127,18 +123,18 @@
             metricSource:
               type: prometheus
               spec:
-                query: sum(rate(up{job="foo-service2", up=1}[{{.window}}]))
-                queryType : promql
+                query: (sum(rate(up{job="foo-service2"} == 1)))[{{.window}}]
+                queryType: promql
           total:
             metricSource:
               type: prometheus
               spec:
-                query: sum(rate(up{job="foo-service2"}[{{.window}}]))
-                queryType : promql
+                query: (sum(rate(up{job="foo-service2"})))[{{.window}}]
+                queryType: promql
     budgetingMethod: 30d
     timeWindow: []
     objectives:
-    - displayName: foo-name-target0
+    - displayName: foo-name-target
       target: 99.99
       timeSliceWindow: 5m
     alertPolicies: []

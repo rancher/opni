@@ -3,6 +3,7 @@ package plugins_test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -22,36 +23,53 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func expectSLOGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
-	var anyError error
-	if err := expectRuleGroupToExist(adminClient, ctx, tenant, groupName+slo.RecordingRuleSuffix); err != nil {
-		anyError = err
+func sloCortexGroupsToCheck(groupName string) []string {
+	return []string{
+		groupName + slo.RecordingRuleSuffix,
+		groupName + slo.MetadataRuleSuffix,
+		groupName + slo.AlertRuleSuffix,
 	}
-	if err := expectRuleGroupToExist(adminClient, ctx, tenant, groupName+slo.MetadataRuleSuffix); err != nil {
-		anyError = err
-	}
-	if err := expectRuleGroupToExist(adminClient, ctx, tenant, groupName+slo.AlertRuleSuffix); err != nil {
-		anyError = err
-	}
-	return anyError
 }
 
-func expectSLOGroupToNotExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
+func expectSLOGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) {
 	var anyError error
-	if err := expectRuleGroupToNotExist(adminClient, ctx, tenant, groupName+slo.RecordingRuleSuffix); err != nil {
-		anyError = err
-	}
+	var wg sync.WaitGroup
+	groupsToCheck := sloCortexGroupsToCheck(groupName)
+	wg.Add(len(groupsToCheck))
 
-	if err := expectRuleGroupToNotExist(adminClient, ctx, tenant, groupName+slo.MetadataRuleSuffix); err != nil {
-		anyError = err
+	for _, group := range groupsToCheck {
+		groupToCheck := group
+		go func() {
+			defer wg.Done()
+			if err := expectRuleGroupToExist(adminClient, ctx, tenant, groupToCheck); err != nil {
+				anyError = err
+			}
+		}()
 	}
-
-	if err := expectRuleGroupToNotExist(adminClient, ctx, tenant, groupName+slo.AlertRuleSuffix); err != nil {
-		anyError = err
-	}
-	return anyError
+	wg.Wait()
+	Expect(anyError).Should(BeNil())
 }
 
+func expectSLOGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) {
+	var anyError error
+	var wg sync.WaitGroup
+	groupsToCheck := sloCortexGroupsToCheck(groupName)
+	wg.Add(len(groupsToCheck))
+
+	for _, group := range groupsToCheck {
+		groupToCheck := group
+		go func() {
+			defer wg.Done()
+			if err := expectRuleGroupNotToExist(adminClient, ctx, tenant, groupToCheck); err != nil {
+				anyError = err
+			}
+		}()
+	}
+	wg.Wait()
+	Expect(anyError).Should(BeNil())
+}
+
+// potentially "long" running function, call asynchronously
 func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
 	for i := 0; i < 10; i++ {
 		resp, err := adminClient.GetRule(ctx, &cortexadmin.RuleRequest{
@@ -67,7 +85,8 @@ func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx conte
 	return fmt.Errorf("Rule %s should exist, but doesn't", groupName)
 }
 
-func expectRuleGroupToNotExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
+// potentially "long" running function, call asynchronously
+func expectRuleGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
 	for i := 0; i < 10; i++ {
 		_, err := adminClient.GetRule(ctx, &cortexadmin.RuleRequest{
 			Tenant:    tenant,
@@ -135,7 +154,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		It("should list available metrics", func() {
 			metrics, err := sloClient.ListMetrics(ctx, &emptypb.Empty{})
 			Expect(err).To(Succeed())
-			Expect(metrics.Items).ToNot(HaveLen(0))
+			Expect(metrics.Items).NotTo(HaveLen(0))
 			keys := make([]string, 0, len(query.AvailableQueries))
 			for k := range query.AvailableQueries {
 				keys = append(keys, k)
@@ -228,8 +247,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				createdSlos = append(createdSlos, item)
 			}
 			// Need to check all three individual rules are created on the cortex backend
-			err = expectSLOGroupToExist(adminClient, ctx, "agent", createdSlos[0].Id)
-			Expect(err).To(Succeed())
+			expectSLOGroupToExist(adminClient, ctx, "agent", createdSlos[0].Id)
+
 		})
 		It("Should list SLOs", func() {
 			slos, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
@@ -238,7 +257,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		})
 
 		It("Should be able to get specific SLOs by Id", func() {
-			Expect(createdSlos).ToNot(HaveLen(0))
+			Expect(createdSlos).NotTo(HaveLen(0))
 			id := createdSlos[0].Id
 			slo, err := sloClient.GetSLO(ctx, &corev1.Reference{Id: id})
 			Expect(err).To(Succeed())
@@ -246,7 +265,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(slo.Service.JobId).To(Equal("prometheus"))
 		})
 		It("Should update valid SLOs", func() {
-			Expect(createdSlos).ToNot(HaveLen(0))
+			Expect(createdSlos).NotTo(HaveLen(0))
 			id := createdSlos[0].Id
 			sloToUpdate, err := sloClient.GetSLO(ctx, &corev1.Reference{Id: id})
 			Expect(err).To(Succeed())
@@ -261,28 +280,26 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(Succeed())
 
 			updatedSLO, err := sloClient.GetSLO(ctx, &corev1.Reference{Id: id})
+			Expect(err).To(Succeed())
 			Expect(updatedSLO.Service.ClusterId).To(Equal("agent2"))
 			// Check all three rules have been moved to the other cluster
-			err = expectSLOGroupToExist(adminClient, ctx, "agent2", createdSlos[0].Id)
-			Expect(err).To(Succeed())
-
+			expectSLOGroupToExist(adminClient, ctx, "agent2", createdSlos[0].Id)
 			// Check all three rules have been deleted from the original cluster
-			err = expectSLOGroupToNotExist(adminClient, ctx, "agent", createdSlos[0].Id)
-			Expect(err).To(Succeed())
+			expectSLOGroupNotToExist(adminClient, ctx, "agent", createdSlos[0].Id)
+
 		})
 		It("Should delete valid SLOs", func() {
-			Expect(createdSlos).ToNot(HaveLen(0))
+			Expect(createdSlos).NotTo(HaveLen(0))
 			id := createdSlos[0].Id
 			_, err := sloClient.DeleteSLO(ctx, &corev1.Reference{Id: id})
 			Expect(err).To(Succeed())
 
 			// Check all three rules have been delete from the cluster
-			err = expectSLOGroupToNotExist(adminClient, ctx, "agent2", createdSlos[0].Id)
-			Expect(err).To(Succeed())
+			expectSLOGroupNotToExist(adminClient, ctx, "agent2", createdSlos[0].Id)
 
 			// For good measure, check this again, don't want any stragglers
-			err = expectSLOGroupToNotExist(adminClient, ctx, "agent", createdSlos[0].Id)
-			Expect(err).To(Succeed())
+			expectSLOGroupNotToExist(adminClient, ctx, "agent", createdSlos[0].Id)
+
 			createdSlos = createdSlos[1:]
 
 		})
@@ -324,8 +341,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			creationData, err := sloClient.CloneSLO(ctx, &corev1.Reference{Id: createdSlos[0].Id})
 			Expect(err).To(Succeed())
-			Expect(creationData.Id).ToNot(Equal(""))
-			Expect(creationData.Id).ToNot(Equal(createdSlos[0].Id))
+			Expect(creationData.Id).NotTo(Equal(""))
+			Expect(creationData.Id).NotTo(Equal(createdSlos[0].Id))
 
 			allSlos, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
 			Expect(err).To(Succeed())

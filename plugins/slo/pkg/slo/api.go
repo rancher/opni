@@ -57,7 +57,7 @@ func (p *Plugin) ListSLOs(ctx context.Context, _ *emptypb.Empty) (*sloapi.Servic
 	}, nil
 }
 
-func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequest) (*sloapi.CreatedSLOs, error) {
+func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequest) (*corev1.ReferenceList, error) {
 	lg := p.logger
 
 	if err := checkDatasource(slorequest.SLO.GetDatasource()); err != nil {

@@ -5,7 +5,7 @@ import (
 
 	v1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/hashicorp/go-hclog"
-	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/proto"
 )
@@ -19,7 +19,7 @@ func RegisterDatasource(datasource string, impl SLOStore) {
 type SLOStore interface {
 	// This method has to handle storage of the SLO in the KVStore itself
 	// since there can be partial successes inside the method
-	Create([]v1.SLO) (*apis.CreatedSLOs, error)
+	Create([]v1.SLO) (*corev1.ReferenceList, error)
 	Update(osloSpecs []v1.SLO, existing *sloapi.SLOData) (*sloapi.SLOData, error)
 	Delete(existing *sloapi.SLOData) error
 	Clone(clone *sloapi.SLOData) (string, error)

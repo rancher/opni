@@ -12,7 +12,7 @@ package slo;
 
 service SLO {
   // ============== SLO
-  rpc CreateSLO(CreateSLORequest) returns (CreatedSLOs) {
+  rpc CreateSLO(CreateSLORequest) returns (core.ReferenceList) {
     option (google.api.http) = {
       post: "/slos"
       body: "*"
@@ -125,9 +125,7 @@ message Services {
   repeated Service items = 1;
 }
 
-message CreatedSLOs {
-  repeated core.Reference items = 1;
-}
+
 
 message SLOData {
   string id = 1;

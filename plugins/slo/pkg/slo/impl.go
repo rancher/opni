@@ -6,7 +6,6 @@ import (
 
 	v1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,8 +19,8 @@ func (s SLOMonitoring) WithCurrentRequest(req proto.Message, ctx context.Context
 }
 
 // OsloSpecs ----> sloth IR ---> Prometheus SLO --> Cortex Rule groups
-func (s SLOMonitoring) Create(osloSpecs []v1.SLO) (*apis.CreatedSLOs, error) {
-	returnedSloId := &sloapi.CreatedSLOs{}
+func (s SLOMonitoring) Create(osloSpecs []v1.SLO) (*corev1.ReferenceList, error) {
+	returnedSloId := &corev1.ReferenceList{}
 	req := (s.req).(*sloapi.CreateSLORequest)
 	openSpecServices, err := zipOpenSLOWithServices(osloSpecs, req.Services)
 	if err != nil {

@@ -25,7 +25,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SLOClient interface {
 	// ============== SLO
-	CreateSLO(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*CreatedSLOs, error)
+	CreateSLO(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*v1.ReferenceList, error)
 	GetSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOData, error)
 	ListSLOs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceLevelObjectiveList, error)
 	UpdateSLO(ctx context.Context, in *SLOData, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -49,8 +49,8 @@ func NewSLOClient(cc grpc.ClientConnInterface) SLOClient {
 	return &sLOClient{cc}
 }
 
-func (c *sLOClient) CreateSLO(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*CreatedSLOs, error) {
-	out := new(CreatedSLOs)
+func (c *sLOClient) CreateSLO(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*v1.ReferenceList, error) {
+	out := new(v1.ReferenceList)
 	err := c.cc.Invoke(ctx, "/slo.SLO/CreateSLO", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -153,7 +153,7 @@ func (c *sLOClient) Status(ctx context.Context, in *v1.Reference, opts ...grpc.C
 // for forward compatibility
 type SLOServer interface {
 	// ============== SLO
-	CreateSLO(context.Context, *CreateSLORequest) (*CreatedSLOs, error)
+	CreateSLO(context.Context, *CreateSLORequest) (*v1.ReferenceList, error)
 	GetSLO(context.Context, *v1.Reference) (*SLOData, error)
 	ListSLOs(context.Context, *emptypb.Empty) (*ServiceLevelObjectiveList, error)
 	UpdateSLO(context.Context, *SLOData) (*emptypb.Empty, error)
@@ -174,7 +174,7 @@ type SLOServer interface {
 type UnimplementedSLOServer struct {
 }
 
-func (UnimplementedSLOServer) CreateSLO(context.Context, *CreateSLORequest) (*CreatedSLOs, error) {
+func (UnimplementedSLOServer) CreateSLO(context.Context, *CreateSLORequest) (*v1.ReferenceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSLO not implemented")
 }
 func (UnimplementedSLOServer) GetSLO(context.Context, *v1.Reference) (*SLOData, error) {

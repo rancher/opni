@@ -17,6 +17,8 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v2"
@@ -195,7 +197,10 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			sloLogging := proto.Clone(slo1).ProtoReflect().Interface().(*apis.CreateSLORequest)
 			sloLogging.SLO.Datasource = "logging"
 			_, err = slo.ParseToOpenSLO(sloLogging, context.Background(), hclog.New(&hclog.LoggerOptions{}))
-			Expect(err).To(MatchError("Not implemented"))
+			Expect(err).To(HaveOccurred())
+			stat, ok := status.FromError(err)
+			Expect(ok).To(BeTrue())
+			Expect(stat.Code()).To(Equal(codes.Unimplemented))
 		})
 	})
 

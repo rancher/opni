@@ -1,13 +1,18 @@
 package slo
 
 import (
+	"context"
 	"fmt"
 
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
+	"github.com/google/uuid"
+	"github.com/hashicorp/go-hclog"
 	"github.com/kralicky/yaml/v3"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 var (
@@ -87,4 +92,111 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 		metadata:  string(rmetadata),
 		alerts:    string(ralerts),
 	}, nil
+}
+
+// Cortex applies rule groups individually
+func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *sloapi.Service, existingId string, ctx context.Context, lg hclog.Logger) error {
+	var anyError error
+	_, err := p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
+		Yaml:   cortexRules.recording,
+		Tenant: service.ClusterId,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf(
+			"Failed to load recording rules for cluster %s, service %s, id %s : %v",
+			service.ClusterId, service.JobId, existingId, anyError))
+		anyError = err
+	}
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
+		Yaml:   cortexRules.metadata,
+		Tenant: service.ClusterId,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf(
+			"Failed to load metadata rules for cluster %s, service %s, id %s : %v",
+			service.ClusterId, service.JobId, existingId, anyError))
+		anyError = err
+	}
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
+		Yaml:   cortexRules.alerts,
+		Tenant: service.ClusterId,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf(
+			"Failed to load alerting rules for cluster %s, service %s, id %s : %v",
+			service.ClusterId, service.JobId, existingId, anyError))
+		anyError = err
+	}
+	return anyError
+}
+
+func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOImplData, ctx context.Context, lg hclog.Logger) error {
+	id, clusterId := toDelete.Id, toDelete.Service.ClusterId
+	var anyError error
+	_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+		Tenant:    clusterId,
+		GroupName: id + RecordingRuleSuffix,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf("Failed to delete recording rule group with id  %v: %v", id, err))
+		anyError = err
+	}
+	_, err = p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+		Tenant:    clusterId,
+		GroupName: id + MetadataRuleSuffix,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf("Failed to delete metadata rule group with id  %v: %v", id, err))
+		anyError = err
+	}
+	_, err = p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+		Tenant:    clusterId,
+		GroupName: id + AlertRuleSuffix,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf("Failed to delete alerting rule group with id  %v: %v", id, err))
+		anyError = err
+	}
+	return anyError
+}
+
+// Convert OpenSLO specs to Cortex Rule Groups & apply them
+func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, existingId string,
+	p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]*sloapi.SLOImplData, error) {
+	slogroup, err := ParseToPrometheusModel(osloSpec)
+	if err != nil {
+		lg.Error("failed to parse prometheus model IR :", err)
+		return nil, err
+	}
+
+	returnedSloImpl := []*sloapi.SLOImplData{}
+	rw, err := GeneratePrometheusNoSlothGenerator(slogroup, ctx, lg)
+	if err != nil {
+		lg.Error("Failed to generate prometheus : ", err)
+		return nil, err
+	}
+	lg.Debug(fmt.Sprintf("Generated cortex rule groups : %d", len(rw)))
+	if len(rw) > 1 {
+		lg.Warn("Multiple cortex rule groups being applied")
+	}
+	for _, rwgroup := range rw {
+		// Generate new uuid for new slo
+		if existingId == "" {
+			existingId = uuid.New().String()
+		}
+
+		cortexRules, err := toCortexRequest(rwgroup, existingId)
+		if err != nil {
+			return nil, err
+		}
+		applyCortexSLORules(p, cortexRules, service, existingId, ctx, lg)
+
+		dataToPersist := &sloapi.SLOImplData{
+			Id:      existingId,
+			SLO:     slorequest.SLO,
+			Service: service,
+		}
+		returnedSloImpl = append(returnedSloImpl, dataToPersist)
+	}
+	return returnedSloImpl, nil
 }

@@ -189,7 +189,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		It("Should create valid SLOs", func() {
 			inputSLO := &apis.ServiceLevelObjective{
 				Name:              "test-slo",
-				Datasource:        "monitoring",
+				Datasource:        shared.MonitoringDatasource,
 				MonitorWindow:     "30d", // one of 30d, 28, 7d
 				BudgetingInterval: "5m",  // between 5m and 1h
 				Labels:            []*apis.Label{},
@@ -337,16 +337,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		})
 	})
 
-	When("Reporting the State of SLOs", func() {
-		It("Should report the state of SLOs", func() {
-			_, err := sloClient.GetState(ctx, &corev1.Reference{})
-			Expect(err).To(HaveOccurred())
-		})
+	When("Reporting the Status of SLOs", func() {
 
-		It("Should be able to set the state manually", func() {
-			_, err := sloClient.SetState(ctx, &apis.SetStateRequest{})
-			Expect(err).To(HaveOccurred())
-		})
 	})
 
 })

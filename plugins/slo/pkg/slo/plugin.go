@@ -26,10 +26,8 @@ type Plugin struct {
 
 type StorageAPIs struct {
 	SLOs     system.KVStoreClient[*sloapi.SLOImplData]
-	SLOState system.KVStoreClient[*sloapi.State]
 	Services system.KVStoreClient[*sloapi.Service]
 	Metrics  system.KVStoreClient[*sloapi.Metric]
-	Formulas system.KVStoreClient[*sloapi.Formula]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {

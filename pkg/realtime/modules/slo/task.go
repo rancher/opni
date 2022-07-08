@@ -26,7 +26,7 @@ func (m *module) manageTasks(ctx context.Context, newTask newTaskFunc) {
 	tasks := sync.Map[string, *runningTask]{}
 
 	start := func(slo *slo.SLOImplData) {
-		tctx, tca := context.WithCancel(ctx)
+		_, tca := context.WithCancel(ctx)
 		running := &runningTask{
 			task:   newTask(slo),
 			cancel: tca,
@@ -37,11 +37,11 @@ func (m *module) manageTasks(ctx context.Context, newTask newTaskFunc) {
 			for _, metric := range metrics {
 				m.mc.Reg.Register(metric)
 			}
-			running.task.Run(tctx, &stateReadWriter{
-				ctx:       tctx,
-				id:        slo.GetId(),
-				sloClient: m.sloClient,
-			})
+			// running.task.Run(tctx, &stateReadWriter{
+			// 	ctx:       tctx,
+			// 	id:        slo.GetId(),
+			// 	sloClient: m.sloClient,
+			// })
 			for _, metric := range metrics {
 				m.mc.Reg.Unregister(metric)
 			}

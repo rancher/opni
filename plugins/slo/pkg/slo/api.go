@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"path"
 
-	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
-	"github.com/google/uuid"
-	"github.com/hashicorp/go-hclog"
 	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -19,8 +16,6 @@ import (
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -41,117 +36,20 @@ func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, err
 	return items, nil
 }
 
-// Cortex applies rule groups individually
-func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *sloapi.Service, existingId string, ctx context.Context, lg hclog.Logger) error {
-	var anyError error
-	_, err := p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
-		Yaml:   cortexRules.recording,
-		Tenant: service.ClusterId,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf(
-			"Failed to load recording rules for cluster %s, service %s, id %s : %v",
-			service.ClusterId, service.JobId, existingId, anyError))
-		anyError = err
+func checkDatasource(datasource string) error {
+	if _, ok := datasourceToImpl[datasource]; !ok {
+		return shared.ErrInvalidDatasource
 	}
-
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
-		Yaml:   cortexRules.metadata,
-		Tenant: service.ClusterId,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf(
-			"Failed to load metadata rules for cluster %s, service %s, id %s : %v",
-			service.ClusterId, service.JobId, existingId, anyError))
-		anyError = err
-	}
-
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
-		Yaml:   cortexRules.alerts,
-		Tenant: service.ClusterId,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf(
-			"Failed to load alerting rules for cluster %s, service %s, id %s : %v",
-			service.ClusterId, service.JobId, existingId, anyError))
-		anyError = err
-	}
-	return anyError
-}
-
-func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOImplData, ctx context.Context, lg hclog.Logger) error {
-	id, clusterId := toDelete.Id, toDelete.Service.ClusterId
-	var anyError error
-	_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-		Tenant:    clusterId,
-		GroupName: id + RecordingRuleSuffix,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf("Failed to delete recording rule group with id  %v: %v", id, err))
-		anyError = err
-	}
-	_, err = p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-		Tenant:    clusterId,
-		GroupName: id + MetadataRuleSuffix,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf("Failed to delete metadata rule group with id  %v: %v", id, err))
-		anyError = err
-	}
-	_, err = p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-		Tenant:    clusterId,
-		GroupName: id + AlertRuleSuffix,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf("Failed to delete alerting rule group with id  %v: %v", id, err))
-		anyError = err
-	}
-	return anyError
-}
-
-// Convert OpenSLO specs to Cortex Rule Groups & apply them
-func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, existingId string,
-	p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]*sloapi.SLOImplData, error) {
-	slogroup, err := ParseToPrometheusModel(osloSpec)
-	if err != nil {
-		lg.Error("failed to parse prometheus model IR :", err)
-		return nil, err
-	}
-
-	returnedSloImpl := []*sloapi.SLOImplData{}
-	rw, err := GeneratePrometheusNoSlothGenerator(slogroup, ctx, lg)
-	if err != nil {
-		lg.Error("Failed to generate prometheus : ", err)
-		return nil, err
-	}
-	lg.Debug(fmt.Sprintf("Generated cortex rule groups : %d", len(rw)))
-	if len(rw) > 1 {
-		lg.Warn("Multiple cortex rule groups being applied")
-	}
-	for _, rwgroup := range rw {
-		// Generate new uuid for new slo
-		if existingId == "" {
-			existingId = uuid.New().String()
-		}
-
-		cortexRules, err := toCortexRequest(rwgroup, existingId)
-		if err != nil {
-			return nil, err
-		}
-		applyCortexSLORules(p, cortexRules, service, existingId, ctx, lg)
-
-		dataToPersist := &sloapi.SLOImplData{
-			Id:      existingId,
-			SLO:     slorequest.SLO,
-			Service: service,
-		}
-		returnedSloImpl = append(returnedSloImpl, dataToPersist)
-	}
-	return returnedSloImpl, nil
+	return nil
 }
 
 func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequest) (*sloapi.CreatedSLOs, error) {
 	lg := p.logger
+	lg.Debug(fmt.Sprintf("%d", len(datasourceToImpl)))
+	lg.Debug(fmt.Sprintf("%v", datasourceToImpl["monitoring"]))
+	if err := checkDatasource(slorequest.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
 	if err := ValidateInput(slorequest); err != nil {
 		return nil, err
 	}
@@ -160,39 +58,8 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 		return nil, err
 	}
 	lg.Debug(fmt.Sprintf("Length of osloSpecs : %d", len(osloSpecs)))
-
-	switch slorequest.SLO.GetDatasource() {
-	case shared.LoggingDatasource:
-		return nil, shared.ErrNotImplemented
-	case shared.MonitoringDatasource:
-		returnedSloId := &sloapi.CreatedSLOs{}
-		openSpecServices, err := zipOpenSLOWithServices(osloSpecs, slorequest.Services)
-		if err != nil {
-			return nil, err
-		}
-		// possible for partial success, but don't want to exit on error
-		var anyError error
-		for _, zipped := range openSpecServices {
-			// existingId="" if this is a new slo
-			createdSlos, err := applyMonitoringSLODownstream(*zipped.Spec, zipped.Service, "", p, slorequest, ctx, lg)
-
-			if err != nil {
-				anyError = err
-			}
-			for _, data := range createdSlos {
-				returnedSloId.Items = append(returnedSloId.Items, &corev1.Reference{Id: data.Id})
-				if err := p.storage.Get().SLOs.Put(path.Join("/slos", data.Id), data); err != nil {
-					return nil, err
-				}
-				if err != nil {
-					anyError = err
-				}
-			}
-		}
-		return returnedSloId, anyError
-	default:
-		return nil, status.Error(codes.InvalidArgument, "Invalid datasource")
-	}
+	apiImpl := datasourceToImpl[slorequest.SLO.GetDatasource()].New(slorequest, p, ctx, lg)
+	return apiImpl.createSLOImpl(osloSpecs)
 }
 
 func (p *Plugin) GetSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOImplData, error) {
@@ -215,53 +82,25 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOImplData) (*empty
 	if err != nil {
 		return nil, err
 	}
-	createReq := &sloapi.CreateSLORequest{
+	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
+	osloSpecs, err := ParseToOpenSLO(&sloapi.CreateSLORequest{
 		SLO:      req.SLO,
 		Services: []*sloapi.Service{req.Service},
-	}
-	osloSpecs, err := ParseToOpenSLO(createReq, ctx, lg)
+	}, ctx, lg)
 	if err != nil {
 		return nil, err
 	}
-	// possible for partial success, but don't want to exit on error
-	var anyError error
-	switch req.SLO.GetDatasource() {
-	case shared.MonitoringDatasource:
-		openSpecServices, err := zipOpenSLOWithServices(osloSpecs, []*sloapi.Service{req.Service})
-		if err != nil {
-			return nil, err
-		}
-		// changing clusters means we need to clean up the rules on the old cluster
-		if existing.Service.ClusterId != req.Service.ClusterId {
-			p.DeleteSLO(ctx, &corev1.Reference{Id: req.Id})
-		}
-		for _, zipped := range openSpecServices {
-			// don't need creation metadata
-			_, err := applyMonitoringSLODownstream(*zipped.Spec, zipped.Service, req.Id, p, createReq, ctx, lg)
-
-			if err != nil {
-				anyError = err
-			}
-		}
-	case shared.LoggingDatasource:
-		return nil, shared.ErrNotImplemented
-	default:
-		return nil, status.Error(codes.InvalidArgument, "Invalid datasource")
-	}
+	apiImpl := datasourceToImpl[existing.SLO.GetDatasource()].New(req, p, ctx, lg)
+	newReq, anyError := apiImpl.updateSLOImpl(osloSpecs, existing)
 
 	// Merge when everything else is done
-	proto.Merge(existing, req)
+	proto.Merge(existing, newReq)
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", req.Id), existing); err != nil {
 		return nil, err
 	}
-	lg.Debug("Merge successful")
-	// need this because retruning anyError along with empty protobuf cause it
-	// to be intercepted as dynamic message type, causing a panic
-	if anyError != nil {
-		return nil, anyError
-	}
-	lg.Debug("Update successful")
-	return &emptypb.Empty{}, nil
+	return &emptypb.Empty{}, anyError
 }
 
 func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
@@ -270,25 +109,20 @@ func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb
 	if err != nil {
 		return nil, err
 	}
-
-	switch existing.SLO.GetDatasource() {
-	case shared.LoggingDatasource:
-		return nil, shared.ErrNotImplemented
-	case shared.MonitoringDatasource:
-		// delete the rule groups that make up the SLO
-		err := deleteCortexSLORules(p, existing, ctx, lg)
-		if err != nil {
-			return nil, err
-		}
-		if err := p.storage.Get().SLOs.Delete(path.Join("/slos", req.Id)); err != nil {
-			return nil, err
-		}
-		// delete if found
-		p.storage.Get().SLOs.Delete(path.Join("/slo_state", req.Id))
-		return &emptypb.Empty{}, err
-	default:
-		return nil, status.Error(codes.InvalidArgument, "Invalid datasource")
+	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
+		return nil, err
 	}
+	apiImpl := datasourceToImpl[existing.SLO.GetDatasource()].New(existing, p, ctx, lg)
+	err = apiImpl.deleteSLOImpl(existing)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.storage.Get().SLOs.Delete(path.Join("/slos", req.Id)); err != nil {
+		return nil, err
+	}
+	// delete if found
+	p.storage.Get().SLOs.Delete(path.Join("/slo_state", req.Id))
+	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOImplData, error) {
@@ -296,41 +130,43 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 	if err != nil {
 		return nil, err
 	}
-
+	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
+	var anyError error
 	clone := proto.Clone(existing).(*sloapi.SLOImplData)
 	clone.Id = ""
 	clone.SLO.Name = clone.SLO.Name + " - Copy"
-	var anyError error
-	switch clone.SLO.GetDatasource() {
-	case shared.MonitoringDatasource:
-		// create the slo
-		createdSlos, err := p.CreateSLO(ctx, &sloapi.CreateSLORequest{
-			SLO:      clone.SLO,
-			Services: []*sloapi.Service{clone.Service},
-		})
-		// should only create one slo
-		if len(createdSlos.Items) > 1 {
-			anyError = status.Error(codes.Internal, "Created more than one SLO")
-		}
-		clone.Id = createdSlos.Items[0].Id
-		if err := p.storage.Get().SLOs.Put(path.Join("/slos", createdSlos.Items[0].Id), clone); err != nil {
-			return nil, err
-		}
-		if err != nil {
-			anyError = err
-		}
 
-	case shared.LoggingDatasource:
-		return nil, shared.ErrNotImplemented
-	default:
-		return nil, status.Error(codes.InvalidArgument, "Invalid datasource")
+	apiImpl := datasourceToImpl[existing.SLO.GetDatasource()].New(clone, p, ctx, p.logger)
+	newId, err := apiImpl.cloneSLOImpl(clone)
+	if err := p.storage.Get().SLOs.Put(path.Join("/slos", newId), clone); err != nil {
+		return nil, err
 	}
+
 	return clone, anyError
 }
 
 func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOStatus, error) {
-	return nil, shared.ErrNotImplemented
+	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
+	if err != nil {
+		return nil, err
+	}
+	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
+
+	apiImpl := datasourceToImpl[existing.SLO.GetDatasource()].New(existing, p, ctx, p.logger)
+	state, err := apiImpl.status(existing)
+	if err != nil {
+		return &sloapi.SLOStatus{
+			State: sloapi.SLOStatusState_SLO_STATUS_ERROR,
+		}, nil
+	}
+	return state, nil
 }
+
+// -------- Service Discovery ---------
 
 func (p *Plugin) GetService(ctx context.Context, ref *corev1.Reference) (*sloapi.Service, error) {
 	return p.storage.Get().Services.Get(path.Join("/services", ref.Id))
@@ -421,32 +257,4 @@ func (p *Plugin) ListMetrics(ctx context.Context, _ *emptypb.Empty) (*sloapi.Met
 	return &sloapi.MetricList{
 		Items: items,
 	}, nil
-}
-
-func (p *Plugin) GetFormulas(ctx context.Context, ref *corev1.Reference) (*sloapi.Formula, error) {
-	// return p.storage.Get().Formulas.Get(path.Join("/formulas", ref.Id))
-	return nil, shared.ErrNotImplemented
-}
-
-func (p *Plugin) ListFormulas(ctx context.Context, _ *emptypb.Empty) (*sloapi.FormulaList, error) {
-	items, err := list(p.storage.Get().Formulas, "/formulas")
-	if err != nil {
-		return nil, err
-	}
-	return &sloapi.FormulaList{
-		Items: items,
-	}, shared.ErrNotImplemented
-}
-
-func (p *Plugin) SetState(ctx context.Context, req *sloapi.SetStateRequest) (*emptypb.Empty, error) {
-	// if err := p.storage.Get().SLOState.Put(path.Join("/slo_state", req.Slo.Id), req.State); err != nil {
-	// 	return nil, err
-	// }
-	return &emptypb.Empty{}, shared.ErrNotImplemented
-
-}
-
-func (p *Plugin) GetState(ctx context.Context, ref *corev1.Reference) (*sloapi.State, error) {
-	// return p.storage.Get().SLOState.Get(path.Join("/slo_state", ref.Id))
-	return nil, shared.ErrNotImplemented
 }

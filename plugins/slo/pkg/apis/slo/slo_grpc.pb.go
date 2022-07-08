@@ -31,19 +31,14 @@ type SLOClient interface {
 	UpdateSLO(ctx context.Context, in *SLOImplData, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOImplData, error)
-	// ================ Poll SLO Status
-	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error)
 	// Can this metric run with this service & cluster? No == error
 	GetMetricId(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Service, error)
 	ListMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricList, error)
-	// ================ Formula : Human readable format for metrics
-	GetFormulas(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*Formula, error)
-	ListFormulas(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*FormulaList, error)
-	SetState(ctx context.Context, in *SetStateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetState(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*State, error)
 	// ========== Services API ===========
 	GetService(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*Service, error)
 	ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error)
+	// ================ Poll SLO Status
+	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error)
 }
 
 type sLOClient struct {
@@ -108,15 +103,6 @@ func (c *sLOClient) CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc
 	return out, nil
 }
 
-func (c *sLOClient) Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error) {
-	out := new(SLOStatus)
-	err := c.cc.Invoke(ctx, "/slo.SLO/Status", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *sLOClient) GetMetricId(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*Service, error) {
 	out := new(Service)
 	err := c.cc.Invoke(ctx, "/slo.SLO/GetMetricId", in, out, opts...)
@@ -129,42 +115,6 @@ func (c *sLOClient) GetMetricId(ctx context.Context, in *MetricRequest, opts ...
 func (c *sLOClient) ListMetrics(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MetricList, error) {
 	out := new(MetricList)
 	err := c.cc.Invoke(ctx, "/slo.SLO/ListMetrics", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sLOClient) GetFormulas(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*Formula, error) {
-	out := new(Formula)
-	err := c.cc.Invoke(ctx, "/slo.SLO/GetFormulas", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sLOClient) ListFormulas(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*FormulaList, error) {
-	out := new(FormulaList)
-	err := c.cc.Invoke(ctx, "/slo.SLO/ListFormulas", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sLOClient) SetState(ctx context.Context, in *SetStateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/slo.SLO/SetState", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sLOClient) GetState(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*State, error) {
-	out := new(State)
-	err := c.cc.Invoke(ctx, "/slo.SLO/GetState", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +139,15 @@ func (c *sLOClient) ListServices(ctx context.Context, in *emptypb.Empty, opts ..
 	return out, nil
 }
 
+func (c *sLOClient) Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error) {
+	out := new(SLOStatus)
+	err := c.cc.Invoke(ctx, "/slo.SLO/Status", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SLOServer is the server API for SLO service.
 // All implementations must embed UnimplementedSLOServer
 // for forward compatibility
@@ -200,19 +159,14 @@ type SLOServer interface {
 	UpdateSLO(context.Context, *SLOImplData) (*emptypb.Empty, error)
 	DeleteSLO(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	CloneSLO(context.Context, *v1.Reference) (*SLOImplData, error)
-	// ================ Poll SLO Status
-	Status(context.Context, *v1.Reference) (*SLOStatus, error)
 	// Can this metric run with this service & cluster? No == error
 	GetMetricId(context.Context, *MetricRequest) (*Service, error)
 	ListMetrics(context.Context, *emptypb.Empty) (*MetricList, error)
-	// ================ Formula : Human readable format for metrics
-	GetFormulas(context.Context, *v1.Reference) (*Formula, error)
-	ListFormulas(context.Context, *emptypb.Empty) (*FormulaList, error)
-	SetState(context.Context, *SetStateRequest) (*emptypb.Empty, error)
-	GetState(context.Context, *v1.Reference) (*State, error)
 	// ========== Services API ===========
 	GetService(context.Context, *v1.Reference) (*Service, error)
 	ListServices(context.Context, *emptypb.Empty) (*ServiceList, error)
+	// ================ Poll SLO Status
+	Status(context.Context, *v1.Reference) (*SLOStatus, error)
 	mustEmbedUnimplementedSLOServer()
 }
 
@@ -238,32 +192,20 @@ func (UnimplementedSLOServer) DeleteSLO(context.Context, *v1.Reference) (*emptyp
 func (UnimplementedSLOServer) CloneSLO(context.Context, *v1.Reference) (*SLOImplData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CloneSLO not implemented")
 }
-func (UnimplementedSLOServer) Status(context.Context, *v1.Reference) (*SLOStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
-}
 func (UnimplementedSLOServer) GetMetricId(context.Context, *MetricRequest) (*Service, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMetricId not implemented")
 }
 func (UnimplementedSLOServer) ListMetrics(context.Context, *emptypb.Empty) (*MetricList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListMetrics not implemented")
 }
-func (UnimplementedSLOServer) GetFormulas(context.Context, *v1.Reference) (*Formula, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetFormulas not implemented")
-}
-func (UnimplementedSLOServer) ListFormulas(context.Context, *emptypb.Empty) (*FormulaList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListFormulas not implemented")
-}
-func (UnimplementedSLOServer) SetState(context.Context, *SetStateRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetState not implemented")
-}
-func (UnimplementedSLOServer) GetState(context.Context, *v1.Reference) (*State, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetState not implemented")
-}
 func (UnimplementedSLOServer) GetService(context.Context, *v1.Reference) (*Service, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetService not implemented")
 }
 func (UnimplementedSLOServer) ListServices(context.Context, *emptypb.Empty) (*ServiceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
+}
+func (UnimplementedSLOServer) Status(context.Context, *v1.Reference) (*SLOStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 func (UnimplementedSLOServer) mustEmbedUnimplementedSLOServer() {}
 
@@ -386,24 +328,6 @@ func _SLO_CloneSLO_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SLO_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SLOServer).Status(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/slo.SLO/Status",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SLOServer).Status(ctx, req.(*v1.Reference))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _SLO_GetMetricId_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MetricRequest)
 	if err := dec(in); err != nil {
@@ -436,78 +360,6 @@ func _SLO_ListMetrics_Handler(srv interface{}, ctx context.Context, dec func(int
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SLOServer).ListMetrics(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SLO_GetFormulas_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SLOServer).GetFormulas(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/slo.SLO/GetFormulas",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SLOServer).GetFormulas(ctx, req.(*v1.Reference))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SLO_ListFormulas_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SLOServer).ListFormulas(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/slo.SLO/ListFormulas",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SLOServer).ListFormulas(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SLO_SetState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SetStateRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SLOServer).SetState(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/slo.SLO/SetState",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SLOServer).SetState(ctx, req.(*SetStateRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SLO_GetState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SLOServer).GetState(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/slo.SLO/GetState",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SLOServer).GetState(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -548,6 +400,24 @@ func _SLO_ListServices_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SLO_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SLOServer).Status(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/slo.SLO/Status",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SLOServer).Status(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SLO_ServiceDesc is the grpc.ServiceDesc for SLO service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -580,10 +450,6 @@ var SLO_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SLO_CloneSLO_Handler,
 		},
 		{
-			MethodName: "Status",
-			Handler:    _SLO_Status_Handler,
-		},
-		{
 			MethodName: "GetMetricId",
 			Handler:    _SLO_GetMetricId_Handler,
 		},
@@ -592,28 +458,16 @@ var SLO_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SLO_ListMetrics_Handler,
 		},
 		{
-			MethodName: "GetFormulas",
-			Handler:    _SLO_GetFormulas_Handler,
-		},
-		{
-			MethodName: "ListFormulas",
-			Handler:    _SLO_ListFormulas_Handler,
-		},
-		{
-			MethodName: "SetState",
-			Handler:    _SLO_SetState_Handler,
-		},
-		{
-			MethodName: "GetState",
-			Handler:    _SLO_GetState_Handler,
-		},
-		{
 			MethodName: "GetService",
 			Handler:    _SLO_GetService_Handler,
 		},
 		{
 			MethodName: "ListServices",
 			Handler:    _SLO_ListServices_Handler,
+		},
+		{
+			MethodName: "Status",
+			Handler:    _SLO_Status_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -209,8 +209,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			inputSLO := &apis.ServiceLevelObjective{
 				Name:              "test-slo",
 				Datasource:        shared.MonitoringDatasource,
-				MonitorWindow:     "30d", // one of 30d, 28, 7d
-				BudgetingInterval: "5m",  // between 5m and 1h
+				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
+				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
 				Labels:            []*apis.Label{},
 				Target:            &apis.Target{ValueX100: 9999},
 				Alerts:            []*apis.Alert{}, // do nothing for now
@@ -308,8 +308,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			inputSLO := &apis.ServiceLevelObjective{
 				Name:              "test-slo",
 				Datasource:        "monitoring",
-				MonitorWindow:     "30d", // one of 30d, 28, 7d
-				BudgetingInterval: "5m",  // between 5m and 1h
+				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
+				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
 				Labels:            []*apis.Label{},
 				Target:            &apis.Target{ValueX100: 9999},
 				Alerts:            []*apis.Alert{}, // do nothing for now

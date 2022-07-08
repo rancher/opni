@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -28,6 +29,7 @@ var errorRatioRawQueryTmpl = template.Must(template.New("").Parse(`
 // Returns the same number of SLO Groups as the number of OpenSLO specs
 //(Same number as the number of services in the request)
 func ParseToPrometheusModel(slo openslov1.SLO) (*prometheus.SLOGroup, error) {
+	//TODO
 	y := NewYAMLSpecLoader(time.Hour * 24 * 30) // FIXME: hardcoded window period
 	m, err := y.MapSpecToModel(slo)
 	if err != nil {
@@ -158,12 +160,17 @@ func (y YAMLSpecLoader) GetSLOs(spec openslov1.SLO) ([]prometheus.SLO, error) {
 
 		timeWindow := y.windowPeriod
 		if len(spec.Spec.TimeWindow) > 0 {
-			timeWindow = time.Duration(30 /*spec.Spec.TimeWindow*/) * 24 * time.Hour // FIXME: convert to time.Duration
+			// The time window is validated to be one of '7d', '28d' or '30d'
+			newTime, err := strconv.Atoi(strings.ReplaceAll(spec.Spec.TimeWindow[0].Duration, "d", ""))
+			if err != nil {
+				return nil, err
+			}
+			timeWindow = (time.Duration(newTime) * 24) * time.Hour
 		}
 
 		res = append(res, prometheus.SLO{
-			ID:              fmt.Sprintf("%s-%s-%d", spec.Spec.Service, spec.Metadata.Name, idx), //FIXME: oslo correct headers
-			Name:            fmt.Sprintf("%s-%d", spec.Metadata.Name, idx),                       //FIXME: oslo correct headers
+			ID:              fmt.Sprintf("%s-%s-%d", spec.Spec.Service, spec.Metadata.Name, idx),
+			Name:            fmt.Sprintf("%s-%d", spec.Metadata.Name, idx),
 			Service:         spec.Spec.Service,
 			Description:     spec.Spec.Description,
 			TimeWindow:      timeWindow,

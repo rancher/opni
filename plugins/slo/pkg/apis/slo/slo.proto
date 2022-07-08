@@ -110,7 +110,7 @@ message ServiceLevelObjective {
   string name = 1;
   string datasource = 2;
   string monitorWindow = 3; // 7d, 28d or 30d
-  string budgetingInterval = 4; // in the format 5m, 1h etc..
+  google.protobuf.Duration budgetingInterval = 4; // budgeting interval should be between 1m and 60m
   Target target = 5;
   repeated Label labels = 6;
   repeated Alert alerts = 7;
@@ -136,7 +136,7 @@ message SLOData {
 }
 
 message Target {
-  uint64 ValueX100 = 1;
+  uint64 valueX100 = 1;
 }
 
 message Metric {

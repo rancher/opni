@@ -18,6 +18,7 @@ import (
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v2"
 )
 
@@ -27,7 +28,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Name:              "foo-name",
 		Datasource:        "monitoring",
 		MonitorWindow:     "30d",
-		BudgetingInterval: "5m",
+		BudgetingInterval: durationpb.New(time.Minute * 5),
 		Labels:            []*apis.Label{},
 		Target: &apis.Target{
 			ValueX100: 9999,
@@ -227,7 +228,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				Objective: 99.99,
 			}
 			ctx := context.Background()
-			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24)
+			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24, time.Minute*5)
 			Expect(err).To(Succeed())
 			Expect(alertGroup).To(Not(BeNil()))
 		})
@@ -239,12 +240,12 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				ID:        "foo",
 				Objective: 99.99,
 			}
-			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24)
+			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24, time.Minute*5)
 			Expect(err).To(Succeed())
 			rules, err := slo.GenerateSLIRecordingRules(ctx, sampleSLO, *alertGroup)
 			Expect(err).To(Succeed())
 			// better testing for this when the final format is more stable
-			Expect(rules).To(HaveLen(6))
+			Expect(rules).To(HaveLen(8))
 
 		})
 
@@ -255,7 +256,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				ID:        "foo",
 				Objective: 99.99,
 			}
-			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24)
+			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24, time.Minute*5)
 			Expect(err).To(Succeed())
 			rules, err := slo.GenerateMetadataRecordingRules(ctx, sampleSLO, alertGroup)
 			Expect(err).To(Succeed())
@@ -270,7 +271,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				ID:        "foo",
 				Objective: 99.99,
 			}
-			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24)
+			alertGroup, err := slo.GenerateMWWBAlerts(ctx, alertSLO, time.Hour*24, time.Minute*5)
 			Expect(err).To(Succeed())
 			rules, err := slo.GenerateSLOAlertRules(ctx, sampleSLO, *alertGroup)
 			Expect(err).To(Succeed())
@@ -282,21 +283,21 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			var err error
 
 			for _, sloGroup := range simplePrometheusIR {
-				simplePrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+				simplePrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, time.Minute*5, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 				Expect(err).To(Succeed())
 				// better testing for this when the final format is more stable
 				Expect(len(simplePrometheusResponse)).Should(BeNumerically(">=", 1))
 			}
 
 			for _, sloGroup := range objectivePrometheusIR {
-				objectivePrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+				objectivePrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, time.Minute*5, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 				Expect(err).To(Succeed())
 				// better testing for this when the final format is more stable
 				Expect(len(objectivePrometheusResponse)).Should(BeNumerically(">=", 1))
 			}
 
 			for _, sloGroup := range multiClusterPrometheusIR {
-				multiClusterPrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+				multiClusterPrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, time.Minute*5, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 				Expect(err).To(Succeed())
 				// better testing for this when the final format is more stable
 				Expect(len(multiClusterPrometheusResponse)).Should(BeNumerically(">=", 1))

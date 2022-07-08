@@ -41,15 +41,10 @@ type SLORuleFmtWrapper struct {
 	AlertRules []rulefmt.Rule
 }
 
-func Validate(slos *prometheus.SLOGroup) error {
-	// TODO implement
-	// use prometheus field validators
-	return nil
-}
-
 /// Reference : https://github.com/slok/sloth/blob/481c16f6602731d628dcbf6051e74c80cdc1acb2/internal/alert/alert.go#L30
-func GenerateMWWBAlerts(ctx context.Context, alertSLO alert.SLO, timeWindow time.Duration) (*alert.MWMBAlertGroup, error) {
-	windows := WindowDefaults(timeWindow)
+func GenerateMWWBAlerts(ctx context.Context, alertSLO alert.SLO, timeWindow time.Duration, budgetingInterval time.Duration) (*alert.MWMBAlertGroup, error) {
+	// windows := WindowDefaults(timeWindow)
+	windows := GenerateGoogleWindows(budgetingInterval)
 	errorBudget := 100 - alertSLO.Objective
 	group := alert.MWMBAlertGroup{
 		PageQuick: alert.MWMBAlert{
@@ -343,7 +338,7 @@ func defaultSLOAlertGenerator(slo prometheus.SLO, sloAlert prometheus.AlertMeta,
 	}, nil
 }
 
-func GenerateSLO(slo prometheus.SLO, ctx context.Context, info info.Info, lg hclog.Logger) (*SLORuleFmtWrapper, error) {
+func GenerateSLO(slo prometheus.SLO, budgetingInterval time.Duration, ctx context.Context, info info.Info, lg hclog.Logger) (*SLORuleFmtWrapper, error) {
 
 	// Generate with the MWWB alerts
 
@@ -351,7 +346,7 @@ func GenerateSLO(slo prometheus.SLO, ctx context.Context, info info.Info, lg hcl
 		ID:        slo.ID,
 		Objective: slo.Objective,
 	}
-	as, err := GenerateMWWBAlerts(ctx, alertSLO, slo.TimeWindow)
+	as, err := GenerateMWWBAlerts(ctx, alertSLO, slo.TimeWindow, budgetingInterval)
 	if err != nil {
 		return nil, fmt.Errorf("Could not generate SLO alerts: %w", err)
 	}
@@ -383,19 +378,14 @@ func GenerateSLO(slo prometheus.SLO, ctx context.Context, info info.Info, lg hcl
 }
 
 // Returns the same number of SLORuleWrappers as the number of SLOGroups
-func GeneratePrometheusNoSlothGenerator(slos *prometheus.SLOGroup, ctx context.Context, lg hclog.Logger) ([]SLORuleFmtWrapper, error) {
+func GeneratePrometheusNoSlothGenerator(slos *prometheus.SLOGroup, budgetingInterval time.Duration, ctx context.Context, lg hclog.Logger) ([]SLORuleFmtWrapper, error) {
 	res := make([]SLORuleFmtWrapper, 0)
-	err := Validate(slos)
-	if err != nil {
-		return nil, err
-	}
-
 	for _, slo := range slos.SLOs {
 		extraLabels := map[string]string{}
 		slo.Labels = MergeLabels(slo.Labels, extraLabels)
 		i := info.Info{}
 
-		result, err := GenerateSLO(slo, ctx, i, lg)
+		result, err := GenerateSLO(slo, budgetingInterval, ctx, i, lg)
 		if err != nil {
 			return nil, err
 		}

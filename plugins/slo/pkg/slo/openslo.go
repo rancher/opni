@@ -3,6 +3,7 @@ package slo
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/alexandreLamarre/oslo/pkg/manifest"
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
@@ -103,10 +104,11 @@ func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.Service, ctx 
 
 func ParseToObjective(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) oslov1.Objective {
 	target := slo.GetTarget()
+	budgetTime := slo.GetBudgetingInterval() //between 1m and 60m
 	newObjective := oslov1.Objective{
 		DisplayName:     slo.GetName() + "-target",
 		Target:          float64(target.GetValueX100()) / 100,
-		TimeSliceWindow: slo.GetBudgetingInterval(),
+		TimeSliceWindow: strconv.Itoa(int(budgetTime.Seconds/60)) + "m",
 	}
 	return newObjective
 }

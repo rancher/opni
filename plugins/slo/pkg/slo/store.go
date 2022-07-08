@@ -170,7 +170,7 @@ func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, 
 	}
 
 	returnedSloImpl := []*sloapi.SLOData{}
-	rw, err := GeneratePrometheusNoSlothGenerator(slogroup, ctx, lg)
+	rw, err := GeneratePrometheusNoSlothGenerator(slogroup, slorequest.SLO.BudgetingInterval.AsDuration(), ctx, lg)
 	if err != nil {
 		lg.Error("Failed to generate prometheus : ", err)
 		return nil, err

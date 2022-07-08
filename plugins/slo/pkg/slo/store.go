@@ -7,12 +7,12 @@ import (
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-hclog"
-	"github.com/kralicky/yaml/v3"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"gopkg.in/yaml.v3"
 )
 
 var (

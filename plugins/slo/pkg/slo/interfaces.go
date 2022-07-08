@@ -52,14 +52,3 @@ func NewSLOMonitoringStore(p *Plugin, lg hclog.Logger) SLOStore {
 		},
 	}
 }
-
-// func (s SLOLogging) NewSLOLoggingStore(req proto.Message, p *Plugin, ctx context.Context, lg hclog.Logger) SLOStore {
-// 	return SLOLogging{
-// 		SLORequestBase{
-// 			req: nil,
-// 			p:   p,
-// 			ctx: ctx,
-// 			lg:  lg,
-// 		},
-// 	}
-// }

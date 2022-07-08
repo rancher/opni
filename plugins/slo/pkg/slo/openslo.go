@@ -10,7 +10,16 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni/pkg/slo/shared"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
+
+func normalizeOpenSLOTarget(valueX100 uint64) float64 {
+	return float64(valueX100) / 100
+}
+
+func convertTimeWindow(budgetTime *durationpb.Duration) string {
+	return strconv.Itoa(int(budgetTime.Seconds/60)) + "m"
+}
 
 // Returns a list of all the components passed in the protobuf we need to translate to specs
 //
@@ -104,11 +113,11 @@ func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.Service, ctx 
 
 func ParseToObjective(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) oslov1.Objective {
 	target := slo.GetTarget()
-	budgetTime := slo.GetBudgetingInterval() //between 1m and 60m
+	budgetTime := slo.GetBudgetingInterval() // validated to be between 1m and 60m
 	newObjective := oslov1.Objective{
 		DisplayName:     slo.GetName() + "-target",
-		Target:          float64(target.GetValueX100()) / 100,
-		TimeSliceWindow: strconv.Itoa(int(budgetTime.Seconds/60)) + "m",
+		Target:          normalizeOpenSLOTarget(target.GetValueX100()),
+		TimeSliceWindow: convertTimeWindow(budgetTime),
 	}
 	return newObjective
 }

@@ -97,65 +97,36 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 // Cortex applies rule groups individually
 func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *sloapi.Service, existingId string, ctx context.Context, lg hclog.Logger) error {
 	var anyError error
-	_, err := p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
-		Yaml:   cortexRules.recording,
-		Tenant: service.ClusterId,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf(
-			"Failed to load recording rules for cluster %s, service %s, id %s : %v",
-			service.ClusterId, service.JobId, existingId, anyError))
-		anyError = err
-	}
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
-		Yaml:   cortexRules.metadata,
-		Tenant: service.ClusterId,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf(
-			"Failed to load metadata rules for cluster %s, service %s, id %s : %v",
-			service.ClusterId, service.JobId, existingId, anyError))
-		anyError = err
-	}
-	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
-		Yaml:   cortexRules.alerts,
-		Tenant: service.ClusterId,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf(
-			"Failed to load alerting rules for cluster %s, service %s, id %s : %v",
-			service.ClusterId, service.JobId, existingId, anyError))
-		anyError = err
+	ruleGroupsToApply := []string{cortexRules.recording, cortexRules.metadata, cortexRules.alerts}
+	for _, ruleGroup := range ruleGroupsToApply {
+		_, err := p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
+			Yaml:   ruleGroup,
+			Tenant: service.ClusterId,
+		})
+		if err != nil {
+			lg.Error(fmt.Sprintf(
+				"Failed to load rules for cluster %s, service %s, id %s, rule %s : %v",
+				service.ClusterId, service.JobId, existingId, ruleGroup, anyError))
+			anyError = err
+		}
 	}
 	return anyError
 }
 
 func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOData, ctx context.Context, lg hclog.Logger) error {
 	id, clusterId := toDelete.Id, toDelete.Service.ClusterId
+	ruleGroupsToDelete := []string{id + RecordingRuleSuffix, id + MetadataRuleSuffix, id + AlertRuleSuffix}
 	var anyError error
-	_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-		Tenant:    clusterId,
-		GroupName: id + RecordingRuleSuffix,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf("Failed to delete recording rule group with id  %v: %v", id, err))
-		anyError = err
-	}
-	_, err = p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-		Tenant:    clusterId,
-		GroupName: id + MetadataRuleSuffix,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf("Failed to delete metadata rule group with id  %v: %v", id, err))
-		anyError = err
-	}
-	_, err = p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-		Tenant:    clusterId,
-		GroupName: id + AlertRuleSuffix,
-	})
-	if err != nil {
-		lg.Error(fmt.Sprintf("Failed to delete alerting rule group with id  %v: %v", id, err))
-		anyError = err
+
+	for _, ruleGroup := range ruleGroupsToDelete {
+		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+			Tenant:    clusterId,
+			GroupName: ruleGroup,
+		})
+		if err != nil {
+			lg.Error(fmt.Sprintf("Failed to delete rule group with id  %v: %v", id, err))
+			anyError = err
+		}
 	}
 	return anyError
 }

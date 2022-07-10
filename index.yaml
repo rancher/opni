@@ -9,13 +9,13 @@ entries:
       catalog.rancher.io/release-name: opni
     apiVersion: v2
     appVersion: 0.5.4-rc4
-    created: "2022-07-01T17:54:31.7454218+12:00"
+    created: "2022-07-11T10:06:32.0239648+12:00"
     dependencies:
     - condition: opni-prometheus-crd.enabled
       name: opni-prometheus-crd
       repository: file://./charts/opni-prometheus-crd
     description: Multi-cluster Monitoring and Logging System
-    digest: f76b0ceac289b227277585f15d8cbe497b9cf82173ede478f088ce3d6a862293
+    digest: 12f92175165d37bfdb9fcf7d76b877abb2620458ccffa8a41e12b12ac49afe0b
     icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
     keywords:
     - opni
@@ -775,24 +775,5 @@ entries:
     type: application
     urls:
     - assets/opni-crd/opni-crd-0.4.1.tgz
-    version: 0.4.1
-  opni-prometheus-crd:
-  - annotations:
-      catalog.cattle.io/namespace: opni-cluster-system
-      catalog.cattle.io/provides-gvr: prometheuses.monitoring.coreos.com/v1
-      catalog.cattle.io/release-name: opni-prometheus-crd
-    apiVersion: v1
-    created: "2022-05-16T16:00:04.5900269+12:00"
-    description: Installs the Prometheus CRDs for Opni.
-    digest: 4cbeeb89d2ae27030cf9310846aa94f430a1b2444f6cf70c47378c04058b81f5
-    maintainers:
-    - email: joe.kralicky@suse.com
-      name: Joe Kralicky
-    - email: dan.bason@suse.com
-      name: Dan Bason
-    name: opni-prometheus-crd
-    type: application
-    urls:
-    - assets/opni-prometheus-crd/opni-prometheus-crd-0.4.1.tgz
     version: 0.4.1
 generated: "2022-05-05T11:23:45.5101819+12:00"

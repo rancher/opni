@@ -32,6 +32,8 @@ spec:
         - --group=opni.io
         - --resource=gateways
         - --jsonpath={.status.endpoints}
+{{- if eq .Values.gateway.serviceType "LoadBalancer" }}
         - --jsonpath={.status.loadBalancer}
+{{- end }}
         - opni-gateway
 {{- end }}

@@ -103,53 +103,80 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (string, error) {
 }
 
 // Only return errors here that should be considered servere InternalServerErrors
+//
+// - First Checks if it has NoData
+// - If it has Data, check if it is within budget
+// - If is within budget, check if any alerts are firing
 func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error) {
-	defaultState := sloapi.SLOStatusState_NoData
+	curState := sloapi.SLOStatusState_Ok
 
 	// check if the recording rule has data
-	recordingRuleId := existing.Id + RecordingRuleSuffix
+	// rrecording, := existing.Id + RecordingRuleSuffix
 	rresp, err := s.p.adminClient.Get().Query(
 		s.ctx,
 		&cortexadmin.QueryRequest{
 			Tenants: []string{existing.Service.ClusterId},
-			Query:   recordingRuleId, // TODO : meaningful query to most recent data
+			Query:   "slo:sli_error:ratio_rate5m",
 		},
 	)
 	if err != nil {
 		s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
-	} else {
-		s.lg.Debug("%v", rresp)
+		return nil, err
+	}
+	q, err := unmarshal.UnmarshallPrometheusResponse(rresp.Data)
+	if err != nil {
+		s.lg.Error(fmt.Sprintf("%v", err))
+		return nil, err
+	}
+	switch q.V.Type() {
+	case model.ValVector:
+		vv := q.V.(model.Vector)
+		if len(vv) == 0 {
+			curState = sloapi.SLOStatusState_NoData
+		} else {
+			curState = sloapi.SLOStatusState_Ok
+		}
+	default: //FIXME: For now, return internal errors if we can't match result to a vector result
+		s.lg.Error(fmt.Sprintf("Unexpected response type '%v' from Prometheus for recording rule", q.V.Type()))
+		return &sloapi.SLOStatus{
+			State: sloapi.SLOStatusState_InternalError,
+		}, nil
+
 	}
 	// Check if the metadata rules show we have breached the budget
-	metadataRuleId := existing.Id + MetadataRuleSuffix
-	mresp, err := s.p.adminClient.Get().Query(
-		s.ctx,
-		&cortexadmin.QueryRequest{
-			Tenants: []string{existing.Service.ClusterId},
-			Query:   metadataRuleId, // TODO : meaningful query to error budget metadata here
-		},
-	)
-	if err != nil {
-		s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
-	} else {
-		s.lg.Debug("%v", mresp)
+	// metadataRuleId := existing.Id + MetadataRuleSuffix
+	if curState == sloapi.SLOStatusState_Ok {
+		_, err := s.p.adminClient.Get().Query(
+			s.ctx,
+			&cortexadmin.QueryRequest{
+				Tenants: []string{existing.Service.ClusterId},
+				Query:   "", // TODO : meaningful metadata queries here
+			},
+		)
+		if err != nil {
+			return &sloapi.SLOStatus{
+				State: sloapi.SLOStatusState_InternalError,
+			}, nil
+		}
+		// TODO : evaluate metadata rules
 	}
-	// Check if the conditions of any of the alerting rules are met
-	alertRuleId := existing.Id + AlertRuleSuffix
-	aresp, err := s.p.adminClient.Get().Query(
-		s.ctx,
-		&cortexadmin.QueryRequest{
-			Tenants: []string{existing.Service.ClusterId},
-			Query:   alertRuleId, // TODO : meaningful query to check alerting conditions here
-		},
-	)
-	if err != nil {
-		s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
-	} else {
-		s.lg.Debug("%v", aresp)
+
+	if curState == sloapi.SLOStatusState_Ok {
+		// Check if the conditions of any of the alerting rules are met
+		// alertRuleId := existing.Id + AlertRuleSuffix
+		_, err := s.p.adminClient.Get().Query(
+			s.ctx,
+			&cortexadmin.QueryRequest{
+				Tenants: []string{existing.Service.ClusterId},
+				Query:   "", // TODO : meaningful query to check alerting conditions here
+			},
+		)
+		if err != nil {
+			s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
+		}
 	}
 	return &sloapi.SLOStatus{
-		State: defaultState,
+		State: curState,
 	}, nil
 }
 

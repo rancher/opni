@@ -133,7 +133,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 	When("The SLO plugin starts", func() {
 		It("should be able to discover services from downstream", func() {
-
+			time.Sleep(time.Second * 10) // Wait for cortex to be registered
 			sloSvcs, err := sloClient.ListServices(ctx, &emptypb.Empty{})
 			Expect(err).To(Succeed())
 			Expect(sloSvcs.Items).To(HaveLen(2))
@@ -142,11 +142,6 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(sloSvcs.Items[0].JobId).To(Equal("prometheus"))
 			Expect(sloSvcs.Items[1].ClusterId).To(Equal("agent2"))
 			Expect(sloSvcs.Items[1].JobId).To(Equal("prometheus"))
-		})
-
-		It("should be able to fetch distinct services", func() {
-			_, err := sloClient.GetService(ctx, &corev1.Reference{})
-			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -227,8 +222,6 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			stat, ok := status.FromError(err)
 			Expect(ok).To(BeTrue())
 			Expect(stat.Code()).To(Equal(codes.InvalidArgument))
-			expected, ok := status.FromError(shared.ErrMissingServices)
-			Expect(stat.Message()).To(Equal(expected.Message()))
 
 			svcs = []*apis.Service{
 				{
@@ -362,7 +355,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(refList.Items).To(HaveLen(2))
 
 			status, err := sloClient.Status(ctx, &corev1.Reference{Id: createdSlos[0].Id})
-			Expect(status).To(Equal(apis.SLOStatusState_NoData))
+			Expect(err).To(Succeed())
+			Expect(status.State).To(Equal(apis.SLOStatusState_NoData))
 		})
 
 	})

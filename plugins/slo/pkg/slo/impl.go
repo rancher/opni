@@ -6,7 +6,9 @@ import (
 	"path"
 
 	v1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
+	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/grpc/codes"
@@ -148,5 +150,62 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	}
 	return &sloapi.SLOStatus{
 		State: defaultState,
+	}, nil
+}
+
+func (m MonitoringServiceBackend) WithCurrentRequest(req proto.Message, ctx context.Context) ServiceBackend {
+	m.req = req
+	m.ctx = ctx
+	return m
+}
+
+func (m MonitoringServiceBackend) List(clusters *corev1.ClusterList) (*sloapi.ServiceList, error) {
+	res := &sloapi.ServiceList{}
+	cl := make([]string, 0)
+	for _, c := range clusters.Items {
+		cl = append(cl, c.Id)
+		m.lg.Debug("Found cluster with id %v", c.Id)
+	}
+	discoveryQuery := `group by(job)({__name__!=""})`
+
+	for _, c := range clusters.Items {
+		resp, err := m.p.adminClient.Get().Query(m.ctx, &cortexadmin.QueryRequest{
+			Tenants: []string{c.Id},
+			Query:   discoveryQuery,
+		})
+		if err != nil {
+			m.lg.Error(fmt.Sprintf("Failed to query cluster %v: %v", c.Id, err))
+			return nil, err
+		}
+		data := resp.GetData()
+		m.lg.Debug(fmt.Sprintf("Received service data:\n %s from cluster %s ", string(data), c.Id))
+		q, err := unmarshal.UnmarshallPrometheusResponse(data)
+		switch q.V.Type() {
+		case model.ValVector:
+			{
+				vv := q.V.(model.Vector)
+				for _, v := range vv {
+
+					res.Items = append(res.Items, &sloapi.Service{
+						JobId:     string(v.Metric["job"]),
+						ClusterId: c.Id,
+					})
+				}
+			}
+		}
+	}
+	return res, nil
+}
+
+func (m MonitoringServiceBackend) GetMetricId() (*MetricIds, error) {
+	req := m.req.(*sloapi.MetricRequest)
+	goodMetricId, totalMetricId, err := assignMetricToJobId(m.p, m.ctx, req)
+	if err != nil {
+		m.lg.Error(fmt.Sprintf("Unable to assign metric to job: %v", err))
+		return nil, err
+	}
+	return &MetricIds{
+		Good:  goodMetricId,
+		Total: totalMetricId,
 	}, nil
 }

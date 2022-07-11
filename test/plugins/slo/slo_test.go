@@ -355,6 +355,15 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	})
 
 	When("Reporting the Status of SLOs", func() {
+		It("Should be able to get the status of SLOs", func() {
+			Expect(createdSlos).To(HaveLen(2))
+			refList, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).To(Succeed())
+			Expect(refList.Items).To(HaveLen(2))
+
+			status, err := sloClient.Status(ctx, &corev1.Reference{Id: createdSlos[0].Id})
+			Expect(status).To(Equal(apis.SLOStatusState_NoData))
+		})
 
 	})
 

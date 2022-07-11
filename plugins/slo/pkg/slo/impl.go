@@ -2,10 +2,12 @@ package slo
 
 import (
 	"context"
+	"fmt"
 	"path"
 
 	v1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -98,8 +100,52 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (string, error) {
 	return clone.Id, anyError
 }
 
+// Only return errors here that should be considered servere InternalServerErrors
 func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error) {
-	defaultState := sloapi.SLOStatusState_Ok
+	defaultState := sloapi.SLOStatusState_NoData
+
+	// check if the recording rule has data
+	recordingRuleId := existing.Id + RecordingRuleSuffix
+	rresp, err := s.p.adminClient.Get().Query(
+		s.ctx,
+		&cortexadmin.QueryRequest{
+			Tenants: []string{existing.Service.ClusterId},
+			Query:   recordingRuleId, // TODO : meaningful query to most recent data
+		},
+	)
+	if err != nil {
+		s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
+	} else {
+		s.lg.Debug("%v", rresp)
+	}
+	// Check if the metadata rules show we have breached the budget
+	metadataRuleId := existing.Id + MetadataRuleSuffix
+	mresp, err := s.p.adminClient.Get().Query(
+		s.ctx,
+		&cortexadmin.QueryRequest{
+			Tenants: []string{existing.Service.ClusterId},
+			Query:   metadataRuleId, // TODO : meaningful query to error budget metadata here
+		},
+	)
+	if err != nil {
+		s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
+	} else {
+		s.lg.Debug("%v", mresp)
+	}
+	// Check if the conditions of any of the alerting rules are met
+	alertRuleId := existing.Id + AlertRuleSuffix
+	aresp, err := s.p.adminClient.Get().Query(
+		s.ctx,
+		&cortexadmin.QueryRequest{
+			Tenants: []string{existing.Service.ClusterId},
+			Query:   alertRuleId, // TODO : meaningful query to check alerting conditions here
+		},
+	)
+	if err != nil {
+		s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
+	} else {
+		s.lg.Debug("%v", aresp)
+	}
 	return &sloapi.SLOStatus{
 		State: defaultState,
 	}, nil

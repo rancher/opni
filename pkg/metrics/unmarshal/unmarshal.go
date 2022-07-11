@@ -42,16 +42,19 @@ func (qr *queryResult) UnmarshalJSON(b []byte) error {
 	case model.ValScalar:
 		var sv model.Scalar
 		err = json.Unmarshal(v.Result, &sv)
+		qr.Type = v.Type
 		qr.V = &sv
 
 	case model.ValVector:
 		var vv model.Vector
 		err = json.Unmarshal(v.Result, &vv)
+		qr.Type = v.Type
 		qr.V = vv
 
 	case model.ValMatrix:
 		var mv model.Matrix
 		err = json.Unmarshal(v.Result, &mv)
+		qr.Type = v.Type
 		qr.V = mv
 
 	default:

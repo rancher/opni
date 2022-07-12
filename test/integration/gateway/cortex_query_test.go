@@ -42,7 +42,7 @@ var _ = Describe("Cortex query tests", Ordered, Label("integration"), func() {
 		})
 
 		port, errC := environment.StartAgent(agentId, token, []string{fingerprint})
-		environment.StartPrometheus(port)
+		environment.StartPrometheus(port, nil)
 		Expect(errC).To(Receive(BeNil()))
 
 		adminClient = environment.NewCortexAdminClient()

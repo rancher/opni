@@ -70,7 +70,7 @@ var _ = Describe("Gateway - Prometheus Communication Tests", Ordered, Label("int
 			Expect(fingerprint).NotTo(BeEmpty())
 
 			port, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
-			promAgentPort := environment.StartPrometheus(port)
+			promAgentPort := environment.StartPrometheus(port, nil)
 			Expect(promAgentPort).NotTo(BeZero())
 			Consistently(errC).ShouldNot(Receive(HaveOccurred()))
 

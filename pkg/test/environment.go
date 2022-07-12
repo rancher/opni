@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -535,25 +536,54 @@ type prometheusTemplateOptions struct {
 	OpniAgentPort int
 }
 
-func (e *Environment) StartPrometheus(opniAgentPort int) int {
+type additionalPrometheusConfig struct {
+	configPath string
+	// config-specific struct that fills the nested templates in the prometheus config file
+	metaTemplateMapper interface{}
+}
+
+func NewAdditionalPrometheusConfig(configPath string, metaTemplateMapper interface{}) *additionalPrometheusConfig {
+	return &additionalPrometheusConfig{
+		configPath:         string(TestData(configPath)),
+		metaTemplateMapper: metaTemplateMapper,
+	}
+}
+
+// `prometheus/config.yaml` is the default monitoring config.
+// `slo/prometheus/config.yaml` is the default SLO config.
+func (e *Environment) StartPrometheus(opniAgentPort int, config *additionalPrometheusConfig) int {
 	lg := e.Logger
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
 	}
-	configTemplate := TestData("prometheus/config.yaml")
-	t := util.Must(template.New("config").Parse(string(configTemplate)))
+	var configTemplate string
+	if config == nil {
+		configTemplate = string(TestData("prometheus/config.yaml"))
+	} else {
+		configTemplate = config.configPath
+	}
+	t := util.Must(template.New("config").Parse(configTemplate))
 	configFile, err := os.Create(path.Join(e.tempDir, "prometheus", "config.yaml"))
 	if err != nil {
 		panic(err)
 	}
-	if err := t.Execute(configFile, prometheusTemplateOptions{
+	var constructedConfig bytes.Buffer
+	if err := t.Execute(&constructedConfig, prometheusTemplateOptions{
 		ListenPort:    port,
 		OpniAgentPort: opniAgentPort,
 		RTMetricsPort: e.ports.RTMetrics,
 	}); err != nil {
 		panic(err)
 	}
+	if config != nil { // apply nested templates
+		additionalT := util.Must(template.New("additionalConfig").Parse(constructedConfig.String()))
+		if err := additionalT.Execute(&constructedConfig, config.metaTemplateMapper); err != nil {
+			panic(err)
+		}
+	}
+	configFile.Write(constructedConfig.Bytes())
+
 	configFile.Close()
 	prometheusBin := path.Join(e.TestBin, "prometheus")
 	defaultArgs := []string{
@@ -1009,7 +1039,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				rw.Write([]byte(err.Error()))
 				return
 			}
-			environment.StartPrometheus(port)
+			environment.StartPrometheus(port, nil)
 			rw.WriteHeader(http.StatusOK)
 			rw.Write([]byte(fmt.Sprintf("%d", port)))
 		}

@@ -70,9 +70,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Expect(err).NotTo(HaveOccurred())
 
 		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		env.StartPrometheus(p)
+		env.StartPrometheus(p, nil)
 		p2, _ := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		env.StartPrometheus(p2)
+		env.StartPrometheus(p2, nil)
 		adminClient = apis.NewCortexAdminClient(env.ManagementClientConn())
 	})
 

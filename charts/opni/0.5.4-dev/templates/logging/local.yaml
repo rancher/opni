@@ -4,7 +4,7 @@ apiVersion: opni.io/v1beta1
 kind: LogAdapter
 metadata:
   name: opni-local
-    namespace: {{ include "opni.namespace" . }}
+  namespace: {{ include "opni.namespace" . }}
 spec:
   controlNamespace: {{ include "opni.namespace" . }}
   provider: {{ .Values.logging.local.provider }}

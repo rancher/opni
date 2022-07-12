@@ -1,6 +1,6 @@
 {{- if (and .Values.logging.enabled .Values.logging.local.enabled) }}
 ---
-apiVersion: opni.io/v1beta1
+apiVersion: opni.io/v1beta2
 kind: LogAdapter
 metadata:
   name: opni-local

@@ -1,0 +1,79 @@
+{{- if (and .Values.logging.enabled .Values.logging.local.enabled) }}
+---
+apiVersion: opni.io/v1beta1
+kind: LogAdapter
+metadata:
+  name: opni-local
+    namespace: {{ include "opni.namespace" . }}
+spec:
+  controlNamespace: {{ include "opni.namespace" . }}
+  provider: {{ .Values.logging.local.provider }}
+---
+apiVersion: logging.opni.io/v1beta1
+kind: ClusterFlow
+metadata:
+  name: opni-flow
+  namespace: {{ include "opni.namespace" . }}
+spec:
+  filters:
+  - dedot:
+      de_dot_nested: true
+      de_dot_separator: '-'
+  - grep:
+      exclude:
+      - key: log
+        pattern: ^\n$
+  - detectExceptions:
+      languages:
+      - java
+      - python
+      - go
+      - ruby
+      - js
+      - csharp
+      - php
+      multiline_flush_interval: "0.1"
+  - record_transformer:
+      records:
+      - cluster_id: local
+  globalOutputRefs:
+  - opni-output
+  match:
+  - exclude:
+      namespaces:
+      - {{ include "opni.namespace" . }}
+  - select: {}
+---
+apiVersion: logging.opni.io/v1beta1
+kind: ClusterOutput
+metadata:
+  name: opni-output
+  namespace: {{ include "opni.namespace" . }}
+spec:
+  http:
+    buffer:
+      chunk_limit_size: 1mb
+      flush_interval: 2s
+      tags: '[]'
+      timekey: ""
+    content_type: application/json
+    endpoint: http://opni-shipper.{{ include "opni.namespace" . }}:2021/log/ingest
+    json_array: true
+---
+apiVersion: opni.io/v1beta2
+kind: DataPrepper
+metadata:
+  name: opni-shipper
+  namespace: {{ include "opni.namespace" . }}
+spec:
+  username: admin
+  passwordFrom:
+    key: password
+    name: opni-admin-password
+  opensearch:
+    endpoint: https://opni-os-svc.{{ include "opni.namespace" . }}:9200
+    insecureDisableSSLVerify: true
+  cluster: local
+  version: latest
+---
+{{- end }}

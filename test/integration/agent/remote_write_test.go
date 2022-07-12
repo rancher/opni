@@ -59,7 +59,7 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 				return fmt.Errorf("waiting for remote write pending condition")
 			}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 
-			environment.StartPrometheus(port)
+			environment.StartPrometheus(port, nil)
 
 			Eventually(func() error {
 				hs, err := client.GetClusterHealthStatus(context.Background(), &v1.Reference{

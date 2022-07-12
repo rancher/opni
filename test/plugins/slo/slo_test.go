@@ -108,6 +108,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var sloClient apis.SLOClient
 	var adminClient cortexadmin.CortexAdminClient
 	var createdSlos []*corev1.Reference
+	var pPort int
+	var pPort2 int
 	BeforeAll(func() {
 		env = &test.Environment{
 			TestBin: "../../../testbin/bin",
@@ -124,9 +126,10 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Expect(err).NotTo(HaveOccurred())
 
 		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		env.StartPrometheus(p)
+		pPort = env.StartPrometheus(p, nil)
 		p2, _ := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		env.StartPrometheus(p2)
+		pPort2 = env.StartPrometheus(p2, nil)
+		Expect(pPort != 0 && pPort2 != 0).To(BeTrue())
 		sloClient = apis.NewSLOClient(env.ManagementClientConn())
 		adminClient = cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
 	})
@@ -227,8 +230,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				{
 					JobId:         "prometheus",
 					MetricName:    "http-availability",
-					MetricIdGood:  "http_request_duration_seconds_count",
-					MetricIdTotal: "http_request_duration_seconds_count",
+					MetricIdGood:  "prometheus_http_request_duration_seconds_count",
+					MetricIdTotal: "prometheus_http_request_duration_seconds_count",
 					ClusterId:     "agent",
 				},
 			}
@@ -356,9 +359,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			status, err := sloClient.Status(ctx, &corev1.Reference{Id: createdSlos[0].Id})
 			Expect(err).To(Succeed())
+			// No HTTP requests are made agaisnt prometheus yet, so the status should be empty
 			Expect(status.State).To(Equal(apis.SLOStatusState_NoData))
 		})
-
 	})
-
 })

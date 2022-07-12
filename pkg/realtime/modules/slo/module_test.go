@@ -31,7 +31,7 @@ var _ = Describe("SLO RT Module", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		env.StartPrometheus(p)
+		env.StartPrometheus(p, nil)
 	})
 	It("should succeed", func() {
 		//TODO realtime tests

@@ -41,7 +41,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 		Expect(fingerprint).NotTo(BeEmpty())
 
 		port, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
-		promAgentPort := environment.StartPrometheus(port)
+		promAgentPort := environment.StartPrometheus(port, nil)
 		Expect(promAgentPort).NotTo(BeZero())
 		Consistently(errC).ShouldNot(Receive(HaveOccurred()))
 	})

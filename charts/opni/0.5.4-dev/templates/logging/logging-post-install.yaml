@@ -20,7 +20,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: opni-agent
+      serviceAccountName: opni-manager
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -36,7 +36,7 @@ spec:
         - --token={{ .Values.token }}
         - --pin=""
         - --gateway-url=opni-monitoring.{{ include "opni.namespace" . }}:9090
-        - --namespace={{ include "opni-agent.namespace" . }}
+        - --namespace={{ include "opni.namespace" . }}
         - --trust-strategy=insecure
         - --confirm-insecure
         - --opensearch-insecure

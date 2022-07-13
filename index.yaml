@@ -137,13 +137,13 @@ entries:
       catalog.rancher.io/release-name: opni
     apiVersion: v2
     appVersion: 0.5.4-rc4
-    created: "2022-07-13T10:50:55.0967347+12:00"
+    created: "2022-07-13T13:16:50.4932985+12:00"
     dependencies:
     - condition: opni-prometheus-crd.enabled
       name: opni-prometheus-crd
       repository: file://./charts/opni-prometheus-crd
     description: Multi-cluster Monitoring and Logging System
-    digest: a389d241c4849179f26ce45a512e91053d509d476b01b1c6fdbd58d72a83ca4a
+    digest: 26430b7323c7028c49ce9bf98ec87f26459c83aa50280a73f228a57256d7f9d5
     icon: https://raw.githubusercontent.com/rancher/opni-docs/main/docs/assets/icon-opni.svg
     keywords:
     - opni

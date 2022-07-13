@@ -1,0 +1,46 @@
+{{- $versionTag := printf "v%s" .Chart.AppVersion }}
+{{- if (and .Values.logging.enabled .Values.logging.local.enabled) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: opni-logging-bootstrap
+  namespace: {{ include "opni.namespace" . }}
+  labels:
+    {{- include "opni.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  {{- if .Values.logging.jobTTL }}
+  ttlSecondsAfterFinished: {{ .Values.logging.jobTTL }}
+  {{- end }}
+  template:
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: opni-agent
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: bootstrap
+        image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - bootstrap
+        - logging
+        - {{ .Release.Name }}
+        - --in-cluster
+        - --provider={{ .Values.logging.local.provider }}
+        - --token={{ .Values.token }}
+        - --pin=""
+        - --gateway-url=opni-monitoring.{{ include "opni.namespace" . }}:9090
+        - --namespace={{ include "opni-agent.namespace" . }}
+        - --trust-strategy=insecure
+        - --confirm-insecure
+        - --opensearch-insecure
+        - --override-endpoint=https://opni-os-svc.{{ include "opni.namespace" . }}:9200
+      restartPolicy: Never
+  backoffLimit: 3
+{{- end }}

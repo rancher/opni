@@ -1,15 +1,15 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/phayes/freeport"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rancher/opni/pkg/slo/query"
-	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 func noFunc(w http.ResponseWriter, r *http.Request) {}
@@ -25,15 +25,15 @@ func (e *Environment) StartInstrumentationServer() (int, chan bool) {
 	}
 	mux := http.NewServeMux()
 
-	// create handlers for each metric / status pair
-	grpcEnum := sloapi.SLOStatusState_name
-	for queryName := range query.AvailableQueries {
-		for _, enumName := range grpcEnum {
-			if strings.Contains(enumName, "InternalError") || strings.Contains(enumName, "NoData") {
-				continue
-			}
-			mux.HandleFunc(fmt.Sprintf("%s/%s", queryName, enumName), noFunc)
-		}
+	for queryName, queryObj := range query.AvailableQueries {
+		// register each prometheus collector
+		prometheus.MustRegister(queryObj.GetCollector())
+
+		// create an endpoint simulating good events
+		mux.HandleFunc(fmt.Sprintf("/%s/%s", queryName, "good"), queryObj.GetGoodEventGenerator())
+		// create an endpoint simulating bad events
+		mux.HandleFunc(fmt.Sprintf("/%s/%s", queryName, "bad"), queryObj.GetBadEventGenerator())
+
 	}
 	// expose prometheus metrics
 	mux.Handle("/metrics", promhttp.Handler())
@@ -48,7 +48,7 @@ func (e *Environment) StartInstrumentationServer() (int, chan bool) {
 
 	go func() {
 		err := autoInstrumentationServer.ListenAndServe()
-		if err != nil {
+		if err != http.ErrServerClosed {
 			panic(err)
 		}
 	}()
@@ -56,8 +56,7 @@ func (e *Environment) StartInstrumentationServer() (int, chan bool) {
 	go func() {
 		select {
 		case <-done:
-			err := autoInstrumentationServer.Shutdown(nil)
-			panic(err)
+			autoInstrumentationServer.Shutdown(context.Background())
 		}
 	}()
 

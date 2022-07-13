@@ -1,7 +1,6 @@
 package test
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -530,22 +529,28 @@ func (e *Environment) startRealtimeServer() {
 	go srv.Start(e.ctx)
 }
 
+type PrometheusJob struct {
+	JobName    string
+	ScrapePort int
+}
+
 type prometheusTemplateOptions struct {
 	ListenPort    int
 	RTMetricsPort int
 	OpniAgentPort int
+	// these fill in a text/template defined as {{.range Jobs}} /* */ {{end}}
+	Jobs []PrometheusJob
 }
 
 type additionalPrometheusConfig struct {
-	configPath string
-	// config-specific struct that fills the nested templates in the prometheus config file
-	metaTemplateMapper interface{}
+	configContents string
+	jobs           []PrometheusJob
 }
 
-func NewAdditionalPrometheusConfig(configPath string, metaTemplateMapper interface{}) *additionalPrometheusConfig {
+func NewAdditionalPrometheusConfig(configPath string, jobs []PrometheusJob) *additionalPrometheusConfig {
 	return &additionalPrometheusConfig{
-		configPath:         string(TestData(configPath)),
-		metaTemplateMapper: metaTemplateMapper,
+		configContents: string(TestData(configPath)),
+		jobs:           jobs,
 	}
 }
 
@@ -558,32 +563,39 @@ func (e *Environment) StartPrometheus(opniAgentPort int, config *additionalProme
 		panic(err)
 	}
 	var configTemplate string
+	var jobs []PrometheusJob
 	if config == nil {
 		configTemplate = string(TestData("prometheus/config.yaml"))
 	} else {
-		configTemplate = config.configPath
+		configTemplate = config.configContents
+		jobs = config.jobs
 	}
-	t := util.Must(template.New("config").Parse(configTemplate))
+	t, err := template.New("").Parse(configTemplate)
+	if err != nil {
+		panic(err)
+	}
+	e.Logger.Warn(fmt.Sprintf("Starting prometheus... with config %s", configTemplate))
 	configFile, err := os.Create(path.Join(e.tempDir, "prometheus", "config.yaml"))
 	if err != nil {
 		panic(err)
 	}
-	var constructedConfig bytes.Buffer
-	if err := t.Execute(&constructedConfig, prometheusTemplateOptions{
+
+	if err := t.Execute(configFile, prometheusTemplateOptions{
 		ListenPort:    port,
 		OpniAgentPort: opniAgentPort,
 		RTMetricsPort: e.ports.RTMetrics,
+		Jobs:          jobs,
 	}); err != nil {
 		panic(err)
 	}
-	if config != nil { // apply nested templates
-		additionalT := util.Must(template.New("additionalConfig").Parse(constructedConfig.String()))
-		if err := additionalT.Execute(&constructedConfig, config.metaTemplateMapper); err != nil {
-			panic(err)
-		}
-	}
-	configFile.Write(constructedConfig.Bytes())
 
+	convertedContents, err := os.ReadFile(configFile.Name())
+	if err != nil {
+		panic(err)
+	}
+	stringContents := string(convertedContents)
+	fmt.Println(stringContents)
+	e.Logger.Warn(fmt.Sprintf("Converted Config file contents: %s", convertedContents))
 	configFile.Close()
 	prometheusBin := path.Join(e.TestBin, "prometheus")
 	defaultArgs := []string{

@@ -1852,8 +1852,6 @@ github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a h1:I5tncrQ/dxO
 github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a/go.mod h1:ie5ARlfZVi2fyaApaZ/5JFhIs5DaIIFKxwM6rjYa8SE=
 github.com/kralicky/kmatch v0.0.0-20220710233303-ed73989bbe4a h1:RygWXcU1M8e/KflleMFIPAC0xVuf1KPSgDEFBK7q7KQ=
 github.com/kralicky/kmatch v0.0.0-20220710233303-ed73989bbe4a/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
-github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e h1:0HTOxNxXnJy4EV0zRWr37D/N6xWLdQ1GjtgLpts30jw=
-github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
 github.com/kralicky/ragu v1.0.0-beta1.0.20220705184408-b1255c51a140 h1:qzj1Uhmu7AT/SGOlvOs/8GqlnPDfYpKhd5c3xfZHVts=
 github.com/kralicky/ragu v1.0.0-beta1.0.20220705184408-b1255c51a140/go.mod h1:H2uQ5SinwogVJmex8n7tySWN4ue61QjuN9zehJndB2I=
 github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f h1:4RbsbrpC4vlwanS7WNoFpA+ujI4k6GlE/A5VYOVN2TY=

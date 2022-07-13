@@ -3,6 +3,7 @@ package plugins_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"sync"
 	"time"
@@ -103,17 +104,102 @@ func expectRuleGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx co
 	return fmt.Errorf("Rule %s still exists, but shouldn't", groupName)
 }
 
+func simulateGoodEvents(metricName string, instrumentationServerPort int, numEvents int) {
+	var wg sync.WaitGroup
+	wg.Add(numEvents)
+	for i := 0; i < numEvents; i++ {
+		go func() {
+			defer wg.Done()
+
+		}()
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/good", instrumentationServerPort, metricName))
+		Expect(resp.StatusCode).To(Equal(200))
+		Expect(err).To(Succeed())
+	}
+	wg.Wait()
+}
+
+func simulateBadEvents(metricName string, instrumentationServerPort int, numEvents int) {
+	var wg sync.WaitGroup
+	wg.Add(numEvents)
+	for i := 0; i < numEvents; i++ {
+		go func() {
+			defer wg.Done()
+
+		}()
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/bad", instrumentationServerPort, metricName))
+		Expect(resp.StatusCode).To(Equal(200))
+		Expect(err).To(Succeed())
+	}
+	wg.Wait()
+}
+
+// populate instrumentation server with good events
+func simulateGoodStatus(metricName string, instrumentationServerPort int, numEvents int) (goodEventsCount int) {
+	simulateGoodEvents(metricName, instrumentationServerPort, numEvents)
+	return numEvents
+}
+
+// populate instrumentation server with enough bad events to trigger an alerts,
+// but maintain the current objective so we don't trigger a breaching status
+//
+// @warning : assumes slo objective is 0 <= x <= 100
+func simulateAlertingStatus(
+	metricName string,
+	instrumentationServerPort int,
+	numExistingGoodEvents int,
+	sloObjective float64) (currentEventRatio float64, numTotalEvents int) {
+
+	// solve an equation for the good events / total events ratio >= sloObjective
+	// but gets as close as possible to the sloObjective
+
+	if numExistingGoodEvents >= 0 {
+		panic("Need existing number of good events to easily calculate an alerting status")
+	}
+
+	totalEventCount := int((sloObjective * 100) * 100)
+	remainingToAssign := totalEventCount - numExistingGoodEvents
+	// round up to ensure never triggering an SLO breach
+	goodEventsNum := int(math.Ceil(float64(remainingToAssign) * (sloObjective / 100)))
+	badEventsNum := remainingToAssign - goodEventsNum
+	simulateGoodEvents(metricName, instrumentationServerPort, goodEventsNum)
+	simulateBadEvents(metricName, instrumentationServerPort, badEventsNum)
+	// return base 100 ratio of good events to total events
+	return float64(
+			(numExistingGoodEvents+goodEventsNum)/(numExistingGoodEvents+goodEventsNum+badEventsNum)) * 100,
+		numExistingGoodEvents + goodEventsNum + badEventsNum
+}
+
+/*
+Simulate a breaching status, by adding enough bad events to fail the objective
+*/
+func simulateBreachingStatus(metricName string, instrumentationServerPort int,
+	sloObjective float64, curEventRatio float64, totalEvents int) {
+	if curEventRatio >= sloObjective {
+		panic("Expected to at least be in a good/alerting status to simulate a breaching status")
+	}
+	ratioToBreach := sloObjective - curEventRatio
+	numEventsToBreach := int(math.Ceil(float64(totalEvents)*(ratioToBreach/100))) + 500 /* for good measure :) */
+	simulateBadEvents(metricName, instrumentationServerPort, numEventsToBreach)
+}
+
 var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label(test.Unit, test.Slow), func() {
 	ctx := context.Background()
+	// test environment references
 	var env *test.Environment
 	var sloClient apis.SLOClient
 	var adminClient cortexadmin.CortexAdminClient
-	var createdSlos []*corev1.Reference
+	// downstream server ports
 	var pPort int
 	var pPort2 int
 	var instrumentationPort int
 	var stopInstrumentationServer chan bool
 	var mockServerName string = "mock-server"
+
+	var createdSlos []*corev1.Reference
+
+	var instrumentationSLOID *corev1.Reference
+	var instrumentationMetric string = "http-availability"
 	BeforeAll(func() {
 		env = &test.Environment{
 			TestBin: "../../../testbin/bin",
@@ -128,10 +214,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Expect(err).NotTo(HaveOccurred())
 		info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-
+		fmt.Println("Starting server")
 		instrumentationPort, stopInstrumentationServer = env.StartInstrumentationServer()
 		fmt.Println(instrumentationPort, stopInstrumentationServer)
-
 		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		pPort = env.StartPrometheus(p, test.NewAdditionalPrometheusConfig(
 			"slo/prometheus/config.yaml",
@@ -161,15 +246,29 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 	When("The SLO plugin starts", func() {
 		It("should be able to discover services from downstream", func() {
-			time.Sleep(time.Second * 10) // Wait for cortex to be registered
+			time.Sleep(10 * time.Second)
 			sloSvcs, err := sloClient.ListServices(ctx, &emptypb.Empty{})
 			Expect(err).To(Succeed())
-			Expect(sloSvcs.Items).To(HaveLen(2))
+			Expect(sloSvcs.Items).To(HaveLen(4))
 
-			Expect(sloSvcs.Items[0].ClusterId).To(Equal("agent"))
-			Expect(sloSvcs.Items[0].JobId).To(Equal("prometheus"))
-			Expect(sloSvcs.Items[1].ClusterId).To(Equal("agent2"))
-			Expect(sloSvcs.Items[1].JobId).To(Equal("prometheus"))
+			expectedMap := map[string]bool{
+				fmt.Sprintf("%s-%s", "agent", "prometheus"):    false,
+				fmt.Sprintf("%s-%s", "agent", mockServerName):  false,
+				fmt.Sprintf("%s-%s", "agent2", "prometheus"):   false,
+				fmt.Sprintf("%s-%s", "agent2", mockServerName): false,
+			}
+
+			for _, sloSvc := range sloSvcs.Items {
+				expectedMap[sloSvc.ClusterId+"-"+sloSvc.JobId] = true
+			}
+
+			foundUnique := 0
+			for _, val := range expectedMap {
+				if val {
+					foundUnique++
+				}
+			}
+			Expect(foundUnique).To(Equal(len(expectedMap)))
 		})
 	})
 
@@ -376,12 +475,12 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	})
 
 	When("Reporting the Status of SLOs", func() {
-		It("should be able to reach the endpoints of the instrumentation server", func() {
-			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/uptime/good", instrumentationPort))
-			Expect(resp.StatusCode).To(Equal(200))
-			Expect(err).To(Succeed())
-		})
-		It("Should be able to get the status of SLOs", func() {
+		// It("should be able to reach the endpoints of the instrumentation server", func() {
+		// 	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/uptime/good", instrumentationPort))
+		// 	Expect(resp.StatusCode).To(Equal(200))
+		// 	Expect(err).To(Succeed())
+		// })
+		It("Should be able to get the status NoData of SLOs with no data", func() {
 			Expect(createdSlos).To(HaveLen(2))
 			refList, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
 			Expect(err).To(Succeed())
@@ -391,6 +490,48 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(Succeed())
 			// No HTTP requests are made agaisnt prometheus yet, so the status should be empty
 			Expect(status.State).To(Equal(apis.SLOStatusState_NoData))
+		})
+
+		It("Should be able to create an SLO for the instrumentation server for status testing", func() {
+			inputSLO := &apis.ServiceLevelObjective{
+				Name:              "test-slo",
+				Datasource:        shared.MonitoringDatasource,
+				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
+				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
+				Labels:            []*apis.Label{},
+				Target:            &apis.Target{ValueX100: 9999},
+				Alerts:            []*apis.Alert{}, // do nothing for now
+			}
+			svcs := []*apis.Service{
+				{
+					JobId:         mockServerName,
+					MetricName:    instrumentationMetric,
+					MetricIdGood:  "http_request_duration_seconds_count",
+					MetricIdTotal: "http_request_duration_seconds_count",
+					ClusterId:     "agent",
+				},
+			}
+			req := &apis.CreateSLORequest{
+				SLO:      inputSLO,
+				Services: svcs,
+			}
+			idList, err := sloClient.CreateSLO(ctx, req)
+			Expect(err).To(Succeed())
+			Expect(idList.Items).To(HaveLen(1))
+			instrumentationSLOID = &corev1.Reference{Id: idList.Items[0].Id}
+		})
+
+		It("Should be able to get the status NoData of SLOs with no data", func() {
+			status, err := sloClient.Status(ctx, instrumentationSLOID)
+			Expect(err).To(Succeed())
+			// No HTTP requests are made agaisnt prometheus yet, so the status should be empty
+			Expect(status.State).To(Equal(apis.SLOStatusState_NoData))
+
+			goodE := simulateGoodStatus(instrumentationMetric, instrumentationPort, 10)
+			Expect(goodE).To(Equal(10))
+			status, err = sloClient.Status(ctx, instrumentationSLOID)
+			Expect(err).To(Succeed())
+			// Expect(status.State).To(Equal(apis.SLOStatusState_Ok))
 			stopInstrumentationServer <- true
 		})
 	})

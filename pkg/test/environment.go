@@ -574,7 +574,6 @@ func (e *Environment) StartPrometheus(opniAgentPort int, config *additionalProme
 	if err != nil {
 		panic(err)
 	}
-	e.Logger.Warn(fmt.Sprintf("Starting prometheus... with config %s", configTemplate))
 	configFile, err := os.Create(path.Join(e.tempDir, "prometheus", "config.yaml"))
 	if err != nil {
 		panic(err)
@@ -589,13 +588,6 @@ func (e *Environment) StartPrometheus(opniAgentPort int, config *additionalProme
 		panic(err)
 	}
 
-	convertedContents, err := os.ReadFile(configFile.Name())
-	if err != nil {
-		panic(err)
-	}
-	stringContents := string(convertedContents)
-	fmt.Println(stringContents)
-	e.Logger.Warn(fmt.Sprintf("Converted Config file contents: %s", convertedContents))
 	configFile.Close()
 	prometheusBin := path.Join(e.TestBin, "prometheus")
 	defaultArgs := []string{

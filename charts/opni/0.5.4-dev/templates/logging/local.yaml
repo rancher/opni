@@ -1,0 +1,287 @@
+{{- if (and .Values.logging.enabled .Values.logging.local.enabled) }}
+---
+apiVersion: opni.io/v1beta2
+kind: LogAdapter
+metadata:
+  name: opni-local
+spec:
+  controlNamespace: {{ include "opni.namespace" . }}
+  provider: {{ .Values.logging.local.provider }}
+  containerLogDir: /var/lib/docker/containers
+  fluentConfig:
+    fluentbit:
+      bufferStorage:
+        storage.path: /buffers
+      bufferStorageVolume: {}
+      coroStackSize: 24576
+      filterKubernetes: {}
+      flush: 1
+      forwardOptions:
+        Retry_Limit: "False"
+      grace: 5
+      image:
+        pullPolicy: IfNotPresent
+        repository: rancher/mirrored-fluent-fluent-bit
+        tag: 1.7.4
+      inputTail:
+        DB: /tail-db/tail-containers-state.db
+        Mem_Buf_Limit: 5MB
+        Path: /var/log/containers/*.log
+        Refresh_Interval: "5"
+        Skip_Long_Lines: "On"
+        Tag: kubernetes.*
+      logLevel: info
+      mountPath: /var/lib/docker/containers
+      positiondb: {}
+      resources:
+        limits:
+          cpu: 200m
+          memory: 100M
+        requests:
+          cpu: 100m
+          memory: 50M
+      security:
+        podSecurityContext: {}
+        podSecurityPolicyCreate: true
+        roleBasedAccessControlCreate: true
+        securityContext: {}
+      tls:
+        enabled: false
+    fluentd:
+      bufferStorageVolume: {}
+      bufferVolumeImage:
+        pullPolicy: IfNotPresent
+        repository: quay.io/prometheus/node-exporter
+        tag: v1.1.2
+      configCheckResources: {}
+      configReloaderImage:
+        pullPolicy: IfNotPresent
+        repository: rancher/mirrored-jimmidyson-configmap-reload
+        tag: v0.4.0
+      configReloaderResources: {}
+      disablePvc: true
+      fluentLogDestination: "null"
+      fluentOutLogrotate:
+        age: "10"
+        enabled: true
+        path: /fluentd/log/out
+        size: "10485760"
+      image:
+        pullPolicy: IfNotPresent
+        repository: quay.io/dbason/banzaicloud-fluentd
+        tag: alpine-1.13-2
+      livenessProbe:
+        initialDelaySeconds: 30
+        periodSeconds: 15
+        tcpSocket:
+          port: 24240
+      port: 24240
+      readinessDefaultCheck:
+        failureThreshold: 1
+        initialDelaySeconds: 5
+        periodSeconds: 30
+        successThreshold: 3
+        timeoutSeconds: 3
+      resources:
+        limits:
+          cpu: "1"
+          memory: 400M
+        requests:
+          cpu: 500m
+          memory: 100M
+      scaling:
+        drain:
+          image:
+            pullPolicy: IfNotPresent
+            repository: ghcr.io/banzaicloud/fluentd-drain-watch
+            tag: v0.0.1
+          pauseImage:
+            pullPolicy: IfNotPresent
+            repository: k8s.gcr.io/pause
+            tag: latest
+        podManagementPolicy: OrderedReady
+      security:
+        podSecurityContext:
+          fsGroup: 101
+        podSecurityPolicyCreate: true
+        roleBasedAccessControlCreate: true
+        securityContext: {}
+      tls:
+        enabled: false
+      volumeModImage:
+        pullPolicy: IfNotPresent
+        repository: busybox
+        tag: latest
+  rootFluentConfig:
+    fluentbit:
+      bufferStorage:
+        storage.path: /buffers
+      bufferStorageVolume: {}
+      coroStackSize: 24576
+      filterKubernetes: {}
+      flush: 1
+      forwardOptions:
+        Retry_Limit: "False"
+      grace: 5
+      image:
+        pullPolicy: IfNotPresent
+        repository: rancher/mirrored-fluent-fluent-bit
+        tag: 1.7.4
+      inputTail:
+        DB: /tail-db/tail-containers-state.db
+        Mem_Buf_Limit: 5MB
+        Path: /var/log/containers/*.log
+        Refresh_Interval: "5"
+        Skip_Long_Lines: "On"
+        Tag: kubernetes.*
+      logLevel: info
+      mountPath: /var/lib/docker/containers
+      positiondb: {}
+      resources:
+        limits:
+          cpu: 200m
+          memory: 100M
+        requests:
+          cpu: 100m
+          memory: 50M
+      security:
+        podSecurityContext: {}
+        podSecurityPolicyCreate: true
+        roleBasedAccessControlCreate: true
+        securityContext: {}
+      tls:
+        enabled: false
+    fluentd:
+      bufferStorageVolume: {}
+      bufferVolumeImage:
+        pullPolicy: IfNotPresent
+        repository: quay.io/prometheus/node-exporter
+        tag: v1.1.2
+      configCheckResources: {}
+      configReloaderImage:
+        pullPolicy: IfNotPresent
+        repository: rancher/mirrored-jimmidyson-configmap-reload
+        tag: v0.4.0
+      configReloaderResources: {}
+      disablePvc: true
+      fluentLogDestination: "null"
+      fluentOutLogrotate:
+        age: "10"
+        enabled: true
+        path: /fluentd/log/out
+        size: "10485760"
+      image:
+        pullPolicy: IfNotPresent
+        repository: quay.io/dbason/banzaicloud-fluentd
+        tag: alpine-1.13-2
+      livenessProbe:
+        initialDelaySeconds: 30
+        periodSeconds: 15
+        tcpSocket:
+          port: 24240
+      port: 24240
+      readinessDefaultCheck:
+        failureThreshold: 1
+        initialDelaySeconds: 5
+        periodSeconds: 30
+        successThreshold: 3
+        timeoutSeconds: 3
+      resources:
+        limits:
+          cpu: "1"
+          memory: 400M
+        requests:
+          cpu: 500m
+          memory: 100M
+      scaling:
+        drain:
+          image:
+            pullPolicy: IfNotPresent
+            repository: ghcr.io/banzaicloud/fluentd-drain-watch
+            tag: v0.0.1
+          pauseImage:
+            pullPolicy: IfNotPresent
+            repository: k8s.gcr.io/pause
+            tag: latest
+        podManagementPolicy: OrderedReady
+      security:
+        podSecurityContext:
+          fsGroup: 101
+        podSecurityPolicyCreate: true
+        roleBasedAccessControlCreate: true
+        securityContext: {}
+      tls:
+        enabled: false
+      volumeModImage:
+        pullPolicy: IfNotPresent
+        repository: busybox
+        tag: latest
+---
+apiVersion: logging.opni.io/v1beta1
+kind: ClusterFlow
+metadata:
+  name: opni-flow
+  namespace: {{ include "opni.namespace" . }}
+spec:
+  filters:
+  - dedot:
+      de_dot_nested: true
+      de_dot_separator: '-'
+  - grep:
+      exclude:
+      - key: log
+        pattern: ^\n$
+  - detectExceptions:
+      languages:
+      - java
+      - python
+      - go
+      - ruby
+      - js
+      - csharp
+      - php
+      multiline_flush_interval: "0.1"
+  - record_transformer:
+      records:
+      - cluster_id: local
+  globalOutputRefs:
+  - opni-output
+  match:
+  - exclude:
+      namespaces:
+      - {{ include "opni.namespace" . }}
+  - select: {}
+---
+apiVersion: logging.opni.io/v1beta1
+kind: ClusterOutput
+metadata:
+  name: opni-output
+  namespace: {{ include "opni.namespace" . }}
+spec:
+  http:
+    buffer:
+      chunk_limit_size: 1mb
+      flush_interval: 2s
+      tags: '[]'
+      timekey: ""
+    content_type: application/json
+    endpoint: http://opni-shipper.{{ include "opni.namespace" . }}:2021/log/ingest
+    json_array: true
+---
+apiVersion: opni.io/v1beta2
+kind: DataPrepper
+metadata:
+  name: opni-shipper
+  namespace: {{ include "opni.namespace" . }}
+spec:
+  username: admin
+  passwordFrom:
+    key: password
+    name: opni-admin-password
+  opensearch:
+    endpoint: https://opni-os-svc.{{ include "opni.namespace" . }}:9200
+    insecureDisableSSLVerify: true
+  cluster: local
+  version: latest
+---
+{{- end }}

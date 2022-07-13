@@ -7,6 +7,11 @@ import (
 	prommodel "github.com/prometheus/common/model"
 )
 
+// rule labels
+const (
+	sloOpniIdLabel = "slo_opni_id"
+)
+
 const (
 	tplKeyWindow = "window"
 )

@@ -15,6 +15,7 @@ import (
 	"github.com/alexandreLamarre/sloth/core/alert"
 	"github.com/alexandreLamarre/sloth/core/info"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
+	"github.com/gofrs/uuid"
 	"github.com/hashicorp/go-hclog"
 	"github.com/prometheus/prometheus/model/rulefmt"
 )
@@ -39,6 +40,7 @@ type SLORuleFmtWrapper struct {
 	SLIrules   []rulefmt.Rule
 	MetaRules  []rulefmt.Rule
 	AlertRules []rulefmt.Rule
+	ActualId   string
 }
 
 /// Reference : https://github.com/slok/sloth/blob/481c16f6602731d628dcbf6051e74c80cdc1acb2/internal/alert/alert.go#L30
@@ -378,10 +380,26 @@ func GenerateSLO(slo prometheus.SLO, budgetingInterval time.Duration, ctx contex
 }
 
 // Returns the same number of SLORuleWrappers as the number of SLOGroups
-func GeneratePrometheusNoSlothGenerator(slos *prometheus.SLOGroup, budgetingInterval time.Duration, ctx context.Context, lg hclog.Logger) ([]SLORuleFmtWrapper, error) {
+func GeneratePrometheusNoSlothGenerator(
+	slos *prometheus.SLOGroup,
+	budgetingInterval time.Duration, existingId string,
+	ctx context.Context, lg hclog.Logger) ([]SLORuleFmtWrapper, error) {
 	res := make([]SLORuleFmtWrapper, 0)
 	for _, slo := range slos.SLOs {
-		extraLabels := map[string]string{}
+
+		// Generate the UUID for the SLO if we have no existing id
+		if existingId == "" {
+			uuid, err := uuid.NewV4()
+			if err != nil {
+				return nil, err
+			}
+			existingId = uuid.String()
+		}
+
+		extraLabels := map[string]string{
+			// this becomes the unique id for the SLO, needed for querying it
+			sloOpniIdLabel: existingId,
+		}
 		slo.Labels = MergeLabels(slo.Labels, extraLabels)
 		i := info.Info{}
 
@@ -389,6 +407,8 @@ func GeneratePrometheusNoSlothGenerator(slos *prometheus.SLOGroup, budgetingInte
 		if err != nil {
 			return nil, err
 		}
+
+		result.ActualId = existingId
 		res = append(res, *result)
 	}
 	return res, nil

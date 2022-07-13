@@ -116,7 +116,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 		s.ctx,
 		&cortexadmin.QueryRequest{
 			Tenants: []string{existing.Service.ClusterId},
-			Query:   "slo:sli_error:ratio_rate5m",
+			Query:   fmt.Sprintf("slo:sli_error:ratio_rate5m{%s=\"%s\"}", sloOpniIdLabel, existing.Id),
 		},
 	)
 	if err != nil {

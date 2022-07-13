@@ -617,7 +617,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int, config *additionalProme
 		}
 		time.Sleep(time.Second)
 	}
-	lg.Info("Prometheus started")
+	lg.Info(fmt.Sprintf("Prometheus started http://localhost:%d", port))
 	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
 		session.Wait()

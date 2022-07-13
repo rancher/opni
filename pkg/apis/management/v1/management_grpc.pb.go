@@ -49,6 +49,12 @@ type ManagementClient interface {
 	UpdateConfig(ctx context.Context, in *UpdateConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListCapabilities(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityList, error)
 	CapabilityInstaller(ctx context.Context, in *CapabilityInstallerRequest, opts ...grpc.CallOption) (*CapabilityInstallerResponse, error)
+	CreateAlertEvent(ctx context.Context, in *AlertEvent, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// id is the unix epoch timestamp of the alert
+	GetAlertEvent(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListAlertEvents(ctx context.Context, in *ListAlertEventRequest, opts ...grpc.CallOption) (*AlertEventList, error)
+	UpdateAlertEvent(ctx context.Context, in *UpdateAlertEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteAlertEvent(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type managementClient struct {
@@ -307,6 +313,51 @@ func (c *managementClient) CapabilityInstaller(ctx context.Context, in *Capabili
 	return out, nil
 }
 
+func (c *managementClient) CreateAlertEvent(ctx context.Context, in *AlertEvent, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/CreateAlertEvent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) GetAlertEvent(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/GetAlertEvent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) ListAlertEvents(ctx context.Context, in *ListAlertEventRequest, opts ...grpc.CallOption) (*AlertEventList, error) {
+	out := new(AlertEventList)
+	err := c.cc.Invoke(ctx, "/management.Management/ListAlertEvents", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) UpdateAlertEvent(ctx context.Context, in *UpdateAlertEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/UpdateAlertEvent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) DeleteAlertEvent(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/DeleteAlertEvent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ManagementServer is the server API for Management service.
 // All implementations must embed UnimplementedManagementServer
 // for forward compatibility
@@ -336,6 +387,12 @@ type ManagementServer interface {
 	UpdateConfig(context.Context, *UpdateConfigRequest) (*emptypb.Empty, error)
 	ListCapabilities(context.Context, *emptypb.Empty) (*CapabilityList, error)
 	CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error)
+	CreateAlertEvent(context.Context, *AlertEvent) (*emptypb.Empty, error)
+	// id is the unix epoch timestamp of the alert
+	GetAlertEvent(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	ListAlertEvents(context.Context, *ListAlertEventRequest) (*AlertEventList, error)
+	UpdateAlertEvent(context.Context, *UpdateAlertEventRequest) (*emptypb.Empty, error)
+	DeleteAlertEvent(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	mustEmbedUnimplementedManagementServer()
 }
 
@@ -417,6 +474,21 @@ func (UnimplementedManagementServer) ListCapabilities(context.Context, *emptypb.
 }
 func (UnimplementedManagementServer) CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CapabilityInstaller not implemented")
+}
+func (UnimplementedManagementServer) CreateAlertEvent(context.Context, *AlertEvent) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertEvent not implemented")
+}
+func (UnimplementedManagementServer) GetAlertEvent(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAlertEvent not implemented")
+}
+func (UnimplementedManagementServer) ListAlertEvents(context.Context, *ListAlertEventRequest) (*AlertEventList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAlertEvents not implemented")
+}
+func (UnimplementedManagementServer) UpdateAlertEvent(context.Context, *UpdateAlertEventRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateAlertEvent not implemented")
+}
+func (UnimplementedManagementServer) DeleteAlertEvent(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertEvent not implemented")
 }
 func (UnimplementedManagementServer) mustEmbedUnimplementedManagementServer() {}
 
@@ -884,6 +956,96 @@ func _Management_CapabilityInstaller_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Management_CreateAlertEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AlertEvent)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).CreateAlertEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/CreateAlertEvent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).CreateAlertEvent(ctx, req.(*AlertEvent))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_GetAlertEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).GetAlertEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/GetAlertEvent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).GetAlertEvent(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_ListAlertEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAlertEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).ListAlertEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/ListAlertEvents",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).ListAlertEvents(ctx, req.(*ListAlertEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_UpdateAlertEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAlertEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).UpdateAlertEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/UpdateAlertEvent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).UpdateAlertEvent(ctx, req.(*UpdateAlertEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_DeleteAlertEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).DeleteAlertEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/DeleteAlertEvent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).DeleteAlertEvent(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Management_ServiceDesc is the grpc.ServiceDesc for Management service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -986,6 +1148,26 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CapabilityInstaller",
 			Handler:    _Management_CapabilityInstaller_Handler,
+		},
+		{
+			MethodName: "CreateAlertEvent",
+			Handler:    _Management_CreateAlertEvent_Handler,
+		},
+		{
+			MethodName: "GetAlertEvent",
+			Handler:    _Management_GetAlertEvent_Handler,
+		},
+		{
+			MethodName: "ListAlertEvents",
+			Handler:    _Management_ListAlertEvents_Handler,
+		},
+		{
+			MethodName: "UpdateAlertEvent",
+			Handler:    _Management_UpdateAlertEvent_Handler,
+		},
+		{
+			MethodName: "DeleteAlertEvent",
+			Handler:    _Management_DeleteAlertEvent_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

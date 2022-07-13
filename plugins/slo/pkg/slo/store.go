@@ -3,7 +3,6 @@ package slo
 import (
 	"context"
 	"fmt"
-	"os"
 
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/hashicorp/go-hclog"
@@ -68,7 +67,6 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 		Name:  fmt.Sprintf("%s%s", sloId, RecordingRuleSuffix),
 		Rules: recording,
 	})
-	os.WriteFile(fmt.Sprintf("%s%s.yaml", sloId, RecordingRuleSuffix), rrecording, 0644)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +75,6 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 		Name:  fmt.Sprintf("%s%s", sloId, MetadataRuleSuffix),
 		Rules: metadata,
 	})
-	os.WriteFile(fmt.Sprintf("%s%s.yaml", sloId, MetadataRuleSuffix), rmetadata, 0644)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +83,6 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 		Name:  fmt.Sprintf("%s%s", sloId, AlertRuleSuffix),
 		Rules: alerts,
 	})
-	os.WriteFile(fmt.Sprintf("%s%s.yaml", sloId, AlertRuleSuffix), rmetadata, 0644)
 	if err != nil {
 		return nil, err
 	}

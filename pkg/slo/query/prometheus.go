@@ -6,18 +6,23 @@ to the SLO api.
 */
 
 import (
+	"net/http"
 	"regexp"
 
+	"github.com/prometheus/client_golang/prometheus"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 type PrometheusQueryImpl struct {
-	name        string
-	GoodQuery   Query
-	TotalQuery  Query
-	LabelRegex  regexp.Regexp
-	datasource  string
-	description string
+	name          string
+	GoodQuery     Query
+	TotalQuery    Query
+	LabelRegex    regexp.Regexp
+	datasource    string
+	description   string
+	collector     prometheus.Collector
+	goodEventsGen func(w http.ResponseWriter, r *http.Request)
+	badEventsGen  func(w http.ResponseWriter, r *http.Request)
 }
 
 // The actual metricId and window are only known at SLO creation time
@@ -51,4 +56,15 @@ func (p *PrometheusQueryImpl) GetGoodQuery() Query {
 
 func (p *PrometheusQueryImpl) GetTotalQuery() Query {
 	return p.TotalQuery
+}
+
+func (p *PrometheusQueryImpl) GetCollector() prometheus.Collector {
+	return p.collector
+}
+
+func (p *PrometheusQueryImpl) GetGoodEventGenerator() func(w http.ResponseWriter, r *http.Request) {
+	return p.goodEventsGen
+}
+func (p *PrometheusQueryImpl) GetBadEventGenerator() func(w http.ResponseWriter, r *http.Request) {
+	return p.badEventsGen
 }

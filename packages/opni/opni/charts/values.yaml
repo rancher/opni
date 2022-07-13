@@ -168,6 +168,10 @@ logging:
       # JVM memory setting should be half the memory limit
       jvm: "-Xmx1G -Xms1G"
 
+  local:
+    enabled: true
+    provider: eks
+
   dashboards:
     image:
       repository: rancher/opensearch-dashboards

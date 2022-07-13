@@ -39,4 +39,4 @@ esac
 
 pulumi up --stack "${PULUMI_STACK}" --yes
 
-pulumi stack output -j --show-secrets > /outputs.json || echo '{}' > /outputs.json
+pulumi stack output -j > /outputs.json || echo '{}' > /outputs.json

@@ -17,11 +17,15 @@ scrape_configs:
           - "localhost:{{ .ListenPort }}"
           - "localhost:{{ .RTMetricsPort }}"
   
-  - job_name: "mock_server"
+  {{range .Jobs}}
+  - job_name: "{{ .JobName }}"
+  # metrics_path defaults to '/metrics'
+  # scheme defaults to 'http'.
 
     static_configs:
       - targets:
-          - "localhost:{{ .MockPort }}"
+          - "localhost:{{ .ScrapePort }}"
+  {{end}}
 
 # When running prometheus in Agent mode, remote-write is required.
 remote_write:

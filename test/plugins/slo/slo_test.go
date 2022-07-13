@@ -3,6 +3,7 @@ package plugins_test
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -110,6 +111,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var createdSlos []*corev1.Reference
 	var pPort int
 	var pPort2 int
+	var instrumentationPort int
+	var stopInstrumentationServer chan bool
+	var mockServerName string = "mock-server"
 	BeforeAll(func() {
 		env = &test.Environment{
 			TestBin: "../../../testbin/bin",
@@ -125,13 +129,34 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 
+		instrumentationPort, stopInstrumentationServer = env.StartInstrumentationServer()
+		fmt.Println(instrumentationPort, stopInstrumentationServer)
+
 		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		pPort = env.StartPrometheus(p, nil)
+		pPort = env.StartPrometheus(p, test.NewAdditionalPrometheusConfig(
+			"slo/prometheus/config.yaml",
+			[]test.PrometheusJob{
+				{
+					JobName:    mockServerName,
+					ScrapePort: instrumentationPort,
+				},
+			},
+		))
 		p2, _ := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		pPort2 = env.StartPrometheus(p2, nil)
+		pPort2 = env.StartPrometheus(p2, test.NewAdditionalPrometheusConfig(
+			"slo/prometheus/config.yaml",
+			[]test.PrometheusJob{
+				{
+					JobName:    mockServerName,
+					ScrapePort: instrumentationPort,
+				},
+			},
+		))
+
 		Expect(pPort != 0 && pPort2 != 0).To(BeTrue())
 		sloClient = apis.NewSLOClient(env.ManagementClientConn())
 		adminClient = cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
+		fmt.Println("Before all done")
 	})
 
 	When("The SLO plugin starts", func() {
@@ -351,6 +376,11 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	})
 
 	When("Reporting the Status of SLOs", func() {
+		It("should be able to reach the endpoints of the instrumentation server", func() {
+			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/uptime/good", instrumentationPort))
+			Expect(resp.StatusCode).To(Equal(200))
+			Expect(err).To(Succeed())
+		})
 		It("Should be able to get the status of SLOs", func() {
 			Expect(createdSlos).To(HaveLen(2))
 			refList, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
@@ -361,6 +391,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(Succeed())
 			// No HTTP requests are made agaisnt prometheus yet, so the status should be empty
 			Expect(status.State).To(Equal(apis.SLOStatusState_NoData))
+			stopInstrumentationServer <- true
 		})
 	})
+
 })

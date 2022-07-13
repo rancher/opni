@@ -38,8 +38,8 @@ docs/.hugo_build.lock
 web/dist/
 
 # Chart builds
-assets/
-charts/
+/assets/
+/charts/
 index.yaml
 
 # terraform

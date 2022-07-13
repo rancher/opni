@@ -15,7 +15,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.33
 	github.com/banzaicloud/logging-operator v0.0.0-20220225205714-b06e7ad17676
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.19
-	github.com/banzaicloud/operator-tools v0.28.2
+	github.com/banzaicloud/operator-tools v0.28.5
 	github.com/bmatcuk/doublestar/v4 v4.0.2
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cert-manager/cert-manager v1.8.0
@@ -44,7 +44,7 @@ require (
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.10.4-0.20220705182157-3104b406871b
 	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
-	github.com/kralicky/kmatch v0.0.0-20220516173937-745c3d52252c
+	github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e
 	github.com/kralicky/ragu v1.0.0-beta1.0.20220705184408-b1255c51a140
 	github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f
 	github.com/kralicky/totem v1.0.1-0.20220620223146-99d6bdcbff46
@@ -485,7 +485,7 @@ replace (
 	github.com/grafana/cortex-tools => github.com/kralicky/cortex-tools v0.10.8-0.20220627221302-78f58c901de0
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
 	go.uber.org/zap => github.com/kralicky/zap v1.21.1-0.20220517214003-da0ae127f4db
-	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220427221203-1428ac8c22eb
+	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220711232325-352be96017bf
 )
 
 // Cortex replacements

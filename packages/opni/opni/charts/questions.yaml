@@ -320,6 +320,23 @@ questions:
         - LoadBalancer
         - NodePort
         - ClusterIP
+    - variable: logging.local.enabled
+      type: boolean
+      default: false
+      label: "Ship logs from local cluster to Opni Logging"
+    - variable: logging.local.provider
+      show_if: "logging.local.enabled=true"
+      type: enum
+      default: "generic"
+      label: "Kubernetes Provider"
+      options:
+      - eks
+      - aks
+      - gce
+      - rke
+      - rke2
+      - k3s
+      - generic
   - variable: ai.enabled
     type: boolean
     default: "false"

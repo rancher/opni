@@ -10,6 +10,7 @@ import (
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
 	"universe.dagger.io/python"
+	"universe.dagger.io/x/david@rawkode.dev/pulumi"
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
 	"github.com/rancher/opni/internal/util"
@@ -19,22 +20,27 @@ import (
 dagger.#Plan & {
 	client: {
 		env: {
-			GINKGO_LABEL_FILTER: string | *""
-			DRONE:               string | *""
-			KUBECONFIG:          string | *""
-			TAG:                 string | *"latest"
-			REPO:                string | *"rancher"
-			OPNI_UI_REPO:        string | *"rancher/opni-ui"
-			OPNI_UI_BRANCH:      string | *"main"
-			OPNI_UI_BUILD_IMAGE: string | *"rancher/opni-monitoring-ui-build"
-			DASHBOARDS_VERSION:  string | *"1.3.1"
-			OPENSEARCH_VERSION:  string | *"1.3.1"
-			PLUGIN_VERSION:      string | *"0.5.3"
-			PLUGIN_PUBLISH:      string | *"0.5.4-rc3"
-			DOCKER_USERNAME?:    string
-			DOCKER_PASSWORD?:    dagger.#Secret
-			TWINE_USERNAME:      string | *"__token__"
-			TWINE_PASSWORD?:     dagger.#Secret
+			GINKGO_LABEL_FILTER:    string | *""
+			DRONE:                  string | *""
+			KUBECONFIG:             string | *""
+			TAG:                    string | *"latest"
+			REPO:                   string | *"rancher"
+			IMAGE_NAME:             string | *"opni"
+			OPNI_UI_REPO:           string | *"rancher/opni-ui"
+			OPNI_UI_BRANCH:         string | *"main"
+			OPNI_UI_BUILD_IMAGE:    string | *"rancher/opni-monitoring-ui-build"
+			DASHBOARDS_VERSION:     string | *"1.3.1"
+			OPENSEARCH_VERSION:     string | *"1.3.1"
+			PLUGIN_VERSION:         string | *"0.5.4-rc4"
+			PLUGIN_PUBLISH:         string | *"0.5.4-rc4"
+			EXPECTED_REF?:          string // used by tilt
+			DOCKER_USERNAME?:       string
+			DOCKER_PASSWORD?:       dagger.#Secret
+			PULUMI_ACCESS_TOKEN?:   dagger.#Secret
+			AWS_ACCESS_KEY_ID?:     dagger.#Secret
+			AWS_SECRET_ACCESS_KEY?: dagger.#Secret
+			TWINE_USERNAME:         string | *"__token__"
+			TWINE_PASSWORD?:        dagger.#Secret
 		}
 		filesystem: {
 			".": read: {
@@ -449,14 +455,6 @@ dagger.#Plan & {
 				env: {
 					TWINE_USERNAME: client.env.TWINE_USERNAME
 					TWINE_PASSWORD: client.env.TWINE_PASSWORD
-			push: docker.#Push & {
-				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
-				image: opensearch.build.output
-				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
-					auth: {
-						username: client.env.DOCKER_USERNAME
-						secret:   client.env.DOCKER_PASSWORD
-					}
 				}
 			}
 			opensearchUpdateService: docker.#Build & {

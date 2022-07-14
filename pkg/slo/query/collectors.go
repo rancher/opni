@@ -21,10 +21,10 @@ var (
 		Name: "uptime_good",
 	}, []string{"hostname", "ip"})
 
-	uptimeGoodEvents = func(w http.ResponseWriter, r *http.Request) {
+	uptimeGoodEvents http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		uptimeCollector.WithLabelValues(r.Host, r.RemoteAddr).Set(1)
 	}
-	uptimeBadEvents = func(w http.ResponseWriter, r *http.Request) {
+	uptimeBadEvents http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		uptimeCollector.WithLabelValues(r.Host, r.RemoteAddr).Set(0)
 	}
 
@@ -33,7 +33,7 @@ var (
 	},
 		[]string{"code"},
 	)
-	availabilityGoodEvents func(w http.ResponseWriter, r *http.Request) = func(w http.ResponseWriter, r *http.Request) {
+	availabilityGoodEvents http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		randomStatusInt1 := rand.Intn(199)
 
 		// anything between 200-399, and yes http status codes dont'work like this
@@ -42,7 +42,7 @@ var (
 		availabilityCollector.WithLabelValues(fmt.Sprintf("%d", randomStatusCode)).Inc()
 	}
 
-	availabilityBadEvents func(w http.ResponseWriter, r *http.Request) = func(w http.ResponseWriter, r *http.Request) {
+	availabilityBadEvents http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		randomStatusInt1 := rand.Intn(199)
 		// anything between 400-599, and yes http status codes dont'work like this
 		randomStatusCode := 400 + randomStatusInt1
@@ -53,13 +53,13 @@ var (
 		Name: "http_request_duration_seconds_bucket",
 	}, []string{"hostname", "ip"})
 
-	latencyGoodEvents func(w http.ResponseWriter, r *http.Request) = func(w http.ResponseWriter, r *http.Request) {
+	latencyGoodEvents http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		// request duration faster than 0.3s / 0.300 ms
 		randLatency := rand.Float64() * 0.29
 		latencyCollector.WithLabelValues(r.Host, r.RemoteAddr).Observe(randLatency)
 	}
 
-	latencyBadEvents func(w http.ResponseWriter, r *http.Request) = func(w http.ResponseWriter, r *http.Request) {
+	latencyBadEvents http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		// request duration slower than 0.3s / 0.300 ms
 		randLatency := rand.Float64() + 0.30
 		latencyCollector.WithLabelValues(r.Host, r.RemoteAddr).Observe(randLatency)

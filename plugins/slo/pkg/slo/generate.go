@@ -15,7 +15,7 @@ import (
 	"github.com/alexandreLamarre/sloth/core/alert"
 	"github.com/alexandreLamarre/sloth/core/info"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	"github.com/hashicorp/go-hclog"
 	"github.com/prometheus/prometheus/model/rulefmt"
 )
@@ -389,7 +389,7 @@ func GeneratePrometheusNoSlothGenerator(
 
 		// Generate the UUID for the SLO if we have no existing id
 		if existingId == "" {
-			uuid, err := uuid.NewV4()
+			uuid, err := uuid.NewUUID()
 			if err != nil {
 				return nil, err
 			}

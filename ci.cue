@@ -342,16 +342,6 @@ dagger.#Plan & {
 					}
 				}
 			}
-			aiops: docker.#Push & {
-				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
-				image: actions.aiops.opensearchUpdateService.output
-				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
-					auth: {
-						username: client.env.DOCKER_USERNAME
-						secret:   client.env.DOCKER_PASSWORD
-					}
-				}
-			}
 		}
 
 		dashboards: {
@@ -480,6 +470,16 @@ dagger.#Plan & {
 						}
 					},
 				]
+			}
+			pushOpensearchImage: docker.#Push & {
+				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
+				image: opensearchUpdateService.output
+				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
 			}
 		}
 	}

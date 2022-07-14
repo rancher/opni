@@ -211,6 +211,10 @@ steps:
     image: docker
     environment:
       <<: *dagger_env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
       TWINE_PASSWORD:
         from_secret: twine_password
     commands:

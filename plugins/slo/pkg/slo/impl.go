@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (s SLOMonitoring) WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore {
+func (s *SLOMonitoring) WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore {
 	s.req = req
 	s.ctx = ctx
 	return s
@@ -102,7 +102,7 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (string, error) {
 	return clone.Id, anyError
 }
 
-// Only return errors here that should be considered servere InternalServerErrors
+// Only return errors here that should be considered severe InternalServerErrors
 //
 // - First Checks if it has NoData
 // - If it has Data, check if it is within budget
@@ -123,7 +123,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 		s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
 		return nil, err
 	}
-	q, err := unmarshal.UnmarshallPrometheusResponse(rresp.Data)
+	q, err := unmarshal.UnmarshalPrometheusResponse(rresp.Data)
 	if err != nil {
 		s.lg.Error(fmt.Sprintf("%v", err))
 		return nil, err
@@ -180,7 +180,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	}, nil
 }
 
-func (m MonitoringServiceBackend) WithCurrentRequest(req proto.Message, ctx context.Context) ServiceBackend {
+func (m *MonitoringServiceBackend) WithCurrentRequest(req proto.Message, ctx context.Context) ServiceBackend {
 	m.req = req
 	m.ctx = ctx
 	return m
@@ -188,7 +188,7 @@ func (m MonitoringServiceBackend) WithCurrentRequest(req proto.Message, ctx cont
 
 func (m MonitoringServiceBackend) List(clusters *corev1.ClusterList) (*sloapi.ServiceList, error) {
 	res := &sloapi.ServiceList{}
-	cl := make([]string, 0)
+	cl := []string{}
 	for _, c := range clusters.Items {
 		cl = append(cl, c.Id)
 		m.lg.Debug("Found cluster with id %v", c.Id)
@@ -206,19 +206,18 @@ func (m MonitoringServiceBackend) List(clusters *corev1.ClusterList) (*sloapi.Se
 		}
 		data := resp.GetData()
 		m.lg.Debug(fmt.Sprintf("Received service data:\n %s from cluster %s ", string(data), c.Id))
-		q, err := unmarshal.UnmarshallPrometheusResponse(data)
+		q, err := unmarshal.UnmarshalPrometheusResponse(data)
 		switch q.V.Type() {
 		case model.ValVector:
-			{
-				vv := q.V.(model.Vector)
-				for _, v := range vv {
+			vv := q.V.(model.Vector)
+			for _, v := range vv {
 
-					res.Items = append(res.Items, &sloapi.Service{
-						JobId:     string(v.Metric["job"]),
-						ClusterId: c.Id,
-					})
-				}
+				res.Items = append(res.Items, &sloapi.Service{
+					JobId:     string(v.Metric["job"]),
+					ClusterId: c.Id,
+				})
 			}
+
 		}
 	}
 	return res, nil

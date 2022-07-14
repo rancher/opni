@@ -63,7 +63,7 @@ func (qr *queryResult) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-func UnmarshallPrometheusResponse(data []byte) (*queryResult, error) {
+func UnmarshalPrometheusResponse(data []byte) (*queryResult, error) {
 	var a apiResponse
 	var q queryResult
 

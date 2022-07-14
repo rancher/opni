@@ -1,4 +1,5 @@
-  syntax = "proto3";
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/plugins/alerting/pkg/apis/alerting";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
@@ -8,7 +9,8 @@ import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "google/rpc/status.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
-  
+
+service Alerting {
   rpc CreateAlertEvent(AlertEvent) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/management/alerts/events"

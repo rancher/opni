@@ -9,35 +9,27 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	// apis "github.com/rancher/opni/plugins/slo/pkg/apis/alerting"
+	apis "github.com/rancher/opni/plugins/alerting/pkg/apis/alerting"
 )
 
 type Plugin struct {
-	// sloapi.UnsafeSLOServer
+	apis.UnsafeAlertingServer
 	system.UnimplementedSystemPluginClient
-	ctx         context.Context
-	logger      hclog.Logger
-	storage     future.Future[StorageAPIs]
-	mgmtClient  future.Future[managementv1.ManagementClient]
-	adminClient future.Future[cortexadmin.CortexAdminClient]
+	ctx        context.Context
+	logger     hclog.Logger
+	mgmtClient future.Future[managementv1.ManagementClient]
 }
 
 type StorageAPIs struct {
-	// SLOs     system.KVStoreClient[*sloapi.SLOData]
-	// Services system.KVStoreClient[*sloapi.Service]
-	// Metrics  system.KVStoreClient[*sloapi.Metric]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewForPlugin()
 	lg.SetLevel(hclog.Debug)
 	return &Plugin{
-		ctx:         ctx,
-		logger:      lg,
-		storage:     future.New[StorageAPIs](),
-		mgmtClient:  future.New[managementv1.ManagementClient](),
-		adminClient: future.New[cortexadmin.CortexAdminClient](),
+		ctx:        ctx,
+		logger:     lg,
+		mgmtClient: future.New[managementv1.ManagementClient](),
 	}
 }
 
@@ -47,7 +39,5 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	// scheme.Add(managementext.ManagementAPIExtensionPluginID,
-	// 	managementext.NewPlugin(&sloapi.SLO_ServiceDesc, p))
 	return scheme
 }

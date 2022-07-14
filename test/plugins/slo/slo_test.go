@@ -8,9 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -21,6 +18,8 @@ import (
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -105,33 +104,24 @@ func expectRuleGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx co
 }
 
 func simulateGoodEvents(metricName string, instrumentationServerPort int, numEvents int) {
-	var wg sync.WaitGroup
-	wg.Add(numEvents)
 	for i := 0; i < numEvents; i++ {
 		go func() {
-			defer wg.Done()
-
+			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/good", instrumentationServerPort, metricName))
+			Expect(resp.StatusCode).To(Equal(200))
+			Expect(err).To(Succeed())
 		}()
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/good", instrumentationServerPort, metricName))
-		Expect(resp.StatusCode).To(Equal(200))
-		Expect(err).To(Succeed())
 	}
-	wg.Wait()
 }
 
 func simulateBadEvents(metricName string, instrumentationServerPort int, numEvents int) {
-	var wg sync.WaitGroup
-	wg.Add(numEvents)
+
 	for i := 0; i < numEvents; i++ {
 		go func() {
-			defer wg.Done()
-
+			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/bad", instrumentationServerPort, metricName))
+			Expect(resp.StatusCode).To(Equal(200))
+			Expect(err).To(Succeed())
 		}()
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/bad", instrumentationServerPort, metricName))
-		Expect(resp.StatusCode).To(Equal(200))
-		Expect(err).To(Succeed())
 	}
-	wg.Wait()
 }
 
 // populate instrumentation server with good events
@@ -532,7 +522,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			status, err = sloClient.Status(ctx, instrumentationSLOID)
 			Expect(err).To(Succeed())
 			// Expect(status.State).To(Equal(apis.SLOStatusState_Ok))
-			stopInstrumentationServer <- true
+			// stopInstrumentationServer <- true
 		})
 	})
 

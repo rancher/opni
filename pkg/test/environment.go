@@ -26,6 +26,8 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/phayes/freeport"
 	"github.com/pkg/browser"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/agent"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -44,6 +46,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/realtime"
+	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
@@ -617,12 +620,60 @@ func (e *Environment) StartPrometheus(opniAgentPort int, config *additionalProme
 		}
 		time.Sleep(time.Second)
 	}
-	lg.Info(fmt.Sprintf("Prometheus started http://localhost:%d", port))
+	lg.With("address", fmt.Sprintf("http://localhost:%d", port)).Info("Prometheus started")
 	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
 		session.Wait()
 	})
 	return port
+}
+
+// Starts a server that exposes Prometheus metrics
+//
+// Returns port number of the server & a channel that shutdowns the server
+func (e *Environment) StartInstrumentationServer() (int, chan bool) {
+	// lg := e.Logger
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
+	mux := http.NewServeMux()
+
+	for queryName, queryObj := range query.AvailableQueries {
+		// register each prometheus collector
+		prometheus.MustRegister(queryObj.GetCollector())
+
+		// create an endpoint simulating good events
+		mux.HandleFunc(fmt.Sprintf("/%s/%s", queryName, "good"), queryObj.GetGoodEventGenerator())
+		// create an endpoint simulating bad events
+		mux.HandleFunc(fmt.Sprintf("/%s/%s", queryName, "bad"), queryObj.GetBadEventGenerator())
+
+	}
+	// expose prometheus metrics
+	mux.Handle("/metrics", promhttp.Handler())
+
+	autoInstrumentationServer := &http.Server{
+		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
+		Handler:        mux,
+		ReadTimeout:    1 * time.Second,
+		WriteTimeout:   1 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	done := make(chan bool)
+	waitctx.Go(e.ctx, func() {
+		err := autoInstrumentationServer.ListenAndServe()
+		if err != http.ErrServerClosed {
+			panic(err)
+		}
+		defer autoInstrumentationServer.Shutdown(context.Background())
+		select {
+		case <-e.ctx.Done():
+			break
+		case <-done:
+			break
+		}
+	})
+	return port, done
 }
 
 func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {

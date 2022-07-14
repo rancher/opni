@@ -1096,7 +1096,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				rw.Write([]byte(err.Error()))
 				return
 			}
-			environment.StartPrometheus(port, nil)
+			environment.StartPrometheus(port)
 			rw.WriteHeader(http.StatusOK)
 			rw.Write([]byte(fmt.Sprintf("%d", port)))
 		}

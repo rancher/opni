@@ -40,7 +40,7 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 		Expect(fingerprint).NotTo(BeEmpty())
 
 		port, errC := environment.StartAgent("test-cluster-id", token, []string{fingerprint})
-		promAgentPort := environment.StartPrometheus(port, nil)
+		promAgentPort := environment.StartPrometheus(port)
 		Expect(promAgentPort).NotTo(BeZero())
 		Eventually(errC).Should(Receive(BeNil()))
 	})

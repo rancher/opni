@@ -6,17 +6,37 @@ package query
 
 import (
 	"bytes"
+	"net/http"
 	"regexp"
 	"strings"
 	"text/template"
 
+	"github.com/prometheus/client_golang/prometheus"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
 type RatioQuery struct {
-	query        template.Template
-	metricFilter regexp.Regexp // how to assign the metric to the query
-	matcher      matcher
+	query          template.Template
+	metricFilter   regexp.Regexp // how to assign the metric to the query
+	matcher        matcher
+	goodCollector  *prometheus.Collector
+	totalCollector *prometheus.Collector
+	goodEvents     func(w http.ResponseWriter, r *http.Request)
+	totalEvents    func(w http.ResponseWriter, r *http.Request)
+}
+
+func (rq RatioQuery) GetGoodCollector() prometheus.Collector {
+	return *rq.goodCollector
+}
+
+func (rq RatioQuery) GetTotalCollector() prometheus.Collector {
+	return *rq.totalCollector
+}
+func (rq RatioQuery) GetGoodEvents() func(w http.ResponseWriter, r *http.Request) {
+	return rq.goodEvents
+}
+func (rq RatioQuery) GetTotalEvents() func(w http.ResponseWriter, r *http.Request) {
+	return rq.totalEvents
 }
 
 func (r RatioQuery) FillQueryTemplate(info templateExecutor) (string, error) {

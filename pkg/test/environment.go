@@ -26,6 +26,8 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/phayes/freeport"
 	"github.com/pkg/browser"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/agent"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -44,6 +46,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/realtime"
+	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
@@ -529,31 +532,68 @@ func (e *Environment) startRealtimeServer() {
 	go srv.Start(e.ctx)
 }
 
+type PrometheusJob struct {
+	JobName    string
+	ScrapePort int
+}
+
 type prometheusTemplateOptions struct {
 	ListenPort    int
 	RTMetricsPort int
 	OpniAgentPort int
+	// these fill in a text/template defined as {{.range Jobs}} /* */ {{end}}
+	Jobs []PrometheusJob
 }
 
-func (e *Environment) StartPrometheus(opniAgentPort int) int {
+type overridePrometheusConfig struct {
+	configContents string
+	jobs           []PrometheusJob
+}
+
+func NewOverridePrometheusConfig(configPath string, jobs []PrometheusJob) *overridePrometheusConfig {
+	return &overridePrometheusConfig{
+		configContents: string(TestData(configPath)),
+		jobs:           jobs,
+	}
+}
+
+// `prometheus/config.yaml` is the default monitoring config.
+// `slo/prometheus/config.yaml` is the default SLO config.
+func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePrometheusConfig) int {
 	lg := e.Logger
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
 	}
-	configTemplate := TestData("prometheus/config.yaml")
-	t := util.Must(template.New("config").Parse(string(configTemplate)))
+	var configTemplate string
+	var jobs []PrometheusJob
+
+	configTemplate = string(TestData("prometheus/config.yaml"))
+	if len(override) > 1 {
+		panic("Too many overrides, only one is allowed")
+	}
+	if len(override) == 1 {
+		configTemplate = override[0].configContents
+		jobs = override[0].jobs
+	}
+	t, err := template.New("").Parse(configTemplate)
+	if err != nil {
+		panic(err)
+	}
 	configFile, err := os.Create(path.Join(e.tempDir, "prometheus", "config.yaml"))
 	if err != nil {
 		panic(err)
 	}
+
 	if err := t.Execute(configFile, prometheusTemplateOptions{
 		ListenPort:    port,
 		OpniAgentPort: opniAgentPort,
 		RTMetricsPort: e.ports.RTMetrics,
+		Jobs:          jobs,
 	}); err != nil {
 		panic(err)
 	}
+
 	configFile.Close()
 	prometheusBin := path.Join(e.TestBin, "prometheus")
 	defaultArgs := []string{
@@ -583,12 +623,59 @@ func (e *Environment) StartPrometheus(opniAgentPort int) int {
 		}
 		time.Sleep(time.Second)
 	}
-	lg.Info("Prometheus started")
+	lg.With("address", fmt.Sprintf("http://localhost:%d", port)).Info("Prometheus started")
 	waitctx.Go(e.ctx, func() {
 		<-e.ctx.Done()
 		session.Wait()
 	})
 	return port
+}
+
+// Starts a server that exposes Prometheus metrics
+//
+// Returns port number of the server & a channel that shutdowns the server
+func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan bool) {
+	// lg := e.Logger
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
+	mux := http.NewServeMux()
+
+	for queryName, queryObj := range query.AvailableQueries {
+		// register each prometheus collector
+		prometheus.MustRegister(queryObj.GetCollector())
+
+		// create an endpoint simulating good events
+		mux.HandleFunc(fmt.Sprintf("/%s/%s", queryName, "good"), queryObj.GetGoodEventGenerator())
+		// create an endpoint simulating bad events
+		mux.HandleFunc(fmt.Sprintf("/%s/%s", queryName, "bad"), queryObj.GetBadEventGenerator())
+
+	}
+	// expose prometheus metrics
+	mux.Handle("/metrics", promhttp.Handler())
+
+	autoInstrumentationServer := &http.Server{
+		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
+		Handler:        mux,
+		ReadTimeout:    1 * time.Second,
+		WriteTimeout:   1 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	done := make(chan bool)
+	waitctx.Go(e.ctx, func() {
+		err := autoInstrumentationServer.ListenAndServe()
+		if err != http.ErrServerClosed {
+			panic(err)
+		}
+		defer autoInstrumentationServer.Shutdown(context.Background())
+		select {
+		case <-e.ctx.Done():
+		case <-ctx.Done():
+		case <-done:
+		}
+	})
+	return port, done
 }
 
 func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {

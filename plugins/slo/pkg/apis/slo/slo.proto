@@ -57,11 +57,6 @@ service SLO {
     };
   }
     // ========== Services API ===========
-  rpc GetService(core.Reference) returns (Service) {
-    option (google.api.http) = {
-      get: "/services/{id}"
-    };
-  }
   rpc ListServices(google.protobuf.Empty) returns (ServiceList) {
     option (google.api.http) = {
       get: "/services"

@@ -22,10 +22,12 @@ Must :
 */
 
 import (
+	"net/http"
 	"regexp"
 	"strings"
 	"text/template"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni/pkg/slo/shared"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
@@ -63,6 +65,9 @@ func init() {
 					(sum(rate({{.MetricIdTotal}}{job="{{.JobId}}"})))[{{"{{.window}}"}}]
 				`).
 				MetricFilter(`up`).BuildRatio()).
+		Collector(uptimeCollector).
+		GoodEventGenerator(uptimeGoodEvents).
+		BadEventGenerator(uptimeBadEvents).
 		Description("Measures the uptime of a kubernetes service").
 		Datasource(shared.MonitoringDatasource).Build()
 	AvailableQueries[uptimeSLOQuery.name] = &uptimeSLOQuery
@@ -82,6 +87,9 @@ func init() {
 				(sum(rate({{.MetricIdTotal}}{job="{{.JobId}}"}[{{"{{.window}}"}}])))
 				`).
 				MetricFilter(`.*http_request_duration_seconds_count`).BuildRatio()).
+		Collector(availabilityCollector).
+		GoodEventGenerator(availabilityGoodEvents).
+		BadEventGenerator(availabilityBadEvents).
 		Description(`Measures the availability of a kubernetes service using http status codes.
 		Codes 2XX and 3XX are considered as available.`).
 		Datasource(shared.MonitoringDatasource).Build()
@@ -102,6 +110,9 @@ func init() {
 					sum(rate({{.MetricIdTotal}}{job="{{.JobId}}",verb!="WATCH"}[{{"{{.window}}"}}]))
 				`).
 				MetricFilter(`.*http_request_duration_seconds_count`).BuildRatio()).
+		Collector(latencyCollector).
+		GoodEventGenerator(latencyGoodEvents).
+		BadEventGenerator(latencyBadEvents).
 		Description(`Quantifies the latency of http requests made against a kubernetes service
 			by classifying them as good (<=300ms) or bad(>=300ms)`).
 		Datasource(shared.MonitoringDatasource).Build()
@@ -126,6 +137,12 @@ type MetricQuery interface {
 	// Some metrics will have different labels for metrics, so handle them independently
 	GetGoodQuery() Query
 	GetTotalQuery() Query
+
+	// Auto-instrumentation server methods
+
+	GetCollector() prometheus.Collector
+	GetGoodEventGenerator() func(w http.ResponseWriter, r *http.Request)
+	GetBadEventGenerator() func(w http.ResponseWriter, r *http.Request)
 }
 
 type Query interface {
@@ -216,16 +233,23 @@ type SloQueryBuilder interface {
 	TotalQuery(q Query) SloQueryBuilder
 	Description(description string) SloQueryBuilder
 	Datasource(datasource string) SloQueryBuilder
+	Collector(prometheus.Collector) SloQueryBuilder
+	GoodEventGenerator(goodEvents func(w http.ResponseWriter, r *http.Request)) SloQueryBuilder
+	BadEventGenerator(badEvents func(w http.ResponseWriter, r *http.Request)) SloQueryBuilder
 	Build() PrometheusQueryImpl
 }
 
 type sloQueryBuilder struct {
-	name         string
-	metricFilter regexp.Regexp
-	goodQuery    Query
-	totalQuery   Query
-	description  string
-	datasource   string
+	name           string
+	metricFilter   regexp.Regexp
+	goodQuery      Query
+	totalQuery     Query
+	description    string
+	datasource     string
+	collector      prometheus.Collector
+	totalCollector prometheus.Collector
+	goodEventsGen  func(w http.ResponseWriter, r *http.Request)
+	badEventsGen   func(w http.ResponseWriter, r *http.Request)
 }
 
 func New() SloQueryBuilder {
@@ -257,12 +281,42 @@ func (s sloQueryBuilder) Datasource(datasource string) SloQueryBuilder {
 	return s
 }
 
+func (s sloQueryBuilder) Collector(
+	collector prometheus.Collector) SloQueryBuilder {
+	s.collector = collector
+	return s
+}
+
+func (s sloQueryBuilder) GoodEventGenerator(
+	goodEvents func(w http.ResponseWriter, r *http.Request),
+) SloQueryBuilder {
+	s.goodEventsGen = goodEvents
+	return s
+}
+
+func (s sloQueryBuilder) BadEventGenerator(
+	badEvents func(w http.ResponseWriter, r *http.Request),
+) SloQueryBuilder {
+	s.badEventsGen = badEvents
+	return s
+}
+
 func (s sloQueryBuilder) Build() PrometheusQueryImpl {
+	//TODO figure out how to validate at compile time
+	if s.collector == nil {
+		panic("auto-instrumentation collectors must be set")
+	}
+	if s.goodEventsGen == nil || s.badEventsGen == nil {
+		panic("auto-instrumentation events must be set")
+	}
 	return PrometheusQueryImpl{
-		name:        s.name,
-		datasource:  s.datasource,
-		description: s.description,
-		GoodQuery:   s.goodQuery,
-		TotalQuery:  s.totalQuery,
+		name:          s.name,
+		datasource:    s.datasource,
+		description:   s.description,
+		GoodQuery:     s.goodQuery,
+		TotalQuery:    s.totalQuery,
+		collector:     s.collector,
+		goodEventsGen: s.goodEventsGen,
+		badEventsGen:  s.badEventsGen,
 	}
 }

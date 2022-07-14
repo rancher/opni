@@ -10,10 +10,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var datasourceToImpl map[string]SLOStore = make(map[string]SLOStore)
+var datasourceToSLO map[string]SLOStore = make(map[string]SLOStore)
+var datasourceToService map[string]ServiceBackend = make(map[string]ServiceBackend)
 
-func RegisterDatasource(datasource string, impl SLOStore) {
-	datasourceToImpl[datasource] = impl
+func RegisterDatasource(datasource string, sloImpl SLOStore, serviceImpl ServiceBackend) {
+	datasourceToSLO[datasource] = sloImpl
+	datasourceToService[datasource] = serviceImpl
 }
 
 type SLOStore interface {
@@ -26,8 +28,18 @@ type SLOStore interface {
 	Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error)
 	WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore
 }
+type ServiceBackend interface {
+	List(clusters *corev1.ClusterList) (*sloapi.ServiceList, error)
+	GetMetricId() (*MetricIds, error)
+	WithCurrentRequest(req proto.Message, ctx context.Context) ServiceBackend
+}
 
-type SLORequestBase struct {
+type MetricIds struct {
+	Good  string
+	Total string
+}
+
+type RequestBase struct {
 	req proto.Message
 	p   *Plugin
 	ctx context.Context
@@ -35,16 +47,31 @@ type SLORequestBase struct {
 }
 
 type SLOMonitoring struct {
-	SLORequestBase
+	RequestBase
 }
 
 type SLOLogging struct {
-	SLORequestBase
+	RequestBase
+}
+
+type MonitoringServiceBackend struct {
+	RequestBase
 }
 
 func NewSLOMonitoringStore(p *Plugin, lg hclog.Logger) SLOStore {
-	return SLOMonitoring{
-		SLORequestBase{
+	return &SLOMonitoring{
+		RequestBase{
+			req: nil,
+			p:   p,
+			ctx: context.Background(),
+			lg:  lg,
+		},
+	}
+}
+
+func NewMonitoringServiceBackend(p *Plugin, lg hclog.Logger) ServiceBackend {
+	return &MonitoringServiceBackend{
+		RequestBase{
 			req: nil,
 			p:   p,
 			ctx: context.TODO(),

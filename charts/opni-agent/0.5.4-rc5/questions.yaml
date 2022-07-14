@@ -55,7 +55,7 @@ questions:
     - aks
     - gke
   - variable: events.enabled
-    label: Enabled Event collection
+    label: Enable event collection
     type: boolean
 
 

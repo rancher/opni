@@ -11,58 +11,206 @@ import "google/rpc/status.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 service Alerting {
-  rpc CreateAlertEvent(AlertEvent) returns (google.protobuf.Empty) {
+  // ------- Trigger Alerts -------
+  // TODO
+  rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
     option (google.api.http) = {
-      post: "/management/alerts/events"
+      post: "/alerts/trigger"
+      body: "*"
+    };
+  }
+
+  // ------- CRUD for alerting events log -------
+  rpc CreateAlertLog(AlertLog) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/alerts/log"
       body: "*"
     }; 
   }
 
   // id is the unix epoch timestamp of the alert 
-  rpc GetAlertEvent(core.Reference) returns (google.protobuf.Empty) {
+  rpc GetAlertLog(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      get: "/management/alerts/events/{id}"
+      get: "/alerts/events/{id}"
     };
   }
 
-  rpc ListAlertEvents(ListAlertEventRequest) returns (AlertEventList) {
+  rpc ListAlertLogs(ListAlertLogRequest) returns (AlertLogList) {
     option (google.api.http) = {
-      get: "/management/alerts/events"
+      get: "/alerts/events"
     };
   }
 
-  rpc UpdateAlertEvent(UpdateAlertEventRequest) returns (google.protobuf.Empty) {
+  rpc UpdateAlertLog(UpdateAlertLogRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/management/alerts/events/{id}"
+      put: "/alerts/events"
       body: "*"
     };
   }
 
-  rpc DeleteAlertEvent(core.Reference) returns (google.protobuf.Empty) {
+  rpc DeleteAlertLog(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/management/alerts/events/{id}"
+      delete: "/alerts/events"
+    };
+  }
+
+  // -------- CRUD for alerting conditions -------
+  //TODO 
+  rpc CreateAlertCondition(AlertCondition) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/alerts/conditions"
+      body: "*"
+    };
+  }
+
+  rpc GetAlertCondition(core.Reference) returns (AlertCondition) {
+    option (google.api.http) = {
+      get: "/alerts/conditions/{id}"
+    };
+  }
+
+  rpc ListAlertConditions(ListAlertConditionRequest) returns (AlertConditionList) {
+    option (google.api.http) = {
+      get: "/alerts/conditions"
+    };
+  }
+
+  rpc UpdateAlertCondition(UpdateAlertConditionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/alerts/conditions"
+      body: "*"
+    };
+  }
+
+  rpc DeleteAlertCondition(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/alerts/conditions"
+    };
+  }
+
+  rpc PreviewAlertCondition(PreviewAlertConditionRequest) returns (PreviewAlertConditionResponse) {
+    option (google.api.http) = {
+      post: "/alerts/conditions/preview"
+      body: "*"
+    };
+  }
+
+  // -------- CRUD for alerting endpoints ----
+  // TODO 
+  rpc CreateAlertEndpoint(AlertEndpoint) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/alerts/endpoints"
+      body: "*"
+    };
+  }
+
+  rpc GetAlertEndpoint(core.Reference) returns (AlertEndpoint) {
+    option (google.api.http) = {
+      get: "/alerts/endpoints/{id}"
+    };
+  }
+
+  rpc ListAlertEndpoints(ListAlertEndpointsRequest) returns (AlertEndpointList) {
+    option (google.api.http) = {
+      get: "/alerts/endpoints"
+    };
+  }
+
+  rpc UpdateAlertEndpoint(UpdateAlertEndpointRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/alerts/endpoints"
+      body: "*"
+    };
+  }
+
+  rpc DeleteAlertEndpoint(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/alerts/endpoints/{id}"
+    };
+  }
+
+  rpc TestAlertEndpoint(TestAlertEndpointRequest) returns (TestAlertEndpointResponse) {
+    option (google.api.http) = {
+      post: "/alerts/endpoints/test"
+      body: "*"
     };
   }
 }
 
-message AlertEvent {
+message TriggerAlertsRequest {
+  core.Reference id =1;
+  // TODO
+}
+
+message TriggerAlertsResponse {
+  // TODO
+}
+
+message AlertLog {
   uint64 timestamp = 1; // unix epoch timestamp
   repeated string labels = 2;
   google.protobuf.Struct metadata  = 3;
 }
 
-message AlertEventList {
-  repeated AlertEvent alertEvents = 1;
+message AlertLogList {
+  repeated AlertLog alertEvents = 1;
 }
 
-message ListAlertEventRequest {
+message ListAlertLogRequest {
   repeated string labels = 1;
   uint64 limit  = 2;
   uint64 startTimestamp  = 3;
   uint64 endTimestamp = 4;
 }
 
-message UpdateAlertEventRequest {
+message UpdateAlertLogRequest {
   string id = 1;
-  AlertEvent UpdateAlert = 2;
+  AlertLog UpdateAlert = 2;
+}
+
+message AlertCondition {
+  // TODO
+}
+
+message AlertConditionList {
+  repeated AlertCondition items = 1;
+}
+
+message ListAlertConditionRequest {
+
+}
+
+message UpdateAlertConditionRequest {
+  // TODO
+}
+
+message PreviewAlertConditionRequest {
+  // TODO
+}
+
+message PreviewAlertConditionResponse {
+  // TODO
+}
+
+
+message AlertEndpoint {
+  // TODO
+}
+
+message AlertEndpointList {
+  repeated AlertEndpoint items = 1;
+}
+
+message ListAlertEndpointsRequest {
+
+}
+message UpdateAlertEndpointRequest {
+  //TODO
+}
+
+message TestAlertEndpointRequest{
+  // TODO
+}
+message TestAlertEndpointResponse {
+  // TODO
 }

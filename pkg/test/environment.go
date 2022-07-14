@@ -545,13 +545,13 @@ type prometheusTemplateOptions struct {
 	Jobs []PrometheusJob
 }
 
-type additionalPrometheusConfig struct {
+type overridePrometheusConfig struct {
 	configContents string
 	jobs           []PrometheusJob
 }
 
-func NewAdditionalPrometheusConfig(configPath string, jobs []PrometheusJob) *additionalPrometheusConfig {
-	return &additionalPrometheusConfig{
+func NewOverridePrometheusConfig(configPath string, jobs []PrometheusJob) *overridePrometheusConfig {
+	return &overridePrometheusConfig{
 		configContents: string(TestData(configPath)),
 		jobs:           jobs,
 	}
@@ -559,7 +559,7 @@ func NewAdditionalPrometheusConfig(configPath string, jobs []PrometheusJob) *add
 
 // `prometheus/config.yaml` is the default monitoring config.
 // `slo/prometheus/config.yaml` is the default SLO config.
-func (e *Environment) StartPrometheus(opniAgentPort int, config *additionalPrometheusConfig) int {
+func (e *Environment) StartPrometheus(opniAgentPort int, config *overridePrometheusConfig) int {
 	lg := e.Logger
 	port, err := freeport.GetFreePort()
 	if err != nil {
@@ -631,7 +631,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int, config *additionalProme
 // Starts a server that exposes Prometheus metrics
 //
 // Returns port number of the server & a channel that shutdowns the server
-func (e *Environment) StartInstrumentationServer() (int, chan bool) {
+func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan bool) {
 	// lg := e.Logger
 	port, err := freeport.GetFreePort()
 	if err != nil {
@@ -665,12 +665,10 @@ func (e *Environment) StartInstrumentationServer() (int, chan bool) {
 		if err != http.ErrServerClosed {
 			panic(err)
 		}
-		defer autoInstrumentationServer.Shutdown(context.Background())
+		defer autoInstrumentationServer.Shutdown(ctx)
 		select {
 		case <-e.ctx.Done():
-			break
 		case <-done:
-			break
 		}
 	})
 	return port, done

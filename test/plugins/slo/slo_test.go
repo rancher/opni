@@ -184,6 +184,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var pPort2 int
 	var instrumentationPort int
 	var stopInstrumentationServer chan bool
+	var instrumentationCancel context.CancelFunc
 	var mockServerName string = "mock-server"
 
 	var createdSlos []*corev1.Reference
@@ -205,10 +206,12 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 		fmt.Println("Starting server")
-		instrumentationPort, stopInstrumentationServer = env.StartInstrumentationServer()
+		instrumentationCtx, ca := context.WithCancel(context.Background())
+		instrumentationCancel = ca
+		instrumentationPort, stopInstrumentationServer = env.StartInstrumentationServer(instrumentationCtx)
 		fmt.Println(instrumentationPort, stopInstrumentationServer)
 		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		pPort = env.StartPrometheus(p, test.NewAdditionalPrometheusConfig(
+		pPort = env.StartPrometheus(p, test.NewOverridePrometheusConfig(
 			"slo/prometheus/config.yaml",
 			[]test.PrometheusJob{
 				{
@@ -218,7 +221,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			},
 		))
 		p2, _ := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		pPort2 = env.StartPrometheus(p2, test.NewAdditionalPrometheusConfig(
+		pPort2 = env.StartPrometheus(p2, test.NewOverridePrometheusConfig(
 			"slo/prometheus/config.yaml",
 			[]test.PrometheusJob{
 				{
@@ -523,6 +526,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(Succeed())
 			// Expect(status.State).To(Equal(apis.SLOStatusState_Ok))
 			// stopInstrumentationServer <- true
+			instrumentationCancel()
 		})
 	})
 

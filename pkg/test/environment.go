@@ -559,7 +559,7 @@ func NewOverridePrometheusConfig(configPath string, jobs []PrometheusJob) *overr
 
 // `prometheus/config.yaml` is the default monitoring config.
 // `slo/prometheus/config.yaml` is the default SLO config.
-func (e *Environment) StartPrometheus(opniAgentPort int, config *overridePrometheusConfig) int {
+func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePrometheusConfig) int {
 	lg := e.Logger
 	port, err := freeport.GetFreePort()
 	if err != nil {
@@ -567,11 +567,14 @@ func (e *Environment) StartPrometheus(opniAgentPort int, config *overridePrometh
 	}
 	var configTemplate string
 	var jobs []PrometheusJob
-	if config == nil {
-		configTemplate = string(TestData("prometheus/config.yaml"))
-	} else {
-		configTemplate = config.configContents
-		jobs = config.jobs
+
+	configTemplate = string(TestData("prometheus/config.yaml"))
+	if len(override) > 1 {
+		panic("Too many overrides, only one is allowed")
+	}
+	if len(override) == 1 {
+		configTemplate = override[0].configContents
+		jobs = override[0].jobs
 	}
 	t, err := template.New("").Parse(configTemplate)
 	if err != nil {
@@ -665,9 +668,10 @@ func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan
 		if err != http.ErrServerClosed {
 			panic(err)
 		}
-		defer autoInstrumentationServer.Shutdown(ctx)
+		defer autoInstrumentationServer.Shutdown(context.Background())
 		select {
 		case <-e.ctx.Done():
+		case <-ctx.Done():
 		case <-done:
 		}
 	})

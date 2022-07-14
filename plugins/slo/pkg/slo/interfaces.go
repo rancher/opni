@@ -59,18 +59,18 @@ type MonitoringServiceBackend struct {
 }
 
 func NewSLOMonitoringStore(p *Plugin, lg hclog.Logger) SLOStore {
-	return SLOMonitoring{
+	return &SLOMonitoring{
 		RequestBase{
 			req: nil,
 			p:   p,
-			ctx: context.TODO(),
+			ctx: context.Background(),
 			lg:  lg,
 		},
 	}
 }
 
 func NewMonitoringServiceBackend(p *Plugin, lg hclog.Logger) ServiceBackend {
-	return MonitoringServiceBackend{
+	return &MonitoringServiceBackend{
 		RequestBase{
 			req: nil,
 			p:   p,

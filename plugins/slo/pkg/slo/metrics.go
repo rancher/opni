@@ -44,7 +44,7 @@ func doDownstreamQuery(p *Plugin, ctx context.Context, metricRequest *api.Metric
 	res := make([]string, 0)
 	data := resp.GetData()
 	lg.Debug(fmt.Sprintf("Received service data %s from cluster %s ", string(data), metricRequest.ClusterId))
-	qq, err := unmarshal.UnmarshallPrometheusResponse(data)
+	qq, err := unmarshal.UnmarshalPrometheusResponse(data)
 	if err != nil {
 		return "", err
 	}

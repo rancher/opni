@@ -21,7 +21,7 @@ service Alerting {
   }
 
   // ------- CRUD for alerting events log -------
-  rpc CreateAlertLog(AlertLog) returns (google.protobuf.Empty) {
+  rpc CreateAlertLog(core.AlertLog) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/alerts/log"
       body: "*"
@@ -35,7 +35,7 @@ service Alerting {
     };
   }
 
-  rpc ListAlertLogs(ListAlertLogRequest) returns (AlertLogList) {
+  rpc ListAlertLogs(ListAlertLogRequest) returns (core.AlertLogList) {
     option (google.api.http) = {
       get: "/alerts/events"
     };
@@ -146,16 +146,6 @@ message TriggerAlertsResponse {
   // TODO
 }
 
-message AlertLog {
-  uint64 timestamp = 1; // unix epoch timestamp
-  repeated string labels = 2;
-  google.protobuf.Struct metadata  = 3;
-}
-
-message AlertLogList {
-  repeated AlertLog alertEvents = 1;
-}
-
 message ListAlertLogRequest {
   repeated string labels = 1;
   uint64 limit  = 2;
@@ -165,7 +155,7 @@ message ListAlertLogRequest {
 
 message UpdateAlertLogRequest {
   string id = 1;
-  AlertLog UpdateAlert = 2;
+  core.AlertLog UpdateAlert = 2;
 }
 
 message AlertCondition {

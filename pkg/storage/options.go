@@ -33,3 +33,8 @@ func WithCapabilities(capabilities []*corev1.TokenCapability) TokenCreateOption 
 		o.Capabilities = capabilities
 	}
 }
+
+type AlertFilterOptions struct {
+	Labels map[string]string
+	Range  *corev1.TimeRange
+}

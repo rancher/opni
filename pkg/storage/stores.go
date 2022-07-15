@@ -74,3 +74,11 @@ type SubjectAccessCapableStore interface {
 	GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.Role, error)
 	ListRoleBindings(ctx context.Context) (*corev1.RoleBindingList, error)
 }
+
+type AlertingStore interface {
+	CreateAlertLog(ctx context.Context, log corev1.AlertLog) error
+	UpdateAlertLog(ctx context.Context, ref *corev1.Reference, newLog corev1.AlertLog) error
+	DeleteAlertLog(ctx context.Context, ref *corev1.Reference) error
+	GetAlertLog(ctx context.Context, ref *corev1.Reference) (*corev1.AlertLog, error)
+	ListAlertLogs(ctx context.Context, opts ...AlertFilterOptions) (*corev1.AlertLogList, error)
+}

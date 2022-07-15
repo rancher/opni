@@ -28,10 +28,10 @@ type AlertingClient interface {
 	// TODO
 	TriggerAlerts(ctx context.Context, in *TriggerAlertsRequest, opts ...grpc.CallOption) (*TriggerAlertsResponse, error)
 	// ------- CRUD for alerting events log -------
-	CreateAlertLog(ctx context.Context, in *AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// id is the unix epoch timestamp of the alert
 	GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*AlertLogList, error)
+	ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*v1.AlertLogList, error)
 	UpdateAlertLog(ctx context.Context, in *UpdateAlertLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// -------- CRUD for alerting conditions -------
@@ -69,7 +69,7 @@ func (c *alertingClient) TriggerAlerts(ctx context.Context, in *TriggerAlertsReq
 	return out, nil
 }
 
-func (c *alertingClient) CreateAlertLog(ctx context.Context, in *AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertingClient) CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/Alerting/CreateAlertLog", in, out, opts...)
 	if err != nil {
@@ -87,8 +87,8 @@ func (c *alertingClient) GetAlertLog(ctx context.Context, in *v1.Reference, opts
 	return out, nil
 }
 
-func (c *alertingClient) ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*AlertLogList, error) {
-	out := new(AlertLogList)
+func (c *alertingClient) ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*v1.AlertLogList, error) {
+	out := new(v1.AlertLogList)
 	err := c.cc.Invoke(ctx, "/Alerting/ListAlertLogs", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -230,10 +230,10 @@ type AlertingServer interface {
 	// TODO
 	TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error)
 	// ------- CRUD for alerting events log -------
-	CreateAlertLog(context.Context, *AlertLog) (*emptypb.Empty, error)
+	CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error)
 	// id is the unix epoch timestamp of the alert
 	GetAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	ListAlertLogs(context.Context, *ListAlertLogRequest) (*AlertLogList, error)
+	ListAlertLogs(context.Context, *ListAlertLogRequest) (*v1.AlertLogList, error)
 	UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error)
 	DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	// -------- CRUD for alerting conditions -------
@@ -262,13 +262,13 @@ type UnimplementedAlertingServer struct {
 func (UnimplementedAlertingServer) TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TriggerAlerts not implemented")
 }
-func (UnimplementedAlertingServer) CreateAlertLog(context.Context, *AlertLog) (*emptypb.Empty, error) {
+func (UnimplementedAlertingServer) CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertLog not implemented")
 }
 func (UnimplementedAlertingServer) GetAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAlertLog not implemented")
 }
-func (UnimplementedAlertingServer) ListAlertLogs(context.Context, *ListAlertLogRequest) (*AlertLogList, error) {
+func (UnimplementedAlertingServer) ListAlertLogs(context.Context, *ListAlertLogRequest) (*v1.AlertLogList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertLogs not implemented")
 }
 func (UnimplementedAlertingServer) UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error) {
@@ -345,7 +345,7 @@ func _Alerting_TriggerAlerts_Handler(srv interface{}, ctx context.Context, dec f
 }
 
 func _Alerting_CreateAlertLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AlertLog)
+	in := new(v1.AlertLog)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -357,7 +357,7 @@ func _Alerting_CreateAlertLog_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: "/Alerting/CreateAlertLog",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingServer).CreateAlertLog(ctx, req.(*AlertLog))
+		return srv.(AlertingServer).CreateAlertLog(ctx, req.(*v1.AlertLog))
 	}
 	return interceptor(ctx, in, info, handler)
 }

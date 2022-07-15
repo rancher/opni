@@ -67,7 +67,7 @@ func local_request_Alerting_TriggerAlerts_0(ctx context.Context, marshaler runti
 }
 
 func request_Alerting_CreateAlertLog_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq AlertLog
+	var protoReq v1.AlertLog
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -84,7 +84,7 @@ func request_Alerting_CreateAlertLog_0(ctx context.Context, marshaler runtime.Ma
 }
 
 func local_request_Alerting_CreateAlertLog_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq AlertLog
+	var protoReq v1.AlertLog
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)

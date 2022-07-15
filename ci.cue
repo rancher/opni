@@ -471,7 +471,7 @@ dagger.#Plan & {
 					},
 				]
 			}
-			pushOpensearchImage: docker.#Push & {
+			push: docker.#Push & {
 				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
 				image: opensearchUpdateService.output
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {

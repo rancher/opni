@@ -24,9 +24,11 @@ import (
 	"github.com/rancher/opni/pkg/storage/crds"
 	"github.com/rancher/opni/pkg/storage/etcd"
 	"github.com/rancher/opni/pkg/trust"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
@@ -203,10 +205,15 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 					zap.Error(errF.Get()),
 				).Warn("error connecting to gateway")
 			}
+			if util.StatusCode(errF.Get()) == codes.FailedPrecondition {
+				// Non-retriable error, e.g. the cluster was deleted, or the metrics
+				// capability was uninstalled.
+				break
+			}
 			isRetry = true
 		}
 		lg.With(
-			ctx.Err(),
+			zap.Error(ctx.Err()),
 		).Error("shutting down gateway client")
 	}()
 

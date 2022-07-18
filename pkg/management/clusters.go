@@ -130,3 +130,78 @@ func (m *Server) EditCluster(
 		cluster.Metadata.Labels = in.GetLabels()
 	})
 }
+
+func (m *Server) UninstallCapability(
+	ctx context.Context,
+	in *managementv1.CapabilityUninstallRequest,
+) (*emptypb.Empty, error) {
+	if err := validation.Validate(in); err != nil {
+		return nil, err
+	}
+
+	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
+	backend, err := backendStore.Get(in.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = backend.Uninstall(ctx, in.Target)
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (m *Server) CapabilityUninstallStatus(
+	ctx context.Context,
+	req *managementv1.CapabilityStatusRequest,
+) (*corev1.TaskStatus, error) {
+	if err := validation.Validate(req); err != nil {
+		return nil, err
+	}
+
+	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
+	backend, err := backendStore.Get(req.Name)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, status.Errorf(codes.NotFound, "capability not found for cluster %s", req.Cluster.Id)
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	stat, err := backend.UninstallStatus(ctx, req.Cluster)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, status.Errorf(codes.NotFound, "no status available for cluster %s and capability %s", req.Cluster, req.Name)
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return stat, nil
+}
+
+func (m *Server) CancelCapabilityUninstall(
+	ctx context.Context,
+	req *managementv1.CapabilityUninstallCancelRequest,
+) (*emptypb.Empty, error) {
+	if err := validation.Validate(req); err != nil {
+		return nil, err
+	}
+
+	cluster, err := m.coreDataSource.StorageBackend().GetCluster(ctx, req.Cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
+	backend, err := backendStore.Get(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = backend.CancelUninstall(ctx, cluster.Reference())
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}

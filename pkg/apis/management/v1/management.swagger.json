@@ -257,6 +257,79 @@
         ]
       }
     },
+    "/management/clusters/{cluster.id}/capabilities/{name}/uninstall/cancel": {
+      "post": {
+        "operationId": "Management_CancelCapabilityUninstall",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cluster.id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters/{cluster.id}/capabilities/{name}/uninstall/status": {
+      "get": {
+        "operationId": "Management_CapabilityUninstallStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/coreTaskStatus"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cluster.id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
     "/management/clusters/{id}": {
       "get": {
         "operationId": "Management_GetCluster",
@@ -338,6 +411,57 @@
             "name": "id",
             "in": "path",
             "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters/{target.cluster.id}/capabilities/{name}/uninstall": {
+      "post": {
+        "operationId": "Management_UninstallCapability",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "target.cluster.id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "target.options.deleteStoredData",
+            "description": "If true, will permanently delete all stored data associated with this \ncapability.",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "target.options.initialDelay",
+            "description": "Delay the uninstall operation by this amount of time, during which the\noperation can be canceled without incurring any data loss.\nIf deleteStoredData is false, this option may not have any effect.",
+            "in": "query",
+            "required": false,
             "type": "string"
           }
         ],
@@ -835,6 +959,30 @@
         }
       }
     },
+    "capabilityUninstallOptions": {
+      "type": "object",
+      "properties": {
+        "deleteStoredData": {
+          "type": "boolean",
+          "description": "If true, will permanently delete all stored data associated with this \ncapability."
+        },
+        "initialDelay": {
+          "type": "string",
+          "description": "Delay the uninstall operation by this amount of time, during which the\noperation can be canceled without incurring any data loss.\nIf deleteStoredData is false, this option may not have any effect."
+        }
+      }
+    },
+    "capabilityUninstallRequest": {
+      "type": "object",
+      "properties": {
+        "cluster": {
+          "$ref": "#/definitions/coreReference"
+        },
+        "options": {
+          "$ref": "#/definitions/capabilityUninstallOptions"
+        }
+      }
+    },
     "coreBootstrapToken": {
       "type": "object",
       "properties": {
@@ -1033,6 +1181,22 @@
         }
       }
     },
+    "coreLogEntry": {
+      "type": "object",
+      "properties": {
+        "msg": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "coreMatchOptions": {
       "type": "string",
       "enum": [
@@ -1040,6 +1204,19 @@
         "EmptySelectorMatchesNone"
       ],
       "default": "Default"
+    },
+    "coreProgress": {
+      "type": "object",
+      "properties": {
+        "current": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "total": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
     },
     "coreReference": {
       "type": "object",
@@ -1122,11 +1299,62 @@
         }
       }
     },
+    "coreStateTransition": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "#/definitions/coreTaskState"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "Represents a transition to a task state at a point in time."
+    },
     "coreStatus": {
       "type": "object",
       "properties": {
         "connected": {
           "type": "boolean"
+        }
+      }
+    },
+    "coreTaskState": {
+      "type": "string",
+      "enum": [
+        "Unknown",
+        "Pending",
+        "Running",
+        "Completed",
+        "Failed",
+        "Canceled"
+      ],
+      "default": "Unknown"
+    },
+    "coreTaskStatus": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "$ref": "#/definitions/coreTaskState"
+        },
+        "progress": {
+          "$ref": "#/definitions/coreProgress"
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "logs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreLogEntry"
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/coreStateTransition"
+          }
         }
       }
     },
@@ -1368,6 +1596,13 @@
           }
         }
       }
+    },
+    "protobufNullValue": {
+      "type": "string",
+      "enum": [
+        "NULL_VALUE"
+      ],
+      "default": "NULL_VALUE"
     },
     "protobufServiceDescriptorProto": {
       "type": "object",

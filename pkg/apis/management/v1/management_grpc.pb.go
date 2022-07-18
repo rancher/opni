@@ -49,6 +49,9 @@ type ManagementClient interface {
 	UpdateConfig(ctx context.Context, in *UpdateConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListCapabilities(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityList, error)
 	CapabilityInstaller(ctx context.Context, in *CapabilityInstallerRequest, opts ...grpc.CallOption) (*CapabilityInstallerResponse, error)
+	UninstallCapability(ctx context.Context, in *CapabilityUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CapabilityUninstallStatus(ctx context.Context, in *CapabilityStatusRequest, opts ...grpc.CallOption) (*v1.TaskStatus, error)
+	CancelCapabilityUninstall(ctx context.Context, in *CapabilityUninstallCancelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type managementClient struct {
@@ -307,6 +310,33 @@ func (c *managementClient) CapabilityInstaller(ctx context.Context, in *Capabili
 	return out, nil
 }
 
+func (c *managementClient) UninstallCapability(ctx context.Context, in *CapabilityUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/UninstallCapability", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) CapabilityUninstallStatus(ctx context.Context, in *CapabilityStatusRequest, opts ...grpc.CallOption) (*v1.TaskStatus, error) {
+	out := new(v1.TaskStatus)
+	err := c.cc.Invoke(ctx, "/management.Management/CapabilityUninstallStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) CancelCapabilityUninstall(ctx context.Context, in *CapabilityUninstallCancelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/CancelCapabilityUninstall", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ManagementServer is the server API for Management service.
 // All implementations must embed UnimplementedManagementServer
 // for forward compatibility
@@ -336,6 +366,9 @@ type ManagementServer interface {
 	UpdateConfig(context.Context, *UpdateConfigRequest) (*emptypb.Empty, error)
 	ListCapabilities(context.Context, *emptypb.Empty) (*CapabilityList, error)
 	CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error)
+	UninstallCapability(context.Context, *CapabilityUninstallRequest) (*emptypb.Empty, error)
+	CapabilityUninstallStatus(context.Context, *CapabilityStatusRequest) (*v1.TaskStatus, error)
+	CancelCapabilityUninstall(context.Context, *CapabilityUninstallCancelRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedManagementServer()
 }
 
@@ -417,6 +450,15 @@ func (UnimplementedManagementServer) ListCapabilities(context.Context, *emptypb.
 }
 func (UnimplementedManagementServer) CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CapabilityInstaller not implemented")
+}
+func (UnimplementedManagementServer) UninstallCapability(context.Context, *CapabilityUninstallRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UninstallCapability not implemented")
+}
+func (UnimplementedManagementServer) CapabilityUninstallStatus(context.Context, *CapabilityStatusRequest) (*v1.TaskStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CapabilityUninstallStatus not implemented")
+}
+func (UnimplementedManagementServer) CancelCapabilityUninstall(context.Context, *CapabilityUninstallCancelRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelCapabilityUninstall not implemented")
 }
 func (UnimplementedManagementServer) mustEmbedUnimplementedManagementServer() {}
 
@@ -884,6 +926,60 @@ func _Management_CapabilityInstaller_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Management_UninstallCapability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CapabilityUninstallRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).UninstallCapability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/UninstallCapability",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).UninstallCapability(ctx, req.(*CapabilityUninstallRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_CapabilityUninstallStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CapabilityStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).CapabilityUninstallStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/CapabilityUninstallStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).CapabilityUninstallStatus(ctx, req.(*CapabilityStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_CancelCapabilityUninstall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CapabilityUninstallCancelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).CancelCapabilityUninstall(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/CancelCapabilityUninstall",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).CancelCapabilityUninstall(ctx, req.(*CapabilityUninstallCancelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Management_ServiceDesc is the grpc.ServiceDesc for Management service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -986,6 +1082,18 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CapabilityInstaller",
 			Handler:    _Management_CapabilityInstaller_Handler,
+		},
+		{
+			MethodName: "UninstallCapability",
+			Handler:    _Management_UninstallCapability_Handler,
+		},
+		{
+			MethodName: "CapabilityUninstallStatus",
+			Handler:    _Management_CapabilityUninstallStatus_Handler,
+		},
+		{
+			MethodName: "CancelCapabilityUninstall",
+			Handler:    _Management_CancelCapabilityUninstall_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -5,10 +5,12 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/descriptor.proto";
+import "google/protobuf/timestamp.proto";
 import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "google/rpc/status.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
 import "github.com/kralicky/grpc-gateway/v2/protoc-gen-openapiv2/options/annotations.proto";
 
 package management;
@@ -157,6 +159,21 @@ service Management {
       body: "*"
     };
   }
+  rpc UninstallCapability(CapabilityUninstallRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/management/clusters/{target.cluster.id}/capabilities/{name}/uninstall"
+    };
+  }
+  rpc CapabilityUninstallStatus(CapabilityStatusRequest) returns (core.TaskStatus) {
+    option (google.api.http) = {
+      get: "/management/clusters/{cluster.id}/capabilities/{name}/uninstall/status"
+    };
+  }
+  rpc CancelCapabilityUninstall(CapabilityUninstallCancelRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/management/clusters/{cluster.id}/capabilities/{name}/uninstall/cancel"
+    };
+  }
 }
 
 message CreateBootstrapTokenRequest {
@@ -237,4 +254,19 @@ message CapabilityInstallerRequest {
 
 message CapabilityInstallerResponse {
   string command = 1;
+}
+
+message CapabilityUninstallRequest {
+  string name = 1;
+  capability.UninstallRequest target = 2;
+}
+
+message CapabilityStatusRequest {
+  string name = 1;
+  core.Reference cluster = 2;
+}
+
+message CapabilityUninstallCancelRequest {
+  string name = 1;
+  core.Reference cluster = 2;
 }

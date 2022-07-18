@@ -740,6 +740,9 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 				},
+				Purger: v1beta1.PurgerSpec{
+					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+				},
 				Certs: v1beta1.MTLSSpec{
 					ServerCA:   path.Join(e.tempDir, "cortex/root.crt"),
 					ClientCA:   path.Join(e.tempDir, "cortex/root.crt"),

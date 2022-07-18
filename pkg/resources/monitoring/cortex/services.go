@@ -18,6 +18,9 @@ func (r *Reconciler) services() []resources.Resource {
 	resources = append(resources, r.buildCortexWorkloadServices("compactor",
 		AddServiceMonitor(),
 	)...)
+	resources = append(resources, r.buildCortexWorkloadServices("purger",
+		AddServiceMonitor(),
+	)...)
 	resources = append(resources, r.buildCortexWorkloadServices("distributor",
 		AddHeadlessService(true),
 		AddServiceMonitor(),

@@ -1,5 +1,5 @@
 /*
-Shared definitions for opni alerting
+Shared definitions (constants & errors) for opni alerting
 */
 package shared
 
@@ -8,6 +8,10 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	AlertingV1Alpha = "v1alpha"
 )
 
 var (

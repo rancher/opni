@@ -5,16 +5,16 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni/pkg/alerting/interfaces"
+	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
-	apis "github.com/rancher/opni/plugins/alerting/pkg/apis/alerting"
 )
 
 type Plugin struct {
-	apis.UnsafeAlertingServer
+	alertingv1alpha.UnsafeAlertingServer
 	system.UnimplementedSystemPluginClient
 	ctx        context.Context
 	logger     hclog.Logger
@@ -34,7 +34,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 	}
 }
 
-var _ apis.AlertingServer = (*Plugin)(nil)
+var _ alertingv1alpha.AlertingServer = (*Plugin)(nil)
 var _ interfaces.GatewayAlertingImplementation = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {

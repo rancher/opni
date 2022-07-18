@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - ragu               v1.0.0
-// source: github.com/rancher/opni/pkg/plugins/alerting/pkg/apis/alerting/alerting.proto
+// source: github.com/rancher/opni/pkg/alerting/v1alpha/alerting.proto
 
-package alerting
+package v1alpha
 
 import (
 	context "context"
@@ -731,5 +731,5 @@ var Alerting_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/pkg/plugins/alerting/pkg/apis/alerting/alerting.proto",
+	Metadata: "github.com/rancher/opni/pkg/alerting/v1alpha/alerting.proto",
 }

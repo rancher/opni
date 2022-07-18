@@ -20,13 +20,13 @@ type runningTask struct {
 	cancel context.CancelFunc
 }
 
-type newTaskFunc func(*slo.ServiceLevelObjective) task
+type newTaskFunc func(*slo.SLOData) task
 
 func (m *module) manageTasks(ctx context.Context, newTask newTaskFunc) {
 	tasks := sync.Map[string, *runningTask]{}
 
-	start := func(slo *slo.ServiceLevelObjective) {
-		tctx, tca := context.WithCancel(ctx)
+	start := func(slo *slo.SLOData) {
+		_, tca := context.WithCancel(ctx)
 		running := &runningTask{
 			task:   newTask(slo),
 			cancel: tca,
@@ -37,17 +37,17 @@ func (m *module) manageTasks(ctx context.Context, newTask newTaskFunc) {
 			for _, metric := range metrics {
 				m.mc.Reg.Register(metric)
 			}
-			running.task.Run(tctx, &stateReadWriter{
-				ctx:       tctx,
-				id:        slo.GetId(),
-				sloClient: m.sloClient,
-			})
+			// running.task.Run(tctx, &stateReadWriter{
+			// 	ctx:       tctx,
+			// 	id:        slo.GetId(),
+			// 	sloClient: m.sloClient,
+			// })
 			for _, metric := range metrics {
 				m.mc.Reg.Unregister(metric)
 			}
 		}()
 	}
-	stop := func(slo *slo.ServiceLevelObjective) {
+	stop := func(slo *slo.SLOData) {
 		if value, ok := tasks.LoadAndDelete(slo.GetId()); ok {
 			value.cancel()
 		}
@@ -58,7 +58,7 @@ func (m *module) manageTasks(ctx context.Context, newTask newTaskFunc) {
 		case <-ctx.Done():
 			return
 		case event := <-m.events:
-			clone := proto.Clone(event.slo).(*slo.ServiceLevelObjective)
+			clone := proto.Clone(event.slo).(*slo.SLOData)
 			switch event.typ {
 			case sloAdded:
 				start(clone)

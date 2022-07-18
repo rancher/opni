@@ -9,6 +9,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/slo/query"
+	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -44,11 +45,9 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	p.storage.Set(StorageAPIs{
-		SLOs:     system.NewKVStoreClient[*sloapi.ServiceLevelObjective](p.ctx, client),
-		SLOState: system.NewKVStoreClient[*sloapi.State](p.ctx, client),
+		SLOs:     system.NewKVStoreClient[*sloapi.SLOData](p.ctx, client),
 		Services: system.NewKVStoreClient[*sloapi.Service](p.ctx, client),
 		Metrics:  system.NewKVStoreClient[*sloapi.Metric](p.ctx, client),
-		Formulas: system.NewKVStoreClient[*sloapi.Formula](p.ctx, client),
 	})
 	p.initMetricCache(p.ctx)
 	<-p.ctx.Done()
@@ -80,4 +79,5 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	}
 	adminClient := cortexadmin.NewCortexAdminClient(cc)
 	p.adminClient.Set(adminClient)
+	RegisterDatasource(shared.MonitoringDatasource, NewSLOMonitoringStore(p, p.logger), NewMonitoringServiceBackend(p, p.logger))
 }

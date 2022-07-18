@@ -22,10 +22,12 @@ Must :
 */
 
 import (
-	"html/template"
+	"net/http"
 	"regexp"
 	"strings"
+	"text/template"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni/pkg/slo/shared"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
@@ -33,29 +35,39 @@ import (
 var (
 	AvailableQueries              map[string]MetricQuery = make(map[string]MetricQuery)
 	GetDownstreamMetricQueryTempl                        = template.Must(template.New("").Parse(`
-		group by(__name__)({__name__=~"{{.NameRegex}}"} and {job="{{.ServiceId}}"})
+		group by(__name__)({__name__=~"{{.NameRegex}}"})
 	`))
 )
+
+type templateExecutor struct {
+	MetricIdGood  string
+	MetricIdTotal string
+	JobId         string
+}
 
 func init() {
 	// Names should be unique for each pre-configured query, as they are used as keys
 	// in the map
 
+	//FIXME: doesn't turn into a prometheus range
 	uptimeSLOQuery := New().
 		Name("uptime").
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdGood}}{job="{{.JobId}}", {{.MetricIdGood}}=1}[{{"{{.window}}"}}]))
+					(sum(rate({{.MetricIdGood}}{job="{{.JobId}}"} == 1)))[{{"{{.window}}"}}]
 				`).
-				MetricFilter(`.*up.*`).
+				MetricFilter(`up`).
 				BuildRatio()).
 		TotalQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdTotal}}{job="{{.JobId}}"}[{{"{{.window}}"}}]))
+					(sum(rate({{.MetricIdTotal}}{job="{{.JobId}}"})))[{{"{{.window}}"}}]
 				`).
-				MetricFilter(`.*up.*`).BuildRatio()).
+				MetricFilter(`up`).BuildRatio()).
+		Collector(uptimeCollector).
+		GoodEventGenerator(uptimeGoodEvents).
+		BadEventGenerator(uptimeBadEvents).
 		Description("Measures the uptime of a kubernetes service").
 		Datasource(shared.MonitoringDatasource).Build()
 	AvailableQueries[uptimeSLOQuery.name] = &uptimeSLOQuery
@@ -65,17 +77,20 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdGood}}{code="(2..|3..)"}[{{"{{.window}}"}}]))
+					(sum(rate({{.MetricIdGood}}{job="{{.JobId}}",code=~"(2..|3..)"}[{{"{{.window}}"}}])))
 				`).
-				MetricFilter(`.*_request_duration_seconds_count`).
+				MetricFilter(`.*http_request_duration_seconds_count`).
 				BuildRatio()).
 		TotalQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdTotal}}[{{"{{.window}}"}}]))
+				(sum(rate({{.MetricIdTotal}}{job="{{.JobId}}"}[{{"{{.window}}"}}])))
 				`).
-				MetricFilter(`.*_request_duration_seconds_count`).BuildRatio()).
-		Description(`Measures the availability of a kubernetes service using http status codes. 
+				MetricFilter(`.*http_request_duration_seconds_count`).BuildRatio()).
+		Collector(availabilityCollector).
+		GoodEventGenerator(availabilityGoodEvents).
+		BadEventGenerator(availabilityBadEvents).
+		Description(`Measures the availability of a kubernetes service using http status codes.
 		Codes 2XX and 3XX are considered as available.`).
 		Datasource(shared.MonitoringDatasource).Build()
 	AvailableQueries[httpAvailabilitySLOQuery.name] = &httpAvailabilitySLOQuery
@@ -85,16 +100,19 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdGood}}{le="0.3",verb!="WATCH"} [{{"{{window}}"}}]))
+					sum(rate({{.MetricIdGood}}{job="{{.JobId}},"le="0.3",verb!="WATCH"} [{{"{{window}}"}}]))
 				`).
-				MetricFilter(`.*_request_duration_seconds_bucket`).
+				MetricFilter(`.*http_request_duration_seconds_bucket`).
 				BuildHistogram()).
 		TotalQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdTotal}}{verb!="WATCH"}[{{"{{.window}}"}}]))
+					sum(rate({{.MetricIdTotal}}{job="{{.JobId}}",verb!="WATCH"}[{{"{{.window}}"}}]))
 				`).
-				MetricFilter(`.*_request_duration_seconds_count`).BuildRatio()).
+				MetricFilter(`.*http_request_duration_seconds_count`).BuildRatio()).
+		Collector(latencyCollector).
+		GoodEventGenerator(latencyGoodEvents).
+		BadEventGenerator(latencyBadEvents).
 		Description(`Quantifies the latency of http requests made against a kubernetes service
 			by classifying them as good (<=300ms) or bad(>=300ms)`).
 		Datasource(shared.MonitoringDatasource).Build()
@@ -108,11 +126,6 @@ type SLOQueryResult struct {
 	TotalQuery string
 }
 
-type templateExecutor struct {
-	MetricIdGood  string
-	MetricIdTotal string
-	JobId         string
-}
 type MetricQuery interface {
 	// User facing name of the pre-confured metric
 	Name() string
@@ -124,6 +137,12 @@ type MetricQuery interface {
 	// Some metrics will have different labels for metrics, so handle them independently
 	GetGoodQuery() Query
 	GetTotalQuery() Query
+
+	// Auto-instrumentation server methods
+
+	GetCollector() prometheus.Collector
+	GetGoodEventGenerator() func(w http.ResponseWriter, r *http.Request)
+	GetBadEventGenerator() func(w http.ResponseWriter, r *http.Request)
 }
 
 type Query interface {
@@ -180,22 +199,32 @@ func (q queryBuilder) BuildRatio() RatioQuery {
 	if q.matcher == nil {
 		q.matcher = MatchMinLength
 	}
-	return RatioQuery{
+	r := RatioQuery{
 		query:        q.query,
 		metricFilter: q.filter,
 		matcher:      q.matcher,
 	}
+	err := r.Validate()
+	if err != nil {
+		panic(err)
+	}
+	return r
 }
 
 func (q queryBuilder) BuildHistogram() HistogramQuery {
 	if q.matcher == nil {
 		q.matcher = MatchMinLength
 	}
-	return HistogramQuery{
+	h := HistogramQuery{
 		query:        q.query,
 		metricFilter: q.filter,
 		matcher:      q.matcher,
 	}
+	err := h.Validate()
+	if err != nil {
+		panic(err)
+	}
+	return h
 }
 
 type SloQueryBuilder interface {
@@ -204,16 +233,23 @@ type SloQueryBuilder interface {
 	TotalQuery(q Query) SloQueryBuilder
 	Description(description string) SloQueryBuilder
 	Datasource(datasource string) SloQueryBuilder
+	Collector(prometheus.Collector) SloQueryBuilder
+	GoodEventGenerator(goodEvents func(w http.ResponseWriter, r *http.Request)) SloQueryBuilder
+	BadEventGenerator(badEvents func(w http.ResponseWriter, r *http.Request)) SloQueryBuilder
 	Build() PrometheusQueryImpl
 }
 
 type sloQueryBuilder struct {
-	name         string
-	metricFilter regexp.Regexp
-	goodQuery    Query
-	totalQuery   Query
-	description  string
-	datasource   string
+	name           string
+	metricFilter   regexp.Regexp
+	goodQuery      Query
+	totalQuery     Query
+	description    string
+	datasource     string
+	collector      prometheus.Collector
+	totalCollector prometheus.Collector
+	goodEventsGen  func(w http.ResponseWriter, r *http.Request)
+	badEventsGen   func(w http.ResponseWriter, r *http.Request)
 }
 
 func New() SloQueryBuilder {
@@ -245,12 +281,42 @@ func (s sloQueryBuilder) Datasource(datasource string) SloQueryBuilder {
 	return s
 }
 
+func (s sloQueryBuilder) Collector(
+	collector prometheus.Collector) SloQueryBuilder {
+	s.collector = collector
+	return s
+}
+
+func (s sloQueryBuilder) GoodEventGenerator(
+	goodEvents func(w http.ResponseWriter, r *http.Request),
+) SloQueryBuilder {
+	s.goodEventsGen = goodEvents
+	return s
+}
+
+func (s sloQueryBuilder) BadEventGenerator(
+	badEvents func(w http.ResponseWriter, r *http.Request),
+) SloQueryBuilder {
+	s.badEventsGen = badEvents
+	return s
+}
+
 func (s sloQueryBuilder) Build() PrometheusQueryImpl {
+	//TODO figure out how to validate at compile time
+	if s.collector == nil {
+		panic("auto-instrumentation collectors must be set")
+	}
+	if s.goodEventsGen == nil || s.badEventsGen == nil {
+		panic("auto-instrumentation events must be set")
+	}
 	return PrometheusQueryImpl{
-		name:        s.name,
-		datasource:  s.datasource,
-		description: s.description,
-		GoodQuery:   s.goodQuery,
-		TotalQuery:  s.totalQuery,
+		name:          s.name,
+		datasource:    s.datasource,
+		description:   s.description,
+		GoodQuery:     s.goodQuery,
+		TotalQuery:    s.totalQuery,
+		collector:     s.collector,
+		goodEventsGen: s.goodEventsGen,
+		badEventsGen:  s.badEventsGen,
 	}
 }

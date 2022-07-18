@@ -134,7 +134,7 @@ logging:
       repository: rancher/opensearch
       override: ""
 
-    version: 1.3.1
+    version: 1.3.3
 
     exposeDataNodes:
       enabled: true
@@ -168,12 +168,16 @@ logging:
       # JVM memory setting should be half the memory limit
       jvm: "-Xmx1G -Xms1G"
 
+  local:
+    enabled: true
+    provider: eks
+
   dashboards:
     image:
       repository: rancher/opensearch-dashboards
       override: ""
 
-    version: 1.3.1
+    version: 1.3.3
 
     replicas: 1
 

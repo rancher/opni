@@ -7,18 +7,12 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/google/uuid"
-	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -39,50 +33,17 @@ func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, err
 	return items, nil
 }
 
-func (p *Plugin) CreateSLO(ctx context.Context, slo *sloapi.ServiceLevelObjective) (*emptypb.Empty, error) {
-	if slo.Id == "" {
-		slo.Id = uuid.New().String()
-	} else {
-		_, err := p.storage.Get().SLOs.Get(path.Join("/slos", slo.Id))
-		if err != nil {
-			if status.Code(err) != codes.NotFound {
-				return nil, err
-			}
-		} else {
-			return nil, status.Error(codes.AlreadyExists, "SLO with this ID already exists")
-		}
+func checkDatasource(datasource string) error {
+	if _, ok := datasourceToSLO[datasource]; !ok {
+		return shared.ErrInvalidDatasource
 	}
-
-	if err := ValidateInput(slo); err != nil {
-		return nil, err
+	if _, ok := datasourceToService[datasource]; !ok {
+		return shared.ErrInvalidDatasource
 	}
-
-	osloSpecs, err := ParseToOpenSLO(slo, ctx, p.logger)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, spec := range osloSpecs {
-		switch slo.GetDatasource() {
-		case shared.LoggingDatasource:
-			return nil, shared.ErrNotImplemented
-		case shared.MonitoringDatasource:
-			// TODO forward to "sloth"-like prometheus parser
-		default:
-			return nil, status.Error(codes.FailedPrecondition, "Invalid datasource should have already been checked")
-		}
-
-		fmt.Printf("%v", spec) // FIXME: remove
-	}
-
-	// Put in k,v store only if everything else succeeds
-	if err := p.storage.Get().SLOs.Put(path.Join("/slos", slo.Id), slo); err != nil {
-		return nil, err
-	}
-	return &emptypb.Empty{}, nil
+	return nil
 }
 
-func (p *Plugin) GetSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.ServiceLevelObjective, error) {
+func (p *Plugin) GetSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOData, error) {
 	return p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
 }
 
@@ -93,56 +54,119 @@ func (p *Plugin) ListSLOs(ctx context.Context, _ *emptypb.Empty) (*sloapi.Servic
 	}
 	return &sloapi.ServiceLevelObjectiveList{
 		Items: items,
-	}, shared.ErrNotImplemented
+	}, nil
 }
 
-func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.ServiceLevelObjective) (*emptypb.Empty, error) {
+func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequest) (*corev1.ReferenceList, error) {
+	lg := p.logger
+
+	if err := checkDatasource(slorequest.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
+	if err := ValidateInput(slorequest); err != nil {
+		return nil, err
+	}
+	osloSpecs, err := ParseToOpenSLO(slorequest, ctx, p.logger)
+	if err != nil {
+		return nil, err
+	}
+	lg.Debug(fmt.Sprintf("Number of generated OpenSLO specs from create SLO request : %d", len(osloSpecs)))
+	sloStore := datasourceToSLO[slorequest.SLO.GetDatasource()].WithCurrentRequest(slorequest, ctx)
+	return sloStore.Create(osloSpecs)
+}
+
+func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.Empty, error) {
+	lg := p.logger
 	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", req.Id))
 	if err != nil {
 		return nil, err
 	}
+	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
+	osloSpecs, err := ParseToOpenSLO(&sloapi.CreateSLORequest{
+		SLO:      req.SLO,
+		Services: []*sloapi.Service{req.Service},
+	}, ctx, lg)
+	if err != nil {
+		return nil, err
+	}
+	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(req, ctx)
+	newReq, anyError := sloStore.Update(osloSpecs, existing)
 
-	proto.Merge(existing, req)
+	// Merge when everything else is done
+	proto.Merge(existing, newReq)
 	if err := p.storage.Get().SLOs.Put(path.Join("/slos", req.Id), existing); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, shared.ErrNotImplemented
+	return &emptypb.Empty{}, anyError
 }
 
-func (p *Plugin) DeleteSLO(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	if err := p.storage.Get().SLOs.Delete(path.Join("/slos", ref.Id)); err != nil {
+func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
+	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", req.Id))
+	if err != nil {
 		return nil, err
 	}
-
-	p.storage.Get().SLOs.Delete(path.Join("/slo_state", ref.Id))
-	return &emptypb.Empty{}, shared.ErrNotImplemented
+	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
+	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(req, ctx)
+	err = sloStore.Delete(existing)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.storage.Get().SLOs.Delete(path.Join("/slos", req.Id)); err != nil {
+		return nil, err
+	}
+	// delete if found
+	p.storage.Get().SLOs.Delete(path.Join("/slo_state", req.Id))
+	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.ServiceLevelObjective, error) {
+func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOData, error) {
 	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
 	if err != nil {
 		return nil, err
 	}
-
-	clone := proto.Clone(existing).(*sloapi.ServiceLevelObjective)
+	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
+	var anyError error
+	clone := proto.Clone(existing).(*sloapi.SLOData)
 	clone.Id = ""
-	clone.Name = clone.Name + " - Copy"
-	if _, err := p.CreateSLO(ctx, clone); err != nil {
+	clone.SLO.Name = clone.SLO.Name + " - Copy"
+
+	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ref, ctx)
+	newId, err := sloStore.Clone(clone)
+	if err := p.storage.Get().SLOs.Put(path.Join("/slos", newId), clone); err != nil {
 		return nil, err
 	}
 
-	return clone, shared.ErrNotImplemented
+	return clone, anyError
 }
 
 func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOStatus, error) {
-	return nil, shared.ErrNotImplemented
+	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
+	if err != nil {
+		return nil, err
+	}
+	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
+
+	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ref, ctx)
+	state, err := sloStore.Status(existing)
+	if err != nil {
+		return &sloapi.SLOStatus{
+			State: sloapi.SLOStatusState_InternalError,
+		}, nil
+	}
+	return state, nil
 }
 
-func (p *Plugin) GetService(ctx context.Context, ref *corev1.Reference) (*sloapi.Service, error) {
-	return p.storage.Get().Services.Get(path.Join("/services", ref.Id))
-}
+// -------- Service Discovery ---------
 
-func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.ServiceList, error) {
+func (p *Plugin) ListServices(ctx context.Context, req *emptypb.Empty) (*sloapi.ServiceList, error) {
 	res := &sloapi.ServiceList{}
 	lg := p.logger
 	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
@@ -154,69 +178,45 @@ func (p *Plugin) ListServices(ctx context.Context, _ *emptypb.Empty) (*sloapi.Se
 		lg.Debug("Found no downstream clusters")
 		return res, nil
 	}
-	cl := make([]string, 0)
-	for _, c := range clusters.Items {
-		cl = append(cl, c.Id)
-		lg.Debug("Found cluster with id %v", c.Id)
-	}
-	discoveryQuery := `group by(job)({__name__!=""})`
-
-	for _, c := range clusters.Items {
-		resp, err := p.adminClient.Get().Query(ctx, &cortexadmin.QueryRequest{
-			Tenants: []string{c.Id},
-			Query:   discoveryQuery,
-		})
+	var anyError error
+	for name, backend := range datasourceToService {
+		lg.Debug("Found available datasource for service discovery : ", name)
+		listCurBackend := backend.WithCurrentRequest(req, ctx)
+		datasourceServices, err := listCurBackend.List(clusters)
 		if err != nil {
-			lg.Error(fmt.Sprintf("Failed to query cluster %v: %v", c.Id, err))
-			return nil, err
+			anyError = err
 		}
-		data := resp.GetData()
-		lg.Debug(fmt.Sprintf("Received service data:\n %s from cluster %s ", string(data), c.Id))
-		q, err := unmarshal.UnmarshallPrometheusResponse(data)
-		switch q.V.Type() {
-		case model.ValVector:
-			{
-				vv := q.V.(model.Vector)
-				for _, v := range vv {
-
-					res.Items = append(res.Items, &sloapi.Service{
-						JobId:     string(v.Metric["job"]),
-						ClusterId: c.Id,
-					})
-				}
-			}
-		}
+		res.Items = append(res.Items, datasourceServices.Items...)
 	}
-	return res, nil
+
+	return res, anyError
 }
 
 // Assign a Job Id to a pre configured metric based on the service selected
-func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Metric, error) {
+func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Service, error) {
 	lg := p.logger
-	var goodMetricId string
-	var totalMetricId string
-	var err error
 
 	if _, ok := query.AvailableQueries[metricRequest.Name]; !ok {
 		return nil, shared.ErrInvalidMetric
 	}
-	switch metricRequest.Datasource {
-	case shared.MonitoringDatasource:
-		goodMetricId, totalMetricId, err = assignMetricToJobId(p, ctx, metricRequest)
-		if err != nil {
-			lg.Error(fmt.Sprintf("Unable to assign metric to job: %v", err))
-			return nil, err
-		}
-	case shared.LoggingDatasource:
-		return nil, shared.ErrNotImplemented
+
+	lg.Debug(fmt.Sprintf("%v", datasourceToService))
+	if _, ok := datasourceToService[metricRequest.Datasource]; !ok {
+		return nil, shared.ErrInvalidDatasource
 	}
-	return &sloapi.Metric{
-		Name:          metricRequest.Name,
-		Datasource:    metricRequest.Datasource,
+	serviceBackend := datasourceToService[metricRequest.GetDatasource()].WithCurrentRequest(metricRequest, ctx)
+	metricIds, err := serviceBackend.GetMetricId()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &sloapi.Service{
+		MetricName:    metricRequest.Name,
 		ClusterId:     metricRequest.ClusterId,
-		ServiceId:     metricRequest.ServiceId,
-		MetricIdGood:  goodMetricId,
-		MetricIdTotal: totalMetricId,
+		JobId:         metricRequest.ServiceId,
+		MetricIdGood:  metricIds.Good,
+		MetricIdTotal: metricIds.Total,
 	}, nil
 }
 
@@ -228,32 +228,4 @@ func (p *Plugin) ListMetrics(ctx context.Context, _ *emptypb.Empty) (*sloapi.Met
 	return &sloapi.MetricList{
 		Items: items,
 	}, nil
-}
-
-func (p *Plugin) GetFormulas(ctx context.Context, ref *corev1.Reference) (*sloapi.Formula, error) {
-	// return p.storage.Get().Formulas.Get(path.Join("/formulas", ref.Id))
-	return nil, shared.ErrNotImplemented
-}
-
-func (p *Plugin) ListFormulas(ctx context.Context, _ *emptypb.Empty) (*sloapi.FormulaList, error) {
-	items, err := list(p.storage.Get().Formulas, "/formulas")
-	if err != nil {
-		return nil, err
-	}
-	return &sloapi.FormulaList{
-		Items: items,
-	}, shared.ErrNotImplemented
-}
-
-func (p *Plugin) SetState(ctx context.Context, req *sloapi.SetStateRequest) (*emptypb.Empty, error) {
-	// if err := p.storage.Get().SLOState.Put(path.Join("/slo_state", req.Slo.Id), req.State); err != nil {
-	// 	return nil, err
-	// }
-	return &emptypb.Empty{}, shared.ErrNotImplemented
-
-}
-
-func (p *Plugin) GetState(ctx context.Context, ref *corev1.Reference) (*sloapi.State, error) {
-	// return p.storage.Get().SLOState.Get(path.Join("/slo_state", ref.Id))
-	return nil, shared.ErrNotImplemented
 }

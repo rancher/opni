@@ -1,10 +1,15 @@
 package slo
 
 import (
-	"html/template"
+	"text/template"
 	"time"
 
 	prommodel "github.com/prometheus/common/model"
+)
+
+// rule labels
+const (
+	sloOpniIdLabel = "slo_opni_id"
 )
 
 const (

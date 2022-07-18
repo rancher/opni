@@ -32,6 +32,13 @@ spec:
     version: {{ .Values.logging.dashboards.version }}
     replicas: {{ .Values.logging.dashboards.replicas }}
     image: "{{ template "system_default_registry" . }}{{ .Values.logging.dashboards.image.repository }}:{{ .Values.logging.dashboards.version }}-{{ .Chart.AppVersion }}"
+    additionalConfig:
+      opensearchDashboards.branding.logo.defaultUrl: "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-logo-dark.svg"
+      opensearchDashboards.branding.mark.defaultUrl: "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-mark.svg"
+      opensearchDashboards.branding.loadingLogo.defaultUrl: "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading.svg"
+      opensearchDashboards.branding.loadingLogo.darkModeUrl: "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading-dark.svg"
+      opensearchDashboards.branding.faviconUrl: "https://raw.githubusercontent.com/rancher/opni/main/branding/favicon.png"
+      opensearchDashboards.branding.applicationTitle: "Opni Logging"
   nodePools:
   - component: master
     replicas: {{ .Values.logging.opensearch.controlplane.replicas }}

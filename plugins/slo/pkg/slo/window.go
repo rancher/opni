@@ -14,7 +14,49 @@ type Windows struct {
 	TicketSlow  Window
 }
 
-//https://sre.google/workbook/alerting-on-slos/
+// https://sre.google/workbook/alerting-on-slos/
+//
+// budgeting interval is the shortest interval to monitor in a window
+func GenerateGoogleWindows(budgetingInterval time.Duration) *Windows {
+	pageQuickShort := budgetingInterval
+	pageQuickLong := budgetingInterval * 12
+
+	pageSlowShort := budgetingInterval * 6
+	pageSlowLong := pageSlowShort * 12
+
+	ticketQuickShort := pageSlowShort * 4
+	ticketQuickLong := ticketQuickShort * 12
+
+	ticketSlowShort := ticketQuickShort * 3
+	ticketSlowLong := ticketQuickLong * 3
+
+	return &Windows{
+		SLOPeriod: budgetingInterval,
+		PageQuick: Window{
+			LongWindow:         pageQuickLong,
+			ShortWindow:        pageQuickShort,
+			ErrorBudgetPercent: 2,
+		},
+		PageSlow: Window{
+			LongWindow:         pageSlowLong,
+			ShortWindow:        pageSlowShort,
+			ErrorBudgetPercent: 5,
+		},
+		TicketQuick: Window{
+			LongWindow:         ticketQuickLong,
+			ShortWindow:        ticketQuickShort,
+			ErrorBudgetPercent: 10,
+		},
+		TicketSlow: Window{
+			LongWindow:         ticketSlowLong,
+			ShortWindow:        ticketSlowShort,
+			ErrorBudgetPercent: 10,
+		},
+	}
+
+}
+
+// https://sre.google/workbook/alerting-on-slos/
 func WindowDefaults(period time.Duration) *Windows {
 	return &Windows{
 		SLOPeriod: period,

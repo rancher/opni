@@ -2,6 +2,8 @@ package slo
 
 import (
 	"github.com/rancher/opni/pkg/slo/shared"
+	"golang.org/x/exp/slices"
+
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
@@ -16,18 +18,26 @@ func matchEnum(target string, enum []string, returnErr error) error {
 
 /// Validates Input based on the necessities of our preconfigured formant,
 /// NOT validating the OpenSLO / Sloth format
-func ValidateInput(slo *api.ServiceLevelObjective) error {
-	if slo.GetId() == "" {
-		return shared.ErrInvalidId
+func ValidateInput(slorequest *api.CreateSLORequest) error {
+	if len(slorequest.Services) == 0 {
+		return shared.ErrMissingServices
 	}
-	if err := validateSLODescription(slo.GetDescription()); err != nil {
+	if err := validateSLODatasource(slorequest.SLO.GetDatasource()); err != nil {
 		return err
 	}
-	if err := validateSLODatasource(slo.GetDatasource()); err != nil {
+	if err := validateAlert(slorequest.SLO.GetAlerts()); err != nil {
 		return err
 	}
-	if err := validateAlert(slo.GetAlerts()); err != nil {
-		return err
+	// Expected monitor window
+	validWindows := []string{"7d", "28d", "30d"}
+	if !slices.Contains(validWindows, slorequest.SLO.GetMonitorWindow()) {
+		return shared.ErrInvalidMonitorWindow
+	}
+
+	budgetTime := slorequest.SLO.GetBudgetingInterval()
+
+	if !(budgetTime.Seconds >= 60 && budgetTime.Seconds <= 60*60) {
+		return shared.ErrInvalidBudgetingInterval
 	}
 
 	return nil

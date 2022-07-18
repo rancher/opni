@@ -2,13 +2,24 @@ package gateway
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmetav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+const (
+	gatewayCASecret      = "opni-gateway-ca-keys"
+	gatewayServingSecret = "opni-gateway-serving-cert"
 )
 
 func (r *Reconciler) certs() ([]resources.Resource, error) {
@@ -59,7 +70,7 @@ func (r *Reconciler) gatewayCA() client.Object {
 		Spec: cmv1.CertificateSpec{
 			IsCA:       true,
 			CommonName: "opni-gateway-ca",
-			SecretName: "opni-gateway-ca-keys",
+			SecretName: gatewayCASecret,
 			PrivateKey: &cmv1.CertificatePrivateKey{
 				Algorithm: cmv1.Ed25519KeyAlgorithm,
 				Encoding:  cmv1.PKCS1,
@@ -82,7 +93,7 @@ func (r *Reconciler) gatewayCAIssuer() client.Object {
 		Spec: cmv1.IssuerSpec{
 			IssuerConfig: cmv1.IssuerConfig{
 				CA: &cmv1.CAIssuer{
-					SecretName: "opni-gateway-ca-keys",
+					SecretName: gatewayCASecret,
 				},
 			},
 		},
@@ -96,7 +107,7 @@ func (r *Reconciler) gatewayServingCert() client.Object {
 			Namespace: r.gw.Namespace,
 		},
 		Spec: cmv1.CertificateSpec{
-			SecretName: "opni-gateway-serving-cert",
+			SecretName: gatewayServingSecret,
 			PrivateKey: &cmv1.CertificatePrivateKey{
 				Algorithm: cmv1.Ed25519KeyAlgorithm,
 				Encoding:  cmv1.PKCS1,
@@ -405,4 +416,79 @@ func (r *Reconciler) etcdServingCert() client.Object {
 			},
 		},
 	}
+}
+
+func (r *Reconciler) gatewayIngressSecret() (client.Object, *util.RequeueOp) {
+	var sb strings.Builder
+	ingressCertSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway-ingress-cert",
+			Namespace: r.gw.Namespace,
+		},
+		Type: corev1.SecretTypeTLS,
+	}
+
+	servingCertSecret := &corev1.Secret{}
+	if err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      gatewayServingSecret,
+		Namespace: r.gw.Namespace,
+	}, servingCertSecret); err != nil {
+		if k8serrors.IsNotFound(err) {
+			requeue := util.RequeueAfter(time.Second * 5)
+			return ingressCertSecret, &requeue
+		}
+		requeue := util.RequeueErr(err)
+		return ingressCertSecret, &requeue
+	}
+
+	key, ok := servingCertSecret.Data[corev1.TLSPrivateKeyKey]
+	if !ok {
+		r.logger.Info("tls key missing from serving secret, requeueing")
+		requeue := util.RequeueAfter(time.Second * 5)
+		return ingressCertSecret, &requeue
+	}
+
+	cert, ok := servingCertSecret.Data[corev1.TLSCertKey]
+	if !ok {
+		r.logger.Info("tls cert missing from serving secret, requeueing")
+		requeue := util.RequeueAfter(time.Second * 5)
+		return ingressCertSecret, &requeue
+	}
+	sb.WriteString(string(cert))
+
+	caSecret := &corev1.Secret{}
+	if err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      gatewayCASecret,
+		Namespace: r.gw.Namespace,
+	}, caSecret); err != nil {
+		if k8serrors.IsNotFound(err) {
+			requeue := util.RequeueAfter(time.Second * 5)
+			return ingressCertSecret, &requeue
+		}
+		requeue := util.RequeueErr(err)
+		return ingressCertSecret, &requeue
+	}
+
+	cert, ok = caSecret.Data["ca.crt"]
+	if !ok {
+		r.logger.Info("ca cert missing from ca secret, requeueing")
+		requeue := util.RequeueAfter(time.Second * 5)
+		return ingressCertSecret, &requeue
+	}
+	sb.WriteString(string(cert))
+
+	cert, ok = caSecret.Data[corev1.TLSCertKey]
+	if !ok {
+		r.logger.Info("intermediate cert missing from ca secret, requeueing")
+		requeue := util.RequeueAfter(time.Second * 5)
+		return ingressCertSecret, &requeue
+	}
+	sb.WriteString(string(cert))
+
+	ingressCertSecret.StringData = map[string]string{
+		corev1.TLSPrivateKeyKey: string(key),
+		corev1.TLSCertKey:       sb.String(),
+	}
+
+	return ingressCertSecret, nil
 }

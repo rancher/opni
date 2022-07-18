@@ -10,32 +10,44 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni/pkg/slo/shared"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-/// Returns a list of all the components passed in the protobuf we need to translate to specs
-/// @errors: slo must have an id
-func ParseToOpenSLO(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) ([]oslov1.SLO, error) {
+func normalizeOpenSLOTarget(valueX100 uint64) float64 {
+	return float64(valueX100) / 100
+}
+
+func convertTimeWindow(budgetTime *durationpb.Duration) string {
+	return strconv.Itoa(int(budgetTime.Seconds/60)) + "m"
+}
+
+// Returns a list of all the components passed in the protobuf we need to translate to specs
+//
+// @errors: slo must have an id
+//
+// Number of oslo specs matches the number of services given in the SLO
+func ParseToOpenSLO(slorequest *api.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]oslov1.SLO, error) {
 	res := make([]oslov1.SLO, 0)
 
-	for idx, service := range slo.GetServices() {
+	for idx, service := range slorequest.GetServices() {
 		// Parse to inline SLO/SLIs
 		newSLOI := oslov1.SLOSpec{
-			Description:     slo.GetDescription(),
+			Description:     "",
 			Service:         service.GetJobId(),
-			BudgetingMethod: slo.GetMonitorWindow(),
+			BudgetingMethod: slorequest.SLO.GetMonitorWindow(),
 		}
 		// actual SLO/SLI query
-		indicator, err := ParseToIndicator(slo, service, ctx, lg)
+		indicator, err := ParseToIndicator(slorequest.SLO, service, ctx, lg)
 		if err != nil {
 			return res, err
 		}
 		newSLOI.Indicator = indicator
 
 		// targets
-		newSLOI.Objectives = ParseToObjectives(slo, ctx, lg)
+		newSLOI.Objectives = append(newSLOI.Objectives, ParseToObjective(slorequest.SLO, ctx, lg))
 
 		// Parse inline Alert Policies and Alert Notifications
-		policies, err := ParseToAlerts(slo, ctx, lg)
+		policies, err := ParseToAlerts(slorequest.SLO, ctx, lg)
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +63,7 @@ func ParseToOpenSLO(slo *api.ServiceLevelObjective, ctx context.Context, lg hclo
 		}
 
 		//Label SLO
-		wrapSLOI.Metadata.Name = fmt.Sprintf("slo-%s-%d-%s-%s", slo.GetName(), idx, service.GetClusterId(), service.GetJobId())
+		wrapSLOI.Metadata.Name = fmt.Sprintf("slo-%s-%d-%s-%s", slorequest.SLO.GetName(), idx, service.GetClusterId(), service.GetJobId())
 		res = append(res, wrapSLOI)
 	}
 
@@ -99,17 +111,15 @@ func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.Service, ctx 
 	return &SLI, err
 }
 
-func ParseToObjectives(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) []oslov1.Objective {
-	objectives := make([]oslov1.Objective, 0)
-	for i, target := range slo.GetTargets() {
-		newObjective := oslov1.Objective{
-			DisplayName:     slo.GetName() + "-target" + strconv.Itoa(i),
-			Target:          float64(target.GetValueX100()) / 100,
-			TimeSliceWindow: slo.GetBudgetingInterval(),
-		}
-		objectives = append(objectives, newObjective)
+func ParseToObjective(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) oslov1.Objective {
+	target := slo.GetTarget()
+	budgetTime := slo.GetBudgetingInterval() // validated to be between 1m and 60m
+	newObjective := oslov1.Objective{
+		DisplayName:     slo.GetName() + "-target",
+		Target:          normalizeOpenSLOTarget(target.GetValueX100()),
+		TimeSliceWindow: convertTimeWindow(budgetTime),
 	}
-	return objectives
+	return newObjective
 }
 
 func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) ([]oslov1.AlertPolicy, error) {
@@ -130,7 +140,7 @@ func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog
 			Spec: targetSpec,
 		}
 
-		//TODO(alex) : handle alert conditions
+		//TODO(alex) : handle alert notification targets
 
 		policySpec := oslov1.AlertPolicySpec{
 			Description:         alert.GetDescription(),

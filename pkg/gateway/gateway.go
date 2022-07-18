@@ -8,6 +8,9 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rancher/opni/pkg/alerting/interfaces"
+	"github.com/rancher/opni/pkg/alerting/noop"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
@@ -53,6 +56,7 @@ type Gateway struct {
 
 type GatewayOptions struct {
 	lifecycler config.Lifecycler
+	alerting   interfaces.GatewayAlertingImplementation
 }
 
 type GatewayOption func(*GatewayOptions)
@@ -69,9 +73,17 @@ func WithLifecycler(lc config.Lifecycler) GatewayOption {
 	}
 }
 
+func WithAlerting(alerting interfaces.GatewayAlertingImplementation) GatewayOption {
+	return func(o *GatewayOptions) {
+		o.alerting = alerting
+	}
+}
+
 func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.LoaderInterface, opts ...GatewayOption) *Gateway {
 	options := GatewayOptions{
 		lifecycler: config.NewUnavailableLifecycler(cfgmeta.ObjectList{conf}),
+		// set as noop until alerting plugin becomes available
+		alerting: noop.NewUnavailableAlertingImplementation(shared.AlertingV1Alpha),
 	}
 	options.apply(opts...)
 

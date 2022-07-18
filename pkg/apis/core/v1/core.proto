@@ -2,8 +2,8 @@ syntax = "proto3";
 option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
 
 import "google/protobuf/duration.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
 
 package core;
 
@@ -19,6 +19,7 @@ message BootstrapTokenMetadata {
   int64 usageCount = 3;
   map<string, string> labels = 4;
   repeated TokenCapability capabilities = 5;
+  string resourceVersion = 6;
 }
 
 message TokenCapability {
@@ -38,10 +39,14 @@ message Cluster {
 message ClusterMetadata {
   map<string, string> labels = 1;
   repeated ClusterCapability capabilities = 2;
+  
+  // read-only
+  string resourceVersion = 3;
 }
 
 message ClusterCapability {
   string name = 1;
+  google.protobuf.Timestamp deletionTimestamp = 2;
 }
 
 message ClusterList {
@@ -92,6 +97,7 @@ message CertInfo {
   string notBefore = 4;
   string notAfter = 5;
   string fingerprint = 6;
+  bytes raw = 7;
 }
 
 message Reference {

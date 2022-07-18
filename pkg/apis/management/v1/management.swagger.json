@@ -886,6 +886,9 @@
           "items": {
             "$ref": "#/definitions/coreTokenCapability"
           }
+        },
+        "resourceVersion": {
+          "type": "string"
         }
       }
     },
@@ -909,6 +912,10 @@
         },
         "fingerprint": {
           "type": "string"
+        },
+        "raw": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -928,6 +935,10 @@
       "properties": {
         "name": {
           "type": "string"
+        },
+        "deletionTimestamp": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -956,6 +967,10 @@
           "items": {
             "$ref": "#/definitions/coreClusterCapability"
           }
+        },
+        "resourceVersion": {
+          "type": "string",
+          "title": "read-only"
         }
       }
     },

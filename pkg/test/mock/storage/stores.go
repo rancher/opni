@@ -336,6 +336,21 @@ func (mr *MockBackendMockRecorder) UpdateToken(ctx, ref, mutator interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateToken", reflect.TypeOf((*MockBackend)(nil).UpdateToken), ctx, ref, mutator)
 }
 
+// WatchCluster mocks base method.
+func (m *MockBackend) WatchCluster(ctx context.Context, cluster *v1.Cluster) (<-chan storage.WatchEvent[*v1.Cluster], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchCluster", ctx, cluster)
+	ret0, _ := ret[0].(<-chan storage.WatchEvent[*v1.Cluster])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchCluster indicates an expected call of WatchCluster.
+func (mr *MockBackendMockRecorder) WatchCluster(ctx, cluster interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCluster", reflect.TypeOf((*MockBackend)(nil).WatchCluster), ctx, cluster)
+}
+
 // MockTokenStore is a mock of TokenStore interface.
 type MockTokenStore struct {
 	ctrl     *gomock.Controller
@@ -532,6 +547,21 @@ func (m *MockClusterStore) UpdateCluster(ctx context.Context, ref *v1.Reference,
 func (mr *MockClusterStoreMockRecorder) UpdateCluster(ctx, ref, mutator interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCluster", reflect.TypeOf((*MockClusterStore)(nil).UpdateCluster), ctx, ref, mutator)
+}
+
+// WatchCluster mocks base method.
+func (m *MockClusterStore) WatchCluster(ctx context.Context, cluster *v1.Cluster) (<-chan storage.WatchEvent[*v1.Cluster], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchCluster", ctx, cluster)
+	ret0, _ := ret[0].(<-chan storage.WatchEvent[*v1.Cluster])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchCluster indicates an expected call of WatchCluster.
+func (mr *MockClusterStoreMockRecorder) WatchCluster(ctx, cluster interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCluster", reflect.TypeOf((*MockClusterStore)(nil).WatchCluster), ctx, cluster)
 }
 
 // MockRBACStore is a mock of RBACStore interface.

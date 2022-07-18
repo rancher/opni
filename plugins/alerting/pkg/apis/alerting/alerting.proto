@@ -29,7 +29,7 @@ service Alerting {
   }
 
   // id is the unix epoch timestamp of the alert 
-  rpc GetAlertLog(core.Reference) returns (google.protobuf.Empty) {
+  rpc GetAlertLog(core.Reference) returns (core.AlertLog) {
     option (google.api.http) = {
       get: "/alerts/events/{id}"
     };

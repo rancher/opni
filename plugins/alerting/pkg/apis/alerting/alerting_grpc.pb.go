@@ -30,7 +30,7 @@ type AlertingClient interface {
 	// ------- CRUD for alerting events log -------
 	CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// id is the unix epoch timestamp of the alert
-	GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.AlertLog, error)
 	ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*v1.AlertLogList, error)
 	UpdateAlertLog(ctx context.Context, in *UpdateAlertLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -78,8 +78,8 @@ func (c *alertingClient) CreateAlertLog(ctx context.Context, in *v1.AlertLog, op
 	return out, nil
 }
 
-func (c *alertingClient) GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *alertingClient) GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.AlertLog, error) {
+	out := new(v1.AlertLog)
 	err := c.cc.Invoke(ctx, "/Alerting/GetAlertLog", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -232,7 +232,7 @@ type AlertingServer interface {
 	// ------- CRUD for alerting events log -------
 	CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error)
 	// id is the unix epoch timestamp of the alert
-	GetAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	GetAlertLog(context.Context, *v1.Reference) (*v1.AlertLog, error)
 	ListAlertLogs(context.Context, *ListAlertLogRequest) (*v1.AlertLogList, error)
 	UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error)
 	DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error)
@@ -265,7 +265,7 @@ func (UnimplementedAlertingServer) TriggerAlerts(context.Context, *TriggerAlerts
 func (UnimplementedAlertingServer) CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertLog not implemented")
 }
-func (UnimplementedAlertingServer) GetAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+func (UnimplementedAlertingServer) GetAlertLog(context.Context, *v1.Reference) (*v1.AlertLog, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAlertLog not implemented")
 }
 func (UnimplementedAlertingServer) ListAlertLogs(context.Context, *ListAlertLogRequest) (*v1.AlertLogList, error) {

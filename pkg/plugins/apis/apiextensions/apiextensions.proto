@@ -37,8 +37,19 @@ message GatewayAPIExtensionConfig {
   repeated RouteInfo routes = 2;
 }
 
+message ServiceDescriptor {
+  google.protobuf.ServiceDescriptorProto serviceDescriptor = 1;
+  ServiceOptions options = 2;
+}
+
+message ServiceOptions {
+  // If set, the service will only be available to clusters that have this
+  // capability.
+  string requireCapability = 1;
+}
+
 message ServiceDescriptorList {
-  repeated google.protobuf.ServiceDescriptorProto descriptors = 1;
+  repeated ServiceDescriptor descriptors = 2;
 }
 
 message RouteInfo {

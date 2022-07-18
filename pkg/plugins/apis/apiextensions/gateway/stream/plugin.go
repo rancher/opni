@@ -11,7 +11,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -25,8 +24,9 @@ type StreamAPIExtension interface {
 }
 
 type Server struct {
-	Desc *grpc.ServiceDesc
-	Impl interface{}
+	Desc              *grpc.ServiceDesc
+	Impl              interface{}
+	RequireCapability string
 }
 
 type richServer struct {
@@ -98,12 +98,17 @@ func (e *mgmtExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer) 
 }
 
 func (e *mgmtExtensionServerImpl) Services(context.Context, *emptypb.Empty) (*apiextensions.ServiceDescriptorList, error) {
-	list := []*descriptorpb.ServiceDescriptorProto{}
+	list := []*apiextensions.ServiceDescriptor{}
 	for _, srv := range e.servers {
 		fqn := srv.richDesc.GetFullyQualifiedName()
 		sd := srv.richDesc.AsServiceDescriptorProto()
 		sd.Name = &fqn
-		list = append(list, sd)
+		list = append(list, &apiextensions.ServiceDescriptor{
+			ServiceDescriptor: sd,
+			Options: &apiextensions.ServiceOptions{
+				RequireCapability: srv.RequireCapability,
+			},
+		})
 	}
 	return &apiextensions.ServiceDescriptorList{
 		Descriptors: list,

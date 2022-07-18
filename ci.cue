@@ -29,10 +29,10 @@ dagger.#Plan & {
 			OPNI_UI_REPO:           string | *"rancher/opni-ui"
 			OPNI_UI_BRANCH:         string | *"main"
 			OPNI_UI_BUILD_IMAGE:    string | *"rancher/opni-monitoring-ui-build"
-			DASHBOARDS_VERSION:     string | *"1.3.1"
-			OPENSEARCH_VERSION:     string | *"1.3.1"
-			PLUGIN_VERSION:         string | *"0.5.4-rc4"
-			PLUGIN_PUBLISH:         string | *"0.5.4-rc4"
+			DASHBOARDS_VERSION:     string | *"1.3.3"
+			OPENSEARCH_VERSION:     string | *"1.3.3"
+			PLUGIN_VERSION:         string | *"0.5.4-rc5"
+			PLUGIN_PUBLISH:         string | *"0.5.4-rc5"
 			EXPECTED_REF?:          string // used by tilt
 			DOCKER_USERNAME?:       string
 			DOCKER_PASSWORD?:       dagger.#Secret

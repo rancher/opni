@@ -1,5 +1,5 @@
 apiVersion: v1
-version: 0.5.4-rc4
+version: 0.5.4-rc5
 description: Installs the CRDs for Opni.
 name: opni-crd
 type: application

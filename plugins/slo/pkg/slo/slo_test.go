@@ -288,21 +288,42 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			var err error
 
 			for _, sloGroup := range simplePrometheusIR {
-				simplePrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, time.Minute*5, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+				simplePrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(
+					sloGroup,
+					time.Minute*5,
+					"", //generate new id
+					context.Background(),
+					hclog.New(
+						&hclog.LoggerOptions{},
+					))
 				Expect(err).To(Succeed())
 				// better testing for this when the final format is more stable
 				Expect(len(simplePrometheusResponse)).Should(BeNumerically(">=", 1))
 			}
 
 			for _, sloGroup := range objectivePrometheusIR {
-				objectivePrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, time.Minute*5, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+				objectivePrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(
+					sloGroup,
+					time.Minute*5,
+					"", // generate new id
+					context.Background(),
+					hclog.New(
+						&hclog.LoggerOptions{},
+					))
 				Expect(err).To(Succeed())
 				// better testing for this when the final format is more stable
 				Expect(len(objectivePrometheusResponse)).Should(BeNumerically(">=", 1))
 			}
 
 			for _, sloGroup := range multiClusterPrometheusIR {
-				multiClusterPrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(sloGroup, time.Minute*5, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+				multiClusterPrometheusResponse, err = slo.GeneratePrometheusNoSlothGenerator(
+					sloGroup,
+					time.Minute*5,
+					"", // generate new id
+					context.Background(),
+					hclog.New(
+						&hclog.LoggerOptions{},
+					))
 				Expect(err).To(Succeed())
 				// better testing for this when the final format is more stable
 				Expect(len(multiClusterPrometheusResponse)).Should(BeNumerically(">=", 1))

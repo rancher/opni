@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
-	"github.com/google/uuid"
 	"github.com/hashicorp/go-hclog"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
@@ -141,7 +140,7 @@ func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, 
 	}
 
 	returnedSloImpl := []*sloapi.SLOData{}
-	rw, err := GeneratePrometheusNoSlothGenerator(slogroup, slorequest.SLO.BudgetingInterval.AsDuration(), ctx, lg)
+	rw, err := GeneratePrometheusNoSlothGenerator(slogroup, slorequest.SLO.BudgetingInterval.AsDuration(), existingId, ctx, lg)
 	if err != nil {
 		lg.Error("Failed to generate prometheus : ", err)
 		return nil, err
@@ -151,19 +150,17 @@ func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, 
 		lg.Warn("Multiple cortex rule groups being applied")
 	}
 	for _, rwgroup := range rw {
-		// Generate new uuid for new slo
-		if existingId == "" {
-			existingId = uuid.New().String()
-		}
 
-		cortexRules, err := toCortexRequest(rwgroup, existingId)
+		actualID := rwgroup.ActualId
+
+		cortexRules, err := toCortexRequest(rwgroup, actualID)
 		if err != nil {
 			return nil, err
 		}
-		applyCortexSLORules(p, cortexRules, service, existingId, ctx, lg)
+		applyCortexSLORules(p, cortexRules, service, actualID, ctx, lg)
 
 		dataToPersist := &sloapi.SLOData{
-			Id:      existingId,
+			Id:      actualID,
 			SLO:     slorequest.SLO,
 			Service: service,
 		}

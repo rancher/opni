@@ -88,6 +88,20 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 		return op.Result()
 	}
 
+	// Post initial reconcile we need to build the gateway secret for ingresses
+	object, op := r.gatewayIngressSecret()
+	if op != nil {
+		return op.Result()
+	}
+
+	result, err := r.ReconcileResource(object, reconciler.StatePresent)
+	if err != nil {
+		return util.RequeueErr(err).Result()
+	}
+	if result != nil {
+		return *result, err
+	}
+
 	// Post-reconcile, wait for the public service's load balancer to be ready
 	if op := r.waitForServiceEndpoints(); op.ShouldRequeue() {
 		return op.Result()

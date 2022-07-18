@@ -26,6 +26,7 @@ require (
 	github.com/go-logr/zapr v1.2.0
 	github.com/go-test/deep v1.0.8
 	github.com/golang/mock v1.6.1-0.20220512030613-73266f9366fc
+	github.com/golang/protobuf v1.5.2
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.5.8
 	github.com/google/uuid v1.3.0
@@ -77,6 +78,7 @@ require (
 	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.20.0
 	github.com/pulumi/pulumi-random/sdk/v4 v4.8.0
 	github.com/pulumi/pulumi/sdk/v3 v3.36.0
+	github.com/qmuntal/stateless v1.6.0
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/samber/lo v1.25.0
 	github.com/spf13/cobra v1.5.0
@@ -86,6 +88,7 @@ require (
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/vbauerster/mpb/v7 v7.4.2
 	github.com/weaveworks/common v0.0.0-20211015155308-ebe5bdc2c89e
+	go.etcd.io/etcd/api/v3 v3.5.4
 	go.etcd.io/etcd/client/v3 v3.5.4
 	go.etcd.io/etcd/etcdctl/v3 v3.5.4
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.32.0
@@ -249,7 +252,6 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.7.0 // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/go-jsonnet v0.17.0 // indirect
@@ -417,7 +419,6 @@ require (
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
-	go.etcd.io/etcd/api/v3 v3.5.4 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.4 // indirect
 	go.etcd.io/etcd/client/v2 v2.305.4 // indirect
 	go.etcd.io/etcd/etcdutl/v3 v3.5.4 // indirect

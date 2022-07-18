@@ -14,7 +14,7 @@ steps:
       # DAGGER_CACHE_TO: type=registry,mode=max,ref=rancher/opni-buildkit-cache
     commands:
       - apk add --no-cache curl
-      - curl -sL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.2.19 sh
+      - curl -sL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.2.21 sh
       - bin/dagger version
       - bin/dagger do build
     volumes: &volumes
@@ -207,6 +207,28 @@ steps:
         - drone-publish.rancher.io
       cron:
         - e2e-nightly
+  - name: publish-aiops
+    image: docker
+    environment:
+      <<: *dagger_env
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
+      TWINE_PASSWORD:
+        from_secret: twine_password
+    commands:
+      - bin/dagger do aiops
+    volumes: *volumes
+    when:
+      event:
+        - tag
+      instance:
+        - drone-publish.rancher.io
+      refs:
+        - refs/heads/main
+        - refs/heads/release
+        - refs/tags/*
 volumes:
   - name: docker
     host:

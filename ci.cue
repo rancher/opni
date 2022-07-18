@@ -9,6 +9,7 @@ import (
 	"universe.dagger.io/docker"
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
+	"universe.dagger.io/python"
 	"universe.dagger.io/x/david@rawkode.dev/pulumi"
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
@@ -30,14 +31,16 @@ dagger.#Plan & {
 			OPNI_UI_BUILD_IMAGE:    string | *"rancher/opni-monitoring-ui-build"
 			DASHBOARDS_VERSION:     string | *"1.3.3"
 			OPENSEARCH_VERSION:     string | *"1.3.3"
-			PLUGIN_VERSION:         string | *"0.5.4-rc5"
-			PLUGIN_PUBLISH:         string | *"0.5.4-rc5"
+			PLUGIN_VERSION:         string | *"0.5.4-rc6"
+			PLUGIN_PUBLISH:         string | *"0.5.4-rc6"
 			EXPECTED_REF?:          string // used by tilt
 			DOCKER_USERNAME?:       string
 			DOCKER_PASSWORD?:       dagger.#Secret
 			PULUMI_ACCESS_TOKEN?:   dagger.#Secret
 			AWS_ACCESS_KEY_ID?:     dagger.#Secret
 			AWS_SECRET_ACCESS_KEY?: dagger.#Secret
+			TWINE_USERNAME:         string | *"__token__"
+			TWINE_PASSWORD?:        dagger.#Secret
 		}
 		filesystem: {
 			".": read: {
@@ -51,9 +54,10 @@ dagger.#Plan & {
 					"internal/cmd/testenv",
 				]
 			}
-			"bin": write: contents:       actions.build.bin
-			"web/dist": write: contents:  actions.web.dist
-			"cover.out": write: contents: actions.test.export.files["/src/cover.out"]
+			"bin": write: contents:             actions.build.bin
+			"web/dist": write: contents:        actions.web.dist
+			"cover.out": write: contents:       actions.test.export.files["/src/cover.out"]
+			"aiops/apis/dist": write: contents: actions.aiops.sdist.output
 		}
 		commands: {
 			"aws-identity": {
@@ -120,7 +124,7 @@ dagger.#Plan & {
 						}
 					},
 					mage.#Run & {
-						mageArgs: ["-v", "build"]
+						mageArgs: ["-v"]
 					},
 				]
 			}
@@ -200,7 +204,7 @@ dagger.#Plan & {
 				tag:   web.buildImage
 			}
 			aiops: cli.#Load & {
-				image: actions.aiops.build.output
+				image: actions.aiops.opensearchUpdateService.output
 				host:  client.network."unix:///var/run/docker.sock".connect
 				tag:   "\(client.env.REPO)/opni-aiops:\(client.env.TAG)"
 			}
@@ -399,7 +403,51 @@ dagger.#Plan & {
 			}
 		}
 		aiops: {
-			build: docker.#Build & {
+			sdist: {
+				_dist: python.#Run & {
+					script: {
+						directory: actions.build.output.rootfs
+						filename:  "src/aiops/apis/setup.py"
+					}
+					workdir: "/run/python/src/aiops/apis"
+					args: ["sdist", "-d", "/dist"]
+					output: docker.#Image
+				}
+				_distSubdir: core.#Subdir & {
+					input: _dist.output.rootfs
+					path:  "/dist"
+				}
+				image:  _dist.output
+				output: dagger.#FS & _distSubdir.output
+			}
+			_distImage: docker.#Build & {
+				steps: [
+					docker.#Run & {
+						input:  sdist.image
+						command: {
+							name: "pip"
+							args: [ "install", "twine"]
+						}
+					},
+				]
+			}
+			upload: docker.#Run & {
+				input: _distImage.output
+				command: {
+					name: "twine"
+					args: [
+						"upload",
+						"--repository",
+						"pypi",
+						"/dist/*",
+					]
+				}
+				env: {
+					TWINE_USERNAME: client.env.TWINE_USERNAME
+					TWINE_PASSWORD: client.env.TWINE_PASSWORD
+				}
+			}
+			opensearchUpdateService: docker.#Build & {
 				steps: [
 					docker.#Pull & {
 						source: "rancher/opni-python-base:3.8"
@@ -409,12 +457,29 @@ dagger.#Plan & {
 						source:   "aiops/"
 						dest:     "."
 					},
+					docker.#Run & {
+						command: {
+							name: "pip"
+							args: ["install", "-r", "requirements.txt"]
+						}
+						env: HACK: "\(upload.success)"
+					},
 					docker.#Set & {
 						config: {
-							cmd: ["python", "opensearch-update-service/main.py"]
+							cmd: ["python", "opni-opensearch-update-service/opensearch-update-service/app/main.py"]
 						}
 					},
 				]
+			}
+			push: docker.#Push & {
+				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
+				image: opensearchUpdateService.output
+				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
 			}
 		}
 	}

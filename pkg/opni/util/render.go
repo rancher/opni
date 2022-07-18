@@ -1,7 +1,6 @@
 package cliutil
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 	"time"
@@ -9,6 +8,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/ttacon/chalk"
@@ -42,49 +42,55 @@ func RenderBootstrapTokenList(list *corev1.BootstrapTokenList) string {
 }
 
 func RenderCertInfoChain(chain []*corev1.CertInfo) string {
-	buf := new(bytes.Buffer)
+	w := table.NewWriter()
+	w.SetIndexColumn(1)
+	w.SetStyle(table.StyleColoredDark)
+	w.SetColumnConfigs([]table.ColumnConfig{
+		{
+			Number: 1,
+			Align:  text.AlignRight,
+		},
+		{
+			Number: 2,
+		},
+	})
 	for i, cert := range chain {
 		fp := []byte(cert.Fingerprint)
-		w := table.NewWriter()
-		w.SetIndexColumn(1)
-		w.SetStyle(table.StyleColoredDark)
-		w.SetColumnConfigs([]table.ColumnConfig{
-			{
-				Number: 1,
-				Align:  text.AlignRight,
-			},
-			{
-				Number: 2,
-			},
-		})
 		w.AppendRow(table.Row{"SUBJECT", cert.Subject})
 		w.AppendRow(table.Row{"ISSUER", cert.Issuer})
 		w.AppendRow(table.Row{"IS CA", cert.IsCA})
 		w.AppendRow(table.Row{"NOT BEFORE", cert.NotBefore})
 		w.AppendRow(table.Row{"NOT AFTER", cert.NotAfter})
 		w.AppendRow(table.Row{"FINGERPRINT", string(fp)})
-		buf.WriteString(w.Render())
 		if i < len(chain)-1 {
-			buf.WriteString("\n")
+			w.AppendSeparator()
 		}
 	}
-	return buf.String()
+	return w.Render()
 }
 
-func RenderClusterList(list *corev1.ClusterList, stats *cortexadmin.UserIDStatsList) string {
+func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus, stats *cortexadmin.UserIDStatsList) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	if stats == nil {
-		w.AppendHeader(table.Row{"ID", "LABELS"})
+		w.AppendHeader(table.Row{"ID", "LABELS", "CAPABILITIES", "STATUS"})
 	} else {
-		w.AppendHeader(table.Row{"ID", "LABELS", "NUM SERIES", "SAMPLE RATE", "RULE RATE"})
+		w.AppendHeader(table.Row{"ID", "LABELS", "CAPABILITIES", "STATUS", "NUM SERIES", "SAMPLE RATE", "RULE RATE"})
 	}
-	for _, t := range list.Items {
+	for i, t := range list.Items {
 		labels := []string{}
 		for k, v := range t.GetMetadata().GetLabels() {
 			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 		}
-		row := table.Row{t.GetId(), strings.Join(labels, ",")}
+		capabilities := []string{}
+		for _, c := range t.GetCapabilities() {
+			if c.DeletionTimestamp == nil {
+				capabilities = append(capabilities, c.Name)
+			} else {
+				capabilities = append(capabilities, fmt.Sprintf("%s (deleting)", c.Name))
+			}
+		}
+		row := table.Row{t.GetId(), strings.Join(labels, ","), strings.Join(capabilities, ","), status[i].Summary()}
 		if stats != nil {
 			for _, s := range stats.Items {
 				if string(s.UserID) == t.GetId() {
@@ -219,6 +225,16 @@ func RenderAccessMatrix(am AccessMatrix) string {
 	}
 	if needsFootnote {
 		w.AppendFooter(table.Row{"Clusters marked with * are not known to the server."})
+	}
+	return w.Render()
+}
+
+func RenderCapabilityList(list *managementv1.CapabilityList) string {
+	w := table.NewWriter()
+	w.SetStyle(table.StyleColoredDark)
+	w.AppendHeader(table.Row{"NAME"})
+	for _, c := range list.Items {
+		w.AppendRow(table.Row{c})
 	}
 	return w.Render()
 }

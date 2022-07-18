@@ -3,15 +3,17 @@ import asyncio
 import json
 import logging
 import os
+import sys
+import time
 
 # Third Party
+from opni_proto.log_anomaly_payload_pb import PayloadList
 import pandas as pd
 from elasticsearch import AsyncElasticsearch, TransportError
 from elasticsearch.exceptions import ConnectionTimeout
 from elasticsearch.helpers import BulkIndexError, async_streaming_bulk
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(message)s")
-
 
 pretrained_model_script_source = 'ctx._source.anomaly_level = ctx._source.anomaly_predicted_count != 0 ? "Anomaly" : "Normal";'
 workload_script_source = 'ctx._source.anomaly_level = ctx._source.anomaly_predicted_count == 0 ? "Normal" : ctx._source.anomaly_predicted_count == 1 ? "Suspicious" : "Anomaly";'
@@ -20,7 +22,6 @@ workload_script_source += "ctx._source.opnilog_confidence = params['opnilog_scor
 script_for_anomaly = (
     "ctx._source.anomaly_predicted_count += 1; ctx._source.opnilog_anomaly = true;"
 )
-
 
 async def doc_generator(df):
     main_doc_keywords = {"_op_type", "_index", "_id", "doc"}
@@ -67,8 +68,9 @@ async def setup_es_connection():
 
 async def consume_logs(nw, inferenced_logs_queue):
     async def subscribe_handler(msg):
-        data = msg.data.decode()
-        await inferenced_logs_queue.put(pd.read_json(data, dtype={"_id": object, "cluster_id": str, "ingest_at": str}))
+        data = msg.data
+        logs_df = pd.DataFrame(PayloadList().parse(data).items)
+        await inferenced_logs_queue.put(logs_df)
 
     await nw.subscribe(
         nats_subject="inferenced_logs",
@@ -86,8 +88,8 @@ async def receive_logs(queue):
 
 async def update_logs(es, df):
     # This function will be updating Opensearch logs which were inferred on by the DRAIN model.
-    model_keywords_dict = {"drain":  ["_id", "masked_log", "drain_pretrained_template_matched", "inference_model", "anomaly_level"],
-                          "opnilog":  ["_id", "masked_log", "anomaly_level", "opnilog_confidence", "inference_model"]}
+    model_keywords_dict = {"drain":  ["_id", "masked_log", "template_matched","template_cluster_id","inference_model", "anomaly_level"],
+                          "opnilog":  ["_id", "masked_log", "anomaly_level", "template_matched","template_cluster_id","opnilog_confidence", "inference_model"]}
     anomaly_level_options = ["Normal", "Anomaly"]
     pretrained_model_logs_df = df.loc[(df["log_type"] != "workload")]
     for model_name in model_keywords_dict:

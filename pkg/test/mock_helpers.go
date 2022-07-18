@@ -3,16 +3,18 @@ package test
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/kralicky/gpkg/sync/atomic"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
-	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/storage"
 	mock_capability "github.com/rancher/opni/pkg/test/mock/capability"
@@ -23,6 +25,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -36,6 +39,7 @@ type CapabilityInfo struct {
 	Name              string
 	CanInstall        bool
 	InstallerTemplate string
+	Storage           storage.ClusterStore
 }
 
 func (ci *CapabilityInfo) canInstall() error {
@@ -48,59 +52,77 @@ func (ci *CapabilityInfo) canInstall() error {
 func NewTestCapabilityBackend(
 	ctrl *gomock.Controller,
 	capBackend *CapabilityInfo,
-) capability.Backend {
-	backend := mock_capability.NewMockBackend(ctrl)
-	backend.EXPECT().
-		CanInstall().
-		DoAndReturn(capBackend.canInstall).
-		AnyTimes()
-	backend.EXPECT().
-		Install(gomock.Any()).
-		Return(nil).
-		AnyTimes()
-	backend.EXPECT().
-		Uninstall(gomock.Any()).
-		Return(nil).
-		AnyTimes()
-	backend.EXPECT().
-		InstallerTemplate().
-		Return(capBackend.InstallerTemplate).
-		AnyTimes()
-	return backend
-}
-
-func NewTestCapabilityBackendClient(
-	ctrl *gomock.Controller,
-	capBackend *CapabilityInfo,
-) capability.BackendClient {
+) capabilityv1.BackendClient {
 	client := mock_capability.NewMockBackendClient(ctrl)
 	client.EXPECT().
 		Info(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(&capability.InfoResponse{
+		Return(&capabilityv1.InfoResponse{
 			CapabilityName: capBackend.Name,
 		}, nil).
 		AnyTimes()
 	client.EXPECT().
 		CanInstall(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(context.Context, *emptypb.Empty, ...grpc.CallOption) (*emptypb.Empty, error) {
-			return nil, capBackend.canInstall()
+			return &emptypb.Empty{}, capBackend.canInstall()
 		}).
 		AnyTimes()
 	client.EXPECT().
 		Install(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, *capability.InstallRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
-			return nil, nil
+		DoAndReturn(func(ctx context.Context, req *capabilityv1.InstallRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+			_, err := capBackend.Storage.UpdateCluster(ctx, req.Cluster,
+				storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster("test")),
+			)
+			if err != nil {
+				return nil, err
+			}
+			return &emptypb.Empty{}, nil
 		}).
 		AnyTimes()
 	client.EXPECT().
 		Uninstall(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(context.Context, *capability.UninstallRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
-			return nil, nil
+		DoAndReturn(func(ctx context.Context, req *capabilityv1.UninstallRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+			_, err := capBackend.Storage.UpdateCluster(ctx, req.Cluster,
+				storage.NewRemoveCapabilityMutator[*corev1.Cluster](capabilities.Cluster("test")))
+			if err != nil {
+				return nil, err
+			}
+			return &emptypb.Empty{}, nil
+		}).
+		AnyTimes()
+	client.EXPECT().
+		UninstallStatus(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, ref *corev1.Reference, _ ...grpc.CallOption) (*corev1.TaskStatus, error) {
+			c, err := capBackend.Storage.GetCluster(ctx, ref)
+			if err != nil {
+				return nil, err
+			}
+			for _, cap := range c.GetCapabilities() {
+				if cap.Name == "test" {
+					if cap.DeletionTimestamp != nil {
+						return &corev1.TaskStatus{
+							State: corev1.TaskState_Running,
+						}, nil
+					} else {
+						return &corev1.TaskStatus{
+							State: corev1.TaskState_Unknown,
+						}, nil
+					}
+				}
+			}
+			return &corev1.TaskStatus{
+				State: corev1.TaskState_Completed,
+			}, nil
+		}).
+		AnyTimes()
+	client.EXPECT().
+		CancelUninstall(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, *emptypb.Empty, ...grpc.CallOption) (*emptypb.Empty, error) {
+			return &emptypb.Empty{}, nil
 		}).
 		AnyTimes()
 	client.EXPECT().
 		InstallerTemplate(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(&capability.InstallerTemplateResponse{
+		Return(&capabilityv1.InstallerTemplateResponse{
 			Template: capBackend.InstallerTemplate,
 		}, nil).
 		AnyTimes()
@@ -257,7 +279,7 @@ func NewTestKeyValueStoreBroker(ctrl *gomock.Controller) storage.KeyValueStoreBr
 		KeyValueStore(gomock.Any()).
 		DoAndReturn(func(namespace string) (storage.KeyValueStore, error) {
 			if kvStore, ok := kvStores[namespace]; !ok {
-				s := NewTestKeyValueStore[[]byte](ctrl)
+				s := NewTestKeyValueStore(ctrl, slices.Clone[[]byte])
 				kvStores[namespace] = s
 				return s, nil
 			} else {
@@ -268,7 +290,7 @@ func NewTestKeyValueStoreBroker(ctrl *gomock.Controller) storage.KeyValueStoreBr
 	return mockKvStoreBroker
 }
 
-func NewTestKeyValueStore[T any](ctrl *gomock.Controller) storage.KeyValueStoreT[T] {
+func NewTestKeyValueStore[T any](ctrl *gomock.Controller, clone func(T) T) storage.KeyValueStoreT[T] {
 	mockKvStore := mock_storage.NewMockKeyValueStoreT[T](ctrl)
 	mu := sync.Mutex{}
 	kvs := map[string]T{}
@@ -277,7 +299,7 @@ func NewTestKeyValueStore[T any](ctrl *gomock.Controller) storage.KeyValueStoreT
 		DoAndReturn(func(_ context.Context, key string, value T) error {
 			mu.Lock()
 			defer mu.Unlock()
-			kvs[key] = value
+			kvs[key] = clone(value)
 			return nil
 		}).
 		AnyTimes()
@@ -290,7 +312,30 @@ func NewTestKeyValueStore[T any](ctrl *gomock.Controller) storage.KeyValueStoreT
 			if !ok {
 				return lo.Empty[T](), storage.ErrNotFound
 			}
-			return v, nil
+			return clone(v), nil
+		}).
+		AnyTimes()
+	mockKvStore.EXPECT().
+		Delete(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, key string) error {
+			mu.Lock()
+			defer mu.Unlock()
+			delete(kvs, key)
+			return nil
+		}).
+		AnyTimes()
+	mockKvStore.EXPECT().
+		ListKeys(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, prefix string) ([]string, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			var keys []string
+			for k := range kvs {
+				if strings.HasPrefix(k, prefix) {
+					keys = append(keys, k)
+				}
+			}
+			return keys, nil
 		}).
 		AnyTimes()
 	return mockKvStore

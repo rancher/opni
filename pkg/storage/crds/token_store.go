@@ -78,6 +78,7 @@ func (c *CRDStore) GetToken(ctx context.Context, ref *corev1.Reference) (*corev1
 			Resource: "BootstrapToken",
 		}, token.GetName())
 	}
+	token.Spec.SetResourceVersion(token.GetResourceVersion())
 	return token.Spec, nil
 }
 

@@ -228,13 +228,8 @@ func init() {
 			Types:  []string{"ManagementAPIExtensionServer"},
 		},
 		{
-			Source: "pkg/plugins/apis/capability/plugin.go",
+			Source: "pkg/apis/capability/v1/capability_grpc.pb.go",
 			Dest:   "pkg/test/mock/capability/backend.go",
-			Types:  []string{"Backend"},
-		},
-		{
-			Source: "pkg/plugins/apis/capability/capability_grpc.pb.go",
-			Dest:   "pkg/test/mock/capability/backend_client.go",
 			Types:  []string{"BackendClient"},
 		},
 	}

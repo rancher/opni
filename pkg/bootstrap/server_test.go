@@ -46,16 +46,17 @@ var _ = Describe("Server", Label("slow"), func() {
 	var testCapBackends []*test.CapabilityInfo
 
 	BeforeEach(func() {
-		testCapBackends = append(testCapBackends, &test.CapabilityInfo{
-			Name:       "test",
-			CanInstall: true,
-		})
 		ctx, ca := context.WithCancel(context.Background())
 		DeferCleanup(ca)
 		mockTokenStore = test.NewTestTokenStore(ctx, ctrl)
 		mockClusterStore = test.NewTestClusterStore(ctrl)
 		mockKeyringStoreBroker = test.NewTestKeyringStoreBroker(ctrl)
 
+		testCapBackends = append(testCapBackends, &test.CapabilityInfo{
+			Name:       "test",
+			CanInstall: true,
+			Storage:    mockClusterStore,
+		})
 		token, _ = mockTokenStore.CreateToken(context.Background(), 1*time.Hour,
 			storage.WithLabels(map[string]string{"foo": "bar"}),
 		)
@@ -189,11 +190,15 @@ var _ = Describe("Server", Label("slow"), func() {
 						Expect(kr).NotTo(BeNil())
 
 						By("checking that the capability was added to the cluster")
-						cluster, err := mockClusterStore.GetCluster(context.Background(), &corev1.Reference{
-							Id: "foo",
-						})
-						Expect(err).NotTo(HaveOccurred())
-						Expect(cluster.GetCapabilities()).To(ContainElement(BeEquivalentTo(&corev1.ClusterCapability{
+						Eventually(func() []*corev1.ClusterCapability {
+							cluster, err := mockClusterStore.GetCluster(context.Background(), &corev1.Reference{
+								Id: "foo",
+							})
+							if err != nil {
+								return nil
+							}
+							return cluster.GetCapabilities()
+						}).Should(ContainElement(BeEquivalentTo(&corev1.ClusterCapability{
 							Name: "test",
 						})))
 					})
@@ -282,10 +287,12 @@ var _ = Describe("Server", Label("slow"), func() {
 							&test.CapabilityInfo{
 								Name:       "test2",
 								CanInstall: true,
+								Storage:    mockClusterStore,
 							},
 							&test.CapabilityInfo{
 								Name:       "test3",
 								CanInstall: false,
+								Storage:    mockClusterStore,
 							},
 						)
 					})

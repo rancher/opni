@@ -90,6 +90,7 @@ type CortexSpec struct {
 	Alertmanager  AlertmanagerSpec  `json:"alertmanager,omitempty"`
 	Ruler         RulerSpec         `json:"ruler,omitempty"`
 	QueryFrontend QueryFrontendSpec `json:"queryFrontend,omitempty"`
+	Purger        PurgerSpec        `json:"purger,omitempty"`
 	Certs         MTLSSpec          `json:"certs,omitempty"`
 }
 
@@ -122,6 +123,11 @@ type QueryFrontendSpec struct {
 	HTTPAddress string `json:"httpAddress,omitempty"`
 	// +kubebuilder:default="cortex-query-frontend-headless:9095"
 	GRPCAddress string `json:"grpcAddress,omitempty"`
+}
+
+type PurgerSpec struct {
+	// +kubebuilder:default="cortex-purger:8080"
+	HTTPAddress string `json:"httpAddress,omitempty"`
 }
 
 type MTLSSpec struct {

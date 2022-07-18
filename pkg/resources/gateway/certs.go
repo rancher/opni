@@ -301,6 +301,7 @@ func (r *Reconciler) cortexServingCert() client.Object {
 				"cortex-ruler-headless",
 				"cortex-store-gateway",
 				"cortex-store-gateway-headless",
+				"cortex-purger",
 			},
 		},
 	}

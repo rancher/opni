@@ -336,8 +336,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		PurgerConfig: purger.Config{
-			Enable:     true,
-			NumWorkers: 2,
+			Enable: false,
 		},
 		LimitsConfig: validation.Limits{
 			IngestionRate:         1e6,

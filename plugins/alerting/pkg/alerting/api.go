@@ -14,7 +14,7 @@ func (p *Plugin) CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*e
 	return nil, shared.AlertingErrNotImplemented
 }
 
-func (p *Plugin) GetAlertLog(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
+func (p *Plugin) GetAlertLog(ctx context.Context, ref *corev1.Reference) (*corev1.AlertLog, error) {
 	return nil, shared.AlertingErrNotImplemented
 }
 

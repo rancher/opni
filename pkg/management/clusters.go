@@ -38,16 +38,14 @@ func (m *Server) DeleteCluster(
 		return nil, err
 	}
 	capabilities := cluster.GetMetadata().GetCapabilities()
-	var capabilityNames []string
-	for _, cap := range capabilities {
-		capabilityNames = append(capabilityNames, cap.Name)
+	if len(capabilities) > 0 {
+		return nil, status.Error(codes.FailedPrecondition, "cannot delete a cluster with capabilities; uninstall the capabilities first")
 	}
-	err = m.capabilitiesDataSource.CapabilitiesStore().UninstallCapabilities(ref, capabilityNames...)
+	err = m.coreDataSource.StorageBackend().DeleteCluster(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
-
-	return &emptypb.Empty{}, m.coreDataSource.StorageBackend().DeleteCluster(ctx, ref)
+	return &emptypb.Empty{}, nil
 }
 
 func (m *Server) GetCluster(

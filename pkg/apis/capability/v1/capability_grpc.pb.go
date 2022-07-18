@@ -2,12 +2,13 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - ragu               v1.0.0
-// source: github.com/rancher/opni/pkg/plugins/apis/capability/capability.proto
+// source: github.com/rancher/opni/pkg/apis/capability/v1/capability.proto
 
-package capability
+package v1
 
 import (
 	context "context"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -23,10 +24,24 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BackendClient interface {
+	// Returns info about the backend, including capability name
 	Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InfoResponse, error)
+	// Returns an error if installing the capability would fail.
 	CanInstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Installs the capability. Errors returned from this method are usually fatal.
 	Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Requests the backend to clean up any resources it owns and prepare
+	// for uninstallation. This process is asynchronous. The status of the
+	// operation can be queried using the UninstallStatus method, or canceled
+	// using the CancelUninstall method.
 	Uninstall(ctx context.Context, in *UninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Gets the status of the uninstall task for the given cluster.
+	UninstallStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.TaskStatus, error)
+	// Cancels an uninstall task for the given cluster, if it is still pending.
+	CancelUninstall(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Returns a go template string which will generate a shell command used to
+	// install the capability. This will be displayed to the user in the UI.
+	// See InstallerTemplateSpec above for the available template fields.
 	InstallerTemplate(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallerTemplateResponse, error)
 }
 
@@ -74,6 +89,24 @@ func (c *backendClient) Uninstall(ctx context.Context, in *UninstallRequest, opt
 	return out, nil
 }
 
+func (c *backendClient) UninstallStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.TaskStatus, error) {
+	out := new(v1.TaskStatus)
+	err := c.cc.Invoke(ctx, "/capability.Backend/UninstallStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *backendClient) CancelUninstall(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/capability.Backend/CancelUninstall", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *backendClient) InstallerTemplate(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallerTemplateResponse, error) {
 	out := new(InstallerTemplateResponse)
 	err := c.cc.Invoke(ctx, "/capability.Backend/InstallerTemplate", in, out, opts...)
@@ -87,10 +120,24 @@ func (c *backendClient) InstallerTemplate(ctx context.Context, in *emptypb.Empty
 // All implementations must embed UnimplementedBackendServer
 // for forward compatibility
 type BackendServer interface {
+	// Returns info about the backend, including capability name
 	Info(context.Context, *emptypb.Empty) (*InfoResponse, error)
+	// Returns an error if installing the capability would fail.
 	CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	// Installs the capability. Errors returned from this method are usually fatal.
 	Install(context.Context, *InstallRequest) (*emptypb.Empty, error)
+	// Requests the backend to clean up any resources it owns and prepare
+	// for uninstallation. This process is asynchronous. The status of the
+	// operation can be queried using the UninstallStatus method, or canceled
+	// using the CancelUninstall method.
 	Uninstall(context.Context, *UninstallRequest) (*emptypb.Empty, error)
+	// Gets the status of the uninstall task for the given cluster.
+	UninstallStatus(context.Context, *v1.Reference) (*v1.TaskStatus, error)
+	// Cancels an uninstall task for the given cluster, if it is still pending.
+	CancelUninstall(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	// Returns a go template string which will generate a shell command used to
+	// install the capability. This will be displayed to the user in the UI.
+	// See InstallerTemplateSpec above for the available template fields.
 	InstallerTemplate(context.Context, *emptypb.Empty) (*InstallerTemplateResponse, error)
 	mustEmbedUnimplementedBackendServer()
 }
@@ -110,6 +157,12 @@ func (UnimplementedBackendServer) Install(context.Context, *InstallRequest) (*em
 }
 func (UnimplementedBackendServer) Uninstall(context.Context, *UninstallRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Uninstall not implemented")
+}
+func (UnimplementedBackendServer) UninstallStatus(context.Context, *v1.Reference) (*v1.TaskStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UninstallStatus not implemented")
+}
+func (UnimplementedBackendServer) CancelUninstall(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelUninstall not implemented")
 }
 func (UnimplementedBackendServer) InstallerTemplate(context.Context, *emptypb.Empty) (*InstallerTemplateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InstallerTemplate not implemented")
@@ -199,6 +252,42 @@ func _Backend_Uninstall_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Backend_UninstallStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BackendServer).UninstallStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/capability.Backend/UninstallStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BackendServer).UninstallStatus(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Backend_CancelUninstall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BackendServer).CancelUninstall(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/capability.Backend/CancelUninstall",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BackendServer).CancelUninstall(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Backend_InstallerTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -241,10 +330,18 @@ var Backend_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Backend_Uninstall_Handler,
 		},
 		{
+			MethodName: "UninstallStatus",
+			Handler:    _Backend_UninstallStatus_Handler,
+		},
+		{
+			MethodName: "CancelUninstall",
+			Handler:    _Backend_CancelUninstall_Handler,
+		},
+		{
 			MethodName: "InstallerTemplate",
 			Handler:    _Backend_InstallerTemplate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/pkg/plugins/apis/capability/capability.proto",
+	Metadata: "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto",
 }

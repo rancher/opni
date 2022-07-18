@@ -134,3 +134,44 @@ message TimeRange {
   uint64 start = 1;
   uint64 end = 2;
 }
+
+enum TaskState {
+  Unknown = 0;
+  Pending = 1;
+  Running = 2;
+  Completed = 3;
+  Failed = 4;
+  Canceled = 6;
+}
+
+// Represents a transition to a task state at a point in time.
+message StateTransition {
+  TaskState state = 1;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+enum TaskTrigger {
+  Start = 0;
+  End = 1;
+  Error = 2;
+  Cancel = 3;
+}
+
+message Progress {
+  uint64 current = 1;
+  uint64 total = 2;
+}
+
+message TaskStatus {
+  TaskState state = 1;
+  Progress progress = 2;
+  google.protobuf.Struct metadata = 3;
+  repeated LogEntry logs = 4;
+  repeated StateTransition transitions = 5;
+}
+
+message LogEntry {
+  string msg = 1;
+  int32 level = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}

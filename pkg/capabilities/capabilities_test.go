@@ -5,32 +5,9 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
-	"github.com/rancher/opni/pkg/test"
 )
 
 var _ = Describe("Capabilities", Label("unit"), func() {
-	It("should allow creating backends from grpc clients", func() {
-		client := test.NewTestCapabilityBackendClient(ctrl, &test.CapabilityInfo{
-			Name:              "test",
-			CanInstall:        true,
-			InstallerTemplate: "foo",
-		})
-		backend := capabilities.NewBackend(client)
-		Expect(backend.InstallerTemplate()).To(Equal("foo"))
-		Expect(backend.CanInstall()).To(Succeed())
-		Expect(backend.Install(nil)).To(Succeed())
-		Expect(backend.Uninstall(nil)).To(Succeed())
-
-		client = test.NewTestCapabilityBackendClient(ctrl, &test.CapabilityInfo{
-			Name:              "test2",
-			CanInstall:        false,
-			InstallerTemplate: "bar",
-		})
-		backend = capabilities.NewBackend(client)
-		Expect(backend.InstallerTemplate()).To(Equal("bar"))
-		Expect(backend.CanInstall()).NotTo(Succeed())
-	})
-
 	It("should check for installed capabilities in supported types", func() {
 		resource := &testResourceWithMetadata{}
 		c1 := testCapability("c1")

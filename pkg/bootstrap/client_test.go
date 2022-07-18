@@ -79,6 +79,7 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 			{
 				Name:       "test",
 				CanInstall: true,
+				Storage:    store,
 			},
 			{
 				Name:       "test1",

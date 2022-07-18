@@ -108,11 +108,11 @@ func (s *ExamplePlugin) Uninstall(context.Context, *capabilityv1.UninstallReques
 	return nil, status.Errorf(codes.Unimplemented, "method Uninstall not implemented")
 }
 
-func (s *ExamplePlugin) UninstallStatus(context.Context, *emptypb.Empty) (*corev1.TaskStatus, error) {
+func (s *ExamplePlugin) UninstallStatus(context.Context, *corev1.Reference) (*corev1.TaskStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UninstallStatus not implemented")
 }
 
-func (s *ExamplePlugin) CancelUninstall(context.Context, *emptypb.Empty) (*corev1.TaskStatus, error) {
+func (s *ExamplePlugin) CancelUninstall(context.Context, *corev1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelUninstall not implemented")
 }
 

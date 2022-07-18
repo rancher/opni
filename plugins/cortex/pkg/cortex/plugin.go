@@ -68,7 +68,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
 		managementext.NewPlugin(&cortexadmin.CortexAdmin_ServiceDesc, p))
-	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(wellknown.CapabilityMetrics, p))
+	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))
 	return scheme
 }

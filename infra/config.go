@@ -47,15 +47,16 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 }
 
 type Config struct {
-	NamePrefix     string        `json:"namePrefix"`
-	ZoneID         string        `json:"zoneID"`
-	Cloud          string        `json:"cloud"`
-	ImageRepo      string        `json:"imageRepo"`
-	ImageTag       string        `json:"imageTag"`
-	UseLocalCharts bool          `json:"useLocalCharts"`
-	ChartsRepo     string        `json:"chartsRepo"`
-	ChartVersion   string        `json:"chartVersion"`
-	Cluster        ClusterConfig `json:"cluster"`
+	NamePrefix     string            `json:"namePrefix"`
+	ZoneID         string            `json:"zoneID"`
+	Cloud          string            `json:"cloud"`
+	ImageRepo      string            `json:"imageRepo"`
+	ImageTag       string            `json:"imageTag"`
+	UseLocalCharts bool              `json:"useLocalCharts"`
+	ChartsRepo     string            `json:"chartsRepo"`
+	ChartVersion   string            `json:"chartVersion"`
+	Cluster        ClusterConfig     `json:"cluster"`
+	Tags           map[string]string `json:"tags"`
 }
 
 type ClusterConfig struct {

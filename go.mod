@@ -71,14 +71,14 @@ require (
 	github.com/prometheus/common v0.34.0
 	github.com/prometheus/node_exporter v1.0.0-rc.0.0.20200428091818-01054558c289
 	github.com/prometheus/prometheus v1.8.2-0.20220411232225-ce6a643ee88f
-	github.com/pulumi/pulumi-aws/sdk/v5 v5.7.1
-	github.com/pulumi/pulumi-awsx/sdk v1.0.0-beta.8
-	github.com/pulumi/pulumi-eks/sdk v0.40.0
-	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.19.3
-	github.com/pulumi/pulumi-random/sdk/v4 v4.7.0
-	github.com/pulumi/pulumi/sdk/v3 v3.35.0
+	github.com/pulumi/pulumi-aws/sdk/v5 v5.10.0
+	github.com/pulumi/pulumi-awsx/sdk v1.0.0-beta.9
+	github.com/pulumi/pulumi-eks/sdk v0.41.0
+	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.20.0
+	github.com/pulumi/pulumi-random/sdk/v4 v4.8.0
+	github.com/pulumi/pulumi/sdk/v3 v3.36.0
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
-	github.com/samber/lo v1.21.0
+	github.com/samber/lo v1.25.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/tidwall/gjson v1.12.1

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -51,6 +52,13 @@ func run(ctx *Context) (runErr error) {
 		id = rand.Hex
 	}
 
+	tags := map[string]string{}
+	for k, v := range conf.Tags {
+		tags[k] = v
+	}
+	tags["PulumiProjectName"] = ctx.Project()
+	tags["PulumiStackName"] = ctx.Stack()
+
 	mainCluster, err := provisioner.ProvisionMainCluster(ctx, resources.MainClusterConfig{
 		ID:                   id,
 		NamePrefix:           conf.NamePrefix,
@@ -59,6 +67,7 @@ func run(ctx *Context) (runErr error) {
 		NodeGroupMaxSize:     conf.Cluster.NodeGroupMaxSize,
 		NodeGroupDesiredSize: conf.Cluster.NodeGroupDesiredSize,
 		ZoneID:               conf.ZoneID,
+		Tags:                 tags,
 	})
 	if err != nil {
 		return err
@@ -225,8 +234,13 @@ func run(ctx *Context) (runErr error) {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-
-	ctx.Export("kubeconfig", mainCluster.Kubeconfig)
+	ctx.Export("kubeconfig", mainCluster.Kubeconfig.ApplyT(func(kubeconfig any) (string, error) {
+		jsonData, err := json.Marshal(kubeconfig)
+		if err != nil {
+			return "", errors.WithStack(err)
+		}
+		return string(jsonData), nil
+	}).(StringOutput))
 	ctx.Export("gateway_url", mainCluster.GatewayHostname)
 	ctx.Export("grafana_url", mainCluster.GrafanaHostname.ApplyT(func(hostname string) string {
 		return fmt.Sprintf("https://%s", hostname)

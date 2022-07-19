@@ -13,6 +13,7 @@ type MainClusterConfig struct {
 	NodeGroupMaxSize     int
 	NodeGroupDesiredSize int
 	ZoneID               string
+	Tags                 map[string]string
 }
 
 type DNSRecordConfig struct {
@@ -39,7 +40,7 @@ type S3Output struct {
 
 type MainClusterOutput struct {
 	Provider             kubernetes.ProviderOutput
-	Kubeconfig           pulumi.StringOutput
+	Kubeconfig           pulumi.AnyOutput
 	GrafanaHostname      pulumi.StringOutput
 	GatewayHostname      pulumi.StringOutput
 	LoadBalancerHostname pulumi.StringOutput

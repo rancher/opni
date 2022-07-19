@@ -36,9 +36,8 @@ type AlertingSpec struct {
 	//+kubebuilder:default=ClusterIP
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	//+kubebuilder:default="500Mi"
-	AlertingStorage string `json:"storage,omitempty"`
-
-	AlertingVolumeMounts []opnimeta.ExtraVolumeMount `json:"alertingVolumeMounts,omitempty"`
+	AlertingStorage      string                       `json:"storage,omitempty"`
+	AlertingVolumeMounts []*opnimeta.ExtraVolumeMount `json:"extraVolumeMounts,omitempty"`
 }
 type MetricsSpec struct {
 	//+kubebuilder:default=8086

@@ -40,8 +40,7 @@ type GatewaySpec struct {
 	Hostname         string   `json:"hostname,omitempty"`
 	PluginSearchDirs []string `json:"pluginSearchDirs,omitempty"`
 
-	Alerting                    *cfgv1beta1.AlertingSpec     `json:"alerting,omitempty"`
-	AlertingGatewayVolumeMounts *[]opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
+	Alerting *AlertingSpec `json:"alerting,omitempty"`
 
 	//+kubebuilder:default=LoadBalancer
 	ServiceType        corev1.ServiceType     `json:"serviceType,omitempty"`
@@ -62,6 +61,16 @@ func (g *GatewaySpec) GetServiceType() corev1.ServiceType {
 		return corev1.ServiceTypeClusterIP
 	}
 	return g.ServiceType
+}
+
+type AlertingSpec struct {
+	//_kubebuilder:default=9093
+	AlertingPort int `json:"alertingPort,omitempty"`
+	//+kubebuilder:default=ClusterIP
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+	//+kubebuilder:default="500Mi"
+	AlertingStorage             string                       `json:"storage,omitempty"`
+	AlertingGatewayVolumeMounts *[]opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
 }
 
 type AuthSpec struct {

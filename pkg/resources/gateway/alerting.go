@@ -1,7 +1,7 @@
 package gateway
 
 import (
-	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
+	v1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,7 +15,7 @@ import (
 func (r *Reconciler) alerting() []resources.Resource {
 	if r.gw.Spec.Alerting == nil {
 		// set some sensible defaults
-		r.gw.Spec.Alerting = &cfgv1beta1.AlertingSpec{}
+		r.gw.Spec.Alerting = &v1beta2.AlertingSpec{}
 		r.gw.Spec.Alerting.AlertingPort = 9093
 		r.gw.Spec.Alerting.AlertingStorage = "500Mi"
 		r.gw.Spec.Alerting.ServiceType = corev1.ServiceTypeClusterIP

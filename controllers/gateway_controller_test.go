@@ -162,5 +162,44 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 				HaveOwner(gw),
 			))
 		})
+		It("should create the alerting Objects", func() {
+			Eventually(Object(&appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-alerting-internal",
+					Namespace: gw.Spec.Alerting.Namespace,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(gw),
+				HaveMatchingContainer(And(
+					HaveImage("bitnami/alertmanager:latest"),
+					HavePorts(
+						"alertmanager-port",
+					),
+				)),
+			))
+
+			Eventually(Object(&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-alerting",
+					Namespace: gw.Spec.Alerting.Namespace,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(gw),
+				HavePorts(
+					"alertmanager-port",
+				),
+				HaveType(corev1.ServiceTypeLoadBalancer),
+			))
+
+			Eventually(Object(&corev1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "alerting-volume",
+					Namespace: gw.Spec.Alerting.Namespace,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(gw),
+				HaveVolumeSource("PersistentVolumeClaim"),
+			))
+		})
 	})
 })

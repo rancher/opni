@@ -35,19 +35,19 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 						Provider: cfgv1beta1.AuthProviderNoAuth,
 						Noauth:   &noauth.ServerConfig{},
 					},
-					Alerting: &cfgv1beta1.AlertingSpec{
+					Alerting: &v1beta2.AlertingSpec{
 						AlertingPort: 9093,
 						ServiceType:  corev1.ServiceTypeLoadBalancer,
-					},
-					AlertingGatewayVolumeMounts: &[]opnimeta.ExtraVolumeMount{
-						{
-							Name:      "alerting-storage",
-							MountPath: "/var/logs/alerting",
-							ReadOnly:  false,
-							VolumeSource: corev1.VolumeSource{
-								NFS: &corev1.NFSVolumeSource{
-									Server: "localhost",
-									Path:   "/var/logs/alerting",
+						AlertingGatewayVolumeMounts: &[]opnimeta.ExtraVolumeMount{
+							{
+								Name:      "alerting-storage",
+								MountPath: "/var/logs/alerting",
+								ReadOnly:  false,
+								VolumeSource: corev1.VolumeSource{
+									NFS: &corev1.NFSVolumeSource{
+										Server: "localhost",
+										Path:   "/var/logs/alerting",
+									},
 								},
 							},
 						},

@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	"github.com/rancher/opni/pkg/config/meta"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -36,6 +37,8 @@ type AlertingSpec struct {
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	//+kubebuilder:default="500Mi"
 	AlertingStorage string `json:"storage,omitempty"`
+
+	AlertingVolumeMounts []opnimeta.ExtraVolumeMount `json:"alertingVolumeMounts,omitempty"`
 }
 type MetricsSpec struct {
 	//+kubebuilder:default=8086

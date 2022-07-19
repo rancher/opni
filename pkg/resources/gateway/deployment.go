@@ -251,6 +251,21 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 			append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
 	}
 	// add additional volumes for alerting
+	if r.gw.Spec.Alerting != nil {
+		for _, alertVol := range r.gw.Spec.Alerting.AlertingVolumeMounts {
+			vol := corev1.Volume{
+				Name:         alertVol.Name,
+				VolumeSource: alertVol.VolumeSource,
+			}
+			volMount := corev1.VolumeMount{
+				Name:      alertVol.Name,
+				MountPath: alertVol.MountPath,
+			}
+			dep.Spec.Template.Spec.Volumes = append(dep.Spec.Template.Spec.Volumes, vol)
+			dep.Spec.Template.Spec.Containers[0].VolumeMounts = append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
+		}
+	}
+
 	ctrl.SetControllerReference(r.gw, dep, r.client.Scheme())
 	return resources.Present(dep), nil
 }

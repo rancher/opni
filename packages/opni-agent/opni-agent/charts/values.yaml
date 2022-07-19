@@ -24,7 +24,7 @@ logging:
   jobTTL: 0
 
 events:
-  enabled: false
+  enabled: true
 
 podAnnotations: {}
 

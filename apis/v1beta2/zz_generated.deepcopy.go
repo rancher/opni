@@ -7,6 +7,7 @@ package v1beta2
 
 import (
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
+	configv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -718,6 +719,11 @@ func (in *GatewaySpec) DeepCopyInto(out *GatewaySpec) {
 		in, out := &in.PluginSearchDirs, &out.PluginSearchDirs
 		*out = make([]string, len(*in))
 		copy(*out, *in)
+	}
+	if in.Alerting != nil {
+		in, out := &in.Alerting, &out.Alerting
+		*out = new(configv1beta1.AlertingSpec)
+		**out = **in
 	}
 	if in.ServiceAnnotations != nil {
 		in, out := &in.ServiceAnnotations, &out.ServiceAnnotations

@@ -250,7 +250,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 		dep.Spec.Template.Spec.Containers[0].VolumeMounts =
 			append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
 	}
-
+	// add additional volumes for alerting
 	ctrl.SetControllerReference(r.gw, dep, r.client.Scheme())
 	return resources.Present(dep), nil
 }

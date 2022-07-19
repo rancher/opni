@@ -34,6 +34,10 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 						Provider: cfgv1beta1.AuthProviderNoAuth,
 						Noauth:   &noauth.ServerConfig{},
 					},
+					Alerting: &cfgv1beta1.AlertingSpec{
+						AlertingPort: 9093,
+						ServiceType:  corev1.ServiceTypeLoadBalancer,
+					},
 				},
 			}
 			Expect(k8sClient.Create(context.Background(), gw)).To(Succeed())
@@ -163,42 +167,35 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 			))
 		})
 		It("should create the alerting Objects", func() {
-			Eventually(Object(&appsv1.Deployment{
+			Eventually(Object(&appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "opni-alerting-internal",
-					Namespace: gw.Spec.Alerting.Namespace,
+					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
 				HaveOwner(gw),
 				HaveMatchingContainer(And(
 					HaveImage("bitnami/alertmanager:latest"),
 					HavePorts(
-						"alertmanager-port",
+						"alerting-port",
 					),
+				)),
+				HaveMatchingVolume(And(
+					HaveName("opni-alertmanager-data"),
 				)),
 			))
 
 			Eventually(Object(&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "opni-alerting",
-					Namespace: gw.Spec.Alerting.Namespace,
+					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
 				HaveOwner(gw),
 				HavePorts(
-					"alertmanager-port",
+					"alerting-port",
 				),
 				HaveType(corev1.ServiceTypeLoadBalancer),
-			))
-
-			Eventually(Object(&corev1.PersistentVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "alerting-volume",
-					Namespace: gw.Spec.Alerting.Namespace,
-				},
-			})).Should(ExistAnd(
-				HaveOwner(gw),
-				HaveVolumeSource("PersistentVolumeClaim"),
 			))
 		})
 	})

@@ -381,6 +381,17 @@ spec:
                         type: array
                     type: object
                 type: object
+              alerting:
+                properties:
+                  alertingPort:
+                    type: integer
+                  serviceType:
+                    default: ClusterIP
+                    type: string
+                  storage:
+                    default: 500Mi
+                    type: string
+                type: object
               auth:
                 properties:
                   noauth:

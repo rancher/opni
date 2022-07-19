@@ -36,14 +36,14 @@ var (
 )
 
 type StackOutputs struct {
-	GatewayURL        string          `json:"gateway_url"`
-	GrafanaURL        string          `json:"grafana_url"`
-	Kubeconfig        json.RawMessage `json:"kubeconfig"`
-	OAuthClientID     string          `json:"oauth_client_id"`
-	OAuthClientSecret string          `json:"oauth_client_secret"`
-	OAuthIssuerURL    string          `json:"oauth_issuer_url"`
-	S3Bucket          string          `json:"s3_bucket"`
-	S3Endpoint        string          `json:"s3_endpoint"`
+	GatewayURL        string `json:"gateway_url"`
+	GrafanaURL        string `json:"grafana_url"`
+	Kubeconfig        string `json:"kubeconfig"`
+	OAuthClientID     string `json:"oauth_client_id"`
+	OAuthClientSecret string `json:"oauth_client_secret"`
+	OAuthIssuerURL    string `json:"oauth_issuer_url"`
+	S3Bucket          string `json:"s3_bucket"`
+	S3Endpoint        string `json:"s3_endpoint"`
 }
 
 var _ = BeforeSuite(func() {
@@ -55,7 +55,7 @@ var _ = BeforeSuite(func() {
 		Expect(json.Unmarshal([]byte(value), &outputs)).To(Succeed())
 	}
 
-	restConfig, err := clientcmd.RESTConfigFromKubeConfig(outputs.Kubeconfig)
+	restConfig, err := clientcmd.RESTConfigFromKubeConfig([]byte(outputs.Kubeconfig))
 	Expect(err).NotTo(HaveOccurred())
 
 	scheme := apis.NewScheme()

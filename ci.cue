@@ -10,7 +10,7 @@ import (
 	"universe.dagger.io/docker/cli"
 	"universe.dagger.io/alpine"
 	"universe.dagger.io/python"
-	"universe.dagger.io/x/david@rawkode.dev/pulumi"
+	"universe.dagger.io/alpha/pulumi"
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
 	"github.com/rancher/opni/internal/util"
@@ -265,8 +265,7 @@ dagger.#Plan & {
 			_pulumiImage: images.#Pulumi & {
 				plugins: [
 					images.#Plugin & {
-						name:    "aws"
-						version: "v5.9.1"
+						name: "aws"
 					},
 					images.#Plugin & {
 						name:    "aws"
@@ -274,40 +273,45 @@ dagger.#Plan & {
 					},
 					images.#Plugin & {
 						name:    "awsx"
-						version: "v1.0.0-beta.8"
+						version: "v1.0.0-beta.9"
 					},
 					images.#Plugin & {
-						name:    "kubernetes"
-						version: "3.19.4"
+						name: "kubernetes"
 					},
 					images.#Plugin & {
-						name:    "random"
-						version: "v4.7.0"
+						name: "random"
 					},
 					images.#Plugin & {
-						name:    "eks"
-						version: "0.40.0"
+						name: "eks"
 					},
 					images.#Plugin & {
-						name:    "docker"
-						version: "v3.2.0"
+						name: "docker"
 					},
 				]
 			}
 
-			infra: pulumi.#Up & {
-				source:      _fs.output
-				version:     "3.34.1-debian-amd64"
-				runtime:     "go"
-				stack:       "e2e"
-				accessToken: _accessToken
-				container: {
-					input: _pulumiImage.output
-					env:   _awsEnv & {
-						"CLOUD":      "aws"
-						"IMAGE_REPO": _testImage.dest
-						"IMAGE_TAG":  strings.TrimPrefix(_testImage.result, "\(_testImage.dest):")
+			infra: {
+				_up: pulumi.#Up & {
+					source:      _fs.output
+					runtime:     "go"
+					stack:       "e2e"
+					accessToken: _accessToken
+					container: {
+						input: _pulumiImage.output
+						env:   _awsEnv & {
+							"CLOUD":      "aws"
+							"IMAGE_REPO": _testImage.dest
+							"IMAGE_TAG":  strings.TrimPrefix(_testImage.result, "\(_testImage.dest):")
+						}
 					}
+				}
+				_stackOutput: core.#Subdir & {
+					input: _up.container.output.rootfs
+					path:  "/output"
+				}
+				stackOutputSecret: core.#NewSecret & {
+					input: _stackOutput.output
+					path:  "json"
 				}
 			}
 
@@ -315,7 +319,7 @@ dagger.#Plan & {
 				input: _e2eImage.output
 				mageArgs: ["-v", "test", "e2e"]
 				env: _awsEnv & {
-					"STACK_OUTPUTS": json.Marshal(infra.outputs)
+					"STACK_OUTPUTS": infra.stackOutputSecret.output
 				}
 			}
 		}
@@ -423,7 +427,7 @@ dagger.#Plan & {
 			_distImage: docker.#Build & {
 				steps: [
 					docker.#Run & {
-						input:  sdist.image
+						input: sdist.image
 						command: {
 							name: "pip"
 							args: [ "install", "twine"]

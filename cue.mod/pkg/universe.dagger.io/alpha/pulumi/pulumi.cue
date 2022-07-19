@@ -1,10 +1,7 @@
-//Deprecated: in favor of universe.dagger.io/alpha package
 // Run a Pulumi program
 package pulumi
 
 import (
-	"encoding/json"
-
 	"dagger.io/dagger"
 	"dagger.io/dagger/core"
 	"universe.dagger.io/docker"
@@ -26,14 +23,14 @@ import (
 	// Example: "production"
 	stack: string
 
-	// Create the stack if it doesn't exist
-	stackCreate: *false | true
-
 	// API token if you want to use Pulumi SaaS state backend
 	accessToken?: dagger.#Secret
 
 	// Passphrase if you want to use local state backend (Cached by Dagger in buildkit)
 	passphrase?: dagger.#Secret
+
+	// Create the stack if it doesn't exist
+	stackCreate: *false | true
 
 	// Build a docker image to run the netlify client
 	_pull_image: docker.#Pull & {
@@ -43,7 +40,7 @@ import (
 	// Run Pulumi up
 	container: bash.#Run & {
 		input: *_pull_image.output | docker.#Image
-		export: files: "/outputs.json": string
+
 		script: {
 			_load: core.#Source & {
 				path: "."
@@ -52,6 +49,7 @@ import (
 			directory: _load.output
 			filename:  "up.sh"
 		}
+
 		env: {
 			PULUMI_STACK:   stack
 			PULUMI_RUNTIME: runtime
@@ -67,12 +65,15 @@ import (
 				PULUMI_ACCESS_TOKEN: accessToken
 			}
 		}
+
 		workdir: "/src"
+
 		mounts: {
 			src: {
 				dest:     "/src"
 				contents: source
 			}
+
 			node_modules: {
 				dest:     "/src/node_modules"
 				contents: core.#CacheDir & {
@@ -82,5 +83,20 @@ import (
 		}
 	}
 
-	outputs: json.Unmarshal(container.export.files["/outputs.json"])
+	_stackOutput: core.#Subdir & {
+		input: container.output.rootfs
+		path:  "/output"
+	}
+
+	_stackOutputSecret: core.#NewSecret & {
+		input: _stackOutput.output
+		path:  "json"
+	}
+
+	_decodeSecret: core.#DecodeSecret & {
+		input:  _stackOutputSecret.output
+		format: "json"
+	}
+
+	output: _decodeSecret.output
 }

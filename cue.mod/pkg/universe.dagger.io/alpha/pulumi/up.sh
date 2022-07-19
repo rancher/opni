@@ -11,6 +11,7 @@ fi
 # If it exists, refresh the config
 # If it doesn't, create the stack
 if test -v PULUMI_ACCESS_TOKEN; then
+  echo "Setting access token"
   if (pulumi stack ls | grep -e "^${PULUMI_STACK}"); then
     echo "Stack exists, let's refresh"
     pulumi stack select "${PULUMI_STACK}"
@@ -37,6 +38,7 @@ case "$PULUMI_RUNTIME" in
     ;;
 esac
 
-pulumi up --stack "${PULUMI_STACK}" --yes
+pulumi up --stack "${PULUMI_STACK}" --yes --suppress-outputs
 
-pulumi stack output -j --show-secrets > /outputs.json || echo '{}' > /outputs.json
+mkdir -p /output
+pulumi --stack "${PULUMI_STACK}" stack output --json --show-secrets > /output/json

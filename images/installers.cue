@@ -11,7 +11,7 @@ installers: {
 				name: "sh"
 				args: [
 					"-c",
-					"apt update && apt -y install unzip && curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o aws.zip && unzip aws.zip && ./aws/install && rm -rf aws",
+					"apt update && apt -y install unzip && curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o aws.zip && unzip -qq aws.zip && ./aws/install && rm -rf aws",
 				]
 			}
 		}

@@ -101,7 +101,7 @@ func (p *provisioner) ProvisionMainCluster(ctx *pulumi.Context, conf resources.M
 
 	return &resources.MainClusterOutput{
 		Provider:             eks.Cluster.Provider,
-		Kubeconfig:           StringOutput(eks.Cluster.Kubeconfig),
+		Kubeconfig:           eks.Cluster.Kubeconfig,
 		GrafanaHostname:      p.dns.GrafanaFqdn,
 		GatewayHostname:      p.dns.GatewayFqdn,
 		LoadBalancerHostname: lbHostname,

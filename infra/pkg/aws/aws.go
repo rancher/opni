@@ -17,7 +17,12 @@ import (
 )
 
 func (p *provisioner) buildEksResources(ctx *Context, conf resources.MainClusterConfig) (*eksResources, error) {
-	vpc, err := ec2.NewVpc(ctx, conf.NamePrefix, &ec2.VpcArgs{})
+	vpc, err := ec2.NewVpc(ctx, conf.NamePrefix, &ec2.VpcArgs{
+		Tags: ToStringMap(conf.Tags),
+		NatGateways: &ec2.NatGatewayConfigurationArgs{
+			Strategy: ec2.NatGatewayStrategySingle,
+		},
+	})
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -30,6 +35,8 @@ func (p *provisioner) buildEksResources(ctx *Context, conf resources.MainCluster
 		VpcId:            vpc.VpcId,
 		PublicSubnetIds:  vpc.PublicSubnetIds,
 		PrivateSubnetIds: vpc.PrivateSubnetIds,
+		Tags:             ToStringMap(conf.Tags),
+		ClusterTags:      ToStringMap(conf.Tags),
 	})
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -57,6 +64,7 @@ func (p *provisioner) buildDnsResources(ctx *Context, conf resources.MainCluster
 	cert, err := acm.NewCertificate(ctx, "cert", &acm.CertificateArgs{
 		DomainName:       grafanaFqdn,
 		ValidationMethod: StringPtr("DNS"),
+		Tags:             ToStringMap(conf.Tags),
 	})
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -94,6 +102,7 @@ func (p *provisioner) buildS3Resources(ctx *Context, conf resources.MainClusterC
 	s3Bucket, err := s3.NewBucket(ctx, "s3-bucket", &s3.BucketArgs{
 		Bucket:       p.clusterName,
 		ForceDestroy: Bool(true),
+		Tags:         ToStringMap(conf.Tags),
 	})
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -114,6 +123,7 @@ func (p *provisioner) buildS3Resources(ctx *Context, conf resources.MainClusterC
 func (p *provisioner) buildCognitoResources(ctx *Context, conf resources.MainClusterConfig) (*cognitoResources, error) {
 	userPool, err := cognito.NewUserPool(ctx, "user-pool", &cognito.UserPoolArgs{
 		Name: p.clusterName,
+		Tags: ToStringMap(conf.Tags),
 		PasswordPolicy: cognito.UserPoolPasswordPolicyArgs{
 			MinimumLength:                 Int(6),
 			RequireLowercase:              Bool(false),

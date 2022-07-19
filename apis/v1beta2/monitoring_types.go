@@ -39,6 +39,9 @@ type GatewaySpec struct {
 	Auth             AuthSpec `json:"auth,omitempty"`
 	Hostname         string   `json:"hostname,omitempty"`
 	PluginSearchDirs []string `json:"pluginSearchDirs,omitempty"`
+
+	Alerting *cfgv1beta1.AlertingSpec `json:"alerting,omitempty"`
+
 	//+kubebuilder:default=LoadBalancer
 	ServiceType        corev1.ServiceType     `json:"serviceType,omitempty"`
 	ServiceAnnotations map[string]string      `json:"serviceAnnotations,omitempty"`

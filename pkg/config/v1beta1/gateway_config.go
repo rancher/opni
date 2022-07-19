@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	"github.com/rancher/opni/pkg/config/meta"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type GatewayConfig struct {
@@ -28,6 +29,12 @@ type GatewayConfigSpec struct {
 	Plugins        PluginsSpec    `json:"plugins,omitempty"`
 }
 
+type AlertingSpec struct {
+	//+kubebuilder:default="alerting"
+	Namespace string `json:"namespace,omitempty"`
+	//+kubebuilder:default=LoadBalancer
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+}
 type MetricsSpec struct {
 	//+kubebuilder:default=8086
 	Port int `json:"port,omitempty"`

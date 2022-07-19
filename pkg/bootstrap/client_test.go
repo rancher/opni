@@ -9,11 +9,14 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,11 +25,13 @@ import (
 	"sigs.k8s.io/yaml"
 
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/ident"
+	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
@@ -73,6 +78,26 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 		for _, backend := range []*test.CapabilityInfo{
 			{
 				Name:       "test",
+				CanInstall: true,
+			},
+			{
+				Name:       "test1",
+				CanInstall: true,
+			},
+			{
+				Name:       "test2",
+				CanInstall: true,
+			},
+			{
+				Name:       "test3",
+				CanInstall: true,
+			},
+			{
+				Name:       "test4",
+				CanInstall: true,
+			},
+			{
+				Name:       "test5",
 				CanInstall: true,
 			},
 		} {
@@ -168,6 +193,214 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 			Expect(erased.Spec.Bootstrap).To(BeNil())
 
 			Expect(env.Stop()).To(Succeed())
+		})
+		When("bootstrapping multiple capabilities", func() {
+			It("should save keyrings correctly", func() {
+				By("bootstrapping two capabilities")
+				token, _ := store.CreateToken(context.Background(), 1*time.Minute)
+				testIdent := test.NewTestIdentProvider(ctrl, uuid.NewString())
+				cc := bootstrap.ClientConfig{
+					Endpoint:      endpoint,
+					TrustStrategy: pkpTrustStrategy(cert.Leaf),
+					Capability:    "test",
+					Token:         testutil.Must(tokens.FromBootstrapToken(token)),
+				}
+				kr1, err := cc.Bootstrap(context.Background(), testIdent)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(kr1).NotTo(BeNil())
+				cc2 := bootstrap.ClientConfig{
+					Endpoint:      endpoint,
+					TrustStrategy: pkpTrustStrategy(cert.Leaf),
+					Capability:    "test2",
+					Token:         testutil.Must(tokens.FromBootstrapToken(token)),
+				}
+				kr2, err := cc2.Bootstrap(context.Background(), testIdent)
+				Expect(kr2).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				By("verifying that each client keyring contains one set of shared keys")
+				var sk1, sk2 *keyring.SharedKeys
+				kr1.Try(func(key *keyring.SharedKeys) {
+					Expect(sk1).To(BeNil())
+					sk1 = key
+				})
+				kr2.Try(func(key *keyring.SharedKeys) {
+					Expect(sk2).To(BeNil())
+					sk2 = key
+				})
+				Expect(sk1).NotTo(BeNil())
+				Expect(sk2).NotTo(BeNil())
+				Expect(sk1).NotTo(Equal(sk2))
+
+				By("verifying that the server keyring contains both sets of keys")
+				serverKrStore, err := store.KeyringStore("gateway", &v1.Reference{
+					Id: testutil.Must(testIdent.UniqueIdentifier(context.Background())),
+				})
+				Expect(err).NotTo(HaveOccurred())
+				serverKr, err := serverKrStore.Get(context.Background())
+				Expect(err).NotTo(HaveOccurred())
+				allKeys := []*keyring.SharedKeys{}
+				serverKr.Try(func(key *keyring.SharedKeys) {
+					allKeys = append(allKeys, key)
+				})
+				Expect(allKeys).To(HaveLen(2))
+				if allKeys[0].ClientKey.Equal(sk1.ClientKey) && allKeys[0].ServerKey.Equal(sk1.ServerKey) {
+					Expect(allKeys[1].ClientKey.Equal(sk2.ClientKey)).To(BeTrue())
+					Expect(allKeys[1].ServerKey.Equal(sk2.ServerKey)).To(BeTrue())
+				} else if allKeys[0].ClientKey.Equal(sk2.ClientKey) && allKeys[0].ServerKey.Equal(sk2.ServerKey) {
+					Expect(allKeys[1].ClientKey.Equal(sk1.ClientKey)).To(BeTrue())
+					Expect(allKeys[1].ServerKey.Equal(sk1.ServerKey)).To(BeTrue())
+				} else {
+					Fail("keyrings do not match")
+				}
+			})
+			When("multiple capabilities bootstrap simultaneously", func() {
+				var testIdent ident.Provider
+				BeforeEach(func() {
+					testIdent = test.NewTestIdentProvider(ctrl, uuid.NewString())
+				})
+				validateKeyrings := func(successes []keyring.Keyring) {
+					serverKrStore, err := store.KeyringStore("gateway", &v1.Reference{
+						Id: testutil.Must(testIdent.UniqueIdentifier(context.Background())),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					serverKr, err := serverKrStore.Get(context.Background())
+					Expect(err).NotTo(HaveOccurred())
+					var serverSharedKeys []*keyring.SharedKeys
+					serverKr.Try(func(key *keyring.SharedKeys) {
+						serverSharedKeys = append(serverSharedKeys, key)
+					})
+
+					var clientSharedKeys []*keyring.SharedKeys
+					for _, successKr := range successes {
+						var shared *keyring.SharedKeys
+						successKr.Try(func(key *keyring.SharedKeys) {
+							Expect(shared).To(BeNil())
+							shared = key
+						})
+						Expect(shared).NotTo(BeNil())
+						clientSharedKeys = append(clientSharedKeys, shared)
+					}
+
+					Expect(len(clientSharedKeys)).To(Equal(len(successes)),
+						"the number of successful bootstraps does not match the number of keys in the server keyring")
+
+					By("verifying that the server and client keyring shared keys are equal")
+					for _, clientSharedKey := range clientSharedKeys {
+						found := false
+						for _, serverSharedKey := range serverSharedKeys {
+							if clientSharedKey.ClientKey.Equal(serverSharedKey.ClientKey) &&
+								clientSharedKey.ServerKey.Equal(serverSharedKey.ServerKey) {
+								found = true
+								break
+							}
+						}
+						Expect(found).To(BeTrue(),
+							"client bootstrapped successfully but its key was not found in the server's keyring")
+					}
+				}
+				When("different tokens are used", func() {
+					It("should only allow one capability to successfully bootstrap", func() {
+						responses := make(chan struct {
+							kr  keyring.Keyring
+							err error
+						}, 5)
+						wait := make(chan struct{})
+						By("bootstrapping several capabilities at the same time using different tokens")
+						for i := 0; i < 5; i++ {
+							i := i
+							go func() {
+								token, err := store.CreateToken(context.Background(), 1*time.Minute)
+								Expect(err).NotTo(HaveOccurred())
+								cc := bootstrap.ClientConfig{
+									Endpoint:      endpoint,
+									TrustStrategy: pkpTrustStrategy(cert.Leaf),
+									Capability:    "test" + strconv.Itoa(i+1),
+									Token:         testutil.Must(tokens.FromBootstrapToken(token)),
+								}
+								<-wait
+								kr, err := cc.Bootstrap(context.Background(), testIdent)
+								responses <- struct {
+									kr  keyring.Keyring
+									err error
+								}{kr, err}
+							}()
+						}
+						close(wait)
+						By("ensuring only one cluster succeeded, and others were denied")
+						var successes []keyring.Keyring
+						for i := 0; i < 5; i++ {
+							select {
+							case <-time.After(10 * time.Second):
+								Fail("timed out waiting for bootstrap")
+							case resp := <-responses:
+								if resp.err == nil {
+									successes = append(successes, resp.kr)
+								} else {
+									Expect(util.StatusCode(resp.err)).To(Equal(codes.PermissionDenied))
+								}
+							}
+						}
+
+						Expect(successes).To(HaveLen(1))
+						validateKeyrings(successes)
+					})
+				})
+				When("the same token is used", func() {
+					It("should correctly bootstrap all capabilities", func() {
+						By("creating a token")
+						token, err := store.CreateToken(context.Background(), 1*time.Minute)
+						By("bootstrapping several capabilities at the same time using the token")
+						responses := make(chan struct {
+							kr  keyring.Keyring
+							err error
+						}, 5)
+						wait := make(chan struct{})
+						for i := 0; i < 5; i++ {
+							i := i
+							go func() {
+								Expect(err).NotTo(HaveOccurred())
+								cc := bootstrap.ClientConfig{
+									Endpoint:      endpoint,
+									TrustStrategy: pkpTrustStrategy(cert.Leaf),
+									Capability:    "test" + strconv.Itoa(i+1),
+									Token:         testutil.Must(tokens.FromBootstrapToken(token)),
+								}
+								<-wait
+								var kr keyring.Keyring
+								var err error
+								// if 5 capabilities bootstrap at the same time, it should
+								// require at most 5 requests each for all of them to succeed
+								for j := 0; j < 5; j++ {
+									kr, err = cc.Bootstrap(context.Background(), testIdent)
+									if err == nil {
+										break
+									}
+									Expect(util.StatusCode(err)).To(Equal(codes.PermissionDenied))
+								}
+								responses <- struct {
+									kr  keyring.Keyring
+									err error
+								}{kr, err}
+							}()
+						}
+						close(wait)
+						By("ensuring that all bootstraps succeeded")
+						var successes []keyring.Keyring
+						for i := 0; i < 5; i++ {
+							select {
+							case <-time.After(10 * time.Second):
+								Fail("timed out waiting for bootstrap")
+							case resp := <-responses:
+								Expect(resp.err).NotTo(HaveOccurred())
+								successes = append(successes, resp.kr)
+							}
+						}
+						Expect(successes).To(HaveLen(5))
+						validateKeyrings(successes)
+					})
+				})
+			})
 		})
 		When("the defaults are used and the in-cluster config is unavailable", func() {
 			It("should error", func() {

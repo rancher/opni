@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
@@ -12,20 +13,28 @@ import (
 )
 
 func (r *Reconciler) alerting() []resources.Resource {
+	if r.gw.Spec.Alerting == nil {
+		// set some sensible defaults
+		r.gw.Spec.Alerting = &cfgv1beta1.AlertingSpec{}
+		r.gw.Spec.Alerting.AlertingPort = 9093
+		r.gw.Spec.Alerting.AlertingStorage = "500Mi"
+		r.gw.Spec.Alerting.ServiceType = corev1.ServiceTypeClusterIP
+	}
+
 	publicLabels := resources.NewGatewayLabels()
 	labelWithAlert := func(label map[string]string) map[string]string {
-		label["app"] = "alertmanager"
+		label["app"] = "opni-alerting"
 		return label
 	}
 	publicLabels = labelWithAlert(publicLabels)
 
-	deploy := &appsv1.Deployment{
+	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-alerting-internal",
-			Namespace: r.gw.Spec.Alerting.Namespace,
+			Namespace: r.gw.Namespace,
 			Labels:    publicLabels,
 		},
-		Spec: appsv1.DeploymentSpec{
+		Spec: appsv1.StatefulSetSpec{
 			Replicas: util.Pointer(r.numAlertingReplicas()),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: publicLabels,
@@ -41,20 +50,53 @@ func (r *Reconciler) alerting() []resources.Resource {
 							Image:           "bitnami/alertmanager:latest",
 							ImagePullPolicy: "Always",
 							Ports:           r.containerAlertManagerPorts(),
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "opni-alertmanager-data",
+									MountPath: "/var/lib/alertmanager/data",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "opni-alertmanager-data",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "opni-alertmanager-data",
+								},
+							},
 						},
 					},
 				},
 			},
+			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "opni-alertmanager-data",
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{
+							corev1.ReadWriteOnce,
+						},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse(r.gw.Spec.Alerting.AlertingStorage),
+							},
+						},
+					}},
+			},
 		},
 	}
 	ctrl.SetControllerReference(r.gw, deploy, r.client.Scheme())
+
 	publicSvcLabels := publicLabels
 	publicSvcLabels["service-type"] = "public"
 
 	alertingSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "opni-alerting",
-			Namespace:   r.gw.Spec.Alerting.Namespace,
+			Namespace:   r.gw.Namespace,
 			Labels:      publicSvcLabels,
 			Annotations: r.gw.Spec.ServiceAnnotations,
 		},
@@ -66,37 +108,9 @@ func (r *Reconciler) alerting() []resources.Resource {
 	}
 	ctrl.SetControllerReference(r.gw, alertingSvc, r.client.Scheme())
 
-	alrtVlm := &corev1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "alerting-volume",
-			Namespace: r.gw.Spec.Alerting.Namespace,
-		},
-		Spec: corev1.PersistentVolumeSpec{
-			Capacity: corev1.ResourceList{
-				corev1.ResourceStorage: resource.MustParse("500Mi"),
-			},
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				corev1.ReadWriteMany,
-			},
-			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRecycle,
-			StorageClassName:              "slow",
-			MountOptions: []string{
-				"hard",
-				"nfsvers=4.1",
-			},
-			PersistentVolumeSource: corev1.PersistentVolumeSource{
-				NFS: &corev1.NFSVolumeSource{
-					Server: "172.17.0.2", //FIXME: sensible default?
-					Path:   "/alerting",
-				},
-			},
-		},
-	}
-	ctrl.SetControllerReference(r.gw, alrtVlm, r.client.Scheme())
 	return []resources.Resource{
 		resources.Present(deploy),
 		resources.Present(alertingSvc),
-		resources.Present(alrtVlm),
 	}
 }
 
@@ -107,7 +121,7 @@ func (r *Reconciler) numAlertingReplicas() int32 {
 func (r *Reconciler) containerAlertManagerPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
-			Name:          "alertmanager-port",
+			Name:          "alerting-port",
 			ContainerPort: 9093,
 			Protocol:      "TCP",
 		},

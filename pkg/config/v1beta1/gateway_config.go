@@ -30,10 +30,12 @@ type GatewayConfigSpec struct {
 }
 
 type AlertingSpec struct {
-	//+kubebuilder:default="alerting"
-	Namespace string `json:"namespace,omitempty"`
-	//+kubebuilder:default=LoadBalancer
+	//_kubebuilder:default=9093
+	AlertingPort int `json:"alertingPort,omitempty"`
+	//+kubebuilder:default=ClusterIP
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+	//+kubebuilder:default="500Mi"
+	AlertingStorage string `json:"storage,omitempty"`
 }
 type MetricsSpec struct {
 	//+kubebuilder:default=8086

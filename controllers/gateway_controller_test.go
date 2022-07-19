@@ -38,16 +38,16 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 					Alerting: &cfgv1beta1.AlertingSpec{
 						AlertingPort: 9093,
 						ServiceType:  corev1.ServiceTypeLoadBalancer,
-						AlertingVolumeMounts: []*opnimeta.ExtraVolumeMount{
-							{
-								Name:      "alerting-storage",
-								MountPath: "/var/logs/alerting",
-								ReadOnly:  false,
-								VolumeSource: corev1.VolumeSource{
-									NFS: &corev1.NFSVolumeSource{
-										Server: "localhost",
-										Path:   "/var/logs/alerting",
-									},
+					},
+					AlertingGatewayVolumeMounts: &[]opnimeta.ExtraVolumeMount{
+						{
+							Name:      "alerting-storage",
+							MountPath: "/var/logs/alerting",
+							ReadOnly:  false,
+							VolumeSource: corev1.VolumeSource{
+								NFS: &corev1.NFSVolumeSource{
+									Server: "localhost",
+									Path:   "/var/logs/alerting",
 								},
 							},
 						},

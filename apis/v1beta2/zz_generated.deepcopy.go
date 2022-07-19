@@ -725,6 +725,17 @@ func (in *GatewaySpec) DeepCopyInto(out *GatewaySpec) {
 		*out = new(configv1beta1.AlertingSpec)
 		**out = **in
 	}
+	if in.AlertingGatewayVolumeMounts != nil {
+		in, out := &in.AlertingGatewayVolumeMounts, &out.AlertingGatewayVolumeMounts
+		*out = new([]meta.ExtraVolumeMount)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make([]meta.ExtraVolumeMount, len(*in))
+			for i := range *in {
+				(*in)[i].DeepCopyInto(&(*out)[i])
+			}
+		}
+	}
 	if in.ServiceAnnotations != nil {
 		in, out := &in.ServiceAnnotations, &out.ServiceAnnotations
 		*out = make(map[string]string, len(*in))

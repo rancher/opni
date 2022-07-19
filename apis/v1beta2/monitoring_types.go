@@ -40,7 +40,8 @@ type GatewaySpec struct {
 	Hostname         string   `json:"hostname,omitempty"`
 	PluginSearchDirs []string `json:"pluginSearchDirs,omitempty"`
 
-	Alerting *cfgv1beta1.AlertingSpec `json:"alerting,omitempty"`
+	Alerting                    *cfgv1beta1.AlertingSpec     `json:"alerting,omitempty"`
+	AlertingGatewayVolumeMounts *[]opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
 
 	//+kubebuilder:default=LoadBalancer
 	ServiceType        corev1.ServiceType     `json:"serviceType,omitempty"`

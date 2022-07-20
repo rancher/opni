@@ -57,6 +57,7 @@ dagger.#Plan & {
 			"bin": write: contents:             actions.build.bin
 			"web/dist": write: contents:        actions.web.dist
 			"cover.out": write: contents:       actions.test.export.files["/src/cover.out"]
+			"aiops/apis/dist": write: contents: actions.pypi.sdist.output
 		}
 		commands: {
 			"aws-identity": {

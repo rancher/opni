@@ -58,7 +58,7 @@ func (p *Plugin) ListSLOs(ctx context.Context, _ *emptypb.Empty) (*sloapi.Servic
 }
 
 func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequest) (*corev1.ReferenceList, error) {
-	lg := p.logger
+	lg := p.logger.With("Request")
 
 	if err := checkDatasource(slorequest.SLO.GetDatasource()); err != nil {
 		return nil, err
@@ -146,14 +146,17 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 }
 
 func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOStatus, error) {
+	lg := p.logger
+	lg.Debug("Status called")
 	existing, err := p.storage.Get().SLOs.Get(path.Join("/slos", ref.Id))
 	if err != nil {
 		return nil, err
 	}
+	lg.Debug("Fetched SLO from storage")
 	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
 		return nil, err
 	}
-
+	lg.Debug("Verified SLO datasource")
 	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ref, ctx)
 	state, err := sloStore.Status(existing)
 	if err != nil {
@@ -161,6 +164,7 @@ func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLO
 			State: sloapi.SLOStatusState_InternalError,
 		}, nil
 	}
+	lg.Debug("Fetched SLO status from datasource implementation")
 	return state, nil
 }
 

@@ -10,9 +10,9 @@ import (
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/alexandreLamarre/sloth/core/alert"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
-	"github.com/hashicorp/go-hclog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/test"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
@@ -151,7 +151,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			//Monitoring SLOs
 			var err error
 			Expect(slo1.SLO.Datasource).To(Equal("monitoring")) // make sure we didn't mutate original message
-			simpleSpec, err = slo.ParseToOpenSLO(slo1, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			simpleSpec, err = slo.ParseToOpenSLO(slo1, context.Background(), logger.NewPluginLogger().Named("SLO"))
 			Expect(err).To(Succeed())
 			Expect(simpleSpec).To(HaveLen(1))
 
@@ -168,7 +168,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				{JobId: "foo-service2", ClusterId: "bar-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
 			}
 
-			multiClusterSpecs, err = slo.ParseToOpenSLO(multiClusterMultiService, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			multiClusterSpecs, err = slo.ParseToOpenSLO(multiClusterMultiService, context.Background(), logger.NewPluginLogger().Named("SLO"))
 			Expect(err).To(Succeed())
 
 			Expect(multiClusterSpecs).To(HaveLen(4))
@@ -177,7 +177,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(yaml.Marshal(multiClusterSpecs)).To(MatchYAML(expectedMulti))
 
 			// Alerting SLOS
-			alertSpecs, err = slo.ParseToOpenSLO(alertSLO, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			alertSpecs, err = slo.ParseToOpenSLO(alertSLO, context.Background(), logger.NewPluginLogger().Named("SLO"))
 			Expect(err).To(Succeed())
 			Expect(alertSpecs).To(HaveLen(1))
 			Expect(alertSpecs[0].Spec.AlertPolicies).To(HaveLen(1))
@@ -187,7 +187,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(Succeed())
 			Expect(yaml.Marshal(alertSpecs[0])).To(MatchYAML(expectedAlert))
 
-			multiAlertSpecs, err = slo.ParseToOpenSLO(multiAlerts, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			multiAlertSpecs, err = slo.ParseToOpenSLO(multiAlerts, context.Background(), logger.NewPluginLogger().Named("cortex"))
 			Expect(err).To(Succeed())
 			expectedMultiAlert, err := os.ReadFile(fmt.Sprintf("%s/multiAlertSLO.yaml", sloTestDataDir))
 			Expect(err).To(Succeed())
@@ -196,7 +196,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			// Logging SLOs
 			sloLogging := proto.Clone(slo1).ProtoReflect().Interface().(*apis.CreateSLORequest)
 			sloLogging.SLO.Datasource = "logging"
-			_, err = slo.ParseToOpenSLO(sloLogging, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			_, err = slo.ParseToOpenSLO(sloLogging, context.Background(), logger.NewPluginLogger().Named("cortex"))
 			Expect(err).To(HaveOccurred())
 			stat, ok := status.FromError(err)
 			Expect(ok).To(BeTrue())
@@ -293,9 +293,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 					time.Minute*5,
 					"", //generate new id
 					context.Background(),
-					hclog.New(
-						&hclog.LoggerOptions{},
-					))
+					logger.NewPluginLogger().Named("cortex"))
 				Expect(err).To(Succeed())
 				// better testing for this when the final format is more stable
 				Expect(len(simplePrometheusResponse)).Should(BeNumerically(">=", 1))
@@ -307,9 +305,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 					time.Minute*5,
 					"", // generate new id
 					context.Background(),
-					hclog.New(
-						&hclog.LoggerOptions{},
-					))
+					logger.NewPluginLogger().Named("cortex"))
 				Expect(err).To(Succeed())
 				// better testing for this when the final format is more stable
 				Expect(len(objectivePrometheusResponse)).Should(BeNumerically(">=", 1))
@@ -321,9 +317,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 					time.Minute*5,
 					"", // generate new id
 					context.Background(),
-					hclog.New(
-						&hclog.LoggerOptions{},
-					))
+					logger.NewPluginLogger().Named("cortex"))
 				Expect(err).To(Succeed())
 				// better testing for this when the final format is more stable
 				Expect(len(multiClusterPrometheusResponse)).Should(BeNumerically(">=", 1))

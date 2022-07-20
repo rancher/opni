@@ -4,9 +4,9 @@ import (
 	"context"
 
 	v1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
-	"github.com/hashicorp/go-hclog"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -43,7 +43,7 @@ type RequestBase struct {
 	req proto.Message
 	p   *Plugin
 	ctx context.Context
-	lg  hclog.Logger
+	lg  *zap.SugaredLogger
 }
 
 type SLOMonitoring struct {
@@ -58,7 +58,7 @@ type MonitoringServiceBackend struct {
 	RequestBase
 }
 
-func NewSLOMonitoringStore(p *Plugin, lg hclog.Logger) SLOStore {
+func NewSLOMonitoringStore(p *Plugin, lg *zap.SugaredLogger) SLOStore {
 	return &SLOMonitoring{
 		RequestBase{
 			req: nil,
@@ -69,7 +69,7 @@ func NewSLOMonitoringStore(p *Plugin, lg hclog.Logger) SLOStore {
 	}
 }
 
-func NewMonitoringServiceBackend(p *Plugin, lg hclog.Logger) ServiceBackend {
+func NewMonitoringServiceBackend(p *Plugin, lg *zap.SugaredLogger) ServiceBackend {
 	return &MonitoringServiceBackend{
 		RequestBase{
 			req: nil,

@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -99,7 +99,7 @@ func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.Metr
 
 // Note: Assumption is that JobID is valid
 // @returns goodQuery, totalQuery
-func fetchPreconfQueries(slo *api.ServiceLevelObjective, service *api.Service, ctx context.Context, lg hclog.Logger) (*query.SLOQueryResult, error) {
+func fetchPreconfQueries(slo *api.ServiceLevelObjective, service *api.Service, ctx context.Context, lg *zap.SugaredLogger) (*query.SLOQueryResult, error) {
 	if slo.GetDatasource() == shared.MonitoringDatasource {
 		if _, ok := query.AvailableQueries[service.GetMetricName()]; !ok {
 			return nil, shared.ErrInvalidMetric

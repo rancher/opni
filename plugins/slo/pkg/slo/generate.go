@@ -16,8 +16,8 @@ import (
 	"github.com/alexandreLamarre/sloth/core/info"
 	"github.com/alexandreLamarre/sloth/core/prometheus"
 	"github.com/google/uuid"
-	"github.com/hashicorp/go-hclog"
 	"github.com/prometheus/prometheus/model/rulefmt"
+	"go.uber.org/zap"
 )
 
 const (
@@ -340,7 +340,7 @@ func defaultSLOAlertGenerator(slo prometheus.SLO, sloAlert prometheus.AlertMeta,
 	}, nil
 }
 
-func GenerateSLO(slo prometheus.SLO, budgetingInterval time.Duration, ctx context.Context, info info.Info, lg hclog.Logger) (*SLORuleFmtWrapper, error) {
+func GenerateSLO(slo prometheus.SLO, budgetingInterval time.Duration, ctx context.Context, info info.Info, lg *zap.SugaredLogger) (*SLORuleFmtWrapper, error) {
 
 	// Generate with the MWWB alerts
 
@@ -383,7 +383,7 @@ func GenerateSLO(slo prometheus.SLO, budgetingInterval time.Duration, ctx contex
 func GeneratePrometheusNoSlothGenerator(
 	slos *prometheus.SLOGroup,
 	budgetingInterval time.Duration, existingId string,
-	ctx context.Context, lg hclog.Logger) ([]SLORuleFmtWrapper, error) {
+	ctx context.Context, lg *zap.SugaredLogger) ([]SLORuleFmtWrapper, error) {
 	res := make([]SLORuleFmtWrapper, 0)
 	for _, slo := range slos.SLOs {
 

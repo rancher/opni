@@ -7,9 +7,9 @@ import (
 
 	"github.com/alexandreLamarre/oslo/pkg/manifest"
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
-	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni/pkg/slo/shared"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -26,7 +26,7 @@ func convertTimeWindow(budgetTime *durationpb.Duration) string {
 // @errors: slo must have an id
 //
 // Number of oslo specs matches the number of services given in the SLO
-func ParseToOpenSLO(slorequest *api.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]oslov1.SLO, error) {
+func ParseToOpenSLO(slorequest *api.CreateSLORequest, ctx context.Context, lg *zap.SugaredLogger) ([]oslov1.SLO, error) {
 	res := make([]oslov1.SLO, 0)
 
 	for idx, service := range slorequest.GetServices() {
@@ -72,7 +72,7 @@ func ParseToOpenSLO(slorequest *api.CreateSLORequest, ctx context.Context, lg hc
 
 /// @note : for now only one indicator per SLO is supported
 /// Indicator is OpenSLO's inline indicator
-func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.Service, ctx context.Context, lg hclog.Logger) (*oslov1.SLIInline, error) {
+func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.Service, ctx context.Context, lg *zap.SugaredLogger) (*oslov1.SLIInline, error) {
 	metadata := oslov1.Metadata{
 		Name: fmt.Sprintf("sli-%s", slo.GetName()),
 	}
@@ -111,7 +111,7 @@ func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.Service, ctx 
 	return &SLI, err
 }
 
-func ParseToObjective(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) oslov1.Objective {
+func ParseToObjective(slo *api.ServiceLevelObjective, ctx context.Context, lg *zap.SugaredLogger) oslov1.Objective {
 	target := slo.GetTarget()
 	budgetTime := slo.GetBudgetingInterval() // validated to be between 1m and 60m
 	newObjective := oslov1.Objective{
@@ -122,7 +122,7 @@ func ParseToObjective(slo *api.ServiceLevelObjective, ctx context.Context, lg hc
 	return newObjective
 }
 
-func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg hclog.Logger) ([]oslov1.AlertPolicy, error) {
+func ParseToAlerts(slo *api.ServiceLevelObjective, ctx context.Context, lg *zap.SugaredLogger) ([]oslov1.AlertPolicy, error) {
 	policies := make([]oslov1.AlertPolicy, 0)
 
 	for _, alert := range slo.Alerts {

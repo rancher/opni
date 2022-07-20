@@ -5,12 +5,12 @@ import (
 	"fmt"
 
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
-	"github.com/hashicorp/go-hclog"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -94,7 +94,7 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 }
 
 // Cortex applies rule groups individually
-func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *sloapi.Service, existingId string, ctx context.Context, lg hclog.Logger) error {
+func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *sloapi.Service, existingId string, ctx context.Context, lg *zap.SugaredLogger) error {
 	var anyError error
 	ruleGroupsToApply := []string{cortexRules.recording, cortexRules.metadata, cortexRules.alerts}
 	for _, ruleGroup := range ruleGroupsToApply {
@@ -112,7 +112,7 @@ func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *slo
 	return anyError
 }
 
-func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOData, ctx context.Context, lg hclog.Logger) error {
+func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOData, ctx context.Context, lg *zap.SugaredLogger) error {
 	id, clusterId := toDelete.Id, toDelete.Service.ClusterId
 	ruleGroupsToDelete := []string{id + RecordingRuleSuffix, id + MetadataRuleSuffix, id + AlertRuleSuffix}
 	var anyError error
@@ -132,7 +132,7 @@ func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOData, ctx context.Conte
 
 // Convert OpenSLO specs to Cortex Rule Groups & apply them
 func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, existingId string,
-	p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]*sloapi.SLOData, error) {
+	p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg *zap.SugaredLogger) ([]*sloapi.SLOData, error) {
 	slogroup, err := ParseToPrometheusModel(osloSpec)
 	if err != nil {
 		lg.Error("failed to parse prometheus model IR :", err)

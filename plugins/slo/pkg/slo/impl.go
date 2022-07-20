@@ -109,7 +109,7 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (string, error) {
 // - If is within budget, check if any alerts are firing
 func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error) {
 	curState := sloapi.SLOStatusState_Ok
-
+	s.lg.Debug("Starting API Implementation of SLO Status...")
 	// check if the recording rule has data
 	// rrecording, := existing.Id + RecordingRuleSuffix
 	rresp, err := s.p.adminClient.Get().Query(
@@ -119,6 +119,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 			Query:   fmt.Sprintf("slo:sli_error:ratio_rate5m{%s=\"%s\"}", sloOpniIdLabel, existing.Id),
 		},
 	)
+	s.lg.Debug("Fetched SLO time series data from Cortex...")
 	if err != nil {
 		s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
 		return nil, err
@@ -128,6 +129,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 		s.lg.Error(fmt.Sprintf("%v", err))
 		return nil, err
 	}
+	s.lg.Debug("Unmarshalled SLO time series data from Cortex...")
 	switch q.V.Type() {
 	case model.ValVector:
 		vv := q.V.(model.Vector)
@@ -136,16 +138,18 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 		} else {
 			curState = sloapi.SLOStatusState_Ok
 		}
-	default: //FIXME: For now, return internal errors if we can't match result to a vector result
+	default:
 		s.lg.Error(fmt.Sprintf("Unexpected response type '%v' from Prometheus for recording rule", q.V.Type()))
 		return &sloapi.SLOStatus{
 			State: sloapi.SLOStatusState_InternalError,
 		}, nil
 
 	}
+	s.lg.Debug("Finished checking time series data from Cortex...")
 	// Check if the metadata rules show we have breached the budget
 	// metadataRuleId := existing.Id + MetadataRuleSuffix
 	if curState == sloapi.SLOStatusState_Ok {
+		s.lg.Debug("Received initial OK status from time series data from Cortex...")
 		_, err := s.p.adminClient.Get().Query(
 			s.ctx,
 			&cortexadmin.QueryRequest{
@@ -160,6 +164,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 		}
 		// TODO : evaluate metadata rules
 	}
+	s.lg.Debug("Finished checking error budget metadata, if needed...")
 
 	if curState == sloapi.SLOStatusState_Ok {
 		// Check if the conditions of any of the alerting rules are met
@@ -175,6 +180,8 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 			s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
 		}
 	}
+
+	s.lg.Debug("Finished checking alerting status, if needed ...")
 	return &sloapi.SLOStatus{
 		State: curState,
 	}, nil

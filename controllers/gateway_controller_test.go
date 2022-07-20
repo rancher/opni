@@ -11,6 +11,7 @@ import (
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/noauth"
 	"github.com/rancher/opni/pkg/util"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -33,6 +34,23 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 					Auth: v1beta2.AuthSpec{
 						Provider: cfgv1beta1.AuthProviderNoAuth,
 						Noauth:   &noauth.ServerConfig{},
+					},
+					Alerting: &v1beta2.AlertingSpec{
+						Port:        9093,
+						ServiceType: corev1.ServiceTypeLoadBalancer,
+						GatewayVolumeMounts: []opnimeta.ExtraVolumeMount{
+							{
+								Name:      "alerting-storage",
+								MountPath: "/var/logs/alerting",
+								ReadOnly:  false,
+								VolumeSource: corev1.VolumeSource{
+									NFS: &corev1.NFSVolumeSource{
+										Server: "localhost",
+										Path:   "/var/logs/alerting",
+									},
+								},
+							},
+						},
 					},
 				},
 			}
@@ -63,6 +81,7 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 						"certs",
 						"cortex-client-certs",
 						"cortex-server-cacert",
+						"alerting-storage",
 					),
 				)),
 				HaveMatchingVolume(And(
@@ -160,6 +179,38 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 				},
 			})).Should(ExistAnd(
 				HaveOwner(gw),
+			))
+		})
+		It("should create the alerting Objects", func() {
+			Eventually(Object(&appsv1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-alerting-internal",
+					Namespace: gw.Namespace,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(gw),
+				HaveMatchingContainer(And(
+					HaveImage("bitnami/alertmanager:latest"),
+					HavePorts(
+						"alerting-port",
+					),
+				)),
+				HaveMatchingVolume(And(
+					HaveName("opni-alertmanager-data"),
+				)),
+			))
+
+			Eventually(Object(&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-alerting",
+					Namespace: gw.Namespace,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(gw),
+				HavePorts(
+					"alerting-port",
+				),
+				HaveType(corev1.ServiceTypeLoadBalancer),
 			))
 		})
 	})

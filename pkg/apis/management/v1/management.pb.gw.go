@@ -15,7 +15,7 @@ import (
 
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/kralicky/grpc-gateway/v2/utilities"
-	"github.com/rancher/opni/pkg/apis/core/v1"
+	v1_0 "github.com/rancher/opni/pkg/apis/core/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -68,7 +68,7 @@ func local_request_Management_CreateBootstrapToken_0(ctx context.Context, marsha
 }
 
 func request_Management_RevokeBootstrapToken_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -94,7 +94,7 @@ func request_Management_RevokeBootstrapToken_0(ctx context.Context, marshaler ru
 }
 
 func local_request_Management_RevokeBootstrapToken_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -138,7 +138,7 @@ func local_request_Management_ListBootstrapTokens_0(ctx context.Context, marshal
 }
 
 func request_Management_GetBootstrapToken_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -164,7 +164,7 @@ func request_Management_GetBootstrapToken_0(ctx context.Context, marshaler runti
 }
 
 func local_request_Management_GetBootstrapToken_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -251,7 +251,7 @@ func request_Management_WatchClusters_0(ctx context.Context, marshaler runtime.M
 }
 
 func request_Management_DeleteCluster_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -277,7 +277,7 @@ func request_Management_DeleteCluster_0(ctx context.Context, marshaler runtime.M
 }
 
 func local_request_Management_DeleteCluster_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -321,7 +321,7 @@ func local_request_Management_CertsInfo_0(ctx context.Context, marshaler runtime
 }
 
 func request_Management_GetCluster_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -347,7 +347,7 @@ func request_Management_GetCluster_0(ctx context.Context, marshaler runtime.Mars
 }
 
 func local_request_Management_GetCluster_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -373,7 +373,7 @@ func local_request_Management_GetCluster_0(ctx context.Context, marshaler runtim
 }
 
 func request_Management_GetClusterHealthStatus_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -399,7 +399,7 @@ func request_Management_GetClusterHealthStatus_0(ctx context.Context, marshaler 
 }
 
 func local_request_Management_GetClusterHealthStatus_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -493,7 +493,7 @@ func local_request_Management_EditCluster_0(ctx context.Context, marshaler runti
 }
 
 func request_Management_CreateRole_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Role
+	var protoReq v1_0.Role
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -510,7 +510,7 @@ func request_Management_CreateRole_0(ctx context.Context, marshaler runtime.Mars
 }
 
 func local_request_Management_CreateRole_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Role
+	var protoReq v1_0.Role
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -527,7 +527,7 @@ func local_request_Management_CreateRole_0(ctx context.Context, marshaler runtim
 }
 
 func request_Management_DeleteRole_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -553,7 +553,7 @@ func request_Management_DeleteRole_0(ctx context.Context, marshaler runtime.Mars
 }
 
 func local_request_Management_DeleteRole_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -579,7 +579,7 @@ func local_request_Management_DeleteRole_0(ctx context.Context, marshaler runtim
 }
 
 func request_Management_GetRole_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -605,7 +605,7 @@ func request_Management_GetRole_0(ctx context.Context, marshaler runtime.Marshal
 }
 
 func local_request_Management_GetRole_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -631,7 +631,7 @@ func local_request_Management_GetRole_0(ctx context.Context, marshaler runtime.M
 }
 
 func request_Management_CreateRoleBinding_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.RoleBinding
+	var protoReq v1_0.RoleBinding
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -648,7 +648,7 @@ func request_Management_CreateRoleBinding_0(ctx context.Context, marshaler runti
 }
 
 func local_request_Management_CreateRoleBinding_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.RoleBinding
+	var protoReq v1_0.RoleBinding
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -665,7 +665,7 @@ func local_request_Management_CreateRoleBinding_0(ctx context.Context, marshaler
 }
 
 func request_Management_DeleteRoleBinding_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -691,7 +691,7 @@ func request_Management_DeleteRoleBinding_0(ctx context.Context, marshaler runti
 }
 
 func local_request_Management_DeleteRoleBinding_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -717,7 +717,7 @@ func local_request_Management_DeleteRoleBinding_0(ctx context.Context, marshaler
 }
 
 func request_Management_GetRoleBinding_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -743,7 +743,7 @@ func request_Management_GetRoleBinding_0(ctx context.Context, marshaler runtime.
 }
 
 func local_request_Management_GetRoleBinding_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq v1_0.Reference
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -809,7 +809,7 @@ var (
 )
 
 func request_Management_SubjectAccess_0(ctx context.Context, marshaler runtime.Marshaler, client ManagementClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.SubjectAccessRequest
+	var protoReq v1_0.SubjectAccessRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
@@ -825,7 +825,7 @@ func request_Management_SubjectAccess_0(ctx context.Context, marshaler runtime.M
 }
 
 func local_request_Management_SubjectAccess_0(ctx context.Context, marshaler runtime.Marshaler, server ManagementServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.SubjectAccessRequest
+	var protoReq v1_0.SubjectAccessRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {

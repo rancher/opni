@@ -182,12 +182,6 @@ func init() {
 	}
 
 	// get version info
-	dirty := true
-	if output, err := sh.Output("git", "status", "--porcelain", "--untracked-files=no"); err != nil {
-		panic(err)
-	} else if strings.TrimSpace(output) == "" {
-		dirty = false
-	}
 	var tag string
 	if droneTag, ok := os.LookupEnv("DRONE_TAG"); ok {
 		tag = droneTag
@@ -199,8 +193,8 @@ func init() {
 	}
 	tag = strings.TrimSpace(tag)
 
-	version := "dev"
-	if !dirty && tag != "" {
+	version := "unversioned"
+	if tag != "" {
 		version = tag
 	}
 

@@ -20,6 +20,7 @@ var (
 	NamespaceFlagValue       string
 	ContextOverrideFlagValue string
 	ExplicitPathFlagValue    string
+	DisableUsage             bool
 	K8sClient                client.Client
 	RestConfig               *rest.Config
 	APIConfig                *api.Config

@@ -10,6 +10,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/go-logr/zapr"
+	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/agent"
@@ -19,11 +21,13 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/events"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/opni/common"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/manager"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -46,6 +50,8 @@ var (
 )
 
 func BuildAgentCmd() *cobra.Command {
+	var disableUsage bool
+
 	agentCmd := &cobra.Command{
 		Use:   "agent",
 		Short: "Run the Opni Monitoring Agent",
@@ -62,6 +68,22 @@ agent remote-write requests to add dynamic authentication.`,
 			tracing.Configure("agent")
 			agentlg = logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(agentLogLevel))))
 			wg := sync.WaitGroup{}
+
+			if os.Getenv("DO_NOT_TRACK") == "1" {
+				disableUsage = true
+			}
+
+			if !(disableUsage || common.DisableUsage) {
+				upgradeRequester := manager.UpgradeRequester{
+					Version:     util.Version,
+					InstallType: manager.InstallTypeAgent,
+				}
+				upgradeRequester.SetupLogger(zapr.NewLogger(agentlg.Desugar()))
+				setupLog.Info("Usage tracking enabled", "current-version", util.Version)
+				upgradeChecker := upgraderesponder.NewUpgradeChecker(upgradeResponderAddress, &upgradeRequester)
+				upgradeChecker.Start()
+				defer upgradeChecker.Stop()
+			}
 
 			if enableMetrics {
 				wg.Add(1)

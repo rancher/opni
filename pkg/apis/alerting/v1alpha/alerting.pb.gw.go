@@ -703,7 +703,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/TriggerAlerts", runtime.WithHTTPPathPattern("/alerts/v1alpha/trigger"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/TriggerAlerts", runtime.WithHTTPPathPattern("/alerts/trigger"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -727,7 +727,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/CreateAlertLog", runtime.WithHTTPPathPattern("/alerts/v1alpha/log"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/CreateAlertLog", runtime.WithHTTPPathPattern("/alerts/log"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -751,7 +751,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/GetAlertLog", runtime.WithHTTPPathPattern("/alerts/v1alpha/events/{id}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/GetAlertLog", runtime.WithHTTPPathPattern("/alerts/events/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -775,7 +775,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/ListAlertLogs", runtime.WithHTTPPathPattern("/alerts/v1alpha/events"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/ListAlertLogs", runtime.WithHTTPPathPattern("/alerts/events"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -799,7 +799,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/UpdateAlertLog", runtime.WithHTTPPathPattern("/alerts/v1alpha/events"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/UpdateAlertLog", runtime.WithHTTPPathPattern("/alerts/events"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -823,7 +823,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/DeleteAlertLog", runtime.WithHTTPPathPattern("/alerts/v1alpha/events"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/DeleteAlertLog", runtime.WithHTTPPathPattern("/alerts/events"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -847,7 +847,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/CreateAlertCondition", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/CreateAlertCondition", runtime.WithHTTPPathPattern("/alerts/conditions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -871,7 +871,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/GetAlertCondition", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions/{id}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/GetAlertCondition", runtime.WithHTTPPathPattern("/alerts/conditions/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -895,7 +895,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/ListAlertConditions", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/ListAlertConditions", runtime.WithHTTPPathPattern("/alerts/conditions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -919,7 +919,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/UpdateAlertCondition", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/UpdateAlertCondition", runtime.WithHTTPPathPattern("/alerts/conditions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -943,7 +943,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/DeleteAlertCondition", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/DeleteAlertCondition", runtime.WithHTTPPathPattern("/alerts/conditions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -967,7 +967,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/PreviewAlertCondition", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions/preview"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/PreviewAlertCondition", runtime.WithHTTPPathPattern("/alerts/conditions/preview"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -991,7 +991,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/CreateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/CreateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1015,7 +1015,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/GetAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints/{id}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/GetAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1039,7 +1039,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/ListAlertEndpoints", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/ListAlertEndpoints", runtime.WithHTTPPathPattern("/alerts/endpoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1063,7 +1063,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/UpdateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/UpdateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1087,7 +1087,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints/{id}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1111,7 +1111,7 @@ func RegisterAlertingHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/TestAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints/test"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/.Alerting/TestAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/test"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1174,7 +1174,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/TriggerAlerts", runtime.WithHTTPPathPattern("/alerts/v1alpha/trigger"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/TriggerAlerts", runtime.WithHTTPPathPattern("/alerts/trigger"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1195,7 +1195,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/CreateAlertLog", runtime.WithHTTPPathPattern("/alerts/v1alpha/log"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/CreateAlertLog", runtime.WithHTTPPathPattern("/alerts/log"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1216,7 +1216,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/GetAlertLog", runtime.WithHTTPPathPattern("/alerts/v1alpha/events/{id}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/GetAlertLog", runtime.WithHTTPPathPattern("/alerts/events/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1237,7 +1237,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/ListAlertLogs", runtime.WithHTTPPathPattern("/alerts/v1alpha/events"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/ListAlertLogs", runtime.WithHTTPPathPattern("/alerts/events"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1258,7 +1258,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/UpdateAlertLog", runtime.WithHTTPPathPattern("/alerts/v1alpha/events"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/UpdateAlertLog", runtime.WithHTTPPathPattern("/alerts/events"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1279,7 +1279,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/DeleteAlertLog", runtime.WithHTTPPathPattern("/alerts/v1alpha/events"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/DeleteAlertLog", runtime.WithHTTPPathPattern("/alerts/events"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1300,7 +1300,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/CreateAlertCondition", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/CreateAlertCondition", runtime.WithHTTPPathPattern("/alerts/conditions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1321,7 +1321,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/GetAlertCondition", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions/{id}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/GetAlertCondition", runtime.WithHTTPPathPattern("/alerts/conditions/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1342,7 +1342,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/ListAlertConditions", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/ListAlertConditions", runtime.WithHTTPPathPattern("/alerts/conditions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1363,7 +1363,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/UpdateAlertCondition", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/UpdateAlertCondition", runtime.WithHTTPPathPattern("/alerts/conditions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1384,7 +1384,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/DeleteAlertCondition", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/DeleteAlertCondition", runtime.WithHTTPPathPattern("/alerts/conditions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1405,7 +1405,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/PreviewAlertCondition", runtime.WithHTTPPathPattern("/alerts/v1alpha/conditions/preview"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/PreviewAlertCondition", runtime.WithHTTPPathPattern("/alerts/conditions/preview"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1426,7 +1426,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/CreateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/CreateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1447,7 +1447,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/GetAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints/{id}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/GetAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1468,7 +1468,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/ListAlertEndpoints", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/ListAlertEndpoints", runtime.WithHTTPPathPattern("/alerts/endpoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1489,7 +1489,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/UpdateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/UpdateAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1510,7 +1510,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints/{id}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/DeleteAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1531,7 +1531,7 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/TestAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/v1alpha/endpoints/test"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/.Alerting/TestAlertEndpoint", runtime.WithHTTPPathPattern("/alerts/endpoints/test"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1551,41 +1551,41 @@ func RegisterAlertingHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 }
 
 var (
-	pattern_Alerting_TriggerAlerts_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "trigger"}, ""))
+	pattern_Alerting_TriggerAlerts_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "trigger"}, ""))
 
-	pattern_Alerting_CreateAlertLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "log"}, ""))
+	pattern_Alerting_CreateAlertLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "log"}, ""))
 
-	pattern_Alerting_GetAlertLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"alerts", "v1alpha", "events", "id"}, ""))
+	pattern_Alerting_GetAlertLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"alerts", "events", "id"}, ""))
 
-	pattern_Alerting_ListAlertLogs_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "events"}, ""))
+	pattern_Alerting_ListAlertLogs_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "events"}, ""))
 
-	pattern_Alerting_UpdateAlertLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "events"}, ""))
+	pattern_Alerting_UpdateAlertLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "events"}, ""))
 
-	pattern_Alerting_DeleteAlertLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "events"}, ""))
+	pattern_Alerting_DeleteAlertLog_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "events"}, ""))
 
-	pattern_Alerting_CreateAlertCondition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "conditions"}, ""))
+	pattern_Alerting_CreateAlertCondition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "conditions"}, ""))
 
-	pattern_Alerting_GetAlertCondition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"alerts", "v1alpha", "conditions", "id"}, ""))
+	pattern_Alerting_GetAlertCondition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"alerts", "conditions", "id"}, ""))
 
-	pattern_Alerting_ListAlertConditions_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "conditions"}, ""))
+	pattern_Alerting_ListAlertConditions_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "conditions"}, ""))
 
-	pattern_Alerting_UpdateAlertCondition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "conditions"}, ""))
+	pattern_Alerting_UpdateAlertCondition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "conditions"}, ""))
 
-	pattern_Alerting_DeleteAlertCondition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "conditions"}, ""))
+	pattern_Alerting_DeleteAlertCondition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "conditions"}, ""))
 
-	pattern_Alerting_PreviewAlertCondition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"alerts", "v1alpha", "conditions", "preview"}, ""))
+	pattern_Alerting_PreviewAlertCondition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "conditions", "preview"}, ""))
 
-	pattern_Alerting_CreateAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "endpoints"}, ""))
+	pattern_Alerting_CreateAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "endpoints"}, ""))
 
-	pattern_Alerting_GetAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"alerts", "v1alpha", "endpoints", "id"}, ""))
+	pattern_Alerting_GetAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"alerts", "endpoints", "id"}, ""))
 
-	pattern_Alerting_ListAlertEndpoints_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "endpoints"}, ""))
+	pattern_Alerting_ListAlertEndpoints_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "endpoints"}, ""))
 
-	pattern_Alerting_UpdateAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "v1alpha", "endpoints"}, ""))
+	pattern_Alerting_UpdateAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"alerts", "endpoints"}, ""))
 
-	pattern_Alerting_DeleteAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"alerts", "v1alpha", "endpoints", "id"}, ""))
+	pattern_Alerting_DeleteAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"alerts", "endpoints", "id"}, ""))
 
-	pattern_Alerting_TestAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"alerts", "v1alpha", "endpoints", "test"}, ""))
+	pattern_Alerting_TestAlertEndpoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"alerts", "endpoints", "test"}, ""))
 )
 
 var (

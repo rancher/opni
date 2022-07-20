@@ -15,10 +15,11 @@ import (
 func (r *Reconciler) alerting() []resources.Resource {
 	if r.gw.Spec.Alerting == nil {
 		// set some sensible defaults
-		r.gw.Spec.Alerting = &v1beta2.AlertingSpec{}
-		r.gw.Spec.Alerting.AlertingPort = 9093
-		r.gw.Spec.Alerting.AlertingStorage = "500Mi"
-		r.gw.Spec.Alerting.ServiceType = corev1.ServiceTypeClusterIP
+		r.gw.Spec.Alerting = &v1beta2.AlertingSpec{
+			Port:        9093,
+			Storage:     "500Mi",
+			ServiceType: "ClusterIP",
+		}
 	}
 
 	publicLabels := resources.NewGatewayLabels()
@@ -81,7 +82,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 						},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: resource.MustParse(r.gw.Spec.Alerting.AlertingStorage),
+								corev1.ResourceStorage: resource.MustParse(r.gw.Spec.Alerting.Storage),
 							},
 						},
 					}},

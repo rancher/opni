@@ -7,7 +7,7 @@ package noop
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/alerting/interfaces"
+	"github.com/rancher/opni/pkg/alerting/provider"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -15,7 +15,7 @@ import (
 )
 
 //
-func NewUnavailableAlertingImplementation(version string) interfaces.GatewayAlertingImplementation {
+func NewUnavailableAlertingImplementation(version string) provider.AlertingProvider {
 	switch version {
 	case shared.AlertingV1Alpha:
 		return &AlertingNoopV1Alpha{}

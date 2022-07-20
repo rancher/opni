@@ -13,125 +13,130 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 service Alerting {
   // ------- Trigger Alerts -------
   // TODO
+
   rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
     option (google.api.http) = {
-      post: "/alerts/v1alpha/trigger"
+      post: "/alerts/trigger"
       body: "*"
     };
   }
 
   // ------- CRUD for alerting events log -------
+
   rpc CreateAlertLog(core.AlertLog) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/alerts/v1alpha/log"
+      post: "/alerts/log"
       body: "*"
     }; 
   }
 
   // id is the unix epoch timestamp of the alert 
+
   rpc GetAlertLog(core.Reference) returns (core.AlertLog) {
     option (google.api.http) = {
-      get: "/alerts/v1alpha/events/{id}"
+      get: "/alerts/events/{id}"
     };
   }
 
   rpc ListAlertLogs(ListAlertLogRequest) returns (core.AlertLogList) {
     option (google.api.http) = {
-      get: "/alerts/v1alpha/events"
+      get: "/alerts/events"
     };
   }
 
   rpc UpdateAlertLog(UpdateAlertLogRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/alerts/v1alpha/events"
+      put: "/alerts/events"
       body: "*"
     };
   }
 
   rpc DeleteAlertLog(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/alerts/v1alpha/events"
+      delete: "/alerts/events"
     };
   }
 
   // -------- CRUD for alerting conditions -------
   //TODO 
+
   rpc CreateAlertCondition(AlertCondition) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/alerts/v1alpha/conditions"
+      post: "/alerts/conditions"
       body: "*"
     };
   }
 
   rpc GetAlertCondition(core.Reference) returns (AlertCondition) {
     option (google.api.http) = {
-      get: "/alerts/v1alpha/conditions/{id}"
+      get: "/alerts/conditions/{id}"
     };
   }
 
   rpc ListAlertConditions(ListAlertConditionRequest) returns (AlertConditionList) {
     option (google.api.http) = {
-      get: "/alerts/v1alpha/conditions"
+      get: "/alerts/conditions"
     };
   }
 
   rpc UpdateAlertCondition(UpdateAlertConditionRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/alerts/v1alpha/conditions"
+      put: "/alerts/conditions"
       body: "*"
     };
   }
 
   rpc DeleteAlertCondition(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/alerts/v1alpha/conditions"
+      delete: "/alerts/conditions"
     };
   }
 
   rpc PreviewAlertCondition(PreviewAlertConditionRequest) returns (PreviewAlertConditionResponse) {
     option (google.api.http) = {
-      post: "/alerts/v1alpha/conditions/preview"
+      post: "/alerts/conditions/preview"
       body: "*"
     };
   }
 
   // -------- CRUD for alerting endpoints ----
   // TODO 
+  
   rpc CreateAlertEndpoint(AlertEndpoint) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/alerts/v1alpha/endpoints"
+      post: "/alerts/endpoints"
       body: "*"
     };
   }
 
   rpc GetAlertEndpoint(core.Reference) returns (AlertEndpoint) {
     option (google.api.http) = {
-      get: "/alerts/v1alpha/endpoints/{id}"
+      get: "/alerts/endpoints/{id}"
     };
   }
 
   rpc ListAlertEndpoints(ListAlertEndpointsRequest) returns (AlertEndpointList) {
     option (google.api.http) = {
-      get: "/alerts/v1alpha/endpoints"
+      get: "/alerts/endpoints"
     };
   }
 
   rpc UpdateAlertEndpoint(UpdateAlertEndpointRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/alerts/v1alpha/endpoints"
+      put: "/alerts/endpoints"
       body: "*"
     };
   }
 
   rpc DeleteAlertEndpoint(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/alerts/v1alpha/endpoints/{id}"
+      delete: "/alerts/endpoints/{id}"
     };
   }
 
   rpc TestAlertEndpoint(TestAlertEndpointRequest) returns (TestAlertEndpointResponse) {
     option (google.api.http) = {
-      post: "/alerts/v1alpha/endpoints/test"
+      post: "/alerts/endpoints/test"
       body: "*"
     };
   }
@@ -167,7 +172,7 @@ message AlertConditionList {
 }
 
 message ListAlertConditionRequest {
-
+  // TODO
 }
 
 message UpdateAlertConditionRequest {

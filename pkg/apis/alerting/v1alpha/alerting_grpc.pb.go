@@ -24,26 +24,18 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AlertingClient interface {
-	// ------- Trigger Alerts -------
-	// TODO
 	TriggerAlerts(ctx context.Context, in *TriggerAlertsRequest, opts ...grpc.CallOption) (*TriggerAlertsResponse, error)
-	// ------- CRUD for alerting events log -------
 	CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// id is the unix epoch timestamp of the alert
 	GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.AlertLog, error)
 	ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*v1.AlertLogList, error)
 	UpdateAlertLog(ctx context.Context, in *UpdateAlertLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// -------- CRUD for alerting conditions -------
-	//TODO
 	CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertCondition, error)
 	ListAlertConditions(ctx context.Context, in *ListAlertConditionRequest, opts ...grpc.CallOption) (*AlertConditionList, error)
 	UpdateAlertCondition(ctx context.Context, in *UpdateAlertConditionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	PreviewAlertCondition(ctx context.Context, in *PreviewAlertConditionRequest, opts ...grpc.CallOption) (*PreviewAlertConditionResponse, error)
-	// -------- CRUD for alerting endpoints ----
-	// TODO
 	CreateAlertEndpoint(ctx context.Context, in *AlertEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertEndpoint, error)
 	ListAlertEndpoints(ctx context.Context, in *ListAlertEndpointsRequest, opts ...grpc.CallOption) (*AlertEndpointList, error)
@@ -226,26 +218,18 @@ func (c *alertingClient) TestAlertEndpoint(ctx context.Context, in *TestAlertEnd
 // All implementations must embed UnimplementedAlertingServer
 // for forward compatibility
 type AlertingServer interface {
-	// ------- Trigger Alerts -------
-	// TODO
 	TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error)
-	// ------- CRUD for alerting events log -------
 	CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error)
-	// id is the unix epoch timestamp of the alert
 	GetAlertLog(context.Context, *v1.Reference) (*v1.AlertLog, error)
 	ListAlertLogs(context.Context, *ListAlertLogRequest) (*v1.AlertLogList, error)
 	UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error)
 	DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	// -------- CRUD for alerting conditions -------
-	//TODO
 	CreateAlertCondition(context.Context, *AlertCondition) (*emptypb.Empty, error)
 	GetAlertCondition(context.Context, *v1.Reference) (*AlertCondition, error)
 	ListAlertConditions(context.Context, *ListAlertConditionRequest) (*AlertConditionList, error)
 	UpdateAlertCondition(context.Context, *UpdateAlertConditionRequest) (*emptypb.Empty, error)
 	DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	PreviewAlertCondition(context.Context, *PreviewAlertConditionRequest) (*PreviewAlertConditionResponse, error)
-	// -------- CRUD for alerting endpoints ----
-	// TODO
 	CreateAlertEndpoint(context.Context, *AlertEndpoint) (*emptypb.Empty, error)
 	GetAlertEndpoint(context.Context, *v1.Reference) (*AlertEndpoint, error)
 	ListAlertEndpoints(context.Context, *ListAlertEndpointsRequest) (*AlertEndpointList, error)

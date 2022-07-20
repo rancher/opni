@@ -36,9 +36,9 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 						Noauth:   &noauth.ServerConfig{},
 					},
 					Alerting: &v1beta2.AlertingSpec{
-						AlertingPort: 9093,
-						ServiceType:  corev1.ServiceTypeLoadBalancer,
-						AlertingGatewayVolumeMounts: &[]opnimeta.ExtraVolumeMount{
+						Port:        9093,
+						ServiceType: corev1.ServiceTypeLoadBalancer,
+						GatewayVolumeMounts: &[]opnimeta.ExtraVolumeMount{
 							{
 								Name:      "alerting-storage",
 								MountPath: "/var/logs/alerting",

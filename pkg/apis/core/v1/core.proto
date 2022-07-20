@@ -3,6 +3,7 @@ option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 
 package core;
 
@@ -120,13 +121,13 @@ message HealthStatus {
 }
 
 message AlertLog {
-  uint64 timestamp = 1; // unix epoch timestamp
+  google.protobuf.Timestamp timestamp = 1; // unix epoch timestamp
   repeated string labels = 2;
   google.protobuf.Struct metadata  = 3;
 }
 
 message AlertLogList {
-  repeated AlertLog alertEvents = 1;
+  repeated AlertLog Items = 1;
 }
 
 message TimeRange {

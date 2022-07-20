@@ -1066,6 +1066,7 @@ spec:
                       type: object
                     type: array
                   alertingPort:
+                    default: 9093
                     type: integer
                   serviceType:
                     default: ClusterIP

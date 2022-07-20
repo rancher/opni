@@ -44,6 +44,11 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			Storage: cfgv1beta1.StorageSpec{
 				Type: r.gw.Spec.StorageType,
 			},
+			Alerting: cfgv1beta1.AlertingSpec{
+				Endpoints: []string{
+					fmt.Sprintf("opni-alerting:%d", r.gw.Spec.Alerting.AlertingPort),
+				},
+			},
 		},
 	}
 	gatewayConf.Spec.SetDefaults()

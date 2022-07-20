@@ -26,7 +26,11 @@ type GatewayConfigSpec struct {
 	Storage        StorageSpec    `json:"storage,omitempty"`
 	Certs          CertsSpec      `json:"certs,omitempty"`
 	Plugins        PluginsSpec    `json:"plugins,omitempty"`
-	// TODO(alex): Spec to read http address of alertmanager service
+	Alerting       AlertingSpec   `json:"alerting,omitempty"`
+}
+
+type AlertingSpec struct {
+	Endpoints []string `json:"endpoints,omitempty"`
 }
 
 type MetricsSpec struct {
@@ -199,6 +203,9 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	}
 	if s.Cortex.QueryFrontend.GRPCAddress == "" {
 		s.Cortex.QueryFrontend.GRPCAddress = "cortex-query-frontend-headless:9095"
+	}
+	if len(s.Alerting.Endpoints) == 0 {
+		s.Alerting.Endpoints = []string{"opni-alerting:9093"}
 	}
 }
 

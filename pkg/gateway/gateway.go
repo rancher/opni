@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/tls"
+	"fmt"
 	"net"
 
 	"github.com/hashicorp/go-plugin"
@@ -106,7 +107,8 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Fatal("failed to parse listen address")
 	}
 	capBackendStore := capabilities.NewBackendStore(capabilities.ServerInstallerTemplateSpec{
-		Address: "https://" + conf.Spec.Hostname + ":" + port,
+		Address: conf.Spec.Hostname,
+		Port:    fmt.Sprint(port),
 	}, lg)
 
 	// add capabilities from plugins

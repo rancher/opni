@@ -22,6 +22,7 @@ type UserInstallerTemplateSpec struct {
 
 type ServerInstallerTemplateSpec struct {
 	Address string
+	Port    string
 }
 
 var installerTemplate *template.Template
@@ -29,6 +30,9 @@ var installerTemplate *template.Template
 func init() {
 	fm := sprig.TxtFuncMap()
 	fm["arg"] = Arg
+	fm["value"] = func() string {
+		return "{{value}}"
+	}
 	installerTemplate = template.New("installer").Funcs(fm)
 }
 

@@ -74,10 +74,15 @@ func (s *backendStore) RenderInstaller(name string, spec UserInstallerTemplateSp
 	if err != nil {
 		return "", err
 	}
-	return RenderInstallerCommand(backend.InstallerTemplate(), InstallerTemplateSpec{
+	templateSpec := InstallerTemplateSpec{
 		UserInstallerTemplateSpec:   spec,
 		ServerInstallerTemplateSpec: s.serverSpec,
-	})
+	}
+	result, err := RenderInstallerCommand(backend.InstallerTemplate(), templateSpec)
+	if err != nil {
+		return "", err
+	}
+	return RenderInstallerCommand(result, templateSpec)
 }
 
 func (s *backendStore) CanInstall(capabilities ...string) error {

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/lestrrat-go/backoff/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -144,17 +143,6 @@ func initFakeKeyring(
 	return store, nil
 }
 
-func (m *ClusterMiddleware) doFakeKeyringVerify(mac []byte, id []byte, nonce uuid.UUID, payload []byte) {
-	fakeKeyring, err := m.fakeKeyringStore.Get(context.Background())
-	if err != nil {
-		m.logger.Errorf("failed to get fake keyring: %v", err)
-		return
-	}
-	fakeKeyring.Try(func(shared *keyring.SharedKeys) {
-		b2mac.Verify(mac, id, nonce, payload, shared.ClientKey)
-	})
-}
-
 func (m *ClusterMiddleware) methodInExcludeList(method string) bool {
 	for _, excludeMethod := range m.grpcExcludeAuthMethods {
 		if method == excludeMethod {
@@ -179,7 +167,7 @@ func (m *ClusterMiddleware) Handle(c *gin.Context) {
 		return
 	}
 
-	code, clusterID, sharedKeys := m.doKeyringVerify(authHeader, body)
+	code, clusterID, sharedKeys := m.VerifyKeyring(authHeader, body)
 	if code != http.StatusOK {
 		c.AbortWithStatus(code)
 		return
@@ -221,7 +209,7 @@ func (m *ClusterMiddleware) StreamServerInterceptor() grpc.StreamServerIntercept
 			return grpc.Errorf(codes.InvalidArgument, "authorization header required")
 		}
 
-		code, clusterID, sharedKeys := m.doKeyringVerify(authHeader[0], []byte(info.FullMethod))
+		code, clusterID, sharedKeys := m.VerifyKeyring(authHeader[0], []byte(info.FullMethod))
 
 		switch code {
 		case http.StatusOK:
@@ -267,7 +255,7 @@ func (m *ClusterMiddleware) UnaryServerInterceptor() grpc.UnaryServerInterceptor
 			return
 		}
 
-		code, clusterID, sharedKeys := m.doKeyringVerify(authHeader[0], []byte(info.FullMethod))
+		code, clusterID, sharedKeys := m.VerifyKeyring(authHeader[0], []byte(info.FullMethod))
 
 		switch code {
 		case http.StatusOK:
@@ -291,26 +279,30 @@ func (m *ClusterMiddleware) UnaryServerInterceptor() grpc.UnaryServerInterceptor
 	}
 }
 
-func (m *ClusterMiddleware) doKeyringVerify(authHeader string, msgBody []byte) (int, string, *keyring.SharedKeys) {
+func (m *ClusterMiddleware) VerifyKeyring(authHeader string, msgBody []byte) (int, string, *keyring.SharedKeys) {
 	lg := m.logger
 	clusterID, nonce, mac, err := b2mac.DecodeAuthHeader(authHeader)
 	if err != nil {
 		return http.StatusBadRequest, "", nil
 	}
-
 	ks, err := m.keyringStoreBroker.KeyringStore("gateway", &corev1.Reference{
 		Id: string(clusterID),
 	})
 	if err != nil {
+		_, _ = m.fakeKeyringStore.Get(context.Background())
 		lg.Debugf("unauthorized: error looking up keyring store for cluster %s: %v", clusterID, err)
-		m.doFakeKeyringVerify(mac, clusterID, nonce, msgBody)
+		fakeKeyring.Try(func(shared *keyring.SharedKeys) {
+			b2mac.Verify(mac, clusterID, nonce, msgBody, shared.ClientKey)
+		})
 		return http.StatusUnauthorized, "", nil
 	}
 
 	kr, err := ks.Get(context.Background())
 	if err != nil {
 		lg.Debugf("unauthorized: error looking up keyring for cluster %s: %v", clusterID, err)
-		m.doFakeKeyringVerify(mac, clusterID, nonce, msgBody)
+		fakeKeyring.Try(func(shared *keyring.SharedKeys) {
+			b2mac.Verify(mac, clusterID, nonce, msgBody, shared.ClientKey)
+		})
 		return http.StatusUnauthorized, "", nil
 	}
 

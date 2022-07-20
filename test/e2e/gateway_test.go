@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -36,11 +35,8 @@ var _ = Describe("Gateway Test", Ordered, Label("e2e", "slow"), func() {
 		}
 	})
 	It("should be running an agent inside the main cluster", func() {
-		l, err := mgmtClient.ListClusters(context.Background(), &managementv1.ListClustersRequest{})
+		_, err := mgmtClient.GetCluster(context.Background(), mainClusterRef)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(l.Items).To(HaveLen(1))
-
-		Expect(l.Items[0].Id).To(Equal(mainClusterRef.Id))
 	})
 	Specify("the agent should be healthy", func() {
 		Eventually(func() string {
@@ -142,6 +138,5 @@ var _ = Describe("Gateway Test", Ordered, Label("e2e", "slow"), func() {
 			Expect(kh).To(HaveKeyWithValue("domain", grafanaHostname.Host))
 			Expect(kh).To(HaveKeyWithValue("root_url", outputs.GrafanaURL))
 		})
-
 	})
 })

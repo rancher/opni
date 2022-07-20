@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
@@ -38,16 +39,18 @@ type StorageConfig struct {
 
 type Server struct {
 	bootstrapv1.UnsafeBootstrapServer
-	privateKey crypto.Signer
-	storage    Storage
-	installer  capabilities.Installer
+	privateKey     crypto.Signer
+	storage        Storage
+	installer      capabilities.Installer
+	clusterIdLocks util.LockMap[string, *sync.Mutex]
 }
 
 func NewServer(storage Storage, privateKey crypto.Signer, installer capabilities.Installer) *Server {
 	return &Server{
-		privateKey: privateKey,
-		storage:    storage,
-		installer:  installer,
+		privateKey:     privateKey,
+		storage:        storage,
+		installer:      installer,
+		clusterIdLocks: util.NewLockMap[string, *sync.Mutex](),
 	}
 }
 
@@ -77,7 +80,7 @@ func (h *Server) Join(ctx context.Context, _ *bootstrapv1.BootstrapJoinRequest) 
 	}, nil
 }
 
-func (h Server) Auth(ctx context.Context, authReq *bootstrapv1.BootstrapAuthRequest) (*bootstrapv1.BootstrapAuthResponse, error) {
+func (h *Server) Auth(ctx context.Context, authReq *bootstrapv1.BootstrapAuthRequest) (*bootstrapv1.BootstrapAuthResponse, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, util.StatusError(codes.Unauthenticated)
@@ -118,6 +121,12 @@ func (h Server) Auth(ctx context.Context, authReq *bootstrapv1.BootstrapAuthRequ
 	if err := validation.Validate(authReq); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+
+	// lock the mutex associated with the cluster ID
+	// TODO: when scaling the gateway we need a distributed lock
+	lock := h.clusterIdLocks.Get(authReq.ClientID)
+	lock.Lock()
+	defer lock.Unlock()
 
 	// If the cluster with the requested ID does not exist, it can be created
 	// normally. If it does exist, and the client advertises a capability that

@@ -1,9 +1,11 @@
 package util
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/iancoleman/strcase"
 	"github.com/mitchellh/mapstructure"
@@ -72,4 +74,54 @@ func ProtoClone[T proto.Message](msg T) T {
 
 func IsInterfaceNil(i interface{}) bool {
 	return reflect.ValueOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil()
+}
+
+type LockMap[K comparable, L sync.Locker] interface {
+	Get(key K) L
+	Delete(key K)
+}
+
+type locker[T any] interface {
+	*T
+	sync.Locker
+}
+
+type lockMapImpl[K comparable, L locker[T], T any] struct {
+	locks   map[K]L
+	locksMu sync.Mutex
+}
+
+func (lm *lockMapImpl[K, L, T]) Get(key K) L {
+	lm.locksMu.Lock()
+	defer lm.locksMu.Unlock()
+	if l, ok := lm.locks[key]; ok {
+		return l
+	}
+	l := new(T)
+	lm.locks[key] = l
+	return l
+}
+
+func (lm *lockMapImpl[K, L, T]) Delete(key K) {
+	lm.locksMu.Lock()
+	defer lm.locksMu.Unlock()
+	delete(lm.locks, key)
+}
+
+func NewLockMap[K comparable, L locker[T], T any]() LockMap[K, L] {
+	return &lockMapImpl[K, L, T]{
+		locks: make(map[K]L),
+	}
+}
+
+func BindContext[A any](f func(context.Context) A, ctx context.Context) func() A {
+	return func() A {
+		return f(ctx)
+	}
+}
+
+func BindContext2[A, B any](f func(context.Context) (A, B), ctx context.Context) func() (A, B) {
+	return func() (A, B) {
+		return f(ctx)
+	}
 }

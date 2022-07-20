@@ -252,7 +252,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 	}
 	// add additional volumes for alerting
 	if r.gw.Spec.Alerting != nil && r.gw.Spec.Alerting.GatewayVolumeMounts != nil {
-		for _, alertVol := range *r.gw.Spec.Alerting.GatewayVolumeMounts {
+		for _, alertVol := range r.gw.Spec.Alerting.GatewayVolumeMounts {
 			vol := corev1.Volume{
 				Name:         alertVol.Name,
 				VolumeSource: alertVol.VolumeSource,

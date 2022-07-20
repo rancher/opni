@@ -57,7 +57,6 @@ dagger.#Plan & {
 			"bin": write: contents:             actions.build.bin
 			"web/dist": write: contents:        actions.web.dist
 			"cover.out": write: contents:       actions.test.export.files["/src/cover.out"]
-			"aiops/apis/dist": write: contents: actions.aiops.sdist.output
 		}
 		commands: {
 			"aws-identity": {
@@ -407,6 +406,41 @@ dagger.#Plan & {
 			}
 		}
 		aiops: {
+			opensearchUpdateService: docker.#Build & {
+				steps: [
+					docker.#Pull & {
+						source: "rancher/opni-python-base:3.8"
+					},
+					docker.#Copy & {
+						contents: client.filesystem.".".read.contents
+						source:   "aiops/"
+						dest:     "."
+					},
+					docker.#Run & {
+						command: {
+							name: "pip"
+							args: ["install", "-r", "requirements.txt"]
+						}
+					},
+					docker.#Set & {
+						config: {
+							cmd: ["python", "opni-opensearch-update-service/opensearch-update-service/app/main.py"]
+						}
+					},
+				]
+			}
+			push: docker.#Push & {
+				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
+				image: opensearchUpdateService.output
+				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
+			}
+		}
+		pypi: {
 			sdist: {
 				_dist: python.#Run & {
 					script: {
@@ -449,40 +483,6 @@ dagger.#Plan & {
 				env: {
 					TWINE_USERNAME: client.env.TWINE_USERNAME
 					TWINE_PASSWORD: client.env.TWINE_PASSWORD
-				}
-			}
-			opensearchUpdateService: docker.#Build & {
-				steps: [
-					docker.#Pull & {
-						source: "rancher/opni-python-base:3.8"
-					},
-					docker.#Copy & {
-						contents: client.filesystem.".".read.contents
-						source:   "aiops/"
-						dest:     "."
-					},
-					docker.#Run & {
-						command: {
-							name: "pip"
-							args: ["install", "-r", "requirements.txt"]
-						}
-						env: HACK: "\(upload.success)"
-					},
-					docker.#Set & {
-						config: {
-							cmd: ["python", "opni-opensearch-update-service/opensearch-update-service/app/main.py"]
-						}
-					},
-				]
-			}
-			push: docker.#Push & {
-				dest:  "\(client.env.REPO)/opni-opensearch-update-service:\(client.env.TAG)"
-				image: opensearchUpdateService.output
-				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
-					auth: {
-						username: client.env.DOCKER_USERNAME
-						secret:   client.env.DOCKER_PASSWORD
-					}
 				}
 			}
 		}

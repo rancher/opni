@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/rancher/opni/pkg/alerting/provider"
+	"github.com/rancher/opni/pkg/alerting"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -35,7 +35,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 }
 
 var _ alertingv1alpha.AlertingServer = (*Plugin)(nil)
-var _ provider.AlertingProvider = (*Plugin)(nil)
+var _ alerting.Provider = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()

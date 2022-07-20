@@ -69,8 +69,8 @@ type AlertingSpec struct {
 	//+kubebuilder:default=ClusterIP
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	//+kubebuilder:default="500Mi"
-	Storage             string                       `json:"storage,omitempty"`
-	GatewayVolumeMounts *[]opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
+	Storage             string                      `json:"storage,omitempty"`
+	GatewayVolumeMounts []opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
 }
 
 type AuthSpec struct {

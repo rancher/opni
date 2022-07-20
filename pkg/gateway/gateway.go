@@ -8,8 +8,8 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/noop"
-	"github.com/rancher/opni/pkg/alerting/provider"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -56,7 +56,7 @@ type Gateway struct {
 
 type GatewayOptions struct {
 	lifecycler config.Lifecycler
-	alerting   provider.AlertingProvider
+	alerting   alerting.Provider
 }
 
 type GatewayOption func(*GatewayOptions)
@@ -73,7 +73,7 @@ func WithLifecycler(lc config.Lifecycler) GatewayOption {
 	}
 }
 
-func WithAlerting(alerting provider.AlertingProvider) GatewayOption {
+func WithAlerting(alerting alerting.Provider) GatewayOption {
 	return func(o *GatewayOptions) {
 		o.alerting = alerting
 	}

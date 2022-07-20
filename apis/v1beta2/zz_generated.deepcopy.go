@@ -33,13 +33,9 @@ func (in *AlertingSpec) DeepCopyInto(out *AlertingSpec) {
 	*out = *in
 	if in.GatewayVolumeMounts != nil {
 		in, out := &in.GatewayVolumeMounts, &out.GatewayVolumeMounts
-		*out = new([]meta.ExtraVolumeMount)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make([]meta.ExtraVolumeMount, len(*in))
-			for i := range *in {
-				(*in)[i].DeepCopyInto(&(*out)[i])
-			}
+		*out = make([]meta.ExtraVolumeMount, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }

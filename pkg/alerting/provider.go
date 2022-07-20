@@ -1,4 +1,4 @@
-package provider
+package alerting
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 // alerting interface to be injected into the gateway
 //
 // Should at least encapsulate all alerting plugin implementations
-type AlertingProvider interface {
+type Provider interface {
 	CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*emptypb.Empty, error)
 	GetAlertLog(ctx context.Context, ref *corev1.Reference) (*corev1.AlertLog, error)
 	ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAlertLogRequest) (*corev1.AlertLogList, error)

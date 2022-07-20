@@ -5,6 +5,7 @@ import (
 
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/opni/commands"
+	"github.com/rancher/opni/pkg/opni/common"
 
 	"github.com/spf13/cobra"
 )
@@ -31,6 +32,9 @@ func BuildRootCmd() *cobra.Command {
 	rootCmd.AddCommand(commands.BuildRealtimeCmd())
 	rootCmd.AddCommand(commands.BuildEventsCmd())
 	rootCmd.AddCommand(commands.BuildHooksCmd())
+
+	rootCmd.PersistentFlags().BoolVar(&common.DisableUsage, "disable-usage", false, "Disable anonymous Opni usage tracking.")
+
 	return rootCmd
 }
 

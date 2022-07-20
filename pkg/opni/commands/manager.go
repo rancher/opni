@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
+	"github.com/rancher/opni/pkg/opni/common"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
@@ -80,10 +81,13 @@ func BuildManagerCmd() *cobra.Command {
 				return err
 			}
 
-			if !disableUsage && Version != "dev" {
-				upgradeRequester := manager.UpgradeRequester{Version: Version}
+			if !(disableUsage || common.DisableUsage) {
+				upgradeRequester := manager.UpgradeRequester{
+					Version:     util.Version,
+					InstallType: manager.InstallTypeManager,
+				}
 				upgradeRequester.SetupLoggerWithManager(mgr)
-				setupLog.Info("Usage tracking enabled", "current-version", Version)
+				setupLog.Info("Usage tracking enabled", "current-version", util.Version)
 				upgradeChecker := upgraderesponder.NewUpgradeChecker(upgradeResponderAddress, &upgradeRequester)
 				upgradeChecker.Start()
 				defer upgradeChecker.Stop()
@@ -237,7 +241,6 @@ func BuildManagerCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	cmd.Flags().BoolVar(&disableUsage, "disable-usage", false, "Disable anonymous Opni usage tracking.")
 	cmd.Flags().BoolVarP(&echoVersion, "version", "v", false, "print the version and exit")
 	features.DefaultMutableFeatureGate.AddFlag(cmd.Flags())
 

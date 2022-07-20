@@ -26,7 +26,7 @@ func BuildVersionCmd() *cobra.Command {
 			})
 			var noun string
 			var version string
-			if util.Version == "dev" {
+			if util.Version == "unversioned" {
 				noun = "revision"
 				version = settings["vcs.revision"].Value
 			} else {

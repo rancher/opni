@@ -11,7 +11,15 @@ const (
 	VersionTagLatest = "latest"
 )
 
+type InstallType string
+
+const (
+	InstallTypeManager InstallType = "manager"
+	InstallTypeAgent   InstallType = "agent"
+)
+
 type UpgradeRequester struct {
+	InstallType
 	Version string
 	log     logr.Logger
 }
@@ -20,12 +28,18 @@ func (r *UpgradeRequester) SetupLoggerWithManager(mgr ctrl.Manager) {
 	r.log = mgr.GetLogger().WithName("upgrade-check")
 }
 
+func (r *UpgradeRequester) SetupLogger(logger logr.Logger) {
+	r.log = logger.WithName("upgrade-check")
+}
+
 func (r *UpgradeRequester) GetCurrentVersion() string {
 	return r.Version
 }
 
 func (r *UpgradeRequester) GetExtraInfo() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"installType": string(r.InstallType),
+	}
 }
 
 func (r *UpgradeRequester) ProcessUpgradeResponse(response *upgraderesponder.CheckUpgradeResponse, err error) {

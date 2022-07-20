@@ -23,6 +23,7 @@ dagger.#Plan & {
 			GINKGO_LABEL_FILTER:    string | *""
 			DRONE:                  string | *""
 			KUBECONFIG:             string | *""
+			BUILD_VERSION:          string | *"unversioned"
 			TAG:                    string | *"latest"
 			REPO:                   string | *"rancher"
 			IMAGE_NAME:             string | *"opni"
@@ -124,6 +125,9 @@ dagger.#Plan & {
 						}
 					},
 					mage.#Run & {
+						env: {
+							"BUILD_VERSION": client.env.BUILD_VERSION
+						}
 						mageArgs: ["-v"]
 					},
 				]

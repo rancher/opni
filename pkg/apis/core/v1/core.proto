@@ -2,6 +2,8 @@ syntax = "proto3";
 option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 
 package core;
 
@@ -116,4 +118,19 @@ message Health {
 message HealthStatus {
   Health health = 1;
   Status status = 2;
+}
+
+message AlertLog {
+  google.protobuf.Timestamp timestamp = 1; // unix epoch timestamp
+  repeated string labels = 2;
+  google.protobuf.Struct metadata  = 3;
+}
+
+message AlertLogList {
+  repeated AlertLog Items = 1;
+}
+
+message TimeRange {
+  uint64 start = 1;
+  uint64 end = 2;
 }

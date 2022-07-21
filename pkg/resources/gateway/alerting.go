@@ -22,9 +22,9 @@ func (r *Reconciler) alerting() []resources.Resource {
 		}
 	}
 
-	publicLabels := resources.NewGatewayLabels()
+	publicLabels := map[string]string{} // TODO define a set of meaningful labels for this service
 	labelWithAlert := func(label map[string]string) map[string]string {
-		label["app"] = "opni-alerting"
+		label["app.kubernetes.io/name"] = "opni-alerting"
 		return label
 	}
 	publicLabels = labelWithAlert(publicLabels)
@@ -92,7 +92,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 	ctrl.SetControllerReference(r.gw, deploy, r.client.Scheme())
 
 	publicSvcLabels := publicLabels
-	publicSvcLabels["service-type"] = "public"
 
 	alertingSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

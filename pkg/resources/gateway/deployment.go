@@ -47,7 +47,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							Args:            []string{"gateway"},
 							Env: func() []corev1.EnvVar {
 								return append(r.gw.Spec.ExtraEnvVars, corev1.EnvVar{
-									Name: "OPNI_SYSTEM_NAMESPACE",
+									Name: "POD_NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{
 											FieldPath: "metadata.namespace",

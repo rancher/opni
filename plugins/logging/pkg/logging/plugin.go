@@ -99,7 +99,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 
-	ns := os.Getenv("OPNI_SYSTEM_NAMESPACE")
+	ns := os.Getenv("POD_NAMESPACE")
 
 	opniCluster := &opnimeta.OpensearchClusterRef{
 		Name:      "opni",

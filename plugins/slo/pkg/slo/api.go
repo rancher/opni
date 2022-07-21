@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"sync"
+	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -227,5 +229,47 @@ func (p *Plugin) ListMetrics(ctx context.Context, _ *emptypb.Empty) (*sloapi.Met
 	}
 	return &sloapi.MetricList{
 		Items: items,
+	}, nil
+}
+
+func (p *Plugin) FilterMetrics(ctx context.Context, services *sloapi.ServiceList) (*sloapi.MetricList, error) {
+	lg := p.logger
+	candidateMetrics, err := list(p.storage.Get().Metrics, "/metrics")
+	if err != nil {
+		return nil, err
+	}
+
+	sharedItems := []*sloapi.Metric{}
+	for _, c := range candidateMetrics {
+		sharedItems = append(sharedItems, proto.Clone(c).(*sloapi.Metric))
+	}
+
+	lock := make(chan struct{}, 1)
+	timeoutDuration := 5 * time.Second
+	var wgSVC sync.WaitGroup
+	wgSVC.Add(len(services.Items))
+
+	for _, svc := range services.Items {
+		// check each service in the list
+		go func(svc *sloapi.Service) {
+			defer wgSVC.Done()
+
+			// check each metric
+			itemsToReconcile := Filter(ctx, svc, candidateMetrics)
+
+			select {
+			case lock <- struct{}{}: //need to lock as we reconcile
+				sharedItems = reconcileSetOfMetrics(sharedItems, itemsToReconcile)
+				lg.Debug(fmt.Sprintf("%v", sharedItems))
+				<-lock
+			case <-time.After(timeoutDuration):
+				//
+			}
+		}(svc)
+	}
+	wgSVC.Wait()
+
+	return &sloapi.MetricList{
+		Items: sharedItems,
 	}, nil
 }

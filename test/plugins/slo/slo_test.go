@@ -317,6 +317,15 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			})
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("Should be able to list all metrics available to a set of Services", func() {
+			svcs, err := sloClient.ListServices(ctx, &emptypb.Empty{})
+			Expect(err).To(Succeed())
+			Expect(svcs.Items).To(HaveLen(4))
+			availableMetrics, err := sloClient.FilterMetrics(ctx, svcs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(availableMetrics.Items).To(HaveLen(3))
+		})
 	})
 
 	When("CRUDing SLOs", func() {

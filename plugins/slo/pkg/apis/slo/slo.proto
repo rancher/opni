@@ -56,7 +56,13 @@ service SLO {
       get: "/metrics"
     };
   }
-    // ========== Services API ===========
+
+  rpc FilterMetrics(ServiceList) returns (MetricList) {
+    option (google.api.http) = {
+      post: "/metrics/services"
+    };
+  }
+  // ========== Services API ===========
   rpc ListServices(google.protobuf.Empty) returns (ServiceList) {
     option (google.api.http) = {
       get: "/services"

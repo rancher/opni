@@ -10,6 +10,7 @@ steps:
     image: docker
     environment: &dagger_env
       DAGGER_LOG_FORMAT: "plain"
+      BUILD_VERSION: ${DRONE_TAG}
       # DAGGER_CACHE_FROM: type=registry,mode=max,ref=rancher/opni-buildkit-cache
       # DAGGER_CACHE_TO: type=registry,mode=max,ref=rancher/opni-buildkit-cache
     commands:

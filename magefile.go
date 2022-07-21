@@ -182,15 +182,7 @@ func init() {
 	}
 
 	// get version info
-	var tag string
-	if droneTag, ok := os.LookupEnv("DRONE_TAG"); ok {
-		tag = droneTag
-	} else {
-		tag, err = sh.Output("git", "tag", "-l", "--points-at", "HEAD")
-		if err != nil {
-			panic(err)
-		}
-	}
+	tag, _ := os.LookupEnv("BUILD_VERSION")
 	tag = strings.TrimSpace(tag)
 
 	version := "unversioned"

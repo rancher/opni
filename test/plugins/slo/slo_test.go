@@ -267,7 +267,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 	When("Configuring what metrics are available", func() {
 		It("should list available metrics", func() {
-			metrics, err := sloClient.ListMetrics(ctx, &emptypb.Empty{})
+			metrics, err := sloClient.ListMetrics(ctx, &apis.ServiceList{})
 			Expect(err).To(Succeed())
 			Expect(metrics.Items).NotTo(HaveLen(0))
 			keys := make([]string, 0, len(query.AvailableQueries))
@@ -318,14 +318,17 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Should be able to list all metrics available to a set of Services", func() {
-			svcs, err := sloClient.ListServices(ctx, &emptypb.Empty{})
-			Expect(err).To(Succeed())
-			Expect(svcs.Items).To(HaveLen(4))
-			availableMetrics, err := sloClient.FilterMetrics(ctx, svcs)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(availableMetrics.Items).To(HaveLen(3))
-		})
+		It(
+			`Should be able to list all preconfigured metrics available 
+			to a given set of selected services Services`, func() {
+				svcs, err := sloClient.ListServices(ctx, &emptypb.Empty{})
+				Expect(err).To(Succeed())
+				Expect(svcs.Items).To(HaveLen(4))
+				// match to prometheus & instrumentation server on both downstream clusters
+				availableMetrics, err := sloClient.ListMetrics(ctx, svcs)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(availableMetrics.Items).To(HaveLen(3))
+			})
 	})
 
 	When("CRUDing SLOs", func() {

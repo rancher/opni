@@ -222,21 +222,14 @@ func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRe
 	}, nil
 }
 
-func (p *Plugin) ListMetrics(ctx context.Context, _ *emptypb.Empty) (*sloapi.MetricList, error) {
-	items, err := list(p.storage.Get().Metrics, "/metrics")
-	if err != nil {
-		return nil, err
-	}
-	return &sloapi.MetricList{
-		Items: items,
-	}, nil
-}
-
-func (p *Plugin) FilterMetrics(ctx context.Context, services *sloapi.ServiceList) (*sloapi.MetricList, error) {
+func (p *Plugin) ListMetrics(ctx context.Context, services *sloapi.ServiceList) (*sloapi.MetricList, error) {
 	lg := p.logger
 	candidateMetrics, err := list(p.storage.Get().Metrics, "/metrics")
 	if err != nil {
 		return nil, err
+	}
+	if len(services.Items) == 0 {
+		return &sloapi.MetricList{Items: candidateMetrics}, nil
 	}
 
 	sharedItems := []*sloapi.Metric{}

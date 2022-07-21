@@ -686,7 +686,7 @@ func RegisterSLOHandlerServer(ctx context.Context, mux *runtime.ServeMux, server
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/slo.SLO/ListMetrics", runtime.WithHTTPPathPattern("/metrics/services"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/slo.SLO/ListMetrics", runtime.WithHTTPPathPattern("/metrics"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -944,7 +944,7 @@ func RegisterSLOHandlerClient(ctx context.Context, mux *runtime.ServeMux, client
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/slo.SLO/ListMetrics", runtime.WithHTTPPathPattern("/metrics/services"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/slo.SLO/ListMetrics", runtime.WithHTTPPathPattern("/metrics"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1020,7 +1020,7 @@ var (
 
 	pattern_SLO_GetMetricId_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 1, 0, 4, 1, 5, 2}, []string{"metrics", "name", "serviceId"}, ""))
 
-	pattern_SLO_ListMetrics_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"metrics", "services"}, ""))
+	pattern_SLO_ListMetrics_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"metrics"}, ""))
 
 	pattern_SLO_ListServices_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"services"}, ""))
 

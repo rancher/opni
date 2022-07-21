@@ -32,7 +32,7 @@ spec:
           image: controller
           name: manager
           env:
-            - name: OPNI_SYSTEM_NAMESPACE
+            - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace

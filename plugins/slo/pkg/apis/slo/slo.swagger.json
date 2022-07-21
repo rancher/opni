@@ -16,46 +16,6 @@
     "application/json"
   ],
   "paths": {
-    "/formulas": {
-      "get": {
-        "operationId": "SLO_ListFormulas",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/sloFormulaList"
-            }
-          }
-        },
-        "tags": [
-          "SLO"
-        ]
-      }
-    },
-    "/formulas/{id}": {
-      "get": {
-        "operationId": "SLO_GetFormulas",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/sloFormula"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "SLO"
-        ]
-      }
-    },
     "/metrics": {
       "get": {
         "operationId": "SLO_ListMetrics",

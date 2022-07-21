@@ -24,7 +24,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 
 	publicLabels := map[string]string{} // TODO define a set of meaningful labels for this service
 	labelWithAlert := func(label map[string]string) map[string]string {
-		label["app"] = "opni-alerting"
+		label["app.kubernetes.io/name"] = "opni-alerting"
 		return label
 	}
 	publicLabels = labelWithAlert(publicLabels)

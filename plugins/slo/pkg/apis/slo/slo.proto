@@ -58,7 +58,7 @@ service SLO {
     };
   }
   // ========== Services API ===========
-  rpc ListServices(google.protobuf.Empty) returns (ServiceList) {
+  rpc ListServices(ListServiceRequest) returns (ServiceList) {
     option (google.api.http) = {
       get: "/services"
     };
@@ -167,4 +167,8 @@ enum SLOStatusState {
 
 message SLOStatus {
   SLOStatusState state = 1;
+}
+
+message ListServiceRequest {
+  string datasource = 1;
 }

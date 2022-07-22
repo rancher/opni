@@ -101,7 +101,7 @@ func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.Metr
 
 // Note: Assumption is that JobID is valid
 // @returns goodQuery, totalQuery
-func fetchPreconfQueries(slo *api.ServiceLevelObjective, service *api.Service, ctx context.Context, lg hclog.Logger) (*query.SLOQueryResult, error) {
+func fetchPreconfQueries(slo *api.ServiceLevelObjective, service *api.ServiceInfo, ctx context.Context, lg hclog.Logger) (*query.SLOQueryResult, error) {
 	if slo.GetDatasource() == shared.MonitoringDatasource {
 		if _, ok := query.AvailableQueries[service.GetMetricName()]; !ok {
 			return nil, shared.ErrInvalidMetric

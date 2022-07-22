@@ -33,13 +33,13 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		BudgetingInterval: durationpb.New(time.Minute * 5),
 		Labels:            []*apis.Label{},
 		Target: &apis.Target{
-			ValueX100: 9999,
+			Value: 99.99,
 		},
 		Alerts: []*apis.Alert{},
 	}
 
 	svcs := []*apis.Service{
-		{JobId: "foo-service", ClusterId: "foo-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
+		{JobId: "foo-service", ClusterId: "foo-cluster"},
 	}
 	slo1 := &apis.CreateSLORequest{
 		SLO:      slo1Objective,
@@ -151,7 +151,13 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			//Monitoring SLOs
 			var err error
 			Expect(slo1.SLO.Datasource).To(Equal("monitoring")) // make sure we didn't mutate original message
-			simpleSpec, err = slo.ParseToOpenSLO(slo1, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+
+			// implementation details matched to services using a service discovery backend
+			slo1SvcsInfo := []*apis.ServiceInfo{
+				{JobId: "foo-service", ClusterId: "foo-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
+			}
+
+			simpleSpec, err = slo.ParseToOpenSLO(slo1, slo1SvcsInfo, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 			Expect(err).To(Succeed())
 			Expect(simpleSpec).To(HaveLen(1))
 
@@ -162,13 +168,20 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(createdData).To(MatchYAML(expectedData))
 
 			multiClusterMultiService.Services = []*apis.Service{
+				{JobId: "foo-service", ClusterId: "foo-cluster"},
+				{JobId: "foo-service2", ClusterId: "foo-cluster"},
+				{JobId: "foo-service", ClusterId: "bar-cluster"},
+				{JobId: "foo-service2", ClusterId: "bar-cluster"},
+			}
+			// matched implementation details of the services from a service disocvery backend
+			multiClusterServiceInfo := []*apis.ServiceInfo{
 				{JobId: "foo-service", ClusterId: "foo-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
 				{JobId: "foo-service2", ClusterId: "foo-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
 				{JobId: "foo-service", ClusterId: "bar-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
 				{JobId: "foo-service2", ClusterId: "bar-cluster", MetricName: "uptime", MetricIdGood: "up", MetricIdTotal: "up"},
 			}
 
-			multiClusterSpecs, err = slo.ParseToOpenSLO(multiClusterMultiService, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			multiClusterSpecs, err = slo.ParseToOpenSLO(multiClusterMultiService, multiClusterServiceInfo, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 			Expect(err).To(Succeed())
 
 			Expect(multiClusterSpecs).To(HaveLen(4))
@@ -177,7 +190,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(yaml.Marshal(multiClusterSpecs)).To(MatchYAML(expectedMulti))
 
 			// Alerting SLOS
-			alertSpecs, err = slo.ParseToOpenSLO(alertSLO, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			alertSpecs, err = slo.ParseToOpenSLO(alertSLO, slo1SvcsInfo, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 			Expect(err).To(Succeed())
 			Expect(alertSpecs).To(HaveLen(1))
 			Expect(alertSpecs[0].Spec.AlertPolicies).To(HaveLen(1))
@@ -187,7 +200,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(Succeed())
 			Expect(yaml.Marshal(alertSpecs[0])).To(MatchYAML(expectedAlert))
 
-			multiAlertSpecs, err = slo.ParseToOpenSLO(multiAlerts, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			multiAlertSpecs, err = slo.ParseToOpenSLO(multiAlerts, slo1SvcsInfo, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 			Expect(err).To(Succeed())
 			expectedMultiAlert, err := os.ReadFile(fmt.Sprintf("%s/multiAlertSLO.yaml", sloTestDataDir))
 			Expect(err).To(Succeed())
@@ -196,7 +209,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			// Logging SLOs
 			sloLogging := proto.Clone(slo1).ProtoReflect().Interface().(*apis.CreateSLORequest)
 			sloLogging.SLO.Datasource = "logging"
-			_, err = slo.ParseToOpenSLO(sloLogging, context.Background(), hclog.New(&hclog.LoggerOptions{}))
+			_, err = slo.ParseToOpenSLO(sloLogging, slo1SvcsInfo, context.Background(), hclog.New(&hclog.LoggerOptions{}))
 			Expect(err).To(HaveOccurred())
 			stat, ok := status.FromError(err)
 			Expect(ok).To(BeTrue())

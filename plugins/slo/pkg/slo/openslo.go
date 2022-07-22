@@ -13,10 +13,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-func normalizeOpenSLOTarget(valueX100 uint64) float64 {
-	return float64(valueX100) / 100
-}
-
 func convertTimeWindow(budgetTime *durationpb.Duration) string {
 	return strconv.Itoa(int(budgetTime.Seconds/60)) + "m"
 }
@@ -26,10 +22,10 @@ func convertTimeWindow(budgetTime *durationpb.Duration) string {
 // @errors: slo must have an id
 //
 // Number of oslo specs matches the number of services given in the SLO
-func ParseToOpenSLO(slorequest *api.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]oslov1.SLO, error) {
+func ParseToOpenSLO(slorequest *api.CreateSLORequest, serviceInfo []*api.ServiceInfo, ctx context.Context, lg hclog.Logger) ([]oslov1.SLO, error) {
 	res := make([]oslov1.SLO, 0)
 
-	for idx, service := range slorequest.GetServices() {
+	for idx, service := range serviceInfo {
 		// Parse to inline SLO/SLIs
 		newSLOI := oslov1.SLOSpec{
 			Description:     "",
@@ -37,6 +33,7 @@ func ParseToOpenSLO(slorequest *api.CreateSLORequest, ctx context.Context, lg hc
 			BudgetingMethod: slorequest.SLO.GetMonitorWindow(),
 		}
 		// actual SLO/SLI query
+
 		indicator, err := ParseToIndicator(slorequest.SLO, service, ctx, lg)
 		if err != nil {
 			return res, err
@@ -72,7 +69,7 @@ func ParseToOpenSLO(slorequest *api.CreateSLORequest, ctx context.Context, lg hc
 
 /// @note : for now only one indicator per SLO is supported
 /// Indicator is OpenSLO's inline indicator
-func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.Service, ctx context.Context, lg hclog.Logger) (*oslov1.SLIInline, error) {
+func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.ServiceInfo, ctx context.Context, lg hclog.Logger) (*oslov1.SLIInline, error) {
 	metadata := oslov1.Metadata{
 		Name: fmt.Sprintf("sli-%s", slo.GetName()),
 	}
@@ -116,7 +113,7 @@ func ParseToObjective(slo *api.ServiceLevelObjective, ctx context.Context, lg hc
 	budgetTime := slo.GetBudgetingInterval() // validated to be between 1m and 60m
 	newObjective := oslov1.Objective{
 		DisplayName:     slo.GetName() + "-target",
-		Target:          normalizeOpenSLOTarget(target.GetValueX100()),
+		Target:          target.GetValue(),
 		TimeSliceWindow: convertTimeWindow(budgetTime),
 	}
 	return newObjective

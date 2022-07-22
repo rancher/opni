@@ -24,19 +24,21 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SLOClient interface {
-	// ============== SLO
 	CreateSLO(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*v1.ReferenceList, error)
 	GetSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOData, error)
 	ListSLOs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceLevelObjectiveList, error)
 	UpdateSLO(ctx context.Context, in *SLOData, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOData, error)
-	// Can this metric run with this service & cluster? No == error
+	// Fetches implementation details of a metric from the ServiceBackend
+	// Used as a helper API
 	GetMetricId(ctx context.Context, in *MetricRequest, opts ...grpc.CallOption) (*ServiceInfo, error)
+	// Returns a set of metrics with compatible implementations for
+	// a set of services
 	ListMetrics(ctx context.Context, in *ServiceList, opts ...grpc.CallOption) (*MetricList, error)
-	// ========== Services API ===========
+	// Returns the list of services discovered by the Service Discovery backend
 	ListServices(ctx context.Context, in *ListServiceRequest, opts ...grpc.CallOption) (*ServiceList, error)
-	// ================ Poll SLO Status
+	// Returns a status enum badge for a given SLO
 	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error)
 }
 
@@ -142,19 +144,21 @@ func (c *sLOClient) Status(ctx context.Context, in *v1.Reference, opts ...grpc.C
 // All implementations must embed UnimplementedSLOServer
 // for forward compatibility
 type SLOServer interface {
-	// ============== SLO
 	CreateSLO(context.Context, *CreateSLORequest) (*v1.ReferenceList, error)
 	GetSLO(context.Context, *v1.Reference) (*SLOData, error)
 	ListSLOs(context.Context, *emptypb.Empty) (*ServiceLevelObjectiveList, error)
 	UpdateSLO(context.Context, *SLOData) (*emptypb.Empty, error)
 	DeleteSLO(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	CloneSLO(context.Context, *v1.Reference) (*SLOData, error)
-	// Can this metric run with this service & cluster? No == error
+	// Fetches implementation details of a metric from the ServiceBackend
+	// Used as a helper API
 	GetMetricId(context.Context, *MetricRequest) (*ServiceInfo, error)
+	// Returns a set of metrics with compatible implementations for
+	// a set of services
 	ListMetrics(context.Context, *ServiceList) (*MetricList, error)
-	// ========== Services API ===========
+	// Returns the list of services discovered by the Service Discovery backend
 	ListServices(context.Context, *ListServiceRequest) (*ServiceList, error)
-	// ================ Poll SLO Status
+	// Returns a status enum badge for a given SLO
 	Status(context.Context, *v1.Reference) (*SLOStatus, error)
 	mustEmbedUnimplementedSLOServer()
 }

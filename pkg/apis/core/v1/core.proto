@@ -171,7 +171,7 @@ message Progress {
 message TaskStatus {
   TaskState state = 1;
   Progress progress = 2;
-  google.protobuf.Struct metadata = 3;
+  string metadata = 3;
   repeated LogEntry logs = 4;
   repeated StateTransition transitions = 5;
 }

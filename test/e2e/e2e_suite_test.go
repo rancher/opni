@@ -27,12 +27,13 @@ func TestE2E(t *testing.T) {
 }
 
 var (
-	testEnv    *test.Environment
-	stopEnv    context.CancelFunc
-	k8sClient  client.Client
-	restConfig *rest.Config
-	mgmtClient managementv1.ManagementClient
-	outputs    StackOutputs
+	testEnv        *test.Environment
+	stopEnv        context.CancelFunc
+	k8sClient      client.Client
+	restConfig     *rest.Config
+	mgmtClient     managementv1.ManagementClient
+	outputs        StackOutputs
+	gatewayAddress string
 )
 
 type StackOutputs struct {
@@ -79,7 +80,10 @@ var _ = BeforeSuite(func() {
 	Expect(testEnv.Start(
 		test.WithEnableCortex(false),
 		test.WithEnableGateway(false),
-		test.WithDefaultAgentOpts(test.WithRemoteGatewayAddress(outputs.GatewayURL)),
+		test.WithDefaultAgentOpts(
+			test.WithRemoteGatewayAddress(outputs.GatewayURL+":9090"),
+			test.WithRemoteKubeconfig(outputs.Kubeconfig),
+		),
 	)).To(Succeed())
 
 	mgmtClient, err = clients.NewManagementClient(ctx,

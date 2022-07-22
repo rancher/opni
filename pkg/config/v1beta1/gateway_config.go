@@ -210,6 +210,9 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	if s.Cortex.QueryFrontend.GRPCAddress == "" {
 		s.Cortex.QueryFrontend.GRPCAddress = "cortex-query-frontend-headless:9095"
 	}
+	if s.Cortex.Purger.HTTPAddress == "" {
+		s.Cortex.Purger.HTTPAddress = "cortex-purger:8080"
+	}
 	if len(s.Alerting.Endpoints) == 0 {
 		s.Alerting.Endpoints = []string{"opni-alerting:9093"}
 	}

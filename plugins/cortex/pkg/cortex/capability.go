@@ -2,7 +2,9 @@ package cortex
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -42,6 +44,13 @@ func (p *Plugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallReque
 	cluster, err := p.mgmtApi.Get().GetCluster(ctx, req.Cluster)
 	if err != nil {
 		return nil, err
+	}
+
+	defaultOpts := capabilityv1.DefaultUninstallOptions{}
+	if strings.TrimSpace(req.Options) != "" {
+		if err := json.Unmarshal([]byte(req.Options), &defaultOpts); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal options: %v", err)
+		}
 	}
 
 	exists := false
@@ -91,8 +100,8 @@ func (p *Plugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallReque
 	}
 
 	md := uninstall.TimestampedMetadata{
-		Options:           req.Options,
-		DeletionTimestamp: now.AsTime(),
+		DefaultUninstallOptions: defaultOpts,
+		DeletionTimestamp:       now.AsTime(),
 	}
 	err = p.uninstallController.Get().LaunchTask(req.Cluster.Id, task.WithMetadata(md))
 	if err != nil {

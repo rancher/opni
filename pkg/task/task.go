@@ -2,6 +2,9 @@ package task
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -29,7 +32,12 @@ func (t *Task) LoadTaskMetadata(output any) {
 	defer t.status.Unlock()
 	status := t.getStatus()
 	md := status.GetMetadata()
-	DecodeMetadata(md, output)
+	if strings.TrimSpace(md) == "" {
+		return
+	}
+	if err := json.Unmarshal([]byte(md), output); err != nil {
+		panic(fmt.Sprintf("bug: failed to unmarshal task metadata into type %T: %v", output, err))
+	}
 }
 
 func (t *Task) SetProgress(progress *corev1.Progress) {

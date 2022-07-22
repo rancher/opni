@@ -451,15 +451,7 @@
             "type": "string"
           },
           {
-            "name": "target.options.deleteStoredData",
-            "description": "If true, will permanently delete all stored data associated with this \ncapability.",
-            "in": "query",
-            "required": false,
-            "type": "boolean"
-          },
-          {
-            "name": "target.options.initialDelay",
-            "description": "Delay the uninstall operation by this amount of time, during which the\noperation can be canceled without incurring any data loss.\nIf deleteStoredData is false, this option may not have any effect.",
+            "name": "target.options",
             "in": "query",
             "required": false,
             "type": "string"
@@ -959,19 +951,6 @@
         }
       }
     },
-    "capabilityUninstallOptions": {
-      "type": "object",
-      "properties": {
-        "deleteStoredData": {
-          "type": "boolean",
-          "description": "If true, will permanently delete all stored data associated with this \ncapability."
-        },
-        "initialDelay": {
-          "type": "string",
-          "description": "Delay the uninstall operation by this amount of time, during which the\noperation can be canceled without incurring any data loss.\nIf deleteStoredData is false, this option may not have any effect."
-        }
-      }
-    },
     "capabilityUninstallRequest": {
       "type": "object",
       "properties": {
@@ -979,7 +958,7 @@
           "$ref": "#/definitions/coreReference"
         },
         "options": {
-          "$ref": "#/definitions/capabilityUninstallOptions"
+          "type": "string"
         }
       }
     },
@@ -1342,7 +1321,7 @@
           "$ref": "#/definitions/coreProgress"
         },
         "metadata": {
-          "type": "object"
+          "type": "string"
         },
         "logs": {
           "type": "array",
@@ -1596,13 +1575,6 @@
           }
         }
       }
-    },
-    "protobufNullValue": {
-      "type": "string",
-      "enum": [
-        "NULL_VALUE"
-      ],
-      "default": "NULL_VALUE"
     },
     "protobufServiceDescriptorProto": {
       "type": "object",

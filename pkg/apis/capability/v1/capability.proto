@@ -43,19 +43,9 @@ message InstallRequest {
   core.Reference cluster = 1;
 }
 
-message UninstallOptions {
-  // If true, will permanently delete all stored data associated with this 
-  // capability.
-  bool deleteStoredData = 1;
-  // Delay the uninstall operation by this amount of time, during which the
-  // operation can be canceled without incurring any data loss.
-  // If deleteStoredData is false, this option may not have any effect.
-  google.protobuf.Duration initialDelay = 2;
-}
-
 message UninstallRequest {
   core.Reference cluster = 1;
-  UninstallOptions options = 2;
+  string options = 2;
 }
 
 message InstallerTemplateResponse {

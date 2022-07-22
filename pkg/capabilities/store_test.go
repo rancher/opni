@@ -104,7 +104,9 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 					InstallerTemplate: template,
 				}))).To(Succeed())
 
-				installer, err := store.RenderInstaller("capability", capabilities.UserInstallerTemplateSpec{})
+				installer, err := store.RenderInstaller("capability", capabilities.UserInstallerTemplateSpec{
+					Token: "foo",
+				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(installer).To(Equal(expected))
 			},
@@ -113,6 +115,7 @@ var _ = Describe("Store", Ordered, Label("unit"), func() {
 			Entry(nil, `{{ arg "select" "test" "item1" "item2" "item3" }}`, `%{"kind":"select","select":{"label":"test","items":["item1","item2","item3"]}}%`),
 			Entry(nil, `{{ arg "select" "test" "item1" "item2" "item3" "+required" "+omitEmpty" "+default:foo" "+format:{{value}}" }}`, `%{"kind":"select","select":{"label":"test","items":["item1","item2","item3"]},"options":[{"name":"required"},{"name":"omitEmpty"},{"name":"default","value":"foo"},{"name":"format","value":"{{value}}"}]}%`),
 			Entry(nil, `{{ arg "toggle" "test" "+default:true" }}`, `%{"kind":"toggle","toggle":{"label":"test"},"options":[{"name":"default","value":"true"}]}%`),
+			Entry(nil, `{{ arg "toggle" "test" "+omitEmpty" "+default:{{ .Token }}" }}`, `%{"kind":"toggle","toggle":{"label":"test"},"options":[{"name":"omitEmpty"},{"name":"default","value":"foo"}]}%`),
 		)
 
 		When("the backend does not exist", func() {

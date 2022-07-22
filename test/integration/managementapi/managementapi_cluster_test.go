@@ -9,12 +9,14 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	v1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -161,9 +163,9 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 					Cluster: &corev1.Reference{
 						Id: "test-cluster-id",
 					},
-					Options: &v1.UninstallOptions{
+					Options: string(testutil.Must(json.Marshal(capabilityv1.DefaultUninstallOptions{
 						DeleteStoredData: true,
-					},
+					}))),
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())

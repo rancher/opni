@@ -12,8 +12,8 @@ import (
 )
 
 type TimestampedMetadata struct {
-	Options           *capabilityv1.UninstallOptions `json:"options"`
-	DeletionTimestamp time.Time                      `json:"deletionTimestamp"`
+	capabilityv1.DefaultUninstallOptions `json:",inline,omitempty"`
+	DeletionTimestamp                    time.Time `json:"deletionTimestamp,omitempty"`
 }
 
 type DefaultPendingHandler struct{}
@@ -22,8 +22,14 @@ func (DefaultPendingHandler) OnTaskPending(ctx context.Context, ti task.ActiveTa
 	var md TimestampedMetadata
 	ti.LoadTaskMetadata(&md)
 
-	if md.Options.GetInitialDelay() != nil {
-		endTime := md.DeletionTimestamp.Add(md.Options.GetInitialDelay().AsDuration())
+	if md.DeleteStoredData {
+		ti.AddLogEntry(zapcore.WarnLevel, "Stored data will be deleted")
+	} else {
+		ti.AddLogEntry(zapcore.InfoLevel, "Stored data will not be deleted")
+	}
+
+	if md.InitialDelay > 0 {
+		endTime := md.DeletionTimestamp.Add(time.Duration(md.InitialDelay))
 		now := time.Now()
 		// sleep until endTime or context is cancelled
 		if endTime.After(now) {

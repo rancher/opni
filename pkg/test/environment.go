@@ -914,6 +914,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	options := &StartAgentOptions{
 		ctx: e.ctx,
 	}
+	options.apply(e.defaultAgentOpts...)
 	options.apply(opts...)
 	if !e.enableGateway && options.remoteGatewayAddress == "" {
 		e.Logger.Panic("gateway disabled")

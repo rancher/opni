@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"reflect"
@@ -13,7 +14,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -100,7 +100,7 @@ func NewController(ctx context.Context, name string, store KVStore, runner TaskR
 }
 
 type NewTaskOptions struct {
-	metadata       *structpb.Struct
+	metadata       any
 	statusCallback chan *Status
 	stateCallback  chan State
 }
@@ -114,8 +114,13 @@ func (o *NewTaskOptions) apply(opts ...NewTaskOption) {
 }
 
 func WithMetadata(md any) NewTaskOption {
+	// ensure md is a struct type
+	if reflect.TypeOf(md).Kind() != reflect.Struct {
+		panic("metadata must be a json-encodable struct")
+	}
+
 	return func(o *NewTaskOptions) {
-		o.metadata = EncodeMetadata(md)
+		o.metadata = md
 	}
 }
 
@@ -145,6 +150,15 @@ func (c *Controller) LaunchTask(id string, opts ...NewTaskOption) error {
 	options := &NewTaskOptions{}
 	options.apply(opts...)
 
+	var mdJson string
+	if options.metadata != nil {
+		data, err := json.Marshal(options.metadata)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metadata: %w", err)
+		}
+		mdJson = string(data)
+	}
+
 	c.tasksMu.Lock()
 	defer c.tasksMu.Unlock()
 
@@ -155,11 +169,6 @@ func (c *Controller) LaunchTask(id string, opts ...NewTaskOption) error {
 	taskCtx, taskCancel := context.WithCancel(c.ctx)
 
 	rw := storage.NewValueStoreLocker(storage.NewValueStore(c.store, id), c.locks.Get(id))
-
-	var md *structpb.Struct
-	if options.metadata != nil {
-		md = EncodeMetadata(options.metadata)
-	}
 
 	accessor := func(taskCtx context.Context) (interface{}, error) {
 		rw.Lock()
@@ -180,7 +189,7 @@ func (c *Controller) LaunchTask(id string, opts ...NewTaskOption) error {
 			if util.StatusCode(err) == codes.NotFound {
 				ts = &corev1.TaskStatus{
 					State:    state.(corev1.TaskState),
-					Metadata: md,
+					Metadata: mdJson,
 				}
 			} else {
 				return err
@@ -309,19 +318,19 @@ func (c *Controller) LaunchTask(id string, opts ...NewTaskOption) error {
 		case corev1.TaskState_Running:
 		case corev1.TaskState_Failed:
 			prev.Progress = nil
-			prev.Metadata = md
+			prev.Metadata = mdJson
 			prev.Logs = append(prev.Logs, &corev1.LogEntry{
 				Msg:       fmt.Sprintf("internal: restarting task (previous state: %s)", state),
 				Level:     int32(zapcore.InfoLevel),
 				Timestamp: timestamppb.Now(),
 			})
 		case corev1.TaskState_Canceled:
-			prev.Metadata = md
+			prev.Metadata = mdJson
 			prev.Logs = nil
 			prev.Transitions = nil
 		default:
 			prev.Progress = nil
-			prev.Metadata = md
+			prev.Metadata = mdJson
 			prev.Logs = nil
 			prev.Transitions = nil
 		}

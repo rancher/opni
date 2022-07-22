@@ -36,9 +36,9 @@ const (
 type ActiveTask interface {
 	// Returns the task's ID.
 	TaskId() string
-	// Decodes the task's metadata into the output variable. The output variable
-	// must be a pointer to a struct. If the task has no metadata, the output
-	// variable will be left unchanged.
+	// Decodes the task's metadata (json string) into the output variable.
+	// The output variable must be a pointer to a struct. If the task has no
+	// metadata, the output variable will be left unchanged.
 	LoadTaskMetadata(output any)
 	// Sets the task's progress.
 	SetProgress(progress *corev1.Progress)

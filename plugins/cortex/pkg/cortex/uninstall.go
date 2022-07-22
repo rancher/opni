@@ -36,7 +36,7 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 
 	ti.AddLogEntry(zapcore.InfoLevel, "Uninstalling metrics capability for this cluster")
 
-	if md.Options.GetDeleteStoredData() {
+	if md.DeleteStoredData {
 		ti.AddLogEntry(zapcore.WarnLevel, "Will delete time series data")
 		if err := a.deleteTenant(ctx, ti.TaskId()); err != nil {
 			return err

@@ -1,14 +1,14 @@
 package commands
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
-	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"github.com/jhump/protoreflect/desc"
-	"github.com/mitchellh/mapstructure"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -19,7 +19,6 @@ import (
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/slices"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -62,18 +61,19 @@ func BuildCapabilityUninstallCmd() *cobra.Command {
 	var options []string
 	var follow bool
 	var optionsHelp []string
-	desc, err := desc.LoadMessageDescriptorForMessage(&capabilityv1.UninstallOptions{})
-	if err == nil {
-		for _, field := range desc.GetFields() {
-			var typeName string
-			if field.GetType() == dpb.FieldDescriptorProto_TYPE_MESSAGE {
-				typeName = strings.ToLower(field.GetMessageType().GetName())
-			} else {
-				typeName = strings.TrimPrefix(strings.ToLower(field.GetType().String()), "type_")
-			}
-			optionsHelp = append(optionsHelp, fmt.Sprintf("%s: %s", field.GetName(), typeName))
+	fields := reflect.TypeOf(capabilityv1.DefaultUninstallOptions{})
+	for i := 0; i < fields.NumField(); i++ {
+		field := fields.Field(i)
+		// get json tag
+		tag := field.Tag.Get("json")
+		if tag == "" {
+			continue
 		}
+		// get option name
+		name := strings.Split(tag, ",")[0]
+		optionsHelp = append(optionsHelp, fmt.Sprintf("%s: %s", name, field.Type.String()))
 	}
+
 	cmd := &cobra.Command{
 		Use:   "uninstall [--option key=value ...] <cluster-id> <capability-name>",
 		Short: "Uninstall a capability from a cluster",
@@ -88,33 +88,31 @@ func BuildCapabilityUninstallCmd() *cobra.Command {
 				}
 				optionMap[k] = v
 			}
-			options := capabilityv1.UninstallOptions{}
-			for k, v := range optionMap {
-				field := desc.FindFieldByJSONName(k)
-				if field == nil {
-					return fmt.Errorf("unknown option: %s", k)
-				}
-				if field.GetType() == dpb.FieldDescriptorProto_TYPE_MESSAGE {
-					// invoke custom unmarshaling logic (for time/duration wrapper types)
-					if err := protojson.Unmarshal([]byte(fmt.Sprintf(`{%q: %q}`, k, v)), &options); err != nil {
-						fmt.Println(err)
-						return fmt.Errorf("invalid value for option %s: %s", k, v)
-					}
-				} else {
-					// weakly decode strings to primitive types
-					if err := mapstructure.WeakDecode(map[string]any{k: v}, &options); err != nil {
-						fmt.Println(err)
-						return fmt.Errorf("invalid value for option %s: %s", k, v)
-					}
-				}
+
+			inputData, err := json.Marshal(optionMap)
+			if err != nil {
+				return err
 			}
-			_, err := mgmtClient.UninstallCapability(cmd.Context(), &managementv1.CapabilityUninstallRequest{
+
+			opts := capabilityv1.DefaultUninstallOptions{}
+			decoder := json.NewDecoder(bytes.NewReader(inputData))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&opts); err != nil {
+				return err
+			}
+
+			jsonData, err := json.Marshal(opts)
+			if err != nil {
+				return err
+			}
+
+			_, err = mgmtClient.UninstallCapability(cmd.Context(), &managementv1.CapabilityUninstallRequest{
 				Name: args[1],
 				Target: &capabilityv1.UninstallRequest{
 					Cluster: &corev1.Reference{
 						Id: args[0],
 					},
-					Options: &options,
+					Options: string(jsonData),
 				},
 			})
 			if err != nil {

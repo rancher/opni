@@ -7,6 +7,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
+	"github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/tokens"
@@ -235,6 +236,25 @@ func RenderCapabilityList(list *managementv1.CapabilityList) string {
 	w.AppendHeader(table.Row{"NAME"})
 	for _, c := range list.Items {
 		w.AppendRow(table.Row{c})
+	}
+	return w.Render()
+}
+
+func RenderMetricSamples(samples []*model.Sample) string {
+	w := table.NewWriter()
+	w.SetStyle(table.StyleColoredDark)
+	if len(samples) == 0 {
+		return ""
+	}
+	header := table.Row{"namespace", "cluster", "blocks"}
+
+	w.AppendHeader(header)
+	for _, s := range samples {
+		user := s.Metric["user"]
+		if user == "rules" {
+			continue
+		}
+		w.AppendRow(table.Row{s.Metric["namespace"], user, s.Value})
 	}
 	return w.Render()
 }

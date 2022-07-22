@@ -63,7 +63,7 @@ func (r RatioQuery) IsHistogram() bool {
 	return false
 }
 
-func (r RatioQuery) Construct(serv *api.Service) (string, error) {
+func (r RatioQuery) Construct(serv *api.ServiceInfo) (string, error) {
 	return r.FillQueryTemplate(templateExecutor{
 		MetricIdGood:  serv.MetricIdGood,
 		MetricIdTotal: serv.MetricIdTotal,

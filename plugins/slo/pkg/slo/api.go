@@ -68,7 +68,23 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 	if err := ValidateInput(slorequest); err != nil {
 		return nil, err
 	}
-	osloSpecs, err := ParseToOpenSLO(slorequest, ctx, p.logger)
+	// fetch from service discovery backend
+	metricName := slorequest.SLO.GetMetricName()
+	svcInfoList := make([]*sloapi.ServiceInfo, len(slorequest.Services))
+	for i, svc := range slorequest.Services {
+		res, err := p.GetMetricId(ctx, &sloapi.MetricRequest{
+			Name:       metricName,
+			Datasource: slorequest.SLO.GetDatasource(),
+			ServiceId:  svc.GetJobId(),
+			ClusterId:  svc.GetClusterId(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		svcInfoList[i] = res
+	}
+
+	osloSpecs, err := ParseToOpenSLO(slorequest, svcInfoList, ctx, p.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -86,10 +102,24 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
 		return nil, err
 	}
+
+	metricName := existing.SLO.GetMetricName()
+
+	// fetch dynamically from service discovery backend
+	res, err := p.GetMetricId(ctx, &sloapi.MetricRequest{
+		Name:       metricName,
+		Datasource: existing.SLO.GetDatasource(),
+		ServiceId:  existing.Service.GetJobId(),
+		ClusterId:  existing.Service.GetClusterId(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	osloSpecs, err := ParseToOpenSLO(&sloapi.CreateSLORequest{
 		SLO:      req.SLO,
 		Services: []*sloapi.Service{req.Service},
-	}, ctx, lg)
+	}, []*sloapi.ServiceInfo{res}, ctx, lg)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +221,7 @@ func (p *Plugin) ListServices(ctx context.Context, req *sloapi.ListServiceReques
 }
 
 // Assign a Job Id to a pre configured metric based on the service selected
-func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Service, error) {
+func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.ServiceInfo, error) {
 	lg := p.logger
 
 	if _, ok := query.AvailableQueries[metricRequest.Name]; !ok {
@@ -209,7 +239,7 @@ func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRe
 		return nil, err
 	}
 
-	return &sloapi.Service{
+	return &sloapi.ServiceInfo{
 		MetricName:    metricRequest.Name,
 		ClusterId:     metricRequest.ClusterId,
 		JobId:         metricRequest.ServiceId,

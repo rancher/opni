@@ -16,8 +16,10 @@ import (
 var (
 	lengthConstraint            = func(i int) string { return fmt.Sprintf("must be between 1-%d characters in length", i) }
 	ErrMissingServices          = validation.Error("Service definitions are required to create an SLO")
-	ErrInvalidMonitorWindow     = validation.Error("Invalid monitor window")
-	ErrInvalidBudgetingInterval = validation.Error("Invalid budgeting interval")
+	ErrInvalidMonitorWindow     = validation.Error("Invalid `monitorWindow` in the body of the request")
+	ErrInvalidTarget            = validation.Error("Invalid `target` in the body of the request")
+	ErrInvalidBudgetingInterval = validation.Error("Invalid `budgetingInterval` in the body of the request : Must be between 1m & 1h")
+	ErrInvalidMetricName        = validation.Error("Invalid `metricName` in the body of the request")
 	ErrInvalidDescription       = validation.Errorf("Description %s", lengthConstraint(1050))
 	ErrInvalidMetric            = validation.Error("Invalid preconfigured metric")
 	ErrInvalidAlertType         = validation.Error("Invalid alert type")

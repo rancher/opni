@@ -42,7 +42,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		It("Should fill in the templates & return a response struct", func() {
 			uptime, ok := query.AvailableQueries["uptime"]
 			Expect(ok).To(BeTrue())
-			service := &api.Service{
+			service := &api.ServiceInfo{
 				JobId:         "prometheus",
 				MetricName:    "uptime",
 				MetricIdGood:  "up",

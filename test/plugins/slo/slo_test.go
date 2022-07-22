@@ -340,10 +340,11 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			inputSLO := &apis.ServiceLevelObjective{
 				Name:              "test-slo",
 				Datasource:        shared.MonitoringDatasource,
+				MetricName:        "http-availability",
 				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
 				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
 				Labels:            []*apis.Label{},
-				Target:            &apis.Target{ValueX100: 9999},
+				Target:            &apis.Target{Value: 99.99},
 				Alerts:            []*apis.Alert{}, // do nothing for now
 			}
 
@@ -361,11 +362,11 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			svcs = []*apis.Service{
 				{
-					JobId:         "prometheus",
-					MetricName:    "http-availability",
-					MetricIdGood:  "prometheus_http_request_duration_seconds_count",
-					MetricIdTotal: "prometheus_http_request_duration_seconds_count",
-					ClusterId:     "agent",
+					JobId: "prometheus",
+					// MetricName:    "http-availability",
+					// MetricIdGood:  "prometheus_http_request_duration_seconds_count",
+					// MetricIdTotal: "prometheus_http_request_duration_seconds_count",
+					ClusterId: "agent",
 				},
 			}
 			req.Services = svcs
@@ -437,19 +438,17 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			inputSLO := &apis.ServiceLevelObjective{
 				Name:              "test-slo",
 				Datasource:        "monitoring",
+				MetricName:        "http-availability",
 				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
 				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
 				Labels:            []*apis.Label{},
-				Target:            &apis.Target{ValueX100: 9999},
+				Target:            &apis.Target{Value: 99.99},
 				Alerts:            []*apis.Alert{}, // do nothing for now
 			}
 			svcs := []*apis.Service{
 				{
-					JobId:         "prometheus",
-					MetricName:    "http-availability",
-					MetricIdGood:  "http_request_duration_seconds_count",
-					MetricIdTotal: "http_request_duration_seconds_count",
-					ClusterId:     "agent",
+					JobId:     "prometheus",
+					ClusterId: "agent",
 				},
 			}
 
@@ -505,19 +504,20 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			inputSLO := &apis.ServiceLevelObjective{
 				Name:              "test-slo",
 				Datasource:        shared.MonitoringDatasource,
+				MetricName:        instrumentationMetric,
 				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
 				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
 				Labels:            []*apis.Label{},
-				Target:            &apis.Target{ValueX100: 9999},
+				Target:            &apis.Target{Value: 99.99},
 				Alerts:            []*apis.Alert{}, // do nothing for now
 			}
 			svcs := []*apis.Service{
 				{
-					JobId:         mockServerName,
-					MetricName:    instrumentationMetric,
-					MetricIdGood:  "http_request_duration_seconds_count",
-					MetricIdTotal: "http_request_duration_seconds_count",
-					ClusterId:     "agent",
+					JobId: mockServerName,
+					// MetricName:    instrumentationMetric,
+					// MetricIdGood:  "http_request_duration_seconds_count",
+					// MetricIdTotal: "http_request_duration_seconds_count",
+					ClusterId: "agent",
 				},
 			}
 			req := &apis.CreateSLORequest{

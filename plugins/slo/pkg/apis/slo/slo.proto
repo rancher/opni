@@ -8,10 +8,11 @@ import "google/api/annotations.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/rpc/status.proto";
 
+
 package slo;
 
+
 service SLO {
-  // ============== SLO
   rpc CreateSLO(CreateSLORequest) returns (core.ReferenceList) {
     option (google.api.http) = {
       post: "/slos"
@@ -45,26 +46,30 @@ service SLO {
     };
   }
 
-  // Can this metric run with this service & cluster? No == error
+  // Fetches implementation details of a metric from the ServiceBackend
+  // Used as a helper API 
   rpc GetMetricId(MetricRequest) returns (ServiceInfo) {
     option (google.api.http) = {
       get: "/metrics/{name}/{serviceId}"
     };
   }
 
+  // Returns a set of metrics with compatible implementations for
+  // a set of services
   rpc ListMetrics(ServiceList) returns (MetricList) {
     option (google.api.http) = {
       get: "/metrics"
     };
   }
-  // ========== Services API ===========
+
+  // Returns the list of services discovered by the Service Discovery backend
   rpc ListServices(ListServiceRequest) returns (ServiceList) {
     option (google.api.http) = {
       get: "/services"
     };
   }
 
-   // ================ Poll SLO Status
+   // Returns a status enum badge for a given SLO
   rpc Status(core.Reference) returns (SLOStatus) {
     option (google.api.http) = {
       get: "/slos/{id}/status"

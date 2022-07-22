@@ -3,31 +3,23 @@ package cluster_test
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"errors"
 	"io"
-	"math"
 	"net"
 	"net/http"
-	"runtime/debug"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gmeasure"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/keyring"
-	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util"
-	"go.uber.org/zap/zapcore"
 )
 
 func bodyStr(body io.ReadCloser) string {
@@ -36,7 +28,7 @@ func bodyStr(body io.ReadCloser) string {
 	return buf.String()
 }
 
-var _ = Describe("Cluster Auth", Ordered, Label("slow", "temporal"), func() {
+var _ = Describe("Cluster Auth", Ordered, Label("unit"), func() {
 	var router *gin.Engine
 	var ctrl *gomock.Controller
 	var addr string
@@ -202,109 +194,6 @@ var _ = Describe("Cluster Auth", Ordered, Label("slow", "temporal"), func() {
 						defer resp.Body.Close()
 						Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 					})
-				})
-			})
-
-			Context("request timing", func() {
-				BeforeAll(func() {
-					// temporarily pause garbage collection and debug logging to avoid interfering with timing
-					gcPercent := debug.SetGCPercent(-1)
-					logger.DefaultLogLevel.SetLevel(zapcore.ErrorLevel)
-					DeferCleanup(func() {
-						debug.SetGCPercent(gcPercent)
-						logger.DefaultLogLevel.SetLevel(zapcore.DebugLevel)
-					})
-				})
-				BeforeEach(func() {
-					store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
-						Id: "cluster-1",
-					})
-					store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-					handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
-						if ref.Id == "cluster-1" {
-							return store, nil
-						}
-						return nil, errors.New("not found")
-					}
-				})
-				Specify("different unauthorized requests should take the same amount of time", func() {
-					exp := gmeasure.NewExperiment("request-timing")
-
-					largeBody := make([]byte, 2*1024*1024)
-					rand.Read(largeBody)
-					largeBody2 := make([]byte, 2*1024*1024)
-					rand.Read(largeBody2)
-					invalidExists := invalidAuthHeader("cluster-1", largeBody2)
-					validDoesNotExist := validAuthHeader("cluster-2", largeBody)
-					invalidDoesNotExist := invalidAuthHeader("cluster-2", largeBody2)
-
-					wg := &sync.WaitGroup{}
-					wg.Add(3)
-
-					go func() {
-						defer wg.Done()
-						exp.SampleDuration("valid mac, cluster does not exist", func(int) {
-							req := newRequest(http.MethodPost, "/", bytes.NewReader(largeBody))
-							req.Header.Set("Authorization", validDoesNotExist)
-							resp, err := http.DefaultClient.Do(req)
-							Expect(err).NotTo(HaveOccurred())
-							defer resp.Body.Close()
-							Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-						}, gmeasure.SamplingConfig{
-							N: testutil.IfCI(200).Else(1000),
-						}, gmeasure.Precision(time.Microsecond))
-					}()
-
-					go func() {
-						defer wg.Done()
-						exp.SampleDuration("valid mac, cluster exists", func(int) {
-							req := newRequest(http.MethodPost, "/", bytes.NewReader(largeBody))
-							req.Header.Set("Authorization", invalidDoesNotExist)
-							resp, err := http.DefaultClient.Do(req)
-							Expect(err).NotTo(HaveOccurred())
-							defer resp.Body.Close()
-							Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-						}, gmeasure.SamplingConfig{
-							N: testutil.IfCI(200).Else(1000),
-						}, gmeasure.Precision(time.Microsecond))
-					}()
-
-					go func() {
-						defer wg.Done()
-						exp.SampleDuration("invalid mac, cluster exists", func(int) {
-							req := newRequest(http.MethodPost, "/", bytes.NewReader(largeBody))
-							req.Header.Set("Authorization", invalidExists)
-							resp, err := http.DefaultClient.Do(req)
-							Expect(err).NotTo(HaveOccurred())
-							defer resp.Body.Close()
-							Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-						}, gmeasure.SamplingConfig{
-							N: testutil.IfCI(200).Else(1000),
-						}, gmeasure.Precision(time.Microsecond))
-					}()
-
-					wg.Wait()
-
-					AddReportEntry(exp.Name, exp)
-
-					s1 := exp.Get("valid mac, cluster does not exist").Stats()
-					s2 := exp.Get("valid mac, cluster exists").Stats()
-					s3 := exp.Get("invalid mac, cluster exists").Stats()
-
-					m1 := s1.DurationFor(gmeasure.StatMean).Round(s1.PrecisionBundle.Duration)
-					m2 := s2.DurationFor(gmeasure.StatMean).Round(s2.PrecisionBundle.Duration)
-					m3 := s3.DurationFor(gmeasure.StatMean).Round(s3.PrecisionBundle.Duration)
-
-					// all three requests should take the same amount of time within 1 standard deviation
-
-					// use the smallest standard deviation as a threshold
-					d1 := s1.DurationFor(gmeasure.StatStdDev).Microseconds()
-					d2 := s2.DurationFor(gmeasure.StatStdDev).Microseconds()
-					d3 := s3.DurationFor(gmeasure.StatStdDev).Microseconds()
-					stdDev := int64(math.Min(math.Min(float64(d1), float64(d2)), float64(d3)))
-					Expect(m1.Microseconds()).To(BeNumerically("~", m2.Microseconds(), stdDev))
-					Expect(m2.Microseconds()).To(BeNumerically("~", m3.Microseconds(), stdDev))
-					Expect(m3.Microseconds()).To(BeNumerically("~", m1.Microseconds(), stdDev))
 				})
 			})
 		})

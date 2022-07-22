@@ -168,7 +168,7 @@ func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLO
 
 // -------- Service Discovery ---------
 
-func (p *Plugin) ListServices(ctx context.Context, req *emptypb.Empty) (*sloapi.ServiceList, error) {
+func (p *Plugin) ListServices(ctx context.Context, req *sloapi.ListServiceRequest) (*sloapi.ServiceList, error) {
 	res := &sloapi.ServiceList{}
 	lg := p.logger
 	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
@@ -180,18 +180,14 @@ func (p *Plugin) ListServices(ctx context.Context, req *emptypb.Empty) (*sloapi.
 		lg.Debug("Found no downstream clusters")
 		return res, nil
 	}
-	var anyError error
-	for name, backend := range datasourceToService {
-		lg.Debug("Found available datasource for service discovery : ", name)
-		listCurBackend := backend.WithCurrentRequest(req, ctx)
-		datasourceServices, err := listCurBackend.List(clusters)
-		if err != nil {
-			anyError = err
-		}
-		res.Items = append(res.Items, datasourceServices.Items...)
+	backend := datasourceToService[req.Datasource]
+	listCurBackend := backend.WithCurrentRequest(req, ctx)
+	datasourceServices, err := listCurBackend.List(clusters)
+	if err != nil {
+		return nil, err
 	}
-
-	return res, anyError
+	res.Items = append(res.Items, datasourceServices.Items...)
+	return res, nil
 }
 
 // Assign a Job Id to a pre configured metric based on the service selected

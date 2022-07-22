@@ -240,7 +240,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	When("The SLO plugin starts", func() {
 		It("should be able to discover services from downstream", func() {
 			time.Sleep(10 * time.Second)
-			sloSvcs, err := sloClient.ListServices(ctx, &emptypb.Empty{})
+			sloSvcs, err := sloClient.ListServices(ctx, &apis.ListServiceRequest{
+				Datasource: shared.MonitoringDatasource,
+			})
 			Expect(err).To(Succeed())
 			Expect(sloSvcs.Items).To(HaveLen(4))
 
@@ -321,7 +323,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		It(
 			`Should be able to list all preconfigured metrics available 
 			to a given set of selected services Services`, func() {
-				svcs, err := sloClient.ListServices(ctx, &emptypb.Empty{})
+				svcs, err := sloClient.ListServices(ctx, &apis.ListServiceRequest{
+					Datasource: shared.MonitoringDatasource,
+				})
 				Expect(err).To(Succeed())
 				Expect(svcs.Items).To(HaveLen(4))
 				// match to prometheus & instrumentation server on both downstream clusters

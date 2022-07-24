@@ -40,7 +40,7 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 			logger.DefaultLogLevel.SetLevel(zapcore.DebugLevel)
 		})
 	})
-	Specify("different unauthorized requests should take the same amount of time", func() {
+	XSpecify("different unauthorized requests should take the same amount of time", func() {
 		store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
 			Id: "cluster-1",
 		})

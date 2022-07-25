@@ -8,8 +8,9 @@ import (
 	"strings"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/clients"
+	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/spf13/cobra"
 	"go.etcd.io/etcd/etcdctl/v3/ctlv3"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -96,11 +97,27 @@ func BuildDebugEtcdctlCmd() *cobra.Command {
 	debugEtcdctlCmd := &cobra.Command{
 		Use:                "etcdctl",
 		Short:              "embedded auto-configured etcdctl",
-		Long:               "To specify a config location, use the OPNIM_CONFIG environment variable.",
+		Long:               "To specify a gateway address, use the OPNI_ADDRESS environment variable.",
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			objects := cliutil.LoadConfigObjectsOrDie(os.Getenv("OPNIM_CONFIG"), lg)
+			addr := os.Getenv("OPNI_ADDRESS")
 			var gatewayConfig *v1beta1.GatewayConfig
+			if addr != "" {
+				c, err := clients.NewManagementClient(cmd.Context(), clients.WithAddress(addr))
+				if err == nil {
+					mgmtClient = c
+				} else {
+					lg.Warnf("failed to create management client: %v", err)
+				}
+			}
+			conf, err := mgmtClient.GetConfig(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			objects, err := config.LoadObjects(conf.YAMLDocuments())
+			if err != nil {
+				return err
+			}
 			objects.Visit(
 				func(config *v1beta1.GatewayConfig) {
 					if gatewayConfig == nil {
@@ -114,20 +131,20 @@ func BuildDebugEtcdctlCmd() *cobra.Command {
 			if gatewayConfig.Spec.Storage.Type != v1beta1.StorageTypeEtcd {
 				return fmt.Errorf("storage type is not etcd")
 			}
-			if gatewayConfig.Spec.Storage.Etcd.Certs == nil {
-				return fmt.Errorf("etcd config is missing certs")
-			}
 			endpoints := gatewayConfig.Spec.Storage.Etcd.Endpoints
-			cert := gatewayConfig.Spec.Storage.Etcd.Certs.ClientCert
-			key := gatewayConfig.Spec.Storage.Etcd.Certs.ClientKey
-			ca := gatewayConfig.Spec.Storage.Etcd.Certs.ServerCA
+			argv := []string{"etcdctl", fmt.Sprintf("--endpoints=%s", strings.Join(endpoints, ","))}
+			if gatewayConfig.Spec.Storage.Etcd.Certs != nil {
+				cert := gatewayConfig.Spec.Storage.Etcd.Certs.ClientCert
+				key := gatewayConfig.Spec.Storage.Etcd.Certs.ClientKey
+				ca := gatewayConfig.Spec.Storage.Etcd.Certs.ServerCA
+				argv = append(argv,
+					fmt.Sprintf("--cacert=%s", ca),
+					fmt.Sprintf("--cert=%s", cert),
+					fmt.Sprintf("--key=%s", key),
+				)
+			}
 
-			os.Args = append([]string{"etcdctl",
-				fmt.Sprintf("--endpoints=%s", strings.Join(endpoints, ",")),
-				fmt.Sprintf("--cacert=%s", ca),
-				fmt.Sprintf("--cert=%s", cert),
-				fmt.Sprintf("--key=%s", key),
-			}, args...)
+			os.Args = append(argv, args...)
 			return ctlv3.Start()
 		},
 	}

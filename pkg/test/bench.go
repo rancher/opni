@@ -42,7 +42,11 @@ func (e *Environment) NewBenchRunner(agent string, desc bench.WorkloadDesc) (*Be
 
 	workload := bench.NewWriteWorkload(desc, nil)
 	batchChan := make(chan bench.BatchReq, 100)
-	workload.GenerateWriteBatch(e.ctx, agent, 100, batchChan)
+	go func() {
+		if err := workload.GenerateWriteBatch(e.ctx, agent, 100, batchChan); err != nil {
+			e.Logger.Errorf("error generating write batch: %v", err)
+		}
+	}()
 
 	return &BenchRunner{
 		client:    writeClient,

@@ -38,7 +38,7 @@ func NewGRPCServer(
 	return &GatewayGRPCServer{
 		conf:       cfg,
 		logger:     lg.Named("grpc"),
-		serverOpts: opts, 
+		serverOpts: opts,
 	}
 }
 

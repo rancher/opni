@@ -6,6 +6,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 )
 
@@ -26,9 +27,14 @@ func (tc testCapability) Equal(other testCapability) bool {
 	return tc == other
 }
 
+func (tc testCapability) String() string {
+	return "test"
+}
+
 type testResourceWithMetadata struct {
-	capabilities []testCapability
-	labels       map[string]string
+	capabilities    []testCapability
+	labels          map[string]string
+	resourceVersion string
 }
 
 var _ corev1.MetadataAccessor[testCapability] = (*testResourceWithMetadata)(nil)
@@ -47,4 +53,12 @@ func (t *testResourceWithMetadata) GetLabels() map[string]string {
 
 func (t *testResourceWithMetadata) SetLabels(labels map[string]string) {
 	t.labels = labels
+}
+
+func (t *testResourceWithMetadata) GetResourceVersion() string {
+	return t.resourceVersion
+}
+
+func (t *testResourceWithMetadata) SetResourceVersion(resourceVersion string) {
+	t.resourceVersion = resourceVersion
 }

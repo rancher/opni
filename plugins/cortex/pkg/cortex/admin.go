@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,6 +20,8 @@ import (
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -363,7 +366,8 @@ func (p *Plugin) LoadRules(ctx context.Context,
 }
 
 func (p *Plugin) DeleteRule(
-	ctx context.Context, in *cortexadmin.RuleRequest,
+	ctx context.Context,
+	in *cortexadmin.RuleRequest,
 ) (*emptypb.Empty, error) {
 	lg := p.logger.With(
 		"delete request", in.GroupName,
@@ -398,4 +402,114 @@ func (p *Plugin) DeleteRule(
 
 func formatTime(t time.Time) string {
 	return strconv.FormatFloat(float64(t.Unix())+float64(t.Nanosecond())/1e9, 'f', -1, 64)
+}
+
+// subset of response types from cortex pkg/ring/http.go
+type ingesterDesc struct {
+	ID      string `json:"id"`
+	State   string `json:"state"`
+	Address string `json:"address"`
+}
+
+type httpResponse struct {
+	Ingesters []ingesterDesc `json:"shards"`
+}
+
+func (p *Plugin) FlushBlocks(
+	ctx context.Context,
+	in *emptypb.Empty,
+) (*emptypb.Empty, error) {
+	// look up all healthy ingesters
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		fmt.Sprintf("https://%s/ingester/ring", p.config.Get().Spec.Cortex.Distributor.HTTPAddress), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Accept", "application/json")
+
+	client, err := p.cortexHttpClient.GetContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get ingester ring: %s", resp.Status)
+	}
+	var ring httpResponse
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&ring); err != nil {
+		return nil, err
+	}
+
+	// flush all active ingesters
+	wg := errgroup.Group{}
+	for _, ingester := range ring.Ingesters {
+		lg := p.logger.With(
+			"id", ingester.ID,
+		)
+		if ingester.State != "ACTIVE" {
+			lg.Warn("not flushing inactive ingester")
+			continue
+		}
+
+		// the ring only shows the grpc port, so switch it with the http port
+		// from the cortex config
+		host, _, err := net.SplitHostPort(ingester.Address)
+		if err != nil {
+			return nil, err
+		}
+		// set the hostname from the cortex config as the tls server name, since
+		// the server's cert won't have a san for its ip in the pod cidr
+		hostSan, port, err := net.SplitHostPort(p.config.Get().Spec.Cortex.Distributor.HTTPAddress)
+		if err != nil {
+			return nil, err
+		}
+		address := fmt.Sprintf("%s:%s", host, port)
+
+		wg.Go(func() error {
+			// adding ?wait=true will cause this request to block
+			values := url.Values{}
+			values.Add("wait", "true")
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+				fmt.Sprintf("https://%s/ingester/flush", address), strings.NewReader(values.Encode()))
+			if err != nil {
+				return err
+			}
+			config := p.cortexTlsConfig.Get().Clone()
+			config.ServerName = hostSan
+			clientWithNameOverride := &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: config,
+				},
+			}
+			resp, err := clientWithNameOverride.Do(req)
+			if err != nil {
+				lg.With(
+					zap.Error(err),
+				).Error("failed to flush ingester")
+				return err
+			}
+			if resp.StatusCode != http.StatusNoContent {
+				body, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				lg.With(
+					"code", resp.StatusCode,
+					"error", string(body),
+				).Errorf("failed to flush ingester")
+			}
+
+			lg.Info("flushed ingester successfully")
+			return nil
+		})
+	}
+	err = wg.Wait()
+	if err != nil {
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
 }

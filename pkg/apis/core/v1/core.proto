@@ -2,8 +2,8 @@ syntax = "proto3";
 option go_package = "github.com/rancher/opni/pkg/apis/core/v1";
 
 import "google/protobuf/duration.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
 
 package core;
 
@@ -19,6 +19,7 @@ message BootstrapTokenMetadata {
   int64 usageCount = 3;
   map<string, string> labels = 4;
   repeated TokenCapability capabilities = 5;
+  string resourceVersion = 6;
 }
 
 message TokenCapability {
@@ -38,10 +39,14 @@ message Cluster {
 message ClusterMetadata {
   map<string, string> labels = 1;
   repeated ClusterCapability capabilities = 2;
+  
+  // read-only
+  string resourceVersion = 3;
 }
 
 message ClusterCapability {
   string name = 1;
+  google.protobuf.Timestamp deletionTimestamp = 2;
 }
 
 message ClusterList {
@@ -92,6 +97,7 @@ message CertInfo {
   string notBefore = 4;
   string notAfter = 5;
   string fingerprint = 6;
+  bytes raw = 7;
 }
 
 message Reference {
@@ -133,4 +139,45 @@ message AlertLogList {
 message TimeRange {
   uint64 start = 1;
   uint64 end = 2;
+}
+
+enum TaskState {
+  Unknown = 0;
+  Pending = 1;
+  Running = 2;
+  Completed = 3;
+  Failed = 4;
+  Canceled = 6;
+}
+
+// Represents a transition to a task state at a point in time.
+message StateTransition {
+  TaskState state = 1;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+enum TaskTrigger {
+  Start = 0;
+  End = 1;
+  Error = 2;
+  Cancel = 3;
+}
+
+message Progress {
+  uint64 current = 1;
+  uint64 total = 2;
+}
+
+message TaskStatus {
+  TaskState state = 1;
+  Progress progress = 2;
+  string metadata = 3;
+  repeated LogEntry logs = 4;
+  repeated StateTransition transitions = 5;
+}
+
+message LogEntry {
+  string msg = 1;
+  int32 level = 2;
+  google.protobuf.Timestamp timestamp = 3;
 }

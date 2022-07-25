@@ -153,9 +153,7 @@ var _ = Describe("Clusters", Ordered, Label("slow"), func() {
 			}
 		}()
 		for _, cluster := range clusters.Items {
-			_, err := tv.client.DeleteCluster(context.Background(), &corev1.Reference{
-				Id: cluster.Id,
-			})
+			_, err := tv.client.DeleteCluster(context.Background(), cluster.Reference())
 			Expect(err).NotTo(HaveOccurred())
 			// watch events should be batched every second, wait 4 seconds in total
 			// for all events to be received

@@ -6,8 +6,8 @@ import (
 	"os"
 
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/logger"
 	gatewayext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
 	unaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/unary"
@@ -33,8 +33,9 @@ const (
 
 type Plugin struct {
 	PluginOptions
-	system.UnimplementedSystemPluginClient
+	capabilityv1.UnsafeBackendServer
 	opensearch.UnsafeOpensearchServer
+	system.UnimplementedSystemPluginClient
 	ctx            context.Context
 	k8sClient      client.Client
 	logger         *zap.SugaredLogger
@@ -114,7 +115,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(gatewayext.GatewayAPIExtensionPluginID, gatewayext.NewPlugin(p))
-	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(wellknown.CapabilityLogs, p))
+	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&opensearch.Opensearch_ServiceDesc, p))
 	return scheme
 }

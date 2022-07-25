@@ -31,6 +31,13 @@ func Must[T any](t T, err ...error) T {
 	return t
 }
 
+// Used with lo.Map to wrap functions that do not take an index argument
+func Indexed[T any, U any](f func(T) U) func(T, int) U {
+	return func(t T, _ int) U {
+		return f(t)
+	}
+}
+
 func DecodeStruct[T any](input interface{}) (*T, error) {
 	output := new(T)
 	config := &mapstructure.DecoderConfig{

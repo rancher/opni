@@ -41,7 +41,7 @@ func (s SLOMonitoring) Create(osloSpecs []v1.SLO) (*corev1.ReferenceList, error)
 		}
 		for _, data := range createdSlos {
 			returnedSloId.Items = append(returnedSloId.Items, &corev1.Reference{Id: data.Id})
-			if err := s.p.storage.Get().SLOs.Put(path.Join("/slos", data.Id), data); err != nil {
+			if err := s.p.storage.Get().SLOs.Put(s.ctx, path.Join("/slos", data.Id), data); err != nil {
 				return nil, err
 			}
 			if err != nil {

@@ -25,6 +25,7 @@ var (
 )
 
 func (c *CRDStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) error {
+	cluster.SetResourceVersion("")
 	return c.client.Create(ctx, &v1beta2.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cluster.Id,
@@ -56,11 +57,11 @@ func (c *CRDStore) GetCluster(ctx context.Context, ref *corev1.Reference) (*core
 		}
 		return nil, err
 	}
+	cluster.Spec.SetResourceVersion(cluster.GetResourceVersion())
 	return cluster.Spec, nil
 }
 
 func (c *CRDStore) UpdateCluster(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.Cluster]) (*corev1.Cluster, error) {
-	var cluster *corev1.Cluster
 	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
 		existing := &v1beta2.Cluster{}
 		err := c.client.Get(ctx, client.ObjectKey{
@@ -72,7 +73,7 @@ func (c *CRDStore) UpdateCluster(ctx context.Context, ref *corev1.Reference, mut
 		}
 		clone := existing.DeepCopy()
 		mutator(clone.Spec)
-		cluster = clone.Spec
+		clone.Spec.SetResourceVersion("")
 		return c.client.Update(ctx, clone)
 	})
 	if err != nil {
@@ -81,7 +82,7 @@ func (c *CRDStore) UpdateCluster(ctx context.Context, ref *corev1.Reference, mut
 		}
 		return nil, err
 	}
-	return cluster, nil
+	return c.GetCluster(ctx, ref)
 }
 
 func (c *CRDStore) ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error) {
@@ -99,8 +100,16 @@ func (c *CRDStore) ListClusters(ctx context.Context, matchLabels *corev1.LabelSe
 	}
 	for _, item := range list.Items {
 		if selectorPredicate(item.Spec) {
+			item.Spec.SetResourceVersion(item.GetResourceVersion())
 			clusters.Items = append(clusters.Items, item.Spec)
 		}
 	}
 	return clusters, nil
+}
+
+func (e *CRDStore) WatchCluster(
+	ctx context.Context,
+	ref *corev1.Cluster,
+) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
+	panic("not implemented") // todo
 }

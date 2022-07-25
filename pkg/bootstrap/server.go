@@ -11,6 +11,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/lestrrat-go/jwx/jws"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/ecdh"
@@ -23,6 +24,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Storage interface {
@@ -39,18 +41,18 @@ type StorageConfig struct {
 
 type Server struct {
 	bootstrapv1.UnsafeBootstrapServer
-	privateKey     crypto.Signer
-	storage        Storage
-	installer      capabilities.Installer
-	clusterIdLocks util.LockMap[string, *sync.Mutex]
+	privateKey      crypto.Signer
+	storage         Storage
+	capBackendStore capabilities.BackendStore
+	clusterIdLocks  util.LockMap[string, *sync.Mutex]
 }
 
-func NewServer(storage Storage, privateKey crypto.Signer, installer capabilities.Installer) *Server {
+func NewServer(storage Storage, privateKey crypto.Signer, capBackendStore capabilities.BackendStore) *Server {
 	return &Server{
-		privateKey:     privateKey,
-		storage:        storage,
-		installer:      installer,
-		clusterIdLocks: util.NewLockMap[string, *sync.Mutex](),
+		privateKey:      privateKey,
+		storage:         storage,
+		capBackendStore: capBackendStore,
+		clusterIdLocks:  util.NewLockMap[string, *sync.Mutex](),
 	}
 }
 
@@ -165,15 +167,19 @@ func (h *Server) Auth(ctx context.Context, authReq *bootstrapv1.BootstrapAuthReq
 	kr := keyring.New(keyring.NewSharedKeys(sharedSecret))
 
 	// Check if the capability exists and can be installed
-	if err := h.installer.CanInstall(authReq.Capability); err != nil {
-		if errors.Is(err, capabilities.ErrUnknownCapability) {
-			return nil, status.Errorf(codes.NotFound, "unknown capability %q", authReq.Capability)
+	backendClient, err := h.capBackendStore.Get(authReq.Capability)
+	if err != nil {
+		if errors.Is(err, capabilities.ErrBackendNotFound) {
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if _, err := backendClient.CanInstall(ctx, &emptypb.Empty{}); err != nil {
 		return nil, status.Errorf(codes.Unavailable, "capability %q cannot be installed: %v", authReq.Capability, err)
 	}
 
 	if shouldEditExisting {
-		if err := h.handleEdit(existing, authReq.Capability, bootstrapToken, kr); err != nil {
+		if err := h.handleEdit(ctx, existing, backendClient, bootstrapToken, kr); err != nil {
 			return nil, status.Errorf(codes.Internal, "error installing capability %q: %v", authReq.Capability, err)
 		}
 	} else {
@@ -183,14 +189,9 @@ func (h *Server) Auth(ctx context.Context, authReq *bootstrapv1.BootstrapAuthReq
 			Id: authReq.ClientID,
 			Metadata: &corev1.ClusterMetadata{
 				Labels: tokenLabels,
-				Capabilities: []*corev1.ClusterCapability{
-					{
-						Name: authReq.Capability,
-					},
-				},
 			},
 		}
-		if err := h.handleCreate(newCluster, authReq.Capability, bootstrapToken, kr); err != nil {
+		if err := h.handleCreate(ctx, newCluster, backendClient, bootstrapToken, kr); err != nil {
 			return nil, status.Errorf(codes.Internal, "error installing capability %q: %v", authReq.Capability, err)
 		}
 	}
@@ -201,15 +202,16 @@ func (h *Server) Auth(ctx context.Context, authReq *bootstrapv1.BootstrapAuthReq
 }
 
 func (h Server) handleCreate(
+	ctx context.Context,
 	newCluster *corev1.Cluster,
-	newCapability string,
+	newCapability capabilityv1.BackendClient,
 	token *corev1.BootstrapToken,
 	kr keyring.Keyring,
 ) error {
-	if err := h.storage.CreateCluster(context.Background(), newCluster); err != nil {
+	if err := h.storage.CreateCluster(ctx, newCluster); err != nil {
 		return fmt.Errorf("error creating cluster: %w", err)
 	}
-	_, err := h.storage.UpdateToken(context.Background(), token.Reference(),
+	_, err := h.storage.UpdateToken(ctx, token.Reference(),
 		storage.NewCompositeMutator(
 			storage.NewIncrementUsageCountMutator(),
 			storage.NewAddCapabilityMutator[*corev1.BootstrapToken](&corev1.TokenCapability{
@@ -225,41 +227,43 @@ func (h Server) handleCreate(
 	if err != nil {
 		return fmt.Errorf("error getting keyring store: %w", err)
 	}
-	if err := krStore.Put(context.Background(), kr); err != nil {
+	if err := krStore.Put(ctx, kr); err != nil {
 		return fmt.Errorf("error storing keyring: %w", err)
 	}
-	h.installer.InstallCapabilities(newCluster.Reference(), newCapability)
+	newCapability.Install(ctx, &capabilityv1.InstallRequest{
+		Cluster: newCluster.Reference(),
+	})
 	return nil
 }
 
 func (h Server) handleEdit(
+	ctx context.Context,
 	existingCluster *corev1.Reference,
-	newCapability string,
+	newCapability capabilityv1.BackendClient,
 	token *corev1.BootstrapToken,
 	keyring keyring.Keyring,
 ) error {
-	_, err := h.storage.UpdateToken(context.Background(), token.Reference(),
+	_, err := h.storage.UpdateToken(ctx, token.Reference(),
 		storage.NewIncrementUsageCountMutator())
 	if err != nil {
 		return fmt.Errorf("error incrementing usage count: %w", err)
-	}
-	_, err = h.storage.UpdateCluster(context.Background(), existingCluster,
-		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(newCapability)),
-	)
-	if err != nil {
-		return err
 	}
 	krStore, err := h.storage.KeyringStore("gateway", existingCluster)
 	if err != nil {
 		return fmt.Errorf("error getting keyring store: %w", err)
 	}
-	kr, err := krStore.Get(context.Background())
+	kr, err := krStore.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting existing keyring: %w", err)
 	}
-	if err := krStore.Put(context.Background(), keyring.Merge(kr)); err != nil {
+	if err := krStore.Put(ctx, keyring.Merge(kr)); err != nil {
 		return fmt.Errorf("error storing keyring: %w", err)
 	}
-	h.installer.InstallCapabilities(existingCluster, newCapability)
+	_, err = newCapability.Install(ctx, &capabilityv1.InstallRequest{
+		Cluster: existingCluster,
+	})
+	if err != nil {
+		return err
+	}
 	return nil
 }

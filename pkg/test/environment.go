@@ -462,6 +462,7 @@ type cortexTemplateOptions struct {
 	HttpListenPort int
 	GrpcListenPort int
 	StorageDir     string
+	EtcdPort       int
 }
 
 func (e *Environment) startCortex() {
@@ -479,6 +480,7 @@ func (e *Environment) startCortex() {
 		HttpListenPort: e.ports.CortexHTTP,
 		GrpcListenPort: e.ports.CortexGRPC,
 		StorageDir:     path.Join(e.tempDir, "cortex"),
+		EtcdPort:       e.ports.Etcd,
 	}); err != nil {
 		panic(err)
 	}

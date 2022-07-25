@@ -4,6 +4,7 @@ package main
 import (
 	"list"
 	"strings"
+	"pkg.go.dev/time"
 	"github.com/rancher/opni/internal/ginkgo"
 )
 
@@ -49,6 +50,9 @@ tests: ginkgo.#TestPlan & {
 		e2e: ginkgo.#Run & {
 			Packages: "./test/e2e/..."
 			Explicit: true
+			Suite: {
+				Timeout: 1 * time.#Hour
+			}
 		}
 	}
 	Coverage: {

@@ -213,7 +213,6 @@ rules:
   - batch
   resources:
   - cronjobs
-  - jobs
   verbs:
   - get
   - list
@@ -229,6 +228,7 @@ rules:
   - patch
   - update
   - watch
+  - delete
 - apiGroups:
   - cert-manager.io
   resources:

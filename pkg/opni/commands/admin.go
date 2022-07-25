@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -24,6 +25,7 @@ func BuildAdminCmd() *cobra.Command {
 	cmd.AddCommand(BuildQueryCmd())
 	cmd.AddCommand(BuildQueryRangeCmd())
 	cmd.AddCommand(BuildStorageInfoCmd())
+	cmd.AddCommand(BuildFlushBlocksCmd())
 	ConfigureManagementCommand(cmd)
 	return cmd
 }
@@ -141,6 +143,23 @@ func BuildStorageInfoCmd() *cobra.Command {
 				samples = append(samples, queryResp.V.(model.Vector)...)
 			}
 			fmt.Println(cliutil.RenderMetricSamples(samples))
+			return nil
+		},
+	}
+	return cmd
+}
+
+func BuildFlushBlocksCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "flush-blocks",
+		Short: "Flush in-memory ingester TSDB data to long-term storage",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := adminClient.FlushBlocks(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			lg.Info("Success")
 			return nil
 		},
 	}

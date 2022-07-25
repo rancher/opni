@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
-	ingesterclient "github.com/cortexproject/cortex/pkg/ingester/client"
 	"go.uber.org/zap"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -39,7 +38,6 @@ type Plugin struct {
 	mgmtApi             future.Future[managementv1.ManagementClient]
 	storageBackend      future.Future[storage.Backend]
 	distributorClient   future.Future[distributorpb.DistributorClient]
-	ingesterClient      future.Future[ingesterclient.IngesterClient]
 	cortexHttpClient    future.Future[*http.Client]
 	cortexTlsConfig     future.Future[*tls.Config]
 	uninstallController future.Future[*task.Controller]
@@ -55,7 +53,6 @@ func NewPlugin(ctx context.Context) *Plugin {
 		mgmtApi:             future.New[managementv1.ManagementClient](),
 		storageBackend:      future.New[storage.Backend](),
 		distributorClient:   future.New[distributorpb.DistributorClient](),
-		ingesterClient:      future.New[ingesterclient.IngesterClient](),
 		cortexHttpClient:    future.New[*http.Client](),
 		cortexTlsConfig:     future.New[*tls.Config](),
 		uninstallController: future.New[*task.Controller](),

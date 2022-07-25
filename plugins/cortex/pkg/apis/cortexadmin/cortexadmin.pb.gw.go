@@ -400,6 +400,24 @@ func local_request_CortexAdmin_DeleteRule_0(ctx context.Context, marshaler runti
 
 }
 
+func request_CortexAdmin_FlushBlocks_0(ctx context.Context, marshaler runtime.Marshaler, client CortexAdminClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq emptypb.Empty
+	var metadata runtime.ServerMetadata
+
+	msg, err := client.FlushBlocks(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_CortexAdmin_FlushBlocks_0(ctx context.Context, marshaler runtime.Marshaler, server CortexAdminServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq emptypb.Empty
+	var metadata runtime.ServerMetadata
+
+	msg, err := server.FlushBlocks(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
 // RegisterCortexAdminHandlerServer registers the http handlers for service CortexAdmin to "mux".
 // UnaryRPC     :call CortexAdminServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
@@ -619,6 +637,30 @@ func RegisterCortexAdminHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		}
 
 		forward_CortexAdmin_DeleteRule_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_CortexAdmin_FlushBlocks_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/cortexadmin.CortexAdmin/FlushBlocks", runtime.WithHTTPPathPattern("/flush_blocks"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_CortexAdmin_FlushBlocks_0(ctx, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_CortexAdmin_FlushBlocks_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -852,6 +894,27 @@ func RegisterCortexAdminHandlerClient(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
+	mux.Handle("POST", pattern_CortexAdmin_FlushBlocks_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/cortexadmin.CortexAdmin/FlushBlocks", runtime.WithHTTPPathPattern("/flush_blocks"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_CortexAdmin_FlushBlocks_0(ctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_CortexAdmin_FlushBlocks_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	return nil
 }
 
@@ -873,6 +936,8 @@ var (
 	pattern_CortexAdmin_LoadRules_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"rules"}, ""))
 
 	pattern_CortexAdmin_DeleteRule_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"rules", "groupName"}, ""))
+
+	pattern_CortexAdmin_FlushBlocks_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"flush_blocks"}, ""))
 )
 
 var (
@@ -893,4 +958,6 @@ var (
 	forward_CortexAdmin_LoadRules_0 = runtime.ForwardResponseMessage
 
 	forward_CortexAdmin_DeleteRule_0 = runtime.ForwardResponseMessage
+
+	forward_CortexAdmin_FlushBlocks_0 = runtime.ForwardResponseMessage
 )

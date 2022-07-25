@@ -85,8 +85,6 @@ func New(ctx context.Context, keyringStore storage.KeyringStoreBroker, headerKey
 	}, nil
 }
 
-var fakeKeyring keyring.Keyring
-
 func initFakeKeyring(
 	ctx context.Context,
 	broker storage.KeyringStoreBroker,
@@ -108,7 +106,7 @@ func initFakeKeyring(
 	if err != nil {
 		return nil, err
 	}
-	fakeKeyring = keyring.New(keyring.NewSharedKeys(sec))
+	fakeKeyring := keyring.New(keyring.NewSharedKeys(sec))
 	go func() {
 		p := backoff.Exponential(
 			backoff.WithMaxRetries(0),
@@ -285,42 +283,36 @@ func (m *ClusterMiddleware) VerifyKeyring(authHeader string, msgBody []byte) (in
 	if err != nil {
 		return http.StatusBadRequest, "", nil
 	}
-	ks, err := m.keyringStoreBroker.KeyringStore("gateway", &corev1.Reference{
+	id := &corev1.Reference{
 		Id: string(clusterID),
-	})
-	if err != nil {
-		_, _ = m.fakeKeyringStore.Get(context.Background())
-		lg.Debugf("unauthorized: error looking up keyring store for cluster %s: %v", clusterID, err)
-		fakeKeyring.Try(func(shared *keyring.SharedKeys) {
-			b2mac.Verify(mac, clusterID, nonce, msgBody, shared.ClientKey)
-		})
-		return http.StatusUnauthorized, "", nil
 	}
-
-	kr, err := ks.Get(context.Background())
-	if err != nil {
-		lg.Debugf("unauthorized: error looking up keyring for cluster %s: %v", clusterID, err)
-		fakeKeyring.Try(func(shared *keyring.SharedKeys) {
-			b2mac.Verify(mac, clusterID, nonce, msgBody, shared.ClientKey)
-		})
-		return http.StatusUnauthorized, "", nil
-	}
-
-	authorized := false
-	var sharedKeys *keyring.SharedKeys
-	if ok := kr.Try(func(shared *keyring.SharedKeys) {
-		if err := b2mac.Verify(mac, clusterID, nonce, msgBody, shared.ClientKey); err == nil {
-			authorized = true
-			sharedKeys = shared
+	if ks, err := m.keyringStoreBroker.KeyringStore("gateway", id); err == nil {
+		if kr, err := ks.Get(context.Background()); err == nil {
+			authorized := false
+			var sharedKeys *keyring.SharedKeys
+			if ok := kr.Try(func(shared *keyring.SharedKeys) {
+				if err := b2mac.Verify(mac, clusterID, nonce, msgBody, shared.ClientKey); err == nil {
+					authorized = true
+					sharedKeys = shared
+				}
+			}); !ok {
+				lg.Errorf("unauthorized: invalid or corrupted keyring for cluster %s: %v", clusterID, err)
+				return http.StatusInternalServerError, "", nil
+			}
+			if !authorized {
+				lg.Debugf("unauthorized: invalid mac for cluster %s", clusterID)
+				return http.StatusUnauthorized, "", nil
+			}
+			return http.StatusOK, string(clusterID), sharedKeys
 		}
-	}); !ok {
-		lg.Errorf("unauthorized: invalid or corrupted keyring for cluster %s: %v", clusterID, err)
+	}
+	kr, err := m.fakeKeyringStore.Get(context.Background())
+	if err != nil {
+		lg.Errorf("failed to get fake keyring: %v", err)
 		return http.StatusInternalServerError, "", nil
 	}
-	if !authorized {
-		lg.Debugf("unauthorized: invalid mac for cluster %s", clusterID)
-		return http.StatusUnauthorized, "", nil
-	}
-
-	return http.StatusOK, string(clusterID), sharedKeys
+	kr.Try(func(shared *keyring.SharedKeys) {
+		b2mac.Verify(mac, clusterID, nonce, msgBody, shared.ClientKey)
+	})
+	return http.StatusUnauthorized, "", nil
 }

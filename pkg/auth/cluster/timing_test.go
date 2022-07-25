@@ -25,6 +25,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -40,7 +41,7 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 			logger.DefaultLogLevel.SetLevel(zapcore.DebugLevel)
 		})
 	})
-	XSpecify("different unauthorized requests should take the same amount of time", func() {
+	Specify("different unauthorized requests should take the same amount of time", func() {
 		store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
 			Id: "cluster-1",
 		})
@@ -200,7 +201,7 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 
 // this is a conservative upper bound; the actual values will likely be
 // between 0.005-0.03 but could be skewed based on hardware/environment.
-const threshold = 0.075
+var threshold = testutil.IfCI(0.15).Else(0.075)
 
 func ksTest(a, b []float64) float64 {
 	return stat.KolmogorovSmirnov(a, nil, b, nil)

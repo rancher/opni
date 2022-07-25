@@ -64,6 +64,7 @@ func (g *GatewaySpec) GetServiceType() corev1.ServiceType {
 }
 
 type AlertingSpec struct {
+	Enabled bool `json:"enabled,omitempty"`
 	//+kubebuilder:default=9093
 	Port int `json:"alertingPort,omitempty"`
 	//+kubebuilder:default=ClusterIP

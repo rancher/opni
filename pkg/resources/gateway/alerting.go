@@ -14,12 +14,18 @@ import (
 
 func (r *Reconciler) alerting() []resources.Resource {
 	if r.gw.Spec.Alerting == nil {
-		// set some sensible defaults
-		r.gw.Spec.Alerting = &v1beta2.AlertingSpec{
-			Port:        9093,
-			Storage:     "500Mi",
-			ServiceType: "ClusterIP",
-		}
+		r.gw.Spec.Alerting = &v1beta2.AlertingSpec{}
+	}
+
+	// set some sensible defaults
+	if r.gw.Spec.Alerting.Port == 0 {
+		r.gw.Spec.Alerting.Port = 9093
+	}
+	if r.gw.Spec.Alerting.ServiceType == "" {
+		r.gw.Spec.Alerting.ServiceType = corev1.ServiceTypeClusterIP
+	}
+	if r.gw.Spec.Alerting.Storage == "" {
+		r.gw.Spec.Alerting.Storage = "500Mi"
 	}
 
 	publicLabels := map[string]string{} // TODO define a set of meaningful labels for this service
@@ -109,8 +115,8 @@ func (r *Reconciler) alerting() []resources.Resource {
 	ctrl.SetControllerReference(r.gw, alertingSvc, r.client.Scheme())
 
 	return []resources.Resource{
-		resources.Present(deploy),
-		resources.Present(alertingSvc),
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled, deploy),
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled, alertingSvc),
 	}
 }
 

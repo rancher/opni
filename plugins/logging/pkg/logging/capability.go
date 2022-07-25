@@ -176,8 +176,8 @@ func (p *Plugin) Uninstall(cluster *opnicorev1.Reference) error {
 }
 
 func (p *Plugin) InstallerTemplate() string {
-	return fmt.Sprintf(`opnictl bootstrap logging {{ arg "input" "Opensearch Cluster Name" "+required" "+default:%s" }} `, p.opensearchCluster.Name) +
+	return fmt.Sprintf(`opni bootstrap logging {{ arg "input" "Opensearch Cluster Name" "+required" "+default:%s" }} `, p.opensearchCluster.Name) +
 		`{{ arg "select" "Kubernetes Provider" "" "rke" "rke2" "k3s" "aks" "eks" "gke" "+omitEmpty" "+format:--provider={{ value }}" }} ` +
 		`--token={{ .Token }} --pin={{ .Pin }} ` +
-		`--gateway-url={{ .Address }}`
+		`--gateway-url={{ arg "input" "Gateway Hostname" "+default:{{ .Address }}" }}:{{ arg "input" "Gateway Port" "+default:{{ .Port }}" }}`
 }

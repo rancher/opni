@@ -100,7 +100,7 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdGood}}{job="{{.JobId}},"le="0.3",verb!="WATCH"} [{{"{{window}}"}}]))
+					sum(rate({{.MetricIdGood}}{job="{{.JobId}},"le="0.3",verb!="WATCH"}[{{"{{.window}}"}}]))
 				`).
 				MetricFilter(`.*http_request_duration_seconds_bucket`).
 				BuildHistogram()).

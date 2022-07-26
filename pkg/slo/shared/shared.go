@@ -26,6 +26,7 @@ var (
 	ErrInvalidAlertCondition    = validation.Error("Invalid Alert Condition")
 	ErrInvalidAlertThreshold    = validation.Error("Invalid Alert Threshold")
 	ErrInvalidAlertTarget       = validation.Error("Invalid Alert Target")
+	ErrMissingServiceInfo       = validation.Error("Service job & cluster id are required to create an SLO")
 	ErrNonNullId                = WithInternalServerError("Slo Create requests must not have a set id")
 	ErrPrometheusGenerator      = WithInternalServerError("Prometheus generator failed to start")
 	ErrInvalidDatasource        = WithNotFoundError("Invalid required datasource value")

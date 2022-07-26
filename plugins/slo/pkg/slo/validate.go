@@ -42,6 +42,12 @@ func ValidateInput(slorequest *api.CreateSLORequest) error {
 		return err
 	}
 
+	for _, svc := range slorequest.Services {
+		if svc.JobId == "" || svc.ClusterId == "" {
+			return shared.ErrMissingServiceInfo
+		}
+	}
+
 	return nil
 }
 

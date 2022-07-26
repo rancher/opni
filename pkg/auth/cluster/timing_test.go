@@ -201,7 +201,7 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 
 // this is a conservative upper bound; the actual values will likely be
 // between 0.005-0.03 but could be skewed based on hardware/environment.
-var threshold = testutil.IfCI(0.15).Else(0.075)
+var threshold = testutil.IfCI(0.2).Else(0.075)
 
 func ksTest(a, b []float64) float64 {
 	return stat.KolmogorovSmirnov(a, nil, b, nil)

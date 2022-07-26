@@ -36,6 +36,7 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 						Noauth:   &noauth.ServerConfig{},
 					},
 					Alerting: &v1beta2.AlertingSpec{
+						Enabled:     true,
 						Port:        9093,
 						ServiceType: corev1.ServiceTypeLoadBalancer,
 						GatewayVolumeMounts: []opnimeta.ExtraVolumeMount{
@@ -212,6 +213,27 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 				),
 				HaveType(corev1.ServiceTypeLoadBalancer),
 			))
+		})
+		When("disabling alerting", func() {
+			It("should remove the alerting objects", func() {
+				updateObject(gw, func(gw *v1beta2.Gateway) *v1beta2.Gateway {
+					gw.Spec.Alerting = nil
+					return gw
+				})
+				Eventually(Object(&appsv1.StatefulSet{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "opni-alerting-internal",
+						Namespace: gw.Namespace,
+					},
+				})).ShouldNot(Exist())
+
+				Eventually(Object(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "opni-alerting",
+						Namespace: gw.Namespace,
+					},
+				})).ShouldNot(Exist())
+			})
 		})
 	})
 })

@@ -8,9 +8,7 @@ import "google/api/annotations.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/rpc/status.proto";
 
-
 package slo;
-
 
 service SLO {
   rpc CreateSLO(CreateSLORequest) returns (core.ReferenceList) {
@@ -58,14 +56,14 @@ service SLO {
   // a set of services
   rpc ListMetrics(ServiceList) returns (MetricList) {
     option (google.api.http) = {
-      get: "/metrics"
+      post: "/metrics"
     };
   }
 
   // Returns the list of services discovered by the Service Discovery backend
   rpc ListServices(ListServiceRequest) returns (ServiceList) {
     option (google.api.http) = {
-      get: "/services"
+      post: "/services"
     };
   }
 

@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "Opni SLO Plugin API",
+    "title": "Opni SLO Management API",
     "version": "1.0",
     "license": {
       "name": "Apache 2.0",
@@ -21,7 +21,7 @@
   ],
   "paths": {
     "/metrics": {
-      "get": {
+      "post": {
         "summary": "Returns a set of metrics with compatible implementations for\na set of services",
         "operationId": "SLO_ListMetrics",
         "responses": {
@@ -93,7 +93,7 @@
       }
     },
     "/services": {
-      "get": {
+      "post": {
         "summary": "Returns the list of services discovered by the Service Discovery backend",
         "operationId": "SLO_ListServices",
         "responses": {

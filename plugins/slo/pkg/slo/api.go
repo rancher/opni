@@ -201,6 +201,11 @@ func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLO
 func (p *Plugin) ListServices(ctx context.Context, req *sloapi.ListServiceRequest) (*sloapi.ServiceList, error) {
 	res := &sloapi.ServiceList{}
 	lg := p.logger
+	err := checkDatasource(req.Datasource)
+	if err != nil {
+		return nil, shared.ErrInvalidDatasource
+	}
+
 	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
 		lg.Error(fmt.Sprintf("Failed to list clusters: %v", err))
@@ -222,17 +227,16 @@ func (p *Plugin) ListServices(ctx context.Context, req *sloapi.ListServiceReques
 
 // Assign a Job Id to a pre configured metric based on the service selected
 func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.ServiceInfo, error) {
-	lg := p.logger
 
 	if _, ok := query.AvailableQueries[metricRequest.Name]; !ok {
 		return nil, shared.ErrInvalidMetric
 	}
 
-	lg.Debug(fmt.Sprintf("%v", datasourceToService))
-	if _, ok := datasourceToService[metricRequest.Datasource]; !ok {
+	datasource := metricRequest.GetDatasource()
+	if err := checkDatasource(datasource); err != nil {
 		return nil, shared.ErrInvalidDatasource
 	}
-	serviceBackend := datasourceToService[metricRequest.GetDatasource()].WithCurrentRequest(metricRequest, ctx)
+	serviceBackend := datasourceToService[datasource].WithCurrentRequest(metricRequest, ctx)
 	metricIds, err := serviceBackend.GetMetricId()
 
 	if err != nil {

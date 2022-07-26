@@ -133,6 +133,10 @@ func Filter(ctx context.Context, svc *api.Service, candidateMetrics []*api.Metri
 				ClusterId:  svc.ClusterId,
 				ServiceId:  svc.JobId,
 			}
+			err := checkDatasource(curM.GetDatasource())
+			if err != nil {
+				return // skip this metric
+			}
 			serviceBackend := datasourceToService[curM.GetDatasource()].WithCurrentRequest(metricRequest, ctx)
 			metricIds, err := serviceBackend.GetMetricId()
 			if err == nil { //error means it is not assignable

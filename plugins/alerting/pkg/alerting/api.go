@@ -2,12 +2,30 @@ package alerting
 
 import (
 	"context"
+	"github.com/rancher/opni/pkg/plugins/apis/system"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, error) {
+	keys, err := kvc.ListKeys(prefix)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]T, len(keys))
+	for i, key := range keys {
+		item, err := kvc.Get(key)
+		if err != nil {
+			return nil, err
+		}
+		items[i] = item
+	}
+	return items, nil
+}
 
 // --- Log ---
 func (p *Plugin) CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*emptypb.Empty, error) {

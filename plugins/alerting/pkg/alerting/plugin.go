@@ -5,6 +5,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni/pkg/alerting"
+	alertapi "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -16,12 +17,16 @@ import (
 type Plugin struct {
 	alertingv1alpha.UnsafeAlertingServer
 	system.UnimplementedSystemPluginClient
-	ctx        context.Context
-	logger     hclog.Logger
-	mgmtClient future.Future[managementv1.ManagementClient]
+	ctx               context.Context
+	logger            hclog.Logger
+	alertingEndpoints future.Future[[]string]
+	storage           future.Future[StorageAPIs]
+	mgmtClient        future.Future[managementv1.ManagementClient]
 }
 
 type StorageAPIs struct {
+	Conditions    system.KVStoreClient[*alertapi.AlertCondition]
+	AlertEndpoint system.KVStoreClient[*alertapi.AlertEndpoint]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {

@@ -11,7 +11,6 @@ import "google/rpc/status.proto";
 package slo;
 
 service SLO {
-  // ============== SLO
   rpc CreateSLO(CreateSLORequest) returns (core.ReferenceList) {
     option (google.api.http) = {
       post: "/slos"
@@ -45,25 +44,30 @@ service SLO {
     };
   }
 
-  // Can this metric run with this service & cluster? No == error
-  rpc GetMetricId(MetricRequest) returns (Service) {
+  // Fetches implementation details of a metric from the ServiceBackend
+  // Used as a helper API 
+  rpc GetMetricId(MetricRequest) returns (ServiceInfo) {
     option (google.api.http) = {
       get: "/metrics/{name}/{serviceId}"
     };
   }
-  rpc ListMetrics(google.protobuf.Empty) returns (MetricList) {
+
+  // Returns a set of metrics with compatible implementations for
+  // a set of services
+  rpc ListMetrics(ServiceList) returns (MetricList) {
     option (google.api.http) = {
-      get: "/metrics"
-    };
-  }
-    // ========== Services API ===========
-  rpc ListServices(google.protobuf.Empty) returns (ServiceList) {
-    option (google.api.http) = {
-      get: "/services"
+      post: "/metrics"
     };
   }
 
-   // ================ Poll SLO Status
+  // Returns the list of services discovered by the Service Discovery backend
+  rpc ListServices(ListServiceRequest) returns (ServiceList) {
+    option (google.api.http) = {
+      post: "/services"
+    };
+  }
+
+   // Returns a status enum badge for a given SLO
   rpc Status(core.Reference) returns (SLOStatus) {
     option (google.api.http) = {
       get: "/slos/{id}/status"
@@ -72,12 +76,17 @@ service SLO {
 
 }
 
-message Service {
+message ServiceInfo {
   string jobId = 1;
+  string clusterId = 5;
   string metricName = 2; 
   string metricIdGood = 3;
   string metricIdTotal = 4;
-  string clusterId = 5;
+}
+
+message Service {
+  string jobId = 1;
+  string clusterId = 2;
 }
 
 message ServiceList {
@@ -104,22 +113,18 @@ message Alert {
 message ServiceLevelObjective {
   string name = 1;
   string datasource = 2;
-  string monitorWindow = 3; // 7d, 28d or 30d
-  google.protobuf.Duration budgetingInterval = 4; // budgeting interval should be between 1m and 60m
-  Target target = 5;
-  repeated Label labels = 6;
-  repeated Alert alerts = 7;
+  string metricName = 3;
+  string monitorWindow = 4; // 7d, 28d or 30d
+  google.protobuf.Duration budgetingInterval = 5; // budgeting interval should be between 1m and 60m
+  Target target = 6;
+  repeated Label labels = 7;
+  repeated Alert alerts = 8;
 }
 
 message CreateSLORequest {
   ServiceLevelObjective SLO = 1;
   repeated Service services = 2;
 }
-
-message Services {
-  repeated Service items = 1;
-}
-
 
 
 message SLOData {
@@ -129,7 +134,7 @@ message SLOData {
 }
 
 message Target {
-  uint64 valueX100 = 1;
+  double value = 1;
 }
 
 message Metric {
@@ -166,4 +171,8 @@ enum SLOStatusState {
 
 message SLOStatus {
   SLOStatusState state = 1;
+}
+
+message ListServiceRequest {
+  string datasource = 1;
 }

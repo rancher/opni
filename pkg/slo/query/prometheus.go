@@ -26,7 +26,7 @@ type PrometheusQueryImpl struct {
 }
 
 // The actual metricId and window are only known at SLO creation time
-func (p *PrometheusQueryImpl) Construct(service *api.Service) (*SLOQueryResult, error) {
+func (p *PrometheusQueryImpl) Construct(service *api.ServiceInfo) (*SLOQueryResult, error) {
 	goodQueryStr, err := p.GoodQuery.Construct(service)
 	if err != nil {
 		return nil, err

@@ -240,7 +240,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	When("The SLO plugin starts", func() {
 		It("should be able to discover services from downstream", func() {
 			time.Sleep(10 * time.Second)
-			sloSvcs, err := sloClient.ListServices(ctx, &emptypb.Empty{})
+			sloSvcs, err := sloClient.ListServices(ctx, &apis.ListServiceRequest{
+				Datasource: shared.MonitoringDatasource,
+			})
 			Expect(err).To(Succeed())
 			Expect(sloSvcs.Items).To(HaveLen(4))
 
@@ -267,7 +269,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 	When("Configuring what metrics are available", func() {
 		It("should list available metrics", func() {
-			metrics, err := sloClient.ListMetrics(ctx, &emptypb.Empty{})
+			metrics, err := sloClient.ListMetrics(ctx, &apis.ServiceList{})
 			Expect(err).To(Succeed())
 			Expect(metrics.Items).NotTo(HaveLen(0))
 			keys := make([]string, 0, len(query.AvailableQueries))
@@ -317,6 +319,20 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			})
 			Expect(err).To(HaveOccurred())
 		})
+
+		It(
+			`Should be able to list all preconfigured metrics available 
+			to a given set of selected services Services`, func() {
+				svcs, err := sloClient.ListServices(ctx, &apis.ListServiceRequest{
+					Datasource: shared.MonitoringDatasource,
+				})
+				Expect(err).To(Succeed())
+				Expect(svcs.Items).To(HaveLen(4))
+				// match to prometheus & instrumentation server on both downstream clusters
+				availableMetrics, err := sloClient.ListMetrics(ctx, svcs)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(availableMetrics.Items).To(HaveLen(3))
+			})
 	})
 
 	When("CRUDing SLOs", func() {
@@ -324,10 +340,11 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			inputSLO := &apis.ServiceLevelObjective{
 				Name:              "test-slo",
 				Datasource:        shared.MonitoringDatasource,
+				MetricName:        "http-availability",
 				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
 				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
 				Labels:            []*apis.Label{},
-				Target:            &apis.Target{ValueX100: 9999},
+				Target:            &apis.Target{Value: 99.99},
 				Alerts:            []*apis.Alert{}, // do nothing for now
 			}
 
@@ -345,11 +362,11 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			svcs = []*apis.Service{
 				{
-					JobId:         "prometheus",
-					MetricName:    "http-availability",
-					MetricIdGood:  "prometheus_http_request_duration_seconds_count",
-					MetricIdTotal: "prometheus_http_request_duration_seconds_count",
-					ClusterId:     "agent",
+					JobId: "prometheus",
+					// MetricName:    "http-availability",
+					// MetricIdGood:  "prometheus_http_request_duration_seconds_count",
+					// MetricIdTotal: "prometheus_http_request_duration_seconds_count",
+					ClusterId: "agent",
 				},
 			}
 			req.Services = svcs
@@ -421,19 +438,17 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			inputSLO := &apis.ServiceLevelObjective{
 				Name:              "test-slo",
 				Datasource:        "monitoring",
+				MetricName:        "http-availability",
 				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
 				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
 				Labels:            []*apis.Label{},
-				Target:            &apis.Target{ValueX100: 9999},
+				Target:            &apis.Target{Value: 99.99},
 				Alerts:            []*apis.Alert{}, // do nothing for now
 			}
 			svcs := []*apis.Service{
 				{
-					JobId:         "prometheus",
-					MetricName:    "http-availability",
-					MetricIdGood:  "http_request_duration_seconds_count",
-					MetricIdTotal: "http_request_duration_seconds_count",
-					ClusterId:     "agent",
+					JobId:     "prometheus",
+					ClusterId: "agent",
 				},
 			}
 
@@ -489,19 +504,20 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			inputSLO := &apis.ServiceLevelObjective{
 				Name:              "test-slo",
 				Datasource:        shared.MonitoringDatasource,
+				MetricName:        instrumentationMetric,
 				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
 				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
 				Labels:            []*apis.Label{},
-				Target:            &apis.Target{ValueX100: 9999},
+				Target:            &apis.Target{Value: 99.99},
 				Alerts:            []*apis.Alert{}, // do nothing for now
 			}
 			svcs := []*apis.Service{
 				{
-					JobId:         mockServerName,
-					MetricName:    instrumentationMetric,
-					MetricIdGood:  "http_request_duration_seconds_count",
-					MetricIdTotal: "http_request_duration_seconds_count",
-					ClusterId:     "agent",
+					JobId: mockServerName,
+					// MetricName:    instrumentationMetric,
+					// MetricIdGood:  "http_request_duration_seconds_count",
+					// MetricIdTotal: "http_request_duration_seconds_count",
+					ClusterId: "agent",
 				},
 			}
 			req := &apis.CreateSLORequest{

@@ -8,6 +8,13 @@ import (
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
+func constructionShouldSucceed(q *query.SLOQueryResult, err error) {
+	Expect(err).To(Succeed())
+	Expect(q).To(Not(BeNil()))
+	Expect(q.GoodQuery).To(Not(BeNil()))
+	Expect(q.TotalQuery).To(Not(BeNil()))
+}
+
 var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label(test.Unit, test.Slow), func() {
 	// ctx := context.Background()
 
@@ -42,20 +49,27 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		It("Should fill in the templates & return a response struct", func() {
 			uptime, ok := query.AvailableQueries["uptime"]
 			Expect(ok).To(BeTrue())
-			service := &api.Service{
+			service := &api.ServiceInfo{
 				JobId:         "prometheus",
 				MetricName:    "uptime",
 				MetricIdGood:  "up",
 				MetricIdTotal: "up",
 				ClusterId:     "agent",
 			}
-			resp, err := uptime.Construct(service)
-			Expect(err).To(Succeed())
-			Expect(resp).To(Not(BeNil()))
-			Expect(resp.GoodQuery).To(Not(BeNil()))
-			Expect(resp.TotalQuery).To(Not(BeNil()))
-			Expect(resp.GoodQuery).To(Equal("(sum(rate(up{job=\"prometheus\"} == 1)))[{{.window}}]"))
-			Expect(resp.TotalQuery).To(Equal("(sum(rate(up{job=\"prometheus\"})))[{{.window}}]"))
+			respUp, err := uptime.Construct(service)
+			constructionShouldSucceed(respUp, err)
+			Expect(respUp.GoodQuery).To(Equal("(sum(rate(up{job=\"prometheus\"} == 1)))[{{.window}}]"))
+			Expect(respUp.TotalQuery).To(Equal("(sum(rate(up{job=\"prometheus\"})))[{{.window}}]"))
+
+			latency, ok := query.AvailableQueries["http-latency"]
+			Expect(ok).To(BeTrue())
+			respLa, err := latency.Construct(service)
+			constructionShouldSucceed(respLa, err)
+
+			availability, ok := query.AvailableQueries["http-availability"]
+			Expect(ok).To(BeTrue())
+			respAv, err := availability.Construct(service)
+			constructionShouldSucceed(respAv, err)
 
 		})
 	})

@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"sync"
+	"time"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -66,7 +68,23 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 	if err := ValidateInput(slorequest); err != nil {
 		return nil, err
 	}
-	osloSpecs, err := ParseToOpenSLO(slorequest, ctx, p.logger)
+	// fetch from service discovery backend
+	metricName := slorequest.SLO.GetMetricName()
+	svcInfoList := make([]*sloapi.ServiceInfo, len(slorequest.Services))
+	for i, svc := range slorequest.Services {
+		res, err := p.GetMetricId(ctx, &sloapi.MetricRequest{
+			Name:       metricName,
+			Datasource: slorequest.SLO.GetDatasource(),
+			ServiceId:  svc.GetJobId(),
+			ClusterId:  svc.GetClusterId(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		svcInfoList[i] = res
+	}
+
+	osloSpecs, err := ParseToOpenSLO(slorequest, svcInfoList, ctx, p.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -84,10 +102,24 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
 		return nil, err
 	}
+
+	metricName := existing.SLO.GetMetricName()
+
+	// fetch dynamically from service discovery backend
+	res, err := p.GetMetricId(ctx, &sloapi.MetricRequest{
+		Name:       metricName,
+		Datasource: existing.SLO.GetDatasource(),
+		ServiceId:  existing.Service.GetJobId(),
+		ClusterId:  existing.Service.GetClusterId(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	osloSpecs, err := ParseToOpenSLO(&sloapi.CreateSLORequest{
 		SLO:      req.SLO,
 		Services: []*sloapi.Service{req.Service},
-	}, ctx, lg)
+	}, []*sloapi.ServiceInfo{res}, ctx, lg)
 	if err != nil {
 		return nil, err
 	}
@@ -166,9 +198,14 @@ func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLO
 
 // -------- Service Discovery ---------
 
-func (p *Plugin) ListServices(ctx context.Context, req *emptypb.Empty) (*sloapi.ServiceList, error) {
+func (p *Plugin) ListServices(ctx context.Context, req *sloapi.ListServiceRequest) (*sloapi.ServiceList, error) {
 	res := &sloapi.ServiceList{}
 	lg := p.logger
+	err := checkDatasource(req.Datasource)
+	if err != nil {
+		return nil, shared.ErrInvalidDatasource
+	}
+
 	clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
 	if err != nil {
 		lg.Error(fmt.Sprintf("Failed to list clusters: %v", err))
@@ -178,40 +215,35 @@ func (p *Plugin) ListServices(ctx context.Context, req *emptypb.Empty) (*sloapi.
 		lg.Debug("Found no downstream clusters")
 		return res, nil
 	}
-	var anyError error
-	for name, backend := range datasourceToService {
-		lg.Debug("Found available datasource for service discovery : ", name)
-		listCurBackend := backend.WithCurrentRequest(req, ctx)
-		datasourceServices, err := listCurBackend.List(clusters)
-		if err != nil {
-			anyError = err
-		}
-		res.Items = append(res.Items, datasourceServices.Items...)
+	backend := datasourceToService[req.Datasource]
+	listCurBackend := backend.WithCurrentRequest(req, ctx)
+	datasourceServices, err := listCurBackend.List(clusters)
+	if err != nil {
+		return nil, err
 	}
-
-	return res, anyError
+	res.Items = append(res.Items, datasourceServices.Items...)
+	return res, nil
 }
 
 // Assign a Job Id to a pre configured metric based on the service selected
-func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.Service, error) {
-	lg := p.logger
+func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.ServiceInfo, error) {
 
 	if _, ok := query.AvailableQueries[metricRequest.Name]; !ok {
 		return nil, shared.ErrInvalidMetric
 	}
 
-	lg.Debug(fmt.Sprintf("%v", datasourceToService))
-	if _, ok := datasourceToService[metricRequest.Datasource]; !ok {
+	datasource := metricRequest.GetDatasource()
+	if err := checkDatasource(datasource); err != nil {
 		return nil, shared.ErrInvalidDatasource
 	}
-	serviceBackend := datasourceToService[metricRequest.GetDatasource()].WithCurrentRequest(metricRequest, ctx)
+	serviceBackend := datasourceToService[datasource].WithCurrentRequest(metricRequest, ctx)
 	metricIds, err := serviceBackend.GetMetricId()
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &sloapi.Service{
+	return &sloapi.ServiceInfo{
 		MetricName:    metricRequest.Name,
 		ClusterId:     metricRequest.ClusterId,
 		JobId:         metricRequest.ServiceId,
@@ -220,12 +252,47 @@ func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRe
 	}, nil
 }
 
-func (p *Plugin) ListMetrics(ctx context.Context, _ *emptypb.Empty) (*sloapi.MetricList, error) {
-	items, err := list(p.storage.Get().Metrics, "/metrics")
+func (p *Plugin) ListMetrics(ctx context.Context, services *sloapi.ServiceList) (*sloapi.MetricList, error) {
+	lg := p.logger
+	candidateMetrics, err := list(p.storage.Get().Metrics, "/metrics")
 	if err != nil {
 		return nil, err
 	}
+	if len(services.Items) == 0 {
+		return &sloapi.MetricList{Items: candidateMetrics}, nil
+	}
+
+	sharedItems := []*sloapi.Metric{}
+	for _, c := range candidateMetrics {
+		sharedItems = append(sharedItems, proto.Clone(c).(*sloapi.Metric))
+	}
+
+	lock := make(chan struct{}, 1)
+	timeoutDuration := 5 * time.Second
+	var wgSVC sync.WaitGroup
+	wgSVC.Add(len(services.Items))
+
+	for _, svc := range services.Items {
+		// check each service in the list
+		go func(svc *sloapi.Service) {
+			defer wgSVC.Done()
+
+			// check each metric
+			itemsToReconcile := Filter(ctx, svc, candidateMetrics)
+
+			select {
+			case lock <- struct{}{}: //need to lock as we reconcile
+				sharedItems = reconcileSetOfMetrics(sharedItems, itemsToReconcile)
+				lg.Debug(fmt.Sprintf("%v", sharedItems))
+				<-lock
+			case <-time.After(timeoutDuration):
+				//
+			}
+		}(svc)
+	}
+	wgSVC.Wait()
+
 	return &sloapi.MetricList{
-		Items: items,
+		Items: sharedItems,
 	}, nil
 }

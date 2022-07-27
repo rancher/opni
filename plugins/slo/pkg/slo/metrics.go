@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/prometheus/common/model"
@@ -13,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -99,7 +101,7 @@ func assignMetricToJobId(p *Plugin, ctx context.Context, metricRequest *api.Metr
 
 // Note: Assumption is that JobID is valid
 // @returns goodQuery, totalQuery
-func fetchPreconfQueries(slo *api.ServiceLevelObjective, service *api.Service, ctx context.Context, lg hclog.Logger) (*query.SLOQueryResult, error) {
+func fetchPreconfQueries(slo *api.ServiceLevelObjective, service *api.ServiceInfo, ctx context.Context, lg hclog.Logger) (*query.SLOQueryResult, error) {
 	if slo.GetDatasource() == shared.MonitoringDatasource {
 		if _, ok := query.AvailableQueries[service.GetMetricName()]; !ok {
 			return nil, shared.ErrInvalidMetric
@@ -114,4 +116,57 @@ func fetchPreconfQueries(slo *api.ServiceLevelObjective, service *api.Service, c
 	} else {
 		return nil, shared.ErrInvalidDatasource
 	}
+}
+
+func Filter(ctx context.Context, svc *api.Service, candidateMetrics []*api.Metric) []*api.Metric {
+	itemsToReconcile := []*api.Metric{}
+	var metricMutex sync.Mutex
+	var wgMetric sync.WaitGroup
+	wgMetric.Add(len(candidateMetrics))
+	for _, metric := range candidateMetrics {
+		curM := metric
+		go func() {
+			defer wgMetric.Done()
+			metricRequest := &api.MetricRequest{
+				Name:       curM.Name,
+				Datasource: curM.Datasource,
+				ClusterId:  svc.ClusterId,
+				ServiceId:  svc.JobId,
+			}
+			err := checkDatasource(curM.GetDatasource())
+			if err != nil {
+				return // skip this metric
+			}
+			serviceBackend := datasourceToService[curM.GetDatasource()].WithCurrentRequest(metricRequest, ctx)
+			metricIds, err := serviceBackend.GetMetricId()
+			if err == nil { //error means it is not assignable
+				metricMutex.Lock()
+				itemsToReconcile = append(itemsToReconcile, &sloapi.Metric{
+					Name:          curM.Name,
+					Datasource:    curM.Datasource,
+					ClusterId:     svc.ClusterId,
+					ServiceId:     svc.JobId,
+					MetricIdGood:  metricIds.Good,
+					MetricIdTotal: metricIds.Total,
+				})
+				metricMutex.Unlock()
+			}
+		}()
+	}
+	wgMetric.Wait()
+
+	return itemsToReconcile
+}
+
+func reconcileSetOfMetrics(global []*api.Metric, incoming []*api.Metric) (reconciled []*api.Metric) {
+	newGlobal := []*api.Metric{}
+
+	for _, metric := range incoming {
+		for _, globalMetric := range global {
+			if metric.Name == globalMetric.Name {
+				newGlobal = append(newGlobal, metric)
+			}
+		}
+	}
+	return newGlobal
 }

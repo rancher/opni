@@ -1,6 +1,7 @@
 package slo
 
 import (
+	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"golang.org/x/exp/slices"
 
@@ -22,28 +23,39 @@ func ValidateInput(slorequest *api.CreateSLORequest) error {
 	if len(slorequest.Services) == 0 {
 		return shared.ErrMissingServices
 	}
-	if err := validateSLODatasource(slorequest.SLO.GetDatasource()); err != nil {
+	if err := validateSLODatasource(slorequest); err != nil {
 		return err
 	}
-	if err := validateAlert(slorequest.SLO.GetAlerts()); err != nil {
+	if err := validateSLOWindows(slorequest); err != nil {
 		return err
 	}
-	// Expected monitor window
-	validWindows := []string{"7d", "28d", "30d"}
-	if !slices.Contains(validWindows, slorequest.SLO.GetMonitorWindow()) {
-		return shared.ErrInvalidMonitorWindow
+	if err := validateSLOBudget(slorequest); err != nil {
+		return err
+	}
+	if err := validateTarget(slorequest); err != nil {
+		return err
+	}
+	if err := validateAlert(slorequest); err != nil {
+		return err
+	}
+	if err := validateMetricName(slorequest); err != nil {
+		return err
 	}
 
-	budgetTime := slorequest.SLO.GetBudgetingInterval()
-
-	if !(budgetTime.Seconds >= 60 && budgetTime.Seconds <= 60*60) {
-		return shared.ErrInvalidBudgetingInterval
+	for _, svc := range slorequest.Services {
+		if svc.JobId == "" || svc.ClusterId == "" {
+			return shared.ErrMissingServiceInfo
+		}
 	}
 
 	return nil
 }
 
-func validateAlert(alerts []*api.Alert) error {
+func validateAlert(slorequest *api.CreateSLORequest) error {
+	if slorequest.SLO.GetAlerts() == nil {
+		return nil
+	}
+	alerts := slorequest.SLO.GetAlerts()
 	for _, alert := range alerts {
 		if err := matchEnum(alert.GetNotificationTarget(), []string{
 			shared.NotifSlack, shared.NotifMail, shared.NotifPager, shared.NotifHook}, shared.ErrInvalidAlertTarget); err != nil {
@@ -59,13 +71,55 @@ func validateAlert(alerts []*api.Alert) error {
 	return nil
 }
 
-func validateSLODatasource(value string) error {
+func validateSLOWindows(slorequest *api.CreateSLORequest) error {
+	validWindows := []string{"7d", "28d", "30d"}
+	if !slices.Contains(validWindows, slorequest.SLO.GetMonitorWindow()) {
+		return shared.ErrInvalidMonitorWindow
+	}
+	return nil
+}
+
+func validateSLOBudget(slorequest *api.CreateSLORequest) error {
+	budgetTime := slorequest.SLO.GetBudgetingInterval()
+	if budgetTime == nil {
+		return shared.ErrInvalidBudgetingInterval
+	}
+	if !(budgetTime.Seconds >= 60 && budgetTime.Seconds <= 60*60) {
+		return shared.ErrInvalidBudgetingInterval
+	}
+	return nil
+}
+
+func validateSLODatasource(slorequest *api.CreateSLORequest) error {
+	value := slorequest.SLO.GetDatasource()
 	return matchEnum(value, []string{shared.LoggingDatasource, shared.MonitoringDatasource}, shared.ErrInvalidDatasource)
 }
 
 func validateSLODescription(value string) error {
 	if len(value) > 1050 {
 		return shared.ErrInvalidDescription
+	}
+	return nil
+}
+
+func validateTarget(slorequest *api.CreateSLORequest) error {
+	target := slorequest.SLO.GetTarget()
+	if target == nil {
+		return shared.ErrInvalidTarget
+	}
+	if target.GetValue() >= 100 || target.GetValue() <= 0 {
+
+	}
+	return nil
+}
+
+func validateMetricName(slorequest *api.CreateSLORequest) error {
+	metricName := slorequest.SLO.GetMetricName()
+	if metricName == "" {
+		return shared.ErrInvalidMetricName
+	}
+	if _, ok := query.AvailableQueries[metricName]; !ok {
+		return shared.ErrInvalidMetricName
 	}
 	return nil
 }

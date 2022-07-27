@@ -59,7 +59,7 @@ func (h HistogramQuery) IsHistogram() bool {
 	return true
 }
 
-func (h HistogramQuery) Construct(serv *api.Service) (string, error) {
+func (h HistogramQuery) Construct(serv *api.ServiceInfo) (string, error) {
 	return h.FillQueryTemplate(templateExecutor{
 		MetricIdGood:  serv.MetricIdGood,
 		MetricIdTotal: serv.MetricIdTotal,

@@ -100,7 +100,7 @@ func init() {
 		GoodQuery(
 			NewQueryBuilder().
 				Query(`
-					sum(rate({{.MetricIdGood}}{job="{{.JobId}},"le="0.3",verb!="WATCH"} [{{"{{window}}"}}]))
+					sum(rate({{.MetricIdGood}}{job="{{.JobId}},"le="0.3",verb!="WATCH"}[{{"{{.window}}"}}]))
 				`).
 				MetricFilter(`.*http_request_duration_seconds_bucket`).
 				BuildHistogram()).
@@ -133,7 +133,7 @@ type MetricQuery interface {
 	Description() string
 	// Each metric has a unique opni datasource (monitoring vs logging) by which it is filtered by
 	Datasource() string
-	Construct(*api.Service) (*SLOQueryResult, error)
+	Construct(*api.ServiceInfo) (*SLOQueryResult, error)
 	// Some metrics will have different labels for metrics, so handle them independently
 	GetGoodQuery() Query
 	GetTotalQuery() Query
@@ -152,7 +152,7 @@ type Query interface {
 	IsRatio() bool
 	BestMatch([]string) string
 	IsHistogram() bool
-	Construct(*api.Service) (string, error)
+	Construct(*api.ServiceInfo) (string, error)
 }
 
 type QueryBuilder interface {

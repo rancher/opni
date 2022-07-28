@@ -1065,17 +1065,23 @@ spec:
                           type: object
                       type: object
                     type: array
-                  alertingPort:
-                    default: 9093
+                  apiPort:
+                    default: 9094
                     type: integer
                   enabled:
                     type: boolean
+                  configMapName:
+                    default: alertmanager-config
+                    type: string
                   serviceType:
                     default: ClusterIP
                     type: string
                   storage:
                     default: 500Mi
                     type: string
+                  webPort:
+                    default: 9093
+                    type: integer
                 type: object
               auth:
                 properties:

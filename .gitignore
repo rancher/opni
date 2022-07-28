@@ -2,6 +2,7 @@ bin/
 dev/
 testbin/
 *.test
+alerttestdata/
 **/__debug_bin
 *.out
 .vscode
@@ -23,6 +24,7 @@ deploy/examples/gpu/vgpu.yaml
 deploy/custom/cortex.yaml
 deploy/custom/grafana.yaml
 deploy/custom/opni-monitoring.yaml
+
 
 /report.json
 /cover.out

@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 )
 
 const (
@@ -81,7 +81,7 @@ func (r ImageResolver) Resolve() (result ImageSpec) {
 	if r.Version == "" {
 		version = "latest"
 	}
-	result.Image = pointer.String(fmt.Sprintf("%s:%s",
+	result.Image = lo.ToPtr(fmt.Sprintf("%s:%s",
 		path.Join(defaultRepo, r.ImageName), version))
 	return
 }

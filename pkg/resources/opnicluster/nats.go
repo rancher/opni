@@ -7,6 +7,12 @@ import (
 
 	"emperror.dev/errors"
 
+	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/nats-io/nkeys"
+	"github.com/rancher/opni/apis/v1beta2"
+	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,16 +20,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	"github.com/nats-io/nkeys"
-	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
-	"k8s.io/client-go/util/retry"
-	"k8s.io/utils/pointer"
 )
 
 const (
@@ -98,7 +97,7 @@ type natsConfigData struct {
 func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 	resourceList = []resources.Resource{}
 
-	if pointer.Int32Deref(r.opniCluster.Spec.Nats.Replicas, 3) == 0 {
+	if lo.FromPtrOr(r.opniCluster.Spec.Nats.Replicas, 3) == 0 {
 		return []resources.Resource{
 			func() (runtime.Object, reconciler.DesiredState, error) {
 				return r.natsStatefulSet(), reconciler.StateAbsent, nil
@@ -180,7 +179,7 @@ func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 		return
 	}
 
-	if r.opniCluster.Status.NatsReplicas != 0 && pointer.Int32Deref(r.opniCluster.Spec.Nats.Replicas, 3) != r.opniCluster.Status.NatsReplicas {
+	if r.opniCluster.Status.NatsReplicas != 0 && lo.FromPtrOr(r.opniCluster.Spec.Nats.Replicas, 3) != r.opniCluster.Status.NatsReplicas {
 		resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
 			return r.natsStatefulSet(), reconciler.StatePresent, nil
 		})
@@ -206,8 +205,8 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 					Labels: r.natsLabels(),
 				},
 				Spec: corev1.PodSpec{
-					TerminationGracePeriodSeconds: pointer.Int64(40),
-					ShareProcessNamespace:         pointer.Bool(true),
+					TerminationGracePeriodSeconds: lo.ToPtr[int64](40),
+					ShareProcessNamespace:         lo.ToPtr(true),
 					Affinity: &corev1.Affinity{
 						PodAntiAffinity: &corev1.PodAntiAffinity{
 							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
@@ -333,7 +332,7 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  fmt.Sprintf("%s-nats-config", r.opniCluster.Name),
-									DefaultMode: pointer.Int32(420),
+									DefaultMode: lo.ToPtr[int32](420),
 								},
 							},
 						},
@@ -555,7 +554,7 @@ func (r *Reconciler) natsClientService() *corev1.Service {
 
 func (r *Reconciler) getReplicas() *int32 {
 	if r.opniCluster.Spec.Nats.Replicas == nil {
-		return pointer.Int32(3)
+		return lo.ToPtr[int32](3)
 	}
 	return r.opniCluster.Spec.Nats.Replicas
 }

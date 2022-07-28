@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -18,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rancher/opni/apis/v1beta2"
@@ -928,17 +928,17 @@ var _ = Describe("OpniCluster Controller", Ordered, Label("controller"), func() 
 			Version: "1.0.0",
 			Persistence: &opnimeta.PersistenceSpec{
 				Enabled:          true,
-				StorageClassName: pointer.String("test-storageclass"),
+				StorageClassName: lo.ToPtr("test-storageclass"),
 			},
 			Workloads: v1beta2.OpensearchWorkloadSpec{
 				Master: v1beta2.OpensearchWorkloadOptions{
-					Replicas: pointer.Int32(1),
+					Replicas: lo.ToPtr[int32](1),
 				},
 				Data: v1beta2.OpensearchWorkloadOptions{
-					Replicas: pointer.Int32(3),
+					Replicas: lo.ToPtr[int32](3),
 				},
 				Client: v1beta2.OpensearchWorkloadOptions{
-					Replicas: pointer.Int32(5),
+					Replicas: lo.ToPtr[int32](5),
 					Resources: &corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
 							corev1.ResourceMemory: resource.MustParse("10Gi"),
@@ -955,7 +955,7 @@ var _ = Describe("OpniCluster Controller", Ordered, Label("controller"), func() 
 					},
 				},
 				Dashboards: v1beta2.OpensearchWorkloadOptions{
-					Replicas: pointer.Int32(7),
+					Replicas: lo.ToPtr[int32](7),
 				},
 			},
 		}
@@ -1150,9 +1150,9 @@ var _ = Describe("OpniCluster Controller", Ordered, Label("controller"), func() 
 
 		By("adjusting the elastic workload replicas")
 		updateObject(cluster, func(obj *v1beta2.OpniCluster) {
-			obj.Spec.Opensearch.Workloads.Data.Replicas = pointer.Int32(1)
-			obj.Spec.Opensearch.Workloads.Client.Replicas = pointer.Int32(1)
-			obj.Spec.Opensearch.Workloads.Dashboards.Replicas = pointer.Int32(1)
+			obj.Spec.Opensearch.Workloads.Data.Replicas = lo.ToPtr[int32](1)
+			obj.Spec.Opensearch.Workloads.Client.Replicas = lo.ToPtr[int32](1)
+			obj.Spec.Opensearch.Workloads.Dashboards.Replicas = lo.ToPtr[int32](1)
 		})
 
 		By("checking that replica counts are updated")
@@ -1224,7 +1224,7 @@ var _ = Describe("OpniCluster Controller", Ordered, Label("controller"), func() 
 		c.Spec.S3.Internal = &v1beta2.InternalSpec{
 			Persistence: &opnimeta.PersistenceSpec{
 				Enabled:          true,
-				StorageClassName: pointer.String("testing"),
+				StorageClassName: lo.ToPtr("testing"),
 				Request:          resource.MustParse("64Gi"),
 				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteMany,

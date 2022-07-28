@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"github.com/ttacon/chalk"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -97,7 +97,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		DashboardLabelSelector: []*metav1.LabelSelector{dashboardSelector},
 		BaseImage:              "grafana/grafana:latest",
 		Client: &grafanav1alpha1.GrafanaClient{
-			PreferService: util.Pointer(true),
+			PreferService: lo.ToPtr(true),
 		},
 		Config: grafanav1alpha1.GrafanaConfig{
 			Server: &grafanav1alpha1.GrafanaConfigServer{
@@ -105,22 +105,22 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				RootUrl: "https://" + grafanaHostname,
 			},
 			Auth: &grafanav1alpha1.GrafanaConfigAuth{
-				DisableLoginForm: util.Pointer(true),
+				DisableLoginForm: lo.ToPtr(true),
 			},
 			AuthGenericOauth: &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
-				Enabled: util.Pointer(true),
+				Enabled: lo.ToPtr(true),
 				Scopes:  "openid profile email",
 			},
 			UnifiedAlerting: &grafanav1alpha1.GrafanaConfigUnifiedAlerting{
-				Enabled: util.Pointer(true),
+				Enabled: lo.ToPtr(true),
 			},
 			Alerting: &grafanav1alpha1.GrafanaConfigAlerting{
-				Enabled: util.Pointer(false),
+				Enabled: lo.ToPtr(false),
 			},
 		},
 		Deployment: &grafanav1alpha1.GrafanaDeployment{
 			SecurityContext: &corev1.PodSecurityContext{
-				FSGroup: util.Pointer(int64(472)),
+				FSGroup: lo.ToPtr(int64(472)),
 			},
 		},
 		Secrets: []string{"grafana-datasource-cert"},
@@ -194,7 +194,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	switch r.gw.Spec.Auth.Provider {
 	case v1beta1.AuthProviderNoAuth:
 		grafana.Spec.Config.AuthGenericOauth = &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
-			Enabled:           util.Pointer(true),
+			Enabled:           lo.ToPtr(true),
 			ClientId:          "grafana",
 			ClientSecret:      "noauth",
 			Scopes:            "openid profile email",
@@ -217,7 +217,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			scopes = []string{"openid", "profile", "email"}
 		}
 		grafana.Spec.Config.AuthGenericOauth = &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
-			Enabled:               util.Pointer(true),
+			Enabled:               lo.ToPtr(true),
 			ClientId:              spec.ClientID,
 			ClientSecret:          spec.ClientSecret,
 			Scopes:                strings.Join(scopes, " "),

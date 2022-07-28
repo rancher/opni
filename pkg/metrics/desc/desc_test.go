@@ -6,9 +6,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	client_model "github.com/prometheus/client_model/go"
+	"github.com/samber/lo"
 
 	"github.com/rancher/opni/pkg/metrics/desc"
-	"github.com/rancher/opni/pkg/util"
 )
 
 var _ = Describe("Desc", Label("unit"), func() {
@@ -18,8 +18,8 @@ var _ = Describe("Desc", Label("unit"), func() {
 			Help:   "bar",
 			ConstLabelPairs: []*client_model.LabelPair{
 				{
-					Name:  util.Pointer("foo"),
-					Value: util.Pointer("bar"),
+					Name:  lo.ToPtr("foo"),
+					Value: lo.ToPtr("bar"),
 				},
 			},
 			VariableLabels: []string{"foo", "bar"},

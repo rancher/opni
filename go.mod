@@ -19,7 +19,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.0.2
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cert-manager/cert-manager v1.8.0
-	github.com/cortexproject/cortex v1.13.0-rc.0
+	github.com/cortexproject/cortex v1.13.0
 	github.com/dbason/featureflags v0.0.0-20220731224053-be63751dd521
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-kit/log v0.2.0
@@ -32,15 +32,15 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/grafana-operator/grafana-operator/v4 v4.3.0
 	github.com/grafana/cortex-tools v0.0.0-00010101000000-000000000000
-	github.com/hashicorp/go-hclog v1.2.1
+	github.com/hashicorp/go-hclog v1.2.2
 	github.com/hashicorp/go-plugin v1.4.4
-	github.com/hashicorp/go-version v1.5.0
+	github.com/hashicorp/go-version v1.6.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/iancoleman/strcase v0.2.0
 	github.com/imdario/mergo v0.3.13
-	github.com/jarcoal/httpmock v1.1.0
+	github.com/jarcoal/httpmock v1.2.0
 	github.com/jaypipes/ghw v0.9.0
-	github.com/jedib0t/go-pretty/v6 v6.3.1
+	github.com/jedib0t/go-pretty/v6 v6.3.5
 	github.com/jhump/protoreflect v1.12.0
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
@@ -61,7 +61,7 @@ require (
 	github.com/nats-io/nkeys v0.3.0
 	github.com/olebedev/when v0.0.0-20211212231525-59bd4edcf9d6
 	github.com/onsi/ginkgo/v2 v2.1.4
-	github.com/onsi/gomega v1.19.0
+	github.com/onsi/gomega v1.20.0
 	github.com/opensearch-project/opensearch-go v1.1.0
 	github.com/ory/fosite v0.42.2
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -77,49 +77,49 @@ require (
 	github.com/pulumi/pulumi-aws/sdk/v5 v5.10.0
 	github.com/pulumi/pulumi-awsx/sdk v1.0.0-beta.9
 	github.com/pulumi/pulumi-eks/sdk v0.41.0
-	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.20.0
-	github.com/pulumi/pulumi-random/sdk/v4 v4.8.0
-	github.com/pulumi/pulumi/sdk/v3 v3.36.0
-	github.com/qmuntal/stateless v1.6.0
+	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.20.2
+	github.com/pulumi/pulumi-random/sdk/v4 v4.8.1
+	github.com/pulumi/pulumi/sdk/v3 v3.37.1
+	github.com/qmuntal/stateless v1.6.1
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
-	github.com/samber/lo v1.25.0
+	github.com/samber/lo v1.26.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
-	github.com/tidwall/gjson v1.12.1
+	github.com/tidwall/gjson v1.14.1
 	github.com/tidwall/sjson v1.2.4
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/vbauerster/mpb/v7 v7.4.2
-	github.com/weaveworks/common v0.0.0-20211015155308-ebe5bdc2c89e
+	github.com/weaveworks/common v0.0.0-20210913144402-035033b78a78
 	go.etcd.io/etcd/api/v3 v3.5.4
 	go.etcd.io/etcd/client/v3 v3.5.4
 	go.etcd.io/etcd/etcdctl/v3 v3.5.4
-	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.32.0
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.31.0
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.32.0
-	go.opentelemetry.io/contrib/propagators/autoprop v0.0.0-20220619223623-e0e74d25f89f
-	go.opentelemetry.io/otel v1.7.0
-	go.opentelemetry.io/otel/sdk v1.7.0
-	go.opentelemetry.io/otel/trace v1.7.0
+	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.33.0
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.33.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.33.0
+	go.opentelemetry.io/contrib/propagators/autoprop v0.33.0
+	go.opentelemetry.io/otel v1.8.0
+	go.opentelemetry.io/otel/sdk v1.8.0
+	go.opentelemetry.io/otel/trace v1.8.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.21.0
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/exp v0.0.0-20220613132600-b0d781184e0d
-	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
-	golang.org/x/tools v0.1.10
+	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
+	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
+	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
+	golang.org/x/tools v0.1.12
 	gonum.org/v1/gonum v0.11.0
 	google.golang.org/genproto v0.0.0-20220719170305-83ca9fad585f
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
-	gopkg.in/ini.v1 v1.66.2
+	gopkg.in/ini.v1 v1.66.6
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.24.3
 	k8s.io/apiextensions-apiserver v0.24.0
 	k8s.io/apimachinery v0.24.3
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/client-go v0.24.3
 	k8s.io/component-base v0.24.3
-	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	opensearch.opster.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.11.1
 	sigs.k8s.io/controller-tools v0.8.1-0.20220428122951-32ad71090a62
@@ -179,7 +179,7 @@ require (
 	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
 	github.com/cockroachdb/apd/v2 v2.0.1 // indirect
-	github.com/containerd/containerd v1.6.3 // indirect
+	github.com/containerd/containerd v1.6.6 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/cppforlife/go-patch v0.2.0 // indirect
@@ -209,7 +209,7 @@ require (
 	github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/fgprof v0.9.1 // indirect
-	github.com/felixge/httpsnoop v1.0.2 // indirect
+	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/flosch/pongo2/v6 v6.0.0 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
@@ -398,7 +398,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/stretchr/objx v0.4.0 // indirect
-	github.com/stretchr/testify v1.7.4 // indirect
+	github.com/stretchr/testify v1.8.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/texttheater/golang-levenshtein v1.0.1 // indirect
 	github.com/thanos-io/thanos v0.22.0 // indirect
@@ -428,17 +428,16 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.4 // indirect
 	go.mongodb.org/mongo-driver v1.8.3 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	go.opentelemetry.io/contrib/propagators/aws v1.7.0 // indirect
-	go.opentelemetry.io/contrib/propagators/b3 v1.7.0 // indirect
-	go.opentelemetry.io/contrib/propagators/jaeger v1.7.0 // indirect
-	go.opentelemetry.io/contrib/propagators/ot v1.7.0 // indirect
-	go.opentelemetry.io/otel/metric v0.30.0 // indirect
+	go.opentelemetry.io/contrib/propagators/aws v1.8.0 // indirect
+	go.opentelemetry.io/contrib/propagators/b3 v1.8.0 // indirect
+	go.opentelemetry.io/contrib/propagators/jaeger v1.8.0 // indirect
+	go.opentelemetry.io/contrib/propagators/ot v1.8.0 // indirect
+	go.opentelemetry.io/otel/metric v0.31.0 // indirect
 	go.starlark.net v0.0.0-20200901195727-6e684ef5eeee // indirect
 	go.uber.org/goleak v1.1.12 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
+	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
 	golang.org/x/oauth2 v0.0.0-20220718184931-c8730f7fcb92 // indirect
-	golang.org/x/sys v0.0.0-20220610221304-9f5ed59c137d // indirect
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
@@ -462,6 +461,7 @@ require (
 	k8s.io/klog/v2 v2.60.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
 	k8s.io/kubectl v0.24.3 // indirect
+	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
 	lukechampine.com/frand v1.4.2 // indirect
 	oras.land/oras-go v1.1.0 // indirect
 	rsc.io/binaryregexp v0.2.0 // indirect
@@ -494,9 +494,21 @@ replace (
 
 // Cortex replacements
 replace (
+	// Override since git.apache.org is down.  The docs say to fetch from github.
 	git.apache.org/thrift.git => github.com/apache/thrift v0.0.0-20180902110319-2566ecd5d999
+
+	// Using a 3rd-party branch for custom dialer - see https://github.com/bradfitz/gomemcache/pull/86
 	github.com/bradfitz/gomemcache => github.com/themihai/gomemcache v0.0.0-20180902122335-24332e2d58ab
+
+	// Use fork of gocql that has gokit logs and Prometheus metrics.
 	github.com/gocql/gocql => github.com/grafana/gocql v0.0.0-20200605141915-ba5dc39ece85
+
+	// Replace memberlist with Grafana's fork which includes some fixes that haven't been merged upstream yet
 	github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.2.5-0.20211201083710-c7bc8e9df94b
+
+	// We only pin this version to avoid problems with running go get: github.com/thanos-io/thanos@main. That
+	// currently fails because Thanos isn't merging release branches to main branch, and Go modules system is then
+	// confused about which version is the latest one. v0.22.0 was released in July, but latest tag reachable from main
+	// is v0.19.1. We pin version from early December here. Feel free to remove when updating to later version.
 	github.com/thanos-io/thanos v0.22.0 => github.com/thanos-io/thanos v0.19.1-0.20211208205607-d1acaea2a11a
 )

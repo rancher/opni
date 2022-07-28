@@ -5,16 +5,17 @@ import (
 	"path"
 	"strings"
 
-	v1beta2 "github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
-	alerting "github.com/rancher/opni/plugins/alerting/pkg/alerting"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/rancher/opni/apis/v1beta2"
+	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 )
 
 var (
@@ -86,7 +87,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 			Labels:    publicLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: util.Pointer(r.numAlertingReplicas()),
+			Replicas: lo.ToPtr(r.numAlertingReplicas()),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: publicLabels,
 			},

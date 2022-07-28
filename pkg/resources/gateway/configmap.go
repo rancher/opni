@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/noauth"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,9 +38,9 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			},
 			AuthProvider: string(r.gw.Spec.Auth.Provider),
 			Certs: cfgv1beta1.CertsSpec{
-				CACert:      util.Pointer("/run/opni-monitoring/certs/ca.crt"),
-				ServingCert: util.Pointer("/run/opni-monitoring/certs/tls.crt"),
-				ServingKey:  util.Pointer("/run/opni-monitoring/certs/tls.key"),
+				CACert:      lo.ToPtr("/run/opni-monitoring/certs/ca.crt"),
+				ServingCert: lo.ToPtr("/run/opni-monitoring/certs/tls.crt"),
+				ServingKey:  lo.ToPtr("/run/opni-monitoring/certs/tls.key"),
 			},
 			Storage: cfgv1beta1.StorageSpec{
 				Type: r.gw.Spec.StorageType,

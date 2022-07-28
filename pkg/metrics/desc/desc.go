@@ -7,7 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 )
 
@@ -105,8 +105,8 @@ func CloneLabelPairs(pairs []*dto.LabelPair) []*dto.LabelPair {
 	res := make([]*dto.LabelPair, len(pairs))
 	for i, p := range pairs {
 		res[i] = &dto.LabelPair{
-			Name:  util.Pointer(p.GetName()),
-			Value: util.Pointer(p.GetValue()),
+			Name:  lo.ToPtr(p.GetName()),
+			Value: lo.ToPtr(p.GetValue()),
 		}
 	}
 	return res

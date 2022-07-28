@@ -12,12 +12,12 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"k8s.io/utils/pointer"
 
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
@@ -202,7 +202,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 		BeforeEach(func() {
 			descriptorLogic = func() (*descriptorpb.ServiceDescriptorProto, error) {
 				return &descriptorpb.ServiceDescriptorProto{
-					Name: pointer.String("NotExt"),
+					Name: lo.ToPtr("NotExt"),
 				}, nil
 			}
 			DeferCleanup(func() {

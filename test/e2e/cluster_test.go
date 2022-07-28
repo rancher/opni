@@ -18,6 +18,7 @@ import (
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
 	"github.com/phayes/freeport"
+	"github.com/samber/lo"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rancher/opni/apis/v1beta2"
@@ -31,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
-	"k8s.io/utils/pointer"
 )
 
 const (
@@ -125,13 +125,13 @@ var _ = XDescribe("OpniCluster E2E Test", Label("e2e"), func() {
 				},
 				Spec: v1beta2.OpniClusterSpec{
 					Version:            "v0.4.0",
-					DeployLogCollector: pointer.BoolPtr(true),
+					DeployLogCollector: lo.ToPtr(true),
 					Services: v1beta2.ServicesSpec{
 						GPUController: v1beta2.GPUControllerServiceSpec{
-							Enabled: pointer.BoolPtr(false),
+							Enabled: lo.ToPtr(false),
 						},
 						Metrics: v1beta2.MetricsServiceSpec{
-							Enabled: pointer.BoolPtr(true),
+							Enabled: lo.ToPtr(true),
 							PrometheusReference: &opnimeta.PrometheusReference{
 								Name:      "test-prometheus",
 								Namespace: "prometheus",

@@ -7,9 +7,9 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/providers"
 	"github.com/rancher/opni/pkg/resources/gpuadapter"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 func init() {
@@ -23,7 +23,7 @@ func init() {
 	constDriverEnv := constants.Spec.Driver.Env
 	constGfdEnv := constants.Spec.GPUFeatureDiscovery.Env
 	constPrivileged := &corev1.SecurityContext{
-		Privileged: pointer.Bool(true),
+		Privileged: lo.ToPtr(true),
 		SELinuxOptions: &corev1.SELinuxOptions{
 			Level: "s0",
 		},
@@ -39,8 +39,8 @@ func init() {
 			Kind:               ti.Input.Kind,
 			Name:               ti.Input.Name,
 			UID:                ti.Input.UID,
-			Controller:         pointer.Bool(true),
-			BlockOwnerDeletion: pointer.Bool(true),
+			Controller:         lo.ToPtr(true),
+			BlockOwnerDeletion: lo.ToPtr(true),
 		}))
 
 		// Daemonsets config is constant
@@ -59,8 +59,8 @@ func init() {
 		Expect(ti.Output.Spec.Validator.SecurityContext).To(Equal(constPrivileged))
 
 		// Some components are always enabled or disabled
-		truePtr := pointer.Bool(true)
-		falsePtr := pointer.Bool(false)
+		truePtr := lo.ToPtr(true)
+		falsePtr := lo.ToPtr(false)
 		Expect(ti.Output.Spec.DCGM.Enabled).To(Equal(truePtr))
 		Expect(ti.Output.Spec.Driver.Enabled).To(Equal(truePtr))
 		Expect(ti.Output.Spec.Driver.GPUDirectRDMA.Enabled).To(Equal(falsePtr))
@@ -220,6 +220,6 @@ func init() {
 		Expect(ti.Output.Spec.Driver.LicensingConfig.ConfigMapName).To(
 			Equal(ti.Input.Spec.VGPU.LicenseConfigMap))
 		Expect(ti.Output.Spec.Driver.LicensingConfig.NLSEnabled).To(
-			Equal(pointer.Bool(strings.ToLower(ti.Input.Spec.VGPU.LicenseServerKind) == "nls")))
+			Equal(lo.ToPtr(strings.ToLower(ti.Input.Spec.VGPU.LicenseServerKind) == "nls")))
 	})
 }

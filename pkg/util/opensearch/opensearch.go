@@ -15,9 +15,9 @@ import (
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/kibana"
 	opensearchapiext "github.com/rancher/opni/pkg/util/opensearch/types"
+	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"golang.org/x/mod/semver"
@@ -934,7 +934,7 @@ func (r *Reconciler) UpdateDefaultIngestPipelineForIndex(index string, pipelineN
 			index,
 		},
 		Body:             strings.NewReader(setting),
-		PreserveExisting: util.Pointer(true),
+		PreserveExisting: lo.ToPtr(true),
 	}
 
 	resp, err := req.Do(r.ctx, r.osClient)

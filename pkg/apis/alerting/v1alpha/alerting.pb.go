@@ -356,6 +356,7 @@ type AlertCondition struct {
 	Labels      []string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty"`
 	Severity    Severity `protobuf:"varint,4,opt,name=severity,proto3,enum=Severity" json:"severity,omitempty"`
 	// Types that are assignable to AlertType:
+	//
 	//	*AlertCondition_System
 	AlertType      isAlertCondition_AlertType `protobuf_oneof:"alertType"`
 	NotificationId *string                    `protobuf:"bytes,6,opt,name=notificationId,proto3,oneof" json:"notificationId,omitempty"`
@@ -967,6 +968,7 @@ type AlertEndpoint struct {
 	Name        string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	// Types that are assignable to Endpoint:
+	//
 	//	*AlertEndpoint_Slack
 	//	*AlertEndpoint_Email
 	//	*AlertEndpoint_Msteams

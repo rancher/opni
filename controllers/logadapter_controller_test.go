@@ -10,11 +10,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 
 	"github.com/rancher/opni/apis/v1beta2"
 )
@@ -417,7 +417,7 @@ var _ = Describe("LogAdapter Controller", Ordered, Label("controller"), func() {
 						Expect(logging.Spec.FluentbitSpec.ExtraVolumeMounts).To(ContainElement(&loggingv1beta1.VolumeMount{
 							Source:      "/var/log",
 							Destination: "/var/log",
-							ReadOnly:    pointer.Bool(true),
+							ReadOnly:    lo.ToPtr(true),
 						}))
 						Expect(logging.Spec.FluentbitSpec.InputTail.Path).To(Equal("/var/log/k3s.log"))
 					})
@@ -444,7 +444,7 @@ var _ = Describe("LogAdapter Controller", Ordered, Label("controller"), func() {
 						}).Should(ContainElement(&loggingv1beta1.VolumeMount{
 							Source:      openrcLogDir,
 							Destination: openrcLogDir,
-							ReadOnly:    pointer.Bool(true),
+							ReadOnly:    lo.ToPtr(true),
 						}))
 						Expect(logging.Spec.FluentbitSpec.InputTail.Path).To(Equal(openrcLogPath))
 					})

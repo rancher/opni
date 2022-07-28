@@ -71,10 +71,6 @@ func DeepCopy[T any](in *T) *T {
 	return out
 }
 
-func Pointer[T any](t T) *T {
-	return &t
-}
-
 func ProtoClone[T proto.Message](msg T) T {
 	return proto.Clone(msg).(T)
 }

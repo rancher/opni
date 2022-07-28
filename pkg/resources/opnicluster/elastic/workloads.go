@@ -6,12 +6,12 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -169,10 +169,10 @@ func (r *Reconciler) elasticMasterWorkload() resources.Resource {
 				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
 					Partition: func() *int32 {
 						if r.opniCluster.Status.OpensearchState.Version == nil {
-							return pointer.Int32(0)
+							return lo.ToPtr[int32](0)
 						}
 						if *r.opniCluster.Status.OpensearchState.Version == r.opniCluster.Spec.Opensearch.Version {
-							return pointer.Int32(0)
+							return lo.ToPtr[int32](0)
 						}
 						return r.opniCluster.Spec.Opensearch.Workloads.Master.Replicas
 					}(),
@@ -384,7 +384,7 @@ func initSysctlContainer() corev1.Container {
 			"vm.max_map_count=262144",
 		},
 		SecurityContext: &corev1.SecurityContext{
-			Privileged: pointer.Bool(true),
+			Privileged: lo.ToPtr(true),
 		},
 	}
 }

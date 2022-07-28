@@ -8,13 +8,13 @@ import (
 
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"golang.org/x/crypto/bcrypt"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -138,7 +138,7 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 					if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 						return err
 					}
-					r.opniCluster.Status.Auth.GenerateOpensearchHash = pointer.BoolPtr(true)
+					r.opniCluster.Status.Auth.GenerateOpensearchHash = lo.ToPtr(true)
 					return r.client.Status().Update(r.ctx, r.opniCluster)
 				})
 				return errors.New("password secret not found, will recreate on next loop")
@@ -202,7 +202,7 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 			return err
 		}
 		r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef = passwordSecretRef
-		r.opniCluster.Status.Auth.GenerateOpensearchHash = pointer.BoolPtr(false)
+		r.opniCluster.Status.Auth.GenerateOpensearchHash = lo.ToPtr(false)
 		return r.client.Status().Update(r.ctx, r.opniCluster)
 	})
 	return

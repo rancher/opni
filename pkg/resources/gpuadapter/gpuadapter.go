@@ -11,9 +11,9 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/providers"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -100,8 +100,8 @@ func BuildClusterPolicy(
 					Kind:               gpa.Kind,
 					Name:               gpa.Name,
 					UID:                gpa.UID,
-					Controller:         pointer.BoolPtr(true),
-					BlockOwnerDeletion: pointer.BoolPtr(true),
+					Controller:         lo.ToPtr(true),
+					BlockOwnerDeletion: lo.ToPtr(true),
 				},
 			},
 		},
@@ -117,7 +117,7 @@ func BuildClusterPolicy(
 				},
 			},
 			DCGM: nvidiav1.DCGMSpec{
-				Enabled:         pointer.Bool(true),
+				Enabled:         lo.ToPtr(true),
 				HostPort:        5555,
 				ImagePullPolicy: string(corev1.PullIfNotPresent),
 				Image:           gpa.Spec.Images.DCGM,
@@ -167,7 +167,7 @@ func BuildClusterPolicy(
 					},
 				},
 				SecurityContext: &corev1.SecurityContext{
-					Privileged: pointer.Bool(true),
+					Privileged: lo.ToPtr(true),
 					SELinuxOptions: &corev1.SELinuxOptions{
 						Level: "s0",
 					},
@@ -175,7 +175,7 @@ func BuildClusterPolicy(
 				Image: gpa.Spec.Images.DevicePlugin,
 			},
 			Driver: nvidiav1.DriverSpec{
-				Enabled: pointer.Bool(true),
+				Enabled: lo.ToPtr(true),
 				Manager: nvidiav1.DriverManagerSpec{
 					Env: []corev1.EnvVar{
 						{
@@ -202,10 +202,10 @@ func BuildClusterPolicy(
 					Image: gpa.Spec.Images.DriverManager,
 				},
 				GPUDirectRDMA: &nvidiav1.GPUDirectRDMASpec{
-					Enabled: pointer.Bool(false),
+					Enabled: lo.ToPtr(false),
 				},
 				SecurityContext: &corev1.SecurityContext{
-					Privileged: pointer.Bool(true),
+					Privileged: lo.ToPtr(true),
 					SELinuxOptions: &corev1.SELinuxOptions{
 						Level: "s0",
 					},
@@ -229,7 +229,7 @@ func BuildClusterPolicy(
 				Strategy: nvidiav1.MIGStrategyNone,
 			},
 			MIGManager: nvidiav1.MIGManagerSpec{
-				Enabled: pointer.Bool(false),
+				Enabled: lo.ToPtr(false),
 				Image:   gpa.Spec.Images.MIGManager,
 				Env: []corev1.EnvVar{
 					{
@@ -238,14 +238,14 @@ func BuildClusterPolicy(
 					},
 				},
 				SecurityContext: &corev1.SecurityContext{
-					Privileged: pointer.Bool(true),
+					Privileged: lo.ToPtr(true),
 					SELinuxOptions: &corev1.SELinuxOptions{
 						Level: "s0",
 					},
 				},
 			},
 			NodeStatusExporter: nvidiav1.NodeStatusExporterSpec{
-				Enabled: pointer.Bool(true),
+				Enabled: lo.ToPtr(true),
 				Image:   gpa.Spec.Images.Validator,
 			},
 			Operator: nvidiav1.OperatorSpec{
@@ -255,10 +255,10 @@ func BuildClusterPolicy(
 				},
 			},
 			PSP: nvidiav1.PSPSpec{
-				Enabled: pointer.Bool(false),
+				Enabled: lo.ToPtr(false),
 			},
 			Toolkit: nvidiav1.ToolkitSpec{
-				Enabled: pointer.Bool(true),
+				Enabled: lo.ToPtr(true),
 				Env: func() (vars []corev1.EnvVar) {
 					if containerRuntime == v1beta2.Containerd {
 						vars = append(vars, corev1.EnvVar{
@@ -281,7 +281,7 @@ func BuildClusterPolicy(
 					return
 				}(),
 				SecurityContext: &corev1.SecurityContext{
-					Privileged: pointer.Bool(true),
+					Privileged: lo.ToPtr(true),
 					SELinuxOptions: &corev1.SELinuxOptions{
 						Level: "s0",
 					},
@@ -298,7 +298,7 @@ func BuildClusterPolicy(
 					},
 				},
 				SecurityContext: &corev1.SecurityContext{
-					Privileged: pointer.Bool(true),
+					Privileged: lo.ToPtr(true),
 					SELinuxOptions: &corev1.SELinuxOptions{
 						Level: "s0",
 					},

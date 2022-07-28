@@ -10,11 +10,11 @@ import (
 	"github.com/opensearch-project/opensearch-go"
 	"github.com/opensearch-project/opensearch-go/opensearchapi"
 	"github.com/opensearch-project/opensearch-go/opensearchutil"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -59,7 +59,7 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 	if !r.areShardsGreen() {
 		// Check settings
 		getReq := opensearchapi.ClusterGetSettingsRequest{
-			FlatSettings: pointer.BoolPtr(true),
+			FlatSettings: lo.ToPtr(true),
 		}
 		resp, err := getReq.Do(r.ctx, r.esClient)
 		if err != nil {
@@ -87,7 +87,7 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 					ClusterRoutingAllocationEnable: "all",
 				},
 			}),
-			FlatSettings: pointer.BoolPtr(true),
+			FlatSettings: lo.ToPtr(true),
 		}
 		resp, err = putReq.Do(r.ctx, r.esClient)
 		if err != nil {
@@ -117,7 +117,7 @@ func (r *Reconciler) UpgradeData() (retry bool, err error) {
 				ClusterRoutingAllocationEnable: "primaries",
 			},
 		}),
-		FlatSettings: pointer.BoolPtr(true),
+		FlatSettings: lo.ToPtr(true),
 	}
 	resp, err := putReq.Do(r.ctx, r.esClient)
 	if err != nil {

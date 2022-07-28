@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/auth/openid"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 )
 
 var _ = Describe("Discovery", Ordered, Label("unit"), func() {
@@ -27,7 +27,7 @@ var _ = Describe("Discovery", Ordered, Label("unit"), func() {
 	It("should not redirect", func() {
 		cfg := &openid.OpenidConfig{
 			Discovery: &openid.DiscoverySpec{
-				Path:   util.Pointer("/bad-redirect-test"),
+				Path:   lo.ToPtr("/bad-redirect-test"),
 				Issuer: "http://" + discovery.addr,
 			},
 		}
@@ -65,7 +65,7 @@ var _ = Describe("Discovery", Ordered, Label("unit"), func() {
 				By("checking for HTTP errors")
 				cfg := &openid.OpenidConfig{
 					Discovery: &openid.DiscoverySpec{
-						Path:   util.Pointer("/bad-response-code-test"),
+						Path:   lo.ToPtr("/bad-response-code-test"),
 						Issuer: "http://" + discovery.addr,
 					},
 				}
@@ -76,7 +76,7 @@ var _ = Describe("Discovery", Ordered, Label("unit"), func() {
 				By("checking for invalid JSON")
 				cfg = &openid.OpenidConfig{
 					Discovery: &openid.DiscoverySpec{
-						Path:   util.Pointer("/bad-json-test"),
+						Path:   lo.ToPtr("/bad-json-test"),
 						Issuer: "http://" + discovery.addr,
 					},
 				}
@@ -87,7 +87,7 @@ var _ = Describe("Discovery", Ordered, Label("unit"), func() {
 				By("checking for missing fields")
 				cfg = &openid.OpenidConfig{
 					Discovery: &openid.DiscoverySpec{
-						Path:   util.Pointer("/missing-fields-test"),
+						Path:   lo.ToPtr("/missing-fields-test"),
 						Issuer: "http://" + discovery.addr,
 					},
 				}
@@ -97,7 +97,7 @@ var _ = Describe("Discovery", Ordered, Label("unit"), func() {
 				By("timing out if the server takes too long")
 				cfg = &openid.OpenidConfig{
 					Discovery: &openid.DiscoverySpec{
-						Path:   util.Pointer("/timeout"),
+						Path:   lo.ToPtr("/timeout"),
 						Issuer: "http://" + discovery.addr,
 					},
 				}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -56,7 +57,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 			Namespace: r.gw.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: util.Pointer[int32](1),
+			Replicas: lo.ToPtr[int32](1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: etcdLabels,
 			},
@@ -87,7 +88,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 						},
 					},
 					SecurityContext: &corev1.PodSecurityContext{
-						FSGroup: util.Pointer[int64](1001),
+						FSGroup: lo.ToPtr[int64](1001),
 					},
 					Containers: []corev1.Container{
 						{
@@ -95,8 +96,8 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 							Image:           "docker.io/bitnami/etcd:3",
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							SecurityContext: &corev1.SecurityContext{
-								RunAsNonRoot: util.Pointer(true),
-								RunAsUser:    util.Pointer[int64](1001),
+								RunAsNonRoot: lo.ToPtr(true),
+								RunAsUser:    lo.ToPtr[int64](1001),
 							},
 							Ports: []corev1.ContainerPort{
 								{
@@ -255,7 +256,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  "etcd-jwt-token",
-									DefaultMode: util.Pointer[int32](0400),
+									DefaultMode: lo.ToPtr[int32](0400),
 								},
 							},
 						},
@@ -264,7 +265,7 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  "etcd-serving-cert-keys",
-									DefaultMode: util.Pointer[int32](0400),
+									DefaultMode: lo.ToPtr[int32](0400),
 								},
 							},
 						},

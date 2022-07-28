@@ -30,12 +30,12 @@ import (
 	"github.com/phayes/freeport"
 	"github.com/rancher/opni/apis"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -234,7 +234,7 @@ type opniClusterOpts struct {
 
 func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
 	imageSpec := opnimeta.ImageSpec{
-		ImagePullPolicy: (*corev1.PullPolicy)(pointer.String(string(corev1.PullNever))),
+		ImagePullPolicy: (*corev1.PullPolicy)(lo.ToPtr(string(corev1.PullNever))),
 		ImagePullSecrets: []corev1.LocalObjectReference{
 			{
 				Name: "lorem-ipsum",
@@ -257,7 +257,7 @@ func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
 		},
 		Spec: v1beta2.OpniClusterSpec{
 			Version:     "test",
-			DefaultRepo: pointer.String("docker.biz/rancher"), // nonexistent repo
+			DefaultRepo: lo.ToPtr("docker.biz/rancher"), // nonexistent repo
 			GlobalNodeSelector: map[string]string{
 				"foo": "bar",
 			},
@@ -275,7 +275,7 @@ func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
 			},
 			Services: v1beta2.ServicesSpec{
 				Inference: v1beta2.InferenceServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 					PretrainedModels: func() []corev1.LocalObjectReference {
 						var ret []corev1.LocalObjectReference
@@ -288,23 +288,23 @@ func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
 					}(),
 				},
 				Drain: v1beta2.DrainServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
 				Preprocessing: v1beta2.PreprocessingServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
 				PayloadReceiver: v1beta2.PayloadReceiverServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
 				GPUController: v1beta2.GPUControllerServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 				},
 				Metrics: v1beta2.MetricsServiceSpec{
-					Enabled:   pointer.Bool(!opts.DisableOpniServices),
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
 					ImageSpec: imageSpec,
 					PrometheusEndpoint: func() string {
 						if opts.PrometheusEndpoint != "" {

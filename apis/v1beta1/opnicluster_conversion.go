@@ -2,7 +2,7 @@ package v1beta1
 
 import (
 	"github.com/rancher/opni/apis/v1beta2"
-	"k8s.io/utils/pointer"
+	"github.com/samber/lo"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -118,10 +118,10 @@ func (dst *OpniCluster) ConvertFrom(srcRaw conversion.Hub) error {
 		PrometheusReference: src.Spec.Services.Metrics.PrometheusReference,
 	}
 	services.Insights = InsightsServiceSpec{
-		Enabled: pointer.BoolPtr(false),
+		Enabled: lo.ToPtr(false),
 	}
 	services.UI = UIServiceSpec{
-		Enabled: pointer.BoolPtr(false),
+		Enabled: lo.ToPtr(false),
 	}
 	services.Preprocessing = PreprocessingServiceSpec{
 		ImageSpec:    src.Spec.Services.Preprocessing.ImageSpec,

@@ -10,8 +10,8 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	cfgv1beta1 "github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/noauth"
-	"github.com/rancher/opni/pkg/util"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -29,7 +29,7 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 				},
 				Spec: v1beta2.GatewaySpec{
 					Image: &v1beta2.ImageSpec{
-						Image: util.Pointer("rancher/opni:latest"),
+						Image: lo.ToPtr("rancher/opni:latest"),
 					},
 					Auth: v1beta2.AuthSpec{
 						Provider: cfgv1beta1.AuthProviderNoAuth,

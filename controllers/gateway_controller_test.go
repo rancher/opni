@@ -36,9 +36,11 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 						Noauth:   &noauth.ServerConfig{},
 					},
 					Alerting: &v1beta2.AlertingSpec{
-						Enabled:     true,
-						Port:        9093,
-						ServiceType: corev1.ServiceTypeLoadBalancer,
+						Enabled:       true,
+						ServiceType:   corev1.ServiceTypeLoadBalancer,
+						WebPort:       9093,
+						ApiPort:       9094,
+						ConfigMapName: "alertmanager-config",
 						GatewayVolumeMounts: []opnimeta.ExtraVolumeMount{
 							{
 								Name:      "alerting-storage",
@@ -193,12 +195,26 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 				HaveMatchingContainer(And(
 					HaveImage("bitnami/alertmanager:latest"),
 					HavePorts(
-						"alerting-port",
+						"alert-web-port",
+						"alert-api-port",
+					),
+					HaveVolumeMounts(
+						"opni-alertmanager-data",
+						"opni-alertmanager-config",
 					),
 				)),
-				HaveMatchingVolume(And(
-					HaveName("opni-alertmanager-data"),
-				)),
+				HaveMatchingVolume(
+					And(
+						HaveName("opni-alertmanager-data"),
+						HaveVolumeSource("PersistentVolumeClaim"),
+					),
+				),
+				HaveMatchingVolume(
+					And(
+						HaveName("opni-alertmanager-config"),
+						HaveVolumeSource("ConfigMap"),
+					),
+				),
 			))
 
 			Eventually(Object(&corev1.Service{
@@ -209,7 +225,8 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 			})).Should(ExistAnd(
 				HaveOwner(gw),
 				HavePorts(
-					"alerting-port",
+					"alert-web-port",
+					"alert-api-port",
 				),
 				HaveType(corev1.ServiceTypeLoadBalancer),
 			))

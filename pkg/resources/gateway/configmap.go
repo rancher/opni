@@ -51,7 +51,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 					}
 				}
 				return cfgv1beta1.AlertingSpec{
-					Endpoints: []string{fmt.Sprintf("opni-alerting:%d", r.gw.Spec.Alerting.Port)},
+					Endpoints: []string{fmt.Sprintf("opni-alerting:%d", r.gw.Spec.Alerting.ApiPort)},
 				}
 			}(),
 		},

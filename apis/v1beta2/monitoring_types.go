@@ -66,11 +66,15 @@ func (g *GatewaySpec) GetServiceType() corev1.ServiceType {
 type AlertingSpec struct {
 	Enabled bool `json:"enabled,omitempty"`
 	//+kubebuilder:default=9093
-	Port int `json:"alertingPort,omitempty"`
+	WebPort int `json:"webPort,omitempty"`
+	//+kubebuilder:default=9094
+	ApiPort int `json:apiPort,omitempty"`
 	//+kubebuilder:default=ClusterIP
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	//+kubebuilder:default="500Mi"
-	Storage             string                      `json:"storage,omitempty"`
+	Storage string `json:"storage,omitempty"`
+	//+kubebuilder:default="alertmanager-config"
+	ConfigMapName       string                      `json:"configMapName,omitempty"`
 	GatewayVolumeMounts []opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
 }
 

@@ -1,6 +1,10 @@
 package gateway
 
 import (
+	"fmt"
+	"os"
+	"path"
+
 	v1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
@@ -13,19 +17,31 @@ import (
 )
 
 func (r *Reconciler) alerting() []resources.Resource {
+
 	if r.gw.Spec.Alerting == nil {
-		r.gw.Spec.Alerting = &v1beta2.AlertingSpec{}
+		// set some sensible defaults
+		r.gw.Spec.Alerting = &v1beta2.AlertingSpec{
+			WebPort:       9093,
+			ApiPort:       9094,
+			Storage:       "500Mi",
+			ServiceType:   "ClusterIP",
+			ConfigMapName: "alertmanager-config",
+		}
 	}
 
-	// set some sensible defaults
-	if r.gw.Spec.Alerting.Port == 0 {
-		r.gw.Spec.Alerting.Port = 9093
+	// handle missing fields I guess because the test suite doesn't work
+	if r.gw.Spec.Alerting.WebPort == 0 {
+		r.gw.Spec.Alerting.WebPort = 9093
 	}
-	if r.gw.Spec.Alerting.ServiceType == "" {
-		r.gw.Spec.Alerting.ServiceType = corev1.ServiceTypeClusterIP
+
+	if r.gw.Spec.Alerting.ApiPort == 0 {
+		r.gw.Spec.Alerting.ApiPort = 9094
 	}
 	if r.gw.Spec.Alerting.Storage == "" {
 		r.gw.Spec.Alerting.Storage = "500Mi"
+	}
+	if r.gw.Spec.Alerting.ConfigMapName == "" {
+		r.gw.Spec.Alerting.ConfigMapName = "alertmanager-config"
 	}
 
 	publicLabels := map[string]string{} // TODO define a set of meaningful labels for this service
@@ -34,6 +50,36 @@ func (r *Reconciler) alerting() []resources.Resource {
 		return label
 	}
 	publicLabels = labelWithAlert(publicLabels)
+
+	// to reload we need to do issue a k8sclient rollout restart
+
+	// read default config
+	var defaultData []byte
+	defaultData, err := os.ReadFile("default-alertmanager-config.yaml")
+	if err != nil {
+		// do something
+		defaultData = []byte{}
+	}
+
+	// to be mounted into alertmanager pods
+	alertManagerConfigMap := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.gw.Spec.Alerting.ConfigMapName,
+			Namespace: r.gw.Namespace,
+		},
+
+		Data: map[string]string{
+			// read in from somewhere ?
+			"alertmanager.yaml": string(defaultData),
+		},
+	}
+	ctrl.SetControllerReference(r.gw, alertManagerConfigMap, r.client.Scheme())
+
+	dataMountPath := "/var/lib/alertmanager/data"
+	configMountPath := "/etc/config"
 
 	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -56,11 +102,24 @@ func (r *Reconciler) alerting() []resources.Resource {
 							Name:            "opni-alertmanager",
 							Image:           "bitnami/alertmanager:latest",
 							ImagePullPolicy: "Always",
-							Ports:           r.containerAlertManagerPorts(),
+							// Defaults to
+							// "--config.file=/opt/bitnami/alertmanager/conf/config.yml",
+							// "--storage.path=/opt/bitnami/alertmanager/data"
+							Args: []string{
+								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, "alertmanager.yml")),
+								fmt.Sprintf("--storage.path=%s", dataMountPath),
+							},
+							Ports: r.containerAlertManagerPorts(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "opni-alertmanager-data",
-									MountPath: "/var/lib/alertmanager/data",
+									MountPath: dataMountPath,
+								},
+								// volume mount for alertmanager configmap
+								{
+									Name:      "opni-alertmanager-config",
+									MountPath: configMountPath,
+									ReadOnly:  true,
 								},
 							},
 						},
@@ -71,6 +130,23 @@ func (r *Reconciler) alerting() []resources.Resource {
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "opni-alertmanager-data",
+								},
+							},
+						},
+						// mount alertmanager config map to volume
+						{
+							Name: "opni-alertmanager-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: r.gw.Spec.Alerting.ConfigMapName,
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  "alertmanager.yaml",
+											Path: "alertmanager.yaml",
+										},
+									},
 								},
 							},
 						},
@@ -115,6 +191,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 	ctrl.SetControllerReference(r.gw, alertingSvc, r.client.Scheme())
 
 	return []resources.Resource{
+		resources.PresentIff(r.gw.Spec.Alerting.Enabled, alertManagerConfigMap),
 		resources.PresentIff(r.gw.Spec.Alerting.Enabled, deploy),
 		resources.PresentIff(r.gw.Spec.Alerting.Enabled, alertingSvc),
 	}
@@ -127,8 +204,13 @@ func (r *Reconciler) numAlertingReplicas() int32 {
 func (r *Reconciler) containerAlertManagerPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
-			Name:          "alerting-port",
+			Name:          "alert-web-port",
 			ContainerPort: 9093,
+			Protocol:      "TCP",
+		},
+		{
+			Name:          "alert-api-port",
+			ContainerPort: 9094,
 			Protocol:      "TCP",
 		},
 	}

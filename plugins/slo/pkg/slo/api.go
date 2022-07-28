@@ -95,6 +95,7 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 
 func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.Empty, error) {
 	lg := p.logger
+	overrideLabels := req.SLO.GetLabels()
 	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", req.Id))
 	if err != nil {
 		return nil, err
@@ -128,6 +129,7 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 
 	// Merge when everything else is done
 	proto.Merge(existing, newReq)
+	existing.SLO.Labels = overrideLabels
 	if err := p.storage.Get().SLOs.Put(ctx, path.Join("/slos", req.Id), existing); err != nil {
 		return nil, err
 	}

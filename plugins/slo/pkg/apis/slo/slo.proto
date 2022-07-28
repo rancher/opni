@@ -19,7 +19,7 @@ service SLO {
   }
   rpc GetSLO(core.Reference) returns (SLOData) {
     option (google.api.http) = {
-      get: "/slos/{id}"
+      post: "/slos/{id}"
     };
   }
   rpc ListSLOs(google.protobuf.Empty) returns (ServiceLevelObjectiveList) {
@@ -70,7 +70,7 @@ service SLO {
    // Returns a status enum badge for a given SLO
   rpc Status(core.Reference) returns (SLOStatus) {
     option (google.api.http) = {
-      get: "/slos/{id}/status"
+      post: "/slos/{id}/status"
     };
   }
 

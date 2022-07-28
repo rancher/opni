@@ -343,7 +343,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				MetricName:        "http-availability",
 				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
 				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
-				Labels:            []*apis.Label{},
+				Labels:            []*apis.Label{{Name: "env"}, {Name: "dev"}},
 				Target:            &apis.Target{Value: 99.99},
 				Alerts:            []*apis.Alert{}, // do nothing for now
 			}
@@ -373,9 +373,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			createdItems, err := sloClient.CreateSLO(ctx, req)
 			Expect(err).To(Succeed())
 			Expect(createdItems.Items).To(HaveLen(1))
-			for _, item := range createdItems.Items {
-				createdSlos = append(createdSlos, item)
-			}
+			createdSlos = append(createdSlos, createdItems.Items...)
 			// Need to check all three individual rules are created on the cortex backend
 			expectSLOGroupToExist(adminClient, ctx, "agent", createdSlos[0].Id)
 
@@ -399,8 +397,11 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			id := createdSlos[0].Id
 			sloToUpdate, err := sloClient.GetSLO(ctx, &corev1.Reference{Id: id})
 			Expect(err).To(Succeed())
+			Expect(sloToUpdate.Service.ClusterId).ToNot(Equal("agent2"))
+			Expect(sloToUpdate.SLO.Labels).ToNot(HaveLen(1))
 			// change cluster of SLO
 			newsvc := sloToUpdate.Service
+			sloToUpdate.SLO.Labels = []*apis.Label{{Name: "adg"}}
 			newsvc.ClusterId = "agent2"
 			_, err = sloClient.UpdateSLO(ctx, &apis.SLOData{
 				Id:      sloToUpdate.Id,
@@ -416,6 +417,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			expectSLOGroupToExist(adminClient, ctx, "agent2", createdSlos[0].Id)
 			// Check all three rules have been deleted from the original cluster
 			expectSLOGroupNotToExist(adminClient, ctx, "agent", createdSlos[0].Id)
+			Expect(updatedSLO.SLO.Labels).To(HaveLen(1))
 
 		})
 		It("Should delete valid SLOs", func() {
@@ -538,7 +540,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			goodE := simulateGoodStatus(instrumentationMetric, instrumentationPort, 10)
 			Expect(goodE).To(Equal(10))
-			status, err = sloClient.Status(ctx, instrumentationSLOID)
+			_, err = sloClient.Status(ctx, instrumentationSLOID)
 			Expect(err).To(Succeed())
 			// Expect(status.State).To(Equal(apis.SLOStatusState_Ok))
 			// stopInstrumentationServer <- true

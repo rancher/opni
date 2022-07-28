@@ -5,7 +5,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni/pkg/alerting"
-	alertapi "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -25,8 +25,8 @@ type Plugin struct {
 }
 
 type StorageAPIs struct {
-	Conditions    system.KVStoreClient[*alertapi.AlertCondition]
-	AlertEndpoint system.KVStoreClient[*alertapi.AlertEndpoint]
+	Conditions    system.KVStoreClient[*alertingv1alpha.AlertCondition]
+	AlertEndpoint system.KVStoreClient[*alertingv1alpha.AlertEndpoint]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {

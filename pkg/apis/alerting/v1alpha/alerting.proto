@@ -176,7 +176,8 @@ message ListAlertConditionRequest {
 }
 
 message UpdateAlertConditionRequest {
-  // TODO
+  core.Reference id = 1;
+  AlertCondition UpdateAlert = 2;
 }
 
 message PreviewAlertConditionRequest {
@@ -189,7 +190,20 @@ message PreviewAlertConditionResponse {
 
 
 message AlertEndpoint {
-  // TODO
+   string name = 1;
+   repeated string labels = 2;
+   oneof endpoint {
+    SlackEndpoint slack = 3;
+    EmailEndpoint email = 4;
+   }
+}
+
+message SlackEndpoint {
+  //TODO
+}
+
+message EmailEndpoint {
+  //TODO
 }
 
 message AlertEndpointList {
@@ -200,7 +214,8 @@ message ListAlertEndpointsRequest {
 
 }
 message UpdateAlertEndpointRequest {
-  //TODO
+  core.Reference id = 1;
+  AlertEndpoint UpdateAlert = 2;
 }
 
 message TestAlertEndpointRequest{

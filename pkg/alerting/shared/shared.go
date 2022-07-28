@@ -17,10 +17,36 @@ const (
 var (
 	AlertingErrNotImplemented     = WithUnimplementedError("Not implemented")
 	AlertingErrNotImplementedNOOP = WithUnimplementedError("Alerting NOOP : Not implemented")
+	AlertingErrParseBucket        = WithInternalServerError("Failed to parse bucket index")
+	AlertingErrBucketIndexInvalid = WithInternalServerError("Bucket index is invalid")
 )
 
 type UnimplementedError struct {
 	message string
+}
+
+type InternalServerError struct {
+	message string
+}
+
+func (e *InternalServerError) Error() string {
+	return e.message
+}
+
+func (e *InternalServerError) GRPCStatus() *status.Status {
+	return status.New(codes.Internal, e.message)
+}
+
+func WithInternalServerError(msg string) error {
+	return &InternalServerError{
+		message: msg,
+	}
+}
+
+func WithInternalServerErrorf(format string, args ...interface{}) error {
+	return &InternalServerError{
+		message: fmt.Errorf(format, args...).Error(),
+	}
 }
 
 func (e *UnimplementedError) Error() string {

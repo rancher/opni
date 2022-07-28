@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"path"
+	// cfg "github.com/prometheus/alertmanager/config"
 )
 
 const (
@@ -11,6 +12,21 @@ const (
 	v2     = "/api/v2"
 	v1     = "/api/v1"
 )
+
+// type ConfigMapData struct {
+// }
+
+// func UnmarshalConfigMap(p *Plugin) {
+// 	// get config map data from k8s client
+// 	// key := "alertmanager.yaml"
+
+// 	// unmarshal config map data
+// 	c := cfg.Config
+// 	for _, r := range c.Receivers {
+
+// 	}
+// 	// return that data
+// }
 
 type AlertManagerAPI struct {
 	endpoint string

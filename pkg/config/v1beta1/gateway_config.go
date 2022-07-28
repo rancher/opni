@@ -30,7 +30,8 @@ type GatewayConfigSpec struct {
 }
 
 type AlertingSpec struct {
-	Endpoints []string `json:"endpoints,omitempty"`
+	Endpoints     []string `json:"endpoints,omitempty"`
+	ConfigMapName string   `json:"configMapName,omitempty"`
 }
 
 type MetricsSpec struct {

@@ -31,7 +31,11 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		os.Exit(1)
 	}
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
-		p.alertingEndpoints.Set(config.Spec.Alerting.Endpoints)
+		opt := AlertingOptions{
+			Endpoints: config.Spec.Alerting.Endpoints,
+			ConfigMap: config.Spec.Alerting.ConfigMapName,
+		}
+		p.alertingOptions.Set(opt)
 	})
 }
 
@@ -41,8 +45,4 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		Conditions:    system.NewKVStoreClient[*alertapi.AlertCondition](client),
 		AlertEndpoint: system.NewKVStoreClient[*alertapi.AlertEndpoint](client),
 	})
-}
-
-func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
-
 }

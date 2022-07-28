@@ -1068,11 +1068,11 @@ spec:
                   apiPort:
                     default: 9094
                     type: integer
-                  enabled:
-                    type: boolean
-                  configMapName:
+                  configName:
                     default: alertmanager-config
                     type: string
+                  enabled:
+                    type: boolean
                   serviceType:
                     default: ClusterIP
                     type: string

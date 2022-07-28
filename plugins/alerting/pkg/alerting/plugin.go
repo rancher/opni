@@ -18,11 +18,16 @@ import (
 type Plugin struct {
 	alertingv1alpha.UnsafeAlertingServer
 	system.UnimplementedSystemPluginClient
-	ctx               context.Context
-	logger            hclog.Logger
-	alertingEndpoints future.Future[[]string]
-	storage           future.Future[StorageAPIs]
-	mgmtClient        future.Future[managementv1.ManagementClient]
+	ctx             context.Context
+	logger          hclog.Logger
+	alertingOptions future.Future[AlertingOptions]
+	storage         future.Future[StorageAPIs]
+	mgmtClient      future.Future[managementv1.ManagementClient]
+}
+
+type AlertingOptions struct {
+	Endpoints []string
+	ConfigMap string
 }
 
 type StorageAPIs struct {

@@ -41,11 +41,11 @@ func (r *Reconciler) alerting() []resources.Resource {
 	if r.gw.Spec.Alerting == nil {
 		// set some sensible defaults
 		r.gw.Spec.Alerting = &v1beta2.AlertingSpec{
-			WebPort:       9093,
-			ApiPort:       9094,
-			Storage:       "500Mi",
-			ServiceType:   "ClusterIP",
-			ConfigMapName: "alertmanager-config",
+			WebPort:     9093,
+			ApiPort:     9094,
+			Storage:     "500Mi",
+			ServiceType: "ClusterIP",
+			ConfigName:  "alertmanager-config",
 		}
 	}
 
@@ -60,8 +60,8 @@ func (r *Reconciler) alerting() []resources.Resource {
 	if r.gw.Spec.Alerting.Storage == "" {
 		r.gw.Spec.Alerting.Storage = "500Mi"
 	}
-	if r.gw.Spec.Alerting.ConfigMapName == "" {
-		r.gw.Spec.Alerting.ConfigMapName = "alertmanager-config"
+	if r.gw.Spec.Alerting.ConfigName == "" {
+		r.gw.Spec.Alerting.ConfigName = "alertmanager-config"
 	}
 
 	publicLabels := map[string]string{} // TODO define a set of meaningful labels for this service
@@ -81,7 +81,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.gw.Spec.Alerting.ConfigMapName,
+			Name:      r.gw.Spec.Alerting.ConfigName,
 			Namespace: r.gw.Namespace,
 		},
 
@@ -120,8 +120,9 @@ func (r *Reconciler) alerting() []resources.Resource {
 							// "--config.file=/opt/bitnami/alertmanager/conf/config.yml",
 							// "--storage.path=/opt/bitnami/alertmanager/data"
 							Args: []string{
-								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, "alertmanager.yml")),
+								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, "alertmanager.yaml")),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
+								"-p 9094:9094", // expose REST api port
 							},
 							Ports: r.containerAlertManagerPorts(),
 							VolumeMounts: []corev1.VolumeMount{
@@ -153,7 +154,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: r.gw.Spec.Alerting.ConfigMapName,
+										Name: r.gw.Spec.Alerting.ConfigName,
 									},
 									Items: []corev1.KeyToPath{
 										{

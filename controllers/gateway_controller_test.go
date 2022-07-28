@@ -36,11 +36,11 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 						Noauth:   &noauth.ServerConfig{},
 					},
 					Alerting: &v1beta2.AlertingSpec{
-						Enabled:       true,
-						ServiceType:   corev1.ServiceTypeLoadBalancer,
-						WebPort:       9093,
-						ApiPort:       9094,
-						ConfigMapName: "alertmanager-config",
+						Enabled:     true,
+						ServiceType: corev1.ServiceTypeLoadBalancer,
+						WebPort:     9093,
+						ApiPort:     9094,
+						ConfigName:  "alertmanager-config",
 						GatewayVolumeMounts: []opnimeta.ExtraVolumeMount{
 							{
 								Name:      "alerting-storage",

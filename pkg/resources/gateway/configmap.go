@@ -47,11 +47,13 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			Alerting: func() cfgv1beta1.AlertingSpec {
 				if r.gw.Spec.Alerting == nil {
 					return cfgv1beta1.AlertingSpec{
-						Endpoints: []string{"opni-alerting:9093"},
+						Endpoints:     []string{"opni-alerting:9093"},
+						ConfigMapName: "alertmanager-config",
 					}
 				}
 				return cfgv1beta1.AlertingSpec{
-					Endpoints: []string{fmt.Sprintf("opni-alerting:%d", r.gw.Spec.Alerting.ApiPort)},
+					Endpoints:     []string{fmt.Sprintf("opni-alerting:%d", r.gw.Spec.Alerting.ApiPort)},
+					ConfigMapName: r.gw.Spec.Alerting.ConfigName,
 				}
 			}(),
 		},

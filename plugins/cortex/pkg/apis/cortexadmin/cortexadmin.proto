@@ -54,6 +54,12 @@ service CortexAdmin {
       delete: "/rules/{groupName}"
     };
   }
+
+  rpc FlushBlocks(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/flush_blocks"
+    };
+  }
 }
 
 message UserIDStatsList {

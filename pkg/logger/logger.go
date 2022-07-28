@@ -81,11 +81,13 @@ func (l *extendedSugaredLogger) XNamed(name string) ExtendedSugaredLogger {
 }
 
 type LoggerOptions struct {
-	logLevel   zapcore.Level
-	writer     io.Writer
-	color      *bool
-	zapOptions []zap.Option
-	sampling   *zap.SamplingConfig
+	logLevel      zapcore.Level
+	writer        io.Writer
+	color         *bool
+	disableCaller bool
+	timeEncoder   zapcore.TimeEncoder
+	zapOptions    []zap.Option
+	sampling      *zap.SamplingConfig
 }
 
 type LoggerOption func(*LoggerOptions)
@@ -120,6 +122,18 @@ func WithZapOptions(opts ...zap.Option) LoggerOption {
 	}
 }
 
+func WithDisableCaller() LoggerOption {
+	return func(o *LoggerOptions) {
+		o.disableCaller = true
+	}
+}
+
+func WithTimeEncoder(enc zapcore.TimeEncoder) LoggerOption {
+	return func(o *LoggerOptions) {
+		o.timeEncoder = enc
+	}
+}
+
 func WithSampling(cfg *zap.SamplingConfig) LoggerOption {
 	return func(o *LoggerOptions) {
 		s := &sampler{}
@@ -133,7 +147,8 @@ func WithSampling(cfg *zap.SamplingConfig) LoggerOption {
 
 func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	options := &LoggerOptions{
-		logLevel: DefaultLogLevel.Level(),
+		logLevel:    DefaultLogLevel.Level(),
+		timeEncoder: zapcore.ISO8601TimeEncoder,
 	}
 	if testutil.IsTesting {
 		options.writer = ginkgo.GinkgoWriter
@@ -195,7 +210,7 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 			}
 		},
 		EncodeDuration:   zapcore.SecondsDurationEncoder,
-		EncodeTime:       zapcore.ISO8601TimeEncoder,
+		EncodeTime:       options.timeEncoder,
 		ConsoleSeparator: " ",
 	}
 	level := zap.NewAtomicLevelAt(options.logLevel)
@@ -211,7 +226,7 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 	zapConfig := zap.Config{
 		Level:             level,
 		Development:       false,
-		DisableCaller:     false,
+		DisableCaller:     options.disableCaller,
 		DisableStacktrace: true,
 		Sampling:          options.sampling,
 		Encoding:          "console",

@@ -44,6 +44,7 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...
 		return nil, fmt.Errorf("failed to create token %w", err)
 	}
 	token.Metadata.Ttl = int64(ttl.Seconds())
+	token.SetResourceVersion("1")
 	return token, nil
 }
 

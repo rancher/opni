@@ -27,7 +27,6 @@ func BuildClustersCmd() *cobra.Command {
 }
 
 func BuildClustersListCmd() *cobra.Command {
-	var verbose bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List clusters",
@@ -37,33 +36,39 @@ func BuildClustersListCmd() *cobra.Command {
 				lg.Fatal(err)
 			}
 			var clusterStats *cortexadmin.UserIDStatsList
-			if verbose {
-				stats, err := adminClient.AllUserStats(cmd.Context(), &emptypb.Empty{})
+			var healthStatus []*corev1.HealthStatus
+			for _, c := range t.Items {
+				stat, err := mgmtClient.GetClusterHealthStatus(cmd.Context(), c.Reference())
 				if err != nil {
-					lg.Fatalf("Failed to get cluster stats: %v", err)
+					lg.Fatal(err)
 				}
-				clusterStats = stats
+				healthStatus = append(healthStatus, stat)
 			}
-			fmt.Println(cliutil.RenderClusterList(t, clusterStats))
+
+			stats, err := adminClient.AllUserStats(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				lg.With(
+					zap.Error(err),
+				).Warn("failed to query cortex stats")
+			}
+			clusterStats = stats
+			fmt.Println(cliutil.RenderClusterList(t, healthStatus, clusterStats))
 		},
 	}
-	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	return cmd
 }
 
 func BuildClustersDeleteCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "delete <cluster-id> [<cluster-id>...]",
+	cmd := &cobra.Command{
+		Use:     "delete <cluster-id> [<cluster-id> ...]",
 		Aliases: []string{"rm"},
 		Short:   "Delete a cluster",
 		Args:    cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, cluster := range args {
-				_, err := mgmtClient.DeleteCluster(cmd.Context(),
-					&corev1.Reference{
-						Id: cluster,
-					},
-				)
+				_, err := mgmtClient.DeleteCluster(cmd.Context(), &corev1.Reference{
+					Id: cluster,
+				})
 				if err != nil {
 					lg.Fatal(err)
 				}
@@ -71,8 +76,10 @@ func BuildClustersDeleteCmd() *cobra.Command {
 					"id", cluster,
 				).Info("Deleted cluster")
 			}
+			return nil
 		},
 	}
+	return cmd
 }
 
 func BuildClustersLabelCmd() *cobra.Command {

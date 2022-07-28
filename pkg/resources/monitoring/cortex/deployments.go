@@ -13,6 +13,10 @@ func (r *Reconciler) deployments() []resources.Resource {
 		Replicas(1),
 		Ports(HTTP, GRPC),
 	)
+	purger := r.buildCortexDeployment("purger",
+		Replicas(1),
+		Ports(HTTP),
+	)
 	ruler := r.buildCortexDeployment("ruler",
 		Ports(HTTP, Gossip),
 		ExtraVolumeMounts(corev1.VolumeMount{
@@ -30,5 +34,6 @@ func (r *Reconciler) deployments() []resources.Resource {
 		distributor,
 		queryFrontend,
 		ruler,
+		purger,
 	}
 }

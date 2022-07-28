@@ -4,9 +4,12 @@ import (
 	"context"
 	"os"
 
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery"
+	"github.com/rancher/opni/pkg/plugins/apis/system"
+	"github.com/rancher/opni/pkg/task"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -45,4 +48,20 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 
 	p.authMiddlewares.Set(machinery.LoadAuthProviders(p.ctx, objectList))
 	<-p.ctx.Done()
+}
+
+func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
+	ctrl, err := task.NewController(p.ctx, "uninstall", system.NewKVStoreClient[*corev1.TaskStatus](client), &UninstallTaskRunner{
+		cortexHttpClient: p.cortexHttpClient,
+		storageBackend:   p.storageBackend,
+		config:           p.config,
+	})
+	if err != nil {
+		p.logger.With(
+			"err", err,
+		).Error("failed to create task controller")
+		os.Exit(1)
+	}
+	p.uninstallController.Set(ctrl)
+	<-p.ctx.Done() // TODO: context should be passed into this function
 }

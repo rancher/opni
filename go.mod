@@ -77,6 +77,7 @@ require (
 	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.20.0
 	github.com/pulumi/pulumi-random/sdk/v4 v4.8.0
 	github.com/pulumi/pulumi/sdk/v3 v3.36.0
+	github.com/qmuntal/stateless v1.6.0
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/samber/lo v1.25.0
 	github.com/spf13/cobra v1.5.0
@@ -86,6 +87,7 @@ require (
 	github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31
 	github.com/vbauerster/mpb/v7 v7.4.2
 	github.com/weaveworks/common v0.0.0-20211015155308-ebe5bdc2c89e
+	go.etcd.io/etcd/api/v3 v3.5.4
 	go.etcd.io/etcd/client/v3 v3.5.4
 	go.etcd.io/etcd/etcdctl/v3 v3.5.4
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.32.0
@@ -417,7 +419,6 @@ require (
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
-	go.etcd.io/etcd/api/v3 v3.5.4 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.4 // indirect
 	go.etcd.io/etcd/client/v2 v2.305.4 // indirect
 	go.etcd.io/etcd/etcdutl/v3 v3.5.4 // indirect

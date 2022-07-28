@@ -34,6 +34,15 @@ spec:
                   capabilities:
                     items:
                       properties:
+                        deletionTimestamp:
+                          properties:
+                            nanos:
+                              format: int32
+                              type: integer
+                            seconds:
+                              format: int64
+                              type: integer
+                          type: object
                         name:
                           type: string
                       type: object
@@ -42,6 +51,8 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  resourceVersion:
+                    type: string
                 type: object
             type: object
         type: object

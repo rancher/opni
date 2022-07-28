@@ -10,9 +10,10 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
+	"go.uber.org/zap/zapcore"
 )
 
-var log = logger.New().Named("tracing")
+var log = logger.New(logger.WithLogLevel(zapcore.InfoLevel)).Named("tracing")
 
 func Configure(serviceName string) {
 	res, err := resource.New(context.Background(),

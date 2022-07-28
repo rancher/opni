@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/test"
@@ -14,13 +15,20 @@ func main() {
 	gin.SetMode(gin.TestMode)
 	var enableGateway, enableEtcd, enableCortex bool
 	var remoteGatewayAddress, remoteKubeconfig string
+	var agentIdSeed int64
 
 	pflag.BoolVar(&enableGateway, "enable-gateway", true, "enable gateway")
 	pflag.BoolVar(&enableEtcd, "enable-etcd", true, "enable etcd")
 	pflag.BoolVar(&enableCortex, "enable-cortex", true, "enable cortex")
 	pflag.StringVar(&remoteGatewayAddress, "remote-gateway-address", "", "remote gateway address")
 	pflag.StringVar(&remoteKubeconfig, "remote-kubeconfig", "", "remote kubeconfig (for accessing the management api)")
+	pflag.Int64Var(&agentIdSeed, "agent-id-seed", 0, "random seed used for generating agent ids. if unset, uses a random seed.")
+
 	pflag.Parse()
+
+	if !pflag.Lookup("agent-id-seed").Changed {
+		agentIdSeed = time.Now().UnixNano()
+	}
 
 	defaultAgentOpts := []test.StartAgentOption{}
 	if remoteGatewayAddress != "" {
@@ -38,5 +46,6 @@ func main() {
 		test.WithEnableEtcd(enableEtcd),
 		test.WithEnableCortex(enableCortex),
 		test.WithDefaultAgentOpts(defaultAgentOpts...),
+		test.WithAgentIdSeed(agentIdSeed),
 	)
 }

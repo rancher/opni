@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -121,6 +122,7 @@ type EnvironmentOptions struct {
 	enableCortex         bool
 	enableRealtimeServer bool
 	defaultAgentOpts     []StartAgentOption
+	agentIdSeed          int64
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -161,12 +163,19 @@ func WithDefaultAgentOpts(opts ...StartAgentOption) EnvironmentOption {
 	}
 }
 
+func WithAgentIdSeed(seed int64) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.agentIdSeed = seed
+	}
+}
+
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	options := EnvironmentOptions{
 		enableEtcd:           true,
 		enableGateway:        true,
 		enableCortex:         true,
 		enableRealtimeServer: true,
+		agentIdSeed:          time.Now().UnixNano(),
 	}
 	options.apply(opts...)
 
@@ -453,6 +462,7 @@ type cortexTemplateOptions struct {
 	HttpListenPort int
 	GrpcListenPort int
 	StorageDir     string
+	EtcdPort       int
 }
 
 func (e *Environment) startCortex() {
@@ -470,6 +480,7 @@ func (e *Environment) startCortex() {
 		HttpListenPort: e.ports.CortexHTTP,
 		GrpcListenPort: e.ports.CortexGRPC,
 		StorageDir:     path.Join(e.tempDir, "cortex"),
+		EtcdPort:       e.ports.Etcd,
 	}); err != nil {
 		panic(err)
 	}
@@ -731,6 +742,9 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 				},
+				Purger: v1beta1.PurgerSpec{
+					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+				},
 				Certs: v1beta1.MTLSSpec{
 					ServerCA:   path.Join(e.tempDir, "cortex/root.crt"),
 					ClientCA:   path.Join(e.tempDir, "cortex/root.crt"),
@@ -902,6 +916,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	options := &StartAgentOptions{
 		ctx: e.ctx,
 	}
+	options.apply(e.defaultAgentOpts...)
 	options.apply(opts...)
 	if !e.enableGateway && options.remoteGatewayAddress == "" {
 		e.Logger.Panic("gateway disabled")
@@ -1071,6 +1086,8 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	environment := &Environment{
 		TestBin: "testbin/bin",
 	}
+	randSrc := rand.New(rand.NewSource(0))
+
 	addAgent := func(rw http.ResponseWriter, r *http.Request) {
 		Log.Infof("%s %s", r.Method, r.URL.Path)
 		switch r.Method {
@@ -1078,11 +1095,15 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 			body := struct {
 				Token string   `json:"token"`
 				Pins  []string `json:"pins"`
+				ID    string   `json:"id"`
 			}{}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				rw.WriteHeader(http.StatusBadRequest)
 				rw.Write([]byte(err.Error()))
 				return
+			}
+			if body.ID == "" {
+				body.ID = util.Must(uuid.NewRandomFromReader(randSrc)).String()
 			}
 			token, err := tokens.ParseHex(body.Token)
 			if err != nil {
@@ -1090,7 +1111,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				rw.Write([]byte(err.Error()))
 				return
 			}
-			port, errC := environment.StartAgent(uuid.New().String(), token.ToBootstrapToken(), body.Pins, options.defaultAgentOpts...)
+			port, errC := environment.StartAgent(body.ID, token.ToBootstrapToken(), body.Pins, options.defaultAgentOpts...)
 			if err := <-errC; err != nil {
 				rw.WriteHeader(http.StatusInternalServerError)
 				rw.Write([]byte(err.Error()))

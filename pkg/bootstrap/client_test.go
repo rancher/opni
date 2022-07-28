@@ -79,26 +79,32 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 			{
 				Name:       "test",
 				CanInstall: true,
+				Storage:    store,
 			},
 			{
 				Name:       "test1",
 				CanInstall: true,
+				Storage:    store,
 			},
 			{
 				Name:       "test2",
 				CanInstall: true,
+				Storage:    store,
 			},
 			{
 				Name:       "test3",
 				CanInstall: true,
+				Storage:    store,
 			},
 			{
 				Name:       "test4",
 				CanInstall: true,
+				Storage:    store,
 			},
 			{
 				Name:       "test5",
 				CanInstall: true,
+				Storage:    store,
 			},
 		} {
 			capBackendStore.Add(backend.Name, test.NewTestCapabilityBackend(ctrl, backend))

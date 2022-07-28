@@ -30,6 +30,7 @@ type CortexAdminClient interface {
 	GetRule(ctx context.Context, in *RuleRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	LoadRules(ctx context.Context, in *YamlRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteRule(ctx context.Context, in *RuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	FlushBlocks(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type cortexAdminClient struct {
@@ -103,6 +104,15 @@ func (c *cortexAdminClient) DeleteRule(ctx context.Context, in *RuleRequest, opt
 	return out, nil
 }
 
+func (c *cortexAdminClient) FlushBlocks(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/FlushBlocks", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CortexAdminServer is the server API for CortexAdmin service.
 // All implementations must embed UnimplementedCortexAdminServer
 // for forward compatibility
@@ -114,6 +124,7 @@ type CortexAdminServer interface {
 	GetRule(context.Context, *RuleRequest) (*QueryResponse, error)
 	LoadRules(context.Context, *YamlRequest) (*emptypb.Empty, error)
 	DeleteRule(context.Context, *RuleRequest) (*emptypb.Empty, error)
+	FlushBlocks(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedCortexAdminServer()
 }
 
@@ -141,6 +152,9 @@ func (UnimplementedCortexAdminServer) LoadRules(context.Context, *YamlRequest) (
 }
 func (UnimplementedCortexAdminServer) DeleteRule(context.Context, *RuleRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteRule not implemented")
+}
+func (UnimplementedCortexAdminServer) FlushBlocks(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FlushBlocks not implemented")
 }
 func (UnimplementedCortexAdminServer) mustEmbedUnimplementedCortexAdminServer() {}
 
@@ -281,6 +295,24 @@ func _CortexAdmin_DeleteRule_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CortexAdmin_FlushBlocks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).FlushBlocks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexadmin.CortexAdmin/FlushBlocks",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).FlushBlocks(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CortexAdmin_ServiceDesc is the grpc.ServiceDesc for CortexAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -315,6 +347,10 @@ var CortexAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteRule",
 			Handler:    _CortexAdmin_DeleteRule_Handler,
+		},
+		{
+			MethodName: "FlushBlocks",
+			Handler:    _CortexAdmin_FlushBlocks_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

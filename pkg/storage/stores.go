@@ -34,6 +34,7 @@ type ClusterStore interface {
 	DeleteCluster(ctx context.Context, ref *corev1.Reference) error
 	GetCluster(ctx context.Context, ref *corev1.Reference) (*corev1.Cluster, error)
 	UpdateCluster(ctx context.Context, ref *corev1.Reference, mutator ClusterMutator) (*corev1.Cluster, error)
+	WatchCluster(ctx context.Context, cluster *corev1.Cluster) (<-chan WatchEvent[*corev1.Cluster], error)
 	ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error)
 }
 
@@ -53,12 +54,14 @@ type KeyringStore interface {
 	Get(ctx context.Context) (keyring.Keyring, error)
 }
 
-type KeyValueStore interface {
-	Put(ctx context.Context, key string, value []byte) error
-	Get(ctx context.Context, key string) ([]byte, error)
+type KeyValueStoreT[T any] interface {
+	Put(ctx context.Context, key string, value T) error
+	Get(ctx context.Context, key string) (T, error)
 	Delete(ctx context.Context, key string) error
 	ListKeys(ctx context.Context, prefix string) ([]string, error)
 }
+
+type KeyValueStore KeyValueStoreT[[]byte]
 
 type KeyringStoreBroker interface {
 	KeyringStore(namespace string, ref *corev1.Reference) (KeyringStore, error)
@@ -81,4 +84,17 @@ type AlertingStore interface {
 	DeleteAlertLog(ctx context.Context, ref *corev1.Reference) error
 	GetAlertLog(ctx context.Context, ref *corev1.Reference) (*corev1.AlertLog, error)
 	ListAlertLogs(ctx context.Context, opts ...AlertFilterOptions) (*corev1.AlertLogList, error)
+}
+
+type WatchEventType string
+
+const (
+	WatchEventPut    WatchEventType = "PUT"
+	WatchEventDelete WatchEventType = "DELETE"
+)
+
+type WatchEvent[T any] struct {
+	EventType WatchEventType
+	Current   T
+	Previous  T
 }

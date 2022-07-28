@@ -45,9 +45,9 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	p.storage.Set(StorageAPIs{
-		SLOs:     system.NewKVStoreClient[*sloapi.SLOData](p.ctx, client),
-		Services: system.NewKVStoreClient[*sloapi.Service](p.ctx, client),
-		Metrics:  system.NewKVStoreClient[*sloapi.Metric](p.ctx, client),
+		SLOs:     system.NewKVStoreClient[*sloapi.SLOData](client),
+		Services: system.NewKVStoreClient[*sloapi.Service](client),
+		Metrics:  system.NewKVStoreClient[*sloapi.Metric](client),
 	})
 	p.initMetricCache(p.ctx)
 	<-p.ctx.Done()
@@ -63,7 +63,7 @@ func (p *Plugin) initMetricCache(ctx context.Context) error {
 			Name:       q.Name(),
 			Datasource: q.Datasource(),
 		}
-		if err := p.storage.Get().Metrics.Put(path.Join("/metrics", items[idx].Name), &items[idx]); err != nil {
+		if err := p.storage.Get().Metrics.Put(ctx, path.Join("/metrics", items[idx].Name), &items[idx]); err != nil {
 			return err
 		}
 		idx += 1

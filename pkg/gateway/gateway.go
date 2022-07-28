@@ -120,8 +120,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 			).Error("failed to get capability info")
 			return
 		}
-		backend := capabilities.NewBackend(p)
-		if err := capBackendStore.Add(info.CapabilityName, backend); err != nil {
+		if err := capBackendStore.Add(info.CapabilityName, p); err != nil {
 			lg.With(
 				zap.String("plugin", md.Module),
 				zap.Error(err),
@@ -179,7 +178,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	listener := health.NewListener()
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
 	go monitor.Run(ctx, listener)
-	streamSvc := NewStreamServer(listener, lg)
+	streamSvc := NewStreamServer(listener, storageBackend, lg)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
@@ -190,7 +189,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 				"plugin", md.Module,
 			).Error("failed to load stream services from plugin")
 		}
-		if err := streamSvc.AddRemote(cc, services.Descriptors); err != nil {
+		if err := streamSvc.AddRemote(cc, services); err != nil {
 			lg.With(
 				zap.Error(err),
 				"plugin", md.Module,

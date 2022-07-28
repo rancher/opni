@@ -236,6 +236,7 @@ func (m *Server) CertsInfo(ctx context.Context, _ *emptypb.Empty) (*managementv1
 				NotBefore:   cert.NotBefore.Format(time.RFC3339),
 				NotAfter:    cert.NotAfter.Format(time.RFC3339),
 				Fingerprint: pkp.NewSha256(cert).Encode(),
+				Raw:         cert.Raw,
 			})
 		}
 	}

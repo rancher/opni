@@ -70,3 +70,33 @@ func (r *UpdateConfigRequest) Validate() error {
 	}
 	return nil
 }
+
+func (r *CapabilityUninstallRequest) Validate() error {
+	if err := validation.ValidateID(r.Name); err != nil {
+		return err
+	}
+	if err := validation.Validate(r.Target); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *CapabilityStatusRequest) Validate() error {
+	if err := validation.ValidateID(r.Name); err != nil {
+		return err
+	}
+	if err := validation.Validate(r.Cluster); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *CapabilityUninstallCancelRequest) Validate() error {
+	if err := validation.ValidateID(r.Name); err != nil {
+		return err
+	}
+	if err := validation.Validate(r.Cluster); err != nil {
+		return err
+	}
+	return nil
+}

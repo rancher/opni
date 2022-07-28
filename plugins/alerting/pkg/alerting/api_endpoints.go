@@ -16,30 +16,30 @@ const endpointPrefix = "/alerting/endpoints"
 
 func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.AlertEndpoint) (*emptypb.Empty, error) {
 	newId := uuid.New().String()
-	if err := p.storage.Get().AlertEndpoint.Put(path.Join(endpointPrefix, newId), req); err != nil {
+	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, newId), req); err != nil {
 		return nil, err
 	}
 	return nil, shared.AlertingErrNotImplemented
 }
 
 func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertEndpoint, error) {
-	return p.storage.Get().AlertEndpoint.Get(path.Join(endpointPrefix, ref.Id))
+	return p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, ref.Id))
 }
 
 func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest) (*emptypb.Empty, error) {
-	existing, err := p.storage.Get().AlertEndpoint.Get(path.Join(endpointPrefix, req.Id.Id))
+	existing, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.Id.Id))
 	if err != nil {
 		return nil, err
 	}
 	proto.Merge(existing, req.UpdateAlert)
-	if err := p.storage.Get().AlertEndpoint.Put(path.Join(endpointPrefix, req.Id.Id), existing); err != nil {
+	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, req.Id.Id), existing); err != nil {
 		return nil, err
 	}
 	return nil, shared.AlertingErrNotImplemented
 }
 
 func (p *Plugin) ListAlertEndpoints(ctx context.Context, req *alertingv1alpha.ListAlertEndpointsRequest) (*alertingv1alpha.AlertEndpointList, error) {
-	items, err := list(p.storage.Get().AlertEndpoint, endpointPrefix)
+	items, err := list(ctx, p.storage.Get().AlertEndpoint, endpointPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (p *Plugin) ListAlertEndpoints(ctx context.Context, req *alertingv1alpha.Li
 }
 
 func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	if err := p.storage.Get().AlertEndpoint.Delete(path.Join(endpointPrefix, ref.Id)); err != nil {
+	if err := p.storage.Get().AlertEndpoint.Delete(ctx, path.Join(endpointPrefix, ref.Id)); err != nil {
 		return nil, err
 	}
 

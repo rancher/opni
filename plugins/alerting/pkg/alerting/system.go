@@ -38,8 +38,8 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	p.storage.Set(StorageAPIs{
-		Conditions:    system.NewKVStoreClient[*alertapi.AlertCondition](p.ctx, client),
-		AlertEndpoint: system.NewKVStoreClient[*alertapi.AlertEndpoint](p.ctx, client),
+		Conditions:    system.NewKVStoreClient[*alertapi.AlertCondition](client),
+		AlertEndpoint: system.NewKVStoreClient[*alertapi.AlertEndpoint](client),
 	})
 }
 

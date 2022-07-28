@@ -3,21 +3,20 @@ package alerting
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/plugins/apis/system"
-
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+	"github.com/rancher/opni/pkg/storage"
 	"google.golang.org/protobuf/proto"
 )
 
-func list[T proto.Message](kvc system.KVStoreClient[T], prefix string) ([]T, error) {
-	keys, err := kvc.ListKeys(prefix)
+func list[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]T, error) {
+	keys, err := kvc.ListKeys(ctx, prefix)
 	if err != nil {
 		return nil, err
 	}
 	items := make([]T, len(keys))
 	for i, key := range keys {
-		item, err := kvc.Get(key)
+		item, err := kvc.Get(ctx, key)
 		if err != nil {
 			return nil, err
 		}

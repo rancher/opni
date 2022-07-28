@@ -2,8 +2,8 @@ package gateway
 
 import (
 	"fmt"
-	"os"
 	"path"
+	"strings"
 
 	v1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
@@ -14,6 +14,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+const (
+	defaultAlertManager = `
+route:
+	group_by: ['alertname']
+	group_wait: 30s
+	group_interval: 5m
+	repeat_interval: 1h
+	receiver: 'web.hook'
+receivers:
+- name: 'web.hook'
+	webhook_configs:
+	- url: 'http://127.0.0.1:5001/'
+inhibit_rules:
+- source_match:
+	severity: 'critical'
+	target_match:
+	severity: 'warning'
+	equal: ['alertname', 'dev', 'instance']`
 )
 
 func (r *Reconciler) alerting() []resources.Resource {
@@ -29,7 +49,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 		}
 	}
 
-	// handle missing fields I guess because the test suite doesn't work
+	// handle missing fields because the test suite is flaky locally
 	if r.gw.Spec.Alerting.WebPort == 0 {
 		r.gw.Spec.Alerting.WebPort = 9093
 	}
@@ -54,12 +74,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 	// to reload we need to do issue a k8sclient rollout restart
 
 	// read default config
-	var defaultData []byte
-	defaultData, err := os.ReadFile("default-alertmanager-config.yaml")
-	if err != nil {
-		// do something
-		defaultData = []byte{}
-	}
 
 	// to be mounted into alertmanager pods
 	alertManagerConfigMap := &corev1.ConfigMap{
@@ -73,7 +87,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 
 		Data: map[string]string{
 			// read in from somewhere ?
-			"alertmanager.yaml": string(defaultData),
+			"alertmanager.yaml": strings.TrimSpace(defaultAlertManager),
 		},
 	}
 	ctrl.SetControllerReference(r.gw, alertManagerConfigMap, r.client.Scheme())

@@ -272,6 +272,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			metrics, err := sloClient.ListMetrics(ctx, &apis.ServiceList{})
 			Expect(err).To(Succeed())
 			Expect(metrics.Items).NotTo(HaveLen(0))
+			for _, m := range metrics.Items {
+				Expect(m.Description).NotTo(HaveLen(0))
+			}
 			keys := make([]string, 0, len(query.AvailableQueries))
 			for k := range query.AvailableQueries {
 				keys = append(keys, k)

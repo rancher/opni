@@ -30,4 +30,8 @@ type Provider interface {
 	ListAlertEndpoints(ctx context.Context, req *alertingv1alpha.ListAlertEndpointsRequest) (*alertingv1alpha.AlertEndpointList, error)
 	DeleteAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error)
 	TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.TestAlertEndpointRequest) (*alertingv1alpha.TestAlertEndpointResponse, error)
+	GetImplementationFromEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.EndpointImplementation, error)
+	CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.EndpointImplementation) (*emptypb.Empty, error)
+	DeleteEndpointImplementation(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error)
+	UpdateEndpointImplementation(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error)
 }

@@ -14,6 +14,7 @@ service Alerting {
   // ------- Trigger Alerts -------
   // TODO
 
+  // unimplemented
   rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
     option (google.api.http) = {
       post: "/alerts/trigger"
@@ -23,6 +24,7 @@ service Alerting {
 
   // ------- CRUD for alerting events log -------
 
+  // alerting internal use only
   rpc CreateAlertLog(core.AlertLog) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/alerts/log"
@@ -50,7 +52,7 @@ service Alerting {
       body: "*"
     };
   }
-  // unimplemented
+  // alerting internal use only (for now)
   rpc DeleteAlertLog(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/alerts/events"
@@ -140,6 +142,36 @@ service Alerting {
       body: "*"
     };
   }
+  
+  // takes an endpoint id
+  rpc GetImplementationFromEndpoint(core.Reference) returns (EndpointImplementation) {
+    option (google.api.http) = {
+      post: "/alerts/implementation"
+    };
+  }
+
+  // alerting internal use only
+  rpc CreateEndpointImplementation(EndpointImplementation) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/alerts/endpoints/implementation"
+      body: "*"
+    };
+  }
+
+  // alerting internal use only
+  rpc UpdateEndpointImplementation(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/alerts/endpoints/implementation"
+      body: "*"
+    };
+  }
+
+  // alerting internal use only
+  rpc DeleteEndpointImplementation(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/alerts/endpoints/implementation"
+    };
+  }
 }
 
 message TriggerAlertsRequest {
@@ -163,11 +195,25 @@ message UpdateAlertLogRequest {
   core.AlertLog UpdateAlert = 2;
 }
 
+enum Severity {
+  INFO = 0;
+  WARNING = 1;
+  ERROR = 2;
+  CRITICAL = 3;
+}
+
 message AlertCondition {
   string name = 1;
   string description = 2;
-  // TODO
+  Severity severity = 3;
+  oneof alertType {
+    AlertConditionSystem system = 4;
+  }
+  optional string notificationId = 5;
+  EndpointImplementation details = 6; 
 }
+
+message AlertConditionSystem{}
 
 message AlertConditionList {
   repeated AlertCondition items = 1;
@@ -191,6 +237,13 @@ message PreviewAlertConditionResponse {
 }
 
 
+message EndpointImplementation {
+  oneof implementation {
+    SlackImplementation slack =1;
+    EmailImplementation email =2;
+  }
+}
+
 message AlertEndpoint {
    string name = 1;
    string description = 2;
@@ -207,10 +260,18 @@ message SlackEndpoint {
   string channel = 3;
 }
 
+message SlackImplementation {
+  //TODO 
+}
+
 message EmailEndpoint {
   string name = 1;
   string to = 2;
   optional string from = 3;
+}
+
+message EmailImplementation {
+  //TODO
 }
 
 message AlertEndpointList {

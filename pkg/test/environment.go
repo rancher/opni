@@ -642,6 +642,39 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 	return port
 }
 
+func (e *Environment) StartAlertManager(ctx context.Context, configFile string) (webPort, apiPort int) {
+
+	webPort, err := freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
+	apiPort, err = freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
+	amBin := path.Join(e.TestBin, "alertmanager")
+	defaultArgs := []string{
+		fmt.Sprintf("--config.file=%s", path.Join(e.tempDir, "prometheus/config.yaml")),
+		fmt.Sprintf("--web.listen-address=:\"%d\"", webPort),
+		fmt.Sprintf("--cluster.listen-address=:\"%d\"", apiPort),
+		"--storage.path=\"/tmpdata/\"",
+		"--log.level=debug",
+	}
+	cmd := exec.CommandContext(e.ctx, amBin, defaultArgs...)
+	go func() {
+		err = cmd.Start()
+		if err != nil {
+			panic(err)
+		}
+
+		cmd.Wait()
+	}()
+	return webPort, apiPort
+}
+
+// ./alertmanager --config.file="/tmp/alertmanager.yaml" --cluster.listen-address=127.0.0.1:9094
+// docker container run --name alertmanager -p 9094:9094 --rm bitnami/alertmanager:latest --log.level=debug --config.file=/opt/bitnami/alertmanager/conf/config.yml --storage.path=/opt/bitnami/alertmanager/data
+
 // Starts a server that exposes Prometheus metrics
 //
 // Returns port number of the server & a channel that shutdowns the server

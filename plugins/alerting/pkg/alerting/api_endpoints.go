@@ -165,3 +165,35 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	// Delete Endpoint
 	return nil, shared.AlertingErrNotImplemented
 }
+
+func (p *Plugin) GetImplementationFromEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.EndpointImplementation, error) {
+
+	existing, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, ref.Id))
+	if err != nil {
+		return nil, err
+	}
+	res := &alertingv1alpha.EndpointImplementation{}
+	switch existing.Endpoint {
+	case &alertingv1alpha.AlertEndpoint_Slack{}:
+		res.Implementation = &alertingv1alpha.EndpointImplementation_Slack{
+			Slack: (&alertingv1alpha.SlackImplementation{}).Defaults(),
+		}
+	case &alertingv1alpha.AlertEndpoint_Email{}:
+		res.Implementation = &alertingv1alpha.EndpointImplementation_Email{
+			Email: (&alertingv1alpha.EmailImplementation{}).Defaults(),
+		}
+	}
+	return res, nil
+}
+
+func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.EndpointImplementation) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplemented
+}
+
+func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplemented
+}
+
+func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplemented
+}

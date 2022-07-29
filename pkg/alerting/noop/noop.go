@@ -79,3 +79,19 @@ func (a *AlertingNoopV1Alpha) DeleteAlertEndpoint(ctx context.Context, ref *core
 func (a *AlertingNoopV1Alpha) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.TestAlertEndpointRequest) (*alertingv1alpha.TestAlertEndpointResponse, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
+
+func (a *AlertingNoopV1Alpha) GetImplementationFromEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.EndpointImplementation, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}
+
+func (a *AlertingNoopV1Alpha) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.EndpointImplementation) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}
+
+func (a *AlertingNoopV1Alpha) UpdateEndpointImplementation(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}
+
+func (a *AlertingNoopV1Alpha) DeleteEndpointImplementation(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}

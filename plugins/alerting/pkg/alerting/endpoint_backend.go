@@ -12,7 +12,6 @@ import (
 	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
-	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/validation"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v2"
@@ -24,6 +23,7 @@ import (
 )
 
 const LocalBackendEnvToggle = "OPNI_ALERTING_BACKEND_LOCAL"
+const LocalAlertManagerPath = "/tmp/alertmanager.yaml"
 
 const route = `
 route:
@@ -44,9 +44,9 @@ receivers:
 const inihibit_rules = `
 inhibit_rules:
 - source_match:
-  severity: 'critical'
+    severity: 'critical'
   target_match:
-  severity: 'warning'
+    severity: 'warning'
   equal: ['alertname', 'dev', 'instance']`
 
 var DefaultAlertManager = strings.Join([]string{
@@ -84,14 +84,7 @@ type RuntimeEndpointBackend interface {
 
 // implements alerting.RuntimeEndpointBackend
 type LocalEndpointBackend struct {
-	env            *test.Environment
 	configFilePath string
-}
-
-func NewLocalEndpointBackend(env *test.Environment) {
-	env = &test.Environment{
-		TestBin: "../../../../testbin/bin",
-	}
 }
 
 func (b *LocalEndpointBackend) Fetch(

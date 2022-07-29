@@ -230,6 +230,14 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 				),
 				HaveType(corev1.ServiceTypeLoadBalancer),
 			))
+			Eventually(Object(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      gw.Spec.Alerting.ConfigName,
+					Namespace: gw.Namespace,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(gw),
+			))
 		})
 		When("disabling alerting", func() {
 			It("should remove the alerting objects", func() {

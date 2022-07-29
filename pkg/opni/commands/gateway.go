@@ -2,11 +2,13 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/gateway"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
@@ -19,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
+	"k8s.io/client-go/rest"
 
 	// Import all plugin apis to ensure they are added to the client scheme
 	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
@@ -40,6 +43,24 @@ func BuildGatewayCmd() *cobra.Command {
 		objects := cliutil.LoadConfigObjectsOrDie(configLocation, lg)
 
 		ctx, cancel := context.WithCancel(waitctx.Background())
+
+		inCluster := true
+		restconfig, err := rest.InClusterConfig()
+		if err != nil {
+			if errors.Is(err, rest.ErrNotInCluster) {
+				inCluster = false
+			}
+			lg.Fatalf("failed to create config: %s", err)
+		}
+
+		var fCancel context.CancelFunc
+		if inCluster {
+			features.PopulateFeatures(ctx, restconfig)
+			fCancel = features.FeatureList.WatchConfigMap()
+		} else {
+			fCancel = cancel
+		}
+
 		machinery.LoadAuthProviders(ctx, objects)
 		var gatewayConfig *v1beta1.GatewayConfig
 		found := objects.Visit(
@@ -108,19 +129,31 @@ func BuildGatewayCmd() *cobra.Command {
 		reloadC := make(chan struct{})
 		go func() {
 			c, err := lifecycler.ReloadC()
+
+			fNotify := make(<-chan struct{})
+			if inCluster {
+				fNotify = features.FeatureList.NotifyChange()
+			}
+
 			if err != nil {
 				lg.With(
 					zap.Error(err),
 				).Fatal("failed to get reload channel from lifecycler")
 			}
-			<-c
-			lg.Info(style.Style("--- received reload signal ---"))
-			cancel()
-			close(reloadC)
+			select {
+			case <-c:
+				lg.Info(style.Style("--- received reload signal ---"))
+				close(reloadC)
+			case <-fNotify:
+				lg.Info(style.Style("--- received feature update signal ---"))
+				close(reloadC)
+			}
 		}()
 
 		<-reloadC
 		lg.Info(style.Style("waiting for servers to shut down"))
+		fCancel()
+		cancel()
 		waitctx.Wait(ctx)
 
 		atomic.StoreUint32(&plugin.Killed, 0)

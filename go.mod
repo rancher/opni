@@ -20,6 +20,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cert-manager/cert-manager v1.8.0
 	github.com/cortexproject/cortex v1.13.0-rc.0
+	github.com/dbason/featureflags v0.0.0-20220729005514-82b15ac1585d
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-kit/log v0.2.0
 	github.com/go-logr/logr v1.2.3
@@ -111,9 +112,9 @@ require (
 	gopkg.in/ini.v1 v1.66.2
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.24.1
+	k8s.io/api v0.24.3
 	k8s.io/apiextensions-apiserver v0.24.0
-	k8s.io/apimachinery v0.24.1
+	k8s.io/apimachinery v0.24.3
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/component-base v0.24.1
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9

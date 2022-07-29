@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/storage"
 
+	lru "github.com/hashicorp/golang-lru"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -15,19 +16,25 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 )
 
+const AlertingLogCacheSize = 32
+
 type Plugin struct {
 	alertingv1alpha.UnsafeAlertingServer
 	system.UnimplementedSystemPluginClient
 	ctx             context.Context
 	logger          hclog.Logger
+	inMemCache      *lru.Cache
+	endpointBackend future.Future[RuntimeEndpointBackend]
 	alertingOptions future.Future[AlertingOptions]
 	storage         future.Future[StorageAPIs]
 	mgmtClient      future.Future[managementv1.ManagementClient]
 }
 
 type AlertingOptions struct {
-	Endpoints []string
-	ConfigMap string
+	Endpoints   []string
+	ConfigMap   string
+	Namespace   string
+	StatefulSet string
 }
 
 type StorageAPIs struct {

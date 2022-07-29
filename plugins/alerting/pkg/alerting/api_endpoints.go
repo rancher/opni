@@ -12,25 +12,69 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// tries to fetch the alerting config map for opni-alertin's AlertManager
-func fetchK8sConfigMap(ctx context.Context, p *Plugin, key string) (string, error) {
-	//TODO
-	return "", shared.AlertingErrNotImplemented
-}
-
-func reloadStatefulSet(ctx context.Context, p *Plugin) error {
-	//TODO
-	return shared.AlertingErrNotImplemented
-}
-
 const endpointPrefix = "/alerting/endpoints"
+
+func configFromBakend(backend RuntimeEndpointBackend, ctx context.Context, p *Plugin) (*ConfigMapData, error) {
+	rawConfig, err := backend.Fetch(ctx, p, "alertmanager.yaml")
+	if err != nil {
+		return nil, err
+	}
+	config, err := NewConfigMapDataFrom(rawConfig)
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
+}
+
+func applyConfigToBackend(backend RuntimeEndpointBackend, ctx context.Context, p *Plugin, config *ConfigMapData) error {
+	newRawConfig, err := config.Marshal()
+	if err != nil {
+		return err
+	}
+	err = backend.Put(ctx, p, "alertmanager.yaml", string(newRawConfig))
+	if err != nil {
+		return err
+	}
+	err = backend.Reload(ctx, p)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.AlertEndpoint) (*emptypb.Empty, error) {
 	newId := uuid.New().String()
 	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, newId), req); err != nil {
 		return nil, err
 	}
-	return nil, shared.AlertingErrNotImplemented
+
+	backend := p.endpointBackend.Get()
+	config, err := configFromBakend(backend, ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	switch req.Endpoint {
+	case &alertingv1alpha.AlertEndpoint_Slack{}:
+		//
+		recv, err := NewSlackReceiver(newId, req.GetSlack())
+		if err != nil {
+			return nil, err // some validation error
+		}
+		config.AppendReceiver(recv)
+
+	case &alertingv1alpha.AlertEndpoint_Email{}:
+		//
+		recv, err := NewEmailReceiver(newId, req.GetEmail())
+		if err != nil {
+			return nil, err // some validation error
+		}
+		config.AppendReceiver(recv)
+	}
+	err = applyConfigToBackend(backend, ctx, p, config)
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertEndpoint, error) {
@@ -42,11 +86,47 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.U
 	if err != nil {
 		return nil, err
 	}
+	overrideLabels := req.UpdateAlert.GetLabels()
+
+	backend := p.endpointBackend.Get()
+	config, err := configFromBakend(backend, ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	switch req.UpdateAlert.Endpoint {
+	case &alertingv1alpha.AlertEndpoint_Slack{}:
+		//
+		recv, err := NewSlackReceiver(req.Id.Id, req.UpdateAlert.GetSlack())
+		if err != nil {
+			return nil, err // some validation error
+		}
+		err = config.UpdateReceiver(req.Id.Id, recv)
+		if err != nil {
+			return nil, err
+		}
+
+	case &alertingv1alpha.AlertEndpoint_Email{}:
+		//
+		recv, err := NewEmailReceiver(req.Id.Id, req.UpdateAlert.GetEmail())
+		if err != nil {
+			return nil, err // some validation error
+		}
+		err = config.UpdateReceiver(req.Id.Id, recv)
+		if err != nil {
+			return nil, err
+		}
+	}
+	err = applyConfigToBackend(backend, ctx, p, config)
+	if err != nil {
+		return nil, err
+	}
+	// once everything else succeeds we can update the config the user sees
 	proto.Merge(existing, req.UpdateAlert)
+	existing.Labels = overrideLabels
 	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, req.Id.Id), existing); err != nil {
 		return nil, err
 	}
-	return nil, shared.AlertingErrNotImplemented
+	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) ListAlertEndpoints(ctx context.Context, req *alertingv1alpha.ListAlertEndpointsRequest) (*alertingv1alpha.AlertEndpointList, error) {
@@ -62,9 +142,21 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, ref *corev1.Reference)
 		return nil, err
 	}
 
-	return nil, shared.AlertingErrNotImplemented
+	backend := p.endpointBackend.Get()
+	config, err := configFromBakend(backend, ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	config.DeleteReceiver(ref.Id)
+	err = applyConfigToBackend(backend, ctx, p, config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &emptypb.Empty{}, nil
 }
 
+//TODO
 func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.TestAlertEndpointRequest) (*alertingv1alpha.TestAlertEndpointResponse, error) {
 	// Create Endpoint
 

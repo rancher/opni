@@ -30,27 +30,27 @@ service Alerting {
     }; 
   }
 
-  // id is the unix epoch timestamp of the alert 
-
+  
+  // unimplemented
   rpc GetAlertLog(core.Reference) returns (core.AlertLog) {
     option (google.api.http) = {
       get: "/alerts/events/{id}"
     };
   }
 
-  rpc ListAlertLogs(ListAlertLogRequest) returns (core.AlertLogList) {
+  rpc ListAlertLogs(ListAlertLogRequest) returns (InformativeAlertLogList) {
     option (google.api.http) = {
       get: "/alerts/events"
     };
   }
-
+  // unimplemented
   rpc UpdateAlertLog(UpdateAlertLogRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       put: "/alerts/events"
       body: "*"
     };
   }
-
+  // unimplemented
   rpc DeleteAlertLog(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/alerts/events"
@@ -215,6 +215,15 @@ message EmailEndpoint {
 
 message AlertEndpointList {
   repeated AlertEndpoint items = 1;
+}
+
+message InformativeAlertLog {
+  AlertCondition condition = 1;
+  core.AlertLog log = 2;
+}
+
+message InformativeAlertLogList {
+  repeated InformativeAlertLog items = 1;
 }
 
 message ListAlertEndpointsRequest {

@@ -14,7 +14,7 @@ import (
 type Provider interface {
 	CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*emptypb.Empty, error)
 	GetAlertLog(ctx context.Context, ref *corev1.Reference) (*corev1.AlertLog, error)
-	ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAlertLogRequest) (*corev1.AlertLogList, error)
+	ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAlertLogRequest) (*alertingv1alpha.InformativeAlertLogList, error)
 	UpdateAlertLog(ctx context.Context, req *alertingv1alpha.UpdateAlertLogRequest) (*emptypb.Empty, error)
 	DeleteAlertLog(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error)
 	TriggerAlerts(ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) (*alertingv1alpha.TriggerAlertsResponse, error)

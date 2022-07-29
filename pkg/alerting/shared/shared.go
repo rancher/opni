@@ -21,6 +21,7 @@ var (
 	AlertingErrParseBucket         = WithInternalServerError("Failed to parse bucket index")
 	AlertingErrBucketIndexInvalid  = WithInternalServerError("Bucket index is invalid")
 	AlertingErrInvalidSlackChannel = validation.Error("Slack channel invalid : must start with '#'")
+	AlertingErrK8sRuntime          = WithInternalServerError("K8s Runtime error")
 )
 
 type UnimplementedError struct {

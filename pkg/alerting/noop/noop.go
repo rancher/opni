@@ -31,7 +31,7 @@ func (a *AlertingNoopV1Alpha) CreateAlertLog(ctx context.Context, event *corev1.
 func (a *AlertingNoopV1Alpha) GetAlertLog(ctx context.Context, ref *corev1.Reference) (*corev1.AlertLog, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
-func (a *AlertingNoopV1Alpha) ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAlertLogRequest) (*corev1.AlertLogList, error) {
+func (a *AlertingNoopV1Alpha) ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAlertLogRequest) (*alertingv1alpha.InformativeAlertLogList, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 func (a *AlertingNoopV1Alpha) UpdateAlertLog(ctx context.Context, req *alertingv1alpha.UpdateAlertLogRequest) (*emptypb.Empty, error) {

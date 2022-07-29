@@ -27,7 +27,7 @@ type AlertingClient interface {
 	TriggerAlerts(ctx context.Context, in *TriggerAlertsRequest, opts ...grpc.CallOption) (*TriggerAlertsResponse, error)
 	CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.AlertLog, error)
-	ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*v1.AlertLogList, error)
+	ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*InformativeAlertLogList, error)
 	UpdateAlertLog(ctx context.Context, in *UpdateAlertLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -79,8 +79,8 @@ func (c *alertingClient) GetAlertLog(ctx context.Context, in *v1.Reference, opts
 	return out, nil
 }
 
-func (c *alertingClient) ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*v1.AlertLogList, error) {
-	out := new(v1.AlertLogList)
+func (c *alertingClient) ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*InformativeAlertLogList, error) {
+	out := new(InformativeAlertLogList)
 	err := c.cc.Invoke(ctx, "/Alerting/ListAlertLogs", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -221,7 +221,7 @@ type AlertingServer interface {
 	TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error)
 	CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error)
 	GetAlertLog(context.Context, *v1.Reference) (*v1.AlertLog, error)
-	ListAlertLogs(context.Context, *ListAlertLogRequest) (*v1.AlertLogList, error)
+	ListAlertLogs(context.Context, *ListAlertLogRequest) (*InformativeAlertLogList, error)
 	UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error)
 	DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	CreateAlertCondition(context.Context, *AlertCondition) (*emptypb.Empty, error)
@@ -252,7 +252,7 @@ func (UnimplementedAlertingServer) CreateAlertLog(context.Context, *v1.AlertLog)
 func (UnimplementedAlertingServer) GetAlertLog(context.Context, *v1.Reference) (*v1.AlertLog, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAlertLog not implemented")
 }
-func (UnimplementedAlertingServer) ListAlertLogs(context.Context, *ListAlertLogRequest) (*v1.AlertLogList, error) {
+func (UnimplementedAlertingServer) ListAlertLogs(context.Context, *ListAlertLogRequest) (*InformativeAlertLogList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertLogs not implemented")
 }
 func (UnimplementedAlertingServer) UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error) {

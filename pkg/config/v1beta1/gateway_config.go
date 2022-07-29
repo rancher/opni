@@ -30,8 +30,10 @@ type GatewayConfigSpec struct {
 }
 
 type AlertingSpec struct {
-	Endpoints     []string `json:"endpoints,omitempty"`
-	ConfigMapName string   `json:"configMapName,omitempty"`
+	Endpoints       []string `json:"endpoints,omitempty"`
+	ConfigMapName   string   `json:"configMapName,omitempty"`
+	StatefulSetName string   `json:"statefulSetName,omitempty"`
+	Namespace       string   `json:"Namespace,omitempty"`
 }
 
 type MetricsSpec struct {

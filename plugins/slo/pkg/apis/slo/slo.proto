@@ -140,10 +140,11 @@ message Target {
 message Metric {
   string name = 1;
   string datasource = 2;
-  string clusterId = 3;
-  string serviceId = 4;
-  string metricIdGood = 5;
-  string metricIdTotal = 6;
+  string description = 3;
+  string clusterId = 4;
+  string serviceId = 5;
+  string metricIdGood = 6;
+  string metricIdTotal = 7;
 }
 
 message MetricRequest {

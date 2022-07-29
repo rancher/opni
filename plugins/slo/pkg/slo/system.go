@@ -60,8 +60,9 @@ func (p *Plugin) initMetricCache(ctx context.Context) error {
 	for _, q := range query.AvailableQueries {
 		lg.Debug("Adding preconfigured metric : ", q.Name)
 		items[idx] = sloapi.Metric{
-			Name:       q.Name(),
-			Datasource: q.Datasource(),
+			Name:        q.Name(),
+			Datasource:  q.Datasource(),
+			Description: q.Description(),
 		}
 		if err := p.storage.Get().Metrics.Put(ctx, path.Join("/metrics", items[idx].Name), &items[idx]); err != nil {
 			return err

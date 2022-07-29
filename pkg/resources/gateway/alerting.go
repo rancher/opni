@@ -8,6 +8,7 @@ import (
 	v1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
+	alerting "github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -16,24 +17,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-const (
-	defaultAlertManager = `
-route:
-	group_by: ['alertname']
-	group_wait: 30s
-	group_interval: 5m
-	repeat_interval: 1h
-	receiver: 'web.hook'
-receivers:
-- name: 'web.hook'
-	webhook_configs:
-	- url: 'http://127.0.0.1:5001/'
-inhibit_rules:
-- source_match:
-	severity: 'critical'
-	target_match:
-	severity: 'warning'
-	equal: ['alertname', 'dev', 'instance']`
+var (
+	defaultAlertManager = alerting.DefaultAlertManager
 )
 
 func (r *Reconciler) alerting() []resources.Resource {
@@ -77,20 +62,19 @@ func (r *Reconciler) alerting() []resources.Resource {
 
 	// to be mounted into alertmanager pods
 	alertManagerConfigMap := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.gw.Spec.Alerting.ConfigName,
 			Namespace: r.gw.Namespace,
 		},
 
 		Data: map[string]string{
-			// read in from somewhere ?
 			"alertmanager.yaml": strings.TrimSpace(defaultAlertManager),
 		},
 	}
-	ctrl.SetControllerReference(r.gw, alertManagerConfigMap, r.client.Scheme())
+	err := ctrl.SetControllerReference(r.gw, alertManagerConfigMap, r.client.Scheme())
+	if err != nil {
+		panic(err)
+	}
 
 	dataMountPath := "/var/lib/alertmanager/data"
 	configMountPath := "/etc/config"

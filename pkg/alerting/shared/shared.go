@@ -6,6 +6,7 @@ package shared
 import (
 	"fmt"
 
+	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -15,10 +16,11 @@ const (
 )
 
 var (
-	AlertingErrNotImplemented     = WithUnimplementedError("Not implemented")
-	AlertingErrNotImplementedNOOP = WithUnimplementedError("Alerting NOOP : Not implemented")
-	AlertingErrParseBucket        = WithInternalServerError("Failed to parse bucket index")
-	AlertingErrBucketIndexInvalid = WithInternalServerError("Bucket index is invalid")
+	AlertingErrNotImplemented      = WithUnimplementedError("Not implemented")
+	AlertingErrNotImplementedNOOP  = WithUnimplementedError("Alerting NOOP : Not implemented")
+	AlertingErrParseBucket         = WithInternalServerError("Failed to parse bucket index")
+	AlertingErrBucketIndexInvalid  = WithInternalServerError("Bucket index is invalid")
+	AlertingErrInvalidSlackChannel = validation.Error("Slack channel invalid : must start with '#'")
 )
 
 type UnimplementedError struct {

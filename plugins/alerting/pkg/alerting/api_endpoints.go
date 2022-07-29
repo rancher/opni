@@ -12,6 +12,17 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// tries to fetch the alerting config map for opni-alertin's AlertManager
+func fetchK8sConfigMap(ctx context.Context, p *Plugin, key string) (string, error) {
+	//TODO
+	return "", shared.AlertingErrNotImplemented
+}
+
+func reloadStatefulSet(ctx context.Context, p *Plugin) error {
+	//TODO
+	return shared.AlertingErrNotImplemented
+}
+
 const endpointPrefix = "/alerting/endpoints"
 
 func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.AlertEndpoint) (*emptypb.Empty, error) {

@@ -164,6 +164,8 @@ message UpdateAlertLogRequest {
 }
 
 message AlertCondition {
+  string name = 1;
+  string description = 2;
   // TODO
 }
 
@@ -191,19 +193,24 @@ message PreviewAlertConditionResponse {
 
 message AlertEndpoint {
    string name = 1;
-   repeated string labels = 2;
+   string description = 2;
+   repeated string labels = 3;
    oneof endpoint {
-    SlackEndpoint slack = 3;
-    EmailEndpoint email = 4;
+    SlackEndpoint slack = 4;
+    EmailEndpoint email = 5;
    }
 }
 
 message SlackEndpoint {
-  //TODO
+  string name = 1;
+  string apiUrl = 2;
+  string channel = 3;
 }
 
 message EmailEndpoint {
-  //TODO
+  string name = 1;
+  string to = 2;
+  optional string from = 3;
 }
 
 message AlertEndpointList {

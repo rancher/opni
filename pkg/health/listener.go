@@ -10,6 +10,8 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"github.com/rancher/opni/pkg/agent"
+	"github.com/rancher/opni/pkg/alerting"
+	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
@@ -19,15 +21,23 @@ import (
 
 type Listener struct {
 	ListenerOptions
-	statusUpdate chan StatusUpdate
-	healthUpdate chan HealthUpdate
-	idLocksMu    sync.Mutex
-	idLocks      map[string]*sync.Mutex
-	closed       chan struct{}
-	sem          *semaphore.Weighted
+	statusUpdate        chan StatusUpdate
+	healthUpdate        chan HealthUpdate
+	idLocksMu           sync.Mutex
+	idLocks             map[string]*sync.Mutex
+	closed              chan struct{}
+	sem                 *semaphore.Weighted
+	alertProvider       alerting.Provider
+	alertToggle         chan struct{}
+	alertTickerDuration time.Duration
+	alertCondition      *alertingv1alpha.AlertCondition
 }
 
 type ListenerOptions struct {
+	alertProvider  *alerting.Provider
+	alertToggle    chan struct{}
+	tickerDuration time.Duration
+	alertCondition *alertingv1alpha.AlertCondition
 	interval       time.Duration
 	maxJitter      time.Duration
 	maxConnections int64
@@ -68,6 +78,40 @@ func WithUpdateQueueCap(cap int) ListenerOption {
 	}
 }
 
+func WithAlertToggle() ListenerOption {
+	return func(o *ListenerOptions) {
+		o.alertToggle = make(chan struct{})
+	}
+}
+
+func WithDisconnectTimeout(timeout time.Duration) ListenerOption {
+	return func(o *ListenerOptions) {
+		o.tickerDuration = timeout
+	}
+}
+
+func defaultDisconnectCondition() *alertingv1alpha.AlertCondition {
+	return &alertingv1alpha.AlertCondition{
+		Name:        "Disconnected Opni Agent {{ .clusterId }} ",
+		Description: "Opni agent {{ .clusterId }} has been disconnected for more than {{ .timeout }}",
+		Labels:      []string{"opni", "agent", "system"},
+		Severity:    alertingv1alpha.Severity_CRITICAL,
+		AlertType:   &alertingv1alpha.AlertCondition_System{},
+	}
+}
+
+func WithDefaultAlertCondition() ListenerOption {
+	return func(o *ListenerOptions) {
+		o.alertCondition = defaultDisconnectCondition()
+	}
+}
+
+func WithAlertProvider(alertProvider *alerting.Provider) ListenerOption {
+	return func(o *ListenerOptions) {
+		o.alertProvider = alertProvider
+	}
+}
+
 func NewListener(opts ...ListenerOption) *Listener {
 	options := ListenerOptions{
 		interval:       5 * time.Second,
@@ -103,6 +147,12 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	defer l.sem.Release(1)
 
 	id := cluster.StreamAuthorizedID(ctx)
+
+	// if we are setting an alert condition for disconnections
+	if l.alertProvider != nil {
+		l.AlertDisconnectLoop(ctx)
+	}
+
 	l.idLocksMu.Lock()
 	var clientLock *sync.Mutex
 	if m, ok := l.idLocks[id]; !ok {
@@ -174,6 +224,49 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 			timer.Reset(calcDuration())
 		}
 	}
+}
+
+func (l *Listener) AlertDisconnectLoop(ctx context.Context) {
+	if l.alertToggle == nil {
+		l.alertToggle = make(chan struct{})
+	}
+	if l.alertCondition == nil {
+		l.alertCondition = defaultDisconnectCondition()
+	}
+	id, err := l.alertProvider.CreateAlertCondition(ctx, l.alertCondition)
+	if err != nil {
+		// FIXME: handle gracefully
+	}
+
+	go func() {
+		ticker := time.NewTicker(l.alertTickerDuration)
+		shouldExit := false
+		for {
+			select {
+			case <-ticker.C: // received no message from agent in the entier duration
+				_, err = l.alertProvider.TriggerAlerts(ctx, &alertingv1alpha.TriggerAlertsRequest{
+					Id: id,
+				})
+				if err != nil {
+					// FIXME: handle gracefully
+				}
+
+			case <-l.alertToggle: // received a message from agent
+				ticker.Stop()
+				ticker = time.NewTicker(l.alertTickerDuration)
+
+			case <-l.closed: // listener is closed, stop
+				ticker.Stop()
+				shouldExit = true
+				go func() {
+					l.alertProvider.DeleteAlertCondition(ctx, id)
+				}()
+			}
+			if shouldExit {
+				break
+			}
+		}
+	}()
 }
 
 func (l *Listener) StatusC() chan StatusUpdate {

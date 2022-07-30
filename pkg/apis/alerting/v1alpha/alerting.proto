@@ -62,7 +62,7 @@ service Alerting {
   // -------- CRUD for alerting conditions -------
   //TODO 
 
-  rpc CreateAlertCondition(AlertCondition) returns (google.protobuf.Empty) {
+  rpc CreateAlertCondition(AlertCondition) returns(core.Reference) {
     option (google.api.http) = {
       post: "/alerts/conditions"
       body: "*"

@@ -35,7 +35,7 @@ type AlertingClient interface {
 	UpdateAlertLog(ctx context.Context, in *UpdateAlertLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// alerting internal use only (for now)
 	DeleteAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*v1.Reference, error)
 	GetAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertCondition, error)
 	ListAlertConditions(ctx context.Context, in *ListAlertConditionRequest, opts ...grpc.CallOption) (*AlertConditionList, error)
 	UpdateAlertCondition(ctx context.Context, in *UpdateAlertConditionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -120,8 +120,8 @@ func (c *alertingClient) DeleteAlertLog(ctx context.Context, in *v1.Reference, o
 	return out, nil
 }
 
-func (c *alertingClient) CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *alertingClient) CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*v1.Reference, error) {
+	out := new(v1.Reference)
 	err := c.cc.Invoke(ctx, "/Alerting/CreateAlertCondition", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -279,7 +279,7 @@ type AlertingServer interface {
 	UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error)
 	// alerting internal use only (for now)
 	DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	CreateAlertCondition(context.Context, *AlertCondition) (*emptypb.Empty, error)
+	CreateAlertCondition(context.Context, *AlertCondition) (*v1.Reference, error)
 	GetAlertCondition(context.Context, *v1.Reference) (*AlertCondition, error)
 	ListAlertConditions(context.Context, *ListAlertConditionRequest) (*AlertConditionList, error)
 	UpdateAlertCondition(context.Context, *UpdateAlertConditionRequest) (*emptypb.Empty, error)
@@ -325,7 +325,7 @@ func (UnimplementedAlertingServer) UpdateAlertLog(context.Context, *UpdateAlertL
 func (UnimplementedAlertingServer) DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertLog not implemented")
 }
-func (UnimplementedAlertingServer) CreateAlertCondition(context.Context, *AlertCondition) (*emptypb.Empty, error) {
+func (UnimplementedAlertingServer) CreateAlertCondition(context.Context, *AlertCondition) (*v1.Reference, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertCondition not implemented")
 }
 func (UnimplementedAlertingServer) GetAlertCondition(context.Context, *v1.Reference) (*AlertCondition, error) {

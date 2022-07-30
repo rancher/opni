@@ -15,7 +15,7 @@ import (
 
 const conditionPrefix = "/alerting/conditions"
 
-func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*emptypb.Empty, error) {
+func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error) {
 	newId := uuid.New().String()
 	if err := p.storage.Get().Conditions.Put(ctx, path.Join(conditionPrefix, newId), req); err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 
 	switch req.AlertType {
 	case &alertingv1alpha.AlertCondition_System{}: // opni system evaluates these conditions elsewhere in the code
-		return &emptypb.Empty{}, nil
+		return &corev1.Reference{Id: newId}, nil
 	default:
 		return nil, shared.AlertingErrNotImplemented
 	}

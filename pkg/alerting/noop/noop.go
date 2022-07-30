@@ -43,7 +43,7 @@ func (a *AlertingNoopV1Alpha) DeleteAlertLog(ctx context.Context, ref *corev1.Re
 func (a *AlertingNoopV1Alpha) TriggerAlerts(ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) (*alertingv1alpha.TriggerAlertsResponse, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
-func (a *AlertingNoopV1Alpha) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*emptypb.Empty, error) {
+func (a *AlertingNoopV1Alpha) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 func (a *AlertingNoopV1Alpha) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertCondition, error) {

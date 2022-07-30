@@ -18,7 +18,7 @@ type Provider interface {
 	UpdateAlertLog(ctx context.Context, req *alertingv1alpha.UpdateAlertLogRequest) (*emptypb.Empty, error)
 	DeleteAlertLog(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error)
 	TriggerAlerts(ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) (*alertingv1alpha.TriggerAlertsResponse, error)
-	CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*emptypb.Empty, error)
+	CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error)
 	GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertCondition, error)
 	ListAlertConditions(ctx context.Context, req *alertingv1alpha.ListAlertConditionRequest) (*alertingv1alpha.AlertConditionList, error)
 	UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.UpdateAlertConditionRequest) (*emptypb.Empty, error)

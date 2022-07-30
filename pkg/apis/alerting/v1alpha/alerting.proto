@@ -151,7 +151,7 @@ service Alerting {
   }
 
   // alerting internal use only
-  rpc CreateEndpointImplementation(EndpointImplementation) returns (google.protobuf.Empty) {
+  rpc CreateEndpointImplementation(CreateImplementation) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/alerts/endpoints/implementation"
       body: "*"
@@ -159,7 +159,7 @@ service Alerting {
   }
 
   // alerting internal use only
-  rpc UpdateEndpointImplementation(core.Reference) returns (google.protobuf.Empty) {
+  rpc UpdateEndpointImplementation(CreateImplementation) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       put: "/alerts/endpoints/implementation"
       body: "*"
@@ -167,6 +167,7 @@ service Alerting {
   }
 
   // alerting internal use only
+  // conditionMustBePassed in here
   rpc DeleteEndpointImplementation(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/alerts/endpoints/implementation"
@@ -244,6 +245,12 @@ message EndpointImplementation {
   }
 }
 
+message CreateImplementation {
+  core.Reference notificationId  = 1;
+  core.Reference  conditionId = 2;
+  EndpointImplementation implementation = 3;
+}
+
 message AlertEndpoint {
    string name = 1;
    string description = 2;
@@ -261,7 +268,10 @@ message SlackEndpoint {
 }
 
 message SlackImplementation {
-  //TODO 
+  string title = 1;
+  string text = 2;
+  string footer = 3;
+  string imageUrl = 4;
 }
 
 message EmailEndpoint {

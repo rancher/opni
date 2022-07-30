@@ -167,10 +167,11 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 
 			// udpate
 
-			recv, err = alerting.NewEmailReceiver(id1, &alertingv1alpha.EmailEndpoint{
+			_, err = alerting.NewEmailReceiver(id1, &alertingv1alpha.EmailEndpoint{
 				Name: "email",
 				To:   "alexandre.lamarre@suse.com",
 			})
+			Expect(err).To(Succeed())
 			cfg.UpdateReceiver(id1, recv)
 			Expect(cfg.Receivers).To(HaveLen(2))
 			Expect(cfg.Receivers[1].Name).To(Equal(id1))

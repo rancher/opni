@@ -50,9 +50,9 @@ type AlertingClient interface {
 	// takes an endpoint id
 	GetImplementationFromEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*EndpointImplementation, error)
 	// alerting internal use only
-	CreateEndpointImplementation(ctx context.Context, in *EndpointImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreateEndpointImplementation(ctx context.Context, in *CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// alerting internal use only
-	UpdateEndpointImplementation(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateEndpointImplementation(ctx context.Context, in *CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// alerting internal use only
 	DeleteEndpointImplementation(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -236,7 +236,7 @@ func (c *alertingClient) GetImplementationFromEndpoint(ctx context.Context, in *
 	return out, nil
 }
 
-func (c *alertingClient) CreateEndpointImplementation(ctx context.Context, in *EndpointImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertingClient) CreateEndpointImplementation(ctx context.Context, in *CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/Alerting/CreateEndpointImplementation", in, out, opts...)
 	if err != nil {
@@ -245,7 +245,7 @@ func (c *alertingClient) CreateEndpointImplementation(ctx context.Context, in *E
 	return out, nil
 }
 
-func (c *alertingClient) UpdateEndpointImplementation(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *alertingClient) UpdateEndpointImplementation(ctx context.Context, in *CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/Alerting/UpdateEndpointImplementation", in, out, opts...)
 	if err != nil {
@@ -293,9 +293,9 @@ type AlertingServer interface {
 	// takes an endpoint id
 	GetImplementationFromEndpoint(context.Context, *v1.Reference) (*EndpointImplementation, error)
 	// alerting internal use only
-	CreateEndpointImplementation(context.Context, *EndpointImplementation) (*emptypb.Empty, error)
+	CreateEndpointImplementation(context.Context, *CreateImplementation) (*emptypb.Empty, error)
 	// alerting internal use only
-	UpdateEndpointImplementation(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	UpdateEndpointImplementation(context.Context, *CreateImplementation) (*emptypb.Empty, error)
 	// alerting internal use only
 	DeleteEndpointImplementation(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	mustEmbedUnimplementedAlertingServer()
@@ -362,10 +362,10 @@ func (UnimplementedAlertingServer) TestAlertEndpoint(context.Context, *TestAlert
 func (UnimplementedAlertingServer) GetImplementationFromEndpoint(context.Context, *v1.Reference) (*EndpointImplementation, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetImplementationFromEndpoint not implemented")
 }
-func (UnimplementedAlertingServer) CreateEndpointImplementation(context.Context, *EndpointImplementation) (*emptypb.Empty, error) {
+func (UnimplementedAlertingServer) CreateEndpointImplementation(context.Context, *CreateImplementation) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateEndpointImplementation not implemented")
 }
-func (UnimplementedAlertingServer) UpdateEndpointImplementation(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+func (UnimplementedAlertingServer) UpdateEndpointImplementation(context.Context, *CreateImplementation) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateEndpointImplementation not implemented")
 }
 func (UnimplementedAlertingServer) DeleteEndpointImplementation(context.Context, *v1.Reference) (*emptypb.Empty, error) {
@@ -727,7 +727,7 @@ func _Alerting_GetImplementationFromEndpoint_Handler(srv interface{}, ctx contex
 }
 
 func _Alerting_CreateEndpointImplementation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EndpointImplementation)
+	in := new(CreateImplementation)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -739,13 +739,13 @@ func _Alerting_CreateEndpointImplementation_Handler(srv interface{}, ctx context
 		FullMethod: "/Alerting/CreateEndpointImplementation",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingServer).CreateEndpointImplementation(ctx, req.(*EndpointImplementation))
+		return srv.(AlertingServer).CreateEndpointImplementation(ctx, req.(*CreateImplementation))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Alerting_UpdateEndpointImplementation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
+	in := new(CreateImplementation)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -757,7 +757,7 @@ func _Alerting_UpdateEndpointImplementation_Handler(srv interface{}, ctx context
 		FullMethod: "/Alerting/UpdateEndpointImplementation",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingServer).UpdateEndpointImplementation(ctx, req.(*v1.Reference))
+		return srv.(AlertingServer).UpdateEndpointImplementation(ctx, req.(*CreateImplementation))
 	}
 	return interceptor(ctx, in, info, handler)
 }

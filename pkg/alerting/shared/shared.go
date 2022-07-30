@@ -16,12 +16,13 @@ const (
 )
 
 var (
-	AlertingErrNotImplemented      = WithUnimplementedError("Not implemented")
-	AlertingErrNotImplementedNOOP  = WithUnimplementedError("Alerting NOOP : Not implemented")
-	AlertingErrParseBucket         = WithInternalServerError("Failed to parse bucket index")
-	AlertingErrBucketIndexInvalid  = WithInternalServerError("Bucket index is invalid")
-	AlertingErrInvalidSlackChannel = validation.Error("Slack channel invalid : must start with '#'")
-	AlertingErrK8sRuntime          = WithInternalServerError("K8s Runtime error")
+	AlertingErrNotImplemented           = WithUnimplementedError("Not implemented")
+	AlertingErrNotImplementedNOOP       = WithUnimplementedError("Alerting NOOP : Not implemented")
+	AlertingErrParseBucket              = WithInternalServerError("Failed to parse bucket index")
+	AlertingErrBucketIndexInvalid       = WithInternalServerError("Bucket index is invalid")
+	AlertingErrInvalidSlackChannel      = validation.Error("Slack channel invalid : must start with '#'")
+	AlertingErrK8sRuntime               = WithInternalServerError("K8s Runtime error")
+	AlertingErrMismatchedImplementation = validation.Error("Alerting endpoint did not match the given implementation")
 )
 
 type UnimplementedError struct {

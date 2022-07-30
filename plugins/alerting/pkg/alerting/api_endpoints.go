@@ -3,6 +3,7 @@ package alerting
 import (
 	"context"
 	"path"
+	"reflect"
 
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -47,33 +48,6 @@ func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.A
 	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, newId), req); err != nil {
 		return nil, err
 	}
-
-	backend := p.endpointBackend.Get()
-	config, err := configFromBakend(backend, ctx, p)
-	if err != nil {
-		return nil, err
-	}
-	switch req.Endpoint {
-	case &alertingv1alpha.AlertEndpoint_Slack{}:
-		//
-		recv, err := NewSlackReceiver(newId, req.GetSlack())
-		if err != nil {
-			return nil, err // some validation error
-		}
-		config.AppendReceiver(recv)
-
-	case &alertingv1alpha.AlertEndpoint_Email{}:
-		//
-		recv, err := NewEmailReceiver(newId, req.GetEmail())
-		if err != nil {
-			return nil, err // some validation error
-		}
-		config.AppendReceiver(recv)
-	}
-	err = applyConfigToBackend(backend, ctx, p, config)
-	if err != nil {
-		return nil, err
-	}
 	return &emptypb.Empty{}, nil
 }
 
@@ -87,40 +61,6 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.U
 		return nil, err
 	}
 	overrideLabels := req.UpdateAlert.GetLabels()
-
-	backend := p.endpointBackend.Get()
-	config, err := configFromBakend(backend, ctx, p)
-	if err != nil {
-		return nil, err
-	}
-	switch req.UpdateAlert.Endpoint {
-	case &alertingv1alpha.AlertEndpoint_Slack{}:
-		//
-		recv, err := NewSlackReceiver(req.Id.Id, req.UpdateAlert.GetSlack())
-		if err != nil {
-			return nil, err // some validation error
-		}
-		err = config.UpdateReceiver(req.Id.Id, recv)
-		if err != nil {
-			return nil, err
-		}
-
-	case &alertingv1alpha.AlertEndpoint_Email{}:
-		//
-		recv, err := NewEmailReceiver(req.Id.Id, req.UpdateAlert.GetEmail())
-		if err != nil {
-			return nil, err // some validation error
-		}
-		err = config.UpdateReceiver(req.Id.Id, recv)
-		if err != nil {
-			return nil, err
-		}
-	}
-	err = applyConfigToBackend(backend, ctx, p, config)
-	if err != nil {
-		return nil, err
-	}
-	// once everything else succeeds we can update the config the user sees
 	proto.Merge(existing, req.UpdateAlert)
 	existing.Labels = overrideLabels
 	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, req.Id.Id), existing); err != nil {
@@ -141,18 +81,6 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, ref *corev1.Reference)
 	if err := p.storage.Get().AlertEndpoint.Delete(ctx, path.Join(endpointPrefix, ref.Id)); err != nil {
 		return nil, err
 	}
-
-	backend := p.endpointBackend.Get()
-	config, err := configFromBakend(backend, ctx, p)
-	if err != nil {
-		return nil, err
-	}
-	config.DeleteReceiver(ref.Id)
-	err = applyConfigToBackend(backend, ctx, p, config)
-	if err != nil {
-		return nil, err
-	}
-
 	return &emptypb.Empty{}, nil
 }
 
@@ -186,14 +114,131 @@ func (p *Plugin) GetImplementationFromEndpoint(ctx context.Context, ref *corev1.
 	return res, nil
 }
 
-func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.EndpointImplementation) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
+// TODO : refactor shared code in Create & Update to Process
+
+// Called from CreateAlertCondition
+func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
+	// newId := uuid.New().String()
+	backend := p.endpointBackend.Get()
+	config, err := configFromBakend(backend, ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	// get the base which is a notification endpoint
+	endpointDetails, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.NotificationId.Id))
+	if err != nil {
+		return nil, err
+	}
+
+	conditionId := req.ConditionId.Id
+
+	switch endpointDetails.Endpoint {
+
+	case &alertingv1alpha.AlertEndpoint_Slack{}:
+		//
+		recv, err := NewSlackReceiver(conditionId, endpointDetails.GetSlack())
+		if err != nil {
+			return nil, err // some validation error
+		}
+		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Slack{}) {
+			return nil, shared.AlertingErrMismatchedImplementation
+		}
+		recv, err = WithSlackImplementation(recv, req.Implementation.GetSlack())
+		if err != nil {
+			return nil, err
+		}
+		config.AppendReceiver(recv)
+
+	case &alertingv1alpha.AlertEndpoint_Email{}:
+		//
+		recv, err := NewEmailReceiver(conditionId, endpointDetails.GetEmail())
+		if err != nil {
+			return nil, err // some validation error
+		}
+		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Email{}) {
+			return nil, shared.AlertingErrMismatchedImplementation
+		}
+		recv, err = WithEmailImplementation(recv, req.Implementation.GetEmail())
+		if err != nil {
+			return nil, err
+		}
+		config.AppendReceiver(recv)
+	}
+
+	err = applyConfigToBackend(backend, ctx, p, config)
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
+// Called from UpdateAlertCondition
+func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
+	backend := p.endpointBackend.Get()
+	config, err := configFromBakend(backend, ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	// get the base which is a notification endpoint
+	endpointDetails, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.NotificationId.Id))
+	if err != nil {
+		return nil, err
+	}
+
+	conditionId := req.ConditionId.Id
+
+	switch endpointDetails.Endpoint {
+
+	case &alertingv1alpha.AlertEndpoint_Slack{}:
+		//
+		recv, err := NewSlackReceiver(conditionId, endpointDetails.GetSlack())
+		if err != nil {
+			return nil, err // some validation error
+		}
+		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Slack{}) {
+			return nil, shared.AlertingErrMismatchedImplementation
+		}
+		recv, err = WithSlackImplementation(recv, req.Implementation.GetSlack())
+		if err != nil {
+			return nil, err
+		}
+		config.UpdateReceiver(conditionId, recv)
+
+	case &alertingv1alpha.AlertEndpoint_Email{}:
+		//
+		recv, err := NewEmailReceiver(conditionId, endpointDetails.GetEmail())
+		if err != nil {
+			return nil, err // some validation error
+		}
+		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Email{}) {
+			return nil, shared.AlertingErrMismatchedImplementation
+		}
+		recv, err = WithEmailImplementation(recv, req.Implementation.GetEmail())
+		if err != nil {
+			return nil, err
+		}
+		config.UpdateReceiver(conditionId, recv)
+	}
+
+	err = applyConfigToBackend(backend, ctx, p, config)
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
+// Called from DeleteAlertCondition
+// Id must be a conditionId
 func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
+	backend := p.endpointBackend.Get()
+	config, err := configFromBakend(backend, ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	config.DeleteReceiver(req.Id)
+	err = applyConfigToBackend(backend, ctx, p, config)
+	if err != nil {
+		return nil, err
+	}
 	return nil, shared.AlertingErrNotImplemented
 }

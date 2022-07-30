@@ -84,11 +84,11 @@ func (a *AlertingNoopV1Alpha) GetImplementationFromEndpoint(ctx context.Context,
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 
-func (a *AlertingNoopV1Alpha) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.EndpointImplementation) (*emptypb.Empty, error) {
+func (a *AlertingNoopV1Alpha) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 
-func (a *AlertingNoopV1Alpha) UpdateEndpointImplementation(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
+func (a *AlertingNoopV1Alpha) UpdateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
 

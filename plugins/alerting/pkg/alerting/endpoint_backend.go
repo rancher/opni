@@ -3,22 +3,16 @@ package alerting
 import (
 	"context"
 	"fmt"
-	"net/mail"
-	"net/url"
 	"os"
 	"path"
 	"strings"
 
 	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
-	"github.com/rancher/opni/pkg/validation"
-	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8s "k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -108,7 +102,6 @@ func (b *LocalEndpointBackend) Reload(ctx context.Context,
 }
 
 type K8sEndpointBackend struct {
-	config *k8s.Config
 	client client.Client
 }
 
@@ -213,107 +206,6 @@ func (c *ConfigMapData) Marshal() ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
-}
-
-func (c *ConfigMapData) AppendReceiver(recv *cfg.Receiver) {
-	c.Receivers = append(c.Receivers, recv)
-}
-
-func (c *ConfigMapData) GetReceivers() []*cfg.Receiver {
-	return c.Receivers
-}
-
-// Assumptions:
-// - Id is unique among receivers
-// - Receiver Name corresponds with Ids one-to-one
-func (c *ConfigMapData) find(id string) (int, error) {
-	foundIdx := -1
-	for idx, r := range c.Receivers {
-		if r.Name == id {
-			foundIdx = idx
-			break
-		}
-	}
-	if foundIdx < 0 {
-		return foundIdx, fmt.Errorf("receiver with id %s not found in alertmanager backend", id)
-	}
-	return foundIdx, nil
-}
-
-func (c *ConfigMapData) UpdateReceiver(id string, recv *cfg.Receiver) error {
-	if recv == nil {
-		return fmt.Errorf("Nil receiver passed to UpdateReceiver")
-	}
-	idx, err := c.find(id)
-	if err != nil {
-		return err
-	}
-	c.Receivers[idx] = recv
-	return nil
-}
-
-func (c *ConfigMapData) DeleteReceiver(id string) error {
-	idx, err := c.find(id)
-	if err != nil {
-		return err
-	}
-	c.Receivers = slices.Delete(c.Receivers, idx, idx+1)
-	return nil
-}
-
-func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*cfg.Receiver, error) {
-	parsedURL, err := url.Parse(endpoint.ApiUrl)
-	if err != nil {
-		return nil, err
-	}
-	channel := strings.TrimSpace(endpoint.Channel)
-	if !strings.HasPrefix(channel, "#") {
-		//FIXME
-		return nil, shared.AlertingErrInvalidSlackChannel
-	}
-
-	return &cfg.Receiver{
-		Name: id,
-		SlackConfigs: []*cfg.SlackConfig{
-			{
-				APIURL:  &cfg.SecretURL{URL: parsedURL},
-				Channel: channel,
-			},
-		},
-	}, nil
-}
-
-func NewEmailReceiver(id string, endpoint *alertingv1alpha.EmailEndpoint) (*cfg.Receiver, error) {
-	_, err := mail.ParseAddress(endpoint.To)
-	if err != nil {
-		return nil, validation.Errorf("Invalid Destination email : %w", err)
-	}
-
-	if endpoint.From != nil {
-		_, err := mail.ParseAddress(*endpoint.From)
-		if err != nil {
-			return nil, validation.Errorf("Invalid Sender email : %w", err)
-		}
-	}
-
-	return &cfg.Receiver{
-		Name: id,
-		EmailConfigs: func() []*cfg.EmailConfig {
-			if endpoint.From == nil {
-				return []*cfg.EmailConfig{
-					{
-						To:   endpoint.To,
-						From: "alertmanager@localhost",
-					},
-				}
-			}
-			return []*cfg.EmailConfig{
-				{
-					To:   endpoint.To,
-					From: *endpoint.From,
-				},
-			}
-		}()}, nil
 }
 
 type AlertManagerAPI struct {

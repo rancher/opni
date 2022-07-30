@@ -727,7 +727,7 @@ func local_request_Alerting_GetImplementationFromEndpoint_0(ctx context.Context,
 }
 
 func request_Alerting_CreateEndpointImplementation_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq EndpointImplementation
+	var protoReq CreateImplementation
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -744,7 +744,7 @@ func request_Alerting_CreateEndpointImplementation_0(ctx context.Context, marsha
 }
 
 func local_request_Alerting_CreateEndpointImplementation_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq EndpointImplementation
+	var protoReq CreateImplementation
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -761,7 +761,7 @@ func local_request_Alerting_CreateEndpointImplementation_0(ctx context.Context, 
 }
 
 func request_Alerting_UpdateEndpointImplementation_0(ctx context.Context, marshaler runtime.Marshaler, client AlertingClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq CreateImplementation
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -778,7 +778,7 @@ func request_Alerting_UpdateEndpointImplementation_0(ctx context.Context, marsha
 }
 
 func local_request_Alerting_UpdateEndpointImplementation_0(ctx context.Context, marshaler runtime.Marshaler, server AlertingServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq v1.Reference
+	var protoReq CreateImplementation
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)

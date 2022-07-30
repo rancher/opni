@@ -54,6 +54,7 @@ type AlertingClient interface {
 	// alerting internal use only
 	UpdateEndpointImplementation(ctx context.Context, in *CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// alerting internal use only
+	// conditionMustBePassed in here
 	DeleteEndpointImplementation(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -297,6 +298,7 @@ type AlertingServer interface {
 	// alerting internal use only
 	UpdateEndpointImplementation(context.Context, *CreateImplementation) (*emptypb.Empty, error)
 	// alerting internal use only
+	// conditionMustBePassed in here
 	DeleteEndpointImplementation(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	mustEmbedUnimplementedAlertingServer()
 }

@@ -206,12 +206,13 @@ enum Severity {
 message AlertCondition {
   string name = 1;
   string description = 2;
-  Severity severity = 3;
+  repeated string labels = 3;
+  Severity severity = 4;
   oneof alertType {
-    AlertConditionSystem system = 4;
+    AlertConditionSystem system = 5;
   }
-  optional string notificationId = 5;
-  EndpointImplementation details = 6; 
+  optional string notificationId = 6;
+  EndpointImplementation details = 7; 
 }
 
 message AlertConditionSystem{}
@@ -254,7 +255,6 @@ message CreateImplementation {
 message AlertEndpoint {
    string name = 1;
    string description = 2;
-   repeated string labels = 3;
    oneof endpoint {
     SlackEndpoint slack = 4;
     EmailEndpoint email = 5;

@@ -167,7 +167,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 
 			// udpate
 
-			_, err = alerting.NewEmailReceiver(id1, &alertingv1alpha.EmailEndpoint{
+			recv, err = alerting.NewEmailReceiver(id1, &alertingv1alpha.EmailEndpoint{
 				Name: "email",
 				To:   "alexandre.lamarre@suse.com",
 			})

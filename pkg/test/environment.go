@@ -654,10 +654,10 @@ func (e *Environment) StartAlertManager(ctx context.Context, configFile string) 
 	}
 	amBin := path.Join(e.TestBin, "alertmanager")
 	defaultArgs := []string{
-		fmt.Sprintf("--config.file=%s", path.Join(e.tempDir, "prometheus/config.yaml")),
-		fmt.Sprintf("--web.listen-address=:\"%d\"", webPort),
-		fmt.Sprintf("--cluster.listen-address=:\"%d\"", apiPort),
-		"--storage.path=\"/tmpdata/\"",
+		fmt.Sprintf("--config.file=%s", configFile),
+		fmt.Sprintf("--web.listen-address=:%d", webPort),
+		fmt.Sprintf("--cluster.listen-address=:%d", apiPort),
+		"--storage.path=/tmp/data",
 		"--log.level=debug",
 	}
 	cmd := exec.CommandContext(e.ctx, amBin, defaultArgs...)

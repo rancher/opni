@@ -6,9 +6,11 @@ import (
 	"reflect"
 
 	"github.com/google/uuid"
+	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -60,9 +62,7 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.U
 	if err != nil {
 		return nil, err
 	}
-	overrideLabels := req.UpdateAlert.GetLabels()
 	proto.Merge(existing, req.UpdateAlert)
-	existing.Labels = overrideLabels
 	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, req.Id.Id), existing); err != nil {
 		return nil, err
 	}
@@ -114,7 +114,43 @@ func (p *Plugin) GetImplementationFromEndpoint(ctx context.Context, ref *corev1.
 	return res, nil
 }
 
-// TODO : refactor shared code in Create & Update to Process
+func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImplementation, endpointDetails *alertingv1alpha.AlertEndpoint) (*cfg.Receiver, error) {
+	switch endpointDetails.Endpoint {
+
+	case &alertingv1alpha.AlertEndpoint_Slack{}:
+		//
+		recv, err := NewSlackReceiver(conditionId, endpointDetails.GetSlack())
+		if err != nil {
+			return nil, err // some validation error
+		}
+		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Slack{}) {
+			return nil, shared.AlertingErrMismatchedImplementation
+		}
+		recv, err = WithSlackImplementation(recv, req.Implementation.GetSlack())
+		if err != nil {
+			return nil, err
+		}
+		return recv, nil
+
+	case &alertingv1alpha.AlertEndpoint_Email{}:
+		//
+		recv, err := NewEmailReceiver(conditionId, endpointDetails.GetEmail())
+		if err != nil {
+			return nil, err // some validation error
+		}
+		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Email{}) {
+			return nil, shared.AlertingErrMismatchedImplementation
+		}
+		recv, err = WithEmailImplementation(recv, req.Implementation.GetEmail())
+		if err != nil {
+			return nil, err
+		}
+		return recv, nil
+	default:
+		return nil, validation.Error("Unhandled endpoint/implementation details")
+	}
+
+}
 
 // Called from CreateAlertCondition
 func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
@@ -132,38 +168,11 @@ func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alerting
 
 	conditionId := req.ConditionId.Id
 
-	switch endpointDetails.Endpoint {
-
-	case &alertingv1alpha.AlertEndpoint_Slack{}:
-		//
-		recv, err := NewSlackReceiver(conditionId, endpointDetails.GetSlack())
-		if err != nil {
-			return nil, err // some validation error
-		}
-		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Slack{}) {
-			return nil, shared.AlertingErrMismatchedImplementation
-		}
-		recv, err = WithSlackImplementation(recv, req.Implementation.GetSlack())
-		if err != nil {
-			return nil, err
-		}
-		config.AppendReceiver(recv)
-
-	case &alertingv1alpha.AlertEndpoint_Email{}:
-		//
-		recv, err := NewEmailReceiver(conditionId, endpointDetails.GetEmail())
-		if err != nil {
-			return nil, err // some validation error
-		}
-		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Email{}) {
-			return nil, shared.AlertingErrMismatchedImplementation
-		}
-		recv, err = WithEmailImplementation(recv, req.Implementation.GetEmail())
-		if err != nil {
-			return nil, err
-		}
-		config.AppendReceiver(recv)
+	recv, err := processEndpointDetails(conditionId, req, endpointDetails)
+	if err != nil {
+		return nil, err
 	}
+	config.AppendReceiver(recv)
 
 	err = applyConfigToBackend(backend, ctx, p, config)
 	if err != nil {
@@ -186,38 +195,14 @@ func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alerting
 	}
 
 	conditionId := req.ConditionId.Id
+	recv, err := processEndpointDetails(conditionId, req, endpointDetails)
+	if err != nil {
+		return nil, err
+	}
 
-	switch endpointDetails.Endpoint {
-
-	case &alertingv1alpha.AlertEndpoint_Slack{}:
-		//
-		recv, err := NewSlackReceiver(conditionId, endpointDetails.GetSlack())
-		if err != nil {
-			return nil, err // some validation error
-		}
-		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Slack{}) {
-			return nil, shared.AlertingErrMismatchedImplementation
-		}
-		recv, err = WithSlackImplementation(recv, req.Implementation.GetSlack())
-		if err != nil {
-			return nil, err
-		}
-		config.UpdateReceiver(conditionId, recv)
-
-	case &alertingv1alpha.AlertEndpoint_Email{}:
-		//
-		recv, err := NewEmailReceiver(conditionId, endpointDetails.GetEmail())
-		if err != nil {
-			return nil, err // some validation error
-		}
-		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Email{}) {
-			return nil, shared.AlertingErrMismatchedImplementation
-		}
-		recv, err = WithEmailImplementation(recv, req.Implementation.GetEmail())
-		if err != nil {
-			return nil, err
-		}
-		config.UpdateReceiver(conditionId, recv)
+	err = config.UpdateReceiver(conditionId, recv)
+	if err != nil {
+		return nil, err
 	}
 
 	err = applyConfigToBackend(backend, ctx, p, config)

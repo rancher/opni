@@ -129,7 +129,6 @@ message HealthStatus {
 message AlertLog {
   core.Reference conditionId = 1;
   google.protobuf.Timestamp timestamp = 2; // unix epoch timestamp
-  repeated string labels = 3;
   google.protobuf.Struct metadata  = 4;
 }
 

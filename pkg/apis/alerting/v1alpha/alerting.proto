@@ -282,7 +282,8 @@ message EmailEndpoint {
 }
 
 message EmailImplementation {
-  //TODO
+  optional string htmlBody = 1;
+  optional string textBody = 2; 
 }
 
 message AlertEndpointList {

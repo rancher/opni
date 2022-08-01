@@ -13,7 +13,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -39,7 +38,7 @@ func NewUnaryService() UnaryService {
 	}
 }
 
-func (u *UnaryService) RegisterUnaryPlugins(ctx waitctx.RestrictiveContext, s grpc.ServiceRegistrar, pl plugins.LoaderInterface) {
+func (u *UnaryService) RegisterUnaryPlugins(ctx context.Context, s grpc.ServiceRegistrar, pl plugins.LoaderInterface) {
 	lg := logger.New().Named("gateway.unary")
 	pl.Hook(hooks.OnLoadMC(func(p types.UnaryAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 		reflectClient := grpcreflect.NewClient(ctx, rpb.NewServerReflectionClient(cc))
@@ -52,10 +51,7 @@ func (u *UnaryService) RegisterUnaryPlugins(ctx waitctx.RestrictiveContext, s gr
 			return
 		}
 		lg.Info("got extension descriptor for service " + sd.GetName())
-		waitctx.Go(ctx, func() {
-			<-ctx.Done()
-			reflectClient.Reset()
-		})
+
 		svcName := sd.GetName()
 		svcDesc, err := reflectClient.ResolveService(svcName)
 		if err != nil {

@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"embed"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -15,7 +14,6 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -71,7 +69,7 @@ type templateData struct {
 //go:embed web
 var webFS embed.FS
 
-func (s *Server) Run(ctx waitctx.RestrictiveContext) error {
+func (s *Server) ListenAndServe(ctx context.Context) error {
 	lg := s.Logger
 	listener, err := net.Listen("tcp4", fmt.Sprintf("0.0.0.0:%d", s.Port))
 	if err != nil {
@@ -91,26 +89,7 @@ func (s *Server) Run(ctx waitctx.RestrictiveContext) error {
 	s.configureOAuthServer(mux)
 	s.configureWebServer(ctx, mux)
 
-	server := http.Server{
-		Handler: mux,
-		BaseContext: func(net.Listener) context.Context {
-			return ctx
-		},
-	}
-	waitctx.Go(ctx, func() {
-		<-ctx.Done()
-		lg.Info("noauth server shutting down")
-		if err := server.Close(); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Error("an error occurred while shutting down the server")
-		}
-	})
-	err = server.Serve(listener)
-	if !errors.Is(err, http.ErrServerClosed) {
-		return err
-	}
-	return nil
+	return util.ServeHandler(ctx, mux, listener)
 }
 
 func (s *Server) connectToManagementAPI(ctx context.Context) error {
@@ -128,10 +107,6 @@ func (s *Server) connectToManagementAPI(ctx context.Context) error {
 		return err
 	}
 	lg.Info("connected to management api")
-	waitctx.Go(ctx, func() {
-		<-ctx.Done()
-		cc.Close()
-	})
 	s.mgmtApiClient = managementv1.NewManagementClient(cc)
 	return nil
 }

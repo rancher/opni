@@ -36,6 +36,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"golang.org/x/mod/module"
 	"google.golang.org/grpc"
@@ -243,6 +244,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		<-ctx.Done()
 		lg.Info("shutting down plugins")
 		plugin.CleanupClients()
+		lg.Info("all plugins shut down")
 	})
 
 	return g
@@ -254,44 +256,52 @@ type keyValueStoreServer interface {
 
 func (g *Gateway) ListenAndServe(ctx context.Context) error {
 	lg := g.logger
+	ctx, ca := context.WithCancel(ctx)
 
 	// start http server
-	waitctx.Go(ctx, func() {
-		if err := g.httpServer.ListenAndServe(ctx); err != nil {
+	e1 := lo.Async(func() error {
+		err := g.httpServer.ListenAndServe(ctx)
+		if err != nil {
 			lg.With(
 				zap.Error(err),
 			).Warn("http server exited with error")
 		}
+		return err
 	})
 
 	// start grpc server
-	waitctx.Go(ctx, func() {
-		if err := g.grpcServer.ListenAndServe(ctx); err != nil {
+	e2 := lo.Async(func() error {
+		err := g.grpcServer.ListenAndServe(ctx)
+		if err != nil {
 			lg.With(
 				zap.Error(err),
 			).Warn("grpc server exited with error")
 		}
+		return err
 	})
 
 	// start web server
 	webuiSrv, err := webui.NewWebUIServer(g.config)
+	var e3 chan error
 	if err != nil {
 		lg.With(
 			zap.Error(err),
 		).Warn("not starting web ui server")
+		e3 = make(chan error)
+		close(e3)
 	} else {
-		waitctx.Go(ctx, func() {
-			if err := webuiSrv.ListenAndServe(ctx); err != nil {
+		e3 = lo.Async(func() error {
+			err := webuiSrv.ListenAndServe(ctx)
+			if err != nil {
 				lg.With(
 					zap.Error(err),
 				).Warn("ui server exited with error")
 			}
+			return err
 		})
 	}
 
-	<-ctx.Done()
-	waitctx.Wait(ctx)
-	return ctx.Err()
+	return util.WaitAll(ctx, ca, e1, e2, e3)
 }
 
 // Implements management.CoreDataSource

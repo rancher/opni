@@ -87,9 +87,9 @@ func (restrictive) Wait(ctx RestrictiveContext, notifyAfter ...time.Duration) {
 		panic("context is not a WaitContext")
 	}
 	done := make(chan struct{})
+	d := data.(*waitCtxData)
 	go func() {
 		defer close(done)
-		d := data.(*waitCtxData)
 		d.cond.L.Lock()
 		d.waiting.Store(true)
 		d.wg.Wait()
@@ -98,18 +98,19 @@ func (restrictive) Wait(ctx RestrictiveContext, notifyAfter ...time.Duration) {
 		d.cond.L.Unlock()
 	}()
 	if len(notifyAfter) > 0 {
-		go func(d time.Duration) {
+		stack := string(debug.Stack())
+		go func(duration time.Duration) {
 			for {
 				select {
 				case <-done:
 					return
-				case <-time.After(d):
-					fmt.Fprint(os.Stderr, chalk.Yellow.Color("\n=== WARNING: waiting longer than expected for context to cancel ===\n"+string(debug.Stack())+"\n"))
-
+				case <-time.After(duration):
+					fmt.Fprint(os.Stderr, chalk.Yellow.Color("\n=== WARNING: waiting longer than expected for context to cancel ===\n"+stack+"\n"))
 				}
 			}
 		}(notifyAfter[0])
 	}
+	<-done
 }
 
 func (w restrictive) Go(ctx RestrictiveContext, fn func()) {
@@ -146,9 +147,9 @@ func (permissive) Wait(ctx PermissiveContext, notifyAfter ...time.Duration) {
 		return
 	}
 	done := make(chan struct{})
+	d := data.(*waitCtxData)
 	go func() {
 		defer close(done)
-		d := data.(*waitCtxData)
 		d.cond.L.Lock()
 		d.waiting.Store(true)
 		d.wg.Wait()
@@ -157,17 +158,19 @@ func (permissive) Wait(ctx PermissiveContext, notifyAfter ...time.Duration) {
 		d.cond.L.Unlock()
 	}()
 	if len(notifyAfter) > 0 {
+		stack := string(debug.Stack())
 		go func(d time.Duration) {
 			for {
 				select {
 				case <-done:
 					return
 				case <-time.After(d):
-					fmt.Fprint(os.Stderr, chalk.Yellow.Color("\n=== WARNING: waiting longer than expected for context to cancel ===\n"))
+					fmt.Fprint(os.Stderr, chalk.Yellow.Color("\n=== WARNING: waiting longer than expected for context to cancel ===\n"+stack+"\n"))
 				}
 			}
 		}(notifyAfter[0])
 	}
+	<-done
 }
 
 func (w permissive) Go(ctx PermissiveContext, fn func()) {

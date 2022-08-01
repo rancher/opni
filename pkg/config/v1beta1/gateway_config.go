@@ -19,7 +19,6 @@ type GatewayConfigSpec struct {
 	Hostname       string         `json:"hostname,omitempty"`
 	Metrics        MetricsSpec    `json:"metrics,omitempty"`
 	Management     ManagementSpec `json:"management,omitempty"`
-	EnableMonitor  bool           `json:"enableMonitor,omitempty"`
 	TrustedProxies []string       `json:"trustedProxies,omitempty"`
 	Cortex         CortexSpec     `json:"cortex,omitempty"`
 	AuthProvider   string         `json:"authProvider,omitempty"`

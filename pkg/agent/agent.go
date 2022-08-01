@@ -12,6 +12,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gsync "github.com/kralicky/gpkg/sync"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
@@ -25,12 +30,7 @@ import (
 	"github.com/rancher/opni/pkg/storage/etcd"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type conditionStatus int32
@@ -214,7 +214,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		}
 		lg.With(
 			zap.Error(ctx.Err()),
-		).Error("shutting down gateway client")
+		).Warn("shutting down gateway client")
 	}()
 
 	app.POST("/api/agent/push", agent.handlePushRequest)
@@ -273,22 +273,11 @@ func (a *Agent) handlePushRequest(c *gin.Context) {
 }
 
 func (a *Agent) ListenAndServe(ctx context.Context) error {
-	lg := a.logger
-	lc := net.ListenConfig{}
-	listener, err := lc.Listen(ctx, "tcp4", a.AgentConfigSpec.ListenAddress)
+	listener, err := net.Listen("tcp4", a.AgentConfigSpec.ListenAddress)
 	if err != nil {
 		return err
 	}
-	waitctx.Go(ctx, func() {
-		if err := a.app.RunListener(listener); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Warn("http server exited with error")
-		}
-	})
-	<-ctx.Done()
-	waitctx.Wait(ctx)
-	return ctx.Err()
+	return util.ServeHandler(ctx, a.app.Handler(), listener)
 }
 
 func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {

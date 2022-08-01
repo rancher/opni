@@ -1,7 +1,6 @@
 package webui
 
 import (
-	"context"
 	"errors"
 	"io"
 	"io/fs"
@@ -10,11 +9,10 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
-	"sync"
-	"time"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/web"
 	"go.uber.org/zap"
@@ -38,8 +36,6 @@ func AddExtraHandler(path string, handler http.HandlerFunc) {
 
 type WebUIServer struct {
 	config *v1beta1.GatewayConfig
-	server *http.Server
-	mu     sync.Mutex
 	logger *zap.SugaredLogger
 }
 
@@ -57,8 +53,6 @@ func NewWebUIServer(config *v1beta1.GatewayConfig) (*WebUIServer, error) {
 }
 
 func (ws *WebUIServer) ListenAndServe(ctx waitctx.RestrictiveContext) error {
-	ws.mu.Lock()
-	defer ws.mu.Unlock()
 	lg := ws.logger
 	listener, err := net.Listen("tcp4", ws.config.Spec.Management.WebListenAddress)
 	if err != nil {
@@ -69,9 +63,6 @@ func (ws *WebUIServer) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 	).Info("ui server starting")
 
 	mux := http.NewServeMux()
-	ws.server = &http.Server{
-		Handler: mux,
-	}
 
 	// 200.html (app entrypoint)
 	entrypoint, err := web.DistFS.ReadFile("dist/200.html.br")
@@ -169,16 +160,5 @@ func (ws *WebUIServer) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 		rw.Write(entrypoint)
 	})
 
-	waitctx.Go(ctx, func() {
-		<-ctx.Done()
-		ws.mu.Lock()
-		defer ws.mu.Unlock()
-		if ws.server == nil {
-			return
-		}
-		tctx, ca := context.WithTimeout(ctx, 5*time.Second)
-		defer ca()
-		ws.server.Shutdown(tctx)
-	})
-	return ws.server.Serve(listener)
+	return util.ServeHandler(ctx, mux, listener)
 }

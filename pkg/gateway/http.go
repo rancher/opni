@@ -18,8 +18,9 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/fwd"
-	"github.com/rancher/opni/pkg/util/waitctx"
+	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
@@ -104,7 +105,8 @@ func NewHTTPServer(
 			lg.With(
 				zap.String("plugin", md.Module),
 				zap.Error(err),
-			).Fatal("failed to configure routes")
+			).Error("failed to configure routes")
+			return
 		}
 		srv.setupPluginRoutes(cfg, md)
 	}))
@@ -112,16 +114,8 @@ func NewHTTPServer(
 	return srv
 }
 
-func (s *GatewayHTTPServer) ListenAndServe(ctx waitctx.RestrictiveContext) error {
+func (s *GatewayHTTPServer) ListenAndServe(ctx context.Context) error {
 	lg := s.logger
-
-	waitctx.Go(ctx, func() {
-		if err := s.metricsHandler.ListenAndServe(ctx); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Error("metrics handler exited with error")
-		}
-	})
 
 	listener, err := tls.Listen("tcp4", s.conf.HTTPListenAddress, s.tlsConfig)
 	if err != nil {
@@ -132,12 +126,17 @@ func (s *GatewayHTTPServer) ListenAndServe(ctx waitctx.RestrictiveContext) error
 		"address", listener.Addr().String(),
 	).Info("gateway HTTP server starting")
 
-	waitctx.Go(ctx, func() {
-		<-ctx.Done()
-		listener.Close()
+	ctx, ca := context.WithCancel(ctx)
+
+	e1 := lo.Async(func() error {
+		return util.ServeHandler(ctx, s.router.Handler(), listener)
 	})
 
-	return s.router.RunListener(listener)
+	e2 := lo.Async(func() error {
+		return s.metricsHandler.ListenAndServe(ctx)
+	})
+
+	return util.WaitAll(ctx, ca, e1, e2)
 }
 
 func (s *GatewayHTTPServer) setupPluginRoutes(

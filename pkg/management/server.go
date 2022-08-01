@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	_ "embed"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -17,18 +18,18 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config"
-	cfgmeta "github.com/rancher/opni/pkg/config/meta"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
+	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -110,16 +111,14 @@ func WithHealthStatusDataSource(src HealthStatusDataSource) ManagementServerOpti
 }
 
 func NewServer(
-	ctx waitctx.RestrictiveContext,
+	ctx context.Context,
 	conf *v1beta1.ManagementSpec,
 	cds CoreDataSource,
 	pluginLoader plugins.LoaderInterface,
 	opts ...ManagementServerOption,
 ) *Server {
 	lg := logger.New().Named("mgmt")
-	options := managementServerOptions{
-		lifecycler: config.NewUnavailableLifecycler(cfgmeta.ObjectList{}),
-	}
+	options := managementServerOptions{}
 	options.apply(opts...)
 
 	m := &Server{
@@ -139,9 +138,15 @@ func NewServer(
 	)
 	managementv1.RegisterManagementServer(m.grpcServer, m)
 
-	pluginLoader.Hook(hooks.OnLoad(func(sp types.SystemPlugin) {
+	pluginLoader.Hook(hooks.OnLoadM(func(sp types.SystemPlugin, md meta.PluginMeta) {
 		go sp.ServeManagementAPI(m)
-		go sp.ServeAPIExtensions(m.config.GRPCListenAddress)
+		go func() {
+			if err := sp.ServeAPIExtensions(m.config.GRPCListenAddress); err != nil {
+				lg.With(
+					zap.String("plugin", md.Module),
+				).Error("failed to serve plugin API extensions")
+			}
+		}()
 	}))
 
 	return m
@@ -151,7 +156,29 @@ type managementApiServer interface {
 	ServeManagementAPI(managementv1.ManagementServer)
 }
 
-func (m *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
+func (m *Server) ListenAndServe(ctx context.Context) error {
+	ctx, ca := context.WithCancel(ctx)
+
+	e1 := lo.Async(func() error {
+		err := m.listenAndServeGrpc(ctx)
+		if err != nil {
+			return fmt.Errorf("management grpc server exited with error: %w", err)
+		}
+		return nil
+	})
+
+	e2 := lo.Async(func() error {
+		err := m.listenAndServeHttp(ctx)
+		if err != nil {
+			return fmt.Errorf("management http server exited with error: %w", err)
+		}
+		return nil
+	})
+
+	return util.WaitAll(ctx, ca, e1, e2)
+}
+
+func (m *Server) listenAndServeGrpc(ctx context.Context) error {
 	if m.config.GRPCListenAddress == "" {
 		return errors.New("GRPCListenAddress not configured")
 	}
@@ -164,20 +191,22 @@ func (m *Server) ListenAndServe(ctx waitctx.RestrictiveContext) error {
 		"address", listener.Addr().String(),
 	).Info("management gRPC server starting")
 
-	waitctx.Go(ctx, func() {
-		<-ctx.Done()
-		m.grpcServer.GracefulStop()
+	errC := lo.Async(func() error {
+		return m.grpcServer.Serve(listener)
 	})
-	if m.config.HTTPListenAddress != "" {
-		go m.listenAndServeHttp(ctx, listener)
+	select {
+	case <-ctx.Done():
+		m.grpcServer.Stop()
+		return ctx.Err()
+	case err := <-errC:
+		return err
 	}
-
-	waitctx.AddOne(ctx)
-	defer waitctx.Done(ctx)
-	return m.grpcServer.Serve(listener)
 }
 
-func (m *Server) listenAndServeHttp(ctx waitctx.RestrictiveContext, listener net.Listener) {
+func (m *Server) listenAndServeHttp(ctx context.Context) error {
+	if m.config.GRPCListenAddress == "" {
+		return errors.New("GRPCListenAddress not configured")
+	}
 	lg := m.logger
 	lg.With(
 		"address", m.config.HTTPListenAddress,
@@ -189,7 +218,7 @@ func (m *Server) listenAndServeHttp(ctx waitctx.RestrictiveContext, listener net
 		}
 	})
 	gwmux := runtime.NewServeMux()
-	if err := managementv1.RegisterManagementHandlerFromEndpoint(ctx, gwmux, listener.Addr().String(),
+	if err := managementv1.RegisterManagementHandlerFromEndpoint(ctx, gwmux, m.config.GRPCListenAddress,
 		[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
 		lg.With(
 			zap.Error(err),
@@ -204,18 +233,15 @@ func (m *Server) listenAndServeHttp(ctx waitctx.RestrictiveContext, listener net
 			return ctx
 		},
 	}
-	waitctx.Go(ctx, func() {
-		<-ctx.Done()
-		if err := server.Close(); err != nil {
-			lg.With(
-				zap.Error(err),
-			).Error("failed to close http gateway")
-		}
+	errC := lo.Async(func() error {
+		return server.ListenAndServe()
 	})
-	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		lg.With(
-			zap.Error(err),
-		).Error("http gateway exited with error")
+	select {
+	case <-ctx.Done():
+		server.Close()
+		return ctx.Err()
+	case err := <-errC:
+		return err
 	}
 }
 

@@ -77,7 +77,7 @@ type testUnaryPlugin struct {
 func LoadUnaryPlugins(loader *plugins.PluginLoader) int {
 	testPlugins := []testPlugin{
 		{
-			Scheme: example.Scheme(),
+			Scheme: example.Scheme(context.Background()),
 			Metadata: meta.PluginMeta{
 				BinaryPath: "plugin_example",
 				GoVersion:  runtime.Version(),

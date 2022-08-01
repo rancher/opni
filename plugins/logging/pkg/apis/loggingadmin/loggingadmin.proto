@@ -8,24 +8,19 @@ import "k8s.io/api/core/v1/generated.proto";
 package loggingadmin;
 
 service LoggingAdmin {
-    rpc GetOpensearchCluster(OpensearchReference) returns(OpensearchCluster);
-    rpc DeleteOpensearchCluster(OpensearchReference) returns(google.protobuf.Empty);
+    rpc GetOpensearchCluster(google.protobuf.Empty) returns(OpensearchCluster);
+    rpc DeleteOpensearchCluster(google.protobuf.Empty) returns(google.protobuf.Empty);
     rpc CreateOrUpdateOpensearchCluster(OpensearchCluster) returns(google.protobuf.Empty);
 }
 
 message OpensearchCluster {
-    OpensearchReference ClusterReference = 1;
+    // +optional
     repeated OpensearchNodeDetails NodePools = 2;
     optional DashboardsDetails Dashboards = 3;
 }
 
-message OpensearchReference {
-    string Name = 1;
-    string Namespace = 2;
-}
-
 message DataPersistence {
-    bool Enabled = 1;
+    optional bool Enabled = 1;
     optional string StorageClass = 2;
 }
 

@@ -23,8 +23,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LoggingAdminClient interface {
-	GetOpensearchCluster(ctx context.Context, in *OpensearchReference, opts ...grpc.CallOption) (*OpensearchCluster, error)
-	DeleteOpensearchCluster(ctx context.Context, in *OpensearchReference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetOpensearchCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*OpensearchCluster, error)
+	DeleteOpensearchCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreateOrUpdateOpensearchCluster(ctx context.Context, in *OpensearchCluster, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -36,7 +36,7 @@ func NewLoggingAdminClient(cc grpc.ClientConnInterface) LoggingAdminClient {
 	return &loggingAdminClient{cc}
 }
 
-func (c *loggingAdminClient) GetOpensearchCluster(ctx context.Context, in *OpensearchReference, opts ...grpc.CallOption) (*OpensearchCluster, error) {
+func (c *loggingAdminClient) GetOpensearchCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*OpensearchCluster, error) {
 	out := new(OpensearchCluster)
 	err := c.cc.Invoke(ctx, "/loggingadmin.LoggingAdmin/GetOpensearchCluster", in, out, opts...)
 	if err != nil {
@@ -45,7 +45,7 @@ func (c *loggingAdminClient) GetOpensearchCluster(ctx context.Context, in *Opens
 	return out, nil
 }
 
-func (c *loggingAdminClient) DeleteOpensearchCluster(ctx context.Context, in *OpensearchReference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *loggingAdminClient) DeleteOpensearchCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/loggingadmin.LoggingAdmin/DeleteOpensearchCluster", in, out, opts...)
 	if err != nil {
@@ -67,8 +67,8 @@ func (c *loggingAdminClient) CreateOrUpdateOpensearchCluster(ctx context.Context
 // All implementations must embed UnimplementedLoggingAdminServer
 // for forward compatibility
 type LoggingAdminServer interface {
-	GetOpensearchCluster(context.Context, *OpensearchReference) (*OpensearchCluster, error)
-	DeleteOpensearchCluster(context.Context, *OpensearchReference) (*emptypb.Empty, error)
+	GetOpensearchCluster(context.Context, *emptypb.Empty) (*OpensearchCluster, error)
+	DeleteOpensearchCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	CreateOrUpdateOpensearchCluster(context.Context, *OpensearchCluster) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLoggingAdminServer()
 }
@@ -77,10 +77,10 @@ type LoggingAdminServer interface {
 type UnimplementedLoggingAdminServer struct {
 }
 
-func (UnimplementedLoggingAdminServer) GetOpensearchCluster(context.Context, *OpensearchReference) (*OpensearchCluster, error) {
+func (UnimplementedLoggingAdminServer) GetOpensearchCluster(context.Context, *emptypb.Empty) (*OpensearchCluster, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetOpensearchCluster not implemented")
 }
-func (UnimplementedLoggingAdminServer) DeleteOpensearchCluster(context.Context, *OpensearchReference) (*emptypb.Empty, error) {
+func (UnimplementedLoggingAdminServer) DeleteOpensearchCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteOpensearchCluster not implemented")
 }
 func (UnimplementedLoggingAdminServer) CreateOrUpdateOpensearchCluster(context.Context, *OpensearchCluster) (*emptypb.Empty, error) {
@@ -100,7 +100,7 @@ func RegisterLoggingAdminServer(s grpc.ServiceRegistrar, srv LoggingAdminServer)
 }
 
 func _LoggingAdmin_GetOpensearchCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(OpensearchReference)
+	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -112,13 +112,13 @@ func _LoggingAdmin_GetOpensearchCluster_Handler(srv interface{}, ctx context.Con
 		FullMethod: "/loggingadmin.LoggingAdmin/GetOpensearchCluster",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LoggingAdminServer).GetOpensearchCluster(ctx, req.(*OpensearchReference))
+		return srv.(LoggingAdminServer).GetOpensearchCluster(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _LoggingAdmin_DeleteOpensearchCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(OpensearchReference)
+	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func _LoggingAdmin_DeleteOpensearchCluster_Handler(srv interface{}, ctx context.
 		FullMethod: "/loggingadmin.LoggingAdmin/DeleteOpensearchCluster",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LoggingAdminServer).DeleteOpensearchCluster(ctx, req.(*OpensearchReference))
+		return srv.(LoggingAdminServer).DeleteOpensearchCluster(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }

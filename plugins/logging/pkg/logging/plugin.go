@@ -8,15 +8,18 @@ import (
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/logger"
 	gatewayext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
 	unaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/unary"
+	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/future"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,6 +39,7 @@ type Plugin struct {
 	capabilityv1.UnsafeBackendServer
 	opensearch.UnsafeOpensearchServer
 	system.UnimplementedSystemPluginClient
+	loggingadmin.UnsafeLoggingAdminServer
 	ctx            context.Context
 	k8sClient      client.Client
 	logger         *zap.SugaredLogger
@@ -117,5 +121,11 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(gatewayext.GatewayAPIExtensionPluginID, gatewayext.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&opensearch.Opensearch_ServiceDesc, p))
+
+	if features.FeatureList.FeatureIsEnabled("manage-opensearch") {
+		scheme.Add(managementext.ManagementAPIExtensionPluginID,
+			managementext.NewPlugin(&loggingadmin.LoggingAdmin_ServiceDesc, p))
+	}
+
 	return scheme
 }

@@ -137,6 +137,7 @@ service Alerting {
     };
   }
 
+  // unimplemented
   rpc TestAlertEndpoint(TestAlertEndpointRequest) returns (TestAlertEndpointResponse) {
     option (google.api.http) = {
       post: "/alerts/endpoints/test"

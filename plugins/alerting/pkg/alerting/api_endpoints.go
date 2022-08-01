@@ -17,7 +17,7 @@ import (
 
 const endpointPrefix = "/alerting/endpoints"
 
-func configFromBakend(backend RuntimeEndpointBackend, ctx context.Context, p *Plugin) (*ConfigMapData, error) {
+func configFromBackend(backend RuntimeEndpointBackend, ctx context.Context, p *Plugin) (*ConfigMapData, error) {
 	rawConfig, err := backend.Fetch(ctx, p, "alertmanager.yaml")
 	if err != nil {
 		return nil, err
@@ -156,7 +156,7 @@ func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImple
 func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
 	// newId := uuid.New().String()
 	backend := p.endpointBackend.Get()
-	config, err := configFromBakend(backend, ctx, p)
+	config, err := configFromBackend(backend, ctx, p)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alerting
 // Called from UpdateAlertCondition
 func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
 	backend := p.endpointBackend.Get()
-	config, err := configFromBakend(backend, ctx, p)
+	config, err := configFromBackend(backend, ctx, p)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +216,7 @@ func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alerting
 // Id must be a conditionId
 func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
 	backend := p.endpointBackend.Get()
-	config, err := configFromBakend(backend, ctx, p)
+	config, err := configFromBackend(backend, ctx, p)
 	if err != nil {
 		return nil, err
 	}

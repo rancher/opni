@@ -231,6 +231,52 @@ steps:
         - refs/heads/main
         - refs/heads/release
         - refs/tags/*
+  - name: publish-python-builder1
+    image: plugins/docker
+    settings:
+      password:
+        from_secret: docker_password
+      username:
+        from_secret: docker_username
+      context: images/python/
+      dockerfile: images/python/Dockerfile
+      cache_from: rancher/opni-python-base:builder1
+      target: builder1
+      repo: rancher/opni-python-base
+      tags:
+        - "builder1"
+    when:
+      instance:
+        - drone-publish.rancher.io
+      branch:
+        - main
+      event:
+        exclude:
+        - pull_request
+  - name: publish-python-base
+    image: plugins/docker
+    settings:
+      password:
+        from_secret: docker_password
+      username:
+        from_secret: docker_username
+      context: images/python/
+      dockerfile: images/python/Dockerfile
+      cache_from:
+      - rancher/opni-python-base:builder1
+      - rancher/opni-python-base:3.8
+      target: base-final
+      repo: rancher/opni-python-base
+      tags:
+        - "3.8"
+    when:
+      instance:
+        - drone-publish.rancher.io
+      branch:
+        - main
+      event:
+        exclude:
+        - pull_request
 volumes:
   - name: docker
     host:

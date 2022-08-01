@@ -103,6 +103,14 @@ func LoadPlugins(loader *plugins.PluginLoader) int {
 				Module:     "github.com/rancher/opni/plugins/slo",
 			},
 		},
+		{
+			Scheme: slo.Scheme(context.Background()),
+			Metadata: meta.PluginMeta{
+				BinaryPath: "plugin_alerting",
+				GoVersion:  runtime.Version(),
+				Module:     "github.com/rancher/opni/plugins/alerting",
+			},
+		},
 	}
 	wg := &sync.WaitGroup{}
 	for _, p := range testPlugins {

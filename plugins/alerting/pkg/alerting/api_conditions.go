@@ -20,7 +20,7 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 	if err := p.storage.Get().Conditions.Put(ctx, path.Join(conditionPrefix, newId), req); err != nil {
 		return nil, err
 	}
-
+	// TODO check for alert type
 	if req.NotificationId != nil { // create the endpoint implementation
 		if req.Details == nil {
 			return nil, validation.Error("alerting notification details must be set if you specify a notification target")

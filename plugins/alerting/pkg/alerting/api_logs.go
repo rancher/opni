@@ -10,6 +10,7 @@ import (
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type By func(i1, i2 *alertingv1alpha.InformativeAlertLog) bool
@@ -44,13 +45,79 @@ func (p *Plugin) CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*e
 	if p.inMemCache != nil {
 		p.inMemCache.Add(event.ConditionId, event)
 	}
-	// persist to disk
-
+	existing, err := GetIndices() // get the existing indices for each condition
+	if err != nil {
+		return nil, err
+	}
+	found := false
+	var b *BucketInfo
+	for _, index := range existing { // check if condition is already indexed
+		if index.ConditionId == event.ConditionId.Id {
+			found = true
+			b = index
+			break
+		}
+	}
+	if found { // append to most recent bucket in existing index
+		if err := b.Append(event); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := b.Create(); err != nil {
+			return nil, err
+		}
+		if err := b.Append(event); err != nil {
+			return nil, err
+		}
+	}
 	return &empty.Empty{}, nil
 }
 
 func (p *Plugin) GetAlertLog(ctx context.Context, ref *corev1.Reference) (*corev1.AlertLog, error) {
 	return nil, shared.AlertingErrNotImplemented
+}
+
+// https://stackoverflow.com/questions/18879109/subset-check-with-slices-in-go
+func isSubset(first, second []string) bool {
+	set := make(map[string]int)
+	for _, value := range second {
+		set[value] += 1
+	}
+
+	for _, value := range first {
+		if count, found := set[value]; !found {
+			return false
+		} else if count < 1 {
+			return false
+		} else {
+			set[value] = count - 1
+		}
+	}
+	return true
+}
+
+func hasLabels(item *alertingv1alpha.InformativeAlertLog, labels []string) bool {
+	return isSubset(labels, item.Condition.Labels)
+}
+
+func hasRange(item *alertingv1alpha.InformativeAlertLog, s *timestamppb.Timestamp, e *timestamppb.Timestamp) bool {
+	if item.Log.Timestamp == nil { // shouldn't happen, but hey
+		return true
+	}
+	start := s.AsTime()
+	end := s.AsTime()
+	if s == nil && e == nil {
+		return true
+	} else if s == nil { // before end
+		t := item.Log.Timestamp.AsTime()
+		return t.Before(end)
+	} else if e == nil {
+		t := item.Log.Timestamp.AsTime()
+		return t.After(start)
+	} else {
+		t := item.Log.Timestamp.AsTime()
+		return t.After(start) && t.Before(end)
+	}
 }
 
 func (p *Plugin) ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAlertLogRequest) (*alertingv1alpha.InformativeAlertLogList, error) {
@@ -78,10 +145,18 @@ func (p *Plugin) ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAle
 				Log:       log,
 			})
 		}
-		// TODO do the actual filtering thing
+		toBeReturned := []*alertingv1alpha.InformativeAlertLog{}
+		for _, item := range toBeFiltered {
+			passed := false
+			passed = passed && hasLabels(item, req.Labels)
+			passed = passed && hasRange(item, req.StartTimestamp, req.EndTimestamp)
+			if passed {
+				toBeReturned = append(toBeReturned, item)
+			}
+		}
 
 		return &alertingv1alpha.InformativeAlertLogList{
-			Items: toBeFiltered,
+			Items: toBeReturned,
 		}, nil
 	}
 	return nil, fmt.Errorf("internal error loading LRU cache")

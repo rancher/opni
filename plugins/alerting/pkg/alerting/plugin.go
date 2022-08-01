@@ -11,6 +11,7 @@ import (
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
+	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util/future"
@@ -46,9 +47,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewForPlugin()
 	lg.SetLevel(hclog.Debug)
 	return &Plugin{
-		ctx:        ctx,
-		logger:     lg,
-		mgmtClient: future.New[managementv1.ManagementClient](),
+		ctx:             ctx,
+		logger:          lg,
+		inMemCache:      nil,
+		mgmtClient:      future.New[managementv1.ManagementClient](),
+		endpointBackend: future.New[RuntimeEndpointBackend](),
+		alertingOptions: future.New[AlertingOptions](),
+		storage:         future.New[StorageAPIs](),
 	}
 }
 
@@ -59,5 +64,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
+	scheme.Add(managementext.ManagementAPIExtensionPluginID,
+		managementext.NewPlugin(&alertingv1alpha.Alerting_ServiceDesc, p))
 	return scheme
 }

@@ -114,18 +114,20 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 		trace.WithAttributes(attribute.String("plugin", md.Module)))
 	defer span.End()
 
-	lg := p.logger
+	lg := p.logger.With(
+		zap.String("plugin", md.Module),
+	)
+	lg.Info("loading plugin")
+
 	client := plugin.NewClient(cc)
 	rpcClient, err := client.Client()
 	if err != nil {
 		lg.With(
 			zap.Error(err),
-			"plugin", md.Module,
 		).Error("failed to load plugin")
 		return
 	}
 	lg.With(
-		"plugin", md.Module,
 		"interfaces", lo.Keys(cc.Plugins),
 	).Debug("checking if plugin implements any interfaces in the scheme")
 	wg := &sync.WaitGroup{}
@@ -134,13 +136,11 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 		if err != nil {
 			lg.With(
 				zap.Error(err),
-				"plugin", md.Module,
 				"id", id,
 			).Debug("no implementation found")
 			continue
 		}
 		lg.With(
-			"plugin", md.Module,
 			"id", id,
 		).Debug("implementation found")
 		switch c := rpcClient.(type) {
@@ -160,7 +160,6 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 						case <-done:
 						case <-time.After(time.Second * 5):
 							lg.With(
-								"plugin", md.Module,
 								"id", id,
 								"caller", h.caller,
 							).Warn("hook is taking longer than expected to complete")

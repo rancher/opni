@@ -33,9 +33,8 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, reattach ...*plugin.Re
 			grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
 			grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),
 		},
-		SyncStdout: os.Stdout,
-		SyncStderr: os.Stderr,
-		Reattach:   rc,
+		Stderr:   os.Stderr,
+		Reattach: rc,
 	}
 }
 

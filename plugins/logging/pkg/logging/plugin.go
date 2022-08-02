@@ -101,6 +101,8 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	}
 }
 
+var _ loggingadmin.LoggingAdminServer = (*Plugin)(nil)
+
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 

@@ -1,10 +1,5 @@
 package v1alpha
 
-/*
-TODO
-Meaningful defaults for endpoint implementations
-*/
-
 func (s *SlackImplementation) Defaults() *SlackImplementation {
 	return &SlackImplementation{
 		Title:    "Your optional title here",

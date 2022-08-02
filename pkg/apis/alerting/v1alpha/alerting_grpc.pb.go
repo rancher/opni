@@ -46,6 +46,7 @@ type AlertingClient interface {
 	ListAlertEndpoints(ctx context.Context, in *ListAlertEndpointsRequest, opts ...grpc.CallOption) (*AlertEndpointList, error)
 	UpdateAlertEndpoint(ctx context.Context, in *UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// unimplemented
 	TestAlertEndpoint(ctx context.Context, in *TestAlertEndpointRequest, opts ...grpc.CallOption) (*TestAlertEndpointResponse, error)
 	// takes an endpoint id
 	GetImplementationFromEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*EndpointImplementation, error)
@@ -290,6 +291,7 @@ type AlertingServer interface {
 	ListAlertEndpoints(context.Context, *ListAlertEndpointsRequest) (*AlertEndpointList, error)
 	UpdateAlertEndpoint(context.Context, *UpdateAlertEndpointRequest) (*emptypb.Empty, error)
 	DeleteAlertEndpoint(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	// unimplemented
 	TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error)
 	// takes an endpoint id
 	GetImplementationFromEndpoint(context.Context, *v1.Reference) (*EndpointImplementation, error)

@@ -288,7 +288,12 @@ message EmailImplementation {
 }
 
 message AlertEndpointList {
-  repeated AlertEndpoint items = 1;
+  repeated AlertEndpointWithId items = 1;
+}
+
+message AlertEndpointWithId {
+  AlertEndpoint endpoint = 1;
+  core.Reference id = 2;
 }
 
 message InformativeAlertLog {

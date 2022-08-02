@@ -45,7 +45,7 @@ type StorageAPIs struct {
 
 func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewForPlugin()
-	lg.SetLevel(hclog.Debug)
+	lg.SetLevel(hclog.Info)
 	return &Plugin{
 		ctx:             ctx,
 		logger:          lg,

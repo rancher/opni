@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"path"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
@@ -23,6 +24,25 @@ func list[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], p
 		items[i] = item
 	}
 	return items, nil
+}
+
+func listWithKeys[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]string, []T, error) {
+	keys, err := kvc.ListKeys(ctx, prefix)
+	if err != nil {
+		return nil, nil, err
+	}
+	items := make([]T, len(keys))
+	ids := make([]string, len(keys))
+	for i, key := range keys {
+		item, err := kvc.Get(ctx, key)
+
+		if err != nil {
+			return nil, nil, err
+		}
+		items[i] = item
+		ids[i] = path.Base(key)
+	}
+	return ids, items, nil
 }
 
 // --- Trigger ---

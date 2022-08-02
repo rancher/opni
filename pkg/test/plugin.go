@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/cortex/pkg/cortex"
 	"github.com/rancher/opni/plugins/example/pkg/example"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
@@ -104,7 +105,7 @@ func LoadPlugins(loader *plugins.PluginLoader) int {
 			},
 		},
 		{
-			Scheme: slo.Scheme(context.Background()),
+			Scheme: alerting.Scheme(context.Background()),
 			Metadata: meta.PluginMeta{
 				BinaryPath: "plugin_alerting",
 				GoVersion:  runtime.Version(),

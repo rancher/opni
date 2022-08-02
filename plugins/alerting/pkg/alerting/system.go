@@ -55,7 +55,9 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		p.inMemCache, _ = lru.New(AlertingLogCacheSize / 2)
 	}
 	if os.Getenv(LocalBackendEnvToggle) != "" {
-		p.endpointBackend.Set(&LocalEndpointBackend{})
+		p.endpointBackend.Set(&LocalEndpointBackend{
+			configFilePath: LocalAlertManagerPath,
+		})
 	} else {
 		p.endpointBackend.Set(&K8sEndpointBackend{})
 	}

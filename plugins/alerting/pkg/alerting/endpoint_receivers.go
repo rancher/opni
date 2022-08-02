@@ -64,6 +64,11 @@ func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*cfg.
 	if err != nil {
 		return nil, err
 	}
+	// validate the url
+	_, err = url.ParseRequestURI(endpoint.ApiUrl)
+	if err != nil {
+		return nil, err
+	}
 	channel := strings.TrimSpace(endpoint.Channel)
 	if !strings.HasPrefix(channel, "#") {
 		//FIXME

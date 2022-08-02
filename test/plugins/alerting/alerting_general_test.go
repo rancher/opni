@@ -21,7 +21,6 @@ func ManualReloadEndpointBackend() {
 
 var _ = Describe("Alerting Backend", Ordered, Label(test.Unit, test.Slow), func() {
 	ctx := context.Background()
-	var alertingClient alertingv1alpha.AlertingClient
 	// test environment references
 	var env *test.Environment
 	BeforeAll(func() {
@@ -37,7 +36,6 @@ var _ = Describe("Alerting Backend", Ordered, Label(test.Unit, test.Slow), func(
 		DeferCleanup(env.Stop)
 
 		// alerting plugin
-		alertingClient = alertingv1alpha.NewAlertingClient(env.ManagementClientConn())
 	})
 
 	When("The alerting plugin starts", func() {
@@ -104,12 +102,6 @@ var _ = Describe("Alerting Backend", Ordered, Label(test.Unit, test.Slow), func(
 				HtmlBody: &hbody,
 				TextBody: &tbody,
 			}))
-		})
-
-		It("Should have loaded preconfigured alert conditions", func() {
-			_, err := alertingClient.ListAlertConditions(
-				ctx, &alertingv1alpha.ListAlertConditionRequest{})
-			Expect(err).To(HaveOccurred())
 		})
 	})
 })

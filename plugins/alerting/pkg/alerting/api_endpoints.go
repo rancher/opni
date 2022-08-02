@@ -2,8 +2,8 @@ package alerting
 
 import (
 	"context"
+	"fmt"
 	"path"
-	"reflect"
 
 	"github.com/google/uuid"
 	cfg "github.com/prometheus/alertmanager/config"
@@ -11,7 +11,6 @@ import (
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/validation"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -45,8 +44,41 @@ func applyConfigToBackend(backend RuntimeEndpointBackend, ctx context.Context, p
 	return nil
 }
 
+func validateSlack(v *alertingv1alpha.SlackEndpoint) error {
+	if v == nil {
+		return validation.Error("Must pass in a non-nil slack endpoint")
+	}
+	_, err := NewSlackReceiver("id not used", v)
+	return err
+}
+
+func validateEmail(v *alertingv1alpha.EmailEndpoint) error {
+	if v == nil {
+		return validation.Error("Must pass in a non-nil email endpoint")
+	}
+	_, err := NewEmailReceiver("id not used", v)
+	return err
+}
+
+func handleAlertEndpointValidation(ctx context.Context, req *alertingv1alpha.AlertEndpoint) error {
+	if req == nil {
+		return fmt.Errorf("must pass in a non-nil alert endpoint")
+	}
+	if s := req.GetSlack(); s != nil {
+		return validateSlack(req.GetSlack())
+	}
+	if e := req.GetEmail(); e != nil {
+		return validateEmail(req.GetEmail())
+	}
+	return validation.Error("Unhandled endpoint/implementation details")
+
+}
+
 func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.AlertEndpoint) (*emptypb.Empty, error) {
 	newId := uuid.New().String()
+	if err := handleAlertEndpointValidation(ctx, req); err != nil {
+		return nil, err
+	}
 	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, newId), req); err != nil {
 		return nil, err
 	}
@@ -58,22 +90,36 @@ func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*
 }
 
 func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest) (*emptypb.Empty, error) {
-	existing, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.Id.Id))
+	_, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.Id.Id))
 	if err != nil {
 		return nil, err
 	}
-	proto.Merge(existing, req.UpdateAlert)
-	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, req.Id.Id), existing); err != nil {
+	if err := handleAlertEndpointValidation(ctx, req.UpdateAlert); err != nil {
+		return nil, err
+	}
+	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, req.Id.Id), req.UpdateAlert); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) ListAlertEndpoints(ctx context.Context, req *alertingv1alpha.ListAlertEndpointsRequest) (*alertingv1alpha.AlertEndpointList, error) {
-	items, err := list(ctx, p.storage.Get().AlertEndpoint, endpointPrefix)
+func (p *Plugin) ListAlertEndpoints(ctx context.Context,
+	req *alertingv1alpha.ListAlertEndpointsRequest) (*alertingv1alpha.AlertEndpointList, error) {
+	ids, endpoints, err := listWithKeys(ctx, p.storage.Get().AlertEndpoint, endpointPrefix)
 	if err != nil {
 		return nil, err
 	}
+	if len(ids) != len(endpoints) {
+		return nil, err
+	}
+	items := []*alertingv1alpha.AlertEndpointWithId{}
+	for idx := range ids {
+		items = append(items, &alertingv1alpha.AlertEndpointWithId{
+			Id:       &corev1.Reference{Id: ids[idx]},
+			Endpoint: endpoints[idx],
+		})
+	}
+
 	return &alertingv1alpha.AlertEndpointList{Items: items}, nil
 }
 
@@ -101,29 +147,30 @@ func (p *Plugin) GetImplementationFromEndpoint(ctx context.Context, ref *corev1.
 		return nil, err
 	}
 	res := &alertingv1alpha.EndpointImplementation{}
-	switch existing.Endpoint {
-	case &alertingv1alpha.AlertEndpoint_Slack{}:
+	if s := existing.GetSlack(); s != nil {
 		res.Implementation = &alertingv1alpha.EndpointImplementation_Slack{
 			Slack: (&alertingv1alpha.SlackImplementation{}).Defaults(),
 		}
-	case &alertingv1alpha.AlertEndpoint_Email{}:
+		return res, nil
+	}
+	if e := existing.GetEmail(); e != nil {
 		res.Implementation = &alertingv1alpha.EndpointImplementation_Email{
 			Email: (&alertingv1alpha.EmailImplementation{}).Defaults(),
 		}
+		return res, nil
 	}
-	return res, nil
+	return nil, validation.Error("Unsupported implementation of endpoint")
 }
 
 func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImplementation, endpointDetails *alertingv1alpha.AlertEndpoint) (*cfg.Receiver, error) {
-	switch endpointDetails.Endpoint {
 
-	case &alertingv1alpha.AlertEndpoint_Slack{}:
+	if s := endpointDetails.GetSlack(); s != nil {
 		//
-		recv, err := NewSlackReceiver(conditionId, endpointDetails.GetSlack())
+		recv, err := NewSlackReceiver(conditionId, s)
 		if err != nil {
 			return nil, err // some validation error
 		}
-		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Slack{}) {
+		if ss := req.Implementation.GetSlack(); ss == nil {
 			return nil, shared.AlertingErrMismatchedImplementation
 		}
 		recv, err = WithSlackImplementation(recv, req.Implementation.GetSlack())
@@ -131,14 +178,14 @@ func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImple
 			return nil, err
 		}
 		return recv, nil
-
-	case &alertingv1alpha.AlertEndpoint_Email{}:
+	}
+	if e := endpointDetails.GetEmail(); e != nil {
 		//
-		recv, err := NewEmailReceiver(conditionId, endpointDetails.GetEmail())
+		recv, err := NewEmailReceiver(conditionId, e)
 		if err != nil {
 			return nil, err // some validation error
 		}
-		if reflect.TypeOf(req.Implementation.Implementation) != reflect.TypeOf(&alertingv1alpha.EndpointImplementation_Email{}) {
+		if ee := req.Implementation.GetEmail(); ee == nil {
 			return nil, shared.AlertingErrMismatchedImplementation
 		}
 		recv, err = WithEmailImplementation(recv, req.Implementation.GetEmail())
@@ -146,9 +193,9 @@ func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImple
 			return nil, err
 		}
 		return recv, nil
-	default:
-		return nil, validation.Error("Unhandled endpoint/implementation details")
 	}
+
+	return nil, validation.Error("Unhandled endpoint/implementation details")
 
 }
 

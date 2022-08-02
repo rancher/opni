@@ -231,7 +231,7 @@ func New(opts ...LoggerOption) ExtendedSugaredLogger {
 		Sampling:          options.sampling,
 		Encoding:          "console",
 		EncoderConfig:     encoderConfig,
-		OutputPaths:       []string{"stdout"},
+		OutputPaths:       []string{"stderr"},
 		ErrorOutputPaths:  []string{"stderr"},
 	}
 	lg, err := zapConfig.Build(options.zapOptions...)

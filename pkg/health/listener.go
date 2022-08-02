@@ -4,18 +4,20 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/sync/semaphore"
-
 	"github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/alerting"
+	"github.com/rancher/opni/pkg/alerting/condition"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
+	ap "github.com/rancher/opni/plugins/alerting/pkg/alerting"
+	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -86,24 +88,20 @@ func WithAlertToggle() ListenerOption {
 }
 
 func WithDisconnectTimeout(timeout time.Duration) ListenerOption {
+	_, isSet := os.LookupEnv(ap.LocalBackendEnvToggle)
+	if isSet {
+		return func(o *ListenerOptions) {
+			o.tickerDuration = time.Millisecond * 100
+		}
+	}
 	return func(o *ListenerOptions) {
 		o.tickerDuration = timeout
 	}
 }
 
-func defaultDisconnectCondition() *alertingv1alpha.AlertCondition {
-	return &alertingv1alpha.AlertCondition{
-		Name:        "Disconnected Opni Agent {{ .agentId }} ",
-		Description: "Opni agent {{ .agentId }} has been disconnected for more than {{ .timeout }}",
-		Labels:      []string{"opni", "agent", "system"},
-		Severity:    alertingv1alpha.Severity_CRITICAL,
-		AlertType:   &alertingv1alpha.AlertCondition_System{},
-	}
-}
-
 func WithDefaultAlertCondition() ListenerOption {
 	return func(o *ListenerOptions) {
-		o.alertCondition = defaultDisconnectCondition()
+		o.alertCondition = condition.OpniDisconnect
 	}
 }
 
@@ -237,12 +235,25 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 		l.alertToggle = make(chan struct{})
 	}
 	if l.alertCondition == nil {
-		l.alertCondition = defaultDisconnectCondition()
+		l.alertCondition = condition.OpniDisconnect
 	}
 
-	l.alertCondition.Name = strings.Replace(l.alertCondition.Name, "{{ .agentId }}", agentId, -1)
-	l.alertCondition.Description = strings.Replace(l.alertCondition.Description, "{{ .agentId }}", agentId, -1)
-	l.alertCondition.Description = strings.Replace(l.alertCondition.Description, "{{ .timeout }}", l.alertTickerDuration.String(), -1)
+	// prevent data race
+	alertConditionTemplateCopy := proto.Clone(l.alertCondition).(*alertingv1alpha.AlertCondition)
+
+	// Eventually replace with templates : Waiting on AlertManager Routes backend
+	alertConditionTemplateCopy.Name = strings.Replace(
+		l.alertCondition.Name,
+		"{{ .agentId }}",
+		agentId, -1)
+	alertConditionTemplateCopy.Description = strings.Replace(
+		l.alertCondition.Description,
+		"{{ .agentId }}",
+		agentId, -1)
+
+	alertConditionTemplateCopy.Description = strings.Replace(
+		l.alertCondition.Description, "{{ .timeout }}",
+		l.alertTickerDuration.String(), -1)
 
 	go func() {
 		id, err := (*l.alertProvider).CreateAlertCondition(ctx, l.alertCondition)

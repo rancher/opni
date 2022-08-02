@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"fmt"
 	"path"
 
 	"github.com/google/uuid"
@@ -16,14 +17,17 @@ const conditionPrefix = "/alerting/conditions"
 
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error) {
 	newId := uuid.New().String()
-	if err := p.storage.Get().Conditions.Put(ctx, path.Join(conditionPrefix, newId), req); err != nil {
+	_, err := setupCondition(ctx, req, newId)
+	if err != nil {
 		return nil, err
 	}
 	if err := setEndpointImplementationIfAvailable(p, ctx, req, newId); err != nil {
 		return nil, err
 	}
-
-	return setupCondition(ctx, req, newId)
+	if err := p.storage.Get().Conditions.Put(ctx, path.Join(conditionPrefix, newId), req); err != nil {
+		return nil, err
+	}
+	return &corev1.Reference{Id: newId}, nil
 }
 
 func (p *Plugin) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertCondition, error) {
@@ -31,11 +35,21 @@ func (p *Plugin) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (
 }
 
 func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.ListAlertConditionRequest) (*alertingv1alpha.AlertConditionList, error) {
-	items, err := list(ctx, p.storage.Get().Conditions, conditionPrefix)
+	keys, items, err := listWithKeys(ctx, p.storage.Get().Conditions, conditionPrefix)
 	if err != nil {
 		return nil, err
 	}
-	return &alertingv1alpha.AlertConditionList{Items: items}, nil
+	if len(keys) != len(items) {
+		return nil, fmt.Errorf("Internal error : mismatched number of keys")
+	}
+	res := &alertingv1alpha.AlertConditionList{}
+	for i := range keys {
+		res.Items = append(res.Items, &alertingv1alpha.AlertConditionWithId{
+			Id:             &corev1.Reference{Id: keys[i]},
+			AlertCondition: items[i],
+		})
+	}
+	return res, nil
 }
 
 // req.Id is the condition id reference

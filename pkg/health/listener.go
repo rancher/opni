@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,7 +28,7 @@ type Listener struct {
 	idLocks             map[string]*sync.Mutex
 	closed              chan struct{}
 	sem                 *semaphore.Weighted
-	alertProvider       alerting.Provider
+	AlertProvider       *alerting.Provider
 	alertToggle         chan struct{}
 	alertTickerDuration time.Duration
 	alertCondition      *alertingv1alpha.AlertCondition
@@ -92,8 +93,8 @@ func WithDisconnectTimeout(timeout time.Duration) ListenerOption {
 
 func defaultDisconnectCondition() *alertingv1alpha.AlertCondition {
 	return &alertingv1alpha.AlertCondition{
-		Name:        "Disconnected Opni Agent {{ .clusterId }} ",
-		Description: "Opni agent {{ .clusterId }} has been disconnected for more than {{ .timeout }}",
+		Name:        "Disconnected Opni Agent {{ .agentId }} ",
+		Description: "Opni agent {{ .agentId }} has been disconnected for more than {{ .timeout }}",
 		Labels:      []string{"opni", "agent", "system"},
 		Severity:    alertingv1alpha.Severity_CRITICAL,
 		AlertType:   &alertingv1alpha.AlertCondition_System{},
@@ -124,12 +125,16 @@ func NewListener(opts ...ListenerOption) *Listener {
 		options.maxJitter = options.interval
 	}
 	return &Listener{
-		ListenerOptions: options,
-		statusUpdate:    make(chan StatusUpdate, options.updateQueueCap),
-		healthUpdate:    make(chan HealthUpdate, options.updateQueueCap),
-		idLocks:         make(map[string]*sync.Mutex),
-		closed:          make(chan struct{}),
-		sem:             semaphore.NewWeighted(options.maxConnections),
+		AlertProvider:       options.alertProvider,
+		alertToggle:         options.alertToggle,
+		alertCondition:      options.alertCondition,
+		alertTickerDuration: options.tickerDuration,
+		ListenerOptions:     options,
+		statusUpdate:        make(chan StatusUpdate, options.updateQueueCap),
+		healthUpdate:        make(chan HealthUpdate, options.updateQueueCap),
+		idLocks:             make(map[string]*sync.Mutex),
+		closed:              make(chan struct{}),
+		sem:                 semaphore.NewWeighted(options.maxConnections),
 	}
 }
 
@@ -150,7 +155,7 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 
 	// if we are setting an alert condition for disconnections
 	if l.alertProvider != nil {
-		l.AlertDisconnectLoop(ctx)
+		l.AlertDisconnectLoop(id)
 	}
 
 	l.idLocksMu.Lock()
@@ -226,29 +231,48 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	}
 }
 
-func (l *Listener) AlertDisconnectLoop(ctx context.Context) {
+func (l *Listener) AlertDisconnectLoop(agentId string) {
+	ctx := context.Background()
 	if l.alertToggle == nil {
 		l.alertToggle = make(chan struct{})
 	}
 	if l.alertCondition == nil {
 		l.alertCondition = defaultDisconnectCondition()
 	}
-	id, err := l.alertProvider.CreateAlertCondition(ctx, l.alertCondition)
-	if err != nil {
-		// FIXME: handle gracefully
-	}
+
+	l.alertCondition.Name = strings.Replace(l.alertCondition.Name, "{{ .agentId }}", agentId, -1)
+	l.alertCondition.Description = strings.Replace(l.alertCondition.Description, "{{ .agentId }}", agentId, -1)
+	l.alertCondition.Description = strings.Replace(l.alertCondition.Description, "{{ .timeout }}", l.alertTickerDuration.String(), -1)
 
 	go func() {
+		id, err := (*l.alertProvider).CreateAlertCondition(ctx, l.alertCondition)
+		retryOnFailure := time.NewTicker(time.Second)
+
+		for err != nil {
+			select {
+			case <-retryOnFailure.C:
+				retryOnFailure = time.NewTicker(time.Second)
+				id, err = (*l.alertProvider).CreateAlertCondition(ctx, l.alertCondition)
+			case <-l.closed:
+				retryOnFailure.Stop()
+				return
+			}
+		}
+		if l.alertTickerDuration < 0 {
+			l.alertTickerDuration = time.Second * 60
+		}
 		ticker := time.NewTicker(l.alertTickerDuration)
-		shouldExit := false
+
 		for {
 			select {
 			case <-ticker.C: // received no message from agent in the entier duration
-				_, err = l.alertProvider.TriggerAlerts(ctx, &alertingv1alpha.TriggerAlertsRequest{
+				_, err = (*l.alertProvider).TriggerAlerts(ctx, &alertingv1alpha.TriggerAlertsRequest{
 					Id: id,
 				})
 				if err != nil {
-					// FIXME: handle gracefully
+					ticker = time.NewTicker(time.Second) // retry trigger more often
+				} else {
+					ticker = time.NewTicker(l.alertTickerDuration)
 				}
 
 			case <-l.alertToggle: // received a message from agent
@@ -257,14 +281,12 @@ func (l *Listener) AlertDisconnectLoop(ctx context.Context) {
 
 			case <-l.closed: // listener is closed, stop
 				ticker.Stop()
-				shouldExit = true
 				go func() {
-					l.alertProvider.DeleteAlertCondition(ctx, id)
+					(*l.alertProvider).DeleteAlertCondition(ctx, id)
 				}()
+				return
 			}
-			if shouldExit {
-				break
-			}
+
 		}
 	}()
 }

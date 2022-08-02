@@ -140,28 +140,6 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	return nil, shared.AlertingErrNotImplemented
 }
 
-func (p *Plugin) GetImplementationFromEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.EndpointImplementation, error) {
-
-	existing, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, ref.Id))
-	if err != nil {
-		return nil, err
-	}
-	res := &alertingv1alpha.EndpointImplementation{}
-	if s := existing.GetSlack(); s != nil {
-		res.Implementation = &alertingv1alpha.EndpointImplementation_Slack{
-			Slack: (&alertingv1alpha.SlackImplementation{}).Defaults(),
-		}
-		return res, nil
-	}
-	if e := existing.GetEmail(); e != nil {
-		res.Implementation = &alertingv1alpha.EndpointImplementation_Email{
-			Email: (&alertingv1alpha.EmailImplementation{}).Defaults(),
-		}
-		return res, nil
-	}
-	return nil, validation.Error("Unsupported implementation of endpoint")
-}
-
 func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImplementation, endpointDetails *alertingv1alpha.AlertEndpoint) (*cfg.Receiver, error) {
 
 	if s := endpointDetails.GetSlack(); s != nil {
@@ -170,10 +148,8 @@ func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImple
 		if err != nil {
 			return nil, err // some validation error
 		}
-		if ss := req.Implementation.GetSlack(); ss == nil {
-			return nil, shared.AlertingErrMismatchedImplementation
-		}
-		recv, err = WithSlackImplementation(recv, req.Implementation.GetSlack())
+
+		recv, err = WithSlackImplementation(recv, req.Implementation)
 		if err != nil {
 			return nil, err
 		}
@@ -185,10 +161,8 @@ func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImple
 		if err != nil {
 			return nil, err // some validation error
 		}
-		if ee := req.Implementation.GetEmail(); ee == nil {
-			return nil, shared.AlertingErrMismatchedImplementation
-		}
-		recv, err = WithEmailImplementation(recv, req.Implementation.GetEmail())
+
+		recv, err = WithEmailImplementation(recv, req.Implementation)
 		if err != nil {
 			return nil, err
 		}
@@ -208,7 +182,7 @@ func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alerting
 		return nil, err
 	}
 	// get the base which is a notification endpoint
-	endpointDetails, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.NotificationId.Id))
+	endpointDetails, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.EndpointId.Id))
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +210,7 @@ func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alerting
 		return nil, err
 	}
 	// get the base which is a notification endpoint
-	endpointDetails, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.NotificationId.Id))
+	endpointDetails, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.EndpointId.Id))
 	if err != nil {
 		return nil, err
 	}

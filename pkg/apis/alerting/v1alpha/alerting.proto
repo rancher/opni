@@ -13,7 +13,6 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 service Alerting {
   // ------- Trigger Alerts -------
-  // TODO
 
   // unimplemented
   rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
@@ -61,7 +60,6 @@ service Alerting {
   }
 
   // -------- CRUD for alerting conditions -------
-  //TODO 
 
   rpc CreateAlertCondition(AlertCondition) returns(core.Reference) {
     option (google.api.http) = {
@@ -103,7 +101,6 @@ service Alerting {
   }
 
   // -------- CRUD for alerting endpoints ----
-  // TODO 
   
   rpc CreateAlertEndpoint(AlertEndpoint) returns (google.protobuf.Empty) {
     option (google.api.http) = {
@@ -145,12 +142,6 @@ service Alerting {
     };
   }
   
-  // takes an endpoint id
-  rpc GetImplementationFromEndpoint(core.Reference) returns (EndpointImplementation) {
-    option (google.api.http) = {
-      post: "/alerts/implementation"
-    };
-  }
 
   // alerting internal use only
   rpc CreateEndpointImplementation(CreateImplementation) returns (google.protobuf.Empty) {
@@ -179,11 +170,9 @@ service Alerting {
 
 message TriggerAlertsRequest {
   core.Reference id =1;
-  // TODO
 }
 
 message TriggerAlertsResponse {
-  // TODO
 }
 
 message ListAlertLogRequest {
@@ -220,36 +209,36 @@ message AlertCondition {
 message AlertConditionSystem{}
 
 message AlertConditionList {
-  repeated AlertCondition items = 1;
+  repeated AlertConditionWithId items = 1;
+}
+
+message AlertConditionWithId {
+  core.Reference id = 1;
+  AlertCondition alertCondition = 2;
 }
 
 message ListAlertConditionRequest {
-  // TODO
 }
 
 message UpdateAlertConditionRequest {
   core.Reference id = 1;
-  AlertCondition UpdateAlert = 2;
+  AlertCondition updateAlert = 2;
 }
 
 message PreviewAlertConditionRequest {
-  // TODO
 }
 
 message PreviewAlertConditionResponse {
-  // TODO
 }
 
 
 message EndpointImplementation {
-  oneof implementation {
-    SlackImplementation slack =1;
-    EmailImplementation email =2;
-  }
+  string Title = 1;
+  string Body = 2; 
 }
 
 message CreateImplementation {
-  core.Reference notificationId  = 1;
+  core.Reference endpointId  = 1;
   core.Reference  conditionId = 2;
   EndpointImplementation implementation = 3;
 }
@@ -314,8 +303,6 @@ message UpdateAlertEndpointRequest {
 }
 
 message TestAlertEndpointRequest{
-  // TODO
 }
 message TestAlertEndpointResponse {
-  // TODO
 }

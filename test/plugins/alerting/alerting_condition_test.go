@@ -3,36 +3,21 @@ package alerting_test
 import (
 	"context"
 	"fmt"
-	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/util/waitctx"
+
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Unit, test.Slow), func() {
 	ctx := context.Background()
-	var alertingClient alertingv1alpha.AlertingClient
-	// // test environment references
-	var env *test.Environment
-	BeforeAll(func() {
-		var err error
-		Expect(err).To(BeNil())
-		os.Setenv(alerting.LocalBackendEnvToggle, "true")
-		os.WriteFile(alerting.LocalAlertManagerPath, []byte(alerting.DefaultAlertManager), 0644)
-
-		// setup managemet server & client
-		env = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
-		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
-
-		// alerting plugin
-		alertingClient = alertingv1alpha.NewAlertingClient(env.ManagementClientConn())
-	})
 
 	When("The alerting condition API is passed invalid input it should be robust", func() {
 		Specify("Create Alert Condition API should be robust to invalid input", func() {
@@ -51,44 +36,52 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 		})
 
 		Specify("Get Alert Condition API should be robust to invalid input", func() {
-			// toTestCreateCondition := []InvalidInputs{
-			// 	{
-			// 		req: &alertingv1alpha.AlertCondition{},
-			// 		err: fmt.Errorf("invalid input"),
-			// 	},
-			// }
-
-			// for _, invalidInput := range toTestCreateCondition {
-			// 	_, err := alertingClient.GetAlertCondition(ctx, invalidInput.req.(*alertingv1alpha.AlertCondition))
-			// 	Expect(err).To(HaveOccurred())
-			// 	Expect(err.Error()).To(Equal(invalidInput.err.Error()))
-			// }
+			//TODO
 
 		})
 
 		Specify("Update Alert Condition API should be robust to invalid input", func() {
-			// toTestCreateCondition := []InvalidInputs{
-			// 	{
-			// 		req: &alertingv1alpha.AlertCondition{},
-			// 		err: fmt.Errorf("invalid input"),
-			// 	},
-			// }
-
-			// for _
+			//TODO
 		})
 
 		Specify("List Alert Condition API should be robust to invalid input", func() {
-			// toTestCreateCondition := []InvalidInputs{
-			// 	{
-			// 		req: &alertingv1alpha.AlertCondition{},
-			// 		err: fmt.Errorf("invalid input"),
-			// 	},
-			// }
-
-			// for _
+			//TODO
 		})
 
 		Specify("Delete Alert Condition API should be robust to invalid input", func() {
+			//TODO
+		})
+	})
+
+	When("The alerting plugin starts...", func() {
+		It("Should be create [system] type alert conditions, when that code loads", func() {
+			conditions, err := alertingClient.ListAlertConditions(ctx, &alertingv1alpha.ListAlertConditionRequest{})
+			Expect(err).To(Succeed())
+			Expect(conditions.Items).To(HaveLen(0))
+
+			client := env.NewManagementClient()
+			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
+				Ttl: durationpb.New(time.Hour),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
+			Expect(err).To(Succeed())
+
+			// on agent startup expect an alert condition to be created
+			ctxca, ca := context.WithCancel(waitctx.FromContext(context.Background()))
+			p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(ctxca))
+			Expect(p).NotTo(Equal(0))
+			time.Sleep(time.Second)
+			newConds, err := alertingClient.ListAlertConditions(ctx, &alertingv1alpha.ListAlertConditionRequest{})
+			Expect(err).To(Succeed())
+			Expect(newConds.Items).To(HaveLen(1))
+
+			// kill the agent
+			ca()
+			time.Sleep(time.Second * 65)
+			logs, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{})
+			Expect(err).To(Succeed())
+			Expect(logs.Items).ToNot(HaveLen(0))
 		})
 	})
 })

@@ -6,12 +6,14 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/noop"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
@@ -38,6 +40,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -148,6 +151,29 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		go p.ServeKeyValueStore(store)
 	}))
 
+	pl.Hook(hooks.OnLoadMC(
+		func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
+			if md.BinaryPath == "plugin_alerting" {
+				options.alerting = alertingv1alpha.NewAlertingClient(cc)
+			}
+			//TODO list items like in SLO's api extensions
+			// reflectClient := grpcreflect.NewClient(ctx, rpb.NewServerReflectionClient(cc))
+			// name := "Alerting"
+
+			// 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+
+			// client := managementv1.NewManagementClient(cc)
+			// exts, err := client.APIExtensions(context.Background(), &emptypb.Empty{})
+			// if err != nil {
+			// 	for _, ext := range exts.Items {
+			// 		if ext.ServiceDesc.GetName() == name {
+			// 			options.alerting = alertingv1alpha.NewAlertingClient(cc)
+			// 		}
+			// 	}
+			// }
+
+		}))
+
 	// set up http server
 	tlsConfig, pkey, err := loadTLSConfig(&conf.Spec)
 	if err != nil {
@@ -175,7 +201,13 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	)
 
 	// set up stream server
-	listener := health.NewListener()
+	listener := health.NewListener(
+		health.WithAlertProvider(&options.alerting),
+		health.WithDefaultAlertCondition(),
+		health.WithAlertToggle(),
+		health.WithDisconnectTimeout(time.Second*60),
+	)
+	listener.AlertProvider = &options.alerting
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
 	go monitor.Run(ctx, listener)
 	streamSvc := NewStreamServer(listener, storageBackend, lg)

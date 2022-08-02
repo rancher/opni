@@ -23,7 +23,7 @@ func setEndpointImplementationIfAvailable(p *Plugin, ctx context.Context, req *a
 		}
 
 		_, err := p.CreateEndpointImplementation(ctx, &alertingv1alpha.CreateImplementation{
-			NotificationId: &corev1.Reference{Id: *req.NotificationId},
+			EndpointId:     &corev1.Reference{Id: *req.NotificationId},
 			ConditionId:    &corev1.Reference{Id: newId},
 			Implementation: req.Details,
 		})
@@ -44,7 +44,7 @@ func updateEndpointImplemetation(p *Plugin, ctx context.Context, req *alertingv1
 		}
 
 		_, err := p.UpdateEndpointImplementation(ctx, &alertingv1alpha.CreateImplementation{
-			NotificationId: &corev1.Reference{Id: *req.NotificationId},
+			EndpointId:     &corev1.Reference{Id: *req.NotificationId},
 			ConditionId:    &corev1.Reference{Id: id},
 			Implementation: req.Details,
 		})
@@ -71,12 +71,10 @@ func handleUpdateEndpointImplementation(p *Plugin,
 }
 
 func setupCondition(ctx context.Context, req *alertingv1alpha.AlertCondition, newId string) (*corev1.Reference, error) {
-	switch req.AlertType {
-	case &alertingv1alpha.AlertCondition_System{}: // opni system evaluates these conditions elsewhere in the code
+	if s := req.GetSystem(); s != nil {
 		return &corev1.Reference{Id: newId}, nil
-	default:
-		return nil, shared.AlertingErrNotImplemented
 	}
+	return nil, shared.AlertingErrNotImplemented
 }
 
 func deleteCondition(ctx context.Context, req *alertingv1alpha.AlertCondition, id string) error {

@@ -58,7 +58,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 }
 
 var _ alertingv1alpha.AlertingServer = (*Plugin)(nil)
-var _ alerting.Provider = (*Plugin)(nil)
+var _ alerting.Provider = (alertingv1alpha.AlertingClient)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()

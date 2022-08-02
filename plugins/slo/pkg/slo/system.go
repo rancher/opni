@@ -15,6 +15,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+var sharedLockWithTimeout chan struct{} = make(chan struct{})
+
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	for retries := 10; retries > 0; retries-- {
 		apiExtensions, err := client.APIExtensions(context.Background(), &emptypb.Empty{})
@@ -82,5 +84,9 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	}
 	adminClient := cortexadmin.NewCortexAdminClient(cc)
 	p.adminClient.Set(adminClient)
-	RegisterDatasource(shared.MonitoringDatasource, NewSLOMonitoringStore(p, p.logger), NewMonitoringServiceBackend(p, p.logger))
+	RegisterDatasource(
+		shared.MonitoringDatasource,
+		NewSLOMonitoringStore(p, p.logger),
+		NewMonitoringServiceBackend(p, p.logger),
+	)
 }

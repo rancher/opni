@@ -63,6 +63,11 @@ func (p *Plugin) CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*e
 			return nil, err
 		}
 	} else {
+		if b == nil {
+			b = &BucketInfo{
+				ConditionId: event.ConditionId.Id,
+			}
+		}
 		if err := b.Create(); err != nil {
 			return nil, err
 		}
@@ -97,7 +102,7 @@ func isSubset(first, second []string) bool {
 }
 
 func hasLabels(item *alertingv1alpha.InformativeAlertLog, labels []string) bool {
-	return isSubset(labels, item.Condition.Labels)
+	return len(labels) == 0 || isSubset(labels, item.Condition.Labels)
 }
 
 func hasRange(item *alertingv1alpha.InformativeAlertLog, s *timestamppb.Timestamp, e *timestamppb.Timestamp) bool {
@@ -147,7 +152,7 @@ func (p *Plugin) ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAle
 		}
 		toBeReturned := []*alertingv1alpha.InformativeAlertLog{}
 		for _, item := range toBeFiltered {
-			passed := false
+			passed := true
 			passed = passed && hasLabels(item, req.Labels)
 			passed = passed && hasRange(item, req.StartTimestamp, req.EndTimestamp)
 			if passed {

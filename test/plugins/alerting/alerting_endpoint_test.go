@@ -29,21 +29,6 @@ var idsToCreate = map[string]string{"slack": uuid.New().String(), "email": uuid.
 
 var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Unit, test.Slow), func() {
 	ctx := context.Background()
-	var alertingClient alertingv1alpha.AlertingClient
-	// test environment references
-	var env *test.Environment
-	BeforeAll(func() {
-
-		// setup managemet server & client
-		env = &test.Environment{
-			TestBin: "../../../testbin/bin",
-		}
-		Expect(env.Start()).To(Succeed())
-		DeferCleanup(env.Stop)
-
-		// alerting plugin
-		alertingClient = alertingv1alpha.NewAlertingClient(env.ManagementClientConn())
-	})
 
 	When("The API is passed invalid input, handle it", func() {
 		Specify("Create Endpoint API should be robust to invalid input", func() {
@@ -134,91 +119,40 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 		})
 
 		Specify("Get Alert Endpoint API should be robust to invalid input", func() {
-			// toTestCreateEndpoint := []InvalidInputs{
-			// 	{
-			// 		req: &alertingv1alpha.AlertEndpoint{},
-			// 		err: fmt.Errorf("invalid input"),
-			// 	},
-			// }
-
-			// for _, invalidInput := range toTestCreateEndpoint {
-			// 	_, err := alertingClient.GetAlertEndpoint(ctx, invalidInput.req.(*corev1.Reference))
-			// 	Expect(err).To(HaveOccurred())
-			// 	Expect(err.Error()).To(Equal(invalidInput.err.Error()))
-			// }
+			//TODO
 
 		})
 
 		Specify("Update Alert Endpoint API should be robust to invalid input", func() {
-			// toTestCreateEndpoint := []InvalidInputs{
-			// 	{
-			// 		req: &alertingv1alpha.AlertEndpoint{},
-			// 		err: fmt.Errorf("invalid input"),
-			// 	},
-			// }
-			// for _, invalidInput := range toTestCreateEndpoint {
-			// 	_, err := alertingClient.UpdateAlertEndpoint(ctx, invalidInput.req.(*alertingv1alpha.UpdateAlertEndpointRequest))
-			// 	Expect(err).To(HaveOccurred())
-			// 	Expect(err.Error()).To(Equal(invalidInput.err.Error()))
-			// }
+			//TODO
 		})
 
 		Specify("List Alert Endpoint API should be robust to invalid input", func() {
-			// toTestCreateEndpoint := []InvalidInputs{
-			// 	{
-			// 		req: &alertingv1alpha.AlertEndpoint{},
-			// 		err: fmt.Errorf("invalid input"),
-			// 	},
-			// }
-			// for _, invalidInput := range toTestCreateEndpoint {
-			// 	_, err := alertingClient.ListAlertEndpoints(ctx, invalidInput.req.(*alertingv1alpha.ListAlertEndpointsRequest))
-			// 	Expect(err).To(HaveOccurred())
-			// 	Expect(err.Error()).To(Equal(invalidInput.err.Error()))
-			// }
+			//TODO
 		})
 
 		Specify("Delete Alert Endpoint API should be robust to invalid input", func() {
-			// toTestCreateEndpoint := []InvalidInputs{
-			// 	{
-			// 		req: &alertingv1alpha.AlertEndpoint{},
-			// 		err: fmt.Errorf("invalid input"),
-			// 	},
-			// }
-			// for _, invalidInput := range toTestCreateEndpoint {
-			// 	_, err := alertingClient.DeleteAlertEndpoint(ctx, invalidInput.req.(*corev1.Reference))
-			// 	Expect(err).To(HaveOccurred())
-			// 	Expect(err.Error()).To(Equal(invalidInput.err.Error()))
-			// }
+			//TODO
 		})
 
 		Specify("Test Alert Endpoint API should be robust to invalid input", func() {
-			// toTestCreateEndpoint := []InvalidInputs{
-			// 	{
-			// 		req: &alertingv1alpha.AlertEndpoint{},
-			// 		err: shared.AlertingErrNotImplemented,
-			// 	},
-			// }
-			// for _, invalidInput := range toTestCreateEndpoint {
-			// 	_, err := alertingClient.TestAlertEndpoint(ctx, invalidInput.req.(*alertingv1alpha.TestAlertEndpointRequest))
-			// 	Expect(err).To(HaveOccurred())
-			// 	Expect(err.Error()).To(Equal(invalidInput.err.Error()))
-			// }
+			// TODO
 		})
 
 		Specify("Get Implementation From Endpoint API should be robust to invalid input", func() {
-
+			//TODO
 		})
 
 		Specify("Create Endpoint Implementation API should be robust to invalid input ", func() {
-
+			//TODO
 		})
 
 		Specify("Update Endpoint Implementation API should be robust to invalid input ", func() {
-
+			//TODO
 		})
 
 		Specify("Delete Endpoint Implementation API should be robust to invalid input", func() {
-
+			//TODO
 		})
 
 		Specify("Cleaning up edge case data", func() {
@@ -377,39 +311,6 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(missing).To(BeNil())
 		})
 
-		It("Should be able to get alert endpoint implementation details", func() {
-			var slack *alertingv1alpha.AlertEndpointWithId
-			var email *alertingv1alpha.AlertEndpointWithId
-			existing, err := alertingClient.ListAlertEndpoints(ctx,
-				&alertingv1alpha.ListAlertEndpointsRequest{})
-			Expect(err).To(Succeed())
-			Expect(existing.Items).NotTo(HaveLen(0))
-			for _, item := range existing.Items {
-				if item.Endpoint.GetSlack() != nil {
-					slack = item
-				} else if item.Endpoint.GetEmail() != nil {
-					email = item
-				}
-			}
-			Expect(slack).NotTo(BeNil())
-			Expect(email).NotTo(BeNil())
-
-			s, err := alertingClient.GetImplementationFromEndpoint(ctx, &corev1.Reference{
-				Id: slack.Id.Id,
-			})
-			Expect(err).To(Succeed())
-			Expect(s.GetSlack()).NotTo(BeNil())
-			sDefaults := (&alertingv1alpha.SlackImplementation{}).Defaults()
-			Expect(s.GetSlack()).To(Equal(sDefaults))
-			e, err := alertingClient.GetImplementationFromEndpoint(ctx, &corev1.Reference{
-				Id: email.Id.Id,
-			})
-			eDefaults := (&alertingv1alpha.EmailImplementation{}).Defaults()
-			Expect(err).To(Succeed())
-			Expect(e.GetEmail()).NotTo(BeNil())
-			Expect(e.GetEmail()).To(Equal(eDefaults))
-		})
-
 		It("Should be able to create endpoint implementations", func() {
 			var slack *alertingv1alpha.AlertEndpointWithId
 			var email *alertingv1alpha.AlertEndpointWithId
@@ -436,39 +337,27 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 
 			_, err = alertingClient.CreateEndpointImplementation(ctx,
 				&alertingv1alpha.CreateImplementation{
-					NotificationId: slack.Id,
+					EndpointId: slack.Id,
 					ConditionId: &corev1.Reference{
 						Id: idsToCreate["slack"],
 					},
-					Implementation: &alertingv1alpha.EndpointImplementation{
-						Implementation: &alertingv1alpha.EndpointImplementation_Slack{
-							Slack: &alertingv1alpha.SlackImplementation{
-								Title:    "Slack title [CI]",
-								Text:     "Slack message content [CI]",
-								ImageUrl: "Slack image url [CI]",
-								Footer:   "information in the footer [CI]",
-							},
-						},
-					},
+					Implementation: &alertingv1alpha.EndpointImplementation{},
 				},
 			)
 
 			Expect(err).To(Succeed())
 			Expect(curConfig().Receivers).To(HaveLen(2))
 
-			emailContext := "Email message content [CI]"
+			emailContent := "Email message content [CI]"
 			_, err = alertingClient.CreateEndpointImplementation(ctx,
 				&alertingv1alpha.CreateImplementation{
-					NotificationId: email.Id,
+					EndpointId: email.Id,
 					ConditionId: &corev1.Reference{
 						Id: idsToCreate["email"],
 					},
 					Implementation: &alertingv1alpha.EndpointImplementation{
-						Implementation: &alertingv1alpha.EndpointImplementation_Email{
-							Email: &alertingv1alpha.EmailImplementation{
-								TextBody: &emailContext,
-							},
-						},
+						Title: "",
+						Body:  emailContent,
 					},
 				},
 			)
@@ -498,16 +387,13 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			newEmailMsg := "Email message content [CI]"
 			_, err = alertingClient.UpdateEndpointImplementation(ctx,
 				&alertingv1alpha.CreateImplementation{
-					NotificationId: email.Id,
+					EndpointId: email.Id,
 					ConditionId: &corev1.Reference{
 						Id: idsToCreate["slack"],
 					},
 					Implementation: &alertingv1alpha.EndpointImplementation{
-						Implementation: &alertingv1alpha.EndpointImplementation_Email{
-							Email: &alertingv1alpha.EmailImplementation{
-								TextBody: &newEmailMsg,
-							},
-						},
+						Title: "",
+						Body:  newEmailMsg,
 					},
 				},
 			)
@@ -516,17 +402,14 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			// for an alert condition, update email to slack notification
 			_, err = alertingClient.UpdateEndpointImplementation(ctx,
 				&alertingv1alpha.CreateImplementation{
-					NotificationId: slack.Id,
+					EndpointId: slack.Id,
 					ConditionId: &corev1.Reference{
 						Id: idsToCreate["email"],
 					},
 					Implementation: &alertingv1alpha.EndpointImplementation{
-						Implementation: &alertingv1alpha.EndpointImplementation_Slack{
-							Slack: &alertingv1alpha.SlackImplementation{
-								Title: "Slack title [CI]",
-								Text:  "Slack message content [CI]",
-							},
-						},
+
+						Title: "",
+						Body:  "",
 					},
 				},
 			)

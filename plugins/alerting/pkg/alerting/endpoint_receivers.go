@@ -88,14 +88,13 @@ func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*cfg.
 
 func WithSlackImplementation(
 	cfg *cfg.Receiver,
-	impl *alertingv1alpha.SlackImplementation) (*cfg.Receiver, error) {
+	impl *alertingv1alpha.EndpointImplementation) (*cfg.Receiver, error) {
 	if cfg.SlackConfigs == nil || len(cfg.SlackConfigs) == 0 || impl == nil {
 		return nil, shared.AlertingErrMismatchedImplementation
 	}
 	cfg.SlackConfigs[0].Title = impl.Title
-	cfg.SlackConfigs[0].Text = impl.Text
-	cfg.SlackConfigs[0].Footer = impl.Footer
-	cfg.SlackConfigs[0].ImageURL = impl.ImageUrl
+	cfg.SlackConfigs[0].Text = impl.Body
+
 	return cfg, nil
 }
 
@@ -118,30 +117,31 @@ func NewEmailReceiver(id string, endpoint *alertingv1alpha.EmailEndpoint) (*cfg.
 			if endpoint.From == nil {
 				return []*cfg.EmailConfig{
 					{
-						To:   endpoint.To,
-						From: "alertmanager@localhost",
+						To:      endpoint.To,
+						From:    "alertmanager@localhost",
+						Headers: map[string]string{},
 					},
 				}
 			}
 			return []*cfg.EmailConfig{
 				{
-					To:   endpoint.To,
-					From: *endpoint.From,
+					To:      endpoint.To,
+					From:    *endpoint.From,
+					Headers: map[string]string{},
 				},
 			}
 		}()}, nil
 }
 
-func WithEmailImplementation(cfg *cfg.Receiver, impl *alertingv1alpha.EmailImplementation) (*cfg.Receiver, error) {
+func WithEmailImplementation(cfg *cfg.Receiver, impl *alertingv1alpha.EndpointImplementation) (*cfg.Receiver, error) {
 	if cfg.EmailConfigs == nil || len(cfg.EmailConfigs) == 0 || impl == nil {
 		return nil, shared.AlertingErrMismatchedImplementation
 	}
-	if impl.TextBody != nil {
-		cfg.EmailConfigs[0].Text = *impl.TextBody
+	if cfg.EmailConfigs[0].Headers == nil {
+		cfg.EmailConfigs[0].Headers = map[string]string{}
 	}
-	if impl.HtmlBody != nil {
-		cfg.EmailConfigs[0].HTML = *impl.HtmlBody
-	}
+	cfg.EmailConfigs[0].Headers["Subject"] = impl.Title
+	cfg.EmailConfigs[0].HTML = impl.Body
 
 	return cfg, nil
 }

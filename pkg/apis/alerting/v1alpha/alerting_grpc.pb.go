@@ -48,8 +48,6 @@ type AlertingClient interface {
 	DeleteAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// unimplemented
 	TestAlertEndpoint(ctx context.Context, in *TestAlertEndpointRequest, opts ...grpc.CallOption) (*TestAlertEndpointResponse, error)
-	// takes an endpoint id
-	GetImplementationFromEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*EndpointImplementation, error)
 	// alerting internal use only
 	CreateEndpointImplementation(ctx context.Context, in *CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// alerting internal use only
@@ -229,15 +227,6 @@ func (c *alertingClient) TestAlertEndpoint(ctx context.Context, in *TestAlertEnd
 	return out, nil
 }
 
-func (c *alertingClient) GetImplementationFromEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*EndpointImplementation, error) {
-	out := new(EndpointImplementation)
-	err := c.cc.Invoke(ctx, "/Alerting/GetImplementationFromEndpoint", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *alertingClient) CreateEndpointImplementation(ctx context.Context, in *CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/Alerting/CreateEndpointImplementation", in, out, opts...)
@@ -293,8 +282,6 @@ type AlertingServer interface {
 	DeleteAlertEndpoint(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	// unimplemented
 	TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error)
-	// takes an endpoint id
-	GetImplementationFromEndpoint(context.Context, *v1.Reference) (*EndpointImplementation, error)
 	// alerting internal use only
 	CreateEndpointImplementation(context.Context, *CreateImplementation) (*emptypb.Empty, error)
 	// alerting internal use only
@@ -362,9 +349,6 @@ func (UnimplementedAlertingServer) DeleteAlertEndpoint(context.Context, *v1.Refe
 }
 func (UnimplementedAlertingServer) TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TestAlertEndpoint not implemented")
-}
-func (UnimplementedAlertingServer) GetImplementationFromEndpoint(context.Context, *v1.Reference) (*EndpointImplementation, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetImplementationFromEndpoint not implemented")
 }
 func (UnimplementedAlertingServer) CreateEndpointImplementation(context.Context, *CreateImplementation) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateEndpointImplementation not implemented")
@@ -712,24 +696,6 @@ func _Alerting_TestAlertEndpoint_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Alerting_GetImplementationFromEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AlertingServer).GetImplementationFromEndpoint(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Alerting/GetImplementationFromEndpoint",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingServer).GetImplementationFromEndpoint(ctx, req.(*v1.Reference))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Alerting_CreateEndpointImplementation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateImplementation)
 	if err := dec(in); err != nil {
@@ -862,10 +828,6 @@ var Alerting_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TestAlertEndpoint",
 			Handler:    _Alerting_TestAlertEndpoint_Handler,
-		},
-		{
-			MethodName: "GetImplementationFromEndpoint",
-			Handler:    _Alerting_GetImplementationFromEndpoint_Handler,
 		},
 		{
 			MethodName: "CreateEndpointImplementation",

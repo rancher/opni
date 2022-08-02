@@ -2,12 +2,16 @@ package alerting
 
 import (
 	"context"
+	"fmt"
 	"path"
+	"time"
 
-	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func list[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]T, error) {
@@ -48,9 +52,37 @@ func listWithKeys[T proto.Message](ctx context.Context, kvc storage.KeyValueStor
 // --- Trigger ---
 
 func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) (*alertingv1alpha.TriggerAlertsResponse, error) {
-	// persist with alert log api
+	// get the condition ID details
+	a, err := p.GetAlertCondition(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	notifId := a.NotificationId
 
+	// persist with alert log api
+	_, err = p.CreateAlertLog(ctx, &corev1.AlertLog{
+		ConditionId: req.Id,
+		Timestamp: &timestamppb.Timestamp{
+			Seconds: time.Now().Unix(),
+		},
+		Metadata: &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"Info":     structpb.NewStringValue(a.Description),
+				"Severity": structpb.NewStringValue("Severe"),
+			},
+		},
+	})
+	if err != nil {
+		return nil, err 
+	}
+	if notifId != nil {
+		(&AlertManagerAPI{
+			Endpoint: p.alertingOptions.Get().Endpoints[0],
+			Verb:     POST,
+			Route:    fmt.Sprintf("/alerts/%s", *notifId),
+		}).WithHttpV2()
+	}
 	// dispatch with alert condition id to alert endpoint id
 
-	return nil, shared.AlertingErrNotImplemented
+	return &alertingv1alpha.TriggerAlertsResponse{}, nil
 }

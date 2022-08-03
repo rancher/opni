@@ -67,6 +67,8 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 		Name:  fmt.Sprintf("%s%s", sloId, RecordingRuleSuffix),
 		Rules: recording,
 	})
+	//@here debug recording rules
+	// os.WriteFile(fmt.Sprintf("recording-%s.yaml", sloId), rrecording, 0644)
 	if err != nil {
 		return nil, err
 	}

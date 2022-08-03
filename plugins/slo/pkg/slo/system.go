@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -14,6 +15,8 @@ import (
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+var mu sync.Mutex
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	for retries := 10; retries > 0; retries-- {
@@ -80,5 +83,7 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	}
 	adminClient := cortexadmin.NewCortexAdminClient(cc)
 	p.adminClient.Set(adminClient)
+	defer mu.Unlock()
+	mu.Lock()
 	RegisterDatasource(shared.MonitoringDatasource, NewSLOMonitoringStore(p, p.logger), NewMonitoringServiceBackend(p, p.logger))
 }

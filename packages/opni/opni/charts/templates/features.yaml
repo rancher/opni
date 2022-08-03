@@ -8,3 +8,6 @@ data:
     manage-opensearch:
       description: Management API for Opensearch Clusters
       enabled: false
+    tracing:
+      description: Trace collection feature
+      enabled: false

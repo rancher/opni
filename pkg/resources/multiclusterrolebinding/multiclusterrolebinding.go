@@ -7,6 +7,7 @@ import (
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/rancher/opni/apis/v1beta2"
+	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,6 +44,8 @@ func NewReconciler(
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	lg := log.FromContext(r.ctx)
 	conditions := []string{}
+
+	lg.Info(fmt.Sprintf("tracing feature enabled: %t", features.FeatureList.FeatureIsEnabled("tracing")))
 
 	defer func() {
 		// When the reconciler is done, figure out what the state of the opnicluster

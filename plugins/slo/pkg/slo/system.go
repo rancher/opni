@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path"
-	"sync"
 	"time"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -15,8 +14,6 @@ import (
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-var mu sync.Mutex
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	for retries := 10; retries > 0; retries-- {
@@ -52,7 +49,9 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		Services: system.NewKVStoreClient[*sloapi.Service](client),
 		Metrics:  system.NewKVStoreClient[*sloapi.Metric](client),
 	})
-	p.initMetricCache(p.ctx)
+	if err := p.initMetricCache(p.ctx); err != nil {
+		p.logger.Error("failed to init metric cache", "error", err)
+	}
 	<-p.ctx.Done()
 }
 
@@ -83,7 +82,5 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	}
 	adminClient := cortexadmin.NewCortexAdminClient(cc)
 	p.adminClient.Set(adminClient)
-	defer mu.Unlock()
-	mu.Lock()
 	RegisterDatasource(shared.MonitoringDatasource, NewSLOMonitoringStore(p, p.logger), NewMonitoringServiceBackend(p, p.logger))
 }

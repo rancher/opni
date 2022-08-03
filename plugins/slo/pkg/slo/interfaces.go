@@ -2,6 +2,7 @@ package slo
 
 import (
 	"context"
+	"sync"
 
 	v1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/hashicorp/go-hclog"
@@ -12,8 +13,11 @@ import (
 
 var datasourceToSLO map[string]SLOStore = make(map[string]SLOStore)
 var datasourceToService map[string]ServiceBackend = make(map[string]ServiceBackend)
+var mu sync.Mutex
 
 func RegisterDatasource(datasource string, sloImpl SLOStore, serviceImpl ServiceBackend) {
+	defer mu.Unlock()
+	mu.Lock()
 	datasourceToSLO[datasource] = sloImpl
 	datasourceToService[datasource] = serviceImpl
 }

@@ -185,7 +185,6 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var instrumentationPort int
 	var stopInstrumentationServer chan bool
 	var instrumentationCancel context.CancelFunc
-	var mockServerName string = "mock-server"
 
 	var createdSlos []*corev1.Reference
 
@@ -215,7 +214,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			"slo/prometheus/config.yaml",
 			[]test.PrometheusJob{
 				{
-					JobName:    mockServerName,
+					JobName:    query.MockTestServerName,
 					ScrapePort: instrumentationPort,
 				},
 			},
@@ -225,7 +224,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			"slo/prometheus/config.yaml",
 			[]test.PrometheusJob{
 				{
-					JobName:    mockServerName,
+					JobName:    query.MockTestServerName,
 					ScrapePort: instrumentationPort,
 				},
 			},
@@ -247,10 +246,10 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(sloSvcs.Items).To(HaveLen(4))
 
 			expectedMap := map[string]bool{
-				fmt.Sprintf("%s-%s", "agent", "prometheus"):    false,
-				fmt.Sprintf("%s-%s", "agent", mockServerName):  false,
-				fmt.Sprintf("%s-%s", "agent2", "prometheus"):   false,
-				fmt.Sprintf("%s-%s", "agent2", mockServerName): false,
+				fmt.Sprintf("%s-%s", "agent", "prometheus"):              false,
+				fmt.Sprintf("%s-%s", "agent", query.MockTestServerName):  false,
+				fmt.Sprintf("%s-%s", "agent2", "prometheus"):             false,
+				fmt.Sprintf("%s-%s", "agent2", query.MockTestServerName): false,
 			}
 
 			for _, sloSvc := range sloSvcs.Items {
@@ -518,7 +517,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			}
 			svcs := []*apis.Service{
 				{
-					JobId: mockServerName,
+					JobId: query.MockTestServerName,
 					// MetricName:    instrumentationMetric,
 					// MetricIdGood:  "http_request_duration_seconds_count",
 					// MetricIdTotal: "http_request_duration_seconds_count",
@@ -543,9 +542,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			goodE := simulateGoodStatus(instrumentationMetric, instrumentationPort, 10)
 			Expect(goodE).To(Equal(10))
-			_, err = sloClient.Status(ctx, instrumentationSLOID)
+			expectedGoodStatus, err := sloClient.Status(ctx, instrumentationSLOID)
 			Expect(err).To(Succeed())
-			// Expect(status.State).To(Equal(apis.SLOStatusState_Ok))
+			Expect(expectedGoodStatus.State).To(Equal(apis.SLOStatusState_NoData))
 			// stopInstrumentationServer <- true
 			instrumentationCancel()
 		})

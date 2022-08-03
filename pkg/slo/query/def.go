@@ -45,6 +45,9 @@ type templateExecutor struct {
 	JobId         string
 }
 
+// must not contain spaces
+const MockTestServerName = "MetricMockServer"
+
 func init() {
 	// Names should be unique for each pre-configured query, as they are used as keys
 	// in the map

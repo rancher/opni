@@ -34,18 +34,21 @@ func (s SLOMonitoring) Create(osloSpecs []v1.SLO) (*corev1.ReferenceList, error)
 	var anyError error
 	for _, zipped := range openSpecServices {
 		// existingId="" if this is a new slo
-		createdSlos, err := applyMonitoringSLODownstream(*zipped.Spec, zipped.Service, "", s.p, req, s.ctx, s.lg)
+		createdSlos, createError := applyMonitoringSLODownstream(*zipped.Spec, zipped.Service, "", s.p, req, s.ctx, s.lg)
 
-		if err != nil {
-			anyError = err
+		if createError != nil {
+			anyError = createError
 		}
 		for _, data := range createdSlos {
-			returnedSloId.Items = append(returnedSloId.Items, &corev1.Reference{Id: data.Id})
-			if err := s.p.storage.Get().SLOs.Put(s.ctx, path.Join("/slos", data.Id), data); err != nil {
-				return nil, err
-			}
-			if err != nil {
-				anyError = err
+			// ONLY WHEN the SLO is applied, should we create the K,V
+			if createError == nil {
+				returnedSloId.Items = append(returnedSloId.Items, &corev1.Reference{Id: data.Id})
+				if err := s.p.storage.Get().SLOs.Put(s.ctx, path.Join("/slos", data.Id), data); err != nil {
+					return nil, err
+				}
+				if err != nil {
+					anyError = err
+				}
 			}
 		}
 	}
@@ -92,7 +95,7 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (string, error) {
 		Services: []*sloapi.Service{clone.Service},
 	})
 	if err != nil {
-		anyError = err
+		return "", err
 	}
 	// should only create one slo
 	if len(createdSlos.Items) > 1 {
@@ -116,7 +119,7 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 		s.ctx,
 		&cortexadmin.QueryRequest{
 			Tenants: []string{existing.Service.ClusterId},
-			Query:   fmt.Sprintf("slo:sli_error:ratio_rate5m{%s=\"%s\"}", sloOpniIdLabel, existing.Id),
+			Query:   fmt.Sprintf(`slo:sli_error:ratio_rate5m{%s="%s"}`, sloOpniIdLabel, existing.Id),
 		},
 	)
 	if err != nil {

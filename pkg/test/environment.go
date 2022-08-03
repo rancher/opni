@@ -1087,7 +1087,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		TestBin: "testbin/bin",
 	}
 	randSrc := rand.New(rand.NewSource(0))
-
+	var iPort int
 	addAgent := func(rw http.ResponseWriter, r *http.Request) {
 		Log.Infof("%s %s", r.Method, r.URL.Path)
 		switch r.Method {
@@ -1117,7 +1117,16 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				rw.Write([]byte(err.Error()))
 				return
 			}
-			environment.StartPrometheus(port)
+			environment.StartPrometheus(port, NewOverridePrometheusConfig(
+				"slo/prometheus/config.yaml",
+				[]PrometheusJob{
+					{
+						JobName:    query.MockTestServerName,
+						ScrapePort: iPort,
+					},
+				}),
+			)
+
 			rw.WriteHeader(http.StatusOK)
 			rw.Write([]byte(fmt.Sprintf("%d", port)))
 		}
@@ -1136,6 +1145,8 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	}()
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt)
+	iPort, _ = environment.StartInstrumentationServer(context.Background())
+	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)
 	Log.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
 	// listen for spacebar on stdin
 	t, err := tty.Open()

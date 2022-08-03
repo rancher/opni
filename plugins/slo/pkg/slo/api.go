@@ -125,7 +125,10 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 		return nil, err
 	}
 	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(req, ctx)
-	newReq, anyError := sloStore.Update(osloSpecs, existing)
+	newReq, err := sloStore.Update(osloSpecs, existing)
+	if err != nil { // exit when update fails
+		return nil, err
+	}
 
 	// Merge when everything else is done
 	proto.Merge(existing, newReq)
@@ -133,7 +136,7 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 	if err := p.storage.Get().SLOs.Put(ctx, path.Join("/slos", req.Id), existing); err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, anyError
+	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
@@ -171,12 +174,16 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 	clone.SLO.Name = clone.SLO.Name + " - Copy"
 
 	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ref, ctx)
-	newId, err := sloStore.Clone(clone)
+
+	newId, anyError := sloStore.Clone(clone)
+	if newId == "" { // hit an error applying the SLO, so we need to exit before updating the K,V
+		return nil, anyError
+	}
 	if err := p.storage.Get().SLOs.Put(ctx, path.Join("/slos", newId), clone); err != nil {
 		return nil, err
 	}
 
-	return clone, anyError
+	return clone, anyError // can partially succeed even on error
 }
 
 func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOStatus, error) {

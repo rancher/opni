@@ -49,7 +49,9 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		Services: system.NewKVStoreClient[*sloapi.Service](client),
 		Metrics:  system.NewKVStoreClient[*sloapi.Metric](client),
 	})
-	p.initMetricCache(p.ctx)
+	if err := p.initMetricCache(p.ctx); err != nil {
+		p.logger.Error("failed to init metric cache", "error", err)
+	}
 	<-p.ctx.Done()
 }
 

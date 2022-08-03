@@ -3,14 +3,14 @@ package slo
 import (
 	"context"
 	"fmt"
-
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/hashicorp/go-hclog"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
 )
 
@@ -20,42 +20,16 @@ var (
 	AlertRuleSuffix     = "-alerts"
 )
 
-// these types are defined to support yaml v2 (instead of the new Prometheus
-// YAML v3 that has some problems with marshaling).
-type ruleGroupsYAMLv2 struct {
-	Groups []ruleGroupYAMLv2 `yaml:"groups"`
-}
-
 type ruleGroupYAMLv2 struct {
 	Name     string             `yaml:"name"`
 	Interval prommodel.Duration `yaml:"interval,omitempty"`
 	Rules    []rulefmt.Rule     `yaml:"rules"`
 }
 
-// Guess this could be generic
-type zipperHolder struct {
-	Spec    *oslov1.SLO
-	Service *apis.Service
-}
-
 type CortexRuleWrapper struct {
 	recording string
 	metadata  string
 	alerts    string
-}
-
-func zipOpenSLOWithServices(ps []oslov1.SLO, as []*apis.Service) ([]*zipperHolder, error) {
-	if len(as) != len(ps) {
-		return nil, fmt.Errorf("Expected Generated SLOGroups to match the number of Services provided in the request")
-	}
-	res := make([]*zipperHolder, 0)
-	for idx, p := range ps {
-		res = append(res, &zipperHolder{
-			Spec:    &p,
-			Service: as[idx],
-		})
-	}
-	return res, nil
 }
 
 // Marshal result SLORuleFmtWrapper to cortex-approved yaml
@@ -95,7 +69,10 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 	}, nil
 }
 
-// Cortex applies rule groups individually
+// Apply Cortex Rules to Cortex separately :
+// - recording rules
+// - metadata rules
+// - alert rules
 func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *sloapi.Service, existingId string, ctx context.Context, lg hclog.Logger) error {
 	var anyError error
 	ruleGroupsToApply := []string{cortexRules.recording, cortexRules.metadata, cortexRules.alerts}
@@ -114,8 +91,7 @@ func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *slo
 	return anyError
 }
 
-func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOData, ctx context.Context, lg hclog.Logger) error {
-	id, clusterId := toDelete.Id, toDelete.Service.ClusterId
+func deleteCortexSLORules(p *Plugin, id string, clusterId string, ctx context.Context, lg hclog.Logger) error {
 	ruleGroupsToDelete := []string{id + RecordingRuleSuffix, id + MetadataRuleSuffix, id + AlertRuleSuffix}
 	var anyError error
 
@@ -124,7 +100,9 @@ func deleteCortexSLORules(p *Plugin, toDelete *sloapi.SLOData, ctx context.Conte
 			Tenant:    clusterId,
 			GroupName: ruleGroup,
 		})
-		if err != nil {
+		// we can ignore 404s here since if we can't find them,
+		// then it will be impossible to delete them anyway
+		if err != nil && status.Code(err) != codes.NotFound {
 			lg.Error(fmt.Sprintf("Failed to delete rule group with id  %v: %v", id, err))
 			anyError = err
 		}
@@ -159,14 +137,18 @@ func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, 
 		if err != nil {
 			return nil, err
 		}
-		applyCortexSLORules(p, cortexRules, service, actualID, ctx, lg)
+		err = applyCortexSLORules(p, cortexRules, service, actualID, ctx, lg)
 
-		dataToPersist := &sloapi.SLOData{
-			Id:      actualID,
-			SLO:     slorequest.SLO,
-			Service: service,
+		if err == nil {
+			dataToPersist := &sloapi.SLOData{
+				Id:      actualID,
+				SLO:     slorequest.SLO,
+				Service: service,
+			}
+			returnedSloImpl = append(returnedSloImpl, dataToPersist)
+		} else { // clean up any create rule groups
+			err = deleteCortexSLORules(p, actualID, service.ClusterId, ctx, lg)
 		}
-		returnedSloImpl = append(returnedSloImpl, dataToPersist)
 	}
 	return returnedSloImpl, nil
 }

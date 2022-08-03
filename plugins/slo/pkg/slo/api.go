@@ -140,8 +140,10 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 }
 
 func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
+	lg := p.logger
 	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", req.Id))
 	if err != nil {
+		lg.With("delete slo", req.Id).Error("failed to get slo to delete in K,V store")
 		return nil, err
 	}
 	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
@@ -155,8 +157,6 @@ func (p *Plugin) DeleteSLO(ctx context.Context, req *corev1.Reference) (*emptypb
 	if err := p.storage.Get().SLOs.Delete(ctx, path.Join("/slos", req.Id)); err != nil {
 		return nil, err
 	}
-	// delete if found
-	p.storage.Get().SLOs.Delete(ctx, path.Join("/slo_state", req.Id))
 	return &emptypb.Empty{}, nil
 }
 

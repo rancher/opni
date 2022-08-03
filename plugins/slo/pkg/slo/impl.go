@@ -22,7 +22,7 @@ func (s *SLOMonitoring) WithCurrentRequest(req proto.Message, ctx context.Contex
 	return s
 }
 
-// OsloSpecs ----> sloth IR ---> Prometheus SLO --> Cortex Rule groups
+// Create OsloSpecs ----> sloth IR ---> Prometheus SLO --> Cortex Rule groups
 func (s SLOMonitoring) Create(osloSpecs []v1.SLO) (*corev1.ReferenceList, error) {
 	returnedSloId := &corev1.ReferenceList{}
 	req := (s.req).(*sloapi.CreateSLORequest)
@@ -69,7 +69,12 @@ func (s SLOMonitoring) Update(osloSpecs []v1.SLO, existing *sloapi.SLOData) (*sl
 	}
 	// changing clusters means we need to clean up the rules on the old cluster
 	if existing.Service.ClusterId != req.Service.ClusterId {
-		s.p.DeleteSLO(s.ctx, &corev1.Reference{Id: req.Id})
+		_, err := s.p.DeleteSLO(s.ctx, &corev1.Reference{Id: req.Id})
+		if err != nil {
+			s.lg.With("sloId", req.Id).Error(fmt.Sprintf(
+				"Unable to delete SLO when updating between clusters :  %v",
+				err))
+		}
 	}
 	for _, zipped := range openSpecServices {
 		// don't need creation metadata
@@ -84,7 +89,8 @@ func (s SLOMonitoring) Update(osloSpecs []v1.SLO, existing *sloapi.SLOData) (*sl
 }
 
 func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
-	err := deleteCortexSLORules(s.p, existing, s.ctx, s.lg)
+	id, clusterId := existing.Id, existing.Service.ClusterId
+	err := deleteCortexSLORules(s.p, id, clusterId, s.ctx, s.lg)
 	return err
 }
 
@@ -105,7 +111,7 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (string, error) {
 	return clone.Id, anyError
 }
 
-// Only return errors here that should be considered severe InternalServerErrors
+// Status Only return errors here that should be considered severe InternalServerErrors
 //
 // - First Checks if it has NoData
 // - If it has Data, check if it is within budget
@@ -191,7 +197,7 @@ func (m *MonitoringServiceBackend) WithCurrentRequest(req proto.Message, ctx con
 
 func (m MonitoringServiceBackend) List(clusters *corev1.ClusterList) (*sloapi.ServiceList, error) {
 	res := &sloapi.ServiceList{}
-	cl := []string{}
+	var cl []string
 	for _, c := range clusters.Items {
 		cl = append(cl, c.Id)
 		m.lg.Debug("Found cluster with id %v", c.Id)

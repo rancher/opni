@@ -52,7 +52,14 @@ func (p *Plugin) AllUserStats(ctx context.Context, _ *emptypb.Empty) (*cortexadm
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster stats: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			p.logger.With(
+				"err", err,
+			).Error("failed to close response body")
+		}
+	}(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get cluster stats: %v", resp.StatusCode)
 	}
@@ -218,7 +225,14 @@ func (p *Plugin) Query(
 		).Error("query failed")
 		return nil, fmt.Errorf("query failed: %s", resp.Status)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			lg.With(
+				"error", err,
+			).Error("failed to close response body")
+		}
+	}(resp.Body)
 	responseBuf := new(bytes.Buffer)
 	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
 		lg.With(
@@ -266,7 +280,14 @@ func (p *Plugin) QueryRange(
 		).Error("query failed")
 		return nil, fmt.Errorf("query failed: %s", resp.Status)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			lg.With(
+				"error", err,
+			).Error("failed to close response body")
+		}
+	}(resp.Body)
 	responseBuf := new(bytes.Buffer)
 	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
 		lg.With(
@@ -314,7 +335,14 @@ func (p *Plugin) GetRule(ctx context.Context,
 		).Error("fetch failed")
 		return nil, fmt.Errorf("fetch failed: %s", resp.Status)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			lg.With(
+				"error", err,
+			).Error("failed to close response body")
+		}
+	}(resp.Body)
 	responseBuf := new(bytes.Buffer)
 	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
 		lg.With(
@@ -327,7 +355,7 @@ func (p *Plugin) GetRule(ctx context.Context,
 	}, nil
 }
 
-// This method is responsible for Creating and Updating Rules
+// LoadRules This method is responsible for Creating and Updating Rules
 func (p *Plugin) LoadRules(ctx context.Context,
 	in *cortexadmin.YamlRequest,
 ) (*emptypb.Empty, error) {
@@ -395,6 +423,11 @@ func (p *Plugin) DeleteRule(
 		lg.With(
 			"status", resp.Status,
 		).Error("delete rule group failed")
+
+		if resp.StatusCode == http.StatusNotFound { // return grpc not found in this case
+			err := status.Error(codes.NotFound, fmt.Sprintf("delete rule group failed :`%s`", err))
+			return nil, err
+		}
 		return nil, fmt.Errorf("delete rule group failed: %s", resp.Status)
 	}
 	return &emptypb.Empty{}, nil
@@ -440,7 +473,10 @@ func (p *Plugin) FlushBlocks(
 	}
 	var ring httpResponse
 	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	err = resp.Body.Close()
+	if err != nil {
+		p.logger.Error("failed to close response body")
+	}
 	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&ring); err != nil {
 		return nil, err
 	}
@@ -495,7 +531,12 @@ func (p *Plugin) FlushBlocks(
 			}
 			if resp.StatusCode != http.StatusNoContent {
 				body, _ := io.ReadAll(resp.Body)
-				resp.Body.Close()
+				err := resp.Body.Close()
+				if err != nil {
+					lg.Error(
+						"failed to close response body",
+					)
+				}
 				lg.With(
 					"code", resp.StatusCode,
 					"error", string(body),

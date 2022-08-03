@@ -28,13 +28,32 @@ type TemplateSettingsSpec struct {
 }
 
 type TemplateMappingsSpec struct {
-	Properties map[string]PropertySettings `json:"properties,omitempty"`
+	DateDetection    *bool                            `json:"date_detection,omitempty"`
+	DynamicTemplates []map[string]DynamicTemplateSpec `json:"dynamic_templates,omitempty"`
+	Properties       map[string]PropertySettings      `json:"properties,omitempty"`
 }
 
 type PropertySettings struct {
-	Type    string `json:"type,omitempty"`
-	Format  string `json:"format,omitempty"`
-	Enabled *bool  `json:"enabled,omitempty"`
+	Type        string                      `json:"type,omitempty"`
+	Format      string                      `json:"format,omitempty"`
+	Enabled     *bool                       `json:"enabled,omitempty"`
+	Fields      map[string]FieldsSpec       `json:"fields,omitempty"`
+	IgnoreAbove int                         `json:"ignore_above,omitempty"`
+	Properties  map[string]PropertySettings `json:"properties,omitempty"`
+}
+
+type DynamicTemplateSpec struct {
+	MatchMappingType string           `json:"match_mapping_type,omitempty"`
+	Match            string           `json:"match,omitempty"`
+	UnMatch          string           `json:"unmatch,omitempty"`
+	PathMatch        string           `json:"path_match,omitempty"`
+	PathUnMatch      string           `json:"path_unmatch,omitempty"`
+	Mapping          PropertySettings `json:"mapping,omitempty"`
+}
+
+type FieldsSpec struct {
+	Type        string `json:"type,omitempty"`
+	IgnoreAbove int    `json:"ignore_above,omitempty"`
 }
 
 type GetIndexTemplateObject struct {

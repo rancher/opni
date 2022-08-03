@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/kralicky/highlander"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
@@ -17,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
+	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -229,21 +231,19 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
-		ctx, cancel := context.WithCancel(signalCtx)
+		ctx, cancel := context.WithCancel(waitctx.FromContext(signalCtx))
 
 		features.PopulateFeatures(ctx, ctrl.GetConfigOrDie())
 		features.FeatureList.WatchConfigMap()
 
 		errC := make(chan struct{})
-		shutdownC := make(chan struct{})
-		go func() {
+		waitctx.Go(ctx, func() {
 			setupLog.Info("starting manager")
 			if err := mgr.Start(ctx); err != nil {
 				setupLog.Error(err, "error running manager")
 				close(errC)
 			}
-			close(shutdownC)
-		}()
+		})
 
 		reloadC := make(chan struct{})
 		go func() {
@@ -258,7 +258,7 @@ func BuildManagerCmd() *cobra.Command {
 			cancel()
 			// wait for graceful shutdown
 			upgradeChecker.Stop()
-			<-shutdownC
+			waitctx.Wait(ctx, 5*time.Second)
 			return nil
 		case <-errC:
 			setupLog.Error(nil, "error running manager")

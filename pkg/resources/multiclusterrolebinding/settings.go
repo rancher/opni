@@ -31,10 +31,13 @@ var (
 			{
 				IndexPatterns: []string{
 					"logs*",
+					serviceMapIndexName,
+					fmt.Sprintf("%s*", spanIndexPrefix),
 				},
 				AllowedActions: []string{
 					"index",
 					"indices:admin/get",
+					"indices:admin/mapping/put",
 				},
 			},
 		},

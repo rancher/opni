@@ -4,6 +4,7 @@ import (
 	"context"
 
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
+	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	corev1 "k8s.io/api/core/v1"
@@ -34,8 +35,9 @@ func (p *Plugin) GetDetails(ctx context.Context, cluster *opensearch.ClusterRefe
 	}
 
 	return &opensearch.OpensearchDetails{
-		Username:    secrets.Items[0].Name,
-		Password:    string(secrets.Items[0].Data["password"]),
-		ExternalURL: binding.Spec.OpensearchExternalURL,
+		Username:       secrets.Items[0].Name,
+		Password:       string(secrets.Items[0].Data["password"]),
+		ExternalURL:    binding.Spec.OpensearchExternalURL,
+		TracingEnabled: features.FeatureList.FeatureIsEnabled("tracing"),
 	}, nil
 }

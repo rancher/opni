@@ -39,9 +39,6 @@ func (c *ConfigMapData) findReceivers(id string) (int, error) {
 }
 
 func (c *ConfigMapData) UpdateReceiver(id string, recv *cfg.Receiver) error {
-	if recv == nil {
-		return fmt.Errorf("nil receiver passed to UpdateReceiver")
-	}
 	idx, err := c.findReceivers(id)
 	if err != nil {
 		return err
@@ -88,7 +85,8 @@ func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*cfg.
 
 func WithSlackImplementation(
 	cfg *cfg.Receiver,
-	impl *alertingv1alpha.EndpointImplementation) (*cfg.Receiver, error) {
+	impl *alertingv1alpha.EndpointImplementation,
+) (*cfg.Receiver, error) {
 	if cfg.SlackConfigs == nil || len(cfg.SlackConfigs) == 0 || impl == nil {
 		return nil, shared.AlertingErrMismatchedImplementation
 	}

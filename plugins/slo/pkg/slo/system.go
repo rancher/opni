@@ -15,8 +15,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var sharedLockWithTimeout chan struct{} = make(chan struct{})
-
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	for retries := 10; retries > 0; retries-- {
 		apiExtensions, err := client.APIExtensions(context.Background(), &emptypb.Empty{})

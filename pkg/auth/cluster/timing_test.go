@@ -16,18 +16,25 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"golang.org/x/sys/unix"
 	"gonum.org/v1/gonum/stat"
 
 	"github.com/onsi/gomega/gmeasure"
+	"go.uber.org/zap/zapcore"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/test/testutil"
-	"go.uber.org/zap/zapcore"
 )
+
+func threadClock() int64 {
+	var time unix.Timespec
+	unix.ClockGettime(unix.CLOCK_THREAD_CPUTIME_ID, &time)
+	return time.Nano()
+}
 
 var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), func() {
 	var ctrl *gomock.Controller
@@ -88,13 +95,13 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 					defer wg2.Done()
 					runtime.LockOSThread()
 					defer runtime.UnlockOSThread()
-					largeBody := append([]byte(nil), largeBody...)
-					exp.SampleDuration(titleA, func(int) {
+					for j := 0; j < sampleTarget/threadsPerTest; j++ {
+						start := threadClock()
 						code, _, _ := mw.VerifyKeyring(validDoesNotExist, largeBody)
+						duration := threadClock() - start
+						exp.RecordDuration(titleA, time.Duration(duration), gmeasure.Precision(time.Nanosecond))
 						Expect(code).To(Equal(http.StatusUnauthorized))
-					}, gmeasure.SamplingConfig{
-						N: sampleTarget / threadsPerTest,
-					}, gmeasure.Precision(time.Microsecond))
+					}
 				}()
 			}
 			wg2.Wait()
@@ -110,12 +117,13 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 					runtime.LockOSThread()
 					defer runtime.UnlockOSThread()
 					largeBody := append([]byte(nil), largeBody...)
-					exp.SampleDuration(titleB, func(int) {
+					for j := 0; j < sampleTarget/threadsPerTest; j++ {
+						start := threadClock()
 						code, _, _ := mw.VerifyKeyring(invalidDoesNotExist, largeBody)
+						duration := threadClock() - start
+						exp.RecordDuration(titleB, time.Duration(duration), gmeasure.Precision(time.Nanosecond))
 						Expect(code).To(Equal(http.StatusUnauthorized))
-					}, gmeasure.SamplingConfig{
-						N: sampleTarget / threadsPerTest,
-					}, gmeasure.Precision(time.Microsecond))
+					}
 				}()
 			}
 			wg2.Wait()
@@ -131,12 +139,13 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 					runtime.LockOSThread()
 					defer runtime.UnlockOSThread()
 					largeBody := append([]byte(nil), largeBody...)
-					exp.SampleDuration(titleC, func(int) {
+					for j := 0; j < sampleTarget/threadsPerTest; j++ {
+						start := threadClock()
 						code, _, _ := mw.VerifyKeyring(invalidExists, largeBody)
+						duration := threadClock() - start
+						exp.RecordDuration(titleC, time.Duration(duration), gmeasure.Precision(time.Nanosecond))
 						Expect(code).To(Equal(http.StatusUnauthorized))
-					}, gmeasure.SamplingConfig{
-						N: sampleTarget / threadsPerTest,
-					}, gmeasure.Precision(time.Microsecond))
+					}
 				}()
 			}
 			wg2.Wait()
@@ -199,9 +208,7 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 	})
 })
 
-// this is a conservative upper bound; the actual values will likely be
-// between 0.005-0.03 but could be skewed based on hardware/environment.
-var threshold = testutil.IfCI(0.2).Else(0.075)
+var threshold = 0.2
 
 func ksTest(a, b []float64) float64 {
 	return stat.KolmogorovSmirnov(a, nil, b, nil)

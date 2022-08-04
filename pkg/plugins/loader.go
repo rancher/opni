@@ -192,26 +192,28 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 	tc, span := otel.Tracer("pluginloader").Start(ctx, "LoadPlugins")
 
 	wg := &sync.WaitGroup{}
+	var pluginPaths []string
 	for _, dir := range conf.Dirs {
-		pluginPaths, err := plugin.Discover("plugin_*", dir)
+		paths, err := plugin.Discover("plugin_*", dir)
 		if err != nil {
 			continue
 		}
-		for _, path := range pluginPaths {
-			md, err := meta.ReadMetadata(path)
-			if err != nil {
-				p.logger.With(
-					zap.String("plugin", path),
-				).Error("failed to read plugin metadata", zap.Error(err))
-				continue
-			}
-			cc := ClientConfig(md, ClientScheme, reattach...)
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				p.LoadOne(tc, md, cc)
-			}()
+		pluginPaths = append(pluginPaths, paths...)
+	}
+	for _, path := range lo.Uniq(pluginPaths) {
+		md, err := meta.ReadMetadata(path)
+		if err != nil {
+			p.logger.With(
+				zap.String("plugin", path),
+			).Error("failed to read plugin metadata", zap.Error(err))
+			continue
 		}
+		cc := ClientConfig(md, ClientScheme, reattach...)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			p.LoadOne(tc, md, cc)
+		}()
 	}
 	go func() {
 		defer span.End()

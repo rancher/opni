@@ -41,6 +41,9 @@ spec:
         {{- if .Values.logging.disableOpensearchTLSVerify }}
         - --opensearch-insecure
         {{- end }}
+        {{- if .Values.logging.tracing }}
+        - --tracing
+        {{- end }}
       restartPolicy: Never
   backoffLimit: 3
 {{- end }}

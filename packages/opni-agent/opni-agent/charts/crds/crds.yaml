@@ -11353,6 +11353,8 @@ spec:
                 type: string
               defaultRepo:
                 type: string
+              enableTracing:
+                type: boolean
               image:
                 type: string
               imagePullPolicy:

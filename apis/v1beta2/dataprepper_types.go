@@ -34,13 +34,14 @@ type DataPrepperSpec struct {
 	// +kubebuilder:default:=latest
 	Version string `json:"version"`
 	// +optional
-	DefaultRepo  *string                   `json:"defaultRepo,omitempty"`
-	Opensearch   *OpensearchSpec           `json:"opensearch,omitempty"`
-	Username     string                    `json:"username"`
-	PasswordFrom *corev1.SecretKeySelector `json:"passwordFrom,omitempty"`
-	ClusterID    string                    `json:"cluster,omitempty"`
-	NodeSelector map[string]string         `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration       `json:"tolerations,omitempty"`
+	DefaultRepo   *string                   `json:"defaultRepo,omitempty"`
+	Opensearch    *OpensearchSpec           `json:"opensearch,omitempty"`
+	Username      string                    `json:"username"`
+	PasswordFrom  *corev1.SecretKeySelector `json:"passwordFrom,omitempty"`
+	ClusterID     string                    `json:"cluster,omitempty"`
+	NodeSelector  map[string]string         `json:"nodeSelector,omitempty"`
+	Tolerations   []corev1.Toleration       `json:"tolerations,omitempty"`
+	EnableTracing bool                      `json:"enableTracing,omitempty"`
 }
 
 type OpensearchSpec struct {

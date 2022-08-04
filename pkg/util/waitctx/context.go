@@ -98,18 +98,18 @@ func (restrictive) Wait(ctx RestrictiveContext, notifyAfter ...time.Duration) {
 		d.cond.L.Unlock()
 	}()
 	if len(notifyAfter) > 0 {
-		go func(d time.Duration) {
-			for {
-				select {
-				case <-done:
-					return
-				case <-time.After(d):
-					fmt.Fprint(os.Stderr, chalk.Yellow.Color("\n=== WARNING: waiting longer than expected for context to cancel ===\n"+string(debug.Stack())+"\n"))
+		for {
+			select {
+			case <-done:
+				return
+			case <-time.After(notifyAfter[0]):
+				fmt.Fprint(os.Stderr, chalk.Yellow.Color("\n=== WARNING: waiting longer than expected for context to cancel ===\n"+string(debug.Stack())+"\n"))
 
-				}
 			}
-		}(notifyAfter[0])
+		}
 	}
+	<-done
+	return
 }
 
 func (w restrictive) Go(ctx RestrictiveContext, fn func()) {

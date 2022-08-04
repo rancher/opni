@@ -8,6 +8,8 @@ import (
 var (
 	ErrClusterAlreadyExists = errors.New("cluster already exists")
 	ErrInvalidList          = errors.New("list did not return exactly 1 result")
+	ErrInvalidPersistence   = errors.New("invalid persistence config")
+	ErrInvalidCluster       = errors.New("invalid opensearch cluster")
 	ErrClusterIDMissing     = errors.New("request does not include cluster ID")
 )
 
@@ -45,4 +47,12 @@ func ErrStoreUserCredentialsFailed(err error) error {
 
 func ErrStoreClusterFailed(err error) error {
 	return fmt.Errorf("failed to store logging cluster: %w", err)
+}
+
+func ErrStoredClusterPersistence() error {
+	return fmt.Errorf("stored opensearch cluster is invalid: %w", ErrInvalidPersistence)
+}
+
+func ErrRequestMissingMemory() error {
+	return fmt.Errorf("memory limit must be configured: %w", ErrInvalidCluster)
 }

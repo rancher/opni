@@ -1,0 +1,49 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin";
+
+import "google/protobuf/empty.proto";
+import "k8s.io/apimachinery/pkg/api/resource/generated.proto";
+import "k8s.io/api/core/v1/generated.proto";
+
+package loggingadmin;
+
+service LoggingAdmin {
+    rpc GetOpensearchCluster(google.protobuf.Empty) returns(OpensearchCluster);
+    rpc DeleteOpensearchCluster(google.protobuf.Empty) returns(google.protobuf.Empty);
+    rpc CreateOrUpdateOpensearchCluster(OpensearchCluster) returns(google.protobuf.Empty);
+}
+
+message OpensearchCluster {
+    // +optional
+    repeated OpensearchNodeDetails NodePools = 2;
+    optional DashboardsDetails Dashboards = 3;
+}
+
+message DataPersistence {
+    optional bool Enabled = 1;
+    optional string StorageClass = 2;
+}
+
+message CPUResource {
+    k8s.io.apimachinery.pkg.api.resource.Quantity Request = 1;
+    k8s.io.apimachinery.pkg.api.resource.Quantity Limit = 2;
+}
+
+message OpensearchNodeDetails {
+    string Name = 1;
+    optional int32 Replicas = 2;
+    k8s.io.apimachinery.pkg.api.resource.Quantity DiskSize = 3;
+    k8s.io.apimachinery.pkg.api.resource.Quantity MemoryLimit = 4;
+    optional CPUResource CPUResources = 5;
+    optional bool EnableAntiAffinity = 6;
+    map<string, string> NodeSelector = 7;
+    repeated k8s.io.api.core.v1.Toleration Tolerations = 8;
+    repeated string Roles = 9;
+    optional DataPersistence Persistence = 10;
+}
+
+message DashboardsDetails {
+    optional bool Enabled = 1;
+    optional int32 Replicas = 2;
+    optional k8s.io.api.core.v1.ResourceRequirements Resources = 3;
+}

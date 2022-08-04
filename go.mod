@@ -20,6 +20,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cert-manager/cert-manager v1.8.0
 	github.com/cortexproject/cortex v1.13.0-rc.0
+	github.com/dbason/featureflags v0.0.0-20220731224053-be63751dd521
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-kit/log v0.2.0
 	github.com/go-logr/logr v1.2.3

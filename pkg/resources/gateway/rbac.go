@@ -78,6 +78,19 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 					"delete",
 				},
 			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"configmaps",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
 		},
 	}
 

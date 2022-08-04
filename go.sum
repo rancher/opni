@@ -632,6 +632,8 @@ github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/daviddengcn/go-colortext v0.0.0-20160507010035-511bcaf42ccd/go.mod h1:dv4zxwHi5C/8AeI+4gX4dCWOIvNi7I6JCSX0HvlKPgE=
 github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116 h1:huvFnqlUpiIldOsQoM+Ad6ZE/oJfyzyB9A8W2yt4hLc=
 github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116/go.mod h1:pzDiuRy1QgnVI8yq1e3d7WvuofNAzgj/c48IRNX2n38=
+github.com/dbason/featureflags v0.0.0-20220731224053-be63751dd521 h1:pXGegKRlm11AL1IC7PLdkNRpQuGLa8TJSQIuE7jltVU=
+github.com/dbason/featureflags v0.0.0-20220731224053-be63751dd521/go.mod h1:ew+9wAV4nyz0ZKybKcM4cMosZwggyAkzU3BU/wZxHTA=
 github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220711232325-352be96017bf h1:KjLbelOgWjJzn9h/PV8WAWN8APDW08eUstdabeKk4Q4=
 github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220711232325-352be96017bf/go.mod h1:pRMCDq01cGnDy3x8SszLoZhneMvxJor9JFqc8U1YE/0=
 github.com/decred/dcrd/crypto/blake256 v1.0.0/go.mod h1:sQl2p6Y26YV+ZOcSTP6thNdn47hh8kt6rqSlvmrXFAc=

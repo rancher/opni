@@ -2,6 +2,7 @@ package managementext
 
 import (
 	"context"
+	"github.com/rancher/opni/pkg/util"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/desc"
@@ -70,7 +71,7 @@ type mgmtExtensionServerImpl struct {
 
 func (e *mgmtExtensionServerImpl) Descriptor(ctx context.Context, _ *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
 	fqn := e.serviceDesc.GetFullyQualifiedName()
-	sd := e.serviceDesc.AsServiceDescriptorProto()
+	sd := util.ProtoClone(e.serviceDesc.AsServiceDescriptorProto())
 	sd.Name = &fqn
 	return sd, nil
 }

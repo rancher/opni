@@ -47,6 +47,8 @@ spec:
                   leaseID:
                     format: int64
                     type: integer
+                  resourceVersion:
+                    type: string
                   ttl:
                     format: int64
                     type: integer
@@ -14971,6 +14973,15 @@ spec:
                   capabilities:
                     items:
                       properties:
+                        deletionTimestamp:
+                          properties:
+                            nanos:
+                              format: int32
+                              type: integer
+                            seconds:
+                              format: int64
+                              type: integer
+                          type: object
                         name:
                           type: string
                       type: object
@@ -14979,6 +14990,8 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  resourceVersion:
+                    type: string
                 type: object
             type: object
         type: object
@@ -15021,6 +15034,8 @@ spec:
                 type: string
               defaultRepo:
                 type: string
+              enableTracing:
+                type: boolean
               image:
                 type: string
               imagePullPolicy:

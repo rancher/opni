@@ -83,9 +83,11 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	var resourceList []resources.Resource
 
-	resourceList = append(resourceList, r.config())
+	config, data := r.config()
+
+	resourceList = append(resourceList, config)
 	resourceList = append(resourceList, r.service())
-	resourceList = append(resourceList, r.deployment())
+	resourceList = append(resourceList, r.deployment(data))
 
 	for _, factory := range resourceList {
 		o, state, err := factory()

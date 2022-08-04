@@ -2,7 +2,6 @@ bin/
 dev/
 testbin/
 *.test
-alerttestdata
 **/__debug_bin
 *.out
 .vscode

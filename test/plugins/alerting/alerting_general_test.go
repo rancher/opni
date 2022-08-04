@@ -2,14 +2,12 @@ package alerting_test
 
 import (
 	"context"
-	"net/url"
-	"strconv"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
+	"net/url"
+	"strconv"
 )
 
 func ManualReloadEndpointBackend() {
@@ -38,9 +36,6 @@ var _ = Describe("Alerting Backend", Ordered, Label(test.Unit, test.Slow), func(
 			Expect(err).To(Succeed())
 			_, err = url.Parse("http://" + apiClient.Construct())
 			Expect(err).To(Succeed())
-
-			// FIXME: dont do this
-			time.Sleep(time.Second * 2)
 
 			//FIXME: this started crashing with connection refused
 			// resp, err := http.Get("http://" + webClient.Construct())

@@ -43,10 +43,6 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	<-p.ctx.Done()
 }
 
-func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
-
-}
-
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	var err error

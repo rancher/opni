@@ -64,7 +64,7 @@ func doRolloutRestart(ctx context.Context, c client.Client, dep *appsv1.Stateful
 		dep,
 		patchObj,
 		&client.PatchOptions{
-			FieldManager: "kubectl-rollour",
+			FieldManager: "kubectl-rollout",
 		},
 	)
 	return err
@@ -76,7 +76,7 @@ type RuntimeEndpointBackend interface {
 	Reload(ctx context.Context, p *Plugin) error
 }
 
-// implements alerting.RuntimeEndpointBackend
+// LocalEndpointBackend implements alerting.RuntimeEndpointBackend
 type LocalEndpointBackend struct {
 	configFilePath string
 }
@@ -116,7 +116,7 @@ func (b *K8sEndpointBackend) Fetch(
 
 	if err != nil || cfgMap == nil {
 		returnErr := shared.WithInternalServerError(
-			fmt.Sprintf("K8s runtime error, config map : %s not found : %s",
+			fmt.Sprintf("K8s runtime error, config map: %s not found: %s",
 				name,
 				err),
 		)

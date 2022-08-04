@@ -55,19 +55,20 @@ func updateEndpointImplemetation(p *Plugin, ctx context.Context, req *alertingv1
 	return nil
 }
 
-func handleUpdateEndpointImplementation(p *Plugin,
+func handleUpdateEndpointImplementation(
+	p *Plugin,
 	ctx context.Context,
 	id string,
 	existing *alertingv1alpha.AlertCondition,
-	new *alertingv1alpha.AlertCondition) error {
+	new *alertingv1alpha.AlertCondition,
+) error {
 	if existing.NotificationId == nil { // no implementation previously set
 		return setEndpointImplementationIfAvailable(p, ctx, new, id)
 	} else if new.NotificationId == nil { // delete implementation
 		_, err := p.DeleteEndpointImplementation(ctx, &corev1.Reference{Id: *existing.NotificationId})
 		return err
-	} else { // both are set update
-		return updateEndpointImplemetation(p, ctx, new, id)
 	}
+	return updateEndpointImplemetation(p, ctx, new, id)
 }
 
 func setupCondition(ctx context.Context, req *alertingv1alpha.AlertCondition, newId string) (*corev1.Reference, error) {

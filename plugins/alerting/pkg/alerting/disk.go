@@ -19,7 +19,6 @@ var (
 	TimeFormat           = "2006-02-01"
 	Separator            = "_"
 	BucketMaxSize  int64 = 1024 * 2 // 2KB
-
 )
 
 type BucketInfo struct {
@@ -127,7 +126,7 @@ func fileExists(path string) bool {
 
 func (b *BucketInfo) GenerateNewBucket() error {
 	if b.ConditionId == "" {
-		return fmt.Errorf("GenerateBucket : Failed precondition, should have a set ConditionId field")
+		return fmt.Errorf("GenerateBucket: Failed precondition, should have a set ConditionId field")
 	}
 	timeStr := time.Now().Format(TimeFormat)
 	b.Timestamp = timeStr
@@ -147,21 +146,19 @@ func (b *BucketInfo) Create() error {
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(b.Construct())
+	err = os.WriteFile(b.Construct(), []byte{}, 0666)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 	return nil
 }
 
 func (b *BucketInfo) Append(log *corev1.AlertLog) error {
 	b.MostRecent() // update the timestamp and number
-	cur := time.Now()
-	timeStr := cur.Format(TimeFormat)
-	cur, _ = time.Parse(TimeFormat, timeStr)
-	prev, err := time.Parse(TimeFormat, b.Timestamp)
-	if err != nil {
+	curTime := time.Now()
+	timeStr := curTime.Format(TimeFormat)
+	cur, _ := time.Parse(TimeFormat, timeStr)
+	if prev, err := time.Parse(TimeFormat, b.Timestamp); err != nil {
 		b.GenerateNewBucket()
 	} else if prev.Before(cur) {
 		b.GenerateNewBucket()
@@ -169,7 +166,7 @@ func (b *BucketInfo) Append(log *corev1.AlertLog) error {
 	if b.IsFull() {
 		b.GenerateNewBucket()
 	}
-	f, err := os.OpenFile(b.Construct(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
+	f, err := os.OpenFile(b.Construct(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
 	}

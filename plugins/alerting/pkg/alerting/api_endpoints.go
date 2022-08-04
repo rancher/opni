@@ -46,7 +46,7 @@ func applyConfigToBackend(backend RuntimeEndpointBackend, ctx context.Context, p
 
 func validateSlack(v *alertingv1alpha.SlackEndpoint) error {
 	if v == nil {
-		return validation.Error("Must pass in a non-nil slack endpoint")
+		return validation.Error("Missing required field: slack endpoint")
 	}
 	_, err := NewSlackReceiver("id not used", v)
 	return err
@@ -71,7 +71,6 @@ func handleAlertEndpointValidation(ctx context.Context, req *alertingv1alpha.Ale
 		return validateEmail(req.GetEmail())
 	}
 	return validation.Error("Unhandled endpoint/implementation details")
-
 }
 
 func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.AlertEndpoint) (*emptypb.Empty, error) {
@@ -119,7 +118,6 @@ func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 			Endpoint: endpoints[idx],
 		})
 	}
-
 	return &alertingv1alpha.AlertEndpointList{Items: items}, nil
 }
 
@@ -132,23 +130,18 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, ref *corev1.Reference)
 
 //TODO
 func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.TestAlertEndpointRequest) (*alertingv1alpha.TestAlertEndpointResponse, error) {
-	// Create Endpoint
-
-	// Trigger it using httpv2 api
-
-	// Delete Endpoint
+	// - Create Endpoint
+	// - Trigger it using httpv2 api
+	// - Delete Endpoint
 	return nil, shared.AlertingErrNotImplemented
 }
 
 func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImplementation, endpointDetails *alertingv1alpha.AlertEndpoint) (*cfg.Receiver, error) {
-
 	if s := endpointDetails.GetSlack(); s != nil {
-		//
 		recv, err := NewSlackReceiver(conditionId, s)
 		if err != nil {
 			return nil, err // some validation error
 		}
-
 		recv, err = WithSlackImplementation(recv, req.Implementation)
 		if err != nil {
 			return nil, err
@@ -156,21 +149,17 @@ func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImple
 		return recv, nil
 	}
 	if e := endpointDetails.GetEmail(); e != nil {
-		//
 		recv, err := NewEmailReceiver(conditionId, e)
 		if err != nil {
 			return nil, err // some validation error
 		}
-
 		recv, err = WithEmailImplementation(recv, req.Implementation)
 		if err != nil {
 			return nil, err
 		}
 		return recv, nil
 	}
-
 	return nil, validation.Error("Unhandled endpoint/implementation details")
-
 }
 
 // Called from CreateAlertCondition
@@ -186,15 +175,12 @@ func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alerting
 	if err != nil {
 		return nil, err
 	}
-
 	conditionId := req.ConditionId.Id
-
 	recv, err := processEndpointDetails(conditionId, req, endpointDetails)
 	if err != nil {
 		return nil, err
 	}
 	config.AppendReceiver(recv)
-
 	err = applyConfigToBackend(backend, ctx, p, config)
 	if err != nil {
 		return nil, err
@@ -214,18 +200,15 @@ func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alerting
 	if err != nil {
 		return nil, err
 	}
-
 	conditionId := req.ConditionId.Id
 	recv, err := processEndpointDetails(conditionId, req, endpointDetails)
 	if err != nil {
 		return nil, err
 	}
-
 	err = config.UpdateReceiver(conditionId, recv)
 	if err != nil {
 		return nil, err
 	}
-
 	err = applyConfigToBackend(backend, ctx, p, config)
 	if err != nil {
 		return nil, err
@@ -241,10 +224,12 @@ func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.R
 	if err != nil {
 		return nil, err
 	}
-	config.DeleteReceiver(req.Id)
+	if err := config.DeleteReceiver(req.Id); err != nil {
+		return nil, err
+	}
 	err = applyConfigToBackend(backend, ctx, p, config)
 	if err != nil {
 		return nil, err
 	}
-	return nil, shared.AlertingErrNotImplemented
+	return &emptypb.Empty{}, nil
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -75,7 +74,7 @@ func (p *Plugin) CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*e
 			return nil, err
 		}
 	}
-	return &empty.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) GetAlertLog(ctx context.Context, ref *corev1.Reference) (*corev1.AlertLog, error) {
@@ -105,66 +104,64 @@ func hasLabels(item *alertingv1alpha.InformativeAlertLog, labels []string) bool 
 	return len(labels) == 0 || isSubset(labels, item.Condition.Labels)
 }
 
+// rounds to the nearest second, so need to check for equality
 func hasRange(item *alertingv1alpha.InformativeAlertLog, s *timestamppb.Timestamp, e *timestamppb.Timestamp) bool {
 	if item.Log.Timestamp == nil { // shouldn't happen, but hey
 		return true
 	}
 	start := s.AsTime()
-	end := s.AsTime()
+	end := e.AsTime()
 	if s == nil && e == nil {
 		return true
 	} else if s == nil { // before end
 		t := item.Log.Timestamp.AsTime()
-		return t.Before(end)
+		return t == end || t.Before(end)
 	} else if e == nil {
 		t := item.Log.Timestamp.AsTime()
-		return t.After(start)
+		return t == start || t.After(start)
 	} else {
 		t := item.Log.Timestamp.AsTime()
-		return t.After(start) && t.Before(end)
+		return (t == start || t.After(start)) && (t == end || t.Before(end))
 	}
 }
 
 func (p *Plugin) ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAlertLogRequest) (*alertingv1alpha.InformativeAlertLogList, error) {
-	if p.inMemCache != nil {
-		conditionsFrequentlyFired := make([]*corev1.AlertLog, 0)
-		keys := p.inMemCache.Keys()
-		for _, key := range keys {
-			val, _ := p.inMemCache.Peek(key)
-			conditionsFrequentlyFired = append(conditionsFrequentlyFired, val.(*corev1.AlertLog))
-		}
-		toBeFiltered := []*alertingv1alpha.InformativeAlertLog{}
-		for _, log := range conditionsFrequentlyFired {
-			var cnd *alertingv1alpha.AlertCondition
-			var err error
-			cnd, err = p.GetAlertCondition(ctx, log.ConditionId)
-			if err != nil {
-				// template an alert condition
-				cnd = &alertingv1alpha.AlertCondition{
-					Name:        "<not found>",
-					Description: "<not found>",
-				}
-			}
-			toBeFiltered = append(toBeFiltered, &alertingv1alpha.InformativeAlertLog{
-				Condition: cnd,
-				Log:       log,
-			})
-		}
-		toBeReturned := []*alertingv1alpha.InformativeAlertLog{}
-		for _, item := range toBeFiltered {
-			passed := true
-			passed = passed && hasLabels(item, req.Labels)
-			passed = passed && hasRange(item, req.StartTimestamp, req.EndTimestamp)
-			if passed {
-				toBeReturned = append(toBeReturned, item)
-			}
-		}
-
-		return &alertingv1alpha.InformativeAlertLogList{
-			Items: toBeReturned,
-		}, nil
+	if p.inMemCache == nil {
+		return nil, fmt.Errorf("internal error loading LRU cache")
 	}
-	return nil, fmt.Errorf("internal error loading LRU cache")
+	conditionsFrequentlyFired := make([]*corev1.AlertLog, 0)
+	keys := p.inMemCache.Keys()
+	for _, key := range keys {
+		val, _ := p.inMemCache.Peek(key)
+		conditionsFrequentlyFired = append(conditionsFrequentlyFired, val.(*corev1.AlertLog))
+	}
+	toBeFiltered := []*alertingv1alpha.InformativeAlertLog{}
+	for _, log := range conditionsFrequentlyFired {
+		var cnd *alertingv1alpha.AlertCondition
+		var err error
+		cnd, err = p.GetAlertCondition(ctx, log.ConditionId)
+		if err != nil {
+			// template an alert condition
+			cnd = &alertingv1alpha.AlertCondition{
+				Name:        "<not found>",
+				Description: "<not found>",
+			}
+		}
+		toBeFiltered = append(toBeFiltered, &alertingv1alpha.InformativeAlertLog{
+			Condition: cnd,
+			Log:       log,
+		})
+	}
+	var toBeReturned []*alertingv1alpha.InformativeAlertLog
+	for _, item := range toBeFiltered {
+		if hasLabels(item, req.Labels) && hasRange(item, req.StartTimestamp, req.EndTimestamp) {
+			toBeReturned = append(toBeReturned, item)
+		}
+	}
+
+	return &alertingv1alpha.InformativeAlertLogList{
+		Items: toBeReturned,
+	}, nil
 }
 
 func (p *Plugin) UpdateAlertLog(ctx context.Context, event *alertingv1alpha.UpdateAlertLogRequest) (*emptypb.Empty, error) {

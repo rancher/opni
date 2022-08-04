@@ -29,11 +29,12 @@ var _ = BeforeSuite(func() {
 	alerting.AlertPath = "alerttestdata/logs"
 	err := os.RemoveAll(alerting.AlertPath)
 	Expect(err).To(BeNil())
-	err = os.MkdirAll(alerting.AlertPath, 0755)
+	err = os.MkdirAll(alerting.AlertPath, 0777)
 	Expect(err).To(BeNil())
 
-	os.Setenv(alerting.LocalBackendEnvToggle, "true")
-	err = os.WriteFile(alerting.LocalAlertManagerPath, []byte(alerting.DefaultAlertManager), 0644)
+	err = os.Setenv(alerting.LocalBackendEnvToggle, "true")
+	Expect(err).To(Succeed())
+	err = os.WriteFile(alerting.LocalAlertManagerPath, []byte(alerting.DefaultAlertManager), 0666)
 	Expect(err).To(Succeed())
 	// test environment references
 

@@ -18,10 +18,10 @@ import (
 var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(test.Unit, test.Slow), func() {
 	BeforeAll(func() {
 		// ...
-		alerting.AlertPath = "alerttestdata/logs"
+		alerting.AlertPath = "../../../../dev/alerttestdata/logs"
 		err := os.RemoveAll(alerting.AlertPath)
 		Expect(err).To(BeNil())
-		err = os.MkdirAll(alerting.AlertPath, 0755)
+		err = os.MkdirAll(alerting.AlertPath, 0777)
 		Expect(err).To(BeNil())
 	})
 

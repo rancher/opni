@@ -643,12 +643,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 }
 
 func (e *Environment) StartAlertManager(ctx context.Context, configFile string) (webPort, apiPort int) {
-
-	webPort, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
-	apiPort, err = freeport.GetFreePort()
+	ports, err := freeport.GetFreePorts(2)
 	if err != nil {
 		panic(err)
 	}
@@ -669,7 +664,7 @@ func (e *Environment) StartAlertManager(ctx context.Context, configFile string) 
 
 		cmd.Wait()
 	}()
-	return webPort, apiPort
+	return ports[0], ports[1]
 }
 
 // ./alertmanager --config.file="/tmp/alertmanager.yaml" --cluster.listen-address=127.0.0.1:9094

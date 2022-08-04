@@ -23,12 +23,13 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 		"test1": uuid.New().String(),
 	}
 	beforeTime := time.Now()
+	var existingLogCount int
 	// purge data from other tests
 	BeforeEach(func() {
-		alerting.AlertPath = "alerttestdata/logs"
+		alerting.AlertPath = "../../../dev/alerttestdata/logs"
 		err := os.RemoveAll(alerting.AlertPath)
 		Expect(err).To(BeNil())
-		err = os.MkdirAll(alerting.AlertPath, 0755)
+		err = os.MkdirAll(alerting.AlertPath, 0777)
 		Expect(err).To(BeNil())
 	})
 
@@ -37,12 +38,12 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 	})
 
 	When("The alerting plugin starts...", func() {
-		It("Should have empty alert logs", func() {
+		It("Should be able to list the available logs", func() {
 			items, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
 				Labels: []string{},
 			})
 			Expect(err).To(BeNil())
-			Expect(items.Items).To(HaveLen(0))
+			existingLogCount = len(items.Items)
 		})
 
 		It("Should be able to create alert logs", func() {
@@ -58,7 +59,7 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 
 			items, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{})
 			Expect(err).To(BeNil())
-			Expect(items.Items).To(HaveLen(1))
+			Expect(items.Items).To(HaveLen(existingLogCount + 1))
 		})
 
 		It("Should be able to list the most recently available alert logs", func() {
@@ -69,11 +70,30 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 				},
 			})
 			Expect(err).To(BeNil())
-			Expect(items.Items).To(HaveLen(1))
+			Expect(items.Items).To(HaveLen(existingLogCount + 1))
 		})
 
 		It("Should be able to list previously available alert logs", func() {
+			t := time.Now().Unix()
+			items, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
+				Labels: []string{},
+				EndTimestamp: &timestamppb.Timestamp{
+					Seconds: t,
+				},
+			})
+			Expect(err).To(BeNil())
+			// checks for timestamp equality, because range rounds up to the nearest second
+			Expect(items.Items).To(HaveLen(existingLogCount + 1))
 
+			time.Sleep(time.Second) // no other way to check the non-rounded behaviour
+			curItems, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
+				Labels: []string{},
+				EndTimestamp: &timestamppb.Timestamp{
+					Seconds: t,
+				},
+			})
+			Expect(err).To(Succeed())
+			Expect(curItems.Items).To(HaveLen(existingLogCount + 1))
 		})
 	})
 })

@@ -5,6 +5,8 @@ import (
 	"crypto"
 	"crypto/tls"
 	"fmt"
+	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"net"
 	"time"
 
@@ -13,7 +15,6 @@ import (
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/noop"
 	"github.com/rancher/opni/pkg/alerting/shared"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
@@ -153,25 +154,14 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	pl.Hook(hooks.OnLoadMC(
 		func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-			if md.BinaryPath == "plugin_alerting" {
-				options.alerting = alertingv1alpha.NewAlertingClient(cc)
+
+			client := apiextensions.NewManagementAPIExtensionClient(cc)
+			desc, err := client.Descriptor(ctx, &emptypb.Empty{})
+			if err == nil {
+				if desc.GetName() == "Alerting" {
+					options.alerting = alertingv1alpha.NewAlertingClient(cc)
+				}
 			}
-			//TODO list items like in SLO's api extensions
-			// reflectClient := grpcreflect.NewClient(ctx, rpb.NewServerReflectionClient(cc))
-			// name := "Alerting"
-
-			// 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-
-			// client := managementv1.NewManagementClient(cc)
-			// exts, err := client.APIExtensions(context.Background(), &emptypb.Empty{})
-			// if err != nil {
-			// 	for _, ext := range exts.Items {
-			// 		if ext.ServiceDesc.GetName() == name {
-			// 			options.alerting = alertingv1alpha.NewAlertingClient(cc)
-			// 		}
-			// 	}
-			// }
-
 		}))
 
 	// set up http server

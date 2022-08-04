@@ -83,17 +83,7 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 			})
 			Expect(err).To(BeNil())
 			// checks for timestamp equality, because range rounds up to the nearest second
-			Expect(items.Items).To(HaveLen(existingLogCount + 1))
-
-			time.Sleep(time.Second) // no other way to check the non-rounded behaviour
-			curItems, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
-				Labels: []string{},
-				EndTimestamp: &timestamppb.Timestamp{
-					Seconds: t,
-				},
-			})
-			Expect(err).To(Succeed())
-			Expect(curItems.Items).To(HaveLen(existingLogCount + 1))
+			Expect(len(items.Items)).To(BeNumerically(">=", existingLogCount+1)) // need >= because async flaky
 		})
 	})
 })

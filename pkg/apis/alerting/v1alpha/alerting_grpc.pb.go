@@ -24,13 +24,18 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AlertingClient interface {
+	// unimplemented
 	TriggerAlerts(ctx context.Context, in *TriggerAlertsRequest, opts ...grpc.CallOption) (*TriggerAlertsResponse, error)
+	// alerting internal use only
 	CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// unimplemented
 	GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.AlertLog, error)
-	ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*v1.AlertLogList, error)
+	ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*InformativeAlertLogList, error)
+	// unimplemented
 	UpdateAlertLog(ctx context.Context, in *UpdateAlertLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// alerting internal use only (for now)
 	DeleteAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*v1.Reference, error)
 	GetAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertCondition, error)
 	ListAlertConditions(ctx context.Context, in *ListAlertConditionRequest, opts ...grpc.CallOption) (*AlertConditionList, error)
 	UpdateAlertCondition(ctx context.Context, in *UpdateAlertConditionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -41,7 +46,15 @@ type AlertingClient interface {
 	ListAlertEndpoints(ctx context.Context, in *ListAlertEndpointsRequest, opts ...grpc.CallOption) (*AlertEndpointList, error)
 	UpdateAlertEndpoint(ctx context.Context, in *UpdateAlertEndpointRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// unimplemented
 	TestAlertEndpoint(ctx context.Context, in *TestAlertEndpointRequest, opts ...grpc.CallOption) (*TestAlertEndpointResponse, error)
+	// alerting internal use only
+	CreateEndpointImplementation(ctx context.Context, in *CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// alerting internal use only
+	UpdateEndpointImplementation(ctx context.Context, in *CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// alerting internal use only
+	// conditionMustBePassed in here
+	DeleteEndpointImplementation(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type alertingClient struct {
@@ -79,8 +92,8 @@ func (c *alertingClient) GetAlertLog(ctx context.Context, in *v1.Reference, opts
 	return out, nil
 }
 
-func (c *alertingClient) ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*v1.AlertLogList, error) {
-	out := new(v1.AlertLogList)
+func (c *alertingClient) ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*InformativeAlertLogList, error) {
+	out := new(InformativeAlertLogList)
 	err := c.cc.Invoke(ctx, "/Alerting/ListAlertLogs", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -106,8 +119,8 @@ func (c *alertingClient) DeleteAlertLog(ctx context.Context, in *v1.Reference, o
 	return out, nil
 }
 
-func (c *alertingClient) CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *alertingClient) CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*v1.Reference, error) {
+	out := new(v1.Reference)
 	err := c.cc.Invoke(ctx, "/Alerting/CreateAlertCondition", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -214,17 +227,49 @@ func (c *alertingClient) TestAlertEndpoint(ctx context.Context, in *TestAlertEnd
 	return out, nil
 }
 
+func (c *alertingClient) CreateEndpointImplementation(ctx context.Context, in *CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/Alerting/CreateEndpointImplementation", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertingClient) UpdateEndpointImplementation(ctx context.Context, in *CreateImplementation, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/Alerting/UpdateEndpointImplementation", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertingClient) DeleteEndpointImplementation(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/Alerting/DeleteEndpointImplementation", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AlertingServer is the server API for Alerting service.
 // All implementations must embed UnimplementedAlertingServer
 // for forward compatibility
 type AlertingServer interface {
+	// unimplemented
 	TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error)
+	// alerting internal use only
 	CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error)
+	// unimplemented
 	GetAlertLog(context.Context, *v1.Reference) (*v1.AlertLog, error)
-	ListAlertLogs(context.Context, *ListAlertLogRequest) (*v1.AlertLogList, error)
+	ListAlertLogs(context.Context, *ListAlertLogRequest) (*InformativeAlertLogList, error)
+	// unimplemented
 	UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error)
+	// alerting internal use only (for now)
 	DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error)
-	CreateAlertCondition(context.Context, *AlertCondition) (*emptypb.Empty, error)
+	CreateAlertCondition(context.Context, *AlertCondition) (*v1.Reference, error)
 	GetAlertCondition(context.Context, *v1.Reference) (*AlertCondition, error)
 	ListAlertConditions(context.Context, *ListAlertConditionRequest) (*AlertConditionList, error)
 	UpdateAlertCondition(context.Context, *UpdateAlertConditionRequest) (*emptypb.Empty, error)
@@ -235,7 +280,15 @@ type AlertingServer interface {
 	ListAlertEndpoints(context.Context, *ListAlertEndpointsRequest) (*AlertEndpointList, error)
 	UpdateAlertEndpoint(context.Context, *UpdateAlertEndpointRequest) (*emptypb.Empty, error)
 	DeleteAlertEndpoint(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	// unimplemented
 	TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error)
+	// alerting internal use only
+	CreateEndpointImplementation(context.Context, *CreateImplementation) (*emptypb.Empty, error)
+	// alerting internal use only
+	UpdateEndpointImplementation(context.Context, *CreateImplementation) (*emptypb.Empty, error)
+	// alerting internal use only
+	// conditionMustBePassed in here
+	DeleteEndpointImplementation(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	mustEmbedUnimplementedAlertingServer()
 }
 
@@ -252,7 +305,7 @@ func (UnimplementedAlertingServer) CreateAlertLog(context.Context, *v1.AlertLog)
 func (UnimplementedAlertingServer) GetAlertLog(context.Context, *v1.Reference) (*v1.AlertLog, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAlertLog not implemented")
 }
-func (UnimplementedAlertingServer) ListAlertLogs(context.Context, *ListAlertLogRequest) (*v1.AlertLogList, error) {
+func (UnimplementedAlertingServer) ListAlertLogs(context.Context, *ListAlertLogRequest) (*InformativeAlertLogList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertLogs not implemented")
 }
 func (UnimplementedAlertingServer) UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error) {
@@ -261,7 +314,7 @@ func (UnimplementedAlertingServer) UpdateAlertLog(context.Context, *UpdateAlertL
 func (UnimplementedAlertingServer) DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertLog not implemented")
 }
-func (UnimplementedAlertingServer) CreateAlertCondition(context.Context, *AlertCondition) (*emptypb.Empty, error) {
+func (UnimplementedAlertingServer) CreateAlertCondition(context.Context, *AlertCondition) (*v1.Reference, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertCondition not implemented")
 }
 func (UnimplementedAlertingServer) GetAlertCondition(context.Context, *v1.Reference) (*AlertCondition, error) {
@@ -296,6 +349,15 @@ func (UnimplementedAlertingServer) DeleteAlertEndpoint(context.Context, *v1.Refe
 }
 func (UnimplementedAlertingServer) TestAlertEndpoint(context.Context, *TestAlertEndpointRequest) (*TestAlertEndpointResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TestAlertEndpoint not implemented")
+}
+func (UnimplementedAlertingServer) CreateEndpointImplementation(context.Context, *CreateImplementation) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateEndpointImplementation not implemented")
+}
+func (UnimplementedAlertingServer) UpdateEndpointImplementation(context.Context, *CreateImplementation) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateEndpointImplementation not implemented")
+}
+func (UnimplementedAlertingServer) DeleteEndpointImplementation(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteEndpointImplementation not implemented")
 }
 func (UnimplementedAlertingServer) mustEmbedUnimplementedAlertingServer() {}
 
@@ -634,6 +696,60 @@ func _Alerting_TestAlertEndpoint_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Alerting_CreateEndpointImplementation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateImplementation)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).CreateEndpointImplementation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Alerting/CreateEndpointImplementation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).CreateEndpointImplementation(ctx, req.(*CreateImplementation))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Alerting_UpdateEndpointImplementation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateImplementation)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).UpdateEndpointImplementation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Alerting/UpdateEndpointImplementation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).UpdateEndpointImplementation(ctx, req.(*CreateImplementation))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Alerting_DeleteEndpointImplementation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).DeleteEndpointImplementation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Alerting/DeleteEndpointImplementation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).DeleteEndpointImplementation(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Alerting_ServiceDesc is the grpc.ServiceDesc for Alerting service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -712,6 +828,18 @@ var Alerting_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TestAlertEndpoint",
 			Handler:    _Alerting_TestAlertEndpoint_Handler,
+		},
+		{
+			MethodName: "CreateEndpointImplementation",
+			Handler:    _Alerting_CreateEndpointImplementation_Handler,
+		},
+		{
+			MethodName: "UpdateEndpointImplementation",
+			Handler:    _Alerting_UpdateEndpointImplementation_Handler,
+		},
+		{
+			MethodName: "DeleteEndpointImplementation",
+			Handler:    _Alerting_DeleteEndpointImplementation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

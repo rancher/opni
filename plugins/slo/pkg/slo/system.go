@@ -82,5 +82,9 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	}
 	adminClient := cortexadmin.NewCortexAdminClient(cc)
 	p.adminClient.Set(adminClient)
-	RegisterDatasource(shared.MonitoringDatasource, NewSLOMonitoringStore(p, p.logger), NewMonitoringServiceBackend(p, p.logger))
+	RegisterDatasource(
+		shared.MonitoringDatasource,
+		NewSLOMonitoringStore(p, p.logger),
+		NewMonitoringServiceBackend(p, p.logger),
+	)
 }

@@ -4,30 +4,43 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/sync/semaphore"
-
 	"github.com/rancher/opni/pkg/agent"
+	"github.com/rancher/opni/pkg/alerting"
+	"github.com/rancher/opni/pkg/alerting/condition"
+	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
+	ap "github.com/rancher/opni/plugins/alerting/pkg/alerting"
+	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Listener struct {
 	ListenerOptions
-	statusUpdate chan StatusUpdate
-	healthUpdate chan HealthUpdate
-	idLocksMu    sync.Mutex
-	idLocks      map[string]*sync.Mutex
-	closed       chan struct{}
-	sem          *semaphore.Weighted
+	statusUpdate        chan StatusUpdate
+	healthUpdate        chan HealthUpdate
+	idLocksMu           sync.Mutex
+	idLocks             map[string]*sync.Mutex
+	closed              chan struct{}
+	sem                 *semaphore.Weighted
+	AlertProvider       *alerting.Provider
+	alertToggle         chan struct{}
+	alertTickerDuration time.Duration
+	alertCondition      *alertingv1alpha.AlertCondition
 }
 
 type ListenerOptions struct {
+	alertProvider  *alerting.Provider
+	alertToggle    chan struct{}
+	tickerDuration time.Duration
+	alertCondition *alertingv1alpha.AlertCondition
 	interval       time.Duration
 	maxJitter      time.Duration
 	maxConnections int64
@@ -68,6 +81,36 @@ func WithUpdateQueueCap(cap int) ListenerOption {
 	}
 }
 
+func WithAlertToggle() ListenerOption {
+	return func(o *ListenerOptions) {
+		o.alertToggle = make(chan struct{})
+	}
+}
+
+func WithDisconnectTimeout(timeout time.Duration) ListenerOption {
+	_, isSet := os.LookupEnv(ap.LocalBackendEnvToggle)
+	if isSet {
+		return func(o *ListenerOptions) {
+			o.tickerDuration = time.Millisecond * 100
+		}
+	}
+	return func(o *ListenerOptions) {
+		o.tickerDuration = timeout
+	}
+}
+
+func WithDefaultAlertCondition() ListenerOption {
+	return func(o *ListenerOptions) {
+		o.alertCondition = condition.OpniDisconnect
+	}
+}
+
+func WithAlertProvider(alertProvider *alerting.Provider) ListenerOption {
+	return func(o *ListenerOptions) {
+		o.alertProvider = alertProvider
+	}
+}
+
 func NewListener(opts ...ListenerOption) *Listener {
 	options := ListenerOptions{
 		interval:       5 * time.Second,
@@ -80,12 +123,16 @@ func NewListener(opts ...ListenerOption) *Listener {
 		options.maxJitter = options.interval
 	}
 	return &Listener{
-		ListenerOptions: options,
-		statusUpdate:    make(chan StatusUpdate, options.updateQueueCap),
-		healthUpdate:    make(chan HealthUpdate, options.updateQueueCap),
-		idLocks:         make(map[string]*sync.Mutex),
-		closed:          make(chan struct{}),
-		sem:             semaphore.NewWeighted(options.maxConnections),
+		AlertProvider:       options.alertProvider,
+		alertToggle:         options.alertToggle,
+		alertCondition:      options.alertCondition,
+		alertTickerDuration: options.tickerDuration,
+		ListenerOptions:     options,
+		statusUpdate:        make(chan StatusUpdate, options.updateQueueCap),
+		healthUpdate:        make(chan HealthUpdate, options.updateQueueCap),
+		idLocks:             make(map[string]*sync.Mutex),
+		closed:              make(chan struct{}),
+		sem:                 semaphore.NewWeighted(options.maxConnections),
 	}
 }
 
@@ -103,6 +150,12 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 	defer l.sem.Release(1)
 
 	id := cluster.StreamAuthorizedID(ctx)
+
+	// if we are setting an alert condition for disconnections
+	if l.alertProvider != nil {
+		l.AlertDisconnectLoop(id)
+	}
+
 	l.idLocksMu.Lock()
 	var clientLock *sync.Mutex
 	if m, ok := l.idLocks[id]; !ok {
@@ -174,6 +227,79 @@ func (l *Listener) HandleConnection(ctx context.Context, clientset HealthClientS
 			timer.Reset(calcDuration())
 		}
 	}
+}
+
+func (l *Listener) AlertDisconnectLoop(agentId string) {
+	ctx := context.Background()
+	if l.alertToggle == nil {
+		l.alertToggle = make(chan struct{})
+	}
+	if l.alertCondition == nil {
+		l.alertCondition = condition.OpniDisconnect
+	}
+
+	// prevent data race
+	alertConditionTemplateCopy := proto.Clone(l.alertCondition).(*alertingv1alpha.AlertCondition)
+
+	// Eventually replace with templates : Waiting on AlertManager Routes backend
+	alertConditionTemplateCopy.Name = strings.Replace(
+		l.alertCondition.Name,
+		"{{ .agentId }}",
+		agentId, -1)
+	alertConditionTemplateCopy.Description = strings.Replace(
+		l.alertCondition.Description,
+		"{{ .agentId }}",
+		agentId, -1)
+
+	alertConditionTemplateCopy.Description = strings.Replace(
+		l.alertCondition.Description, "{{ .timeout }}",
+		l.alertTickerDuration.String(), -1)
+
+	go func() {
+		id, err := (*l.alertProvider).CreateAlertCondition(ctx, l.alertCondition)
+		retryOnFailure := time.NewTicker(time.Second)
+
+		for err != nil {
+			select {
+			case <-retryOnFailure.C:
+				retryOnFailure = time.NewTicker(time.Second)
+				id, err = (*l.alertProvider).CreateAlertCondition(ctx, l.alertCondition)
+			case <-l.closed:
+				retryOnFailure.Stop()
+				return
+			}
+		}
+		if l.alertTickerDuration < 0 {
+			l.alertTickerDuration = time.Second * 60
+		}
+		ticker := time.NewTicker(l.alertTickerDuration)
+
+		for {
+			select {
+			case <-ticker.C: // received no message from agent in the entier duration
+				_, err = (*l.alertProvider).TriggerAlerts(ctx, &alertingv1alpha.TriggerAlertsRequest{
+					Id: id,
+				})
+				if err != nil {
+					ticker = time.NewTicker(time.Second) // retry trigger more often
+				} else {
+					ticker = time.NewTicker(l.alertTickerDuration)
+				}
+
+			case <-l.alertToggle: // received a message from agent
+				ticker.Stop()
+				ticker = time.NewTicker(l.alertTickerDuration)
+
+			case <-l.closed: // listener is closed, stop
+				ticker.Stop()
+				go func() {
+					(*l.alertProvider).DeleteAlertCondition(ctx, id)
+				}()
+				return
+			}
+
+		}
+	}()
 }
 
 func (l *Listener) StatusC() chan StatusUpdate {

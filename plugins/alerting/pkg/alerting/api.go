@@ -2,85 +2,87 @@ package alerting
 
 import (
 	"context"
+	"fmt"
+	"path"
+	"time"
 
-	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"google.golang.org/protobuf/types/known/emptypb"
+	"github.com/rancher/opni/pkg/storage"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// --- Log ---
-func (p *Plugin) CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
+func list[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]T, error) {
+	keys, err := kvc.ListKeys(ctx, prefix)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]T, len(keys))
+	for i, key := range keys {
+		item, err := kvc.Get(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		items[i] = item
+	}
+	return items, nil
 }
 
-func (p *Plugin) GetAlertLog(ctx context.Context, ref *corev1.Reference) (*corev1.AlertLog, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
+func listWithKeys[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]string, []T, error) {
+	keys, err := kvc.ListKeys(ctx, prefix)
+	if err != nil {
+		return nil, nil, err
+	}
+	items := make([]T, len(keys))
+	ids := make([]string, len(keys))
+	for i, key := range keys {
+		item, err := kvc.Get(ctx, key)
 
-func (p *Plugin) ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAlertLogRequest) (*corev1.AlertLogList, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) UpdateAlertLog(ctx context.Context, event *alertingv1alpha.UpdateAlertLogRequest) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) DeleteAlertLog(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
+		if err != nil {
+			return nil, nil, err
+		}
+		items[i] = item
+		ids[i] = path.Base(key)
+	}
+	return ids, items, nil
 }
 
 // --- Trigger ---
+
 func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) (*alertingv1alpha.TriggerAlertsResponse, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
+	// get the condition ID details
+	a, err := p.GetAlertCondition(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	notifId := a.NotificationId
 
-// --- Alert Conditions ---
+	// persist with alert log api
+	_, err = p.CreateAlertLog(ctx, &corev1.AlertLog{
+		ConditionId: req.Id,
+		Timestamp: &timestamppb.Timestamp{
+			Seconds: time.Now().Unix(),
+		},
+		Metadata: &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"Info":     structpb.NewStringValue(a.Description),
+				"Severity": structpb.NewStringValue("Severe"),
+			},
+		},
+	})
+	if err != nil {
+		return nil, err 
+	}
+	if notifId != nil {
+		(&AlertManagerAPI{
+			Endpoint: p.alertingOptions.Get().Endpoints[0],
+			Verb:     POST,
+			Route:    fmt.Sprintf("/alerts/%s", *notifId),
+		}).WithHttpV2()
+	}
+	// dispatch with alert condition id to alert endpoint id
 
-func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertCondition, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.ListAlertConditionRequest) (*alertingv1alpha.AlertConditionList, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.UpdateAlertConditionRequest) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) PreviewAlertCondition(ctx context.Context, req *alertingv1alpha.PreviewAlertConditionRequest) (*alertingv1alpha.PreviewAlertConditionResponse, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.AlertEndpoint) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertEndpoint, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) ListAlertEndpoints(ctx context.Context, req *alertingv1alpha.ListAlertEndpointsRequest) (*alertingv1alpha.AlertEndpointList, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.TestAlertEndpointRequest) (*alertingv1alpha.TestAlertEndpointResponse, error) {
-	return nil, shared.AlertingErrNotImplemented
+	return &alertingv1alpha.TriggerAlertsResponse{}, nil
 }

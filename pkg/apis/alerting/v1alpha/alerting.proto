@@ -5,6 +5,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/descriptor.proto";
+import "google/protobuf/timestamp.proto";
 import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "google/rpc/status.proto";
@@ -12,8 +13,8 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 service Alerting {
   // ------- Trigger Alerts -------
-  // TODO
 
+  // unimplemented
   rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
     option (google.api.http) = {
       post: "/alerts/trigger"
@@ -23,6 +24,7 @@ service Alerting {
 
   // ------- CRUD for alerting events log -------
 
+  // alerting internal use only
   rpc CreateAlertLog(core.AlertLog) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/alerts/log"
@@ -30,27 +32,27 @@ service Alerting {
     }; 
   }
 
-  // id is the unix epoch timestamp of the alert 
-
+  
+  // unimplemented
   rpc GetAlertLog(core.Reference) returns (core.AlertLog) {
     option (google.api.http) = {
       get: "/alerts/events/{id}"
     };
   }
 
-  rpc ListAlertLogs(ListAlertLogRequest) returns (core.AlertLogList) {
+  rpc ListAlertLogs(ListAlertLogRequest) returns (InformativeAlertLogList) {
     option (google.api.http) = {
       get: "/alerts/events"
     };
   }
-
+  // unimplemented
   rpc UpdateAlertLog(UpdateAlertLogRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       put: "/alerts/events"
       body: "*"
     };
   }
-
+  // alerting internal use only (for now)
   rpc DeleteAlertLog(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/alerts/events"
@@ -58,9 +60,8 @@ service Alerting {
   }
 
   // -------- CRUD for alerting conditions -------
-  //TODO 
 
-  rpc CreateAlertCondition(AlertCondition) returns (google.protobuf.Empty) {
+  rpc CreateAlertCondition(AlertCondition) returns(core.Reference) {
     option (google.api.http) = {
       post: "/alerts/conditions"
       body: "*"
@@ -100,7 +101,6 @@ service Alerting {
   }
 
   // -------- CRUD for alerting endpoints ----
-  // TODO 
   
   rpc CreateAlertEndpoint(AlertEndpoint) returns (google.protobuf.Empty) {
     option (google.api.http) = {
@@ -134,28 +134,52 @@ service Alerting {
     };
   }
 
+  // unimplemented
   rpc TestAlertEndpoint(TestAlertEndpointRequest) returns (TestAlertEndpointResponse) {
     option (google.api.http) = {
       post: "/alerts/endpoints/test"
       body: "*"
     };
   }
+  
+
+  // alerting internal use only
+  rpc CreateEndpointImplementation(CreateImplementation) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/alerts/endpoints/implementation"
+      body: "*"
+    };
+  }
+
+  // alerting internal use only
+  rpc UpdateEndpointImplementation(CreateImplementation) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/alerts/endpoints/implementation"
+      body: "*"
+    };
+  }
+
+  // alerting internal use only
+  // conditionMustBePassed in here
+  rpc DeleteEndpointImplementation(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/alerts/endpoints/implementation"
+    };
+  }
 }
 
 message TriggerAlertsRequest {
   core.Reference id =1;
-  // TODO
 }
 
 message TriggerAlertsResponse {
-  // TODO
 }
 
 message ListAlertLogRequest {
   repeated string labels = 1;
   uint64 limit  = 2;
-  uint64 startTimestamp  = 3;
-  uint64 endTimestamp = 4;
+  google.protobuf.Timestamp startTimestamp  = 3;
+  google.protobuf.Timestamp endTimestamp = 4;
 }
 
 message UpdateAlertLogRequest {
@@ -163,49 +187,122 @@ message UpdateAlertLogRequest {
   core.AlertLog UpdateAlert = 2;
 }
 
-message AlertCondition {
-  // TODO
+enum Severity {
+  INFO = 0;
+  WARNING = 1;
+  ERROR = 2;
+  CRITICAL = 3;
 }
 
+message AlertCondition {
+  string name = 1;
+  string description = 2;
+  repeated string labels = 3;
+  Severity severity = 4;
+  oneof alertType {
+    AlertConditionSystem system = 5;
+  }
+  optional string notificationId = 6;
+  EndpointImplementation details = 7; 
+}
+
+message AlertConditionSystem{}
+
 message AlertConditionList {
-  repeated AlertCondition items = 1;
+  repeated AlertConditionWithId items = 1;
+}
+
+message AlertConditionWithId {
+  core.Reference id = 1;
+  AlertCondition alertCondition = 2;
 }
 
 message ListAlertConditionRequest {
-  // TODO
 }
 
 message UpdateAlertConditionRequest {
-  // TODO
+  core.Reference id = 1;
+  AlertCondition updateAlert = 2;
 }
 
 message PreviewAlertConditionRequest {
-  // TODO
 }
 
 message PreviewAlertConditionResponse {
-  // TODO
 }
 
 
+message EndpointImplementation {
+  string Title = 1;
+  string Body = 2; 
+}
+
+message CreateImplementation {
+  core.Reference endpointId  = 1;
+  core.Reference  conditionId = 2;
+  EndpointImplementation implementation = 3;
+}
+
 message AlertEndpoint {
-  // TODO
+   string name = 1;
+   string description = 2;
+   oneof endpoint {
+    SlackEndpoint slack = 4;
+    EmailEndpoint email = 5;
+   }
+}
+
+message SlackEndpoint {
+  string name = 1;
+  string apiUrl = 2;
+  string channel = 3;
+}
+
+message SlackImplementation {
+  string title = 1;
+  string text = 2;
+  string footer = 3;
+  string imageUrl = 4;
+}
+
+message EmailEndpoint {
+  string name = 1;
+  string to = 2;
+  optional string from = 3;
+}
+
+message EmailImplementation {
+  optional string htmlBody = 1;
+  optional string textBody = 2; 
 }
 
 message AlertEndpointList {
-  repeated AlertEndpoint items = 1;
+  repeated AlertEndpointWithId items = 1;
+}
+
+message AlertEndpointWithId {
+  AlertEndpoint endpoint = 1;
+  core.Reference id = 2;
+}
+
+message InformativeAlertLog {
+  AlertCondition condition = 1;
+  core.AlertLog log = 2;
+}
+
+message InformativeAlertLogList {
+  repeated InformativeAlertLog items = 1;
 }
 
 message ListAlertEndpointsRequest {
 
 }
 message UpdateAlertEndpointRequest {
-  //TODO
+  core.Reference id = 1;
+  AlertEndpoint UpdateAlert = 2;
 }
 
 message TestAlertEndpointRequest{
-  // TODO
 }
 message TestAlertEndpointResponse {
-  // TODO
 }

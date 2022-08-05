@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -36,16 +37,20 @@ func (p *Plugin) GetOpensearchCluster(
 	ctx context.Context,
 	empty *emptypb.Empty,
 ) (*loggingadmin.OpensearchCluster, error) {
-	cluster := &opsterv1.OpenSearchCluster{}
+	cluster := &v1beta2.OpniOpensearch{}
 	if err := p.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      opensearchClusterName,
 		Namespace: p.storageNamespace,
 	}, cluster); err != nil {
+		if k8serrors.IsNotFound(err) {
+			p.logger.Info("opensearch cluster does not exist")
+			return nil, nil
+		}
 		return nil, err
 	}
 
 	var nodePools []*loggingadmin.OpensearchNodeDetails
-	for _, pool := range cluster.Spec.NodePools {
+	for _, pool := range cluster.Spec.OpensearchClusterSpec.NodePools {
 		convertedPool, err := convertNodePoolToProtobuf(pool)
 		if err != nil {
 			return nil, err
@@ -53,9 +58,19 @@ func (p *Plugin) GetOpensearchCluster(
 		nodePools = append(nodePools, convertedPool)
 	}
 
-	dashboards := convertDashboardsToProtobuf(cluster.Spec.Dashboards)
+	dashboards := convertDashboardsToProtobuf(cluster.Spec.OpensearchClusterSpec.Dashboards)
 
 	return &loggingadmin.OpensearchCluster{
+		ExternalURL: cluster.Spec.ExternalURL,
+		DataRetention: func() *string {
+			if cluster.Spec.ClusterConfigSpec == nil {
+				return nil
+			}
+			if cluster.Spec.ClusterConfigSpec.IndexRetention == "" {
+				return nil
+			}
+			return &cluster.Spec.ClusterConfigSpec.IndexRetention
+		}(),
 		NodePools:  nodePools,
 		Dashboards: dashboards,
 	}, nil
@@ -65,7 +80,8 @@ func (p *Plugin) DeleteOpensearchCluster(
 	ctx context.Context,
 	empty *emptypb.Empty,
 ) (*emptypb.Empty, error) {
-	cluster := &opsterv1.OpenSearchCluster{
+
+	cluster := &v1beta2.OpniOpensearch{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      opensearchClusterName,
 			Namespace: p.storageNamespace,
@@ -78,7 +94,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	ctx context.Context,
 	cluster *loggingadmin.OpensearchCluster,
 ) (*emptypb.Empty, error) {
-	k8sOpensearchCluster := &opsterv1.OpenSearchCluster{}
+	k8sOpensearchCluster := &v1beta2.OpniOpensearch{}
 
 	exists := true
 	err := p.k8sClient.Get(ctx, types.NamespacedName{
@@ -102,33 +118,39 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	}
 
 	if !exists {
-		k8sOpensearchCluster = &opsterv1.OpenSearchCluster{
+		k8sOpensearchCluster = &v1beta2.OpniOpensearch{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      opensearchClusterName,
 				Namespace: p.storageNamespace,
 			},
-			Spec: opsterv1.ClusterSpec{
-				Dashboards: convertProtobufToDashboards(cluster.Dashboards),
-				NodePools:  nodePools,
-				General: opsterv1.GeneralConfig{
-					ImageSpec: &opsterv1.ImageSpec{
-						Image: &opensearchImage,
+			Spec: v1beta2.OpniOpensearchSpec{
+				OpensearchClusterSpec: opsterv1.ClusterSpec{
+					Dashboards: convertProtobufToDashboards(cluster.Dashboards),
+					NodePools:  nodePools,
+					General: opsterv1.GeneralConfig{
+						ImageSpec: &opsterv1.ImageSpec{
+							Image: &opensearchImage,
+						},
+						Version:          opensearchVersion,
+						ServiceName:      fmt.Sprintf("%s-opensearch-svc", opensearchClusterName),
+						HttpPort:         9200,
+						SetVMMaxMapCount: true,
 					},
-					Version:          opensearchVersion,
-					ServiceName:      fmt.Sprintf("%s-opensearch-svc", opensearchClusterName),
-					HttpPort:         9200,
-					SetVMMaxMapCount: true,
+					Security: &opsterv1.Security{
+						Tls: &opsterv1.TlsConfig{
+							Transport: &opsterv1.TlsConfigTransport{
+								Generate: true,
+								PerNode:  true,
+							},
+							Http: &opsterv1.TlsConfigHttp{
+								Generate: true,
+							},
+						},
+					},
 				},
-				Security: &opsterv1.Security{
-					Tls: &opsterv1.TlsConfig{
-						Transport: &opsterv1.TlsConfigTransport{
-							Generate: true,
-							PerNode:  true,
-						},
-						Http: &opsterv1.TlsConfigHttp{
-							Generate: true,
-						},
-					},
+				ExternalURL: cluster.ExternalURL,
+				ClusterConfigSpec: &v1beta2.ClusterConfigSpec{
+					IndexRetention: pointer.StringDeref(cluster.DataRetention, "7d"),
 				},
 			},
 		}
@@ -139,8 +161,16 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 		if err := p.k8sClient.Get(ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
 			return err
 		}
-		k8sOpensearchCluster.Spec.NodePools = nodePools
-		k8sOpensearchCluster.Spec.Dashboards = convertProtobufToDashboards(cluster.Dashboards)
+		k8sOpensearchCluster.Spec.OpensearchClusterSpec.NodePools = nodePools
+		k8sOpensearchCluster.Spec.OpensearchClusterSpec.Dashboards = convertProtobufToDashboards(cluster.Dashboards)
+		k8sOpensearchCluster.Spec.ExternalURL = cluster.ExternalURL
+		if cluster.DataRetention != nil {
+			k8sOpensearchCluster.Spec.ClusterConfigSpec = &v1beta2.ClusterConfigSpec{
+				IndexRetention: *cluster.DataRetention,
+			}
+		} else {
+			k8sOpensearchCluster.Spec.ClusterConfigSpec = nil
+		}
 
 		return p.k8sClient.Update(ctx, k8sOpensearchCluster)
 	})

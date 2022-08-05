@@ -235,9 +235,8 @@ func (a *AlertManagerAPI) IsHealthy() bool {
 }
 
 // WithHttpV2
-//## OpenAPI reference
+// ## OpenAPI reference
 // https://github.com/prometheus/alertmanager/blob/main/api/v2/openapi.yaml
-//
 func (a *AlertManagerAPI) WithHttpV2() *AlertManagerAPI {
 	a.Api = v2
 	return a

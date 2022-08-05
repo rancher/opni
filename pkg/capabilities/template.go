@@ -78,25 +78,27 @@ type OptionSpec struct {
 // The args are specific to each kind of input control.
 //
 // Kinds:
-//   "input": A text box.
-//     Arguments:
-//       1: Label
-//   "select": A combo box.
-//     Arguments:
-//       1: Label
-//       2+: Combo box items
-//   "toggle": A checkbox.
-//     Arguments:
-//       1: Label
+//
+//	"input": A text box.
+//	  Arguments:
+//	    1: Label
+//	"select": A combo box.
+//	  Arguments:
+//	    1: Label
+//	    2+: Combo box items
+//	"toggle": A checkbox.
+//	  Arguments:
+//	    1: Label
 //
 // Options:
-//   "+format:<value>": Controls how the value is substituted into the install
-//                      command. Within the format text, {{ value }} will be
-//                      replaced with the user input. Defaults to '{{ value }}'
-//   "+required": Marks the input is required.
-//   "+omitEmpty": If the value is "falsy" ('', 'false', etc), the argument
-//                 will be omitted from the install command.
-//   "+default:<value>": Adds a default value to the input.
+//
+//	"+format:<value>": Controls how the value is substituted into the install
+//	                   command. Within the format text, {{ value }} will be
+//	                   replaced with the user input. Defaults to '{{ value }}'
+//	"+required": Marks the input is required.
+//	"+omitEmpty": If the value is "falsy" ('', 'false', etc), the argument
+//	              will be omitted from the install command.
+//	"+default:<value>": Adds a default value to the input.
 func Arg(kind ArgKind, args ...string) (string, error) {
 	opts, remaining, err := extractOptions(args...)
 	if err != nil {

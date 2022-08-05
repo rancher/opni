@@ -15,7 +15,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-//
 func NewUnavailableAlertingImplementation(version string) alerting.Provider {
 	switch version {
 	case shared.AlertingV1Alpha:

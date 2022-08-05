@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/util/notifier"
 )
 
-//FIXME:
+// FIXME:
 type MockClone struct {
 	a int
 }

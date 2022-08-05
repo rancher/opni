@@ -32,7 +32,6 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-	Version  = "dev"
 )
 
 const (
@@ -53,13 +52,11 @@ func BuildManagerCmd() *cobra.Command {
 		logLevel             string
 	)
 
-	signalCtx := ctrl.SetupSignalHandler()
-
-	run := func() error {
+	run := func(signalCtx context.Context) error {
 		tracing.Configure("manager")
 
 		if echoVersion {
-			fmt.Println(Version)
+			fmt.Println(util.Version)
 			return nil
 		}
 
@@ -95,6 +92,7 @@ func BuildManagerCmd() *cobra.Command {
 			setupLog.Info("Usage tracking enabled", "current-version", util.Version)
 			upgradeChecker = upgraderesponder.NewUpgradeChecker(upgradeResponderAddress, &upgradeRequester)
 			upgradeChecker.Start()
+			defer upgradeChecker.Stop()
 		}
 
 		if err = (&controllers.OpniClusterReconciler{}).SetupWithManager(mgr); err != nil {
@@ -236,6 +234,14 @@ func BuildManagerCmd() *cobra.Command {
 		features.PopulateFeatures(ctx, ctrl.GetConfigOrDie())
 		features.FeatureList.WatchConfigMap()
 
+		if features.FeatureList.FeatureIsEnabled("manage-opensearch") {
+			if err = (&controllers.OpniOpensearchReconciler{}).SetupWithManager(mgr); err != nil {
+				defer cancel()
+				setupLog.Error(err, "unable to create controller", "controller", "OpniOpensearch")
+				return err
+			}
+		}
+
 		errC := make(chan struct{})
 		waitctx.Go(ctx, func() {
 			setupLog.Info("starting manager")
@@ -257,13 +263,11 @@ func BuildManagerCmd() *cobra.Command {
 			setupLog.Info("reload signal received")
 			cancel()
 			// wait for graceful shutdown
-			upgradeChecker.Stop()
 			waitctx.Wait(ctx, 5*time.Second)
 			return nil
 		case <-errC:
 			setupLog.Error(nil, "error running manager")
 			cancel()
-			upgradeChecker.Stop()
 			return errors.New("error running manager")
 		}
 	}
@@ -272,8 +276,9 @@ func BuildManagerCmd() *cobra.Command {
 		Use:   "manager",
 		Short: "Run the Opni Manager",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			signalCtx := ctrl.SetupSignalHandler()
 			for {
-				if err := run(); err != nil {
+				if err := run(signalCtx); err != nil {
 					return err
 				}
 			}

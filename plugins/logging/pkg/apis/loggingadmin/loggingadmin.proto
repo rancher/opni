@@ -14,9 +14,11 @@ service LoggingAdmin {
 }
 
 message OpensearchCluster {
+    string ExternalURL = 1;
     // +optional
     repeated OpensearchNodeDetails NodePools = 2;
     optional DashboardsDetails Dashboards = 3;
+    optional string DataRetention = 4;
 }
 
 message DataPersistence {

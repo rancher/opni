@@ -31,6 +31,8 @@ type CortexAdminClient interface {
 	LoadRules(ctx context.Context, in *YamlRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteRule(ctx context.Context, in *RuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	FlushBlocks(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetSeriesMetadata(ctx context.Context, in *SeriesRequest, opts ...grpc.CallOption) (*MetricMetadata, error)
+	GetMetricLabels(ctx context.Context, in *SeriesRequest, opts ...grpc.CallOption) (*MetricLabels, error)
 }
 
 type cortexAdminClient struct {
@@ -113,6 +115,24 @@ func (c *cortexAdminClient) FlushBlocks(ctx context.Context, in *emptypb.Empty, 
 	return out, nil
 }
 
+func (c *cortexAdminClient) GetSeriesMetadata(ctx context.Context, in *SeriesRequest, opts ...grpc.CallOption) (*MetricMetadata, error) {
+	out := new(MetricMetadata)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/GetSeriesMetadata", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexAdminClient) GetMetricLabels(ctx context.Context, in *SeriesRequest, opts ...grpc.CallOption) (*MetricLabels, error) {
+	out := new(MetricLabels)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/GetMetricLabels", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CortexAdminServer is the server API for CortexAdmin service.
 // All implementations must embed UnimplementedCortexAdminServer
 // for forward compatibility
@@ -125,6 +145,8 @@ type CortexAdminServer interface {
 	LoadRules(context.Context, *YamlRequest) (*emptypb.Empty, error)
 	DeleteRule(context.Context, *RuleRequest) (*emptypb.Empty, error)
 	FlushBlocks(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	GetSeriesMetadata(context.Context, *SeriesRequest) (*MetricMetadata, error)
+	GetMetricLabels(context.Context, *SeriesRequest) (*MetricLabels, error)
 	mustEmbedUnimplementedCortexAdminServer()
 }
 
@@ -155,6 +177,12 @@ func (UnimplementedCortexAdminServer) DeleteRule(context.Context, *RuleRequest) 
 }
 func (UnimplementedCortexAdminServer) FlushBlocks(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FlushBlocks not implemented")
+}
+func (UnimplementedCortexAdminServer) GetSeriesMetadata(context.Context, *SeriesRequest) (*MetricMetadata, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSeriesMetadata not implemented")
+}
+func (UnimplementedCortexAdminServer) GetMetricLabels(context.Context, *SeriesRequest) (*MetricLabels, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMetricLabels not implemented")
 }
 func (UnimplementedCortexAdminServer) mustEmbedUnimplementedCortexAdminServer() {}
 
@@ -313,6 +341,42 @@ func _CortexAdmin_FlushBlocks_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CortexAdmin_GetSeriesMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SeriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).GetSeriesMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexadmin.CortexAdmin/GetSeriesMetadata",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).GetSeriesMetadata(ctx, req.(*SeriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexAdmin_GetMetricLabels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SeriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).GetMetricLabels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexadmin.CortexAdmin/GetMetricLabels",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).GetMetricLabels(ctx, req.(*SeriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CortexAdmin_ServiceDesc is the grpc.ServiceDesc for CortexAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -351,6 +415,14 @@ var CortexAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FlushBlocks",
 			Handler:    _CortexAdmin_FlushBlocks_Handler,
+		},
+		{
+			MethodName: "GetSeriesMetadata",
+			Handler:    _CortexAdmin_GetSeriesMetadata_Handler,
+		},
+		{
+			MethodName: "GetMetricLabels",
+			Handler:    _CortexAdmin_GetMetricLabels_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

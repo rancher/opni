@@ -77,6 +77,47 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	})
 
 	When("We use the cortex admin plugin", func() {
+		It("Should be able to fetch series metadata successfully", func() {
+			inputs := []TestMetadataInput{
+				{
+					Tenant:     "agent",
+					MetricName: "http_requests_duration_seconds_total",
+				},
+				{
+					Tenant:     "agent2",
+					MetricName: "http_requests_duration_seconds_total",
+				},
+			}
+			for _, input := range inputs {
+				_, err := adminClient.GetSeriesMetadata(ctx, &apis.SeriesRequest{
+					Tenant:     input.Tenant,
+					MetricName: input.MetricName,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			}
+		})
+
+		It("Should be able to fetch a metric's label values", func() {
+			inputs := []TestMetadataInput{
+				{
+					Tenant:     "agent",
+					MetricName: "prometheus",
+				},
+				{
+					Tenant:     "agent2",
+					MetricName: "prometheus",
+				},
+			}
+			for _, input := range inputs {
+				_, err := adminClient.GetMetricLabels(ctx, &apis.SeriesRequest{
+					Tenant:     input.Tenant,
+					MetricName: input.MetricName,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+		})
+
 		It("Should be able to create rules from prometheus yaml", func() {
 			sampleRule := fmt.Sprintf("%s/sampleRule.yaml", ruleTestDataDir)
 			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)

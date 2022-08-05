@@ -386,9 +386,9 @@ func (p *Plugin) LoadRules(ctx context.Context,
 	}
 	if resp.StatusCode != http.StatusAccepted {
 		lg.With(
-			"status", resp.Status,
+			"Code", resp.StatusCode,
 		).Error("loading rules failed")
-		return nil, fmt.Errorf("loading rules failed: %s", resp.Status)
+		return nil, fmt.Errorf("loading rules failed: %s", resp.StatusCode)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -431,6 +431,112 @@ func (p *Plugin) DeleteRule(
 		return nil, fmt.Errorf("delete rule group failed: %s", resp.Status)
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (p *Plugin) GetSeriesMetadata(ctx context.Context, request *cortexadmin.SeriesRequest) (*cortexadmin.MetricMetadata, error) {
+	lg := p.logger.With(
+		"metric", request.MetricName,
+	)
+	client, err := p.cortexHttpClient.GetContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "GET",
+		fmt.Sprintf(
+			"https://%s/prometheus/api/v1/metadata",
+			p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress,
+		),
+		nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{request.Tenant}))
+	resp, err := client.Do(req)
+	if err != nil {
+		lg.With(
+			"error", err,
+		).Error("fetch series metric metadata failed")
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		lg.With(
+			"status", resp.Status,
+		).Error("fetch series metric metadata failed")
+		return nil, fmt.Errorf("fetch series metric metadata failed: %s", resp.Status)
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			lg.With(
+				"error", err,
+			).Error("failed to close response body")
+		}
+	}(resp.Body)
+	responseBuf := new(bytes.Buffer)
+	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
+		lg.With(
+			"error", err,
+		).Error("failed to read response body")
+		return nil, err
+	}
+	val := string(responseBuf.Bytes())
+	lg.Debug(val)
+	return &cortexadmin.MetricMetadata{}, nil
+}
+
+func (p *Plugin) GetMetricLabels(ctx context.Context, request *cortexadmin.SeriesRequest) (*cortexadmin.MetricLabels, error) {
+	lg := p.logger.With(
+		"metric", request.MetricName,
+	)
+	client, err := p.cortexHttpClient.GetContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET",
+		fmt.Sprintf(
+			"https://%s/prometheus/api/v1/labels",
+			p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress,
+		),
+		nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{request.Tenant}))
+	req.Header.Set("Accept", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		lg.With(
+			"error", err,
+		).Error("fetch series metric metadata failed")
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		lg.With(
+			"status", resp.Status,
+		).Error("fetch series metric metadata failed")
+		return nil, fmt.Errorf("fetch series metric metadata failed: %s", resp.Status)
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			lg.With(
+				"error", err,
+			).Error("failed to close response body")
+		}
+	}(resp.Body)
+	responseBuf := new(bytes.Buffer)
+	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
+		lg.With(
+			"error", err,
+		).Error("failed to read response body")
+		return nil, err
+	}
+	val := string(responseBuf.Bytes())
+	lg.Debug(val)
+	return &cortexadmin.MetricLabels{Labels: []string{"none"}}, nil
 }
 
 func formatTime(t time.Time) string {

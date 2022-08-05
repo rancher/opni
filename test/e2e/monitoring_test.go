@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"time"
 
@@ -125,6 +126,19 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		Expect(result.Type).To(Equal(model.ValVector))
 		Expect(int(result.V.(model.Vector)[0].Value)).To(Equal(2500))
 	})
+
+	It("Should be able to create recording rules", func() {
+		ruleTestDataDir := "../../pkg/test/testdata/slo/cortexrule"
+		sampleRule := fmt.Sprintf("%s/sampleRule.yaml", ruleTestDataDir)
+		sampleRuleYamlBytes, err := ioutil.ReadFile(sampleRule)
+		Expect(err).To(Succeed())
+		_, err = adminClient.LoadRules(context.Background(), &cortexadmin.YamlRequest{
+			Yaml:   string(sampleRuleYamlBytes),
+			Tenant: agentId,
+		})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("should write metrics to long-term storage", func() {
 		By("flushing ingesters")
 		_, err := adminClient.FlushBlocks(context.Background(), &emptypb.Empty{})

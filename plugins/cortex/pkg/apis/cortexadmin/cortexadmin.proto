@@ -60,6 +60,27 @@ service CortexAdmin {
       post: "/flush_blocks"
     };
   }
+
+  rpc GetSeriesMetadata(SeriesRequest) returns (MetricMetadata) {
+    option (google.api.http) = {
+      get: "/series/metadata"
+    };
+  }
+
+  rpc GetMetricLabels(SeriesRequest) returns (MetricLabels) {
+    option (google.api.http) = {
+      get: "/series/labels"
+    };
+  }
+}
+
+message SeriesRequest {
+  string tenant = 1;
+  string metricName = 2;
+}
+
+message MetricLabels {
+  repeated string labels = 1;
 }
 
 message UserIDStatsList {

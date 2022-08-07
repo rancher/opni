@@ -78,78 +78,44 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 		titleC := "C) invalid mac, cluster exists"
 
 		threads := runtime.NumCPU()
-		sampleTarget := 100000
 
-		threadsPerTest := threads / 3
+		sampleTarget := 50000
 
-		By(fmt.Sprintf("running tests in parallel using %d threads", threadsPerTest*3))
+		By(fmt.Sprintf("running tests in parallel using %d threads", threads))
 
 		wg := sync.WaitGroup{}
-		wg.Add(3)
-		go func() {
-			defer wg.Done()
-			wg2 := sync.WaitGroup{}
-			for i := 0; i < threadsPerTest; i++ {
-				wg2.Add(1)
-				go func() {
-					defer wg2.Done()
-					runtime.LockOSThread()
-					defer runtime.UnlockOSThread()
-					for j := 0; j < sampleTarget/threadsPerTest; j++ {
+		for t := 0; t < threads; t++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				runtime.LockOSThread()
+				defer runtime.UnlockOSThread()
+
+				for i := 0; i < sampleTarget/threads; i++ {
+					{ // A
 						start := threadClock()
 						code, _, _ := mw.VerifyKeyring(validDoesNotExist, largeBody)
 						duration := threadClock() - start
 						exp.RecordDuration(titleA, time.Duration(duration), gmeasure.Precision(time.Nanosecond))
 						Expect(code).To(Equal(http.StatusUnauthorized))
 					}
-				}()
-			}
-			wg2.Wait()
-		}()
-
-		go func() {
-			defer wg.Done()
-			wg2 := sync.WaitGroup{}
-			for i := 0; i < threadsPerTest; i++ {
-				wg2.Add(1)
-				go func() {
-					defer wg2.Done()
-					runtime.LockOSThread()
-					defer runtime.UnlockOSThread()
-					largeBody := append([]byte(nil), largeBody...)
-					for j := 0; j < sampleTarget/threadsPerTest; j++ {
+					{ // B
 						start := threadClock()
 						code, _, _ := mw.VerifyKeyring(invalidDoesNotExist, largeBody)
 						duration := threadClock() - start
 						exp.RecordDuration(titleB, time.Duration(duration), gmeasure.Precision(time.Nanosecond))
 						Expect(code).To(Equal(http.StatusUnauthorized))
-					}
-				}()
-			}
-			wg2.Wait()
-		}()
-
-		go func() {
-			defer wg.Done()
-			wg2 := sync.WaitGroup{}
-			for i := 0; i < threadsPerTest; i++ {
-				wg2.Add(1)
-				go func() {
-					defer wg2.Done()
-					runtime.LockOSThread()
-					defer runtime.UnlockOSThread()
-					largeBody := append([]byte(nil), largeBody...)
-					for j := 0; j < sampleTarget/threadsPerTest; j++ {
+					} // C
+					{
 						start := threadClock()
 						code, _, _ := mw.VerifyKeyring(invalidExists, largeBody)
 						duration := threadClock() - start
 						exp.RecordDuration(titleC, time.Duration(duration), gmeasure.Precision(time.Nanosecond))
 						Expect(code).To(Equal(http.StatusUnauthorized))
 					}
-				}()
-			}
-			wg2.Wait()
-		}()
+				}
+			}()
+		}
 
 		wg.Wait()
 

@@ -82,9 +82,8 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			Expect(err).To(BeNil())
 
 			slackEndpoint := alertingv1alpha.SlackEndpoint{
-				Name:    "slack",
-				Channel: "#general",
-				ApiUrl:  "http://localhost:5001/",
+				Channel:    "#general",
+				WebhookUrl: "http://localhost:5001/",
 			}
 			id1 := uuid.New().String()
 			recv, err := alerting.NewSlackReceiver(id1, &slackEndpoint)
@@ -97,7 +96,6 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 
 			fromAddr := "alex7285@gmail.com"
 			emailEndpoint := alertingv1alpha.EmailEndpoint{
-				Name: "email",
 				To:   "alexandre.lamarre@suse.com",
 				From: &fromAddr,
 			}
@@ -124,9 +122,8 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			Expect(err).To(BeNil())
 
 			slackEndpoint := alertingv1alpha.SlackEndpoint{
-				Name:    "slack",
-				Channel: "#general",
-				ApiUrl:  "http://localhost:5001/",
+				Channel:    "#general",
+				WebhookUrl: "http://localhost:5001/",
 			}
 			id1 := uuid.New().String()
 			recv, err := alerting.NewSlackReceiver(id1, &slackEndpoint)
@@ -135,9 +132,8 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			Expect(cfg.Receivers).To(HaveLen(2))
 			Expect(cfg.Receivers[1].Name).To(Equal(id1))
 			target := &alertingv1alpha.SlackEndpoint{
-				Name:    "slack",
-				Channel: "#somethingelse",
-				ApiUrl:  "http://localhost:5001/",
+				Channel:    "#somethingelse",
+				WebhookUrl: "http://localhost:5001/",
 			}
 			newRecv, err := alerting.NewSlackReceiver(id1, target)
 			Expect(err).To(Succeed())
@@ -154,9 +150,8 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			Expect(err).To(BeNil())
 
 			slackEndpoint := alertingv1alpha.SlackEndpoint{
-				Name:    "slack",
-				Channel: "#general",
-				ApiUrl:  "http://localhost:5001/",
+				Channel:    "#general",
+				WebhookUrl: "http://localhost:5001/",
 			}
 			id1 := uuid.New().String()
 			recv, err := alerting.NewSlackReceiver(id1, &slackEndpoint)
@@ -168,11 +163,11 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			// udpate
 
 			recv, err = alerting.NewEmailReceiver(id1, &alertingv1alpha.EmailEndpoint{
-				Name: "email",
-				To:   "alexandre.lamarre@suse.com",
+				To: "alexandre.lamarre@suse.com",
 			})
 			Expect(err).To(Succeed())
-			cfg.UpdateReceiver(id1, recv)
+			err = cfg.UpdateReceiver(id1, recv)
+			Expect(err).To(Succeed())
 			Expect(cfg.Receivers).To(HaveLen(2))
 			Expect(cfg.Receivers[1].Name).To(Equal(id1))
 			Expect(cfg.Receivers[1].EmailConfigs).NotTo(BeNil())
@@ -185,15 +180,12 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			newRecv, err := alerting.NewSlackReceiver(
 				uuid.New().String(),
 				&alertingv1alpha.SlackEndpoint{
-					Name:    "slack",
-					Channel: "#general",
-					ApiUrl:  "http://localhost:5001/",
+					Channel:    "#general",
+					WebhookUrl: "http://localhost:5001/",
 				},
 			)
 			Expect(err).To(Succeed())
 			err = cfg.UpdateReceiver(uuid.New().String(), newRecv)
-			Expect(err).To(HaveOccurred())
-			err = cfg.UpdateReceiver("web.hook", nil)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -216,9 +208,8 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			Expect(err).To(BeNil())
 			for i := 1; i <= 20; i++ {
 				slackEndpoint := alertingv1alpha.SlackEndpoint{
-					Name:    "slack",
-					Channel: "#general",
-					ApiUrl:  "http://localhost:5001/",
+					Channel:    "#general",
+					WebhookUrl: "http://localhost:5001/",
 				}
 				id1 := uuid.New().String()
 				recv, err := alerting.NewSlackReceiver(id1, &slackEndpoint)
@@ -239,9 +230,8 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			var lastId string
 			for i := 1; i <= 20; i++ {
 				slackEndpoint := alertingv1alpha.SlackEndpoint{
-					Name:    "slack",
-					Channel: "#general",
-					ApiUrl:  "http://localhost:5001/",
+					Channel:    "#general",
+					WebhookUrl: "http://localhost:5001/",
 				}
 				id1 := uuid.New().String()
 				recv, err := alerting.NewSlackReceiver(id1, &slackEndpoint)

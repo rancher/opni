@@ -29,6 +29,9 @@ var idsToCreate = map[string]string{"slack": uuid.New().String(), "email": uuid.
 
 var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Unit, test.Slow), func() {
 	ctx := context.Background()
+	BeforeEach(func() {
+		alerting.AlertPath = "../../../dev/alerttestdata/logs"
+	})
 
 	When("The API is passed invalid input, handle it", func() {
 		Specify("Create Endpoint API should be robust to invalid input", func() {
@@ -45,9 +48,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Description: "",
 						Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
 							Slack: &alertingv1alpha.SlackEndpoint{
-								Name:    "",
-								ApiUrl:  "not a url",
-								Channel: "#general",
+								WebhookUrl: "not a url",
+								Channel:    "#general",
 							},
 						},
 					},
@@ -59,9 +61,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Description: "",
 						Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
 							Slack: &alertingv1alpha.SlackEndpoint{
-								Name:    "",
-								ApiUrl:  "http://some.url.com",
-								Channel: "not a channel",
+								WebhookUrl: "http://some.url.com",
+								Channel:    "not a channel",
 							},
 						},
 					},
@@ -73,7 +74,6 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Description: "",
 						Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 							Email: &alertingv1alpha.EmailEndpoint{
-								Name: "",
 								From: &fromUrl,
 								To:   "",
 							},
@@ -87,7 +87,6 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Description: "",
 						Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 							Email: &alertingv1alpha.EmailEndpoint{
-								Name: "",
 								From: &fromUrl,
 								To:   "asdasdaasdasd",
 							},
@@ -101,7 +100,6 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Description: "",
 						Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 							Email: &alertingv1alpha.EmailEndpoint{
-								Name: "",
 								From: &notFromUrl,
 								To:   "alexandre.lamarre@suse.com",
 							},
@@ -171,7 +169,6 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					Description: "TestAlertEndpoint",
 					Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 						Email: &alertingv1alpha.EmailEndpoint{
-							Name: "TestAlertEndpoint",
 							From: nil,
 							To:   "alex7285@gmail.com",
 						},
@@ -182,7 +179,6 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					Description: "TestAlertEndpoint2",
 					Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 						Email: &alertingv1alpha.EmailEndpoint{
-							Name: "TestAlertEndpoint2",
 							To:   "alexandre.lamarre@suse.com",
 							From: &fromUrl,
 						},
@@ -193,9 +189,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					Description: "TestAlertEndpoint3",
 					Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
 						Slack: &alertingv1alpha.SlackEndpoint{
-							Name:    "TestAlertEndpoint2",
-							Channel: "#channel",
-							ApiUrl:  "https://hooks.slack.com/services/T0S0S0S0S/B0S0S0S0S/B0S0S0S0S",
+							Channel:    "#channel",
+							WebhookUrl: "https://hooks.slack.com/services/T0S0S0S0S/B0S0S0S0S/B0S0S0S0S",
 						},
 					},
 				},
@@ -204,9 +199,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					Description: "TestAlertEndpoint4",
 					Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
 						Slack: &alertingv1alpha.SlackEndpoint{
-							Name:    "TestAlertEndpoint2",
-							Channel: "#general",
-							ApiUrl:  "https://hooks.slack.com/services/AAAAAAAA/B0S0S0S0S/B0S0S0S0S",
+							Channel:    "#general",
+							WebhookUrl: "https://hooks.slack.com/services/AAAAAAAA/B0S0S0S0S/B0S0S0S0S",
 						},
 					},
 				},
@@ -219,7 +213,6 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 				Expect(existing.Items).To(HaveLen(num + 1))
 
 			}
-			alertingClient.CreateAlertEndpoint(ctx, &alertingv1alpha.AlertEndpoint{})
 		})
 
 		It("Should be able to update & delete those alert endpoints", func() {
@@ -239,8 +232,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					Description: emailDescription,
 					Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 						Email: &alertingv1alpha.EmailEndpoint{
-							Name: emailDescription,
-							To:   emailTo,
+							To: emailTo,
 						},
 					},
 				},
@@ -272,9 +264,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					Description: emailDescription,
 					Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
 						Slack: &alertingv1alpha.SlackEndpoint{
-							Name:    emailDescription,
-							Channel: slackChannel,
-							ApiUrl:  slackApiUrl,
+							Channel:    slackChannel,
+							WebhookUrl: slackApiUrl,
 						},
 					},
 				},
@@ -293,9 +284,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(found.Endpoint.Description).To(Equal(emailDescription))
 			Expect(found.Endpoint.GetEmail()).To(BeNil())
 			Expect(found.Endpoint.GetSlack()).NotTo(BeNil())
-			Expect(found.Endpoint.GetSlack().Name).To(Equal(emailDescription))
 			Expect(found.Endpoint.GetSlack().Channel).To(Equal(slackChannel))
-			Expect(found.Endpoint.GetSlack().ApiUrl).To(Equal(slackApiUrl))
+			Expect(found.Endpoint.GetSlack().WebhookUrl).To(Equal(slackApiUrl))
 
 			_, err = alertingClient.DeleteAlertEndpoint(ctx, some.Id)
 			Expect(err).To(Succeed())

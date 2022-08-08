@@ -278,7 +278,7 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 			select {
 			case <-ticker.C: // received no message from agent in the entier duration
 				_, err = (*l.alertProvider).TriggerAlerts(ctx, &alertingv1alpha.TriggerAlertsRequest{
-					Id: id,
+					ConditionId: id,
 				})
 				if err != nil {
 					ticker = time.NewTicker(time.Second) // retry trigger more often

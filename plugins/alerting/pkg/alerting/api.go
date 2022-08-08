@@ -3,6 +3,7 @@ package alerting
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"path"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+const postableAlertRoute = "/api/v1/alerts"
 
 func list[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]T, error) {
 	keys, err := kvc.ListKeys(ctx, prefix)
@@ -53,7 +56,7 @@ func listWithKeys[T proto.Message](ctx context.Context, kvc storage.KeyValueStor
 
 func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) (*alertingv1alpha.TriggerAlertsResponse, error) {
 	// get the condition ID details
-	a, err := p.GetAlertCondition(ctx, req.Id)
+	a, err := p.GetAlertCondition(ctx, req.ConditionId)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +64,7 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 
 	// persist with alert log api
 	_, err = p.CreateAlertLog(ctx, &corev1.AlertLog{
-		ConditionId: req.Id,
+		ConditionId: req.ConditionId,
 		Timestamp: &timestamppb.Timestamp{
 			Seconds: time.Now().Unix(),
 		},
@@ -73,14 +76,20 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 		},
 	})
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 	if notifId != nil {
-		(&AlertManagerAPI{
-			Endpoint: p.alertingOptions.Get().Endpoints[0],
-			Verb:     POST,
-			Route:    fmt.Sprintf("/alerts/%s", *notifId),
-		}).WithHttpV2()
+		// send notification
+		var alertsArr []*PostableAlert
+		alert := &PostableAlert{}
+		alert.WithCondition(req.ConditionId.Id)
+		resp, err := PostAlert(ctx, p.alertingOptions.Get().Endpoints[0], alertsArr)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("failed to send trigger alert in alertmanager: %d", resp.StatusCode)
+		}
 	}
 	// dispatch with alert condition id to alert endpoint id
 

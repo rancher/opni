@@ -47,5 +47,4 @@ var _ = BeforeSuite(func() {
 
 	// alerting plugin
 	alertingClient = alertingv1alpha.NewAlertingClient(env.ManagementClientConn())
-
 })

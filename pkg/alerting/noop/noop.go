@@ -96,3 +96,11 @@ func (a *AlertingNoopV1Alpha) UpdateEndpointImplementation(ctx context.Context, 
 func (a *AlertingNoopV1Alpha) DeleteEndpointImplementation(ctx context.Context, ref *corev1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
+
+func (a *AlertingNoopV1Alpha) ActivateSilence(ctx context.Context, request *alertingv1alpha.SilenceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}
+
+func (a *AlertingNoopV1Alpha) DeactivateSilence(ctx context.Context, ref *corev1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}

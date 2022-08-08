@@ -279,6 +279,9 @@ func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*
 }
 
 func PostSilence(ctx context.Context, endpoint string, silence *PostableSilence) (*http.Response, error) {
+	if err := silence.Must(); err != nil {
+		panic(err)
+	}
 	hclient := &http.Client{}
 	reqUrl := (&AlertManagerAPI{
 		Endpoint: endpoint,
@@ -301,7 +304,9 @@ func PostSilence(ctx context.Context, endpoint string, silence *PostableSilence)
 }
 
 func DeleteSilence(ctx context.Context, endpoint string, silence *DeletableSilence) (*http.Response, error) {
-
+	if err := silence.Must(); err != nil {
+		return nil, shared.WithInternalServerErrorf("%s", err)
+	}
 	hclient := &http.Client{}
 	reqUrl := (&AlertManagerAPI{
 		Endpoint: endpoint,

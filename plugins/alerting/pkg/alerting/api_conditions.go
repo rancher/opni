@@ -113,6 +113,12 @@ func (p *Plugin) PreviewAlertCondition(ctx context.Context,
 }
 
 func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.SilenceRequest) (*emptypb.Empty, error) {
+	if req.ConditionId == nil {
+		return nil, validation.Error("Required Condition Id to activate a silence")
+	}
+	if req.Duration == nil || req.Duration.AsDuration() == 0 {
+		return nil, validation.Error("Require a non-zero Duration to activate a silence")
+	}
 	existing, err := p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, req.ConditionId.Id))
 	if err != nil {
 		return nil, err
@@ -122,9 +128,6 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 	silence.WithDuration(req.Duration.AsDuration())
 	if existing.Silence != nil { // the case where we are updating an existing silence
 		silence.WithSilenceId(existing.Silence.SilenceId)
-	}
-	if err := silence.Must(); err != nil {
-		panic(err)
 	}
 	resp, err := PostSilence(ctx, p.alertingOptions.Get().Endpoints[0], silence)
 	if err != nil {
@@ -167,6 +170,9 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 
 // DeactivateSilence req.Id is a condition id reference
 func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
+	if req == nil {
+		return nil, validation.Error("Requires Condition Id to deactivate a silence")
+	}
 	existing, err := p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, req.Id))
 	if err != nil {
 		return nil, err
@@ -176,9 +182,6 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	}
 	silence := &DeletableSilence{
 		silenceId: existing.Silence.SilenceId,
-	}
-	if err := silence.Must(); err != nil {
-		return nil, shared.WithInternalServerErrorf("%s", err)
 	}
 	resp, err := DeleteSilence(ctx, p.alertingOptions.Get().Endpoints[0], silence)
 	if err != nil {

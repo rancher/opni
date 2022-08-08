@@ -57,12 +57,12 @@ func (c *ConfigMapData) DeleteReceiver(id string) error {
 }
 
 func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*cfg.Receiver, error) {
-	parsedURL, err := url.Parse(endpoint.ApiUrl)
+	parsedURL, err := url.Parse(endpoint.WebhookUrl)
 	if err != nil {
 		return nil, err
 	}
 	// validate the url
-	_, err = url.ParseRequestURI(endpoint.ApiUrl)
+	_, err = url.ParseRequestURI(endpoint.WebhookUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -142,4 +142,33 @@ func WithEmailImplementation(cfg *cfg.Receiver, impl *alertingv1alpha.EndpointIm
 	cfg.EmailConfigs[0].HTML = impl.Body
 
 	return cfg, nil
+}
+
+func NewWebhookReceiver(id string, endpoint *alertingv1alpha.WebhookEndpoint) (*cfg.Receiver, error) {
+	parsedURL, err := url.Parse(endpoint.Url)
+	if err != nil {
+		return nil, err
+	}
+	// validate the url
+	_, err = url.ParseRequestURI(endpoint.Url)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cfg.Receiver{
+		Name: id,
+		WebhookConfigs: []*cfg.WebhookConfig{
+			{
+				URL: &cfg.URL{parsedURL},
+			},
+		},
+	}, nil
+}
+
+// WithWebhookImplementation
+//
+// As opposed to the slack & email implementations, the information
+// sent in this one must entirely be constructed the alert manager `routes` matchers
+func WithWebhookImplementation() {
+
 }

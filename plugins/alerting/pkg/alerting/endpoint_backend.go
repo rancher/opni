@@ -1,8 +1,11 @@
 package alerting
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -219,6 +222,10 @@ func (a *AlertManagerAPI) Construct() string {
 	return path.Join(a.Endpoint, a.Api, a.Route)
 }
 
+func (a *AlertManagerAPI) ConstructHTTP() string {
+	return "http://" + a.Construct()
+}
+
 func (a *AlertManagerAPI) IsReady() bool {
 	return false
 }
@@ -242,4 +249,26 @@ func (a *AlertManagerAPI) WithHttpV2() *AlertManagerAPI {
 func (a *AlertManagerAPI) WithHttpV1() *AlertManagerAPI {
 	a.Api = v1
 	return a
+}
+
+func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*http.Response, error) {
+	hclient := &http.Client{}
+	reqUrl := (&AlertManagerAPI{
+		Endpoint: endpoint,
+		Route:    "/alerts",
+		Verb:     POST,
+	}).WithHttpV2().ConstructHTTP()
+	b, err := json.Marshal(alerts)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, POST, reqUrl, bytes.NewBuffer(b))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := hclient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }

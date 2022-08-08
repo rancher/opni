@@ -642,8 +642,9 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 	return port
 }
 
-func (e *Environment) StartAlertManager(ctx context.Context, configFile string) (webPort, apiPort int) {
-	ports, err := freeport.GetFreePorts(2)
+func (e *Environment) StartAlertManager(ctx context.Context, configFile string) (webPort int) {
+	lg := e.Logger
+	webPort, err := freeport.GetFreePort()
 	if err != nil {
 		panic(err)
 	}
@@ -651,24 +652,34 @@ func (e *Environment) StartAlertManager(ctx context.Context, configFile string) 
 	defaultArgs := []string{
 		fmt.Sprintf("--config.file=%s", configFile),
 		fmt.Sprintf("--web.listen-address=:%d", webPort),
-		fmt.Sprintf("--cluster.listen-address=:%d", apiPort),
 		"--storage.path=/tmp/data",
 		"--log.level=debug",
 	}
 	cmd := exec.CommandContext(e.ctx, amBin, defaultArgs...)
-	go func() {
-		err = cmd.Start()
-		if err != nil {
+	session, err := testutil.StartCmd(cmd)
+	if err != nil {
+		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
 		}
-
-		cmd.Wait()
-	}()
-	return ports[0], ports[1]
+	}
+	lg.Info("Waiting for Alertmanager to start...")
+	for e.ctx.Err() == nil {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", webPort))
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				break
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	lg.With("address", fmt.Sprintf("http://localhost:%d", webPort)).Info("AlertManager started")
+	waitctx.Go(e.ctx, func() {
+		<-e.ctx.Done()
+		session.Wait()
+	})
+	return webPort
 }
-
-// ./alertmanager --config.file="/tmp/alertmanager.yaml" --cluster.listen-address=127.0.0.1:9094
-// docker container run --name alertmanager -p 9094:9094 --rm bitnami/alertmanager:latest --log.level=debug --config.file=/opt/bitnami/alertmanager/conf/config.yml --storage.path=/opt/bitnami/alertmanager/data
 
 // Starts a server that exposes Prometheus metrics
 //

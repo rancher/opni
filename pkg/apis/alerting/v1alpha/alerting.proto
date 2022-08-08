@@ -249,31 +249,28 @@ message AlertEndpoint {
    oneof endpoint {
     SlackEndpoint slack = 4;
     EmailEndpoint email = 5;
+    TeamsEndpoint msteams = 6;
+    WebhookEndpoint webhook = 7;
+
    }
 }
 
 message SlackEndpoint {
-  string name = 1;
-  string apiUrl = 2;
-  string channel = 3;
-}
-
-message SlackImplementation {
-  string title = 1;
-  string text = 2;
-  string footer = 3;
-  string imageUrl = 4;
+  string webhookUrl = 1;
+  string channel = 2;
 }
 
 message EmailEndpoint {
-  string name = 1;
-  string to = 2;
-  optional string from = 3;
+  string to = 1;
+  optional string from = 2;
 }
 
-message EmailImplementation {
-  optional string htmlBody = 1;
-  optional string textBody = 2; 
+message TeamsEndpoint {
+    string webhookUrl = 1;
+}
+
+message WebhookEndpoint {
+  string url = 1;
 }
 
 message AlertEndpointList {

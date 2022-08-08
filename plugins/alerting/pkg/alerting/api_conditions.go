@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
@@ -122,6 +123,9 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 	if existing.Silence != nil { // the case where we are updating an existing silence
 		silence.WithSilenceId(existing.Silence.SilenceId)
 	}
+	if err := silence.Must(); err != nil {
+		panic(err)
+	}
 	resp, err := PostSilence(ctx, p.alertingOptions.Get().Endpoints[0], silence)
 	if err != nil {
 		return nil, err
@@ -143,14 +147,9 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 		return nil, err
 	}
 	// update existing proto with the silence info
-	newCondition := proto.Clone(existing).(*alertingv1alpha.AlertCondition)
+	newCondition := util.ProtoClone(existing)
 	newCondition.Silence = &alertingv1alpha.SilenceInfo{
-		SilenceId: func(resp *PostSilencesResponse) string {
-			if resp == nil {
-				return ""
-			}
-			return *resp.SilenceID
-		}(respSilence),
+		SilenceId: respSilence.GetSilenceId(),
 		StartsAt: &timestamppb.Timestamp{
 			Seconds: silence.StartsAt.Unix(),
 		},
@@ -178,12 +177,23 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	silence := &DeletableSilence{
 		silenceId: existing.Silence.SilenceId,
 	}
+	if err := silence.Must(); err != nil {
+		return nil, shared.WithInternalServerErrorf("%s", err)
+	}
 	resp, err := DeleteSilence(ctx, p.alertingOptions.Get().Endpoints[0], silence)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Failed to deactivate silence: %s", resp.Status)
+	}
+	// update existing proto with the silence info
+	newCondition := util.ProtoClone(existing)
+	newCondition.Silence = nil
+	// update K,V with new silence info for the respective condition
+	proto.Merge(existing, newCondition)
+	if err := p.storage.Get().Conditions.Put(ctx, path.Join(conditionPrefix, req.Id), existing); err != nil {
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }

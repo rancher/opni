@@ -39,14 +39,14 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 		It("should validate valid PostableAlerts", func() {
 			alert := &alerting.PostableAlert{}
 			alert.WithCondition("web.hook")
-			Expect(alert.Validate()).To(Succeed())
+			Expect(alert.Must()).To(Succeed())
 		})
 
 		It("should error on invalid PostableAlerts", func() {
 			alert := &alerting.PostableAlert{}
-			Expect(alert.Validate()).To(HaveOccurred())
+			Expect(alert.Must()).To(HaveOccurred())
 			alert.WithRuntimeInfo("foo", "bar")
-			Expect(alert.Validate()).To(HaveOccurred())
+			Expect(alert.Must()).To(HaveOccurred())
 		})
 	})
 
@@ -78,24 +78,24 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				BeNumerically("<=", expectedStop.Add(approxDiff).Unix()))
 		})
 
-		It("should validate valid PostableSilences", func() {
+		It("should Must valid PostableSilences", func() {
 			dur := time.Minute * 15
 			silence := &alerting.PostableSilence{}
 			silence.WithDuration(dur)
 			silence.WithCondition("web.hook")
-			Expect(silence.Validate()).To(Succeed())
+			Expect(silence.Must()).To(Succeed())
 		})
 
 		It("should errror on invalid PostableSilences", func() {
 			dur := time.Minute * 15
 			silence := &alerting.PostableSilence{}
-			Expect(silence.Validate()).To(HaveOccurred())
+			Expect(silence.Must()).To(HaveOccurred())
 			silence.WithDuration(dur)
-			Expect(silence.Validate()).To(HaveOccurred())
+			Expect(silence.Must()).To(HaveOccurred())
 
 			silence2 := &alerting.PostableSilence{}
 			silence2.WithCondition("web.hook")
-			Expect(silence2.Validate()).To(HaveOccurred())
+			Expect(silence2.Must()).To(HaveOccurred())
 		})
 	})
 })

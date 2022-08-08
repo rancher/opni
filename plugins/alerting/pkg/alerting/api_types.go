@@ -35,7 +35,7 @@ func (p *PostableAlert) WithRuntimeInfo(key string, value string) {
 	(*p.Annotations)[key] = value
 }
 
-func (p *PostableAlert) Validate() error {
+func (p *PostableAlert) Must() error {
 	if p.Labels == nil {
 		return fmt.Errorf("Missting PostableAlert.Labels")
 	}
@@ -61,7 +61,7 @@ func (d *DeletableSilence) WithSilenceId(silenceId string) {
 	d.silenceId = silenceId
 }
 
-func (d *DeletableSilence) Validate() error {
+func (d *DeletableSilence) Must() error {
 	if d.silenceId == "" {
 		return fmt.Errorf("missing silenceId")
 	}
@@ -80,6 +80,14 @@ type PostableSilence struct {
 
 type PostSilencesResponse struct {
 	SilenceID *string `json:"silenceID,omitempty"`
+}
+
+func (p *PostSilencesResponse) GetSilenceId() string {
+
+	if p == nil || p.SilenceID == nil {
+		return ""
+	}
+	return *p.SilenceID
 }
 
 // WithCondition In our basic model each receiver is uniquely
@@ -103,7 +111,7 @@ func (p *PostableSilence) WithSilenceId(silenceId string) {
 	p.Id = &silenceId
 }
 
-func (p *PostableSilence) Validate() error {
+func (p *PostableSilence) Must() error {
 	if p.Matchers == nil {
 		return fmt.Errorf("Missting PostableSilence.Matchers")
 	}

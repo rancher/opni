@@ -253,8 +253,8 @@ func (a *AlertManagerAPI) WithHttpV1() *AlertManagerAPI {
 
 func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*http.Response, error) {
 	for _, alert := range alerts {
-		if err := alert.Validate(); err != nil {
-			return nil, shared.WithInternalServerErrorf("%s", err)
+		if err := alert.Must(); err != nil {
+			panic(err)
 		}
 	}
 	hclient := &http.Client{}
@@ -279,9 +279,6 @@ func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*
 }
 
 func PostSilence(ctx context.Context, endpoint string, silence *PostableSilence) (*http.Response, error) {
-	if err := silence.Validate(); err != nil {
-		return nil, shared.WithInternalServerErrorf("%s", err)
-	}
 	hclient := &http.Client{}
 	reqUrl := (&AlertManagerAPI{
 		Endpoint: endpoint,
@@ -304,9 +301,6 @@ func PostSilence(ctx context.Context, endpoint string, silence *PostableSilence)
 }
 
 func DeleteSilence(ctx context.Context, endpoint string, silence *DeletableSilence) (*http.Response, error) {
-	if err := silence.Validate(); err != nil {
-		return nil, shared.WithInternalServerErrorf("%s", err)
-	}
 
 	hclient := &http.Client{}
 	reqUrl := (&AlertManagerAPI{

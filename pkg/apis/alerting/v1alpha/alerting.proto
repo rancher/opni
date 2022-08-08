@@ -223,7 +223,7 @@ message AlertCondition {
   optional string notificationId = 6;
   EndpointImplementation details = 7;
   // Set & Unset via the silence API
-  optional SilenceInfo silence = 8;
+  SilenceInfo silence = 8;
 }
 
 message SilenceInfo {

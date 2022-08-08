@@ -2,6 +2,7 @@ package future_test
 
 import (
 	"context"
+	"runtime/debug"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -10,6 +11,14 @@ import (
 )
 
 var _ = Describe("Future", Label("unit"), func() {
+	BeforeEach(func() {
+		// temporarily pause garbage collection to avoid interfering with timing
+		gcPercent := debug.SetGCPercent(-1)
+		DeferCleanup(func() {
+			debug.SetGCPercent(gcPercent)
+		})
+	})
+
 	Specify("Get should block until Set is called", func() {
 		f := future.New[string]()
 		go func() {

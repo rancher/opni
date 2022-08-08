@@ -56,7 +56,7 @@ func listWithKeys[T proto.Message](ctx context.Context, kvc storage.KeyValueStor
 
 func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) (*alertingv1alpha.TriggerAlertsResponse, error) {
 	// get the condition ID details
-	a, err := p.GetAlertCondition(ctx, req.Id)
+	a, err := p.GetAlertCondition(ctx, req.ConditionId)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 
 	// persist with alert log api
 	_, err = p.CreateAlertLog(ctx, &corev1.AlertLog{
-		ConditionId: req.Id,
+		ConditionId: req.ConditionId,
 		Timestamp: &timestamppb.Timestamp{
 			Seconds: time.Now().Unix(),
 		},
@@ -82,7 +82,7 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 		// send notification
 		var alertsArr []*PostableAlert
 		alert := &PostableAlert{}
-		alert.WithCondition(req.Id.Id)
+		alert.WithCondition(req.ConditionId.Id)
 		resp, err := PostAlert(ctx, p.alertingOptions.Get().Endpoints[0], alertsArr)
 		if err != nil {
 			return nil, err

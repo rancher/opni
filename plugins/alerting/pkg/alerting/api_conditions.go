@@ -2,7 +2,12 @@ package alerting
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/rancher/opni/pkg/validation"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"io"
+	"net/http"
 	"path"
 
 	"github.com/google/uuid"
@@ -104,4 +109,81 @@ func (p *Plugin) PreviewAlertCondition(ctx context.Context,
 
 	// return status
 	return nil, shared.AlertingErrNotImplemented
+}
+
+func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.SilenceRequest) (*emptypb.Empty, error) {
+	existing, err := p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, req.ConditionId.Id))
+	if err != nil {
+		return nil, err
+	}
+	silence := &PostableSilence{}
+	silence.WithCondition(req.ConditionId.Id)
+	silence.WithDuration(req.Duration.AsDuration())
+	if existing.Silence != nil { // the case where we are updating an existing silence
+		silence.WithSilenceId(existing.Silence.SilenceId)
+	}
+	resp, err := PostSilence(ctx, p.alertingOptions.Get().Endpoints[0], silence)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound { // update failed
+			// TODO specific shared.Err for status not found
+		}
+		return nil, fmt.Errorf("Failed to activate silence: %s", resp.Status)
+	}
+	respSilence := &PostSilencesResponse{}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			p.logger.Error(fmt.Sprintf("Failed to close response body %s", err))
+		}
+	}(resp.Body)
+	if err := json.NewDecoder(resp.Body).Decode(respSilence); err != nil {
+		return nil, err
+	}
+	// update existing proto with the silence info
+	newCondition := proto.Clone(existing).(*alertingv1alpha.AlertCondition)
+	newCondition.Silence = &alertingv1alpha.SilenceInfo{
+		SilenceId: func(resp *PostSilencesResponse) string {
+			if resp == nil {
+				return ""
+			}
+			return *resp.SilenceID
+		}(respSilence),
+		StartsAt: &timestamppb.Timestamp{
+			Seconds: silence.StartsAt.Unix(),
+		},
+		EndsAt: &timestamppb.Timestamp{
+			Seconds: silence.EndsAt.Unix(),
+		},
+	}
+	// update K,V with new silence info for the respective condition
+	proto.Merge(existing, newCondition)
+	if err := p.storage.Get().Conditions.Put(ctx, path.Join(conditionPrefix, req.ConditionId.Id), existing); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+// DeactivateSilence req.Id is a condition id reference
+func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
+	existing, err := p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, req.Id))
+	if err != nil {
+		return nil, err
+	}
+	if existing.Silence == nil {
+		return nil, validation.Errorf("Could not find existing silence for condition %s", req.Id)
+	}
+	silence := &DeletableSilence{
+		silenceId: existing.Silence.SilenceId,
+	}
+	resp, err := DeleteSilence(ctx, p.alertingOptions.Get().Endpoints[0], silence)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Failed to deactivate silence: %s", resp.Status)
+	}
+	return &emptypb.Empty{}, nil
 }

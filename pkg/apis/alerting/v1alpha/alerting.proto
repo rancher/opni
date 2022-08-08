@@ -92,11 +92,24 @@ service Alerting {
       delete: "/alerts/conditions"
     };
   }
-
+  // unimplemented
   rpc PreviewAlertCondition(PreviewAlertConditionRequest) returns (PreviewAlertConditionResponse) {
     option (google.api.http) = {
       post: "/alerts/conditions/preview"
       body: "*"
+    };
+  }
+
+  rpc ActivateSilence(SilenceRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/alerts/silences"
+      body: "*"
+    };
+  }
+  // id corresponds to conditionId
+  rpc DeactivateSilence(core.Reference) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/alerts/silences/{id}"
     };
   }
 
@@ -168,8 +181,13 @@ service Alerting {
   }
 }
 
+message SilenceRequest {
+  core.Reference conditionId =1 ;
+  google.protobuf.Duration duration = 2;
+}
+
 message TriggerAlertsRequest {
-  core.Reference id =1;
+  core.Reference conditionId =1;
 }
 
 message TriggerAlertsResponse {
@@ -203,7 +221,15 @@ message AlertCondition {
     AlertConditionSystem system = 5;
   }
   optional string notificationId = 6;
-  EndpointImplementation details = 7; 
+  EndpointImplementation details = 7;
+  // Set & Unset via the silence API
+  optional SilenceInfo silence = 8;
+}
+
+message SilenceInfo {
+  string silenceId = 1;
+  google.protobuf.Timestamp startsAt = 2;
+  google.protobuf.Timestamp endsAt = 3;
 }
 
 message AlertConditionSystem{}
@@ -251,7 +277,6 @@ message AlertEndpoint {
     EmailEndpoint email = 5;
     TeamsEndpoint msteams = 6;
     WebhookEndpoint webhook = 7;
-
    }
 }
 

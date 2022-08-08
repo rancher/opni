@@ -252,6 +252,11 @@ func (a *AlertManagerAPI) WithHttpV1() *AlertManagerAPI {
 }
 
 func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*http.Response, error) {
+	for _, alert := range alerts {
+		if err := alert.Validate(); err != nil {
+			return nil, shared.WithInternalServerErrorf("%s", err)
+		}
+	}
 	hclient := &http.Client{}
 	reqUrl := (&AlertManagerAPI{
 		Endpoint: endpoint,
@@ -263,6 +268,53 @@ func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*
 		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, POST, reqUrl, bytes.NewBuffer(b))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := hclient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func PostSilence(ctx context.Context, endpoint string, silence *PostableSilence) (*http.Response, error) {
+	if err := silence.Validate(); err != nil {
+		return nil, shared.WithInternalServerErrorf("%s", err)
+	}
+	hclient := &http.Client{}
+	reqUrl := (&AlertManagerAPI{
+		Endpoint: endpoint,
+		Route:    "/silences",
+		Verb:     POST,
+	}).WithHttpV2().ConstructHTTP()
+	b, err := json.Marshal(silence)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, POST, reqUrl, bytes.NewBuffer(b))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := hclient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func DeleteSilence(ctx context.Context, endpoint string, silence *DeletableSilence) (*http.Response, error) {
+	if err := silence.Validate(); err != nil {
+		return nil, shared.WithInternalServerErrorf("%s", err)
+	}
+
+	hclient := &http.Client{}
+	reqUrl := (&AlertManagerAPI{
+		Endpoint: endpoint,
+		Route:    "/silences/" + silence.silenceId,
+		Verb:     DELETE,
+	}).WithHttpV2().ConstructHTTP()
+	req, err := http.NewRequestWithContext(ctx, DELETE, reqUrl, nil)
 	if err != nil {
 		return nil, err
 	}

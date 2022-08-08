@@ -40,7 +40,11 @@ type AlertingClient interface {
 	ListAlertConditions(ctx context.Context, in *ListAlertConditionRequest, opts ...grpc.CallOption) (*AlertConditionList, error)
 	UpdateAlertCondition(ctx context.Context, in *UpdateAlertConditionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// unimplemented
 	PreviewAlertCondition(ctx context.Context, in *PreviewAlertConditionRequest, opts ...grpc.CallOption) (*PreviewAlertConditionResponse, error)
+	ActivateSilence(ctx context.Context, in *SilenceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// id corresponds to conditionId
+	DeactivateSilence(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreateAlertEndpoint(ctx context.Context, in *AlertEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetAlertEndpoint(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertEndpoint, error)
 	ListAlertEndpoints(ctx context.Context, in *ListAlertEndpointsRequest, opts ...grpc.CallOption) (*AlertEndpointList, error)
@@ -173,6 +177,24 @@ func (c *alertingClient) PreviewAlertCondition(ctx context.Context, in *PreviewA
 	return out, nil
 }
 
+func (c *alertingClient) ActivateSilence(ctx context.Context, in *SilenceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/Alerting/ActivateSilence", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertingClient) DeactivateSilence(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/Alerting/DeactivateSilence", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *alertingClient) CreateAlertEndpoint(ctx context.Context, in *AlertEndpoint, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/Alerting/CreateAlertEndpoint", in, out, opts...)
@@ -274,7 +296,11 @@ type AlertingServer interface {
 	ListAlertConditions(context.Context, *ListAlertConditionRequest) (*AlertConditionList, error)
 	UpdateAlertCondition(context.Context, *UpdateAlertConditionRequest) (*emptypb.Empty, error)
 	DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	// unimplemented
 	PreviewAlertCondition(context.Context, *PreviewAlertConditionRequest) (*PreviewAlertConditionResponse, error)
+	ActivateSilence(context.Context, *SilenceRequest) (*emptypb.Empty, error)
+	// id corresponds to conditionId
+	DeactivateSilence(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	CreateAlertEndpoint(context.Context, *AlertEndpoint) (*emptypb.Empty, error)
 	GetAlertEndpoint(context.Context, *v1.Reference) (*AlertEndpoint, error)
 	ListAlertEndpoints(context.Context, *ListAlertEndpointsRequest) (*AlertEndpointList, error)
@@ -331,6 +357,12 @@ func (UnimplementedAlertingServer) DeleteAlertCondition(context.Context, *v1.Ref
 }
 func (UnimplementedAlertingServer) PreviewAlertCondition(context.Context, *PreviewAlertConditionRequest) (*PreviewAlertConditionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PreviewAlertCondition not implemented")
+}
+func (UnimplementedAlertingServer) ActivateSilence(context.Context, *SilenceRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ActivateSilence not implemented")
+}
+func (UnimplementedAlertingServer) DeactivateSilence(context.Context, *v1.Reference) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeactivateSilence not implemented")
 }
 func (UnimplementedAlertingServer) CreateAlertEndpoint(context.Context, *AlertEndpoint) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertEndpoint not implemented")
@@ -588,6 +620,42 @@ func _Alerting_PreviewAlertCondition_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Alerting_ActivateSilence_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SilenceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).ActivateSilence(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Alerting/ActivateSilence",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).ActivateSilence(ctx, req.(*SilenceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Alerting_DeactivateSilence_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).DeactivateSilence(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Alerting/DeactivateSilence",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).DeactivateSilence(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Alerting_CreateAlertEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AlertEndpoint)
 	if err := dec(in); err != nil {
@@ -804,6 +872,14 @@ var Alerting_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PreviewAlertCondition",
 			Handler:    _Alerting_PreviewAlertCondition_Handler,
+		},
+		{
+			MethodName: "ActivateSilence",
+			Handler:    _Alerting_ActivateSilence_Handler,
+		},
+		{
+			MethodName: "DeactivateSilence",
+			Handler:    _Alerting_DeactivateSilence_Handler,
 		},
 		{
 			MethodName: "CreateAlertEndpoint",

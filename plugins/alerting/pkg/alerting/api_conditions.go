@@ -113,11 +113,8 @@ func (p *Plugin) PreviewAlertCondition(ctx context.Context,
 }
 
 func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.SilenceRequest) (*emptypb.Empty, error) {
-	if req.ConditionId == nil {
-		return nil, validation.Error("Required Condition Id to activate a silence")
-	}
-	if req.Duration == nil || req.Duration.AsDuration() == 0 {
-		return nil, validation.Error("Require a non-zero Duration to activate a silence")
+	if err := req.Validate(); err != nil {
+		return nil, err
 	}
 	existing, err := p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, req.ConditionId.Id))
 	if err != nil {
@@ -170,8 +167,8 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 
 // DeactivateSilence req.Id is a condition id reference
 func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
-	if req == nil {
-		return nil, validation.Error("Requires Condition Id to deactivate a silence")
+	if err := req.Validate(); err != nil {
+		return nil, err
 	}
 	existing, err := p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, req.Id))
 	if err != nil {

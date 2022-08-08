@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/go-logr/zapr"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
@@ -98,7 +99,7 @@ func BuildAgentCmd() *cobra.Command {
 			})
 		}
 
-		waitctx.Wait(ctx)
+		waitctx.WaitWithTimeout(ctx, 60*time.Second, 10*time.Second)
 		return nil
 	}
 

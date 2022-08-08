@@ -13,8 +13,10 @@ import (
 )
 
 type waitCtxDataKeyType struct{}
+type timeout struct{}
 
 var waitCtxDataKey waitCtxDataKeyType
+var waitTimeout timeout
 
 type waitCtxData struct {
 	wg      sync.WaitGroup
@@ -113,6 +115,8 @@ func (restrictive) Wait(ctx RestrictiveContext, notifyAfter ...time.Duration) {
 	<-done
 }
 
+// WaitWithTimeout follows the same pattern as wait, but with a timeout.  If the timeout expires
+// WaitWithTimeout will panic.
 func (restrictive) WaitWWithTimeout(ctx RestrictiveContext, timeout time.Duration, notifyAfter ...time.Duration) {
 	data := ctx.Value(waitCtxDataKey)
 	if data == nil {
@@ -147,7 +151,7 @@ func (restrictive) WaitWWithTimeout(ctx RestrictiveContext, timeout time.Duratio
 	case <-done:
 		return
 	case <-time.After(timeout):
-		return
+		panic(waitTimeout)
 	}
 }
 
@@ -217,6 +221,22 @@ func (w permissive) Go(ctx PermissiveContext, fn func()) {
 		defer w.Done(ctx)
 		fn()
 	}()
+}
+
+func RecoverTimeout() {
+	r := recover()
+	if r == nil {
+		return
+	}
+	switch r.(type) {
+	case timeout:
+		fmt.Println("timeout expired, exiting process")
+		os.Exit(0)
+	default:
+		fmt.Println(r)
+		fmt.Println(debug.Stack())
+		os.Exit(1)
+	}
 }
 
 var (

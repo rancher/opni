@@ -102,6 +102,42 @@ func local_request_LoggingAdmin_CreateOrUpdateOpensearchCluster_0(ctx context.Co
 
 }
 
+func request_LoggingAdmin_UpgradeAvailable_0(ctx context.Context, marshaler runtime.Marshaler, client LoggingAdminClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq emptypb.Empty
+	var metadata runtime.ServerMetadata
+
+	msg, err := client.UpgradeAvailable(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_LoggingAdmin_UpgradeAvailable_0(ctx context.Context, marshaler runtime.Marshaler, server LoggingAdminServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq emptypb.Empty
+	var metadata runtime.ServerMetadata
+
+	msg, err := server.UpgradeAvailable(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
+func request_LoggingAdmin_DoUpgrade_0(ctx context.Context, marshaler runtime.Marshaler, client LoggingAdminClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq emptypb.Empty
+	var metadata runtime.ServerMetadata
+
+	msg, err := client.DoUpgrade(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_LoggingAdmin_DoUpgrade_0(ctx context.Context, marshaler runtime.Marshaler, server LoggingAdminServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq emptypb.Empty
+	var metadata runtime.ServerMetadata
+
+	msg, err := server.DoUpgrade(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
 // RegisterLoggingAdminHandlerServer registers the http handlers for service LoggingAdmin to "mux".
 // UnaryRPC     :call LoggingAdminServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
@@ -177,6 +213,54 @@ func RegisterLoggingAdminHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		}
 
 		forward_LoggingAdmin_CreateOrUpdateOpensearchCluster_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("GET", pattern_LoggingAdmin_UpgradeAvailable_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdmin/UpgradeAvailable", runtime.WithHTTPPathPattern("/logging/upgrade/available"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_LoggingAdmin_UpgradeAvailable_0(ctx, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_LoggingAdmin_UpgradeAvailable_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_LoggingAdmin_DoUpgrade_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/loggingadmin.LoggingAdmin/DoUpgrade", runtime.WithHTTPPathPattern("/logging/upgrade/do"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_LoggingAdmin_DoUpgrade_0(ctx, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_LoggingAdmin_DoUpgrade_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -284,6 +368,48 @@ func RegisterLoggingAdminHandlerClient(ctx context.Context, mux *runtime.ServeMu
 
 	})
 
+	mux.Handle("GET", pattern_LoggingAdmin_UpgradeAvailable_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdmin/UpgradeAvailable", runtime.WithHTTPPathPattern("/logging/upgrade/available"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_LoggingAdmin_UpgradeAvailable_0(ctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_LoggingAdmin_UpgradeAvailable_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_LoggingAdmin_DoUpgrade_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/loggingadmin.LoggingAdmin/DoUpgrade", runtime.WithHTTPPathPattern("/logging/upgrade/do"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_LoggingAdmin_DoUpgrade_0(ctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_LoggingAdmin_DoUpgrade_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	return nil
 }
 
@@ -293,6 +419,10 @@ var (
 	pattern_LoggingAdmin_DeleteOpensearchCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"logging", "cluster"}, ""))
 
 	pattern_LoggingAdmin_CreateOrUpdateOpensearchCluster_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"logging", "cluster"}, ""))
+
+	pattern_LoggingAdmin_UpgradeAvailable_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"logging", "upgrade", "available"}, ""))
+
+	pattern_LoggingAdmin_DoUpgrade_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"logging", "upgrade", "do"}, ""))
 )
 
 var (
@@ -301,4 +431,8 @@ var (
 	forward_LoggingAdmin_DeleteOpensearchCluster_0 = runtime.ForwardResponseMessage
 
 	forward_LoggingAdmin_CreateOrUpdateOpensearchCluster_0 = runtime.ForwardResponseMessage
+
+	forward_LoggingAdmin_UpgradeAvailable_0 = runtime.ForwardResponseMessage
+
+	forward_LoggingAdmin_DoUpgrade_0 = runtime.ForwardResponseMessage
 )

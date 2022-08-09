@@ -26,6 +26,16 @@ service LoggingAdmin {
             body: "*"
         };
     }
+    rpc UpgradeAvailable(google.protobuf.Empty) returns(UpgradeAvailableResponse) {
+        option (google.api.http) = {
+            get: "/logging/upgrade/available"
+        };
+    }
+     rpc DoUpgrade(google.protobuf.Empty) returns(google.protobuf.Empty) {
+        option (google.api.http) = {
+            post: "/logging/upgrade/do"
+        };
+    }
 }
 
 message OpensearchCluster {
@@ -63,4 +73,8 @@ message DashboardsDetails {
     optional bool Enabled = 1;
     optional int32 Replicas = 2;
     optional k8s.io.api.core.v1.ResourceRequirements Resources = 3;
+}
+
+message UpgradeAvailableResponse {
+    bool UpgradePending = 1;
 }

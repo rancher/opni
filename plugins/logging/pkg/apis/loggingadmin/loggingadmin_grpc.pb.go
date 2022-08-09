@@ -26,6 +26,8 @@ type LoggingAdminClient interface {
 	GetOpensearchCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*OpensearchCluster, error)
 	DeleteOpensearchCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreateOrUpdateOpensearchCluster(ctx context.Context, in *OpensearchCluster, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpgradeAvailable(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpgradeAvailableResponse, error)
+	DoUpgrade(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type loggingAdminClient struct {
@@ -63,6 +65,24 @@ func (c *loggingAdminClient) CreateOrUpdateOpensearchCluster(ctx context.Context
 	return out, nil
 }
 
+func (c *loggingAdminClient) UpgradeAvailable(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*UpgradeAvailableResponse, error) {
+	out := new(UpgradeAvailableResponse)
+	err := c.cc.Invoke(ctx, "/loggingadmin.LoggingAdmin/UpgradeAvailable", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *loggingAdminClient) DoUpgrade(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/loggingadmin.LoggingAdmin/DoUpgrade", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LoggingAdminServer is the server API for LoggingAdmin service.
 // All implementations must embed UnimplementedLoggingAdminServer
 // for forward compatibility
@@ -70,6 +90,8 @@ type LoggingAdminServer interface {
 	GetOpensearchCluster(context.Context, *emptypb.Empty) (*OpensearchCluster, error)
 	DeleteOpensearchCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	CreateOrUpdateOpensearchCluster(context.Context, *OpensearchCluster) (*emptypb.Empty, error)
+	UpgradeAvailable(context.Context, *emptypb.Empty) (*UpgradeAvailableResponse, error)
+	DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedLoggingAdminServer()
 }
 
@@ -85,6 +107,12 @@ func (UnimplementedLoggingAdminServer) DeleteOpensearchCluster(context.Context, 
 }
 func (UnimplementedLoggingAdminServer) CreateOrUpdateOpensearchCluster(context.Context, *OpensearchCluster) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateOrUpdateOpensearchCluster not implemented")
+}
+func (UnimplementedLoggingAdminServer) UpgradeAvailable(context.Context, *emptypb.Empty) (*UpgradeAvailableResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpgradeAvailable not implemented")
+}
+func (UnimplementedLoggingAdminServer) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DoUpgrade not implemented")
 }
 func (UnimplementedLoggingAdminServer) mustEmbedUnimplementedLoggingAdminServer() {}
 
@@ -153,6 +181,42 @@ func _LoggingAdmin_CreateOrUpdateOpensearchCluster_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LoggingAdmin_UpgradeAvailable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoggingAdminServer).UpgradeAvailable(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/loggingadmin.LoggingAdmin/UpgradeAvailable",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoggingAdminServer).UpgradeAvailable(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LoggingAdmin_DoUpgrade_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LoggingAdminServer).DoUpgrade(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/loggingadmin.LoggingAdmin/DoUpgrade",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LoggingAdminServer).DoUpgrade(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LoggingAdmin_ServiceDesc is the grpc.ServiceDesc for LoggingAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -171,6 +235,14 @@ var LoggingAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateOrUpdateOpensearchCluster",
 			Handler:    _LoggingAdmin_CreateOrUpdateOpensearchCluster_Handler,
+		},
+		{
+			MethodName: "UpgradeAvailable",
+			Handler:    _LoggingAdmin_UpgradeAvailable_Handler,
+		},
+		{
+			MethodName: "DoUpgrade",
+			Handler:    _LoggingAdmin_DoUpgrade_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

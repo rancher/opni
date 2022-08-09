@@ -172,6 +172,66 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	return nil, err
 }
 
+func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmin.UpgradeAvailableResponse, error) {
+	k8sOpensearchCluster := &v1beta2.OpniOpensearch{}
+
+	err := p.k8sClient.Get(p.ctx, types.NamespacedName{
+		Name:      opensearchClusterName,
+		Namespace: p.storageNamespace,
+	}, k8sOpensearchCluster)
+	if err != nil {
+		return nil, err
+	}
+
+	if k8sOpensearchCluster.Status.Version == nil || k8sOpensearchCluster.Status.OpensearchVersion == nil {
+		return &loggingadmin.UpgradeAvailableResponse{
+			UpgradePending: false,
+		}, nil
+	}
+
+	if *k8sOpensearchCluster.Status.Version != util.Version {
+		return &loggingadmin.UpgradeAvailableResponse{
+			UpgradePending: true,
+		}, nil
+	}
+	if *k8sOpensearchCluster.Status.OpensearchVersion != opensearchVersion {
+		return &loggingadmin.UpgradeAvailableResponse{
+			UpgradePending: true,
+		}, nil
+	}
+
+	return &loggingadmin.UpgradeAvailableResponse{
+		UpgradePending: false,
+	}, nil
+}
+
+func (p *Plugin) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	k8sOpensearchCluster := &v1beta2.OpniOpensearch{}
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := p.k8sClient.Get(p.ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
+			return err
+		}
+
+		k8sOpensearchCluster.Spec.Version = util.Version
+		k8sOpensearchCluster.Spec.OpensearchVersion = opensearchVersion
+
+		image := fmt.Sprintf(
+			"%s/opensearch-dashboards:%s-%s",
+			defaultRepo,
+			opensearchVersion,
+			util.Version,
+		)
+
+		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards.Image = &image
+		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards.Version = opensearchVersion
+
+		return p.k8sClient.Update(p.ctx, k8sOpensearchCluster)
+	})
+
+	return nil, err
+}
+
 func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.OpensearchNodeDetails, error) {
 	diskSize := resource.MustParse(pool.DiskSize)
 
@@ -250,7 +310,7 @@ func convertProtobufToDashboards(
 			}
 			return *dashboard.Resources
 		}(),
-		Version: opensearchVersion,
+		Version: osVersion,
 		Tls: &opsterv1.DashboardsTlsConfig{
 			Enable:   true,
 			Generate: true,

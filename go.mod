@@ -120,6 +120,7 @@ require (
 	k8s.io/apimachinery v0.24.3
 	k8s.io/client-go v0.24.3
 	k8s.io/component-base v0.24.3
+	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	opensearch.opster.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.11.1
 	sigs.k8s.io/controller-tools v0.8.1-0.20220428122951-32ad71090a62
@@ -461,7 +462,6 @@ require (
 	k8s.io/klog/v2 v2.60.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
 	k8s.io/kubectl v0.24.3 // indirect
-	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
 	lukechampine.com/frand v1.4.2 // indirect
 	oras.land/oras-go v1.1.0 // indirect
 	rsc.io/binaryregexp v0.2.0 // indirect

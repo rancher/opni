@@ -44,7 +44,7 @@ service CortexAdmin {
     };
   }
 
-  rpc LoadRules(YamlRequest) returns (google.protobuf.Empty) {
+  rpc LoadRules(PostRuleRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/rules"
     };
@@ -157,13 +157,13 @@ message QueryRangeRequest {
 }
 
 message RuleRequest {
-  string tenant = 1;
+  string clusterId = 1;
   string groupName = 2;
 }
 
-message YamlRequest{
-  string tenant = 1;
-  string yaml = 2;
+message PostRuleRequest{
+  string clusterId = 1;
+  string yamlContent = 2;
 }
 
 message QueryResponse {

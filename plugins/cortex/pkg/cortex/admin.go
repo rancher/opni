@@ -312,12 +312,12 @@ func (p *Plugin) GetRule(ctx context.Context,
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET",
 		fmt.Sprintf("https://%s/api/v1/rules/monitoring/%s",
-			p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress, in.GroupName), nil)
+			p.config.Get().Spec.Cortex.Ruler.HTTPAddress, in.GroupName), nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.ClusterId}))
 	resp, err := client.Do(req)
 	if err != nil {
 		lg.With(
@@ -357,10 +357,10 @@ func (p *Plugin) GetRule(ctx context.Context,
 
 // LoadRules This method is responsible for Creating and Updating Rules
 func (p *Plugin) LoadRules(ctx context.Context,
-	in *cortexadmin.YamlRequest,
+	in *cortexadmin.PostRuleRequest,
 ) (*emptypb.Empty, error) {
 	lg := p.logger.With(
-		"yaml", in.Yaml,
+		"cluster", in.ClusterId,
 	)
 	client, err := p.cortexHttpClient.GetContext(ctx)
 
@@ -368,15 +368,14 @@ func (p *Plugin) LoadRules(ctx context.Context,
 		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
 	}
 	req, err := http.NewRequestWithContext(ctx, "POST",
-		fmt.Sprintf("https://%s/api/v1/rules/monitoring", p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress), nil)
+		fmt.Sprintf("https://%s/api/v1/rules/monitoring", p.config.Get().Spec.Cortex.Ruler.HTTPAddress), nil)
 	if err != nil {
 		return nil, err
 	}
-	values := url.Values{}
-	values.Add("yaml", in.Yaml)
-	req.Body = io.NopCloser(strings.NewReader(in.Yaml))
+
+	req.Body = io.NopCloser(strings.NewReader(in.YamlContent))
 	req.Header.Set("Content-Type", "application/yaml")
-	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.ClusterId}))
 	resp, err := client.Do(req)
 	if err != nil {
 		lg.With(
@@ -388,7 +387,7 @@ func (p *Plugin) LoadRules(ctx context.Context,
 		lg.With(
 			"Code", resp.StatusCode,
 		).Error("loading rules failed")
-		return nil, fmt.Errorf("loading rules failed: %s", resp.StatusCode)
+		return nil, fmt.Errorf("loading rules failed: %d", resp.StatusCode)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -407,11 +406,11 @@ func (p *Plugin) DeleteRule(
 	}
 	req, err := http.NewRequestWithContext(ctx, "DELETE",
 		fmt.Sprintf("https://%s/api/v1/rules/monitoring/%s",
-			p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress, in.GroupName), nil)
+			p.config.Get().Spec.Cortex.Ruler.HTTPAddress, in.GroupName), nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.ClusterId}))
 	resp, err := client.Do(req)
 	if err != nil {
 		lg.With(

@@ -680,7 +680,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 			if resp.StatusCode == http.StatusOK {
 				break
 			}
-		}
+		} ///tmp/opni-monitoring-test-289661467/prometheus/config.yaml
 		time.Sleep(time.Second)
 	}
 	lg.With("address", fmt.Sprintf("http://localhost:%d", port)).Info("Prometheus started")
@@ -742,10 +742,11 @@ func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan
 		panic(err)
 	}
 	mux := http.NewServeMux()
+	reg := prometheus.NewRegistry()
 
 	for queryName, queryObj := range query.AvailableQueries {
 		// register each prometheus collector
-		prometheus.MustRegister(queryObj.GetCollector())
+		reg.MustRegister(queryObj.GetCollector())
 
 		// create an endpoint simulating good events
 		mux.HandleFunc(fmt.Sprintf("/%s/%s", queryName, "good"), queryObj.GetGoodEventGenerator())
@@ -754,7 +755,10 @@ func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan
 
 	}
 	// expose prometheus metrics
-	mux.Handle("/metrics", promhttp.Handler())
+
+	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
+		Registry: reg,
+	}))
 
 	autoInstrumentationServer := &http.Server{
 		Addr:           fmt.Sprintf("127.0.0.1:%d", port),

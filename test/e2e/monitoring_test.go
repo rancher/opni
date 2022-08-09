@@ -132,9 +132,9 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		sampleRule := fmt.Sprintf("%s/sampleRule.yaml", ruleTestDataDir)
 		sampleRuleYamlBytes, err := ioutil.ReadFile(sampleRule)
 		Expect(err).To(Succeed())
-		_, err = adminClient.LoadRules(context.Background(), &cortexadmin.YamlRequest{
-			Yaml:   string(sampleRuleYamlBytes),
-			Tenant: agentId,
+		_, err = adminClient.LoadRules(context.Background(), &cortexadmin.PostRuleRequest{
+			YamlContent: string(sampleRuleYamlBytes),
+			ClusterId:   agentId,
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})

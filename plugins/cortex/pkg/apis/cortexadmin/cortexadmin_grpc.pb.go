@@ -28,7 +28,7 @@ type CortexAdminClient interface {
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	QueryRange(ctx context.Context, in *QueryRangeRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	GetRule(ctx context.Context, in *RuleRequest, opts ...grpc.CallOption) (*QueryResponse, error)
-	LoadRules(ctx context.Context, in *YamlRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	LoadRules(ctx context.Context, in *PostRuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteRule(ctx context.Context, in *RuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	FlushBlocks(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetSeriesMetadata(ctx context.Context, in *SeriesRequest, opts ...grpc.CallOption) (*MetricMetadata, error)
@@ -88,7 +88,7 @@ func (c *cortexAdminClient) GetRule(ctx context.Context, in *RuleRequest, opts .
 	return out, nil
 }
 
-func (c *cortexAdminClient) LoadRules(ctx context.Context, in *YamlRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *cortexAdminClient) LoadRules(ctx context.Context, in *PostRuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/LoadRules", in, out, opts...)
 	if err != nil {
@@ -142,7 +142,7 @@ type CortexAdminServer interface {
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
 	QueryRange(context.Context, *QueryRangeRequest) (*QueryResponse, error)
 	GetRule(context.Context, *RuleRequest) (*QueryResponse, error)
-	LoadRules(context.Context, *YamlRequest) (*emptypb.Empty, error)
+	LoadRules(context.Context, *PostRuleRequest) (*emptypb.Empty, error)
 	DeleteRule(context.Context, *RuleRequest) (*emptypb.Empty, error)
 	FlushBlocks(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	GetSeriesMetadata(context.Context, *SeriesRequest) (*MetricMetadata, error)
@@ -169,7 +169,7 @@ func (UnimplementedCortexAdminServer) QueryRange(context.Context, *QueryRangeReq
 func (UnimplementedCortexAdminServer) GetRule(context.Context, *RuleRequest) (*QueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRule not implemented")
 }
-func (UnimplementedCortexAdminServer) LoadRules(context.Context, *YamlRequest) (*emptypb.Empty, error) {
+func (UnimplementedCortexAdminServer) LoadRules(context.Context, *PostRuleRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LoadRules not implemented")
 }
 func (UnimplementedCortexAdminServer) DeleteRule(context.Context, *RuleRequest) (*emptypb.Empty, error) {
@@ -288,7 +288,7 @@ func _CortexAdmin_GetRule_Handler(srv interface{}, ctx context.Context, dec func
 }
 
 func _CortexAdmin_LoadRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(YamlRequest)
+	in := new(PostRuleRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -300,7 +300,7 @@ func _CortexAdmin_LoadRules_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/cortexadmin.CortexAdmin/LoadRules",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexAdminServer).LoadRules(ctx, req.(*YamlRequest))
+		return srv.(CortexAdminServer).LoadRules(ctx, req.(*PostRuleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

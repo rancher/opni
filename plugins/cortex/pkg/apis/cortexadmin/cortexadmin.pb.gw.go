@@ -299,7 +299,7 @@ var (
 )
 
 func request_CortexAdmin_LoadRules_0(ctx context.Context, marshaler runtime.Marshaler, client CortexAdminClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq YamlRequest
+	var protoReq PostRuleRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
@@ -315,7 +315,7 @@ func request_CortexAdmin_LoadRules_0(ctx context.Context, marshaler runtime.Mars
 }
 
 func local_request_CortexAdmin_LoadRules_0(ctx context.Context, marshaler runtime.Marshaler, server CortexAdminServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq YamlRequest
+	var protoReq PostRuleRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {

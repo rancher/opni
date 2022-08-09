@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,98 +16,26 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
-	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func sloCortexGroupsToCheck(groupName string) []string {
-	return []string{
-		groupName + slo.RecordingRuleSuffix,
-		groupName + slo.MetadataRuleSuffix,
-		groupName + slo.AlertRuleSuffix,
+func canReachInstrumentationMetrics(instrumentationServerPort int) bool {
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/metrics", instrumentationServerPort))
+	if err != nil {
+		panic(err)
 	}
-}
-
-func expectSLOGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) {
-	var anyError error
-	var wg sync.WaitGroup
-	groupsToCheck := sloCortexGroupsToCheck(groupName)
-	wg.Add(len(groupsToCheck))
-
-	for _, group := range groupsToCheck {
-		groupToCheck := group
-		go func() {
-			defer wg.Done()
-			if err := expectRuleGroupToExist(adminClient, ctx, tenant, groupToCheck); err != nil {
-				anyError = err
-			}
-		}()
-	}
-	wg.Wait()
-	Expect(anyError).Should(BeNil())
-}
-
-func expectSLOGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) {
-	var anyError error
-	var wg sync.WaitGroup
-	groupsToCheck := sloCortexGroupsToCheck(groupName)
-	wg.Add(len(groupsToCheck))
-
-	for _, group := range groupsToCheck {
-		groupToCheck := group
-		go func() {
-			defer wg.Done()
-			if err := expectRuleGroupNotToExist(adminClient, ctx, tenant, groupToCheck); err != nil {
-				anyError = err
-			}
-		}()
-	}
-	wg.Wait()
-	Expect(anyError).Should(BeNil())
-}
-
-// potentially "long" running function, call asynchronously
-func expectRuleGroupToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
-	for i := 0; i < 10; i++ {
-		resp, err := adminClient.GetRule(ctx, &cortexadmin.RuleRequest{
-			Tenant:    tenant,
-			GroupName: groupName,
-		})
-		if err == nil {
-			Expect(resp.Data).To(Not(BeNil()))
-			return nil
-		}
-		time.Sleep(1)
-	}
-	return fmt.Errorf("Rule %s should exist, but doesn't", groupName)
-}
-
-// potentially "long" running function, call asynchronously
-func expectRuleGroupNotToExist(adminClient cortexadmin.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
-	for i := 0; i < 10; i++ {
-		_, err := adminClient.GetRule(ctx, &cortexadmin.RuleRequest{
-			Tenant:    tenant,
-			GroupName: groupName,
-		})
-		if err != nil {
-			Expect(status.Code(err)).To(Equal(codes.NotFound))
-			return nil
-		}
-
-		time.Sleep(1)
-	}
-	return fmt.Errorf("Rule %s still exists, but shouldn't", groupName)
+	return resp.StatusCode == 200
 }
 
 func simulateGoodEvents(metricName string, instrumentationServerPort int, numEvents int) {
 	for i := 0; i < numEvents; i++ {
 		go func() {
 			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/good", instrumentationServerPort, metricName))
-			Expect(resp.StatusCode).To(Equal(200))
 			Expect(err).To(Succeed())
+			Expect(resp.StatusCode).To(Equal(200))
 		}()
 	}
 }
@@ -118,8 +45,8 @@ func simulateBadEvents(metricName string, instrumentationServerPort int, numEven
 	for i := 0; i < numEvents; i++ {
 		go func() {
 			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/bad", instrumentationServerPort, metricName))
-			Expect(resp.StatusCode).To(Equal(200))
 			Expect(err).To(Succeed())
+			Expect(resp.StatusCode).To(Equal(200))
 		}()
 	}
 }
@@ -208,6 +135,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		instrumentationCtx, ca := context.WithCancel(context.Background())
 		instrumentationCancel = ca
 		instrumentationPort, stopInstrumentationServer = env.StartInstrumentationServer(instrumentationCtx)
+		Expect(instrumentationPort).NotTo(Equal(0))
+		Expect(canReachInstrumentationMetrics(instrumentationPort)).To(BeTrue())
 		fmt.Println(instrumentationPort, stopInstrumentationServer)
 		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		pPort = env.StartPrometheus(p, test.NewOverridePrometheusConfig(
@@ -234,11 +163,11 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		sloClient = apis.NewSLOClient(env.ManagementClientConn())
 		adminClient = cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
 		fmt.Println("Before all done")
+		//time.Sleep(time.Second * 30)
 	})
 
 	When("The SLO plugin starts", func() {
 		It("should be able to discover services from downstream", func() {
-			time.Sleep(10 * time.Second)
 			sloSvcs, err := sloClient.ListServices(ctx, &apis.ListServiceRequest{
 				Datasource: shared.MonitoringDatasource,
 			})
@@ -535,16 +464,34 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		})
 
 		It("Should be able to get the status NoData of SLOs with no data", func() {
+			port1, port2 := pPort, pPort2
+			fmt.Println(port1, port2)
+			Expect(canReachInstrumentationMetrics(instrumentationPort)).To(BeTrue())
 			status, err := sloClient.Status(ctx, instrumentationSLOID)
 			Expect(err).To(Succeed())
 			// No HTTP requests are made agaisnt prometheus yet, so the status should be empty
 			Expect(status.State).To(Equal(apis.SLOStatusState_NoData))
 
-			goodE := simulateGoodStatus(instrumentationMetric, instrumentationPort, 10)
-			Expect(goodE).To(Equal(10))
+			goodE := simulateGoodStatus(instrumentationMetric, instrumentationPort, 1000)
+			Expect(goodE).To(Equal(1000))
+			//time.Sleep(time.Minute)
+			resp, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+				Tenants: []string{"agent"},
+				Query:   fmt.Sprintf("http_request_duration_seconds_count{job=\"%s\"}", query.MockTestServerName),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Println(resp.Data)
+
+			resp2, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+				Tenants: []string{"agent2"},
+				Query:   fmt.Sprintf("http_request_duration_seconds_count{job=\"%s\"}", query.MockTestServerName),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Println(resp2.Data)
+
 			expectedGoodStatus, err := sloClient.Status(ctx, instrumentationSLOID)
 			Expect(err).To(Succeed())
-			Expect(expectedGoodStatus.State).To(Equal(apis.SLOStatusState_NoData))
+			Expect(expectedGoodStatus.State).To(Equal(apis.SLOStatusState_Ok))
 			// stopInstrumentationServer <- true
 			instrumentationCancel()
 		})

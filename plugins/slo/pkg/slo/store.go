@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
+	"time"
 )
 
 var (
@@ -37,27 +38,35 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 
 	recording, metadata, alerts := rw.SLIrules, rw.MetaRules, rw.AlertRules
 	// Check length is 0?
+	interval, err := prommodel.ParseDuration(timeDurationToPromStr(time.Second))
+	if err != nil {
+		return nil, err
+	}
+
 	rrecording, err := yaml.Marshal(ruleGroupYAMLv2{
-		Name:  fmt.Sprintf("%s%s", sloId, RecordingRuleSuffix),
-		Rules: recording,
+		Name:     fmt.Sprintf("%s%s", sloId, RecordingRuleSuffix),
+		Interval: interval,
+		Rules:    recording,
 	})
 	//@here debug recording rules
-	// os.WriteFile(fmt.Sprintf("recording-%s.yaml", sloId), rrecording, 0644)
+	//os.WriteFile(fmt.Sprintf("recording-%s.yaml", sloId), rrecording, 0644)
 	if err != nil {
 		return nil, err
 	}
 
 	rmetadata, err := yaml.Marshal(ruleGroupYAMLv2{
-		Name:  fmt.Sprintf("%s%s", sloId, MetadataRuleSuffix),
-		Rules: metadata,
+		Name:     fmt.Sprintf("%s%s", sloId, MetadataRuleSuffix),
+		Interval: interval,
+		Rules:    metadata,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	ralerts, err := yaml.Marshal(ruleGroupYAMLv2{
-		Name:  fmt.Sprintf("%s%s", sloId, AlertRuleSuffix),
-		Rules: alerts,
+		Name:     fmt.Sprintf("%s%s", sloId, AlertRuleSuffix),
+		Interval: interval,
+		Rules:    alerts,
 	})
 	if err != nil {
 		return nil, err
@@ -77,9 +86,9 @@ func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *slo
 	var anyError error
 	ruleGroupsToApply := []string{cortexRules.recording, cortexRules.metadata, cortexRules.alerts}
 	for _, ruleGroup := range ruleGroupsToApply {
-		_, err := p.adminClient.Get().LoadRules(ctx, &cortexadmin.YamlRequest{
-			Yaml:   ruleGroup,
-			Tenant: service.ClusterId,
+		_, err := p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+			YamlContent: ruleGroup,
+			ClusterId:   service.ClusterId,
 		})
 		if err != nil {
 			lg.Error(fmt.Sprintf(
@@ -97,7 +106,7 @@ func deleteCortexSLORules(p *Plugin, id string, clusterId string, ctx context.Co
 
 	for _, ruleGroup := range ruleGroupsToDelete {
 		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-			Tenant:    clusterId,
+			ClusterId: clusterId,
 			GroupName: ruleGroup,
 		})
 		// we can ignore 404s here since if we can't find them,

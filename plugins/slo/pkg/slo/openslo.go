@@ -26,7 +26,7 @@ func convertTimeWindow(budgetTime *durationpb.Duration) string {
 func ParseToOpenSLO(slorequest *api.CreateSLORequest, serviceInfo []*api.ServiceInfo, ctx context.Context, lg hclog.Logger) ([]oslov1.SLO, error) {
 	res := make([]oslov1.SLO, 0)
 
-	for idx, service := range serviceInfo {
+	for _, service := range serviceInfo {
 		// Parse to inline SLO/SLIs
 		newSLOI := oslov1.SLOSpec{
 			Description:     "",
@@ -61,7 +61,7 @@ func ParseToOpenSLO(slorequest *api.CreateSLORequest, serviceInfo []*api.Service
 		}
 
 		//Label SLO
-		wrapSLOI.Metadata.Name = fmt.Sprintf("slo-%s-%d-%s-%s", slorequest.SLO.GetName(), idx, service.GetClusterId(), service.GetJobId())
+		wrapSLOI.Metadata.Name = slorequest.GetSLO().GetName()
 		res = append(res, wrapSLOI)
 	}
 

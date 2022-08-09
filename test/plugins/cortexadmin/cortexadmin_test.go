@@ -20,7 +20,7 @@ import (
 func expectRuleGroupToExist(adminClient apis.CortexAdminClient, ctx context.Context, tenant string, groupName string, expectedYaml []byte) error {
 	for i := 0; i < 10; i++ {
 		resp, err := adminClient.GetRule(ctx, &apis.RuleRequest{
-			Tenant:    tenant,
+			ClusterId: tenant,
 			GroupName: groupName,
 		})
 		if err == nil {
@@ -36,7 +36,7 @@ func expectRuleGroupToExist(adminClient apis.CortexAdminClient, ctx context.Cont
 func expectRuleGroupToNotExist(adminClient apis.CortexAdminClient, ctx context.Context, tenant string, groupName string) error {
 	for i := 0; i < 10; i++ {
 		_, err := adminClient.GetRule(ctx, &apis.RuleRequest{
-			Tenant:    tenant,
+			ClusterId: tenant,
 			GroupName: groupName,
 		})
 		if err != nil {
@@ -68,15 +68,36 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Expect(err).NotTo(HaveOccurred())
 		info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-
-		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		env.StartPrometheus(p)
-		p2, _ := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		env.StartPrometheus(p2)
 		adminClient = apis.NewCortexAdminClient(env.ManagementClientConn())
+		// wait until data has been stored in cortex for the cluster
+		adminClient := env.NewCortexAdminClient()
+
+		p, errc := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+		Eventually(errc).Should(Receive(BeNil()))
+		env.StartPrometheus(p)
+		p2, errc2 := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+		Eventually(errc2).Should(Receive(BeNil()))
+		env.StartPrometheus(p2)
+		Eventually(func() error {
+			stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			for _, item := range stats.Items {
+				if item.UserID == "agent" {
+					if item.NumSeries > 0 {
+						return nil
+					}
+				}
+			}
+			return fmt.Errorf("waiting for metric data to be stored in cortex")
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+
+		//scrape interval is 1 second
 	})
 
 	When("We use the cortex admin plugin", func() {
+
 		It("Should be able to fetch series metadata successfully", func() {
 			inputs := []TestMetadataInput{
 				{
@@ -123,9 +144,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.YamlRequest{
-					Tenant: "agent",
-					Yaml:   string(sampleRuleYamlString),
+				&apis.PostRuleRequest{
+					ClusterId:   "agent",
+					YamlContent: string(sampleRuleYamlString),
 				})
 			Expect(err).To(Succeed())
 
@@ -135,9 +156,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			slothGeneratedGroupYamlString, err := ioutil.ReadFile(slothGeneratedGroup)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.YamlRequest{
-					Tenant: "agent",
-					Yaml:   string(slothGeneratedGroupYamlString),
+				&apis.PostRuleRequest{
+					ClusterId:   "agent",
+					YamlContent: string(slothGeneratedGroupYamlString),
 				})
 			Expect(err).To(Succeed())
 			Expect(err).NotTo(HaveOccurred())
@@ -155,9 +176,9 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			sampleRuleYamlUpdateString, err := ioutil.ReadFile(sampleRuleUpdate)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.YamlRequest{
-					Tenant: "agent",
-					Yaml:   string(sampleRuleYamlUpdateString),
+				&apis.PostRuleRequest{
+					ClusterId:   "agent",
+					YamlContent: string(sampleRuleYamlUpdateString),
 				})
 			Expect(err).To(Succeed())
 
@@ -171,7 +192,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		It("Should be able to delete existing rule groups", func() {
 			deleteGroupName := "opni-test-slo-rule"
 			_, err := adminClient.DeleteRule(ctx, &apis.RuleRequest{
-				Tenant:    "agent",
+				ClusterId: "agent",
 				GroupName: deleteGroupName,
 			})
 			Expect(err).To(Succeed())
@@ -190,15 +211,15 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			sampleRuleYamlString, err := ioutil.ReadFile(sampleRule)
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.YamlRequest{
-					Tenant: "agent",
-					Yaml:   string(sampleRuleYamlString),
+				&apis.PostRuleRequest{
+					ClusterId:   "agent",
+					YamlContent: string(sampleRuleYamlString),
 				})
 			Expect(err).To(Succeed())
 			_, err = adminClient.LoadRules(ctx,
-				&apis.YamlRequest{
-					Tenant: "agent2",
-					Yaml:   string(sampleRuleYamlString),
+				&apis.PostRuleRequest{
+					ClusterId:   "agent2",
+					YamlContent: string(sampleRuleYamlString),
 				})
 			Expect(err).To(Succeed())
 
@@ -217,7 +238,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 
 			deleteGroupName := "opni-test-slo-rule"
 			_, err = adminClient.DeleteRule(ctx, &apis.RuleRequest{
-				Tenant:    "agent",
+				ClusterId: "agent",
 				GroupName: deleteGroupName,
 			})
 			Expect(err).To(Succeed())
@@ -233,7 +254,6 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 					adminClient, ctx, "agent",
 					"opni-test-slo-rule")
 			}).Should(Succeed())
-
 		})
 	})
 })

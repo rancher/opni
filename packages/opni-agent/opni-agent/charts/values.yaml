@@ -18,6 +18,7 @@ metrics:
 logging:
   enabled: false
   insecure: false
+  tracing: false
   disableOpensearchTLSVerify: false
   disableBootstrap: false
   provider: rke

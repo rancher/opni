@@ -41,6 +41,7 @@ var (
 	provider        string
 	namespace       string
 	pins            []string
+	enableTracing   bool
 
 	k8sClient client.Client
 )
@@ -60,6 +61,7 @@ func BuildBootstrapLoggingCmd() *cobra.Command {
 	command.Flags().BoolVar(&skipTLSVerify, "opensearch-insecure", false, "skip Opensearch tls verification")
 	command.Flags().BoolVar(&rancherLogging, "use-rancher-logging", false, "manually configure log shipping with rancher-logging")
 	command.Flags().BoolVar(&inCluster, "in-cluster", false, "set bootstrap to run in cluster")
+	command.Flags().BoolVar(&enableTracing, "tracing", false, "Enable OTEL trace shipping")
 	command.Flags().StringVar(&gatewayEndpoint, "gateway-url", "https://localhost:8443", "upstream Opni gateway")
 	command.Flags().StringVar(&provider, "provider", "rke", "the Kubernetes distribution")
 	command.Flags().StringVar(&bootstrapToken, "token", "", "bootstrap token")
@@ -126,6 +128,7 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 		creds.Username,
 		clusterID,
 		creds.ExternalURL,
+		creds.TracingEnabled,
 	); err != nil {
 		return err
 	}
@@ -164,6 +167,7 @@ func createDataPrepper(
 	username string,
 	clusterID string,
 	opensearchEndpoint string,
+	tracingFeature bool,
 ) error {
 	dataPrepper := v1beta2.DataPrepper{
 		ObjectMeta: metav1.ObjectMeta{
@@ -183,6 +187,12 @@ func createDataPrepper(
 				InsecureDisableSSLVerify: skipTLSVerify,
 			},
 			ClusterID: clusterID,
+			EnableTracing: func() bool {
+				if !tracingFeature {
+					return false
+				}
+				return enableTracing
+			}(),
 		},
 	}
 

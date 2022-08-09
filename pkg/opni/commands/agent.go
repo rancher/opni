@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
+	"time"
 
 	"github.com/go-logr/zapr"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
@@ -52,6 +52,57 @@ var (
 func BuildAgentCmd() *cobra.Command {
 	var disableUsage bool
 
+	run := func(parentCtx context.Context) error {
+		ctx := waitctx.FromContext(parentCtx)
+
+		tracing.Configure("agent")
+		agentlg = logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(agentLogLevel))))
+
+		if os.Getenv("DO_NOT_TRACK") == "1" {
+			disableUsage = true
+		}
+
+		var upgradeChecker *upgraderesponder.UpgradeChecker
+		if !(disableUsage || common.DisableUsage) {
+			upgradeRequester := manager.UpgradeRequester{
+				Version:     util.Version,
+				InstallType: manager.InstallTypeAgent,
+			}
+			upgradeRequester.SetupLogger(zapr.NewLogger(agentlg.Desugar()))
+			setupLog.Info("Usage tracking enabled", "current-version", util.Version)
+			upgradeChecker = upgraderesponder.NewUpgradeChecker(upgradeResponderAddress, &upgradeRequester)
+			upgradeChecker.Start()
+			defer upgradeChecker.Stop()
+		}
+
+		if enableMetrics {
+			waitctx.Go(ctx, func() {
+				runMonitoringAgent(ctx)
+			})
+		}
+
+		if enableLogging {
+			waitctx.Go(ctx, func() {
+				err := runLoggingControllers(ctx)
+				if err != nil {
+					agentlg.Fatalf("failed to start controllers: %v", err)
+				}
+			})
+		}
+
+		if enableEventCollector {
+			waitctx.Go(ctx, func() {
+				err := runEventsCollector(ctx)
+				if err != nil {
+					agentlg.Fatalf("failed to run event collector: %v", err)
+				}
+			})
+		}
+
+		waitctx.WaitWithTimeout(ctx, 60*time.Second, 10*time.Second)
+		return nil
+	}
+
 	agentCmd := &cobra.Command{
 		Use:   "agent",
 		Short: "Run the Opni Monitoring Agent",
@@ -64,58 +115,7 @@ agent remote-write requests to add dynamic authentication.`,
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx := waitctx.FromContext(cmd.Context())
-			tracing.Configure("agent")
-			agentlg = logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(agentLogLevel))))
-			wg := sync.WaitGroup{}
-
-			if os.Getenv("DO_NOT_TRACK") == "1" {
-				disableUsage = true
-			}
-
-			if !(disableUsage || common.DisableUsage) {
-				upgradeRequester := manager.UpgradeRequester{
-					Version:     util.Version,
-					InstallType: manager.InstallTypeAgent,
-				}
-				upgradeRequester.SetupLogger(zapr.NewLogger(agentlg.Desugar()))
-				setupLog.Info("Usage tracking enabled", "current-version", util.Version)
-				upgradeChecker := upgraderesponder.NewUpgradeChecker(upgradeResponderAddress, &upgradeRequester)
-				upgradeChecker.Start()
-				defer upgradeChecker.Stop()
-			}
-
-			if enableMetrics {
-				wg.Add(1)
-				go func(ctx context.Context) {
-					defer wg.Done()
-					runMonitoringAgent(ctx)
-				}(ctx)
-			}
-
-			if enableLogging {
-				wg.Add(1)
-				go func(ctx context.Context) {
-					defer wg.Done()
-					err := runLoggingControllers(ctx)
-					if err != nil {
-						agentlg.Fatalf("failed to start controllers: %v", err)
-					}
-				}(ctx)
-			}
-
-			if enableEventCollector {
-				wg.Add(1)
-				go func(ctx context.Context) {
-					defer wg.Done()
-					err := runEventsCollector(ctx)
-					if err != nil {
-						agentlg.Fatalf("failed to run event collector: %v", err)
-					}
-				}(cmd.Context())
-			}
-
-			wg.Wait()
+			run(cmd.Context())
 		},
 	}
 
@@ -319,7 +319,8 @@ func runLoggingControllers(ctx context.Context) error {
 		}
 	}
 
-	ctx, _ = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {

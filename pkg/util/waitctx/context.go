@@ -13,8 +13,10 @@ import (
 )
 
 type waitCtxDataKeyType struct{}
+type timeout struct{}
 
 var waitCtxDataKey waitCtxDataKeyType
+var waitTimeout timeout
 
 type waitCtxData struct {
 	wg      sync.WaitGroup
@@ -113,6 +115,46 @@ func (restrictive) Wait(ctx RestrictiveContext, notifyAfter ...time.Duration) {
 	<-done
 }
 
+// WaitWithTimeout follows the same pattern as wait, but with a timeout.  If the timeout expires
+// WaitWithTimeout will panic.
+func (restrictive) WaitWWithTimeout(ctx RestrictiveContext, timeout time.Duration, notifyAfter ...time.Duration) {
+	data := ctx.Value(waitCtxDataKey)
+	if data == nil {
+		panic("context is not a WaitContext")
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		d := data.(*waitCtxData)
+		d.cond.L.Lock()
+		d.waiting.Store(true)
+		d.wg.Wait()
+		d.waiting.Store(false)
+		d.cond.Broadcast()
+		d.cond.L.Unlock()
+	}()
+	if len(notifyAfter) > 0 {
+		notifyDone := make(chan struct{})
+		defer close(notifyDone)
+		go func() {
+			for {
+				select {
+				case <-notifyDone:
+					return
+				case <-time.After(notifyAfter[0]):
+					fmt.Fprint(os.Stderr, chalk.Yellow.Color("\n=== WARNING: waiting longer than expected for context to cancel ===\n"+string(debug.Stack())+"\n"))
+				}
+			}
+		}()
+	}
+	select {
+	case <-done:
+		return
+	case <-time.After(timeout):
+		panic(waitTimeout)
+	}
+}
+
 func (w restrictive) Go(ctx RestrictiveContext, fn func()) {
 	w.AddOne(ctx)
 	go func() {
@@ -181,12 +223,29 @@ func (w permissive) Go(ctx PermissiveContext, fn func()) {
 	}()
 }
 
+func RecoverTimeout() {
+	r := recover()
+	if r == nil {
+		return
+	}
+	switch r.(type) {
+	case timeout:
+		fmt.Println("timeout expired, exiting process")
+		os.Exit(0)
+	default:
+		fmt.Println(r)
+		fmt.Println(debug.Stack())
+		os.Exit(1)
+	}
+}
+
 var (
 	Restrictive = restrictive{}
 	Permissive  = permissive{}
 
-	AddOne = Restrictive.AddOne
-	Done   = Restrictive.Done
-	Wait   = Restrictive.Wait
-	Go     = Restrictive.Go
+	AddOne          = Restrictive.AddOne
+	Done            = Restrictive.Done
+	Wait            = Restrictive.Wait
+	WaitWithTimeout = Restrictive.WaitWWithTimeout
+	Go              = Restrictive.Go
 )

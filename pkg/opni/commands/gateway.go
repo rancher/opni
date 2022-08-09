@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync/atomic"
+	"time"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/rancher/opni/pkg/config"
@@ -165,7 +166,7 @@ func BuildGatewayCmd() *cobra.Command {
 		lg.Info(style.Style("waiting for servers to shut down"))
 		fCancel()
 		cancel()
-		waitctx.Wait(ctx)
+		waitctx.WaitWithTimeout(ctx, 60*time.Second, 10*time.Second)
 
 		atomic.StoreUint32(&plugin.Killed, 0)
 		lg.Info(style.Style("--- reloading ---"))
@@ -176,6 +177,7 @@ func BuildGatewayCmd() *cobra.Command {
 		Use:   "gateway",
 		Short: "Run the Opni Monitoring Gateway",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			defer waitctx.RecoverTimeout()
 			for {
 				if err := run(); err != nil {
 					return err

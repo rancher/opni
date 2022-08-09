@@ -59,7 +59,7 @@ var _ = Describe("Server", Ordered, Label("slow"), func() {
 		}
 		ctx := waitctx.Background()
 		server := management.NewServer(ctx, conf, tv.coreDataSource, plugins.NoopLoader)
-		Expect(server.ListenAndServe(ctx)).To(MatchError("GRPCListenAddress not configured"))
+		Expect(server.ListenAndServe(ctx).Error()).To(ContainSubstring("GRPCListenAddress not configured"))
 
 		By("checking that invalid config fields cause errors")
 		conf.GRPCListenAddress = "foo://bar"

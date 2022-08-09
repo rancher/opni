@@ -9,6 +9,7 @@ import (
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -43,8 +44,7 @@ func NewGRPCServer(
 }
 
 func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
-	var lc net.ListenConfig
-	listener, err := lc.Listen(ctx, "tcp4", s.conf.GRPCListenAddress)
+	listener, err := net.Listen("tcp4", s.conf.GRPCListenAddress)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,16 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 		"address", listener.Addr().String(),
 	).Info("gateway gRPC server starting")
 
-	return server.Serve(listener)
+	errC := lo.Async(func() error {
+		return server.Serve(listener)
+	})
+	select {
+	case <-ctx.Done():
+		server.Stop()
+		return ctx.Err()
+	case err := <-errC:
+		return err
+	}
 }
 
 func (s *GatewayGRPCServer) RegisterService(desc *grpc.ServiceDesc, impl any) {

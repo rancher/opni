@@ -1,19 +1,20 @@
 package realtime
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
+
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/realtime/modules"
 	slomodule "github.com/rancher/opni/pkg/realtime/modules/slo"
-	"github.com/rancher/opni/pkg/util/waitctx"
-	"go.uber.org/zap"
 )
 
 type RealtimeServer struct {
@@ -65,7 +66,7 @@ func NewServer(conf *v1beta1.RealtimeServerSpec, opts ...RealtimeServerOption) (
 	}, nil
 }
 
-func (rt *RealtimeServer) Start(ctx waitctx.PermissiveContext) error {
+func (rt *RealtimeServer) Start(ctx context.Context) error {
 	mgmtClient, err := clients.NewManagementClient(ctx,
 		clients.WithAddress(rt.config.ManagementClient.Address))
 	if err != nil {
@@ -99,7 +100,7 @@ func (rt *RealtimeServer) Start(ctx waitctx.PermissiveContext) error {
 		lg.Info("Starting RT module")
 
 		mod := mod
-		waitctx.Permissive.Go(ctx, func() {
+		go func() {
 			if err := mod.Run(ctx, &modules.ModuleContext{
 				Log:    rt.logger.Named(mod.Name()),
 				Client: rt.mgmtClient,
@@ -110,7 +111,7 @@ func (rt *RealtimeServer) Start(ctx waitctx.PermissiveContext) error {
 				).Error("RT module exited with error")
 			}
 			lg.Info("RT module stopped")
-		})
+		}()
 	}
 
 	return nil

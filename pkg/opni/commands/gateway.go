@@ -75,7 +75,14 @@ func BuildGatewayCmd() *cobra.Command {
 				// auth providers themselves, but we don't want them to start their
 				// own noauth server.
 				if ap.Name == "noauth" {
-					machinery.SetupNoauthServer(ctx, lg, ap)
+					server := machinery.NewNoauthServer(ctx, ap)
+					waitctx.Go(ctx, func() {
+						if err := server.ListenAndServe(ctx); err != nil {
+							lg.With(
+								zap.Error(err),
+							).Warn("noauth server exited with error")
+						}
+					})
 				}
 			},
 		)
@@ -106,18 +113,22 @@ func BuildGatewayCmd() *cobra.Command {
 		}))
 
 		pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
+			waitctx.AddOne(ctx)
+			defer waitctx.Done(ctx)
 			if err := m.ListenAndServe(ctx); err != nil {
 				lg.With(
 					zap.Error(err),
-				).Fatal("management server exited with error")
+				).Warn("management server exited with error")
 			}
 		}))
 
 		pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
+			waitctx.AddOne(ctx)
+			defer waitctx.Done(ctx)
 			if err := g.ListenAndServe(ctx); err != nil {
 				lg.With(
 					zap.Error(err),
-				).Error("gateway server exited with error")
+				).Warn("gateway server exited with error")
 			}
 		}))
 

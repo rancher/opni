@@ -5,6 +5,12 @@ import (
 	"errors"
 
 	"github.com/kralicky/totem"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/descriptorpb"
+
 	"github.com/rancher/opni/pkg/agent"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
@@ -13,11 +19,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 type remote struct {
@@ -110,7 +111,7 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 		if err != nil {
 			s.logger.With(
 				zap.Error(err),
-			).Info("agent stream disconnected")
+			).Warn("agent stream disconnected")
 		}
 		return status.Error(codes.Unavailable, err.Error())
 	case <-ctx.Done():

@@ -21,7 +21,6 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 )
@@ -67,9 +66,7 @@ func New(ctx context.Context, config v1beta1.AuthProviderSpec) (*OpenidMiddlewar
 		m.conf.IdentifyingClaim = "sub"
 	}
 
-	waitctx.Go(ctx, func() {
-		m.tryConfigureKeyRefresher(ctx)
-	})
+	go m.tryConfigureKeyRefresher(ctx)
 	return m, nil
 }
 

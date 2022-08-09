@@ -63,7 +63,7 @@ var _ = Describe("Server", Ordered, Label("slow"), func() {
 		ctx, ca := context.WithCancel(waitctx.Background())
 		go func() {
 			defer GinkgoRecover()
-			err := srv.Run(ctx)
+			err := srv.ListenAndServe(ctx)
 			Expect(err).To(Or(BeNil(), MatchError(context.Canceled)))
 		}()
 		DeferCleanup(func() {

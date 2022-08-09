@@ -19,7 +19,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/grpc"
@@ -52,7 +51,7 @@ type UnknownStreamMetadata struct {
 
 type StreamDirector func(ctx context.Context, fullMethodName string) (context.Context, *UnknownStreamMetadata, error)
 
-func (m *Server) configureApiExtensionDirector(ctx waitctx.RestrictiveContext, pl plugins.LoaderInterface) StreamDirector {
+func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.LoaderInterface) StreamDirector {
 	lg := m.logger
 	methodTable := gsync.Map[string, *UnknownStreamMetadata]{}
 	pl.Hook(hooks.OnLoadMC(func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
@@ -66,10 +65,6 @@ func (m *Server) configureApiExtensionDirector(ctx waitctx.RestrictiveContext, p
 			return
 		}
 		lg.Info("got extension descriptor for service " + sd.GetName())
-		waitctx.Go(ctx, func() {
-			<-ctx.Done()
-			reflectClient.Reset()
-		})
 
 		svcDesc, err := reflectClient.ResolveService(sd.GetName())
 		if err != nil {

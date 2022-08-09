@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/util"
 )
 
 type MetricsEndpointHandler struct {
@@ -29,8 +30,7 @@ func NewMetricsEndpointHandler(cfg v1beta1.MetricsSpec) *MetricsEndpointHandler 
 }
 
 func (h *MetricsEndpointHandler) ListenAndServe(ctx context.Context) error {
-	var lc net.ListenConfig
-	listener, err := lc.Listen(ctx, "tcp4", fmt.Sprintf(":%d", h.cfg.Port))
+	listener, err := net.Listen("tcp4", fmt.Sprintf(":%d", h.cfg.Port))
 	if err != nil {
 		return err
 	}
@@ -39,7 +39,8 @@ func (h *MetricsEndpointHandler) ListenAndServe(ctx context.Context) error {
 	mux.Handle(h.cfg.GetPath(), promhttp.HandlerFor(h.reg, promhttp.HandlerOpts{
 		Registry: h.reg,
 	}))
-	return http.Serve(listener, mux)
+
+	return util.ServeHandler(ctx, mux, listener)
 }
 
 func (h *MetricsEndpointHandler) MustRegister(collectors ...prometheus.Collector) {

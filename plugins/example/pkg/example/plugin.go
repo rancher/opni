@@ -78,6 +78,9 @@ func (s *ExamplePlugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	if err != nil {
 		lg.Error("kv store error", "error", err)
 	}
+	if value == nil {
+		lg.Error("kv store error", "error", "value is nil")
+	}
 	lg.Info("successfully retrieved stored value", "message", value.Message)
 }
 
@@ -124,7 +127,7 @@ func (s *ExamplePlugin) InstallerTemplate(context.Context, *emptypb.Empty) (*cap
 	}, nil
 }
 
-func Scheme() meta.Scheme {
+func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
 	p := &ExamplePlugin{
 		Logger: logger.NewForPlugin(),

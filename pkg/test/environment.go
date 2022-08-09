@@ -29,6 +29,17 @@ import (
 	"github.com/pkg/browser"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/ttacon/chalk"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/agent"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -56,16 +67,6 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	"github.com/ttacon/chalk"
-	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
 var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")
@@ -74,6 +75,7 @@ type servicePorts struct {
 	Etcd            int
 	GatewayGRPC     int
 	GatewayHTTP     int
+	GatewayMetrics  int
 	ManagementGRPC  int
 	ManagementHTTP  int
 	ManagementWeb   int
@@ -196,7 +198,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	e.mockCtrl = gomock.NewController(t)
 
-	ports, err := freeport.GetFreePorts(10)
+	ports, err := freeport.GetFreePorts(11)
 	if err != nil {
 		panic(err)
 	}
@@ -204,13 +206,14 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		Etcd:            ports[0],
 		GatewayGRPC:     ports[1],
 		GatewayHTTP:     ports[2],
-		ManagementGRPC:  ports[3],
-		ManagementHTTP:  ports[4],
-		ManagementWeb:   ports[5],
-		CortexGRPC:      ports[6],
-		CortexHTTP:      ports[7],
-		TestEnvironment: ports[8],
-		RTMetrics:       ports[9],
+		GatewayMetrics:  ports[3],
+		ManagementGRPC:  ports[4],
+		ManagementHTTP:  ports[5],
+		ManagementWeb:   ports[6],
+		CortexGRPC:      ports[7],
+		CortexHTTP:      ports[8],
+		TestEnvironment: ports[9],
+		RTMetrics:       ports[10],
 	}
 	if portNum, ok := os.LookupEnv("OPNI_MANAGEMENT_GRPC_PORT"); ok {
 		e.ports.ManagementGRPC, err = strconv.Atoi(portNum)
@@ -233,13 +236,19 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	if portNum, ok := os.LookupEnv("OPNI_GATEWAY_GRPC_PORT"); ok {
 		e.ports.GatewayGRPC, err = strconv.Atoi(portNum)
 		if err != nil {
-			return fmt.Errorf("failed to parse gateway port: %w", err)
+			return fmt.Errorf("failed to parse gateway grpc port: %w", err)
 		}
 	}
 	if portNum, ok := os.LookupEnv("OPNI_GATEWAY_HTTP_PORT"); ok {
 		e.ports.GatewayHTTP, err = strconv.Atoi(portNum)
 		if err != nil {
-			return fmt.Errorf("failed to parse gateway port: %w", err)
+			return fmt.Errorf("failed to parse gateway http port: %w", err)
+		}
+	}
+	if portNum, ok := os.LookupEnv("OPNI_GATEWAY_METRICS_PORT"); ok {
+		e.ports.GatewayMetrics, err = strconv.Atoi(portNum)
+		if err != nil {
+			return fmt.Errorf("failed to parse gateway metrics port: %w", err)
 		}
 	}
 	if portNum, ok := os.LookupEnv("TEST_ENV_API_PORT"); ok {
@@ -290,6 +299,10 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		e.startRealtimeServer()
 	}
 	return nil
+}
+
+func (e *Environment) Context() context.Context {
+	return e.ctx
 }
 
 func (e *Environment) StartK8s() (*rest.Config, error) {
@@ -441,10 +454,14 @@ func (e *Environment) startEtcd() {
 	e.Processes.Etcd.Set(cmd.Process)
 
 	lg.Info("Waiting for etcd to start...")
+	waitctx.Go(e.ctx, func() {
+		<-e.ctx.Done()
+		session.Wait()
+	})
 	for e.ctx.Err() == nil {
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/health", e.ports.Etcd))
 		if err == nil {
-			defer resp.Body.Close()
+			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				break
 			}
@@ -452,10 +469,6 @@ func (e *Environment) startEtcd() {
 		time.Sleep(time.Second)
 	}
 	lg.Info("Etcd started")
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
-		session.Wait()
-	})
 }
 
 type cortexTemplateOptions struct {
@@ -660,6 +673,8 @@ func (e *Environment) StartAlertManager(ctx context.Context, configFile string) 
 	if err != nil {
 		if !errors.Is(e.ctx.Err(), context.Canceled) {
 			panic(err)
+		} else {
+			return
 		}
 	}
 	lg.Info("Waiting for Alertmanager to start...")
@@ -750,11 +765,13 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 			},
 			HTTPListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayHTTP),
 			GRPCListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
-			EnableMonitor:     true,
 			Management: v1beta1.ManagementSpec{
 				GRPCListenAddress: fmt.Sprintf("tcp://127.0.0.1:%d", e.ports.ManagementGRPC),
 				HTTPListenAddress: fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementHTTP),
 				WebListenAddress:  fmt.Sprintf("127.0.0.1:%d", e.ports.ManagementWeb),
+			},
+			Metrics: v1beta1.MetricsSpec{
+				Port: e.ports.GatewayMetrics,
 			},
 			AuthProvider: "test",
 			Certs: v1beta1.CertsSpec{
@@ -879,18 +896,22 @@ func (e *Environment) startGateway() {
 	}))
 
 	pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
+		waitctx.AddOne(e.ctx)
+		defer waitctx.Done(e.ctx)
 		if err := m.ListenAndServe(e.ctx); err != nil {
 			lg.With(
 				zap.Error(err),
-			).Fatal("management server exited with error")
+			).Warn("management server exited with error")
 		}
 	}))
 
 	pluginLoader.Hook(hooks.OnLoadingCompleted(func(int) {
+		waitctx.AddOne(e.ctx)
+		defer waitctx.Done(e.ctx)
 		if err := g.ListenAndServe(e.ctx); err != nil {
 			lg.With(
 				zap.Error(err),
-			).Error("gateway server exited with error")
+			).Warn("gateway server exited with error")
 		}
 	}))
 
@@ -907,16 +928,13 @@ func (e *Environment) startGateway() {
 		}
 		resp, err := client.Do(req)
 		if err == nil {
-			defer resp.Body.Close()
+			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				break
 			}
 		}
 	}
 	lg.Info("Gateway started")
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
-	})
 }
 
 type StartAgentOptions struct {
@@ -1020,7 +1038,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 	}
 	var a *agent.Agent
 	mu := &sync.Mutex{}
-	go func() {
+	waitctx.Permissive.Go(options.ctx, func() {
 		mu.Lock()
 		publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
 		for i, pin := range pins {
@@ -1067,7 +1085,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		e.runningAgentsMu.Lock()
 		delete(e.runningAgents, id)
 		e.runningAgentsMu.Unlock()
-	}()
+	})
 	return port, errC
 }
 

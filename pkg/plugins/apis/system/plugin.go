@@ -2,7 +2,6 @@ package system
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -35,7 +34,7 @@ func (UnimplementedSystemPluginClient) mustEmbedUnimplementedSystemPluginClient(
 type SystemPluginServer interface {
 	ServeManagementAPI(managementv1.ManagementServer)
 	ServeKeyValueStore(storage.KeyValueStore)
-	ServeAPIExtensions(dialAddress string)
+	ServeAPIExtensions(dialAddress string) error
 }
 
 const (
@@ -169,13 +168,11 @@ func (s *systemPluginHandler) ServeKeyValueStore(store storage.KeyValueStore) {
 	)
 }
 
-func (s *systemPluginHandler) ServeAPIExtensions(dialAddr string) {
+func (s *systemPluginHandler) ServeAPIExtensions(dialAddr string) error {
 	_, err := s.client.UseAPIExtensions(s.ctx, &DialAddress{
 		Value: dialAddr,
 	})
-	if err != nil {
-		panic(fmt.Errorf("UseAPIExtensions panic : %w", err))
-	}
+	return err
 }
 
 func init() {

@@ -26,6 +26,7 @@ const (
 
 	opensearchVersion     = "1.3.3"
 	opensearchClusterName = "opni"
+	defaultRepo           = "docker.io/rancher"
 )
 
 var (
@@ -50,7 +51,7 @@ func (p *Plugin) GetOpensearchCluster(
 	}
 
 	var nodePools []*loggingadmin.OpensearchNodeDetails
-	for _, pool := range cluster.Spec.OpensearchClusterSpec.NodePools {
+	for _, pool := range cluster.Spec.OpensearchSettings.NodePools {
 		convertedPool, err := convertNodePoolToProtobuf(pool)
 		if err != nil {
 			return nil, err
@@ -58,7 +59,7 @@ func (p *Plugin) GetOpensearchCluster(
 		nodePools = append(nodePools, convertedPool)
 	}
 
-	dashboards := convertDashboardsToProtobuf(cluster.Spec.OpensearchClusterSpec.Dashboards)
+	dashboards := convertDashboardsToProtobuf(cluster.Spec.OpensearchSettings.Dashboards)
 
 	return &loggingadmin.OpensearchCluster{
 		ExternalURL: cluster.Spec.ExternalURL,
@@ -124,18 +125,9 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 				Namespace: p.storageNamespace,
 			},
 			Spec: v1beta2.OpniOpensearchSpec{
-				OpensearchClusterSpec: opsterv1.ClusterSpec{
-					Dashboards: convertProtobufToDashboards(cluster.Dashboards),
+				OpensearchSettings: v1beta2.OpensearchSettings{
+					Dashboards: convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster),
 					NodePools:  nodePools,
-					General: opsterv1.GeneralConfig{
-						ImageSpec: &opsterv1.ImageSpec{
-							Image: &opensearchImage,
-						},
-						Version:          opensearchVersion,
-						ServiceName:      fmt.Sprintf("%s-opensearch-svc", opensearchClusterName),
-						HttpPort:         9200,
-						SetVMMaxMapCount: true,
-					},
 					Security: &opsterv1.Security{
 						Tls: &opsterv1.TlsConfig{
 							Transport: &opsterv1.TlsConfigTransport{
@@ -152,6 +144,8 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 				ClusterConfigSpec: &v1beta2.ClusterConfigSpec{
 					IndexRetention: lo.FromPtrOr(cluster.DataRetention, "7d"),
 				},
+				OpensearchVersion: opensearchVersion,
+				Version:           util.Version,
 			},
 		}
 		return nil, p.k8sClient.Create(ctx, k8sOpensearchCluster)
@@ -161,8 +155,8 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 		if err := p.k8sClient.Get(ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
 			return err
 		}
-		k8sOpensearchCluster.Spec.OpensearchClusterSpec.NodePools = nodePools
-		k8sOpensearchCluster.Spec.OpensearchClusterSpec.Dashboards = convertProtobufToDashboards(cluster.Dashboards)
+		k8sOpensearchCluster.Spec.OpensearchSettings.NodePools = nodePools
+		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards = convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster)
 		k8sOpensearchCluster.Spec.ExternalURL = cluster.ExternalURL
 		if cluster.DataRetention != nil {
 			k8sOpensearchCluster.Spec.ClusterConfigSpec = &v1beta2.ClusterConfigSpec{
@@ -214,6 +208,62 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 		Tolerations:  tolerations,
 		Persistence:  &persistence,
 	}, nil
+}
+
+func convertProtobufToDashboards(
+	dashboard *loggingadmin.DashboardsDetails,
+	cluster *v1beta2.OpniOpensearch,
+) opsterv1.DashboardsConfig {
+	var version, osVersion string
+	if cluster == nil {
+		version = util.Version
+		osVersion = opensearchVersion
+	} else {
+		if cluster.Status.Version != nil {
+			version = *cluster.Status.Version
+		} else {
+			version = util.Version
+		}
+		if cluster.Status.OpensearchVersion != nil {
+			osVersion = *cluster.Status.OpensearchVersion
+		} else {
+			osVersion = opensearchVersion
+		}
+	}
+
+	image := fmt.Sprintf(
+		"%s/opensearch-dashboards:%s-%s",
+		defaultRepo,
+		osVersion,
+		version,
+	)
+
+	return opsterv1.DashboardsConfig{
+		ImageSpec: &opsterv1.ImageSpec{
+			Image: &image,
+		},
+		Replicas: lo.FromPtrOr(dashboard.Replicas, 1),
+		Enable:   lo.FromPtrOr(dashboard.Enabled, true),
+		Resources: func() corev1.ResourceRequirements {
+			if dashboard.Resources == nil {
+				return corev1.ResourceRequirements{}
+			}
+			return *dashboard.Resources
+		}(),
+		Version: opensearchVersion,
+		Tls: &opsterv1.DashboardsTlsConfig{
+			Enable:   true,
+			Generate: true,
+		},
+		AdditionalConfig: map[string]string{
+			"opensearchDashboards.branding.logo.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-logo-dark.svg",
+			"opensearchDashboards.branding.mark.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-mark.svg",
+			"opensearchDashboards.branding.loadingLogo.defaultUrl":  "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading.svg",
+			"opensearchDashboards.branding.loadingLogo.darkModeUrl": "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading-dark.svg",
+			"opensearchDashboards.branding.faviconUrl":              "https://raw.githubusercontent.com/rancher/opni/main/branding/favicon.png",
+			"opensearchDashboards.branding.applicationTitle":        "Opni Logging",
+		},
+	}
 }
 
 func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, clusterName string) (opsterv1.NodePool, error) {
@@ -308,34 +358,5 @@ func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingad
 		Enabled:   &dashboard.Enable,
 		Replicas:  &dashboard.Replicas,
 		Resources: &dashboard.Resources,
-	}
-}
-
-func convertProtobufToDashboards(dashboard *loggingadmin.DashboardsDetails) opsterv1.DashboardsConfig {
-	return opsterv1.DashboardsConfig{
-		ImageSpec: &opsterv1.ImageSpec{
-			Image: &dashboardsImage,
-		},
-		Replicas: lo.FromPtrOr(dashboard.Replicas, 1),
-		Enable:   lo.FromPtrOr(dashboard.Enabled, true),
-		Resources: func() corev1.ResourceRequirements {
-			if dashboard.Resources == nil {
-				return corev1.ResourceRequirements{}
-			}
-			return *dashboard.Resources
-		}(),
-		Version: opensearchVersion,
-		Tls: &opsterv1.DashboardsTlsConfig{
-			Enable:   true,
-			Generate: true,
-		},
-		AdditionalConfig: map[string]string{
-			"opensearchDashboards.branding.logo.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-logo-dark.svg",
-			"opensearchDashboards.branding.mark.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-mark.svg",
-			"opensearchDashboards.branding.loadingLogo.defaultUrl":  "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading.svg",
-			"opensearchDashboards.branding.loadingLogo.darkModeUrl": "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading-dark.svg",
-			"opensearchDashboards.branding.faviconUrl":              "https://raw.githubusercontent.com/rancher/opni/main/branding/favicon.png",
-			"opensearchDashboards.branding.applicationTitle":        "Opni Logging",
-		},
 	}
 }

@@ -27,14 +27,25 @@ type OpniOpensearch struct {
 }
 
 type OpniOpensearchStatus struct {
-	Conditions []string            `json:"conditions,omitempty"`
-	State      OpniOpensearchState `json:"state,omitempty"`
+	Conditions        []string            `json:"conditions,omitempty"`
+	State             OpniOpensearchState `json:"state,omitempty"`
+	OpensearchVersion *string             `json:"opensearchVersion,omitempty"`
+	Version           *string             `json:"version,omitempty"`
 }
 
 type OpniOpensearchSpec struct {
-	*ClusterConfigSpec    `json:",inline"`
-	OpensearchClusterSpec opsterv1.ClusterSpec `json:"opensearch,omitempty"`
-	ExternalURL           string               `json:"externalURL,omitempty"`
+	*ClusterConfigSpec `json:",inline"`
+	OpensearchSettings `json:"opensearch,omitempty"`
+	ExternalURL        string `json:"externalURL,omitempty"`
+	ImageRepo          string `json:"imageRepo"`
+	OpensearchVersion  string `json:"opensearchVersion,omitempty"`
+	Version            string `json:"version,omitempty"`
+}
+
+type OpensearchSettings struct {
+	NodePools  []opsterv1.NodePool       `json:"nodePools,omitempty"`
+	Dashboards opsterv1.DashboardsConfig `json:"dashboards,omitempty"`
+	Security   *opsterv1.Security        `json:"security,omitempty"`
 }
 
 // +kubebuilder:object:root=true

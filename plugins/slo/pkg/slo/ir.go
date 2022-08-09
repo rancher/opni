@@ -27,7 +27,7 @@ var errorRatioRawQueryTmpl = template.Must(template.New("").Parse(`
 `))
 
 // Returns the same number of SLO Groups as the number of OpenSLO specs
-//(Same number as the number of services in the request)
+// (Same number as the number of services in the request)
 func ParseToPrometheusModel(slo openslov1.SLO) (*prometheus.SLOGroup, error) {
 	//TODO
 	y := NewYAMLSpecLoader(time.Hour * 24 * 30) // FIXME: hardcoded window period

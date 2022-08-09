@@ -8,9 +8,10 @@ import (
 	"github.com/alexandreLamarre/oslo/pkg/manifest"
 	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/hashicorp/go-hclog"
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	"github.com/rancher/opni/pkg/slo/shared"
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func convertTimeWindow(budgetTime *durationpb.Duration) string {
@@ -67,8 +68,8 @@ func ParseToOpenSLO(slorequest *api.CreateSLORequest, serviceInfo []*api.Service
 	return res, nil
 }
 
-/// @note : for now only one indicator per SLO is supported
-/// Indicator is OpenSLO's inline indicator
+// @note : for now only one indicator per SLO is supported
+// Indicator is OpenSLO's inline indicator
 func ParseToIndicator(slo *api.ServiceLevelObjective, service *api.ServiceInfo, ctx context.Context, lg hclog.Logger) (*oslov1.SLIInline, error) {
 	metadata := oslov1.Metadata{
 		Name: fmt.Sprintf("sli-%s", slo.GetName()),

@@ -6,9 +6,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 //#region Test Setup

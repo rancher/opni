@@ -128,7 +128,7 @@ func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, ref *corev1.Reference)
 	return &emptypb.Empty{}, nil
 }
 
-//TODO
+// TODO
 func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.TestAlertEndpointRequest) (*alertingv1alpha.TestAlertEndpointResponse, error) {
 	// - Create Endpoint
 	// - Trigger it using httpv2 api

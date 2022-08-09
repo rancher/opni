@@ -1,9 +1,10 @@
 package slo
 
 import (
+	"golang.org/x/exp/slices"
+
 	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
-	"golang.org/x/exp/slices"
 
 	api "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
@@ -17,8 +18,8 @@ func matchEnum(target string, enum []string, returnErr error) error {
 	return returnErr
 }
 
-/// Validates Input based on the necessities of our preconfigured formant,
-/// NOT validating the OpenSLO / Sloth format
+// Validates Input based on the necessities of our preconfigured formant,
+// NOT validating the OpenSLO / Sloth format
 func ValidateInput(slorequest *api.CreateSLORequest) error {
 	if len(slorequest.Services) == 0 {
 		return shared.ErrMissingServices

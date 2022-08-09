@@ -1,6 +1,6 @@
 /*
-  - Functions that handle each endpoint implementation update case
-  - Functions that handle each alert condition case
+- Functions that handle each endpoint implementation update case
+- Functions that handle each alert condition case
 */
 package alerting
 

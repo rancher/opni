@@ -51,7 +51,9 @@ func NewEphemeralKeyPair() EphemeralKeyPair {
 // another party's ephemeral public key obtained from ECDH.
 //
 // The secret is computed using the following KDF (similar to libsodium):
-//  blake2b-512(q || client-pub || server-pub).
+//
+//	blake2b-512(q || client-pub || server-pub).
+//
 // where q is the 32-byte x25519 shared secret.
 //
 // The client and server's public keys must be ordered the same way on both

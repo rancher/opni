@@ -32,7 +32,7 @@ import (
 	// mage:import charts
 	_ "github.com/rancher/charts-build-scripts/pkg/actions"
 	// mage:import test
-	test "github.com/rancher/opni/internal/mage/test"
+	"github.com/rancher/opni/internal/mage/test"
 )
 
 var Default = All
@@ -190,6 +190,7 @@ func init() {
 		version = tag
 	}
 
+	build.Config.ExtraFlags = append(build.Config.ExtraFlags, "-trimpath")
 	build.Config.LDFlags = append(build.Config.LDFlags, "-X", "github.com/rancher/opni/pkg/util.Version="+version)
 	build.Config.ExtraTargets = extraTargets
 

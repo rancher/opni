@@ -48,7 +48,7 @@ type OpensearchSpec struct {
 	InsecureDisableSSLVerify bool   `json:"insecureDisableSSLVerify,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 type DataPrepperList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

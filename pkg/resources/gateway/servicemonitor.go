@@ -3,7 +3,7 @@ package gateway
 import (
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -27,7 +27,7 @@ func (r *Reconciler) serviceMonitor() resources.Resource {
 			},
 			Endpoints: []monitoringv1.Endpoint{
 				{
-					TargetPort: util.Pointer(intstr.FromInt(8086)),
+					TargetPort: lo.ToPtr(intstr.FromInt(8086)),
 					Path:       "/metrics",
 					Scheme:     "http",
 				},

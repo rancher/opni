@@ -12,12 +12,12 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/utils/pointer"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -108,7 +108,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	// GPU learning is currently unsupported but will be added back in soon
-	if pointer.BoolDeref(r.opniCluster.Spec.Services.GPUController.Enabled, true) {
+	if lo.FromPtrOr(r.opniCluster.Spec.Services.GPUController.Enabled, true) {
 		lg.Info("gpu learning is currently not supported, but will return in a later release")
 		r.recorder.Event(r.opniCluster, "Normal", "GPU service not supported", "the GPU service will be available in a later release")
 	}
@@ -256,7 +256,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 			return err
 		}
-		replicas := pointer.Int32Deref(r.opniCluster.Spec.Nats.Replicas, 3)
+		replicas := lo.FromPtrOr(r.opniCluster.Spec.Nats.Replicas, 3)
 		if r.opniCluster.Status.NatsReplicas != replicas {
 			r.opniCluster.Status.NatsReplicas = replicas
 		}

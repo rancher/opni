@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
+	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/emptypb"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,9 +12,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/utils/pointer"
 	opsterv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 )
 
 const (
@@ -158,13 +159,13 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 
 	persistence := loggingadmin.DataPersistence{}
 	if pool.Persistence == nil {
-		pointer.BoolPtr(true)
+		persistence.Enabled = lo.ToPtr(true)
 	}
 	if pool.Persistence.EmptyDir != nil {
-		persistence.Enabled = pointer.BoolPtr(false)
+		persistence.Enabled = lo.ToPtr(false)
 	} else {
 		if pool.Persistence.PVC != nil {
-			persistence.Enabled = pointer.BoolPtr(true)
+			persistence.Enabled = lo.ToPtr(true)
 			persistence.StorageClass = &pool.Persistence.PVC.StorageClassName
 		} else {
 			return &loggingadmin.OpensearchNodeDetails{}, ErrStoredClusterPersistence()
@@ -213,7 +214,7 @@ func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, cluster
 
 	return opsterv1.NodePool{
 		Component: pool.Name,
-		Replicas:  pointer.Int32Deref(pool.Replicas, 1),
+		Replicas:  lo.FromPtrOr(pool.Replicas, 1),
 		DiskSize:  pool.DiskSize.String(),
 		Resources: resources,
 		Jvm:       fmt.Sprintf("-Xmx%d -Xms%d", jvmVal, jvmVal),
@@ -229,7 +230,7 @@ func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, cluster
 		}(),
 		NodeSelector: pool.NodeSelector,
 		Affinity: func() *corev1.Affinity {
-			if pointer.BoolDeref(pool.EnableAntiAffinity, true) {
+			if lo.FromPtrOr(pool.EnableAntiAffinity, true) {
 				return &corev1.Affinity{
 					PodAntiAffinity: &corev1.PodAntiAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -252,11 +253,11 @@ func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, cluster
 			if pool.Persistence == nil {
 				return nil
 			}
-			if !pointer.BoolDeref(pool.Persistence.Enabled, true) {
+			if !lo.FromPtrOr(pool.Persistence.Enabled, true) {
 				return &opsterv1.PersistenceConfig{
 					PersistenceSource: opsterv1.PersistenceSource{
 						PVC: &opsterv1.PVCSource{
-							StorageClassName: pointer.StringDeref(pool.Persistence.StorageClass, ""),
+							StorageClassName: lo.FromPtrOr(pool.Persistence.StorageClass, ""),
 							AccessModes: []corev1.PersistentVolumeAccessMode{
 								corev1.ReadWriteOnce,
 							},
@@ -286,8 +287,8 @@ func convertProtobufToDashboards(dashboard *loggingadmin.DashboardsDetails) opst
 		ImageSpec: &opsterv1.ImageSpec{
 			Image: &dashboardsImage,
 		},
-		Replicas: pointer.Int32Deref(dashboard.Replicas, 1),
-		Enable:   pointer.BoolDeref(dashboard.Enabled, true),
+		Replicas: lo.FromPtrOr(dashboard.Replicas, 1),
+		Enable:   lo.FromPtrOr(dashboard.Enabled, true),
 		Resources: func() corev1.ResourceRequirements {
 			if dashboard.Resources == nil {
 				return corev1.ResourceRequirements{}

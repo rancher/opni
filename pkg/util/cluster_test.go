@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -68,11 +69,11 @@ var _ = Describe("Cluster Utils", Ordered, Label("unit", "slow"), func() {
 		})
 		It("should handle errors", func() {
 			_, err := util.NewK8sClient(util.ClientOptions{
-				Kubeconfig: util.Pointer("/dev/null"),
+				Kubeconfig: lo.ToPtr("/dev/null"),
 			})
 			Expect(err).To(HaveOccurred())
 			_, err = util.NewK8sClient(util.ClientOptions{
-				Kubeconfig: util.Pointer("/does/not/exist"),
+				Kubeconfig: lo.ToPtr("/does/not/exist"),
 			})
 			Expect(err).To(HaveOccurred())
 		})

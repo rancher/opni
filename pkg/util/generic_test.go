@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 
 	"github.com/rancher/opni/pkg/util"
 )
@@ -90,8 +91,8 @@ var _ = Describe("Generic Utils", Label("unit"), func() {
 				Field2 *int
 			}
 			ts := &testStruct{
-				Field1: util.Pointer("test"),
-				Field2: util.Pointer(1),
+				Field1: lo.ToPtr("test"),
+				Field2: lo.ToPtr(1),
 			}
 			ts2 := &testStruct{}
 			util.DeepCopyInto(ts2, ts)

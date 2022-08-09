@@ -9,10 +9,10 @@ import (
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/filter"
 	"github.com/rancher/opni/apis/v1beta2"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -562,8 +562,8 @@ func setOwnerReference(adapter *v1beta2.LogAdapter, object client.Object) {
 			Kind:               adapter.Kind,
 			Name:               adapter.Name,
 			UID:                adapter.UID,
-			Controller:         pointer.Bool(true),
-			BlockOwnerDeletion: pointer.Bool(true),
+			Controller:         lo.ToPtr(true),
+			BlockOwnerDeletion: lo.ToPtr(true),
 		},
 	})
 }

@@ -2,7 +2,7 @@ package gateway
 
 import (
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +29,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: util.Pointer[int32](1),
+			Replicas: lo.ToPtr[int32](1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
@@ -137,7 +137,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "opni-gateway",
 									},
-									DefaultMode: util.Pointer[int32](0400),
+									DefaultMode: lo.ToPtr[int32](0400),
 								},
 							},
 						},
@@ -146,7 +146,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  "opni-gateway-serving-cert",
-									DefaultMode: util.Pointer[int32](0400),
+									DefaultMode: lo.ToPtr[int32](0400),
 								},
 							},
 						},
@@ -155,7 +155,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  "cortex-client-cert-keys",
-									DefaultMode: util.Pointer[int32](0400),
+									DefaultMode: lo.ToPtr[int32](0400),
 									Items: []corev1.KeyToPath{
 										{
 											Key:  "tls.crt",
@@ -178,7 +178,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  "cortex-serving-cert-keys",
-									DefaultMode: util.Pointer[int32](0400),
+									DefaultMode: lo.ToPtr[int32](0400),
 									Items: []corev1.KeyToPath{
 										{
 											Key:  "ca.crt",
@@ -193,7 +193,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  "etcd-client-cert-keys",
-									DefaultMode: util.Pointer[int32](0400),
+									DefaultMode: lo.ToPtr[int32](0400),
 									Items: []corev1.KeyToPath{
 										{
 											Key:  "tls.crt",
@@ -216,7 +216,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName:  "etcd-serving-cert-keys",
-									DefaultMode: util.Pointer[int32](0400),
+									DefaultMode: lo.ToPtr[int32](0400),
 									Items: []corev1.KeyToPath{
 										{
 											Key:  "ca.crt",

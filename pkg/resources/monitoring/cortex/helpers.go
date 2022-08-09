@@ -5,7 +5,7 @@ import (
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -143,8 +143,8 @@ func (r *Reconciler) buildCortexDeployment(
 		Strategy: appsv1.DeploymentStrategy{
 			Type: appsv1.RollingUpdateDeploymentStrategyType,
 			RollingUpdate: &appsv1.RollingUpdateDeployment{
-				MaxSurge:       util.Pointer(intstr.FromInt(0)),
-				MaxUnavailable: util.Pointer(intstr.FromInt(1)),
+				MaxSurge:       lo.ToPtr(intstr.FromInt(0)),
+				MaxUnavailable: lo.ToPtr(intstr.FromInt(1)),
 			},
 		},
 		Template: r.cortexWorkloadPodTemplate(target, options),
@@ -291,7 +291,7 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 					LivenessProbe:  mtlsProbe,
 					ReadinessProbe: mtlsProbe,
 					SecurityContext: &corev1.SecurityContext{
-						ReadOnlyRootFilesystem: util.Pointer(true),
+						ReadOnlyRootFilesystem: lo.ToPtr(true),
 					},
 					Env: r.mc.Spec.Cortex.ExtraEnvVars,
 					VolumeMounts: append([]corev1.VolumeMount{
@@ -382,7 +382,7 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 						Secret: &corev1.SecretVolumeSource{
 							SecretName:  "cortex-serving-cert-keys",
 							Items:       tlsSecretItems,
-							DefaultMode: util.Pointer[int32](0644),
+							DefaultMode: lo.ToPtr[int32](0644),
 						},
 					},
 				},
@@ -392,7 +392,7 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 						Secret: &corev1.SecretVolumeSource{
 							SecretName:  "cortex-serving-cert-keys",
 							Items:       tlsSecretItems,
-							DefaultMode: util.Pointer[int32](0644),
+							DefaultMode: lo.ToPtr[int32](0644),
 						},
 					},
 				},
@@ -402,7 +402,7 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 						Secret: &corev1.SecretVolumeSource{
 							SecretName:  "etcd-client-cert-keys",
 							Items:       tlsSecretItems,
-							DefaultMode: util.Pointer[int32](0644),
+							DefaultMode: lo.ToPtr[int32](0644),
 						},
 					},
 				},
@@ -417,7 +417,7 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 									Path: "ca.crt",
 								},
 							},
-							DefaultMode: util.Pointer[int32](0644),
+							DefaultMode: lo.ToPtr[int32](0644),
 						},
 					},
 				},

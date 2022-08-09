@@ -13,6 +13,7 @@ import (
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/hyperparameters"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -23,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/utils/pointer"
 	"opensearch.opster.io/pkg/helpers"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -603,7 +603,7 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 	}
 	deployment.Spec.Template.Spec.RuntimeClassName = r.opniCluster.Spec.Services.GPUController.RuntimeClass
 	if features.DefaultMutableFeatureGate.Enabled(features.GPUOperator) && r.opniCluster.Spec.Services.GPUController.RuntimeClass == nil {
-		deployment.Spec.Template.Spec.RuntimeClassName = pointer.String("nvidia")
+		deployment.Spec.Template.Spec.RuntimeClassName = lo.ToPtr("nvidia")
 	}
 	deployment.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
 	deployment.Spec.Template.Spec.Containers = append(deployment.Spec.Template.Spec.Containers, r.gpuWorkerContainer())
@@ -611,7 +611,7 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 	// TODO: workaround for clone3 seccomp issues - remove when fixed
 	for i, container := range deployment.Spec.Template.Spec.Containers {
 		container.SecurityContext = &corev1.SecurityContext{
-			Privileged: pointer.Bool(true),
+			Privileged: lo.ToPtr(true),
 		}
 		deployment.Spec.Template.Spec.Containers[i] = container
 	}

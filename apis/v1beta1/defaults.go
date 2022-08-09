@@ -5,8 +5,8 @@ import (
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 )
 
 var namespacedKubeURL = "https://kubernetes.default:443"
@@ -27,12 +27,12 @@ func enableSecuritySettings(spec *LogAdapterSpec) {
 
 	spec.FluentConfig.Fluentbit.Security.PodSecurityPolicyCreate = true
 	spec.RootFluentConfig.Fluentbit.Security.PodSecurityPolicyCreate = true
-	spec.FluentConfig.Fluentbit.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
-	spec.RootFluentConfig.Fluentbit.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
+	spec.FluentConfig.Fluentbit.Security.RoleBasedAccessControlCreate = lo.ToPtr(true)
+	spec.RootFluentConfig.Fluentbit.Security.RoleBasedAccessControlCreate = lo.ToPtr(true)
 	spec.FluentConfig.Fluentd.Security.PodSecurityPolicyCreate = true
 	spec.RootFluentConfig.Fluentd.Security.PodSecurityPolicyCreate = true
-	spec.FluentConfig.Fluentd.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
-	spec.RootFluentConfig.Fluentd.Security.RoleBasedAccessControlCreate = pointer.Bool(true)
+	spec.FluentConfig.Fluentd.Security.RoleBasedAccessControlCreate = lo.ToPtr(true)
+	spec.RootFluentConfig.Fluentd.Security.RoleBasedAccessControlCreate = lo.ToPtr(true)
 	if spec.SELinuxEnabled {
 		spec.RootFluentConfig.Fluentbit.Security.SecurityContext = &v1.SecurityContext{
 			SELinuxOptions: &v1.SELinuxOptions{
@@ -49,7 +49,7 @@ func setRootLoggingSettings(spec *LogAdapterSpec) {
 			&loggingv1beta1.VolumeMount{
 				Source:      spec.ContainerLogDir,
 				Destination: spec.ContainerLogDir,
-				ReadOnly:    pointer.Bool(true),
+				ReadOnly:    lo.ToPtr(true),
 			},
 		)
 	}
@@ -104,7 +104,7 @@ func (p LogProvider) ApplyDefaults(a *LogAdapter) {
 			&loggingv1beta1.VolumeMount{
 				Source:      logDir,
 				Destination: logDir,
-				ReadOnly:    pointer.Bool(true),
+				ReadOnly:    lo.ToPtr(true),
 			},
 		)
 		a.Spec.RootFluentConfig.Fluentbit.FilterKubernetes.KubeURL = namespacedKubeURL

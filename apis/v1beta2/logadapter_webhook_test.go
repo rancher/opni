@@ -7,9 +7,9 @@ import (
 	"github.com/go-test/deep"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -155,7 +155,7 @@ var _ = Describe("LogadapterWebhook", Label("controller"), func() {
 				&loggingv1beta1.VolumeMount{
 					Source:      "/path/to/logdir",
 					Destination: "/path/to/logdir",
-					ReadOnly:    pointer.Bool(true),
+					ReadOnly:    lo.ToPtr(true),
 				},
 			))
 		})

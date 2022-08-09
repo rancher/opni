@@ -11,11 +11,11 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/opensearch"
 	esapiext "github.com/rancher/opni/pkg/util/opensearch/types"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/utils/pointer"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -160,13 +160,13 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 
 	var policies []interface{}
 	if oldVersion {
-		if pointer.BoolDeref(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
+		if lo.FromPtrOr(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
 			policies = append(policies, oldOpniLogPolicy)
 		}
 		policies = append(policies, oldOpniDrainModelStatusPolicy)
 		policies = append(policies, oldOpniMetricPolicy)
 	} else {
-		if pointer.BoolDeref(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
+		if lo.FromPtrOr(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
 			policies = append(policies, OpniLogPolicy)
 		}
 		policies = append(policies, opniDrainModelStatusPolicy)
@@ -195,7 +195,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		opniMetricTemplate,
 	}
 
-	if pointer.BoolDeref(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
+	if lo.FromPtrOr(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
 		templates = append(templates, OpniLogTemplate)
 	}
 
@@ -246,7 +246,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		metricIndexPrefix:      metricIndexAlias,
 	}
 
-	if pointer.BoolDeref(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
+	if lo.FromPtrOr(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
 		prefixes[LogIndexPrefix] = LogIndexAlias
 	}
 

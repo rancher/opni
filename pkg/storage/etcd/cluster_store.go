@@ -6,13 +6,14 @@ import (
 	"path"
 	"strconv"
 
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/storage"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/client-go/util/retry"
+
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/storage"
 )
 
 func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) error {
@@ -21,8 +22,6 @@ func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) 
 	if err != nil {
 		return fmt.Errorf("failed to marshal cluster: %w", err)
 	}
-	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
-	defer ca()
 	resp, err := e.Client.Put(ctx, path.Join(e.Prefix, clusterKey, cluster.Id), string(data))
 	if err != nil {
 		return fmt.Errorf("failed to create cluster: %w", err)
@@ -32,8 +31,6 @@ func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) 
 }
 
 func (e *EtcdStore) DeleteCluster(ctx context.Context, ref *corev1.Reference) error {
-	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
-	defer ca()
 	resp, err := e.Client.Delete(ctx, path.Join(e.Prefix, clusterKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete cluster: %w", err)
@@ -49,8 +46,6 @@ func (e *EtcdStore) ListClusters(
 	matchLabels *corev1.LabelSelector,
 	matchOptions corev1.MatchOptions,
 ) (*corev1.ClusterList, error) {
-	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
-	defer ca()
 	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, clusterKey),
 		clientv3.WithPrefix(),
 		clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend))
@@ -79,8 +74,6 @@ func (e *EtcdStore) ListClusters(
 }
 
 func (e *EtcdStore) GetCluster(ctx context.Context, ref *corev1.Reference) (*corev1.Cluster, error) {
-	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
-	defer ca()
 	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, clusterKey, ref.Id))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster: %w", err)
@@ -103,8 +96,6 @@ func (e *EtcdStore) UpdateCluster(
 ) (*corev1.Cluster, error) {
 	var retCluster *corev1.Cluster
 	err := retry.OnError(defaultBackoff, isRetryErr, func() error {
-		ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
-		defer ca()
 		txn := e.Client.Txn(ctx)
 		key := path.Join(e.Prefix, clusterKey, ref.Id)
 		cluster, err := e.GetCluster(ctx, ref)
@@ -180,6 +171,11 @@ func (e *EtcdStore) WatchCluster(
 					default:
 						continue
 					}
+					if ev.Kv.Version == 1 {
+						// ignore the initial create event
+						continue
+					}
+
 					if ev.Kv.Version == 0 {
 						// deleted
 						current = nil
@@ -191,12 +187,15 @@ func (e *EtcdStore) WatchCluster(
 							continue
 						}
 					}
+
+					// if we get here, version is > 1 or 0, therefore PrevKv will always be set
 					if err := protojson.Unmarshal(ev.PrevKv.Value, previous); err != nil {
 						e.Logger.With(
 							zap.Error(err),
 						).Error("error unmarshaling cluster")
 						continue
 					}
+
 					eventC <- storage.WatchEvent[*corev1.Cluster]{
 						EventType: eventType,
 						Current:   current,

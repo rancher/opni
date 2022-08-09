@@ -2,16 +2,21 @@ package crds
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rancher/opni/apis/v1beta2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/rancher/opni/pkg/util"
 )
 
 var (
@@ -107,9 +112,50 @@ func (c *CRDStore) ListClusters(ctx context.Context, matchLabels *corev1.LabelSe
 	return clusters, nil
 }
 
-func (e *CRDStore) WatchCluster(
+func (c *CRDStore) WatchCluster(
 	ctx context.Context,
 	ref *corev1.Cluster,
 ) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
-	panic("not implemented") // todo
+	watcher, err := c.client.Watch(ctx, &v1beta2.ClusterList{}, &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("metadata.name", ref.Id),
+	})
+	if err != nil {
+		return nil, err
+	}
+	eventC := make(chan storage.WatchEvent[*corev1.Cluster], 10)
+
+	go func() {
+		<-ctx.Done()
+		watcher.Stop()
+	}()
+	go func() {
+		existing := util.ProtoClone(ref)
+		for event := range watcher.ResultChan() {
+			switch event.Type {
+			case watch.Added:
+				existing = util.ProtoClone(event.Object.(*v1beta2.Cluster).Spec)
+			case watch.Modified:
+				current := util.ProtoClone(event.Object.(*v1beta2.Cluster).Spec)
+				eventC <- storage.WatchEvent[*corev1.Cluster]{
+					EventType: storage.WatchEventPut,
+					Current:   util.ProtoClone(current),
+					Previous:  util.ProtoClone(existing),
+				}
+				existing = current
+			case watch.Deleted:
+				eventC <- storage.WatchEvent[*corev1.Cluster]{
+					EventType: storage.WatchEventDelete,
+					Current:   nil,
+					Previous:  util.ProtoClone(existing),
+				}
+				existing = nil
+			default:
+				c.logger.Error(fmt.Sprintf("unexpected event type received from watcher: %v", event.Type))
+				close(eventC)
+				return
+			}
+		}
+	}()
+
+	return eventC, nil
 }

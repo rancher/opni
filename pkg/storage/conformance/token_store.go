@@ -2,13 +2,12 @@ package conformance
 
 import (
 	"context"
-	"runtime"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testutil"
@@ -17,14 +16,11 @@ import (
 
 func TokenStoreTestSuite[T storage.TokenStore](
 	tsF future.Future[T],
-	errCtrlF future.Future[ErrorController],
 ) func() {
 	return func() {
 		var ts T
-		var errCtrl ErrorController
 		BeforeAll(func() {
 			ts = tsF.Get()
-			errCtrl = errCtrlF.Get()
 		})
 		It("should initially have no tokens", func() {
 			tokens, err := ts.ListTokens(context.Background())
@@ -222,60 +218,6 @@ func TokenStoreTestSuite[T storage.TokenStore](
 				tk, err = ts.GetToken(context.Background(), tk.Reference())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(tk.GetMetadata().GetUsageCount()).To(Equal(int64(count)))
-			})
-		})
-		Context("error handling", func() {
-			if runtime.GOOS != "linux" {
-				Skip("skipping tests on non-linux OS")
-			}
-			It("should handle errors when creating tokens", func() {
-				errCtrl.EnableErrors()
-				defer errCtrl.DisableErrors()
-				Eventually(func() error {
-					_, err := ts.CreateToken(context.Background(), time.Hour)
-					return err
-				}).Should(HaveOccurred())
-			})
-
-			It("should handle errors when getting tokens", func() {
-				tk, err := ts.CreateToken(context.Background(), time.Hour)
-				Expect(err).NotTo(HaveOccurred())
-
-				errCtrl.EnableErrors()
-				defer errCtrl.DisableErrors()
-				Eventually(func() error {
-					_, err = ts.GetToken(context.Background(), tk.Reference())
-					return err
-				}).Should(HaveOccurred())
-			})
-
-			It("should handle errors when listing tokens", func() {
-				errCtrl.EnableErrors()
-				defer errCtrl.DisableErrors()
-				Eventually(func() error {
-					_, err := ts.ListTokens(context.Background())
-					return err
-				}).Should(HaveOccurred())
-			})
-
-			It("should handle errors when updating tokens", func() {
-				tk, err := ts.CreateToken(context.Background(), time.Hour)
-				Expect(err).NotTo(HaveOccurred())
-
-				errCtrl.EnableErrors()
-				defer errCtrl.DisableErrors()
-				Eventually(func() error {
-					_, err = ts.UpdateToken(context.Background(), tk.Reference(),
-						storage.NewIncrementUsageCountMutator())
-					return err
-				}).Should(HaveOccurred())
-			})
-
-			It("should handle errors when deleting tokens", func() {
-				err := ts.DeleteToken(context.Background(), &corev1.Reference{
-					Id: uuid.NewString(),
-				})
-				Expect(err).To(HaveOccurred())
 			})
 		})
 	}

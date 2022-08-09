@@ -7,14 +7,15 @@ import (
 	"path"
 	"time"
 
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
-	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (
@@ -50,8 +51,7 @@ type EtcdStore struct {
 var _ storage.Backend = (*EtcdStore)(nil)
 
 type EtcdStoreOptions struct {
-	Prefix         string
-	CommandTimeout time.Duration
+	Prefix string
 }
 
 type EtcdStoreOption func(*EtcdStoreOptions)
@@ -68,16 +68,8 @@ func WithPrefix(prefix string) EtcdStoreOption {
 	}
 }
 
-func WithCommandTimeout(timeout time.Duration) EtcdStoreOption {
-	return func(o *EtcdStoreOptions) {
-		o.CommandTimeout = timeout
-	}
-}
-
 func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...EtcdStoreOption) *EtcdStore {
-	options := EtcdStoreOptions{
-		CommandTimeout: 5 * time.Second,
-	}
+	options := EtcdStoreOptions{}
 	options.apply(opts...)
 	lg := logger.New(logger.WithLogLevel(zap.WarnLevel)).Named("etcd")
 	var tlsConfig *tls.Config

@@ -2,7 +2,6 @@ package conformance
 
 import (
 	"context"
-	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testutil"
@@ -19,14 +19,11 @@ import (
 
 func ClusterStoreTestSuite[T storage.ClusterStore](
 	tsF future.Future[T],
-	errCtrlF future.Future[ErrorController],
 ) func() {
 	return func() {
 		var ts T
-		var errCtrl ErrorController
 		BeforeAll(func() {
 			ts = tsF.Get()
-			errCtrl = errCtrlF.Get()
 		})
 		It("should initially have no clusters", func() {
 			clusters, err := ts.ListClusters(context.Background(), &corev1.LabelSelector{}, 0)
@@ -247,78 +244,63 @@ func ClusterStoreTestSuite[T storage.ClusterStore](
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cluster.Metadata.Labels).To(HaveKeyWithValue("value", strconv.Itoa(count)))
 		})
-		Context("error handling", func() {
-			if runtime.GOOS != "linux" {
-				Skip("skipping tests on non-linux OS")
+		It("should watch for changes to a cluster", func() {
+			cluster := &corev1.Cluster{
+				Id: uuid.NewString(),
+				Metadata: &corev1.ClusterMetadata{
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
 			}
-			It("should handle errors when creating clusters", func() {
-				errCtrl.EnableErrors()
-				defer errCtrl.DisableErrors()
-				Eventually(func() error {
-					err := ts.CreateCluster(context.Background(), &corev1.Cluster{Id: uuid.NewString()})
-					return err
-				}).Should(HaveOccurred())
-			})
+			By("creating a cluster")
+			err := ts.CreateCluster(context.Background(), cluster)
+			Expect(err).NotTo(HaveOccurred())
 
-			It("should handle errors when getting clusters", func() {
-				_, err := ts.GetCluster(context.Background(), &corev1.Reference{
-					Id: uuid.NewString(),
-				})
-				Expect(err).To(HaveOccurred())
+			By("starting a watch")
+			wc, err := ts.WatchCluster(context.Background(), cluster)
+			Expect(err).NotTo(HaveOccurred())
 
-				cluster := &corev1.Cluster{Id: uuid.NewString()}
-				err = ts.CreateCluster(context.Background(), cluster)
-				Expect(err).NotTo(HaveOccurred())
+			By("ensuring no updates are received")
+			Consistently(wc).ShouldNot(Receive())
 
-				errCtrl.EnableErrors()
-				defer errCtrl.DisableErrors()
-				Eventually(func() error {
-					_, err = ts.GetCluster(context.Background(), cluster.Reference())
-					return err
-				}).Should(HaveOccurred())
-			})
+			By("updating the cluster")
+			cluster, err = ts.UpdateCluster(context.Background(), cluster.Reference(),
+				func(c *corev1.Cluster) {
+					c.Metadata.Labels["foo"] = "baz"
+				},
+			)
+			Expect(err).NotTo(HaveOccurred())
 
-			It("should handle errors when listing clusters", func() {
-				errCtrl.EnableErrors()
-				defer errCtrl.DisableErrors()
-				Eventually(func() error {
-					_, err := ts.ListClusters(context.Background(), nil, 0)
-					return err
-				}).Should(HaveOccurred())
-			})
+			By("ensuring a Put update is received")
+			select {
+			case event := <-wc:
+				Expect(event.EventType).To(Equal(storage.WatchEventPut))
+				Expect(event.Previous.Metadata.Labels).To(Equal(map[string]string{
+					"foo": "bar",
+				}))
+				Expect(event.Current.Metadata.Labels).To(Equal(map[string]string{
+					"foo": "baz",
+				}))
+			case <-time.After(5 * time.Second):
+				Fail("timed out waiting for watch event")
+			}
 
-			It("should handle errors when updating clusters", func() {
-				_, err := ts.UpdateCluster(context.Background(), &corev1.Reference{
-					Id: uuid.NewString(),
-				}, func(c *corev1.Cluster) {})
-				Expect(err).To(HaveOccurred())
+			By("deleting the cluster")
+			err = ts.DeleteCluster(context.Background(), cluster.Reference())
+			Expect(err).NotTo(HaveOccurred())
 
-				cluster := &corev1.Cluster{Id: uuid.NewString()}
-				err = ts.CreateCluster(context.Background(), cluster)
-				Expect(err).NotTo(HaveOccurred())
-
-				errCtrl.EnableErrors()
-				defer errCtrl.DisableErrors()
-				Eventually(func() error {
-					_, err = ts.UpdateCluster(context.Background(), cluster.Reference(), func(c *corev1.Cluster) {
-						if c.Metadata == nil {
-							c.Metadata = &corev1.ClusterMetadata{}
-						}
-						if c.Metadata.Labels == nil {
-							c.Metadata.Labels = map[string]string{}
-						}
-						c.Metadata.Labels["foo"] = "bar"
-					})
-					return err
-				}).Should(HaveOccurred())
-			})
-
-			It("should handle errors when deleting clusters", func() {
-				err := ts.DeleteCluster(context.Background(), &corev1.Reference{
-					Id: uuid.NewString(),
-				})
-				Expect(err).To(HaveOccurred())
-			})
+			By("ensuring a Delete update is received")
+			select {
+			case event := <-wc:
+				Expect(event.EventType).To(Equal(storage.WatchEventDelete))
+				Expect(event.Previous.Metadata.Labels).To(Equal(map[string]string{
+					"foo": "baz",
+				}))
+				Expect(event.Current).To(BeNil())
+			case <-time.After(5 * time.Second):
+				Fail("timed out waiting for watch event")
+			}
 		})
 	}
 }

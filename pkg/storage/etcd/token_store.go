@@ -6,22 +6,21 @@ import (
 	"path"
 	"time"
 
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/storage"
-	"github.com/rancher/opni/pkg/tokens"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/client-go/util/retry"
+
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/tokens"
 )
 
 func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...storage.TokenCreateOption) (*corev1.BootstrapToken, error) {
 	options := storage.NewTokenCreateOptions()
 	options.Apply(opts...)
 
-	opCtx, ca := context.WithTimeout(ctx, e.CommandTimeout)
-	defer ca()
-	lease, err := e.Client.Grant(opCtx, int64(ttl.Seconds()))
+	lease, err := e.Client.Grant(ctx, int64(ttl.Seconds()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create lease: %w", err)
 	}
@@ -36,9 +35,7 @@ func (e *EtcdStore) CreateToken(ctx context.Context, ttl time.Duration, opts ...
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal token: %w", err)
 	}
-	opCtx, ca2 := context.WithTimeout(opCtx, e.CommandTimeout)
-	defer ca2()
-	_, err = e.Client.Put(opCtx, path.Join(e.Prefix, tokensKey, token.TokenID), string(data),
+	_, err = e.Client.Put(ctx, path.Join(e.Prefix, tokensKey, token.TokenID), string(data),
 		clientv3.WithLease(lease.ID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token %w", err)
@@ -61,8 +58,6 @@ func (e *EtcdStore) DeleteToken(ctx context.Context, ref *corev1.Reference) erro
 			}
 		}(t.Metadata.LeaseID)
 	}
-	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
-	defer ca()
 	resp, err := e.Client.Delete(ctx, path.Join(e.Prefix, tokensKey, ref.Id))
 	if err != nil {
 		return fmt.Errorf("failed to delete token: %w", err)
@@ -79,8 +74,6 @@ func (e *EtcdStore) GetToken(ctx context.Context, ref *corev1.Reference) (*corev
 }
 
 func (e *EtcdStore) getToken(ctx context.Context, ref *corev1.Reference) (*corev1.BootstrapToken, int64, error) {
-	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
-	defer ca()
 	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, tokensKey, ref.Id))
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get token: %w", err)
@@ -100,8 +93,6 @@ func (e *EtcdStore) getToken(ctx context.Context, ref *corev1.Reference) (*corev
 }
 
 func (e *EtcdStore) ListTokens(ctx context.Context) ([]*corev1.BootstrapToken, error) {
-	ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
-	defer ca()
 	resp, err := e.Client.Get(ctx, path.Join(e.Prefix, tokensKey), clientv3.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tokens: %w", err)
@@ -123,8 +114,6 @@ func (e *EtcdStore) ListTokens(ctx context.Context) ([]*corev1.BootstrapToken, e
 func (e *EtcdStore) UpdateToken(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.BootstrapToken]) (*corev1.BootstrapToken, error) {
 	var retToken *corev1.BootstrapToken
 	err := retry.OnError(defaultBackoff, isRetryErr, func() error {
-		ctx, ca := context.WithTimeout(ctx, e.CommandTimeout)
-		defer ca()
 		txn := e.Client.Txn(ctx)
 		key := path.Join(e.Prefix, tokensKey, ref.Id)
 		token, version, err := e.getToken(ctx, ref)

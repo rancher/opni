@@ -123,6 +123,8 @@ type EnvironmentOptions struct {
 	enableGateway        bool
 	enableCortex         bool
 	enableRealtimeServer bool
+	delayStartEtcd       chan struct{}
+	delayStartCortex     chan struct{}
 	defaultAgentOpts     []StartAgentOption
 	agentIdSeed          int64
 }
@@ -162,6 +164,18 @@ func WithEnableRealtimeServer(enable bool) EnvironmentOption {
 func WithDefaultAgentOpts(opts ...StartAgentOption) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.defaultAgentOpts = opts
+	}
+}
+
+func WithDelayStartEtcd(delay chan struct{}) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.delayStartEtcd = delay
+	}
+}
+
+func WithDelayStartCortex(delay chan struct{}) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.delayStartCortex = delay
 	}
 }
 
@@ -287,13 +301,35 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	os.WriteFile(path.Join(e.tempDir, "prometheus", "sample-rules.yaml"), TestData("prometheus/sample-rules.yaml"), 0644)
 
 	if options.enableEtcd {
-		e.startEtcd()
+		if options.delayStartEtcd != nil {
+			go func() {
+				select {
+				case <-e.ctx.Done():
+					return
+				case <-options.delayStartEtcd:
+				}
+				e.startEtcd()
+			}()
+		} else {
+			e.startEtcd()
+		}
 	}
 	if options.enableGateway {
 		e.startGateway()
 	}
 	if options.enableCortex {
-		e.startCortex()
+		if options.delayStartCortex != nil {
+			go func() {
+				select {
+				case <-e.ctx.Done():
+					return
+				case <-options.delayStartCortex:
+				}
+				e.startCortex()
+			}()
+		} else {
+			e.startCortex()
+		}
 	}
 	if options.enableRealtimeServer {
 		e.startRealtimeServer()

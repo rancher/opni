@@ -7,8 +7,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/rancher/opni/pkg/storage"
 	clientv3 "go.etcd.io/etcd/client/v3"
+
+	"github.com/rancher/opni/pkg/storage"
 )
 
 type genericKeyValueStore struct {
@@ -21,8 +22,6 @@ func (s *genericKeyValueStore) Put(ctx context.Context, key string, value []byte
 	if err := validateKey(key); err != nil {
 		return err
 	}
-	ctx, ca := context.WithTimeout(ctx, s.CommandTimeout)
-	defer ca()
 	_, err := s.client.Put(ctx, path.Join(s.prefix, key), base64.StdEncoding.EncodeToString(value))
 	if err != nil {
 		return err
@@ -34,8 +33,6 @@ func (s *genericKeyValueStore) Get(ctx context.Context, key string) ([]byte, err
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
-	ctx, ca := context.WithTimeout(ctx, s.CommandTimeout)
-	defer ca()
 	resp, err := s.client.Get(ctx, path.Join(s.prefix, key))
 	if err != nil {
 		return nil, err
@@ -50,8 +47,6 @@ func (s *genericKeyValueStore) Delete(ctx context.Context, key string) error {
 	if err := validateKey(key); err != nil {
 		return err
 	}
-	ctx, ca := context.WithTimeout(ctx, s.CommandTimeout)
-	defer ca()
 	resp, err := s.client.Delete(ctx, path.Join(s.prefix, key))
 	if err != nil {
 		return err
@@ -63,8 +58,6 @@ func (s *genericKeyValueStore) Delete(ctx context.Context, key string) error {
 }
 
 func (s *genericKeyValueStore) ListKeys(ctx context.Context, prefix string) ([]string, error) {
-	ctx, ca := context.WithTimeout(ctx, s.CommandTimeout)
-	defer ca()
 	resp, err := s.client.Get(ctx, path.Join(s.prefix, prefix),
 		clientv3.WithPrefix(),
 		clientv3.WithKeysOnly(),

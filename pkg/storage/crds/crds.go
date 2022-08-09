@@ -4,19 +4,20 @@ import (
 	"os"
 	"time"
 
+	"go.uber.org/zap"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/rancher/opni/apis"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
-	"go.uber.org/zap"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type CRDStore struct {
 	CRDStoreOptions
-	client client.Client
+	client client.WithWatch
 	logger *zap.SugaredLogger
 }
 
@@ -74,7 +75,7 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	options.restConfig.Timeout = options.commandTimeout
 	return &CRDStore{
 		CRDStoreOptions: options,
-		client: util.Must(client.New(options.restConfig, client.Options{
+		client: util.Must(client.NewWithWatch(options.restConfig, client.Options{
 			Scheme: apis.NewScheme(),
 		})),
 		logger: lg,

@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"path"
 
+	clientv3 "go.etcd.io/etcd/client/v3"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type etcdKeyringStore struct {
@@ -19,8 +20,6 @@ type etcdKeyringStore struct {
 }
 
 func (ks *etcdKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) error {
-	ctx, ca := context.WithTimeout(ctx, ks.CommandTimeout)
-	defer ca()
 	k, err := keyring.Marshal()
 	if err != nil {
 		return fmt.Errorf("failed to marshal keyring: %w", err)
@@ -33,8 +32,6 @@ func (ks *etcdKeyringStore) Put(ctx context.Context, keyring keyring.Keyring) er
 }
 
 func (ks *etcdKeyringStore) Get(ctx context.Context) (keyring.Keyring, error) {
-	ctx, ca := context.WithTimeout(ctx, ks.CommandTimeout)
-	defer ca()
 	resp, err := ks.client.Get(ctx, path.Join(ks.prefix, keyringKey, ks.ref.Id))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get keyring: %w", err)

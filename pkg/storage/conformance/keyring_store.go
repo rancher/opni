@@ -10,13 +10,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/samber/lo"
 )
 
 func pkpKey(pinCount int) *keyring.PKPKey {
@@ -61,18 +62,15 @@ func (*testInvalidKeyring) Merge(keyring.Keyring) keyring.Keyring {
 
 func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
 	tsF future.Future[T],
-	errCtrlF future.Future[ErrorController],
 ) func() {
 	return func() {
 		var ts storage.KeyringStore
-		var errCtrl ErrorController
 		BeforeAll(func() {
 			var err error
 			ts, err = tsF.Get().KeyringStore("test", &corev1.Reference{
 				Id: "test",
 			})
 			Expect(err).NotTo(HaveOccurred())
-			errCtrl = errCtrlF.Get()
 		})
 		It("should initially be empty", func() {
 			_, err := ts.Get(context.Background())
@@ -130,18 +128,6 @@ func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
 			kr2, err := ts.Get(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kr2).To(Equal(kr))
-		})
-		It("should handle errors", func() {
-			errCtrl.EnableErrors()
-			defer errCtrl.DisableErrors()
-			Eventually(func() error {
-				err := ts.Put(context.Background(), keyring.New())
-				return err
-			}).Should(HaveOccurred())
-			Eventually(func() error {
-				_, err := ts.Get(context.Background())
-				return err
-			}).Should(HaveOccurred())
 		})
 	}
 }

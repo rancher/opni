@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/future"
@@ -14,14 +14,11 @@ import (
 
 func RBACStoreTestSuite[T storage.RBACStore](
 	tsF future.Future[T],
-	errCtrlF future.Future[ErrorController],
 ) func() {
 	return func() {
 		var ts T
-		var errCtrl ErrorController
 		BeforeAll(func() {
 			ts = tsF.Get()
-			errCtrl = errCtrlF.Get()
 		})
 		Context("Roles", func() {
 			It("should initially have no roles", func() {
@@ -63,53 +60,6 @@ func RBACStoreTestSuite[T storage.RBACStore](
 				Expect(err).NotTo(HaveOccurred())
 				Expect(all.Items).To(BeEmpty())
 			})
-			Context("error handling", func() {
-				It("should handle errors when creating a role", func() {
-					errCtrl.EnableErrors()
-					defer errCtrl.DisableErrors()
-					Eventually(func() error {
-						err := ts.CreateRole(context.Background(), &corev1.Role{
-							Id: uuid.NewString(),
-						})
-						return err
-					}).Should(HaveOccurred())
-
-				})
-				It("should handle errors when getting a role", func() {
-					_, err := ts.GetRole(context.Background(), &corev1.Reference{
-						Id: uuid.NewString(),
-					})
-					Expect(err).To(HaveOccurred())
-
-					id := uuid.NewString()
-					err = ts.CreateRole(context.Background(), &corev1.Role{
-						Id: id,
-					})
-					Expect(err).NotTo(HaveOccurred())
-
-					errCtrl.EnableErrors()
-					defer errCtrl.DisableErrors()
-					Eventually(func() error {
-						_, err = ts.GetRole(context.Background(), &corev1.Reference{
-							Id: id,
-						})
-						return err
-					}).Should(HaveOccurred())
-				})
-				It("should handle errors when listing roles", func() {
-					errCtrl.EnableErrors()
-					defer errCtrl.DisableErrors()
-					Eventually(func() error {
-						_, err := ts.ListRoles(context.Background())
-						return err
-					}).Should(HaveOccurred())
-				})
-				It("should handle errors when deleting a role", func() {
-					Expect(ts.DeleteRole(context.Background(), &corev1.Reference{
-						Id: uuid.NewString(),
-					})).NotTo(Succeed())
-				})
-			})
 		})
 		Context("Role Bindings", func() {
 			It("should initially have no role bindings", func() {
@@ -122,10 +72,11 @@ func RBACStoreTestSuite[T storage.RBACStore](
 					rb := &corev1.RoleBinding{
 						Id: "foo",
 					}
-					err := ts.CreateRoleBinding(context.Background(), rb)
-					Expect(err).NotTo(HaveOccurred())
+					Eventually(func() error {
+						return ts.CreateRoleBinding(context.Background(), rb)
+					}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
-					rb, err = ts.GetRoleBinding(context.Background(), rb.Reference())
+					rb, err := ts.GetRoleBinding(context.Background(), rb.Reference())
 					Expect(err).NotTo(HaveOccurred())
 					Expect(rb).NotTo(BeNil())
 					Expect(rb.Id).To(Equal("foo"))
@@ -149,50 +100,6 @@ func RBACStoreTestSuite[T storage.RBACStore](
 				all, err = ts.ListRoleBindings(context.Background())
 				Expect(err).NotTo(HaveOccurred())
 				Expect(all.Items).To(BeEmpty())
-			})
-			Context("error handling", func() {
-				It("should handle errors when creating a role binding", func() {
-					errCtrl.EnableErrors()
-					defer errCtrl.DisableErrors()
-					err := ts.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-						Id: uuid.NewString(),
-					})
-					Expect(err).To(HaveOccurred())
-				})
-				It("should handle errors when getting a role binding", func() {
-					_, err := ts.GetRoleBinding(context.Background(), &corev1.Reference{
-						Id: uuid.NewString(),
-					})
-					Expect(err).To(HaveOccurred())
-
-					id := uuid.NewString()
-					err = ts.CreateRoleBinding(context.Background(), &corev1.RoleBinding{
-						Id: id,
-					})
-					Expect(err).NotTo(HaveOccurred())
-
-					errCtrl.EnableErrors()
-					defer errCtrl.DisableErrors()
-					Eventually(func() error {
-						_, err := ts.GetRoleBinding(context.Background(), &corev1.Reference{
-							Id: id,
-						})
-						return err
-					}).Should(HaveOccurred())
-				})
-				It("should handle errors when listing role bindings", func() {
-					errCtrl.EnableErrors()
-					defer errCtrl.DisableErrors()
-					Eventually(func() error {
-						_, err := ts.ListRoleBindings(context.Background())
-						return err
-					}).Should(HaveOccurred())
-				})
-				It("should handle errors when deleting a role binding", func() {
-					Expect(ts.DeleteRoleBinding(context.Background(), &corev1.Reference{
-						Id: uuid.NewString(),
-					})).NotTo(Succeed())
-				})
 			})
 		})
 	}

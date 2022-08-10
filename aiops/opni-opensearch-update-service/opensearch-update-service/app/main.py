@@ -23,10 +23,11 @@ script_for_anomaly = (
     "ctx._source.anomaly_predicted_count += 1; ctx._source.opnilog_anomaly = true;"
 )
 
-async def doc_generator(df):
+async def doc_generator(df, index, op_type="index"):
     main_doc_keywords = {"_op_type", "_index", "_id", "doc"}
-    df["_op_type"] = "update"
-    df["_index"] = "logs"
+    if op_type != "index":
+        df["_op_type"] = op_type
+    df["_index"] = index
     df.rename(columns={"log_id": "_id"}, inplace=True)
     for index, document in df.iterrows():
         doc_dict = document.to_dict()
@@ -37,8 +38,6 @@ async def doc_generator(df):
                 doc_dict["doc"][k] = doc_dict[k]
                 del doc_dict[k]
         yield doc_dict
-
-
 
 async def setup_es_connection():
     ES_ENDPOINT = os.environ["ES_ENDPOINT"]
@@ -66,11 +65,17 @@ async def setup_es_connection():
     )
 
 
-async def consume_logs(nw, inferenced_logs_queue):
+async def consume_logs(nw, inferenced_logs_queue, template_logs_queue):
     async def subscribe_handler(msg):
         data = msg.data
         logs_df = pd.DataFrame(PayloadList().parse(data).items)
         await inferenced_logs_queue.put(logs_df)
+
+    async def template_subscribe_handler(msg):
+        data = msg.data
+        logging.info(data)
+        logs_df = pd.DataFrame(PayloadList().parse(data).items)
+        await template_logs_queue.put(logs_df)
 
     await nw.subscribe(
         nats_subject="inferenced_logs",
@@ -79,12 +84,50 @@ async def consume_logs(nw, inferenced_logs_queue):
         subscribe_handler=subscribe_handler,
     )
 
+    await nw.subscribe(
+        nats_subject="templates_index",
+        nats_queue="workers",
+        payload_queue=template_logs_queue,
+        subscribe_handler=template_subscribe_handler,
+    )
+
+async def receive_template_data(queue):
+    es = await setup_es_connection()
+    while True:
+        df = await queue.get()
+        await update_template_data(es, df)
+
 
 async def receive_logs(queue):
     es = await setup_es_connection()
     while True:
         df = await queue.get()
         await update_logs(es, df)
+
+async def update_template_data(es, df):
+    try:
+        logging.info(df)
+        async for ok, result in async_streaming_bulk(
+                es,
+                doc_generator(df[["_id", "log", "template_matched", "template_cluster_id"]], "templates"),
+                max_retries=1,
+                initial_backoff=1,
+                request_timeout=5,
+        ):
+            action, result = result.popitem()
+            if not ok:
+                logging.error("failed to {} document {}".format())
+            logging.info("Successfully updated templates data.")
+    except (BulkIndexError, ConnectionTimeout, TimeoutError) as exception:
+        logging.error(
+            "Failed to index data. Re-adding to logs_to_update_in_elasticsearch queue"
+        )
+        logging.error(exception)
+    except TransportError as exception:
+        logging.info(f"Error in async_streaming_bulk {exception}")
+        if exception.status_code == "N/A":
+            logging.info("Elasticsearch connection error")
+            es = await setup_es_connection()
 
 async def update_logs(es, df):
     # This function will be updating Opensearch logs which were inferred on by the DRAIN model.
@@ -102,7 +145,9 @@ async def update_logs(es, df):
                 async for ok, result in async_streaming_bulk(
                         es,
                         doc_generator(
-                            anomaly_level_df[model_keywords_dict[model_name]]
+                            anomaly_level_df[model_keywords_dict[model_name]],
+                            "logs",
+                            "update"
                         ),
                         max_retries=1,
                         initial_backoff=1,
@@ -122,6 +167,19 @@ async def update_logs(es, df):
                     logging.info("Elasticsearch connection error")
                     es = await setup_es_connection()
 
+async def create_templates_index():
+    es = await setup_es_connection()
+    try:
+        exists = await es.indices.exists("templates")
+        if not exists:
+            await es.indices.create(index="templates")
+
+    except TransportError as exception:
+        logging.info(f"Error in es indices {exception}")
+        if exception.status_code == "N/A":
+            logging.info("Elasticsearch connection error")
+
+
 async def init_nats():
     from opni_nats import NatsWrapper
     logging.info("Attempting to connect to NATS")
@@ -133,14 +191,18 @@ async def init_nats():
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     processed_logs_queue = asyncio.Queue(loop=loop)
-    task = loop.create_task(init_nats())
-    nw = loop.run_until_complete(task)
-    nats_consumer_coroutine = consume_logs(nw, processed_logs_queue)
+    template_logs_queue = asyncio.Queue(loop=loop)
+    init_nats_task = loop.create_task(init_nats())
+    create_templates_index_task = loop.create_task(create_templates_index())
+    nw = loop.run_until_complete(init_nats_task)
+    loop.run_until_complete(create_templates_index_task)
+    nats_consumer_coroutine = consume_logs(nw, processed_logs_queue, template_logs_queue)
     update_logs_coroutine = receive_logs(processed_logs_queue)
+    update_templates_coroutine = receive_template_data(template_logs_queue)
 
 
     loop.run_until_complete(
-        asyncio.gather(nats_consumer_coroutine, update_logs_coroutine)
+        asyncio.gather(nats_consumer_coroutine, update_logs_coroutine, update_templates_coroutine)
     )
     try:
         loop.run_forever()

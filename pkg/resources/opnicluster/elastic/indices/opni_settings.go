@@ -878,7 +878,7 @@ var (
 					},
 					"template_matched": {
 						Type: "keyword",
-					}
+					},
 					"template_cluster_id": {
 						Type: "integer",
 					},

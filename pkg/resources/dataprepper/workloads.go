@@ -81,7 +81,7 @@ raw-pipeline:
       username: {{ .Username }}
       password: {{ .Password }}
       index: otel-v1-apm-span
-      index_type: management-disabled
+      index_type: management_disabled
 service-map-pipeline:
   workers : 1
   delay: "100"
@@ -107,7 +107,7 @@ service-map-pipeline:
       username: {{ .Username }}
       password: {{ .Password }}
       index: otel-v1-apm-service-map
-      index_type: management-disabled
+      index_type: management_disabled
 {{- end }}
 `))
 )

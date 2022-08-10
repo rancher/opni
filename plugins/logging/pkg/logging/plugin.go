@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -25,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -119,12 +121,25 @@ func Scheme(ctx context.Context) meta.Scheme {
 		WithOpensearchCluster(opniCluster),
 	)
 
+	inCluster := true
+	restconfig, err := rest.InClusterConfig()
+	if err != nil {
+		if errors.Is(err, rest.ErrNotInCluster) {
+			inCluster = false
+		}
+		p.logger.Fatalf("failed to create config: %s", err)
+	}
+
+	if inCluster {
+		features.PopulateFeatures(ctx, restconfig)
+	}
+
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(gatewayext.GatewayAPIExtensionPluginID, gatewayext.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&opensearch.Opensearch_ServiceDesc, p))
 
-	if features.FeatureList.FeatureIsEnabled("manage-opensearch") {
+	if inCluster && features.FeatureList.FeatureIsEnabled("manage-opensearch") {
 		scheme.Add(managementext.ManagementAPIExtensionPluginID,
 			managementext.NewPlugin(&loggingadmin.LoggingAdmin_ServiceDesc, p))
 	}

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -218,7 +219,8 @@ func (m *Server) listenAndServeHttp(ctx context.Context) error {
 		}
 	})
 	gwmux := runtime.NewServeMux()
-	if err := managementv1.RegisterManagementHandlerFromEndpoint(ctx, gwmux, m.config.GRPCListenAddress,
+	if err := managementv1.RegisterManagementHandlerFromEndpoint(ctx, gwmux,
+		strings.TrimPrefix(m.config.GRPCListenAddress, "tcp://"),
 		[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}); err != nil {
 		lg.With(
 			zap.Error(err),

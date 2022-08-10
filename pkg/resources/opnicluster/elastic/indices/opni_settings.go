@@ -874,10 +874,10 @@ var (
 			Mappings: osapiext.TemplateMappingsSpec{
 				Properties: map[string]osapiext.PropertySettings{
 					"log": {
-						Type: "text"
+						Type: "text",
 					},
 					"template_matched": {
-						Type: "keyword"
+						Type: "keyword",
 					}
 					"template_cluster_id": {
 						Type: "integer",

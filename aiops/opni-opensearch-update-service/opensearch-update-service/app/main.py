@@ -162,6 +162,19 @@ async def update_logs(es, df):
                     logging.info("Elasticsearch connection error")
                     es = await setup_es_connection()
 
+async def create_templates_index():
+    es = await setup_es_connection()
+    try:
+        exists = await es.indices.exists("templates")
+        if not exists:
+            await es.indices.create(index="templates")
+
+    except TransportError as exception:
+        logging.info(f"Error in es indices {exception}")
+        if exception.status_code == "N/A":
+            logging.info("Elasticsearch connection error")
+
+
 async def init_nats():
     from opni_nats import NatsWrapper
     logging.info("Attempting to connect to NATS")

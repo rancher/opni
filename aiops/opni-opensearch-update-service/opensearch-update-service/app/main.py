@@ -73,7 +73,6 @@ async def consume_logs(nw, inferenced_logs_queue, template_logs_queue):
 
     async def template_subscribe_handler(msg):
         data = msg.data
-        logging.info(data)
         logs_df = pd.DataFrame(PayloadList().parse(data).items)
         await template_logs_queue.put(logs_df)
 
@@ -167,19 +166,6 @@ async def update_logs(es, df):
                     logging.info("Elasticsearch connection error")
                     es = await setup_es_connection()
 
-async def create_templates_index():
-    es = await setup_es_connection()
-    try:
-        exists = await es.indices.exists("templates")
-        if not exists:
-            await es.indices.create(index="templates")
-
-    except TransportError as exception:
-        logging.info(f"Error in es indices {exception}")
-        if exception.status_code == "N/A":
-            logging.info("Elasticsearch connection error")
-
-
 async def init_nats():
     from opni_nats import NatsWrapper
     logging.info("Attempting to connect to NATS")
@@ -193,9 +179,7 @@ if __name__ == "__main__":
     processed_logs_queue = asyncio.Queue(loop=loop)
     template_logs_queue = asyncio.Queue(loop=loop)
     init_nats_task = loop.create_task(init_nats())
-    create_templates_index_task = loop.create_task(create_templates_index())
     nw = loop.run_until_complete(init_nats_task)
-    loop.run_until_complete(create_templates_index_task)
     nats_consumer_coroutine = consume_logs(nw, processed_logs_queue, template_logs_queue)
     update_logs_coroutine = receive_logs(processed_logs_queue)
     update_templates_coroutine = receive_template_data(template_logs_queue)

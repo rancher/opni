@@ -13,6 +13,10 @@ const (
 	LogIndexPrefix               = "logs-v0.5.4"
 	LogIndexAlias                = "logs"
 	LogIndexTemplateName         = "logs_rollover_mapping"
+	logTemplatePolicyName        = "template-policy"
+	logTemplateIndexPrefix       = "templates-v0.5.4"
+	logTemplateIndexAlias        = "templates"
+	logTemplateIndexTemplateName = "templates_rollover_mapping"
 	PreProcessingPipelineName    = "opni-ingest-pipeline"
 	drainStatusPolicyName        = "opni-drain-model-status-policy"
 	drainStatusIndexPrefix       = "opni-drain-model-status-v0.1.3"
@@ -233,6 +237,111 @@ var (
 				fmt.Sprintf("%s*", LogIndexPrefix),
 			},
 			Priority: 100,
+		},
+	}
+	opniLogTemplatePolicy = osapiext.ISMPolicySpec{
+		ISMPolicyIDSpec: &osapiext.ISMPolicyIDSpec{
+			PolicyID:   logTemplatePolicyName,
+			MarshallID: false,
+		},
+		Description:  "A hot-warm-cold-delete workflow for the templates index.",
+		DefaultState: "hot",
+		States: []osapiext.StateSpec{
+			{
+				Name: "hot",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							Rollover: &osapiext.RolloverOperation{
+								MinSize:     "1gb",
+								MinIndexAge: "1d",
+							},
+						},
+						Retry: &DefaultRetry,
+					},
+				},
+				Transitions: []osapiext.TransitionSpec{
+					{
+						StateName: "warm",
+					},
+				},
+			},
+			{
+				Name: "warm",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							ReplicaCount: &osapiext.ReplicaCountOperation{
+								NumberOfReplicas: 0,
+							},
+						},
+						Retry: &DefaultRetry,
+					},
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							IndexPriority: &osapiext.IndexPriorityOperation{
+								Priority: 50,
+							},
+						},
+						Retry: &DefaultRetry,
+					},
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							ForceMerge: &osapiext.ForceMergeOperation{
+								MaxNumSegments: 1,
+							},
+						},
+						Retry: &DefaultRetry,
+					},
+				},
+				Transitions: []osapiext.TransitionSpec{
+					{
+						StateName: "cold",
+						Conditions: &osapiext.ConditionSpec{
+							MinIndexAge: "5d",
+						},
+					},
+				},
+			},
+			{
+				Name: "cold",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							ReadOnly: &osapiext.ReadOnlyOperation{},
+						},
+						Retry: &DefaultRetry,
+					},
+				},
+				Transitions: []osapiext.TransitionSpec{
+					{
+						StateName: "delete",
+						Conditions: &osapiext.ConditionSpec{
+							MinIndexAge: "30d",
+						},
+					},
+				},
+			},
+			{
+				Name: "delete",
+				Actions: []osapiext.ActionSpec{
+					{
+						ActionOperation: &osapiext.ActionOperation{
+							Delete: &osapiext.DeleteOperation{},
+						},
+						Retry: &DefaultRetry,
+					},
+				},
+				Transitions: make([]osapiext.TransitionSpec, 0),
+			},
+		},
+		ISMTemplate: []osapiext.ISMTemplateSpec{
+			{
+				IndexPatterns: []string{
+					fmt.Sprintf("%s*", logTemplateIndexPrefix),
+				},
+				Priority: 100,
+			},
 		},
 	}
 	opniDrainModelStatusPolicy = osapiext.ISMPolicySpec{
@@ -749,6 +858,35 @@ var (
 			},
 		},
 	}
+
+	logTemplate = osapiext.IndexTemplateSpec{
+		TemplateName: logTemplateIndexTemplateName,
+		IndexPatterns: []string{
+			fmt.Sprintf("%s*", logTemplateIndexPrefix),
+		},
+		Template: osapiext.TemplateSpec{
+			Settings: osapiext.TemplateSettingsSpec{
+				NumberOfShards:   2,
+				NumberOfReplicas: 1,
+				ISMPolicyID:      logTemplatePolicyName,
+				RolloverAlias:    logTemplateIndexAlias,
+			},
+			Mappings: osapiext.TemplateMappingsSpec{
+				Properties: map[string]osapiext.PropertySettings{
+					"log": {
+						Type: "text"
+					},
+					"template_matched": {
+						Type: "keyword"
+					}
+					"template_cluster_id": {
+						Type: "integer",
+					},
+				},
+			},
+		},
+	}
+
 
 	normalIntervalIndexSettings = map[string]osapiext.TemplateMappingsSpec{
 		"mappings": {

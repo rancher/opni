@@ -451,13 +451,13 @@ func (p *Plugin) GetSeriesMetrics(ctx context.Context, request *cortexadmin.Seri
 			mapVal, err := parseCortexSeriesMetadata(resp, lg, uniqueMetricName)
 			if err == nil {
 				if metricHelp, ok := mapVal["help"]; ok {
-					m.Description = fmt.Sprintf("%v", metricHelp)
+					m.Description = metricHelp.String()
 				}
 				if metricType, ok := mapVal["type"]; ok {
-					m.Type = fmt.Sprintf("%v", metricType)
+					m.Type = metricType.String()
 				}
-				if metricUnit, ok := mapVal["unit"]; ok && metricUnit == "" {
-					m.Unit = fmt.Sprintf("%v", metricUnit)
+				if metricUnit, ok := mapVal["unit"]; ok && metricUnit.String() == "" {
+					m.Unit = metricUnit.String()
 				}
 			}
 		}
@@ -487,9 +487,6 @@ func (p *Plugin) GetMetricLabelSets(ctx context.Context, request *cortexadmin.La
 	}
 	labelSets := []*cortexadmin.LabelSet{} // label name -> list of label values
 	for _, labelName := range labelNames {
-		if labelName == "job" || labelName == "__name__" { //useless labels
-			continue
-		}
 		labelResp, err := getCortexLabelValues(p, ctx, request, labelName)
 		if err != nil {
 			return nil, err //FIXME: consider returning partial results

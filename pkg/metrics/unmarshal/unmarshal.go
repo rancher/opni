@@ -1,15 +1,11 @@
 package unmarshal
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"go.uber.org/zap"
-	"io"
-	"net/http"
-	"reflect"
-
 	"github.com/prometheus/common/model"
+	"go.uber.org/zap"
+	"net/http"
 )
 
 // Struct for unmarshalling from github.com/prometheus/common/model
@@ -123,23 +119,8 @@ func unmarshallPrometheusWebResponseData(data []byte) (*response, error) {
 }
 
 func UnmarshallPrometheusWebResponse(resp *http.Response, lg *zap.SugaredLogger) (*response, error) {
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			lg.With(
-				"error", err,
-			).Error("failed to close response body")
-		}
-	}(resp.Body)
-	responseBuf := new(bytes.Buffer)
-	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
-		lg.With(
-			"error", err,
-		).Error("failed to read response body")
-		return nil, err
-	}
-
-	val, err := unmarshallPrometheusWebResponseData(responseBuf.Bytes())
+	var val *response
+	err := json.NewDecoder(resp.Body).Decode(&val)
 	if err != nil {
 		return nil, err
 	}
@@ -147,51 +128,4 @@ func UnmarshallPrometheusWebResponse(resp *http.Response, lg *zap.SugaredLogger)
 		return nil, fmt.Errorf("well formed prometheus request failed internally with: %s", val.Error)
 	}
 	return val, nil
-}
-
-func InterfaceToInterfaceSlice(input interface{}) ([]interface{}, error) {
-	i := reflect.ValueOf(input)
-	if i.Kind() != reflect.Slice {
-		return nil, fmt.Errorf("input is not a slice")
-	}
-	if i.IsNil() {
-		return nil, fmt.Errorf("input is nil")
-	}
-	output := make([]interface{}, i.Len())
-	for j := 0; j < i.Len(); j++ {
-		output[j] = i.Index(j).Interface()
-	}
-	return output, nil
-}
-
-func InterfaceToMap(input interface{}) (map[string]interface{}, error) {
-	m := reflect.ValueOf(input)
-	if m.Kind() != reflect.Map {
-		return nil, fmt.Errorf("input is not a map")
-	}
-	if m.IsNil() {
-		return nil, fmt.Errorf("provided interface is nil")
-	}
-
-	output := make(map[string]interface{})
-	for _, k := range m.MapKeys() {
-		output[k.String()] = m.MapIndex(k).Interface()
-	}
-
-	return output, nil
-}
-
-func InterfaceToStringSlice(input interface{}) ([]string, error) {
-	s := reflect.ValueOf(input)
-	if s.Kind() != reflect.Slice {
-		return nil, fmt.Errorf("Provided interface cannot be converted to a slice")
-	}
-	if s.IsNil() {
-		return nil, fmt.Errorf("Provided interface is nil")
-	}
-	res := make([]string, s.Len())
-	for i := 0; i < s.Len(); i++ {
-		res[i] = fmt.Sprintf("%v", s.Index(i).Interface())
-	}
-	return res, nil
 }

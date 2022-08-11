@@ -3,8 +3,8 @@ package cortex
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
@@ -68,25 +68,17 @@ func enumerateCortexSeries(p *Plugin, lg *zap.SugaredLogger, ctx context.Context
 }
 
 func parseCortexEnumerateSeries(resp *http.Response, lg *zap.SugaredLogger) (set map[string]struct{}, err error) {
-	val, err := unmarshal.UnmarshallPrometheusWebResponse(resp, lg)
-	if err != nil {
-		return nil, err
+	b, err := io.ReadAll(resp.Body)
+	if !gjson.Valid(string(b)) {
+		return nil, fmt.Errorf("invalid json in response")
 	}
 	set = make(map[string]struct{})
-	// must convert to slice
-	interfaceSlice, err := unmarshal.InterfaceToInterfaceSlice(val.Data)
-	if err != nil {
-		return nil, err
+	result := gjson.Get(string(b), "data.#.__name__")
+	if !result.Exists() {
+		return nil, fmt.Errorf("Empty series response from cortex")
 	}
-	// must convert each to a map[string]interface{}
-	for _, i := range interfaceSlice {
-		mapStruct, err := unmarshal.InterfaceToMap(i)
-		if err != nil {
-			continue
-		}
-		if v, ok := mapStruct["__name__"]; ok {
-			set[fmt.Sprintf("%v", v)] = struct{}{}
-		}
+	for _, name := range result.Array() {
+		set[name.String()] = struct{}{}
 	}
 	return set, nil
 }
@@ -102,30 +94,17 @@ func fetchCortexSeriesMetadata(p *Plugin, lg *zap.SugaredLogger, ctx context.Con
 	return resp, err
 }
 
-func parseCortexSeriesMetadata(resp *http.Response, lg *zap.SugaredLogger, metricName string) (map[string]interface{}, error) {
-	val, err := unmarshal.UnmarshallPrometheusWebResponse(resp, lg)
-	if err != nil {
-		return nil, err
+func parseCortexSeriesMetadata(resp *http.Response, lg *zap.SugaredLogger, metricName string) (map[string]gjson.Result, error) {
+	b, err := io.ReadAll(resp.Body)
+	if !gjson.Valid(string(b)) {
+		return nil, fmt.Errorf("invalid json in response")
 	}
-	if val.Data == nil { //FIXME currently cortex always returns nil here & its not clear why
-		return nil, fmt.Errorf("no metadata in response")
+	result := gjson.Get(string(b), fmt.Sprintf("data.%s)", metricName))
+	if !result.Exists() {
+		return nil, fmt.Errorf("no metadata in cortex response")
 	}
-	// otherwise it is a map -> list -> map[string]interface{}
-	valMap, err := unmarshal.InterfaceToMap(val.Data)
-	if err != nil {
-		return nil, err
-	}
-	if _, ok := valMap[metricName]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("no metadata for metric %s in response", metricName))
-	}
-	// technically each metric name can have multiple metadata if you set it up in a stupid way
-	bestResult, err := unmarshal.InterfaceToInterfaceSlice(valMap[metricName])
-	if err != nil {
-		return nil, err
-	}
-	// first result is not necessarily the best result
-	res, err := unmarshal.InterfaceToMap(bestResult[0])
-	return res, err
+	metadata := result.Array()[0].Map()
+	return metadata, err
 }
 
 func getCortexMetricLabels(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, request *cortexadmin.LabelRequest) (*http.Response, error) {
@@ -140,13 +119,17 @@ func getCortexMetricLabels(p *Plugin, lg *zap.SugaredLogger, ctx context.Context
 }
 
 func parseCortexMetricLabels(p *Plugin, resp *http.Response) ([]string, error) {
-	allLabelsStruct, err := unmarshal.UnmarshallPrometheusWebResponse(resp, p.logger)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	labelNames, err := unmarshal.InterfaceToStringSlice(allLabelsStruct.Data)
-	if err != nil {
-		return nil, err
+	labelNames := []string{}
+	result := gjson.Get(string(b), "data")
+	for _, name := range result.Array() {
+		if name.String() == "__name__" || name.String() == "job" {
+			continue
+		}
+		labelNames = append(labelNames, name.String())
 	}
 	return labelNames, nil
 }

@@ -1,12 +1,14 @@
 package slo
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"gopkg.in/yaml.v3"
 	"os"
+	"text/template"
 	"time"
 )
 
@@ -15,13 +17,36 @@ const (
 	slo_service           = "slo_opni_service"
 	slo_name              = "slo_opni_name"
 	ratio_rate_query_name = "slo:sli_error:ratio_rate"
+	RecordingRuleSuffix   = "-recording"
+	MetadataRuleSuffix    = "-metadata"
+	AlertRuleSuffix       = "-alerts"
 )
 
 var (
-	RecordingRuleSuffix = "-recording"
-	MetadataRuleSuffix  = "-metadata"
-	AlertRuleSuffix     = "-alerts"
+	goodQueryTpl = template.Must(template.New("").Parse(`
+	   sum(rate({{.Metric}}\{job=\"{{.JobId }}\"{{.Labels}}\}[{{.Window}}]))	
+	`))
+	totalQueryTpl = template.Must(template.New("").Parse(`
+		sum(rate({{.Metric}}\{job=\"{{.JobId}}\"{{.Labels}}\}[{{"{{.Window}}"}}]))
+	`))
+	rawSliQueryTpl = template.Must(template.New("").Parse(`
+		1 - (({{.GoodQuery}})/({{.TotalQuery}}))
+	`))
 )
+
+// QueryInfo used for filling query Templates
+type QueryInfo struct {
+	Metric string
+	JodId  string
+	Labels string
+	Window string
+}
+
+// SliQueryInfo used for filling sli query templates
+type SliQueryInfo struct {
+	GoodQuery  string
+	TotalQuery string
+}
 
 type ruleGroupYAMLv2 struct {
 	Name     string             `yaml:"name"`
@@ -121,16 +146,35 @@ func (s *SLO) GetName() string {
 	return s.idLabels[slo_name] // let it panic if not found
 }
 
-func (s *SLO) RawSLIQuery(w string) string {
+func (s *SLO) RawSLIQuery(w string) (string, error) {
 	goodConstructedEvents := s.goodEvents.Construct()
-	simpleQueryGood := fmt.Sprintf("%s{job=\"{%s}\"%s}", s.goodMetric, s.svc, goodConstructedEvents)
-	aggregateQueryGood := fmt.Sprintf("sum(rate(%s[%s]))", simpleQueryGood, w)
-
-	totalConstructedEvents := s.totalEvents.Construct()
-	simpleQueryTotal := fmt.Sprintf("%s{job=\"{%s}\"%s}", s.totalMetric, s.svc, totalConstructedEvents)
-	aggregateQueryTotal := fmt.Sprintf("sum(rate(%s[%s]))", simpleQueryTotal, w)
-
-	return fmt.Sprintf("1 - (%s/%s)", aggregateQueryGood, aggregateQueryTotal)
+	var bGood bytes.Buffer
+	q := QueryInfo{
+		Metric: string(s.goodMetric),
+		JodId:  string(s.svc),
+		Labels: goodConstructedEvents,
+		Window: w,
+	}
+	err := goodQueryTpl.Execute(&bGood, q)
+	if err != nil {
+		return "", err
+	}
+	var bTotal bytes.Buffer
+	err = totalQueryTpl.Execute(&bTotal, QueryInfo{
+		Metric: string(s.totalMetric),
+		JodId:  string(s.svc),
+		Labels: goodConstructedEvents,
+		Window: w,
+	})
+	if err != nil {
+		return "", err
+	}
+	var bQuery bytes.Buffer
+	err = rawSliQueryTpl.Execute(&bQuery, SliQueryInfo{
+		GoodQuery:  bGood.String(),
+		TotalQuery: bTotal.String(),
+	})
+	return bQuery.String(), err
 }
 
 func (s *SLO) ConstructCortexRules() (queryStr string) {
@@ -151,9 +195,13 @@ func (s *SLO) ConstructCortexRules() (queryStr string) {
 		Interval: interval,
 	}
 	for _, w := range NewWindowRange(s.sloPeriod) {
+		rawSli, err := s.RawSLIQuery(w)
+		if err != nil {
+			panic(err)
+		}
 		rrecording.Rules = append(rrecording.Rules, rulefmt.Rule{
 			Record: ratio_rate_query_name + w,
-			Expr:   s.RawSLIQuery(w),
+			Expr:   rawSli,
 			Labels: MergeLabels(s.idLabels, map[string]string{
 				"slo_window": w,
 			}),
@@ -163,7 +211,7 @@ func (s *SLO) ConstructCortexRules() (queryStr string) {
 	rmetadata.Rules = []rulefmt.Rule{
 		{
 			Record: "slo:objective:ratio",
-			Expr:   fmt.Sprintf("vector(0.%s)", s.objective/100),
+			Expr:   fmt.Sprintf("vector(0.%f)", s.objective/100),
 		},
 		{
 			Record: "slo:error_budget:ratio",
@@ -245,7 +293,6 @@ func (s *SLO) ConstructCortexRules() (queryStr string) {
 		os.WriteFile(s.GetId()+"-metadata.yaml", smetadata, 0644)
 		os.WriteFile(s.GetId()+"-alerts.yaml", salerts, 0644)
 	}
-
 	return queryStr
 }
 

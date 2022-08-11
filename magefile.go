@@ -7,6 +7,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"runtime"
@@ -43,6 +44,10 @@ func All() {
 
 func Generate() {
 	mg.SerialDeps(Protobuf, mockgen.Mockgen, ControllerGen)
+}
+
+func GenerateCRD() {
+	mg.SerialDeps(CRDGen, ReplaceCRDText)
 }
 
 func Test() {
@@ -113,6 +118,28 @@ func CRDGen() error {
 					return err
 				}
 			}
+		}
+	}
+	return nil
+}
+
+func ReplaceCRDText() error {
+	files := []string{
+		"./packages/opni/opni/charts/crds/crds.yaml",
+		"./packages/opni-agent/opni-agent/charts/crds/crds.yaml",
+	}
+
+	for _, file := range files {
+		input, err := ioutil.ReadFile(file)
+		if err != nil {
+			return err
+		}
+
+		firstReplace := bytes.Replace(input, []byte("replace-me/opni-serving-cert"), []byte(`"replace-me/opni-serving-cert"`), -1)
+		output := bytes.Replace(firstReplace, []byte("replace-me"), []byte("{{ .Release.Namespace }}"), -1)
+
+		if err := ioutil.WriteFile(file, output, 0644); err != nil {
+			return err
 		}
 	}
 	return nil

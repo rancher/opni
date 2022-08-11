@@ -762,7 +762,7 @@ var (
 				},
 				"template_cluster_id": {
 					Type: "integer",
-				}
+				},
 			},
 		},
 	}

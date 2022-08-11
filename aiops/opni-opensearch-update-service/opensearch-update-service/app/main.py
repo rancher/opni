@@ -23,10 +23,9 @@ script_for_anomaly = (
     "ctx._source.anomaly_predicted_count += 1; ctx._source.opnilog_anomaly = true;"
 )
 
-async def doc_generator(df, index, op_type="index"):
+async def doc_generator(df, index, op_type="update"):
     main_doc_keywords = {"_op_type", "_index", "_id", "doc"}
-    if op_type != "index":
-        df["_op_type"] = op_type
+    df["_op_type"] = op_type
     df["_index"] = index
     df.rename(columns={"log_id": "_id"}, inplace=True)
     for index, document in df.iterrows():
@@ -105,10 +104,9 @@ async def receive_logs(queue):
 
 async def update_template_data(es, df):
     try:
-        logging.info(df)
         async for ok, result in async_streaming_bulk(
                 es,
-                doc_generator(df[["_id", "log", "template_matched", "template_cluster_id"]], "templates"),
+                doc_generator(df[["_id", "log", "template_matched", "template_cluster_id"]], "templates", "index"),
                 max_retries=1,
                 initial_backoff=1,
                 request_timeout=5,
@@ -116,7 +114,6 @@ async def update_template_data(es, df):
             action, result = result.popitem()
             if not ok:
                 logging.error("failed to {} document {}".format())
-            logging.info("Successfully updated templates data.")
     except (BulkIndexError, ConnectionTimeout, TimeoutError) as exception:
         logging.error(
             "Failed to index data. Re-adding to logs_to_update_in_elasticsearch queue"
@@ -146,7 +143,6 @@ async def update_logs(es, df):
                         doc_generator(
                             anomaly_level_df[model_keywords_dict[model_name]],
                             "logs",
-                            "update"
                         ),
                         max_retries=1,
                         initial_backoff=1,

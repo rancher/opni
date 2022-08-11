@@ -171,7 +171,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 		policies = append(policies, opniDrainModelStatusPolicy)
 		policies = append(policies, opniMetricPolicy)
-		policies = append(policies, opniLogTemplatePolicy)
 	}
 	for _, policy := range policies {
 		err = r.osReconciler.ReconcileISM(policy)
@@ -194,7 +193,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	templates := []esapiext.IndexTemplateSpec{
 		drainStatusTemplate,
 		opniMetricTemplate,
-		logTemplate,
 	}
 
 	if lo.FromPtrOr(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
@@ -246,7 +244,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	prefixes := map[string]string{
 		drainStatusIndexPrefix: drainStatusIndexAlias,
 		metricIndexPrefix:      metricIndexAlias,
-		logTemplateIndexPrefix: logTemplateIndexAlias,
 	}
 
 	if lo.FromPtrOr(r.cluster.Spec.Opensearch.EnableLogIndexManagement, true) {
@@ -260,6 +257,12 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			retErr = errors.Combine(retErr, err)
 			return
 		}
+	}
+
+	err = r.osReconciler.MaybeCreateIndex(logTemplateIndexName, logTemplateIndexSettings)
+	if err != nil {
+		conditions = append(conditions, err.Error())
+		retErr = errors.Combine(retErr, err)
 	}
 
 	err = r.osReconciler.MaybeCreateIndex(normalIntervalIndexName, normalIntervalIndexSettings)

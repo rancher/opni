@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rancher/opni/apis/v1beta2"
+	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/samber/lo"
@@ -29,16 +29,11 @@ const (
 	defaultRepo           = "docker.io/rancher"
 )
 
-var (
-	dashboardsImage = fmt.Sprintf("rancher/opensearch-dashboards:%s-%s", opensearchVersion, util.Version)
-	opensearchImage = fmt.Sprintf("rancher/opensearch:%s-%s", opensearchVersion, util.Version)
-)
-
 func (p *Plugin) GetOpensearchCluster(
 	ctx context.Context,
 	empty *emptypb.Empty,
 ) (*loggingadmin.OpensearchCluster, error) {
-	cluster := &v1beta2.OpniOpensearch{}
+	cluster := &opniv1beta2.OpniOpensearch{}
 	if err := p.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      opensearchClusterName,
 		Namespace: p.storageNamespace,
@@ -82,7 +77,7 @@ func (p *Plugin) DeleteOpensearchCluster(
 	empty *emptypb.Empty,
 ) (*emptypb.Empty, error) {
 
-	cluster := &v1beta2.OpniOpensearch{
+	cluster := &opniv1beta2.OpniOpensearch{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      opensearchClusterName,
 			Namespace: p.storageNamespace,
@@ -95,7 +90,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	ctx context.Context,
 	cluster *loggingadmin.OpensearchCluster,
 ) (*emptypb.Empty, error) {
-	k8sOpensearchCluster := &v1beta2.OpniOpensearch{}
+	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{}
 
 	exists := true
 	err := p.k8sClient.Get(ctx, types.NamespacedName{
@@ -119,13 +114,13 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	}
 
 	if !exists {
-		k8sOpensearchCluster = &v1beta2.OpniOpensearch{
+		k8sOpensearchCluster = &opniv1beta2.OpniOpensearch{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      opensearchClusterName,
 				Namespace: p.storageNamespace,
 			},
-			Spec: v1beta2.OpniOpensearchSpec{
-				OpensearchSettings: v1beta2.OpensearchSettings{
+			Spec: opniv1beta2.OpniOpensearchSpec{
+				OpensearchSettings: opniv1beta2.OpensearchSettings{
 					Dashboards: convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster),
 					NodePools:  nodePools,
 					Security: &opsterv1.Security{
@@ -141,7 +136,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 					},
 				},
 				ExternalURL: cluster.ExternalURL,
-				ClusterConfigSpec: &v1beta2.ClusterConfigSpec{
+				ClusterConfigSpec: &opniv1beta2.ClusterConfigSpec{
 					IndexRetention: lo.FromPtrOr(cluster.DataRetention, "7d"),
 				},
 				OpensearchVersion: opensearchVersion,
@@ -159,7 +154,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards = convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster)
 		k8sOpensearchCluster.Spec.ExternalURL = cluster.ExternalURL
 		if cluster.DataRetention != nil {
-			k8sOpensearchCluster.Spec.ClusterConfigSpec = &v1beta2.ClusterConfigSpec{
+			k8sOpensearchCluster.Spec.ClusterConfigSpec = &opniv1beta2.ClusterConfigSpec{
 				IndexRetention: *cluster.DataRetention,
 			}
 		} else {
@@ -173,7 +168,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 }
 
 func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmin.UpgradeAvailableResponse, error) {
-	k8sOpensearchCluster := &v1beta2.OpniOpensearch{}
+	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{}
 
 	err := p.k8sClient.Get(p.ctx, types.NamespacedName{
 		Name:      opensearchClusterName,
@@ -206,7 +201,7 @@ func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmi
 }
 
 func (p *Plugin) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	k8sOpensearchCluster := &v1beta2.OpniOpensearch{}
+	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{}
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := p.k8sClient.Get(p.ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
@@ -272,7 +267,7 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 
 func convertProtobufToDashboards(
 	dashboard *loggingadmin.DashboardsDetails,
-	cluster *v1beta2.OpniOpensearch,
+	cluster *opniv1beta2.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
 	var version, osVersion string
 	if cluster == nil {

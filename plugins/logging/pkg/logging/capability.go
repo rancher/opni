@@ -13,7 +13,6 @@ import (
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/rancher/opni/apis/v1beta2"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -93,7 +92,7 @@ func (p *Plugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) 
 
 func (p *Plugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
 	cluster := req.Cluster
-	var loggingCluster *v1beta2.LoggingCluster
+	var loggingCluster *opniv1beta2.LoggingCluster
 	var secret *corev1.Secret
 
 	loggingClusterList := &opniv1beta2.LoggingClusterList{}

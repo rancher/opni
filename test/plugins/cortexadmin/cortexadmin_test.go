@@ -93,50 +93,159 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			return fmt.Errorf("waiting for metric data to be stored in cortex")
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 
+		Eventually(func() error {
+			stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			for _, item := range stats.Items {
+				if item.UserID == "agent2" {
+					if item.NumSeries > 0 {
+						return nil
+					}
+				}
+			}
+			return fmt.Errorf("waiting for metric data to be stored in cortex")
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+
 		//scrape interval is 1 second
 	})
 
 	When("We use the cortex admin plugin", func() {
 
-		It("Should be able to fetch series metadata successfully", func() {
-			inputs := []TestMetadataInput{
+		It("Should be able to list distinct metrics for each job ", func() {
+			// expected outputs are a subset of the actual outputs
+			inputs := []TestSeriesMetrics{
 				{
-					Tenant:     "agent",
-					MetricName: "http_requests_duration_seconds_total",
+					input: &apis.SeriesRequest{
+						Tenant: "agent",
+						JobId:  "prometheus",
+					},
+					output: &apis.SeriesInfoList{
+						Items: []*apis.SeriesInfo{
+							{
+								SeriesName: "up",
+							},
+							{
+								SeriesName: "prometheus_http_requests_total",
+							},
+						},
+					},
 				},
 				{
-					Tenant:     "agent2",
-					MetricName: "http_requests_duration_seconds_total",
+					input: &apis.SeriesRequest{
+						Tenant: "agent2",
+						JobId:  "prometheus",
+					},
+					output: &apis.SeriesInfoList{
+						Items: []*apis.SeriesInfo{
+							{
+								SeriesName: "up",
+							},
+							{
+								SeriesName: "prometheus_http_requests_total",
+							},
+						},
+					},
 				},
 			}
 			for _, input := range inputs {
-				_, err := adminClient.GetSeriesMetadata(ctx, &apis.SeriesRequest{
-					Tenant:     input.Tenant,
-					MetricName: input.MetricName,
-				})
+				resp, err := adminClient.GetSeriesMetrics(ctx, input.input)
 				Expect(err).NotTo(HaveOccurred())
+				for _, expected := range input.output.Items {
+					found := false
+					for _, item := range resp.Items {
+						if item.SeriesName == expected.SeriesName {
+							//FIXME: when the metadata API is working also check metadata here
+							found = true
+							break
+						}
+					}
+					Expect(found).To(BeTrue())
+				}
 			}
 		})
 
-		It("Should be able to fetch a metric's label values", func() {
-			inputs := []TestMetadataInput{
+		It("should be able to fetch metric label pairs for each metric", func() {
+			// expected outputs are a subset of the actual outputs
+			inputs := []TestMetricLabelSet{
 				{
-					Tenant:     "agent",
-					MetricName: "prometheus",
+					input: &apis.LabelRequest{
+						Tenant:     "agent",
+						JobId:      "prometheus",
+						MetricName: "prometheus_http_requests_total",
+					},
+					output: &apis.MetricLabels{
+						Items: []*apis.LabelSet{
+							{
+								Name: "code",
+								Items: []string{
+									"200",
+									"500",
+									"503",
+								},
+							},
+							{
+								Name: "handler",
+								Items: []string{
+									"/-/ready",
+									"/metrics",
+								},
+							},
+						},
+					},
 				},
 				{
-					Tenant:     "agent2",
-					MetricName: "prometheus",
+					input: &apis.LabelRequest{
+						Tenant:     "agent2",
+						JobId:      "prometheus",
+						MetricName: "prometheus_http_requests_total",
+					},
+					output: &apis.MetricLabels{
+						Items: []*apis.LabelSet{
+							{
+								Name: "code",
+								Items: []string{
+									"200",
+									"500",
+									"503",
+								},
+							},
+							{
+								Name: "handler",
+								Items: []string{
+									"/-/ready",
+								},
+							},
+						},
+					},
 				},
 			}
 			for _, input := range inputs {
-				_, err := adminClient.GetMetricLabels(ctx, &apis.SeriesRequest{
-					Tenant:     input.Tenant,
-					MetricName: input.MetricName,
-				})
+				resp, err := adminClient.GetMetricLabelSets(ctx, input.input)
 				Expect(err).NotTo(HaveOccurred())
+				Expect(resp).NotTo(BeNil())
+				for _, expected := range input.output.Items {
+					found := false
+					for _, item := range resp.Items {
+						if item.Name == expected.Name {
+							found = true
+							for _, expectedItem := range expected.Items {
+								foundItem := false
+								for _, item := range item.Items {
+									if item == expectedItem {
+										foundItem = true
+										break
+									}
+								}
+								Expect(foundItem).To(BeTrue())
+							}
+							break
+						}
+					}
+					Expect(found).To(BeTrue())
+				}
 			}
-
 		})
 
 		It("Should be able to create rules from prometheus yaml", func() {

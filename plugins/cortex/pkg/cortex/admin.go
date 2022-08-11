@@ -432,110 +432,80 @@ func (p *Plugin) DeleteRule(
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) GetSeriesMetadata(ctx context.Context, request *cortexadmin.SeriesRequest) (*cortexadmin.MetricMetadata, error) {
+func (p *Plugin) GetSeriesMetrics(ctx context.Context, request *cortexadmin.SeriesRequest) (*cortexadmin.SeriesInfoList, error) {
 	lg := p.logger.With(
-		"metric", request.MetricName,
+		"metric", request.JobId,
 	)
-	client, err := p.cortexHttpClient.GetContext(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, "GET",
-		fmt.Sprintf(
-			"https://%s/prometheus/api/v1/metadata",
-			p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress,
-		),
-		nil)
+	resp, err := enumerateCortexSeries(p, lg, ctx, request)
+
+	set, err := parseCortexEnumerateSeries(resp, lg)
 	if err != nil {
 		return nil, err
+	}
+	res := make([]*cortexadmin.SeriesInfo, 0, len(set))
+	for uniqueMetricName, _ := range set {
+		// fetch metadata & handle empty
+		m := &cortexadmin.SeriesMetadata{}
+		resp, err := fetchCortexSeriesMetadata(p, lg, ctx, request, uniqueMetricName)
+		if err == nil { // parse response, otherwise skip and return empty metadata
+			mapVal, err := parseCortexSeriesMetadata(resp, lg, uniqueMetricName)
+			if err == nil {
+				if metricHelp, ok := mapVal["help"]; ok {
+					m.Description = fmt.Sprintf("%v", metricHelp)
+				}
+				if metricType, ok := mapVal["type"]; ok {
+					m.Type = fmt.Sprintf("%v", metricType)
+				}
+				if metricUnit, ok := mapVal["unit"]; ok && metricUnit == "" {
+					m.Unit = fmt.Sprintf("%v", metricUnit)
+				}
+			}
+		}
+		res = append(res, &cortexadmin.SeriesInfo{
+			SeriesName: uniqueMetricName,
+			Metadata:   m,
+		})
 	}
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{request.Tenant}))
-	resp, err := client.Do(req)
-	if err != nil {
-		lg.With(
-			"error", err,
-		).Error("fetch series metric metadata failed")
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		lg.With(
-			"status", resp.Status,
-		).Error("fetch series metric metadata failed")
-		return nil, fmt.Errorf("fetch series metric metadata failed: %s", resp.Status)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			lg.With(
-				"error", err,
-			).Error("failed to close response body")
-		}
-	}(resp.Body)
-	responseBuf := new(bytes.Buffer)
-	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
-		lg.With(
-			"error", err,
-		).Error("failed to read response body")
-		return nil, err
-	}
-	val := string(responseBuf.Bytes())
-	lg.Debug(val)
-	return &cortexadmin.MetricMetadata{}, nil
+	return &cortexadmin.SeriesInfoList{
+		Items: res,
+	}, nil
 }
 
-func (p *Plugin) GetMetricLabels(ctx context.Context, request *cortexadmin.SeriesRequest) (*cortexadmin.MetricLabels, error) {
+func (p *Plugin) GetMetricLabelSets(ctx context.Context, request *cortexadmin.LabelRequest) (*cortexadmin.MetricLabels, error) {
 	lg := p.logger.With(
+		"service", request.JobId,
 		"metric", request.MetricName,
 	)
-	client, err := p.cortexHttpClient.GetContext(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "GET",
-		fmt.Sprintf(
-			"https://%s/prometheus/api/v1/labels",
-			p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress,
-		),
-		nil)
+	resp, err := getCortexMetricLabels(p, lg, ctx, request)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{request.Tenant}))
-	req.Header.Set("Accept", "application/json")
-	resp, err := client.Do(req)
+	labelNames, err := parseCortexMetricLabels(p, resp)
 	if err != nil {
-		lg.With(
-			"error", err,
-		).Error("fetch series metric metadata failed")
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		lg.With(
-			"status", resp.Status,
-		).Error("fetch series metric metadata failed")
-		return nil, fmt.Errorf("fetch series metric metadata failed: %s", resp.Status)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			lg.With(
-				"error", err,
-			).Error("failed to close response body")
+	labelSets := []*cortexadmin.LabelSet{} // label name -> list of label values
+	for _, labelName := range labelNames {
+		if labelName == "job" || labelName == "__name__" { //useless labels
+			continue
 		}
-	}(resp.Body)
-	responseBuf := new(bytes.Buffer)
-	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
-		lg.With(
-			"error", err,
-		).Error("failed to read response body")
-		return nil, err
+		labelResp, err := getCortexLabelValues(p, ctx, request, labelName)
+		if err != nil {
+			return nil, err //FIXME: consider returning partial results
+		}
+		labelValues, err := parseCortexMetricLabels(p, labelResp)
+		if err != nil {
+			return nil, err //FIXME: consider returning partial results
+		}
+		labelSets = append(labelSets, &cortexadmin.LabelSet{
+			Name:  labelName,
+			Items: labelValues,
+		})
 	}
-	val := string(responseBuf.Bytes())
-	lg.Debug(val)
-	return &cortexadmin.MetricLabels{Labels: []string{"none"}}, nil
+	return &cortexadmin.MetricLabels{
+		Items: labelSets,
+	}, nil
 }
 
 func formatTime(t time.Time) string {

@@ -1,8 +1,13 @@
 package unmarshal
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"go.uber.org/zap"
+	"io"
+	"net/http"
+	"reflect"
 
 	"github.com/prometheus/common/model"
 )
@@ -74,4 +79,119 @@ func UnmarshalPrometheusResponse(data []byte) (*queryResult, error) {
 		return nil, err
 	}
 	return &q, nil
+}
+
+//https://github.com/prometheus/prometheus/blob/main/web/api/v1/api.go
+type status string
+
+const (
+	statusSuccess status = "success"
+	statusError   status = "error"
+)
+
+// https://github.com/prometheus/prometheus/blob/main/web/api/v1/api.go
+type errorType string
+
+const (
+	errorNone        errorType = ""
+	errorTimeout     errorType = "timeout"
+	errorCanceled    errorType = "canceled"
+	errorExec        errorType = "execution"
+	errorBadData     errorType = "bad_data"
+	errorInternal    errorType = "internal"
+	errorUnavailable errorType = "unavailable"
+	errorNotFound    errorType = "not_found"
+)
+
+// Generic struct for unmarshalling prometheus http api responses
+// https://github.com/prometheus/prometheus/blob/bcd548c88b06543c8eeb19e68bef4adefb7b95fb/web/api/v1/api.go#L140
+type response struct {
+	Status    status      `json:"status"`
+	Data      interface{} `json:"data,omitempty"`
+	ErrorType errorType   `json:"errorType,omitempty"`
+	Error     string      `json:"error,omitempty"`
+	Warnings  []string    `json:"warnings,omitempty"`
+}
+
+func unmarshallPrometheusWebResponseData(data []byte) (*response, error) {
+	var r response
+	err := json.Unmarshal(data, &r)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+func UnmarshallPrometheusWebResponse(resp *http.Response, lg *zap.SugaredLogger) (*response, error) {
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			lg.With(
+				"error", err,
+			).Error("failed to close response body")
+		}
+	}(resp.Body)
+	responseBuf := new(bytes.Buffer)
+	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
+		lg.With(
+			"error", err,
+		).Error("failed to read response body")
+		return nil, err
+	}
+
+	val, err := unmarshallPrometheusWebResponseData(responseBuf.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	if val.Status != statusSuccess {
+		return nil, fmt.Errorf("well formed prometheus request failed internally with: %s", val.Error)
+	}
+	return val, nil
+}
+
+func InterfaceToInterfaceSlice(input interface{}) ([]interface{}, error) {
+	i := reflect.ValueOf(input)
+	if i.Kind() != reflect.Slice {
+		return nil, fmt.Errorf("input is not a slice")
+	}
+	if i.IsNil() {
+		return nil, fmt.Errorf("input is nil")
+	}
+	output := make([]interface{}, i.Len())
+	for j := 0; j < i.Len(); j++ {
+		output[j] = i.Index(j).Interface()
+	}
+	return output, nil
+}
+
+func InterfaceToMap(input interface{}) (map[string]interface{}, error) {
+	m := reflect.ValueOf(input)
+	if m.Kind() != reflect.Map {
+		return nil, fmt.Errorf("input is not a map")
+	}
+	if m.IsNil() {
+		return nil, fmt.Errorf("provided interface is nil")
+	}
+
+	output := make(map[string]interface{})
+	for _, k := range m.MapKeys() {
+		output[k.String()] = m.MapIndex(k).Interface()
+	}
+
+	return output, nil
+}
+
+func InterfaceToStringSlice(input interface{}) ([]string, error) {
+	s := reflect.ValueOf(input)
+	if s.Kind() != reflect.Slice {
+		return nil, fmt.Errorf("Provided interface cannot be converted to a slice")
+	}
+	if s.IsNil() {
+		return nil, fmt.Errorf("Provided interface is nil")
+	}
+	res := make([]string, s.Len())
+	for i := 0; i < s.Len(); i++ {
+		res[i] = fmt.Sprintf("%v", s.Index(i).Interface())
+	}
+	return res, nil
 }

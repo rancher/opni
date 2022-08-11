@@ -60,14 +60,14 @@ service CortexAdmin {
       post: "/flush_blocks"
     };
   }
-
-  rpc GetSeriesMetadata(SeriesRequest) returns (MetricMetadata) {
+  // list all metrics
+  rpc GetSeriesMetrics(SeriesRequest) returns (SeriesInfoList) {
     option (google.api.http) = {
       get: "/series/metadata"
     };
   }
 
-  rpc GetMetricLabels(SeriesRequest) returns (MetricLabels) {
+  rpc GetMetricLabelSets(LabelRequest) returns (MetricLabels) {
     option (google.api.http) = {
       get: "/series/labels"
     };
@@ -76,11 +76,37 @@ service CortexAdmin {
 
 message SeriesRequest {
   string tenant = 1;
-  string metricName = 2;
+  string jobId = 2;
+}
+
+
+message LabelRequest {
+  string tenant = 1;
+  string jobId = 2;
+  string metricName = 3;
 }
 
 message MetricLabels {
-  repeated string labels = 1;
+  repeated LabelSet items =1;
+}
+
+message LabelSet {
+  string name = 1;
+  repeated string items = 2;
+}
+message SeriesMetadata {
+  string description = 1;
+  string type = 2;
+  string unit =3;
+}
+
+message SeriesInfo{
+  string seriesName = 1;
+  SeriesMetadata metadata = 2;
+}
+
+message SeriesInfoList {
+  repeated SeriesInfo items = 1;
 }
 
 message UserIDStatsList {

@@ -163,11 +163,39 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		sloClient = apis.NewSLOClient(env.ManagementClientConn())
 		adminClient = cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
 		fmt.Println("Before all done")
-		//time.Sleep(time.Second * 30)
+		Eventually(func() error {
+			stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			for _, item := range stats.Items {
+				if item.UserID == "agent" {
+					if item.NumSeries > 0 {
+						return nil
+					}
+				}
+			}
+			return fmt.Errorf("waiting for metric data to be stored in cortex")
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
+		Eventually(func() error {
+			stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			for _, item := range stats.Items {
+				if item.UserID == "agent2" {
+					if item.NumSeries > 0 {
+						return nil
+					}
+				}
+			}
+			return fmt.Errorf("waiting for metric data to be stored in cortex")
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	When("The SLO plugin starts", func() {
 		It("should be able to discover services from downstream", func() {
+			time.Sleep(time.Second * 10)
 			sloSvcs, err := sloClient.ListServices(ctx, &apis.ListServiceRequest{
 				Datasource: shared.MonitoringDatasource,
 			})
@@ -471,9 +499,14 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(err).To(Succeed())
 			// No HTTP requests are made agaisnt prometheus yet, so the status should be empty
 			Expect(status.State).To(Equal(apis.SLOStatusState_NoData))
-
-			goodE := simulateGoodStatus(instrumentationMetric, instrumentationPort, 1000)
-			Expect(goodE).To(Equal(1000))
+			numScrapes := 10
+			for i := 0; i < numScrapes; i++ {
+				goodE := simulateGoodStatus(instrumentationMetric, instrumentationPort, 1000)
+				Expect(goodE).To(Equal(1000))
+				time.Sleep(time.Second * 1)
+			}
+			simulateBadEvents(instrumentationMetric, instrumentationPort, 1000)
+			time.Sleep(time.Second * 1)
 			//time.Sleep(time.Minute)
 			resp, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
 				Tenants: []string{"agent"},
@@ -481,13 +514,33 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			})
 			Expect(err).NotTo(HaveOccurred())
 			fmt.Println(resp.Data)
+			respCodes, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+				Tenants: []string{"agent"},
+				Query:   fmt.Sprintf("http_request_duration_seconds_count{job=\"%s\", code=~\"(2..|3..)\"}", query.MockTestServerName),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Println(respCodes.Data)
 
 			resp2, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
-				Tenants: []string{"agent2"},
-				Query:   fmt.Sprintf("http_request_duration_seconds_count{job=\"%s\"}", query.MockTestServerName),
+				Tenants: []string{"agent"},
+				Query:   fmt.Sprintf("rate(http_request_duration_seconds_count{job=\"%s\"}[10s])", query.MockTestServerName),
 			})
 			Expect(err).NotTo(HaveOccurred())
 			fmt.Println(resp2.Data)
+
+			resp3, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+				Tenants: []string{"agent"},
+				Query:   fmt.Sprintf("sum(rate(http_request_duration_seconds_count{job=\"%s\"}[5m]))", query.MockTestServerName),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Println(resp3.Data)
+
+			resp4, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+				Tenants: []string{"agent"},
+				Query:   "1 - (\n            (\n              (sum(rate(http_request_duration_seconds_count{job=\"MyServer\",code=~\"(2..|3..)\"}[5m])))\n            )\n            /\n            (\n              (sum(rate(http_request_duration_seconds_count{job=\"MyServer\"}[5m])))\n            )\n          )",
+			})
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Println(resp4.Data)
 
 			expectedGoodStatus, err := sloClient.Status(ctx, instrumentationSLOID)
 			Expect(err).To(Succeed())

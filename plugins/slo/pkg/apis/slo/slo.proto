@@ -54,7 +54,7 @@ service SLO {
 
   // Returns a set of metrics with compatible implementations for
   // a set of services
-  rpc ListMetrics(ServiceList) returns (MetricList) {
+  rpc ListMetrics(Service) returns (MetricList) {
     option (google.api.http) = {
       post: "/metrics"
     };
@@ -67,6 +67,12 @@ service SLO {
     };
   }
 
+  rpc ListEvents(ListEventRequest) returns (EventList) {
+    option (google.api.http) = {
+      post: "/events"
+    };
+  }
+
    // Returns a status enum badge for a given SLO
   rpc Status(core.Reference) returns (SLOStatus) {
     option (google.api.http) = {
@@ -74,6 +80,26 @@ service SLO {
     };
   }
 
+  rpc Preview(CreateSLORequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post : "/slos/preview"
+    };
+  }
+}
+
+message ListEventRequest {
+  string serviceId = 1;
+  string clusterId = 2;
+  string metricId = 3;
+}
+
+message Event{
+  string key = 1;
+  string val = 2;
+}
+
+message EventList{
+  repeated Event items = 1;
 }
 
 message ServiceInfo {

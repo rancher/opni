@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
+	"github.com/tidwall/gjson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v3"
@@ -288,6 +289,9 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 
 	When("When use raw SLO constructions with cortex admin client", func() {
 		Specify("The individual parts of the raw SLI queries should return data from cortex", func() {
+			// needed to ensure that prometheus agent registers a 200 status code
+			// otherwise the test is flaky
+			time.Sleep(time.Second)
 			rawGood, err := sloObj.RawGoodEventsQuery("5m")
 			Expect(err).NotTo(HaveOccurred())
 			rawTotal, err := sloObj.RawTotalEventsQuery("5m")
@@ -361,11 +365,99 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(qres).NotTo(BeNil())
+				recordingVector, err := qres.GetVector()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(recordingVector).NotTo(BeNil())
+				Expect(*recordingVector).NotTo(BeEmpty())
+				for _, sample := range *recordingVector {
+					Expect(sample.Value).To(BeNumerically(">=", 0))
+					Expect(sample.Timestamp).To(BeNumerically(">=", 0))
+				}
 			}
 		})
 
-		Specify("After applying the recording rules, all of the raw metadata queries should return data", func() {
+		Specify("All of the raw Metadata queries should return data from cortex", func() {
+			// TODO : need to replace all rule names in each of these Expr's to their real expr
+		})
 
+		Specify("All of the raw alert queries should return data from cortex", func() {
+			// TODO: need to replace all rule names in each of these Expr's to their real expr
+		})
+
+		Specify("After aplying the rules to cortex, each rule name should evaluate to non-empty data", func() {
+			// Manually apply the SLI recording rules
+			interval := time.Second
+			rrecording := sloObj.ConstructRecordingRuleGroup(&interval)
+			rmetadata := sloObj.ConstructMetadataRules(&interval)
+
+			outRecording, err := yaml.Marshal(rrecording)
+			Expect(err).To(Succeed())
+
+			_, err = adminClient.LoadRules(ctx, &cortexadmin.PostRuleRequest{
+				ClusterId:   "agent",
+				YamlContent: string(outRecording),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			outMetadata, err := yaml.Marshal(rmetadata)
+			_, err = adminClient.LoadRules(ctx, &cortexadmin.PostRuleRequest{
+				ClusterId:   "agent",
+				YamlContent: string(outMetadata),
+			})
+			time.Sleep(time.Second * 60) //FIXME: syncing rules is taking about a minute
+
+			//@debug
+			resp, err := adminClient.ListRules(ctx, &cortexadmin.Cluster{
+				ClusterId: "agent",
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).NotTo(BeNil())
+			Expect(resp.Data).NotTo(BeEmpty())
+			result := gjson.Get(string(resp.Data), "data.groups")
+			Expect(result.Exists()).To(BeTrue())
+			for _, r := range result.Array() {
+				fmt.Println(r)
+			}
+
+			// check the recording rule names to make sure they return data
+			for _, rawRule := range rrecording.Rules {
+				respRule, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+					Tenants: []string{"agent"},
+					Query:   rawRule.Expr,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(respRule.Data).NotTo(BeEmpty())
+				qresRule, err := unmarshal.UnmarshalPrometheusResponse(respRule.Data)
+				Expect(err).NotTo(HaveOccurred())
+				ruleVector, err := qresRule.GetVector()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ruleVector).NotTo(BeNil())
+				Expect(*ruleVector).NotTo(BeEmpty())
+				for _, sample := range *ruleVector {
+					Expect(sample.Value).NotTo(BeNil())
+					Expect(sample.Timestamp).To(BeNumerically(">=", 0))
+				}
+			}
+
+			// check the evaluation of the rule names produce non-empty responses
+			for _, rawRule := range rmetadata.Rules {
+				respMetadata, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+					Tenants: []string{"agent"},
+					Query:   rawRule.Record,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(respMetadata.Data).NotTo(BeEmpty())
+				qresMetadata, err := unmarshal.UnmarshalPrometheusResponse(respMetadata.Data)
+				Expect(err).NotTo(HaveOccurred())
+				metadataVector, err := qresMetadata.GetVector()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(metadataVector).NotTo(BeNil())
+				//FIXME: `group_left` is fallaciously being replaced with `group_left()`
+				//Expect(*metadataVector).NotTo(BeEmpty())
+				for _, sample := range *metadataVector {
+					Expect(sample.Value).To(BeNumerically(">=", 0))
+					Expect(sample.Timestamp).To(BeNumerically(">=", 0))
+				}
+			}
 		})
 	})
 })

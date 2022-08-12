@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -355,6 +356,23 @@ func (p *Plugin) GetRule(ctx context.Context,
 	}, nil
 }
 
+func (p *Plugin) ListRules(ctx context.Context, req *cortexadmin.Cluster) (*cortexadmin.QueryResponse, error) {
+	lg := p.logger.With(
+		"cluster id", req.ClusterId,
+	)
+	resp, err := listCortexRules(p, lg, ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return &cortexadmin.QueryResponse{
+		Data: body,
+	}, nil
+}
+
 // LoadRules This method is responsible for Creating and Updating Rules
 func (p *Plugin) LoadRules(ctx context.Context,
 	in *cortexadmin.PostRuleRequest,
@@ -437,7 +455,9 @@ func (p *Plugin) GetSeriesMetrics(ctx context.Context, request *cortexadmin.Seri
 		"metric", request.JobId,
 	)
 	resp, err := enumerateCortexSeries(p, lg, ctx, request)
-
+	if err != nil {
+		return nil, err
+	}
 	set, err := parseCortexEnumerateSeries(resp, lg)
 	if err != nil {
 		return nil, err

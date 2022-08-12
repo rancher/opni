@@ -143,3 +143,12 @@ func getCortexLabelValues(p *Plugin, ctx context.Context, request *cortexadmin.L
 	resp, err := proxyCortexToPrometheus(p, p.logger, ctx, request.Tenant, "GET", reqUrl, nil, nil)
 	return resp, err
 }
+
+func listCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, request *cortexadmin.Cluster) (*http.Response, error) {
+	reqUrl := fmt.Sprintf(
+		"https://%s/prometheus/api/v1/rules",
+		p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress,
+	)
+	resp, err := proxyCortexToPrometheus(p, lg, ctx, request.ClusterId, "GET", reqUrl, nil, nil)
+	return resp, err
+}

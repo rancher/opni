@@ -110,6 +110,10 @@ type SLO struct {
 	totalEvents LabelPairs
 }
 
+func normalizeObjective(objective float64) float64 {
+	return objective / 100
+}
+
 func NewSLO(
 	sloName string,
 	sloPeriod string,
@@ -189,11 +193,11 @@ func (s *SLO) GetPrometheusRuleFilterByIdLabels() (string, error) {
 }
 
 func (s *SLO) RawObjectiveQuery() string {
-	return fmt.Sprintf("vector(%f)", s.objective)
+	return fmt.Sprintf("vector(%f)", normalizeObjective(s.objective))
 }
 
 func (s *SLO) RawErrorBudgetQuery() string {
-	return fmt.Sprintf("vector(1-%f)", s.objective)
+	return fmt.Sprintf("vector(1-%f)", normalizeObjective(s.objective))
 }
 
 // RawCurrentBurnRateQuery
@@ -205,7 +209,7 @@ func (s *SLO) RawCurrentBurnRateQuery() string {
 	}
 	fastWindow := NewWindowRange(s.sloPeriod)[0]
 	strRes := (ratio_rate_query_name + fastWindow) + "{" + ruleFilters + "}" + " / " +
-		fmt.Sprintf("on(%s, %s, %s) group_left", slo_uuid, slo_service, slo_name) +
+		fmt.Sprintf("on(%s, %s, %s)", slo_uuid, slo_service, slo_name) + " group_left\n" +
 		slo_error_budget_ratio + "{" + ruleFilters + "}"
 
 	return strRes
@@ -218,7 +222,7 @@ func (s *SLO) RawPeriodBurnRateQuery() string {
 	}
 	slowestWindow := NewWindowRange(s.sloPeriod)[len(NewWindowRange(s.sloPeriod))-1]
 	strRes := (ratio_rate_query_name + slowestWindow) + "{" + ruleFilters + "}" + " / " +
-		fmt.Sprintf("on(%s, %s, %s) group_left", slo_uuid, slo_service, slo_name) +
+		fmt.Sprintf("on(%s, %s, %s)", slo_uuid, slo_service, slo_name) + " group_left\n" +
 		slo_error_budget_ratio + "{" + ruleFilters + "}"
 	return strRes
 }
@@ -337,7 +341,7 @@ func (s *SLO) ConstructMetadataRules(interval *time.Duration) RuleGroupYAMLv2 {
 		}
 	}
 	rmetadata := RuleGroupYAMLv2{
-		Name:     s.GetId() + RecordingRuleSuffix,
+		Name:     s.GetId() + MetadataRuleSuffix,
 		Interval: promInterval,
 	}
 	rmetadata.Rules = []rulefmt.Rule{

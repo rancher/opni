@@ -44,6 +44,12 @@ service CortexAdmin {
     };
   }
 
+  rpc ListRules(Cluster) returns (QueryResponse) {
+    option (google.api.http) = {
+      get : "/rules"
+    };
+  }
+
   rpc LoadRules(PostRuleRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/rules"
@@ -74,11 +80,14 @@ service CortexAdmin {
   }
 }
 
+message Cluster {
+  string clusterId = 1;
+}
+
 message SeriesRequest {
   string tenant = 1;
   string jobId = 2;
 }
-
 
 message LabelRequest {
   string tenant = 1;

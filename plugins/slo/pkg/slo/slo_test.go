@@ -251,7 +251,12 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 		})
 
 		Specify("SLO objects should be able to create valid alerting Prometheus rules", func() {
-			//TODO
+			interval := time.Second
+			ralerts := sloObj.ConstructAlertingRuleGroup(&interval)
+			for _, alertRule := range ralerts.Rules {
+				_, err := promql.ParseExpr(alertRule.Expr)
+				Expect(err).To(Succeed())
+			}
 		})
 
 		Specify("SLO objects should be able to create valid Cortex recording rule groups", func() {
@@ -283,7 +288,16 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 		})
 
 		Specify("SLO objects should be able to create valid Cortex alerting rule groups", func() {
-			//TODO
+			interval := time.Second
+			ralerts := sloObj.ConstructMetadataRules(&interval)
+			out, err := yaml.Marshal(ralerts)
+			Expect(err).To(Succeed())
+			y := rulefmt.RuleGroup{}
+			err = yaml.Unmarshal(out, &y)
+			Expect(err).To(Succeed())
+			//FIXME: when joe is back, should add pkg/rules to his fork of cortex-tools
+			//errors := rules.ValidateRuleGroup(y)
+			//Expect(errors).To(BeEmpty())
 		})
 	})
 
@@ -389,6 +403,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 			interval := time.Second
 			rrecording := sloObj.ConstructRecordingRuleGroup(&interval)
 			rmetadata := sloObj.ConstructMetadataRules(&interval)
+			ralerts := sloObj.ConstructAlertingRuleGroup(&interval)
 
 			outRecording, err := yaml.Marshal(rrecording)
 			Expect(err).To(Succeed())
@@ -403,6 +418,13 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				ClusterId:   "agent",
 				YamlContent: string(outMetadata),
 			})
+			outAlerts, err := yaml.Marshal(ralerts)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = adminClient.LoadRules(ctx, &cortexadmin.PostRuleRequest{
+				ClusterId:   "agent",
+				YamlContent: string(outAlerts),
+			})
+			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second * 60) //FIXME: syncing rules is taking about a minute
 
 			//@debug
@@ -454,6 +476,25 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				//FIXME: `group_left` is fallaciously being replaced with `group_left()`
 				//Expect(*metadataVector).NotTo(BeEmpty())
 				for _, sample := range *metadataVector {
+					Expect(sample.Value).To(BeNumerically(">=", 0))
+					Expect(sample.Timestamp).To(BeNumerically(">=", 0))
+				}
+			}
+
+			for _, rawRule := range ralerts.Rules {
+				respAlerts, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+					Tenants: []string{"agent"},
+					Query:   rawRule.Expr,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(respAlerts.Data).NotTo(BeEmpty())
+				qresAlert, err := unmarshal.UnmarshalPrometheusResponse(respAlerts.Data)
+				Expect(err).NotTo(HaveOccurred())
+				alertVector, err := qresAlert.GetVector()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(alertVector).NotTo(BeNil())
+				//Expect(*alertVector).NotTo(BeEmpty()) //FIXME
+				for _, sample := range *alertVector {
 					Expect(sample.Value).To(BeNumerically(">=", 0))
 					Expect(sample.Timestamp).To(BeNumerically(">=", 0))
 				}

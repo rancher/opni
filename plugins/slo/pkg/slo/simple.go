@@ -17,9 +17,10 @@ const (
 	slo_uuid    = "slo_opni_id"
 	slo_service = "slo_opni_service"
 	slo_name    = "slo_opni_name"
+	slo_window  = "slo_window"
 
 	// recording rule names
-	ratio_rate_query_name = "slo:sli_error:ratio_rate"
+	slo_ratio_rate_query_name = "slo:sli_error:ratio_rate"
 
 	// metadata rule names
 	slo_objective_ratio                     = "slo:objective:ratio"
@@ -31,7 +32,6 @@ const (
 	slo_info                                = "opni_slo_info"
 
 	// alert rule names
-
 	RecordingRuleSuffix = "-recording"
 	MetadataRuleSuffix  = "-metadata"
 	AlertRuleSuffix     = "-alerts"
@@ -208,7 +208,7 @@ func (s *SLO) RawCurrentBurnRateQuery() string {
 		panic(err)
 	}
 	fastWindow := NewWindowRange(s.sloPeriod)[0]
-	strRes := (ratio_rate_query_name + fastWindow) + "{" + ruleFilters + "}" + " / " +
+	strRes := (slo_ratio_rate_query_name + fastWindow) + "{" + ruleFilters + "}" + " / " +
 		fmt.Sprintf("on(%s, %s, %s)", slo_uuid, slo_service, slo_name) + " group_left\n" +
 		slo_error_budget_ratio + "{" + ruleFilters + "}"
 
@@ -221,7 +221,7 @@ func (s *SLO) RawPeriodBurnRateQuery() string {
 		panic(err)
 	}
 	slowestWindow := NewWindowRange(s.sloPeriod)[len(NewWindowRange(s.sloPeriod))-1]
-	strRes := (ratio_rate_query_name + slowestWindow) + "{" + ruleFilters + "}" + " / " +
+	strRes := (slo_ratio_rate_query_name + slowestWindow) + "{" + ruleFilters + "}" + " / " +
 		fmt.Sprintf("on(%s, %s, %s)", slo_uuid, slo_service, slo_name) + " group_left\n" +
 		slo_error_budget_ratio + "{" + ruleFilters + "}"
 	return strRes
@@ -318,10 +318,10 @@ func (s *SLO) ConstructRecordingRuleGroup(interval *time.Duration) RuleGroupYAML
 			panic(err)
 		}
 		rrecording.Rules = append(rrecording.Rules, rulefmt.Rule{
-			Record: ratio_rate_query_name + w,
+			Record: slo_ratio_rate_query_name + w,
 			Expr:   rawSli,
 			Labels: MergeLabels(s.idLabels, map[string]string{
-				"slo_window": w,
+				slo_window: w,
 			}),
 		})
 	}
@@ -377,47 +377,98 @@ func (s *SLO) ConstructMetadataRules(interval *time.Duration) RuleGroupYAMLv2 {
 	return rmetadata
 }
 
-func (s *SLO) ConstructCortexRules(interval *time.Duration) (sli, metadata RuleGroupYAMLv2) {
+func (s *SLO) AlertPageThreshold() float64 {
+	return 0.5
+}
+
+func execAlertTemplate(b *bytes.Buffer, ruleName, ruleFilters, floatThreshold, sloWindowLabel string) error {
+	maxCalcTpl := template.Must(template.New("alertingMaxExprCal").Parse("max({{.RuleName}}{ {{.RuleFilters}}} > {{.FloatThreshold}}) without({{.SloWindowLabel}})"))
+	return maxCalcTpl.Execute(b, map[string]string{
+		"RuleName":       ruleName,
+		"RuleFilters":    ruleFilters,
+		"FloatThreshold": floatThreshold,
+		"SloWindowLabel": sloWindowLabel,
+	})
+}
+
+func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv2 {
+	var promInterval prommodel.Duration
+	var err error
+	if interval == nil { //sensible default is 1m
+		promInterval, err = prommodel.ParseDuration(TimeDurationToPromStr(time.Minute))
+
+	} else {
+		promInterval, err = prommodel.ParseDuration(TimeDurationToPromStr(*interval))
+		if err != nil {
+			panic(err)
+		}
+	}
+	ralerting := RuleGroupYAMLv2{
+		Name:     s.GetId() + AlertRuleSuffix,
+		Interval: promInterval,
+	}
+
+	sloFilters, err := s.GetPrometheusRuleFilterByIdLabels()
+	if err != nil {
+		panic(err)
+	}
+	var pageConditionFast1, pageConditionFast2, pageConditionSlow1, pageConditionSlow2 bytes.Buffer
+	if err := execAlertTemplate(&pageConditionFast1, slo_ratio_rate_query_name+"5m", sloFilters, "0.0001", slo_window); err != nil {
+		panic(err)
+	}
+	if err := execAlertTemplate(&pageConditionFast2, slo_ratio_rate_query_name+"30m", sloFilters, "0.0001", slo_window); err != nil {
+		panic(err)
+	}
+	if err := execAlertTemplate(&pageConditionSlow1, slo_ratio_rate_query_name+"2h", sloFilters, "0.0001", slo_window); err != nil {
+		panic(err)
+	}
+	if err := execAlertTemplate(&pageConditionSlow2, slo_ratio_rate_query_name+"6h", sloFilters, "0.0001", slo_window); err != nil {
+		panic(err)
+	}
+	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
+		Alert: fmt.Sprintf("%s_alert_page-%s", s.GetId(), s.GetName()),
+		Expr: fmt.Sprintf("(%s and %s) or (%s and %s)",
+			pageConditionFast1.String(),
+			pageConditionFast2.String(),
+			pageConditionSlow1.String(),
+			pageConditionSlow2.String(),
+		),
+		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}),
+	})
+
+	var ticketConditionFast1, ticketConditionFast2, ticketConditionSlow1, ticketConditionSlow2 bytes.Buffer
+
+	if err := execAlertTemplate(&ticketConditionFast1, slo_ratio_rate_query_name+"2h", sloFilters, "0.0001", slo_window); err != nil {
+		panic(err)
+	}
+	if err := execAlertTemplate(&ticketConditionFast2, slo_ratio_rate_query_name+"1d", sloFilters, "0.0001", slo_window); err != nil {
+		panic(err)
+	}
+	if err := execAlertTemplate(&ticketConditionSlow1, slo_ratio_rate_query_name+"6h", sloFilters, "0.0001", slo_window); err != nil {
+		panic(err)
+	}
+	if err := execAlertTemplate(&ticketConditionSlow2, slo_ratio_rate_query_name+"3d", sloFilters, "0.0001", slo_window); err != nil {
+		panic(err)
+	}
+	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
+		Alert: fmt.Sprintf("%s_alert_ticket-%s", s.GetId(), s.GetName()),
+		Expr: fmt.Sprintf("(%s and %s) or (%s and %s)",
+			ticketConditionFast1.String(),
+			ticketConditionFast2.String(),
+			ticketConditionSlow1.String(),
+			ticketConditionSlow2.String(),
+		),
+		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}),
+	})
+	return ralerting
+}
+
+func (s *SLO) ConstructCortexRules(interval *time.Duration) (sli, metadata, alerts RuleGroupYAMLv2) {
 
 	rrecording := s.ConstructRecordingRuleGroup(interval)
 	rmetadata := s.ConstructMetadataRules(interval)
+	ralerts := s.ConstructAlertingRuleGroup(interval)
 
-	//ralerts.Rules = []rulefmt.Rule{
-	//	{
-	//		Alert: fmt.Sprintf("%s-alert-page-%s", s.GetId(), s.GetName()),
-	//		//TODO
-	//		//	expr: |
-	//		//(
-	//		//	max(slo:sli_error:ratio_rate5m{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0016666666666666666 * 0.00010000000000005117)) without (sloth_window)
-	//		//	and
-	//		//	max(slo:sli_error:ratio_rate1h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0016666666666666666 * 0.00010000000000005117)) without (sloth_window)
-	//		//)
-	//		//	or
-	//		//(
-	//		//	max(slo:sli_error:ratio_rate30m{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0006944444444444445 * 0.00010000000000005117)) without (sloth_window)
-	//		//	and
-	//		//	max(slo:sli_error:ratio_rate6h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0006944444444444445 * 0.00010000000000005117)) without (sloth_window)
-	//		//)
-	//		//	labels:
-	//		//	sloth_severity: page
-	//	},
-	//	{
-	//		Alert: fmt.Sprintf("%s-alert-ticket-%s", s.GetId(), s.GetName()),
-	//		//	expr: |
-	//		//(
-	//		//	max(slo:sli_error:ratio_rate2h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00034722222222222224 * 0.00010000000000005117)) without (sloth_window)
-	//		//	and
-	//		//	max(slo:sli_error:ratio_rate1d{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00034722222222222224 * 0.00010000000000005117)) without (sloth_window)
-	//		//)
-	//		//	or
-	//		//(
-	//		//	max(slo:sli_error:ratio_rate6h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00011574074074074075 * 0.00010000000000005117)) without (sloth_window)
-	//		//	and
-	//		//	max(slo:sli_error:ratio_rate3d{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00011574074074074075 * 0.00010000000000005117)) without (sloth_window)
-	//		//	labels:
-	//		//	sloth_severity: ticket
-	//	},
-	//}
 	_, debug := os.LookupEnv("DEBUG_RULES")
 	if debug {
 		srecording, err := yaml.Marshal(rrecording)
@@ -428,15 +479,15 @@ func (s *SLO) ConstructCortexRules(interval *time.Duration) (sli, metadata RuleG
 		if err != nil {
 			panic(err)
 		}
-		//salerts, err := yaml.Marshal(ralerts)
-		//if err != nil {
-		//	panic(err)
-		//}
+		salerts, err := yaml.Marshal(ralerts)
+		if err != nil {
+			panic(err)
+		}
 		os.WriteFile(s.GetId()+"-recording.yaml", srecording, 0644)
 		os.WriteFile(s.GetId()+"-metadata.yaml", smetadata, 0644)
-		//os.WriteFile(s.GetId()+"-alerts.yaml", salerts, 0644)
+		os.WriteFile(s.GetId()+"-alerts.yaml", salerts, 0644)
 	}
-	return rrecording, rmetadata
+	return rrecording, rmetadata, ralerts
 }
 
 func NewWindowRange(sloPeriod string) []string {

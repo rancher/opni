@@ -208,13 +208,14 @@ func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLO
 
 // -------- Service Discovery ---------
 
-func (p *Plugin) ListServices(ctx context.Context, req *sloapi.ListServiceRequest) (*sloapi.ServiceList, error) {
-	res := &sloapi.ServiceList{}
+func (p *Plugin) ListServices(ctx context.Context, req *sloapi.ListServicesRequest) (*sloapi.ServiceList, error) {
 	//lg := p.logger
-	//err := checkDatasource(req.Datasource)
-	//if err != nil {
-	//	return nil, shared.ErrInvalidDatasource
-	//}
+	err := checkDatasource(req.Datasource)
+	if err != nil {
+		return nil, shared.ErrInvalidDatasource
+	}
+	backend := datasourceToService[req.Datasource].WithCurrentRequest(req, ctx)
+	return backend.ListServices()
 	//
 	//clusters, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
 	//if err != nil {
@@ -232,38 +233,16 @@ func (p *Plugin) ListServices(ctx context.Context, req *sloapi.ListServiceReques
 	//	return nil, err
 	//}
 	//res.Items = append(res.Items, datasourceServices.Items...)
-	return res, nil
+
 }
 
-// Assign a Job Id to a pre configured metric based on the service selected
-func (p *Plugin) GetMetricId(ctx context.Context, metricRequest *sloapi.MetricRequest) (*sloapi.ServiceInfo, error) {
-
-	//if _, ok := query.AvailableQueries[metricRequest.Name]; !ok {
-	//	return nil, shared.ErrInvalidMetric
-	//}
-	//
-	//datasource := metricRequest.GetDatasource()
-	//if err := checkDatasource(datasource); err != nil {
-	//	return nil, shared.ErrInvalidDatasource
-	//}
-	//serviceBackend := datasourceToService[datasource].WithCurrentRequest(metricRequest, ctx)
-	//metricIds, err := serviceBackend.GetMetricId()
-	//
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//return &sloapi.ServiceInfo{
-	//	MetricName:    metricRequest.Name,
-	//	ClusterId:     metricRequest.ClusterId,
-	//	JobId:         metricRequest.ServiceId,
-	//	MetricIdGood:  metricIds.Good,
-	//	MetricIdTotal: metricIds.Total,
-	//}, nil
-	return nil, shared.ErrNotImplemented
-}
-
-func (p *Plugin) ListMetrics(ctx context.Context, services *sloapi.Service) (*sloapi.MetricList, error) {
+func (p *Plugin) ListMetrics(ctx context.Context, req *sloapi.ListMetricsRequest) (*sloapi.MetricList, error) {
+	err := checkDatasource(req.Datasource)
+	if err != nil {
+		return nil, shared.ErrInvalidDatasource
+	}
+	backend := datasourceToService[req.Datasource].WithCurrentRequest(req, ctx)
+	return backend.ListMetrics()
 	//lg := p.logger
 	//candidateMetrics, err := list(ctx, p.storage.Get().Metrics, "/metrics")
 	//if err != nil {
@@ -306,10 +285,17 @@ func (p *Plugin) ListMetrics(ctx context.Context, services *sloapi.Service) (*sl
 	return &sloapi.MetricList{}, nil
 }
 
-func (p *Plugin) ListEvents(ctx context.Context, req *sloapi.ListEventRequest) (*sloapi.EventList, error) {
+func (p *Plugin) ListEvents(ctx context.Context, req *sloapi.ListEventsRequest) (*sloapi.EventList, error) {
 	// fetch labels & their label values for the given cluster & service
-
-	return nil, shared.ErrNotImplemented
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	datasource := req.GetDatasource()
+	if err := checkDatasource(datasource); err != nil {
+		return nil, shared.ErrInvalidDatasource
+	}
+	backend := datasourceToService[datasource].WithCurrentRequest(req, ctx)
+	return backend.ListEvents()
 }
 
 func (p *Plugin) Preview(ctx context.Context, req *sloapi.CreateSLORequest) (*emptypb.Empty, error) {

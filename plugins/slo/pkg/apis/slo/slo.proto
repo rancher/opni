@@ -44,30 +44,22 @@ service SLO {
     };
   }
 
-  // Fetches implementation details of a metric from the ServiceBackend
-  // Used as a helper API 
-  rpc GetMetricId(MetricRequest) returns (ServiceInfo) {
-    option (google.api.http) = {
-      get: "/metrics/{name}/{serviceId}"
-    };
-  }
-
   // Returns a set of metrics with compatible implementations for
   // a set of services
-  rpc ListMetrics(Service) returns (MetricList) {
+  rpc ListMetrics(ListMetricsRequest) returns (MetricList) {
     option (google.api.http) = {
       post: "/metrics"
     };
   }
 
   // Returns the list of services discovered by the Service Discovery backend
-  rpc ListServices(ListServiceRequest) returns (ServiceList) {
+  rpc ListServices(ListServicesRequest) returns (ServiceList) {
     option (google.api.http) = {
       post: "/services"
     };
   }
 
-  rpc ListEvents(ListEventRequest) returns (EventList) {
+  rpc ListEvents(ListEventsRequest) returns (EventList) {
     option (google.api.http) = {
       post: "/events"
     };
@@ -87,15 +79,27 @@ service SLO {
   }
 }
 
-message ListEventRequest {
-  string serviceId = 1;
+message ListEventsRequest {
+  string datasource = 1;
+  string serviceId = 2;
+  string clusterId = 3;
+  string metricId = 4;
+}
+
+message ListMetricsRequest {
+  string datasource = 1;
   string clusterId = 2;
-  string metricId = 3;
+  string serviceId = 3;
+}
+
+message ListServicesRequest{
+  string datasource = 1;
+  string clusterdId = 2;
 }
 
 message Event{
   string key = 1;
-  string val = 2;
+  repeated string vals = 2;
 }
 
 message EventList{
@@ -111,7 +115,7 @@ message ServiceInfo {
 }
 
 message Service {
-  string jobId = 1;
+  string serviceId = 1;
   string clusterId = 2;
 }
 
@@ -148,10 +152,17 @@ message ServiceLevelObjective {
 }
 
 message CreateSLORequest {
-  ServiceLevelObjective SLO = 1;
-  repeated Service services = 2;
+  ServiceLevelObjective slo = 1;
 }
 
+message EventPairList {
+  repeated EventPair items = 1;
+}
+
+message EventPair {
+  string key = 1;
+  repeated string vals = 2;
+}
 
 message SLOData {
   string id = 1;
@@ -164,20 +175,14 @@ message Target {
 }
 
 message Metric {
-  string name = 1;
-  string datasource = 2;
-  string description = 3;
-  string clusterId = 4;
-  string serviceId = 5;
-  string metricIdGood = 6;
-  string metricIdTotal = 7;
+  string id = 1;
+  MetricMetadata metadata = 2;
 }
 
-message MetricRequest {
-  string name = 1;
-  string datasource = 2;
-  string serviceId = 3;
-  string clusterId = 4;
+message MetricMetadata {
+  string description = 1;
+  string type =2;
+  string unit = 3;
 }
 
 message MetricList {

@@ -33,8 +33,9 @@ type SLOStore interface {
 	WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore
 }
 type ServiceBackend interface {
-	List(clusters *corev1.ClusterList) (*sloapi.ServiceList, error)
-	GetMetricId() (*MetricIds, error)
+	ListServices() (*sloapi.ServiceList, error)
+	ListMetrics() (*sloapi.MetricList, error)
+	ListEvents() (*sloapi.EventList, error)
 	WithCurrentRequest(req proto.Message, ctx context.Context) ServiceBackend
 }
 

@@ -1,6 +1,9 @@
 package slo
 
 import (
+	"fmt"
+	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
+	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"text/template"
 	"time"
 
@@ -57,6 +60,24 @@ func labelsToPromFilter(labels map[string]string) string {
 	for k, v := range labels {
 		metricFilters[prommodel.LabelName(k)] = prommodel.LabelValue(v)
 	}
-
 	return metricFilters.String()
+}
+
+type zipperHolder struct {
+	Spec    *oslov1.SLO
+	Service *apis.Service
+}
+
+func zipOpenSLOWithServices(ps []oslov1.SLO, as []*apis.Service) ([]*zipperHolder, error) {
+	if len(as) != len(ps) {
+		return nil, fmt.Errorf("Expected Generated SLOGroups to match the number of Services provided in the request")
+	}
+	res := make([]*zipperHolder, 0)
+	for idx, p := range ps {
+		res = append(res, &zipperHolder{
+			Spec:    &p,
+			Service: as[idx],
+		})
+	}
+	return res, nil
 }

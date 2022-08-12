@@ -44,7 +44,7 @@ service CortexAdmin {
     };
   }
 
-  rpc LoadRules(YamlRequest) returns (google.protobuf.Empty) {
+  rpc LoadRules(PostRuleRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/rules"
     };
@@ -60,6 +60,53 @@ service CortexAdmin {
       post: "/flush_blocks"
     };
   }
+  // list all metrics
+  rpc GetSeriesMetrics(SeriesRequest) returns (SeriesInfoList) {
+    option (google.api.http) = {
+      get: "/series/metadata"
+    };
+  }
+
+  rpc GetMetricLabelSets(LabelRequest) returns (MetricLabels) {
+    option (google.api.http) = {
+      get: "/series/labels"
+    };
+  }
+}
+
+message SeriesRequest {
+  string tenant = 1;
+  string jobId = 2;
+}
+
+
+message LabelRequest {
+  string tenant = 1;
+  string jobId = 2;
+  string metricName = 3;
+}
+
+message MetricLabels {
+  repeated LabelSet items =1;
+}
+
+message LabelSet {
+  string name = 1;
+  repeated string items = 2;
+}
+message SeriesMetadata {
+  string description = 1;
+  string type = 2;
+  string unit =3;
+}
+
+message SeriesInfo{
+  string seriesName = 1;
+  SeriesMetadata metadata = 2;
+}
+
+message SeriesInfoList {
+  repeated SeriesInfo items = 1;
 }
 
 message UserIDStatsList {
@@ -136,13 +183,13 @@ message QueryRangeRequest {
 }
 
 message RuleRequest {
-  string tenant = 1;
+  string clusterId = 1;
   string groupName = 2;
 }
 
-message YamlRequest{
-  string tenant = 1;
-  string yaml = 2;
+message PostRuleRequest{
+  string clusterId = 1;
+  string yamlContent = 2;
 }
 
 message QueryResponse {

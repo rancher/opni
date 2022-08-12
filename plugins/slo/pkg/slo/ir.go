@@ -169,7 +169,7 @@ func (y YAMLSpecLoader) GetSLOs(spec openslov1.SLO) ([]prometheus.SLO, error) {
 		}
 
 		res = append(res, prometheus.SLO{
-			ID:              fmt.Sprintf("%s-%s-%d", spec.Spec.Service, spec.Metadata.Name, idx),
+			ID:              fmt.Sprintf("%s-%d", spec.Metadata.Name, idx),
 			Name:            fmt.Sprintf("%s-%d", spec.Metadata.Name, idx),
 			Service:         spec.Spec.Service,
 			Description:     spec.Spec.Description,

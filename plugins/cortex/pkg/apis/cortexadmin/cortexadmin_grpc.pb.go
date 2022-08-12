@@ -28,9 +28,12 @@ type CortexAdminClient interface {
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	QueryRange(ctx context.Context, in *QueryRangeRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 	GetRule(ctx context.Context, in *RuleRequest, opts ...grpc.CallOption) (*QueryResponse, error)
-	LoadRules(ctx context.Context, in *YamlRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	LoadRules(ctx context.Context, in *PostRuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteRule(ctx context.Context, in *RuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	FlushBlocks(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// list all metrics
+	GetSeriesMetrics(ctx context.Context, in *SeriesRequest, opts ...grpc.CallOption) (*SeriesInfoList, error)
+	GetMetricLabelSets(ctx context.Context, in *LabelRequest, opts ...grpc.CallOption) (*MetricLabels, error)
 }
 
 type cortexAdminClient struct {
@@ -86,7 +89,7 @@ func (c *cortexAdminClient) GetRule(ctx context.Context, in *RuleRequest, opts .
 	return out, nil
 }
 
-func (c *cortexAdminClient) LoadRules(ctx context.Context, in *YamlRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *cortexAdminClient) LoadRules(ctx context.Context, in *PostRuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/LoadRules", in, out, opts...)
 	if err != nil {
@@ -113,6 +116,24 @@ func (c *cortexAdminClient) FlushBlocks(ctx context.Context, in *emptypb.Empty, 
 	return out, nil
 }
 
+func (c *cortexAdminClient) GetSeriesMetrics(ctx context.Context, in *SeriesRequest, opts ...grpc.CallOption) (*SeriesInfoList, error) {
+	out := new(SeriesInfoList)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/GetSeriesMetrics", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexAdminClient) GetMetricLabelSets(ctx context.Context, in *LabelRequest, opts ...grpc.CallOption) (*MetricLabels, error) {
+	out := new(MetricLabels)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/GetMetricLabelSets", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CortexAdminServer is the server API for CortexAdmin service.
 // All implementations must embed UnimplementedCortexAdminServer
 // for forward compatibility
@@ -122,9 +143,12 @@ type CortexAdminServer interface {
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
 	QueryRange(context.Context, *QueryRangeRequest) (*QueryResponse, error)
 	GetRule(context.Context, *RuleRequest) (*QueryResponse, error)
-	LoadRules(context.Context, *YamlRequest) (*emptypb.Empty, error)
+	LoadRules(context.Context, *PostRuleRequest) (*emptypb.Empty, error)
 	DeleteRule(context.Context, *RuleRequest) (*emptypb.Empty, error)
 	FlushBlocks(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	// list all metrics
+	GetSeriesMetrics(context.Context, *SeriesRequest) (*SeriesInfoList, error)
+	GetMetricLabelSets(context.Context, *LabelRequest) (*MetricLabels, error)
 	mustEmbedUnimplementedCortexAdminServer()
 }
 
@@ -147,7 +171,7 @@ func (UnimplementedCortexAdminServer) QueryRange(context.Context, *QueryRangeReq
 func (UnimplementedCortexAdminServer) GetRule(context.Context, *RuleRequest) (*QueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRule not implemented")
 }
-func (UnimplementedCortexAdminServer) LoadRules(context.Context, *YamlRequest) (*emptypb.Empty, error) {
+func (UnimplementedCortexAdminServer) LoadRules(context.Context, *PostRuleRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LoadRules not implemented")
 }
 func (UnimplementedCortexAdminServer) DeleteRule(context.Context, *RuleRequest) (*emptypb.Empty, error) {
@@ -155,6 +179,12 @@ func (UnimplementedCortexAdminServer) DeleteRule(context.Context, *RuleRequest) 
 }
 func (UnimplementedCortexAdminServer) FlushBlocks(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FlushBlocks not implemented")
+}
+func (UnimplementedCortexAdminServer) GetSeriesMetrics(context.Context, *SeriesRequest) (*SeriesInfoList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSeriesMetrics not implemented")
+}
+func (UnimplementedCortexAdminServer) GetMetricLabelSets(context.Context, *LabelRequest) (*MetricLabels, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMetricLabelSets not implemented")
 }
 func (UnimplementedCortexAdminServer) mustEmbedUnimplementedCortexAdminServer() {}
 
@@ -260,7 +290,7 @@ func _CortexAdmin_GetRule_Handler(srv interface{}, ctx context.Context, dec func
 }
 
 func _CortexAdmin_LoadRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(YamlRequest)
+	in := new(PostRuleRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -272,7 +302,7 @@ func _CortexAdmin_LoadRules_Handler(srv interface{}, ctx context.Context, dec fu
 		FullMethod: "/cortexadmin.CortexAdmin/LoadRules",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexAdminServer).LoadRules(ctx, req.(*YamlRequest))
+		return srv.(CortexAdminServer).LoadRules(ctx, req.(*PostRuleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -309,6 +339,42 @@ func _CortexAdmin_FlushBlocks_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CortexAdminServer).FlushBlocks(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexAdmin_GetSeriesMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SeriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).GetSeriesMetrics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexadmin.CortexAdmin/GetSeriesMetrics",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).GetSeriesMetrics(ctx, req.(*SeriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexAdmin_GetMetricLabelSets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LabelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).GetMetricLabelSets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexadmin.CortexAdmin/GetMetricLabelSets",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).GetMetricLabelSets(ctx, req.(*LabelRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -351,6 +417,14 @@ var CortexAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FlushBlocks",
 			Handler:    _CortexAdmin_FlushBlocks_Handler,
+		},
+		{
+			MethodName: "GetSeriesMetrics",
+			Handler:    _CortexAdmin_GetSeriesMetrics_Handler,
+		},
+		{
+			MethodName: "GetMetricLabelSets",
+			Handler:    _CortexAdmin_GetMetricLabelSets_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

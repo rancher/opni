@@ -52,7 +52,14 @@ func (p *Plugin) AllUserStats(ctx context.Context, _ *emptypb.Empty) (*cortexadm
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster stats: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			p.logger.With(
+				"err", err,
+			).Error("failed to close response body")
+		}
+	}(resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get cluster stats: %v", resp.StatusCode)
 	}
@@ -218,7 +225,14 @@ func (p *Plugin) Query(
 		).Error("query failed")
 		return nil, fmt.Errorf("query failed: %s", resp.Status)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			lg.With(
+				"error", err,
+			).Error("failed to close response body")
+		}
+	}(resp.Body)
 	responseBuf := new(bytes.Buffer)
 	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
 		lg.With(
@@ -266,7 +280,14 @@ func (p *Plugin) QueryRange(
 		).Error("query failed")
 		return nil, fmt.Errorf("query failed: %s", resp.Status)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			lg.With(
+				"error", err,
+			).Error("failed to close response body")
+		}
+	}(resp.Body)
 	responseBuf := new(bytes.Buffer)
 	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
 		lg.With(
@@ -291,12 +312,12 @@ func (p *Plugin) GetRule(ctx context.Context,
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET",
 		fmt.Sprintf("https://%s/api/v1/rules/monitoring/%s",
-			p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress, in.GroupName), nil)
+			p.config.Get().Spec.Cortex.Ruler.HTTPAddress, in.GroupName), nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.ClusterId}))
 	resp, err := client.Do(req)
 	if err != nil {
 		lg.With(
@@ -314,7 +335,14 @@ func (p *Plugin) GetRule(ctx context.Context,
 		).Error("fetch failed")
 		return nil, fmt.Errorf("fetch failed: %s", resp.Status)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			lg.With(
+				"error", err,
+			).Error("failed to close response body")
+		}
+	}(resp.Body)
 	responseBuf := new(bytes.Buffer)
 	if _, err := io.Copy(responseBuf, resp.Body); err != nil {
 		lg.With(
@@ -327,12 +355,12 @@ func (p *Plugin) GetRule(ctx context.Context,
 	}, nil
 }
 
-// This method is responsible for Creating and Updating Rules
+// LoadRules This method is responsible for Creating and Updating Rules
 func (p *Plugin) LoadRules(ctx context.Context,
-	in *cortexadmin.YamlRequest,
+	in *cortexadmin.PostRuleRequest,
 ) (*emptypb.Empty, error) {
 	lg := p.logger.With(
-		"yaml", in.Yaml,
+		"cluster", in.ClusterId,
 	)
 	client, err := p.cortexHttpClient.GetContext(ctx)
 
@@ -340,15 +368,14 @@ func (p *Plugin) LoadRules(ctx context.Context,
 		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
 	}
 	req, err := http.NewRequestWithContext(ctx, "POST",
-		fmt.Sprintf("https://%s/api/v1/rules/monitoring", p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress), nil)
+		fmt.Sprintf("https://%s/api/v1/rules/monitoring", p.config.Get().Spec.Cortex.Ruler.HTTPAddress), nil)
 	if err != nil {
 		return nil, err
 	}
-	values := url.Values{}
-	values.Add("yaml", in.Yaml)
-	req.Body = io.NopCloser(strings.NewReader(in.Yaml))
+
+	req.Body = io.NopCloser(strings.NewReader(in.YamlContent))
 	req.Header.Set("Content-Type", "application/yaml")
-	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.ClusterId}))
 	resp, err := client.Do(req)
 	if err != nil {
 		lg.With(
@@ -358,9 +385,9 @@ func (p *Plugin) LoadRules(ctx context.Context,
 	}
 	if resp.StatusCode != http.StatusAccepted {
 		lg.With(
-			"status", resp.Status,
+			"Code", resp.StatusCode,
 		).Error("loading rules failed")
-		return nil, fmt.Errorf("loading rules failed: %s", resp.Status)
+		return nil, fmt.Errorf("loading rules failed: %d", resp.StatusCode)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -379,11 +406,11 @@ func (p *Plugin) DeleteRule(
 	}
 	req, err := http.NewRequestWithContext(ctx, "DELETE",
 		fmt.Sprintf("https://%s/api/v1/rules/monitoring/%s",
-			p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress, in.GroupName), nil)
+			p.config.Get().Spec.Cortex.Ruler.HTTPAddress, in.GroupName), nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.Tenant}))
+	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.ClusterId}))
 	resp, err := client.Do(req)
 	if err != nil {
 		lg.With(
@@ -395,9 +422,87 @@ func (p *Plugin) DeleteRule(
 		lg.With(
 			"status", resp.Status,
 		).Error("delete rule group failed")
+
+		if resp.StatusCode == http.StatusNotFound { // return grpc not found in this case
+			err := status.Error(codes.NotFound, fmt.Sprintf("delete rule group failed :`%s`", err))
+			return nil, err
+		}
 		return nil, fmt.Errorf("delete rule group failed: %s", resp.Status)
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (p *Plugin) GetSeriesMetrics(ctx context.Context, request *cortexadmin.SeriesRequest) (*cortexadmin.SeriesInfoList, error) {
+	lg := p.logger.With(
+		"metric", request.JobId,
+	)
+	resp, err := enumerateCortexSeries(p, lg, ctx, request)
+
+	set, err := parseCortexEnumerateSeries(resp, lg)
+	if err != nil {
+		return nil, err
+	}
+	res := make([]*cortexadmin.SeriesInfo, 0, len(set))
+	for uniqueMetricName, _ := range set {
+		// fetch metadata & handle empty
+		m := &cortexadmin.SeriesMetadata{}
+		resp, err := fetchCortexSeriesMetadata(p, lg, ctx, request, uniqueMetricName)
+		if err == nil { // parse response, otherwise skip and return empty metadata
+			mapVal, err := parseCortexSeriesMetadata(resp, lg, uniqueMetricName)
+			if err == nil {
+				if metricHelp, ok := mapVal["help"]; ok {
+					m.Description = metricHelp.String()
+				}
+				if metricType, ok := mapVal["type"]; ok {
+					m.Type = metricType.String()
+				}
+				if metricUnit, ok := mapVal["unit"]; ok && metricUnit.String() == "" {
+					m.Unit = metricUnit.String()
+				}
+			}
+		}
+		res = append(res, &cortexadmin.SeriesInfo{
+			SeriesName: uniqueMetricName,
+			Metadata:   m,
+		})
+	}
+
+	return &cortexadmin.SeriesInfoList{
+		Items: res,
+	}, nil
+}
+
+func (p *Plugin) GetMetricLabelSets(ctx context.Context, request *cortexadmin.LabelRequest) (*cortexadmin.MetricLabels, error) {
+	lg := p.logger.With(
+		"service", request.JobId,
+		"metric", request.MetricName,
+	)
+	resp, err := getCortexMetricLabels(p, lg, ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	labelNames, err := parseCortexMetricLabels(p, resp)
+	if err != nil {
+		return nil, err
+	}
+	labelSets := []*cortexadmin.LabelSet{} // label name -> list of label values
+	for _, labelName := range labelNames {
+		labelResp, err := getCortexLabelValues(p, ctx, request, labelName)
+		if err != nil {
+			return nil, err //FIXME: consider returning partial results
+		}
+		labelValues, err := parseCortexMetricLabels(p, labelResp)
+		if err != nil {
+			return nil, err //FIXME: consider returning partial results
+		}
+		labelSets = append(labelSets, &cortexadmin.LabelSet{
+			Name:  labelName,
+			Items: labelValues,
+		})
+	}
+	return &cortexadmin.MetricLabels{
+		Items: labelSets,
+	}, nil
 }
 
 func formatTime(t time.Time) string {
@@ -440,7 +545,10 @@ func (p *Plugin) FlushBlocks(
 	}
 	var ring httpResponse
 	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	err = resp.Body.Close()
+	if err != nil {
+		p.logger.Error("failed to close response body")
+	}
 	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&ring); err != nil {
 		return nil, err
 	}
@@ -495,7 +603,12 @@ func (p *Plugin) FlushBlocks(
 			}
 			if resp.StatusCode != http.StatusNoContent {
 				body, _ := io.ReadAll(resp.Body)
-				resp.Body.Close()
+				err := resp.Body.Close()
+				if err != nil {
+					lg.Error(
+						"failed to close response body",
+					)
+				}
 				lg.With(
 					"code", resp.StatusCode,
 					"error", string(body),

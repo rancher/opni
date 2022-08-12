@@ -259,6 +259,12 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	}
 
+	err = r.osReconciler.MaybeCreateIndex(logTemplateIndexName, logTemplateIndexSettings)
+	if err != nil {
+		conditions = append(conditions, err.Error())
+		retErr = errors.Combine(retErr, err)
+	}
+
 	err = r.osReconciler.MaybeCreateIndex(normalIntervalIndexName, normalIntervalIndexSettings)
 	if err != nil {
 		conditions = append(conditions, err.Error())

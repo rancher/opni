@@ -13,6 +13,7 @@ const (
 	LogIndexPrefix               = "logs-v0.5.4"
 	LogIndexAlias                = "logs"
 	LogIndexTemplateName         = "logs_rollover_mapping"
+	logTemplateIndexName        = "templates"
 	PreProcessingPipelineName    = "opni-ingest-pipeline"
 	drainStatusPolicyName        = "opni-drain-model-status-policy"
 	drainStatusIndexPrefix       = "opni-drain-model-status-v0.1.3"
@@ -749,6 +750,23 @@ var (
 			},
 		},
 	}
+
+	logTemplateIndexSettings = map[string]osapiext.TemplateMappingsSpec{
+		"mappings": {
+			Properties: map[string]osapiext.PropertySettings{
+				"log": {
+					Type:   "text",
+				},
+				"template_matched": {
+					Type:   "keyword",
+				},
+				"template_cluster_id": {
+					Type: "integer",
+				},
+			},
+		},
+	}
+
 
 	normalIntervalIndexSettings = map[string]osapiext.TemplateMappingsSpec{
 		"mappings": {

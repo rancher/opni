@@ -19,12 +19,12 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 
 	recording, metadata, alerts := rw.SLIrules, rw.MetaRules, rw.AlertRules
 	// Check length is 0?
-	interval, err := prommodel.ParseDuration(timeDurationToPromStr(time.Second))
+	interval, err := prommodel.ParseDuration(TimeDurationToPromStr(time.Second))
 	if err != nil {
 		return nil, err
 	}
 
-	rrecording, err := yaml.Marshal(ruleGroupYAMLv2{
+	rrecording, err := yaml.Marshal(RuleGroupYAMLv2{
 		Name:     fmt.Sprintf("%s%s", sloId, RecordingRuleSuffix),
 		Interval: interval,
 		Rules:    recording,
@@ -35,7 +35,7 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 		return nil, err
 	}
 
-	rmetadata, err := yaml.Marshal(ruleGroupYAMLv2{
+	rmetadata, err := yaml.Marshal(RuleGroupYAMLv2{
 		Name:     fmt.Sprintf("%s%s", sloId, MetadataRuleSuffix),
 		Interval: interval,
 		Rules:    metadata,
@@ -45,7 +45,7 @@ func toCortexRequest(rw SLORuleFmtWrapper, sloId string) (*CortexRuleWrapper, er
 	}
 	os.WriteFile(fmt.Sprintf("metadata-%s.yaml", sloId), rmetadata, 0644)
 
-	ralerts, err := yaml.Marshal(ruleGroupYAMLv2{
+	ralerts, err := yaml.Marshal(RuleGroupYAMLv2{
 		Name:     fmt.Sprintf("%s%s", sloId, AlertRuleSuffix),
 		Interval: interval,
 		Rules:    alerts,

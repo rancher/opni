@@ -13,34 +13,35 @@ import (
 )
 
 const (
-	slo_uuid              = "slo_opni_id"
-	slo_service           = "slo_opni_service"
-	slo_name              = "slo_opni_name"
+	// id labels
+	slo_uuid    = "slo_opni_id"
+	slo_service = "slo_opni_service"
+	slo_name    = "slo_opni_name"
+
+	// recording rule names
 	ratio_rate_query_name = "slo:sli_error:ratio_rate"
-	RecordingRuleSuffix   = "-recording"
-	MetadataRuleSuffix    = "-metadata"
-	AlertRuleSuffix       = "-alerts"
+
+	// metadata rule names
+	slo_objective_ratio                     = "slo:objective:ratio"
+	slo_error_budget_ratio                  = "slo:error_budget:ratio"
+	slo_time_period_days                    = "slo:time_period:days"
+	slo_current_burn_rate_ratio             = "slo:current_burn_rate:ratio"
+	slo_period_burn_rate_ratio              = "slo:period_burn_rate:ratio"
+	slo_period_error_budget_remaining_ratio = "slo:period_error_budget_remaining:ratio"
+	slo_info                                = "opni_slo_info"
+
+	// alert rule names
+
+	RecordingRuleSuffix = "-recording"
+	MetadataRuleSuffix  = "-metadata"
+	AlertRuleSuffix     = "-alerts"
 )
 
 var (
-	goodQueryTpl = template.Must(template.New("").Parse(`
-	   sum(rate({{.Metric}}\{job=\"{{.JobId }}\"{{.Labels}}\}[{{.Window}}]))	
-	`))
-	totalQueryTpl = template.Must(template.New("").Parse(`
-		sum(rate({{.Metric}}\{job=\"{{.JobId}}\"{{.Labels}}\}[{{"{{.Window}}"}}]))
-	`))
-	rawSliQueryTpl = template.Must(template.New("").Parse(`
-		1 - (({{.GoodQuery}})/({{.TotalQuery}}))
-	`))
+	simpleQueryTpl = template.Must(template.New("query").Parse(`sum(rate({{.Metric}}{job="{{.JobId}}"{{.Labels}}}[{{.Window}}]))`))
+	rawSliQueryTpl = template.Must(template.New("sliRawQuery").Parse(`1 - (({{.GoodQuery}})/({{.TotalQuery}}))`))
+	sloFiltersTpl  = template.Must(template.New("sloFilters").Parse(`{{.SloIdLabel}}="{{.SloId}}", {{.SloServiceLabel}}="{{.SloService}}", {{.SloNameLabel}}="{{.SloName}}"`))
 )
-
-// QueryInfo used for filling query Templates
-type QueryInfo struct {
-	Metric string
-	JodId  string
-	Labels string
-	Window string
-}
 
 // SliQueryInfo used for filling sli query templates
 type SliQueryInfo struct {
@@ -48,26 +49,46 @@ type SliQueryInfo struct {
 	TotalQuery string
 }
 
-type ruleGroupYAMLv2 struct {
+type SloFiltersInfo struct {
+	SloIdLabel      string
+	SloServiceLabel string
+	SloNameLabel    string
+	SloId           string
+	SloService      string
+	SloName         string
+}
+
+type RuleGroupYAMLv2 struct {
 	Name     string             `yaml:"name"`
 	Interval prommodel.Duration `yaml:"interval,omitempty"`
 	Rules    []rulefmt.Rule     `yaml:"rules"`
 }
 
 type LabelPair struct {
-	Key string
-	Val string
+	Key  string
+	Vals []string
 }
 
 type LabelPairs []LabelPair
 
-func (l LabelPairs) Construct() string {
+func (l LabelPairs) Construct() string { // kinda hacky & technically unoptimized but works
 	if len(l) == 0 {
 		return ""
 	}
 	s := ""
-	for _, labelpair := range l {
-		s += fmt.Sprintf(",%s=\"%s\"", labelpair.Key, labelpair.Val)
+	for _, labelPair := range l {
+		if len(labelPair.Vals) == 1 {
+			s += fmt.Sprintf(",%s=\"%s\"", labelPair.Key, labelPair.Vals[0])
+		} else {
+			orCompositionVal := ""
+			for idx, val := range labelPair.Vals {
+				orCompositionVal += val
+				if idx != len(labelPair.Vals)-1 {
+					orCompositionVal += "|"
+				}
+			}
+			s += fmt.Sprintf(",%s=~\"%s\"", labelPair.Key, orCompositionVal)
+		}
 	}
 	return s
 }
@@ -92,6 +113,7 @@ type SLO struct {
 func NewSLO(
 	sloName string,
 	sloPeriod string,
+	objective float64,
 	svc Service,
 	goodMetric Metric,
 	totalMetric Metric,
@@ -110,15 +132,17 @@ func NewSLO(
 		goodEvents:  goodEvents,
 		totalEvents: totalEvents,
 		idLabels:    ilabels,
+		objective:   objective,
 	}
 }
 
 func SLOFromId(
 	sloName string,
+	sloPeriod string,
+	objective float64,
+	svc Service,
 	goodMetric Metric,
 	totalMetric Metric,
-	sloPeriod string,
-	svc Service,
 	userLabels UserLabels,
 	goodEvents []LabelPair,
 	totalEvents []LabelPair,
@@ -135,6 +159,7 @@ func SLOFromId(
 		goodEvents:  goodEvents,
 		totalEvents: totalEvents,
 		idLabels:    ilabels,
+		objective:   objective,
 	}
 }
 
@@ -146,53 +171,142 @@ func (s *SLO) GetName() string {
 	return s.idLabels[slo_name] // let it panic if not found
 }
 
-func (s *SLO) RawSLIQuery(w string) (string, error) {
+func (s *SLO) GetPeriod() string {
+	return s.sloPeriod
+}
+
+func (s *SLO) GetPrometheusRuleFilterByIdLabels() (string, error) {
+	var b bytes.Buffer
+	err := sloFiltersTpl.Execute(&b, SloFiltersInfo{
+		SloIdLabel:      slo_uuid,
+		SloServiceLabel: slo_service,
+		SloNameLabel:    slo_name,
+		SloId:           s.GetId(),
+		SloService:      string(s.svc),
+		SloName:         s.GetName(),
+	})
+	return b.String(), err
+}
+
+func (s *SLO) RawObjectiveQuery() string {
+	return fmt.Sprintf("vector(%f)", s.objective)
+}
+
+func (s *SLO) RawErrorBudgetQuery() string {
+	return fmt.Sprintf("vector(1-%f)", s.objective)
+}
+
+// RawCurrentBurnRateQuery
+// ratioRate : slo:sli_error:ratio_rate<some-period-string>
+func (s *SLO) RawCurrentBurnRateQuery() string {
+	ruleFilters, err := s.GetPrometheusRuleFilterByIdLabels()
+	if err != nil {
+		panic(err)
+	}
+	fastWindow := NewWindowRange(s.sloPeriod)[0]
+	strRes := (ratio_rate_query_name + fastWindow) + "{" + ruleFilters + "}" + " / " +
+		fmt.Sprintf("on(%s, %s, %s) group_left", slo_uuid, slo_service, slo_name) +
+		slo_error_budget_ratio + "{" + ruleFilters + "}"
+
+	return strRes
+}
+
+func (s *SLO) RawPeriodBurnRateQuery() string {
+	ruleFilters, err := s.GetPrometheusRuleFilterByIdLabels()
+	if err != nil {
+		panic(err)
+	}
+	slowestWindow := NewWindowRange(s.sloPeriod)[len(NewWindowRange(s.sloPeriod))-1]
+	strRes := (ratio_rate_query_name + slowestWindow) + "{" + ruleFilters + "}" + " / " +
+		fmt.Sprintf("on(%s, %s, %s) group_left", slo_uuid, slo_service, slo_name) +
+		slo_error_budget_ratio + "{" + ruleFilters + "}"
+	return strRes
+}
+
+func (s *SLO) RawPeriodDurationQuery() string {
+	dur, err := prommodel.ParseDuration(s.sloPeriod)
+	if err != nil {
+		panic(err)
+	}
+	timeDur := time.Duration(dur)
+	days := int(timeDur.Hours() / 24)
+	return fmt.Sprintf("vector(%d)", days)
+}
+
+func (s *SLO) RawBudgetRemainingQuery() string {
+	//TODO implement
+	ruleFilters, err := s.GetPrometheusRuleFilterByIdLabels()
+	if err != nil {
+		panic(err)
+	}
+
+	return "1 - " + slo_period_burn_rate_ratio + "{" + ruleFilters + "}"
+}
+
+func (s *SLO) RawDashboardInfoQuery() string {
+	return "vector(1)"
+}
+
+func (s *SLO) RawGoodEventsQuery(w string) (string, error) {
 	goodConstructedEvents := s.goodEvents.Construct()
 	var bGood bytes.Buffer
-	q := QueryInfo{
-		Metric: string(s.goodMetric),
-		JodId:  string(s.svc),
-		Labels: goodConstructedEvents,
-		Window: w,
-	}
-	err := goodQueryTpl.Execute(&bGood, q)
+	err := simpleQueryTpl.Execute(&bGood, map[string]string{
+		"Metric": string(s.goodMetric),
+		"JobId":  string(s.svc),
+		"Labels": goodConstructedEvents,
+		"Window": w,
+	})
+
+	return bGood.String(), err
+}
+
+func (s *SLO) RawTotalEventsQuery(w string) (string, error) {
+	totalConstructedEvents := s.totalEvents.Construct()
+	var bTotal bytes.Buffer
+	err := simpleQueryTpl.Execute(&bTotal, map[string]string{
+		"Metric": string(s.totalMetric),
+		"JobId":  string(s.svc),
+		"Labels": totalConstructedEvents,
+		"Window": w,
+	})
+	return bTotal.String(), err
+}
+
+func (s *SLO) RawSLIQuery(w string) (string, error) {
+	good, err := s.RawGoodEventsQuery(w)
 	if err != nil {
 		return "", err
 	}
-	var bTotal bytes.Buffer
-	err = totalQueryTpl.Execute(&bTotal, QueryInfo{
-		Metric: string(s.totalMetric),
-		JodId:  string(s.svc),
-		Labels: goodConstructedEvents,
-		Window: w,
-	})
+	total, err := s.RawTotalEventsQuery(w)
 	if err != nil {
 		return "", err
 	}
 	var bQuery bytes.Buffer
 	err = rawSliQueryTpl.Execute(&bQuery, SliQueryInfo{
-		GoodQuery:  bGood.String(),
-		TotalQuery: bTotal.String(),
+		GoodQuery:  good,
+		TotalQuery: total,
 	})
 	return bQuery.String(), err
 }
 
-func (s *SLO) ConstructCortexRules() (queryStr string) {
-	interval, err := prommodel.ParseDuration(timeDurationToPromStr(time.Second))
+func (s *SLO) ConstructRecordingRuleGroup(interval *time.Duration) RuleGroupYAMLv2 {
+	var promInterval prommodel.Duration
+	var err error
+	if interval == nil { //sensible default is 1m
+		promInterval, err = prommodel.ParseDuration(TimeDurationToPromStr(time.Minute))
+
+	} else {
+		promInterval, err = prommodel.ParseDuration(TimeDurationToPromStr(*interval))
+		if err != nil {
+			panic(err)
+		}
+	}
 	if err != nil {
 		panic(err)
 	}
-	rrecording := ruleGroupYAMLv2{
+	rrecording := RuleGroupYAMLv2{
 		Name:     s.GetId() + RecordingRuleSuffix,
-		Interval: interval,
-	}
-	rmetadata := ruleGroupYAMLv2{
-		Name:     s.GetId() + RecordingRuleSuffix,
-		Interval: interval,
-	}
-	ralerts := ruleGroupYAMLv2{
-		Name:     s.GetId() + RecordingRuleSuffix,
-		Interval: interval,
+		Interval: promInterval,
 	}
 	for _, w := range NewWindowRange(s.sloPeriod) {
 		rawSli, err := s.RawSLIQuery(w)
@@ -207,74 +321,99 @@ func (s *SLO) ConstructCortexRules() (queryStr string) {
 			}),
 		})
 	}
+	return rrecording
+}
 
+func (s *SLO) ConstructMetadataRules(interval *time.Duration) RuleGroupYAMLv2 {
+	var promInterval prommodel.Duration
+	var err error
+	if interval == nil { //sensible default is 1m
+		promInterval, err = prommodel.ParseDuration(TimeDurationToPromStr(time.Minute))
+
+	} else {
+		promInterval, err = prommodel.ParseDuration(TimeDurationToPromStr(*interval))
+		if err != nil {
+			panic(err)
+		}
+	}
+	rmetadata := RuleGroupYAMLv2{
+		Name:     s.GetId() + RecordingRuleSuffix,
+		Interval: promInterval,
+	}
 	rmetadata.Rules = []rulefmt.Rule{
 		{
-			Record: "slo:objective:ratio",
-			Expr:   fmt.Sprintf("vector(0.%f)", s.objective/100),
+			Record: slo_objective_ratio,
+			Expr:   s.RawObjectiveQuery(),
 		},
 		{
-			Record: "slo:error_budget:ratio",
-			//TODO
+			Record: slo_error_budget_ratio,
+			Expr:   s.RawErrorBudgetQuery(),
 		},
 		{
-			Record: "slo:time_period:days",
-			//TODO
+			Record: slo_time_period_days,
+			Expr:   s.RawPeriodDurationQuery(),
 		},
 		{
-			Record: "slo:current_burn_rate:ratio",
-			//TODO
+			Record: slo_current_burn_rate_ratio,
+			Expr:   s.RawCurrentBurnRateQuery(),
 		},
 		{
-			Record: "slo:period_burn_rate:ratio",
-			//TODO
+			Record: slo_period_burn_rate_ratio,
+			Expr:   s.RawPeriodBurnRateQuery(),
 		},
 		{
-			Record: "slo:period_error_budget_remaining:ratio",
-			//TODO
+			Record: slo_period_error_budget_remaining_ratio,
+			Expr:   s.RawBudgetRemainingQuery(),
 		},
 		{
-			Record: "sloth_slo_info",
-			//TODO
+			Record: slo_info,
+			Expr:   s.RawDashboardInfoQuery(),
 		},
 	}
+	return rmetadata
+}
 
-	ralerts.Rules = []rulefmt.Rule{
-		{
-			Alert: fmt.Sprintf("%s-alert-page-%s", s.GetId(), s.GetName()),
-			//TODO
-			//	expr: |
-			//(
-			//	max(slo:sli_error:ratio_rate5m{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0016666666666666666 * 0.00010000000000005117)) without (sloth_window)
-			//	and
-			//	max(slo:sli_error:ratio_rate1h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0016666666666666666 * 0.00010000000000005117)) without (sloth_window)
-			//)
-			//	or
-			//(
-			//	max(slo:sli_error:ratio_rate30m{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0006944444444444445 * 0.00010000000000005117)) without (sloth_window)
-			//	and
-			//	max(slo:sli_error:ratio_rate6h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0006944444444444445 * 0.00010000000000005117)) without (sloth_window)
-			//)
-			//	labels:
-			//	sloth_severity: page
-		},
-		{
-			Alert: fmt.Sprintf("%s-alert-ticket-%s", s.GetId(), s.GetName()),
-			//	expr: |
-			//(
-			//	max(slo:sli_error:ratio_rate2h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00034722222222222224 * 0.00010000000000005117)) without (sloth_window)
-			//	and
-			//	max(slo:sli_error:ratio_rate1d{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00034722222222222224 * 0.00010000000000005117)) without (sloth_window)
-			//)
-			//	or
-			//(
-			//	max(slo:sli_error:ratio_rate6h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00011574074074074075 * 0.00010000000000005117)) without (sloth_window)
-			//	and
-			//	max(slo:sli_error:ratio_rate3d{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00011574074074074075 * 0.00010000000000005117)) without (sloth_window)
-			//	labels:
-			//	sloth_severity: ticket
-		},
-	}
+func (s *SLO) ConstructCortexRules(interval *time.Duration) (sli, metadata RuleGroupYAMLv2) {
+
+	rrecording := s.ConstructRecordingRuleGroup(interval)
+	rmetadata := s.ConstructMetadataRules(interval)
+
+	//ralerts.Rules = []rulefmt.Rule{
+	//	{
+	//		Alert: fmt.Sprintf("%s-alert-page-%s", s.GetId(), s.GetName()),
+	//		//TODO
+	//		//	expr: |
+	//		//(
+	//		//	max(slo:sli_error:ratio_rate5m{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0016666666666666666 * 0.00010000000000005117)) without (sloth_window)
+	//		//	and
+	//		//	max(slo:sli_error:ratio_rate1h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0016666666666666666 * 0.00010000000000005117)) without (sloth_window)
+	//		//)
+	//		//	or
+	//		//(
+	//		//	max(slo:sli_error:ratio_rate30m{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0006944444444444445 * 0.00010000000000005117)) without (sloth_window)
+	//		//	and
+	//		//	max(slo:sli_error:ratio_rate6h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.0006944444444444445 * 0.00010000000000005117)) without (sloth_window)
+	//		//)
+	//		//	labels:
+	//		//	sloth_severity: page
+	//	},
+	//	{
+	//		Alert: fmt.Sprintf("%s-alert-ticket-%s", s.GetId(), s.GetName()),
+	//		//	expr: |
+	//		//(
+	//		//	max(slo:sli_error:ratio_rate2h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00034722222222222224 * 0.00010000000000005117)) without (sloth_window)
+	//		//	and
+	//		//	max(slo:sli_error:ratio_rate1d{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00034722222222222224 * 0.00010000000000005117)) without (sloth_window)
+	//		//)
+	//		//	or
+	//		//(
+	//		//	max(slo:sli_error:ratio_rate6h{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00011574074074074075 * 0.00010000000000005117)) without (sloth_window)
+	//		//	and
+	//		//	max(slo:sli_error:ratio_rate3d{sloth_id="test-slo-0", sloth_service="MyServer", sloth_slo="test-slo-0"} > (0.00011574074074074075 * 0.00010000000000005117)) without (sloth_window)
+	//		//	labels:
+	//		//	sloth_severity: ticket
+	//	},
+	//}
 	_, debug := os.LookupEnv("DEBUG_RULES")
 	if debug {
 		srecording, err := yaml.Marshal(rrecording)
@@ -285,15 +424,15 @@ func (s *SLO) ConstructCortexRules() (queryStr string) {
 		if err != nil {
 			panic(err)
 		}
-		salerts, err := yaml.Marshal(ralerts)
-		if err != nil {
-			panic(err)
-		}
+		//salerts, err := yaml.Marshal(ralerts)
+		//if err != nil {
+		//	panic(err)
+		//}
 		os.WriteFile(s.GetId()+"-recording.yaml", srecording, 0644)
 		os.WriteFile(s.GetId()+"-metadata.yaml", smetadata, 0644)
-		os.WriteFile(s.GetId()+"-alerts.yaml", salerts, 0644)
+		//os.WriteFile(s.GetId()+"-alerts.yaml", salerts, 0644)
 	}
-	return queryStr
+	return rrecording, rmetadata
 }
 
 func NewWindowRange(sloPeriod string) []string {

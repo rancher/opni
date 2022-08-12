@@ -41,7 +41,7 @@ or
 `))
 
 // Pretty simple durations for prometheus.
-func timeDurationToPromStr(t time.Duration) string {
+func TimeDurationToPromStr(t time.Duration) string {
 	return prommodel.Duration(t).String()
 }
 

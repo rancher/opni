@@ -135,7 +135,7 @@ func rawSLIRecordGenerator(slo prometheus.SLO, window time.Duration, alerts aler
 		return nil, fmt.Errorf("could not create SLI expression template data: %w", err)
 	}
 
-	strWindow := timeDurationToPromStr(window)
+	strWindow := TimeDurationToPromStr(window)
 	var b bytes.Buffer
 	err = tpl.Execute(&b, map[string]string{
 		tplKeyWindow: strWindow,

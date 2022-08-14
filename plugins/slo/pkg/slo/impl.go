@@ -53,9 +53,8 @@ func (s SLOMonitoring) Create(slo *SLO) error {
 	return anyError
 }
 
-func (s SLOMonitoring) Update(new *SLO, existing *sloapi.SLOData) error {
+func (s SLOMonitoring) Update(new *SLO, existing *sloapi.SLOData) (*sloapi.SLOData, error) {
 	req := (s.req).(*sloapi.SLOData) // Create is the same as Update if within the same cluster
-
 	if existing.SLO.ClusterId != req.SLO.ClusterId {
 		_, err := s.p.DeleteSLO(s.ctx, &corev1.Reference{Id: req.Id})
 		if err != nil {
@@ -64,7 +63,6 @@ func (s SLOMonitoring) Update(new *SLO, existing *sloapi.SLOData) error {
 				err))
 		}
 	}
-
 	rrecording, rmetadata, ralerting := new.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
 	var anyError error
@@ -94,7 +92,7 @@ func (s SLOMonitoring) Update(new *SLO, existing *sloapi.SLOData) error {
 			}
 		}
 	}
-	return anyError
+	return req, anyError
 }
 
 func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
@@ -118,7 +116,7 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 }
 
 func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.SLOData, error) {
-	clonedData := util.ProtoClone(s.req).(*sloapi.SLOData)
+	clonedData := util.ProtoClone(clone)
 	sloData := clone.GetSLO()
 	sloLabels := map[string]string{}
 	for _, label := range sloData.Labels {

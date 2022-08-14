@@ -25,7 +25,7 @@ type SLOStore interface {
 	// This method has to handle storage of the SLO in the KVStore itself
 	// since there can be partial successes inside the method
 	Create(s *SLO) error
-	Update(new *SLO, existing *sloapi.SLOData) error
+	Update(new *SLO, existing *sloapi.SLOData) (*sloapi.SLOData, error)
 	Delete(existing *sloapi.SLOData) error
 	Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.SLOData, error)
 	Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error)

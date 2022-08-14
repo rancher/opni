@@ -41,7 +41,6 @@ func checkDatasource(datasource string) error {
 
 func (p *Plugin) GetSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOData, error) {
 	return p.storage.Get().SLOs.Get(ctx, path.Join("/slos", ref.Id))
-	return nil, shared.ErrNotImplemented
 }
 
 func (p *Plugin) ListSLOs(ctx context.Context, _ *emptypb.Empty) (*sloapi.ServiceLevelObjectiveList, error) {
@@ -120,11 +119,10 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 		LabelPairs{}, //FIXME
 		req.Id,
 	)
-	err = sloStore.Update(newSLO, existing)
+	updatedSLO, err := sloStore.Update(newSLO, existing)
 	if err != nil { // exit when update fails
 		return nil, err
 	}
-	updatedSLO := &sloapi.SLOData{}
 	// Merge when everything else is done
 	if err := p.storage.Get().SLOs.Put(ctx, path.Join("/slos", req.Id), updatedSLO); err != nil {
 		return nil, err

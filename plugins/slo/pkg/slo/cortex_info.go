@@ -7,7 +7,7 @@ import (
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sigs.k8s.io/yaml"
+	"gopkg.in/yaml.v3"
 )
 
 // Apply Cortex Rules to Cortex separately :

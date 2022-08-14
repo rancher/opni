@@ -27,8 +27,8 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 		"prometheus",
 		"prometheus_http_requests_total",
 		"prometheus_http_requests_total",
-		slo.UserLabels{
-			"important",
+		map[string]string{
+			"important": "true",
 		},
 		slo.LabelPairs{
 			{
@@ -124,8 +124,8 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				"prometheus",
 				slo.Metric("prometheus_http_requests_total"),
 				slo.Metric("prometheus_http_requests_total"),
-				slo.UserLabels{
-					"important",
+				map[string]string{
+					"important": "true",
 				},
 				slo.LabelPairs{
 					{
@@ -150,8 +150,8 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				"prometheus",
 				"",
 				"slo-operator",
-				slo.UserLabels{
-					"important",
+				map[string]string{
+					"important": "true",
 				},
 				slo.LabelPairs{
 					{
@@ -178,8 +178,8 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				"prometheus",
 				"prometheus_http_requests_total",
 				"prometheus_http_requests_total",
-				slo.UserLabels{
-					"important",
+				map[string]string{
+					"important": "true",
 				},
 				slo.LabelPairs{
 					{
@@ -209,8 +209,8 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				"prometheus",
 				"prometheus_http_requests_total",
 				"prometheus_http_requests_total",
-				slo.UserLabels{
-					"important",
+				map[string]string{
+					"important": "true",
 				},
 				slo.LabelPairs{
 					{

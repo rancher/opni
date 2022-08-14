@@ -105,7 +105,7 @@ type SLO struct {
 	goodMetric  Metric
 	totalMetric Metric
 	idLabels    IdentificationLabels
-	userLabels  UserLabels
+	userLabels  map[string]string
 	goodEvents  LabelPairs
 	totalEvents LabelPairs
 }
@@ -121,12 +121,13 @@ func NewSLO(
 	svc Service,
 	goodMetric Metric,
 	totalMetric Metric,
-	userLabels UserLabels,
+	userLabels map[string]string,
 	goodEvents []LabelPair,
 	totalEvents []LabelPair,
 ) *SLO {
 	newId := uuid.New().String()
 	ilabels := IdentificationLabels{slo_uuid: newId, slo_name: sloName, slo_service: string(svc)}
+
 	return &SLO{
 		svc:         svc,
 		sloPeriod:   sloPeriod,
@@ -147,7 +148,7 @@ func SLOFromId(
 	svc Service,
 	goodMetric Metric,
 	totalMetric Metric,
-	userLabels UserLabels,
+	userLabels map[string]string,
 	goodEvents []LabelPair,
 	totalEvents []LabelPair,
 	id string,
@@ -322,7 +323,9 @@ func (s *SLO) ConstructRecordingRuleGroup(interval *time.Duration) RuleGroupYAML
 			Expr:   rawSli,
 			Labels: MergeLabels(s.idLabels, map[string]string{
 				slo_window: w,
-			}),
+			},
+				s.userLabels,
+			),
 		})
 	}
 	return rrecording
@@ -348,30 +351,58 @@ func (s *SLO) ConstructMetadataRules(interval *time.Duration) RuleGroupYAMLv2 {
 		{
 			Record: slo_objective_ratio,
 			Expr:   s.RawObjectiveQuery(),
+			Labels: MergeLabels(
+				s.idLabels,
+				s.userLabels,
+			),
 		},
 		{
 			Record: slo_error_budget_ratio,
 			Expr:   s.RawErrorBudgetQuery(),
+			Labels: MergeLabels(
+				s.idLabels,
+				s.userLabels,
+			),
 		},
 		{
 			Record: slo_time_period_days,
 			Expr:   s.RawPeriodDurationQuery(),
+			Labels: MergeLabels(
+				s.idLabels,
+				s.userLabels,
+			),
 		},
 		{
 			Record: slo_current_burn_rate_ratio,
 			Expr:   s.RawCurrentBurnRateQuery(),
+			Labels: MergeLabels(
+				s.idLabels,
+				s.userLabels,
+			),
 		},
 		{
 			Record: slo_period_burn_rate_ratio,
 			Expr:   s.RawPeriodBurnRateQuery(),
+			Labels: MergeLabels(
+				s.idLabels,
+				s.userLabels,
+			),
 		},
 		{
 			Record: slo_period_error_budget_remaining_ratio,
 			Expr:   s.RawBudgetRemainingQuery(),
+			Labels: MergeLabels(
+				s.idLabels,
+				s.userLabels,
+			),
 		},
 		{
 			Record: slo_info,
 			Expr:   s.RawDashboardInfoQuery(),
+			Labels: MergeLabels(
+				s.idLabels,
+				s.userLabels,
+			),
 		},
 	}
 	return rmetadata
@@ -433,7 +464,7 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 			pageConditionSlow1.String(),
 			pageConditionSlow2.String(),
 		),
-		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}),
+		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}, s.userLabels),
 	})
 
 	var ticketConditionFast1, ticketConditionFast2, ticketConditionSlow1, ticketConditionSlow2 bytes.Buffer
@@ -458,7 +489,7 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 			ticketConditionSlow1.String(),
 			ticketConditionSlow2.String(),
 		),
-		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}),
+		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}, s.userLabels),
 	})
 	return ralerting
 }

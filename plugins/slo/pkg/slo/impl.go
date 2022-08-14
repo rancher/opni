@@ -3,9 +3,9 @@ package slo
 import (
 	"context"
 	"fmt"
-	v1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/slo/shared"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/tidwall/gjson"
@@ -19,94 +19,156 @@ func (s *SLOMonitoring) WithCurrentRequest(req proto.Message, ctx context.Contex
 }
 
 // Create OsloSpecs ----> sloth IR ---> Prometheus SLO --> Cortex Rule groups
-func (s SLOMonitoring) Create(osloSpecs []v1.SLO) (*corev1.ReferenceList, error) {
-	//returnedSloId := &corev1.ReferenceList{}
-	//req := (s.req).(*sloapi.CreateSLORequest)
-	//openSpecServices, err := zipOpenSLOWithServices(osloSpecs, req.Services)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//// possible for partial success, but don't want to exit on error
-	//var anyError error
-	//for _, zipped := range openSpecServices {
-	//	// existingId="" if this is a new slo
-	//	createdSlos, createError := applyMonitoringSLODownstream(*zipped.Spec, zipped.Service, "", s.p, req, s.ctx, s.lg)
-	//
-	//	if createError != nil {
-	//		anyError = createError
-	//	}
-	//	for _, data := range createdSlos {
-	//		// ONLY WHEN the SLO is applied, should we create the K,V
-	//		if createError == nil {
-	//			returnedSloId.Items = append(returnedSloId.Items, &corev1.Reference{Id: data.Id})
-	//			if err := s.p.storage.Get().SLOs.Put(s.ctx, path.Join("/slos", data.Id), data); err != nil {
-	//				return nil, err
-	//			}
-	//			if err != nil {
-	//				anyError = err
-	//			}
-	//		}
-	//	}
-	//}
-	return nil, shared.ErrNotImplemented
+func (s SLOMonitoring) Create(slo *SLO) error {
+	req := (s.req).(*sloapi.CreateSLORequest)
+	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
+	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
+	var anyError error
+	for _, rules := range toApply {
+		err := applyCortexSLORules(
+			s.p,
+			s.p.logger,
+			s.ctx,
+			req.GetSlo().GetClusterId(),
+			rules,
+		)
+		if err != nil {
+			anyError = err
+		}
+	}
+	if anyError != nil {
+		for _, rules := range toApply {
+			err := deleteCortexSLORules(
+				s.p,
+				s.p.logger,
+				s.ctx,
+				req.GetSlo().GetClusterId(),
+				rules.Name,
+			)
+			if err != nil {
+				anyError = err
+			}
+		}
+	}
+	return anyError
 }
 
-func (s SLOMonitoring) Update(osloSpecs []v1.SLO, existing *sloapi.SLOData) (*sloapi.SLOData, error) {
-	//req := (s.req).(*sloapi.SLOData) // Create is the same as Update if within the same cluster
-	//createReq := &sloapi.CreateSLORequest{
-	//	SLO:      req.SLO,
-	//	Services: []*sloapi.Service{req.Service},
-	//}
-	//
-	//var anyError error
-	//openSpecServices, err := zipOpenSLOWithServices(osloSpecs, []*sloapi.Service{req.Service})
-	//if err != nil {
-	//	return nil, err
-	//}
-	//// changing clusters means we need to clean up the rules on the old cluster
-	//if existing.Service.ClusterId != req.Service.ClusterId {
-	//	_, err := s.p.DeleteSLO(s.ctx, &corev1.Reference{Id: req.Id})
-	//	if err != nil {
-	//		s.lg.With("sloId", req.Id).Error(fmt.Sprintf(
-	//			"Unable to delete SLO when updating between clusters :  %v",
-	//			err))
-	//	}
-	//}
-	//for _, zipped := range openSpecServices {
-	//	// don't need creation metadata
-	//	_, err := applyMonitoringSLODownstream(*zipped.Spec, zipped.Service,
-	//		req.Id, s.p, createReq, s.ctx, s.lg)
-	//
-	//	if err != nil {
-	//		anyError = err
-	//	}
-	//}
-	//return req, anyError
-	return nil, shared.ErrNotImplemented
+func (s SLOMonitoring) Update(new *SLO, existing *sloapi.SLOData) error {
+	req := (s.req).(*sloapi.SLOData) // Create is the same as Update if within the same cluster
+
+	if existing.SLO.ClusterId != req.SLO.ClusterId {
+		_, err := s.p.DeleteSLO(s.ctx, &corev1.Reference{Id: req.Id})
+		if err != nil {
+			s.lg.With("sloId", req.Id).Error(fmt.Sprintf(
+				"Unable to delete SLO when updating between clusters :  %v",
+				err))
+		}
+	}
+
+	rrecording, rmetadata, ralerting := new.ConstructCortexRules(nil)
+	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
+	var anyError error
+	for _, rules := range toApply {
+		err := applyCortexSLORules(
+			s.p,
+			s.p.logger,
+			s.ctx,
+			req.GetSLO().GetClusterId(),
+			rules,
+		)
+		if err != nil {
+			anyError = err
+		}
+	}
+	if anyError != nil {
+		for _, rules := range toApply {
+			err := deleteCortexSLORules(
+				s.p,
+				s.p.logger,
+				s.ctx,
+				req.GetSLO().GetClusterId(),
+				rules.Name,
+			)
+			if err != nil {
+				anyError = err
+			}
+		}
+	}
+	return anyError
 }
 
 func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
-	//id, clusterId := existing.Id, existing.Service.ClusterId
+	id, clusterId := existing.Id, existing.SLO.ClusterId
 	//err := deleteCortexSLORules(s.p, id, clusterId, s.ctx, s.lg)
-	return nil
+	var anyError error
+	toApply := []string{id + RecordingRuleSuffix, id + MetadataRuleSuffix, id + AlertRuleSuffix}
+	for _, ruleName := range toApply {
+		err := deleteCortexSLORules(
+			s.p,
+			s.p.logger,
+			s.ctx,
+			clusterId,
+			ruleName,
+		)
+		if err != nil {
+			anyError = err
+		}
+	}
+	return anyError
 }
 
-func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (string, error) {
-	//var anyError error
-	//createdSlos, err := s.p.CreateSLO(s.ctx, &sloapi.CreateSLORequest{
-	//	SLO:      clone.SLO,
-	//	Services: []*sloapi.Service{clone.Service},
-	//})
-	//if err != nil {
-	//	return "", err
-	//}
-	//// should only create one slo
-	//if len(createdSlos.Items) > 1 {
-	//	anyError = status.Error(codes.Internal, "Created more than one SLO")
-	//}
-	//clone.Id = createdSlos.Items[0].Id
-	//return clone.Id, anyError
-	return "", shared.ErrNotImplemented
+func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.SLOData, error) {
+	clonedData := util.ProtoClone(s.req).(*sloapi.SLOData)
+	sloData := clone.GetSLO()
+	sloLabels := map[string]string{}
+	for _, label := range sloData.Labels {
+		sloLabels[label.GetName()] = "true"
+	}
+	slo := NewSLO(
+		sloData.GetName()+"-clone",
+		sloData.GetSloPeriod(),
+		sloData.GetTarget().GetValue(),
+		Service(sloData.GetServiceId()),
+		Metric(sloData.GetGoodMetricName()),
+		Metric(sloData.GetTotalMetricName()),
+		sloLabels,
+		LabelPairs{}, //FIXME
+		LabelPairs{}, //FIXME
+	)
+	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
+	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
+	var anyError error
+	for _, rules := range toApply {
+		err := applyCortexSLORules(
+			s.p,
+			s.p.logger,
+			s.ctx,
+			sloData.GetClusterId(),
+			rules,
+		)
+		if err != nil {
+			anyError = err
+		}
+	}
+	if anyError != nil {
+		for _, rules := range toApply {
+			err := deleteCortexSLORules(
+				s.p,
+				s.p.logger,
+				s.ctx,
+				sloData.GetClusterId(),
+				rules.Name,
+			)
+			if err != nil {
+				anyError = err
+			}
+		}
+	}
+	clonedData.SLO.Name = sloData.Name + "-clone"
+	clonedData.Id = slo.GetId()
+
+	return &corev1.Reference{Id: slo.GetId()}, clonedData, anyError
+
 }
 
 // Status Only return errors here that should be considered severe InternalServerErrors
@@ -115,76 +177,6 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (string, error) {
 // - If it has Data, check if it is within budget
 // - If is within budget, check if any alerts are firing
 func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error) {
-	//curState := sloapi.SLOStatusState_Ok
-	//
-	//// check if the recording rule has data
-	//// rrecording, := existing.Id + RecordingRuleSuffix
-	//rresp, err := s.p.adminClient.Get().Query(
-	//	s.ctx,
-	//	&cortexadmin.QueryRequest{
-	//		Tenants: []string{existing.Service.ClusterId},
-	//		Query:   fmt.Sprintf(`slo:sli_error:ratio_rate5m{%s="%s"}`, sloOpniIdLabel, existing.Id),
-	//	},
-	//)
-	//if err != nil {
-	//	s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
-	//	return nil, err
-	//}
-	//q, err := unmarshal.UnmarshalPrometheusResponse(rresp.Data)
-	//if err != nil {
-	//	s.lg.Error(fmt.Sprintf("%v", err))
-	//	return nil, err
-	//}
-	//switch q.V.Type() {
-	//case model.ValVector:
-	//	vv := q.V.(model.Vector)
-	//	if len(vv) == 0 {
-	//		curState = sloapi.SLOStatusState_NoData
-	//	} else {
-	//		curState = sloapi.SLOStatusState_Ok
-	//	}
-	//default: //FIXME: For now, return internal errors if we can't match result to a vector result
-	//	s.lg.Error(fmt.Sprintf("Unexpected response type '%v' from Prometheus for recording rule", q.V.Type()))
-	//	return &sloapi.SLOStatus{
-	//		State: sloapi.SLOStatusState_InternalError,
-	//	}, nil
-	//
-	//}
-	//// Check if the metadata rules show we have breached the budget
-	//// metadataRuleId := existing.Id + MetadataRuleSuffix
-	//if curState == sloapi.SLOStatusState_Ok {
-	//	_, err := s.p.adminClient.Get().Query(
-	//		s.ctx,
-	//		&cortexadmin.QueryRequest{
-	//			Tenants: []string{existing.Service.ClusterId},
-	//			Query:   "", // TODO : meaningful metadata queries here
-	//		},
-	//	)
-	//	if err != nil {
-	//		return &sloapi.SLOStatus{
-	//			State: sloapi.SLOStatusState_InternalError,
-	//		}, nil
-	//	}
-	//	// TODO : evaluate metadata rules
-	//}
-	//
-	//if curState == sloapi.SLOStatusState_Ok {
-	//	// Check if the conditions of any of the alerting rules are met
-	//	// alertRuleId := existing.Id + AlertRuleSuffix
-	//	_, err := s.p.adminClient.Get().Query(
-	//		s.ctx,
-	//		&cortexadmin.QueryRequest{
-	//			Tenants: []string{existing.Service.ClusterId},
-	//			Query:   "", // TODO : meaningful query to check alerting conditions here
-	//		},
-	//	)
-	//	if err != nil {
-	//		s.lg.Error(fmt.Sprintf("Status : Got error for recording rule %v", err))
-	//	}
-	//}
-	//return &sloapi.SLOStatus{
-	//	State: curState,
-	//}, nil
 	return nil, shared.ErrNotImplemented
 }
 

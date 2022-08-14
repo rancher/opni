@@ -1,45 +1,64 @@
 package slo
 
+import (
+	"context"
+	"fmt"
+	"github.com/hashicorp/go-hclog"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"sigs.k8s.io/yaml"
+)
+
 // Apply Cortex Rules to Cortex separately :
 // - recording rules
 // - metadata rules
 // - alert rules
-//func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *sloapi.Service, existingId string, ctx context.Context, lg hclog.Logger) error {
-//	var anyError error
-//	ruleGroupsToApply := []string{cortexRules.recording, cortexRules.metadata, cortexRules.alerts}
-//	for _, ruleGroup := range ruleGroupsToApply {
-//		_, err := p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
-//			YamlContent: ruleGroup,
-//			ClusterId:   service.ClusterId,
-//		})
-//		if err != nil {
-//			lg.Error(fmt.Sprintf(
-//				"Failed to load rules for cluster %s, service %s, id %s, rule %s : %v",
-//				service.ClusterId, service.JobId, existingId, ruleGroup, anyError))
-//			anyError = err
-//		}
-//	}
-//	return anyError
-//}
-//
-//func deleteCortexSLORules(p *Plugin, id string, clusterId string, ctx context.Context, lg hclog.Logger) error {
-//	ruleGroupsToDelete := []string{id + RecordingRuleSuffix, id + MetadataRuleSuffix, id + AlertRuleSuffix}
-//	var anyError error
-//
-//	for _, ruleGroup := range ruleGroupsToDelete {
-//		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-//			ClusterId: clusterId,
-//			GroupName: ruleGroup,
-//		})
-//		// we can ignore 404s here since if we can't find them,
-//		// then it will be impossible to delete them anyway
-//		if err != nil && status.Code(err) != codes.NotFound {
-//			lg.Error(fmt.Sprintf("Failed to delete rule group with id  %v: %v", id, err))
-//			anyError = err
-//		}
-//	}
-//	return anyError
-//}
+func applyCortexSLORules(
+	p *Plugin,
+	lg hclog.Logger,
+	ctx context.Context,
+	clusterId string,
+	ruleSpec RuleGroupYAMLv2,
+) error {
+	out, err := yaml.Marshal(ruleSpec)
+	if err != nil {
+		return err
+	}
+
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+		YamlContent: string(out),
+		ClusterId:   clusterId,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf(
+			"Failed to load rules for cluster %s, rule : %s,",
+			clusterId, string(out)))
+	}
+	return err
+}
+
+// }
+func deleteCortexSLORules(
+	p *Plugin,
+	lg hclog.Logger,
+	ctx context.Context,
+	clusterId string,
+	groupName string,
+) error {
+	_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+		ClusterId: clusterId,
+		GroupName: groupName,
+	})
+	// we can ignore 404s here since if we can't find them,
+	// then it will be impossible to delete them anyway
+	if err != nil && status.Code(err) != codes.NotFound {
+		lg.Error(fmt.Sprintf("Failed to delete rule group with clusterId, groupName (%v %v): %v", clusterId, groupName, err))
+		return err
+	}
+	return nil
+}
+
 //
 //// Convert OpenSLO specs to Cortex Rule Groups & apply them
 //func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, existingId string,

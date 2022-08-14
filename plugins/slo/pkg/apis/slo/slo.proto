@@ -11,7 +11,7 @@ import "google/rpc/status.proto";
 package slo;
 
 service SLO {
-  rpc CreateSLO(CreateSLORequest) returns (core.ReferenceList) {
+  rpc CreateSLO(CreateSLORequest) returns (core.Reference) {
     option (google.api.http) = {
       post: "/slos"
       body: "*"
@@ -143,12 +143,17 @@ message Alert {
 message ServiceLevelObjective {
   string name = 1;
   string datasource = 2;
-  string metricName = 3;
-  string monitorWindow = 4; // 7d, 28d or 30d
-  google.protobuf.Duration budgetingInterval = 5; // budgeting interval should be between 1m and 60m
-  Target target = 6;
-  repeated Label labels = 7;
-  repeated Alert alerts = 8;
+  string clusterId = 3;
+  string serviceId = 4;
+  string goodMetricName = 5;
+  string totalMetricName = 6;
+  repeated Event goodEvents = 7;
+  repeated Event totalEvents = 8;
+  string sloPeriod = 9; // 7d, 28d or 30d
+  google.protobuf.Duration budgetingInterval = 10; // budgeting interval should be between 1m and 60m
+  Target target = 11;
+  repeated Label labels = 12;
+  repeated Alert alertTargets = 13;
 }
 
 message CreateSLORequest {
@@ -167,7 +172,6 @@ message EventPair {
 message SLOData {
   string id = 1;
   ServiceLevelObjective SLO = 2;
-  Service service = 3;
 }
 
 message Target {

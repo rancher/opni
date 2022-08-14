@@ -2,11 +2,10 @@ package slo
 
 import (
 	"context"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"sync"
 
-	v1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
 	"github.com/hashicorp/go-hclog"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/proto"
 )
@@ -25,10 +24,10 @@ func RegisterDatasource(datasource string, sloImpl SLOStore, serviceImpl Service
 type SLOStore interface {
 	// This method has to handle storage of the SLO in the KVStore itself
 	// since there can be partial successes inside the method
-	Create([]v1.SLO) (*corev1.ReferenceList, error)
-	Update(osloSpecs []v1.SLO, existing *sloapi.SLOData) (*sloapi.SLOData, error)
+	Create(s *SLO) error
+	Update(new *SLO, existing *sloapi.SLOData) error
 	Delete(existing *sloapi.SLOData) error
-	Clone(clone *sloapi.SLOData) (string, error)
+	Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.SLOData, error)
 	Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error)
 	WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore
 }

@@ -95,7 +95,7 @@ message ListMetricsRequest {
 
 message ListServicesRequest{
   string datasource = 1;
-  string clusterdId = 2;
+  string clusterId = 2;
 }
 
 message Event{
@@ -216,7 +216,7 @@ message SLOPreviewResponse {
   DataVector SLI = 1;
   DataVector Objective = 2;
   DataVector Alerts = 3;
-  DataVector ServereAlerts = 4;
+  DataVector SevereAlerts = 4;
 }
 
 message DataVector {

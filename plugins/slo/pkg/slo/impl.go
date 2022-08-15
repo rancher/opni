@@ -239,10 +239,10 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	req := s.req.(*sloapi.CreateSLORequest)
 	preview := &sloapi.SLOPreviewResponse{
-		SLI:           &sloapi.DataVector{},
-		Objective:     &sloapi.DataVector{},
-		Alerts:        &sloapi.DataVector{},
-		ServereAlerts: &sloapi.DataVector{},
+		SLI:          &sloapi.DataVector{},
+		Objective:    &sloapi.DataVector{},
+		Alerts:       &sloapi.DataVector{},
+		SevereAlerts: &sloapi.DataVector{},
 	}
 	cur := time.Now()
 	dur, err := prommodel.ParseDuration(slo.sloPeriod)
@@ -301,7 +301,7 @@ func (m MonitoringServiceBackend) ListServices() (*sloapi.ServiceList, error) {
 	resp, err := m.p.adminClient.Get().Query(
 		m.ctx,
 		&cortexadmin.QueryRequest{
-			Tenants: []string{req.GetClusterdId()},
+			Tenants: []string{req.GetClusterId()},
 			Query:   discoveryQuery,
 		})
 	if err != nil {
@@ -313,7 +313,7 @@ func (m MonitoringServiceBackend) ListServices() (*sloapi.ServiceList, error) {
 	}
 	for _, v := range result.Array() {
 		res.Items = append(res.Items, &sloapi.Service{
-			ClusterId: req.GetClusterdId(),
+			ClusterId: req.GetClusterId(),
 			ServiceId: v.String(),
 		})
 	}

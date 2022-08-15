@@ -66,7 +66,7 @@ func (l *ListServicesRequest) Validate() error {
 	if l.GetDatasource() != shared.MonitoringDatasource && l.GetDatasource() != shared.LoggingDatasource {
 		return shared.ErrInvalidDatasource
 	}
-	if l.GetClusterdId() == "" {
+	if l.GetClusterId() == "" {
 		return validation.Error("clusterId must be set")
 	}
 	return nil

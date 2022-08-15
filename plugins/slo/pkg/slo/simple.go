@@ -78,18 +78,21 @@ func (l LabelPairs) Construct() string { // kinda hacky & technically unoptimize
 	}
 	s := ""
 	for _, labelPair := range l {
+		if labelPair.Key == "" {
+			continue
+		}
+		orCompositionVal := ""
 		if len(labelPair.Vals) == 1 {
-			s += fmt.Sprintf(",%s=\"%s\"", labelPair.Key, labelPair.Vals[0])
+			orCompositionVal += fmt.Sprintf(",%s=\"%s\"", labelPair.Key, labelPair.Vals[0])
 		} else {
-			orCompositionVal := ""
 			for idx, val := range labelPair.Vals {
 				orCompositionVal += val
 				if idx != len(labelPair.Vals)-1 {
 					orCompositionVal += "|"
 				}
 			}
-			s += fmt.Sprintf(",%s=~\"%s\"", labelPair.Key, orCompositionVal)
 		}
+		s += fmt.Sprintf(",%s=~\"%s\"", labelPair.Key, orCompositionVal)
 	}
 	return s
 }

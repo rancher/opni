@@ -52,6 +52,7 @@ entry-pipeline:
   source:
     otel_trace_source:
       ssl: false
+      record_type: event
   sink:
   - pipeline:
       name: "raw-pipeline"

@@ -9,7 +9,10 @@ import (
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
+	"time"
 )
 
 // Apply Cortex Rules to Cortex separately :
@@ -109,4 +112,35 @@ func QuerySLOComponentByRawQuery(
 		return nil, err
 	}
 	return dataVector, nil
+}
+
+func QuerySLOComponentByRawQueryRange(
+	client cortexadmin.CortexAdminClient,
+	ctx context.Context,
+	rawQuery string,
+	clusterId string,
+	start time.Time,
+	end time.Time,
+	step time.Duration,
+) (*model.Matrix, error) {
+	resp, err := client.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
+		Tenants: []string{clusterId},
+		Query:   rawQuery,
+		Start:   timestamppb.New(start),
+		End:     timestamppb.New(end),
+		Step:    durationpb.New(step),
+	})
+	if err != nil {
+		return nil, err
+	}
+	rawBytes := resp.Data
+	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+	if err != nil {
+		return nil, err
+	}
+	dataMatrix, err := qres.GetMatrix()
+	if err != nil {
+		return nil, err
+	}
+	return dataMatrix, nil
 }

@@ -73,7 +73,7 @@ service SLO {
     };
   }
 
-  rpc Preview(CreateSLORequest) returns (google.protobuf.Empty) {
+  rpc Preview(CreateSLORequest) returns (SLOPreviewResponse) {
     option (google.api.http) = {
       post : "/slos/preview"
     };
@@ -210,6 +210,22 @@ enum SLOStatusState {
 
 message SLOStatus {
   SLOStatusState state = 1;
+}
+
+message SLOPreviewResponse {
+  DataVector SLI = 1;
+  DataVector Objective = 2;
+  DataVector Alerts = 3;
+  DataVector ServereAlerts = 4;
+}
+
+message DataVector {
+  repeated DataPoint items = 1;
+}
+
+message DataPoint {
+  double value = 1;
+  google.protobuf.Timestamp timestamp = 2;
 }
 
 message ListServiceRequest {

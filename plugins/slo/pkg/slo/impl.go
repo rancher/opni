@@ -3,12 +3,15 @@ package slo
 import (
 	"context"
 	"fmt"
+	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
+	prommodel "github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/tidwall/gjson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"time"
 )
 
@@ -196,18 +199,19 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
 	}
 	// ======================= error budget =======================
-	metadataBudgetRaw := slo.RawBudgetRemainingQuery()
-	metadataVector, err := QuerySLOComponentByRawQuery(s.p.adminClient.Get(), s.ctx, metadataBudgetRaw, existing.GetSLO().GetClusterId())
-	if err != nil {
-		return nil, err
-	}
-	if metadataVector == nil || metadataVector.Len() == 0 {
-		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
-	}
-	metadataBudget := (*metadataVector)[0].Value
-	if metadataBudget <= 0 {
-		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Breaching}, nil
-	}
+	//FIXME: some sort of race condition here
+	//metadataBudgetRaw := slo.RawBudgetRemainingQuery()
+	//metadataVector, err := QuerySLOComponentByRawQuery(s.p.adminClient.Get(), s.ctx, metadataBudgetRaw, existing.GetSLO().GetClusterId())
+	//if err != nil {
+	//	return nil, err
+	//}
+	//if metadataVector == nil || metadataVector.Len() == 0 {
+	//	return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
+	//}
+	//metadataBudget := (*metadataVector)[0].Value
+	//if metadataBudget <= 0 {
+	//	return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Breaching}, nil
+	//}
 	//
 	//// ======================= alert =======================
 	//FIXME: alert vectors have no data
@@ -230,6 +234,58 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	return &sloapi.SLOStatus{
 		State: state,
 	}, nil
+}
+
+func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
+	req := s.req.(*sloapi.CreateSLORequest)
+	preview := &sloapi.SLOPreviewResponse{
+		SLI:           &sloapi.DataVector{},
+		Objective:     &sloapi.DataVector{},
+		Alerts:        &sloapi.DataVector{},
+		ServereAlerts: &sloapi.DataVector{},
+	}
+	cur := time.Now()
+	dur, err := prommodel.ParseDuration(slo.sloPeriod)
+	if err != nil {
+		panic(err)
+	}
+	startTs, endTs := cur.Add(time.Duration(-dur)), cur
+	numSteps := 250
+	step := time.Duration(endTs.Sub(startTs).Seconds()/float64(numSteps)) * time.Second
+
+	ruleGroup := slo.ConstructRecordingRuleGroup(nil)
+	sliPeriodErrorRate := ruleGroup.Rules[len(ruleGroup.Rules)-1].Expr
+	sli := "1 - (max(" + sliPeriodErrorRate + ") OR on() vector(0))"
+	_, err = promql.ParseExpr(sli)
+	if err != nil {
+		panic(err)
+	}
+	sliDataMatrix, err := QuerySLOComponentByRawQueryRange(
+		s.p.adminClient.Get(),
+		s.ctx,
+		sli,
+		req.GetSlo().GetClusterId(),
+		startTs,
+		endTs,
+		step,
+	)
+	if err != nil {
+		return nil, err
+	}
+	for _, sample := range *sliDataMatrix {
+		for _, yieldedValue := range sample.Values {
+			ts := time.Unix(int64(yieldedValue.Timestamp), 0)
+			preview.SLI.Items = append(preview.SLI.Items, &sloapi.DataPoint{
+				Timestamp: timestamppb.New(ts),
+				Value:     float64(yieldedValue.Value),
+			})
+			preview.Objective.Items = append(preview.Objective.Items, &sloapi.DataPoint{
+				Timestamp: timestamppb.New(ts),
+				Value:     slo.GetObjective() / 100,
+			})
+		}
+	}
+	return preview, nil
 }
 
 func (m *MonitoringServiceBackend) WithCurrentRequest(req proto.Message, ctx context.Context) ServiceBackend {

@@ -365,7 +365,45 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		})
 
 		It("Should preview SLOs in a raw data format", func() {
-			//TODO
+			respList, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respList.Items).To(HaveLen(1))
+			resp, err := sloClient.Preview(ctx, &sloapi.CreateSLORequest{
+				Slo: &sloapi.ServiceLevelObjective{
+					Name:            "testslo",
+					Datasource:      shared.MonitoringDatasource,
+					ClusterId:       "agent",
+					ServiceId:       "prometheus",
+					GoodMetricName:  "prometheus_http_requests_total",
+					TotalMetricName: "prometheus_http_requests_total",
+					GoodEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+							},
+						},
+					},
+					TotalEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+								"500",
+								"503",
+							},
+						},
+					},
+					SloPeriod:         "30d",
+					BudgetingInterval: durationpb.New(time.Minute * 5),
+					Target: &sloapi.Target{
+						Value: 99.99,
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.SLI.Items).NotTo(BeEmpty())
+			Expect(resp.Objective.Items).NotTo(BeEmpty())
 		})
 	})
 })

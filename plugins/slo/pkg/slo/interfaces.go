@@ -29,6 +29,7 @@ type SLOStore interface {
 	Delete(existing *sloapi.SLOData) error
 	Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.SLOData, error)
 	Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error)
+	Preview(s *SLO) (*sloapi.SLOPreviewResponse, error)
 	WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore
 }
 type ServiceBackend interface {

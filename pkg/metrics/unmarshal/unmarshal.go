@@ -70,9 +70,18 @@ func (q *queryResult) GetVector() (*model.Vector, error) {
 		v := q.V.(model.Vector)
 		return &v, nil
 	default:
-		return nil, fmt.Errorf("not in prometheus vector format")
+		return nil, fmt.Errorf("cannot unmarshal prometheus response into vector type")
 	}
+}
 
+func (q *queryResult) GetMatrix() (*model.Matrix, error) {
+	switch q.V.Type() {
+	case model.ValMatrix:
+		v := q.V.(model.Matrix)
+		return &v, nil
+	default:
+		return nil, fmt.Errorf("cannot unmarshal prometheus response into matrix type")
+	}
 }
 
 func UnmarshalPrometheusResponse(data []byte) (*queryResult, error) {

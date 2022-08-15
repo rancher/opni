@@ -156,8 +156,16 @@ func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLO
 	return status, err
 }
 
-func (p *Plugin) Preview(ctx context.Context, req *sloapi.CreateSLORequest) (*emptypb.Empty, error) {
-	return nil, shared.ErrNotImplemented
+func (p *Plugin) Preview(ctx context.Context, req *sloapi.CreateSLORequest) (*sloapi.SLOPreviewResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	slo := CreateSLORequestToStruct(req)
+	if err := checkDatasource(req.GetSlo().GetDatasource()); err != nil {
+		return nil, err
+	}
+	sloStore := datasourceToSLO[req.GetSlo().GetDatasource()].WithCurrentRequest(req, ctx)
+	return sloStore.Preview(slo)
 }
 
 // -------- Service Discovery ---------

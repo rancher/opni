@@ -38,7 +38,7 @@ type SLOClient interface {
 	ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*EventList, error)
 	// Returns a status enum badge for a given SLO
 	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error)
-	Preview(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Preview(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*SLOPreviewResponse, error)
 }
 
 type sLOClient struct {
@@ -139,8 +139,8 @@ func (c *sLOClient) Status(ctx context.Context, in *v1.Reference, opts ...grpc.C
 	return out, nil
 }
 
-func (c *sLOClient) Preview(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *sLOClient) Preview(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*SLOPreviewResponse, error) {
+	out := new(SLOPreviewResponse)
 	err := c.cc.Invoke(ctx, "/slo.SLO/Preview", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -166,7 +166,7 @@ type SLOServer interface {
 	ListEvents(context.Context, *ListEventsRequest) (*EventList, error)
 	// Returns a status enum badge for a given SLO
 	Status(context.Context, *v1.Reference) (*SLOStatus, error)
-	Preview(context.Context, *CreateSLORequest) (*emptypb.Empty, error)
+	Preview(context.Context, *CreateSLORequest) (*SLOPreviewResponse, error)
 	mustEmbedUnimplementedSLOServer()
 }
 
@@ -204,7 +204,7 @@ func (UnimplementedSLOServer) ListEvents(context.Context, *ListEventsRequest) (*
 func (UnimplementedSLOServer) Status(context.Context, *v1.Reference) (*SLOStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
-func (UnimplementedSLOServer) Preview(context.Context, *CreateSLORequest) (*emptypb.Empty, error) {
+func (UnimplementedSLOServer) Preview(context.Context, *CreateSLORequest) (*SLOPreviewResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Preview not implemented")
 }
 func (UnimplementedSLOServer) mustEmbedUnimplementedSLOServer() {}

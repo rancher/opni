@@ -263,6 +263,10 @@ func (s *SLO) GetPeriod() string {
 	return s.sloPeriod
 }
 
+func (s *SLO) GetObjective() float64 {
+	return s.objective
+}
+
 func (s *SLO) GetPrometheusRuleFilterByIdLabels() (string, error) {
 	var b bytes.Buffer
 	err := sloFiltersTpl.Execute(&b, SloFiltersInfo{

@@ -1,6 +1,7 @@
 package slo
 
 import (
+	prommodel "github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/validation"
 	"time"
@@ -12,6 +13,10 @@ func (slo *ServiceLevelObjective) Validate() error {
 	}
 	if slo.GetSloPeriod() == "" {
 		return validation.Error("sloPeriod must be set")
+	}
+	_, err := prommodel.ParseDuration(slo.GetSloPeriod())
+	if err != nil {
+		return validation.Error("Passed in sloPeriod string is not a valid prometheus duration")
 	}
 	if slo.Datasource != shared.MonitoringDatasource && slo.Datasource != shared.LoggingDatasource {
 		return shared.ErrInvalidDatasource

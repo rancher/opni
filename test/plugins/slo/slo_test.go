@@ -351,10 +351,20 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		})
 
 		It("Should get status for SLOs", func() {
-			// TODO
+			respList, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respList.Items).To(HaveLen(1))
+			resp, err := sloClient.Status(ctx, &corev1.Reference{Id: respList.Items[0].Id})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.State).To(Equal(sloapi.SLOStatusState_Creating))
+			Eventually(func() sloapi.SLOStatusState {
+				resp, err := sloClient.Status(ctx, &corev1.Reference{Id: respList.Items[0].Id})
+				Expect(err).NotTo(HaveOccurred())
+				return resp.State
+			}, time.Minute*2, time.Second*30).Should(Equal(sloapi.SLOStatusState_Ok))
 		})
 
-		It("Should preview SLOs in raw data form", func() {
+		It("Should preview SLOs in a raw data format", func() {
 			//TODO
 		})
 	})

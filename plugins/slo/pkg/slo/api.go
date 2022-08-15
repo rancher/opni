@@ -10,7 +10,9 @@ import (
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"path"
+	"time"
 )
 
 func list[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]T, error) {
@@ -58,32 +60,16 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 	if err := slorequest.Validate(); err != nil {
 		return nil, err
 	}
-	reqSLO := slorequest.GetSlo()
-	userLabels := reqSLO.GetLabels()
-	sloLabels := map[string]string{}
-	for _, label := range userLabels {
-		sloLabels[label.GetName()] = "true"
-	}
-
-	s := NewSLO(
-		reqSLO.GetName(),
-		reqSLO.GetSloPeriod(),
-		reqSLO.GetTarget().GetValue(),
-		Service(reqSLO.GetServiceId()),
-		Metric(reqSLO.GetGoodMetricName()),
-		Metric(reqSLO.GetTotalMetricName()),
-		sloLabels,
-		LabelPairs{}, //FIXME
-		LabelPairs{}, //FIXME
-	)
+	s := CreateSLORequestToStruct(slorequest)
 	sloStore := datasourceToSLO[slorequest.GetSlo().GetDatasource()].WithCurrentRequest(slorequest, ctx)
 	err := sloStore.Create(s)
 	if err != nil {
 		return nil, err
 	}
 	sloData := &sloapi.SLOData{
-		Id:  s.GetId(),
-		SLO: reqSLO,
+		Id:        s.GetId(),
+		SLO:       slorequest.GetSlo(),
+		CreatedAt: timestamppb.New(time.Now()),
 	}
 	if err := p.storage.Get().SLOs.Put(ctx, path.Join("/slos", s.GetId()), sloData); err != nil {
 		return nil, err
@@ -100,25 +86,8 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 	if err != nil {
 		return nil, err
 	}
-	reqSLO := req.GetSLO()
-	userLabels := reqSLO.GetLabels()
-	sloLabels := map[string]string{}
-	for _, label := range userLabels {
-		sloLabels[label.GetName()] = "true"
-	}
-	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(req, ctx)
-	newSLO := SLOFromId(
-		reqSLO.GetName(),
-		reqSLO.GetSloPeriod(),
-		reqSLO.GetTarget().GetValue(),
-		Service(reqSLO.GetServiceId()),
-		Metric(reqSLO.GetGoodMetricName()),
-		Metric(reqSLO.GetTotalMetricName()),
-		sloLabels,
-		LabelPairs{}, //FIXME
-		LabelPairs{}, //FIXME
-		req.Id,
-	)
+	newSLO := SLODataToStruct(req)
+	sloStore := datasourceToSLO[req.GetSLO().GetDatasource()].WithCurrentRequest(req, ctx)
 	updatedSLO, err := sloStore.Update(newSLO, existing)
 	if err != nil { // exit when update fails
 		return nil, err
@@ -164,6 +133,7 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 	}
 	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ref, ctx)
 	newId, newData, anyError := sloStore.Clone(existing)
+	newData.CreatedAt = timestamppb.New(time.Now())
 	if anyError != nil {
 		return nil, anyError
 	}
@@ -174,7 +144,16 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 }
 
 func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOStatus, error) {
-	return nil, shared.ErrNotImplemented
+	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", ref.Id))
+	if err != nil {
+		return nil, err
+	}
+	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
+	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(ref, ctx)
+	status, err := sloStore.Status(existing)
+	return status, err
 }
 
 func (p *Plugin) Preview(ctx context.Context, req *sloapi.CreateSLORequest) (*emptypb.Empty, error) {

@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/tidwall/gjson"
 	"google.golang.org/protobuf/proto"
+	"time"
 )
 
 func (s *SLOMonitoring) WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore {
@@ -170,12 +170,66 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.
 }
 
 // Status Only return errors here that should be considered severe InternalServerErrors
-//
+// - Check if enough time has passed to evaluate the rules
 // - First Checks if it has NoData
 // - If it has Data, check if it is within budget
 // - If is within budget, check if any alerts are firing
 func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error) {
-	return nil, shared.ErrNotImplemented
+	now := time.Now()
+	if now.Sub(existing.CreatedAt.AsTime()) <= time.Minute {
+		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}, nil
+	}
+	state := sloapi.SLOStatusState_Ok
+	slo := SLODataToStruct(existing)
+	// ======================= sli =======================
+	sliErrorName := slo.ConstructRecordingRuleGroup(nil).Rules[0].Record
+	sliDataVector, err := QuerySLOComponentByRecordName(
+		s.p.adminClient.Get(),
+		s.ctx,
+		sliErrorName,
+		existing.GetSLO().GetClusterId(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if sliDataVector == nil || sliDataVector.Len() == 0 {
+		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
+	}
+	// ======================= error budget =======================
+	metadataBudgetRaw := slo.RawBudgetRemainingQuery()
+	metadataVector, err := QuerySLOComponentByRawQuery(s.p.adminClient.Get(), s.ctx, metadataBudgetRaw, existing.GetSLO().GetClusterId())
+	if err != nil {
+		return nil, err
+	}
+	if metadataVector == nil || metadataVector.Len() == 0 {
+		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
+	}
+	metadataBudget := (*metadataVector)[0].Value
+	if metadataBudget <= 0 {
+		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Breaching}, nil
+	}
+	//
+	//// ======================= alert =======================
+	//FIXME: alert vectors have no data
+	//alertBudgetRules := slo.ConstructAlertingRuleGroup(nil)
+	//short, long := alertBudgetRules.Rules[0].Alert, alertBudgetRules.Rules[1].Alert
+	//alertDataVector1, err := QuerySLOComponentByRecordName(s.p.adminClient.Get(), s.ctx, short, existing.GetSLO().GetClusterId())
+	//if err != nil {
+	//	return nil, err
+	//}
+	//alertDataVector2, err := QuerySLOComponentByRecordName(s.p.adminClient.Get(), s.ctx, long, existing.GetSLO().GetClusterId())
+	//if err != nil {
+	//	return nil, err
+	//}
+	//if alertDataVector1 == nil || alertDataVector1.Len() == 0 || alertDataVector2 == nil || alertDataVector2.Len() == 0 {
+	//	return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
+	//}
+	//if (*alertDataVector1)[len(*alertDataVector1)-1].Value > 0 || (*alertDataVector2)[len(*alertDataVector2)-1].Value > 0 {
+	//	return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Warning}, nil
+	//}
+	return &sloapi.SLOStatus{
+		State: state,
+	}, nil
 }
 
 func (m *MonitoringServiceBackend) WithCurrentRequest(req proto.Message, ctx context.Context) ServiceBackend {

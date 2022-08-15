@@ -425,80 +425,82 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				YamlContent: string(outAlerts),
 			})
 			Expect(err).NotTo(HaveOccurred())
-			time.Sleep(time.Second * 60) //FIXME: syncing rules is taking about a minute
-
-			//@debug
+			time.Sleep(time.Minute * 1)
+			//Eventually(func() error {
 			resp, err := adminClient.ListRules(ctx, &cortexadmin.Cluster{
 				ClusterId: "agent",
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp).NotTo(BeNil())
-			Expect(resp.Data).NotTo(BeEmpty())
+			//if err != nil {
+			//	return err
+			//}
+			//if len(resp.Data) <= 63 {
+			//	return fmt.Errorf("no rules actually loaded")
+			//}
+			// @debug
 			result := gjson.Get(string(resp.Data), "data.groups")
 			Expect(result.Exists()).To(BeTrue())
 			for _, r := range result.Array() {
 				fmt.Println(r)
 			}
+			//	return nil
+			//}, time.Minute*2, time.Second*30).Should(Succeed())
 
 			// check the recording rule names to make sure they return data
-			for _, rawRule := range rrecording.Rules {
-				respRule, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
-					Tenants: []string{"agent"},
-					Query:   rawRule.Expr,
-				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(respRule.Data).NotTo(BeEmpty())
-				qresRule, err := unmarshal.UnmarshalPrometheusResponse(respRule.Data)
-				Expect(err).NotTo(HaveOccurred())
-				ruleVector, err := qresRule.GetVector()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(ruleVector).NotTo(BeNil())
-				Expect(*ruleVector).NotTo(BeEmpty())
-				for _, sample := range *ruleVector {
-					Expect(sample.Value).NotTo(BeNil())
-					Expect(sample.Timestamp).To(BeNumerically(">=", 0))
-				}
-			}
+			Eventually(func() error {
+				for _, rawRule := range rrecording.Rules {
+					ruleVector, err := slo.QuerySLOComponentByRawQuery(adminClient, ctx, rawRule.Expr, "agent")
+					if err != nil {
+						return err
+					}
 
-			// check the evaluation of the rule names produce non-empty responses
-			for _, rawRule := range rmetadata.Rules {
-				respMetadata, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
-					Tenants: []string{"agent"},
-					Query:   rawRule.Record,
-				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(respMetadata.Data).NotTo(BeEmpty())
-				qresMetadata, err := unmarshal.UnmarshalPrometheusResponse(respMetadata.Data)
-				Expect(err).NotTo(HaveOccurred())
-				metadataVector, err := qresMetadata.GetVector()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(metadataVector).NotTo(BeNil())
-				//FIXME: `group_left` is fallaciously being replaced with `group_left()`
-				//Expect(*metadataVector).NotTo(BeEmpty())
-				for _, sample := range *metadataVector {
-					Expect(sample.Value).To(BeNumerically(">=", 0))
-					Expect(sample.Timestamp).To(BeNumerically(">=", 0))
+					if ruleVector == nil || len(*ruleVector) == 0 {
+						return fmt.Errorf("expect rule vector to contain data")
+					}
+					for _, sample := range *ruleVector {
+						if sample.Timestamp == 0 {
+							return fmt.Errorf("expect sample.Timestamp to contain data")
+						}
+					}
 				}
-			}
+				return nil
+			}, time.Minute*2, time.Second*30).Should(Succeed())
 
-			for _, rawRule := range ralerts.Rules {
-				respAlerts, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
-					Tenants: []string{"agent"},
-					Query:   rawRule.Expr,
-				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(respAlerts.Data).NotTo(BeEmpty())
-				qresAlert, err := unmarshal.UnmarshalPrometheusResponse(respAlerts.Data)
-				Expect(err).NotTo(HaveOccurred())
-				alertVector, err := qresAlert.GetVector()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(alertVector).NotTo(BeNil())
-				//Expect(*alertVector).NotTo(BeEmpty()) //FIXME
-				for _, sample := range *alertVector {
-					Expect(sample.Value).To(BeNumerically(">=", 0))
-					Expect(sample.Timestamp).To(BeNumerically(">=", 0))
+			Eventually(func() error {
+				for _, rawRule := range rmetadata.Rules {
+					ruleVector, err := slo.QuerySLOComponentByRecordName(adminClient, ctx, rawRule.Record, "agent")
+					if err != nil {
+						return err
+					}
+
+					if ruleVector == nil || len(*ruleVector) == 0 {
+						return fmt.Errorf("expect rule vector to contain data")
+					}
+					for _, sample := range *ruleVector {
+						if sample.Timestamp == 0 {
+							return fmt.Errorf("expect sample.Timestamp to contain data")
+						}
+					}
 				}
-			}
+				return nil
+			}, time.Minute*2, time.Second*30).Should(Succeed())
+
+			Eventually(func() error {
+				for _, rawRule := range ralerts.Rules {
+					ruleVector, err := slo.QuerySLOComponentByRawQuery(adminClient, ctx, rawRule.Expr, "agent")
+					if err != nil {
+						return err
+					}
+					if ruleVector == nil || len(*ruleVector) == 0 {
+						return fmt.Errorf("expect rule vector to contain data")
+					}
+					for _, sample := range *ruleVector {
+						if sample.Timestamp == 0 {
+							return fmt.Errorf("expect sample.Timestamp to contain data")
+						}
+					}
+				}
+				return nil
+			}, time.Minute*2, time.Second*30).Should(Succeed())
 		})
 	})
 })

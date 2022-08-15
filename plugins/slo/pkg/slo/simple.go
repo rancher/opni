@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
+	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"gopkg.in/yaml.v3"
 	"os"
 	"text/template"
@@ -168,6 +169,88 @@ func SLOFromId(
 	}
 }
 
+func CreateSLORequestToStruct(c *sloapi.CreateSLORequest) *SLO {
+	reqSLO := c.Slo
+	userLabels := reqSLO.GetLabels()
+	sloLabels := map[string]string{}
+	for _, label := range userLabels {
+		sloLabels[label.GetName()] = "true"
+	}
+	goodEvents := []LabelPair{}
+	for _, goodEvent := range reqSLO.GetGoodEvents() {
+		goodEvents = append(goodEvents, LabelPair{
+			Key:  goodEvent.GetKey(),
+			Vals: goodEvent.GetVals(),
+		})
+	}
+	totalEvents := []LabelPair{}
+	for _, totalEvent := range reqSLO.GetTotalEvents() {
+		totalEvents = append(totalEvents, LabelPair{
+			Key:  totalEvent.GetKey(),
+			Vals: totalEvent.GetVals(),
+		})
+	}
+	return NewSLO(
+		reqSLO.GetName(),
+		reqSLO.GetSloPeriod(),
+		reqSLO.GetTarget().GetValue(),
+		Service(reqSLO.GetServiceId()),
+		Metric(reqSLO.GetGoodMetricName()),
+		Metric(reqSLO.GetTotalMetricName()),
+		sloLabels,
+		goodEvents,
+		totalEvents,
+	)
+}
+
+func SLODataToStruct(s *sloapi.SLOData) *SLO {
+	reqSLO := s.SLO
+	userLabels := reqSLO.GetLabels()
+	sloLabels := map[string]string{}
+	for _, label := range userLabels {
+		sloLabels[label.GetName()] = "true"
+	}
+	goodEvents := []LabelPair{}
+	for _, goodEvent := range reqSLO.GetGoodEvents() {
+		goodEvents = append(goodEvents, LabelPair{
+			Key:  goodEvent.GetKey(),
+			Vals: goodEvent.GetVals(),
+		})
+	}
+	totalEvents := []LabelPair{}
+	for _, totalEvent := range reqSLO.GetTotalEvents() {
+		totalEvents = append(totalEvents, LabelPair{
+			Key:  totalEvent.GetKey(),
+			Vals: totalEvent.GetVals(),
+		})
+	}
+	if s.Id == "" {
+		return NewSLO(
+			reqSLO.GetName(),
+			reqSLO.GetSloPeriod(),
+			reqSLO.GetTarget().GetValue(),
+			Service(reqSLO.GetServiceId()),
+			Metric(reqSLO.GetGoodMetricName()),
+			Metric(reqSLO.GetTotalMetricName()),
+			sloLabels,
+			goodEvents,
+			totalEvents,
+		)
+	}
+	return SLOFromId(
+		reqSLO.GetName(),
+		reqSLO.GetSloPeriod(),
+		reqSLO.GetTarget().GetValue(),
+		Service(reqSLO.GetServiceId()),
+		Metric(reqSLO.GetGoodMetricName()),
+		Metric(reqSLO.GetTotalMetricName()),
+		sloLabels,
+		goodEvents,
+		totalEvents,
+		s.Id,
+	)
+}
+
 func (s *SLO) GetId() string {
 	return s.idLabels[slo_uuid] // let it panic if not found
 }
@@ -239,12 +322,10 @@ func (s *SLO) RawPeriodDurationQuery() string {
 }
 
 func (s *SLO) RawBudgetRemainingQuery() string {
-	//TODO implement
 	ruleFilters, err := s.GetPrometheusRuleFilterByIdLabels()
 	if err != nil {
 		panic(err)
 	}
-
 	return "1 - " + slo_period_burn_rate_ratio + "{" + ruleFilters + "}"
 }
 
@@ -412,16 +493,6 @@ func (s *SLO) AlertPageThreshold() float64 {
 	return 0.5
 }
 
-func execAlertTemplate(b *bytes.Buffer, ruleName, ruleFilters, floatThreshold, sloWindowLabel string) error {
-	maxCalcTpl := template.Must(template.New("alertingMaxExprCal").Parse("max({{.RuleName}}{ {{.RuleFilters}}} > {{.FloatThreshold}}) without({{.SloWindowLabel}})"))
-	return maxCalcTpl.Execute(b, map[string]string{
-		"RuleName":       ruleName,
-		"RuleFilters":    ruleFilters,
-		"FloatThreshold": floatThreshold,
-		"SloWindowLabel": sloWindowLabel,
-	})
-}
-
 func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv2 {
 	var promInterval prommodel.Duration
 	var err error
@@ -438,64 +509,66 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 		Name:     s.GetId() + AlertRuleSuffix,
 		Interval: promInterval,
 	}
-
 	sloFilters, err := s.GetPrometheusRuleFilterByIdLabels()
 	if err != nil {
 		panic(err)
 	}
-	var pageConditionFast1, pageConditionFast2, pageConditionSlow1, pageConditionSlow2 bytes.Buffer
-	if err := execAlertTemplate(&pageConditionFast1, slo_ratio_rate_query_name+"5m", sloFilters, "0.0001", slo_window); err != nil {
+	sloFilters = "{" + sloFilters + "}"
+	dur, err := prommodel.ParseDuration(s.sloPeriod)
+	if err != nil {
 		panic(err)
 	}
-	if err := execAlertTemplate(&pageConditionFast2, slo_ratio_rate_query_name+"30m", sloFilters, "0.0001", slo_window); err != nil {
+	mwmbWindow := GenerateGoogleWindows(time.Duration(dur))
+	var exprTicket bytes.Buffer
+	err = mwmbAlertTpl.Execute(&exprTicket, map[string]string{
+		"WindowLabel":          slo_window,
+		"QuickShortMetric":     slo_ratio_rate_query_name + "5m",
+		"QuickShortBurnFactor": fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketQuick()),
+		"QuickLongMetric":      slo_ratio_rate_query_name + "30m",
+		"QuickLongBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketSlow()),
+		"SlowShortMetric":      slo_ratio_rate_query_name + "2h",
+		"SlowShortBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketQuick()),
+		"SlowQuickMetric":      slo_ratio_rate_query_name + "6h",
+		"SlowQuickBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketSlow()),
+		"ErrorBudgetRatio":     fmt.Sprintf("%f", 100-s.objective),
+		"MetricFilter":         sloFilters,
+	})
+	if err != nil {
 		panic(err)
 	}
-	if err := execAlertTemplate(&pageConditionSlow1, slo_ratio_rate_query_name+"2h", sloFilters, "0.0001", slo_window); err != nil {
+	var exprPage bytes.Buffer
+	err = mwmbAlertTpl.Execute(&exprPage, map[string]string{
+		"WindowLabel":          slo_window,
+		"QuickShortMetric":     slo_ratio_rate_query_name + "5m",
+		"QuickShortBurnFactor": fmt.Sprintf("%f", mwmbWindow.GetSpeedPageQuick()),
+		"QuickLongMetric":      slo_ratio_rate_query_name + "30m",
+		"QuickLongBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageSlow()),
+		"SlowShortMetric":      slo_ratio_rate_query_name + "2h",
+		"SlowShortBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageQuick()),
+		"SlowQuickMetric":      slo_ratio_rate_query_name + "6h",
+		"SlowQuickBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageSlow()),
+		"ErrorBudgetRatio":     fmt.Sprintf("%f", 100-s.objective),
+		"MetricFilter":         sloFilters,
+	})
+	if err != nil {
 		panic(err)
 	}
-	if err := execAlertTemplate(&pageConditionSlow2, slo_ratio_rate_query_name+"6h", sloFilters, "0.0001", slo_window); err != nil {
-		panic(err)
-	}
+
 	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
-		Alert: fmt.Sprintf("%s_alert_page-%s", s.GetId(), s.GetName()),
-		Expr: fmt.Sprintf("(%s and %s) or (%s and %s)",
-			pageConditionFast1.String(),
-			pageConditionFast2.String(),
-			pageConditionSlow1.String(),
-			pageConditionSlow2.String(),
-		),
+		Record: "slo_alert_page",
+		Expr:   exprPage.String(),
 		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}, s.userLabels),
 	})
 
-	var ticketConditionFast1, ticketConditionFast2, ticketConditionSlow1, ticketConditionSlow2 bytes.Buffer
-
-	if err := execAlertTemplate(&ticketConditionFast1, slo_ratio_rate_query_name+"2h", sloFilters, "0.0001", slo_window); err != nil {
-		panic(err)
-	}
-	if err := execAlertTemplate(&ticketConditionFast2, slo_ratio_rate_query_name+"1d", sloFilters, "0.0001", slo_window); err != nil {
-		panic(err)
-	}
-	if err := execAlertTemplate(&ticketConditionSlow1, slo_ratio_rate_query_name+"6h", sloFilters, "0.0001", slo_window); err != nil {
-		panic(err)
-	}
-	if err := execAlertTemplate(&ticketConditionSlow2, slo_ratio_rate_query_name+"3d", sloFilters, "0.0001", slo_window); err != nil {
-		panic(err)
-	}
 	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
-		Alert: fmt.Sprintf("%s_alert_ticket-%s", s.GetId(), s.GetName()),
-		Expr: fmt.Sprintf("(%s and %s) or (%s and %s)",
-			ticketConditionFast1.String(),
-			ticketConditionFast2.String(),
-			ticketConditionSlow1.String(),
-			ticketConditionSlow2.String(),
-		),
-		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}, s.userLabels),
+		Record: "slo_alert_ticket",
+		Expr:   exprTicket.String(),
+		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "ticket"}, s.userLabels),
 	})
 	return ralerting
 }
 
 func (s *SLO) ConstructCortexRules(interval *time.Duration) (sli, metadata, alerts RuleGroupYAMLv2) {
-
 	rrecording := s.ConstructRecordingRuleGroup(interval)
 	rmetadata := s.ConstructMetadataRules(interval)
 	ralerts := s.ConstructAlertingRuleGroup(interval)

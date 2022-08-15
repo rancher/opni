@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/hashicorp/go-hclog"
+	"github.com/prometheus/common/model"
+	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -59,46 +61,52 @@ func deleteCortexSLORules(
 	return nil
 }
 
-//
-//// Convert OpenSLO specs to Cortex Rule Groups & apply them
-//func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, existingId string,
-//	p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]*sloapi.SLOData, error) {
-//	slogroup, err := ParseToPrometheusModel(osloSpec)
-//	if err != nil {
-//		lg.Error("failed to parse prometheus model IR :", err)
-//		return nil, err
-//	}
-//
-//	returnedSloImpl := []*sloapi.SLOData{}
-//	rw, err := GeneratePrometheusNoSlothGenerator(slogroup, slorequest.SLO.BudgetingInterval.AsDuration(), existingId, ctx, lg)
-//	if err != nil {
-//		lg.Error("Failed to generate prometheus : ", err)
-//		return nil, err
-//	}
-//	lg.Debug(fmt.Sprintf("Generated cortex rule groups : %d", len(rw)))
-//	if len(rw) > 1 {
-//		lg.Warn("Multiple cortex rule groups being applied")
-//	}
-//	for _, rwgroup := range rw {
-//
-//		actualID := rwgroup.ActualId
-//
-//		cortexRules, err := toCortexRequest(rwgroup, actualID)
-//		if err != nil {
-//			return nil, err
-//		}
-//		err = applyCortexSLORules(p, cortexRules, service, actualID, ctx, lg)
-//
-//		if err == nil {
-//			dataToPersist := &sloapi.SLOData{
-//				Id:      actualID,
-//				SLO:     slorequest.SLO,
-//				Service: service,
-//			}
-//			returnedSloImpl = append(returnedSloImpl, dataToPersist)
-//		} else { // clean up any create rule groups
-//			err = deleteCortexSLORules(p, actualID, service.ClusterId, ctx, lg)
-//		}
-//	}
-//	return returnedSloImpl, nil
-//}
+func QuerySLOComponentByRecordName(
+	client cortexadmin.CortexAdminClient,
+	ctx context.Context,
+	recordName string,
+	clusterId string,
+) (*model.Vector, error) {
+	resp, err := client.Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: []string{clusterId},
+		Query:   recordName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	rawBytes := resp.Data
+	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+	if err != nil {
+		return nil, err
+	}
+	dataVector, err := qres.GetVector()
+	if err != nil {
+		return nil, err
+	}
+	return dataVector, nil
+}
+
+func QuerySLOComponentByRawQuery(
+	client cortexadmin.CortexAdminClient,
+	ctx context.Context,
+	rawQuery string,
+	clusterId string,
+) (*model.Vector, error) {
+	resp, err := client.Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: []string{clusterId},
+		Query:   rawQuery,
+	})
+	if err != nil {
+		return nil, err
+	}
+	rawBytes := resp.Data
+	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+	if err != nil {
+		return nil, err
+	}
+	dataVector, err := qres.GetVector()
+	if err != nil {
+		return nil, err
+	}
+	return dataVector, nil
+}

@@ -22,6 +22,9 @@ import (
 const conditionPrefix = "/alerting/conditions"
 
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error) {
+	if err := alertingv1alpha.DetailsHasImplementation(req.GetAlertType()); err != nil {
+		return nil, err
+	}
 	newId := uuid.New().String()
 	_, err := setupCondition(ctx, req, newId)
 	if err != nil {
@@ -196,4 +199,11 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (p *Plugin) ListAlertConditionChoices(ctx context.Context, request *alertingv1alpha.AlertDetailChoicesRequest) (*alertingv1alpha.ListAlertTypeDetails, error) {
+	if err := alertingv1alpha.EnumHasImplementation(request.GetAlertType()); err != nil {
+		return nil, err
+	}
+	return nil, shared.AlertingErrNotImplemented
 }

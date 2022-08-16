@@ -1065,9 +1065,6 @@ spec:
                           type: object
                       type: object
                     type: array
-                  apiPort:
-                    default: 9094
-                    type: integer
                   configName:
                     default: alertmanager-config
                     type: string

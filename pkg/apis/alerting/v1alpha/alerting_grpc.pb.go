@@ -39,6 +39,7 @@ type AlertingClient interface {
 	GetAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertCondition, error)
 	ListAlertConditions(ctx context.Context, in *ListAlertConditionRequest, opts ...grpc.CallOption) (*AlertConditionList, error)
 	UpdateAlertCondition(ctx context.Context, in *UpdateAlertConditionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListAlertConditionChoices(ctx context.Context, in *AlertDetailChoicesRequest, opts ...grpc.CallOption) (*ListAlertTypeDetails, error)
 	DeleteAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// unimplemented
 	PreviewAlertCondition(ctx context.Context, in *PreviewAlertConditionRequest, opts ...grpc.CallOption) (*PreviewAlertConditionResponse, error)
@@ -153,6 +154,15 @@ func (c *alertingClient) ListAlertConditions(ctx context.Context, in *ListAlertC
 func (c *alertingClient) UpdateAlertCondition(ctx context.Context, in *UpdateAlertConditionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/Alerting/UpdateAlertCondition", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertingClient) ListAlertConditionChoices(ctx context.Context, in *AlertDetailChoicesRequest, opts ...grpc.CallOption) (*ListAlertTypeDetails, error) {
+	out := new(ListAlertTypeDetails)
+	err := c.cc.Invoke(ctx, "/Alerting/ListAlertConditionChoices", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -295,6 +305,7 @@ type AlertingServer interface {
 	GetAlertCondition(context.Context, *v1.Reference) (*AlertCondition, error)
 	ListAlertConditions(context.Context, *ListAlertConditionRequest) (*AlertConditionList, error)
 	UpdateAlertCondition(context.Context, *UpdateAlertConditionRequest) (*emptypb.Empty, error)
+	ListAlertConditionChoices(context.Context, *AlertDetailChoicesRequest) (*ListAlertTypeDetails, error)
 	DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	// unimplemented
 	PreviewAlertCondition(context.Context, *PreviewAlertConditionRequest) (*PreviewAlertConditionResponse, error)
@@ -351,6 +362,9 @@ func (UnimplementedAlertingServer) ListAlertConditions(context.Context, *ListAle
 }
 func (UnimplementedAlertingServer) UpdateAlertCondition(context.Context, *UpdateAlertConditionRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateAlertCondition not implemented")
+}
+func (UnimplementedAlertingServer) ListAlertConditionChoices(context.Context, *AlertDetailChoicesRequest) (*ListAlertTypeDetails, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAlertConditionChoices not implemented")
 }
 func (UnimplementedAlertingServer) DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertCondition not implemented")
@@ -580,6 +594,24 @@ func _Alerting_UpdateAlertCondition_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AlertingServer).UpdateAlertCondition(ctx, req.(*UpdateAlertConditionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Alerting_ListAlertConditionChoices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AlertDetailChoicesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).ListAlertConditionChoices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Alerting/ListAlertConditionChoices",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).ListAlertConditionChoices(ctx, req.(*AlertDetailChoicesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -864,6 +896,10 @@ var Alerting_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateAlertCondition",
 			Handler:    _Alerting_UpdateAlertCondition_Handler,
+		},
+		{
+			MethodName: "ListAlertConditionChoices",
+			Handler:    _Alerting_ListAlertConditionChoices_Handler,
 		},
 		{
 			MethodName: "DeleteAlertCondition",

@@ -72,17 +72,15 @@ func handleUpdateEndpointImplementation(
 }
 
 func setupCondition(ctx context.Context, req *alertingv1alpha.AlertCondition, newId string) (*corev1.Reference, error) {
-	if s := req.GetSystem(); s != nil {
+	if s := req.GetAlertType().GetSystem(); s != nil {
 		return &corev1.Reference{Id: newId}, nil
 	}
 	return nil, shared.AlertingErrNotImplemented
 }
 
 func deleteCondition(ctx context.Context, req *alertingv1alpha.AlertCondition, id string) error {
-	switch req.AlertType {
-	case &alertingv1alpha.AlertCondition_System{}: // opni system evaluates these conditions elsewhere in the code
-		return validation.Error("User should not be able to delete system alert conditions")
-	default:
-		return shared.AlertingErrNotImplemented
+	if s := req.GetAlertType().GetSystem(); s != nil {
+		return nil
 	}
+	return shared.AlertingErrNotImplemented
 }

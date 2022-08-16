@@ -15,6 +15,7 @@ const (
 	AlertingV1Alpha      = "v1alpha"
 	MonitoringDatasource = "monitoring"
 	LoggingDatasource    = "logging"
+	SystemDatasource     = "system"
 )
 
 var (

@@ -87,6 +87,12 @@ service Alerting {
     };
   }
 
+  rpc ListAlertConditionChoices(AlertDetailChoicesRequest) returns (ListAlertTypeDetails) {
+    option (google.api.http) = {
+      post: "/alerts/conditions/{alertType}"
+    };
+  }
+
   rpc DeleteAlertCondition(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       delete: "/alerts/conditions"
@@ -217,25 +223,122 @@ message AlertCondition {
   string description = 2;
   repeated string labels = 3;
   Severity severity = 4;
-  oneof alertType {
-    AlertConditionSystem system = 5;
-  }
+  AlertTypeDetails alertType = 5;
+
   optional string notificationId = 6;
   EndpointImplementation details = 7;
   // Set & Unset via the silence API
   SilenceInfo silence = 8;
+  // https://github.com/rancher/opni-metrics-service/blob/main/metric-forecasting/metric_anomaly_detector.py#L154
+  // bool anomalyDetection = 9;
 }
 
-message SilenceInfo {
-  string silenceId = 1;
-  google.protobuf.Timestamp startsAt = 2;
-  google.protobuf.Timestamp endsAt = 3;
+enum AlertType{
+  SYSTEM = 0;
+  KUBE_STATE = 1;
+  COMPOSITION = 2;
+  CONTROL_FLOW = 3;
+}
+
+enum CompositionAction {
+   AND = 0;
+   OR = 1;
+}
+
+enum ControlFlowAction {
+  IF_THEN = 0;
+  IF_NOT_THEN = 1;
+}
+
+message AlertForest {
+  ControlFlowAction action = 1;
+}
+
+message AlertTree {
+  AlertTreeNode root = 1;
+}
+
+message AlertTreeNode {
+  oneof  condtion {
+    AlertConditionWithId item = 1;
+  }
+  AlertTreeNode left = 2;
+  AlertTreeNode right = 3;
+}
+
+message AlertDetailChoicesRequest {
+  AlertType alertType = 1;
+}
+
+message AlertDetailChoicesResponse {
+  repeated AlertTypeDetails choices = 1;
+}
+
+message AlertTypeDetails {
+  oneof type {
+    AlertConditionSystem system = 1;
+    AlertConditionKubeState kubeState = 2;
+    AlertConditionComposition composition = 3;
+    AlertConditionControlFlow controlFlow = 4;
+  }
+}
+
+message ListAlertTypeDetails {
+  oneof type{
+    ListAlertConditionSystem system = 1;
+    ListAlertConditionKubeState kubeState = 2;
+    ListAlertConditionComposition composition = 3;
+    ListAlertConditionControlFlow controlFlow = 4;
+  }
 }
 
 message AlertConditionSystem{}
 
+message ListAlertConditionSystem {}
+
+message AlertConditionKubeState {
+  // must be one of the listed kube objects
+  string object = 1;
+// must be one of the listed kube states
+  string state = 2;
+  google.protobuf.Duration for = 3;
+}
+
+message ListAlertConditionKubeState{
+  repeated string objects = 1;
+  repeated string states = 2;
+  repeated google.protobuf.Duration fors = 3;
+}
+
+
+message ListSelectAlertInfo {
+  AlertType alertType = 1;
+}
+
 message AlertConditionList {
   repeated AlertConditionWithId items = 1;
+}
+
+message AlertConditionComposition {
+  core.Reference x = 1;
+  core.Reference y = 2;
+}
+
+message ListAlertConditionComposition {
+  repeated core.Reference x = 1;
+  repeated core.Reference y = 2;
+}
+
+message AlertConditionControlFlow {
+  core.Reference x = 1;
+  core.Reference y = 2;
+  google.protobuf.Duration for = 3;
+}
+
+message ListAlertConditionControlFlow {
+  repeated core.Reference x = 1;
+  repeated core.Reference y = 2;
+  repeated google.protobuf.Duration fors = 3;
 }
 
 message AlertConditionWithId {
@@ -327,4 +430,10 @@ message UpdateAlertEndpointRequest {
 message TestAlertEndpointRequest{
 }
 message TestAlertEndpointResponse {
+}
+
+message SilenceInfo {
+  string silenceId = 1;
+  google.protobuf.Timestamp startsAt = 2;
+  google.protobuf.Timestamp endsAt = 3;
 }

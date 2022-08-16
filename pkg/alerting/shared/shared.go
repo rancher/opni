@@ -12,7 +12,9 @@ import (
 )
 
 const (
-	AlertingV1Alpha = "v1alpha"
+	AlertingV1Alpha      = "v1alpha"
+	MonitoringDatasource = "monitoring"
+	LoggingDatasource    = "logging"
 )
 
 var (

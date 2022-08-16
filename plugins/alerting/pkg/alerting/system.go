@@ -2,7 +2,11 @@ package alerting
 
 import (
 	"context"
+	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"os"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	alertapi "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
@@ -13,6 +17,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+const ApiExtensionBackoff = time.Second * 5
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	p.mgmtClient.Set(client)
@@ -63,4 +69,27 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		AlertEndpoint: system.NewKVStoreClient[*alertapi.AlertEndpoint](client),
 	})
 	<-p.ctx.Done()
+}
+
+func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
+	go func() {
+		for {
+			cc, err := intf.GetClientConn(p.ctx, "CortexAdmin")
+			if err != nil {
+				p.adminClient = future.New[cortexadmin.CortexAdminClient]()
+				UnregisterDatasource(shared.MonitoringDatasource)
+			} else {
+				adminClient := cortexadmin.NewCortexAdminClient(cc)
+				p.adminClient.Set(adminClient)
+				RegisterDatasource(shared.MonitoringDatasource, NewAlertingMonitoringStore(p, p.logger))
+			}
+			select {
+			case <-p.ctx.Done():
+				break
+			default:
+				continue
+			}
+			time.Sleep(ApiExtensionBackoff)
+		}
+	}()
 }

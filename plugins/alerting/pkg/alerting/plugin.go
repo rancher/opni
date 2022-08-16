@@ -3,7 +3,8 @@ package alerting
 import (
 	"context"
 
-	"github.com/hashicorp/go-hclog"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"go.uber.org/zap"
 
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/storage"
@@ -26,12 +27,13 @@ type Plugin struct {
 	alertingv1alpha.UnsafeAlertingServer
 	system.UnimplementedSystemPluginClient
 	ctx             context.Context
-	logger          hclog.Logger
+	logger          *zap.SugaredLogger
 	inMemCache      *lru.Cache
 	endpointBackend future.Future[RuntimeEndpointBackend]
 	alertingOptions future.Future[AlertingOptions]
 	storage         future.Future[StorageAPIs]
 	mgmtClient      future.Future[managementv1.ManagementClient]
+	adminClient     future.Future[cortexadmin.CortexAdminClient]
 }
 
 type AlertingOptions struct {
@@ -47,13 +49,13 @@ type StorageAPIs struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewForPlugin()
-	lg.SetLevel(hclog.Info)
+	lg := logger.NewPluginLogger().Named("alerting")
 	return &Plugin{
 		ctx:             ctx,
 		logger:          lg,
 		inMemCache:      nil,
 		mgmtClient:      future.New[managementv1.ManagementClient](),
+		adminClient:     future.New[cortexadmin.CortexAdminClient](),
 		endpointBackend: future.New[RuntimeEndpointBackend](),
 		alertingOptions: future.New[AlertingOptions](),
 		storage:         future.New[StorageAPIs](),

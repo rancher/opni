@@ -57,8 +57,8 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 					}
 				}
 				return cfgv1beta1.AlertingSpec{
-					Endpoints:       []string{fmt.Sprintf("opni-alerting:%d", r.spec.Alerting.ApiPort)},
-					ConfigMapName:   r.spec.Alerting.ConfigName,
+					Endpoints:       []string{fmt.Sprintf("opni-alerting:%d", r.gw.Spec.Alerting.WebPort)},
+					ConfigMapName:   r.gw.Spec.Alerting.ConfigName,
 					StatefulSetName: "opni-alerting-internal",
 					Namespace:       r.namespace,
 				}

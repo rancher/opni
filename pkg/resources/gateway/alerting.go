@@ -27,7 +27,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 		// set some sensible defaults
 		r.spec.Alerting = &corev1beta1.AlertingSpec{
 			WebPort:     9093,
-			ApiPort:     9094,
 			Storage:     "500Mi",
 			ServiceType: "ClusterIP",
 			ConfigName:  "alertmanager-config",
@@ -39,11 +38,8 @@ func (r *Reconciler) alerting() []resources.Resource {
 		r.spec.Alerting.WebPort = 9093
 	}
 
-	if r.spec.Alerting.ApiPort == 0 {
-		r.spec.Alerting.ApiPort = 9094
-	}
-	if r.spec.Alerting.Storage == "" {
-		r.spec.Alerting.Storage = "500Mi"
+	if r.gw.Spec.Alerting.Storage == "" {
+		r.gw.Spec.Alerting.Storage = "500Mi"
 	}
 	if r.spec.Alerting.ConfigName == "" {
 		r.spec.Alerting.ConfigName = "alertmanager-config"

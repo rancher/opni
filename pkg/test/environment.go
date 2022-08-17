@@ -778,9 +778,16 @@ func (e *Environment) StartAlertManager(ctx context.Context, configFile string) 
 		time.Sleep(time.Second)
 	}
 	lg.With("address", fmt.Sprintf("http://localhost:%d", webPort)).Info("AlertManager started")
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
-		session.Wait()
+	waitctx.Permissive.Go(e.ctx, func() {
+		select {
+		case <-e.ctx.Done():
+		case <-ctx.Done():
+		}
+
+		cmd, _ := session.G()
+		if cmd != nil {
+			cmd.Signal(os.Interrupt)
+		}
 	})
 	return webPort
 }

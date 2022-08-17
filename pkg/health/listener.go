@@ -257,7 +257,7 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 		l.alertTickerDuration.String(), -1)
 
 	go func() {
-		id, err := (*l.alertProvider).CreateAlertCondition(ctx, l.alertCondition)
+		id, err := (*l.alertProvider).CreateAlertCondition(ctx, alertConditionTemplateCopy)
 		retryOnFailure := time.NewTicker(time.Second)
 		defer retryOnFailure.Stop()
 		for err != nil {

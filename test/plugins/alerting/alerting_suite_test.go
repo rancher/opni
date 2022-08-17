@@ -1,6 +1,7 @@
 package alerting_test
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -26,6 +27,7 @@ func TestAlerting(t *testing.T) {
 var env *test.Environment
 var alertingClient alertingv1alpha.AlertingClient
 var _ = BeforeSuite(func() {
+	fmt.Println("Starting BeforeSuite...")
 	alerting.AlertPath = "alerttestdata/logs"
 	err := os.RemoveAll(alerting.AlertPath)
 	Expect(err).To(BeNil())
@@ -36,8 +38,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).To(Succeed())
 	err = os.WriteFile(alerting.LocalAlertManagerPath, []byte(alerting.DefaultAlertManager), 0666)
 	Expect(err).To(Succeed())
-	// test environment references
 
+	// get all the integration endpoint test information
+
+	// test environment references
 	// setup managemet server & client
 	env = &test.Environment{
 		TestBin: "../../../testbin/bin",
@@ -47,4 +51,5 @@ var _ = BeforeSuite(func() {
 
 	// alerting plugin
 	alertingClient = alertingv1alpha.NewAlertingClient(env.ManagementClientConn())
+	fmt.Println("Finished BeforeSuite...")
 })

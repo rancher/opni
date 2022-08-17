@@ -9,5 +9,5 @@ var OpniDisconnect *alertingv1alpha.AlertCondition = &alertingv1alpha.AlertCondi
 	Description: "Opni agent {{ .agentId }} has been disconnected for more than {{ .timeout }}",
 	Labels:      []string{"opni", "agent", "system"},
 	Severity:    alertingv1alpha.Severity_CRITICAL,
-	AlertType:   &alertingv1alpha.AlertCondition_System{},
+	AlertType:   &alertingv1alpha.AlertTypeDetails{Type: &alertingv1alpha.AlertTypeDetails_System{}},
 }

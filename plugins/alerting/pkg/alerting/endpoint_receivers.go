@@ -144,6 +144,7 @@ func WithEmailImplementation(cfg *cfg.Receiver, impl *alertingv1alpha.EndpointIm
 	return cfg, nil
 }
 
+// NewWebhookReceiver creates a new receiver for the webhook endpoint
 func NewWebhookReceiver(id string, endpoint *alertingv1alpha.WebhookEndpoint) (*cfg.Receiver, error) {
 	parsedURL, err := url.Parse(endpoint.Url)
 	if err != nil {
@@ -168,7 +169,17 @@ func NewWebhookReceiver(id string, endpoint *alertingv1alpha.WebhookEndpoint) (*
 // WithWebhookImplementation
 //
 // As opposed to the slack & email implementations, the information
-// sent in this one must entirely be constructed the alert manager `routes` matchers
-func WithWebhookImplementation() {
-
+// sent in this one must be constructed in the annotations of the sender
+//
+// Since annotations are controlled by the Post Alert API,
+// need to make sure we store these annotations somewhere
+func (p *PostableAlert) WithWebhookImplementation(impl *alertingv1alpha.EndpointImplementation) error {
+	//if impl == nil {
+	//	return shared.AlertingErrMismatchedImplementation
+	//}
+	//p.WithRuntimeInfo("")
+	//p.Annotations["summary"] = impl.Title
+	//p.Annotations["description"] = impl.Body
+	//return nil
+	return nil
 }

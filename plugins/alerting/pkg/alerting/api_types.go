@@ -83,7 +83,6 @@ type PostSilencesResponse struct {
 }
 
 func (p *PostSilencesResponse) GetSilenceId() string {
-
 	if p == nil || p.SilenceID == nil {
 		return ""
 	}

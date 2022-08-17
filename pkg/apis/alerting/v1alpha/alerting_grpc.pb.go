@@ -13,6 +13,7 @@ import (
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -60,6 +61,9 @@ type AlertingClient interface {
 	// alerting internal use only
 	// conditionMustBePassed in here
 	DeleteEndpointImplementation(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// internal use only
+	HandleCortexWebhook(ctx context.Context, in *structpb.Struct, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListAvailableTemplatesForType(ctx context.Context, in *AlertDetailChoicesRequest, opts ...grpc.CallOption) (*TemplatesResponse, error)
 }
 
 type alertingClient struct {
@@ -286,6 +290,24 @@ func (c *alertingClient) DeleteEndpointImplementation(ctx context.Context, in *v
 	return out, nil
 }
 
+func (c *alertingClient) HandleCortexWebhook(ctx context.Context, in *structpb.Struct, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/Alerting/HandleCortexWebhook", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertingClient) ListAvailableTemplatesForType(ctx context.Context, in *AlertDetailChoicesRequest, opts ...grpc.CallOption) (*TemplatesResponse, error) {
+	out := new(TemplatesResponse)
+	err := c.cc.Invoke(ctx, "/Alerting/ListAvailableTemplatesForType", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AlertingServer is the server API for Alerting service.
 // All implementations must embed UnimplementedAlertingServer
 // for forward compatibility
@@ -326,6 +348,9 @@ type AlertingServer interface {
 	// alerting internal use only
 	// conditionMustBePassed in here
 	DeleteEndpointImplementation(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	// internal use only
+	HandleCortexWebhook(context.Context, *structpb.Struct) (*emptypb.Empty, error)
+	ListAvailableTemplatesForType(context.Context, *AlertDetailChoicesRequest) (*TemplatesResponse, error)
 	mustEmbedUnimplementedAlertingServer()
 }
 
@@ -404,6 +429,12 @@ func (UnimplementedAlertingServer) UpdateEndpointImplementation(context.Context,
 }
 func (UnimplementedAlertingServer) DeleteEndpointImplementation(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteEndpointImplementation not implemented")
+}
+func (UnimplementedAlertingServer) HandleCortexWebhook(context.Context, *structpb.Struct) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HandleCortexWebhook not implemented")
+}
+func (UnimplementedAlertingServer) ListAvailableTemplatesForType(context.Context, *AlertDetailChoicesRequest) (*TemplatesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAvailableTemplatesForType not implemented")
 }
 func (UnimplementedAlertingServer) mustEmbedUnimplementedAlertingServer() {}
 
@@ -850,6 +881,42 @@ func _Alerting_DeleteEndpointImplementation_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Alerting_HandleCortexWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(structpb.Struct)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).HandleCortexWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Alerting/HandleCortexWebhook",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).HandleCortexWebhook(ctx, req.(*structpb.Struct))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Alerting_ListAvailableTemplatesForType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AlertDetailChoicesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).ListAvailableTemplatesForType(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Alerting/ListAvailableTemplatesForType",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).ListAvailableTemplatesForType(ctx, req.(*AlertDetailChoicesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Alerting_ServiceDesc is the grpc.ServiceDesc for Alerting service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -952,6 +1019,14 @@ var Alerting_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteEndpointImplementation",
 			Handler:    _Alerting_DeleteEndpointImplementation_Handler,
+		},
+		{
+			MethodName: "HandleCortexWebhook",
+			Handler:    _Alerting_HandleCortexWebhook_Handler,
+		},
+		{
+			MethodName: "ListAvailableTemplatesForType",
+			Handler:    _Alerting_ListAvailableTemplatesForType_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

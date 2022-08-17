@@ -185,6 +185,24 @@ service Alerting {
       delete: "/alerts/endpoints/implementation"
     };
   }
+
+  // internal use only
+  rpc HandleCortexWebhook(google.protobuf.Struct) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/alerts/cortex/webhook"
+      body: "*"
+    };
+  }
+
+  rpc ListAvailableTemplatesForType(AlertDetailChoicesRequest) returns (TemplatesResponse) {
+    option (google.api.http) = {
+      post: "/alerts/templates/{alertType}"
+    };
+  }
+}
+
+message TemplatesResponse {
+  repeated string template = 1;
 }
 
 message SilenceRequest {
@@ -194,6 +212,7 @@ message SilenceRequest {
 
 message TriggerAlertsRequest {
   core.Reference conditionId =1;
+  map<string, string> annotations = 2;
 }
 
 message TriggerAlertsResponse {
@@ -320,8 +339,9 @@ message AlertConditionList {
 }
 
 message AlertConditionComposition {
-  core.Reference x = 1;
-  core.Reference y = 2;
+  CompositionAction action = 1;
+  core.Reference x = 2;
+  core.Reference y = 3;
 }
 
 message ListAlertConditionComposition {
@@ -330,9 +350,10 @@ message ListAlertConditionComposition {
 }
 
 message AlertConditionControlFlow {
-  core.Reference x = 1;
-  core.Reference y = 2;
-  google.protobuf.Duration for = 3;
+  ControlFlowAction action = 1;
+  core.Reference x = 2;
+  core.Reference y = 3;
+  google.protobuf.Duration for = 4;
 }
 
 message ListAlertConditionControlFlow {

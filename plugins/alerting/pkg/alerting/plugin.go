@@ -9,6 +9,8 @@ import (
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"go.uber.org/zap"
 
 	lru "github.com/hashicorp/golang-lru"
 

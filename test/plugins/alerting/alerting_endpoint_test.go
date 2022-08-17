@@ -115,44 +115,6 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			}
 
 		})
-
-		Specify("Get Alert Endpoint API should be robust to invalid input", func() {
-			//TODO
-
-		})
-
-		Specify("Update Alert Endpoint API should be robust to invalid input", func() {
-			//TODO
-		})
-
-		Specify("List Alert Endpoint API should be robust to invalid input", func() {
-			//TODO
-		})
-
-		Specify("Delete Alert Endpoint API should be robust to invalid input", func() {
-			//TODO
-		})
-
-		Specify("Test Alert Endpoint API should be robust to invalid input", func() {
-			// TODO
-		})
-
-		Specify("Get Implementation From Endpoint API should be robust to invalid input", func() {
-			//TODO
-		})
-
-		Specify("Create Endpoint Implementation API should be robust to invalid input ", func() {
-			//TODO
-		})
-
-		Specify("Update Endpoint Implementation API should be robust to invalid input ", func() {
-			//TODO
-		})
-
-		Specify("Delete Endpoint Implementation API should be robust to invalid input", func() {
-			//TODO
-		})
-
 		Specify("Cleaning up edge case data", func() {
 			err := os.WriteFile(alerting.LocalAlertManagerPath, []byte(alerting.DefaultAlertManager), 0644)
 			Expect(err).To(Succeed())
@@ -398,8 +360,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					},
 					Implementation: &alertingv1alpha.EndpointImplementation{
 
-						Title: "",
-						Body:  "",
+						Title: " new title",
+						Body:  " new body",
 					},
 				},
 			)
@@ -446,5 +408,4 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(emailNotSet).To(BeNil())
 		})
 	})
-
 })

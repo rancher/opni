@@ -3,6 +3,7 @@ package alerting
 import (
 	"context"
 	"fmt"
+	"google.golang.org/protobuf/types/known/structpb"
 	"path"
 
 	"github.com/google/uuid"
@@ -232,4 +233,51 @@ func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.R
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+// HandleCortexWebhook
+//
+// cortex rules created with opni-alerting need to integrate with
+// opni-alerting's receivers.
+// It interacts with opni-alerting's receivers by calling this webhook
+//
+//
+// Data passed into this function is in the form :
+//The Alertmanager will send HTTP POST requests in the following JSON format to the configured endpoint:
+//```json
+//{
+//	"version": "4",
+//	"groupKey": <string>,              // key identifying the group of alerts (e.g. to deduplicate)
+//	"truncatedAlerts": <int>,          // how many alerts have been truncated due to "max_alerts"
+//	"status": "<resolved|firing>",
+//	"receiver": <string>,
+//	"groupLabels": <object>,
+//	"commonLabels": <object>,
+//	"commonAnnotations": <object>,
+//	"externalURL": <string>,           // backlink to the Alertmanager.
+//	"alerts": [
+//	{
+//	"status": "<resolved|firing>",
+//	"labels": <object>,
+//	"annotations": <object>,
+//	"startsAt": "<rfc3339>",
+//	"endsAt": "<rfc3339>",
+//	"generatorURL": <string>,      // identifies the entity that caused the alert
+//	"fingerprint": <string>        // fingerprint to identify the alert
+//	},
+//...
+//]
+//}
+//````
+//
+func (p *Plugin) HandleCortexWebhook(ctx context.Context, s *structpb.Struct) (*emptypb.Empty, error) {
+	//TODO implement me
+
+	// parse all the annotations from the cortex alert
+
+	// parse the condition id from the annotations
+
+	// call p.TriggerAlerts(ctx, conditionId, annotations)
+
+	return nil, shared.AlertingErrNotImplemented
 }

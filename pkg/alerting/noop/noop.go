@@ -6,6 +6,7 @@ package noop
 
 import (
 	"context"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -24,6 +25,14 @@ func NewUnavailableAlertingImplementation(version string) alerting.Provider {
 }
 
 type AlertingNoopV1Alpha struct{}
+
+func (a *AlertingNoopV1Alpha) HandleCortexWebhook(ctx context.Context, in *structpb.Struct, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}
+
+func (a *AlertingNoopV1Alpha) ListAvailableTemplatesForType(ctx context.Context, in *alertingv1alpha.AlertDetailChoicesRequest, opts ...grpc.CallOption) (*alertingv1alpha.TemplatesResponse, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}
 
 func (a *AlertingNoopV1Alpha) CreateAlertLog(ctx context.Context, event *corev1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP

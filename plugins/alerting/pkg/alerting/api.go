@@ -3,6 +3,7 @@ package alerting
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/templates"
 	"net/http"
 	"path"
 	"time"
@@ -83,6 +84,10 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 		var alertsArr []*PostableAlert
 		alert := &PostableAlert{}
 		alert.WithCondition(req.ConditionId.Id)
+		for annotationName, annotationValue := range req.GetAnnotations() {
+			alert.WithRuntimeInfo(annotationName, annotationValue)
+		}
+		alertsArr = append(alertsArr, alert)
 		resp, err := PostAlert(ctx, p.alertingOptions.Get().Endpoints[0], alertsArr)
 		if err != nil {
 			return nil, err
@@ -94,4 +99,12 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 	// dispatch with alert condition id to alert endpoint id
 
 	return &alertingv1alpha.TriggerAlertsResponse{}, nil
+}
+
+func (p *Plugin) ListAvailableTemplatesForType(ctx context.Context, request *alertingv1alpha.AlertDetailChoicesRequest) (*alertingv1alpha.TemplatesResponse, error) {
+	details := alertingv1alpha.EnumConditionToImplementation[alertingv1alpha.AlertType_SYSTEM]
+
+	return &alertingv1alpha.TemplatesResponse{
+		Template: templates.StrSliceAsTemplates(details.ListTemplates()),
+	}, nil
 }

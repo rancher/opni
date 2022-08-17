@@ -82,7 +82,7 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 			time.Sleep(time.Millisecond * 100)
 			logs, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{})
 			Expect(err).To(Succeed())
-			Expect(logs.Items).ToNot(HaveLen(0))
+			Expect(logs.Items).NotTo(HaveLen(0))
 			filteredLogs, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
 				Labels: condition.OpniDisconnect.Labels,
 			})

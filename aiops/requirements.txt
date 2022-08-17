@@ -1,5 +1,5 @@
 elasticsearch[async]==7.13.0
 numpy==1.22.0
 opni-nats==0.0.0.4
-opni-proto==0.5.4.6
+dev-proto==0.6.0.0
 pandas==1.2.3

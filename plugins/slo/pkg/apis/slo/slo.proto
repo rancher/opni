@@ -213,19 +213,24 @@ message SLOStatus {
 }
 
 message SLOPreviewResponse {
-  DataVector SLI = 1;
-  DataVector Objective = 2;
-  DataVector Alerts = 3;
-  DataVector SevereAlerts = 4;
+  PlotVector plotVector = 1;
 }
 
-message DataVector {
+message PlotVector {
   repeated DataPoint items = 1;
+  repeated AlertFiringWindows windows = 2;
 }
 
 message DataPoint {
-  double value = 1;
-  google.protobuf.Timestamp timestamp = 2;
+  double sli = 1;
+  double objective = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message AlertFiringWindows {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  string severity = 3;
 }
 
 message ListServiceRequest {

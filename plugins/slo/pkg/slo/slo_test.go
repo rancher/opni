@@ -6,6 +6,7 @@ import (
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
@@ -96,6 +97,68 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 			return fmt.Errorf("waiting for metric data to be stored in cortex")
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
+
+	When("We receive alert matrix data from cortex", func() {
+		It("should be able to convert the alert matrix data to active windows", func() {
+			_, err := slo.DetectActiveWindows("severe", nil)
+			Expect(err).To(HaveOccurred())
+
+			start := time.Now().Add(-(time.Hour * 24))
+			startAlertWindow1 := time.Now().Add(-time.Hour * 5)
+			endAlertWindow1 := time.Now().Add(-time.Hour * 4)
+			startAlertWindow2 := time.Now().Add(-time.Hour * 3)
+			endAlertWindow2 := time.Now().Add(-time.Hour * 2)
+
+			matrix := &prommodel.Matrix{
+				// sample stream 1
+				{
+					Values: []prommodel.SamplePair{
+						{
+							Timestamp: prommodel.TimeFromUnix(start.Unix()),
+							Value:     0,
+						},
+						{
+							Timestamp: prommodel.TimeFromUnix(startAlertWindow1.Unix()),
+							Value:     1,
+						},
+					},
+				},
+				// sample stream 2
+				{
+					Values: []prommodel.SamplePair{
+						{
+							Timestamp: prommodel.TimeFromUnix(endAlertWindow1.Unix()),
+							Value:     0,
+						},
+						{
+							Timestamp: prommodel.TimeFromUnix(endAlertWindow1.Add(time.Minute).Unix()),
+							Value:     0,
+						},
+						{
+							Timestamp: prommodel.TimeFromUnix(startAlertWindow2.Unix()),
+							Value:     1,
+						},
+						{
+							Timestamp: prommodel.TimeFromUnix(startAlertWindow2.Add(time.Minute).Unix()),
+							Value:     1,
+						},
+						{
+							Timestamp: prommodel.TimeFromUnix(endAlertWindow2.Unix()),
+							Value:     0,
+						},
+					},
+				},
+			}
+			windows, err := slo.DetectActiveWindows("severe", matrix)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(windows).To(HaveLen(2))
+			Expect(windows[0].Start.AsTime().Unix()).To(Equal(startAlertWindow1.Unix()))
+			Expect(windows[0].End.AsTime().Unix()).To(Equal(endAlertWindow1.Unix()))
+			Expect(windows[1].Start.AsTime().Unix()).To(Equal(startAlertWindow2.Unix()))
+			Expect(windows[1].End.AsTime().Unix()).To(Equal(endAlertWindow2.Unix()))
+		})
+	})
+
 	When("We use SLO objects to construct rules", func() {
 		Specify("Label pairs should be able to construct promQL filters", func() {
 			fmt.Println(pPort)
@@ -105,7 +168,7 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 					Vals: []string{"200"},
 				},
 			}
-			Expect(goodLabelPairs.Construct()).To(Equal(",code=\"200\""))
+			Expect(goodLabelPairs.Construct()).To(Equal(",code=~\"200\""))
 			totalLabelPairs := slo.LabelPairs{
 				{
 					Key:  "code",
@@ -484,8 +547,16 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 			}, time.Minute*2, time.Second*30).Should(Succeed())
 
 			Eventually(func() error {
-				for _, rawRule := range ralerts.Rules {
-					ruleVector, err := slo.QuerySLOComponentByRawQuery(adminClient, ctx, rawRule.Expr, "agent")
+				rawSevereAlertQuery, rawCriticalAlertQuery := sloObj.ConstructRawAlertQueries()
+				// @debug
+				//rawSevereAlertQueryComponents := strings.Split(rawSevereAlertQuery, "or")
+				//rawCriticalAlertQueryComponents := strings.Split(rawCriticalAlertQuery, "or")
+				//var alertRules []string
+				//alertRules = append(alertRules, rawSevereAlertQueryComponents...)
+				//alertRules = append(alertRules, rawCriticalAlertQueryComponents...)
+				alertRules := []string{rawSevereAlertQuery, rawCriticalAlertQuery}
+				for _, rawRule := range alertRules {
+					ruleVector, err := slo.QuerySLOComponentByRawQuery(adminClient, ctx, rawRule, "agent")
 					if err != nil {
 						return err
 					}

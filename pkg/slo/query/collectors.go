@@ -34,7 +34,7 @@ var (
 		[]string{"code"},
 	)
 	availabilityGoodEvents http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		randomStatusInt1 := rand.Intn(199)
+		randomStatusInt1 := rand.Intn(1)
 
 		// anything between 200-399, and yes http status codes dont'work like this
 		randomStatusCode := 200 + randomStatusInt1
@@ -43,9 +43,9 @@ var (
 	}
 
 	availabilityBadEvents http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		randomStatusInt1 := rand.Intn(199)
+		randomStatusInt1 := rand.Intn(3)
 		// anything between 400-599, and yes http status codes dont'work like this
-		randomStatusCode := 400 + randomStatusInt1
+		randomStatusCode := 500 + randomStatusInt1
 		availabilityCollector.WithLabelValues(fmt.Sprintf("%d", randomStatusCode)).Inc()
 	}
 

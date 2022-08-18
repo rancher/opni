@@ -768,11 +768,13 @@ func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan
 		MaxHeaderBytes: 1 << 20,
 	}
 	done := make(chan bool)
-	waitctx.Go(e.ctx, func() {
-		err := autoInstrumentationServer.ListenAndServe()
-		if err != http.ErrServerClosed {
-			panic(err)
-		}
+	waitctx.Permissive.Go(e.ctx, func() {
+		go func() {
+			err := autoInstrumentationServer.ListenAndServe()
+			if err != http.ErrServerClosed {
+				panic(err)
+			}
+		}()
 		defer autoInstrumentationServer.Shutdown(context.Background())
 		select {
 		case <-e.ctx.Done():

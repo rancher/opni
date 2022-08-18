@@ -1388,10 +1388,7 @@ type SLOPreviewResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	SLI          *DataVector `protobuf:"bytes,1,opt,name=SLI,proto3" json:"SLI,omitempty"`
-	Objective    *DataVector `protobuf:"bytes,2,opt,name=Objective,proto3" json:"Objective,omitempty"`
-	Alerts       *DataVector `protobuf:"bytes,3,opt,name=Alerts,proto3" json:"Alerts,omitempty"`
-	SevereAlerts *DataVector `protobuf:"bytes,4,opt,name=SevereAlerts,proto3" json:"SevereAlerts,omitempty"`
+	PlotVector *PlotVector `protobuf:"bytes,1,opt,name=plotVector,proto3" json:"plotVector,omitempty"`
 }
 
 func (x *SLOPreviewResponse) Reset() {
@@ -1426,44 +1423,24 @@ func (*SLOPreviewResponse) Descriptor() ([]byte, []int) {
 	return file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_rawDescGZIP(), []int{21}
 }
 
-func (x *SLOPreviewResponse) GetSLI() *DataVector {
+func (x *SLOPreviewResponse) GetPlotVector() *PlotVector {
 	if x != nil {
-		return x.SLI
+		return x.PlotVector
 	}
 	return nil
 }
 
-func (x *SLOPreviewResponse) GetObjective() *DataVector {
-	if x != nil {
-		return x.Objective
-	}
-	return nil
-}
-
-func (x *SLOPreviewResponse) GetAlerts() *DataVector {
-	if x != nil {
-		return x.Alerts
-	}
-	return nil
-}
-
-func (x *SLOPreviewResponse) GetSevereAlerts() *DataVector {
-	if x != nil {
-		return x.SevereAlerts
-	}
-	return nil
-}
-
-type DataVector struct {
+type PlotVector struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Items []*DataPoint `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Items   []*DataPoint          `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Windows []*AlertFiringWindows `protobuf:"bytes,2,rep,name=windows,proto3" json:"windows,omitempty"`
 }
 
-func (x *DataVector) Reset() {
-	*x = DataVector{}
+func (x *PlotVector) Reset() {
+	*x = PlotVector{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1471,13 +1448,13 @@ func (x *DataVector) Reset() {
 	}
 }
 
-func (x *DataVector) String() string {
+func (x *PlotVector) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*DataVector) ProtoMessage() {}
+func (*PlotVector) ProtoMessage() {}
 
-func (x *DataVector) ProtoReflect() protoreflect.Message {
+func (x *PlotVector) ProtoReflect() protoreflect.Message {
 	mi := &file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1489,14 +1466,21 @@ func (x *DataVector) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DataVector.ProtoReflect.Descriptor instead.
-func (*DataVector) Descriptor() ([]byte, []int) {
+// Deprecated: Use PlotVector.ProtoReflect.Descriptor instead.
+func (*PlotVector) Descriptor() ([]byte, []int) {
 	return file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_rawDescGZIP(), []int{22}
 }
 
-func (x *DataVector) GetItems() []*DataPoint {
+func (x *PlotVector) GetItems() []*DataPoint {
 	if x != nil {
 		return x.Items
+	}
+	return nil
+}
+
+func (x *PlotVector) GetWindows() []*AlertFiringWindows {
+	if x != nil {
+		return x.Windows
 	}
 	return nil
 }
@@ -1506,8 +1490,9 @@ type DataPoint struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Value     float64                `protobuf:"fixed64,1,opt,name=value,proto3" json:"value,omitempty"`
-	Timestamp *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Sli       float64                `protobuf:"fixed64,1,opt,name=sli,proto3" json:"sli,omitempty"`
+	Objective float64                `protobuf:"fixed64,2,opt,name=objective,proto3" json:"objective,omitempty"`
+	Timestamp *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 }
 
 func (x *DataPoint) Reset() {
@@ -1542,9 +1527,16 @@ func (*DataPoint) Descriptor() ([]byte, []int) {
 	return file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_rawDescGZIP(), []int{23}
 }
 
-func (x *DataPoint) GetValue() float64 {
+func (x *DataPoint) GetSli() float64 {
 	if x != nil {
-		return x.Value
+		return x.Sli
+	}
+	return 0
+}
+
+func (x *DataPoint) GetObjective() float64 {
+	if x != nil {
+		return x.Objective
 	}
 	return 0
 }
@@ -1554,6 +1546,69 @@ func (x *DataPoint) GetTimestamp() *timestamppb.Timestamp {
 		return x.Timestamp
 	}
 	return nil
+}
+
+type AlertFiringWindows struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Start    *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=start,proto3" json:"start,omitempty"`
+	End      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=end,proto3" json:"end,omitempty"`
+	Severity string                 `protobuf:"bytes,3,opt,name=severity,proto3" json:"severity,omitempty"`
+}
+
+func (x *AlertFiringWindows) Reset() {
+	*x = AlertFiringWindows{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes[24]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *AlertFiringWindows) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AlertFiringWindows) ProtoMessage() {}
+
+func (x *AlertFiringWindows) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes[24]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AlertFiringWindows.ProtoReflect.Descriptor instead.
+func (*AlertFiringWindows) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *AlertFiringWindows) GetStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Start
+	}
+	return nil
+}
+
+func (x *AlertFiringWindows) GetEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.End
+	}
+	return nil
+}
+
+func (x *AlertFiringWindows) GetSeverity() string {
+	if x != nil {
+		return x.Severity
+	}
+	return ""
 }
 
 type ListServiceRequest struct {
@@ -1567,7 +1622,7 @@ type ListServiceRequest struct {
 func (x *ListServiceRequest) Reset() {
 	*x = ListServiceRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes[24]
+		mi := &file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes[25]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1580,7 +1635,7 @@ func (x *ListServiceRequest) String() string {
 func (*ListServiceRequest) ProtoMessage() {}
 
 func (x *ListServiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes[24]
+	mi := &file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes[25]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1593,7 +1648,7 @@ func (x *ListServiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListServiceRequest.ProtoReflect.Descriptor instead.
 func (*ListServiceRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_rawDescGZIP(), []int{24}
+	return file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ListServiceRequest) GetDatasource() string {
@@ -1770,28 +1825,34 @@ var file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_rawDesc 
 	0x61, 0x74, 0x75, 0x73, 0x12, 0x29, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x18, 0x01, 0x20,
 	0x01, 0x28, 0x0e, 0x32, 0x13, 0x2e, 0x73, 0x6c, 0x6f, 0x2e, 0x53, 0x4c, 0x4f, 0x53, 0x74, 0x61,
 	0x74, 0x75, 0x73, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x22,
-	0xc4, 0x01, 0x0a, 0x12, 0x53, 0x4c, 0x4f, 0x50, 0x72, 0x65, 0x76, 0x69, 0x65, 0x77, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x21, 0x0a, 0x03, 0x53, 0x4c, 0x49, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x73, 0x6c, 0x6f, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x56, 0x65,
-	0x63, 0x74, 0x6f, 0x72, 0x52, 0x03, 0x53, 0x4c, 0x49, 0x12, 0x2d, 0x0a, 0x09, 0x4f, 0x62, 0x6a,
-	0x65, 0x63, 0x74, 0x69, 0x76, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x73,
-	0x6c, 0x6f, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x52, 0x09, 0x4f,
-	0x62, 0x6a, 0x65, 0x63, 0x74, 0x69, 0x76, 0x65, 0x12, 0x27, 0x0a, 0x06, 0x41, 0x6c, 0x65, 0x72,
-	0x74, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x73, 0x6c, 0x6f, 0x2e, 0x44,
-	0x61, 0x74, 0x61, 0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x52, 0x06, 0x41, 0x6c, 0x65, 0x72, 0x74,
-	0x73, 0x12, 0x33, 0x0a, 0x0c, 0x53, 0x65, 0x76, 0x65, 0x72, 0x65, 0x41, 0x6c, 0x65, 0x72, 0x74,
-	0x73, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x73, 0x6c, 0x6f, 0x2e, 0x44, 0x61,
-	0x74, 0x61, 0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x52, 0x0c, 0x53, 0x65, 0x76, 0x65, 0x72, 0x65,
-	0x41, 0x6c, 0x65, 0x72, 0x74, 0x73, 0x22, 0x32, 0x0a, 0x0a, 0x44, 0x61, 0x74, 0x61, 0x56, 0x65,
+	0x45, 0x0a, 0x12, 0x53, 0x4c, 0x4f, 0x50, 0x72, 0x65, 0x76, 0x69, 0x65, 0x77, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2f, 0x0a, 0x0a, 0x70, 0x6c, 0x6f, 0x74, 0x56, 0x65, 0x63,
+	0x74, 0x6f, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x73, 0x6c, 0x6f, 0x2e,
+	0x50, 0x6c, 0x6f, 0x74, 0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x52, 0x0a, 0x70, 0x6c, 0x6f, 0x74,
+	0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x22, 0x65, 0x0a, 0x0a, 0x50, 0x6c, 0x6f, 0x74, 0x56, 0x65,
 	0x63, 0x74, 0x6f, 0x72, 0x12, 0x24, 0x0a, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x18, 0x01, 0x20,
 	0x03, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x73, 0x6c, 0x6f, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x50, 0x6f,
-	0x69, 0x6e, 0x74, 0x52, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x22, 0x5b, 0x0a, 0x09, 0x44, 0x61,
-	0x74, 0x61, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x01, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x38, 0x0a,
-	0x09, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
-	0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62,
-	0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x09, 0x74, 0x69,
-	0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x22, 0x34, 0x0a, 0x12, 0x4c, 0x69, 0x73, 0x74, 0x53,
+	0x69, 0x6e, 0x74, 0x52, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x12, 0x31, 0x0a, 0x07, 0x77, 0x69,
+	0x6e, 0x64, 0x6f, 0x77, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x73, 0x6c,
+	0x6f, 0x2e, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x46, 0x69, 0x72, 0x69, 0x6e, 0x67, 0x57, 0x69, 0x6e,
+	0x64, 0x6f, 0x77, 0x73, 0x52, 0x07, 0x77, 0x69, 0x6e, 0x64, 0x6f, 0x77, 0x73, 0x22, 0x75, 0x0a,
+	0x09, 0x44, 0x61, 0x74, 0x61, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x10, 0x0a, 0x03, 0x73, 0x6c,
+	0x69, 0x18, 0x01, 0x20, 0x01, 0x28, 0x01, 0x52, 0x03, 0x73, 0x6c, 0x69, 0x12, 0x1c, 0x0a, 0x09,
+	0x6f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x69, 0x76, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x01, 0x52,
+	0x09, 0x6f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x69, 0x76, 0x65, 0x12, 0x38, 0x0a, 0x09, 0x74, 0x69,
+	0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e,
+	0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e,
+	0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x09, 0x74, 0x69, 0x6d, 0x65, 0x73,
+	0x74, 0x61, 0x6d, 0x70, 0x22, 0x90, 0x01, 0x0a, 0x12, 0x41, 0x6c, 0x65, 0x72, 0x74, 0x46, 0x69,
+	0x72, 0x69, 0x6e, 0x67, 0x57, 0x69, 0x6e, 0x64, 0x6f, 0x77, 0x73, 0x12, 0x30, 0x0a, 0x05, 0x73,
+	0x74, 0x61, 0x72, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f,
+	0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d,
+	0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x05, 0x73, 0x74, 0x61, 0x72, 0x74, 0x12, 0x2c, 0x0a,
+	0x03, 0x65, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f,
+	0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d,
+	0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x03, 0x65, 0x6e, 0x64, 0x12, 0x1a, 0x0a, 0x08, 0x73,
+	0x65, 0x76, 0x65, 0x72, 0x69, 0x74, 0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x73,
+	0x65, 0x76, 0x65, 0x72, 0x69, 0x74, 0x79, 0x22, 0x34, 0x0a, 0x12, 0x4c, 0x69, 0x73, 0x74, 0x53,
 	0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1e, 0x0a,
 	0x0a, 0x64, 0x61, 0x74, 0x61, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x09, 0x52, 0x0a, 0x64, 0x61, 0x74, 0x61, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x2a, 0x61, 0x0a,
@@ -1872,7 +1933,7 @@ func file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_rawDesc
 }
 
 var file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_goTypes = []interface{}{
 	(SLOStatusState)(0),               // 0: slo.SLOStatusState
 	(*ListEventsRequest)(nil),         // 1: slo.ListEventsRequest
@@ -1897,53 +1958,54 @@ var file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_goTypes 
 	(*ServiceLevelObjectiveList)(nil), // 20: slo.ServiceLevelObjectiveList
 	(*SLOStatus)(nil),                 // 21: slo.SLOStatus
 	(*SLOPreviewResponse)(nil),        // 22: slo.SLOPreviewResponse
-	(*DataVector)(nil),                // 23: slo.DataVector
+	(*PlotVector)(nil),                // 23: slo.PlotVector
 	(*DataPoint)(nil),                 // 24: slo.DataPoint
-	(*ListServiceRequest)(nil),        // 25: slo.ListServiceRequest
-	(*durationpb.Duration)(nil),       // 26: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),     // 27: google.protobuf.Timestamp
-	(*v1.Reference)(nil),              // 28: core.Reference
-	(*emptypb.Empty)(nil),             // 29: google.protobuf.Empty
+	(*AlertFiringWindows)(nil),        // 25: slo.AlertFiringWindows
+	(*ListServiceRequest)(nil),        // 26: slo.ListServiceRequest
+	(*durationpb.Duration)(nil),       // 27: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),     // 28: google.protobuf.Timestamp
+	(*v1.Reference)(nil),              // 29: core.Reference
+	(*emptypb.Empty)(nil),             // 30: google.protobuf.Empty
 }
 var file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_depIdxs = []int32{
 	4,  // 0: slo.EventList.items:type_name -> slo.Event
 	7,  // 1: slo.ServiceList.items:type_name -> slo.Service
 	4,  // 2: slo.ServiceLevelObjective.goodEvents:type_name -> slo.Event
 	4,  // 3: slo.ServiceLevelObjective.totalEvents:type_name -> slo.Event
-	26, // 4: slo.ServiceLevelObjective.budgetingInterval:type_name -> google.protobuf.Duration
+	27, // 4: slo.ServiceLevelObjective.budgetingInterval:type_name -> google.protobuf.Duration
 	16, // 5: slo.ServiceLevelObjective.target:type_name -> slo.Target
 	9,  // 6: slo.ServiceLevelObjective.labels:type_name -> slo.Label
 	10, // 7: slo.ServiceLevelObjective.alertTargets:type_name -> slo.Alert
 	11, // 8: slo.CreateSLORequest.slo:type_name -> slo.ServiceLevelObjective
 	14, // 9: slo.EventPairList.items:type_name -> slo.EventPair
 	11, // 10: slo.SLOData.SLO:type_name -> slo.ServiceLevelObjective
-	27, // 11: slo.SLOData.createdAt:type_name -> google.protobuf.Timestamp
+	28, // 11: slo.SLOData.createdAt:type_name -> google.protobuf.Timestamp
 	18, // 12: slo.Metric.metadata:type_name -> slo.MetricMetadata
 	17, // 13: slo.MetricList.items:type_name -> slo.Metric
 	15, // 14: slo.ServiceLevelObjectiveList.items:type_name -> slo.SLOData
 	0,  // 15: slo.SLOStatus.state:type_name -> slo.SLOStatusState
-	23, // 16: slo.SLOPreviewResponse.SLI:type_name -> slo.DataVector
-	23, // 17: slo.SLOPreviewResponse.Objective:type_name -> slo.DataVector
-	23, // 18: slo.SLOPreviewResponse.Alerts:type_name -> slo.DataVector
-	23, // 19: slo.SLOPreviewResponse.SevereAlerts:type_name -> slo.DataVector
-	24, // 20: slo.DataVector.items:type_name -> slo.DataPoint
-	27, // 21: slo.DataPoint.timestamp:type_name -> google.protobuf.Timestamp
+	23, // 16: slo.SLOPreviewResponse.plotVector:type_name -> slo.PlotVector
+	24, // 17: slo.PlotVector.items:type_name -> slo.DataPoint
+	25, // 18: slo.PlotVector.windows:type_name -> slo.AlertFiringWindows
+	28, // 19: slo.DataPoint.timestamp:type_name -> google.protobuf.Timestamp
+	28, // 20: slo.AlertFiringWindows.start:type_name -> google.protobuf.Timestamp
+	28, // 21: slo.AlertFiringWindows.end:type_name -> google.protobuf.Timestamp
 	12, // 22: slo.SLO.CreateSLO:input_type -> slo.CreateSLORequest
-	28, // 23: slo.SLO.GetSLO:input_type -> core.Reference
-	29, // 24: slo.SLO.ListSLOs:input_type -> google.protobuf.Empty
+	29, // 23: slo.SLO.GetSLO:input_type -> core.Reference
+	30, // 24: slo.SLO.ListSLOs:input_type -> google.protobuf.Empty
 	15, // 25: slo.SLO.UpdateSLO:input_type -> slo.SLOData
-	28, // 26: slo.SLO.DeleteSLO:input_type -> core.Reference
-	28, // 27: slo.SLO.CloneSLO:input_type -> core.Reference
+	29, // 26: slo.SLO.DeleteSLO:input_type -> core.Reference
+	29, // 27: slo.SLO.CloneSLO:input_type -> core.Reference
 	2,  // 28: slo.SLO.ListMetrics:input_type -> slo.ListMetricsRequest
 	3,  // 29: slo.SLO.ListServices:input_type -> slo.ListServicesRequest
 	1,  // 30: slo.SLO.ListEvents:input_type -> slo.ListEventsRequest
-	28, // 31: slo.SLO.Status:input_type -> core.Reference
+	29, // 31: slo.SLO.Status:input_type -> core.Reference
 	12, // 32: slo.SLO.Preview:input_type -> slo.CreateSLORequest
-	28, // 33: slo.SLO.CreateSLO:output_type -> core.Reference
+	29, // 33: slo.SLO.CreateSLO:output_type -> core.Reference
 	15, // 34: slo.SLO.GetSLO:output_type -> slo.SLOData
 	20, // 35: slo.SLO.ListSLOs:output_type -> slo.ServiceLevelObjectiveList
-	29, // 36: slo.SLO.UpdateSLO:output_type -> google.protobuf.Empty
-	29, // 37: slo.SLO.DeleteSLO:output_type -> google.protobuf.Empty
+	30, // 36: slo.SLO.UpdateSLO:output_type -> google.protobuf.Empty
+	30, // 37: slo.SLO.DeleteSLO:output_type -> google.protobuf.Empty
 	15, // 38: slo.SLO.CloneSLO:output_type -> slo.SLOData
 	19, // 39: slo.SLO.ListMetrics:output_type -> slo.MetricList
 	8,  // 40: slo.SLO.ListServices:output_type -> slo.ServiceList
@@ -2228,7 +2290,7 @@ func file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_init() 
 			}
 		}
 		file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DataVector); i {
+			switch v := v.(*PlotVector); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2252,6 +2314,18 @@ func file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_init() 
 			}
 		}
 		file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*AlertFiringWindows); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListServiceRequest); i {
 			case 0:
 				return &v.state
@@ -2270,7 +2344,7 @@ func file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_init() 
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_rancher_opni_pkg_plugins_slo_pkg_apis_slo_slo_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   25,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

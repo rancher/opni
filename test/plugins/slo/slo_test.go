@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
@@ -29,9 +30,19 @@ func canReachInstrumentationMetrics(instrumentationServerPort int) bool {
 func simulateGoodEvents(metricName string, instrumentationServerPort int, numEvents int) {
 	for i := 0; i < numEvents; i++ {
 		go func() {
-			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/good", instrumentationServerPort, metricName))
-			Expect(err).To(Succeed())
-			Expect(resp.StatusCode).To(Equal(200))
+			client := &http.Client{
+				Transport: &http.Transport{},
+			}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/%s/good", instrumentationServerPort, metricName), nil)
+			req.Close = true
+			resp, err := client.Do(req)
+			if err != nil {
+				panic(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != 200 {
+				panic(resp.StatusCode)
+			}
 		}()
 	}
 }
@@ -40,9 +51,18 @@ func simulateBadEvents(metricName string, instrumentationServerPort int, numEven
 
 	for i := 0; i < numEvents; i++ {
 		go func() {
-			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/bad", instrumentationServerPort, metricName))
-			Expect(err).To(Succeed())
-			Expect(resp.StatusCode).To(Equal(200))
+			client := &http.Client{
+				Transport: &http.Transport{},
+			}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/%s/bad", instrumentationServerPort, metricName), nil)
+			resp, err := client.Do(req)
+			if err != nil {
+				panic(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != 200 {
+				panic(resp.StatusCode)
+			}
 		}()
 	}
 }
@@ -105,6 +125,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	// downstream server ports
 	var pPort int
 	var pPort2 int
+	var instrumentationPort int
+	var done chan bool
 
 	var createdSlos []*corev1.Reference
 
@@ -122,8 +144,21 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Expect(err).NotTo(HaveOccurred())
 		info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
+		instrumentationPort, done = env.StartInstrumentationServer(ctx)
+		DeferCleanup(func() {
+			done <- true
+		})
 		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		pPort = env.StartPrometheus(p)
+		pPort = env.StartPrometheus(p, test.NewOverridePrometheusConfig(
+			"slo/prometheus/config.yaml",
+			[]test.PrometheusJob{
+				{
+					JobName:    query.MockTestServerName,
+					ScrapePort: instrumentationPort,
+				},
+			}),
+		)
+
 		p2, _ := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		pPort2 = env.StartPrometheus(p2)
 
@@ -163,8 +198,12 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		time.Sleep(time.Second * 10)
 	})
 
-	When("The SLO api is provided invalid input", func() {
-
+	When("The instrumentation server starts", func() {
+		It("Should simulate events", func() {
+			Expect(instrumentationPort).NotTo(Equal(0))
+			simulateGoodEvents("http-availability", instrumentationPort, 1000)
+			simulateBadEvents("http-availability", instrumentationPort, 10000)
+		})
 	})
 
 	When("The SLO plugin starts, service discovery ", func() {
@@ -172,10 +211,10 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			expectedNames := []string{"prometheus"}
 			resp, err := sloClient.ListServices(ctx, &sloapi.ListServicesRequest{
 				Datasource: shared.MonitoringDatasource,
-				ClusterdId: "agent",
+				ClusterId:  "agent",
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Items).To(HaveLen(1))
+			Expect(resp.Items).NotTo(HaveLen(0))
 
 			for _, name := range expectedNames {
 				found := false
@@ -189,7 +228,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			}
 			resp2, err := sloClient.ListServices(ctx, &sloapi.ListServicesRequest{
 				Datasource: shared.MonitoringDatasource,
-				ClusterdId: "agent2",
+				ClusterId:  "agent2",
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp2.Items).To(HaveLen(1))
@@ -361,7 +400,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				resp, err := sloClient.Status(ctx, &corev1.Reference{Id: respList.Items[0].Id})
 				Expect(err).NotTo(HaveOccurred())
 				return resp.State
-			}, time.Minute*2, time.Second*30).Should(Equal(sloapi.SLOStatusState_Ok))
+			}, time.Minute*3, time.Second*30).Should(Equal(sloapi.SLOStatusState_Ok))
 		})
 
 		It("Should preview SLOs in a raw data format", func() {
@@ -402,8 +441,69 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.SLI.Items).NotTo(BeEmpty())
-			Expect(resp.Objective.Items).NotTo(BeEmpty())
+			Expect(resp.PlotVector.Items).NotTo(BeEmpty())
+			hasData := false
+			for _, y := range resp.PlotVector.Items {
+				if y.Sli > 0 {
+					hasData = true
+					break
+				}
+			}
+			Expect(hasData).To(BeTrue())
+
+			respMyServer, err := sloClient.Preview(ctx, &sloapi.CreateSLORequest{
+				Slo: &sloapi.ServiceLevelObjective{
+					Name:            "testslo",
+					Datasource:      shared.MonitoringDatasource,
+					ClusterId:       "agent",
+					ServiceId:       "MyServer",
+					GoodMetricName:  "http_request_duration_seconds_count",
+					TotalMetricName: "http_request_duration_seconds_count",
+					GoodEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+							},
+						},
+					},
+					TotalEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+								"500",
+								"501",
+								"502",
+								"503",
+							},
+						},
+					},
+					SloPeriod:         "30d",
+					BudgetingInterval: durationpb.New(time.Minute * 5),
+					Target: &sloapi.Target{
+						Value: 99.99,
+					},
+				},
+			})
+			Expect(err).To(Succeed())
+			Expect(respMyServer.PlotVector.Items).NotTo(BeEmpty())
+			Expect(respMyServer.PlotVector.Items[len(respMyServer.PlotVector.Items)-1].Sli).To(BeNumerically(">", 0))
+			Expect(respMyServer.PlotVector.Items[len(respMyServer.PlotVector.Items)-1].Sli).To(BeNumerically("<", 1))
+			Expect(respMyServer.PlotVector.Windows).To(HaveLen(2))
+			// both alerts should be firing based on the number of bad events detected
+			hasSevere, hasCritical := false, false
+			for _, w := range respMyServer.PlotVector.Windows {
+				if w.Severity == "severe" {
+					hasSevere = true
+				}
+				if w.Severity == "critical" {
+					hasCritical = true
+				}
+			}
+			Expect(hasSevere).To(BeTrue())
+			Expect(hasCritical).To(BeTrue())
+
 		})
 	})
 })

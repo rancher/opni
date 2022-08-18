@@ -3,12 +3,15 @@ package slo
 import (
 	"bytes"
 	"fmt"
+	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
 	"os"
+	"strings"
 	"text/template"
 	"time"
 )
@@ -83,7 +86,7 @@ func (l LabelPairs) Construct() string { // kinda hacky & technically unoptimize
 		}
 		orCompositionVal := ""
 		if len(labelPair.Vals) == 1 {
-			orCompositionVal += fmt.Sprintf(",%s=\"%s\"", labelPair.Key, labelPair.Vals[0])
+			orCompositionVal += labelPair.Vals[0]
 		} else {
 			for idx, val := range labelPair.Vals {
 				orCompositionVal += val
@@ -258,8 +261,16 @@ func (s *SLO) GetId() string {
 	return s.idLabels[slo_uuid] // let it panic if not found
 }
 
+func (s *SLO) SetId(id string) {
+	s.idLabels[slo_uuid] = id
+}
+
 func (s *SLO) GetName() string {
 	return s.idLabels[slo_name] // let it panic if not found
+}
+
+func (s *SLO) SetName(input string) {
+	s.idLabels[slo_name] = input
 }
 
 func (s *SLO) GetPeriod() string {
@@ -601,6 +612,75 @@ func (s *SLO) ConstructCortexRules(interval *time.Duration) (sli, metadata, aler
 	return rrecording, rmetadata, ralerts
 }
 
+func (s *SLO) ConstructRawAlertQueries() (string, string) {
+	filters, err := s.GetPrometheusRuleFilterByIdLabels()
+	if err != nil {
+		panic(err)
+	}
+	filters = "{" + filters + "}"
+	alertSevereRawQuery := s.ConstructAlertingRuleGroup(nil).Rules[0].Expr
+	alertSevereRawQuery = strings.Replace(alertSevereRawQuery, filters, "", -1)
+	alertSevereRawQuery = strings.Replace(alertSevereRawQuery, fmt.Sprintf("without (%s)", slo_window), "", -1)
+	alertCriticalRawQuery := s.ConstructAlertingRuleGroup(nil).Rules[1].Expr
+	alertCriticalRawQuery = strings.Replace(alertCriticalRawQuery, filters, "", -1)
+	alertCriticalRawQuery = strings.Replace(alertCriticalRawQuery, fmt.Sprintf("without (%s)", slo_window), "", -1)
+
+	for _, rule := range s.ConstructRecordingRuleGroup(nil).Rules {
+		alertSevereRawQuery = strings.Replace(alertSevereRawQuery, rule.Record, rule.Expr, -1)
+		alertCriticalRawQuery = strings.Replace(alertCriticalRawQuery, rule.Record, rule.Expr, -1)
+	}
+
+	_, err = promql.ParseExpr(alertSevereRawQuery)
+	if err != nil {
+		panic(err)
+	}
+	_, err = promql.ParseExpr(alertCriticalRawQuery)
+	if err != nil {
+		panic(err)
+	}
+	return alertSevereRawQuery, alertCriticalRawQuery
+}
+
 func NewWindowRange(sloPeriod string) []string {
 	return []string{"5m", "30m", "1h", "2h", "6h", "1d", sloPeriod}
+}
+
+// DetectActiveWindows
+//
+// @warning Expectation is that the timestamps are ordered when traversing
+// matrix --> sample streams --> [] values
+// but this may not always be the case
+func DetectActiveWindows(severity string, matrix *prommodel.Matrix) ([]*sloapi.AlertFiringWindows, error) {
+	returnWindows := []*sloapi.AlertFiringWindows{}
+	if matrix == nil {
+		return nil, fmt.Errorf("Got empty alerting window %s matrix from cortex", severity)
+	}
+	for _, row := range *matrix {
+		for _, rowValue := range row.Values {
+			ts := time.Unix(rowValue.Timestamp.Unix(), 0)
+			// rising edge
+			if rowValue.Value == 1 {
+				if len(returnWindows) == 0 {
+					returnWindows = append(returnWindows, &sloapi.AlertFiringWindows{
+						Start:    timestamppb.New(ts),
+						End:      nil,
+						Severity: severity,
+					})
+				} else {
+					if returnWindows[len(returnWindows)-1].End != nil {
+						returnWindows = append(returnWindows, &sloapi.AlertFiringWindows{
+							Start:    timestamppb.New(ts),
+							End:      nil,
+							Severity: severity,
+						})
+					}
+				}
+			} else { //falling edge
+				if len(returnWindows) > 0 && returnWindows[len(returnWindows)-1].End == nil {
+					returnWindows[len(returnWindows)-1].End = timestamppb.New(ts)
+				}
+			}
+		}
+	}
+	return returnWindows, nil
 }

@@ -2,8 +2,8 @@ package slo
 
 import (
 	"context"
+	"go.uber.org/zap"
 
-	"github.com/hashicorp/go-hclog"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -19,7 +19,7 @@ type Plugin struct {
 	sloapi.UnsafeSLOServer
 	system.UnimplementedSystemPluginClient
 	ctx         context.Context
-	logger      hclog.Logger
+	logger      *zap.SugaredLogger
 	storage     future.Future[StorageAPIs]
 	mgmtClient  future.Future[managementv1.ManagementClient]
 	adminClient future.Future[cortexadmin.CortexAdminClient]
@@ -32,11 +32,9 @@ type StorageAPIs struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewForPlugin()
-	lg.SetLevel(hclog.Debug)
 	return &Plugin{
 		ctx:         ctx,
-		logger:      lg,
+		logger:      logger.NewPluginLogger().Named("slo"),
 		storage:     future.New[StorageAPIs](),
 		mgmtClient:  future.New[managementv1.ManagementClient](),
 		adminClient: future.New[cortexadmin.CortexAdminClient](),

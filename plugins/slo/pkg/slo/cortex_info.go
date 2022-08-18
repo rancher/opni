@@ -3,10 +3,10 @@ package slo
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/go-hclog"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -21,7 +21,7 @@ import (
 // - alert rules
 func applyCortexSLORules(
 	p *Plugin,
-	lg hclog.Logger,
+	lg *zap.SugaredLogger,
 	ctx context.Context,
 	clusterId string,
 	ruleSpec RuleGroupYAMLv2,
@@ -46,7 +46,7 @@ func applyCortexSLORules(
 // }
 func deleteCortexSLORules(
 	p *Plugin,
-	lg hclog.Logger,
+	lg *zap.SugaredLogger,
 	ctx context.Context,
 	clusterId string,
 	groupName string,

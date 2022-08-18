@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
+	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
@@ -120,22 +121,10 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 
 func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.SLOData, error) {
 	clonedData := util.ProtoClone(clone)
-	sloData := clone.GetSLO()
-	sloLabels := map[string]string{}
-	for _, label := range sloData.Labels {
-		sloLabels[label.GetName()] = "true"
-	}
-	slo := NewSLO(
-		sloData.GetName()+"-clone",
-		sloData.GetSloPeriod(),
-		sloData.GetTarget().GetValue(),
-		Service(sloData.GetServiceId()),
-		Metric(sloData.GetGoodMetricName()),
-		Metric(sloData.GetTotalMetricName()),
-		sloLabels,
-		LabelPairs{}, //FIXME
-		LabelPairs{}, //FIXME
-	)
+	sloData := clonedData.GetSLO()
+	slo := SLODataToStruct(clonedData)
+	slo.SetId(uuid.New().String())
+	slo.SetName(sloData.GetName() + "-clone")
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
 	var anyError error
@@ -239,10 +228,10 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	req := s.req.(*sloapi.CreateSLORequest)
 	preview := &sloapi.SLOPreviewResponse{
-		SLI:          &sloapi.DataVector{},
-		Objective:    &sloapi.DataVector{},
-		Alerts:       &sloapi.DataVector{},
-		SevereAlerts: &sloapi.DataVector{},
+		PlotVector: &sloapi.PlotVector{
+			Items:   []*sloapi.DataPoint{},
+			Windows: []*sloapi.AlertFiringWindows{},
+		},
 	}
 	cur := time.Now()
 	dur, err := prommodel.ParseDuration(slo.sloPeriod)
@@ -255,36 +244,59 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 
 	ruleGroup := slo.ConstructRecordingRuleGroup(nil)
 	sliPeriodErrorRate := ruleGroup.Rules[len(ruleGroup.Rules)-1].Expr
-	sli := "1 - (max(" + sliPeriodErrorRate + ") OR on() vector(0))"
+	sli := "1 - (max(" + sliPeriodErrorRate + ") OR on() vector(1))"
 	_, err = promql.ParseExpr(sli)
 	if err != nil {
 		panic(err)
 	}
-	sliDataMatrix, err := QuerySLOComponentByRawQueryRange(
-		s.p.adminClient.Get(),
-		s.ctx,
-		sli,
-		req.GetSlo().GetClusterId(),
-		startTs,
-		endTs,
-		step,
+	sliDataMatrix, err := QuerySLOComponentByRawQueryRange(s.p.adminClient.Get(), s.ctx,
+		sli, req.GetSlo().GetClusterId(),
+		startTs, endTs, step,
 	)
 	if err != nil {
 		return nil, err
 	}
 	for _, sample := range *sliDataMatrix {
 		for _, yieldedValue := range sample.Values {
-			ts := time.Unix(int64(yieldedValue.Timestamp), 0)
-			preview.SLI.Items = append(preview.SLI.Items, &sloapi.DataPoint{
+			ts := time.Unix(yieldedValue.Timestamp.Unix(), 0)
+			preview.PlotVector.Items = append(preview.PlotVector.Items, &sloapi.DataPoint{
 				Timestamp: timestamppb.New(ts),
-				Value:     float64(yieldedValue.Value),
-			})
-			preview.Objective.Items = append(preview.Objective.Items, &sloapi.DataPoint{
-				Timestamp: timestamppb.New(ts),
-				Value:     slo.GetObjective() / 100,
+				Sli:       float64(yieldedValue.Value),
+				Objective: req.Slo.GetTarget().GetValue(),
 			})
 		}
 	}
+
+	alertSevereRawQuery, alertCriticalRawQuery := slo.ConstructRawAlertQueries()
+	// ideally should be every 5 minutes for fine grained detail
+	// but for performance reasons, we will only query every 20 minutes
+	alertTimeStep := time.Minute * 20
+
+	alertWindowSevereMatrix, err := QuerySLOComponentByRawQueryRange(s.p.adminClient.Get(), s.ctx,
+		alertSevereRawQuery, req.GetSlo().GetClusterId(),
+		startTs, endTs, alertTimeStep,
+	)
+	if err != nil {
+		return nil, err
+	}
+	severeWindows, err := DetectActiveWindows("severe", alertWindowSevereMatrix)
+	if err != nil {
+		return nil, err
+	}
+	preview.PlotVector.Windows = append(preview.PlotVector.Windows, severeWindows...)
+
+	alertWindowCriticalMatrix, err := QuerySLOComponentByRawQueryRange(s.p.adminClient.Get(),
+		s.ctx, alertCriticalRawQuery, req.GetSlo().GetClusterId(),
+		startTs, endTs, step,
+	)
+	if err != nil {
+		return nil, err
+	}
+	criticalWindows, err := DetectActiveWindows("critical", alertWindowCriticalMatrix)
+	if err != nil {
+		return nil, err
+	}
+	preview.PlotVector.Windows = append(preview.PlotVector.Windows, criticalWindows...)
 	return preview, nil
 }
 

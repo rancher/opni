@@ -55,6 +55,7 @@ type PluginOptions struct {
 	opensearchCluster *opnimeta.OpensearchClusterRef
 	restconfig        *rest.Config
 	featureOverride   featureflags.FeatureFlag
+	version           string
 }
 
 type PluginOption func(*PluginOptions)
@@ -88,6 +89,11 @@ func FeatureOverride(flagOverride featureflags.FeatureFlag) PluginOption {
 		o.featureOverride = flagOverride
 	}
 }
+func WithVersion(version string) PluginOption {
+	return func(o *PluginOptions) {
+		o.version = version
+	}
+}
 
 func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	options := PluginOptions{}
@@ -100,7 +106,14 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	utilruntime.Must(opniv1beta2.AddToScheme(scheme))
 	utilruntime.Must(opensearchv1.AddToScheme(scheme))
 
-	cli, err := client.New(ctrl.GetConfigOrDie(), client.Options{
+	var restconfig *rest.Config
+	if options.restconfig != nil {
+		restconfig = options.restconfig
+	} else {
+		restconfig = ctrl.GetConfigOrDie()
+	}
+
+	cli, err := client.New(restconfig, client.Options{
 		Scheme: scheme,
 	})
 	if err != nil {

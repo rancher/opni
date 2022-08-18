@@ -99,9 +99,9 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	}, k8sOpensearchCluster)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
-			exists = false
+			return nil, err
 		}
-		return nil, err
+		exists = false
 	}
 
 	var nodePools []opsterv1.NodePool
@@ -121,7 +121,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 			},
 			Spec: opniv1beta2.OpniOpensearchSpec{
 				OpensearchSettings: opniv1beta2.OpensearchSettings{
-					Dashboards: convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster),
+					Dashboards: p.convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster),
 					NodePools:  nodePools,
 					Security: &opsterv1.Security{
 						Tls: &opsterv1.TlsConfig{
@@ -140,7 +140,12 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 					IndexRetention: lo.FromPtrOr(cluster.DataRetention, "7d"),
 				},
 				OpensearchVersion: opensearchVersion,
-				Version:           util.Version,
+				Version: func() string {
+					if p.version != "" {
+						return p.version
+					}
+					return util.Version
+				}(),
 			},
 		}
 		return nil, p.k8sClient.Create(ctx, k8sOpensearchCluster)
@@ -151,7 +156,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 			return err
 		}
 		k8sOpensearchCluster.Spec.OpensearchSettings.NodePools = nodePools
-		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards = convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster)
+		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards = p.convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster)
 		k8sOpensearchCluster.Spec.ExternalURL = cluster.ExternalURL
 		if cluster.DataRetention != nil {
 			k8sOpensearchCluster.Spec.ClusterConfigSpec = &opniv1beta2.ClusterConfigSpec{
@@ -169,6 +174,11 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 
 func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmin.UpgradeAvailableResponse, error) {
 	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{}
+	var version string
+	version = util.Version
+	if p.version != "" {
+		version = p.version
+	}
 
 	err := p.k8sClient.Get(p.ctx, types.NamespacedName{
 		Name:      opensearchClusterName,
@@ -184,7 +194,7 @@ func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmi
 		}, nil
 	}
 
-	if *k8sOpensearchCluster.Status.Version != util.Version {
+	if *k8sOpensearchCluster.Status.Version != version {
 		return &loggingadmin.UpgradeAvailableResponse{
 			UpgradePending: true,
 		}, nil
@@ -201,21 +211,32 @@ func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmi
 }
 
 func (p *Plugin) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{}
+	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      opensearchClusterName,
+			Namespace: p.storageNamespace,
+		},
+	}
+
+	var version string
+	version = util.Version
+	if p.version != "" {
+		version = p.version
+	}
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := p.k8sClient.Get(p.ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
 			return err
 		}
 
-		k8sOpensearchCluster.Spec.Version = util.Version
+		k8sOpensearchCluster.Spec.Version = version
 		k8sOpensearchCluster.Spec.OpensearchVersion = opensearchVersion
 
 		image := fmt.Sprintf(
 			"%s/opensearch-dashboards:%s-%s",
 			defaultRepo,
 			opensearchVersion,
-			util.Version,
+			version,
 		)
 
 		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards.Image = &image
@@ -238,15 +259,21 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 	persistence := loggingadmin.DataPersistence{}
 	if pool.Persistence == nil {
 		persistence.Enabled = lo.ToPtr(true)
-	}
-	if pool.Persistence.EmptyDir != nil {
-		persistence.Enabled = lo.ToPtr(false)
 	} else {
-		if pool.Persistence.PVC != nil {
-			persistence.Enabled = lo.ToPtr(true)
-			persistence.StorageClass = &pool.Persistence.PVC.StorageClassName
+		if pool.Persistence.EmptyDir != nil {
+			persistence.Enabled = lo.ToPtr(false)
 		} else {
-			return &loggingadmin.OpensearchNodeDetails{}, ErrStoredClusterPersistence()
+			if pool.Persistence.PVC != nil {
+				persistence.Enabled = lo.ToPtr(true)
+				persistence.StorageClass = func() *string {
+					if pool.Persistence.PVC.StorageClassName == "" {
+						return nil
+					}
+					return &pool.Persistence.PVC.StorageClassName
+				}()
+			} else {
+				return &loggingadmin.OpensearchNodeDetails{}, ErrStoredClusterPersistence()
+			}
 		}
 	}
 
@@ -255,29 +282,51 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 		Replicas:    &pool.Replicas,
 		DiskSize:    &diskSize,
 		MemoryLimit: pool.Resources.Limits.Memory(),
-		CPUResources: &loggingadmin.CPUResource{
-			Request: pool.Resources.Requests.Cpu(),
-			Limit:   pool.Resources.Limits.Cpu(),
-		},
+		CPUResources: func() *loggingadmin.CPUResource {
+			var request *resource.Quantity
+			var limit *resource.Quantity
+
+			if !pool.Resources.Requests.Cpu().IsZero() {
+				request = pool.Resources.Requests.Cpu()
+			}
+			if !pool.Resources.Limits.Cpu().IsZero() {
+				limit = pool.Resources.Limits.Cpu()
+			}
+
+			if request == nil && limit == nil {
+				return nil
+			}
+			return &loggingadmin.CPUResource{
+				Request: pool.Resources.Requests.Cpu(),
+				Limit:   pool.Resources.Limits.Cpu(),
+			}
+		}(),
 		NodeSelector: pool.NodeSelector,
 		Tolerations:  tolerations,
 		Persistence:  &persistence,
+		Roles:        pool.Roles,
 	}, nil
 }
 
-func convertProtobufToDashboards(
+func (p *Plugin) convertProtobufToDashboards(
 	dashboard *loggingadmin.DashboardsDetails,
 	cluster *opniv1beta2.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
 	var version, osVersion string
 	if cluster == nil {
 		version = util.Version
+		if p.version != "" {
+			version = p.version
+		}
 		osVersion = opensearchVersion
 	} else {
 		if cluster.Status.Version != nil {
 			version = *cluster.Status.Version
 		} else {
 			version = util.Version
+			if p.version != "" {
+				version = p.version
+			}
 		}
 		if cluster.Status.OpensearchVersion != nil {
 			osVersion = *cluster.Status.OpensearchVersion
@@ -387,7 +436,7 @@ func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, cluster
 			if pool.Persistence == nil {
 				return nil
 			}
-			if !lo.FromPtrOr(pool.Persistence.Enabled, true) {
+			if lo.FromPtrOr(pool.Persistence.Enabled, true) {
 				return &opsterv1.PersistenceConfig{
 					PersistenceSource: opsterv1.PersistenceSource{
 						PVC: &opsterv1.PVCSource{
@@ -410,8 +459,13 @@ func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, cluster
 
 func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingadmin.DashboardsDetails {
 	return &loggingadmin.DashboardsDetails{
-		Enabled:   &dashboard.Enable,
-		Replicas:  &dashboard.Replicas,
-		Resources: &dashboard.Resources,
+		Enabled:  &dashboard.Enable,
+		Replicas: &dashboard.Replicas,
+		Resources: func() *corev1.ResourceRequirements {
+			if dashboard.Resources.Limits == nil && dashboard.Resources.Requests == nil {
+				return nil
+			}
+			return &dashboard.Resources
+		}(),
 	}
 }

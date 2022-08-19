@@ -14,14 +14,13 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 service Alerting {
   // ------- Trigger Alerts -------
 
-  // unimplemented
+  // opni internal use
   rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
     option (google.api.http) = {
       post: "/alerts/trigger"
       body: "*"
     };
   }
-
   // ------- CRUD for alerting events log -------
 
   // alerting internal use only
@@ -32,30 +31,9 @@ service Alerting {
     }; 
   }
 
-  
-  // unimplemented
-  rpc GetAlertLog(core.Reference) returns (core.AlertLog) {
-    option (google.api.http) = {
-      get: "/alerts/events/{id}"
-    };
-  }
-
   rpc ListAlertLogs(ListAlertLogRequest) returns (InformativeAlertLogList) {
     option (google.api.http) = {
       get: "/alerts/events"
-    };
-  }
-  // unimplemented
-  rpc UpdateAlertLog(UpdateAlertLogRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      put: "/alerts/events"
-      body: "*"
-    };
-  }
-  // alerting internal use only (for now)
-  rpc DeleteAlertLog(core.Reference) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      delete: "/alerts/events"
     };
   }
 
@@ -98,6 +76,7 @@ service Alerting {
       delete: "/alerts/conditions"
     };
   }
+
   // unimplemented
   rpc PreviewAlertCondition(PreviewAlertConditionRequest) returns (PreviewAlertConditionResponse) {
     option (google.api.http) = {
@@ -316,11 +295,13 @@ message AlertConditionSystem{}
 message ListAlertConditionSystem {}
 
 message AlertConditionKubeState {
+  string clusterId = 1;
   // must be one of the listed kube objects
-  string object = 1;
+  string object = 2;
+  string namespace = 3;
 // must be one of the listed kube states
-  string state = 2;
-  google.protobuf.Duration for = 3;
+  string state = 4;
+  google.protobuf.Duration for = 5;
 }
 
 message ListAlertConditionKubeState{

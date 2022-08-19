@@ -25,17 +25,11 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AlertingClient interface {
-	// unimplemented
+	// opni internal
 	TriggerAlerts(ctx context.Context, in *TriggerAlertsRequest, opts ...grpc.CallOption) (*TriggerAlertsResponse, error)
 	// alerting internal use only
 	CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// unimplemented
-	GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.AlertLog, error)
 	ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*InformativeAlertLogList, error)
-	// unimplemented
-	UpdateAlertLog(ctx context.Context, in *UpdateAlertLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// alerting internal use only (for now)
-	DeleteAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*v1.Reference, error)
 	GetAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertCondition, error)
 	ListAlertConditions(ctx context.Context, in *ListAlertConditionRequest, opts ...grpc.CallOption) (*AlertConditionList, error)
@@ -92,36 +86,9 @@ func (c *alertingClient) CreateAlertLog(ctx context.Context, in *v1.AlertLog, op
 	return out, nil
 }
 
-func (c *alertingClient) GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.AlertLog, error) {
-	out := new(v1.AlertLog)
-	err := c.cc.Invoke(ctx, "/Alerting/GetAlertLog", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *alertingClient) ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*InformativeAlertLogList, error) {
 	out := new(InformativeAlertLogList)
 	err := c.cc.Invoke(ctx, "/Alerting/ListAlertLogs", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *alertingClient) UpdateAlertLog(ctx context.Context, in *UpdateAlertLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/Alerting/UpdateAlertLog", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *alertingClient) DeleteAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/Alerting/DeleteAlertLog", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -312,17 +279,11 @@ func (c *alertingClient) ListAvailableTemplatesForType(ctx context.Context, in *
 // All implementations must embed UnimplementedAlertingServer
 // for forward compatibility
 type AlertingServer interface {
-	// unimplemented
+	// opni internal
 	TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error)
 	// alerting internal use only
 	CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error)
-	// unimplemented
-	GetAlertLog(context.Context, *v1.Reference) (*v1.AlertLog, error)
 	ListAlertLogs(context.Context, *ListAlertLogRequest) (*InformativeAlertLogList, error)
-	// unimplemented
-	UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error)
-	// alerting internal use only (for now)
-	DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	CreateAlertCondition(context.Context, *AlertCondition) (*v1.Reference, error)
 	GetAlertCondition(context.Context, *v1.Reference) (*AlertCondition, error)
 	ListAlertConditions(context.Context, *ListAlertConditionRequest) (*AlertConditionList, error)
@@ -364,17 +325,8 @@ func (UnimplementedAlertingServer) TriggerAlerts(context.Context, *TriggerAlerts
 func (UnimplementedAlertingServer) CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertLog not implemented")
 }
-func (UnimplementedAlertingServer) GetAlertLog(context.Context, *v1.Reference) (*v1.AlertLog, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAlertLog not implemented")
-}
 func (UnimplementedAlertingServer) ListAlertLogs(context.Context, *ListAlertLogRequest) (*InformativeAlertLogList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertLogs not implemented")
-}
-func (UnimplementedAlertingServer) UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateAlertLog not implemented")
-}
-func (UnimplementedAlertingServer) DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertLog not implemented")
 }
 func (UnimplementedAlertingServer) CreateAlertCondition(context.Context, *AlertCondition) (*v1.Reference, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertCondition not implemented")
@@ -485,24 +437,6 @@ func _Alerting_CreateAlertLog_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Alerting_GetAlertLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AlertingServer).GetAlertLog(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Alerting/GetAlertLog",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingServer).GetAlertLog(ctx, req.(*v1.Reference))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Alerting_ListAlertLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListAlertLogRequest)
 	if err := dec(in); err != nil {
@@ -517,42 +451,6 @@ func _Alerting_ListAlertLogs_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AlertingServer).ListAlertLogs(ctx, req.(*ListAlertLogRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Alerting_UpdateAlertLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateAlertLogRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AlertingServer).UpdateAlertLog(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Alerting/UpdateAlertLog",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingServer).UpdateAlertLog(ctx, req.(*UpdateAlertLogRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Alerting_DeleteAlertLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AlertingServer).DeleteAlertLog(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Alerting/DeleteAlertLog",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingServer).DeleteAlertLog(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -933,20 +831,8 @@ var Alerting_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Alerting_CreateAlertLog_Handler,
 		},
 		{
-			MethodName: "GetAlertLog",
-			Handler:    _Alerting_GetAlertLog_Handler,
-		},
-		{
 			MethodName: "ListAlertLogs",
 			Handler:    _Alerting_ListAlertLogs_Handler,
-		},
-		{
-			MethodName: "UpdateAlertLog",
-			Handler:    _Alerting_UpdateAlertLog_Handler,
-		},
-		{
-			MethodName: "DeleteAlertLog",
-			Handler:    _Alerting_DeleteAlertLog_Handler,
 		},
 		{
 			MethodName: "CreateAlertCondition",

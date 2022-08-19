@@ -27,7 +27,7 @@ func NewKubePodStateRule(
 		}
 	}
 	if !validPodState {
-		return nil, fmt.Errorf("alkjsdhkjahsdkjahsd")
+		return nil, fmt.Errorf("invalid pod state provided %s", podState)
 	}
 	dur, err := model.ParseDuration(forDuration)
 	if err != nil {
@@ -42,7 +42,7 @@ func NewKubePodStateRule(
 	}
 	return &AlertingRule{
 		Alert:       "",
-		Expr:        fmt.Sprintf("(%s{%s pod=\"%s\",state=\"%s\"} > 0)", KubePodStatusMetricName, namespaceFilter, podName, podState),
+		Expr:        fmt.Sprintf("(%s{%s pod=\"%s\",state=\"%s\"} > bool 0)", KubePodStatusMetricName, namespaceFilter, podName, podState),
 		For:         dur,
 		Labels:      labels,
 		Annotations: annotations,

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -75,10 +74,6 @@ func (p *Plugin) CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*e
 		}
 	}
 	return &emptypb.Empty{}, nil
-}
-
-func (p *Plugin) GetAlertLog(ctx context.Context, ref *corev1.Reference) (*corev1.AlertLog, error) {
-	return nil, shared.AlertingErrNotImplemented
 }
 
 // https://stackoverflow.com/questions/18879109/subset-check-with-slices-in-go
@@ -162,12 +157,4 @@ func (p *Plugin) ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAle
 	return &alertingv1alpha.InformativeAlertLogList{
 		Items: toBeReturned,
 	}, nil
-}
-
-func (p *Plugin) UpdateAlertLog(ctx context.Context, event *alertingv1alpha.UpdateAlertLogRequest) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
-}
-
-func (p *Plugin) DeleteAlertLog(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	return nil, shared.AlertingErrNotImplemented
 }

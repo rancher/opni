@@ -55,7 +55,19 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 	})
 
 	When("The alerting plugin starts...", func() {
-		It("Should be create [system] type alert conditions, when that code loads", func() {
+		It("Should be able to CRUD [kubernetes] type alert conditions", func() {
+			//TODO : partially implemented but not tested
+		})
+
+		It("Should be able to CRUD [composition] type alert conditions", func() {
+			// TODO : when implemented
+		})
+
+		It("Should be able to CRUD [control flow] type alert conditions", func() {
+			// TODO: when implemented
+		})
+
+		It("Should be CRUD [system] type alert conditions", func() {
 			conditions, err := alertingClient.ListAlertConditions(ctx, &alertingv1alpha.ListAlertConditionRequest{})
 			Expect(err).To(Succeed())
 			Expect(conditions.Items).To(HaveLen(0))

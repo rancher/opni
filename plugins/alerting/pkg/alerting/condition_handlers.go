@@ -6,6 +6,9 @@ package alerting
 
 import (
 	"context"
+	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"gopkg.in/yaml.v3"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
@@ -71,16 +74,60 @@ func handleUpdateEndpointImplementation(
 	return updateEndpointImplemetation(p, ctx, new, id)
 }
 
-func setupCondition(ctx context.Context, req *alertingv1alpha.AlertCondition, newId string) (*corev1.Reference, error) {
+func setupCondition(p *Plugin, ctx context.Context, req *alertingv1alpha.AlertCondition, newId string) (*corev1.Reference, error) {
 	if s := req.GetAlertType().GetSystem(); s != nil {
+		return &corev1.Reference{Id: newId}, nil
+	}
+	if k := req.GetAlertType().GetKubeState(); k != nil {
+		err := handleKubeAlertCreation(p, ctx, k, newId)
+		if err != nil {
+			return nil, err
+		}
 		return &corev1.Reference{Id: newId}, nil
 	}
 	return nil, shared.AlertingErrNotImplemented
 }
 
-func deleteCondition(ctx context.Context, req *alertingv1alpha.AlertCondition, id string) error {
+func deleteCondition(p *Plugin, ctx context.Context, req *alertingv1alpha.AlertCondition, id string) error {
 	if s := req.GetAlertType().GetSystem(); s != nil {
 		return nil
 	}
+	if k := req.GetAlertType().GetKubeState(); k != nil {
+		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+			ClusterId: k.GetClusterId(),
+			GroupName: cortexRuleIdFromUuid(id),
+		})
+		return err
+	}
 	return shared.AlertingErrNotImplemented
+}
+
+func handleKubeAlertCreation(p *Plugin, ctx context.Context, k *alertingv1alpha.AlertConditionKubeState, newId string) error {
+	baseKubeRule, err := metrics.NewKubePodStateRule(
+		k.GetObject(),
+		k.GetNamespace(),
+		k.GetState(),
+		timeDurationToPromStr(k.GetFor().AsDuration()),
+		nil, // FIXME : make a cortex receiver that calls HandleCortexWebhook, then pass in appropriate labels
+		nil, //FIXME : make a cortex receiver that calls HandleCortexWebhook, then pass in appropriate annotations
+	)
+	if err != nil {
+		return err
+	}
+	kubeRuleContent, err := NewCortexAlertingRule(newId, nil, baseKubeRule)
+	if err != nil {
+		return err
+	}
+	out, err := yaml.Marshal(kubeRuleContent)
+	if err != nil {
+		return err
+	}
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+		ClusterId:   k.GetClusterId(),
+		YamlContent: string(out),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }

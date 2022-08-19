@@ -26,7 +26,7 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 		return nil, err
 	}
 	newId := uuid.New().String()
-	_, err := setupCondition(ctx, req, newId)
+	_, err := setupCondition(p, ctx, req, newId)
 	if err != nil {
 		return nil, err
 	}
@@ -74,8 +74,11 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 	}
 	// UPDATE THE ACTUAL CONDITION
 	// until we have a more complicated setup, deleting then recreating is fine
-	p.DeleteAlertCondition(ctx, &corev1.Reference{Id: req.Id.Id})
-	_, err = setupCondition(ctx, req.UpdateAlert, req.Id.Id)
+	_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{Id: req.Id.Id})
+	if err != nil {
+		return nil, err
+	}
+	_, err = setupCondition(p, ctx, req.UpdateAlert, req.Id.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +96,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	if err != nil {
 		return nil, err
 	}
-	if err := deleteCondition(ctx, existing, ref.Id); err != nil {
+	if err := deleteCondition(p, ctx, existing, ref.Id); err != nil {
 		return nil, err
 	}
 	_, err = p.DeleteEndpointImplementation(ctx, ref)

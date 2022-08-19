@@ -60,21 +60,20 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 	if err := slorequest.Validate(); err != nil {
 		return nil, err
 	}
-	s := CreateSLORequestToStruct(slorequest)
 	sloStore := datasourceToSLO[slorequest.GetSlo().GetDatasource()].WithCurrentRequest(slorequest, ctx)
-	err := sloStore.Create(s)
+	id, err := sloStore.Create()
 	if err != nil {
 		return nil, err
 	}
 	sloData := &sloapi.SLOData{
-		Id:        s.GetId(),
+		Id:        id.Id,
 		SLO:       slorequest.GetSlo(),
 		CreatedAt: timestamppb.New(time.Now()),
 	}
-	if err := p.storage.Get().SLOs.Put(ctx, path.Join("/slos", s.GetId()), sloData); err != nil {
+	if err := p.storage.Get().SLOs.Put(ctx, path.Join("/slos", id.Id), sloData); err != nil {
 		return nil, err
 	}
-	return &corev1.Reference{Id: s.GetId()}, nil
+	return id, nil
 }
 
 func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.Empty, error) {
@@ -86,9 +85,8 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 	if err != nil {
 		return nil, err
 	}
-	newSLO := SLODataToStruct(req)
 	sloStore := datasourceToSLO[req.GetSLO().GetDatasource()].WithCurrentRequest(req, ctx)
-	updatedSLO, err := sloStore.Update(newSLO, existing)
+	updatedSLO, err := sloStore.Update(existing)
 	if err != nil { // exit when update fails
 		return nil, err
 	}

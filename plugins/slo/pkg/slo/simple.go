@@ -573,13 +573,13 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 	}
 
 	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
-		Record: "slo_alert_page",
+		Alert:  "slo_alert_page",
 		Expr:   exprPage.String(),
 		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}, s.userLabels),
 	})
 
 	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
-		Record: "slo_alert_ticket",
+		Alert:  "slo_alert_ticket",
 		Expr:   exprTicket.String(),
 		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "ticket"}, s.userLabels),
 	})
@@ -683,4 +683,31 @@ func DetectActiveWindows(severity string, matrix *prommodel.Matrix) ([]*sloapi.A
 		}
 	}
 	return returnWindows, nil
+}
+
+// ToMatchingSubsetIdenticalMetric only applies when the good metric & total metric id is the same
+func ToMatchingSubsetIdenticalMetric(goodEvents, totalEvents []*sloapi.Event) (good, total []*sloapi.Event) {
+	indexGood := map[string][]string{}
+	for _, g := range goodEvents {
+		indexGood[g.Key] = g.Vals
+	}
+	for _, t := range totalEvents {
+		if _, ok := indexGood[t.Key]; ok { // event type defined on good and total so reconcile
+			reconciled := map[string]struct{}{}
+			for _, val := range indexGood[t.Key] {
+				reconciled[val] = struct{}{}
+			}
+			for _, val := range t.Vals {
+				reconciled[val] = struct{}{}
+			}
+			var newTotalEvents []string
+			for k, _ := range reconciled {
+				newTotalEvents = append(newTotalEvents, k)
+			}
+			t.Vals = newTotalEvents
+		} else { // event type not defined on good, so coerce good to have it
+			goodEvents = append(goodEvents, t)
+		}
+	}
+	return goodEvents, totalEvents
 }

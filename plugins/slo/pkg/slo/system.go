@@ -53,25 +53,6 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	<-p.ctx.Done()
 }
 
-//func (p *Plugin) initMetricCache(ctx context.Context) error {
-//	lg := p.logger.With("func", "initMetricCache")
-//	items := make([]sloapi.Metric, len(query.AvailableQueries))
-//	idx := 0
-//	for _, q := range query.AvailableQueries {
-//		lg.Debug("Adding preconfigured metric : ", q.Name)
-//		items[idx] = sloapi.Metric{
-//			Name:        q.Name(),
-//			Datasource:  q.Datasource(),
-//			Description: q.Description(),
-//		}
-//		if err := p.storage.Get().Metrics.Put(ctx, path.Join("/metrics", items[idx].Name), &items[idx]); err != nil {
-//			return err
-//		}
-//		idx += 1
-//	}
-//	return nil
-//}
-
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	cc, err := intf.GetClientConn(p.ctx, "CortexAdmin")
 	if err != nil {

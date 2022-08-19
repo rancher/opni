@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestPlugins(t *testing.T) {
+func TestSloPlugin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Plugins Suite")

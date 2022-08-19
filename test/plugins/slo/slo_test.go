@@ -503,7 +503,50 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			}
 			Expect(hasSevere).To(BeTrue())
 			Expect(hasCritical).To(BeTrue())
+		})
 
+		Specify("Creating an SLO for the service that should be alerting", func() {
+			failingSloId, err := sloClient.CreateSLO(ctx, &sloapi.CreateSLORequest{
+				Slo: &sloapi.ServiceLevelObjective{
+					Name:            "testslo",
+					Datasource:      shared.MonitoringDatasource,
+					ClusterId:       "agent",
+					ServiceId:       "MyServer",
+					GoodMetricName:  "http_request_duration_seconds_count",
+					TotalMetricName: "http_request_duration_seconds_count",
+					GoodEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+							},
+						},
+					},
+					TotalEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+								"500",
+								"501",
+								"502",
+								"503",
+							},
+						},
+					},
+					SloPeriod:         "30d",
+					BudgetingInterval: durationpb.New(time.Minute * 5),
+					Target: &sloapi.Target{
+						Value: 99.99,
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(func() sloapi.SLOStatusState {
+				resp, err := sloClient.Status(ctx, &corev1.Reference{Id: failingSloId.Id})
+				Expect(err).NotTo(HaveOccurred())
+				return resp.State
+			}, time.Minute*3, time.Second*30).Should(BeElementOf(sloapi.SLOStatusState_Warning, sloapi.SLOStatusState_Breaching))
 		})
 	})
 })

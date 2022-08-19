@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -156,6 +157,71 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 			Expect(windows[0].End.AsTime().Unix()).To(Equal(endAlertWindow1.Unix()))
 			Expect(windows[1].Start.AsTime().Unix()).To(Equal(startAlertWindow2.Unix()))
 			Expect(windows[1].End.AsTime().Unix()).To(Equal(endAlertWindow2.Unix()))
+		})
+	})
+
+	When("We receive SLO event data from the user", func() {
+		It("Should be able to convert the SLO event data to matching subsets for identical metric names", func() {
+			// total events empty ==> total events stays empty
+			goodEvents1 := []*sloapi.Event{
+				{
+					Key:  "code",
+					Vals: []string{"200"},
+				},
+			}
+			totalEvents1 := []*sloapi.Event{}
+			g, t := slo.ToMatchingSubsetIdenticalMetric(goodEvents1, totalEvents1)
+			Expect(g).To(Equal(goodEvents1))
+			Expect(t).To(Equal(totalEvents1))
+
+			// should fill in missing subset
+			goodEvents2 := []*sloapi.Event{
+				{
+					Key:  "code",
+					Vals: []string{"200"},
+				},
+			}
+			totalEvents2 := []*sloapi.Event{
+				{
+					Key:  "code",
+					Vals: []string{"500", "503"},
+				},
+			}
+
+			g, t = slo.ToMatchingSubsetIdenticalMetric(goodEvents2, totalEvents2)
+			Expect(g).To(Equal(goodEvents2))
+			Expect(t).To(Equal([]*sloapi.Event{
+				{
+					Key:  "code",
+					Vals: []string{"200", "500", "503"},
+				},
+			}))
+
+			// should coerce subsets with different filters
+			goodEvents3 := []*sloapi.Event{
+				{
+					Key:  "code",
+					Vals: []string{"200"},
+				},
+			}
+			totalEvents3 := []*sloapi.Event{
+				{
+					Key:  "handler",
+					Vals: []string{"/ready"},
+				},
+			}
+			g, t = slo.ToMatchingSubsetIdenticalMetric(goodEvents3, totalEvents3)
+			Expect(g).To(Equal([]*sloapi.Event{
+				{
+					Key:  "code",
+					Vals: []string{"200"},
+				},
+				{
+					Key:  "handler",
+					Vals: []string{"/ready"},
+				},
+			}))
+			Expect(t).To(Equal(totalEvents3))
 		})
 	})
 

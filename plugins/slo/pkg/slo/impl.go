@@ -22,9 +22,12 @@ func (s *SLOMonitoring) WithCurrentRequest(req proto.Message, ctx context.Contex
 	return s
 }
 
-// Create OsloSpecs ----> sloth IR ---> Prometheus SLO --> Cortex Rule groups
-func (s SLOMonitoring) Create(slo *SLO) error {
+func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 	req := (s.req).(*sloapi.CreateSLORequest)
+	if req.Slo.GetGoodMetricName() == req.Slo.GetTotalMetricName() {
+		req.Slo.GoodEvents, req.Slo.TotalEvents = ToMatchingSubsetIdenticalMetric(req.Slo.GoodEvents, req.Slo.TotalEvents)
+	}
+	slo := CreateSLORequestToStruct(req)
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
 	var anyError error
@@ -54,20 +57,16 @@ func (s SLOMonitoring) Create(slo *SLO) error {
 			}
 		}
 	}
-	return anyError
+	return &corev1.Reference{Id: slo.GetId()}, anyError
 }
 
-func (s SLOMonitoring) Update(new *SLO, existing *sloapi.SLOData) (*sloapi.SLOData, error) {
+func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error) {
 	req := (s.req).(*sloapi.SLOData) // Create is the same as Update if within the same cluster
-	if existing.SLO.ClusterId != req.SLO.ClusterId {
-		_, err := s.p.DeleteSLO(s.ctx, &corev1.Reference{Id: req.Id})
-		if err != nil {
-			s.lg.With("sloId", req.Id).Error(fmt.Sprintf(
-				"Unable to delete SLO when updating between clusters :  %v",
-				err))
-		}
+	if req.SLO.GetGoodMetricName() == req.SLO.GetTotalMetricName() {
+		req.SLO.GoodEvents, req.SLO.TotalEvents = ToMatchingSubsetIdenticalMetric(req.SLO.GoodEvents, req.SLO.TotalEvents)
 	}
-	rrecording, rmetadata, ralerting := new.ConstructCortexRules(nil)
+	newSlo := SLODataToStruct(req)
+	rrecording, rmetadata, ralerting := newSlo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
 	var anyError error
 	for _, rules := range toApply {
@@ -94,6 +93,15 @@ func (s SLOMonitoring) Update(new *SLO, existing *sloapi.SLOData) (*sloapi.SLODa
 			if err != nil {
 				anyError = err
 			}
+		}
+	}
+	// clean up old rules
+	if anyError == nil && existing.SLO.ClusterId != req.SLO.ClusterId {
+		_, err := s.p.DeleteSLO(s.ctx, &corev1.Reference{Id: req.Id})
+		if err != nil {
+			s.lg.With("sloId", req.Id).Error(fmt.Sprintf(
+				"Unable to delete SLO when updating between clusters :  %v",
+				err))
 		}
 	}
 	return req, anyError
@@ -168,7 +176,11 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.
 // - If is within budget, check if any alerts are firing
 func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error) {
 	now := time.Now()
-	if now.Sub(existing.CreatedAt.AsTime()) <= time.Minute {
+	evaluationInterval := time.Minute
+	if now.Sub(existing.CreatedAt.AsTime()) <= evaluationInterval*2 {
+		s.lg.With("sloId", existing.Id).Debug("SLO status is not ready to be evaluated : ",
+			(&sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}).String())
+
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Creating}, nil
 	}
 	state := sloapi.SLOStatusState_Ok
@@ -187,39 +199,43 @@ func (s SLOMonitoring) Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, erro
 	if sliDataVector == nil || sliDataVector.Len() == 0 {
 		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
 	}
+	s.lg.With("sloId", slo.GetId()).Debug("sli status response vector : ", sliDataVector.String())
 	// ======================= error budget =======================
-	//FIXME: some sort of race condition here
-	//metadataBudgetRaw := slo.RawBudgetRemainingQuery()
-	//metadataVector, err := QuerySLOComponentByRawQuery(s.p.adminClient.Get(), s.ctx, metadataBudgetRaw, existing.GetSLO().GetClusterId())
-	//if err != nil {
-	//	return nil, err
-	//}
-	//if metadataVector == nil || metadataVector.Len() == 0 {
-	//	return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
-	//}
-	//metadataBudget := (*metadataVector)[0].Value
-	//if metadataBudget <= 0 {
-	//	return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Breaching}, nil
-	//}
+	// race condition can cause initial evaluation to fail with empty vector, resulting in no data state
+	// this is why we return creating state with two intervals
+	metadataBudgetRaw := slo.RawBudgetRemainingQuery() // this is not actually raw "raw", contains recording rule refs
+	metadataVector, err := QuerySLOComponentByRawQuery(s.p.adminClient.Get(), s.ctx, metadataBudgetRaw, existing.GetSLO().GetClusterId())
+	if err != nil {
+		return nil, err
+	}
+	if metadataVector == nil || metadataVector.Len() == 0 {
+		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_PartialDataOk}, nil
+	}
+	metadataBudget := (*metadataVector)[0].Value
+	if metadataBudget <= 0 {
+		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Breaching}, nil
+	}
+	s.lg.With("sloId", slo.GetId()).Debug("sli status ", metadataVector.String())
 	//
 	//// ======================= alert =======================
-	//FIXME: alert vectors have no data
-	//alertBudgetRules := slo.ConstructAlertingRuleGroup(nil)
-	//short, long := alertBudgetRules.Rules[0].Alert, alertBudgetRules.Rules[1].Alert
-	//alertDataVector1, err := QuerySLOComponentByRecordName(s.p.adminClient.Get(), s.ctx, short, existing.GetSLO().GetClusterId())
-	//if err != nil {
-	//	return nil, err
-	//}
-	//alertDataVector2, err := QuerySLOComponentByRecordName(s.p.adminClient.Get(), s.ctx, long, existing.GetSLO().GetClusterId())
-	//if err != nil {
-	//	return nil, err
-	//}
-	//if alertDataVector1 == nil || alertDataVector1.Len() == 0 || alertDataVector2 == nil || alertDataVector2.Len() == 0 {
-	//	return &sloapi.SLOStatus{State: sloapi.SLOStatusState_NoData}, nil
-	//}
-	//if (*alertDataVector1)[len(*alertDataVector1)-1].Value > 0 || (*alertDataVector2)[len(*alertDataVector2)-1].Value > 0 {
-	//	return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Warning}, nil
-	//}
+
+	alertBudgetRules := slo.ConstructAlertingRuleGroup(nil)
+	short, long := alertBudgetRules.Rules[0].Expr, alertBudgetRules.Rules[1].Expr
+	alertDataVector1, err := QuerySLOComponentByRawQuery(s.p.adminClient.Get(), s.ctx, short, existing.GetSLO().GetClusterId())
+	if err != nil {
+		return nil, err
+	}
+	alertDataVector2, err := QuerySLOComponentByRawQuery(s.p.adminClient.Get(), s.ctx, long, existing.GetSLO().GetClusterId())
+	if err != nil {
+		return nil, err
+	}
+	if alertDataVector1 == nil || alertDataVector1.Len() == 0 || alertDataVector2 == nil || alertDataVector2.Len() == 0 {
+		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_PartialDataOk}, nil
+	}
+	if (*alertDataVector1)[len(*alertDataVector1)-1].Value > 0 || (*alertDataVector2)[len(*alertDataVector2)-1].Value > 0 {
+		return &sloapi.SLOStatus{State: sloapi.SLOStatusState_Warning}, nil
+	}
+	s.lg.With("sloId", slo.GetId()).Debug("alert status response vector ", alertDataVector1.String(), alertDataVector2.String())
 	return &sloapi.SLOStatus{
 		State: state,
 	}, nil

@@ -30,7 +30,7 @@ service SLO {
   }
   rpc UpdateSLO(SLOData) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/slos/{id}"
+      put: "/slos/{id}/update"
       body: "*"
     };
   }
@@ -205,7 +205,9 @@ enum SLOStatusState {
   Ok = 2;
   Warning = 3;
   Breaching = 4;
-  InternalError = 5;
+  // When budgeting or alerting rules have no data, but the rule has data
+  PartialDataOk = 5;
+  InternalError = 6;
 }
 
 message SLOStatus {

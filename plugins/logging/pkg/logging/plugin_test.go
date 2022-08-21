@@ -30,6 +30,8 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 		plugin            *Plugin
 		request           *loggingadmin.OpensearchCluster
 		nodePool          opsterv1.NodePool
+		dashboards        opsterv1.DashboardsConfig
+		security          *opsterv1.Security
 		version           string
 		opensearchVersion string
 
@@ -105,6 +107,38 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 				},
 			},
 		}
+		security = &opsterv1.Security{
+			Tls: &opsterv1.TlsConfig{
+				Transport: &opsterv1.TlsConfigTransport{
+					Generate: true,
+					PerNode:  true,
+				},
+				Http: &opsterv1.TlsConfigHttp{
+					Generate: true,
+				},
+			},
+		}
+		dashboards = opsterv1.DashboardsConfig{
+			ImageSpec: &opsterv1.ImageSpec{
+				Image: lo.ToPtr(fmt.Sprintf("docker.io/rancher/opensearch-dashboards:%s-%s", opensearchVersion, version)),
+			},
+			Replicas: 1,
+			Enable:   true,
+			Version:  opensearchVersion,
+			Tls: &opsterv1.DashboardsTlsConfig{
+				Enable:   true,
+				Generate: true,
+			},
+			AdditionalConfig: map[string]string{
+				"opensearchDashboards.branding.logo.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-logo-dark.svg",
+				"opensearchDashboards.branding.mark.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-mark.svg",
+				"opensearchDashboards.branding.loadingLogo.defaultUrl":  "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading.svg",
+				"opensearchDashboards.branding.loadingLogo.darkModeUrl": "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading-dark.svg",
+				"opensearchDashboards.branding.faviconUrl":              "https://raw.githubusercontent.com/rancher/opni/main/branding/favicon.png",
+				"opensearchDashboards.branding.applicationTitle":        "Opni Logging",
+			},
+		}
+
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
@@ -168,6 +202,8 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 					Expect(object.Spec.OpensearchVersion).To(Equal(opensearchVersion))
 					Expect(object.Spec.IndexRetention).To(Equal("7d"))
 					Expect(object.Spec.NodePools[0]).To(Equal(nodePool))
+					Expect(object.Spec.Security).To(Equal(security))
+					Expect(object.Spec.Dashboards).To(Equal(dashboards))
 				})
 			})
 		})
@@ -201,6 +237,8 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 					}
 					return reflect.DeepEqual(object.Spec.NodePools[0], nodePool)
 				}, timeout, interval).Should(BeTrue())
+				Expect(object.Spec.Security).To(Equal(security))
+				Expect(object.Spec.Dashboards).To(Equal(dashboards))
 				Expect(object.Spec.Version).To(Equal("0.6.0"))
 			})
 		})

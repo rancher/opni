@@ -114,6 +114,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		&LoggingReconciler{},
 		&GatewayReconciler{},
 		&MonitoringReconciler{},
+		&OpniOpensearchReconciler{},
 	)
 	kmatch.SetDefaultObjectClient(k8sClient)
 

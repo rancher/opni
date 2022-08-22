@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/metrics"
 	"io/fs"
 	"math/rand"
 	"net/http"
@@ -842,6 +843,72 @@ func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan
 		}
 	})
 	return port, done
+}
+
+func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port int) {
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
+	mux := http.NewServeMux()
+	reg := prometheus.NewRegistry()
+
+	kubePodStateCollector := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: metrics.KubePodStatusMetricName,
+	},
+		[]string{"pod", "namespace", "phase", "uid"})
+
+	setPhaseHandler := func(w http.ResponseWriter, r *http.Request) {
+		accessedState := false
+		for _, name := range metrics.KubePodStates {
+			if name == r.URL.Query().Get("phase") {
+				accessedState = true
+				kubePodStateCollector.WithLabelValues(
+					r.URL.Query().Get("pod"),
+					r.URL.Query().Get("namespace"),
+					name,
+					r.URL.Query().Get("uid")).Set(1)
+			} else {
+				kubePodStateCollector.WithLabelValues(
+					r.URL.Query().Get("pod"),
+					r.URL.Query().Get("namespace"),
+					name,
+					r.URL.Query().Get("uid")).Set(0)
+			}
+		}
+		if !accessedState {
+			panic(fmt.Sprintf("Mock kubernetes metric server is handling an invalid kube pod state phase : %s",
+				r.URL.Query().Get("phase")))
+		}
+	}
+	reg.MustRegister(kubePodStateCollector)
+
+	mux.HandleFunc("/setKubePodState", setPhaseHandler)
+	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
+		Registry: reg,
+	}))
+
+	autoKubernetesMetricsServer := &http.Server{
+		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
+		Handler:        mux,
+		ReadTimeout:    1 * time.Second,
+		WriteTimeout:   1 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	waitctx.Permissive.Go(e.ctx, func() {
+		go func() {
+			err := autoKubernetesMetricsServer.ListenAndServe()
+			if err != http.ErrServerClosed {
+				panic(err)
+			}
+		}()
+		defer autoKubernetesMetricsServer.Shutdown(context.Background())
+		select {
+		case <-e.ctx.Done():
+		}
+	})
+
+	return port
 }
 
 func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {

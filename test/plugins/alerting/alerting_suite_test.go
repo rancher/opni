@@ -1,9 +1,17 @@
 package alerting_test
 
 import (
+	"context"
 	"fmt"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"net/http"
+	"net/url"
 	"os"
 	"testing"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -26,6 +34,11 @@ func TestAlerting(t *testing.T) {
 
 var env *test.Environment
 var alertingClient alertingv1alpha.AlertingClient
+var adminClient cortexadmin.CortexAdminClient
+var agentPort int
+var kubernetesTempMetricServerPort int
+var kubernetesJobName string = "kubernetesMock"
+
 var _ = BeforeSuite(func() {
 	fmt.Println("Starting BeforeSuite...")
 	alerting.AlertPath = "alerttestdata/logs"
@@ -49,7 +62,71 @@ var _ = BeforeSuite(func() {
 	Expect(env.Start()).To(Succeed())
 	DeferCleanup(env.Stop)
 
+	// setup a kubernetes metric mock
+	kubernetesTempMetricServerPort = env.StartMockKubernetesMetricServer(context.Background())
+
+	// set up a downstream
+	client := env.NewManagementClient()
+	token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
+		Ttl: durationpb.New(time.Hour),
+	})
+	Expect(err).NotTo(HaveOccurred())
+	info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
+	Expect(err).NotTo(HaveOccurred())
+	p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
+	agentPort = env.StartPrometheus(p, test.NewOverridePrometheusConfig(
+		"alerting/prometheus/config.yaml",
+		[]test.PrometheusJob{
+			{
+				JobName:    kubernetesJobName,
+				ScrapePort: kubernetesTempMetricServerPort,
+			},
+		}),
+	)
+	fmt.Println("agent port : ", agentPort)
+	adminClient = env.NewCortexAdminClient()
 	// alerting plugin
 	alertingClient = alertingv1alpha.NewAlertingClient(env.ManagementClientConn())
+	Eventually(func() error {
+		stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
+		if err != nil {
+			return err
+		}
+		for _, item := range stats.Items {
+			if item.UserID == "agent" {
+				if item.NumSeries > 0 {
+					return nil
+				}
+			}
+		}
+		return fmt.Errorf("waiting for metric data to be stored in cortex")
+	}, 30*time.Second, 1*time.Second).Should(Succeed())
 	fmt.Println("Finished BeforeSuite...")
 })
+
+func setMockKubernetesPodState(kubePort int, podName string, namespace string, phase string, uid string) {
+	queryUrl := fmt.Sprintf("http://localhost:%d/setKubePodState", kubePort)
+	client := &http.Client{
+		Transport: &http.Transport{},
+	}
+	req, err := http.NewRequest("GET", queryUrl, nil)
+	if err != nil {
+		panic(err)
+	}
+	values := url.Values{}
+	values.Set("pod", podName)
+	values.Set("namespace", namespace)
+	values.Set("phase", phase)
+	values.Set("uid", uid)
+	req.URL.RawQuery = values.Encode()
+	go func() {
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			panic(fmt.Sprintf("kube metrics prometheus collector hit an error %d", resp.StatusCode))
+		}
+	}()
+}

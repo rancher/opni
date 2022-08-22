@@ -254,7 +254,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			Expect(resp.Items).NotTo(HaveLen(0))
 			for _, m := range resp.Items {
 				Expect(m.GetId()).NotTo(Equal(""))
-				//FIXME: when the metric metadata api works, check for metadata
+				// FIXME: when the metric metadata api works, check for metadata
 			}
 		})
 
@@ -307,6 +307,43 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	})
 
 	When("CRUDing SLOs", func() {
+		It("Should error on invalid cluster id", func() {
+			_, err := sloClient.CreateSLO(ctx, &sloapi.CreateSLORequest{
+				Slo: &sloapi.ServiceLevelObjective{
+					Name:            "testslo",
+					Datasource:      shared.MonitoringDatasource,
+					ClusterId:       "asdakjsdhkjashdjkahsdkjhakjsdhkjashdkj",
+					ServiceId:       "prometheus",
+					GoodMetricName:  "prometheus_http_requests_total",
+					TotalMetricName: "prometheus_http_requests_total",
+					GoodEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+							},
+						},
+					},
+					TotalEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+								"500",
+								"503",
+							},
+						},
+					},
+					SloPeriod:         "30d",
+					BudgetingInterval: durationpb.New(time.Minute * 5),
+					Target: &sloapi.Target{
+						Value: 99.99,
+					},
+				},
+			})
+			Expect(err).To(HaveOccurred())
+		})
+
 		It("Should create SLOs", func() {
 			_, err := sloClient.CreateSLO(ctx, &sloapi.CreateSLORequest{
 				Slo: &sloapi.ServiceLevelObjective{
@@ -353,6 +390,18 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			respAfter, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(respAfter.Items).To(HaveLen(2))
+		})
+
+		It("Should error on update if provided a new cluster id", func() {
+			resp, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Items).To(HaveLen(2))
+			updateData := resp.Items[1]
+			updateData.SLO.Name = "test-slo-updated"
+			updateData.SLO.ClusterId = "asdkjasjkdhkajshdjkahsdjkhajkshdkjahsdjkhasjkdhkjasd"
+			_, err = sloClient.UpdateSLO(ctx, updateData)
+			Expect(err).To(HaveOccurred())
+
 		})
 
 		It("Should update SLOs", func() {

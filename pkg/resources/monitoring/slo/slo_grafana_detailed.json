@@ -21,7 +21,7 @@
       }
     ]
   },
-  "description": "Opni SLOs",
+  "description": "Detailed breakdown of Opni SLOs",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "gnetId": 14348,
@@ -61,7 +61,7 @@
         "type": "prometheus",
         "uid": "P0BEE70D62F42845E"
       },
-      "description": "The SLOs that currently are burning more error budget than available",
+      "description": "The SLOs that currently are burning more error budget that then available",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -80,11 +80,58 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
               }
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Burning rate %"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "#EAB839",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 1.02
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 12,
@@ -95,7 +142,6 @@
       "id": 38,
       "options": {
         "footer": {
-          "enablePagination": false,
           "fields": "",
           "reducer": [
             "sum"
@@ -118,15 +164,13 @@
             "type": "prometheus",
             "uid": "P0BEE70D62F42845E"
           },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "slo:current_burn_rate:ratio{__tenant_id__=\"$clusterId\"} > ${min_burning_rate}",
+          "exemplar": true,
+          "expr": "slo:current_burn_rate:ratio > ${min_burning_rate}",
           "format": "table",
-          "instant": false,
+          "instant": true,
           "interval": "",
-          "legendFormat": "{{slo_opni_service}}",
+          "legendFormat": "",
           "queryType": "randomWalk",
-          "range": true,
           "refId": "A"
         }
       ],
@@ -137,9 +181,9 @@
           "options": {
             "include": {
               "names": [
-                "sloth_service",
-                "sloth_slo",
-                "Value #A"
+                "slo_opni_service",
+                "slo_opni_name",
+                "Value"
               ]
             }
           }
@@ -147,21 +191,21 @@
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "Value #A",
+            "regex": "Value",
             "renamePattern": "Burning rate %"
           }
         },
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "sloth_service",
+            "regex": "slo_opni_service",
             "renamePattern": "Service"
           }
         },
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "sloth_slo",
+            "regex": "slo_opni_name",
             "renamePattern": "SLO"
           }
         }
@@ -526,6 +570,7 @@
           "color": {
             "mode": "thresholds"
           },
+          "decimals": 3,
           "mappings": [],
           "max": 1,
           "min": 0,
@@ -1272,7 +1317,7 @@
     "service levels",
     "sli",
     "slo",
-    "sloth"
+    "opni"
   ],
   "templating": {
     "list": [
@@ -1451,8 +1496,8 @@
       {
         "current": {
           "selected": true,
-          "text": "1",
-          "value": "1"
+          "text": "0",
+          "value": "0"
         },
         "description": "The minimum burning budget rate (0-1) to show on the general SLOs block",
         "hide": 0,
@@ -1477,8 +1522,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Opni / SLO",
+  "title": "Opni Detailed Slos",
   "uid": "opni-slo",
-  "version": 5,
+  "version": 15,
   "weekStart": ""
 }

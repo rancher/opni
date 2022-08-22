@@ -187,15 +187,14 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 					Vals: []string{"500", "503"},
 				},
 			}
-
+			goodEvents2Copy := make([]string, len(goodEvents2[0].Vals))
+			copy(goodEvents2Copy, goodEvents2[0].Vals)
+			totalEvents2Copy := make([]string, len(totalEvents2[0].Vals))
+			copy(totalEvents2Copy, totalEvents2[0].Vals)
 			g, t = slo.ToMatchingSubsetIdenticalMetric(goodEvents2, totalEvents2)
 			Expect(g).To(Equal(goodEvents2))
-			Expect(t).To(Equal([]*sloapi.Event{
-				{
-					Key:  "code",
-					Vals: []string{"200", "500", "503"},
-				},
-			}))
+			Expect(t[0].Key).To(Equal(totalEvents2[0].Key))
+			Expect(t[0].Vals).To(ConsistOf(append(goodEvents2Copy, totalEvents2Copy...)))
 
 			// should coerce subsets with different filters
 			goodEvents3 := []*sloapi.Event{

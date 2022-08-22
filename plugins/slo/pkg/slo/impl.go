@@ -283,7 +283,7 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 		}
 	}
 
-	alertSevereRawQuery, alertCriticalRawQuery := slo.ConstructRawAlertQueries()
+	alertCriticalRawQuery, alertSevereRawQuery := slo.ConstructRawAlertQueries()
 	// ideally should be every 5 minutes for fine grained detail
 	// but for performance reasons, we will only query every 20 minutes
 	alertTimeStep := time.Minute * 20

@@ -595,7 +595,7 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 		panic(err)
 	}
 	var recordPage bytes.Buffer
-	err = mwmbAlertTpl.Execute(&recordPage, map[string]string{
+	err = mwmbAlertTplBool.Execute(&recordPage, map[string]string{
 		"WindowLabel":          slo_window,
 		"QuickShortMetric":     slo_ratio_rate_query_name + "5m",
 		"QuickShortBurnFactor": fmt.Sprintf("%f", mwmbWindow.GetSpeedPageQuick()),

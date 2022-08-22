@@ -26,7 +26,7 @@
   "fiscalYearStartMonth": 0,
   "gnetId": 14643,
   "graphTooltip": 0,
-  "id": 22,
+  "id": 23,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -400,7 +400,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "max(ALERTS{slo_opni_id!=\"\",slo_severity=\"ticket\"}) OR on() vector(0)",
+          "expr": "max(ALERTS{slo_opni_id!=\"\",slo_severity=\"ticket\", alertname=\"slo_alert_ticket\"}) OR on() vector(0)",
           "interval": "",
           "legendFormat": "Critical alerts",
           "queryType": "randomWalk",
@@ -673,8 +673,8 @@
           "options": {
             "include": {
               "names": [
-                "sloth_service",
-                "sloth_slo",
+                "slo_opni_service",
+                "slo_opni_name",
                 "Value"
               ]
             }
@@ -690,14 +690,14 @@
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "sloth_service",
+            "regex": "slo_opni_service",
             "renamePattern": "Service"
           }
         },
         {
           "id": "renameByRegex",
           "options": {
-            "regex": "sloth_slo",
+            "regex": "slo_opni_name",
             "renamePattern": "SLO"
           }
         }
@@ -848,11 +848,11 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "slo:period_error_budget_remaining:ratio",
+          "expr": "slo:period_error_budget_remaining:ratio{}",
           "format": "time_series",
           "instant": true,
           "interval": "",
-          "legendFormat": "{{sloth_id}}",
+          "legendFormat": "{{slo_opni_service}}/{{slo_opni_name}}",
           "queryType": "randomWalk",
           "refId": "A"
         }

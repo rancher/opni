@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
+	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/emptypb"
 	corev1 "k8s.io/api/core/v1"
@@ -14,9 +17,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	opsterv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 )
 
 const (
@@ -26,27 +26,27 @@ const (
 
 	opensearchVersion     = "1.3.3"
 	opensearchClusterName = "opni"
-)
-
-var (
-	dashboardsImage = fmt.Sprintf("rancher/opensearch-dashboards:%s-%s", opensearchVersion, util.Version)
-	opensearchImage = fmt.Sprintf("rancher/opensearch:%s-%s", opensearchVersion, util.Version)
+	defaultRepo           = "docker.io/rancher"
 )
 
 func (p *Plugin) GetOpensearchCluster(
 	ctx context.Context,
 	empty *emptypb.Empty,
 ) (*loggingadmin.OpensearchCluster, error) {
-	cluster := &opsterv1.OpenSearchCluster{}
+	cluster := &opniv1beta2.OpniOpensearch{}
 	if err := p.k8sClient.Get(ctx, types.NamespacedName{
 		Name:      opensearchClusterName,
 		Namespace: p.storageNamespace,
 	}, cluster); err != nil {
+		if k8serrors.IsNotFound(err) {
+			p.logger.Info("opensearch cluster does not exist")
+			return nil, nil
+		}
 		return nil, err
 	}
 
 	var nodePools []*loggingadmin.OpensearchNodeDetails
-	for _, pool := range cluster.Spec.NodePools {
+	for _, pool := range cluster.Spec.OpensearchSettings.NodePools {
 		convertedPool, err := convertNodePoolToProtobuf(pool)
 		if err != nil {
 			return nil, err
@@ -54,9 +54,19 @@ func (p *Plugin) GetOpensearchCluster(
 		nodePools = append(nodePools, convertedPool)
 	}
 
-	dashboards := convertDashboardsToProtobuf(cluster.Spec.Dashboards)
+	dashboards := convertDashboardsToProtobuf(cluster.Spec.OpensearchSettings.Dashboards)
 
 	return &loggingadmin.OpensearchCluster{
+		ExternalURL: cluster.Spec.ExternalURL,
+		DataRetention: func() *string {
+			if cluster.Spec.ClusterConfigSpec == nil {
+				return nil
+			}
+			if cluster.Spec.ClusterConfigSpec.IndexRetention == "" {
+				return nil
+			}
+			return &cluster.Spec.ClusterConfigSpec.IndexRetention
+		}(),
 		NodePools:  nodePools,
 		Dashboards: dashboards,
 	}, nil
@@ -66,7 +76,8 @@ func (p *Plugin) DeleteOpensearchCluster(
 	ctx context.Context,
 	empty *emptypb.Empty,
 ) (*emptypb.Empty, error) {
-	cluster := &opsterv1.OpenSearchCluster{
+
+	cluster := &opniv1beta2.OpniOpensearch{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      opensearchClusterName,
 			Namespace: p.storageNamespace,
@@ -79,7 +90,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	ctx context.Context,
 	cluster *loggingadmin.OpensearchCluster,
 ) (*emptypb.Empty, error) {
-	k8sOpensearchCluster := &opsterv1.OpenSearchCluster{}
+	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{}
 
 	exists := true
 	err := p.k8sClient.Get(ctx, types.NamespacedName{
@@ -88,9 +99,9 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	}, k8sOpensearchCluster)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
-			exists = false
+			return nil, err
 		}
-		return nil, err
+		exists = false
 	}
 
 	var nodePools []opsterv1.NodePool
@@ -103,34 +114,38 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	}
 
 	if !exists {
-		k8sOpensearchCluster = &opsterv1.OpenSearchCluster{
+		k8sOpensearchCluster = &opniv1beta2.OpniOpensearch{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      opensearchClusterName,
 				Namespace: p.storageNamespace,
 			},
-			Spec: opsterv1.ClusterSpec{
-				Dashboards: convertProtobufToDashboards(cluster.Dashboards),
-				NodePools:  nodePools,
-				General: opsterv1.GeneralConfig{
-					ImageSpec: &opsterv1.ImageSpec{
-						Image: &opensearchImage,
-					},
-					Version:          opensearchVersion,
-					ServiceName:      fmt.Sprintf("%s-opensearch-svc", opensearchClusterName),
-					HttpPort:         9200,
-					SetVMMaxMapCount: true,
-				},
-				Security: &opsterv1.Security{
-					Tls: &opsterv1.TlsConfig{
-						Transport: &opsterv1.TlsConfigTransport{
-							Generate: true,
-							PerNode:  true,
-						},
-						Http: &opsterv1.TlsConfigHttp{
-							Generate: true,
+			Spec: opniv1beta2.OpniOpensearchSpec{
+				OpensearchSettings: opniv1beta2.OpensearchSettings{
+					Dashboards: p.convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster),
+					NodePools:  nodePools,
+					Security: &opsterv1.Security{
+						Tls: &opsterv1.TlsConfig{
+							Transport: &opsterv1.TlsConfigTransport{
+								Generate: true,
+								PerNode:  true,
+							},
+							Http: &opsterv1.TlsConfigHttp{
+								Generate: true,
+							},
 						},
 					},
 				},
+				ExternalURL: cluster.ExternalURL,
+				ClusterConfigSpec: &opniv1beta2.ClusterConfigSpec{
+					IndexRetention: lo.FromPtrOr(cluster.DataRetention, "7d"),
+				},
+				OpensearchVersion: opensearchVersion,
+				Version: func() string {
+					if p.version != "" {
+						return p.version
+					}
+					return util.Version
+				}(),
 			},
 		}
 		return nil, p.k8sClient.Create(ctx, k8sOpensearchCluster)
@@ -140,10 +155,94 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 		if err := p.k8sClient.Get(ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
 			return err
 		}
-		k8sOpensearchCluster.Spec.NodePools = nodePools
-		k8sOpensearchCluster.Spec.Dashboards = convertProtobufToDashboards(cluster.Dashboards)
+		k8sOpensearchCluster.Spec.OpensearchSettings.NodePools = nodePools
+		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards = p.convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster)
+		k8sOpensearchCluster.Spec.ExternalURL = cluster.ExternalURL
+		if cluster.DataRetention != nil {
+			k8sOpensearchCluster.Spec.ClusterConfigSpec = &opniv1beta2.ClusterConfigSpec{
+				IndexRetention: *cluster.DataRetention,
+			}
+		} else {
+			k8sOpensearchCluster.Spec.ClusterConfigSpec = nil
+		}
 
 		return p.k8sClient.Update(ctx, k8sOpensearchCluster)
+	})
+
+	return nil, err
+}
+
+func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmin.UpgradeAvailableResponse, error) {
+	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{}
+	var version string
+	version = util.Version
+	if p.version != "" {
+		version = p.version
+	}
+
+	err := p.k8sClient.Get(p.ctx, types.NamespacedName{
+		Name:      opensearchClusterName,
+		Namespace: p.storageNamespace,
+	}, k8sOpensearchCluster)
+	if err != nil {
+		return nil, err
+	}
+
+	if k8sOpensearchCluster.Status.Version == nil || k8sOpensearchCluster.Status.OpensearchVersion == nil {
+		return &loggingadmin.UpgradeAvailableResponse{
+			UpgradePending: false,
+		}, nil
+	}
+
+	if *k8sOpensearchCluster.Status.Version != version {
+		return &loggingadmin.UpgradeAvailableResponse{
+			UpgradePending: true,
+		}, nil
+	}
+	if *k8sOpensearchCluster.Status.OpensearchVersion != opensearchVersion {
+		return &loggingadmin.UpgradeAvailableResponse{
+			UpgradePending: true,
+		}, nil
+	}
+
+	return &loggingadmin.UpgradeAvailableResponse{
+		UpgradePending: false,
+	}, nil
+}
+
+func (p *Plugin) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      opensearchClusterName,
+			Namespace: p.storageNamespace,
+		},
+	}
+
+	var version string
+	version = util.Version
+	if p.version != "" {
+		version = p.version
+	}
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := p.k8sClient.Get(p.ctx, client.ObjectKeyFromObject(k8sOpensearchCluster), k8sOpensearchCluster); err != nil {
+			return err
+		}
+
+		k8sOpensearchCluster.Spec.Version = version
+		k8sOpensearchCluster.Spec.OpensearchVersion = opensearchVersion
+
+		image := fmt.Sprintf(
+			"%s/opensearch-dashboards:%s-%s",
+			defaultRepo,
+			opensearchVersion,
+			version,
+		)
+
+		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards.Image = &image
+		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards.Version = opensearchVersion
+
+		return p.k8sClient.Update(p.ctx, k8sOpensearchCluster)
 	})
 
 	return nil, err
@@ -160,15 +259,21 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 	persistence := loggingadmin.DataPersistence{}
 	if pool.Persistence == nil {
 		persistence.Enabled = lo.ToPtr(true)
-	}
-	if pool.Persistence.EmptyDir != nil {
-		persistence.Enabled = lo.ToPtr(false)
 	} else {
-		if pool.Persistence.PVC != nil {
-			persistence.Enabled = lo.ToPtr(true)
-			persistence.StorageClass = &pool.Persistence.PVC.StorageClassName
+		if pool.Persistence.EmptyDir != nil {
+			persistence.Enabled = lo.ToPtr(false)
 		} else {
-			return &loggingadmin.OpensearchNodeDetails{}, ErrStoredClusterPersistence()
+			if pool.Persistence.PVC != nil {
+				persistence.Enabled = lo.ToPtr(true)
+				persistence.StorageClass = func() *string {
+					if pool.Persistence.PVC.StorageClassName == "" {
+						return nil
+					}
+					return &pool.Persistence.PVC.StorageClassName
+				}()
+			} else {
+				return &loggingadmin.OpensearchNodeDetails{}, ErrStoredClusterPersistence()
+			}
 		}
 	}
 
@@ -177,14 +282,92 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 		Replicas:    &pool.Replicas,
 		DiskSize:    &diskSize,
 		MemoryLimit: pool.Resources.Limits.Memory(),
-		CPUResources: &loggingadmin.CPUResource{
-			Request: pool.Resources.Requests.Cpu(),
-			Limit:   pool.Resources.Limits.Cpu(),
-		},
+		CPUResources: func() *loggingadmin.CPUResource {
+			var request *resource.Quantity
+			var limit *resource.Quantity
+
+			if !pool.Resources.Requests.Cpu().IsZero() {
+				request = pool.Resources.Requests.Cpu()
+			}
+			if !pool.Resources.Limits.Cpu().IsZero() {
+				limit = pool.Resources.Limits.Cpu()
+			}
+
+			if request == nil && limit == nil {
+				return nil
+			}
+			return &loggingadmin.CPUResource{
+				Request: pool.Resources.Requests.Cpu(),
+				Limit:   pool.Resources.Limits.Cpu(),
+			}
+		}(),
 		NodeSelector: pool.NodeSelector,
 		Tolerations:  tolerations,
 		Persistence:  &persistence,
+		Roles:        pool.Roles,
 	}, nil
+}
+
+func (p *Plugin) convertProtobufToDashboards(
+	dashboard *loggingadmin.DashboardsDetails,
+	cluster *opniv1beta2.OpniOpensearch,
+) opsterv1.DashboardsConfig {
+	var version, osVersion string
+	if cluster == nil {
+		version = util.Version
+		if p.version != "" {
+			version = p.version
+		}
+		osVersion = opensearchVersion
+	} else {
+		if cluster.Status.Version != nil {
+			version = *cluster.Status.Version
+		} else {
+			version = util.Version
+			if p.version != "" {
+				version = p.version
+			}
+		}
+		if cluster.Status.OpensearchVersion != nil {
+			osVersion = *cluster.Status.OpensearchVersion
+		} else {
+			osVersion = opensearchVersion
+		}
+	}
+
+	image := fmt.Sprintf(
+		"%s/opensearch-dashboards:%s-%s",
+		defaultRepo,
+		osVersion,
+		version,
+	)
+
+	return opsterv1.DashboardsConfig{
+		ImageSpec: &opsterv1.ImageSpec{
+			Image: &image,
+		},
+		Replicas: lo.FromPtrOr(dashboard.Replicas, 1),
+		Enable:   lo.FromPtrOr(dashboard.Enabled, true),
+		Resources: func() corev1.ResourceRequirements {
+			if dashboard.Resources == nil {
+				return corev1.ResourceRequirements{}
+			}
+			return *dashboard.Resources
+		}(),
+		Version: osVersion,
+		Tls: &opsterv1.DashboardsTlsConfig{
+			Enable:   true,
+			Generate: true,
+		},
+		AdditionalConfig: map[string]string{
+			"opensearchDashboards.branding.applicationTitle":        "Opni Logging",
+			"opensearchDashboards.branding.faviconUrl":              "https://raw.githubusercontent.com/rancher/opni/main/branding/favicon.png",
+			"opensearchDashboards.branding.loadingLogo.darkModeUrl": "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading-dark.svg",
+			"opensearchDashboards.branding.loadingLogo.defaultUrl":  "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading.svg",
+			"opensearchDashboards.branding.logo.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-logo-dark.svg",
+			"opensearchDashboards.branding.mark.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-mark.svg",
+		},
+	}
 }
 
 func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, clusterName string) (opsterv1.NodePool, error) {
@@ -253,7 +436,7 @@ func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, cluster
 			if pool.Persistence == nil {
 				return nil
 			}
-			if !lo.FromPtrOr(pool.Persistence.Enabled, true) {
+			if lo.FromPtrOr(pool.Persistence.Enabled, true) {
 				return &opsterv1.PersistenceConfig{
 					PersistenceSource: opsterv1.PersistenceSource{
 						PVC: &opsterv1.PVCSource{
@@ -276,37 +459,13 @@ func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, cluster
 
 func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingadmin.DashboardsDetails {
 	return &loggingadmin.DashboardsDetails{
-		Enabled:   &dashboard.Enable,
-		Replicas:  &dashboard.Replicas,
-		Resources: &dashboard.Resources,
-	}
-}
-
-func convertProtobufToDashboards(dashboard *loggingadmin.DashboardsDetails) opsterv1.DashboardsConfig {
-	return opsterv1.DashboardsConfig{
-		ImageSpec: &opsterv1.ImageSpec{
-			Image: &dashboardsImage,
-		},
-		Replicas: lo.FromPtrOr(dashboard.Replicas, 1),
-		Enable:   lo.FromPtrOr(dashboard.Enabled, true),
-		Resources: func() corev1.ResourceRequirements {
-			if dashboard.Resources == nil {
-				return corev1.ResourceRequirements{}
+		Enabled:  &dashboard.Enable,
+		Replicas: &dashboard.Replicas,
+		Resources: func() *corev1.ResourceRequirements {
+			if dashboard.Resources.Limits == nil && dashboard.Resources.Requests == nil {
+				return nil
 			}
-			return *dashboard.Resources
+			return &dashboard.Resources
 		}(),
-		Version: opensearchVersion,
-		Tls: &opsterv1.DashboardsTlsConfig{
-			Enable:   true,
-			Generate: true,
-		},
-		AdditionalConfig: map[string]string{
-			"opensearchDashboards.branding.logo.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-logo-dark.svg",
-			"opensearchDashboards.branding.mark.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-mark.svg",
-			"opensearchDashboards.branding.loadingLogo.defaultUrl":  "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading.svg",
-			"opensearchDashboards.branding.loadingLogo.darkModeUrl": "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-loading-dark.svg",
-			"opensearchDashboards.branding.faviconUrl":              "https://raw.githubusercontent.com/rancher/opni/main/branding/favicon.png",
-			"opensearchDashboards.branding.applicationTitle":        "Opni Logging",
-		},
 	}
 }

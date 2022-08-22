@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/dbason/featureflags"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -52,6 +53,9 @@ type Plugin struct {
 type PluginOptions struct {
 	storageNamespace  string
 	opensearchCluster *opnimeta.OpensearchClusterRef
+	restconfig        *rest.Config
+	featureOverride   featureflags.FeatureFlag
+	version           string
 }
 
 type PluginOption func(*PluginOptions)
@@ -74,6 +78,23 @@ func WithOpensearchCluster(cluster *opnimeta.OpensearchClusterRef) PluginOption 
 	}
 }
 
+func WithRestConfig(restconfig *rest.Config) PluginOption {
+	return func(o *PluginOptions) {
+		o.restconfig = restconfig
+	}
+}
+
+func FeatureOverride(flagOverride featureflags.FeatureFlag) PluginOption {
+	return func(o *PluginOptions) {
+		o.featureOverride = flagOverride
+	}
+}
+func WithVersion(version string) PluginOption {
+	return func(o *PluginOptions) {
+		o.version = version
+	}
+}
+
 func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	options := PluginOptions{}
 	options.apply(opts...)
@@ -85,7 +106,14 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	utilruntime.Must(opniv1beta2.AddToScheme(scheme))
 	utilruntime.Must(opensearchv1.AddToScheme(scheme))
 
-	cli, err := client.New(ctrl.GetConfigOrDie(), client.Options{
+	var restconfig *rest.Config
+	if options.restconfig != nil {
+		restconfig = options.restconfig
+	} else {
+		restconfig = ctrl.GetConfigOrDie()
+	}
+
+	cli, err := client.New(restconfig, client.Options{
 		Scheme: scheme,
 	})
 	if err != nil {
@@ -121,17 +149,26 @@ func Scheme(ctx context.Context) meta.Scheme {
 		WithOpensearchCluster(opniCluster),
 	)
 
-	inCluster := true
 	restconfig, err := rest.InClusterConfig()
 	if err != nil {
-		if errors.Is(err, rest.ErrNotInCluster) {
-			inCluster = false
+		if !errors.Is(err, rest.ErrNotInCluster) {
+			p.logger.Fatalf("failed to create config: %s", err)
 		}
-		p.logger.Fatalf("failed to create config: %s", err)
 	}
 
-	if inCluster {
+	if p.restconfig != nil {
+		restconfig = p.restconfig
+	}
+
+	var manageFlag featureflags.FeatureFlag
+
+	if restconfig != nil {
 		features.PopulateFeatures(ctx, restconfig)
+		manageFlag = features.FeatureList.GetFeature("manage-opensearch")
+	}
+
+	if p.featureOverride != nil {
+		manageFlag = p.featureOverride
 	}
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
@@ -139,7 +176,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&opensearch.Opensearch_ServiceDesc, p))
 
-	if inCluster && features.FeatureList.FeatureIsEnabled("manage-opensearch") {
+	if restconfig != nil && manageFlag != nil && manageFlag.IsEnabled() {
 		scheme.Add(managementext.ManagementAPIExtensionPluginID,
 			managementext.NewPlugin(&loggingadmin.LoggingAdmin_ServiceDesc, p))
 	}

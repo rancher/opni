@@ -43,6 +43,10 @@ tests: ginkgo.#TestPlan & {
 			Packages: "./controllers"
 			Build: CoverPkg: "github.com/rancher/opni/controllers,github.com/rancher/opni/pkg/resources/.../..."
 		}
+		logging: ginkgo.#Run & {
+			Packages: "./plugins/logging/pkg/logging"
+			Build: CoverPkg: "github.com/rancher/opni/plugins/logging/pkg/logging"
+		}
 		integration: ginkgo.#Run & {
 			Packages: "./test/functional/...,./test/integration/..."
 			Build: CoverPkg: "github.com/rancher/opni/pkg/agent,github.com/rancher/opni/pkg/gateway"

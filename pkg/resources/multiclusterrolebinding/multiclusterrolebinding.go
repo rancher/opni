@@ -9,12 +9,10 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -109,14 +107,6 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			RequeueAfter: 5 * time.Second,
 		}, nil)
 
-		retResult = &result.Result
-		retErr = result.Err
-		return
-	}
-
-	// Handle finalizer
-	if r.multiClusterRoleBinding.DeletionTimestamp != nil && controllerutil.ContainsFinalizer(r.multiClusterRoleBinding, meta.OpensearchFinalizer) {
-		result.CombineErr(r.deleteOpensearchObjects(opensearchCluster))
 		retResult = &result.Result
 		retErr = result.Err
 		return

@@ -25,6 +25,8 @@ const (
 
 	// recording rule names
 	slo_ratio_rate_query_name = "slo:sli_error:ratio_rate"
+	slo_alert_ticket_window   = "slo:alert:ticket_window"
+	slo_alert_page_window     = "slo:alert:page_window"
 
 	// metadata rule names
 	slo_objective_ratio                     = "slo:objective:ratio"
@@ -511,6 +513,10 @@ func (s *SLO) AlertPageThreshold() float64 {
 	return 0.5
 }
 
+// ConstructAlertingRuleGroup
+//
+// Note: first two are expected to be the recording rules
+// Note: second two are expected to be the alerting rules
 func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv2 {
 	var promInterval prommodel.Duration
 	var err error
@@ -571,13 +577,59 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 	if err != nil {
 		panic(err)
 	}
+	var recordTicket bytes.Buffer
+	err = mwmbAlertTplBool.Execute(&recordTicket, map[string]string{
+		"WindowLabel":          slo_window,
+		"QuickShortMetric":     slo_ratio_rate_query_name + "5m",
+		"QuickShortBurnFactor": fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketQuick()),
+		"QuickLongMetric":      slo_ratio_rate_query_name + "30m",
+		"QuickLongBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketSlow()),
+		"SlowShortMetric":      slo_ratio_rate_query_name + "2h",
+		"SlowShortBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketQuick()),
+		"SlowQuickMetric":      slo_ratio_rate_query_name + "6h",
+		"SlowQuickBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketSlow()),
+		"ErrorBudgetRatio":     fmt.Sprintf("%f", 100-s.objective),
+		"MetricFilter":         sloFilters,
+	})
+	if err != nil {
+		panic(err)
+	}
+	var recordPage bytes.Buffer
+	err = mwmbAlertTpl.Execute(&recordPage, map[string]string{
+		"WindowLabel":          slo_window,
+		"QuickShortMetric":     slo_ratio_rate_query_name + "5m",
+		"QuickShortBurnFactor": fmt.Sprintf("%f", mwmbWindow.GetSpeedPageQuick()),
+		"QuickLongMetric":      slo_ratio_rate_query_name + "30m",
+		"QuickLongBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageSlow()),
+		"SlowShortMetric":      slo_ratio_rate_query_name + "2h",
+		"SlowShortBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageQuick()),
+		"SlowQuickMetric":      slo_ratio_rate_query_name + "6h",
+		"SlowQuickBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageSlow()),
+		"ErrorBudgetRatio":     fmt.Sprintf("%f", 100-s.objective),
+		"MetricFilter":         sloFilters,
+	})
+	if err != nil {
+		panic(err)
+	}
 
+	// Note: first two are expected to be the recording rules
+	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
+		Record: slo_alert_ticket_window,
+		Expr:   recordTicket.String(),
+		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "ticket"}, s.userLabels),
+	})
+	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
+		Record: slo_alert_page_window,
+		Expr:   recordPage.String(),
+		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}, s.userLabels),
+	})
+
+	// note: second two are expected to be the alerting rules
 	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
 		Alert:  "slo_alert_page",
 		Expr:   exprPage.String(),
 		Labels: MergeLabels(s.idLabels, map[string]string{"slo_severity": "page"}, s.userLabels),
 	})
-
 	ralerting.Rules = append(ralerting.Rules, rulefmt.Rule{
 		Alert:  "slo_alert_ticket",
 		Expr:   exprTicket.String(),

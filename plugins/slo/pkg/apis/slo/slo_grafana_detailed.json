@@ -119,7 +119,7 @@
             "uid": "P0BEE70D62F42845E"
           },
           "editorMode": "code",
-          "exemplar": true,
+          "exemplar": false,
           "expr": "slo:current_burn_rate:ratio{__tenant_id__=\"$clusterId\"} > ${min_burning_rate}",
           "format": "table",
           "instant": false,
@@ -1254,7 +1254,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max(ALERTS{__tenant_id__=\"$clusterId\", alertname=\"slo_alert_ticket\", slo_opni_service=\"$service\", slo_opni_name=\"$slo\"}) OR on() vector(0)",
+          "expr": "max(ALERTS{__tenant__id=\"$clusterId\", slo_severity=\"ticket\", slo_opni_service=\"$service\", slo_opni_name=\"$slo\"}) OR on() vector(1)",
           "instant": true,
           "interval": "",
           "legendFormat": "Critical alert",
@@ -1278,9 +1278,9 @@
     "list": [
       {
         "current": {
-          "selected": true,
-          "text": "fb180daf-48a7-4ee0-b10d-394651850fd4",
-          "value": "fb180daf-48a7-4ee0-b10d-394651850fd4"
+          "selected": false,
+          "text": "0194fdc2-fa2f-4cc0-81d3-ff12045b73c8",
+          "value": "0194fdc2-fa2f-4cc0-81d3-ff12045b73c8"
         },
         "datasource": {
           "type": "prometheus",
@@ -1336,11 +1336,6 @@
           "uid": "P0BEE70D62F42845E"
         },
         "definition": "label_values(slo:objective:ratio, slo_opni_service)",
-        "error": {
-          "data": {
-            "message": "Unexpected error"
-          }
-        },
         "hide": 0,
         "includeAll": true,
         "multi": true,
@@ -1374,11 +1369,6 @@
           "uid": "P0BEE70D62F42845E"
         },
         "definition": "label_values(slo:objective:ratio{slo_opni_service=\"${service}\"}, slo_opni_name)",
-        "error": {
-          "data": {
-            "message": "Unexpected error"
-          }
-        },
         "hide": 0,
         "includeAll": true,
         "multi": true,
@@ -1471,11 +1461,11 @@
         "options": [
           {
             "selected": true,
-            "text": "1",
-            "value": "1"
+            "text": "0",
+            "value": "0"
           }
         ],
-        "query": "1",
+        "query": "0",
         "skipUrlSync": false,
         "type": "textbox"
       }
@@ -1489,6 +1479,6 @@
   "timezone": "",
   "title": "Opni / SLO",
   "uid": "opni-slo",
-  "version": 6,
+  "version": 5,
   "weekStart": ""
 }

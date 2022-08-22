@@ -278,7 +278,7 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 			preview.PlotVector.Items = append(preview.PlotVector.Items, &sloapi.DataPoint{
 				Timestamp: timestamppb.New(ts),
 				Sli:       float64(yieldedValue.Value),
-				Objective: req.Slo.GetTarget().GetValue(),
+				Objective: req.Slo.GetTarget().GetValue() / 100,
 			})
 		}
 	}

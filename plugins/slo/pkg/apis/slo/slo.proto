@@ -200,14 +200,15 @@ message ServiceLevelObjectiveList {
 }
 
 enum SLOStatusState {
-  Creating = 0;
-  NoData = 1;
-  Ok = 2;
-  Warning = 3;
-  Breaching = 4;
+  InProgress = 0;
+  Creating = 1;
+  NoData = 2;
+  Ok = 3;
+  Warning = 4;
+  Breaching = 5;
   // When budgeting or alerting rules have no data, but the rule has data
-  PartialDataOk = 5;
-  InternalError = 6;
+  PartialDataOk = 6;
+  InternalError = 7;
 }
 
 message SLOStatus {

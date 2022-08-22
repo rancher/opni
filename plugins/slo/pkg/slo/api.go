@@ -5,8 +5,10 @@ package slo
 import (
 	"context"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/validation"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -60,6 +62,17 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 	if err := slorequest.Validate(); err != nil {
 		return nil, err
 	}
+	clusterList, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	validCluster := false
+	for _, clusterListItem := range clusterList.Items {
+		if clusterListItem.Id == slorequest.Slo.ClusterId {
+			validCluster = true
+			break
+		}
+	}
+	if validCluster == false {
+		return nil, validation.Error("invalid cluster")
+	}
 	sloStore := datasourceToSLO[slorequest.GetSlo().GetDatasource()].WithCurrentRequest(slorequest, ctx)
 	id, err := sloStore.Create()
 	if err != nil {
@@ -80,6 +93,17 @@ func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.E
 	//lg := p.logger
 	if err := req.Validate(); err != nil {
 		return nil, err
+	}
+	clusterList, err := p.mgmtClient.Get().ListClusters(ctx, &managementv1.ListClustersRequest{})
+	validCluster := false
+	for _, clusterListItem := range clusterList.Items {
+		if clusterListItem.Id == req.SLO.ClusterId {
+			validCluster = true
+			break
+		}
+	}
+	if validCluster == false {
+		return nil, validation.Error("invalid cluster")
 	}
 	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", req.Id))
 	if err != nil {

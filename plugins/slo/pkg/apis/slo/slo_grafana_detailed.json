@@ -21,12 +21,12 @@
       }
     ]
   },
-  "description": "https://sloth.dev",
+  "description": "Opni SLOs",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "gnetId": 14348,
   "graphTooltip": 0,
-  "id": 23,
+  "id": 21,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -61,7 +61,7 @@
         "type": "prometheus",
         "uid": "P0BEE70D62F42845E"
       },
-      "description": "The SLOs that currently are burning more error budget that then available",
+      "description": "The SLOs that currently are burning more error budget than available",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -80,58 +80,11 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Burning rate %"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "thresholds"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "#EAB839",
-                      "value": 1
-                    },
-                    {
-                      "color": "red",
-                      "value": 1.02
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.displayMode",
-                "value": "color-background"
-              },
-              {
-                "id": "unit",
-                "value": "percentunit"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 12,
@@ -142,6 +95,7 @@
       "id": 38,
       "options": {
         "footer": {
+          "enablePagination": false,
           "fields": "",
           "reducer": [
             "sum"
@@ -166,12 +120,13 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "slo:current_burn_rate:ratio{__tenant_id__=\"${clusterId}\"} > ${min_burning_rate}",
+          "expr": "slo:current_burn_rate:ratio{__tenant_id__=\"$clusterId\"} > ${min_burning_rate}",
           "format": "table",
-          "instant": true,
+          "instant": false,
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "{{slo_opni_service}}",
           "queryType": "randomWalk",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -304,7 +259,7 @@
           "exemplar": true,
           "expr": "slo:current_burn_rate:ratio{__tenant_id__=\"${clusterId}\"} > ${min_burning_rate}",
           "interval": "",
-          "legendFormat": "{{slo_opni_id}}",
+          "legendFormat": "{{slo_opni_name}}",
           "queryType": "randomWalk",
           "range": true,
           "refId": "A"
@@ -328,6 +283,7 @@
       "id": 8,
       "panels": [],
       "repeat": "slo",
+      "repeatDirection": "h",
       "targets": [
         {
           "datasource": {
@@ -337,7 +293,7 @@
           "refId": "A"
         }
       ],
-      "title": "${service}/${slo}",
+      "title": "${clusterId}/${service}/${slo}",
       "type": "row"
     },
     {
@@ -377,10 +333,10 @@
         "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "auto",
-        "orientation": "vertical",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
           "fields": "",
           "values": false
@@ -397,12 +353,13 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "slo:objective:ratio{__tenant_id__=\"{$clusterId}\", slo_opni_service=\"${service}\", slo_opni_name=\"${slo}\"}",
+          "expr": "slo:objective:ratio{slo_opni_name=\"$slo\", __tenant_id__=\"$clusterId\", slo_opni_service=\"$service\"}",
           "format": "time_series",
           "instant": true,
           "interval": "",
-          "legendFormat": "{{sloth_id}}",
+          "legendFormat": "{{slo_opni_name}}",
           "queryType": "randomWalk",
+          "range": false,
           "refId": "A"
         }
       ],
@@ -532,7 +489,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "1 - (max(slo:sli_error:ratio_rate${sli_window}{__tenant_id__=\"{$clusterId}\", slo_opni_service=\"${service}\", slo_opni_name=\"${slo}\"}) OR on() vector(0))",
+          "expr": "1 - (max(slo:sli_error:ratio_rate${sli_window}{slo_opni_name=\"$slo\", __tenant_id__=\"$clusterId\", slo_opni_service=\"$service\"}) OR on() vector(0))",
           "interval": "",
           "legendFormat": "SLI",
           "queryType": "randomWalk",
@@ -546,7 +503,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "slo:objective:ratio{__tenant_id__=\"{$clusterId}\", sloth_opni_service=\"${service}\", slo_opni_name=\"${slo}\"}",
+          "expr": "slo:objective:ratio{slo_opni_name=\"$slo\", __tenant_id__=\"$clusterId\", slo_opni_service=\"$service\"}",
           "hide": false,
           "instant": false,
           "interval": "",
@@ -593,8 +550,8 @@
       },
       "id": 10,
       "options": {
-        "colorMode": "background",
-        "graphMode": "none",
+        "colorMode": "value",
+        "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "vertical",
         "reduceOptions": {
@@ -604,8 +561,7 @@
           "fields": "",
           "values": false
         },
-        "text": {},
-        "textMode": "name"
+        "textMode": "auto"
       },
       "pluginVersion": "9.1.0",
       "targets": [
@@ -616,10 +572,10 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "opni_slo_info{__tenant_id__=\"{$clusterId}\", sloth_service=\"${service}\", sloth_slo=\"${slo}\"}",
+          "expr": "slo:objective:ratio{slo_opni_name=\"$slo\", __tenant_id__=\"$clusterId\", slo_opni_service=\"$service\"}",
           "instant": true,
           "interval": "",
-          "legendFormat": "Objective {{sloth_objective}}%",
+          "legendFormat": "Objective",
           "queryType": "randomWalk",
           "refId": "A"
         }
@@ -690,8 +646,9 @@
             "type": "prometheus",
             "uid": "P0BEE70D62F42845E"
           },
+          "editorMode": "code",
           "exemplar": false,
-          "expr": "slo:current_burn_rate:ratio{sloth_service=\"${service}\", sloth_slo=\"${slo}\"} or on() vector(0)",
+          "expr": "slo:current_burn_rate:ratio{__tenant_id__=\"$clusterId\", slo_opni_service=\"$service\", slo_opni_name=\"$slo\"} or on() vector(0)",
           "instant": true,
           "interval": "",
           "legendFormat": "Current burning budget %",
@@ -767,7 +724,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "1-(\n  sum_over_time(\n    (\n       slo:sli_error:ratio_rate${sli_window}{__tenant_id__=\"{$clusterId}\", slo_opni_service=\"${service}\",slo_opni_name=\"${slo}\"}\n       * on() group_left() (\n         month() == bool vector(${__to:date:M})\n       )\n    )[32d:1h]\n  )\n  / on(sloth_id)\n  (\n    slo:error_budget:ratio{__tenant_id__=\"{$clusterId}\", slo_opni_service=\"${service}\",slo_opni_name=\"${slo}\"} *on() group_left() (24 * days_in_month())\n  )\n)",
+          "expr": "1-(\n  sum_over_time(\n    (\n       slo:sli_error:ratio_rate1h{slo_opni_name=\"$slo\", __tenant_id__=\"$clusterId\", slo_opni_service=\"$service\"}\n       * on() group_left() (\n         month() == bool vector(${__to:date:M})\n       )\n    )[32d:1h]\n  )\n  / on(slo_opni_id)\n  (\n    slo:error_budget:ratio{slo_opni_name=\"$slo\", __tenant_id__=\"$clusterId\", slo_opni_service=\"$service\"} * on() group_left() (24 * days_in_month())\n  )\n)",
           "instant": true,
           "interval": "1h",
           "legendFormat": "Remaining error budget (month)",
@@ -843,7 +800,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "slo:period_error_budget_remaining:ratio{slo_opni_service=\"${service}\", slo_opni_name=\"${slo}\"} or on() vector(1)",
+          "expr": "slo:period_error_budget_remaining:ratio{slo_opni_name=\"$slo\", __tenant_id__=\"$clusterId\", slo_opni_service=\"$service\"} or on() vector(1)",
           "instant": true,
           "interval": "",
           "legendFormat": "Remaining error budget (30d window)",
@@ -983,7 +940,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "1-(\n  sum_over_time(\n    (\n       slo:sli_error:ratio_rate1h{__tenant_id__=\"{$clusterId}\", sloth_service=\"${service}\",sloth_slo=\"${slo}\"}\n       * on() group_left() (\n         month() == bool vector(${__to:date:M})\n       )\n    )[32d:1h]\n  )\n  / on(sloth_id)\n  (\n    slo:error_budget:ratio{__tenant_id__=\"{$clusterId}\", sloth_service=\"${service}\",sloth_slo=\"${slo}\"} *on() group_left() (24 * days_in_month())\n  )\n)",
+          "expr": "1-(\n  sum_over_time(\n    (\n       slo:sli_error:ratio_rate1h{slo_opni_name=\"$slo\", __tenant_id__=\"$clusterId\", slo_opni_service=\"$service\"}\n       * on() group_left() (\n         month() == bool vector(${__to:date:M})\n       )\n    )[32d:1h]\n  )\n  / on(slo_opni_id)\n  (\n    slo:error_budget:ratio{slo_opni_name=\"$slo\", __tenant_id__=\"$clusterId\", slo_opni_service=\"$service\"} *on() group_left() (24 * days_in_month())\n  )\n)",
           "hide": false,
           "interval": "1h",
           "legendFormat": "Remaining error budget",
@@ -1100,7 +1057,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "slo:current_burn_rate:ratio{__tenant_id__=\"{$clusterId}\", slo_opni_service=\"${service}\", slo_opni_name=\"${slo}\"} > 0",
+          "expr": "slo:current_burn_rate:ratio{slo_opni_name=\"$slo\", __tenant_id__=\"$clusterId\", slo_opni_service=\"$service\"} > 0",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -1207,7 +1164,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max(slo_page_alert{__tenant_id__=\"{$clusterId}\", sloth_service=\"${service}\", sloth_slo=\"${slo}\", sloth_severity=\"ticket\"}) OR on() vector(0)",
+          "expr": "max(ALERTS{__tenant_id__=\"$clusterId\", alertname=\"slo_alert_page\", slo_opni_service=\"$service\", slo_opni_name=\"$slo\"}) OR on() vector(0)",
           "instant": true,
           "interval": "",
           "legendFormat": "Warning alert",
@@ -1297,7 +1254,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max(slo_alert_ticket{__tenant_id__=\"{$clusterId}\", sloth_service=\"${service}\", sloth_slo=\"${slo}\", sloth_severity=\"page\"}) or on() vector(0)",
+          "expr": "max(ALERTS{__tenant_id__=\"$clusterId\", alertname=\"slo_alert_ticket\", slo_opni_service=\"$service\", slo_opni_name=\"$slo\"}) OR on() vector(0)",
           "instant": true,
           "interval": "",
           "legendFormat": "Critical alert",
@@ -1308,7 +1265,7 @@
       "type": "stat"
     }
   ],
-  "refresh": "30s",
+  "refresh": "1m",
   "schemaVersion": 37,
   "style": "dark",
   "tags": [
@@ -1322,17 +1279,18 @@
       {
         "current": {
           "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
+          "text": "fb180daf-48a7-4ee0-b10d-394651850fd4",
+          "value": "fb180daf-48a7-4ee0-b10d-394651850fd4"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "P0BEE70D62F42845E"
         },
         "definition": "label_values(__tenant_id__)",
+        "description": "The cluster we want to look at",
         "hide": 0,
-        "includeAll": true,
-        "multi": true,
+        "includeAll": false,
+        "multi": false,
         "name": "clusterId",
         "options": [],
         "query": {
@@ -1347,7 +1305,7 @@
       },
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "Opni",
           "value": "Opni"
         },
@@ -1367,10 +1325,10 @@
         "current": {
           "selected": true,
           "text": [
-            "All"
+            "MyServer"
           ],
           "value": [
-            "$__all"
+            "MyServer"
           ]
         },
         "datasource": {
@@ -1524,13 +1482,13 @@
     ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "SLO / Original",
-  "uid": "slo-original",
-  "version": 3,
+  "title": "Opni / SLO",
+  "uid": "opni-slo",
+  "version": 6,
   "weekStart": ""
 }

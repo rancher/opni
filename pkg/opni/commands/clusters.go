@@ -40,9 +40,10 @@ func BuildClustersListCmd() *cobra.Command {
 			for _, c := range t.Items {
 				stat, err := mgmtClient.GetClusterHealthStatus(cmd.Context(), c.Reference())
 				if err != nil {
-					lg.Fatal(err)
+					healthStatus = append(healthStatus, &corev1.HealthStatus{})
+				} else {
+					healthStatus = append(healthStatus, stat)
 				}
-				healthStatus = append(healthStatus, stat)
 			}
 
 			stats, err := adminClient.AllUserStats(cmd.Context(), &emptypb.Empty{})

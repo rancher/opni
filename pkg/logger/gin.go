@@ -20,7 +20,7 @@ func GinLogger(lg *zap.SugaredLogger) gin.HandlerFunc {
 		// read log entries from r, and log using lg
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
-			lg.Info(scanner.Text())
+			lg.Debug(scanner.Text())
 		}
 	}()
 	return gin.LoggerWithConfig(gin.LoggerConfig{

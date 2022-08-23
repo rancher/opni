@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/gin-contrib/pprof"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
@@ -59,7 +60,7 @@ type Agent struct {
 	controlv1.UnsafeAgentControlServer
 	AgentOptions
 	v1beta1.AgentConfigSpec
-	app    *gin.Engine
+	router *gin.Engine
 	logger *zap.SugaredLogger
 
 	tenantID         string
@@ -92,14 +93,26 @@ func WithBootstrapper(bootstrapper bootstrap.Bootstrapper) AgentOption {
 }
 
 func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*Agent, error) {
-	lg := logger.New().Named("agent")
 	options := AgentOptions{}
 	options.apply(opts...)
+	level := logger.DefaultLogLevel.Level()
+	if conf.Spec.LogLevel != "" {
+		l, err := zap.ParseAtomicLevel(conf.Spec.LogLevel)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing log level: %w", err)
+		}
+		level = l.Level()
+	}
+	lg := logger.New(logger.WithLogLevel(level)).Named("agent")
+	lg.Debugf("using log level: %s", level)
 
-	app := gin.New()
-	app.Use(logger.GinLogger(lg), gin.Recovery())
+	router := gin.New()
+	router.Use(logger.GinLogger(lg), gin.Recovery())
+	if conf.Spec.Profiling {
+		pprof.Register(router)
+	}
 
-	app.GET("/healthz", func(ctx *gin.Context) {
+	router.GET("/healthz", func(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	})
 
@@ -117,7 +130,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	agent := &Agent{
 		AgentOptions:     options,
 		AgentConfigSpec:  conf.Spec,
-		app:              app,
+		router:           router,
 		logger:           lg,
 		tenantID:         id,
 		identityProvider: ip,
@@ -181,14 +194,21 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			cc, errF := agent.gatewayClient.Connect(ctx)
 			if !errF.IsSet() {
 				if isRetry {
-					lg.Info("gateway connected")
-				} else {
 					lg.Info("gateway reconnected")
+				} else {
+					lg.Info("gateway connected")
 				}
 				agent.remoteWriteClient = clients.NewLocker(cc, remotewrite.NewRemoteWriteClient)
 
 				startRuleStreamOnce.Do(func() {
-					go agent.streamRulesToGateway(ctx)
+					lg.Debug("starting rule stream")
+					go func() {
+						if err := agent.streamRulesToGateway(ctx); err != nil {
+							lg.With(
+								zap.Error(err),
+							).Error("error streaming rules to gateway")
+						}
+					}()
 				})
 
 				// TODO : Implement
@@ -197,7 +217,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 				// })
 
 				lg.With(
-					zap.Error(errF.Get()),
+					zap.Error(errF.Get()), // this will block until an error is received
 				).Warn("disconnected from gateway")
 				agent.remoteWriteClient.Close()
 			} else {
@@ -208,6 +228,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			if util.StatusCode(errF.Get()) == codes.FailedPrecondition {
 				// Non-retriable error, e.g. the cluster was deleted, or the metrics
 				// capability was uninstalled.
+				lg.Warn("encountered non-retriable error, exiting")
 				break
 			}
 			isRetry = true
@@ -217,7 +238,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		).Warn("shutting down gateway client")
 	}()
 
-	app.POST("/api/agent/push", agent.handlePushRequest)
+	router.POST("/api/agent/push", agent.handlePushRequest)
 
 	return agent, nil
 }
@@ -226,7 +247,7 @@ func (a *Agent) handlePushRequest(c *gin.Context) {
 	var code int
 	ok := a.remoteWriteClient.Use(func(rwc remotewrite.RemoteWriteClient) {
 		if rwc == nil {
-			a.conditions.Store(condRemoteWrite, statusPending)
+			a.setCondition(condRemoteWrite, statusPending, "gateway not connected")
 			code = http.StatusServiceUnavailable
 			return
 		}
@@ -255,15 +276,15 @@ func (a *Agent) handlePushRequest(c *gin.Context) {
 			// a non-retriable error. In this case, the remote write status condition
 			// will be cleared as if the request succeeded.
 			if code == http.StatusBadRequest {
+				a.clearCondition(condRemoteWrite)
 				c.Error(errors.New("soft error: this request likely succeeded"))
-				a.conditions.Delete(condRemoteWrite)
 			} else {
-				a.conditions.Store(condRemoteWrite, statusFailure)
+				a.setCondition(condRemoteWrite, statusFailure, stat.Message())
 			}
 			c.Error(err)
 			return
 		}
-		a.conditions.Delete(condRemoteWrite)
+		a.clearCondition(condRemoteWrite)
 		code = http.StatusOK
 	})
 	if !ok {
@@ -277,7 +298,7 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return util.ServeHandler(ctx, a.app.Handler(), listener)
+	return util.ServeHandler(ctx, a.router.Handler(), listener)
 }
 
 func (a *Agent) bootstrap(ctx context.Context) (keyring.Keyring, error) {
@@ -391,4 +412,35 @@ func (a *Agent) GetKeyring(ctx context.Context) (keyring.Keyring, error) {
 
 func (a *Agent) GetTrustStrategy() trust.Strategy {
 	return a.trust
+}
+
+func (a *Agent) setCondition(key string, value conditionStatus, reason string) {
+	lg := a.logger.With(
+		"condition", key,
+		"status", value,
+		"reason", reason,
+	)
+	if v, ok := a.conditions.Load(key); ok {
+		if v != value {
+			lg.Info("condition changed")
+		}
+	} else {
+		lg.Info("condition set")
+	}
+	a.conditions.Store(key, value)
+}
+
+func (a *Agent) clearCondition(key string, reason ...string) {
+	lg := a.logger.With(
+		"condition", key,
+	)
+	if len(reason) > 0 {
+		lg = lg.With("reason", reason[0])
+	}
+	if v, ok := a.conditions.Load(key); ok {
+		lg.With(
+			"previous", v,
+		).Info("condition cleared")
+	}
+	a.conditions.Delete(key)
 }

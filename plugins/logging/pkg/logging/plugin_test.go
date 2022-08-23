@@ -120,7 +120,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 		}
 		dashboards = opsterv1.DashboardsConfig{
 			ImageSpec: &opsterv1.ImageSpec{
-				Image: lo.ToPtr(fmt.Sprintf("docker.io/rancher/opensearch-dashboards:%s-%s", opensearchVersion, version)),
+				Image: lo.ToPtr("docker.io/rancher/opensearch-dashboards:1.3.3-0.6.0"),
 			},
 			Replicas: 1,
 			Enable:   true,

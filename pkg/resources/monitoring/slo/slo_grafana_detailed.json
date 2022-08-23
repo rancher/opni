@@ -455,6 +455,7 @@
               "mode": "off"
             }
           },
+          "decimals": 7,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -848,7 +849,7 @@
           "expr": "slo:period_error_budget_remaining:ratio{slo_opni_name=\"$slo\", __tenant_id__=\"$clusterId\", slo_opni_service=\"$service\"} or on() vector(1)",
           "instant": true,
           "interval": "",
-          "legendFormat": "Remaining error budget (30d window)",
+          "legendFormat": "Projected remaining error budget (30d window)",
           "queryType": "randomWalk",
           "refId": "A"
         }
@@ -1299,7 +1300,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max(ALERTS{__tenant__id=\"$clusterId\", slo_severity=\"ticket\", slo_opni_service=\"$service\", slo_opni_name=\"$slo\"}) OR on() vector(1)",
+          "expr": "max(ALERTS{__tenant_id__=\"$clusterId\", slo_severity=\"ticket\", slo_opni_service=\"$service\", slo_opni_name=\"$slo\"}) OR on() vector(0)",
           "instant": true,
           "interval": "",
           "legendFormat": "Critical alert",
@@ -1323,9 +1324,9 @@
     "list": [
       {
         "current": {
-          "selected": false,
-          "text": "0194fdc2-fa2f-4cc0-81d3-ff12045b73c8",
-          "value": "0194fdc2-fa2f-4cc0-81d3-ff12045b73c8"
+          "selected": true,
+          "text": "6e4ff95f-f662-45ee-a82a-bdf44a2d0b75",
+          "value": "6e4ff95f-f662-45ee-a82a-bdf44a2d0b75"
         },
         "datasource": {
           "type": "prometheus",
@@ -1496,8 +1497,8 @@
       {
         "current": {
           "selected": true,
-          "text": "0",
-          "value": "0"
+          "text": "1",
+          "value": "1"
         },
         "description": "The minimum burning budget rate (0-1) to show on the general SLOs block",
         "hide": 0,
@@ -1524,6 +1525,6 @@
   "timezone": "",
   "title": "Opni Detailed Slos",
   "uid": "opni-slo",
-  "version": 15,
+  "version": 4,
   "weekStart": ""
 }

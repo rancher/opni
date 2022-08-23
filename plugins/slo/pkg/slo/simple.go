@@ -670,27 +670,27 @@ func (s *SLO) ConstructRawAlertQueries() (string, string) {
 		panic(err)
 	}
 	filters = "{" + filters + "}"
-	alertSevereRawQuery := s.ConstructAlertingRuleGroup(nil).Rules[0].Expr
-	alertSevereRawQuery = strings.Replace(alertSevereRawQuery, filters, "", -1)
-	alertSevereRawQuery = strings.Replace(alertSevereRawQuery, fmt.Sprintf("without (%s)", slo_window), "", -1)
-	alertCriticalRawQuery := s.ConstructAlertingRuleGroup(nil).Rules[1].Expr
+	alertCriticalRawQuery := s.ConstructAlertingRuleGroup(nil).Rules[0].Expr
 	alertCriticalRawQuery = strings.Replace(alertCriticalRawQuery, filters, "", -1)
 	alertCriticalRawQuery = strings.Replace(alertCriticalRawQuery, fmt.Sprintf("without (%s)", slo_window), "", -1)
+	alertSevereRawQuery := s.ConstructAlertingRuleGroup(nil).Rules[1].Expr
+	alertSevereRawQuery = strings.Replace(alertSevereRawQuery, filters, "", -1)
+	alertSevereRawQuery = strings.Replace(alertSevereRawQuery, fmt.Sprintf("without (%s)", slo_window), "", -1)
 
 	for _, rule := range s.ConstructRecordingRuleGroup(nil).Rules {
-		alertSevereRawQuery = strings.Replace(alertSevereRawQuery, rule.Record, rule.Expr, -1)
 		alertCriticalRawQuery = strings.Replace(alertCriticalRawQuery, rule.Record, rule.Expr, -1)
+		alertSevereRawQuery = strings.Replace(alertSevereRawQuery, rule.Record, rule.Expr, -1)
 	}
 
-	_, err = promql.ParseExpr(alertSevereRawQuery)
-	if err != nil {
-		panic(err)
-	}
 	_, err = promql.ParseExpr(alertCriticalRawQuery)
 	if err != nil {
 		panic(err)
 	}
-	return alertSevereRawQuery, alertCriticalRawQuery
+	_, err = promql.ParseExpr(alertSevereRawQuery)
+	if err != nil {
+		panic(err)
+	}
+	return alertCriticalRawQuery, alertSevereRawQuery
 }
 
 func NewWindowRange(sloPeriod string) []string {

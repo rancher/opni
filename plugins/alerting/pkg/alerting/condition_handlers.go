@@ -95,7 +95,7 @@ func deleteCondition(p *Plugin, ctx context.Context, req *alertingv1alpha.AlertC
 	if k := req.GetAlertType().GetKubeState(); k != nil {
 		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
 			ClusterId: k.GetClusterId(),
-			GroupName: cortexRuleIdFromUuid(id),
+			GroupName: CortexRuleIdFromUuid(id),
 		})
 		return err
 	}

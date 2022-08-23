@@ -16,7 +16,7 @@ type ruleGroupYAMLv2 struct {
 	Rules    []rulefmt.Rule     `yaml:"rules"`
 }
 
-func cortexRuleIdFromUuid(id string) string {
+func CortexRuleIdFromUuid(id string) string {
 	return id + alertingSuffix
 }
 
@@ -37,7 +37,7 @@ func NewCortexAlertingRule(alertId string, interval *time.Duration, rule metrics
 	}
 
 	return &ruleGroupYAMLv2{
-		Name:     cortexRuleIdFromUuid(alertId),
+		Name:     CortexRuleIdFromUuid(alertId),
 		Interval: promInterval,
 		Rules:    []rulefmt.Rule{*actualRuleFmt},
 	}, nil

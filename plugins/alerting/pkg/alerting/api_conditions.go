@@ -204,9 +204,9 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) ListAlertConditionChoices(ctx context.Context, request *alertingv1alpha.AlertDetailChoicesRequest) (*alertingv1alpha.ListAlertTypeDetails, error) {
-	if err := alertingv1alpha.EnumHasImplementation(request.GetAlertType()); err != nil {
+func (p *Plugin) ListAlertConditionChoices(ctx context.Context, req *alertingv1alpha.AlertDetailChoicesRequest) (*alertingv1alpha.ListAlertTypeDetails, error) {
+	if err := alertingv1alpha.EnumHasImplementation(req.GetAlertType()); err != nil {
 		return nil, err
 	}
-	return nil, shared.AlertingErrNotImplemented
+	return handleChoicesByType(p, ctx, req)
 }

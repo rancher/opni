@@ -3,11 +3,12 @@ package alerting_test
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
+	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"math/rand"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -60,21 +61,22 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 
 	When("We mock out backend metrics for alerting", func() {
 		Specify("We should be able to mock out kubernetes pod metrics", func() {
-			podId := uuid.New().String()
-			podName := "testpod"
-			ns := "default"
 			Expect(kubernetesTempMetricServerPort).NotTo(Equal(0))
-			for _, name := range metrics.KubePodStates {
+			Expect(curTestState.mockPods).NotTo(BeEmpty())
+			// non-deterministically sample mock pods to set
+			mp := curTestState.mockPods[rand.Intn(len(curTestState.mockPods))]
+			for _, state := range metrics.KubePodStates {
 				Eventually(func() error {
-					setMockKubernetesPodState(kubernetesTempMetricServerPort, podName, ns, name, podId)
+					mp.phase = state
+					setMockKubernetesPodState(kubernetesTempMetricServerPort, mp)
 					resp, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
 						Tenants: []string{"agent"},
 						Query: fmt.Sprintf(
 							"kube_pod_status_phase{pod=\"%s\",namespace=\"%s\",phase=\"%s\", uid=\"%s\"}",
-							podName,
-							ns,
-							name,
-							podId,
+							mp.podName,
+							mp.namespace,
+							state,
+							mp.uid,
 						),
 					})
 					if err != nil {
@@ -109,7 +111,69 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 
 	When("The alerting plugin starts...", func() {
 		It("Should be able to CRUD [kubernetes] type alert conditions", func() {
-			//TODO : partially implemented but not tested
+			alertDuration := durationpb.New(time.Second * 30)
+			// non-deterministically sample mock pods to set
+			mp := curTestState.mockPods[rand.Intn(len(curTestState.mockPods))]
+			resp, err := alertingClient.CreateAlertCondition(ctx, &alertingv1alpha.AlertCondition{
+				Name:     "kubernetes-pod-stuck",
+				Severity: alertingv1alpha.Severity_WARNING,
+				Labels:   []string{mp.uid},
+				AlertType: &alertingv1alpha.AlertTypeDetails{
+					Type: &alertingv1alpha.AlertTypeDetails_KubeState{
+						KubeState: &alertingv1alpha.AlertConditionKubeState{
+							ClusterId: "agent",
+							Object:    mp.podName,
+							Namespace: mp.namespace,
+							State:     mp.phase,
+							For:       alertDuration,
+						},
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp).NotTo(BeNil())
+
+			ruleGroupId := alerting.CortexRuleIdFromUuid(resp.Id)
+			test.ExpectRuleGroupToExist(
+				adminClient,
+				ctx,
+				"agent",
+				ruleGroupId,
+				time.Second,
+				time.Second*15,
+			)
+
+			// check alert actually evaluates to true in cortex
+			Eventually(func() error {
+				resp, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+					Tenants: []string{"agent"},
+					Query:   fmt.Sprintf("max(ALERTS{alert_name=\"%s\"}) or on() vector(0)", resp.Id),
+				})
+				if err != nil {
+					return err
+				}
+				_, err = unmarshal.UnmarshalPrometheusResponse(resp.Data)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}, alertDuration.AsDuration(), time.Second*5).Should(Succeed())
+
+			// this code block checks that alert has been triggered in opni alerting
+			// FIXME: cortex alerting rules are not yet connected to opni alerting
+			//Eventually(func() error {
+			//	filteredLogs, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
+			//		Labels: []string{mp.uid},
+			//	})
+			//	if err != nil {
+			//		return err
+			//	}
+			//	if len(filteredLogs.Items) == 0 {
+			//		return fmt.Errorf("no logs found")
+			//	}
+			//	return nil
+			//}, alertDuration.AsDuration(), time.Second*10).Should(Succeed())
 		})
 
 		It("Should be able to CRUD [composition] type alert conditions", func() {

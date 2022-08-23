@@ -36,7 +36,7 @@ func NewKubePodStateRule(
 	//handle empty namespace
 	var namespaceFilter string
 	if namespace != "" {
-		namespaceFilter = "{namespace=\"" + namespace + "\"},"
+		namespaceFilter = "namespace=\"" + namespace + "\","
 	} else {
 		namespaceFilter = ""
 	}

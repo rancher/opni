@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-hclog"
+
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -18,6 +19,8 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/util"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -133,7 +136,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 		Logger: logger.NewForPlugin(),
 	}
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(&ExampleAPIExtension_ServiceDesc, p))
+		managementext.NewPlugin(util.PackService(&ExampleAPIExtension_ServiceDesc, p)))
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(gatewayext.GatewayAPIExtensionPluginID,
 		gatewayext.NewPlugin(p))

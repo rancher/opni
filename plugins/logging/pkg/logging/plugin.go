@@ -10,6 +10,15 @@ import (
 	osclient "github.com/opensearch-project/opensearch-go"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	opensearchv1 "opensearch.opster.io/api/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -23,18 +32,11 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	opensearchv1 "opensearch.opster.io/api/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -191,7 +193,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	if restconfig != nil && p.manageFlag != nil && p.manageFlag.IsEnabled() {
 		scheme.Add(managementext.ManagementAPIExtensionPluginID,
-			managementext.NewPlugin(&loggingadmin.LoggingAdmin_ServiceDesc, p))
+			managementext.NewPlugin(util.PackService(&loggingadmin.LoggingAdmin_ServiceDesc, p)))
 	}
 
 	return scheme

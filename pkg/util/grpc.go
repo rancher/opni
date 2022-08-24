@@ -10,12 +10,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type ServicePackInterface interface {
+	Unpack() (*grpc.ServiceDesc, any)
+}
+
 type ServicePack[T any] struct {
 	desc *grpc.ServiceDesc
 	impl T
 }
 
-func (s *ServicePack[T]) Unpack() (*grpc.ServiceDesc, any) {
+func (s ServicePack[T]) Unpack() (*grpc.ServiceDesc, any) {
 	return s.desc, s.impl
 }
 

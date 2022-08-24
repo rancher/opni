@@ -38,24 +38,24 @@ func (m *MockManagementAPIExtensionClient) EXPECT() *MockManagementAPIExtensionC
 	return m.recorder
 }
 
-// Descriptor mocks base method.
-func (m *MockManagementAPIExtensionClient) Descriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error) {
+// Descriptors mocks base method.
+func (m *MockManagementAPIExtensionClient) Descriptors(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*apiextensions.ServiceDescriptorProtoList, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "Descriptor", varargs...)
-	ret0, _ := ret[0].(*descriptorpb.ServiceDescriptorProto)
+	ret := m.ctrl.Call(m, "Descriptors", varargs...)
+	ret0, _ := ret[0].(*apiextensions.ServiceDescriptorProtoList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Descriptor indicates an expected call of Descriptor.
-func (mr *MockManagementAPIExtensionClientMockRecorder) Descriptor(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// Descriptors indicates an expected call of Descriptors.
+func (mr *MockManagementAPIExtensionClientMockRecorder) Descriptors(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptor", reflect.TypeOf((*MockManagementAPIExtensionClient)(nil).Descriptor), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptors", reflect.TypeOf((*MockManagementAPIExtensionClient)(nil).Descriptors), varargs...)
 }
 
 // MockManagementAPIExtensionServer is a mock of ManagementAPIExtensionServer interface.
@@ -81,19 +81,19 @@ func (m *MockManagementAPIExtensionServer) EXPECT() *MockManagementAPIExtensionS
 	return m.recorder
 }
 
-// Descriptor mocks base method.
-func (m *MockManagementAPIExtensionServer) Descriptor(arg0 context.Context, arg1 *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
+// Descriptors mocks base method.
+func (m *MockManagementAPIExtensionServer) Descriptors(arg0 context.Context, arg1 *emptypb.Empty) (*apiextensions.ServiceDescriptorProtoList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Descriptor", arg0, arg1)
-	ret0, _ := ret[0].(*descriptorpb.ServiceDescriptorProto)
+	ret := m.ctrl.Call(m, "Descriptors", arg0, arg1)
+	ret0, _ := ret[0].(*apiextensions.ServiceDescriptorProtoList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Descriptor indicates an expected call of Descriptor.
-func (mr *MockManagementAPIExtensionServerMockRecorder) Descriptor(arg0, arg1 interface{}) *gomock.Call {
+// Descriptors indicates an expected call of Descriptors.
+func (mr *MockManagementAPIExtensionServerMockRecorder) Descriptors(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptor", reflect.TypeOf((*MockManagementAPIExtensionServer)(nil).Descriptor), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptors", reflect.TypeOf((*MockManagementAPIExtensionServer)(nil).Descriptors), arg0, arg1)
 }
 
 // mustEmbedUnimplementedManagementAPIExtensionServer mocks base method.

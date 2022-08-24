@@ -24,7 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ManagementAPIExtensionClient interface {
-	Descriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error)
+	Descriptors(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceDescriptorProtoList, error)
 }
 
 type managementAPIExtensionClient struct {
@@ -35,9 +35,9 @@ func NewManagementAPIExtensionClient(cc grpc.ClientConnInterface) ManagementAPIE
 	return &managementAPIExtensionClient{cc}
 }
 
-func (c *managementAPIExtensionClient) Descriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error) {
-	out := new(descriptorpb.ServiceDescriptorProto)
-	err := c.cc.Invoke(ctx, "/apiextensions.ManagementAPIExtension/Descriptor", in, out, opts...)
+func (c *managementAPIExtensionClient) Descriptors(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceDescriptorProtoList, error) {
+	out := new(ServiceDescriptorProtoList)
+	err := c.cc.Invoke(ctx, "/apiextensions.ManagementAPIExtension/Descriptors", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (c *managementAPIExtensionClient) Descriptor(ctx context.Context, in *empty
 // All implementations must embed UnimplementedManagementAPIExtensionServer
 // for forward compatibility
 type ManagementAPIExtensionServer interface {
-	Descriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error)
+	Descriptors(context.Context, *emptypb.Empty) (*ServiceDescriptorProtoList, error)
 	mustEmbedUnimplementedManagementAPIExtensionServer()
 }
 
@@ -56,8 +56,8 @@ type ManagementAPIExtensionServer interface {
 type UnimplementedManagementAPIExtensionServer struct {
 }
 
-func (UnimplementedManagementAPIExtensionServer) Descriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Descriptor not implemented")
+func (UnimplementedManagementAPIExtensionServer) Descriptors(context.Context, *emptypb.Empty) (*ServiceDescriptorProtoList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Descriptors not implemented")
 }
 func (UnimplementedManagementAPIExtensionServer) mustEmbedUnimplementedManagementAPIExtensionServer() {
 }
@@ -73,20 +73,20 @@ func RegisterManagementAPIExtensionServer(s grpc.ServiceRegistrar, srv Managemen
 	s.RegisterService(&ManagementAPIExtension_ServiceDesc, srv)
 }
 
-func _ManagementAPIExtension_Descriptor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ManagementAPIExtension_Descriptors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagementAPIExtensionServer).Descriptor(ctx, in)
+		return srv.(ManagementAPIExtensionServer).Descriptors(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/apiextensions.ManagementAPIExtension/Descriptor",
+		FullMethod: "/apiextensions.ManagementAPIExtension/Descriptors",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementAPIExtensionServer).Descriptor(ctx, req.(*emptypb.Empty))
+		return srv.(ManagementAPIExtensionServer).Descriptors(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -99,8 +99,8 @@ var ManagementAPIExtension_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ManagementAPIExtensionServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Descriptor",
-			Handler:    _ManagementAPIExtension_Descriptor_Handler,
+			MethodName: "Descriptors",
+			Handler:    _ManagementAPIExtension_Descriptors_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

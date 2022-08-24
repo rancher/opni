@@ -8,7 +8,7 @@ import "google/protobuf/any.proto";
 package apiextensions;
 
 service ManagementAPIExtension {
-  rpc Descriptor(google.protobuf.Empty) returns (google.protobuf.ServiceDescriptorProto);
+  rpc Descriptors(google.protobuf.Empty) returns (ServiceDescriptorProtoList);
 }
 
 service GatewayAPIExtension {
@@ -49,7 +49,11 @@ message ServiceOptions {
 }
 
 message ServiceDescriptorList {
-  repeated ServiceDescriptor descriptors = 2;
+  repeated ServiceDescriptor items = 2;
+}
+
+message ServiceDescriptorProtoList {
+  repeated google.protobuf.ServiceDescriptorProto items = 1;
 }
 
 message RouteInfo {

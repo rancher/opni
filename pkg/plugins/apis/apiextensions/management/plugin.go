@@ -3,16 +3,13 @@ package managementext
 import (
 	"context"
 
-	"github.com/rancher/opni/pkg/util"
-
 	"github.com/hashicorp/go-plugin"
-	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/ragu/pkg/ragu/compat"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni/pkg/util"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -34,7 +31,9 @@ func (p *managementApiExtensionPlugin) GRPCServer(
 	s *grpc.Server,
 ) error {
 	apiextensions.RegisterManagementAPIExtensionServer(s, p.extensionSrv)
-	s.RegisterService(p.extensionSrv.rawServiceDesc, p.extensionSrv.serviceImpl)
+	for _, sp := range p.extensionSrv.services {
+		s.RegisterService(sp.Unpack())
+	}
 	return nil
 }
 
@@ -49,40 +48,39 @@ func (p *managementApiExtensionPlugin) GRPCClient(
 	return apiextensions.NewManagementAPIExtensionClient(c), nil
 }
 
-func NewPlugin(desc *grpc.ServiceDesc, impl interface{}) plugin.Plugin {
-	descriptor, err := grpcreflect.LoadServiceDescriptor(desc)
-	if err != nil {
-		panic(err)
-	}
-
+func NewPlugin(services ...util.ServicePackInterface) plugin.Plugin {
 	return &managementApiExtensionPlugin{
 		extensionSrv: &mgmtExtensionServerImpl{
-			rawServiceDesc: desc,
-			serviceDesc:    descriptor,
-			serviceImpl:    impl,
+			services: services,
 		},
 	}
 }
 
 type mgmtExtensionServerImpl struct {
 	apiextensions.UnimplementedManagementAPIExtensionServer
-	rawServiceDesc *grpc.ServiceDesc
-	serviceDesc    *desc.ServiceDescriptor
-	serviceImpl    interface{}
+	services []util.ServicePackInterface
 }
 
-func (e *mgmtExtensionServerImpl) Descriptor(ctx context.Context, _ *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
-	fqn := e.serviceDesc.GetFullyQualifiedName()
-	sd := util.ProtoClone(e.serviceDesc.AsServiceDescriptorProto())
-	sd.Name = &fqn
-	return sd, nil
+func (e *mgmtExtensionServerImpl) Descriptors(ctx context.Context, _ *emptypb.Empty) (*apiextensions.ServiceDescriptorProtoList, error) {
+	list := &apiextensions.ServiceDescriptorProtoList{}
+	for _, s := range e.services {
+		rawDesc, _ := s.Unpack()
+		desc, err := grpcreflect.LoadServiceDescriptor(rawDesc)
+		fqn := desc.GetFullyQualifiedName()
+		sd := util.ProtoClone(desc.AsServiceDescriptorProto())
+		sd.Name = &fqn
+		if err != nil {
+			return nil, err
+		}
+		list.Items = append(list.Items, sd)
+	}
+	return list, nil
 }
 
 var _ apiextensions.ManagementAPIExtensionServer = (*mgmtExtensionServerImpl)(nil)
 
 func init() {
 	compat.LoadGogoFileDescriptor("k8s.io/api/core/v1/generated.proto")
-	plugins.ClientScheme.Add(ManagementAPIExtensionPluginID,
-		NewPlugin(&apiextensions.ManagementAPIExtension_ServiceDesc,
-			apiextensions.UnimplementedManagementAPIExtensionServer{}))
+	compat.LoadGogoFileDescriptor("k8s.io/apimachinery/pkg/api/resource/generated.proto")
+	plugins.ClientScheme.Add(ManagementAPIExtensionPluginID, NewPlugin())
 }

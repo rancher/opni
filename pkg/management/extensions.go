@@ -12,13 +12,6 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	gsync "github.com/kralicky/gpkg/sync"
 	"github.com/kralicky/grpc-gateway/v2/runtime"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	"github.com/rancher/opni/pkg/plugins/hooks"
-	"github.com/rancher/opni/pkg/plugins/meta"
-	"github.com/rancher/opni/pkg/plugins/types"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/grpc"
@@ -28,6 +21,14 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/plugins"
+	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/plugins/types"
 )
 
 func (m *Server) APIExtensions(context.Context, *emptypb.Empty) (*managementv1.APIExtensionInfoList, error) {
@@ -56,65 +57,67 @@ func (m *Server) configureApiExtensionDirector(ctx context.Context, pl plugins.L
 	methodTable := gsync.Map[string, *UnknownStreamMetadata]{}
 	pl.Hook(hooks.OnLoadMC(func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 		reflectClient := grpcreflect.NewClient(ctx, rpb.NewServerReflectionClient(cc))
-		sd, err := p.Descriptor(ctx, &emptypb.Empty{})
+		sds, err := p.Descriptors(ctx, &emptypb.Empty{})
 		if err != nil {
 			m.logger.With(
 				zap.Error(err),
 				zap.String("plugin", md.Module),
-			).Error("failed to get extension descriptor")
+			).Error("failed to get extension descriptors")
 			return
 		}
-		lg.Info("got extension descriptor for service " + sd.GetName())
+		for _, sd := range sds.Items {
+			lg.Info("got extension descriptor for service " + sd.GetName())
 
-		svcDesc, err := reflectClient.ResolveService(sd.GetName())
-		if err != nil {
-			m.logger.With(
-				zap.Error(err),
-			).Error("failed to resolve extension service")
-			return
-		}
+			svcDesc, err := reflectClient.ResolveService(sd.GetName())
+			if err != nil {
+				m.logger.With(
+					zap.Error(err),
+				).Error("failed to resolve extension service")
+				return
+			}
 
-		svcName := sd.GetName()
-		lg.With(
-			"name", svcName,
-		).Info("loading service")
-		for _, mtd := range svcDesc.GetMethods() {
-			fullName := fmt.Sprintf("/%s/%s", svcName, mtd.GetName())
+			svcName := sd.GetName()
 			lg.With(
-				"name", fullName,
-			).Info("loading method")
+				"name", svcName,
+			).Info("loading service")
+			for _, mtd := range svcDesc.GetMethods() {
+				fullName := fmt.Sprintf("/%s/%s", svcName, mtd.GetName())
+				lg.With(
+					"name", fullName,
+				).Info("loading method")
 
-			methodTable.Store(fullName, &UnknownStreamMetadata{
-				Conn:       cc,
-				InputType:  mtd.GetInputType(),
-				OutputType: mtd.GetOutputType(),
+				methodTable.Store(fullName, &UnknownStreamMetadata{
+					Conn:       cc,
+					InputType:  mtd.GetInputType(),
+					OutputType: mtd.GetOutputType(),
+				})
+			}
+			httpRules := loadHttpRuleDescriptors(svcDesc)
+			if len(httpRules) > 0 {
+				lg.With(
+					"name", svcName,
+					"rules", len(httpRules),
+				).Info("loading http rules")
+				lg.With(
+					"name", svcName,
+					"rules", httpRules,
+				).Debug("rule descriptors")
+			} else {
+				lg.With(
+					"name", svcName,
+				).Info("service has no http rules")
+			}
+
+			client := apiextensions.NewManagementAPIExtensionClient(cc)
+			m.apiExtMu.Lock()
+			m.apiExtensions = append(m.apiExtensions, apiExtension{
+				client:      client,
+				clientConn:  cc,
+				serviceDesc: svcDesc,
+				httpRules:   httpRules,
 			})
+			m.apiExtMu.Unlock()
 		}
-		httpRules := loadHttpRuleDescriptors(svcDesc)
-		if len(httpRules) > 0 {
-			lg.With(
-				"name", svcName,
-				"rules", len(httpRules),
-			).Info("loading http rules")
-			lg.With(
-				"name", svcName,
-				"rules", httpRules,
-			).Debug("rule descriptors")
-		} else {
-			lg.With(
-				"name", svcName,
-			).Info("service has no http rules")
-		}
-
-		client := apiextensions.NewManagementAPIExtensionClient(cc)
-		m.apiExtMu.Lock()
-		defer m.apiExtMu.Unlock()
-		m.apiExtensions = append(m.apiExtensions, apiExtension{
-			client:      client,
-			clientConn:  cc,
-			serviceDesc: svcDesc,
-			httpRules:   httpRules,
-		})
 	}))
 
 	return func(ctx context.Context, fullMethodName string) (context.Context, *UnknownStreamMetadata, error) {

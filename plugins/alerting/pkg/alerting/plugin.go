@@ -4,10 +4,13 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-hclog"
+
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
 
 	lru "github.com/hashicorp/golang-lru"
+
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -65,6 +68,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(&alertingv1alpha.Alerting_ServiceDesc, p))
+		managementext.NewPlugin(util.PackService(&alertingv1alpha.Alerting_ServiceDesc, p)))
 	return scheme
 }

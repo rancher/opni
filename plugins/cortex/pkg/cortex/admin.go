@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
+	"github.com/cortexproject/cortex/pkg/distributor"
 	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -29,17 +29,9 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-)
 
-// this is 'github.com/cortexproject/cortex/pkg/distributor.UserIDStats'
-// but importing it causes impossible dependency errors
-type CortexUserIDStats struct {
-	UserID            string  `json:"userID"`
-	IngestionRate     float64 `json:"ingestionRate"`
-	NumSeries         uint64  `json:"numSeries"`
-	APIIngestionRate  float64 `json:"APIIngestionRate"`
-	RuleIngestionRate float64 `json:"RuleIngestionRate"`
-}
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+)
 
 func (p *Plugin) AllUserStats(ctx context.Context, _ *emptypb.Empty) (*cortexadmin.UserIDStatsList, error) {
 	client := p.cortexHttpClient.Get()
@@ -64,7 +56,7 @@ func (p *Plugin) AllUserStats(ctx context.Context, _ *emptypb.Empty) (*cortexadm
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get cluster stats: %v", resp.StatusCode)
 	}
-	var stats []CortexUserIDStats
+	var stats []distributor.UserIDStats
 	if err = json.NewDecoder(resp.Body).Decode(&stats); err != nil {
 		return nil, fmt.Errorf("failed to decode user stats: %w", err)
 	}

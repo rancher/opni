@@ -23,6 +23,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 )
@@ -69,7 +70,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(gatewayext.GatewayAPIExtensionPluginID, gatewayext.NewPlugin(p))
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(&cortexadmin.CortexAdmin_ServiceDesc, p))
+		managementext.NewPlugin(util.PackService(&cortexadmin.CortexAdmin_ServiceDesc, p)))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))
 	return scheme

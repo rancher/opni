@@ -5,13 +5,21 @@ import (
 	"crypto"
 	"crypto/tls"
 	"fmt"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
-	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"net"
 	"time"
 
+	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
+
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/samber/lo"
+	"go.uber.org/zap"
+	"golang.org/x/mod/module"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/noop"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -36,12 +44,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
-	"github.com/samber/lo"
-	"go.uber.org/zap"
-	"golang.org/x/mod/module"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -157,10 +159,12 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 
 			client := apiextensions.NewManagementAPIExtensionClient(cc)
-			desc, err := client.Descriptor(ctx, &emptypb.Empty{})
+			descs, err := client.Descriptors(ctx, &emptypb.Empty{})
 			if err == nil {
-				if desc.GetName() == "Alerting" {
-					options.alerting = alertingv1alpha.NewAlertingClient(cc)
+				for _, desc := range descs.Items {
+					if desc.GetName() == "Alerting" {
+						options.alerting = alertingv1alpha.NewAlertingClient(cc)
+					}
 				}
 			}
 		}))

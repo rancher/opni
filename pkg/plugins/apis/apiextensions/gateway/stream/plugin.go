@@ -7,11 +7,12 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/kralicky/totem"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -111,7 +112,7 @@ func (e *mgmtExtensionServerImpl) Services(context.Context, *emptypb.Empty) (*ap
 		})
 	}
 	return &apiextensions.ServiceDescriptorList{
-		Descriptors: list,
+		Items: list,
 	}, nil
 }
 

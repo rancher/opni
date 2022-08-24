@@ -138,7 +138,7 @@ func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
 
 func (s *StreamServer) AddRemote(cc *grpc.ClientConn, services *apiextensions.ServiceDescriptorList) error {
 	s.remotes = append(s.remotes, remote{
-		services: services.Descriptors,
+		services: services.Items,
 		cc:       cc,
 	})
 	return nil

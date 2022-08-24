@@ -7,6 +7,27 @@ metadata:
   name: opni-mutating-webhook-configuration
 webhooks:
   - admissionReviewVersions:
+    - v1
+    - v1beta1
+    clientConfig:
+      service:
+        name: opni-webhook
+        namespace: {{ $namespace }}
+        path: /mutate-logging-opni-io-v1beta1-logadapter
+    failurePolicy: Fail
+    name: mlogadapter.kb.io
+    rules:
+    - apiGroups:
+      - logging.opni.io
+      apiVersions:
+      - v1beta1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - logadapters
+    sideEffects: None
+  - admissionReviewVersions:
       - v1
       - v1beta1
     clientConfig:
@@ -15,7 +36,7 @@ webhooks:
         namespace: {{ $namespace }}
         path: /mutate-opni-io-v1beta2-logadapter
     failurePolicy: Fail
-    name: mlogadapter.kb.io
+    name: mlogadapter2.kb.io
     rules:
       - apiGroups:
           - opni.io
@@ -36,6 +57,27 @@ metadata:
   name: opni-validating-webhook-configuration
 webhooks:
   - admissionReviewVersions:
+    - v1
+    - v1beta1
+    clientConfig:
+      service:
+        name: opni-webhook
+        namespace: {{ $namespace }}
+        path: /validate-logging-opni-io-v1beta1-logadapter
+    failurePolicy: Fail
+    name: vlogadapter.kb.io
+    rules:
+    - apiGroups:
+      - logging.opni.io
+      apiVersions:
+      - v1beta1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - logadapters
+    sideEffects: None
+  - admissionReviewVersions:
       - v1
       - v1beta1
     clientConfig:
@@ -44,7 +86,7 @@ webhooks:
         namespace: {{ $namespace }}
         path: /validate-opni-io-v1beta2-logadapter
     failurePolicy: Fail
-    name: vlogadapter.kb.io
+    name: vlogadapter2.kb.io
     rules:
       - apiGroups:
           - opni.io
@@ -56,25 +98,4 @@ webhooks:
         resources:
           - logadapters
     sideEffects: None
-  - admissionReviewVersions:
-      - v1
-      - v1beta1
-    clientConfig:
-      service:
-        name: opni-webhook
-        namespace: {{ $namespace }}
-        path: /highlander-opni-io-v1beta1-opnicluster
-    failurePolicy: Fail
-    name: highlander.opni.io
-    rules:
-      - apiGroups:
-          - opni.io
-        apiVersions:
-          - v1beta1
-          - v1beta2
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - opniclusters
-    sideEffects: None
+

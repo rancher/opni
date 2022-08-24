@@ -174,6 +174,19 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 			Expect(g).To(Equal(goodEvents1))
 			Expect(t).To(Equal(totalEvents1))
 
+			// management api server will pass in empty events to an empty list,
+			// because it hates us
+			totalEvents1 = []*sloapi.Event{{}} // in this case, this is what it looks like
+			g, t = slo.ToMatchingSubsetIdenticalMetric(goodEvents1, totalEvents1)
+			Expect(g).To(Equal(goodEvents1))
+			Expect(t).To(Equal(totalEvents1))
+
+			// to be dilligent we should also check when t.Vals is nil
+			totalEvents1 = []*sloapi.Event{{Key: "code"}}
+			g, t = slo.ToMatchingSubsetIdenticalMetric(goodEvents1, totalEvents1)
+			Expect(g).To(Equal(goodEvents1))
+			Expect(t).To(Equal(totalEvents1))
+
 			// should fill in missing subset
 			goodEvents2 := []*sloapi.Event{
 				{

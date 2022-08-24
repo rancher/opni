@@ -744,6 +744,9 @@ func ToMatchingSubsetIdenticalMetric(goodEvents, totalEvents []*sloapi.Event) (g
 		indexGood[g.Key] = g.Vals
 	}
 	for _, t := range totalEvents {
+		if t.Key == "" || t.Vals == nil {
+			continue
+		}
 		if _, ok := indexGood[t.Key]; ok { // event type defined on good and total so reconcile
 			reconciled := map[string]struct{}{}
 			for _, val := range indexGood[t.Key] {

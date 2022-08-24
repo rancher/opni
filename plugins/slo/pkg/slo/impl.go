@@ -260,7 +260,7 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 
 	ruleGroup := slo.ConstructRecordingRuleGroup(nil)
 	sliPeriodErrorRate := ruleGroup.Rules[len(ruleGroup.Rules)-1].Expr
-	sli := "1 - (max(" + sliPeriodErrorRate + ") OR on() vector(1))"
+	sli := "1 - (max(" + sliPeriodErrorRate + ") OR on() vector(NaN))" // handles the empty case and still differentiates between 0 and empty
 	_, err = promql.ParseExpr(sli)
 	if err != nil {
 		panic(err)

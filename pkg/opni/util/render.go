@@ -12,6 +12,7 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
 	"github.com/ttacon/chalk"
 )
 
@@ -257,4 +258,8 @@ func RenderMetricSamples(samples []*model.Sample) string {
 		w.AppendRow(table.Row{s.Metric["namespace"], user, s.Value})
 	}
 	return w.Render()
+}
+
+func RenderCortexClusterStatus(status *cortexops.ClusterStatus) string {
+	return status.String()
 }

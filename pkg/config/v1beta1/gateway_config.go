@@ -90,6 +90,8 @@ type CortexSpec struct {
 	Distributor   DistributorSpec   `json:"distributor,omitempty"`
 	Ingester      IngesterSpec      `json:"ingester,omitempty"`
 	Alertmanager  AlertmanagerSpec  `json:"alertmanager,omitempty"`
+	Compactor     CompactorSpec     `json:"compactor,omitempty"`
+	StoreGateway  StoreGatewaySpec  `json:"storeGateway,omitempty"`
 	Ruler         RulerSpec         `json:"ruler,omitempty"`
 	QueryFrontend QueryFrontendSpec `json:"queryFrontend,omitempty"`
 	Purger        PurgerSpec        `json:"purger,omitempty"`
@@ -113,6 +115,18 @@ type IngesterSpec struct {
 type AlertmanagerSpec struct {
 	//+kubebuilder:default="cortex-alertmanager:8080"
 	HTTPAddress string `json:"httpAddress,omitempty"`
+}
+
+type CompactorSpec struct {
+	//+kubebuilder:default="cortex-compactor:8080"
+	HTTPAddress string `json:"httpAddress,omitempty"`
+}
+
+type StoreGatewaySpec struct {
+	//+kubebuilder:default="cortex-store-gateway:8080"
+	HTTPAddress string `json:"httpAddress,omitempty"`
+	//+kubebuilder:default="cortex-store-gateway-headless:9095"
+	GRPCAddress string `json:"grpcAddress,omitempty"`
 }
 
 type RulerSpec struct {
@@ -202,6 +216,15 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	}
 	if s.Cortex.Alertmanager.HTTPAddress == "" {
 		s.Cortex.Alertmanager.HTTPAddress = "cortex-alertmanager:8080"
+	}
+	if s.Cortex.Compactor.HTTPAddress == "" {
+		s.Cortex.Compactor.HTTPAddress = "cortex-compactor:8080"
+	}
+	if s.Cortex.StoreGateway.HTTPAddress == "" {
+		s.Cortex.StoreGateway.HTTPAddress = "cortex-store-gateway:8080"
+	}
+	if s.Cortex.StoreGateway.GRPCAddress == "" {
+		s.Cortex.StoreGateway.GRPCAddress = "cortex-store-gateway-headless:9095"
 	}
 	if s.Cortex.Ruler.HTTPAddress == "" {
 		s.Cortex.Ruler.HTTPAddress = "cortex-ruler:8080"

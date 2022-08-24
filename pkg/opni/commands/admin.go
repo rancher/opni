@@ -26,6 +26,7 @@ func BuildAdminCmd() *cobra.Command {
 	cmd.AddCommand(BuildQueryRangeCmd())
 	cmd.AddCommand(BuildStorageInfoCmd())
 	cmd.AddCommand(BuildFlushBlocksCmd())
+	cmd.AddCommand(BuildCortexOpsCmd())
 	ConfigureManagementCommand(cmd)
 	return cmd
 }

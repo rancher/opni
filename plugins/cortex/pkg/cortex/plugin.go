@@ -26,10 +26,12 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
 )
 
 type Plugin struct {
 	cortexadmin.UnsafeCortexAdminServer
+	cortexops.UnsafeCortexOpsServer
 	capabilityv1.UnsafeBackendServer
 	system.UnimplementedSystemPluginClient
 	collector.CollectorServer
@@ -69,8 +71,10 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(gatewayext.GatewayAPIExtensionPluginID, gatewayext.NewPlugin(p))
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
-	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(util.PackService(&cortexadmin.CortexAdmin_ServiceDesc, p)))
+	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
+		util.PackService(&cortexadmin.CortexAdmin_ServiceDesc, p),
+		util.PackService(&cortexops.CortexOps_ServiceDesc, p),
+	))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))
 	return scheme

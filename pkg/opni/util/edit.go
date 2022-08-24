@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 )
@@ -68,7 +68,7 @@ func doEdit(
 	defer os.Remove(f.Name())
 	// set the GVK so it shows up in the encoded yaml
 	obj.GetObjectKind().SetGroupVersionKind(
-		v1beta1.GroupVersion.WithKind("OpniCluster"))
+		v1beta2.GroupVersion.WithKind("OpniCluster"))
 	s := json.NewSerializerWithOptions(json.DefaultMetaFactory, scheme, scheme,
 		json.SerializerOptions{
 			Yaml:   true,
@@ -105,7 +105,7 @@ func doEdit(
 	if err != nil {
 		return nil, err
 	}
-	gvk := v1beta1.GroupVersion.WithKind("OpniCluster")
+	gvk := v1beta2.GroupVersion.WithKind("OpniCluster")
 	_, _, err = s.Decode(newData, &gvk, obj)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrObjectDecodeFailed, err.Error())

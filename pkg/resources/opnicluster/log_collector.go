@@ -6,7 +6,7 @@ import (
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/filter"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/output"
-	"github.com/rancher/opni/apis/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -98,7 +98,7 @@ func (r *Reconciler) buildClusterOutput() *loggingv1beta1.ClusterOutput {
 		Spec: loggingv1beta1.ClusterOutputSpec{
 			OutputSpec: loggingv1beta1.OutputSpec{
 				HTTPOutput: &output.HTTPOutputConfig{
-					Endpoint:    fmt.Sprintf("http://%s.%s", v1beta1.PayloadReceiverService.ServiceName(), r.opniCluster.Namespace),
+					Endpoint:    fmt.Sprintf("http://%s.%s", v1beta2.PayloadReceiverService.ServiceName(), r.opniCluster.Namespace),
 					ContentType: "application/json",
 					JsonArray:   true,
 					Buffer: &output.Buffer{

@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.1-0.20220428122951-32ad71090a62
   creationTimestamp: null
-  name: opniclusters.opni.io
+  name: opniclusters.ai.opni.io
 spec:
-  group: opni.io
+  group: ai.opni.io
   names:
     kind: OpniCluster
     listKind: OpniClusterList
@@ -22,7 +22,7 @@ spec:
     - jsonPath: .status.state
       name: State
       type: boolean
-    name: v1beta2
+    name: v1beta1
     schema:
       openAPIV3Schema:
         properties:
@@ -58,53 +58,6 @@ spec:
                       type: string
                   type: object
                 type: array
-              nats:
-                properties:
-                  authMethod:
-                    default: username
-                    enum:
-                    - username
-                    - nkey
-                    type: string
-                  nodeSelector:
-                    additionalProperties:
-                      type: string
-                    type: object
-                  passwordFrom:
-                    properties:
-                      key:
-                        type: string
-                      name:
-                        type: string
-                      optional:
-                        type: boolean
-                    required:
-                    - key
-                    type: object
-                  replicas:
-                    format: int32
-                    type: integer
-                  tolerations:
-                    items:
-                      properties:
-                        effect:
-                          type: string
-                        key:
-                          type: string
-                        operator:
-                          type: string
-                        tolerationSeconds:
-                          format: int64
-                          type: integer
-                        value:
-                          type: string
-                      type: object
-                    type: array
-                  username:
-                    type: string
-                required:
-                - authMethod
-                type: object
               nulogHyperparameters:
                 additionalProperties:
                   anyOf:
@@ -2803,19 +2756,6 @@ spec:
                 properties:
                   generateOpensearchHash:
                     type: boolean
-                  nKeyUser:
-                    type: string
-                  natsAuthSecretKeyRef:
-                    properties:
-                      key:
-                        type: string
-                      name:
-                        type: string
-                      optional:
-                        type: boolean
-                    required:
-                    - key
-                    type: object
                   opensearchAuthSecretKeyRef:
                     properties:
                       key:
@@ -2858,9 +2798,6 @@ spec:
                 type: array
               logState:
                 type: string
-              natsReplicas:
-                format: int32
-                type: integer
               opensearchState:
                 properties:
                   indexState:

@@ -7,10 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/kralicky/highlander"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/apis/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
@@ -197,27 +195,11 @@ func BuildManagerCmd() *cobra.Command {
 			}
 		}
 
-		if err = (&v1beta2.OpniCluster{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "OpniCluster")
-			return err
-		}
 		if err = (&v1beta2.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
 			return err
 		}
-		if err = (&v1beta2.GpuPolicyAdapter{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "GpuPolicyAdapter")
-			return err
-		}
-		if err = (&v1beta2.PretrainedModel{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "PretrainedModel")
-			return err
-		}
 
-		if err := highlander.NewFor(&v1beta1.OpniCluster{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "OpniCluster")
-			return err
-		}
 		// +kubebuilder:scaffold:builder
 
 		if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {

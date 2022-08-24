@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.1-0.20220428122951-32ad71090a62
   creationTimestamp: null
-  name: logadapters.opni.io
+  name: logadapters.logging.opni.io
 spec:
-  group: opni.io
+  group: logging.opni.io
   names:
     kind: LogAdapter
     listKind: LogAdapterList
@@ -15,7 +15,7 @@ spec:
     singular: logadapter
   scope: Cluster
   versions:
-  - name: v1beta2
+  - name: v1beta1
     schema:
       openAPIV3Schema:
         properties:

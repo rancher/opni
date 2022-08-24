@@ -3,7 +3,7 @@ package crds
 import (
 	"context"
 
-	"github.com/rancher/opni/apis/v1beta2"
+	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -12,7 +12,7 @@ import (
 )
 
 func (c *CRDStore) CreateRole(ctx context.Context, role *corev1.Role) error {
-	return c.client.Create(ctx, &v1beta2.Role{
+	return c.client.Create(ctx, &monitoringv1beta1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      role.Id,
 			Namespace: c.namespace,
@@ -22,7 +22,7 @@ func (c *CRDStore) CreateRole(ctx context.Context, role *corev1.Role) error {
 }
 
 func (c *CRDStore) DeleteRole(ctx context.Context, ref *corev1.Reference) error {
-	return c.client.Delete(ctx, &v1beta2.Role{
+	return c.client.Delete(ctx, &monitoringv1beta1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
 			Namespace: c.namespace,
@@ -31,7 +31,7 @@ func (c *CRDStore) DeleteRole(ctx context.Context, ref *corev1.Reference) error 
 }
 
 func (c *CRDStore) GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.Role, error) {
-	role := &v1beta2.Role{}
+	role := &monitoringv1beta1.Role{}
 	err := c.client.Get(ctx, client.ObjectKey{
 		Name:      ref.Id,
 		Namespace: c.namespace,
@@ -46,7 +46,7 @@ func (c *CRDStore) GetRole(ctx context.Context, ref *corev1.Reference) (*corev1.
 }
 
 func (c *CRDStore) CreateRoleBinding(ctx context.Context, rb *corev1.RoleBinding) error {
-	return c.client.Create(ctx, &v1beta2.RoleBinding{
+	return c.client.Create(ctx, &monitoringv1beta1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rb.Id,
 			Namespace: c.namespace,
@@ -56,7 +56,7 @@ func (c *CRDStore) CreateRoleBinding(ctx context.Context, rb *corev1.RoleBinding
 }
 
 func (c *CRDStore) DeleteRoleBinding(ctx context.Context, ref *corev1.Reference) error {
-	return c.client.Delete(ctx, &v1beta2.RoleBinding{
+	return c.client.Delete(ctx, &monitoringv1beta1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
 			Namespace: c.namespace,
@@ -65,7 +65,7 @@ func (c *CRDStore) DeleteRoleBinding(ctx context.Context, ref *corev1.Reference)
 }
 
 func (c *CRDStore) GetRoleBinding(ctx context.Context, ref *corev1.Reference) (*corev1.RoleBinding, error) {
-	rb := &v1beta2.RoleBinding{}
+	rb := &monitoringv1beta1.RoleBinding{}
 	err := c.client.Get(ctx, client.ObjectKey{
 		Name:      ref.Id,
 		Namespace: c.namespace,
@@ -80,7 +80,7 @@ func (c *CRDStore) GetRoleBinding(ctx context.Context, ref *corev1.Reference) (*
 }
 
 func (c *CRDStore) ListRoles(ctx context.Context) (*corev1.RoleList, error) {
-	list := &v1beta2.RoleList{}
+	list := &monitoringv1beta1.RoleList{}
 	err := c.client.List(ctx, list, client.InNamespace(c.namespace))
 	if err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func (c *CRDStore) ListRoles(ctx context.Context) (*corev1.RoleList, error) {
 }
 
 func (c *CRDStore) ListRoleBindings(ctx context.Context) (*corev1.RoleBindingList, error) {
-	list := &v1beta2.RoleBindingList{}
+	list := &monitoringv1beta1.RoleBindingList{}
 	err := c.client.List(ctx, list, client.InNamespace(c.namespace))
 	if err != nil {
 		return nil, err

@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/rancher/opni/apis/v1beta2"
+	monitoringv1beta1 "github.com/rancher/opni/apis/monitoring/v1beta1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
@@ -31,7 +31,7 @@ var (
 
 func (c *CRDStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) error {
 	cluster.SetResourceVersion("")
-	return c.client.Create(ctx, &v1beta2.Cluster{
+	return c.client.Create(ctx, &monitoringv1beta1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cluster.Id,
 			Namespace: c.namespace,
@@ -42,7 +42,7 @@ func (c *CRDStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) e
 }
 
 func (c *CRDStore) DeleteCluster(ctx context.Context, ref *corev1.Reference) error {
-	return c.client.Delete(ctx, &v1beta2.Cluster{
+	return c.client.Delete(ctx, &monitoringv1beta1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ref.Id,
 			Namespace: c.namespace,
@@ -51,7 +51,7 @@ func (c *CRDStore) DeleteCluster(ctx context.Context, ref *corev1.Reference) err
 }
 
 func (c *CRDStore) GetCluster(ctx context.Context, ref *corev1.Reference) (*corev1.Cluster, error) {
-	cluster := &v1beta2.Cluster{}
+	cluster := &monitoringv1beta1.Cluster{}
 	err := c.client.Get(ctx, client.ObjectKey{
 		Name:      ref.Id,
 		Namespace: c.namespace,
@@ -68,7 +68,7 @@ func (c *CRDStore) GetCluster(ctx context.Context, ref *corev1.Reference) (*core
 
 func (c *CRDStore) UpdateCluster(ctx context.Context, ref *corev1.Reference, mutator storage.MutatorFunc[*corev1.Cluster]) (*corev1.Cluster, error) {
 	err := retry.OnError(defaultBackoff, k8serrors.IsConflict, func() error {
-		existing := &v1beta2.Cluster{}
+		existing := &monitoringv1beta1.Cluster{}
 		err := c.client.Get(ctx, client.ObjectKey{
 			Name:      ref.Id,
 			Namespace: c.namespace,
@@ -91,7 +91,7 @@ func (c *CRDStore) UpdateCluster(ctx context.Context, ref *corev1.Reference, mut
 }
 
 func (c *CRDStore) ListClusters(ctx context.Context, matchLabels *corev1.LabelSelector, matchOptions corev1.MatchOptions) (*corev1.ClusterList, error) {
-	list := &v1beta2.ClusterList{}
+	list := &monitoringv1beta1.ClusterList{}
 	err := c.client.List(ctx, list, client.InNamespace(c.namespace))
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func (c *CRDStore) WatchCluster(
 	ctx context.Context,
 	ref *corev1.Cluster,
 ) (<-chan storage.WatchEvent[*corev1.Cluster], error) {
-	watcher, err := c.client.Watch(ctx, &v1beta2.ClusterList{}, &client.ListOptions{
+	watcher, err := c.client.Watch(ctx, &monitoringv1beta1.ClusterList{}, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", ref.Id),
 	})
 	if err != nil {
@@ -133,9 +133,9 @@ func (c *CRDStore) WatchCluster(
 		for event := range watcher.ResultChan() {
 			switch event.Type {
 			case watch.Added:
-				existing = util.ProtoClone(event.Object.(*v1beta2.Cluster).Spec)
+				existing = util.ProtoClone(event.Object.(*monitoringv1beta1.Cluster).Spec)
 			case watch.Modified:
-				current := util.ProtoClone(event.Object.(*v1beta2.Cluster).Spec)
+				current := util.ProtoClone(event.Object.(*monitoringv1beta1.Cluster).Spec)
 				eventC <- storage.WatchEvent[*corev1.Cluster]{
 					EventType: storage.WatchEventPut,
 					Current:   util.ProtoClone(current),

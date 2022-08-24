@@ -1,0 +1,33 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops";
+
+import "google/protobuf/empty.proto";
+import "github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops/status.proto";
+
+package cortexops;
+
+service CortexOps {
+  rpc GetClusterStatus(google.protobuf.Empty) returns (ClusterStatus);
+}
+
+enum InstallState {
+  Unknown = 0;
+  NotInstalled = 1;
+  Installed = 2;
+}
+
+message InstallMetadata {
+  string cortexVersion = 1;
+  string revision = 2;
+  string environment = 3;
+  string manager = 4;
+}
+
+message ClusterStatus {
+  InstallState installState = 1;
+  InstallMetadata installMetadata = 2;
+  CortexServicesStatus cortexServices = 3;
+  string configYaml = 4;
+  string configDiffYaml = 5;
+  string runtimeConfigDiffYaml = 6;
+}

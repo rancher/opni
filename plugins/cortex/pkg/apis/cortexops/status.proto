@@ -1,0 +1,96 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops";
+
+package cortexops;
+
+message CortexServicesStatus {
+  DistributorStatus distributor = 1;
+  IngesterStatus ingester = 2;
+  RulerStatus ruler = 3;
+  PurgerStatus purger = 4;
+  CompactorStatus compactor = 5;
+  StoreGatewayStatus storeGateway = 6;
+  QuerierStatus querier = 7;
+}
+
+// Status of an individual cortex service (module)
+message ServiceStatus {
+  string name = 1;
+  string status = 2;
+}
+
+message ServiceStatusList {
+  repeated ServiceStatus services = 1; // field name matches cortex
+}
+
+// Status of a single shard in a ring
+message ShardStatus {
+  string id = 1;
+  string state = 2;
+  string address = 3;
+  string timestamp = 4;
+  string registeredTimestamp = 5;
+  string zone = 6;
+}
+
+message ShardStatusList {
+  repeated ShardStatus shards = 1; // field name matches cortex
+}
+
+// Status of a single member of a memberlist
+message MemberStatus {
+  string name = 1;
+  string address = 2;
+  uint32 port = 3;
+  int32 state = 4;
+}
+
+message MemberStatusList {
+  repeated MemberStatus items = 1;
+}
+
+message MemberlistStatus {
+  // The status of each member in the memberlist
+  MemberStatusList members = 2;
+  // A list of keys in the key-value store used by the memberlist
+  repeated string keys = 3;
+}
+
+// Cortex services
+
+message DistributorStatus {
+  ServiceStatusList services = 1;
+  ShardStatusList ingesterRing = 2;
+}
+
+message IngesterStatus {
+  ServiceStatusList services = 1;
+  MemberlistStatus memberlist = 2;
+}
+
+message RulerStatus {
+  ServiceStatusList services = 1;
+  MemberlistStatus memberlist = 2;
+  ShardStatusList ring = 3;
+}
+
+message PurgerStatus {
+  ServiceStatusList services = 1;
+}
+
+message CompactorStatus {
+  ServiceStatusList services = 1;
+  MemberlistStatus memberlist = 2;
+  ShardStatusList ring = 3;
+}
+
+message StoreGatewayStatus {
+  ServiceStatusList services = 1;
+  MemberlistStatus memberlist = 2;
+  ShardStatusList ring = 3;
+}
+
+message QuerierStatus {
+  ServiceStatusList services = 1;
+  MemberlistStatus memberlist = 2;
+}

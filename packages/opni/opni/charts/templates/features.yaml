@@ -10,4 +10,4 @@ data:
       enabled: false
     tracing:
       description: Trace collection feature
-      enabled: false
+      enabled: true

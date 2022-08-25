@@ -3,9 +3,7 @@ package cortex
 import (
 	"context"
 	"crypto/tls"
-	"net/http"
 
-	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
 	"go.uber.org/zap"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -40,9 +38,8 @@ type Plugin struct {
 	authMiddlewares     future.Future[map[string]auth.Middleware]
 	mgmtApi             future.Future[managementv1.ManagementClient]
 	storageBackend      future.Future[storage.Backend]
-	distributorClient   future.Future[distributorpb.DistributorClient]
-	cortexHttpClient    future.Future[*http.Client]
 	cortexTlsConfig     future.Future[*tls.Config]
+	cortexClientSet     future.Future[ClientSet]
 	uninstallController future.Future[*task.Controller]
 	logger              *zap.SugaredLogger
 }
@@ -55,9 +52,8 @@ func NewPlugin(ctx context.Context) *Plugin {
 		authMiddlewares:     future.New[map[string]auth.Middleware](),
 		mgmtApi:             future.New[managementv1.ManagementClient](),
 		storageBackend:      future.New[storage.Backend](),
-		distributorClient:   future.New[distributorpb.DistributorClient](),
-		cortexHttpClient:    future.New[*http.Client](),
 		cortexTlsConfig:     future.New[*tls.Config](),
+		cortexClientSet:     future.New[ClientSet](),
 		uninstallController: future.New[*task.Controller](),
 		logger:              logger.NewPluginLogger().Named("cortex"),
 	}

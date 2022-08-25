@@ -94,6 +94,7 @@ type CortexSpec struct {
 	StoreGateway  StoreGatewaySpec  `json:"storeGateway,omitempty"`
 	Ruler         RulerSpec         `json:"ruler,omitempty"`
 	QueryFrontend QueryFrontendSpec `json:"queryFrontend,omitempty"`
+	Querier       QuerierSpec       `json:"querier,omitempty"`
 	Purger        PurgerSpec        `json:"purger,omitempty"`
 	Certs         MTLSSpec          `json:"certs,omitempty"`
 }
@@ -132,6 +133,8 @@ type StoreGatewaySpec struct {
 type RulerSpec struct {
 	// +kubebuilder:default="cortex-ruler:8080"
 	HTTPAddress string `json:"httpAddress,omitempty"`
+	// +kubebuilder:default="cortex-ruler-headless:9095"
+	GRPCAddress string `json:"grpcAddress,omitempty"`
 }
 
 type QueryFrontendSpec struct {
@@ -139,6 +142,11 @@ type QueryFrontendSpec struct {
 	HTTPAddress string `json:"httpAddress,omitempty"`
 	// +kubebuilder:default="cortex-query-frontend-headless:9095"
 	GRPCAddress string `json:"grpcAddress,omitempty"`
+}
+
+type QuerierSpec struct {
+	// +kubebuilder:default="cortex-querier:8080"
+	HTTPAddress string `json:"httpAddress,omitempty"`
 }
 
 type PurgerSpec struct {
@@ -229,11 +237,17 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	if s.Cortex.Ruler.HTTPAddress == "" {
 		s.Cortex.Ruler.HTTPAddress = "cortex-ruler:8080"
 	}
+	if s.Cortex.Ruler.GRPCAddress == "" {
+		s.Cortex.Ruler.GRPCAddress = "cortex-ruler-headless:9095"
+	}
 	if s.Cortex.QueryFrontend.HTTPAddress == "" {
 		s.Cortex.QueryFrontend.HTTPAddress = "cortex-query-frontend:8080"
 	}
 	if s.Cortex.QueryFrontend.GRPCAddress == "" {
 		s.Cortex.QueryFrontend.GRPCAddress = "cortex-query-frontend-headless:9095"
+	}
+	if s.Cortex.Querier.HTTPAddress == "" {
+		s.Cortex.Querier.HTTPAddress = "cortex-querier:8080"
 	}
 	if s.Cortex.Purger.HTTPAddress == "" {
 		s.Cortex.Purger.HTTPAddress = "cortex-purger:8080"

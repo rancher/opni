@@ -10,7 +10,8 @@ message CortexServicesStatus {
   PurgerStatus purger = 4;
   CompactorStatus compactor = 5;
   StoreGatewayStatus storeGateway = 6;
-  QuerierStatus querier = 7;
+  QueryFrontendStatus queryFrontend = 7;
+  QuerierStatus querier = 8;
 }
 
 // Status of an individual cortex service (module)
@@ -50,28 +51,36 @@ message MemberStatusList {
 }
 
 message MemberlistStatus {
+  // Whether the service is currently using a memberlist
+  bool enabled = 1;
   // The status of each member in the memberlist
   MemberStatusList members = 2;
   // A list of keys in the key-value store used by the memberlist
   repeated string keys = 3;
 }
 
+message RingStatus {
+  bool enabled = 1;
+  ShardStatusList shards = 2;
+}
+
 // Cortex services
 
 message DistributorStatus {
   ServiceStatusList services = 1;
-  ShardStatusList ingesterRing = 2;
+  RingStatus ingesterRing = 2;
 }
 
 message IngesterStatus {
   ServiceStatusList services = 1;
   MemberlistStatus memberlist = 2;
+  RingStatus ring = 3;
 }
 
 message RulerStatus {
   ServiceStatusList services = 1;
   MemberlistStatus memberlist = 2;
-  ShardStatusList ring = 3;
+  RingStatus ring = 3;
 }
 
 message PurgerStatus {
@@ -81,13 +90,17 @@ message PurgerStatus {
 message CompactorStatus {
   ServiceStatusList services = 1;
   MemberlistStatus memberlist = 2;
-  ShardStatusList ring = 3;
+  RingStatus ring = 3;
 }
 
 message StoreGatewayStatus {
   ServiceStatusList services = 1;
   MemberlistStatus memberlist = 2;
-  ShardStatusList ring = 3;
+  RingStatus ring = 3;
+}
+
+message QueryFrontendStatus {
+  ServiceStatusList services = 1;
 }
 
 message QuerierStatus {

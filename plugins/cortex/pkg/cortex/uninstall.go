@@ -25,9 +25,9 @@ import (
 
 type UninstallTaskRunner struct {
 	uninstall.DefaultPendingHandler
-	cortexHttpClient future.Future[*http.Client]
-	config           future.Future[*v1beta1.GatewayConfig]
-	storageBackend   future.Future[storage.Backend]
+	cortexClientSet future.Future[ClientSet]
+	config          future.Future[*v1beta1.GatewayConfig]
+	storageBackend  future.Future[storage.Backend]
 }
 
 func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveTask) error {
@@ -114,7 +114,7 @@ func (a *UninstallTaskRunner) deleteTenant(ctx context.Context, clusterId string
 		return err
 	}
 	deleteReq.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{clusterId}))
-	resp, err := a.cortexHttpClient.Get().Do(deleteReq)
+	resp, err := a.cortexClientSet.Get().HTTP().Do(deleteReq)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (a *UninstallTaskRunner) tenantDeleteStatus(ctx context.Context, clusterId 
 		return nil, err
 	}
 	statusReq.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{clusterId}))
-	resp, err := a.cortexHttpClient.Get().Do(statusReq)
+	resp, err := a.cortexClientSet.Get().HTTP().Do(statusReq)
 	if err != nil {
 		return nil, err
 	}

@@ -16,6 +16,7 @@ func BuildCortexOpsCmd() *cobra.Command {
 		Short: "Cortex cluster setup and configuration",
 	}
 	cmd.AddCommand(BuildClusterStatusCmd())
+	cmd.AddCommand(BuildClusterConfigCmd())
 	return cmd
 }
 
@@ -34,5 +35,35 @@ func BuildClusterStatusCmd() *cobra.Command {
 			return nil
 		},
 	}
+	return cmd
+}
+
+func BuildClusterConfigCmd() *cobra.Command {
+	var mode string
+	cmd := &cobra.Command{
+		Use:   "cluster-config",
+		Short: "Show cortex configuration",
+		Long: `
+Modes:
+(empty)    - show current configuration
+"diff"     - show only values that differ from the defaults
+"defaults" - show only the default values
+`[1:],
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cc := managementv1.UnderlyingConn(mgmtClient)
+			opsclient := cortexops.NewCortexOpsClient(cc)
+			resp, err := opsclient.GetClusterConfig(cmd.Context(), &cortexops.ClusterConfigRequest{
+				ConfigModes: []string{mode},
+			})
+			if err != nil {
+				return err
+			}
+			for _, config := range resp.ConfigYaml {
+				fmt.Println(config)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mode, "mode", "", "config mode")
 	return cmd
 }

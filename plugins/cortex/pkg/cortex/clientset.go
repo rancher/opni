@@ -1,16 +1,21 @@
 package cortex
 
 import (
+	"bytes"
+	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
-	ingesterclient "github.com/cortexproject/cortex/pkg/ingester/client"
 	"github.com/cortexproject/cortex/pkg/ruler"
 	"github.com/hashicorp/memberlist"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
@@ -23,50 +28,96 @@ type ClientSet interface {
 	Purger() PurgerClient
 	Compactor() CompactorClient
 	StoreGateway() StoreGatewayClient
-	QueryFrontend() QuerierClient
+	QueryFrontend() QueryFrontendClient
+	Querier() QuerierClient
+	HTTP() *http.Client
 }
 
 type DistributorClient interface {
 	distributorpb.DistributorClient
-	Status() (*cortexops.DistributorStatus, error)
+	ConfigClient
+	Status(ctx context.Context) (*cortexops.DistributorStatus, error)
 }
 
 type IngesterClient interface {
-	ingesterclient.IngesterClient
-	Status() (*cortexops.IngesterStatus, error)
+	Status(ctx context.Context) (*cortexops.IngesterStatus, error)
+}
+
+type ConfigMode string
+
+const (
+	Diff     ConfigMode = "diff"
+	Defaults ConfigMode = "defaults"
+)
+
+type ConfigClient interface {
+	Config(ctx context.Context, mode ...ConfigMode) (string, error)
+}
+
+type configClient struct {
+	url        string
+	httpClient *http.Client
+}
+
+func (c *configClient) Config(ctx context.Context, mode ...ConfigMode) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/config", c.url), nil)
+	if err != nil {
+		return "", err
+	}
+	if len(mode) > 0 {
+		req.URL.RawQuery = "mode=" + string(mode[0])
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to get config: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status: %s (request: %s)", resp.Status, req.URL.String())
+	}
+	buf := new(bytes.Buffer)
+	_, err = buf.ReadFrom(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read config: %w", err)
+	}
+	return buf.String(), nil
 }
 
 type RulerClient interface {
 	ruler.RulerClient
-	Status() (*cortexops.RulerStatus, error)
+	Status(ctx context.Context) (*cortexops.RulerStatus, error)
 }
 
 type PurgerClient interface {
-	Status() (*cortexops.PurgerStatus, error)
+	Status(ctx context.Context) (*cortexops.PurgerStatus, error)
 }
 
 type CompactorClient interface {
-	Status() (*cortexops.CompactorStatus, error)
+	Status(ctx context.Context) (*cortexops.CompactorStatus, error)
 }
 
 type StoreGatewayClient interface {
-	Status() (*cortexops.StoreGatewayStatus, error)
+	Status(ctx context.Context) (*cortexops.StoreGatewayStatus, error)
 }
 
 type QuerierClient interface {
-	Status() (*cortexops.QuerierStatus, error)
+	Status(ctx context.Context) (*cortexops.QuerierStatus, error)
+}
+
+type QueryFrontendClient interface {
+	Status(ctx context.Context) (*cortexops.QueryFrontendStatus, error)
 }
 
 type ServicesStatusClient interface {
-	ServicesStatus() (*cortexops.ServiceStatusList, error)
+	ServicesStatus(ctx context.Context) (*cortexops.ServiceStatusList, error)
 }
 
 type MemberlistStatusClient interface {
-	MemberlistStatus() (*cortexops.MemberlistStatus, error)
+	MemberlistStatus(ctx context.Context) (*cortexops.MemberlistStatus, error)
 }
 
 type RingStatusClient interface {
-	RingStatus() (*cortexops.ShardStatusList, error)
+	RingStatus(ctx context.Context) (*cortexops.RingStatus, error)
 }
 
 type servicesStatusClient struct {
@@ -74,22 +125,23 @@ type servicesStatusClient struct {
 	httpClient *http.Client
 }
 
-func (c *servicesStatusClient) ServicesStatus() (*cortexops.ServiceStatusList, error) {
-	req, err := http.NewRequest(http.MethodGet, c.url+"/services", nil)
+func (c *servicesStatusClient) ServicesStatus(ctx context.Context) (*cortexops.ServiceStatusList, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/services", c.url), nil)
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("Accept", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get services status: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+		return nil, fmt.Errorf("unexpected status: %s (request: %s)", resp.Status, req.URL.String())
 	}
 	list := &cortexops.ServiceStatusList{}
 	if err := json.NewDecoder(resp.Body).Decode(list); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode services status: %w", err)
 	}
 	return list, nil
 }
@@ -104,22 +156,34 @@ type memberlistResponse struct {
 	Keys    map[string]struct{} `json:"Store"`
 }
 
-func (c *memberlistStatusClient) MemberlistStatus() (*cortexops.MemberlistStatus, error) {
-	req, err := http.NewRequest(http.MethodGet, c.url+"/memberlist", nil)
+func (c *memberlistStatusClient) MemberlistStatus(ctx context.Context) (*cortexops.MemberlistStatus, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/memberlist", c.url), nil)
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("Accept", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get memberlist status: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+		return nil, fmt.Errorf("unexpected status: %s (request: %s)", resp.Status, req.URL.String())
+	}
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(resp.Body)
+		if buf.String() == "This instance doesn't use memberlist." {
+			return &cortexops.MemberlistStatus{
+				Enabled: false,
+			}, nil
+		}
+		return nil, fmt.Errorf("unexpected content-type received from server: %s", contentType)
 	}
 	var mr memberlistResponse
 	if err := json.NewDecoder(resp.Body).Decode(&mr); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode memberlist status: %w", err)
 	}
 	var memberStatusItems []*cortexops.MemberStatus
 	for _, member := range mr.Members {
@@ -143,38 +207,48 @@ type ringStatusClient struct {
 	httpClient *http.Client
 }
 
-func (c *ringStatusClient) RingStatus() (*cortexops.ShardStatusList, error) {
-	req, err := http.NewRequest(http.MethodGet, c.url+"/ring", nil)
+func (c *ringStatusClient) RingStatus(ctx context.Context) (*cortexops.RingStatus, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/ring", c.url), nil)
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("Accept", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get ring status: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+		return nil, fmt.Errorf("unexpected status: %s (request: %s)", resp.Status, req.URL.String())
+	}
+	if resp.Header.Get("Content-Type") != "application/json" {
+		return &cortexops.RingStatus{
+			Enabled: false,
+		}, nil
 	}
 	list := &cortexops.ShardStatusList{}
 	if err := json.NewDecoder(resp.Body).Decode(list); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode ring status: %w", err)
 	}
-	return list, nil
+	return &cortexops.RingStatus{
+		Enabled: true,
+		Shards:  list,
+	}, nil
 }
 
 type distributorClient struct {
 	distributorpb.DistributorClient
+	ConfigClient
 	ServicesStatusClient
 	RingStatusClient
 }
 
-func (c *distributorClient) Status() (*cortexops.DistributorStatus, error) {
-	servicesStatus, err := c.ServicesStatus()
+func (c *distributorClient) Status(ctx context.Context) (*cortexops.DistributorStatus, error) {
+	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	ringStatus, err := c.RingStatus()
+	ringStatus, err := c.RingStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -185,23 +259,28 @@ func (c *distributorClient) Status() (*cortexops.DistributorStatus, error) {
 }
 
 type ingesterClient struct {
-	ingesterclient.IngesterClient
 	ServicesStatusClient
 	MemberlistStatusClient
+	RingStatusClient
 }
 
-func (c *ingesterClient) Status() (*cortexops.IngesterStatus, error) {
-	servicesStatus, err := c.ServicesStatus()
+func (c *ingesterClient) Status(ctx context.Context) (*cortexops.IngesterStatus, error) {
+	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	memberlistStatus, err := c.MemberlistStatus()
+	memberlistStatus, err := c.MemberlistStatus(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ringStatus, err := c.RingStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &cortexops.IngesterStatus{
 		Services:   servicesStatus,
 		Memberlist: memberlistStatus,
+		Ring:       ringStatus,
 	}, nil
 }
 
@@ -212,16 +291,16 @@ type rulerClient struct {
 	RingStatusClient
 }
 
-func (c *rulerClient) Status() (*cortexops.RulerStatus, error) {
-	servicesStatus, err := c.ServicesStatus()
+func (c *rulerClient) Status(ctx context.Context) (*cortexops.RulerStatus, error) {
+	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	memberlistStatus, err := c.MemberlistStatus()
+	memberlistStatus, err := c.MemberlistStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	ringStatus, err := c.RingStatus()
+	ringStatus, err := c.RingStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -236,8 +315,8 @@ type purgerClient struct {
 	ServicesStatusClient
 }
 
-func (c *purgerClient) Status() (*cortexops.PurgerStatus, error) {
-	servicesStatus, err := c.ServicesStatus()
+func (c *purgerClient) Status(ctx context.Context) (*cortexops.PurgerStatus, error) {
+	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -252,16 +331,16 @@ type compactorClient struct {
 	RingStatusClient
 }
 
-func (c *compactorClient) Status() (*cortexops.CompactorStatus, error) {
-	servicesStatus, err := c.ServicesStatus()
+func (c *compactorClient) Status(ctx context.Context) (*cortexops.CompactorStatus, error) {
+	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	memberlistStatus, err := c.MemberlistStatus()
+	memberlistStatus, err := c.MemberlistStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	ringStatus, err := c.RingStatus()
+	ringStatus, err := c.RingStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -278,16 +357,16 @@ type storeGatewayClient struct {
 	RingStatusClient
 }
 
-func (c *storeGatewayClient) Status() (*cortexops.StoreGatewayStatus, error) {
-	servicesStatus, err := c.ServicesStatus()
+func (c *storeGatewayClient) Status(ctx context.Context) (*cortexops.StoreGatewayStatus, error) {
+	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	memberlistStatus, err := c.MemberlistStatus()
+	memberlistStatus, err := c.MemberlistStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	ringStatus, err := c.RingStatus()
+	ringStatus, err := c.RingStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -303,18 +382,32 @@ type querierClient struct {
 	MemberlistStatusClient
 }
 
-func (c *querierClient) Status() (*cortexops.QuerierStatus, error) {
-	servicesStatus, err := c.ServicesStatus()
+func (c *querierClient) Status(ctx context.Context) (*cortexops.QuerierStatus, error) {
+	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	memberlistStatus, err := c.MemberlistStatus()
+	memberlistStatus, err := c.MemberlistStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &cortexops.QuerierStatus{
 		Services:   servicesStatus,
 		Memberlist: memberlistStatus,
+	}, nil
+}
+
+type queryFrontendClient struct {
+	ServicesStatusClient
+}
+
+func (c *queryFrontendClient) Status(ctx context.Context) (*cortexops.QueryFrontendStatus, error) {
+	servicesStatus, err := c.ServicesStatus(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &cortexops.QueryFrontendStatus{
+		Services: servicesStatus,
 	}, nil
 }
 
@@ -325,7 +418,9 @@ type clientSet struct {
 	*purgerClient
 	*compactorClient
 	*storeGatewayClient
+	*queryFrontendClient
 	*querierClient
+	*http.Client
 }
 
 func (c *clientSet) Distributor() DistributorClient {
@@ -352,26 +447,66 @@ func (c *clientSet) StoreGateway() StoreGatewayClient {
 	return c.storeGatewayClient
 }
 
-func (c *clientSet) QueryFrontend() QuerierClient {
+func (c *clientSet) QueryFrontend() QueryFrontendClient {
+	return c.queryFrontendClient
+}
+
+func (c *clientSet) Querier() QuerierClient {
 	return c.querierClient
 }
 
-func NewClientSet(httpClient *http.Client, grpcClient *grpc.ClientConn, cortexSpec *v1beta1.CortexSpec) ClientSet {
+func (c *clientSet) HTTP() *http.Client {
+	return c.Client
+}
+
+func NewClientSet(ctx context.Context, cortexSpec *v1beta1.CortexSpec, tlsConfig *tls.Config) (ClientSet, error) {
+	distributorCC, err := grpc.DialContext(ctx, cortexSpec.Distributor.GRPCAddress,
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
+		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	rulerCC, err := grpc.DialContext(ctx, cortexSpec.Ruler.GRPCAddress,
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
+		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		<-ctx.Done()
+		distributorCC.Close()
+		rulerCC.Close()
+	}()
+
+	httpClient := &http.Client{
+		Transport: otelhttp.NewTransport(&http.Transport{
+			TLSClientConfig: tlsConfig,
+		}),
+	}
 
 	return &clientSet{
 		distributorClient: &distributorClient{
-			DistributorClient: distributorpb.NewDistributorClient(grpcClient),
+			ConfigClient: &configClient{
+				url:        cortexSpec.Distributor.HTTPAddress,
+				httpClient: httpClient,
+			},
+			DistributorClient: distributorpb.NewDistributorClient(distributorCC),
 			ServicesStatusClient: &servicesStatusClient{
 				url:        cortexSpec.Distributor.HTTPAddress,
 				httpClient: httpClient,
 			},
 			RingStatusClient: &ringStatusClient{
-				url:        cortexSpec.Distributor.HTTPAddress,
+				url:        cortexSpec.Distributor.HTTPAddress + "/distributor",
 				httpClient: httpClient,
 			},
 		},
 		ingesterClient: &ingesterClient{
-			IngesterClient: ingesterclient.NewIngesterClient(grpcClient),
 			ServicesStatusClient: &servicesStatusClient{
 				url:        cortexSpec.Ingester.HTTPAddress,
 				httpClient: httpClient,
@@ -380,9 +515,13 @@ func NewClientSet(httpClient *http.Client, grpcClient *grpc.ClientConn, cortexSp
 				url:        cortexSpec.Ingester.HTTPAddress,
 				httpClient: httpClient,
 			},
+			RingStatusClient: &ringStatusClient{
+				url:        cortexSpec.Distributor.HTTPAddress + "/ingester",
+				httpClient: httpClient,
+			},
 		},
 		rulerClient: &rulerClient{
-			RulerClient: ruler.NewRulerClient(grpcClient),
+			RulerClient: ruler.NewRulerClient(rulerCC),
 			ServicesStatusClient: &servicesStatusClient{
 				url:        cortexSpec.Ruler.HTTPAddress,
 				httpClient: httpClient,
@@ -412,7 +551,7 @@ func NewClientSet(httpClient *http.Client, grpcClient *grpc.ClientConn, cortexSp
 				httpClient: httpClient,
 			},
 			RingStatusClient: &ringStatusClient{
-				url:        cortexSpec.Compactor.HTTPAddress,
+				url:        cortexSpec.Compactor.HTTPAddress + "/compactor",
 				httpClient: httpClient,
 			},
 		},
@@ -426,7 +565,13 @@ func NewClientSet(httpClient *http.Client, grpcClient *grpc.ClientConn, cortexSp
 				httpClient: httpClient,
 			},
 			RingStatusClient: &ringStatusClient{
-				url:        cortexSpec.StoreGateway.HTTPAddress,
+				url:        cortexSpec.StoreGateway.HTTPAddress + "/store-gateway",
+				httpClient: httpClient,
+			},
+		},
+		queryFrontendClient: &queryFrontendClient{
+			ServicesStatusClient: &servicesStatusClient{
+				url:        cortexSpec.QueryFrontend.HTTPAddress,
 				httpClient: httpClient,
 			},
 		},
@@ -436,9 +581,10 @@ func NewClientSet(httpClient *http.Client, grpcClient *grpc.ClientConn, cortexSp
 				httpClient: httpClient,
 			},
 			MemberlistStatusClient: &memberlistStatusClient{
-				url:        cortexSpec.QueryFrontend.HTTPAddress,
+				url:        cortexSpec.Querier.HTTPAddress,
 				httpClient: httpClient,
 			},
 		},
-	}
+		Client: httpClient,
+	}, nil
 }

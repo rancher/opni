@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
-	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
 	"github.com/golang/snappy"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/util/future"
@@ -21,10 +20,9 @@ import (
 
 type remoteWriteForwarder struct {
 	remotewrite.UnsafeRemoteWriteServer
-	distClient future.Future[distributorpb.DistributorClient]
-	httpClient future.Future[*http.Client]
-	config     future.Future[*v1beta1.GatewayConfig]
-	logger     *zap.SugaredLogger
+	client future.Future[ClientSet]
+	config future.Future[*v1beta1.GatewayConfig]
+	logger *zap.SugaredLogger
 }
 
 func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, pushErr error) {
@@ -48,7 +46,7 @@ func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid org id: %v", err)
 	}
-	_, err = f.distClient.Get().Push(ctx, writeReq)
+	_, err = f.client.Get().Distributor().Push(ctx, writeReq)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +75,7 @@ func (f *remoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewri
 	for k, v := range payload.Headers {
 		req.Header.Add(k, v)
 	}
-	resp, err := f.httpClient.Get().Do(req)
+	resp, err := f.client.Get().HTTP().Do(req)
 	if err != nil {
 		return nil, err
 	}

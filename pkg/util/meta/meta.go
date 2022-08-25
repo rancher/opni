@@ -47,6 +47,13 @@ func (s ImageSpec) GetImage() string {
 	return *s.Image
 }
 
+func (s *ImageSpec) GetImageWithDefault(def string) string {
+	if s == nil || s.Image == nil {
+		return def
+	}
+	return *s.Image
+}
+
 type ImageResolver struct {
 	Version             string
 	ImageName           string

@@ -7,7 +7,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -21,18 +20,23 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	publicSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "opni-monitoring",
-			Namespace:   r.gw.Namespace,
+			Namespace:   r.namespace,
 			Labels:      publicSvcLabels,
-			Annotations: r.gw.Spec.ServiceAnnotations,
+			Annotations: r.spec.ServiceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     r.gw.Spec.ServiceType,
+			Type:     r.spec.ServiceType,
 			Selector: resources.NewGatewayLabels(),
 			Ports:    servicePorts(publicPorts),
 		},
 	}
 
-	r.gw.Status.ServiceName = publicSvc.Name
+	if r.gw != nil {
+		r.gw.Status.ServiceName = publicSvc.Name
+	}
+	if r.coreGW != nil {
+		r.coreGW.Status.ServiceName = publicSvc.Name
+	}
 
 	internalPorts, err := r.managementContainerPorts()
 	if err != nil {
@@ -43,7 +47,7 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	internalSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring-internal",
-			Namespace: r.gw.Namespace,
+			Namespace: r.namespace,
 			Labels:    internalSvcLabels,
 		},
 		Spec: corev1.ServiceSpec{
@@ -52,8 +56,8 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 			Ports:    servicePorts(internalPorts),
 		},
 	}
-	ctrl.SetControllerReference(r.gw, publicSvc, r.client.Scheme())
-	ctrl.SetControllerReference(r.gw, internalSvc, r.client.Scheme())
+	r.setOwner(publicSvc)
+	r.setOwner(internalSvc)
 	return []resources.Resource{
 		resources.Present(publicSvc),
 		resources.Present(internalSvc),
@@ -64,7 +68,7 @@ func (r *Reconciler) waitForLoadBalancer() util.RequeueOp {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
-			Namespace: r.gw.Namespace,
+			Namespace: r.namespace,
 		},
 	}
 	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(svc), svc); err != nil {
@@ -73,11 +77,22 @@ func (r *Reconciler) waitForLoadBalancer() util.RequeueOp {
 	if len(svc.Status.LoadBalancer.Ingress) == 0 {
 		return util.Requeue()
 	}
-	r.gw.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
 
-	if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
-		return util.RequeueErr(err)
+	if r.gw != nil {
+		r.gw.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
+
+		if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
+			return util.RequeueErr(err)
+		}
 	}
+	if r.coreGW != nil {
+		r.coreGW.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
+
+		if err := r.client.Status().Update(r.ctx, r.coreGW); err != nil {
+			return util.RequeueErr(err)
+		}
+	}
+
 	return util.DoNotRequeue()
 }
 
@@ -85,7 +100,7 @@ func (r *Reconciler) waitForServiceEndpoints() util.RequeueOp {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
-			Namespace: r.gw.Namespace,
+			Namespace: r.namespace,
 		},
 	}
 	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(svc), svc); err != nil {
@@ -106,9 +121,19 @@ func (r *Reconciler) waitForServiceEndpoints() util.RequeueOp {
 		}
 		return util.RequeueAfter(1 * time.Second)
 	}
-	r.gw.Status.Endpoints = addresses
-	if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
-		return util.RequeueErr(err)
+
+	if r.gw != nil {
+		r.gw.Status.Endpoints = addresses
+		if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
+			return util.RequeueErr(err)
+		}
 	}
+	if r.coreGW != nil {
+		r.coreGW.Status.Endpoints = addresses
+		if err := r.client.Status().Update(r.ctx, r.coreGW); err != nil {
+			return util.RequeueErr(err)
+		}
+	}
+
 	return util.DoNotRequeue()
 }

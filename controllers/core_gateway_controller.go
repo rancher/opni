@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/rancher/opni/apis/v1beta2"
+	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/resources/gateway"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,15 +28,15 @@ import (
 // +kubebuilder:rbac:groups=cert-manager.io,resources=clusterissuers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 
-type GatewayReconciler struct {
+type CoreGatewayReconciler struct {
 	client.Client
 	scheme *runtime.Scheme
 	logger logr.Logger
 }
 
-func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *CoreGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := r.logger
-	mc := &v1beta2.Gateway{}
+	mc := &corev1beta1.Gateway{}
 	err := r.Get(ctx, req.NamespacedName, mc)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -59,12 +59,12 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CoreGatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.logger = mgr.GetLogger().WithName("gateway")
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta2.Gateway{}).
+		For(&corev1beta1.Gateway{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).

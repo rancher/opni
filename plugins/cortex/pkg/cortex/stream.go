@@ -11,10 +11,9 @@ func (p *Plugin) StreamServers() []streamext.Server {
 		{
 			Desc: &remotewrite.RemoteWrite_ServiceDesc,
 			Impl: &remoteWriteForwarder{
-				distClient: p.distributorClient,
-				httpClient: p.cortexHttpClient,
-				config:     p.config,
-				logger:     p.logger,
+				client: p.cortexClientSet,
+				config: p.config,
+				logger: p.logger,
 			},
 			RequireCapability: wellknown.CapabilityMetrics,
 		},

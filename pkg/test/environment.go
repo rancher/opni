@@ -830,6 +830,13 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
 				},
+				Compactor: v1beta1.CompactorSpec{
+					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+				},
+				StoreGateway: v1beta1.StoreGatewaySpec{
+					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
+					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
+				},
 				Alertmanager: v1beta1.AlertmanagerSpec{
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 				},

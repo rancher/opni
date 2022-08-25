@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CortexOpsClient interface {
 	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterStatus, error)
+	GetClusterConfig(ctx context.Context, in *ClusterConfigRequest, opts ...grpc.CallOption) (*ClusterConfigResponse, error)
 }
 
 type cortexOpsClient struct {
@@ -43,11 +44,21 @@ func (c *cortexOpsClient) GetClusterStatus(ctx context.Context, in *emptypb.Empt
 	return out, nil
 }
 
+func (c *cortexOpsClient) GetClusterConfig(ctx context.Context, in *ClusterConfigRequest, opts ...grpc.CallOption) (*ClusterConfigResponse, error) {
+	out := new(ClusterConfigResponse)
+	err := c.cc.Invoke(ctx, "/cortexops.CortexOps/GetClusterConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CortexOpsServer is the server API for CortexOps service.
 // All implementations must embed UnimplementedCortexOpsServer
 // for forward compatibility
 type CortexOpsServer interface {
 	GetClusterStatus(context.Context, *emptypb.Empty) (*ClusterStatus, error)
+	GetClusterConfig(context.Context, *ClusterConfigRequest) (*ClusterConfigResponse, error)
 	mustEmbedUnimplementedCortexOpsServer()
 }
 
@@ -57,6 +68,9 @@ type UnimplementedCortexOpsServer struct {
 
 func (UnimplementedCortexOpsServer) GetClusterStatus(context.Context, *emptypb.Empty) (*ClusterStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetClusterStatus not implemented")
+}
+func (UnimplementedCortexOpsServer) GetClusterConfig(context.Context, *ClusterConfigRequest) (*ClusterConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClusterConfig not implemented")
 }
 func (UnimplementedCortexOpsServer) mustEmbedUnimplementedCortexOpsServer() {}
 
@@ -89,6 +103,24 @@ func _CortexOps_GetClusterStatus_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CortexOps_GetClusterConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClusterConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexOpsServer).GetClusterConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexops.CortexOps/GetClusterConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexOpsServer).GetClusterConfig(ctx, req.(*ClusterConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CortexOps_ServiceDesc is the grpc.ServiceDesc for CortexOps service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -99,6 +131,10 @@ var CortexOps_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetClusterStatus",
 			Handler:    _CortexOps_GetClusterStatus_Handler,
+		},
+		{
+			MethodName: "GetClusterConfig",
+			Handler:    _CortexOps_GetClusterConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

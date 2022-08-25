@@ -13,7 +13,9 @@ import (
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
+	"github.com/samber/lo"
 	"github.com/ttacon/chalk"
+	"golang.org/x/exp/slices"
 )
 
 func RenderBootstrapToken(token *corev1.BootstrapToken) string {
@@ -261,5 +263,67 @@ func RenderMetricSamples(samples []*model.Sample) string {
 }
 
 func RenderCortexClusterStatus(status *cortexops.ClusterStatus) string {
-	return status.String()
+	w := table.NewWriter()
+	w.SetStyle(table.StyleColoredDark)
+	w.SetIndexColumn(1)
+	w.Style().Format = table.FormatOptions{
+		Footer: text.FormatDefault,
+		Header: text.FormatDefault,
+		Row:    text.FormatDefault,
+	}
+	w.SetColumnConfigs([]table.ColumnConfig{
+		{
+			Number: 1,
+			Align:  text.AlignRight,
+		},
+	})
+	w.SortBy([]table.SortBy{
+		{
+			Number: 1,
+			Mode:   table.Asc,
+		},
+	})
+
+	services := map[string]map[string]string{}
+
+	services["Distributor"] = servicesByName(status.CortexServices.Distributor)
+	services["Ingester"] = servicesByName(status.CortexServices.Ingester)
+	services["Ruler"] = servicesByName(status.CortexServices.Ruler)
+	services["Purger"] = servicesByName(status.CortexServices.Purger)
+	services["Compactor"] = servicesByName(status.CortexServices.Compactor)
+	services["Store Gateway"] = servicesByName(status.CortexServices.StoreGateway)
+	services["Querier"] = servicesByName(status.CortexServices.Querier)
+
+	moduleNames := []string{}
+	for _, v := range services {
+		moduleNames = append(moduleNames, lo.Keys(v)...)
+	}
+	moduleNames = lo.Uniq(moduleNames)
+	slices.Sort(moduleNames)
+
+	header := table.Row{""}
+	for _, module := range moduleNames {
+		header = append(header, module)
+	}
+	w.AppendHeader(header)
+
+	for svcName, status := range services {
+		row := table.Row{svcName}
+		for _, mod := range moduleNames {
+			row = append(row, status[mod])
+		}
+		w.AppendRow(row)
+	}
+
+	return w.Render()
+}
+
+func servicesByName[T interface {
+	GetServices() *cortexops.ServiceStatusList
+}](t T) map[string]string {
+	services := map[string]string{}
+	for _, s := range t.GetServices().GetServices() {
+		services[s.GetName()] = s.GetStatus()
+	}
+	return services
 }

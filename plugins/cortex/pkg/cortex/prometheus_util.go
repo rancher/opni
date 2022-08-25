@@ -3,12 +3,13 @@ package cortex
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	"github.com/tidwall/gjson"
-	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"net/url"
+
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/tidwall/gjson"
+	"go.uber.org/zap"
 )
 
 func proxyCortexToPrometheus(
@@ -21,7 +22,7 @@ func proxyCortexToPrometheus(
 	values url.Values,
 	body io.Reader,
 ) (*http.Response, error) {
-	client, err := p.cortexHttpClient.GetContext(ctx)
+	client, err := p.cortexClientSet.GetContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
 	}
@@ -39,7 +40,7 @@ func proxyCortexToPrometheus(
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{tenant}))
-	resp, err := client.Do(req)
+	resp, err := client.HTTP().Do(req)
 	if err != nil {
 		lg.With(
 			"request", url,

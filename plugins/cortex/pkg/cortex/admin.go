@@ -17,15 +17,10 @@ import (
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/cortexproject/cortex/pkg/distributor"
-	"github.com/cortexproject/cortex/pkg/distributor/distributorpb"
 	"github.com/samber/lo"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -34,14 +29,14 @@ import (
 )
 
 func (p *Plugin) AllUserStats(ctx context.Context, _ *emptypb.Empty) (*cortexadmin.UserIDStatsList, error) {
-	client := p.cortexHttpClient.Get()
+	client := p.cortexClientSet.Get()
 	req, err := http.NewRequestWithContext(ctx, "GET",
 		fmt.Sprintf("https://%s/distributor/all_user_stats", p.config.Get().Spec.Cortex.Distributor.HTTPAddress), nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
-	resp, err := client.Do(req)
+	resp, err := client.HTTP().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster stats: %w", err)
 	}
@@ -129,11 +124,9 @@ func (p *Plugin) WriteMetrics(ctx context.Context, in *cortexadmin.WriteRequest)
 		Metadata:   lo.Map(in.Metadata, mapMetadata),
 	}
 	lg.Debug("writing metrics to cortex")
-	_, err := p.distributorClient.Get().Push(outgoingContext(ctx, in), cortexReq)
+	_, err := p.cortexClientSet.Get().Distributor().Push(outgoingContext(ctx, in), cortexReq)
 	if err != nil {
-		p.logger.With(
-			"err", err,
-		).Error("failed to write metrics")
+		p.logger.With(zap.Error(err)).Error("failed to write metrics")
 		return nil, err
 	}
 	return &cortexadmin.WriteResponse{}, nil
@@ -154,32 +147,16 @@ func (p *Plugin) configureAdminClients() {
 	defer ca()
 	cfg, err := p.config.GetContext(ctx)
 	if err != nil {
-		p.logger.With("err", err).Error("plugin startup failed: config was not loaded")
+		p.logger.With(zap.Error(err)).Error("plugin startup failed: config was not loaded")
 		os.Exit(1)
 	}
 
-	{
-		cc, err := grpc.DialContext(p.ctx, cfg.Spec.Cortex.Distributor.GRPCAddress,
-			grpc.WithTransportCredentials(credentials.NewTLS(p.cortexTlsConfig.Get())),
-			grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
-			grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
-		)
-		if err != nil {
-			p.logger.With(
-				"err", err,
-			).Error("Failed to dial distributor")
-			os.Exit(1)
-		}
-		p.distributorClient.Set(distributorpb.NewDistributorClient(cc))
+	clientset, err := NewClientSet(p.ctx, &cfg.Spec.Cortex, p.cortexTlsConfig.Get())
+	if err != nil {
+		p.logger.With(zap.Error(err)).Error("plugin startup failed: failed to create cortex client")
+		os.Exit(1)
 	}
-	{
-		httpClient := &http.Client{
-			Transport: otelhttp.NewTransport(&http.Transport{
-				TLSClientConfig: p.cortexTlsConfig.Get(),
-			}),
-		}
-		p.cortexHttpClient.Set(httpClient)
-	}
+	p.cortexClientSet.Set(clientset)
 }
 
 func (p *Plugin) Query(
@@ -190,7 +167,7 @@ func (p *Plugin) Query(
 		"query", in.Query,
 	)
 	lg.Debug("handling query")
-	client, err := p.cortexHttpClient.GetContext(ctx)
+	client, err := p.cortexClientSet.GetContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
 	}
@@ -205,7 +182,7 @@ func (p *Plugin) Query(
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(in.Tenants))
-	resp, err := client.Do(req)
+	resp, err := client.HTTP().Do(req)
 	if err != nil {
 		lg.With(
 			"error", err,
@@ -245,7 +222,7 @@ func (p *Plugin) QueryRange(
 	lg := p.logger.With(
 		"query", in.Query,
 	)
-	client := p.cortexHttpClient.Get()
+	client := p.cortexClientSet.Get()
 	values := url.Values{}
 	values.Add("query", in.Query)
 	values.Add("start", formatTime(in.Start.AsTime()))
@@ -263,7 +240,7 @@ func (p *Plugin) QueryRange(
 	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode(in.Tenants))
 
 	lg.Debug(req.URL.RawQuery)
-	resp, err := client.Do(req)
+	resp, err := client.HTTP().Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +276,7 @@ func (p *Plugin) GetRule(ctx context.Context,
 	lg := p.logger.With(
 		"group name", in.GroupName,
 	)
-	client, err := p.cortexHttpClient.GetContext(ctx)
+	client, err := p.cortexClientSet.GetContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
 	}
@@ -311,7 +288,7 @@ func (p *Plugin) GetRule(ctx context.Context,
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.ClusterId}))
-	resp, err := client.Do(req)
+	resp, err := client.HTTP().Do(req)
 	if err != nil {
 		lg.With(
 			"error", err,
@@ -379,7 +356,7 @@ func (p *Plugin) LoadRules(ctx context.Context,
 	lg := p.logger.With(
 		"cluster", in.ClusterId,
 	)
-	client, err := p.cortexHttpClient.GetContext(ctx)
+	client, err := p.cortexClientSet.GetContext(ctx)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
@@ -393,7 +370,7 @@ func (p *Plugin) LoadRules(ctx context.Context,
 	req.Body = io.NopCloser(strings.NewReader(in.YamlContent))
 	req.Header.Set("Content-Type", "application/yaml")
 	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.ClusterId}))
-	resp, err := client.Do(req)
+	resp, err := client.HTTP().Do(req)
 	if err != nil {
 		lg.With(
 			"error", err,
@@ -416,7 +393,7 @@ func (p *Plugin) DeleteRule(
 	lg := p.logger.With(
 		"delete request", in.GroupName,
 	)
-	client, err := p.cortexHttpClient.GetContext(ctx)
+	client, err := p.cortexClientSet.GetContext(ctx)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
@@ -428,7 +405,7 @@ func (p *Plugin) DeleteRule(
 		return nil, err
 	}
 	req.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{in.ClusterId}))
-	resp, err := client.Do(req)
+	resp, err := client.HTTP().Do(req)
 	if err != nil {
 		lg.With(
 			"error", err,
@@ -550,11 +527,11 @@ func (p *Plugin) FlushBlocks(
 	}
 	req.Header.Add("Accept", "application/json")
 
-	client, err := p.cortexHttpClient.GetContext(ctx)
+	client, err := p.cortexClientSet.GetContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cortex http client: %w", err)
 	}
-	resp, err := client.Do(req)
+	resp, err := client.HTTP().Do(req)
 	if err != nil {
 		return nil, err
 	}

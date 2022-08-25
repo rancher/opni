@@ -110,7 +110,7 @@ func (p *Plugin) configureAlertmanager(router *gin.Engine, f *forwarders, m *mid
 
 func (p *Plugin) configureRuler(router *gin.Engine, f *forwarders, m *middlewares) {
 	jsonAggregator := NewMultiTenantRuleAggregator(
-		p.mgmtApi.Get(), p.cortexHttpClient.Get(), orgIDCodec, PrometheusRuleGroupsJSON)
+		p.mgmtApi.Get(), p.cortexClientSet.Get().HTTP(), orgIDCodec, PrometheusRuleGroupsJSON)
 	router.GET("/prometheus/api/v1/rules", m.Auth, m.RBAC, jsonAggregator.Handle)
 	router.GET("/api/prom/api/v1/rules", m.Auth, m.RBAC, jsonAggregator.Handle)
 
@@ -118,7 +118,7 @@ func (p *Plugin) configureRuler(router *gin.Engine, f *forwarders, m *middleware
 	router.GET("/api/prom/api/v1/alerts", m.Auth, m.RBAC, f.Ruler)
 
 	yamlAggregator := NewMultiTenantRuleAggregator(
-		p.mgmtApi.Get(), p.cortexHttpClient.Get(), orgIDCodec, NamespaceKeyedYAML)
+		p.mgmtApi.Get(), p.cortexClientSet.Get().HTTP(), orgIDCodec, NamespaceKeyedYAML)
 	router.Any("/api/v1/rules", m.Auth, m.RBAC, yamlAggregator.Handle)
 	router.Any("/api/prom/rules", m.Auth, m.RBAC, yamlAggregator.Handle)
 }

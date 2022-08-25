@@ -8,6 +8,7 @@ package cortexops;
 
 service CortexOps {
   rpc GetClusterStatus(google.protobuf.Empty) returns (ClusterStatus);
+  rpc GetClusterConfig(ClusterConfigRequest) returns (ClusterConfigResponse);
 }
 
 enum InstallState {
@@ -23,11 +24,16 @@ message InstallMetadata {
   string manager = 4;
 }
 
+message ClusterConfigRequest {
+  repeated string configModes = 1;
+}
+
+message ClusterConfigResponse {
+  repeated string configYaml = 4;
+}
+
 message ClusterStatus {
   InstallState installState = 1;
   InstallMetadata installMetadata = 2;
   CortexServicesStatus cortexServices = 3;
-  string configYaml = 4;
-  string configDiffYaml = 5;
-  string runtimeConfigDiffYaml = 6;
 }

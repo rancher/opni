@@ -2,7 +2,9 @@ package alerting_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
@@ -59,8 +61,45 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 		})
 	})
 
+	When("The management server starts", func() {
+		Specify("The cortex webhook handler should be available for use", func() {
+			gatewayTls := env.GatewayTLSConfig()
+			cortexHookHandler := env.GetAlertingManagementWebhookEndpoint()
+			badRequestCortexPayload := condition.NewSimpleMockAlertManagerPayloadFromAnnotations(map[string]string{
+				"alertname": "test",
+			})
+			invalidCortexPayloadBytes, err := json.Marshal(badRequestCortexPayload)
+			Expect(err).To(Succeed())
+			status, _, err := test.StandaloneHttpRequest(
+				"POST",
+				cortexHookHandler,
+				invalidCortexPayloadBytes,
+				nil,
+				gatewayTls)
+			Expect(err).To(Succeed())
+			Expect(status).To(Equal(400))
+
+			goodCortexPayload := condition.NewSimpleMockAlertManagerPayloadFromAnnotations(map[string]string{
+				"conditionId": uuid.New().String(),
+				"alertname":   "test",
+			})
+			goodCortexPayloadBytes, err := json.Marshal(goodCortexPayload)
+			Expect(err).To(Succeed())
+			status, _, err = test.StandaloneHttpRequest(
+				"POST",
+				cortexHookHandler,
+				goodCortexPayloadBytes,
+				nil,
+				gatewayTls,
+			)
+			Expect(err).To(Succeed())
+			Expect(status).To(Equal(404))
+		})
+	})
+
 	When("We mock out backend metrics for alerting", func() {
 		Specify("We should be able to mock out kubernetes pod metrics", func() {
+			fmt.Println("mock pod tests starting")
 			Expect(kubernetesTempMetricServerPort).NotTo(Equal(0))
 			Expect(curTestState.mockPods).NotTo(BeEmpty())
 			// non-deterministically sample mock pods to set
@@ -106,11 +145,13 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 					return nil
 				}, time.Second*10, time.Second).Should(Succeed())
 			}
+			fmt.Println("mock pods test done")
 		})
 	})
 
 	When("The alerting plugin starts...", func() {
-		It("Should be able to CRUD [kubernetes] type alert conditions", func() {
+		XIt("Should be able to CRUD [kubernetes] type alert conditions", func() {
+			fmt.Println("cortex kubernetes alert conditions starting")
 			alertDuration := durationpb.New(time.Second * 30)
 			// non-deterministically sample mock pods to set
 			mp := curTestState.mockPods[rand.Intn(len(curTestState.mockPods))]
@@ -143,22 +184,50 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 				time.Second*15,
 			)
 
-			// check alert actually evaluates to true in cortex
+			// need to check the alert condition is actually loaded and evaluated periodically
 			Eventually(func() error {
 				resp, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
 					Tenants: []string{"agent"},
-					Query:   fmt.Sprintf("max(ALERTS{alert_name=\"%s\"}) or on() vector(0)", resp.Id),
+					Query:   fmt.Sprintf("max(ALERTS{alert_name=\"%s\"})", resp.Id),
 				})
 				if err != nil {
 					return err
 				}
-				_, err = unmarshal.UnmarshalPrometheusResponse(resp.Data)
+				q, err := unmarshal.UnmarshalPrometheusResponse(resp.Data)
 				if err != nil {
 					return err
 				}
-
+				qres, err := q.GetVector()
+				if err != nil {
+					return err
+				}
+				if len(*qres) == 0 {
+					return fmt.Errorf("no data")
+				}
 				return nil
-			}, alertDuration.AsDuration(), time.Second*5).Should(Succeed())
+			}, time.Minute*3, time.Second).Should(Succeed())
+
+			Eventually(func() error {
+				resp, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
+					Tenants: []string{"agent"},
+					Query:   fmt.Sprintf("max(ALERTS{alert_name=\"%s\"})", resp.Id),
+				})
+				if err != nil {
+					return err
+				}
+				q, err := unmarshal.UnmarshalPrometheusResponse(resp.Data)
+				if err != nil {
+					return err
+				}
+				qres, err := q.GetVector()
+				if err != nil {
+					return err
+				}
+				if len(*qres) == 0 {
+					return fmt.Errorf("no data")
+				}
+				return nil
+			}, time.Minute*3, time.Second).Should(Succeed())
 
 			// this code block checks that alert has been triggered in opni alerting
 			// FIXME: cortex alerting rules are not yet connected to opni alerting
@@ -174,6 +243,7 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 			//	}
 			//	return nil
 			//}, alertDuration.AsDuration(), time.Second*10).Should(Succeed())
+			fmt.Println("cortex kubernetes alert conditions finished")
 		})
 
 		It("Should be able to CRUD [composition] type alert conditions", func() {
@@ -185,6 +255,7 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 		})
 
 		XIt("Should be CRUD [system] type alert conditions", func() {
+			fmt.Println("System Alert Conditions starting")
 			conditions, err := alertingClient.ListAlertConditions(ctx, &alertingv1alpha.ListAlertConditionRequest{})
 			Expect(err).To(Succeed())
 			Expect(conditions.Items).To(HaveLen(0))
@@ -217,6 +288,7 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 			})
 			Expect(err).To(Succeed())
 			Expect(filteredLogs.Items).ToNot(HaveLen(0))
+			fmt.Println("System Alert Conditions finished")
 		})
 	})
 })

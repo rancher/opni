@@ -16,6 +16,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const AlertingCortexHookHandler = "/management/alerting/cortexHandler"
+
 func (r *Reconciler) configMap() (resources.Resource, error) {
 	gatewayConf := &cfgv1beta1.GatewayConfig{
 		TypeMeta: cfgmeta.TypeMeta{
@@ -50,17 +52,19 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			Alerting: func() cfgv1beta1.AlertingSpec {
 				if r.spec.Alerting == nil {
 					return cfgv1beta1.AlertingSpec{
-						Endpoints:       []string{"opni-alerting:9093"},
-						ConfigMapName:   "alertmanager-config",
-						StatefulSetName: "opni-alerting-internal",
-						Namespace:       r.namespace,
+						Endpoints:                 []string{"opni-alerting:9093"},
+						ConfigMapName:             "alertmanager-config",
+						StatefulSetName:           "opni-alerting-internal",
+						Namespace:                 r.gw.Namespace,
+						ManagementHookHandlerName: AlertingCortexHookHandler,
 					}
 				}
 				return cfgv1beta1.AlertingSpec{
-					Endpoints:       []string{fmt.Sprintf("opni-alerting:%d", r.gw.Spec.Alerting.WebPort)},
-					ConfigMapName:   r.gw.Spec.Alerting.ConfigName,
-					StatefulSetName: "opni-alerting-internal",
-					Namespace:       r.namespace,
+					Endpoints:                 []string{fmt.Sprintf("opni-alerting:%d", r.gw.Spec.Alerting.WebPort)},
+					ConfigMapName:             r.gw.Spec.Alerting.ConfigName,
+					StatefulSetName:           "opni-alerting-internal",
+					Namespace:                 r.gw.Namespace,
+					ManagementHookHandlerName: AlertingCortexHookHandler,
 				}
 			}(),
 			Profiling: r.spec.Profiling,

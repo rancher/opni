@@ -39,10 +39,11 @@ type Plugin struct {
 }
 
 type AlertingOptions struct {
-	Endpoints   []string
-	ConfigMap   string
-	Namespace   string
-	StatefulSet string
+	Endpoints         []string
+	ConfigMap         string
+	Namespace         string
+	StatefulSet       string
+	CortexHookHandler string
 }
 
 type StorageAPIs struct {

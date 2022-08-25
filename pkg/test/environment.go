@@ -65,6 +65,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	pluginmeta "github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/realtime"
+	resources "github.com/rancher/opni/pkg/resources/gateway"
 	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
@@ -982,6 +983,13 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 					Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
 				},
 			},
+			Alerting: v1beta1.AlertingSpec{
+				Endpoints:                 []string{"opni-alerting:9093"},
+				ConfigMapName:             "alertmanager-config",
+				Namespace:                 "default",
+				StatefulSetName:           "opni-alerting-internal",
+				ManagementHookHandlerName: resources.AlertingCortexHookHandler,
+			},
 		},
 	}
 }
@@ -1337,6 +1345,12 @@ func (e *Environment) CortexTLSConfig() *tls.Config {
 
 func (e *Environment) GatewayConfig() *v1beta1.GatewayConfig {
 	return e.gatewayConfig
+}
+
+func (e *Environment) GetAlertingManagementWebhookEndpoint() string {
+	return "https://" +
+		e.GatewayConfig().Spec.HTTPListenAddress +
+		e.GatewayConfig().Spec.Alerting.ManagementHookHandlerName
 }
 
 func (e *Environment) EtcdClient() (*clientv3.Client, error) {

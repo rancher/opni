@@ -3,6 +3,7 @@ package condition
 import (
 	"fmt"
 	"github.com/prometheus/alertmanager/notify/webhook"
+	"github.com/prometheus/alertmanager/template"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/tidwall/gjson"
@@ -10,6 +11,21 @@ import (
 
 type MockCortexPayload struct {
 	webhook.Message
+}
+
+func NewSimpleMockAlertManagerPayloadFromAnnotations(ann map[string]string) *MockCortexPayload {
+	kv := template.KV(ann)
+	return &MockCortexPayload{
+		Message: webhook.Message{
+			Data: &template.Data{
+				Alerts: []template.Alert{
+					{
+						Annotations: kv,
+					},
+				},
+			},
+		},
+	}
 }
 
 var RequiredCortexWebhookAnnotationIdentifiers = []string{"conditionId"}
@@ -48,7 +64,7 @@ func ParseCortexPayloadBytes(inputPayload []byte) ([]gjson.Result, error) {
 	return alertArr.Array(), nil
 }
 
-func ParseCortexWebhookPayload(annotations []gjson.Result) ([]*alertingv1alpha.TriggerAlertsRequest, []error) {
+func ParseAlertManagerWebhookPayload(annotations []gjson.Result) ([]*alertingv1alpha.TriggerAlertsRequest, []error) {
 	var errors []error
 	var opniRequests []*alertingv1alpha.TriggerAlertsRequest
 	for _, annotation := range annotations {

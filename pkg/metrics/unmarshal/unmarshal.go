@@ -149,3 +149,13 @@ func UnmarshallPrometheusWebResponse(resp *http.Response, lg *zap.SugaredLogger)
 	}
 	return val, nil
 }
+
+func (q *queryResult) GetVector() (*model.Vector, error) {
+	switch q.V.Type() {
+	case model.ValVector:
+		v := q.V.(model.Vector)
+		return &v, nil
+	default:
+		return nil, fmt.Errorf("cannot unmarshal prometheus response into vector type")
+	}
+}

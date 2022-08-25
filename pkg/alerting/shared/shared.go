@@ -36,6 +36,30 @@ type InternalServerError struct {
 	message string
 }
 
+type NotFoundError struct {
+	message string
+}
+
+func (e *NotFoundError) Error() string {
+	return e.message
+}
+
+func (e *NotFoundError) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.message)
+}
+
+func WithNotFoundError(msg string) error {
+	return &NotFoundError{
+		message: msg,
+	}
+}
+
+func WithNotFoundErrorf(format string, args ...interface{}) error {
+	return &NotFoundError{
+		message: fmt.Errorf(format, args...).Error(),
+	}
+}
+
 func (e *InternalServerError) Error() string {
 	return e.message
 }

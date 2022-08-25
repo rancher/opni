@@ -39,10 +39,11 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	}
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
 		opt := AlertingOptions{
-			Endpoints:   config.Spec.Alerting.Endpoints,
-			ConfigMap:   config.Spec.Alerting.ConfigMapName,
-			Namespace:   config.Spec.Alerting.Namespace,
-			StatefulSet: config.Spec.Alerting.StatefulSetName,
+			Endpoints:         config.Spec.Alerting.Endpoints,
+			ConfigMap:         config.Spec.Alerting.ConfigMapName,
+			Namespace:         config.Spec.Alerting.Namespace,
+			StatefulSet:       config.Spec.Alerting.StatefulSetName,
+			CortexHookHandler: config.Spec.Alerting.ManagementHookHandlerName,
 		}
 		p.alertingOptions.Set(opt)
 	})

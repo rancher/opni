@@ -264,7 +264,7 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 			select {
 			case <-retryOnFailure.C:
 				retryOnFailure.Reset(time.Second)
-				id, err = (*l.alertProvider).CreateAlertCondition(ctx, l.alertCondition)
+				id, err = alerting.DoCreate(*l.alertProvider, ctx, alertConditionTemplateCopy)
 			case <-l.closed:
 				return
 			}
@@ -277,8 +277,8 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 
 		for {
 			select {
-			case <-ticker.C: // received no message from agent in the entire duration
-				_, err = (*l.alertProvider).TriggerAlerts(ctx, &alertingv1alpha.TriggerAlertsRequest{
+			case <-ticker.C: // received no message from agent in the entier duration
+				_, err = alerting.DoTrigger(*l.alertProvider, ctx, &alertingv1alpha.TriggerAlertsRequest{
 					ConditionId: id,
 				})
 				if err != nil {
@@ -292,7 +292,7 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 
 			case <-l.closed: // listener is closed, stop
 				go func() {
-					(*l.alertProvider).DeleteAlertCondition(ctx, id)
+					alerting.DoDelete(*l.alertProvider, ctx, id)
 				}()
 				return
 			}

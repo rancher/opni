@@ -5,8 +5,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/prometheus/alertmanager/notify/webhook"
-	"github.com/prometheus/alertmanager/template"
 	"github.com/rancher/opni/pkg/alerting/condition"
 )
 
@@ -15,27 +13,17 @@ var _ = Describe("Alerting Condition Suite", func() {
 		It("should parse valid payloads to appropriate opni alerting payloads", func() {
 			someId := uuid.New().String()
 			somename := "some-alert-name"
-			exampleWorkingPayload := &condition.MockCortexPayload{
-				Message: webhook.Message{
-					Data: &template.Data{
-						Alerts: []template.Alert{
-							{
-								Annotations: template.KV{
-									"conditionId": someId,
-									"alertname":   somename,
-								},
-							},
-						},
-					},
-				},
-			}
+			exampleWorkingPayload := condition.NewSimpleMockAlertManagerPayloadFromAnnotations(map[string]string{
+				"alertname":   somename,
+				"conditionId": someId,
+			})
 			mockBody, err := json.Marshal(&exampleWorkingPayload)
 			Expect(err).To(Succeed())
 			annotations, err := condition.ParseCortexPayloadBytes(mockBody)
 			Expect(err).To(Succeed())
 			Expect(annotations).To(HaveLen(1))
 
-			opniResponses, errors := condition.ParseCortexWebhookPayload(annotations)
+			opniResponses, errors := condition.ParseAlertManagerWebhookPayload(annotations)
 			Expect(errors).To(HaveLen(1))
 			Expect(len(opniResponses)).To(Equal(len(errors)))
 			for _, e := range errors {
@@ -47,25 +35,14 @@ var _ = Describe("Alerting Condition Suite", func() {
 
 		It("Should errror on invalid cortex webhook payloads", func() {
 			somename := "some-alert-name"
-			exampleInvalidPayload := &condition.MockCortexPayload{
-				Message: webhook.Message{
-					Data: &template.Data{
-						Alerts: []template.Alert{
-							{
-								Annotations: template.KV{
-
-									"alertname": somename,
-								},
-							},
-						},
-					},
-				},
-			}
+			exampleInvalidPayload := condition.NewSimpleMockAlertManagerPayloadFromAnnotations(map[string]string{
+				"alertname": somename,
+			})
 			mockBody, err := json.Marshal(&exampleInvalidPayload)
 			Expect(err).To(Succeed())
 			annotations, err := condition.ParseCortexPayloadBytes(mockBody)
 			Expect(err).To(Succeed())
-			opniRequests, errors := condition.ParseCortexWebhookPayload(annotations)
+			opniRequests, errors := condition.ParseAlertManagerWebhookPayload(annotations)
 			Expect(errors).To(HaveLen(1))
 			Expect(len(opniRequests)).To(Equal(len(errors)))
 			Expect(errors[0]).To(HaveOccurred())

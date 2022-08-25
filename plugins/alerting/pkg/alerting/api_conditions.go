@@ -23,7 +23,7 @@ const conditionPrefix = "/alerting/conditions"
 
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error) {
 	if err := alertingv1alpha.DetailsHasImplementation(req.GetAlertType()); err != nil {
-		return nil, err
+		return nil, shared.WithNotFoundError(fmt.Sprintf("%s", err))
 	}
 	newId := uuid.New().String()
 	_, err := setupCondition(p, ctx, req, newId)
@@ -65,7 +65,7 @@ func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.L
 func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.UpdateAlertConditionRequest) (*emptypb.Empty, error) {
 	existing, err := p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, req.Id.Id))
 	if err != nil {
-		return nil, err
+		return nil, shared.WithNotFoundErrorf("Condition %s not found : %s", req.Id.Id, err)
 	}
 	overrideLabels := req.UpdateAlert.Labels
 

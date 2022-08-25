@@ -36,3 +36,18 @@ func MergeLabels(ms ...map[string]string) map[string]string {
 	}
 	return res
 }
+
+func LeftJoinSlice[T comparable](arr1, arr2 []T) []T {
+	result := make([]T, len(arr1))
+	cache := map[T]struct{}{}
+	for i, v := range arr1 {
+		cache[v] = struct{}{}
+		result[i] = v
+	}
+	for _, v := range arr2 {
+		if _, ok := cache[v]; !ok {
+			result = append(result, v)
+		}
+	}
+	return result
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
+	"github.com/goombaio/namegenerator"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	prommodel "github.com/prometheus/common/model"
@@ -14,11 +15,39 @@ import (
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
+	"github.com/tidwall/gjson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v3"
+	"math/rand"
+	"os"
 	"time"
 )
+
+// need to check always that good <= total
+func expectValidEventSubsets(good []*sloapi.Event, total []*sloapi.Event) {
+	cacheTotal := make(map[string]bool)
+	listVals := make(map[string][]string)
+	for i := 0; i < len(good); i++ {
+		listVals[good[i].Key] = good[i].Vals
+	}
+	for i := 0; i < len(total); i++ {
+		cacheTotal[total[i].Key] = false
+		Expect(len(total[i].Vals)).To(BeNumerically(">=", len(listVals[total[i].Key])))
+		Expect(total[i].Vals).To(ContainElements(listVals[total[i].Key])) // total events must be at least a super set of good events
+	}
+	for i := 0; i < len(good); i++ {
+		if _, ok := cacheTotal[good[i].Key]; ok {
+			cacheTotal[good[i].Key] = true
+		}
+	}
+
+	// everything in total should be defined in good
+	for _, v := range cacheTotal {
+		Expect(v).To(BeTrue())
+	}
+
+}
 
 var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(test.Unit, test.Slow), func() {
 	sloObj := slo.NewSLO(
@@ -234,6 +263,118 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				},
 			}))
 			Expect(t).To(Equal(totalEvents3))
+
+			goodEvents4 := []*sloapi.Event{{
+				Key:  "code",
+				Vals: []string{"200"}}}
+			totalEvents4 := []*sloapi.Event{
+				{
+					Key:  "code",
+					Vals: []string{"500", "503"},
+				},
+			}
+
+			g, t = slo.ToMatchingSubsetIdenticalMetric(goodEvents4, totalEvents4)
+			Expect(Expect(g[0].Key).To(Equal(goodEvents4[0].Key)))
+			Expect(g[0].Vals).To(ConsistOf([]string{"200"}))
+			Expect(t[0].Vals).To(ConsistOf(slo.LeftJoinSlice(goodEvents4[0].Vals, totalEvents4[0].Vals)))
+
+		})
+
+		Specify("The event matching subset algorithm should be robust to chaos testing", func() {
+			// FIXME: this test is kinda hacky and poorly written
+			for numTests := 0; numTests < 15; numTests++ {
+				goodEventNum := rand.Intn(10) + 1
+				goodEventValNum := rand.Intn(1000) + 1
+				totalEventNum := rand.Intn(10) + 1
+
+				goodEvents := make([]*sloapi.Event, goodEventNum)
+				totalEvents := make([]*sloapi.Event, totalEventNum)
+				goodEventCache := make(map[string]struct{})
+				goodEventValsCache := make(map[string]map[string]struct{})
+				gen := namegenerator.NewNameGenerator(time.Now().UnixNano())
+				for i := 0; i < goodEventNum; i++ {
+					name := gen.Generate()
+					vals := []string{}
+					for j := 0; j < goodEventValNum; j++ {
+						newVal := gen.Generate()
+						vals = append(vals, newVal)
+						if _, ok := goodEventValsCache[name]; !ok {
+							goodEventValsCache[name] = make(map[string]struct{})
+						}
+						goodEventValsCache[name][newVal] = struct{}{}
+					}
+					goodEvents[i] = &sloapi.Event{
+						Key:  name,
+						Vals: vals,
+					}
+					goodEventCache[name] = struct{}{}
+				}
+				for i := 0; i < totalEventNum; i++ {
+					isMany := rand.Intn(2)
+					var totalEventValNum int
+					if isMany == 0 {
+						totalEventValNum = rand.Intn(1000)
+					} else {
+						totalEventValNum = rand.Intn(3)
+					}
+
+					// 50% chance to use an existing key from goodEvents
+					var code string
+					var vals []string
+					if rand.Intn(2) == 0 && len(goodEventCache) > 0 { // use existing key
+						if goodEventNum < 0 {
+							panic(goodEvents)
+						}
+						index := rand.Intn(goodEventNum)
+						code = goodEvents[index].Key
+						delete(goodEventCache, code)
+						for j := 0; j < totalEventValNum; j++ {
+							//25% chance to use existing value from goodEvents
+							if rand.Intn(4) == 0 && len(goodEventValsCache[code]) > 0 {
+								keys := make([]string, len(goodEventValsCache[code]))
+
+								x := 0
+								for k := range goodEventValsCache[code] {
+									keys[x] = k
+									x++
+								}
+								index := rand.Intn(len(keys))
+								vals = append(vals, keys[index])
+								delete(goodEventValsCache[code], keys[index])
+							} else {
+								vals = append(vals, gen.Generate())
+							}
+						}
+					} else { //create new key
+						name := gen.Generate()
+						code = name
+						for j := 0; j < totalEventValNum; j++ {
+							vals = append(vals, gen.Generate())
+						}
+					}
+					totalEvents[i] = &sloapi.Event{
+						Key:  code,
+						Vals: vals,
+					}
+				}
+				invalid := false
+				for i := 0; i < len(totalEvents); i++ {
+					if totalEvents[i].Vals == nil || len(totalEvents[i].Vals) == 0 {
+						invalid = true
+						break
+					}
+					if totalEvents[i] == nil {
+						invalid = true
+						break
+					}
+				}
+				if invalid == true {
+					continue // FIXME: not sure why we are getting invalid constructions
+				}
+				newGoodEvents, newTotalEvents := slo.ToMatchingSubsetIdenticalMetric(goodEvents, totalEvents)
+				expectValidEventSubsets(newGoodEvents, newTotalEvents)
+			}
 		})
 	})
 
@@ -565,25 +706,29 @@ var _ = Describe("Converting SLO information to Cortex rules", Ordered, Label(te
 				YamlContent: string(outAlerts),
 			})
 			Expect(err).NotTo(HaveOccurred())
-			//time.Sleep(time.Minute * 1)
-			//Eventually(func() error {
-			//resp, err := adminClient.ListRules(ctx, &cortexadmin.Cluster{
-			//	ClusterId: "agent",
-			//})
-			//if err != nil {
-			//	return err
-			//}
-			//if len(resp.Data) <= 63 {
-			//	return fmt.Errorf("no rules actually loaded")
-			//}
-			// @debug
-			//result := gjson.Get(string(resp.Data), "data.groups")
-			//Expect(result.Exists()).To(BeTrue())
-			//for _, r := range result.Array() {
-			//	fmt.Println(r)
-			//}
-			//	return nil
-			//}, time.Minute*2, time.Second*30).Should(Succeed())
+			_, present := os.LookupEnv("SLO_HARDCORE_DEBUG")
+			if present {
+
+				time.Sleep(time.Minute * 1)
+				Eventually(func() error {
+					resp, err := adminClient.ListRules(ctx, &cortexadmin.Cluster{
+						ClusterId: "agent",
+					})
+					if err != nil {
+						return err
+					}
+					if len(resp.Data) <= 63 {
+						return fmt.Errorf("no rules actually loaded")
+					}
+					//@debug
+					result := gjson.Get(string(resp.Data), "data.groups")
+					Expect(result.Exists()).To(BeTrue())
+					for _, r := range result.Array() {
+						fmt.Println(r)
+					}
+					return nil
+				}, time.Minute*2, time.Second*30).Should(Succeed())
+			}
 
 			// check the recording rule names to make sure they return data
 			Eventually(func() error {

@@ -325,7 +325,7 @@ func (m *MonitoringServiceBackend) WithCurrentRequest(req proto.Message, ctx con
 func (m MonitoringServiceBackend) ListServices() (*sloapi.ServiceList, error) {
 	req := m.req.(*sloapi.ListServicesRequest)
 	res := &sloapi.ServiceList{}
-	discoveryQuery := `group by(job)({__name__!=""})`
+	discoveryQuery := `group by(job) ({__name__!=""})`
 	resp, err := m.p.adminClient.Get().Query(
 		m.ctx,
 		&cortexadmin.QueryRequest{

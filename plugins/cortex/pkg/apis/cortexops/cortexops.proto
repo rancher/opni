@@ -2,38 +2,34 @@ syntax = "proto3";
 option go_package = "github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops";
 
 import "google/protobuf/empty.proto";
-import "github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops/status.proto";
 
 package cortexops;
 
 service CortexOps {
-  rpc GetClusterStatus(google.protobuf.Empty) returns (ClusterStatus);
-  rpc GetClusterConfig(ClusterConfigRequest) returns (ClusterConfigResponse);
+  rpc ConfigureInstall(InstallConfiguration) returns (google.protobuf.Empty);
+  rpc GetInstallStatus(google.protobuf.Empty) returns (InstallStatus);
+  rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 enum InstallState {
   Unknown = 0;
   NotInstalled = 1;
-  Installed = 2;
+  Updating = 2;
+  Installed = 3;
+  Uninstalling = 4;
 }
 
-message InstallMetadata {
-  string cortexVersion = 1;
-  string revision = 2;
-  string environment = 3;
-  string manager = 4;
+message InstallStatus {
+  InstallState state = 1;
+  string version = 2;
+  map<string, string> metadata = 3;
 }
 
-message ClusterConfigRequest {
-  repeated string configModes = 1;
+enum DeploymentMode {
+  AllInOne = 0;
+  HighlyAvailable = 1;
 }
 
-message ClusterConfigResponse {
-  repeated string configYaml = 4;
-}
-
-message ClusterStatus {
-  InstallState installState = 1;
-  InstallMetadata installMetadata = 2;
-  CortexServicesStatus cortexServices = 3;
+message InstallConfiguration {
+  DeploymentMode mode = 1;
 }

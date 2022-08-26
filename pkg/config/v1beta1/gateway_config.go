@@ -87,16 +87,21 @@ func (m ManagementSpec) GetWebListenAddress() string {
 }
 
 type CortexSpec struct {
-	Distributor   DistributorSpec   `json:"distributor,omitempty"`
-	Ingester      IngesterSpec      `json:"ingester,omitempty"`
-	Alertmanager  AlertmanagerSpec  `json:"alertmanager,omitempty"`
-	Compactor     CompactorSpec     `json:"compactor,omitempty"`
-	StoreGateway  StoreGatewaySpec  `json:"storeGateway,omitempty"`
-	Ruler         RulerSpec         `json:"ruler,omitempty"`
-	QueryFrontend QueryFrontendSpec `json:"queryFrontend,omitempty"`
-	Querier       QuerierSpec       `json:"querier,omitempty"`
-	Purger        PurgerSpec        `json:"purger,omitempty"`
-	Certs         MTLSSpec          `json:"certs,omitempty"`
+	Management    ClusterManagementSpec `json:"management,omitempty"`
+	Distributor   DistributorSpec       `json:"distributor,omitempty"`
+	Ingester      IngesterSpec          `json:"ingester,omitempty"`
+	Alertmanager  AlertmanagerSpec      `json:"alertmanager,omitempty"`
+	Compactor     CompactorSpec         `json:"compactor,omitempty"`
+	StoreGateway  StoreGatewaySpec      `json:"storeGateway,omitempty"`
+	Ruler         RulerSpec             `json:"ruler,omitempty"`
+	QueryFrontend QueryFrontendSpec     `json:"queryFrontend,omitempty"`
+	Querier       QuerierSpec           `json:"querier,omitempty"`
+	Purger        PurgerSpec            `json:"purger,omitempty"`
+	Certs         MTLSSpec              `json:"certs,omitempty"`
+}
+
+type ClusterManagementSpec struct {
+	ClusterDriver string `json:"clusterDriver,omitempty"`
 }
 
 type DistributorSpec struct {

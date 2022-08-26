@@ -12,7 +12,6 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
 	"github.com/samber/lo"
 	"github.com/ttacon/chalk"
 	"golang.org/x/exp/slices"
@@ -262,7 +261,7 @@ func RenderMetricSamples(samples []*model.Sample) string {
 	return w.Render()
 }
 
-func RenderCortexClusterStatus(status *cortexops.ClusterStatus) string {
+func RenderCortexClusterStatus(status *cortexadmin.ClusterStatus) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.SetIndexColumn(1)
@@ -286,13 +285,13 @@ func RenderCortexClusterStatus(status *cortexops.ClusterStatus) string {
 
 	services := map[string]map[string]string{}
 
-	services["Distributor"] = servicesByName(status.CortexServices.Distributor)
-	services["Ingester"] = servicesByName(status.CortexServices.Ingester)
-	services["Ruler"] = servicesByName(status.CortexServices.Ruler)
-	services["Purger"] = servicesByName(status.CortexServices.Purger)
-	services["Compactor"] = servicesByName(status.CortexServices.Compactor)
-	services["Store Gateway"] = servicesByName(status.CortexServices.StoreGateway)
-	services["Querier"] = servicesByName(status.CortexServices.Querier)
+	services["Distributor"] = servicesByName(status.Distributor)
+	services["Ingester"] = servicesByName(status.Ingester)
+	services["Ruler"] = servicesByName(status.Ruler)
+	services["Purger"] = servicesByName(status.Purger)
+	services["Compactor"] = servicesByName(status.Compactor)
+	services["Store Gateway"] = servicesByName(status.StoreGateway)
+	services["Querier"] = servicesByName(status.Querier)
 
 	moduleNames := []string{}
 	for _, v := range services {
@@ -319,7 +318,7 @@ func RenderCortexClusterStatus(status *cortexops.ClusterStatus) string {
 }
 
 func servicesByName[T interface {
-	GetServices() *cortexops.ServiceStatusList
+	GetServices() *cortexadmin.ServiceStatusList
 }](t T) map[string]string {
 	services := map[string]string{}
 	for _, s := range t.GetServices().GetServices() {

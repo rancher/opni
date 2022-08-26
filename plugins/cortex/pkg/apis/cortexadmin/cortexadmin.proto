@@ -5,6 +5,7 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "google/api/annotations.proto";
+import "github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin/status.proto";
 
 package cortexadmin;
 
@@ -76,6 +77,18 @@ service CortexAdmin {
   rpc GetMetricLabelSets(LabelRequest) returns (MetricLabels) {
     option (google.api.http) = {
       get: "/series/labels"
+    };
+  }
+
+  rpc GetClusterStatus(google.protobuf.Empty) returns (ClusterStatus) {
+    option (google.api.http) = {
+      get: "/status"
+    };
+  }
+  
+  rpc GetClusterConfig(ConfigRequest) returns (ConfigResponse) {
+    option (google.api.http) = {
+      get: "/config"
     };
   }
 }
@@ -203,4 +216,12 @@ message PostRuleRequest{
 
 message QueryResponse {
   bytes data = 2;
+}
+
+message ConfigRequest {
+  repeated string configModes = 1;
+}
+
+message ConfigResponse {
+  repeated string configYaml = 4;
 }

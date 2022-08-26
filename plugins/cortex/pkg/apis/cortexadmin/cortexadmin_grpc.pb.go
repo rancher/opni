@@ -35,6 +35,8 @@ type CortexAdminClient interface {
 	// list all metrics
 	GetSeriesMetrics(ctx context.Context, in *SeriesRequest, opts ...grpc.CallOption) (*SeriesInfoList, error)
 	GetMetricLabelSets(ctx context.Context, in *LabelRequest, opts ...grpc.CallOption) (*MetricLabels, error)
+	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterStatus, error)
+	GetClusterConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 }
 
 type cortexAdminClient struct {
@@ -144,6 +146,24 @@ func (c *cortexAdminClient) GetMetricLabelSets(ctx context.Context, in *LabelReq
 	return out, nil
 }
 
+func (c *cortexAdminClient) GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterStatus, error) {
+	out := new(ClusterStatus)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/GetClusterStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexAdminClient) GetClusterConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error) {
+	out := new(ConfigResponse)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/GetClusterConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CortexAdminServer is the server API for CortexAdmin service.
 // All implementations must embed UnimplementedCortexAdminServer
 // for forward compatibility
@@ -160,6 +180,8 @@ type CortexAdminServer interface {
 	// list all metrics
 	GetSeriesMetrics(context.Context, *SeriesRequest) (*SeriesInfoList, error)
 	GetMetricLabelSets(context.Context, *LabelRequest) (*MetricLabels, error)
+	GetClusterStatus(context.Context, *emptypb.Empty) (*ClusterStatus, error)
+	GetClusterConfig(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	mustEmbedUnimplementedCortexAdminServer()
 }
 
@@ -199,6 +221,12 @@ func (UnimplementedCortexAdminServer) GetSeriesMetrics(context.Context, *SeriesR
 }
 func (UnimplementedCortexAdminServer) GetMetricLabelSets(context.Context, *LabelRequest) (*MetricLabels, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMetricLabelSets not implemented")
+}
+func (UnimplementedCortexAdminServer) GetClusterStatus(context.Context, *emptypb.Empty) (*ClusterStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClusterStatus not implemented")
+}
+func (UnimplementedCortexAdminServer) GetClusterConfig(context.Context, *ConfigRequest) (*ConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClusterConfig not implemented")
 }
 func (UnimplementedCortexAdminServer) mustEmbedUnimplementedCortexAdminServer() {}
 
@@ -411,6 +439,42 @@ func _CortexAdmin_GetMetricLabelSets_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CortexAdmin_GetClusterStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).GetClusterStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexadmin.CortexAdmin/GetClusterStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).GetClusterStatus(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexAdmin_GetClusterConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).GetClusterConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexadmin.CortexAdmin/GetClusterConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).GetClusterConfig(ctx, req.(*ConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CortexAdmin_ServiceDesc is the grpc.ServiceDesc for CortexAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -461,6 +525,14 @@ var CortexAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMetricLabelSets",
 			Handler:    _CortexAdmin_GetMetricLabelSets_Handler,
+		},
+		{
+			MethodName: "GetClusterStatus",
+			Handler:    _CortexAdmin_GetClusterStatus_Handler,
+		},
+		{
+			MethodName: "GetClusterConfig",
+			Handler:    _CortexAdmin_GetClusterConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

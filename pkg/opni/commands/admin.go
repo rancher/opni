@@ -26,7 +26,10 @@ func BuildAdminCmd() *cobra.Command {
 	cmd.AddCommand(BuildQueryRangeCmd())
 	cmd.AddCommand(BuildStorageInfoCmd())
 	cmd.AddCommand(BuildFlushBlocksCmd())
-	cmd.AddCommand(BuildCortexOpsCmd())
+	cmd.AddCommand(BuildClusterStatusCmd())
+	cmd.AddCommand(BuildClusterConfigCmd())
+	cmd.AddCommand(BuildCortexClusterCmd())
+
 	ConfigureManagementCommand(cmd)
 	return cmd
 }
@@ -164,5 +167,49 @@ func BuildFlushBlocksCmd() *cobra.Command {
 			return nil
 		},
 	}
+	return cmd
+}
+
+func BuildClusterStatusCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cluster-status",
+		Short: "Show status of all cortex components",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			status, err := adminClient.GetClusterStatus(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			fmt.Println(cliutil.RenderCortexClusterStatus(status))
+			return nil
+		},
+	}
+	return cmd
+}
+
+func BuildClusterConfigCmd() *cobra.Command {
+	var mode string
+	cmd := &cobra.Command{
+		Use:   "cluster-config",
+		Short: "Show cortex configuration",
+		Long: `
+Modes:
+(empty)    - show current configuration
+"diff"     - show only values that differ from the defaults
+"defaults" - show only the default values
+`[1:],
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := adminClient.GetClusterConfig(cmd.Context(), &cortexadmin.ConfigRequest{
+				ConfigModes: []string{mode},
+			})
+			if err != nil {
+				return err
+			}
+			for _, config := range resp.ConfigYaml {
+				fmt.Println(config)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mode, "mode", "", "config mode")
 	return cmd
 }

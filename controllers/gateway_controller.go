@@ -42,6 +42,10 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	if mc.DeletionTimestamp != nil {
+		return ctrl.Result{}, err
+	}
+
 	rec, err := gateway.NewReconciler(ctx, r.Client, mc)
 	if err != nil {
 		return ctrl.Result{}, err

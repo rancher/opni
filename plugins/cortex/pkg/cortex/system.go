@@ -45,6 +45,8 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		p.cortexTlsConfig.Set(p.loadCortexCerts())
 
 		p.configureAdminClients()
+
+		p.configureCortexManagement()
 	})
 
 	p.authMiddlewares.Set(machinery.LoadAuthProviders(p.ctx, objectList))

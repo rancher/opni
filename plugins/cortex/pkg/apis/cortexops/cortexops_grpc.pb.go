@@ -23,8 +23,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CortexOpsClient interface {
-	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterStatus, error)
-	GetClusterConfig(ctx context.Context, in *ClusterConfigRequest, opts ...grpc.CallOption) (*ClusterConfigResponse, error)
+	ConfigureInstall(ctx context.Context, in *InstallConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetInstallStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
+	UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type cortexOpsClient struct {
@@ -35,18 +36,27 @@ func NewCortexOpsClient(cc grpc.ClientConnInterface) CortexOpsClient {
 	return &cortexOpsClient{cc}
 }
 
-func (c *cortexOpsClient) GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterStatus, error) {
-	out := new(ClusterStatus)
-	err := c.cc.Invoke(ctx, "/cortexops.CortexOps/GetClusterStatus", in, out, opts...)
+func (c *cortexOpsClient) ConfigureInstall(ctx context.Context, in *InstallConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/cortexops.CortexOps/ConfigureInstall", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cortexOpsClient) GetClusterConfig(ctx context.Context, in *ClusterConfigRequest, opts ...grpc.CallOption) (*ClusterConfigResponse, error) {
-	out := new(ClusterConfigResponse)
-	err := c.cc.Invoke(ctx, "/cortexops.CortexOps/GetClusterConfig", in, out, opts...)
+func (c *cortexOpsClient) GetInstallStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error) {
+	out := new(InstallStatus)
+	err := c.cc.Invoke(ctx, "/cortexops.CortexOps/GetInstallStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cortexOpsClient) UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/cortexops.CortexOps/UninstallCluster", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -57,8 +67,9 @@ func (c *cortexOpsClient) GetClusterConfig(ctx context.Context, in *ClusterConfi
 // All implementations must embed UnimplementedCortexOpsServer
 // for forward compatibility
 type CortexOpsServer interface {
-	GetClusterStatus(context.Context, *emptypb.Empty) (*ClusterStatus, error)
-	GetClusterConfig(context.Context, *ClusterConfigRequest) (*ClusterConfigResponse, error)
+	ConfigureInstall(context.Context, *InstallConfiguration) (*emptypb.Empty, error)
+	GetInstallStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
+	UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedCortexOpsServer()
 }
 
@@ -66,11 +77,14 @@ type CortexOpsServer interface {
 type UnimplementedCortexOpsServer struct {
 }
 
-func (UnimplementedCortexOpsServer) GetClusterStatus(context.Context, *emptypb.Empty) (*ClusterStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetClusterStatus not implemented")
+func (UnimplementedCortexOpsServer) ConfigureInstall(context.Context, *InstallConfiguration) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigureInstall not implemented")
 }
-func (UnimplementedCortexOpsServer) GetClusterConfig(context.Context, *ClusterConfigRequest) (*ClusterConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetClusterConfig not implemented")
+func (UnimplementedCortexOpsServer) GetInstallStatus(context.Context, *emptypb.Empty) (*InstallStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetInstallStatus not implemented")
+}
+func (UnimplementedCortexOpsServer) UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UninstallCluster not implemented")
 }
 func (UnimplementedCortexOpsServer) mustEmbedUnimplementedCortexOpsServer() {}
 
@@ -85,38 +99,56 @@ func RegisterCortexOpsServer(s grpc.ServiceRegistrar, srv CortexOpsServer) {
 	s.RegisterService(&CortexOps_ServiceDesc, srv)
 }
 
-func _CortexOps_GetClusterStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CortexOps_ConfigureInstall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InstallConfiguration)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexOpsServer).ConfigureInstall(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexops.CortexOps/ConfigureInstall",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexOpsServer).ConfigureInstall(ctx, req.(*InstallConfiguration))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CortexOps_GetInstallStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CortexOpsServer).GetClusterStatus(ctx, in)
+		return srv.(CortexOpsServer).GetInstallStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cortexops.CortexOps/GetClusterStatus",
+		FullMethod: "/cortexops.CortexOps/GetInstallStatus",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).GetClusterStatus(ctx, req.(*emptypb.Empty))
+		return srv.(CortexOpsServer).GetInstallStatus(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CortexOps_GetClusterConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ClusterConfigRequest)
+func _CortexOps_UninstallCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CortexOpsServer).GetClusterConfig(ctx, in)
+		return srv.(CortexOpsServer).UninstallCluster(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cortexops.CortexOps/GetClusterConfig",
+		FullMethod: "/cortexops.CortexOps/UninstallCluster",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).GetClusterConfig(ctx, req.(*ClusterConfigRequest))
+		return srv.(CortexOpsServer).UninstallCluster(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -129,12 +161,16 @@ var CortexOps_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*CortexOpsServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetClusterStatus",
-			Handler:    _CortexOps_GetClusterStatus_Handler,
+			MethodName: "ConfigureInstall",
+			Handler:    _CortexOps_ConfigureInstall_Handler,
 		},
 		{
-			MethodName: "GetClusterConfig",
-			Handler:    _CortexOps_GetClusterConfig_Handler,
+			MethodName: "GetInstallStatus",
+			Handler:    _CortexOps_GetInstallStatus_Handler,
+		},
+		{
+			MethodName: "UninstallCluster",
+			Handler:    _CortexOps_UninstallCluster_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

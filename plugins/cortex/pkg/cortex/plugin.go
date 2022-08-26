@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 
+	"github.com/kralicky/gpkg/sync/atomic"
+
 	"go.uber.org/zap"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -25,6 +27,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/cortex/pkg/drivers"
 )
 
 type Plugin struct {
@@ -41,6 +44,7 @@ type Plugin struct {
 	cortexTlsConfig     future.Future[*tls.Config]
 	cortexClientSet     future.Future[ClientSet]
 	uninstallController future.Future[*task.Controller]
+	clusterDriver       atomic.Value[drivers.ClusterDriver]
 	logger              *zap.SugaredLogger
 }
 

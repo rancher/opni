@@ -31,6 +31,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 				Resources: []string{
 					"bootstraptokens",
 					"loggingclusters",
+					"monitoringclusters",
 					"multiclusterrolebindings",
 					"clusters",
 					"keyrings",

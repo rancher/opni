@@ -11,11 +11,13 @@ import (
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
 	"github.com/spf13/cobra"
 )
 
 var mgmtClient managementv1.ManagementClient
 var adminClient cortexadmin.CortexAdminClient
+var opsClient cortexops.CortexOpsClient
 var lg = logger.New()
 
 func ConfigureManagementCommand(cmd *cobra.Command) {
@@ -48,6 +50,13 @@ func ConfigureManagementCommand(cmd *cobra.Command) {
 			return err
 		}
 		adminClient = ac
+
+		oc, err := cortexops.NewClient(cmd.Context(),
+			cortexops.WithListenAddress(address))
+		if err != nil {
+			return err
+		}
+		opsClient = oc
 		return nil
 	}
 }

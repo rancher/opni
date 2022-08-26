@@ -46,17 +46,20 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							ImagePullPolicy: r.statusImagePullPolicy(),
 							Command:         []string{"opni"},
 							Args:            []string{"gateway"},
-							Env: func() []corev1.EnvVar {
-								return append(r.spec.ExtraEnvVars, corev1.EnvVar{
+							Env: append(r.spec.ExtraEnvVars,
+								corev1.EnvVar{
 									Name: "POD_NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{
 											FieldPath: "metadata.namespace",
 										},
 									},
-								})
-							}(),
-
+								},
+								corev1.EnvVar{
+									Name:  "GATEWAY_NAME",
+									Value: r.gw.Name,
+								},
+							),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "config",

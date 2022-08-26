@@ -5,6 +5,7 @@ import (
 
 	grafanav1alpha1 "github.com/grafana-operator/grafana-operator/v4/api/integreatly/v1alpha1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,21 +35,63 @@ const (
 	StorageBackendFilesystem StorageBackendType = "filesystem"
 )
 
+type DeploymentMode string
+
+const (
+	DeploymentModeAllInOne        DeploymentMode = "AllInOne"
+	DeploymentModeHighlyAvailable DeploymentMode = "HighlyAvailable"
+)
+
 type CortexSpec struct {
-	Enabled      bool                `json:"enabled,omitempty"`
-	Image        *opnimeta.ImageSpec `json:"image,omitempty"`
-	LogLevel     string              `json:"logLevel,omitempty"`
-	Storage      CortexStorageSpec   `json:"storage,omitempty"`
-	ExtraEnvVars []corev1.EnvVar     `json:"extraEnvVars,omitempty"`
+	Enabled        bool                `json:"enabled,omitempty"`
+	Image          *opnimeta.ImageSpec `json:"image,omitempty"`
+	LogLevel       string              `json:"logLevel,omitempty"`
+	Storage        CortexStorageSpec   `json:"storage,omitempty"`
+	ExtraEnvVars   []corev1.EnvVar     `json:"extraEnvVars,omitempty"`
+	DeploymentMode DeploymentMode      `json:"deploymentMode,omitempty"`
+
+	// Overrides for specific workloads. If unset, all values have automatic
+	// defaults based on the deployment mode.
+	Workloads CortexWorkloadsSpec `json:"workloads,omitempty"`
 }
 
 type CortexStorageSpec struct {
-	Backend    StorageBackendType     `json:"backend,omitempty"`
-	S3         *S3StorageSpec         `json:"s3,omitempty"`
-	GCS        *GCSStorageSpec        `json:"gcs,omitempty"`
-	Azure      *AzureStorageSpec      `json:"azure,omitempty"`
-	Swift      *SwiftStorageSpec      `json:"swift,omitempty"`
-	Filesystem *FilesystemStorageSpec `json:"filesystem,omitempty"`
+	Backend      StorageBackendType                                      `json:"backend,omitempty"`
+	S3           *S3StorageSpec                                          `json:"s3,omitempty"`
+	GCS          *GCSStorageSpec                                         `json:"gcs,omitempty"`
+	Azure        *AzureStorageSpec                                       `json:"azure,omitempty"`
+	Swift        *SwiftStorageSpec                                       `json:"swift,omitempty"`
+	Filesystem   *FilesystemStorageSpec                                  `json:"filesystem,omitempty"`
+	PVCRetention *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy `json:"pvcRetention,omitempty"`
+}
+
+type CortexWorkloadsSpec struct {
+	Distributor   *CortexWorkloadSpec `json:"distributor,omitempty"`
+	Ingester      *CortexWorkloadSpec `json:"ingester,omitempty"`
+	Compactor     *CortexWorkloadSpec `json:"compactor,omitempty"`
+	StoreGateway  *CortexWorkloadSpec `json:"storeGateway,omitempty"`
+	Ruler         *CortexWorkloadSpec `json:"ruler,omitempty"`
+	QueryFrontend *CortexWorkloadSpec `json:"queryFrontend,omitempty"`
+	Querier       *CortexWorkloadSpec `json:"querier,omitempty"`
+	Purger        *CortexWorkloadSpec `json:"purger,omitempty"`
+
+	// Used only when deploymentMode is AllInOne.
+	AllInOne *CortexWorkloadSpec `json:"allInOne,omitempty"`
+}
+
+type CortexWorkloadSpec struct {
+	Replicas           *int32                            `json:"replicas,omitempty"`
+	ExtraVolumes       []corev1.Volume                   `json:"extraVolumes,omitempty"`
+	ExtraVolumeMounts  []corev1.VolumeMount              `json:"extraVolumeMounts,omitempty"`
+	ExtraEnvVars       []corev1.EnvVar                   `json:"extraEnvVars,omitempty"`
+	ExtraArgs          []string                          `json:"extraArgs,omitempty"`
+	SidecarContainers  []corev1.Container                `json:"sidecarContainers,omitempty"`
+	InitContainers     []corev1.Container                `json:"initContainers,omitempty"`
+	StorageSize        *string                           `json:"storageSize,omitempty"`
+	DeploymentStrategy *appsv1.DeploymentStrategy        `json:"deploymentStrategy,omitempty"`
+	UpdateStrategy     *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
+	SecurityContext    *corev1.SecurityContext           `json:"securityContext,omitempty"`
+	Affinity           *corev1.Affinity                  `json:"affinity,omitempty"`
 }
 
 type S3StorageSpec struct {
@@ -198,6 +241,11 @@ type MonitoringClusterSpec struct {
 type MonitoringClusterStatus struct {
 	Image           string            `json:"image,omitempty"`
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	Cortex          CortexStatus      `json:"cortex,omitempty"`
+}
+
+type CortexStatus struct {
+	Version string `json:"version,omitempty"`
 }
 
 // +kubebuilder:object:root=true

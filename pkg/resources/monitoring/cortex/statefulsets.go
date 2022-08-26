@@ -6,8 +6,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (r *Reconciler) statefulSets() []resources.Resource {
-	compactor := r.buildCortexStatefulSet("compactor")
+func (r *Reconciler) highlyAvailableStatefulSets() []resources.Resource {
+	compactor := r.buildCortexStatefulSet("compactor",
+		WithOverrides(r.spec.Cortex.Workloads.Compactor),
+	)
 	storeGateway := r.buildCortexStatefulSet("store-gateway",
 		ServiceName("cortex-store-gateway-headless"),
 	)
@@ -20,6 +22,7 @@ func (r *Reconciler) statefulSets() []resources.Resource {
 				},
 			},
 		}),
+		WithOverrides(r.spec.Cortex.Workloads.Ingester),
 	)
 	alertmanager := r.buildCortexStatefulSet("alertmanager",
 		ExtraVolumes(corev1.Volume{
@@ -47,6 +50,7 @@ func (r *Reconciler) statefulSets() []resources.Resource {
 	querier := r.buildCortexStatefulSet("querier",
 		Ports(HTTP),
 		NoPersistentStorage(),
+		WithOverrides(r.spec.Cortex.Workloads.Querier),
 	)
 	return []resources.Resource{
 		alertmanager,
@@ -54,5 +58,15 @@ func (r *Reconciler) statefulSets() []resources.Resource {
 		compactor,
 		storeGateway,
 		querier,
+	}
+}
+
+func (r *Reconciler) allInOneStatefulSets() []resources.Resource {
+	all := r.buildCortexStatefulSet("all",
+		WithOverrides(r.spec.Cortex.Workloads.AllInOne),
+		Replicas(1), // Force replicas to 1 for all-in-one mode
+	)
+	return []resources.Resource{
+		all,
 	}
 }

@@ -3,55 +3,52 @@ package cortex
 import (
 	"context"
 
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/emptypb"
-
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
 )
 
-func (p *Plugin) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*cortexops.ClusterStatus, error) {
+func (p *Plugin) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*cortexadmin.ClusterStatus, error) {
 	cs, err := p.cortexClientSet.GetContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	stat := &cortexops.ClusterStatus{
-		CortexServices: &cortexops.CortexServicesStatus{},
-	}
+	stat := &cortexadmin.ClusterStatus{}
 
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() (err error) {
-		stat.CortexServices.Distributor, err = cs.Distributor().Status(ctx)
+		stat.Distributor, err = cs.Distributor().Status(ctx)
 		return
 	})
 	eg.Go(func() (err error) {
-		stat.CortexServices.Ingester, err = cs.Ingester().Status(ctx)
+		stat.Ingester, err = cs.Ingester().Status(ctx)
 		return
 	})
 	eg.Go(func() (err error) {
-		stat.CortexServices.Ruler, err = cs.Ruler().Status(ctx)
+		stat.Ruler, err = cs.Ruler().Status(ctx)
 		return
 	})
 	eg.Go(func() (err error) {
-		stat.CortexServices.Purger, err = cs.Purger().Status(ctx)
+		stat.Purger, err = cs.Purger().Status(ctx)
 		return
 	})
 	eg.Go(func() (err error) {
-		stat.CortexServices.Compactor, err = cs.Compactor().Status(ctx)
+		stat.Compactor, err = cs.Compactor().Status(ctx)
 		return
 	})
 	eg.Go(func() (err error) {
-		stat.CortexServices.StoreGateway, err = cs.StoreGateway().Status(ctx)
+		stat.StoreGateway, err = cs.StoreGateway().Status(ctx)
 		return
 	})
 	eg.Go(func() (err error) {
-		stat.CortexServices.QueryFrontend, err = cs.QueryFrontend().Status(ctx)
+		stat.QueryFrontend, err = cs.QueryFrontend().Status(ctx)
 		return
 	})
 	eg.Go(func() (err error) {
-		stat.CortexServices.Querier, err = cs.Querier().Status(ctx)
+		stat.Querier, err = cs.Querier().Status(ctx)
 		return
 	})
 
@@ -64,8 +61,8 @@ func (p *Plugin) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*corte
 	return stat, nil
 }
 
-func (p *Plugin) GetClusterConfig(ctx context.Context, req *cortexops.ClusterConfigRequest) (*cortexops.ClusterConfigResponse, error) {
-	resp := &cortexops.ClusterConfigResponse{
+func (p *Plugin) GetClusterConfig(ctx context.Context, req *cortexadmin.ConfigRequest) (*cortexadmin.ConfigResponse, error) {
+	resp := &cortexadmin.ConfigResponse{
 		ConfigYaml: make([]string, len(req.ConfigModes)),
 	}
 

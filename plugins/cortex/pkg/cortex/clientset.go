@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 )
 
 type ClientSet interface {
@@ -36,11 +36,11 @@ type ClientSet interface {
 type DistributorClient interface {
 	distributorpb.DistributorClient
 	ConfigClient
-	Status(ctx context.Context) (*cortexops.DistributorStatus, error)
+	Status(ctx context.Context) (*cortexadmin.DistributorStatus, error)
 }
 
 type IngesterClient interface {
-	Status(ctx context.Context) (*cortexops.IngesterStatus, error)
+	Status(ctx context.Context) (*cortexadmin.IngesterStatus, error)
 }
 
 type ConfigMode string
@@ -85,39 +85,39 @@ func (c *configClient) Config(ctx context.Context, mode ...ConfigMode) (string, 
 
 type RulerClient interface {
 	ruler.RulerClient
-	Status(ctx context.Context) (*cortexops.RulerStatus, error)
+	Status(ctx context.Context) (*cortexadmin.RulerStatus, error)
 }
 
 type PurgerClient interface {
-	Status(ctx context.Context) (*cortexops.PurgerStatus, error)
+	Status(ctx context.Context) (*cortexadmin.PurgerStatus, error)
 }
 
 type CompactorClient interface {
-	Status(ctx context.Context) (*cortexops.CompactorStatus, error)
+	Status(ctx context.Context) (*cortexadmin.CompactorStatus, error)
 }
 
 type StoreGatewayClient interface {
-	Status(ctx context.Context) (*cortexops.StoreGatewayStatus, error)
+	Status(ctx context.Context) (*cortexadmin.StoreGatewayStatus, error)
 }
 
 type QuerierClient interface {
-	Status(ctx context.Context) (*cortexops.QuerierStatus, error)
+	Status(ctx context.Context) (*cortexadmin.QuerierStatus, error)
 }
 
 type QueryFrontendClient interface {
-	Status(ctx context.Context) (*cortexops.QueryFrontendStatus, error)
+	Status(ctx context.Context) (*cortexadmin.QueryFrontendStatus, error)
 }
 
 type ServicesStatusClient interface {
-	ServicesStatus(ctx context.Context) (*cortexops.ServiceStatusList, error)
+	ServicesStatus(ctx context.Context) (*cortexadmin.ServiceStatusList, error)
 }
 
 type MemberlistStatusClient interface {
-	MemberlistStatus(ctx context.Context) (*cortexops.MemberlistStatus, error)
+	MemberlistStatus(ctx context.Context) (*cortexadmin.MemberlistStatus, error)
 }
 
 type RingStatusClient interface {
-	RingStatus(ctx context.Context) (*cortexops.RingStatus, error)
+	RingStatus(ctx context.Context) (*cortexadmin.RingStatus, error)
 }
 
 type servicesStatusClient struct {
@@ -125,7 +125,7 @@ type servicesStatusClient struct {
 	httpClient *http.Client
 }
 
-func (c *servicesStatusClient) ServicesStatus(ctx context.Context) (*cortexops.ServiceStatusList, error) {
+func (c *servicesStatusClient) ServicesStatus(ctx context.Context) (*cortexadmin.ServiceStatusList, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/services", c.url), nil)
 	if err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func (c *servicesStatusClient) ServicesStatus(ctx context.Context) (*cortexops.S
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status: %s (request: %s)", resp.Status, req.URL.String())
 	}
-	list := &cortexops.ServiceStatusList{}
+	list := &cortexadmin.ServiceStatusList{}
 	if err := json.NewDecoder(resp.Body).Decode(list); err != nil {
 		return nil, fmt.Errorf("failed to decode services status: %w", err)
 	}
@@ -156,7 +156,7 @@ type memberlistResponse struct {
 	Keys    map[string]struct{} `json:"Store"`
 }
 
-func (c *memberlistStatusClient) MemberlistStatus(ctx context.Context) (*cortexops.MemberlistStatus, error) {
+func (c *memberlistStatusClient) MemberlistStatus(ctx context.Context) (*cortexadmin.MemberlistStatus, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/memberlist", c.url), nil)
 	if err != nil {
 		return nil, err
@@ -175,7 +175,7 @@ func (c *memberlistStatusClient) MemberlistStatus(ctx context.Context) (*cortexo
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(resp.Body)
 		if buf.String() == "This instance doesn't use memberlist." {
-			return &cortexops.MemberlistStatus{
+			return &cortexadmin.MemberlistStatus{
 				Enabled: false,
 			}, nil
 		}
@@ -185,18 +185,18 @@ func (c *memberlistStatusClient) MemberlistStatus(ctx context.Context) (*cortexo
 	if err := json.NewDecoder(resp.Body).Decode(&mr); err != nil {
 		return nil, fmt.Errorf("failed to decode memberlist status: %w", err)
 	}
-	var memberStatusItems []*cortexops.MemberStatus
+	var memberStatusItems []*cortexadmin.MemberStatus
 	for _, member := range mr.Members {
-		memberStatusItems = append(memberStatusItems, &cortexops.MemberStatus{
+		memberStatusItems = append(memberStatusItems, &cortexadmin.MemberStatus{
 			Name:    member.Name,
 			Address: member.Address(),
 			Port:    uint32(member.Port),
 			State:   int32(member.State),
 		})
 	}
-	return &cortexops.MemberlistStatus{
+	return &cortexadmin.MemberlistStatus{
 		Keys: lo.Keys(mr.Keys),
-		Members: &cortexops.MemberStatusList{
+		Members: &cortexadmin.MemberStatusList{
 			Items: memberStatusItems,
 		},
 	}, nil
@@ -207,7 +207,7 @@ type ringStatusClient struct {
 	httpClient *http.Client
 }
 
-func (c *ringStatusClient) RingStatus(ctx context.Context) (*cortexops.RingStatus, error) {
+func (c *ringStatusClient) RingStatus(ctx context.Context) (*cortexadmin.RingStatus, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/ring", c.url), nil)
 	if err != nil {
 		return nil, err
@@ -222,15 +222,15 @@ func (c *ringStatusClient) RingStatus(ctx context.Context) (*cortexops.RingStatu
 		return nil, fmt.Errorf("unexpected status: %s (request: %s)", resp.Status, req.URL.String())
 	}
 	if resp.Header.Get("Content-Type") != "application/json" {
-		return &cortexops.RingStatus{
+		return &cortexadmin.RingStatus{
 			Enabled: false,
 		}, nil
 	}
-	list := &cortexops.ShardStatusList{}
+	list := &cortexadmin.ShardStatusList{}
 	if err := json.NewDecoder(resp.Body).Decode(list); err != nil {
 		return nil, fmt.Errorf("failed to decode ring status: %w", err)
 	}
-	return &cortexops.RingStatus{
+	return &cortexadmin.RingStatus{
 		Enabled: true,
 		Shards:  list,
 	}, nil
@@ -243,7 +243,7 @@ type distributorClient struct {
 	RingStatusClient
 }
 
-func (c *distributorClient) Status(ctx context.Context) (*cortexops.DistributorStatus, error) {
+func (c *distributorClient) Status(ctx context.Context) (*cortexadmin.DistributorStatus, error) {
 	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
@@ -252,7 +252,7 @@ func (c *distributorClient) Status(ctx context.Context) (*cortexops.DistributorS
 	if err != nil {
 		return nil, err
 	}
-	return &cortexops.DistributorStatus{
+	return &cortexadmin.DistributorStatus{
 		Services:     servicesStatus,
 		IngesterRing: ringStatus,
 	}, nil
@@ -264,7 +264,7 @@ type ingesterClient struct {
 	RingStatusClient
 }
 
-func (c *ingesterClient) Status(ctx context.Context) (*cortexops.IngesterStatus, error) {
+func (c *ingesterClient) Status(ctx context.Context) (*cortexadmin.IngesterStatus, error) {
 	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
@@ -277,7 +277,7 @@ func (c *ingesterClient) Status(ctx context.Context) (*cortexops.IngesterStatus,
 	if err != nil {
 		return nil, err
 	}
-	return &cortexops.IngesterStatus{
+	return &cortexadmin.IngesterStatus{
 		Services:   servicesStatus,
 		Memberlist: memberlistStatus,
 		Ring:       ringStatus,
@@ -291,7 +291,7 @@ type rulerClient struct {
 	RingStatusClient
 }
 
-func (c *rulerClient) Status(ctx context.Context) (*cortexops.RulerStatus, error) {
+func (c *rulerClient) Status(ctx context.Context) (*cortexadmin.RulerStatus, error) {
 	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
@@ -304,7 +304,7 @@ func (c *rulerClient) Status(ctx context.Context) (*cortexops.RulerStatus, error
 	if err != nil {
 		return nil, err
 	}
-	return &cortexops.RulerStatus{
+	return &cortexadmin.RulerStatus{
 		Services:   servicesStatus,
 		Memberlist: memberlistStatus,
 		Ring:       ringStatus,
@@ -315,12 +315,12 @@ type purgerClient struct {
 	ServicesStatusClient
 }
 
-func (c *purgerClient) Status(ctx context.Context) (*cortexops.PurgerStatus, error) {
+func (c *purgerClient) Status(ctx context.Context) (*cortexadmin.PurgerStatus, error) {
 	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &cortexops.PurgerStatus{
+	return &cortexadmin.PurgerStatus{
 		Services: servicesStatus,
 	}, nil
 }
@@ -331,7 +331,7 @@ type compactorClient struct {
 	RingStatusClient
 }
 
-func (c *compactorClient) Status(ctx context.Context) (*cortexops.CompactorStatus, error) {
+func (c *compactorClient) Status(ctx context.Context) (*cortexadmin.CompactorStatus, error) {
 	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
@@ -344,7 +344,7 @@ func (c *compactorClient) Status(ctx context.Context) (*cortexops.CompactorStatu
 	if err != nil {
 		return nil, err
 	}
-	return &cortexops.CompactorStatus{
+	return &cortexadmin.CompactorStatus{
 		Services:   servicesStatus,
 		Memberlist: memberlistStatus,
 		Ring:       ringStatus,
@@ -357,7 +357,7 @@ type storeGatewayClient struct {
 	RingStatusClient
 }
 
-func (c *storeGatewayClient) Status(ctx context.Context) (*cortexops.StoreGatewayStatus, error) {
+func (c *storeGatewayClient) Status(ctx context.Context) (*cortexadmin.StoreGatewayStatus, error) {
 	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
@@ -370,7 +370,7 @@ func (c *storeGatewayClient) Status(ctx context.Context) (*cortexops.StoreGatewa
 	if err != nil {
 		return nil, err
 	}
-	return &cortexops.StoreGatewayStatus{
+	return &cortexadmin.StoreGatewayStatus{
 		Services:   servicesStatus,
 		Memberlist: memberlistStatus,
 		Ring:       ringStatus,
@@ -382,7 +382,7 @@ type querierClient struct {
 	MemberlistStatusClient
 }
 
-func (c *querierClient) Status(ctx context.Context) (*cortexops.QuerierStatus, error) {
+func (c *querierClient) Status(ctx context.Context) (*cortexadmin.QuerierStatus, error) {
 	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
@@ -391,7 +391,7 @@ func (c *querierClient) Status(ctx context.Context) (*cortexops.QuerierStatus, e
 	if err != nil {
 		return nil, err
 	}
-	return &cortexops.QuerierStatus{
+	return &cortexadmin.QuerierStatus{
 		Services:   servicesStatus,
 		Memberlist: memberlistStatus,
 	}, nil
@@ -401,12 +401,12 @@ type queryFrontendClient struct {
 	ServicesStatusClient
 }
 
-func (c *queryFrontendClient) Status(ctx context.Context) (*cortexops.QueryFrontendStatus, error) {
+func (c *queryFrontendClient) Status(ctx context.Context) (*cortexadmin.QueryFrontendStatus, error) {
 	servicesStatus, err := c.ServicesStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &cortexops.QueryFrontendStatus{
+	return &cortexadmin.QueryFrontendStatus{
 		Services: servicesStatus,
 	}, nil
 }

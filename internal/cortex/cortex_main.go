@@ -92,6 +92,12 @@ func Main(args []string) {
 	rand.Seed(time.Now().UnixNano())
 
 	t, err := cortex.New(cfg)
+
+	//////////////////////////////////////////////////////////////////////////////
+	// Opni Custom Logic: Run the compactor in single-binary mode
+	t.ModuleManager.AddDependency(cortex.All, cortex.Compactor)
+	//////////////////////////////////////////////////////////////////////////////
+
 	util_log.CheckFatal("initializing cortex", err)
 	if printModules {
 		allDeps := t.ModuleManager.DependenciesForModule(cortex.All)

@@ -28,6 +28,9 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			},
 			Hostname: r.spec.Hostname,
 			Cortex: cfgv1beta1.CortexSpec{
+				Management: cfgv1beta1.ClusterManagementSpec{
+					ClusterDriver: "kubernetes",
+				},
 				Certs: cfgv1beta1.MTLSSpec{
 					ServerCA:   "/run/cortex/certs/server/ca.crt",
 					ClientCA:   "/run/cortex/certs/client/ca.crt",

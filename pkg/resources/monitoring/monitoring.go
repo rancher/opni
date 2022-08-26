@@ -81,6 +81,10 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 			return util.RequeueErr(err).Result()
 		}
 		r.gw = gw
+
+		if gw.DeletionTimestamp != nil {
+			return util.DoNotRequeue().Result()
+		}
 	}
 	if r.coremc != nil {
 		gw := &corev1beta1.Gateway{}
@@ -92,6 +96,10 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 			return util.RequeueErr(err).Result()
 		}
 		r.coregw = gw
+
+		if gw.DeletionTimestamp != nil {
+			return util.DoNotRequeue().Result()
+		}
 	}
 
 	updated, err := r.updateImageStatus()

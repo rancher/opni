@@ -5,11 +5,15 @@ package shared
 
 import (
 	"fmt"
+	"strings"
+	"text/template"
 
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// Datasources & Versioning
 
 const (
 	AlertingV1Alpha      = "v1alpha"
@@ -17,6 +21,70 @@ const (
 	LoggingDatasource    = "logging"
 	SystemDatasource     = "system"
 )
+
+// Operator container & service definitions
+
+const (
+	OperatorAlertingServiceName = "opni-alerting"
+	AlertingHookReceiverName    = "cortex.hook"
+	AlertingCortexHookHandler   = "/management/alerting/cortexHandler"
+)
+
+var (
+	PublicLabels        = map[string]string{}
+	PublicServiceLabels = map[string]string{}
+)
+
+func LabelWithAlert(label map[string]string) map[string]string {
+	label["app.kubernetes.io/name"] = "opni-alerting"
+	return label
+}
+
+// Default Operator AM config
+
+const route = `
+route:
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  receiver: 'web.hook'
+`
+
+/*
+Original:
+receivers:
+  - name: 'web.hook'
+    webhook_configs:
+  - url: 'http://127.0.0.1:5001/'
+*/
+const receivers = `
+receivers:
+  - name: '{{ .CortexHandlerName }}'
+    webhook_configs:
+      - url: '{{ .CortexHandlerURL }}'
+`
+
+const inihibit_rules = `
+inhibit_rules:
+- source_match:
+    severity: 'critical'
+  target_match:
+    severity: 'warning'
+  equal: ['alertname', 'dev', 'instance']`
+
+var DefaultAlertManager = template.Must(template.New("DefaultManagementHook").Parse(strings.Join([]string{
+	strings.TrimSpace(route),
+	receivers,
+	strings.TrimSpace(inihibit_rules),
+}, "\n")))
+
+type DefaultAlertManagerInfo struct {
+	CortexHandlerName string
+	CortexHandlerURL  string
+}
+
+// Error declarations
 
 var (
 	AlertingErrNotImplemented           = WithUnimplementedError("Not implemented")

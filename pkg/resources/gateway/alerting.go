@@ -1,29 +1,53 @@
 package gateway
 
 import (
+	"bytes"
 	"fmt"
 	"path"
-	"strings"
 
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 )
 
 var (
-	defaultAlertManager = alerting.DefaultAlertManager
+	defaultAlertManagerTemplate = shared.DefaultAlertManager
 )
 
 func (r *Reconciler) alerting() []resources.Resource {
-	// TODO: move defaulting to a webhook
-	if r.spec.Alerting == nil {
+	// always create the alerting service, even if it points to nothing, so cortex can find it
+
+	publicLabels := map[string]string{} // TODO define a set of meaningful labels for this service
+	labelWithAlert := func(label map[string]string) map[string]string {
+		label["app.kubernetes.io/name"] = "opni-alerting"
+		return label
+	}
+	publicLabels = labelWithAlert(publicLabels)
+	publicSvcLabels := publicLabels
+
+	alertingSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        shared.OperatorAlertingServiceName,
+			Namespace:   r.gw.Namespace,
+			Labels:      publicSvcLabels,
+			Annotations: r.gw.Spec.ServiceAnnotations,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     r.gw.Spec.Alerting.ServiceType,
+			Selector: publicLabels,
+			Ports:    r.serviceAlertManagerPorts(r.containerAlertManagerPorts()),
+		},
+	}
+	ctrl.SetControllerReference(r.gw, alertingSvc, r.client.Scheme())
+
+	if r.gw.Spec.Alerting == nil {
 		// set some sensible defaults
 		r.spec.Alerting = &corev1beta1.AlertingSpec{
 			WebPort:     9093,
@@ -45,16 +69,16 @@ func (r *Reconciler) alerting() []resources.Resource {
 		r.spec.Alerting.ConfigName = "alertmanager-config"
 	}
 
-	publicLabels := map[string]string{} // TODO define a set of meaningful labels for this service
-	labelWithAlert := func(label map[string]string) map[string]string {
-		label["app.kubernetes.io/name"] = "opni-alerting"
-		return label
+	var amData bytes.Buffer
+	mgmtDNS := "opni-monitoring-internal"
+	httpPort := "11080"
+	err := defaultAlertManagerTemplate.Execute(&amData, shared.DefaultAlertManagerInfo{
+		CortexHandlerName: shared.AlertingHookReceiverName,
+		CortexHandlerURL:  fmt.Sprintf("https://%s:%s%s", mgmtDNS, httpPort, shared.AlertingCortexHookHandler),
+	})
+	if err != nil {
+		panic(err)
 	}
-	publicLabels = labelWithAlert(publicLabels)
-
-	// to reload we need to do issue a k8sclient rollout restart
-
-	// read default config
 
 	// to be mounted into alertmanager pods
 	alertManagerConfigMap := &corev1.ConfigMap{
@@ -64,14 +88,10 @@ func (r *Reconciler) alerting() []resources.Resource {
 		},
 
 		Data: map[string]string{
-			"alertmanager.yaml": strings.TrimSpace(defaultAlertManager),
+			"alertmanager.yaml": amData.String(),
 		},
 	}
-
-	err := r.setOwner(alertManagerConfigMap)
-	if err != nil {
-		panic(err)
-	}
+	ctrl.SetControllerReference(r.gw, alertManagerConfigMap, r.client.Scheme())
 
 	dataMountPath := "/var/lib/alertmanager/data"
 	configMountPath := "/etc/config"
@@ -167,24 +187,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 			},
 		},
 	}
-	r.setOwner(deploy)
-
-	publicSvcLabels := publicLabels
-
-	alertingSvc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        "opni-alerting",
-			Namespace:   r.namespace,
-			Labels:      publicSvcLabels,
-			Annotations: r.spec.ServiceAnnotations,
-		},
-		Spec: corev1.ServiceSpec{
-			Type:     r.spec.Alerting.ServiceType,
-			Selector: publicLabels,
-			Ports:    r.serviceAlertManagerPorts(r.containerAlertManagerPorts()),
-		},
-	}
-	r.setOwner(alertingSvc)
+	ctrl.SetControllerReference(r.gw, deploy, r.client.Scheme())
 
 	return []resources.Resource{
 		resources.PresentIff(r.spec.Alerting.Enabled, alertManagerConfigMap),

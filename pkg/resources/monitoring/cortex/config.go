@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/shared"
+
 	"github.com/cortexproject/cortex/pkg/alertmanager"
 	"github.com/cortexproject/cortex/pkg/alertmanager/alertstore"
 	"github.com/cortexproject/cortex/pkg/api"
@@ -335,7 +337,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			SplitQueriesByInterval: 24 * time.Hour,
 		},
 		Ruler: ruler.Config{
-			AlertmanagerURL:          fmt.Sprintf("https://cortex-alertmanager.%s.svc.cluster.local:8080/api/prom/alertmanager/", r.namespace),
+			AlertmanagerURL:          shared.OperatorAlertingServiceName,
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
 			Ring: ruler.RingConfig{

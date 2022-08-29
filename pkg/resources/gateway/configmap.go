@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/shared"
 
 	"emperror.dev/errors"
 	"github.com/rancher/opni/pkg/auth/openid"
@@ -15,8 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
-
-const AlertingCortexHookHandler = "/management/alerting/cortexHandler"
 
 func (r *Reconciler) configMap() (resources.Resource, error) {
 	gatewayConf := &cfgv1beta1.GatewayConfig{
@@ -56,7 +55,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 						ConfigMapName:             "alertmanager-config",
 						StatefulSetName:           "opni-alerting-internal",
 						Namespace:                 r.gw.Namespace,
-						ManagementHookHandlerName: AlertingCortexHookHandler,
+						ManagementHookHandlerName: shared.AlertingCortexHookHandler,
 					}
 				}
 				return cfgv1beta1.AlertingSpec{
@@ -64,7 +63,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 					ConfigMapName:             r.gw.Spec.Alerting.ConfigName,
 					StatefulSetName:           "opni-alerting-internal",
 					Namespace:                 r.gw.Namespace,
-					ManagementHookHandlerName: AlertingCortexHookHandler,
+					ManagementHookHandlerName: shared.AlertingCortexHookHandler,
 				}
 			}(),
 			Profiling: r.spec.Profiling,

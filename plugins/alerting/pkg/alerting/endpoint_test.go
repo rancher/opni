@@ -1,6 +1,8 @@
 package alerting_test
 
 import (
+	"bytes"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"strings"
 
 	"github.com/google/uuid"
@@ -39,7 +41,16 @@ inhibit_rules:
 
 func defaultConfig() (*alerting.ConfigMapData, error) {
 	var c alerting.ConfigMapData
-	err := c.Parse(alerting.DefaultAlertManager)
+	templateToFill := shared.DefaultAlertManager
+	var b bytes.Buffer
+	err := templateToFill.Execute(&b, shared.DefaultAlertManagerInfo{
+		CortexHandlerName: "web.hook",
+		CortexHandlerURL:  "http://127.0.0.1:5001/",
+	})
+	if err != nil {
+		panic(err)
+	}
+	err = c.Parse(b.String())
 	return &c, err
 }
 

@@ -116,7 +116,9 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 
 		})
 		Specify("Cleaning up edge case data", func() {
-			err := os.WriteFile(alerting.LocalAlertManagerPath, []byte(alerting.DefaultAlertManager), 0644)
+			defaultCfg, err := defaultConfig()
+			Expect(err).To(Succeed())
+			err = os.WriteFile(alerting.LocalAlertManagerPath, defaultCfg.Bytes(), 0644)
 			Expect(err).To(Succeed())
 		})
 

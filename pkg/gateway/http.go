@@ -1,19 +1,19 @@
 package gateway
 
-import "C"
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/condition"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"io"
 	"net/http"
 	"path"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rancher/opni/pkg/alerting/condition"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
@@ -64,7 +64,7 @@ func NewHTTPServer(
 	cfg *v1beta1.GatewayConfigSpec,
 	lg *zap.SugaredLogger,
 	pl plugins.LoaderInterface,
-	alertProvider *alerting.Provider, // need interface so that it updates to correct impl on change
+	alertProvider *alerting.Provider, // need pointer to interface so that it updates to correct impl on change
 ) *GatewayHTTPServer {
 	lg = lg.Named("http")
 

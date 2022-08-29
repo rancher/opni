@@ -5,52 +5,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"os"
-	"path"
-	"strings"
-
 	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/http"
+	"os"
+	"path"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const LocalBackendEnvToggle = "OPNI_ALERTING_BACKEND_LOCAL"
 const LocalAlertManagerPath = "/tmp/alertmanager.yaml"
-
-const route = `
-route:
-  group_by: ['alertname']
-  group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 1h
-  receiver: 'web.hook'
-`
-
-const receivers = `
-receivers:
-  - name: 'web.hook'
-    webhook_configs:
-      - url: 'http://127.0.0.1:5001/'
-`
-
-const inihibit_rules = `
-inhibit_rules:
-- source_match:
-    severity: 'critical'
-  target_match:
-    severity: 'warning'
-  equal: ['alertname', 'dev', 'instance']`
-
-var DefaultAlertManager = strings.Join([]string{
-	strings.TrimSpace(route),
-	receivers,
-	strings.TrimSpace(inihibit_rules),
-}, "\n")
 
 const (
 	GET    = "GET"

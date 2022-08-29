@@ -1,20 +1,23 @@
 package alerting_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/rancher/opni/pkg/alerting/metrics"
-	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/pkg/alerting/shared"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"google.golang.org/protobuf/proto"
 
@@ -25,16 +28,29 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 )
 
-type InvalidInputs struct {
-	req proto.Message
-	err error
-}
-
 func TestAlerting(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Alerting Suite")
 }
 
+func defaultConfig() (bytes.Buffer, error) {
+	templateToFill := shared.DefaultAlertManager
+	var b bytes.Buffer
+	err := templateToFill.Execute(&b, shared.DefaultAlertManagerInfo{
+		CortexHandlerName: "web.hook",
+		CortexHandlerURL:  "http://127.0.0.1:5001/",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return b, err
+}
+
+type InvalidInputs struct {
+	req proto.Message
+	err error
+}
 type TestSuiteState struct {
 	numAlertConditions int
 	numLogs            int
@@ -84,7 +100,9 @@ var _ = BeforeSuite(func() {
 
 	err = os.Setenv(alerting.LocalBackendEnvToggle, "true")
 	Expect(err).To(Succeed())
-	err = os.WriteFile(alerting.LocalAlertManagerPath, []byte(alerting.DefaultAlertManager), 0666)
+	defaultCfg, err := defaultConfig()
+	Expect(err).NotTo(HaveOccurred())
+	err = os.WriteFile(alerting.LocalAlertManagerPath, defaultCfg.Bytes(), 0666)
 	Expect(err).To(Succeed())
 
 	// get all the integration endpoint test information

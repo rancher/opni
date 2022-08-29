@@ -1873,14 +1873,6 @@ github.com/kralicky/grpc-gateway/v2 v2.11.0-1/go.mod h1:NrASbA855UMefvjwka3KcBNl
 github.com/kralicky/kmatch v0.0.0-20220710233303-ed73989bbe4a/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
 github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e h1:0HTOxNxXnJy4EV0zRWr37D/N6xWLdQ1GjtgLpts30jw=
 github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
-github.com/kralicky/protobuf-go v0.0.0-20220803164439-eb1dfcbf71fa h1:GIiQKrxWjlgIAbwpKz4hYSLZv/Fy7bxycy54zPT9CtI=
-github.com/kralicky/protobuf-go v0.0.0-20220803164439-eb1dfcbf71fa/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
-github.com/kralicky/ragu v1.0.0-beta2.0.20220804212527-11bbfeeda553 h1:Z7TRcOUUtMFyCVXDRgyI0SbKGssDdJTp/KMZENPdp64=
-github.com/kralicky/ragu v1.0.0-beta2.0.20220804212527-11bbfeeda553/go.mod h1:CdaCQsAPBdCSv5oFQ7x0p60hypc3CA0jve5ldD8mqJ8=
-github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f h1:4RbsbrpC4vlwanS7WNoFpA+ujI4k6GlE/A5VYOVN2TY=
-github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f/go.mod h1:zirR1JOaqwbLM3JDo+GkLb/e/OLifMsapYRXgt/iI9U=
-github.com/kralicky/totem v1.0.1-rc1.0.20220926165802-c2ca5a25d3ec h1:HVrydusAb24d5doyh8juWel0c8rthJi6/GbE3Jw8bpc=
-github.com/kralicky/totem v1.0.1-rc1.0.20220926165802-c2ca5a25d3ec/go.mod h1:QiAtFUrAgBECIA0XNOZmq8fVrRfvoH2u9o/NFDDatRI=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d h1:kLfaaFdmCHKZCvL4DzQ7T9YsAVSBqZez34zaegldkls=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d/go.mod h1:z4cKsjE0B5RlhFSbWcZNh70UEjtwrj8fpG1QXyU2KuI=
 github.com/kralicky/zap v1.21.1-0.20220517214003-da0ae127f4db h1:OhMQACnkI4y5uEciBkaVGzPFpS/5LkPT1uHnOv84Fcw=

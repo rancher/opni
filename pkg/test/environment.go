@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"io/fs"
 	"math/rand"
 	"net/http"
@@ -65,7 +66,6 @@ import (
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	pluginmeta "github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/realtime"
-	resources "github.com/rancher/opni/pkg/resources/gateway"
 	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
@@ -988,7 +988,7 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 				ConfigMapName:             "alertmanager-config",
 				Namespace:                 "default",
 				StatefulSetName:           "opni-alerting-internal",
-				ManagementHookHandlerName: resources.AlertingCortexHookHandler,
+				ManagementHookHandlerName: shared.AlertingCortexHookHandler,
 			},
 		},
 	}

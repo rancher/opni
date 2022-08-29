@@ -6,15 +6,16 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/goombaio/namegenerator"
-	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
+
+	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func RandomName(seed int64) string {

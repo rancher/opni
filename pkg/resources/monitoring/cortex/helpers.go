@@ -262,7 +262,7 @@ func (r *Reconciler) defaultWorkloadOptions(target string) CortexWorkloadOptions
 func (r *Reconciler) buildCortexDeployment(
 	target string,
 	opts ...CortexWorkloadOption,
-) resources.Resource {
+) *appsv1.Deployment {
 	options := r.defaultWorkloadOptions(target)
 	options.apply(opts...)
 
@@ -276,10 +276,6 @@ func (r *Reconciler) buildCortexDeployment(
 		},
 	}
 
-	if !r.spec.Cortex.Enabled {
-		return resources.Absent(dep)
-	}
-
 	dep.Spec = appsv1.DeploymentSpec{
 		Replicas: &options.replicas,
 		Selector: &metav1.LabelSelector{
@@ -290,13 +286,13 @@ func (r *Reconciler) buildCortexDeployment(
 	}
 
 	r.setOwner(dep)
-	return resources.Present(dep)
+	return dep
 }
 
 func (r *Reconciler) buildCortexStatefulSet(
 	target string,
 	opts ...CortexWorkloadOption,
-) resources.Resource {
+) *appsv1.StatefulSet {
 	options := r.defaultWorkloadOptions(target)
 	options.apply(opts...)
 
@@ -308,10 +304,6 @@ func (r *Reconciler) buildCortexStatefulSet(
 			Namespace: r.namespace,
 			Labels:    labels,
 		},
-	}
-
-	if !r.spec.Cortex.Enabled {
-		return resources.Absent(statefulSet)
 	}
 
 	pvcRetention := r.spec.Cortex.Storage.PVCRetention
@@ -355,7 +347,7 @@ func (r *Reconciler) buildCortexStatefulSet(
 	}
 
 	r.setOwner(statefulSet)
-	return resources.PresentIff(r.spec.Cortex.Enabled, statefulSet)
+	return statefulSet
 }
 
 func (r *Reconciler) cortexWorkloadPodTemplate(

@@ -1,11 +1,11 @@
 package cortex
 
 import (
-	"github.com/rancher/opni/pkg/resources"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func (r *Reconciler) highlyAvailableDeployments() []resources.Resource {
+func (r *Reconciler) highlyAvailableDeployments() []*appsv1.Deployment {
 	distributor := r.buildCortexDeployment("distributor",
 		Replicas(1),
 		WithOverrides(r.spec.Cortex.Workloads.Distributor),
@@ -34,7 +34,7 @@ func (r *Reconciler) highlyAvailableDeployments() []resources.Resource {
 		}),
 		WithOverrides(r.spec.Cortex.Workloads.Ruler),
 	)
-	return []resources.Resource{
+	return []*appsv1.Deployment{
 		distributor,
 		queryFrontend,
 		ruler,
@@ -42,6 +42,6 @@ func (r *Reconciler) highlyAvailableDeployments() []resources.Resource {
 	}
 }
 
-func (r *Reconciler) allInOneDeployments() []resources.Resource {
-	return []resources.Resource{}
+func (r *Reconciler) allInOneDeployments() []*appsv1.Deployment {
+	return []*appsv1.Deployment{}
 }

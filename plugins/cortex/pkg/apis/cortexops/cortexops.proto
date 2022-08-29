@@ -2,6 +2,7 @@ syntax = "proto3";
 option go_package = "github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops";
 
 import "google/protobuf/empty.proto";
+import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
 
 package cortexops;
 
@@ -32,4 +33,5 @@ enum DeploymentMode {
 
 message InstallConfiguration {
   DeploymentMode mode = 1;
+  storage.StorageSpec storage = 2;
 }

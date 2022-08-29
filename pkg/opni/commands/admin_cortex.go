@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
@@ -58,6 +59,7 @@ func BuildCortexClusterStatusCmd() *cobra.Command {
 func BuildCortexClusterConfigureCmd() *cobra.Command {
 	var mode string
 	var installConf cortexops.InstallConfiguration
+	var storage storagev1.StorageSpec
 	cmd := &cobra.Command{
 		Use:   "configure",
 		Short: "Install or configure a Cortex cluster",
@@ -67,12 +69,14 @@ func BuildCortexClusterConfigureCmd() *cobra.Command {
 				return fmt.Errorf("unknown deployment strategy %s", mode)
 			}
 			installConf.Mode = cortexops.DeploymentMode(strategy)
+			installConf.Storage = &storage
 
 			_, err := opsClient.ConfigureInstall(cmd.Context(), &installConf)
 			return err
 		},
 	}
 	cmd.Flags().StringVar(&mode, "mode", "", "Deployment mode (one of: AllInOne, HighlyAvailable)")
+	cmd.Flags().AddFlagSet(storage.FlagSet())
 	return cmd
 }
 

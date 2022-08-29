@@ -44,7 +44,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/validation"
 	kyamlv3 "github.com/kralicky/yaml/v3"
 	"github.com/prometheus/node_exporter/https"
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/weaveworks/common/logging"
@@ -53,16 +53,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func bucketHttpConfig(spec corev1beta1.HTTPConfig) bucket_http.Config {
+func bucketHttpConfig(spec *storagev1.HTTPConfig) bucket_http.Config {
 	return bucket_http.Config{
-		IdleConnTimeout:       spec.IdleConnTimeout,
-		ResponseHeaderTimeout: spec.ResponseHeaderTimeout,
-		InsecureSkipVerify:    spec.InsecureSkipVerify,
-		TLSHandshakeTimeout:   spec.TLSHandshakeTimeout,
-		ExpectContinueTimeout: spec.ExpectContinueTimeout,
-		MaxIdleConns:          spec.MaxIdleConns,
-		MaxIdleConnsPerHost:   spec.MaxIdleConnsPerHost,
-		MaxConnsPerHost:       spec.MaxConnsPerHost,
+		IdleConnTimeout:       spec.GetIdleConnTimeout().AsDuration(),
+		ResponseHeaderTimeout: spec.GetResponseHeaderTimeout().AsDuration(),
+		InsecureSkipVerify:    spec.GetInsecureSkipVerify(),
+		TLSHandshakeTimeout:   spec.GetTLSHandshakeTimeout().AsDuration(),
+		ExpectContinueTimeout: spec.GetExpectContinueTimeout().AsDuration(),
+		MaxIdleConns:          int(spec.GetMaxIdleConns()),
+		MaxIdleConnsPerHost:   int(spec.GetMaxIdleConnsPerHost()),
+		MaxConnsPerHost:       int(spec.GetMaxConnsPerHost()),
 	}
 }
 
@@ -122,7 +122,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				KMSEncryptionContext: s3Spec.SSE.KMSEncryptionContext,
 			},
 			HTTP: s3.HTTPConfig{
-				Config: bucketHttpConfig(s3Spec.HTTP),
+				Config: bucket_http.Config(s3Spec.HTTP),
 			},
 		},
 		GCS: gcs.Config{
@@ -138,11 +138,11 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 			ContainerName: azureSpec.ContainerName,
 			Endpoint:      azureSpec.Endpoint,
-			MaxRetries:    azureSpec.MaxRetries,
-			Config:        bucketHttpConfig(azureSpec.HTTP),
+			MaxRetries:    int(azureSpec.MaxRetries),
+			Config:        bucket_http.Config(azureSpec.HTTP),
 		},
 		Swift: swift.Config{
-			AuthVersion:       swiftSpec.AuthVersion,
+			AuthVersion:       int(swiftSpec.AuthVersion),
 			AuthURL:           swiftSpec.AuthURL,
 			Username:          swiftSpec.Username,
 			UserDomainName:    swiftSpec.UserDomainName,
@@ -157,7 +157,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			ProjectDomainName: swiftSpec.ProjectDomainName,
 			RegionName:        swiftSpec.RegionName,
 			ContainerName:     swiftSpec.ContainerName,
-			MaxRetries:        swiftSpec.MaxRetries,
+			MaxRetries:        int(swiftSpec.MaxRetries),
 			ConnectTimeout:    swiftSpec.ConnectTimeout,
 			RequestTimeout:    swiftSpec.RequestTimeout,
 		},

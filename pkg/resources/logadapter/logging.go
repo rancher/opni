@@ -2,12 +2,14 @@ package logadapter
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"text/template"
 
 	loggingv1beta1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/filter"
+	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -16,46 +18,96 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func BuildLogging(adapter *v1beta2.LogAdapter) *loggingv1beta1.Logging {
-	logging := loggingv1beta1.Logging{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("opni-%s-%s",
-				adapter.GetName(),
-				strings.ToLower(string(adapter.Spec.Provider)),
-			),
-		},
-		Spec: loggingv1beta1.LoggingSpec{
-			ControlNamespace: controlNamespace(adapter),
-			FluentbitSpec:    adapter.Spec.FluentConfig.Fluentbit,
-			FluentdSpec:      adapter.Spec.FluentConfig.Fluentd,
-		},
+func BuildLogging(instance interface{}) *loggingv1beta1.Logging {
+	var logging *loggingv1beta1.Logging
+	switch adapter := instance.(type) {
+	case *v1beta2.LogAdapter:
+		logging = &loggingv1beta1.Logging{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("opni-%s-%s",
+					adapter.GetName(),
+					strings.ToLower(string(adapter.Spec.Provider)),
+				),
+			},
+			Spec: loggingv1beta1.LoggingSpec{
+				ControlNamespace: controlNamespace(convertSpec(adapter.Spec)),
+				FluentbitSpec:    adapter.Spec.FluentConfig.Fluentbit,
+				FluentdSpec:      adapter.Spec.FluentConfig.Fluentd,
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, logging)
+	case *opniloggingv1beta1.LogAdapter:
+		logging = &loggingv1beta1.Logging{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("opni-%s-%s",
+					adapter.GetName(),
+					strings.ToLower(string(adapter.Spec.Provider)),
+				),
+			},
+			Spec: loggingv1beta1.LoggingSpec{
+				ControlNamespace: controlNamespace(adapter.Spec),
+				FluentbitSpec:    adapter.Spec.FluentConfig.Fluentbit,
+				FluentdSpec:      adapter.Spec.FluentConfig.Fluentd,
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, logging)
+	default:
+		panic("invalid type")
 	}
-	setOwnerReference(adapter, &logging)
-	return &logging
+
+	return logging
 }
 
-func BuildRootLogging(adapter *v1beta2.LogAdapter) *loggingv1beta1.Logging {
-	logging := loggingv1beta1.Logging{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("opni-%s", adapter.GetName()),
-		},
-		Spec: loggingv1beta1.LoggingSpec{
-			ControlNamespace: controlNamespace(adapter),
-			FluentbitSpec:    adapter.Spec.RootFluentConfig.Fluentbit,
-			FluentdSpec:      adapter.Spec.RootFluentConfig.Fluentd,
-			GlobalFilters: []loggingv1beta1.Filter{
-				{
-					EnhanceK8s: &filter.EnhanceK8s{
-						InNamespacePath: []string{`$.kubernetes.namespace_name`},
-						InPodPath:       []string{`$.kubernetes.pod_name`},
-						APIGroups:       []string{"apps/v1"},
+func BuildRootLogging(instance interface{}) *loggingv1beta1.Logging {
+	var logging *loggingv1beta1.Logging
+	switch adapter := instance.(type) {
+	case *v1beta2.LogAdapter:
+		logging = &loggingv1beta1.Logging{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("opni-%s", adapter.GetName()),
+			},
+			Spec: loggingv1beta1.LoggingSpec{
+				ControlNamespace: controlNamespace(convertSpec(adapter.Spec)),
+				FluentbitSpec:    adapter.Spec.RootFluentConfig.Fluentbit,
+				FluentdSpec:      adapter.Spec.RootFluentConfig.Fluentd,
+				GlobalFilters: []loggingv1beta1.Filter{
+					{
+						EnhanceK8s: &filter.EnhanceK8s{
+							InNamespacePath: []string{`$.kubernetes.namespace_name`},
+							InPodPath:       []string{`$.kubernetes.pod_name`},
+							APIGroups:       []string{"apps/v1"},
+						},
 					},
 				},
 			},
-		},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, logging)
+	case *opniloggingv1beta1.LogAdapter:
+		logging = &loggingv1beta1.Logging{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("opni-%s", adapter.GetName()),
+			},
+			Spec: loggingv1beta1.LoggingSpec{
+				ControlNamespace: controlNamespace(adapter.Spec),
+				FluentbitSpec:    adapter.Spec.RootFluentConfig.Fluentbit,
+				FluentdSpec:      adapter.Spec.RootFluentConfig.Fluentd,
+				GlobalFilters: []loggingv1beta1.Filter{
+					{
+						EnhanceK8s: &filter.EnhanceK8s{
+							InNamespacePath: []string{`$.kubernetes.namespace_name`},
+							InPodPath:       []string{`$.kubernetes.pod_name`},
+							APIGroups:       []string{"apps/v1"},
+						},
+					},
+				},
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, logging)
+	default:
+		panic("invalid type")
 	}
-	setOwnerReference(adapter, &logging)
-	return &logging
+
+	return logging
 }
 
 var (
@@ -146,434 +198,879 @@ end
 `))
 )
 
-func BuildK3SConfig(adapter *v1beta2.LogAdapter) *corev1.ConfigMap {
-	var buffer bytes.Buffer
+func BuildK3SConfig(instance interface{}) *corev1.ConfigMap {
+	var (
+		buffer    bytes.Buffer
+		configmap *corev1.ConfigMap
+	)
 	// If the opni cluster is nil, copy the object to use for generating the config
-	if adapter.Spec.OpniCluster == nil {
-		copy := adapter.DeepCopy()
-		copy.Spec.OpniCluster = &v1beta2.OpniClusterNameSpec{
-			Namespace: "opni-system",
+	switch adapter := instance.(type) {
+	case *v1beta2.LogAdapter:
+		if adapter.Spec.OpniCluster == nil {
+			copy := adapter.DeepCopy()
+			copy.Spec.OpniCluster = &v1beta2.OpniClusterNameSpec{
+				Namespace: "opni-system",
+			}
+			fluentBitK3sTemplate.Execute(&buffer, copy)
+		} else {
+			fluentBitK3sTemplate.Execute(&buffer, adapter)
 		}
-		fluentBitK3sTemplate.Execute(&buffer, copy)
-	} else {
-		fluentBitK3sTemplate.Execute(&buffer, adapter)
+
+		configmap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("opni-%s-k3s", adapter.GetName()),
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, configmap)
+	case *opniloggingv1beta1.LogAdapter:
+		if adapter.Spec.OpniCluster == nil {
+			copy := adapter.DeepCopy()
+			copy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
+				Namespace: "opni-system",
+			}
+			fluentBitK3sTemplate.Execute(&buffer, copy)
+		} else {
+			fluentBitK3sTemplate.Execute(&buffer, adapter)
+		}
+
+		configmap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("opni-%s-k3s", adapter.GetName()),
+				Namespace: controlNamespace(adapter.Spec),
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, configmap)
 	}
 
-	configmap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("opni-%s-k3s", adapter.GetName()),
-			Namespace: controlNamespace(adapter),
-		},
-		Data: map[string]string{
-			"fluent-bit.conf": buffer.String(),
-			"received_at.lua": receivedAtLua,
-		},
+	configmap.Data = map[string]string{
+		"fluent-bit.conf": buffer.String(),
+		"received_at.lua": receivedAtLua,
 	}
-	setOwnerReference(adapter, &configmap)
-	return &configmap
+
+	return configmap
 }
 
-func BuildK3SJournaldAggregator(adapter *v1beta2.LogAdapter) *appsv1.DaemonSet {
-	name := fmt.Sprintf("opni-%s-k3s-journald-aggregator", adapter.GetName())
-	podLabels := map[string]string{
-		"name": name,
-	}
-	daemonset := appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: controlNamespace(adapter),
-		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: podLabels,
+func BuildK3SJournaldAggregator(instance interface{}) *appsv1.DaemonSet {
+	var daemonset *appsv1.DaemonSet
+
+	switch adapter := instance.(type) {
+	case *v1beta2.LogAdapter:
+		name := fmt.Sprintf("opni-%s-k3s-journald-aggregator", adapter.GetName())
+		podLabels := map[string]string{
+			"name": name,
+		}
+		daemonset = &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   name,
-					Labels: podLabels,
+			Spec: appsv1.DaemonSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: podLabels,
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "fluentbit",
-							Image: adapter.Spec.FluentConfig.Fluentbit.Image.RepositoryWithTag(),
-							SecurityContext: &corev1.SecurityContext{
-								SELinuxOptions: &corev1.SELinuxOptions{
-									Type: "rke_logreader_t",
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "config",
-									MountPath: "/fluent-bit/etc/",
-								},
-								{
-									Name:      "journal",
-									MountPath: adapter.Spec.K3S.LogPath,
-									ReadOnly:  true,
-								},
-								{
-									Name:      "machine-id",
-									MountPath: "/etc/machine-id",
-									ReadOnly:  true,
-								},
-							},
-						},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   name,
+						Labels: podLabels,
 					},
-					ServiceAccountName: name,
-					Volumes: []corev1.Volume{
-						{
-							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: fmt.Sprintf("opni-%s-k3s", adapter.GetName()),
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "fluentbit",
+								Image: adapter.Spec.FluentConfig.Fluentbit.Image.RepositoryWithTag(),
+								SecurityContext: &corev1.SecurityContext{
+									SELinuxOptions: &corev1.SELinuxOptions{
+										Type: "rke_logreader_t",
+									},
+								},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "config",
+										MountPath: "/fluent-bit/etc/",
+									},
+									{
+										Name:      "journal",
+										MountPath: adapter.Spec.K3S.LogPath,
+										ReadOnly:  true,
+									},
+									{
+										Name:      "machine-id",
+										MountPath: "/etc/machine-id",
+										ReadOnly:  true,
 									},
 								},
 							},
 						},
-						{
-							Name: "journal",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: adapter.Spec.K3S.LogPath,
+						ServiceAccountName: name,
+						Volumes: []corev1.Volume{
+							{
+								Name: "config",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: fmt.Sprintf("opni-%s-k3s", adapter.GetName()),
+										},
+									},
 								},
 							},
-						},
-						{
-							Name: "machine-id",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/etc/machine-id",
+							{
+								Name: "journal",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: adapter.Spec.K3S.LogPath,
+									},
+								},
+							},
+							{
+								Name: "machine-id",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: "/etc/machine-id",
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-		},
-	}
-	setOwnerReference(adapter, &daemonset)
-	return &daemonset
-}
-
-func BuildK3SServiceAccount(adapter *v1beta2.LogAdapter) *corev1.ServiceAccount {
-	name := fmt.Sprintf("opni-%s-k3s-journald-aggregator", adapter.GetName())
-	return &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: controlNamespace(adapter),
-		},
-	}
-}
-
-func BuildRKEConfig(adapter *v1beta2.LogAdapter) *corev1.ConfigMap {
-	var buffer bytes.Buffer
-	// If the opni cluster is nil, copy the object to use for generating the config
-	if adapter.Spec.OpniCluster == nil {
-		copy := adapter.DeepCopy()
-		copy.Spec.OpniCluster = &v1beta2.OpniClusterNameSpec{
-			Namespace: "opni-system",
 		}
-		fluentBitRKETemplate.Execute(&buffer, copy)
-	} else {
-		fluentBitRKETemplate.Execute(&buffer, adapter)
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, daemonset)
+	case *opniloggingv1beta1.LogAdapter:
+		name := fmt.Sprintf("opni-%s-k3s-journald-aggregator", adapter.GetName())
+		podLabels := map[string]string{
+			"name": name,
+		}
+		daemonset = &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(adapter.Spec),
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: podLabels,
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   name,
+						Labels: podLabels,
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "fluentbit",
+								Image: adapter.Spec.FluentConfig.Fluentbit.Image.RepositoryWithTag(),
+								SecurityContext: &corev1.SecurityContext{
+									SELinuxOptions: &corev1.SELinuxOptions{
+										Type: "rke_logreader_t",
+									},
+								},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "config",
+										MountPath: "/fluent-bit/etc/",
+									},
+									{
+										Name:      "journal",
+										MountPath: adapter.Spec.K3S.LogPath,
+										ReadOnly:  true,
+									},
+									{
+										Name:      "machine-id",
+										MountPath: "/etc/machine-id",
+										ReadOnly:  true,
+									},
+								},
+							},
+						},
+						ServiceAccountName: name,
+						Volumes: []corev1.Volume{
+							{
+								Name: "config",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: fmt.Sprintf("opni-%s-k3s", adapter.GetName()),
+										},
+									},
+								},
+							},
+							{
+								Name: "journal",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: adapter.Spec.K3S.LogPath,
+									},
+								},
+							},
+							{
+								Name: "machine-id",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: "/etc/machine-id",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, daemonset)
+	default:
+		panic("invalid type")
 	}
-	configmap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("opni-%s-rke", adapter.GetName()),
-			Namespace: controlNamespace(adapter),
-		},
-		Data: map[string]string{
-			"fluent-bit.conf": buffer.String(),
-		},
-	}
-	setOwnerReference(adapter, &configmap)
-	return &configmap
+	return daemonset
 }
 
-func BuildRKEAggregator(adapter *v1beta2.LogAdapter) *appsv1.DaemonSet {
-	name := fmt.Sprintf("opni-%s-rke-aggregator", adapter.GetName())
-	podLabels := map[string]string{
-		"name": name,
+func BuildK3SServiceAccount(instance interface{}) *corev1.ServiceAccount {
+	switch adapter := instance.(type) {
+	case *v1beta2.LogAdapter:
+		name := fmt.Sprintf("opni-%s-k3s-journald-aggregator", adapter.GetName())
+		return &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
+			},
+		}
+	case *opniloggingv1beta1.LogAdapter:
+		name := fmt.Sprintf("opni-%s-k3s-journald-aggregator", adapter.GetName())
+		return &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(adapter.Spec),
+			},
+		}
+	default:
+		panic("invalid type")
 	}
+}
+
+func BuildRKEConfig(instance interface{}) *corev1.ConfigMap {
+	var buffer bytes.Buffer
+	var configmap *corev1.ConfigMap
+	switch adapter := instance.(type) {
+	case *v1beta2.LogAdapter:
+		// If the opni cluster is nil, copy the object to use for generating the config
+		if adapter.Spec.OpniCluster == nil {
+			copy := adapter.DeepCopy()
+			copy.Spec.OpniCluster = &v1beta2.OpniClusterNameSpec{
+				Namespace: "opni-system",
+			}
+			fluentBitRKETemplate.Execute(&buffer, copy)
+		} else {
+			fluentBitRKETemplate.Execute(&buffer, adapter)
+		}
+		configmap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("opni-%s-rke", adapter.GetName()),
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
+			},
+			Data: map[string]string{
+				"fluent-bit.conf": buffer.String(),
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, configmap)
+	case *opniloggingv1beta1.LogAdapter:
+		if adapter.Spec.OpniCluster == nil {
+			copy := adapter.DeepCopy()
+			copy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
+				Namespace: "opni-system",
+			}
+			fluentBitRKETemplate.Execute(&buffer, copy)
+		} else {
+			fluentBitRKETemplate.Execute(&buffer, adapter)
+		}
+		configmap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("opni-%s-rke", adapter.GetName()),
+				Namespace: controlNamespace(adapter.Spec),
+			},
+			Data: map[string]string{
+				"fluent-bit.conf": buffer.String(),
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, configmap)
+	default:
+		panic("invalid type")
+	}
+
+	return configmap
+}
+
+func BuildRKEAggregator(instance interface{}) *appsv1.DaemonSet {
+	var daemonset *appsv1.DaemonSet
+
+	switch adapter := instance.(type) {
+	case *v1beta2.LogAdapter:
+		name := fmt.Sprintf("opni-%s-rke-aggregator", adapter.GetName())
+		podLabels := map[string]string{
+			"name": name,
+		}
+		directoryOrCreate := corev1.HostPathDirectoryOrCreate
+		daemonset = &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: podLabels,
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   name,
+						Labels: podLabels,
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "fluentbit",
+								Image: adapter.Spec.FluentConfig.Fluentbit.Image.RepositoryWithTag(),
+								SecurityContext: &corev1.SecurityContext{
+									SELinuxOptions: &corev1.SELinuxOptions{
+										Type: "rke_logreader_t",
+									},
+								},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										MountPath: "/var/lib/rancher/rke/log/",
+										Name:      "indir",
+									},
+									{
+										MountPath: adapter.Spec.ContainerLogDir,
+										Name:      "containers",
+									},
+									{
+										MountPath: "/tail-db",
+										Name:      "positiondb",
+									},
+									{
+										MountPath: "/fluent-bit/etc/fluent-bit.conf",
+										Name:      "config",
+										SubPath:   "fluent-bit.conf",
+									},
+								},
+							},
+						},
+						Volumes: []corev1.Volume{
+							{
+								Name: "indir",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: "/var/lib/rancher/rke/log/",
+										Type: &directoryOrCreate,
+									},
+								},
+							},
+							{
+								Name: "containers",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: adapter.Spec.ContainerLogDir,
+										Type: &directoryOrCreate,
+									},
+								},
+							},
+							{
+								Name: "positiondb",
+								VolumeSource: corev1.VolumeSource{
+									EmptyDir: &corev1.EmptyDirVolumeSource{},
+								},
+							},
+							{
+								Name: "config",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: fmt.Sprintf("opni-%s-rke", adapter.GetName()),
+										},
+									},
+								},
+							},
+						},
+						ServiceAccountName: name,
+						Tolerations: []corev1.Toleration{
+							{
+								Key:    "node-role.kubernetes.io/controlplane",
+								Value:  "true",
+								Effect: corev1.TaintEffectNoSchedule,
+							},
+							{
+								Key:    "node-role.kubernetes.io/etcd",
+								Value:  "true",
+								Effect: corev1.TaintEffectNoExecute,
+							},
+						},
+					},
+				},
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, daemonset)
+	case *opniloggingv1beta1.LogAdapter:
+		name := fmt.Sprintf("opni-%s-rke-aggregator", adapter.GetName())
+		podLabels := map[string]string{
+			"name": name,
+		}
+		directoryOrCreate := corev1.HostPathDirectoryOrCreate
+		daemonset = &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(adapter.Spec),
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: podLabels,
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   name,
+						Labels: podLabels,
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "fluentbit",
+								Image: adapter.Spec.FluentConfig.Fluentbit.Image.RepositoryWithTag(),
+								SecurityContext: &corev1.SecurityContext{
+									SELinuxOptions: &corev1.SELinuxOptions{
+										Type: "rke_logreader_t",
+									},
+								},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										MountPath: "/var/lib/rancher/rke/log/",
+										Name:      "indir",
+									},
+									{
+										MountPath: adapter.Spec.ContainerLogDir,
+										Name:      "containers",
+									},
+									{
+										MountPath: "/tail-db",
+										Name:      "positiondb",
+									},
+									{
+										MountPath: "/fluent-bit/etc/fluent-bit.conf",
+										Name:      "config",
+										SubPath:   "fluent-bit.conf",
+									},
+								},
+							},
+						},
+						Volumes: []corev1.Volume{
+							{
+								Name: "indir",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: "/var/lib/rancher/rke/log/",
+										Type: &directoryOrCreate,
+									},
+								},
+							},
+							{
+								Name: "containers",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: adapter.Spec.ContainerLogDir,
+										Type: &directoryOrCreate,
+									},
+								},
+							},
+							{
+								Name: "positiondb",
+								VolumeSource: corev1.VolumeSource{
+									EmptyDir: &corev1.EmptyDirVolumeSource{},
+								},
+							},
+							{
+								Name: "config",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: fmt.Sprintf("opni-%s-rke", adapter.GetName()),
+										},
+									},
+								},
+							},
+						},
+						ServiceAccountName: name,
+						Tolerations: []corev1.Toleration{
+							{
+								Key:    "node-role.kubernetes.io/controlplane",
+								Value:  "true",
+								Effect: corev1.TaintEffectNoSchedule,
+							},
+							{
+								Key:    "node-role.kubernetes.io/etcd",
+								Value:  "true",
+								Effect: corev1.TaintEffectNoExecute,
+							},
+						},
+					},
+				},
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, daemonset)
+	default:
+		panic("invalid type")
+	}
+	return daemonset
+}
+
+func BuildRKEServiceAccount(instance interface{}) *corev1.ServiceAccount {
+	switch adapter := instance.(type) {
+	case *v1beta2.LogAdapter:
+		name := fmt.Sprintf("opni-%s-rke-aggregator", adapter.GetName())
+		return &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
+			},
+		}
+	case *opniloggingv1beta1.LogAdapter:
+		name := fmt.Sprintf("opni-%s-rke-aggregator", adapter.GetName())
+		return &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(adapter.Spec),
+			},
+		}
+	default:
+		panic("invalid type")
+	}
+}
+
+func BuildRKE2Config(instance interface{}) *corev1.ConfigMap {
+	var buffer bytes.Buffer
+	var configmap *corev1.ConfigMap
+
+	switch adapter := instance.(type) {
+	case *v1beta2.LogAdapter:
+		// If the opni cluster is nil, copy the object to use for generating the config
+		if adapter.Spec.OpniCluster == nil {
+			copy := adapter.DeepCopy()
+			copy.Spec.OpniCluster = &v1beta2.OpniClusterNameSpec{
+				Namespace: "opni-system",
+			}
+			fluentBitRKE2Template.Execute(&buffer, copy)
+		} else {
+			fluentBitRKE2Template.Execute(&buffer, adapter)
+		}
+
+		configmap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("opni-%s-rke2", adapter.GetName()),
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
+			},
+			Data: map[string]string{
+				"fluent-bit.conf": buffer.String(),
+				"received_at.lua": receivedAtLua,
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, configmap)
+	case *opniloggingv1beta1.LogAdapter:
+		if adapter.Spec.OpniCluster == nil {
+			copy := adapter.DeepCopy()
+			copy.Spec.OpniCluster = &opniloggingv1beta1.OpniClusterNameSpec{
+				Namespace: "opni-system",
+			}
+			fluentBitRKE2Template.Execute(&buffer, copy)
+		} else {
+			fluentBitRKE2Template.Execute(&buffer, adapter)
+		}
+
+		configmap = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("opni-%s-rke2", adapter.GetName()),
+				Namespace: controlNamespace(adapter.Spec),
+			},
+			Data: map[string]string{
+				"fluent-bit.conf": buffer.String(),
+				"received_at.lua": receivedAtLua,
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, configmap)
+	default:
+		panic("invalid type")
+	}
+	return configmap
+}
+
+func BuildRKE2JournaldAggregator(instance interface{}) *appsv1.DaemonSet {
+	var daemonset *appsv1.DaemonSet
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
-	daemonset := appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: controlNamespace(adapter),
-		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: podLabels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   name,
-					Labels: podLabels,
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "fluentbit",
-							Image: adapter.Spec.FluentConfig.Fluentbit.Image.RepositoryWithTag(),
-							SecurityContext: &corev1.SecurityContext{
-								SELinuxOptions: &corev1.SELinuxOptions{
-									Type: "rke_logreader_t",
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									MountPath: "/var/lib/rancher/rke/log/",
-									Name:      "indir",
-								},
-								{
-									MountPath: adapter.Spec.ContainerLogDir,
-									Name:      "containers",
-								},
-								{
-									MountPath: "/tail-db",
-									Name:      "positiondb",
-								},
-								{
-									MountPath: "/fluent-bit/etc/fluent-bit.conf",
-									Name:      "config",
-									SubPath:   "fluent-bit.conf",
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "indir",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/var/lib/rancher/rke/log/",
-									Type: &directoryOrCreate,
-								},
-							},
-						},
-						{
-							Name: "containers",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: adapter.Spec.ContainerLogDir,
-									Type: &directoryOrCreate,
-								},
-							},
-						},
-						{
-							Name: "positiondb",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: fmt.Sprintf("opni-%s-rke", adapter.GetName()),
-									},
-								},
-							},
-						},
-					},
-					ServiceAccountName: name,
-					Tolerations: []corev1.Toleration{
-						{
-							Key:    "node-role.kubernetes.io/controlplane",
-							Value:  "true",
-							Effect: corev1.TaintEffectNoSchedule,
-						},
-						{
-							Key:    "node-role.kubernetes.io/etcd",
-							Value:  "true",
-							Effect: corev1.TaintEffectNoExecute,
-						},
-					},
-				},
-			},
-		},
-	}
-	setOwnerReference(adapter, &daemonset)
-	return &daemonset
-}
 
-func BuildRKEServiceAccount(adapter *v1beta2.LogAdapter) *corev1.ServiceAccount {
-	name := fmt.Sprintf("opni-%s-rke-aggregator", adapter.GetName())
-	return &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: controlNamespace(adapter),
-		},
-	}
-}
-
-func BuildRKE2Config(adapter *v1beta2.LogAdapter) *corev1.ConfigMap {
-	var buffer bytes.Buffer
-	// If the opni cluster is nil, copy the object to use for generating the config
-	if adapter.Spec.OpniCluster == nil {
-		copy := adapter.DeepCopy()
-		copy.Spec.OpniCluster = &v1beta2.OpniClusterNameSpec{
-			Namespace: "opni-system",
+	switch adapter := instance.(type) {
+	case *v1beta2.LogAdapter:
+		name := fmt.Sprintf("opni-%s-rke2-journald-aggregator", adapter.GetName())
+		podLabels := map[string]string{
+			"name": name,
 		}
-		fluentBitRKE2Template.Execute(&buffer, copy)
-	} else {
-		fluentBitRKE2Template.Execute(&buffer, adapter)
-	}
-
-	configmap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("opni-%s-rke2", adapter.GetName()),
-			Namespace: controlNamespace(adapter),
-		},
-		Data: map[string]string{
-			"fluent-bit.conf": buffer.String(),
-			"received_at.lua": receivedAtLua,
-		},
-	}
-	setOwnerReference(adapter, &configmap)
-	return &configmap
-}
-
-func BuildRKE2JournaldAggregator(adapter *v1beta2.LogAdapter) *appsv1.DaemonSet {
-	name := fmt.Sprintf("opni-%s-rke2-journald-aggregator", adapter.GetName())
-	directoryOrCreate := corev1.HostPathDirectoryOrCreate
-	podLabels := map[string]string{
-		"name": name,
-	}
-	daemonset := appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: controlNamespace(adapter),
-		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: podLabels,
+		daemonset = &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   name,
-					Labels: podLabels,
+			Spec: appsv1.DaemonSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: podLabels,
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "fluentbit",
-							Image: adapter.Spec.FluentConfig.Fluentbit.Image.RepositoryWithTag(),
-							SecurityContext: &corev1.SecurityContext{
-								SELinuxOptions: &corev1.SELinuxOptions{
-									Type: "rke_logreader_t",
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "config",
-									MountPath: "/fluent-bit/etc/",
-								},
-								{
-									Name:      "journal",
-									MountPath: adapter.Spec.RKE2.LogPath,
-									ReadOnly:  true,
-								},
-								{
-									Name:      "machine-id",
-									MountPath: "/etc/machine-id",
-									ReadOnly:  true,
-								},
-								{
-									MountPath: "/tail-db",
-									Name:      "positiondb",
-								},
-								{
-									MountPath: "/var/lib/rancher/rke2/agent/logs/",
-									Name:      "indir",
-								},
-							},
-						},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   name,
+						Labels: podLabels,
 					},
-					ServiceAccountName: name,
-					Volumes: []corev1.Volume{
-						{
-							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: fmt.Sprintf("opni-%s-rke2", adapter.GetName()),
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "fluentbit",
+								Image: adapter.Spec.FluentConfig.Fluentbit.Image.RepositoryWithTag(),
+								SecurityContext: &corev1.SecurityContext{
+									SELinuxOptions: &corev1.SELinuxOptions{
+										Type: "rke_logreader_t",
+									},
+								},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "config",
+										MountPath: "/fluent-bit/etc/",
+									},
+									{
+										Name:      "journal",
+										MountPath: adapter.Spec.RKE2.LogPath,
+										ReadOnly:  true,
+									},
+									{
+										Name:      "machine-id",
+										MountPath: "/etc/machine-id",
+										ReadOnly:  true,
+									},
+									{
+										MountPath: "/tail-db",
+										Name:      "positiondb",
+									},
+									{
+										MountPath: "/var/lib/rancher/rke2/agent/logs/",
+										Name:      "indir",
 									},
 								},
 							},
 						},
-						{
-							Name: "journal",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: adapter.Spec.RKE2.LogPath,
+						ServiceAccountName: name,
+						Volumes: []corev1.Volume{
+							{
+								Name: "config",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: fmt.Sprintf("opni-%s-rke2", adapter.GetName()),
+										},
+									},
 								},
 							},
-						},
-						{
-							Name: "machine-id",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/etc/machine-id",
+							{
+								Name: "journal",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: adapter.Spec.RKE2.LogPath,
+									},
 								},
 							},
-						},
-						{
-							Name: "positiondb",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							{
+								Name: "machine-id",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: "/etc/machine-id",
+									},
+								},
 							},
-						},
-						{
-							Name: "indir",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: "/var/lib/rancher/rke2/agent/logs/",
-									Type: &directoryOrCreate,
+							{
+								Name: "positiondb",
+								VolumeSource: corev1.VolumeSource{
+									EmptyDir: &corev1.EmptyDirVolumeSource{},
+								},
+							},
+							{
+								Name: "indir",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: "/var/lib/rancher/rke2/agent/logs/",
+										Type: &directoryOrCreate,
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-		},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, daemonset)
+	case *opniloggingv1beta1.LogAdapter:
+		name := fmt.Sprintf("opni-%s-rke2-journald-aggregator", adapter.GetName())
+		podLabels := map[string]string{
+			"name": name,
+		}
+		daemonset = &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(adapter.Spec),
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: podLabels,
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   name,
+						Labels: podLabels,
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "fluentbit",
+								Image: adapter.Spec.FluentConfig.Fluentbit.Image.RepositoryWithTag(),
+								SecurityContext: &corev1.SecurityContext{
+									SELinuxOptions: &corev1.SELinuxOptions{
+										Type: "rke_logreader_t",
+									},
+								},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "config",
+										MountPath: "/fluent-bit/etc/",
+									},
+									{
+										Name:      "journal",
+										MountPath: adapter.Spec.RKE2.LogPath,
+										ReadOnly:  true,
+									},
+									{
+										Name:      "machine-id",
+										MountPath: "/etc/machine-id",
+										ReadOnly:  true,
+									},
+									{
+										MountPath: "/tail-db",
+										Name:      "positiondb",
+									},
+									{
+										MountPath: "/var/lib/rancher/rke2/agent/logs/",
+										Name:      "indir",
+									},
+								},
+							},
+						},
+						ServiceAccountName: name,
+						Volumes: []corev1.Volume{
+							{
+								Name: "config",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: fmt.Sprintf("opni-%s-rke2", adapter.GetName()),
+										},
+									},
+								},
+							},
+							{
+								Name: "journal",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: adapter.Spec.RKE2.LogPath,
+									},
+								},
+							},
+							{
+								Name: "machine-id",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: "/etc/machine-id",
+									},
+								},
+							},
+							{
+								Name: "positiondb",
+								VolumeSource: corev1.VolumeSource{
+									EmptyDir: &corev1.EmptyDirVolumeSource{},
+								},
+							},
+							{
+								Name: "indir",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: "/var/lib/rancher/rke2/agent/logs/",
+										Type: &directoryOrCreate,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		setOwnerReference(adapter.ObjectMeta, adapter.TypeMeta, daemonset)
+	default:
+		panic("invalid type")
 	}
-	setOwnerReference(adapter, &daemonset)
-	return &daemonset
+	return daemonset
 }
 
-func BuildRKE2ServiceAccount(adapter *v1beta2.LogAdapter) *corev1.ServiceAccount {
-	name := fmt.Sprintf("opni-%s-rke2-journald-aggregator", adapter.GetName())
-	return &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: adapter.Spec.OpniCluster.Namespace,
-		},
+func BuildRKE2ServiceAccount(instance interface{}) *corev1.ServiceAccount {
+	switch adapter := instance.(type) {
+	case *v1beta2.LogAdapter:
+		name := fmt.Sprintf("opni-%s-rke2-journald-aggregator", adapter.GetName())
+		return &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(convertSpec(adapter.Spec)),
+			},
+		}
+	case *opniloggingv1beta1.LogAdapter:
+		name := fmt.Sprintf("opni-%s-rke2-journald-aggregator", adapter.GetName())
+		return &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: controlNamespace(adapter.Spec),
+			},
+		}
+	default:
+		panic("invalid type")
 	}
 }
 
-func setOwnerReference(adapter *v1beta2.LogAdapter, object client.Object) {
+func setOwnerReference(oMeta metav1.ObjectMeta, tMeta metav1.TypeMeta, object client.Object) {
 	object.SetOwnerReferences([]metav1.OwnerReference{
 		{
-			APIVersion:         adapter.APIVersion,
-			Kind:               adapter.Kind,
-			Name:               adapter.Name,
-			UID:                adapter.UID,
+			APIVersion:         tMeta.APIVersion,
+			Kind:               tMeta.Kind,
+			Name:               oMeta.Name,
+			UID:                oMeta.UID,
 			Controller:         lo.ToPtr(true),
 			BlockOwnerDeletion: lo.ToPtr(true),
 		},
 	})
 }
 
-func controlNamespace(adapter *v1beta2.LogAdapter) string {
-	if adapter.Spec.OpniCluster == nil {
-		if adapter.Spec.ControlNamespace == nil {
+func controlNamespace(spec opniloggingv1beta1.LogAdapterSpec) string {
+	if spec.OpniCluster == nil {
+		if spec.ControlNamespace == nil {
 			return "opni-system"
 		}
-		return *adapter.Spec.ControlNamespace
+		return *spec.ControlNamespace
 	}
-	return adapter.Spec.OpniCluster.Namespace
+	return spec.OpniCluster.Namespace
+}
+
+func convertSpec(input v1beta2.LogAdapterSpec) opniloggingv1beta1.LogAdapterSpec {
+	data, err := json.Marshal(input)
+	if err != nil {
+		panic(err)
+	}
+	retSpec := opniloggingv1beta1.LogAdapterSpec{}
+	err = json.Unmarshal(data, &retSpec)
+	if err != nil {
+		panic(err)
+	}
+	return retSpec
 }

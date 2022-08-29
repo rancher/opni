@@ -45,23 +45,23 @@ var (
 
 func (r *Reconciler) ReconcileOpensearchUsers(opensearchCluster *opensearchv1.OpenSearchCluster) (retResult *reconcile.Result, retErr error) {
 	indexUser.Attributes = map[string]string{
-		"cluster": r.loggingCluster.Labels[v1beta2.IDLabel],
+		"cluster": r.labels[v1beta2.IDLabel],
 	}
 
-	clusterReadRole.RoleName = r.loggingCluster.Name
-	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(`{"term":{"cluster_id.keyword": "%s"}}`, r.loggingCluster.Labels[resources.OpniClusterID])
+	clusterReadRole.RoleName = r.instanceName
+	clusterReadRole.IndexPermissions[0].DocumentLevelSecurity = fmt.Sprintf(`{"term":{"cluster_id.keyword": "%s"}}`, r.labels[resources.OpniClusterID])
 
 	secret := &corev1.Secret{}
 
 	retErr = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name),
-		Namespace: r.loggingCluster.Namespace,
+		Name:      fmt.Sprintf(r.spec.IndexUserSecret.Name),
+		Namespace: r.instanceNamespace,
 	}, secret)
 	if retErr != nil {
 		return
 	}
 
-	indexUser.UserName = fmt.Sprintf(r.loggingCluster.Spec.IndexUserSecret.Name)
+	indexUser.UserName = fmt.Sprintf(r.spec.IndexUserSecret.Name)
 	indexUser.Password = string(secret.Data["password"])
 
 	username, password, retErr := helpers.UsernameAndPassword(r.ctx, r.client, opensearchCluster)
@@ -108,21 +108,31 @@ func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchClu
 		"todo", // TODO fix dashboards name
 	)
 
-	err = osReconciler.MaybeDeleteRole(r.loggingCluster.Name)
+	err = osReconciler.MaybeDeleteRole(r.instanceName)
 	if err != nil {
 		return err
 	}
 
-	err = osReconciler.MaybeDeleteUser(r.loggingCluster.Spec.IndexUserSecret.Name)
+	err = osReconciler.MaybeDeleteUser(r.spec.IndexUserSecret.Name)
 	if err != nil {
 		return err
 	}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingCluster), r.loggingCluster); err != nil {
-			return err
+		if r.loggingCluster != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingCluster), r.loggingCluster); err != nil {
+				return err
+			}
+			controllerutil.RemoveFinalizer(r.loggingCluster, meta.OpensearchFinalizer)
+			return r.client.Update(r.ctx, r.loggingCluster)
 		}
-		controllerutil.RemoveFinalizer(r.loggingCluster, meta.OpensearchFinalizer)
-		return r.client.Update(r.ctx, r.loggingCluster)
+		if r.coreLoggingCluster != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.coreLoggingCluster), r.coreLoggingCluster); err != nil {
+				return err
+			}
+			controllerutil.RemoveFinalizer(r.coreLoggingCluster, meta.OpensearchFinalizer)
+			return r.client.Update(r.ctx, r.coreLoggingCluster)
+		}
+		return errors.New("no loggingcluster instance to update")
 	})
 }

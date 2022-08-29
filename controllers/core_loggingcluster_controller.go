@@ -3,7 +3,7 @@ package controllers
 import (
 	"context"
 
-	"github.com/rancher/opni/apis/v1beta2"
+	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/loggingcluster"
 	"github.com/rancher/opni/pkg/util"
@@ -16,20 +16,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-type LoggingClusterReconciler struct {
+type CoreLoggingClusterReconciler struct {
 	client.Client
 	scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=opni.io,resources=loggingclusters,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=opni.io,resources=loggingclusters/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=opni.io,resources=loggingclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core.opni.io,resources=loggingclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.opni.io,resources=loggingclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core.opni.io,resources=loggingclusters/finalizers,verbs=update
 // +kubebuilder:rbac:groups=opensearch.opster.io,resources=opensearchclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=opensearch.opster.io,resources=opensearchclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=opensearch.opster.io,resources=opensearchclusters/finalizers,verbs=update
 
-func (r *LoggingClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	loggingCluster := &v1beta2.LoggingCluster{}
+func (r *CoreLoggingClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	loggingCluster := &corev1beta1.LoggingCluster{}
 	err := r.Get(ctx, req.NamespacedName, loggingCluster)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -64,11 +64,11 @@ func (r *LoggingClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *LoggingClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CoreLoggingClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta2.LoggingCluster{}).
+		For(&corev1beta1.LoggingCluster{}).
 		Owns(&corev1.Secret{}).
 		Owns(&opsterv1.OpenSearchCluster{}).
 		Complete(r)

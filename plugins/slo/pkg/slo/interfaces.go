@@ -35,7 +35,7 @@ type SLOStore interface {
 type ServiceBackend interface {
 	ListServices() (*sloapi.ServiceList, error)
 	ListMetrics() (*sloapi.MetricList, error)
-	ListEvents() (*sloapi.EventList, error)
+	ListEvents() (*sloapi.EventGroupList, error)
 	WithCurrentRequest(req proto.Message, ctx context.Context) ServiceBackend
 }
 

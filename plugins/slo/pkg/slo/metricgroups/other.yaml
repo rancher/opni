@@ -1,0 +1,4 @@
+name: "other events"
+filters:
+    - ".*up.*"
+    - ".*uptime.*"

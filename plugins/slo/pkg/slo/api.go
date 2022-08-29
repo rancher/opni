@@ -211,7 +211,7 @@ func (p *Plugin) ListMetrics(ctx context.Context, req *sloapi.ListMetricsRequest
 	return backend.ListMetrics()
 }
 
-func (p *Plugin) ListEvents(ctx context.Context, req *sloapi.ListEventsRequest) (*sloapi.EventList, error) {
+func (p *Plugin) ListEvents(ctx context.Context, req *sloapi.ListEventsRequest) (*sloapi.EventGroupList, error) {
 	// fetch labels & their label values for the given cluster & service
 	if err := req.Validate(); err != nil {
 		return nil, err

@@ -1,0 +1,3 @@
+name: "golang events"
+filters:
+  - ".*go_.*"

@@ -348,9 +348,8 @@ func (m MonitoringServiceBackend) ListServices() (*sloapi.ServiceList, error) {
 	return res, nil
 }
 
-func (m MonitoringServiceBackend) ListEvents() (*sloapi.EventList, error) {
+func (m MonitoringServiceBackend) ListEvents() (*sloapi.EventGroupList, error) {
 	req := (m.req).(*sloapi.ListEventsRequest) // Create is the same as Update if within the same cluster
-	res := &sloapi.EventList{}
 	resp, err := m.p.adminClient.Get().GetMetricLabelSets(m.ctx, &cortexadmin.LabelRequest{
 		Tenant:     req.GetClusterId(),
 		JobId:      req.GetServiceId(),
@@ -359,13 +358,7 @@ func (m MonitoringServiceBackend) ListEvents() (*sloapi.EventList, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, l := range resp.Items {
-		res.Items = append(res.Items, &sloapi.Event{
-			Key:  l.GetName(),
-			Vals: l.GetItems(),
-		})
-	}
-	return res, nil
+	return ApplyFiltersToCortexEvents(resp)
 }
 
 func (m MonitoringServiceBackend) ListMetrics() (*sloapi.MetricList, error) {

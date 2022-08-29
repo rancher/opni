@@ -1,0 +1,7 @@
+name: "compute events"
+filters:
+  - ".*cpu.*"
+  - ".*heap.*"
+  - ".*mem.*"
+  - ".*thread.*"
+  - ".*process.*"

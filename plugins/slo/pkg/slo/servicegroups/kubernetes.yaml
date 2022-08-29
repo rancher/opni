@@ -1,0 +1,12 @@
+name: "kubernetes events"
+filters:
+  - ".*apiserver.*"
+  - ".*kube-state-metrics.*"
+  - ".*node-exporter.*"
+  - ".*kube.*"
+ignore:
+  - ".*kube-proxy.*"
+  - ".*kubelet.*"
+  - ".*coredns.*"
+  - ".*kube-promethe-operator.*"
+  - ".*kube-prometheus-operator.*"

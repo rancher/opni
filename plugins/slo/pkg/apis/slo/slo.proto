@@ -60,7 +60,7 @@ service SLO {
     };
   }
 
-  rpc ListEvents(ListEventsRequest) returns (EventList) {
+  rpc ListEvents(ListEventsRequest) returns (EventGroupList) {
     option (google.api.http) = {
       post: "/events"
     };
@@ -98,14 +98,19 @@ message ListServicesRequest{
   string clusterId = 2;
 }
 
+message EventGroupList {
+  map<string, EventList> groupNameToEvent = 1;
+}
+
+message EventList {
+  repeated Event items = 1;
+}
+
 message Event{
   string key = 1;
   repeated string vals = 2;
 }
 
-message EventList{
-  repeated Event items = 1;
-}
 
 message ServiceInfo {
   string jobId = 1;

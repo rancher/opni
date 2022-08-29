@@ -1,0 +1,4 @@
+name: "network events"
+filters:
+  - ".*http.*"
+  - ".*request.*"

@@ -35,7 +35,7 @@ type SLOClient interface {
 	ListMetrics(ctx context.Context, in *ListMetricsRequest, opts ...grpc.CallOption) (*MetricList, error)
 	// Returns the list of services discovered by the Service Discovery backend
 	ListServices(ctx context.Context, in *ListServicesRequest, opts ...grpc.CallOption) (*ServiceList, error)
-	ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*EventList, error)
+	ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*EventGroupList, error)
 	// Returns a status enum badge for a given SLO
 	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error)
 	Preview(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*SLOPreviewResponse, error)
@@ -121,8 +121,8 @@ func (c *sLOClient) ListServices(ctx context.Context, in *ListServicesRequest, o
 	return out, nil
 }
 
-func (c *sLOClient) ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*EventList, error) {
-	out := new(EventList)
+func (c *sLOClient) ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*EventGroupList, error) {
+	out := new(EventGroupList)
 	err := c.cc.Invoke(ctx, "/slo.SLO/ListEvents", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -163,7 +163,7 @@ type SLOServer interface {
 	ListMetrics(context.Context, *ListMetricsRequest) (*MetricList, error)
 	// Returns the list of services discovered by the Service Discovery backend
 	ListServices(context.Context, *ListServicesRequest) (*ServiceList, error)
-	ListEvents(context.Context, *ListEventsRequest) (*EventList, error)
+	ListEvents(context.Context, *ListEventsRequest) (*EventGroupList, error)
 	// Returns a status enum badge for a given SLO
 	Status(context.Context, *v1.Reference) (*SLOStatus, error)
 	Preview(context.Context, *CreateSLORequest) (*SLOPreviewResponse, error)
@@ -198,7 +198,7 @@ func (UnimplementedSLOServer) ListMetrics(context.Context, *ListMetricsRequest) 
 func (UnimplementedSLOServer) ListServices(context.Context, *ListServicesRequest) (*ServiceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
 }
-func (UnimplementedSLOServer) ListEvents(context.Context, *ListEventsRequest) (*EventList, error) {
+func (UnimplementedSLOServer) ListEvents(context.Context, *ListEventsRequest) (*EventGroupList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListEvents not implemented")
 }
 func (UnimplementedSLOServer) Status(context.Context, *v1.Reference) (*SLOStatus, error) {

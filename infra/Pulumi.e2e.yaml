@@ -1,9 +1,7 @@
 config:
+  aws:region: us-east-2
   aws:skipCredentialsValidation: "true"
   aws:skipRequestingAccountId: "true"
-  aws:region: us-east-2
-  pulumi:disable-default-providers:
-    - kubernetes
   opni:cloud: aws
   opni:cluster:
     nodeGroupDesiredSize: 2
@@ -13,6 +11,8 @@ config:
   opni:imageRepo: rancher/opni
   opni:imageTag: main
   opni:namePrefix: opni-e2e-test
-  opni:useLocalCharts: true
+  opni:useLocalCharts: "true"
   opni:zoneID:
-    secure: AAABAIKQr3wm8wbbcoO98Di6cpXArwwBwU6h3A+wiq8juuezY+5Xjz+xE6dTNg==
+    secure: AAABAA+P+GwwFQOEhkVqN4/Gj2XKDOaEgpUJK4kZTDcHGzUwBbmgHnTxw1jtKA==
+  pulumi:disable-default-providers:
+  - kubernetes

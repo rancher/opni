@@ -111,54 +111,217 @@ spec:
                     type: string
                   storage:
                     properties:
-                      azure:
+                      Azure:
                         properties:
-                          accountKey:
+                          ContainerName:
                             type: string
-                          accountName:
+                          Endpoint:
                             type: string
-                          containerName:
-                            type: string
-                          endpointSuffix:
-                            type: string
-                          http:
+                          HTTP:
                             properties:
-                              expectContinueTimeout:
-                                format: int64
-                                type: integer
-                              idleConnTimeout:
-                                format: int64
-                                type: integer
-                              insecureSkipVerify:
+                              ExpectContinueTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              IdleConnTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              InsecureSkipVerify:
                                 type: boolean
-                              maxConnectionsPerHost:
+                              MaxConnsPerHost:
+                                format: int32
                                 type: integer
-                              maxIdleConnections:
+                              MaxIdleConns:
+                                format: int32
                                 type: integer
-                              maxIdleConnectionsPerHost:
+                              MaxIdleConnsPerHost:
+                                format: int32
                                 type: integer
-                              responseHeaderTimeout:
-                                format: int64
+                              ResponseHeaderTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              TLSHandshakeTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                            type: object
+                          MSIResource:
+                            type: string
+                          MaxRetries:
+                            format: int32
+                            type: integer
+                          StorageAccountKey:
+                            type: string
+                          StorageAccountName:
+                            type: string
+                          UserAssignedID:
+                            type: string
+                        type: object
+                      Backend:
+                        type: string
+                      Filesystem:
+                        properties:
+                          Directory:
+                            type: string
+                        type: object
+                      GCS:
+                        properties:
+                          BucketName:
+                            type: string
+                          ServiceAccount:
+                            type: string
+                        type: object
+                      S3:
+                        properties:
+                          AccessKeyID:
+                            type: string
+                          BucketName:
+                            type: string
+                          Endpoint:
+                            type: string
+                          HTTP:
+                            properties:
+                              ExpectContinueTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              IdleConnTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              InsecureSkipVerify:
+                                type: boolean
+                              MaxConnsPerHost:
+                                format: int32
                                 type: integer
-                              tlsHandshakeTimeout:
+                              MaxIdleConns:
+                                format: int32
+                                type: integer
+                              MaxIdleConnsPerHost:
+                                format: int32
+                                type: integer
+                              ResponseHeaderTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                              TLSHandshakeTimeout:
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
+                            type: object
+                          Insecure:
+                            type: boolean
+                          Region:
+                            type: string
+                          SSE:
+                            properties:
+                              KMSEncryptionContext:
+                                type: string
+                              KMSKeyID:
+                                type: string
+                              Type:
+                                type: string
+                            type: object
+                          SecretAccessKey:
+                            type: string
+                          SignatureVersion:
+                            type: string
+                        type: object
+                      Swift:
+                        properties:
+                          AuthURL:
+                            type: string
+                          AuthVersion:
+                            format: int32
+                            type: integer
+                          ConnectTimeout:
+                            properties:
+                              nanos:
+                                format: int32
+                                type: integer
+                              seconds:
                                 format: int64
                                 type: integer
                             type: object
-                          maxRetries:
+                          ContainerName:
+                            type: string
+                          DomainID:
+                            type: string
+                          DomainName:
+                            type: string
+                          MaxRetries:
+                            format: int32
                             type: integer
-                        type: object
-                      backend:
-                        type: string
-                      filesystem:
-                        properties:
-                          directory:
+                          Password:
                             type: string
-                        type: object
-                      gcs:
-                        properties:
-                          bucketName:
+                          ProjectDomainID:
                             type: string
-                          serviceAccount:
+                          ProjectDomainName:
+                            type: string
+                          ProjectID:
+                            type: string
+                          ProjectName:
+                            type: string
+                          RegionName:
+                            type: string
+                          RequestTimeout:
+                            properties:
+                              nanos:
+                                format: int32
+                                type: integer
+                              seconds:
+                                format: int64
+                                type: integer
+                            type: object
+                          UserDomainID:
+                            type: string
+                          UserDomainName:
+                            type: string
+                          UserID:
+                            type: string
+                          Username:
                             type: string
                         type: object
                       pvcRetention:
@@ -166,96 +329,6 @@ spec:
                           whenDeleted:
                             type: string
                           whenScaled:
-                            type: string
-                        type: object
-                      s3:
-                        properties:
-                          accessKeyID:
-                            type: string
-                          bucketName:
-                            type: string
-                          endpoint:
-                            type: string
-                          http:
-                            properties:
-                              expectContinueTimeout:
-                                format: int64
-                                type: integer
-                              idleConnTimeout:
-                                format: int64
-                                type: integer
-                              insecureSkipVerify:
-                                type: boolean
-                              maxConnectionsPerHost:
-                                type: integer
-                              maxIdleConnections:
-                                type: integer
-                              maxIdleConnectionsPerHost:
-                                type: integer
-                              responseHeaderTimeout:
-                                format: int64
-                                type: integer
-                              tlsHandshakeTimeout:
-                                format: int64
-                                type: integer
-                            type: object
-                          insecure:
-                            type: boolean
-                          region:
-                            type: string
-                          secretAccessKey:
-                            type: string
-                          signatureVersion:
-                            type: string
-                          sse:
-                            properties:
-                              kmsEncryptionContext:
-                                type: string
-                              kmsKeyID:
-                                type: string
-                              typ:
-                                type: string
-                            type: object
-                        type: object
-                      swift:
-                        properties:
-                          authUrl:
-                            type: string
-                          authVersion:
-                            type: integer
-                          connectTimeout:
-                            format: int64
-                            type: integer
-                          containerName:
-                            type: string
-                          domainID:
-                            type: string
-                          domainName:
-                            type: string
-                          maxRetries:
-                            type: integer
-                          password:
-                            type: string
-                          projectDomainID:
-                            type: string
-                          projectDomainName:
-                            type: string
-                          projectID:
-                            type: string
-                          projectName:
-                            type: string
-                          regionName:
-                            type: string
-                          requestTimeout:
-                            format: int64
-                            type: integer
-                          userDomainID:
-                            type: string
-                          userDomainName:
-                            type: string
-                          userID:
-                            type: string
-                          username:
                             type: string
                         type: object
                     type: object

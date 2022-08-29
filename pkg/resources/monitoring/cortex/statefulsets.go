@@ -1,12 +1,12 @@
 package cortex
 
 import (
-	"github.com/rancher/opni/pkg/resources"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (r *Reconciler) highlyAvailableStatefulSets() []resources.Resource {
+func (r *Reconciler) highlyAvailableStatefulSets() []*appsv1.StatefulSet {
 	compactor := r.buildCortexStatefulSet("compactor",
 		WithOverrides(r.spec.Cortex.Workloads.Compactor),
 	)
@@ -52,7 +52,7 @@ func (r *Reconciler) highlyAvailableStatefulSets() []resources.Resource {
 		NoPersistentStorage(),
 		WithOverrides(r.spec.Cortex.Workloads.Querier),
 	)
-	return []resources.Resource{
+	return []*appsv1.StatefulSet{
 		alertmanager,
 		ingester,
 		compactor,
@@ -61,12 +61,12 @@ func (r *Reconciler) highlyAvailableStatefulSets() []resources.Resource {
 	}
 }
 
-func (r *Reconciler) allInOneStatefulSets() []resources.Resource {
+func (r *Reconciler) allInOneStatefulSets() []*appsv1.StatefulSet {
 	all := r.buildCortexStatefulSet("all",
 		WithOverrides(r.spec.Cortex.Workloads.AllInOne),
 		Replicas(1), // Force replicas to 1 for all-in-one mode
 	)
-	return []resources.Resource{
+	return []*appsv1.StatefulSet{
 		all,
 	}
 }

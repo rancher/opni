@@ -6,27 +6,31 @@ import (
 )
 
 func (r *Reconciler) deployments() []resources.Resource {
-	switch r.spec.Cortex.DeploymentMode {
-	case corev1beta1.DeploymentModeAllInOne:
-		return r.allInOneDeployments()
-	case corev1beta1.DeploymentModeHighlyAvailable:
-		return r.highlyAvailableDeployments()
+	aio := r.allInOneDeployments()
+	ha := r.highlyAvailableDeployments()
+	list := []resources.Resource{}
+	for _, res := range aio {
+		list = append(list, resources.PresentIff(
+			r.spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeAllInOne, res))
 	}
-	r.logger.With(
-		"mode", r.spec.Cortex.DeploymentMode,
-	).Fatal("unknown deployment mode")
-	return nil
+	for _, res := range ha {
+		list = append(list, resources.PresentIff(
+			r.spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeHighlyAvailable, res))
+	}
+	return list
 }
 
 func (r *Reconciler) statefulSets() []resources.Resource {
-	switch r.spec.Cortex.DeploymentMode {
-	case corev1beta1.DeploymentModeAllInOne:
-		return r.allInOneStatefulSets()
-	case corev1beta1.DeploymentModeHighlyAvailable:
-		return r.highlyAvailableStatefulSets()
+	aio := r.allInOneStatefulSets()
+	ha := r.highlyAvailableStatefulSets()
+	list := []resources.Resource{}
+	for _, res := range aio {
+		list = append(list, resources.PresentIff(
+			r.spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeAllInOne, res))
 	}
-	r.logger.With(
-		"mode", r.spec.Cortex.DeploymentMode,
-	).Fatal("unknown deployment mode")
-	return nil
+	for _, res := range ha {
+		list = append(list, resources.PresentIff(
+			r.spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeHighlyAvailable, res))
+	}
+	return list
 }

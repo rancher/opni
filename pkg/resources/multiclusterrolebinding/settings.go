@@ -19,7 +19,6 @@ const (
 
 var (
 	oldTracingIndexPrefixes = []string{}
-	clusterTerm             = `{"term":{"cluster_id.keyword": "${attr.internal.cluster}"}}`
 
 	clusterIndexRole = osapiext.RoleSpec{
 		RoleName: "cluster_index",
@@ -308,8 +307,8 @@ func (r *Reconciler) logISMPolicy() osapiext.ISMPolicySpec {
 						StateName: "delete",
 						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: func() string {
-								if r.multiClusterRoleBinding.Spec.OpensearchConfig != nil {
-									return r.multiClusterRoleBinding.Spec.OpensearchConfig.IndexRetention
+								if r.spec.OpensearchConfig != nil {
+									return r.spec.OpensearchConfig.IndexRetention
 								}
 								return "7d"
 							}(),
@@ -421,8 +420,8 @@ func (r *Reconciler) traceISMPolicy() osapiext.ISMPolicySpec {
 						StateName: "delete",
 						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: func() string {
-								if r.multiClusterRoleBinding.Spec.OpensearchConfig != nil {
-									return r.multiClusterRoleBinding.Spec.OpensearchConfig.IndexRetention
+								if r.spec.OpensearchConfig != nil {
+									return r.spec.OpensearchConfig.IndexRetention
 								}
 								return "7d"
 							}(),

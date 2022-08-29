@@ -5,14 +5,10 @@ import (
 
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
-	"github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/pkg/util/opensearch"
 	osapiext "github.com/rancher/opni/pkg/util/opensearch/types"
-	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"opensearch.opster.io/pkg/helpers"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -97,33 +93,4 @@ func (r *Reconciler) ReconcileOpensearchObjects(opensearchCluster *opensearchv1.
 	}
 
 	return
-}
-
-func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchCluster) error {
-	username, password, err := helpers.UsernameAndPassword(r.ctx, r.client, cluster)
-	if err != nil {
-		return err
-	}
-
-	osReconciler := opensearch.NewReconciler(
-		r.ctx,
-		cluster.Namespace,
-		username,
-		password,
-		cluster.Spec.General.ServiceName,
-		"todo", // TODO fix dashboards name
-	)
-
-	err = osReconciler.MaybeDeleteRole(clusterIndexRole.RoleName)
-	if err != nil {
-		return err
-	}
-
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.multiClusterRoleBinding), r.multiClusterRoleBinding); err != nil {
-			return err
-		}
-		controllerutil.RemoveFinalizer(r.multiClusterRoleBinding, meta.OpensearchFinalizer)
-		return r.client.Update(r.ctx, r.multiClusterRoleBinding)
-	})
 }

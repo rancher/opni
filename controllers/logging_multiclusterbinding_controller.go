@@ -3,7 +3,7 @@ package controllers
 import (
 	"context"
 
-	"github.com/rancher/opni/apis/v1beta2"
+	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/multiclusterrolebinding"
 	"github.com/rancher/opni/pkg/util"
@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type MulticlusterRoleBindingReconciler struct {
+type LoggingMulticlusterRoleBindingReconciler struct {
 	client.Client
 	scheme *runtime.Scheme
 }
@@ -25,8 +25,8 @@ type MulticlusterRoleBindingReconciler struct {
 // +kubebuilder:rbac:groups=opensearch.opster.io,resources=opensearchclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=opensearch.opster.io,resources=opensearchclusters/finalizers,verbs=update
 
-func (r *MulticlusterRoleBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	multiclusterRoleBinding := &v1beta2.MulticlusterRoleBinding{}
+func (r *LoggingMulticlusterRoleBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	multiclusterRoleBinding := &loggingv1beta1.MulticlusterRoleBinding{}
 	err := r.Get(ctx, req.NamespacedName, multiclusterRoleBinding)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -52,11 +52,11 @@ func (r *MulticlusterRoleBindingReconciler) Reconcile(ctx context.Context, req c
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MulticlusterRoleBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *LoggingMulticlusterRoleBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta2.MulticlusterRoleBinding{}).
+		For(&loggingv1beta1.MulticlusterRoleBinding{}).
 		Owns(&opsterv1.OpenSearchCluster{}).
 		Complete(r)
 }

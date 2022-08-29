@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/rancher/opni/apis/v1beta2"
+	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/resources/monitoring"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -22,15 +22,15 @@ import (
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 
-type MonitoringReconciler struct {
+type CoreMonitoringReconciler struct {
 	client.Client
 	scheme *runtime.Scheme
 	logger logr.Logger
 }
 
-func (r *MonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *CoreMonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := r.logger
-	mc := &v1beta2.MonitoringCluster{}
+	mc := &corev1beta1.MonitoringCluster{}
 	err := r.Get(ctx, req.NamespacedName, mc)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -52,12 +52,12 @@ func (r *MonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MonitoringReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CoreMonitoringReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.logger = mgr.GetLogger().WithName("monitoring")
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta2.MonitoringCluster{}).
+		For(&corev1beta1.MonitoringCluster{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&corev1.ConfigMap{}).

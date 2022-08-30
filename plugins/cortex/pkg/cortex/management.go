@@ -14,7 +14,7 @@ import (
 func (p *Plugin) configureCortexManagement() {
 	// load default cluster drivers
 	drivers.ResetClusterDrivers()
-	if kcd, err := drivers.NewKubernetesClusterDriver(); err == nil {
+	if kcd, err := drivers.NewOpniManagerClusterDriver(); err == nil {
 		drivers.RegisterClusterDriver(kcd)
 	} else {
 		drivers.LogDriverFailure(kcd.Name(), err) // Name() is safe to call on a nil pointer

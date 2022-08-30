@@ -3,12 +3,14 @@ package slo
 import (
 	"embed"
 	_ "embed"
+	"fmt"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"io/fs"
-	"os"
-	"path"
+	"path/filepath"
 	"regexp"
 )
 
@@ -20,7 +22,7 @@ var ServiceGroups embed.FS
 
 // map of directory names to their embed.FS
 var EnabledFilters = map[string]embed.FS{"metricgroups": MetricGroups, "servicegroups": ServiceGroups}
-var filters = constructFilters()
+var filters = constructFilters(logger.NewPluginLogger().Named("slo"))
 
 // Regexp adds unmarshalling from json for regexp.Regexp
 type Regexp struct {
@@ -54,36 +56,44 @@ type Filter struct {
 	Ignore  []Regexp `yaml:"ignore"`
 }
 
-func GetGroupConfigsFromEmbed(dirName string, dir embed.FS) []Filter {
-	dirFs, err := dir.ReadDir(dirName)
-	if err != nil {
-		panic(err)
-	}
-	return parseToFilter(dirName, dirFs)
-}
-
-func parseToFilter(dirName string, dirFs []fs.DirEntry) []Filter {
+func GetGroupConfigsFromEmbed(lg *zap.SugaredLogger, dirName string, dir embed.FS) []Filter {
+	lg = lg.With("plugin", "slo", "phase", "init")
 	var res []Filter
-	for _, file := range dirFs {
-		fBytes, err := os.ReadFile(path.Join(dirName, file.Name()))
-		if err != nil {
-			panic(err)
+	fsys := fs.FS(dir)
+	yamlFs, err := fs.Sub(fsys, dirName)
+	if err != nil {
+		lg.Error(err)
+		lg.Debug(fmt.Sprintf("Debug error : yamlFs is %s", yamlFs))
+	}
+	err = fs.WalkDir(yamlFs, ".", func(pathStr string, d fs.DirEntry, err error) error {
+		if !d.IsDir() {
+			fBytes, err := fs.ReadFile(dir, filepath.Join(dirName, d.Name()))
+			if err != nil {
+				lg.Error(err)
+				lg.Debug(fmt.Sprintf("Debug error : yamlFs is %s", yamlFs))
+				panic(err)
+			}
+			var f Filter
+			err = yaml.Unmarshal(fBytes, &f)
+			if err != nil {
+				lg.Error(err)
+				lg.Debug(fmt.Sprintf("Debug error : yamlFs is %s", yamlFs))
+			}
+			res = append(res, f)
 		}
-		var f Filter
-		err = yaml.Unmarshal(fBytes, &f)
-		if err != nil {
-			panic(err)
-		}
-		res = append(res, f)
-
+		return nil
+	})
+	if err != nil {
+		lg.Error(err)
+		lg.Debug(fmt.Sprintf("Debug error : yamlFs is %s", yamlFs))
 	}
 	return res
 }
 
-func constructFilters() []Filter {
+func constructFilters(lg *zap.SugaredLogger) []Filter {
 	res := []Filter{}
 	for dirName, embedFs := range EnabledFilters {
-		filters := GetGroupConfigsFromEmbed(dirName, embedFs)
+		filters := GetGroupConfigsFromEmbed(lg, dirName, embedFs)
 		res = append(res, filters...)
 	}
 	return res

@@ -1,11 +1,13 @@
 package opni
 
 import (
+	"context"
 	"os"
 
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/opni/commands"
 	"github.com/rancher/opni/pkg/opni/common"
+	"github.com/rancher/opni/pkg/util/waitctx"
 
 	"github.com/spf13/cobra"
 )
@@ -41,7 +43,10 @@ func BuildRootCmd() *cobra.Command {
 }
 
 func Execute() {
-	if err := BuildRootCmd().Execute(); err != nil {
+	ctx, ca := context.WithCancel(waitctx.Background())
+	if err := BuildRootCmd().ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
+	ca()
+	waitctx.Wait(ctx)
 }

@@ -113,39 +113,71 @@ spec:
                     properties:
                       azure:
                         properties:
-                          accountKey:
-                            type: string
-                          accountName:
-                            type: string
                           containerName:
                             type: string
-                          endpointSuffix:
+                          endpoint:
                             type: string
                           http:
                             properties:
                               expectContinueTimeout:
-                                format: int64
-                                type: integer
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
                               idleConnTimeout:
-                                format: int64
-                                type: integer
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
                               insecureSkipVerify:
                                 type: boolean
-                              maxConnectionsPerHost:
+                              maxConnsPerHost:
+                                format: int32
                                 type: integer
-                              maxIdleConnections:
+                              maxIdleConns:
+                                format: int32
                                 type: integer
-                              maxIdleConnectionsPerHost:
+                              maxIdleConnsPerHost:
+                                format: int32
                                 type: integer
                               responseHeaderTimeout:
-                                format: int64
-                                type: integer
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
                               tlsHandshakeTimeout:
-                                format: int64
-                                type: integer
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
                             type: object
                           maxRetries:
+                            format: int32
                             type: integer
+                          msiResource:
+                            type: string
+                          storageAccountKey:
+                            type: string
+                          storageAccountName:
+                            type: string
+                          userAssignedID:
+                            type: string
                         type: object
                       backend:
                         type: string
@@ -161,13 +193,6 @@ spec:
                           serviceAccount:
                             type: string
                         type: object
-                      pvcRetention:
-                        properties:
-                          whenDeleted:
-                            type: string
-                          whenScaled:
-                            type: string
-                        type: object
                       s3:
                         properties:
                           accessKeyID:
@@ -179,25 +204,52 @@ spec:
                           http:
                             properties:
                               expectContinueTimeout:
-                                format: int64
-                                type: integer
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
                               idleConnTimeout:
-                                format: int64
-                                type: integer
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
                               insecureSkipVerify:
                                 type: boolean
-                              maxConnectionsPerHost:
+                              maxConnsPerHost:
+                                format: int32
                                 type: integer
-                              maxIdleConnections:
+                              maxIdleConns:
+                                format: int32
                                 type: integer
-                              maxIdleConnectionsPerHost:
+                              maxIdleConnsPerHost:
+                                format: int32
                                 type: integer
                               responseHeaderTimeout:
-                                format: int64
-                                type: integer
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
                               tlsHandshakeTimeout:
-                                format: int64
-                                type: integer
+                                properties:
+                                  nanos:
+                                    format: int32
+                                    type: integer
+                                  seconds:
+                                    format: int64
+                                    type: integer
+                                type: object
                             type: object
                           insecure:
                             type: boolean
@@ -213,19 +265,26 @@ spec:
                                 type: string
                               kmsKeyID:
                                 type: string
-                              typ:
+                              type:
                                 type: string
                             type: object
                         type: object
                       swift:
                         properties:
-                          authUrl:
+                          authURL:
                             type: string
                           authVersion:
+                            format: int32
                             type: integer
                           connectTimeout:
-                            format: int64
-                            type: integer
+                            properties:
+                              nanos:
+                                format: int32
+                                type: integer
+                              seconds:
+                                format: int64
+                                type: integer
+                            type: object
                           containerName:
                             type: string
                           domainID:
@@ -233,6 +292,7 @@ spec:
                           domainName:
                             type: string
                           maxRetries:
+                            format: int32
                             type: integer
                           password:
                             type: string
@@ -247,8 +307,14 @@ spec:
                           regionName:
                             type: string
                           requestTimeout:
-                            format: int64
-                            type: integer
+                            properties:
+                              nanos:
+                                format: int32
+                                type: integer
+                              seconds:
+                                format: int64
+                                type: integer
+                            type: object
                           userDomainID:
                             type: string
                           userDomainName:
@@ -2637,8 +2703,6 @@ spec:
                               - name
                               type: object
                             type: array
-                          storageSize:
-                            type: string
                           updateStrategy:
                             properties:
                               rollingUpdate:
@@ -5032,8 +5096,6 @@ spec:
                               - name
                               type: object
                             type: array
-                          storageSize:
-                            type: string
                           updateStrategy:
                             properties:
                               rollingUpdate:
@@ -7427,8 +7489,6 @@ spec:
                               - name
                               type: object
                             type: array
-                          storageSize:
-                            type: string
                           updateStrategy:
                             properties:
                               rollingUpdate:
@@ -9822,8 +9882,6 @@ spec:
                               - name
                               type: object
                             type: array
-                          storageSize:
-                            type: string
                           updateStrategy:
                             properties:
                               rollingUpdate:
@@ -12217,8 +12275,6 @@ spec:
                               - name
                               type: object
                             type: array
-                          storageSize:
-                            type: string
                           updateStrategy:
                             properties:
                               rollingUpdate:
@@ -14612,8 +14668,6 @@ spec:
                               - name
                               type: object
                             type: array
-                          storageSize:
-                            type: string
                           updateStrategy:
                             properties:
                               rollingUpdate:
@@ -17007,8 +17061,6 @@ spec:
                               - name
                               type: object
                             type: array
-                          storageSize:
-                            type: string
                           updateStrategy:
                             properties:
                               rollingUpdate:
@@ -19402,8 +19454,6 @@ spec:
                               - name
                               type: object
                             type: array
-                          storageSize:
-                            type: string
                           updateStrategy:
                             properties:
                               rollingUpdate:
@@ -21797,8 +21847,6 @@ spec:
                               - name
                               type: object
                             type: array
-                          storageSize:
-                            type: string
                           updateStrategy:
                             properties:
                               rollingUpdate:

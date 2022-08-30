@@ -112,21 +112,16 @@ const (
 )
 
 type CortexSpec struct {
-	Enabled        bool              `json:"enabled,omitempty"`
-	Image          *ImageSpec        `json:"image,omitempty"`
-	LogLevel       string            `json:"logLevel,omitempty"`
-	Storage        CortexStorageSpec `json:"storage,omitempty"`
-	ExtraEnvVars   []corev1.EnvVar   `json:"extraEnvVars,omitempty"`
-	DeploymentMode DeploymentMode    `json:"deploymentMode,omitempty"`
+	Enabled        bool                   `json:"enabled,omitempty"`
+	Image          *ImageSpec             `json:"image,omitempty"`
+	LogLevel       string                 `json:"logLevel,omitempty"`
+	Storage        *storagev1.StorageSpec `json:"storage,omitempty"`
+	ExtraEnvVars   []corev1.EnvVar        `json:"extraEnvVars,omitempty"`
+	DeploymentMode DeploymentMode         `json:"deploymentMode,omitempty"`
 
 	// Overrides for specific workloads. If unset, all values have automatic
 	// defaults based on the deployment mode.
 	Workloads CortexWorkloadsSpec `json:"workloads,omitempty"`
-}
-
-type CortexStorageSpec struct {
-	*storagev1.StorageSpec `json:",inline,omitempty"`
-	PVCRetention           *appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy `json:"pvcRetention,omitempty"`
 }
 
 type CortexWorkloadsSpec struct {
@@ -151,7 +146,6 @@ type CortexWorkloadSpec struct {
 	ExtraArgs          []string                          `json:"extraArgs,omitempty"`
 	SidecarContainers  []corev1.Container                `json:"sidecarContainers,omitempty"`
 	InitContainers     []corev1.Container                `json:"initContainers,omitempty"`
-	StorageSize        *string                           `json:"storageSize,omitempty"`
 	DeploymentStrategy *appsv1.DeploymentStrategy        `json:"deploymentStrategy,omitempty"`
 	UpdateStrategy     *appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
 	SecurityContext    *corev1.SecurityContext           `json:"securityContext,omitempty"`

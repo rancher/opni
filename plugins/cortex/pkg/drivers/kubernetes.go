@@ -106,7 +106,7 @@ func (k *KubernetesClusterDriver) ConfigureInstall(ctx context.Context, conf *co
 
 	mutator := func(cluster *v1beta2.MonitoringCluster) {
 		cluster.Spec.Cortex.Enabled = true
-		cluster.Spec.Cortex.Storage.StorageSpec = conf.Storage
+		cluster.Spec.Cortex.Storage = conf.Storage
 		cluster.Spec.Grafana.Enabled = true
 		cluster.Spec.Gateway = k.gatewayRef
 		cluster.Spec.Cortex.DeploymentMode = v1beta2.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.Mode)])

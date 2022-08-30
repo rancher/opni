@@ -22,6 +22,11 @@ func (r *Reconciler) updateCortexVersionStatus() (bool, error) {
 		if !ok {
 			panic("could not read build info")
 		}
+		// https://github.com/golang/go/issues/33976
+		if buildInfo.Main.Path == "" {
+			cortexVersion = "(unknown)"
+			return
+		}
 		for _, depInfo := range buildInfo.Deps {
 			if depInfo.Path == "github.com/cortexproject/cortex" {
 				if depInfo.Replace != nil {

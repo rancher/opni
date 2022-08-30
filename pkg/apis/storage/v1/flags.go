@@ -18,7 +18,7 @@ func (cfg *StorageSpec) FlagSet() *flag.FlagSet {
 
 func (cfg *StorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	cfg.S3.RegisterFlagsWithPrefix(prefix, f)
-	cfg.GCS.RegisterFlagsWithPrefix(prefix, f)
+	cfg.Gcs.RegisterFlagsWithPrefix(prefix, f)
 	cfg.Azure.RegisterFlagsWithPrefix(prefix, f)
 	cfg.Swift.RegisterFlagsWithPrefix(prefix, f)
 	cfg.Filesystem.RegisterFlagsWithPrefix(prefix, f)
@@ -64,8 +64,8 @@ func (cfg *S3StorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet
 	f.StringVar(&cfg.Endpoint, prefix+"s3.endpoint", "", "The S3 bucket endpoint. It could be an AWS S3 endpoint listed at https://docs.aws.amazon.com/general/latest/gr/s3.html or the address of an S3-compatible service in hostname:port format.")
 	f.BoolVar(&cfg.Insecure, prefix+"s3.insecure", false, "If enabled, use http:// for the S3 endpoint instead of https://. This could be useful in local dev/test environments while using an S3-compatible backend storage, like Minio.")
 	f.StringVar(&cfg.SignatureVersion, prefix+"s3.signature-version", SignatureVersionV4, fmt.Sprintf("The signature version to use for authenticating against S3. Supported values are: %s.", strings.Join(supportedSignatureVersions, ", ")))
-	cfg.SSE.RegisterFlagsWithPrefix(prefix+"s3.sse.", f)
-	cfg.HTTP.RegisterFlagsWithPrefix(prefix, f)
+	cfg.Sse.RegisterFlagsWithPrefix(prefix+"s3.sse.", f)
+	cfg.Http.RegisterFlagsWithPrefix(prefix, f)
 }
 
 func (cfg *GCSStorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -79,9 +79,9 @@ func (cfg *AzureStorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.Flag
 	f.StringVar(&cfg.ContainerName, prefix+"azure.container-name", "", "Azure storage container name")
 	f.StringVar(&cfg.Endpoint, prefix+"azure.endpoint-suffix", "", "Azure storage endpoint suffix without schema. The account name will be prefixed to this value to create the FQDN")
 	f.Int32Var(&cfg.MaxRetries, prefix+"azure.max-retries", 20, "Number of retries for recoverable errors")
-	f.StringVar(&cfg.MSIResource, prefix+"azure.msi-resource", "", "Azure storage MSI resource. Either this or account key must be set.")
+	f.StringVar(&cfg.MsiResource, prefix+"azure.msi-resource", "", "Azure storage MSI resource. Either this or account key must be set.")
 	f.StringVar(&cfg.UserAssignedID, prefix+"azure.user-assigned-id", "", "Azure storage MSI resource managed identity client Id. If not supplied system assigned identity is used")
-	cfg.HTTP.RegisterFlagsWithPrefix(prefix+"azure.", f)
+	cfg.Http.RegisterFlagsWithPrefix(prefix+"azure.", f)
 }
 
 func (cfg *SwiftStorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
@@ -113,7 +113,7 @@ func (cfg *HTTPConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.Var(dpbValue(90*time.Second, &cfg.IdleConnTimeout), prefix+"http.idle-conn-timeout", "The time an idle connection will remain idle before closing.")
 	f.Var(dpbValue(2*time.Minute, &cfg.ResponseHeaderTimeout), prefix+"http.response-header-timeout", "The amount of time the client will wait for a servers response headers.")
 	f.BoolVar(&cfg.InsecureSkipVerify, prefix+"http.insecure-skip-verify", false, "If the client connects via HTTPS and this option is enabled, the client will accept any certificate and hostname.")
-	f.Var(dpbValue(10*time.Second, &cfg.TLSHandshakeTimeout), prefix+"tls-handshake-timeout", "Maximum time to wait for a TLS handshake. 0 means no limit.")
+	f.Var(dpbValue(10*time.Second, &cfg.TlsHandshakeTimeout), prefix+"tls-handshake-timeout", "Maximum time to wait for a TLS handshake. 0 means no limit.")
 	f.Var(dpbValue(1*time.Second, &cfg.ExpectContinueTimeout), prefix+"expect-continue-timeout", "The time to wait for a server's first response headers after fully writing the request headers if the request has an Expect header. 0 to send the request body immediately.")
 	f.Int32Var(&cfg.MaxIdleConns, prefix+"max-idle-connections", 100, "Maximum number of idle (keep-alive) connections across all hosts. 0 means no limit.")
 	f.Int32Var(&cfg.MaxIdleConnsPerHost, prefix+"max-idle-connections-per-host", 100, "Maximum number of idle (keep-alive) connections to keep per-host. If 0, a built-in default value is used.")
@@ -122,8 +122,8 @@ func (cfg *HTTPConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 
 func (cfg *SSEConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Type, prefix+"type", "", fmt.Sprintf("Enable AWS Server Side Encryption. Supported values: %s.", strings.Join(supportedSSETypes, ", ")))
-	f.StringVar(&cfg.KMSKeyID, prefix+"kms-key-id", "", "KMS Key ID used to encrypt objects in S3")
-	f.StringVar(&cfg.KMSEncryptionContext, prefix+"kms-encryption-context", "", "KMS Encryption Context used for object encryption. It expects JSON formatted string.")
+	f.StringVar(&cfg.KmsKeyID, prefix+"kms-key-id", "", "KMS Key ID used to encrypt objects in S3")
+	f.StringVar(&cfg.KmsEncryptionContext, prefix+"kms-encryption-context", "", "KMS Encryption Context used for object encryption. It expects JSON formatted string.")
 }
 
 func (cfg *StorageSpec) InitEmptyFields() {
@@ -131,10 +131,10 @@ func (cfg *StorageSpec) InitEmptyFields() {
 		cfg.S3 = &S3StorageSpec{}
 	}
 	cfg.S3.InitEmptyFields()
-	if cfg.GCS == nil {
-		cfg.GCS = &GCSStorageSpec{}
+	if cfg.Gcs == nil {
+		cfg.Gcs = &GCSStorageSpec{}
 	}
-	cfg.GCS.InitEmptyFields()
+	cfg.Gcs.InitEmptyFields()
 	if cfg.Azure == nil {
 		cfg.Azure = &AzureStorageSpec{}
 	}
@@ -150,11 +150,11 @@ func (cfg *StorageSpec) InitEmptyFields() {
 }
 
 func (cfg *S3StorageSpec) InitEmptyFields() {
-	if cfg.SSE == nil {
-		cfg.SSE = &SSEConfig{}
+	if cfg.Sse == nil {
+		cfg.Sse = &SSEConfig{}
 	}
-	if cfg.HTTP == nil {
-		cfg.HTTP = &HTTPConfig{}
+	if cfg.Http == nil {
+		cfg.Http = &HTTPConfig{}
 	}
 }
 
@@ -163,8 +163,8 @@ func (cfg *GCSStorageSpec) InitEmptyFields() {
 }
 
 func (cfg *AzureStorageSpec) InitEmptyFields() {
-	if cfg.HTTP == nil {
-		cfg.HTTP = &HTTPConfig{}
+	if cfg.Http == nil {
+		cfg.Http = &HTTPConfig{}
 	}
 }
 

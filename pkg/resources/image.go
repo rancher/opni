@@ -14,6 +14,10 @@ import (
 func FindManagerImage(ctx context.Context, c client.Client) (string, corev1.PullPolicy, error) {
 	var pullPolicy corev1.PullPolicy
 
+	if value, ok := os.LookupEnv("OPNI_DEBUG_MANAGER_IMAGE"); ok {
+		return value, corev1.PullAlways, nil
+	}
+
 	podName, ok := os.LookupEnv("POD_NAME")
 	if !ok {
 		return "", "", fmt.Errorf("POD_NAME not set")

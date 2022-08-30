@@ -49,7 +49,6 @@ func (r *Reconciler) highlyAvailableStatefulSets() []*appsv1.StatefulSet {
 	)
 	querier := r.buildCortexStatefulSet("querier",
 		Ports(HTTP),
-		NoPersistentStorage(),
 		WithOverrides(r.spec.Cortex.Workloads.Querier),
 	)
 	return []*appsv1.StatefulSet{

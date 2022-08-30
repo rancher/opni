@@ -58,7 +58,6 @@ func BuildCortexClusterStatusCmd() *cobra.Command {
 
 func BuildCortexClusterConfigureCmd() *cobra.Command {
 	var mode string
-	var installConf cortexops.InstallConfiguration
 	var storage storagev1.StorageSpec
 	cmd := &cobra.Command{
 		Use:   "configure",
@@ -68,10 +67,10 @@ func BuildCortexClusterConfigureCmd() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("unknown deployment strategy %s", mode)
 			}
-			installConf.Mode = cortexops.DeploymentMode(strategy)
-			installConf.Storage = &storage
-
-			_, err := opsClient.ConfigureInstall(cmd.Context(), &installConf)
+			_, err := opsClient.ConfigureInstall(cmd.Context(), &cortexops.InstallConfiguration{
+				Mode:    cortexops.DeploymentMode(strategy),
+				Storage: &storage,
+			})
 			return err
 		},
 	}

@@ -58,7 +58,7 @@ func bucketHttpConfig(spec *storagev1.HTTPConfig) bucket_http.Config {
 		IdleConnTimeout:       spec.GetIdleConnTimeout().AsDuration(),
 		ResponseHeaderTimeout: spec.GetResponseHeaderTimeout().AsDuration(),
 		InsecureSkipVerify:    spec.GetInsecureSkipVerify(),
-		TLSHandshakeTimeout:   spec.GetTLSHandshakeTimeout().AsDuration(),
+		TLSHandshakeTimeout:   spec.GetTlsHandshakeTimeout().AsDuration(),
 		ExpectContinueTimeout: spec.GetExpectContinueTimeout().AsDuration(),
 		MaxIdleConns:          int(spec.GetMaxIdleConns()),
 		MaxIdleConnsPerHost:   int(spec.GetMaxIdleConnsPerHost()),
@@ -98,71 +98,81 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		}), nil
 	}
 
-	s3Spec := valueOrDefault(r.spec.Cortex.Storage.S3)
-	gcsSpec := valueOrDefault(r.spec.Cortex.Storage.GCS)
-	azureSpec := valueOrDefault(r.spec.Cortex.Storage.Azure)
-	swiftSpec := valueOrDefault(r.spec.Cortex.Storage.Swift)
-	filesystemSpec := valueOrDefault(r.spec.Cortex.Storage.Filesystem)
+	if r.spec.Cortex.Storage == nil {
+		r.logger.Warn("No cortex storage configured; using volatile EmptyDir storage. It is recommended to configure a storage backend.")
+		r.spec.Cortex.Storage = &storagev1.StorageSpec{
+			Backend: storagev1.Filesystem,
+			Filesystem: &storagev1.FilesystemStorageSpec{
+				Directory: "/data",
+			},
+		}
+	}
+
+	s3Spec := valueOrDefault(r.spec.Cortex.Storage.GetS3())
+	gcsSpec := valueOrDefault(r.spec.Cortex.Storage.GetGcs())
+	azureSpec := valueOrDefault(r.spec.Cortex.Storage.GetAzure())
+	swiftSpec := valueOrDefault(r.spec.Cortex.Storage.GetSwift())
+	filesystemSpec := valueOrDefault(r.spec.Cortex.Storage.GetFilesystem())
 
 	storageConfig := bucket.Config{
-		Backend: string(r.spec.Cortex.Storage.Backend),
+		Backend: string(r.spec.Cortex.Storage.GetBackend()),
 		S3: s3.Config{
-			Endpoint:   s3Spec.Endpoint,
-			Region:     s3Spec.Region,
-			BucketName: s3Spec.BucketName,
+			Endpoint:   s3Spec.GetEndpoint(),
+			Region:     s3Spec.GetRegion(),
+			BucketName: s3Spec.GetBucketName(),
 			SecretAccessKey: flagext.Secret{
-				Value: s3Spec.SecretAccessKey,
+				Value: s3Spec.GetSecretAccessKey(),
 			},
-			AccessKeyID:      s3Spec.AccessKeyID,
-			Insecure:         s3Spec.Insecure,
-			SignatureVersion: s3Spec.SignatureVersion,
+			AccessKeyID:      s3Spec.GetAccessKeyID(),
+			Insecure:         s3Spec.GetInsecure(),
+			SignatureVersion: s3Spec.GetSignatureVersion(),
 			SSE: s3.SSEConfig{
-				Type:                 s3Spec.SSE.Type,
-				KMSKeyID:             s3Spec.SSE.KMSKeyID,
-				KMSEncryptionContext: s3Spec.SSE.KMSEncryptionContext,
+				Type:                 s3Spec.GetSse().GetType(),
+				KMSKeyID:             s3Spec.GetSse().GetKmsKeyID(),
+				KMSEncryptionContext: s3Spec.GetSse().GetKmsEncryptionContext(),
 			},
 			HTTP: s3.HTTPConfig{
-				Config: bucket_http.Config(s3Spec.HTTP),
+				Config: bucketHttpConfig(s3Spec.GetHttp()),
 			},
 		},
 		GCS: gcs.Config{
-			BucketName: gcsSpec.BucketName,
+			BucketName: gcsSpec.GetBucketName(),
 			ServiceAccount: flagext.Secret{
-				Value: gcsSpec.ServiceAccount,
+				Value: gcsSpec.GetServiceAccount(),
 			},
 		},
 		Azure: azure.Config{
-			StorageAccountName: azureSpec.StorageAccountName,
+			StorageAccountName: azureSpec.GetStorageAccountName(),
 			StorageAccountKey: flagext.Secret{
-				Value: azureSpec.StorageAccountKey,
+				Value: azureSpec.GetStorageAccountKey(),
 			},
-			ContainerName: azureSpec.ContainerName,
-			Endpoint:      azureSpec.Endpoint,
-			MaxRetries:    int(azureSpec.MaxRetries),
-			Config:        bucket_http.Config(azureSpec.HTTP),
+			ContainerName: azureSpec.GetContainerName(),
+			Endpoint:      azureSpec.GetEndpoint(),
+			MaxRetries:    int(azureSpec.GetMaxRetries()),
+			Config:        bucketHttpConfig(azureSpec.GetHttp()),
 		},
 		Swift: swift.Config{
-			AuthVersion:       int(swiftSpec.AuthVersion),
-			AuthURL:           swiftSpec.AuthURL,
-			Username:          swiftSpec.Username,
-			UserDomainName:    swiftSpec.UserDomainName,
-			UserDomainID:      swiftSpec.UserDomainID,
-			UserID:            swiftSpec.UserID,
-			Password:          swiftSpec.Password,
-			DomainID:          swiftSpec.DomainID,
-			DomainName:        swiftSpec.DomainName,
-			ProjectID:         swiftSpec.ProjectID,
-			ProjectName:       swiftSpec.ProjectName,
-			ProjectDomainID:   swiftSpec.ProjectDomainID,
-			ProjectDomainName: swiftSpec.ProjectDomainName,
-			RegionName:        swiftSpec.RegionName,
-			ContainerName:     swiftSpec.ContainerName,
-			MaxRetries:        int(swiftSpec.MaxRetries),
-			ConnectTimeout:    swiftSpec.ConnectTimeout,
-			RequestTimeout:    swiftSpec.RequestTimeout,
+			AuthVersion:       int(swiftSpec.GetAuthVersion()),
+			AuthURL:           swiftSpec.GetAuthURL(),
+			Username:          swiftSpec.GetUsername(),
+			UserDomainName:    swiftSpec.GetUserDomainName(),
+			UserDomainID:      swiftSpec.GetUserDomainID(),
+			UserID:            swiftSpec.GetUserID(),
+			Password:          swiftSpec.GetPassword(),
+			DomainID:          swiftSpec.GetDomainID(),
+			DomainName:        swiftSpec.GetDomainName(),
+			ProjectID:         swiftSpec.GetProjectID(),
+			ProjectName:       swiftSpec.GetProjectName(),
+			ProjectDomainID:   swiftSpec.GetProjectDomainID(),
+			ProjectDomainName: swiftSpec.GetProjectDomainName(),
+			RegionName:        swiftSpec.GetRegionName(),
+			ContainerName:     swiftSpec.GetContainerName(),
+			MaxRetries:        int(swiftSpec.GetMaxRetries()),
+			ConnectTimeout:    swiftSpec.GetConnectTimeout().AsDuration(),
+			RequestTimeout:    swiftSpec.GetRequestTimeout().AsDuration(),
 		},
 		Filesystem: filesystem.Config{
-			Directory: filesystemSpec.Directory,
+			Directory: filesystemSpec.GetDirectory(),
 		},
 	}
 	logLevel := logging.Level{}

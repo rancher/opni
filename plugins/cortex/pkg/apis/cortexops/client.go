@@ -1,9 +1,8 @@
 package cortexops
 
 import (
-	"context"
-
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -34,7 +33,7 @@ func WithDialOptions(options ...grpc.DialOption) OpsClientOption {
 	}
 }
 
-func NewClient(ctx context.Context, opts ...OpsClientOption) (CortexOpsClient, error) {
+func NewClient(ctx waitctx.PermissiveContext, opts ...OpsClientOption) (CortexOpsClient, error) {
 	options := OpsClientOptions{
 		listenAddr: managementv1.DefaultManagementSocket(),
 		dialOptions: []grpc.DialOption{
@@ -48,5 +47,9 @@ func NewClient(ctx context.Context, opts ...OpsClientOption) (CortexOpsClient, e
 	if err != nil {
 		return nil, err
 	}
+	waitctx.Permissive.Go(ctx, func() {
+		<-ctx.Done()
+		cc.Close()
+	})
 	return NewCortexOpsClient(cc), nil
 }

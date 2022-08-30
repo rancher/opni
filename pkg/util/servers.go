@@ -57,9 +57,8 @@ func WaitAll(ctx context.Context, ca context.CancelFunc, channels ...<-chan erro
 		return ctx.Err()
 	}
 	channelIdx := i - 1
-	//err := value.Interface().(error)
 	var err error
-	if i := value.Interface().(error); i != nil {
+	if i := value.Interface(); i != nil {
 		err = i.(error)
 	}
 	if err == nil {

@@ -1,4 +1,4 @@
-name: "kubernetes events"
+name: "kubernetes metrics"
 filters:
   - ".*apiserver.*"
   - ".*kube-state-metrics.*"

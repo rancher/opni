@@ -202,7 +202,7 @@ func (p *Plugin) ListServices(ctx context.Context, req *sloapi.ListServicesReque
 	return backend.ListServices()
 }
 
-func (p *Plugin) ListMetrics(ctx context.Context, req *sloapi.ListMetricsRequest) (*sloapi.MetricList, error) {
+func (p *Plugin) ListMetrics(ctx context.Context, req *sloapi.ListMetricsRequest) (*sloapi.MetricGroupList, error) {
 	err := checkDatasource(req.Datasource)
 	if err != nil {
 		return nil, shared.ErrInvalidDatasource
@@ -211,7 +211,7 @@ func (p *Plugin) ListMetrics(ctx context.Context, req *sloapi.ListMetricsRequest
 	return backend.ListMetrics()
 }
 
-func (p *Plugin) ListEvents(ctx context.Context, req *sloapi.ListEventsRequest) (*sloapi.EventGroupList, error) {
+func (p *Plugin) ListEvents(ctx context.Context, req *sloapi.ListEventsRequest) (*sloapi.EventList, error) {
 	// fetch labels & their label values for the given cluster & service
 	if err := req.Validate(); err != nil {
 		return nil, err

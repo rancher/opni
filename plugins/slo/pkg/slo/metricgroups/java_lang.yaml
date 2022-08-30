@@ -1,4 +1,4 @@
-name: "jvm events"
+name: "jvm metrics"
 filters:
   - ".*jvm.*"
   - ".*classes.*"

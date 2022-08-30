@@ -100,33 +100,35 @@ func constructFilters(lg *zap.SugaredLogger) []Filter {
 }
 
 // Map metric -> group -> score
-func scoredLabels(labels *cortexadmin.MetricLabels) *sloapi.EventGroupList {
-	res := map[*cortexadmin.LabelSet]map[string]int{}
-	for _, labelObj := range labels.Items {
-		eventName := labelObj.GetName()
+func scoredLabels(seriesInfo *cortexadmin.SeriesInfoList) *sloapi.MetricGroupList {
+	res := map[*cortexadmin.SeriesInfo]map[string]int{}
+
+	for _, series := range seriesInfo.GetItems() {
+		series.GetSeriesName()
 		for _, groupname := range filters {
-			for _, filter := range groupname.Filters {
-				if filter.MatchString(eventName) {
-					if _, ok := res[labelObj]; !ok {
-						res[labelObj] = map[string]int{}
+			for _, matchFilter := range groupname.Filters {
+				if matchFilter.MatchString(series.GetSeriesName()) {
+					if _, ok := res[series]; !ok {
+						res[series] = map[string]int{}
 					}
-					res[labelObj][groupname.Name] += 1
+					res[series][groupname.Name] = 1
 				}
 			}
-			for _, filter := range groupname.Ignore {
-				if filter.MatchString(eventName) {
-					if _, ok := res[labelObj]; !ok {
-						res[labelObj] = map[string]int{}
+
+			for _, ignoreFilter := range groupname.Ignore {
+				if ignoreFilter.MatchString(series.GetSeriesName()) {
+					if _, ok := res[series]; !ok {
+						res[series] = map[string]int{}
 					}
-					res[labelObj][groupname.Name] -= 1
+					res[series][groupname.Name] = -1
 				}
 			}
 		}
 	}
-	groupedEvents := &sloapi.EventGroupList{
-		GroupNameToEvent: map[string]*sloapi.EventList{},
+	groupedMetrics := sloapi.MetricGroupList{
+		GroupNameToMetrics: map[string]*sloapi.MetricList{},
 	}
-	for event, vals := range res {
+	for series, vals := range res {
 		groupName := ""
 		maxScore := 0
 		for group, score := range vals {
@@ -136,19 +138,23 @@ func scoredLabels(labels *cortexadmin.MetricLabels) *sloapi.EventGroupList {
 			}
 		}
 		if maxScore <= 0 {
-			groupName = "other events"
+			groupName = "other metrics"
 		}
-		if _, ok := groupedEvents.GroupNameToEvent[groupName]; !ok {
-			groupedEvents.GroupNameToEvent[groupName] = &sloapi.EventList{}
+		if _, ok := groupedMetrics.GroupNameToMetrics[groupName]; !ok {
+			groupedMetrics.GroupNameToMetrics[groupName] = &sloapi.MetricList{}
 		}
-		groupedEvents.GroupNameToEvent[groupName].Items = append(groupedEvents.GroupNameToEvent[groupName].Items, &sloapi.Event{
-			Key:  event.GetName(),
-			Vals: event.GetItems(),
+		groupedMetrics.GroupNameToMetrics[groupName].Items = append(groupedMetrics.GroupNameToMetrics[groupName].Items, &sloapi.Metric{
+			Id: series.GetSeriesName(),
+			Metadata: &sloapi.MetricMetadata{
+				Description: series.Metadata.GetDescription(),
+				Unit:        series.Metadata.GetUnit(),
+				Type:        series.Metadata.GetType(),
+			},
 		})
 	}
-	return groupedEvents
+	return &groupedMetrics
 }
 
-func ApplyFiltersToCortexEvents(labels *cortexadmin.MetricLabels) (*sloapi.EventGroupList, error) {
-	return scoredLabels(labels), nil
+func ApplyFiltersToCortexEvents(seriesInfo *cortexadmin.SeriesInfoList) (*sloapi.MetricGroupList, error) {
+	return scoredLabels(seriesInfo), nil
 }

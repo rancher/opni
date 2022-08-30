@@ -1,4 +1,4 @@
-name: "other events"
+name: "other metrics"
 filters:
     - ".*up.*"
     - ".*uptime.*"

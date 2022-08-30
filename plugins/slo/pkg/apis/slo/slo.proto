@@ -47,7 +47,7 @@ service SLO {
 
   // Returns a set of metrics with compatible implementations for
   // a set of services
-  rpc ListMetrics(ListMetricsRequest) returns (MetricList) {
+  rpc ListMetrics(ListMetricsRequest) returns (MetricGroupList) {
     option (google.api.http) = {
       post: "/metrics"
     };
@@ -60,7 +60,7 @@ service SLO {
     };
   }
 
-  rpc ListEvents(ListEventsRequest) returns (EventGroupList) {
+  rpc ListEvents(ListEventsRequest) returns (EventList) {
     option (google.api.http) = {
       post: "/events"
     };
@@ -98,9 +98,6 @@ message ListServicesRequest{
   string clusterId = 2;
 }
 
-message EventGroupList {
-  map<string, EventList> groupNameToEvent = 1;
-}
 
 message EventList {
   repeated Event items = 1;
@@ -198,6 +195,10 @@ message MetricMetadata {
 
 message MetricList {
   repeated Metric items = 1;
+}
+
+message MetricGroupList {
+  map<string, MetricList> groupNameToMetrics = 1;
 }
 
 message ServiceLevelObjectiveList {

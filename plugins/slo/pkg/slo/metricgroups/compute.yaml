@@ -1,4 +1,4 @@
-name: "compute events"
+name: "compute metrics"
 filters:
   - ".*cpu.*"
   - ".*heap.*"

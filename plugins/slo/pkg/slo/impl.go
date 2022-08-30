@@ -348,7 +348,10 @@ func (m MonitoringServiceBackend) ListServices() (*sloapi.ServiceList, error) {
 	return res, nil
 }
 
-func (m MonitoringServiceBackend) ListEvents() (*sloapi.EventGroupList, error) {
+func (m MonitoringServiceBackend) ListEvents() (*sloapi.EventList, error) {
+	res := &sloapi.EventList{
+		Items: []*sloapi.Event{},
+	}
 	req := (m.req).(*sloapi.ListEventsRequest) // Create is the same as Update if within the same cluster
 	resp, err := m.p.adminClient.Get().GetMetricLabelSets(m.ctx, &cortexadmin.LabelRequest{
 		Tenant:     req.GetClusterId(),
@@ -358,12 +361,17 @@ func (m MonitoringServiceBackend) ListEvents() (*sloapi.EventGroupList, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ApplyFiltersToCortexEvents(resp)
+	for _, item := range resp.GetItems() {
+		res.Items = append(res.Items, &sloapi.Event{
+			Key:  item.GetName(),
+			Vals: item.GetItems(),
+		})
+	}
+	return res, nil
 }
 
-func (m MonitoringServiceBackend) ListMetrics() (*sloapi.MetricList, error) {
+func (m MonitoringServiceBackend) ListMetrics() (*sloapi.MetricGroupList, error) {
 	req := (m.req).(*sloapi.ListMetricsRequest) // Create is the same as Update if within the same cluster
-	res := &sloapi.MetricList{}
 	resp, err := m.p.adminClient.Get().GetSeriesMetrics(m.ctx, &cortexadmin.SeriesRequest{
 		Tenant: req.GetClusterId(),
 		JobId:  req.GetServiceId(),
@@ -371,15 +379,5 @@ func (m MonitoringServiceBackend) ListMetrics() (*sloapi.MetricList, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, seriesInfo := range resp.Items {
-		res.Items = append(res.Items, &sloapi.Metric{
-			Id: seriesInfo.GetSeriesName(),
-			Metadata: &sloapi.MetricMetadata{
-				Description: seriesInfo.Metadata.GetDescription(),
-				Unit:        seriesInfo.Metadata.GetUnit(),
-				Type:        seriesInfo.Metadata.GetType(),
-			},
-		})
-	}
-	return res, nil
+	return ApplyFiltersToCortexEvents(resp)
 }

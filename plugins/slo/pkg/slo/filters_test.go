@@ -25,44 +25,44 @@ var _ = Describe("SLO Filter tests", Ordered, Label(test.Unit, test.Slow), func(
 
 			It("Should be able to score the events based on the filters", func() {
 				// array of prom metrics : label name -> label vals
-				labels := &cortexadmin.MetricLabels{
-					Items: []*cortexadmin.LabelSet{
+				series := &cortexadmin.SeriesInfoList{
+					Items: []*cortexadmin.SeriesInfo{
 						{
-							Name: "go_gc_duration_seconds",
+							SeriesName: "go_gc_duration_seconds",
 						},
 						{
-							Name: "jvm_something",
+							SeriesName: "jvm_something",
 						},
 						{
-							Name: "jvm_something_else",
+							SeriesName: "jvm_something_else",
 						},
 						{
-							Name: "uptime_seconds",
+							SeriesName: "uptime_seconds",
 						},
 						{
-							Name: "kube-proxy",
+							SeriesName: "kube-proxy",
 						},
 						{
-							Name: "apiserver_something",
+							SeriesName: "apiserver_something",
 						},
 						{
-							Name: "request_duration_seconds",
+							SeriesName: "request_duration_seconds",
 						},
 						{
-							Name: "cpu_usage_seconds_total",
+							SeriesName: "cpu_usage_seconds_total",
 						},
 					},
 				}
 
-				filteredGroups, err := slo.ApplyFiltersToCortexEvents(labels)
+				filteredGroups, err := slo.ApplyFiltersToCortexEvents(series)
 				Expect(err).To(Succeed())
 				Expect(filteredGroups).NotTo(BeNil())
-				Expect(filteredGroups.GroupNameToEvent["golang events"].Items).To(HaveLen(1))
-				Expect(filteredGroups.GroupNameToEvent["jvm events"].Items).To(HaveLen(2))
-				Expect(filteredGroups.GroupNameToEvent["kubernetes events"].Items).To(HaveLen(1))
-				Expect(filteredGroups.GroupNameToEvent["network events"].Items).To(HaveLen(1))
-				Expect(filteredGroups.GroupNameToEvent["compute events"].Items).To(HaveLen(1))
-				Expect(filteredGroups.GroupNameToEvent["other events"].Items).To(HaveLen(2))
+				Expect(filteredGroups.GroupNameToMetrics["golang metrics"].Items).To(HaveLen(1))
+				Expect(filteredGroups.GroupNameToMetrics["jvm metrics"].Items).To(HaveLen(2))
+				Expect(filteredGroups.GroupNameToMetrics["kubernetes metrics"].Items).To(HaveLen(1))
+				Expect(filteredGroups.GroupNameToMetrics["network metrics"].Items).To(HaveLen(1))
+				Expect(filteredGroups.GroupNameToMetrics["compute metrics"].Items).To(HaveLen(1))
+				Expect(filteredGroups.GroupNameToMetrics["other metrics"].Items).To(HaveLen(2))
 
 			})
 		})

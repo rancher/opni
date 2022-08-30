@@ -32,10 +32,10 @@ type SLOClient interface {
 	CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOData, error)
 	// Returns a set of metrics with compatible implementations for
 	// a set of services
-	ListMetrics(ctx context.Context, in *ListMetricsRequest, opts ...grpc.CallOption) (*MetricList, error)
+	ListMetrics(ctx context.Context, in *ListMetricsRequest, opts ...grpc.CallOption) (*MetricGroupList, error)
 	// Returns the list of services discovered by the Service Discovery backend
 	ListServices(ctx context.Context, in *ListServicesRequest, opts ...grpc.CallOption) (*ServiceList, error)
-	ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*EventGroupList, error)
+	ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*EventList, error)
 	// Returns a status enum badge for a given SLO
 	Status(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOStatus, error)
 	Preview(ctx context.Context, in *CreateSLORequest, opts ...grpc.CallOption) (*SLOPreviewResponse, error)
@@ -103,8 +103,8 @@ func (c *sLOClient) CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc
 	return out, nil
 }
 
-func (c *sLOClient) ListMetrics(ctx context.Context, in *ListMetricsRequest, opts ...grpc.CallOption) (*MetricList, error) {
-	out := new(MetricList)
+func (c *sLOClient) ListMetrics(ctx context.Context, in *ListMetricsRequest, opts ...grpc.CallOption) (*MetricGroupList, error) {
+	out := new(MetricGroupList)
 	err := c.cc.Invoke(ctx, "/slo.SLO/ListMetrics", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -121,8 +121,8 @@ func (c *sLOClient) ListServices(ctx context.Context, in *ListServicesRequest, o
 	return out, nil
 }
 
-func (c *sLOClient) ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*EventGroupList, error) {
-	out := new(EventGroupList)
+func (c *sLOClient) ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*EventList, error) {
+	out := new(EventList)
 	err := c.cc.Invoke(ctx, "/slo.SLO/ListEvents", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -160,10 +160,10 @@ type SLOServer interface {
 	CloneSLO(context.Context, *v1.Reference) (*SLOData, error)
 	// Returns a set of metrics with compatible implementations for
 	// a set of services
-	ListMetrics(context.Context, *ListMetricsRequest) (*MetricList, error)
+	ListMetrics(context.Context, *ListMetricsRequest) (*MetricGroupList, error)
 	// Returns the list of services discovered by the Service Discovery backend
 	ListServices(context.Context, *ListServicesRequest) (*ServiceList, error)
-	ListEvents(context.Context, *ListEventsRequest) (*EventGroupList, error)
+	ListEvents(context.Context, *ListEventsRequest) (*EventList, error)
 	// Returns a status enum badge for a given SLO
 	Status(context.Context, *v1.Reference) (*SLOStatus, error)
 	Preview(context.Context, *CreateSLORequest) (*SLOPreviewResponse, error)
@@ -192,13 +192,13 @@ func (UnimplementedSLOServer) DeleteSLO(context.Context, *v1.Reference) (*emptyp
 func (UnimplementedSLOServer) CloneSLO(context.Context, *v1.Reference) (*SLOData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CloneSLO not implemented")
 }
-func (UnimplementedSLOServer) ListMetrics(context.Context, *ListMetricsRequest) (*MetricList, error) {
+func (UnimplementedSLOServer) ListMetrics(context.Context, *ListMetricsRequest) (*MetricGroupList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListMetrics not implemented")
 }
 func (UnimplementedSLOServer) ListServices(context.Context, *ListServicesRequest) (*ServiceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
 }
-func (UnimplementedSLOServer) ListEvents(context.Context, *ListEventsRequest) (*EventGroupList, error) {
+func (UnimplementedSLOServer) ListEvents(context.Context, *ListEventsRequest) (*EventList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListEvents not implemented")
 }
 func (UnimplementedSLOServer) Status(context.Context, *v1.Reference) (*SLOStatus, error) {

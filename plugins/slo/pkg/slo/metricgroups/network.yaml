@@ -1,4 +1,4 @@
-name: "network events"
+name: "network metrics"
 filters:
   - ".*http.*"
   - ".*request.*"

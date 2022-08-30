@@ -83,6 +83,45 @@ func parseCortexEnumerateSeries(resp *http.Response, lg *zap.SugaredLogger) (set
 	return set, nil
 }
 
+// parseCortexLabelsOnSeriesJob parses the cortex response and returns a map labelNames -> set of labelValues
+func parseCortexLabelsOnSeriesJob(
+	resp *http.Response,
+	metricName string,
+	jobName string,
+	lg *zap.SugaredLogger,
+) (map[string]map[string]struct{}, error) {
+	labelSets := map[string]map[string]struct{}{} // labelName -> set of labelValues
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if !gjson.Valid(string(b)) {
+		return nil, fmt.Errorf("invalid json in response")
+	}
+	//labelSets := make(map[string]map[string]struct{})
+	result := gjson.Get(string(b), "data")
+	if !result.Exists() {
+		return nil, fmt.Errorf("no data in cortex response")
+	}
+	for _, val := range result.Array() {
+		valToMap := val.Map()
+		if valToMap["__name__"].String() != metricName || valToMap["job"].String() != jobName {
+			continue
+		}
+		for k, v := range valToMap {
+			if (k == "__name__" && valToMap[k].String() == metricName) || (k == "job" && valToMap[k].String() == jobName) {
+				continue
+			}
+			if _, ok := labelSets[k]; !ok {
+				labelSets[k] = make(map[string]struct{})
+			}
+			labelSets[k][v.String()] = struct{}{}
+		}
+	}
+
+	return labelSets, nil
+}
+
 func fetchCortexSeriesMetadata(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, request *cortexadmin.SeriesRequest, metricName string) (*http.Response, error) {
 	values := url.Values{}
 	values.Add("metric", metricName)

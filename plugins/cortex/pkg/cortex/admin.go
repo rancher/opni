@@ -497,31 +497,30 @@ func (p *Plugin) GetMetricLabelSets(ctx context.Context, request *cortexadmin.La
 		"service", request.JobId,
 		"metric", request.MetricName,
 	)
-	resp, err := getCortexMetricLabels(p, lg, ctx, request)
+	resp, err := enumerateCortexSeries(p, lg, ctx, &cortexadmin.SeriesRequest{
+		Tenant: request.Tenant,
+		JobId:  request.JobId,
+	})
 	if err != nil {
 		return nil, err
 	}
-	labelNames, err := parseCortexMetricLabels(p, resp)
+	labelSets, err := parseCortexLabelsOnSeriesJob(resp, request.MetricName, request.JobId, lg)
 	if err != nil {
 		return nil, err
 	}
-	labelSets := []*cortexadmin.LabelSet{} // label name -> list of label values
-	for _, labelName := range labelNames {
-		labelResp, err := getCortexLabelValues(p, ctx, request, labelName)
-		if err != nil {
-			return nil, err //FIXME: consider returning partial results
-		}
-		labelValues, err := parseCortexMetricLabels(p, labelResp)
-		if err != nil {
-			return nil, err //FIXME: consider returning partial results
-		}
-		labelSets = append(labelSets, &cortexadmin.LabelSet{
+	resultSets := []*cortexadmin.LabelSet{}
+	for labelName, labelValues := range labelSets {
+		item := &cortexadmin.LabelSet{
 			Name:  labelName,
-			Items: labelValues,
-		})
+			Items: []string{},
+		}
+		for labelVal, _ := range labelValues {
+			item.Items = append(item.Items, labelVal)
+		}
+		resultSets = append(resultSets, item)
 	}
 	return &cortexadmin.MetricLabels{
-		Items: labelSets,
+		Items: resultSets,
 	}, nil
 }
 

@@ -24,9 +24,6 @@ func (s *SLOMonitoring) WithCurrentRequest(req proto.Message, ctx context.Contex
 
 func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 	req := (s.req).(*sloapi.CreateSLORequest)
-	if req.Slo.GetGoodMetricName() == req.Slo.GetTotalMetricName() {
-		req.Slo.GoodEvents, req.Slo.TotalEvents = ToMatchingSubsetIdenticalMetric(req.Slo.GoodEvents, req.Slo.TotalEvents)
-	}
 	slo := CreateSLORequestToStruct(req)
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
@@ -62,9 +59,6 @@ func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 
 func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error) {
 	req := (s.req).(*sloapi.SLOData) // Create is the same as Update if within the same cluster
-	if req.SLO.GetGoodMetricName() == req.SLO.GetTotalMetricName() {
-		req.SLO.GoodEvents, req.SLO.TotalEvents = ToMatchingSubsetIdenticalMetric(req.SLO.GoodEvents, req.SLO.TotalEvents)
-	}
 	newSlo := SLODataToStruct(req)
 	rrecording, rmetadata, ralerting := newSlo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
@@ -245,8 +239,9 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 	req := s.req.(*sloapi.CreateSLORequest)
 	preview := &sloapi.SLOPreviewResponse{
 		PlotVector: &sloapi.PlotVector{
-			Items:   []*sloapi.DataPoint{},
-			Windows: []*sloapi.AlertFiringWindows{},
+			Objective: normalizeObjective(req.GetSlo().GetTarget().GetValue()),
+			Items:     []*sloapi.DataPoint{},
+			Windows:   []*sloapi.AlertFiringWindows{},
 		},
 	}
 	cur := time.Now()
@@ -278,7 +273,6 @@ func (s SLOMonitoring) Preview(slo *SLO) (*sloapi.SLOPreviewResponse, error) {
 			preview.PlotVector.Items = append(preview.PlotVector.Items, &sloapi.DataPoint{
 				Timestamp: timestamppb.New(ts),
 				Sli:       float64(yieldedValue.Value),
-				Objective: req.Slo.GetTarget().GetValue() / 100,
 			})
 		}
 	}

@@ -251,9 +251,12 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				ServiceId:  "prometheus",
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Items).NotTo(HaveLen(0))
-			for _, m := range resp.Items {
-				Expect(m.GetId()).NotTo(Equal(""))
+			Expect(resp.GroupNameToMetrics).NotTo(HaveLen(0))
+			for _, m := range resp.GroupNameToMetrics {
+				for _, metric := range m.Items {
+					Expect(metric.GetId()).NotTo(Equal(""))
+				}
+
 				// FIXME: when the metric metadata api works, check for metadata
 			}
 		})
@@ -270,8 +273,6 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 					Key: "code",
 					Vals: []string{
 						"200",
-						"500",
-						"503",
 					},
 				},
 				{

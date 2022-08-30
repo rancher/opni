@@ -178,6 +178,9 @@ func SLOFromId(
 }
 
 func CreateSLORequestToStruct(c *sloapi.CreateSLORequest) *SLO {
+	if c.Slo.GetGoodMetricName() == c.Slo.GetTotalMetricName() {
+		c.Slo.GoodEvents, c.Slo.TotalEvents = ToMatchingSubsetIdenticalMetric(c.Slo.GoodEvents, c.Slo.TotalEvents)
+	}
 	reqSLO := c.Slo
 	userLabels := reqSLO.GetLabels()
 	sloLabels := map[string]string{}
@@ -213,6 +216,9 @@ func CreateSLORequestToStruct(c *sloapi.CreateSLORequest) *SLO {
 
 func SLODataToStruct(s *sloapi.SLOData) *SLO {
 	reqSLO := s.SLO
+	if reqSLO.GetGoodMetricName() == reqSLO.GetTotalMetricName() {
+		reqSLO.GoodEvents, reqSLO.TotalEvents = ToMatchingSubsetIdenticalMetric(reqSLO.GoodEvents, reqSLO.TotalEvents)
+	}
 	userLabels := reqSLO.GetLabels()
 	sloLabels := map[string]string{}
 	for _, label := range userLabels {
@@ -732,6 +738,11 @@ func DetectActiveWindows(severity string, matrix *prommodel.Matrix) ([]*sloapi.A
 					returnWindows[len(returnWindows)-1].End = timestamppb.New(ts)
 				}
 			}
+		}
+	}
+	if len(returnWindows) > 0 {
+		if returnWindows[len(returnWindows)-1].End == nil {
+			returnWindows[len(returnWindows)-1].End = timestamppb.New(time.Now())
 		}
 	}
 	return returnWindows, nil

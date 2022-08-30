@@ -1,12 +1,8 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "Opni SLO Management API",
-    "version": "1.0",
-    "license": {
-      "name": "Apache 2.0",
-      "url": "https://github.com/rancher/opni/blob/main/LICENSE"
-    }
+    "title": "Opni SLO API",
+    "version": "1.0"
   },
   "tags": [
     {
@@ -20,38 +16,14 @@
     "application/json"
   ],
   "paths": {
-    "/metrics": {
+    "/events": {
       "post": {
-        "summary": "Returns a set of metrics with compatible implementations for\na set of services",
-        "operationId": "SLO_ListMetrics",
+        "operationId": "SLO_ListEvents",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/sloMetricList"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/googlerpcStatus"
-            }
-          }
-        },
-        "tags": [
-          "SLO"
-        ]
-      }
-    },
-    "/metrics/{name}/{serviceId}": {
-      "get": {
-        "summary": "Fetches implementation details of a metric from the ServiceBackend\nUsed as a helper API",
-        "operationId": "SLO_GetMetricId",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/sloServiceInfo"
+              "$ref": "#/definitions/sloEventList"
             }
           },
           "default": {
@@ -63,17 +35,54 @@
         },
         "parameters": [
           {
-            "name": "name",
-            "in": "path",
-            "required": true,
+            "name": "datasource",
+            "in": "query",
+            "required": false,
             "type": "string"
           },
           {
             "name": "serviceId",
-            "in": "path",
-            "required": true,
+            "in": "query",
+            "required": false,
             "type": "string"
           },
+          {
+            "name": "clusterId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "metricId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      }
+    },
+    "/metrics": {
+      "post": {
+        "summary": "Returns a set of metrics with compatible implementations for\na set of services",
+        "operationId": "SLO_ListMetrics",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloMetricGroupList"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
           {
             "name": "datasource",
             "in": "query",
@@ -82,6 +91,12 @@
           },
           {
             "name": "clusterId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "serviceId",
             "in": "query",
             "required": false,
             "type": "string"
@@ -113,6 +128,12 @@
         "parameters": [
           {
             "name": "datasource",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "clusterId",
             "in": "query",
             "required": false,
             "type": "string"
@@ -150,7 +171,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/coreReferenceList"
+              "$ref": "#/definitions/coreReference"
             }
           },
           "default": {
@@ -175,14 +196,14 @@
         ]
       }
     },
-    "/slos/{id}": {
-      "get": {
-        "operationId": "SLO_GetSLO",
+    "/slos/preview": {
+      "post": {
+        "operationId": "SLO_Preview",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/sloSLOData"
+              "$ref": "#/definitions/sloSLOPreviewResponse"
             }
           },
           "default": {
@@ -194,16 +215,67 @@
         },
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
+            "name": "slo.name",
+            "in": "query",
+            "required": false,
             "type": "string"
+          },
+          {
+            "name": "slo.datasource",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "slo.clusterId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "slo.serviceId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "slo.goodMetricName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "slo.totalMetricName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "slo.sloPeriod",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "slo.budgetingInterval",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "slo.target.value",
+            "in": "query",
+            "required": false,
+            "type": "number",
+            "format": "double"
           }
         ],
         "tags": [
           "SLO"
         ]
-      },
+      }
+    },
+    "/slos/{id}": {
       "delete": {
         "operationId": "SLO_DeleteSLO",
         "responses": {
@@ -233,14 +305,13 @@
           "SLO"
         ]
       },
-      "put": {
-        "operationId": "SLO_UpdateSLO",
+      "post": {
+        "operationId": "SLO_GetSLO",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "type": "object",
-              "properties": {}
+              "$ref": "#/definitions/sloSLOData"
             }
           },
           "default": {
@@ -256,22 +327,6 @@
             "in": "path",
             "required": true,
             "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "SLO": {
-                  "$ref": "#/definitions/sloServiceLevelObjective"
-                },
-                "service": {
-                  "$ref": "#/definitions/sloService"
-                }
-              }
-            }
           }
         ],
         "tags": [
@@ -310,7 +365,7 @@
       }
     },
     "/slos/{id}/status": {
-      "get": {
+      "post": {
         "summary": "Returns a status enum badge for a given SLO",
         "operationId": "SLO_Status",
         "responses": {
@@ -339,6 +394,54 @@
           "SLO"
         ]
       }
+    },
+    "/slos/{id}/update": {
+      "put": {
+        "operationId": "SLO_UpdateSLO",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "SLO": {
+                  "$ref": "#/definitions/sloServiceLevelObjective"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      }
     }
   },
   "definitions": {
@@ -347,17 +450,6 @@
       "properties": {
         "id": {
           "type": "string"
-        }
-      }
-    },
-    "coreReferenceList": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/coreReference"
-          }
         }
       }
     },
@@ -423,16 +515,64 @@
         }
       }
     },
+    "sloAlertFiringWindows": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "severity": {
+          "type": "string"
+        }
+      }
+    },
     "sloCreateSLORequest": {
       "type": "object",
       "properties": {
-        "SLO": {
+        "slo": {
           "$ref": "#/definitions/sloServiceLevelObjective"
+        }
+      }
+    },
+    "sloDataPoint": {
+      "type": "object",
+      "properties": {
+        "sli": {
+          "type": "number",
+          "format": "double"
         },
-        "services": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "sloEvent": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "vals": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/sloService"
+            "type": "string"
+          }
+        }
+      }
+    },
+    "sloEventList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloEvent"
           }
         }
       }
@@ -448,23 +588,22 @@
     "sloMetric": {
       "type": "object",
       "properties": {
-        "name": {
+        "id": {
           "type": "string"
         },
-        "datasource": {
-          "type": "string"
-        },
-        "clusterId": {
-          "type": "string"
-        },
-        "serviceId": {
-          "type": "string"
-        },
-        "metricIdGood": {
-          "type": "string"
-        },
-        "metricIdTotal": {
-          "type": "string"
+        "metadata": {
+          "$ref": "#/definitions/sloMetricMetadata"
+        }
+      }
+    },
+    "sloMetricGroupList": {
+      "type": "object",
+      "properties": {
+        "groupNameToMetrics": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/sloMetricList"
+          }
         }
       }
     },
@@ -479,6 +618,41 @@
         }
       }
     },
+    "sloMetricMetadata": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        }
+      }
+    },
+    "sloPlotVector": {
+      "type": "object",
+      "properties": {
+        "objective": {
+          "type": "number",
+          "format": "double"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloDataPoint"
+          }
+        },
+        "windows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloAlertFiringWindows"
+          }
+        }
+      }
+    },
     "sloSLOData": {
       "type": "object",
       "properties": {
@@ -488,8 +662,17 @@
         "SLO": {
           "$ref": "#/definitions/sloServiceLevelObjective"
         },
-        "service": {
-          "$ref": "#/definitions/sloService"
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "sloSLOPreviewResponse": {
+      "type": "object",
+      "properties": {
+        "plotVector": {
+          "$ref": "#/definitions/sloPlotVector"
         }
       }
     },
@@ -504,41 +687,25 @@
     "sloSLOStatusState": {
       "type": "string",
       "enum": [
+        "InProgress",
+        "Creating",
         "NoData",
         "Ok",
         "Warning",
         "Breaching",
+        "PartialDataOk",
         "InternalError"
       ],
-      "default": "NoData"
+      "default": "InProgress",
+      "title": "- PartialDataOk: When budgeting or alerting rules have no data, but the rule has data"
     },
     "sloService": {
       "type": "object",
       "properties": {
-        "jobId": {
+        "serviceId": {
           "type": "string"
         },
         "clusterId": {
-          "type": "string"
-        }
-      }
-    },
-    "sloServiceInfo": {
-      "type": "object",
-      "properties": {
-        "jobId": {
-          "type": "string"
-        },
-        "clusterId": {
-          "type": "string"
-        },
-        "metricName": {
-          "type": "string"
-        },
-        "metricIdGood": {
-          "type": "string"
-        },
-        "metricIdTotal": {
           "type": "string"
         }
       }
@@ -552,10 +719,31 @@
         "datasource": {
           "type": "string"
         },
-        "metricName": {
+        "clusterId": {
           "type": "string"
         },
-        "monitorWindow": {
+        "serviceId": {
+          "type": "string"
+        },
+        "goodMetricName": {
+          "type": "string"
+        },
+        "totalMetricName": {
+          "type": "string"
+        },
+        "goodEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloEvent"
+          }
+        },
+        "totalEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sloEvent"
+          }
+        },
+        "sloPeriod": {
           "type": "string"
         },
         "budgetingInterval": {
@@ -570,7 +758,7 @@
             "$ref": "#/definitions/sloLabel"
           }
         },
-        "alerts": {
+        "alertTargets": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/sloAlert"

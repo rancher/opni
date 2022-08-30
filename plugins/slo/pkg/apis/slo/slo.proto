@@ -226,14 +226,14 @@ message SLOPreviewResponse {
 }
 
 message PlotVector {
-  repeated DataPoint items = 1;
-  repeated AlertFiringWindows windows = 2;
+  double objective = 1;
+  repeated DataPoint items = 2;
+  repeated AlertFiringWindows windows = 3;
 }
 
 message DataPoint {
   double sli = 1;
-  double objective = 2;
-  google.protobuf.Timestamp timestamp = 3;
+  google.protobuf.Timestamp timestamp = 2;
 }
 
 message AlertFiringWindows {

@@ -18,45 +18,45 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type KubernetesClusterDriver struct {
-	KubernetesClusterDriverOptions
+type OpniManager struct {
+	OpniManagerClusterDriverOptions
 	cortexops.UnsafeCortexOpsServer
 }
 
-type KubernetesClusterDriverOptions struct {
+type OpniManagerClusterDriverOptions struct {
 	k8sClient         client.Client
 	monitoringCluster types.NamespacedName
 	gatewayRef        corev1.LocalObjectReference
 }
 
-type KubernetesClusterDriverOption func(*KubernetesClusterDriverOptions)
+type OpniManagerClusterDriverOption func(*OpniManagerClusterDriverOptions)
 
-func (o *KubernetesClusterDriverOptions) apply(opts ...KubernetesClusterDriverOption) {
+func (o *OpniManagerClusterDriverOptions) apply(opts ...OpniManagerClusterDriverOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithK8sClient(k8sClient client.Client) KubernetesClusterDriverOption {
-	return func(o *KubernetesClusterDriverOptions) {
+func WithK8sClient(k8sClient client.Client) OpniManagerClusterDriverOption {
+	return func(o *OpniManagerClusterDriverOptions) {
 		o.k8sClient = k8sClient
 	}
 }
 
-func WithMonitoringCluster(namespacedName types.NamespacedName) KubernetesClusterDriverOption {
-	return func(o *KubernetesClusterDriverOptions) {
+func WithMonitoringCluster(namespacedName types.NamespacedName) OpniManagerClusterDriverOption {
+	return func(o *OpniManagerClusterDriverOptions) {
 		o.monitoringCluster = namespacedName
 	}
 }
 
-func WithGatewayRef(gatewayRef corev1.LocalObjectReference) KubernetesClusterDriverOption {
-	return func(o *KubernetesClusterDriverOptions) {
+func WithGatewayRef(gatewayRef corev1.LocalObjectReference) OpniManagerClusterDriverOption {
+	return func(o *OpniManagerClusterDriverOptions) {
 		o.gatewayRef = gatewayRef
 	}
 }
 
-func NewKubernetesClusterDriver(opts ...KubernetesClusterDriverOption) (*KubernetesClusterDriver, error) {
-	options := KubernetesClusterDriverOptions{
+func NewOpniManagerClusterDriver(opts ...OpniManagerClusterDriverOption) (*OpniManager, error) {
+	options := OpniManagerClusterDriverOptions{
 		monitoringCluster: types.NamespacedName{
 			Namespace: os.Getenv("POD_NAMESPACE"),
 			Name:      "opni-monitoring",
@@ -75,18 +75,18 @@ func NewKubernetesClusterDriver(opts ...KubernetesClusterDriverOption) (*Kuberne
 		}
 		options.k8sClient = c
 	}
-	return &KubernetesClusterDriver{
-		KubernetesClusterDriverOptions: options,
+	return &OpniManager{
+		OpniManagerClusterDriverOptions: options,
 	}, nil
 }
 
-var _ ClusterDriver = (*KubernetesClusterDriver)(nil)
+var _ ClusterDriver = (*OpniManager)(nil)
 
-func (k *KubernetesClusterDriver) Name() string {
-	return "kubernetes"
+func (k *OpniManager) Name() string {
+	return "opni-manager"
 }
 
-func (k *KubernetesClusterDriver) ConfigureInstall(ctx context.Context, conf *cortexops.InstallConfiguration) (*emptypb.Empty, error) {
+func (k *OpniManager) ConfigureInstall(ctx context.Context, conf *cortexops.InstallConfiguration) (*emptypb.Empty, error) {
 	cluster := &v1beta2.MonitoringCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.monitoringCluster.Name,
@@ -137,7 +137,7 @@ func (k *KubernetesClusterDriver) ConfigureInstall(ctx context.Context, conf *co
 	return &emptypb.Empty{}, nil
 }
 
-func (k *KubernetesClusterDriver) GetInstallStatus(ctx context.Context, _ *emptypb.Empty) (*cortexops.InstallStatus, error) {
+func (k *OpniManager) GetInstallStatus(ctx context.Context, _ *emptypb.Empty) (*cortexops.InstallStatus, error) {
 	cluster := &v1beta2.MonitoringCluster{}
 	err := k.k8sClient.Get(ctx, k.monitoringCluster, cluster)
 	var state cortexops.InstallState
@@ -157,14 +157,14 @@ func (k *KubernetesClusterDriver) GetInstallStatus(ctx context.Context, _ *empty
 
 	return &cortexops.InstallStatus{
 		State:   state,
-		Version: cluster.Annotations["opni.io/cortex-version"],
+		Version: cluster.Status.Cortex.Version,
 		Metadata: map[string]string{
 			"Driver": k.Name(),
 		},
 	}, nil
 }
 
-func (k *KubernetesClusterDriver) UninstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (k *OpniManager) UninstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	cluster := &v1beta2.MonitoringCluster{}
 	err := k.k8sClient.Get(ctx, k.monitoringCluster, cluster)
 	if err != nil {

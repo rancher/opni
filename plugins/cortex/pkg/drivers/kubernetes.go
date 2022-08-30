@@ -171,7 +171,7 @@ func (k *KubernetesClusterDriver) UninstallCluster(ctx context.Context, _ *empty
 		return nil, fmt.Errorf("failed to uninstall monitoring cluster: %w", err)
 	}
 
-	err = k.k8sClient.Delete(ctx, cluster, client.PropagationPolicy(metav1.DeletePropagationForeground))
+	err = k.k8sClient.Delete(ctx, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to uninstall monitoring cluster: %w", err)
 	}

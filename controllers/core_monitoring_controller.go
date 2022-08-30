@@ -13,9 +13,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// +kubebuilder:rbac:groups=opni.io,resources=monitoringclusters,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=opni.io,resources=monitoringclusters/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=opni.io,resources=monitoringclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core.opni.io,resources=monitoringclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core.opni.io,resources=monitoringclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=core.opni.io,resources=monitoringclusters/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete

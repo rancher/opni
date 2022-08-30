@@ -18,9 +18,9 @@ type LoggingMulticlusterRoleBindingReconciler struct {
 	scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=opni.io,resources=multiclusterrolebindings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=opni.io,resources=multiclusterrolebindings/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=opni.io,resources=multiclusterrolebindings/finalizers,verbs=update
+// +kubebuilder:rbac:groups=logging.opni.io,resources=multiclusterrolebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=logging.opni.io,resources=multiclusterrolebindings/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=logging.opni.io,resources=multiclusterrolebindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=opensearch.opster.io,resources=opensearchclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=opensearch.opster.io,resources=opensearchclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=opensearch.opster.io,resources=opensearchclusters/finalizers,verbs=update

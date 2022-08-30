@@ -27,8 +27,8 @@ func (r *Reconciler) reconcileOpensearchObjects(cluster *opensearchv1.OpenSearch
 	)
 
 	osUser := osapiext.UserSpec{
-		UserName: r.multiclusterUser.Name,
-		Password: r.multiclusterUser.Spec.Password,
+		UserName: r.instanceName,
+		Password: r.spec.Password,
 		BackendRoles: []string{
 			"kibanauser",
 		},
@@ -52,16 +52,26 @@ func (r *Reconciler) deleteOpensearchObjects(cluster *opensearchv1.OpenSearchClu
 		"todo", // TODO fix dashboards name
 	)
 
-	err = osReconciler.MaybeDeleteUser(r.multiclusterUser.Name)
+	err = osReconciler.MaybeDeleteUser(r.instanceName)
 	if err != nil {
 		return err
 	}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.multiclusterUser), r.multiclusterUser); err != nil {
-			return err
+		if r.multiclusterUser != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.multiclusterUser), r.multiclusterUser); err != nil {
+				return err
+			}
+			controllerutil.RemoveFinalizer(r.multiclusterUser, meta.OpensearchFinalizer)
+			return r.client.Update(r.ctx, r.multiclusterUser)
 		}
-		controllerutil.RemoveFinalizer(r.multiclusterUser, meta.OpensearchFinalizer)
-		return r.client.Update(r.ctx, r.multiclusterUser)
+		if r.loggingMCU != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.loggingMCU), r.loggingMCU); err != nil {
+				return err
+			}
+			controllerutil.RemoveFinalizer(r.loggingMCU, meta.OpensearchFinalizer)
+			return r.client.Update(r.ctx, r.loggingMCU)
+		}
+		return nil
 	})
 }

@@ -3,7 +3,7 @@ package controllers
 import (
 	"context"
 
-	"github.com/rancher/opni/apis/v1beta2"
+	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/multiclusteruser"
 	"github.com/rancher/opni/pkg/util"
@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-type MulticlusterUserReconciler struct {
+type LoggingMulticlusterUserReconciler struct {
 	client.Client
 	scheme *runtime.Scheme
 }
@@ -27,8 +27,8 @@ type MulticlusterUserReconciler struct {
 // +kubebuilder:rbac:groups=opensearch.opster.io,resources=opensearchclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=opensearch.opster.io,resources=opensearchclusters/finalizers,verbs=update
 
-func (r *MulticlusterUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	multiclusterUser := &v1beta2.MulticlusterUser{}
+func (r *LoggingMulticlusterUserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	multiclusterUser := &loggingv1beta1.MulticlusterUser{}
 	err := r.Get(ctx, req.NamespacedName, multiclusterUser)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -63,11 +63,11 @@ func (r *MulticlusterUserReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MulticlusterUserReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *LoggingMulticlusterUserReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta2.MulticlusterUser{}).
+		For(&loggingv1beta1.MulticlusterUser{}).
 		Owns(&opsterv1.OpenSearchCluster{}).
 		Complete(r)
 }

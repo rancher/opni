@@ -35,7 +35,7 @@ webhooks:
       namespace: system
       path: /mutate-opni-io-v1beta2-logadapter
   failurePolicy: Fail
-  name: mlogadapter.kb.io
+  name: mlogadapter2.kb.io
   rules:
   - apiGroups:
     - opni.io
@@ -84,7 +84,7 @@ webhooks:
       namespace: system
       path: /validate-opni-io-v1beta2-logadapter
   failurePolicy: Fail
-  name: vlogadapter.kb.io
+  name: vlogadapter2.kb.io
   rules:
   - apiGroups:
     - opni.io

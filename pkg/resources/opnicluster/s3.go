@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -42,7 +41,7 @@ func (r *Reconciler) seaweed() []resources.Resource {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-seaweed-s3",
-			Namespace: r.opniCluster.Namespace,
+			Namespace: r.instanceNamespace,
 			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{
@@ -61,7 +60,7 @@ func (r *Reconciler) seaweed() []resources.Resource {
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-seaweed",
-			Namespace: r.opniCluster.Namespace,
+			Namespace: r.instanceNamespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -77,7 +76,7 @@ func (r *Reconciler) seaweed() []resources.Resource {
 		},
 	}
 	// If internal is disabled, ensure the seaweed pod does not exist
-	if r.opniCluster.Spec.S3.Internal == nil {
+	if r.spec.S3.Internal == nil {
 		return []resources.Resource{
 			resources.Absent(workload),
 			resources.Absent(service),
@@ -138,7 +137,7 @@ func (r *Reconciler) seaweed() []resources.Resource {
 			"-s3",
 			"-s3.config=/etc/seaweed/config.json",
 			"-s3.allowEmptyFolder=true",
-			fmt.Sprintf("-s3.domainName=opni-seaweed-s3.%s.svc", r.opniCluster.Namespace),
+			fmt.Sprintf("-s3.domainName=opni-seaweed-s3.%s.svc", r.instanceNamespace),
 			"-s3.port=8333",
 			"-volume.max=0",
 			"-master.volumeSizeLimitMB=512",
@@ -174,7 +173,7 @@ func (r *Reconciler) seaweed() []resources.Resource {
 			},
 		},
 	}
-	if p := r.opniCluster.Spec.S3.Internal.Persistence; p != nil && p.Enabled {
+	if p := r.spec.S3.Internal.Persistence; p != nil && p.Enabled {
 		// Use a persistent volume
 		resourceRequest := p.Request
 		if resourceRequest.IsZero() {
@@ -215,8 +214,8 @@ func (r *Reconciler) seaweed() []resources.Resource {
 	}
 	workload.Spec.Template.Spec.Containers = []corev1.Container{container}
 
-	ctrl.SetControllerReference(r.opniCluster, workload, r.client.Scheme())
-	ctrl.SetControllerReference(r.opniCluster, service, r.client.Scheme())
+	r.setOwner(workload)
+	r.setOwner(service)
 
 	return []resources.Resource{
 		resources.Present(workload),
@@ -228,13 +227,13 @@ func (r *Reconciler) internalKeySecret() ([]resources.Resource, error) {
 	sec := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-seaweed-config",
-			Namespace: r.opniCluster.Namespace,
+			Namespace: r.instanceNamespace,
 			Labels: map[string]string{
 				"app": "seaweed",
 			},
 		},
 	}
-	if r.opniCluster.Spec.S3.Internal == nil {
+	if r.spec.S3.Internal == nil {
 		return []resources.Resource{
 			resources.Absent(sec),
 		}, nil
@@ -249,7 +248,7 @@ func (r *Reconciler) internalKeySecret() ([]resources.Resource, error) {
 			"secretKey":   string(secretKey),
 			"config.json": fmt.Sprintf(s3JsonTemplate, accessKey, secretKey),
 		}
-		ctrl.SetControllerReference(r.opniCluster, sec, r.client.Scheme())
+		r.setOwner(sec)
 		if err := r.client.Create(r.ctx, sec); err != nil {
 			return nil, err
 		}
@@ -259,46 +258,70 @@ func (r *Reconciler) internalKeySecret() ([]resources.Resource, error) {
 
 	// Update auth status
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
-			return err
-		}
-		r.opniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: sec.Name,
-			},
-			Key: "accessKey",
-		}
-		r.opniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: sec.Name,
-			},
-			Key: "secretKey",
-		}
-		r.opniCluster.Status.Auth.S3Endpoint = fmt.Sprintf(
-			"http://opni-seaweed-s3.%s.svc", r.opniCluster.Namespace)
+		if r.opniCluster != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
+			}
+			r.opniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: sec.Name,
+				},
+				Key: "accessKey",
+			}
+			r.opniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: sec.Name,
+				},
+				Key: "secretKey",
+			}
+			r.opniCluster.Status.Auth.S3Endpoint = fmt.Sprintf(
+				"http://opni-seaweed-s3.%s.svc", r.instanceNamespace)
 
-		return r.client.Status().Update(r.ctx, r.opniCluster)
+			return r.client.Status().Update(r.ctx, r.opniCluster)
+		}
+		if r.aiOpniCluster != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.aiOpniCluster), r.aiOpniCluster); err != nil {
+				return err
+			}
+			r.aiOpniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: sec.Name,
+				},
+				Key: "accessKey",
+			}
+			r.aiOpniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: sec.Name,
+				},
+				Key: "secretKey",
+			}
+			r.aiOpniCluster.Status.Auth.S3Endpoint = fmt.Sprintf(
+				"http://opni-seaweed-s3.%s.svc", r.instanceNamespace)
+
+			return r.client.Status().Update(r.ctx, r.aiOpniCluster)
+		}
+		return fmt.Errorf("no cluster to update")
 	})
 
 	return nil, err
 }
 
 func (r *Reconciler) externalKeySecret() error {
-	if r.opniCluster.Spec.S3.External == nil {
+	if r.spec.S3.External == nil {
 		return nil
 	}
-	if r.opniCluster.Spec.S3.External.Credentials == nil {
+	if r.spec.S3.External.Credentials == nil {
 		// Credentials not provided, nothing to do
 		return fmt.Errorf("%w: external credentials secret not provided",
 			opnierrs.ErrS3Credentials)
 	}
-	ns := r.opniCluster.Namespace
-	if r.opniCluster.Spec.S3.External.Credentials.Namespace != "" {
-		ns = r.opniCluster.Spec.S3.External.Credentials.Namespace
+	ns := r.instanceNamespace
+	if r.spec.S3.External.Credentials.Namespace != "" {
+		ns = r.spec.S3.External.Credentials.Namespace
 	}
 	sec := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.opniCluster.Spec.S3.External.Credentials.Name,
+			Name:      r.spec.S3.External.Credentials.Name,
 			Namespace: ns,
 		},
 	}
@@ -312,33 +335,65 @@ func (r *Reconciler) externalKeySecret() error {
 	}
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
-			return err
-		}
+		if r.opniCluster != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
+			}
 
-		if _, ok := sec.Data["accessKey"]; !ok {
-			return fmt.Errorf("%w: secret must contain an item named accessKey",
-				opnierrs.ErrS3Credentials)
-		}
-		r.opniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: sec.Name,
-			},
-			Key: "accessKey",
-		}
-		if _, ok := sec.Data["secretKey"]; !ok {
-			return fmt.Errorf("%w: secret must contain an item named secretKey",
-				opnierrs.ErrS3Credentials)
-		}
-		r.opniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: sec.Name,
-			},
-			Key: "secretKey",
-		}
+			if _, ok := sec.Data["accessKey"]; !ok {
+				return fmt.Errorf("%w: secret must contain an item named accessKey",
+					opnierrs.ErrS3Credentials)
+			}
+			r.opniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: sec.Name,
+				},
+				Key: "accessKey",
+			}
+			if _, ok := sec.Data["secretKey"]; !ok {
+				return fmt.Errorf("%w: secret must contain an item named secretKey",
+					opnierrs.ErrS3Credentials)
+			}
+			r.opniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: sec.Name,
+				},
+				Key: "secretKey",
+			}
 
-		r.opniCluster.Status.Auth.S3Endpoint = r.opniCluster.Spec.S3.External.Endpoint
-		return r.client.Status().Update(r.ctx, r.opniCluster)
+			r.opniCluster.Status.Auth.S3Endpoint = r.spec.S3.External.Endpoint
+			return r.client.Status().Update(r.ctx, r.opniCluster)
+		}
+		if r.aiOpniCluster != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.aiOpniCluster), r.aiOpniCluster); err != nil {
+				return err
+			}
+
+			if _, ok := sec.Data["accessKey"]; !ok {
+				return fmt.Errorf("%w: secret must contain an item named accessKey",
+					opnierrs.ErrS3Credentials)
+			}
+			r.aiOpniCluster.Status.Auth.S3AccessKey = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: sec.Name,
+				},
+				Key: "accessKey",
+			}
+			if _, ok := sec.Data["secretKey"]; !ok {
+				return fmt.Errorf("%w: secret must contain an item named secretKey",
+					opnierrs.ErrS3Credentials)
+			}
+			r.aiOpniCluster.Status.Auth.S3SecretKey = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: sec.Name,
+				},
+				Key: "secretKey",
+			}
+
+			r.aiOpniCluster.Status.Auth.S3Endpoint = r.spec.S3.External.Endpoint
+			return r.client.Status().Update(r.ctx, r.aiOpniCluster)
+		}
+		return fmt.Errorf("no cluster to update")
 	})
 }
 

@@ -27,24 +27,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	v1beta2 "github.com/rancher/opni/apis/v1beta2"
+	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
-	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
 	"github.com/rancher/opni/pkg/util"
 	opsterv1 "opensearch.opster.io/api/v1"
 )
 
 // OpniClusterReconciler reconciles a OpniCluster object
-type OpniClusterReconciler struct {
+type AIOpniClusterReconciler struct {
 	client.Client
 	recorder record.EventRecorder
 	scheme   *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=opni.io,resources=opniclusters,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=opni.io,resources=opniclusters/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=opni.io,resources=opniclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=ai.opni.io,resources=opniclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=ai.opni.io,resources=opniclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=ai.opni.io,resources=opniclusters/finalizers,verbs=update
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheuses,verbs=get;list;watch
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
@@ -61,8 +61,8 @@ type OpniClusterReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments;replicasets;daemonsets;statefulsets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=batch,resources=jobs;cronjobs,verbs=get;list;watch
 
-func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	opniCluster := &v1beta2.OpniCluster{}
+func (r *AIOpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	opniCluster := &aiv1beta1.OpniCluster{}
 	err := r.Get(ctx, req.NamespacedName, opniCluster)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -76,15 +76,14 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	indicesReconciler, err := indices.NewReconciler(ctx, opniCluster, r)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	// indicesReconciler, err := indices.NewReconciler(ctx, opniCluster, r)
+	// if err != nil {
+	// 	return ctrl.Result{}, err
+	// }
+
 	reconcilers := []resources.ComponentReconciler{
 		opniReconciler.Reconcile,
-		opniReconciler.ReconcileOpensearchUpgrade,
-		indicesReconciler.Reconcile,
-		opniReconciler.ReconcileLogCollector,
+		//indicesReconciler.Reconcile,
 	}
 
 	for _, rec := range reconcilers {
@@ -98,12 +97,12 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *OpniClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *AIOpniClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	r.recorder = mgr.GetEventRecorderFor("opni-controller")
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta2.OpniCluster{}).
+		For(&aiv1beta1.OpniCluster{}).
 		Owns(&v1beta2.LogAdapter{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&appsv1.Deployment{}).

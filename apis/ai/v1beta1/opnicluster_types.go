@@ -39,27 +39,26 @@ type OpniClusterSpec struct {
 	// +optional
 	DefaultRepo *string `json:"defaultRepo,omitempty"`
 
-	Services             ServicesSpec                  `json:"services,omitempty"`
-	Opensearch           OpensearchClusterSpec         `json:"opensearch,omitempty"`
-	S3                   S3Spec                        `json:"s3,omitempty"`
-	NulogHyperparameters map[string]intstr.IntOrString `json:"nulogHyperparameters,omitempty"`
-	DeployLogCollector   *bool                         `json:"deployLogCollector"`
-	GlobalNodeSelector   map[string]string             `json:"globalNodeSelector,omitempty"`
-	GlobalTolerations    []corev1.Toleration           `json:"globalTolerations,omitempty"`
+	Services             ServicesSpec                   `json:"services,omitempty"`
+	Opensearch           *opnimeta.OpensearchClusterRef `json:"opensearch,omitempty"`
+	S3                   S3Spec                         `json:"s3,omitempty"`
+	NulogHyperparameters map[string]intstr.IntOrString  `json:"nulogHyperparameters,omitempty"`
+	DeployLogCollector   *bool                          `json:"deployLogCollector"`
+	GlobalNodeSelector   map[string]string              `json:"globalNodeSelector,omitempty"`
+	GlobalTolerations    []corev1.Toleration            `json:"globalTolerations,omitempty"`
 }
 
 // OpniClusterStatus defines the observed state of OpniCluster
 type OpniClusterStatus struct {
 	Conditions              []string         `json:"conditions,omitempty"`
 	State                   OpniClusterState `json:"state,omitempty"`
-	OpensearchState         OpensearchStatus `json:"opensearchState,omitempty"`
 	LogCollectorState       OpniClusterState `json:"logState,omitempty"`
 	Auth                    AuthStatus       `json:"auth,omitempty"`
 	PrometheusRuleNamespace string           `json:"prometheusRuleNamespace,omitempty"`
+	IndexState              OpniClusterState `json:"indexState,omitempty"`
 }
 
 type AuthStatus struct {
-	GenerateOpensearchHash     *bool                     `json:"generateOpensearchHash"`
 	OpensearchAuthSecretKeyRef *corev1.SecretKeySelector `json:"opensearchAuthSecretKeyRef,omitempty"`
 	S3Endpoint                 string                    `json:"s3Endpoint,omitempty"`
 	S3AccessKey                *corev1.SecretKeySelector `json:"s3AccessKey,omitempty"`

@@ -9,6 +9,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
@@ -65,7 +66,7 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retE
 	}
 	deployments := appsv1.DeploymentList{}
 	err = r.client.List(r.ctx, &deployments, &client.ListOptions{
-		Namespace:     r.opniCluster.Namespace,
+		Namespace:     r.instanceNamespace,
 		LabelSelector: labels.NewSelector().Add(*requirement),
 	})
 	if err != nil {
@@ -78,7 +79,7 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retE
 	// If there are existing deployments that have been removed from the
 	// list of desired models, mark them as deleted.
 	models := map[string]corev1.LocalObjectReference{}
-	desiredModels := r.opniCluster.Spec.Services.Inference.PretrainedModels
+	desiredModels := r.spec.Services.Inference.PretrainedModels
 	for _, model := range desiredModels {
 		models[model.Name] = model
 	}
@@ -123,102 +124,189 @@ func (r *Reconciler) pretrainedModels() (resourceList []resources.Resource, retE
 func (r *Reconciler) pretrainedModelDeployment(
 	modelRef corev1.LocalObjectReference,
 ) (resources.Resource, error) {
-	model, err := r.findPretrainedModel(modelRef)
+	obj, err := r.findPretrainedModel(modelRef)
 	if err != nil {
 		return nil, err
 	}
-	// Create a sidecar container either for downloading the model or copying it
-	// directly from an image.
-	var sidecar corev1.Container
-	switch {
-	case model.Spec.HTTP != nil:
-		sidecar = httpSidecar(model)
-	case model.Spec.Container != nil:
-		sidecar = containerSidecar(model)
-	default:
-		return nil, fmt.Errorf(
-			"model %q is invalid. Must specify either HTTP or Container", modelRef.Name)
-	}
 
-	return func() (runtime.Object, reconciler.DesiredState, error) {
-		labels := resources.CombineLabels(
-			r.serviceLabels(v1beta2.InferenceService),
-			r.pretrainedModelLabels(model.Name),
-		)
-		imageSpec := r.serviceImageSpec(v1beta2.InferenceService)
-		lg, _ := logr.FromContext(r.ctx)
-		lg.V(1).Info("generating pretrained model deployment", "name", model.Name)
-		envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
-		s3EnvVars := r.s3EnvVars()
-		envVars = append(envVars, s3EnvVars...)
-		volumes = append(volumes, corev1.Volume{
-			Name: "model-volume",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		})
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "model-volume",
-			MountPath: "/model/",
-		})
-		deployment := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("opni-inference-%s", model.Name),
-				Namespace: r.opniCluster.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: r.opniCluster.APIVersion,
-						Kind:       r.opniCluster.Kind,
-						Name:       r.opniCluster.Name,
-						UID:        r.opniCluster.UID,
-					},
+	switch model := obj.(type) {
+	case *v1beta2.PretrainedModel:
+		// Create a sidecar container either for downloading the model or copying it
+		// directly from an image.
+		var sidecar corev1.Container
+		switch {
+		case model.Spec.HTTP != nil:
+			sidecar = httpSidecar(model.Spec.HTTP.URL)
+		case model.Spec.Container != nil:
+			sidecar = containerSidecar(model.Spec.Container.Image)
+		default:
+			return nil, fmt.Errorf(
+				"model %q is invalid. Must specify either HTTP or Container", modelRef.Name)
+		}
+
+		return func() (runtime.Object, reconciler.DesiredState, error) {
+			labels := resources.CombineLabels(
+				r.serviceLabels(v1beta2.InferenceService),
+				r.pretrainedModelLabels(model.Name),
+			)
+			imageSpec := r.serviceImageSpec(v1beta2.InferenceService)
+			lg, _ := logr.FromContext(r.ctx)
+			lg.V(1).Info("generating pretrained model deployment", "name", model.Name)
+			envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
+			s3EnvVars := r.s3EnvVars()
+			envVars = append(envVars, s3EnvVars...)
+			volumes = append(volumes, corev1.Volume{
+				Name: "model-volume",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
-				Labels: labels,
-			},
-			Spec: appsv1.DeploymentSpec{
-				Selector: &metav1.LabelSelector{
-					MatchLabels: labels,
+			})
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
+				Name:      "model-volume",
+				MountPath: "/model/",
+			})
+			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("opni-inference-%s", model.Name),
+					Namespace: r.instanceNamespace,
+					Labels:    labels,
 				},
-				Replicas: model.Spec.Replicas,
-				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: labels,
-						Annotations: map[string]string{
-							"opni.io/hyperparameters": hyperparameters.GenerateHyperParametersHash(model.Spec.Hyperparameters),
-						},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: labels,
 					},
-					Spec: corev1.PodSpec{
-						InitContainers: []corev1.Container{sidecar},
-						Volumes:        volumes,
-						Containers: []corev1.Container{
-							{
-								Name:            "inference-service",
-								Image:           imageSpec.GetImage(),
-								ImagePullPolicy: imageSpec.GetImagePullPolicy(),
-								VolumeMounts:    volumeMounts,
-								Env:             envVars,
+					Replicas: model.Spec.Replicas,
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: labels,
+							Annotations: map[string]string{
+								"opni.io/hyperparameters": hyperparameters.GenerateHyperParametersHash(model.Spec.Hyperparameters),
 							},
 						},
-						ImagePullSecrets: maybeImagePullSecrets(model),
-						Tolerations:      r.serviceTolerations(v1beta2.InferenceService),
-						NodeSelector:     r.serviceNodeSelector(v1beta2.InferenceService),
+						Spec: corev1.PodSpec{
+							InitContainers: []corev1.Container{sidecar},
+							Volumes:        volumes,
+							Containers: []corev1.Container{
+								{
+									Name:            "inference-service",
+									Image:           imageSpec.GetImage(),
+									ImagePullPolicy: imageSpec.GetImagePullPolicy(),
+									VolumeMounts:    volumeMounts,
+									Env:             envVars,
+								},
+							},
+							ImagePullSecrets: maybeImagePullSecrets(model),
+							Tolerations:      r.serviceTolerations(v1beta2.InferenceService),
+							NodeSelector:     r.serviceNodeSelector(v1beta2.InferenceService),
+						},
 					},
 				},
-			},
+			}
+			r.setOwner(deployment)
+			insertHyperparametersVolume(deployment, model.Name)
+
+			return deployment, reconciler.StatePresent, nil
+		}, nil
+	case *aiv1beta1.PretrainedModel:
+		// Create a sidecar container either for downloading the model or copying it
+		// directly from an image.
+		var sidecar corev1.Container
+		switch {
+		case model.Spec.HTTP != nil:
+			sidecar = httpSidecar(model.Spec.HTTP.URL)
+		case model.Spec.Container != nil:
+			sidecar = containerSidecar(model.Spec.Container.Image)
+		default:
+			return nil, fmt.Errorf(
+				"model %q is invalid. Must specify either HTTP or Container", modelRef.Name)
 		}
-		insertHyperparametersVolume(deployment, model.Name)
-		return deployment, reconciler.StatePresent, nil
-	}, nil
-}
 
-func maybeImagePullSecrets(model v1beta2.PretrainedModel) []corev1.LocalObjectReference {
-	if model.Spec.Container != nil {
-		return model.Spec.Container.ImagePullSecrets
+		return func() (runtime.Object, reconciler.DesiredState, error) {
+			labels := resources.CombineLabels(
+				r.serviceLabels(v1beta2.InferenceService),
+				r.pretrainedModelLabels(model.Name),
+			)
+			imageSpec := r.serviceImageSpec(v1beta2.InferenceService)
+			lg, _ := logr.FromContext(r.ctx)
+			lg.V(1).Info("generating pretrained model deployment", "name", model.Name)
+			envVars, volumeMounts, volumes := r.genericEnvAndVolumes()
+			s3EnvVars := r.s3EnvVars()
+			envVars = append(envVars, s3EnvVars...)
+			volumes = append(volumes, corev1.Volume{
+				Name: "model-volume",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			})
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
+				Name:      "model-volume",
+				MountPath: "/model/",
+			})
+			deployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("opni-inference-%s", model.Name),
+					Namespace: r.instanceNamespace,
+					Labels:    labels,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: labels,
+					},
+					Replicas: model.Spec.Replicas,
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: labels,
+							Annotations: map[string]string{
+								"opni.io/hyperparameters": hyperparameters.GenerateHyperParametersHash(model.Spec.Hyperparameters),
+							},
+						},
+						Spec: corev1.PodSpec{
+							InitContainers: []corev1.Container{sidecar},
+							Volumes:        volumes,
+							Containers: []corev1.Container{
+								{
+									Name:            "inference-service",
+									Image:           imageSpec.GetImage(),
+									ImagePullPolicy: imageSpec.GetImagePullPolicy(),
+									VolumeMounts:    volumeMounts,
+									Env:             envVars,
+								},
+							},
+							ImagePullSecrets: maybeImagePullSecrets(model),
+							Tolerations:      r.serviceTolerations(v1beta2.InferenceService),
+							NodeSelector:     r.serviceNodeSelector(v1beta2.InferenceService),
+						},
+					},
+				},
+			}
+			r.setOwner(deployment)
+			insertHyperparametersVolume(deployment, model.Name)
+
+			return deployment, reconciler.StatePresent, nil
+		}, nil
+	default:
+		panic("invalid instance type")
 	}
-	return nil
 }
 
-func httpSidecar(model v1beta2.PretrainedModel) corev1.Container {
+func maybeImagePullSecrets(instance interface{}) []corev1.LocalObjectReference {
+	switch model := instance.(type) {
+	case *v1beta2.PretrainedModel:
+		if model.Spec.Container != nil {
+			return model.Spec.Container.ImagePullSecrets
+		}
+		return nil
+	case *aiv1beta1.PretrainedModel:
+		if model.Spec.Container != nil {
+			return model.Spec.Container.ImagePullSecrets
+		}
+		return nil
+	default:
+		panic("invalid instance type")
+	}
+}
+
+func httpSidecar(url string) corev1.Container {
 	return corev1.Container{
 		Name:  "download-model",
 		Image: "docker.io/curlimages/curl:latest",
@@ -227,7 +315,7 @@ func httpSidecar(model v1beta2.PretrainedModel) corev1.Container {
 			"--location",
 			"--remote-name",
 			"--output-dir", "/model/",
-			"--url", model.Spec.HTTP.URL,
+			"--url", url,
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -238,10 +326,10 @@ func httpSidecar(model v1beta2.PretrainedModel) corev1.Container {
 	}
 }
 
-func containerSidecar(model v1beta2.PretrainedModel) corev1.Container {
+func containerSidecar(image string) corev1.Container {
 	return corev1.Container{
 		Name:    "copy-model",
-		Image:   model.Spec.Container.Image,
+		Image:   image,
 		Command: []string{"/bin/sh"},
 		Args: []string{
 			"-c",
@@ -282,11 +370,11 @@ func (r *Reconciler) gpuWorkerContainer() corev1.Container {
 			Value: "compute,utility",
 		},
 	}...)
-	if r.opniCluster.Spec.S3.NulogS3Bucket != "" {
+	if r.spec.S3.NulogS3Bucket != "" {
 		envVars = append(envVars,
 			corev1.EnvVar{
 				Name:  "S3_BUCKET",
-				Value: r.opniCluster.Spec.S3.NulogS3Bucket,
+				Value: r.spec.S3.NulogS3Bucket,
 			})
 	}
 	return corev1.Container{
@@ -305,12 +393,18 @@ func (r *Reconciler) gpuWorkerContainer() corev1.Container {
 
 func (r *Reconciler) findPretrainedModel(
 	modelRef corev1.LocalObjectReference,
-) (v1beta2.PretrainedModel, error) {
-	model := v1beta2.PretrainedModel{}
+) (client.Object, error) {
+	var model client.Object
+	if r.opniCluster != nil {
+		model = &v1beta2.PretrainedModel{}
+	}
+	if r.aiOpniCluster != nil {
+		model = &aiv1beta1.PretrainedModel{}
+	}
 	err := r.client.Get(r.ctx, types.NamespacedName{
 		Name:      modelRef.Name,
-		Namespace: r.opniCluster.Namespace,
-	}, &model)
+		Namespace: r.instanceNamespace,
+	}, model)
 	if err != nil {
 		return model, err
 	}
@@ -325,16 +419,8 @@ func (r *Reconciler) genericDeployment(service v1beta2.ServiceKind) *appsv1.Depl
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
-			Namespace: r.opniCluster.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: r.opniCluster.APIVersion,
-					Kind:       r.opniCluster.Kind,
-					Name:       r.opniCluster.Name,
-					UID:        r.opniCluster.UID,
-				},
-			},
-			Labels: labels,
+			Namespace: r.instanceNamespace,
+			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -362,6 +448,8 @@ func (r *Reconciler) genericDeployment(service v1beta2.ServiceKind) *appsv1.Depl
 			},
 		},
 	}
+
+	r.setOwner(deployment)
 	return deployment
 }
 
@@ -373,62 +461,67 @@ func (r *Reconciler) genericEnvAndVolumes() (
 	envVars = append(envVars, corev1.EnvVar{
 		Name: "NATS_SERVER_URL",
 		Value: fmt.Sprintf("nats://%s-nats-client.%s.svc:%d",
-			r.opniCluster.Name, r.opniCluster.Namespace, natsDefaultClientPort),
+			r.instanceName, r.instanceNamespace, natsDefaultClientPort),
 	})
-	switch r.opniCluster.Spec.Nats.AuthMethod {
-	case v1beta2.NatsAuthUsername:
-		if r.opniCluster.Status.Auth.NatsAuthSecretKeyRef == nil {
-			break
-		}
-		var username string
-		if r.opniCluster.Spec.Nats.Username == "" {
-			username = "nats-user"
-		} else {
-			username = r.opniCluster.Spec.Nats.Username
-		}
-		newEnvVars := []corev1.EnvVar{
-			{
-				Name:  "NATS_USERNAME",
-				Value: username,
-			},
-			{
-				Name: "NATS_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: r.opniCluster.Status.Auth.NatsAuthSecretKeyRef,
+	if r.opniCluster != nil {
+		switch r.spec.Nats.AuthMethod {
+		case v1beta2.NatsAuthUsername:
+			if r.opniCluster.Status.Auth.NatsAuthSecretKeyRef == nil {
+				break
+			}
+			var username string
+			if r.spec.Nats.Username == "" {
+				username = "nats-user"
+			} else {
+				username = r.spec.Nats.Username
+			}
+			newEnvVars := []corev1.EnvVar{
+				{
+					Name:  "NATS_USERNAME",
+					Value: username,
 				},
-			},
-		}
-		envVars = append(envVars, newEnvVars...)
-	case v1beta2.NatsAuthNkey:
-		if r.opniCluster.Status.Auth.NatsAuthSecretKeyRef == nil {
-			break
-		}
-		newVolumes := []corev1.Volume{
-			{
-				Name: "nkey",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: r.opniCluster.Status.Auth.NatsAuthSecretKeyRef.Name,
+				{
+					Name: "NATS_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: r.opniCluster.Status.Auth.NatsAuthSecretKeyRef,
 					},
 				},
-			},
+			}
+			envVars = append(envVars, newEnvVars...)
+		case v1beta2.NatsAuthNkey:
+			if r.opniCluster.Status.Auth.NatsAuthSecretKeyRef == nil {
+				break
+			}
+			newVolumes := []corev1.Volume{
+				{
+					Name: "nkey",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: r.opniCluster.Status.Auth.NatsAuthSecretKeyRef.Name,
+						},
+					},
+				},
+			}
+			volumes = append(volumes, newVolumes...)
+			newVolumeMounts := []corev1.VolumeMount{
+				{
+					Name:      "nkey",
+					ReadOnly:  true,
+					MountPath: natsNkeyDir,
+				},
+			}
+			volumeMounts = append(volumeMounts, newVolumeMounts...)
+			newEnvVars := []corev1.EnvVar{
+				{
+					Name:  "NKEY_SEED_FILENAME",
+					Value: fmt.Sprintf("%s/seed", natsNkeyDir),
+				},
+			}
+			envVars = append(envVars, newEnvVars...)
 		}
-		volumes = append(volumes, newVolumes...)
-		newVolumeMounts := []corev1.VolumeMount{
-			{
-				Name:      "nkey",
-				ReadOnly:  true,
-				MountPath: natsNkeyDir,
-			},
-		}
-		volumeMounts = append(volumeMounts, newVolumeMounts...)
-		newEnvVars := []corev1.EnvVar{
-			{
-				Name:  "NKEY_SEED_FILENAME",
-				Value: fmt.Sprintf("%s/seed", natsNkeyDir),
-			},
-		}
-		envVars = append(envVars, newEnvVars...)
+	}
+	if r.aiOpniCluster != nil {
+		// TODO: implement nats auth env vars and volumes here
 	}
 	envVars = append(envVars, corev1.EnvVar{
 		Name: "ES_ENDPOINT",
@@ -440,7 +533,7 @@ func (r *Reconciler) genericEnvAndVolumes() (
 					r.opensearchCluster.Namespace,
 				)
 			}
-			return fmt.Sprintf("http://opni-es-client.%s.svc:9200", r.opniCluster.Namespace)
+			return fmt.Sprintf("http://opni-es-client.%s.svc:9200", r.instanceNamespace)
 		}(),
 	}, corev1.EnvVar{
 		Name: "ES_USERNAME",
@@ -458,7 +551,15 @@ func (r *Reconciler) genericEnvAndVolumes() (
 	}, corev1.EnvVar{
 		Name: "ES_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef,
+			SecretKeyRef: func() *corev1.SecretKeySelector {
+				if r.opniCluster != nil {
+					return r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef
+				}
+				if r.aiOpniCluster != nil {
+					return r.aiOpniCluster.Status.Auth.OpensearchAuthSecretKeyRef
+				}
+				return nil
+			}(),
 		},
 	})
 	return
@@ -466,7 +567,8 @@ func (r *Reconciler) genericEnvAndVolumes() (
 
 func (r *Reconciler) s3EnvVars() (envVars []corev1.EnvVar) {
 	// lg := logr.FromContext(r.ctx)
-	if r.opniCluster.Status.Auth.S3AccessKey != nil &&
+	if r.opniCluster != nil &&
+		r.opniCluster.Status.Auth.S3AccessKey != nil &&
 		r.opniCluster.Status.Auth.S3SecretKey != nil &&
 		r.opniCluster.Status.Auth.S3Endpoint != "" {
 		envVars = append(envVars, corev1.EnvVar{
@@ -484,6 +586,26 @@ func (r *Reconciler) s3EnvVars() (envVars []corev1.EnvVar) {
 			Value: r.opniCluster.Status.Auth.S3Endpoint,
 		})
 	}
+
+	if r.aiOpniCluster != nil &&
+		r.aiOpniCluster.Status.Auth.S3AccessKey != nil &&
+		r.aiOpniCluster.Status.Auth.S3SecretKey != nil &&
+		r.aiOpniCluster.Status.Auth.S3Endpoint != "" {
+		envVars = append(envVars, corev1.EnvVar{
+			Name: "S3_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: r.aiOpniCluster.Status.Auth.S3AccessKey,
+			},
+		}, corev1.EnvVar{
+			Name: "S3_SECRET_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: r.aiOpniCluster.Status.Auth.S3SecretKey,
+			},
+		}, corev1.EnvVar{
+			Name:  "S3_ENDPOINT",
+			Value: r.aiOpniCluster.Status.Auth.S3Endpoint,
+		})
+	}
 	return envVars
 }
 
@@ -496,20 +618,20 @@ func deploymentState(enabled *bool) reconciler.DesiredState {
 
 func (r *Reconciler) nulogHyperparameters() (runtime.Object, reconciler.DesiredState, error) {
 	var data map[string]intstr.IntOrString
-	if len(r.opniCluster.Spec.NulogHyperparameters) > 0 {
-		data = r.opniCluster.Spec.NulogHyperparameters
+	if len(r.spec.NulogHyperparameters) > 0 {
+		data = r.spec.NulogHyperparameters
 	} else {
 		data = map[string]intstr.IntOrString{
 			"modelThreshold": intstr.FromString("0.5"),
 			"minLogTokens":   intstr.FromInt(5),
 		}
 	}
-	cm, err := hyperparameters.GenerateHyperparametersConfigMap("nulog", r.opniCluster.Namespace, data)
+	cm, err := hyperparameters.GenerateHyperparametersConfigMap("nulog", r.instanceNamespace, data)
 	if err != nil {
 		return nil, nil, err
 	}
 	cm.Labels["opni-service"] = "nulog"
-	err = ctrl.SetControllerReference(r.opniCluster, &cm, r.client.Scheme())
+	err = r.setOwner(&cm)
 	return &cm, reconciler.StatePresent, err
 }
 
@@ -518,15 +640,15 @@ func (r *Reconciler) inferenceDeployment() (runtime.Object, reconciler.DesiredSt
 	addCPUInferenceLabel(deployment)
 	s3EnvVars := r.s3EnvVars()
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
-	if r.opniCluster.Spec.S3.NulogS3Bucket != "" {
+	if r.spec.S3.NulogS3Bucket != "" {
 		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
 			corev1.EnvVar{
 				Name:  "S3_BUCKET",
-				Value: r.opniCluster.Spec.S3.NulogS3Bucket,
+				Value: r.spec.S3.NulogS3Bucket,
 			})
 	}
 	insertHyperparametersVolume(deployment, "nulog")
-	return deployment, deploymentState(r.opniCluster.Spec.Services.Inference.Enabled), nil
+	return deployment, deploymentState(r.spec.Services.Inference.Enabled), nil
 }
 
 func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState, error) {
@@ -539,20 +661,20 @@ func (r *Reconciler) drainDeployment() (runtime.Object, reconciler.DesiredState,
 		})
 	s3EnvVars := r.s3EnvVars()
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, s3EnvVars...)
-	if r.opniCluster.Spec.S3.DrainS3Bucket != "" {
+	if r.spec.S3.DrainS3Bucket != "" {
 		deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env,
 			corev1.EnvVar{
 				Name:  "S3_BUCKET",
-				Value: r.opniCluster.Spec.S3.DrainS3Bucket,
+				Value: r.spec.S3.DrainS3Bucket,
 			})
 	}
-	deployment.Spec.Replicas = r.opniCluster.Spec.Services.Drain.Replicas
-	return deployment, deploymentState(r.opniCluster.Spec.Services.Drain.Enabled), nil
+	deployment.Spec.Replicas = r.spec.Services.Drain.Replicas
+	return deployment, deploymentState(r.spec.Services.Drain.Enabled), nil
 }
 
 func (r *Reconciler) payloadReceiverDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta2.PayloadReceiverService)
-	return deployment, deploymentState(r.opniCluster.Spec.Services.PayloadReceiver.Enabled), nil
+	return deployment, deploymentState(r.spec.Services.PayloadReceiver.Enabled), nil
 }
 
 func (r *Reconciler) payloadReceiverService() (runtime.Object, reconciler.DesiredState, error) {
@@ -560,16 +682,8 @@ func (r *Reconciler) payloadReceiverService() (runtime.Object, reconciler.Desire
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
-			Namespace: r.opniCluster.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: r.opniCluster.APIVersion,
-					Kind:       r.opniCluster.Kind,
-					Name:       r.opniCluster.Name,
-					UID:        r.opniCluster.UID,
-				},
-			},
-			Labels: labels,
+			Namespace: r.instanceNamespace,
+			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: labels,
@@ -580,13 +694,14 @@ func (r *Reconciler) payloadReceiverService() (runtime.Object, reconciler.Desire
 			},
 		},
 	}
-	return service, deploymentState(r.opniCluster.Spec.Services.PayloadReceiver.Enabled), nil
+	r.setOwner(service)
+	return service, deploymentState(r.spec.Services.PayloadReceiver.Enabled), nil
 }
 
 func (r *Reconciler) preprocessingDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta2.PreprocessingService)
-	deployment.Spec.Replicas = r.opniCluster.Spec.Services.Preprocessing.Replicas
-	return deployment, deploymentState(r.opniCluster.Spec.Services.Preprocessing.Enabled), nil
+	deployment.Spec.Replicas = r.spec.Services.Preprocessing.Replicas
+	return deployment, deploymentState(r.spec.Services.Preprocessing.Enabled), nil
 }
 
 func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredState, error) {
@@ -601,8 +716,8 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 		Name:      "data",
 		MountPath: "/var/opni-data",
 	}
-	deployment.Spec.Template.Spec.RuntimeClassName = r.opniCluster.Spec.Services.GPUController.RuntimeClass
-	if features.DefaultMutableFeatureGate.Enabled(features.GPUOperator) && r.opniCluster.Spec.Services.GPUController.RuntimeClass == nil {
+	deployment.Spec.Template.Spec.RuntimeClassName = r.spec.Services.GPUController.RuntimeClass
+	if features.DefaultMutableFeatureGate.Enabled(features.GPUOperator) && r.spec.Services.GPUController.RuntimeClass == nil {
 		deployment.Spec.Template.Spec.RuntimeClassName = lo.ToPtr("nvidia")
 	}
 	deployment.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
@@ -622,19 +737,19 @@ func (r *Reconciler) gpuCtrlDeployment() (runtime.Object, reconciler.DesiredStat
 		deployment.Spec.Template.Spec.Containers[i] = container
 	}
 	insertHyperparametersVolume(deployment, "nulog")
-	return deployment, deploymentState(r.opniCluster.Spec.Services.GPUController.Enabled), nil
+	return deployment, deploymentState(r.spec.Services.GPUController.Enabled), nil
 }
 
 func (r *Reconciler) getPrometheusEndpoint() (endpoint string) {
 	lg := log.FromContext(r.ctx)
-	if r.opniCluster.Spec.Services.Metrics.Enabled != nil && !*r.opniCluster.Spec.Services.Metrics.Enabled {
+	if r.spec.Services.Metrics.Enabled != nil && !*r.spec.Services.Metrics.Enabled {
 		return
 	}
-	if r.opniCluster.Spec.Services.Metrics.PrometheusReference != nil {
+	if r.spec.Services.Metrics.PrometheusReference != nil {
 		prometheus := &monitoringv1.Prometheus{}
 		err := r.client.Get(r.ctx, types.NamespacedName{
-			Name:      r.opniCluster.Spec.Services.Metrics.PrometheusReference.Name,
-			Namespace: r.opniCluster.Spec.Services.Metrics.PrometheusReference.Namespace,
+			Name:      r.spec.Services.Metrics.PrometheusReference.Name,
+			Namespace: r.spec.Services.Metrics.PrometheusReference.Namespace,
 		}, prometheus)
 		if err != nil {
 			lg.V(1).Error(err, "unable to fetch prometheus")
@@ -642,8 +757,8 @@ func (r *Reconciler) getPrometheusEndpoint() (endpoint string) {
 			endpoint = prometheus.Spec.ExternalURL
 		}
 	}
-	if r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint != "" {
-		endpoint = r.opniCluster.Spec.Services.Metrics.PrometheusEndpoint
+	if r.spec.Services.Metrics.PrometheusEndpoint != "" {
+		endpoint = r.spec.Services.Metrics.PrometheusEndpoint
 	}
 
 	return
@@ -653,14 +768,14 @@ func (r *Reconciler) metricsDeployment() (runtime.Object, reconciler.DesiredStat
 	deployment := r.genericDeployment(v1beta2.MetricsService)
 	prometheusEndpoint := r.getPrometheusEndpoint()
 	_, err := url.ParseRequestURI(prometheusEndpoint)
-	if err != nil && (r.opniCluster.Spec.Services.Metrics.Enabled == nil || *r.opniCluster.Spec.Services.Metrics.Enabled) {
-		return deployment, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), errors.New("prometheus endpoint is not a valid URL")
+	if err != nil && (r.spec.Services.Metrics.Enabled == nil || *r.spec.Services.Metrics.Enabled) {
+		return deployment, deploymentState(r.spec.Services.Metrics.Enabled), errors.New("prometheus endpoint is not a valid URL")
 	}
 	deployment.Spec.Template.Spec.Containers[0].Env = append(deployment.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
 		Name:  "PROMETHEUS_ENDPOINT",
 		Value: prometheusEndpoint,
 	})
-	for _, extraVolume := range r.opniCluster.Spec.Services.Metrics.ExtraVolumeMounts {
+	for _, extraVolume := range r.spec.Services.Metrics.ExtraVolumeMounts {
 		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, corev1.Volume{
 			Name:         extraVolume.Name,
 			VolumeSource: extraVolume.VolumeSource,
@@ -671,7 +786,7 @@ func (r *Reconciler) metricsDeployment() (runtime.Object, reconciler.DesiredStat
 			MountPath: extraVolume.MountPath,
 		})
 	}
-	return deployment, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
+	return deployment, deploymentState(r.spec.Services.Metrics.Enabled), nil
 }
 
 func (r *Reconciler) metricsService() (runtime.Object, reconciler.DesiredState, error) {
@@ -679,7 +794,7 @@ func (r *Reconciler) metricsService() (runtime.Object, reconciler.DesiredState, 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
-			Namespace: r.opniCluster.Namespace,
+			Namespace: r.instanceNamespace,
 			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{
@@ -693,8 +808,8 @@ func (r *Reconciler) metricsService() (runtime.Object, reconciler.DesiredState, 
 			},
 		},
 	}
-	ctrl.SetControllerReference(r.opniCluster, service, r.client.Scheme())
-	return service, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
+	r.setOwner(service)
+	return service, deploymentState(r.spec.Services.Metrics.Enabled), nil
 }
 
 func (r *Reconciler) metricsServiceMonitor() (runtime.Object, reconciler.DesiredState, error) {
@@ -702,7 +817,7 @@ func (r *Reconciler) metricsServiceMonitor() (runtime.Object, reconciler.Desired
 	serviceMonitor := &monitoringv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      labels[resources.AppNameLabel],
-			Namespace: r.opniCluster.Namespace,
+			Namespace: r.instanceNamespace,
 			Labels:    labels,
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
@@ -717,11 +832,11 @@ func (r *Reconciler) metricsServiceMonitor() (runtime.Object, reconciler.Desired
 			},
 		},
 	}
-	ctrl.SetControllerReference(r.opniCluster, serviceMonitor, r.client.Scheme())
-	if r.opniCluster.Spec.Services.Metrics.PrometheusReference == nil {
+	r.setOwner(serviceMonitor)
+	if r.spec.Services.Metrics.PrometheusReference == nil {
 		return serviceMonitor, reconciler.StateAbsent, nil
 	}
-	return serviceMonitor, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
+	return serviceMonitor, deploymentState(r.spec.Services.Metrics.Enabled), nil
 }
 
 func (r *Reconciler) metricsPrometheusRule() (runtime.Object, reconciler.DesiredState, error) {
@@ -729,7 +844,7 @@ func (r *Reconciler) metricsPrometheusRule() (runtime.Object, reconciler.Desired
 	prometheusRule := &monitoringv1.PrometheusRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", labels[resources.AppNameLabel], r.generateSHAID()),
-			Namespace: r.opniCluster.Namespace,
+			Namespace: r.instanceNamespace,
 			Labels:    labels,
 		},
 		Spec: monitoringv1.PrometheusRuleSpec{
@@ -759,51 +874,71 @@ func (r *Reconciler) metricsPrometheusRule() (runtime.Object, reconciler.Desired
 		},
 	}
 	// Fetch Prometheus resource to calculate namespace and match labels for rules
-	if (r.opniCluster.Spec.Services.Metrics.Enabled == nil || *r.opniCluster.Spec.Services.Metrics.Enabled) &&
-		r.opniCluster.Spec.Services.Metrics.PrometheusReference != nil {
+	if (r.spec.Services.Metrics.Enabled == nil || *r.spec.Services.Metrics.Enabled) &&
+		r.spec.Services.Metrics.PrometheusReference != nil {
 		prometheus := &monitoringv1.Prometheus{}
 		err := r.client.Get(r.ctx, types.NamespacedName{
-			Name:      r.opniCluster.Spec.Services.Metrics.PrometheusReference.Name,
-			Namespace: r.opniCluster.Spec.Services.Metrics.PrometheusReference.Namespace,
+			Name:      r.spec.Services.Metrics.PrometheusReference.Name,
+			Namespace: r.spec.Services.Metrics.PrometheusReference.Namespace,
 		}, prometheus)
 		if err != nil {
-			return prometheusRule, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), err
+			return prometheusRule, deploymentState(r.spec.Services.Metrics.Enabled), err
 		}
 		if prometheus.Spec.RuleNamespaceSelector == nil {
 			prometheusRule.SetNamespace(prometheus.Namespace)
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
-					return err
-				}
-				if r.opniCluster.Status.PrometheusRuleNamespace != prometheus.Namespace {
-					r.opniCluster.Status.PrometheusRuleNamespace = prometheus.Namespace
-					err = r.client.Status().Update(r.ctx, r.opniCluster)
-					if err != nil {
+				if r.opniCluster != nil {
+					if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 						return err
 					}
+					if r.opniCluster.Status.PrometheusRuleNamespace != prometheus.Namespace {
+						r.opniCluster.Status.PrometheusRuleNamespace = prometheus.Namespace
+						err = r.client.Status().Update(r.ctx, r.opniCluster)
+						if err != nil {
+							return err
+						}
+					}
+					if r.opniCluster.DeletionTimestamp == nil {
+						controllerutil.AddFinalizer(r.opniCluster, prometheusRuleFinalizer)
+						return r.client.Update(r.ctx, r.opniCluster)
+					}
+					return nil
 				}
-				if r.opniCluster.DeletionTimestamp == nil {
-					controllerutil.AddFinalizer(r.opniCluster, prometheusRuleFinalizer)
-					return r.client.Update(r.ctx, r.opniCluster)
+				if r.aiOpniCluster != nil {
+					if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.aiOpniCluster), r.aiOpniCluster); err != nil {
+						return err
+					}
+					if r.aiOpniCluster.Status.PrometheusRuleNamespace != prometheus.Namespace {
+						r.aiOpniCluster.Status.PrometheusRuleNamespace = prometheus.Namespace
+						err = r.client.Status().Update(r.ctx, r.aiOpniCluster)
+						if err != nil {
+							return err
+						}
+					}
+					if r.aiOpniCluster.DeletionTimestamp == nil {
+						controllerutil.AddFinalizer(r.aiOpniCluster, prometheusRuleFinalizer)
+						return r.client.Update(r.ctx, r.aiOpniCluster)
+					}
+					return nil
 				}
-				return nil
+				return errors.New("no opnicluster object to update")
 			})
 			if err != nil {
-				return prometheusRule, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), err
+				return prometheusRule, deploymentState(r.spec.Services.Metrics.Enabled), err
 			}
 		} else {
-			ctrl.SetControllerReference(r.opniCluster, prometheusRule, r.client.Scheme())
+			r.setOwner(prometheusRule)
 		}
 		if prometheus.Spec.RuleSelector != nil {
 			labelSelector, err := metav1.LabelSelectorAsMap(prometheus.Spec.RuleSelector)
 			if err != nil {
-				return prometheusRule, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), err
+				return prometheusRule, deploymentState(r.spec.Services.Metrics.Enabled), err
 			}
 			for k, v := range labelSelector {
 				prometheusRule.Labels[k] = v
 			}
 		}
-		return prometheusRule, deploymentState(r.opniCluster.Spec.Services.Metrics.Enabled), nil
+		return prometheusRule, deploymentState(r.spec.Services.Metrics.Enabled), nil
 	}
 	return prometheusRule, reconciler.StateAbsent, nil
 }
@@ -811,12 +946,12 @@ func (r *Reconciler) metricsPrometheusRule() (runtime.Object, reconciler.Desired
 func (r *Reconciler) opensearchUpdateDeployment() (runtime.Object, reconciler.DesiredState, error) {
 	deployment := r.genericDeployment(v1beta2.OpensearchUpdateService)
 	// Update deployment with additional requirements here
-	return deployment, deploymentState(r.opniCluster.Spec.Services.OpensearchUpdate.Enabled), nil
+	return deployment, deploymentState(r.spec.Services.OpensearchUpdate.Enabled), nil
 }
 
 func (r *Reconciler) generateSHAID() string {
 	hash := sha1.New()
-	hash.Write([]byte(r.opniCluster.Name + r.opniCluster.Namespace))
+	hash.Write([]byte(r.instanceName + r.instanceNamespace))
 	sum := hash.Sum(nil)
 	return fmt.Sprintf("%x", sum[:3])
 }
@@ -859,7 +994,7 @@ func (r *Reconciler) externalOpensearchConfig() (retResources []resources.Resour
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "external-os-password",
-			Namespace: r.opniCluster.Namespace,
+			Namespace: r.instanceNamespace,
 		},
 		StringData: map[string]string{
 			"password": password,
@@ -869,16 +1004,31 @@ func (r *Reconciler) externalOpensearchConfig() (retResources []resources.Resour
 	retResources = append(retResources, resources.Present(secret))
 
 	retErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
-			return err
+		if r.opniCluster != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
+			}
+			r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef = &corev1.SecretKeySelector{
+				Key: "password",
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secret.Name,
+				},
+			}
+			return r.client.Status().Update(r.ctx, r.opniCluster)
 		}
-		r.opniCluster.Status.Auth.OpensearchAuthSecretKeyRef = &corev1.SecretKeySelector{
-			Key: "password",
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: secret.Name,
-			},
+		if r.aiOpniCluster != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.aiOpniCluster), r.aiOpniCluster); err != nil {
+				return err
+			}
+			r.aiOpniCluster.Status.Auth.OpensearchAuthSecretKeyRef = &corev1.SecretKeySelector{
+				Key: "password",
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secret.Name,
+				},
+			}
+			return r.client.Status().Update(r.ctx, r.aiOpniCluster)
 		}
-		return r.client.Status().Update(r.ctx, r.opniCluster)
+		return errors.New("no opnicluster object to update")
 	})
 
 	return

@@ -123,36 +123,6 @@ func (s ServiceKind) GetTolerations(opniCluster *OpniCluster) []corev1.Toleratio
 	}
 }
 
-func (e OpensearchRole) GetNodeSelector(opniCluster *OpniCluster) map[string]string {
-	switch e {
-	case OpensearchDataRole:
-		return opniCluster.Spec.Opensearch.Workloads.Data.NodeSelector
-	case OpensearchMasterRole:
-		return opniCluster.Spec.Opensearch.Workloads.Master.NodeSelector
-	case OpensearchClientRole:
-		return opniCluster.Spec.Opensearch.Workloads.Client.NodeSelector
-	case OpensearchDashboardsRole:
-		return opniCluster.Spec.Opensearch.Workloads.Dashboards.NodeSelector
-	default:
-		return map[string]string{}
-	}
-}
-
-func (e OpensearchRole) GetTolerations(opniCluster *OpniCluster) []corev1.Toleration {
-	switch e {
-	case OpensearchDataRole:
-		return opniCluster.Spec.Opensearch.Workloads.Data.Tolerations
-	case OpensearchMasterRole:
-		return opniCluster.Spec.Opensearch.Workloads.Master.Tolerations
-	case OpensearchClientRole:
-		return opniCluster.Spec.Opensearch.Workloads.Client.Tolerations
-	case OpensearchDashboardsRole:
-		return opniCluster.Spec.Opensearch.Workloads.Dashboards.Tolerations
-	default:
-		return []corev1.Toleration{}
-	}
-}
-
 func (c *OpniCluster) GetState() string {
 	return string(c.Status.State)
 }

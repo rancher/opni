@@ -60,64 +60,64 @@ func (s ServiceKind) ImageName() string {
 	}
 }
 
-func (s ServiceKind) GetImageSpec(opniCluster *OpniCluster) *opnimeta.ImageSpec {
+func (s ServiceKind) GetImageSpec(spec OpniClusterSpec) *opnimeta.ImageSpec {
 	switch s {
 	case InferenceService:
-		return &opniCluster.Spec.Services.Inference.ImageSpec
+		return &spec.Services.Inference.ImageSpec
 	case DrainService:
-		return &opniCluster.Spec.Services.Drain.ImageSpec
+		return &spec.Services.Drain.ImageSpec
 	case PreprocessingService:
-		return &opniCluster.Spec.Services.Preprocessing.ImageSpec
+		return &spec.Services.Preprocessing.ImageSpec
 	case PayloadReceiverService:
-		return &opniCluster.Spec.Services.PayloadReceiver.ImageSpec
+		return &spec.Services.PayloadReceiver.ImageSpec
 	case GPUControllerService:
-		return &opniCluster.Spec.Services.GPUController.ImageSpec
+		return &spec.Services.GPUController.ImageSpec
 	case MetricsService:
-		return &opniCluster.Spec.Services.Metrics.ImageSpec
+		return &spec.Services.Metrics.ImageSpec
 	case OpensearchUpdateService:
-		return &opniCluster.Spec.Services.OpensearchUpdate.ImageSpec
+		return &spec.Services.OpensearchUpdate.ImageSpec
 	default:
 		return nil
 	}
 }
 
-func (s ServiceKind) GetNodeSelector(opniCluster *OpniCluster) map[string]string {
+func (s ServiceKind) GetNodeSelector(spec OpniClusterSpec) map[string]string {
 	switch s {
 	case InferenceService:
-		return opniCluster.Spec.Services.Inference.NodeSelector
+		return spec.Services.Inference.NodeSelector
 	case DrainService:
-		return opniCluster.Spec.Services.Drain.NodeSelector
+		return spec.Services.Drain.NodeSelector
 	case PreprocessingService:
-		return opniCluster.Spec.Services.Preprocessing.NodeSelector
+		return spec.Services.Preprocessing.NodeSelector
 	case PayloadReceiverService:
-		return opniCluster.Spec.Services.PayloadReceiver.NodeSelector
+		return spec.Services.PayloadReceiver.NodeSelector
 	case GPUControllerService:
-		return opniCluster.Spec.Services.GPUController.NodeSelector
+		return spec.Services.GPUController.NodeSelector
 	case MetricsService:
-		return opniCluster.Spec.Services.Metrics.NodeSelector
+		return spec.Services.Metrics.NodeSelector
 	case OpensearchUpdateService:
-		return opniCluster.Spec.Services.OpensearchUpdate.NodeSelector
+		return spec.Services.OpensearchUpdate.NodeSelector
 	default:
 		return map[string]string{}
 	}
 }
 
-func (s ServiceKind) GetTolerations(opniCluster *OpniCluster) []corev1.Toleration {
+func (s ServiceKind) GetTolerations(spec OpniClusterSpec) []corev1.Toleration {
 	switch s {
 	case InferenceService:
-		return opniCluster.Spec.Services.Inference.Tolerations
+		return spec.Services.Inference.Tolerations
 	case DrainService:
-		return opniCluster.Spec.Services.Drain.Tolerations
+		return spec.Services.Drain.Tolerations
 	case PreprocessingService:
-		return opniCluster.Spec.Services.Preprocessing.Tolerations
+		return spec.Services.Preprocessing.Tolerations
 	case PayloadReceiverService:
-		return opniCluster.Spec.Services.PayloadReceiver.Tolerations
+		return spec.Services.PayloadReceiver.Tolerations
 	case GPUControllerService:
-		return opniCluster.Spec.Services.GPUController.Tolerations
+		return spec.Services.GPUController.Tolerations
 	case MetricsService:
-		return opniCluster.Spec.Services.Metrics.Tolerations
+		return spec.Services.Metrics.Tolerations
 	case OpensearchUpdateService:
-		return opniCluster.Spec.Services.OpensearchUpdate.Tolerations
+		return spec.Services.OpensearchUpdate.Tolerations
 	default:
 		return []corev1.Toleration{}
 	}

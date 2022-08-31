@@ -35,6 +35,8 @@ type AgentConfigSpec struct {
 	Storage   StorageSpec    `json:"storage,omitempty"`
 	Rules     *RulesSpec     `json:"rules,omitempty"`
 	Bootstrap *BootstrapSpec `json:"bootstrap,omitempty"`
+	LogLevel  string         `json:"logLevel,omitempty"`
+	Profiling bool           `json:"profiling,omitempty"`
 }
 
 type BootstrapSpec struct {

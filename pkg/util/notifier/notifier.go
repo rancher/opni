@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/rancher/opni/pkg/util/waitctx"
 	"golang.org/x/exp/slices"
 )
 
@@ -49,7 +48,7 @@ func NewUpdateNotifier[T Clonable[T]](finder Finder[T]) *updateNotifier[T] {
 	}
 }
 
-func (u *updateNotifier[T]) NotifyC(ctx waitctx.PermissiveContext) <-chan []T {
+func (u *updateNotifier[T]) NotifyC(ctx context.Context) <-chan []T {
 	u.channelsMu.Lock()
 	defer u.channelsMu.Unlock()
 	updateC := make(chan []T, 3)
@@ -59,7 +58,7 @@ func (u *updateNotifier[T]) NotifyC(ctx waitctx.PermissiveContext) <-chan []T {
 		// fetchRules which might be waiting.
 		u.startCond.Broadcast()
 	}
-	waitctx.Permissive.Go(ctx, func() {
+	go func() {
 		<-ctx.Done()
 		u.channelsMu.Lock()
 		defer u.channelsMu.Unlock()
@@ -70,7 +69,7 @@ func (u *updateNotifier[T]) NotifyC(ctx waitctx.PermissiveContext) <-chan []T {
 				break
 			}
 		}
-	})
+	}()
 	return updateC
 }
 

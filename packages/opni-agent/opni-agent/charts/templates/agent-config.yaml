@@ -31,4 +31,10 @@ stringData:
         token: {{ .Values.token }}
         pins: [{{ .Values.pin }}]
         {{- end }}
+      {{- if .Values.logLevel }}
+      logLevel: {{ .Values.logLevel }}
+      {{- end }}
+      {{- if .Values.profiling }}
+      profiling: {{ .Values.profiling }}
+      {{- end }}
 {{- end }}

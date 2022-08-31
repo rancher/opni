@@ -27,6 +27,9 @@ logging:
 events:
   enabled: true
 
+# logLevel: debug
+# profiling: true
+
 podAnnotations: {}
 
 podSecurityContext:

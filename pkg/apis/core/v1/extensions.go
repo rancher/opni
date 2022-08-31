@@ -10,6 +10,9 @@ import (
 )
 
 func (s *HealthStatus) Summary() string {
+	if s.Status == nil || s.Health == nil {
+		return "Unknown"
+	}
 	if !s.Status.Connected {
 		return "Disconnected"
 	}

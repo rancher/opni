@@ -44,14 +44,15 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/validation"
 	kyamlv3 "github.com/kralicky/yaml/v3"
 	"github.com/prometheus/node_exporter/https"
-	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/rancher/opni/apis/v1beta2"
+	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util"
 )
 
 func bucketHttpConfig(spec v1beta2.HTTPConfig) bucket_http.Config {
@@ -218,7 +219,8 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 		BlocksStorage: tsdb.BlocksStorageConfig{
 			TSDB: tsdb.TSDBConfig{
-				Dir: "/data/tsdb",
+				Dir:                   "/data/tsdb",
+				FlushBlocksOnShutdown: true,
 			},
 			Bucket: storageConfig,
 			BucketStore: tsdb.BucketStoreConfig{

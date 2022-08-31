@@ -21,6 +21,7 @@ require (
 	github.com/cert-manager/cert-manager v1.8.0
 	github.com/cortexproject/cortex v1.13.0
 	github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2
+	github.com/gin-contrib/pprof v1.4.0
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-kit/log v0.2.0
 	github.com/go-logr/logr v1.2.3

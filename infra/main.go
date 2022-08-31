@@ -190,6 +190,13 @@ func run(ctx *Context) (runErr error) {
 				"kube-prometheus-stack": Map{
 					"enabled": Bool(true),
 				},
+				"rules": Map{
+					"discovery": Map{
+						"prometheusRules": Map{},
+					},
+				},
+				"logLevel":  String("debug"),
+				"profiling": Bool(false), // change to true to enable profiling
 			},
 			Atomic:      Bool(true),
 			ForceUpdate: Bool(true),

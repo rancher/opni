@@ -38,10 +38,12 @@ func (a *Agent) configureRuleFinder() (notifier.Finder[rules.RuleGroup], error) 
 }
 
 func (a *Agent) streamRuleGroupUpdates(ctx context.Context) (<-chan [][]byte, error) {
+	a.logger.Debug("configuring rule discovery")
 	finder, err := a.configureRuleFinder()
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure rule discovery: %w", err)
 	}
+	a.logger.Debug("rule discovery configured")
 	searchInterval := time.Minute * 15
 	if interval := a.Rules.Discovery.Interval; interval != "" {
 		duration, err := time.ParseDuration(interval)
@@ -51,6 +53,9 @@ func (a *Agent) streamRuleGroupUpdates(ctx context.Context) (<-chan [][]byte, er
 		searchInterval = duration
 	}
 	notifier := notifier.NewPeriodicUpdateNotifier(ctx, finder, searchInterval)
+	a.logger.With(
+		zap.String("interval", searchInterval.String()),
+	).Debug("rule discovery notifier configured")
 
 	notifierC := notifier.NotifyC(ctx)
 	a.logger.Debug("starting rule group update notifier")
@@ -92,9 +97,6 @@ func (a *Agent) streamRulesToGateway(actx context.Context) error {
 	lg := a.logger
 	updateC, err := a.streamRuleGroupUpdates(actx)
 	if err != nil {
-		a.logger.With(
-			zap.Error(err),
-		).Error("failed to configure rule discovery")
 		return err
 	}
 	pending := make(chan [][]byte, 1)
@@ -106,6 +108,9 @@ func (a *Agent) streamRulesToGateway(actx context.Context) error {
 			var docs [][]byte
 			select {
 			case <-ctx.Done():
+				lg.With(
+					zap.Error(ctx.Err()),
+				).Debug("rule discovery stream closing")
 				return
 			case docs = <-pending:
 			}
@@ -114,7 +119,6 @@ func (a *Agent) streamRulesToGateway(actx context.Context) error {
 			for {
 				for _, doc := range docs {
 					reqCtx, ca := context.WithTimeout(ctx, time.Second*2)
-					defer ca()
 					var err error
 					ok := a.remoteWriteClient.Use(func(rwc remotewrite.RemoteWriteClient) {
 						_, err = rwc.SyncRules(reqCtx, &remotewrite.Payload{
@@ -125,11 +129,12 @@ func (a *Agent) streamRulesToGateway(actx context.Context) error {
 							Contents: doc,
 						})
 					})
+					ca()
 					if !ok {
 						err = errors.New("not connected")
 					}
 					if err != nil {
-						a.conditions.Store(condRuleSync, statusFailure)
+						a.setCondition(condRuleSync, statusFailure, err.Error())
 						// retry, unless another update is received from the channel
 						lg.With(
 							zap.Error(err),
@@ -145,8 +150,7 @@ func (a *Agent) streamRulesToGateway(actx context.Context) error {
 						}
 					}
 				}
-				lg.Infof("successfully sent %d alert rules to gateway", len(docs))
-				a.conditions.Delete(condRuleSync)
+				a.clearCondition(condRuleSync, fmt.Sprintf("successfully sent %d alert rules to gateway", len(docs)))
 				break
 			}
 		}
@@ -154,12 +158,16 @@ func (a *Agent) streamRulesToGateway(actx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			lg.With(
+				zap.Error(ctx.Err()),
+			).Warn("rule discovery stream closing")
 			return nil
 		case yamlDocs, ok := <-updateC:
 			if !ok {
 				lg.Debug("rule discovery stream closed")
 				return nil
 			}
+			lg.Debug("waiting for updated rule documents...")
 			pending <- yamlDocs
 		}
 	}

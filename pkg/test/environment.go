@@ -1062,6 +1062,11 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		},
 	}
 
+	Log.With(
+		"id", id,
+		"address", agentConfig.Spec.ListenAddress,
+	).Info("starting agent")
+
 	publicKeyPins := []*pkp.PublicKeyPin{}
 	for _, pin := range pins {
 		d, err := pkp.DecodePin(pin)

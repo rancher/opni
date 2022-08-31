@@ -63,7 +63,6 @@ var _ = Describe("SLO Filter tests", Ordered, Label(test.Unit, test.Slow), func(
 				Expect(filteredGroups.GroupNameToMetrics["network metrics"].Items).To(HaveLen(1))
 				Expect(filteredGroups.GroupNameToMetrics["compute metrics"].Items).To(HaveLen(1))
 				Expect(filteredGroups.GroupNameToMetrics["other metrics"].Items).To(HaveLen(2))
-
 			})
 		})
 	}

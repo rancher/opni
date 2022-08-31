@@ -51,9 +51,14 @@ func (r *Regexp) MarshalText() ([]byte, error) {
 }
 
 type Filter struct {
-	Name    string   `yaml:"name"`
-	Filters []Regexp `yaml:"filters"`
-	Ignore  []Regexp `yaml:"ignore"`
+	Name    string        `yaml:"name"`
+	Filters []FilterValue `yaml:"filters"`
+	Ignore  []FilterValue `yaml:"ignore"`
+}
+
+type FilterValue struct {
+	Value Regexp `yaml:"value"`
+	Score int    `yaml:"score"`
 }
 
 func GetGroupConfigsFromEmbed(lg *zap.SugaredLogger, dirName string, dir embed.FS) []Filter {
@@ -107,20 +112,20 @@ func scoredLabels(seriesInfo *cortexadmin.SeriesInfoList) *sloapi.MetricGroupLis
 		series.GetSeriesName()
 		for _, groupname := range filters {
 			for _, matchFilter := range groupname.Filters {
-				if matchFilter.MatchString(series.GetSeriesName()) {
+				if matchFilter.Value.MatchString(series.GetSeriesName()) {
 					if _, ok := res[series]; !ok {
 						res[series] = map[string]int{}
 					}
-					res[series][groupname.Name] = 1
+					res[series][groupname.Name] += matchFilter.Score
 				}
 			}
 
 			for _, ignoreFilter := range groupname.Ignore {
-				if ignoreFilter.MatchString(series.GetSeriesName()) {
+				if ignoreFilter.Value.MatchString(series.GetSeriesName()) {
 					if _, ok := res[series]; !ok {
 						res[series] = map[string]int{}
 					}
-					res[series][groupname.Name] = -1
+					res[series][groupname.Name] -= ignoreFilter.Score
 				}
 			}
 		}

@@ -1,12 +1,21 @@
 name: "kubernetes metrics"
 filters:
-  - ".*apiserver.*"
-  - ".*kube-state-metrics.*"
-  - ".*node-exporter.*"
-  - ".*kube.*"
+  - value : ".*apiserver.*"
+    score : 8
+  - value : ".*kube-state-metrics.*"
+    score : 8
+  - value : ".*node-exporter.*"
+    score : 8
+  - value : ".*kube.*"
+    score : 4
 ignore:
-  - ".*kube-proxy.*"
-  - ".*kubelet.*"
-  - ".*coredns.*"
-  - ".*kube-promethe-operator.*"
-  - ".*kube-prometheus-operator.*"
+  - value : ".*kube-proxy.*"
+    score : 10
+  - value : ".*kubelet.*"
+    score : 8
+  - value : ".*coredns.*"
+    score : 8
+  - value : ".*kube-promethe-operator.*"
+    score : 8
+  - value : ".*kube-prometheus-operator.*"
+    score : 8

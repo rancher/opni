@@ -1,3 +1,8 @@
 name: "golang metrics"
 filters:
-  - ".*go_.*"
+  - value : "^go_"
+    score: 10
+  - value : "^gc_"
+    score : 10
+  - value : ".*go.*"
+    score : 1

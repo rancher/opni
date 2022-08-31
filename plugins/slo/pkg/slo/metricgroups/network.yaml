@@ -1,4 +1,6 @@
 name: "network metrics"
 filters:
-  - ".*http.*"
-  - ".*request.*"
+  - value : ".*http.*"
+    score : 10
+  - value : ".*request.*"
+    score : 7

@@ -1,4 +1,8 @@
 name: "other metrics"
 filters:
-    - ".*up.*"
-    - ".*uptime.*"
+    - value : "up"
+      score : 10
+    - value : ".*up.*"
+      score : 1
+    - value : ".*uptime.*"
+      score : 2

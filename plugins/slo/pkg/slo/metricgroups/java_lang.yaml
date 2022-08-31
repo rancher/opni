@@ -1,4 +1,8 @@
 name: "jvm metrics"
 filters:
-  - ".*jvm.*"
-  - ".*classes.*"
+  - value : ".*java.*"
+    score : 3
+  - value : ".*jvm_.*"
+    score : 2
+  - value : ".*classes.*"
+    score : 1

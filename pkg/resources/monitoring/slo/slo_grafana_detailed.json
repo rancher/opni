@@ -157,15 +157,16 @@
           }
         ]
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "P0BEE70D62F42845E"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "slo:current_burn_rate:ratio > ${min_burning_rate}",
+          "expr": "slo:current_burn_rate:ratio{__tenant_id=\"$clusterId\"} > ${min_burning_rate}",
           "format": "table",
           "instant": true,
           "interval": "",
@@ -337,7 +338,7 @@
           "refId": "A"
         }
       ],
-      "title": "${clusterId}/${service}/${slo}",
+      "title": "${service}/${slo}",
       "type": "row"
     },
     {
@@ -388,7 +389,7 @@
         "text": {},
         "textMode": "name"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -609,7 +610,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -685,7 +686,7 @@
         "text": {},
         "textMode": "value_and_name"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -761,7 +762,7 @@
         "text": {},
         "textMode": "value_and_name"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -837,7 +838,7 @@
         "text": {},
         "textMode": "value_and_name"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -1093,7 +1094,7 @@
           "unit": "short"
         }
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "reverseYBuckets": false,
       "targets": [
         {
@@ -1201,7 +1202,7 @@
         "text": {},
         "textMode": "value_and_name"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -1291,7 +1292,7 @@
         "text": {},
         "textMode": "value_and_name"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -1325,8 +1326,8 @@
       {
         "current": {
           "selected": true,
-          "text": "6e4ff95f-f662-45ee-a82a-bdf44a2d0b75",
-          "value": "6e4ff95f-f662-45ee-a82a-bdf44a2d0b75"
+          "text": "0194fdc2-fa2f-4cc0-81d3-ff12045b73c8",
+          "value": "0194fdc2-fa2f-4cc0-81d3-ff12045b73c8"
         },
         "datasource": {
           "type": "prometheus",
@@ -1369,26 +1370,22 @@
       },
       {
         "current": {
-          "selected": true,
-          "text": [
-            "MyServer"
-          ],
-          "value": [
-            "MyServer"
-          ]
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
           "uid": "P0BEE70D62F42845E"
         },
-        "definition": "label_values(slo:objective:ratio, slo_opni_service)",
+        "definition": "label_values(slo:objective:ratio{__tenant_id__=\"$clusterId\"}, slo_opni_service)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
         "name": "service",
         "options": [],
         "query": {
-          "query": "label_values(slo:objective:ratio, slo_opni_service)",
+          "query": "label_values(slo:objective:ratio{__tenant_id__=\"$clusterId\"}, slo_opni_service)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -1414,14 +1411,14 @@
           "type": "prometheus",
           "uid": "P0BEE70D62F42845E"
         },
-        "definition": "label_values(slo:objective:ratio{slo_opni_service=\"${service}\"}, slo_opni_name)",
+        "definition": "label_values(slo:objective:ratio{slo_opni_service=\"${service}\", __tenant_id__=\"$clusterId\"}, slo_opni_name)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
         "name": "slo",
         "options": [],
         "query": {
-          "query": "label_values(slo:objective:ratio{slo_opni_service=\"${service}\"}, slo_opni_name)",
+          "query": "label_values(slo:objective:ratio{slo_opni_service=\"${service}\", __tenant_id__=\"$clusterId\"}, slo_opni_name)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -1525,6 +1522,6 @@
   "timezone": "",
   "title": "Opni Detailed Slos",
   "uid": "opni-slo",
-  "version": 4,
+  "version": 9,
   "weekStart": ""
 }

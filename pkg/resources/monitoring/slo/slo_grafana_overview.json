@@ -26,7 +26,7 @@
   "fiscalYearStartMonth": 0,
   "gnetId": 14643,
   "graphTooltip": 0,
-  "id": 23,
+  "id": 20,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -106,7 +106,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -175,7 +175,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -184,7 +184,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "count(max(opni_slo_info) by (slo_service))",
+          "expr": "count(max(opni_slo_info) by (slo_opni_service))",
           "interval": "",
           "legendFormat": "Services",
           "queryType": "randomWalk",
@@ -253,7 +253,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -321,7 +321,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -330,7 +330,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "max(ALERTS{slo_opni_id!=\"\",slo_severity=\"page\"}) OR on() vector(0)",
+          "expr": "count(ALERTS{slo_opni_id!=\"\",slo_severity=\"page\"}) OR on() vector(0)",
           "interval": "",
           "legendFormat": "Warning alerts",
           "queryType": "randomWalk",
@@ -391,7 +391,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -400,7 +400,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "max(ALERTS{slo_opni_id!=\"\",slo_severity=\"ticket\", alertname=\"slo_alert_ticket\"}) OR on() vector(0)",
+          "expr": "count(ALERTS{slo_opni_id!=\"\",slo_severity=\"ticket\"}) OR on() vector(0)",
           "interval": "",
           "legendFormat": "Critical alerts",
           "queryType": "randomWalk",
@@ -525,7 +525,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "slo:current_burn_rate:ratio > ${min_burning_rate}",
+          "expr": "slo:current_burn_rate:ratio >= ${min_burning_rate}",
           "interval": "",
           "legendFormat": "{{slo_opni_service}}/{{slo_opni_name}}",
           "queryType": "randomWalk",
@@ -533,7 +533,7 @@
           "refId": "A"
         }
       ],
-      "title": "All burning rate (Filtered >${min_burning_rate}x)",
+      "title": "All burning rate (Filtered >=${min_burning_rate}x)",
       "type": "timeseries"
     },
     {
@@ -649,7 +649,7 @@
           }
         ]
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -839,7 +839,7 @@
         "showUnfilled": true,
         "text": {}
       },
-      "pluginVersion": "9.1.0",
+      "pluginVersion": "9.1.1",
       "targets": [
         {
           "datasource": {
@@ -848,7 +848,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "slo:period_error_budget_remaining:ratio{}",
+          "expr": "slo:period_error_budget_remaining:ratio",
           "format": "time_series",
           "instant": true,
           "interval": "",
@@ -922,6 +922,6 @@
   "timezone": "",
   "title": "Opni SLO Overview",
   "uid": "opni-overview-slo",
-  "version": 6,
+  "version": 14,
   "weekStart": ""
 }

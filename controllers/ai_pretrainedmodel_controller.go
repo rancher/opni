@@ -20,7 +20,7 @@ import (
 	"context"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	"github.com/rancher/opni/apis/v1beta2"
+	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/pkg/resources/pretrainedmodel"
 	"github.com/rancher/opni/pkg/util"
 	corev1 "k8s.io/api/core/v1"
@@ -30,18 +30,18 @@ import (
 )
 
 // PretrainedModelReconciler reconciles a PretrainedModel object
-type PretrainedModelReconciler struct {
+type AIPretrainedModelReconciler struct {
 	client.Client
 	scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=opni.io,resources=pretrainedmodels,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=opni.io,resources=pretrainedmodels/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=opni.io,resources=pretrainedmodels/finalizers,verbs=update
+//+kubebuilder:rbac:groups=ai.opni.io,resources=pretrainedmodels,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=ai.opni.io,resources=pretrainedmodels/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=ai.opni.io,resources=pretrainedmodels/finalizers,verbs=update
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
-func (r *PretrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	model := &v1beta2.PretrainedModel{}
+func (r *AIPretrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	model := &aiv1beta1.PretrainedModel{}
 	err := r.Get(ctx, req.NamespacedName, model)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -59,11 +59,11 @@ func (r *PretrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *PretrainedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *AIPretrainedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Client = mgr.GetClient()
 	r.scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta2.PretrainedModel{}).
+		For(&aiv1beta1.PretrainedModel{}).
 		Owns(&corev1.ConfigMap{}).
 		Complete(r)
 }

@@ -6,7 +6,7 @@ import (
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/apis/v1beta2"
+	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -15,14 +15,14 @@ import (
 var _ = Describe("PretrainedModel Controller", Ordered, Label("controller"), func() {
 	It("should reconcile pretrained model resources", func() {
 		By("Creating a pretrainedmodel")
-		model := &v1beta2.PretrainedModel{
+		model := &aiv1beta1.PretrainedModel{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test",
 				Namespace: makeTestNamespace(),
 			},
-			Spec: v1beta2.PretrainedModelSpec{
-				ModelSource: v1beta2.ModelSource{
-					HTTP: &v1beta2.HTTPSource{
+			Spec: aiv1beta1.PretrainedModelSpec{
+				ModelSource: aiv1beta1.ModelSource{
+					HTTP: &aiv1beta1.HTTPSource{
 						URL: "https://nonexistent",
 					},
 				},
@@ -53,7 +53,7 @@ var _ = Describe("PretrainedModel Controller", Ordered, Label("controller"), fun
 			"batch_size": intstr.FromInt(32),
 		}
 		By("updating the hyperparameters")
-		updateObject(model, func(obj *v1beta2.PretrainedModel) {
+		updateObject(model, func(obj *aiv1beta1.PretrainedModel) {
 			obj.Spec.Hyperparameters = newParameters
 		})
 

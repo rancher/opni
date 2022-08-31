@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -33,6 +34,7 @@ import (
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -122,6 +124,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		&LoggingLogAdapterReconciler{},
 		&AIOpniClusterReconciler{},
 		&LoggingOpniOpensearchReconciler{},
+		&AIPretrainedModelReconciler{},
 	)
 	kmatch.SetDefaultObjectClient(k8sClient)
 
@@ -453,4 +456,10 @@ func generateSHAID(name string, namespace string) string {
 	hash.Write([]byte(name + namespace))
 	sum := hash.Sum(nil)
 	return fmt.Sprintf("%x", sum[:3])
+}
+
+func marshal(hp map[string]intstr.IntOrString) string {
+	b, err := json.MarshalIndent(hp, "", "  ")
+	Expect(err).NotTo(HaveOccurred())
+	return string(b)
 }

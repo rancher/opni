@@ -57,11 +57,10 @@ func deleteCortexSLORules(
 	})
 	// we can ignore 404s here since if we can't find them,
 	// then it will be impossible to delete them anyway
-	if err != nil && status.Code(err) != codes.NotFound {
-		lg.Error(fmt.Sprintf("Failed to delete rule group with clusterId, groupName (%v %v): %v", clusterId, groupName, err))
-		return err
+	if status.Code(err) == codes.NotFound || status.Code(err) == codes.OK {
+		return nil
 	}
-	return nil
+	return err
 }
 
 func QuerySLOComponentByRecordName(

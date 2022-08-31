@@ -69,6 +69,9 @@ func enumerateCortexSeries(p *Plugin, lg *zap.SugaredLogger, ctx context.Context
 
 func parseCortexEnumerateSeries(resp *http.Response, lg *zap.SugaredLogger) (set map[string]struct{}, err error) {
 	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
 	if !gjson.Valid(string(b)) {
 		return nil, fmt.Errorf("invalid json in response")
 	}
@@ -93,7 +96,7 @@ func parseCortexLabelsOnSeriesJob(
 	labelSets := map[string]map[string]struct{}{} // labelName -> set of labelValues
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 	if !gjson.Valid(string(b)) {
 		return nil, fmt.Errorf("invalid json in response")
@@ -135,6 +138,9 @@ func fetchCortexSeriesMetadata(p *Plugin, lg *zap.SugaredLogger, ctx context.Con
 
 func parseCortexSeriesMetadata(resp *http.Response, lg *zap.SugaredLogger, metricName string) (map[string]gjson.Result, error) {
 	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
 	if !gjson.Valid(string(b)) {
 		return nil, fmt.Errorf("invalid json in response")
 	}
@@ -160,7 +166,7 @@ func getCortexMetricLabels(p *Plugin, lg *zap.SugaredLogger, ctx context.Context
 func parseCortexMetricLabels(p *Plugin, resp *http.Response) ([]string, error) {
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 	labelNames := []string{}
 	result := gjson.Get(string(b), "data")

@@ -46,7 +46,7 @@ service CortexAdmin {
 
   rpc ListRules(Cluster) returns (QueryResponse) {
     option (google.api.http) = {
-      get : "/rules"
+      get: "/rules"
     };
   }
 

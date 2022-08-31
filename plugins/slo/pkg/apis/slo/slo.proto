@@ -189,7 +189,7 @@ message Metric {
 
 message MetricMetadata {
   string description = 1;
-  string type =2;
+  string type = 2;
   string unit = 3;
 }
 

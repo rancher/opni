@@ -364,9 +364,16 @@ func (p *Plugin) ListRules(ctx context.Context, req *cortexadmin.Cluster) (*cort
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode != http.StatusOK {
+		lg.With(
+			"status", resp.Status,
+		).Error("list rules failed")
+		return nil, fmt.Errorf("list failed: %s", resp.Status)
+		return nil, err
+	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 	return &cortexadmin.QueryResponse{
 		Data: body,

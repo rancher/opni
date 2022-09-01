@@ -585,6 +585,7 @@ func (in *OpniClusterSpec) DeepCopyInto(out *OpniClusterSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	out.NatsRef = in.NatsRef
 	in.Services.DeepCopyInto(&out.Services)
 	if in.Opensearch != nil {
 		in, out := &in.Opensearch, &out.Opensearch

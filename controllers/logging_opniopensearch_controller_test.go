@@ -16,7 +16,7 @@ import (
 	opsterv1 "opensearch.opster.io/api/v1"
 )
 
-var _ = Describe("OpniOpensearch Controller", Ordered, Label("controller"), func() {
+var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller"), func() {
 	var (
 		testNs string
 		object *loggingv1beta1.OpniOpensearch

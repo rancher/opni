@@ -26,7 +26,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 )
 
-var _ = Describe("OpniCluster Controller", Ordered, Label("controller"), func() {
+var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func() {
 	cluster := &aiv1beta1.OpniCluster{}
 
 	createCluster := func(c *aiv1beta1.OpniCluster) {

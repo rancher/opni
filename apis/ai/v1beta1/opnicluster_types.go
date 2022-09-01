@@ -37,8 +37,8 @@ type OpniClusterSpec struct {
 	// +kubebuilder:default:=latest
 	Version string `json:"version"`
 	// +optional
-	DefaultRepo *string `json:"defaultRepo,omitempty"`
-
+	DefaultRepo          *string                        `json:"defaultRepo,omitempty"`
+	NatsRef              corev1.LocalObjectReference    `json:"natsCluster"`
 	Services             ServicesSpec                   `json:"services,omitempty"`
 	Opensearch           *opnimeta.OpensearchClusterRef `json:"opensearch,omitempty"`
 	S3                   S3Spec                         `json:"s3,omitempty"`

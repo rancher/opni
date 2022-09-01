@@ -1,34 +1,34 @@
-package opnicluster
+package nats
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"text/template"
 
-	"emperror.dev/errors"
-
+	emperrors "emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/nats-io/nkeys"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
-	natsDefaultImage               = "bitnami/nats:2.3.2-debian-10-r0"
-	natsDefaultConfigReloaderImage = "connecteverything/nats-server-config-reloader:0.4.5-v1alpha2"
+	natsDefaultImage               = " nats:2.8.4-alpine"
+	natsDefaultConfigReloaderImage = "natsio/nats-server-config-reloader:0.7.2"
 	natsDefaultPidFilePath         = "/opt/nats/pid"
 	natsDefaultPidFileName         = "nats-server.pid"
 	natsDefaultConfigPath          = "/opt/nats/conf"
@@ -46,7 +46,7 @@ http: 0.0.0.0:{{ .HTTPPort }}
 
 #Authorization for client connections
 authorization {
-	{{- if eq .AuthMethod "username" }}
+	{{- if eq .AuthMethod "password" }}
 	user: "{{ .Username }}"
 	password: "{{ .Password }}"
 	{{- else if eq .AuthMethod "nkey" }}
@@ -78,11 +78,34 @@ cluster {
 		nats://nats_cluster:{{ .ClusterPassword }}@{{ .ClusterURL }}:{{ .ClusterPort }}
 	]
 }
+{{- if .Jetstream.Enabled }}
+jestream {
+	{{- if not (eq .Jetstream.Mem "") }}
+	max_mem: {{ .Jetstream.Mem }}
+	{{- end }}
+	{{- if .Jetstream.Storage.Enabled }}
+	store_dir: /var/data
+	max_file: {{ .Jetstream.Storage.Size }}
+	{{- end }}
+
+}
+{{- end }}
 	`))
 )
 
+type jetstreamFileConfigData struct {
+	Enabled bool
+	Size    string
+}
+
+type jestreamConfigData struct {
+	Enabled bool
+	Mem     string
+	Storage jetstreamFileConfigData
+}
+
 type natsConfigData struct {
-	AuthMethod      v1beta2.NatsAuthMethod
+	AuthMethod      opnicorev1beta1.NatsAuthMethod
 	Username        string
 	Password        string
 	NKeyUser        string
@@ -93,79 +116,11 @@ type natsConfigData struct {
 	ClusterPassword string
 	ClusterURL      string
 	ClusterName     string
-}
-
-func (r *Reconciler) externalNats() (
-	envVars []corev1.EnvVar,
-	volumeMounts []corev1.VolumeMount,
-	volumes []corev1.Volume,
-) {
-	lg := log.FromContext(r.ctx)
-	nats := &opnicorev1beta1.NatsCluster{}
-	if err := r.client.Get(r.ctx, types.NamespacedName{
-		Name:      r.aiOpniCluster.Spec.NatsRef.Name,
-		Namespace: r.aiOpniCluster.Namespace,
-	}, nats); err != nil {
-		lg.Error(err, "could not fetch nats cluster")
-		return
-	}
-
-	if nats.Status.AuthSecretKeyRef == nil {
-		return
-	}
-
-	switch nats.Spec.AuthMethod {
-	case opnicorev1beta1.NatsAuthPassword:
-		var username string
-		if nats.Spec.Username == "" {
-			username = "nats-user"
-		} else {
-			username = nats.Spec.Username
-		}
-		newEnvVars := []corev1.EnvVar{
-			{
-				Name:  "NATS_USERNAME",
-				Value: username,
-			},
-			{
-				Name: "NATS_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: r.opniCluster.Status.Auth.NatsAuthSecretKeyRef,
-				},
-			},
-		}
-		envVars = append(envVars, newEnvVars...)
-	case opnicorev1beta1.NatsAuthNkey:
-		volumes = append(volumes, corev1.Volume{
-			Name: "nkey",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: nats.Status.AuthSecretKeyRef.Name,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "nkey",
-			ReadOnly:  true,
-			MountPath: natsNkeyDir,
-		})
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "NKEY_SEED_FILENAME",
-			Value: fmt.Sprintf("%s/seed", natsNkeyDir),
-		})
-	}
-	return
+	Jetstream       jestreamConfigData
 }
 
 func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
-	resourceList = []resources.Resource{}
-
-	// Don't reconcile nats for new version of API
-	if r.opniCluster == nil {
-		return
-	}
-
-	if lo.FromPtrOr(r.spec.Nats.Replicas, 3) == 0 {
+	if lo.FromPtrOr(r.natsCluster.Spec.Replicas, 3) == 0 {
 		return []resources.Resource{
 			func() (runtime.Object, reconciler.DesiredState, error) {
 				return r.natsStatefulSet(), reconciler.StateAbsent, nil
@@ -173,8 +128,8 @@ func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 			func() (runtime.Object, reconciler.DesiredState, error) {
 				return &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("%s-nats-config", r.instanceName),
-						Namespace: r.instanceNamespace,
+						Name:      fmt.Sprintf("%s-nats-config", r.natsCluster.Name),
+						Namespace: r.natsCluster.Namespace,
 						Labels:    r.natsLabels(),
 					},
 				}, reconciler.StateAbsent, nil
@@ -193,20 +148,20 @@ func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 
 	config, err := r.natsConfig()
 	if err != nil {
-		retErr = errors.WithMessage(err, "failed to generate nats config")
+		retErr = emperrors.WithMessage(err, "failed to generate nats config")
 		return
 	}
 	resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
 		return config, reconciler.StatePresent, nil
 	})
 
-	if r.spec.Nats.PasswordFrom != nil {
+	if r.natsCluster.Spec.PasswordFrom != nil {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.natsCluster), r.natsCluster); err != nil {
 				return err
 			}
-			r.opniCluster.Status.Auth.NatsAuthSecretKeyRef = r.spec.Nats.PasswordFrom
-			return r.client.Status().Update(r.ctx, r.opniCluster)
+			r.natsCluster.Status.AuthSecretKeyRef = r.natsCluster.Spec.PasswordFrom
+			return r.client.Status().Update(r.ctx, r.natsCluster)
 		})
 		if err != nil {
 			retErr = err
@@ -215,7 +170,7 @@ func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 	} else {
 		secret, err := r.natsAuthSecret()
 		if err != nil {
-			retErr = errors.WithMessage(err, "failed to create auth secret")
+			retErr = emperrors.WithMessage(err, "failed to create auth secret")
 			return
 		}
 		resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
@@ -232,26 +187,9 @@ func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 	resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
 		return r.natsClientService(), reconciler.StatePresent, nil
 	})
-
-	statefulset := appsv1.StatefulSet{}
-	err = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      "opni-nats",
-		Namespace: r.instanceNamespace,
-	}, &statefulset)
-	if k8serrors.IsNotFound(err) {
-		resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
-			return r.natsStatefulSet(), reconciler.StatePresent, nil
-		})
-	} else if err != nil {
-		retErr = errors.WithMessage(err, "failed to get nats statefulset")
-		return
-	}
-
-	if r.opniCluster.Status.NatsReplicas != 0 && lo.FromPtrOr(r.spec.Nats.Replicas, 3) != r.opniCluster.Status.NatsReplicas {
-		resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
-			return r.natsStatefulSet(), reconciler.StatePresent, nil
-		})
-	}
+	resourceList = append(resourceList, func() (runtime.Object, reconciler.DesiredState, error) {
+		return r.natsStatefulSet(), reconciler.StatePresent, nil
+	})
 
 	return
 }
@@ -259,8 +197,8 @@ func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {
 func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 	statefulset := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-nats",
-			Namespace: r.instanceNamespace,
+			Name:      r.natsCluster.Name,
+			Namespace: r.natsCluster.Namespace,
 			Labels:    r.natsLabels(),
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -368,6 +306,23 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 									},
 								},
 							},
+							Resources: func() corev1.ResourceRequirements {
+								if r.natsCluster.Spec.JetStream.MemoryStorageSize.IsZero() {
+									return corev1.ResourceRequirements{}
+								}
+								return corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceMemory: r.natsCluster.Spec.JetStream.MemoryStorageSize,
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceMemory: func() resource.Quantity {
+											copy := r.natsCluster.Spec.JetStream.MemoryStorageSize.DeepCopy()
+											copy.Add(resource.MustParse("1Gi"))
+											return copy
+										}(),
+									},
+								}
+							}(),
 						},
 						{
 							Name:            "config-reloader",
@@ -399,7 +354,7 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 							Name: "config",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName:  fmt.Sprintf("%s-nats-config", r.instanceName),
+									SecretName:  fmt.Sprintf("%s-nats-config", r.natsCluster.Name),
 									DefaultMode: lo.ToPtr[int32](420),
 								},
 							},
@@ -411,25 +366,63 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 							},
 						},
 					},
-					NodeSelector: r.natsNodeSelector(),
-					Tolerations:  r.natsTolerations(),
+					NodeSelector: r.natsCluster.Spec.NodeSelector,
+					Tolerations:  r.natsCluster.Spec.Tolerations,
 				},
 			},
 		},
 	}
-	r.setOwner(statefulset)
+
+	if lo.FromPtrOr(r.natsCluster.Spec.JetStream.Enabled, true) &&
+		lo.FromPtrOr(r.natsCluster.Spec.JetStream.FileStorage.Enabled, true) {
+		statefulset.Spec.Template.Spec.Containers[0].VolumeMounts = append(
+			statefulset.Spec.Template.Spec.Containers[0].VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "data",
+				MountPath: "/var/data",
+			},
+		)
+		volume, pvc := r.dataStorage()
+		if volume != nil {
+			statefulset.Spec.Template.Spec.Volumes = append(statefulset.Spec.Template.Spec.Volumes, *volume)
+		}
+		if pvc != nil {
+			statefulset.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
+				*pvc,
+			}
+		}
+	}
+
+	ctrl.SetControllerReference(r.natsCluster, statefulset, r.client.Scheme())
 	return statefulset
 }
 
 func (r *Reconciler) natsConfig() (*corev1.Secret, error) {
+	jetStreamFileConfig := jetstreamFileConfigData{
+		Enabled: lo.FromPtrOr(r.natsCluster.Spec.JetStream.FileStorage.Enabled, true),
+		Size:    r.natsCluster.Spec.JetStream.FileStorage.Size.String(),
+	}
+
+	jetStreamConfig := jestreamConfigData{
+		Enabled: lo.FromPtrOr(r.natsCluster.Spec.JetStream.Enabled, true),
+		Mem: func() string {
+			if r.natsCluster.Spec.JetStream.MemoryStorageSize.IsZero() {
+				return ""
+			}
+			return r.natsCluster.Spec.JetStream.MemoryStorageSize.String()
+		}(),
+		Storage: jetStreamFileConfig,
+	}
+
 	natsConfig := natsConfigData{
-		ClusterName: r.instanceName,
-		AuthMethod:  r.spec.Nats.AuthMethod,
+		ClusterName: r.natsCluster.Name,
+		AuthMethod:  r.natsCluster.Spec.AuthMethod,
 		ClientPort:  natsDefaultClientPort,
 		HTTPPort:    natsDefaultHTTPPort,
 		ClusterPort: natsDefaultClusterPort,
 		PidFile:     fmt.Sprintf("%s/%s", natsDefaultPidFilePath, natsDefaultPidFileName),
-		ClusterURL:  fmt.Sprintf("%s-nats-cluster", r.instanceName),
+		ClusterURL:  fmt.Sprintf("%s-nats-cluster", r.natsCluster.Name),
+		Jetstream:   jetStreamConfig,
 	}
 
 	passwordBytes, err := r.getNatsClusterPassword()
@@ -438,19 +431,19 @@ func (r *Reconciler) natsConfig() (*corev1.Secret, error) {
 	}
 	natsConfig.ClusterPassword = string(passwordBytes)
 
-	switch r.spec.Nats.AuthMethod {
-	case v1beta2.NatsAuthUsername:
-		if r.spec.Nats.Username == "" {
+	switch r.natsCluster.Spec.AuthMethod {
+	case opnicorev1beta1.NatsAuthPassword:
+		if r.natsCluster.Spec.Username == "" {
 			natsConfig.Username = "nats-user"
 		} else {
-			natsConfig.Username = r.spec.Nats.Username
+			natsConfig.Username = r.natsCluster.Spec.Username
 		}
 		password, err := r.getNatsUserPassword()
 		if err != nil {
 			return &corev1.Secret{}, err
 		}
 		natsConfig.Password = string(password)
-	case v1beta2.NatsAuthNkey:
+	case opnicorev1beta1.NatsAuthNkey:
 		nKeyUser, _, err := r.getNKeyUser()
 		if err != nil {
 			return &corev1.Secret{}, err
@@ -464,63 +457,73 @@ func (r *Reconciler) natsConfig() (*corev1.Secret, error) {
 	natsConfigTemplate.Execute(&buffer, natsConfig)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-nats-config", r.instanceName),
-			Namespace: r.instanceNamespace,
+			Name:      fmt.Sprintf("%s-nats-config", r.natsCluster.Name),
+			Namespace: r.natsCluster.Namespace,
 			Labels:    r.natsLabels(),
 		},
 		Data: map[string][]byte{
 			natsConfigFileName: buffer.Bytes(),
 		},
 	}
-	r.setOwner(secret)
-	return secret, nil
+	err = ctrl.SetControllerReference(r.natsCluster, secret, r.client.Scheme())
+	return secret, err
+}
+
+func (r *Reconciler) getNatsClusterPassword() ([]byte, error) {
+	return r.fetchOrGeneratePassword("cluster-password")
 }
 
 func (r *Reconciler) natsAuthSecret() (*corev1.Secret, error) {
-	switch r.spec.Nats.AuthMethod {
-	case v1beta2.NatsAuthUsername:
+	switch r.natsCluster.Spec.AuthMethod {
+	case opnicorev1beta1.NatsAuthPassword:
 		password, err := r.getNatsUserPassword()
 		if err != nil {
 			return nil, err
 		}
 		secret := r.genericAuthSecret("password", password)
-		r.setOwner(secret)
+		err = ctrl.SetControllerReference(r.natsCluster, secret, r.client.Scheme())
+		if err != nil {
+			return nil, err
+		}
 
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.natsCluster), r.natsCluster); err != nil {
 				return err
 			}
-			r.opniCluster.Status.Auth.NatsAuthSecretKeyRef = &corev1.SecretKeySelector{
+			r.natsCluster.Status.AuthSecretKeyRef = &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: secret.Name,
 				},
 				Key: "password",
 			}
-			return r.client.Status().Update(r.ctx, r.opniCluster)
+			return r.client.Status().Update(r.ctx, r.natsCluster)
 		})
 		if err != nil {
 			return nil, err
 		}
 		return secret, nil
-	case v1beta2.NatsAuthNkey:
+	case opnicorev1beta1.NatsAuthNkey:
 		_, seed, err := r.getNKeyUser()
 		if err != nil {
 			return nil, err
 		}
 		secret := r.genericAuthSecret("seed", seed)
-		r.setOwner(secret)
+		err = ctrl.SetControllerReference(r.natsCluster, secret, r.client.Scheme())
+		if err != nil {
+			return nil, err
+		}
 
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.natsCluster), r.natsCluster); err != nil {
 				return err
 			}
-			r.opniCluster.Status.Auth.NatsAuthSecretKeyRef = &corev1.SecretKeySelector{
+			r.natsCluster.Status.AuthSecretKeyRef = &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: secret.Name,
 				},
 				Key: "seed",
 			}
-			return r.client.Status().Update(r.ctx, r.opniCluster)
+			return r.client.Status().Update(r.ctx, r.natsCluster)
 		})
 		if err != nil {
 			return nil, err
@@ -528,28 +531,15 @@ func (r *Reconciler) natsAuthSecret() (*corev1.Secret, error) {
 
 		return secret, nil
 	default:
-		return &corev1.Secret{}, errors.New("nats auth method not supported")
-	}
-}
-
-func (r *Reconciler) genericAuthSecret(key string, data []byte) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-nats-client", r.instanceName),
-			Namespace: r.instanceNamespace,
-			Labels:    r.natsLabels(),
-		},
-		Data: map[string][]byte{
-			key: data,
-		},
+		return nil, errors.New("nats auth method not supported")
 	}
 }
 
 func (r *Reconciler) natsHeadlessService() *corev1.Service {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-nats-headless", r.instanceName),
-			Namespace: r.instanceNamespace,
+			Name:      fmt.Sprintf("%s-nats-headless", r.natsCluster.Name),
+			Namespace: r.natsCluster.Namespace,
 			Labels:    r.natsLabels(),
 		},
 		Spec: corev1.ServiceSpec{
@@ -570,15 +560,15 @@ func (r *Reconciler) natsHeadlessService() *corev1.Service {
 			Selector: r.natsLabels(),
 		},
 	}
-	r.setOwner(service)
+	ctrl.SetControllerReference(r.natsCluster, service, r.client.Scheme())
 	return service
 }
 
 func (r *Reconciler) natsClusterService() *corev1.Service {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-nats-cluster", r.instanceName),
-			Namespace: r.instanceNamespace,
+			Name:      fmt.Sprintf("%s-nats-cluster", r.natsCluster.Name),
+			Namespace: r.natsCluster.Namespace,
 			Labels:    r.natsLabels(),
 		},
 		Spec: corev1.ServiceSpec{
@@ -593,15 +583,15 @@ func (r *Reconciler) natsClusterService() *corev1.Service {
 			Selector: r.natsLabels(),
 		},
 	}
-	r.setOwner(service)
+	ctrl.SetControllerReference(r.natsCluster, service, r.client.Scheme())
 	return service
 }
 
 func (r *Reconciler) natsClientService() *corev1.Service {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-nats-client", r.instanceName),
-			Namespace: r.instanceNamespace,
+			Name:      fmt.Sprintf("%s-nats-client", r.natsCluster.Name),
+			Namespace: r.natsCluster.Namespace,
 			Labels:    r.natsLabels(),
 		},
 		Spec: corev1.ServiceSpec{
@@ -616,15 +606,109 @@ func (r *Reconciler) natsClientService() *corev1.Service {
 			Selector: r.natsLabels(),
 		},
 	}
-	r.setOwner(service)
+	ctrl.SetControllerReference(r.natsCluster, service, r.client.Scheme())
 	return service
 }
 
 func (r *Reconciler) getReplicas() *int32 {
-	if r.spec.Nats.Replicas == nil {
+	if r.natsCluster.Spec.Replicas == nil {
 		return lo.ToPtr[int32](3)
 	}
-	return r.spec.Nats.Replicas
+	return r.natsCluster.Spec.Replicas
+}
+
+func (r *Reconciler) genericAuthSecret(key string, data []byte) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-nats-client", r.natsCluster.Name),
+			Namespace: r.natsCluster.Namespace,
+			Labels:    r.natsLabels(),
+		},
+		Data: map[string][]byte{
+			key: data,
+		},
+	}
+}
+
+// fetchOrGeneratePassword will check if there is already a nats password stored in the cluster state secret
+// and return the value.  If there is no secret it will generate a new password, store it in the secret,
+// and then return the generated value
+func (r *Reconciler) fetchOrGeneratePassword(key string) ([]byte, error) {
+	secret := corev1.Secret{}
+	err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      fmt.Sprintf("%s-nats-secrets", r.natsCluster.Name),
+		Namespace: r.natsCluster.Namespace,
+	}, &secret)
+	if k8serrors.IsNotFound(err) {
+		password := util.GenerateRandomString(8)
+
+		err := r.updateState(key, password)
+		if err != nil {
+			return make([]byte, 0), err
+		}
+
+		return password, nil
+	} else if err != nil {
+		return make([]byte, 0), err
+	}
+	password, ok := secret.Data[key]
+	if !ok {
+		password = util.GenerateRandomString(8)
+		err := r.updateState(key, password)
+		if err != nil {
+			return make([]byte, 0), err
+		}
+	}
+	return password, nil
+}
+
+func (r *Reconciler) updateState(key string, value []byte) error {
+	secret := &corev1.Secret{}
+	err := r.client.Get(r.ctx, types.NamespacedName{
+		Name:      fmt.Sprintf("%s-nats-secrets", r.natsCluster.Name),
+		Namespace: r.natsCluster.Namespace,
+	}, secret)
+	if k8serrors.IsNotFound(err) {
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s-nats-secrets", r.natsCluster.Name),
+				Namespace: r.natsCluster.Namespace,
+			},
+			Data: map[string][]byte{
+				key: value,
+			},
+		}
+		err = ctrl.SetControllerReference(r.natsCluster, secret, r.client.Scheme())
+		if err != nil {
+			return err
+		}
+		return r.client.Create(r.ctx, secret)
+	} else if err != nil {
+		return err
+	}
+	secret.Data[key] = value
+	return r.client.Update(r.ctx, secret)
+}
+
+// getNatsUserPassword gets the password provided by PasswordFrom in the nats Spec.
+// If that doesn't exist it will check if a password has previously been generated
+// and return that.  Otherwise it will generate a new password.
+func (r *Reconciler) getNatsUserPassword() ([]byte, error) {
+	if r.natsCluster.Spec.PasswordFrom != nil {
+		secret := corev1.Secret{}
+		if err := r.client.Get(r.ctx, types.NamespacedName{
+			Name:      r.natsCluster.Spec.PasswordFrom.Name,
+			Namespace: r.natsCluster.Namespace,
+		}, &secret); err != nil {
+			return make([]byte, 0), err
+		}
+		password, ok := secret.Data[r.natsCluster.Spec.PasswordFrom.Key]
+		if !ok {
+			return make([]byte, 0), errors.New("key does not exist in secret")
+		}
+		return password, nil
+	}
+	return r.fetchOrGeneratePassword("user-password")
 }
 
 // getNKeyUser will check if there is already a nkey seed stored in a secret
@@ -637,8 +721,8 @@ func (r *Reconciler) getNKeyUser() (string, []byte, error) {
 	var publicKey string
 	secret := corev1.Secret{}
 	err = r.client.Get(r.ctx, types.NamespacedName{
-		Name:      fmt.Sprintf("%s-nats-secrets", r.instanceName),
-		Namespace: r.instanceNamespace,
+		Name:      fmt.Sprintf("%s-nats-secrets", r.natsCluster.Name),
+		Namespace: r.natsCluster.Namespace,
 	}, &secret)
 	if k8serrors.IsNotFound(err) {
 		user, err := nkeys.CreateUser()
@@ -685,11 +769,11 @@ func (r *Reconciler) getNKeyUser() (string, []byte, error) {
 
 	if publicKey != "" {
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.natsCluster), r.natsCluster); err != nil {
 				return err
 			}
-			r.opniCluster.Status.Auth.NKeyUser = publicKey
-			return r.client.Status().Update(r.ctx, r.opniCluster)
+			r.natsCluster.Status.NKeyUser = publicKey
+			return r.client.Status().Update(r.ctx, r.natsCluster)
 		})
 		if err != nil {
 			return "", make([]byte, 0), err
@@ -697,7 +781,7 @@ func (r *Reconciler) getNKeyUser() (string, []byte, error) {
 		return publicKey, seed, nil
 	}
 
-	if r.opniCluster.Status.Auth.NKeyUser == "" {
+	if r.natsCluster.Status.NKeyUser == "" {
 		user, err := nkeys.FromSeed(seed)
 		if err != nil {
 			return "", make([]byte, 0), err
@@ -705,11 +789,11 @@ func (r *Reconciler) getNKeyUser() (string, []byte, error) {
 		publicKey, err = user.PublicKey()
 		if err == nil {
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.natsCluster), r.natsCluster); err != nil {
 					return err
 				}
-				r.opniCluster.Status.Auth.NKeyUser = publicKey
-				return r.client.Status().Update(r.ctx, r.opniCluster)
+				r.natsCluster.Status.NKeyUser = publicKey
+				return r.client.Status().Update(r.ctx, r.natsCluster)
 			})
 			if err != nil {
 				return "", make([]byte, 0), err
@@ -718,87 +802,43 @@ func (r *Reconciler) getNKeyUser() (string, []byte, error) {
 		return publicKey, seed, err
 	}
 
-	return r.opniCluster.Status.Auth.NKeyUser, seed, nil
+	return r.natsCluster.Status.NKeyUser, seed, nil
 }
 
-func (r *Reconciler) getNatsClusterPassword() ([]byte, error) {
-	return r.fetchOrGeneratePassword("cluster-password")
-}
-
-// getNatsUserPassword gets the password provided by PasswordFrom in the nats Spec.
-// If that doesn't exist it will check if a password has previously been generated
-// and return that.  Otherwise it will generate a new password.
-func (r *Reconciler) getNatsUserPassword() ([]byte, error) {
-	if r.spec.Nats.PasswordFrom != nil {
-		secret := corev1.Secret{}
-		if err := r.client.Get(r.ctx, types.NamespacedName{
-			Name:      r.spec.Nats.PasswordFrom.Name,
-			Namespace: r.instanceNamespace,
-		}, &secret); err != nil {
-			return make([]byte, 0), err
-		}
-		password, ok := secret.Data[r.spec.Nats.PasswordFrom.Key]
-		if !ok {
-			return make([]byte, 0), errors.New("key does not exist in secret")
-		}
-		return password, nil
+func (r *Reconciler) natsLabels() map[string]string {
+	return map[string]string{
+		resources.AppNameLabel:    "nats",
+		resources.OpniClusterName: r.natsCluster.Name,
 	}
-	return r.fetchOrGeneratePassword("user-password")
 }
 
-// fetchOrGeneratePassword will check if there is already a nats password stored in the cluster state secret
-// and return the value.  If there is no secret it will generate a new password, store it in the secret,
-// and then return the generated value
-func (r *Reconciler) fetchOrGeneratePassword(key string) ([]byte, error) {
-	secret := corev1.Secret{}
-	err := r.client.Get(r.ctx, types.NamespacedName{
-		Name:      fmt.Sprintf("%s-nats-secrets", r.instanceName),
-		Namespace: r.instanceNamespace,
-	}, &secret)
-	if k8serrors.IsNotFound(err) {
-		password := util.GenerateRandomString(8)
-
-		err := r.updateState(key, password)
-		if err != nil {
-			return make([]byte, 0), err
-		}
-
-		return password, nil
-	} else if err != nil {
-		return make([]byte, 0), err
+func (r *Reconciler) dataStorage() (*corev1.Volume, *corev1.PersistentVolumeClaim) {
+	if r.natsCluster.Spec.JetStream.FileStorage.JetStreamPersistenceSpec.EmptyDir != nil {
+		return &corev1.Volume{
+			Name: "data",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: r.natsCluster.Spec.JetStream.FileStorage.JetStreamPersistenceSpec.EmptyDir,
+			},
+		}, nil
 	}
-	password, ok := secret.Data[key]
-	if !ok {
-		password = util.GenerateRandomString(8)
-		err := r.updateState(key, password)
-		if err != nil {
-			return make([]byte, 0), err
-		}
-	}
-	return password, nil
-}
-
-func (r *Reconciler) updateState(key string, value []byte) error {
-	secret := &corev1.Secret{}
-	err := r.client.Get(r.ctx, types.NamespacedName{
-		Name:      fmt.Sprintf("%s-nats-secrets", r.instanceName),
-		Namespace: r.instanceNamespace,
-	}, secret)
-	if k8serrors.IsNotFound(err) {
-		secret = &corev1.Secret{
+	if r.natsCluster.Spec.JetStream.FileStorage.JetStreamPersistenceSpec.PVC != nil {
+		pvc := r.natsCluster.Spec.JetStream.FileStorage.JetStreamPersistenceSpec.PVC
+		return nil, &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-nats-secrets", r.instanceName),
-				Namespace: r.instanceNamespace,
+				Name: "data",
 			},
-			Data: map[string][]byte{
-				key: value,
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: pvc.AccessModes,
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: r.natsCluster.Spec.JetStream.FileStorage.Size,
+					},
+				},
+				StorageClassName: &pvc.StorageClassName,
+				VolumeMode:       lo.ToPtr(corev1.PersistentVolumeFilesystem),
 			},
 		}
-		r.setOwner(secret)
-		return r.client.Create(r.ctx, secret)
-	} else if err != nil {
-		return err
 	}
-	secret.Data[key] = value
-	return r.client.Update(r.ctx, secret)
+
+	return nil, nil
 }

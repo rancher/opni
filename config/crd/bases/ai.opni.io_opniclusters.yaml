@@ -58,6 +58,11 @@ spec:
                       type: string
                   type: object
                 type: array
+              natsCluster:
+                properties:
+                  name:
+                    type: string
+                type: object
               nulogHyperparameters:
                 additionalProperties:
                   anyOf:

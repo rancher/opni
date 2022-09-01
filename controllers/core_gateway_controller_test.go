@@ -18,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), func() {
+var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow"), func() {
 	When("creating a Gateway resource", func() {
 		var gw *corev1beta1.Gateway
 		It("should succeed", func() {

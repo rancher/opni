@@ -521,7 +521,10 @@ func (r *Reconciler) genericEnvAndVolumes() (
 		}
 	}
 	if r.aiOpniCluster != nil {
-		// TODO: implement nats auth env vars and volumes here
+		newEnvVars, newVolumeMounts, newVolumes := r.externalNats()
+		envVars = append(envVars, newEnvVars...)
+		volumes = append(volumes, newVolumes...)
+		volumeMounts = append(volumeMounts, newVolumeMounts...)
 	}
 	envVars = append(envVars, corev1.EnvVar{
 		Name: "ES_ENDPOINT",

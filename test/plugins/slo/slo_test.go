@@ -126,7 +126,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var pPort int
 	var pPort2 int
 	var instrumentationPort int
-	var done chan bool
+	var done chan struct{}
 
 	var createdSlos []*corev1.Reference
 
@@ -146,7 +146,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Expect(err).NotTo(HaveOccurred())
 		instrumentationPort, done = env.StartInstrumentationServer(ctx)
 		DeferCleanup(func() {
-			done <- true
+			done <- struct{}{}
 		})
 		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		pPort = env.StartPrometheus(p, test.NewOverridePrometheusConfig(

@@ -25380,8 +25380,23 @@ spec:
             properties:
               cortex:
                 properties:
+                  conditions:
+                    items:
+                      type: string
+                    type: array
                   version:
                     type: string
+                  workloadStatus:
+                    additionalProperties:
+                      properties:
+                        conditions:
+                          type: string
+                        ready:
+                          type: boolean
+                      type: object
+                    type: object
+                  workloadsReady:
+                    type: boolean
                 type: object
               image:
                 type: string

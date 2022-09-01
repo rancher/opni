@@ -2,7 +2,6 @@ package alerting_test
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,8 +11,6 @@ import (
 
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
-
 	"github.com/rancher/opni/pkg/test"
 )
 
@@ -26,11 +23,12 @@ var _ = Describe("Alert Logging integration tests", Ordered, Label(test.Unit, te
 	//var existingLogCount int
 	// purge data from other tests
 	BeforeEach(func() {
-		alerting.AlertPath = "../../../dev/alerttestdata/logs"
-		err := os.RemoveAll(alerting.AlertPath)
-		Expect(err).To(BeNil())
-		err = os.MkdirAll(alerting.AlertPath, 0777)
-		Expect(err).To(BeNil())
+		//FIXME
+		//alerting.AlertPath = "../../../dev/alerttestdata/logs"
+		//err := os.RemoveAll(alerting.AlertPath)
+		//Expect(err).To(BeNil())
+		//err = os.MkdirAll(alerting.AlertPath, 0777)
+		//Expect(err).To(BeNil())
 	})
 
 	When("The logging API is given invalid input, it should be robust", func() {

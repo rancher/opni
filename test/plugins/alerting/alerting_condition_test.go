@@ -29,6 +29,7 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 	ctx := context.Background()
 	When("The alerting condition API is passed invalid input it should be robust", func() {
 		Specify("Create Alert Condition API should be robust to invalid input", func() {
+			fmt.Println("Alert condition tests starting")
 			toTestCreateCondition := []InvalidInputs{
 				{
 					req: &alertingv1alpha.AlertCondition{},

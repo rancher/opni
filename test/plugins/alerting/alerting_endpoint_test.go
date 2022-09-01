@@ -175,7 +175,6 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 				existing, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 				Expect(err).To(Succeed())
 				Expect(existing.Items).To(HaveLen(num + 1))
-
 			}
 		})
 
@@ -310,13 +309,14 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Id: idsToCreate["email"],
 					},
 					Implementation: &alertingv1alpha.EndpointImplementation{
-						Title: "",
+						Title: "asasas",
 						Body:  emailContent,
 					},
 				},
 			)
 			Expect(err).To(Succeed())
-			Expect(curConfig().Receivers).To(HaveLen(3))
+			configMap := curConfig().Receivers
+			Expect(configMap).To(HaveLen(3))
 		})
 
 		It("Should be able to update endpoint implementations", func() {

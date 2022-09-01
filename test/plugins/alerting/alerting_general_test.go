@@ -81,7 +81,8 @@ var _ = Describe("Alerting Backend", Ordered, Label(test.Unit, test.Slow), func(
 	ctx := context.Background()
 	// test environment references
 	When("The alerting plugin starts with a mocked runtime backend", func() {
-		Specify("The mocked runtime backend should be able to start and stop", func() {
+		fmt.Println("Starting alerting general test")
+		XSpecify("The mocked runtime backend should be able to start and stop", func() {
 			ctxca, ca := context.WithCancel(ctx)
 			webPort := env.StartAlertManager(ctxca, alerting.LocalAlertManagerPath)
 			webClient := &alerting.AlertManagerAPI{
@@ -118,7 +119,7 @@ var _ = Describe("Alerting Backend", Ordered, Label(test.Unit, test.Slow), func(
 			}, time.Second*10, time.Second).Should(Succeed())
 		})
 
-		Specify("We should be able to hot reload the mocked backend", func() {
+		XSpecify("We should be able to hot reload the mocked backend", func() {
 			curPort, curCancel := ManualReloadEndpointBackend(0, nil, ctx, alerting.LocalAlertManagerPath)
 			newPort, newCancel := ManualReloadEndpointBackend(curPort, curCancel, ctx, alerting.LocalAlertManagerPath)
 			Expect(newPort).NotTo(Equal(0))

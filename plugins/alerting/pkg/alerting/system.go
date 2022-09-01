@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"fmt"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
@@ -45,6 +46,9 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			StatefulSet:       config.Spec.Alerting.StatefulSetName,
 			CortexHookHandler: config.Spec.Alerting.ManagementHookHandlerName,
 		}
+		if os.Getenv(LocalBackendEnvToggle) != "" {
+			opt.Endpoints = []string{fmt.Sprintf("http://localhost:%d", p.endpointBackend.Get().Port())}
+		}
 		p.alertingOptions.Set(opt)
 	})
 	<-p.ctx.Done()
@@ -58,9 +62,15 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		p.inMemCache, _ = lru.New(AlertingLogCacheSize / 2)
 	}
 	if os.Getenv(LocalBackendEnvToggle) != "" {
-		p.endpointBackend.Set(&LocalEndpointBackend{
+		b := &LocalEndpointBackend{
 			configFilePath: LocalAlertManagerPath,
-		})
+			p:              p,
+		}
+		b.Start()
+		p.endpointBackend.Set(b)
+		options := p.alertingOptions.Get()
+		options.Endpoints = []string{fmt.Sprintf("http://localhost:%d", b.Port())}
+		p.alertingOptions.Set(options)
 	} else {
 		p.endpointBackend.Set(&K8sEndpointBackend{})
 	}

@@ -30,11 +30,7 @@ func configFromBackend(backend RuntimeEndpointBackend, ctx context.Context, p *P
 }
 
 func applyConfigToBackend(backend RuntimeEndpointBackend, ctx context.Context, p *Plugin, config *ConfigMapData) error {
-	newRawConfig, err := config.Marshal()
-	if err != nil {
-		return err
-	}
-	err = backend.Put(ctx, p, "alertmanager.yaml", string(newRawConfig))
+	err := backend.Put(ctx, p, "alertmanager.yaml", config)
 	if err != nil {
 		return err
 	}
@@ -241,35 +237,35 @@ func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.R
 // opni-alerting's receivers.
 // It interacts with opni-alerting's receivers by calling this webhook
 //
-//
 // Data passed into this function is in the form :
-//The Alertmanager will send HTTP POST requests in the following JSON format to the configured endpoint:
-//```json
-//{
-//	"version": "4",
-//	"groupKey": <string>,              // key identifying the group of alerts (e.g. to deduplicate)
-//	"truncatedAlerts": <int>,          // how many alerts have been truncated due to "max_alerts"
-//	"status": "<resolved|firing>",
-//	"receiver": <string>,
-//	"groupLabels": <object>,
-//	"commonLabels": <object>,
-//	"commonAnnotations": <object>,
-//	"externalURL": <string>,           // backlink to the Alertmanager.
-//	"alerts": [
-//	{
-//	"status": "<resolved|firing>",
-//	"labels": <object>,
-//	"annotations": <object>,
-//	"startsAt": "<rfc3339>",
-//	"endsAt": "<rfc3339>",
-//	"generatorURL": <string>,      // identifies the entity that caused the alert
-//	"fingerprint": <string>        // fingerprint to identify the alert
-//	},
-//...
-//]
-//}
-//````
+// The Alertmanager will send HTTP POST requests in the following JSON format to the configured endpoint:
+// ```json
 //
+//	{
+//		"version": "4",
+//		"groupKey": <string>,              // key identifying the group of alerts (e.g. to deduplicate)
+//		"truncatedAlerts": <int>,          // how many alerts have been truncated due to "max_alerts"
+//		"status": "<resolved|firing>",
+//		"receiver": <string>,
+//		"groupLabels": <object>,
+//		"commonLabels": <object>,
+//		"commonAnnotations": <object>,
+//		"externalURL": <string>,           // backlink to the Alertmanager.
+//		"alerts": [
+//		{
+//		"status": "<resolved|firing>",
+//		"labels": <object>,
+//		"annotations": <object>,
+//		"startsAt": "<rfc3339>",
+//		"endsAt": "<rfc3339>",
+//		"generatorURL": <string>,      // identifies the entity that caused the alert
+//		"fingerprint": <string>        // fingerprint to identify the alert
+//		},
+//
+// ...
+// ]
+// }
+// ````
 func (p *Plugin) HandleCortexWebhook(ctx context.Context, s *structpb.Struct) (*emptypb.Empty, error) {
 	//TODO implement me
 

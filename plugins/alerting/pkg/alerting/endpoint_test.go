@@ -2,12 +2,15 @@ package alerting_test
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/logger"
 	"strings"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/alertmanager/config"
 	cfg "github.com/prometheus/alertmanager/config"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	"github.com/rancher/opni/pkg/test"
@@ -268,6 +271,49 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			Expect(url.Construct()).To(Equal("localhost:9093/api/v2/alerts"))
 			url.WithHttpV1()
 			Expect(url.Construct()).To(Equal("localhost:9093/api/v1/alerts"))
+		})
+	})
+
+	When("We modify AlertManager global settings", func() {
+		It("should be able to set/unset SMTP host settings", func() {
+			cfg, err := defaultConfig()
+			Expect(err).To(BeNil())
+			cfg.SetDefaultSMTPServer()
+			Expect(cfg.Global.SMTPHello).To(Equal(alerting.DefaultSMTPServerHost))
+			Expect(cfg.Global.SMTPSmarthost).To(Equal(config.HostPort{Port: fmt.Sprintf("%d", alerting.DefaultSMTPServerPort)}))
+
+			cfg.UnsetSMTPServer()
+			Expect(cfg.Global.SMTPHello).To(Equal(""))
+			Expect(cfg.Global.SMTPSmarthost).To(Equal(config.HostPort{}))
+		})
+
+		It("Should be able to reconcile errors concerning SMTP not set", func() {
+			cfg, err := defaultConfig()
+			Expect(err).To(BeNil())
+			fromAddr := "bot@google.com"
+			emailEndpoint := alertingv1alpha.EmailEndpoint{
+				To:   "alexandre.lamarre@suse.com",
+				From: &fromAddr,
+			}
+			emailId1 := uuid.New().String()
+			emailRecv, err := alerting.NewEmailReceiver(emailId1, &emailEndpoint)
+			cfg.AppendReceiver(emailRecv)
+			raw, err := cfg.Marshal()
+			Expect(err).To(BeNil())
+			reconcileErr := alerting.ValidateIncomingConfig(string(raw), logger.NewPluginLogger().Named("alerting"))
+			Expect(reconcileErr).To(HaveOccurred())
+			expectedError := alerting.NoSmartHostSet
+			Expect(reconcileErr.Error()).To(Equal(expectedError))
+			err = alerting.ReconcileInvalidState(cfg, reconcileErr)
+			Expect(err).To(Succeed())
+			Expect(cfg.Global.SMTPHello).To(Equal(alerting.DefaultSMTPServerHost))
+			Expect(cfg.Global.SMTPSmarthost).To(Equal(
+				config.HostPort{Port: fmt.Sprintf("%d",
+					alerting.DefaultSMTPServerPort)}))
+		})
+
+		It("Should apply a reconciler loop successfully to an STMP host not set", func() {
+			//TODO
 		})
 	})
 })

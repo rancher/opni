@@ -106,7 +106,15 @@ type MonitoringClusterStatus struct {
 }
 
 type CortexStatus struct {
-	Version string `json:"version,omitempty"`
+	Version        string                    `json:"version,omitempty"`
+	Ready          bool                      `json:"workloadsReady,omitempty"`
+	Conditions     []string                  `json:"conditions,omitempty"`
+	WorkloadStatus map[string]WorkloadStatus `json:"workloadStatus,omitempty"`
+}
+
+type WorkloadStatus struct {
+	Ready   bool   `json:"ready,omitempty"`
+	Message string `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

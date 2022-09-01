@@ -14,8 +14,9 @@ import (
 
 func BuildRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:  "opni",
-		Long: logger.AsciiLogo(),
+		Use:          "opni",
+		Long:         logger.AsciiLogo(),
+		SilenceUsage: true,
 	}
 	rootCmd.AddCommand(commands.BuildAccessMatrixCmd())
 	rootCmd.AddCommand(commands.BuildAdminCmd())

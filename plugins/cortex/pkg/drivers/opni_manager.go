@@ -4,11 +4,16 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/gogo/status"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
+	"github.com/samber/lo"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -121,6 +126,17 @@ func (k *OpniManager) ConfigureInstall(ctx context.Context, conf *cortexops.Inst
 			}
 			clone := existing.DeepCopy()
 			mutator(clone)
+			cmp, err := patch.DefaultPatchMaker.Calculate(existing, clone,
+				patch.IgnoreStatusFields(),
+				patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),
+				patch.IgnorePDBSelector(),
+			)
+			if err == nil {
+				if cmp.IsEmpty() {
+					return status.Error(codes.FailedPrecondition, "no changes to apply")
+				}
+			}
+
 			return k.k8sClient.Update(ctx, clone)
 		})
 		if err != nil {
@@ -140,6 +156,7 @@ func (k *OpniManager) ConfigureInstall(ctx context.Context, conf *cortexops.Inst
 func (k *OpniManager) GetInstallStatus(ctx context.Context, _ *emptypb.Empty) (*cortexops.InstallStatus, error) {
 	cluster := &v1beta2.MonitoringCluster{}
 	err := k.k8sClient.Get(ctx, k.monitoringCluster, cluster)
+	metadata := map[string]string{}
 	var state cortexops.InstallState
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -151,16 +168,21 @@ func (k *OpniManager) GetInstallStatus(ctx context.Context, _ *emptypb.Empty) (*
 		if cluster.DeletionTimestamp != nil {
 			state = cortexops.InstallState_Uninstalling
 		} else {
-			state = cortexops.InstallState_Installed
+			if cluster.Status.Cortex.Ready {
+				state = cortexops.InstallState_Installed
+			} else {
+				state = cortexops.InstallState_Updating
+				metadata["Conditions"] = strings.Join(cluster.Status.Cortex.Conditions, "; ")
+			}
 		}
 	}
 
 	return &cortexops.InstallStatus{
 		State:   state,
 		Version: cluster.Status.Cortex.Version,
-		Metadata: map[string]string{
+		Metadata: lo.Assign(metadata, map[string]string{
 			"Driver": k.Name(),
-		},
+		}),
 	}, nil
 }
 

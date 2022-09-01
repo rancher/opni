@@ -37,6 +37,12 @@ func cortexWorkloadLabels(target string) map[string]string {
 	}
 }
 
+func workloadComponent(o metav1.Object) (value string, ok bool) {
+	l := o.GetLabels()
+	value, ok = l["app.kubernetes.io/component"]
+	return
+}
+
 type CortexWorkloadOptions struct {
 	replicas           int32
 	ports              []Port

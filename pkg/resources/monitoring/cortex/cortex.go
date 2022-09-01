@@ -92,6 +92,12 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 	if op := resources.ReconcileAll(r, allResources); op.ShouldRequeue() {
 		return op.ResultPtr()
 	}
+
+	// watch cortex components until they are healthy
+	if op := r.pollCortexHealth(append(deployments, statefulSets...)); op.ShouldRequeue() {
+		return op.ResultPtr()
+	}
+
 	return nil, nil
 }
 

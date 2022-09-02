@@ -13,6 +13,7 @@ import (
 	revision:       string
 	buildImage:     string
 	pullBuildImage: bool
+	keepSourceMaps: bool | *false
 
 	build: _
 	if pullBuildImage {
@@ -77,6 +78,17 @@ import (
 					command: {
 						name: "node_modules/.bin/nuxt"
 						args: ["generate", "-c", "product/opni/nuxt.config.js"]
+					}
+				},
+				docker.#Run & {
+					if !keepSourceMaps {
+						command: {
+							name: "find"
+							args: ["/app/dist", "-type", "f", "-name", "*.map", "-delete"]
+						}
+					}
+					if keepSourceMaps {
+						command: name: "/bin/true"
 					}
 				},
 				docker.#Run & {

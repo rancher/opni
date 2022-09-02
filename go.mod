@@ -20,6 +20,7 @@ require (
 	github.com/cert-manager/cert-manager v1.8.0
 	github.com/charmbracelet/bubbles v0.13.0
 	github.com/charmbracelet/bubbletea v0.22.1
+	github.com/charmbracelet/lipgloss v0.5.0
 	github.com/cortexproject/cortex v1.13.0
 	github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2
 	github.com/gin-contrib/pprof v1.4.0
@@ -179,7 +180,6 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
-	github.com/charmbracelet/lipgloss v0.5.0 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
 	github.com/cockroachdb/apd/v2 v2.0.1 // indirect
 	github.com/containerd/console v1.0.3 // indirect

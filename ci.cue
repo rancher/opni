@@ -42,6 +42,7 @@ dagger.#Plan & {
 			AWS_SECRET_ACCESS_KEY?: dagger.#Secret
 			TWINE_USERNAME:         string | *"__token__"
 			TWINE_PASSWORD?:        dagger.#Secret
+			WEB_DEBUG:              string | *"false"
 		}
 		filesystem: {
 			".": read: {
@@ -90,6 +91,7 @@ dagger.#Plan & {
 			repo:           client.env.OPNI_UI_REPO
 			branch:         client.env.OPNI_UI_BRANCH
 			pullBuildImage: _buildCacheImageExists.output == [] | *false
+			keepSourceMaps: client.env.WEB_DEBUG == "true"
 		}
 
 		_mageImage: mage.#Image

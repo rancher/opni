@@ -3,6 +3,10 @@ package plugins_test
 import (
 	"context"
 	"fmt"
+	"math"
+	"net/http"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -10,13 +14,10 @@ import (
 	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"math"
-	"net/http"
-	"time"
 )
 
 func canReachInstrumentationMetrics(instrumentationServerPort int) bool {

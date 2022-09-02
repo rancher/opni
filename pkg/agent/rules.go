@@ -10,7 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/rules"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/notifier"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/remotewrite"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )

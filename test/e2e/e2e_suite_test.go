@@ -15,7 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"

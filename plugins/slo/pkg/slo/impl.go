@@ -3,21 +3,22 @@ package slo
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"sync"
+	"time"
+
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/tidwall/gjson"
 	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"strconv"
-	"sync"
-	"time"
 )
 
 func (s *SLOMonitoring) WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore {

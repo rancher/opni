@@ -12,8 +12,8 @@ import (
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
-	"github.com/rancher/opni/plugins/cortex/pkg/cortex"
 	"github.com/rancher/opni/plugins/example/pkg/example"
+	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"google.golang.org/grpc"
 )

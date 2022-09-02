@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
-	apis "github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	apis "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"

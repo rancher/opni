@@ -1,7 +1,7 @@
 package plugins_test
 
 import (
-	cortexadmin "github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	cortexadmin "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"

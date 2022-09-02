@@ -3,9 +3,10 @@ package unmarshal
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+
 	"github.com/prometheus/common/model"
 	"go.uber.org/zap"
-	"net/http"
 )
 
 // Struct for unmarshalling from github.com/prometheus/common/model
@@ -148,14 +149,4 @@ func UnmarshallPrometheusWebResponse(resp *http.Response, lg *zap.SugaredLogger)
 		return nil, fmt.Errorf("well formed prometheus request failed internally with: %s", val.Error)
 	}
 	return val, nil
-}
-
-func (q *queryResult) GetVector() (*model.Vector, error) {
-	switch q.V.Type() {
-	case model.ValVector:
-		v := q.V.(model.Vector)
-		return &v, nil
-	default:
-		return nil, fmt.Errorf("cannot unmarshal prometheus response into vector type")
-	}
 }

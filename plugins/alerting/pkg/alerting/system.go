@@ -3,11 +3,12 @@ package alerting
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	"os"
-	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	alertapi "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
@@ -46,7 +47,7 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 			StatefulSet:       config.Spec.Alerting.StatefulSetName,
 			CortexHookHandler: config.Spec.Alerting.ManagementHookHandlerName,
 		}
-		if os.Getenv(LocalBackendEnvToggle) != "" {
+		if os.Getenv(shared.LocalBackendEnvToggle) != "" {
 			opt.Endpoints = []string{fmt.Sprintf("http://localhost:%d", p.endpointBackend.Get().Port())}
 		}
 		p.alertingOptions.Set(opt)
@@ -61,16 +62,24 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	if err != nil {
 		p.inMemCache, _ = lru.New(AlertingLogCacheSize / 2)
 	}
-	if os.Getenv(LocalBackendEnvToggle) != "" {
+	if os.Getenv(shared.LocalBackendEnvToggle) != "" {
 		b := &LocalEndpointBackend{
-			configFilePath: LocalAlertManagerPath,
+			configFilePath: shared.LocalAlertManagerPath,
 			p:              p,
 		}
-		b.Start()
-		p.endpointBackend.Set(b)
-		options := p.alertingOptions.Get()
-		options.Endpoints = []string{fmt.Sprintf("http://localhost:%d", b.Port())}
-		p.alertingOptions.Set(options)
+		go func() {
+			// FIXME: management url is not correct
+			err := shared.BackendDefaultFile("http://localhost:5001")
+			if err != nil {
+				panic(err)
+			}
+			b.Start()
+			p.endpointBackend.Set(b)
+			options := p.alertingOptions.Get()
+			options.Endpoints = []string{fmt.Sprintf("http://localhost:%d", b.Port())}
+			p.alertingOptions = future.New[AlertingOptions]()
+			p.alertingOptions.Set(options)
+		}()
 	} else {
 		p.endpointBackend.Set(&K8sEndpointBackend{})
 	}
@@ -85,6 +94,7 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	go func() {
 		for {
+			breakOut := false
 			cc, err := intf.GetClientConn(p.ctx, "CortexAdmin")
 			if err != nil {
 				p.adminClient = future.New[cortexadmin.CortexAdminClient]()
@@ -96,9 +106,12 @@ func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 			}
 			select {
 			case <-p.ctx.Done():
-				break
+				breakOut = true
 			default:
 				continue
+			}
+			if breakOut {
+				break
 			}
 			time.Sleep(ApiExtensionBackoff)
 		}

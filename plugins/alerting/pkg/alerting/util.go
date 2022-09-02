@@ -1,10 +1,12 @@
 package alerting
 
 import (
+	"context"
+	"time"
+
 	prommodel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/rancher/opni/pkg/alerting/metrics"
-	"time"
 )
 
 const alertingSuffix = "opni-alering"
@@ -41,4 +43,8 @@ func NewCortexAlertingRule(alertId string, interval *time.Duration, rule metrics
 		Interval: promInterval,
 		Rules:    []rulefmt.Rule{*actualRuleFmt},
 	}, nil
+}
+
+func setPluginHandlerTimeout(ctx context.Context, dur time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, dur)
 }

@@ -261,7 +261,7 @@ func RenderMetricSamples(samples []*model.Sample) string {
 	return w.Render()
 }
 
-func RenderCortexClusterStatus(status *cortexadmin.ClusterStatus) string {
+func RenderCortexClusterStatus(status *cortexadmin.CortexStatus) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
 	w.SetIndexColumn(1)

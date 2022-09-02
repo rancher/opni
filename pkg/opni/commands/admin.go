@@ -175,7 +175,7 @@ func BuildClusterStatusCmd() *cobra.Command {
 		Use:   "cluster-status",
 		Short: "Show status of all cortex components",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			status, err := adminClient.GetClusterStatus(cmd.Context(), &emptypb.Empty{})
+			status, err := adminClient.GetCortexStatus(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
@@ -198,7 +198,7 @@ Modes:
 "defaults" - show only the default values
 `[1:],
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := adminClient.GetClusterConfig(cmd.Context(), &cortexadmin.ConfigRequest{
+			resp, err := adminClient.GetCortexConfig(cmd.Context(), &cortexadmin.ConfigRequest{
 				ConfigModes: []string{mode},
 			})
 			if err != nil {

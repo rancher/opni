@@ -23,8 +23,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CortexOpsClient interface {
-	ConfigureInstall(ctx context.Context, in *InstallConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetInstallStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
+	ConfigureCluster(ctx context.Context, in *ClusterConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
 	UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -36,18 +36,18 @@ func NewCortexOpsClient(cc grpc.ClientConnInterface) CortexOpsClient {
 	return &cortexOpsClient{cc}
 }
 
-func (c *cortexOpsClient) ConfigureInstall(ctx context.Context, in *InstallConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *cortexOpsClient) ConfigureCluster(ctx context.Context, in *ClusterConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/cortexops.CortexOps/ConfigureInstall", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/cortexops.CortexOps/ConfigureCluster", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cortexOpsClient) GetInstallStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error) {
+func (c *cortexOpsClient) GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error) {
 	out := new(InstallStatus)
-	err := c.cc.Invoke(ctx, "/cortexops.CortexOps/GetInstallStatus", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/cortexops.CortexOps/GetClusterStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +67,8 @@ func (c *cortexOpsClient) UninstallCluster(ctx context.Context, in *emptypb.Empt
 // All implementations must embed UnimplementedCortexOpsServer
 // for forward compatibility
 type CortexOpsServer interface {
-	ConfigureInstall(context.Context, *InstallConfiguration) (*emptypb.Empty, error)
-	GetInstallStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
+	ConfigureCluster(context.Context, *ClusterConfiguration) (*emptypb.Empty, error)
+	GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
 	UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedCortexOpsServer()
 }
@@ -77,11 +77,11 @@ type CortexOpsServer interface {
 type UnimplementedCortexOpsServer struct {
 }
 
-func (UnimplementedCortexOpsServer) ConfigureInstall(context.Context, *InstallConfiguration) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ConfigureInstall not implemented")
+func (UnimplementedCortexOpsServer) ConfigureCluster(context.Context, *ClusterConfiguration) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigureCluster not implemented")
 }
-func (UnimplementedCortexOpsServer) GetInstallStatus(context.Context, *emptypb.Empty) (*InstallStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetInstallStatus not implemented")
+func (UnimplementedCortexOpsServer) GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClusterStatus not implemented")
 }
 func (UnimplementedCortexOpsServer) UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UninstallCluster not implemented")
@@ -99,38 +99,38 @@ func RegisterCortexOpsServer(s grpc.ServiceRegistrar, srv CortexOpsServer) {
 	s.RegisterService(&CortexOps_ServiceDesc, srv)
 }
 
-func _CortexOps_ConfigureInstall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InstallConfiguration)
+func _CortexOps_ConfigureCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClusterConfiguration)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CortexOpsServer).ConfigureInstall(ctx, in)
+		return srv.(CortexOpsServer).ConfigureCluster(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cortexops.CortexOps/ConfigureInstall",
+		FullMethod: "/cortexops.CortexOps/ConfigureCluster",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).ConfigureInstall(ctx, req.(*InstallConfiguration))
+		return srv.(CortexOpsServer).ConfigureCluster(ctx, req.(*ClusterConfiguration))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CortexOps_GetInstallStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CortexOps_GetClusterStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CortexOpsServer).GetInstallStatus(ctx, in)
+		return srv.(CortexOpsServer).GetClusterStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cortexops.CortexOps/GetInstallStatus",
+		FullMethod: "/cortexops.CortexOps/GetClusterStatus",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexOpsServer).GetInstallStatus(ctx, req.(*emptypb.Empty))
+		return srv.(CortexOpsServer).GetClusterStatus(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -161,16 +161,174 @@ var CortexOps_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*CortexOpsServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ConfigureInstall",
-			Handler:    _CortexOps_ConfigureInstall_Handler,
+			MethodName: "ConfigureCluster",
+			Handler:    _CortexOps_ConfigureCluster_Handler,
 		},
 		{
-			MethodName: "GetInstallStatus",
-			Handler:    _CortexOps_GetInstallStatus_Handler,
+			MethodName: "GetClusterStatus",
+			Handler:    _CortexOps_GetClusterStatus_Handler,
 		},
 		{
 			MethodName: "UninstallCluster",
 			Handler:    _CortexOps_UninstallCluster_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops/cortexops.proto",
+}
+
+// AgentOpsClient is the client API for AgentOps service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AgentOpsClient interface {
+	ConfigureAgent(ctx context.Context, in *AgentConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetAgentStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
+	UninstallAgent(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type agentOpsClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAgentOpsClient(cc grpc.ClientConnInterface) AgentOpsClient {
+	return &agentOpsClient{cc}
+}
+
+func (c *agentOpsClient) ConfigureAgent(ctx context.Context, in *AgentConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/cortexops.AgentOps/ConfigureAgent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentOpsClient) GetAgentStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error) {
+	out := new(InstallStatus)
+	err := c.cc.Invoke(ctx, "/cortexops.AgentOps/GetAgentStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentOpsClient) UninstallAgent(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/cortexops.AgentOps/UninstallAgent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AgentOpsServer is the server API for AgentOps service.
+// All implementations must embed UnimplementedAgentOpsServer
+// for forward compatibility
+type AgentOpsServer interface {
+	ConfigureAgent(context.Context, *AgentConfiguration) (*emptypb.Empty, error)
+	GetAgentStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
+	UninstallAgent(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	mustEmbedUnimplementedAgentOpsServer()
+}
+
+// UnimplementedAgentOpsServer must be embedded to have forward compatible implementations.
+type UnimplementedAgentOpsServer struct {
+}
+
+func (UnimplementedAgentOpsServer) ConfigureAgent(context.Context, *AgentConfiguration) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigureAgent not implemented")
+}
+func (UnimplementedAgentOpsServer) GetAgentStatus(context.Context, *emptypb.Empty) (*InstallStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAgentStatus not implemented")
+}
+func (UnimplementedAgentOpsServer) UninstallAgent(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UninstallAgent not implemented")
+}
+func (UnimplementedAgentOpsServer) mustEmbedUnimplementedAgentOpsServer() {}
+
+// UnsafeAgentOpsServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AgentOpsServer will
+// result in compilation errors.
+type UnsafeAgentOpsServer interface {
+	mustEmbedUnimplementedAgentOpsServer()
+}
+
+func RegisterAgentOpsServer(s grpc.ServiceRegistrar, srv AgentOpsServer) {
+	s.RegisterService(&AgentOps_ServiceDesc, srv)
+}
+
+func _AgentOps_ConfigureAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AgentConfiguration)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentOpsServer).ConfigureAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexops.AgentOps/ConfigureAgent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentOpsServer).ConfigureAgent(ctx, req.(*AgentConfiguration))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentOps_GetAgentStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentOpsServer).GetAgentStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexops.AgentOps/GetAgentStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentOpsServer).GetAgentStatus(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentOps_UninstallAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentOpsServer).UninstallAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexops.AgentOps/UninstallAgent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentOpsServer).UninstallAgent(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AgentOps_ServiceDesc is the grpc.ServiceDesc for AgentOps service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AgentOps_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "cortexops.AgentOps",
+	HandlerType: (*AgentOpsServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ConfigureAgent",
+			Handler:    _AgentOps_ConfigureAgent_Handler,
+		},
+		{
+			MethodName: "GetAgentStatus",
+			Handler:    _AgentOps_GetAgentStatus_Handler,
+		},
+		{
+			MethodName: "UninstallAgent",
+			Handler:    _AgentOps_UninstallAgent_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

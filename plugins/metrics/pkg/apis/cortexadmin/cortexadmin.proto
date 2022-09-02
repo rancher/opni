@@ -80,13 +80,13 @@ service CortexAdmin {
     };
   }
 
-  rpc GetClusterStatus(google.protobuf.Empty) returns (ClusterStatus) {
+  rpc GetCortexStatus(google.protobuf.Empty) returns (CortexStatus) {
     option (google.api.http) = {
       get: "/status"
     };
   }
   
-  rpc GetClusterConfig(ConfigRequest) returns (ConfigResponse) {
+  rpc GetCortexConfig(ConfigRequest) returns (ConfigResponse) {
     option (google.api.http) = {
       get: "/config"
     };

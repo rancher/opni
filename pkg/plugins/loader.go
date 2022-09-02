@@ -208,7 +208,7 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 			).Error("failed to read plugin metadata", zap.Error(err))
 			continue
 		}
-		cc := ClientConfig(md, ClientScheme, reattach...)
+		cc := ClientConfig(md, GatewayScheme, reattach...)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

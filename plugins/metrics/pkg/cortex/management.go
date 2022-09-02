@@ -38,22 +38,22 @@ func (p *Plugin) configureCortexManagement() {
 	p.clusterDriver.Store(driver)
 }
 
-func (p *Plugin) ConfigureInstall(ctx context.Context, in *cortexops.InstallConfiguration) (*emptypb.Empty, error) {
+func (p *Plugin) ConfigureCluster(ctx context.Context, in *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
 	driver := p.clusterDriver.Load()
 	if driver == nil {
 		return nil, status.Error(codes.Unimplemented, "api disabled")
 	}
 
-	return driver.ConfigureInstall(ctx, in)
+	return driver.ConfigureCluster(ctx, in)
 }
 
-func (p *Plugin) GetInstallStatus(ctx context.Context, in *emptypb.Empty) (*cortexops.InstallStatus, error) {
+func (p *Plugin) GetClusterStatus(ctx context.Context, in *emptypb.Empty) (*cortexops.InstallStatus, error) {
 	driver := p.clusterDriver.Load()
 	if driver == nil {
 		return nil, status.Error(codes.Unimplemented, "api disabled")
 	}
 
-	return driver.GetInstallStatus(ctx, in)
+	return driver.GetClusterStatus(ctx, in)
 }
 
 func (p *Plugin) UninstallCluster(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {

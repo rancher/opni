@@ -47,5 +47,5 @@ func (p *metricsPlugin) GRPCClient(
 }
 
 func init() {
-	plugins.ClientScheme.Add(MetricsPluginID, NewPlugin(nil))
+	plugins.GatewayScheme.Add(MetricsPluginID, NewPlugin(nil))
 }

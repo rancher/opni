@@ -119,5 +119,5 @@ func (e *mgmtExtensionServerImpl) Services(context.Context, *emptypb.Empty) (*ap
 var _ apiextensions.StreamAPIExtensionServer = (*mgmtExtensionServerImpl)(nil)
 
 func init() {
-	plugins.ClientScheme.Add(StreamAPIExtensionPluginID, NewPlugin(nil))
+	plugins.GatewayScheme.Add(StreamAPIExtensionPluginID, NewPlugin(nil))
 }

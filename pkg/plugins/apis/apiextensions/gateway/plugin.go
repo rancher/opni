@@ -95,5 +95,5 @@ func NewPlugin(impl GatewayAPIExtension) plugin.Plugin {
 }
 
 func init() {
-	plugins.ClientScheme.Add(GatewayAPIExtensionPluginID, NewPlugin(nil))
+	plugins.GatewayScheme.Add(GatewayAPIExtensionPluginID, NewPlugin(nil))
 }

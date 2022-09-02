@@ -28,7 +28,7 @@ func validatePromQl(queryTpl template.Template) error {
 	// // var q bytes.Buffer
 	// // slothTmpl.Execute(&q, requiredSlothInfo)
 	// q := strings.ReplaceAll(intermediate.String(), "[{{.window}}]", "")
-	// _, err := promqlparser.ParseExpr(q)
+	//_, err := promqlparser.ParseExpr(q)
 	// if err != nil {
 	// 	return err
 	// }

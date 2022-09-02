@@ -64,6 +64,26 @@ func (qr *queryResult) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+func (q *queryResult) GetVector() (*model.Vector, error) {
+	switch q.V.Type() {
+	case model.ValVector:
+		v := q.V.(model.Vector)
+		return &v, nil
+	default:
+		return nil, fmt.Errorf("cannot unmarshal prometheus response into vector type")
+	}
+}
+
+func (q *queryResult) GetMatrix() (*model.Matrix, error) {
+	switch q.V.Type() {
+	case model.ValMatrix:
+		v := q.V.(model.Matrix)
+		return &v, nil
+	default:
+		return nil, fmt.Errorf("cannot unmarshal prometheus response into matrix type")
+	}
+}
+
 func UnmarshalPrometheusResponse(data []byte) (*queryResult, error) {
 	var a apiResponse
 	var q queryResult
@@ -77,7 +97,7 @@ func UnmarshalPrometheusResponse(data []byte) (*queryResult, error) {
 	return &q, nil
 }
 
-//https://github.com/prometheus/prometheus/blob/main/web/api/v1/api.go
+// https://github.com/prometheus/prometheus/blob/main/web/api/v1/api.go
 type status string
 
 const (

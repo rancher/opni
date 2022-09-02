@@ -26,6 +26,12 @@ var dashboardsJson []byte
 //go:embed dashboards/opni-gateway.json
 var opniGatewayJson []byte
 
+//go:embed slo/slo_grafana_overview.json
+var sloOverviewDashboard []byte
+
+//go:embed slo/slo_grafana_detailed.json
+var sloDetailedDashboard []byte
+
 func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	dashboardSelector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -76,6 +82,27 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			},
 		})
 	}
+
+	grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "slo-overview",
+			Namespace: r.mc.Namespace,
+			Labels:    dashboardSelector.MatchLabels,
+		},
+		Spec: grafanav1alpha1.GrafanaDashboardSpec{
+			Json: string(sloOverviewDashboard),
+		},
+	})
+	grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "slo-detailed",
+			Namespace: r.mc.Namespace,
+			Labels:    dashboardSelector.MatchLabels,
+		},
+		Spec: grafanav1alpha1.GrafanaDashboardSpec{
+			Json: string(sloDetailedDashboard),
+		},
+	})
 
 	if !r.mc.Spec.Grafana.Enabled {
 		absentResources := []resources.Resource{

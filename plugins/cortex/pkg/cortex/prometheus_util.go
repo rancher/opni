@@ -69,6 +69,9 @@ func enumerateCortexSeries(p *Plugin, lg *zap.SugaredLogger, ctx context.Context
 
 func parseCortexEnumerateSeries(resp *http.Response, lg *zap.SugaredLogger) (set map[string]struct{}, err error) {
 	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
 	if !gjson.Valid(string(b)) {
 		return nil, fmt.Errorf("invalid json in response")
 	}
@@ -81,6 +84,45 @@ func parseCortexEnumerateSeries(resp *http.Response, lg *zap.SugaredLogger) (set
 		set[name.String()] = struct{}{}
 	}
 	return set, nil
+}
+
+// parseCortexLabelsOnSeriesJob parses the cortex response and returns a map labelNames -> set of labelValues
+func parseCortexLabelsOnSeriesJob(
+	resp *http.Response,
+	metricName string,
+	jobName string,
+	lg *zap.SugaredLogger,
+) (map[string]map[string]struct{}, error) {
+	labelSets := map[string]map[string]struct{}{} // labelName -> set of labelValues
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	if !gjson.Valid(string(b)) {
+		return nil, fmt.Errorf("invalid json in response")
+	}
+	//labelSets := make(map[string]map[string]struct{})
+	result := gjson.Get(string(b), "data")
+	if !result.Exists() {
+		return nil, fmt.Errorf("no data in cortex response")
+	}
+	for _, val := range result.Array() {
+		valToMap := val.Map()
+		if valToMap["__name__"].String() != metricName || valToMap["job"].String() != jobName {
+			continue
+		}
+		for k, v := range valToMap {
+			if (k == "__name__" && valToMap[k].String() == metricName) || (k == "job" && valToMap[k].String() == jobName) {
+				continue
+			}
+			if _, ok := labelSets[k]; !ok {
+				labelSets[k] = make(map[string]struct{})
+			}
+			labelSets[k][v.String()] = struct{}{}
+		}
+	}
+
+	return labelSets, nil
 }
 
 func fetchCortexSeriesMetadata(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, request *cortexadmin.SeriesRequest, metricName string) (*http.Response, error) {
@@ -96,6 +138,9 @@ func fetchCortexSeriesMetadata(p *Plugin, lg *zap.SugaredLogger, ctx context.Con
 
 func parseCortexSeriesMetadata(resp *http.Response, lg *zap.SugaredLogger, metricName string) (map[string]gjson.Result, error) {
 	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
 	if !gjson.Valid(string(b)) {
 		return nil, fmt.Errorf("invalid json in response")
 	}
@@ -121,7 +166,7 @@ func getCortexMetricLabels(p *Plugin, lg *zap.SugaredLogger, ctx context.Context
 func parseCortexMetricLabels(p *Plugin, resp *http.Response) ([]string, error) {
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 	labelNames := []string{}
 	result := gjson.Get(string(b), "data")
@@ -141,5 +186,14 @@ func getCortexLabelValues(p *Plugin, ctx context.Context, request *cortexadmin.L
 		labelName,
 	)
 	resp, err := proxyCortexToPrometheus(p, p.logger, ctx, request.Tenant, "GET", reqUrl, nil, nil)
+	return resp, err
+}
+
+func listCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, request *cortexadmin.Cluster) (*http.Response, error) {
+	reqUrl := fmt.Sprintf(
+		"https://%s/prometheus/api/v1/rules",
+		p.config.Get().Spec.Cortex.QueryFrontend.HTTPAddress,
+	)
+	resp, err := proxyCortexToPrometheus(p, lg, ctx, request.ClusterId, "GET", reqUrl, nil, nil)
 	return resp, err
 }

@@ -1,18 +1,10 @@
 package slo
 
 import (
-	"fmt"
-	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
-	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"text/template"
 	"time"
 
 	prommodel "github.com/prometheus/common/model"
-)
-
-// rule labels
-const (
-	sloOpniIdLabel = "slo_opni_id"
 )
 
 const (
@@ -27,21 +19,11 @@ var burnRateRecordingExprTpl = template.Must(template.New("burnRateExpr").Option
 
 // Reference : https://github.com/slok/sloth/blob/2de193572284e36189fe78ab33beb7e2b339b0f8/internal/prometheus/alert_rules.go#L109
 // Multiburn multiwindow alert template.
-var mwmbAlertTpl = template.Must(template.New("mwmbAlertTpl").Option("missingkey=error").Parse(`(
-    max({{ .QuickShortMetric }}{{ .MetricFilter}} > ({{ .QuickShortBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }})
-    and
-    max({{ .QuickLongMetric }}{{ .MetricFilter}} > ({{ .QuickLongBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }})
-)
-or
-(
-    max({{ .SlowShortMetric }}{{ .MetricFilter }} > ({{ .SlowShortBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }})
-    and
-    max({{ .SlowQuickMetric }}{{ .MetricFilter }} > ({{ .SlowQuickBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }})
-)
-`))
+var mwmbAlertTplBool = template.Must(template.New("mwmbAlertTpl").Option("missingkey=error").Parse(`(max({{ .QuickShortMetric }}{{ .MetricFilter}} > bool ({{ .QuickShortBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }}) and max({{ .QuickLongMetric }}{{ .MetricFilter}} > bool ({{ .QuickLongBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }})) or (max({{ .SlowShortMetric }}{{ .MetricFilter }} > bool ({{ .SlowShortBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }}) and max({{ .SlowQuickMetric }}{{ .MetricFilter }} > bool ({{ .SlowQuickBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }}))`))
+var mwmbAlertTpl = template.Must(template.New("mwmbAlertTpl").Option("missingkey=error").Parse(`(max({{ .QuickShortMetric }}{{ .MetricFilter}} > ({{ .QuickShortBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }}) and max({{ .QuickLongMetric }}{{ .MetricFilter}} > ({{ .QuickLongBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }})) or (max({{ .SlowShortMetric }}{{ .MetricFilter }} > ({{ .SlowShortBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }}) and max({{ .SlowQuickMetric }}{{ .MetricFilter }} > ({{ .SlowQuickBurnFactor }} * {{ .ErrorBudgetRatio }})) without ({{ .WindowLabel }}))`))
 
 // Pretty simple durations for prometheus.
-func timeDurationToPromStr(t time.Duration) string {
+func TimeDurationToPromStr(t time.Duration) string {
 	return prommodel.Duration(t).String()
 }
 
@@ -55,29 +37,17 @@ func MergeLabels(ms ...map[string]string) map[string]string {
 	return res
 }
 
-func labelsToPromFilter(labels map[string]string) string {
-	metricFilters := prommodel.LabelSet{}
-	for k, v := range labels {
-		metricFilters[prommodel.LabelName(k)] = prommodel.LabelValue(v)
+func LeftJoinSlice[T comparable](arr1, arr2 []T) []T {
+	result := make([]T, len(arr1))
+	cache := map[T]struct{}{}
+	for i, v := range arr1 {
+		cache[v] = struct{}{}
+		result[i] = v
 	}
-	return metricFilters.String()
-}
-
-type zipperHolder struct {
-	Spec    *oslov1.SLO
-	Service *apis.Service
-}
-
-func zipOpenSLOWithServices(ps []oslov1.SLO, as []*apis.Service) ([]*zipperHolder, error) {
-	if len(as) != len(ps) {
-		return nil, fmt.Errorf("Expected Generated SLOGroups to match the number of Services provided in the request")
+	for _, v := range arr2 {
+		if _, ok := cache[v]; !ok {
+			result = append(result, v)
+		}
 	}
-	res := make([]*zipperHolder, 0)
-	for idx, p := range ps {
-		res = append(res, &zipperHolder{
-			Spec:    &p,
-			Service: as[idx],
-		})
-	}
-	return res, nil
+	return result
 }

@@ -1,0 +1,6 @@
+name: "network metrics"
+filters:
+  - value : ".*http.*"
+    score : 10
+  - value : ".*request.*"
+    score : 7

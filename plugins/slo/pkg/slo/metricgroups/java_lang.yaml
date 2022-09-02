@@ -1,0 +1,8 @@
+name: "jvm metrics"
+filters:
+  - value : ".*java.*"
+    score : 3
+  - value : ".*jvm_.*"
+    score : 2
+  - value : ".*classes.*"
+    score : 1

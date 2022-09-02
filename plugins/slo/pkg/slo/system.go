@@ -3,12 +3,10 @@ package slo
 import (
 	"context"
 	"os"
-	"path"
 	"time"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
-	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
@@ -49,29 +47,10 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		Services: system.NewKVStoreClient[*sloapi.Service](client),
 		Metrics:  system.NewKVStoreClient[*sloapi.Metric](client),
 	})
-	if err := p.initMetricCache(p.ctx); err != nil {
-		p.logger.Error("failed to init metric cache", "error", err)
-	}
+	//if err := p.initMetricCache(p.ctx); err != nil {
+	//	p.logger.Error("failed to init metric cache", "error", err)
+	//}
 	<-p.ctx.Done()
-}
-
-func (p *Plugin) initMetricCache(ctx context.Context) error {
-	lg := p.logger.With("func", "initMetricCache")
-	items := make([]sloapi.Metric, len(query.AvailableQueries))
-	idx := 0
-	for _, q := range query.AvailableQueries {
-		lg.Debug("Adding preconfigured metric : ", q.Name)
-		items[idx] = sloapi.Metric{
-			Name:        q.Name(),
-			Datasource:  q.Datasource(),
-			Description: q.Description(),
-		}
-		if err := p.storage.Get().Metrics.Put(ctx, path.Join("/metrics", items[idx].Name), &items[idx]); err != nil {
-			return err
-		}
-		idx += 1
-	}
-	return nil
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {

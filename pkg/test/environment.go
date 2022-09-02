@@ -735,7 +735,7 @@ func (e *Environment) StartAlertManager(ctx context.Context, configFile string) 
 // Starts a server that exposes Prometheus metrics
 //
 // Returns port number of the server & a channel that shutdowns the server
-func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan bool) {
+func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan struct{}) {
 	// lg := e.Logger
 	port, err := freeport.GetFreePort()
 	if err != nil {
@@ -767,16 +767,17 @@ func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan
 		WriteTimeout:   1 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	done := make(chan bool)
-	waitctx.Go(e.ctx, func() {
-		err := autoInstrumentationServer.ListenAndServe()
-		if err != http.ErrServerClosed {
-			panic(err)
-		}
+	done := make(chan struct{})
+	waitctx.Restrictive.Go(e.ctx, func() {
+		go func() {
+			err := autoInstrumentationServer.ListenAndServe()
+			if !errors.Is(err, http.ErrServerClosed) {
+				panic(err)
+			}
+		}()
 		defer autoInstrumentationServer.Shutdown(context.Background())
 		select {
 		case <-e.ctx.Done():
-		case <-ctx.Done():
 		case <-done:
 		}
 	})

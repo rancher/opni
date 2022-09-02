@@ -181,8 +181,6 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 								Name: "code",
 								Items: []string{
 									"200",
-									"500",
-									"503",
 								},
 							},
 							{
@@ -207,8 +205,6 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 								Name: "code",
 								Items: []string{
 									"200",
-									"500",
-									"503",
 								},
 							},
 							{

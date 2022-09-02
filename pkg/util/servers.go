@@ -57,7 +57,11 @@ func WaitAll(ctx context.Context, ca context.CancelFunc, channels ...<-chan erro
 		return ctx.Err()
 	}
 	channelIdx := i - 1
-	err := value.Interface().(error)
+	//err := value.Interface().(error)
+	var err error
+	if i := value.Interface().(error); i != nil {
+		err = i.(error)
+	}
 	if err == nil {
 		// run again, but skip the channel which exited successfully
 		return WaitAll(ctx, ca, append(channels[:channelIdx], channels[channelIdx+1:]...)...)

@@ -2,11 +2,10 @@ package slo
 
 import (
 	"context"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"go.uber.org/zap"
 	"sync"
 
-	v1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
-	"github.com/hashicorp/go-hclog"
-	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/proto"
 )
@@ -25,16 +24,18 @@ func RegisterDatasource(datasource string, sloImpl SLOStore, serviceImpl Service
 type SLOStore interface {
 	// This method has to handle storage of the SLO in the KVStore itself
 	// since there can be partial successes inside the method
-	Create([]v1.SLO) (*corev1.ReferenceList, error)
-	Update(osloSpecs []v1.SLO, existing *sloapi.SLOData) (*sloapi.SLOData, error)
+	Create() (*corev1.Reference, error)
+	Update(existing *sloapi.SLOData) (*sloapi.SLOData, error)
 	Delete(existing *sloapi.SLOData) error
-	Clone(clone *sloapi.SLOData) (string, error)
+	Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.SLOData, error)
 	Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error)
+	Preview(s *SLO) (*sloapi.SLOPreviewResponse, error)
 	WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore
 }
 type ServiceBackend interface {
-	List(clusters *corev1.ClusterList) (*sloapi.ServiceList, error)
-	GetMetricId() (*MetricIds, error)
+	ListServices() (*sloapi.ServiceList, error)
+	ListMetrics() (*sloapi.MetricGroupList, error)
+	ListEvents() (*sloapi.EventList, error)
 	WithCurrentRequest(req proto.Message, ctx context.Context) ServiceBackend
 }
 
@@ -47,7 +48,7 @@ type RequestBase struct {
 	req proto.Message
 	p   *Plugin
 	ctx context.Context
-	lg  hclog.Logger
+	lg  *zap.SugaredLogger
 }
 
 type SLOMonitoring struct {
@@ -62,7 +63,7 @@ type MonitoringServiceBackend struct {
 	RequestBase
 }
 
-func NewSLOMonitoringStore(p *Plugin, lg hclog.Logger) SLOStore {
+func NewSLOMonitoringStore(p *Plugin, lg *zap.SugaredLogger) SLOStore {
 	return &SLOMonitoring{
 		RequestBase{
 			req: nil,
@@ -73,7 +74,7 @@ func NewSLOMonitoringStore(p *Plugin, lg hclog.Logger) SLOStore {
 	}
 }
 
-func NewMonitoringServiceBackend(p *Plugin, lg hclog.Logger) ServiceBackend {
+func NewMonitoringServiceBackend(p *Plugin, lg *zap.SugaredLogger) ServiceBackend {
 	return &MonitoringServiceBackend{
 		RequestBase{
 			req: nil,

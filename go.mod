@@ -267,6 +267,7 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.0.0-20220520183353-fd19c99a87aa // indirect
 	github.com/googleapis/gax-go/v2 v2.4.0 // indirect
 	github.com/googleapis/go-type-adapters v1.0.0 // indirect
+	github.com/goombaio/namegenerator v0.0.0-20181006234301-989e774b106e // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect

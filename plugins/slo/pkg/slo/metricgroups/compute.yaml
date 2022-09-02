@@ -1,0 +1,16 @@
+name: "compute metrics"
+filters:
+  - value : ".*cpu.*"
+    score : 2
+  - value : ".*cpu_.*"
+    score : 2
+  - value : ".*heap.*"
+    score : 2
+  - value : ".*mem.*"
+    score : 1
+  - value : ".*_mem_.*"
+    score : 2
+  - value : ".*thread.*"
+    score : 4
+  - value : ".*process.*"
+    score : 4

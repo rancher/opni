@@ -11,9 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/slo/shared"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	apis "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"math"
@@ -32,9 +30,19 @@ func canReachInstrumentationMetrics(instrumentationServerPort int) bool {
 func simulateGoodEvents(metricName string, instrumentationServerPort int, numEvents int) {
 	for i := 0; i < numEvents; i++ {
 		go func() {
-			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/good", instrumentationServerPort, metricName))
-			Expect(err).To(Succeed())
-			Expect(resp.StatusCode).To(Equal(200))
+			client := &http.Client{
+				Transport: &http.Transport{},
+			}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/%s/good", instrumentationServerPort, metricName), nil)
+			req.Close = true
+			resp, err := client.Do(req)
+			if err != nil {
+				panic(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != 200 {
+				panic(resp.StatusCode)
+			}
 		}()
 	}
 }
@@ -43,9 +51,18 @@ func simulateBadEvents(metricName string, instrumentationServerPort int, numEven
 
 	for i := 0; i < numEvents; i++ {
 		go func() {
-			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/%s/bad", instrumentationServerPort, metricName))
-			Expect(err).To(Succeed())
-			Expect(resp.StatusCode).To(Equal(200))
+			client := &http.Client{
+				Transport: &http.Transport{},
+			}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/%s/bad", instrumentationServerPort, metricName), nil)
+			resp, err := client.Do(req)
+			if err != nil {
+				panic(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != 200 {
+				panic(resp.StatusCode)
+			}
 		}()
 	}
 }
@@ -103,19 +120,16 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	ctx := context.Background()
 	// test environment references
 	var env *test.Environment
-	var sloClient apis.SLOClient
+	var sloClient sloapi.SLOClient
 	var adminClient cortexadmin.CortexAdminClient
 	// downstream server ports
 	var pPort int
 	var pPort2 int
 	var instrumentationPort int
-	var stopInstrumentationServer chan bool
-	var instrumentationCancel context.CancelFunc
+	var done chan struct{}
 
 	var createdSlos []*corev1.Reference
 
-	var instrumentationSLOID *corev1.Reference
-	var instrumentationMetric string = "http-availability"
 	BeforeAll(func() {
 		env = &test.Environment{
 			TestBin: "../../../testbin/bin",
@@ -130,13 +144,10 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		Expect(err).NotTo(HaveOccurred())
 		info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
-		fmt.Println("Starting server")
-		instrumentationCtx, ca := context.WithCancel(context.Background())
-		instrumentationCancel = ca
-		instrumentationPort, stopInstrumentationServer = env.StartInstrumentationServer(instrumentationCtx)
-		Expect(instrumentationPort).NotTo(Equal(0))
-		Expect(canReachInstrumentationMetrics(instrumentationPort)).To(BeTrue())
-		fmt.Println(instrumentationPort, stopInstrumentationServer)
+		instrumentationPort, done = env.StartInstrumentationServer(ctx)
+		DeferCleanup(func() {
+			done <- struct{}{}
+		})
 		p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		pPort = env.StartPrometheus(p, test.NewOverridePrometheusConfig(
 			"slo/prometheus/config.yaml",
@@ -145,21 +156,14 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 					JobName:    query.MockTestServerName,
 					ScrapePort: instrumentationPort,
 				},
-			},
-		))
+			}),
+		)
+
 		p2, _ := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
-		pPort2 = env.StartPrometheus(p2, test.NewOverridePrometheusConfig(
-			"slo/prometheus/config.yaml",
-			[]test.PrometheusJob{
-				{
-					JobName:    query.MockTestServerName,
-					ScrapePort: instrumentationPort,
-				},
-			},
-		))
+		pPort2 = env.StartPrometheus(p2)
 
 		Expect(pPort != 0 && pPort2 != 0).To(BeTrue())
-		sloClient = apis.NewSLOClient(env.ManagementClientConn())
+		sloClient = sloapi.NewSLOClient(env.ManagementClientConn())
 		adminClient = cortexadmin.NewCortexAdminClient(env.ManagementClientConn())
 		fmt.Println("Before all done")
 		Eventually(func() error {
@@ -190,363 +194,409 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			}
 			return fmt.Errorf("waiting for metric data to be stored in cortex")
 		}, 30*time.Second, 1*time.Second).Should(Succeed())
+		fmt.Println(createdSlos)
+		time.Sleep(time.Second * 10)
 	})
 
-	When("The SLO plugin starts", func() {
-		XIt("should be able to discover services from downstream", func() {
-			time.Sleep(time.Second * 10)
-			sloSvcs, err := sloClient.ListServices(ctx, &apis.ListServiceRequest{
+	When("The instrumentation server starts", func() {
+		It("Should simulate events", func() {
+			Expect(instrumentationPort).NotTo(Equal(0))
+			simulateGoodEvents("http-availability", instrumentationPort, 1000)
+			simulateBadEvents("http-availability", instrumentationPort, 10000)
+		})
+	})
+
+	When("The SLO plugin starts, service discovery ", func() {
+		It("should be able to discover services from downstream", func() {
+			expectedNames := []string{"prometheus"}
+			resp, err := sloClient.ListServices(ctx, &sloapi.ListServicesRequest{
 				Datasource: shared.MonitoringDatasource,
+				ClusterId:  "agent",
 			})
-			Expect(err).To(Succeed())
-			Expect(sloSvcs.Items).To(HaveLen(4))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Items).NotTo(HaveLen(0))
 
-			expectedMap := map[string]bool{
-				fmt.Sprintf("%s-%s", "agent", "prometheus"):              false,
-				fmt.Sprintf("%s-%s", "agent", query.MockTestServerName):  false,
-				fmt.Sprintf("%s-%s", "agent2", "prometheus"):             false,
-				fmt.Sprintf("%s-%s", "agent2", query.MockTestServerName): false,
-			}
-
-			for _, sloSvc := range sloSvcs.Items {
-				expectedMap[sloSvc.ClusterId+"-"+sloSvc.JobId] = true
-			}
-
-			foundUnique := 0
-			for _, val := range expectedMap {
-				if val {
-					foundUnique++
+			for _, name := range expectedNames {
+				found := false
+				for _, svc := range resp.GetItems() {
+					if svc.GetServiceId() == name {
+						found = true
+						break
+					}
 				}
+				Expect(found).To(BeTrue())
 			}
-			Expect(foundUnique).To(Equal(len(expectedMap)))
-		})
-	})
-
-	When("Configuring what metrics are available", func() {
-		XIt("should list available metrics", func() {
-			metrics, err := sloClient.ListMetrics(ctx, &apis.Service{})
-			Expect(err).To(Succeed())
-			Expect(metrics.Items).NotTo(HaveLen(0))
-			for _, m := range metrics.Items {
-				Expect(m.Description).NotTo(HaveLen(0))
-			}
-			keys := make([]string, 0, len(query.AvailableQueries))
-			for k := range query.AvailableQueries {
-				keys = append(keys, k)
-			}
-			for _, m := range metrics.Items {
-				Expect(keys).To(ContainElement(m.Name))
-			}
-		})
-		XIt("Should be able to assign pre-configured metrics to discrete metric ids", func() {
-			_, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
-				Name:       "http-availability",
-				Datasource: shared.LoggingDatasource,
-				ServiceId:  "prometheus",
-				ClusterId:  "agent",
+			resp2, err := sloClient.ListServices(ctx, &sloapi.ListServicesRequest{
+				Datasource: shared.MonitoringDatasource,
+				ClusterId:  "agent2",
 			})
-			Expect(err).To(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp2.Items).To(HaveLen(1))
+			for _, name := range expectedNames {
+				found := false
+				for _, svc := range resp2.GetItems() {
+					if svc.GetServiceId() == name {
+						found = true
+						break
+					}
+				}
+				Expect(found).To(BeTrue())
+			}
+		})
 
-			svc, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
-				Name:       "uptime",
+		It("should be able to discover metrics from downstream", func() {
+			resp, err := sloClient.ListMetrics(ctx, &sloapi.ListMetricsRequest{
+				Datasource: shared.MonitoringDatasource,
+				ClusterId:  "agent",
+				ServiceId:  "prometheus",
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.GroupNameToMetrics).NotTo(HaveLen(0))
+			for _, m := range resp.GroupNameToMetrics {
+				for _, metric := range m.Items {
+					Expect(metric.GetId()).NotTo(Equal(""))
+				}
+
+				// FIXME: when the metric metadata api works, check for metadata
+			}
+		})
+
+		It("Should be able to discover events from downstream", func() {
+			resp, err := sloClient.ListEvents(ctx, &sloapi.ListEventsRequest{
 				Datasource: shared.MonitoringDatasource,
 				ServiceId:  "prometheus",
 				ClusterId:  "agent",
+				MetricId:   "prometheus_http_requests_total",
 			})
-			Expect(err).To(Succeed())
-			Expect(svc.MetricName).To(Equal("uptime"))
-			Expect(svc.MetricIdGood).To(Equal("up"))
-			Expect(svc.MetricIdTotal).To(Equal("up"))
+			expected := []*sloapi.Event{
+				{
+					Key: "code",
+					Vals: []string{
+						"200",
+					},
+				},
+				{
+					Key: "handler",
+					Vals: []string{
+						"/-/ready",
+					},
+				},
+			}
 
-			latency, err := sloClient.GetMetricId(ctx, &apis.MetricRequest{
-				Name:       "http-latency",
-				Datasource: shared.MonitoringDatasource,
-				ServiceId:  "prometheus",
-				ClusterId:  "agent",
-			})
-			Expect(err).To(Succeed())
-
-			Expect(latency.MetricIdGood).To(Equal("prometheus_http_request_duration_seconds_bucket"))
-			Expect(latency.MetricIdTotal).To(Equal("prometheus_http_request_duration_seconds_count"))
-
-			_, err = sloClient.GetMetricId(ctx, &apis.MetricRequest{
-				Name:       "does not exist",
-				Datasource: shared.MonitoringDatasource,
-				ServiceId:  "prometheus",
-				ClusterId:  "agent",
-			})
-			Expect(err).To(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
+			for _, ex := range expected {
+				foundKey := false
+				for _, output := range resp.Items {
+					if output.Key == ex.Key {
+						foundKey = true
+						for _, exval := range ex.Vals {
+							foundVal := false
+							for _, outval := range output.Vals {
+								if exval == outval {
+									foundVal = true
+									break
+								}
+							}
+							Expect(foundVal).To(BeTrue())
+						}
+						break
+					}
+				}
+				Expect(foundKey).To(BeTrue())
+			}
 		})
-
-		XIt(
-			`Should be able to list all preconfigured metrics available
-			to a given set of selected services Services`, func() {
-				svcs, err := sloClient.ListServices(ctx, &apis.ListServiceRequest{
-					Datasource: shared.MonitoringDatasource,
-				})
-				Expect(err).To(Succeed())
-				Expect(svcs.Items).To(HaveLen(4))
-				// match to prometheus & instrumentation server on both downstream clusters
-				availableMetrics, err := sloClient.ListMetrics(ctx, svcs.Items[0])
-				Expect(err).ToNot(HaveOccurred())
-				Expect(availableMetrics.Items).To(HaveLen(3))
-			})
 	})
 
 	When("CRUDing SLOs", func() {
-		XIt("Should create valid SLOs", func() {
-			inputSLO := &apis.ServiceLevelObjective{
-				Name:              "test-slo",
-				Datasource:        shared.MonitoringDatasource,
-				MetricName:        "http-availability",
-				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
-				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
-				Labels:            []*apis.Label{{Name: "env"}, {Name: "dev"}},
-				Target:            &apis.Target{Value: 99.99},
-				Alerts:            []*apis.Alert{}, // do nothing for now
-			}
-
-			svcs := []*apis.Service{}
-
-			req := &apis.CreateSLORequest{
-				SLO:      inputSLO,
-				Services: svcs,
-			}
-			_, err := sloClient.CreateSLO(ctx, req)
-			Expect(err).To(HaveOccurred())
-			stat, ok := status.FromError(err)
-			Expect(ok).To(BeTrue())
-			Expect(stat.Code()).To(Equal(codes.InvalidArgument))
-
-			svcs = []*apis.Service{
-				{
-					JobId: "prometheus",
-					// MetricName:    "http-availability",
-					// MetricIdGood:  "prometheus_http_request_duration_seconds_count",
-					// MetricIdTotal: "prometheus_http_request_duration_seconds_count",
-					ClusterId: "agent",
+		It("Should error on invalid cluster id", func() {
+			_, err := sloClient.CreateSLO(ctx, &sloapi.CreateSLORequest{
+				Slo: &sloapi.ServiceLevelObjective{
+					Name:            "testslo",
+					Datasource:      shared.MonitoringDatasource,
+					ClusterId:       "asdakjsdhkjashdjkahsdkjhakjsdhkjashdkj",
+					ServiceId:       "prometheus",
+					GoodMetricName:  "prometheus_http_requests_total",
+					TotalMetricName: "prometheus_http_requests_total",
+					GoodEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+							},
+						},
+					},
+					TotalEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+								"500",
+								"503",
+							},
+						},
+					},
+					SloPeriod:         "30d",
+					BudgetingInterval: durationpb.New(time.Minute * 5),
+					Target: &sloapi.Target{
+						Value: 99.99,
+					},
 				},
-			}
-			req.Services = svcs
-			createdItems, err := sloClient.CreateSLO(ctx, req)
-			Expect(err).To(Succeed())
-			Expect(createdItems.Items).To(HaveLen(1))
-			createdSlos = append(createdSlos, createdItems.Items...)
-			// Need to check all three individual rules are created on the cortex backend
-			expectSLOGroupToExist(adminClient, ctx, "agent", createdSlos[0].Id)
-
-		})
-		XIt("Should list SLOs", func() {
-			slos, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
-			Expect(err).To(Succeed())
-			Expect(slos.Items).To(HaveLen(len(createdSlos)))
-		})
-
-		XIt("Should be able to get specific SLOs by Id", func() {
-			Expect(createdSlos).NotTo(HaveLen(0))
-			id := createdSlos[0].Id
-			slo, err := sloClient.GetSLO(ctx, &corev1.Reference{Id: id})
-			Expect(err).To(Succeed())
-			Expect(slo.Service.ClusterId).To(Equal("agent"))
-			Expect(slo.Service.JobId).To(Equal("prometheus"))
-		})
-		XIt("Should update valid SLOs", func() {
-			Expect(createdSlos).NotTo(HaveLen(0))
-			id := createdSlos[0].Id
-			sloToUpdate, err := sloClient.GetSLO(ctx, &corev1.Reference{Id: id})
-			Expect(err).To(Succeed())
-			Expect(sloToUpdate.Service.ClusterId).ToNot(Equal("agent2"))
-			Expect(sloToUpdate.SLO.Labels).ToNot(HaveLen(1))
-			// change cluster of SLO
-			newsvc := sloToUpdate.Service
-			sloToUpdate.SLO.Labels = []*apis.Label{{Name: "adg"}}
-			newsvc.ClusterId = "agent2"
-			_, err = sloClient.UpdateSLO(ctx, &apis.SLOData{
-				Id:      sloToUpdate.Id,
-				SLO:     sloToUpdate.SLO,
-				Service: newsvc,
 			})
-			Expect(err).To(Succeed())
-
-			updatedSLO, err := sloClient.GetSLO(ctx, &corev1.Reference{Id: id})
-			Expect(err).To(Succeed())
-			Expect(updatedSLO.Service.ClusterId).To(Equal("agent2"))
-			// Check all three rules have been moved to the other cluster
-			expectSLOGroupToExist(adminClient, ctx, "agent2", createdSlos[0].Id)
-			// Check all three rules have been deleted from the original cluster
-			expectSLOGroupNotToExist(adminClient, ctx, "agent", createdSlos[0].Id)
-			Expect(updatedSLO.SLO.Labels).To(HaveLen(1))
-
-		})
-		XIt("Should delete valid SLOs", func() {
-			Expect(createdSlos).NotTo(HaveLen(0))
-			id := createdSlos[0].Id
-			_, err := sloClient.DeleteSLO(ctx, &corev1.Reference{Id: id})
-			Expect(err).To(Succeed())
-
-			// Check all three rules have been delete from the cluster
-			expectSLOGroupNotToExist(adminClient, ctx, "agent2", createdSlos[0].Id)
-
-			// For good measure, check this again, don't want any stragglers
-			expectSLOGroupNotToExist(adminClient, ctx, "agent", createdSlos[0].Id)
-
-			createdSlos = createdSlos[1:]
-
+			Expect(err).To(HaveOccurred())
 		})
 
-		XIt("Should clone SLOs", func() {
-			inputSLO := &apis.ServiceLevelObjective{
-				Name:              "test-slo",
-				Datasource:        "monitoring",
-				MetricName:        "http-availability",
-				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
-				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
-				Labels:            []*apis.Label{},
-				Target:            &apis.Target{Value: 99.99},
-				Alerts:            []*apis.Alert{}, // do nothing for now
-			}
-			svcs := []*apis.Service{
-				{
-					JobId:     "prometheus",
-					ClusterId: "agent",
+		It("Should create SLOs", func() {
+			_, err := sloClient.CreateSLO(ctx, &sloapi.CreateSLORequest{
+				Slo: &sloapi.ServiceLevelObjective{
+					Name:            "testslo",
+					Datasource:      shared.MonitoringDatasource,
+					ClusterId:       "agent",
+					ServiceId:       "prometheus",
+					GoodMetricName:  "prometheus_http_requests_total",
+					TotalMetricName: "prometheus_http_requests_total",
+					GoodEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+							},
+						},
+					},
+					TotalEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+								"500",
+								"503",
+							},
+						},
+					},
+					SloPeriod:         "30d",
+					BudgetingInterval: durationpb.New(time.Minute * 5),
+					Target: &sloapi.Target{
+						Value: 99.99,
+					},
 				},
-			}
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
 
-			req := &apis.CreateSLORequest{
-				SLO:      inputSLO,
-				Services: svcs,
-			}
-			createdItems, err := sloClient.CreateSLO(ctx, req)
-			Expect(err).To(Succeed())
-			Expect(createdItems.Items).To(HaveLen(1))
-			for _, data := range createdItems.Items {
-				createdSlos = append(createdSlos, data)
-			}
-			Expect(createdSlos).To(HaveLen(1))
+		It("Should clone SLO", func() {
+			resp, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Items).To(HaveLen(1))
+			_, err = sloClient.CloneSLO(ctx, &corev1.Reference{Id: resp.Items[0].Id})
+			Expect(err).NotTo(HaveOccurred())
+			respAfter, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respAfter.Items).To(HaveLen(2))
+		})
 
-			_, err = sloClient.CloneSLO(ctx, &corev1.Reference{})
+		It("Should error on update if provided a new cluster id", func() {
+			resp, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Items).To(HaveLen(2))
+			updateData := resp.Items[1]
+			updateData.SLO.Name = "test-slo-updated"
+			updateData.SLO.ClusterId = "asdkjasjkdhkajshdjkahsdjkhajkshdkjahsdjkhasjkdhkjasd"
+			_, err = sloClient.UpdateSLO(ctx, updateData)
 			Expect(err).To(HaveOccurred())
 
-			creationData, err := sloClient.CloneSLO(ctx, &corev1.Reference{Id: createdSlos[0].Id})
-			Expect(err).To(Succeed())
-			Expect(creationData.Id).NotTo(Equal(""))
-			Expect(creationData.Id).NotTo(Equal(createdSlos[0].Id))
-
-			allSlos, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
-			Expect(err).To(Succeed())
-			Expect(allSlos.Items).To(HaveLen(len(createdSlos) + 1))
-			createdSlos = append(createdSlos, &corev1.Reference{Id: creationData.Id})
-
-			expectRuleGroupToExist(adminClient, ctx, "agent", createdSlos[0].Id)
-			expectRuleGroupToExist(adminClient, ctx, "agent", creationData.Id)
-		})
-	})
-
-	When("Reporting the Status of SLOs", func() {
-		// XIt("should be able to reach the endpoints of the instrumentation server", func() {
-		// 	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/uptime/good", instrumentationPort))
-		// 	Expect(resp.StatusCode).To(Equal(200))
-		// 	Expect(err).To(Succeed())
-		// })
-		XIt("Should be able to get the status NoData of SLOs with no data", func() {
-			Expect(createdSlos).To(HaveLen(2))
-			refList, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
-			Expect(err).To(Succeed())
-			Expect(refList.Items).To(HaveLen(2))
-
-			status, err := sloClient.Status(ctx, &corev1.Reference{Id: createdSlos[0].Id})
-			Expect(err).To(Succeed())
-			// No HTTP requests are made agaisnt prometheus yet, so the status should be empty
-			Expect(status.State).To(Equal(apis.SLOStatusState_NoData))
 		})
 
-		XIt("Should be able to create an SLO for the instrumentation server for status testing", func() {
-			inputSLO := &apis.ServiceLevelObjective{
-				Name:              "test-slo",
-				Datasource:        shared.MonitoringDatasource,
-				MetricName:        instrumentationMetric,
-				MonitorWindow:     "30d",                           // one of 30d, 28, 7d
-				BudgetingInterval: durationpb.New(time.Minute * 5), // between 5m and 1h
-				Labels:            []*apis.Label{},
-				Target:            &apis.Target{Value: 99.99},
-				Alerts:            []*apis.Alert{}, // do nothing for now
-			}
-			svcs := []*apis.Service{
-				{
-					JobId: query.MockTestServerName,
-					// MetricName:    instrumentationMetric,
-					// MetricIdGood:  "http_request_duration_seconds_count",
-					// MetricIdTotal: "http_request_duration_seconds_count",
-					ClusterId: "agent",
+		It("Should update SLOs", func() {
+			resp, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Items).To(HaveLen(2))
+			updateData := resp.Items[1]
+			updateData.SLO.Name = "test-slo-updated"
+			updateData.SLO.ClusterId = "agent2"
+			item, err := sloClient.UpdateSLO(ctx, updateData)
+			Expect(err).NotTo(HaveOccurred())
+			fmt.Println(item)
+			respAfter, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respAfter.Items).To(HaveLen(2))
+		})
+
+		It("Should Get SLOs", func() {
+			resp, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Items).To(HaveLen(2))
+			_, err = sloClient.GetSLO(ctx, &corev1.Reference{Id: resp.Items[1].Id})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should delete SLOs", func() {
+			resp, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Items).To(HaveLen(2))
+			_, err = sloClient.DeleteSLO(ctx, &corev1.Reference{Id: resp.Items[1].Id})
+			Expect(err).NotTo(HaveOccurred())
+			respAfter, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respAfter.Items).To(HaveLen(1))
+		})
+
+		It("Should get status for SLOs", func() {
+			respList, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respList.Items).To(HaveLen(1))
+			resp, err := sloClient.Status(ctx, &corev1.Reference{Id: respList.Items[0].Id})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.State).To(Equal(sloapi.SLOStatusState_Creating))
+			Eventually(func() sloapi.SLOStatusState {
+				resp, err := sloClient.Status(ctx, &corev1.Reference{Id: respList.Items[0].Id})
+				Expect(err).NotTo(HaveOccurred())
+				return resp.State
+			}, time.Minute*3, time.Second*30).Should(Equal(sloapi.SLOStatusState_Ok))
+		})
+
+		It("Should preview SLOs in a raw data format", func() {
+			respList, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(respList.Items).To(HaveLen(1))
+			resp, err := sloClient.Preview(ctx, &sloapi.CreateSLORequest{
+				Slo: &sloapi.ServiceLevelObjective{
+					Name:            "testslo",
+					Datasource:      shared.MonitoringDatasource,
+					ClusterId:       "agent",
+					ServiceId:       "prometheus",
+					GoodMetricName:  "prometheus_http_requests_total",
+					TotalMetricName: "prometheus_http_requests_total",
+					GoodEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+							},
+						},
+					},
+					TotalEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+								"500",
+								"503",
+							},
+						},
+					},
+					SloPeriod:         "30d",
+					BudgetingInterval: durationpb.New(time.Minute * 5),
+					Target: &sloapi.Target{
+						Value: 99.99,
+					},
 				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.PlotVector.Items).NotTo(BeEmpty())
+			hasData := false
+			for _, y := range resp.PlotVector.Items {
+				if y.Sli > 0 {
+					hasData = true
+					break
+				}
 			}
-			req := &apis.CreateSLORequest{
-				SLO:      inputSLO,
-				Services: svcs,
-			}
-			idList, err := sloClient.CreateSLO(ctx, req)
+			Expect(hasData).To(BeTrue())
+
+			respMyServer, err := sloClient.Preview(ctx, &sloapi.CreateSLORequest{
+				Slo: &sloapi.ServiceLevelObjective{
+					Name:            "testslo",
+					Datasource:      shared.MonitoringDatasource,
+					ClusterId:       "agent",
+					ServiceId:       "MyServer",
+					GoodMetricName:  "http_request_duration_seconds_count",
+					TotalMetricName: "http_request_duration_seconds_count",
+					GoodEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+							},
+						},
+					},
+					TotalEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+								"500",
+								"501",
+								"502",
+								"503",
+							},
+						},
+					},
+					SloPeriod:         "30d",
+					BudgetingInterval: durationpb.New(time.Minute * 5),
+					Target: &sloapi.Target{
+						Value: 99.99,
+					},
+				},
+			})
 			Expect(err).To(Succeed())
-			Expect(idList.Items).To(HaveLen(1))
-			instrumentationSLOID = &corev1.Reference{Id: idList.Items[0].Id}
+			Expect(respMyServer.PlotVector.Items).NotTo(BeEmpty())
+			Expect(respMyServer.PlotVector.Items[len(respMyServer.PlotVector.Items)-1].Sli).To(BeNumerically(">", 0))
+			Expect(respMyServer.PlotVector.Items[len(respMyServer.PlotVector.Items)-1].Sli).To(BeNumerically("<", 1))
+			Expect(respMyServer.PlotVector.Windows).To(HaveLen(2))
+			// both alerts should be firing based on the number of bad events detected
+			hasSevere, hasCritical := false, false
+			for _, w := range respMyServer.PlotVector.Windows {
+				if w.Severity == "severe" {
+					hasSevere = true
+				}
+				if w.Severity == "critical" {
+					hasCritical = true
+				}
+			}
+			Expect(hasSevere).To(BeTrue())
+			Expect(hasCritical).To(BeTrue())
 		})
 
-		XIt("Should be able to get the status NoData of SLOs with no data", func() {
-			port1, port2 := pPort, pPort2
-			fmt.Println(port1, port2)
-			Expect(canReachInstrumentationMetrics(instrumentationPort)).To(BeTrue())
-			status, err := sloClient.Status(ctx, instrumentationSLOID)
-			Expect(err).To(Succeed())
-			// No HTTP requests are made agaisnt prometheus yet, so the status should be empty
-			Expect(status.State).To(Equal(apis.SLOStatusState_NoData))
-			numScrapes := 10
-			for i := 0; i < numScrapes; i++ {
-				goodE := simulateGoodStatus(instrumentationMetric, instrumentationPort, 1000)
-				Expect(goodE).To(Equal(1000))
-				time.Sleep(time.Second * 1)
-			}
-			simulateBadEvents(instrumentationMetric, instrumentationPort, 1000)
-			time.Sleep(time.Second * 1)
-			//time.Sleep(time.Minute)
-			resp, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
-				Tenants: []string{"agent"},
-				Query:   fmt.Sprintf("http_request_duration_seconds_count{job=\"%s\"}", query.MockTestServerName),
+		Specify("Creating an SLO for the service that should be alerting", func() {
+			failingSloId, err := sloClient.CreateSLO(ctx, &sloapi.CreateSLORequest{
+				Slo: &sloapi.ServiceLevelObjective{
+					Name:            "testslo",
+					Datasource:      shared.MonitoringDatasource,
+					ClusterId:       "agent",
+					ServiceId:       "MyServer",
+					GoodMetricName:  "http_request_duration_seconds_count",
+					TotalMetricName: "http_request_duration_seconds_count",
+					GoodEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+							},
+						},
+					},
+					TotalEvents: []*sloapi.Event{
+						{
+							Key: "code",
+							Vals: []string{
+								"200",
+								"500",
+								"501",
+								"502",
+								"503",
+							},
+						},
+					},
+					SloPeriod:         "30d",
+					BudgetingInterval: durationpb.New(time.Minute * 5),
+					Target: &sloapi.Target{
+						Value: 99.99,
+					},
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			fmt.Println(resp.Data)
-			respCodes, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
-				Tenants: []string{"agent"},
-				Query:   fmt.Sprintf("http_request_duration_seconds_count{job=\"%s\", code=~\"(2..|3..)\"}", query.MockTestServerName),
-			})
-			Expect(err).NotTo(HaveOccurred())
-			fmt.Println(respCodes.Data)
-
-			resp2, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
-				Tenants: []string{"agent"},
-				Query:   fmt.Sprintf("rate(http_request_duration_seconds_count{job=\"%s\"}[10s])", query.MockTestServerName),
-			})
-			Expect(err).NotTo(HaveOccurred())
-			fmt.Println(resp2.Data)
-
-			resp3, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
-				Tenants: []string{"agent"},
-				Query:   fmt.Sprintf("sum(rate(http_request_duration_seconds_count{job=\"%s\"}[5m]))", query.MockTestServerName),
-			})
-			Expect(err).NotTo(HaveOccurred())
-			fmt.Println(resp3.Data)
-
-			resp4, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
-				Tenants: []string{"agent"},
-				Query:   "1 - (\n            (\n              (sum(rate(http_request_duration_seconds_count{job=\"MyServer\",code=~\"(2..|3..)\"}[5m])))\n            )\n            /\n            (\n              (sum(rate(http_request_duration_seconds_count{job=\"MyServer\"}[5m])))\n            )\n          )",
-			})
-			Expect(err).NotTo(HaveOccurred())
-			fmt.Println(resp4.Data)
-
-			expectedGoodStatus, err := sloClient.Status(ctx, instrumentationSLOID)
-			Expect(err).To(Succeed())
-			Expect(expectedGoodStatus.State).To(Equal(apis.SLOStatusState_Ok))
-			// stopInstrumentationServer <- true
-			instrumentationCancel()
+			Eventually(func() sloapi.SLOStatusState {
+				resp, err := sloClient.Status(ctx, &corev1.Reference{Id: failingSloId.Id})
+				Expect(err).NotTo(HaveOccurred())
+				return resp.State
+			}, time.Minute*3, time.Second*30).Should(BeElementOf(sloapi.SLOStatusState_Warning, sloapi.SLOStatusState_Breaching))
 		})
 	})
-
 })

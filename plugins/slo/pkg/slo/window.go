@@ -53,7 +53,6 @@ func GenerateGoogleWindows(budgetingInterval time.Duration) *Windows {
 			ErrorBudgetPercent: 10,
 		},
 	}
-
 }
 
 // https://sre.google/workbook/alerting-on-slos/

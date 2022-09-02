@@ -3,94 +3,143 @@ package slo
 import (
 	"context"
 	"fmt"
-	oslov1 "github.com/alexandreLamarre/oslo/pkg/manifest/v1"
-	"github.com/hashicorp/go-hclog"
+	"github.com/prometheus/common/model"
+	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"gopkg.in/yaml.v3"
+	"time"
 )
 
 // Apply Cortex Rules to Cortex separately :
 // - recording rules
 // - metadata rules
 // - alert rules
-func applyCortexSLORules(p *Plugin, cortexRules *CortexRuleWrapper, service *sloapi.Service, existingId string, ctx context.Context, lg hclog.Logger) error {
-	var anyError error
-	ruleGroupsToApply := []string{cortexRules.recording, cortexRules.metadata, cortexRules.alerts}
-	for _, ruleGroup := range ruleGroupsToApply {
-		_, err := p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
-			YamlContent: ruleGroup,
-			ClusterId:   service.ClusterId,
-		})
-		if err != nil {
-			lg.Error(fmt.Sprintf(
-				"Failed to load rules for cluster %s, service %s, id %s, rule %s : %v",
-				service.ClusterId, service.JobId, existingId, ruleGroup, anyError))
-			anyError = err
-		}
+func applyCortexSLORules(
+	p *Plugin,
+	lg *zap.SugaredLogger,
+	ctx context.Context,
+	clusterId string,
+	ruleSpec RuleGroupYAMLv2,
+) error {
+	out, err := yaml.Marshal(ruleSpec)
+	if err != nil {
+		return err
 	}
-	return anyError
+
+	_, err = p.adminClient.Get().LoadRules(ctx, &cortexadmin.PostRuleRequest{
+		YamlContent: string(out),
+		ClusterId:   clusterId,
+	})
+	if err != nil {
+		lg.Error(fmt.Sprintf(
+			"Failed to load rules for cluster %s, rule : %s,",
+			clusterId, string(out)))
+	}
+	return err
 }
 
-func deleteCortexSLORules(p *Plugin, id string, clusterId string, ctx context.Context, lg hclog.Logger) error {
-	ruleGroupsToDelete := []string{id + RecordingRuleSuffix, id + MetadataRuleSuffix, id + AlertRuleSuffix}
-	var anyError error
-
-	for _, ruleGroup := range ruleGroupsToDelete {
-		_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
-			ClusterId: clusterId,
-			GroupName: ruleGroup,
-		})
-		// we can ignore 404s here since if we can't find them,
-		// then it will be impossible to delete them anyway
-		if err != nil && status.Code(err) != codes.NotFound {
-			lg.Error(fmt.Sprintf("Failed to delete rule group with id  %v: %v", id, err))
-			anyError = err
-		}
+// }
+func deleteCortexSLORules(
+	p *Plugin,
+	lg *zap.SugaredLogger,
+	ctx context.Context,
+	clusterId string,
+	groupName string,
+) error {
+	_, err := p.adminClient.Get().DeleteRule(ctx, &cortexadmin.RuleRequest{
+		ClusterId: clusterId,
+		GroupName: groupName,
+	})
+	// we can ignore 404s here since if we can't find them,
+	// then it will be impossible to delete them anyway
+	if status.Code(err) == codes.NotFound || status.Code(err) == codes.OK {
+		return nil
 	}
-	return anyError
+	return err
 }
 
-// Convert OpenSLO specs to Cortex Rule Groups & apply them
-func applyMonitoringSLODownstream(osloSpec oslov1.SLO, service *sloapi.Service, existingId string,
-	p *Plugin, slorequest *sloapi.CreateSLORequest, ctx context.Context, lg hclog.Logger) ([]*sloapi.SLOData, error) {
-	slogroup, err := ParseToPrometheusModel(osloSpec)
+func QuerySLOComponentByRecordName(
+	client cortexadmin.CortexAdminClient,
+	ctx context.Context,
+	recordName string,
+	clusterId string,
+) (*model.Vector, error) {
+	resp, err := client.Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: []string{clusterId},
+		Query:   recordName,
+	})
 	if err != nil {
-		lg.Error("failed to parse prometheus model IR :", err)
 		return nil, err
 	}
-
-	returnedSloImpl := []*sloapi.SLOData{}
-	rw, err := GeneratePrometheusNoSlothGenerator(slogroup, slorequest.SLO.BudgetingInterval.AsDuration(), existingId, ctx, lg)
+	rawBytes := resp.Data
+	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
 	if err != nil {
-		lg.Error("Failed to generate prometheus : ", err)
 		return nil, err
 	}
-	lg.Debug(fmt.Sprintf("Generated cortex rule groups : %d", len(rw)))
-	if len(rw) > 1 {
-		lg.Warn("Multiple cortex rule groups being applied")
+	dataVector, err := qres.GetVector()
+	if err != nil {
+		return nil, err
 	}
-	for _, rwgroup := range rw {
+	return dataVector, nil
+}
 
-		actualID := rwgroup.ActualId
-
-		cortexRules, err := toCortexRequest(rwgroup, actualID)
-		if err != nil {
-			return nil, err
-		}
-		err = applyCortexSLORules(p, cortexRules, service, actualID, ctx, lg)
-
-		if err == nil {
-			dataToPersist := &sloapi.SLOData{
-				Id:      actualID,
-				SLO:     slorequest.SLO,
-				Service: service,
-			}
-			returnedSloImpl = append(returnedSloImpl, dataToPersist)
-		} else { // clean up any create rule groups
-			err = deleteCortexSLORules(p, actualID, service.ClusterId, ctx, lg)
-		}
+func QuerySLOComponentByRawQuery(
+	client cortexadmin.CortexAdminClient,
+	ctx context.Context,
+	rawQuery string,
+	clusterId string,
+) (*model.Vector, error) {
+	resp, err := client.Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: []string{clusterId},
+		Query:   rawQuery,
+	})
+	if err != nil {
+		return nil, err
 	}
-	return returnedSloImpl, nil
+	rawBytes := resp.Data
+	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+	if err != nil {
+		return nil, err
+	}
+	dataVector, err := qres.GetVector()
+	if err != nil {
+		return nil, err
+	}
+	return dataVector, nil
+}
+
+func QuerySLOComponentByRawQueryRange(
+	client cortexadmin.CortexAdminClient,
+	ctx context.Context,
+	rawQuery string,
+	clusterId string,
+	start time.Time,
+	end time.Time,
+	step time.Duration,
+) (*model.Matrix, error) {
+	resp, err := client.QueryRange(ctx, &cortexadmin.QueryRangeRequest{
+		Tenants: []string{clusterId},
+		Query:   rawQuery,
+		Start:   timestamppb.New(start),
+		End:     timestamppb.New(end),
+		Step:    durationpb.New(step),
+	})
+	if err != nil {
+		return nil, err
+	}
+	rawBytes := resp.Data
+	qres, err := unmarshal.UnmarshalPrometheusResponse(rawBytes)
+	if err != nil {
+		return nil, err
+	}
+	dataMatrix, err := qres.GetMatrix()
+	if err != nil {
+		return nil, err
+	}
+	return dataMatrix, nil
 }

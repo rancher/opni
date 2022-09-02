@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -355,6 +356,30 @@ func (p *Plugin) GetRule(ctx context.Context,
 	}, nil
 }
 
+func (p *Plugin) ListRules(ctx context.Context, req *cortexadmin.Cluster) (*cortexadmin.QueryResponse, error) {
+	lg := p.logger.With(
+		"cluster id", req.ClusterId,
+	)
+	resp, err := listCortexRules(p, lg, ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		lg.With(
+			"status", resp.Status,
+		).Error("list rules failed")
+		return nil, fmt.Errorf("list failed: %s", resp.Status)
+		return nil, err
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	return &cortexadmin.QueryResponse{
+		Data: body,
+	}, nil
+}
+
 // LoadRules This method is responsible for Creating and Updating Rules
 func (p *Plugin) LoadRules(ctx context.Context,
 	in *cortexadmin.PostRuleRequest,
@@ -437,7 +462,9 @@ func (p *Plugin) GetSeriesMetrics(ctx context.Context, request *cortexadmin.Seri
 		"metric", request.JobId,
 	)
 	resp, err := enumerateCortexSeries(p, lg, ctx, request)
-
+	if err != nil {
+		return nil, err
+	}
 	set, err := parseCortexEnumerateSeries(resp, lg)
 	if err != nil {
 		return nil, err
@@ -477,31 +504,30 @@ func (p *Plugin) GetMetricLabelSets(ctx context.Context, request *cortexadmin.La
 		"service", request.JobId,
 		"metric", request.MetricName,
 	)
-	resp, err := getCortexMetricLabels(p, lg, ctx, request)
+	resp, err := enumerateCortexSeries(p, lg, ctx, &cortexadmin.SeriesRequest{
+		Tenant: request.Tenant,
+		JobId:  request.JobId,
+	})
 	if err != nil {
 		return nil, err
 	}
-	labelNames, err := parseCortexMetricLabels(p, resp)
+	labelSets, err := parseCortexLabelsOnSeriesJob(resp, request.MetricName, request.JobId, lg)
 	if err != nil {
 		return nil, err
 	}
-	labelSets := []*cortexadmin.LabelSet{} // label name -> list of label values
-	for _, labelName := range labelNames {
-		labelResp, err := getCortexLabelValues(p, ctx, request, labelName)
-		if err != nil {
-			return nil, err //FIXME: consider returning partial results
-		}
-		labelValues, err := parseCortexMetricLabels(p, labelResp)
-		if err != nil {
-			return nil, err //FIXME: consider returning partial results
-		}
-		labelSets = append(labelSets, &cortexadmin.LabelSet{
+	resultSets := []*cortexadmin.LabelSet{}
+	for labelName, labelValues := range labelSets {
+		item := &cortexadmin.LabelSet{
 			Name:  labelName,
-			Items: labelValues,
-		})
+			Items: []string{},
+		}
+		for labelVal, _ := range labelValues {
+			item.Items = append(item.Items, labelVal)
+		}
+		resultSets = append(resultSets, item)
 	}
 	return &cortexadmin.MetricLabels{
-		Items: labelSets,
+		Items: resultSets,
 	}, nil
 }
 

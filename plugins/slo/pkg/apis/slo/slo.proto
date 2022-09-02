@@ -3,6 +3,7 @@ option go_package = "github.com/rancher/opni/pkg/plugins/slo/pkg/apis/slo";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
@@ -11,7 +12,7 @@ import "google/rpc/status.proto";
 package slo;
 
 service SLO {
-  rpc CreateSLO(CreateSLORequest) returns (core.ReferenceList) {
+  rpc CreateSLO(CreateSLORequest) returns (core.Reference) {
     option (google.api.http) = {
       post: "/slos"
       body: "*"
@@ -29,7 +30,7 @@ service SLO {
   }
   rpc UpdateSLO(SLOData) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/slos/{id}"
+      put: "/slos/{id}/update"
       body: "*"
     };
   }
@@ -44,30 +45,22 @@ service SLO {
     };
   }
 
-  // Fetches implementation details of a metric from the ServiceBackend
-  // Used as a helper API 
-  rpc GetMetricId(MetricRequest) returns (ServiceInfo) {
-    option (google.api.http) = {
-      get: "/metrics/{name}/{serviceId}"
-    };
-  }
-
   // Returns a set of metrics with compatible implementations for
   // a set of services
-  rpc ListMetrics(Service) returns (MetricList) {
+  rpc ListMetrics(ListMetricsRequest) returns (MetricGroupList) {
     option (google.api.http) = {
       post: "/metrics"
     };
   }
 
   // Returns the list of services discovered by the Service Discovery backend
-  rpc ListServices(ListServiceRequest) returns (ServiceList) {
+  rpc ListServices(ListServicesRequest) returns (ServiceList) {
     option (google.api.http) = {
       post: "/services"
     };
   }
 
-  rpc ListEvents(ListEventRequest) returns (EventList) {
+  rpc ListEvents(ListEventsRequest) returns (EventList) {
     option (google.api.http) = {
       post: "/events"
     };
@@ -80,27 +73,41 @@ service SLO {
     };
   }
 
-  rpc Preview(CreateSLORequest) returns (google.protobuf.Empty) {
+  rpc Preview(CreateSLORequest) returns (SLOPreviewResponse) {
     option (google.api.http) = {
       post : "/slos/preview"
     };
   }
 }
 
-message ListEventRequest {
-  string serviceId = 1;
+message ListEventsRequest {
+  string datasource = 1;
+  string serviceId = 2;
+  string clusterId = 3;
+  string metricId = 4;
+}
+
+message ListMetricsRequest {
+  string datasource = 1;
   string clusterId = 2;
-  string metricId = 3;
+  string serviceId = 3;
+}
+
+message ListServicesRequest{
+  string datasource = 1;
+  string clusterId = 2;
+}
+
+
+message EventList {
+  repeated Event items = 1;
 }
 
 message Event{
   string key = 1;
-  string val = 2;
+  repeated string vals = 2;
 }
 
-message EventList{
-  repeated Event items = 1;
-}
 
 message ServiceInfo {
   string jobId = 1;
@@ -111,7 +118,7 @@ message ServiceInfo {
 }
 
 message Service {
-  string jobId = 1;
+  string serviceId = 1;
   string clusterId = 2;
 }
 
@@ -139,24 +146,36 @@ message Alert {
 message ServiceLevelObjective {
   string name = 1;
   string datasource = 2;
-  string metricName = 3;
-  string monitorWindow = 4; // 7d, 28d or 30d
-  google.protobuf.Duration budgetingInterval = 5; // budgeting interval should be between 1m and 60m
-  Target target = 6;
-  repeated Label labels = 7;
-  repeated Alert alerts = 8;
+  string clusterId = 3;
+  string serviceId = 4;
+  string goodMetricName = 5;
+  string totalMetricName = 6;
+  repeated Event goodEvents = 7;
+  repeated Event totalEvents = 8;
+  string sloPeriod = 9; // 7d, 28d or 30d
+  google.protobuf.Duration budgetingInterval = 10; // budgeting interval should be between 1m and 60m
+  Target target = 11;
+  repeated Label labels = 12;
+  repeated Alert alertTargets = 13;
 }
 
 message CreateSLORequest {
-  ServiceLevelObjective SLO = 1;
-  repeated Service services = 2;
+  ServiceLevelObjective slo = 1;
 }
 
+message EventPairList {
+  repeated EventPair items = 1;
+}
+
+message EventPair {
+  string key = 1;
+  repeated string vals = 2;
+}
 
 message SLOData {
   string id = 1;
   ServiceLevelObjective SLO = 2;
-  Service service = 3;
+  google.protobuf.Timestamp createdAt = 3;
 }
 
 message Target {
@@ -164,24 +183,22 @@ message Target {
 }
 
 message Metric {
-  string name = 1;
-  string datasource = 2;
-  string description = 3;
-  string clusterId = 4;
-  string serviceId = 5;
-  string metricIdGood = 6;
-  string metricIdTotal = 7;
+  string id = 1;
+  MetricMetadata metadata = 2;
 }
 
-message MetricRequest {
-  string name = 1;
-  string datasource = 2;
-  string serviceId = 3;
-  string clusterId = 4;
+message MetricMetadata {
+  string description = 1;
+  string type = 2;
+  string unit = 3;
 }
 
 message MetricList {
   repeated Metric items = 1;
+}
+
+message MetricGroupList {
+  map<string, MetricList> groupNameToMetrics = 1;
 }
 
 message ServiceLevelObjectiveList {
@@ -189,15 +206,40 @@ message ServiceLevelObjectiveList {
 }
 
 enum SLOStatusState {
-  NoData = 0;
-  Ok = 1;
-  Warning = 2;
-  Breaching = 3;
-  InternalError = 4;
+  InProgress = 0;
+  Creating = 1;
+  NoData = 2;
+  Ok = 3;
+  Warning = 4;
+  Breaching = 5;
+  // When budgeting or alerting rules have no data, but the rule has data
+  PartialDataOk = 6;
+  InternalError = 7;
 }
 
 message SLOStatus {
   SLOStatusState state = 1;
+}
+
+message SLOPreviewResponse {
+  PlotVector plotVector = 1;
+}
+
+message PlotVector {
+  double objective = 1;
+  repeated DataPoint items = 2;
+  repeated AlertFiringWindows windows = 3;
+}
+
+message DataPoint {
+  double sli = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message AlertFiringWindows {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  string severity = 3;
 }
 
 message ListServiceRequest {

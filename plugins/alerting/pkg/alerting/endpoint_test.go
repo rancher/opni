@@ -2,10 +2,19 @@ package alerting_test
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/phayes/freeport"
+
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/logger"
-	"strings"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -24,7 +33,6 @@ route:
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 1h
-  receiver: 'web.hook'
 `
 
 const b = `
@@ -297,6 +305,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			}
 			emailId1 := uuid.New().String()
 			emailRecv, err := alerting.NewEmailReceiver(emailId1, &emailEndpoint)
+			Expect(err).To(Succeed())
 			cfg.AppendReceiver(emailRecv)
 			raw, err := cfg.Marshal()
 			Expect(err).To(BeNil())
@@ -314,6 +323,40 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 
 		It("Should apply a reconciler loop successfully to an STMP host not set", func() {
 			//TODO
+		})
+
+		It("Should be able to load our default configuration file", func() {
+			mux := http.NewServeMux()
+
+			port, err := freeport.GetFreePort()
+			Expect(err).To(Succeed())
+			mux.HandleFunc(shared.AlertingCortexHookHandler, func(w http.ResponseWriter, r *http.Request) {})
+			address := fmt.Sprintf("127.0.0.1:%d", port)
+			exampleHookServer := &http.Server{
+				Addr:           address,
+				Handler:        mux,
+				ReadTimeout:    1 * time.Second,
+				WriteTimeout:   1 * time.Second,
+				MaxHeaderBytes: 1 << 20,
+			}
+			go func() {
+				err := exampleHookServer.ListenAndServe()
+				if !errors.Is(err, http.ErrServerClosed) {
+					panic(err)
+				}
+			}()
+			defer exampleHookServer.Shutdown(context.Background())
+			urlStr := "http://" + address
+			u, err := url.Parse(urlStr)
+			Expect(u.Host).NotTo(Equal(""))
+			Expect(err).To(BeNil())
+			err = shared.BackendDefaultFile(urlStr)
+			Expect(err).To(BeNil())
+			bytes, err := os.ReadFile("/tmp/alertmanager.yaml")
+			Expect(err).To(Succeed())
+			c := &alerting.ConfigMapData{}
+			err = c.Parse(string(bytes))
+			Expect(err).To(Succeed())
 		})
 	})
 })

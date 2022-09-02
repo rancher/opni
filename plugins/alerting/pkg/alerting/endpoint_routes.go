@@ -7,8 +7,16 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func (c *ConfigMapData) AppendRoute(recv *cfg.Route) {
-	c.Route.Routes = append(c.Route.Routes, recv)
+func (c *ConfigMapData) AppendRoute(recv *cfg.Receiver) {
+	c.Route.Routes = append(c.Route.Routes, &cfg.Route{
+		Receiver: recv.Name,
+		Matchers: cfg.Matchers{
+			{
+				Name:  "conditionId",
+				Value: recv.Name,
+			},
+		},
+	})
 }
 
 func (c *ConfigMapData) GetRoutes() []*cfg.Route {

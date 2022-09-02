@@ -23,10 +23,10 @@ func (p *PostableAlert) WithCondition(conditionId string) {
 		p.Labels = make(map[string]string)
 	}
 	p.Labels["alertname"] = conditionId
+	p.Labels["conditionId"] = conditionId
 }
 
 // WithRuntimeInfo adds the runtime information to the alert.
-//
 func (p *PostableAlert) WithRuntimeInfo(key string, value string) {
 	if p.Annotations == nil {
 		newMap := map[string]string{}
@@ -37,10 +37,10 @@ func (p *PostableAlert) WithRuntimeInfo(key string, value string) {
 
 func (p *PostableAlert) Must() error {
 	if p.Labels == nil {
-		return fmt.Errorf("Missting PostableAlert.Labels")
+		return fmt.Errorf("missting PostableAlert.Labels")
 	}
 	if v, ok := p.Labels["alertname"]; !ok || v == "" {
-		return fmt.Errorf(`Missting PostableAlert.Labels["alertname"]`)
+		return fmt.Errorf(`missting PostableAlert.Labels["alertname"]`)
 	}
 	return nil
 }
@@ -112,16 +112,16 @@ func (p *PostableSilence) WithSilenceId(silenceId string) {
 
 func (p *PostableSilence) Must() error {
 	if p.Matchers == nil {
-		return fmt.Errorf("Missting PostableSilence.Matchers")
+		return fmt.Errorf("missing PostableSilence.Matchers")
 	}
 	if len(p.Matchers) == 0 {
-		return fmt.Errorf("Missting PostableSilence.Matchers")
+		return fmt.Errorf("missing PostableSilence.Matchers")
 	}
 	if p.StartsAt.IsZero() {
-		return fmt.Errorf("Missting PostableSilence.StartsAt")
+		return fmt.Errorf("missing PostableSilence.StartsAt")
 	}
 	if p.EndsAt.IsZero() {
-		return fmt.Errorf("Missting PostableSilence.EndsAt")
+		return fmt.Errorf("missing PostableSilence.EndsAt")
 	}
 	return nil
 }

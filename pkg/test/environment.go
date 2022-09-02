@@ -1380,6 +1380,10 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		enableCortex:     true,
 		defaultAgentOpts: []StartAgentOption{},
 	}
+	err := os.Setenv(shared.LocalBackendEnvToggle, "true")
+	if err != nil {
+		panic(err)
+	}
 	options.apply(opts...)
 
 	agentOptions := &StartAgentOptions{}

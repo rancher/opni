@@ -4,7 +4,9 @@ Shared definitions (constants & errors) for opni alerting
 package shared
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"strings"
 	"text/template"
 
@@ -14,6 +16,9 @@ import (
 )
 
 // Datasources & Versioning
+
+const LocalBackendEnvToggle = "OPNI_ALERTING_BACKEND_LOCAL"
+const LocalAlertManagerPath = "/tmp/alertmanager.yaml"
 
 const (
 	AlertingV1Alpha      = "v1alpha"
@@ -48,7 +53,7 @@ route:
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 1h
-  receiver: 'web.hook'
+  receiver : '{{ .CortexHandlerName }}'
 `
 
 /*
@@ -82,6 +87,28 @@ var DefaultAlertManager = template.Must(template.New("DefaultManagementHook").Pa
 type DefaultAlertManagerInfo struct {
 	CortexHandlerName string
 	CortexHandlerURL  string
+}
+
+func DefaultConfig(managementUrl string) (bytes.Buffer, error) {
+	templateToFill := DefaultAlertManager
+	var b bytes.Buffer
+	err := templateToFill.Execute(&b, DefaultAlertManagerInfo{
+		CortexHandlerName: AlertingHookReceiverName,
+		CortexHandlerURL:  managementUrl + AlertingCortexHookHandler,
+	})
+	if err != nil {
+		return b, err
+	}
+	return b, nil
+}
+
+func BackendDefaultFile(managementUrl string) error {
+	b, err := DefaultConfig(managementUrl)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(LocalAlertManagerPath, b.Bytes(), 0644)
+	return err
 }
 
 // Error declarations

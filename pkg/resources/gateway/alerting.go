@@ -17,10 +17,6 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 )
 
-var (
-	defaultAlertManagerTemplate = shared.DefaultAlertManager
-)
-
 func (r *Reconciler) alerting() []resources.Resource {
 	// always create the alerting service, even if it points to nothing, so cortex can find it
 
@@ -72,10 +68,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 	var amData bytes.Buffer
 	mgmtDNS := "opni-monitoring-internal"
 	httpPort := "11080"
-	err := defaultAlertManagerTemplate.Execute(&amData, shared.DefaultAlertManagerInfo{
-		CortexHandlerName: shared.AlertingHookReceiverName,
-		CortexHandlerURL:  fmt.Sprintf("https://%s:%s%s", mgmtDNS, httpPort, shared.AlertingCortexHookHandler),
-	})
+	amData, err := shared.DefaultConfig(fmt.Sprintf("https://%s:%s%s", mgmtDNS, httpPort, shared.AlertingCortexHookHandler))
 	if err != nil {
 		panic(err)
 	}
@@ -123,7 +116,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 							Args: []string{
 								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, "alertmanager.yaml")),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
-								"-p 9094:9094", // expose REST api port
+								"-p 9093:9093", // expose REST api port
 							},
 							Ports: r.containerAlertManagerPorts(),
 							VolumeMounts: []corev1.VolumeMount{

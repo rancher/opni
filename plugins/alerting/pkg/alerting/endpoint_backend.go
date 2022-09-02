@@ -6,10 +6,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"os/exec"
+	"path"
+	"regexp"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
+	"github.com/rancher/opni/pkg/util/future"
+
 	"github.com/phayes/freeport"
 	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/alertmanager/template"
-	_ "github.com/prometheus/alertmanager/template"
 	commoncfg "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -20,21 +31,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/http"
-	"os"
-	"os/exec"
-	"path"
-	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sync"
-	"syscall"
-	"time"
 )
 
 var configPersistMu = &sync.Mutex{}
-
-const LocalBackendEnvToggle = "OPNI_ALERTING_BACKEND_LOCAL"
-const LocalAlertManagerPath = "/tmp/alertmanager.yaml"
 
 const NoSmartHostSet = "no global SMTP smarthost set"
 
@@ -82,7 +82,7 @@ type LocalEndpointBackend struct {
 func (b *LocalEndpointBackend) Start() {
 	b.ctx, b.cancelFunc = context.WithCancel(b.p.ctx)
 	port, err := freeport.GetFreePort()
-	fmt.Println(fmt.Sprintf("AlertManager port %d", port))
+	fmt.Printf("AlertManager port %d", port)
 	if err != nil {
 		panic(err)
 	}
@@ -90,7 +90,8 @@ func (b *LocalEndpointBackend) Start() {
 	if err != nil {
 		panic(err)
 	}
-	amBin := path.Join("../../../testbin/bin", "alertmanager")
+	//TODO: fixme relative path only works for one of tests or mage test:env, but not both
+	amBin := path.Join("testbin/bin", "alertmanager")
 	defaultArgs := []string{
 		fmt.Sprintf("--config.file=%s", b.configFilePath),
 		fmt.Sprintf("--web.listen-address=:%d", port),
@@ -98,6 +99,7 @@ func (b *LocalEndpointBackend) Start() {
 		"--log.level=debug",
 	}
 	cmd := exec.CommandContext(b.ctx, amBin, defaultArgs...)
+	lg.With("port", port).Info("Starting AlertManager")
 	session, err := testutil.StartCmd(cmd)
 	if err != nil {
 		if !errors.Is(b.ctx.Err(), context.Canceled) {
@@ -118,9 +120,7 @@ func (b *LocalEndpointBackend) Start() {
 	}
 	lg.With("address", fmt.Sprintf("http://localhost:%d", port)).Info("AlertManager started")
 	waitctx.Permissive.Go(b.ctx, func() {
-		select {
-		case <-b.ctx.Done():
-		}
+		<-b.ctx.Done()
 		cmd, _ := session.G()
 		if cmd != nil {
 			cmd.Signal(os.Signal(syscall.SIGTERM))
@@ -196,6 +196,19 @@ func (b *LocalEndpointBackend) Reload(ctx context.Context,
 		if resp.StatusCode != http.StatusOK {
 			time.Sleep(time.Second)
 		} else {
+			backend, err := p.endpointBackend.GetContext(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get alerting backend when reloading alertmanager locally : %s", err)
+			}
+			p.endpointBackend.Set(backend)
+			options, err := p.alertingOptions.GetContext(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get alerting options when reloading AM locally : %s", err)
+			}
+			options.Endpoints = []string{fmt.Sprintf("http://localhost:%d", b.Port())}
+			b.p.logger.Debug(fmt.Sprintf("Setting alert manager address to %s", options.Endpoints[0]))
+			p.alertingOptions = future.New[AlertingOptions]()
+			p.alertingOptions.Set(options)
 			return nil
 		}
 	}
@@ -336,15 +349,26 @@ type AlertManagerAPI struct {
 }
 
 func (a *AlertManagerAPI) Construct() string {
-	return path.Join(a.Endpoint, a.Api, a.Route)
+	return a.Endpoint + path.Join(a.Api, a.Route)
 }
 
 func (a *AlertManagerAPI) ConstructHTTP() string {
-	return "http://" + a.Construct()
+	tempRes := a.Construct()
+	if !strings.HasPrefix(tempRes, "http://") {
+		return fmt.Sprintf("http://%s", tempRes)
+	}
+	return tempRes
 }
 
 func (a *AlertManagerAPI) ConstructHTTPS() string {
-	return "https://" + a.Construct()
+	tempRes := a.Construct()
+	if !strings.HasPrefix("http://", tempRes) {
+		return fmt.Sprintf("https://%s", tempRes)
+	} else if strings.HasPrefix("http://", tempRes) {
+		return strings.Replace(tempRes, "http://", "https://", 1)
+	} else {
+		return tempRes
+	}
 }
 
 func (a *AlertManagerAPI) IsReady() bool {
@@ -391,6 +415,8 @@ func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
 	resp, err := hclient.Do(req)
 	if err != nil {
 		return nil, err
@@ -458,9 +484,9 @@ func ValidateIncomingConfig(fileContent string, lg *zap.SugaredLogger) error {
 		if config.Route != nil {
 			lg.Debug("Route config found")
 		}
-		lg.Debug(fmt.Sprintf(" - %d inhibit rules\n", len(config.InhibitRules)))
-		lg.Debug(fmt.Sprintf(" - %d receivers\n", len(config.Receivers)))
-		lg.Debug(fmt.Sprintf(" - %d templates\n", len(config.Templates)))
+		lg.Debug(fmt.Sprintf(" - %d inhibit rules", len(config.InhibitRules)))
+		lg.Debug(fmt.Sprintf(" - %d receivers", len(config.Receivers)))
+		lg.Debug(fmt.Sprintf(" - %d templates", len(config.Templates)))
 
 		if len(config.Templates) > 0 {
 			_, err = template.FromGlobs(config.Templates...)

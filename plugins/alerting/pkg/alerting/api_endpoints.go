@@ -3,8 +3,8 @@ package alerting
 import (
 	"context"
 	"fmt"
-	"google.golang.org/protobuf/types/known/structpb"
 	"path"
+	"time"
 
 	"github.com/google/uuid"
 	cfg "github.com/prometheus/alertmanager/config"
@@ -82,18 +82,30 @@ func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.A
 }
 
 func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertEndpoint, error) {
-	return p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, ref.Id))
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	defer ca()
+	storage, err := p.storage.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return storage.AlertEndpoint.Get(ctx, path.Join(endpointPrefix, ref.Id))
 }
 
 func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest) (*emptypb.Empty, error) {
-	_, err := p.storage.Get().AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.Id.Id))
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	defer ca()
+	storage, err := p.storage.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	_, err = storage.AlertEndpoint.Get(ctx, path.Join(endpointPrefix, req.Id.Id))
 	if err != nil {
 		return nil, err
 	}
 	if err := handleAlertEndpointValidation(ctx, req.UpdateAlert); err != nil {
 		return nil, err
 	}
-	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, req.Id.Id), req.UpdateAlert); err != nil {
+	if err := storage.AlertEndpoint.Put(ctx, path.Join(endpointPrefix, req.Id.Id), req.UpdateAlert); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -101,7 +113,13 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.U
 
 func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 	req *alertingv1alpha.ListAlertEndpointsRequest) (*alertingv1alpha.AlertEndpointList, error) {
-	ids, endpoints, err := listWithKeys(ctx, p.storage.Get().AlertEndpoint, endpointPrefix)
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	defer ca()
+	storage, err := p.storage.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ids, endpoints, err := listWithKeys(ctx, storage.AlertEndpoint, endpointPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +137,13 @@ func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 }
 
 func (p *Plugin) DeleteAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	if err := p.storage.Get().AlertEndpoint.Delete(ctx, path.Join(endpointPrefix, ref.Id)); err != nil {
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	defer ca()
+	storage, err := p.storage.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := storage.AlertEndpoint.Delete(ctx, path.Join(endpointPrefix, ref.Id)); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -161,8 +185,13 @@ func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImple
 
 // Called from CreateAlertCondition
 func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
+	defer ca()
 	// newId := uuid.New().String()
-	backend := p.endpointBackend.Get()
+	backend, err := p.endpointBackend.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	config, err := configFromBackend(backend, ctx, p)
 	if err != nil {
 		return nil, err
@@ -178,6 +207,7 @@ func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alerting
 		return nil, err
 	}
 	config.AppendReceiver(recv)
+	config.AppendRoute(recv)
 	err = applyConfigToBackend(backend, ctx, p, config)
 	if err != nil {
 		return nil, err
@@ -187,7 +217,12 @@ func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alerting
 
 // Called from UpdateAlertCondition
 func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
-	backend := p.endpointBackend.Get()
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
+	defer ca()
+	backend, err := p.endpointBackend.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	config, err := configFromBackend(backend, ctx, p)
 	if err != nil {
 		return nil, err
@@ -202,6 +237,7 @@ func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alerting
 	if err != nil {
 		return nil, err
 	}
+	//note: don't need to update routes after this since they hold a ref to the original condition id
 	err = config.UpdateReceiver(conditionId, recv)
 	if err != nil {
 		return nil, err
@@ -216,7 +252,12 @@ func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alerting
 // Called from DeleteAlertCondition
 // Id must be a conditionId
 func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.Reference) (*emptypb.Empty, error) {
-	backend := p.endpointBackend.Get()
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
+	defer ca()
+	backend, err := p.endpointBackend.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	config, err := configFromBackend(backend, ctx, p)
 	if err != nil {
 		return nil, err
@@ -224,56 +265,12 @@ func (p *Plugin) DeleteEndpointImplementation(ctx context.Context, req *corev1.R
 	if err := config.DeleteReceiver(req.Id); err != nil {
 		return nil, err
 	}
+	if err := config.DeleteRoute(req.Id); err != nil {
+		return nil, err
+	}
 	err = applyConfigToBackend(backend, ctx, p, config)
 	if err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
-}
-
-// HandleCortexWebhook
-//
-// cortex rules created with opni-alerting need to integrate with
-// opni-alerting's receivers.
-// It interacts with opni-alerting's receivers by calling this webhook
-//
-// Data passed into this function is in the form :
-// The Alertmanager will send HTTP POST requests in the following JSON format to the configured endpoint:
-// ```json
-//
-//	{
-//		"version": "4",
-//		"groupKey": <string>,              // key identifying the group of alerts (e.g. to deduplicate)
-//		"truncatedAlerts": <int>,          // how many alerts have been truncated due to "max_alerts"
-//		"status": "<resolved|firing>",
-//		"receiver": <string>,
-//		"groupLabels": <object>,
-//		"commonLabels": <object>,
-//		"commonAnnotations": <object>,
-//		"externalURL": <string>,           // backlink to the Alertmanager.
-//		"alerts": [
-//		{
-//		"status": "<resolved|firing>",
-//		"labels": <object>,
-//		"annotations": <object>,
-//		"startsAt": "<rfc3339>",
-//		"endsAt": "<rfc3339>",
-//		"generatorURL": <string>,      // identifies the entity that caused the alert
-//		"fingerprint": <string>        // fingerprint to identify the alert
-//		},
-//
-// ...
-// ]
-// }
-// ````
-func (p *Plugin) HandleCortexWebhook(ctx context.Context, s *structpb.Struct) (*emptypb.Empty, error) {
-	//TODO implement me
-
-	// parse all the annotations from the cortex alert
-
-	// parse the condition id from the annotations
-
-	// call p.TriggerAlerts(ctx, conditionId, annotations)
-
-	return nil, shared.AlertingErrNotImplemented
 }

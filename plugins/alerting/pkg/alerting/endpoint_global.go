@@ -2,10 +2,11 @@ package alerting
 
 import (
 	"fmt"
-	"github.com/prometheus/alertmanager/config"
-	"github.com/prometheus/common/model"
 	"net/url"
 	"time"
+
+	"github.com/prometheus/alertmanager/config"
+	"github.com/prometheus/common/model"
 )
 
 const DefaultSMTPServerPort = 25
@@ -47,7 +48,7 @@ func parseURL(s string) (*config.URL, error) {
 	if u.Host == "" {
 		return nil, fmt.Errorf("missing host for URL")
 	}
-	return &config.URL{u}, nil
+	return &config.URL{URL: u}, nil
 }
 
 func (c *ConfigMapData) SetDefaultSMTPServer() {

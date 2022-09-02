@@ -160,7 +160,7 @@ func NewWebhookReceiver(id string, endpoint *alertingv1alpha.WebhookEndpoint) (*
 		Name: id,
 		WebhookConfigs: []*cfg.WebhookConfig{
 			{
-				URL: &cfg.URL{parsedURL},
+				URL: &cfg.URL{URL: parsedURL},
 			},
 		},
 	}, nil

@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/pkg/validation"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"net/http"
 	"path"
+	"time"
+
+	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/validation"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -40,16 +42,28 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 }
 
 func (p *Plugin) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertCondition, error) {
-	return p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, ref.Id))
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	defer ca()
+	storage, err := p.storage.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return storage.Conditions.Get(ctx, path.Join(conditionPrefix, ref.Id))
 }
 
 func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.ListAlertConditionRequest) (*alertingv1alpha.AlertConditionList, error) {
-	keys, items, err := listWithKeys(ctx, p.storage.Get().Conditions, conditionPrefix)
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	defer ca()
+	storage, err := p.storage.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	keys, items, err := listWithKeys(ctx, storage.Conditions, conditionPrefix)
 	if err != nil {
 		return nil, err
 	}
 	if len(keys) != len(items) {
-		return nil, fmt.Errorf("Internal error : mismatched number of keys")
+		return nil, fmt.Errorf("internal error : mismatched number of keys")
 	}
 	res := &alertingv1alpha.AlertConditionList{}
 	for i := range keys {
@@ -63,21 +77,30 @@ func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.L
 
 // req.Id is the condition id reference
 func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.UpdateAlertConditionRequest) (*emptypb.Empty, error) {
-	existing, err := p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, req.Id.Id))
+	// ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
+	// defer ca()
+	storage, err := p.storage.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	existing, err := storage.Conditions.Get(ctx, path.Join(conditionPrefix, req.Id.Id))
 	if err != nil {
 		return nil, shared.WithNotFoundErrorf("Condition %s not found : %s", req.Id.Id, err)
 	}
 	overrideLabels := req.UpdateAlert.Labels
+	// UPDATE THE ACTUAL CONDITION
+	// until we have a more complicated setup, deleting then recreating is fine
+	if existing.NotificationId != nil {
+		_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{Id: req.Id.Id})
+		if err != nil {
+			return nil, shared.WithInternalServerError(fmt.Sprintf("failed to delete & update condition : %s", err))
+		}
+	}
 
 	if err := handleUpdateEndpointImplementation(p, ctx, req.Id.Id, existing, req.UpdateAlert); err != nil {
 		return nil, err
 	}
-	// UPDATE THE ACTUAL CONDITION
-	// until we have a more complicated setup, deleting then recreating is fine
-	_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{Id: req.Id.Id})
-	if err != nil {
-		return nil, err
-	}
+
 	_, err = setupCondition(p, ctx, req.UpdateAlert, req.Id.Id)
 	if err != nil {
 		return nil, err
@@ -85,14 +108,20 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 
 	proto.Merge(existing, req.UpdateAlert)
 	existing.Labels = overrideLabels
-	if err := p.storage.Get().Conditions.Put(ctx, path.Join(conditionPrefix, req.Id.Id), existing); err != nil {
+	if err := storage.Conditions.Put(ctx, path.Join(conditionPrefix, req.Id.Id), existing); err != nil {
 		return nil, err
 	}
-	return nil, shared.AlertingErrNotImplemented
+	return &emptypb.Empty{}, nil
 }
 
 func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	existing, err := p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, ref.Id))
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	defer ca()
+	storage, err := p.storage.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	existing, err := storage.Conditions.Get(ctx, path.Join(conditionPrefix, ref.Id))
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +151,13 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	existing, err := p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, req.ConditionId.Id))
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	defer ca()
+	storage, err := p.storage.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	existing, err := storage.Conditions.Get(ctx, path.Join(conditionPrefix, req.ConditionId.Id))
 	if err != nil {
 		return nil, err
 	}
@@ -137,10 +172,10 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusNotFound { // update failed
-			// TODO specific shared.Err for status not found
-		}
-		return nil, fmt.Errorf("Failed to activate silence: %s", resp.Status)
+		// if resp.StatusCode == http.StatusNotFound { // update failed
+		// 	TODO specific shared.Err for status not found
+		// }
+		return nil, fmt.Errorf("failed to activate silence: %s", resp.Status)
 	}
 	respSilence := &PostSilencesResponse{}
 	defer func(Body io.ReadCloser) {
@@ -165,7 +200,7 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 	}
 	// update K,V with new silence info for the respective condition
 	proto.Merge(existing, newCondition)
-	if err := p.storage.Get().Conditions.Put(ctx, path.Join(conditionPrefix, req.ConditionId.Id), existing); err != nil {
+	if err := storage.Conditions.Put(ctx, path.Join(conditionPrefix, req.ConditionId.Id), existing); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -176,12 +211,18 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	existing, err := p.storage.Get().Conditions.Get(ctx, path.Join(conditionPrefix, req.Id))
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	defer ca()
+	storage, err := p.storage.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	existing, err := storage.Conditions.Get(ctx, path.Join(conditionPrefix, req.Id))
 	if err != nil {
 		return nil, err
 	}
 	if existing.Silence == nil {
-		return nil, validation.Errorf("Could not find existing silence for condition %s", req.Id)
+		return nil, validation.Errorf("could not find existing silence for condition %s", req.Id)
 	}
 	silence := &DeletableSilence{
 		silenceId: existing.Silence.SilenceId,
@@ -191,14 +232,14 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Failed to deactivate silence: %s", resp.Status)
+		return nil, fmt.Errorf("failed to deactivate silence: %s", resp.Status)
 	}
 	// update existing proto with the silence info
 	newCondition := util.ProtoClone(existing)
 	newCondition.Silence = nil
 	// update K,V with new silence info for the respective condition
 	proto.Merge(existing, newCondition)
-	if err := p.storage.Get().Conditions.Put(ctx, path.Join(conditionPrefix, req.Id), existing); err != nil {
+	if err := storage.Conditions.Put(ctx, path.Join(conditionPrefix, req.Id), existing); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

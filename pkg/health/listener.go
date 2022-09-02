@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/shared"
+
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -20,7 +22,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
-	ap "github.com/rancher/opni/plugins/alerting/pkg/alerting"
 )
 
 type Listener struct {
@@ -89,7 +90,7 @@ func WithAlertToggle() ListenerOption {
 }
 
 func WithDisconnectTimeout(timeout time.Duration) ListenerOption {
-	_, isSet := os.LookupEnv(ap.LocalBackendEnvToggle)
+	_, isSet := os.LookupEnv(shared.LocalBackendEnvToggle)
 	if isSet {
 		return func(o *ListenerOptions) {
 			o.tickerDuration = time.Millisecond * 100
@@ -277,7 +278,7 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 
 		for {
 			select {
-			case <-ticker.C: // received no message from agent in the entier duration
+			case <-ticker.C: // received no message from agent in the entire duration
 				_, err = alerting.DoTrigger(*l.alertProvider, ctx, &alertingv1alpha.TriggerAlertsRequest{
 					ConditionId: id,
 				})

@@ -17,8 +17,8 @@ service Alerting {
   // opni internal use
   rpc TriggerAlerts(TriggerAlertsRequest) returns (TriggerAlertsResponse) {
     option (google.api.http) = {
-      post: "/alerts/trigger"
-      body: "*"
+      post : "/alerts/trigger"
+      body : "*"
     };
   }
   // ------- CRUD for alerting events log -------
@@ -26,181 +26,180 @@ service Alerting {
   // alerting internal use only
   rpc CreateAlertLog(core.AlertLog) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/alerts/log"
-      body: "*"
-    }; 
+      post : "/alerts/log"
+      body : "*"
+    };
   }
 
   rpc ListAlertLogs(ListAlertLogRequest) returns (InformativeAlertLogList) {
     option (google.api.http) = {
-      get: "/alerts/events"
+      get : "/alerts/events"
     };
   }
 
   // -------- CRUD for alerting conditions -------
 
-  rpc CreateAlertCondition(AlertCondition) returns(core.Reference) {
+  rpc CreateAlertCondition(AlertCondition) returns (core.Reference) {
     option (google.api.http) = {
-      post: "/alerts/conditions"
-      body: "*"
+      post : "/alerts/conditions"
+      body : "*"
     };
   }
 
   rpc GetAlertCondition(core.Reference) returns (AlertCondition) {
     option (google.api.http) = {
-      get: "/alerts/conditions/{id}"
+      get : "/alerts/conditions/{id}"
     };
   }
 
-  rpc ListAlertConditions(ListAlertConditionRequest) returns (AlertConditionList) {
+  rpc ListAlertConditions(ListAlertConditionRequest)
+      returns (AlertConditionList) {
     option (google.api.http) = {
-      get: "/alerts/conditions"
+      get : "/alerts/conditions"
     };
   }
 
-  rpc UpdateAlertCondition(UpdateAlertConditionRequest) returns (google.protobuf.Empty) {
+  rpc UpdateAlertCondition(UpdateAlertConditionRequest)
+      returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/alerts/conditions"
-      body: "*"
+      put : "/alerts/conditions"
+      body : "*"
     };
   }
 
-  rpc ListAlertConditionChoices(AlertDetailChoicesRequest) returns (ListAlertTypeDetails) {
+  rpc ListAlertConditionChoices(AlertDetailChoicesRequest)
+      returns (ListAlertTypeDetails) {
     option (google.api.http) = {
-      post: "/alerts/conditions/{alertType}"
+      post : "/alerts/conditions/{alertType}"
     };
   }
 
   rpc DeleteAlertCondition(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/alerts/conditions"
+      delete : "/alerts/conditions"
     };
   }
 
   // unimplemented
-  rpc PreviewAlertCondition(PreviewAlertConditionRequest) returns (PreviewAlertConditionResponse) {
+  rpc PreviewAlertCondition(PreviewAlertConditionRequest)
+      returns (PreviewAlertConditionResponse) {
     option (google.api.http) = {
-      post: "/alerts/conditions/preview"
-      body: "*"
+      post : "/alerts/conditions/preview"
+      body : "*"
     };
   }
 
   rpc ActivateSilence(SilenceRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/alerts/silences"
-      body: "*"
+      post : "/alerts/silences"
+      body : "*"
     };
   }
   // id corresponds to conditionId
   rpc DeactivateSilence(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/alerts/silences/{id}"
+      delete : "/alerts/silences/{id}"
     };
   }
 
   // -------- CRUD for alerting endpoints ----
-  
+
   rpc CreateAlertEndpoint(AlertEndpoint) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      post: "/alerts/endpoints"
-      body: "*"
+      post : "/alerts/endpoints"
+      body : "*"
     };
   }
 
   rpc GetAlertEndpoint(core.Reference) returns (AlertEndpoint) {
     option (google.api.http) = {
-      get: "/alerts/endpoints/{id}"
+      get : "/alerts/endpoints/{id}"
     };
   }
 
-  rpc ListAlertEndpoints(ListAlertEndpointsRequest) returns (AlertEndpointList) {
+  rpc ListAlertEndpoints(ListAlertEndpointsRequest)
+      returns (AlertEndpointList) {
     option (google.api.http) = {
-      get: "/alerts/endpoints"
+      get : "/alerts/endpoints"
     };
   }
 
-  rpc UpdateAlertEndpoint(UpdateAlertEndpointRequest) returns (google.protobuf.Empty) {
+  rpc UpdateAlertEndpoint(UpdateAlertEndpointRequest)
+      returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/alerts/endpoints"
-      body: "*"
+      put : "/alerts/endpoints"
+      body : "*"
     };
   }
 
   rpc DeleteAlertEndpoint(core.Reference) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/alerts/endpoints/{id}"
+      delete : "/alerts/endpoints/{id}"
     };
   }
 
   // unimplemented
-  rpc TestAlertEndpoint(TestAlertEndpointRequest) returns (TestAlertEndpointResponse) {
+  rpc TestAlertEndpoint(TestAlertEndpointRequest)
+      returns (TestAlertEndpointResponse) {
     option (google.api.http) = {
-      post: "/alerts/endpoints/test"
-      body: "*"
-    };
-  }
-  
-
-  // alerting internal use only
-  rpc CreateEndpointImplementation(CreateImplementation) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/alerts/endpoints/implementation"
-      body: "*"
+      post : "/alerts/endpoints/test"
+      body : "*"
     };
   }
 
   // alerting internal use only
-  rpc UpdateEndpointImplementation(CreateImplementation) returns (google.protobuf.Empty) {
+  rpc CreateEndpointImplementation(CreateImplementation)
+      returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      put: "/alerts/endpoints/implementation"
-      body: "*"
+      post : "/alerts/endpoints/implementation"
+      body : "*"
+    };
+  }
+
+  // alerting internal use only
+  rpc UpdateEndpointImplementation(CreateImplementation)
+      returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put : "/alerts/endpoints/implementation"
+      body : "*"
     };
   }
 
   // alerting internal use only
   // conditionMustBePassed in here
-  rpc DeleteEndpointImplementation(core.Reference) returns (google.protobuf.Empty) {
+  rpc DeleteEndpointImplementation(core.Reference)
+      returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      delete: "/alerts/endpoints/implementation"
+      delete : "/alerts/endpoints/implementation"
     };
   }
 
-  // internal use only
-  rpc HandleCortexWebhook(google.protobuf.Struct) returns (google.protobuf.Empty) {
+  rpc ListAvailableTemplatesForType(AlertDetailChoicesRequest)
+      returns (TemplatesResponse) {
     option (google.api.http) = {
-      post: "/alerts/cortex/webhook"
-      body: "*"
-    };
-  }
-
-  rpc ListAvailableTemplatesForType(AlertDetailChoicesRequest) returns (TemplatesResponse) {
-    option (google.api.http) = {
-      post: "/alerts/templates/{alertType}"
+      post : "/alerts/templates/{alertType}"
     };
   }
 }
 
-message TemplatesResponse {
-  repeated string template = 1;
-}
+message TemplatesResponse { repeated string template = 1; }
 
 message SilenceRequest {
-  core.Reference conditionId =1 ;
+  core.Reference conditionId = 1;
   google.protobuf.Duration duration = 2;
 }
 
 message TriggerAlertsRequest {
-  core.Reference conditionId =1;
+  core.Reference conditionId = 1;
   map<string, string> annotations = 2;
 }
 
-message TriggerAlertsResponse {
-}
+message TriggerAlertsResponse {}
 
 message ListAlertLogRequest {
   repeated string labels = 1;
-  uint64 limit  = 2;
-  google.protobuf.Timestamp startTimestamp  = 3;
+  uint64 limit = 2;
+  google.protobuf.Timestamp startTimestamp = 3;
   google.protobuf.Timestamp endTimestamp = 4;
 }
 
@@ -231,7 +230,7 @@ message AlertCondition {
   // bool anomalyDetection = 9;
 }
 
-enum AlertType{
+enum AlertType {
   SYSTEM = 0;
   KUBE_STATE = 1;
   COMPOSITION = 2;
@@ -239,8 +238,8 @@ enum AlertType{
 }
 
 enum CompositionAction {
-   AND = 0;
-   OR = 1;
+  AND = 0;
+  OR = 1;
 }
 
 enum ControlFlowAction {
@@ -248,29 +247,19 @@ enum ControlFlowAction {
   IF_NOT_THEN = 1;
 }
 
-message AlertForest {
-  ControlFlowAction action = 1;
-}
+message AlertForest { ControlFlowAction action = 1; }
 
-message AlertTree {
-  AlertTreeNode root = 1;
-}
+message AlertTree { AlertTreeNode root = 1; }
 
 message AlertTreeNode {
-  oneof  condtion {
-    AlertConditionWithId item = 1;
-  }
+  oneof condtion { AlertConditionWithId item = 1; }
   AlertTreeNode left = 2;
   AlertTreeNode right = 3;
 }
 
-message AlertDetailChoicesRequest {
-  AlertType alertType = 1;
-}
+message AlertDetailChoicesRequest { AlertType alertType = 1; }
 
-message AlertDetailChoicesResponse {
-  repeated AlertTypeDetails choices = 1;
-}
+message AlertDetailChoicesResponse { repeated AlertTypeDetails choices = 1; }
 
 message AlertTypeDetails {
   oneof type {
@@ -282,7 +271,7 @@ message AlertTypeDetails {
 }
 
 message ListAlertTypeDetails {
-  oneof type{
+  oneof type {
     ListAlertConditionSystem system = 1;
     ListAlertConditionKubeState kubeState = 2;
     ListAlertConditionComposition composition = 3;
@@ -290,7 +279,7 @@ message ListAlertTypeDetails {
   }
 }
 
-message AlertConditionSystem{}
+message AlertConditionSystem {}
 
 message ListAlertConditionSystem {}
 
@@ -299,25 +288,20 @@ message AlertConditionKubeState {
   // must be one of the listed kube objects
   string object = 2;
   string namespace = 3;
-// must be one of the listed kube states
+  // must be one of the listed kube states
   string state = 4;
   google.protobuf.Duration for = 5;
 }
 
-message ListAlertConditionKubeState{
+message ListAlertConditionKubeState {
   repeated string objects = 1;
   repeated string states = 2;
   repeated google.protobuf.Duration fors = 3;
 }
 
+message ListSelectAlertInfo { AlertType alertType = 1; }
 
-message ListSelectAlertInfo {
-  AlertType alertType = 1;
-}
-
-message AlertConditionList {
-  repeated AlertConditionWithId items = 1;
-}
+message AlertConditionList { repeated AlertConditionWithId items = 1; }
 
 message AlertConditionComposition {
   CompositionAction action = 1;
@@ -348,41 +332,37 @@ message AlertConditionWithId {
   AlertCondition alertCondition = 2;
 }
 
-message ListAlertConditionRequest {
-}
+message ListAlertConditionRequest {}
 
 message UpdateAlertConditionRequest {
   core.Reference id = 1;
   AlertCondition updateAlert = 2;
 }
 
-message PreviewAlertConditionRequest {
-}
+message PreviewAlertConditionRequest {}
 
-message PreviewAlertConditionResponse {
-}
-
+message PreviewAlertConditionResponse {}
 
 message EndpointImplementation {
   string Title = 1;
-  string Body = 2; 
+  string Body = 2;
 }
 
 message CreateImplementation {
-  core.Reference endpointId  = 1;
-  core.Reference  conditionId = 2;
+  core.Reference endpointId = 1;
+  core.Reference conditionId = 2;
   EndpointImplementation implementation = 3;
 }
 
 message AlertEndpoint {
-   string name = 1;
-   string description = 2;
-   oneof endpoint {
+  string name = 1;
+  string description = 2;
+  oneof endpoint {
     SlackEndpoint slack = 4;
     EmailEndpoint email = 5;
     TeamsEndpoint msteams = 6;
     WebhookEndpoint webhook = 7;
-   }
+  }
 }
 
 message SlackEndpoint {
@@ -395,17 +375,11 @@ message EmailEndpoint {
   optional string from = 2;
 }
 
-message TeamsEndpoint {
-    string webhookUrl = 1;
-}
+message TeamsEndpoint { string webhookUrl = 1; }
 
-message WebhookEndpoint {
-  string url = 1;
-}
+message WebhookEndpoint { string url = 1; }
 
-message AlertEndpointList {
-  repeated AlertEndpointWithId items = 1;
-}
+message AlertEndpointList { repeated AlertEndpointWithId items = 1; }
 
 message AlertEndpointWithId {
   AlertEndpoint endpoint = 1;
@@ -417,22 +391,16 @@ message InformativeAlertLog {
   core.AlertLog log = 2;
 }
 
-message InformativeAlertLogList {
-  repeated InformativeAlertLog items = 1;
-}
+message InformativeAlertLogList { repeated InformativeAlertLog items = 1; }
 
-message ListAlertEndpointsRequest {
-
-}
+message ListAlertEndpointsRequest {}
 message UpdateAlertEndpointRequest {
   core.Reference id = 1;
   AlertEndpoint UpdateAlert = 2;
 }
 
-message TestAlertEndpointRequest{
-}
-message TestAlertEndpointResponse {
-}
+message TestAlertEndpointRequest {}
+message TestAlertEndpointResponse {}
 
 message SilenceInfo {
   string silenceId = 1;

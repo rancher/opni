@@ -3,10 +3,11 @@ package alerting
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/templates"
 	"net/http"
 	"path"
 	"time"
+
+	"github.com/rancher/opni/pkg/alerting/templates"
 
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -56,6 +57,7 @@ func listWithKeys[T proto.Message](ctx context.Context, kvc storage.KeyValueStor
 // --- Trigger ---
 
 func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) (*alertingv1alpha.TriggerAlertsResponse, error) {
+	lg := p.logger
 	// get the condition ID details
 	a, err := p.GetAlertCondition(ctx, req.ConditionId)
 	if err != nil {
@@ -64,7 +66,8 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 	notifId := a.NotificationId
 
 	// persist with alert log api
-	_, err = p.CreateAlertLog(ctx, &corev1.AlertLog{
+	//FIXME: for now ignore errors in creating alert logs
+	_, _ = p.CreateAlertLog(ctx, &corev1.AlertLog{
 		ConditionId: req.ConditionId,
 		Timestamp: &timestamppb.Timestamp{
 			Seconds: time.Now().Unix(),
@@ -76,9 +79,6 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 			},
 		},
 	})
-	if err != nil {
-		return nil, err
-	}
 	if notifId != nil {
 		// send notification
 		var alertsArr []*PostableAlert
@@ -88,11 +88,14 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 			alert.WithRuntimeInfo(annotationName, annotationValue)
 		}
 		alertsArr = append(alertsArr, alert)
+		lg.Debug(fmt.Sprintf("Triggering alert for condition %s on endpoint %s", req.ConditionId.Id, p.alertingOptions.Get().Endpoints[0]))
 		resp, err := PostAlert(ctx, p.alertingOptions.Get().Endpoints[0], alertsArr)
 		if err != nil {
+			lg.With("handler", "PostAlert").Error(err)
 			return nil, err
 		}
 		if resp.StatusCode != http.StatusOK {
+			lg.With("handler", "PostAlert").Error(fmt.Sprintf("Unexpected response: %s", resp.Status))
 			return nil, fmt.Errorf("failed to send trigger alert in alertmanager: %d", resp.StatusCode)
 		}
 	}

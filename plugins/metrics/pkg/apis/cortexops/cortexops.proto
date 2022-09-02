@@ -7,9 +7,15 @@ import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
 package cortexops;
 
 service CortexOps {
-  rpc ConfigureInstall(InstallConfiguration) returns (google.protobuf.Empty);
-  rpc GetInstallStatus(google.protobuf.Empty) returns (InstallStatus);
+  rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty);
+  rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus);
   rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
+service AgentOps {
+  rpc ConfigureAgent(AgentConfiguration) returns (google.protobuf.Empty);
+  rpc GetAgentStatus(google.protobuf.Empty) returns (InstallStatus);
+  rpc UninstallAgent(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 enum InstallState {
@@ -31,7 +37,11 @@ enum DeploymentMode {
   HighlyAvailable = 1;
 }
 
-message InstallConfiguration {
+message ClusterConfiguration {
   DeploymentMode mode = 1;
   storage.StorageSpec storage = 2;
+}
+
+message AgentConfiguration {
+  string prometheusImage = 1;
 }

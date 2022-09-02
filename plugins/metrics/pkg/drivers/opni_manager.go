@@ -91,7 +91,7 @@ func (k *OpniManager) Name() string {
 	return "opni-manager"
 }
 
-func (k *OpniManager) ConfigureInstall(ctx context.Context, conf *cortexops.InstallConfiguration) (*emptypb.Empty, error) {
+func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
 	cluster := &v1beta2.MonitoringCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.monitoringCluster.Name,
@@ -153,7 +153,7 @@ func (k *OpniManager) ConfigureInstall(ctx context.Context, conf *cortexops.Inst
 	return &emptypb.Empty{}, nil
 }
 
-func (k *OpniManager) GetInstallStatus(ctx context.Context, _ *emptypb.Empty) (*cortexops.InstallStatus, error) {
+func (k *OpniManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*cortexops.InstallStatus, error) {
 	cluster := &v1beta2.MonitoringCluster{}
 	err := k.k8sClient.Get(ctx, k.monitoringCluster, cluster)
 	metadata := map[string]string{}

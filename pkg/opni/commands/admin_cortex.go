@@ -36,7 +36,7 @@ func BuildCortexClusterStatusCmd() *cobra.Command {
 		Use:   "status",
 		Short: "Cortex cluster status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			status, err := opsClient.GetInstallStatus(cmd.Context(), &emptypb.Empty{})
+			status, err := opsClient.GetClusterStatus(cmd.Context(), &emptypb.Empty{})
 			if err != nil {
 				return err
 			}
@@ -47,7 +47,7 @@ func BuildCortexClusterStatusCmd() *cobra.Command {
 				case cortexops.InstallState_Uninstalling:
 					return watchForDesiredState(cortexops.InstallState_NotInstalled)
 				}
-				status, err = opsClient.GetInstallStatus(cmd.Context(), &emptypb.Empty{})
+				status, err = opsClient.GetClusterStatus(cmd.Context(), &emptypb.Empty{})
 				if err != nil {
 					return err
 				}
@@ -91,7 +91,7 @@ func BuildCortexClusterConfigureCmd() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("unknown deployment strategy %s", mode)
 			}
-			_, err := opsClient.ConfigureInstall(cmd.Context(), &cortexops.InstallConfiguration{
+			_, err := opsClient.ConfigureCluster(cmd.Context(), &cortexops.ClusterConfiguration{
 				Mode:    cortexops.DeploymentMode(strategy),
 				Storage: &storage,
 			})
@@ -182,7 +182,7 @@ func (m clusterStatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		status, err := opsClient.GetInstallStatus(context.Background(), &emptypb.Empty{})
+		status, err := opsClient.GetClusterStatus(context.Background(), &emptypb.Empty{})
 		if err != nil {
 			m.err = err
 			return m, tea.Quit

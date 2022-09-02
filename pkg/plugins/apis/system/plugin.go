@@ -176,7 +176,7 @@ func (s *systemPluginHandler) ServeAPIExtensions(dialAddr string) error {
 }
 
 func init() {
-	plugins.ClientScheme.Add(SystemPluginID, NewPlugin(nil))
+	plugins.GatewayScheme.Add(SystemPluginID, NewPlugin(nil))
 }
 
 func (s *systemPluginHandler) serveSystemApi(regCallback func(*grpc.Server), useCallback func(uint32)) {

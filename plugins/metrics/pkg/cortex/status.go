@@ -9,13 +9,13 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (p *Plugin) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*cortexadmin.ClusterStatus, error) {
+func (p *Plugin) GetCortexStatus(ctx context.Context, _ *emptypb.Empty) (*cortexadmin.CortexStatus, error) {
 	cs, err := p.cortexClientSet.GetContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	stat := &cortexadmin.ClusterStatus{}
+	stat := &cortexadmin.CortexStatus{}
 
 	eg, ctx := errgroup.WithContext(ctx)
 
@@ -61,7 +61,7 @@ func (p *Plugin) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*corte
 	return stat, nil
 }
 
-func (p *Plugin) GetClusterConfig(ctx context.Context, req *cortexadmin.ConfigRequest) (*cortexadmin.ConfigResponse, error) {
+func (p *Plugin) GetCortexConfig(ctx context.Context, req *cortexadmin.ConfigRequest) (*cortexadmin.ConfigResponse, error) {
 	resp := &cortexadmin.ConfigResponse{
 		ConfigYaml: make([]string, len(req.ConfigModes)),
 	}

@@ -122,7 +122,7 @@ func LoadPlugins(loader *plugins.PluginLoader) int {
 		}
 		go plugin.Serve(sc)
 		rc := <-ch
-		cc := plugins.ClientConfig(p.Metadata, plugins.ClientScheme, rc)
+		cc := plugins.ClientConfig(p.Metadata, plugins.GatewayScheme, rc)
 		wg.Add(1)
 		p := p
 		go func() {

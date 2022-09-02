@@ -14,7 +14,10 @@ import (
 
 var ErrNotImplemented = errors.New("not implemented")
 
-var ClientScheme = meta.NewScheme()
+var (
+	GatewayScheme = meta.NewScheme()
+	AgentScheme   = meta.NewScheme()
+)
 
 var Handshake = plugin.HandshakeConfig{
 	ProtocolVersion:  plugin.CoreProtocolVersion,

@@ -49,5 +49,5 @@ func NewPlugin(backend capabilityv1.BackendServer) plugin.Plugin {
 }
 
 func init() {
-	plugins.ClientScheme.Add(CapabilityBackendPluginID, NewPlugin(nil))
+	plugins.GatewayScheme.Add(CapabilityBackendPluginID, NewPlugin(nil))
 }

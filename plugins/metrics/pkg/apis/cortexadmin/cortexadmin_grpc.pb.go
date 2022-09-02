@@ -35,8 +35,8 @@ type CortexAdminClient interface {
 	// list all metrics
 	GetSeriesMetrics(ctx context.Context, in *SeriesRequest, opts ...grpc.CallOption) (*SeriesInfoList, error)
 	GetMetricLabelSets(ctx context.Context, in *LabelRequest, opts ...grpc.CallOption) (*MetricLabels, error)
-	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterStatus, error)
-	GetClusterConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
+	GetCortexStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CortexStatus, error)
+	GetCortexConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 }
 
 type cortexAdminClient struct {
@@ -146,18 +146,18 @@ func (c *cortexAdminClient) GetMetricLabelSets(ctx context.Context, in *LabelReq
 	return out, nil
 }
 
-func (c *cortexAdminClient) GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterStatus, error) {
-	out := new(ClusterStatus)
-	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/GetClusterStatus", in, out, opts...)
+func (c *cortexAdminClient) GetCortexStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CortexStatus, error) {
+	out := new(CortexStatus)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/GetCortexStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cortexAdminClient) GetClusterConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error) {
+func (c *cortexAdminClient) GetCortexConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error) {
 	out := new(ConfigResponse)
-	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/GetClusterConfig", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/GetCortexConfig", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -180,8 +180,8 @@ type CortexAdminServer interface {
 	// list all metrics
 	GetSeriesMetrics(context.Context, *SeriesRequest) (*SeriesInfoList, error)
 	GetMetricLabelSets(context.Context, *LabelRequest) (*MetricLabels, error)
-	GetClusterStatus(context.Context, *emptypb.Empty) (*ClusterStatus, error)
-	GetClusterConfig(context.Context, *ConfigRequest) (*ConfigResponse, error)
+	GetCortexStatus(context.Context, *emptypb.Empty) (*CortexStatus, error)
+	GetCortexConfig(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	mustEmbedUnimplementedCortexAdminServer()
 }
 
@@ -222,11 +222,11 @@ func (UnimplementedCortexAdminServer) GetSeriesMetrics(context.Context, *SeriesR
 func (UnimplementedCortexAdminServer) GetMetricLabelSets(context.Context, *LabelRequest) (*MetricLabels, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMetricLabelSets not implemented")
 }
-func (UnimplementedCortexAdminServer) GetClusterStatus(context.Context, *emptypb.Empty) (*ClusterStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetClusterStatus not implemented")
+func (UnimplementedCortexAdminServer) GetCortexStatus(context.Context, *emptypb.Empty) (*CortexStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCortexStatus not implemented")
 }
-func (UnimplementedCortexAdminServer) GetClusterConfig(context.Context, *ConfigRequest) (*ConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetClusterConfig not implemented")
+func (UnimplementedCortexAdminServer) GetCortexConfig(context.Context, *ConfigRequest) (*ConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCortexConfig not implemented")
 }
 func (UnimplementedCortexAdminServer) mustEmbedUnimplementedCortexAdminServer() {}
 
@@ -439,38 +439,38 @@ func _CortexAdmin_GetMetricLabelSets_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CortexAdmin_GetClusterStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CortexAdmin_GetCortexStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CortexAdminServer).GetClusterStatus(ctx, in)
+		return srv.(CortexAdminServer).GetCortexStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cortexadmin.CortexAdmin/GetClusterStatus",
+		FullMethod: "/cortexadmin.CortexAdmin/GetCortexStatus",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexAdminServer).GetClusterStatus(ctx, req.(*emptypb.Empty))
+		return srv.(CortexAdminServer).GetCortexStatus(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CortexAdmin_GetClusterConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CortexAdmin_GetCortexConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ConfigRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CortexAdminServer).GetClusterConfig(ctx, in)
+		return srv.(CortexAdminServer).GetCortexConfig(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cortexadmin.CortexAdmin/GetClusterConfig",
+		FullMethod: "/cortexadmin.CortexAdmin/GetCortexConfig",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CortexAdminServer).GetClusterConfig(ctx, req.(*ConfigRequest))
+		return srv.(CortexAdminServer).GetCortexConfig(ctx, req.(*ConfigRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -527,12 +527,12 @@ var CortexAdmin_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _CortexAdmin_GetMetricLabelSets_Handler,
 		},
 		{
-			MethodName: "GetClusterStatus",
-			Handler:    _CortexAdmin_GetClusterStatus_Handler,
+			MethodName: "GetCortexStatus",
+			Handler:    _CortexAdmin_GetCortexStatus_Handler,
 		},
 		{
-			MethodName: "GetClusterConfig",
-			Handler:    _CortexAdmin_GetClusterConfig_Handler,
+			MethodName: "GetCortexConfig",
+			Handler:    _CortexAdmin_GetCortexConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

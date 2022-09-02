@@ -78,7 +78,7 @@ func (e *unaryExtensionServerImpl) UnaryDescriptor(ctx context.Context, _ *empty
 var _ apiextensions.UnaryAPIExtensionServer = (*unaryExtensionServerImpl)(nil)
 
 func init() {
-	plugins.ClientScheme.Add(UnaryAPIExtensionPluginID,
+	plugins.GatewayScheme.Add(UnaryAPIExtensionPluginID,
 		NewPlugin(&apiextensions.UnaryAPIExtension_ServiceDesc,
 			apiextensions.UnimplementedUnaryAPIExtensionServer{}))
 }

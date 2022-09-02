@@ -3,7 +3,7 @@ option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmi
 
 package cortexadmin;
 
-message ClusterStatus {
+message CortexStatus {
   DistributorStatus distributor = 1;
   IngesterStatus ingester = 2;
   RulerStatus ruler = 3;

@@ -67,7 +67,7 @@ import (
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 )
 
 var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")

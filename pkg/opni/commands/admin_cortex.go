@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"

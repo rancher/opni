@@ -4,16 +4,17 @@ import (
 	"context"
 	"emperror.dev/errors"
 	"fmt"
+	"time"
+
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
-	"time"
 )
 
 func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, clusterId string, toApply []RuleGroupYAMLv2) error {

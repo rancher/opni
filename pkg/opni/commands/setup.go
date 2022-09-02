@@ -10,8 +10,8 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/pkg/tracing"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/spf13/cobra"
 )
 

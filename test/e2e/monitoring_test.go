@@ -23,7 +23,7 @@ import (
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

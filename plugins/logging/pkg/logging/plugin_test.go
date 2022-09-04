@@ -24,7 +24,7 @@ const (
 	giBytes = 1073741824
 )
 
-var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
+var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 	var (
 		namespace         string
 		plugin            *Plugin

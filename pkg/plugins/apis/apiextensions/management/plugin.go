@@ -2,11 +2,13 @@ package managementext
 
 import (
 	"context"
+
 	"github.com/rancher/opni/pkg/util"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/kralicky/ragu/pkg/ragu/compat"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"google.golang.org/grpc"
@@ -79,6 +81,8 @@ func (e *mgmtExtensionServerImpl) Descriptor(ctx context.Context, _ *emptypb.Emp
 var _ apiextensions.ManagementAPIExtensionServer = (*mgmtExtensionServerImpl)(nil)
 
 func init() {
+	compat.LoadGogoFileDescriptor("k8s.io/api/core/v1/generated.proto")
+	compat.LoadGogoFileDescriptor("k8s.io/apimachinery/pkg/api/resource/generated.proto")
 	plugins.ClientScheme.Add(ManagementAPIExtensionPluginID,
 		NewPlugin(&apiextensions.ManagementAPIExtension_ServiceDesc,
 			apiextensions.UnimplementedManagementAPIExtensionServer{}))

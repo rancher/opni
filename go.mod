@@ -488,8 +488,10 @@ replace (
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
 	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220602163320-c4f349ffe03f
 	github.com/grafana/cortex-tools => github.com/kralicky/cortex-tools v0.10.8-0.20220627221302-78f58c901de0
+	github.com/kralicky/ragu => github.com/kralicky/ragu v1.0.0-beta2.0.20220804212527-11bbfeeda553
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
 	go.uber.org/zap => github.com/kralicky/zap v1.21.1-0.20220517214003-da0ae127f4db
+	google.golang.org/protobuf => github.com/kralicky/protobuf-go v0.0.0-20220803164439-eb1dfcbf71fa
 	opensearch.opster.io => github.com/dbason/opensearch-k8s-operator/opensearch-operator v0.0.0-20220711232325-352be96017bf
 )
 

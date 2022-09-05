@@ -82,7 +82,7 @@ type NatsCluster struct {
 type NatsClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Gateway `json:"items"`
+	Items           []NatsCluster `json:"items"`
 }
 
 func init() {

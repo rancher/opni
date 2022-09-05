@@ -57554,6 +57554,146 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    controller-gen.kubebuilder.io/version: v0.8.1-0.20220428122951-32ad71090a62
+  creationTimestamp: null
+  name: natsclusters.core.opni.io
+spec:
+  group: core.opni.io
+  names:
+    kind: NatsCluster
+    listKind: NatsClusterList
+    plural: natsclusters
+    singular: natscluster
+  scope: Namespaced
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              authMethod:
+                default: password
+                enum:
+                - password
+                - nkey
+                type: string
+              jetStream:
+                properties:
+                  enabled:
+                    type: boolean
+                  fileStorage:
+                    properties:
+                      emptyDir:
+                        properties:
+                          medium:
+                            type: string
+                          sizeLimit:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                        type: object
+                      enabled:
+                        type: boolean
+                      pvc:
+                        properties:
+                          accessModes:
+                            items:
+                              type: string
+                            type: array
+                          storageClass:
+                            type: string
+                        type: object
+                      size:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                    type: object
+                  memoryStorageSize:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                type: object
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                type: object
+              passwordFrom:
+                properties:
+                  key:
+                    type: string
+                  name:
+                    type: string
+                  optional:
+                    type: boolean
+                required:
+                - key
+                type: object
+              replicas:
+                format: int32
+                type: integer
+              tolerations:
+                items:
+                  properties:
+                    effect:
+                      type: string
+                    key:
+                      type: string
+                    operator:
+                      type: string
+                    tolerationSeconds:
+                      format: int64
+                      type: integer
+                    value:
+                      type: string
+                  type: object
+                type: array
+              username:
+                type: string
+            type: object
+          status:
+            properties:
+              authSecretKeyRef:
+                properties:
+                  key:
+                    type: string
+                  name:
+                    type: string
+                  optional:
+                    type: boolean
+                required:
+                - key
+                type: object
+              nkeyUser:
+                type: string
+              replicas:
+                format: int32
+                type: integer
+              state:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: nodefeaturediscoveries.nfd.opni.io

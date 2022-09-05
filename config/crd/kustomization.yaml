@@ -32,6 +32,7 @@ resources:
 - bases/core.opni.io_gateways.yaml
 - bases/core.opni.io_loggingclusters.yaml
 - bases/core.opni.io_monitoringclusters.yaml
+- bases/core.opni.io_natsclusters.yaml
 - bases/logging.opni.io_datapreppers.yaml
 - bases/logging.opni.io_logadapters.yaml
 - bases/logging.opni.io_loggingclusterbindings.yaml

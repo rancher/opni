@@ -24,13 +24,13 @@ type NatsClusterReonciler struct {
 // +kubebuilder:rbac:groups=core.opni.io,resources=natsclusters/finalizers,verbs=update
 
 func (r *NatsClusterReonciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	NatsCluster := &corev1beta1.NatsCluster{}
-	err := r.Get(ctx, req.NamespacedName, NatsCluster)
+	natsCluster := &corev1beta1.NatsCluster{}
+	err := r.Get(ctx, req.NamespacedName, natsCluster)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	NatsClusterReconciler := nats.NewReconciler(ctx, r.Client, NatsCluster)
+	NatsClusterReconciler := nats.NewReconciler(ctx, r.Client, natsCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

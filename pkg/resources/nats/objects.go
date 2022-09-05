@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	natsDefaultImage               = " nats:2.8.4-alpine"
+	natsDefaultImage               = "nats:2.8.4-alpine"
 	natsDefaultConfigReloaderImage = "natsio/nats-server-config-reloader:0.7.2"
 	natsDefaultPidFilePath         = "/opt/nats/pid"
 	natsDefaultPidFileName         = "nats-server.pid"
@@ -42,6 +42,7 @@ var (
 	natsConfigTemplate = template.Must(template.New("natsconfig").Parse(`
 listen: 0.0.0.0:{{ .ClientPort }}
 http: 0.0.0.0:{{ .HTTPPort }}
+server_name: $POD_NAME
 
 
 #Authorization for client connections
@@ -79,7 +80,7 @@ cluster {
 	]
 }
 {{- if .Jetstream.Enabled }}
-jestream {
+jetstream {
 	{{- if not (eq .Jetstream.Mem "") }}
 	max_mem: {{ .Jetstream.Mem }}
 	{{- end }}
@@ -239,6 +240,16 @@ func (r *Reconciler) natsStatefulSet() *appsv1.StatefulSet {
 							Args: []string{
 								"-c",
 								fmt.Sprintf("%s/%s", natsDefaultConfigPath, natsConfigFileName),
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name: "POD_NAME",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.name",
+										},
+									},
+								},
 							},
 							Ports: []corev1.ContainerPort{
 								{

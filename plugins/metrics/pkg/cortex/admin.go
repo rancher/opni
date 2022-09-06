@@ -338,7 +338,6 @@ func (p *Plugin) ListRules(ctx context.Context, req *cortexadmin.Cluster) (*cort
 			"status", resp.Status,
 		).Error("list rules failed")
 		return nil, fmt.Errorf("list failed: %s", resp.Status)
-		return nil, err
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

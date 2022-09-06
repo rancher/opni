@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
@@ -16,7 +17,6 @@ import (
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/gogo/status"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -93,6 +93,10 @@ func (p *Plugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) 
 	}
 
 	return nil, nil
+}
+
+func (p *Plugin) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 
 func (p *Plugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {

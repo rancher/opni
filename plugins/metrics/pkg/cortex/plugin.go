@@ -3,8 +3,9 @@ package cortex
 import (
 	"context"
 	"crypto/tls"
+	"sync/atomic"
 
-	"github.com/kralicky/gpkg/sync/atomic"
+	gsatomic "github.com/kralicky/gpkg/sync/atomic"
 
 	"go.uber.org/zap"
 
@@ -44,8 +45,9 @@ type Plugin struct {
 	cortexTlsConfig     future.Future[*tls.Config]
 	cortexClientSet     future.Future[ClientSet]
 	uninstallController future.Future[*task.Controller]
-	clusterDriver       atomic.Value[drivers.ClusterDriver]
+	clusterDriver       gsatomic.Value[drivers.ClusterDriver]
 	logger              *zap.SugaredLogger
+	syncMgr             atomic.Pointer[NodeSyncManager]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {

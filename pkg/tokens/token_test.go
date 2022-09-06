@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 )
 
@@ -153,7 +154,7 @@ var _ = Describe("Token", Label("unit"), func() {
 	})
 	It("should correctly generate a reference", func() {
 		t := tokens.NewToken()
-		Expect(t.Reference()).To(Equal(&corev1.Reference{
+		Expect(t.Reference()).To(testutil.ProtoEqual(&corev1.Reference{
 			Id: t.HexID(),
 		}))
 	})

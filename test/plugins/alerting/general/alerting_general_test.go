@@ -1,10 +1,11 @@
-package alerting_test
+package general_test
 
 import (
 	"context"
 	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/alerting/templates"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	"github.com/rancher/opni/pkg/test"
@@ -84,7 +85,7 @@ var _ = Describe("Alerting Backend", Ordered, Label(test.Unit, test.Slow), func(
 		fmt.Println("Starting alerting general test")
 		XSpecify("The mocked runtime backend should be able to start and stop", func() {
 			ctxca, ca := context.WithCancel(ctx)
-			webPort := env.StartAlertManager(ctxca, alerting.LocalAlertManagerPath)
+			webPort := env.StartAlertManager(ctxca, shared.LocalAlertManagerPath)
 			webClient := &alerting.AlertManagerAPI{
 				Endpoint: "localhost:" + strconv.Itoa(webPort),
 				Route:    "/-/ready",
@@ -120,8 +121,8 @@ var _ = Describe("Alerting Backend", Ordered, Label(test.Unit, test.Slow), func(
 		})
 
 		XSpecify("We should be able to hot reload the mocked backend", func() {
-			curPort, curCancel := ManualReloadEndpointBackend(0, nil, ctx, alerting.LocalAlertManagerPath)
-			newPort, newCancel := ManualReloadEndpointBackend(curPort, curCancel, ctx, alerting.LocalAlertManagerPath)
+			curPort, curCancel := ManualReloadEndpointBackend(0, nil, ctx, shared.LocalAlertManagerPath)
+			newPort, newCancel := ManualReloadEndpointBackend(curPort, curCancel, ctx, shared.LocalAlertManagerPath)
 			Expect(newPort).NotTo(Equal(0))
 			newCancel()
 			webClient := &alerting.AlertManagerAPI{

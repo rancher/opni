@@ -41,7 +41,7 @@ func (a *alertInfoSorter) Less(i, j int) bool {
 
 func (p *Plugin) CreateAlertLog(ctx context.Context, event *corev1.AlertLog) (*emptypb.Empty, error) {
 	if p.inMemCache != nil {
-		p.inMemCache.Add(event.ConditionId, event)
+		p.inMemCache.Add(event.ConditionId.Id, event)
 	}
 	existing, err := GetIndices() // get the existing indices for each condition
 	if err != nil {
@@ -143,8 +143,9 @@ func (p *Plugin) ListAlertLogs(ctx context.Context, req *alertingv1alpha.ListAle
 			}
 		}
 		toBeFiltered = append(toBeFiltered, &alertingv1alpha.InformativeAlertLog{
-			Condition: cnd,
-			Log:       log,
+			ConditionId: log.ConditionId,
+			Condition:   cnd,
+			Log:         log,
 		})
 	}
 	var toBeReturned []*alertingv1alpha.InformativeAlertLog

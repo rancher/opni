@@ -1,4 +1,4 @@
-package alerting_test
+package endpoints_test
 
 import (
 	"bytes"
@@ -98,11 +98,11 @@ var _ = BeforeSuite(func() {
 	err = os.MkdirAll(alerting.AlertPath, 0777)
 	Expect(err).To(BeNil())
 
-	err = os.Setenv(alerting.LocalBackendEnvToggle, "true")
+	err = os.Setenv(shared.LocalBackendEnvToggle, "true")
 	Expect(err).To(Succeed())
 	defaultCfg, err := defaultConfig()
 	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(alerting.LocalAlertManagerPath, defaultCfg.Bytes(), 0666)
+	err = os.WriteFile(shared.LocalAlertManagerPath, defaultCfg.Bytes(), 0666)
 	Expect(err).To(Succeed())
 
 	// get all the integration endpoint test information
@@ -110,7 +110,7 @@ var _ = BeforeSuite(func() {
 	// test environment references
 	// setup managemet server & client
 	env = &test.Environment{
-		TestBin: "../../../testbin/bin",
+		TestBin: "../../../../testbin/bin",
 	}
 	Expect(env.Start()).To(Succeed())
 	DeferCleanup(env.Stop)

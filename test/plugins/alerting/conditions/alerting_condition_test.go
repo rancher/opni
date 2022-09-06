@@ -1,4 +1,4 @@
-package alerting_test
+package conditions_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/metrics"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
@@ -24,6 +25,10 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+var testConditionImplementationReference *alertingv1alpha.AlertConditionWithId
+var slackId *corev1.Reference
+var emailId *corev1.Reference
 
 var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Unit, test.Slow), func() {
 	ctx := context.Background()
@@ -255,11 +260,12 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 			// TODO: when implemented
 		})
 
-		XIt("Should be CRUD [system] type alert conditions", func() {
+		It("Should be CRUD [system] type alert conditions", func() {
 			fmt.Println("System Alert Conditions starting")
 			conditions, err := alertingClient.ListAlertConditions(ctx, &alertingv1alpha.ListAlertConditionRequest{})
 			Expect(err).To(Succeed())
-			Expect(conditions.Items).To(HaveLen(0))
+			Expect(conditions.Items).To(HaveLen(1))
+			oldCondition := conditions.Items[0].Id
 
 			client := env.NewManagementClient()
 			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
@@ -276,7 +282,14 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 			time.Sleep(time.Second)
 			newConds, err := alertingClient.ListAlertConditions(ctx, &alertingv1alpha.ListAlertConditionRequest{})
 			Expect(err).To(Succeed())
-			Expect(newConds.Items).To(HaveLen(1))
+			Expect(newConds.Items).To(HaveLen(2))
+			var newConditionId *corev1.Reference
+			for _, cond := range newConds.Items {
+				if cond.Id != oldCondition {
+					newConditionId = cond.Id
+				}
+			}
+			Expect(newConditionId).NotTo(BeNil())
 
 			// kill the agent
 			ca()
@@ -289,7 +302,163 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 			})
 			Expect(err).To(Succeed())
 			Expect(filteredLogs.Items).ToNot(HaveLen(0))
+			found := false
+			for _, log := range filteredLogs.Items {
+				if log.ConditionId.Id == newConditionId.Id { // can't use ContainElements matcher because core.Reference eq is quirky
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue())
 			fmt.Println("System Alert Conditions finished")
+		})
+	})
+
+	When("We attach notification details to an alert condition", func() {
+		// BIG BIG WARNING: we can't actually test if alert manager successfully dispatches the alert to the endpoint
+		// BUT we can test that everything is configured correctly & opni alerting processes information correctly
+		It("should be able to set up a new disconnect condition for testing", func() {
+			existing, err := alertingClient.ListAlertConditions(ctx, &alertingv1alpha.ListAlertConditionRequest{})
+			Expect(err).To(Succeed())
+
+			client := env.NewManagementClient()
+			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
+				Ttl: durationpb.New(time.Hour),
+			})
+			Expect(err).NotTo(HaveOccurred())
+			info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
+			Expect(err).To(Succeed())
+
+			// on agent startup expect an alert condition to be created
+			ctxca, ca := context.WithCancel(waitctx.FromContext(context.Background()))
+			defer ca()
+			p, _ := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint}, test.WithContext(ctxca))
+			Expect(p).NotTo(Equal(0))
+			time.Sleep(time.Second)
+
+			newConditions, err := alertingClient.ListAlertConditions(ctx, &alertingv1alpha.ListAlertConditionRequest{})
+			Expect(err).To(Succeed())
+			for _, c := range newConditions.Items {
+				for _, c2 := range existing.Items {
+					if c2.Id.Id == c.Id.Id {
+						testConditionImplementationReference = c
+					}
+				}
+			}
+		})
+
+		It("Should be able to setup some reusable notification groups", func() {
+			existing, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+			Expect(err).To(Succeed())
+			// create a notification group
+
+			// create slack
+			_, err = alertingClient.CreateAlertEndpoint(ctx, &alertingv1alpha.AlertEndpoint{
+				Name:        "slack",
+				Description: "slack endpoint",
+				Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
+					Slack: &alertingv1alpha.SlackEndpoint{
+						WebhookUrl: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+						Channel:    "#opni-alerts",
+					},
+				},
+			})
+			Expect(err).To(Succeed())
+
+			newEndpoints, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+			Expect(err).To(Succeed())
+			Expect(newEndpoints.Items).To(HaveLen(len(existing.Items) + 1))
+			if len(existing.Items) == 0 {
+				slackId = newEndpoints.Items[0].Id
+			} else {
+				found := false
+				for _, c := range newEndpoints.Items {
+					for _, c2 := range existing.Items {
+						if c2.Id.Id == c.Id.Id {
+							slackId = c.Id
+							found = true
+							break
+						}
+					}
+					if found {
+						break
+					}
+				}
+			}
+			Expect(slackId).NotTo(BeNil())
+			existing = newEndpoints
+
+			// create email
+			_, err = alertingClient.CreateAlertEndpoint(ctx, &alertingv1alpha.AlertEndpoint{
+				Name:        "slack",
+				Description: "slack endpoint",
+				Endpoint: &alertingv1alpha.AlertEndpoint_Email{
+					Email: &alertingv1alpha.EmailEndpoint{
+						To: "alexandre.lamarre@suse.com",
+					},
+				},
+			})
+			Expect(err).To(Succeed())
+			newEndpoints, err = alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+			Expect(err).To(Succeed())
+			for _, c := range newEndpoints.Items {
+				found := false
+				for _, c2 := range existing.Items {
+					if c2.Id.Id == c.Id.Id {
+						found = true
+						break
+					}
+				}
+				if !found {
+					emailId = c.Id
+					break
+				}
+			}
+			Expect(emailId).NotTo(BeNil())
+
+		})
+
+		It("Should be able to send slack notifications when the condition fails", func() {
+			Expect(testConditionImplementationReference).NotTo(BeNil())
+			Expect(slackId).NotTo(BeNil())
+			_, err := alertingClient.UpdateAlertCondition(ctx, &alertingv1alpha.UpdateAlertConditionRequest{
+				Id: testConditionImplementationReference.Id,
+				UpdateAlert: &alertingv1alpha.AlertCondition{
+					Name:           testConditionImplementationReference.AlertCondition.Name,
+					Labels:         testConditionImplementationReference.AlertCondition.Labels,
+					Description:    testConditionImplementationReference.AlertCondition.Description,
+					Severity:       testConditionImplementationReference.AlertCondition.Severity,
+					AlertType:      testConditionImplementationReference.AlertCondition.AlertType,
+					NotificationId: &slackId.Id,
+					Details: &alertingv1alpha.EndpointImplementation{
+						Title: "test",
+						Body:  "runtime information about alert",
+					},
+				},
+			})
+			Expect(err).To(Succeed())
+		})
+
+		It("Should be able to send email notifications when the condition fails", func() {
+			Expect(testConditionImplementationReference).NotTo(BeNil())
+			e := emailId
+			fmt.Println(e)
+			Expect(emailId).NotTo(BeNil())
+			_, err := alertingClient.UpdateAlertCondition(ctx, &alertingv1alpha.UpdateAlertConditionRequest{
+				Id: testConditionImplementationReference.Id,
+				UpdateAlert: &alertingv1alpha.AlertCondition{
+					Name:           testConditionImplementationReference.AlertCondition.Name,
+					Labels:         testConditionImplementationReference.AlertCondition.Labels,
+					Description:    testConditionImplementationReference.AlertCondition.Description,
+					Severity:       testConditionImplementationReference.AlertCondition.Severity,
+					AlertType:      testConditionImplementationReference.AlertCondition.AlertType,
+					NotificationId: &emailId.Id,
+					Details: &alertingv1alpha.EndpointImplementation{
+						Title: "test",
+						Body:  "runtime information about alert",
+					},
+				},
+			})
+			Expect(err).To(Succeed())
 		})
 	})
 })

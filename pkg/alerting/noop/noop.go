@@ -116,3 +116,7 @@ func (a *AlertingNoopV1Alpha) DeactivateSilence(ctx context.Context, ref *corev1
 func (a *AlertingNoopV1Alpha) ListAlertConditionChoices(ctx context.Context, req *alertingv1alpha.AlertDetailChoicesRequest, opts ...grpc.CallOption) (*alertingv1alpha.ListAlertTypeDetails, error) {
 	return nil, shared.AlertingErrNotImplementedNOOP
 }
+
+func (a *AlertingNoopV1Alpha) AlertConditionStatus(ctx context.Context, ref *corev1.Reference, opts ...grpc.CallOption) (*alertingv1alpha.AlertStatusResponse, error) {
+	return nil, shared.AlertingErrNotImplementedNOOP
+}

@@ -80,6 +80,12 @@ service Alerting {
     };
   }
 
+  rpc AlertConditionStatus(core.Reference) returns (AlertStatusResponse) {
+    option (google.api.http) = {
+      post : "/alerts/conditions/status/{id}"
+    };
+  }
+
   // unimplemented
   rpc PreviewAlertCondition(PreviewAlertConditionRequest)
       returns (PreviewAlertConditionResponse) {
@@ -181,6 +187,19 @@ service Alerting {
     };
   }
 }
+
+enum AlertConditionState {
+  UNSPECIFIED = 0;
+  OK = 1;
+  FIRING = 2;
+  SILENCED = 3;
+}
+
+message AlertStatusResponse{
+  AlertConditionState state = 1;
+}
+
+
 
 message TemplatesResponse { repeated string template = 1; }
 
@@ -387,8 +406,9 @@ message AlertEndpointWithId {
 }
 
 message InformativeAlertLog {
-  AlertCondition condition = 1;
-  core.AlertLog log = 2;
+  core.Reference conditionId = 1;
+  AlertCondition condition = 2;
+  core.AlertLog log = 3;
 }
 
 message InformativeAlertLogList { repeated InformativeAlertLog items = 1; }

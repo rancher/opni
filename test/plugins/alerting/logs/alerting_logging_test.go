@@ -1,4 +1,4 @@
-package alerting_test
+package logs_test
 
 import (
 	"context"

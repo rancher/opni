@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/prometheus/alertmanager/api/v2/models"
+	"github.com/tidwall/gjson"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"path"
 	"time"
@@ -79,6 +82,8 @@ func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.L
 func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.UpdateAlertConditionRequest) (*emptypb.Empty, error) {
 	// ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
 	// defer ca()
+	lg := p.logger.With("handler", "UpdateAlertCondition")
+	lg.Debugf("Updating alert condition %s", req.Id)
 	storage, err := p.storage.GetContext(ctx)
 	if err != nil {
 		return nil, err
@@ -91,6 +96,7 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 	// UPDATE THE ACTUAL CONDITION
 	// until we have a more complicated setup, deleting then recreating is fine
 	if existing.NotificationId != nil {
+		lg.Debugf("Deleting entire condition since there is an existing notification %s", *existing.NotificationId)
 		_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{Id: req.Id.Id})
 		if err != nil {
 			return nil, shared.WithInternalServerError(fmt.Sprintf("failed to delete & update condition : %s", err))
@@ -115,7 +121,9 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 }
 
 func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	lg := p.logger.With("Handler", "DeleteAlertCondition")
+	lg.Debugf("Deleting alert condition %s", ref.Id)
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
 	defer ca()
 	storage, err := p.storage.GetContext(ctx)
 	if err != nil {
@@ -128,6 +136,7 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	if err := deleteCondition(p, ctx, existing, ref.Id); err != nil {
 		return nil, err
 	}
+	lg.Debugf("Deleted condition %s must clean up its existing endpoint implementation", ref.Id)
 	_, err = p.DeleteEndpointImplementation(ctx, ref)
 	if err != nil {
 		return nil, err
@@ -145,6 +154,62 @@ func (p *Plugin) PreviewAlertCondition(ctx context.Context,
 
 	// return status
 	return nil, shared.AlertingErrNotImplemented
+}
+
+func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertStatusResponse, error) {
+	lg := p.logger.With("handler", "AlertConditionStatus")
+	lg.Debugf("Getting alert condition status %s", ref.Id)
+	defaultState := &alertingv1alpha.AlertStatusResponse{
+		State: alertingv1alpha.AlertConditionState_OK,
+	}
+	options, err := p.alertingOptions.GetContext(ctx)
+	if err != nil {
+		lg.Errorf("Failed to get alerting options : %s", err)
+		return nil, err
+	}
+	_, resp, err := GetAlerts(ctx, options.Endpoints[0])
+	if err != nil {
+		lg.Errorf("failed to get alerts : %s", err)
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			lg.Errorf("failed to close body : %s", err)
+		}
+	}(resp.Body)
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		lg.Errorf("failed to read body : %s", err)
+		return nil, err
+	}
+	result := gjson.Get(string(b), "")
+	if !result.Exists() {
+		return defaultState, nil
+	}
+
+	for _, alert := range result.Array() {
+		receiverName := gjson.Get(alert.String(), "receiver.name")
+		if receiverName.String() == ref.Id {
+			state := gjson.Get(alert.String(), "status.state")
+			switch state.String() {
+			case models.AlertStatusStateActive:
+				return &alertingv1alpha.AlertStatusResponse{
+					State: alertingv1alpha.AlertConditionState_FIRING,
+				}, nil
+			case models.AlertStatusStateSuppressed:
+				return &alertingv1alpha.AlertStatusResponse{
+					State: alertingv1alpha.AlertConditionState_SILENCED,
+				}, nil
+
+			case models.AlertStatusStateUnprocessed:
+				return defaultState, nil
+			default:
+				return defaultState, nil
+			}
+		}
+	}
+	return defaultState, nil
 }
 
 func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.SilenceRequest) (*emptypb.Empty, error) {

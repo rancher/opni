@@ -1,8 +1,9 @@
-package alerting_test
+package endpoints_test
 
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"os"
 
 	"github.com/google/uuid"
@@ -16,7 +17,7 @@ import (
 )
 
 func curConfig() *alerting.ConfigMapData {
-	curConfigData, err := os.ReadFile(alerting.LocalAlertManagerPath)
+	curConfigData, err := os.ReadFile(shared.LocalAlertManagerPath)
 	Expect(err).To(Succeed())
 	curConfig := string(curConfigData)
 	configMap := &alerting.ConfigMapData{}
@@ -118,7 +119,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 		Specify("Cleaning up edge case data", func() {
 			defaultCfg, err := defaultConfig()
 			Expect(err).To(Succeed())
-			err = os.WriteFile(alerting.LocalAlertManagerPath, defaultCfg.Bytes(), 0644)
+			err = os.WriteFile(shared.LocalAlertManagerPath, defaultCfg.Bytes(), 0644)
 			Expect(err).To(Succeed())
 		})
 
@@ -127,6 +128,9 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 	When("The alerting plugin starts", func() {
 		It("Should be able to CRUD (Reusable K,V groups) Alert Endpoints", func() {
 			fromUrl := "bot@google.com"
+
+			// Note : do not use `#general` slack channel when testing, since if something goes wrong
+			// with AM internally, it will default back to #general
 			inputs := []*alertingv1alpha.AlertEndpoint{
 				{
 					Name:        "TestAlertEndpoint",
@@ -163,7 +167,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					Description: "TestAlertEndpoint4",
 					Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
 						Slack: &alertingv1alpha.SlackEndpoint{
-							Channel:    "#general",
+							Channel:    "#another-channel",
 							WebhookUrl: "https://hooks.slack.com/services/AAAAAAAA/B0S0S0S0S/B0S0S0S0S",
 						},
 					},
@@ -175,6 +179,26 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 				existing, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 				Expect(err).To(Succeed())
 				Expect(existing.Items).To(HaveLen(num + 1))
+			}
+			actual, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+			Expect(err).To(Succeed())
+			for _, input := range inputs {
+				found := false
+				for _, output := range actual.Items {
+					if input.Name == output.Endpoint.Name {
+						if input.GetEmail() != nil {
+							Expect(input.GetEmail().To).To(Equal(output.Endpoint.GetEmail().To))
+							Expect(input.GetEmail().From).To(Equal(output.Endpoint.GetEmail().From))
+						}
+						if input.GetSlack() != nil {
+							Expect(input.GetSlack().Channel).To(Equal(output.Endpoint.GetSlack().Channel))
+							Expect(input.GetSlack().WebhookUrl).To(Equal(output.Endpoint.GetSlack().WebhookUrl))
+						}
+						found = true
+						break
+					}
+				}
+				Expect(found).To(BeTrue())
 			}
 		})
 
@@ -300,6 +324,17 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 
 			Expect(err).To(Succeed())
 			Expect(curConfig().Receivers).To(HaveLen(2))
+			foundSlack := false
+			for _, recv := range curConfig().Receivers {
+				if recv.Name == idsToCreate["slack"] {
+					Expect(recv.SlackConfigs).To(HaveLen(1))
+					Expect(recv.SlackConfigs[0].Channel).To(Equal(slack.Endpoint.GetSlack().Channel))
+					Expect(recv.SlackConfigs[0].APIURL).To(Equal(slack.Endpoint.GetSlack().GetWebhookUrl()))
+					foundSlack = true
+				}
+			}
+			Expect(foundSlack).To(BeTrue())
+			// check configuration
 
 			emailContent := "Email message content [CI]"
 			_, err = alertingClient.CreateEndpointImplementation(ctx,

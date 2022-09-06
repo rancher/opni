@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/metrics"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	"io/fs"
 	"math/rand"
 	"net/http"
@@ -22,6 +20,9 @@ import (
 	"sync"
 	"text/template"
 	"time"
+
+	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/pkg/alerting/shared"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -752,10 +753,15 @@ func (e *Environment) StartAlertManager(ctx context.Context, configFile string) 
 	if err != nil {
 		panic(err)
 	}
+	clusterPort, err := freeport.GetFreePort() // do not need to expose this port to application code
+	if err != nil {
+		panic(err)
+	}
 	amBin := path.Join(e.TestBin, "alertmanager")
 	defaultArgs := []string{
 		fmt.Sprintf("--config.file=%s", configFile),
 		fmt.Sprintf("--web.listen-address=:%d", webPort),
+		fmt.Sprintf("--cluster.listen-address=%d", clusterPort),
 		"--storage.path=/tmp/data",
 		"--log.level=debug",
 	}

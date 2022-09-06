@@ -7,6 +7,9 @@ import (
 	"path"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/shared"
+	"go.uber.org/zap"
+
 	"github.com/rancher/opni/pkg/alerting/templates"
 
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
@@ -18,6 +21,7 @@ import (
 )
 
 const postableAlertRoute = "/api/v1/alerts"
+const amRetries = 5
 
 func list[T proto.Message](ctx context.Context, kvc storage.KeyValueStoreT[T], prefix string) ([]T, error) {
 	keys, err := kvc.ListKeys(ctx, prefix)
@@ -54,10 +58,84 @@ func listWithKeys[T proto.Message](ctx context.Context, kvc storage.KeyValueStor
 	return ids, items, nil
 }
 
+func checkRateLimiting(ctx context.Context, lg *zap.SugaredLogger, conditionId string, options AlertingOptions) (bool, error) {
+	_, resp, err := GetAlerts(ctx, options.Endpoints[0])
+	if err != nil {
+		lg.With("handler", "GetAlerts").Error(err)
+		return true, err
+	}
+	// FIXME reimplement
+	// for i := 0; i < amRetries; i++ {
+	// 	resp, err = OnRetryResponse(getReq, resp)
+	// 	if err != nil {
+	// 		lg.With("handler", "GetAlerts").Error(err)
+	// 		return true, err
+	// 	}
+	// 	time.Sleep(time.Second)
+	// }
+	return IsRateLimited(conditionId, resp)
+}
+
+func constructAlerts(conditionId string, annotations map[string]string) []*PostableAlert {
+	// marshal data into a reasonable post alert request
+	var alertsArr []*PostableAlert
+	alert := &PostableAlert{}
+	alert.WithCondition(conditionId)
+	for annotationName, annotationValue := range annotations {
+		alert.WithRuntimeInfo(annotationName, annotationValue)
+	}
+	alertsArr = append(alertsArr, alert)
+	return alertsArr
+}
+
+func dispatchAlert(ctx context.Context, lg *zap.SugaredLogger, options AlertingOptions, alertsArr []*PostableAlert) error {
+	_, resp, err := PostAlert(ctx, options.Endpoints[0], alertsArr)
+	if err != nil {
+		lg.With("handler", "PostAlert").Error(err)
+		return err
+	}
+	// FIXME reimplement
+	// for i := 0; i < amRetries; i++ {
+	// 	resp, err = http.DefaultClient.Do(req)
+	// 	if err != nil {
+	// 		lg.With("handler", "PostAlert").Error(err)
+	// 		return err
+	// 	}
+	// }
+	if resp.StatusCode != http.StatusOK {
+		lg.With("handler", "PostAlert").Error(fmt.Sprintf("Unexpected response: %s", resp.Status))
+		return fmt.Errorf("failed to send trigger alert in alertmanager: %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func sendNotificationWithRateLimiting(p *Plugin, ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) error {
+	lg := p.logger
+	// check for rate limiting
+	options, err := p.alertingOptions.GetContext(ctx)
+	if err != nil {
+		lg.Error(fmt.Sprintf("failed to load alerting options in required time : %s", err))
+		return err
+	}
+	shouldExitEarly, err := checkRateLimiting(ctx, lg, req.ConditionId.Id, options)
+	if err != nil {
+		lg.Error(err)
+		return err
+	}
+	if shouldExitEarly {
+		return nil
+	}
+	// marshal data into a reasonable post alert request
+	alertsArr := constructAlerts(req.ConditionId.Id, req.Annotations)
+	lg.Debug(fmt.Sprintf("Triggering alert for condition %s on endpoint %s", req.ConditionId.Id, p.alertingOptions.Get().Endpoints[0]))
+
+	// send dispatch request
+	return dispatchAlert(ctx, lg, options, alertsArr)
+}
+
 // --- Trigger ---
 
 func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) (*alertingv1alpha.TriggerAlertsResponse, error) {
-	lg := p.logger
 	// get the condition ID details
 	a, err := p.GetAlertCondition(ctx, req.ConditionId)
 	if err != nil {
@@ -80,27 +158,12 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 		},
 	})
 	if notifId != nil {
-		// send notification
-		var alertsArr []*PostableAlert
-		alert := &PostableAlert{}
-		alert.WithCondition(req.ConditionId.Id)
-		for annotationName, annotationValue := range req.GetAnnotations() {
-			alert.WithRuntimeInfo(annotationName, annotationValue)
-		}
-		alertsArr = append(alertsArr, alert)
-		lg.Debug(fmt.Sprintf("Triggering alert for condition %s on endpoint %s", req.ConditionId.Id, p.alertingOptions.Get().Endpoints[0]))
-		resp, err := PostAlert(ctx, p.alertingOptions.Get().Endpoints[0], alertsArr)
+		// dispatch with alert condition id to alert endpoint id, by obeying rate limiting from AM
+		err = sendNotificationWithRateLimiting(p, ctx, req)
 		if err != nil {
-			lg.With("handler", "PostAlert").Error(err)
-			return nil, err
-		}
-		if resp.StatusCode != http.StatusOK {
-			lg.With("handler", "PostAlert").Error(fmt.Sprintf("Unexpected response: %s", resp.Status))
-			return nil, fmt.Errorf("failed to send trigger alert in alertmanager: %d", resp.StatusCode)
+			return nil, shared.WithInternalServerError(fmt.Sprintf("%s", err))
 		}
 	}
-	// dispatch with alert condition id to alert endpoint id
-
 	return &alertingv1alpha.TriggerAlertsResponse{}, nil
 }
 

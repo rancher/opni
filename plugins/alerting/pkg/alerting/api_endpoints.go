@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -157,7 +156,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	return nil, shared.AlertingErrNotImplemented
 }
 
-func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImplementation, endpointDetails *alertingv1alpha.AlertEndpoint) (*cfg.Receiver, error) {
+func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImplementation, endpointDetails *alertingv1alpha.AlertEndpoint) (*Receiver, error) {
 	if s := endpointDetails.GetSlack(); s != nil {
 		recv, err := NewSlackReceiver(conditionId, s)
 		if err != nil {

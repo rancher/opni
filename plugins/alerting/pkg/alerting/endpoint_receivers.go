@@ -13,11 +13,11 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func (c *ConfigMapData) AppendReceiver(recv *cfg.Receiver) {
+func (c *ConfigMapData) AppendReceiver(recv *Receiver) {
 	c.Receivers = append(c.Receivers, recv)
 }
 
-func (c *ConfigMapData) GetReceivers() []*cfg.Receiver {
+func (c *ConfigMapData) GetReceivers() []*Receiver {
 	return c.Receivers
 }
 
@@ -38,7 +38,7 @@ func (c *ConfigMapData) findReceivers(id string) (int, error) {
 	return foundIdx, nil
 }
 
-func (c *ConfigMapData) UpdateReceiver(id string, recv *cfg.Receiver) error {
+func (c *ConfigMapData) UpdateReceiver(id string, recv *Receiver) error {
 	idx, err := c.findReceivers(id)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (c *ConfigMapData) DeleteReceiver(id string) error {
 	return nil
 }
 
-func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*cfg.Receiver, error) {
+func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*Receiver, error) {
 	parsedURL, err := url.Parse(endpoint.WebhookUrl)
 	if err != nil {
 		return nil, err
@@ -68,15 +68,14 @@ func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*cfg.
 	}
 	channel := strings.TrimSpace(endpoint.Channel)
 	if !strings.HasPrefix(channel, "#") {
-		//FIXME
 		return nil, shared.AlertingErrInvalidSlackChannel
 	}
 
-	return &cfg.Receiver{
+	return &Receiver{
 		Name: id,
-		SlackConfigs: []*cfg.SlackConfig{
+		SlackConfigs: []*SlackConfig{
 			{
-				APIURL:  &cfg.SecretURL{URL: parsedURL},
+				APIURL:  parsedURL.String(),
 				Channel: channel,
 			},
 		},
@@ -84,9 +83,9 @@ func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*cfg.
 }
 
 func WithSlackImplementation(
-	cfg *cfg.Receiver,
+	cfg *Receiver,
 	impl *alertingv1alpha.EndpointImplementation,
-) (*cfg.Receiver, error) {
+) (*Receiver, error) {
 	if cfg.SlackConfigs == nil || len(cfg.SlackConfigs) == 0 || impl == nil {
 		return nil, shared.AlertingErrMismatchedImplementation
 	}
@@ -96,7 +95,7 @@ func WithSlackImplementation(
 	return cfg, nil
 }
 
-func NewEmailReceiver(id string, endpoint *alertingv1alpha.EmailEndpoint) (*cfg.Receiver, error) {
+func NewEmailReceiver(id string, endpoint *alertingv1alpha.EmailEndpoint) (*Receiver, error) {
 	_, err := mail.ParseAddress(endpoint.To)
 	if err != nil {
 		return nil, validation.Errorf("Invalid Destination email : %w", err)
@@ -109,7 +108,7 @@ func NewEmailReceiver(id string, endpoint *alertingv1alpha.EmailEndpoint) (*cfg.
 		}
 	}
 
-	return &cfg.Receiver{
+	return &Receiver{
 		Name: id,
 		EmailConfigs: func() []*cfg.EmailConfig {
 			if endpoint.From == nil {
@@ -131,7 +130,7 @@ func NewEmailReceiver(id string, endpoint *alertingv1alpha.EmailEndpoint) (*cfg.
 		}()}, nil
 }
 
-func WithEmailImplementation(cfg *cfg.Receiver, impl *alertingv1alpha.EndpointImplementation) (*cfg.Receiver, error) {
+func WithEmailImplementation(cfg *Receiver, impl *alertingv1alpha.EndpointImplementation) (*Receiver, error) {
 	if cfg.EmailConfigs == nil || len(cfg.EmailConfigs) == 0 || impl == nil {
 		return nil, shared.AlertingErrMismatchedImplementation
 	}
@@ -145,7 +144,7 @@ func WithEmailImplementation(cfg *cfg.Receiver, impl *alertingv1alpha.EndpointIm
 }
 
 // NewWebhookReceiver creates a new receiver for the webhook endpoint
-func NewWebhookReceiver(id string, endpoint *alertingv1alpha.WebhookEndpoint) (*cfg.Receiver, error) {
+func NewWebhookReceiver(id string, endpoint *alertingv1alpha.WebhookEndpoint) (*Receiver, error) {
 	parsedURL, err := url.Parse(endpoint.Url)
 	if err != nil {
 		return nil, err
@@ -156,7 +155,7 @@ func NewWebhookReceiver(id string, endpoint *alertingv1alpha.WebhookEndpoint) (*
 		return nil, err
 	}
 
-	return &cfg.Receiver{
+	return &Receiver{
 		Name: id,
 		WebhookConfigs: []*cfg.WebhookConfig{
 			{

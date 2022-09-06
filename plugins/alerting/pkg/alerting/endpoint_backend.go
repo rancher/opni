@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -16,15 +18,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/rancher/opni/pkg/util/future"
+	"github.com/prometheus/alertmanager/api/v2/models"
+	"github.com/tidwall/gjson"
 
 	"github.com/phayes/freeport"
 	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/prometheus/alertmanager/template"
-	commoncfg "github.com/prometheus/common/config"
-	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -86,15 +88,20 @@ func (b *LocalEndpointBackend) Start() {
 	if err != nil {
 		panic(err)
 	}
+	clusterPort, err := freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
 	lg := b.p.logger
 	if err != nil {
 		panic(err)
 	}
 	//TODO: fixme relative path only works for one of tests or mage test:env, but not both
-	amBin := path.Join("testbin/bin", "alertmanager")
+	amBin := path.Join("../../../../testbin/bin", "alertmanager")
 	defaultArgs := []string{
 		fmt.Sprintf("--config.file=%s", b.configFilePath),
 		fmt.Sprintf("--web.listen-address=:%d", port),
+		fmt.Sprintf("--cluster.listen-address=:%d", clusterPort),
 		"--storage.path=/tmp/data",
 		"--log.level=debug",
 	}
@@ -319,7 +326,7 @@ type ConfigMapData struct {
 	Global       *GlobalConfig      `yaml:"global,omitempty" json:"global,omitempty"`
 	Route        *cfg.Route         `yaml:"route,omitempty" json:"route,omitempty"`
 	InhibitRules []*cfg.InhibitRule `yaml:"inhibit_rules,omitempty" json:"inhibit_rules,omitempty"`
-	Receivers    []*cfg.Receiver    `yaml:"receivers,omitempty" json:"receivers,omitempty"`
+	Receivers    []*Receiver        `yaml:"receivers,omitempty" json:"receivers,omitempty"`
 	Templates    []string           `yaml:"templates" json:"templates"`
 }
 
@@ -395,7 +402,83 @@ func (a *AlertManagerAPI) WithHttpV1() *AlertManagerAPI {
 	return a
 }
 
-func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*http.Response, error) {
+func GetAlerts(ctx context.Context, endpoint string) (*http.Request, *http.Response, error) {
+	api := (&AlertManagerAPI{
+		Endpoint: endpoint,
+		Route:    "/alerts",
+		Verb:     "GET",
+	}).WithHttpV2()
+	req, err := http.NewRequestWithContext(ctx, api.Verb, api.ConstructHTTP(), nil)
+	if err != nil {
+		return req, nil, err
+	}
+	req.Header.Add("Accept", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return req, nil, err
+	}
+	return req, resp, nil
+}
+
+// stop/panic on 400
+// retry on 404/429 & 500
+// returns nil when we indicate nothing more should be done
+func OnRetryResponse(req *http.Request, resp *http.Response) (*http.Response, error) {
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusAccepted:
+		// do something
+		return resp, nil
+	case http.StatusBadRequest:
+		// panic?
+		panic(fmt.Sprintf("%v", req))
+	case http.StatusNotFound, http.StatusTooManyRequests, http.StatusInternalServerError:
+		return http.DefaultClient.Do(req)
+	}
+	panic(fmt.Sprintf("%v", req))
+}
+
+// IsRateLimited assumes the http response status code is checked and validated
+func IsRateLimited(conditionId string, resp *http.Response) (bool, error) {
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			//FIXME
+		}
+	}(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	result := gjson.Get(string(body), "status")
+	if !result.Exists() {
+		return false, nil // indicates an empty response (either nil or empty)
+	}
+	for _, alert := range result.Array() {
+		conditionIdPath := alert.Get("labels.conditionId")
+		if conditionIdPath.Exists() {
+			if conditionIdPath.String() != conditionId { //keep searching
+				continue
+			}
+		} else {
+			//consider panicking here
+			continue
+		}
+		switch alert.Get("status.state").String() {
+		case models.AlertStatusStateActive:
+			return true, nil
+		case models.AlertStatusStateSuppressed:
+			return true, nil
+		case models.AlertStatusStateUnprocessed:
+			return false, nil
+		default:
+			return false, nil
+		}
+	}
+	// if not found in AM alerts treat it as unfired => not rate limited
+	return false, nil
+}
+
+func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*http.Request, *http.Response, error) {
 	for _, alert := range alerts {
 		if err := alert.Must(); err != nil {
 			panic(err)
@@ -409,19 +492,19 @@ func PostAlert(ctx context.Context, endpoint string, alerts []*PostableAlert) (*
 	}).WithHttpV2().ConstructHTTP()
 	b, err := json.Marshal(alerts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, POST, reqUrl, bytes.NewBuffer(b))
 	if err != nil {
-		return nil, err
+		return req, nil, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 	resp, err := hclient.Do(req)
 	if err != nil {
-		return nil, err
+		return req, nil, err
 	}
-	return resp, nil
+	return req, resp, nil
 }
 
 func PostSilence(ctx context.Context, endpoint string, silence *PostableSilence) (*http.Response, error) {
@@ -543,58 +626,4 @@ func ReconcileInvalidStateLoop(timeout time.Duration, config *ConfigMapData, lg 
 			} // can't return nil after this as there may be a chain of errors to handle
 		}
 	}
-}
-
-// required due to https://github.com/rancher/opni/issues/542
-type GlobalConfig struct {
-	// ResolveTimeout is the time after which an alert is declared resolved
-	// if it has not been updated.
-	ResolveTimeout model.Duration `yaml:"resolve_timeout" json:"resolve_timeout"`
-
-	HTTPConfig *HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
-
-	SMTPFrom           string         `yaml:"smtp_from,omitempty" json:"smtp_from,omitempty"`
-	SMTPHello          string         `yaml:"smtp_hello,omitempty" json:"smtp_hello,omitempty"`
-	SMTPSmarthost      cfg.HostPort   `yaml:"smtp_smarthost,omitempty" json:"smtp_smarthost,omitempty"`
-	SMTPAuthUsername   string         `yaml:"smtp_auth_username,omitempty" json:"smtp_auth_username,omitempty"`
-	SMTPAuthPassword   cfg.Secret     `yaml:"smtp_auth_password,omitempty" json:"smtp_auth_password,omitempty"`
-	SMTPAuthSecret     cfg.Secret     `yaml:"smtp_auth_secret,omitempty" json:"smtp_auth_secret,omitempty"`
-	SMTPAuthIdentity   string         `yaml:"smtp_auth_identity,omitempty" json:"smtp_auth_identity,omitempty"`
-	SMTPRequireTLS     bool           `yaml:"smtp_require_tls" json:"smtp_require_tls,omitempty"`
-	SlackAPIURL        *cfg.SecretURL `yaml:"slack_api_url,omitempty" json:"slack_api_url,omitempty"`
-	SlackAPIURLFile    string         `yaml:"slack_api_url_file,omitempty" json:"slack_api_url_file,omitempty"`
-	PagerdutyURL       *cfg.URL       `yaml:"pagerduty_url,omitempty" json:"pagerduty_url,omitempty"`
-	OpsGenieAPIURL     *cfg.URL       `yaml:"opsgenie_api_url,omitempty" json:"opsgenie_api_url,omitempty"`
-	OpsGenieAPIKey     cfg.Secret     `yaml:"opsgenie_api_key,omitempty" json:"opsgenie_api_key,omitempty"`
-	OpsGenieAPIKeyFile string         `yaml:"opsgenie_api_key_file,omitempty" json:"opsgenie_api_key_file,omitempty"`
-	WeChatAPIURL       *cfg.URL       `yaml:"wechat_api_url,omitempty" json:"wechat_api_url,omitempty"`
-	WeChatAPISecret    cfg.Secret     `yaml:"wechat_api_secret,omitempty" json:"wechat_api_secret,omitempty"`
-	WeChatAPICorpID    string         `yaml:"wechat_api_corp_id,omitempty" json:"wechat_api_corp_id,omitempty"`
-	VictorOpsAPIURL    *cfg.URL       `yaml:"victorops_api_url,omitempty" json:"victorops_api_url,omitempty"`
-	VictorOpsAPIKey    cfg.Secret     `yaml:"victorops_api_key,omitempty" json:"victorops_api_key,omitempty"`
-	TelegramAPIUrl     *cfg.URL       `yaml:"telegram_api_url,omitempty" json:"telegram_api_url,omitempty"`
-}
-
-// required due to https://github.com/rancher/opni/issues/542
-type HTTPClientConfig struct {
-	// The HTTP basic authentication credentials for the targets.
-	BasicAuth *commoncfg.BasicAuth `yaml:"basic_auth,omitempty" json:"basic_auth,omitempty"`
-	// The HTTP authorization credentials for the targets.
-	Authorization *commoncfg.Authorization `yaml:"authorization,omitempty" json:"authorization,omitempty"`
-	// The OAuth2 client credentials used to fetch a token for the targets.
-	OAuth2 *commoncfg.OAuth2 `yaml:"oauth2,omitempty" json:"oauth2,omitempty"`
-	// The bearer token for the targets. Deprecated in favour of
-	// Authorization.Credentials.
-	BearerToken commoncfg.Secret `yaml:"bearer_token,omitempty" json:"bearer_token,omitempty"`
-	// The bearer token file for the targets. Deprecated in favour of
-	// Authorization.CredentialsFile.
-	BearerTokenFile string `yaml:"bearer_token_file,omitempty" json:"bearer_token_file,omitempty"`
-	// HTTP proxy server to use to connect to the targets.
-	ProxyURL commoncfg.URL `yaml:"proxy_url,omitempty" json:"proxy_url,omitempty"`
-	// TLSConfig to use to connect to the targets.
-	TLSConfig commoncfg.TLSConfig `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
-	// FollowRedirects specifies whether the client should follow HTTP 3xx redirects.
-	// The omitempty flag is not set, because it would be hidden from the
-	// marshalled configuration when set to false.
-	FollowRedirects bool `yaml:"follow_redirects" json:"follow_redirects"`
 }

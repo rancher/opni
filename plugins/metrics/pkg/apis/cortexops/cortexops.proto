@@ -12,12 +12,6 @@ service CortexOps {
   rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
-service AgentOps {
-  rpc ConfigureAgent(AgentConfiguration) returns (google.protobuf.Empty);
-  rpc GetAgentStatus(google.protobuf.Empty) returns (InstallStatus);
-  rpc UninstallAgent(google.protobuf.Empty) returns (google.protobuf.Empty);
-}
-
 enum InstallState {
   Unknown = 0;
   NotInstalled = 1;

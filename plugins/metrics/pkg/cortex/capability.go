@@ -40,6 +40,14 @@ func (p *Plugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) 
 	return &emptypb.Empty{}, nil
 }
 
+func (p *Plugin) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+	mgr := p.syncMgr.Load()
+	if mgr == nil {
+		return nil, util.StatusError(codes.Unavailable)
+	}
+	return mgr.GetNodeStatus(req.Cluster)
+}
+
 func (p *Plugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
 	cluster, err := p.mgmtApi.Get().GetCluster(ctx, req.Cluster)
 	if err != nil {

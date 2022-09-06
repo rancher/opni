@@ -12,6 +12,7 @@ import (
 const (
 	CapabilityBackendPluginID = "opni.backends.Capability"
 	ServiceID                 = "capability.Backend"
+	NodeServiceID             = "capability.Node"
 )
 
 type capabilityBackendPlugin struct {
@@ -48,6 +49,41 @@ func NewPlugin(backend capabilityv1.BackendServer) plugin.Plugin {
 	}
 }
 
+type capabilityAgentPlugin struct {
+	plugin.NetRPCUnsupportedPlugin
+
+	nodeSrv capabilityv1.NodeServer
+}
+
+var _ plugin.GRPCPlugin = (*capabilityAgentPlugin)(nil)
+var _ plugin.Plugin = (*capabilityAgentPlugin)(nil)
+
+func NewAgentPlugin(node capabilityv1.NodeServer) plugin.Plugin {
+	return &capabilityAgentPlugin{
+		nodeSrv: node,
+	}
+}
+
+func (p *capabilityAgentPlugin) GRPCServer(
+	broker *plugin.GRPCBroker,
+	s *grpc.Server,
+) error {
+	capabilityv1.RegisterNodeServer(s, p.nodeSrv)
+	return nil
+}
+
+func (p *capabilityAgentPlugin) GRPCClient(
+	ctx context.Context,
+	broker *plugin.GRPCBroker,
+	c *grpc.ClientConn,
+) (interface{}, error) {
+	if err := plugins.CheckAvailability(ctx, c, NodeServiceID); err != nil {
+		return nil, err
+	}
+	return capabilityv1.NewNodeClient(c), nil
+}
+
 func init() {
 	plugins.GatewayScheme.Add(CapabilityBackendPluginID, NewPlugin(nil))
+	plugins.AgentScheme.Add(CapabilityBackendPluginID, NewAgentPlugin(nil))
 }

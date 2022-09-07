@@ -42,7 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/pkg/agent"
+	agentv1 "github.com/rancher/opni/pkg/agent/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
@@ -87,7 +87,7 @@ type servicePorts struct {
 }
 
 type RunningAgent struct {
-	*agent.Agent
+	*agentv1.Agent
 	*sync.Mutex
 }
 
@@ -1090,7 +1090,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		errC <- err
 		return 0, errC
 	}
-	var a *agent.Agent
+	var a *agentv1.Agent
 	mu := &sync.Mutex{}
 	waitctx.Permissive.Go(options.ctx, func() {
 		mu.Lock()
@@ -1113,8 +1113,8 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 			errC <- err
 			return
 		}
-		a, err = agent.New(options.ctx, agentConfig,
-			agent.WithBootstrapper(&bootstrap.ClientConfig{
+		a, err = agentv1.New(options.ctx, agentConfig,
+			agentv1.WithBootstrapper(&bootstrap.ClientConfig{
 				Capability:    wellknown.CapabilityMetrics,
 				Token:         bt,
 				Endpoint:      gatewayAddress,

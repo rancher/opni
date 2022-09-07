@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/rancher/opni/pkg/agent"
+	agentv1 "github.com/rancher/opni/pkg/agent/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/util"
@@ -19,7 +19,7 @@ import (
 )
 
 type ConnectionHandler interface {
-	HandleAgentConnection(context.Context, agent.ClientSet)
+	HandleAgentConnection(context.Context, agentv1.ClientSet)
 }
 
 type GatewayGRPCServer struct {

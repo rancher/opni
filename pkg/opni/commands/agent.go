@@ -15,7 +15,7 @@ import (
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/controllers"
-	"github.com/rancher/opni/pkg/agent"
+	agentv1 "github.com/rancher/opni/pkg/agent/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/config"
@@ -264,8 +264,8 @@ func runMonitoringAgent(ctx context.Context) {
 		}
 	}
 
-	p, err := agent.New(ctx, agentConfig,
-		agent.WithBootstrapper(bootstrapper),
+	p, err := agentv1.New(ctx, agentConfig,
+		agentv1.WithBootstrapper(bootstrapper),
 	)
 	if err != nil {
 		agentlg.Error(err)

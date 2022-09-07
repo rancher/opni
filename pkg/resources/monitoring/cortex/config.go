@@ -44,18 +44,16 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/validation"
 	kyamlv3 "github.com/kralicky/yaml/v3"
 	"github.com/prometheus/node_exporter/https"
+	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
-
-	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
 )
 
-func bucketHttpConfig(spec v1beta2.HTTPConfig) bucket_http.Config {
+func bucketHttpConfig(spec corev1beta1.HTTPConfig) bucket_http.Config {
 	return bucket_http.Config{
 		IdleConnTimeout:       spec.IdleConnTimeout,
 		ResponseHeaderTimeout: spec.ResponseHeaderTimeout,
@@ -90,24 +88,24 @@ func newOverrideMarshaler[T kyamlv3.Marshaler](fn func(T) (interface{}, error)) 
 }
 
 func (r *Reconciler) config() (resources.Resource, error) {
-	if !r.mc.Spec.Cortex.Enabled {
+	if !r.spec.Cortex.Enabled {
 		return resources.Absent(&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cortex",
-				Namespace: r.mc.Namespace,
+				Namespace: r.namespace,
 				Labels:    cortexAppLabel,
 			},
 		}), nil
 	}
 
-	s3Spec := valueOrDefault(r.mc.Spec.Cortex.Storage.S3)
-	gcsSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.GCS)
-	azureSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.Azure)
-	swiftSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.Swift)
-	filesystemSpec := valueOrDefault(r.mc.Spec.Cortex.Storage.Filesystem)
+	s3Spec := valueOrDefault(r.spec.Cortex.Storage.S3)
+	gcsSpec := valueOrDefault(r.spec.Cortex.Storage.GCS)
+	azureSpec := valueOrDefault(r.spec.Cortex.Storage.Azure)
+	swiftSpec := valueOrDefault(r.spec.Cortex.Storage.Swift)
+	filesystemSpec := valueOrDefault(r.spec.Cortex.Storage.Filesystem)
 
 	storageConfig := bucket.Config{
-		Backend: string(r.mc.Spec.Cortex.Storage.Backend),
+		Backend: string(r.spec.Cortex.Storage.Backend),
 		S3: s3.Config{
 			Endpoint:   s3Spec.Endpoint,
 			Region:     s3Spec.Region,
@@ -168,7 +166,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 	}
 	logLevel := logging.Level{}
-	level := r.mc.Spec.Cortex.LogLevel
+	level := r.spec.Cortex.LogLevel
 	if level == "" {
 		level = "info"
 	}
@@ -284,7 +282,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			},
 		},
 		Worker: worker.Config{
-			FrontendAddress: fmt.Sprintf("cortex-query-frontend-headless.%s.svc.cluster.local:9095", r.mc.Namespace),
+			FrontendAddress: fmt.Sprintf("cortex-query-frontend-headless.%s.svc.cluster.local:9095", r.namespace),
 			GRPCClientConfig: grpcclient.Config{
 				TLSEnabled: true,
 				TLS:        tlsClientConfig,
@@ -320,7 +318,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			SplitQueriesByInterval: 24 * time.Hour,
 		},
 		Ruler: ruler.Config{
-			AlertmanagerURL:          fmt.Sprintf("https://cortex-alertmanager.%s.svc.cluster.local:8080/api/prom/alertmanager/", r.mc.Namespace),
+			AlertmanagerURL:          fmt.Sprintf("https://cortex-alertmanager.%s.svc.cluster.local:8080/api/prom/alertmanager/", r.namespace),
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
 			Ring: ruler.RingConfig{
@@ -363,7 +361,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex",
-			Namespace: r.mc.Namespace,
+			Namespace: r.namespace,
 			Labels:    cortexAppLabel,
 		},
 		Data: map[string][]byte{
@@ -371,7 +369,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 	}
 
-	ctrl.SetControllerReference(r.mc, secret, r.client.Scheme())
+	r.setOwner(secret)
 	return resources.Present(secret), nil
 }
 
@@ -379,22 +377,22 @@ func (r *Reconciler) runtimeConfig() resources.Resource {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-runtime-config",
-			Namespace: r.mc.Namespace,
+			Namespace: r.namespace,
 			Labels:    cortexAppLabel,
 		},
 		Data: map[string]string{
 			"runtime_config.yaml": "{}",
 		},
 	}
-	ctrl.SetControllerReference(r.mc, cm, r.client.Scheme())
-	return resources.CreatedIff(r.mc.Spec.Cortex.Enabled, cm)
+	r.setOwner(cm)
+	return resources.CreatedIff(r.spec.Cortex.Enabled, cm)
 }
 
 func (r *Reconciler) alertmanagerFallbackConfig() resources.Resource {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "alertmanager-fallback-config",
-			Namespace: r.mc.Namespace,
+			Namespace: r.namespace,
 			Labels:    cortexAppLabel,
 		},
 		Data: map[string]string{
@@ -408,6 +406,6 @@ inhibit_rules: []
 mute_time_intervals: []`,
 		},
 	}
-	ctrl.SetControllerReference(r.mc, cm, r.client.Scheme())
-	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, cm)
+	r.setOwner(cm)
+	return resources.PresentIff(r.spec.Cortex.Enabled, cm)
 }

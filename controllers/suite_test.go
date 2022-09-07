@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -33,6 +34,7 @@ import (
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -41,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/util"
@@ -113,8 +116,16 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		&PretrainedModelReconciler{},
 		&LoggingReconciler{},
 		&GatewayReconciler{},
+		&CoreGatewayReconciler{},
 		&MonitoringReconciler{},
 		&OpniOpensearchReconciler{},
+		&DataPrepperReconciler{},
+		&LoggingDataPrepperReconciler{},
+		&LoggingLogAdapterReconciler{},
+		&AIOpniClusterReconciler{},
+		&LoggingOpniOpensearchReconciler{},
+		&AIPretrainedModelReconciler{},
+		&NatsClusterReonciler{},
 	)
 	kmatch.SetDefaultObjectClient(k8sClient)
 
@@ -340,9 +351,116 @@ func buildCluster(opts opniClusterOpts) *v1beta2.OpniCluster {
 	}
 }
 
+func buildAICluster(opts opniClusterOpts) *aiv1beta1.OpniCluster {
+	imageSpec := opnimeta.ImageSpec{
+		ImagePullPolicy: (*corev1.PullPolicy)(lo.ToPtr(string(corev1.PullNever))),
+		ImagePullSecrets: []corev1.LocalObjectReference{
+			{
+				Name: "lorem-ipsum",
+			},
+		},
+	}
+	return &aiv1beta1.OpniCluster{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1beta2.GroupVersion.String(),
+			Kind:       "OpniCluster",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: opts.Name,
+			Namespace: func() string {
+				if opts.Namespace == "" {
+					return makeTestNamespace()
+				}
+				return opts.Namespace
+			}(),
+		},
+		Spec: aiv1beta1.OpniClusterSpec{
+			Version:     "test",
+			DefaultRepo: lo.ToPtr("docker.biz/rancher"), // nonexistent repo
+			GlobalNodeSelector: map[string]string{
+				"foo": "bar",
+			},
+			GlobalTolerations: []corev1.Toleration{
+				{
+					Key:      "foo",
+					Operator: corev1.TolerationOpExists,
+				},
+			},
+			Services: aiv1beta1.ServicesSpec{
+				Inference: aiv1beta1.InferenceServiceSpec{
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
+					PretrainedModels: func() []corev1.LocalObjectReference {
+						var ret []corev1.LocalObjectReference
+						for _, model := range opts.Models {
+							ret = append(ret, corev1.LocalObjectReference{
+								Name: model,
+							})
+						}
+						return ret
+					}(),
+				},
+				Drain: aiv1beta1.DrainServiceSpec{
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
+				},
+				Preprocessing: aiv1beta1.PreprocessingServiceSpec{
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
+				},
+				PayloadReceiver: aiv1beta1.PayloadReceiverServiceSpec{
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
+				},
+				GPUController: aiv1beta1.GPUControllerServiceSpec{
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
+				},
+				Metrics: aiv1beta1.MetricsServiceSpec{
+					Enabled:   lo.ToPtr(!opts.DisableOpniServices),
+					ImageSpec: imageSpec,
+					PrometheusEndpoint: func() string {
+						if opts.PrometheusEndpoint != "" {
+							return opts.PrometheusEndpoint
+						}
+						if opts.UsePrometheusRef {
+							return ""
+						}
+						return "http://dummy-endpoint"
+					}(),
+					PrometheusReference: func() *opnimeta.PrometheusReference {
+						if opts.UsePrometheusRef {
+							return &opnimeta.PrometheusReference{
+								Name:      "test-prometheus",
+								Namespace: "prometheus-new",
+							}
+						}
+						return nil
+					}(),
+					ExtraVolumeMounts: []opnimeta.ExtraVolumeMount{
+						{
+							Name:      "test-volume",
+							MountPath: "/var/test-volume",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func generateSHAID(name string, namespace string) string {
 	hash := sha1.New()
 	hash.Write([]byte(name + namespace))
 	sum := hash.Sum(nil)
 	return fmt.Sprintf("%x", sum[:3])
+}
+
+func marshal(hp map[string]intstr.IntOrString) string {
+	b, err := json.MarshalIndent(hp, "", "  ")
+	Expect(err).NotTo(HaveOccurred())
+	return string(b)
 }

@@ -7,7 +7,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func (r *Reconciler) deployment() (resources.Resource, error) {
@@ -25,7 +24,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",
-			Namespace: r.gw.Namespace,
+			Namespace: r.namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -41,12 +40,12 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 					Containers: []corev1.Container{
 						{
 							Name:            "gateway",
-							Image:           r.gw.Status.Image,
-							ImagePullPolicy: r.gw.Status.ImagePullPolicy,
+							Image:           r.statusImage(),
+							ImagePullPolicy: r.statusImagePullPolicy(),
 							Command:         []string{"opni"},
 							Args:            []string{"gateway"},
 							Env: func() []corev1.EnvVar {
-								return append(r.gw.Spec.ExtraEnvVars, corev1.EnvVar{
+								return append(r.spec.ExtraEnvVars, corev1.EnvVar{
 									Name: "POD_NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{
@@ -227,16 +226,16 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							},
 						},
 					},
-					NodeSelector:       r.gw.Spec.NodeSelector,
-					Affinity:           r.gw.Spec.Affinity,
-					Tolerations:        r.gw.Spec.Tolerations,
+					NodeSelector:       r.spec.NodeSelector,
+					Affinity:           r.spec.Affinity,
+					Tolerations:        r.spec.Tolerations,
 					ServiceAccountName: "opni-monitoring",
 				},
 			},
 		},
 	}
 
-	for _, extraVol := range r.gw.Spec.ExtraVolumeMounts {
+	for _, extraVol := range r.spec.ExtraVolumeMounts {
 		vol := corev1.Volume{
 			Name:         extraVol.Name,
 			VolumeSource: extraVol.VolumeSource,
@@ -251,8 +250,8 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 			append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
 	}
 	// add additional volumes for alerting
-	if r.gw.Spec.Alerting != nil && r.gw.Spec.Alerting.GatewayVolumeMounts != nil {
-		for _, alertVol := range r.gw.Spec.Alerting.GatewayVolumeMounts {
+	if r.spec.Alerting != nil && r.spec.Alerting.GatewayVolumeMounts != nil {
+		for _, alertVol := range r.spec.Alerting.GatewayVolumeMounts {
 			vol := corev1.Volume{
 				Name:         alertVol.Name,
 				VolumeSource: alertVol.VolumeSource,
@@ -266,6 +265,6 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 		}
 	}
 
-	ctrl.SetControllerReference(r.gw, dep, r.client.Scheme())
+	r.setOwner(dep)
 	return resources.Present(dep), nil
 }

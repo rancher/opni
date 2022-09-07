@@ -7,21 +7,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func (r *Reconciler) rbac() ([]resources.Resource, error) {
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
-			Namespace: r.gw.Namespace,
+			Namespace: r.namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring-crd",
-			Namespace: r.gw.Namespace,
+			Namespace: r.namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -97,7 +96,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 	// TODO: This will leak.  Add a finalizer to fix it up or come up with alternative
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("opni-monitoring-ns-%s", r.gw.Name),
+			Name:   fmt.Sprintf("opni-monitoring-ns-%s", r.name),
 			Labels: resources.NewGatewayLabels(),
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -109,7 +108,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 			{
 				Kind:      "ServiceAccount",
 				Name:      serviceAccount.Name,
-				Namespace: r.gw.Namespace,
+				Namespace: r.namespace,
 			},
 		},
 	}
@@ -117,7 +116,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring-crd",
-			Namespace: r.gw.Namespace,
+			Namespace: r.namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -129,13 +128,14 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 			{
 				Kind:      "ServiceAccount",
 				Name:      serviceAccount.Name,
-				Namespace: r.gw.Namespace,
+				Namespace: r.namespace,
 			},
 		},
 	}
-	ctrl.SetControllerReference(r.gw, serviceAccount, r.client.Scheme())
-	ctrl.SetControllerReference(r.gw, role, r.client.Scheme())
-	ctrl.SetControllerReference(r.gw, roleBinding, r.client.Scheme())
+
+	r.setOwner(serviceAccount)
+	r.setOwner(role)
+	r.setOwner(roleBinding)
 	return []resources.Resource{
 		resources.Present(serviceAccount),
 		resources.Present(role),

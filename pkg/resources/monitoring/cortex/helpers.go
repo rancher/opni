@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
@@ -11,8 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type Port string
@@ -126,12 +126,12 @@ func (r *Reconciler) buildCortexDeployment(
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("cortex-%s", target),
-			Namespace: r.mc.Namespace,
+			Namespace: r.namespace,
 			Labels:    labels,
 		},
 	}
 
-	if !r.mc.Spec.Cortex.Enabled {
+	if !r.spec.Cortex.Enabled {
 		return resources.Absent(dep)
 	}
 
@@ -150,7 +150,7 @@ func (r *Reconciler) buildCortexDeployment(
 		Template: r.cortexWorkloadPodTemplate(target, options),
 	}
 
-	ctrl.SetControllerReference(r.mc, dep, r.client.Scheme())
+	r.setOwner(dep)
 	return resources.Present(dep)
 }
 
@@ -171,12 +171,12 @@ func (r *Reconciler) buildCortexStatefulSet(
 	statefulSet := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-" + target,
-			Namespace: r.mc.Namespace,
+			Namespace: r.namespace,
 			Labels:    labels,
 		},
 	}
 
-	if !r.mc.Spec.Cortex.Enabled {
+	if !r.spec.Cortex.Enabled {
 		return resources.Absent(statefulSet)
 	}
 
@@ -210,8 +210,8 @@ func (r *Reconciler) buildCortexStatefulSet(
 		}
 	}
 
-	ctrl.SetControllerReference(r.mc, statefulSet, r.client.Scheme())
-	return resources.PresentIff(r.mc.Spec.Cortex.Enabled, statefulSet)
+	r.setOwner(statefulSet)
+	return resources.PresentIff(r.spec.Cortex.Enabled, statefulSet)
 }
 
 func (r *Reconciler) cortexWorkloadPodTemplate(
@@ -278,10 +278,28 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 			ServiceAccountName: "cortex",
 			Containers: []corev1.Container{
 				{
-					Name:            target,
-					Image:           r.mc.Status.Image,
-					ImagePullPolicy: r.mc.Status.ImagePullPolicy,
-					Command:         []string{"opni", "cortex"},
+					Name: target,
+					Image: func() string {
+						switch cluster := r.mc.(type) {
+						case *v1beta2.MonitoringCluster:
+							return cluster.Status.Image
+						case *corev1beta1.MonitoringCluster:
+							return cluster.Status.Image
+						default:
+							return ""
+						}
+					}(),
+					ImagePullPolicy: func() corev1.PullPolicy {
+						switch cluster := r.mc.(type) {
+						case *v1beta2.MonitoringCluster:
+							return cluster.Status.ImagePullPolicy
+						case *corev1beta1.MonitoringCluster:
+							return cluster.Status.ImagePullPolicy
+						default:
+							return corev1.PullAlways
+						}
+					}(),
+					Command: []string{"opni", "cortex"},
 					Args: append([]string{
 						"-target=" + target,
 						"-config.file=/etc/cortex/cortex.yaml",
@@ -293,7 +311,7 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 					SecurityContext: &corev1.SecurityContext{
 						ReadOnlyRootFilesystem: lo.ToPtr(true),
 					},
-					Env: r.mc.Spec.Cortex.ExtraEnvVars,
+					Env: r.spec.Cortex.ExtraEnvVars,
 					VolumeMounts: append([]corev1.VolumeMount{
 						{
 							Name:      "data",
@@ -476,7 +494,7 @@ func (r *Reconciler) buildCortexWorkloadServices(
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-" + target,
-			Namespace: r.mc.Namespace,
+			Namespace: r.namespace,
 			Labels:    cortexWorkloadLabels(target),
 		},
 		Spec: corev1.ServiceSpec{
@@ -486,13 +504,13 @@ func (r *Reconciler) buildCortexWorkloadServices(
 		},
 	}
 	services = append(services, resources.Present(svc))
-	ctrl.SetControllerReference(r.mc, svc, r.client.Scheme())
+	r.setOwner(svc)
 
 	if options.addHeadlessService {
 		headlessSvc := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cortex-" + target + "-headless",
-				Namespace: r.mc.Namespace,
+				Namespace: r.namespace,
 				Labels:    cortexWorkloadLabels(target),
 			},
 			Spec: corev1.ServiceSpec{
@@ -504,19 +522,19 @@ func (r *Reconciler) buildCortexWorkloadServices(
 			},
 		}
 		services = append(services, resources.Present(headlessSvc))
-		ctrl.SetControllerReference(r.mc, headlessSvc, r.client.Scheme())
+		r.setOwner(headlessSvc)
 	}
 
 	if options.addServiceMonitor {
 		sm := &monitoringv1.ServiceMonitor{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cortex-" + target,
-				Namespace: r.mc.Namespace,
+				Namespace: r.namespace,
 				Labels:    cortexWorkloadLabels(target),
 			},
 			Spec: monitoringv1.ServiceMonitorSpec{
 				NamespaceSelector: monitoringv1.NamespaceSelector{
-					MatchNames: []string{r.mc.Namespace},
+					MatchNames: []string{r.namespace},
 				},
 				Selector: metav1.LabelSelector{
 					MatchLabels: cortexWorkloadLabels(target),
@@ -558,7 +576,7 @@ func (r *Reconciler) buildCortexWorkloadServices(
 			},
 		}
 		services = append(services, resources.Present(sm))
-		controllerutil.SetOwnerReference(r.mc, sm, r.client.Scheme())
+		r.setOwner(sm)
 	}
 
 	return services

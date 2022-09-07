@@ -73,7 +73,6 @@ type GpuPolicyAdapterStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:resource:scope=Cluster
 //+kubebuilder:subresource:status
-// +kubebuilder:storageversion
 
 // GpuPolicyAdapter is the Schema for the gpupolicyadapters API
 type GpuPolicyAdapter struct {

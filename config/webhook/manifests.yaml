@@ -12,9 +12,30 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-opni-io-v1beta2-logadapter
+      path: /mutate-logging-opni-io-v1beta1-logadapter
   failurePolicy: Fail
   name: mlogadapter.kb.io
+  rules:
+  - apiGroups:
+    - logging.opni.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - logadapters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-opni-io-v1beta2-logadapter
+  failurePolicy: Fail
+  name: mlogadapter2.kb.io
   rules:
   - apiGroups:
     - opni.io
@@ -40,14 +61,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-opni-io-v1beta2-logadapter
+      path: /validate-logging-opni-io-v1beta1-logadapter
   failurePolicy: Fail
   name: vlogadapter.kb.io
   rules:
   - apiGroups:
-    - opni.io
+    - logging.opni.io
     apiVersions:
-    - v1beta2
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
@@ -61,18 +82,17 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /highlander-opni-io-v1beta1-opnicluster
+      path: /validate-opni-io-v1beta2-logadapter
   failurePolicy: Fail
-  name: highlander.opni.io
+  name: vlogadapter2.kb.io
   rules:
   - apiGroups:
     - opni.io
     apiVersions:
-    - v1beta1
     - v1beta2
     operations:
     - CREATE
     - UPDATE
     resources:
-    - opniclusters
+    - logadapters
   sideEffects: None

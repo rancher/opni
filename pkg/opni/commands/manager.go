@@ -7,10 +7,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/kralicky/highlander"
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/apis/v1beta1"
+	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
@@ -100,6 +99,11 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
+		if err = (&controllers.AIOpniClusterReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "AI OpniCluster")
+			return err
+		}
+
 		if err = (&controllers.LoggingReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Logging")
 			return err
@@ -110,8 +114,18 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
+		if err = (&controllers.LoggingLogAdapterReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Logging LogAdapter")
+			return err
+		}
+
 		if err = (&controllers.PretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "PretrainedModel")
+			return err
+		}
+
+		if err = (&controllers.AIPretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "AI PretrainedModel")
 			return err
 		}
 
@@ -120,8 +134,18 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
+		if err = (&controllers.CoreLoggingClusterReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Core LoggingCluster")
+			return err
+		}
+
 		if err = (&controllers.MulticlusterRoleBindingReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "MulticlusterRoleBinding")
+			return err
+		}
+
+		if err = (&controllers.LoggingMulticlusterRoleBindingReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Logging MulticlusterRoleBinding")
 			return err
 		}
 
@@ -140,8 +164,8 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
-		if err = (&controllers.PretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "PretrainedModel")
+		if err = (&controllers.LoggingDataPrepperReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Logging DataPrepper")
 			return err
 		}
 
@@ -150,8 +174,23 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
+		if err = (&controllers.CoreGatewayReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Core Gateway")
+			return err
+		}
+
 		if err = (&controllers.MonitoringReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "MonitoringCluster")
+			return err
+		}
+
+		if err = (&controllers.CoreMonitoringReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Core MonitoringCluster")
+			return err
+		}
+
+		if err = (&controllers.NatsClusterReonciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "NatsCluster")
 			return err
 		}
 
@@ -197,27 +236,16 @@ func BuildManagerCmd() *cobra.Command {
 			}
 		}
 
-		if err = (&v1beta2.OpniCluster{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "OpniCluster")
-			return err
-		}
 		if err = (&v1beta2.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
 			return err
 		}
-		if err = (&v1beta2.GpuPolicyAdapter{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "GpuPolicyAdapter")
-			return err
-		}
-		if err = (&v1beta2.PretrainedModel{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "PretrainedModel")
+
+		if err = (&loggingv1beta1.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
 			return err
 		}
 
-		if err := highlander.NewFor(&v1beta1.OpniCluster{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "OpniCluster")
-			return err
-		}
 		// +kubebuilder:scaffold:builder
 
 		if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {

@@ -5,15 +5,14 @@ import (
 	"path"
 	"strings"
 
+	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 )
@@ -23,10 +22,10 @@ var (
 )
 
 func (r *Reconciler) alerting() []resources.Resource {
-
-	if r.gw.Spec.Alerting == nil {
+	// TODO: move defaulting to a webhook
+	if r.spec.Alerting == nil {
 		// set some sensible defaults
-		r.gw.Spec.Alerting = &v1beta2.AlertingSpec{
+		r.spec.Alerting = &corev1beta1.AlertingSpec{
 			WebPort:     9093,
 			ApiPort:     9094,
 			Storage:     "500Mi",
@@ -36,18 +35,18 @@ func (r *Reconciler) alerting() []resources.Resource {
 	}
 
 	// handle missing fields because the test suite is flaky locally
-	if r.gw.Spec.Alerting.WebPort == 0 {
-		r.gw.Spec.Alerting.WebPort = 9093
+	if r.spec.Alerting.WebPort == 0 {
+		r.spec.Alerting.WebPort = 9093
 	}
 
-	if r.gw.Spec.Alerting.ApiPort == 0 {
-		r.gw.Spec.Alerting.ApiPort = 9094
+	if r.spec.Alerting.ApiPort == 0 {
+		r.spec.Alerting.ApiPort = 9094
 	}
-	if r.gw.Spec.Alerting.Storage == "" {
-		r.gw.Spec.Alerting.Storage = "500Mi"
+	if r.spec.Alerting.Storage == "" {
+		r.spec.Alerting.Storage = "500Mi"
 	}
-	if r.gw.Spec.Alerting.ConfigName == "" {
-		r.gw.Spec.Alerting.ConfigName = "alertmanager-config"
+	if r.spec.Alerting.ConfigName == "" {
+		r.spec.Alerting.ConfigName = "alertmanager-config"
 	}
 
 	publicLabels := map[string]string{} // TODO define a set of meaningful labels for this service
@@ -64,15 +63,16 @@ func (r *Reconciler) alerting() []resources.Resource {
 	// to be mounted into alertmanager pods
 	alertManagerConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.gw.Spec.Alerting.ConfigName,
-			Namespace: r.gw.Namespace,
+			Name:      r.spec.Alerting.ConfigName,
+			Namespace: r.namespace,
 		},
 
 		Data: map[string]string{
 			"alertmanager.yaml": strings.TrimSpace(defaultAlertManager),
 		},
 	}
-	err := ctrl.SetControllerReference(r.gw, alertManagerConfigMap, r.client.Scheme())
+
+	err := r.setOwner(alertManagerConfigMap)
 	if err != nil {
 		panic(err)
 	}
@@ -83,7 +83,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 	deploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-alerting-internal",
-			Namespace: r.gw.Namespace,
+			Namespace: r.namespace,
 			Labels:    publicLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -139,7 +139,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: r.gw.Spec.Alerting.ConfigName,
+										Name: r.spec.Alerting.ConfigName,
 									},
 									Items: []corev1.KeyToPath{
 										{
@@ -164,36 +164,36 @@ func (r *Reconciler) alerting() []resources.Resource {
 						},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: resource.MustParse(r.gw.Spec.Alerting.Storage),
+								corev1.ResourceStorage: resource.MustParse(r.spec.Alerting.Storage),
 							},
 						},
 					}},
 			},
 		},
 	}
-	ctrl.SetControllerReference(r.gw, deploy, r.client.Scheme())
+	r.setOwner(deploy)
 
 	publicSvcLabels := publicLabels
 
 	alertingSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "opni-alerting",
-			Namespace:   r.gw.Namespace,
+			Namespace:   r.namespace,
 			Labels:      publicSvcLabels,
-			Annotations: r.gw.Spec.ServiceAnnotations,
+			Annotations: r.spec.ServiceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     r.gw.Spec.Alerting.ServiceType,
+			Type:     r.spec.Alerting.ServiceType,
 			Selector: publicLabels,
 			Ports:    r.serviceAlertManagerPorts(r.containerAlertManagerPorts()),
 		},
 	}
-	ctrl.SetControllerReference(r.gw, alertingSvc, r.client.Scheme())
+	r.setOwner(alertingSvc)
 
 	return []resources.Resource{
-		resources.PresentIff(r.gw.Spec.Alerting.Enabled, alertManagerConfigMap),
-		resources.PresentIff(r.gw.Spec.Alerting.Enabled, deploy),
-		resources.PresentIff(r.gw.Spec.Alerting.Enabled, alertingSvc),
+		resources.PresentIff(r.spec.Alerting.Enabled, alertManagerConfigMap),
+		resources.PresentIff(r.spec.Alerting.Enabled, deploy),
+		resources.PresentIff(r.spec.Alerting.Enabled, alertingSvc),
 	}
 }
 

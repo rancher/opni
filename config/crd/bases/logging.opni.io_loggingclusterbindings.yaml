@@ -1,0 +1,81 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.1-0.20220428122951-32ad71090a62
+  creationTimestamp: null
+  name: loggingclusterbindings.logging.opni.io
+spec:
+  group: logging.opni.io
+  names:
+    kind: LoggingClusterBinding
+    listKind: LoggingClusterBindingList
+    plural: loggingclusterbindings
+    singular: loggingclusterbinding
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.state
+      name: State
+      type: boolean
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              loggingCluster:
+                properties:
+                  id:
+                    type: string
+                  loggingClusterName:
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    type: object
+                type: object
+              opensearchClusterRef:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
+              user:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
+            type: object
+          status:
+            properties:
+              conditions:
+                items:
+                  type: string
+                type: array
+              rolename:
+                type: string
+              state:
+                type: string
+              username:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

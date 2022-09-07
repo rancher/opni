@@ -11,6 +11,10 @@ resources:
 - bases/opni.io_datapreppers.yaml
 - bases/opni.io_bootstraptokens.yaml
 - bases/opni.io_keyrings.yaml
+- bases/logging.opni.io_logadapters.yaml
+- bases/logging.opni.io_datapreppers.yaml
+- bases/monitoring.opni.io_bootstraptokens.yaml
+- bases/monitoring.opni.io_keyrings.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

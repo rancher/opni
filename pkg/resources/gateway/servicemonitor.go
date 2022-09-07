@@ -6,7 +6,6 @@ import (
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func (r *Reconciler) serviceMonitor() resources.Resource {
@@ -15,7 +14,7 @@ func (r *Reconciler) serviceMonitor() resources.Resource {
 	svcMonitor := &monitoringv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",
-			Namespace: r.gw.Namespace,
+			Namespace: r.namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
@@ -23,7 +22,7 @@ func (r *Reconciler) serviceMonitor() resources.Resource {
 				MatchLabels: publicSvcLabels,
 			},
 			NamespaceSelector: monitoringv1.NamespaceSelector{
-				MatchNames: []string{r.gw.Namespace},
+				MatchNames: []string{r.namespace},
 			},
 			Endpoints: []monitoringv1.Endpoint{
 				{
@@ -34,6 +33,6 @@ func (r *Reconciler) serviceMonitor() resources.Resource {
 			},
 		},
 	}
-	controllerutil.SetOwnerReference(r.gw, svcMonitor, r.client.Scheme())
+	r.setOwner(svcMonitor)
 	return resources.Present(svcMonitor)
 }

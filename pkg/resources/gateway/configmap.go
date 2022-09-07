@@ -13,7 +13,6 @@ import (
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/yaml"
 )
 
@@ -25,9 +24,9 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 		},
 		Spec: cfgv1beta1.GatewayConfigSpec{
 			Plugins: cfgv1beta1.PluginsSpec{
-				Dirs: append([]string{"/var/lib/opni/plugins"}, r.gw.Spec.PluginSearchDirs...),
+				Dirs: append([]string{"/var/lib/opni/plugins"}, r.spec.PluginSearchDirs...),
 			},
-			Hostname: r.gw.Spec.Hostname,
+			Hostname: r.spec.Hostname,
 			Cortex: cfgv1beta1.CortexSpec{
 				Certs: cfgv1beta1.MTLSSpec{
 					ServerCA:   "/run/cortex/certs/server/ca.crt",
@@ -36,36 +35,36 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 					ClientKey:  "/run/cortex/certs/client/tls.key",
 				},
 			},
-			AuthProvider: string(r.gw.Spec.Auth.Provider),
+			AuthProvider: string(r.spec.Auth.Provider),
 			Certs: cfgv1beta1.CertsSpec{
 				CACert:      lo.ToPtr("/run/opni-monitoring/certs/ca.crt"),
 				ServingCert: lo.ToPtr("/run/opni-monitoring/certs/tls.crt"),
 				ServingKey:  lo.ToPtr("/run/opni-monitoring/certs/tls.key"),
 			},
 			Storage: cfgv1beta1.StorageSpec{
-				Type: r.gw.Spec.StorageType,
+				Type: r.spec.StorageType,
 			},
 			Alerting: func() cfgv1beta1.AlertingSpec {
-				if r.gw.Spec.Alerting == nil {
+				if r.spec.Alerting == nil {
 					return cfgv1beta1.AlertingSpec{
 						Endpoints:       []string{"opni-alerting:9093"},
 						ConfigMapName:   "alertmanager-config",
 						StatefulSetName: "opni-alerting-internal",
-						Namespace:       r.gw.Namespace,
+						Namespace:       r.namespace,
 					}
 				}
 				return cfgv1beta1.AlertingSpec{
-					Endpoints:       []string{fmt.Sprintf("opni-alerting:%d", r.gw.Spec.Alerting.ApiPort)},
-					ConfigMapName:   r.gw.Spec.Alerting.ConfigName,
+					Endpoints:       []string{fmt.Sprintf("opni-alerting:%d", r.spec.Alerting.ApiPort)},
+					ConfigMapName:   r.spec.Alerting.ConfigName,
 					StatefulSetName: "opni-alerting-internal",
-					Namespace:       r.gw.Namespace,
+					Namespace:       r.namespace,
 				}
 			}(),
 		},
 	}
 	gatewayConf.Spec.SetDefaults()
 
-	switch r.gw.Spec.StorageType {
+	switch r.spec.StorageType {
 	case cfgv1beta1.StorageTypeEtcd:
 		gatewayConf.Spec.Storage.Etcd = &cfgv1beta1.EtcdStorageSpec{
 			Endpoints: []string{"etcd:2379"},
@@ -78,31 +77,31 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 		}
 	case cfgv1beta1.StorageTypeCRDs:
 		gatewayConf.Spec.Storage.CustomResources = &cfgv1beta1.CustomResourcesStorageSpec{
-			Namespace: r.gw.Namespace,
+			Namespace: r.namespace,
 		}
 	}
 
 	var apSpec cfgv1beta1.AuthProviderSpec
-	switch t := cfgv1beta1.AuthProviderType(r.gw.Spec.Auth.Provider); t {
+	switch t := cfgv1beta1.AuthProviderType(r.spec.Auth.Provider); t {
 	case cfgv1beta1.AuthProviderOpenID:
 		apSpec.Type = cfgv1beta1.AuthProviderOpenID
-		if options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Openid.OpenidConfig); err != nil {
+		if options, err := util.DecodeStruct[map[string]any](r.spec.Auth.Openid.OpenidConfig); err != nil {
 			return nil, errors.WrapIf(err, "failed to decode openid auth provider options")
 		} else {
 			apSpec.Options = *options
 		}
 	case cfgv1beta1.AuthProviderNoAuth:
 		apSpec.Type = cfgv1beta1.AuthProviderNoAuth
-		issuer := fmt.Sprintf("http://%s:4000/oauth2", r.gw.Spec.Hostname)
-		r.gw.Spec.Auth.Noauth = &noauth.ServerConfig{
+		issuer := fmt.Sprintf("http://%s:4000/oauth2", r.spec.Hostname)
+		r.spec.Auth.Noauth = &noauth.ServerConfig{
 			Issuer:       issuer,
 			ClientID:     "grafana",
 			ClientSecret: "noauth",
 			RedirectURI: func() string {
-				if r.gw.Spec.Auth.Noauth != nil {
-					return fmt.Sprintf("https://%s/login/generic_oauth", r.gw.Spec.Auth.Noauth.GrafanaHostname)
+				if r.spec.Auth.Noauth != nil {
+					return fmt.Sprintf("https://%s/login/generic_oauth", r.spec.Auth.Noauth.GrafanaHostname)
 				}
-				return fmt.Sprintf("https://grafana.%s/login/generic_oauth", r.gw.Spec.Hostname)
+				return fmt.Sprintf("https://grafana.%s/login/generic_oauth", r.spec.Hostname)
 			}(),
 			ManagementAPIEndpoint: "opni-monitoring-internal:11090",
 			Port:                  4000,
@@ -112,7 +111,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 				},
 			},
 		}
-		if options, err := util.DecodeStruct[map[string]any](r.gw.Spec.Auth.Noauth); err != nil {
+		if options, err := util.DecodeStruct[map[string]any](r.spec.Auth.Noauth); err != nil {
 			return nil, errors.WrapIf(err, "failed to decode noauth auth provider options")
 		} else {
 			apSpec.Options = *options
@@ -127,7 +126,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			APIVersion: "v1beta1",
 		},
 		ObjectMeta: cfgmeta.ObjectMeta{
-			Name: string(r.gw.Spec.Auth.Provider),
+			Name: string(r.spec.Auth.Provider),
 		},
 		Spec: apSpec,
 	}
@@ -144,13 +143,14 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",
-			Namespace: r.gw.Namespace,
+			Namespace: r.namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 		Data: map[string]string{
 			"config.yaml": fmt.Sprintf("%s\n---\n%s", gatewayConfData, authProviderData),
 		},
 	}
-	ctrl.SetControllerReference(r.gw, cm, r.client.Scheme())
+
+	r.setOwner(cm)
 	return resources.Present(cm), nil
 }

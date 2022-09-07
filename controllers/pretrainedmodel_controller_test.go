@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
@@ -12,12 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-func marshal(hp map[string]intstr.IntOrString) string {
-	b, err := json.MarshalIndent(hp, "", "  ")
-	Expect(err).NotTo(HaveOccurred())
-	return string(b)
-}
 
 var _ = Describe("PretrainedModel Controller", Ordered, Label("controller"), func() {
 	It("should reconcile pretrained model resources", func() {

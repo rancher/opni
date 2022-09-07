@@ -37,27 +37,27 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		MatchLabels: map[string]string{
 			resources.AppNameLabel:  "grafana",
 			resources.PartOfLabel:   "opni",
-			resources.InstanceLabel: r.mc.Name,
+			resources.InstanceLabel: r.instanceName,
 		},
 	}
 
 	grafana := &grafanav1alpha1.Grafana{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
-			Namespace: r.mc.Namespace,
+			Namespace: r.instanceNamespace,
 		},
 	}
 	datasource := &grafanav1alpha1.GrafanaDataSource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
-			Namespace: r.mc.Namespace,
+			Namespace: r.instanceNamespace,
 		},
 	}
 	grafanaDashboards := []*grafanav1alpha1.GrafanaDashboard{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "opni-gateway",
-				Namespace: r.mc.Namespace,
+				Namespace: r.instanceNamespace,
 				Labels:    dashboardSelector.MatchLabels,
 			},
 			Spec: grafanav1alpha1.GrafanaDashboardSpec{
@@ -74,7 +74,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: r.mc.Namespace,
+				Namespace: r.instanceNamespace,
 				Labels:    dashboardSelector.MatchLabels,
 			},
 			Spec: grafanav1alpha1.GrafanaDashboardSpec{
@@ -83,28 +83,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		})
 	}
 
-	grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "slo-overview",
-			Namespace: r.mc.Namespace,
-			Labels:    dashboardSelector.MatchLabels,
-		},
-		Spec: grafanav1alpha1.GrafanaDashboardSpec{
-			Json: string(sloOverviewDashboard),
-		},
-	})
-	grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "slo-detailed",
-			Namespace: r.mc.Namespace,
-			Labels:    dashboardSelector.MatchLabels,
-		},
-		Spec: grafanav1alpha1.GrafanaDashboardSpec{
-			Json: string(sloDetailedDashboard),
-		},
-	})
-
-	if !r.mc.Spec.Grafana.Enabled {
+	if !r.spec.Grafana.Enabled {
 		absentResources := []resources.Resource{
 			resources.Absent(grafana),
 			resources.Absent(datasource),
@@ -116,8 +95,8 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	}
 
 	grafanaHostname := fmt.Sprintf("grafana.%s", r.gw.Spec.Hostname)
-	if r.mc.Spec.Grafana.Hostname != "" {
-		grafanaHostname = r.mc.Spec.Grafana.Hostname
+	if r.spec.Grafana.Hostname != "" {
+		grafanaHostname = r.spec.Grafana.Hostname
 	}
 
 	defaults := grafanav1alpha1.GrafanaSpec{
@@ -156,7 +135,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		},
 	}
 
-	spec := r.mc.Spec.Grafana.GrafanaSpec
+	spec := r.spec.Grafana.GrafanaSpec
 
 	// apply defaults to user-provided config
 	// ensure label selectors and secrets are appended to any user defined ones
@@ -185,7 +164,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				Name:            "Opni",
 				Type:            "prometheus",
 				Access:          "proxy",
-				Url:             fmt.Sprintf("https://opni-monitoring-internal.%s.svc:8080/api/prom", r.mc.Namespace),
+				Url:             fmt.Sprintf("https://opni-monitoring-internal.%s.svc:8080/api/prom", r.instanceNamespace),
 				WithCredentials: true,
 				Editable:        false,
 				IsDefault:       true,
@@ -203,7 +182,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				Uid:             "opni_alertmanager",
 				Type:            "alertmanager",
 				Access:          "proxy",
-				Url:             fmt.Sprintf("https://opni-monitoring-internal.%s.svc:8080/api/prom", r.mc.Namespace),
+				Url:             fmt.Sprintf("https://opni-monitoring-internal.%s.svc:8080/api/prom", r.instanceNamespace),
 				WithCredentials: true,
 				Editable:        false,
 				JsonData: grafanav1alpha1.GrafanaDataSourceJsonData{

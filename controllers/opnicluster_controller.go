@@ -68,15 +68,22 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	opniReconciler := opnicluster.NewReconciler(ctx, r, r.recorder, opniCluster,
+	opniReconciler, err := opnicluster.NewReconciler(ctx, r, r.recorder, opniCluster,
 		reconciler.WithEnableRecreateWorkload(),
 		reconciler.WithScheme(r.scheme),
 	)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
+	indicesReconciler, err := indices.NewReconciler(ctx, opniCluster, r)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	reconcilers := []resources.ComponentReconciler{
 		opniReconciler.Reconcile,
 		opniReconciler.ReconcileOpensearchUpgrade,
-		indices.NewReconciler(ctx, opniCluster, r).Reconcile,
+		indicesReconciler.Reconcile,
 		opniReconciler.ReconcileLogCollector,
 	}
 

@@ -8,6 +8,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -40,6 +42,10 @@ type Reconciler struct {
 	client            client.Client
 	recorder          record.EventRecorder
 	opniCluster       *v1beta2.OpniCluster
+	aiOpniCluster     *aiv1beta1.OpniCluster
+	instanceName      string
+	instanceNamespace string
+	spec              v1beta2.OpniClusterSpec
 	opensearchCluster *opensearchv1.OpenSearchCluster
 }
 
@@ -47,17 +53,33 @@ func NewReconciler(
 	ctx context.Context,
 	client client.Client,
 	recorder record.EventRecorder,
-	opniCluster *v1beta2.OpniCluster,
+	instance interface{},
 	opts ...reconciler.ResourceReconcilerOption,
-) *Reconciler {
-	return &Reconciler{
+) (*Reconciler, error) {
+	r := &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
 			append(opts, reconciler.WithLog(log.FromContext(ctx)))...),
-		ctx:         ctx,
-		client:      client,
-		recorder:    recorder,
-		opniCluster: opniCluster,
+		ctx:      ctx,
+		client:   client,
+		recorder: recorder,
 	}
+
+	switch cluster := instance.(type) {
+	case *v1beta2.OpniCluster:
+		r.instanceName = cluster.Name
+		r.instanceNamespace = cluster.Namespace
+		r.spec = cluster.Spec
+		r.opniCluster = cluster
+	case *aiv1beta1.OpniCluster:
+		r.instanceName = cluster.Name
+		r.instanceNamespace = cluster.Namespace
+		r.spec = ConvertSpec(cluster.Spec)
+		r.aiOpniCluster = cluster
+	default:
+		return nil, errors.New("invalid opnicluster instance type")
+	}
+
+	return r, nil
 }
 
 func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
@@ -69,29 +91,53 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		// is and set it in the state field accordingly.
 		op := util.LoadResult(retResult, retErr)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
-				return err
-			}
-			r.opniCluster.Status.Conditions = conditions
-			if op.ShouldRequeue() {
-				if retErr != nil {
-					// If an error occurred, the state should be set to error
-					r.opniCluster.Status.State = v1beta2.OpniClusterStateError
-				} else {
-					// If no error occurred, but we need to requeue, the state should be
-					// set to working
-					r.opniCluster.Status.State = v1beta2.OpniClusterStateWorking
+			if r.opniCluster != nil {
+				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+					return err
 				}
-			} else if len(r.opniCluster.Status.Conditions) == 0 {
-				// If we are not requeueing and there are no conditions, the state should
-				// be set to ready
-				r.opniCluster.Status.State = v1beta2.OpniClusterStateReady
-				// Set the opensearch version once it's been created
-				if r.opniCluster.Status.OpensearchState.Version == nil {
-					r.opniCluster.Status.OpensearchState.Version = &r.opniCluster.Spec.Opensearch.Version
+				r.opniCluster.Status.Conditions = conditions
+				if op.ShouldRequeue() {
+					if retErr != nil {
+						// If an error occurred, the state should be set to error
+						r.opniCluster.Status.State = v1beta2.OpniClusterStateError
+					} else {
+						// If no error occurred, but we need to requeue, the state should be
+						// set to working
+						r.opniCluster.Status.State = v1beta2.OpniClusterStateWorking
+					}
+				} else if len(r.opniCluster.Status.Conditions) == 0 {
+					// If we are not requeueing and there are no conditions, the state should
+					// be set to ready
+					r.opniCluster.Status.State = v1beta2.OpniClusterStateReady
+					// Set the opensearch version once it's been created
+					if r.opniCluster.Status.OpensearchState.Version == nil {
+						r.opniCluster.Status.OpensearchState.Version = &r.spec.Opensearch.Version
+					}
 				}
+				return r.client.Status().Update(r.ctx, r.opniCluster)
 			}
-			return r.client.Status().Update(r.ctx, r.opniCluster)
+			if r.aiOpniCluster != nil {
+				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.aiOpniCluster), r.aiOpniCluster); err != nil {
+					return err
+				}
+				r.aiOpniCluster.Status.Conditions = conditions
+				if op.ShouldRequeue() {
+					if retErr != nil {
+						// If an error occurred, the state should be set to error
+						r.aiOpniCluster.Status.State = aiv1beta1.OpniClusterStateError
+					} else {
+						// If no error occurred, but we need to requeue, the state should be
+						// set to working
+						r.aiOpniCluster.Status.State = aiv1beta1.OpniClusterStateWorking
+					}
+				} else if len(r.aiOpniCluster.Status.Conditions) == 0 {
+					// If we are not requeueing and there are no conditions, the state should
+					// be set to ready
+					r.aiOpniCluster.Status.State = aiv1beta1.OpniClusterStateReady
+				}
+				return r.client.Status().Update(r.ctx, r.aiOpniCluster)
+			}
+			return errors.New("no opnicluster instance to update")
 		})
 
 		if err != nil {
@@ -100,22 +146,37 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}()
 
 	// Handle finalizer
-	if r.opniCluster.DeletionTimestamp != nil && controllerutil.ContainsFinalizer(r.opniCluster, prometheusRuleFinalizer) {
-		retResult, retErr = r.cleanupPrometheusRule()
-		if retErr != nil || retResult != nil {
-			return
+	if r.opniCluster != nil {
+		if r.opniCluster.DeletionTimestamp != nil && controllerutil.ContainsFinalizer(r.opniCluster, prometheusRuleFinalizer) {
+			retResult, retErr = r.cleanupPrometheusRule()
+			if retErr != nil || retResult != nil {
+				return
+			}
+		}
+	}
+	if r.aiOpniCluster != nil {
+		if r.aiOpniCluster.DeletionTimestamp != nil && controllerutil.ContainsFinalizer(r.aiOpniCluster, prometheusRuleFinalizer) {
+			retResult, retErr = r.cleanupPrometheusRule()
+			if retErr != nil || retResult != nil {
+				return
+			}
 		}
 	}
 
 	// GPU learning is currently unsupported but will be added back in soon
-	if lo.FromPtrOr(r.opniCluster.Spec.Services.GPUController.Enabled, true) {
+	if lo.FromPtrOr(r.spec.Services.GPUController.Enabled, true) {
 		lg.Info("gpu learning is currently not supported, but will return in a later release")
-		r.recorder.Event(r.opniCluster, "Normal", "GPU service not supported", "the GPU service will be available in a later release")
+		if r.opniCluster != nil {
+			r.recorder.Event(r.opniCluster, "Normal", "GPU service not supported", "the GPU service will be available in a later release")
+		}
+		if r.aiOpniCluster != nil {
+			r.recorder.Event(r.aiOpniCluster, "Normal", "GPU service not supported", "the GPU service will be available in a later release")
+		}
 	}
 
-	if r.opniCluster.Spec.Opensearch.ExternalOpensearch != nil {
+	if r.spec.Opensearch.ExternalOpensearch != nil {
 		r.opensearchCluster = &opensearchv1.OpenSearchCluster{}
-		err := r.client.Get(r.ctx, r.opniCluster.Spec.Opensearch.ExternalOpensearch.ObjectKeyFromRef(), r.opensearchCluster)
+		err := r.client.Get(r.ctx, r.spec.Opensearch.ExternalOpensearch.ObjectKeyFromRef(), r.opensearchCluster)
 		if err != nil {
 			if !k8serrors.IsNotFound(err) {
 				return nil, err
@@ -141,7 +202,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	var es []resources.Resource
-	if r.opensearchCluster == nil {
+	if r.opensearchCluster == nil && r.opniCluster != nil {
 		es, err = elastic.NewReconciler(r.ctx, r.client, r.opniCluster).OpensearchResources()
 		if err != nil {
 			retErr = errors.Combine(retErr, err)
@@ -150,6 +211,10 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 			return
 		}
 	} else {
+		if r.opensearchCluster == nil {
+			lg.Error(err, "external opensearch not found")
+			return
+		}
 		es, err = r.externalOpensearchConfig()
 		if err != nil {
 			retErr = errors.Combine(retErr, err)
@@ -217,7 +282,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		osData := &appsv1.StatefulSet{}
 		err = r.client.Get(r.ctx, types.NamespacedName{
 			Name:      elastic.OpniDataWorkload,
-			Namespace: r.opniCluster.Namespace,
+			Namespace: r.instanceNamespace,
 		}, osData)
 		if err != nil {
 			return nil, err
@@ -237,14 +302,17 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 		}
 	} else {
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
-				return err
-			}
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opensearchCluster), r.opensearchCluster); err != nil {
 				return err
 			}
-			r.opniCluster.Status.OpensearchState.Initialized = r.opensearchCluster.Status.Phase == opensearchv1.PhaseRunning
-			return r.client.Status().Update(r.ctx, r.opniCluster)
+			if r.opniCluster != nil {
+				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+					return err
+				}
+				r.opniCluster.Status.OpensearchState.Initialized = r.opensearchCluster.Status.Phase == opensearchv1.PhaseRunning
+				return r.client.Status().Update(r.ctx, r.opniCluster)
+			}
+			return nil
 		})
 		if err != nil {
 			return nil, err
@@ -252,19 +320,21 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	}
 
 	// Update the Nats Replica Status once we have successfully reconciled the opniCluster
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
-			return err
-		}
-		replicas := lo.FromPtrOr(r.opniCluster.Spec.Nats.Replicas, 3)
-		if r.opniCluster.Status.NatsReplicas != replicas {
-			r.opniCluster.Status.NatsReplicas = replicas
-		}
-		return r.client.Status().Update(r.ctx, r.opniCluster)
-	})
+	if r.opniCluster != nil {
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+				return err
+			}
+			replicas := lo.FromPtrOr(r.spec.Nats.Replicas, 3)
+			if r.opniCluster.Status.NatsReplicas != replicas {
+				r.opniCluster.Status.NatsReplicas = replicas
+			}
+			return r.client.Status().Update(r.ctx, r.opniCluster)
+		})
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return
@@ -274,27 +344,27 @@ func (r *Reconciler) ReconcileOpensearchUpgrade() (retResult *reconcile.Result, 
 	lg := log.FromContext(r.ctx)
 
 	// IF we're using an external Opensearch do nothing
-	if r.opniCluster.Spec.Opensearch.ExternalOpensearch != nil {
+	if r.spec.Opensearch.ExternalOpensearch != nil {
 		return
 	}
 
-	if r.opniCluster.Status.OpensearchState.Version == nil || *r.opniCluster.Status.OpensearchState.Version == r.opniCluster.Spec.Opensearch.Version {
+	if r.opniCluster.Status.OpensearchState.Version == nil || *r.opniCluster.Status.OpensearchState.Version == r.spec.Opensearch.Version {
 		return
 	}
 
 	// If no persistence and only one data replica we can't safely upgrade so log an error and return
-	if (r.opniCluster.Spec.Opensearch.Workloads.Data.Replicas == nil ||
-		*r.opniCluster.Spec.Opensearch.Workloads.Data.Replicas == int32(1)) &&
-		(r.opniCluster.Spec.Opensearch.Persistence == nil ||
-			!r.opniCluster.Spec.Opensearch.Persistence.Enabled) {
+	if (r.spec.Opensearch.Workloads.Data.Replicas == nil ||
+		*r.spec.Opensearch.Workloads.Data.Replicas == int32(1)) &&
+		(r.spec.Opensearch.Persistence == nil ||
+			!r.spec.Opensearch.Persistence.Enabled) {
 		lg.Error(ErrOpensearchUpgradeFailed, "insufficient data node persistence")
 		return
 	}
 
-	if (r.opniCluster.Spec.Opensearch.Workloads.Master.Replicas == nil ||
-		*r.opniCluster.Spec.Opensearch.Workloads.Master.Replicas == int32(1)) &&
-		(r.opniCluster.Spec.Opensearch.Persistence == nil ||
-			!r.opniCluster.Spec.Opensearch.Persistence.Enabled) {
+	if (r.spec.Opensearch.Workloads.Master.Replicas == nil ||
+		*r.spec.Opensearch.Workloads.Master.Replicas == int32(1)) &&
+		(r.spec.Opensearch.Persistence == nil ||
+			!r.spec.Opensearch.Persistence.Enabled) {
 		lg.Error(ErrOpensearchUpgradeFailed, "insufficient master node persistence")
 		return
 	}
@@ -317,7 +387,7 @@ func (r *Reconciler) ReconcileOpensearchUpgrade() (retResult *reconcile.Result, 
 		if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 			return err
 		}
-		r.opniCluster.Status.OpensearchState.Version = &r.opniCluster.Spec.Opensearch.Version
+		r.opniCluster.Status.OpensearchState.Version = &r.spec.Opensearch.Version
 		return r.client.Status().Update(r.ctx, r.opniCluster)
 	})
 
@@ -325,23 +395,39 @@ func (r *Reconciler) ReconcileOpensearchUpgrade() (retResult *reconcile.Result, 
 }
 
 func (r *Reconciler) cleanupPrometheusRule() (retResult *reconcile.Result, retErr error) {
-	if r.opniCluster.Status.PrometheusRuleNamespace == "" {
+	var namespace string
+	if r.opniCluster != nil {
+		namespace = r.opniCluster.Status.PrometheusRuleNamespace
+	}
+	if r.aiOpniCluster != nil {
+		namespace = r.aiOpniCluster.Status.PrometheusRuleNamespace
+	}
+	if namespace == "" {
 		retErr = errors.New("prometheusRule namespace is unknown")
 		return
 	}
 	prometheusRule := &monitoringv1.PrometheusRule{}
 	err := r.client.Get(r.ctx, types.NamespacedName{
 		Name:      fmt.Sprintf("%s-%s", v1beta2.MetricsService.ServiceName(), r.generateSHAID()),
-		Namespace: r.opniCluster.Status.PrometheusRuleNamespace,
+		Namespace: namespace,
 	}, prometheusRule)
 	if k8serrors.IsNotFound(err) {
-		controllerutil.RemoveFinalizer(r.opniCluster, prometheusRuleFinalizer)
 		retErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
-				return err
+			if r.opniCluster != nil {
+				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
+					return err
+				}
+				controllerutil.RemoveFinalizer(r.opniCluster, prometheusRuleFinalizer)
+				return r.client.Update(r.ctx, r.opniCluster)
 			}
-			controllerutil.RemoveFinalizer(r.opniCluster, prometheusRuleFinalizer)
-			return r.client.Update(r.ctx, r.opniCluster)
+			if r.aiOpniCluster != nil {
+				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.aiOpniCluster), r.aiOpniCluster); err != nil {
+					return err
+				}
+				controllerutil.RemoveFinalizer(r.aiOpniCluster, prometheusRuleFinalizer)
+				return r.client.Update(r.ctx, r.aiOpniCluster)
+			}
+			return nil
 		})
 		return
 	} else if err != nil {
@@ -390,7 +476,7 @@ func (r *Reconciler) ReconcileLogCollector() (retResult *reconcile.Result, retEr
 		}
 	}()
 
-	desiredState := deploymentState(r.opniCluster.Spec.DeployLogCollector)
+	desiredState := deploymentState(r.spec.DeployLogCollector)
 	clusterOutput := r.buildClusterOutput()
 	clusterFlow := r.buildClusterFlow()
 
@@ -410,6 +496,22 @@ func (r *Reconciler) ReconcileLogCollector() (retResult *reconcile.Result, retEr
 	}
 
 	return
+}
+
+func (r *Reconciler) setOwner(obj client.Object) error {
+	if r.opniCluster != nil {
+		err := ctrl.SetControllerReference(r.opniCluster, obj, r.client.Scheme())
+		if err != nil {
+			return err
+		}
+	}
+	if r.aiOpniCluster != nil {
+		err := ctrl.SetControllerReference(r.aiOpniCluster, obj, r.client.Scheme())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func RegisterWatches(builder *builder.Builder) *builder.Builder {

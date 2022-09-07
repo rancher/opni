@@ -36,7 +36,10 @@ func (r *MonitoringReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	rec := monitoring.NewReconciler(ctx, r.Client, mc)
+	rec, err := monitoring.NewReconciler(ctx, r.Client, mc)
+	if err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 	result, err := rec.Reconcile()
 	if err != nil {
 		lg.WithValues(

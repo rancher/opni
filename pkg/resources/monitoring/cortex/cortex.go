@@ -2,12 +2,15 @@ package cortex
 
 import (
 	"context"
+	"errors"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"go.uber.org/zap"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -15,16 +18,22 @@ import (
 
 type Reconciler struct {
 	reconciler.ResourceReconciler
-	ctx    context.Context
-	client client.Client
-	mc     *v1beta2.MonitoringCluster
-	logger *zap.SugaredLogger
+	ctx       context.Context
+	client    client.Client
+	spec      corev1beta1.MonitoringClusterSpec
+	mc        interface{}
+	name      string
+	namespace string
+	logger    *zap.SugaredLogger
 }
 
 func NewReconciler(
 	ctx context.Context,
 	client client.Client,
-	mc *v1beta2.MonitoringCluster,
+	mc interface{},
+	spec corev1beta1.MonitoringClusterSpec,
+	name string,
+	namespace string,
 ) *Reconciler {
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
@@ -33,10 +42,13 @@ func NewReconciler(
 			reconciler.WithLog(log.FromContext(ctx)),
 			reconciler.WithScheme(client.Scheme()),
 		),
-		ctx:    ctx,
-		client: client,
-		mc:     mc,
-		logger: logger.New().Named("controller").Named("cortex"),
+		ctx:       ctx,
+		client:    client,
+		mc:        mc,
+		spec:      spec,
+		name:      name,
+		namespace: namespace,
+		logger:    logger.New().Named("controller").Named("cortex"),
 	}
 
 }
@@ -71,4 +83,23 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		return op.ResultPtr()
 	}
 	return nil, nil
+}
+
+func (r *Reconciler) setOwner(obj client.Object) error {
+	switch cluster := r.mc.(type) {
+	case *v1beta2.MonitoringCluster:
+		err := ctrl.SetControllerReference(cluster, obj, r.client.Scheme())
+		if err != nil {
+			return err
+		}
+	case *corev1beta1.MonitoringCluster:
+		err := ctrl.SetControllerReference(cluster, obj, r.client.Scheme())
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.New("unsupported monitoring type")
+	}
+
+	return nil
 }

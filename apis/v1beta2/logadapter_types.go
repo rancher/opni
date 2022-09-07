@@ -109,7 +109,6 @@ type LogAdapterStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:scope=Cluster
-// +kubebuilder:storageversion
 
 // LogAdapter is the Schema for the logadapters API
 type LogAdapter struct {

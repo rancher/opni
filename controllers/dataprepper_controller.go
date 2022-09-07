@@ -30,7 +30,10 @@ func (r *DataPrepperReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	DataPrepperReconciler := dataprepper.NewReconciler(ctx, DataPrepper, r.Client)
+	DataPrepperReconciler, err := dataprepper.NewReconciler(ctx, DataPrepper, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	reconcilers := []resources.ComponentReconciler{
 		DataPrepperReconciler.Reconcile,

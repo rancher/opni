@@ -47,10 +47,13 @@ func (r *PretrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	rec := pretrainedmodel.NewReconciler(ctx, r, model,
+	rec, err := pretrainedmodel.NewReconciler(ctx, r, model,
 		reconciler.WithEnableRecreateWorkload(),
 		reconciler.WithScheme(r.scheme),
 	)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return util.LoadResult(rec.Reconcile()).Result()
 }

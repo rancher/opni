@@ -50,6 +50,7 @@ service SLO {
   rpc ListMetrics(ListMetricsRequest) returns (MetricGroupList) {
     option (google.api.http) = {
       post: "/metrics"
+      body: "*"
     };
   }
 
@@ -57,12 +58,14 @@ service SLO {
   rpc ListServices(ListServicesRequest) returns (ServiceList) {
     option (google.api.http) = {
       post: "/services"
+      body: "*"
     };
   }
 
   rpc ListEvents(ListEventsRequest) returns (EventList) {
     option (google.api.http) = {
       post: "/events"
+
     };
   }
 
@@ -70,12 +73,14 @@ service SLO {
   rpc Status(core.Reference) returns (SLOStatus) {
     option (google.api.http) = {
       post: "/slos/{id}/status"
+
     };
   }
 
   rpc Preview(CreateSLORequest) returns (SLOPreviewResponse) {
     option (google.api.http) = {
       post : "/slos/preview"
+      body: "*"
     };
   }
 }

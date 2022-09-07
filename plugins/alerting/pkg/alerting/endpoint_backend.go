@@ -96,8 +96,9 @@ func (b *LocalEndpointBackend) Start() {
 	if err != nil {
 		panic(err)
 	}
+
 	//TODO: fixme relative path only works for one of tests or mage test:env, but not both
-	amBin := path.Join("testbin/bin", "alertmanager")
+	amBin := path.Join("../../../../testbin/bin/alertmanager")
 	defaultArgs := []string{
 		fmt.Sprintf("--config.file=%s", b.configFilePath),
 		fmt.Sprintf("--web.listen-address=:%d", port),
@@ -110,7 +111,7 @@ func (b *LocalEndpointBackend) Start() {
 	session, err := testutil.StartCmd(cmd)
 	if err != nil {
 		if !errors.Is(b.ctx.Err(), context.Canceled) {
-			panic(err)
+			panic(fmt.Sprintf("%s : ambin path : %s", err, amBin))
 		} else {
 			return
 		}

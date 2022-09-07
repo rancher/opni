@@ -12,7 +12,7 @@ var _ = Describe("Building Kube Pod State Alert Rules", func() {
 		alertRule, err := metrics.NewKubePodStateRule(
 			"opni-alerting-0",
 			"",
-			metrics.KubePodStates[0],
+			metrics.KubeStates[0],
 			"60s",
 			nil,
 			nil)

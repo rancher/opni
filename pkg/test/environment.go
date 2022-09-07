@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -80,6 +81,7 @@ import (
 )
 
 var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")
+var collectorWriteSync sync.Mutex
 
 type servicePorts struct {
 	Etcd            int
@@ -860,37 +862,59 @@ func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port
 	mux := http.NewServeMux()
 	reg := prometheus.NewRegistry()
 
-	kubePodStateCollector := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: metrics.KubePodStatusMetricName,
-	},
-		[]string{"pod", "namespace", "phase", "uid"})
+	registeredCollectors := map[string]*prometheus.GaugeVec{}
 
-	setPhaseHandler := func(w http.ResponseWriter, r *http.Request) {
+	kubeMetricsIsDefined := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: metrics.KubeMetricsIsDefinedMetricName,
+	}, []string{"namespace"})
+
+	kubeMetricsIsDefined.WithLabelValues("kube-system").Set(1)
+
+	setObjHandler := func(w http.ResponseWriter, r *http.Request) {
+		collectorWriteSync.Lock()
+		defer collectorWriteSync.Unlock()
+		objType := r.URL.Query().Get("obj")
+		name := r.URL.Query().Get("name")
+		namespace := r.URL.Query().Get("namespace")
+		phase := r.URL.Query().Get("phase")
+		uid := r.URL.Query().Get("uid")
+
 		accessedState := false
-		for _, name := range metrics.KubePodStates {
-			if name == r.URL.Query().Get("phase") {
+		var b bytes.Buffer
+		err := metrics.KubeObjMetricCreator.Execute(&b, map[string]string{
+			"ObjType": objType,
+		})
+		if err != nil {
+			panic(err)
+		}
+		var newOrExistingKubeObjStateCollector *prometheus.GaugeVec
+		if _, ok := registeredCollectors[b.String()]; !ok {
+			newOrExistingKubeObjStateCollector = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Name: b.String(),
+			}, []string{objType, "namespace", "phase", "uid"})
+			registeredCollectors[b.String()] = newOrExistingKubeObjStateCollector
+			reg.MustRegister(newOrExistingKubeObjStateCollector)
+		} else {
+			newOrExistingKubeObjStateCollector = registeredCollectors[b.String()]
+		}
+
+		for _, validPhase := range metrics.KubeStates {
+			if phase == validPhase {
 				accessedState = true
-				kubePodStateCollector.WithLabelValues(
-					r.URL.Query().Get("pod"),
-					r.URL.Query().Get("namespace"),
-					name,
-					r.URL.Query().Get("uid")).Set(1)
+				newOrExistingKubeObjStateCollector.WithLabelValues(name, namespace, validPhase, uid).Set(1)
 			} else {
-				kubePodStateCollector.WithLabelValues(
-					r.URL.Query().Get("pod"),
-					r.URL.Query().Get("namespace"),
-					name,
-					r.URL.Query().Get("uid")).Set(0)
+				newOrExistingKubeObjStateCollector.WithLabelValues(name, namespace, validPhase, uid).Set(0)
 			}
 		}
-		if !accessedState {
-			panic(fmt.Sprintf("Mock kubernetes metric server is handling an invalid kube pod state phase : %s",
-				r.URL.Query().Get("phase")))
+		if accessedState == false {
+			panic(fmt.Sprintf("Set state for kube metrics api must be one of %s", strings.Join(metrics.KubeStates, ",")))
 		}
 	}
-	reg.MustRegister(kubePodStateCollector)
 
-	mux.HandleFunc("/setKubePodState", setPhaseHandler)
+	reg.MustRegister(kubeMetricsIsDefined)
+
+	//mux.HandleFunc("/setKubePodState", setPhaseHandler)
+	mux.HandleFunc("/set", setObjHandler)
 	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
 		Registry: reg,
 	}))
@@ -1400,6 +1424,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	}
 	randSrc := rand.New(rand.NewSource(0))
 	var iPort int
+	var kPort int
 	addAgent := func(rw http.ResponseWriter, r *http.Request) {
 		Log.Infof("%s %s", r.Method, r.URL.Path)
 		switch r.Method {
@@ -1465,6 +1490,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	var closeOnce sync.Once
 	signal.Notify(c, os.Interrupt)
 	iPort, _ = environment.StartInstrumentationServer(context.Background())
+	kPort = environment.StartMockKubernetesMetricServer(context.Background())
 	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)
 	Log.Info(chalk.Blue.Color("Press (ctrl+c) or (q) to stop test environment"))
 	var client managementv1.ManagementClient
@@ -1531,6 +1557,8 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		}
 	}
 
+	Log.Infof(chalk.Green.Color("Kubernetes metric server listening on %d"), kPort)
+	Log.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
 	// listen for spacebar on stdin
 	t, err := tty.Open()
 	if err == nil {

@@ -110,19 +110,27 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 			Expect(curTestState.mockPods).NotTo(BeEmpty())
 			// non-deterministically sample mock pods to set
 			mp := curTestState.mockPods[rand.Intn(len(curTestState.mockPods))]
-			for _, state := range metrics.KubePodStates {
+
+			//@debug
+			//body := getRawMetrics(kubernetesTempMetricServerPort)
+			//bodyBytes, err := ioutil.ReadAll(body)
+			//Expect(err).To(Succeed())
+			//fmt.Println(bodyBytes)
+
+			for _, state := range metrics.KubeStates {
 				Eventually(func() error {
 					mp.phase = state
 					setMockKubernetesPodState(kubernetesTempMetricServerPort, mp)
+					query := fmt.Sprintf(
+						"kube_pod_status_phase{pod=\"%s\",namespace=\"%s\",phase=\"%s\", uid=\"%s\"}",
+						mp.podName,
+						mp.namespace,
+						state,
+						mp.uid,
+					)
 					resp, err := adminClient.Query(ctx, &cortexadmin.QueryRequest{
 						Tenants: []string{"agent"},
-						Query: fmt.Sprintf(
-							"kube_pod_status_phase{pod=\"%s\",namespace=\"%s\",phase=\"%s\", uid=\"%s\"}",
-							mp.podName,
-							mp.namespace,
-							state,
-							mp.uid,
-						),
+						Query:   query,
 					})
 					if err != nil {
 						return err

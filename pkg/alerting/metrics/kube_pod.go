@@ -3,11 +3,25 @@ package metrics
 import (
 	"fmt"
 	"github.com/prometheus/common/model"
+	"regexp"
+	"text/template"
 )
 
-var KubePodStates = [...]string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
+var KubeStates = []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
+
+// KubeObjMetricNameMatcher
+//
+// PromQl Matcher for kube state metrics
+const KubeObjMetricNameMatcher = "kube_.*_status_phase"
+
+// KubeObjTypeExtractor
+//
+// Group 1 extracts the object type
+var KubeObjTypeExtractor = regexp.MustCompile("kube_(.*)_status_phase")
+var KubeObjMetricCreator = template.Must(template.New("KubeObject").Parse("kube_{{.ObjType}}_status_phase"))
 
 const KubePodStatusMetricName = "kube_pod_status_phase"
+const KubeMetricsIsDefinedMetricName = "kube_namespace_created"
 
 func NewKubePodStateRule(
 	podName string,
@@ -21,7 +35,7 @@ func NewKubePodStateRule(
 		return nil, fmt.Errorf("aksjdhakjshdkij")
 	}
 	validPodState := false
-	for _, state := range KubePodStates {
+	for _, state := range KubeStates {
 		if state == podState {
 			validPodState = true
 		}

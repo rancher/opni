@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -65,8 +66,8 @@ type mockPod struct {
 }
 
 func sampleRandomKubeState() string {
-	r := rand.Intn(len(metrics.KubePodStates))
-	return metrics.KubePodStates[r]
+	r := rand.Intn(len(metrics.KubeStates))
+	return metrics.KubeStates[r]
 }
 
 func newRandomMockPod() *mockPod {
@@ -117,7 +118,7 @@ var _ = BeforeSuite(func() {
 
 	// setup a kubernetes metric mock
 	kubernetesTempMetricServerPort = env.StartMockKubernetesMetricServer(context.Background())
-
+	fmt.Printf("Mock kubernetes metrics server started on port %d\n", kubernetesTempMetricServerPort)
 	for i := 0; i < 10; i++ {
 		pod := newRandomMockPod()
 		setMockKubernetesPodState(kubernetesTempMetricServerPort, pod)
@@ -164,7 +165,7 @@ var _ = BeforeSuite(func() {
 })
 
 func setMockKubernetesPodState(kubePort int, pod *mockPod) {
-	queryUrl := fmt.Sprintf("http://localhost:%d/setKubePodState", kubePort)
+	queryUrl := fmt.Sprintf("http://localhost:%d/set", kubePort)
 	client := &http.Client{
 		Transport: &http.Transport{},
 	}
@@ -173,7 +174,8 @@ func setMockKubernetesPodState(kubePort int, pod *mockPod) {
 		panic(err)
 	}
 	values := url.Values{}
-	values.Set("pod", pod.podName)
+	values.Set("obj", "pod")
+	values.Set("name", pod.podName)
 	values.Set("namespace", pod.namespace)
 	values.Set("phase", pod.phase)
 	values.Set("uid", pod.uid)
@@ -188,4 +190,23 @@ func setMockKubernetesPodState(kubePort int, pod *mockPod) {
 			panic(fmt.Sprintf("kube metrics prometheus collector hit an error %d", resp.StatusCode))
 		}
 	}()
+}
+
+func getRawMetrics(kubePort int) io.ReadCloser {
+	queryUrl := fmt.Sprintf("http://localhost:%d/metrics", kubePort)
+	client := &http.Client{
+		Transport: &http.Transport{},
+	}
+	req, err := http.NewRequest("GET", queryUrl, nil)
+	if err != nil {
+		panic(err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		panic(fmt.Sprintf("kube metrics prometheus collector hit an error %d", resp.StatusCode))
+	}
+	return resp.Body
 }

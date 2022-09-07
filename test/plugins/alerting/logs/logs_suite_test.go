@@ -4,15 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"math/rand"
-	"net/http"
-	"net/url"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
@@ -54,32 +49,6 @@ type InvalidInputs struct {
 type TestSuiteState struct {
 	numAlertConditions int
 	numLogs            int
-	mockPods           []*mockPod
-}
-
-type mockPod struct {
-	podName   string
-	namespace string
-	phase     string
-	uid       string
-}
-
-func sampleRandomKubeState() string {
-	r := rand.Intn(len(metrics.KubePodStates))
-	return metrics.KubePodStates[r]
-}
-
-func newRandomMockPod() *mockPod {
-	podName := test.RandomName(time.Now().UnixNano())
-	namespace := test.RandomName(time.Now().UnixNano())
-	phase := sampleRandomKubeState()
-	uid := uuid.New().String()
-	return &mockPod{
-		podName:   podName,
-		namespace: namespace,
-		phase:     phase,
-		uid:       uid,
-	}
 }
 
 var env *test.Environment
@@ -117,12 +86,6 @@ var _ = BeforeSuite(func() {
 
 	// setup a kubernetes metric mock
 	kubernetesTempMetricServerPort = env.StartMockKubernetesMetricServer(context.Background())
-
-	for i := 0; i < 10; i++ {
-		pod := newRandomMockPod()
-		setMockKubernetesPodState(kubernetesTempMetricServerPort, pod)
-		curTestState.mockPods = append(curTestState.mockPods, pod)
-	}
 
 	// set up a downstream
 	client := env.NewManagementClient()
@@ -162,30 +125,3 @@ var _ = BeforeSuite(func() {
 	}, 30*time.Second, 1*time.Second).Should(Succeed())
 	fmt.Println("Finished BeforeSuite...")
 })
-
-func setMockKubernetesPodState(kubePort int, pod *mockPod) {
-	queryUrl := fmt.Sprintf("http://localhost:%d/setKubePodState", kubePort)
-	client := &http.Client{
-		Transport: &http.Transport{},
-	}
-	req, err := http.NewRequest("GET", queryUrl, nil)
-	if err != nil {
-		panic(err)
-	}
-	values := url.Values{}
-	values.Set("pod", pod.podName)
-	values.Set("namespace", pod.namespace)
-	values.Set("phase", pod.phase)
-	values.Set("uid", pod.uid)
-	req.URL.RawQuery = values.Encode()
-	go func() {
-		resp, err := client.Do(req)
-		if err != nil {
-			panic(err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			panic(fmt.Sprintf("kube metrics prometheus collector hit an error %d", resp.StatusCode))
-		}
-	}()
-}

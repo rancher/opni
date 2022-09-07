@@ -115,7 +115,7 @@ func NewEmailReceiver(id string, endpoint *alertingv1alpha.EmailEndpoint) (*Rece
 				return []*cfg.EmailConfig{
 					{
 						To:      endpoint.To,
-						From:    "alertmanager@localhost",
+						From:    "alerting@opni.io",
 						Headers: map[string]string{},
 					},
 				}

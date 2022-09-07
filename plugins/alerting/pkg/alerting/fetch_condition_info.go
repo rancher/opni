@@ -6,6 +6,7 @@ import (
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/validation"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 )
 
@@ -15,7 +16,7 @@ func handleChoicesByType(
 	req *alertingv1alpha.AlertDetailChoicesRequest,
 ) (*alertingv1alpha.ListAlertTypeDetails, error) {
 	if req.GetAlertType() == alertingv1alpha.AlertType_SYSTEM {
-		return nil, shared.AlertingErrNotImplemented
+		return nil, validation.Error("System alerts are not supported to be created via the dashboard")
 	}
 	if req.GetAlertType() == alertingv1alpha.AlertType_KUBE_STATE {
 		return fetchKubeStateInfo(p, ctx)

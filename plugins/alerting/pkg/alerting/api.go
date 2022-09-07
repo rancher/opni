@@ -73,7 +73,7 @@ func checkRateLimiting(ctx context.Context, lg *zap.SugaredLogger, conditionId s
 	// 	}
 	// 	time.Sleep(time.Second)
 	// }
-	return IsRateLimited(conditionId, resp)
+	return IsRateLimited(conditionId, resp, lg)
 }
 
 func constructAlerts(conditionId string, annotations map[string]string) []*PostableAlert {
@@ -152,7 +152,8 @@ func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.Trigger
 		},
 		Metadata: &structpb.Struct{
 			Fields: map[string]*structpb.Value{
-				"Info":     structpb.NewStringValue(a.Description),
+				"Info": structpb.NewStringValue(a.Description),
+				//TODO : convert severity grpc enum to string
 				"Severity": structpb.NewStringValue("Severe"),
 			},
 		},

@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/shared"
 
 	cfg "github.com/prometheus/alertmanager/config"
 	"golang.org/x/exp/slices"
@@ -12,7 +13,7 @@ func (c *ConfigMapData) AppendRoute(recv *Receiver) {
 		Receiver: recv.Name,
 		Matchers: cfg.Matchers{
 			{
-				Name:  "conditionId",
+				Name:  shared.BackendConditionIdLabel,
 				Value: recv.Name,
 			},
 		},

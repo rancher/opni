@@ -97,7 +97,7 @@ func (b *LocalEndpointBackend) Start() {
 		panic(err)
 	}
 	//TODO: fixme relative path only works for one of tests or mage test:env, but not both
-	amBin := path.Join("../../../../testbin/bin", "alertmanager")
+	amBin := path.Join("testbin/bin", "alertmanager")
 	defaultArgs := []string{
 		fmt.Sprintf("--config.file=%s", b.configFilePath),
 		fmt.Sprintf("--web.listen-address=:%d", port),
@@ -438,7 +438,7 @@ func OnRetryResponse(req *http.Request, resp *http.Response) (*http.Response, er
 }
 
 // IsRateLimited assumes the http response status code is checked and validated
-func IsRateLimited(conditionId string, resp *http.Response) (bool, error) {
+func IsRateLimited(conditionId string, resp *http.Response, lg *zap.SugaredLogger) (bool, error) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
@@ -449,29 +449,31 @@ func IsRateLimited(conditionId string, resp *http.Response) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	result := gjson.Get(string(body), "status")
-	if !result.Exists() {
+	statusArr := gjson.Get(string(body), "#.status")
+	labelsArr := gjson.Get(string(body), "#.labels")
+
+	if !statusArr.Exists() || !labelsArr.Exists() {
 		return false, nil // indicates an empty response (either nil or empty)
 	}
-	for _, alert := range result.Array() {
-		conditionIdPath := alert.Get("labels.conditionId")
-		if conditionIdPath.Exists() {
-			if conditionIdPath.String() != conditionId { //keep searching
-				continue
-			}
-		} else {
-			//consider panicking here
+	for index, alert := range statusArr.Array() {
+		conditionIdPath := labelsArr.Array()[index].Get(shared.BackendConditionIdLabel)
+		if !conditionIdPath.Exists() {
+			lg.Warnf("missing condition id label '%s' in alert", shared.BackendConditionIdLabel)
 			continue
 		}
-		switch alert.Get("status.state").String() {
-		case models.AlertStatusStateActive:
-			return true, nil
-		case models.AlertStatusStateSuppressed:
-			return true, nil
-		case models.AlertStatusStateUnprocessed:
-			return false, nil
-		default:
-			return false, nil
+		curConditionId := conditionIdPath.String()
+		if curConditionId == conditionId {
+			alertState := alert.Get("state").String()
+			switch alertState {
+			case models.AlertStatusStateActive:
+				return true, nil
+			case models.AlertStatusStateSuppressed:
+				return true, nil
+			case models.AlertStatusStateUnprocessed:
+				return false, nil
+			default:
+				return false, nil
+			}
 		}
 	}
 	// if not found in AM alerts treat it as unfired => not rate limited

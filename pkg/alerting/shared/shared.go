@@ -19,6 +19,7 @@ import (
 
 const LocalBackendEnvToggle = "OPNI_ALERTING_BACKEND_LOCAL"
 const LocalAlertManagerPath = "/tmp/alertmanager.yaml"
+const BackendConditionIdLabel = "conditionId"
 
 const (
 	AlertingV1Alpha      = "v1alpha"

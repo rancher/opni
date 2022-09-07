@@ -8,6 +8,9 @@ import (
 )
 
 func (slo *ServiceLevelObjective) Validate() error {
+	if slo.Target == nil {
+		return validation.Errorf("Target must be set for an SLO")
+	}
 	if slo.Target.GetValue() < 0 || slo.Target.GetValue() > 100 {
 		return validation.Error("objective must be between 0 and 100")
 	}

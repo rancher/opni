@@ -190,6 +190,61 @@ func (x *SeriesRequest) GetJobId() string {
 	return ""
 }
 
+type MatcherRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Tenant    string `protobuf:"bytes,1,opt,name=tenant,proto3" json:"tenant,omitempty"`
+	MatchExpr string `protobuf:"bytes,2,opt,name=matchExpr,proto3" json:"matchExpr,omitempty"`
+}
+
+func (x *MatcherRequest) Reset() {
+	*x = MatcherRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_plugins_cortex_pkg_apis_cortexadmin_cortexadmin_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MatcherRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MatcherRequest) ProtoMessage() {}
+
+func (x *MatcherRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_plugins_cortex_pkg_apis_cortexadmin_cortexadmin_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MatcherRequest.ProtoReflect.Descriptor instead.
+func (*MatcherRequest) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_plugins_cortex_pkg_apis_cortexadmin_cortexadmin_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *MatcherRequest) GetTenant() string {
+	if x != nil {
+		return x.Tenant
+	}
+	return ""
+}
+
+func (x *MatcherRequest) GetMatchExpr() string {
+	if x != nil {
+		return x.MatchExpr
+	}
+	return ""
+}
+
 type LabelRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

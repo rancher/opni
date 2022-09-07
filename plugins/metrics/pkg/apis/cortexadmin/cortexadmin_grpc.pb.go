@@ -37,6 +37,7 @@ type CortexAdminClient interface {
 	GetMetricLabelSets(ctx context.Context, in *LabelRequest, opts ...grpc.CallOption) (*MetricLabels, error)
 	GetCortexStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CortexStatus, error)
 	GetCortexConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
+	ExtractRawSeries(ctx context.Context, in *MatcherRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 }
 
 type cortexAdminClient struct {

@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 )
 
@@ -58,6 +59,25 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 			Name:      "test-cluster",
 			Namespace: c.Namespace,
 		}
+
+		nats := &opnicorev1beta1.NatsCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: c.Namespace,
+			},
+			Spec: opnicorev1beta1.NatsSpec{
+				Replicas:   lo.ToPtr(int32(3)),
+				AuthMethod: opnicorev1beta1.NatsAuthNkey,
+			},
+		}
+		err = k8sClient.Create(context.Background(), nats)
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(Object(nats)).Should(Exist())
+
+		c.Spec.NatsRef = corev1.LocalObjectReference{
+			Name: nats.Name,
+		}
+
 		err = k8sClient.Create(context.Background(), c)
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(Object(c)).Should(Exist())

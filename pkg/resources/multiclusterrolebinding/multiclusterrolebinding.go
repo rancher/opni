@@ -107,12 +107,12 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 						// set to working
 						r.loggingMCB.Status.State = loggingv1beta1.MulticlusterRoleBindingStateWorking
 					}
-				} else if len(r.multiClusterRoleBinding.Status.Conditions) == 0 {
+				} else if len(r.loggingMCB.Status.Conditions) == 0 {
 					// If we are not requeueing and there are no conditions, the state should
 					// be set to ready
 					r.loggingMCB.Status.State = loggingv1beta1.MulticlusterRoleBindingStateReady
 				}
-				return r.client.Status().Update(r.ctx, r.multiClusterRoleBinding)
+				return r.client.Status().Update(r.ctx, r.loggingMCB)
 			}
 			return errors.New("no multiclusterrolebinding instance to update")
 		})

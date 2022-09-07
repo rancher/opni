@@ -31,6 +31,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
+	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
 	"github.com/rancher/opni/pkg/util"
 	opsterv1 "opensearch.opster.io/api/v1"
 )
@@ -76,14 +77,14 @@ func (r *AIOpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	// indicesReconciler, err := indices.NewReconciler(ctx, opniCluster, r)
-	// if err != nil {
-	// 	return ctrl.Result{}, err
-	// }
+	indicesReconciler, err := indices.NewReconciler(ctx, opniCluster, r)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	reconcilers := []resources.ComponentReconciler{
 		opniReconciler.Reconcile,
-		//indicesReconciler.Reconcile,
+		indicesReconciler.Reconcile,
 	}
 
 	for _, rec := range reconcilers {

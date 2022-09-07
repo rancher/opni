@@ -48,7 +48,7 @@ var _ = Describe("Core Nats Controller", Ordered, Label("controller"), func() {
 		By("checking nats statefulset")
 		Eventually(Object(&appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cluster.Name,
+				Name:      fmt.Sprintf("%s-nats", cluster.Name),
 				Namespace: cluster.Namespace,
 			},
 		})).Should(ExistAnd(

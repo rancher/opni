@@ -5,13 +5,7 @@ import (
 	"errors"
 
 	"github.com/kralicky/totem"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/descriptorpb"
-
-	"github.com/rancher/opni/pkg/agent"
+	agentv1 "github.com/rancher/opni/pkg/agent/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -19,6 +13,11 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 type remote struct {
@@ -104,7 +103,7 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 
 	cc, errC := ts.Serve()
 
-	go s.handler.HandleAgentConnection(ctx, agent.NewClientSet(cc))
+	go s.handler.HandleAgentConnection(ctx, agentv1.NewClientSet(cc))
 
 	select {
 	case err = <-errC:

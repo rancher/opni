@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rancher/opni/pkg/agent"
+	agentv1 "github.com/rancher/opni/pkg/agent/v1"
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/condition"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
@@ -323,6 +323,6 @@ func (l *Listener) Close() {
 }
 
 // Implements gateway.ConnectionHandler
-func (l *Listener) HandleAgentConnection(ctx context.Context, clientset agent.ClientSet) {
+func (l *Listener) HandleAgentConnection(ctx context.Context, clientset agentv1.ClientSet) {
 	l.HandleConnection(ctx, clientset)
 }

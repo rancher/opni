@@ -9,6 +9,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/health"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/test/testutil"
 )
 
 var _ = Describe("Monitor", func() {
@@ -36,7 +37,7 @@ var _ = Describe("Monitor", func() {
 
 		Eventually(func() *corev1.HealthStatus {
 			return monitor.GetHealthStatus("agent1")
-		}).Should(Equal(&corev1.HealthStatus{
+		}).Should(testutil.ProtoEqual(&corev1.HealthStatus{
 			Health: &corev1.Health{
 				Ready:      false,
 				Conditions: []string{"foo"},
@@ -50,7 +51,7 @@ var _ = Describe("Monitor", func() {
 
 		Eventually(func() *corev1.HealthStatus {
 			return monitor.GetHealthStatus("agent1")
-		}).Should(Equal(&corev1.HealthStatus{
+		}).Should(testutil.ProtoEqual(&corev1.HealthStatus{
 			Health: &corev1.Health{
 				Ready: true,
 			},
@@ -63,7 +64,7 @@ var _ = Describe("Monitor", func() {
 
 		Eventually(func() *corev1.HealthStatus {
 			return monitor.GetHealthStatus("agent1")
-		}).Should(Equal(&corev1.HealthStatus{
+		}).Should(testutil.ProtoEqual(&corev1.HealthStatus{
 			Health: &corev1.Health{
 				Ready: false,
 			},

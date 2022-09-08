@@ -2,7 +2,6 @@ package alerting
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"time"
 
@@ -40,40 +39,11 @@ func applyConfigToBackend(backend RuntimeEndpointBackend, ctx context.Context, p
 	return nil
 }
 
-func validateSlack(v *alertingv1alpha.SlackEndpoint) error {
-	if v == nil {
-		return validation.Error("Missing required field: slack endpoint")
-	}
-	_, err := NewSlackReceiver("id not used", v)
-	return err
-}
-
-func validateEmail(v *alertingv1alpha.EmailEndpoint) error {
-	if v == nil {
-		return validation.Error("Must pass in a non-nil email endpoint")
-	}
-	_, err := NewEmailReceiver("id not used", v)
-	return err
-}
-
-func handleAlertEndpointValidation(ctx context.Context, req *alertingv1alpha.AlertEndpoint) error {
-	if req == nil {
-		return fmt.Errorf("must pass in a non-nil alert endpoint")
-	}
-	if s := req.GetSlack(); s != nil {
-		return validateSlack(req.GetSlack())
-	}
-	if e := req.GetEmail(); e != nil {
-		return validateEmail(req.GetEmail())
-	}
-	return validation.Error("Unhandled endpoint/implementation details")
-}
-
 func (p *Plugin) CreateAlertEndpoint(ctx context.Context, req *alertingv1alpha.AlertEndpoint) (*emptypb.Empty, error) {
-	newId := uuid.New().String()
-	if err := handleAlertEndpointValidation(ctx, req); err != nil {
+	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	newId := uuid.New().String()
 	if err := p.storage.Get().AlertEndpoint.Put(ctx, path.Join(endpointPrefix, newId), req); err != nil {
 		return nil, err
 	}
@@ -91,6 +61,9 @@ func (p *Plugin) GetAlertEndpoint(ctx context.Context, ref *corev1.Reference) (*
 }
 
 func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.UpdateAlertEndpointRequest) (*emptypb.Empty, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
 	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
 	defer ca()
 	storage, err := p.storage.GetContext(ctx)
@@ -101,9 +74,6 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.U
 	if err != nil {
 		return nil, err
 	}
-	if err := handleAlertEndpointValidation(ctx, req.UpdateAlert); err != nil {
-		return nil, err
-	}
 	if err := storage.AlertEndpoint.Put(ctx, path.Join(endpointPrefix, req.Id.Id), req.UpdateAlert); err != nil {
 		return nil, err
 	}
@@ -112,6 +82,9 @@ func (p *Plugin) UpdateAlertEndpoint(ctx context.Context, req *alertingv1alpha.U
 
 func (p *Plugin) ListAlertEndpoints(ctx context.Context,
 	req *alertingv1alpha.ListAlertEndpointsRequest) (*alertingv1alpha.AlertEndpointList, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
 	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
 	defer ca()
 	storage, err := p.storage.GetContext(ctx)
@@ -184,6 +157,9 @@ func processEndpointDetails(conditionId string, req *alertingv1alpha.CreateImple
 
 // Called from CreateAlertCondition
 func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
 	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
 	defer ca()
 	// newId := uuid.New().String()
@@ -216,6 +192,9 @@ func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alerting
 
 // Called from UpdateAlertCondition
 func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alertingv1alpha.CreateImplementation) (*emptypb.Empty, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
 	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
 	defer ca()
 	backend, err := p.endpointBackend.GetContext(ctx)

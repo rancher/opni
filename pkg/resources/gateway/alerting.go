@@ -28,21 +28,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 	publicLabels = labelWithAlert(publicLabels)
 	publicSvcLabels := publicLabels
 
-	alertingSvc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        shared.OperatorAlertingServiceName,
-			Namespace:   r.gw.Namespace,
-			Labels:      publicSvcLabels,
-			Annotations: r.gw.Spec.ServiceAnnotations,
-		},
-		Spec: corev1.ServiceSpec{
-			Type:     r.gw.Spec.Alerting.ServiceType,
-			Selector: publicLabels,
-			Ports:    r.serviceAlertManagerPorts(r.containerAlertManagerPorts()),
-		},
-	}
-	ctrl.SetControllerReference(r.gw, alertingSvc, r.client.Scheme())
-
 	if r.gw.Spec.Alerting == nil {
 		// set some sensible defaults
 		r.spec.Alerting = &corev1beta1.AlertingSpec{
@@ -64,6 +49,21 @@ func (r *Reconciler) alerting() []resources.Resource {
 	if r.spec.Alerting.ConfigName == "" {
 		r.spec.Alerting.ConfigName = "alertmanager-config"
 	}
+
+	alertingSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        shared.OperatorAlertingServiceName,
+			Namespace:   r.gw.Namespace,
+			Labels:      publicSvcLabels,
+			Annotations: r.gw.Spec.ServiceAnnotations,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     r.gw.Spec.Alerting.ServiceType,
+			Selector: publicLabels,
+			Ports:    r.serviceAlertManagerPorts(r.containerAlertManagerPorts()),
+		},
+	}
+	ctrl.SetControllerReference(r.gw, alertingSvc, r.client.Scheme())
 
 	var amData bytes.Buffer
 	mgmtDNS := "opni-monitoring-internal"

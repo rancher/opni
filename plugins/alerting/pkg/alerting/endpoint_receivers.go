@@ -2,14 +2,12 @@ package alerting
 
 import (
 	"fmt"
-	"net/mail"
 	"net/url"
 	"strings"
 
 	cfg "github.com/prometheus/alertmanager/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
-	"github.com/rancher/opni/pkg/validation"
 	"golang.org/x/exp/slices"
 )
 
@@ -61,22 +59,13 @@ func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*Rece
 	if err != nil {
 		return nil, err
 	}
-	// validate the url
-	_, err = url.ParseRequestURI(endpoint.WebhookUrl)
-	if err != nil {
-		return nil, err
-	}
-	channel := strings.TrimSpace(endpoint.Channel)
-	if !strings.HasPrefix(channel, "#") {
-		return nil, shared.AlertingErrInvalidSlackChannel
-	}
 
 	return &Receiver{
 		Name: id,
 		SlackConfigs: []*SlackConfig{
 			{
 				APIURL:  parsedURL.String(),
-				Channel: channel,
+				Channel: endpoint.Channel,
 			},
 		},
 	}, nil
@@ -109,38 +98,18 @@ func NewEmailReceiver(id string, endpoint *alertingv1alpha.EmailEndpoint) (*Rece
 		Name:         id,
 		EmailConfigs: []*EmailConfig{{}},
 	}
-	//TODO: move validation to validation.go
-	_, err := mail.ParseAddress(endpoint.To)
-	if err != nil {
-		return nil, validation.Errorf("Invalid Destination email : %w", err)
-	}
+	resRecv.EmailConfigs[0].To = endpoint.To
 	if endpoint.SmtpFrom != nil {
-		_, err := mail.ParseAddress(*endpoint.SmtpFrom)
-		if err != nil {
-			return nil, validation.Errorf("Invalid Sender email : %w", err)
-		}
 		resRecv.EmailConfigs[0].From = *endpoint.SmtpFrom
 	}
-	resRecv.EmailConfigs[0].To = endpoint.To
-
-	// TODO validate the smtp server url
 	if endpoint.SmtpSmartHost != nil {
 		// TODO: parse
 		arr := strings.Split(*endpoint.SmtpSmartHost, ":")
-		if len(arr) != 2 {
-			return nil, fmt.Errorf("invalid format for smart host")
-		}
 		resRecv.EmailConfigs[0].Smarthost = cfg.HostPort{
 			Host: arr[0],
 			Port: arr[1],
 		}
-	} else {
-		//TODO: fetch opni-deployed smtp server from alertingOptions with deadline context
-		resRecv.EmailConfigs[0].Smarthost = cfg.HostPort{
-			Host: "localhost",
-			Port: "25",
-		}
-	}
+	} // otherwise is set to global default in reconciler
 	if endpoint.SmtpAuthUsername != nil {
 		resRecv.EmailConfigs[0].AuthUsername = *endpoint.SmtpAuthUsername
 	}
@@ -159,11 +128,11 @@ func WithEmailImplementation(recv *Receiver, impl *alertingv1alpha.EndpointImple
 		return nil, shared.AlertingErrMismatchedImplementation
 	}
 	if impl.SendResolved != nil {
-		recv.SlackConfigs[0].NotifierConfig = cfg.NotifierConfig{
+		recv.EmailConfigs[0].NotifierConfig = cfg.NotifierConfig{
 			VSendResolved: *impl.SendResolved,
 		}
 	} else {
-		recv.SlackConfigs[0].NotifierConfig = cfg.NotifierConfig{
+		recv.EmailConfigs[0].NotifierConfig = cfg.NotifierConfig{
 			VSendResolved: false,
 		}
 	}

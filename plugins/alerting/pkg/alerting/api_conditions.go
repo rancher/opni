@@ -27,6 +27,9 @@ import (
 const conditionPrefix = "/alerting/conditions"
 
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
 	if err := alertingv1alpha.DetailsHasImplementation(req.GetAlertType()); err != nil {
 		return nil, shared.WithNotFoundError(fmt.Sprintf("%s", err))
 	}
@@ -55,6 +58,9 @@ func (p *Plugin) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (
 }
 
 func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.ListAlertConditionRequest) (*alertingv1alpha.AlertConditionList, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
 	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
 	defer ca()
 	storage, err := p.storage.GetContext(ctx)
@@ -80,8 +86,11 @@ func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.L
 
 // req.Id is the condition id reference
 func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.UpdateAlertConditionRequest) (*emptypb.Empty, error) {
-	// ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
-	// defer ca()
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
+	defer ca()
 	lg := p.logger.With("handler", "UpdateAlertCondition")
 	lg.Debugf("Updating alert condition %s", req.Id)
 	storage, err := p.storage.GetContext(ctx)
@@ -118,8 +127,6 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 }
 
 func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	//FIXME: deleting fails in receiver AM backend
-
 	lg := p.logger.With("Handler", "DeleteAlertCondition")
 	lg.Debugf("Deleting alert condition %s", ref.Id)
 	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
@@ -156,6 +163,7 @@ func (p *Plugin) PreviewAlertCondition(ctx context.Context,
 }
 
 func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertStatusResponse, error) {
+	//FIXME: requires changes to the way we post conditions when notification id is nil
 	lg := p.logger.With("handler", "AlertConditionStatus")
 	lg.Debugf("Getting alert condition status %s", ref.Id)
 	// check K,V for existence
@@ -322,6 +330,9 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 }
 
 func (p *Plugin) ListAlertConditionChoices(ctx context.Context, req *alertingv1alpha.AlertDetailChoicesRequest) (*alertingv1alpha.ListAlertTypeDetails, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
 	if err := alertingv1alpha.EnumHasImplementation(req.GetAlertType()); err != nil {
 		return nil, err
 	}

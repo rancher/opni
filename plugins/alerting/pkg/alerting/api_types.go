@@ -2,28 +2,42 @@ package alerting
 
 import (
 	"fmt"
+	"github.com/containerd/containerd/pkg/cri/config"
 	cfg "github.com/prometheus/alertmanager/config"
 	commoncfg "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"time"
 )
 
-var DefaultSlackConfig = SlackConfig{
-	NotifierConfig: cfg.NotifierConfig{
-		VSendResolved: false,
-	},
-	Color:      `{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}`,
-	Username:   `{{ template "slack.default.username" . }}`,
-	Title:      `{{ template "slack.default.title" . }}`,
-	TitleLink:  `{{ template "slack.default.titlelink" . }}`,
-	IconEmoji:  `{{ template "slack.default.iconemoji" . }}`,
-	IconURL:    `{{ template "slack.default.iconurl" . }}`,
-	Pretext:    `{{ template "slack.default.pretext" . }}`,
-	Text:       `{{ template "slack.default.text" . }}`,
-	Fallback:   `{{ template "slack.default.fallback" . }}`,
-	CallbackID: `{{ template "slack.default.callbackid" . }}`,
-	Footer:     `{{ template "slack.default.footer" . }}`,
-}
+var (
+	DefaultSlackConfig = SlackConfig{
+		NotifierConfig: cfg.NotifierConfig{
+			VSendResolved: false,
+		},
+		Color:      `{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}`,
+		Username:   `{{ template "slack.default.username" . }}`,
+		Title:      `{{ template "slack.default.title" . }}`,
+		TitleLink:  `{{ template "slack.default.titlelink" . }}`,
+		IconEmoji:  `{{ template "slack.default.iconemoji" . }}`,
+		IconURL:    `{{ template "slack.default.iconurl" . }}`,
+		Pretext:    `{{ template "slack.default.pretext" . }}`,
+		Text:       `{{ template "slack.default.text" . }}`,
+		Fallback:   `{{ template "slack.default.fallback" . }}`,
+		CallbackID: `{{ template "slack.default.callbackid" . }}`,
+		Footer:     `{{ template "slack.default.footer" . }}`,
+	}
+	// DefaultEmailConfig defines default values for Email configurations.
+	DefaultEmailConfig = EmailConfig{
+		NotifierConfig: cfg.NotifierConfig{
+			VSendResolved: false,
+		},
+		HTML: `{{ template "email.default.html" . }}`,
+		Text: ``,
+	}
+	normalizeTitle = cases.Title(language.AmericanEnglish)
+)
 
 // Receiver configuration provides configuration on how to contact a receiver.
 // Required to overwrite certain fields in alertmanager's Receiver : https://github.com/rancher/opni/issues/544
@@ -31,7 +45,7 @@ type Receiver struct {
 	// A unique identifier for this receiver.
 	Name string `yaml:"name" json:"name"`
 
-	EmailConfigs     []*cfg.EmailConfig     `yaml:"email_configs,omitempty" json:"email_configs,omitempty"`
+	EmailConfigs     []*EmailConfig         `yaml:"email_configs,omitempty" json:"email_configs,omitempty"`
 	PagerdutyConfigs []*cfg.PagerdutyConfig `yaml:"pagerduty_configs,omitempty" json:"pagerduty_configs,omitempty"`
 	SlackConfigs     []*SlackConfig         `yaml:"slack_configs,omitempty" json:"slack_configs,omitempty"`
 	WebhookConfigs   []*cfg.WebhookConfig   `yaml:"webhook_configs,omitempty" json:"webhook_configs,omitempty"`
@@ -86,6 +100,49 @@ type SlackConfig struct {
 	Actions     []*cfg.SlackAction `yaml:"actions,omitempty" json:"actions,omitempty"`
 }
 
+type EmailConfig struct {
+	cfg.NotifierConfig `yaml:",inline" json:",inline"`
+	To                 string       `yaml:"to,omitempty" json:"to,omitempty"`
+	From               string       `yaml:"from,omitempty" json:"from,omitempty"`
+	Hello              string       `yaml:"hello,omitempty" json:"hello,omitempty"`
+	Smarthost          cfg.HostPort `yaml:"smarthost,omitempty" json:"smarthost,omitempty"`
+	AuthUsername       string       `yaml:"auth_username,omitempty" json:"auth_username,omitempty"`
+	// Change from secret to string since the string is stored in a kube secret anyways
+	AuthPassword string `yaml:"auth_password,omitempty" json:"auth_password,omitempty"`
+	// Change from secret to string since the string is stored in a kube secret anyways
+	AuthSecret   string            `yaml:"auth_secret,omitempty" json:"auth_secret,omitempty"`
+	AuthIdentity string            `yaml:"auth_identity,omitempty" json:"auth_identity,omitempty"`
+	Headers      map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+	HTML         string            `yaml:"html,omitempty" json:"html,omitempty"`
+	Text         string            `yaml:"text,omitempty" json:"text,omitempty"`
+	RequireTLS   *bool             `yaml:"require_tls,omitempty" json:"require_tls,omitempty"`
+	TLSConfig    config.TLSConfig  `yaml:"tls_config,omitempty" json:"tls_config,omitempty"`
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (c *EmailConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*c = DefaultEmailConfig
+	type plain EmailConfig
+	if err := unmarshal((*plain)(c)); err != nil {
+		return err
+	}
+	if c.To == "" {
+		return fmt.Errorf("missing to address in email config")
+	}
+	// Header names are case-insensitive, check for collisions.
+	normalizedHeaders := map[string]string{}
+	for h, v := range c.Headers {
+		normalized := normalizeTitle.String(h)
+		if _, ok := normalizedHeaders[normalized]; ok {
+			return fmt.Errorf("duplicate header %q in email config", normalized)
+		}
+		normalizedHeaders[normalized] = v
+	}
+	c.Headers = normalizedHeaders
+
+	return nil
+}
+
 func (c *SlackConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	*c = DefaultSlackConfig
 	type plain SlackConfig
@@ -108,12 +165,14 @@ type GlobalConfig struct {
 
 	HTTPConfig *HTTPClientConfig `yaml:"http_config,omitempty" json:"http_config,omitempty"`
 
-	SMTPFrom           string         `yaml:"smtp_from,omitempty" json:"smtp_from,omitempty"`
-	SMTPHello          string         `yaml:"smtp_hello,omitempty" json:"smtp_hello,omitempty"`
-	SMTPSmarthost      cfg.HostPort   `yaml:"smtp_smarthost,omitempty" json:"smtp_smarthost,omitempty"`
-	SMTPAuthUsername   string         `yaml:"smtp_auth_username,omitempty" json:"smtp_auth_username,omitempty"`
-	SMTPAuthPassword   cfg.Secret     `yaml:"smtp_auth_password,omitempty" json:"smtp_auth_password,omitempty"`
-	SMTPAuthSecret     cfg.Secret     `yaml:"smtp_auth_secret,omitempty" json:"smtp_auth_secret,omitempty"`
+	SMTPFrom         string       `yaml:"smtp_from,omitempty" json:"smtp_from,omitempty"`
+	SMTPHello        string       `yaml:"smtp_hello,omitempty" json:"smtp_hello,omitempty"`
+	SMTPSmarthost    cfg.HostPort `yaml:"smtp_smarthost,omitempty" json:"smtp_smarthost,omitempty"`
+	SMTPAuthUsername string       `yaml:"smtp_auth_username,omitempty" json:"smtp_auth_username,omitempty"`
+	// Changed from Secret to string to avoid issues with the yaml parser
+	SMTPAuthPassword string `yaml:"smtp_auth_password,omitempty" json:"smtp_auth_password,omitempty"`
+	// Changed from Secret to string to avoid issues with the yaml parser
+	SMTPAuthSecret     string         `yaml:"smtp_auth_secret,omitempty" json:"smtp_auth_secret,omitempty"`
 	SMTPAuthIdentity   string         `yaml:"smtp_auth_identity,omitempty" json:"smtp_auth_identity,omitempty"`
 	SMTPRequireTLS     bool           `yaml:"smtp_require_tls" json:"smtp_require_tls,omitempty"`
 	SlackAPIURL        *cfg.SecretURL `yaml:"slack_api_url,omitempty" json:"slack_api_url,omitempty"`

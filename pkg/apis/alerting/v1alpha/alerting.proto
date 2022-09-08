@@ -306,11 +306,14 @@ message ListAlertConditionSystem {}
 message AlertConditionKubeState {
   string clusterId = 1;
   // must be one of the listed kube objects
-  string object = 2;
-  string namespace = 3;
+  string objectType = 2;
+  // kubernetes object name
+  string objectName = 3;
+  // kubernetes namespace
+  string namespace = 4;
   // must be one of the listed kube states
-  string state = 4;
-  google.protobuf.Duration for = 5;
+  string state = 5;
+  google.protobuf.Duration for = 6;
 }
 
 message ListAlertConditionKubeState {
@@ -376,10 +379,22 @@ message PreviewAlertConditionRequest {}
 message PreviewAlertConditionResponse {}
 
 message EndpointImplementation {
-  string Title = 1;
-  string Body = 2;
+  // title of the alert (required)
+  string title = 1;
+  // body message of the alert (required)
+  string body = 2;
+  // initial delay before firing the alert (optional) (default=10s)
+  optional google.protobuf.Duration initialDelay = 3;
+  // how often to resend alert messages on active alerts (default =10s)
+  optional google.protobuf.Duration repeatInterval = 4;
+  // How long to wait before sending notifications on new condition that has already fired recently
+  // (default= 10m)
+  optional google.protobuf.Duration throttlingDuration = 5;
+  // send a notification when the alert is no longer firing? yes/no (default = no)
+  optional bool sendResolved = 6;
 }
 
+// TODO: include general configs such as repeat interval, throttling via group_wait, group_interval, etc
 message CreateImplementation {
   core.Reference endpointId = 1;
   core.Reference conditionId = 2;
@@ -403,8 +418,20 @@ message SlackEndpoint {
 }
 
 message EmailEndpoint {
+  // email recipient
   string to = 1;
-  optional string from = 2;
+  // smtp server sender email
+  optional string smtpFrom = 2;
+  // smtp server host & port
+  optional string smtpSmartHost =3;
+  // smtp server username
+  optional string smtpAuthUsername = 4;
+  //smtp server identity
+  optional string smtpAuthIdentity = 5;
+  // smtp server password
+  optional string smtpAuthPassword = 6;
+  // does SMTP require TSL : yes or no
+  optional bool smtpRequireTLS = 7;
 }
 
 message TeamsEndpoint { string webhookUrl = 1; }

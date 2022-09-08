@@ -9,13 +9,14 @@ import (
 
 var _ = Describe("Building Kube Pod State Alert Rules", func() {
 	It("Should be able to construct a basic kube pod state alert rule", func() {
-		alertRule, err := metrics.NewKubePodStateRule(
-			"opni-alerting-0",
-			"",
-			metrics.KubeStates[0],
-			"60s",
+		alertRule, err := metrics.NewKubeStateRule(
+			"pod",
+			"test",
+			"default",
+			"Running",
+			"1m",
 			nil,
-			nil)
+		)
 		Expect(err).To(Succeed())
 		_, err = alertRule.Build(uuid.New().String())
 		Expect(err).To(Succeed())

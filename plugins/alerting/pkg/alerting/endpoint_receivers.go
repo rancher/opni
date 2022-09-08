@@ -83,64 +83,96 @@ func NewSlackReceiver(id string, endpoint *alertingv1alpha.SlackEndpoint) (*Rece
 }
 
 func WithSlackImplementation(
-	cfg *Receiver,
+	recv *Receiver,
 	impl *alertingv1alpha.EndpointImplementation,
 ) (*Receiver, error) {
-	if cfg.SlackConfigs == nil || len(cfg.SlackConfigs) == 0 || impl == nil {
+	if recv.SlackConfigs == nil || len(recv.SlackConfigs) == 0 || impl == nil {
 		return nil, shared.AlertingErrMismatchedImplementation
 	}
-	cfg.SlackConfigs[0].Title = impl.Title
-	cfg.SlackConfigs[0].Text = impl.Body
+	if impl.SendResolved != nil {
+		recv.SlackConfigs[0].NotifierConfig = cfg.NotifierConfig{
+			VSendResolved: *impl.SendResolved,
+		}
+	} else {
+		recv.SlackConfigs[0].NotifierConfig = cfg.NotifierConfig{
+			VSendResolved: false,
+		}
+	}
+	recv.SlackConfigs[0].Title = impl.Title
+	recv.SlackConfigs[0].Text = impl.Body
 
-	return cfg, nil
+	return recv, nil
 }
 
 func NewEmailReceiver(id string, endpoint *alertingv1alpha.EmailEndpoint) (*Receiver, error) {
+	resRecv := &Receiver{
+		Name:         id,
+		EmailConfigs: []*EmailConfig{{}},
+	}
+	//TODO: move validation to validation.go
 	_, err := mail.ParseAddress(endpoint.To)
 	if err != nil {
 		return nil, validation.Errorf("Invalid Destination email : %w", err)
 	}
-
-	if endpoint.From != nil {
-		_, err := mail.ParseAddress(*endpoint.From)
+	if endpoint.SmtpFrom != nil {
+		_, err := mail.ParseAddress(*endpoint.SmtpFrom)
 		if err != nil {
 			return nil, validation.Errorf("Invalid Sender email : %w", err)
 		}
+		resRecv.EmailConfigs[0].From = *endpoint.SmtpFrom
 	}
+	resRecv.EmailConfigs[0].To = endpoint.To
 
-	return &Receiver{
-		Name: id,
-		EmailConfigs: func() []*cfg.EmailConfig {
-			if endpoint.From == nil {
-				return []*cfg.EmailConfig{
-					{
-						To:      endpoint.To,
-						From:    "alerting@opni.io",
-						Headers: map[string]string{},
-					},
-				}
-			}
-			return []*cfg.EmailConfig{
-				{
-					To:      endpoint.To,
-					From:    *endpoint.From,
-					Headers: map[string]string{},
-				},
-			}
-		}()}, nil
+	// TODO validate the smtp server url
+	if endpoint.SmtpSmartHost != nil {
+		// TODO: parse
+		arr := strings.Split(*endpoint.SmtpSmartHost, ":")
+		if len(arr) != 2 {
+			return nil, fmt.Errorf("invalid format for smart host")
+		}
+		resRecv.EmailConfigs[0].Smarthost = cfg.HostPort{
+			Host: arr[0],
+			Port: arr[1],
+		}
+	} else {
+		//TODO: fetch opni-deployed smtp server from alertingOptions with deadline context
+		resRecv.EmailConfigs[0].Smarthost = cfg.HostPort{
+			Host: "localhost",
+			Port: "25",
+		}
+	}
+	if endpoint.SmtpAuthUsername != nil {
+		resRecv.EmailConfigs[0].AuthUsername = *endpoint.SmtpAuthUsername
+	}
+	if endpoint.SmtpAuthPassword != nil {
+		resRecv.EmailConfigs[0].AuthPassword = *endpoint.SmtpAuthPassword
+	}
+	if endpoint.SmtpAuthIdentity != nil {
+		resRecv.EmailConfigs[0].AuthIdentity = *endpoint.SmtpAuthIdentity
+	}
+	resRecv.EmailConfigs[0].RequireTLS = endpoint.SmtpRequireTLS
+	return resRecv, nil
 }
 
-func WithEmailImplementation(cfg *Receiver, impl *alertingv1alpha.EndpointImplementation) (*Receiver, error) {
-	if cfg.EmailConfigs == nil || len(cfg.EmailConfigs) == 0 || impl == nil {
+func WithEmailImplementation(recv *Receiver, impl *alertingv1alpha.EndpointImplementation) (*Receiver, error) {
+	if recv.EmailConfigs == nil || len(recv.EmailConfigs) == 0 || impl == nil {
 		return nil, shared.AlertingErrMismatchedImplementation
 	}
-	if cfg.EmailConfigs[0].Headers == nil {
-		cfg.EmailConfigs[0].Headers = map[string]string{}
+	if impl.SendResolved != nil {
+		recv.SlackConfigs[0].NotifierConfig = cfg.NotifierConfig{
+			VSendResolved: *impl.SendResolved,
+		}
+	} else {
+		recv.SlackConfigs[0].NotifierConfig = cfg.NotifierConfig{
+			VSendResolved: false,
+		}
 	}
-	cfg.EmailConfigs[0].Headers["Subject"] = impl.Title
-	cfg.EmailConfigs[0].HTML = impl.Body
-
-	return cfg, nil
+	if recv.EmailConfigs[0].Headers == nil {
+		recv.EmailConfigs[0].Headers = map[string]string{}
+	}
+	recv.EmailConfigs[0].Headers["Subject"] = impl.Title
+	recv.EmailConfigs[0].HTML = impl.Body
+	return recv, nil
 }
 
 // NewWebhookReceiver creates a new receiver for the webhook endpoint

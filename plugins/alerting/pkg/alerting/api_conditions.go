@@ -102,16 +102,13 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 			return nil, shared.WithInternalServerError(fmt.Sprintf("failed to delete & update condition : %s", err))
 		}
 	}
-
 	if err := handleUpdateEndpointImplementation(p, ctx, req.Id.Id, existing, req.UpdateAlert); err != nil {
 		return nil, err
 	}
-
 	_, err = setupCondition(p, ctx, req.UpdateAlert, req.Id.Id)
 	if err != nil {
 		return nil, err
 	}
-
 	proto.Merge(existing, req.UpdateAlert)
 	existing.Labels = overrideLabels
 	if err := storage.Conditions.Put(ctx, path.Join(conditionPrefix, req.Id.Id), existing); err != nil {
@@ -121,6 +118,8 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 }
 
 func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
+	//FIXME: deleting fails in receiver AM backend
+
 	lg := p.logger.With("Handler", "DeleteAlertCondition")
 	lg.Debugf("Deleting alert condition %s", ref.Id)
 	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
@@ -159,6 +158,18 @@ func (p *Plugin) PreviewAlertCondition(ctx context.Context,
 func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertStatusResponse, error) {
 	lg := p.logger.With("handler", "AlertConditionStatus")
 	lg.Debugf("Getting alert condition status %s", ref.Id)
+	// check K,V for existence
+	storage, err := p.storage.GetContext(ctx)
+	if err != nil {
+		lg.Errorf("cannot fetch storage : %s", err)
+		return nil, err
+	}
+	_, err = storage.Conditions.Get(ctx, path.Join(conditionPrefix, ref.Id))
+	if err != nil {
+		lg.Errorf("failed to find condition with id %s in storage : %s", ref.Id, err)
+		return nil, shared.WithNotFoundErrorf("%s", err)
+	}
+
 	defaultState := &alertingv1alpha.AlertStatusResponse{
 		State: alertingv1alpha.AlertConditionState_OK,
 	}

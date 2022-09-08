@@ -2,14 +2,49 @@ package alerting
 
 import (
 	"fmt"
+	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
+	"time"
 
 	cfg "github.com/prometheus/alertmanager/config"
 	"golang.org/x/exp/slices"
 )
 
-func (c *ConfigMapData) AppendRoute(recv *Receiver) {
-	c.Route.Routes = append(c.Route.Routes, &cfg.Route{
+func updateRouteWithRequestInfo(route *cfg.Route, req *alertingv1alpha.CreateImplementation) *cfg.Route {
+	if req == nil {
+		return route
+	}
+	if req.GetImplementation().GetThrottlingDuration() != nil {
+		dur := model.Duration(req.GetImplementation().GetThrottlingDuration().AsDuration())
+		route.GroupInterval = &dur
+
+	} else {
+		dur := model.Duration(time.Duration(time.Minute * 10))
+		route.GroupInterval = &dur
+	}
+
+	if req.GetImplementation().GetInitialDelay() != nil {
+		dur := model.Duration(req.GetImplementation().GetInitialDelay().AsDuration())
+		route.GroupWait = &dur
+	} else {
+		dur := model.Duration(time.Duration(time.Second * 10))
+		route.GroupWait = &dur
+	}
+
+	if req.GetImplementation().GetRepeatInterval() != nil {
+		dur := model.Duration(req.GetImplementation().GetRepeatInterval().AsDuration())
+		route.RepeatInterval = &dur
+
+	} else {
+		dur := model.Duration(time.Duration(time.Second * 10))
+		route.RepeatInterval = &dur
+	}
+	return route
+}
+
+func (c *ConfigMapData) AppendRoute(recv *Receiver, req *alertingv1alpha.CreateImplementation) {
+	r := &cfg.Route{
 		Receiver: recv.Name,
 		Matchers: cfg.Matchers{
 			{
@@ -17,7 +52,9 @@ func (c *ConfigMapData) AppendRoute(recv *Receiver) {
 				Value: recv.Name,
 			},
 		},
-	})
+	}
+	updatedRoute := updateRouteWithRequestInfo(r, req)
+	c.Route.Routes = append(c.Route.Routes, updatedRoute)
 }
 
 func (c *ConfigMapData) GetRoutes() []*cfg.Route {
@@ -41,7 +78,7 @@ func (c *ConfigMapData) findRoutes(id string) (int, error) {
 	return foundIdx, nil
 }
 
-func (c *ConfigMapData) UpdateRoute(id string, recv *cfg.Route) error {
+func (c *ConfigMapData) UpdateRoute(id string, recv *Receiver, req *alertingv1alpha.CreateImplementation) error {
 	if recv == nil {
 		return fmt.Errorf("nil receiver passed to UpdateRoute")
 	}
@@ -49,7 +86,17 @@ func (c *ConfigMapData) UpdateRoute(id string, recv *cfg.Route) error {
 	if err != nil {
 		return err
 	}
-	c.Route.Routes[idx] = recv
+	r := &cfg.Route{
+		Receiver: recv.Name,
+		Matchers: cfg.Matchers{
+			{
+				Name:  shared.BackendConditionIdLabel,
+				Value: recv.Name,
+			},
+		},
+	}
+	updatedRoute := updateRouteWithRequestInfo(r, req)
+	c.Route.Routes[idx] = updatedRoute
 	return nil
 }
 

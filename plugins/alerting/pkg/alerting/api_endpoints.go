@@ -206,7 +206,7 @@ func (p *Plugin) CreateEndpointImplementation(ctx context.Context, req *alerting
 		return nil, err
 	}
 	config.AppendReceiver(recv)
-	config.AppendRoute(recv)
+	config.AppendRoute(recv, req)
 	err = applyConfigToBackend(backend, ctx, p, config)
 	if err != nil {
 		return nil, err
@@ -238,6 +238,10 @@ func (p *Plugin) UpdateEndpointImplementation(ctx context.Context, req *alerting
 	}
 	//note: don't need to update routes after this since they hold a ref to the original condition id
 	err = config.UpdateReceiver(conditionId, recv)
+	if err != nil {
+		return nil, err
+	}
+	err = config.UpdateRoute(conditionId, recv, req)
 	if err != nil {
 		return nil, err
 	}

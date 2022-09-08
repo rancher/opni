@@ -65,5 +65,5 @@ func (c *ConfigMapData) UnsetSMTPServer() {
 	c.Global.SMTPHello = ""
 	c.Global.SMTPAuthUsername = ""
 	c.Global.SMTPAuthPassword = ""
-	c.Global.SMTPAuthSecret = config.Secret("")
+	c.Global.SMTPAuthSecret = ""
 }

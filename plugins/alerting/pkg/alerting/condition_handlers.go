@@ -68,7 +68,8 @@ func handleUpdateEndpointImplementation(
 	if existing.NotificationId == nil { // no implementation previously set
 		return setEndpointImplementationIfAvailable(p, ctx, new, id)
 	} else if new.NotificationId == nil { // delete implementation
-		_, err := p.DeleteEndpointImplementation(ctx, &corev1.Reference{Id: *existing.NotificationId})
+		// !!! must pass in the existing condition id
+		_, err := p.DeleteEndpointImplementation(ctx, &corev1.Reference{Id: id})
 		return err
 	}
 	return updateEndpointImplemetation(p, ctx, new, id)
@@ -103,18 +104,19 @@ func deleteCondition(p *Plugin, ctx context.Context, req *alertingv1alpha.AlertC
 }
 
 func handleKubeAlertCreation(p *Plugin, ctx context.Context, k *alertingv1alpha.AlertConditionKubeState, newId string) error {
-	baseKubeRule, err := metrics.NewKubePodStateRule(
-		k.GetObject(),
+	baseKubeRule, err := metrics.NewKubeStateRule(
+		k.GetObjectType(),
+		k.GetObjectName(),
 		k.GetNamespace(),
 		k.GetState(),
 		timeDurationToPromStr(k.GetFor().AsDuration()),
-		nil, // FIXME : make a cortex receiver that calls HandleCortexWebhook, then pass in appropriate labels
-		nil, //FIXME : make a cortex receiver that calls HandleCortexWebhook, then pass in appropriate annotations
+		metrics.KubeStateAnnotations,
 	)
 	if err != nil {
 		return err
 	}
 	kubeRuleContent, err := NewCortexAlertingRule(newId, nil, baseKubeRule)
+	p.logger.With("handler", "kubeStateAlertCreate").Debugf("kube state alert created %v", kubeRuleContent)
 	if err != nil {
 		return err
 	}

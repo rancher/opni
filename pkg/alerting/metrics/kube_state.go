@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/prometheus/common/model"
 	"regexp"
@@ -23,24 +24,41 @@ var KubeObjMetricCreator = template.Must(template.New("KubeObject").Parse("kube_
 const KubePodStatusMetricName = "kube_pod_status_phase"
 const KubeMetricsIsDefinedMetricName = "kube_namespace_created"
 
-func NewKubePodStateRule(
-	podName string,
+var KubeStateAlertIdLabels = []string{}
+var KubeStateAnnotations = map[string]string{}
+
+func NewKubeStateRule(
+	objType string,
+	objName string,
 	namespace string,
 	podState string,
 	forDuration string,
-	labels map[string]string,
 	annotations map[string]string,
 ) (*AlertingRule, error) {
-	if podName == "" {
-		return nil, fmt.Errorf("aksjdhakjshdkij")
+	//TODO move this to validation.go
+	if objType == "" {
+		return nil, fmt.Errorf("kubernetes object type should not be empty")
 	}
-	validPodState := false
+	if objName == "" {
+		return nil, fmt.Errorf("kubernetes objects cannot have an empty name")
+	}
+	var kubeMetricNameBuffer bytes.Buffer
+	err := KubeObjMetricCreator.Execute(&kubeMetricNameBuffer, map[string]string{
+		"ObjType": objType,
+	})
+	if err != nil {
+		return nil, err
+	}
+	kubeMetricName := kubeMetricNameBuffer.String()
+	objectFilter := objType + fmt.Sprintf("= \"%s\"", objName)
+	//TODO: move this to validation.go
+	validState := false
 	for _, state := range KubeStates {
 		if state == podState {
-			validPodState = true
+			validState = true
 		}
 	}
-	if !validPodState {
+	if !validState {
 		return nil, fmt.Errorf("invalid pod state provided %s", podState)
 	}
 	dur, err := model.ParseDuration(forDuration)
@@ -50,15 +68,15 @@ func NewKubePodStateRule(
 	//handle empty namespace
 	var namespaceFilter string
 	if namespace != "" {
-		namespaceFilter = "namespace=\"" + namespace + "\","
+		namespaceFilter = "namespace=\"" + namespace + "\""
 	} else {
 		namespaceFilter = ""
 	}
 	return &AlertingRule{
 		Alert:       "",
-		Expr:        fmt.Sprintf("(%s{%s pod=\"%s\",state=\"%s\"} > bool 0)", KubePodStatusMetricName, namespaceFilter, podName, podState),
+		Expr:        fmt.Sprintf("(%s{%s, %s, state=\"%s\"} > bool 0)", kubeMetricName, namespaceFilter, objectFilter, podState),
 		For:         dur,
-		Labels:      labels,
+		Labels:      annotations,
 		Annotations: annotations,
 	}, nil
 }

@@ -118,8 +118,8 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 
 			fromAddr := "alex7285@gmail.com"
 			emailEndpoint := alertingv1alpha.EmailEndpoint{
-				To:   "alexandre.lamarre@suse.com",
-				From: &fromAddr,
+				To:       "alexandre.lamarre@suse.com",
+				SmtpFrom: &fromAddr,
 			}
 			emailId1 := uuid.New().String()
 			emailRecv, err := alerting.NewEmailReceiver(emailId1, &emailEndpoint)
@@ -134,7 +134,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			_, err = alerting.NewEmailReceiver(tempId, &emailEndpoint)
 			Expect(err).To(Succeed())
 			fromAddr = "invalid.email.com"
-			emailEndpoint.From = &fromAddr
+			emailEndpoint.SmtpFrom = &fromAddr
 			_, err = alerting.NewEmailReceiver(tempId, &emailEndpoint)
 			Expect(err).To(HaveOccurred())
 		})
@@ -300,8 +300,8 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			Expect(err).To(BeNil())
 			fromAddr := "bot@google.com"
 			emailEndpoint := alertingv1alpha.EmailEndpoint{
-				To:   "alexandre.lamarre@suse.com",
-				From: &fromAddr,
+				To:       "alexandre.lamarre@suse.com",
+				SmtpFrom: &fromAddr,
 			}
 			emailId1 := uuid.New().String()
 			emailRecv, err := alerting.NewEmailReceiver(emailId1, &emailEndpoint)

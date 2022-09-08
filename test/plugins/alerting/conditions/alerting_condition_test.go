@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/alerting/metrics"
@@ -11,8 +14,6 @@ import (
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	"math/rand"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -176,11 +177,12 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 				AlertType: &alertingv1alpha.AlertTypeDetails{
 					Type: &alertingv1alpha.AlertTypeDetails_KubeState{
 						KubeState: &alertingv1alpha.AlertConditionKubeState{
-							ClusterId: "agent",
-							Object:    mp.podName,
-							Namespace: mp.namespace,
-							State:     mp.phase,
-							For:       alertDuration,
+							ClusterId:  "agent",
+							ObjectType: "pod",
+							ObjectName: mp.podName,
+							Namespace:  mp.namespace,
+							State:      mp.phase,
+							For:        alertDuration,
 						},
 					},
 				},

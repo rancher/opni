@@ -3,8 +3,9 @@ package endpoints_test
 import (
 	"context"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/shared"
 	"os"
+
+	"github.com/rancher/opni/pkg/alerting/shared"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -75,8 +76,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Description: "",
 						Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 							Email: &alertingv1alpha.EmailEndpoint{
-								From: &fromUrl,
-								To:   "",
+								SmtpFrom: &fromUrl,
+								To:       "",
 							},
 						},
 					},
@@ -88,8 +89,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Description: "",
 						Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 							Email: &alertingv1alpha.EmailEndpoint{
-								From: &fromUrl,
-								To:   "asdasdaasdasd",
+								SmtpFrom: &fromUrl,
+								To:       "asdasdaasdasd",
 							},
 						},
 					},
@@ -101,8 +102,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Description: "",
 						Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 							Email: &alertingv1alpha.EmailEndpoint{
-								From: &notFromUrl,
-								To:   "alexandre.lamarre@suse.com",
+								SmtpFrom: &notFromUrl,
+								To:       "alexandre.lamarre@suse.com",
 							},
 						},
 					},
@@ -137,8 +138,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					Description: "TestAlertEndpoint",
 					Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 						Email: &alertingv1alpha.EmailEndpoint{
-							From: nil,
-							To:   "alex7285@gmail.com",
+							SmtpFrom: nil,
+							To:       "alex7285@gmail.com",
 						},
 					},
 				},
@@ -147,8 +148,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					Description: "TestAlertEndpoint2",
 					Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 						Email: &alertingv1alpha.EmailEndpoint{
-							To:   "alexandre.lamarre@suse.com",
-							From: &fromUrl,
+							To:       "alexandre.lamarre@suse.com",
+							SmtpFrom: &fromUrl,
 						},
 					},
 				},
@@ -188,7 +189,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					if input.Name == output.Endpoint.Name {
 						if input.GetEmail() != nil {
 							Expect(input.GetEmail().To).To(Equal(output.Endpoint.GetEmail().To))
-							Expect(input.GetEmail().From).To(Equal(output.Endpoint.GetEmail().From))
+							Expect(input.GetEmail().SmtpFrom).To(Equal(output.Endpoint.GetEmail().SmtpFrom))
 						}
 						if input.GetSlack() != nil {
 							Expect(input.GetSlack().Channel).To(Equal(output.Endpoint.GetSlack().Channel))

@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -942,6 +943,41 @@ func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port
 	return port
 }
 
+func simulateObject(kPort int) {
+	// sample a random phase
+	namespaces := []string{"kube-system", "default", "opni"}
+	namespace := namespaces[rand.Intn(len(namespaces))]
+	sampleObjects := []string{"pod", "deployment", "statefulset", "daemonset", "job", "cronjob", "service", "ingress"}
+	sampleObject := sampleObjects[rand.Intn(len(sampleObjects))]
+	sampleState := metrics.KubeStates[rand.Intn(len(metrics.KubeStates))]
+
+	queryUrl := fmt.Sprintf("http://localhost:%d/set", kPort)
+	client := &http.Client{
+		Transport: &http.Transport{},
+	}
+	req, err := http.NewRequest("GET", queryUrl, nil)
+	if err != nil {
+		panic(err)
+	}
+	values := url.Values{}
+	values.Set("obj", sampleObject)
+	values.Set("name", RandomName(time.Now().UnixNano()))
+	values.Set("namespace", namespace)
+	values.Set("phase", sampleState)
+	values.Set("uid", uuid.New().String())
+	req.URL.RawQuery = values.Encode()
+	go func() {
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			panic(fmt.Sprintf("kube metrics prometheus collector hit an error %d", resp.StatusCode))
+		}
+	}()
+}
+
 func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 	caCertData := TestData("root_ca.crt")
 	servingCertData := TestData("localhost.crt")
@@ -1461,11 +1497,15 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				return
 			}
 			environment.StartPrometheus(port, NewOverridePrometheusConfig(
-				"slo/prometheus/config.yaml",
+				"alerting/prometheus/config.yaml",
 				[]PrometheusJob{
 					{
 						JobName:    query.MockTestServerName,
 						ScrapePort: iPort,
+					},
+					{
+						JobName:    "kubernetes",
+						ScrapePort: kPort,
 					},
 				}),
 			)
@@ -1491,6 +1531,11 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	signal.Notify(c, os.Interrupt)
 	iPort, _ = environment.StartInstrumentationServer(context.Background())
 	kPort = environment.StartMockKubernetesMetricServer(context.Background())
+	//TODO: simulate a bunch of random objects
+	for i := 0; i < 100; i++ {
+		simulateObject(kPort)
+	}
+
 	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)
 	Log.Info(chalk.Blue.Color("Press (ctrl+c) or (q) to stop test environment"))
 	var client managementv1.ManagementClient

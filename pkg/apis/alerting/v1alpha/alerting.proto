@@ -314,9 +314,21 @@ message AlertConditionKubeState {
 }
 
 message ListAlertConditionKubeState {
-  repeated string objects = 1;
+  map<string, KubeObjectGroups> clusterToObjects = 1;
   repeated string states = 2;
   repeated google.protobuf.Duration fors = 3;
+}
+
+message ObjectList{
+  repeated string objects = 1;
+}
+
+message NamespaceObjects {
+  map<string, ObjectList> namespaceToObjectList = 1;
+}
+
+message KubeObjectGroups {
+  map<string, NamespaceObjects> objectTypeToNamespaces = 1;
 }
 
 message ListSelectAlertInfo { AlertType alertType = 1; }

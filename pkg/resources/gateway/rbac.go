@@ -109,6 +109,8 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 				Verbs: []string{
 					"get",
 					"list",
+					"update",
+					"patch",
 					"watch",
 				},
 			},

@@ -2189,7 +2189,7 @@ type EndpointImplementation struct {
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// initial delay before firing the alert (optional) (default=10s)
 	InitialDelay *durationpb.Duration `protobuf:"bytes,3,opt,name=initialDelay,proto3,oneof" json:"initialDelay,omitempty"`
-	// how often to resend alert messages on active alerts (default =5m)
+	// how often to resend alert messages on active alerts (default =10s)
 	RepeatInterval *durationpb.Duration `protobuf:"bytes,4,opt,name=repeatInterval,proto3,oneof" json:"repeatInterval,omitempty"`
 	// How long to wait before sending notifications on new condition that has already fired recently
 	// (default= 10m)

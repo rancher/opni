@@ -230,82 +230,110 @@ type K8sEndpointBackend struct {
 
 func (b *K8sEndpointBackend) Fetch(
 	ctx context.Context, p *Plugin, key string) (string, error) {
-	name := p.alertingOptions.Get().ConfigMap
+	lg := p.logger.With("alerting-backend", "k8s", "action", "get")
+	options, err := p.alertingOptions.GetContext(ctx)
+	if err != nil {
+		lg.Errorf("failed to get options from alerting plugin : %s", err)
+		return "", err
+	}
+	name := options.ConfigMap
+	namespace := options.Namespace
+	lg.With("Alerting backend", "k8s").Debugf("updating")
 	cfgMap := &corev1.ConfigMap{}
-	err := b.client.Get(ctx, client.ObjectKey{
-		Namespace: "", // check in all?
+	err = b.client.Get(ctx, client.ObjectKey{
+		Namespace: namespace,
 		Name:      name,
 	}, cfgMap)
 
 	if err != nil || cfgMap == nil {
+		msg := fmt.Sprintf("K8s runtime error, config map: %s/%s not found: %s",
+			namespace,
+			name,
+			err)
+		lg.Error(msg)
 		returnErr := shared.WithInternalServerError(
-			fmt.Sprintf("K8s runtime error, config map: %s not found: %s",
-				name,
-				err),
+			msg,
 		)
 		return "", returnErr
 	}
 
 	if _, ok := cfgMap.Data[key]; !ok {
+		msg := fmt.Sprintf("K8s runtime error, config map : %s key : %s not found",
+			name,
+			key)
+		lg.Error(msg)
 		return "", shared.WithInternalServerError(
-			fmt.Sprintf(
-				"K8s runtime error, config map : %s key : %s not found",
-				name,
-				key,
-			),
+			msg,
 		)
 	}
 	return cfgMap.Data[key], nil
 }
 
 func (b *K8sEndpointBackend) Put(ctx context.Context, p *Plugin, key string, data *ConfigMapData) error {
+	lg := p.logger.With("alerting-backend", "k8s", "action", "put")
 	reconcileLoopError := ReconcileInvalidStateLoop(time.Duration(time.Second*10), data, p.logger)
 	if reconcileLoopError != nil {
 		return shared.WithInternalServerErrorf(fmt.Sprintf("%s", reconcileLoopError))
 	}
 	configPersistMu.Lock()
 	defer configPersistMu.Unlock()
-	name := p.alertingOptions.Get().ConfigMap
+	options, err := p.alertingOptions.GetContext(ctx)
+	if err != nil {
+		lg.Errorf("failed to get options from alerting plugin : %s", err)
+		return err
+	}
+	name := options.ConfigMap
+	namespace := options.Namespace
 	cfgMap := &corev1.ConfigMap{}
-	err := b.client.Get(ctx, client.ObjectKey{
-		Namespace: "", // check in all?
+	err = b.client.Get(ctx, client.ObjectKey{
+		Namespace: namespace,
 		Name:      name,
 	}, cfgMap)
 
 	if err != nil || cfgMap == nil {
+		msg := fmt.Sprintf("K8s runtime error, config map : %s not found : %s",
+			name,
+			err)
+		lg.Error(msg)
 		returnErr := shared.WithInternalServerError(
-			fmt.Sprintf("K8s runtime error, config map : %s not found : %s",
-				name,
-				err),
+			msg,
 		)
 		return returnErr
 	}
 	applyData, err := data.Marshal()
 	if err != nil {
+		lg.Error(err)
 		return err
 	}
 	cfgMap.Data[key] = string(applyData)
 
 	err = b.client.Update(ctx, cfgMap)
 	if err != nil {
+		msg := fmt.Sprintf("Failed to update alertmanager configmap %s: %s", name, err)
+		lg.Error(msg)
 		return shared.WithInternalServerError(
-			fmt.Sprintf("Failed to update alertmanager configmap %s: %s", name, err),
+			msg,
 		)
 	}
-
 	return nil
 }
 
 func (b *K8sEndpointBackend) Reload(ctx context.Context, p *Plugin) error {
-	name := p.alertingOptions.Get().StatefulSet
-	namespace := p.alertingOptions.Get().Namespace
+	lg := p.logger.With("alerting-backend", "k8s", "action", "reload")
+	options, err := p.alertingOptions.GetContext(ctx)
+	if err != nil {
+		lg.Errorf("failed to get options from alerting plugin : %s", err)
+		return err
+	}
+	name := options.StatefulSet
+	namespace := options.Namespace
 	statefulSet := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 	}
-	err := doRolloutRestart(ctx, b.client, statefulSet)
+	err = doRolloutRestart(ctx, b.client, statefulSet)
 	if err != nil {
 		return shared.WithInternalServerError(
 			fmt.Sprintf("K8s runtime error, statefulset : %s restart failed : %s",

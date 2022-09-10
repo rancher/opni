@@ -116,7 +116,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 							Args: []string{
 								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, "alertmanager.yaml")),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
-								"-p 9093:9093", // expose REST api port
 							},
 							Ports: r.containerAlertManagerPorts(),
 							VolumeMounts: []corev1.VolumeMount{

@@ -3,6 +3,7 @@ package alerting
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/pkg/util"
 	"os"
 	"time"
 
@@ -81,7 +82,13 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 			p.alertingOptions.Set(options)
 		}()
 	} else {
-		p.endpointBackend.Set(&K8sEndpointBackend{})
+		client, err := util.NewK8sClient(util.ClientOptions{})
+		if err != nil {
+			panic(err)
+		}
+		p.endpointBackend.Set(&K8sEndpointBackend{
+			client: client,
+		})
 	}
 
 	p.storage.Set(StorageAPIs{

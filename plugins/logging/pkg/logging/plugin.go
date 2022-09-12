@@ -24,9 +24,9 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/logger"
-	gatewayext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
-	unaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/unary"
+	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
+	unaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/unary"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
@@ -187,7 +187,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	}
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(gatewayext.GatewayAPIExtensionPluginID, gatewayext.NewPlugin(p))
+	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&opensearch.Opensearch_ServiceDesc, p))
 

@@ -15,8 +15,8 @@ import (
 var ErrNotImplemented = errors.New("not implemented")
 
 var (
-	GatewayScheme = meta.NewScheme()
-	AgentScheme   = meta.NewScheme()
+	GatewayScheme = meta.NewScheme(meta.WithMode(meta.ModeGateway))
+	AgentScheme   = meta.NewScheme(meta.WithMode(meta.ModeAgent))
 )
 
 var Handshake = plugin.HandshakeConfig{

@@ -2,7 +2,7 @@ package cortex
 
 import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
-	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/stream"
+	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 )
 

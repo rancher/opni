@@ -8,10 +8,14 @@ import (
 
 	"github.com/cortexproject/cortex/pkg/cortexpb"
 	"github.com/golang/snappy"
+	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/util/future"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"github.com/weaveworks/common/user"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -26,11 +30,20 @@ type remoteWriteForwarder struct {
 }
 
 func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, pushErr error) {
+	clusterId, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")
+	}
+
+	ctx, span := otel.Tracer("plugin_metrics").Start(ctx, "remoteWriteForwarder.Push",
+		trace.WithAttributes(attribute.String("clusterId", clusterId)))
+	defer span.End()
+
 	defer func() {
 		if pushErr != nil {
 			f.logger.With(
 				"err", pushErr,
-				"clusterID", payload.AuthorizedClusterID,
+				"clusterId", clusterId,
 			).Error("error pushing metrics to cortex")
 		}
 	}()
@@ -42,7 +55,7 @@ func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 	if err := writeReq.Unmarshal(buf); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "failed to unmarshal decompressed payload: %v", err)
 	}
-	ctx, err = user.InjectIntoGRPCRequest(user.InjectOrgID(ctx, payload.AuthorizedClusterID))
+	ctx, err = user.InjectIntoGRPCRequest(user.InjectOrgID(ctx, clusterId))
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid org id: %v", err)
 	}
@@ -54,22 +67,31 @@ func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 }
 
 func (f *remoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, syncErr error) {
+	clusterId, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")
+	}
+
+	ctx, span := otel.Tracer("plugin_metrics").Start(ctx, "remoteWriteForwarder.Push",
+		trace.WithAttributes(attribute.String("clusterId", clusterId)))
+	defer span.End()
+
 	defer func() {
 		if syncErr != nil {
 			f.logger.With(
 				"err", syncErr,
-				"clusterID", payload.AuthorizedClusterID,
+				"clusterId", clusterId,
 			).Error("error syncing rules to cortex")
 		}
 	}()
 	url := fmt.Sprintf("https://%s/api/v1/rules/%s",
-		f.config.Get().Spec.Cortex.Ruler.HTTPAddress, payload.AuthorizedClusterID)
+		f.config.Get().Spec.Cortex.Ruler.HTTPAddress, clusterId)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url,
 		bytes.NewReader(payload.Contents))
 	if err != nil {
 		return nil, err
 	}
-	if err := user.InjectOrgIDIntoHTTPRequest(user.InjectOrgID(ctx, payload.AuthorizedClusterID), req); err != nil {
+	if err := user.InjectOrgIDIntoHTTPRequest(user.InjectOrgID(ctx, clusterId), req); err != nil {
 		return nil, err
 	}
 	for k, v := range payload.Headers {

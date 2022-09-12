@@ -9,7 +9,11 @@ import (
 	"sync"
 	"time"
 
-	agentv1 "github.com/rancher/opni/pkg/agent/v1"
+	"golang.org/x/sync/semaphore"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
+
+	agentv1 "github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/condition"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
@@ -17,9 +21,6 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
 	ap "github.com/rancher/opni/plugins/alerting/pkg/alerting"
-	"golang.org/x/sync/semaphore"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Listener struct {

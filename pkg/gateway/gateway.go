@@ -186,10 +186,11 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	}
 
 	// set up grpc server
+	interceptor := clusterAuth.UnaryServerInterceptor()
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.ChainStreamInterceptor(clusterAuth.StreamServerInterceptor()),
-		grpc.ChainUnaryInterceptor(clusterAuth.UnaryServerInterceptor()),
+		grpc.ChainUnaryInterceptor(interceptor),
 	)
 
 	// set up stream server
@@ -202,7 +203,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	listener.AlertProvider = &options.alerting
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
 	go monitor.Run(ctx, listener)
-	streamSvc := NewStreamServer(listener, storageBackend, lg)
+	streamSvc := NewStreamServer(listener, storageBackend, interceptor, lg)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {

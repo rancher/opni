@@ -1,4 +1,4 @@
-package gatewayunaryext
+package unary
 
 import (
 	"context"
@@ -6,11 +6,12 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/rancher/opni/pkg/plugins"
+	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 )
 
 const (

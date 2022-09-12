@@ -16,8 +16,8 @@ import (
 )
 
 func (a *Agent) configureRuleFinder() (notifier.Finder[rules.RuleGroup], error) {
-	if a.Rules != nil {
-		if pr := a.Rules.Discovery.PrometheusRules; pr != nil {
+	if a.config.Rules != nil {
+		if pr := a.config.Rules.Discovery.PrometheusRules; pr != nil {
 			client, err := util.NewK8sClient(util.ClientOptions{
 				Kubeconfig: pr.Kubeconfig,
 				Scheme:     apis.NewScheme(),
@@ -30,8 +30,8 @@ func (a *Agent) configureRuleFinder() (notifier.Finder[rules.RuleGroup], error) 
 				rules.WithNamespaces(pr.SearchNamespaces...),
 			)
 			return finder, nil
-		} else if a.Rules.Discovery.Filesystem != nil {
-			return rules.NewFilesystemRuleFinder(a.Rules.Discovery.Filesystem), nil
+		} else if a.config.Rules.Discovery.Filesystem != nil {
+			return rules.NewFilesystemRuleFinder(a.config.Rules.Discovery.Filesystem), nil
 		}
 	}
 	return nil, fmt.Errorf("missing configuration")
@@ -45,7 +45,7 @@ func (a *Agent) streamRuleGroupUpdates(ctx context.Context) (<-chan [][]byte, er
 	}
 	a.logger.Debug("rule discovery configured")
 	searchInterval := time.Minute * 15
-	if interval := a.Rules.Discovery.Interval; interval != "" {
+	if interval := a.config.Rules.Discovery.Interval; interval != "" {
 		duration, err := time.ParseDuration(interval)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse discovery interval: %w", err)
@@ -122,7 +122,6 @@ func (a *Agent) streamRulesToGateway(actx context.Context) error {
 					var err error
 					ok := a.remoteWriteClient.Use(func(rwc remotewrite.RemoteWriteClient) {
 						_, err = rwc.SyncRules(reqCtx, &remotewrite.Payload{
-							AuthorizedClusterID: a.tenantID,
 							Headers: map[string]string{
 								"Content-Type": "application/yaml",
 							},

@@ -1,8 +1,22 @@
 syntax = "proto3";
 option go_package = "github.com/rancher/opni/pkg/apis/stream/v1";
 import "github.com/kralicky/totem/totem.proto";
+import "google/protobuf/empty.proto";
 package stream;
 
 service Stream {
   rpc Connect(stream totem.RPC) returns (stream totem.RPC);
+
+  // Used for implementation-specific events. No guarantees are made about
+  // whether events will be sent or when.
+  rpc Notify(StreamEvent) returns (google.protobuf.Empty);
+}
+
+enum EventType {
+  Unknown = 0;
+  DiscoveryComplete = 1;
+}
+
+message StreamEvent {
+  EventType type = 1;
 }

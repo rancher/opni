@@ -111,6 +111,10 @@ func (c *ClientConfig) Bootstrap(
 }
 
 func (c *ClientConfig) Finalize(ctx context.Context) error {
+	if c.K8sConfig == nil {
+		return nil
+	}
+
 	ns := c.K8sNamespace
 	if ns == "" {
 		if nsEnv, ok := os.LookupEnv("POD_NAMESPACE"); ok {

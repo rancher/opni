@@ -5,10 +5,6 @@ import (
 	"net"
 	"time"
 
-	agentv1 "github.com/rancher/opni/pkg/agent/v1"
-	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
@@ -16,6 +12,11 @@ import (
 	"google.golang.org/grpc/health"
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
+
+	agentv1 "github.com/rancher/opni/pkg/agent"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
+	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/util"
 )
 
 type ConnectionHandler interface {

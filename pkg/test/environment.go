@@ -32,6 +32,7 @@ import (
 	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -42,7 +43,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"github.com/rancher/opni/apis"
+	"github.com/rancher/opni/pkg/agent"
 	agentv1 "github.com/rancher/opni/pkg/agent/v1"
+	agentv2 "github.com/rancher/opni/pkg/agent/v2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
@@ -58,6 +61,7 @@ import (
 	"github.com/rancher/opni/pkg/pkp"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/hooks"
+	pluginmeta "github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/realtime"
 	"github.com/rancher/opni/pkg/slo/query"
 	"github.com/rancher/opni/pkg/test/testutil"
@@ -87,7 +91,7 @@ type servicePorts struct {
 }
 
 type RunningAgent struct {
-	*agentv1.Agent
+	Agent agent.AgentInterface
 	*sync.Mutex
 }
 
@@ -795,16 +799,6 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 			Kind:       "GatewayConfig",
 		},
 		Spec: v1beta1.GatewayConfigSpec{
-			Plugins: v1beta1.PluginsSpec{
-				Dirs: []string{ // ¯\_(ツ)_/¯
-					"bin",
-					"../bin",
-					"../../bin",
-					"../../../bin",
-					"../../../../bin",
-					"../../../../../bin",
-				},
-			},
 			HTTPListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayHTTP),
 			GRPCListenAddress: fmt.Sprintf("localhost:%d", e.ports.GatewayGRPC),
 			Management: v1beta1.ManagementSpec{
@@ -964,7 +958,7 @@ func (e *Environment) startGateway() {
 		}
 	}))
 
-	LoadPlugins(pluginLoader)
+	LoadPlugins(pluginLoader, pluginmeta.ModeGateway)
 
 	lg.Info("Waiting for gateway to start...")
 	for i := 0; i < 10; i++ {
@@ -990,6 +984,7 @@ type StartAgentOptions struct {
 	ctx                  context.Context
 	remoteGatewayAddress string
 	remoteKubeconfig     string
+	v2                   bool
 }
 
 type StartAgentOption func(*StartAgentOptions)
@@ -1015,6 +1010,12 @@ func WithRemoteGatewayAddress(addr string) StartAgentOption {
 func WithRemoteKubeconfig(kubeconfig string) StartAgentOption {
 	return func(o *StartAgentOptions) {
 		o.remoteKubeconfig = kubeconfig
+	}
+}
+
+func AgentV2(v2 bool) StartAgentOption {
+	return func(o *StartAgentOptions) {
+		o.v2 = v2
 	}
 }
 
@@ -1071,9 +1072,14 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		},
 	}
 
+	versionStr := "v1"
+	if options.v2 {
+		versionStr = "v2"
+	}
 	Log.With(
 		"id", id,
 		"address", agentConfig.Spec.ListenAddress,
+		"version", versionStr,
 	).Info("starting agent")
 
 	publicKeyPins := []*pkp.PublicKeyPin{}
@@ -1090,7 +1096,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		errC <- err
 		return 0, errC
 	}
-	var a *agentv1.Agent
+	var a agent.AgentInterface
 	mu := &sync.Mutex{}
 	waitctx.Permissive.Go(options.ctx, func() {
 		mu.Lock()
@@ -1113,13 +1119,25 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 			errC <- err
 			return
 		}
-		a, err = agentv1.New(options.ctx, agentConfig,
-			agentv1.WithBootstrapper(&bootstrap.ClientConfig{
-				Capability:    wellknown.CapabilityMetrics,
-				Token:         bt,
-				Endpoint:      gatewayAddress,
-				TrustStrategy: strategy,
-			}))
+		if !options.v2 {
+			a, err = agentv1.New(options.ctx, agentConfig,
+				agentv1.WithBootstrapper(&bootstrap.ClientConfig{
+					Capability:    wellknown.CapabilityMetrics,
+					Token:         bt,
+					Endpoint:      gatewayAddress,
+					TrustStrategy: strategy,
+				}))
+		} else {
+			pluginLoader := plugins.NewPluginLoader()
+			a, err = agentv2.New(options.ctx, agentConfig, pluginLoader,
+				agentv2.WithBootstrapper(&bootstrap.ClientConfig{
+					Capability:    wellknown.CapabilityMetrics,
+					Token:         bt,
+					Endpoint:      gatewayAddress,
+					TrustStrategy: strategy,
+				}))
+			LoadPlugins(pluginLoader, pluginmeta.ModeAgent)
+		}
 		if err != nil {
 			errC <- err
 			mu.Unlock()
@@ -1204,9 +1222,10 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		switch r.Method {
 		case http.MethodPost:
 			body := struct {
-				Token string   `json:"token"`
-				Pins  []string `json:"pins"`
-				ID    string   `json:"id"`
+				Token   string   `json:"token"`
+				Pins    []string `json:"pins"`
+				ID      string   `json:"id"`
+				Version string   `json:"version"`
 			}{}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				rw.WriteHeader(http.StatusBadRequest)
@@ -1216,13 +1235,18 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 			if body.ID == "" {
 				body.ID = util.Must(uuid.NewRandomFromReader(randSrc)).String()
 			}
+			if body.Version == "" {
+				body.Version = "v1"
+			}
 			token, err := tokens.ParseHex(body.Token)
 			if err != nil {
 				rw.WriteHeader(http.StatusBadRequest)
 				rw.Write([]byte(err.Error()))
 				return
 			}
-			port, errC := environment.StartAgent(body.ID, token.ToBootstrapToken(), body.Pins, options.defaultAgentOpts...)
+			startOpts := slices.Clone(options.defaultAgentOpts)
+			port, errC := environment.StartAgent(body.ID, token.ToBootstrapToken(), body.Pins,
+				append(startOpts, AgentV2(body.Version == "v2"))...)
 			if err := <-errC; err != nil {
 				rw.WriteHeader(http.StatusInternalServerError)
 				rw.Write([]byte(err.Error()))
@@ -1290,7 +1314,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				switch rn {
 				case ' ':
 					go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb))
-				case 'a':
+				case 'a', 'A':
 					go func() {
 						bt, err := client.CreateBootstrapToken(environment.ctx, &managementv1.CreateBootstrapTokenRequest{
 							Ttl: durationpb.New(1 * time.Minute),
@@ -1309,8 +1333,16 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 							Log.Error(err)
 							return
 						}
+						var version string
+						switch rn {
+						case 'a':
+							version = "v1"
+						case 'A':
+							version = "v2"
+						}
 						resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.ports.TestEnvironment), "application/json",
-							strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"]}`, token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint)))
+							strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"], "version": "%s"}`,
+								token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint, version)))
 						if err != nil {
 							Log.Error(err)
 							return

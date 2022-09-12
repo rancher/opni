@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/plugins"
+	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/plugins/metrics/pkg/agent"
@@ -17,10 +18,10 @@ func main() {
 	tracing.Configure("plugin_cortex")
 	gin.SetMode(gin.ReleaseMode)
 	ctx, ca := context.WithCancel(waitctx.Background())
-	switch os.Getenv("PLUGIN_MODE") {
-	case "", "gateway":
+	switch meta.PluginMode(os.Getenv("OPNI_PLUGIN_MODE")) {
+	case meta.ModeUnknown, meta.ModeGateway:
 		plugins.Serve(cortex.Scheme(ctx))
-	case "agent":
+	case meta.ModeAgent:
 		plugins.Serve(agent.Scheme(ctx))
 	}
 	ca()

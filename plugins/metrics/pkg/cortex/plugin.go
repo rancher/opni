@@ -15,9 +15,9 @@ import (
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/metrics/collector"
-	gatewayext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
-	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/stream"
+	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
+	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/metrics"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
@@ -68,10 +68,10 @@ func NewPlugin(ctx context.Context) *Plugin {
 var _ cortexadmin.CortexAdminServer = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
-	scheme := meta.NewScheme()
+	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(gatewayext.GatewayAPIExtensionPluginID, gatewayext.NewPlugin(p))
+	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
 		util.PackService(&cortexadmin.CortexAdmin_ServiceDesc, p),

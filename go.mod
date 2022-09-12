@@ -53,7 +53,7 @@ require (
 	github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e
 	github.com/kralicky/ragu v1.0.0-beta2
 	github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f
-	github.com/kralicky/totem v1.0.1-rc1.0.20220912164747-64ec87125810
+	github.com/kralicky/totem v1.0.1-rc1.0.20220912212001-1ad09159932c
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
 	github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208
 	github.com/lestrrat-go/backoff/v2 v2.0.8

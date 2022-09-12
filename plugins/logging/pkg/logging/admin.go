@@ -2,9 +2,16 @@ package logging
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net"
+	"net/http"
+	"time"
 
-	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
+	"github.com/lestrrat-go/backoff/v2"
+	"github.com/opensearch-project/opensearch-go"
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/samber/lo"
@@ -17,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	opsterv1 "opensearch.opster.io/api/v1"
+	"opensearch.opster.io/pkg/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,19 +33,18 @@ const (
 	LabelOpsterNodePool = "opster.io/opensearch-nodepool"
 	TopologyKeyK8sHost  = "kubernetes.io/hostname"
 
-	opensearchVersion     = "1.3.3"
-	opensearchClusterName = "opni"
-	defaultRepo           = "docker.io/rancher"
+	opensearchVersion = "1.3.3"
+	defaultRepo       = "docker.io/rancher"
 )
 
 func (p *Plugin) GetOpensearchCluster(
 	ctx context.Context,
 	empty *emptypb.Empty,
 ) (*loggingadmin.OpensearchCluster, error) {
-	cluster := &opniv1beta2.OpniOpensearch{}
+	cluster := &loggingv1beta1.OpniOpensearch{}
 	if err := p.k8sClient.Get(ctx, types.NamespacedName{
-		Name:      opensearchClusterName,
-		Namespace: p.storageNamespace,
+		Name:      p.opensearchCluster.Name,
+		Namespace: p.opensearchCluster.Namespace,
 	}, cluster); err != nil {
 		if k8serrors.IsNotFound(err) {
 			p.logger.Info("opensearch cluster does not exist")
@@ -77,10 +84,21 @@ func (p *Plugin) DeleteOpensearchCluster(
 	ctx context.Context,
 	empty *emptypb.Empty,
 ) (*emptypb.Empty, error) {
+	// Check that it is safe to delete the cluster
+	loggingClusters := &opnicorev1beta1.LoggingClusterList{}
+	err := p.k8sClient.List(p.ctx, loggingClusters, client.InNamespace(p.storageNamespace))
+	if err != nil {
+		return nil, err
+	}
 
-	cluster := &opniv1beta2.OpniOpensearch{
+	if len(loggingClusters.Items) > 0 {
+		p.logger.Error("can not delete opensearch until logging capability is uninstalled from all clusters")
+		return nil, ErrLoggingCapabilityExists
+	}
+
+	cluster := &loggingv1beta1.OpniOpensearch{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      opensearchClusterName,
+			Name:      p.opensearchCluster.Name,
 			Namespace: p.storageNamespace,
 		},
 	}
@@ -91,11 +109,11 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	ctx context.Context,
 	cluster *loggingadmin.OpensearchCluster,
 ) (*emptypb.Empty, error) {
-	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{}
+	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
 	exists := true
 	err := p.k8sClient.Get(ctx, types.NamespacedName{
-		Name:      opensearchClusterName,
+		Name:      p.opensearchCluster.Name,
 		Namespace: p.storageNamespace,
 	}, k8sOpensearchCluster)
 	if err != nil {
@@ -107,7 +125,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 
 	var nodePools []opsterv1.NodePool
 	for _, pool := range cluster.NodePools {
-		convertedPool, err := convertProtobufToNodePool(pool, opensearchClusterName)
+		convertedPool, err := convertProtobufToNodePool(pool, p.opensearchCluster.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -115,13 +133,13 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	}
 
 	if !exists {
-		k8sOpensearchCluster = &opniv1beta2.OpniOpensearch{
+		k8sOpensearchCluster = &loggingv1beta1.OpniOpensearch{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      opensearchClusterName,
+				Name:      p.opensearchCluster.Name,
 				Namespace: p.storageNamespace,
 			},
-			Spec: opniv1beta2.OpniOpensearchSpec{
-				OpensearchSettings: opniv1beta2.OpensearchSettings{
+			Spec: loggingv1beta1.OpniOpensearchSpec{
+				OpensearchSettings: loggingv1beta1.OpensearchSettings{
 					Dashboards: p.convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster),
 					NodePools:  nodePools,
 					Security: &opsterv1.Security{
@@ -137,7 +155,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 					},
 				},
 				ExternalURL: cluster.ExternalURL,
-				ClusterConfigSpec: &opniv1beta2.ClusterConfigSpec{
+				ClusterConfigSpec: &loggingv1beta1.ClusterConfigSpec{
 					IndexRetention: lo.FromPtrOr(cluster.DataRetention, "7d"),
 				},
 				OpensearchVersion: opensearchVersion,
@@ -149,7 +167,13 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 				}(),
 			},
 		}
-		return &emptypb.Empty{}, p.k8sClient.Create(ctx, k8sOpensearchCluster)
+
+		err = p.k8sClient.Create(ctx, k8sOpensearchCluster)
+		if err != nil {
+			return nil, err
+		}
+		go p.setOpensearchClient()
+		return &emptypb.Empty{}, nil
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -160,7 +184,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 		k8sOpensearchCluster.Spec.OpensearchSettings.Dashboards = p.convertProtobufToDashboards(cluster.Dashboards, k8sOpensearchCluster)
 		k8sOpensearchCluster.Spec.ExternalURL = cluster.ExternalURL
 		if cluster.DataRetention != nil {
-			k8sOpensearchCluster.Spec.ClusterConfigSpec = &opniv1beta2.ClusterConfigSpec{
+			k8sOpensearchCluster.Spec.ClusterConfigSpec = &loggingv1beta1.ClusterConfigSpec{
 				IndexRetention: *cluster.DataRetention,
 			}
 		} else {
@@ -170,11 +194,11 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 		return p.k8sClient.Update(ctx, k8sOpensearchCluster)
 	})
 
-	return nil, err
+	return &emptypb.Empty{}, err
 }
 
 func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmin.UpgradeAvailableResponse, error) {
-	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{}
+	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 	var version string
 	version = util.Version
 	if p.version != "" {
@@ -182,7 +206,7 @@ func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmi
 	}
 
 	err := p.k8sClient.Get(p.ctx, types.NamespacedName{
-		Name:      opensearchClusterName,
+		Name:      p.opensearchCluster.Name,
 		Namespace: p.storageNamespace,
 	}, k8sOpensearchCluster)
 	if err != nil {
@@ -212,9 +236,9 @@ func (p *Plugin) UpgradeAvailable(context.Context, *emptypb.Empty) (*loggingadmi
 }
 
 func (p *Plugin) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	k8sOpensearchCluster := &opniv1beta2.OpniOpensearch{
+	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      opensearchClusterName,
+			Name:      p.opensearchCluster.Name,
 			Namespace: p.storageNamespace,
 		},
 	}
@@ -327,7 +351,7 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 
 func (p *Plugin) convertProtobufToDashboards(
 	dashboard *loggingadmin.DashboardsDetails,
-	cluster *opniv1beta2.OpniOpensearch,
+	cluster *loggingv1beta1.OpniOpensearch,
 ) opsterv1.DashboardsConfig {
 	var version, osVersion string
 	if cluster == nil {
@@ -385,6 +409,74 @@ func (p *Plugin) convertProtobufToDashboards(
 			"opensearchDashboards.branding.mark.defaultUrl":         "https://raw.githubusercontent.com/rancher/opni/main/branding/opni-mark.svg",
 		},
 	}
+}
+
+func (p *Plugin) setOpensearchClient() {
+	expBackoff := backoff.Exponential(
+		backoff.WithMaxRetries(0),
+		backoff.WithMinInterval(5*time.Second),
+		backoff.WithMaxInterval(1*time.Minute),
+		backoff.WithMultiplier(1.1),
+	)
+	b := expBackoff.Start(p.ctx)
+
+	cluster := &opsterv1.OpenSearchCluster{}
+
+FETCH:
+	for {
+		select {
+		case <-b.Done():
+			p.logger.Warn("plugin context cancelled before Opensearch object created")
+		case <-b.Next():
+			err := p.k8sClient.Get(p.ctx, types.NamespacedName{
+				Name:      p.opensearchCluster.Name,
+				Namespace: p.storageNamespace,
+			}, cluster)
+			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					p.logger.Info("waiting for k8s object")
+					continue
+				}
+				p.logger.Errorf("failed to check k8s object: %v", err)
+				continue
+			}
+			break FETCH
+		}
+	}
+
+	username, password, err := helpers.UsernameAndPassword(p.ctx, p.k8sClient, cluster)
+	if err != nil {
+		p.logger.Errorf("failed to get cluster details: %v", err)
+		return
+	}
+
+	// Set sane transport timeouts
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = (&net.Dialer{
+		Timeout: 5 * time.Second,
+	}).DialContext
+	transport.TLSHandshakeTimeout = 5 * time.Second
+	transport.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	osCfg := opensearch.Config{
+		Addresses: []string{
+			fmt.Sprintf("https://%s.%s:9200", cluster.Spec.General.ServiceName, cluster.Namespace),
+		},
+		Username:             username,
+		Password:             password,
+		UseResponseCheckOnly: true,
+		Transport:            transport,
+	}
+
+	osclient, err := opensearch.NewClient(osCfg)
+	if err != nil {
+		p.logger.Errorf("failed to create opensearch client: %v", err)
+		return
+	}
+
+	p.opensearchClient.Set(osclient)
 }
 
 func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, clusterName string) (opsterv1.NodePool, error) {

@@ -1,5 +1,5 @@
 {{- if .Values.gateway.enabled }}
-apiVersion: opni.io/v1beta2
+apiVersion: core.opni.io/v1beta1
 kind: Gateway
 metadata:
   name: opni-gateway
@@ -9,6 +9,8 @@ metadata:
 spec:
   hostname: {{ .Values.gateway.hostname }}
   serviceType: {{ .Values.gateway.serviceType }}
+  natsCluster:
+    name: opni
   {{- with .Values.gateway.serviceAnnotations }}
   serviceAnnotations:
     {{- toYaml . | nindent 4 }}

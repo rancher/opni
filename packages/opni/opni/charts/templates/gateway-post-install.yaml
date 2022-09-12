@@ -28,8 +28,8 @@ spec:
         - hooks
         - wait-for-resource
         - "--namespace={{ include "opni.namespace" . }}"
-        - --version=v1beta2
-        - --group=opni.io
+        - --version=v1beta1
+        - --group=core.opni.io
         - --resource=gateways
         - --jsonpath={.status.endpoints}
 {{- if eq .Values.gateway.serviceType "LoadBalancer" }}

@@ -2,10 +2,13 @@ package logging
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,11 +16,13 @@ import (
 	opensearchv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
+	"github.com/gogo/status"
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/machinery/uninstall"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
@@ -28,7 +33,7 @@ func (p *Plugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) 
 	labels := map[string]string{
 		resources.OpniClusterID: req.Cluster.Id,
 	}
-	loggingClusterList := &opniv1beta2.LoggingClusterList{}
+	loggingClusterList := &opnicorev1beta1.LoggingClusterList{}
 	if err := p.k8sClient.List(
 		p.ctx,
 		loggingClusterList,
@@ -62,13 +67,13 @@ func (p *Plugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) 
 		return nil, ErrStoreUserCredentialsFailed(err)
 	}
 
-	loggingCluster := &opniv1beta2.LoggingCluster{
+	loggingCluster := &opnicorev1beta1.LoggingCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "logging-",
 			Namespace:    p.storageNamespace,
 			Labels:       labels,
 		},
-		Spec: opniv1beta2.LoggingClusterSpec{
+		Spec: opnicorev1beta1.LoggingClusterSpec{
 			IndexUserSecret: &corev1.LocalObjectReference{
 				Name: userSecret.Name,
 			},
@@ -91,79 +96,70 @@ func (p *Plugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) 
 }
 
 func (p *Plugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
-	cluster := req.Cluster
-	var loggingCluster *opniv1beta2.LoggingCluster
-	var secret *corev1.Secret
-
-	loggingClusterList := &opniv1beta2.LoggingClusterList{}
-	if err := p.k8sClient.List(
-		p.ctx,
-		loggingClusterList,
-		client.InNamespace(p.storageNamespace),
-		client.MatchingLabels{resources.OpniClusterID: cluster.Id},
-	); err != nil {
-		return nil, ErrListingClustersFaled(err)
+	cluster, err := p.mgmtApi.Get().GetCluster(ctx, req.Cluster)
+	if err != nil {
+		return nil, err
 	}
 
-	if len(loggingClusterList.Items) > 1 {
-		return nil, ErrDeleteClusterInvalidList(cluster.Id)
-	}
-	if len(loggingClusterList.Items) == 1 {
-		loggingCluster = &loggingClusterList.Items[0]
-	}
-
-	secretList := &corev1.SecretList{}
-	if err := p.k8sClient.List(
-		p.ctx,
-		secretList,
-		client.InNamespace(p.storageNamespace),
-		client.MatchingLabels{resources.OpniClusterID: cluster.Id},
-	); err != nil {
-		return nil, ErrListingClustersFaled(err)
-	}
-
-	if len(secretList.Items) > 1 {
-		return nil, ErrDeleteClusterInvalidList(cluster.Id)
-	}
-	if len(secretList.Items) == 1 {
-		secret = &secretList.Items[0]
-	}
-
-	if loggingCluster != nil {
-		if err := p.k8sClient.Delete(p.ctx, loggingCluster); err != nil {
-			return nil, err
+	defaultOpts := capabilityv1.DefaultUninstallOptions{}
+	if strings.TrimSpace(req.Options) != "" {
+		if err := json.Unmarshal([]byte(req.Options), &defaultOpts); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal options: %v", err)
 		}
 	}
 
-	if secret != nil {
-		if err := p.k8sClient.Delete(p.ctx, secret); err != nil {
-			// Try and be transactionally safe so recreate logging cluster
-			labels := map[string]string{
-				resources.OpniClusterID: cluster.Id,
-			}
-			loggingClusterCreate := &opniv1beta2.LoggingCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      loggingCluster.Name,
-					Namespace: p.storageNamespace,
-					Labels:    labels,
-				},
-				Spec: opniv1beta2.LoggingClusterSpec{
-					IndexUserSecret: &corev1.LocalObjectReference{
-						Name: secret.Name,
-					},
-					OpensearchClusterRef: p.opensearchCluster,
-				},
-			}
-			// error doesn't matter at this point
-			p.k8sClient.Create(p.ctx, loggingClusterCreate)
-
-			return nil, err
+	exists := false
+	for _, cap := range cluster.GetMetadata().GetCapabilities() {
+		if cap.Name != wellknown.CapabilityLogs {
+			continue
 		}
+		exists = true
+
+		// check for a previous stale task that may not have been cleaned up
+		if cap.DeletionTimestamp != nil {
+			// if the deletion timestamp is set and the task is not completed, error
+			stat, err := p.uninstallController.Get().TaskStatus(cluster.Id)
+			if err != nil {
+				if util.StatusCode(err) != codes.NotFound {
+					return nil, status.Errorf(codes.Internal, "failed to get task status: %v", err)
+				}
+				// not found, ok to reset
+			}
+			switch stat.GetState() {
+			case task.StateCanceled, task.StateFailed:
+				// stale/completed, ok to reset
+			case task.StateCompleted:
+				// this probably shouldn't happen, but reset anyway to get back to a good state
+				return nil, status.Errorf(codes.FailedPrecondition, "uninstall already completed")
+			default:
+				return nil, status.Errorf(codes.FailedPrecondition, "uninstall is already in progress")
+			}
+		}
+		break
 	}
 
-	_, err := p.storageBackend.Get().UpdateCluster(ctx, &opnicorev1.Reference{
-		Id: cluster.Id,
-	}, storage.NewRemoveCapabilityMutator[*opnicorev1.Cluster](capabilities.Cluster(wellknown.CapabilityLogs)))
+	if !exists {
+		return nil, status.Error(codes.FailedPrecondition, "cluster does not have the reuqested capability")
+	}
+
+	now := timestamppb.Now()
+	_, err = p.storageBackend.Get().UpdateCluster(ctx, cluster.Reference(), func(c *opnicorev1.Cluster) {
+		for _, cap := range c.Metadata.Capabilities {
+			if cap.Name == wellknown.CapabilityLogs {
+				cap.DeletionTimestamp = now
+				break
+			}
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster metadata: %v", err)
+	}
+
+	md := uninstall.TimestampedMetadata{
+		DefaultUninstallOptions: defaultOpts,
+		DeletionTimestamp:       now.AsTime(),
+	}
+	err = p.uninstallController.Get().LaunchTask(req.Cluster.Id, task.WithMetadata(md))
 	if err != nil {
 		return nil, err
 	}
@@ -171,13 +167,12 @@ func (p *Plugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallReque
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) UninstallStatus(context.Context, *opnicorev1.Reference) (*opnicorev1.TaskStatus, error) {
-	return &opnicorev1.TaskStatus{
-		State: task.StateCompleted,
-	}, nil
+func (p *Plugin) UninstallStatus(ctx context.Context, cluster *opnicorev1.Reference) (*opnicorev1.TaskStatus, error) {
+	return p.uninstallController.Get().TaskStatus(cluster.Id)
 }
 
-func (p *Plugin) CancelUninstall(context.Context, *opnicorev1.Reference) (*emptypb.Empty, error) {
+func (p *Plugin) CancelUninstall(ctx context.Context, cluster *opnicorev1.Reference) (*emptypb.Empty, error) {
+	p.uninstallController.Get().CancelTask(cluster.Id)
 	return &emptypb.Empty{}, nil
 }
 
@@ -208,6 +203,11 @@ func (p *Plugin) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, er
 		Namespace: p.opensearchCluster.Namespace,
 	}, opensearchCluster); err != nil {
 		return nil, ErrCheckOpensearchClusterFailed(err)
+	}
+
+	//Finally Check that we have an opensearch client for uninstalls
+	if !p.opensearchClient.IsSet() {
+		return nil, ErrNoOpensearchClient
 	}
 
 	return &emptypb.Empty{}, nil

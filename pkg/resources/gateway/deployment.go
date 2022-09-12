@@ -2,10 +2,12 @@ package gateway
 
 import (
 	"github.com/rancher/opni/pkg/resources"
+	"github.com/rancher/opni/pkg/util/nats"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -233,6 +235,20 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 				},
 			},
 		},
+	}
+
+	if r.coreGW != nil {
+		newEnvVars, newVolumeMounts, newVolumes := nats.ExternalNatsObjects(
+			r.ctx,
+			r.client,
+			types.NamespacedName{
+				Name:      r.coreGW.Spec.NatsRef.Name,
+				Namespace: r.namespace,
+			},
+		)
+		dep.Spec.Template.Spec.Volumes = append(dep.Spec.Template.Spec.Volumes, newVolumes...)
+		dep.Spec.Template.Spec.Containers[0].VolumeMounts = append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, newVolumeMounts...)
+		dep.Spec.Template.Spec.Containers[0].Env = append(dep.Spec.Template.Spec.Containers[0].Env, newEnvVars...)
 	}
 
 	for _, extraVol := range r.spec.ExtraVolumeMounts {

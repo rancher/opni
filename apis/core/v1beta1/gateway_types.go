@@ -42,7 +42,8 @@ type GatewaySpec struct {
 	Hostname         string   `json:"hostname,omitempty"`
 	PluginSearchDirs []string `json:"pluginSearchDirs,omitempty"`
 
-	Alerting *AlertingSpec `json:"alerting,omitempty"`
+	Alerting *AlertingSpec               `json:"alerting,omitempty"`
+	NatsRef  corev1.LocalObjectReference `json:"natsCluster"`
 
 	//+kubebuilder:default=LoadBalancer
 	ServiceType        corev1.ServiceType        `json:"serviceType,omitempty"`

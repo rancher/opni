@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/hyperparameters"
+	"github.com/rancher/opni/pkg/util/nats"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,10 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-const (
-	natsNkeyDir = "/etc/nkey"
 )
 
 func (r *Reconciler) opniServices() ([]resources.Resource, error) {
@@ -507,21 +504,28 @@ func (r *Reconciler) genericEnvAndVolumes() (
 				{
 					Name:      "nkey",
 					ReadOnly:  true,
-					MountPath: natsNkeyDir,
+					MountPath: nats.NkeyDir,
 				},
 			}
 			volumeMounts = append(volumeMounts, newVolumeMounts...)
 			newEnvVars := []corev1.EnvVar{
 				{
 					Name:  "NKEY_SEED_FILENAME",
-					Value: fmt.Sprintf("%s/seed", natsNkeyDir),
+					Value: fmt.Sprintf("%s/seed", nats.NkeyDir),
 				},
 			}
 			envVars = append(envVars, newEnvVars...)
 		}
 	}
 	if r.aiOpniCluster != nil {
-		newEnvVars, newVolumeMounts, newVolumes := r.externalNats()
+		newEnvVars, newVolumeMounts, newVolumes := nats.ExternalNatsObjects(
+			r.ctx,
+			r.client,
+			types.NamespacedName{
+				Name:      r.aiOpniCluster.Spec.NatsRef.Name,
+				Namespace: r.instanceNamespace,
+			},
+		)
 		envVars = append(envVars, newEnvVars...)
 		volumes = append(volumes, newVolumes...)
 		volumeMounts = append(volumeMounts, newVolumeMounts...)

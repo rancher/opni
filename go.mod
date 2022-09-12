@@ -58,6 +58,7 @@ require (
 	github.com/magefile/mage v1.13.0
 	github.com/mattn/go-tty v0.0.4
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/nats-io/nats.go v1.16.0
 	github.com/nats-io/nkeys v0.3.0
 	github.com/olebedev/when v0.0.0-20211212231525-59bd4edcf9d6
 	github.com/onsi/ginkgo/v2 v2.1.4
@@ -347,6 +348,7 @@ require (
 	github.com/mpvl/unique v0.0.0-20150818121801-cbe035fff7de // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
+	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/ncw/swift v1.0.52 // indirect
 	github.com/nwaples/rardecode/v2 v2.0.0-beta.2 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect

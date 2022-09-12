@@ -7,6 +7,9 @@ import (
 	"os"
 
 	"github.com/dbason/featureflags"
+	osclient "github.com/opensearch-project/opensearch-go"
+	loggingv1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -19,6 +22,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util/future"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
@@ -43,11 +47,14 @@ type Plugin struct {
 	opensearch.UnsafeOpensearchServer
 	system.UnimplementedSystemPluginClient
 	loggingadmin.UnsafeLoggingAdminServer
-	ctx            context.Context
-	k8sClient      client.Client
-	logger         *zap.SugaredLogger
-	storageBackend future.Future[storage.Backend]
-	mgmtApi        future.Future[managementv1.ManagementClient]
+	ctx                 context.Context
+	k8sClient           client.Client
+	logger              *zap.SugaredLogger
+	storageBackend      future.Future[storage.Backend]
+	mgmtApi             future.Future[managementv1.ManagementClient]
+	uninstallController future.Future[*task.Controller]
+	opensearchClient    future.Future[*osclient.Client]
+	manageFlag          featureflags.FeatureFlag
 }
 
 type PluginOptions struct {
@@ -105,6 +112,8 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(opniv1beta2.AddToScheme(scheme))
 	utilruntime.Must(opensearchv1.AddToScheme(scheme))
+	utilruntime.Must(opnicorev1beta1.AddToScheme(scheme))
+	utilruntime.Must(loggingv1beta1.AddToScheme(scheme))
 
 	var restconfig *rest.Config
 	if options.restconfig != nil {
@@ -122,12 +131,14 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	}
 
 	return &Plugin{
-		PluginOptions:  options,
-		ctx:            ctx,
-		k8sClient:      cli,
-		logger:         lg,
-		storageBackend: future.New[storage.Backend](),
-		mgmtApi:        future.New[managementv1.ManagementClient](),
+		PluginOptions:       options,
+		ctx:                 ctx,
+		k8sClient:           cli,
+		logger:              lg,
+		storageBackend:      future.New[storage.Backend](),
+		mgmtApi:             future.New[managementv1.ManagementClient](),
+		uninstallController: future.New[*task.Controller](),
+		opensearchClient:    future.New[*osclient.Client](),
 	}
 }
 
@@ -160,15 +171,17 @@ func Scheme(ctx context.Context) meta.Scheme {
 		restconfig = p.restconfig
 	}
 
-	var manageFlag featureflags.FeatureFlag
-
 	if restconfig != nil {
 		features.PopulateFeatures(ctx, restconfig)
-		manageFlag = features.FeatureList.GetFeature("manage-opensearch")
+		p.manageFlag = features.FeatureList.GetFeature("manage-opensearch")
 	}
 
 	if p.featureOverride != nil {
-		manageFlag = p.featureOverride
+		p.manageFlag = p.featureOverride
+	}
+
+	if !p.manageFlag.IsEnabled() {
+		go p.setOpensearchClient()
 	}
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
@@ -176,7 +189,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&opensearch.Opensearch_ServiceDesc, p))
 
-	if restconfig != nil && manageFlag != nil && manageFlag.IsEnabled() {
+	if restconfig != nil && p.manageFlag != nil && p.manageFlag.IsEnabled() {
 		scheme.Add(managementext.ManagementAPIExtensionPluginID,
 			managementext.NewPlugin(&loggingadmin.LoggingAdmin_ServiceDesc, p))
 	}

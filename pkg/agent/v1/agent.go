@@ -56,9 +56,9 @@ const (
 )
 
 type Agent struct {
-	controlv1.UnsafeAgentControlServer
+	controlv1.UnsafeHealthServer
 	AgentOptions
-	v1beta1.AgentConfigSpec
+	config v1beta1.AgentConfigSpec
 	router *gin.Engine
 	logger *zap.SugaredLogger
 
@@ -128,7 +128,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	}
 	agent := &Agent{
 		AgentOptions:     options,
-		AgentConfigSpec:  conf.Spec,
+		config:           conf.Spec,
 		router:           router,
 		logger:           lg,
 		tenantID:         id,
@@ -137,13 +137,13 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	agent.initConditions()
 
 	var keyringStoreBroker storage.KeyringStoreBroker
-	switch agent.Storage.Type {
+	switch agent.config.Storage.Type {
 	case v1beta1.StorageTypeEtcd:
-		keyringStoreBroker = etcd.NewEtcdStore(ctx, agent.Storage.Etcd)
+		keyringStoreBroker = etcd.NewEtcdStore(ctx, agent.config.Storage.Etcd)
 	case v1beta1.StorageTypeCRDs:
 		keyringStoreBroker = crds.NewCRDStore()
 	default:
-		return nil, fmt.Errorf("unknown storage type: %s", agent.Storage.Type)
+		return nil, fmt.Errorf("unknown storage type: %s", agent.config.Storage.Type)
 	}
 	agent.keyringStore, err = keyringStoreBroker.KeyringStore("agent", &corev1.Reference{
 		Id: id,
@@ -177,7 +177,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}
-	controlv1.RegisterAgentControlServer(agent.gatewayClient, agent)
+	controlv1.RegisterHealthServer(agent.gatewayClient, agent)
 
 	var startRuleStreamOnce sync.Once
 	// var startServiceDiscoveryStreamOnce sync.Once
@@ -257,8 +257,7 @@ func (a *Agent) handlePushRequest(c *gin.Context) {
 			return
 		}
 		_, err = rwc.Push(c.Request.Context(), &remotewrite.Payload{
-			AuthorizedClusterID: a.tenantID,
-			Contents:            body,
+			Contents: body,
 		})
 		if err != nil {
 			stat := status.Convert(err)
@@ -293,7 +292,7 @@ func (a *Agent) handlePushRequest(c *gin.Context) {
 }
 
 func (a *Agent) ListenAndServe(ctx context.Context) error {
-	listener, err := net.Listen("tcp4", a.AgentConfigSpec.ListenAddress)
+	listener, err := net.Listen("tcp4", a.config.ListenAddress)
 	if err != nil {
 		return err
 	}
@@ -369,7 +368,7 @@ func (a *Agent) initConditions() {
 func (a *Agent) buildTrustStrategy(kr keyring.Keyring) (trust.Strategy, error) {
 	var trustStrategy trust.Strategy
 	var err error
-	switch a.TrustStrategy {
+	switch a.config.TrustStrategy {
 	case v1beta1.TrustStrategyPKP:
 		conf := trust.StrategyConfig{
 			PKP: &trust.PKPConfig{
@@ -399,7 +398,7 @@ func (a *Agent) buildTrustStrategy(kr keyring.Keyring) (trust.Strategy, error) {
 			return nil, fmt.Errorf("error configuring insecure trust: %w", err)
 		}
 	default:
-		return nil, fmt.Errorf("unknown trust strategy: %s", a.TrustStrategy)
+		return nil, fmt.Errorf("unknown trust strategy: %s", a.config.TrustStrategy)
 	}
 
 	return trustStrategy, nil
@@ -442,4 +441,8 @@ func (a *Agent) clearCondition(key string, reason ...string) {
 		).Info("condition cleared")
 	}
 	a.conditions.Delete(key)
+}
+
+func (a *Agent) ListenAddress() string {
+	return a.config.ListenAddress
 }

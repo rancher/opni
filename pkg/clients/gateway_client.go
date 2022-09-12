@@ -27,6 +27,7 @@ type GatewayClient interface {
 	credentials.PerRPCCredentials
 	// Connect returns a ClientConnInterface connected to the streaming server
 	Connect(context.Context) (grpc.ClientConnInterface, future.Future[error])
+	RegisterSplicedStream(grpc.ClientConnInterface)
 	// Dial returns a standard ClientConnInterface for Unary connections
 	Dial(context.Context) (grpc.ClientConnInterface, error)
 }
@@ -70,6 +71,10 @@ func NewGatewayClient(
 	return client, nil
 }
 
+type splicedConn struct {
+	cc grpc.ClientConnInterface
+}
+
 type gatewayClient struct {
 	grpcAddress string
 	id          string
@@ -77,10 +82,17 @@ type gatewayClient struct {
 	tlsConfig   *tls.Config
 
 	services []util.ServicePack[any]
+	spliced  []*splicedConn
 }
 
 func (gc *gatewayClient) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	gc.services = append(gc.services, util.PackService(desc, impl))
+}
+
+func (gc *gatewayClient) RegisterSplicedStream(cc grpc.ClientConnInterface) {
+	gc.spliced = append(gc.spliced, &splicedConn{
+		cc: cc,
+	})
 }
 
 func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface, future.Future[error]) {
@@ -88,6 +100,8 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
 		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor(), gc.streamClientInterceptor),
 		grpc.WithBlock(),
+		// very important to set WaitForReady otherwise Connect and Notify will race
+		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 	)
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to dial gateway: %w", err))
@@ -99,9 +113,33 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 		return nil, future.Instant(fmt.Errorf("failed to connect to gateway: %w", err))
 	}
 
-	ts := totem.NewServer(stream)
+	shortId := gc.id
+	if len(shortId) > 8 {
+		shortId = shortId[:8]
+	}
+	ts, err := totem.NewServer(stream, totem.WithName("client-"+gc.id))
+	if err != nil {
+		return nil, future.Instant(fmt.Errorf("failed to create totem server: %w", err))
+	}
 	for _, sp := range gc.services {
 		ts.RegisterService(sp.Unpack())
+	}
+	for _, sc := range gc.spliced {
+		streamClient := streamv1.NewStreamClient(sc.cc)
+		splicedStream, err := streamClient.Connect(ctx)
+		if err != nil {
+			return nil, future.Instant(fmt.Errorf("failed to connect to spliced server: %w", err))
+		}
+
+		if err := ts.Splice(splicedStream); err != nil {
+			return nil, future.Instant(fmt.Errorf("failed to splice stream: %w", err))
+		}
+
+		defer func() {
+			streamClient.Notify(ctx, &streamv1.StreamEvent{
+				Type: streamv1.EventType_DiscoveryComplete,
+			})
+		}()
 	}
 
 	cc, errC := ts.Serve()

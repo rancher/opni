@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/tracing"
 	"github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
 )
@@ -40,6 +41,8 @@ func main() {
 	if remoteKubeconfig != "" {
 		defaultAgentOpts = append(defaultAgentOpts, test.WithRemoteKubeconfig(remoteKubeconfig))
 	}
+
+	tracing.Configure("testenv")
 
 	test.StartStandaloneTestEnvironment(
 		test.WithEnableGateway(enableGateway),

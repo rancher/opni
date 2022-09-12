@@ -5,6 +5,7 @@ import (
 
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 )
 
 func (tc *CertConfig) TLSConfig() (*tls.Config, error) {
@@ -38,20 +39,19 @@ func (tc *CertConfig) TLSConfig() (*tls.Config, error) {
 	}, nil
 }
 
-func strOrEmpty(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
 func NewCertConfig(certs v1beta1.CertsSpec) *CertConfig {
 	return &CertConfig{
-		Ca:       strOrEmpty(certs.CACert),
-		CaData:   strOrEmpty(certs.CACertData),
-		Cert:     strOrEmpty(certs.ServingCert),
-		CertData: strOrEmpty(certs.ServingCertData),
-		Key:      strOrEmpty(certs.ServingKey),
-		KeyData:  strOrEmpty(certs.ServingKeyData),
+		Ca:       lo.FromPtr(certs.CACert),
+		CaData:   lo.FromPtr(certs.CACertData),
+		Cert:     lo.FromPtr(certs.ServingCert),
+		CertData: lo.FromPtr(certs.ServingCertData),
+		Key:      lo.FromPtr(certs.ServingKey),
+		KeyData:  lo.FromPtr(certs.ServingKeyData),
+	}
+}
+
+func NewInsecureCertConfig() *CertConfig {
+	return &CertConfig{
+		Insecure: true,
 	}
 }

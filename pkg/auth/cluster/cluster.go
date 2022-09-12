@@ -196,6 +196,22 @@ func StreamAuthorizedID(ctx context.Context) string {
 	return ctx.Value(ClusterIDKey).(string)
 }
 
+func AuthorizedOutgoingContext(ctx context.Context) context.Context {
+	return metadata.AppendToOutgoingContext(ctx, string(ClusterIDKey), StreamAuthorizedID(ctx))
+}
+
+func AuthorizedIDFromIncomingContext(ctx context.Context) (string, bool) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", false
+	}
+	ids := md.Get(string(ClusterIDKey))
+	if len(ids) == 0 {
+		return "", false
+	}
+	return ids[0], true
+}
+
 func (m *ClusterMiddleware) StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		md, ok := metadata.FromIncomingContext(ss.Context())

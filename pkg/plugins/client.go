@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 
@@ -15,11 +16,21 @@ func ClientConfig(md meta.PluginMeta, scheme meta.Scheme, reattach ...*plugin.Re
 	//#nosec G204
 	cmd := exec.Command(md.BinaryPath)
 	ConfigureSysProcAttr(cmd)
+
+	switch mode := scheme.Mode(); mode {
+	case meta.ModeUnknown:
+	case meta.ModeGateway, meta.ModeAgent:
+		cmd.Env = append(cmd.Environ(), fmt.Sprintf("OPNI_PLUGIN_MODE=%s", mode))
+	default:
+		panic(fmt.Sprintf("unknown plugin mode: %s", mode))
+	}
+
 	var rc *plugin.ReattachConfig
 	if len(reattach) > 0 {
 		rc = reattach[0]
 		cmd = nil
 	}
+
 	return &plugin.ClientConfig{
 		Plugins:          scheme.PluginMap(),
 		HandshakeConfig:  Handshake,

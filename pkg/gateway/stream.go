@@ -5,7 +5,12 @@ import (
 	"errors"
 
 	"github.com/kralicky/totem"
-	agentv1 "github.com/rancher/opni/pkg/agent/v1"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	agentv1 "github.com/rancher/opni/pkg/agent"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -13,45 +18,53 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 type remote struct {
-	services []*apiextensions.ServiceDescriptor
-	cc       *grpc.ClientConn
+	cc *grpc.ClientConn
 }
 
 type StreamServer struct {
-	streamv1.UnsafeStreamServer
+	streamv1.UnimplementedStreamServer
 	logger       *zap.SugaredLogger
 	handler      ConnectionHandler
 	clusterStore storage.ClusterStore
 	services     []util.ServicePack[any]
 	remotes      []remote
+	interceptor  grpc.UnaryServerInterceptor
 }
 
-func NewStreamServer(handler ConnectionHandler, clusterStore storage.ClusterStore, lg *zap.SugaredLogger) *StreamServer {
+func NewStreamServer(
+	handler ConnectionHandler,
+	clusterStore storage.ClusterStore,
+	interceptor grpc.UnaryServerInterceptor,
+	lg *zap.SugaredLogger,
+) *StreamServer {
 	return &StreamServer{
 		logger:       lg.Named("grpc"),
 		handler:      handler,
 		clusterStore: clusterStore,
+		interceptor:  interceptor,
 	}
 }
 
 func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	s.logger.Debug("handling new stream connection")
-	ts := totem.NewServer(stream)
+	ts, err := totem.NewServer(stream,
+		totem.WithName("gateway-server"),
+		// totem.WithUnaryServerInterceptor(s.interceptor),
+	)
+	if err != nil {
+		return err
+	}
 	for _, service := range s.services {
 		ts.RegisterService(service.Unpack())
 	}
-	id := cluster.StreamAuthorizedID(stream.Context())
 
 	ctx := stream.Context()
-	cluster, err := s.clusterStore.GetCluster(ctx, &corev1.Reference{
+	id := cluster.StreamAuthorizedID(ctx)
+
+	c, err := s.clusterStore.GetCluster(ctx, &corev1.Reference{
 		Id: id,
 	})
 	if err != nil {
@@ -64,36 +77,39 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	// cluster will need to reconnect.
 	requiredCapabilities := []*corev1.ClusterCapability{}
 	for _, r := range s.remotes {
-		var services []*descriptorpb.ServiceDescriptorProto
-		for _, service := range r.services {
-			// check if the service requires a specific capability
-			if service.Options.RequireCapability != "" {
-				rc := capabilities.Cluster(service.Options.RequireCapability)
-				// if the cluster doesn't have the capability, skip the service
-				if !capabilities.Has(cluster, rc) {
-					continue
-				} else {
-					requiredCapabilities = append(requiredCapabilities, rc)
-				}
-			}
-			services = append(services, service.ServiceDescriptor)
-		}
-		if len(services) == 0 {
-			continue
-		}
+		// var services []*descriptorpb.ServiceDescriptorProto
+		// for _, service := range r.services {
+		// 	// check if the service requires a specific capability
+		// 	if service.Options.RequireCapability != "" {
+		// 		rc := capabilities.Cluster(service.Options.RequireCapability)
+		// 		// if the cluster doesn't have the capability, skip the service
+		// 		if !capabilities.Has(cluster, rc) {
+		// 			continue
+		// 		} else {
+		// 			requiredCapabilities = append(requiredCapabilities, rc)
+		// 		}
+		// 	}
+		// 	services = append(services, service.ServiceDescriptor)
+		// }
+		// if len(services) == 0 {
+		// 	continue
+		// }
 
 		streamClient := streamv1.NewStreamClient(r.cc)
+		ctx := cluster.AuthorizedOutgoingContext(ctx)
 		splicedStream, err := streamClient.Connect(ctx)
 		if err != nil {
 			return err
 		}
-		ts.Splice(splicedStream, services...)
+		if err := ts.Splice(splicedStream); err != nil {
+			return err
+		}
 	}
 
 	// set up a context which will be canceled when the cluster loses any
 	// required capabilities
 
-	eventC, err := s.clusterStore.WatchCluster(stream.Context(), cluster)
+	eventC, err := s.clusterStore.WatchCluster(ctx, c)
 	if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
@@ -127,6 +143,9 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 }
 
 func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
+	s.logger.With(
+		zap.String("service", desc.ServiceName),
+	).Debug("registering service")
 	if len(desc.Streams) > 0 {
 		s.logger.With(
 			zap.String("service", desc.ServiceName),
@@ -136,9 +155,11 @@ func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
 }
 
 func (s *StreamServer) AddRemote(cc *grpc.ClientConn, services *apiextensions.ServiceDescriptorList) error {
+	s.logger.With(
+		zap.String("address", cc.Target()),
+	).Debug("adding remote connection")
 	s.remotes = append(s.remotes, remote{
-		services: services.Items,
-		cc:       cc,
+		cc: cc,
 	})
 	return nil
 }

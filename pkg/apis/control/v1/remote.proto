@@ -6,6 +6,6 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 package control;
 
-service AgentControl {
+service Health {
   rpc GetHealth(google.protobuf.Empty) returns (core.Health);
 }

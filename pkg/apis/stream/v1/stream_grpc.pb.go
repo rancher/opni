@@ -12,6 +12,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -24,6 +25,9 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StreamClient interface {
 	Connect(ctx context.Context, opts ...grpc.CallOption) (Stream_ConnectClient, error)
+	// Used for implementation-specific events. No guarantees are made about
+	// whether events will be sent or when.
+	Notify(ctx context.Context, in *StreamEvent, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type streamClient struct {
@@ -65,11 +69,23 @@ func (x *streamConnectClient) Recv() (*totem.RPC, error) {
 	return m, nil
 }
 
+func (c *streamClient) Notify(ctx context.Context, in *StreamEvent, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/stream.Stream/Notify", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StreamServer is the server API for Stream service.
 // All implementations must embed UnimplementedStreamServer
 // for forward compatibility
 type StreamServer interface {
 	Connect(Stream_ConnectServer) error
+	// Used for implementation-specific events. No guarantees are made about
+	// whether events will be sent or when.
+	Notify(context.Context, *StreamEvent) (*emptypb.Empty, error)
 	mustEmbedUnimplementedStreamServer()
 }
 
@@ -79,6 +95,9 @@ type UnimplementedStreamServer struct {
 
 func (UnimplementedStreamServer) Connect(Stream_ConnectServer) error {
 	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
+}
+func (UnimplementedStreamServer) Notify(context.Context, *StreamEvent) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Notify not implemented")
 }
 func (UnimplementedStreamServer) mustEmbedUnimplementedStreamServer() {}
 
@@ -119,13 +138,36 @@ func (x *streamConnectServer) Recv() (*totem.RPC, error) {
 	return m, nil
 }
 
+func _Stream_Notify_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StreamEvent)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StreamServer).Notify(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/stream.Stream/Notify",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StreamServer).Notify(ctx, req.(*StreamEvent))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Stream_ServiceDesc is the grpc.ServiceDesc for Stream service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Stream_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "stream.Stream",
 	HandlerType: (*StreamServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Notify",
+			Handler:    _Stream_Notify_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Connect",

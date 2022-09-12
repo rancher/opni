@@ -20,86 +20,86 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// AgentControlClient is the client API for AgentControl service.
+// HealthClient is the client API for Health service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type AgentControlClient interface {
+type HealthClient interface {
 	GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Health, error)
 }
 
-type agentControlClient struct {
+type healthClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewAgentControlClient(cc grpc.ClientConnInterface) AgentControlClient {
-	return &agentControlClient{cc}
+func NewHealthClient(cc grpc.ClientConnInterface) HealthClient {
+	return &healthClient{cc}
 }
 
-func (c *agentControlClient) GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Health, error) {
+func (c *healthClient) GetHealth(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.Health, error) {
 	out := new(v1.Health)
-	err := c.cc.Invoke(ctx, "/control.AgentControl/GetHealth", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/control.Health/GetHealth", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// AgentControlServer is the server API for AgentControl service.
-// All implementations must embed UnimplementedAgentControlServer
+// HealthServer is the server API for Health service.
+// All implementations must embed UnimplementedHealthServer
 // for forward compatibility
-type AgentControlServer interface {
+type HealthServer interface {
 	GetHealth(context.Context, *emptypb.Empty) (*v1.Health, error)
-	mustEmbedUnimplementedAgentControlServer()
+	mustEmbedUnimplementedHealthServer()
 }
 
-// UnimplementedAgentControlServer must be embedded to have forward compatible implementations.
-type UnimplementedAgentControlServer struct {
+// UnimplementedHealthServer must be embedded to have forward compatible implementations.
+type UnimplementedHealthServer struct {
 }
 
-func (UnimplementedAgentControlServer) GetHealth(context.Context, *emptypb.Empty) (*v1.Health, error) {
+func (UnimplementedHealthServer) GetHealth(context.Context, *emptypb.Empty) (*v1.Health, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetHealth not implemented")
 }
-func (UnimplementedAgentControlServer) mustEmbedUnimplementedAgentControlServer() {}
+func (UnimplementedHealthServer) mustEmbedUnimplementedHealthServer() {}
 
-// UnsafeAgentControlServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to AgentControlServer will
+// UnsafeHealthServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to HealthServer will
 // result in compilation errors.
-type UnsafeAgentControlServer interface {
-	mustEmbedUnimplementedAgentControlServer()
+type UnsafeHealthServer interface {
+	mustEmbedUnimplementedHealthServer()
 }
 
-func RegisterAgentControlServer(s grpc.ServiceRegistrar, srv AgentControlServer) {
-	s.RegisterService(&AgentControl_ServiceDesc, srv)
+func RegisterHealthServer(s grpc.ServiceRegistrar, srv HealthServer) {
+	s.RegisterService(&Health_ServiceDesc, srv)
 }
 
-func _AgentControl_GetHealth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Health_GetHealth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentControlServer).GetHealth(ctx, in)
+		return srv.(HealthServer).GetHealth(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/control.AgentControl/GetHealth",
+		FullMethod: "/control.Health/GetHealth",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentControlServer).GetHealth(ctx, req.(*emptypb.Empty))
+		return srv.(HealthServer).GetHealth(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// AgentControl_ServiceDesc is the grpc.ServiceDesc for AgentControl service.
+// Health_ServiceDesc is the grpc.ServiceDesc for Health service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var AgentControl_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "control.AgentControl",
-	HandlerType: (*AgentControlServer)(nil),
+var Health_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "control.Health",
+	HandlerType: (*HealthServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetHealth",
-			Handler:    _AgentControl_GetHealth_Handler,
+			Handler:    _Health_GetHealth_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

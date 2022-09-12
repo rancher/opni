@@ -97,7 +97,7 @@ func NewHTTPServer(
 		srv.metricsHandler.MustRegister(p)
 	}))
 
-	pl.Hook(hooks.OnLoadM(func(p types.GatewayAPIExtensionPlugin, md meta.PluginMeta) {
+	pl.Hook(hooks.OnLoadM(func(p types.HTTPAPIExtensionPlugin, md meta.PluginMeta) {
 		ctx, ca := context.WithTimeout(ctx, 10*time.Second)
 		defer ca()
 		cfg, err := p.Configure(ctx, apiextensions.NewCertConfig(cfg.Certs))
@@ -140,7 +140,7 @@ func (s *GatewayHTTPServer) ListenAndServe(ctx context.Context) error {
 }
 
 func (s *GatewayHTTPServer) setupPluginRoutes(
-	cfg *apiextensions.GatewayAPIExtensionConfig,
+	cfg *apiextensions.HTTPAPIExtensionConfig,
 	pluginMeta meta.PluginMeta,
 ) {
 	s.routesMu.Lock()

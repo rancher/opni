@@ -13,7 +13,7 @@ service RemoteWrite {
 }
 
 message Payload {
-  string AuthorizedClusterID = 1;
+  // string AuthorizedClusterID = 1;
   map<string, string> Headers = 3;
   bytes Contents = 4;
 }

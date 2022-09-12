@@ -11,8 +11,8 @@ service ManagementAPIExtension {
   rpc Descriptors(google.protobuf.Empty) returns (ServiceDescriptorProtoList);
 }
 
-service GatewayAPIExtension {
-  rpc Configure(CertConfig) returns (GatewayAPIExtensionConfig);
+service HTTPAPIExtension {
+  rpc Configure(CertConfig) returns (HTTPAPIExtensionConfig);
 }
 
 service StreamAPIExtension {
@@ -30,9 +30,10 @@ message CertConfig {
   string certData = 4;
   string key = 5;
   string keyData = 6;
+  bool insecure = 7;
 }
 
-message GatewayAPIExtensionConfig {
+message HTTPAPIExtensionConfig {
   string httpAddr = 1;
   repeated RouteInfo routes = 2;
 }

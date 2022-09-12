@@ -13,8 +13,7 @@ type Locker[T any] interface {
 	// function returns.
 	// It is safe to call Use if the Locker is nil; it will simply return false.
 	Use(func(T)) bool
-	// Close releases the client. After Close is called, it is no longer safe to
-	// call Use.
+	// Close releases the client. After Close is called, Use() will return false.
 	Close()
 }
 

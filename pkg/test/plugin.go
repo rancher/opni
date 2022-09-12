@@ -13,7 +13,8 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/example/pkg/example"
-	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
+	metrics_agent "github.com/rancher/opni/plugins/metrics/pkg/agent"
+	metrics_cortex "github.com/rancher/opni/plugins/metrics/pkg/cortex"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"google.golang.org/grpc"
 )
@@ -78,14 +79,27 @@ type testPlugin struct {
 	Metadata meta.PluginMeta
 }
 
-func LoadPlugins(loader *plugins.PluginLoader) int {
+func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
+	var metricsPluginScheme meta.Scheme
+	var scheme meta.Scheme
+	switch mode {
+	case meta.ModeGateway:
+		scheme = plugins.GatewayScheme
+		metricsPluginScheme = metrics_cortex.Scheme(context.Background())
+	case meta.ModeAgent:
+		scheme = plugins.AgentScheme
+		metricsPluginScheme = metrics_agent.Scheme(context.Background())
+	default:
+		panic("unknown plugin mode: " + mode)
+	}
+
 	testPlugins := []testPlugin{
 		{
-			Scheme: cortex.Scheme(context.Background()),
+			Scheme: metricsPluginScheme,
 			Metadata: meta.PluginMeta{
-				BinaryPath: "plugin_cortex",
+				BinaryPath: "plugin_metrics",
 				GoVersion:  runtime.Version(),
-				Module:     "github.com/rancher/opni/plugins/cortex",
+				Module:     "github.com/rancher/opni/plugins/metrics",
 			},
 		},
 		{
@@ -122,7 +136,7 @@ func LoadPlugins(loader *plugins.PluginLoader) int {
 		}
 		go plugin.Serve(sc)
 		rc := <-ch
-		cc := plugins.ClientConfig(p.Metadata, plugins.GatewayScheme, rc)
+		cc := plugins.ClientConfig(p.Metadata, scheme, rc)
 		wg.Add(1)
 		p := p
 		go func() {

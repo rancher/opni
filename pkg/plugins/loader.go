@@ -146,6 +146,10 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 		switch c := rpcClient.(type) {
 		case *plugin.GRPCClient:
 			p.hooksMu.RLock()
+			numHooks := len(p.loadHooks)
+			if numHooks > 0 {
+				lg.Debugf("invoking load hooks (%d)", numHooks)
+			}
 			for _, h := range p.loadHooks {
 				if h.hook.ShouldInvoke(raw) {
 					wg.Add(1)
@@ -188,7 +192,7 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 // is called, it is unsafe to call LoadPlugins() or LoadOne() again for this
 // plugin loader, although new hooks can still be added and will be invoked
 // immediately according to the current state of the plugin loader.
-func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec, reattach ...*plugin.ReattachConfig) {
+func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec, scheme meta.Scheme, reattach ...*plugin.ReattachConfig) {
 	tc, span := otel.Tracer("pluginloader").Start(ctx, "LoadPlugins")
 
 	wg := &sync.WaitGroup{}
@@ -208,7 +212,7 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 			).Error("failed to read plugin metadata", zap.Error(err))
 			continue
 		}
-		cc := ClientConfig(md, GatewayScheme, reattach...)
+		cc := ClientConfig(md, scheme, reattach...)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

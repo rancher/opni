@@ -40,7 +40,7 @@ func (p *Plugin) GetOpensearchCluster(
 	}, cluster); err != nil {
 		if k8serrors.IsNotFound(err) {
 			p.logger.Info("opensearch cluster does not exist")
-			return nil, nil
+			return &loggingadmin.OpensearchCluster{}, nil
 		}
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (p *Plugin) DeleteOpensearchCluster(
 			Namespace: p.storageNamespace,
 		},
 	}
-	return nil, p.k8sClient.Delete(ctx, cluster)
+	return &emptypb.Empty{}, p.k8sClient.Delete(ctx, cluster)
 }
 
 func (p *Plugin) CreateOrUpdateOpensearchCluster(
@@ -148,7 +148,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 				}(),
 			},
 		}
-		return nil, p.k8sClient.Create(ctx, k8sOpensearchCluster)
+		return &emptypb.Empty{}, p.k8sClient.Create(ctx, k8sOpensearchCluster)
 	}
 
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -245,7 +245,7 @@ func (p *Plugin) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, err
 		return p.k8sClient.Update(p.ctx, k8sOpensearchCluster)
 	})
 
-	return nil, err
+	return &emptypb.Empty{}, err
 }
 
 func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.OpensearchNodeDetails, error) {

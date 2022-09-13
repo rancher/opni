@@ -36,6 +36,43 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 					"keyrings",
 					"rolebindings",
 					"roles",
+					"opniopensearches",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"create",
+					"update",
+					"patch",
+					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					"logging.opni.io",
+				},
+				Resources: []string{
+					"*",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"create",
+					"update",
+					"patch",
+					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					"logging.opni.io",
+					"monitoring.opni.io",
+					"core.opni.io",
+				},
+				Resources: []string{
+					"'*'",
 				},
 				Verbs: []string{
 					"get",

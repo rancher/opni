@@ -1,8 +1,12 @@
-package cortex
+package gateway
 
 import (
 	"context"
 	"os"
+
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -10,13 +14,11 @@ import (
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/task"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
+	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
 )
 
 func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
-	p.mgmtApi.Set(client)
+	p.mgmtClient.Set(client)
 	cfg, err := client.GetConfig(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
 		p.logger.With(
@@ -42,23 +44,27 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 		}
 		p.storageBackend.Set(backend)
 		p.config.Set(config)
-		p.cortexTlsConfig.Set(p.loadCortexCerts())
-
-		p.configureAdminClients()
+		tlsConfig := p.loadCortexCerts()
+		p.cortexTlsConfig.Set(tlsConfig)
+		clientset, err := cortex.NewClientSet(p.ctx, &config.Spec.Cortex, tlsConfig)
+		if err != nil {
+			p.logger.With(
+				zap.Error(err),
+			).Error("failed to configure cortex clientset")
+			os.Exit(1)
+		}
+		p.cortexClientSet.Set(clientset)
 
 		p.configureCortexManagement()
 	})
 
-	p.authMiddlewares.Set(machinery.LoadAuthProviders(p.ctx, objectList))
+	p.authMw.Set(machinery.LoadAuthProviders(p.ctx, objectList))
 	<-p.ctx.Done()
 }
 
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
-	ctrl, err := task.NewController(p.ctx, "uninstall", system.NewKVStoreClient[*corev1.TaskStatus](client), &UninstallTaskRunner{
-		cortexClientSet: p.cortexClientSet,
-		storageBackend:  p.storageBackend,
-		config:          p.config,
-	})
+
+	ctrl, err := task.NewController(p.ctx, "uninstall", system.NewKVStoreClient[*corev1.TaskStatus](client), &p.uninstallRunner)
 	if err != nil {
 		p.logger.With(
 			zap.Error(err),

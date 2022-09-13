@@ -10,8 +10,9 @@ import (
 	"github.com/golang/snappy"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
+	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 	"github.com/weaveworks/common/user"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -22,14 +23,34 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type remoteWriteForwarder struct {
+type RemoteWriteForwarder struct {
 	remotewrite.UnsafeRemoteWriteServer
-	client future.Future[ClientSet]
-	config future.Future[*v1beta1.GatewayConfig]
-	logger *zap.SugaredLogger
+	RemoteWriteForwarderConfig
+
+	metricsutil.Initializer
 }
 
-func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, pushErr error) {
+var _ remotewrite.RemoteWriteServer = (*RemoteWriteForwarder)(nil)
+
+type RemoteWriteForwarderConfig struct {
+	CortexClientSet ClientSet                  `validate:"required"`
+	Config          *v1beta1.GatewayConfigSpec `validate:"required"`
+	Logger          *zap.SugaredLogger         `validate:"required"`
+}
+
+func (f *RemoteWriteForwarder) Initialize(conf RemoteWriteForwarderConfig) {
+	f.InitOnce(func() {
+		if err := metricsutil.Validate.Struct(conf); err != nil {
+			panic(err)
+		}
+		f.RemoteWriteForwarderConfig = conf
+	})
+}
+
+func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, pushErr error) {
+	if !f.Initialized() {
+		return nil, util.StatusError(codes.Unavailable)
+	}
 	clusterId, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")
@@ -41,7 +62,7 @@ func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 
 	defer func() {
 		if pushErr != nil {
-			f.logger.With(
+			f.Logger.With(
 				"err", pushErr,
 				"clusterId", clusterId,
 			).Error("error pushing metrics to cortex")
@@ -59,14 +80,17 @@ func (f *remoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid org id: %v", err)
 	}
-	_, err = f.client.Get().Distributor().Push(ctx, writeReq)
+	_, err = f.CortexClientSet.Distributor().Push(ctx, writeReq)
 	if err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (f *remoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, syncErr error) {
+func (f *RemoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewrite.Payload) (_ *emptypb.Empty, syncErr error) {
+	if !f.Initialized() {
+		return nil, util.StatusError(codes.Unavailable)
+	}
 	clusterId, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")
@@ -78,14 +102,14 @@ func (f *remoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewri
 
 	defer func() {
 		if syncErr != nil {
-			f.logger.With(
+			f.Logger.With(
 				"err", syncErr,
 				"clusterId", clusterId,
 			).Error("error syncing rules to cortex")
 		}
 	}()
 	url := fmt.Sprintf("https://%s/api/v1/rules/%s",
-		f.config.Get().Spec.Cortex.Ruler.HTTPAddress, clusterId)
+		f.Config.Cortex.Ruler.HTTPAddress, clusterId)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url,
 		bytes.NewReader(payload.Contents))
 	if err != nil {
@@ -97,7 +121,7 @@ func (f *remoteWriteForwarder) SyncRules(ctx context.Context, payload *remotewri
 	for k, v := range payload.Headers {
 		req.Header.Add(k, v)
 	}
-	resp, err := f.client.Get().HTTP().Do(req)
+	resp, err := f.CortexClientSet.HTTP().Do(req)
 	if err != nil {
 		return nil, err
 	}

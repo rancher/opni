@@ -1055,7 +1055,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 			GatewayAddress:   gatewayAddress,
 			IdentityProvider: id,
 			Rules: &v1beta1.RulesSpec{
-				Discovery: v1beta1.DiscoverySpec{
+				Discovery: &v1beta1.DiscoverySpec{
 					Filesystem: &v1beta1.FilesystemRulesSpec{
 						PathExpressions: []string{
 							path.Join(e.tempDir, "prometheus", "sample-rules.yaml"),

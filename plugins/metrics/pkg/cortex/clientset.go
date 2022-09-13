@@ -21,6 +21,24 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 )
 
+type HTTPClientOptions struct {
+	serverNameOverride string
+}
+
+type HTTPClientOption func(*HTTPClientOptions)
+
+func (o *HTTPClientOptions) apply(opts ...HTTPClientOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithServerNameOverride(serverNameOverride string) HTTPClientOption {
+	return func(o *HTTPClientOptions) {
+		o.serverNameOverride = serverNameOverride
+	}
+}
+
 type ClientSet interface {
 	Distributor() DistributorClient
 	Ingester() IngesterClient
@@ -30,7 +48,7 @@ type ClientSet interface {
 	StoreGateway() StoreGatewayClient
 	QueryFrontend() QueryFrontendClient
 	Querier() QuerierClient
-	HTTP() *http.Client
+	HTTP(options ...HTTPClientOption) *http.Client
 }
 
 type DistributorClient interface {
@@ -421,6 +439,8 @@ type clientSet struct {
 	*queryFrontendClient
 	*querierClient
 	*http.Client
+
+	tlsConfig *tls.Config
 }
 
 func (c *clientSet) Distributor() DistributorClient {
@@ -455,7 +475,18 @@ func (c *clientSet) Querier() QuerierClient {
 	return c.querierClient
 }
 
-func (c *clientSet) HTTP() *http.Client {
+func (c *clientSet) HTTP(opts ...HTTPClientOption) *http.Client {
+	options := HTTPClientOptions{}
+	options.apply(opts...)
+	if options.serverNameOverride != "" {
+		tlsConfig := c.tlsConfig.Clone()
+		tlsConfig.ServerName = options.serverNameOverride
+		return &http.Client{
+			Transport: otelhttp.NewTransport(&http.Transport{
+				TLSClientConfig: tlsConfig,
+			}),
+		}
+	}
 	return c.Client
 }
 
@@ -585,6 +616,7 @@ func NewClientSet(ctx context.Context, cortexSpec *v1beta1.CortexSpec, tlsConfig
 				httpClient: httpClient,
 			},
 		},
-		Client: httpClient,
+		Client:    httpClient,
+		tlsConfig: tlsConfig,
 	}, nil
 }

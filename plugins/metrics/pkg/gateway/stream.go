@@ -1,4 +1,4 @@
-package cortex
+package gateway
 
 import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -9,12 +9,8 @@ import (
 func (p *Plugin) StreamServers() []streamext.Server {
 	return []streamext.Server{
 		{
-			Desc: &remotewrite.RemoteWrite_ServiceDesc,
-			Impl: &remoteWriteForwarder{
-				client: p.cortexClientSet,
-				config: p.config,
-				logger: p.logger,
-			},
+			Desc:              &remotewrite.RemoteWrite_ServiceDesc,
+			Impl:              &p.cortexRemoteWrite,
 			RequireCapability: wellknown.CapabilityMetrics,
 		},
 	}

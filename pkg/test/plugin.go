@@ -7,6 +7,8 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"google.golang.org/grpc"
+
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
@@ -14,9 +16,8 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/example/pkg/example"
 	metrics_agent "github.com/rancher/opni/plugins/metrics/pkg/agent"
-	metrics_cortex "github.com/rancher/opni/plugins/metrics/pkg/cortex"
+	metrics_cortex "github.com/rancher/opni/plugins/metrics/pkg/gateway"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
-	"google.golang.org/grpc"
 )
 
 type apiextensionTestPlugin struct {

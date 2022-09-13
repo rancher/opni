@@ -83,3 +83,27 @@ func (f *future[T]) GetContext(ctx context.Context) (_ T, err error) {
 	}
 	return f.object, nil
 }
+
+func Wait2[T, U any](f1 Future[T], f2 Future[U], callback func(T, U)) {
+	go func() { callback(f1.Get(), f2.Get()) }()
+}
+
+func Wait3[T, U, V any](f1 Future[T], f2 Future[U], f3 Future[V], callback func(T, U, V)) {
+	go func() { callback(f1.Get(), f2.Get(), f3.Get()) }()
+}
+
+func Wait4[T, U, V, W any](f1 Future[T], f2 Future[U], f3 Future[V], f4 Future[W], callback func(T, U, V, W)) {
+	go func() { callback(f1.Get(), f2.Get(), f3.Get(), f4.Get()) }()
+}
+
+func Wait5[T, U, V, W, X any](f1 Future[T], f2 Future[U], f3 Future[V], f4 Future[W], f5 Future[X], callback func(T, U, V, W, X)) {
+	go func() { callback(f1.Get(), f2.Get(), f3.Get(), f4.Get(), f5.Get()) }()
+}
+
+func Wait6[T, U, V, W, X, Y any](f1 Future[T], f2 Future[U], f3 Future[V], f4 Future[W], f5 Future[X], f6 Future[Y], callback func(T, U, V, W, X, Y)) {
+	go func() { callback(f1.Get(), f2.Get(), f3.Get(), f4.Get(), f5.Get(), f6.Get()) }()
+}
+
+func Wait7[T, U, V, W, X, Y, Z any](f1 Future[T], f2 Future[U], f3 Future[V], f4 Future[W], f5 Future[X], f6 Future[Y], f7 Future[Z], callback func(T, U, V, W, X, Y, Z)) {
+	go func() { callback(f1.Get(), f2.Get(), f3.Get(), f4.Get(), f5.Get(), f6.Get(), f7.Get()) }()
+}

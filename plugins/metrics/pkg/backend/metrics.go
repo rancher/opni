@@ -1,4 +1,4 @@
-package cortex
+package backend
 
 import (
 	"context"
@@ -6,32 +6,65 @@ import (
 	"fmt"
 	"strings"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/machinery/uninstall"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 )
 
-func (p *Plugin) Info(context.Context, *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
+type MetricsBackend struct {
+	capabilityv1.UnsafeBackendServer
+	MetricsBackendConfig
+	SyncMgr *NodeSyncManager
+
+	metricsutil.Initializer
+}
+
+type MetricsBackendConfig struct {
+	StorageBackend      storage.Backend               `validate:"required"`
+	MgmtClient          managementv1.ManagementClient `validate:"required"`
+	UninstallController *task.Controller              `validate:"required"`
+}
+
+func (p *MetricsBackend) Initialize(conf MetricsBackendConfig) {
+	p.InitOnce(func() {
+		if err := metricsutil.Validate.Struct(conf); err != nil {
+			panic(err)
+		}
+		p.MetricsBackendConfig = conf
+		p.SyncMgr = &NodeSyncManager{}
+	})
+}
+
+func (p *MetricsBackend) Info(ctx context.Context, _ *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
+	p.WaitForInit()
+
 	return &capabilityv1.InfoResponse{
 		CapabilityName: wellknown.CapabilityMetrics,
 	}, nil
 }
 
-func (p *Plugin) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (p *MetricsBackend) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	p.WaitForInit()
+
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*emptypb.Empty, error) {
-	_, err := p.storageBackend.Get().UpdateCluster(ctx, req.Cluster,
+func (p *MetricsBackend) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*emptypb.Empty, error) {
+	p.WaitForInit()
+
+	_, err := p.StorageBackend.UpdateCluster(ctx, req.Cluster,
 		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityMetrics)),
 	)
 	if err != nil {
@@ -40,16 +73,16 @@ func (p *Plugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) 
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
-	mgr := p.syncMgr.Load()
-	if mgr == nil {
-		return nil, util.StatusError(codes.Unavailable)
-	}
-	return mgr.GetNodeStatus(req.Cluster)
+func (p *MetricsBackend) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+	p.WaitForInit()
+
+	return p.SyncMgr.GetNodeStatus(req.Cluster)
 }
 
-func (p *Plugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
-	cluster, err := p.mgmtApi.Get().GetCluster(ctx, req.Cluster)
+func (p *MetricsBackend) Uninstall(ctx context.Context, req *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
+	p.WaitForInit()
+
+	cluster, err := p.MgmtClient.GetCluster(ctx, req.Cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +104,7 @@ func (p *Plugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallReque
 		// check for a previous stale task that may not have been cleaned up
 		if cap.DeletionTimestamp != nil {
 			// if the deletion timestamp is set and the task is not completed, error
-			stat, err := p.uninstallController.Get().TaskStatus(cluster.Id)
+			stat, err := p.UninstallController.TaskStatus(cluster.Id)
 			if err != nil {
 				if util.StatusCode(err) != codes.NotFound {
 					return nil, status.Errorf(codes.Internal, "failed to get task status: %v", err)
@@ -95,7 +128,7 @@ func (p *Plugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallReque
 	}
 
 	now := timestamppb.Now()
-	_, err = p.storageBackend.Get().UpdateCluster(ctx, cluster.Reference(), func(c *corev1.Cluster) {
+	_, err = p.StorageBackend.UpdateCluster(ctx, cluster.Reference(), func(c *corev1.Cluster) {
 		for _, cap := range c.Metadata.Capabilities {
 			if cap.Name == wellknown.CapabilityMetrics {
 				cap.DeletionTimestamp = now
@@ -111,23 +144,29 @@ func (p *Plugin) Uninstall(ctx context.Context, req *capabilityv1.UninstallReque
 		DefaultUninstallOptions: defaultOpts,
 		DeletionTimestamp:       now.AsTime(),
 	}
-	err = p.uninstallController.Get().LaunchTask(req.Cluster.Id, task.WithMetadata(md))
+	err = p.UninstallController.LaunchTask(req.Cluster.Id, task.WithMetadata(md))
 	if err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) UninstallStatus(ctx context.Context, cluster *corev1.Reference) (*corev1.TaskStatus, error) {
-	return p.uninstallController.Get().TaskStatus(cluster.Id)
+func (p *MetricsBackend) UninstallStatus(ctx context.Context, cluster *corev1.Reference) (*corev1.TaskStatus, error) {
+	p.WaitForInit()
+
+	return p.UninstallController.TaskStatus(cluster.Id)
 }
 
-func (p *Plugin) CancelUninstall(ctx context.Context, cluster *corev1.Reference) (*emptypb.Empty, error) {
-	p.uninstallController.Get().CancelTask(cluster.Id)
+func (p *MetricsBackend) CancelUninstall(ctx context.Context, cluster *corev1.Reference) (*emptypb.Empty, error) {
+	p.WaitForInit()
+
+	p.UninstallController.CancelTask(cluster.Id)
 	return &emptypb.Empty{}, nil
 }
 
-func (p *Plugin) InstallerTemplate(context.Context, *emptypb.Empty) (*capabilityv1.InstallerTemplateResponse, error) {
+func (p *MetricsBackend) InstallerTemplate(context.Context, *emptypb.Empty) (*capabilityv1.InstallerTemplateResponse, error) {
+	p.WaitForInit()
+
 	return &capabilityv1.InstallerTemplateResponse{
 		Template: `helm install opni-agent ` +
 			`{{ arg "input" "Namespace" "+omitEmpty" "+default:opni-agent" "+format:-n {{ value }}" }} ` +

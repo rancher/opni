@@ -17,7 +17,7 @@ import (
 	"github.com/rancher/opni/pkg/machinery/uninstall"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
-	"github.com/rancher/opni/pkg/util/future"
+	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,12 +25,29 @@ import (
 
 type UninstallTaskRunner struct {
 	uninstall.DefaultPendingHandler
-	cortexClientSet future.Future[ClientSet]
-	config          future.Future[*v1beta1.GatewayConfig]
-	storageBackend  future.Future[storage.Backend]
+	UninstallTaskRunnerConfig
+
+	metricsutil.Initializer
+}
+
+type UninstallTaskRunnerConfig struct {
+	CortexClientSet ClientSet                  `validate:"required"`
+	Config          *v1beta1.GatewayConfigSpec `validate:"required"`
+	StorageBackend  storage.Backend            `validate:"required"`
+}
+
+func (a *UninstallTaskRunner) Initialize(conf UninstallTaskRunnerConfig) {
+	a.InitOnce(func() {
+		if err := metricsutil.Validate.Struct(conf); err != nil {
+			panic(err)
+		}
+		a.UninstallTaskRunnerConfig = conf
+	})
 }
 
 func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveTask) error {
+	a.WaitForInit()
+
 	var md uninstall.TimestampedMetadata
 	ti.LoadTaskMetadata(&md)
 
@@ -72,7 +89,7 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 	}
 
 	ti.AddLogEntry(zapcore.InfoLevel, "Removing capability from cluster metadata")
-	_, err := a.storageBackend.Get().UpdateCluster(ctx, &corev1.Reference{
+	_, err := a.StorageBackend.UpdateCluster(ctx, &corev1.Reference{
 		Id: ti.TaskId(),
 	}, storage.NewRemoveCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityMetrics)))
 	if err != nil {
@@ -82,6 +99,8 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 }
 
 func (a *UninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.ActiveTask, state task.State, args ...any) {
+	a.WaitForInit()
+
 	switch state {
 	case task.StateCompleted:
 		ti.AddLogEntry(zapcore.InfoLevel, "Capability uninstalled successfully")
@@ -93,7 +112,7 @@ func (a *UninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.Activ
 	}
 
 	// Reset the deletion timestamp
-	_, err := a.storageBackend.Get().UpdateCluster(ctx, &corev1.Reference{
+	_, err := a.StorageBackend.UpdateCluster(ctx, &corev1.Reference{
 		Id: ti.TaskId(),
 	}, func(c *corev1.Cluster) {
 		for _, cap := range c.GetCapabilities() {
@@ -108,13 +127,13 @@ func (a *UninstallTaskRunner) OnTaskCompleted(ctx context.Context, ti task.Activ
 }
 
 func (a *UninstallTaskRunner) deleteTenant(ctx context.Context, clusterId string) error {
-	endpoint := fmt.Sprintf("https://%s/purger/delete_tenant", a.config.Get().Spec.Cortex.Purger.HTTPAddress)
+	endpoint := fmt.Sprintf("https://%s/purger/delete_tenant", a.Config.Cortex.Purger.HTTPAddress)
 	deleteReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
 	if err != nil {
 		return err
 	}
 	deleteReq.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{clusterId}))
-	resp, err := a.cortexClientSet.Get().HTTP().Do(deleteReq)
+	resp, err := a.CortexClientSet.HTTP().Do(deleteReq)
 	if err != nil {
 		return err
 	}
@@ -132,14 +151,14 @@ func (a *UninstallTaskRunner) deleteTenant(ctx context.Context, clusterId string
 }
 
 func (a *UninstallTaskRunner) tenantDeleteStatus(ctx context.Context, clusterId string) (*purger.DeleteTenantStatusResponse, error) {
-	endpoint := fmt.Sprintf("https://%s/purger/delete_tenant_status", a.config.Get().Spec.Cortex.Purger.HTTPAddress)
+	endpoint := fmt.Sprintf("https://%s/purger/delete_tenant_status", a.Config.Cortex.Purger.HTTPAddress)
 
 	statusReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 	statusReq.Header.Set(orgIDCodec.Key(), orgIDCodec.Encode([]string{clusterId}))
-	resp, err := a.cortexClientSet.Get().HTTP().Do(statusReq)
+	resp, err := a.CortexClientSet.HTTP().Do(statusReq)
 	if err != nil {
 		return nil, err
 	}

@@ -2,16 +2,22 @@ package cortex
 
 import (
 	"context"
+	"crypto/tls"
 	"os"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
+	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util/fwd"
+	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 )
 
 type forwarders struct {
@@ -26,54 +32,59 @@ type middlewares struct {
 	Cluster gin.HandlerFunc
 }
 
-func (p *Plugin) ConfigureRoutes(router *gin.Engine) {
-	router.Use(logger.GinLogger(p.logger), gin.Recovery())
+type HttpApiServer struct {
+	HttpApiServerConfig
+	metricsutil.Initializer
+}
 
-	futureCtx, ca := context.WithTimeout(context.Background(), 10*time.Second)
-	defer ca()
-	config, err := p.config.GetContext(futureCtx)
-	if err != nil {
-		p.logger.With("err", err).Error("plugin startup failed: config was not loaded")
-		os.Exit(1)
-	}
+type HttpApiServerConfig struct {
+	PluginContext    context.Context               `validate:"required"`
+	ManagementClient managementv1.ManagementClient `validate:"required"`
+	CortexClientSet  ClientSet                     `validate:"required"`
+	Config           *v1beta1.GatewayConfigSpec    `validate:"required"`
+	CortexTLSConfig  *tls.Config                   `validate:"required"`
+	Logger           *zap.SugaredLogger            `validate:"required"`
+	StorageBackend   storage.Backend               `validate:"required"`
+	AuthMiddlewares  map[string]auth.Middleware    `validate:"required"`
+}
 
-	futureCtx, ca = context.WithTimeout(context.Background(), 10*time.Second)
-	defer ca()
-	cortexTLSConfig, err := p.cortexTlsConfig.GetContext(futureCtx)
-	if err != nil {
-		p.logger.With("err", err).Error("plugin startup failed: cortex TLS config was not loaded")
-		os.Exit(1)
-	}
+func (p *HttpApiServer) Initialize(config HttpApiServerConfig) {
+	p.InitOnce(func() {
+		if err := metricsutil.Validate.Struct(config); err != nil {
+			panic(err)
+		}
+		p.HttpApiServerConfig = config
+	})
+}
 
-	futureCtx, ca = context.WithTimeout(context.Background(), 10*time.Second)
-	defer ca()
-	storageBackend, err := p.storageBackend.GetContext(futureCtx)
-	if err != nil {
-		p.logger.With("err", err).Error("plugin startup failed: storage backend was not loaded")
-		os.Exit(1)
-	}
+var _ httpext.HTTPAPIExtension = (*HttpApiServer)(nil)
 
-	rbacProvider := storage.NewRBACProvider(storageBackend)
+func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
+	p.WaitForInit()
+
+	router.Use(logger.GinLogger(p.Logger), gin.Recovery())
+
+	rbacProvider := storage.NewRBACProvider(p.StorageBackend)
 	rbacMiddleware := rbac.NewMiddleware(rbacProvider, orgIDCodec)
-	authMiddleware, ok := p.authMiddlewares.Get()[config.Spec.AuthProvider]
+	authMiddleware, ok := p.AuthMiddlewares[p.Config.AuthProvider]
 	if !ok {
-		p.logger.With(
-			"name", config.Spec.AuthProvider,
+		p.Logger.With(
+			"name", p.Config.AuthProvider,
 		).Error("auth provider not found")
 		os.Exit(1)
 	}
-	clusterMiddleware, err := cluster.New(p.ctx, storageBackend, orgIDCodec.Key())
+	clusterMiddleware, err := cluster.New(p.PluginContext, p.StorageBackend, orgIDCodec.Key())
 	if err != nil {
-		p.logger.With(
+		p.Logger.With(
 			"err", err,
 		).Error("failed to set up cluster middleware")
 		os.Exit(1)
 	}
 
 	fwds := &forwarders{
-		QueryFrontend: fwd.To(config.Spec.Cortex.QueryFrontend.HTTPAddress, fwd.WithLogger(p.logger), fwd.WithTLS(cortexTLSConfig), fwd.WithName("query-frontend")),
-		Alertmanager:  fwd.To(config.Spec.Cortex.Alertmanager.HTTPAddress, fwd.WithLogger(p.logger), fwd.WithTLS(cortexTLSConfig), fwd.WithName("alertmanager")),
-		Ruler:         fwd.To(config.Spec.Cortex.Ruler.HTTPAddress, fwd.WithLogger(p.logger), fwd.WithTLS(cortexTLSConfig), fwd.WithName("ruler")),
+		QueryFrontend: fwd.To(p.Config.Cortex.QueryFrontend.HTTPAddress, fwd.WithLogger(p.Logger), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("query-frontend")),
+		Alertmanager:  fwd.To(p.Config.Cortex.Alertmanager.HTTPAddress, fwd.WithLogger(p.Logger), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("alertmanager")),
+		Ruler:         fwd.To(p.Config.Cortex.Ruler.HTTPAddress, fwd.WithLogger(p.Logger), fwd.WithTLS(p.CortexTLSConfig), fwd.WithName("ruler")),
 	}
 
 	mws := &middlewares{
@@ -90,12 +101,12 @@ func (p *Plugin) ConfigureRoutes(router *gin.Engine) {
 	p.configureQueryFrontend(router, fwds, mws)
 }
 
-func (p *Plugin) configureAlertmanager(router *gin.Engine, f *forwarders, m *middlewares) {
+func (p *HttpApiServer) configureAlertmanager(router *gin.Engine, f *forwarders, m *middlewares) {
 	orgIdLimiter := func(c *gin.Context) {
 		ids := rbac.AuthorizedClusterIDs(c)
 		if len(ids) > 1 {
 			user, _ := rbac.AuthorizedUserID(c)
-			p.logger.With(
+			p.Logger.With(
 				"request", c.FullPath(),
 				"user", user,
 			).Debug("multiple org ids found, limiting to first")
@@ -108,9 +119,9 @@ func (p *Plugin) configureAlertmanager(router *gin.Engine, f *forwarders, m *mid
 	router.Any("/multitenant_alertmanager", m.Auth, m.RBAC, orgIdLimiter, f.Alertmanager)
 }
 
-func (p *Plugin) configureRuler(router *gin.Engine, f *forwarders, m *middlewares) {
+func (p *HttpApiServer) configureRuler(router *gin.Engine, f *forwarders, m *middlewares) {
 	jsonAggregator := NewMultiTenantRuleAggregator(
-		p.mgmtApi.Get(), p.cortexClientSet.Get().HTTP(), orgIDCodec, PrometheusRuleGroupsJSON)
+		p.ManagementClient, p.CortexClientSet.HTTP(), orgIDCodec, PrometheusRuleGroupsJSON)
 	router.GET("/prometheus/api/v1/rules", m.Auth, m.RBAC, jsonAggregator.Handle)
 	router.GET("/api/prom/api/v1/rules", m.Auth, m.RBAC, jsonAggregator.Handle)
 
@@ -118,12 +129,12 @@ func (p *Plugin) configureRuler(router *gin.Engine, f *forwarders, m *middleware
 	router.GET("/api/prom/api/v1/alerts", m.Auth, m.RBAC, f.Ruler)
 
 	yamlAggregator := NewMultiTenantRuleAggregator(
-		p.mgmtApi.Get(), p.cortexClientSet.Get().HTTP(), orgIDCodec, NamespaceKeyedYAML)
+		p.ManagementClient, p.CortexClientSet.HTTP(), orgIDCodec, NamespaceKeyedYAML)
 	router.Any("/api/v1/rules", m.Auth, m.RBAC, yamlAggregator.Handle)
 	router.Any("/api/prom/rules", m.Auth, m.RBAC, yamlAggregator.Handle)
 }
 
-func (p *Plugin) configureQueryFrontend(router *gin.Engine, f *forwarders, m *middlewares) {
+func (p *HttpApiServer) configureQueryFrontend(router *gin.Engine, f *forwarders, m *middlewares) {
 	for _, group := range []*gin.RouterGroup{
 		router.Group("/prometheus/api/v1", m.Auth, m.RBAC),
 		router.Group("/api/prom/api/v1", m.Auth, m.RBAC),

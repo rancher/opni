@@ -1,14 +1,15 @@
-package cortex
+package gateway
 
 import (
 	"context"
 
-	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"github.com/rancher/opni/plugins/metrics/pkg/drivers"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
+	"github.com/rancher/opni/plugins/metrics/pkg/drivers"
 )
 
 func (p *Plugin) configureCortexManagement() {

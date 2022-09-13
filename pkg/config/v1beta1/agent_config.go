@@ -70,26 +70,26 @@ func (s *AgentConfigSpec) SetDefaults() {
 	}
 }
 
-type RulesSpec struct {
-	Discovery DiscoverySpec `json:"discovery,omitempty"`
-}
+// type RulesSpec struct {
+// 	Discovery DiscoverySpec `json:"discovery,omitempty"`
+// }
 
-type DiscoverySpec struct {
-	PrometheusRules *PrometheusRulesSpec `json:"prometheusRules,omitempty"`
-	Filesystem      *FilesystemRulesSpec `json:"filesystem,omitempty"`
-	// Search interval. Defaults to "15m"
-	Interval string `json:"interval,omitempty"`
-}
+// type DiscoverySpec struct {
+// 	PrometheusRules *PrometheusRulesSpec `json:"prometheusRules,omitempty"`
+// 	Filesystem      *FilesystemRulesSpec `json:"filesystem,omitempty"`
+// 	// Search interval. Defaults to "15m"
+// 	Interval string `json:"interval,omitempty"`
+// }
 
-type FilesystemRulesSpec struct {
-	PathExpressions []string `json:"pathExpressions,omitempty"`
-}
+// type FilesystemRulesSpec struct {
+// 	PathExpressions []string `json:"pathExpressions,omitempty"`
+// }
 
-type PrometheusRulesSpec struct {
-	// Namespaces to search for rules in. If empty, will search all accessible
-	// namespaces.
-	SearchNamespaces []string `json:"searchNamespaces,omitempty"`
-	// Kubeconfig to use for rule discovery. If nil, will use the in-cluster
-	// kubeconfig.
-	Kubeconfig *string `json:"kubeconfig,omitempty"`
-}
+// type PrometheusRulesSpec struct {
+// 	// Namespaces to search for rules in. If empty, will search all accessible
+// 	// namespaces.
+// 	SearchNamespaces []string `json:"searchNamespaces,omitempty"`
+// 	// Kubeconfig to use for rule discovery. If nil, will use the in-cluster
+// 	// kubeconfig.
+// 	Kubeconfig *string `json:"kubeconfig,omitempty"`
+// }

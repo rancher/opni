@@ -269,7 +269,8 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 			lg.Info("connecting to gateway...")
 		}
 		// this connects plugin extension servers to the agent's totem server.
-		// if plugins need to connect to the gateway, they need a separate stream.
+		// clients on the other side of this stream will have access to gateway
+		// services.
 		_, errF := a.gatewayClient.Connect(ctx) // this unused cc can access all services
 		if !errF.IsSet() {
 			if isRetry {

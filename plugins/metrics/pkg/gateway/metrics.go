@@ -1,7 +1,8 @@
-package cortex
+package gateway
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/rancher/opni/pkg/metrics/collector"
 )
 

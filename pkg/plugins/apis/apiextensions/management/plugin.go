@@ -82,7 +82,6 @@ var _ apiextensions.ManagementAPIExtensionServer = (*mgmtExtensionServerImpl)(ni
 
 func init() {
 	compat.LoadGogoFileDescriptor("k8s.io/api/core/v1/generated.proto")
-	compat.LoadGogoFileDescriptor("k8s.io/apimachinery/pkg/api/resource/generated.proto")
 	plugins.ClientScheme.Add(ManagementAPIExtensionPluginID,
 		NewPlugin(&apiextensions.ManagementAPIExtension_ServiceDesc,
 			apiextensions.UnimplementedManagementAPIExtensionServer{}))

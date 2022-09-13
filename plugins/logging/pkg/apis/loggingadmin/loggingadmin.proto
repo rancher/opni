@@ -4,7 +4,6 @@ option go_package = "github.com/rancher/opni/plugins/logging/pkg/apis/loggingadm
 import "google/protobuf/empty.proto";
 import "google/api/http.proto";
 import "google/api/annotations.proto";
-import "k8s.io/apimachinery/pkg/api/resource/generated.proto";
 import "k8s.io/api/core/v1/generated.proto";
 
 package loggingadmin;
@@ -52,15 +51,15 @@ message DataPersistence {
 }
 
 message CPUResource {
-    k8s.io.apimachinery.pkg.api.resource.Quantity Request = 1;
-    k8s.io.apimachinery.pkg.api.resource.Quantity Limit = 2;
+    string Request = 1;
+    string Limit = 2;
 }
 
 message OpensearchNodeDetails {
     string Name = 1;
     optional int32 Replicas = 2;
-    k8s.io.apimachinery.pkg.api.resource.Quantity DiskSize = 3;
-    k8s.io.apimachinery.pkg.api.resource.Quantity MemoryLimit = 4;
+    string DiskSize = 3;
+    string MemoryLimit = 4;
     optional CPUResource CPUResources = 5;
     optional bool EnableAntiAffinity = 6;
     map<string, string> NodeSelector = 7;

@@ -58,8 +58,8 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 						"data",
 						"ingest",
 					},
-					DiskSize:    lo.ToPtr(resource.MustParse("50Gi")),
-					MemoryLimit: lo.ToPtr(resource.MustParse("2Gi")),
+					DiskSize:    "50Gi",
+					MemoryLimit: "2Gi",
 					Persistence: &loggingadmin.DataPersistence{
 						Enabled: lo.ToPtr(true),
 					},
@@ -71,7 +71,7 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 		nodePool = opsterv1.NodePool{
 			Component: request.NodePools[0].Name,
 			Replicas:  3,
-			DiskSize:  request.NodePools[0].DiskSize.String(),
+			DiskSize:  request.NodePools[0].DiskSize,
 			Jvm:       fmt.Sprintf("-Xmx%d -Xms%d", giBytes, giBytes),
 			Roles:     request.NodePools[0].Roles,
 			Affinity: &corev1.Affinity{
@@ -178,7 +178,7 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 		Context("creating an opensearch cluster", func() {
 			When("nodepools don't have memory limits", func() {
 				BeforeEach(func() {
-					request.NodePools[0].MemoryLimit = nil
+					request.NodePools[0].MemoryLimit = ""
 				})
 				It("should error", func() {
 					_, err := plugin.CreateOrUpdateOpensearchCluster(context.Background(), request)
@@ -218,7 +218,7 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 
 		When("updating the cluster", func() {
 			BeforeEach(func() {
-				request.NodePools[0].MemoryLimit = lo.ToPtr(resource.MustParse("4Gi"))
+				request.NodePools[0].MemoryLimit = "4Gi"
 				nodePool.Jvm = fmt.Sprintf("-Xmx%d -Xms%d", 2*giBytes, 2*giBytes)
 				nodePool.Resources.Limits[corev1.ResourceMemory] = resource.MustParse("4Gi")
 				nodePool.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("4Gi")

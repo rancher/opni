@@ -280,8 +280,8 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 	return &loggingadmin.OpensearchNodeDetails{
 		Name:        pool.Component,
 		Replicas:    &pool.Replicas,
-		DiskSize:    &diskSize,
-		MemoryLimit: pool.Resources.Limits.Memory(),
+		DiskSize:    diskSize.String(),
+		MemoryLimit: pool.Resources.Limits.Memory().String(),
 		CPUResources: func() *loggingadmin.CPUResource {
 			var request *resource.Quantity
 			var limit *resource.Quantity
@@ -297,8 +297,8 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 				return nil
 			}
 			return &loggingadmin.CPUResource{
-				Request: pool.Resources.Requests.Cpu(),
-				Limit:   pool.Resources.Limits.Cpu(),
+				Request: pool.Resources.Requests.Cpu().String(),
+				Limit:   pool.Resources.Limits.Cpu().String(),
 			}
 		}(),
 		NodeSelector: pool.NodeSelector,
@@ -371,34 +371,46 @@ func (p *Plugin) convertProtobufToDashboards(
 }
 
 func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, clusterName string) (opsterv1.NodePool, error) {
-	if pool.MemoryLimit == nil {
+	if pool.MemoryLimit == "" {
 		return opsterv1.NodePool{}, ErrRequestMissingMemory()
 	}
 
+	memory, err := resource.ParseQuantity(pool.MemoryLimit)
+	if err != nil {
+		return opsterv1.NodePool{}, err
+	}
 	resources := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: *pool.MemoryLimit,
+			corev1.ResourceMemory: memory,
 		},
 		Requests: corev1.ResourceList{
-			corev1.ResourceMemory: *pool.MemoryLimit,
+			corev1.ResourceMemory: memory,
 		},
 	}
 
 	if pool.CPUResources != nil {
-		if pool.CPUResources.Request != nil {
-			resources.Requests[corev1.ResourceCPU] = *pool.CPUResources.Request
+		if pool.CPUResources.Request != "" {
+			request, err := resource.ParseQuantity(pool.CPUResources.Request)
+			if err != nil {
+				return opsterv1.NodePool{}, err
+			}
+			resources.Requests[corev1.ResourceCPU] = request
 		}
-		if pool.CPUResources.Limit != nil {
-			resources.Requests[corev1.ResourceCPU] = *pool.CPUResources.Limit
+		if pool.CPUResources.Limit != "" {
+			limit, err := resource.ParseQuantity(pool.CPUResources.Limit)
+			if err != nil {
+				return opsterv1.NodePool{}, err
+			}
+			resources.Requests[corev1.ResourceCPU] = limit
 		}
 	}
 
-	jvmVal := pool.MemoryLimit.Value() / 2
+	jvmVal := memory.Value() / 2
 
 	return opsterv1.NodePool{
 		Component: pool.Name,
 		Replicas:  lo.FromPtrOr(pool.Replicas, 1),
-		DiskSize:  pool.DiskSize.String(),
+		DiskSize:  pool.DiskSize,
 		Resources: resources,
 		Jvm:       fmt.Sprintf("-Xmx%d -Xms%d", jvmVal, jvmVal),
 		Roles:     pool.Roles,

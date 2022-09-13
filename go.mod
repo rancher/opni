@@ -8,11 +8,10 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/NVIDIA/gpu-operator v1.8.1
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
-	github.com/alexandreLamarre/oslo v0.4.1-0.20220622183136-9097b55785d9
-	github.com/alexandreLamarre/sloth v0.11.1-0.20220621184403-416cfe52767a
 	github.com/andybalholm/brotli v1.0.4
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/aws/aws-sdk-go v1.44.33
+	github.com/banzaicloud/k8s-objectmatcher v1.8.0
 	github.com/banzaicloud/logging-operator v0.0.0-20220225205714-b06e7ad17676
 	github.com/banzaicloud/logging-operator/pkg/sdk v0.7.19
 	github.com/banzaicloud/operator-tools v0.28.5
@@ -31,6 +30,7 @@ require (
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.5.8
 	github.com/google/uuid v1.3.0
+	github.com/goombaio/namegenerator v0.0.0-20181006234301-989e774b106e
 	github.com/grafana-operator/grafana-operator/v4 v4.3.0
 	github.com/grafana/cortex-tools v0.0.0-00010101000000-000000000000
 	github.com/hashicorp/go-hclog v1.2.2
@@ -46,7 +46,6 @@ require (
 	github.com/jwalton/go-supportscolor v1.1.0
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.11.0-1
-	github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a
 	github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e
 	github.com/kralicky/ragu v1.0.0-beta2
 	github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f
@@ -121,6 +120,7 @@ require (
 	k8s.io/apimachinery v0.24.3
 	k8s.io/client-go v0.24.3
 	k8s.io/component-base v0.24.3
+	k8s.io/kubernetes v1.13.0
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
 	opensearch.opster.io v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/controller-runtime v0.11.1
@@ -167,7 +167,6 @@ require (
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883 // indirect
 	github.com/armon/go-metrics v0.4.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
-	github.com/banzaicloud/k8s-objectmatcher v1.8.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -267,7 +266,6 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.0.0-20220520183353-fd19c99a87aa // indirect
 	github.com/googleapis/gax-go/v2 v2.4.0 // indirect
 	github.com/googleapis/go-type-adapters v1.0.0 // indirect
-	github.com/goombaio/namegenerator v0.0.0-20181006234301-989e774b106e // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
@@ -408,7 +406,6 @@ require (
 	github.com/therootcompany/xz v1.0.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
-	github.com/traefik/yaegi v0.12.0 // indirect
 	github.com/tweekmonster/luser v0.0.0-20161003172636-3fa38070dbd7 // indirect
 	github.com/uber/jaeger-client-go v2.30.0+incompatible // indirect
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect

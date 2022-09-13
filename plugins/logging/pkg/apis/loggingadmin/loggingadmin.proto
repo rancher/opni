@@ -30,9 +30,14 @@ service LoggingAdmin {
             get: "/logging/upgrade/available"
         };
     }
-     rpc DoUpgrade(google.protobuf.Empty) returns(google.protobuf.Empty) {
+    rpc DoUpgrade(google.protobuf.Empty) returns(google.protobuf.Empty) {
         option (google.api.http) = {
             post: "/logging/upgrade/do"
+        };
+    }
+    rpc GetStorageClasses(google.protobuf.Empty) returns(StorageClassResponse) {
+        option (google.api.http) = {
+            get: "/logging/storageclasses"
         };
     }
 }
@@ -76,4 +81,8 @@ message DashboardsDetails {
 
 message UpgradeAvailableResponse {
     bool UpgradePending = 1;
+}
+
+message StorageClassResponse {
+    repeated string StorageClasses = 1;
 }

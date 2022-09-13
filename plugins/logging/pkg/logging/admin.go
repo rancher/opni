@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	storagev1 "k8s.io/kubernetes/pkg/apis/storage"
 	opsterv1 "opensearch.opster.io/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -246,6 +247,22 @@ func (p *Plugin) DoUpgrade(context.Context, *emptypb.Empty) (*emptypb.Empty, err
 	})
 
 	return &emptypb.Empty{}, err
+}
+
+func (p *Plugin) GetStorageClasses(ctx context.Context, in *emptypb.Empty) (*loggingadmin.StorageClassResponse, error) {
+	storageClasses := &storagev1.StorageClassList{}
+	if err := p.k8sClient.List(ctx, storageClasses); err != nil {
+		return nil, err
+	}
+
+	storageClassNames := make([]string, len(storageClasses.Items))
+	for _, storageClass := range storageClasses.Items {
+		storageClassNames = append(storageClassNames, storageClass.Name)
+	}
+
+	return &loggingadmin.StorageClassResponse{
+		StorageClasses: storageClassNames,
+	}, nil
 }
 
 func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.OpensearchNodeDetails, error) {

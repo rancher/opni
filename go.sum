@@ -260,10 +260,6 @@ github.com/alecthomas/units v0.0.0-20210208195552-ff826a37aa15/go.mod h1:OMCwj8V
 github.com/alecthomas/units v0.0.0-20210927113745-59d0afb8317a/go.mod h1:OMCwj8VM1Kc9e19TLln2VL61YJF0x1XFtfdL4JdbSyE=
 github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 h1:s6gZFSlWYmbqAuRjVTiNNhvNRfY2Wxp9nhfyel4rklc=
 github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137/go.mod h1:OMCwj8VM1Kc9e19TLln2VL61YJF0x1XFtfdL4JdbSyE=
-github.com/alexandreLamarre/oslo v0.4.1-0.20220622183136-9097b55785d9 h1:gj8xKfjkPuMZiz/3rRyEqFk5lHXt/t76f0aTkyD/CBw=
-github.com/alexandreLamarre/oslo v0.4.1-0.20220622183136-9097b55785d9/go.mod h1:ogDEYGwkqCarEMhSFcd31LMU//nmxuHSCrBW1B409qI=
-github.com/alexandreLamarre/sloth v0.11.1-0.20220621184403-416cfe52767a h1:UxgguUFkxSFN+aZoJyvyTegcP1HqXdVeRj1gbV2KATw=
-github.com/alexandreLamarre/sloth v0.11.1-0.20220621184403-416cfe52767a/go.mod h1:5zIH7+VgAiYnT6yEzzPjplOzezthRfiRQ+iTrDtZzG8=
 github.com/alexflint/go-filemutex v0.0.0-20171022225611-72bdc8eae2ae/go.mod h1:CgnQgUtFrFz9mxFNtED3jI5tLDjKlOM+oUF/sTk6ps0=
 github.com/alexflint/go-filemutex v1.1.0/go.mod h1:7P4iRhttt/nUvUOrYIhcpMzv2G6CY9UnI16Z+UJqRyk=
 github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a h1:HbKu58rmZpUGpz5+4FfNmIU+FmZg2P3Xaj2v2bfNWmk=
@@ -1860,8 +1856,6 @@ github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220602163320-c4f349ffe03f h1:
 github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220602163320-c4f349ffe03f/go.mod h1:XV6jHHGx7m9vDzCVklAw4KHJaUsZhfCmQx9PqN7UWL8=
 github.com/kralicky/grpc-gateway/v2 v2.11.0-1 h1:2MFkegf/TH5G+tS1Zg6RH7Fbfnpa/7xO0m0JFIcerCI=
 github.com/kralicky/grpc-gateway/v2 v2.11.0-1/go.mod h1:NrASbA855UMefvjwka3KcBNlb0PE24Yy8V00gTEsM9E=
-github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a h1:I5tncrQ/dxOPY7jNN5hhubtkpvoIhz4qckT62C0kdTQ=
-github.com/kralicky/highlander v0.0.0-20210804214334-9cfe339efd8a/go.mod h1:ie5ARlfZVi2fyaApaZ/5JFhIs5DaIIFKxwM6rjYa8SE=
 github.com/kralicky/kmatch v0.0.0-20220710233303-ed73989bbe4a/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
 github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e h1:0HTOxNxXnJy4EV0zRWr37D/N6xWLdQ1GjtgLpts30jw=
 github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e/go.mod h1:GIlN+uSFeISHISm+32UmNce20rNVC5q1Jyz5Wg05cEw=
@@ -2740,8 +2734,6 @@ github.com/tinylib/msgp v1.1.2/go.mod h1:+d+yLhGm8mzTaHzB+wgMYrodPfmZrzkirds8fDW
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
-github.com/traefik/yaegi v0.12.0 h1:1gSdARfQ5JB/yEvwEyy9e0AOyLuJrocGiDfkTftQpEo=
-github.com/traefik/yaegi v0.12.0/go.mod h1:RuCwD8/wsX7b6KoQHOaIFUfuH3gQIK4KWnFFmJMw5VA=
 github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31 h1:OXcKh35JaYsGMRzpvFkLv/MEyPuL49CThT1pZ8aSml4=
 github.com/ttacon/chalk v0.0.0-20160626202418-22c06c80ed31/go.mod h1:onvgF043R+lC5RZ8IT9rBXDaEDnpnw/Cl+HFiw+v/7Q=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=
@@ -3438,7 +3430,6 @@ golang.org/x/sys v0.0.0-20211025201205-69cdffdb9359/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.0.0-20211029165221-6e7872819dc8/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20211116061358-0a5406a5449c/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20211124211545-fe61309f8881/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.0.0-20211205182925-97ca703d548d/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20211210111614-af8b64212486/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220114195835-da31bd327af9/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
@@ -4027,6 +4018,7 @@ k8s.io/kubectl v0.20.4/go.mod h1:yCC5lUQyXRmmtwyxfaakryh9ezzp/bT0O14LeoFLbGo=
 k8s.io/kubectl v0.22.1/go.mod h1:mjAOgEbMNMtZWxnfM6jd+nPjPsaoLqO5xanc78WcSbw=
 k8s.io/kubectl v0.24.3 h1:PqY8ho/S/KuE2/hCC3Iee7X+lOtARYo0LQsNzvV/edE=
 k8s.io/kubectl v0.24.3/go.mod h1:PYLcvw96sC1NLbxZEDbdlOEd6/C76VIWjGmWV5QjSk0=
+k8s.io/kubernetes v1.13.0 h1:qTfB+u5M92k2fCCCVP2iuhgwwSOv1EkAkvQY1tQODD8=
 k8s.io/kubernetes v1.13.0/go.mod h1:ocZa8+6APFNC2tX1DZASIbocyYT5jHzqFVsY5aoB7Jk=
 k8s.io/metrics v0.19.4/go.mod h1:a0gvAzrxQPw2ouBqnXI7X9qlggpPkKAFgWU/Py+KZiU=
 k8s.io/metrics v0.20.4/go.mod h1:DDXS+Ls+2NAxRcVhXKghRPa3csljyJRjDRjPe6EOg/g=
@@ -4073,7 +4065,6 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.22/go.mod h1:LEScyz
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.25/go.mod h1:Mlj9PNLmG9bZ6BHFwFKDo5afkpWyUISkb9Me0GnK66I=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.30/go.mod h1:fEO7lRTdivWO2qYVCVG7dEADOMo/MLDCVr8So2g88Uw=
 sigs.k8s.io/controller-runtime v0.7.0/go.mod h1:pJ3YBrJiAqMAZKi6UVGuE98ZrroV1p+pIhoHsMm9wdU=
-sigs.k8s.io/controller-runtime v0.9.5/go.mod h1:q6PpkM5vqQubEKUKOM6qr06oXGzOBcCby1DA9FbyZeA=
 sigs.k8s.io/controller-runtime v0.9.6/go.mod h1:q6PpkM5vqQubEKUKOM6qr06oXGzOBcCby1DA9FbyZeA=
 sigs.k8s.io/controller-runtime v0.11.0/go.mod h1:KKwLiTooNGu+JmLZGn9Sl3Gjmfj66eMbCQznLP5zcqA=
 sigs.k8s.io/controller-runtime v0.11.1 h1:7YIHT2QnHJArj/dk9aUkYhfqfK5cIxPOX5gPECfdZLU=

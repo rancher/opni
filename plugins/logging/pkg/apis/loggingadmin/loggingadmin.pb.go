@@ -434,6 +434,53 @@ func (x *UpgradeAvailableResponse) GetUpgradePending() bool {
 	return false
 }
 
+type StorageClassResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	StorageClasses []string `protobuf:"bytes,1,rep,name=StorageClasses,proto3" json:"StorageClasses,omitempty"`
+}
+
+func (x *StorageClassResponse) Reset() {
+	*x = StorageClassResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *StorageClassResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StorageClassResponse) ProtoMessage() {}
+
+func (x *StorageClassResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StorageClassResponse.ProtoReflect.Descriptor instead.
+func (*StorageClassResponse) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *StorageClassResponse) GetStorageClasses() []string {
+	if x != nil {
+		return x.StorageClasses
+	}
+	return nil
+}
+
 var File_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto protoreflect.FileDescriptor
 
 var file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_rawDesc = []byte{
@@ -535,7 +582,11 @@ var file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingad
 	0x72, 0x61, 0x64, 0x65, 0x41, 0x76, 0x61, 0x69, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x52, 0x65, 0x73,
 	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x26, 0x0a, 0x0e, 0x55, 0x70, 0x67, 0x72, 0x61, 0x64, 0x65,
 	0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0e, 0x55,
-	0x70, 0x67, 0x72, 0x61, 0x64, 0x65, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x32, 0xa9, 0x04,
+	0x70, 0x67, 0x72, 0x61, 0x64, 0x65, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x22, 0x3e, 0x0a,
+	0x14, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x43, 0x6c, 0x61, 0x73, 0x73, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x26, 0x0a, 0x0e, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65,
+	0x43, 0x6c, 0x61, 0x73, 0x73, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x0e, 0x53,
+	0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x43, 0x6c, 0x61, 0x73, 0x73, 0x65, 0x73, 0x32, 0x9b, 0x05,
 	0x0a, 0x0c, 0x4c, 0x6f, 0x67, 0x67, 0x69, 0x6e, 0x67, 0x41, 0x64, 0x6d, 0x69, 0x6e, 0x12, 0x69,
 	0x0a, 0x14, 0x47, 0x65, 0x74, 0x4f, 0x70, 0x65, 0x6e, 0x73, 0x65, 0x61, 0x72, 0x63, 0x68, 0x43,
 	0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x12, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e,
@@ -570,12 +621,19 @@ var file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingad
 	0x6d, 0x70, 0x74, 0x79, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72,
 	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x1b, 0x82, 0xd3,
 	0xe4, 0x93, 0x02, 0x15, 0x22, 0x13, 0x2f, 0x6c, 0x6f, 0x67, 0x67, 0x69, 0x6e, 0x67, 0x2f, 0x75,
-	0x70, 0x67, 0x72, 0x61, 0x64, 0x65, 0x2f, 0x64, 0x6f, 0x42, 0x3f, 0x5a, 0x3d, 0x67, 0x69, 0x74,
-	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65, 0x72, 0x2f,
-	0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x2f, 0x6c, 0x6f, 0x67,
-	0x67, 0x69, 0x6e, 0x67, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f, 0x6c, 0x6f,
-	0x67, 0x67, 0x69, 0x6e, 0x67, 0x61, 0x64, 0x6d, 0x69, 0x6e, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x33,
+	0x70, 0x67, 0x72, 0x61, 0x64, 0x65, 0x2f, 0x64, 0x6f, 0x12, 0x70, 0x0a, 0x11, 0x47, 0x65, 0x74,
+	0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x43, 0x6c, 0x61, 0x73, 0x73, 0x65, 0x73, 0x12, 0x16,
+	0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66,
+	0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x22, 0x2e, 0x6c, 0x6f, 0x67, 0x67, 0x69, 0x6e, 0x67,
+	0x61, 0x64, 0x6d, 0x69, 0x6e, 0x2e, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x43, 0x6c, 0x61,
+	0x73, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1f, 0x82, 0xd3, 0xe4, 0x93,
+	0x02, 0x19, 0x12, 0x17, 0x2f, 0x6c, 0x6f, 0x67, 0x67, 0x69, 0x6e, 0x67, 0x2f, 0x73, 0x74, 0x6f,
+	0x72, 0x61, 0x67, 0x65, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x65, 0x73, 0x42, 0x3f, 0x5a, 0x3d, 0x67,
+	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x65,
+	0x72, 0x2f, 0x6f, 0x70, 0x6e, 0x69, 0x2f, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x73, 0x2f, 0x6c,
+	0x6f, 0x67, 0x67, 0x69, 0x6e, 0x67, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x73, 0x2f,
+	0x6c, 0x6f, 0x67, 0x67, 0x69, 0x6e, 0x67, 0x61, 0x64, 0x6d, 0x69, 0x6e, 0x62, 0x06, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -590,7 +648,7 @@ func file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_logginga
 	return file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_rawDescData
 }
 
-var file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_goTypes = []interface{}{
 	(*OpensearchCluster)(nil),        // 0: loggingadmin.OpensearchCluster
 	(*DataPersistence)(nil),          // 1: loggingadmin.DataPersistence
@@ -598,31 +656,34 @@ var file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingad
 	(*OpensearchNodeDetails)(nil),    // 3: loggingadmin.OpensearchNodeDetails
 	(*DashboardsDetails)(nil),        // 4: loggingadmin.DashboardsDetails
 	(*UpgradeAvailableResponse)(nil), // 5: loggingadmin.UpgradeAvailableResponse
-	nil,                              // 6: loggingadmin.OpensearchNodeDetails.NodeSelectorEntry
-	(*v1.Toleration)(nil),            // 7: k8s.io.api.core.v1.Toleration
-	(*v1.ResourceRequirements)(nil),  // 8: k8s.io.api.core.v1.ResourceRequirements
-	(*emptypb.Empty)(nil),            // 9: google.protobuf.Empty
+	(*StorageClassResponse)(nil),     // 6: loggingadmin.StorageClassResponse
+	nil,                              // 7: loggingadmin.OpensearchNodeDetails.NodeSelectorEntry
+	(*v1.Toleration)(nil),            // 8: k8s.io.api.core.v1.Toleration
+	(*v1.ResourceRequirements)(nil),  // 9: k8s.io.api.core.v1.ResourceRequirements
+	(*emptypb.Empty)(nil),            // 10: google.protobuf.Empty
 }
 var file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_depIdxs = []int32{
 	3,  // 0: loggingadmin.OpensearchCluster.NodePools:type_name -> loggingadmin.OpensearchNodeDetails
 	4,  // 1: loggingadmin.OpensearchCluster.Dashboards:type_name -> loggingadmin.DashboardsDetails
 	2,  // 2: loggingadmin.OpensearchNodeDetails.CPUResources:type_name -> loggingadmin.CPUResource
-	6,  // 3: loggingadmin.OpensearchNodeDetails.NodeSelector:type_name -> loggingadmin.OpensearchNodeDetails.NodeSelectorEntry
-	7,  // 4: loggingadmin.OpensearchNodeDetails.Tolerations:type_name -> k8s.io.api.core.v1.Toleration
+	7,  // 3: loggingadmin.OpensearchNodeDetails.NodeSelector:type_name -> loggingadmin.OpensearchNodeDetails.NodeSelectorEntry
+	8,  // 4: loggingadmin.OpensearchNodeDetails.Tolerations:type_name -> k8s.io.api.core.v1.Toleration
 	1,  // 5: loggingadmin.OpensearchNodeDetails.Persistence:type_name -> loggingadmin.DataPersistence
-	8,  // 6: loggingadmin.DashboardsDetails.Resources:type_name -> k8s.io.api.core.v1.ResourceRequirements
-	9,  // 7: loggingadmin.LoggingAdmin.GetOpensearchCluster:input_type -> google.protobuf.Empty
-	9,  // 8: loggingadmin.LoggingAdmin.DeleteOpensearchCluster:input_type -> google.protobuf.Empty
+	9,  // 6: loggingadmin.DashboardsDetails.Resources:type_name -> k8s.io.api.core.v1.ResourceRequirements
+	10, // 7: loggingadmin.LoggingAdmin.GetOpensearchCluster:input_type -> google.protobuf.Empty
+	10, // 8: loggingadmin.LoggingAdmin.DeleteOpensearchCluster:input_type -> google.protobuf.Empty
 	0,  // 9: loggingadmin.LoggingAdmin.CreateOrUpdateOpensearchCluster:input_type -> loggingadmin.OpensearchCluster
-	9,  // 10: loggingadmin.LoggingAdmin.UpgradeAvailable:input_type -> google.protobuf.Empty
-	9,  // 11: loggingadmin.LoggingAdmin.DoUpgrade:input_type -> google.protobuf.Empty
-	0,  // 12: loggingadmin.LoggingAdmin.GetOpensearchCluster:output_type -> loggingadmin.OpensearchCluster
-	9,  // 13: loggingadmin.LoggingAdmin.DeleteOpensearchCluster:output_type -> google.protobuf.Empty
-	9,  // 14: loggingadmin.LoggingAdmin.CreateOrUpdateOpensearchCluster:output_type -> google.protobuf.Empty
-	5,  // 15: loggingadmin.LoggingAdmin.UpgradeAvailable:output_type -> loggingadmin.UpgradeAvailableResponse
-	9,  // 16: loggingadmin.LoggingAdmin.DoUpgrade:output_type -> google.protobuf.Empty
-	12, // [12:17] is the sub-list for method output_type
-	7,  // [7:12] is the sub-list for method input_type
+	10, // 10: loggingadmin.LoggingAdmin.UpgradeAvailable:input_type -> google.protobuf.Empty
+	10, // 11: loggingadmin.LoggingAdmin.DoUpgrade:input_type -> google.protobuf.Empty
+	10, // 12: loggingadmin.LoggingAdmin.GetStorageClasses:input_type -> google.protobuf.Empty
+	0,  // 13: loggingadmin.LoggingAdmin.GetOpensearchCluster:output_type -> loggingadmin.OpensearchCluster
+	10, // 14: loggingadmin.LoggingAdmin.DeleteOpensearchCluster:output_type -> google.protobuf.Empty
+	10, // 15: loggingadmin.LoggingAdmin.CreateOrUpdateOpensearchCluster:output_type -> google.protobuf.Empty
+	5,  // 16: loggingadmin.LoggingAdmin.UpgradeAvailable:output_type -> loggingadmin.UpgradeAvailableResponse
+	10, // 17: loggingadmin.LoggingAdmin.DoUpgrade:output_type -> google.protobuf.Empty
+	6,  // 18: loggingadmin.LoggingAdmin.GetStorageClasses:output_type -> loggingadmin.StorageClassResponse
+	13, // [13:19] is the sub-list for method output_type
+	7,  // [7:13] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
 	7,  // [7:7] is the sub-list for extension extendee
 	0,  // [0:7] is the sub-list for field type_name
@@ -708,6 +769,18 @@ func file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_logginga
 				return nil
 			}
 		}
+		file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*StorageClassResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_msgTypes[0].OneofWrappers = []interface{}{}
 	file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_msgTypes[1].OneofWrappers = []interface{}{}
@@ -719,7 +792,7 @@ func file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_logginga
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_rancher_opni_plugins_logging_pkg_apis_loggingadmin_loggingadmin_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

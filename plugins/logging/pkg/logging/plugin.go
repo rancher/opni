@@ -8,8 +8,8 @@ import (
 
 	"github.com/dbason/featureflags"
 	osclient "github.com/opensearch-project/opensearch-go"
-	loggingv1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	opniv1beta2 "github.com/rancher/opni/apis/v1beta2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"

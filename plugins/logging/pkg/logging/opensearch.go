@@ -15,21 +15,25 @@ import (
 func (p *Plugin) GetDetails(ctx context.Context, cluster *opensearch.ClusterReference) (*opensearch.OpensearchDetails, error) {
 
 	// Get the external URL
-	binding := &loggingv1beta1.MulticlusterRoleBinding{}
-	opnimgmt := &loggingv1beta1.OpniOpensearch{}
+	var binding *loggingv1beta1.MulticlusterRoleBinding
+	var opnimgmt *loggingv1beta1.OpniOpensearch
 
 	if p.manageFlag.IsEnabled() {
+		opnimgmt = &loggingv1beta1.OpniOpensearch{}
 		if err := p.k8sClient.Get(ctx, types.NamespacedName{
 			Name:      p.opensearchCluster.Name,
 			Namespace: p.storageNamespace,
 		}, opnimgmt); err != nil {
+			p.logger.Errorf("unable to fetch opniopensearch object: %v", err)
 			return nil, err
 		}
 	} else {
+		binding = &loggingv1beta1.MulticlusterRoleBinding{}
 		if err := p.k8sClient.Get(ctx, types.NamespacedName{
 			Name:      OpensearchBindingName,
 			Namespace: p.storageNamespace,
 		}, binding); err != nil {
+			p.logger.Errorf("unable to fetch binding object: %v", err)
 			return nil, err
 		}
 	}
@@ -39,17 +43,27 @@ func (p *Plugin) GetDetails(ctx context.Context, cluster *opensearch.ClusterRefe
 	}
 	secrets := &corev1.SecretList{}
 	if err := p.k8sClient.List(ctx, secrets, client.InNamespace(p.storageNamespace), client.MatchingLabels(labels)); err != nil {
+		p.logger.Errorf("unable to list secrets: %v", err)
 		return nil, err
 	}
 
 	if len(secrets.Items) != 1 {
+		p.logger.Error("no credential secrets found")
 		return nil, ErrGetDetailsInvalidList(cluster.AuthorizedClusterID)
 	}
 
 	return &opensearch.OpensearchDetails{
-		Username:       secrets.Items[0].Name,
-		Password:       string(secrets.Items[0].Data["password"]),
-		ExternalURL:    binding.Spec.OpensearchExternalURL,
+		Username: secrets.Items[0].Name,
+		Password: string(secrets.Items[0].Data["password"]),
+		ExternalURL: func() string {
+			if binding != nil {
+				return binding.Spec.OpensearchExternalURL
+			}
+			if opnimgmt != nil {
+				return opnimgmt.Spec.ExternalURL
+			}
+			return ""
+		}(),
 		TracingEnabled: features.FeatureList.FeatureIsEnabled("tracing"),
 	}, nil
 }

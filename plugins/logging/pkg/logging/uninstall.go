@@ -237,6 +237,8 @@ func (a *UninstallTaskRunner) doClusterDataDelete(ctx context.Context, id string
 			},
 			strings.NewReader(query),
 			a.opensearchClient.Get().DeleteByQuery.WithWaitForCompletion(false),
+			a.opensearchClient.Get().DeleteByQuery.WithRefresh(true),
+			a.opensearchClient.Get().DeleteByQuery.WithSearchType("dfs_query_then_fetch"),
 			a.opensearchClient.Get().DeleteByQuery.WithContext(ctx),
 		)
 		if err != nil {

@@ -503,31 +503,10 @@ rules:
   - patch
   - update
 - apiGroups:
-  - logging.opni.io
-  resources:
-  - '*'
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ai.opni.io
-  resources:
-  - '*'
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - core.opni.io
+  - logging.opni.io
+  - monitoring.opni.io
+  - ai.opni.io
   resources:
   - '*'
   verbs:

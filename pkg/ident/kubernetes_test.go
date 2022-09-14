@@ -20,7 +20,7 @@ var _ = Describe("Kubernetes", Ordered, Label("unit", "slow"), func() {
 			TestBin: "../../testbin/bin",
 		}
 		var err error
-		restConfig, err = env.StartK8s()
+		restConfig, _, err = env.StartK8s()
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(env.Stop)
 	})

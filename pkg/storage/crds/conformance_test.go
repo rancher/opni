@@ -27,7 +27,7 @@ var _ = BeforeSuite(func() {
 			"../../../config/crd/bases",
 		},
 	}
-	config, err := env.StartK8s()
+	config, _, err := env.StartK8s()
 	Expect(err).NotTo(HaveOccurred())
 
 	store.Set(crds.NewCRDStore(crds.WithRestConfig(config), crds.WithCommandTimeout(1*time.Second)))

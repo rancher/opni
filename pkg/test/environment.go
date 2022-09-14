@@ -36,6 +36,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -341,7 +342,7 @@ func (e *Environment) Context() context.Context {
 	return e.ctx
 }
 
-func (e *Environment) StartK8s() (*rest.Config, error) {
+func (e *Environment) StartK8s() (*rest.Config, *runtime.Scheme, error) {
 	e.initCtx()
 	e.Processes.APIServer = future.New[*os.Process]()
 
@@ -377,7 +378,7 @@ func (e *Environment) StartK8s() (*rest.Config, error) {
 
 	cfg, err := e.k8sEnv.Start()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	pid := os.Getpid()
 	threads, err := os.ReadDir(fmt.Sprintf("/proc/%d/task/", pid))
@@ -418,7 +419,7 @@ func (e *Environment) StartK8s() (*rest.Config, error) {
 		panic(err)
 	}
 	e.Processes.APIServer.Set(proc)
-	return cfg, nil
+	return cfg, scheme, nil
 }
 
 func (e *Environment) StartManager(restConfig *rest.Config, reconcilers ...Reconciler) ctrl.Manager {

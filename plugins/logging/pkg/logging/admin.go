@@ -165,6 +165,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 					}
 					return util.Version
 				}(),
+				ImageRepo: "docker.io/rancher",
 			},
 		}
 
@@ -510,7 +511,7 @@ func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, cluster
 			if err != nil {
 				return opsterv1.NodePool{}, err
 			}
-			resources.Requests[corev1.ResourceCPU] = limit
+			resources.Limits[corev1.ResourceCPU] = limit
 		}
 	}
 

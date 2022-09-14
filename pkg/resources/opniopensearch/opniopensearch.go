@@ -96,11 +96,17 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 }
 
 func (r *Reconciler) buildOpensearchCluster() *opsterv1.OpenSearchCluster {
+	// Set default image version
+	version := r.spec.Version
+	if version == "unversioned" {
+		version = "0.5.4"
+	}
+
 	image := fmt.Sprintf(
 		"%s/opensearch:%s-%s",
 		r.spec.ImageRepo,
 		r.spec.OpensearchVersion,
-		r.spec.Version,
+		version,
 	)
 	cluster := &opsterv1.OpenSearchCluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -112,7 +118,7 @@ func (r *Reconciler) buildOpensearchCluster() *opsterv1.OpenSearchCluster {
 				ImageSpec: &opsterv1.ImageSpec{
 					Image: &image,
 				},
-				Version:          r.spec.Version,
+				Version:          r.spec.OpensearchVersion,
 				ServiceName:      fmt.Sprintf("%s-opensearch-svc", r.instanceName),
 				HttpPort:         9200,
 				SetVMMaxMapCount: true,

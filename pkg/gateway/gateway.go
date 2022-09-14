@@ -10,6 +10,15 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/samber/lo"
+	"go.uber.org/zap"
+	"golang.org/x/mod/module"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/noop"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -36,14 +45,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
-	"github.com/samber/lo"
-	"go.uber.org/zap"
-	"golang.org/x/mod/module"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Gateway struct {
@@ -207,14 +208,14 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-		services, err := ext.Services(ctx, &emptypb.Empty{})
-		if err != nil {
-			lg.With(
-				zap.Error(err),
-				"plugin", md.Module,
-			).Error("failed to load stream services from plugin")
-		}
-		if err := streamSvc.AddRemote(cc, services); err != nil {
+		// services, err := ext.Services(ctx, &emptypb.Empty{})
+		// if err != nil {
+		// 	lg.With(
+		// 		zap.Error(err),
+		// 		"plugin", md.Module,
+		// 	).Error("failed to load stream services from plugin")
+		// }
+		if err := streamSvc.AddRemote(cc); err != nil {
 			lg.With(
 				zap.Error(err),
 				"plugin", md.Module,

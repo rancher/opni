@@ -197,7 +197,6 @@ var HTTPAPIExtension_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StreamAPIExtensionClient interface {
-	Services(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceDescriptorList, error)
 }
 
 type streamAPIExtensionClient struct {
@@ -208,20 +207,10 @@ func NewStreamAPIExtensionClient(cc grpc.ClientConnInterface) StreamAPIExtension
 	return &streamAPIExtensionClient{cc}
 }
 
-func (c *streamAPIExtensionClient) Services(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceDescriptorList, error) {
-	out := new(ServiceDescriptorList)
-	err := c.cc.Invoke(ctx, "/apiextensions.StreamAPIExtension/Services", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // StreamAPIExtensionServer is the server API for StreamAPIExtension service.
 // All implementations must embed UnimplementedStreamAPIExtensionServer
 // for forward compatibility
 type StreamAPIExtensionServer interface {
-	Services(context.Context, *emptypb.Empty) (*ServiceDescriptorList, error)
 	mustEmbedUnimplementedStreamAPIExtensionServer()
 }
 
@@ -229,9 +218,6 @@ type StreamAPIExtensionServer interface {
 type UnimplementedStreamAPIExtensionServer struct {
 }
 
-func (UnimplementedStreamAPIExtensionServer) Services(context.Context, *emptypb.Empty) (*ServiceDescriptorList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Services not implemented")
-}
 func (UnimplementedStreamAPIExtensionServer) mustEmbedUnimplementedStreamAPIExtensionServer() {}
 
 // UnsafeStreamAPIExtensionServer may be embedded to opt out of forward compatibility for this service.
@@ -245,38 +231,15 @@ func RegisterStreamAPIExtensionServer(s grpc.ServiceRegistrar, srv StreamAPIExte
 	s.RegisterService(&StreamAPIExtension_ServiceDesc, srv)
 }
 
-func _StreamAPIExtension_Services_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(StreamAPIExtensionServer).Services(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/apiextensions.StreamAPIExtension/Services",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StreamAPIExtensionServer).Services(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // StreamAPIExtension_ServiceDesc is the grpc.ServiceDesc for StreamAPIExtension service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var StreamAPIExtension_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "apiextensions.StreamAPIExtension",
 	HandlerType: (*StreamAPIExtensionServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Services",
-			Handler:    _StreamAPIExtension_Services_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "github.com/rancher/opni/pkg/plugins/apis/apiextensions/apiextensions.proto",
+	Methods:     []grpc.MethodDesc{},
+	Streams:     []grpc.StreamDesc{},
+	Metadata:    "github.com/rancher/opni/pkg/plugins/apis/apiextensions/apiextensions.proto",
 }
 
 // UnaryAPIExtensionClient is the client API for UnaryAPIExtension service.

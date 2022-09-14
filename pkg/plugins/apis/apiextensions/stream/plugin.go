@@ -68,6 +68,8 @@ func (p *streamApiExtensionPlugin) GRPCClient(
 	broker *plugin.GRPCBroker,
 	c *grpc.ClientConn,
 ) (interface{}, error) {
+	// TODO: need to check for stream service availability, otherwise we get 'unknown service stream.Stream' errors
+	// which are not very helpful in debugging
 	if err := plugins.CheckAvailability(ctx, c, ServiceID); err != nil {
 		return nil, err
 	}
@@ -84,8 +86,9 @@ func NewPlugin(p StreamAPIExtension) plugin.Plugin {
 	}
 
 	ext := &streamExtensionServerImpl{
-		name:   name,
-		logger: logger.NewPluginLogger().Named("stream"),
+		name:             name,
+		logger:           logger.NewPluginLogger().Named(name).Named("stream"),
+		streamClientCond: sync.NewCond(&sync.Mutex{}),
 	}
 	if p != nil {
 		servers := p.StreamServers()
@@ -116,7 +119,7 @@ type streamExtensionServerImpl struct {
 	clientHandler StreamClientHandler
 	logger        *zap.SugaredLogger
 
-	streamClientLock sync.RWMutex
+	streamClientCond *sync.Cond
 	streamClient     grpc.ClientConnInterface
 }
 
@@ -125,6 +128,7 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 	e.logger.Debug("stream connected")
 	ts, err := totem.NewServer(stream, totem.WithName("plugin_"+e.name))
 	if err != nil {
+		e.logger.Error(err)
 		return err
 	}
 	for _, srv := range e.servers {
@@ -134,14 +138,18 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 	cc, errC := ts.Serve()
 	e.logger.Debug("totem server started")
 
-	e.streamClientLock.Lock()
+	e.streamClientCond.L.Lock()
+	e.logger.Debug("stream client set")
 	e.streamClient = cc
-	e.streamClientLock.Unlock()
+	e.streamClientCond.L.Unlock()
+	e.streamClientCond.Broadcast()
 
 	defer func() {
-		e.streamClientLock.Lock()
+		e.streamClientCond.L.Lock()
+		e.logger.Debug("stream client unset")
 		e.streamClient = nil
-		e.streamClientLock.Unlock()
+		e.streamClientCond.L.Unlock()
+		e.streamClientCond.Broadcast()
 	}()
 	// if e.clientHandler != nil {
 	// 	go e.clientHandler.UseStreamClient(e.)
@@ -172,13 +180,18 @@ func (e *streamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.
 	switch event.Type {
 	case streamv1.EventType_DiscoveryComplete:
 		e.logger.Debug("processing discovery complete event")
-		e.streamClientLock.RLock()
-		defer e.streamClientLock.RUnlock()
+		e.streamClientCond.L.Lock()
+		for e.streamClient == nil {
+			e.logger.Debug("waiting for stream client to connect")
+			e.streamClientCond.Wait()
+		}
+		defer e.streamClientCond.L.Unlock()
+
 		if e.clientHandler != nil && e.streamClient != nil {
 			e.logger.Debug("calling client handler")
 			go e.clientHandler.UseStreamClient(e.streamClient)
 		} else {
-			e.logger.Debug("no client handler or stream client")
+			e.logger.Warn("bug: no client handler or stream client")
 		}
 	}
 	return &emptypb.Empty{}, nil

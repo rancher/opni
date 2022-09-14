@@ -3,6 +3,9 @@ option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/node";
 
 import "google/protobuf/empty.proto";
 import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";
+import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
+
+package node;
 
 service NodeMetricsCapability {
   rpc Sync(SyncRequest) returns (SyncResponse);
@@ -15,14 +18,8 @@ message MetricsCapabilityConfig {
   // TODO: add config options for metrics capability here
 }
 
-message MetricsCapabilityStatus {
-  optional string error = 1;
-  repeated string conditions = 2;
-}
-
 message SyncRequest {
   MetricsCapabilityConfig currentConfig = 1;
-  MetricsCapabilityStatus currentStatus = 2;
 }
 
 enum ConfigStatus {

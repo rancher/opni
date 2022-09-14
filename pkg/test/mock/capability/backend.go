@@ -411,46 +411,6 @@ func (m *MockNodeClient) EXPECT() *MockNodeClientMockRecorder {
 	return m.recorder
 }
 
-// Info mocks base method.
-func (m *MockNodeClient) Info(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.InfoResponse, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, in}
-	for _, a := range opts {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "Info", varargs...)
-	ret0, _ := ret[0].(*v1.InfoResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Info indicates an expected call of Info.
-func (mr *MockNodeClientMockRecorder) Info(ctx, in interface{}, opts ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockNodeClient)(nil).Info), varargs...)
-}
-
-// Status mocks base method.
-func (m *MockNodeClient) Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*v1.NodeCapabilityStatus, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, in}
-	for _, a := range opts {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "Status", varargs...)
-	ret0, _ := ret[0].(*v1.NodeCapabilityStatus)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Status indicates an expected call of Status.
-func (mr *MockNodeClientMockRecorder) Status(ctx, in interface{}, opts ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockNodeClient)(nil).Status), varargs...)
-}
-
 // SyncNow mocks base method.
 func (m *MockNodeClient) SyncNow(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	m.ctrl.T.Helper()
@@ -492,36 +452,6 @@ func NewMockNodeServer(ctrl *gomock.Controller) *MockNodeServer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNodeServer) EXPECT() *MockNodeServerMockRecorder {
 	return m.recorder
-}
-
-// Info mocks base method.
-func (m *MockNodeServer) Info(arg0 context.Context, arg1 *emptypb.Empty) (*v1.InfoResponse, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Info", arg0, arg1)
-	ret0, _ := ret[0].(*v1.InfoResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Info indicates an expected call of Info.
-func (mr *MockNodeServerMockRecorder) Info(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockNodeServer)(nil).Info), arg0, arg1)
-}
-
-// Status mocks base method.
-func (m *MockNodeServer) Status(arg0 context.Context, arg1 *emptypb.Empty) (*v1.NodeCapabilityStatus, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status", arg0, arg1)
-	ret0, _ := ret[0].(*v1.NodeCapabilityStatus)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Status indicates an expected call of Status.
-func (mr *MockNodeServerMockRecorder) Status(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockNodeServer)(nil).Status), arg0, arg1)
 }
 
 // SyncNow mocks base method.

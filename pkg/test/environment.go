@@ -1282,7 +1282,69 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	signal.Notify(c, os.Interrupt)
 	iPort, _ = environment.StartInstrumentationServer(context.Background())
 	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)
-	Log.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
+	Log.Info(chalk.Blue.Color("Press (ctrl+c) or (q) to stop test environment"))
+	var client managementv1.ManagementClient
+	if options.enableGateway {
+		client = environment.NewManagementClient()
+	} else if agentOptions.remoteKubeconfig != "" {
+		// c, err := util.NewK8sClient(util.ClientOptions{
+		// 	Kubeconfig: &agentOptions.remoteKubeconfig,
+		// })
+		// if err != nil {
+		// 	panic(err)
+		// }
+		// port-forward to service/opni-monitoring-internal:11090
+
+	}
+
+	handleKey := func(rn rune) {
+		switch rn {
+		case ' ':
+			go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb))
+		case 'q':
+			signal.Stop(c)
+			close(c)
+		case 'a', 'A':
+			go func() {
+				bt, err := client.CreateBootstrapToken(environment.ctx, &managementv1.CreateBootstrapTokenRequest{
+					Ttl: durationpb.New(1 * time.Minute),
+				})
+				if err != nil {
+					Log.Error(err)
+					return
+				}
+				token, err := tokens.FromBootstrapToken(bt)
+				if err != nil {
+					Log.Error(err)
+					return
+				}
+				certInfo, err := client.CertsInfo(environment.ctx, &emptypb.Empty{})
+				if err != nil {
+					Log.Error(err)
+					return
+				}
+				var version string
+				switch rn {
+				case 'a':
+					version = "v1"
+				case 'A':
+					version = "v2"
+				}
+				resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.ports.TestEnvironment), "application/json",
+					strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"], "version": "%s"}`,
+						token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint, version)))
+				if err != nil {
+					Log.Error(err)
+					return
+				}
+				if resp.StatusCode != http.StatusOK {
+					Log.Errorf("%s", resp.Status)
+					return
+				}
+			}()
+		}
+	}
+
 	// listen for spacebar on stdin
 	t, err := tty.Open()
 	if err == nil {
@@ -1290,20 +1352,8 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 			Log.Info(chalk.Blue.Color("Press (space) to open the web dashboard"))
 		}
 		if options.enableGateway || agentOptions.remoteKubeconfig != "" {
-			Log.Info(chalk.Blue.Color("Press (a) to launch a new agent"))
-		}
-		var client managementv1.ManagementClient
-		if options.enableGateway {
-			client = environment.NewManagementClient()
-		} else if agentOptions.remoteKubeconfig != "" {
-			// c, err := util.NewK8sClient(util.ClientOptions{
-			// 	Kubeconfig: &agentOptions.remoteKubeconfig,
-			// })
-			// if err != nil {
-			// 	panic(err)
-			// }
-			// port-forward to service/opni-monitoring-internal:11090
-
+			Log.Info(chalk.Blue.Color("Press (a) to launch a new v1 agent"))
+			Log.Info(chalk.Blue.Color("Press (A) to launch a new v2 agent"))
 		}
 		go func() {
 			for {
@@ -1311,51 +1361,28 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				if err != nil {
 					Log.Fatal(err)
 				}
-				switch rn {
-				case ' ':
-					go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb))
-				case 'a', 'A':
-					go func() {
-						bt, err := client.CreateBootstrapToken(environment.ctx, &managementv1.CreateBootstrapTokenRequest{
-							Ttl: durationpb.New(1 * time.Minute),
-						})
-						if err != nil {
-							Log.Error(err)
-							return
-						}
-						token, err := tokens.FromBootstrapToken(bt)
-						if err != nil {
-							Log.Error(err)
-							return
-						}
-						certInfo, err := client.CertsInfo(environment.ctx, &emptypb.Empty{})
-						if err != nil {
-							Log.Error(err)
-							return
-						}
-						var version string
-						switch rn {
-						case 'a':
-							version = "v1"
-						case 'A':
-							version = "v2"
-						}
-						resp, err := http.Post(fmt.Sprintf("http://localhost:%d/agents", environment.ports.TestEnvironment), "application/json",
-							strings.NewReader(fmt.Sprintf(`{"token": "%s", "pins": ["%s"], "version": "%s"}`,
-								token.EncodeHex(), certInfo.Chain[len(certInfo.Chain)-1].Fingerprint, version)))
-						if err != nil {
-							Log.Error(err)
-							return
-						}
-						if resp.StatusCode != http.StatusOK {
-							Log.Errorf("%s", resp.Status)
-							return
-						}
-					}()
+				handleKey(rn)
+			}
+		}()
+	}
+
+	if sim, ok := os.LookupEnv("TEST_ENV_SIM_KEYS"); ok {
+		// syntax: <key>[;<key>][;sleep:<duration>]...
+		go func() {
+			for _, cmd := range strings.Split(sim, ";") {
+				if strings.HasPrefix(cmd, "sleep:") {
+					d, err := time.ParseDuration(strings.TrimPrefix(cmd, "sleep:"))
+					if err != nil {
+						Log.Fatal(err)
+					}
+					time.Sleep(d)
+				} else {
+					handleKey(rune(cmd[0]))
 				}
 			}
 		}()
 	}
+
 	<-c
 	fmt.Println(chalk.Yellow.Color("\nStopping test environment"))
 	if err := environment.Stop(); err != nil {

@@ -18,9 +18,15 @@ import (
 )
 
 type RuleStreamer struct {
-	Logger              *zap.SugaredLogger
+	logger              *zap.SugaredLogger
 	remoteWriteClientMu sync.Mutex
 	remoteWriteClient   remotewrite.RemoteWriteClient
+}
+
+func NewRuleStreamer(lg *zap.SugaredLogger) *RuleStreamer {
+	return &RuleStreamer{
+		logger: lg,
+	}
 }
 
 func (s *RuleStreamer) SetRemoteWriteClient(client remotewrite.RemoteWriteClient) {
@@ -30,7 +36,7 @@ func (s *RuleStreamer) SetRemoteWriteClient(client remotewrite.RemoteWriteClient
 }
 
 func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec) error {
-	lg := s.Logger
+	lg := s.logger
 	updateC, err := s.streamRuleGroupUpdates(ctx, config)
 	if err != nil {
 		return err
@@ -117,7 +123,7 @@ func (s *RuleStreamer) configureRuleFinder(config *v1beta1.RulesSpec) (notifier.
 			return nil, fmt.Errorf("failed to create k8s client: %w", err)
 		}
 		finder := rules.NewPrometheusRuleFinder(client,
-			rules.WithLogger(s.Logger),
+			rules.WithLogger(s.logger),
 			rules.WithNamespaces(pr.SearchNamespaces...),
 		)
 		return finder, nil
@@ -129,12 +135,12 @@ func (s *RuleStreamer) configureRuleFinder(config *v1beta1.RulesSpec) (notifier.
 }
 
 func (s *RuleStreamer) streamRuleGroupUpdates(ctx context.Context, config *v1beta1.RulesSpec) (<-chan [][]byte, error) {
-	s.Logger.Debug("configuring rule discovery")
+	s.logger.Debug("configuring rule discovery")
 	finder, err := s.configureRuleFinder(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure rule discovery: %w", err)
 	}
-	s.Logger.Debug("rule discovery configured")
+	s.logger.Debug("rule discovery configured")
 	searchInterval := time.Minute * 15
 	if interval := config.Discovery.Interval; interval != "" {
 		duration, err := time.ParseDuration(interval)
@@ -144,22 +150,22 @@ func (s *RuleStreamer) streamRuleGroupUpdates(ctx context.Context, config *v1bet
 		searchInterval = duration
 	}
 	notifier := notifier.NewPeriodicUpdateNotifier(ctx, finder, searchInterval)
-	s.Logger.With(
+	s.logger.With(
 		zap.String("interval", searchInterval.String()),
 	).Debug("rule discovery notifier configured")
 
 	notifierC := notifier.NotifyC(ctx)
-	s.Logger.Debug("starting rule group update notifier")
+	s.logger.Debug("starting rule group update notifier")
 	groupYamlDocs := make(chan [][]byte, cap(notifierC))
 	go func() {
 		defer close(groupYamlDocs)
 		for {
 			ruleGroups, ok := <-notifierC
 			if !ok {
-				s.Logger.Debug("rule discovery channel closed")
+				s.logger.Debug("rule discovery channel closed")
 				return
 			}
-			s.Logger.Debug("received updated rule groups from discovery")
+			s.logger.Debug("received updated rule groups from discovery")
 			go func() {
 				groupYamlDocs <- s.marshalRuleGroups(ruleGroups)
 			}()
@@ -173,7 +179,7 @@ func (s *RuleStreamer) marshalRuleGroups(ruleGroups []rules.RuleGroup) [][]byte 
 	for _, ruleGroup := range ruleGroups {
 		doc, err := yaml.Marshal(ruleGroup)
 		if err != nil {
-			s.Logger.With(
+			s.logger.With(
 				zap.Error(err),
 				zap.String("group", ruleGroup.Name),
 			).Error("failed to marshal rule group")

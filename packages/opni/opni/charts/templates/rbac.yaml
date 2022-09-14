@@ -1250,6 +1250,7 @@ rules:
   - ""
   resources:
   - namespaces
+  - configmaps
   verbs:
   - create
   - get

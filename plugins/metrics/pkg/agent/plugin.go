@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/health"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
 )
 
@@ -19,16 +20,52 @@ type Plugin struct {
 	httpServer   *HttpServer
 	ruleStreamer *RuleStreamer
 	node         *MetricsNode
+
+	stopRuleStreamer context.CancelFunc
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	return &Plugin{
+	lg := logger.NewPluginLogger().Named("metrics")
+
+	mn := NewMetricsNode(lg)
+
+	p := &Plugin{
 		ctx:          ctx,
-		logger:       logger.NewPluginLogger().Named("cortex"),
-		httpServer:   &HttpServer{},
-		ruleStreamer: &RuleStreamer{},
-		node:         &MetricsNode{},
+		logger:       lg,
+		httpServer:   NewHttpServer(lg),
+		ruleStreamer: NewRuleStreamer(lg),
+		node:         mn,
 	}
+
+	listenerC := make(chan *node.MetricsCapabilityConfig, 1)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case cfg := <-listenerC:
+				p.onConfigUpdated(cfg)
+			}
+		}
+	}()
+	mn.AddConfigListener(listenerC)
+
+	return p
+}
+
+func (p *Plugin) onConfigUpdated(cfg *node.MetricsCapabilityConfig) {
+	p.logger.Debugf("metrics capability config updated: %v", cfg)
+
+	if p.stopRuleStreamer != nil {
+		p.logger.Debug("reconfiguring rule sync")
+		p.stopRuleStreamer()
+	} else {
+		p.logger.Debug("starting rule sync")
+	}
+	ctx, ca := context.WithCancel(p.ctx)
+	p.stopRuleStreamer = ca
+	go p.ruleStreamer.Run(ctx, cfg.Rules)
 }
 
 func Scheme(ctx context.Context) meta.Scheme {

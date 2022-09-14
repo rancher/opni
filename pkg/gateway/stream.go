@@ -15,7 +15,6 @@ import (
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities"
-	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
 )
@@ -97,7 +96,7 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 
 		streamClient := streamv1.NewStreamClient(r.cc)
 		ctx := cluster.AuthorizedOutgoingContext(ctx)
-		splicedStream, err := streamClient.Connect(ctx)
+		splicedStream, err := streamClient.Connect(ctx, grpc.WaitForReady(true))
 		if err != nil {
 			return err
 		}
@@ -154,7 +153,7 @@ func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	s.services = append(s.services, util.PackService(desc, impl))
 }
 
-func (s *StreamServer) AddRemote(cc *grpc.ClientConn, services *apiextensions.ServiceDescriptorList) error {
+func (s *StreamServer) AddRemote(cc *grpc.ClientConn) error {
 	s.logger.With(
 		zap.String("address", cc.Target()),
 	).Debug("adding remote connection")

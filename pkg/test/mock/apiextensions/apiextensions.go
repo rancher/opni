@@ -294,26 +294,6 @@ func (m *MockStreamAPIExtensionClient) EXPECT() *MockStreamAPIExtensionClientMoc
 	return m.recorder
 }
 
-// Services mocks base method.
-func (m *MockStreamAPIExtensionClient) Services(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*apiextensions.ServiceDescriptorList, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, in}
-	for _, a := range opts {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "Services", varargs...)
-	ret0, _ := ret[0].(*apiextensions.ServiceDescriptorList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Services indicates an expected call of Services.
-func (mr *MockStreamAPIExtensionClientMockRecorder) Services(ctx, in interface{}, opts ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Services", reflect.TypeOf((*MockStreamAPIExtensionClient)(nil).Services), varargs...)
-}
-
 // MockStreamAPIExtensionServer is a mock of StreamAPIExtensionServer interface.
 type MockStreamAPIExtensionServer struct {
 	ctrl     *gomock.Controller
@@ -335,21 +315,6 @@ func NewMockStreamAPIExtensionServer(ctrl *gomock.Controller) *MockStreamAPIExte
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStreamAPIExtensionServer) EXPECT() *MockStreamAPIExtensionServerMockRecorder {
 	return m.recorder
-}
-
-// Services mocks base method.
-func (m *MockStreamAPIExtensionServer) Services(arg0 context.Context, arg1 *emptypb.Empty) (*apiextensions.ServiceDescriptorList, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Services", arg0, arg1)
-	ret0, _ := ret[0].(*apiextensions.ServiceDescriptorList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Services indicates an expected call of Services.
-func (mr *MockStreamAPIExtensionServerMockRecorder) Services(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Services", reflect.TypeOf((*MockStreamAPIExtensionServer)(nil).Services), arg0, arg1)
 }
 
 // mustEmbedUnimplementedStreamAPIExtensionServer mocks base method.

@@ -101,6 +101,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor(), gc.streamClientInterceptor),
 		grpc.WithBlock(),
 		// very important to set WaitForReady otherwise Connect and Notify will race
+		// 	update: the above may not be true
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 	)
 	if err != nil {

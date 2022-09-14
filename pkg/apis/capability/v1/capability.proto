@@ -43,14 +43,11 @@ service Backend {
 }
 
 service Node {
-  rpc Info(google.protobuf.Empty) returns (InfoResponse);
-  rpc Status(google.protobuf.Empty) returns (NodeCapabilityStatus);
   rpc SyncNow(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 message InfoResponse {
   string capabilityName = 1;
-  string revision = 2;
 }
 
 message InstallRequest {
@@ -73,6 +70,4 @@ message StatusRequest {
 message NodeCapabilityStatus {
   bool enabled = 1;
   google.protobuf.Timestamp lastSync = 2;
-  optional string error = 3;
-  repeated string conditions = 4;
 }

@@ -11,6 +11,7 @@ import (
 
 const (
 	CapabilityBackendPluginID = "opni.backends.Capability"
+	CapabilityNodePluginID    = "opni.backends.CapabilityNode"
 	ServiceID                 = "capability.Backend"
 	NodeServiceID             = "capability.Node"
 )
@@ -85,5 +86,5 @@ func (p *capabilityAgentPlugin) GRPCClient(
 
 func init() {
 	plugins.GatewayScheme.Add(CapabilityBackendPluginID, NewPlugin(nil))
-	plugins.AgentScheme.Add(CapabilityBackendPluginID, NewAgentPlugin(nil))
+	plugins.AgentScheme.Add(CapabilityNodePluginID, NewAgentPlugin(nil))
 }

@@ -16,7 +16,7 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/example/pkg/example"
 	metrics_agent "github.com/rancher/opni/plugins/metrics/pkg/agent"
-	metrics_cortex "github.com/rancher/opni/plugins/metrics/pkg/gateway"
+	metrics_gateway "github.com/rancher/opni/plugins/metrics/pkg/gateway"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 )
 
@@ -86,7 +86,7 @@ func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 	switch mode {
 	case meta.ModeGateway:
 		scheme = plugins.GatewayScheme
-		metricsPluginScheme = metrics_cortex.Scheme(context.Background())
+		metricsPluginScheme = metrics_gateway.Scheme(context.Background())
 	case meta.ModeAgent:
 		scheme = plugins.AgentScheme
 		metricsPluginScheme = metrics_agent.Scheme(context.Background())
@@ -130,6 +130,7 @@ func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 	}
 	wg := &sync.WaitGroup{}
 	for _, p := range testPlugins {
+		p := p
 		sc := plugins.ServeConfig(p.Scheme)
 		ch := make(chan *plugin.ReattachConfig, 1)
 		sc.Test = &plugin.ServeTestConfig{
@@ -139,7 +140,6 @@ func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
 		rc := <-ch
 		cc := plugins.ClientConfig(p.Metadata, scheme, rc)
 		wg.Add(1)
-		p := p
 		go func() {
 			defer wg.Done()
 			loader.LoadOne(context.Background(), p.Metadata, cc)

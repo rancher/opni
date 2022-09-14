@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
 
 	"github.com/rancher/opni/pkg/clients"
@@ -17,8 +18,16 @@ import (
 type HttpServer struct {
 	apiextensions.UnsafeHTTPAPIExtensionServer
 
+	logger *zap.SugaredLogger
+
 	remoteWriteClientMu sync.RWMutex
 	remoteWriteClient   clients.Locker[remotewrite.RemoteWriteClient]
+}
+
+func NewHttpServer(lg *zap.SugaredLogger) *HttpServer {
+	return &HttpServer{
+		logger: lg,
+	}
 }
 
 func (s *HttpServer) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {

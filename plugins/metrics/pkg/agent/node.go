@@ -87,10 +87,12 @@ func (m *MetricsNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 }
 
 func (m *MetricsNode) doSync(ctx context.Context) {
+	m.logger.Debug("syncing metrics node")
 	m.clientMu.RLock()
 	defer m.clientMu.RUnlock()
 
 	if m.client == nil {
+		m.logger.Warn("no client, skipping sync")
 		return
 	}
 

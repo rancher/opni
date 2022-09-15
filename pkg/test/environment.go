@@ -1279,6 +1279,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		}
 	}()
 	c := make(chan os.Signal, 2)
+	var closeOnce sync.Once
 	signal.Notify(c, os.Interrupt)
 	iPort, _ = environment.StartInstrumentationServer(context.Background())
 	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)
@@ -1302,8 +1303,10 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		case ' ':
 			go browser.OpenURL(fmt.Sprintf("http://localhost:%d", environment.ports.ManagementWeb))
 		case 'q':
-			signal.Stop(c)
-			close(c)
+			closeOnce.Do(func() {
+				signal.Stop(c)
+				close(c)
+			})
 		case 'a', 'A':
 			go func() {
 				bt, err := client.CreateBootstrapToken(environment.ctx, &managementv1.CreateBootstrapTokenRequest{

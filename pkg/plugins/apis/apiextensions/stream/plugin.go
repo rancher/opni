@@ -136,17 +136,25 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 	}
 
 	cc, errC := ts.Serve()
+
 	e.logger.Debug("totem server started")
 
+	select {
+	case err := <-errC:
+		e.logger.Error(err)
+		return err
+	default:
+	}
+
 	e.streamClientCond.L.Lock()
-	e.logger.Debug("stream client set")
+	e.logger.Debug("stream client is now available")
 	e.streamClient = cc
 	e.streamClientCond.L.Unlock()
 	e.streamClientCond.Broadcast()
 
 	defer func() {
 		e.streamClientCond.L.Lock()
-		e.logger.Debug("stream client unset")
+		e.logger.Debug("stream client is no longer available")
 		e.streamClient = nil
 		e.streamClientCond.L.Unlock()
 		e.streamClientCond.Broadcast()
@@ -182,10 +190,10 @@ func (e *streamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.
 		e.logger.Debug("processing discovery complete event")
 		e.streamClientCond.L.Lock()
 		for e.streamClient == nil {
-			e.logger.Debug("waiting for stream client to connect")
+			e.logger.Debug("waiting for stream client to become available")
 			e.streamClientCond.Wait()
 		}
-		defer e.streamClientCond.L.Unlock()
+		e.streamClientCond.L.Unlock()
 
 		if e.clientHandler != nil && e.streamClient != nil {
 			e.logger.Debug("calling client handler")

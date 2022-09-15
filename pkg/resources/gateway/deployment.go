@@ -57,7 +57,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 								},
 								corev1.EnvVar{
 									Name:  "GATEWAY_NAME",
-									Value: r.gw.Name,
+									Value: r.name,
 								},
 							),
 							VolumeMounts: []corev1.VolumeMount{

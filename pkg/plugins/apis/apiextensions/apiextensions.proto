@@ -17,6 +17,7 @@ service HTTPAPIExtension {
 
 service StreamAPIExtension {
   // rpc Services(google.protobuf.Empty) returns (ServiceDescriptorList);
+  rpc Todo(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 service UnaryAPIExtension {

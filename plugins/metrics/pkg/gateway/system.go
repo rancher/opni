@@ -63,7 +63,6 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 }
 
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
-
 	ctrl, err := task.NewController(p.ctx, "uninstall", system.NewKVStoreClient[*corev1.TaskStatus](client), &p.uninstallRunner)
 	if err != nil {
 		p.logger.With(

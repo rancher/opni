@@ -131,6 +131,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 				zap.Error(err),
 			).Error("failed to add capability backend")
 		}
+		lg.With(
+			zap.String("plugin", md.Module),
+			zap.String("capability", info.CapabilityName),
+		).Info("added capability backend")
 	}))
 
 	// serve system plugin kv stores
@@ -155,7 +159,6 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	pl.Hook(hooks.OnLoadMC(
 		func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-
 			client := apiextensions.NewManagementAPIExtensionClient(cc)
 			descs, err := client.Descriptors(ctx, &emptypb.Empty{})
 			if err == nil {
@@ -215,7 +218,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		// 		"plugin", md.Module,
 		// 	).Error("failed to load stream services from plugin")
 		// }
-		if err := streamSvc.AddRemote(cc); err != nil {
+		if err := streamSvc.AddRemote(cc, md.ShortName()); err != nil {
 			lg.With(
 				zap.Error(err),
 				"plugin", md.Module,

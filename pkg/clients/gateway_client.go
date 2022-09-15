@@ -27,7 +27,7 @@ type GatewayClient interface {
 	credentials.PerRPCCredentials
 	// Connect returns a ClientConnInterface connected to the streaming server
 	Connect(context.Context) (grpc.ClientConnInterface, future.Future[error])
-	RegisterSplicedStream(grpc.ClientConnInterface)
+	RegisterSplicedStream(cc grpc.ClientConnInterface, name string)
 	// Dial returns a standard ClientConnInterface for Unary connections
 	Dial(context.Context) (grpc.ClientConnInterface, error)
 }
@@ -72,7 +72,8 @@ func NewGatewayClient(
 }
 
 type splicedConn struct {
-	cc grpc.ClientConnInterface
+	name string
+	cc   grpc.ClientConnInterface
 }
 
 type gatewayClient struct {
@@ -89,9 +90,10 @@ func (gc *gatewayClient) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	gc.services = append(gc.services, util.PackService(desc, impl))
 }
 
-func (gc *gatewayClient) RegisterSplicedStream(cc grpc.ClientConnInterface) {
+func (gc *gatewayClient) RegisterSplicedStream(cc grpc.ClientConnInterface, name string) {
 	gc.spliced = append(gc.spliced, &splicedConn{
-		cc: cc,
+		name: name,
+		cc:   cc,
 	})
 }
 
@@ -100,8 +102,6 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
 		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor(), gc.streamClientInterceptor),
 		grpc.WithBlock(),
-		// very important to set WaitForReady otherwise Connect and Notify will race
-		// 	update: the above may not be true
 		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
 	)
 	if err != nil {
@@ -118,7 +118,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 	if len(shortId) > 8 {
 		shortId = shortId[:8]
 	}
-	ts, err := totem.NewServer(stream, totem.WithName("client-"+gc.id))
+	ts, err := totem.NewServer(stream, totem.WithName("gateway-client-"+shortId))
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to create totem server: %w", err))
 	}
@@ -132,7 +132,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 			return nil, future.Instant(fmt.Errorf("failed to connect to spliced server: %w", err))
 		}
 
-		if err := ts.Splice(splicedStream); err != nil {
+		if err := ts.Splice(splicedStream, totem.WithStreamName(sc.name)); err != nil {
 			return nil, future.Instant(fmt.Errorf("failed to splice stream: %w", err))
 		}
 

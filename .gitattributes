@@ -1,0 +1,4 @@
+config/crd/bases/*.yaml -diff linguist-generated=true
+packages/*/*/charts/crds/crds.yaml -diff linguist-generated=true
+**/*.pb*.go -diff linguist-generated=true
+pkg/test/mock/** -diff linguist-generated=true

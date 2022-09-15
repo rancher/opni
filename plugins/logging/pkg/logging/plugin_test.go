@@ -8,7 +8,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/opni/apis/v1beta2"
+	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +25,7 @@ const (
 	giBytes = 1073741824
 )
 
-var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
+var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 	var (
 		namespace         string
 		plugin            *Plugin
@@ -58,8 +59,8 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 						"data",
 						"ingest",
 					},
-					DiskSize:    lo.ToPtr(resource.MustParse("50Gi")),
-					MemoryLimit: lo.ToPtr(resource.MustParse("2Gi")),
+					DiskSize:    "50Gi",
+					MemoryLimit: "2Gi",
 					Persistence: &loggingadmin.DataPersistence{
 						Enabled: lo.ToPtr(true),
 					},
@@ -71,7 +72,7 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 		nodePool = opsterv1.NodePool{
 			Component: request.NodePools[0].Name,
 			Replicas:  3,
-			DiskSize:  request.NodePools[0].DiskSize.String(),
+			DiskSize:  request.NodePools[0].DiskSize,
 			Jvm:       fmt.Sprintf("-Xmx%d -Xms%d", giBytes, giBytes),
 			Roles:     request.NodePools[0].Roles,
 			Affinity: &corev1.Affinity{
@@ -157,19 +158,24 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 	})
 
 	JustBeforeEach(func() {
+		opniCluster := &opnimeta.OpensearchClusterRef{
+			Name:      "opni",
+			Namespace: namespace,
+		}
 		plugin = NewPlugin(
 			context.Background(),
 			WithNamespace(namespace),
 			WithRestConfig(restConfig),
 			WithVersion(version),
+			WithOpensearchCluster(opniCluster),
 		)
 	})
 
-	XWhen("opniopensearch object does not exist", func() {
+	When("opniopensearch object does not exist", func() {
 		Specify("get should succeed and return nothing", func() {
 			object, err := plugin.GetOpensearchCluster(context.Background(), nil)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(object).To(BeNil())
+			Expect(object).To(Equal(&loggingadmin.OpensearchCluster{}))
 		})
 		Specify("delete should error", func() {
 			_, err := plugin.DeleteOpensearchCluster(context.Background(), nil)
@@ -178,7 +184,7 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 		Context("creating an opensearch cluster", func() {
 			When("nodepools don't have memory limits", func() {
 				BeforeEach(func() {
-					request.NodePools[0].MemoryLimit = nil
+					request.NodePools[0].MemoryLimit = ""
 				})
 				It("should error", func() {
 					_, err := plugin.CreateOrUpdateOpensearchCluster(context.Background(), request)
@@ -191,7 +197,7 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("should create the opniopensearch object", func() {
-					object := &v1beta2.OpniOpensearch{}
+					object := &loggingv1beta1.OpniOpensearch{}
 					Eventually(func() error {
 						return k8sClient.Get(context.Background(), types.NamespacedName{
 							Name:      "opni",
@@ -208,8 +214,8 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 			})
 		})
 	})
-	XWhen("opniopensearch object does exist", func() {
-		object := &v1beta2.OpniOpensearch{}
+	When("opniopensearch object does exist", func() {
+		object := &loggingv1beta1.OpniOpensearch{}
 		Specify("get should return the object", func() {
 			object, err := plugin.GetOpensearchCluster(context.Background(), nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -218,7 +224,7 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 
 		When("updating the cluster", func() {
 			BeforeEach(func() {
-				request.NodePools[0].MemoryLimit = lo.ToPtr(resource.MustParse("4Gi"))
+				request.NodePools[0].MemoryLimit = "4Gi"
 				nodePool.Jvm = fmt.Sprintf("-Xmx%d -Xms%d", 2*giBytes, 2*giBytes)
 				nodePool.Resources.Limits[corev1.ResourceMemory] = resource.MustParse("4Gi")
 				nodePool.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("4Gi")
@@ -251,6 +257,7 @@ var _ = XDescribe("Logging Plugin", Ordered, Label("unit"), func() {
 				version = "0.7.0"
 			})
 			Specify("upgrade available should return true", func() {
+				Expect(version).To(Equal("0.7.0"))
 				response, err := plugin.UpgradeAvailable(context.Background(), nil)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(response.UpgradePending).To(BeTrue())

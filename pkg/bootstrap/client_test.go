@@ -147,7 +147,7 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 			env := test.Environment{
 				TestBin: "../../testbin/bin",
 			}
-			k8sConfig, err := env.StartK8s()
+			k8sConfig, _, err := env.StartK8s()
 			Expect(err).NotTo(HaveOccurred())
 
 			os.Setenv("POD_NAMESPACE", "default")

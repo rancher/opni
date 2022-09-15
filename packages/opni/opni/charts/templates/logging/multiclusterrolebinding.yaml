@@ -1,5 +1,5 @@
 {{- if .Values.logging.enabled }}
-apiVersion: opni.io/v1beta2
+apiVersion: logging.opni.io/v1beta1
 kind: MulticlusterRoleBinding
 metadata:
   name: opni-logging

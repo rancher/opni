@@ -2023,6 +2023,11 @@ spec:
                     default: 0.0.0.0:12080
                     type: string
                 type: object
+              natsCluster:
+                properties:
+                  name:
+                    type: string
+                type: object
               nodeSelector:
                 additionalProperties:
                   type: string
@@ -2057,6 +2062,8 @@ spec:
                       type: string
                   type: object
                 type: array
+            required:
+            - natsCluster
             type: object
           status:
             properties:

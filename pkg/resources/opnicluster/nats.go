@@ -9,7 +9,6 @@ import (
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/nats-io/nkeys"
-	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
@@ -23,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -93,68 +91,6 @@ type natsConfigData struct {
 	ClusterPassword string
 	ClusterURL      string
 	ClusterName     string
-}
-
-func (r *Reconciler) externalNats() (
-	envVars []corev1.EnvVar,
-	volumeMounts []corev1.VolumeMount,
-	volumes []corev1.Volume,
-) {
-	lg := log.FromContext(r.ctx)
-	nats := &opnicorev1beta1.NatsCluster{}
-	if err := r.client.Get(r.ctx, types.NamespacedName{
-		Name:      r.aiOpniCluster.Spec.NatsRef.Name,
-		Namespace: r.aiOpniCluster.Namespace,
-	}, nats); err != nil {
-		lg.Error(err, "could not fetch nats cluster")
-		return
-	}
-
-	if nats.Status.AuthSecretKeyRef == nil {
-		return
-	}
-
-	switch nats.Spec.AuthMethod {
-	case opnicorev1beta1.NatsAuthPassword:
-		var username string
-		if nats.Spec.Username == "" {
-			username = "nats-user"
-		} else {
-			username = nats.Spec.Username
-		}
-		newEnvVars := []corev1.EnvVar{
-			{
-				Name:  "NATS_USERNAME",
-				Value: username,
-			},
-			{
-				Name: "NATS_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: r.opniCluster.Status.Auth.NatsAuthSecretKeyRef,
-				},
-			},
-		}
-		envVars = append(envVars, newEnvVars...)
-	case opnicorev1beta1.NatsAuthNkey:
-		volumes = append(volumes, corev1.Volume{
-			Name: "nkey",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: nats.Status.AuthSecretKeyRef.Name,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "nkey",
-			ReadOnly:  true,
-			MountPath: natsNkeyDir,
-		})
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "NKEY_SEED_FILENAME",
-			Value: fmt.Sprintf("%s/seed", natsNkeyDir),
-		})
-	}
-	return
 }
 
 func (r *Reconciler) nats() (resourceList []resources.Resource, retErr error) {

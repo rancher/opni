@@ -285,25 +285,6 @@ func (r *Reconciler) logISMPolicy() osapiext.ISMPolicySpec {
 				},
 				Transitions: []osapiext.TransitionSpec{
 					{
-						StateName: "cold",
-						Conditions: &osapiext.ConditionSpec{
-							MinIndexAge: "2d",
-						},
-					},
-				},
-			},
-			{
-				Name: "cold",
-				Actions: []osapiext.ActionSpec{
-					{
-						ActionOperation: &osapiext.ActionOperation{
-							ReadOnly: &osapiext.ReadOnlyOperation{},
-						},
-						Retry: &indices.DefaultRetry,
-					},
-				},
-				Transitions: []osapiext.TransitionSpec{
-					{
 						StateName: "delete",
 						Conditions: &osapiext.ConditionSpec{
 							MinIndexAge: func() string {

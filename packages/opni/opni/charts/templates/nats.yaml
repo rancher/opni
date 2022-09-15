@@ -1,0 +1,14 @@
+apiVersion: core.opni.io/v1beta1
+kind: NatsCluster
+metadata:
+  name: {{ include "opni.fullname" . }}
+  namespace: {{ include "opni.namespace" . }}
+spec:
+  replicas: 3
+  authMethod: nkey
+  jetStream:
+    enabled: true
+    memoryStorageSize: 1Gi
+    fileStorage:
+      emptyDir: {}
+      enabled: true

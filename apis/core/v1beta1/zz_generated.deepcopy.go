@@ -271,6 +271,7 @@ func (in *GatewaySpec) DeepCopyInto(out *GatewaySpec) {
 		*out = new(AlertingSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	out.NatsRef = in.NatsRef
 	if in.ServiceAnnotations != nil {
 		in, out := &in.ServiceAnnotations, &out.ServiceAnnotations
 		*out = make(map[string]string, len(*in))

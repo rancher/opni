@@ -51,28 +51,12 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 			{
 				APIGroups: []string{
 					"logging.opni.io",
+					"monitoring.opni.io",
+					"core.opni.io",
+					"ai.opni.io",
 				},
 				Resources: []string{
 					"*",
-				},
-				Verbs: []string{
-					"get",
-					"list",
-					"watch",
-					"create",
-					"update",
-					"patch",
-					"delete",
-				},
-			},
-			{
-				APIGroups: []string{
-					"logging.opni.io",
-					"monitoring.opni.io",
-					"core.opni.io",
-				},
-				Resources: []string{
-					"'*'",
 				},
 				Verbs: []string{
 					"get",

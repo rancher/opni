@@ -1,5 +1,5 @@
 {{- if .Values.ai.enabled }}
-apiVersion: opni.io/v1beta2
+apiVersion: ai.opni.io/v1beta1
 kind: OpniCluster
 metadata:
   name: opni
@@ -43,15 +43,12 @@ spec:
             - key: ca.crt
               path: ca.crt
   opensearch:
-    externalOpensearch:
-      name: opni
-      namespace: {{ include "opni.namespace" . }}
-    enableLogIndexManagement: false
-    enableIngestPreprocessing: true
+    name: opni
+    namespace: {{ include "opni.namespace" . }}
 {{- with .Values.ai.s3 }}
   s3:
     {{- toYaml . | nindent 4 }}
 {{- end }}
-  nats:
-    authMethod: nkey
+  natsCluster:
+    name: {{ include "opni.fullname" . }}
 {{- end }}

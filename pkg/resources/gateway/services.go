@@ -115,11 +115,20 @@ func (r *Reconciler) waitForServiceEndpoints() util.RequeueOp {
 		addresses = append(addresses, subset.Addresses...)
 	}
 	if len(addresses) == 0 {
-		r.gw.Status.Endpoints = nil
-		if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
-			return util.RequeueErr(err)
+		if r.gw != nil {
+			r.gw.Status.Endpoints = nil
+			if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
+				return util.RequeueErr(err)
+			}
+			return util.RequeueAfter(1 * time.Second)
 		}
-		return util.RequeueAfter(1 * time.Second)
+		if r.coreGW != nil {
+			r.coreGW.Status.Endpoints = nil
+			if err := r.client.Status().Update(r.ctx, r.coreGW); err != nil {
+				return util.RequeueErr(err)
+			}
+			return util.RequeueAfter(1 * time.Second)
+		}
 	}
 
 	if r.gw != nil {

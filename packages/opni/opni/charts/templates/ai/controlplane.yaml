@@ -1,5 +1,5 @@
 {{- if .Values.ai.enabled }}
-apiVersion: opni.io/v1beta2
+apiVersion: ai.opni.io/v1beta1
 kind: PretrainedModel
 metadata:
   name: control-plane

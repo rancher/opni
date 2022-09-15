@@ -118,6 +118,9 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 	}
 
 	creds, err := loggingClient.GetDetails(cmd.Context(), clusterRef)
+	if err != nil {
+		return err
+	}
 
 	if err := createAuthSecret(cmd.Context(), creds.Password); err != nil {
 		return err

@@ -95,7 +95,7 @@ var _ = Describe("Prometheus Rule Group Discovery", Ordered, Label("unit", "slow
 				"testdata/crds",
 			},
 		}
-		restConfig, err := env.StartK8s()
+		restConfig, _, err := env.StartK8s()
 		Expect(err).NotTo(HaveOccurred())
 
 		scheme := runtime.NewScheme()

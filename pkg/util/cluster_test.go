@@ -21,7 +21,7 @@ var _ = Describe("Cluster Utils", Ordered, Label("unit", "slow"), func() {
 			TestBin: "../../testbin/bin",
 		}
 		var err error
-		restConfig, err = env.StartK8s()
+		restConfig, _, err = env.StartK8s()
 		Expect(err).NotTo(HaveOccurred())
 		tempFile, err := os.CreateTemp("", "test-kubeconfig")
 		Expect(err).NotTo(HaveOccurred())

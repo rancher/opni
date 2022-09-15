@@ -61,8 +61,7 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 }
 
 func (m *MetricsBackend) Info(ctx context.Context, _ *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
-	m.WaitForInit()
-
+	// Info must not block
 	return &capabilityv1.InfoResponse{
 		CapabilityName: wellknown.CapabilityMetrics,
 	}, nil

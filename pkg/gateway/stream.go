@@ -1,8 +1,9 @@
 package gateway
 
 import (
-	"context"
 	"errors"
+	"fmt"
+	"sync"
 
 	"github.com/kralicky/totem"
 	"go.uber.org/zap"
@@ -20,7 +21,8 @@ import (
 )
 
 type remote struct {
-	cc *grpc.ClientConn
+	name string
+	cc   *grpc.ClientConn
 }
 
 type StreamServer struct {
@@ -29,6 +31,7 @@ type StreamServer struct {
 	handler      ConnectionHandler
 	clusterStore storage.ClusterStore
 	services     []util.ServicePack[any]
+	remotesMu    sync.Mutex
 	remotes      []remote
 	interceptor  grpc.UnaryServerInterceptor
 }
@@ -74,7 +77,7 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	// don't require any capabilities. If the cluster loses any required
 	// capabilities once it is connected, the stream will be closed and the
 	// cluster will need to reconnect.
-	requiredCapabilities := []*corev1.ClusterCapability{}
+	// requiredCapabilities := []*corev1.ClusterCapability{} // TODO
 	for _, r := range s.remotes {
 		// var services []*descriptorpb.ServiceDescriptorProto
 		// for _, service := range r.services {
@@ -96,27 +99,43 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 
 		streamClient := streamv1.NewStreamClient(r.cc)
 		ctx := cluster.AuthorizedOutgoingContext(ctx)
-		splicedStream, err := streamClient.Connect(ctx, grpc.WaitForReady(true))
+		splicedStream, err := streamClient.Connect(ctx)
 		if err != nil {
-			return err
+			s.logger.With(
+				zap.String("clusterId", c.Id),
+				zap.Error(err),
+			).Warn("failed to connect to remote stream, skipping")
+			continue
 		}
-		if err := ts.Splice(splicedStream); err != nil {
-			return err
+		if err := ts.Splice(splicedStream, totem.WithStreamName(r.name)); err != nil {
+			s.logger.With(
+				zap.String("clusterId", c.Id),
+				zap.Error(err),
+			).Warn("failed to splice remote stream, skipping")
+			continue
 		}
 	}
 
 	// set up a context which will be canceled when the cluster loses any
 	// required capabilities
 
-	eventC, err := s.clusterStore.WatchCluster(ctx, c)
-	if err != nil {
-		return status.Error(codes.Internal, err.Error())
-	}
-	var ca context.CancelFunc
-	ctx, ca = capabilities.NewContext(ctx, eventC, requiredCapabilities...)
-	defer ca()
+	// TODO
+	// eventC, err := s.clusterStore.WatchCluster(ctx, c)
+	// if err != nil {
+	// 	return status.Error(codes.Internal, err.Error())
+	// }
+	// var ca context.CancelFunc
+	// ctx, ca = capabilities.NewContext(ctx, eventC, requiredCapabilities...)
+	// defer ca()
 
 	cc, errC := ts.Serve()
+
+	// check if an error was immediately returned
+	select {
+	case err := <-errC:
+		return fmt.Errorf("stream connection failed: %w", err)
+	default:
+	}
 
 	go s.handler.HandleAgentConnection(ctx, agentv1.NewClientSet(cc))
 
@@ -153,12 +172,15 @@ func (s *StreamServer) RegisterService(desc *grpc.ServiceDesc, impl any) {
 	s.services = append(s.services, util.PackService(desc, impl))
 }
 
-func (s *StreamServer) AddRemote(cc *grpc.ClientConn) error {
+func (s *StreamServer) AddRemote(cc *grpc.ClientConn, name string) error {
+	s.remotesMu.Lock()
+	defer s.remotesMu.Unlock()
 	s.logger.With(
 		zap.String("address", cc.Target()),
 	).Debug("adding remote connection")
 	s.remotes = append(s.remotes, remote{
-		cc: cc,
+		name: name,
+		cc:   cc,
 	})
 	return nil
 }

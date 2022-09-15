@@ -27,8 +27,9 @@ var _ = Describe("Service Recovery Tests", Ordered, Label("integration"), func()
 			test.WithDelayStartCortex(delay),
 		)).To(Succeed())
 		DeferCleanup(environment.Stop)
-		
+
 		go func() {
+			defer GinkgoRecover()
 			client := environment.NewManagementClient()
 			certsInfo, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
 			Expect(err).NotTo(HaveOccurred())
@@ -37,8 +38,13 @@ var _ = Describe("Service Recovery Tests", Ordered, Label("integration"), func()
 			token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 				Ttl: durationpb.New(time.Hour),
 			})
-			port, _ := environment.StartAgent("agent1", token, []string{fingerprint})
+			port, errC := environment.StartAgent("agent1", token, []string{fingerprint})
 			environment.StartPrometheus(port)
+
+			select {
+			case err := <-errC:
+				Expect(err).NotTo(HaveOccurred())
+			}
 		}()
 
 		adminClient := environment.NewCortexAdminClient()

@@ -184,7 +184,10 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, pl plugins.LoaderInterf
 	}))
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-		gatewayClient.RegisterSplicedStream(cc)
+		lg.With(
+			zap.String("plugin", md.Module),
+		).Debug("loaded stream api extension plugin")
+		gatewayClient.RegisterSplicedStream(cc, md.ShortName())
 	}))
 
 	return &Agent{

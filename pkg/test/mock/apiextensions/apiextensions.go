@@ -294,6 +294,26 @@ func (m *MockStreamAPIExtensionClient) EXPECT() *MockStreamAPIExtensionClientMoc
 	return m.recorder
 }
 
+// Todo mocks base method.
+func (m *MockStreamAPIExtensionClient) Todo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Todo", varargs...)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Todo indicates an expected call of Todo.
+func (mr *MockStreamAPIExtensionClientMockRecorder) Todo(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Todo", reflect.TypeOf((*MockStreamAPIExtensionClient)(nil).Todo), varargs...)
+}
+
 // MockStreamAPIExtensionServer is a mock of StreamAPIExtensionServer interface.
 type MockStreamAPIExtensionServer struct {
 	ctrl     *gomock.Controller
@@ -315,6 +335,21 @@ func NewMockStreamAPIExtensionServer(ctrl *gomock.Controller) *MockStreamAPIExte
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStreamAPIExtensionServer) EXPECT() *MockStreamAPIExtensionServerMockRecorder {
 	return m.recorder
+}
+
+// Todo mocks base method.
+func (m *MockStreamAPIExtensionServer) Todo(arg0 context.Context, arg1 *emptypb.Empty) (*emptypb.Empty, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Todo", arg0, arg1)
+	ret0, _ := ret[0].(*emptypb.Empty)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Todo indicates an expected call of Todo.
+func (mr *MockStreamAPIExtensionServerMockRecorder) Todo(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Todo", reflect.TypeOf((*MockStreamAPIExtensionServer)(nil).Todo), arg0, arg1)
 }
 
 // mustEmbedUnimplementedStreamAPIExtensionServer mocks base method.

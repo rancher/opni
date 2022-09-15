@@ -409,7 +409,7 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 			})
 		})
 		When("the defaults are used and the in-cluster config is unavailable", func() {
-			It("should error", func() {
+			It("should do nothing", func() {
 				// sanity check, this is set above
 				Expect(os.Getenv("POD_NAMESPACE")).To(Equal("default"))
 
@@ -417,7 +417,7 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 					K8sConfig: nil,
 				}
 				err := cc.Finalize(context.Background())
-				Expect(err).To(MatchError(rest.ErrNotInCluster))
+				Expect(err).To(BeNil())
 			})
 		})
 		When("a namespace is not found or configured", func() {
@@ -426,7 +426,7 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 				os.Unsetenv("POD_NAMESPACE")
 
 				cc := bootstrap.ClientConfig{
-					K8sConfig:    nil,
+					K8sConfig:    &rest.Config{},
 					K8sNamespace: "",
 				}
 				err := cc.Finalize(context.Background())

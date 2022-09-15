@@ -291,8 +291,6 @@ func (p *Plugin) GetStorageClasses(ctx context.Context, in *emptypb.Empty) (*log
 }
 
 func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.OpensearchNodeDetails, error) {
-	diskSize := resource.MustParse(pool.DiskSize)
-
 	var tolerations []*corev1.Toleration
 	for _, toleration := range pool.Tolerations {
 		tolerations = append(tolerations, &toleration)
@@ -322,7 +320,7 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 	return &loggingadmin.OpensearchNodeDetails{
 		Name:        pool.Component,
 		Replicas:    &pool.Replicas,
-		DiskSize:    diskSize.String(),
+		DiskSize:    pool.DiskSize,
 		MemoryLimit: pool.Resources.Limits.Memory().String(),
 		CPUResources: func() *loggingadmin.CPUResource {
 			var request *resource.Quantity
@@ -384,6 +382,41 @@ func (p *Plugin) convertProtobufToDashboards(
 		version,
 	)
 
+	resources := corev1.ResourceRequirements{
+		Requests: func() corev1.ResourceList {
+			if dashboard.Resources == nil {
+				return nil
+			}
+			if dashboard.Resources.Requests == nil {
+				return nil
+			}
+			list := corev1.ResourceList{}
+			if dashboard.Resources.Requests.CPU != "" {
+				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Requests.CPU)
+			}
+			if dashboard.Resources.Requests.Memory != "" {
+				list[corev1.ResourceMemory] = resource.MustParse(dashboard.Resources.Requests.Memory)
+			}
+			return list
+		}(),
+		Limits: func() corev1.ResourceList {
+			if dashboard.Resources == nil {
+				return nil
+			}
+			if dashboard.Resources.Limits == nil {
+				return nil
+			}
+			list := corev1.ResourceList{}
+			if dashboard.Resources.Limits.CPU != "" {
+				list[corev1.ResourceCPU] = resource.MustParse(dashboard.Resources.Limits.CPU)
+			}
+			if dashboard.Resources.Limits.Memory != "" {
+				list[corev1.ResourceMemory] = resource.MustParse(dashboard.Resources.Limits.Memory)
+			}
+			return list
+		}(),
+	}
+
 	return opsterv1.DashboardsConfig{
 		ImageSpec: &opsterv1.ImageSpec{
 			Image: &image,
@@ -394,7 +427,7 @@ func (p *Plugin) convertProtobufToDashboards(
 			if dashboard.Resources == nil {
 				return corev1.ResourceRequirements{}
 			}
-			return *dashboard.Resources
+			return resources
 		}(),
 		Version: osVersion,
 		Tls: &opsterv1.DashboardsTlsConfig{
@@ -583,11 +616,45 @@ func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingad
 	return &loggingadmin.DashboardsDetails{
 		Enabled:  &dashboard.Enable,
 		Replicas: &dashboard.Replicas,
-		Resources: func() *corev1.ResourceRequirements {
+		Resources: func() *loggingadmin.ResourceRequirements {
 			if dashboard.Resources.Limits == nil && dashboard.Resources.Requests == nil {
 				return nil
 			}
-			return &dashboard.Resources
+			resources := &loggingadmin.ResourceRequirements{}
+			if dashboard.Resources.Requests != nil {
+				resources.Requests = &loggingadmin.ComputeResourceQuantities{
+					CPU: func() string {
+						if dashboard.Resources.Requests.Cpu().IsZero() {
+							return ""
+						}
+						return dashboard.Resources.Requests.Cpu().String()
+					}(),
+					Memory: func() string {
+						if dashboard.Resources.Requests.Memory().IsZero() {
+							return ""
+						}
+						return dashboard.Resources.Requests.Memory().String()
+					}(),
+				}
+			}
+			if dashboard.Resources.Limits != nil {
+				resources.Requests = &loggingadmin.ComputeResourceQuantities{
+					CPU: func() string {
+						if dashboard.Resources.Limits.Cpu().IsZero() {
+							return ""
+						}
+						return dashboard.Resources.Limits.Cpu().String()
+					}(),
+					Memory: func() string {
+						if dashboard.Resources.Limits.Memory().IsZero() {
+							return ""
+						}
+						return dashboard.Resources.Limits.Memory().String()
+					}(),
+				}
+			}
+
+			return resources
 		}(),
 	}
 }

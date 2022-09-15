@@ -79,7 +79,7 @@ func (a *UninstallTaskRunner) OnTaskRunning(ctx context.Context, ti task.ActiveT
 		for {
 			select {
 			case <-b.Done():
-				ti.AddLogEntry(zapcore.WarnLevel, "Uninstall canceled, but time series data is still being deleted by Cortex")
+				ti.AddLogEntry(zapcore.WarnLevel, "Uninstall canceled, logging data is still being deleted")
 				return ctx.Err()
 			case <-b.Next():
 				status, err := a.deleteTaskStatus(ctx, ti.TaskId())
@@ -219,7 +219,7 @@ func (a *UninstallTaskRunner) doClusterDataDelete(ctx context.Context, id string
 		if err != nil {
 			return nil
 		}
-		createNewJob = !(string(entry.Value()) == pendingValue)
+		createNewJob = string(entry.Value()) != pendingValue
 	} else {
 		createNewJob = true
 	}

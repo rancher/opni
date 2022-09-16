@@ -1,7 +1,5 @@
 /*
-
 Building promethues / cortex alerting rules
-
 */
 package metrics
 
@@ -10,6 +8,7 @@ import (
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/rulefmt"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"time"
 )
 
@@ -90,6 +89,12 @@ func (a *AlertingRule) Build(id string) (*rulefmt.Rule, error) {
 	if err != nil {
 		return nil, fmt.Errorf("constructed rule : %s is not a valid prometheus rule %v", promRule.Expr, err)
 	}
+	promRule.Annotations = MergeLabels(promRule.Annotations, map[string]string{
+		shared.BackendConditionIdLabel: id,
+	})
+	promRule.Labels = MergeLabels(promRule.Labels, map[string]string{
+		shared.BackendConditionIdLabel: id,
+	})
 	return promRule, nil
 }
 

@@ -251,7 +251,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 
 	nodeDeploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      shared.OperatorAlertingClusterNodeServiceName + "internal",
+			Name:      shared.OperatorAlertingClusterNodeServiceName + "-internal",
 			Namespace: r.gw.Namespace,
 			Labels:    publicNodeLabels,
 		},

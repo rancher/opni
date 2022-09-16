@@ -38,6 +38,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 					"rolebindings",
 					"roles",
 					"opniopensearches",
+					"gateways",
 				},
 				Verbs: []string{
 					"get",

@@ -6,6 +6,8 @@ import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
 
 package cortexops;
 
+// The CortexOps service controls meta-operations for deploying and configuring
+// Cortex in the upstream environment.
 service CortexOps {
   rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty);
   rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus);

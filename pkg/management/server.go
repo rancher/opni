@@ -15,6 +15,7 @@ import (
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/kralicky/grpc-gateway/v2/runtime"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities"
@@ -51,6 +52,7 @@ type CoreDataSource interface {
 // server needs to serve capabilities-related endpoints
 type CapabilitiesDataSource interface {
 	CapabilitiesStore() capabilities.BackendStore
+	NodeManagerServer() capabilityv1.NodeManagerServer
 }
 
 type HealthStatusDataSource interface {
@@ -138,9 +140,11 @@ func NewServer(
 		grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 	)
 	managementv1.RegisterManagementServer(m.grpcServer, m)
+	capabilityv1.RegisterNodeManagerServer(m.grpcServer, m.capabilitiesDataSource.NodeManagerServer())
 
 	pluginLoader.Hook(hooks.OnLoadM(func(sp types.SystemPlugin, md meta.PluginMeta) {
 		go sp.ServeManagementAPI(m)
+		go sp.ServeNodeManagerServer(m.capabilitiesDataSource.NodeManagerServer())
 		go func() {
 			if err := sp.ServeAPIExtensions(m.config.GRPCListenAddress); err != nil {
 				lg.With(

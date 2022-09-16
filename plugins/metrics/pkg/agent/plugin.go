@@ -55,17 +55,33 @@ func NewPlugin(ctx context.Context) *Plugin {
 }
 
 func (p *Plugin) onConfigUpdated(cfg *node.MetricsCapabilityConfig) {
-	p.logger.Debugf("metrics capability config updated: %v", cfg)
+	p.logger.Debug("metrics capability config updated")
 
-	if p.stopRuleStreamer != nil {
+	// at this point, we know the config has been updated
+	currentlyRunning := (p.stopRuleStreamer != nil)
+	shouldRun := cfg.GetEnabled()
+
+	startRuleStreamer := func() {
+		ctx, ca := context.WithCancel(p.ctx)
+		p.stopRuleStreamer = ca
+		go p.ruleStreamer.Run(ctx, cfg.GetSpec().GetRules())
+	}
+
+	switch {
+	case currentlyRunning && shouldRun:
 		p.logger.Debug("reconfiguring rule sync")
 		p.stopRuleStreamer()
-	} else {
+		startRuleStreamer()
+	case currentlyRunning && !shouldRun:
+		p.logger.Debug("stopping rule sync")
+		p.stopRuleStreamer()
+		p.stopRuleStreamer = nil
+	case !currentlyRunning && shouldRun:
 		p.logger.Debug("starting rule sync")
+		startRuleStreamer()
+	case !currentlyRunning && !shouldRun:
+		p.logger.Debug("rule sync is disabled")
 	}
-	ctx, ca := context.WithCancel(p.ctx)
-	p.stopRuleStreamer = ca
-	go p.ruleStreamer.Run(ctx, cfg.Rules)
 }
 
 func Scheme(ctx context.Context) meta.Scheme {

@@ -7,14 +7,19 @@ import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
 
 package node;
 
+// The NodeMetricsCapability service serves implementation-specific config
+// for metrics capability nodes.
 service NodeMetricsCapability {
   rpc Sync(SyncRequest) returns (SyncResponse);
 }
 
 message MetricsCapabilityConfig {
   bool enabled = 1;
-  config.v1beta1.RulesSpec rules = 2;
+  MetricsCapabilitySpec spec = 2;
+}
 
+message MetricsCapabilitySpec {
+  config.v1beta1.RulesSpec rules = 1;
   // TODO: add config options for metrics capability here
 }
 

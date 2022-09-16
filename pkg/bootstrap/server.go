@@ -27,18 +27,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type Storage interface {
-	storage.TokenStore
-	storage.ClusterStore
-	storage.KeyringStoreBroker
-}
-
-type StorageConfig struct {
-	storage.TokenStore
-	storage.ClusterStore
-	storage.KeyringStoreBroker
-}
-
 type Server struct {
 	bootstrapv1.UnsafeBootstrapServer
 	privateKey      crypto.Signer

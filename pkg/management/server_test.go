@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -25,6 +26,10 @@ type testCapabilityDataSource struct {
 
 func (t testCapabilityDataSource) CapabilitiesStore() capabilities.BackendStore {
 	return t.store
+}
+
+func (t testCapabilityDataSource) NodeManagerServer() capabilityv1.NodeManagerServer {
+	return capabilityv1.UnimplementedNodeManagerServer{}
 }
 
 var _ = Describe("Server", Ordered, Label("slow"), func() {

@@ -31,6 +31,8 @@ type BackendClient interface {
 	CanInstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Installs the capability on a cluster.
 	Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Returns common runtime config info for this capability from a specific
+	// cluster (node).
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*NodeCapabilityStatus, error)
 	// Requests the backend to clean up any resources it owns and prepare
 	// for uninstallation. This process is asynchronous. The status of the
@@ -141,6 +143,8 @@ type BackendServer interface {
 	CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// Installs the capability on a cluster.
 	Install(context.Context, *InstallRequest) (*emptypb.Empty, error)
+	// Returns common runtime config info for this capability from a specific
+	// cluster (node).
 	Status(context.Context, *StatusRequest) (*NodeCapabilityStatus, error)
 	// Requests the backend to clean up any resources it owns and prepare
 	// for uninstallation. This process is asynchronous. The status of the
@@ -392,7 +396,7 @@ var Backend_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NodeClient interface {
-	SyncNow(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	SyncNow(ctx context.Context, in *Filter, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type nodeClient struct {
@@ -403,7 +407,7 @@ func NewNodeClient(cc grpc.ClientConnInterface) NodeClient {
 	return &nodeClient{cc}
 }
 
-func (c *nodeClient) SyncNow(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *nodeClient) SyncNow(ctx context.Context, in *Filter, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/capability.Node/SyncNow", in, out, opts...)
 	if err != nil {
@@ -416,7 +420,7 @@ func (c *nodeClient) SyncNow(ctx context.Context, in *emptypb.Empty, opts ...grp
 // All implementations must embed UnimplementedNodeServer
 // for forward compatibility
 type NodeServer interface {
-	SyncNow(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	SyncNow(context.Context, *Filter) (*emptypb.Empty, error)
 	mustEmbedUnimplementedNodeServer()
 }
 
@@ -424,7 +428,7 @@ type NodeServer interface {
 type UnimplementedNodeServer struct {
 }
 
-func (UnimplementedNodeServer) SyncNow(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedNodeServer) SyncNow(context.Context, *Filter) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SyncNow not implemented")
 }
 func (UnimplementedNodeServer) mustEmbedUnimplementedNodeServer() {}
@@ -441,7 +445,7 @@ func RegisterNodeServer(s grpc.ServiceRegistrar, srv NodeServer) {
 }
 
 func _Node_SyncNow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(Filter)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -453,7 +457,7 @@ func _Node_SyncNow_Handler(srv interface{}, ctx context.Context, dec func(interf
 		FullMethod: "/capability.Node/SyncNow",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).SyncNow(ctx, req.(*emptypb.Empty))
+		return srv.(NodeServer).SyncNow(ctx, req.(*Filter))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -468,6 +472,92 @@ var Node_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SyncNow",
 			Handler:    _Node_SyncNow_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto",
+}
+
+// NodeManagerClient is the client API for NodeManager service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type NodeManagerClient interface {
+	RequestSync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type nodeManagerClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNodeManagerClient(cc grpc.ClientConnInterface) NodeManagerClient {
+	return &nodeManagerClient{cc}
+}
+
+func (c *nodeManagerClient) RequestSync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/capability.NodeManager/RequestSync", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NodeManagerServer is the server API for NodeManager service.
+// All implementations must embed UnimplementedNodeManagerServer
+// for forward compatibility
+type NodeManagerServer interface {
+	RequestSync(context.Context, *SyncRequest) (*emptypb.Empty, error)
+	mustEmbedUnimplementedNodeManagerServer()
+}
+
+// UnimplementedNodeManagerServer must be embedded to have forward compatible implementations.
+type UnimplementedNodeManagerServer struct {
+}
+
+func (UnimplementedNodeManagerServer) RequestSync(context.Context, *SyncRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RequestSync not implemented")
+}
+func (UnimplementedNodeManagerServer) mustEmbedUnimplementedNodeManagerServer() {}
+
+// UnsafeNodeManagerServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NodeManagerServer will
+// result in compilation errors.
+type UnsafeNodeManagerServer interface {
+	mustEmbedUnimplementedNodeManagerServer()
+}
+
+func RegisterNodeManagerServer(s grpc.ServiceRegistrar, srv NodeManagerServer) {
+	s.RegisterService(&NodeManager_ServiceDesc, srv)
+}
+
+func _NodeManager_RequestSync_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SyncRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeManagerServer).RequestSync(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/capability.NodeManager/RequestSync",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeManagerServer).RequestSync(ctx, req.(*SyncRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NodeManager_ServiceDesc is the grpc.ServiceDesc for NodeManager service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NodeManager_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "capability.NodeManager",
+	HandlerType: (*NodeManagerServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "RequestSync",
+			Handler:    _NodeManager_RequestSync_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

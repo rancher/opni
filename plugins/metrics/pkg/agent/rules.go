@@ -116,7 +116,7 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec) error
 }
 
 func (s *RuleStreamer) configureRuleFinder(config *v1beta1.RulesSpec) (notifier.Finder[rules.RuleGroup], error) {
-	if pr := config.Discovery.PrometheusRules; pr != nil {
+	if pr := config.GetDiscovery().GetPrometheusRules(); pr != nil {
 		client, err := util.NewK8sClient(util.ClientOptions{
 			Kubeconfig: pr.Kubeconfig,
 			Scheme:     apis.NewScheme(),
@@ -129,8 +129,8 @@ func (s *RuleStreamer) configureRuleFinder(config *v1beta1.RulesSpec) (notifier.
 			rules.WithNamespaces(pr.SearchNamespaces...),
 		)
 		return finder, nil
-	} else if config.Discovery.Filesystem != nil {
-		return rules.NewFilesystemRuleFinder(config.Discovery.Filesystem), nil
+	} else if fs := config.GetDiscovery().GetFilesystem(); fs != nil {
+		return rules.NewFilesystemRuleFinder(fs), nil
 	}
 
 	return nil, errors.New("no rule discovery backend provided")
@@ -144,7 +144,7 @@ func (s *RuleStreamer) streamRuleGroupUpdates(ctx context.Context, config *v1bet
 	}
 	s.logger.Debug("rule discovery configured")
 	searchInterval := time.Minute * 15
-	if interval := config.Discovery.Interval; interval != "" {
+	if interval := config.GetDiscovery().GetInterval(); interval != "" {
 		duration, err := time.ParseDuration(interval)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse discovery interval: %w", err)

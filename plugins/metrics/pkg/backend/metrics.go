@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -35,8 +36,8 @@ type MetricsBackend struct {
 	nodeStatusMu sync.RWMutex
 	nodeStatus   map[string]*capabilityv1.NodeCapabilityStatus
 
-	desiredNodeConfigMu sync.RWMutex
-	desiredNodeConfig   map[string]*node.MetricsCapabilityConfig
+	desiredNodeSpecMu sync.RWMutex
+	desiredNodeSpec   map[string]*node.MetricsCapabilitySpec
 
 	metricsutil.Initializer
 }
@@ -44,9 +45,11 @@ type MetricsBackend struct {
 var _ node.NodeMetricsCapabilityServer = (*MetricsBackend)(nil)
 
 type MetricsBackendConfig struct {
-	StorageBackend      storage.Backend               `validate:"required"`
-	MgmtClient          managementv1.ManagementClient `validate:"required"`
-	UninstallController *task.Controller              `validate:"required"`
+	Logger              *zap.SugaredLogger             `validate:"required"`
+	StorageBackend      storage.Backend                `validate:"required"`
+	MgmtClient          managementv1.ManagementClient  `validate:"required"`
+	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
+	UninstallController *task.Controller               `validate:"required"`
 }
 
 func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
@@ -56,7 +59,7 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 		}
 		m.MetricsBackendConfig = conf
 		m.nodeStatus = make(map[string]*capabilityv1.NodeCapabilityStatus)
-		m.desiredNodeConfig = make(map[string]*node.MetricsCapabilityConfig)
+		m.desiredNodeSpec = make(map[string]*node.MetricsCapabilitySpec)
 	})
 }
 
@@ -68,9 +71,10 @@ func (m *MetricsBackend) Info(ctx context.Context, _ *emptypb.Empty) (*capabilit
 }
 
 func (m *MetricsBackend) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	m.WaitForInit()
-
-	return &emptypb.Empty{}, nil
+	if m.Initialized() {
+		return &emptypb.Empty{}, nil
+	}
+	return nil, status.Error(codes.Unavailable, "metrics backend is not ready")
 }
 
 func (m *MetricsBackend) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*emptypb.Empty, error) {
@@ -82,6 +86,8 @@ func (m *MetricsBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 	if err != nil {
 		return nil, err
 	}
+
+	m.requestNodeSync(ctx, req.Cluster)
 	return &emptypb.Empty{}, nil
 }
 
@@ -163,6 +169,7 @@ func (m *MetricsBackend) Uninstall(ctx context.Context, req *capabilityv1.Uninst
 	if err != nil {
 		return nil, fmt.Errorf("failed to update cluster metadata: %v", err)
 	}
+	m.requestNodeSync(ctx, req.Cluster)
 
 	md := uninstall.TimestampedMetadata{
 		DefaultUninstallOptions: defaultOpts,
@@ -172,6 +179,7 @@ func (m *MetricsBackend) Uninstall(ctx context.Context, req *capabilityv1.Uninst
 	if err != nil {
 		return nil, err
 	}
+
 	return &emptypb.Empty{}, nil
 }
 
@@ -185,6 +193,8 @@ func (m *MetricsBackend) CancelUninstall(ctx context.Context, cluster *corev1.Re
 	m.WaitForInit()
 
 	m.UninstallController.CancelTask(cluster.Id)
+
+	m.requestNodeSync(ctx, cluster)
 	return &emptypb.Empty{}, nil
 }
 
@@ -201,11 +211,29 @@ func (m *MetricsBackend) InstallerTemplate(context.Context, *emptypb.Empty) (*ca
 	}, nil
 }
 
-type NodeSyncManager struct {
+func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Reference) {
+	_, err := m.NodeManagerClient.RequestSync(ctx, &capabilityv1.SyncRequest{
+		Cluster: cluster,
+		Filter: &capabilityv1.Filter{
+			CapabilityNames: []string{wellknown.CapabilityMetrics},
+		},
+	})
+	if err != nil {
+		m.Logger.With(
+			"cluster", cluster,
+			"capability", wellknown.CapabilityMetrics,
+		).Warn("failed to request node sync; nodes may not be updated immediately")
+		return
+	}
+	m.Logger.With(
+		"cluster", cluster,
+		"capability", wellknown.CapabilityMetrics,
+	).Info("node sync requested")
 }
 
 // Implements node.NodeMetricsCapabilityServer
 func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node.SyncResponse, error) {
+	m.WaitForInit()
 	// todo: validate
 
 	id, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
@@ -213,8 +241,22 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 		return nil, util.StatusError(codes.Unauthenticated)
 	}
 
-	m.desiredNodeConfigMu.RLock()
-	defer m.desiredNodeConfigMu.RUnlock()
+	// look up the cluster and check if the capability is installed
+	cluster, err := m.StorageBackend.GetCluster(ctx, &corev1.Reference{
+		Id: id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var enabled bool
+	for _, cap := range cluster.GetCapabilities() {
+		if cap.Name == wellknown.CapabilityMetrics {
+			enabled = (cap.DeletionTimestamp == nil)
+		}
+	}
+
+	m.desiredNodeSpecMu.RLock()
+	defer m.desiredNodeSpecMu.RUnlock()
 
 	m.nodeStatusMu.RLock()
 	defer m.nodeStatusMu.RUnlock()
@@ -228,21 +270,10 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 	status.Enabled = req.GetCurrentConfig().GetEnabled()
 	status.LastSync = timestamppb.Now()
 
-	return buildResponse(req.GetCurrentConfig(), m.desiredNodeConfig[id]), nil
-}
-
-func (m *MetricsBackend) SetDesiredConfiguration(id *corev1.Reference, config *node.MetricsCapabilityConfig) {
-	m.desiredNodeConfigMu.Lock()
-	defer m.desiredNodeConfigMu.Unlock()
-
-	m.desiredNodeConfig[id.Id] = config
-}
-
-func (m *MetricsBackend) ForgetNode(id string) {
-	m.nodeStatusMu.Lock()
-	defer m.nodeStatusMu.Unlock()
-
-	delete(m.nodeStatus, id)
+	return buildResponse(req.GetCurrentConfig(), &node.MetricsCapabilityConfig{
+		Enabled: enabled,
+		Spec:    m.desiredNodeSpec[id],
+	}), nil
 }
 
 // the calling function must have exclusive ownership of both old and new

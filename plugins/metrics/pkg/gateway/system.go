@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -59,6 +60,11 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	})
 
 	p.authMw.Set(machinery.LoadAuthProviders(p.ctx, objectList))
+	<-p.ctx.Done()
+}
+
+func (p *Plugin) UseNodeManagerClient(client capabilityv1.NodeManagerClient) {
+	p.nodeManagerClient.Set(client)
 	<-p.ctx.Done()
 }
 

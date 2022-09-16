@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/config/v1beta1"
@@ -49,6 +50,7 @@ type Plugin struct {
 	config              future.Future[*v1beta1.GatewayConfig]
 	authMw              future.Future[map[string]auth.Middleware]
 	mgmtClient          future.Future[managementv1.ManagementClient]
+	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	storageBackend      future.Future[storage.Backend]
 	cortexTlsConfig     future.Future[*tls.Config]
 	cortexClientSet     future.Future[cortex.ClientSet]
@@ -65,6 +67,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		config:              future.New[*v1beta1.GatewayConfig](),
 		authMw:              future.New[map[string]auth.Middleware](),
 		mgmtClient:          future.New[managementv1.ManagementClient](),
+		nodeManagerClient:   future.New[capabilityv1.NodeManagerClient](),
 		storageBackend:      future.New[storage.Backend](),
 		cortexTlsConfig:     future.New[*tls.Config](),
 		cortexClientSet:     future.New[cortex.ClientSet](),
@@ -98,11 +101,18 @@ func NewPlugin(ctx context.Context) *Plugin {
 			})
 		})
 
-	future.Wait3(p.storageBackend, p.mgmtClient, p.uninstallController,
-		func(storageBackend storage.Backend, mgmtClient managementv1.ManagementClient, uninstallController *task.Controller) {
+	future.Wait4(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController,
+		func(
+			storageBackend storage.Backend,
+			mgmtClient managementv1.ManagementClient,
+			nodeManagerClient capabilityv1.NodeManagerClient,
+			uninstallController *task.Controller,
+		) {
 			p.metrics.Initialize(backend.MetricsBackendConfig{
+				Logger:              p.logger.Named("metrics-backend"),
 				StorageBackend:      storageBackend,
 				MgmtClient:          mgmtClient,
+				NodeManagerClient:   nodeManagerClient,
 				UninstallController: uninstallController,
 			})
 		})

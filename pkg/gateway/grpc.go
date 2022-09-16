@@ -23,6 +23,28 @@ type ConnectionHandler interface {
 	HandleAgentConnection(context.Context, agentv1.ClientSet)
 }
 
+func MultiConnectionHandler(handlers ...ConnectionHandler) ConnectionHandler {
+	return &multiConnectionHandler{
+		handlers: handlers,
+	}
+}
+
+type multiConnectionHandler struct {
+	handlers []ConnectionHandler
+}
+
+func (m *multiConnectionHandler) HandleAgentConnection(ctx context.Context, clientSet agentv1.ClientSet) {
+	for _, handler := range m.handlers {
+		go handler.HandleAgentConnection(ctx, clientSet)
+	}
+}
+
+type ConnectionHandlerFunc func(context.Context, agentv1.ClientSet)
+
+func (f ConnectionHandlerFunc) HandleAgentConnection(ctx context.Context, clientSet agentv1.ClientSet) {
+	f(ctx, clientSet)
+}
+
 type GatewayGRPCServer struct {
 	streamv1.UnsafeStreamServer
 	conf       *v1beta1.GatewayConfigSpec

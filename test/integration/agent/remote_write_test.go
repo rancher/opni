@@ -11,6 +11,7 @@ import (
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -53,7 +54,7 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 					return fmt.Errorf("not connected")
 				}
 				conds := hs.GetHealth().GetConditions()
-				if len(conds) == 1 && conds[0] == "Remote Write Pending" {
+				if slices.Contains(conds, "Remote Write Pending") {
 					return nil
 				}
 				return fmt.Errorf("waiting for remote write pending condition")

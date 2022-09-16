@@ -132,6 +132,7 @@ type EnvironmentOptions struct {
 	delayStartCortex     chan struct{}
 	defaultAgentOpts     []StartAgentOption
 	agentIdSeed          int64
+	defaultAgentVersion  string
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -190,6 +191,13 @@ func WithAgentIdSeed(seed int64) EnvironmentOption {
 	}
 }
 
+func defaultAgentVersion() string {
+	if v, ok := os.LookupEnv("TEST_ENV_DEFAULT_AGENT_VERSION"); ok {
+		return v
+	}
+	return "v1"
+}
+
 func (e *Environment) Start(opts ...EnvironmentOption) error {
 	options := EnvironmentOptions{
 		enableEtcd:           true,
@@ -197,6 +205,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		enableCortex:         true,
 		enableRealtimeServer: true,
 		agentIdSeed:          time.Now().UnixNano(),
+		defaultAgentVersion:  defaultAgentVersion(),
 	}
 	options.apply(opts...)
 
@@ -272,6 +281,24 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 	}
 	if portNum, ok := os.LookupEnv("TEST_ENV_API_PORT"); ok {
 		e.ports.TestEnvironment, err = strconv.Atoi(portNum)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if portNum, ok := os.LookupEnv("ETCD_PORT"); ok {
+		e.ports.Etcd, err = strconv.Atoi(portNum)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if portNum, ok := os.LookupEnv("CORTEX_HTTP_PORT"); ok {
+		e.ports.CortexHTTP, err = strconv.Atoi(portNum)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if portNum, ok := os.LookupEnv("CORTEX_GRPC_PORT"); ok {
+		e.ports.CortexGRPC, err = strconv.Atoi(portNum)
 		if err != nil {
 			panic(err)
 		}
@@ -553,10 +580,10 @@ func (e *Environment) startCortex() {
 	}
 	lg.Info("Waiting for cortex to start...")
 	for e.ctx.Err() == nil {
-		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.GatewayHTTP), nil)
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.CortexHTTP), nil)
 		client := http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: e.GatewayTLSConfig(),
+				TLSClientConfig: e.CortexTLSConfig(),
 			},
 		}
 		resp, err := client.Do(req)
@@ -790,9 +817,9 @@ func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan
 }
 
 func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
-	caCertData := string(TestData("root_ca.crt"))
-	servingCertData := string(TestData("localhost.crt"))
-	servingKeyData := string(TestData("localhost.key"))
+	caCertData := TestData("root_ca.crt")
+	servingCertData := TestData("localhost.crt")
+	servingKeyData := TestData("localhost.key")
 	return &v1beta1.GatewayConfig{
 		TypeMeta: meta.TypeMeta{
 			APIVersion: "v1beta1",
@@ -811,9 +838,9 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 			},
 			AuthProvider: "test",
 			Certs: v1beta1.CertsSpec{
-				CACertData:      &caCertData,
-				ServingCertData: &servingCertData,
-				ServingKeyData:  &servingKeyData,
+				CACertData:      caCertData,
+				ServingCertData: servingCertData,
+				ServingKeyData:  servingKeyData,
 			},
 			Cortex: v1beta1.CortexSpec{
 				Distributor: v1beta1.DistributorSpec{
@@ -984,7 +1011,7 @@ type StartAgentOptions struct {
 	ctx                  context.Context
 	remoteGatewayAddress string
 	remoteKubeconfig     string
-	v2                   bool
+	version              string
 }
 
 type StartAgentOption func(*StartAgentOptions)
@@ -1013,15 +1040,16 @@ func WithRemoteKubeconfig(kubeconfig string) StartAgentOption {
 	}
 }
 
-func AgentV2(v2 bool) StartAgentOption {
+func WithAgentVersion(version string) StartAgentOption {
 	return func(o *StartAgentOptions) {
-		o.v2 = v2
+		o.version = version
 	}
 }
 
 func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins []string, opts ...StartAgentOption) (int, <-chan error) {
 	options := &StartAgentOptions{
-		ctx: e.ctx,
+		version: e.defaultAgentVersion,
+		ctx:     e.ctx,
 	}
 	options.apply(e.defaultAgentOpts...)
 	options.apply(opts...)
@@ -1072,14 +1100,10 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		},
 	}
 
-	versionStr := "v1"
-	if options.v2 {
-		versionStr = "v2"
-	}
 	Log.With(
 		"id", id,
 		"address", agentConfig.Spec.ListenAddress,
-		"version", versionStr,
+		"version", options.version,
 	).Info("starting agent")
 
 	publicKeyPins := []*pkp.PublicKeyPin{}
@@ -1119,7 +1143,8 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 			errC <- err
 			return
 		}
-		if !options.v2 {
+		switch options.version {
+		case "v1":
 			a, err = agentv1.New(options.ctx, agentConfig,
 				agentv1.WithBootstrapper(&bootstrap.ClientConfig{
 					Capability:    wellknown.CapabilityMetrics,
@@ -1127,7 +1152,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 					Endpoint:      gatewayAddress,
 					TrustStrategy: strategy,
 				}))
-		} else {
+		case "v2":
 			pluginLoader := plugins.NewPluginLoader()
 			a, err = agentv2.New(options.ctx, agentConfig, pluginLoader,
 				agentv2.WithBootstrapper(&bootstrap.ClientConfig{
@@ -1137,6 +1162,9 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 					TrustStrategy: strategy,
 				}))
 			LoadPlugins(pluginLoader, pluginmeta.ModeAgent)
+		default:
+			errC <- fmt.Errorf("unknown agent version %q (expected \"v1\" or \"v2\")", options.version)
+			return
 		}
 		if err != nil {
 			errC <- err
@@ -1169,10 +1197,41 @@ func (e *Environment) GetAgent(id string) RunningAgent {
 
 func (e *Environment) GatewayTLSConfig() *tls.Config {
 	pool := x509.NewCertPool()
-	pool.AppendCertsFromPEM([]byte(*e.gatewayConfig.Spec.Certs.CACertData))
+	switch {
+	case e.gatewayConfig.Spec.Certs.CACert != nil:
+		data, err := os.ReadFile(*e.gatewayConfig.Spec.Certs.CACert)
+		if err != nil {
+			e.Logger.Panic(err)
+		}
+		if !pool.AppendCertsFromPEM(data) {
+			e.Logger.Panic("failed to load gateway CA cert")
+		}
+	case e.gatewayConfig.Spec.Certs.CACertData != nil:
+		if !pool.AppendCertsFromPEM(e.gatewayConfig.Spec.Certs.CACertData) {
+			e.Logger.Panic("failed to load gateway CA cert")
+		}
+	}
 	return &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		RootCAs:    pool,
+	}
+}
+
+func (e *Environment) CortexTLSConfig() *tls.Config {
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(TestData("cortex/root.crt")) {
+		e.Logger.Panic("failed to load Cortex CA cert")
+	}
+	clientCert := TestData("cortex/client.crt")
+	clientKey := TestData("cortex/client.key")
+	cert, err := tls.X509KeyPair(clientCert, clientKey)
+	if err != nil {
+		e.Logger.Panic(err)
+	}
+	return &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		RootCAs:      pool,
+		Certificates: []tls.Certificate{cert},
 	}
 }
 
@@ -1246,7 +1305,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 			}
 			startOpts := slices.Clone(options.defaultAgentOpts)
 			port, errC := environment.StartAgent(body.ID, token.ToBootstrapToken(), body.Pins,
-				append(startOpts, AgentV2(body.Version == "v2"))...)
+				append(startOpts, WithAgentVersion(body.Version))...)
 			if err := <-errC; err != nil {
 				rw.WriteHeader(http.StatusInternalServerError)
 				rw.Write([]byte(err.Error()))

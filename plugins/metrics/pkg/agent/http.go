@@ -22,11 +22,14 @@ type HttpServer struct {
 
 	remoteWriteClientMu sync.RWMutex
 	remoteWriteClient   clients.Locker[remotewrite.RemoteWriteClient]
+
+	conditions ConditionTracker
 }
 
-func NewHttpServer(lg *zap.SugaredLogger) *HttpServer {
+func NewHttpServer(ct ConditionTracker, lg *zap.SugaredLogger) *HttpServer {
 	return &HttpServer{
-		logger: lg,
+		logger:     lg,
+		conditions: ct,
 	}
 }
 
@@ -50,7 +53,7 @@ func (s *HttpServer) handlePushRequest(c *gin.Context) {
 	}
 	ok := s.remoteWriteClient.Use(func(rwc remotewrite.RemoteWriteClient) {
 		if rwc == nil {
-			// s.setCondition(condRemoteWrite, statusPending, "gateway not connected")
+			s.conditions.Set(CondRemoteWrite, StatusPending, "gateway not connected")
 			code = http.StatusServiceUnavailable
 			return
 		}
@@ -61,7 +64,6 @@ func (s *HttpServer) handlePushRequest(c *gin.Context) {
 			return
 		}
 		_, err = rwc.Push(c.Request.Context(), &remotewrite.Payload{
-			// AuthorizedClusterID: s.tenantID,
 			Contents: body,
 		})
 		if err != nil {
@@ -79,15 +81,15 @@ func (s *HttpServer) handlePushRequest(c *gin.Context) {
 			// a non-retriable error. In this case, the remote write status condition
 			// will be cleared as if the request succeeded.
 			if code == http.StatusBadRequest {
-				// s.clearCondition(condRemoteWrite)
+				s.conditions.Clear(CondRemoteWrite)
 				c.Error(errors.New("soft error: this request likely succeeded"))
 			} else {
-				// s.setCondition(condRemoteWrite, statusFailure, stat.Message())
+				s.conditions.Set(CondRemoteWrite, StatusFailure, stat.Message())
 			}
 			c.Error(err)
 			return
 		}
-		// s.clearCondition(condRemoteWrite)
+		s.conditions.Clear(CondRemoteWrite)
 		code = http.StatusOK
 	})
 	if !ok {

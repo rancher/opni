@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/health/annotations"
 	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
 )
@@ -68,6 +69,8 @@ func (m *Monitor) Run(ctx context.Context, updater HealthStatusUpdater) {
 				"id", update.ID,
 				"ready", update.Health.Ready,
 				"conditions", update.Health.Conditions,
+			).With(
+				annotations.KeyValuePairs(update.Health.GetAnnotations())...,
 			).Info("received health update")
 			m.currentHealth[update.ID] = update.Health
 			m.mu.Unlock()

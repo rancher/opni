@@ -17,12 +17,34 @@ import (
 // This server will report as ready if and only if all clients report as ready.
 type Aggregator struct {
 	controlv1.UnsafeHealthServer
+	AggregatorOptions
 
 	clientsMu sync.RWMutex
 	clients   map[string]controlv1.HealthClient
 }
 
-func NewAggregator() *Aggregator {
+type AggregatorOptions struct {
+	staticAnnotations map[string]string
+}
+
+type AggregatorOption func(*AggregatorOptions)
+
+func (o *AggregatorOptions) apply(opts ...AggregatorOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithStaticAnnotations(staticAnnotations map[string]string) AggregatorOption {
+	return func(o *AggregatorOptions) {
+		o.staticAnnotations = staticAnnotations
+	}
+}
+
+func NewAggregator(opts ...AggregatorOption) *Aggregator {
+	options := &AggregatorOptions{}
+	options.apply(opts...)
+
 	return &Aggregator{
 		clients: make(map[string]controlv1.HealthClient),
 	}
@@ -40,7 +62,7 @@ func (h *Aggregator) RemoveClient(name string) {
 	delete(h.clients, name)
 }
 
-func (h *Aggregator) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health, error) {
+func (h *Aggregator) GetHealth(ctx context.Context, _ *emptypb.Empty) (*corev1.Health, error) {
 	h.clientsMu.RLock()
 	defer h.clientsMu.RUnlock()
 
@@ -54,7 +76,7 @@ func (h *Aggregator) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health,
 		name, client := name, client
 		go func(i int) {
 			defer wg.Done()
-			health, err := client.GetHealth(context.Background(), &emptypb.Empty{})
+			health, err := client.GetHealth(ctx, &emptypb.Empty{})
 			if err != nil {
 				clientConditions[i] = []string{fmt.Sprintf("%s: %s", name, err.Error())}
 				return
@@ -73,7 +95,8 @@ func (h *Aggregator) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health,
 	allConditions := lo.Flatten(clientConditions)
 	sort.Strings(allConditions)
 	return &corev1.Health{
-		Ready:      allClientsReady,
-		Conditions: allConditions,
+		Ready:       allClientsReady,
+		Conditions:  allConditions,
+		Annotations: h.staticAnnotations,
 	}, nil
 }

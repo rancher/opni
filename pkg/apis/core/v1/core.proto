@@ -119,6 +119,7 @@ message Status {
 message Health {
   bool ready = 2;
   repeated string conditions = 3;
+  map<string, string> annotations = 4;
 }
 
 message HealthStatus {

@@ -21,11 +21,13 @@ type RuleStreamer struct {
 	logger              *zap.SugaredLogger
 	remoteWriteClientMu sync.Mutex
 	remoteWriteClient   remotewrite.RemoteWriteClient
+	conditions          ConditionTracker
 }
 
-func NewRuleStreamer(lg *zap.SugaredLogger) *RuleStreamer {
+func NewRuleStreamer(ct ConditionTracker, lg *zap.SugaredLogger) *RuleStreamer {
 	return &RuleStreamer{
-		logger: lg,
+		logger:     lg,
+		conditions: ct,
 	}
 }
 
@@ -74,7 +76,7 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec) error
 						})
 					}
 					if err != nil {
-						// a.setCondition(condRuleSync, statusFailure, err.Error())
+						s.conditions.Set(CondRuleSync, StatusFailure, err.Error())
 						// retry, unless another update is received from the channel
 						lg.With(
 							zap.Error(err),
@@ -90,7 +92,7 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec) error
 						}
 					}
 				}
-				// a.clearCondition(condRuleSync, fmt.Sprintf("successfully sent %d alert rules to gateway", len(docs)))
+				s.conditions.Clear(CondRuleSync, fmt.Sprintf("successfully sent %d alert rules to gateway", len(docs)))
 				break
 			}
 		}

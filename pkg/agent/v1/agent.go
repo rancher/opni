@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/health/annotations"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
@@ -357,6 +358,9 @@ func (a *Agent) GetHealth(context.Context, *emptypb.Empty) (*corev1.Health, erro
 	return &corev1.Health{
 		Ready:      len(conditions) == 0,
 		Conditions: conditions,
+		Annotations: map[string]string{
+			annotations.AgentVersion: annotations.Version1,
+		},
 	}, nil
 }
 

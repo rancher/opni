@@ -129,6 +129,120 @@ agent remote-write requests to add dynamic authentication.`,
 	return agentCmd
 }
 
+func configureBootstrap(conf *v1beta1.AgentConfig) (bootstrap.Bootstrapper, error) {
+	var bootstrapper bootstrap.Bootstrapper
+	var trustStrategy trust.Strategy
+	if conf.Spec.Bootstrap == nil {
+		return nil, errors.New("no bootstrap config provided")
+	}
+	if conf.Spec.Bootstrap.InClusterManagementAddress != nil {
+		bootstrapper = &bootstrap.InClusterBootstrapper{
+			Capability:         wellknown.CapabilityMetrics,
+			GatewayEndpoint:    conf.Spec.GatewayAddress,
+			ManagementEndpoint: *conf.Spec.Bootstrap.InClusterManagementAddress,
+		}
+	} else {
+		agentlg.Info("loading bootstrap tokens from config file")
+		tokenData := conf.Spec.Bootstrap.Token
+
+		switch conf.Spec.TrustStrategy {
+		case v1beta1.TrustStrategyPKP:
+			var err error
+			pins := conf.Spec.Bootstrap.Pins
+			publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
+			for i, pin := range pins {
+				publicKeyPins[i], err = pkp.DecodePin(pin)
+				if err != nil {
+					agentlg.With(
+						zap.Error(err),
+						zap.String("pin", string(pin)),
+					).Error("failed to parse pin")
+					return nil, err
+				}
+			}
+			conf := trust.StrategyConfig{
+				PKP: &trust.PKPConfig{
+					Pins: trust.NewPinSource(publicKeyPins),
+				},
+			}
+			trustStrategy, err = conf.Build()
+			if err != nil {
+				agentlg.With(
+					zap.Error(err),
+				).Error("error configuring PKP trust strategy")
+				return nil, err
+			}
+		case v1beta1.TrustStrategyCACerts:
+			paths := conf.Spec.Bootstrap.CACerts
+			certs := []*x509.Certificate{}
+			for _, path := range paths {
+				data, err := os.ReadFile(path)
+				if err != nil {
+					agentlg.With(
+						zap.Error(err),
+						zap.String("path", path),
+					).Error("failed to read CA cert")
+					return nil, err
+				}
+				cert, err := util.ParsePEMEncodedCert(data)
+				if err != nil {
+					agentlg.With(
+						zap.Error(err),
+						zap.String("path", path),
+					).Error("failed to parse CA cert")
+					return nil, err
+				}
+				certs = append(certs, cert)
+			}
+			conf := trust.StrategyConfig{
+				CACerts: &trust.CACertsConfig{
+					CACerts: trust.NewCACertsSource(certs),
+				},
+			}
+			var err error
+			trustStrategy, err = conf.Build()
+			if err != nil {
+				agentlg.With(
+					zap.Error(err),
+				).Error("error configuring CA Certs trust strategy")
+				return nil, err
+			}
+		case v1beta1.TrustStrategyInsecure:
+			agentlg.Warn(chalk.Bold.NewStyle().WithForeground(chalk.Yellow).Style(
+				"*** Using insecure trust strategy. This is not recommended. ***",
+			))
+			conf := trust.StrategyConfig{
+				Insecure: &trust.InsecureConfig{},
+			}
+			var err error
+			trustStrategy, err = conf.Build()
+			if err != nil {
+				agentlg.With(
+					zap.Error(err),
+				).Error("error configuring insecure trust strategy")
+				return nil, err
+			}
+		}
+
+		token, err := tokens.ParseHex(tokenData)
+		if err != nil {
+			agentlg.With(
+				zap.Error(err),
+				zap.String("token", fmt.Sprintf("[redacted (len: %d)]", len(tokenData))),
+			).Error("failed to parse token")
+			return nil, err
+		}
+		bootstrapper = &bootstrap.ClientConfig{
+			Capability:    wellknown.CapabilityMetrics,
+			Token:         token,
+			Endpoint:      conf.Spec.GatewayAddress,
+			TrustStrategy: trustStrategy,
+		}
+	}
+
+	return bootstrapper, nil
+}
+
 func runMonitoringAgent(ctx context.Context) {
 	if configLocation == "" {
 		// find config file
@@ -165,104 +279,7 @@ func runMonitoringAgent(ctx context.Context) {
 		runtime.SetMutexProfileFraction(100)
 	}
 
-	var bootstrapper bootstrap.Bootstrapper
-	var trustStrategy trust.Strategy
-	if agentConfig.Spec.Bootstrap != nil {
-		if agentConfig.Spec.Bootstrap.InClusterManagementAddress != nil {
-			bootstrapper = &bootstrap.InClusterBootstrapper{
-				Capability:         wellknown.CapabilityMetrics,
-				GatewayEndpoint:    agentConfig.Spec.GatewayAddress,
-				ManagementEndpoint: *agentConfig.Spec.Bootstrap.InClusterManagementAddress,
-			}
-		} else {
-			agentlg.Info("loading bootstrap tokens from config file")
-			tokenData := agentConfig.Spec.Bootstrap.Token
-
-			switch agentConfig.Spec.TrustStrategy {
-			case v1beta1.TrustStrategyPKP:
-				pins := agentConfig.Spec.Bootstrap.Pins
-				publicKeyPins := make([]*pkp.PublicKeyPin, len(pins))
-				for i, pin := range pins {
-					publicKeyPins[i], err = pkp.DecodePin(pin)
-					if err != nil {
-						agentlg.With(
-							zap.Error(err),
-							zap.String("pin", string(pin)),
-						).Error("failed to parse pin")
-					}
-				}
-				conf := trust.StrategyConfig{
-					PKP: &trust.PKPConfig{
-						Pins: trust.NewPinSource(publicKeyPins),
-					},
-				}
-				trustStrategy, err = conf.Build()
-				if err != nil {
-					agentlg.With(
-						zap.Error(err),
-					).Fatal("error configuring PKP trust strategy")
-				}
-			case v1beta1.TrustStrategyCACerts:
-				paths := agentConfig.Spec.Bootstrap.CACerts
-				certs := []*x509.Certificate{}
-				for _, path := range paths {
-					data, err := os.ReadFile(path)
-					if err != nil {
-						agentlg.With(
-							zap.Error(err),
-							zap.String("path", path),
-						).Fatal("failed to read CA cert")
-					}
-					cert, err := util.ParsePEMEncodedCert(data)
-					if err != nil {
-						agentlg.With(
-							zap.Error(err),
-							zap.String("path", path),
-						).Fatal("failed to parse CA cert")
-					}
-					certs = append(certs, cert)
-				}
-				conf := trust.StrategyConfig{
-					CACerts: &trust.CACertsConfig{
-						CACerts: trust.NewCACertsSource(certs),
-					},
-				}
-				trustStrategy, err = conf.Build()
-				if err != nil {
-					agentlg.With(
-						zap.Error(err),
-					).Fatal("error configuring CA Certs trust strategy")
-				}
-			case v1beta1.TrustStrategyInsecure:
-				agentlg.Warn(chalk.Bold.NewStyle().WithForeground(chalk.Yellow).Style(
-					"*** Using insecure trust strategy. This is not recommended. ***",
-				))
-				conf := trust.StrategyConfig{
-					Insecure: &trust.InsecureConfig{},
-				}
-				trustStrategy, err = conf.Build()
-				if err != nil {
-					agentlg.With(
-						zap.Error(err),
-					).Fatal("error configuring insecure trust strategy")
-				}
-			}
-
-			token, err := tokens.ParseHex(tokenData)
-			if err != nil {
-				agentlg.With(
-					zap.Error(err),
-					zap.String("token", fmt.Sprintf("[redacted (len: %d)]", len(tokenData))),
-				).Error("failed to parse token")
-			}
-			bootstrapper = &bootstrap.ClientConfig{
-				Capability:    wellknown.CapabilityMetrics,
-				Token:         token,
-				Endpoint:      agentConfig.Spec.GatewayAddress,
-				TrustStrategy: trustStrategy,
-			}
-		}
-	}
+	bootstrapper, err := configureBootstrap(agentConfig)
 
 	p, err := agentv1.New(ctx, agentConfig,
 		agentv1.WithBootstrapper(bootstrapper),

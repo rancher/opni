@@ -64,9 +64,9 @@ MC4CAQAwBQYDK2VwBCIEIM6i0VYYKNegxVFfCMXXbIBjjhDhfC30JPtkAImgL1Xw
 	})
 	It("should load a serving cert bundle", func() {
 		_, _, err := util.LoadServingCertBundle(v1beta1.CertsSpec{
-			CACertData:      lo.ToPtr(string(test.TestData("root_ca.crt"))),
-			ServingCertData: lo.ToPtr(string(test.TestData("localhost.crt"))),
-			ServingKeyData:  lo.ToPtr(string(test.TestData("localhost.key"))),
+			CACertData:      test.TestData("root_ca.crt"),
+			ServingCertData: test.TestData("localhost.crt"),
+			ServingKeyData:  test.TestData("localhost.key"),
 		})
 		Expect(err).NotTo(HaveOccurred())
 		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
@@ -78,12 +78,12 @@ MC4CAQAwBQYDK2VwBCIEIM6i0VYYKNegxVFfCMXXbIBjjhDhfC30JPtkAImgL1Xw
 	})
 	It("should handle errors when loading serving cert bundles", func() {
 		_, _, err := util.LoadServingCertBundle(v1beta1.CertsSpec{
-			CACertData:      lo.ToPtr(string(test.TestData("root_ca.crt"))),
-			ServingCertData: lo.ToPtr(string(test.TestData("localhost.crt"))),
+			CACertData:      test.TestData("root_ca.crt"),
+			ServingCertData: test.TestData("localhost.crt"),
 		})
 		Expect(err).To(HaveOccurred())
 		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
-			CACertData: lo.ToPtr(string(test.TestData("root_ca.crt"))),
+			CACertData: test.TestData("root_ca.crt"),
 		})
 		Expect(err).To(HaveOccurred())
 		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{})
@@ -109,21 +109,21 @@ MC4CAQAwBQYDK2VwBCIEIM6i0VYYKNegxVFfCMXXbIBjjhDhfC30JPtkAImgL1Xw
 		Expect(err).To(HaveOccurred())
 
 		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
-			CACertData:  lo.ToPtr("invalid"),
+			CACertData:  []byte("invalid"),
 			ServingCert: lo.ToPtr("../test/testdata/localhost.crt"),
 			ServingKey:  lo.ToPtr("../test/testdata/localhost.key"),
 		})
 		Expect(err).To(HaveOccurred())
 		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
 			CACert:          lo.ToPtr("../test/testdata/root_ca.crt"),
-			ServingCertData: lo.ToPtr("invalid"),
+			ServingCertData: []byte("invalid"),
 			ServingKey:      lo.ToPtr("../test/testdata/localhost.key"),
 		})
 		Expect(err).To(HaveOccurred())
 		_, _, err = util.LoadServingCertBundle(v1beta1.CertsSpec{
 			CACert:         lo.ToPtr("../test/testdata/root_ca.crt"),
 			ServingCert:    lo.ToPtr("../test/testdata/localhost.crt"),
-			ServingKeyData: lo.ToPtr("invalid"),
+			ServingKeyData: []byte("invalid"),
 		})
 		Expect(err).To(HaveOccurred())
 	})

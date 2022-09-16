@@ -13,20 +13,20 @@ func (tc *CertConfig) TLSConfig() (*tls.Config, error) {
 	if tc.Ca != "" {
 		certCfg.CACert = &tc.Ca
 	}
-	if tc.CaData != "" {
-		certCfg.CACertData = &tc.CaData
+	if tc.CaData != nil {
+		certCfg.CACertData = tc.CaData
 	}
 	if tc.Cert != "" {
 		certCfg.ServingCert = &tc.Cert
 	}
-	if tc.CertData != "" {
-		certCfg.ServingCertData = &tc.CertData
+	if tc.CertData != nil {
+		certCfg.ServingCertData = tc.CertData
 	}
 	if tc.Key != "" {
 		certCfg.ServingKey = &tc.Key
 	}
-	if tc.KeyData != "" {
-		certCfg.ServingKeyData = &tc.KeyData
+	if tc.KeyData != nil {
+		certCfg.ServingKeyData = tc.KeyData
 	}
 	bundle, caPool, err := util.LoadServingCertBundle(certCfg)
 	if err != nil {
@@ -42,11 +42,11 @@ func (tc *CertConfig) TLSConfig() (*tls.Config, error) {
 func NewCertConfig(certs v1beta1.CertsSpec) *CertConfig {
 	return &CertConfig{
 		Ca:       lo.FromPtr(certs.CACert),
-		CaData:   lo.FromPtr(certs.CACertData),
+		CaData:   certs.CACertData,
 		Cert:     lo.FromPtr(certs.ServingCert),
-		CertData: lo.FromPtr(certs.ServingCertData),
+		CertData: certs.ServingCertData,
 		Key:      lo.FromPtr(certs.ServingKey),
-		KeyData:  lo.FromPtr(certs.ServingKeyData),
+		KeyData:  certs.ServingKeyData,
 	}
 }
 

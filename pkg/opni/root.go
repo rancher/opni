@@ -21,6 +21,7 @@ func BuildRootCmd() *cobra.Command {
 	rootCmd.AddCommand(commands.BuildAccessMatrixCmd())
 	rootCmd.AddCommand(commands.BuildAdminCmd())
 	rootCmd.AddCommand(commands.BuildAgentCmd())
+	rootCmd.AddCommand(commands.BuildAgentV2Cmd())
 	rootCmd.AddCommand(commands.BuildBootstrapCmd())
 	rootCmd.AddCommand(commands.BuildCertsCmd())
 	rootCmd.AddCommand(commands.BuildClustersCmd())

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
+	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/ecdh"
 	"github.com/rancher/opni/pkg/ident"
@@ -22,8 +22,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-type ClientConfig struct {
-	Capability    string
+type ClientConfigV2 struct {
 	Token         *tokens.Token
 	Endpoint      string
 	DialOpts      []grpc.DialOption
@@ -32,7 +31,7 @@ type ClientConfig struct {
 	TrustStrategy trust.Strategy
 }
 
-func (c *ClientConfig) Bootstrap(
+func (c *ClientConfigV2) Bootstrap(
 	ctx context.Context,
 	ident ident.Provider,
 ) (keyring.Keyring, error) {
@@ -65,17 +64,16 @@ func (c *ClientConfig) Bootstrap(
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial gateway: %w", err)
 	}
-	client := bootstrapv1.NewBootstrapClient(cc)
+	client := bootstrapv2.NewBootstrapClient(cc)
 
 	ekp := ecdh.NewEphemeralKeyPair()
 	id, err := ident.UniqueIdentifier(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to obtain unique identifier: %w", err)
 	}
-	authReq := &bootstrapv1.BootstrapAuthRequest{
+	authReq := &bootstrapv2.BootstrapAuthRequest{
 		ClientID:     id,
 		ClientPubKey: ekp.PublicKey,
-		Capability:   c.Capability,
 	}
 
 	authResp, err := client.Auth(metadata.NewOutgoingContext(ctx, metadata.Pairs(
@@ -100,7 +98,7 @@ func (c *ClientConfig) Bootstrap(
 	return keyring.New(keys...), nil
 }
 
-func (c *ClientConfig) Finalize(ctx context.Context) error {
+func (c *ClientConfigV2) Finalize(ctx context.Context) error {
 	if c.K8sConfig == nil {
 		return nil
 	}
@@ -116,7 +114,7 @@ func (c *ClientConfig) Finalize(ctx context.Context) error {
 	return eraseBootstrapTokensFromConfig(ctx, c.K8sConfig, ns)
 }
 
-func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.BootstrapJoinResponse, *x509.Certificate, error) {
+func (c *ClientConfigV2) bootstrapJoin(ctx context.Context) (*bootstrapv2.BootstrapJoinResponse, *x509.Certificate, error) {
 	tlsConfig, err := c.TrustStrategy.TLSConfig()
 	if err != nil {
 		return nil, nil, err
@@ -131,10 +129,10 @@ func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.Bootstra
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to dial gateway: %w", err)
 	}
-	client := bootstrapv1.NewBootstrapClient(cc)
+	client := bootstrapv2.NewBootstrapClient(cc)
 
 	var peer peer.Peer
-	resp, err := client.Join(ctx, &bootstrapv1.BootstrapJoinRequest{}, grpc.Peer(&peer))
+	resp, err := client.Join(ctx, &bootstrapv2.BootstrapJoinRequest{}, grpc.Peer(&peer))
 	if err != nil {
 		return nil, nil, fmt.Errorf("join request failed: %w", err)
 	}
@@ -147,7 +145,7 @@ func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.Bootstra
 	return resp, tlsInfo.State.PeerCertificates[0], nil
 }
 
-func (c *ClientConfig) findValidSignature(
+func (c *ClientConfigV2) findValidSignature(
 	signatures map[string][]byte,
 	pubKey interface{},
 ) ([]byte, error) {

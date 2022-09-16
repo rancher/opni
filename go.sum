@@ -1872,12 +1872,8 @@ github.com/kralicky/ragu v1.0.0-beta2.0.20220804212527-11bbfeeda553 h1:Z7TRcOUUt
 github.com/kralicky/ragu v1.0.0-beta2.0.20220804212527-11bbfeeda553/go.mod h1:CdaCQsAPBdCSv5oFQ7x0p60hypc3CA0jve5ldD8mqJ8=
 github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f h1:4RbsbrpC4vlwanS7WNoFpA+ujI4k6GlE/A5VYOVN2TY=
 github.com/kralicky/spellbook v0.0.0-20220415171527-86ac7812393f/go.mod h1:zirR1JOaqwbLM3JDo+GkLb/e/OLifMsapYRXgt/iI9U=
-github.com/kralicky/totem v1.0.1-rc1.0.20220915232635-f70e359fa262 h1:9jeftuW9S9cPZwJwhf7Jbdgkxg7tReIPKoa8HScEjGA=
-github.com/kralicky/totem v1.0.1-rc1.0.20220915232635-f70e359fa262/go.mod h1:4vlzPB687v0leHxq9/vJ2JYv2SE290vSrQY8DwL5neI=
-github.com/kralicky/totem v1.0.1-rc1.0.20220916160925-9bea0dc41d17 h1:6EJJbDjRQtz1/tsj8LRS5yMEjeXOtnvyxdaexqpsG2c=
-github.com/kralicky/totem v1.0.1-rc1.0.20220916160925-9bea0dc41d17/go.mod h1:4vlzPB687v0leHxq9/vJ2JYv2SE290vSrQY8DwL5neI=
-github.com/kralicky/totem v1.0.1-rc1.0.20220916161849-0f1facb17dce h1:rZhk+7oFn/SE0G02RF8f0tjp2sla1I9Bp8xFxh8rZkA=
-github.com/kralicky/totem v1.0.1-rc1.0.20220916161849-0f1facb17dce/go.mod h1:4vlzPB687v0leHxq9/vJ2JYv2SE290vSrQY8DwL5neI=
+github.com/kralicky/totem v1.0.1-rc1.0.20220916214955-a885c7ae2443 h1:qqFCS7dNQbxy6liqAzxQttxYQkREBHHJgWBEQy9KbIM=
+github.com/kralicky/totem v1.0.1-rc1.0.20220916214955-a885c7ae2443/go.mod h1:iTb1Q1zPaLk6K8rqUJWHOQzR64R1JBf7DlSKbdnCUuU=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d h1:kLfaaFdmCHKZCvL4DzQ7T9YsAVSBqZez34zaegldkls=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d/go.mod h1:z4cKsjE0B5RlhFSbWcZNh70UEjtwrj8fpG1QXyU2KuI=
 github.com/kralicky/zap v1.21.1-0.20220517214003-da0ae127f4db h1:OhMQACnkI4y5uEciBkaVGzPFpS/5LkPT1uHnOv84Fcw=

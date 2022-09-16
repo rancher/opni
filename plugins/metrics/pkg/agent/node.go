@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -60,7 +61,15 @@ func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.I
 }
 
 // Implements capabilityv1.NodeServer
-func (m *MetricsNode) SyncNow(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (m *MetricsNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*emptypb.Empty, error) {
+	if len(req.CapabilityNames) > 0 {
+		if !slices.Contains(req.CapabilityNames, wellknown.CapabilityMetrics) {
+			m.logger.Debug("ignoring sync request due to capability filter")
+			return &emptypb.Empty{}, nil
+		}
+	}
+	m.logger.Debug("received sync request")
+
 	m.clientMu.RLock()
 	defer m.clientMu.RUnlock()
 

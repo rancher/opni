@@ -131,6 +131,27 @@ func (m *Server) EditCluster(
 	})
 }
 
+func (m *Server) InstallCapability(
+	ctx context.Context,
+	in *managementv1.CapabilityInstallRequest,
+) (*emptypb.Empty, error) {
+	if err := validation.Validate(in); err != nil {
+		return nil, err
+	}
+
+	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
+	backend, err := backendStore.Get(in.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = backend.Install(ctx, in.Target)
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
 func (m *Server) UninstallCapability(
 	ctx context.Context,
 	in *managementv1.CapabilityUninstallRequest,

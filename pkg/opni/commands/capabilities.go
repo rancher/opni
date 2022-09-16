@@ -34,6 +34,7 @@ func BuildCapabilityCmd() *cobra.Command {
 		Short:   "Manage cluster capabilities",
 	}
 	cmd.AddCommand(BuildCapabilityListCmd())
+	cmd.AddCommand(BuildCapabilityInstallCmd())
 	cmd.AddCommand(BuildCapabilityUninstallCmd())
 	cmd.AddCommand(BuildCapabilityStatusCmd())
 	cmd.AddCommand(BuildCapabilityCancelUninstallCmd())
@@ -52,6 +53,31 @@ func BuildCapabilityListCmd() *cobra.Command {
 				lg.Fatal(err)
 			}
 			fmt.Println(cliutil.RenderCapabilityList(list))
+		},
+	}
+	return cmd
+}
+
+func BuildCapabilityInstallCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "install <cluster-id> <capability-name>",
+		Short: "Install a capability on a cluster",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := mgmtClient.InstallCapability(cmd.Context(), &managementv1.CapabilityInstallRequest{
+				Name: args[1],
+				Target: &capabilityv1.InstallRequest{
+					Cluster: &corev1.Reference{
+						Id: args[0],
+					},
+				},
+			})
+			if err != nil {
+				return fmt.Errorf("install failed: %w", err)
+			}
+
+			lg.Info("Capability installed successfully")
+			return nil
 		},
 	}
 	return cmd

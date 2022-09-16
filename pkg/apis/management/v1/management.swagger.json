@@ -66,6 +66,7 @@
     },
     "/management/capabilities/{name}/installer": {
       "post": {
+        "summary": "Deprecated: For agent v2, use InstallCapability instead.",
         "operationId": "Management_CapabilityInstaller",
         "responses": {
           "200": {
@@ -409,6 +410,43 @@
         "parameters": [
           {
             "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters/{target.cluster.id}/capabilities/{name}/install": {
+      "post": {
+        "operationId": "Management_InstallCapability",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "target.cluster.id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
             "in": "path",
             "required": true,
             "type": "string"
@@ -948,6 +986,14 @@
           "items": {
             "$ref": "#/definitions/apiHttpRule"
           }
+        }
+      }
+    },
+    "capabilityInstallRequest": {
+      "type": "object",
+      "properties": {
+        "cluster": {
+          "$ref": "#/definitions/coreReference"
         }
       }
     },

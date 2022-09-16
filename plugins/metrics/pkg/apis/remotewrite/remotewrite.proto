@@ -7,6 +7,8 @@ import "google/protobuf/empty.proto";
 
 package remotewrite;
 
+// The RemoteWrite service is used by metrics nodes to post Prometheus metrics 
+// and rules to Cortex.
 service RemoteWrite {
   rpc Push(Payload) returns (google.protobuf.Empty);
   rpc SyncRules(Payload) returns (google.protobuf.Empty);

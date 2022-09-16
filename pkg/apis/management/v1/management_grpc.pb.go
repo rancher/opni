@@ -48,7 +48,9 @@ type ManagementClient interface {
 	GetConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GatewayConfig, error)
 	UpdateConfig(ctx context.Context, in *UpdateConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListCapabilities(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityList, error)
+	// Deprecated: For agent v2, use InstallCapability instead.
 	CapabilityInstaller(ctx context.Context, in *CapabilityInstallerRequest, opts ...grpc.CallOption) (*CapabilityInstallerResponse, error)
+	InstallCapability(ctx context.Context, in *CapabilityInstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UninstallCapability(ctx context.Context, in *CapabilityUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CapabilityUninstallStatus(ctx context.Context, in *CapabilityStatusRequest, opts ...grpc.CallOption) (*v1.TaskStatus, error)
 	CancelCapabilityUninstall(ctx context.Context, in *CapabilityUninstallCancelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -310,6 +312,15 @@ func (c *managementClient) CapabilityInstaller(ctx context.Context, in *Capabili
 	return out, nil
 }
 
+func (c *managementClient) InstallCapability(ctx context.Context, in *CapabilityInstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/InstallCapability", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *managementClient) UninstallCapability(ctx context.Context, in *CapabilityUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/management.Management/UninstallCapability", in, out, opts...)
@@ -365,7 +376,9 @@ type ManagementServer interface {
 	GetConfig(context.Context, *emptypb.Empty) (*GatewayConfig, error)
 	UpdateConfig(context.Context, *UpdateConfigRequest) (*emptypb.Empty, error)
 	ListCapabilities(context.Context, *emptypb.Empty) (*CapabilityList, error)
+	// Deprecated: For agent v2, use InstallCapability instead.
 	CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error)
+	InstallCapability(context.Context, *CapabilityInstallRequest) (*emptypb.Empty, error)
 	UninstallCapability(context.Context, *CapabilityUninstallRequest) (*emptypb.Empty, error)
 	CapabilityUninstallStatus(context.Context, *CapabilityStatusRequest) (*v1.TaskStatus, error)
 	CancelCapabilityUninstall(context.Context, *CapabilityUninstallCancelRequest) (*emptypb.Empty, error)
@@ -450,6 +463,9 @@ func (UnimplementedManagementServer) ListCapabilities(context.Context, *emptypb.
 }
 func (UnimplementedManagementServer) CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CapabilityInstaller not implemented")
+}
+func (UnimplementedManagementServer) InstallCapability(context.Context, *CapabilityInstallRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InstallCapability not implemented")
 }
 func (UnimplementedManagementServer) UninstallCapability(context.Context, *CapabilityUninstallRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UninstallCapability not implemented")
@@ -926,6 +942,24 @@ func _Management_CapabilityInstaller_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Management_InstallCapability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CapabilityInstallRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).InstallCapability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/InstallCapability",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).InstallCapability(ctx, req.(*CapabilityInstallRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Management_UninstallCapability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CapabilityUninstallRequest)
 	if err := dec(in); err != nil {
@@ -1082,6 +1116,10 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CapabilityInstaller",
 			Handler:    _Management_CapabilityInstaller_Handler,
+		},
+		{
+			MethodName: "InstallCapability",
+			Handler:    _Management_InstallCapability_Handler,
 		},
 		{
 			MethodName: "UninstallCapability",

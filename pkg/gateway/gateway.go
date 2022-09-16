@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/noop"
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -206,8 +207,16 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	)
 	listener.AlertProvider = &options.alerting
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
+
+	// set up agent connection handlers
+	agentHandler := MultiConnectionHandler(
+		listener,
+		ConnectionHandlerFunc(func(ctx context.Context, client agent.ClientSet) {
+
+		}),
+	)
 	go monitor.Run(ctx, listener)
-	streamSvc := NewStreamServer(listener, storageBackend, interceptor, lg)
+	streamSvc := NewStreamServer(agentHandler, storageBackend, interceptor, lg)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {

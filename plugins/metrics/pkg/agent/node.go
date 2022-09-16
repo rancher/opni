@@ -2,11 +2,13 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
@@ -27,12 +29,14 @@ type MetricsNode struct {
 	configMu sync.RWMutex
 	config   *node.MetricsCapabilityConfig
 
-	listeners []chan<- *node.MetricsCapabilityConfig
+	listeners  []chan<- *node.MetricsCapabilityConfig
+	conditions ConditionTracker
 }
 
-func NewMetricsNode(lg *zap.SugaredLogger) *MetricsNode {
+func NewMetricsNode(ct ConditionTracker, lg *zap.SugaredLogger) *MetricsNode {
 	return &MetricsNode{
-		logger: lg,
+		logger:     lg,
+		conditions: ct,
 	}
 }
 
@@ -47,6 +51,12 @@ func (m *MetricsNode) SetClient(client node.NodeMetricsCapabilityClient) {
 	m.client = client
 
 	go m.doSync(context.Background())
+}
+
+func (m *MetricsNode) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
+	return &capabilityv1.InfoResponse{
+		CapabilityName: wellknown.CapabilityMetrics,
+	}, nil
 }
 
 // Implements capabilityv1.NodeServer
@@ -70,14 +80,10 @@ func (m *MetricsNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 	m.configMu.RLock()
 	defer m.configMu.RUnlock()
 
-	conditions := []string{}
+	conditions := m.conditions.List()
 
-	if m.config == nil {
-		conditions = append(conditions, "pending config sync")
-	} else {
-		if !m.config.Enabled {
-			conditions = append(conditions, "capability disabled")
-		}
+	if !m.config.GetEnabled() {
+		conditions = append(conditions, "Capability Disabled")
 	}
 
 	return &corev1.Health{
@@ -92,7 +98,7 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 	defer m.clientMu.RUnlock()
 
 	if m.client == nil {
-		m.logger.Warn("no client, skipping sync")
+		m.conditions.Set(CondConfigSync, StatusPending, "no client, skipping sync")
 		return
 	}
 
@@ -103,7 +109,8 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 	m.configMu.RUnlock()
 
 	if err != nil {
-		m.logger.Errorw("error syncing metrics node", "error", err)
+		err := fmt.Errorf("error syncing metrics node: %w", err)
+		m.conditions.Set(CondConfigSync, StatusFailure, err.Error())
 		return
 	}
 
@@ -113,11 +120,10 @@ func (m *MetricsNode) doSync(ctx context.Context) {
 	case node.ConfigStatus_NeedsUpdate:
 		m.logger.Info("updating metrics node config")
 		m.updateConfig(syncResp.UpdatedConfig)
-		defer func() {
-			go m.doSync(context.Background())
-		}()
+		go m.doSync(ctx)
 	}
 
+	m.conditions.Clear(CondConfigSync)
 }
 
 func (m *MetricsNode) updateConfig(config *node.MetricsCapabilityConfig) {

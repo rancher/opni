@@ -50,8 +50,9 @@ func BuildGatewayCmd() *cobra.Command {
 		if err != nil {
 			if errors.Is(err, rest.ErrNotInCluster) {
 				inCluster = false
+			} else {
+				lg.Fatalf("failed to create config: %s", err)
 			}
-			lg.Fatalf("failed to create config: %s", err)
 		}
 
 		var fCancel context.CancelFunc

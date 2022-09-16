@@ -27,14 +27,14 @@ type Plugin struct {
 func NewPlugin(ctx context.Context) *Plugin {
 	lg := logger.NewPluginLogger().Named("metrics")
 
-	mn := NewMetricsNode(lg)
+	ct := NewConditionTracker(lg)
 
 	p := &Plugin{
 		ctx:          ctx,
 		logger:       lg,
-		httpServer:   NewHttpServer(lg),
-		ruleStreamer: NewRuleStreamer(lg),
-		node:         mn,
+		httpServer:   NewHttpServer(ct, lg),
+		ruleStreamer: NewRuleStreamer(ct, lg),
+		node:         NewMetricsNode(ct, lg),
 	}
 
 	listenerC := make(chan *node.MetricsCapabilityConfig, 1)
@@ -49,7 +49,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			}
 		}
 	}()
-	mn.AddConfigListener(listenerC)
+	p.node.AddConfigListener(listenerC)
 
 	return p
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/health"
+	"github.com/rancher/opni/pkg/health/annotations"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/logger"
@@ -175,7 +176,9 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, pl plugins.LoaderInterf
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
 	}
 
-	hm := health.NewAggregator()
+	hm := health.NewAggregator(health.WithStaticAnnotations(map[string]string{
+		annotations.AgentVersion: annotations.Version2,
+	}))
 	controlv1.RegisterHealthServer(gatewayClient, hm)
 
 	pl.Hook(hooks.OnLoadMC(func(hc controlv1.HealthClient, m meta.PluginMeta, cc *grpc.ClientConn) {

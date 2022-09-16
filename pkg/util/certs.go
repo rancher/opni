@@ -49,7 +49,7 @@ func LoadServingCertBundle(certsSpec v1beta1.CertsSpec) (*tls.Certificate, *x509
 		}
 		caCertData = data
 	case certsSpec.CACertData != nil:
-		caCertData = []byte(*certsSpec.CACertData)
+		caCertData = certsSpec.CACertData
 	default:
 		return nil, nil, errors.New("no CA cert configured")
 	}
@@ -61,7 +61,7 @@ func LoadServingCertBundle(certsSpec v1beta1.CertsSpec) (*tls.Certificate, *x509
 		}
 		servingCertData = data
 	case certsSpec.ServingCertData != nil:
-		servingCertData = []byte(*certsSpec.ServingCertData)
+		servingCertData = certsSpec.ServingCertData
 	default:
 		return nil, nil, errors.New("no serving cert configured")
 	}
@@ -73,7 +73,7 @@ func LoadServingCertBundle(certsSpec v1beta1.CertsSpec) (*tls.Certificate, *x509
 		}
 		servingKeyData = data
 	case certsSpec.ServingKeyData != nil:
-		servingKeyData = []byte(*certsSpec.ServingKeyData)
+		servingKeyData = certsSpec.ServingKeyData
 	default:
 		return nil, nil, errors.New("no serving key configured")
 	}

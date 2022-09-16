@@ -16,13 +16,14 @@ import (
 )
 
 func main() {
-	tracing.Configure("plugin_cortex")
 	gin.SetMode(gin.ReleaseMode)
 	ctx, ca := context.WithCancel(waitctx.Background())
 	switch meta.PluginMode(os.Getenv("OPNI_PLUGIN_MODE")) {
 	case meta.ModeUnknown, meta.ModeGateway:
+		tracing.Configure("plugin_metrics_gateway")
 		plugins.Serve(gateway.Scheme(ctx))
 	case meta.ModeAgent:
+		tracing.Configure("plugin_metrics_agent")
 		plugins.Serve(agent.Scheme(ctx))
 	}
 	ca()

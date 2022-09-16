@@ -26,11 +26,11 @@ service UnaryAPIExtension {
 
 message CertConfig {
   string ca = 1;
-  string caData = 2;
+  bytes caData = 2;
   string cert = 3;
-  string certData = 4;
+  bytes certData = 4;
   string key = 5;
-  string keyData = 6;
+  bytes keyData = 6;
   bool insecure = 7;
 }
 

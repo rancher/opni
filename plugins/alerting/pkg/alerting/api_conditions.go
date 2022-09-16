@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/prometheus/alertmanager/api/v2/models"
+	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/tidwall/gjson"
 	"io"
 	"io/ioutil"
@@ -27,6 +28,7 @@ import (
 const conditionPrefix = "/alerting/conditions"
 
 func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.AlertCondition) (*corev1.Reference, error) {
+	lg := p.Logger.With("Handler", "CreateAlertCondition")
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
@@ -34,11 +36,11 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 		return nil, shared.WithNotFoundError(fmt.Sprintf("%s", err))
 	}
 	newId := uuid.New().String()
-	_, err := setupCondition(p, ctx, req, newId)
+	_, err := setupCondition(p, lg, ctx, req, newId)
 	if err != nil {
 		return nil, err
 	}
-	if err := setEndpointImplementationIfAvailable(p, ctx, req, newId); err != nil {
+	if err := setEndpointImplementationIfAvailable(p, lg, ctx, req, newId); err != nil {
 		return nil, err
 	}
 	if err := p.storage.Get().Conditions.Put(ctx, path.Join(conditionPrefix, newId), req); err != nil {
@@ -48,8 +50,7 @@ func (p *Plugin) CreateAlertCondition(ctx context.Context, req *alertingv1alpha.
 }
 
 func (p *Plugin) GetAlertCondition(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertCondition, error) {
-	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
-	defer ca()
+	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
 	storage, err := p.storage.GetContext(ctx)
 	if err != nil {
 		return nil, err
@@ -61,8 +62,8 @@ func (p *Plugin) ListAlertConditions(ctx context.Context, req *alertingv1alpha.L
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
-	defer ca()
+	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+
 	storage, err := p.storage.GetContext(ctx)
 	if err != nil {
 		return nil, err
@@ -89,9 +90,9 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
-	defer ca()
-	lg := p.logger.With("handler", "UpdateAlertCondition")
+	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
+
+	lg := p.Logger.With("handler", "UpdateAlertCondition")
 	lg.Debugf("Updating alert condition %s", req.Id)
 	storage, err := p.storage.GetContext(ctx)
 	if err != nil {
@@ -102,19 +103,34 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 		return nil, shared.WithNotFoundErrorf("Condition %s not found : %s", req.Id.Id, err)
 	}
 	overrideLabels := req.UpdateAlert.Labels
-	// UPDATE THE ACTUAL CONDITION
-	// until we have a more complicated setup, deleting then recreating is fine
-	if existing.NotificationId != nil {
-		lg.Debugf("Deleting entire condition since there is an existing notification %s", *existing.NotificationId)
-		_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{Id: req.Id.Id})
-		if err != nil {
-			return nil, shared.WithInternalServerError(fmt.Sprintf("failed to delete & update condition : %s", err))
+	//// UPDATE THE ACTUAL CONDITION
+	//// until we have a more complicated setup, deleting then recreating is fine
+	//if existing.NotificationId != nil {
+	//	lg.Debugf("Deleting entire condition since there is an existing notification %s", *existing.NotificationId)
+	//	_, err = p.DeleteAlertCondition(ctx, &corev1.Reference{Id: req.Id.Id})
+	//	if err != nil {
+	//		return nil, shared.WithInternalServerError(fmt.Sprintf("failed to delete & update condition : %s", err))
+	//	}
+	//}
+	conditionId := req.Id.Id
+	existingNotif := func() string {
+		if existing.NotificationId == nil {
+			return "none set"
 		}
+		return *existing.NotificationId
 	}
-	if err := handleUpdateEndpointImplementation(p, ctx, req.Id.Id, existing, req.UpdateAlert); err != nil {
+	newNotifId := func() string {
+		if req.UpdateAlert.NotificationId == nil {
+			return "none set"
+		}
+		return *req.UpdateAlert.NotificationId
+	}
+	lg.Debugf("Setting endpoint implementation with condition Id %s, existing notification: id %s, new notification id : %s",
+		conditionId, existingNotif(), newNotifId())
+	if err := handleUpdateEndpointImplementation(p, lg, ctx, conditionId, existing, req.UpdateAlert); err != nil {
 		return nil, err
 	}
-	_, err = setupCondition(p, ctx, req.UpdateAlert, req.Id.Id)
+	_, err = setupCondition(p, lg, ctx, req.UpdateAlert, req.Id.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -127,10 +143,10 @@ func (p *Plugin) UpdateAlertCondition(ctx context.Context, req *alertingv1alpha.
 }
 
 func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference) (*emptypb.Empty, error) {
-	lg := p.logger.With("Handler", "DeleteAlertCondition")
+	lg := p.Logger.With("Handler", "DeleteAlertCondition")
 	lg.Debugf("Deleting alert condition %s", ref.Id)
-	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
-	defer ca()
+	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*30))
+
 	storage, err := p.storage.GetContext(ctx)
 	if err != nil {
 		return nil, err
@@ -139,11 +155,15 @@ func (p *Plugin) DeleteAlertCondition(ctx context.Context, ref *corev1.Reference
 	if err != nil {
 		return nil, err
 	}
-	if err := deleteCondition(p, ctx, existing, ref.Id); err != nil {
+	if err := deleteCondition(p, lg, ctx, existing, ref.Id); err != nil {
 		return nil, err
 	}
 	lg.Debugf("Deleted condition %s must clean up its existing endpoint implementation", ref.Id)
 	_, err = p.DeleteEndpointImplementation(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	err = storage.Conditions.Delete(ctx, path.Join(conditionPrefix, ref.Id))
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +184,7 @@ func (p *Plugin) PreviewAlertCondition(ctx context.Context,
 
 func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference) (*alertingv1alpha.AlertStatusResponse, error) {
 	//FIXME: requires changes to the way we post conditions when notification id is nil
-	lg := p.logger.With("handler", "AlertConditionStatus")
+	lg := p.Logger.With("handler", "AlertConditionStatus")
 	lg.Debugf("Getting alert condition status %s", ref.Id)
 	// check K,V for existence
 	storage, err := p.storage.GetContext(ctx)
@@ -181,12 +201,12 @@ func (p *Plugin) AlertConditionStatus(ctx context.Context, ref *corev1.Reference
 	defaultState := &alertingv1alpha.AlertStatusResponse{
 		State: alertingv1alpha.AlertConditionState_OK,
 	}
-	options, err := p.alertingOptions.GetContext(ctx)
+	options, err := p.AlertingOptions.GetContext(ctx)
 	if err != nil {
 		lg.Errorf("Failed to get alerting options : %s", err)
 		return nil, err
 	}
-	_, resp, err := GetAlerts(ctx, options.Endpoints[0])
+	_, resp, err := backend.GetAlerts(ctx, options.GetWorkerEndpoint())
 	if err != nil {
 		lg.Errorf("failed to get alerts : %s", err)
 		return nil, err
@@ -235,8 +255,11 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
-	defer ca()
+	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	options, err := p.AlertingOptions.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	storage, err := p.storage.GetContext(ctx)
 	if err != nil {
 		return nil, err
@@ -245,13 +268,13 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 	if err != nil {
 		return nil, err
 	}
-	silence := &PostableSilence{}
+	silence := &backend.PostableSilence{}
 	silence.WithCondition(req.ConditionId.Id)
 	silence.WithDuration(req.Duration.AsDuration())
 	if existing.Silence != nil { // the case where we are updating an existing silence
 		silence.WithSilenceId(existing.Silence.SilenceId)
 	}
-	resp, err := PostSilence(ctx, p.alertingOptions.Get().Endpoints[0], silence)
+	resp, err := backend.PostSilence(ctx, options.GetControllerEndpoint(), silence)
 	if err != nil {
 		return nil, err
 	}
@@ -261,11 +284,11 @@ func (p *Plugin) ActivateSilence(ctx context.Context, req *alertingv1alpha.Silen
 		// }
 		return nil, fmt.Errorf("failed to activate silence: %s", resp.Status)
 	}
-	respSilence := &PostSilencesResponse{}
+	respSilence := &backend.PostSilencesResponse{}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			p.logger.Error(fmt.Sprintf("Failed to close response body %s", err))
+			p.Logger.Error(fmt.Sprintf("Failed to close response body %s", err))
 		}
 	}(resp.Body)
 	if err := json.NewDecoder(resp.Body).Decode(respSilence); err != nil {
@@ -295,8 +318,11 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	ctx, ca := setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
-	defer ca()
+	ctx, _ = setPluginHandlerTimeout(ctx, time.Duration(time.Second*10))
+	options, err := p.AlertingOptions.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	storage, err := p.storage.GetContext(ctx)
 	if err != nil {
 		return nil, err
@@ -308,10 +334,10 @@ func (p *Plugin) DeactivateSilence(ctx context.Context, req *corev1.Reference) (
 	if existing.Silence == nil {
 		return nil, validation.Errorf("could not find existing silence for condition %s", req.Id)
 	}
-	silence := &DeletableSilence{
-		silenceId: existing.Silence.SilenceId,
+	silence := &backend.DeletableSilence{
+		SilenceId: existing.Silence.SilenceId,
 	}
-	resp, err := DeleteSilence(ctx, p.alertingOptions.Get().Endpoints[0], silence)
+	resp, err := backend.DeleteSilence(ctx, options.GetControllerEndpoint(), silence)
 	if err != nil {
 		return nil, err
 	}

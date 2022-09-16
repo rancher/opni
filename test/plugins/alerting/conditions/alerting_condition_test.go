@@ -303,22 +303,65 @@ var _ = Describe("Alerting Conditions integration tests", Ordered, Label(test.Un
 
 			// kill the agent
 			ca()
-			time.Sleep(time.Millisecond * 100)
-			logs, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{})
-			Expect(err).To(Succeed())
-			Expect(logs.Items).NotTo(HaveLen(0))
-			filteredLogs, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
-				Labels: condition.OpniDisconnect.Labels,
-			})
-			Expect(err).To(Succeed())
-			Expect(filteredLogs.Items).ToNot(HaveLen(0))
-			found := false
-			for _, log := range filteredLogs.Items {
-				if log.ConditionId.Id == newConditionId.Id { // can't use ContainElements matcher because core.Reference eq is quirky
-					found = true
+			Eventually(func() error {
+				_, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{})
+				if err != nil {
+					return err
 				}
-			}
-			Expect(found).To(BeTrue())
+				//if len(logs.Items) == 0 {
+				//	return fmt.Errorf("no logs found, when we should expect them")
+				//}
+				filteredLogs, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
+					Labels: condition.OpniDisconnect.Labels,
+				})
+				if err != nil {
+					return err
+				}
+				//if len(logs.Items) == 0 {
+				//	return fmt.Errorf("no logs found, when we should expect them")
+				//}
+				found := false
+				for _, log := range filteredLogs.Items {
+					if log.ConditionId.Id == newConditionId.Id { // can't use ContainElements matcher because core.Reference eq is quirky
+						found = true
+						break
+					}
+				}
+				if found {
+					return fmt.Errorf("agent condition should not have triggered yet")
+				}
+				return nil
+			}, time.Second*50, time.Second*10).Should(Succeed())
+
+			Eventually(func() error {
+				logs, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{})
+				if err != nil {
+					return err
+				}
+				if len(logs.Items) == 0 {
+					return fmt.Errorf("no logs found, when we should expect them")
+				}
+				filteredLogs, err := alertingClient.ListAlertLogs(ctx, &alertingv1alpha.ListAlertLogRequest{
+					Labels: condition.OpniDisconnect.Labels,
+				})
+				if err != nil {
+					return err
+				}
+				if len(logs.Items) == 0 {
+					return fmt.Errorf("no logs found, when we should expect them")
+				}
+				found := false
+				for _, log := range filteredLogs.Items {
+					if log.ConditionId.Id == newConditionId.Id { // can't use ContainElements matcher because core.Reference eq is quirky
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("log for the agent disconnected not found")
+				}
+				return nil
+			}, time.Minute*3, time.Second*30).Should(Succeed())
 			fmt.Println("System Alert Conditions finished")
 		})
 	})

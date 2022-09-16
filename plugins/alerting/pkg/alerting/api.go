@@ -3,6 +3,7 @@ package alerting
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/backend"
 	"net/http"
 	"path"
 	"time"
@@ -58,8 +59,8 @@ func listWithKeys[T proto.Message](ctx context.Context, kvc storage.KeyValueStor
 	return ids, items, nil
 }
 
-func checkRateLimiting(ctx context.Context, lg *zap.SugaredLogger, conditionId string, options AlertingOptions) (bool, error) {
-	_, resp, err := GetAlerts(ctx, options.Endpoints[0])
+func checkRateLimiting(ctx context.Context, lg *zap.SugaredLogger, conditionId string, options shared.NewAlertingOptions) (bool, error) {
+	_, resp, err := backend.GetAlerts(ctx, options.GetWorkerEndpoint())
 	if err != nil {
 		lg.With("handler", "GetAlerts").Error(err)
 		return true, err
@@ -73,13 +74,13 @@ func checkRateLimiting(ctx context.Context, lg *zap.SugaredLogger, conditionId s
 	// 	}
 	// 	time.Sleep(time.Second)
 	// }
-	return IsRateLimited(conditionId, resp, lg)
+	return backend.IsRateLimited(conditionId, resp, lg)
 }
 
-func constructAlerts(conditionId string, annotations map[string]string) []*PostableAlert {
+func constructAlerts(conditionId string, annotations map[string]string) []*backend.PostableAlert {
 	// marshal data into a reasonable post alert request
-	var alertsArr []*PostableAlert
-	alert := &PostableAlert{}
+	var alertsArr []*backend.PostableAlert
+	alert := &backend.PostableAlert{}
 	alert.WithCondition(conditionId)
 	for annotationName, annotationValue := range annotations {
 		alert.WithRuntimeInfo(annotationName, annotationValue)
@@ -88,8 +89,8 @@ func constructAlerts(conditionId string, annotations map[string]string) []*Posta
 	return alertsArr
 }
 
-func dispatchAlert(ctx context.Context, lg *zap.SugaredLogger, options AlertingOptions, alertsArr []*PostableAlert) error {
-	_, resp, err := PostAlert(ctx, options.Endpoints[0], alertsArr)
+func dispatchAlert(ctx context.Context, lg *zap.SugaredLogger, options shared.NewAlertingOptions, alertsArr []*backend.PostableAlert) error {
+	_, resp, err := backend.PostAlert(ctx, options.GetWorkerEndpoint(), alertsArr)
 	if err != nil {
 		lg.With("handler", "PostAlert").Error(err)
 		return err
@@ -110,24 +111,25 @@ func dispatchAlert(ctx context.Context, lg *zap.SugaredLogger, options AlertingO
 }
 
 func sendNotificationWithRateLimiting(p *Plugin, ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) error {
-	lg := p.logger
+	lg := p.Logger
 	// check for rate limiting
-	options, err := p.alertingOptions.GetContext(ctx)
+	options, err := p.AlertingOptions.GetContext(ctx)
 	if err != nil {
 		lg.Error(fmt.Sprintf("failed to load alerting options in required time : %s", err))
 		return err
 	}
-	shouldExitEarly, err := checkRateLimiting(ctx, lg, req.ConditionId.Id, options)
-	if err != nil {
-		lg.Error(err)
-		return err
-	}
-	if shouldExitEarly {
-		return nil
-	}
+	//FIXME: uncomment for now
+	//shouldExitEarly, err := checkRateLimiting(ctx, lg, req.ConditionId.Id, options)
+	//if err != nil {
+	//	lg.Error(err)
+	//	return err
+	//}
+	//if shouldExitEarly {
+	//	return nil
+	//}
 	// marshal data into a reasonable post alert request
 	alertsArr := constructAlerts(req.ConditionId.Id, req.Annotations)
-	lg.Debug(fmt.Sprintf("Triggering alert for condition %s on endpoint %s", req.ConditionId.Id, p.alertingOptions.Get().Endpoints[0]))
+	lg.Debug(fmt.Sprintf("Triggering alert for condition %s on endpoint %s", req.ConditionId.Id, options.GetWorkerEndpoint()))
 
 	// send dispatch request
 	return dispatchAlert(ctx, lg, options, alertsArr)
@@ -136,6 +138,9 @@ func sendNotificationWithRateLimiting(p *Plugin, ctx context.Context, req *alert
 // --- Trigger ---
 
 func (p *Plugin) TriggerAlerts(ctx context.Context, req *alertingv1alpha.TriggerAlertsRequest) (*alertingv1alpha.TriggerAlertsResponse, error) {
+	lg := p.Logger.With("Handler", "TriggerAlerts")
+	lg.Debugf("Received request to trigger alerts  on condition %s", req.GetConditionId())
+	lg.Debugf("Received alert annotations : %s", req.Annotations)
 	// get the condition ID details
 	a, err := p.GetAlertCondition(ctx, req.ConditionId)
 	if err != nil {

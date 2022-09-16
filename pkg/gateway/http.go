@@ -84,7 +84,7 @@ func NewHTTPServer(
 		c.Status(http.StatusOK)
 	})
 
-	handlerName := cfg.Alerting.ManagementHookHandlerName
+	handlerName := cfg.Alerting.ManagementHookHandler
 	// request body will be in the form of AM webhook payload :
 	// https://prometheus.io/docs/alerting/latest/configuration/#webhook_config
 	//

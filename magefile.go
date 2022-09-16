@@ -29,7 +29,6 @@ import (
 	"github.com/kralicky/spellbook/testbin"
 	// mage:import dev
 	_ "github.com/rancher/opni/internal/mage/dev"
-
 	// mage:import charts
 	charts "github.com/rancher/charts-build-scripts/pkg/actions"
 	// mage:import test
@@ -128,6 +127,20 @@ func CRDGen() error {
 			}
 		}
 	}
+
+	//e1 := lo.Async(func() error {
+	//	return util.MinifyCRDYaml("./packages/opni/opni/charts/crds/crds.yaml")
+	//})
+	//e2 := lo.Async(func() error {
+	//	return util.MinifyCRDYaml("./packages/opni-agent/opni-agent/charts/crds/crds.yaml")
+	//})
+
+	//if err := <-e1; err != nil {
+	//	return err
+	//}
+	//if err := <-e2; err != nil {
+	//	return err
+	//}
 	return nil
 }
 
@@ -363,4 +376,13 @@ func ProtobufPython() error {
 
 func Protobuf() {
 	mg.Deps(ProtobufGo, ProtobufPython)
+}
+
+func Charts() {
+	mg.SerialDeps(All, CRDGen, func() {
+		charts.Charts("opni")
+	}, func() {
+		charts.Charts("opni-agent")
+	})
+
 }

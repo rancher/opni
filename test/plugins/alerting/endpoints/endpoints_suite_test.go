@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/backend"
 	"os"
 	"testing"
 	"time"
@@ -60,6 +61,8 @@ var kubernetesJobName string = "kubernetesMock"
 var curTestState TestSuiteState
 
 var _ = BeforeSuite(func() {
+
+	backend.RuntimeBinaryPath = "../../../../"
 	fmt.Println("Starting BeforeSuite...")
 	alerting.AlertPath = "alerttestdata/logs"
 	err := os.RemoveAll(alerting.AlertPath)

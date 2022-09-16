@@ -31,9 +31,13 @@ const (
 // Operator container & service definitions
 
 const (
-	OperatorAlertingServiceName = "opni-alerting"
-	AlertingHookReceiverName    = "cortex.hook"
-	AlertingCortexHookHandler   = "/management/alerting/cortexHandler"
+	ConfigMountPath                        = "/etc/config"
+	DataMountPath                          = "/var/lib/alertmanager/data"
+	ConfigKey                              = "alertmanager.yaml"
+	OperatorAlertingControllerServiceName  = "opni-alerting-controller"
+	OperatorAlertingClusterNodeServiceName = "opni-alerting"
+	AlertingHookReceiverName               = "opni.hook"
+	AlertingCortexHookHandler              = "/management/alerting/cortexHandler"
 )
 
 var (

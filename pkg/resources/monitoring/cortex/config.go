@@ -337,7 +337,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			SplitQueriesByInterval: 24 * time.Hour,
 		},
 		Ruler: ruler.Config{
-			AlertmanagerURL:          shared.OperatorAlertingServiceName,
+			AlertmanagerURL:          fmt.Sprintf("http://%s:9093", shared.OperatorAlertingClusterNodeServiceName),
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
 			Ring: ruler.RingConfig{

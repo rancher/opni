@@ -1065,11 +1065,16 @@ spec:
                           type: object
                       type: object
                     type: array
+                  clusterPort:omitempty:
+                    default: 9094
+                    type: integer
                   configName:
                     default: alertmanager-config
                     type: string
                   enabled:
                     type: boolean
+                  rawConfigMap:
+                    type: string
                   serviceType:
                     default: ClusterIP
                     type: string

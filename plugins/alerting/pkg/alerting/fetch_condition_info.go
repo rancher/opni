@@ -30,7 +30,7 @@ func clusterHasKubeStateMetrics(adminClient cortexadmin.CortexAdminClient, cl *c
 }
 
 func fetchKubeStateInfo(p *Plugin, ctx context.Context) (*alertingv1alpha.ListAlertTypeDetails, error) {
-	lg := p.logger.With("handler", "fetchKubeStateInfo")
+	lg := p.Logger.With("handler", "fetchKubeStateInfo")
 	resKubeState := &alertingv1alpha.ListAlertConditionKubeState{
 		ClusterToObjects: map[string]*alertingv1alpha.KubeObjectGroups{},
 		States:           metrics.KubeStates,
@@ -77,6 +77,9 @@ func fetchKubeStateInfo(p *Plugin, ctx context.Context) (*alertingv1alpha.ListAl
 				//phase := seriesInfo["phase"].String()
 
 				objType := metrics.KubeObjTypeExtractor.FindStringSubmatch(name)[1]
+				if objType == "namespace" {
+					continue // namespaces don't have a state to monitor
+				}
 				objName := seriesInfoMap[objType]
 				if !objName.Exists() {
 					lg.Warnf("Failed to find object name for series %s", seriesInfo)

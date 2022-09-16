@@ -58,6 +58,7 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 				},
 				Resources: []string{
 					"*",
+					"gateways",
 				},
 				Verbs: []string{
 					"get",
@@ -112,6 +113,14 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 					"update",
 					"patch",
 					"watch",
+				},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"endpoints"},
+				Verbs: []string{
+					"get",
+					"list",
 				},
 			},
 		},

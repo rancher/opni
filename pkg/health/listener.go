@@ -94,7 +94,7 @@ func WithDisconnectTimeout(timeout time.Duration) ListenerOption {
 	_, isSet := os.LookupEnv(shared.LocalBackendEnvToggle)
 	if isSet {
 		return func(o *ListenerOptions) {
-			o.tickerDuration = time.Millisecond * 100
+			o.tickerDuration = time.Second * 60
 		}
 	}
 	return func(o *ListenerOptions) {
@@ -271,7 +271,7 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 				return
 			}
 		}
-		if l.alertTickerDuration < 0 {
+		if l.alertTickerDuration <= 0 {
 			l.alertTickerDuration = time.Second * 60
 		}
 		ticker := time.NewTicker(l.alertTickerDuration)

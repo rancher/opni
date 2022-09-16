@@ -2,10 +2,12 @@ package alerting
 
 import (
 	"context"
-	"fmt"
-	"github.com/rancher/opni/pkg/util"
 	"os"
 	"time"
+
+	"github.com/rancher/opni/apis"
+	"github.com/rancher/opni/pkg/alerting/backend"
+	"github.com/rancher/opni/pkg/util"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/future"
@@ -28,32 +30,38 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 	cfg, err := client.GetConfig(context.Background(),
 		&emptypb.Empty{}, grpc.WaitForReady(true))
 	if err != nil {
-		p.logger.With(
+		p.Logger.With(
 			"err", err,
 		).Error("Failed to get mgmnt config")
 		os.Exit(1)
 	}
 	objectList, err := machinery.LoadDocuments(cfg.Documents)
 	if err != nil {
-		p.logger.With(
+		p.Logger.With(
 			"err", err,
 		).Error("failed to load config")
 		os.Exit(1)
 	}
 	objectList.Visit(func(config *v1beta1.GatewayConfig) {
-		opt := AlertingOptions{
-			Endpoints:         config.Spec.Alerting.Endpoints,
-			ConfigMap:         config.Spec.Alerting.ConfigMapName,
-			Namespace:         config.Spec.Alerting.Namespace,
-			StatefulSet:       config.Spec.Alerting.StatefulSetName,
-			CortexHookHandler: config.Spec.Alerting.ManagementHookHandlerName,
+		opt := shared.NewAlertingOptions{
+			Namespace:             config.Spec.Alerting.Namespace,
+			WorkerNodesService:    config.Spec.Alerting.WorkerNodeService,
+			WorkerNodePort:        config.Spec.Alerting.WorkerPort,
+			WorkerStatefulSet:     config.Spec.Alerting.WorkerStatefulSet,
+			ControllerNodeService: config.Spec.Alerting.ControllerNodeService,
+			ControllerNodePort:    config.Spec.Alerting.ControllerNodePort,
+			ControllerClusterPort: config.Spec.Alerting.ControllerClusterPort,
+			ConfigMap:             config.Spec.Alerting.ConfigMap,
+			ManagementHookHandler: config.Spec.Alerting.ManagementHookHandler,
 		}
 		if os.Getenv(shared.LocalBackendEnvToggle) != "" {
-			opt.Endpoints = []string{fmt.Sprintf("http://localhost:%d", p.endpointBackend.Get().Port())}
+			opt.WorkerNodesService = "http://localhost"
+			opt.ControllerNodeService = "http://localhost"
+
 		}
-		p.alertingOptions.Set(opt)
+		p.AlertingOptions.Set(opt)
 	})
-	<-p.ctx.Done()
+	<-p.Ctx.Done()
 }
 
 // UseKeyValueStore Alerting Condition & Alert Endpoints are stored in K,V stores
@@ -63,10 +71,9 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 	if err != nil {
 		p.inMemCache, _ = lru.New(AlertingLogCacheSize / 2)
 	}
-	if os.Getenv(shared.LocalBackendEnvToggle) != "" {
-		b := &LocalEndpointBackend{
-			configFilePath: shared.LocalAlertManagerPath,
-			p:              p,
+	if os.Getenv(shared.LocalBackendEnvToggle) != "" { // test mode
+		b := &backend.LocalEndpointBackend{
+			ConfigFilePath: shared.LocalAlertManagerPath,
 		}
 		go func() {
 			// FIXME: management url is not correct
@@ -74,20 +81,28 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 			if err != nil {
 				panic(err)
 			}
-			b.Start()
+			b.Start(p.Ctx, p.Logger)
+			peb := b.Port()
+			opt := p.AlertingOptions.Get()
+			opt.WorkerNodesService = "http://localhost"
+			opt.ControllerNodeService = "http://localhost"
+			opt.WorkerNodePort = peb
+			opt.ControllerNodePort = peb
+			opt.ControllerClusterPort = peb
 			p.endpointBackend.Set(b)
-			options := p.alertingOptions.Get()
-			options.Endpoints = []string{fmt.Sprintf("http://localhost:%d", b.Port())}
-			p.alertingOptions = future.New[AlertingOptions]()
-			p.alertingOptions.Set(options)
+
+			p.AlertingOptions = future.New[shared.NewAlertingOptions]()
+			p.AlertingOptions.Set(opt)
 		}()
-	} else {
-		client, err := util.NewK8sClient(util.ClientOptions{})
+	} else { // production mode
+		client, err := util.NewK8sClient(util.ClientOptions{
+			Scheme: apis.NewScheme(),
+		})
 		if err != nil {
 			panic(err)
 		}
-		p.endpointBackend.Set(&K8sEndpointBackend{
-			client: client,
+		p.endpointBackend.Set(&backend.K8sEndpointBackend{
+			Client: client,
 		})
 	}
 
@@ -95,24 +110,24 @@ func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
 		Conditions:    system.NewKVStoreClient[*alertapi.AlertCondition](client),
 		AlertEndpoint: system.NewKVStoreClient[*alertapi.AlertEndpoint](client),
 	})
-	<-p.ctx.Done()
+	<-p.Ctx.Done()
 }
 
 func (p *Plugin) UseAPIExtensions(intf system.ExtensionClientInterface) {
 	go func() {
 		for {
 			breakOut := false
-			cc, err := intf.GetClientConn(p.ctx, "CortexAdmin")
+			cc, err := intf.GetClientConn(p.Ctx, "CortexAdmin")
 			if err != nil {
 				p.adminClient = future.New[cortexadmin.CortexAdminClient]()
 				UnregisterDatasource(shared.MonitoringDatasource)
 			} else {
 				adminClient := cortexadmin.NewCortexAdminClient(cc)
 				p.adminClient.Set(adminClient)
-				RegisterDatasource(shared.MonitoringDatasource, NewAlertingMonitoringStore(p, p.logger))
+				RegisterDatasource(shared.MonitoringDatasource, NewAlertingMonitoringStore(p, p.Logger))
 			}
 			select {
-			case <-p.ctx.Done():
+			case <-p.Ctx.Done():
 				breakOut = true
 			default:
 				continue

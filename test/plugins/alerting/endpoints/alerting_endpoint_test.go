@@ -3,6 +3,7 @@ package endpoints_test
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/config"
 	"os"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
@@ -17,11 +18,11 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 )
 
-func curConfig() *alerting.ConfigMapData {
+func curConfig() *config.ConfigMapData {
 	curConfigData, err := os.ReadFile(shared.LocalAlertManagerPath)
 	Expect(err).To(Succeed())
 	curConfig := string(curConfigData)
-	configMap := &alerting.ConfigMapData{}
+	configMap := &config.ConfigMapData{}
 	err = configMap.Parse(curConfig)
 	Expect(err).To(Succeed())
 	return configMap
@@ -319,7 +320,10 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					ConditionId: &corev1.Reference{
 						Id: idsToCreate["slack"],
 					},
-					Implementation: &alertingv1alpha.EndpointImplementation{},
+					Implementation: &alertingv1alpha.EndpointImplementation{
+						Title: "slack endpoint",
+						Body:  "hello world",
+					},
 				},
 			)
 
@@ -382,7 +386,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Id: idsToCreate["slack"],
 					},
 					Implementation: &alertingv1alpha.EndpointImplementation{
-						Title: "",
+						Title: "email endpoint",
 						Body:  newEmailMsg,
 					},
 				},

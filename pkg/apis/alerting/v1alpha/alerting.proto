@@ -459,7 +459,11 @@ message UpdateAlertEndpointRequest {
   AlertEndpoint UpdateAlert = 2;
 }
 
-message TestAlertEndpointRequest {}
+message TestAlertEndpointRequest {
+  AlertEndpoint endpointInfo = 1;
+  EndpointImplementation impl = 2;
+}
+
 message TestAlertEndpointResponse {}
 
 message SilenceInfo {

@@ -170,12 +170,18 @@ func (u *UpdateAlertEndpointRequest) Validate() error {
 	return nil
 }
 
-func (t *TestAlertEndpointRequest) Validate() error {
+func (c *CreateImplementation) Validate() error {
+	if err := c.GetImplementation().Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (c *CreateImplementation) Validate() error {
-	if err := c.GetImplementation().Validate(); err != nil {
+func (t *TestAlertEndpointRequest) Validate() error {
+	if err := t.GetImpl().Validate(); err != nil {
+		return err
+	}
+	if err := t.GetEndpointInfo().Validate(); err != nil {
 		return err
 	}
 	return nil

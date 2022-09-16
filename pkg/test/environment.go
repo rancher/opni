@@ -750,59 +750,6 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 	return port
 }
 
-func (e *Environment) StartAlertManager(ctx context.Context, configFile string) (webPort int) {
-	lg := e.Logger
-	webPort, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
-	clusterPort, err := freeport.GetFreePort() // do not need to expose this port to application code
-	if err != nil {
-		panic(err)
-	}
-	amBin := path.Join(e.TestBin, "alertmanager")
-	defaultArgs := []string{
-		fmt.Sprintf("--config.file=%s", configFile),
-		fmt.Sprintf("--web.listen-address=:%d", webPort),
-		fmt.Sprintf("--cluster.listen-address=%d", clusterPort),
-		"--storage.path=/tmp/data",
-		"--log.level=debug",
-	}
-	cmd := exec.CommandContext(e.ctx, amBin, defaultArgs...)
-	session, err := testutil.StartCmd(cmd)
-	if err != nil {
-		if !errors.Is(e.ctx.Err(), context.Canceled) {
-			panic(err)
-		} else {
-			return
-		}
-	}
-	lg.Info("Waiting for Alertmanager to start...")
-	for e.ctx.Err() == nil {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", webPort))
-		if err == nil {
-			defer resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				break
-			}
-		}
-		time.Sleep(time.Second)
-	}
-	lg.With("address", fmt.Sprintf("http://localhost:%d", webPort)).Info("AlertManager started")
-	waitctx.Permissive.Go(e.ctx, func() {
-		select {
-		case <-e.ctx.Done():
-		case <-ctx.Done():
-		}
-
-		cmd, _ := session.G()
-		if cmd != nil {
-			cmd.Signal(os.Interrupt)
-		}
-	})
-	return webPort
-}
-
 // Starts a server that exposes Prometheus metrics
 //
 // Returns port number of the server & a channel that shutdowns the server
@@ -1050,11 +997,18 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 				},
 			},
 			Alerting: v1beta1.AlertingSpec{
-				Endpoints:                 []string{"opni-alerting:9093"},
-				ConfigMapName:             "alertmanager-config",
-				Namespace:                 "default",
-				StatefulSetName:           "opni-alerting-internal",
-				ManagementHookHandlerName: shared.AlertingCortexHookHandler,
+				//Endpoints:                 []string{"opni-alerting:9093"},
+				ConfigMap: "alertmanager-config",
+				Namespace: "default",
+				//StatefulSetName:           "opni-alerting-internal",
+				WorkerNodeService:     "opni-alerting",
+				WorkerStatefulSet:     "opni-alerting-internal",
+				WorkerPort:            9093,
+				ControllerNodeService: "opni-alerting-controller",
+				ControllerStatefulSet: "opni-alerting-controller-internal",
+				ControllerNodePort:    9093,
+				ControllerClusterPort: 9094,
+				ManagementHookHandler: shared.AlertingCortexHookHandler,
 			},
 		},
 	}
@@ -1416,7 +1370,7 @@ func (e *Environment) GatewayConfig() *v1beta1.GatewayConfig {
 func (e *Environment) GetAlertingManagementWebhookEndpoint() string {
 	return "https://" +
 		e.GatewayConfig().Spec.HTTPListenAddress +
-		e.GatewayConfig().Spec.Alerting.ManagementHookHandlerName
+		e.GatewayConfig().Spec.Alerting.ManagementHookHandler
 }
 
 func (e *Environment) EtcdClient() (*clientv3.Client, error) {

@@ -2,11 +2,16 @@ package v2
 
 import (
 	"context"
+	"debug/buildinfo"
 	"errors"
 	"fmt"
+	"github.com/rancher/opni/pkg/agent/shared"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"net"
 	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -38,22 +43,27 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
+var _ controlv1.PluginManifestServer = &Agent{}
+
 type Agent struct {
+	controlv1.UnsafePluginManifestServer
 	AgentOptions
 
 	config v1beta1.AgentConfigSpec
 	router *gin.Engine
-	logger *zap.SugaredLogger
+	Logger *zap.SugaredLogger
 
 	tenantID         string
 	identityProvider ident.Provider
 	keyringStore     storage.KeyringStore
 	gatewayClient    clients.GatewayClient
 	trust            trust.Strategy
+	thing            func()
 }
 
 type AgentOptions struct {
 	bootstrapper bootstrap.Bootstrapper
+	thing        func()
 }
 
 type AgentOption func(*AgentOptions)
@@ -67,6 +77,14 @@ func (o *AgentOptions) apply(opts ...AgentOption) {
 func WithBootstrapper(bootstrapper bootstrap.Bootstrapper) AgentOption {
 	return func(o *AgentOptions) {
 		o.bootstrapper = bootstrapper
+	}
+}
+
+func WithPluginManifestSync() AgentOption {
+	return func(o *AgentOptions) {
+		o.thing = func() {
+			fmt.Println("thing")
+		}
 	}
 }
 
@@ -133,6 +151,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, pl plugins.LoaderInterf
 	})
 
 	var kr keyring.Keyring
+	// FIXME: check if key is left over from a previous agent
 	if existing, err := ks.Get(initCtx); err == nil {
 		lg.Info("loaded existing keyring")
 		kr = existing
@@ -197,7 +216,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, pl plugins.LoaderInterf
 		AgentOptions: options,
 		config:       conf.Spec,
 		router:       router,
-		logger:       lg,
+		Logger:       lg,
 
 		tenantID:         id,
 		identityProvider: ip,
@@ -265,7 +284,7 @@ ROUTES:
 }
 
 func (a *Agent) runGatewayClient(ctx context.Context) error {
-	lg := a.logger
+	lg := a.Logger
 	isRetry := false
 	for ctx.Err() == nil {
 		if isRetry {
@@ -293,6 +312,8 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 				zap.Error(errF.Get()),
 			).Warn("error connecting to gateway")
 		}
+		a.gatewayClient.RegisterService(&controlv1.PluginManifest_ServiceDesc, a)
+
 		if util.StatusCode(errF.Get()) == codes.FailedPrecondition {
 			// Non-retriable error, e.g. the cluster was deleted, or the metrics
 			// capability was uninstalled.
@@ -305,4 +326,115 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 		zap.Error(ctx.Err()),
 	).Warn("shutting down gateway client")
 	return ctx.Err()
+}
+
+func (a *Agent) GetPluginManifests(ctx context.Context, _ *emptypb.Empty) (*controlv1.ManifestMetadataList, error) {
+	lg := a.Logger.With("method", "GetPluginManifests")
+	searchDir := shared.PluginPathGlob()
+	matches, err := filepath.Glob(searchDir)
+	res := &controlv1.ManifestMetadataList{
+		Items: map[string]*controlv1.ManifestMetadata{},
+	}
+	if err != nil { // only fails on bad pattern
+		panic(err)
+	}
+	for _, pluginPath := range matches {
+		info, err := buildinfo.ReadFile(pluginPath)
+		if err != nil {
+			return nil, err //FIXME:  aggregate errors
+		}
+		var metadata *string
+		for _, s := range info.Settings {
+			if s.Key == "vcs.revision" {
+				metadata = &s.Value
+				break
+			}
+		}
+		if metadata == nil {
+			metadata = &shared.UnknownRevision
+		}
+
+		if err != nil {
+			// do something
+			lg.Warnf("failed to read plugin metadata for %s", pluginPath)
+		}
+		res.Items[pluginPath] = &controlv1.ManifestMetadata{Metadata: *metadata}
+	}
+	return res, nil
+}
+
+func (a *Agent) GetCompressedManifests(
+	ctx context.Context,
+	list *controlv1.ManifestMetadataList) (*controlv1.CompressedManifests, error) {
+	if err := list.Validate(); err != nil {
+		return nil, err
+	}
+	res := &controlv1.CompressedManifests{
+		Items: map[string]*controlv1.ManifestData{},
+	}
+	for pluginPath, _ := range list.Items {
+		//fixme support compression
+		raw, err := os.ReadFile(pluginPath)
+		if err != nil {
+			return nil, err // FIXME : aggregate errors
+		}
+		res.Items[pluginPath] = &controlv1.ManifestData{
+			Data: raw,
+		}
+	}
+	return res, nil
+}
+
+func (a *Agent) PatchManifests(ctx context.Context, req *controlv1.ManifestList) (*controlv1.ManifestMetadataList, error) {
+	lg := a.Logger.With("method", "PatchManifests")
+
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	notUpdated := &controlv1.ManifestMetadataList{}
+	pluginDir := path.Dir(shared.PluginPathGlob())
+	if _, err := os.Stat(pluginDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(pluginDir, 0755); err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		panic(err)
+	}
+
+	for pluginName, v := range req.GetManifests() {
+		fullPluginPath := path.Join(pluginDir, pluginName)
+		switch v.GetDataAndInfo().GetOp() {
+		case controlv1.PatchOp_CREATE:
+			err := os.WriteFile(fullPluginPath, v.GetDataAndInfo().GetData(), 0755)
+			if err != nil {
+				lg.Errorf("could not write create %s: %v", fullPluginPath, err)
+				notUpdated.Items[pluginName] = &controlv1.ManifestMetadata{}
+			}
+		case controlv1.PatchOp_UPDATE:
+			toPatch, err := os.ReadFile(fullPluginPath)
+			if err != nil {
+				lg.Errorf("could not read %s: %v", fullPluginPath, err)
+				notUpdated.Items[pluginName] = &controlv1.ManifestMetadata{}
+				continue
+			}
+			toWrite, err := shared.ApplyPatch(toPatch, v.GetDataAndInfo().GetData())
+			if err != nil {
+				lg.Errorf("could not apply patch to %s: %v", fullPluginPath, err)
+				notUpdated.Items[pluginName] = &controlv1.ManifestMetadata{}
+				continue
+			}
+			err = os.WriteFile(fullPluginPath, toWrite, 0755)
+			if err != nil {
+				lg.Errorf("could not write update %s: %v", fullPluginPath, err)
+				notUpdated.Items[pluginName] = &controlv1.ManifestMetadata{}
+			}
+		case controlv1.PatchOp_REMOVE:
+			err := os.Remove(fullPluginPath)
+			if err != nil {
+				lg.Errorf("could not remove %s: %v", fullPluginPath, err)
+				notUpdated.Items[pluginName] = &controlv1.ManifestMetadata{}
+			}
+		}
+	}
+	return notUpdated, nil
 }

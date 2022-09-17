@@ -6,6 +6,61 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 package control;
 
-service Health {
-  rpc GetHealth(google.protobuf.Empty) returns (core.Health);
+service Health { 
+  rpc GetHealth(google.protobuf.Empty) returns (core.Health); 
+}
+
+service PluginManifest {
+  rpc GetPluginManifests(google.protobuf.Empty) returns (ManifestMetadataList);
+  // this way we can get a subset of the manifests based on the gateway cache
+  // and the received plugin manifests
+  rpc GetCompressedManifests(ManifestMetadataList)
+      returns (CompressedManifests);
+  // returns the failed manifest patches
+  rpc PatchManifests(ManifestList) returns (ManifestMetadataList);
+}
+
+enum PatchOp {
+  // revisions match
+  NONE = 0;
+  // same plugin exists on both
+  UPDATE = 1;
+  // missing plugin on agent
+  CREATE = 2;
+  // outdate plugin on agent, with no version on the gateway
+  REMOVE = 3;
+}
+
+enum CompressionMethod { PLAIN = 0; }
+
+// store plugins in PVC
+// register service once we connect to gateway
+// agentv2 withThing
+// agentv2 onRegisterThing :
+//   - fetch manifests
+//   - patch manifests
+
+message CompressedManifests { map<string, ManifestData> items = 1; }
+
+message ManifestMetadata { string metadata = 1; }
+
+message ManifestMetadataList {
+  CompressionMethod reqCompr = 1;
+  map<string, ManifestMetadata> items = 2;
+}
+
+message ManifestData {
+  bytes data = 1;
+  PatchOp op = 2;
+}
+
+message ManifestList {
+  // !!! plugin name -> bytes, not plugin path -> bytes
+  map<string, CompressedManifest> manifests = 1;
+}
+
+message CompressedManifest {
+  optional string attachedMetadata = 1;
+  CompressionMethod comprMethod = 2;
+  ManifestData dataAndInfo = 3;
 }

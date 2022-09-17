@@ -105,3 +105,167 @@ var Health_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
 }
+
+// PluginManifestClient is the client API for PluginManifest service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type PluginManifestClient interface {
+	GetPluginManifests(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ManifestMetadataList, error)
+	// this way we can get a subset of the manifests based on the gateway cache
+	// and the received plugin manifests
+	GetCompressedManifests(ctx context.Context, in *ManifestMetadataList, opts ...grpc.CallOption) (*CompressedManifests, error)
+	// returns the failed manifest patches
+	PatchManifests(ctx context.Context, in *ManifestList, opts ...grpc.CallOption) (*ManifestMetadataList, error)
+}
+
+type pluginManifestClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewPluginManifestClient(cc grpc.ClientConnInterface) PluginManifestClient {
+	return &pluginManifestClient{cc}
+}
+
+func (c *pluginManifestClient) GetPluginManifests(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ManifestMetadataList, error) {
+	out := new(ManifestMetadataList)
+	err := c.cc.Invoke(ctx, "/control.PluginManifest/GetPluginManifests", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pluginManifestClient) GetCompressedManifests(ctx context.Context, in *ManifestMetadataList, opts ...grpc.CallOption) (*CompressedManifests, error) {
+	out := new(CompressedManifests)
+	err := c.cc.Invoke(ctx, "/control.PluginManifest/GetCompressedManifests", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pluginManifestClient) PatchManifests(ctx context.Context, in *ManifestList, opts ...grpc.CallOption) (*ManifestMetadataList, error) {
+	out := new(ManifestMetadataList)
+	err := c.cc.Invoke(ctx, "/control.PluginManifest/PatchManifests", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PluginManifestServer is the server API for PluginManifest service.
+// All implementations must embed UnimplementedPluginManifestServer
+// for forward compatibility
+type PluginManifestServer interface {
+	GetPluginManifests(context.Context, *emptypb.Empty) (*ManifestMetadataList, error)
+	// this way we can get a subset of the manifests based on the gateway cache
+	// and the received plugin manifests
+	GetCompressedManifests(context.Context, *ManifestMetadataList) (*CompressedManifests, error)
+	// returns the failed manifest patches
+	PatchManifests(context.Context, *ManifestList) (*ManifestMetadataList, error)
+	mustEmbedUnimplementedPluginManifestServer()
+}
+
+// UnimplementedPluginManifestServer must be embedded to have forward compatible implementations.
+type UnimplementedPluginManifestServer struct {
+}
+
+func (UnimplementedPluginManifestServer) GetPluginManifests(context.Context, *emptypb.Empty) (*ManifestMetadataList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPluginManifests not implemented")
+}
+func (UnimplementedPluginManifestServer) GetCompressedManifests(context.Context, *ManifestMetadataList) (*CompressedManifests, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCompressedManifests not implemented")
+}
+func (UnimplementedPluginManifestServer) PatchManifests(context.Context, *ManifestList) (*ManifestMetadataList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PatchManifests not implemented")
+}
+func (UnimplementedPluginManifestServer) mustEmbedUnimplementedPluginManifestServer() {}
+
+// UnsafePluginManifestServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PluginManifestServer will
+// result in compilation errors.
+type UnsafePluginManifestServer interface {
+	mustEmbedUnimplementedPluginManifestServer()
+}
+
+func RegisterPluginManifestServer(s grpc.ServiceRegistrar, srv PluginManifestServer) {
+	s.RegisterService(&PluginManifest_ServiceDesc, srv)
+}
+
+func _PluginManifest_GetPluginManifests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PluginManifestServer).GetPluginManifests(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.PluginManifest/GetPluginManifests",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PluginManifestServer).GetPluginManifests(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PluginManifest_GetCompressedManifests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ManifestMetadataList)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PluginManifestServer).GetCompressedManifests(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.PluginManifest/GetCompressedManifests",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PluginManifestServer).GetCompressedManifests(ctx, req.(*ManifestMetadataList))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PluginManifest_PatchManifests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ManifestList)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PluginManifestServer).PatchManifests(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.PluginManifest/PatchManifests",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PluginManifestServer).PatchManifests(ctx, req.(*ManifestList))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// PluginManifest_ServiceDesc is the grpc.ServiceDesc for PluginManifest service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var PluginManifest_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "control.PluginManifest",
+	HandlerType: (*PluginManifestServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetPluginManifests",
+			Handler:    _PluginManifest_GetPluginManifests_Handler,
+		},
+		{
+			MethodName: "GetCompressedManifests",
+			Handler:    _PluginManifest_GetCompressedManifests_Handler,
+		},
+		{
+			MethodName: "PatchManifests",
+			Handler:    _PluginManifest_PatchManifests_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "github.com/rancher/opni/pkg/apis/control/v1/remote.proto",
+}

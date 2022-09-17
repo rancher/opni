@@ -1,63 +1,83 @@
 package shared
 
 import (
-	"bytes"
 	"fmt"
+	"io"
+
 	"github.com/gabstv/go-bsdiff/pkg/bsdiff"
 	"github.com/gabstv/go-bsdiff/pkg/bspatch"
-	"regexp"
-	"text/template"
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/klauspost/compress/zstd"
+	"google.golang.org/grpc/encoding"
+
+	"github.com/rancher/opni/pkg/util"
 )
 
-var UnknownRevision = "vcs.revision.unknown"
-var PluginPathTemplate = template.Must(template.New("").Parse("bin/plugins/plugin_{{.MatchExpr}}"))
+//var UnknownRevision = "vcs.revision.unknown"
 
-type BytesCompression interface {
-	Compress([]byte) ([]byte, error)
-	MustCompress([]byte, error) []byte
-	Extract([]byte) ([]byte, error)
-	MustExtract([]byte, error) []byte
+//	type BytesCompression interface {
+//		Compress([]byte) ([]byte, error)
+//		Extract([]byte) ([]byte, error)
+//	}
+//
+// var _ BytesCompression = &NoCompression{}
+//
+// type NoCompression struct{}
+//
+//	func (c *NoCompression) Compress(data []byte) ([]byte, error) {
+//		return data, nil
+//	}
+//
+//	func (c *NoCompression) Extract(data []byte) ([]byte, error) {
+//		return data, nil
+//	}
+type ZstdCompressor struct{}
+
+func (c ZstdCompressor) Compress(w io.Writer) (io.WriteCloser, error) {
+	return zstd.NewWriter(w)
 }
 
-var _ BytesCompression = &NoCompression{}
-
-type NoCompression struct{}
-
-func (c *NoCompression) Compress(data []byte) ([]byte, error) {
-	return data, nil
+func (c ZstdCompressor) Decompress(r io.Reader) (io.Reader, error) {
+	return zstd.NewReader(r)
 }
 
-func (c *NoCompression) MustCompress(data []byte, err error) []byte {
-	if err != nil {
-		panic(err)
-	}
-	return data
+func (c ZstdCompressor) Name() string {
+	return "zstd"
 }
 
-func (c *NoCompression) Extract(data []byte) ([]byte, error) {
-	return data, nil
-}
-
-func (c *NoCompression) MustExtract(data []byte, err error) []byte {
-	if err != nil {
-		panic(err)
-	}
-	return data
+func init() {
+	encoding.RegisterCompressor(ZstdCompressor{})
 }
 
 type PatchCache interface {
 	Get(pluginName, oldRevision, newRevision string) ([]byte, error)
 	Put(pluginName, oldRevision, newRevision string, patch []byte) error
+	Key(pluginName, oldRevision, newRevision string) string
 }
 
-var _ PatchCache = &NoCache{}
-
-type NoCache struct{}
-
-func (c *NoCache) Get(pluginName, oldRevision, newRevision string) ([]byte, error) {
-	return nil, fmt.Errorf("no cache available")
+type InMemoryCache struct {
+	cache *lru.Cache
 }
-func (c *NoCache) Put(pluginName, oldRevision, newRevision string, patch []byte) error {
+
+func (c *InMemoryCache) Key(pluginName, oldRevision, newRevision string) string {
+	return fmt.Sprintf("%s-%s-to-%s", pluginName, oldRevision, newRevision)
+}
+
+func NewInMemoryCache() PatchCache {
+	return &InMemoryCache{
+		cache: util.Must(lru.New(32)),
+	}
+}
+
+func (c *InMemoryCache) Get(pluginName, oldRevision, newRevision string) ([]byte, error) {
+	if v, ok := c.cache.Get(c.Key(pluginName, oldRevision, newRevision)); ok {
+		return v.([]byte), nil
+	}
+	return nil, fmt.Errorf("not found")
+}
+
+func (c *InMemoryCache) Put(pluginName, oldRevision, newRevision string, patch []byte) error {
+	c.cache.Add(c.Key(pluginName, oldRevision, newRevision), patch)
 	return nil
 }
 
@@ -76,26 +96,4 @@ func ApplyPatch(outdatedBytes, patch []byte) ([]byte, error) {
 		return []byte{}, err
 	}
 	return newBytes, nil
-}
-
-func PluginPathRegex() *regexp.Regexp {
-	var b bytes.Buffer
-	err := PluginPathTemplate.Execute(&b, map[string]string{
-		"MatchExpr": ".*",
-	})
-	if err != nil {
-		panic(err)
-	}
-	return regexp.MustCompile(b.String())
-}
-
-func PluginPathGlob() string {
-	var b bytes.Buffer
-	err := PluginPathTemplate.Execute(&b, map[string]string{
-		"MatchExpr": "*",
-	})
-	if err != nil {
-		panic(err)
-	}
-	return b.String()
 }

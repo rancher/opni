@@ -2,21 +2,21 @@ package v2
 
 import (
 	"context"
-	"debug/buildinfo"
 	"errors"
 	"fmt"
-	"github.com/rancher/opni/pkg/agent/shared"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"net"
 	"net/http"
-	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/bootstrap"
@@ -37,21 +37,15 @@ import (
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/fwd"
-	"github.com/samber/lo"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 )
 
-var _ controlv1.PluginManifestServer = &Agent{}
-
 type Agent struct {
-	controlv1.UnsafePluginManifestServer
 	AgentOptions
 
-	config v1beta1.AgentConfigSpec
-	router *gin.Engine
-	Logger *zap.SugaredLogger
+	config       v1beta1.AgentConfigSpec
+	router       *gin.Engine
+	Logger       *zap.SugaredLogger
+	pluginLoader *plugins.PluginLoader
 
 	tenantID         string
 	identityProvider ident.Provider
@@ -88,7 +82,7 @@ func WithPluginManifestSync() AgentOption {
 	}
 }
 
-func New(ctx context.Context, conf *v1beta1.AgentConfig, pl plugins.LoaderInterface, opts ...AgentOption) (*Agent, error) {
+func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*Agent, error) {
 	options := AgentOptions{}
 	options.apply(opts...)
 	level := logger.DefaultLogLevel.Level()
@@ -101,6 +95,8 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, pl plugins.LoaderInterf
 	}
 	lg := logger.New(logger.WithLogLevel(level)).Named("agent")
 	lg.Debugf("using log level: %s", level)
+
+	pl := plugins.NewPluginLoader()
 
 	pl.Hook(hooks.OnLoadM(func(p types.CapabilityNodePlugin, m meta.PluginMeta) {
 		lg.Infof("loaded capability node plugin %s", m.Module)
@@ -217,6 +213,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, pl plugins.LoaderInterf
 		config:       conf.Spec,
 		router:       router,
 		Logger:       lg,
+		pluginLoader: pl,
 
 		tenantID:         id,
 		identityProvider: ip,
@@ -227,6 +224,22 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, pl plugins.LoaderInterf
 }
 
 func (a *Agent) ListenAndServe(ctx context.Context) error {
+	if err := a.syncPlugins(ctx); err != nil {
+		return fmt.Errorf("error syncing plugins: %w", err)
+	}
+	done := make(chan struct{})
+	a.pluginLoader.Hook(hooks.OnLoadingCompleted(func(numPlugins int) {
+		a.Logger.Infof("loaded %d plugins", numPlugins)
+		close(done)
+	}))
+	a.pluginLoader.LoadPlugins(ctx, a.config.Plugins, plugins.AgentScheme)
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	listener, err := net.Listen("tcp4", a.config.ListenAddress)
 	if err != nil {
 		return err
@@ -328,113 +341,43 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (a *Agent) GetPluginManifests(ctx context.Context, _ *emptypb.Empty) (*controlv1.ManifestMetadataList, error) {
-	lg := a.Logger.With("method", "GetPluginManifests")
-	searchDir := shared.PluginPathGlob()
-	matches, err := filepath.Glob(searchDir)
-	res := &controlv1.ManifestMetadataList{
-		Items: map[string]*controlv1.ManifestMetadata{},
-	}
-	if err != nil { // only fails on bad pattern
-		panic(err)
-	}
-	for _, pluginPath := range matches {
-		info, err := buildinfo.ReadFile(pluginPath)
-		if err != nil {
-			return nil, err //FIXME:  aggregate errors
+func (a *Agent) syncPlugins(ctx context.Context) (retErr error) {
+	a.Logger.Info("connecting to gateway...")
+	clientCtx, clientCa := context.WithCancel(ctx)
+	defer func() {
+		if retErr != nil {
+			clientCa()
 		}
-		var metadata *string
-		for _, s := range info.Settings {
-			if s.Key == "vcs.revision" {
-				metadata = &s.Value
-				break
-			}
-		}
-		if metadata == nil {
-			metadata = &shared.UnknownRevision
-		}
+	}()
 
-		if err != nil {
-			// do something
-			lg.Warnf("failed to read plugin metadata for %s", pluginPath)
-		}
-		res.Items[pluginPath] = &controlv1.ManifestMetadata{Metadata: *metadata}
+	gc, err := a.gatewayClient.Dial(clientCtx)
+	if err != nil {
+		return err
 	}
-	return res, nil
-}
-
-func (a *Agent) GetCompressedManifests(
-	ctx context.Context,
-	list *controlv1.ManifestMetadataList) (*controlv1.CompressedManifests, error) {
-	if err := list.Validate(); err != nil {
-		return nil, err
-	}
-	res := &controlv1.CompressedManifests{
-		Items: map[string]*controlv1.ManifestData{},
-	}
-	for pluginPath, _ := range list.Items {
-		//fixme support compression
-		raw, err := os.ReadFile(pluginPath)
-		if err != nil {
-			return nil, err // FIXME : aggregate errors
-		}
-		res.Items[pluginPath] = &controlv1.ManifestData{
-			Data: raw,
-		}
-	}
-	return res, nil
-}
-
-func (a *Agent) PatchManifests(ctx context.Context, req *controlv1.ManifestList) (*controlv1.ManifestMetadataList, error) {
-	lg := a.Logger.With("method", "PatchManifests")
-
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
-	notUpdated := &controlv1.ManifestMetadataList{}
-	pluginDir := path.Dir(shared.PluginPathGlob())
-	if _, err := os.Stat(pluginDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(pluginDir, 0755); err != nil {
-			return nil, err
-		}
-	} else if err != nil {
-		panic(err)
+	//comprMethod := controlv1.CompressionMethod_ZSTD
+	manifestClient := controlv1.NewPluginManifestClient(gc)
+	// read local plugins on disk here
+	localManifests, err := controlv1.GetFilesystemPlugins(a.config.Plugins, a.Logger)
+	if err != nil {
+		return err
 	}
 
-	for pluginName, v := range req.GetManifests() {
-		fullPluginPath := path.Join(pluginDir, pluginName)
-		switch v.GetDataAndInfo().GetOp() {
-		case controlv1.PatchOp_CREATE:
-			err := os.WriteFile(fullPluginPath, v.GetDataAndInfo().GetData(), 0755)
-			if err != nil {
-				lg.Errorf("could not write create %s: %v", fullPluginPath, err)
-				notUpdated.Items[pluginName] = &controlv1.ManifestMetadata{}
-			}
-		case controlv1.PatchOp_UPDATE:
-			toPatch, err := os.ReadFile(fullPluginPath)
-			if err != nil {
-				lg.Errorf("could not read %s: %v", fullPluginPath, err)
-				notUpdated.Items[pluginName] = &controlv1.ManifestMetadata{}
-				continue
-			}
-			toWrite, err := shared.ApplyPatch(toPatch, v.GetDataAndInfo().GetData())
-			if err != nil {
-				lg.Errorf("could not apply patch to %s: %v", fullPluginPath, err)
-				notUpdated.Items[pluginName] = &controlv1.ManifestMetadata{}
-				continue
-			}
-			err = os.WriteFile(fullPluginPath, toWrite, 0755)
-			if err != nil {
-				lg.Errorf("could not write update %s: %v", fullPluginPath, err)
-				notUpdated.Items[pluginName] = &controlv1.ManifestMetadata{}
-			}
-		case controlv1.PatchOp_REMOVE:
-			err := os.Remove(fullPluginPath)
-			if err != nil {
-				lg.Errorf("could not remove %s: %v", fullPluginPath, err)
-				notUpdated.Items[pluginName] = &controlv1.ManifestMetadata{}
-			}
-		}
+	a.Logger.Info("syncing plugins with gateway")
+	patchList, err := manifestClient.SendManifestsOrKnownPatch(clientCtx, localManifests, grpc.UseCompressor("zstd"))
+	if err != nil {
+		return err
 	}
-	return notUpdated, nil
+	a.Logger.Info("received patch manifest from gateway")
+	// fill in  here
+	done, err := controlv1.PatchWith(clientCtx, a.config.Plugins, patchList, a.Logger, manifestClient)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		<-done
+		clientCa()
+	}()
+	
+	return nil
 }

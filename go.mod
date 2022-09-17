@@ -23,6 +23,7 @@ require (
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/cortexproject/cortex v1.13.0
 	github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2
+	github.com/gabstv/go-bsdiff v1.0.5
 	github.com/gin-contrib/pprof v1.4.0
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-kit/log v0.2.0
@@ -50,6 +51,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.3.5
 	github.com/jhump/protoreflect v1.12.0
 	github.com/jwalton/go-supportscolor v1.1.0
+	github.com/klauspost/compress v1.15.1
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.11.0-1
 	github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e
@@ -220,7 +222,6 @@ require (
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/fsouza/fake-gcs-server v1.7.0 // indirect
-	github.com/gabstv/go-bsdiff v1.0.5 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-errors/errors v1.0.1 // indirect
@@ -306,7 +307,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/klauspost/compress v1.15.1 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect

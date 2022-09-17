@@ -82,6 +82,7 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 		}),
 		grpc.ChainStreamInterceptor(otelgrpc.StreamServerInterceptor()),
 		grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+		grpc.MaxRecvMsgSize(32*1024*1024), // 32MB
 	)...)
 	healthv1.RegisterHealthServer(server, health.NewServer())
 	for _, services := range s.services {

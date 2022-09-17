@@ -1,41 +1,15 @@
 package v1
 
-import "C"
 import (
-	"context"
-	"github.com/rancher/opni/pkg/agent/shared"
-	"os"
 	"path"
 )
 
-type Compressible interface {
-	Compress() ([]byte, error)
-	Extract() ([]byte, error)
-}
-
-// LeftJoinSlice
-//
-// everything in arr1 should be in arr2
-// arr1 should override arr2 with the new info
-func LeftJoinSlice[T comparable](arr1, arr2 []T) []T {
-	result := make([]T, len(arr1))
-	cache := map[T]struct{}{}
-	for i, v := range arr1 {
-		cache[v] = struct{}{}
-		result[i] = v
-	}
-	for _, v := range arr2 {
-		if _, ok := cache[v]; !ok {
-			result = append(result, v)
-		}
-	}
-	return result
-}
-
 type PatchInfo struct {
-	Op          PatchOp
-	NewRevision string
-	OldRevision string
+	Op        PatchOp
+	OurPath   string
+	TheirPath string
+	NewHash   string
+	OldHash   string
 }
 
 type TODOList struct {
@@ -49,17 +23,21 @@ func (m *ManifestMetadataList) LeftJoinOn(other *ManifestMetadataList) (*TODOLis
 	}
 	for otherPath, _ := range other.Items {
 		found := false
+		foundPath := ""
 		for pluginPath, _ := range m.Items { //constant time so ok
 			if path.Base(otherPath) == path.Base(pluginPath) {
+				foundPath = pluginPath
 				found = true
 				break
 			}
 		}
 		if !found {
 			res.Items[path.Base(otherPath)] = PatchInfo{
-				Op:          PatchOp_REMOVE,
-				OldRevision: other.Items[otherPath].Metadata,
-				NewRevision: "",
+				OurPath:   foundPath,
+				TheirPath: otherPath,
+				Op:        PatchOp_REMOVE,
+				OldHash:   other.Items[otherPath].Hash,
+				NewHash:   "",
 			}
 		}
 	}
@@ -69,85 +47,109 @@ func (m *ManifestMetadataList) LeftJoinOn(other *ManifestMetadataList) (*TODOLis
 		for otherPath, otherMetadata := range other.Items { // constant time so ok
 			if path.Base(otherPath) == path.Base(pluginPath) {
 				found = true
-				if metadata.Metadata != otherMetadata.Metadata {
+				if metadata.Hash != otherMetadata.Hash {
 					res.Items[path.Base(pluginPath)] = PatchInfo{
-						Op:          PatchOp_UPDATE,
-						NewRevision: metadata.Metadata,
-						OldRevision: otherMetadata.Metadata,
+						OurPath:   pluginPath,
+						TheirPath: otherPath,
+						Op:        PatchOp_UPDATE,
+						NewHash:   metadata.Hash,
+						OldHash:   otherMetadata.Hash,
 					}
 				}
 			}
 		}
 		if !found {
 			res.Items[path.Base(pluginPath)] = PatchInfo{
-				Op:          PatchOp_CREATE,
-				NewRevision: metadata.Metadata,
-				OldRevision: "",
+				OurPath:   pluginPath,
+				TheirPath: "",
+				Op:        PatchOp_CREATE,
+				NewHash:   metadata.Hash,
+				OldHash:   "",
 			}
 		}
 	}
 	return res, nil
 }
 
-func getManifestBytes(
-	cache shared.PatchCache,
-	compression shared.BytesCompression,
-	pluginName string,
-	operationInfo PatchInfo,
-	ctx context.Context,
-	remoteServer PluginManifestServer,
-) ([]byte, error) {
-	pluginDir := path.Dir(shared.PluginPathGlob())
-	switch operationInfo.Op {
-	case PatchOp_CREATE:
-		return os.ReadFile(path.Join(pluginDir, pluginName))
-	case PatchOp_UPDATE:
-		if data, err := cache.Get(pluginName, operationInfo.OldRevision, operationInfo.NewRevision); err == nil {
-			return data, nil
-		}
-		incomingResp, err := remoteServer.GetCompressedManifests(ctx, &ManifestMetadataList{
-			ReqCompr: CompressionMethod_PLAIN,
-			Items: map[string]*ManifestMetadata{
-				pluginName: &ManifestMetadata{
-					Metadata: "",
-				},
-			},
-		})
-		if err != nil {
-			return nil, err // FIXME aggregate errors
-		}
-		incomingData := compression.MustExtract(incomingResp.Items[pluginName].GetData(), nil)
-		newData, err := os.ReadFile(path.Join(pluginDir, pluginName))
-		if err != nil {
-			return nil, err // FIXME aggregate errors
-		}
-		return shared.GeneratePatch(incomingData, newData)
-	default:
-		return []byte{}, nil
-	}
-}
+// Assumes the remote server is the gateway
+//func getManifestBytes(
+//	cache shared.PatchCache,
+//	compressionMethod CompressionMethod,
+//	operationInfo PatchInfo,
+//	ctx context.Context,
+//	gatewayServer PluginManifestClient,
+//) ([]byte, error) {
+//	comp, ok := CompressionMap[compressionMethod]
+//	if !ok {
+//		comp = &shared.NoCompression{}
+//	}
+//	switch operationInfo.Op {
+//	case PatchOp_CREATE:
+//		data, err := os.ReadFile(operationInfo.OurPath)
+//		if err != nil {
+//			return nil, err
+//		}
+//		return comp.Compress(data)
+//	case PatchOp_UPDATE:
+//		if data, err := cache.Get(operationInfo.OurPath, operationInfo.OldHash, operationInfo.NewHash); err == nil {
+//			return data, nil
+//		}
+//		incomingResp, err := gatewayServer.GetCompressedManifests(ctx, &ManifestMetadataList{
+//			ReqCompr: compressionMethod,
+//			Items: map[string]*ManifestMetadata{
+//				operationInfo.TheirPath: &ManifestMetadata{},
+//			},
+//		})
+//		if err != nil {
+//			return nil, err // FIXME aggregate errors
+//		}
+//		comp := CompressionMap[compressionMethod]
+//		incomingData, err := comp.Extract(incomingResp.Items[operationInfo.TheirPath].GetData())
+//		if err != nil {
+//			return nil, err
+//		}
+//		oldData, err := os.ReadFile(operationInfo.OurPath)
+//		if err != nil {
+//			return nil, err // FIXME aggregate errors
+//		}
+//		return shared.GeneratePatch(oldData, incomingData)
+//	default:
+//		return []byte{}, nil
+//	}
+//}
 
-func GenerateManifestListFromPatchOps(
-	todo *TODOList,
-	cache shared.PatchCache,
-	compression shared.BytesCompression,
-	ctx context.Context,
-	remoteServer PluginManifestServer,
-) (*ManifestList, error) {
-
-	res := &ManifestList{
-		Manifests: make(map[string]*CompressedManifest),
-	}
-	for pluginName, operationInfo := range todo.Items {
-
-		comprData := compression.MustCompress(getManifestBytes(cache, compression, pluginName, operationInfo, ctx, remoteServer))
-		res.Manifests[pluginName] = &CompressedManifest{
-			ComprMethod: CompressionMethod_PLAIN,
-			DataAndInfo: &ManifestData{
-				Data: comprData,
-				Op:   operationInfo.Op,
-			},
-		}
-	}
-	return res, nil
-}
+// assumes the remote server is the gateway
+//func GenerateManifestListFromPatchOps(
+//	todo *TODOList,
+//	cache shared.PatchCache,
+//	comprType CompressionMethod,
+//	ctx context.Context,
+//	remoteServer PluginManifestClient,
+//) (*ManifestList, error) {
+//	comp, ok := CompressionMap[comprType]
+//	if !ok {
+//		comp = &shared.NoCompression{}
+//	}
+//	res := &ManifestList{
+//		Manifests: make(map[string]*CompressedManifest),
+//	}
+//	for pluginName, operationInfo := range todo.Items {
+//		bytes, err := getManifestBytes(cache, comprType, operationInfo, ctx, remoteServer)
+//		if err != nil {
+//			return nil, err
+//		}
+//		//comprData, err := comp.Compress(bytes)
+//		//if err != nil {
+//		//	return nil, err
+//		//}
+//		res.Manifests[pluginName] = &CompressedManifest{
+//			ComprMethod: comprType,
+//			DataAndInfo: &ManifestData{
+//				Data:   comprData,
+//				Op:     operationInfo.Op,
+//				OpPath: operationInfo.TheirPath,
+//			},
+//		}
+//	}
+//	return res, nil
+//}

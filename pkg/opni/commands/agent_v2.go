@@ -7,23 +7,22 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/spf13/cobra"
+	"github.com/ttacon/chalk"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
 	agentv2 "github.com/rancher/opni/pkg/agent/v2"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/pkp"
-	"github.com/rancher/opni/pkg/plugins"
-	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
-	"github.com/spf13/cobra"
-	"github.com/ttacon/chalk"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 func BuildAgentV2Cmd() *cobra.Command {
@@ -81,9 +80,9 @@ func BuildAgentV2Cmd() *cobra.Command {
 				).Fatal("failed to configure bootstrap")
 			}
 
-			pl := plugins.NewPluginLoader()
+			//pl := plugins.NewPluginLoader()
 
-			p, err := agentv2.New(ctx, agentConfig, pl,
+			p, err := agentv2.New(ctx, agentConfig,
 				agentv2.WithBootstrapper(bootstrapper),
 			)
 			if err != nil {
@@ -91,21 +90,27 @@ func BuildAgentV2Cmd() *cobra.Command {
 				return
 			}
 
-			pl.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
-				lg.Infof("loaded %d plugins", numLoaded)
-			}))
+			err = p.ListenAndServe(ctx)
+			if err != nil {
+				agentlg.Error(err)
+				return
+			}
 
-			pl.Hook(hooks.OnLoadingCompleted(func(int) {
-				waitctx.AddOne(ctx)
-				defer waitctx.Done(ctx)
-				if err := p.ListenAndServe(ctx); err != nil {
-					lg.With(
-						zap.Error(err),
-					).Warn("agent server exited with error")
-				}
-			}))
-
-			pl.LoadPlugins(ctx, agentConfig.Spec.Plugins, plugins.AgentScheme)
+			//pl.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
+			//	lg.Infof("loaded %d plugins", numLoaded)
+			//}))
+			//
+			//pl.Hook(hooks.OnLoadingCompleted(func(int) {
+			//	waitctx.AddOne(ctx)
+			//	defer waitctx.Done(ctx)
+			//	if err := p.ListenAndServe(ctx); err != nil {
+			//		lg.With(
+			//			zap.Error(err),
+			//		).Warn("agent server exited with error")
+			//	}
+			//}))
+			//
+			//pl.LoadPlugins(ctx, agentConfig.Spec.Plugins, plugins.AgentScheme)
 
 			<-ctx.Done()
 			waitctx.Wait(ctx)

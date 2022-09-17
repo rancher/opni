@@ -110,12 +110,9 @@ var Health_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PluginManifestClient interface {
+	SendManifestsOrKnownPatch(ctx context.Context, in *ManifestMetadataList, opts ...grpc.CallOption) (*ManifestList, error)
 	GetPluginManifests(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ManifestMetadataList, error)
-	// this way we can get a subset of the manifests based on the gateway cache
-	// and the received plugin manifests
-	GetCompressedManifests(ctx context.Context, in *ManifestMetadataList, opts ...grpc.CallOption) (*CompressedManifests, error)
-	// returns the failed manifest patches
-	PatchManifests(ctx context.Context, in *ManifestList, opts ...grpc.CallOption) (*ManifestMetadataList, error)
+	UploadPatch(ctx context.Context, in *PatchSpec, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type pluginManifestClient struct {
@@ -124,6 +121,15 @@ type pluginManifestClient struct {
 
 func NewPluginManifestClient(cc grpc.ClientConnInterface) PluginManifestClient {
 	return &pluginManifestClient{cc}
+}
+
+func (c *pluginManifestClient) SendManifestsOrKnownPatch(ctx context.Context, in *ManifestMetadataList, opts ...grpc.CallOption) (*ManifestList, error) {
+	out := new(ManifestList)
+	err := c.cc.Invoke(ctx, "/control.PluginManifest/SendManifestsOrKnownPatch", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *pluginManifestClient) GetPluginManifests(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ManifestMetadataList, error) {
@@ -135,18 +141,9 @@ func (c *pluginManifestClient) GetPluginManifests(ctx context.Context, in *empty
 	return out, nil
 }
 
-func (c *pluginManifestClient) GetCompressedManifests(ctx context.Context, in *ManifestMetadataList, opts ...grpc.CallOption) (*CompressedManifests, error) {
-	out := new(CompressedManifests)
-	err := c.cc.Invoke(ctx, "/control.PluginManifest/GetCompressedManifests", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *pluginManifestClient) PatchManifests(ctx context.Context, in *ManifestList, opts ...grpc.CallOption) (*ManifestMetadataList, error) {
-	out := new(ManifestMetadataList)
-	err := c.cc.Invoke(ctx, "/control.PluginManifest/PatchManifests", in, out, opts...)
+func (c *pluginManifestClient) UploadPatch(ctx context.Context, in *PatchSpec, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/control.PluginManifest/UploadPatch", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -157,12 +154,9 @@ func (c *pluginManifestClient) PatchManifests(ctx context.Context, in *ManifestL
 // All implementations must embed UnimplementedPluginManifestServer
 // for forward compatibility
 type PluginManifestServer interface {
+	SendManifestsOrKnownPatch(context.Context, *ManifestMetadataList) (*ManifestList, error)
 	GetPluginManifests(context.Context, *emptypb.Empty) (*ManifestMetadataList, error)
-	// this way we can get a subset of the manifests based on the gateway cache
-	// and the received plugin manifests
-	GetCompressedManifests(context.Context, *ManifestMetadataList) (*CompressedManifests, error)
-	// returns the failed manifest patches
-	PatchManifests(context.Context, *ManifestList) (*ManifestMetadataList, error)
+	UploadPatch(context.Context, *PatchSpec) (*emptypb.Empty, error)
 	mustEmbedUnimplementedPluginManifestServer()
 }
 
@@ -170,14 +164,14 @@ type PluginManifestServer interface {
 type UnimplementedPluginManifestServer struct {
 }
 
+func (UnimplementedPluginManifestServer) SendManifestsOrKnownPatch(context.Context, *ManifestMetadataList) (*ManifestList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendManifestsOrKnownPatch not implemented")
+}
 func (UnimplementedPluginManifestServer) GetPluginManifests(context.Context, *emptypb.Empty) (*ManifestMetadataList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPluginManifests not implemented")
 }
-func (UnimplementedPluginManifestServer) GetCompressedManifests(context.Context, *ManifestMetadataList) (*CompressedManifests, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetCompressedManifests not implemented")
-}
-func (UnimplementedPluginManifestServer) PatchManifests(context.Context, *ManifestList) (*ManifestMetadataList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PatchManifests not implemented")
+func (UnimplementedPluginManifestServer) UploadPatch(context.Context, *PatchSpec) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UploadPatch not implemented")
 }
 func (UnimplementedPluginManifestServer) mustEmbedUnimplementedPluginManifestServer() {}
 
@@ -190,6 +184,24 @@ type UnsafePluginManifestServer interface {
 
 func RegisterPluginManifestServer(s grpc.ServiceRegistrar, srv PluginManifestServer) {
 	s.RegisterService(&PluginManifest_ServiceDesc, srv)
+}
+
+func _PluginManifest_SendManifestsOrKnownPatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ManifestMetadataList)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PluginManifestServer).SendManifestsOrKnownPatch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/control.PluginManifest/SendManifestsOrKnownPatch",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PluginManifestServer).SendManifestsOrKnownPatch(ctx, req.(*ManifestMetadataList))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PluginManifest_GetPluginManifests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -210,38 +222,20 @@ func _PluginManifest_GetPluginManifests_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
-func _PluginManifest_GetCompressedManifests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ManifestMetadataList)
+func _PluginManifest_UploadPatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PatchSpec)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PluginManifestServer).GetCompressedManifests(ctx, in)
+		return srv.(PluginManifestServer).UploadPatch(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/control.PluginManifest/GetCompressedManifests",
+		FullMethod: "/control.PluginManifest/UploadPatch",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PluginManifestServer).GetCompressedManifests(ctx, req.(*ManifestMetadataList))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _PluginManifest_PatchManifests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ManifestList)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(PluginManifestServer).PatchManifests(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/control.PluginManifest/PatchManifests",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PluginManifestServer).PatchManifests(ctx, req.(*ManifestList))
+		return srv.(PluginManifestServer).UploadPatch(ctx, req.(*PatchSpec))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -254,16 +248,16 @@ var PluginManifest_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*PluginManifestServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "SendManifestsOrKnownPatch",
+			Handler:    _PluginManifest_SendManifestsOrKnownPatch_Handler,
+		},
+		{
 			MethodName: "GetPluginManifests",
 			Handler:    _PluginManifest_GetPluginManifests_Handler,
 		},
 		{
-			MethodName: "GetCompressedManifests",
-			Handler:    _PluginManifest_GetCompressedManifests_Handler,
-		},
-		{
-			MethodName: "PatchManifests",
-			Handler:    _PluginManifest_PatchManifests_Handler,
+			MethodName: "UploadPatch",
+			Handler:    _PluginManifest_UploadPatch_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

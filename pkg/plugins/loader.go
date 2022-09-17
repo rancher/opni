@@ -8,17 +8,20 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/plugins/hooks"
-	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+
+	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/plugins/meta"
 )
+
+const DefaultPluginGlob = "plugin_*"
 
 type LoaderInterface interface {
 	// Adds a hook to the loader, which will be invoked at a specific time according
@@ -198,7 +201,7 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 	wg := &sync.WaitGroup{}
 	var pluginPaths []string
 	for _, dir := range conf.Dirs {
-		paths, err := plugin.Discover("plugin_*", dir)
+		paths, err := plugin.Discover(DefaultPluginGlob, dir)
 		if err != nil {
 			continue
 		}

@@ -1153,8 +1153,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 					TrustStrategy: strategy,
 				}))
 		case "v2":
-			pluginLoader := plugins.NewPluginLoader()
-			a, err = agentv2.New(options.ctx, agentConfig, pluginLoader,
+			a, err = agentv2.New(options.ctx, agentConfig,
 				agentv2.WithBootstrapper(&bootstrap.ClientConfig{
 					Capability:    wellknown.CapabilityMetrics,
 					Token:         bt,
@@ -1163,7 +1162,6 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 				}),
 				agentv2.WithPluginManifestSync(),
 			)
-			LoadPlugins(pluginLoader, pluginmeta.ModeAgent)
 		default:
 			errC <- fmt.Errorf("unknown agent version %q (expected \"v1\" or \"v2\")", options.version)
 			return

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math"
 
 	"emperror.dev/errors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/kralicky/totem"
+
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth"
 	"github.com/rancher/opni/pkg/b2mac"
@@ -102,7 +104,11 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
 		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor(), gc.streamClientInterceptor),
 		grpc.WithBlock(),
-		grpc.WithDefaultCallOptions(grpc.WaitForReady(true)),
+		grpc.WithDefaultCallOptions(
+			grpc.WaitForReady(true),
+			grpc.MaxCallSendMsgSize(32*1024*1024),
+			grpc.MaxCallRecvMsgSize(math.MaxInt32),
+		),
 	)
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to dial gateway: %w", err))
@@ -161,6 +167,11 @@ func (gc *gatewayClient) Dial(ctx context.Context) (grpc.ClientConnInterface, er
 		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
 		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor(), gc.unaryClientInterceptor),
 		grpc.WithBlock(),
+		grpc.WithDefaultCallOptions(
+			grpc.WaitForReady(true),
+			grpc.MaxCallSendMsgSize(32*1024*1024),
+			grpc.MaxCallRecvMsgSize(math.MaxInt32),
+		),
 	)
 }
 

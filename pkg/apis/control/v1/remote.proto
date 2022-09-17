@@ -11,13 +11,16 @@ service Health {
 }
 
 service PluginManifest {
+  rpc SendManifestsOrKnownPatch(ManifestMetadataList) returns (ManifestList);
+
   rpc GetPluginManifests(google.protobuf.Empty) returns (ManifestMetadataList);
   // this way we can get a subset of the manifests based on the gateway cache
   // and the received plugin manifests
-  rpc GetCompressedManifests(ManifestMetadataList)
-      returns (CompressedManifests);
-  // returns the failed manifest patches
-  rpc PatchManifests(ManifestList) returns (ManifestMetadataList);
+//  rpc GetCompressedManifests(ManifestMetadataList) returns (CompressedManifests);
+//  // returns the failed manifest patches
+//  rpc PatchManifests(ManifestList) returns (ManifestMetadataList);
+
+  rpc UploadPatch(PatchSpec) returns (google.protobuf.Empty);
 }
 
 enum PatchOp {
@@ -31,7 +34,10 @@ enum PatchOp {
   REMOVE = 3;
 }
 
-enum CompressionMethod { PLAIN = 0; }
+//enum CompressionMethod {
+//  PLAIN = 0;
+//  ZSTD = 1;
+//}
 
 // store plugins in PVC
 // register service once we connect to gateway
@@ -40,18 +46,31 @@ enum CompressionMethod { PLAIN = 0; }
 //   - fetch manifests
 //   - patch manifests
 
-message CompressedManifests { map<string, ManifestData> items = 1; }
+message CompressedManifests {
+  map<string, ManifestData> items = 1;
+}
 
-message ManifestMetadata { string metadata = 1; }
+message ManifestMetadata {
+  string hash = 1;
+  string path = 2;
+  string revision = 3;
+}
 
 message ManifestMetadataList {
-  CompressionMethod reqCompr = 1;
+//  CompressionMethod reqCompr = 1;
   map<string, ManifestMetadata> items = 2;
 }
 
 message ManifestData {
   bytes data = 1;
-  PatchOp op = 2;
+  string opPath = 2;
+  PatchOp op = 3;
+  bool isPatch = 4;
+  string oldHash = 5;
+  string newHash = 6;
+
+  // If the server wants the agent to compute a patch and upload it, this will be true.
+  bool requestPatchUpload = 7;
 }
 
 message ManifestList {
@@ -61,6 +80,13 @@ message ManifestList {
 
 message CompressedManifest {
   optional string attachedMetadata = 1;
-  CompressionMethod comprMethod = 2;
+//  CompressionMethod comprMethod = 2;
   ManifestData dataAndInfo = 3;
+}
+
+message PatchSpec {
+  string pluginName = 1;
+  string oldHash = 2;
+  string newHash = 3;
+  bytes patch = 4;
 }

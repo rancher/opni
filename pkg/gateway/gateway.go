@@ -26,6 +26,7 @@ import (
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
 	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -218,6 +219,11 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	go monitor.Run(ctx, listener)
 	streamSvc := NewStreamServer(agentHandler, storageBackend, interceptor, lg)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
+
+	// set up plugin manifest server
+	manifest := controlv1.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg)
+
+	controlv1.RegisterPluginManifestServer(grpcServer, manifest)
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
 		// services, err := ext.Services(ctx, &emptypb.Empty{})

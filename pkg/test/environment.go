@@ -1160,7 +1160,9 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 					Token:         bt,
 					Endpoint:      gatewayAddress,
 					TrustStrategy: strategy,
-				}))
+				}),
+				agentv2.WithPluginManifestSync(),
+			)
 			LoadPlugins(pluginLoader, pluginmeta.ModeAgent)
 		default:
 			errC <- fmt.Errorf("unknown agent version %q (expected \"v1\" or \"v2\")", options.version)

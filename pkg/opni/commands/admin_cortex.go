@@ -210,6 +210,9 @@ func (m clusterStatusModel) View() (s string) {
 		list := lo.Map(strings.Split(conditions, ";"), util.Indexed(strings.TrimSpace))
 		sort.Strings(list)
 		for _, condition := range list {
+			if strings.TrimSpace(condition) == "" {
+				continue
+			}
 			s += fmt.Sprintf(" • %s\n", conditionStyle.Render(condition))
 		}
 	}

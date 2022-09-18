@@ -8,6 +8,7 @@ import (
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/rancher/opni/apis"
+	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
@@ -32,6 +33,7 @@ type OpniManagerClusterDriverOptions struct {
 	k8sClient         client.Client
 	monitoringCluster types.NamespacedName
 	gatewayRef        corev1.LocalObjectReference
+	gatewayApiVersion string
 }
 
 type OpniManagerClusterDriverOption func(*OpniManagerClusterDriverOptions)
@@ -60,6 +62,12 @@ func WithGatewayRef(gatewayRef corev1.LocalObjectReference) OpniManagerClusterDr
 	}
 }
 
+func WithGatewayApiVersion(gatewayApiVersion string) OpniManagerClusterDriverOption {
+	return func(o *OpniManagerClusterDriverOptions) {
+		o.gatewayApiVersion = gatewayApiVersion
+	}
+}
+
 func NewOpniManagerClusterDriver(opts ...OpniManagerClusterDriverOption) (*OpniManager, error) {
 	options := OpniManagerClusterDriverOptions{
 		monitoringCluster: types.NamespacedName{
@@ -69,6 +77,7 @@ func NewOpniManagerClusterDriver(opts ...OpniManagerClusterDriverOption) (*OpniM
 		gatewayRef: corev1.LocalObjectReference{
 			Name: os.Getenv("GATEWAY_NAME"),
 		},
+		gatewayApiVersion: os.Getenv("GATEWAY_API_VERSION"),
 	}
 	options.apply(opts...)
 	if options.k8sClient == nil {
@@ -91,15 +100,56 @@ func (k *OpniManager) Name() string {
 	return "opni-manager"
 }
 
-func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
-	cluster := &v1beta2.MonitoringCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      k.monitoringCluster.Name,
-			Namespace: k.monitoringCluster.Namespace,
-		},
+func (k *OpniManager) newMonitoringCluster() (client.Object, error) {
+	switch k.gatewayApiVersion {
+	case corev1beta1.GroupVersion.Identifier():
+		return &corev1beta1.MonitoringCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k.monitoringCluster.Name,
+				Namespace: k.monitoringCluster.Namespace,
+			},
+		}, nil
+	case v1beta2.GroupVersion.Identifier():
+		return &v1beta2.MonitoringCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k.monitoringCluster.Name,
+				Namespace: k.monitoringCluster.Namespace,
+			},
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown gateway api version: %q", k.gatewayApiVersion)
 	}
+}
+
+func cortexClusterStatus(object client.Object) (corev1beta1.CortexStatus, error) {
+	switch object := object.(type) {
+	case *corev1beta1.MonitoringCluster:
+		return object.Status.Cortex, nil
+	case *v1beta2.MonitoringCluster:
+		return corev1beta1.CortexStatus{
+			Version:    object.Status.Cortex.Version,
+			Ready:      object.Status.Cortex.Ready,
+			Conditions: object.Status.Cortex.Conditions,
+			WorkloadStatus: lo.MapValues(object.Status.Cortex.WorkloadStatus, func(v v1beta2.WorkloadStatus, _ string) corev1beta1.WorkloadStatus {
+				return corev1beta1.WorkloadStatus{
+					Ready:   v.Ready,
+					Message: v.Message,
+				}
+			}),
+		}, nil
+	default:
+		return corev1beta1.CortexStatus{}, fmt.Errorf("unknown monitoring cluster type: %T", object)
+	}
+}
+
+func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
+	cluster, err := k.newMonitoringCluster()
+	if err != nil {
+		return nil, err
+	}
+
 	objectKey := client.ObjectKeyFromObject(cluster)
-	err := k.k8sClient.Get(ctx, objectKey, cluster)
+	err = k.k8sClient.Get(ctx, objectKey, cluster)
 	exists := true
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -109,22 +159,34 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		}
 	}
 
-	mutator := func(cluster *v1beta2.MonitoringCluster) {
-		cluster.Spec.Cortex.Enabled = true
-		cluster.Spec.Cortex.Storage = conf.Storage
-		cluster.Spec.Grafana.Enabled = true
-		cluster.Spec.Gateway = k.gatewayRef
-		cluster.Spec.Cortex.DeploymentMode = v1beta2.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.Mode)])
+	mutator := func(cluster client.Object) {
+		switch cluster := cluster.(type) {
+		case *v1beta2.MonitoringCluster:
+			cluster.Spec.Cortex.Enabled = true
+			cluster.Spec.Cortex.Storage = conf.Storage
+			cluster.Spec.Grafana.Enabled = true
+			cluster.Spec.Gateway = k.gatewayRef
+			cluster.Spec.Cortex.DeploymentMode = v1beta2.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.Mode)])
+		case *corev1beta1.MonitoringCluster:
+			cluster.Spec.Cortex.Enabled = true
+			cluster.Spec.Cortex.Storage = conf.Storage
+			cluster.Spec.Grafana.Enabled = true
+			cluster.Spec.Gateway = k.gatewayRef
+			cluster.Spec.Cortex.DeploymentMode = corev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.Mode)])
+		}
 	}
 
 	if exists {
 		err := retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
-			existing := &v1beta2.MonitoringCluster{}
-			err := k.k8sClient.Get(ctx, objectKey, existing)
+			existing, err := k.newMonitoringCluster()
 			if err != nil {
 				return err
 			}
-			clone := existing.DeepCopy()
+			err = k.k8sClient.Get(ctx, objectKey, existing)
+			if err != nil {
+				return err
+			}
+			clone := existing.DeepCopyObject().(client.Object)
 			mutator(clone)
 			cmp, err := patch.DefaultPatchMaker.Calculate(existing, clone,
 				patch.IgnoreStatusFields(),
@@ -154,8 +216,15 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 }
 
 func (k *OpniManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*cortexops.InstallStatus, error) {
-	cluster := &v1beta2.MonitoringCluster{}
-	err := k.k8sClient.Get(ctx, k.monitoringCluster, cluster)
+	cluster, err := k.newMonitoringCluster()
+	if err != nil {
+		return nil, err
+	}
+	status, err := cortexClusterStatus(cluster)
+	if err != nil {
+		return nil, err
+	}
+	err = k.k8sClient.Get(ctx, k.monitoringCluster, cluster)
 	metadata := map[string]string{}
 	var state cortexops.InstallState
 	if err != nil {
@@ -165,21 +234,21 @@ func (k *OpniManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*
 			return nil, fmt.Errorf("failed to get monitoring cluster: %w", err)
 		}
 	} else {
-		if cluster.DeletionTimestamp != nil {
+		if cluster.GetDeletionTimestamp() != nil {
 			state = cortexops.InstallState_Uninstalling
 		} else {
-			if cluster.Status.Cortex.Ready {
+			if status.Ready {
 				state = cortexops.InstallState_Installed
 			} else {
 				state = cortexops.InstallState_Updating
-				metadata["Conditions"] = strings.Join(cluster.Status.Cortex.Conditions, "; ")
+				metadata["Conditions"] = strings.Join(status.Conditions, "; ")
 			}
 		}
 	}
 
 	return &cortexops.InstallStatus{
 		State:   state,
-		Version: cluster.Status.Cortex.Version,
+		Version: status.Version,
 		Metadata: lo.Assign(metadata, map[string]string{
 			"Driver": k.Name(),
 		}),

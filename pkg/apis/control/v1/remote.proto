@@ -14,11 +14,6 @@ service PluginManifest {
   rpc SendManifestsOrKnownPatch(ManifestMetadataList) returns (ManifestList);
 
   rpc GetPluginManifests(google.protobuf.Empty) returns (ManifestMetadataList);
-  // this way we can get a subset of the manifests based on the gateway cache
-  // and the received plugin manifests
-//  rpc GetCompressedManifests(ManifestMetadataList) returns (CompressedManifests);
-//  // returns the failed manifest patches
-//  rpc PatchManifests(ManifestList) returns (ManifestMetadataList);
 
   rpc UploadPatch(PatchSpec) returns (google.protobuf.Empty);
 }
@@ -33,18 +28,6 @@ enum PatchOp {
   // outdate plugin on agent, with no version on the gateway
   REMOVE = 3;
 }
-
-//enum CompressionMethod {
-//  PLAIN = 0;
-//  ZSTD = 1;
-//}
-
-// store plugins in PVC
-// register service once we connect to gateway
-// agentv2 withThing
-// agentv2 onRegisterThing :
-//   - fetch manifests
-//   - patch manifests
 
 message CompressedManifests {
   map<string, ManifestData> items = 1;

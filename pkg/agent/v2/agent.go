@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/rancher/opni/pkg/patch"
 	"net"
 	"net/http"
 	"path"
@@ -363,10 +364,9 @@ func (a *Agent) syncPlugins(ctx context.Context) (retErr error) {
 	if err != nil {
 		return err
 	}
-	//comprMethod := controlv1.CompressionMethod_ZSTD
 	manifestClient := controlv1.NewPluginManifestClient(gc)
 	// read local plugins on disk here
-	localManifests, err := controlv1.GetFilesystemPlugins(a.config.Plugins, a.Logger)
+	localManifests, err := patch.GetFilesystemPlugins(a.config.Plugins, a.Logger)
 	if err != nil {
 		return err
 	}
@@ -378,7 +378,7 @@ func (a *Agent) syncPlugins(ctx context.Context) (retErr error) {
 	}
 	a.Logger.Info("received patch manifest from gateway")
 	// fill in  here
-	done, err := controlv1.PatchWith(clientCtx, a.config.Plugins, patchList, a.Logger, manifestClient)
+	done, err := patch.PatchWith(clientCtx, a.config.Plugins, patchList, a.Logger, manifestClient)
 	if err != nil {
 		return err
 	}

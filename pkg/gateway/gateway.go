@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"crypto/tls"
 	"fmt"
+	"github.com/rancher/opni/pkg/patch"
 	"net"
 	"time"
 
@@ -221,7 +222,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 
 	// set up plugin manifest server
-	manifest := controlv1.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg)
+	manifest := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg)
 
 	controlv1.RegisterPluginManifestServer(grpcServer, manifest)
 

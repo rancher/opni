@@ -20,7 +20,15 @@ message MetricsCapabilityConfig {
 
 message MetricsCapabilitySpec {
   config.v1beta1.RulesSpec rules = 1;
+  PrometheusSpec prometheus = 2;
   // TODO: add config options for metrics capability here
+}
+
+message PrometheusSpec {
+  // default: quay.io/prometheus/prometheus:latest
+  string image = 1;
+  // can be one of: ["externalPromOperator"]
+  string deploymentStrategy = 2;
 }
 
 message SyncRequest {

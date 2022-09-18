@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/health"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/plugins/metrics/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
 )
@@ -35,6 +36,19 @@ func NewPlugin(ctx context.Context) *Plugin {
 		httpServer:   NewHttpServer(ct, lg),
 		ruleStreamer: NewRuleStreamer(ct, lg),
 		node:         NewMetricsNode(ct, lg),
+	}
+
+	if d, err := drivers.NewExternalPromOperatorDriver(); err != nil {
+		lg.With(
+			"driver", d.Name(),
+			zap.Error(err),
+		).Info("node driver is unavailable")
+		drivers.LogNodeDriverFailure(d.Name(), err)
+	} else {
+		lg.With(
+			"driver", d.Name(),
+		).Info("node driver is available")
+		drivers.RegisterNodeDriver(d)
 	}
 
 	listenerC := make(chan *node.MetricsCapabilityConfig, 1)

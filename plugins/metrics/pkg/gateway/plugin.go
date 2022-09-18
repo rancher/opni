@@ -29,7 +29,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/backend"
 	"github.com/rancher/opni/plugins/metrics/pkg/cortex"
-	"github.com/rancher/opni/plugins/metrics/pkg/drivers"
+	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 )
 
 type Plugin struct {

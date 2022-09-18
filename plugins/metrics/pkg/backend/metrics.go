@@ -222,6 +222,7 @@ func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Re
 		m.Logger.With(
 			"cluster", cluster,
 			"capability", wellknown.CapabilityMetrics,
+			zap.Error(err),
 		).Warn("failed to request node sync; nodes may not be updated immediately")
 		return
 	}

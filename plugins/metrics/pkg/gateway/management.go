@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
-	"github.com/rancher/opni/plugins/metrics/pkg/drivers"
+	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 )
 
 func (p *Plugin) configureCortexManagement() {
@@ -18,7 +18,7 @@ func (p *Plugin) configureCortexManagement() {
 	if kcd, err := drivers.NewOpniManagerClusterDriver(); err == nil {
 		drivers.RegisterClusterDriver(kcd)
 	} else {
-		drivers.LogDriverFailure(kcd.Name(), err) // Name() is safe to call on a nil pointer
+		drivers.LogClusterDriverFailure(kcd.Name(), err) // Name() is safe to call on a nil pointer
 	}
 
 	driverName := p.config.Get().Spec.Cortex.Management.ClusterDriver

@@ -56,8 +56,9 @@ type Agent struct {
 }
 
 type AgentOptions struct {
-	bootstrapper bootstrap.Bootstrapper
-	thing        func()
+	bootstrapper          bootstrap.Bootstrapper
+	unmanagedPluginLoader *plugins.PluginLoader
+	thing                 func()
 }
 
 type AgentOption func(*AgentOptions)
@@ -74,11 +75,9 @@ func WithBootstrapper(bootstrapper bootstrap.Bootstrapper) AgentOption {
 	}
 }
 
-func WithPluginManifestSync() AgentOption {
+func WithUnmanagedPluginLoader(pluginLoader *plugins.PluginLoader) AgentOption {
 	return func(o *AgentOptions) {
-		o.thing = func() {
-			fmt.Println("thing")
-		}
+		o.unmanagedPluginLoader = pluginLoader
 	}
 }
 
@@ -96,7 +95,12 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	lg := logger.New(logger.WithLogLevel(level)).Named("agent")
 	lg.Debugf("using log level: %s", level)
 
-	pl := plugins.NewPluginLoader()
+	var pl *plugins.PluginLoader
+	if options.unmanagedPluginLoader != nil {
+		pl = options.unmanagedPluginLoader
+	} else {
+		pl = plugins.NewPluginLoader()
+	}
 
 	pl.Hook(hooks.OnLoadM(func(p types.CapabilityNodePlugin, m meta.PluginMeta) {
 		lg.Infof("loaded capability node plugin %s", m.Module)
@@ -224,20 +228,25 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 }
 
 func (a *Agent) ListenAndServe(ctx context.Context) error {
-	if err := a.syncPlugins(ctx); err != nil {
-		return fmt.Errorf("error syncing plugins: %w", err)
-	}
-	done := make(chan struct{})
-	a.pluginLoader.Hook(hooks.OnLoadingCompleted(func(numPlugins int) {
-		a.Logger.Infof("loaded %d plugins", numPlugins)
-		close(done)
-	}))
-	a.pluginLoader.LoadPlugins(ctx, a.config.Plugins, plugins.AgentScheme)
+	if a.unmanagedPluginLoader == nil {
+		if err := a.syncPlugins(ctx); err != nil {
+			return fmt.Errorf("error syncing plugins: %w", err)
+		}
+		done := make(chan struct{})
+		a.pluginLoader.Hook(hooks.OnLoadingCompleted(func(numPlugins int) {
+			a.Logger.Infof("loaded %d plugins", numPlugins)
+			close(done)
+		}))
 
-	select {
-	case <-done:
-	case <-ctx.Done():
-		return ctx.Err()
+		a.pluginLoader.LoadPlugins(ctx, a.config.Plugins, plugins.AgentScheme)
+
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	} else {
+		a.Logger.Info("using unmanaged plugin loader")
 	}
 
 	listener, err := net.Listen("tcp4", a.config.ListenAddress)
@@ -378,6 +387,6 @@ func (a *Agent) syncPlugins(ctx context.Context) (retErr error) {
 		<-done
 		clientCa()
 	}()
-	
+
 	return nil
 }

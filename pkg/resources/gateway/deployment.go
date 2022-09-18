@@ -23,6 +23,13 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 		return nil, err
 	}
 
+	var gatewayApiVersion string
+	if r.gw != nil {
+		gatewayApiVersion = r.gw.APIVersion
+	} else if r.coreGW != nil {
+		gatewayApiVersion = r.coreGW.APIVersion
+	}
+
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-gateway",
@@ -58,6 +65,10 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 								corev1.EnvVar{
 									Name:  "GATEWAY_NAME",
 									Value: r.name,
+								},
+								corev1.EnvVar{
+									Name:  "GATEWAY_API_VERSION",
+									Value: gatewayApiVersion,
 								},
 							),
 							VolumeMounts: []corev1.VolumeMount{

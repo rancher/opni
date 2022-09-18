@@ -71,7 +71,10 @@ func NewReconciler(
 
 func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	// Look up referenced gateway
+	// TODO: delete when v1beta2 is deleted
+	var mc any
 	if r.mc != nil {
+		mc = r.mc
 		gw := &v1beta2.Gateway{}
 		err := r.client.Get(r.ctx, types.NamespacedName{
 			Name:      r.mc.Spec.Gateway.Name,
@@ -85,12 +88,12 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 		if gw.DeletionTimestamp != nil {
 			return util.DoNotRequeue().Result()
 		}
-	}
-	if r.coremc != nil {
+	} else if r.coremc != nil {
+		mc = r.coremc
 		gw := &corev1beta1.Gateway{}
 		err := r.client.Get(r.ctx, types.NamespacedName{
-			Name:      r.mc.Spec.Gateway.Name,
-			Namespace: r.mc.Namespace,
+			Name:      r.coremc.Spec.Gateway.Name,
+			Namespace: r.coremc.Namespace,
 		}, gw)
 		if err != nil {
 			return util.RequeueErr(err).Result()
@@ -125,7 +128,7 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	cortexRec := cortex.NewReconciler(
 		r.ctx,
 		r.client,
-		r.mc,
+		mc,
 		r.spec,
 		r.instanceName,
 		r.instanceNamespace,

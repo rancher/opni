@@ -5,9 +5,10 @@ import (
 	"crypto"
 	"crypto/tls"
 	"fmt"
-	"github.com/rancher/opni/pkg/patch"
 	"net"
 	"time"
+
+	"github.com/rancher/opni/pkg/patch"
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
@@ -197,11 +198,17 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Fatal("failed to create cluster auth")
 	}
 
+	// set up plugin manifest server
+	manifest := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg)
+
 	// set up grpc server
 	interceptor := clusterAuth.UnaryServerInterceptor()
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
-		grpc.ChainStreamInterceptor(clusterAuth.StreamServerInterceptor()),
+		grpc.ChainStreamInterceptor(
+			clusterAuth.StreamServerInterceptor(),
+			manifest.StreamServerInterceptor(),
+		),
 		grpc.ChainUnaryInterceptor(interceptor),
 	)
 
@@ -220,9 +227,6 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	go monitor.Run(ctx, listener)
 	streamSvc := NewStreamServer(agentHandler, storageBackend, interceptor, lg)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
-
-	// set up plugin manifest server
-	manifest := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg)
 
 	controlv1.RegisterPluginManifestServer(grpcServer, manifest)
 

@@ -207,7 +207,7 @@ func (r *Reconciler) pollCortexHealth(workloads []resources.Resource) util.Reque
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(cluster), cluster); err != nil {
 				return err
 			}
-			cluster.Status.Cortex.Ready = workloadsReady
+			cluster.Status.Cortex.WorkloadsReady = workloadsReady
 			cluster.Status.Cortex.Conditions = conditions
 			cluster.Status.Cortex.WorkloadStatus = make(map[string]v1beta2.WorkloadStatus)
 			for k, v := range wlStatus {
@@ -226,7 +226,7 @@ func (r *Reconciler) pollCortexHealth(workloads []resources.Resource) util.Reque
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(cluster), cluster); err != nil {
 				return err
 			}
-			cluster.Status.Cortex.Ready = workloadsReady
+			cluster.Status.Cortex.WorkloadsReady = workloadsReady
 			cluster.Status.Cortex.Conditions = conditions
 			cluster.Status.Cortex.WorkloadStatus = wlStatus
 			return r.client.Status().Update(r.ctx, cluster)

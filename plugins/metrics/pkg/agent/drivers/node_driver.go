@@ -1,6 +1,7 @@
 package drivers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -46,4 +47,19 @@ func GetNodeDriver(name string) (MetricsNodeDriver, error) {
 func ResetNodeDrivers() {
 	nodeDrivers = make(map[string]MetricsNodeDriver)
 	failedNodeDrivers = make(map[string]string)
+}
+
+func NewListenerChannel(ctx context.Context, driver MetricsNodeDriver) chan<- *node.MetricsCapabilityConfig {
+	listenerC := make(chan *node.MetricsCapabilityConfig, 1)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case cfg := <-listenerC:
+				driver.ConfigureNode(cfg)
+			}
+		}
+	}()
+	return listenerC
 }

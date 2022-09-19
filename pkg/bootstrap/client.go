@@ -65,6 +65,8 @@ func (c *ClientConfig) Bootstrap(
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial gateway: %w", err)
 	}
+	defer cc.Close()
+
 	client := bootstrapv1.NewBootstrapClient(cc)
 
 	ekp := ecdh.NewEphemeralKeyPair()
@@ -131,6 +133,8 @@ func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.Bootstra
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to dial gateway: %w", err)
 	}
+	defer cc.Close()
+
 	client := bootstrapv1.NewBootstrapClient(cc)
 
 	var peer peer.Peer

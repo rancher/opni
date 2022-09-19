@@ -19,17 +19,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func BuildCortexClusterCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "cortex-cluster",
-		Short: "Cortex cluster setup and configuration",
-	}
-	cmd.AddCommand(BuildCortexClusterStatusCmd())
-	cmd.AddCommand(BuildCortexClusterConfigureCmd())
-	cmd.AddCommand(BuildCortexClusterUninstallCmd())
-	return cmd
-}
-
 func BuildCortexClusterStatusCmd() *cobra.Command {
 	var follow bool
 	cmd := &cobra.Command{

@@ -102,16 +102,12 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	gatewayClient, err := gatewayclients.NewGatewayClient(gatewayEndpoint, identifier, keyring, trustStrategy)
-	if err != nil {
-		return err
-	}
-	cc, err := gatewayClient.Dial(cmd.Context())
+	gatewayClient, err := gatewayclients.NewGatewayClient(cmd.Context(), gatewayEndpoint, identifier, keyring, trustStrategy)
 	if err != nil {
 		return err
 	}
 
-	loggingClient := gatewayopensearchext.NewOpensearchClient(cc)
+	loggingClient := gatewayopensearchext.NewOpensearchClient(gatewayClient.ClientConn())
 
 	clusterRef := &gatewayopensearchext.ClusterReference{
 		AuthorizedClusterID: clusterID,

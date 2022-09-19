@@ -173,7 +173,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, fmt.Errorf("error building trust strategy: %w", err)
 	}
 
-	agent.gatewayClient, err = clients.NewGatewayClient(
+	agent.gatewayClient, err = clients.NewGatewayClient(ctx,
 		conf.Spec.GatewayAddress, ip, kr, agent.trust)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)

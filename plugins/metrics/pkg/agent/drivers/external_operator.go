@@ -77,14 +77,14 @@ func NewExternalPromOperatorDriver(
 var _ MetricsNodeDriver = (*ExternalPromOperatorDriver)(nil)
 
 func (*ExternalPromOperatorDriver) Name() string {
-	return "embedded-manager"
+	return "external-operator"
 }
 
 func (d *ExternalPromOperatorDriver) ConfigureNode(conf *node.MetricsCapabilityConfig) error {
-	prometheus := d.buildPrometheus(conf.Spec.Prometheus)
+	prometheus := d.buildPrometheus(conf.GetSpec().GetPrometheus())
 	svcAccount, cr, crb := d.buildRbac()
 
-	shouldExist := conf.Enabled && conf.Spec.Prometheus.DeploymentStrategy == "externalPromOperator"
+	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "externalPromOperator"
 
 	return retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
 		for _, obj := range []client.Object{prometheus, svcAccount, cr, crb} {
@@ -98,8 +98,8 @@ func (d *ExternalPromOperatorDriver) ConfigureNode(conf *node.MetricsCapabilityC
 
 func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) *monitoringcoreosv1.Prometheus {
 	image := "quay.io/prometheus/prometheus:latest"
-	if conf.Image != "" {
-		image = conf.Image
+	if conf.GetImage() != "" {
+		image = conf.GetImage()
 	}
 
 	selector := &metav1.LabelSelector{}

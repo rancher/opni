@@ -12,7 +12,8 @@ var (
 func BuildEventsCmd() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "events",
-		Short: "ship Kubernetes events to shipper endpoint",
+		Short: "Run the Kubernetes event collector",
+		Long:  "The event collector ships Kubernetes events to an opni-shipper endpoint.",
 		RunE:  doEvents,
 	}
 

@@ -49,6 +49,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 			"driver", d.Name(),
 		).Info("node driver is available")
 		drivers.RegisterNodeDriver(d)
+		p.node.AddConfigListener(drivers.NewListenerChannel(ctx, d))
 	}
 
 	listenerC := make(chan *node.MetricsCapabilityConfig, 1)

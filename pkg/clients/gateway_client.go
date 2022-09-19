@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"math"
+	"time"
 
 	"emperror.dev/errors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -26,24 +27,22 @@ import (
 
 type GatewayClient interface {
 	grpc.ServiceRegistrar
-	credentials.PerRPCCredentials
-	// Connect returns a ClientConnInterface connected to the streaming server
+	// credentials.PerRPCCredentials
+	// Connect returns a ClientConnInterface connected to the streaming server.
+	// The connection remains active until the provided context is canceled.
 	Connect(context.Context) (grpc.ClientConnInterface, future.Future[error])
 	RegisterSplicedStream(cc grpc.ClientConnInterface, name string)
-	// Dial returns a standard ClientConnInterface for Unary connections
-	Dial(context.Context) (grpc.ClientConnInterface, error)
+	ClientConn() grpc.ClientConnInterface
 }
 
 func NewGatewayClient(
+	ctx context.Context,
 	address string,
 	ip ident.Provider,
 	kr keyring.Keyring,
 	trustStrategy trust.Strategy,
 ) (GatewayClient, error) {
-	client := &gatewayClient{
-		grpcAddress: address,
-	}
-	id, err := ip.UniqueIdentifier(context.Background())
+	id, err := ip.UniqueIdentifier(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -67,9 +66,16 @@ func NewGatewayClient(
 		return nil, fmt.Errorf("failed to create TLS config: %w", err)
 	}
 
-	client.id = id
-	client.sharedKeys = sharedKeys
-	client.tlsConfig = tlsConfig
+	cc, err := dial(ctx, address, id, sharedKeys, tlsConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &gatewayClient{
+		cc: cc,
+		id: id,
+	}
+
 	return client, nil
 }
 
@@ -79,10 +85,8 @@ type splicedConn struct {
 }
 
 type gatewayClient struct {
-	grpcAddress string
-	id          string
-	sharedKeys  *keyring.SharedKeys
-	tlsConfig   *tls.Config
+	cc *grpc.ClientConn
+	id string
 
 	services []util.ServicePack[any]
 	spliced  []*splicedConn
@@ -99,22 +103,49 @@ func (gc *gatewayClient) RegisterSplicedStream(cc grpc.ClientConnInterface, name
 	})
 }
 
-func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface, future.Future[error]) {
-	gcc, err := grpc.DialContext(ctx, gc.grpcAddress,
-		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
-		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor(), gc.streamClientInterceptor),
-		grpc.WithBlock(),
+func dial(ctx context.Context, address, id string, sharedKeys *keyring.SharedKeys, tlsConfig *tls.Config) (*grpc.ClientConn, error) {
+	streamInt := func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		nonce, mac, err := b2mac.New512([]byte(id), []byte(method), sharedKeys.ClientKey)
+		if err != nil {
+			return nil, err
+		}
+		authHeader, err := b2mac.EncodeAuthHeader([]byte(id), nonce, mac)
+		if err != nil {
+			return nil, err
+		}
+
+		ctx = metadata.AppendToOutgoingContext(ctx, auth.AuthorizationKey, authHeader)
+		return streamer(ctx, desc, cc, method, opts...)
+	}
+
+	unaryInt := func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		nonce, mac, err := b2mac.New512([]byte(id), []byte(method), sharedKeys.ClientKey)
+		if err != nil {
+			return err
+		}
+		authHeader, err := b2mac.EncodeAuthHeader([]byte(id), nonce, mac)
+		if err != nil {
+			return err
+		}
+
+		ctx = metadata.AppendToOutgoingContext(ctx, auth.AuthorizationKey, authHeader)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+
+	return grpc.DialContext(ctx, address,
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+		grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor(), streamInt),
+		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor(), unaryInt),
 		grpc.WithDefaultCallOptions(
 			grpc.WaitForReady(true),
-			grpc.MaxCallSendMsgSize(32*1024*1024),
+			grpc.MaxCallSendMsgSize(math.MaxInt32),
 			grpc.MaxCallRecvMsgSize(math.MaxInt32),
 		),
 	)
-	if err != nil {
-		return nil, future.Instant(fmt.Errorf("failed to dial gateway: %w", err))
-	}
+}
 
-	streamClient := streamv1.NewStreamClient(gcc)
+func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface, future.Future[error]) {
+	streamClient := streamv1.NewStreamClient(gc.cc)
 	stream, err := streamClient.Connect(ctx)
 	if err != nil {
 		return nil, future.Instant(fmt.Errorf("failed to connect to gateway: %w", err))
@@ -131,18 +162,22 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 	for _, sp := range gc.services {
 		ts.RegisterService(sp.Unpack())
 	}
+	cleanup := []func() error{}
 	for _, sc := range gc.spliced {
 		streamClient := streamv1.NewStreamClient(sc.cc)
 		splicedStream, err := streamClient.Connect(ctx)
 		if err != nil {
 			return nil, future.Instant(fmt.Errorf("failed to connect to spliced server: %w", err))
 		}
+		cleanup = append(cleanup, splicedStream.CloseSend)
 
 		if err := ts.Splice(splicedStream, totem.WithStreamName(sc.name)); err != nil {
 			return nil, future.Instant(fmt.Errorf("failed to splice stream: %w", err))
 		}
 
 		defer func() {
+			ctx, ca := context.WithTimeout(ctx, 2*time.Second)
+			defer ca()
 			streamClient.Notify(ctx, &streamv1.StreamEvent{
 				Type: streamv1.EventType_DiscoveryComplete,
 			})
@@ -150,89 +185,59 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 	}
 
 	cc, errC := ts.Serve()
-	f := future.New[error]()
+	f := future.NewFromChannel(errC)
+
 	go func() {
-		select {
-		case <-ctx.Done():
-			f.Set(ctx.Err())
-		case err := <-errC:
-			f.Set(err)
+		<-f.C()
+		stream.CloseSend()
+		for _, c := range cleanup {
+			c()
 		}
 	}()
 	return cc, f
 }
 
-func (gc *gatewayClient) Dial(ctx context.Context) (grpc.ClientConnInterface, error) {
-	return grpc.DialContext(ctx, gc.grpcAddress,
-		grpc.WithTransportCredentials(credentials.NewTLS(gc.tlsConfig)),
-		grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor(), gc.unaryClientInterceptor),
-		grpc.WithBlock(),
-		grpc.WithDefaultCallOptions(
-			grpc.WaitForReady(true),
-			grpc.MaxCallSendMsgSize(32*1024*1024),
-			grpc.MaxCallRecvMsgSize(math.MaxInt32),
-		),
-	)
+func (gc *gatewayClient) ClientConn() grpc.ClientConnInterface {
+	return gc.cc
 }
 
-func (gc *gatewayClient) streamClientInterceptor(
-	ctx context.Context,
-	desc *grpc.StreamDesc,
-	cc *grpc.ClientConn,
-	method string,
-	streamer grpc.Streamer,
-	opts ...grpc.CallOption,
-) (grpc.ClientStream, error) {
-	nonce, mac, err := b2mac.New512([]byte(gc.id), []byte(method), gc.sharedKeys.ClientKey)
-	if err != nil {
-		return nil, err
-	}
-	authHeader, err := b2mac.EncodeAuthHeader([]byte(gc.id), nonce, mac)
-	if err != nil {
-		return nil, err
-	}
+// func (gc *gatewayClient) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+// 	authMap := make(map[string]string, 0)
+// 	info, ok := credentials.RequestInfoFromContext(ctx)
+// 	if !ok {
+// 		return authMap, errors.New("no request info in context")
+// 	}
 
-	ctx = metadata.AppendToOutgoingContext(ctx, auth.AuthorizationKey, authHeader)
-	return streamer(ctx, desc, cc, method, opts...)
-}
+// 	nonce, mac, err := b2mac.New512([]byte(gc.id), []byte(info.Method), gc.sharedKeys.ClientKey)
+// 	if err != nil {
+// 		return authMap, err
+// 	}
+// 	authHeader, err := b2mac.EncodeAuthHeader([]byte(gc.id), nonce, mac)
+// 	if err != nil {
+// 		return authMap, err
+// 	}
+// 	authMap[auth.AuthorizationKey] = authHeader
+// 	return authMap, nil
+// }
 
-func (gc *gatewayClient) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	authMap := make(map[string]string, 0)
-	info, ok := credentials.RequestInfoFromContext(ctx)
-	if !ok {
-		return authMap, errors.New("no request info in context")
-	}
+// func (gc *gatewayClient) RequireTransportSecurity() bool {
+// 	return true
+// }
 
-	nonce, mac, err := b2mac.New512([]byte(gc.id), []byte(info.Method), gc.sharedKeys.ClientKey)
-	if err != nil {
-		return authMap, err
-	}
-	authHeader, err := b2mac.EncodeAuthHeader([]byte(gc.id), nonce, mac)
-	if err != nil {
-		return authMap, err
-	}
-	authMap[auth.AuthorizationKey] = authHeader
-	return authMap, nil
-}
+// func (gc *gatewayClient) unaryClientInterceptor(
+// 	ctx context.Context,
+// 	method string,
+// 	req interface{},
+// 	reply interface{},
+// 	cc *grpc.ClientConn,
+// 	invoker grpc.UnaryInvoker,
+// 	opts ...grpc.CallOption,
+// ) error {
+// 	authHeader, err := b2mac.NewEncodedHeader([]byte(gc.id), []byte(method), gc.sharedKeys.ClientKey)
+// 	if err != nil {
+// 		return err
+// 	}
 
-func (gc *gatewayClient) RequireTransportSecurity() bool {
-	return true
-}
-
-func (gc *gatewayClient) unaryClientInterceptor(
-	ctx context.Context,
-	method string,
-	req interface{},
-	reply interface{},
-	cc *grpc.ClientConn,
-	invoker grpc.UnaryInvoker,
-	opts ...grpc.CallOption,
-) error {
-	authHeader, err := b2mac.NewEncodedHeader([]byte(gc.id), []byte(method), gc.sharedKeys.ClientKey)
-	if err != nil {
-		return err
-	}
-
-	ctx = metadata.AppendToOutgoingContext(ctx, auth.AuthorizationKey, authHeader)
-	return invoker(ctx, method, req, reply, cc, opts...)
-}
+// 	ctx = metadata.AppendToOutgoingContext(ctx, auth.AuthorizationKey, authHeader)
+// 	return invoker(ctx, method, req, reply, cc, opts...)
+// }

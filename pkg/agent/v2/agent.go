@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rancher/opni/pkg/patch"
 	"net"
 	"net/http"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/rancher/opni/pkg/patch"
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
@@ -17,6 +18,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -190,7 +192,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		return nil, fmt.Errorf("error building trust strategy: %w", err)
 	}
 
-	gatewayClient, err := clients.NewGatewayClient(
+	gatewayClient, err := clients.NewGatewayClient(ctx,
 		conf.Spec.GatewayAddress, ip, kr, trust)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring gateway client: %w", err)
@@ -230,9 +232,14 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 func (a *Agent) ListenAndServe(ctx context.Context) error {
 	if a.unmanagedPluginLoader == nil {
-		if err := a.syncPlugins(ctx); err != nil {
+		manifests, err := a.syncPlugins(ctx)
+		if err != nil {
 			return fmt.Errorf("error syncing plugins: %w", err)
 		}
+		// eventually passed to runGatewayClient
+		ctx = metadata.AppendToOutgoingContext(ctx,
+			controlv1.ManifestDigestKey, manifests.Digest())
+
 		done := make(chan struct{})
 		a.pluginLoader.Hook(hooks.OnLoadingCompleted(func(numPlugins int) {
 			a.Logger.Infof("loaded %d plugins", numPlugins)
@@ -335,13 +342,11 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 				zap.Error(errF.Get()),
 			).Warn("error connecting to gateway")
 		}
-		a.gatewayClient.RegisterService(&controlv1.PluginManifest_ServiceDesc, a)
 
 		if util.StatusCode(errF.Get()) == codes.FailedPrecondition {
-			// Non-retriable error, e.g. the cluster was deleted, or the metrics
-			// capability was uninstalled.
-			lg.Warn("encountered non-retriable error, exiting")
-			break
+			// this error will be returned if the agent needs to restart
+			lg.Warn("encountered non-retriable error")
+			return errF.Get()
 		}
 		isRetry = true
 	}
@@ -351,42 +356,37 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (a *Agent) syncPlugins(ctx context.Context) (retErr error) {
+func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.ManifestMetadataList, retErr error) {
 	a.Logger.Info("connecting to gateway...")
-	clientCtx, clientCa := context.WithCancel(ctx)
-	defer func() {
-		if retErr != nil {
-			clientCa()
-		}
-	}()
 
-	gc, err := a.gatewayClient.Dial(clientCtx)
-	if err != nil {
-		return err
-	}
-	manifestClient := controlv1.NewPluginManifestClient(gc)
+	manifestClient := controlv1.NewPluginManifestClient(a.gatewayClient.ClientConn())
 	// read local plugins on disk here
 	localManifests, err := patch.GetFilesystemPlugins(a.config.Plugins, a.Logger)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	a.Logger.Info("syncing plugins with gateway")
-	patchList, err := manifestClient.SendManifestsOrKnownPatch(clientCtx, localManifests, grpc.UseCompressor("zstd"))
+	patchList, err := manifestClient.SendManifestsOrKnownPatch(ctx, localManifests, grpc.UseCompressor("zstd"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	a.Logger.Info("received patch manifest from gateway")
 	// fill in  here
-	done, err := patch.PatchWith(clientCtx, a.config.Plugins, patchList, a.Logger, manifestClient)
+	done, err := patch.PatchWith(ctx, a.config.Plugins, patchList, a.Logger, manifestClient)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	go func() {
 		<-done
-		clientCa()
 	}()
 
-	return nil
+	// read local manifests again
+	localManifests, err = patch.GetFilesystemPlugins(a.config.Plugins, a.Logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return localManifests, nil
 }

@@ -1,16 +1,20 @@
 package commands
 
 import (
+	"context"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"os"
 	"runtime"
+	"syscall"
 
+	"github.com/hashicorp/go-plugin"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc/codes"
 
 	agentv2 "github.com/rancher/opni/pkg/agent/v2"
 	"github.com/rancher/opni/pkg/bootstrap"
@@ -31,7 +35,8 @@ func BuildAgentV2Cmd() *cobra.Command {
 		Use:   "agentv2",
 		Short: "Run the v2 agent",
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx := waitctx.FromContext(cmd.Context())
+			ctx, ca := context.WithCancel(waitctx.FromContext(cmd.Context()))
+			defer ca()
 
 			tracing.Configure("agentv2")
 			agentlg = logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
@@ -80,8 +85,6 @@ func BuildAgentV2Cmd() *cobra.Command {
 				).Fatal("failed to configure bootstrap")
 			}
 
-			//pl := plugins.NewPluginLoader()
-
 			p, err := agentv2.New(ctx, agentConfig,
 				agentv2.WithBootstrapper(bootstrapper),
 			)
@@ -92,25 +95,19 @@ func BuildAgentV2Cmd() *cobra.Command {
 
 			err = p.ListenAndServe(ctx)
 			if err != nil {
+				if util.StatusCode(err) == codes.FailedPrecondition {
+					agentlg.With(
+						zap.Error(err),
+					).Warn("preparing to restart agent")
+					ca()
+					plugin.CleanupClients()
+					waitctx.Wait(ctx)
+					agentlg.Info(chalk.Yellow.Color("--- restarting agent ---"))
+					panic(syscall.Exec(os.Args[0], os.Args, os.Environ()))
+				}
 				agentlg.Error(err)
 				return
 			}
-
-			//pl.Hook(hooks.OnLoadingCompleted(func(numLoaded int) {
-			//	lg.Infof("loaded %d plugins", numLoaded)
-			//}))
-			//
-			//pl.Hook(hooks.OnLoadingCompleted(func(int) {
-			//	waitctx.AddOne(ctx)
-			//	defer waitctx.Done(ctx)
-			//	if err := p.ListenAndServe(ctx); err != nil {
-			//		lg.With(
-			//			zap.Error(err),
-			//		).Warn("agent server exited with error")
-			//	}
-			//}))
-			//
-			//pl.LoadPlugins(ctx, agentConfig.Spec.Plugins, plugins.AgentScheme)
 
 			<-ctx.Done()
 			waitctx.Wait(ctx)

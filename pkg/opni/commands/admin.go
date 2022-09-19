@@ -17,20 +17,30 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func BuildAdminCmd() *cobra.Command {
+func BuildCortexAdminCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "admin",
-		Short: "Cortex admin commands",
+		Short: "Cortex admin tools",
 	}
 	cmd.AddCommand(BuildQueryCmd())
 	cmd.AddCommand(BuildQueryRangeCmd())
 	cmd.AddCommand(BuildStorageInfoCmd())
 	cmd.AddCommand(BuildFlushBlocksCmd())
-	cmd.AddCommand(BuildClusterStatusCmd())
-	cmd.AddCommand(BuildClusterConfigCmd())
-	cmd.AddCommand(BuildCortexClusterCmd())
+	cmd.AddCommand(BuildCortexStatusCmd())
+	cmd.AddCommand(BuildCortexConfigCmd())
 
-	ConfigureManagementCommand(cmd)
+	return cmd
+}
+
+func BuildCortexOpsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "ops",
+		Short: "Cortex cluster setup and config operations",
+	}
+	cmd.AddCommand(BuildCortexClusterStatusCmd())
+	cmd.AddCommand(BuildCortexClusterConfigureCmd())
+	cmd.AddCommand(BuildCortexClusterUninstallCmd())
+
 	return cmd
 }
 
@@ -170,9 +180,9 @@ func BuildFlushBlocksCmd() *cobra.Command {
 	return cmd
 }
 
-func BuildClusterStatusCmd() *cobra.Command {
+func BuildCortexStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cluster-status",
+		Use:   "status",
 		Short: "Show status of all cortex components",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			status, err := adminClient.GetCortexStatus(cmd.Context(), &emptypb.Empty{})
@@ -186,10 +196,10 @@ func BuildClusterStatusCmd() *cobra.Command {
 	return cmd
 }
 
-func BuildClusterConfigCmd() *cobra.Command {
+func BuildCortexConfigCmd() *cobra.Command {
 	var mode string
 	cmd := &cobra.Command{
-		Use:   "cluster-config",
+		Use:   "config",
 		Short: "Show cortex configuration",
 		Long: `
 Modes:

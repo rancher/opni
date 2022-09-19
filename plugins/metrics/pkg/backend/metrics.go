@@ -25,13 +25,16 @@ import (
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
+	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 )
 
 type MetricsBackend struct {
 	capabilityv1.UnsafeBackendServer
 	node.UnsafeNodeMetricsCapabilityServer
+	cortexops.UnsafeCortexOpsServer
 	MetricsBackendConfig
 
 	nodeStatusMu sync.RWMutex
@@ -44,6 +47,7 @@ type MetricsBackend struct {
 }
 
 var _ node.NodeMetricsCapabilityServer = (*MetricsBackend)(nil)
+var _ cortexops.CortexOpsServer = (*MetricsBackend)(nil)
 
 type MetricsBackendConfig struct {
 	Logger              *zap.SugaredLogger             `validate:"required"`
@@ -51,6 +55,7 @@ type MetricsBackendConfig struct {
 	MgmtClient          managementv1.ManagementClient  `validate:"required"`
 	NodeManagerClient   capabilityv1.NodeManagerClient `validate:"required"`
 	UninstallController *task.Controller               `validate:"required"`
+	ClusterDriver       drivers.ClusterDriver          `validate:"required"`
 }
 
 func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
@@ -64,18 +69,32 @@ func (m *MetricsBackend) Initialize(conf MetricsBackendConfig) {
 	})
 }
 
-func (m *MetricsBackend) Info(ctx context.Context, _ *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
+func (m *MetricsBackend) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv1.InfoResponse, error) {
 	// Info must not block
 	return &capabilityv1.InfoResponse{
 		CapabilityName: wellknown.CapabilityMetrics,
 	}, nil
 }
 
-func (m *MetricsBackend) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	if m.Initialized() {
-		return &emptypb.Empty{}, nil
+func (m *MetricsBackend) CanInstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	if !m.Initialized() {
+		return nil, status.Error(codes.Unavailable, "metrics backend is not ready")
 	}
-	return nil, status.Error(codes.Unavailable, "metrics backend is not ready")
+	stat, err := m.ClusterDriver.GetClusterStatus(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, status.Error(codes.Unavailable, err.Error())
+	}
+	switch stat.State {
+	case cortexops.InstallState_Updating, cortexops.InstallState_Installed:
+		// ok
+	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Uninstalling:
+		return nil, status.Error(codes.Unavailable, fmt.Sprintf("cortex cluster is not installed"))
+	case cortexops.InstallState_Unknown:
+		fallthrough
+	default:
+		return nil, status.Error(codes.Internal, fmt.Sprintf("unknown cortex cluster state"))
+	}
+	return &emptypb.Empty{}, nil
 }
 
 func (m *MetricsBackend) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*emptypb.Empty, error) {
@@ -95,15 +114,10 @@ func (m *MetricsBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 func (m *MetricsBackend) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
 	m.WaitForInit()
 
-	id, ok := cluster.AuthorizedIDFromIncomingContext(ctx)
-	if !ok {
-		return nil, util.StatusError(codes.Unauthenticated)
-	}
-
 	m.nodeStatusMu.RLock()
 	defer m.nodeStatusMu.RUnlock()
 
-	if status, ok := m.nodeStatus[id]; ok {
+	if status, ok := m.nodeStatus[req.Cluster.Id]; ok {
 		return status, nil
 	}
 
@@ -256,6 +270,15 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 			enabled = (cap.DeletionTimestamp == nil)
 		}
 	}
+	if enabled {
+		// auto-disable if cortex is not installed
+		if err := m.ClusterDriver.ShouldDisableNode(cluster.Reference()); err != nil {
+			m.Logger.With(
+				"reason", err.Error(),
+			).Info("disabling metrics capability for node")
+			enabled = false
+		}
+	}
 
 	m.desiredNodeSpecMu.RLock()
 	defer m.desiredNodeSpecMu.RUnlock()
@@ -303,4 +326,18 @@ func buildResponse(old, new *node.MetricsCapabilityConfig) *node.SyncResponse {
 		ConfigStatus:  node.ConfigStatus_NeedsUpdate,
 		UpdatedConfig: new,
 	}
+}
+
+// Cortex Ops Backend
+
+func (m *MetricsBackend) ConfigureCluster(ctx context.Context, in *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
+	return m.ClusterDriver.ConfigureCluster(ctx, in)
+}
+
+func (m *MetricsBackend) GetClusterStatus(ctx context.Context, in *emptypb.Empty) (*cortexops.InstallStatus, error) {
+	return m.ClusterDriver.GetClusterStatus(ctx, in)
+}
+
+func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {
+	return m.ClusterDriver.UninstallCluster(ctx, in)
 }

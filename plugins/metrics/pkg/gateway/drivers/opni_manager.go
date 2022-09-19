@@ -10,13 +10,14 @@ import (
 	"github.com/rancher/opni/apis"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	corev1 "k8s.io/api/core/v1"
+	k8scorev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,7 +33,7 @@ type OpniManager struct {
 type OpniManagerClusterDriverOptions struct {
 	k8sClient         client.Client
 	monitoringCluster types.NamespacedName
-	gatewayRef        corev1.LocalObjectReference
+	gatewayRef        k8scorev1.LocalObjectReference
 	gatewayApiVersion string
 }
 
@@ -56,7 +57,7 @@ func WithMonitoringCluster(namespacedName types.NamespacedName) OpniManagerClust
 	}
 }
 
-func WithGatewayRef(gatewayRef corev1.LocalObjectReference) OpniManagerClusterDriverOption {
+func WithGatewayRef(gatewayRef k8scorev1.LocalObjectReference) OpniManagerClusterDriverOption {
 	return func(o *OpniManagerClusterDriverOptions) {
 		o.gatewayRef = gatewayRef
 	}
@@ -74,7 +75,7 @@ func NewOpniManagerClusterDriver(opts ...OpniManagerClusterDriverOption) (*OpniM
 			Namespace: os.Getenv("POD_NAMESPACE"),
 			Name:      "opni-monitoring",
 		},
-		gatewayRef: corev1.LocalObjectReference{
+		gatewayRef: k8scorev1.LocalObjectReference{
 			Name: os.Getenv("GATEWAY_NAME"),
 		},
 		gatewayApiVersion: os.Getenv("GATEWAY_API_VERSION"),
@@ -273,4 +274,23 @@ func (k *OpniManager) UninstallCluster(ctx context.Context, _ *emptypb.Empty) (*
 	}
 
 	return &emptypb.Empty{}, nil
+}
+
+func (k *OpniManager) ShouldDisableNode(_ *corev1.Reference) error {
+	stat, err := k.GetClusterStatus(context.TODO(), &emptypb.Empty{})
+	if err != nil {
+		// can't determine cluster status, so don't disable the node
+		return nil
+	}
+	switch stat.State {
+	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Uninstalling:
+		return status.Error(codes.Unavailable, fmt.Sprintf("cortex cluster is not installed"))
+	case cortexops.InstallState_Updating, cortexops.InstallState_Installed:
+		return nil
+	case cortexops.InstallState_Unknown:
+		fallthrough
+	default:
+		// can't determine cluster status, so don't disable the node
+		return nil
+	}
 }

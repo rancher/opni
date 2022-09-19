@@ -2,6 +2,8 @@ package stream
 
 import (
 	"context"
+	"errors"
+	"io"
 	"runtime"
 	"strings"
 	"sync"
@@ -140,7 +142,9 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 	e.logger.Debug("stream connected")
 	ts, err := totem.NewServer(stream, totem.WithName("plugin_"+e.name))
 	if err != nil {
-		e.logger.Error(err)
+		e.logger.With(
+			zap.Error(err),
+		).Error("failed to create totem server")
 		return err
 	}
 	for _, srv := range e.servers {
@@ -153,7 +157,13 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 
 	select {
 	case err := <-errC:
-		e.logger.Error(err)
+		if errors.Is(err, io.EOF) {
+			e.logger.Debug("stream disconnected")
+		} else {
+			e.logger.With(
+				zap.Error(err),
+			).Warn("stream disconnected with error")
+		}
 		return err
 	default:
 	}

@@ -44,9 +44,11 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/validation"
 	kyamlv3 "github.com/kralicky/yaml/v3"
 	"github.com/prometheus/node_exporter/https"
+	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
 	corev1 "k8s.io/api/core/v1"
@@ -199,9 +201,12 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		ClientCAs:   "/run/cortex/certs/client/ca.crt",
 	}
 
+	isHA := r.spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeHighlyAvailable
+
 	kvConfig := kv.Config{
-		Store: "memberlist",
+		Store: lo.Ternary(isHA, "memberlist", "inmemory"),
 	}
+
 	config := cortex.Config{
 		AuthEnabled: true,
 		TenantFederation: tenantfederation.Config{
@@ -246,7 +251,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			LoadPath: "/etc/cortex-runtime-config/runtime_config.yaml",
 		},
 		MemberlistKV: memberlist.KVConfig{
-			JoinMembers: flagext.StringSlice{"cortex-memberlist"},
+			JoinMembers: lo.Ternary(isHA, flagext.StringSlice{"cortex-memberlist"}, nil),
 		},
 
 		Alertmanager: alertmanager.MultitenantAlertmanagerConfig{
@@ -259,9 +264,10 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				URL: util.Must(url.Parse("/api/prom/alertmanager")),
 			},
 			FallbackConfigFile: "/etc/alertmanager/fallback.yaml",
-			ShardingEnabled:    true,
+			ShardingEnabled:    isHA,
 			ShardingRing: alertmanager.RingConfig{
-				KVStore: kvConfig,
+				KVStore:           kvConfig,
+				ReplicationFactor: lo.Ternary(isHA, 3, 1),
 			},
 		},
 		AlertmanagerStorage: alertstore.Config{
@@ -269,7 +275,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 
 		Compactor: compactor.Config{
-			ShardingEnabled: true,
+			ShardingEnabled: isHA,
 			ShardingRing: compactor.RingConfig{
 				KVStore: kvConfig,
 			},
@@ -304,7 +310,8 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				NumTokens:     512,
 				ObservePeriod: 10 * time.Second,
 				RingConfig: ring.Config{
-					KVStore: kvConfig,
+					KVStore:           kvConfig,
+					ReplicationFactor: lo.Ternary(isHA, 3, 1),
 				},
 			},
 		},
@@ -338,11 +345,13 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				TLSEnabled: true,
 				TLS:        tlsClientConfig,
 			},
+			EnableSharding: isHA,
 		},
 		StoreGateway: storegateway.Config{
-			ShardingEnabled: true,
+			ShardingEnabled: isHA,
 			ShardingRing: storegateway.RingConfig{
-				KVStore: kvConfig,
+				KVStore:           kvConfig,
+				ReplicationFactor: lo.Ternary(isHA, 3, 1),
 			},
 		},
 		PurgerConfig: purger.Config{

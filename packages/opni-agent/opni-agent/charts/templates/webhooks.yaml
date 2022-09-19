@@ -1,5 +1,5 @@
 {{- $namespace := printf "%s" (include "opni-agent.namespace" .) }}
-{{- if .Values.logging.enabled }}
+{{- if (or (eq .Values.agent.version "v2") .Values.logging.enabled ) }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:

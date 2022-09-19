@@ -97,6 +97,11 @@ func (gc *gatewayClient) RegisterService(desc *grpc.ServiceDesc, impl any) {
 }
 
 func (gc *gatewayClient) RegisterSplicedStream(cc grpc.ClientConnInterface, name string) {
+	for _, s := range gc.spliced {
+		if s.name == name {
+			panic("bug: duplicate spliced stream name")
+		}
+	}
 	gc.spliced = append(gc.spliced, &splicedConn{
 		name: name,
 		cc:   cc,
@@ -189,10 +194,10 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 
 	go func() {
 		<-f.C()
-		stream.CloseSend()
 		for _, c := range cleanup {
 			c()
 		}
+		stream.CloseSend()
 	}()
 	return cc, f
 }

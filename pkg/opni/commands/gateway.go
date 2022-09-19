@@ -24,14 +24,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 
-	// Import all plugin apis to ensure they are added to the client scheme
-	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
-	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
-	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/unary"
-	_ "github.com/rancher/opni/pkg/plugins/apis/capability"
-	_ "github.com/rancher/opni/pkg/plugins/apis/metrics"
-	_ "github.com/rancher/opni/pkg/plugins/apis/system"
+	_ "github.com/rancher/opni/pkg/plugins/apis"
 )
 
 func BuildGatewayCmd() *cobra.Command {

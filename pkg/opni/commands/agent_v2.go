@@ -27,6 +27,8 @@ import (
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
+
+	_ "github.com/rancher/opni/pkg/plugins/apis"
 )
 
 func BuildAgentV2Cmd() *cobra.Command {

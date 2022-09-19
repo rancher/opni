@@ -83,37 +83,8 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
 	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, sloData.GetClusterId(), toApply)
-	//var anyError error
-	//for _, rules := range toApply {
-	//	err := applyCortexSLORules(
-	//		s.p,
-	//		s.p.logger,
-	//		s.ctx,
-	//		sloData.GetClusterId(),
-	//		rules,
-	//	)
-	//	if err != nil {
-	//		anyError = err
-	//	}
-	//}
-	//if anyError != nil {
-	//	for _, rules := range toApply {
-	//		err := deleteCortexSLORules(
-	//			s.p,
-	//			s.p.logger,
-	//			s.ctx,
-	//			sloData.GetClusterId(),
-	//			rules.Name,
-	//		)
-	//		if err != nil {
-	//			anyError = err
-	//		}
-	//	}
-	//}
-
 	clonedData.SLO.Name = sloData.Name + "-clone"
 	clonedData.Id = slo.GetId()
-
 	return &corev1.Reference{Id: slo.GetId()}, clonedData, err
 }
 

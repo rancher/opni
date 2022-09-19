@@ -130,9 +130,8 @@ async def update_logs(es, df):
     model_keywords_dict = {"drain":  ["_id", "masked_log", "template_matched","template_cluster_id","inference_model", "anomaly_level"],
                           "opnilog":  ["_id", "masked_log", "anomaly_level", "template_matched","template_cluster_id","opnilog_confidence", "inference_model"]}
     anomaly_level_options = ["Normal", "Anomaly"]
-    pretrained_model_logs_df = df.loc[(df["log_type"] != "workload")]
     for model_name in model_keywords_dict:
-        model_df = pretrained_model_logs_df[pretrained_model_logs_df["inference_model"] == model_name]
+        model_df = df[df["inference_model"] == model_name]
         for anomaly_level in anomaly_level_options:
             anomaly_level_df = model_df[model_df["anomaly_level"] == anomaly_level]
             if len(anomaly_level_df) == 0:

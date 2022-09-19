@@ -339,5 +339,18 @@ func (m *MetricsBackend) GetClusterStatus(ctx context.Context, in *emptypb.Empty
 }
 
 func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {
+	clusters, err := m.StorageBackend.ListClusters(ctx, &corev1.LabelSelector{}, corev1.MatchOptions_Default)
+	if err != nil {
+		return nil, err
+	}
+	clustersWithCapability := []string{}
+	for _, c := range clusters.GetItems() {
+		if capabilities.Has(c, capabilities.Cluster(wellknown.CapabilityMetrics)) {
+			clustersWithCapability = append(clustersWithCapability, c.Id)
+		}
+	}
+	if len(clustersWithCapability) > 0 {
+		return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("metrics capability is still installed on the following clusters: %s", strings.Join(clustersWithCapability, ", ")))
+	}
 	return m.ClusterDriver.UninstallCluster(ctx, in)
 }

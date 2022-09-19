@@ -143,10 +143,10 @@ func (a *UninstallTaskRunner) deleteTenant(ctx context.Context, clusterId string
 		return nil
 	case http.StatusInternalServerError:
 		msg, _ := io.ReadAll(resp.Body)
-		return status.Error(codes.Internal, fmt.Sprintf("cortex internal server error: %v", msg))
+		return status.Error(codes.Internal, fmt.Sprintf("cortex internal server error: %s", string(msg)))
 	default:
 		msg, _ := io.ReadAll(resp.Body)
-		return status.Error(codes.Internal, fmt.Sprintf("unexpected response from cortex: %v", msg))
+		return status.Error(codes.Internal, fmt.Sprintf("unexpected response from cortex: %s", string(msg)))
 	}
 }
 
@@ -172,6 +172,6 @@ func (a *UninstallTaskRunner) tenantDeleteStatus(ctx context.Context, clusterId 
 		return &status, nil
 	default:
 		msg, _ := io.ReadAll(resp.Body)
-		return nil, status.Error(codes.Internal, fmt.Sprintf("cortex internal server error: %v", msg))
+		return nil, status.Error(codes.Internal, fmt.Sprintf("cortex internal server error: %s", string(msg)))
 	}
 }

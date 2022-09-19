@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/pkg/util/notifier"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/remotewrite"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
 )
 
@@ -58,22 +59,24 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec) error
 				return
 			case docs = <-pending:
 			}
-		RETRY:
 			lg.Debug("sending alert rules to gateway")
+		RETRY:
 			for {
+				s.remoteWriteClientMu.Lock()
+				client := s.remoteWriteClient
+				s.remoteWriteClientMu.Unlock()
 				for _, doc := range docs {
-					s.remoteWriteClientMu.Lock()
-					client := s.remoteWriteClient
-					s.remoteWriteClientMu.Unlock()
 					if client == nil {
 						err = errors.New("not connected")
 					} else {
+						ctx, ca := context.WithTimeout(ctx, time.Second*5)
 						_, err = client.SyncRules(ctx, &remotewrite.Payload{
 							Headers: map[string]string{
 								"Content-Type": "application/yaml",
 							},
 							Contents: doc,
-						})
+						}, grpc.UseCompressor("gzip"))
+						ca()
 					}
 					if err != nil {
 						s.conditions.Set(CondRuleSync, StatusFailure, err.Error())
@@ -84,9 +87,9 @@ func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec) error
 						select {
 						case docs = <-pending:
 							lg.Debug("updated rules were received during backoff, retrying immediately")
-							goto RETRY
+							continue RETRY
 						case <-time.After(5 * time.Second):
-							goto RETRY
+							continue RETRY
 						case <-ctx.Done():
 							return
 						}

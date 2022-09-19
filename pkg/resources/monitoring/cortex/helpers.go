@@ -411,6 +411,10 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 							MountPath: "/data",
 						},
 						{
+							Name:      "rules",
+							MountPath: "/rules",
+						},
+						{
 							Name:      "config",
 							MountPath: "/etc/cortex",
 						},
@@ -445,6 +449,12 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 			Volumes: append([]corev1.Volume{
 				{
 					Name: "data",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+				{
+					Name: "rules",
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},

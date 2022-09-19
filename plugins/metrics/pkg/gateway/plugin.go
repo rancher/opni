@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 
-	gsatomic "github.com/kralicky/gpkg/sync/atomic"
-
 	"go.uber.org/zap"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -33,7 +31,7 @@ import (
 )
 
 type Plugin struct {
-	cortexops.UnsafeCortexOpsServer
+
 	// capabilityv1.UnsafeBackendServer
 	system.UnimplementedSystemPluginClient
 	collector.CollectorServer
@@ -55,7 +53,7 @@ type Plugin struct {
 	cortexTlsConfig     future.Future[*tls.Config]
 	cortexClientSet     future.Future[cortex.ClientSet]
 	uninstallController future.Future[*task.Controller]
-	clusterDriver       gsatomic.Value[drivers.ClusterDriver]
+	clusterDriver       future.Future[drivers.ClusterDriver]
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
@@ -72,6 +70,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		cortexTlsConfig:     future.New[*tls.Config](),
 		cortexClientSet:     future.New[cortex.ClientSet](),
 		uninstallController: future.New[*task.Controller](),
+		clusterDriver:       future.New[drivers.ClusterDriver](),
 	}
 
 	future.Wait2(p.cortexClientSet, p.config,
@@ -101,12 +100,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 			})
 		})
 
-	future.Wait4(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController,
+	future.Wait5(p.storageBackend, p.mgmtClient, p.nodeManagerClient, p.uninstallController, p.clusterDriver,
 		func(
 			storageBackend storage.Backend,
 			mgmtClient managementv1.ManagementClient,
 			nodeManagerClient capabilityv1.NodeManagerClient,
 			uninstallController *task.Controller,
+			clusterDriver drivers.ClusterDriver,
 		) {
 			p.metrics.Initialize(backend.MetricsBackendConfig{
 				Logger:              p.logger.Named("metrics-backend"),
@@ -114,6 +114,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 				MgmtClient:          mgmtClient,
 				NodeManagerClient:   nodeManagerClient,
 				UninstallController: uninstallController,
+				ClusterDriver:       clusterDriver,
 			})
 		})
 
@@ -148,7 +149,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID, managementext.NewPlugin(
 		util.PackService(&cortexadmin.CortexAdmin_ServiceDesc, &p.cortexAdmin),
-		util.PackService(&cortexops.CortexOps_ServiceDesc, p),
+		util.PackService(&cortexops.CortexOps_ServiceDesc, &p.metrics),
 	))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.metrics))
 	scheme.Add(metrics.MetricsPluginID, metrics.NewPlugin(p))

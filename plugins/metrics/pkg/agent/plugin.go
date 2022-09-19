@@ -49,22 +49,10 @@ func NewPlugin(ctx context.Context) *Plugin {
 			"driver", d.Name(),
 		).Info("node driver is available")
 		drivers.RegisterNodeDriver(d)
-		p.node.AddConfigListener(drivers.NewListenerChannel(ctx, d))
+		p.node.AddConfigListener(drivers.NewListenerFunc(ctx, d.ConfigureNode))
 	}
 
-	listenerC := make(chan *node.MetricsCapabilityConfig, 1)
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case cfg := <-listenerC:
-				p.onConfigUpdated(cfg)
-			}
-		}
-	}()
-	p.node.AddConfigListener(listenerC)
+	p.node.AddConfigListener(drivers.NewListenerFunc(ctx, p.onConfigUpdated))
 
 	return p
 }

@@ -44,7 +44,6 @@ func (s *HttpServer) ConfigureRoutes(router *gin.Engine) {
 }
 
 func (s *HttpServer) handlePushRequest(c *gin.Context) {
-	var code int
 	s.remoteWriteClientMu.RLock()
 	defer s.remoteWriteClientMu.RUnlock()
 	if s.remoteWriteClient == nil {
@@ -54,25 +53,26 @@ func (s *HttpServer) handlePushRequest(c *gin.Context) {
 	ok := s.remoteWriteClient.Use(func(rwc remotewrite.RemoteWriteClient) {
 		if rwc == nil {
 			s.conditions.Set(CondRemoteWrite, StatusPending, "gateway not connected")
-			code = http.StatusServiceUnavailable
+			c.Error(errors.New("gateway not connected"))
+			c.String(http.StatusServiceUnavailable, "gateway not connected")
 			return
 		}
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			c.Error(err)
-			code = http.StatusBadRequest
+			c.Status(http.StatusInternalServerError)
 			return
 		}
 		_, err = rwc.Push(c.Request.Context(), &remotewrite.Payload{
 			Contents: body,
 		})
+		var respCode int
 		if err != nil {
 			stat := status.Convert(err)
 			// check if statusCode is a valid HTTP status code
 			if stat.Code() >= 100 && stat.Code() <= 599 {
-				code = int(stat.Code())
+				respCode = int(stat.Code())
 			} else {
-				code = http.StatusServiceUnavailable
+				respCode = http.StatusServiceUnavailable
 			}
 			// As a special case, status code 400 may indicate a success.
 			// Cortex handles a variety of cases where prometheus would normally
@@ -80,20 +80,22 @@ func (s *HttpServer) handlePushRequest(c *gin.Context) {
 			// will return code 400 to prometheus, which prometheus will treat as
 			// a non-retriable error. In this case, the remote write status condition
 			// will be cleared as if the request succeeded.
-			if code == http.StatusBadRequest {
+			if respCode == http.StatusBadRequest {
 				s.conditions.Clear(CondRemoteWrite)
 				c.Error(errors.New("soft error: this request likely succeeded"))
 			} else {
 				s.conditions.Set(CondRemoteWrite, StatusFailure, stat.Message())
+				c.Error(err)
 			}
-			c.Error(err)
+
+			c.String(respCode, stat.Message())
 			return
 		}
 		s.conditions.Clear(CondRemoteWrite)
-		code = http.StatusOK
+		c.Status(http.StatusOK)
 	})
+
 	if !ok {
-		code = http.StatusServiceUnavailable
+		c.Status(http.StatusServiceUnavailable)
 	}
-	c.Status(code)
 }

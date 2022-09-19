@@ -10,7 +10,7 @@ import (
 
 type MetricsNodeDriver interface {
 	Name() string
-	ConfigureNode(*node.MetricsCapabilityConfig) error
+	ConfigureNode(*node.MetricsCapabilityConfig)
 }
 
 var (
@@ -49,7 +49,7 @@ func ResetNodeDrivers() {
 	failedNodeDrivers = make(map[string]string)
 }
 
-func NewListenerChannel(ctx context.Context, driver MetricsNodeDriver) chan<- *node.MetricsCapabilityConfig {
+func NewListenerFunc(ctx context.Context, fn func(cfg *node.MetricsCapabilityConfig)) chan<- *node.MetricsCapabilityConfig {
 	listenerC := make(chan *node.MetricsCapabilityConfig, 1)
 	go func() {
 		for {
@@ -57,7 +57,7 @@ func NewListenerChannel(ctx context.Context, driver MetricsNodeDriver) chan<- *n
 			case <-ctx.Done():
 				return
 			case cfg := <-listenerC:
-				driver.ConfigureNode(cfg)
+				fn(cfg)
 			}
 		}
 	}()

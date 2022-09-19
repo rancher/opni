@@ -62,6 +62,8 @@ var _ httpext.HTTPAPIExtension = (*HttpApiServer)(nil)
 func (p *HttpApiServer) ConfigureRoutes(router *gin.Engine) {
 	p.WaitForInit()
 
+	p.Logger.Info("configuring http api server")
+
 	router.Use(logger.GinLogger(p.Logger), gin.Recovery())
 
 	rbacProvider := storage.NewRBACProvider(p.StorageBackend)

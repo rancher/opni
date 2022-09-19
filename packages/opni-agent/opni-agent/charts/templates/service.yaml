@@ -1,5 +1,5 @@
 ---
-{{- if .Values.metrics.enabled }}
+{{- if (or (eq .Values.agent.version "v2") .Values.metrics.enabled) }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -17,7 +17,7 @@ spec:
       targetPort: http
 ---
 {{- end }}
-{{- if .Values.logging.enabled }}
+{{- if (or (eq .Values.agent.version "v2") .Values.logging.enabled ) }}
 apiVersion: v1
 kind: Service
 metadata:

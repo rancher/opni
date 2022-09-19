@@ -4,12 +4,18 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 )
 
 type ClusterDriver interface {
-	Name() string
 	cortexops.CortexOpsServer
+	// Unique name of the driver
+	Name() string
+	// ShouldDisableNode is called during node sync for nodes which otherwise
+	// have this capability enabled. If this function returns an error, the
+	// node will be set to disabled instead, and the error will be logged.
+	ShouldDisableNode(*corev1.Reference) error
 }
 
 var (
@@ -46,4 +52,17 @@ func GetClusterDriver(name string) (ClusterDriver, error) {
 func ResetClusterDrivers() {
 	clusterDrivers = make(map[string]ClusterDriver)
 	failedClusterDrivers = make(map[string]string)
+}
+
+type NoopClusterDriver struct {
+	cortexops.UnimplementedCortexOpsServer
+}
+
+func (d *NoopClusterDriver) Name() string {
+	return "noop"
+}
+
+func (d *NoopClusterDriver) ShouldDisableNode(*corev1.Reference) error {
+	// the noop driver will never forcefully disable a node
+	return nil
 }

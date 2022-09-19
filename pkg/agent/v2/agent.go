@@ -130,7 +130,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			).Error("failed to configure routes")
 			return
 		}
-		setupPluginRoutes(router, cfg, md, []string{"/healthz", "/metrics"})
+		setupPluginRoutes(lg, router, cfg, md, []string{"/healthz", "/metrics"})
 	}))
 
 	initCtx, initCancel := context.WithTimeout(ctx, 10*time.Second)
@@ -279,6 +279,7 @@ func (a *Agent) ListenAddress() string {
 }
 
 func setupPluginRoutes(
+	lg *zap.SugaredLogger,
 	router *gin.Engine,
 	cfg *apiextensions.HTTPAPIExtensionConfig,
 	pluginMeta meta.PluginMeta,
@@ -298,14 +299,14 @@ ROUTES:
 	for _, route := range cfg.Routes {
 		for _, reservedPrefix := range reservedPrefixRoutes {
 			if strings.HasPrefix(route.Path, reservedPrefix) {
-				sampledLogger.With(
+				lg.With(
 					"route", route.Method+" "+route.Path,
 					"plugin", pluginMeta.Module,
 				).Warn("skipping route for plugin as it conflicts with a reserved prefix")
 				continue ROUTES
 			}
 		}
-		sampledLogger.With(
+		lg.With(
 			"route", route.Method+" "+route.Path,
 			"plugin", pluginMeta.Module,
 		).Debug("configured route for plugin")

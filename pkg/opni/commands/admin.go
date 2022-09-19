@@ -12,6 +12,7 @@ import (
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -181,6 +182,7 @@ func BuildFlushBlocksCmd() *cobra.Command {
 }
 
 func BuildCortexStatusCmd() *cobra.Command {
+	var outputFormat string
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show status of all cortex components",
@@ -189,10 +191,18 @@ func BuildCortexStatusCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println(cliutil.RenderCortexClusterStatus(status))
+			switch outputFormat {
+			case "json":
+				fmt.Println(protojson.Format(status))
+			case "table":
+				fmt.Println(cliutil.RenderCortexClusterStatus(status))
+			default:
+				return fmt.Errorf("unknown output format: %s", outputFormat)
+			}
 			return nil
 		},
 	}
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table|json)")
 	return cmd
 }
 

@@ -1155,8 +1155,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		case "v2":
 			pl := plugins.NewPluginLoader()
 			a, err = agentv2.New(options.ctx, agentConfig,
-				agentv2.WithBootstrapper(&bootstrap.ClientConfig{
-					Capability:    wellknown.CapabilityMetrics,
+				agentv2.WithBootstrapper(&bootstrap.ClientConfigV2{
 					Token:         bt,
 					Endpoint:      gatewayAddress,
 					TrustStrategy: strategy,
@@ -1169,6 +1168,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 			return
 		}
 		if err != nil {
+			Log.With(zap.Error(err)).Error("failed to start agent")
 			errC <- err
 			mu.Unlock()
 			return
@@ -1182,7 +1182,7 @@ func (e *Environment) StartAgent(id string, token *corev1.BootstrapToken, pins [
 		mu.Unlock()
 		errC <- nil
 		if err := a.ListenAndServe(options.ctx); err != nil {
-			Log.Error(err)
+			Log.Errorf("agent %q exited: %v", id, err)
 		}
 		e.runningAgentsMu.Lock()
 		delete(e.runningAgents, id)

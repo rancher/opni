@@ -74,6 +74,6 @@ func (d *EmbeddedManagerNodeDriver) Name() string {
 	return "embedded-manager"
 }
 
-func (d *EmbeddedManagerNodeDriver) ConfigureNode(conf *node.MetricsCapabilityConfig) error {
-	return nil
+func (d *EmbeddedManagerNodeDriver) ConfigureNode(conf *node.MetricsCapabilityConfig) {
+
 }

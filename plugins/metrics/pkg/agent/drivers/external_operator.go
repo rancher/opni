@@ -4,22 +4,25 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
+	"github.com/lestrrat-go/backoff/v2"
 	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/retry"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type ExternalPromOperatorDriver struct {
@@ -27,6 +30,15 @@ type ExternalPromOperatorDriver struct {
 
 	logger    *zap.SugaredLogger
 	namespace string
+
+	state reconcilerState
+}
+
+type reconcilerState struct {
+	sync.Mutex
+	running       bool
+	backoffCtx    context.Context
+	backoffCancel context.CancelFunc
 }
 
 type ExternalPromOperatorDriverOptions struct {
@@ -82,20 +94,44 @@ func (*ExternalPromOperatorDriver) Name() string {
 	return "external-operator"
 }
 
-func (d *ExternalPromOperatorDriver) ConfigureNode(conf *node.MetricsCapabilityConfig) error {
+func (d *ExternalPromOperatorDriver) ConfigureNode(conf *node.MetricsCapabilityConfig) {
+	d.state.Lock()
+	if d.state.running {
+		d.state.backoffCancel()
+	}
+	d.state.running = true
+	ctx, ca := context.WithCancel(context.TODO())
+	d.state.backoffCtx = ctx
+	d.state.backoffCancel = ca
+	d.state.Unlock()
+
 	prometheus := d.buildPrometheus(conf.GetSpec().GetPrometheus())
 	svcAccount, cr, crb := d.buildRbac()
 
 	shouldExist := conf.Enabled && conf.GetSpec().GetPrometheus().GetDeploymentStrategy() == "externalPromOperator"
-
-	return retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
-		for _, obj := range []client.Object{prometheus, svcAccount, cr, crb} {
+	p := backoff.Exponential()
+	b := p.Start(ctx)
+	var success bool
+BACKOFF:
+	for backoff.Continue(b) {
+		for _, obj := range []client.Object{svcAccount, cr, crb, prometheus} {
 			if err := d.reconcileObject(obj, shouldExist); err != nil {
-				return err
+				d.logger.With(
+					"object", client.ObjectKeyFromObject(obj).String(),
+					zap.Error(err),
+				).Error("error reconciling object")
+				continue BACKOFF
 			}
 		}
-		return nil
-	})
+		success = true
+		break
+	}
+
+	if !success {
+		d.logger.Error("timed out reconciling objects")
+	} else {
+		d.logger.Info("objects reconciled successfully")
+	}
 }
 
 func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) *monitoringcoreosv1.Prometheus {
@@ -213,12 +249,19 @@ func (d *ExternalPromOperatorDriver) reconcileObject(desired client.Object, shou
 	if client.IgnoreNotFound(err) != nil {
 		return err
 	}
-	owner := metav1.OwnerReference{
-		APIVersion: "apps/v1",
-		Kind:       "Deployment",
-		Name:       "opni-agent",
+
+	// get the agent statefulset
+	agentStatefulSet := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-agent",
+			Namespace: d.namespace,
+		},
 	}
-	desired.SetOwnerReferences([]metav1.OwnerReference{owner})
+	if err := d.k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(agentStatefulSet), agentStatefulSet); err != nil {
+		return err
+	}
+	// this can error if the object is cluster-scoped, but that's ok
+	controllerutil.SetOwnerReference(agentStatefulSet, desired, d.k8sClient.Scheme())
 
 	if k8serrors.IsNotFound(err) {
 		if !shouldExist {

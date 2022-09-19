@@ -62,10 +62,14 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 
 	defer func() {
 		if pushErr != nil {
-			f.Logger.With(
+			lg := f.Logger.With(
 				"err", pushErr,
 				"clusterId", clusterId,
-			).Error("error pushing metrics to cortex")
+			)
+			if s, ok := status.FromError(pushErr); ok {
+				lg = lg.With("code", int32(s.Code()))
+			}
+			lg.Error("error pushing metrics to cortex")
 		}
 	}()
 	writeReq := &cortexpb.WriteRequest{}

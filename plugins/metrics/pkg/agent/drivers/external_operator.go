@@ -48,6 +48,7 @@ func WithK8sClient(k8sClient client.Client) ExternalPromOperatorDriverOption {
 }
 
 func NewExternalPromOperatorDriver(
+	logger *zap.SugaredLogger,
 	opts ...ExternalPromOperatorDriverOption,
 ) (*ExternalPromOperatorDriver, error) {
 	options := ExternalPromOperatorDriverOptions{}
@@ -70,6 +71,7 @@ func NewExternalPromOperatorDriver(
 
 	return &ExternalPromOperatorDriver{
 		ExternalPromOperatorDriverOptions: options,
+		logger:                            logger,
 		namespace:                         namespace,
 	}, nil
 }

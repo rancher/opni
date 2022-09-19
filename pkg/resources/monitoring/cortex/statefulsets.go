@@ -63,6 +63,16 @@ func (r *Reconciler) highlyAvailableStatefulSets() []*appsv1.StatefulSet {
 func (r *Reconciler) allInOneStatefulSets() []*appsv1.StatefulSet {
 	all := r.buildCortexStatefulSet("all",
 		WithOverrides(r.spec.Cortex.Workloads.AllInOne),
+		ExtraVolumeMounts(corev1.VolumeMount{
+			Name:      "tmp",
+			MountPath: "/rules",
+		}),
+		ExtraVolumes(corev1.Volume{
+			Name: "tmp",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		}),
 		Replicas(1), // Force replicas to 1 for all-in-one mode
 	)
 	return []*appsv1.StatefulSet{

@@ -45,6 +45,13 @@ service SLO {
     };
   }
 
+  rpc CloneToClusters(MultiClusterSLO) returns(MultiClusterFailures) {
+    option (google.api.http) = {
+      post: "/slos/{cloneId.id}/cloneToClusters"
+      body: "*"
+    };
+  }
+
   // Returns a set of metrics with compatible implementations for
   // a set of services
   rpc ListMetrics(ListMetricsRequest) returns (MetricGroupList) {
@@ -83,6 +90,15 @@ service SLO {
       body: "*"
     };
   }
+}
+
+message MultiClusterSLO {
+  core.Reference cloneId = 1;
+  repeated core.Reference clusters = 2;
+}
+
+message MultiClusterFailures {
+  repeated string failures = 1;
 }
 
 message ListEventsRequest {

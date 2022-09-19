@@ -165,6 +165,42 @@ func (p *Plugin) CloneSLO(ctx context.Context, ref *corev1.Reference) (*sloapi.S
 	return newData, nil
 }
 
+func (p *Plugin) CloneToClusters(ctx context.Context, req *sloapi.MultiClusterSLO) (*sloapi.MultiClusterFailures, error) {
+	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", req.CloneId.Id))
+	if err != nil {
+		return nil, err
+	}
+	if err := existing.Validate(); err != nil {
+		return nil, err
+	}
+	if err := checkDatasource(existing.SLO.GetDatasource()); err != nil {
+		return nil, err
+	}
+	sloStore := datasourceToSLO[existing.SLO.GetDatasource()].WithCurrentRequest(req, ctx)
+	svcBackend := datasourceToService[existing.SLO.GetDatasource()] // with current request is set in multi cluster clone
+	failures := []string{}
+	createdIds, createdData, errors := sloStore.MultiClusterClone(existing, req.Clusters, svcBackend)
+	createdAt := timestamppb.New(time.Now())
+	for idx, err := range errors {
+		if err != nil {
+			failures = append(failures, err.Error())
+		} else {
+			createdData[idx].CreatedAt = createdAt
+			if err := p.storage.Get().SLOs.Put(
+				ctx,
+				path.Join("/slos", createdIds[idx].Id),
+				createdData[idx],
+			); err != nil {
+				//FIXME: maybe don't do this
+				return nil, err
+			}
+		}
+	}
+	return &sloapi.MultiClusterFailures{
+		Failures: failures,
+	}, nil
+}
+
 func (p *Plugin) Status(ctx context.Context, ref *corev1.Reference) (*sloapi.SLOStatus, error) {
 	existing, err := p.storage.Get().SLOs.Get(ctx, path.Join("/slos", ref.Id))
 	if err != nil {

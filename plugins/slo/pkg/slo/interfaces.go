@@ -28,6 +28,11 @@ type SLOStore interface {
 	Update(existing *sloapi.SLOData) (*sloapi.SLOData, error)
 	Delete(existing *sloapi.SLOData) error
 	Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.SLOData, error)
+	MultiClusterClone(
+		base *sloapi.SLOData,
+		clusters []*corev1.Reference,
+		svcBackend ServiceBackend,
+	) ([]*corev1.Reference, []*sloapi.SLOData, []error)
 	Status(existing *sloapi.SLOData) (*sloapi.SLOStatus, error)
 	Preview(s *SLO) (*sloapi.SLOPreviewResponse, error)
 	WithCurrentRequest(req proto.Message, ctx context.Context) SLOStore

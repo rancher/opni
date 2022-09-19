@@ -127,9 +127,9 @@ func cortexClusterStatus(object client.Object) (corev1beta1.CortexStatus, error)
 		return object.Status.Cortex, nil
 	case *v1beta2.MonitoringCluster:
 		return corev1beta1.CortexStatus{
-			Version:    object.Status.Cortex.Version,
-			Ready:      object.Status.Cortex.Ready,
-			Conditions: object.Status.Cortex.Conditions,
+			Version:        object.Status.Cortex.Version,
+			WorkloadsReady: object.Status.Cortex.WorkloadsReady,
+			Conditions:     object.Status.Cortex.Conditions,
 			WorkloadStatus: lo.MapValues(object.Status.Cortex.WorkloadStatus, func(v v1beta2.WorkloadStatus, _ string) corev1beta1.WorkloadStatus {
 				return corev1beta1.WorkloadStatus{
 					Ready:   v.Ready,
@@ -220,13 +220,10 @@ func (k *OpniManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*
 	if err != nil {
 		return nil, err
 	}
-	status, err := cortexClusterStatus(cluster)
-	if err != nil {
-		return nil, err
-	}
 	err = k.k8sClient.Get(ctx, k.monitoringCluster, cluster)
 	metadata := map[string]string{}
 	var state cortexops.InstallState
+	var version string
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			state = cortexops.InstallState_NotInstalled
@@ -234,10 +231,15 @@ func (k *OpniManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*
 			return nil, fmt.Errorf("failed to get monitoring cluster: %w", err)
 		}
 	} else {
+		status, err := cortexClusterStatus(cluster)
+		if err != nil {
+			return nil, err
+		}
+		version = status.Version
 		if cluster.GetDeletionTimestamp() != nil {
 			state = cortexops.InstallState_Uninstalling
 		} else {
-			if status.Ready {
+			if status.WorkloadsReady {
 				state = cortexops.InstallState_Installed
 			} else {
 				state = cortexops.InstallState_Updating
@@ -248,7 +250,7 @@ func (k *OpniManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*
 
 	return &cortexops.InstallStatus{
 		State:   state,
-		Version: status.Version,
+		Version: version,
 		Metadata: lo.Assign(metadata, map[string]string{
 			"Driver": k.Name(),
 		}),
@@ -256,8 +258,11 @@ func (k *OpniManager) GetClusterStatus(ctx context.Context, _ *emptypb.Empty) (*
 }
 
 func (k *OpniManager) UninstallCluster(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	cluster := &v1beta2.MonitoringCluster{}
-	err := k.k8sClient.Get(ctx, k.monitoringCluster, cluster)
+	cluster, err := k.newMonitoringCluster()
+	if err != nil {
+		return nil, err
+	}
+	err = k.k8sClient.Get(ctx, k.monitoringCluster, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to uninstall monitoring cluster: %w", err)
 	}

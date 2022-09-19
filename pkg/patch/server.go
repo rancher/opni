@@ -4,21 +4,27 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/hashicorp/go-plugin"
-	"github.com/rancher/opni/pkg/agent/shared"
-	"github.com/rancher/opni/pkg/apis/control/v1"
-	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/plugins"
-	"go.uber.org/zap"
-	"golang.org/x/crypto/blake2b"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/hashicorp/go-plugin"
+	"github.com/rancher/opni/pkg/agent/shared"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
+	v1 "github.com/rancher/opni/pkg/apis/control/v1"
+	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/plugins"
+	"go.uber.org/zap"
+	"golang.org/x/crypto/blake2b"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var _ controlv1.PluginManifestServer = &FilesystemPluginSyncServer{}
@@ -200,6 +206,29 @@ func (f *FilesystemPluginSyncServer) UploadPatch(ctx context.Context, spec *v1.P
 		}
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (f *FilesystemPluginSyncServer) StreamServerInterceptor() grpc.StreamServerInterceptor {
+	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		id := cluster.StreamAuthorizedID(stream.Context())
+
+		// for now, plugin manifest validation is voluntary, but this may change in the future
+		md, ok := metadata.FromIncomingContext(stream.Context())
+		if ok {
+			values := md.Get(controlv1.ManifestDigestKey)
+			if len(values) > 0 {
+				digest := values[0]
+				if f.getPluginMetadata().Digest() != digest {
+					f.Logger.With(
+						"id", id,
+					).Info("agent plugins are out of date; requesting update")
+					return status.Errorf(codes.FailedPrecondition, "plugin manifest mismatch")
+				}
+			}
+		}
+
+		return handler(srv, stream)
+	}
 }
 
 func PatchWith(

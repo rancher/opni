@@ -1,3 +1,4 @@
+{{- if eq .Values.agent.version "v1" }}
 {{- if (and .Values.metrics.prometheusAgent.enabled .Values.metrics.enabled) }}
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
@@ -69,5 +70,6 @@ subjects:
     name: opni-prometheus-agent
     namespace: {{ include "opni-agent.namespace" . }}
 {{- end }}
-
 {{- end }}
+{{- end }}
+

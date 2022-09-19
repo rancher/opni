@@ -1,7 +1,15 @@
 package v1
 
 import (
+	"encoding/hex"
+	"fmt"
 	"path"
+
+	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
+	"golang.org/x/crypto/blake2b"
+	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type PatchInfo struct {
@@ -69,4 +77,26 @@ func (m *ManifestMetadataList) LeftJoinOn(other *ManifestMetadataList) (*TODOLis
 		}
 	}
 	return res, nil
+}
+
+const ManifestDigestKey = "manifest-digest"
+
+// Returns a hash of the manifest metadata list. This can be used to compare
+// manifests between the gateway and agent.
+func (m *ManifestMetadataList) Digest() string {
+	fmt.Println(string(util.Must(protojson.Marshal(m))))
+	hash, _ := blake2b.New256(nil)
+	keys := lo.Keys(m.Items)
+	slices.SortFunc(keys, func(a, b string) bool {
+		return path.Base(a) < path.Base(b)
+	})
+	for _, key := range keys {
+		item, ok := m.Items[key]
+		if ok {
+			hash.Write([]byte(path.Base(key)))
+			hash.Write([]byte(item.Hash))
+			hash.Write([]byte(item.Revision))
+		}
+	}
+	return hex.EncodeToString(hash.Sum(nil))
 }

@@ -202,7 +202,7 @@ type GatewayStatus struct {
 
 type CortexStatus struct {
 	Version        string                    `json:"version,omitempty"`
-	Ready          bool                      `json:"workloadsReady,omitempty"`
+	WorkloadsReady bool                      `json:"workloadsReady,omitempty"`
 	Conditions     []string                  `json:"conditions,omitempty"`
 	WorkloadStatus map[string]WorkloadStatus `json:"workloadStatus,omitempty"`
 }

@@ -9,8 +9,13 @@ rules:
 - apiGroups:
   - monitoring.coreos.com
   resources:
-  - prometheusrule
+  - alertmanagerconfigs
+  - alertmanagers
+  - probes
+  - prometheuses
+  - prometheusrules
   - servicemonitors
+  - thanosrulers
   verbs:
   - create
   - get
@@ -19,6 +24,9 @@ rules:
   - update
   - watch
 - apiGroups:
+  - opni.io
+  - core.opni.io
+  - logging.opni.io
   - monitoring.opni.io
   resources:
   - "*"
@@ -31,60 +39,11 @@ rules:
   - patch
   - delete
 - apiGroups:
-    - ""
+  - ""
   resources:
-    - namespaces
-  verbs:
-    - get
-- apiGroups:
-    - "monitoring.coreos.com"
-  resources:
-    - prometheusrules
-  verbs:
-    - get
-    - list
-    - watch
-- apiGroups:
-  - opni.io
-  resources:
-  - datapreppers/finalizers
-  - logadapters/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - opni.io
-  resources:
-  - datapreppers/status
-  - logadapters/status
+  - namespaces
   verbs:
   - get
-  - patch
-  - update
-- apiGroups:
-  - logging.opni.io
-  resources:
-  - '*'
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-    - opni.io
-  resources:
-    - logadapters
-    - datapreppers
-  verbs:
-    - get
-    - list
-    - watch
-    - create
-    - update
-    - patch
-    - delete
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:

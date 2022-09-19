@@ -11,7 +11,7 @@ import (
 func BuildCortexCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "cortex",
-		Short:              "Embedded cortex",
+		Short:              "Run the embedded Cortex server",
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			tracing.Configure("cortex")

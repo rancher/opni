@@ -12,6 +12,8 @@ import (
 	"github.com/kralicky/totem"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
@@ -89,6 +91,7 @@ func NewPlugin(p StreamAPIExtension) plugin.Plugin {
 		name:             name,
 		logger:           logger.NewPluginLogger().Named(name).Named("stream"),
 		streamClientCond: sync.NewCond(&sync.Mutex{}),
+		connectSem:       make(chan struct{}, 1),
 	}
 	if p != nil {
 		servers := p.StreamServers()
@@ -121,10 +124,19 @@ type streamExtensionServerImpl struct {
 
 	streamClientCond *sync.Cond
 	streamClient     grpc.ClientConnInterface
+
+	connectSem chan struct{}
 }
 
 // Implements streamv1.StreamServer
 func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer) error {
+	select {
+	case e.connectSem <- struct{}{}:
+		defer func() { <-e.connectSem }()
+	default:
+		return status.Error(codes.FailedPrecondition, "another connection is already active")
+	}
+
 	e.logger.Debug("stream connected")
 	ts, err := totem.NewServer(stream, totem.WithName("plugin_"+e.name))
 	if err != nil {
@@ -149,35 +161,17 @@ func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer
 	e.streamClientCond.L.Lock()
 	e.logger.Debug("stream client is now available")
 	e.streamClient = cc
-	e.streamClientCond.L.Unlock()
 	e.streamClientCond.Broadcast()
+	e.streamClientCond.L.Unlock()
 
 	defer func() {
 		e.streamClientCond.L.Lock()
 		e.logger.Debug("stream client is no longer available")
 		e.streamClient = nil
-		e.streamClientCond.L.Unlock()
 		e.streamClientCond.Broadcast()
+		e.streamClientCond.L.Unlock()
 	}()
-	// if e.clientHandler != nil {
-	// 	go e.clientHandler.UseStreamClient(e.)
-	// }
-	// refclient := totem.NewServerReflectionClient(cc)
-	// svcs, err := refclient.ListServices(context.Background(), &totem.DiscoveryRequest{
-	// 	RemainingHops: 20,
-	// })
-	// if err != nil {
-	// 	return err
-	// }
-	// if len(svcs.Services) == 0 {
-	// 	return fmt.Errorf("!!!!!! no services found")
-	// }
-	// for _, srv := range svcs.Services {
-	// 	fmt.Println(e.name + " -> " + srv.String())
-	// }
-	// if e.clientHandler != nil {
-	// 	go e.clientHandler.UseStreamClient(cc)
-	// }
+
 	return <-errC
 }
 
@@ -185,11 +179,28 @@ func (e *streamExtensionServerImpl) Notify(ctx context.Context, event *streamv1.
 	e.logger.With(
 		"type", event.Type.String(),
 	).Debug("received notify event")
+	returned := make(chan struct{})
+	defer close(returned)
+	go func() {
+		select {
+		case <-ctx.Done():
+			e.streamClientCond.L.Lock()
+			e.streamClientCond.Broadcast()
+			e.streamClientCond.L.Unlock()
+		case <-returned:
+		}
+	}()
+
 	switch event.Type {
 	case streamv1.EventType_DiscoveryComplete:
 		e.logger.Debug("processing discovery complete event")
 		e.streamClientCond.L.Lock()
 		for e.streamClient == nil {
+			if ctx.Err() != nil {
+				e.streamClientCond.L.Unlock()
+				e.logger.Debug("context cancelled while waiting for stream client")
+				return nil, ctx.Err()
+			}
 			e.logger.Debug("waiting for stream client to become available")
 			e.streamClientCond.Wait()
 		}

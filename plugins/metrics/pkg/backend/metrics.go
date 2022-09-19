@@ -20,6 +20,7 @@ import (
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
+	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/machinery/uninstall"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
@@ -271,10 +272,24 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 	status.Enabled = req.GetCurrentConfig().GetEnabled()
 	status.LastSync = timestamppb.Now()
 
+	// todo: allow for this to be configurable
 	return buildResponse(req.GetCurrentConfig(), &node.MetricsCapabilityConfig{
 		Enabled: enabled,
-		Spec:    m.desiredNodeSpec[id],
+		Spec: &node.MetricsCapabilitySpec{
+			Rules: &v1beta1.RulesSpec{
+				Discovery: &v1beta1.DiscoverySpec{
+					PrometheusRules: &v1beta1.PrometheusRulesSpec{},
+				},
+			},
+			Prometheus: &node.PrometheusSpec{
+				DeploymentStrategy: "externalPromOperator",
+			},
+		},
 	}), nil
+	// return buildResponse(req.GetCurrentConfig(), &node.MetricsCapabilityConfig{
+	// 	Enabled: enabled,
+	// 	Spec:    m.desiredNodeSpec[id],
+	// }), nil
 }
 
 // the calling function must have exclusive ownership of both old and new

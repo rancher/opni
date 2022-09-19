@@ -38,7 +38,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		node:         NewMetricsNode(ct, lg),
 	}
 
-	if d, err := drivers.NewExternalPromOperatorDriver(); err != nil {
+	if d, err := drivers.NewExternalPromOperatorDriver(lg.Named("external-operator")); err != nil {
 		lg.With(
 			"driver", d.Name(),
 			zap.Error(err),

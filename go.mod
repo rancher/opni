@@ -522,5 +522,3 @@ replace (
 	// is v0.19.1. We pin version from early December here. Feel free to remove when updating to later version.
 	github.com/thanos-io/thanos v0.22.0 => github.com/thanos-io/thanos v0.19.1-0.20211208205607-d1acaea2a11a
 )
-
-replace github.com/kralicky/totem => ../../totem

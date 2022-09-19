@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"fmt"
+
 	"github.com/rancher/opni/pkg/alerting/shared"
 
 	"emperror.dev/errors"
@@ -51,7 +52,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			Alerting: func() cfgv1beta1.AlertingSpec {
 				if r.spec.Alerting == nil {
 					return cfgv1beta1.AlertingSpec{
-						Namespace:             r.gw.Namespace,
+						Namespace:             r.namespace,
 						WorkerNodeService:     shared.OperatorAlertingClusterNodeServiceName,
 						WorkerPort:            9093,
 						WorkerStatefulSet:     shared.OperatorAlertingClusterNodeServiceName + "-internal",
@@ -65,14 +66,14 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 					}
 				}
 				return cfgv1beta1.AlertingSpec{
-					Namespace:             r.gw.Namespace,
+					Namespace:             r.namespace,
 					WorkerNodeService:     shared.OperatorAlertingClusterNodeServiceName,
-					WorkerPort:            r.gw.Spec.Alerting.WebPort,
+					WorkerPort:            r.spec.Alerting.WebPort,
 					WorkerStatefulSet:     shared.OperatorAlertingClusterNodeServiceName + "-internal",
 					ControllerNodeService: shared.OperatorAlertingControllerServiceName,
 					ControllerStatefulSet: shared.OperatorAlertingControllerServiceName + "-internal",
-					ControllerNodePort:    r.gw.Spec.Alerting.WebPort,
-					ControllerClusterPort: r.gw.Spec.Alerting.ClusterPort,
+					ControllerNodePort:    r.spec.Alerting.WebPort,
+					ControllerClusterPort: r.spec.Alerting.ClusterPort,
 					ConfigMap:             "alertmanager-config",
 				}
 			}(),

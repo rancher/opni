@@ -39,7 +39,7 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 						Enabled:     true,
 						ServiceType: corev1.ServiceTypeLoadBalancer,
 						WebPort:     9093,
-						ApiPort:     9094,
+						ClusterPort: 9094,
 						ConfigName:  "alertmanager-config",
 						GatewayVolumeMounts: []opnimeta.ExtraVolumeMount{
 							{
@@ -195,8 +195,8 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 				HaveMatchingContainer(And(
 					HaveImage("bitnami/alertmanager:latest"),
 					HavePorts(
-						"alert-web-port",
-						"alert-api-port",
+						"web-port",
+						"cluster-port",
 					),
 					HaveVolumeMounts(
 						"opni-alertmanager-data",
@@ -225,8 +225,8 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 			})).Should(ExistAnd(
 				HaveOwner(gw),
 				HavePorts(
-					"alert-web-port",
-					"alert-api-port",
+					"web-port",
+					"cluster-port",
 				),
 				HaveType(corev1.ServiceTypeLoadBalancer),
 			))

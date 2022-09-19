@@ -39,6 +39,7 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 						Enabled:     true,
 						ServiceType: corev1.ServiceTypeLoadBalancer,
 						WebPort:     9093,
+						ClusterPort: 9094,
 						ConfigName:  "alertmanager-config",
 						GatewayVolumeMounts: []opnimeta.ExtraVolumeMount{
 							{

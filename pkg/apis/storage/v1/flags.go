@@ -106,7 +106,7 @@ func (cfg *SwiftStorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.Flag
 }
 
 func (cfg *FilesystemStorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
-	f.StringVar(&cfg.Directory, prefix+"filesystem.dir", "", "Local filesystem storage directory.")
+	f.StringVar(&cfg.Directory, prefix+"filesystem.dir", "/data", "Local filesystem storage directory.")
 }
 
 func (cfg *HTTPConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {

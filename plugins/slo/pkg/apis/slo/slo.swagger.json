@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "Opni Alerting API",
+    "title": "Opni SLO API",
     "version": "1.0",
     "license": {
       "name": "Apache 2.0",
@@ -210,6 +210,55 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/sloCreateSLORequest"
+            }
+          }
+        ],
+        "tags": [
+          "SLO"
+        ]
+      }
+    },
+    "/slos/{cloneId.id}/cloneToClusters": {
+      "post": {
+        "operationId": "SLO_CloneToClusters",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/sloMultiClusterFailures"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cloneId.id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "cloneId": {
+                  "type": "object"
+                },
+                "clusters": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/coreReference"
+                  }
+                }
+              }
             }
           }
         ],
@@ -597,6 +646,17 @@
         },
         "unit": {
           "type": "string"
+        }
+      }
+    },
+    "sloMultiClusterFailures": {
+      "type": "object",
+      "properties": {
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

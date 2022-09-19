@@ -2,6 +2,7 @@ package slo
 
 import (
 	"context"
+	"emperror.dev/errors"
 	"fmt"
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
@@ -14,6 +15,37 @@ import (
 	"gopkg.in/yaml.v3"
 	"time"
 )
+
+func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, clusterId string, toApply []RuleGroupYAMLv2) error {
+	var errArr []error
+	for _, rules := range toApply {
+		err := applyCortexSLORules(
+			p,
+			lg,
+			ctx,
+			clusterId,
+			rules,
+		)
+		if err != nil {
+			errArr = append(errArr, err)
+		}
+	}
+	if len(errArr) > 0 {
+		for _, rules := range toApply {
+			err := deleteCortexSLORules(
+				p,
+				lg,
+				ctx,
+				clusterId,
+				rules.Name,
+			)
+			if err != nil {
+				errArr = append(errArr, err)
+			}
+		}
+	}
+	return errors.Combine(errArr...)
+}
 
 // Apply Cortex Rules to Cortex separately :
 // - recording rules

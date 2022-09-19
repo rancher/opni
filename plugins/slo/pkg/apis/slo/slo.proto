@@ -8,7 +8,6 @@ import "google/api/http.proto";
 import "google/api/annotations.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/rpc/status.proto";
-
 package slo;
 
 service SLO {
@@ -42,6 +41,13 @@ service SLO {
   rpc CloneSLO(core.Reference) returns (SLOData) {
     option (google.api.http) = {
       post: "/slos/{id}/clone"
+    };
+  }
+
+  rpc CloneToClusters(MultiClusterSLO) returns(MultiClusterFailures) {
+    option (google.api.http) = {
+      post: "/slos/{cloneId.id}/cloneToClusters"
+      body: "*"
     };
   }
 
@@ -83,6 +89,15 @@ service SLO {
       body: "*"
     };
   }
+}
+
+message MultiClusterSLO {
+  core.Reference cloneId = 1;
+  repeated core.Reference clusters = 2;
+}
+
+message MultiClusterFailures {
+  repeated string failures = 1;
 }
 
 message ListEventsRequest {

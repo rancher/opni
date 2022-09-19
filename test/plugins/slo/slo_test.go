@@ -127,7 +127,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	var pPort2 int
 	var instrumentationPort int
 	var done chan struct{}
-
+	var token *corev1.BootstrapToken
+	var info *managementv1.CertsInfoResponse
 	var createdSlos []*corev1.Reference
 
 	BeforeAll(func() {
@@ -138,11 +139,12 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		DeferCleanup(env.Stop)
 
 		client := env.NewManagementClient()
-		token, err := client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
+		var err error
+		token, err = client.CreateBootstrapToken(context.Background(), &managementv1.CreateBootstrapTokenRequest{
 			Ttl: durationpb.New(time.Hour),
 		})
 		Expect(err).NotTo(HaveOccurred())
-		info, err := client.CertsInfo(context.Background(), &emptypb.Empty{})
+		info, err = client.CertsInfo(context.Background(), &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
 		instrumentationPort, done = env.StartInstrumentationServer(ctx)
 		DeferCleanup(func() {
@@ -450,7 +452,7 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				resp, err := sloClient.Status(ctx, &corev1.Reference{Id: respList.Items[0].Id})
 				Expect(err).NotTo(HaveOccurred())
 				return resp.State
-			}, time.Minute*3, time.Second*30).Should(Equal(sloapi.SLOStatusState_Ok))
+			}, time.Minute*3, time.Second*30).Should(BeElementOf(sloapi.SLOStatusState_Ok, sloapi.SLOStatusState_PartialDataOk))
 		})
 
 		It("Should preview SLOs in a raw data format", func() {
@@ -538,8 +540,8 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 			})
 			Expect(err).To(Succeed())
 			Expect(respMyServer.PlotVector.Items).NotTo(BeEmpty())
-			Expect(respMyServer.PlotVector.Items[len(respMyServer.PlotVector.Items)-1].Sli).To(BeNumerically(">", 0))
-			Expect(respMyServer.PlotVector.Items[len(respMyServer.PlotVector.Items)-1].Sli).To(BeNumerically("<", 1))
+			Expect(respMyServer.PlotVector.Items[len(respMyServer.PlotVector.Items)-1].Sli).To(BeNumerically(">", 0.0))
+			Expect(respMyServer.PlotVector.Items[len(respMyServer.PlotVector.Items)-1].Sli).To(BeNumerically("<", 100.0))
 			Expect(respMyServer.PlotVector.Windows).To(HaveLen(2))
 			// both alerts should be firing based on the number of bad events detected
 			hasSevere, hasCritical := false, false
@@ -597,6 +599,69 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 				Expect(err).NotTo(HaveOccurred())
 				return resp.State
 			}, time.Minute*3, time.Second*30).Should(BeElementOf(sloapi.SLOStatusState_Warning, sloapi.SLOStatusState_Breaching))
+		})
+
+		Specify("Multi Cluster Clone should clone to valid targets", func() {
+			slos, err := sloClient.ListSLOs(ctx, &emptypb.Empty{})
+			Expect(err).To(Succeed())
+			Expect(slos.Items).NotTo(HaveLen(0))
+			toCloneId := slos.Items[0].Id
+			var agentsCancel []context.CancelFunc
+			var agentClusterIds []*corev1.Reference
+			for i := 0; i < 10; i++ {
+				id := fmt.Sprintf("agent-%d", i)
+				ctxCa, cancelFunc := context.WithCancel(ctx)
+				newP, _ := env.StartAgent(
+					id,
+					token,
+					[]string{info.Chain[len(info.Chain)-1].Fingerprint},
+					test.WithContext(ctxCa),
+				)
+				env.StartPrometheus(newP, test.NewOverridePrometheusConfig(
+					"slo/prometheus/config.yaml",
+					[]test.PrometheusJob{
+						{
+							JobName:    query.MockTestServerName,
+							ScrapePort: instrumentationPort,
+						},
+					}),
+				)
+				agentsCancel = append(agentsCancel, cancelFunc)
+				agentClusterIds = append(agentClusterIds, &corev1.Reference{Id: id})
+			}
+
+			Eventually(func() error {
+				stats, err := adminClient.AllUserStats(context.Background(), &emptypb.Empty{})
+				if err != nil {
+					return err
+				}
+				for _, expectedItem := range agentClusterIds {
+					found := false
+					for _, item := range stats.Items {
+						if item.UserID == expectedItem.Id {
+							if item.NumSeries > 0 {
+								found = true
+							}
+						}
+					}
+					if !found {
+						return fmt.Errorf("Waiting for metric data for cluster %s", expectedItem.Id)
+					}
+				}
+				return nil
+
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
+
+			failures, err := sloClient.CloneToClusters(ctx, &sloapi.MultiClusterSLO{
+				CloneId:  &corev1.Reference{Id: toCloneId},
+				Clusters: agentClusterIds,
+			})
+			Expect(err).To(Succeed())
+			Expect(failures.Failures).To(BeEmpty())
+
+			for _, cancelFunc := range agentsCancel {
+				cancelFunc()
+			}
 		})
 	})
 })

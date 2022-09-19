@@ -30,6 +30,7 @@ type SLOClient interface {
 	UpdateSLO(ctx context.Context, in *SLOData, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*SLOData, error)
+	CloneToClusters(ctx context.Context, in *MultiClusterSLO, opts ...grpc.CallOption) (*MultiClusterFailures, error)
 	// Returns a set of metrics with compatible implementations for
 	// a set of services
 	ListMetrics(ctx context.Context, in *ListMetricsRequest, opts ...grpc.CallOption) (*MetricGroupList, error)
@@ -103,6 +104,15 @@ func (c *sLOClient) CloneSLO(ctx context.Context, in *v1.Reference, opts ...grpc
 	return out, nil
 }
 
+func (c *sLOClient) CloneToClusters(ctx context.Context, in *MultiClusterSLO, opts ...grpc.CallOption) (*MultiClusterFailures, error) {
+	out := new(MultiClusterFailures)
+	err := c.cc.Invoke(ctx, "/slo.SLO/CloneToClusters", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sLOClient) ListMetrics(ctx context.Context, in *ListMetricsRequest, opts ...grpc.CallOption) (*MetricGroupList, error) {
 	out := new(MetricGroupList)
 	err := c.cc.Invoke(ctx, "/slo.SLO/ListMetrics", in, out, opts...)
@@ -158,6 +168,7 @@ type SLOServer interface {
 	UpdateSLO(context.Context, *SLOData) (*emptypb.Empty, error)
 	DeleteSLO(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	CloneSLO(context.Context, *v1.Reference) (*SLOData, error)
+	CloneToClusters(context.Context, *MultiClusterSLO) (*MultiClusterFailures, error)
 	// Returns a set of metrics with compatible implementations for
 	// a set of services
 	ListMetrics(context.Context, *ListMetricsRequest) (*MetricGroupList, error)
@@ -191,6 +202,9 @@ func (UnimplementedSLOServer) DeleteSLO(context.Context, *v1.Reference) (*emptyp
 }
 func (UnimplementedSLOServer) CloneSLO(context.Context, *v1.Reference) (*SLOData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CloneSLO not implemented")
+}
+func (UnimplementedSLOServer) CloneToClusters(context.Context, *MultiClusterSLO) (*MultiClusterFailures, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CloneToClusters not implemented")
 }
 func (UnimplementedSLOServer) ListMetrics(context.Context, *ListMetricsRequest) (*MetricGroupList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListMetrics not implemented")
@@ -328,6 +342,24 @@ func _SLO_CloneSLO_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SLO_CloneToClusters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MultiClusterSLO)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SLOServer).CloneToClusters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/slo.SLO/CloneToClusters",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SLOServer).CloneToClusters(ctx, req.(*MultiClusterSLO))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SLO_ListMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListMetricsRequest)
 	if err := dec(in); err != nil {
@@ -448,6 +480,10 @@ var SLO_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CloneSLO",
 			Handler:    _SLO_CloneSLO_Handler,
+		},
+		{
+			MethodName: "CloneToClusters",
+			Handler:    _SLO_CloneToClusters_Handler,
 		},
 		{
 			MethodName: "ListMetrics",

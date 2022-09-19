@@ -7,12 +7,16 @@ import (
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/tidwall/gjson"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"strconv"
+	"sync"
 	"time"
 )
 
@@ -27,78 +31,27 @@ func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 	slo := CreateSLORequestToStruct(req)
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
-	var anyError error
-	for _, rules := range toApply {
-		err := applyCortexSLORules(
-			s.p,
-			s.p.logger,
-			s.ctx,
-			req.GetSlo().GetClusterId(),
-			rules,
-		)
-		if err != nil {
-			anyError = err
-		}
-	}
-	if anyError != nil {
-		for _, rules := range toApply {
-			err := deleteCortexSLORules(
-				s.p,
-				s.p.logger,
-				s.ctx,
-				req.GetSlo().GetClusterId(),
-				rules.Name,
-			)
-			if err != nil {
-				anyError = err
-			}
-		}
-	}
-	return &corev1.Reference{Id: slo.GetId()}, anyError
+	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, req.GetSlo().GetClusterId(), toApply)
+	return &corev1.Reference{Id: slo.GetId()}, err
 }
 
 func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error) {
-	req := (s.req).(*sloapi.SLOData) // Create is the same as Update if within the same cluster
-	newSlo := SLODataToStruct(req)
+	incomingSLO := (s.req).(*sloapi.SLOData) // Create is the same as Update if within the same cluster
+	newSlo := SLODataToStruct(incomingSLO)
 	rrecording, rmetadata, ralerting := newSlo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
-	var anyError error
-	for _, rules := range toApply {
-		err := applyCortexSLORules(
-			s.p,
-			s.p.logger,
-			s.ctx,
-			req.GetSLO().GetClusterId(),
-			rules,
-		)
+	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, incomingSLO.GetSLO().GetClusterId(), toApply)
+
+	// successfully applied rules to another cluster
+	if err == nil && existing.SLO.ClusterId != incomingSLO.SLO.ClusterId {
+		_, err := s.p.DeleteSLO(s.ctx, &corev1.Reference{Id: existing.Id})
 		if err != nil {
-			anyError = err
-		}
-	}
-	if anyError != nil {
-		for _, rules := range toApply {
-			err := deleteCortexSLORules(
-				s.p,
-				s.p.logger,
-				s.ctx,
-				req.GetSLO().GetClusterId(),
-				rules.Name,
-			)
-			if err != nil {
-				anyError = err
-			}
-		}
-	}
-	// clean up old rules
-	if anyError == nil && existing.SLO.ClusterId != req.SLO.ClusterId {
-		_, err := s.p.DeleteSLO(s.ctx, &corev1.Reference{Id: req.Id})
-		if err != nil {
-			s.lg.With("sloId", req.Id).Error(fmt.Sprintf(
+			s.lg.With("sloId", existing.Id).Error(fmt.Sprintf(
 				"Unable to delete SLO when updating between clusters :  %v",
 				err))
 		}
 	}
-	return req, anyError
+	return incomingSLO, err
 }
 
 func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
@@ -129,38 +82,97 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.
 	slo.SetName(sloData.GetName() + "-clone")
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
-	var anyError error
-	for _, rules := range toApply {
-		err := applyCortexSLORules(
-			s.p,
-			s.p.logger,
-			s.ctx,
-			sloData.GetClusterId(),
-			rules,
-		)
-		if err != nil {
-			anyError = err
-		}
-	}
-	if anyError != nil {
-		for _, rules := range toApply {
-			err := deleteCortexSLORules(
-				s.p,
-				s.p.logger,
-				s.ctx,
-				sloData.GetClusterId(),
-				rules.Name,
-			)
-			if err != nil {
-				anyError = err
-			}
-		}
-	}
+	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, sloData.GetClusterId(), toApply)
 	clonedData.SLO.Name = sloData.Name + "-clone"
 	clonedData.Id = slo.GetId()
+	return &corev1.Reference{Id: slo.GetId()}, clonedData, err
+}
 
-	return &corev1.Reference{Id: slo.GetId()}, clonedData, anyError
+func (s SLOMonitoring) MultiClusterClone(
+	base *sloapi.SLOData,
+	inputClusters []*corev1.Reference,
+	svcBackend ServiceBackend,
+) ([]*corev1.Reference, []*sloapi.SLOData, []error) {
+	clonedData := util.ProtoClone(base)
+	sloData := clonedData.GetSLO()
+	slo := SLODataToStruct(clonedData)
 
+	clusters, err := s.p.mgmtClient.Get().ListClusters(s.ctx, &managementv1.ListClustersRequest{})
+	if err != nil {
+		return nil, nil, []error{err}
+	}
+	var clusterIds []string
+
+	for _, cluster := range clusters.Items {
+		clusterIds = append(clusterIds, cluster.Id)
+	}
+	clusterDefinitions := make([]*sloapi.SLOData, len(inputClusters))
+	clusterIdsCreate := make([]*corev1.Reference, len(inputClusters))
+	errArr := make([]error, len(inputClusters))
+	var wg sync.WaitGroup
+	for idx, clusterId := range inputClusters {
+		wg.Add(1)
+		slo.SetId(uuid.New().String())
+		slo.SetName(fmt.Sprintf("%s-clone-%d", sloData.GetName(), idx))
+		rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
+		toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
+		// capture in closure
+		idx := idx
+		clusterId := clusterId
+		go func() {
+			defer wg.Done()
+			if !slices.Contains(clusterIds, clusterId.Id) {
+				errArr[idx] = fmt.Errorf("cluster %s not found", clusterId.Id)
+				return
+			}
+			svcBackend.WithCurrentRequest(&sloapi.ListServicesRequest{
+				Datasource: "monitoring",
+				ClusterId:  clusterId.Id,
+			}, s.ctx)
+			services, err := svcBackend.ListServices()
+			if err != nil {
+				errArr[idx] = err
+				return
+			}
+			if services.ContainsId(sloData.GetServiceId()) {
+				errArr[idx] = fmt.Errorf("service %s not found on cluster %s", sloData.GetServiceId(), clusterId.Id)
+				return
+			}
+			svcBackend.WithCurrentRequest(&sloapi.ListMetricsRequest{
+				Datasource: "monitoring",
+				ClusterId:  clusterId.Id,
+				ServiceId:  sloData.GetServiceId(),
+			}, s.ctx)
+			metrics, err := svcBackend.ListMetrics()
+			if err != nil {
+				errArr[idx] = err
+				return
+			}
+			if !metrics.ContainsId(sloData.GetGoodMetricName()) {
+				errArr[idx] = fmt.Errorf(
+					"good metric %s not found on cluster %s",
+					sloData.GetGoodMetricName(),
+					clusterId.Id,
+				)
+				return
+			}
+			if !metrics.ContainsId(sloData.GetTotalMetricName()) {
+				errArr[idx] = fmt.Errorf(
+					"total metric %s not found on cluster %s",
+					sloData.GetTotalMetricName(),
+					clusterId.Id,
+				)
+				return
+			}
+			errArr[idx] = tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, clusterId.Id, toApply)
+		}()
+		clonedData.SLO.Name = sloData.Name + "-clone-" + strconv.Itoa(idx)
+		clonedData.Id = slo.GetId()
+		clusterDefinitions[idx] = clonedData
+		clusterIdsCreate[idx] = &corev1.Reference{Id: slo.GetId()}
+	}
+	wg.Wait()
+	return clusterIdsCreate, clusterDefinitions, errArr
 }
 
 // Status Only return errors here that should be considered severe InternalServerErrors

@@ -1,8 +1,12 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "Opni SLO API",
-    "version": "1.0"
+    "title": "Opni Alerting API",
+    "version": "1.0",
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://github.com/rancher/opni/blob/main/LICENSE"
+    }
   },
   "tags": [
     {
@@ -84,22 +88,12 @@
         },
         "parameters": [
           {
-            "name": "datasource",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "clusterId",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "serviceId",
-            "in": "query",
-            "required": false,
-            "type": "string"
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/sloListMetricsRequest"
+            }
           }
         ],
         "tags": [
@@ -127,16 +121,12 @@
         },
         "parameters": [
           {
-            "name": "datasource",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "clusterId",
-            "in": "query",
-            "required": false,
-            "type": "string"
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/sloListServicesRequest"
+            }
           }
         ],
         "tags": [
@@ -215,59 +205,12 @@
         },
         "parameters": [
           {
-            "name": "slo.name",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "slo.datasource",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "slo.clusterId",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "slo.serviceId",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "slo.goodMetricName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "slo.totalMetricName",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "slo.sloPeriod",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "slo.budgetingInterval",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "slo.target.value",
-            "in": "query",
-            "required": false,
-            "type": "number",
-            "format": "double"
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/sloCreateSLORequest"
+            }
           }
         ],
         "tags": [
@@ -581,6 +524,31 @@
       "type": "object",
       "properties": {
         "name": {
+          "type": "string"
+        }
+      }
+    },
+    "sloListMetricsRequest": {
+      "type": "object",
+      "properties": {
+        "datasource": {
+          "type": "string"
+        },
+        "clusterId": {
+          "type": "string"
+        },
+        "serviceId": {
+          "type": "string"
+        }
+      }
+    },
+    "sloListServicesRequest": {
+      "type": "object",
+      "properties": {
+        "datasource": {
+          "type": "string"
+        },
+        "clusterId": {
           "type": "string"
         }
       }

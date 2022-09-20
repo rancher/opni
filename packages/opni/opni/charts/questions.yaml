@@ -287,56 +287,6 @@ questions:
         default: "/data/store"
         required: true
         label: "Directory"
-  - variable: logging.enabled
-    type: boolean
-    default: "false"
-    group: "Logging"
-    label: "Enable Logging"
-    show_subquestion_if: true
-    subquestions:
-    - variable: logging.externalURL
-      type: string
-      default: ""
-      label: Opensearch External URL
-    - variable: logging.opensearch.persistence.enabled
-      type: boolean
-      default: false
-      label: Enable persistent storage
-    - variable: logging.opensearch.persistence.storageClass
-      show_if: logging.opensearch.persistence.enabled=true
-      default: ""
-      type: storageclass
-    - variable: logging.opensearch.exposeDataNodes.enabled
-      type: boolean
-      default: false
-      label: Expose Opensearch data nodes
-    - variable: logging.opensearch.exposeDataNodes.serviceType
-      show_if: "logging.opensearch.exposeDataNodes.enabled=true"
-      description: "Opensearch data nodes service type"
-      type: enum
-      default: "LoadBalancer"
-      label: "Service Type"
-      options:
-        - LoadBalancer
-        - NodePort
-        - ClusterIP
-    - variable: logging.local.enabled
-      type: boolean
-      default: false
-      label: "Ship logs from local cluster to Opni Logging"
-    - variable: logging.local.provider
-      show_if: "logging.local.enabled=true"
-      type: enum
-      default: "generic"
-      label: "Kubernetes Provider"
-      options:
-      - eks
-      - aks
-      - gce
-      - rke
-      - rke2
-      - k3s
-      - generic
   - variable: ai.enabled
     type: boolean
     default: "false"

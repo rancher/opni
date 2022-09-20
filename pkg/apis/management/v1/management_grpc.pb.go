@@ -8,6 +8,7 @@ package v1
 
 import (
 	context "context"
+	v11 "github.com/rancher/opni/pkg/apis/capability/v1"
 	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -48,9 +49,10 @@ type ManagementClient interface {
 	GetConfig(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GatewayConfig, error)
 	UpdateConfig(ctx context.Context, in *UpdateConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListCapabilities(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CapabilityList, error)
+	// Deprecated: Do not use.
 	// Deprecated: For agent v2, use InstallCapability instead.
 	CapabilityInstaller(ctx context.Context, in *CapabilityInstallerRequest, opts ...grpc.CallOption) (*CapabilityInstallerResponse, error)
-	InstallCapability(ctx context.Context, in *CapabilityInstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	InstallCapability(ctx context.Context, in *CapabilityInstallRequest, opts ...grpc.CallOption) (*v11.InstallResponse, error)
 	UninstallCapability(ctx context.Context, in *CapabilityUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CapabilityUninstallStatus(ctx context.Context, in *CapabilityStatusRequest, opts ...grpc.CallOption) (*v1.TaskStatus, error)
 	CancelCapabilityUninstall(ctx context.Context, in *CapabilityUninstallCancelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -303,6 +305,7 @@ func (c *managementClient) ListCapabilities(ctx context.Context, in *emptypb.Emp
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *managementClient) CapabilityInstaller(ctx context.Context, in *CapabilityInstallerRequest, opts ...grpc.CallOption) (*CapabilityInstallerResponse, error) {
 	out := new(CapabilityInstallerResponse)
 	err := c.cc.Invoke(ctx, "/management.Management/CapabilityInstaller", in, out, opts...)
@@ -312,8 +315,8 @@ func (c *managementClient) CapabilityInstaller(ctx context.Context, in *Capabili
 	return out, nil
 }
 
-func (c *managementClient) InstallCapability(ctx context.Context, in *CapabilityInstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *managementClient) InstallCapability(ctx context.Context, in *CapabilityInstallRequest, opts ...grpc.CallOption) (*v11.InstallResponse, error) {
+	out := new(v11.InstallResponse)
 	err := c.cc.Invoke(ctx, "/management.Management/InstallCapability", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -376,9 +379,10 @@ type ManagementServer interface {
 	GetConfig(context.Context, *emptypb.Empty) (*GatewayConfig, error)
 	UpdateConfig(context.Context, *UpdateConfigRequest) (*emptypb.Empty, error)
 	ListCapabilities(context.Context, *emptypb.Empty) (*CapabilityList, error)
+	// Deprecated: Do not use.
 	// Deprecated: For agent v2, use InstallCapability instead.
 	CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error)
-	InstallCapability(context.Context, *CapabilityInstallRequest) (*emptypb.Empty, error)
+	InstallCapability(context.Context, *CapabilityInstallRequest) (*v11.InstallResponse, error)
 	UninstallCapability(context.Context, *CapabilityUninstallRequest) (*emptypb.Empty, error)
 	CapabilityUninstallStatus(context.Context, *CapabilityStatusRequest) (*v1.TaskStatus, error)
 	CancelCapabilityUninstall(context.Context, *CapabilityUninstallCancelRequest) (*emptypb.Empty, error)
@@ -464,7 +468,7 @@ func (UnimplementedManagementServer) ListCapabilities(context.Context, *emptypb.
 func (UnimplementedManagementServer) CapabilityInstaller(context.Context, *CapabilityInstallerRequest) (*CapabilityInstallerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CapabilityInstaller not implemented")
 }
-func (UnimplementedManagementServer) InstallCapability(context.Context, *CapabilityInstallRequest) (*emptypb.Empty, error) {
+func (UnimplementedManagementServer) InstallCapability(context.Context, *CapabilityInstallRequest) (*v11.InstallResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InstallCapability not implemented")
 }
 func (UnimplementedManagementServer) UninstallCapability(context.Context, *CapabilityUninstallRequest) (*emptypb.Empty, error) {

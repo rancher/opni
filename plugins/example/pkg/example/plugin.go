@@ -110,7 +110,7 @@ func (p *ExamplePlugin) Status(ctx context.Context, req *capabilityv1.StatusRequ
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 
-func (s *ExamplePlugin) Install(context.Context, *capabilityv1.InstallRequest) (*emptypb.Empty, error) {
+func (s *ExamplePlugin) Install(context.Context, *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
 	return nil, nil
 }
 

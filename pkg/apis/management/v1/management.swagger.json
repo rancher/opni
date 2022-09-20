@@ -427,8 +427,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "type": "object",
-              "properties": {}
+              "$ref": "#/definitions/capabilityInstallResponse"
             }
           },
           "default": {
@@ -450,6 +449,27 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "target": {
+                  "type": "object",
+                  "properties": {
+                    "cluster": {
+                      "type": "object"
+                    },
+                    "ignoreWarnings": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "tags": [
@@ -994,8 +1014,32 @@
       "properties": {
         "cluster": {
           "$ref": "#/definitions/coreReference"
+        },
+        "ignoreWarnings": {
+          "type": "boolean"
         }
       }
+    },
+    "capabilityInstallResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/capabilityInstallResponseStatus"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilityInstallResponseStatus": {
+      "type": "string",
+      "enum": [
+        "Unknown",
+        "Success",
+        "Warning",
+        "Error"
+      ],
+      "default": "Unknown"
     },
     "capabilityUninstallRequest": {
       "type": "object",

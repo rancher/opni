@@ -77,28 +77,46 @@ func (m *MetricsBackend) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv
 }
 
 func (m *MetricsBackend) CanInstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	if !m.Initialized() {
-		return nil, status.Error(codes.Unavailable, "metrics backend is not ready")
+	m.WaitForInit()
+
+	if err := m.canInstall(ctx); err != nil {
+		return nil, err
 	}
+	return &emptypb.Empty{}, nil
+}
+
+func (m *MetricsBackend) canInstall(ctx context.Context) error {
 	stat, err := m.ClusterDriver.GetClusterStatus(ctx, &emptypb.Empty{})
 	if err != nil {
-		return nil, status.Error(codes.Unavailable, err.Error())
+		return status.Error(codes.Unavailable, err.Error())
 	}
 	switch stat.State {
 	case cortexops.InstallState_Updating, cortexops.InstallState_Installed:
 		// ok
 	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Uninstalling:
-		return nil, status.Error(codes.Unavailable, fmt.Sprintf("cortex cluster is not installed"))
+		return status.Error(codes.Unavailable, fmt.Sprintf("cortex cluster is not installed"))
 	case cortexops.InstallState_Unknown:
 		fallthrough
 	default:
-		return nil, status.Error(codes.Internal, fmt.Sprintf("unknown cortex cluster state"))
+		return status.Error(codes.Internal, fmt.Sprintf("unknown cortex cluster state"))
 	}
-	return &emptypb.Empty{}, nil
+	return nil
 }
 
-func (m *MetricsBackend) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*emptypb.Empty, error) {
+func (m *MetricsBackend) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
 	m.WaitForInit()
+
+	var warningErr error
+	if err := m.canInstall(ctx); err != nil {
+		if !req.IgnoreWarnings {
+			return &capabilityv1.InstallResponse{
+				Status:  capabilityv1.InstallResponseStatus_Error,
+				Message: err.Error(),
+			}, nil
+		} else {
+			warningErr = err
+		}
+	}
 
 	_, err := m.StorageBackend.UpdateCluster(ctx, req.Cluster,
 		storage.NewAddCapabilityMutator[*corev1.Cluster](capabilities.Cluster(wellknown.CapabilityMetrics)),
@@ -108,7 +126,16 @@ func (m *MetricsBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 	}
 
 	m.requestNodeSync(ctx, req.Cluster)
-	return &emptypb.Empty{}, nil
+
+	if warningErr != nil {
+		return &capabilityv1.InstallResponse{
+			Status:  capabilityv1.InstallResponseStatus_Warning,
+			Message: warningErr.Error(),
+		}, nil
+	}
+	return &capabilityv1.InstallResponse{
+		Status: capabilityv1.InstallResponseStatus_Success,
+	}, nil
 }
 
 func (m *MetricsBackend) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
@@ -233,16 +260,21 @@ func (m *MetricsBackend) requestNodeSync(ctx context.Context, cluster *corev1.Re
 			CapabilityNames: []string{wellknown.CapabilityMetrics},
 		},
 	})
+
+	name := cluster.GetId()
+	if name == "" {
+		name = "(all)"
+	}
 	if err != nil {
 		m.Logger.With(
-			"cluster", cluster,
+			"cluster", name,
 			"capability", wellknown.CapabilityMetrics,
 			zap.Error(err),
 		).Warn("failed to request node sync; nodes may not be updated immediately")
 		return
 	}
 	m.Logger.With(
-		"cluster", cluster,
+		"cluster", name,
 		"capability", wellknown.CapabilityMetrics,
 	).Info("node sync requested")
 }
@@ -270,13 +302,16 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 			enabled = (cap.DeletionTimestamp == nil)
 		}
 	}
+	var conditions []string
 	if enabled {
 		// auto-disable if cortex is not installed
 		if err := m.ClusterDriver.ShouldDisableNode(cluster.Reference()); err != nil {
+			reason := status.Convert(err).Message()
 			m.Logger.With(
-				"reason", err.Error(),
+				"reason", reason,
 			).Info("disabling metrics capability for node")
 			enabled = false
+			conditions = append(conditions, reason)
 		}
 	}
 
@@ -297,7 +332,8 @@ func (m *MetricsBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 
 	// todo: allow for this to be configurable
 	return buildResponse(req.GetCurrentConfig(), &node.MetricsCapabilityConfig{
-		Enabled: enabled,
+		Enabled:    enabled,
+		Conditions: conditions,
 		Spec: &node.MetricsCapabilitySpec{
 			Rules: &v1beta1.RulesSpec{
 				Discovery: &v1beta1.DiscoverySpec{
@@ -331,6 +367,7 @@ func buildResponse(old, new *node.MetricsCapabilityConfig) *node.SyncResponse {
 // Cortex Ops Backend
 
 func (m *MetricsBackend) ConfigureCluster(ctx context.Context, in *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
+	defer m.requestNodeSync(ctx, &corev1.Reference{})
 	return m.ClusterDriver.ConfigureCluster(ctx, in)
 }
 
@@ -352,5 +389,6 @@ func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty
 	if len(clustersWithCapability) > 0 {
 		return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("metrics capability is still installed on the following clusters: %s", strings.Join(clustersWithCapability, ", ")))
 	}
+	defer m.requestNodeSync(ctx, &corev1.Reference{})
 	return m.ClusterDriver.UninstallCluster(ctx, in)
 }

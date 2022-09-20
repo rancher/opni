@@ -29,7 +29,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 )
 
-func (p *Plugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*emptypb.Empty, error) {
+func (p *Plugin) Install(ctx context.Context, req *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
 	labels := map[string]string{
 		resources.OpniClusterID: req.Cluster.Id,
 	}

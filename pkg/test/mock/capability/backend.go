@@ -99,14 +99,14 @@ func (mr *MockBackendClientMockRecorder) Info(ctx, in interface{}, opts ...inter
 }
 
 // Install mocks base method.
-func (m *MockBackendClient) Install(ctx context.Context, in *v1.InstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (m *MockBackendClient) Install(ctx context.Context, in *v1.InstallRequest, opts ...grpc.CallOption) (*v1.InstallResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Install", varargs...)
-	ret0, _ := ret[0].(*emptypb.Empty)
+	ret0, _ := ret[0].(*v1.InstallResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -267,10 +267,10 @@ func (mr *MockBackendServerMockRecorder) Info(arg0, arg1 interface{}) *gomock.Ca
 }
 
 // Install mocks base method.
-func (m *MockBackendServer) Install(arg0 context.Context, arg1 *v1.InstallRequest) (*emptypb.Empty, error) {
+func (m *MockBackendServer) Install(arg0 context.Context, arg1 *v1.InstallRequest) (*v1.InstallResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Install", arg0, arg1)
-	ret0, _ := ret[0].(*emptypb.Empty)
+	ret0, _ := ret[0].(*v1.InstallResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

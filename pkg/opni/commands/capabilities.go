@@ -59,27 +59,38 @@ func BuildCapabilityListCmd() *cobra.Command {
 }
 
 func BuildCapabilityInstallCmd() *cobra.Command {
+	var ignoreWarnings bool
 	cmd := &cobra.Command{
 		Use:   "install <cluster-id> <capability-name>",
 		Short: "Install a capability on a cluster",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := mgmtClient.InstallCapability(cmd.Context(), &managementv1.CapabilityInstallRequest{
+			resp, err := mgmtClient.InstallCapability(cmd.Context(), &managementv1.CapabilityInstallRequest{
 				Name: args[1],
 				Target: &capabilityv1.InstallRequest{
 					Cluster: &corev1.Reference{
 						Id: args[0],
 					},
+					IgnoreWarnings: ignoreWarnings,
 				},
 			})
 			if err != nil {
-				return fmt.Errorf("install failed: %w", err)
+				return err
 			}
 
-			lg.Info("Capability installed successfully")
+			switch resp.Status {
+			case capabilityv1.InstallResponseStatus_Success:
+				lg.Info("Capability installed successfully")
+			case capabilityv1.InstallResponseStatus_Warning:
+				lg.Warn("Capability installed with warning: " + resp.Message)
+			case capabilityv1.InstallResponseStatus_Error:
+				lg.Error("Capability installation failed (retry with --ignore-warnings to install anyway): " + resp.Message)
+			}
+
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&ignoreWarnings, "ignore-warnings", false, "Proceed with installation even if warnings are present")
 	return cmd
 }
 

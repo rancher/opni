@@ -25,6 +25,58 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type InstallResponseStatus int32
+
+const (
+	InstallResponseStatus_Unknown InstallResponseStatus = 0
+	InstallResponseStatus_Success InstallResponseStatus = 1
+	InstallResponseStatus_Warning InstallResponseStatus = 2
+	InstallResponseStatus_Error   InstallResponseStatus = 3
+)
+
+// Enum value maps for InstallResponseStatus.
+var (
+	InstallResponseStatus_name = map[int32]string{
+		0: "Unknown",
+		1: "Success",
+		2: "Warning",
+		3: "Error",
+	}
+	InstallResponseStatus_value = map[string]int32{
+		"Unknown": 0,
+		"Success": 1,
+		"Warning": 2,
+		"Error":   3,
+	}
+)
+
+func (x InstallResponseStatus) Enum() *InstallResponseStatus {
+	p := new(InstallResponseStatus)
+	*p = x
+	return p
+}
+
+func (x InstallResponseStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (InstallResponseStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_enumTypes[0].Descriptor()
+}
+
+func (InstallResponseStatus) Type() protoreflect.EnumType {
+	return &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_enumTypes[0]
+}
+
+func (x InstallResponseStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use InstallResponseStatus.Descriptor instead.
+func (InstallResponseStatus) EnumDescriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDescGZIP(), []int{0}
+}
+
 type SyncRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -179,7 +231,8 @@ type InstallRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Cluster *v1.Reference `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
+	Cluster        *v1.Reference `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
+	IgnoreWarnings bool          `protobuf:"varint,2,opt,name=ignoreWarnings,proto3" json:"ignoreWarnings,omitempty"`
 }
 
 func (x *InstallRequest) Reset() {
@@ -221,6 +274,68 @@ func (x *InstallRequest) GetCluster() *v1.Reference {
 	return nil
 }
 
+func (x *InstallRequest) GetIgnoreWarnings() bool {
+	if x != nil {
+		return x.IgnoreWarnings
+	}
+	return false
+}
+
+type InstallResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Status  InstallResponseStatus `protobuf:"varint,1,opt,name=status,proto3,enum=capability.InstallResponseStatus" json:"status,omitempty"`
+	Message string                `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+}
+
+func (x *InstallResponse) Reset() {
+	*x = InstallResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *InstallResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InstallResponse) ProtoMessage() {}
+
+func (x *InstallResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InstallResponse.ProtoReflect.Descriptor instead.
+func (*InstallResponse) Descriptor() ([]byte, []int) {
+	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *InstallResponse) GetStatus() InstallResponseStatus {
+	if x != nil {
+		return x.Status
+	}
+	return InstallResponseStatus_Unknown
+}
+
+func (x *InstallResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 type UninstallRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -233,7 +348,7 @@ type UninstallRequest struct {
 func (x *UninstallRequest) Reset() {
 	*x = UninstallRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[4]
+		mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -246,7 +361,7 @@ func (x *UninstallRequest) String() string {
 func (*UninstallRequest) ProtoMessage() {}
 
 func (x *UninstallRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[4]
+	mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -259,7 +374,7 @@ func (x *UninstallRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UninstallRequest.ProtoReflect.Descriptor instead.
 func (*UninstallRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDescGZIP(), []int{4}
+	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UninstallRequest) GetCluster() *v1.Reference {
@@ -287,7 +402,7 @@ type InstallerTemplateResponse struct {
 func (x *InstallerTemplateResponse) Reset() {
 	*x = InstallerTemplateResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[5]
+		mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -300,7 +415,7 @@ func (x *InstallerTemplateResponse) String() string {
 func (*InstallerTemplateResponse) ProtoMessage() {}
 
 func (x *InstallerTemplateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[5]
+	mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -313,7 +428,7 @@ func (x *InstallerTemplateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InstallerTemplateResponse.ProtoReflect.Descriptor instead.
 func (*InstallerTemplateResponse) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDescGZIP(), []int{5}
+	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *InstallerTemplateResponse) GetTemplate() string {
@@ -334,7 +449,7 @@ type StatusRequest struct {
 func (x *StatusRequest) Reset() {
 	*x = StatusRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[6]
+		mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -347,7 +462,7 @@ func (x *StatusRequest) String() string {
 func (*StatusRequest) ProtoMessage() {}
 
 func (x *StatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[6]
+	mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -360,7 +475,7 @@ func (x *StatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusRequest.ProtoReflect.Descriptor instead.
 func (*StatusRequest) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDescGZIP(), []int{6}
+	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *StatusRequest) GetCluster() *v1.Reference {
@@ -382,7 +497,7 @@ type NodeCapabilityStatus struct {
 func (x *NodeCapabilityStatus) Reset() {
 	*x = NodeCapabilityStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[7]
+		mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -395,7 +510,7 @@ func (x *NodeCapabilityStatus) String() string {
 func (*NodeCapabilityStatus) ProtoMessage() {}
 
 func (x *NodeCapabilityStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[7]
+	mi := &file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -408,7 +523,7 @@ func (x *NodeCapabilityStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeCapabilityStatus.ProtoReflect.Descriptor instead.
 func (*NodeCapabilityStatus) Descriptor() ([]byte, []int) {
-	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDescGZIP(), []int{7}
+	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *NodeCapabilityStatus) GetEnabled() bool {
@@ -457,11 +572,20 @@ var file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDesc
 	0x79, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x22, 0x36, 0x0a, 0x0c, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65,
 	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x26, 0x0a, 0x0e, 0x63, 0x61, 0x70, 0x61, 0x62, 0x69,
 	0x6c, 0x69, 0x74, 0x79, 0x4e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0e,
-	0x63, 0x61, 0x70, 0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x3b,
+	0x63, 0x61, 0x70, 0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x63,
 	0x0a, 0x0e, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
 	0x12, 0x29, 0x0a, 0x07, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x0b, 0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e,
-	0x63, 0x65, 0x52, 0x07, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x22, 0x57, 0x0a, 0x10, 0x55,
+	0x63, 0x65, 0x52, 0x07, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x12, 0x26, 0x0a, 0x0e, 0x69,
+	0x67, 0x6e, 0x6f, 0x72, 0x65, 0x57, 0x61, 0x72, 0x6e, 0x69, 0x6e, 0x67, 0x73, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x08, 0x52, 0x0e, 0x69, 0x67, 0x6e, 0x6f, 0x72, 0x65, 0x57, 0x61, 0x72, 0x6e, 0x69,
+	0x6e, 0x67, 0x73, 0x22, 0x66, 0x0a, 0x0f, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x39, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x21, 0x2e, 0x63, 0x61, 0x70, 0x61, 0x62, 0x69, 0x6c,
+	0x69, 0x74, 0x79, 0x2e, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75,
+	0x73, 0x12, 0x18, 0x0a, 0x07, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x07, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x57, 0x0a, 0x10, 0x55,
 	0x6e, 0x69, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
 	0x29, 0x0a, 0x07, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
 	0x32, 0x0f, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63,
@@ -481,19 +605,24 @@ var file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDesc
 	0x61, 0x73, 0x74, 0x53, 0x79, 0x6e, 0x63, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e,
 	0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e,
 	0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x08, 0x6c, 0x61, 0x73, 0x74, 0x53,
-	0x79, 0x6e, 0x63, 0x32, 0x9a, 0x04, 0x0a, 0x07, 0x42, 0x61, 0x63, 0x6b, 0x65, 0x6e, 0x64, 0x12,
-	0x38, 0x0a, 0x04, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65,
-	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a,
-	0x18, 0x2e, 0x63, 0x61, 0x70, 0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x2e, 0x49, 0x6e, 0x66,
-	0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x41, 0x0a, 0x0a, 0x43, 0x61, 0x6e,
-	0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x12, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65,
-	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a,
-	0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75,
-	0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x03, 0x88, 0x02, 0x01, 0x12, 0x3d, 0x0a, 0x07,
-	0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x12, 0x1a, 0x2e, 0x63, 0x61, 0x70, 0x61, 0x62, 0x69,
-	0x6c, 0x69, 0x74, 0x79, 0x2e, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x12, 0x45, 0x0a, 0x06, 0x53,
+	0x79, 0x6e, 0x63, 0x2a, 0x49, 0x0a, 0x15, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x0b, 0x0a, 0x07,
+	0x55, 0x6e, 0x6b, 0x6e, 0x6f, 0x77, 0x6e, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x53, 0x75, 0x63,
+	0x63, 0x65, 0x73, 0x73, 0x10, 0x01, 0x12, 0x0b, 0x0a, 0x07, 0x57, 0x61, 0x72, 0x6e, 0x69, 0x6e,
+	0x67, 0x10, 0x02, 0x12, 0x09, 0x0a, 0x05, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x10, 0x03, 0x32, 0x9f,
+	0x04, 0x0a, 0x07, 0x42, 0x61, 0x63, 0x6b, 0x65, 0x6e, 0x64, 0x12, 0x38, 0x0a, 0x04, 0x49, 0x6e,
+	0x66, 0x6f, 0x12, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x18, 0x2e, 0x63, 0x61, 0x70,
+	0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x2e, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x41, 0x0a, 0x0a, 0x43, 0x61, 0x6e, 0x49, 0x6e, 0x73, 0x74, 0x61,
+	0x6c, 0x6c, 0x12, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f,
+	0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70,
+	0x74, 0x79, 0x22, 0x03, 0x88, 0x02, 0x01, 0x12, 0x42, 0x0a, 0x07, 0x49, 0x6e, 0x73, 0x74, 0x61,
+	0x6c, 0x6c, 0x12, 0x1a, 0x2e, 0x63, 0x61, 0x70, 0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x2e,
+	0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1b,
+	0x2e, 0x63, 0x61, 0x70, 0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x2e, 0x49, 0x6e, 0x73, 0x74,
+	0x61, 0x6c, 0x6c, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x45, 0x0a, 0x06, 0x53,
 	0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x19, 0x2e, 0x63, 0x61, 0x70, 0x61, 0x62, 0x69, 0x6c, 0x69,
 	0x74, 0x79, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
 	0x1a, 0x20, 0x2e, 0x63, 0x61, 0x70, 0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x2e, 0x4e, 0x6f,
@@ -542,53 +671,57 @@ func file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDes
 	return file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDescData
 }
 
-var file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_goTypes = []interface{}{
-	(*SyncRequest)(nil),               // 0: capability.SyncRequest
-	(*Filter)(nil),                    // 1: capability.Filter
-	(*InfoResponse)(nil),              // 2: capability.InfoResponse
-	(*InstallRequest)(nil),            // 3: capability.InstallRequest
-	(*UninstallRequest)(nil),          // 4: capability.UninstallRequest
-	(*InstallerTemplateResponse)(nil), // 5: capability.InstallerTemplateResponse
-	(*StatusRequest)(nil),             // 6: capability.StatusRequest
-	(*NodeCapabilityStatus)(nil),      // 7: capability.NodeCapabilityStatus
-	(*v1.Reference)(nil),              // 8: core.Reference
-	(*timestamppb.Timestamp)(nil),     // 9: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),             // 10: google.protobuf.Empty
-	(*v1.TaskStatus)(nil),             // 11: core.TaskStatus
+	(InstallResponseStatus)(0),        // 0: capability.InstallResponseStatus
+	(*SyncRequest)(nil),               // 1: capability.SyncRequest
+	(*Filter)(nil),                    // 2: capability.Filter
+	(*InfoResponse)(nil),              // 3: capability.InfoResponse
+	(*InstallRequest)(nil),            // 4: capability.InstallRequest
+	(*InstallResponse)(nil),           // 5: capability.InstallResponse
+	(*UninstallRequest)(nil),          // 6: capability.UninstallRequest
+	(*InstallerTemplateResponse)(nil), // 7: capability.InstallerTemplateResponse
+	(*StatusRequest)(nil),             // 8: capability.StatusRequest
+	(*NodeCapabilityStatus)(nil),      // 9: capability.NodeCapabilityStatus
+	(*v1.Reference)(nil),              // 10: core.Reference
+	(*timestamppb.Timestamp)(nil),     // 11: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),             // 12: google.protobuf.Empty
+	(*v1.TaskStatus)(nil),             // 13: core.TaskStatus
 }
 var file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_depIdxs = []int32{
-	8,  // 0: capability.SyncRequest.cluster:type_name -> core.Reference
-	1,  // 1: capability.SyncRequest.filter:type_name -> capability.Filter
-	8,  // 2: capability.InstallRequest.cluster:type_name -> core.Reference
-	8,  // 3: capability.UninstallRequest.cluster:type_name -> core.Reference
-	8,  // 4: capability.StatusRequest.cluster:type_name -> core.Reference
-	9,  // 5: capability.NodeCapabilityStatus.lastSync:type_name -> google.protobuf.Timestamp
-	10, // 6: capability.Backend.Info:input_type -> google.protobuf.Empty
-	10, // 7: capability.Backend.CanInstall:input_type -> google.protobuf.Empty
-	3,  // 8: capability.Backend.Install:input_type -> capability.InstallRequest
-	6,  // 9: capability.Backend.Status:input_type -> capability.StatusRequest
-	4,  // 10: capability.Backend.Uninstall:input_type -> capability.UninstallRequest
-	8,  // 11: capability.Backend.UninstallStatus:input_type -> core.Reference
-	8,  // 12: capability.Backend.CancelUninstall:input_type -> core.Reference
-	10, // 13: capability.Backend.InstallerTemplate:input_type -> google.protobuf.Empty
-	1,  // 14: capability.Node.SyncNow:input_type -> capability.Filter
-	0,  // 15: capability.NodeManager.RequestSync:input_type -> capability.SyncRequest
-	2,  // 16: capability.Backend.Info:output_type -> capability.InfoResponse
-	10, // 17: capability.Backend.CanInstall:output_type -> google.protobuf.Empty
-	10, // 18: capability.Backend.Install:output_type -> google.protobuf.Empty
-	7,  // 19: capability.Backend.Status:output_type -> capability.NodeCapabilityStatus
-	10, // 20: capability.Backend.Uninstall:output_type -> google.protobuf.Empty
-	11, // 21: capability.Backend.UninstallStatus:output_type -> core.TaskStatus
-	10, // 22: capability.Backend.CancelUninstall:output_type -> google.protobuf.Empty
-	5,  // 23: capability.Backend.InstallerTemplate:output_type -> capability.InstallerTemplateResponse
-	10, // 24: capability.Node.SyncNow:output_type -> google.protobuf.Empty
-	10, // 25: capability.NodeManager.RequestSync:output_type -> google.protobuf.Empty
-	16, // [16:26] is the sub-list for method output_type
-	6,  // [6:16] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	10, // 0: capability.SyncRequest.cluster:type_name -> core.Reference
+	2,  // 1: capability.SyncRequest.filter:type_name -> capability.Filter
+	10, // 2: capability.InstallRequest.cluster:type_name -> core.Reference
+	0,  // 3: capability.InstallResponse.status:type_name -> capability.InstallResponseStatus
+	10, // 4: capability.UninstallRequest.cluster:type_name -> core.Reference
+	10, // 5: capability.StatusRequest.cluster:type_name -> core.Reference
+	11, // 6: capability.NodeCapabilityStatus.lastSync:type_name -> google.protobuf.Timestamp
+	12, // 7: capability.Backend.Info:input_type -> google.protobuf.Empty
+	12, // 8: capability.Backend.CanInstall:input_type -> google.protobuf.Empty
+	4,  // 9: capability.Backend.Install:input_type -> capability.InstallRequest
+	8,  // 10: capability.Backend.Status:input_type -> capability.StatusRequest
+	6,  // 11: capability.Backend.Uninstall:input_type -> capability.UninstallRequest
+	10, // 12: capability.Backend.UninstallStatus:input_type -> core.Reference
+	10, // 13: capability.Backend.CancelUninstall:input_type -> core.Reference
+	12, // 14: capability.Backend.InstallerTemplate:input_type -> google.protobuf.Empty
+	2,  // 15: capability.Node.SyncNow:input_type -> capability.Filter
+	1,  // 16: capability.NodeManager.RequestSync:input_type -> capability.SyncRequest
+	3,  // 17: capability.Backend.Info:output_type -> capability.InfoResponse
+	12, // 18: capability.Backend.CanInstall:output_type -> google.protobuf.Empty
+	5,  // 19: capability.Backend.Install:output_type -> capability.InstallResponse
+	9,  // 20: capability.Backend.Status:output_type -> capability.NodeCapabilityStatus
+	12, // 21: capability.Backend.Uninstall:output_type -> google.protobuf.Empty
+	13, // 22: capability.Backend.UninstallStatus:output_type -> core.TaskStatus
+	12, // 23: capability.Backend.CancelUninstall:output_type -> google.protobuf.Empty
+	7,  // 24: capability.Backend.InstallerTemplate:output_type -> capability.InstallerTemplateResponse
+	12, // 25: capability.Node.SyncNow:output_type -> google.protobuf.Empty
+	12, // 26: capability.NodeManager.RequestSync:output_type -> google.protobuf.Empty
+	17, // [17:27] is the sub-list for method output_type
+	7,  // [7:17] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_init() }
@@ -646,7 +779,7 @@ func file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_init()
 			}
 		}
 		file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UninstallRequest); i {
+			switch v := v.(*InstallResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -658,7 +791,7 @@ func file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_init()
 			}
 		}
 		file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InstallerTemplateResponse); i {
+			switch v := v.(*UninstallRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -670,7 +803,7 @@ func file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_init()
 			}
 		}
 		file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*StatusRequest); i {
+			switch v := v.(*InstallerTemplateResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -682,6 +815,18 @@ func file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_init()
 			}
 		}
 		file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*StatusRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*NodeCapabilityStatus); i {
 			case 0:
 				return &v.state
@@ -699,13 +844,14 @@ func file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_init()
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_rawDesc,
-			NumEnums:      0,
-			NumMessages:   8,
+			NumEnums:      1,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   3,
 		},
 		GoTypes:           file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_goTypes,
 		DependencyIndexes: file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_depIdxs,
+		EnumInfos:         file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_enumTypes,
 		MessageInfos:      file_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto_msgTypes,
 	}.Build()
 	File_github_com_rancher_opni_pkg_apis_capability_v1_capability_proto = out.File

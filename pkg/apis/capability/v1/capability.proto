@@ -19,7 +19,7 @@ service Backend {
   }
 
   // Installs the capability on a cluster. 
-  rpc Install(InstallRequest) returns (google.protobuf.Empty);
+  rpc Install(InstallRequest) returns (InstallResponse);
 
   // Returns common runtime config info for this capability from a specific 
   // cluster (node).
@@ -72,6 +72,19 @@ message InfoResponse {
 
 message InstallRequest {
   core.Reference cluster = 1;
+  bool ignoreWarnings = 2;
+}
+
+enum InstallResponseStatus {
+  Unknown = 0;
+  Success = 1;
+  Warning = 2;
+  Error = 3;
+}
+
+message InstallResponse {
+  InstallResponseStatus status = 1;
+  string message = 2;
 }
 
 message UninstallRequest {

@@ -30,7 +30,7 @@ type BackendClient interface {
 	// Returns an error if installing the capability would fail.
 	CanInstall(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Installs the capability on a cluster.
-	Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*InstallResponse, error)
 	// Returns common runtime config info for this capability from a specific
 	// cluster (node).
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*NodeCapabilityStatus, error)
@@ -77,8 +77,8 @@ func (c *backendClient) CanInstall(ctx context.Context, in *emptypb.Empty, opts 
 	return out, nil
 }
 
-func (c *backendClient) Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *backendClient) Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*InstallResponse, error) {
+	out := new(InstallResponse)
 	err := c.cc.Invoke(ctx, "/capability.Backend/Install", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ type BackendServer interface {
 	// Returns an error if installing the capability would fail.
 	CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// Installs the capability on a cluster.
-	Install(context.Context, *InstallRequest) (*emptypb.Empty, error)
+	Install(context.Context, *InstallRequest) (*InstallResponse, error)
 	// Returns common runtime config info for this capability from a specific
 	// cluster (node).
 	Status(context.Context, *StatusRequest) (*NodeCapabilityStatus, error)
@@ -173,7 +173,7 @@ func (UnimplementedBackendServer) Info(context.Context, *emptypb.Empty) (*InfoRe
 func (UnimplementedBackendServer) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CanInstall not implemented")
 }
-func (UnimplementedBackendServer) Install(context.Context, *InstallRequest) (*emptypb.Empty, error) {
+func (UnimplementedBackendServer) Install(context.Context, *InstallRequest) (*InstallResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Install not implemented")
 }
 func (UnimplementedBackendServer) Status(context.Context, *StatusRequest) (*NodeCapabilityStatus, error) {

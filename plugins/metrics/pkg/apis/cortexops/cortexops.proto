@@ -3,15 +3,29 @@ option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 
 import "google/protobuf/empty.proto";
 import "github.com/rancher/opni/pkg/apis/storage/v1/storage.proto";
+import "google/api/annotations.proto";
 
 package cortexops;
 
 // The CortexOps service controls meta-operations for deploying and configuring
 // Cortex in the upstream environment.
 service CortexOps {
-  rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty);
-  rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus);
-  rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/configure"
+      body: "*"
+    };
+  }
+  rpc GetClusterStatus(google.protobuf.Empty) returns (InstallStatus) {
+    option (google.api.http) = {
+      get: "/status"
+    };
+  }
+  rpc UninstallCluster(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/uninstall"
+    };
+  }
 }
 
 enum InstallState {
@@ -36,8 +50,4 @@ enum DeploymentMode {
 message ClusterConfiguration {
   DeploymentMode mode = 1;
   storage.StorageSpec storage = 2;
-}
-
-message AgentConfiguration {
-  string prometheusImage = 1;
 }

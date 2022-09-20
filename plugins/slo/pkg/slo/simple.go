@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	grafana_delete_mask = "slo_opni_delete"
 	// id labels
 	slo_uuid    = "slo_opni_id"
 	slo_service = "slo_opni_service"
@@ -68,6 +69,23 @@ type RuleGroupYAMLv2 struct {
 	Name     string             `yaml:"name"`
 	Interval prommodel.Duration `yaml:"interval,omitempty"`
 	Rules    []rulefmt.Rule     `yaml:"rules"`
+}
+
+// MergeRuleGroups
+//
+// keeps left.name
+// keeps left.Interval
+func MergeRuleGroups(left *RuleGroupYAMLv2, right *RuleGroupYAMLv2) *RuleGroupYAMLv2 {
+	newRules := LeftJoinSliceAbstract[rulefmt.Rule, string](
+		left.Rules,
+		right.Rules,
+		func(r rulefmt.Rule) string { return r.Record },
+	)
+	return &RuleGroupYAMLv2{
+		Name:     left.Name,
+		Interval: left.Interval,
+		Rules:    newRules,
+	}
 }
 
 type LabelPair struct {

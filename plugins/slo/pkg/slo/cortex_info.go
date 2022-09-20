@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, clusterId string, toApply []RuleGroupYAMLv2) error {
+func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, clusterId, sloId string, toApply []RuleGroupYAMLv2) error {
 	var errArr []error
 	for _, rules := range toApply {
 		err := applyCortexSLORules(
@@ -43,6 +43,11 @@ func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context
 				errArr = append(errArr, err)
 			}
 		}
+	}
+	err := createGrafanaSLOMask(p, ctx, clusterId, sloId)
+	if err != nil {
+		lg.Errorf("creating grafana mask failed %s", err)
+		errArr = append(errArr, err)
 	}
 	return errors.Combine(errArr...)
 }
@@ -92,6 +97,28 @@ func deleteCortexSLORules(
 	if status.Code(err) == codes.NotFound || status.Code(err) == codes.OK {
 		return nil
 	}
+	return err
+}
+
+func createGrafanaSLOMask(p *Plugin, ctx context.Context, clusterId string, ruleId string) error {
+	p.logger.With("sloId", ruleId, "clusterId", clusterId).Debugf("creating grafana mask")
+	_, err := p.adminClient.Get().WriteMetrics(ctx, &cortexadmin.WriteRequest{
+		ClusterID: clusterId,
+		Timeseries: []*cortexadmin.TimeSeries{
+			{
+				Labels: []*cortexadmin.Label{
+					{
+						Name:  "__name__", //unique identifier for metrics
+						Value: grafana_delete_mask,
+					},
+					{
+						Name:  slo_uuid,
+						Value: ruleId,
+					},
+				},
+			},
+		},
+	})
 	return err
 }
 

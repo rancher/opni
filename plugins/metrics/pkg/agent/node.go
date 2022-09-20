@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
@@ -91,8 +92,10 @@ func (m *MetricsNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.He
 
 	conditions := m.conditions.List()
 
-	if !m.config.GetEnabled() {
-		conditions = append(conditions, "Capability Disabled")
+	if m.config != nil {
+		if !m.config.Enabled && len(m.config.Conditions) > 0 {
+			conditions = append(conditions, fmt.Sprintf("Disabled: %s", strings.Join(m.config.Conditions, ", ")))
+		}
 	}
 
 	return &corev1.Health{

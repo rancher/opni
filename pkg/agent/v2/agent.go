@@ -55,13 +55,11 @@ type Agent struct {
 	keyringStore     storage.KeyringStore
 	gatewayClient    clients.GatewayClient
 	trust            trust.Strategy
-	thing            func()
 }
 
 type AgentOptions struct {
 	bootstrapper          bootstrap.Bootstrapper
 	unmanagedPluginLoader *plugins.PluginLoader
-	thing                 func()
 }
 
 type AgentOption func(*AgentOptions)
@@ -205,7 +203,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 
 	pl.Hook(hooks.OnLoadMC(func(hc controlv1.HealthClient, m meta.PluginMeta, cc *grpc.ClientConn) {
 		client := controlv1.NewHealthClient(cc)
-		hm.AddClient(m.Module, client)
+		hm.AddClient(path.Base(m.BinaryPath), client)
 	}))
 
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {

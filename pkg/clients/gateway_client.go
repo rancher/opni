@@ -9,6 +9,7 @@ import (
 
 	"emperror.dev/errors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -20,6 +21,7 @@ import (
 	"github.com/rancher/opni/pkg/b2mac"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
+	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/trust"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
@@ -72,8 +74,9 @@ func NewGatewayClient(
 	}
 
 	client := &gatewayClient{
-		cc: cc,
-		id: id,
+		cc:     cc,
+		id:     id,
+		logger: logger.New().Named("gateway-client"),
 	}
 
 	return client, nil
@@ -85,8 +88,9 @@ type splicedConn struct {
 }
 
 type gatewayClient struct {
-	cc *grpc.ClientConn
-	id string
+	cc     *grpc.ClientConn
+	id     string
+	logger *zap.SugaredLogger
 
 	services []util.ServicePack[any]
 	spliced  []*splicedConn
@@ -172,7 +176,11 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 		streamClient := streamv1.NewStreamClient(sc.cc)
 		splicedStream, err := streamClient.Connect(ctx)
 		if err != nil {
-			return nil, future.Instant(fmt.Errorf("failed to connect to spliced server: %w", err))
+			gc.logger.With(
+				zap.String("name", sc.name),
+				zap.Error(err),
+			).Warn("failed to connect to spliced stream, skipping")
+			continue
 		}
 		cleanup = append(cleanup, splicedStream.CloseSend)
 

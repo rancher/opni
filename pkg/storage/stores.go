@@ -52,6 +52,7 @@ type RBACStore interface {
 type KeyringStore interface {
 	Put(ctx context.Context, keyring keyring.Keyring) error
 	Get(ctx context.Context) (keyring.Keyring, error)
+	Delete(ctx context.Context) error
 }
 
 type KeyValueStoreT[T any] interface {

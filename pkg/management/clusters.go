@@ -2,10 +2,13 @@ package management
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -41,6 +44,17 @@ func (m *Server) DeleteCluster(
 	if len(capabilities) > 0 {
 		return nil, status.Error(codes.FailedPrecondition, "cannot delete a cluster with capabilities; uninstall the capabilities first")
 	}
+	// delete the cluster's keyring, if it exists
+	store, err := m.coreDataSource.StorageBackend().KeyringStore("gateway", ref)
+	if err != nil {
+		if !errors.Is(err, storage.ErrNotFound) {
+			return nil, err
+		}
+	}
+	if err := store.Delete(ctx); err != nil {
+		return nil, err
+	}
+	// delete the cluster
 	err = m.coreDataSource.StorageBackend().DeleteCluster(ctx, ref)
 	if err != nil {
 		return nil, err
@@ -134,7 +148,7 @@ func (m *Server) EditCluster(
 func (m *Server) InstallCapability(
 	ctx context.Context,
 	in *managementv1.CapabilityInstallRequest,
-) (*emptypb.Empty, error) {
+) (*capabilityv1.InstallResponse, error) {
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
@@ -145,11 +159,16 @@ func (m *Server) InstallCapability(
 		return nil, err
 	}
 
-	_, err = backend.Install(ctx, in.Target)
+	resp, err := backend.Install(ctx, in.Target)
 	if err != nil {
 		return nil, err
 	}
-	return &emptypb.Empty{}, nil
+	if resp == nil {
+		return &capabilityv1.InstallResponse{
+			Status: capabilityv1.InstallResponseStatus_Success,
+		}, nil
+	}
+	return resp, nil
 }
 
 func (m *Server) UninstallCapability(

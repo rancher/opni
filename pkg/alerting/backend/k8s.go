@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
-	"github.com/rancher/opni/apis/v1beta2"
+	"github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/alerting/config"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/tidwall/gjson"
@@ -81,19 +81,19 @@ func (b *K8sEndpointBackend) Put(ctx context.Context, lg *zap.SugaredLogger, opt
 		lg.Errorf("failed to marshal config data : %s", err)
 		return err
 	}
-	gw := &v1beta2.Gateway{
+	gw := &v1beta1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			//FIXME: need to add gw id to system.go
 			Name:      "opni-gateway",
 			Namespace: "opni",
 		},
 	}
-	mutator := func(gw *v1beta2.Gateway) {
+	mutator := func(gw *v1beta1.Gateway) {
 		gw.Spec.Alerting.RawConfigMap = string(applyData)
 	}
 	objectKey := client.ObjectKeyFromObject(gw)
 	err = retry.OnError(retry.DefaultBackoff, k8serrors.IsConflict, func() error {
-		existing := &v1beta2.Gateway{}
+		existing := &v1beta1.Gateway{}
 		err := b.Client.Get(ctx, objectKey, existing)
 		if err != nil {
 			return err

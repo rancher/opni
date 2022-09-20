@@ -274,7 +274,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 							Args: []string{
 								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.ConfigKey)),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
-								fmt.Sprintf("--log.level=%s", "debug"),
+								fmt.Sprintf("--log.level=%s", "info"),
 								fmt.Sprintf("--log.format=json"),
 								// join to controller
 								fmt.Sprintf("--cluster.peer=%s:%d",

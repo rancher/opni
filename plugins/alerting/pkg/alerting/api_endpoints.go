@@ -207,7 +207,7 @@ func (p *Plugin) TestAlertEndpoint(ctx context.Context, req *alertingv1alpha.Tes
 	// We need to check that endpoint is deleted after a certain amount of time
 	// - Delete dummy Endpoint
 	go func() {
-		time.Sleep(time.Second)
+		time.Sleep(time.Second * 30)
 		// this cannot be done in the same context as the above call, otherwise the deadline will be exceeded
 		if _, err := p.DeleteEndpointImplementation(context.TODO(), &corev1.Reference{Id: dummyConditionId}); err != nil {
 			lg.Errorf("delete test implementation failed with %s", err.Error())

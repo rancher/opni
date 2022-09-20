@@ -4,15 +4,15 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: {{ $namespace }}/opni-serving-cert
-  name: opni-mutating-webhook-configuration
+    cert-manager.io/inject-ca-from: {{ $namespace }}/opni-agent-webhook-cert
+  name: opni-agent-mutating-webhook-configuration
 webhooks:
   - admissionReviewVersions:
       - v1
       - v1beta1
     clientConfig:
       service:
-        name: opni-webhook
+        name: opni-agent-webhook
         namespace: {{ $namespace }}
         path: /mutate-opni-io-v1beta2-logadapter
     failurePolicy: Fail
@@ -33,15 +33,15 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: {{ $namespace }}/opni-serving-cert
-  name: opni-validating-webhook-configuration
+    cert-manager.io/inject-ca-from: {{ $namespace }}/opni-agent-webhook-cert
+  name: opni-agent-validating-webhook-configuration
 webhooks:
   - admissionReviewVersions:
       - v1
       - v1beta1
     clientConfig:
       service:
-        name: opni-webhook
+        name: opni-agent-webhook
         namespace: {{ $namespace }}
         path: /validate-opni-io-v1beta2-logadapter
     failurePolicy: Fail

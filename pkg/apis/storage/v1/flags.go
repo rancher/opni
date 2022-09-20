@@ -2,6 +2,7 @@ package v1
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -174,4 +175,43 @@ func (cfg *SwiftStorageSpec) InitEmptyFields() {
 
 func (cfg *FilesystemStorageSpec) InitEmptyFields() {
 
+}
+
+func (cfg *SwiftStorageSpec) LoadFromEnv() {
+	if cfg.AuthURL == "" {
+		cfg.AuthURL = os.Getenv("OS_AUTH_URL")
+	}
+	if cfg.Username == "" {
+		cfg.Username = os.Getenv("OS_USERNAME")
+	}
+	if cfg.Username == "" {
+		cfg.UserID = os.Getenv("OS_USER_ID")
+	}
+	if cfg.Password == "" {
+		cfg.Password = os.Getenv("OS_PASSWORD")
+	}
+	if cfg.UserDomainName == "" {
+		cfg.UserDomainName = os.Getenv("OS_USER_DOMAIN_NAME")
+	}
+	if cfg.DomainName == "" {
+		cfg.DomainName = os.Getenv("OS_USER_DOMAIN_NAME")
+	}
+	if cfg.UserDomainID == "" {
+		cfg.UserDomainID = os.Getenv("OS_USER_DOMAIN_ID")
+	}
+	if cfg.DomainID == "" {
+		cfg.DomainID = os.Getenv("OS_USER_DOMAIN_ID")
+	}
+	if cfg.ProjectName == "" {
+		cfg.ProjectName = os.Getenv("OS_PROJECT_NAME")
+	}
+	if cfg.ProjectDomainID == "" {
+		cfg.ProjectDomainID = os.Getenv("OS_PROJECT_DOMAIN_ID")
+	}
+	if cfg.ProjectDomainName == "" {
+		cfg.ProjectDomainName = os.Getenv("OS_PROJECT_DOMAIN_NAME")
+	}
+	if cfg.RegionName == "" {
+		cfg.RegionName = os.Getenv("OS_REGION_NAME")
+	}
 }

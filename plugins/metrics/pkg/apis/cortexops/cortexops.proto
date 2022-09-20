@@ -10,6 +10,11 @@ package cortexops;
 // The CortexOps service controls meta-operations for deploying and configuring
 // Cortex in the upstream environment.
 service CortexOps {
+  rpc GetClusterConfiguration(google.protobuf.Empty) returns (ClusterConfiguration) {
+    option (google.api.http) = {
+      get: "/configuration"
+    };
+  }
   rpc ConfigureCluster(ClusterConfiguration) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/configure"

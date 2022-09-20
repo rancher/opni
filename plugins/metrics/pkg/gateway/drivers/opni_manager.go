@@ -143,6 +143,33 @@ func cortexClusterStatus(object client.Object) (corev1beta1.CortexStatus, error)
 	}
 }
 
+func (k *OpniManager) GetClusterConfiguration(ctx context.Context, _ *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
+	existing, err := k.newMonitoringCluster()
+	if err != nil {
+		return nil, err
+	}
+	err = k.k8sClient.Get(ctx, client.ObjectKeyFromObject(existing), existing)
+	if err != nil {
+		return nil, err
+	}
+	switch existing.GetObjectKind().GroupVersionKind().GroupVersion() {
+	case corev1beta1.GroupVersion:
+		mc := existing.(*corev1beta1.MonitoringCluster)
+		return &cortexops.ClusterConfiguration{
+			Mode:    cortexops.DeploymentMode(cortexops.DeploymentMode_value[string(mc.Spec.Cortex.DeploymentMode)]),
+			Storage: mc.Spec.Cortex.Storage,
+		}, nil
+	case v1beta2.GroupVersion:
+		mc := existing.(*v1beta2.MonitoringCluster)
+		return &cortexops.ClusterConfiguration{
+			Mode:    cortexops.DeploymentMode(cortexops.DeploymentMode_value[string(mc.Spec.Cortex.DeploymentMode)]),
+			Storage: mc.Spec.Cortex.Storage,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown monitoring cluster type: %T", existing)
+	}
+}
+
 func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
 	cluster, err := k.newMonitoringCluster()
 	if err != nil {
@@ -284,7 +311,7 @@ func (k *OpniManager) ShouldDisableNode(_ *corev1.Reference) error {
 	}
 	switch stat.State {
 	case cortexops.InstallState_NotInstalled, cortexops.InstallState_Uninstalling:
-		return status.Error(codes.Unavailable, fmt.Sprintf("cortex cluster is not installed"))
+		return status.Error(codes.Unavailable, fmt.Sprintf("Cortex cluster is not installed"))
 	case cortexops.InstallState_Updating, cortexops.InstallState_Installed:
 		return nil
 	case cortexops.InstallState_Unknown:

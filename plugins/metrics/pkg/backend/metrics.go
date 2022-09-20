@@ -366,6 +366,10 @@ func buildResponse(old, new *node.MetricsCapabilityConfig) *node.SyncResponse {
 
 // Cortex Ops Backend
 
+func (m *MetricsBackend) GetClusterConfiguration(ctx context.Context, in *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
+	return m.ClusterDriver.GetClusterConfiguration(ctx, in)
+}
+
 func (m *MetricsBackend) ConfigureCluster(ctx context.Context, in *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
 	defer m.requestNodeSync(ctx, &corev1.Reference{})
 	return m.ClusterDriver.ConfigureCluster(ctx, in)

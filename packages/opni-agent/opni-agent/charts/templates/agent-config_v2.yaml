@@ -11,7 +11,7 @@ stringData:
     apiVersion: v1beta1
     kind: AgentConfig
     spec:
-      gatewayAddress: {{ .Values.address }}
+      gatewayAddress: {{ include "opni-agent.gatewayAddress" . }}
       identityProvider: kubernetes
       listenAddress: :8080
       trustStrategy: pkp

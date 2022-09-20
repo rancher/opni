@@ -189,6 +189,13 @@ ai:
 opni-prometheus-crd:
   enabled: true
 
+opni-agent:
+  enabled: true
+  address: ""
+  central: true
+  agent:
+    version: v2
+
 global:
   cattle:
     systemDefaultRegistry: ""

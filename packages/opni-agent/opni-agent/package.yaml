@@ -7,4 +7,4 @@ additionalCharts:
   crdOptions:
     templateDirectory: crd-template
     crdDirectory: templates
-    addCRDValidationToMainChart: true
+    addCRDValidationToMainChart: false

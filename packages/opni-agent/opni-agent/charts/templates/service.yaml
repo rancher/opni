@@ -21,7 +21,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: opni-webhook
+  name: opni-agent-webhook
   namespace: {{ include "opni-agent.namespace" . }}
   labels:
     {{- include "opni-agent.labels" . | nindent 4 }}

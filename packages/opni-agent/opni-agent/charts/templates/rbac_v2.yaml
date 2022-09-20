@@ -176,6 +176,14 @@ rules:
   - "*"
   verbs:
   - "*"
+- apiGroups:
+  - opensearch.opster.io
+  resources:
+  - opensearchclusters
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

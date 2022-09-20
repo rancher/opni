@@ -12,6 +12,7 @@ spec:
   selector:
     matchLabels:
       {{- include "opni-agent.selectorLabels" . | nindent 6 }}
+  serviceName: opni-agent
   template:
     metadata:
       {{- with .Values.podAnnotations }}

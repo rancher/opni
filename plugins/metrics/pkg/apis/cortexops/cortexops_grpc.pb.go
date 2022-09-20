@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CortexOpsClient interface {
+	GetClusterConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterConfiguration, error)
 	ConfigureCluster(ctx context.Context, in *ClusterConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetClusterStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*InstallStatus, error)
 	UninstallCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -34,6 +35,15 @@ type cortexOpsClient struct {
 
 func NewCortexOpsClient(cc grpc.ClientConnInterface) CortexOpsClient {
 	return &cortexOpsClient{cc}
+}
+
+func (c *cortexOpsClient) GetClusterConfiguration(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ClusterConfiguration, error) {
+	out := new(ClusterConfiguration)
+	err := c.cc.Invoke(ctx, "/cortexops.CortexOps/GetClusterConfiguration", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *cortexOpsClient) ConfigureCluster(ctx context.Context, in *ClusterConfiguration, opts ...grpc.CallOption) (*emptypb.Empty, error) {
@@ -67,6 +77,7 @@ func (c *cortexOpsClient) UninstallCluster(ctx context.Context, in *emptypb.Empt
 // All implementations must embed UnimplementedCortexOpsServer
 // for forward compatibility
 type CortexOpsServer interface {
+	GetClusterConfiguration(context.Context, *emptypb.Empty) (*ClusterConfiguration, error)
 	ConfigureCluster(context.Context, *ClusterConfiguration) (*emptypb.Empty, error)
 	GetClusterStatus(context.Context, *emptypb.Empty) (*InstallStatus, error)
 	UninstallCluster(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
@@ -77,6 +88,9 @@ type CortexOpsServer interface {
 type UnimplementedCortexOpsServer struct {
 }
 
+func (UnimplementedCortexOpsServer) GetClusterConfiguration(context.Context, *emptypb.Empty) (*ClusterConfiguration, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClusterConfiguration not implemented")
+}
 func (UnimplementedCortexOpsServer) ConfigureCluster(context.Context, *ClusterConfiguration) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConfigureCluster not implemented")
 }
@@ -97,6 +111,24 @@ type UnsafeCortexOpsServer interface {
 
 func RegisterCortexOpsServer(s grpc.ServiceRegistrar, srv CortexOpsServer) {
 	s.RegisterService(&CortexOps_ServiceDesc, srv)
+}
+
+func _CortexOps_GetClusterConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexOpsServer).GetClusterConfiguration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexops.CortexOps/GetClusterConfiguration",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexOpsServer).GetClusterConfiguration(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _CortexOps_ConfigureCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -160,6 +192,10 @@ var CortexOps_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "cortexops.CortexOps",
 	HandlerType: (*CortexOpsServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetClusterConfiguration",
+			Handler:    _CortexOps_GetClusterConfiguration_Handler,
+		},
 		{
 			MethodName: "ConfigureCluster",
 			Handler:    _CortexOps_ConfigureCluster_Handler,

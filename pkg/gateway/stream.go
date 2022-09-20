@@ -54,7 +54,7 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 	s.logger.Debug("handling new stream connection")
 	ts, err := totem.NewServer(stream,
 		totem.WithName("gateway-server"),
-		// totem.WithUnaryServerInterceptor(s.interceptor),
+		totem.WithUnaryServerInterceptor(s.interceptor),
 	)
 	if err != nil {
 		return err
@@ -70,6 +70,10 @@ func (s *StreamServer) Connect(stream streamv1.Stream_ConnectServer) error {
 		Id: id,
 	})
 	if err != nil {
+		s.logger.With(
+			zap.Error(err),
+			"id", id,
+		).Error("failed to get cluster")
 		return err
 	}
 

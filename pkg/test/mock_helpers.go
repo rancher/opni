@@ -269,6 +269,19 @@ func NewTestKeyringStore(ctrl *gomock.Controller, prefix string, ref *corev1.Ref
 			return keyring, nil
 		}).
 		AnyTimes()
+	mockKeyringStore.EXPECT().
+		Delete(gomock.Any()).
+		DoAndReturn(func(_ context.Context) error {
+			mu.Lock()
+			defer mu.Unlock()
+			if _, ok := keyrings[prefix+ref.Id]; !ok {
+				return storage.ErrNotFound
+			}
+			delete(keyrings, prefix+ref.Id)
+			return nil
+		}).
+		AnyTimes()
+
 	return mockKeyringStore
 }
 

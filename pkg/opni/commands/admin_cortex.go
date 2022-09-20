@@ -80,6 +80,9 @@ func BuildCortexClusterConfigureCmd() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("unknown deployment strategy %s", mode)
 			}
+			if storage.Backend == "swift" {
+				storage.Swift.LoadFromEnv()
+			}
 			_, err := opsClient.ConfigureCluster(cmd.Context(), &cortexops.ClusterConfiguration{
 				Mode:    cortexops.DeploymentMode(strategy),
 				Storage: &storage,

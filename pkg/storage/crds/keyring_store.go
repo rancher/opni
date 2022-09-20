@@ -69,3 +69,17 @@ func (ks *crdKeyringStore) Get(ctx context.Context) (keyring.Keyring, error) {
 	}
 	return keyring.Unmarshal(kr.Data)
 }
+
+func (ks *crdKeyringStore) Delete(ctx context.Context) error {
+	kr := &monitoringv1beta1.Keyring{}
+	if err := ks.client.Get(ctx, types.NamespacedName{
+		Name:      ks.ref.Id,
+		Namespace: ks.namespace,
+	}, kr); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return ks.client.Delete(ctx, kr)
+}

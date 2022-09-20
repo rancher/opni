@@ -55,7 +55,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 				{
 					Name: "test",
 					Roles: []string{
-						"master",
+						"controlplane",
 						"data",
 						"ingest",
 					},
@@ -64,7 +64,8 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 					Persistence: &loggingadmin.DataPersistence{
 						Enabled: lo.ToPtr(true),
 					},
-					Replicas: lo.ToPtr(int32(3)),
+					Replicas:           lo.ToPtr(int32(3)),
+					EnableAntiAffinity: lo.ToPtr(true),
 				},
 			},
 			DataRetention: lo.ToPtr("7d"),
@@ -74,7 +75,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 			Replicas:  3,
 			DiskSize:  request.NodePools[0].DiskSize,
 			Jvm:       fmt.Sprintf("-Xmx%d -Xms%d", giBytes, giBytes),
-			Roles:     request.NodePools[0].Roles,
+			Roles:     replaceInArray(request.NodePools[0].Roles, "controlplane", "master"),
 			Affinity: &corev1.Affinity{
 				PodAntiAffinity: &corev1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -52,12 +53,24 @@ func (p *Plugin) UseManagementAPI(client managementv1.ManagementClient) {
 }
 
 func (p *Plugin) UseKeyValueStore(client system.KeyValueStoreClient) {
-	nc, err := p.newNatsConnection()
-	if err != nil {
-		p.logger.With(
-			"err", err,
-		).Error("failed to create nats connection")
-		os.Exit(1)
+	var (
+		nc  *nats.Conn
+		err error
+	)
+
+	retrier := backoffv2.Exponential(
+		backoffv2.WithMaxRetries(0),
+		backoffv2.WithMinInterval(5*time.Second),
+		backoffv2.WithMaxInterval(1*time.Minute),
+		backoffv2.WithMultiplier(1.1),
+	)
+	b := retrier.Start(p.ctx)
+	for backoffv2.Continue(b) {
+		nc, err = p.newNatsConnection()
+		if err == nil {
+			break
+		}
+		p.logger.Error("failed to connect to nats, retrying")
 	}
 
 	ctrl, err := task.NewController(p.ctx, "uninstall", system.NewKVStoreClient[*opnicorev1.TaskStatus](client), &UninstallTaskRunner{

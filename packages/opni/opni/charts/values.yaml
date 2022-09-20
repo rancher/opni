@@ -124,63 +124,6 @@ monitoring:
     # Grafana hostname.
     hostname: ""
 
-logging:
-  enabled: false
-
-  retention: 7d
-
-  opensearch:
-    image:
-      repository: rancher/opensearch
-      override: ""
-
-    version: 1.3.3
-
-    exposeDataNodes:
-      enabled: true
-      serviceType: ClusterIP
-
-    persistence:
-      enabled: true
-      storageClass: ""
-
-    controlplane:
-      replicas: 3
-      resources:
-        requests:
-          cpu: 500m
-          memory: 1Gi
-        limits:
-          memory: 1Gi
-
-    data:
-      replicas: 2
-      diskSize: 32Gi
-
-      # Memory limits and requests should be the same
-      resources:
-        requests:
-          cpu: 500m
-          memory: 2Gi
-        limits:
-          memory: 2Gi
-
-      # JVM memory setting should be half the memory limit
-      jvm: "-Xmx1G -Xms1G"
-
-  local:
-    enabled: true
-    provider: eks
-
-  dashboards:
-    image:
-      repository: rancher/opensearch-dashboards
-      override: ""
-
-    version: 1.3.3
-
-    replicas: 1
-
 ai:
   enabled: false
   s3:

@@ -76,7 +76,7 @@ message OpensearchNodeDetails {
 message DashboardsDetails {
     optional bool Enabled = 1;
     optional int32 Replicas = 2;
-    optional k8s.io.api.core.v1.ResourceRequirements Resources = 3;
+    ResourceRequirements Resources = 3;
 }
 
 message UpgradeAvailableResponse {
@@ -85,4 +85,14 @@ message UpgradeAvailableResponse {
 
 message StorageClassResponse {
     repeated string StorageClasses = 1;
+}
+
+message ResourceRequirements {
+    ComputeResourceQuantities Requests = 1;
+    ComputeResourceQuantities Limits = 2;
+}
+
+message ComputeResourceQuantities {
+    string CPU = 1;
+    string Memory = 2;
 }

@@ -268,6 +268,12 @@ func BuildManagerCmd() *cobra.Command {
 				setupLog.Error(err, "unable to create controller", "controller", "OpniOpensearch")
 				return err
 			}
+
+			if err = (&controllers.LoggingOpniOpensearchReconciler{}).SetupWithManager(mgr); err != nil {
+				defer cancel()
+				setupLog.Error(err, "unable to create controller", "controller", "Logging OpniOpensearch")
+				return err
+			}
 		}
 
 		errC := make(chan struct{})

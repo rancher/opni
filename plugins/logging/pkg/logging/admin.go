@@ -285,7 +285,7 @@ func (p *Plugin) GetStorageClasses(ctx context.Context, in *emptypb.Empty) (*log
 		return nil, err
 	}
 
-	storageClassNames := make([]string, len(storageClasses.Items))
+	storageClassNames := make([]string, 0, len(storageClasses.Items))
 	for _, storageClass := range storageClasses.Items {
 		storageClassNames = append(storageClassNames, storageClass.Name)
 	}
@@ -681,7 +681,7 @@ func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingad
 }
 
 func replaceInArray[T comparable](array []T, old T, new T) []T {
-	newArray := make([]T, len(array))
+	newArray := make([]T, 0, len(array))
 	for _, item := range array {
 		if item == old {
 			newArray = append(newArray, new)

@@ -46,7 +46,20 @@ func (f *SyncRequester) HandleAgentConnection(ctx context.Context, clientSet age
 func (f *SyncRequester) RequestSync(ctx context.Context, req *capabilityv1.SyncRequest) (*emptypb.Empty, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	if clientSet, ok := f.activeAgents[req.GetCluster().GetId()]; ok {
+
+	toSync := []agentv1.ClientSet{}
+
+	if req.GetCluster().GetId() == "" {
+		for _, clientSet := range f.activeAgents {
+			toSync = append(toSync, clientSet)
+		}
+	} else {
+		if clientSet, ok := f.activeAgents[req.GetCluster().GetId()]; ok {
+			toSync = append(toSync, clientSet)
+		}
+	}
+
+	for _, clientSet := range toSync {
 		f.logger.With(
 			"agentId", req.GetCluster().GetId(),
 			"capabilities", req.GetFilter().GetCapabilityNames(),
@@ -60,5 +73,6 @@ func (f *SyncRequester) RequestSync(ctx context.Context, req *capabilityv1.SyncR
 		}
 		return &emptypb.Empty{}, nil
 	}
+
 	return &emptypb.Empty{}, status.Error(codes.NotFound, "agent is not connected")
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/lestrrat-go/backoff/v2"
@@ -109,6 +110,10 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 	ctx context.Context,
 	cluster *loggingadmin.OpensearchCluster,
 ) (*emptypb.Empty, error) {
+	// Validate retention string
+	if !p.validDurationString(lo.FromPtrOr(cluster.DataRetention, "7d")) {
+		return &emptypb.Empty{}, ErrInvalidRetention()
+	}
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 
 	exists := true
@@ -344,7 +349,14 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 		NodeSelector: pool.NodeSelector,
 		Tolerations:  tolerations,
 		Persistence:  &persistence,
-		Roles:        pool.Roles,
+		Roles:        replaceInArray(pool.Roles, "master", "controlplane"),
+		EnableAntiAffinity: func() *bool {
+			if pool.Affinity == nil {
+				return lo.ToPtr(false)
+			}
+			enabled := pool.Affinity.PodAntiAffinity != nil
+			return &enabled
+		}(),
 	}, nil
 }
 
@@ -513,6 +525,15 @@ FETCH:
 	p.opensearchClient.Set(osclient)
 }
 
+func (p *Plugin) validDurationString(duration string) bool {
+	match, err := regexp.MatchString(`^\d+[dMmyh]`, duration)
+	if err != nil {
+		p.logger.Errorf("could not run regexp: %v", err)
+		return false
+	}
+	return match
+}
+
 func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, clusterName string) (opsterv1.NodePool, error) {
 	if pool.MemoryLimit == "" {
 		return opsterv1.NodePool{}, ErrRequestMissingMemory()
@@ -556,7 +577,7 @@ func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, cluster
 		DiskSize:  pool.DiskSize,
 		Resources: resources,
 		Jvm:       fmt.Sprintf("-Xmx%d -Xms%d", jvmVal, jvmVal),
-		Roles:     pool.Roles,
+		Roles:     replaceInArray(pool.Roles, "controlplane", "master"),
 		Tolerations: func() []corev1.Toleration {
 			var tolerations []corev1.Toleration
 			for _, toleration := range pool.Tolerations {
@@ -657,4 +678,16 @@ func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingad
 			return resources
 		}(),
 	}
+}
+
+func replaceInArray[T comparable](array []T, old T, new T) []T {
+	newArray := make([]T, len(array))
+	for _, item := range array {
+		if item == old {
+			newArray = append(newArray, new)
+		} else {
+			newArray = append(newArray, item)
+		}
+	}
+	return newArray
 }

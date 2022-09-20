@@ -60,6 +60,10 @@ func ErrRequestMissingMemory() error {
 	return fmt.Errorf("memory limit must be configured: %w", ErrInvalidCluster)
 }
 
+func ErrInvalidRetention() error {
+	return fmt.Errorf("duration must be integer and time unit, e.g 7d: %w", ErrInvalidCluster)
+}
+
 func ErrOpensearchRequestFailed(status string) error {
 	return fmt.Errorf("%s: %w", status, ErrOpensearchResponse)
 }

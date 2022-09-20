@@ -7,7 +7,7 @@ data:
   features: |
     manage-opensearch:
       description: Management API for Opensearch Clusters
-      enabled: false
+      enabled: true
     tracing:
       description: Trace collection feature
       enabled: true

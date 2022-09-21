@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -17,7 +18,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -163,7 +163,7 @@ func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) 
 				},
 				RemoteWrite: []monitoringcoreosv1.RemoteWriteSpec{
 					{
-						URL: fmt.Sprintf("http://opni-agent.%s.svc/api/agent/push", d.namespace),
+						URL: fmt.Sprintf("http://%s.%s.svc/api/agent/push", d.serviceName(), d.namespace),
 					},
 				},
 				Replicas:                        lo.ToPtr[int32](1),
@@ -177,6 +177,25 @@ func (d *ExternalPromOperatorDriver) buildPrometheus(conf *node.PrometheusSpec) 
 			},
 		},
 	}
+}
+
+func (d *ExternalPromOperatorDriver) serviceName() string {
+	list := &corev1.ServiceList{}
+	err := d.k8sClient.List(context.TODO(), list,
+		client.InNamespace(d.namespace),
+		client.MatchingLabels{
+			"opni.io/app": "agent",
+		},
+	)
+	if err != nil {
+		d.logger.Error("unable to list services, defaulting to opni-agent")
+		return "opni-agent"
+	}
+	if len(list.Items) != 1 {
+		d.logger.Error("unable to fetch service name, defaulting to opni-agent")
+		return "opni-agent"
+	}
+	return list.Items[0].Name
 }
 
 func (d *ExternalPromOperatorDriver) buildRbac() (*corev1.ServiceAccount, *rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
@@ -251,27 +270,25 @@ func (d *ExternalPromOperatorDriver) reconcileObject(desired client.Object, shou
 	}
 
 	// get the agent statefulset
-	agentStatefulSet := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-agent",
-			Namespace: d.namespace,
+	list := &appsv1.StatefulSetList{}
+	if err := d.k8sClient.List(context.TODO(), list,
+		client.InNamespace(d.namespace),
+		client.MatchingLabels{
+			"opni.io/app": "agent",
 		},
-	}
-	if err := d.k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(agentStatefulSet), agentStatefulSet); err != nil {
+	); err != nil {
 		return err
 	}
+
+	if len(list.Items) != 1 {
+		return errors.New("statefulsets found not exactly 1")
+	}
+	agentStatefulSet := &list.Items[0]
+
 	// this can error if the object is cluster-scoped, but that's ok
 	controllerutil.SetOwnerReference(agentStatefulSet, desired, d.k8sClient.Scheme())
 
-	if k8serrors.IsNotFound(err) {
-		if !shouldExist {
-			lg.Info("object does not exist and should not exist, skipping")
-			return nil
-		}
-		lg.Info("object does not exist, creating")
-		// create the object
-		return d.k8sClient.Create(context.TODO(), desired)
-	} else if !shouldExist {
+	if !shouldExist {
 		// delete the object
 		lg.Info("object exists and should not exist, deleting")
 		return d.k8sClient.Delete(context.TODO(), current)

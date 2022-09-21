@@ -191,16 +191,16 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		switch cluster := cluster.(type) {
 		case *v1beta2.MonitoringCluster:
 			cluster.Spec.Cortex.Enabled = true
-			cluster.Spec.Cortex.Storage = conf.Storage
+			cluster.Spec.Cortex.Storage = conf.GetStorage()
 			cluster.Spec.Grafana.Enabled = true
 			cluster.Spec.Gateway = k.gatewayRef
-			cluster.Spec.Cortex.DeploymentMode = v1beta2.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.Mode)])
+			cluster.Spec.Cortex.DeploymentMode = v1beta2.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
 		case *corev1beta1.MonitoringCluster:
 			cluster.Spec.Cortex.Enabled = true
-			cluster.Spec.Cortex.Storage = conf.Storage
+			cluster.Spec.Cortex.Storage = conf.GetStorage()
 			cluster.Spec.Grafana.Enabled = true
 			cluster.Spec.Gateway = k.gatewayRef
-			cluster.Spec.Cortex.DeploymentMode = corev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.Mode)])
+			cluster.Spec.Cortex.DeploymentMode = corev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
 		}
 	}
 

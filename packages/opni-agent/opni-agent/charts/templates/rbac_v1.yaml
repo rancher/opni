@@ -1,4 +1,4 @@
-{{- if eq .Values.agent.version "v1" }}
+{{- if or (eq .Values.agent.version "v1") .Values.logging.enabled }}
 {{- $namespace := printf "%s" (include "opni-agent.namespace" .) }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

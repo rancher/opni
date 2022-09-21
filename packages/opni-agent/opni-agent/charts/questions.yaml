@@ -17,16 +17,6 @@ questions:
   default: "false"
   type: boolean
   group: "Metrics"
-- variable: metrics.enabled
-  label: Install Metrics Agent
-  default: "false"
-  type: boolean
-  group: "Metrics"
-  show_subquestion_if: true
-  subquestions:
-  - variable: metrics.insecure
-    label: Disable Gateway TLS Security
-    type: boolean
 - variable: logging.enabled
   label: Install Logging Agent
   default: "false"

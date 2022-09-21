@@ -1,4 +1,4 @@
-{{- if eq .Values.agent.version "v1" }}
+{{- if or (eq .Values.agent.version "v1") .Values.logging.enabled }}
 {{- $versionTag := printf "v%s" .Chart.AppVersion }}
 apiVersion: apps/v1
 kind: Deployment

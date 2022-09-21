@@ -7,6 +7,7 @@ metadata:
   namespace: {{ include "opni-agent.namespace" . }}
   labels:
     {{- include "opni-agent.labels" . | nindent 4 }}
+    opni.io/app: agent
 spec:
   type: {{ .Values.service.type }}
   selector:

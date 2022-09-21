@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/browser"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/samber/lo"
 	"github.com/ttacon/chalk"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
@@ -72,6 +73,7 @@ import (
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/gateway/drivers"
 )
 
 var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")
@@ -124,15 +126,16 @@ type Environment struct {
 }
 
 type EnvironmentOptions struct {
-	enableEtcd           bool
-	enableGateway        bool
-	enableCortex         bool
-	enableRealtimeServer bool
-	delayStartEtcd       chan struct{}
-	delayStartCortex     chan struct{}
-	defaultAgentOpts     []StartAgentOption
-	agentIdSeed          int64
-	defaultAgentVersion  string
+	enableEtcd                bool
+	enableGateway             bool
+	enableCortex              bool
+	enableRealtimeServer      bool
+	enableCortexClusterDriver bool
+	delayStartEtcd            chan struct{}
+	delayStartCortex          chan struct{}
+	defaultAgentOpts          []StartAgentOption
+	agentIdSeed               int64
+	defaultAgentVersion       string
 }
 
 type EnvironmentOption func(*EnvironmentOptions)
@@ -188,6 +191,12 @@ func WithDelayStartCortex(delay chan struct{}) EnvironmentOption {
 func WithAgentIdSeed(seed int64) EnvironmentOption {
 	return func(o *EnvironmentOptions) {
 		o.agentIdSeed = seed
+	}
+}
+
+func WithEnableCortexClusterDriver(enable bool) EnvironmentOption {
+	return func(o *EnvironmentOptions) {
+		o.enableCortexClusterDriver = enable
 	}
 }
 
@@ -346,10 +355,10 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			e.startEtcd()
 		}
 	}
-	if options.enableGateway {
-		e.startGateway()
-	}
 	if options.enableCortex {
+		if options.delayStartCortex != nil && options.enableCortexClusterDriver {
+			return fmt.Errorf("cannot specify both delayStartCortex and enableCortexClusterDriver")
+		}
 		if options.delayStartCortex != nil {
 			go func() {
 				select {
@@ -357,11 +366,16 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 					return
 				case <-options.delayStartCortex:
 				}
-				e.startCortex()
+				e.StartCortex(e.ctx)
 			}()
-		} else {
-			e.startCortex()
+		} else if options.enableCortexClusterDriver {
+			drivers.RegisterPersistentClusterDriver(func() drivers.ClusterDriver {
+				return NewTestEnvClusterDriver(e)
+			})
 		}
+	}
+	if options.enableGateway {
+		e.startGateway()
 	}
 	if options.enableRealtimeServer {
 		e.startRealtimeServer()
@@ -546,7 +560,7 @@ type cortexTemplateOptions struct {
 	EtcdPort       int
 }
 
-func (e *Environment) startCortex() {
+func (e *Environment) StartCortex(ctx context.Context) {
 	if !e.enableCortex {
 		e.Logger.Panic("cortex disabled")
 	}
@@ -570,16 +584,16 @@ func (e *Environment) startCortex() {
 	defaultArgs := []string{
 		"cortex", fmt.Sprintf("-config.file=%s", path.Join(e.tempDir, "cortex/config.yaml")),
 	}
-	cmd := exec.CommandContext(e.ctx, cortexBin, defaultArgs...)
+	cmd := exec.CommandContext(ctx, cortexBin, defaultArgs...)
 	plugins.ConfigureSysProcAttr(cmd)
 	session, err := testutil.StartCmd(cmd)
 	if err != nil {
-		if !errors.Is(e.ctx.Err(), context.Canceled) {
+		if !errors.Is(ctx.Err(), context.Canceled) {
 			panic(err)
 		}
 	}
 	lg.Info("Waiting for cortex to start...")
-	for e.ctx.Err() == nil {
+	for ctx.Err() == nil {
 		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/ready", e.ports.CortexHTTP), nil)
 		client := http.Client{
 			Transport: &http.Transport{
@@ -599,9 +613,11 @@ func (e *Environment) startCortex() {
 		time.Sleep(time.Second)
 	}
 	lg.Info("Cortex started")
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
+	waitctx.Go(ctx, func() {
+		<-ctx.Done()
+		lg.Info("Cortex stopping...")
 		session.Wait()
+		lg.Info("Cortex stopped")
 	})
 }
 
@@ -843,6 +859,9 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 				ServingKeyData:  servingKeyData,
 			},
 			Cortex: v1beta1.CortexSpec{
+				Management: v1beta1.ClusterManagementSpec{
+					ClusterDriver: lo.Ternary(e.enableCortexClusterDriver, "test-environment", ""),
+				},
 				Distributor: v1beta1.DistributorSpec{
 					HTTPAddress: fmt.Sprintf("localhost:%d", e.ports.CortexHTTP),
 					GRPCAddress: fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),

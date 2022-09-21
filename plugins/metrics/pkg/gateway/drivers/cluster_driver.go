@@ -20,6 +20,7 @@ type ClusterDriver interface {
 
 var (
 	clusterDrivers       map[string]ClusterDriver
+	persistentDrivers    []func() ClusterDriver
 	failedClusterDrivers map[string]string
 )
 
@@ -32,6 +33,10 @@ func RegisterClusterDriver(driver ClusterDriver) {
 		panic("driver already exists: " + driver.Name())
 	}
 	clusterDrivers[driver.Name()] = driver
+}
+
+func RegisterPersistentClusterDriver(driverFunc func() ClusterDriver) {
+	persistentDrivers = append(persistentDrivers, driverFunc)
 }
 
 func LogClusterDriverFailure(name string, err error) {
@@ -52,6 +57,9 @@ func GetClusterDriver(name string) (ClusterDriver, error) {
 func ResetClusterDrivers() {
 	clusterDrivers = make(map[string]ClusterDriver)
 	failedClusterDrivers = make(map[string]string)
+	for _, driverFunc := range persistentDrivers {
+		RegisterClusterDriver(driverFunc())
+	}
 }
 
 type NoopClusterDriver struct {

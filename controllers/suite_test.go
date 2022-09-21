@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/phayes/freeport"
 	"github.com/rancher/opni/apis"
+	"github.com/rancher/opni/pkg/test/testutil"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -46,7 +47,6 @@ import (
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/util"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -81,7 +81,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {
-	logf.SetLogger(util.NewTestLogger())
+	logf.SetLogger(testutil.NewTestLogger())
 	port, err := freeport.GetFreePort()
 	Expect(err).NotTo(HaveOccurred())
 	By("bootstrapping test environment")

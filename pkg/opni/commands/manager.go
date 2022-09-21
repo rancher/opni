@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opni/common"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
@@ -65,7 +66,7 @@ func BuildManagerCmd() *cobra.Command {
 
 		ctrl.SetLogger(zap.New(
 			zap.Level(util.Must(zapcore.ParseLevel(logLevel))),
-			zap.Encoder(zapcore.NewConsoleEncoder(util.EncoderConfig)),
+			zap.Encoder(zapcore.NewConsoleEncoder(testutil.EncoderConfig)),
 		))
 
 		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{

@@ -2,7 +2,7 @@ package drivers
 
 import (
 	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -40,7 +40,7 @@ func NewEmbeddedManagerNodeDriver(
 ) (*EmbeddedManagerNodeDriver, error) {
 	ctrl.SetLogger(ctrlzap.New(
 		ctrlzap.Level(logger.Desugar().Core()),
-		ctrlzap.Encoder(zapcore.NewConsoleEncoder(util.EncoderConfig)),
+		ctrlzap.Encoder(zapcore.NewConsoleEncoder(testutil.EncoderConfig)),
 	))
 
 	options := EmbeddedManagerNodeDriverOptions{}

@@ -66,7 +66,7 @@ func (cfg *S3StorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet
 	f.BoolVar(&cfg.Insecure, prefix+"s3.insecure", false, "If enabled, use http:// for the S3 endpoint instead of https://. This could be useful in local dev/test environments while using an S3-compatible backend storage, like Minio.")
 	f.StringVar(&cfg.SignatureVersion, prefix+"s3.signature-version", SignatureVersionV4, fmt.Sprintf("The signature version to use for authenticating against S3. Supported values are: %s.", strings.Join(supportedSignatureVersions, ", ")))
 	cfg.Sse.RegisterFlagsWithPrefix(prefix+"s3.sse.", f)
-	cfg.Http.RegisterFlagsWithPrefix(prefix, f)
+	cfg.Http.RegisterFlagsWithPrefix(prefix+"s3.", f)
 }
 
 func (cfg *GCSStorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {

@@ -14,7 +14,7 @@ import (
 
 func main() {
 	gin.SetMode(gin.TestMode)
-	var enableGateway, enableEtcd, enableCortex bool
+	var enableGateway, enableEtcd, enableCortex, enableCortexClusterDriver bool
 	var remoteGatewayAddress, remoteKubeconfig string
 	var agentIdSeed int64
 
@@ -24,6 +24,7 @@ func main() {
 	pflag.StringVar(&remoteGatewayAddress, "remote-gateway-address", "", "remote gateway address")
 	pflag.StringVar(&remoteKubeconfig, "remote-kubeconfig", "", "remote kubeconfig (for accessing the management api)")
 	pflag.Int64Var(&agentIdSeed, "agent-id-seed", 0, "random seed used for generating agent ids. if unset, uses a random seed.")
+	pflag.BoolVar(&enableCortexClusterDriver, "enable-cortex-cluster-driver", true, "enable cortex cluster driver")
 
 	pflag.Parse()
 
@@ -50,5 +51,6 @@ func main() {
 		test.WithEnableCortex(enableCortex),
 		test.WithDefaultAgentOpts(defaultAgentOpts...),
 		test.WithAgentIdSeed(agentIdSeed),
+		test.WithEnableCortexClusterDriver(enableCortexClusterDriver),
 	)
 }

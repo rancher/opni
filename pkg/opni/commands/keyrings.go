@@ -122,3 +122,7 @@ func BuildKeyringsGetCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&padding, "padding", false, "Print base64 data with padding characters")
 	return cmd
 }
+
+func init() {
+	AddCommandsToGroup(ManagementAPI, BuildKeyringsCmd())
+}

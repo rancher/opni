@@ -352,11 +352,7 @@ func (in *GatewaySpec) DeepCopyInto(out *GatewaySpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.Alerting != nil {
-		in, out := &in.Alerting, &out.Alerting
-		*out = new(AlertingSpec)
-		(*in).DeepCopyInto(*out)
-	}
+	in.Alerting.DeepCopyInto(&out.Alerting)
 	out.NatsRef = in.NatsRef
 	if in.ServiceAnnotations != nil {
 		in, out := &in.ServiceAnnotations, &out.ServiceAnnotations

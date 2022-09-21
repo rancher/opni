@@ -162,3 +162,7 @@ func BuildClientCmd() *cobra.Command {
 
 	return cmd
 }
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildClientCmd())
+}

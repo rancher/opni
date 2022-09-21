@@ -1,3 +1,5 @@
+//go:build !nomanager
+
 package commands
 
 import (
@@ -293,4 +295,8 @@ func BuildManagerCmd() *cobra.Command {
 	features.DefaultMutableFeatureGate.AddFlag(cmd.Flags())
 
 	return cmd
+}
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildManagerCmd())
 }

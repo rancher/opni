@@ -112,3 +112,7 @@ func BuildTokensGetCmd() *cobra.Command {
 		},
 	}
 }
+
+func init() {
+	AddCommandsToGroup(ManagementAPI, BuildTokensCmd())
+}

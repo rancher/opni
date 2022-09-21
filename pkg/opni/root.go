@@ -23,51 +23,11 @@ func BuildRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().BoolVar(&common.DisableUsage, "disable-usage", false, "Disable anonymous Opni usage tracking.")
 
 	groups := templates.CommandGroups{
-		{
-			Message: "Opni Components:",
-			Commands: []*cobra.Command{
-				commands.BuildAgentCmd(),
-				commands.BuildAgentV2Cmd(),
-				commands.BuildCortexCmd(),
-				commands.BuildEventsCmd(),
-				commands.BuildGatewayCmd(),
-				commands.BuildManagerCmd(),
-				commands.BuildRealtimeCmd(),
-				commands.BuildClientCmd(),
-			},
-		},
-		{
-			Message: "Management API:",
-			Commands: []*cobra.Command{
-				commands.BuildCapabilityCmd(),
-				commands.BuildCertsCmd(),
-				commands.BuildClustersCmd(),
-				commands.BuildKeyringsCmd(),
-				commands.BuildRolesCmd(),
-				commands.BuildRoleBindingsCmd(),
-				commands.BuildTokensCmd(),
-			},
-		},
-		{
-			Message: "Plugin APIs:",
-			Commands: []*cobra.Command{
-				commands.BuildMetricsCmd(),
-			},
-		},
-		{
-			Message: "Utilities:",
-			Commands: []*cobra.Command{
-				commands.BuildAccessMatrixCmd(),
-				commands.BuildBootstrapCmd(),
-				commands.BuildHooksCmd(),
-			},
-		},
-		{
-			Message: "Debug:",
-			Commands: []*cobra.Command{
-				commands.BuildDebugCmd(),
-			},
-		},
+		*commands.OpniComponents,
+		*commands.ManagementAPI,
+		*commands.PluginAPIs,
+		*commands.Utilities,
+		*commands.Debug,
 	}
 
 	groups.Add(rootCmd)

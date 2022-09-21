@@ -3,8 +3,9 @@ package gateway
 import (
 	"bytes"
 	"fmt"
-	"github.com/rancher/opni/apis/core/v1beta1"
 	"path"
+
+	"github.com/rancher/opni/apis/core/v1beta1"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/samber/lo"
@@ -18,7 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 )
 
-func setEmptyFields(spec *v1beta1.AlertingSpec) {
+func setEmptyFields(spec v1beta1.AlertingSpec) {
 	// handle missing fields because the test suite is flaky locally
 	if spec.WebPort == 0 {
 		spec.WebPort = 9093
@@ -66,17 +67,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 	publicControllerLabels := labelWithCluster(labelWithAlert(map[string]string{}))
 	publicControllerSvcLabels := publicControllerLabels
 
-	if r.spec.Alerting == nil {
-		// set some sensible defaults
-		r.spec.Alerting = &v1beta1.AlertingSpec{
-			WebPort:     9093,
-			ClusterPort: 9094,
-			Storage:     "500Mi",
-			ServiceType: "ClusterIP",
-			ConfigName:  "alertmanager-config",
-		}
-	}
-	//FIXME
 	setEmptyFields(r.spec.Alerting)
 	dataMountPath := shared.DataMountPath
 	configMountPath := shared.ConfigMountPath
@@ -106,6 +96,15 @@ func (r *Reconciler) alerting() []resources.Resource {
 		},
 	}
 
+	var resourceRequirements corev1.ResourceRequirements
+
+	if value, err := resource.ParseQuantity(r.spec.Alerting.Storage); err == nil {
+		resourceRequirements = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: value,
+			},
+		}
+	}
 	controllerDeploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shared.OperatorAlertingControllerServiceName + "-internal",
@@ -220,12 +219,9 @@ func (r *Reconciler) alerting() []resources.Resource {
 						AccessModes: []corev1.PersistentVolumeAccessMode{
 							corev1.ReadWriteOnce,
 						},
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: resource.MustParse(r.spec.Alerting.Storage),
-							},
-						},
-					}},
+						Resources: resourceRequirements,
+					},
+				},
 			},
 		},
 	}
@@ -338,12 +334,9 @@ func (r *Reconciler) alerting() []resources.Resource {
 						AccessModes: []corev1.PersistentVolumeAccessMode{
 							corev1.ReadWriteOnce,
 						},
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: resource.MustParse(r.spec.Alerting.Storage),
-							},
-						},
-					}},
+						Resources: resourceRequirements,
+					},
+				},
 			},
 		},
 	}

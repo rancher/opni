@@ -1,3 +1,5 @@
+//go:build !nodebug
+
 package commands
 
 import (
@@ -149,4 +151,8 @@ func BuildDebugEtcdctlCmd() *cobra.Command {
 		},
 	}
 	return debugEtcdctlCmd
+}
+
+func init() {
+	AddCommandsToGroup(Debug, BuildDebugCmd())
 }

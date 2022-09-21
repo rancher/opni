@@ -43,7 +43,7 @@ func BuildAgentV2Cmd() *cobra.Command {
 			defer ca()
 
 			tracing.Configure("agentv2")
-			agentlg = logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
+			agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
 
 			if configFile == "" {
 				// find config file
@@ -82,7 +82,7 @@ func BuildAgentV2Cmd() *cobra.Command {
 				runtime.SetMutexProfileFraction(100)
 			}
 
-			bootstrapper, err := configureBootstrapV2(agentConfig)
+			bootstrapper, err := configureBootstrapV2(agentConfig, agentlg)
 			if err != nil {
 				agentlg.With(
 					zap.Error(err),
@@ -138,7 +138,7 @@ func BuildAgentV2Cmd() *cobra.Command {
 	return cmd
 }
 
-func configureBootstrapV2(conf *v1beta1.AgentConfig) (bootstrap.Bootstrapper, error) {
+func configureBootstrapV2(conf *v1beta1.AgentConfig, agentlg logger.ExtendedSugaredLogger) (bootstrap.Bootstrapper, error) {
 	var bootstrapper bootstrap.Bootstrapper
 	var trustStrategy trust.Strategy
 	if conf.Spec.Bootstrap == nil {
@@ -248,4 +248,8 @@ func configureBootstrapV2(conf *v1beta1.AgentConfig) (bootstrap.Bootstrapper, er
 	}
 
 	return bootstrapper, nil
+}
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildAgentV2Cmd())
 }

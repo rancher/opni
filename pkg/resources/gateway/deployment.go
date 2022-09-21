@@ -284,7 +284,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 			append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
 	}
 	// add additional volumes for alerting
-	if r.spec.Alerting != nil && r.spec.Alerting.GatewayVolumeMounts != nil {
+	if r.spec.Alerting.Enabled && r.spec.Alerting.GatewayVolumeMounts != nil {
 		for _, alertVol := range r.spec.Alerting.GatewayVolumeMounts {
 			vol := corev1.Volume{
 				Name:         alertVol.Name,

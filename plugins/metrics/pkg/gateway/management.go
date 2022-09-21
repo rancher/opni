@@ -17,8 +17,7 @@ func (p *Plugin) configureCortexManagement() {
 
 	driverName := p.config.Get().Spec.Cortex.Management.ClusterDriver
 	if driverName == "" {
-		p.logger.Warn("no cluster driver configured, cortex-ops api will be disabled")
-		return
+		p.logger.Warn("no cluster driver configured")
 	}
 
 	driver, err := drivers.GetClusterDriver(driverName)

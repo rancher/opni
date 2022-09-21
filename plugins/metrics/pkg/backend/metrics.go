@@ -367,19 +367,27 @@ func buildResponse(old, new *node.MetricsCapabilityConfig) *node.SyncResponse {
 // Cortex Ops Backend
 
 func (m *MetricsBackend) GetClusterConfiguration(ctx context.Context, in *emptypb.Empty) (*cortexops.ClusterConfiguration, error) {
+	m.WaitForInit()
+
 	return m.ClusterDriver.GetClusterConfiguration(ctx, in)
 }
 
 func (m *MetricsBackend) ConfigureCluster(ctx context.Context, in *cortexops.ClusterConfiguration) (*emptypb.Empty, error) {
+	m.WaitForInit()
+
 	defer m.requestNodeSync(ctx, &corev1.Reference{})
 	return m.ClusterDriver.ConfigureCluster(ctx, in)
 }
 
 func (m *MetricsBackend) GetClusterStatus(ctx context.Context, in *emptypb.Empty) (*cortexops.InstallStatus, error) {
+	m.WaitForInit()
+
 	return m.ClusterDriver.GetClusterStatus(ctx, in)
 }
 
 func (m *MetricsBackend) UninstallCluster(ctx context.Context, in *emptypb.Empty) (*emptypb.Empty, error) {
+	m.WaitForInit()
+
 	clusters, err := m.StorageBackend.ListClusters(ctx, &corev1.LabelSelector{}, corev1.MatchOptions_Default)
 	if err != nil {
 		return nil, err

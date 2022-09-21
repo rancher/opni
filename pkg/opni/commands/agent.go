@@ -24,6 +24,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/opni/common"
 	"github.com/rancher/opni/pkg/pkp"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/trust"
@@ -296,7 +297,7 @@ func runMonitoringAgent(ctx context.Context) {
 func runLoggingControllers(ctx context.Context) error {
 	ctrl.SetLogger(ctrlzap.New(
 		ctrlzap.Level(util.Must(zapcore.ParseLevel(agentLogLevel))),
-		ctrlzap.Encoder(zapcore.NewConsoleEncoder(util.EncoderConfig)),
+		ctrlzap.Encoder(zapcore.NewConsoleEncoder(testutil.EncoderConfig)),
 	))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{

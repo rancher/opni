@@ -77,7 +77,7 @@ or, if provided, a manually overwritten namespace value.
 Calculates the gateway address
 */}}
 {{- define "opni-agent.gatewayAddress" -}}
-{{- if .Values.central -}}
+{{- if .Values.bootstrapInCluster.enabled -}}
 {{ .Values.address }}.{{ .Release.Namespace }}.svc:11080
 {{- else -}}
 {{ .Values.address }}

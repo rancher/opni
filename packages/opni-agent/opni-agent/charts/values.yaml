@@ -4,7 +4,7 @@ fullnameOverride: ""
 
 agent:
   # agent version: "v1" or "v2"
-  version: v1
+  version: v2
 
 image:
   repository: rancher/opni
@@ -20,7 +20,6 @@ metrics:
     enabled: true
     rbac: true
 
-# v1 only
 logging:
   enabled: false
   insecure: false

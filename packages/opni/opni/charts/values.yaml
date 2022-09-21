@@ -135,7 +135,9 @@ opni-prometheus-crd:
 opni-agent:
   enabled: true
   address: ""
-  central: true
+  bootstrapInCluster:
+    enabled: true
+    managementAddress: opni-monitoring-internal:11090
   agent:
     version: v2
 

@@ -1,4 +1,4 @@
-package util
+package k8sutil
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"

@@ -6,7 +6,7 @@ import (
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/multiclusteruser"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	opsterv1 "opensearch.opster.io/api/v1"
@@ -53,13 +53,13 @@ func (r *LoggingMulticlusterUserReconciler) Reconcile(ctx context.Context, req c
 	}
 
 	for _, rec := range reconcilers {
-		op := util.LoadResult(rec())
+		op := k8sutil.LoadResult(rec())
 		if op.ShouldRequeue() {
 			return op.Result()
 		}
 	}
 
-	return util.DoNotRequeue().Result()
+	return k8sutil.DoNotRequeue().Result()
 }
 
 // SetupWithManager sets up the controller with the Manager.

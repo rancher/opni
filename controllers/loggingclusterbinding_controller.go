@@ -6,7 +6,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/loggingclusterbinding"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	opsterv1 "opensearch.opster.io/api/v1"
@@ -50,13 +50,13 @@ func (r *LoggingClusterBindingReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	for _, rec := range reconcilers {
-		op := util.LoadResult(rec())
+		op := k8sutil.LoadResult(rec())
 		if op.ShouldRequeue() {
 			return op.Result()
 		}
 	}
 
-	return util.DoNotRequeue().Result()
+	return k8sutil.DoNotRequeue().Result()
 }
 
 // SetupWithManager sets up the controller with the Manager.

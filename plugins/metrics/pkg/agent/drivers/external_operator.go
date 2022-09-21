@@ -10,7 +10,7 @@ import (
 	"github.com/lestrrat-go/backoff/v2"
 	monitoringcoreosv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
@@ -72,7 +72,7 @@ func NewExternalPromOperatorDriver(
 	}
 
 	if options.k8sClient == nil {
-		c, err := util.NewK8sClient(util.ClientOptions{
+		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 			Scheme: apis.NewScheme(),
 		})
 		if err != nil {

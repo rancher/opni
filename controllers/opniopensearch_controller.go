@@ -6,7 +6,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opniopensearch"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"k8s.io/apimachinery/pkg/runtime"
 	opsterv1 "opensearch.opster.io/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,13 +42,13 @@ func (r *OpniOpensearchReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	for _, rec := range reconcilers {
-		op := util.LoadResult(rec())
+		op := k8sutil.LoadResult(rec())
 		if op.ShouldRequeue() {
 			return op.Result()
 		}
 	}
 
-	return util.DoNotRequeue().Result()
+	return k8sutil.DoNotRequeue().Result()
 }
 
 // SetupWithManager sets up the controller with the Manager.

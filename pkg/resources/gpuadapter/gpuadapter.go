@@ -10,7 +10,7 @@ import (
 	"github.com/imdario/mergo"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/providers"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +50,7 @@ func ReconcileGPUAdapter(
 		var err error
 		provider, err = providers.Detect(ctx, cli)
 		if err != nil {
-			return util.RequeueErr(err).Result()
+			return k8sutil.RequeueErr(err).Result()
 		}
 	case "k3s":
 		provider = providers.K3S
@@ -66,14 +66,14 @@ func ReconcileGPUAdapter(
 
 	policy, err := BuildClusterPolicy(gpa, provider)
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	err = mergo.Merge(&policy.Spec, gpa.Spec.Template)
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 
-	return util.LoadResult(rec.ReconcileResource(policy, reconciler.StatePresent)).Result()
+	return k8sutil.LoadResult(rec.ReconcileResource(policy, reconciler.StatePresent)).Result()
 }
 
 func BuildClusterPolicy(

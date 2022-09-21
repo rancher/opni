@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -89,7 +89,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	defer func() {
 		// When the reconciler is done, figure out what the state of the opnicluster
 		// is and set it in the state field accordingly.
-		op := util.LoadResult(retResult, retErr)
+		op := k8sutil.LoadResult(retResult, retErr)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if r.opniCluster != nil {
 				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
@@ -448,7 +448,7 @@ func (r *Reconciler) ReconcileLogCollector() (retResult *reconcile.Result, retEr
 	defer func() {
 		// When the reconciler is done, figure out what the state of the opnicluster
 		// is and set it in the state field accordingly.
-		op := util.LoadResult(retResult, retErr)
+		op := k8sutil.LoadResult(retResult, retErr)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.opniCluster), r.opniCluster); err != nil {
 				return err

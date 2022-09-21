@@ -18,6 +18,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -263,12 +264,6 @@ func (d *ExternalPromOperatorDriver) reconcileObject(desired client.Object, shou
 	lg := d.logger.With("object", key)
 	lg.Info("reconciling object")
 
-	current := desired.DeepCopyObject().(client.Object)
-	err := d.k8sClient.Get(context.TODO(), key, current)
-	if client.IgnoreNotFound(err) != nil {
-		return err
-	}
-
 	// get the agent statefulset
 	list := &appsv1.StatefulSetList{}
 	if err := d.k8sClient.List(context.TODO(), list,
@@ -285,10 +280,24 @@ func (d *ExternalPromOperatorDriver) reconcileObject(desired client.Object, shou
 	}
 	agentStatefulSet := &list.Items[0]
 
+	current := desired.DeepCopyObject().(client.Object)
+	err := d.k8sClient.Get(context.TODO(), key, current)
+	if client.IgnoreNotFound(err) != nil {
+		return err
+	}
+
 	// this can error if the object is cluster-scoped, but that's ok
 	controllerutil.SetOwnerReference(agentStatefulSet, desired, d.k8sClient.Scheme())
 
-	if !shouldExist {
+	if k8serrors.IsNotFound(err) {
+		if !shouldExist {
+			lg.Info("object does not exist and should not exist, skipping")
+			return nil
+		}
+		lg.Info("object does not exist, creating")
+		// create the object
+		return d.k8sClient.Create(context.TODO(), desired)
+	} else if !shouldExist {
 		// delete the object
 		lg.Info("object exists and should not exist, deleting")
 		return d.k8sClient.Delete(context.TODO(), current)

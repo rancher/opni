@@ -11,7 +11,7 @@ import (
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -85,18 +85,18 @@ func (r *Reconciler) updateCortexVersionStatus() (bool, error) {
 	return false, nil
 }
 
-func (r *Reconciler) pollCortexHealth(workloads []resources.Resource) util.RequeueOp {
+func (r *Reconciler) pollCortexHealth(workloads []resources.Resource) k8sutil.RequeueOp {
 	wlStatus := map[string]corev1beta1.WorkloadStatus{}
 	for _, wl := range workloads {
 		rtobj, desiredState, err := wl()
 		if err != nil {
-			return util.RequeueErr(err)
+			return k8sutil.RequeueErr(err)
 		}
 		obj := rtobj.(client.Object)
 
 		name, ok := workloadComponent(obj)
 		if !ok {
-			return util.RequeueErr(fmt.Errorf("workload is missing component label: %s", obj.GetName()))
+			return k8sutil.RequeueErr(fmt.Errorf("workload is missing component label: %s", obj.GetName()))
 		}
 
 		switch obj.(type) {
@@ -117,7 +117,7 @@ func (r *Reconciler) pollCortexHealth(workloads []resources.Resource) util.Reque
 						}
 					}
 				} else {
-					return util.RequeueErr(err)
+					return k8sutil.RequeueErr(err)
 				}
 			} else {
 				if desiredState == reconciler.StateAbsent {
@@ -159,7 +159,7 @@ func (r *Reconciler) pollCortexHealth(workloads []resources.Resource) util.Reque
 						}
 					}
 				} else {
-					return util.RequeueErr(err)
+					return k8sutil.RequeueErr(err)
 				}
 			} else {
 				if desiredState == reconciler.StateAbsent {
@@ -219,7 +219,7 @@ func (r *Reconciler) pollCortexHealth(workloads []resources.Resource) util.Reque
 			return r.client.Status().Update(r.ctx, cluster)
 		})
 		if err != nil {
-			return util.RequeueErr(err)
+			return k8sutil.RequeueErr(err)
 		}
 	case *corev1beta1.MonitoringCluster:
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -232,15 +232,15 @@ func (r *Reconciler) pollCortexHealth(workloads []resources.Resource) util.Reque
 			return r.client.Status().Update(r.ctx, cluster)
 		})
 		if err != nil {
-			return util.RequeueErr(err)
+			return k8sutil.RequeueErr(err)
 		}
 	default:
-		return util.RequeueErr(errors.New("unsupported monitoring type"))
+		return k8sutil.RequeueErr(errors.New("unsupported monitoring type"))
 
 	}
 
 	if len(conditions) > 0 {
-		return util.RequeueAfter(1 * time.Second)
+		return k8sutil.RequeueAfter(1 * time.Second)
 	}
-	return util.DoNotRequeue()
+	return k8sutil.DoNotRequeue()
 }

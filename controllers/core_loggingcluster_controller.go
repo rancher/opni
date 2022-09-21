@@ -6,7 +6,7 @@ import (
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/loggingcluster"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/meta"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,13 +54,13 @@ func (r *CoreLoggingClusterReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	for _, rec := range reconcilers {
-		op := util.LoadResult(rec())
+		op := k8sutil.LoadResult(rec())
 		if op.ShouldRequeue() {
 			return op.Result()
 		}
 	}
 
-	return util.DoNotRequeue().Result()
+	return k8sutil.DoNotRequeue().Result()
 }
 
 // SetupWithManager sets up the controller with the Manager.

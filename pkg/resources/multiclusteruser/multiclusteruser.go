@@ -9,7 +9,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/meta"
 	"k8s.io/client-go/util/retry"
 	opensearchv1 "opensearch.opster.io/api/v1"
@@ -67,7 +67,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	defer func() {
 		// When the reconciler is done, figure out what the state of the loggingcluster
 		// is and set it in the state field accordingly.
-		op := util.LoadResult(retResult, retErr)
+		op := k8sutil.LoadResult(retResult, retErr)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if r.multiclusterUser != nil {
 				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.multiclusterUser), r.multiclusterUser); err != nil {

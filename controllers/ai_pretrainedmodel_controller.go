@@ -22,7 +22,7 @@ import (
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/pkg/resources/pretrainedmodel"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -55,7 +55,7 @@ func (r *AIPretrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	return util.LoadResult(rec.Reconcile()).Result()
+	return k8sutil.LoadResult(rec.Reconcile()).Result()
 }
 
 // SetupWithManager sets up the controller with the Manager.

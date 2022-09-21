@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/monitoring/cortex"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -81,12 +81,12 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 			Namespace: r.mc.Namespace,
 		}, gw)
 		if err != nil {
-			return util.RequeueErr(err).Result()
+			return k8sutil.RequeueErr(err).Result()
 		}
 		r.gw = gw
 
 		if gw.DeletionTimestamp != nil {
-			return util.DoNotRequeue().Result()
+			return k8sutil.DoNotRequeue().Result()
 		}
 	} else if r.coremc != nil {
 		mc = r.coremc
@@ -96,28 +96,28 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 			Namespace: r.coremc.Namespace,
 		}, gw)
 		if err != nil {
-			return util.RequeueErr(err).Result()
+			return k8sutil.RequeueErr(err).Result()
 		}
 		r.coregw = gw
 
 		if gw.DeletionTimestamp != nil {
-			return util.DoNotRequeue().Result()
+			return k8sutil.DoNotRequeue().Result()
 		}
 	}
 
 	updated, err := r.updateImageStatus()
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	if updated {
-		return util.Requeue().Result()
+		return k8sutil.Requeue().Result()
 	}
 
 	allResources := []resources.Resource{}
 
 	grafanaResources, err := r.grafana()
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, grafanaResources...)
 
@@ -135,13 +135,13 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	)
 	cortexResult, err := cortexRec.Reconcile()
 	if err != nil {
-		result := util.LoadResult(cortexResult, err)
+		result := k8sutil.LoadResult(cortexResult, err)
 		if result.ShouldRequeue() {
 			return result.Result()
 		}
 	}
 
-	return util.DoNotRequeue().Result()
+	return k8sutil.DoNotRequeue().Result()
 }
 
 func convertSpec(spec v1beta2.MonitoringClusterSpec) corev1beta1.MonitoringClusterSpec {

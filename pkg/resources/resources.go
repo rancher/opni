@@ -5,7 +5,7 @@ import (
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	"github.com/go-logr/logr"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -62,22 +62,22 @@ func CreatedIff(condition bool, obj client.Object) Resource {
 	}
 }
 
-func ReconcileAll(r reconciler.ResourceReconciler, resources []Resource) util.RequeueOp {
+func ReconcileAll(r reconciler.ResourceReconciler, resources []Resource) k8sutil.RequeueOp {
 	for _, factory := range resources {
 		o, state, err := factory()
 		if err != nil {
-			return util.RequeueErr(fmt.Errorf("failed to create object: %w", err))
+			return k8sutil.RequeueErr(fmt.Errorf("failed to create object: %w", err))
 		}
 		if o == nil {
 			panic(fmt.Sprintf("reconciler %#v created a nil object", factory))
 		}
 		result, err := r.ReconcileResource(o, state)
 		if err != nil {
-			return util.RequeueErr(fmt.Errorf("failed to reconcile resource %#T: %w", o, err))
+			return k8sutil.RequeueErr(fmt.Errorf("failed to reconcile resource %#T: %w", o, err))
 		}
 		if result != nil {
-			return util.LoadResult(result, err)
+			return k8sutil.LoadResult(result, err)
 		}
 	}
-	return util.DoNotRequeue()
+	return k8sutil.DoNotRequeue()
 }

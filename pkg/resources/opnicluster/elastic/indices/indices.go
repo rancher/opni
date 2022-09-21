@@ -10,7 +10,7 @@ import (
 	aiv1beta1 "github.com/rancher/opni/apis/ai/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/pkg/util/opensearch"
 	esapiext "github.com/rancher/opni/pkg/util/opensearch/types"
 	"github.com/samber/lo"
@@ -121,7 +121,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	defer func() {
 		// When the reconciler is done, figure out what the state of the opnicluster
 		// is and set it in the state field accordingly.
-		op := util.LoadResult(retResult, retErr)
+		op := k8sutil.LoadResult(retResult, retErr)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if r.cluster != nil {
 				if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.cluster), r.cluster); err != nil {

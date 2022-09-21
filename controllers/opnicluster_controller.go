@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,11 +28,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
-	v1beta2 "github.com/rancher/opni/apis/v1beta2"
+	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/opnicluster"
 	"github.com/rancher/opni/pkg/resources/opnicluster/elastic/indices"
-	"github.com/rancher/opni/pkg/util"
 	opsterv1 "opensearch.opster.io/api/v1"
 )
 
@@ -88,13 +88,13 @@ func (r *OpniClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	for _, rec := range reconcilers {
-		op := util.LoadResult(rec())
+		op := k8sutil.LoadResult(rec())
 		if op.ShouldRequeue() {
 			return op.Result()
 		}
 	}
 
-	return util.DoNotRequeue().Result()
+	return k8sutil.DoNotRequeue().Result()
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -64,7 +64,7 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	}, nil
 }
 
-func (r *Reconciler) waitForLoadBalancer() util.RequeueOp {
+func (r *Reconciler) waitForLoadBalancer() k8sutil.RequeueOp {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
@@ -72,31 +72,31 @@ func (r *Reconciler) waitForLoadBalancer() util.RequeueOp {
 		},
 	}
 	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(svc), svc); err != nil {
-		return util.RequeueErr(err)
+		return k8sutil.RequeueErr(err)
 	}
 	if len(svc.Status.LoadBalancer.Ingress) == 0 {
-		return util.Requeue()
+		return k8sutil.Requeue()
 	}
 
 	if r.gw != nil {
 		r.gw.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
 
 		if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
-			return util.RequeueErr(err)
+			return k8sutil.RequeueErr(err)
 		}
 	}
 	if r.coreGW != nil {
 		r.coreGW.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
 
 		if err := r.client.Status().Update(r.ctx, r.coreGW); err != nil {
-			return util.RequeueErr(err)
+			return k8sutil.RequeueErr(err)
 		}
 	}
 
-	return util.DoNotRequeue()
+	return k8sutil.DoNotRequeue()
 }
 
-func (r *Reconciler) waitForServiceEndpoints() util.RequeueOp {
+func (r *Reconciler) waitForServiceEndpoints() k8sutil.RequeueOp {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "opni-monitoring",
@@ -104,11 +104,11 @@ func (r *Reconciler) waitForServiceEndpoints() util.RequeueOp {
 		},
 	}
 	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(svc), svc); err != nil {
-		return util.RequeueErr(err)
+		return k8sutil.RequeueErr(err)
 	}
 	endpoints := &corev1.Endpoints{}
 	if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(svc), endpoints); err != nil {
-		return util.RequeueErr(err)
+		return k8sutil.RequeueErr(err)
 	}
 	addresses := []corev1.EndpointAddress{}
 	for _, subset := range endpoints.Subsets {
@@ -118,31 +118,31 @@ func (r *Reconciler) waitForServiceEndpoints() util.RequeueOp {
 		if r.gw != nil {
 			r.gw.Status.Endpoints = nil
 			if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
-				return util.RequeueErr(err)
+				return k8sutil.RequeueErr(err)
 			}
-			return util.RequeueAfter(1 * time.Second)
+			return k8sutil.RequeueAfter(1 * time.Second)
 		}
 		if r.coreGW != nil {
 			r.coreGW.Status.Endpoints = nil
 			if err := r.client.Status().Update(r.ctx, r.coreGW); err != nil {
-				return util.RequeueErr(err)
+				return k8sutil.RequeueErr(err)
 			}
-			return util.RequeueAfter(1 * time.Second)
+			return k8sutil.RequeueAfter(1 * time.Second)
 		}
 	}
 
 	if r.gw != nil {
 		r.gw.Status.Endpoints = addresses
 		if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
-			return util.RequeueErr(err)
+			return k8sutil.RequeueErr(err)
 		}
 	}
 	if r.coreGW != nil {
 		r.coreGW.Status.Endpoints = addresses
 		if err := r.client.Status().Update(r.ctx, r.coreGW); err != nil {
-			return util.RequeueErr(err)
+			return k8sutil.RequeueErr(err)
 		}
 	}
 
-	return util.DoNotRequeue()
+	return k8sutil.DoNotRequeue()
 }

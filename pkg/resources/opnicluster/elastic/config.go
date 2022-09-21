@@ -8,6 +8,7 @@ import (
 
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/samber/lo"
 	"golang.org/x/crypto/bcrypt"
 	corev1 "k8s.io/api/core/v1"
@@ -119,7 +120,7 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 				},
 			}
 			ctrl.SetControllerReference(r.opniCluster, secret, r.client.Scheme())
-			err = util.CreateOrUpdate(r.ctx, r.client, secret)
+			err = k8sutil.CreateOrUpdate(r.ctx, r.client, secret)
 			if err != nil {
 				return err
 			}
@@ -190,7 +191,7 @@ func (r *Reconciler) elasticPasswordResourcces() (err error) {
 
 		secret.Data[internalUsersKey] = buffer.Bytes()
 		ctrl.SetControllerReference(r.opniCluster, secret, r.client.Scheme())
-		err = util.CreateOrUpdate(r.ctx, r.client, secret)
+		err = k8sutil.CreateOrUpdate(r.ctx, r.client, secret)
 		if err != nil {
 			return
 		}

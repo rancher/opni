@@ -1,4 +1,4 @@
-package util_test
+package k8sutil_test
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/samber/lo"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -47,7 +47,7 @@ var _ = Describe("Cluster Utils", Ordered, Label("unit", "slow"), func() {
 	Describe("NewK8sClient", func() {
 		When("a kubeconfig is given", func() {
 			It("should create the client from the kubeconfig", func() {
-				_, err := util.NewK8sClient(util.ClientOptions{
+				_, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 					Kubeconfig: &kubeconfigPath,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -55,7 +55,7 @@ var _ = Describe("Cluster Utils", Ordered, Label("unit", "slow"), func() {
 		})
 		When("a REST config is given", func() {
 			It("should create the client from the REST config", func() {
-				_, err := util.NewK8sClient(util.ClientOptions{
+				_, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 					RestConfig: restConfig,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -63,16 +63,16 @@ var _ = Describe("Cluster Utils", Ordered, Label("unit", "slow"), func() {
 		})
 		When("neither a kubeconfig nor a REST config is given", func() {
 			It("should create the client from the in-cluster config", func() {
-				_, err := util.NewK8sClient(util.ClientOptions{})
+				_, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{})
 				Expect(err).To(MatchError(rest.ErrNotInCluster))
 			})
 		})
 		It("should handle errors", func() {
-			_, err := util.NewK8sClient(util.ClientOptions{
+			_, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 				Kubeconfig: lo.ToPtr("/dev/null"),
 			})
 			Expect(err).To(HaveOccurred())
-			_, err = util.NewK8sClient(util.ClientOptions{
+			_, err = k8sutil.NewK8sClient(k8sutil.ClientOptions{
 				Kubeconfig: lo.ToPtr("/does/not/exist"),
 			})
 			Expect(err).To(HaveOccurred())

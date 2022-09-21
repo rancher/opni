@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,13 +45,13 @@ func BuildWaitForResourceCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			opts := util.ClientOptions{
+			opts := k8sutil.ClientOptions{
 				Scheme: apis.NewScheme(),
 			}
 			if kc, ok := os.LookupEnv("KUBECONFIG"); ok {
 				opts.Kubeconfig = &kc
 			}
-			restConfig, err := util.NewRestConfig(opts)
+			restConfig, err := k8sutil.NewRestConfig(opts)
 			if err != nil {
 				return err
 			}

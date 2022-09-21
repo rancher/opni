@@ -11,7 +11,7 @@ import (
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	"github.com/rancher/opni/apis/v1beta2"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"github.com/samber/lo"
 	"google.golang.org/grpc/codes"
@@ -82,7 +82,7 @@ func NewOpniManagerClusterDriver(opts ...OpniManagerClusterDriverOption) (*OpniM
 	}
 	options.apply(opts...)
 	if options.k8sClient == nil {
-		c, err := util.NewK8sClient(util.ClientOptions{
+		c, err := k8sutil.NewK8sClient(k8sutil.ClientOptions{
 			Scheme: apis.NewScheme(),
 		})
 		if err != nil {

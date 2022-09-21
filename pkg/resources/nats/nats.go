@@ -8,7 +8,7 @@ import (
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
 	opnicorev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -47,7 +47,7 @@ func (r *Reconciler) Reconcile() (retResult *reconcile.Result, retErr error) {
 	defer func() {
 		// When the reconciler is done, figure out what the state of the natscluster
 		// is and set it in the state field accordingly.
-		op := util.LoadResult(retResult, retErr)
+		op := k8sutil.LoadResult(retResult, retErr)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 
 			if err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.natsCluster), r.natsCluster); err != nil {

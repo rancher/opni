@@ -9,7 +9,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,10 +59,10 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 
 	updated, err := r.updateCortexVersionStatus()
 	if err != nil {
-		return util.RequeueErr(err).ResultPtr()
+		return k8sutil.RequeueErr(err).ResultPtr()
 	}
 	if updated {
-		return util.Requeue().ResultPtr()
+		return k8sutil.Requeue().ResultPtr()
 	}
 
 	config, err := r.config()

@@ -3,6 +3,7 @@ package drivers
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
@@ -19,6 +20,7 @@ type ClusterDriver interface {
 }
 
 var (
+	lock                 = &sync.Mutex{}
 	clusterDrivers       map[string]ClusterDriver
 	persistentDrivers    []func() ClusterDriver
 	failedClusterDrivers map[string]string
@@ -29,6 +31,9 @@ func init() {
 }
 
 func RegisterClusterDriver(driver ClusterDriver) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	if _, ok := clusterDrivers[driver.Name()]; ok {
 		panic("driver already exists: " + driver.Name())
 	}
@@ -36,14 +41,23 @@ func RegisterClusterDriver(driver ClusterDriver) {
 }
 
 func RegisterPersistentClusterDriver(driverFunc func() ClusterDriver) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	persistentDrivers = append(persistentDrivers, driverFunc)
 }
 
 func LogClusterDriverFailure(name string, err error) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	failedClusterDrivers[name] = err.Error()
 }
 
 func GetClusterDriver(name string) (ClusterDriver, error) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	driver, ok := clusterDrivers[name]
 	if !ok {
 		if failureMsg, ok := failedClusterDrivers[name]; ok {
@@ -55,8 +69,10 @@ func GetClusterDriver(name string) (ClusterDriver, error) {
 }
 
 func ResetClusterDrivers() {
+	lock.Lock()
 	clusterDrivers = make(map[string]ClusterDriver)
 	failedClusterDrivers = make(map[string]string)
+	lock.Unlock()
 	for _, driverFunc := range persistentDrivers {
 		RegisterClusterDriver(driverFunc())
 	}

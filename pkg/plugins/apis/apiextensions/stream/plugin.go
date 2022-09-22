@@ -14,8 +14,6 @@ import (
 	"github.com/kralicky/totem"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
@@ -93,7 +91,7 @@ func NewPlugin(p StreamAPIExtension) plugin.Plugin {
 		name:             name,
 		logger:           logger.NewPluginLogger().Named(name).Named("stream"),
 		streamClientCond: sync.NewCond(&sync.Mutex{}),
-		connectSem:       make(chan struct{}, 1),
+		// connectSem:       make(chan struct{}, 1),
 	}
 	if p != nil {
 		servers := p.StreamServers()
@@ -127,17 +125,17 @@ type streamExtensionServerImpl struct {
 	streamClientCond *sync.Cond
 	streamClient     grpc.ClientConnInterface
 
-	connectSem chan struct{}
+	// connectSem chan struct{}
 }
 
 // Implements streamv1.StreamServer
 func (e *streamExtensionServerImpl) Connect(stream streamv1.Stream_ConnectServer) error {
-	select {
-	case e.connectSem <- struct{}{}:
-		defer func() { <-e.connectSem }()
-	default:
-		return status.Error(codes.FailedPrecondition, "another connection is already active")
-	}
+	// select {
+	// case e.connectSem <- struct{}{}:
+	// 	defer func() { <-e.connectSem }()
+	// default:
+	// 	return status.Error(codes.FailedPrecondition, "another connection is already active")
+	// }
 
 	e.logger.Debug("stream connected")
 	ts, err := totem.NewServer(stream, totem.WithName("plugin_"+e.name))

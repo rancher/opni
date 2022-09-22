@@ -54,7 +54,7 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 					return fmt.Errorf("not connected")
 				}
 				conds := hs.GetHealth().GetConditions()
-				if slices.Contains(conds, "Remote Write Pending") {
+				if len(conds) == 0 || slices.Contains(conds, "Remote Write Pending") {
 					return nil
 				}
 				return fmt.Errorf("waiting for remote write pending condition")
@@ -73,7 +73,7 @@ var _ = Describe("Agent - Remote Write Tests", Ordered, Label("integration"), fu
 					return fmt.Errorf("not connected")
 				}
 				if !hs.GetHealth().GetReady() {
-					return fmt.Errorf("not ready")
+					return fmt.Errorf("not ready: %v", hs.GetHealth().GetConditions())
 				}
 				return nil
 			}, 30*time.Second, 100*time.Millisecond).Should(Succeed())

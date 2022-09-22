@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"sync"
 
+	"sync/atomic"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/status"
@@ -24,6 +26,8 @@ type HttpServer struct {
 	remoteWriteClient   clients.Locker[remotewrite.RemoteWriteClient]
 
 	conditions ConditionTracker
+
+	enabled atomic.Bool
 }
 
 func NewHttpServer(ct ConditionTracker, lg *zap.SugaredLogger) *HttpServer {
@@ -31,6 +35,15 @@ func NewHttpServer(ct ConditionTracker, lg *zap.SugaredLogger) *HttpServer {
 		logger:     lg,
 		conditions: ct,
 	}
+}
+
+func (s *HttpServer) SetEnabled(enabled bool) {
+	if enabled {
+		s.conditions.Set(CondRemoteWrite, StatusPending, "")
+	} else {
+		s.conditions.Clear(CondRemoteWrite)
+	}
+	s.enabled.Store(enabled)
 }
 
 func (s *HttpServer) SetRemoteWriteClient(client clients.Locker[remotewrite.RemoteWriteClient]) {
@@ -44,6 +57,10 @@ func (s *HttpServer) ConfigureRoutes(router *gin.Engine) {
 }
 
 func (s *HttpServer) handlePushRequest(c *gin.Context) {
+	if !s.enabled.Load() {
+		c.Status(http.StatusServiceUnavailable)
+		return
+	}
 	s.remoteWriteClientMu.RLock()
 	defer s.remoteWriteClientMu.RUnlock()
 	if s.remoteWriteClient == nil {

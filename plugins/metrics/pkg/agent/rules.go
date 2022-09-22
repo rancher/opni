@@ -39,6 +39,9 @@ func (s *RuleStreamer) SetRemoteWriteClient(client remotewrite.RemoteWriteClient
 }
 
 func (s *RuleStreamer) Run(ctx context.Context, config *v1beta1.RulesSpec) error {
+	s.conditions.Set(CondRuleSync, StatusPending, "")
+	defer s.conditions.Clear(CondRuleSync)
+
 	lg := s.logger
 	updateC, err := s.streamRuleGroupUpdates(ctx, config)
 	if err != nil {

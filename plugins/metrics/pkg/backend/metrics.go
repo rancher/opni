@@ -76,12 +76,9 @@ func (m *MetricsBackend) Info(_ context.Context, _ *emptypb.Empty) (*capabilityv
 	}, nil
 }
 
-func (m *MetricsBackend) CanInstall(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (m *MetricsBackend) CanInstall(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	m.WaitForInit()
 
-	if err := m.canInstall(ctx); err != nil {
-		return nil, err
-	}
 	return &emptypb.Empty{}, nil
 }
 

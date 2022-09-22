@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/node"
 )
@@ -14,6 +15,7 @@ type MetricsNodeDriver interface {
 }
 
 var (
+	lock              = &sync.Mutex{}
 	nodeDrivers       map[string]MetricsNodeDriver
 	failedNodeDrivers map[string]string
 )
@@ -23,6 +25,9 @@ func init() {
 }
 
 func RegisterNodeDriver(driver MetricsNodeDriver) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	if _, ok := nodeDrivers[driver.Name()]; ok {
 		panic("driver already exists: " + driver.Name())
 	}
@@ -30,10 +35,16 @@ func RegisterNodeDriver(driver MetricsNodeDriver) {
 }
 
 func LogNodeDriverFailure(name string, err error) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	failedNodeDrivers[name] = err.Error()
 }
 
 func GetNodeDriver(name string) (MetricsNodeDriver, error) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	driver, ok := nodeDrivers[name]
 	if !ok {
 		if failureMsg, ok := failedNodeDrivers[name]; ok {
@@ -45,6 +56,9 @@ func GetNodeDriver(name string) (MetricsNodeDriver, error) {
 }
 
 func ResetNodeDrivers() {
+	lock.Lock()
+	defer lock.Unlock()
+
 	nodeDrivers = make(map[string]MetricsNodeDriver)
 	failedNodeDrivers = make(map[string]string)
 }

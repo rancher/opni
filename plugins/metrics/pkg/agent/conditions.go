@@ -40,8 +40,8 @@ func NewConditionTracker(logger *zap.SugaredLogger) ConditionTracker {
 	ct := &conditionTracker{
 		logger: logger,
 	}
-	ct.conditions.Store(CondRemoteWrite, StatusPending)
-	ct.conditions.Store(CondRuleSync, StatusPending)
+	// ct.conditions.Store(CondRemoteWrite, StatusPending)
+	// ct.conditions.Store(CondRuleSync, StatusPending)
 	ct.conditions.Store(CondConfigSync, StatusPending)
 	return ct
 }

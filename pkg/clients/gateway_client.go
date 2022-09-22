@@ -73,6 +73,11 @@ func NewGatewayClient(
 		return nil, err
 	}
 
+	go func() {
+		<-ctx.Done()
+		cc.Close()
+	}()
+
 	client := &gatewayClient{
 		cc:     cc,
 		id:     id,

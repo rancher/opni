@@ -79,9 +79,13 @@ func (p *Plugin) onConfigUpdated(cfg *node.MetricsCapabilityConfig) {
 		p.logger.Debug("stopping rule sync")
 		p.stopRuleStreamer()
 		p.stopRuleStreamer = nil
+		p.logger.Debug("disabling http server")
+		p.httpServer.SetEnabled(false)
 	case !currentlyRunning && shouldRun:
 		p.logger.Debug("starting rule sync")
 		startRuleStreamer()
+		p.logger.Debug("enabling http server")
+		p.httpServer.SetEnabled(true)
 	case !currentlyRunning && !shouldRun:
 		p.logger.Debug("rule sync is disabled")
 	}

@@ -372,6 +372,8 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 			drivers.RegisterPersistentClusterDriver(func() drivers.ClusterDriver {
 				return NewTestEnvClusterDriver(e)
 			})
+		} else {
+			e.StartCortex(e.ctx)
 		}
 	}
 	if options.enableGateway {
@@ -612,7 +614,10 @@ func (e *Environment) StartCortex(ctx context.Context) {
 		}
 		time.Sleep(time.Second)
 	}
-	lg.Info("Cortex started")
+	lg.With(
+		"httpAddress", fmt.Sprintf("https://localhost:%d", e.ports.CortexHTTP),
+		"grpcAddress", fmt.Sprintf("localhost:%d", e.ports.CortexGRPC),
+	).Info("Cortex started")
 	waitctx.Go(ctx, func() {
 		<-ctx.Done()
 		lg.Info("Cortex stopping...")

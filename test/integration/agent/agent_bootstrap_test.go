@@ -241,7 +241,6 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 				return
 			}).Should(Succeed())
 
-			Expect(cluster.GetLabels()).To(HaveLen(1))
 			Expect(cluster.GetLabels()).To(HaveKeyWithValue("i", "999"))
 		})
 	})

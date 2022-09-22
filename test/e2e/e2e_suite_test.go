@@ -16,6 +16,7 @@ import (
 	"github.com/rancher/opni/pkg/test"
 	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -29,14 +30,15 @@ func TestE2E(t *testing.T) {
 }
 
 var (
-	testEnv        *test.Environment
-	stopEnv        context.CancelFunc
-	k8sClient      client.Client
-	restConfig     *rest.Config
-	mgmtClient     managementv1.ManagementClient
-	adminClient    cortexadmin.CortexAdminClient
-	outputs        StackOutputs
-	gatewayAddress string
+	testEnv         *test.Environment
+	stopEnv         context.CancelFunc
+	k8sClient       client.Client
+	restConfig      *rest.Config
+	mgmtClient      managementv1.ManagementClient
+	adminClient     cortexadmin.CortexAdminClient
+	cortexOpsClient cortexops.CortexOpsClient
+	outputs         StackOutputs
+	gatewayAddress  string
 )
 
 type StackOutputs struct {
@@ -99,6 +101,12 @@ var _ = BeforeSuite(func() {
 	adminClient, err = cortexadmin.NewClient(ctx,
 		cortexadmin.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", internalPorts[0].Local)),
 		cortexadmin.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
+	)
+	Expect(err).NotTo(HaveOccurred())
+
+	cortexOpsClient, err = cortexops.NewClient(
+		ctx,
+		cortexops.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
 	)
 	Expect(err).NotTo(HaveOccurred())
 })

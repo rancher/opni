@@ -154,7 +154,7 @@ func run(ctx *Context) (runErr error) {
 					},
 					// FIXME: change to a config value
 					"kube-prometheus-stack": Map{
-						"enabled": Bool(true),
+						"enabled": Bool(false),
 					},
 				},
 			},

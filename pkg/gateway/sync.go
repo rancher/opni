@@ -2,11 +2,15 @@ package gateway
 
 import (
 	"context"
+	"math/rand"
 	"sync"
+	"time"
 
 	agentv1 "github.com/rancher/opni/pkg/agent"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
+	"github.com/rancher/opni/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -34,7 +38,13 @@ func (f *SyncRequester) HandleAgentConnection(ctx context.Context, clientSet age
 	f.logger.With("id", id).Debug("agent connected")
 	f.mu.Unlock()
 
-	<-ctx.Done()
+	// blocks until ctx is canceled
+	// send a periodic sync request to the agent every 10-20 minutes
+	f.runPeriodicSync(ctx, &capabilityv1.SyncRequest{
+		Cluster: &corev1.Reference{
+			Id: id,
+		},
+	}, 10*time.Minute, 10*time.Minute)
 
 	f.mu.Lock()
 	delete(f.activeAgents, id)
@@ -63,7 +73,7 @@ func (f *SyncRequester) RequestSync(ctx context.Context, req *capabilityv1.SyncR
 		f.logger.With(
 			"agentId", req.GetCluster().GetId(),
 			"capabilities", req.GetFilter().GetCapabilityNames(),
-		).Info("sending sync request to agent")
+		).Debug("sending sync request to agent")
 		_, err := clientSet.SyncNow(ctx, req.GetFilter())
 		if err != nil {
 			f.logger.With(
@@ -75,4 +85,19 @@ func (f *SyncRequester) RequestSync(ctx context.Context, req *capabilityv1.SyncR
 	}
 
 	return &emptypb.Empty{}, status.Error(codes.NotFound, "agent is not connected")
+}
+
+func (f *SyncRequester) runPeriodicSync(ctx context.Context, req *capabilityv1.SyncRequest, period time.Duration, jitter time.Duration) {
+	timer := time.NewTimer(period + time.Duration(rand.Int63n(int64(jitter))))
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+			go f.RequestSync(ctx, util.ProtoClone(req))
+			timer.Reset(period + time.Duration(rand.Int63n(int64(jitter))))
+		}
+	}
 }

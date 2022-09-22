@@ -107,7 +107,7 @@ spec:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: webhook-server-cert
+            secretName: agent-webhook-server-cert
   volumeClaimTemplates:
     - metadata:
         name: plugins

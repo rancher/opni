@@ -31,7 +31,7 @@ import (
 	_ "github.com/rancher/opni/internal/mage/dev"
 
 	// mage:import charts
-	_ "github.com/rancher/charts-build-scripts/pkg/actions"
+	charts "github.com/rancher/charts-build-scripts/pkg/actions"
 	// mage:import test
 	"github.com/rancher/opni/internal/mage/test"
 )
@@ -52,6 +52,14 @@ func GenerateCRD() {
 
 func Test() {
 	mg.Deps(test.Test)
+}
+
+func Charts() {
+	mg.SerialDeps(All, CRDGen, func() {
+		charts.Charts("opni")
+	}, func() {
+		charts.Charts("opni-agent")
+	})
 }
 
 func ControllerGen() error {

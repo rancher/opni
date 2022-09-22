@@ -1,4 +1,5 @@
 {{- $namespace := printf "%s" (include "opni-agent.namespace" .) }}
+{{- if not .Values.bootstrapInCluster.enabled -}}
 {{- if (or (eq .Values.agent.version "v2") .Values.logging.enabled ) }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -57,4 +58,5 @@ webhooks:
         resources:
           - logadapters
     sideEffects: None
+{{- end }}
 {{- end }}

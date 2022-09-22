@@ -68,7 +68,6 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(clusterInfo.Id).To(Equal("test-cluster-id"))
-		Expect(clusterInfo.GetLabels()).To(BeNil())
 	})
 
 	It("can edit the label a cluster is using", func() {
@@ -130,6 +129,15 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 
 	When("a cluster has installed capabilities", func() {
 		It("should prevent the cluster from being deleted", func() {
+			client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
+				Name: "metrics",
+				Target: &v1.InstallRequest{
+					Cluster: &corev1.Reference{
+						Id: "test-cluster-id",
+					},
+					IgnoreWarnings: true,
+				},
+			})
 			_, errG1 := client.GetCluster(context.Background(), &corev1.Reference{
 				Id: "test-cluster-id",
 			})

@@ -15,6 +15,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/capabilities"
 	"github.com/rancher/opni/pkg/ecdh"
+	"github.com/rancher/opni/pkg/health/annotations"
 	"github.com/rancher/opni/pkg/keyring"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/tokens"
@@ -173,10 +174,15 @@ func (h *Server) Auth(ctx context.Context, authReq *bootstrapv1.BootstrapAuthReq
 	} else {
 		tokenLabels := maps.Clone(bootstrapToken.GetMetadata().GetLabels())
 		delete(tokenLabels, "kubernetes.io/metadata.name") // todo: this label should change
+		if tokenLabels == nil {
+			tokenLabels = map[string]string{}
+		}
+		tokenLabels[annotations.AgentVersion] = annotations.Version1
 		newCluster := &corev1.Cluster{
 			Id: authReq.ClientID,
 			Metadata: &corev1.ClusterMetadata{
-				Labels: tokenLabels,
+				Labels:       tokenLabels,
+				Capabilities: []*corev1.ClusterCapability{capabilities.Cluster(authReq.Capability)},
 			},
 		}
 		if err := h.handleCreate(ctx, newCluster, backendClient, bootstrapToken, kr); err != nil {

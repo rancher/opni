@@ -24,7 +24,7 @@ func main() {
 	pflag.StringVar(&remoteGatewayAddress, "remote-gateway-address", "", "remote gateway address")
 	pflag.StringVar(&remoteKubeconfig, "remote-kubeconfig", "", "remote kubeconfig (for accessing the management api)")
 	pflag.Int64Var(&agentIdSeed, "agent-id-seed", 0, "random seed used for generating agent ids. if unset, uses a random seed.")
-	pflag.BoolVar(&enableCortexClusterDriver, "enable-cortex-cluster-driver", true, "enable cortex cluster driver")
+	pflag.BoolVar(&enableCortexClusterDriver, "enable-cortex-cluster-driver", false, "enable cortex cluster driver")
 
 	pflag.Parse()
 

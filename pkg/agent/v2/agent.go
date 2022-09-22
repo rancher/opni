@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rancher/opni/pkg/patch"
@@ -120,6 +121,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	}))
 
 	router := gin.New()
+	routerMutex := &sync.Mutex{}
 	router.Use(logger.GinLogger(lg), gin.Recovery())
 	if conf.Spec.Profiling {
 		pprof.Register(router)
@@ -140,7 +142,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 			).Error("failed to configure routes")
 			return
 		}
-		setupPluginRoutes(lg, router, cfg, md, []string{"/healthz", "/metrics"})
+		setupPluginRoutes(lg, routerMutex, router, cfg, md, []string{"/healthz", "/metrics"})
 	}))
 
 	initCtx, initCancel := context.WithTimeout(ctx, 10*time.Second)
@@ -322,11 +324,15 @@ func (a *Agent) ListenAddress() string {
 
 func setupPluginRoutes(
 	lg *zap.SugaredLogger,
+	mutex *sync.Mutex,
 	router *gin.Engine,
 	cfg *apiextensions.HTTPAPIExtensionConfig,
 	pluginMeta meta.PluginMeta,
 	reservedPrefixRoutes []string,
 ) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	sampledLogger := logger.New(
 		logger.WithSampling(&zap.SamplingConfig{
 			Initial:    1,

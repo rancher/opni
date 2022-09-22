@@ -78,7 +78,7 @@ Calculates the gateway address
 */}}
 {{- define "opni-agent.gatewayAddress" -}}
 {{- if .Values.bootstrapInCluster.enabled -}}
-{{ .Values.address }}.{{ .Release.Namespace }}.svc:11080
+{{ .Values.address }}.{{ .Release.Namespace }}.svc:9090
 {{- else -}}
 {{ .Values.address }}
 {{- end -}}

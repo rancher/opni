@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -42,6 +43,8 @@ import (
 	"github.com/rancher/opni/pkg/util/fwd"
 )
 
+var ErrRebootstrap = errors.New("re-bootstrap requested")
+
 type Agent struct {
 	AgentOptions
 
@@ -55,11 +58,14 @@ type Agent struct {
 	keyringStore     storage.KeyringStore
 	gatewayClient    clients.GatewayClient
 	trust            trust.Strategy
+
+	loadedExistingKeyring bool
 }
 
 type AgentOptions struct {
 	bootstrapper          bootstrap.Bootstrapper
 	unmanagedPluginLoader *plugins.PluginLoader
+	rebootstrap           bool
 }
 
 type AgentOption func(*AgentOptions)
@@ -79,6 +85,12 @@ func WithBootstrapper(bootstrapper bootstrap.Bootstrapper) AgentOption {
 func WithUnmanagedPluginLoader(pluginLoader *plugins.PluginLoader) AgentOption {
 	return func(o *AgentOptions) {
 		o.unmanagedPluginLoader = pluginLoader
+	}
+}
+
+func WithRebootstrap(rebootstrap bool) AgentOption {
+	return func(o *AgentOptions) {
+		o.rebootstrap = rebootstrap
 	}
 }
 
@@ -152,12 +164,29 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	})
 
 	var kr keyring.Keyring
-	// FIXME: check if key is left over from a previous agent
+	var loadedExistingKeyring bool
+	var shouldBootstrap bool
 	if existing, err := ks.Get(initCtx); err == nil {
 		lg.Info("loaded existing keyring")
 		kr = existing
+		loadedExistingKeyring = true
 	} else if errors.Is(err, storage.ErrNotFound) {
 		lg.Info("no existing keyring found, starting bootstrap process")
+		shouldBootstrap = true
+	} else {
+		return nil, fmt.Errorf("keyring store error: %w", err)
+	}
+
+	if options.rebootstrap {
+		if conf.Spec.ContainsBootstrapCredentials() {
+			lg.Info("attempting to re-bootstrap agent to generate new keyring")
+			shouldBootstrap = true
+		} else {
+			lg.Warn("re-bootstrap requested, but no bootstrap credentials were provided in the config file")
+		}
+	}
+
+	if shouldBootstrap {
 		kr, err = options.bootstrapper.Bootstrap(initCtx, ip)
 		if err != nil {
 			return nil, fmt.Errorf("error during bootstrap: %w", err)
@@ -170,12 +199,13 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 				lg.With(zap.Error(err)).Error("failed to persist keyring (retry in 1 second)")
 				time.Sleep(1 * time.Second)
 			} else {
+				if options.rebootstrap {
+					lg.Info("successfully replaced keyring")
+				}
 				break
 			}
 		}
 		lg.Info("bootstrap completed successfully")
-	} else {
-		return nil, fmt.Errorf("keyring store error: %w", err)
 	}
 
 	// Run post-bootstrap finalization. If this has previously succeeded,
@@ -225,6 +255,8 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 		keyringStore:     ks,
 		trust:            trust,
 		gatewayClient:    gatewayClient,
+
+		loadedExistingKeyring: loadedExistingKeyring,
 	}, nil
 }
 
@@ -232,6 +264,18 @@ func (a *Agent) ListenAndServe(ctx context.Context) error {
 	if a.unmanagedPluginLoader == nil {
 		manifests, err := a.syncPlugins(ctx)
 		if err != nil {
+			if status.Code(err) == codes.Unauthenticated && a.loadedExistingKeyring {
+				a.Logger.With(
+					zap.Error(err),
+				).Warn("The agent failed to authorize to the gateway using an existing keyring. " +
+					"This could be due to a leftover keyring from a previous installation that was not deleted.",
+				)
+				if a.config.ContainsBootstrapCredentials() {
+					a.Logger.Warn("Bootstrap credentials have been provided in the config file - " +
+						"the agent will restart and attempt to re-bootstrap a new keyring using these credentials.")
+					return ErrRebootstrap
+				}
+			}
 			return fmt.Errorf("error syncing plugins: %w", err)
 		}
 		// eventually passed to runGatewayClient
@@ -356,7 +400,7 @@ func (a *Agent) runGatewayClient(ctx context.Context) error {
 }
 
 func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.ManifestMetadataList, retErr error) {
-	a.Logger.Info("connecting to gateway...")
+	a.Logger.Info("attempting to sync plugins with gateway")
 
 	manifestClient := controlv1.NewPluginManifestClient(a.gatewayClient.ClientConn())
 	// read local plugins on disk here
@@ -365,13 +409,12 @@ func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.ManifestMetadataL
 		return nil, err
 	}
 
-	a.Logger.Info("syncing plugins with gateway")
 	patchList, err := manifestClient.SendManifestsOrKnownPatch(ctx, localManifests, grpc.UseCompressor("zstd"))
 	if err != nil {
 		return nil, err
 	}
 	a.Logger.Info("received patch manifest from gateway")
-	// fill in  here
+
 	done, err := patch.PatchWith(ctx, a.config.Plugins, patchList, a.Logger, manifestClient)
 	if err != nil {
 		return nil, err
@@ -379,6 +422,7 @@ func (a *Agent) syncPlugins(ctx context.Context) (_ *controlv1.ManifestMetadataL
 
 	go func() {
 		<-done
+		a.Logger.Debug("background patching tasks complete")
 	}()
 
 	// read local manifests again

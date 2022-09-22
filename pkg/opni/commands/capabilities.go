@@ -61,32 +61,33 @@ func BuildCapabilityListCmd() *cobra.Command {
 func BuildCapabilityInstallCmd() *cobra.Command {
 	var ignoreWarnings bool
 	cmd := &cobra.Command{
-		Use:   "install <cluster-id> <capability-name>",
-		Short: "Install a capability on a cluster",
-		Args:  cobra.ExactArgs(2),
+		Use:   "install <capability-name> <cluster-id> [cluster-id ...]",
+		Short: "Install a capability on one or more clusters",
+		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := mgmtClient.InstallCapability(cmd.Context(), &managementv1.CapabilityInstallRequest{
-				Name: args[1],
-				Target: &capabilityv1.InstallRequest{
-					Cluster: &corev1.Reference{
-						Id: args[0],
+			for _, clusterID := range args[1:] {
+				resp, err := mgmtClient.InstallCapability(cmd.Context(), &managementv1.CapabilityInstallRequest{
+					Name: args[0],
+					Target: &capabilityv1.InstallRequest{
+						Cluster: &corev1.Reference{
+							Id: clusterID,
+						},
+						IgnoreWarnings: ignoreWarnings,
 					},
-					IgnoreWarnings: ignoreWarnings,
-				},
-			})
-			if err != nil {
-				return err
-			}
+				})
+				if err != nil {
+					return err
+				}
 
-			switch resp.Status {
-			case capabilityv1.InstallResponseStatus_Success:
-				lg.Info("Capability installed successfully")
-			case capabilityv1.InstallResponseStatus_Warning:
-				lg.Warn("Capability installed with warning: " + resp.Message)
-			case capabilityv1.InstallResponseStatus_Error:
-				lg.Error("Capability installation failed (retry with --ignore-warnings to install anyway): " + resp.Message)
+				switch resp.Status {
+				case capabilityv1.InstallResponseStatus_Success:
+					lg.Info("Capability installed successfully")
+				case capabilityv1.InstallResponseStatus_Warning:
+					lg.Warn("Capability installed with warning: " + resp.Message)
+				case capabilityv1.InstallResponseStatus_Error:
+					lg.Error("Capability installation failed (retry with --ignore-warnings to install anyway): " + resp.Message)
+				}
 			}
-
 			return nil
 		},
 	}
@@ -112,8 +113,8 @@ func BuildCapabilityUninstallCmd() *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "uninstall [--option key=value ...] <cluster-id> <capability-name>",
-		Short: "Uninstall a capability from a cluster",
+		Use:   "uninstall [--option key=value ...] <capability-name> <cluster-id> [cluster-id ...]",
+		Short: "Uninstall a capability from one or more clusters",
 		Long:  fmt.Sprintf("Available options:\n%s", strings.Join(optionsHelp, "\n")),
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -143,26 +144,28 @@ func BuildCapabilityUninstallCmd() *cobra.Command {
 				return err
 			}
 
-			_, err = mgmtClient.UninstallCapability(cmd.Context(), &managementv1.CapabilityUninstallRequest{
-				Name: args[1],
-				Target: &capabilityv1.UninstallRequest{
-					Cluster: &corev1.Reference{
-						Id: args[0],
+			for _, clusterID := range args[1:] {
+				_, err = mgmtClient.UninstallCapability(cmd.Context(), &managementv1.CapabilityUninstallRequest{
+					Name: args[0],
+					Target: &capabilityv1.UninstallRequest{
+						Cluster: &corev1.Reference{
+							Id: clusterID,
+						},
+						Options: string(jsonData),
 					},
-					Options: string(jsonData),
-				},
-			})
-			if err != nil {
-				return fmt.Errorf("uninstall failed: %w", err)
-			}
+				})
+				if err != nil {
+					return fmt.Errorf("uninstall failed: %w", err)
+				}
 
-			lg.Info("Uninstall request submitted successfully")
-			if !follow {
+				lg.Info("Uninstall request submitted successfully")
+			}
+			if !follow || len(args[1:]) > 1 {
 				return nil
 			}
 
 			lg.Info("Watching for progress updates...")
-			logTaskProgress(cmd.Context(), args[0], args[1])
+			logTaskProgress(cmd.Context(), args[1], args[0])
 			return nil
 		},
 	}

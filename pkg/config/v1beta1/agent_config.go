@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	"github.com/rancher/opni/pkg/config/meta"
+	"github.com/rancher/opni/pkg/tokens"
 )
 
 type AgentConfig struct {
@@ -53,6 +54,29 @@ type BootstrapSpec struct {
 	// List of paths to CA Certs. Used when the trust strategy is "cacerts".
 	// If empty, the system certs will be used.
 	CACerts []string `json:"caCerts,omitempty"`
+}
+
+func (s *AgentConfigSpec) ContainsBootstrapCredentials() bool {
+	if s.Bootstrap == nil {
+		return false
+	}
+	if s.Bootstrap.InClusterManagementAddress != nil {
+		return s.Bootstrap.Token == "" &&
+			len(s.Bootstrap.Pins) == 0 &&
+			len(s.Bootstrap.CACerts) == 0
+	}
+
+	_, err := tokens.ParseHex(s.Bootstrap.Token)
+	if err != nil {
+		return false
+	}
+	switch s.TrustStrategy {
+	case TrustStrategyPKP:
+		return len(s.Bootstrap.Pins) > 0
+	case TrustStrategyCACerts:
+		return len(s.Bootstrap.CACerts) > 0
+	}
+	return false
 }
 
 func (s *AgentConfigSpec) SetDefaults() {

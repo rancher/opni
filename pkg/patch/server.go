@@ -340,7 +340,6 @@ func PatchWith(
 	go func() {
 		backgroundTasks.Wait()
 		close(done)
-		lg.Debug("background patching tasks complete")
 	}()
 
 	return done, nil

@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/hashicorp/go-plugin"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
 	"go.uber.org/zap"
@@ -33,6 +34,7 @@ import (
 
 func BuildAgentV2Cmd() *cobra.Command {
 	var configFile, logLevel string
+	var rebootstrap bool
 	cmd := &cobra.Command{
 		Use:   "agentv2",
 		Short: "Run the v2 agent",
@@ -89,6 +91,7 @@ func BuildAgentV2Cmd() *cobra.Command {
 
 			p, err := agentv2.New(ctx, agentConfig,
 				agentv2.WithBootstrapper(bootstrapper),
+				agentv2.WithRebootstrap(rebootstrap),
 			)
 			if err != nil {
 				agentlg.Error(err)
@@ -97,7 +100,19 @@ func BuildAgentV2Cmd() *cobra.Command {
 
 			err = p.ListenAndServe(ctx)
 			if err != nil {
-				if util.StatusCode(err) == codes.FailedPrecondition {
+				const rebootstrapArg = "--re-bootstrap"
+				var shouldRestart bool
+				withoutArgs := []string{rebootstrapArg}
+				var extraArgs []string
+
+				if errors.Is(err, agentv2.ErrRebootstrap) {
+					shouldRestart = true
+					extraArgs = append(extraArgs, rebootstrapArg)
+				} else if util.StatusCode(err) == codes.FailedPrecondition {
+					shouldRestart = true
+				}
+
+				if shouldRestart {
 					agentlg.With(
 						zap.Error(err),
 					).Warn("preparing to restart agent")
@@ -105,7 +120,8 @@ func BuildAgentV2Cmd() *cobra.Command {
 					plugin.CleanupClients()
 					waitctx.Wait(ctx)
 					agentlg.Info(chalk.Yellow.Color("--- restarting agent ---"))
-					panic(syscall.Exec(os.Args[0], os.Args, os.Environ()))
+					args := append(lo.Without(os.Args, withoutArgs...), extraArgs...)
+					panic(syscall.Exec(os.Args[0], args, os.Environ()))
 				}
 				agentlg.Error(err)
 				return
@@ -117,6 +133,8 @@ func BuildAgentV2Cmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&configFile, "config", "", "Absolute path to a config file")
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warning, error)")
+	cmd.Flags().BoolVar(&rebootstrap, "re-bootstrap", false, "attempt to re-bootstrap the agent even if it has already been bootstrapped")
+	cmd.Flags().Lookup("re-bootstrap").Hidden = true
 	return cmd
 }
 

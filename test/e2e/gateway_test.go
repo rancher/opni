@@ -81,7 +81,8 @@ var _ = Describe("Gateway Test", Ordered, Label("e2e", "slow"), func() {
 			Expect(foundAuth).To(BeTrue())
 		})
 
-		Specify("grafana should be configured correctly", func() {
+		// FIXME: this should be in monitoring_test
+		XSpecify("grafana should be configured correctly", func() {
 			var grafanaConfig k8scorev1.ConfigMap
 
 			err := k8sClient.Get(context.Background(), types.NamespacedName{

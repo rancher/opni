@@ -43,20 +43,23 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 			Region:      aws.String(outputs.S3Region),
 			Credentials: credentials.NewStaticCredentials(outputs.S3AccessKeyId, outputs.S3SecretAccessKey, ""),
 		})
-		fmt.Println("Calling configure cluster")
 		cortexOpsClient.ConfigureCluster(ctx, &cortexops.ClusterConfiguration{
 			Mode: cortexops.DeploymentMode_HighlyAvailable,
 			Storage: &storagev1.StorageSpec{
-				Backend:    "filesystem",
-				Filesystem: &storagev1.FilesystemStorageSpec{},
-				// Backend: "S3",
-				// S3: &storagev1.S3StorageSpec{
-				// 	Endpoint:        outputs.S3Endpoint,
-				// 	Region:          outputs.S3Region,
-				// 	BucketName:      outputs.S3Bucket,
-				// 	SecretAccessKey: outputs.S3SecretAccessKey,
-				// 	AccessKeyID:     outputs.S3AccessKeyId,
-				// },
+				// Backend:    "filesystem",
+				// Filesystem: &storagev1.FilesystemStorageSpec{},
+				Backend: "s3",
+				S3: &storagev1.S3StorageSpec{
+					Endpoint:        outputs.S3Endpoint,
+					Region:          outputs.S3Region,
+					BucketName:      outputs.S3Bucket,
+					SecretAccessKey: outputs.S3SecretAccessKey,
+					AccessKeyID:     outputs.S3AccessKeyId,
+				},
+			},
+			Grafana: &cortexops.GrafanaConfig{
+				Enabled:  true,
+				Hostname: outputs.GrafanaURL,
 			},
 		})
 		Eventually(func() error {
@@ -68,7 +71,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 				return fmt.Errorf("cortex has not fisnished installing yet")
 			}
 			return nil
-		}, 90*time.Second, 5*time.Second).Should(Succeed())
+		}, 20*time.Minute, 10*time.Second).Should(Succeed())
 	})
 	It("should start a new agent", func() {
 		By("starting a new agent")
@@ -195,7 +198,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	XIt("should write metrics to long-term storage", func() {
+	It("should write metrics to long-term storage", func() {
 		By("flushing ingesters")
 		_, err := adminClient.FlushBlocks(ctx, &emptypb.Empty{})
 		Expect(err).NotTo(HaveOccurred())
@@ -223,11 +226,12 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 
 		By("sending a capability uninstall request to the agent")
 		for _, c := range status.Metadata.Capabilities {
-			if c.DeletionTimestamp != nil {
+			if c.DeletionTimestamp == nil {
 				mgmtClient.UninstallCapability(ctx, &managementv1.CapabilityUninstallRequest{
 					Name: c.Name,
 					Target: &capabilityv1.UninstallRequest{
 						Cluster: &corev1.Reference{Id: agentId},
+						Options: `{"initialDelay":"1s","deleteStoredData":"true"}`,
 					},
 				})
 			}
@@ -239,11 +243,33 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 				return err
 			}
 			if len(status.Metadata.Capabilities) > 0 {
-				fmt.Println(status.Metadata.Capabilities)
 				return fmt.Errorf("metrics capability not uninstalled within time limit")
 			}
 			return nil
-		}, time.Second*60, time.Second*2).Should(Succeed())
+		}, time.Second*120, time.Second*2).Should(Succeed())
+
+		By("ensuring blocks have been deleted from long-term storage")
+		Eventually(func() error {
+			resp, err := s3Client.ListObjectsV2(&s3.ListObjectsV2Input{
+				Bucket: aws.String(outputs.S3Bucket),
+			})
+			if err != nil {
+				return err
+			}
+
+			for _, obj := range resp.Contents {
+				k := *obj.Key
+				if strings.HasPrefix(k, agentId) {
+					// It should only contain debug/metas/* and markers/tenant-deletion-mark.json
+					if strings.HasPrefix(k, agentId+"/debug/metas/") ||
+						strings.HasPrefix(k, agentId+"/markers/tenant-deletion-mark.json") {
+						continue
+					}
+					return fmt.Errorf("expected key to have been deleted: %s", k)
+				}
+			}
+			return nil
+		}, 1*time.Minute, 1*time.Second).Should(Succeed())
 	})
 
 	XIt("should uninstall the metrics capability", func() {

@@ -166,7 +166,7 @@ func run(ctx *Context) (runErr error) {
 		if err != nil {
 			return StringOutput{}, errors.WithStack(err)
 		}
-
+		//FIXME: add agent v1 back when its more stable
 		// _, err = helm.NewRelease(ctx, "opni-agent", &helm.ReleaseArgs{
 		// 	Chart:           String(opniAgentChart),
 		// 	Version:         StringPtr(conf.ChartVersion),

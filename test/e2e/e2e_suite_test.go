@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,6 +19,7 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -97,6 +99,7 @@ var _ = BeforeSuite(func() {
 	mgmtClient, err = clients.NewManagementClient(ctx,
 		clients.WithAddress(fmt.Sprintf("127.0.0.1:%d", internalPorts[0].Local)),
 	)
+	Expect(err).NotTo(HaveOccurred())
 
 	adminClient, err = cortexadmin.NewClient(ctx,
 		cortexadmin.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", internalPorts[0].Local)),
@@ -106,9 +109,28 @@ var _ = BeforeSuite(func() {
 
 	cortexOpsClient, err = cortexops.NewClient(
 		ctx,
+		cortexops.WithListenAddress(fmt.Sprintf("127.0.0.1:%d", internalPorts[0].Local)),
 		cortexops.WithDialOptions(grpc.WithDefaultCallOptions(grpc.WaitForReady(true))),
 	)
 	Expect(err).NotTo(HaveOccurred())
+
+	startStatus, err := cortexOpsClient.GetClusterStatus(ctx, &emptypb.Empty{})
+	Expect(err).NotTo(HaveOccurred())
+	if startStatus.State != cortexops.InstallState_NotInstalled {
+		_, err = cortexOpsClient.UninstallCluster(ctx, &emptypb.Empty{})
+		Expect(err).To(Succeed())
+
+		Eventually(func() error {
+			installStatus, err := cortexOpsClient.GetClusterStatus(ctx, &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			if installStatus.State != cortexops.InstallState_NotInstalled {
+				return fmt.Errorf("cortex is still installed")
+			}
+			return nil
+		}, 90*time.Second, 5*time.Second).Should(Succeed())
+	}
 })
 
 func unwrapOutputs(outputMap auto.OutputMap) map[string]any {

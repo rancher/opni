@@ -141,13 +141,18 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 					case <-time.After(time.Second * 2):
 					}
 
-					_, err := client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+					cluster, err := client.GetCluster(context.Background(), &corev1.Reference{
+						Id: clusterName,
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					labels := cluster.GetLabels()
+					labels["i"] = "998"
+					_, err = client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
 						Cluster: &corev1.Reference{
 							Id: clusterName,
 						},
-						Labels: map[string]string{
-							"i": "998",
-						},
+						Labels: labels,
 					})
 					Expect(err).NotTo(HaveOccurred())
 				}()

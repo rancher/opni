@@ -108,20 +108,24 @@ var _ = Describe("Management API User/Subject Access Management Tests", Ordered,
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
 			Eventually(errC).Should(Receive(BeNil()))
 
+			var labels map[string]string
 			Eventually(func() error {
-				_, err := client.GetCluster(context.Background(), &corev1.Reference{
+				info, err := client.GetCluster(context.Background(), &corev1.Reference{
 					Id: clusterName,
 				})
-				return err
+				if err != nil {
+					return err
+				}
+				labels = info.GetLabels()
+				return nil
 			}).Should(Succeed())
 
+			labels["i"] = "999"
 			_, err := client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
 				Cluster: &corev1.Reference{
 					Id: clusterName,
 				},
-				Labels: map[string]string{
-					"i": "999",
-				},
+				Labels: labels,
 			})
 			Expect(err).NotTo(HaveOccurred())
 		}

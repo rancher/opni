@@ -133,7 +133,7 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	kr := keyring.New(keyring.NewSharedKeys(sharedSecret))
 
 	tokenLabels := maps.Clone(bootstrapToken.GetMetadata().GetLabels())
-	delete(tokenLabels, "kubernetes.io/metadata.name") // todo: this label should change
+	delete(tokenLabels, corev1.NameLabel)
 	if tokenLabels == nil {
 		tokenLabels = map[string]string{}
 	}

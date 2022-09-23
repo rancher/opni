@@ -17,12 +17,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	k8scorev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type OpniManager struct {
@@ -33,7 +34,7 @@ type OpniManager struct {
 type OpniManagerClusterDriverOptions struct {
 	k8sClient         client.Client
 	monitoringCluster types.NamespacedName
-	gatewayRef        k8scorev1.LocalObjectReference
+	gatewayRef        types.NamespacedName
 	gatewayApiVersion string
 }
 
@@ -57,7 +58,7 @@ func WithMonitoringCluster(namespacedName types.NamespacedName) OpniManagerClust
 	}
 }
 
-func WithGatewayRef(gatewayRef k8scorev1.LocalObjectReference) OpniManagerClusterDriverOption {
+func WithGatewayRef(gatewayRef types.NamespacedName) OpniManagerClusterDriverOption {
 	return func(o *OpniManagerClusterDriverOptions) {
 		o.gatewayRef = gatewayRef
 	}
@@ -75,8 +76,9 @@ func NewOpniManagerClusterDriver(opts ...OpniManagerClusterDriverOption) (*OpniM
 			Namespace: os.Getenv("POD_NAMESPACE"),
 			Name:      "opni-monitoring",
 		},
-		gatewayRef: k8scorev1.LocalObjectReference{
-			Name: os.Getenv("GATEWAY_NAME"),
+		gatewayRef: types.NamespacedName{
+			Namespace: os.Getenv("POD_NAMESPACE"),
+			Name:      os.Getenv("GATEWAY_NAME"),
 		},
 		gatewayApiVersion: os.Getenv("GATEWAY_API_VERSION"),
 	}
@@ -187,21 +189,47 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		}
 	}
 
+	// look up the gateway so we can set it as an owner reference
+	var gatewayObject client.Object
+	switch k.gatewayApiVersion {
+	case corev1beta1.GroupVersion.Identifier():
+		gateway := &corev1beta1.Gateway{}
+		err = k.k8sClient.Get(ctx, k.gatewayRef, gateway)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get gateway: %w", err)
+		}
+		gatewayObject = gateway
+	case v1beta2.GroupVersion.Identifier():
+		gateway := &v1beta2.Gateway{}
+		err = k.k8sClient.Get(ctx, k.gatewayRef, gateway)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get gateway: %w", err)
+		}
+		gatewayObject = gateway
+	default:
+		return nil, fmt.Errorf("unknown gateway api version: %q", k.gatewayApiVersion)
+	}
+
 	mutator := func(cluster client.Object) {
 		switch cluster := cluster.(type) {
 		case *v1beta2.MonitoringCluster:
 			cluster.Spec.Cortex.Enabled = true
 			cluster.Spec.Cortex.Storage = conf.GetStorage()
 			cluster.Spec.Grafana.Enabled = true
-			cluster.Spec.Gateway = k.gatewayRef
+			cluster.Spec.Gateway = v1.LocalObjectReference{
+				Name: k.gatewayRef.Name,
+			}
 			cluster.Spec.Cortex.DeploymentMode = v1beta2.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
 		case *corev1beta1.MonitoringCluster:
 			cluster.Spec.Cortex.Enabled = true
 			cluster.Spec.Cortex.Storage = conf.GetStorage()
 			cluster.Spec.Grafana.Enabled = true
-			cluster.Spec.Gateway = k.gatewayRef
+			cluster.Spec.Gateway = v1.LocalObjectReference{
+				Name: k.gatewayRef.Name,
+			}
 			cluster.Spec.Cortex.DeploymentMode = corev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
 		}
+		controllerutil.SetOwnerReference(gatewayObject, cluster, k.k8sClient.Scheme())
 	}
 
 	if exists {

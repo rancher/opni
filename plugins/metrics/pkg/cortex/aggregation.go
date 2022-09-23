@@ -90,8 +90,7 @@ func (a *MultiTenantRuleAggregator) Handle(c *gin.Context) {
 	// return the aggregated results.
 	groupCount := 0
 	for _, id := range ids {
-		c := c.Copy()
-		req := c.Request
+		req := c.Copy().Request
 		req.Header.Set(a.headerCodec.Key(), a.headerCodec.Encode([]string{id}))
 
 		resp, err := a.cortexClient.Do(req)
@@ -103,6 +102,7 @@ func (a *MultiTenantRuleAggregator) Handle(c *gin.Context) {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
+		defer resp.Body.Close()
 		if code := resp.StatusCode; code != http.StatusOK {
 			if code == http.StatusNotFound {
 				// cortex will report 404 if there are no groups
@@ -110,9 +110,8 @@ func (a *MultiTenantRuleAggregator) Handle(c *gin.Context) {
 			}
 			return
 		}
-		defer resp.Body.Close()
 		var bodyReader io.ReadCloser
-		switch encoding := c.GetHeader("Content-Encoding"); encoding {
+		switch encoding := req.Header.Get("Content-Encoding"); encoding {
 		case "gzip":
 			bodyReader, _ = gzip.NewReader(resp.Body)
 		case "brotli":

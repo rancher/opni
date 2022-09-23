@@ -55,4 +55,10 @@ enum DeploymentMode {
 message ClusterConfiguration {
   DeploymentMode mode = 1;
   storage.StorageSpec storage = 2;
+  GrafanaConfig grafana = 3;
+}
+
+message GrafanaConfig {
+  bool enabled = 1;
+  string hostname = 2;
 }

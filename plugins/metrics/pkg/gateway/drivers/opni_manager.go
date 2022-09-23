@@ -188,6 +188,14 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 			return nil, fmt.Errorf("failed to get monitoring cluster: %w", err)
 		}
 	}
+	if conf.Grafana != nil {
+		conf.Grafana = &cortexops.GrafanaConfig{
+			Enabled: conf.Grafana.Enabled,
+		}
+	}
+	if conf.Grafana.Hostname == "" {
+		conf.Grafana.Hostname = "grafana." //FIXME: add gateway hostname
+	}
 
 	// look up the gateway so we can set it as an owner reference
 	var gatewayObject client.Object
@@ -215,7 +223,8 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		case *v1beta2.MonitoringCluster:
 			cluster.Spec.Cortex.Enabled = true
 			cluster.Spec.Cortex.Storage = conf.GetStorage()
-			cluster.Spec.Grafana.Enabled = true
+			cluster.Spec.Grafana.Enabled = conf.Grafana.Enabled   //true
+			cluster.Spec.Grafana.Hostname = conf.Grafana.Hostname // what happens if this is empty?
 			cluster.Spec.Gateway = v1.LocalObjectReference{
 				Name: k.gatewayRef.Name,
 			}
@@ -223,7 +232,8 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		case *corev1beta1.MonitoringCluster:
 			cluster.Spec.Cortex.Enabled = true
 			cluster.Spec.Cortex.Storage = conf.GetStorage()
-			cluster.Spec.Grafana.Enabled = true
+			cluster.Spec.Grafana.Enabled = conf.Grafana.Enabled   // true
+			cluster.Spec.Grafana.Hostname = conf.Grafana.Hostname //what happens if this is empty?
 			cluster.Spec.Gateway = v1.LocalObjectReference{
 				Name: k.gatewayRef.Name,
 			}

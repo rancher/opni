@@ -56,6 +56,10 @@ func (f *RemoteWriteForwarder) Push(ctx context.Context, payload *remotewrite.Pa
 		return nil, status.Error(codes.Unauthenticated, "no cluster ID found in context")
 	}
 
+	payloadSize := float64(len(payload.Contents))
+	mIngestBytesTotal.Add(payloadSize)
+	mIngestBytesByID.WithLabelValues(clusterId).Add(payloadSize)
+
 	ctx, span := otel.Tracer("plugin_metrics").Start(ctx, "remoteWriteForwarder.Push",
 		trace.WithAttributes(attribute.String("clusterId", clusterId)))
 	defer span.End()

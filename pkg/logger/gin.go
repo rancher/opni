@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,19 +17,24 @@ func init() {
 }
 
 func GinLogger(lg *zap.SugaredLogger) gin.HandlerFunc {
-	r, w := io.Pipe()
-	go func() {
-		// read log entries from r, and log using lg
-		scanner := bufio.NewScanner(r)
-		for scanner.Scan() {
-			lg.Debug(scanner.Text())
-		}
-	}()
-	return gin.LoggerWithConfig(gin.LoggerConfig{
-		SkipPaths: []string{"/healthz"},
-		Formatter: logFormatter,
-		Output:    w,
-	})
+	v, ok := os.LookupEnv("OPNI_ENABLE_GIN_LOGGING")
+	enabled, _ := strconv.ParseBool(v)
+	if ok && enabled {
+		r, w := io.Pipe()
+		go func() {
+			// read log entries from r, and log using lg
+			scanner := bufio.NewScanner(r)
+			for scanner.Scan() {
+				lg.Debug(scanner.Text())
+			}
+		}()
+		return gin.LoggerWithConfig(gin.LoggerConfig{
+			SkipPaths: []string{"/healthz"},
+			Formatter: logFormatter,
+			Output:    w,
+		})
+	}
+	return gin.LoggerWithWriter(io.Discard)
 }
 
 func logFormatter(params gin.LogFormatterParams) string {

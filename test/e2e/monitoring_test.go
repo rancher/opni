@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
+	"github.com/rancher/opni/pkg/auth/openid"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/task"
@@ -29,6 +31,9 @@ import (
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexops"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"gopkg.in/ini.v1"
+	k8scorev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
@@ -73,6 +78,66 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 			return nil
 		}, 20*time.Minute, 10*time.Second).Should(Succeed())
 	})
+
+
+	Specify("grafana should be configured correctly when cortex is deployed", func() {
+		var grafanaConfig k8scorev1.ConfigMap
+
+		err := k8sClient.Get(context.Background(), types.NamespacedName{
+			Name:      "grafana-config",
+			Namespace: "opni",
+		}, &grafanaConfig)
+
+		Expect(err).NotTo(HaveOccurred())
+		data := grafanaConfig.Data["grafana.ini"]
+
+		f, err := ini.Load([]byte(data))
+		Expect(err).NotTo(HaveOccurred())
+
+		genericOauth, err := f.GetSection("auth.generic_oauth")
+		Expect(err).NotTo(HaveOccurred())
+
+		wkc, err := (&openid.OpenidConfig{
+			Discovery: &openid.DiscoverySpec{
+				Issuer: outputs.OAuthIssuerURL,
+			},
+		}).GetWellKnownConfiguration()
+		Expect(err).NotTo(HaveOccurred())
+
+		kh := genericOauth.KeysHash()
+		Expect(kh).To(HaveKeyWithValue("auth_url", wkc.AuthEndpoint))
+		Expect(kh).To(HaveKeyWithValue("token_url", wkc.TokenEndpoint))
+		Expect(kh).To(HaveKeyWithValue("api_url", wkc.UserinfoEndpoint))
+		Expect(kh).To(HaveKeyWithValue("client_id", outputs.OAuthClientID))
+		Expect(kh).To(HaveKeyWithValue("client_secret", outputs.OAuthClientSecret))
+		Expect(kh).To(HaveKeyWithValue("enabled", "true"))
+		Expect(strings.Fields(kh["scopes"])).To(ContainElements("openid", "profile", "email"))
+
+		// This is a very important test: role_attribute_path is a JMESPath expression
+		// used to extract a user's grafana role (Viewer, Editor, or Admin) from their
+		// ID token. JMESPath has several characters that need to be escaped, one
+		// of which is ':' (colon). Many identity providers require custom user
+		// attributes to be prefixed with some string such as 'custom:' (cognito)
+		// or a URL with a scheme (auth0), both of which contain ':' characters.
+		// Unfortunately the only way to do escape sequences in JMESPath is to
+		// surround the expression with *double* quotes. This presents a small
+		// challenge since the user must configure a string such that when converted
+		// from yaml to ini and parsed by the go ini library, the resulting string
+		// contains proper double quote characters. If we can parse the grafana
+		// ini config using the same library and end up with the correct expression,
+		// then we know that the string set in the initial gateway config is correct.
+		Expect(kh).To(HaveKeyWithValue("role_attribute_path", `"custom:grafana_role"`))
+
+		server, err := f.GetSection("server")
+		Expect(err).NotTo(HaveOccurred())
+
+		kh = server.KeysHash()
+		grafanaHostname, err := url.Parse(outputs.GrafanaURL)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kh).To(HaveKeyWithValue("domain", grafanaHostname.Host))
+		Expect(kh).To(HaveKeyWithValue("root_url", outputs.GrafanaURL))
+	})
+	
 	It("should start a new agent", func() {
 		By("starting a new agent")
 		token, err := mgmtClient.CreateBootstrapToken(ctx, &managementv1.CreateBootstrapTokenRequest{
@@ -169,7 +234,6 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		}, time.Second*60, time.Second*2).Should(Succeed())
 	})
 
-	//FIXME: need a test to enable metrics for this agent
 	It("should query metrics", func() {
 		By("sleeping for 10 seconds")
 		time.Sleep(10 * time.Second)
@@ -272,6 +336,8 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		}, 1*time.Minute, 1*time.Second).Should(Succeed())
 	})
 
+
+	// Retained for reference for v1 of the agent, but should not be used in v2
 	XIt("should uninstall the metrics capability", func() {
 		getTaskState := func() (corev1.TaskState, error) {
 			stat, err := mgmtClient.CapabilityUninstallStatus(ctx, &managementv1.CapabilityStatusRequest{

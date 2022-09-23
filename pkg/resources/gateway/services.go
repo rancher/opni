@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/util/k8sutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -79,16 +80,29 @@ func (r *Reconciler) waitForLoadBalancer() k8sutil.RequeueOp {
 	}
 
 	if r.gw != nil {
-		r.gw.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
-
-		if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
+			if err != nil {
+				return err
+			}
+			r.gw.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
+			return r.client.Status().Update(r.ctx, r.gw)
+		})
+		if err != nil {
 			return k8sutil.RequeueErr(err)
 		}
 	}
-	if r.coreGW != nil {
-		r.coreGW.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
 
-		if err := r.client.Status().Update(r.ctx, r.coreGW); err != nil {
+	if r.coreGW != nil {
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.coreGW), r.coreGW)
+			if err != nil {
+				return err
+			}
+			r.coreGW.Status.LoadBalancer = &svc.Status.LoadBalancer.Ingress[0]
+			return r.client.Status().Update(r.ctx, r.coreGW)
+		})
+		if err != nil {
 			return k8sutil.RequeueErr(err)
 		}
 	}
@@ -116,15 +130,29 @@ func (r *Reconciler) waitForServiceEndpoints() k8sutil.RequeueOp {
 	}
 	if len(addresses) == 0 {
 		if r.gw != nil {
-			r.gw.Status.Endpoints = nil
-			if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
+			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
+				if err != nil {
+					return err
+				}
+				r.gw.Status.Endpoints = nil
+				return r.client.Status().Update(r.ctx, r.gw)
+			})
+			if err != nil {
 				return k8sutil.RequeueErr(err)
 			}
 			return k8sutil.RequeueAfter(1 * time.Second)
 		}
 		if r.coreGW != nil {
-			r.coreGW.Status.Endpoints = nil
-			if err := r.client.Status().Update(r.ctx, r.coreGW); err != nil {
+			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.coreGW), r.coreGW)
+				if err != nil {
+					return err
+				}
+				r.coreGW.Status.Endpoints = nil
+				return r.client.Status().Update(r.ctx, r.coreGW)
+			})
+			if err != nil {
 				return k8sutil.RequeueErr(err)
 			}
 			return k8sutil.RequeueAfter(1 * time.Second)
@@ -132,14 +160,28 @@ func (r *Reconciler) waitForServiceEndpoints() k8sutil.RequeueOp {
 	}
 
 	if r.gw != nil {
-		r.gw.Status.Endpoints = addresses
-		if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
+			if err != nil {
+				return err
+			}
+			r.gw.Status.Endpoints = addresses
+			return r.client.Status().Update(r.ctx, r.gw)
+		})
+		if err != nil {
 			return k8sutil.RequeueErr(err)
 		}
 	}
 	if r.coreGW != nil {
-		r.coreGW.Status.Endpoints = addresses
-		if err := r.client.Status().Update(r.ctx, r.coreGW); err != nil {
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.coreGW), r.coreGW)
+			if err != nil {
+				return err
+			}
+			r.coreGW.Status.Endpoints = addresses
+			return r.client.Status().Update(r.ctx, r.coreGW)
+		})
+		if err != nil {
 			return k8sutil.RequeueErr(err)
 		}
 	}

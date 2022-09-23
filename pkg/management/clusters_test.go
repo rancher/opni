@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/validation"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var _ = Describe("Clusters", Ordered, Label("slow"), func() {
@@ -243,5 +244,52 @@ var _ = Describe("Clusters", Ordered, Label("slow"), func() {
 		_, err = stream.Recv()
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring(storage.ErrNotFound.Error()))
+	})
+	It("should not allow editing immutable labels", func() {
+		c := &corev1.Cluster{
+			Id: "immutable-1",
+			Metadata: &corev1.ClusterMetadata{
+				Labels: map[string]string{
+					"foo":          "bar",
+					"opni.io/test": "1",
+				},
+			},
+		}
+		Expect(tv.storageBackend.CreateCluster(context.Background(), c)).To(Succeed())
+
+		_, err := tv.client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+			Cluster: c.Reference(),
+			Labels: map[string]string{
+				"foo": "baz",
+			},
+		})
+		Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+
+		_, err = tv.client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+			Cluster: c.Reference(),
+			Labels: map[string]string{
+				"opni.io/test": "2",
+			},
+		})
+		Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+
+		_, err = tv.client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+			Cluster: c.Reference(),
+			Labels: map[string]string{
+				"opni.io/test":  "1",
+				"opni.io/test2": "2",
+			},
+		})
+		Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+
+		updatedC, err := tv.client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+			Cluster: c.Reference(),
+			Labels: map[string]string{
+				"opni.io/test": "1",
+				"foo":          "baz",
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedC.Metadata.Labels).To(And(HaveKeyWithValue("foo", "baz"), HaveKeyWithValue("opni.io/test", "1")))
 	})
 })

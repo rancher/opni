@@ -49,14 +49,14 @@ var _ = Describe("Collector", Ordered, Label("slow"), func() {
 			tv.storageBackend.CreateCluster(context.Background(), &corev1.Cluster{
 				Id: "cluster-1",
 				Metadata: &corev1.ClusterMetadata{
-					Labels:       map[string]string{"kubernetes.io/metadata.name": "cluster-1"},
+					Labels:       map[string]string{corev1.NameLabel: "cluster-1"},
 					Capabilities: []*corev1.ClusterCapability{{Name: "test"}},
 				},
 			})
 			tv.storageBackend.CreateCluster(context.Background(), &corev1.Cluster{
 				Id: "cluster-2",
 				Metadata: &corev1.ClusterMetadata{
-					Labels:       map[string]string{"kubernetes.io/metadata.name": "cluster-2"},
+					Labels:       map[string]string{corev1.NameLabel: "cluster-2"},
 					Capabilities: []*corev1.ClusterCapability{{Name: "test"}},
 				},
 			})

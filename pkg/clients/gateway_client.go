@@ -210,7 +210,7 @@ func (gc *gatewayClient) Connect(ctx context.Context) (grpc.ClientConnInterface,
 		for _, c := range cleanup {
 			c()
 		}
-		stream.CloseSend()
+		ts.CloseSend()
 	}()
 	return cc, f
 }

@@ -57,8 +57,10 @@ type Plugin struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
+	collector := collector.NewCollectorServer()
+	collector.MustRegister(cortex.Collectors()...)
 	p := &Plugin{
-		CollectorServer: collectorServer,
+		CollectorServer: collector,
 		ctx:             ctx,
 		logger:          logger.NewPluginLogger().Named("metrics"),
 

@@ -26,6 +26,7 @@ type GatewayConfigSpec struct {
 	Certs          CertsSpec      `json:"certs,omitempty"`
 	Plugins        PluginsSpec    `json:"plugins,omitempty"`
 	Alerting       AlertingSpec   `json:"alerting,omitempty"`
+	Profiling      ProfilingSpec  `json:"profiling,omitempty"`
 }
 
 type AlertingSpec struct {
@@ -40,6 +41,12 @@ type MetricsSpec struct {
 	Port int `json:"port,omitempty"`
 	//+kubebuilder:default="/metrics"
 	Path string `json:"path,omitempty"`
+}
+
+type ProfilingSpec struct {
+	Enabled bool `json:"enabled,omitempty"`
+	//+kubebuilder:default=8087
+	Port int `json:"port,omitempty"`
 }
 
 func (s MetricsSpec) GetPort() int {
@@ -214,6 +221,9 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	}
 	if s.Metrics.Port == 0 {
 		s.Metrics.Port = 8086
+	}
+	if s.Profiling.Port == 0 {
+		s.Profiling.Port = 8087
 	}
 	if s.Cortex.Distributor.HTTPAddress == "" {
 		s.Cortex.Distributor.HTTPAddress = "cortex-distributor:8080"

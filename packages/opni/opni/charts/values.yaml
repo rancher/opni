@@ -198,7 +198,17 @@ opni-agent:
     managementAddress: opni-monitoring-internal:11090
   agent:
     version: v2
+  kube-prometheus-stack:
+    enabled: false
 
 global:
   cattle:
     systemDefaultRegistry: ""
+
+kube-prometheus-stack:
+  grafana:
+    enabled: false # disable the default Grafana deployment
+  prometheus:
+    enabled: false # disable the default Prometheus deployment
+  alertmanager:
+    enabled: false # disable the default Alertmanager deployment

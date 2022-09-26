@@ -66,6 +66,27 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		},
 	}
 
+	grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "slo-overview",
+			Namespace: r.instanceNamespace,
+			Labels:    dashboardSelector.MatchLabels,
+		},
+		Spec: grafanav1alpha1.GrafanaDashboardSpec{
+			Json: string(sloOverviewDashboard),
+		},
+	})
+	grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "slo-detailed",
+			Namespace: r.instanceNamespace,
+			Labels:    dashboardSelector.MatchLabels,
+		},
+		Spec: grafanav1alpha1.GrafanaDashboardSpec{
+			Json: string(sloDetailedDashboard),
+		},
+	})
+
 	dashboards := map[string]json.RawMessage{}
 	if err := json.Unmarshal(dashboardsJson, &dashboards); err != nil {
 		return nil, err

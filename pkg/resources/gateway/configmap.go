@@ -63,6 +63,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 					Namespace:       r.namespace,
 				}
 			}(),
+			Profiling: r.spec.Profiling,
 		},
 	}
 	gatewayConf.Spec.SetDefaults()

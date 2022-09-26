@@ -44,6 +44,7 @@ type GatewayHTTPServer struct {
 	logger         *zap.SugaredLogger
 	tlsConfig      *tls.Config
 	metricsHandler *MetricsEndpointHandler
+	pprofHandler   *PprofEndpointHandler
 	tracer         trace.Tracer
 
 	routesMu             sync.Mutex
@@ -86,6 +87,7 @@ func NewHTTPServer(
 		logger:         lg,
 		tlsConfig:      tlsConfig,
 		metricsHandler: NewMetricsEndpointHandler(cfg.Metrics),
+		pprofHandler:   NewPprofEndpointHandler(cfg.Profiling),
 		reservedPrefixRoutes: []string{
 			cfg.Metrics.GetPath(),
 			"/healthz",
@@ -136,7 +138,14 @@ func (s *GatewayHTTPServer) ListenAndServe(ctx context.Context) error {
 		return s.metricsHandler.ListenAndServe(ctx)
 	})
 
-	return util.WaitAll(ctx, ca, e1, e2)
+	e3 := lo.Async(func() error {
+		if s.conf.Profiling.Enabled {
+			return s.pprofHandler.ListenAndServe(ctx)
+		}
+		return nil
+	})
+
+	return util.WaitAll(ctx, ca, e1, e2, e3)
 }
 
 func (s *GatewayHTTPServer) setupPluginRoutes(

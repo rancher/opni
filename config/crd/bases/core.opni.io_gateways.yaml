@@ -2036,6 +2036,14 @@ spec:
                 items:
                   type: string
                 type: array
+              profiling:
+                properties:
+                  enabled:
+                    type: boolean
+                  port:
+                    default: 8087
+                    type: integer
+                type: object
               serviceAnnotations:
                 additionalProperties:
                   type: string

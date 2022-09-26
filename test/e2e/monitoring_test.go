@@ -79,7 +79,6 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		}, 20*time.Minute, 10*time.Second).Should(Succeed())
 	})
 
-
 	Specify("grafana should be configured correctly when cortex is deployed", func() {
 		var grafanaConfig k8scorev1.ConfigMap
 
@@ -137,7 +136,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 		Expect(kh).To(HaveKeyWithValue("domain", grafanaHostname.Host))
 		Expect(kh).To(HaveKeyWithValue("root_url", outputs.GrafanaURL))
 	})
-	
+
 	It("should start a new agent", func() {
 		By("starting a new agent")
 		token, err := mgmtClient.CreateBootstrapToken(ctx, &managementv1.CreateBootstrapTokenRequest{
@@ -231,7 +230,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 				}
 			}
 			return fmt.Errorf("metrics capability not installed within time limit")
-		}, time.Second*60, time.Second*2).Should(Succeed())
+		}, time.Minute*20, time.Second*10).Should(Succeed())
 	})
 
 	It("should query metrics", func() {
@@ -335,7 +334,6 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 			return nil
 		}, 1*time.Minute, 1*time.Second).Should(Succeed())
 	})
-
 
 	// Retained for reference for v1 of the agent, but should not be used in v2
 	XIt("should uninstall the metrics capability", func() {

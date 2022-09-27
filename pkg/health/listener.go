@@ -16,7 +16,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	agentv1 "github.com/rancher/opni/pkg/agent"
-	"github.com/rancher/opni/pkg/agent"
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/condition"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"

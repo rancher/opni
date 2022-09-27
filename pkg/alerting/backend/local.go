@@ -4,18 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/phayes/freeport"
-	"github.com/rancher/opni/pkg/alerting/config"
-	"github.com/rancher/opni/pkg/alerting/shared"
-	"github.com/rancher/opni/pkg/test/testutil"
-	"github.com/rancher/opni/pkg/util/waitctx"
-	"go.uber.org/zap"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"syscall"
 	"time"
+
+	"github.com/phayes/freeport"
+	"github.com/rancher/opni/pkg/alerting/config"
+	"github.com/rancher/opni/pkg/alerting/shared"
+	"github.com/rancher/opni/pkg/test/testutil"
+	"github.com/rancher/opni/pkg/util/waitctx"
+	"go.uber.org/zap"
 )
 
 var _ RuntimeEndpointBackend = &LocalEndpointBackend{}

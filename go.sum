@@ -758,6 +758,7 @@ github.com/elazarl/goproxy v0.0.0-20181003060214-f58a169a71a5 h1:LCoguo7Zd0MByKM
 github.com/elazarl/goproxy v0.0.0-20181003060214-f58a169a71a5/go.mod h1:/Zj4wYkgs4iZTTu3o/KG3Itv/qCCa8VVMlb3i9OVuzc=
 github.com/ema/qdisc v0.0.0-20190904071900-b82c76788043/go.mod h1:ix4kG2zvdUd8kEKSW0ZTr1XLks0epFpI4j745DXxlNE=
 github.com/emicklei/go-restful v0.0.0-20170410110728-ff4f55a20633/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
+github.com/emicklei/go-restful v2.9.5+incompatible h1:spTtZBk5DYEvbxMVutUuTyh1Ao2r4iyvLdACqsl/Ljk=
 github.com/emicklei/go-restful v2.9.5+incompatible/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
 github.com/emicklei/go-restful/v3 v3.8.0 h1:eCZ8ulSerjdAiaNpF7GxXIE7ZCMo1moN1qX+S609eVw=
 github.com/emicklei/go-restful/v3 v3.8.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
@@ -1884,8 +1885,8 @@ github.com/kralicky/ragu v1.0.0-beta2.0.20220804212527-11bbfeeda553 h1:Z7TRcOUUt
 github.com/kralicky/ragu v1.0.0-beta2.0.20220804212527-11bbfeeda553/go.mod h1:CdaCQsAPBdCSv5oFQ7x0p60hypc3CA0jve5ldD8mqJ8=
 github.com/kralicky/spellbook v0.0.0-20220829172922-3d415e02ee8a h1:RfpqOGzhMSF0OWvI8AqYxlvhuVZ72EQiYu9ClM89bKg=
 github.com/kralicky/spellbook v0.0.0-20220829172922-3d415e02ee8a/go.mod h1:qp6R4XKeuJk2j8nHke4Y9rBEpc2HkCjXR/gssL3OpOU=
-github.com/kralicky/totem v1.0.1-0.20220620223146-99d6bdcbff46 h1:JdgORlMFk38JtBdpyGVNXiGnJhS11pWR+z5Dncr0Qww=
-github.com/kralicky/totem v1.0.1-0.20220620223146-99d6bdcbff46/go.mod h1:CAO0Cdd+LboYh0mwDEmR3VToSiro4uU5UqnSH5c62sE=
+github.com/kralicky/totem v1.0.1-rc1.0.20220926165802-c2ca5a25d3ec h1:HVrydusAb24d5doyh8juWel0c8rthJi6/GbE3Jw8bpc=
+github.com/kralicky/totem v1.0.1-rc1.0.20220926165802-c2ca5a25d3ec/go.mod h1:QiAtFUrAgBECIA0XNOZmq8fVrRfvoH2u9o/NFDDatRI=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d h1:kLfaaFdmCHKZCvL4DzQ7T9YsAVSBqZez34zaegldkls=
 github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d/go.mod h1:z4cKsjE0B5RlhFSbWcZNh70UEjtwrj8fpG1QXyU2KuI=
 github.com/kralicky/zap v1.21.1-0.20220517214003-da0ae127f4db h1:OhMQACnkI4y5uEciBkaVGzPFpS/5LkPT1uHnOv84Fcw=
@@ -3906,6 +3907,7 @@ gopkg.in/src-d/go-git-fixtures.v3 v3.5.0 h1:ivZFOIltbce2Mo8IjzUHAFoq/IylO9WHhNOA
 gopkg.in/src-d/go-git-fixtures.v3 v3.5.0/go.mod h1:dLBcvytrw/TYZsNTWCnkNF2DSIlzWYqTe3rJR56Ac7g=
 gopkg.in/src-d/go-git.v4 v4.13.1 h1:SRtFyV8Kxc0UP7aCHcijOMQGPxHSmMOPrzulQWolkYE=
 gopkg.in/src-d/go-git.v4 v4.13.1/go.mod h1:nx5NYcxdKxq5fpltdHnPa2Exj4Sx0EclMWZQbYDu2z8=
+gopkg.in/telebot.v3 v3.0.0 h1:UgHIiE/RdjoDi6nf4xACM7PU3TqiPVV9vvTydCEnrTo=
 gopkg.in/telebot.v3 v3.0.0/go.mod h1:7rExV8/0mDDNu9epSrDm/8j22KLaActH1Tbee6YjzWg=
 gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 h1:uRGJdciOHaEIrze2W8Q3AKkepLTh2hOroT7a+7czfdQ=
 gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7/go.mod h1:dt/ZhP58zS4L8KSrWDmTeBkI65Dw0HsyUHuEVlX15mw=

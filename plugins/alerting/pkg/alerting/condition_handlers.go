@@ -6,8 +6,9 @@ package alerting
 
 import (
 	"context"
+
 	"github.com/rancher/opni/pkg/alerting/metrics"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 

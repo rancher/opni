@@ -3,15 +3,12 @@ package alerting
 import (
 	"context"
 
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	"go.uber.org/zap"
-
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/backend"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/util"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 
 	lru "github.com/hashicorp/golang-lru"

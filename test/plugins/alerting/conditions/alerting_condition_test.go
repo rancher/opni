@@ -13,7 +13,7 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

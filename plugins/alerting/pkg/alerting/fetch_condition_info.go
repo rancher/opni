@@ -2,13 +2,14 @@ package alerting
 
 import (
 	"context"
+
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/validation"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/tidwall/gjson"
 )
 

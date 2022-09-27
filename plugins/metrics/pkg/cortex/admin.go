@@ -486,8 +486,8 @@ func (p *CortexAdminServer) GetSeriesMetrics(ctx context.Context, request *corte
 	}, nil
 }
 
-func (p *Plugin) ExtractRawSeries(ctx context.Context, request *cortexadmin.MatcherRequest) (*cortexadmin.QueryResponse, error) {
-	lg := p.logger.With("series matcher", request.MatchExpr)
+func (p *CortexAdminServer) ExtractRawSeries(ctx context.Context, request *cortexadmin.MatcherRequest) (*cortexadmin.QueryResponse, error) {
+	lg := p.Logger.With("series matcher", request.MatchExpr)
 	lg.Debug("fetching raw series")
 	return p.Query(ctx, &cortexadmin.QueryRequest{
 		Tenants: []string{request.Tenant},
@@ -499,7 +499,7 @@ func (p *CortexAdminServer) GetMetricLabelSets(ctx context.Context, request *cor
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)
 	}
-	resp, err := p.enumerateCortexSeriesByJob(ctx, &cortexadmin.SeriesRequest{
+	resp, err := p.enumerateCortexSeries(ctx, &cortexadmin.SeriesRequest{
 		Tenant: request.Tenant,
 		JobId:  request.JobId,
 	})

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/rancher/opni/pkg/alerting/backend"
 	"io"
 	"math/rand"
 	"net/http"
@@ -13,11 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/backend"
+
 	"github.com/google/uuid"
 	"github.com/rancher/opni/pkg/alerting/metrics"
 	"github.com/rancher/opni/pkg/alerting/shared"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 

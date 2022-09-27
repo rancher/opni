@@ -7,11 +7,11 @@ import (
 
 	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/pkg/alerting/backend"
-	"github.com/rancher/opni/pkg/util"
+	util "github.com/rancher/opni/pkg/util/k8sutil"
 
 	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 
 	lru "github.com/hashicorp/golang-lru"
 	alertapi "github.com/rancher/opni/pkg/apis/alerting/v1alpha"

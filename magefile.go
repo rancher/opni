@@ -377,12 +377,3 @@ func ProtobufPython() error {
 func Protobuf() {
 	mg.Deps(ProtobufGo, ProtobufPython)
 }
-
-func Charts() {
-	mg.SerialDeps(All, CRDGen, func() {
-		charts.Charts("opni")
-	}, func() {
-		charts.Charts("opni-agent")
-	})
-
-}

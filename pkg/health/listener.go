@@ -259,14 +259,13 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 	go func() {
 		id, err := (*l.alertProvider).CreateAlertCondition(ctx, l.alertCondition)
 		retryOnFailure := time.NewTicker(time.Second)
-
+		defer retryOnFailure.Stop()
 		for err != nil {
 			select {
 			case <-retryOnFailure.C:
-				retryOnFailure = time.NewTicker(time.Second)
+				retryOnFailure.Reset(time.Second)
 				id, err = (*l.alertProvider).CreateAlertCondition(ctx, l.alertCondition)
 			case <-l.closed:
-				retryOnFailure.Stop()
 				return
 			}
 		}
@@ -274,31 +273,29 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 			l.alertTickerDuration = time.Second * 60
 		}
 		ticker := time.NewTicker(l.alertTickerDuration)
+		defer ticker.Stop()
 
 		for {
 			select {
-			case <-ticker.C: // received no message from agent in the entier duration
+			case <-ticker.C: // received no message from agent in the entire duration
 				_, err = (*l.alertProvider).TriggerAlerts(ctx, &alertingv1alpha.TriggerAlertsRequest{
 					ConditionId: id,
 				})
 				if err != nil {
-					ticker = time.NewTicker(time.Second) // retry trigger more often
+					ticker.Reset(time.Second) // retry trigger more often
 				} else {
-					ticker = time.NewTicker(l.alertTickerDuration)
+					ticker.Reset(l.alertTickerDuration)
 				}
 
 			case <-l.alertToggle: // received a message from agent
-				ticker.Stop()
-				ticker = time.NewTicker(l.alertTickerDuration)
+				ticker.Reset(l.alertTickerDuration)
 
 			case <-l.closed: // listener is closed, stop
-				ticker.Stop()
 				go func() {
 					(*l.alertProvider).DeleteAlertCondition(ctx, id)
 				}()
 				return
 			}
-
 		}
 	}()
 }

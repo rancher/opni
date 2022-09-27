@@ -96,6 +96,7 @@ func run(ctx *Context) (runErr error) {
 	}
 
 	opniServiceLB := mainCluster.Provider.ApplyT(func(k *kubernetes.Provider) (StringOutput, error) {
+		//FIXME
 		opniCrd, err := helm.NewRelease(ctx, "opni-crd", &helm.ReleaseArgs{
 			Chart:          String(opniCrdChart),
 			RepositoryOpts: chartRepoOpts,
@@ -119,6 +120,9 @@ func run(ctx *Context) (runErr error) {
 				"image": Map{
 					"repository": String(conf.ImageRepo),
 					"tag":        String(conf.ImageTag),
+				},
+				"opni-prometheus-crd": Map{
+					"enabled": Bool(false),
 				},
 				"gateway": Map{
 					"enabled":     Bool(true),
@@ -152,7 +156,7 @@ func run(ctx *Context) (runErr error) {
 					"agent": Map{
 						"version": String("v2"),
 					},
-					// FIXME: change to a config value
+					//FIXME change to a config value
 					"kube-prometheus-stack": Map{
 						"enabled": Bool(true),
 					},

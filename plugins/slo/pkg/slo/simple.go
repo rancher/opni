@@ -3,6 +3,11 @@ package slo
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"strings"
+	"text/template"
+	"time"
+
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
@@ -10,13 +15,10 @@ import (
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
-	"os"
-	"strings"
-	"text/template"
-	"time"
 )
 
 const (
+	grafana_delete_mask = "slo_opni_delete"
 	// id labels
 	slo_uuid    = "slo_opni_id"
 	slo_service = "slo_opni_service"
@@ -303,11 +305,11 @@ func (s *SLO) GetPrometheusRuleFilterByIdLabels() (string, error) {
 }
 
 func (s *SLO) RawObjectiveQuery() string {
-	return fmt.Sprintf("vector(%f)", normalizeObjective(s.objective))
+	return fmt.Sprintf("vector(%.9f)", normalizeObjective(s.objective))
 }
 
 func (s *SLO) RawErrorBudgetQuery() string {
-	return fmt.Sprintf("vector(1-%f)", normalizeObjective(s.objective))
+	return fmt.Sprintf("vector(1-%.9f)", normalizeObjective(s.objective))
 }
 
 // RawCurrentBurnRateQuery
@@ -550,34 +552,38 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 	}
 	mwmbWindow := GenerateGoogleWindows(time.Duration(dur))
 	var exprTicket bytes.Buffer
-	err = mwmbAlertTpl.Execute(&exprTicket, map[string]string{
+	errorBudgetRatio := 100 - s.objective
+	if errorBudgetRatio == 0 {
+		//panic(fmt.Sprintf("error budget ratio cannot be treated as 0, from objective : %.9f", s.objective))
+	}
+	err = mwmbAlertTplBool.Execute(&exprTicket, map[string]string{
 		"WindowLabel":          slo_window,
 		"QuickShortMetric":     slo_ratio_rate_query_name + "5m",
-		"QuickShortBurnFactor": fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketQuick()),
+		"QuickShortBurnFactor": fmt.Sprintf("%.9f", mwmbWindow.GetSpeedTicketQuick()),
 		"QuickLongMetric":      slo_ratio_rate_query_name + "30m",
-		"QuickLongBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketSlow()),
+		"QuickLongBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedTicketSlow()),
 		"SlowShortMetric":      slo_ratio_rate_query_name + "2h",
-		"SlowShortBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketQuick()),
+		"SlowShortBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedTicketQuick()),
 		"SlowQuickMetric":      slo_ratio_rate_query_name + "6h",
-		"SlowQuickBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketSlow()),
-		"ErrorBudgetRatio":     fmt.Sprintf("%f", 100-s.objective),
+		"SlowQuickBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedTicketSlow()),
+		"ErrorBudgetRatio":     fmt.Sprintf("%.9f", errorBudgetRatio),
 		"MetricFilter":         sloFilters,
 	})
 	if err != nil {
 		panic(err)
 	}
 	var exprPage bytes.Buffer
-	err = mwmbAlertTpl.Execute(&exprPage, map[string]string{
+	err = mwmbAlertTplBool.Execute(&exprPage, map[string]string{
 		"WindowLabel":          slo_window,
 		"QuickShortMetric":     slo_ratio_rate_query_name + "5m",
-		"QuickShortBurnFactor": fmt.Sprintf("%f", mwmbWindow.GetSpeedPageQuick()),
+		"QuickShortBurnFactor": fmt.Sprintf("%.9f", mwmbWindow.GetSpeedPageQuick()),
 		"QuickLongMetric":      slo_ratio_rate_query_name + "30m",
-		"QuickLongBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageSlow()),
+		"QuickLongBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedPageSlow()),
 		"SlowShortMetric":      slo_ratio_rate_query_name + "2h",
-		"SlowShortBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageQuick()),
+		"SlowShortBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedPageQuick()),
 		"SlowQuickMetric":      slo_ratio_rate_query_name + "6h",
-		"SlowQuickBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageSlow()),
-		"ErrorBudgetRatio":     fmt.Sprintf("%f", 100-s.objective),
+		"SlowQuickBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedPageSlow()),
+		"ErrorBudgetRatio":     fmt.Sprintf("%.9f", errorBudgetRatio),
 		"MetricFilter":         sloFilters,
 	})
 	if err != nil {
@@ -587,14 +593,14 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 	err = mwmbAlertTplBool.Execute(&recordTicket, map[string]string{
 		"WindowLabel":          slo_window,
 		"QuickShortMetric":     slo_ratio_rate_query_name + "5m",
-		"QuickShortBurnFactor": fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketQuick()),
+		"QuickShortBurnFactor": fmt.Sprintf("%.9f", mwmbWindow.GetSpeedTicketQuick()),
 		"QuickLongMetric":      slo_ratio_rate_query_name + "30m",
-		"QuickLongBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketSlow()),
+		"QuickLongBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedTicketSlow()),
 		"SlowShortMetric":      slo_ratio_rate_query_name + "2h",
-		"SlowShortBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketQuick()),
+		"SlowShortBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedTicketQuick()),
 		"SlowQuickMetric":      slo_ratio_rate_query_name + "6h",
-		"SlowQuickBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedTicketSlow()),
-		"ErrorBudgetRatio":     fmt.Sprintf("%f", 100-s.objective),
+		"SlowQuickBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedTicketSlow()),
+		"ErrorBudgetRatio":     fmt.Sprintf("%.9f", errorBudgetRatio),
 		"MetricFilter":         sloFilters,
 	})
 	if err != nil {
@@ -604,14 +610,14 @@ func (s *SLO) ConstructAlertingRuleGroup(interval *time.Duration) RuleGroupYAMLv
 	err = mwmbAlertTplBool.Execute(&recordPage, map[string]string{
 		"WindowLabel":          slo_window,
 		"QuickShortMetric":     slo_ratio_rate_query_name + "5m",
-		"QuickShortBurnFactor": fmt.Sprintf("%f", mwmbWindow.GetSpeedPageQuick()),
+		"QuickShortBurnFactor": fmt.Sprintf("%.9f", mwmbWindow.GetSpeedPageQuick()),
 		"QuickLongMetric":      slo_ratio_rate_query_name + "30m",
-		"QuickLongBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageSlow()),
+		"QuickLongBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedPageSlow()),
 		"SlowShortMetric":      slo_ratio_rate_query_name + "2h",
-		"SlowShortBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageQuick()),
+		"SlowShortBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedPageQuick()),
 		"SlowQuickMetric":      slo_ratio_rate_query_name + "6h",
-		"SlowQuickBurnFactor":  fmt.Sprintf("%f", mwmbWindow.GetSpeedPageSlow()),
-		"ErrorBudgetRatio":     fmt.Sprintf("%f", 100-s.objective),
+		"SlowQuickBurnFactor":  fmt.Sprintf("%.9f", mwmbWindow.GetSpeedPageSlow()),
+		"ErrorBudgetRatio":     fmt.Sprintf("%.9f", errorBudgetRatio),
 		"MetricFilter":         sloFilters,
 	})
 	if err != nil {
@@ -766,4 +772,17 @@ func ToMatchingSubsetIdenticalMetric(goodEvents, totalEvents []*sloapi.Event) (g
 		}
 	}
 	return goodEvents, totalEvents
+}
+
+func MergeRuleGroups(left *RuleGroupYAMLv2, right *RuleGroupYAMLv2) *RuleGroupYAMLv2 {
+	newRules := LeftJoinSliceAbstract[rulefmt.Rule, string](
+		left.Rules,
+		right.Rules,
+		func(r rulefmt.Rule) string { return r.Record },
+	)
+	return &RuleGroupYAMLv2{
+		Name:     left.Name,
+		Interval: left.Interval,
+		Rules:    newRules,
+	}
 }

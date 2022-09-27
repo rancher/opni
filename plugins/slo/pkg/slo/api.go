@@ -58,7 +58,6 @@ func (p *Plugin) ListSLOs(ctx context.Context, _ *emptypb.Empty) (*sloapi.Servic
 }
 
 func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequest) (*corev1.Reference, error) {
-	//lg := p.logger
 	if err := slorequest.Validate(); err != nil {
 		return nil, err
 	}
@@ -90,7 +89,6 @@ func (p *Plugin) CreateSLO(ctx context.Context, slorequest *sloapi.CreateSLORequ
 }
 
 func (p *Plugin) UpdateSLO(ctx context.Context, req *sloapi.SLOData) (*emptypb.Empty, error) {
-	//lg := p.logger
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}

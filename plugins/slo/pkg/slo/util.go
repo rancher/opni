@@ -51,3 +51,18 @@ func LeftJoinSlice[T comparable](arr1, arr2 []T) []T {
 	}
 	return result
 }
+
+func LeftJoinSliceAbstract[T any, S comparable](arr1, arr2 []T, getId func(T) S) []T {
+	result := make([]T, len(arr1))
+	cache := map[S]struct{}{}
+	for i, v := range arr1 {
+		cache[getId(v)] = struct{}{}
+		result[i] = v
+	}
+	for _, v := range arr2 {
+		if _, ok := cache[getId(v)]; !ok {
+			result = append(result, v)
+		}
+	}
+	return result
+}

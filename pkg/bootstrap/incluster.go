@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	v1 "github.com/rancher/opni/pkg/apis/management/v1"
+	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/clients"
 	"github.com/rancher/opni/pkg/ident"
 	"github.com/rancher/opni/pkg/keyring"
@@ -39,7 +39,7 @@ func (b *InClusterBootstrapper) Bootstrap(ctx context.Context, ident ident.Provi
 	if len(certInfo.Chain) == 0 {
 		return nil, fmt.Errorf("server certificate chain is empty")
 	}
-	token, err := client.CreateBootstrapToken(ctx, &v1.CreateBootstrapTokenRequest{
+	token, err := client.CreateBootstrapToken(ctx, &managementv1.CreateBootstrapTokenRequest{
 		Ttl: durationpb.New(5 * time.Minute),
 	})
 	if err != nil {

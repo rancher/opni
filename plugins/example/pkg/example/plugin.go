@@ -103,15 +103,15 @@ func (s *ExamplePlugin) Info(context.Context, *emptypb.Empty) (*capabilityv1.Inf
 }
 
 func (s *ExamplePlugin) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, nil
+	return &emptypb.Empty{}, nil
 }
 
-func (p *ExamplePlugin) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+func (s *ExamplePlugin) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 
 func (s *ExamplePlugin) Install(context.Context, *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
-	return nil, nil
+	return nil, status.Errorf(codes.Unimplemented, "method Install not implemented")
 }
 
 func (s *ExamplePlugin) Uninstall(context.Context, *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {

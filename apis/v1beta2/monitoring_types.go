@@ -68,14 +68,15 @@ type AlertingSpec struct {
 	//+kubebuilder:default=9093
 	WebPort int `json:"webPort,omitempty"`
 	//+kubebuilder:default=9094
-	ApiPort int `json:"apiPort,omitempty"`
-	//+kubebuilder:default=ClusterIP
+	ClusterPort int `json:"clusterPort:omitempty"`
+	//+kubebuilder:default="ClusterIP"
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	//+kubebuilder:default="500Mi"
 	Storage string `json:"storage,omitempty"`
 	//+kubebuilder:default="alertmanager-config"
 	ConfigName          string                      `json:"configName,omitempty"`
 	GatewayVolumeMounts []opnimeta.ExtraVolumeMount `json:"alertVolumeMounts,omitempty"`
+	RawConfigMap        string                      `json:"rawConfigMap,omitempty"`
 }
 
 type AuthSpec struct {

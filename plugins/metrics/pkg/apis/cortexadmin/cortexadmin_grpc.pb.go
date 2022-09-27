@@ -37,6 +37,7 @@ type CortexAdminClient interface {
 	GetMetricLabelSets(ctx context.Context, in *LabelRequest, opts ...grpc.CallOption) (*MetricLabels, error)
 	GetCortexStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CortexStatus, error)
 	GetCortexConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
+	ExtractRawSeries(ctx context.Context, in *MatcherRequest, opts ...grpc.CallOption) (*QueryResponse, error)
 }
 
 type cortexAdminClient struct {
@@ -164,6 +165,15 @@ func (c *cortexAdminClient) GetCortexConfig(ctx context.Context, in *ConfigReque
 	return out, nil
 }
 
+func (c *cortexAdminClient) ExtractRawSeries(ctx context.Context, in *MatcherRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
+	out := new(QueryResponse)
+	err := c.cc.Invoke(ctx, "/cortexadmin.CortexAdmin/ExtractRawSeries", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CortexAdminServer is the server API for CortexAdmin service.
 // All implementations must embed UnimplementedCortexAdminServer
 // for forward compatibility
@@ -182,6 +192,7 @@ type CortexAdminServer interface {
 	GetMetricLabelSets(context.Context, *LabelRequest) (*MetricLabels, error)
 	GetCortexStatus(context.Context, *emptypb.Empty) (*CortexStatus, error)
 	GetCortexConfig(context.Context, *ConfigRequest) (*ConfigResponse, error)
+	ExtractRawSeries(context.Context, *MatcherRequest) (*QueryResponse, error)
 	mustEmbedUnimplementedCortexAdminServer()
 }
 
@@ -227,6 +238,9 @@ func (UnimplementedCortexAdminServer) GetCortexStatus(context.Context, *emptypb.
 }
 func (UnimplementedCortexAdminServer) GetCortexConfig(context.Context, *ConfigRequest) (*ConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCortexConfig not implemented")
+}
+func (UnimplementedCortexAdminServer) ExtractRawSeries(context.Context, *MatcherRequest) (*QueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExtractRawSeries not implemented")
 }
 func (UnimplementedCortexAdminServer) mustEmbedUnimplementedCortexAdminServer() {}
 
@@ -475,6 +489,24 @@ func _CortexAdmin_GetCortexConfig_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CortexAdmin_ExtractRawSeries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MatcherRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CortexAdminServer).ExtractRawSeries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cortexadmin.CortexAdmin/ExtractRawSeries",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CortexAdminServer).ExtractRawSeries(ctx, req.(*MatcherRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CortexAdmin_ServiceDesc is the grpc.ServiceDesc for CortexAdmin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -533,6 +565,10 @@ var CortexAdmin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCortexConfig",
 			Handler:    _CortexAdmin_GetCortexConfig_Handler,
+		},
+		{
+			MethodName: "ExtractRawSeries",
+			Handler:    _CortexAdmin_ExtractRawSeries_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

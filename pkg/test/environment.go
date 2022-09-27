@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -10,6 +11,7 @@ import (
 	"io/fs"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -20,6 +22,9 @@ import (
 	"sync"
 	"text/template"
 	"time"
+
+	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/rancher/opni/pkg/alerting/shared"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -77,6 +82,7 @@ import (
 )
 
 var Log = logger.New(logger.WithLogLevel(logger.DefaultLogLevel.Level())).Named("test")
+var collectorWriteSync sync.Mutex
 
 type servicePorts struct {
 	Etcd            int
@@ -744,47 +750,6 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 	return port
 }
 
-func (e *Environment) StartAlertManager(ctx context.Context, configFile string) (webPort int) {
-	lg := e.Logger
-	webPort, err := freeport.GetFreePort()
-	if err != nil {
-		panic(err)
-	}
-	amBin := path.Join(e.TestBin, "alertmanager")
-	defaultArgs := []string{
-		fmt.Sprintf("--config.file=%s", configFile),
-		fmt.Sprintf("--web.listen-address=:%d", webPort),
-		"--storage.path=/tmp/data",
-		"--log.level=debug",
-	}
-	cmd := exec.CommandContext(e.ctx, amBin, defaultArgs...)
-	session, err := testutil.StartCmd(cmd)
-	if err != nil {
-		if !errors.Is(e.ctx.Err(), context.Canceled) {
-			panic(err)
-		} else {
-			return
-		}
-	}
-	lg.Info("Waiting for Alertmanager to start...")
-	for e.ctx.Err() == nil {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/-/ready", webPort))
-		if err == nil {
-			defer resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				break
-			}
-		}
-		time.Sleep(time.Second)
-	}
-	lg.With("address", fmt.Sprintf("http://localhost:%d", webPort)).Info("AlertManager started")
-	waitctx.Go(e.ctx, func() {
-		<-e.ctx.Done()
-		session.Wait()
-	})
-	return webPort
-}
-
 // Starts a server that exposes Prometheus metrics
 //
 // Returns port number of the server & a channel that shutdowns the server
@@ -835,6 +800,129 @@ func (e *Environment) StartInstrumentationServer(ctx context.Context) (int, chan
 		}
 	})
 	return port, done
+}
+
+func (e *Environment) StartMockKubernetesMetricServer(ctx context.Context) (port int) {
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
+	mux := http.NewServeMux()
+	reg := prometheus.NewRegistry()
+
+	registeredCollectors := map[string]*prometheus.GaugeVec{}
+
+	kubeMetricsIsDefined := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: metrics.KubeMetricsIsDefinedMetricName,
+	}, []string{"namespace"})
+
+	kubeMetricsIsDefined.WithLabelValues("kube-system").Set(1)
+
+	setObjHandler := func(w http.ResponseWriter, r *http.Request) {
+		collectorWriteSync.Lock()
+		defer collectorWriteSync.Unlock()
+		objType := r.URL.Query().Get("obj")
+		name := r.URL.Query().Get("name")
+		namespace := r.URL.Query().Get("namespace")
+		phase := r.URL.Query().Get("phase")
+		uid := r.URL.Query().Get("uid")
+
+		accessedState := false
+		var b bytes.Buffer
+		err := metrics.KubeObjMetricCreator.Execute(&b, map[string]string{
+			"ObjType": objType,
+		})
+		if err != nil {
+			panic(err)
+		}
+		var newOrExistingKubeObjStateCollector *prometheus.GaugeVec
+		if _, ok := registeredCollectors[b.String()]; !ok {
+			newOrExistingKubeObjStateCollector = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Name: b.String(),
+			}, []string{objType, "namespace", "phase", "uid"})
+			registeredCollectors[b.String()] = newOrExistingKubeObjStateCollector
+			reg.MustRegister(newOrExistingKubeObjStateCollector)
+		} else {
+			newOrExistingKubeObjStateCollector = registeredCollectors[b.String()]
+		}
+
+		for _, validPhase := range metrics.KubeStates {
+			if phase == validPhase {
+				accessedState = true
+				newOrExistingKubeObjStateCollector.WithLabelValues(name, namespace, validPhase, uid).Set(1)
+			} else {
+				newOrExistingKubeObjStateCollector.WithLabelValues(name, namespace, validPhase, uid).Set(0)
+			}
+		}
+		if accessedState == false {
+			panic(fmt.Sprintf("Set state for kube metrics api must be one of %s", strings.Join(metrics.KubeStates, ",")))
+		}
+	}
+
+	reg.MustRegister(kubeMetricsIsDefined)
+
+	//mux.HandleFunc("/setKubePodState", setPhaseHandler)
+	mux.HandleFunc("/set", setObjHandler)
+	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
+		Registry: reg,
+	}))
+
+	autoKubernetesMetricsServer := &http.Server{
+		Addr:           fmt.Sprintf("127.0.0.1:%d", port),
+		Handler:        mux,
+		ReadTimeout:    1 * time.Second,
+		WriteTimeout:   1 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	waitctx.Permissive.Go(e.ctx, func() {
+		go func() {
+			err := autoKubernetesMetricsServer.ListenAndServe()
+			if err != http.ErrServerClosed {
+				panic(err)
+			}
+		}()
+		defer autoKubernetesMetricsServer.Shutdown(context.Background())
+		select {
+		case <-e.ctx.Done():
+		}
+	})
+
+	return port
+}
+
+func simulateObject(kPort int) {
+	// sample a random phase
+	namespaces := []string{"kube-system", "default", "opni"}
+	namespace := namespaces[rand.Intn(len(namespaces))]
+	sampleObjects := []string{"pod", "deployment", "statefulset", "daemonset", "job", "cronjob", "service", "ingress"}
+	sampleObject := sampleObjects[rand.Intn(len(sampleObjects))]
+	sampleState := metrics.KubeStates[rand.Intn(len(metrics.KubeStates))]
+
+	queryUrl := fmt.Sprintf("http://localhost:%d/set", kPort)
+	client := &http.Client{
+		Transport: &http.Transport{},
+	}
+	req, err := http.NewRequest("GET", queryUrl, nil)
+	if err != nil {
+		panic(err)
+	}
+	values := url.Values{}
+	values.Set("obj", sampleObject)
+	values.Set("name", RandomName(time.Now().UnixNano()))
+	values.Set("namespace", namespace)
+	values.Set("phase", sampleState)
+	values.Set("uid", uuid.New().String())
+	req.URL.RawQuery = values.Encode()
+	go func() {
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			panic(fmt.Sprintf("kube metrics prometheus collector hit an error %d", resp.StatusCode))
+		}
+	}()
 }
 
 func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
@@ -907,6 +995,20 @@ func (e *Environment) newGatewayConfig() *v1beta1.GatewayConfig {
 				Etcd: &v1beta1.EtcdStorageSpec{
 					Endpoints: []string{fmt.Sprintf("http://localhost:%d", e.ports.Etcd)},
 				},
+			},
+			Alerting: v1beta1.AlertingSpec{
+				//Endpoints:                 []string{"opni-alerting:9093"},
+				ConfigMap: "alertmanager-config",
+				Namespace: "default",
+				//StatefulSetName:           "opni-alerting-internal",
+				WorkerNodeService:     "opni-alerting",
+				WorkerStatefulSet:     "opni-alerting-internal",
+				WorkerPort:            9093,
+				ControllerNodeService: "opni-alerting-controller",
+				ControllerStatefulSet: "opni-alerting-controller-internal",
+				ControllerNodePort:    9093,
+				ControllerClusterPort: 9094,
+				ManagementHookHandler: shared.AlertingCortexHookHandler,
 			},
 		},
 	}
@@ -1265,6 +1367,12 @@ func (e *Environment) GatewayConfig() *v1beta1.GatewayConfig {
 	return e.gatewayConfig
 }
 
+func (e *Environment) GetAlertingManagementWebhookEndpoint() string {
+	return "https://" +
+		e.GatewayConfig().Spec.HTTPListenAddress +
+		e.GatewayConfig().Spec.Alerting.ManagementHookHandler
+}
+
 func (e *Environment) EtcdClient() (*clientv3.Client, error) {
 	if !e.enableEtcd {
 		e.Logger.Panic("etcd disabled")
@@ -1292,6 +1400,10 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		enableCortex:     true,
 		defaultAgentOpts: []StartAgentOption{},
 	}
+	err := os.Setenv(shared.LocalBackendEnvToggle, "true")
+	if err != nil {
+		panic(err)
+	}
 	options.apply(opts...)
 
 	agentOptions := &StartAgentOptions{}
@@ -1302,6 +1414,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	}
 	randSrc := rand.New(rand.NewSource(0))
 	var iPort int
+	var kPort int
 	addAgent := func(rw http.ResponseWriter, r *http.Request) {
 		Log.Infof("%s %s", r.Method, r.URL.Path)
 		switch r.Method {
@@ -1338,11 +1451,15 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 				return
 			}
 			environment.StartPrometheus(port, NewOverridePrometheusConfig(
-				"slo/prometheus/config.yaml",
+				"alerting/prometheus/config.yaml",
 				[]PrometheusJob{
 					{
 						JobName:    query.MockTestServerName,
 						ScrapePort: iPort,
+					},
+					{
+						JobName:    "kubernetes",
+						ScrapePort: kPort,
 					},
 				}),
 			)
@@ -1367,6 +1484,12 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 	var closeOnce sync.Once
 	signal.Notify(c, os.Interrupt)
 	iPort, _ = environment.StartInstrumentationServer(context.Background())
+	kPort = environment.StartMockKubernetesMetricServer(context.Background())
+	//TODO: simulate a bunch of random objects
+	for i := 0; i < 100; i++ {
+		simulateObject(kPort)
+	}
+
 	Log.Infof(chalk.Green.Color("Instrumentation server listening on %d"), iPort)
 	Log.Info(chalk.Blue.Color("Press (ctrl+c) or (q) to stop test environment"))
 	var client managementv1.ManagementClient
@@ -1433,6 +1556,8 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		}
 	}
 
+	Log.Infof(chalk.Green.Color("Kubernetes metric server listening on %d"), kPort)
+	Log.Info(chalk.Blue.Color("Press (ctrl+c) to stop test environment"))
 	// listen for spacebar on stdin
 	t, err := tty.Open()
 	if err == nil {

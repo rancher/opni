@@ -184,7 +184,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Fatal("failed to load TLS config")
 	}
 
-	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl)
+	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl, &options.alerting)
 
 	clusterAuth, err := cluster.New(ctx, storageBackend, auth.AuthorizationKey,
 		cluster.WithExcludeGRPCMethodsFromAuth(

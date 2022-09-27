@@ -30,10 +30,20 @@ type GatewayConfigSpec struct {
 }
 
 type AlertingSpec struct {
-	Endpoints       []string `json:"endpoints,omitempty"`
-	ConfigMapName   string   `json:"configMapName,omitempty"`
-	StatefulSetName string   `json:"statefulSetName,omitempty"`
-	Namespace       string   `json:"Namespace,omitempty"`
+	//ManagementHookHandlerName string   `json:"managementHookHandlerName,omitempty"`
+	//Endpoints                 []string `json:"endpoints,omitempty"`
+	//ConfigMapName             string   `json:"configMapName,omitempty"`
+	//StatefulSetName           string   `json:"statefulSetName,omitempty"`
+	Namespace             string `json:"Namespace,omitempty"`
+	WorkerNodeService     string `json:"workerNodeService,omitempty"`
+	WorkerPort            int    `json:"workerPort,omitempty"`
+	WorkerStatefulSet     string `json:"workerStatefulSet,omitempty"`
+	ControllerNodeService string `json:"controllerNodeService,omitempty"`
+	ControllerNodePort    int    `json:"controllerNodePort,omitempty"`
+	ControllerClusterPort int    `json:"controllerClusterPort,omitempty"`
+	ControllerStatefulSet string `json:"controllerStatefulSet,omitempty"`
+	ConfigMap             string `json:"configMap,omitempty"`
+	ManagementHookHandler string `json:"managementHookHandler,omitempty"`
 }
 
 type MetricsSpec struct {
@@ -266,9 +276,6 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	}
 	if s.Cortex.Purger.HTTPAddress == "" {
 		s.Cortex.Purger.HTTPAddress = "cortex-purger:8080"
-	}
-	if len(s.Alerting.Endpoints) == 0 {
-		s.Alerting.Endpoints = []string{"opni-alerting:9093"}
 	}
 }
 

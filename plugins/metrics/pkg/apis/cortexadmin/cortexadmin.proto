@@ -93,6 +93,12 @@ service CortexAdmin {
       get: "/config"
     };
   }
+
+  rpc ExtractRawSeries(MatcherRequest) returns (QueryResponse) {
+    option (google.api.http) = {
+      get: "/series/raw"
+    };
+  }
 }
 
 message Cluster {
@@ -102,6 +108,11 @@ message Cluster {
 message SeriesRequest {
   string tenant = 1;
   string jobId = 2;
+}
+
+message MatcherRequest {
+  string tenant = 1;
+  string matchExpr = 2;
 }
 
 message LabelRequest {

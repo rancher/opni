@@ -1,15 +1,18 @@
-package alerting_test
+package config_test
 
 import (
+	"bytes"
+	"github.com/rancher/opni/pkg/alerting/backend"
 	"strings"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	cfg "github.com/prometheus/alertmanager/config"
+	"github.com/rancher/opni/pkg/alerting/config"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"gopkg.in/yaml.v2"
 )
 
@@ -19,7 +22,6 @@ route:
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 1h
-  receiver: 'web.hook'
 `
 
 const b = `
@@ -37,15 +39,24 @@ inhibit_rules:
   severity: 'warning'
   equal: ['alertname', 'dev', 'instance']`
 
-func defaultConfig() (*alerting.ConfigMapData, error) {
-	var c alerting.ConfigMapData
-	err := c.Parse(alerting.DefaultAlertManager)
+func defaultConfig() (*config.ConfigMapData, error) {
+	var c config.ConfigMapData
+	templateToFill := shared.DefaultAlertManager
+	var b bytes.Buffer
+	err := templateToFill.Execute(&b, shared.DefaultAlertManagerInfo{
+		CortexHandlerName: "web.hook",
+		CortexHandlerURL:  "http://127.0.0.1:5001/",
+	})
+	if err != nil {
+		panic(err)
+	}
+	err = c.Parse(b.String())
 	return &c, err
 }
 
 var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(test.Unit, test.Slow), func() {
 	BeforeAll(func() {
-
+		backend.RuntimeBinaryPath = "../../../../"
 	})
 
 	When("We modify config map data in the api", func() {
@@ -86,35 +97,25 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				WebhookUrl: "http://localhost:5001/",
 			}
 			id1 := uuid.New().String()
-			recv, err := alerting.NewSlackReceiver(id1, &slackEndpoint)
+			recv, err := config.NewSlackReceiver(id1, &slackEndpoint)
 			Expect(err).To(Succeed())
 			cfg.AppendReceiver(recv)
 			Expect(cfg.Receivers).To(HaveLen(2))
-			slackEndpoint.Channel = "something that doesn't have a prefix"
-			_, err = alerting.NewSlackReceiver(id1, &slackEndpoint)
-			Expect(err).To(HaveOccurred())
 
 			fromAddr := "alex7285@gmail.com"
 			emailEndpoint := alertingv1alpha.EmailEndpoint{
-				To:   "alexandre.lamarre@suse.com",
-				From: &fromAddr,
+				To:       "alexandre.lamarre@suse.com",
+				SmtpFrom: &fromAddr,
 			}
 			emailId1 := uuid.New().String()
-			emailRecv, err := alerting.NewEmailReceiver(emailId1, &emailEndpoint)
+			emailRecv, err := config.NewEmailReceiver(emailId1, &emailEndpoint)
 			Expect(err).To(Succeed())
 			cfg.AppendReceiver(emailRecv)
 			Expect(cfg.Receivers).To(HaveLen(3))
-			emailEndpoint.To = "alexandre.com"
-			_, err = alerting.NewEmailReceiver(emailId1, &emailEndpoint)
-			Expect(err).To(HaveOccurred())
 			tempId := uuid.New().String()
 			emailEndpoint.To = "alexandre.lamarre@suse.com"
-			_, err = alerting.NewEmailReceiver(tempId, &emailEndpoint)
+			_, err = config.NewEmailReceiver(tempId, &emailEndpoint)
 			Expect(err).To(Succeed())
-			fromAddr = "invalid.email.com"
-			emailEndpoint.From = &fromAddr
-			_, err = alerting.NewEmailReceiver(tempId, &emailEndpoint)
-			Expect(err).To(HaveOccurred())
 		})
 
 		It("Should be able to update a receiver", func() {
@@ -126,7 +127,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				WebhookUrl: "http://localhost:5001/",
 			}
 			id1 := uuid.New().String()
-			recv, err := alerting.NewSlackReceiver(id1, &slackEndpoint)
+			recv, err := config.NewSlackReceiver(id1, &slackEndpoint)
 			Expect(err).To(Succeed())
 			cfg.AppendReceiver(recv)
 			Expect(cfg.Receivers).To(HaveLen(2))
@@ -135,7 +136,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				Channel:    "#somethingelse",
 				WebhookUrl: "http://localhost:5001/",
 			}
-			newRecv, err := alerting.NewSlackReceiver(id1, target)
+			newRecv, err := config.NewSlackReceiver(id1, target)
 			Expect(err).To(Succeed())
 			err = cfg.UpdateReceiver(id1, newRecv)
 			Expect(err).To(Succeed())
@@ -154,7 +155,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 				WebhookUrl: "http://localhost:5001/",
 			}
 			id1 := uuid.New().String()
-			recv, err := alerting.NewSlackReceiver(id1, &slackEndpoint)
+			recv, err := config.NewSlackReceiver(id1, &slackEndpoint)
 			Expect(err).To(Succeed())
 			cfg.AppendReceiver(recv)
 			Expect(cfg.Receivers).To(HaveLen(2))
@@ -162,7 +163,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 
 			// udpate
 
-			recv, err = alerting.NewEmailReceiver(id1, &alertingv1alpha.EmailEndpoint{
+			recv, err = config.NewEmailReceiver(id1, &alertingv1alpha.EmailEndpoint{
 				To: "alexandre.lamarre@suse.com",
 			})
 			Expect(err).To(Succeed())
@@ -177,7 +178,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 		It("Should fail when updating receivers out of bounds", func() {
 			cfg, err := defaultConfig()
 			Expect(err).To(BeNil())
-			newRecv, err := alerting.NewSlackReceiver(
+			newRecv, err := config.NewSlackReceiver(
 				uuid.New().String(),
 				&alertingv1alpha.SlackEndpoint{
 					Channel:    "#general",
@@ -212,7 +213,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 					WebhookUrl: "http://localhost:5001/",
 				}
 				id1 := uuid.New().String()
-				recv, err := alerting.NewSlackReceiver(id1, &slackEndpoint)
+				recv, err := config.NewSlackReceiver(id1, &slackEndpoint)
 				Expect(err).To(Succeed())
 				cfg.AppendReceiver(recv)
 			}
@@ -234,7 +235,7 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 					WebhookUrl: "http://localhost:5001/",
 				}
 				id1 := uuid.New().String()
-				recv, err := alerting.NewSlackReceiver(id1, &slackEndpoint)
+				recv, err := config.NewSlackReceiver(id1, &slackEndpoint)
 				Expect(err).To(Succeed())
 				cfg.AppendReceiver(recv)
 				lastId = id1
@@ -244,19 +245,6 @@ var _ = Describe("Internal alerting plugin functionality test", Ordered, Label(t
 			Expect(err).To(Succeed())
 			Expect(cfg.Receivers).To(HaveLen(20))
 			Expect(cfg.Receivers[19].Name).NotTo(Equal(lastId))
-		})
-	})
-
-	When("We use the alertmanager API", func() {
-		It("Should construct the correct URL", func() {
-			url := (&alerting.AlertManagerAPI{
-				Endpoint: "localhost:9093",
-				Route:    "/alerts",
-				Verb:     alerting.POST,
-			}).WithHttpV2()
-			Expect(url.Construct()).To(Equal("localhost:9093/api/v2/alerts"))
-			url.WithHttpV1()
-			Expect(url.Construct()).To(Equal("localhost:9093/api/v1/alerts"))
 		})
 	})
 })

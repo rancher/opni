@@ -29,7 +29,6 @@ import (
 	"github.com/kralicky/spellbook/testbin"
 	// mage:import dev
 	_ "github.com/rancher/opni/internal/mage/dev"
-
 	// mage:import charts
 	charts "github.com/rancher/charts-build-scripts/pkg/actions"
 	// mage:import test
@@ -128,6 +127,20 @@ func CRDGen() error {
 			}
 		}
 	}
+
+	//e1 := lo.Async(func() error {
+	//	return util.MinifyCRDYaml("./packages/opni/opni/charts/crds/crds.yaml")
+	//})
+	//e2 := lo.Async(func() error {
+	//	return util.MinifyCRDYaml("./packages/opni-agent/opni-agent/charts/crds/crds.yaml")
+	//})
+
+	//if err := <-e1; err != nil {
+	//	return err
+	//}
+	//if err := <-e2; err != nil {
+	//	return err
+	//}
 	return nil
 }
 
@@ -295,13 +308,13 @@ func init() {
 		},
 		{
 			Name:       "alertmanager",
-			Version:    "0.23.0",
+			Version:    "0.24.0",
 			URL:        "https://github.com/prometheus/alertmanager/releases/download/v{{.Version}}/alertmanager-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
 			GetVersion: getVersion,
 		},
 		{
 			Name:       "amtool",
-			Version:    "0.23.0",
+			Version:    "0.24.0",
 			URL:        "https://github.com/prometheus/alertmanager/releases/download/v{{.Version}}/alertmanager-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
 			GetVersion: getVersion,
 		},

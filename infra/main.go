@@ -125,7 +125,10 @@ func run(ctx *Context) (runErr error) {
 					"enabled": Bool(false),
 				},
 				"gateway": Map{
-					"enabled":     Bool(true),
+					"enabled": Bool(true),
+					"alerting": Map{
+						"enabled": Bool(true),
+					},
 					"hostname":    mainCluster.GatewayHostname,
 					"serviceType": String("LoadBalancer"),
 					"auth": Map{

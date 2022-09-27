@@ -3,9 +3,10 @@ package unmarshal
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+
 	"github.com/prometheus/common/model"
 	"go.uber.org/zap"
-	"net/http"
 )
 
 // Struct for unmarshalling from github.com/prometheus/common/model

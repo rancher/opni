@@ -1,66 +1,87 @@
 package gateway
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/rancher/opni/apis/core/v1beta1"
 	"path"
-	"strings"
 
-	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 )
 
-var (
-	defaultAlertManager = alerting.DefaultAlertManager
-)
+func setEmptyFields(spec *v1beta1.AlertingSpec) {
+	// handle missing fields because the test suite is flaky locally
+	if spec.WebPort == 0 {
+		spec.WebPort = 9093
+	}
+
+	if spec.ClusterPort == 0 {
+		spec.ClusterPort = 9094
+	}
+
+	if spec.Storage == "" {
+		spec.Storage = "500Mi"
+	}
+	if spec.ConfigName == "" {
+		spec.ConfigName = "alertmanager-config"
+	}
+	if spec.RawConfigMap == "" {
+		var amData bytes.Buffer
+		mgmtDNS := "opni-monitoring-internal"
+		httpPort := "11080"
+		amData, err := shared.DefaultConfig(fmt.Sprintf("http://%s:%s%s", mgmtDNS, httpPort, shared.AlertingCortexHookHandler))
+		if err != nil {
+			panic(err)
+		}
+		spec.RawConfigMap = amData.String()
+	}
+}
 
 func (r *Reconciler) alerting() []resources.Resource {
-	// TODO: move defaulting to a webhook
+	// always create the alerting service, even if it points to nothing, so cortex can find it
+
+	labelWithAlert := func(label map[string]string) map[string]string {
+		label["app.kubernetes.io/name"] = "opni-alerting"
+		return label
+	}
+	labelWithNode := func(label map[string]string) map[string]string {
+		label["app.alerting.type"] = "node"
+		return label
+	}
+	labelWithCluster := func(label map[string]string) map[string]string {
+		label["app.alerting.node"] = "controller"
+		return label
+	}
+	publicNodeLabels := labelWithNode(labelWithAlert(map[string]string{}))
+	publicNodeSvcLabels := publicNodeLabels
+	publicControllerLabels := labelWithCluster(labelWithAlert(map[string]string{}))
+	publicControllerSvcLabels := publicControllerLabels
+
 	if r.spec.Alerting == nil {
 		// set some sensible defaults
-		r.spec.Alerting = &corev1beta1.AlertingSpec{
+		r.spec.Alerting = &v1beta1.AlertingSpec{
 			WebPort:     9093,
-			ApiPort:     9094,
+			ClusterPort: 9094,
 			Storage:     "500Mi",
 			ServiceType: "ClusterIP",
 			ConfigName:  "alertmanager-config",
 		}
 	}
+	//FIXME
+	setEmptyFields(r.spec.Alerting)
+	dataMountPath := shared.DataMountPath
+	configMountPath := shared.ConfigMountPath
 
-	// handle missing fields because the test suite is flaky locally
-	if r.spec.Alerting.WebPort == 0 {
-		r.spec.Alerting.WebPort = 9093
-	}
-
-	if r.spec.Alerting.ApiPort == 0 {
-		r.spec.Alerting.ApiPort = 9094
-	}
-	if r.spec.Alerting.Storage == "" {
-		r.spec.Alerting.Storage = "500Mi"
-	}
-	if r.spec.Alerting.ConfigName == "" {
-		r.spec.Alerting.ConfigName = "alertmanager-config"
-	}
-
-	publicLabels := map[string]string{} // TODO define a set of meaningful labels for this service
-	labelWithAlert := func(label map[string]string) map[string]string {
-		label["app.kubernetes.io/name"] = "opni-alerting"
-		return label
-	}
-	publicLabels = labelWithAlert(publicLabels)
-
-	// to reload we need to do issue a k8sclient rollout restart
-
-	// read default config
-
-	// to be mounted into alertmanager pods
+	// to be mounted into the alertmanager controller node
 	alertManagerConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.spec.Alerting.ConfigName,
@@ -68,36 +89,56 @@ func (r *Reconciler) alerting() []resources.Resource {
 		},
 
 		Data: map[string]string{
-			"alertmanager.yaml": strings.TrimSpace(defaultAlertManager),
+			shared.ConfigKey: r.spec.Alerting.RawConfigMap,
 		},
 	}
 
-	err := r.setOwner(alertManagerConfigMap)
-	if err != nil {
-		panic(err)
+	alertingControllerSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      shared.OperatorAlertingControllerServiceName,
+			Namespace: r.namespace,
+			Labels:    publicControllerSvcLabels,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     r.spec.Alerting.ServiceType,
+			Selector: publicControllerLabels,
+			Ports:    r.serviceAlertManagerPorts(r.controllerAlertManagerPorts()),
+		},
 	}
 
-	dataMountPath := "/var/lib/alertmanager/data"
-	configMountPath := "/etc/config"
-
-	deploy := &appsv1.StatefulSet{
+	controllerDeploy := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-alerting-internal",
+			Name:      shared.OperatorAlertingControllerServiceName + "-internal",
 			Namespace: r.namespace,
-			Labels:    publicLabels,
+			Labels:    publicControllerLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: lo.ToPtr(r.numAlertingReplicas()),
+			Replicas: lo.ToPtr(int32(1)),
 			Selector: &metav1.LabelSelector{
-				MatchLabels: publicLabels,
+				MatchLabels: publicControllerLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: publicLabels,
+					Labels: publicControllerLabels,
 				},
 				Spec: corev1.PodSpec{
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  lo.ToPtr(int64(1099)),
+						RunAsGroup: lo.ToPtr(int64(1099)),
+						FSGroup:    lo.ToPtr(int64(1099)),
+					},
 					Containers: []corev1.Container{
 						{
+							Env: []corev1.EnvVar{
+								{
+									Name: "POD_IP",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "status.podIP",
+										},
+									},
+								},
+							},
 							Name:            "opni-alertmanager",
 							Image:           "bitnami/alertmanager:latest",
 							ImagePullPolicy: "Always",
@@ -105,11 +146,25 @@ func (r *Reconciler) alerting() []resources.Resource {
 							// "--config.file=/opt/bitnami/alertmanager/conf/config.yml",
 							// "--storage.path=/opt/bitnami/alertmanager/data"
 							Args: []string{
-								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, "alertmanager.yaml")),
+								fmt.Sprintf("--cluster.listen-address=0.0.0.0:%d", r.spec.Alerting.ClusterPort),
+								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.ConfigKey)),
 								fmt.Sprintf("--storage.path=%s", dataMountPath),
-								"-p 9094:9094", // expose REST api port
+								fmt.Sprintf("--log.level=%s", "debug"),
+								fmt.Sprintf("--log.format=json"),
+								// Maximum time to wait for cluster connections to settle before evaluating notifications.
+								fmt.Sprintf("--cluster.settle-timeout=%s", "10s"),
+								//Interval for gossip state syncs. Setting this interval lower (more frequent)
+								// will increase convergence speeds across larger clusters at the expense
+								// of increased bandwidth usage.
+								fmt.Sprintf("--cluster.pushpull-interval=%s", "20s"),
+								// Interval between sending gossip messages. By lowering this value (more frequent)
+								// gossip messages are propagated across the cluster more quickly at the expense of increased
+								// bandwidth.
+								fmt.Sprintf("--cluster.gossip-interval=%s", "20ms"),
+								// Time to wait between peers to send notifications
+								fmt.Sprintf("--cluster.peer-timeout=1s"),
 							},
-							Ports: r.containerAlertManagerPorts(),
+							Ports: r.controllerAlertManagerPorts(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "opni-alertmanager-data",
@@ -119,7 +174,6 @@ func (r *Reconciler) alerting() []resources.Resource {
 								{
 									Name:      "opni-alertmanager-config",
 									MountPath: configMountPath,
-									ReadOnly:  true,
 								},
 							},
 						},
@@ -130,6 +184,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "opni-alertmanager-data",
+									ReadOnly:  false,
 								},
 							},
 						},
@@ -137,14 +192,17 @@ func (r *Reconciler) alerting() []resources.Resource {
 						{
 							Name: "opni-alertmanager-config",
 							VolumeSource: corev1.VolumeSource{
+								//PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								//	ClaimName: "opni-alertmanager-data",
+								//},
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
 										Name: r.spec.Alerting.ConfigName,
 									},
 									Items: []corev1.KeyToPath{
 										{
-											Key:  "alertmanager.yaml",
-											Path: "alertmanager.yaml",
+											Key:  shared.ConfigKey,
+											Path: shared.ConfigKey,
 										},
 									},
 								},
@@ -171,45 +229,176 @@ func (r *Reconciler) alerting() []resources.Resource {
 			},
 		},
 	}
-	r.setOwner(deploy)
-
-	publicSvcLabels := publicLabels
-
-	alertingSvc := &corev1.Service{
+	alertingClusterNodeSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "opni-alerting",
+			Name:        shared.OperatorAlertingClusterNodeServiceName,
 			Namespace:   r.namespace,
-			Labels:      publicSvcLabels,
+			Labels:      publicNodeSvcLabels,
 			Annotations: r.spec.ServiceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     r.spec.Alerting.ServiceType,
-			Selector: publicLabels,
-			Ports:    r.serviceAlertManagerPorts(r.containerAlertManagerPorts()),
+			Selector: publicNodeLabels,
+			Ports:    r.serviceAlertManagerPorts(r.nodeAlertManagerPorts()),
 		},
 	}
-	r.setOwner(alertingSvc)
-
-	return []resources.Resource{
-		resources.PresentIff(r.spec.Alerting.Enabled, alertManagerConfigMap),
-		resources.PresentIff(r.spec.Alerting.Enabled, deploy),
-		resources.PresentIff(r.spec.Alerting.Enabled, alertingSvc),
+	nodeDeploy := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      shared.OperatorAlertingClusterNodeServiceName + "-internal",
+			Namespace: r.namespace,
+			Labels:    publicNodeLabels,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: lo.ToPtr(r.numAlertingReplicas()),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: publicNodeLabels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: publicNodeLabels,
+				},
+				Spec: corev1.PodSpec{
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  lo.ToPtr(int64(1099)),
+						RunAsGroup: lo.ToPtr(int64(1099)),
+						FSGroup:    lo.ToPtr(int64(1099)),
+					},
+					Containers: []corev1.Container{
+						{
+							Name:            "opni-alertmanager",
+							Image:           "bitnami/alertmanager:latest",
+							ImagePullPolicy: "Always",
+							// Defaults to
+							// "--config.file=/opt/bitnami/alertmanager/conf/config.yml",
+							// "--storage.path=/opt/bitnami/alertmanager/data"
+							Args: []string{
+								fmt.Sprintf("--config.file=%s", path.Join(configMountPath, shared.ConfigKey)),
+								fmt.Sprintf("--storage.path=%s", dataMountPath),
+								fmt.Sprintf("--log.level=%s", "info"),
+								fmt.Sprintf("--log.format=json"),
+								// join to controller
+								fmt.Sprintf("--cluster.peer=%s:%d",
+									shared.OperatorAlertingControllerServiceName,
+									r.spec.Alerting.ClusterPort,
+								),
+								//fmt.Sprintf(
+								//	"--cluster.advertise-address=%s:%d",
+								//	shared.OperatorAlertingControllerServiceName,
+								//	r.gw.Spec.Alerting.ClusterPort),
+							},
+							Ports: r.nodeAlertManagerPorts(),
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "opni-alertmanager-data",
+									MountPath: dataMountPath,
+								},
+								// volume mount for alertmanager configmap
+								{
+									Name:      "opni-alertmanager-config",
+									MountPath: configMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "opni-alertmanager-data",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "opni-alertmanager-data",
+									ReadOnly:  false,
+								},
+							},
+						},
+						{
+							Name: "opni-alertmanager-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: r.spec.Alerting.ConfigName,
+									},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  shared.ConfigKey,
+											Path: shared.ConfigKey,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "opni-alertmanager-data",
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{
+							corev1.ReadWriteOnce,
+						},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse(r.spec.Alerting.Storage),
+							},
+						},
+					}},
+			},
+		},
 	}
+	if r.gw != nil {
+		ctrl.SetControllerReference(r.gw, nodeDeploy, r.client.Scheme())
+		ctrl.SetControllerReference(r.gw, alertingClusterNodeSvc, r.client.Scheme())
+		ctrl.SetControllerReference(r.gw, controllerDeploy, r.client.Scheme())
+		ctrl.SetControllerReference(r.gw, alertingControllerSvc, r.client.Scheme())
+		ctrl.SetControllerReference(r.gw, alertManagerConfigMap, r.client.Scheme())
+		return []resources.Resource{
+			resources.PresentIff(r.spec.Alerting.Enabled, controllerDeploy),
+			resources.PresentIff(r.spec.Alerting.Enabled, alertingControllerSvc),
+			resources.PresentIff(r.spec.Alerting.Enabled, alertManagerConfigMap),
+			resources.PresentIff(r.spec.Alerting.Enabled, nodeDeploy),
+			resources.PresentIff(r.spec.Alerting.Enabled, alertingClusterNodeSvc),
+		}
+	}
+	ctrl.SetControllerReference(r.coreGW, nodeDeploy, r.client.Scheme())
+	ctrl.SetControllerReference(r.coreGW, alertingClusterNodeSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.coreGW, controllerDeploy, r.client.Scheme())
+	ctrl.SetControllerReference(r.coreGW, alertingControllerSvc, r.client.Scheme())
+	ctrl.SetControllerReference(r.coreGW, alertManagerConfigMap, r.client.Scheme())
+	return []resources.Resource{
+		resources.PresentIff(r.spec.Alerting.Enabled, controllerDeploy),
+		resources.PresentIff(r.spec.Alerting.Enabled, alertingControllerSvc),
+		resources.PresentIff(r.spec.Alerting.Enabled, alertManagerConfigMap),
+		resources.PresentIff(r.spec.Alerting.Enabled, nodeDeploy),
+		resources.PresentIff(r.spec.Alerting.Enabled, alertingClusterNodeSvc),
+	}
+
 }
 
 func (r *Reconciler) numAlertingReplicas() int32 {
 	return 3
 }
 
-func (r *Reconciler) containerAlertManagerPorts() []corev1.ContainerPort {
+func (r *Reconciler) nodeAlertManagerPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
-			Name:          "alert-web-port",
+			Name:          "web-port",
+			ContainerPort: 9093,
+			Protocol:      "TCP",
+		},
+	}
+}
+
+func (r *Reconciler) controllerAlertManagerPorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			Name:          "web-port",
 			ContainerPort: 9093,
 			Protocol:      "TCP",
 		},
 		{
-			Name:          "alert-api-port",
+			Name:          "cluster-port",
 			ContainerPort: 9094,
 			Protocol:      "TCP",
 		},

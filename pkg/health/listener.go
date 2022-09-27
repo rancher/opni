@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/shared"
+
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -20,7 +22,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
 	"github.com/rancher/opni/pkg/util"
-	ap "github.com/rancher/opni/plugins/alerting/pkg/alerting"
 )
 
 type Listener struct {
@@ -89,10 +90,10 @@ func WithAlertToggle() ListenerOption {
 }
 
 func WithDisconnectTimeout(timeout time.Duration) ListenerOption {
-	_, isSet := os.LookupEnv(ap.LocalBackendEnvToggle)
+	_, isSet := os.LookupEnv(shared.LocalBackendEnvToggle)
 	if isSet {
 		return func(o *ListenerOptions) {
-			o.tickerDuration = time.Millisecond * 100
+			o.tickerDuration = time.Second * 60
 		}
 	}
 	return func(o *ListenerOptions) {
@@ -248,28 +249,28 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 		"{{ .agentId }}",
 		agentId, -1)
 	alertConditionTemplateCopy.Description = strings.Replace(
-		l.alertCondition.Description,
+		alertConditionTemplateCopy.Description,
 		"{{ .agentId }}",
 		agentId, -1)
 
 	alertConditionTemplateCopy.Description = strings.Replace(
-		l.alertCondition.Description, "{{ .timeout }}",
+		alertConditionTemplateCopy.Description, "{{ .timeout }}",
 		l.alertTickerDuration.String(), -1)
 
 	go func() {
-		id, err := (*l.alertProvider).CreateAlertCondition(ctx, l.alertCondition)
+		id, err := (*l.alertProvider).CreateAlertCondition(ctx, alertConditionTemplateCopy)
 		retryOnFailure := time.NewTicker(time.Second)
 		defer retryOnFailure.Stop()
 		for err != nil {
 			select {
 			case <-retryOnFailure.C:
 				retryOnFailure.Reset(time.Second)
-				id, err = (*l.alertProvider).CreateAlertCondition(ctx, l.alertCondition)
+				id, err = alerting.DoCreate(*l.alertProvider, ctx, alertConditionTemplateCopy)
 			case <-l.closed:
 				return
 			}
 		}
-		if l.alertTickerDuration < 0 {
+		if l.alertTickerDuration <= 0 {
 			l.alertTickerDuration = time.Second * 60
 		}
 		ticker := time.NewTicker(l.alertTickerDuration)
@@ -278,7 +279,7 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 		for {
 			select {
 			case <-ticker.C: // received no message from agent in the entire duration
-				_, err = (*l.alertProvider).TriggerAlerts(ctx, &alertingv1alpha.TriggerAlertsRequest{
+				_, err = alerting.DoTrigger(*l.alertProvider, ctx, &alertingv1alpha.TriggerAlertsRequest{
 					ConditionId: id,
 				})
 				if err != nil {
@@ -292,7 +293,7 @@ func (l *Listener) AlertDisconnectLoop(agentId string) {
 
 			case <-l.closed: // listener is closed, stop
 				go func() {
-					(*l.alertProvider).DeleteAlertCondition(ctx, id)
+					alerting.DoDelete(*l.alertProvider, ctx, id)
 				}()
 				return
 			}

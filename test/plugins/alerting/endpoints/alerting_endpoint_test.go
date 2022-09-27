@@ -1,9 +1,12 @@
-package alerting_test
+package endpoints_test
 
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/config"
 	"os"
+
+	"github.com/rancher/opni/pkg/alerting/shared"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -15,11 +18,11 @@ import (
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 )
 
-func curConfig() *alerting.ConfigMapData {
-	curConfigData, err := os.ReadFile(alerting.LocalAlertManagerPath)
+func curConfig() *config.ConfigMapData {
+	curConfigData, err := os.ReadFile(shared.LocalAlertManagerPath)
 	Expect(err).To(Succeed())
 	curConfig := string(curConfigData)
-	configMap := &alerting.ConfigMapData{}
+	configMap := &config.ConfigMapData{}
 	err = configMap.Parse(curConfig)
 	Expect(err).To(Succeed())
 	return configMap
@@ -74,8 +77,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Description: "",
 						Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 							Email: &alertingv1alpha.EmailEndpoint{
-								From: &fromUrl,
-								To:   "",
+								SmtpFrom: &fromUrl,
+								To:       "",
 							},
 						},
 					},
@@ -87,8 +90,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Description: "",
 						Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 							Email: &alertingv1alpha.EmailEndpoint{
-								From: &fromUrl,
-								To:   "asdasdaasdasd",
+								SmtpFrom: &fromUrl,
+								To:       "asdasdaasdasd",
 							},
 						},
 					},
@@ -100,8 +103,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Description: "",
 						Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 							Email: &alertingv1alpha.EmailEndpoint{
-								From: &notFromUrl,
-								To:   "alexandre.lamarre@suse.com",
+								SmtpFrom: &notFromUrl,
+								To:       "alexandre.lamarre@suse.com",
 							},
 						},
 					},
@@ -115,46 +118,10 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			}
 
 		})
-
-		Specify("Get Alert Endpoint API should be robust to invalid input", func() {
-			//TODO
-
-		})
-
-		Specify("Update Alert Endpoint API should be robust to invalid input", func() {
-			//TODO
-		})
-
-		Specify("List Alert Endpoint API should be robust to invalid input", func() {
-			//TODO
-		})
-
-		Specify("Delete Alert Endpoint API should be robust to invalid input", func() {
-			//TODO
-		})
-
-		Specify("Test Alert Endpoint API should be robust to invalid input", func() {
-			// TODO
-		})
-
-		Specify("Get Implementation From Endpoint API should be robust to invalid input", func() {
-			//TODO
-		})
-
-		Specify("Create Endpoint Implementation API should be robust to invalid input ", func() {
-			//TODO
-		})
-
-		Specify("Update Endpoint Implementation API should be robust to invalid input ", func() {
-			//TODO
-		})
-
-		Specify("Delete Endpoint Implementation API should be robust to invalid input", func() {
-			//TODO
-		})
-
 		Specify("Cleaning up edge case data", func() {
-			err := os.WriteFile(alerting.LocalAlertManagerPath, []byte(alerting.DefaultAlertManager), 0644)
+			defaultCfg, err := defaultConfig()
+			Expect(err).To(Succeed())
+			err = os.WriteFile(shared.LocalAlertManagerPath, defaultCfg.Bytes(), 0644)
 			Expect(err).To(Succeed())
 		})
 
@@ -163,14 +130,17 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 	When("The alerting plugin starts", func() {
 		It("Should be able to CRUD (Reusable K,V groups) Alert Endpoints", func() {
 			fromUrl := "bot@google.com"
+
+			// Note : do not use `#general` slack channel when testing, since if something goes wrong
+			// with AM internally, it will default back to #general
 			inputs := []*alertingv1alpha.AlertEndpoint{
 				{
 					Name:        "TestAlertEndpoint",
 					Description: "TestAlertEndpoint",
 					Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 						Email: &alertingv1alpha.EmailEndpoint{
-							From: nil,
-							To:   "alex7285@gmail.com",
+							SmtpFrom: nil,
+							To:       "alex7285@gmail.com",
 						},
 					},
 				},
@@ -179,8 +149,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					Description: "TestAlertEndpoint2",
 					Endpoint: &alertingv1alpha.AlertEndpoint_Email{
 						Email: &alertingv1alpha.EmailEndpoint{
-							To:   "alexandre.lamarre@suse.com",
-							From: &fromUrl,
+							To:       "alexandre.lamarre@suse.com",
+							SmtpFrom: &fromUrl,
 						},
 					},
 				},
@@ -199,7 +169,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					Description: "TestAlertEndpoint4",
 					Endpoint: &alertingv1alpha.AlertEndpoint_Slack{
 						Slack: &alertingv1alpha.SlackEndpoint{
-							Channel:    "#general",
+							Channel:    "#another-channel",
 							WebhookUrl: "https://hooks.slack.com/services/AAAAAAAA/B0S0S0S0S/B0S0S0S0S",
 						},
 					},
@@ -211,7 +181,26 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 				existing, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
 				Expect(err).To(Succeed())
 				Expect(existing.Items).To(HaveLen(num + 1))
-
+			}
+			actual, err := alertingClient.ListAlertEndpoints(ctx, &alertingv1alpha.ListAlertEndpointsRequest{})
+			Expect(err).To(Succeed())
+			for _, input := range inputs {
+				found := false
+				for _, output := range actual.Items {
+					if input.Name == output.Endpoint.Name {
+						if input.GetEmail() != nil {
+							Expect(input.GetEmail().To).To(Equal(output.Endpoint.GetEmail().To))
+							Expect(input.GetEmail().SmtpFrom).To(Equal(output.Endpoint.GetEmail().SmtpFrom))
+						}
+						if input.GetSlack() != nil {
+							Expect(input.GetSlack().Channel).To(Equal(output.Endpoint.GetSlack().Channel))
+							Expect(input.GetSlack().WebhookUrl).To(Equal(output.Endpoint.GetSlack().WebhookUrl))
+						}
+						found = true
+						break
+					}
+				}
+				Expect(found).To(BeTrue())
 			}
 		})
 
@@ -331,12 +320,26 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					ConditionId: &corev1.Reference{
 						Id: idsToCreate["slack"],
 					},
-					Implementation: &alertingv1alpha.EndpointImplementation{},
+					Implementation: &alertingv1alpha.EndpointImplementation{
+						Title: "slack endpoint",
+						Body:  "hello world",
+					},
 				},
 			)
 
 			Expect(err).To(Succeed())
 			Expect(curConfig().Receivers).To(HaveLen(2))
+			foundSlack := false
+			for _, recv := range curConfig().Receivers {
+				if recv.Name == idsToCreate["slack"] {
+					Expect(recv.SlackConfigs).To(HaveLen(1))
+					Expect(recv.SlackConfigs[0].Channel).To(Equal(slack.Endpoint.GetSlack().Channel))
+					Expect(recv.SlackConfigs[0].APIURL).To(Equal(slack.Endpoint.GetSlack().GetWebhookUrl()))
+					foundSlack = true
+				}
+			}
+			Expect(foundSlack).To(BeTrue())
+			// check configuration
 
 			emailContent := "Email message content [CI]"
 			_, err = alertingClient.CreateEndpointImplementation(ctx,
@@ -346,13 +349,14 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Id: idsToCreate["email"],
 					},
 					Implementation: &alertingv1alpha.EndpointImplementation{
-						Title: "",
+						Title: "asasas",
 						Body:  emailContent,
 					},
 				},
 			)
 			Expect(err).To(Succeed())
-			Expect(curConfig().Receivers).To(HaveLen(3))
+			configMap := curConfig().Receivers
+			Expect(configMap).To(HaveLen(3))
 		})
 
 		It("Should be able to update endpoint implementations", func() {
@@ -382,7 +386,7 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 						Id: idsToCreate["slack"],
 					},
 					Implementation: &alertingv1alpha.EndpointImplementation{
-						Title: "",
+						Title: "email endpoint",
 						Body:  newEmailMsg,
 					},
 				},
@@ -398,8 +402,8 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 					},
 					Implementation: &alertingv1alpha.EndpointImplementation{
 
-						Title: "",
-						Body:  "",
+						Title: " new title",
+						Body:  " new body",
 					},
 				},
 			)
@@ -446,5 +450,4 @@ var _ = Describe("Alerting Endpoints integration tests", Ordered, Label(test.Uni
 			Expect(emailNotSet).To(BeNil())
 		})
 	})
-
 })

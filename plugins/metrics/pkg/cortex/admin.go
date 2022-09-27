@@ -486,6 +486,15 @@ func (p *CortexAdminServer) GetSeriesMetrics(ctx context.Context, request *corte
 	}, nil
 }
 
+func (p *CortexAdminServer) ExtractRawSeries(ctx context.Context, request *cortexadmin.MatcherRequest) (*cortexadmin.QueryResponse, error) {
+	lg := p.Logger.With("series matcher", request.MatchExpr)
+	lg.Debug("fetching raw series")
+	return p.Query(ctx, &cortexadmin.QueryRequest{
+		Tenants: []string{request.Tenant},
+		Query:   fmt.Sprintf("{__name__=~\"%s\"}", request.MatchExpr),
+	})
+}
+
 func (p *CortexAdminServer) GetMetricLabelSets(ctx context.Context, request *cortexadmin.LabelRequest) (*cortexadmin.MetricLabels, error) {
 	if !p.Initialized() {
 		return nil, util.StatusError(codes.Unavailable)

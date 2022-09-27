@@ -213,9 +213,9 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		return nil, fmt.Errorf("unknown gateway api version: %q", k.gatewayApiVersion)
 	}
 
-	if conf.Grafana != nil {
+	if conf.Grafana == nil {
 		conf.Grafana = &cortexops.GrafanaConfig{
-			Enabled: conf.Grafana.Enabled,
+			Enabled: true,
 		}
 	}
 	if conf.Grafana.Hostname == "" {

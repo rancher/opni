@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"emperror.dev/errors"
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/google/uuid"
 	prommodel "github.com/prometheus/common/model"
@@ -32,7 +33,8 @@ func (s SLOMonitoring) Create() (*corev1.Reference, error) {
 	slo := CreateSLORequestToStruct(req)
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
-	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, req.GetSlo().GetClusterId(), toApply)
+	ruleId := slo.GetId()
+	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, req.GetSlo().GetClusterId(), &ruleId, toApply)
 	return &corev1.Reference{Id: slo.GetId()}, err
 }
 
@@ -41,7 +43,7 @@ func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error)
 	newSlo := SLODataToStruct(incomingSLO)
 	rrecording, rmetadata, ralerting := newSlo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
-	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, incomingSLO.GetSLO().GetClusterId(), toApply)
+	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, incomingSLO.GetSLO().GetClusterId(), nil, toApply)
 
 	// successfully applied rules to another cluster
 	if err == nil && existing.SLO.ClusterId != incomingSLO.SLO.ClusterId {
@@ -58,7 +60,7 @@ func (s SLOMonitoring) Update(existing *sloapi.SLOData) (*sloapi.SLOData, error)
 func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 	id, clusterId := existing.Id, existing.SLO.ClusterId
 	//err := deleteCortexSLORules(s.p, id, clusterId, s.ctx, s.lg)
-	var anyError error
+	errArr := []error{}
 	toApply := []string{id + RecordingRuleSuffix, id + MetadataRuleSuffix, id + AlertRuleSuffix}
 	for _, ruleName := range toApply {
 		err := deleteCortexSLORules(
@@ -69,10 +71,15 @@ func (s SLOMonitoring) Delete(existing *sloapi.SLOData) error {
 			ruleName,
 		)
 		if err != nil {
-			anyError = err
+			errArr = append(errArr, err)
 		}
 	}
-	return anyError
+	err := createGrafanaSLOMask(s.p, s.ctx, clusterId, id)
+	if err != nil {
+		s.p.logger.Errorf("creating grafana mask failed %s", err)
+		errArr = append(errArr, err)
+	}
+	return errors.Combine(errArr...)
 }
 
 func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.SLOData, error) {
@@ -83,7 +90,8 @@ func (s SLOMonitoring) Clone(clone *sloapi.SLOData) (*corev1.Reference, *sloapi.
 	slo.SetName(sloData.GetName() + "-clone")
 	rrecording, rmetadata, ralerting := slo.ConstructCortexRules(nil)
 	toApply := []RuleGroupYAMLv2{rrecording, rmetadata, ralerting}
-	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, sloData.GetClusterId(), toApply)
+	ruleId := slo.GetId()
+	err := tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, sloData.GetClusterId(), &ruleId, toApply)
 	clonedData.SLO.Name = sloData.Name + "-clone"
 	clonedData.Id = slo.GetId()
 	return &corev1.Reference{Id: slo.GetId()}, clonedData, err
@@ -120,6 +128,7 @@ func (s SLOMonitoring) MultiClusterClone(
 		// capture in closure
 		idx := idx
 		clusterId := clusterId
+		ruleId := slo.GetId()
 		go func() {
 			defer wg.Done()
 			if !slices.Contains(clusterIds, clusterId.Id) {
@@ -165,7 +174,7 @@ func (s SLOMonitoring) MultiClusterClone(
 				)
 				return
 			}
-			errArr[idx] = tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, clusterId.Id, toApply)
+			errArr[idx] = tryApplyThenDeleteCortexRules(s.p, s.p.logger, s.ctx, clusterId.Id, &ruleId, toApply)
 		}()
 		clonedData.SLO.Name = sloData.Name + "-clone-" + strconv.Itoa(idx)
 		clonedData.Id = slo.GetId()

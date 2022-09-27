@@ -230,7 +230,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 				}
 			}
 			return fmt.Errorf("metrics capability not installed within time limit")
-		}, time.Minute*20, time.Second*10).Should(Succeed())
+		}, time.Second*60, time.Second*2).Should(Succeed())
 	})
 
 	It("should query metrics", func() {
@@ -309,7 +309,7 @@ var _ = Describe("Monitoring Test", Ordered, Label("e2e", "slow"), func() {
 				return fmt.Errorf("metrics capability not uninstalled within time limit")
 			}
 			return nil
-		}, time.Second*120, time.Second*2).Should(Succeed())
+		}, time.Minute*20, time.Second*10).Should(Succeed())
 
 		By("ensuring blocks have been deleted from long-term storage")
 		Eventually(func() error {

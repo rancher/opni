@@ -12,14 +12,14 @@ import (
 func (r *Reconciler) rbac() ([]resources.Resource, error) {
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring",
+			Name:      "opni",
 			Namespace: r.namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring-crd",
+			Name:      "opni-crd",
 			Namespace: r.namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
@@ -130,13 +130,13 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 	// TODO: This will leak.  Add a finalizer to fix it up or come up with alternative
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("opni-monitoring-ns-%s", r.name),
+			Name:   fmt.Sprintf("opni-ns-%s", r.name),
 			Labels: resources.NewGatewayLabels(),
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     "opni-monitoring-ns",
+			Name:     "opni-ns",
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -149,14 +149,14 @@ func (r *Reconciler) rbac() ([]resources.Resource, error) {
 
 	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring-crd",
+			Name:      "opni-crd",
 			Namespace: r.namespace,
 			Labels:    resources.NewGatewayLabels(),
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
-			Name:     "opni-monitoring-crd",
+			Name:     "opni-crd",
 		},
 		Subjects: []rbacv1.Subject{
 			{

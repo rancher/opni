@@ -21,8 +21,8 @@ var (
 
 var Handshake = plugin.HandshakeConfig{
 	ProtocolVersion:  plugin.CoreProtocolVersion,
-	MagicCookieKey:   "OPNI_MONITORING_MAGIC_COOKIE",
-	MagicCookieValue: "opni-monitoring",
+	MagicCookieKey:   "OPNI_MAGIC_COOKIE",
+	MagicCookieValue: "opni",
 }
 
 func init() {

@@ -134,11 +134,11 @@ opni-prometheus-crd:
 
 opni-agent:
   enabled: true
-  address: opni-monitoring
+  address: opni
   fullnameOverride: opni-agent
   bootstrapInCluster:
     enabled: true
-    managementAddress: opni-monitoring-internal:11090
+    managementAddress: opni-internal:11090
   agent:
     version: v2
   kube-prometheus-stack:

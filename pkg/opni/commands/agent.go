@@ -251,7 +251,7 @@ func runMonitoringAgent(ctx context.Context) {
 		if err != nil {
 			if errors.Is(err, config.ErrConfigNotFound) {
 				wd, _ := os.Getwd()
-				agentlg.Fatalf(`could not find a config file in ["%s","/etc/opni-monitoring"], and --config was not given`, wd)
+				agentlg.Fatalf(`could not find a config file in ["%s","/etc/opni"], and --config was not given`, wd)
 			}
 			agentlg.With(
 				zap.Error(err),

@@ -118,10 +118,10 @@ func (r *Reconciler) gatewayServingCert() client.Object {
 			},
 			DNSNames: []string{
 				r.spec.Hostname,
-				fmt.Sprintf("opni-monitoring.%s.svc", r.namespace),
-				fmt.Sprintf("opni-monitoring.%s.svc.cluster.local", r.namespace),
-				fmt.Sprintf("opni-monitoring-internal.%s.svc", r.namespace),
-				fmt.Sprintf("opni-monitoring-internal.%s.svc.cluster.local", r.namespace),
+				fmt.Sprintf("opni.%s.svc", r.namespace),
+				fmt.Sprintf("opni.%s.svc.cluster.local", r.namespace),
+				fmt.Sprintf("opni-internal.%s.svc", r.namespace),
+				fmt.Sprintf("opni-internal.%s.svc.cluster.local", r.namespace),
 			},
 		},
 	}

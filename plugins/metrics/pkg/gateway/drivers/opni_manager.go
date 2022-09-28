@@ -74,7 +74,7 @@ func NewOpniManagerClusterDriver(opts ...OpniManagerClusterDriverOption) (*OpniM
 	options := OpniManagerClusterDriverOptions{
 		monitoringCluster: types.NamespacedName{
 			Namespace: os.Getenv("POD_NAMESPACE"),
-			Name:      "opni-monitoring",
+			Name:      "opni",
 		},
 		gatewayRef: types.NamespacedName{
 			Namespace: os.Getenv("POD_NAMESPACE"),

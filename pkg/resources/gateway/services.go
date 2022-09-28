@@ -20,7 +20,7 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	publicSvcLabels["service-type"] = "public"
 	publicSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "opni-monitoring",
+			Name:        "opni",
 			Namespace:   r.namespace,
 			Labels:      publicSvcLabels,
 			Annotations: r.spec.ServiceAnnotations,
@@ -47,7 +47,7 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 	internalSvcLabels["service-type"] = "internal"
 	internalSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring-internal",
+			Name:      "opni-internal",
 			Namespace: r.namespace,
 			Labels:    internalSvcLabels,
 		},
@@ -57,18 +57,55 @@ func (r *Reconciler) services() ([]resources.Resource, error) {
 			Ports:    servicePorts(internalPorts),
 		},
 	}
+
+	adminDashboardPorts, err := r.adminDashboardContainerPorts()
+	if err != nil {
+		return nil, err
+	}
+	adminDashboardSvcLabels := resources.NewGatewayLabels()
+	adminDashboardSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-admin-dashboard",
+			Namespace: r.namespace,
+			Labels:    adminDashboardSvcLabels,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeClusterIP,
+			Selector: resources.NewGatewayLabels(),
+			Ports:    servicePorts(adminDashboardPorts),
+		},
+	}
+
+	// ensure legacy services are removed
+	legacyPublicSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-monitoring",
+			Namespace: r.namespace,
+		},
+	}
+	legacyInternalSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "opni-monitoring-internal",
+			Namespace: r.namespace,
+		},
+	}
+
 	r.setOwner(publicSvc)
 	r.setOwner(internalSvc)
+	r.setOwner(adminDashboardSvc)
 	return []resources.Resource{
 		resources.Present(publicSvc),
 		resources.Present(internalSvc),
+		resources.Present(adminDashboardSvc),
+		resources.Absent(legacyPublicSvc),
+		resources.Absent(legacyInternalSvc),
 	}, nil
 }
 
 func (r *Reconciler) waitForLoadBalancer() k8sutil.RequeueOp {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring",
+			Name:      "opni",
 			Namespace: r.namespace,
 		},
 	}
@@ -113,7 +150,7 @@ func (r *Reconciler) waitForLoadBalancer() k8sutil.RequeueOp {
 func (r *Reconciler) waitForServiceEndpoints() k8sutil.RequeueOp {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring",
+			Name:      "opni",
 			Namespace: r.namespace,
 		},
 	}

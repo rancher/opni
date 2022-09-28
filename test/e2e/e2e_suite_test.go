@@ -80,7 +80,7 @@ var _ = BeforeSuite(func() {
 
 	internalPorts, err := testutil.PortForward(ctx, types.NamespacedName{
 		Namespace: "opni",
-		Name:      "opni-monitoring-internal",
+		Name:      "opni-internal",
 	}, []string{
 		"11090",
 	}, restConfig, scheme)

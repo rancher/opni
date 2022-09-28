@@ -319,7 +319,7 @@ func (e *Environment) Start(opts ...EnvironmentOption) error {
 		}
 	}
 
-	e.tempDir, err = os.MkdirTemp("", "opni-monitoring-test-*")
+	e.tempDir, err = os.MkdirTemp("", "opni-test-*")
 	if err != nil {
 		return err
 	}
@@ -739,7 +739,7 @@ func (e *Environment) StartPrometheus(opniAgentPort int, override ...*overridePr
 			if resp.StatusCode == http.StatusOK {
 				break
 			}
-		} ///tmp/opni-monitoring-test-289661467/prometheus/config.yaml
+		}
 		time.Sleep(time.Second)
 	}
 	lg.With("address", fmt.Sprintf("http://localhost:%d", port)).Info("Prometheus started")
@@ -1502,7 +1502,7 @@ func StartStandaloneTestEnvironment(opts ...EnvironmentOption) {
 		// if err != nil {
 		// 	panic(err)
 		// }
-		// port-forward to service/opni-monitoring-internal:11090
+		// port-forward to service/opni-internal:11090
 
 	}
 

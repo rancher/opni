@@ -109,7 +109,7 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 		It("should create the gateway services", func() {
 			Eventually(Object(&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "opni-monitoring",
+					Name:      "opni",
 					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
@@ -121,7 +121,7 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 			))
 			Eventually(Object(&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "opni-monitoring-internal",
+					Name:      "opni-internal",
 					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
@@ -130,7 +130,21 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 					"http",
 					"management-grpc",
 					"management-http",
+				),
+				Not(HavePorts(
 					"management-web",
+				)),
+				HaveType(corev1.ServiceTypeClusterIP),
+			))
+			Eventually(Object(&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-admin-dashboard",
+					Namespace: gw.Namespace,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(gw),
+				HavePorts(
+					"web",
 				),
 				HaveType(corev1.ServiceTypeClusterIP),
 			))
@@ -150,7 +164,7 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 		It("should create gateway rbac", func() {
 			Eventually(Object(&corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "opni-monitoring",
+					Name:      "opni",
 					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
@@ -158,7 +172,7 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 			))
 			Eventually(Object(&rbacv1.Role{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "opni-monitoring-crd",
+					Name:      "opni-crd",
 					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
@@ -166,7 +180,7 @@ var _ = Describe("Gateway Controller", Ordered, Label("controller", "slow"), fun
 			))
 			Eventually(Object(&rbacv1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "opni-monitoring-crd",
+					Name:      "opni-crd",
 					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(

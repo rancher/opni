@@ -85,7 +85,6 @@ func FindConfig() (string, error) {
 	pathsToSearch := []string{
 		".",
 		"/etc/opni",
-		"/etc/opni-monitoring",
 	}
 	filenamesToSearch := []string{
 		"gateway.yaml",

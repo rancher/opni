@@ -57,7 +57,7 @@ spec:
           volumeMounts:
           {{- if .Values.metrics.enabled }}
             - name: config
-              mountPath: /etc/opni-monitoring
+              mountPath: /etc/opni
           {{- end }}
           {{- if .Values.logging.enabled }}
             - mountPath: /tmp/k8s-webhook-server/serving-certs

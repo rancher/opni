@@ -43,16 +43,32 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 
 	grafana := &grafanav1alpha1.Grafana{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring",
+			Name:      "opni",
 			Namespace: r.instanceNamespace,
 		},
 	}
 	datasource := &grafanav1alpha1.GrafanaDataSource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring",
+			Name:      "opni",
 			Namespace: r.instanceNamespace,
 		},
 	}
+
+	legacyResources := []resources.Resource{
+		resources.Absent(&grafanav1alpha1.Grafana{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-monitoring",
+				Namespace: r.instanceNamespace,
+			},
+		}),
+		resources.Absent(&grafanav1alpha1.GrafanaDataSource{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-monitoring",
+				Namespace: r.instanceNamespace,
+			},
+		}),
+	}
+
 	grafanaDashboards := []*grafanav1alpha1.GrafanaDashboard{
 		{
 			ObjectMeta: metav1.ObjectMeta{
@@ -105,10 +121,10 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	}
 
 	if !r.spec.Grafana.Enabled {
-		absentResources := []resources.Resource{
+		absentResources := append([]resources.Resource{
 			resources.Absent(grafana),
 			resources.Absent(datasource),
-		}
+		}, legacyResources...)
 		for _, dashboard := range grafanaDashboards {
 			absentResources = append(absentResources, resources.Absent(dashboard))
 		}
@@ -192,13 +208,13 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	grafana.Spec = spec
 
 	datasource.Spec = grafanav1alpha1.GrafanaDataSourceSpec{
-		Name: "opni-monitoring-datasources",
+		Name: "opni-datasources",
 		Datasources: []grafanav1alpha1.GrafanaDataSourceFields{
 			{
 				Name:            "Opni",
 				Type:            "prometheus",
 				Access:          "proxy",
-				Url:             fmt.Sprintf("https://opni-monitoring-internal.%s.svc:8080/api/prom", r.instanceNamespace),
+				Url:             fmt.Sprintf("https://opni-internal.%s.svc:8080/api/prom", r.instanceNamespace),
 				WithCredentials: true,
 				Editable:        false,
 				IsDefault:       true,
@@ -216,7 +232,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				Uid:             "opni_alertmanager",
 				Type:            "alertmanager",
 				Access:          "proxy",
-				Url:             fmt.Sprintf("https://opni-monitoring-internal.%s.svc:8080/api/prom", r.instanceNamespace),
+				Url:             fmt.Sprintf("https://opni-internal.%s.svc:8080/api/prom", r.instanceNamespace),
 				WithCredentials: true,
 				Editable:        false,
 				JsonData: grafanav1alpha1.GrafanaDataSourceJsonData{
@@ -347,5 +363,5 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		}
 	}
 
-	return presentResources, nil
+	return append(presentResources, legacyResources...), nil
 }

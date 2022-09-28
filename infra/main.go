@@ -151,7 +151,7 @@ func run(ctx *Context) (runErr error) {
 						"tag":        String(conf.ImageTag),
 					},
 					"enabled":          Bool(true),
-					"address":          String("opni-monitoring"),
+					"address":          String("opni"),
 					"fullnameOverride": String("opni-agent"),
 					"bootstrapInCluster": Map{
 						"enabled": Bool(true),
@@ -181,7 +181,7 @@ func run(ctx *Context) (runErr error) {
 		// 	Namespace:       String("opni"),
 		// 	CreateNamespace: Bool(true),
 		// 	Values: Map{
-		// 		"address": String("opni-monitoring.opni.svc:9090"),
+		// 		"address": String("opni.opni.svc:9090"),
 		// 		"image": Map{
 		// 			"repository": String(conf.ImageRepo),
 		// 			"tag":        String(conf.ImageTag),
@@ -191,7 +191,7 @@ func run(ctx *Context) (runErr error) {
 		// 		},
 		// 		"bootstrapInCluster": Map{
 		// 			"enabled":           Bool(true),
-		// 			"managementAddress": String("opni-monitoring-internal.opni.svc:11090"),
+		// 			"managementAddress": String("opni-internal.opni.svc:11090"),
 		// 		},
 		// 		"kube-prometheus-stack": Map{
 		// 			"enabled": Bool(true),
@@ -215,8 +215,8 @@ func run(ctx *Context) (runErr error) {
 		opniServiceLB := All(opni.Status.Namespace(), opni.Status.Name()).
 			ApplyT(func(args []any) (StringOutput, error) {
 				namespace := args[0].(*string)
-				opniLBSvc, err := corev1.GetService(ctx, "opni-monitoring", ID(
-					fmt.Sprintf("%s/opni-monitoring", *namespace),
+				opniLBSvc, err := corev1.GetService(ctx, "opni", ID(
+					fmt.Sprintf("%s/opni", *namespace),
 				), nil, Provider(k), Parent(opni))
 				if err != nil {
 					return StringOutput{}, err

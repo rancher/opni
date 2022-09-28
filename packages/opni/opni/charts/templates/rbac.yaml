@@ -886,7 +886,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: opni-monitoring-ns
+  name: opni-ns
   labels:
     {{- include "opni.labels" . | nindent 4 }}
 rules:

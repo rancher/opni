@@ -74,11 +74,11 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "config",
-									MountPath: "/etc/opni-monitoring",
+									MountPath: "/etc/opni",
 								},
 								{
 									Name:      "certs",
-									MountPath: "/run/opni-monitoring/certs",
+									MountPath: "/run/opni/certs",
 								},
 								{
 									Name:      "cortex-client-certs",
@@ -245,7 +245,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 					NodeSelector:       r.spec.NodeSelector,
 					Affinity:           r.spec.Affinity,
 					Tolerations:        r.spec.Tolerations,
-					ServiceAccountName: "opni-monitoring",
+					ServiceAccountName: "opni",
 				},
 			},
 		},

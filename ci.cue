@@ -241,7 +241,7 @@ dagger.#Plan & {
 				"AWS_ACCESS_KEY_ID":     client.env.AWS_ACCESS_KEY_ID
 				"AWS_SECRET_ACCESS_KEY": client.env.AWS_SECRET_ACCESS_KEY
 			}
-			_testImage: docker.#Push & {
+			testImage: docker.#Push & {
 				dest:  "\(_awsIdentity.Account).dkr.ecr.us-east-2.amazonaws.com/opni-e2e-test"
 				image: _opniImage.image
 				auth: {
@@ -306,8 +306,8 @@ dagger.#Plan & {
 						input: _pulumiImage.output
 						env:   _awsEnv & {
 							"CLOUD":      "aws"
-							"IMAGE_REPO": _testImage.dest
-							"IMAGE_TAG":  strings.TrimPrefix(_testImage.result, "\(_testImage.dest):")
+							"IMAGE_REPO": testImage.dest
+							"IMAGE_TAG":  strings.TrimPrefix(testImage.result, "\(testImage.dest):")
 						}
 					}
 				}

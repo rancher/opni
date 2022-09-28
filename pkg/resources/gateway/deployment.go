@@ -22,6 +22,10 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
+	adminDashboardPorts, err := r.adminDashboardContainerPorts()
+	if err != nil {
+		return nil, err
+	}
 
 	var gatewayApiVersion string
 	if r.gw != nil {
@@ -97,12 +101,12 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 									MountPath: "/run/etcd/certs/server",
 								},
 							},
-							Ports: append(append([]corev1.ContainerPort{
+							Ports: append(append(append([]corev1.ContainerPort{
 								{
 									Name:          "metrics",
 									ContainerPort: 8086,
 								},
-							}, publicPorts...), internalPorts...),
+							}, publicPorts...), internalPorts...), adminDashboardPorts...),
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{

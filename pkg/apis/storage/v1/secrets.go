@@ -57,19 +57,19 @@ func (cfg *SSEConfig) RedactSecrets() {
 }
 
 func (cfg *StorageSpec) UnredactSecrets(unredacted *StorageSpec) {
-	if cfg == nil {
+	if cfg == nil || unredacted == nil {
 		return
 	}
-	if cfg.S3 != nil {
+	if cfg.S3 != nil && unredacted.S3 != nil {
 		cfg.S3.UnredactSecrets(unredacted.S3)
 	}
-	if cfg.Gcs != nil {
+	if cfg.Gcs != nil && unredacted.Gcs != nil {
 		cfg.Gcs.UnredactSecrets(unredacted.Gcs)
 	}
-	if cfg.Azure != nil {
+	if cfg.Azure != nil && unredacted.Azure != nil {
 		cfg.Azure.UnredactSecrets(unredacted.Azure)
 	}
-	if cfg.Swift != nil {
+	if cfg.Swift != nil && unredacted.Swift != nil {
 		cfg.Swift.UnredactSecrets(unredacted.Swift)
 	}
 }

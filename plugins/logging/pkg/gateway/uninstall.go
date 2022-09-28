@@ -19,6 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/task"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
+	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"go.uber.org/zap/zapcore"
@@ -159,10 +160,10 @@ func (a *UninstallTaskRunner) deleteKubernetesObjects(ctx context.Context, id st
 		client.InNamespace(a.storageNamespace),
 		client.MatchingLabels{resources.OpniClusterID: id},
 	); err != nil {
-		ErrListingClustersFaled(err)
+		errors.ErrListingClustersFaled(err)
 	}
 	if len(loggingClusterList.Items) > 1 {
-		return ErrDeleteClusterInvalidList(id)
+		return errors.ErrDeleteClusterInvalidList(id)
 	}
 	if len(loggingClusterList.Items) == 1 {
 		loggingCluster = &loggingClusterList.Items[0]
@@ -175,11 +176,11 @@ func (a *UninstallTaskRunner) deleteKubernetesObjects(ctx context.Context, id st
 		client.InNamespace(a.storageNamespace),
 		client.MatchingLabels{resources.OpniClusterID: id},
 	); err != nil {
-		ErrListingClustersFaled(err)
+		errors.ErrListingClustersFaled(err)
 	}
 
 	if len(secretList.Items) > 1 {
-		return ErrDeleteClusterInvalidList(id)
+		return errors.ErrDeleteClusterInvalidList(id)
 	}
 	if len(secretList.Items) == 1 {
 		secret = &secretList.Items[0]
@@ -247,7 +248,7 @@ func (a *UninstallTaskRunner) doClusterDataDelete(ctx context.Context, id string
 		defer resp.Body.Close()
 
 		if resp.IsError() {
-			return ErrOpensearchRequestFailed(resp.String())
+			return errors.ErrOpensearchRequestFailed(resp.String())
 		}
 
 		respString := util.ReadString(resp.Body)
@@ -296,7 +297,7 @@ func (a *UninstallTaskRunner) deleteTaskStatus(ctx context.Context, id string) (
 	defer resp.Body.Close()
 
 	if resp.IsError() {
-		return deleteError, ErrOpensearchRequestFailed(resp.String())
+		return deleteError, errors.ErrOpensearchRequestFailed(resp.String())
 	}
 
 	body := util.ReadString(resp.Body)

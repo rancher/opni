@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
+	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,7 +50,7 @@ func (p *Plugin) GetDetails(ctx context.Context, cluster *opensearch.ClusterRefe
 
 	if len(secrets.Items) != 1 {
 		p.logger.Error("no credential secrets found")
-		return nil, ErrGetDetailsInvalidList(cluster.AuthorizedClusterID)
+		return nil, errors.ErrGetDetailsInvalidList(cluster.AuthorizedClusterID)
 	}
 
 	return &opensearch.OpensearchDetails{

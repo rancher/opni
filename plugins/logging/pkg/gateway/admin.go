@@ -15,6 +15,7 @@ import (
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
+	"github.com/rancher/opni/plugins/logging/pkg/errors"
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/emptypb"
 	corev1 "k8s.io/api/core/v1"
@@ -94,7 +95,7 @@ func (p *Plugin) DeleteOpensearchCluster(
 
 	if len(loggingClusters.Items) > 0 {
 		p.logger.Error("can not delete opensearch until logging capability is uninstalled from all clusters")
-		return nil, ErrLoggingCapabilityExists
+		return nil, errors.ErrLoggingCapabilityExists
 	}
 
 	cluster := &loggingv1beta1.OpniOpensearch{
@@ -317,7 +318,7 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 					return &pool.Persistence.PVC.StorageClassName
 				}()
 			} else {
-				return &loggingadmin.OpensearchNodeDetails{}, ErrStoredClusterPersistence()
+				return &loggingadmin.OpensearchNodeDetails{}, errors.ErrStoredClusterPersistence()
 			}
 		}
 	}
@@ -536,7 +537,7 @@ func (p *Plugin) validDurationString(duration string) bool {
 
 func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, clusterName string) (opsterv1.NodePool, error) {
 	if pool.MemoryLimit == "" {
-		return opsterv1.NodePool{}, ErrRequestMissingMemory()
+		return opsterv1.NodePool{}, errors.ErrRequestMissingMemory()
 	}
 
 	memory, err := resource.ParseQuantity(pool.MemoryLimit)

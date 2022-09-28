@@ -26,6 +26,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
+	streamext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/stream"
 	unaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/unary"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
@@ -37,6 +38,7 @@ import (
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
+	"github.com/rancher/opni/plugins/logging/pkg/backend"
 )
 
 const (
@@ -54,9 +56,11 @@ type Plugin struct {
 	logger              *zap.SugaredLogger
 	storageBackend      future.Future[storage.Backend]
 	mgmtApi             future.Future[managementv1.ManagementClient]
+	nodeManagerClient   future.Future[capabilityv1.NodeManagerClient]
 	uninstallController future.Future[*task.Controller]
 	opensearchClient    future.Future[*osclient.Client]
 	manageFlag          featureflags.FeatureFlag
+	logging             backend.LoggingBackend
 }
 
 type PluginOptions struct {
@@ -132,7 +136,7 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		os.Exit(1)
 	}
 
-	return &Plugin{
+	p := &Plugin{
 		PluginOptions:       options,
 		ctx:                 ctx,
 		k8sClient:           cli,
@@ -141,13 +145,38 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		mgmtApi:             future.New[managementv1.ManagementClient](),
 		uninstallController: future.New[*task.Controller](),
 		opensearchClient:    future.New[*osclient.Client](),
+		nodeManagerClient:   future.New[capabilityv1.NodeManagerClient](),
 	}
+
+	future.Wait5(p.storageBackend, p.mgmtApi, p.uninstallController, p.opensearchClient, p.nodeManagerClient,
+		func(
+			storageBackend storage.Backend,
+			mgmtClient managementv1.ManagementClient,
+			uninstallController *task.Controller,
+			osclient *osclient.Client,
+			nodeManagerClient capabilityv1.NodeManagerClient,
+		) {
+			p.logging.Initialize(backend.LoggingBackendConfig{
+				Logger:              p.logger.Named("logging-backend"),
+				StorageBackend:      storageBackend,
+				UninstallController: uninstallController,
+				Namespace:           p.storageNamespace,
+				OpensearchCluster:   p.opensearchCluster,
+				OpensearchClient:    osclient,
+				K8sClient:           p.k8sClient,
+				MgmtClient:          mgmtClient,
+				NodeManagerClient:   nodeManagerClient,
+			})
+		},
+	)
+
+	return p
 }
 
 var _ loggingadmin.LoggingAdminServer = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
-	scheme := meta.NewScheme()
+	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
 
 	ns := os.Getenv("POD_NAMESPACE")
 
@@ -188,8 +217,10 @@ func Scheme(ctx context.Context) meta.Scheme {
 
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))
-	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
+	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(&p.logging))
+	// deprecated
 	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&opensearch.Opensearch_ServiceDesc, p))
+	scheme.Add(streamext.StreamAPIExtensionPluginID, streamext.NewPlugin(p))
 
 	if restconfig != nil && p.manageFlag != nil && p.manageFlag.IsEnabled() {
 		scheme.Add(managementext.ManagementAPIExtensionPluginID,

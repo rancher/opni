@@ -10,6 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util/waitctx"
+	"github.com/rancher/opni/plugins/logging/pkg/agent"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway"
 )
 
@@ -23,7 +24,7 @@ func main() {
 		plugins.Serve(gateway.Scheme(ctx))
 	case meta.ModeAgent:
 		tracing.Configure("plugin_logging_agent")
-		os.Exit(0)
+		plugins.Serve(agent.Scheme(ctx))
 	}
 	ca()
 	waitctx.Wait(ctx, 5*time.Second)

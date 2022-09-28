@@ -30,7 +30,7 @@ var statusLog = logger.New(
 func BuildCapabilityCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "capability",
-		Aliases: []string{"cap"},
+		Aliases: []string{"cap", "capabilities"},
 		Short:   "Manage cluster capabilities",
 	}
 	cmd.AddCommand(BuildCapabilityListCmd())
@@ -177,14 +177,14 @@ func BuildCapabilityUninstallCmd() *cobra.Command {
 func BuildCapabilityCancelUninstallCmd() *cobra.Command {
 	var follow bool
 	cmd := &cobra.Command{
-		Use:   "cancel-uninstall <cluster-id> <capability-name>",
+		Use:   "cancel-uninstall <capability-name> <cluster-id>",
 		Short: "Cancel an in-progress uninstall of a capability",
 		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			_, err := mgmtClient.CancelCapabilityUninstall(cmd.Context(), &managementv1.CapabilityUninstallCancelRequest{
-				Name: args[1],
+				Name: args[0],
 				Cluster: &corev1.Reference{
-					Id: args[0],
+					Id: args[1],
 				},
 			})
 			if err != nil {
@@ -195,7 +195,7 @@ func BuildCapabilityCancelUninstallCmd() *cobra.Command {
 				return
 			}
 			lg.Info("Watching for progress updates...")
-			logTaskProgress(cmd.Context(), args[0], args[1])
+			logTaskProgress(cmd.Context(), args[1], args[0])
 		},
 	}
 	cmd.Flags().BoolVar(&follow, "follow", true, "follow progress of uninstall task")
@@ -205,24 +205,24 @@ func BuildCapabilityCancelUninstallCmd() *cobra.Command {
 func BuildCapabilityStatusCmd() *cobra.Command {
 	var follow bool
 	cmd := &cobra.Command{
-		Use:   "status <cluster-id> <capability-name>",
+		Use:   "status <capability-name> <cluster-id>",
 		Short: "Show the status of a capability, or the status of an in-progress uninstall operation",
 		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			cluster, err := mgmtClient.GetCluster(cmd.Context(), &corev1.Reference{
-				Id: args[0],
+				Id: args[1],
 			})
 			if err != nil {
 				lg.Fatal(err)
 			}
 			for _, cap := range cluster.GetCapabilities() {
-				if cap.Name != args[1] {
+				if cap.Name != args[0] {
 					continue
 				}
 				if cap.DeletionTimestamp != nil {
 					fmt.Println(chalk.Yellow.Color("Uninstalling"))
 					if follow {
-						logTaskProgress(cmd.Context(), args[0], args[1])
+						logTaskProgress(cmd.Context(), args[1], args[0])
 					}
 					return
 				}

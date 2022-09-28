@@ -7,6 +7,7 @@ import (
 	"time"
 
 	flag "github.com/spf13/pflag"
+	"github.com/ttacon/chalk"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -59,7 +60,7 @@ func (d *dpb) String() string {
 
 func (cfg *S3StorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.AccessKeyID, prefix+"s3.access-key-id", "", "S3 access key ID")
-	f.StringVar(&cfg.SecretAccessKey, prefix+"s3.secret-access-key", "", "S3 secret access key")
+	f.StringVar(&cfg.SecretAccessKey, prefix+"s3.secret-access-key", "", chalk.Red.Color("[secret] ")+"S3 secret access key")
 	f.StringVar(&cfg.BucketName, prefix+"s3.bucket-name", "", "S3 bucket name")
 	f.StringVar(&cfg.Region, prefix+"s3.region", "", "S3 region. If unset, the client will issue a S3 GetBucketLocation API call to autodetect it.")
 	f.StringVar(&cfg.Endpoint, prefix+"s3.endpoint", "", "The S3 bucket endpoint. It could be an AWS S3 endpoint listed at https://docs.aws.amazon.com/general/latest/gr/s3.html or the address of an S3-compatible service in hostname:port format.")
@@ -71,16 +72,16 @@ func (cfg *S3StorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet
 
 func (cfg *GCSStorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.BucketName, prefix+"gcs.bucket-name", "", "GCS bucket name")
-	f.StringVar(&cfg.ServiceAccount, prefix+"gcs.service-account", "", "JSON representing either a Google Developers Console client_credentials.json file or a Google Developers service account key file. If empty, fallback to Google default logic.")
+	f.StringVar(&cfg.ServiceAccount, prefix+"gcs.service-account", "", chalk.Red.Color("[secret] ")+"JSON representing either a Google Developers Console client_credentials.json file or a Google Developers service account key file. If empty, fallback to Google default logic.")
 }
 
 func (cfg *AzureStorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.StorageAccountName, prefix+"azure.account-name", "", "Azure storage account name")
-	f.StringVar(&cfg.StorageAccountKey, prefix+"azure.account-key", "", "Azure storage account key")
+	f.StringVar(&cfg.StorageAccountKey, prefix+"azure.account-key", "", chalk.Red.Color("[secret] ")+"Azure storage account key")
 	f.StringVar(&cfg.ContainerName, prefix+"azure.container-name", "", "Azure storage container name")
 	f.StringVar(&cfg.Endpoint, prefix+"azure.endpoint-suffix", "", "Azure storage endpoint suffix without schema. The account name will be prefixed to this value to create the FQDN")
 	f.Int32Var(&cfg.MaxRetries, prefix+"azure.max-retries", 20, "Number of retries for recoverable errors")
-	f.StringVar(&cfg.MsiResource, prefix+"azure.msi-resource", "", "Azure storage MSI resource. Either this or account key must be set.")
+	f.StringVar(&cfg.MsiResource, prefix+"azure.msi-resource", "", chalk.Red.Color("[secret] ")+"Azure storage MSI resource. Either this or account key must be set.")
 	f.StringVar(&cfg.UserAssignedID, prefix+"azure.user-assigned-id", "", "Azure storage MSI resource managed identity client Id. If not supplied system assigned identity is used")
 	cfg.Http.RegisterFlagsWithPrefix(prefix+"azure.", f)
 }
@@ -92,7 +93,7 @@ func (cfg *SwiftStorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.Flag
 	f.StringVar(&cfg.UserDomainName, prefix+"swift.user-domain-name", "", "OpenStack Swift user's domain name.")
 	f.StringVar(&cfg.UserDomainID, prefix+"swift.user-domain-id", "", "OpenStack Swift user's domain ID.")
 	f.StringVar(&cfg.UserID, prefix+"swift.user-id", "", "OpenStack Swift user ID.")
-	f.StringVar(&cfg.Password, prefix+"swift.password", "", "OpenStack Swift API key.")
+	f.StringVar(&cfg.Password, prefix+"swift.password", "", chalk.Red.Color("[secret] ")+"OpenStack Swift API key.")
 	f.StringVar(&cfg.DomainID, prefix+"swift.domain-id", "", "OpenStack Swift user's domain ID.")
 	f.StringVar(&cfg.DomainName, prefix+"swift.domain-name", "", "OpenStack Swift user's domain name.")
 	f.StringVar(&cfg.ProjectID, prefix+"swift.project-id", "", "OpenStack Swift project ID (v2,v3 auth only).")
@@ -124,7 +125,7 @@ func (cfg *HTTPConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 func (cfg *SSEConfig) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) {
 	f.StringVar(&cfg.Type, prefix+"type", "", fmt.Sprintf("Enable AWS Server Side Encryption. Supported values: %s.", strings.Join(supportedSSETypes, ", ")))
 	f.StringVar(&cfg.KmsKeyID, prefix+"kms-key-id", "", "KMS Key ID used to encrypt objects in S3")
-	f.StringVar(&cfg.KmsEncryptionContext, prefix+"kms-encryption-context", "", "KMS Encryption Context used for object encryption. It expects JSON formatted string.")
+	f.StringVar(&cfg.KmsEncryptionContext, prefix+"kms-encryption-context", "", chalk.Red.Color("[secret] ")+"KMS Encryption Context used for object encryption. It expects JSON formatted string.")
 }
 
 func (cfg *StorageSpec) InitEmptyFields() {

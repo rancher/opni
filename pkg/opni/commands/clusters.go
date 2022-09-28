@@ -28,8 +28,9 @@ func BuildClustersCmd() *cobra.Command {
 
 func BuildClustersListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List clusters",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List clusters",
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 			if err != nil {

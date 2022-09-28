@@ -40,6 +40,7 @@ func BuildCortexOpsCmd() *cobra.Command {
 	}
 	cmd.AddCommand(BuildCortexClusterStatusCmd())
 	cmd.AddCommand(BuildCortexClusterConfigureCmd())
+	cmd.AddCommand(BuildCortexClusterGetConfigurationCmd())
 	cmd.AddCommand(BuildCortexClusterUninstallCmd())
 
 	return cmd

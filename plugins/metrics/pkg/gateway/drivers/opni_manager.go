@@ -154,21 +154,31 @@ func (k *OpniManager) GetClusterConfiguration(ctx context.Context, _ *emptypb.Em
 	if err != nil {
 		return nil, err
 	}
-	switch existing.GetObjectKind().GroupVersionKind().GroupVersion() {
-	case corev1beta1.GroupVersion:
-		mc := existing.(*corev1beta1.MonitoringCluster)
+	switch mc := existing.(type) {
+	case *corev1beta1.MonitoringCluster:
+		storage := mc.Spec.Cortex.Storage.DeepCopy()
+		storage.RedactSecrets()
 		return &cortexops.ClusterConfiguration{
 			Mode:    cortexops.DeploymentMode(cortexops.DeploymentMode_value[string(mc.Spec.Cortex.DeploymentMode)]),
-			Storage: mc.Spec.Cortex.Storage,
+			Storage: storage,
+			Grafana: &cortexops.GrafanaConfig{
+				Enabled:  &mc.Spec.Grafana.Enabled,
+				Hostname: mc.Spec.Grafana.Hostname,
+			},
 		}, nil
-	case v1beta2.GroupVersion:
-		mc := existing.(*v1beta2.MonitoringCluster)
+	case *v1beta2.MonitoringCluster:
+		storage := mc.Spec.Cortex.Storage.DeepCopy()
+		storage.RedactSecrets()
 		return &cortexops.ClusterConfiguration{
 			Mode:    cortexops.DeploymentMode(cortexops.DeploymentMode_value[string(mc.Spec.Cortex.DeploymentMode)]),
-			Storage: mc.Spec.Cortex.Storage,
+			Storage: storage,
+			Grafana: &cortexops.GrafanaConfig{
+				Enabled:  &mc.Spec.Grafana.Enabled,
+				Hostname: mc.Spec.Grafana.Hostname,
+			},
 		}, nil
 	default:
-		return nil, fmt.Errorf("unknown monitoring cluster type: %T", existing)
+		return nil, fmt.Errorf("unknown monitoring cluster type: %T ", existing)
 	}
 }
 
@@ -215,8 +225,11 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 
 	if conf.Grafana == nil {
 		conf.Grafana = &cortexops.GrafanaConfig{
-			Enabled: true,
+			Enabled: lo.ToPtr(true),
 		}
+	}
+	if conf.Grafana.Enabled == nil {
+		conf.Grafana.Enabled = lo.ToPtr(true)
 	}
 	if conf.Grafana.Hostname == "" {
 		conf.Grafana.Hostname = defaultGrafanaHostname
@@ -225,18 +238,20 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 	mutator := func(cluster client.Object) {
 		switch cluster := cluster.(type) {
 		case *v1beta2.MonitoringCluster:
+			conf.GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage)
 			cluster.Spec.Cortex.Enabled = true
 			cluster.Spec.Cortex.Storage = conf.GetStorage()
-			cluster.Spec.Grafana.Enabled = conf.Grafana.Enabled
+			cluster.Spec.Grafana.Enabled = *conf.Grafana.Enabled
 			cluster.Spec.Grafana.Hostname = conf.Grafana.Hostname
 			cluster.Spec.Gateway = v1.LocalObjectReference{
 				Name: k.gatewayRef.Name,
 			}
 			cluster.Spec.Cortex.DeploymentMode = v1beta2.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
 		case *corev1beta1.MonitoringCluster:
+			conf.GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage)
 			cluster.Spec.Cortex.Enabled = true
 			cluster.Spec.Cortex.Storage = conf.GetStorage()
-			cluster.Spec.Grafana.Enabled = conf.Grafana.Enabled
+			cluster.Spec.Grafana.Enabled = *conf.Grafana.Enabled
 			cluster.Spec.Grafana.Hostname = conf.Grafana.Hostname
 			cluster.Spec.Gateway = v1.LocalObjectReference{
 				Name: k.gatewayRef.Name,

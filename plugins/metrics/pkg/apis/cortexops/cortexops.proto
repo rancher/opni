@@ -59,6 +59,6 @@ message ClusterConfiguration {
 }
 
 message GrafanaConfig {
-  bool enabled = 1;
+  optional bool enabled = 1;
   string hostname = 2;
 }

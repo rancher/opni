@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/ttacon/chalk"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -72,9 +73,13 @@ func BuildCortexClusterStatusCmd() *cobra.Command {
 func BuildCortexClusterConfigureCmd() *cobra.Command {
 	var mode string
 	var storage storagev1.StorageSpec
+	var grafanaEnabled bool
+	var grafanaHostname string
 	cmd := &cobra.Command{
 		Use:   "configure",
 		Short: "Install or configure a Cortex cluster",
+		Long: `Install or configure a Cortex cluster. If the cluster is already installed, this command will update the cluster configuration.
+Some fields contain secrets. You may provide the placeholder value ` + chalk.Red.Color("***") + ` to keep an existing secret when updating the cluster configuration.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			strategy, ok := cortexops.DeploymentMode_value[mode]
 			if !ok {
@@ -86,6 +91,10 @@ func BuildCortexClusterConfigureCmd() *cobra.Command {
 			_, err := opsClient.ConfigureCluster(cmd.Context(), &cortexops.ClusterConfiguration{
 				Mode:    cortexops.DeploymentMode(strategy),
 				Storage: &storage,
+				Grafana: &cortexops.GrafanaConfig{
+					Enabled:  &grafanaEnabled,
+					Hostname: grafanaHostname,
+				},
 			})
 			if err != nil {
 				return err
@@ -100,6 +109,28 @@ func BuildCortexClusterConfigureCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&mode, "mode", "", "Deployment mode (one of: AllInOne, HighlyAvailable)")
 	cmd.Flags().AddFlagSet(storage.FlagSet())
+	cmd.Flags().BoolVar(&grafanaEnabled, "grafana", true, "Enable Grafana")
+	cmd.Flags().StringVar(&grafanaHostname, "grafana-hostname", "", "Grafana hostname")
+	return cmd
+}
+
+func BuildCortexClusterGetConfigurationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get-configuration",
+		Aliases: []string{"get-config"},
+		Short:   "Get the current Cortex cluster configuration",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			config, err := opsClient.GetClusterConfiguration(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			fmt.Println(protojson.MarshalOptions{
+				Multiline:       true,
+				EmitUnpopulated: true,
+			}.Format(config))
+			return nil
+		},
+	}
 	return cmd
 }
 

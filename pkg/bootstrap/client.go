@@ -57,6 +57,7 @@ func (c *ClientConfig) Bootstrap(
 
 	cc, err := grpc.DialContext(ctx, c.Endpoint,
 		append(c.DialOpts,
+			grpc.WithBlock(),
 			grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 			grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
 			grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),

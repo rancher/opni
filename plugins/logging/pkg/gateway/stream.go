@@ -11,7 +11,7 @@ func (p *Plugin) StreamServers() []streamext.Server {
 		{
 			Desc:              &node.NodeLoggingCapability_ServiceDesc,
 			Impl:              &p.logging,
-			RequireCapability: wellknown.CapabilityMetrics,
+			RequireCapability: wellknown.CapabilityLogs,
 		},
 	}
 }

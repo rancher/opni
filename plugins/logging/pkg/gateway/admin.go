@@ -113,7 +113,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 ) (*emptypb.Empty, error) {
 	// Validate retention string
 	if !p.validDurationString(lo.FromPtrOr(cluster.DataRetention, "7d")) {
-		return &emptypb.Empty{}, ErrInvalidRetention()
+		return &emptypb.Empty{}, errors.ErrInvalidRetention()
 	}
 	k8sOpensearchCluster := &loggingv1beta1.OpniOpensearch{}
 

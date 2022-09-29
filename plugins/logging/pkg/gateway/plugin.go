@@ -39,6 +39,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
+	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
 )
 
 const (
@@ -109,7 +110,9 @@ func WithVersion(version string) PluginOption {
 }
 
 func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
-	options := PluginOptions{}
+	options := PluginOptions{
+		storageNamespace: os.Getenv("POD_NAMESPACE"),
+	}
 	options.apply(opts...)
 
 	lg := logger.NewPluginLogger().Named("logging")
@@ -148,24 +151,26 @@ func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 		nodeManagerClient:   future.New[capabilityv1.NodeManagerClient](),
 	}
 
-	future.Wait5(p.storageBackend, p.mgmtApi, p.uninstallController, p.opensearchClient, p.nodeManagerClient,
+	future.Wait4(p.storageBackend, p.mgmtApi, p.uninstallController, p.nodeManagerClient,
 		func(
 			storageBackend storage.Backend,
 			mgmtClient managementv1.ManagementClient,
 			uninstallController *task.Controller,
-			osclient *osclient.Client,
 			nodeManagerClient capabilityv1.NodeManagerClient,
 		) {
+			clusterDriver, _ := drivers.NewKubernetesManagerDriver(
+				drivers.WithK8sClient(p.k8sClient),
+				drivers.WithLogger(*p.logger.Named("cluster-driver")),
+				drivers.WithOpensearchCluster(p.opensearchCluster),
+			)
 			p.logging.Initialize(backend.LoggingBackendConfig{
 				Logger:              p.logger.Named("logging-backend"),
 				StorageBackend:      storageBackend,
 				UninstallController: uninstallController,
-				Namespace:           p.storageNamespace,
 				OpensearchCluster:   p.opensearchCluster,
-				OpensearchClient:    osclient,
-				K8sClient:           p.k8sClient,
 				MgmtClient:          mgmtClient,
 				NodeManagerClient:   nodeManagerClient,
+				ClusterDriver:       clusterDriver,
 			})
 		},
 	)

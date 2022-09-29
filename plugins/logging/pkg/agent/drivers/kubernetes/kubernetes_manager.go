@@ -301,7 +301,7 @@ func (m *KubernetesManagerDriver) buildOpniClusterFlow() *loggingv1beta1.Cluster
 }
 
 func (m *KubernetesManagerDriver) buildLogAdapter() *opniloggingv1beta1.LogAdapter {
-	return &opniloggingv1beta1.LogAdapter{
+	logAdapter := &opniloggingv1beta1.LogAdapter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "opni-logging",
 		},
@@ -310,6 +310,8 @@ func (m *KubernetesManagerDriver) buildLogAdapter() *opniloggingv1beta1.LogAdapt
 			ControlNamespace: &m.namespace,
 		},
 	}
+	logAdapter.Default()
+	return logAdapter
 }
 
 // TODO: make this generic

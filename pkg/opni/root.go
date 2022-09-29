@@ -33,6 +33,7 @@ func BuildRootCmd() *cobra.Command {
 				commands.BuildGatewayCmd(),
 				commands.BuildManagerCmd(),
 				commands.BuildRealtimeCmd(),
+				commands.BuildClientCmd(),
 			},
 		},
 		{

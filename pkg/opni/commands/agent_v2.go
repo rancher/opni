@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"runtime"
 	"syscall"
 
@@ -16,13 +17,18 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
+	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
+	"github.com/rancher/opni/controllers"
 	agentv2 "github.com/rancher/opni/pkg/agent/v2"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/config"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/pkp"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/trust"
@@ -35,6 +41,141 @@ import (
 func BuildAgentV2Cmd() *cobra.Command {
 	var configFile, logLevel string
 	var rebootstrap bool
+	agentlg = logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
+
+	runAgent := func(ctx context.Context, ca context.CancelFunc) error {
+		if configFile == "" {
+			// find config file
+			path, err := config.FindConfig()
+			if err != nil {
+				if errors.Is(err, config.ErrConfigNotFound) {
+					wd, _ := os.Getwd()
+					agentlg.Fatalf(`could not find a config file in ["%s","/etc/opni"], and --config was not given`, wd)
+				}
+				agentlg.With(
+					zap.Error(err),
+				).Fatal("an error occurred while searching for a config file")
+			}
+			agentlg.With(
+				"path", path,
+			).Info("using config file")
+			configFile = path
+		}
+
+		objects, err := config.LoadObjectsFromFile(configFile)
+		if err != nil {
+			agentlg.With(
+				zap.Error(err),
+			).Fatal("failed to load config")
+		}
+		var agentConfig *v1beta1.AgentConfig
+		if ok := objects.Visit(func(config *v1beta1.AgentConfig) {
+			agentConfig = config
+		}); !ok {
+			agentlg.Fatal("no agent config found in config file")
+		}
+
+		if agentConfig.Spec.Profiling {
+			fmt.Fprintln(os.Stderr, chalk.Yellow.Color("Profiling is enabled. This should only be used for debugging purposes."))
+			runtime.SetBlockProfileRate(10000)
+			runtime.SetMutexProfileFraction(100)
+		}
+
+		bootstrapper, err := configureBootstrapV2(agentConfig)
+		if err != nil {
+			agentlg.With(
+				zap.Error(err),
+			).Fatal("failed to configure bootstrap")
+		}
+
+		p, err := agentv2.New(ctx, agentConfig,
+			agentv2.WithBootstrapper(bootstrapper),
+			agentv2.WithRebootstrap(rebootstrap),
+		)
+		if err != nil {
+			agentlg.Error(err)
+			return err
+		}
+
+		err = p.ListenAndServe(ctx)
+		if err != nil {
+			const rebootstrapArg = "--re-bootstrap"
+			var shouldRestart bool
+			withoutArgs := []string{rebootstrapArg}
+			var extraArgs []string
+
+			if errors.Is(err, agentv2.ErrRebootstrap) {
+				shouldRestart = true
+				extraArgs = append(extraArgs, rebootstrapArg)
+			} else if util.StatusCode(err) == codes.FailedPrecondition {
+				shouldRestart = true
+			}
+
+			if shouldRestart {
+				agentlg.With(
+					zap.Error(err),
+				).Warn("preparing to restart agent")
+				ca()
+				plugin.CleanupClients()
+				waitctx.Wait(ctx)
+				agentlg.Info(chalk.Yellow.Color("--- restarting agent ---"))
+				args := append(lo.Without(os.Args, withoutArgs...), extraArgs...)
+				panic(syscall.Exec(os.Args[0], args, os.Environ()))
+			}
+			agentlg.Error(err)
+		}
+		return err
+	}
+
+	runControllers := func(ctx context.Context) error {
+		ctrl.SetLogger(ctrlzap.New(
+			ctrlzap.Level(util.Must(zapcore.ParseLevel(logLevel))),
+			ctrlzap.Encoder(zapcore.NewConsoleEncoder(testutil.EncoderConfig)),
+		))
+
+		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+			Scheme:                 scheme,
+			MetricsBindAddress:     "0",
+			Port:                   9443,
+			HealthProbeBindAddress: ":8081",
+			LeaderElection:         false,
+			LeaderElectionID:       "98e737d4.opni.io",
+		})
+		if err != nil {
+			setupLog.Error(err, "unable to start manager")
+			return err
+		}
+
+		if err = (&controllers.LoggingReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Logging")
+			return err
+		}
+
+		if err = (&controllers.LoggingLogAdapterReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Logging LogAdapter")
+			return err
+		}
+
+		if err = (&controllers.LoggingDataPrepperReconciler{}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Logging DataPrepper")
+			return err
+		}
+
+		if err = (&loggingv1beta1.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Logging LogAdapter")
+			return err
+		}
+
+		ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+		defer cancel()
+
+		setupLog.Info("starting manager")
+		if err := mgr.Start(ctx); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	cmd := &cobra.Command{
 		Use:   "agentv2",
 		Short: "Run the v2 agent",
@@ -43,91 +184,16 @@ func BuildAgentV2Cmd() *cobra.Command {
 			defer ca()
 
 			tracing.Configure("agentv2")
-			agentlg = logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(logLevel))))
 
-			if configFile == "" {
-				// find config file
-				path, err := config.FindConfig()
-				if err != nil {
-					if errors.Is(err, config.ErrConfigNotFound) {
-						wd, _ := os.Getwd()
-						agentlg.Fatalf(`could not find a config file in ["%s","/etc/opni"], and --config was not given`, wd)
-					}
-					agentlg.With(
-						zap.Error(err),
-					).Fatal("an error occurred while searching for a config file")
-				}
-				agentlg.With(
-					"path", path,
-				).Info("using config file")
-				configFile = path
-			}
+			e1 := lo.Async(func() error {
+				return runAgent(ctx, ca)
+			})
 
-			objects, err := config.LoadObjectsFromFile(configFile)
-			if err != nil {
-				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to load config")
-			}
-			var agentConfig *v1beta1.AgentConfig
-			if ok := objects.Visit(func(config *v1beta1.AgentConfig) {
-				agentConfig = config
-			}); !ok {
-				agentlg.Fatal("no agent config found in config file")
-			}
+			e2 := lo.Async(func() error {
+				return runControllers(ctx)
+			})
 
-			if agentConfig.Spec.Profiling {
-				fmt.Fprintln(os.Stderr, chalk.Yellow.Color("Profiling is enabled. This should only be used for debugging purposes."))
-				runtime.SetBlockProfileRate(10000)
-				runtime.SetMutexProfileFraction(100)
-			}
-
-			bootstrapper, err := configureBootstrapV2(agentConfig)
-			if err != nil {
-				agentlg.With(
-					zap.Error(err),
-				).Fatal("failed to configure bootstrap")
-			}
-
-			p, err := agentv2.New(ctx, agentConfig,
-				agentv2.WithBootstrapper(bootstrapper),
-				agentv2.WithRebootstrap(rebootstrap),
-			)
-			if err != nil {
-				agentlg.Error(err)
-				return
-			}
-
-			err = p.ListenAndServe(ctx)
-			if err != nil {
-				const rebootstrapArg = "--re-bootstrap"
-				var shouldRestart bool
-				withoutArgs := []string{rebootstrapArg}
-				var extraArgs []string
-
-				if errors.Is(err, agentv2.ErrRebootstrap) {
-					shouldRestart = true
-					extraArgs = append(extraArgs, rebootstrapArg)
-				} else if util.StatusCode(err) == codes.FailedPrecondition {
-					shouldRestart = true
-				}
-
-				if shouldRestart {
-					agentlg.With(
-						zap.Error(err),
-					).Warn("preparing to restart agent")
-					ca()
-					plugin.CleanupClients()
-					waitctx.Wait(ctx)
-					agentlg.Info(chalk.Yellow.Color("--- restarting agent ---"))
-					args := append(lo.Without(os.Args, withoutArgs...), extraArgs...)
-					panic(syscall.Exec(os.Args[0], args, os.Environ()))
-				}
-				agentlg.Error(err)
-				return
-			}
-
-			<-ctx.Done()
+			util.WaitAll(ctx, ca, e1, e2)
 			waitctx.Wait(ctx)
 		},
 	}

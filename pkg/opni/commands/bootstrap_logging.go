@@ -40,7 +40,6 @@ var (
 	bootstrapToken  string
 	provider        string
 	namespace       string
-	pins            []string
 	enableTracing   bool
 
 	k8sClient client.Client

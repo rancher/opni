@@ -1,0 +1,23 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/model_training/pkg/model_training";
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+
+package model_training;
+
+service ModelTraining {
+  rpc ListWorkloads(ClusterID) returns (WorkloadResponse) {
+    option (google.api.http) = {
+      get: "/get_workloads"
+    };
+  }
+}
+
+message ClusterID {
+  string id = 1;
+}
+
+message WorkloadResponse {
+  string message = 1;
+}

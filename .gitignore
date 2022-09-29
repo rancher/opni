@@ -10,6 +10,7 @@ testbin/
 *~
 tilt_modules/
 tilt-options.yaml
+tilt_config.json
 Dockerfile.dapper*
 *.DS_Store
 
@@ -23,7 +24,6 @@ deploy/examples/gpu/vgpu.yaml
 deploy/custom/cortex.yaml
 deploy/custom/grafana.yaml
 deploy/custom/opni-monitoring.yaml
-
 
 /report.json
 /cover.out

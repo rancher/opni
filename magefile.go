@@ -53,14 +53,6 @@ func Test() {
 	mg.Deps(test.Test)
 }
 
-func Charts() {
-	mg.SerialDeps(All, CRDGen, func() {
-		charts.Charts("opni")
-	}, func() {
-		charts.Charts("opni-agent")
-	})
-}
-
 func ControllerGen() error {
 	cmd := exec.Command(mg.GoCmd(), "run", "sigs.k8s.io/controller-tools/cmd/controller-gen",
 		"crd:maxDescLen=0", "rbac:roleName=manager-role", "webhook", "object", "paths=./apis/...", "output:crd:artifacts:config=config/crd/bases",
@@ -376,4 +368,12 @@ func ProtobufPython() error {
 
 func Protobuf() {
 	mg.Deps(ProtobufGo, ProtobufPython)
+}
+
+func Charts() {
+	mg.SerialDeps(All, CRDGen, func() {
+		charts.Charts("opni")
+	}, func() {
+		charts.Charts("opni-agent")
+	})
 }

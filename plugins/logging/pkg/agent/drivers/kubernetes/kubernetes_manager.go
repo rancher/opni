@@ -1,4 +1,4 @@
-package drivers
+package kubernetes
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/rancher/opni/apis"
 	opniloggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/util/k8sutil/provider"
+	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -129,7 +130,7 @@ func (m *KubernetesManagerDriver) Name() string {
 	return "kubernetes-manager"
 }
 
-var _ LoggingNodeDriver = (*KubernetesManagerDriver)(nil)
+var _ drivers.LoggingNodeDriver = (*KubernetesManagerDriver)(nil)
 
 func (m *KubernetesManagerDriver) ConfigureNode(config *node.LoggingCapabilityConfig) {
 	m.state.Lock()

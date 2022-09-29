@@ -9,6 +9,8 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/health"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers"
+	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers/events"
+	"github.com/rancher/opni/plugins/logging/pkg/agent/drivers/kubernetes"
 	"go.uber.org/zap"
 )
 
@@ -29,7 +31,7 @@ func NewPlugin(ctx context.Context) *Plugin {
 		node:   NewLoggingNode(ct, lg),
 	}
 
-	if d, err := drivers.NewKubernetesManagerDriver(lg.Named("kubernetes-manager")); err != nil {
+	if d, err := kubernetes.NewKubernetesManagerDriver(lg.Named("kubernetes-manager")); err != nil {
 		lg.With(
 			"driver", d.Name(),
 			zap.Error(err),
@@ -41,6 +43,20 @@ func NewPlugin(ctx context.Context) *Plugin {
 		).Info("node driver is available")
 		drivers.RegisterNodeDriver(d)
 		p.node.AddConfigListener(drivers.NewListenerFunc(ctx, d.ConfigureNode))
+	}
+
+	if c, err := events.NewEventCollector(lg.Named("event-collector")); err != nil {
+		lg.With(
+			"driver", c.Name(),
+			zap.Error(err),
+		).Info("node driver is unavailable")
+		drivers.LogNodeDriverFailure(c.Name(), err)
+	} else {
+		lg.With(
+			"driver", c.Name(),
+		).Info("node driver is available")
+		drivers.RegisterNodeDriver(c)
+		p.node.AddConfigListener(drivers.NewListenerFunc(ctx, c.ConfigureNode))
 	}
 
 	return p

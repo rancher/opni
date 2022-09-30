@@ -36,7 +36,7 @@ func setEmptyFields(spec *v1beta1.AlertingSpec) {
 	}
 	if spec.RawConfigMap == "" {
 		var amData bytes.Buffer
-		mgmtDNS := "opni-monitoring-internal"
+		mgmtDNS := "opni-internal"
 		httpPort := "11080"
 		amData, err := shared.DefaultConfig(fmt.Sprintf("http://%s:%s%s", mgmtDNS, httpPort, shared.AlertingCortexHookHandler))
 		if err != nil {

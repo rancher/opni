@@ -1065,7 +1065,7 @@ spec:
                           type: object
                       type: object
                     type: array
-                  clusterPort:omitempty:
+                  clusterPort:
                     default: 9094
                     type: integer
                   configName:

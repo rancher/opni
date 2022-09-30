@@ -68,7 +68,7 @@ type AlertingSpec struct {
 	//+kubebuilder:default=9093
 	WebPort int `json:"webPort,omitempty"`
 	//+kubebuilder:default=9094
-	ClusterPort int `json:"clusterPort:omitempty"`
+	ClusterPort int `json:"clusterPort,omitempty"`
 	//+kubebuilder:default="ClusterIP"
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 	//+kubebuilder:default="500Mi"

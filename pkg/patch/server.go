@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/rancher/opni/pkg/agent/shared"
 	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	v1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -29,6 +28,11 @@ import (
 
 var _ controlv1.PluginManifestServer = &FilesystemPluginSyncServer{}
 
+type inflightRequest struct {
+	T *time.Timer
+	C chan error
+}
+
 type FilesystemPluginSyncServer struct {
 	v1.UnsafePluginManifestServer
 	Logger *zap.SugaredLogger
@@ -36,18 +40,18 @@ type FilesystemPluginSyncServer struct {
 
 	loadMetadataOnce sync.Once
 	pluginMetadata   *v1.ManifestMetadataList
-	patchCache       shared.PatchCache
+	patchCache       PatchCache
 
 	inflightUploadRequestsMu sync.Mutex
-	inflightUploadRequests   map[string]*time.Timer
+	inflightUploadRequests   map[string]inflightRequest
 }
 
 func NewFilesystemPluginSyncServer(cfg v1beta1.PluginsSpec, lg *zap.SugaredLogger) *FilesystemPluginSyncServer {
 	return &FilesystemPluginSyncServer{
 		Config:                 cfg,
 		Logger:                 lg,
-		inflightUploadRequests: make(map[string]*time.Timer),
-		patchCache:             shared.NewInMemoryCache(),
+		inflightUploadRequests: make(map[string]inflightRequest),
+		patchCache:             NewInMemoryCache(),
 	}
 }
 
@@ -111,9 +115,9 @@ func (f *FilesystemPluginSyncServer) SendManifestsOrKnownPatch(
 		Manifests: make(map[string]*v1.CompressedManifest),
 	}
 	for pluginName, op := range ops.Items {
+	RETRY_CACHE:
 		if data, err := f.patchCache.Get(pluginName, op.OldHash, op.NewHash); err == nil {
 			res.Manifests[pluginName] = &v1.CompressedManifest{
-				//ComprMethod: compMethod,
 				DataAndInfo: &v1.ManifestData{
 					Data:    data,
 					OpPath:  op.TheirPath,
@@ -130,44 +134,56 @@ func (f *FilesystemPluginSyncServer) SendManifestsOrKnownPatch(
 			}
 			// if there are no pending requests for an agent to upload this patch, ask this agent to upload it
 			key := f.patchCache.Key(pluginName, op.OldHash, op.NewHash)
-			requestUpload := false
+			lg := f.Logger.With(
+				"plugin", pluginName,
+			)
+
 			f.inflightUploadRequestsMu.Lock()
-			if _, ok := f.inflightUploadRequests[key]; !ok {
-				requestUpload = true
-				// time this out after 60 seconds
-				f.inflightUploadRequests[key] = time.AfterFunc(1*time.Minute, func() {
+
+			if ireq, ok := f.inflightUploadRequests[key]; ok {
+				f.inflightUploadRequestsMu.Unlock()
+				lg.Info("waiting on another agent to upload a patch for this plugin")
+				select {
+				case err := <-ireq.C:
+					if err != nil {
+						lg.With(
+							zap.Error(err),
+						).Warn("another agent failed to upload a patch for this plugin, retrying cache lookup")
+					} else {
+						lg.Info("patch was uploaded, retrying cache lookup")
+					}
+					goto RETRY_CACHE
+				case <-ctx.Done():
+					err := status.Error(codes.Canceled, "context canceled while waiting for patch to become available")
+					return nil, err
+				}
+			}
+			lg.Info("requesting agent to compute and upload patch for this plugin")
+			// time this out after 60 seconds
+			c := make(chan error, 1)
+			f.inflightUploadRequests[key] = inflightRequest{
+				T: time.AfterFunc(1*time.Minute, func() {
 					f.inflightUploadRequestsMu.Lock()
 					defer f.inflightUploadRequestsMu.Unlock()
 					f.Logger.With(
 						"plugin", pluginName,
 					).Warn("timed out waiting for agent to upload patch")
 					delete(f.inflightUploadRequests, key)
-				})
-			} else {
-				f.Logger.With(
-					"plugin", pluginName,
-				).Info("waiting on another agent to upload a patch for this plugin")
+					c <- status.Error(codes.DeadlineExceeded, "timed out waiting for agent to upload patch")
+					close(c)
+				}),
+				C: c,
 			}
+
 			f.inflightUploadRequestsMu.Unlock()
 
-			if requestUpload {
-				f.Logger.With(
-					"plugin", pluginName,
-				).Info("requesting agent to compute and upload patch for this plugin")
-			} else {
-				f.Logger.With(
-					"plugin", pluginName,
-				).Info("not requesting patch upload")
-			}
-
 			res.Manifests[pluginName] = &v1.CompressedManifest{
-				//ComprMethod: compMethod,
 				DataAndInfo: &v1.ManifestData{
 					Data:               data,
 					OpPath:             op.TheirPath,
 					Op:                 op.Op,
 					IsPatch:            false,
-					RequestPatchUpload: requestUpload,
+					RequestPatchUpload: true,
 					OldHash:            op.OldHash,
 					NewHash:            op.NewHash,
 				},
@@ -201,8 +217,11 @@ func (f *FilesystemPluginSyncServer) UploadPatch(ctx context.Context, spec *v1.P
 
 	key := f.patchCache.Key(spec.PluginName, spec.OldHash, spec.NewHash)
 	if t, ok := f.inflightUploadRequests[key]; ok {
-		if t.Stop() {
+		if t.T.Stop() {
+			// the timeout function was not called
 			delete(f.inflightUploadRequests, key)
+			t.C <- nil
+			close(t.C)
 		}
 	}
 	return &emptypb.Empty{}, nil
@@ -273,7 +292,7 @@ func PatchWith(
 					if err != nil {
 						return err
 					}
-					patchResult, err := shared.ApplyPatch(existingData, receivedData)
+					patchResult, err := ApplyPatch(existingData, receivedData)
 					if err != nil {
 						return err
 					}
@@ -300,7 +319,7 @@ func PatchWith(
 						go func() {
 							defer backgroundTasks.Done()
 							lg.Info("computing patch")
-							patch, err := shared.GeneratePatch(existingData, receivedData)
+							patch, err := GeneratePatch(existingData, receivedData)
 							if err != nil {
 								lg.With(
 									zap.Error(err),

@@ -52,7 +52,7 @@ var _ = Describe("Gateway Test", Ordered, Label("e2e", "slow"), func() {
 				return "not ready"
 			}
 			return "ok"
-		}, 10*time.Second, 1*time.Second).Should(Equal("ok"))
+		}, 5*time.Minute, 1*time.Second).Should(Equal("ok"))
 	})
 
 	Context("configuration", func() {

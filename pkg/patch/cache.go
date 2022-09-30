@@ -1,4 +1,4 @@
-package shared
+package patch
 
 import (
 	"fmt"
@@ -13,24 +13,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 )
 
-//var UnknownRevision = "vcs.revision.unknown"
-
-//	type BytesCompression interface {
-//		Compress([]byte) ([]byte, error)
-//		Extract([]byte) ([]byte, error)
-//	}
-//
-// var _ BytesCompression = &NoCompression{}
-//
-// type NoCompression struct{}
-//
-//	func (c *NoCompression) Compress(data []byte) ([]byte, error) {
-//		return data, nil
-//	}
-//
-//	func (c *NoCompression) Extract(data []byte) ([]byte, error) {
-//		return data, nil
-//	}
 type ZstdCompressor struct{}
 
 func (c ZstdCompressor) Compress(w io.Writer) (io.WriteCloser, error) {

@@ -370,6 +370,24 @@ func Protobuf() {
 	mg.Deps(ProtobufGo, ProtobufPython)
 }
 
+func Minimal() {
+	build.Config.ExtraTargets = nil
+	build.Config.ExtraFlags = []string{
+		"-tags",
+		"noagentv1,noplugins,nohooks,nomanager,norealtime,nocortex,nodebug,noevents,nogateway,noetcd,noscheme_thirdparty",
+	}
+	mg.SerialDeps(Generate, build.Build)
+
+	// create the bin/plugins folder if it doesn't exist, and leave it empty
+	if _, err := os.Stat("bin/plugins"); os.IsNotExist(err) {
+		os.Mkdir("bin/plugins", 0755)
+	}
+
+	if upx, err := exec.LookPath("upx"); err == nil {
+		sh.Run(upx, "-q", "bin/opni")
+	}
+}
+
 func Charts() {
 	mg.SerialDeps(All, CRDGen, func() {
 		charts.Charts("opni")

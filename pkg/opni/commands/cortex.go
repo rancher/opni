@@ -1,3 +1,5 @@
+//go:build !nocortex
+
 package commands
 
 import (
@@ -21,4 +23,8 @@ func BuildCortexCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildCortexCmd())
 }

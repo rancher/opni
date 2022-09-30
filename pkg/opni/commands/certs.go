@@ -78,3 +78,7 @@ func BuildCertsPinCmd() *cobra.Command {
 	}
 	return cmd
 }
+
+func init() {
+	AddCommandsToGroup(ManagementAPI, BuildCertsCmd())
+}

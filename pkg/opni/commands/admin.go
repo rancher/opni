@@ -1,3 +1,5 @@
+//go:build !noplugins
+
 package commands
 
 import (
@@ -7,11 +9,13 @@ import (
 	"github.com/araddon/dateparse"
 	"github.com/olebedev/when"
 	"github.com/prometheus/common/model"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
 	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -29,6 +33,7 @@ func BuildCortexAdminCmd() *cobra.Command {
 	cmd.AddCommand(BuildFlushBlocksCmd())
 	cmd.AddCommand(BuildCortexStatusCmd())
 	cmd.AddCommand(BuildCortexConfigCmd())
+	cmd.AddCommand(BuildClusterStatsCmd())
 
 	return cmd
 }
@@ -232,5 +237,38 @@ Modes:
 		},
 	}
 	cmd.Flags().StringVar(&mode, "mode", "", "config mode")
+	return cmd
+}
+
+func BuildClusterStatsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List clusters",
+		Run: func(cmd *cobra.Command, args []string) {
+			t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
+			if err != nil {
+				lg.Fatal(err)
+			}
+			var clusterStats *cortexadmin.UserIDStatsList
+			var healthStatus []*corev1.HealthStatus
+			for _, c := range t.Items {
+				stat, err := mgmtClient.GetClusterHealthStatus(cmd.Context(), c.Reference())
+				if err != nil {
+					healthStatus = append(healthStatus, &corev1.HealthStatus{})
+				} else {
+					healthStatus = append(healthStatus, stat)
+				}
+			}
+
+			stats, err := adminClient.AllUserStats(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				lg.With(
+					zap.Error(err),
+				).Warn("failed to query cortex stats")
+			}
+			clusterStats = stats
+			fmt.Println(cliutil.RenderClusterListWithStats(t, healthStatus, clusterStats))
+		},
+	}
 	return cmd
 }

@@ -97,7 +97,12 @@ dagger.#Plan & {
 		_mageImage: mage.#Image
 
 		// Build with mage using the builder image
-		build: {
+
+		_buildVersion: client.env.BUILD_VERSION | *""
+		#_build: {
+			output:   docker.#Image
+			target:   string | *"all"
+			_minimal: target == "minimal"
 			docker.#Build & {
 				steps: [
 					docker.#Copy & {
@@ -126,30 +131,53 @@ dagger.#Plan & {
 							args: ["mod", "download"]
 						}
 					},
-					mage.#Run & {
+					docker.#Run & {
+						workdir: "/src"
 						env: {
-							"BUILD_VERSION": client.env.BUILD_VERSION
+							"BUILD_VERSION": _buildVersion
 						}
-						mageArgs: ["-v"]
+						command: {
+							name: "mage"
+							args: ["-v", target]
+						}
 					},
 				]
 			}
 			bin:        dagger.#FS & _binSubdir.output
 			_binSubdir: core.#Subdir & {
-				input: actions.build.output.rootfs
+				input: output.rootfs
 				path:  "/src/bin"
 			}
 			plugins:        dagger.#FS & _pluginsSubdir.output
 			_pluginsSubdir: core.#Subdir & {
-				input: actions.build.output.rootfs
+				input: output.rootfs
 				path:  "/src/bin/plugins"
 			}
 			opt:        dagger.#FS & _optSubdir.output
 			_optSubdir: core.#Subdir & {
-				input: actions.build.output.rootfs
-				path:  "/opt"
+				if _minimal {
+					input: _mageImage.output.rootfs // empty
+				}
+				if !_minimal {
+					input: output.rootfs
+				}
+				path: "/opt"
 			}
 		}
+
+		#_defaultBuild: #_build & {
+			target: "all"
+		}
+		#_minimalBuild: #_build & {
+			target: "minimal"
+		}
+		_defaultBuild: #_defaultBuild
+		_minimalBuild: #_minimalBuild
+
+		build: _defaultBuild
+
+		minimalBuild: _minimalBuild
+
 		// Build the destination base image
 		_baseimage: alpine.#Build & {
 			packages: {
@@ -157,34 +185,38 @@ dagger.#Plan & {
 				"curl":            _
 			}
 		}
+
 		// Copy the build output to the destination image
-		_multistage: docker.#Build & {
-			steps: [
-				docker.#Copy & {
-					input:    _baseimage.output
-					contents: build.bin
-					source:   "opni"
-					dest:     "/usr/bin/opni"
-				},
-				docker.#Copy & {
-					// input connects to previous step's output
-					contents: build.plugins
-					dest:     "/var/lib/opni/plugins/"
-					exclude: ["plugin_example"]
-				},
-				docker.#Copy & {
-					contents: build.opt
-					dest:     "/opt/"
-				},
-				docker.#Set & {
-					config: {
-						entrypoint: ["/usr/bin/opni"]
-						env: {
-							NVIDIA_VISIBLE_DEVICES: "void"
+		#_multistage: {
+			sourceBuild: #_build
+			docker.#Build & {
+				steps: [
+					docker.#Copy & {
+						input:    _baseimage.output
+						contents: sourceBuild.bin
+						source:   "opni"
+						dest:     "/usr/bin/opni"
+					},
+					docker.#Copy & {
+						// input connects to previous step's output
+						contents: sourceBuild.plugins
+						dest:     "/var/lib/opni/plugins/"
+						exclude: ["plugin_example"]
+					},
+					docker.#Copy & {
+						contents: sourceBuild.opt
+						dest:     "/opt/"
+					},
+					docker.#Set & {
+						config: {
+							entrypoint: ["/usr/bin/opni"]
+							env: {
+								NVIDIA_VISIBLE_DEVICES: "void"
+							}
 						}
-					}
-				},
-			]
+					},
+				]
+			}
 		}
 
 		_opniImage: {
@@ -195,12 +227,32 @@ dagger.#Plan & {
 			if client.env.EXPECTED_REF != _|_ {
 				tag: docker.#Ref & client.env.EXPECTED_REF
 			}
-			image: _multistage.output
+			_out: #_multistage & {
+				sourceBuild: _defaultBuild
+			}
+			image: _out.output
+		}
+
+		_minimalOpniImage: {
+			tag: docker.#Ref
+			if client.env.EXPECTED_REF == _|_ {
+				tag: docker.#Ref & "\(client.env.REPO)/\(client.env.IMAGE_NAME):\(client.env.TAG)-minimal"
+			}
+			if client.env.EXPECTED_REF != _|_ {
+				tag: docker.#Ref & client.env.EXPECTED_REF
+			}
+			_out: #_multistage & {
+				sourceBuild: _minimalBuild
+			}
+			image: _out.output
 		}
 
 		// Build docker images and load them into the local docker daemon
 		load: {
 			opni: cli.#Load & _opniImage & {
+				host: client.network."unix:///var/run/docker.sock".connect
+			}
+			opniMinimal: cli.#Load & _minimalOpniImage & {
 				host: client.network."unix:///var/run/docker.sock".connect
 			}
 
@@ -241,25 +293,33 @@ dagger.#Plan & {
 				"AWS_ACCESS_KEY_ID":     client.env.AWS_ACCESS_KEY_ID
 				"AWS_SECRET_ACCESS_KEY": client.env.AWS_SECRET_ACCESS_KEY
 			}
-			testImage: docker.#Push & {
-				dest:  "\(_awsIdentity.Account).dkr.ecr.us-east-2.amazonaws.com/opni-e2e-test"
-				image: _opniImage.image
-				auth: {
+			testImages: {
+				repo: "\(_awsIdentity.Account).dkr.ecr.us-east-2.amazonaws.com/opni-e2e-test"
+				_auth: {
 					username: "AWS"
 					secret:   client.commands."ecr-password".stdout
+				}
+				default: docker.#Push & {
+					dest:  repo + ":latest"
+					image: _opniImage.image
+					auth:  _auth
+				}
+				minimal: docker.#Push & {
+					dest:  repo + ":latest-minimal"
+					image: _minimalOpniImage.image
+					auth:  _auth
 				}
 			}
 
 			_e2eImage: docker.#Build & {
 				steps: [
-					mage.#Run & {
-						input: actions.build.output
-						mageArgs: ["charts:charts", "opni"]
+					images.installers.debian.#AwsCli & {
+						_input: #_build & {
+							target: "charts"
+						}
+						input:   _input.output
+						workdir: "/src"
 					},
-					mage.#Run & {
-						mageArgs: ["charts:charts", "opni-agent"]
-					},
-					images.installers.debian.#AwsCli,
 				]
 			}
 
@@ -297,7 +357,9 @@ dagger.#Plan & {
 			}
 
 			infra: {
-				_up: pulumi.#Up & {
+				_defaultImageTag: testImages.default.result
+				_minimalImageTag: testImages.minimal.result
+				_up:              pulumi.#Up & {
 					source:      _fs.output
 					runtime:     "go"
 					stack:       "e2e"
@@ -305,9 +367,10 @@ dagger.#Plan & {
 					container: {
 						input: _pulumiImage.output
 						env:   _awsEnv & {
-							"CLOUD":      "aws"
-							"IMAGE_REPO": testImage.dest
-							"IMAGE_TAG":  strings.TrimPrefix(testImage.result, "\(testImage.dest):")
+							"CLOUD":             "aws"
+							"IMAGE_REPO":        testImages.repo
+							"IMAGE_TAG":         strings.TrimPrefix(_defaultImageTag, "\(testImages.repo):")
+							"MINIMAL_IMAGE_TAG": strings.TrimPrefix(_minimalImageTag, "\(testImages.repo):")
 						}
 					}
 				}
@@ -335,6 +398,16 @@ dagger.#Plan & {
 			opni: docker.#Push & {
 				dest:  _opniImage.tag
 				image: _opniImage.image
+				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
+			}
+			opniMinimal: docker.#Push & {
+				dest:  _minimalOpniImage.tag
+				image: _minimalOpniImage.image
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {
 						username: client.env.DOCKER_USERNAME

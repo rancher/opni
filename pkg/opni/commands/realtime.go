@@ -1,3 +1,5 @@
+//go:build !norealtime
+
 package commands
 
 import (
@@ -44,4 +46,8 @@ func BuildRealtimeCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&configLocation, "config", "", "Absolute path to a config file")
 	return cmd
+}
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildRealtimeCmd())
 }

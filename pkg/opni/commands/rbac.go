@@ -261,3 +261,8 @@ func BuildAccessMatrixCmd() *cobra.Command {
 	ConfigureManagementCommand(cmd)
 	return cmd
 }
+
+func init() {
+	AddCommandsToGroup(ManagementAPI, BuildRolesCmd(), BuildRoleBindingsCmd())
+	AddCommandsToGroup(Utilities, BuildAccessMatrixCmd())
+}

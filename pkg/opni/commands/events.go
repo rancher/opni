@@ -1,3 +1,5 @@
+//go:build !noevents
+
 package commands
 
 import (
@@ -24,4 +26,8 @@ func BuildEventsCmd() *cobra.Command {
 func doEvents(cmd *cobra.Command, args []string) error {
 	collector := events.NewEventCollector(cmd.Context(), shipperEndpoint)
 	return collector.Run(cmd.Context().Done())
+}
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildEventsCmd())
 }

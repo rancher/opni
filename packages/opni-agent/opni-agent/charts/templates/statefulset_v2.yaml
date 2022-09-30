@@ -1,5 +1,5 @@
 {{- if eq .Values.agent.version "v2" }}
-{{- $versionTag := printf "v%s" .Chart.AppVersion }}
+{{- $versionTag := printf "v%s-minimal" .Chart.AppVersion }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

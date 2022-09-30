@@ -1,3 +1,5 @@
+//go:build !noplugins
+
 package commands
 
 import (
@@ -15,4 +17,8 @@ func BuildMetricsCmd() *cobra.Command {
 
 	ConfigureManagementCommand(cmd)
 	return cmd
+}
+
+func init() {
+	AddCommandsToGroup(PluginAPIs, BuildMetricsCmd())
 }

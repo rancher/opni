@@ -15,7 +15,7 @@ steps:
       # DAGGER_CACHE_TO: type=registry,mode=max,ref=rancher/opni-buildkit-cache
     commands:
       - apk add --no-cache curl
-      - curl -sL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.2.23 sh
+      - curl -sL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION=0.2.35 sh
       - bin/dagger version
       - bin/dagger do build
     volumes: &volumes
@@ -252,7 +252,7 @@ steps:
         - main
       event:
         exclude:
-        - pull_request
+          - pull_request
   - name: publish-python-base
     image: plugins/docker
     settings:
@@ -263,8 +263,8 @@ steps:
       context: images/python/
       dockerfile: images/python/Dockerfile
       cache_from:
-      - rancher/opni-python-base:builder1
-      - rancher/opni-python-base:3.8
+        - rancher/opni-python-base:builder1
+        - rancher/opni-python-base:3.8
       target: base-final
       repo: rancher/opni-python-base
       tags:
@@ -276,7 +276,7 @@ steps:
         - main
       event:
         exclude:
-        - pull_request
+          - pull_request
 volumes:
   - name: docker
     host:

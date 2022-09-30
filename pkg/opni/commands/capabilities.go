@@ -298,3 +298,7 @@ func printStatusLog(log corev1.TimestampedLog) {
 		statusLog.Info(msg)
 	}
 }
+
+func init() {
+	AddCommandsToGroup(ManagementAPI, BuildCapabilityCmd())
+}

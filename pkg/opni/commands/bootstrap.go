@@ -1,3 +1,5 @@
+//go:build !noagentv1
+
 package commands
 
 import "github.com/spf13/cobra"
@@ -10,4 +12,8 @@ func BuildBootstrapCmd() *cobra.Command {
 	}
 	command.AddCommand(BuildBootstrapLoggingCmd())
 	return command
+}
+
+func init() {
+	AddCommandsToGroup(Utilities, BuildBootstrapCmd())
 }

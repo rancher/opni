@@ -35,7 +35,7 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 						Provider: cfgv1beta1.AuthProviderNoAuth,
 						Noauth:   &noauth.ServerConfig{},
 					},
-					Alerting: &corev1beta1.AlertingSpec{
+					Alerting: corev1beta1.AlertingSpec{
 						Enabled:     true,
 						ServiceType: corev1.ServiceTypeLoadBalancer,
 						WebPort:     9093,
@@ -256,7 +256,7 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 		When("disabling alerting", func() {
 			It("should remove the alerting objects", func() {
 				updateObject(gw, func(gw *corev1beta1.Gateway) *corev1beta1.Gateway {
-					gw.Spec.Alerting = nil
+					gw.Spec.Alerting.Enabled = false
 					return gw
 				})
 				Eventually(Object(&appsv1.StatefulSet{

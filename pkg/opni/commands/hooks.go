@@ -1,3 +1,5 @@
+//go:build !nohooks
+
 package commands
 
 import (
@@ -119,4 +121,8 @@ func BuildWaitForResourceCmd() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&jsonPaths, "jsonpath", "j", []string{}, "Wait for a JSONPath expression to evaluate to a non-zero value once the resource is created")
 	cmd.MarkFlagRequired("resource")
 	return cmd
+}
+
+func init() {
+	AddCommandsToGroup(Utilities, BuildHooksCmd())
 }

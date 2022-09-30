@@ -1,3 +1,5 @@
+//go:build !noagentv1 && !nomanager
+
 package commands
 
 import (
@@ -47,8 +49,6 @@ var (
 	enableMetrics        bool
 	enableLogging        bool
 	enableEventCollector bool
-
-	agentlg logger.ExtendedSugaredLogger
 )
 
 func BuildAgentCmd() *cobra.Command {
@@ -58,7 +58,7 @@ func BuildAgentCmd() *cobra.Command {
 		ctx := waitctx.FromContext(parentCtx)
 
 		tracing.Configure("agent")
-		agentlg = logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(agentLogLevel))))
+		agentlg := logger.New(logger.WithLogLevel(util.Must(zapcore.ParseLevel(agentLogLevel))))
 
 		if os.Getenv("DO_NOT_TRACK") == "1" {
 			disableUsage = true
@@ -79,7 +79,7 @@ func BuildAgentCmd() *cobra.Command {
 
 		if enableMetrics {
 			waitctx.Go(ctx, func() {
-				runMonitoringAgent(ctx)
+				runMonitoringAgent(ctx, agentlg)
 			})
 		}
 
@@ -130,7 +130,7 @@ agent remote-write requests to add dynamic authentication.`,
 	return agentCmd
 }
 
-func configureBootstrap(conf *v1beta1.AgentConfig) (bootstrap.Bootstrapper, error) {
+func configureBootstrap(conf *v1beta1.AgentConfig, agentlg logger.ExtendedSugaredLogger) (bootstrap.Bootstrapper, error) {
 	var bootstrapper bootstrap.Bootstrapper
 	var trustStrategy trust.Strategy
 	if conf.Spec.Bootstrap == nil {
@@ -244,7 +244,7 @@ func configureBootstrap(conf *v1beta1.AgentConfig) (bootstrap.Bootstrapper, erro
 	return bootstrapper, nil
 }
 
-func runMonitoringAgent(ctx context.Context) {
+func runMonitoringAgent(ctx context.Context, agentlg logger.ExtendedSugaredLogger) {
 	if configLocation == "" {
 		// find config file
 		path, err := config.FindConfig()
@@ -280,7 +280,7 @@ func runMonitoringAgent(ctx context.Context) {
 		runtime.SetMutexProfileFraction(100)
 	}
 
-	bootstrapper, err := configureBootstrap(agentConfig)
+	bootstrapper, err := configureBootstrap(agentConfig, agentlg)
 
 	p, err := agentv1.New(ctx, agentConfig,
 		agentv1.WithBootstrapper(bootstrapper),
@@ -372,4 +372,8 @@ func runLoggingControllers(ctx context.Context) error {
 func runEventsCollector(ctx context.Context) error {
 	collector := events.NewEventCollector(ctx, eventOutputEndpoint)
 	return collector.Run(ctx.Done())
+}
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildAgentCmd())
 }

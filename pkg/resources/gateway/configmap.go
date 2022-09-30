@@ -49,34 +49,17 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			Storage: cfgv1beta1.StorageSpec{
 				Type: r.spec.StorageType,
 			},
-			Alerting: func() cfgv1beta1.AlertingSpec {
-				if r.spec.Alerting == nil {
-					return cfgv1beta1.AlertingSpec{
-						Namespace:             r.namespace,
-						WorkerNodeService:     shared.OperatorAlertingClusterNodeServiceName,
-						WorkerPort:            9093,
-						WorkerStatefulSet:     shared.OperatorAlertingClusterNodeServiceName + "-internal",
-						ControllerNodeService: shared.OperatorAlertingControllerServiceName,
-						ControllerStatefulSet: shared.OperatorAlertingControllerServiceName + "-internal",
-						ControllerNodePort:    9093,
-						ControllerClusterPort: 9094,
-						ConfigMap:             "alertmanager-config",
-						ManagementHookHandler: shared.AlertingCortexHookHandler,
-						//ManagementHookHandlerName: shared.AlertingCortexHookHandler,
-					}
-				}
-				return cfgv1beta1.AlertingSpec{
-					Namespace:             r.namespace,
-					WorkerNodeService:     shared.OperatorAlertingClusterNodeServiceName,
-					WorkerPort:            r.spec.Alerting.WebPort,
-					WorkerStatefulSet:     shared.OperatorAlertingClusterNodeServiceName + "-internal",
-					ControllerNodeService: shared.OperatorAlertingControllerServiceName,
-					ControllerStatefulSet: shared.OperatorAlertingControllerServiceName + "-internal",
-					ControllerNodePort:    r.spec.Alerting.WebPort,
-					ControllerClusterPort: r.spec.Alerting.ClusterPort,
-					ConfigMap:             "alertmanager-config",
-				}
-			}(),
+			Alerting: cfgv1beta1.AlertingSpec{
+				Namespace:             r.namespace,
+				WorkerNodeService:     shared.OperatorAlertingClusterNodeServiceName,
+				WorkerPort:            r.spec.Alerting.WebPort,
+				WorkerStatefulSet:     shared.OperatorAlertingClusterNodeServiceName + "-internal",
+				ControllerNodeService: shared.OperatorAlertingControllerServiceName,
+				ControllerStatefulSet: shared.OperatorAlertingControllerServiceName + "-internal",
+				ControllerNodePort:    r.spec.Alerting.WebPort,
+				ControllerClusterPort: r.spec.Alerting.ClusterPort,
+				ConfigMap:             "alertmanager-config",
+			},
 			Profiling: r.spec.Profiling,
 		},
 	}

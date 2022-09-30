@@ -148,7 +148,7 @@ func run(ctx *Context) (runErr error) {
 				"opni-agent": Map{
 					"image": Map{
 						"repository": String(conf.ImageRepo),
-						"tag":        String(conf.ImageTag),
+						"tag":        String(conf.MinimalImageTag),
 					},
 					"enabled":          Bool(true),
 					"address":          String("opni"),

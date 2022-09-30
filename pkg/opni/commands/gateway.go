@@ -1,3 +1,5 @@
+//go:build !nogateway
+
 package commands
 
 import (
@@ -182,4 +184,8 @@ func BuildGatewayCmd() *cobra.Command {
 
 	serveCmd.Flags().StringVar(&configLocation, "config", "", "Absolute path to a config file")
 	return serveCmd
+}
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildGatewayCmd())
 }

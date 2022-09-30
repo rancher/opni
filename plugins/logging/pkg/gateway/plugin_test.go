@@ -248,12 +248,12 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 				Expect(object.Spec.Version).To(Equal("0.6.0"))
 			})
 		})
-		XSpecify("check upgrade available should return false", func() {
+		Specify("check upgrade available should return false", func() {
 			response, err := plugin.UpgradeAvailable(context.Background(), nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response.UpgradePending).To(BeFalse())
 		})
-		When("new version is available", func() {
+		XWhen("new version is available", func() {
 			BeforeEach(func() {
 				version = "0.7.0"
 			})

@@ -1,3 +1,5 @@
+//go:build !noinfra
+
 package main
 
 import (

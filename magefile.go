@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -19,9 +20,6 @@ import (
 	"github.com/kralicky/ragu/pkg/plugins/golang/gateway"
 	"github.com/kralicky/ragu/pkg/plugins/python"
 	"github.com/kralicky/ragu/pkg/ragu"
-
-	//mage:import
-	"github.com/kralicky/spellbook/build"
 
 	// mage:import
 	"github.com/kralicky/spellbook/mockgen"
@@ -38,7 +36,59 @@ import (
 var Default = All
 
 func All() {
-	mg.SerialDeps(Generate, build.Build)
+	mg.SerialDeps(Generate, Build)
+}
+
+func goBuild(args ...string) error {
+	tag, _ := os.LookupEnv("BUILD_VERSION")
+	tag = strings.TrimSpace(tag)
+
+	version := "unversioned"
+	if tag != "" {
+		version = tag
+	}
+
+	defaultArgs := []string{
+		"build",
+		"-ldflags", "-w -s -X github.com/rancher/opni/pkg/util.Version=" + version,
+		"-trimpath",
+		"-o", "./bin/",
+	}
+	return sh.RunWith(map[string]string{
+		"CGO_ENABLED": "0",
+	}, mg.GoCmd(), append(defaultArgs, args...)...)
+}
+
+func Build() error {
+	if err := goBuild("./cmd/...", "./internal/cmd/...", "./plugins/..."); err != nil {
+		return err
+	}
+
+	// create bin/plugins if it doesn't exist
+	if _, err := os.Stat("bin/plugins"); os.IsNotExist(err) {
+		if err := os.Mkdir("bin/plugins", 0755); err != nil {
+			return err
+		}
+	}
+
+	// move plugins to bin/plugins
+	entries, err := os.ReadDir("./plugins")
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		// add plugin_ prefix
+		pluginName := entry.Name()
+		if _, err := os.Stat(filepath.Join("bin", pluginName)); err == nil {
+			if err := os.Rename(filepath.Join("bin", pluginName), filepath.Join("bin", "plugins", "plugin_"+pluginName)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func Generate() {
@@ -199,41 +249,6 @@ func k8sModuleVersion() string {
 func init() {
 	k8sVersion := k8sModuleVersion()
 
-	extraTargets := map[string]string{}
-	// find plugins
-	entries, err := os.ReadDir("./plugins")
-	if err != nil {
-		panic(err)
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		extraTargets["./plugins/"+entry.Name()] = "bin/plugins/plugin_" + entry.Name()
-	}
-	// find (optional) internal cmds
-	if entries, err = os.ReadDir("./internal/cmd"); err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-			extraTargets["./internal/cmd/"+entry.Name()] = "bin/" + entry.Name()
-		}
-	}
-
-	// get version info
-	tag, _ := os.LookupEnv("BUILD_VERSION")
-	tag = strings.TrimSpace(tag)
-
-	version := "unversioned"
-	if tag != "" {
-		version = tag
-	}
-
-	build.Config.ExtraFlags = append(build.Config.ExtraFlags, "-trimpath")
-	build.Config.LDFlags = append(build.Config.LDFlags, "-X", "github.com/rancher/opni/pkg/util.Version="+version)
-	build.Config.ExtraTargets = extraTargets
-
 	mockgen.Config.Mocks = []mockgen.Mock{
 		{
 			Source: "pkg/rbac/rbac.go",
@@ -370,22 +385,26 @@ func Protobuf() {
 	mg.Deps(ProtobufGo, ProtobufPython)
 }
 
-func Minimal() {
-	build.Config.ExtraTargets = nil
-	build.Config.ExtraFlags = []string{
+func Minimal() error {
+	if err := goBuild(
 		"-tags",
 		"noagentv1,noplugins,nohooks,norealtime,nocortex,nodebug,noevents,nogateway,noetcd,noscheme_thirdparty",
+		"./cmd/opni",
+	); err != nil {
+		return err
 	}
-	mg.SerialDeps(Generate, build.Build)
 
-	// create the bin/plugins folder if it doesn't exist, and leave it empty
+	// create bin/plugins if it doesn't exist
 	if _, err := os.Stat("bin/plugins"); os.IsNotExist(err) {
-		os.Mkdir("bin/plugins", 0755)
+		if err := os.Mkdir("bin/plugins", 0755); err != nil {
+			return err
+		}
 	}
 
 	if upx, err := exec.LookPath("upx"); err == nil {
-		sh.Run(upx, "-q", "bin/opni")
+		return sh.Run(upx, "-q", "bin/opni")
 	}
+	return nil
 }
 
 func Charts() {

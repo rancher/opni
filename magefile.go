@@ -374,7 +374,7 @@ func Minimal() {
 	build.Config.ExtraTargets = nil
 	build.Config.ExtraFlags = []string{
 		"-tags",
-		"noagentv1,noplugins,nohooks,nomanager,norealtime,nocortex,nodebug,noevents,nogateway,noetcd,noscheme_thirdparty",
+		"noagentv1,noplugins,nohooks,norealtime,nocortex,nodebug,noevents,nogateway,noetcd,noscheme_thirdparty",
 	}
 	mg.SerialDeps(Generate, build.Build)
 

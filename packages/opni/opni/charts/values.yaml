@@ -41,6 +41,10 @@ gateway:
   extraVolumeMounts: []
   serviceAnnotations: {}
 
+  # Alerting
+  alerting:
+    enabled: false
+
 monitoring:
   enabled: false
   cortex:

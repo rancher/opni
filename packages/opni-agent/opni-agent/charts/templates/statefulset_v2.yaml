@@ -50,9 +50,6 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /etc/opni
-            - mountPath: /tmp/k8s-webhook-server/serving-certs
-              name: cert
-              readOnly: true
             - name: plugins
               mountPath: /var/lib/opni-agent/plugins
           livenessProbe:
@@ -104,27 +101,22 @@ spec:
           - name: NODE_FEATURE_DISCOVERY_IMAGE
             value: k8s.gcr.io/nfd/node-feature-discovery:v0.7.0
           args:
-          - --health-probe-bind-address=:8081
-          - --metrics-bind-address=127.0.0.1:8080
-          - --leader-elect
+          - --health-probe-bind-address=:7081
+          - --metrics-bind-address=127.0.0.1:7080
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - containerPort: 9443
-              name: webhook-server
-              protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8081
+              port: 7081
             initialDelaySeconds: 15
             periodSeconds: 20
           readinessProbe:
             httpGet:
               path: /readyz
-              port: 8081
+              port: 7081
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
@@ -137,11 +129,12 @@ spec:
           image: gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0
           args:
             - --secure-listen-address=0.0.0.0:8443
-            - --upstream=http://127.0.0.1:8080/
+            - --upstream=http://127.0.0.1:7080/
             - --logtostderr=true
             - --v=10
           ports:
-            - containerPort:
+            - containerPort: 8443
+              name: https
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

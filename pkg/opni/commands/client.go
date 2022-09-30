@@ -31,12 +31,11 @@ func init() {
 
 func BuildClientCmd() *cobra.Command {
 	var (
-		metricsAddr          string
-		enableLeaderElection bool
-		probeAddr            string
-		disableUsage         bool
-		echoVersion          bool
-		logLevel             string
+		metricsAddr  string
+		probeAddr    string
+		disableUsage bool
+		echoVersion  bool
+		logLevel     string
 	)
 
 	run := func(signalCtx context.Context) error {
@@ -61,8 +60,7 @@ func BuildClientCmd() *cobra.Command {
 			MetricsBindAddress:     metricsAddr,
 			Port:                   9443,
 			HealthProbeBindAddress: probeAddr,
-			LeaderElection:         enableLeaderElection,
-			LeaderElectionID:       "98e737d4.opni.io",
+			LeaderElection:         false,
 		})
 		if err != nil {
 			setupLog.Error(err, "unable to start client manager")
@@ -113,20 +111,6 @@ func BuildClientCmd() *cobra.Command {
 		features.PopulateFeatures(ctx, ctrl.GetConfigOrDie())
 		features.FeatureList.WatchConfigMap()
 
-		if features.FeatureList.FeatureIsEnabled("manage-opensearch") {
-			if err = (&controllers.OpniOpensearchReconciler{}).SetupWithManager(mgr); err != nil {
-				defer cancel()
-				setupLog.Error(err, "unable to create controller", "controller", "OpniOpensearch")
-				return err
-			}
-
-			if err = (&controllers.LoggingOpniOpensearchReconciler{}).SetupWithManager(mgr); err != nil {
-				defer cancel()
-				setupLog.Error(err, "unable to create controller", "controller", "Logging OpniOpensearch")
-				return err
-			}
-		}
-
 		errC := make(chan struct{})
 		waitctx.Go(ctx, func() {
 			setupLog.Info("starting manager")
@@ -158,8 +142,8 @@ func BuildClientCmd() *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "manager",
-		Short: "Run the Opni Manager",
+		Use:   "client",
+		Short: "Run the Opni Client Manager",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			signalCtx := ctrl.SetupSignalHandler()
 			for {
@@ -171,11 +155,8 @@ func BuildClientCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warning, error)")
-	cmd.Flags().StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	cmd.Flags().StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	cmd.Flags().BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
+	cmd.Flags().StringVar(&metricsAddr, "metrics-bind-address", ":7080", "The address the metric endpoint binds to.")
+	cmd.Flags().StringVar(&probeAddr, "health-probe-bind-address", ":7081", "The address the probe endpoint binds to.")
 	cmd.Flags().BoolVarP(&echoVersion, "version", "v", false, "print the version and exit")
 	features.DefaultMutableFeatureGate.AddFlag(cmd.Flags())
 

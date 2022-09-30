@@ -13,6 +13,8 @@ tilt-options.yaml
 tilt_config.json
 Dockerfile.dapper*
 *.DS_Store
+infra/Pulumi.*.yaml
+!infra/Pulumi.e2e.yaml
 
 # Distribution/packaging
 dist/

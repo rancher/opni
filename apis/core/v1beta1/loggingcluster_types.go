@@ -41,6 +41,8 @@ type LoggingClusterSpec struct {
 	OpensearchClusterRef *opnimeta.OpensearchClusterRef `json:"opensearchCluster,omitempty"`
 	IndexUserSecret      *corev1.LocalObjectReference   `json:"indexUser,omitempty"`
 	FriendlyName         string                         `json:"friendlyName,omitempty"`
+	LastSync             metav1.Time                    `json:"lastSync,omitempty"`
+	Enabled              bool                           `json:"enabled,omitempty"`
 }
 
 type LoggingClusterStatus struct {

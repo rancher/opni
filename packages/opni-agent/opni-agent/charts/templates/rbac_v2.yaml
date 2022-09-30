@@ -28,6 +28,42 @@ rules:
   verbs:
   - get
 
+# client manager permissions
+- apiGroups:
+  - logging.opni.io
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - daemonsets/finalizers
+  - daemonsets/status
+  - deployments
+  - deployments/finalizers
+  - deployments/status
+  - statefulsets
+  - statefulsets/finalizers
+  - statefulsets/status
+  verbs:
+  - "*"
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - "*"
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - persistentvolumeclaims
+  verbs:
+  - "*"
+
 # prometheus resources
 - apiGroups:
   - monitoring.coreos.com

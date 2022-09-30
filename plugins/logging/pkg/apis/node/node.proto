@@ -1,0 +1,41 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/logging/pkg/apis/node";
+
+import "google/protobuf/empty.proto";
+import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";
+import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
+
+package loggingnode;
+
+service NodeLoggingCapability {
+  rpc Sync(SyncRequest) returns (SyncResponse);
+}
+
+message LoggingCapabilityConfig {
+  bool enabled = 1;
+  // If enabled is false, conditions may contain a list of relevant status
+  // messages describing why the capability is disabled.
+  repeated string conditions = 2;
+  OpensearchConfig opensearchConfig = 3;
+}
+
+message OpensearchConfig {
+  string username = 1;
+  string password = 2;
+  string url = 3;
+  bool tracingEnabled = 4;
+}
+message SyncRequest {
+  LoggingCapabilityConfig currentConfig = 1;
+}
+
+enum ConfigStatus {
+  Unknown = 0;
+  UpToDate = 1;
+  NeedsUpdate = 2;
+}
+
+message SyncResponse {
+  ConfigStatus configStatus = 1;
+  LoggingCapabilityConfig updatedConfig = 2;
+}

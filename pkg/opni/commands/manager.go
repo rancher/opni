@@ -9,8 +9,6 @@ import (
 
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	"github.com/rancher/opni/apis"
-	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opni/common"
@@ -105,21 +103,6 @@ func BuildManagerCmd() *cobra.Command {
 			return err
 		}
 
-		if err = (&controllers.LoggingReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Logging")
-			return err
-		}
-
-		if err = (&controllers.LogAdapterReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "LogAdapter")
-			return err
-		}
-
-		if err = (&controllers.LoggingLogAdapterReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Logging LogAdapter")
-			return err
-		}
-
 		if err = (&controllers.PretrainedModelReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "PretrainedModel")
 			return err
@@ -157,16 +140,6 @@ func BuildManagerCmd() *cobra.Command {
 
 		if err = (&controllers.MulticlusterUserReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "MulticlusterUser")
-			return err
-		}
-
-		if err = (&controllers.DataPrepperReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DataPrepper")
-			return err
-		}
-
-		if err = (&controllers.LoggingDataPrepperReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Logging DataPrepper")
 			return err
 		}
 
@@ -235,16 +208,6 @@ func BuildManagerCmd() *cobra.Command {
 				setupLog.Error(err, "unable to create controller", "controller", "GpuPolicyAdapter")
 				return err
 			}
-		}
-
-		if err = (&v1beta2.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
-			return err
-		}
-
-		if err = (&loggingv1beta1.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
-			return err
 		}
 
 		// +kubebuilder:scaffold:builder

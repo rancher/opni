@@ -83,15 +83,15 @@ func BuildCortexClusterConfigureCmd() *cobra.Command {
 		Long: `Install or configure a Cortex cluster. If the cluster is already installed, this command will update the cluster configuration.
 Some fields contain secrets. You may provide the placeholder value ` + chalk.Red.Color("***") + ` to keep an existing secret when updating the cluster configuration.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			strategy, ok := cortexops.DeploymentMode_value[mode]
+			modeValue, ok := cortexops.DeploymentMode_value[mode]
 			if !ok {
-				return fmt.Errorf("unknown deployment strategy %s", mode)
+				return fmt.Errorf("unknown mode %q", mode)
 			}
 			if storage.Backend == "swift" {
 				storage.Swift.LoadFromEnv()
 			}
 			_, err := opsClient.ConfigureCluster(cmd.Context(), &cortexops.ClusterConfiguration{
-				Mode:    cortexops.DeploymentMode(strategy),
+				Mode:    cortexops.DeploymentMode(modeValue),
 				Storage: &storage,
 				Grafana: &cortexops.GrafanaConfig{
 					Enabled:  &grafanaEnabled,
@@ -113,6 +113,8 @@ Some fields contain secrets. You may provide the placeholder value ` + chalk.Red
 	cmd.Flags().AddFlagSet(storage.FlagSet())
 	cmd.Flags().BoolVar(&grafanaEnabled, "grafana", true, "Enable Grafana")
 	cmd.Flags().StringVar(&grafanaHostname, "grafana-hostname", "", "Grafana hostname")
+	cmd.MarkFlagRequired("mode")
+	cmd.MarkFlagRequired("storage.backend")
 	return cmd
 }
 

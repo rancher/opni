@@ -25,7 +25,7 @@ func (cfg *StorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) 
 	cfg.Swift.RegisterFlagsWithPrefix(prefix, f)
 	cfg.Filesystem.RegisterFlagsWithPrefix(prefix, f)
 
-	f.StringVar(&cfg.Backend, prefix+"backend", S3, fmt.Sprintf("Backend storage to use. Supported backends are: %s.", strings.Join(supportedBackends, ", ")))
+	f.StringVar(&cfg.Backend, prefix+"backend", "", fmt.Sprintf("Backend storage to use. Supported backends are: %s.", strings.Join(supportedBackends, ", ")))
 }
 
 type dpb struct {

@@ -16,6 +16,7 @@ func BuildMetricsCmd() *cobra.Command {
 	cmd.AddCommand(BuildCortexOpsCmd())
 
 	ConfigureManagementCommand(cmd)
+	ConfigureCortexAdminCommand(cmd)
 	return cmd
 }
 

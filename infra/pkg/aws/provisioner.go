@@ -52,7 +52,7 @@ type cognitoResources struct {
 
 func (p *provisioner) ProvisionMainCluster(ctx *pulumi.Context, conf resources.MainClusterConfig) (*resources.MainClusterOutput, error) {
 	p.clusterName = conf.ID.ApplyT(func(id string) string {
-		return fmt.Sprintf("opni-e2e-test-%s", id)
+		return fmt.Sprintf("%s-%s", conf.NamePrefix, id)
 	}).(StringOutput)
 
 	eks, err := p.buildEksResources(ctx, conf)

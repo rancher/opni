@@ -13,6 +13,9 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 	zoneID := config.Require(ctx, "opni:zoneID")
 	useLocalCharts := config.GetBool(ctx, "opni:useLocalCharts")
 	config.GetObject(ctx, "opni:cluster", &clusterConfig)
+	tags := map[string]string{}
+	config.GetObject(ctx, "opni:tags", &tags)
+	noIdInDnsNames := config.GetBool(ctx, "opni:noIdInDnsNames")
 	clusterConfig.LoadDefaults()
 
 	var cloud, imageRepo, imageTag, minimalImageTag string
@@ -47,6 +50,8 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 		MinimalImageTag: minimalImageTag,
 		UseLocalCharts:  useLocalCharts,
 		Cluster:         clusterConfig,
+		Tags:            tags,
+		NoIdInDnsNames:  noIdInDnsNames,
 	}
 	conf.LoadDefaults()
 	return conf
@@ -65,6 +70,7 @@ type Config struct {
 	KubePrometheusEnabled bool              `json:"kubePrometheusEnabled"`
 	Cluster               ClusterConfig     `json:"cluster"`
 	Tags                  map[string]string `json:"tags"`
+	NoIdInDnsNames        bool              `json:"noIdInDnsNames"`
 }
 
 type ClusterConfig struct {

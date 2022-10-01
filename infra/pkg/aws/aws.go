@@ -55,10 +55,16 @@ func (p *provisioner) buildDnsResources(ctx *Context, conf resources.MainCluster
 	}
 
 	grafanaFqdn := All(conf.ID, zone.Name).ApplyT(func(idZoneName []any) string {
-		return fmt.Sprintf("grafana.%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
+		if !conf.NoIdInDnsNames {
+			return fmt.Sprintf("grafana.%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
+		}
+		return fmt.Sprintf("grafana.%s.%s", conf.NamePrefix, idZoneName[1])
 	}).(StringOutput)
 	gatewayFqdn := All(conf.ID, zone.Name).ApplyT(func(idZoneName []any) string {
-		return fmt.Sprintf("%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
+		if !conf.NoIdInDnsNames {
+			return fmt.Sprintf("%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
+		}
+		return fmt.Sprintf("%s.%s", conf.NamePrefix, idZoneName[1])
 	}).(StringOutput)
 
 	cert, err := acm.NewCertificate(ctx, "cert", &acm.CertificateArgs{

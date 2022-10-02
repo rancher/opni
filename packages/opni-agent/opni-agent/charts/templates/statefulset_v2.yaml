@@ -1,4 +1,7 @@
 {{- if eq .Values.agent.version "v2" }}
+{{- if not (or (eq .Values.persistence.mode "pvc") (eq .Values.persistence.mode "hostPath")) }}
+{{- fail "persistence mode must be pvc or hostPath" }}
+{{- end }}
 {{- $versionTag := printf "v%s-minimal" .Chart.AppVersion }}
 apiVersion: apps/v1
 kind: StatefulSet
@@ -155,6 +158,13 @@ spec:
               - key: config.yaml
                 path: config.yaml
             defaultMode: 256
+        {{- if eq .Values.persistence.mode "hostPath" }}
+        - name: plugins
+          hostPath:
+            path: /var/opni-plugins
+            type: DirectoryOrCreate
+        {{- end }}
+  {{- if eq .Values.persistence.mode "pvc" }}
   volumeClaimTemplates:
     - metadata:
         name: plugins
@@ -163,4 +173,5 @@ spec:
         resources:
           requests:
             storage: 2Gi
+  {{- end }}
 {{- end }}

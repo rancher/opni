@@ -80,6 +80,14 @@ pin: ""
 # Gateway address
 address: ""
 
+# v2 only
+persistence:
+  # defailt is to use a persistent volume claim template
+  mode: pvc
+  # clusters without persistent storage can use a hostPath volume
+  #mode: hostPath
+
+
 bootstrapInCluster:
   # If enabled, the agent will bootstrap itself automatically by interacting
   # directly with the management API. Use this when running the agent in the

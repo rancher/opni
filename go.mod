@@ -21,6 +21,7 @@ require (
 	github.com/charmbracelet/bubbles v0.13.0
 	github.com/charmbracelet/bubbletea v0.22.1
 	github.com/charmbracelet/lipgloss v0.6.0
+	github.com/cockroachdb/errors v1.2.4
 	github.com/containerd/containerd v1.6.6
 	github.com/cortexproject/cortex v1.13.0
 	github.com/dbason/featureflags v0.0.0-20220803034705-b6242a8d72b2
@@ -57,9 +58,9 @@ require (
 	github.com/kralicky/gpkg v0.0.0-20220311205216-0d8ea9557555
 	github.com/kralicky/grpc-gateway/v2 v2.11.0-1
 	github.com/kralicky/kmatch v0.0.0-20220713045459-85a252b9275e
-	github.com/kralicky/ragu v1.0.0-beta2
+	github.com/kralicky/ragu v1.0.0-rc1
 	github.com/kralicky/spellbook v0.0.0-20220829172922-3d415e02ee8a
-	github.com/kralicky/totem v1.0.1-rc1.0.20220926165802-c2ca5a25d3ec
+	github.com/kralicky/totem v1.1.0-rc1
 	github.com/kralicky/yaml/v3 v3.0.0-20220520012407-b0e7050bd81d
 	github.com/kubernetes-sigs/node-feature-discovery-operator v0.2.1-0.20210826163723-568b36491208
 	github.com/lestrrat-go/backoff/v2 v2.0.8
@@ -94,8 +95,7 @@ require (
 	github.com/qmuntal/stateless v1.6.1
 	github.com/rancher/charts-build-scripts v0.0.0-00010101000000-000000000000
 	github.com/rancher/kubernetes-provider-detector v0.1.5
-	github.com/samber/lo v1.26.0
-	github.com/samber/mo v1.5.0
+	github.com/samber/lo v1.28.2
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/tidwall/gjson v1.14.2
@@ -116,7 +116,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.23.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/exp v0.0.0-20220921164117-439092de6870
+	golang.org/x/exp v0.0.0-20220927162542-c76eaa363f9d
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab
@@ -510,7 +510,6 @@ replace (
 	github.com/NVIDIA/gpu-operator => github.com/kralicky/gpu-operator v1.8.1-0.20211112183255-72529edf38be
 	github.com/grafana-operator/grafana-operator/v4 => github.com/kralicky/grafana-operator/v4 v4.2.1-0.20220602163320-c4f349ffe03f
 	github.com/grafana/cortex-tools => github.com/kralicky/cortex-tools v0.10.8-0.20220627221302-78f58c901de0
-	github.com/kralicky/ragu => github.com/kralicky/ragu v1.0.0-beta2.0.20220804212527-11bbfeeda553
 	github.com/rancher/charts-build-scripts => github.com/dbason/charts-build-scripts v0.3.4-0.20220429024555-807c076e8116
 	go.uber.org/zap => github.com/kralicky/zap v1.21.1-0.20220517214003-da0ae127f4db
 	google.golang.org/protobuf => github.com/kralicky/protobuf-go v0.0.0-20220803164439-eb1dfcbf71fa

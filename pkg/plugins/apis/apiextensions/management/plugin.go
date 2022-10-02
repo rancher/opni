@@ -5,7 +5,7 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/kralicky/ragu/pkg/ragu/compat"
+	"github.com/kralicky/ragu/compat"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/util"

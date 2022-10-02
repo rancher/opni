@@ -17,9 +17,9 @@ import (
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 
-	"github.com/kralicky/ragu/pkg/plugins/golang/gateway"
+	"github.com/kralicky/ragu"
+	_ "github.com/kralicky/ragu/compat"
 	"github.com/kralicky/ragu/pkg/plugins/python"
-	"github.com/kralicky/ragu/pkg/ragu"
 
 	// mage:import
 	"github.com/kralicky/spellbook/mockgen"
@@ -351,7 +351,7 @@ func init() {
 }
 
 func ProtobufGo() error {
-	out, err := ragu.GenerateCode(append(ragu.DefaultGenerators(), gateway.Generator),
+	out, err := ragu.GenerateCode(ragu.DefaultGenerators(),
 		"pkg/**/*.proto",
 		"plugins/**/*.proto",
 	)

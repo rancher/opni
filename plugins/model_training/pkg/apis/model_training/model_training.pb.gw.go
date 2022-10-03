@@ -15,6 +15,7 @@ import (
 
 	"github.com/kralicky/grpc-gateway/v2/runtime"
 	"github.com/kralicky/grpc-gateway/v2/utilities"
+	"github.com/rancher/opni/pkg/apis/core/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -31,38 +32,54 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-var (
-	filter_ModelTraining_ListWorkloads_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
-)
-
-func request_ModelTraining_ListWorkloads_0(ctx context.Context, marshaler runtime.Marshaler, client ModelTrainingClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ClusterID
+func request_ModelTraining_WorkloadLogCount_0(ctx context.Context, marshaler runtime.Marshaler, client ModelTrainingClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq v1.Reference
 	var metadata runtime.ServerMetadata
 
-	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_ModelTraining_ListWorkloads_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
 	}
 
-	msg, err := client.ListWorkloads(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	protoReq.Id, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
+	}
+
+	msg, err := client.WorkloadLogCount(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_ModelTraining_ListWorkloads_0(ctx context.Context, marshaler runtime.Marshaler, server ModelTrainingServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ClusterID
+func local_request_ModelTraining_WorkloadLogCount_0(ctx context.Context, marshaler runtime.Marshaler, server ModelTrainingServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq v1.Reference
 	var metadata runtime.ServerMetadata
 
-	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_ModelTraining_ListWorkloads_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "id")
 	}
 
-	msg, err := server.ListWorkloads(ctx, &protoReq)
+	protoReq.Id, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "id", err)
+	}
+
+	msg, err := server.WorkloadLogCount(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -73,19 +90,19 @@ func local_request_ModelTraining_ListWorkloads_0(ctx context.Context, marshaler 
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterModelTrainingHandlerFromEndpoint instead.
 func RegisterModelTrainingHandlerServer(ctx context.Context, mux *runtime.ServeMux, server ModelTrainingServer) error {
 
-	mux.Handle("GET", pattern_ModelTraining_ListWorkloads_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ModelTraining_WorkloadLogCount_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/model_training.ModelTraining/ListWorkloads", runtime.WithHTTPPathPattern("/get_workloads"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/model_training.ModelTraining/WorkloadLogCount", runtime.WithHTTPPathPattern("/workload_log_count/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ModelTraining_ListWorkloads_0(ctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ModelTraining_WorkloadLogCount_0(ctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -93,7 +110,7 @@ func RegisterModelTrainingHandlerServer(ctx context.Context, mux *runtime.ServeM
 			return
 		}
 
-		forward_ModelTraining_ListWorkloads_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ModelTraining_WorkloadLogCount_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -138,24 +155,24 @@ func RegisterModelTrainingHandler(ctx context.Context, mux *runtime.ServeMux, co
 // "ModelTrainingClient" to call the correct interceptors.
 func RegisterModelTrainingHandlerClient(ctx context.Context, mux *runtime.ServeMux, client ModelTrainingClient) error {
 
-	mux.Handle("GET", pattern_ModelTraining_ListWorkloads_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ModelTraining_WorkloadLogCount_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/model_training.ModelTraining/ListWorkloads", runtime.WithHTTPPathPattern("/get_workloads"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/model_training.ModelTraining/WorkloadLogCount", runtime.WithHTTPPathPattern("/workload_log_count/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ModelTraining_ListWorkloads_0(ctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ModelTraining_WorkloadLogCount_0(ctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ModelTraining_ListWorkloads_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ModelTraining_WorkloadLogCount_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -163,9 +180,9 @@ func RegisterModelTrainingHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_ModelTraining_ListWorkloads_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"get_workloads"}, ""))
+	pattern_ModelTraining_WorkloadLogCount_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"workload_log_count", "id"}, ""))
 )
 
 var (
-	forward_ModelTraining_ListWorkloads_0 = runtime.ForwardResponseMessage
+	forward_ModelTraining_WorkloadLogCount_0 = runtime.ForwardResponseMessage
 )

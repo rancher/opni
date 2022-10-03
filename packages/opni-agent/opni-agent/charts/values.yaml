@@ -80,6 +80,15 @@ pin: ""
 # Gateway address
 address: ""
 
+# v2 only
+persistence:
+  # default is to use a persistent volume claim template
+  mode: pvc
+  # clusters without persistent storage can use a hostPath volume
+  #mode: hostPath
+  # hostDirectoryPath: /var/lib/opni/plugins
+
+
 bootstrapInCluster:
   # If enabled, the agent will bootstrap itself automatically by interacting
   # directly with the management API. Use this when running the agent in the

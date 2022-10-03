@@ -2,7 +2,6 @@ package backend
 
 import (
 	"context"
-	"fmt"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -84,9 +83,11 @@ func (b *LoggingBackend) Install(ctx context.Context, req *capabilityv1.InstallR
 
 func (b *LoggingBackend) InstallerTemplate(context.Context, *emptypb.Empty) (*capabilityv1.InstallerTemplateResponse, error) {
 	return &capabilityv1.InstallerTemplateResponse{
-		Template: fmt.Sprintf(`opni bootstrap logging {{ arg "input" "Opensearch Cluster Name" "+required" "+default:%s" }} `, b.OpensearchCluster.Name) +
-			`{{ arg "select" "Kubernetes Provider" "" "rke" "rke2" "k3s" "aks" "eks" "gke" "+omitEmpty" "+format:--provider={{ value }}" }} ` +
-			`--token={{ .Token }} --pin={{ .Pin }} ` +
-			`--gateway-url={{ arg "input" "Gateway Hostname" "+default:{{ .Address }}" }}:{{ arg "input" "Gateway Port" "+default:{{ .Port }}" }}`,
+		Template: `helm install opni-agent ` +
+			`{{ arg "input" "Namespace" "+omitEmpty" "+default:opni-agent" "+format:-n {{ value }}" }} ` +
+			`oci://docker.io/rancher/opni-agent --version=0.5.4 ` +
+			`--set monitoring.enabled=true,token={{ .Token }},pin={{ .Pin }},address={{ arg "input" "Gateway Hostname" "+default:{{ .Address }}" }}:{{ arg "input" "Gateway Port" "+default:{{ .Port }}" }} ` +
+			`{{ arg "toggle" "Install Prometheus Operator" "+omitEmpty" "+default:false" "+format:--set kube-prometheus-stack.enabled={{ value }}" }} ` +
+			`--create-namespace`,
 	}, nil
 }

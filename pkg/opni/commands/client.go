@@ -108,9 +108,6 @@ func BuildClientCmd() *cobra.Command {
 
 		ctx, cancel := context.WithCancel(waitctx.FromContext(signalCtx))
 
-		features.PopulateFeatures(ctx, ctrl.GetConfigOrDie())
-		features.FeatureList.WatchConfigMap()
-
 		errC := make(chan struct{})
 		waitctx.Go(ctx, func() {
 			setupLog.Info("starting manager")
@@ -121,11 +118,6 @@ func BuildClientCmd() *cobra.Command {
 		})
 
 		reloadC := make(chan struct{})
-		go func() {
-			fNotify := features.FeatureList.NotifyChange()
-			<-fNotify
-			close(reloadC)
-		}()
 
 		select {
 		case <-reloadC:

@@ -82,7 +82,7 @@ address: ""
 
 # v2 only
 persistence:
-  # defailt is to use a persistent volume claim template
+  # default is to use a persistent volume claim template
   mode: pvc
   # clusters without persistent storage can use a hostPath volume
   #mode: hostPath

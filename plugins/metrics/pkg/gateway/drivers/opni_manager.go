@@ -241,6 +241,10 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 			conf.GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage)
 			cluster.Spec.Cortex.Enabled = true
 			cluster.Spec.Cortex.Storage = conf.GetStorage()
+			if cluster.Spec.Cortex.Storage.Filesystem != nil &&
+				cluster.Spec.Cortex.Storage.Filesystem.Directory == "" {
+				cluster.Spec.Cortex.Storage.Filesystem.Directory = "/data"
+			}
 			cluster.Spec.Grafana.Enabled = *conf.Grafana.Enabled
 			cluster.Spec.Grafana.Hostname = conf.Grafana.Hostname
 			cluster.Spec.Gateway = v1.LocalObjectReference{
@@ -251,6 +255,10 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 			conf.GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage)
 			cluster.Spec.Cortex.Enabled = true
 			cluster.Spec.Cortex.Storage = conf.GetStorage()
+			if cluster.Spec.Cortex.Storage.Filesystem != nil &&
+				cluster.Spec.Cortex.Storage.Filesystem.Directory == "" {
+				cluster.Spec.Cortex.Storage.Filesystem.Directory = "/data"
+			}
 			cluster.Spec.Grafana.Enabled = *conf.Grafana.Enabled
 			cluster.Spec.Grafana.Hostname = conf.Grafana.Hostname
 			cluster.Spec.Gateway = v1.LocalObjectReference{

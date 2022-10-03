@@ -15,9 +15,10 @@ service ModelTraining {
 }
 
 message WorkloadResponse {
-  string namespace = 1;
-  string deployment = 2;
-  int64 count = 3;
+  string cluster_id = 1;
+  string namespace = 2;
+  string deployment = 3;
+  int64 count = 4;
 }
 
 message WorkloadsList {

@@ -139,7 +139,7 @@ dagger.#Plan & {
 					args: ["-v", target]
 				}
 				export: directories: {
-					"/opt/":            _
+					"/opt":             _
 					"/src/bin":         _
 					"/src/bin/plugins": _
 					if target == "charts" {

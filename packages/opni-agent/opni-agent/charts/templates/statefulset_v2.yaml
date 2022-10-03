@@ -161,7 +161,7 @@ spec:
         {{- if eq .Values.persistence.mode "hostPath" }}
         - name: plugins
           hostPath:
-            path: /var/opni-plugins
+            path: {{ default "/var/lib/opni/plugins" .Values.persistence.hostDirectoryPath }}
             type: DirectoryOrCreate
         {{- end }}
   {{- if eq .Values.persistence.mode "pvc" }}

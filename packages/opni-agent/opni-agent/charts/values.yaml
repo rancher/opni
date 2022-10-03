@@ -86,6 +86,7 @@ persistence:
   mode: pvc
   # clusters without persistent storage can use a hostPath volume
   #mode: hostPath
+  # hostDirectoryPath: /var/lib/opni/plugins
 
 
 bootstrapInCluster:

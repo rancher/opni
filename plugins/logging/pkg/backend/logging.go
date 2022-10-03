@@ -9,6 +9,7 @@ import (
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
+	"github.com/rancher/opni/pkg/util"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/node"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
@@ -21,7 +22,7 @@ type LoggingBackend struct {
 	capabilityv1.UnsafeBackendServer
 	node.UnsafeNodeLoggingCapabilityServer
 	LoggingBackendConfig
-	loggingutil.Initializer
+	util.Initializer
 
 	nodeStatusMu      sync.RWMutex
 	desiredNodeSpecMu sync.RWMutex

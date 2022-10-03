@@ -34,7 +34,7 @@ import (
 type CortexAdminServer struct {
 	cortexadmin.UnsafeCortexAdminServer
 	CortexAdminServerConfig
-	metricsutil.Initializer
+	util.Initializer
 }
 
 type CortexAdminServerConfig struct {

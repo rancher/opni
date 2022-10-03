@@ -6,21 +6,20 @@ import (
 )
 
 type Initializer struct {
-	initialized bool
-
-	initLock sync.Mutex
-	initCond sync.Cond
+	setupCondOnce sync.Once
+	initCond      *sync.Cond
+	initialized   bool
 }
 
 func (i *Initializer) InitOnce(f func()) {
 	i.checkInitCond()
 	i.initCond.L.Lock()
+	defer i.initCond.L.Unlock()
 	if i.initialized {
 		return
 	}
 	f()
 	i.initialized = true
-	i.initCond.L.Unlock()
 	i.initCond.Broadcast()
 }
 
@@ -55,7 +54,7 @@ func (i *Initializer) WaitForInitContext(ctx context.Context) error {
 }
 
 func (i *Initializer) checkInitCond() {
-	i.initLock.Lock()
-	defer i.initLock.Unlock()
-	i.initCond.L = &i.initLock
+	i.setupCondOnce.Do(func() {
+		i.initCond = sync.NewCond(&sync.Mutex{})
+	})
 }

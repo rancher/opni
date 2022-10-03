@@ -27,7 +27,7 @@ type RemoteWriteForwarder struct {
 	remotewrite.UnsafeRemoteWriteServer
 	RemoteWriteForwarderConfig
 
-	metricsutil.Initializer
+	util.Initializer
 }
 
 var _ remotewrite.RemoteWriteServer = (*RemoteWriteForwarder)(nil)

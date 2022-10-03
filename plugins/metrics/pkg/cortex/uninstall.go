@@ -17,6 +17,7 @@ import (
 	"github.com/rancher/opni/pkg/machinery/uninstall"
 	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/task"
+	"github.com/rancher/opni/pkg/util"
 	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
@@ -27,7 +28,7 @@ type UninstallTaskRunner struct {
 	uninstall.DefaultPendingHandler
 	UninstallTaskRunnerConfig
 
-	metricsutil.Initializer
+	util.Initializer
 }
 
 type UninstallTaskRunnerConfig struct {

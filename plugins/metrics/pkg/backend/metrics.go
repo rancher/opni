@@ -43,7 +43,7 @@ type MetricsBackend struct {
 	desiredNodeSpecMu sync.RWMutex
 	desiredNodeSpec   map[string]*node.MetricsCapabilitySpec
 
-	metricsutil.Initializer
+	util.Initializer
 }
 
 var _ node.NodeMetricsCapabilityServer = (*MetricsBackend)(nil)

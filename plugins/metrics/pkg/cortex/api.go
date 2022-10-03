@@ -16,6 +16,7 @@ import (
 	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	"github.com/rancher/opni/pkg/rbac"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/fwd"
 	metricsutil "github.com/rancher/opni/plugins/metrics/pkg/util"
 )
@@ -34,7 +35,7 @@ type middlewares struct {
 
 type HttpApiServer struct {
 	HttpApiServerConfig
-	metricsutil.Initializer
+	util.Initializer
 }
 
 type HttpApiServerConfig struct {

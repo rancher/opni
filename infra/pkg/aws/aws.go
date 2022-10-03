@@ -28,15 +28,17 @@ func (p *provisioner) buildEksResources(ctx *Context, conf resources.MainCluster
 	}
 
 	cluster, err := eks.NewCluster(ctx, conf.NamePrefix, &eks.ClusterArgs{
-		InstanceType:     StringPtr(conf.NodeInstanceType),
-		MaxSize:          Int(conf.NodeGroupMaxSize),
-		MinSize:          Int(conf.NodeGroupMinSize),
-		DesiredCapacity:  Int(conf.NodeGroupDesiredSize),
-		VpcId:            vpc.VpcId,
-		PublicSubnetIds:  vpc.PublicSubnetIds,
-		PrivateSubnetIds: vpc.PrivateSubnetIds,
-		Tags:             ToStringMap(conf.Tags),
-		ClusterTags:      ToStringMap(conf.Tags),
+		InstanceType:             StringPtr(conf.NodeInstanceType),
+		MaxSize:                  Int(conf.NodeGroupMaxSize),
+		MinSize:                  Int(conf.NodeGroupMinSize),
+		DesiredCapacity:          Int(conf.NodeGroupDesiredSize),
+		VpcId:                    vpc.VpcId,
+		PublicSubnetIds:          vpc.PublicSubnetIds,
+		PrivateSubnetIds:         vpc.PrivateSubnetIds,
+		Tags:                     ToStringMap(conf.Tags),
+		ClusterTags:              ToStringMap(conf.Tags),
+		ClusterSecurityGroupTags: ToStringMap(conf.Tags),
+		NodeSecurityGroupTags:    ToStringMap(conf.Tags),
 	})
 	if err != nil {
 		return nil, errors.WithStack(err)

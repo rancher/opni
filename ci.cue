@@ -4,6 +4,7 @@ package main
 import (
 	"strings"
 	"encoding/json"
+	"encoding/yaml"
 	"dagger.io/dagger"
 	"dagger.io/dagger/core"
 	"universe.dagger.io/docker"
@@ -14,6 +15,7 @@ import (
 	"github.com/rancher/opni/internal/builders"
 	"github.com/rancher/opni/internal/mage"
 	"github.com/rancher/opni/internal/util"
+	"github.com/rancher/opni/internal/helm"
 	"github.com/rancher/opni/images"
 )
 
@@ -30,6 +32,7 @@ dagger.#Plan & {
 			OPNI_UI_REPO:           string | *"rancher/opni-ui"
 			OPNI_UI_BRANCH:         string | *"main"
 			OPNI_UI_BUILD_IMAGE:    string | *"rancher/opni-monitoring-ui-build"
+			HELM_OCI_REPO:          string | *"docker.io/rancher"
 			DASHBOARDS_VERSION:     string | *"1.3.3"
 			OPENSEARCH_VERSION:     string | *"1.3.3"
 			PLUGIN_VERSION:         string | *"0.5.4"
@@ -56,7 +59,7 @@ dagger.#Plan & {
 					"internal/cmd/testenv",
 				]
 			}
-			"bin": write: contents:             actions.build.bin
+			"bin": write: contents:             actions.build.export.directories."/src/bin"
 			"web/dist": write: contents:        actions.web.dist
 			"cover.out": write: contents:       actions.test.export.files["/src/cover.out"]
 			"aiops/apis/dist": write: contents: actions.pypi.sdist.output
@@ -100,10 +103,9 @@ dagger.#Plan & {
 
 		_buildVersion: client.env.BUILD_VERSION | *""
 		#_build: {
-			output:   docker.#Image
 			target:   string | *"all"
 			_minimal: target == "minimal"
-			docker.#Build & {
+			_exec:    docker.#Build & {
 				steps: [
 					docker.#Copy & {
 						input:    _mageImage.output
@@ -124,44 +126,27 @@ dagger.#Plan & {
 						contents: actions.web.dist
 						dest:     "/src/web/dist/"
 					},
-					docker.#Run & {
-						workdir: "/src"
-						command: {
-							name: "go"
-							args: ["mod", "download"]
-						}
-					},
-					docker.#Run & {
-						workdir: "/src"
-						env: {
-							"BUILD_VERSION": _buildVersion
-						}
-						command: {
-							name: "mage"
-							args: ["-v", target]
-						}
-					},
 				]
 			}
-			bin:        dagger.#FS & _binSubdir.output
-			_binSubdir: core.#Subdir & {
-				input: output.rootfs
-				path:  "/src/bin"
-			}
-			plugins:        dagger.#FS & _pluginsSubdir.output
-			_pluginsSubdir: core.#Subdir & {
-				input: output.rootfs
-				path:  "/src/bin/plugins"
-			}
-			opt:        dagger.#FS & _optSubdir.output
-			_optSubdir: core.#Subdir & {
-				if _minimal {
-					input: _mageImage.output.rootfs // empty
+			docker.#Run & {
+				input:   _exec.output
+				workdir: "/src"
+				env: {
+					"BUILD_VERSION": _buildVersion
 				}
-				if !_minimal {
-					input: output.rootfs
+				command: {
+					name: "mage"
+					args: ["-v", target]
 				}
-				path: "/opt"
+				export: directories: {
+					"/opt/":            _
+					"/src/bin":         _
+					"/src/bin/plugins": _
+					if target == "charts" {
+						"/src/charts": _
+						"/src/assets": _
+					}
+				}
 			}
 		}
 
@@ -171,12 +156,17 @@ dagger.#Plan & {
 		#_minimalBuild: #_build & {
 			target: "minimal"
 		}
+		#_chartsBuild: #_build & {
+			target: "charts"
+		}
+
 		_defaultBuild: #_defaultBuild
 		_minimalBuild: #_minimalBuild
+		_chartsBuild:  #_chartsBuild
 
-		build: _defaultBuild
-
+		build:        _defaultBuild
 		minimalBuild: _minimalBuild
+		chartsBuild:  _chartsBuild
 
 		// Build the destination base image
 		_baseimage: alpine.#Build & {
@@ -193,18 +183,18 @@ dagger.#Plan & {
 				steps: [
 					docker.#Copy & {
 						input:    _baseimage.output
-						contents: sourceBuild.bin
+						contents: sourceBuild.export.directories."/src/bin"
 						source:   "opni"
 						dest:     "/usr/bin/opni"
 					},
 					docker.#Copy & {
 						// input connects to previous step's output
-						contents: sourceBuild.plugins
+						contents: sourceBuild.export.directories."/src/bin/plugins"
 						dest:     "/var/lib/opni/plugins/"
 						exclude: ["plugin_example"]
 					},
 					docker.#Copy & {
-						contents: sourceBuild.opt
+						contents: sourceBuild.export.directories."/opt"
 						dest:     "/opt/"
 					},
 					docker.#Set & {
@@ -314,9 +304,7 @@ dagger.#Plan & {
 			_e2eImage: docker.#Build & {
 				steps: [
 					images.installers.debian.#AwsCli & {
-						_input: #_build & {
-							target: "charts"
-						}
+						_input:  _chartsBuild
 						input:   _input.output
 						workdir: "/src"
 					},
@@ -418,6 +406,24 @@ dagger.#Plan & {
 			webcache: docker.#Push & {
 				dest:  web.buildImage
 				image: web.output
+				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+					auth: {
+						username: client.env.DOCKER_USERNAME
+						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
+			}
+
+			_agentPackageConfig: core.#ReadFile & {
+				input: client.filesystem.".".read.contents
+				path:  "packages/opni-agent/opni-agent/package.yaml"
+			}
+			_agentChartVersion: yaml.Unmarshal(_agentPackageConfig.contents).version
+
+			charts: helm.#Push & {
+				source: _chartsBuild.export.directories."/src/assets"
+				chart:  "opni-agent/opni-agent-\(_agentChartVersion).tgz"
+				remote: client.env.HELM_OCI_REPO
 				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
 					auth: {
 						username: client.env.DOCKER_USERNAME

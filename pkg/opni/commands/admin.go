@@ -1,3 +1,5 @@
+//go:build !noplugins
+
 package commands
 
 import (
@@ -7,26 +9,45 @@ import (
 	"github.com/araddon/dateparse"
 	"github.com/olebedev/when"
 	"github.com/prometheus/common/model"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func BuildAdminCmd() *cobra.Command {
+func BuildCortexAdminCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "admin",
-		Short: "Cortex admin commands",
+		Short: "Cortex admin tools",
 	}
 	cmd.AddCommand(BuildQueryCmd())
 	cmd.AddCommand(BuildQueryRangeCmd())
 	cmd.AddCommand(BuildStorageInfoCmd())
 	cmd.AddCommand(BuildFlushBlocksCmd())
-	ConfigureManagementCommand(cmd)
+	cmd.AddCommand(BuildCortexStatusCmd())
+	cmd.AddCommand(BuildCortexConfigCmd())
+	cmd.AddCommand(BuildClusterStatsCmd())
+
+	return cmd
+}
+
+func BuildCortexOpsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "ops",
+		Short: "Cortex cluster setup and config operations",
+	}
+	cmd.AddCommand(BuildCortexClusterStatusCmd())
+	cmd.AddCommand(BuildCortexClusterConfigureCmd())
+	cmd.AddCommand(BuildCortexClusterGetConfigurationCmd())
+	cmd.AddCommand(BuildCortexClusterUninstallCmd())
+
 	return cmd
 }
 
@@ -161,6 +182,92 @@ func BuildFlushBlocksCmd() *cobra.Command {
 			}
 			lg.Info("Success")
 			return nil
+		},
+	}
+	return cmd
+}
+
+func BuildCortexStatusCmd() *cobra.Command {
+	var outputFormat string
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show status of all cortex components",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			status, err := adminClient.GetCortexStatus(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				return err
+			}
+			switch outputFormat {
+			case "json":
+				fmt.Println(protojson.Format(status))
+			case "table":
+				fmt.Println(cliutil.RenderCortexClusterStatus(status))
+			default:
+				return fmt.Errorf("unknown output format: %s", outputFormat)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table|json)")
+	return cmd
+}
+
+func BuildCortexConfigCmd() *cobra.Command {
+	var mode string
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "Show cortex configuration",
+		Long: `
+Modes:
+(empty)    - show current configuration
+"diff"     - show only values that differ from the defaults
+"defaults" - show only the default values
+`[1:],
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := adminClient.GetCortexConfig(cmd.Context(), &cortexadmin.ConfigRequest{
+				ConfigModes: []string{mode},
+			})
+			if err != nil {
+				return err
+			}
+			for _, config := range resp.ConfigYaml {
+				fmt.Println(config)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&mode, "mode", "", "config mode")
+	return cmd
+}
+
+func BuildClusterStatsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List clusters",
+		Run: func(cmd *cobra.Command, args []string) {
+			t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
+			if err != nil {
+				lg.Fatal(err)
+			}
+			var clusterStats *cortexadmin.UserIDStatsList
+			var healthStatus []*corev1.HealthStatus
+			for _, c := range t.Items {
+				stat, err := mgmtClient.GetClusterHealthStatus(cmd.Context(), c.Reference())
+				if err != nil {
+					healthStatus = append(healthStatus, &corev1.HealthStatus{})
+				} else {
+					healthStatus = append(healthStatus, stat)
+				}
+			}
+
+			stats, err := adminClient.AllUserStats(cmd.Context(), &emptypb.Empty{})
+			if err != nil {
+				lg.With(
+					zap.Error(err),
+				).Warn("failed to query cortex stats")
+			}
+			clusterStats = stats
+			fmt.Println(cliutil.RenderClusterListWithStats(t, healthStatus, clusterStats))
 		},
 	}
 	return cmd

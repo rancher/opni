@@ -22,6 +22,17 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
+	adminDashboardPorts, err := r.adminDashboardContainerPorts()
+	if err != nil {
+		return nil, err
+	}
+
+	var gatewayApiVersion string
+	if r.gw != nil {
+		gatewayApiVersion = r.gw.APIVersion
+	} else if r.coreGW != nil {
+		gatewayApiVersion = r.coreGW.APIVersion
+	}
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -46,25 +57,32 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 							ImagePullPolicy: r.statusImagePullPolicy(),
 							Command:         []string{"opni"},
 							Args:            []string{"gateway"},
-							Env: func() []corev1.EnvVar {
-								return append(r.spec.ExtraEnvVars, corev1.EnvVar{
+							Env: append(r.spec.ExtraEnvVars,
+								corev1.EnvVar{
 									Name: "POD_NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{
 											FieldPath: "metadata.namespace",
 										},
 									},
-								})
-							}(),
-
+								},
+								corev1.EnvVar{
+									Name:  "GATEWAY_NAME",
+									Value: r.name,
+								},
+								corev1.EnvVar{
+									Name:  "GATEWAY_API_VERSION",
+									Value: gatewayApiVersion,
+								},
+							),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "config",
-									MountPath: "/etc/opni-monitoring",
+									MountPath: "/etc/opni",
 								},
 								{
 									Name:      "certs",
-									MountPath: "/run/opni-monitoring/certs",
+									MountPath: "/run/opni/certs",
 								},
 								{
 									Name:      "cortex-client-certs",
@@ -83,12 +101,12 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 									MountPath: "/run/etcd/certs/server",
 								},
 							},
-							Ports: append(append([]corev1.ContainerPort{
+							Ports: append(append(append([]corev1.ContainerPort{
 								{
 									Name:          "metrics",
 									ContainerPort: 8086,
 								},
-							}, publicPorts...), internalPorts...),
+							}, publicPorts...), internalPorts...), adminDashboardPorts...),
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -231,7 +249,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 					NodeSelector:       r.spec.NodeSelector,
 					Affinity:           r.spec.Affinity,
 					Tolerations:        r.spec.Tolerations,
-					ServiceAccountName: "opni-monitoring",
+					ServiceAccountName: "opni",
 				},
 			},
 		},
@@ -266,7 +284,7 @@ func (r *Reconciler) deployment() (resources.Resource, error) {
 			append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, volMount)
 	}
 	// add additional volumes for alerting
-	if r.spec.Alerting != nil && r.spec.Alerting.GatewayVolumeMounts != nil {
+	if r.spec.Alerting.Enabled && r.spec.Alerting.GatewayVolumeMounts != nil {
 		for _, alertVol := range r.spec.Alerting.GatewayVolumeMounts {
 			vol := corev1.Volume{
 				Name:         alertVol.Name,

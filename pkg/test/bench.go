@@ -29,7 +29,7 @@ func (e *Environment) NewBenchRunner(agent string, desc bench.WorkloadDesc) (*Be
 	if runningAgent.Agent == nil {
 		return nil, fmt.Errorf("agent %s not found", agent)
 	}
-	u, err := url.Parse(fmt.Sprintf("http://%s/api/agent/push", runningAgent.ListenAddress))
+	u, err := url.Parse(fmt.Sprintf("http://%s/api/agent/push", runningAgent.Agent.ListenAddress()))
 	if err != nil {
 		return nil, err
 	}

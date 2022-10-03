@@ -34,6 +34,8 @@ spec:
             type: object
           spec:
             properties:
+              enabled:
+                type: boolean
               friendlyName:
                 type: string
               indexUser:
@@ -41,6 +43,9 @@ spec:
                   name:
                     type: string
                 type: object
+              lastSync:
+                format: date-time
+                type: string
               opensearchCluster:
                 properties:
                   name:

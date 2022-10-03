@@ -1,13 +1,15 @@
 package cortex
 
 import (
-	"github.com/rancher/opni/pkg/resources"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (r *Reconciler) statefulSets() []resources.Resource {
-	compactor := r.buildCortexStatefulSet("compactor")
+func (r *Reconciler) highlyAvailableStatefulSets() []*appsv1.StatefulSet {
+	compactor := r.buildCortexStatefulSet("compactor",
+		WithOverrides(r.spec.Cortex.Workloads.Compactor),
+	)
 	storeGateway := r.buildCortexStatefulSet("store-gateway",
 		ServiceName("cortex-store-gateway-headless"),
 	)
@@ -20,6 +22,7 @@ func (r *Reconciler) statefulSets() []resources.Resource {
 				},
 			},
 		}),
+		WithOverrides(r.spec.Cortex.Workloads.Ingester),
 	)
 	alertmanager := r.buildCortexStatefulSet("alertmanager",
 		ExtraVolumes(corev1.Volume{
@@ -46,13 +49,33 @@ func (r *Reconciler) statefulSets() []resources.Resource {
 	)
 	querier := r.buildCortexStatefulSet("querier",
 		Ports(HTTP),
-		NoPersistentStorage(),
+		WithOverrides(r.spec.Cortex.Workloads.Querier),
 	)
-	return []resources.Resource{
+	return []*appsv1.StatefulSet{
 		alertmanager,
 		ingester,
 		compactor,
 		storeGateway,
 		querier,
+	}
+}
+
+func (r *Reconciler) allInOneStatefulSets() []*appsv1.StatefulSet {
+	all := r.buildCortexStatefulSet("all",
+		WithOverrides(r.spec.Cortex.Workloads.AllInOne),
+		ExtraVolumeMounts(corev1.VolumeMount{
+			Name:      "tmp",
+			MountPath: "/rules",
+		}),
+		ExtraVolumes(corev1.Volume{
+			Name: "tmp",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		}),
+		Replicas(1), // Force replicas to 1 for all-in-one mode
+	)
+	return []*appsv1.StatefulSet{
+		all,
 	}
 }

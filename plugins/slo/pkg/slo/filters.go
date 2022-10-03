@@ -4,14 +4,15 @@ import (
 	"embed"
 	_ "embed"
 	"fmt"
-	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
-	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 	"io/fs"
 	"path/filepath"
 	"regexp"
+
+	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 )
 
 //go:embed metricgroups/*.yaml

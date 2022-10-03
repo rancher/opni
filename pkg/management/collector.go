@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 )
 
@@ -31,9 +32,10 @@ func (s *Server) Collect(c chan<- prometheus.Metric) {
 	for _, cluster := range clusters.Items {
 		var friendlyName = cluster.Id
 		labels := cluster.GetLabels()
-		// todo: this label should change
-		if nameLabel, ok := labels["kubernetes.io/metadata.name"]; ok {
+		if nameLabel, ok := labels[corev1.NameLabel]; ok {
 			friendlyName = nameLabel
+		} else if legacyNameLabel, ok := labels[corev1.LegacyNameLabel]; ok {
+			friendlyName = legacyNameLabel
 		}
 		c <- prometheus.MustNewConstMetric(
 			clusterInfo,

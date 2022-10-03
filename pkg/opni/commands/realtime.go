@@ -1,3 +1,5 @@
+//go:build !norealtime
+
 package commands
 
 import (
@@ -18,7 +20,7 @@ func BuildRealtimeCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "realtime",
-		Short: "Start the real-time server",
+		Short: "Run the Opni real-time server",
 		Run: func(cmd *cobra.Command, args []string) {
 			objects := cliutil.LoadConfigObjectsOrDie(configLocation, lg)
 			objects.Visit(
@@ -44,4 +46,8 @@ func BuildRealtimeCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&configLocation, "config", "", "Absolute path to a config file")
 	return cmd
+}
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildRealtimeCmd())
 }

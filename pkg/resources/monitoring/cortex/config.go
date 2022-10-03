@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/shared"
+
 	"github.com/cortexproject/cortex/pkg/alertmanager"
 	"github.com/cortexproject/cortex/pkg/alertmanager/alertstore"
 	"github.com/cortexproject/cortex/pkg/api"
@@ -45,24 +47,26 @@ import (
 	kyamlv3 "github.com/kralicky/yaml/v3"
 	"github.com/prometheus/node_exporter/https"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
+	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/util"
+	"github.com/samber/lo"
 	"github.com/weaveworks/common/logging"
 	"github.com/weaveworks/common/server"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func bucketHttpConfig(spec corev1beta1.HTTPConfig) bucket_http.Config {
+func bucketHttpConfig(spec *storagev1.HTTPConfig) bucket_http.Config {
 	return bucket_http.Config{
-		IdleConnTimeout:       spec.IdleConnTimeout,
-		ResponseHeaderTimeout: spec.ResponseHeaderTimeout,
-		InsecureSkipVerify:    spec.InsecureSkipVerify,
-		TLSHandshakeTimeout:   spec.TLSHandshakeTimeout,
-		ExpectContinueTimeout: spec.ExpectContinueTimeout,
-		MaxIdleConns:          spec.MaxIdleConns,
-		MaxIdleConnsPerHost:   spec.MaxIdleConnsPerHost,
-		MaxConnsPerHost:       spec.MaxConnsPerHost,
+		IdleConnTimeout:       spec.GetIdleConnTimeout().AsDuration(),
+		ResponseHeaderTimeout: spec.GetResponseHeaderTimeout().AsDuration(),
+		InsecureSkipVerify:    spec.GetInsecureSkipVerify(),
+		TLSHandshakeTimeout:   spec.GetTlsHandshakeTimeout().AsDuration(),
+		ExpectContinueTimeout: spec.GetExpectContinueTimeout().AsDuration(),
+		MaxIdleConns:          int(spec.GetMaxIdleConns()),
+		MaxIdleConnsPerHost:   int(spec.GetMaxIdleConnsPerHost()),
+		MaxConnsPerHost:       int(spec.GetMaxConnsPerHost()),
 	}
 }
 
@@ -98,71 +102,81 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		}), nil
 	}
 
-	s3Spec := valueOrDefault(r.spec.Cortex.Storage.S3)
-	gcsSpec := valueOrDefault(r.spec.Cortex.Storage.GCS)
-	azureSpec := valueOrDefault(r.spec.Cortex.Storage.Azure)
-	swiftSpec := valueOrDefault(r.spec.Cortex.Storage.Swift)
-	filesystemSpec := valueOrDefault(r.spec.Cortex.Storage.Filesystem)
+	if r.spec.Cortex.Storage == nil {
+		r.logger.Warn("No cortex storage configured; using volatile EmptyDir storage. It is recommended to configure a storage backend.")
+		r.spec.Cortex.Storage = &storagev1.StorageSpec{
+			Backend: storagev1.Filesystem,
+			Filesystem: &storagev1.FilesystemStorageSpec{
+				Directory: "/data",
+			},
+		}
+	}
+
+	s3Spec := valueOrDefault(r.spec.Cortex.Storage.GetS3())
+	gcsSpec := valueOrDefault(r.spec.Cortex.Storage.GetGcs())
+	azureSpec := valueOrDefault(r.spec.Cortex.Storage.GetAzure())
+	swiftSpec := valueOrDefault(r.spec.Cortex.Storage.GetSwift())
+	filesystemSpec := valueOrDefault(r.spec.Cortex.Storage.GetFilesystem())
 
 	storageConfig := bucket.Config{
-		Backend: string(r.spec.Cortex.Storage.Backend),
+		Backend: string(r.spec.Cortex.Storage.GetBackend()),
 		S3: s3.Config{
-			Endpoint:   s3Spec.Endpoint,
-			Region:     s3Spec.Region,
-			BucketName: s3Spec.BucketName,
+			Endpoint:   s3Spec.GetEndpoint(),
+			Region:     s3Spec.GetRegion(),
+			BucketName: s3Spec.GetBucketName(),
 			SecretAccessKey: flagext.Secret{
-				Value: s3Spec.SecretAccessKey,
+				Value: s3Spec.GetSecretAccessKey(),
 			},
-			AccessKeyID:      s3Spec.AccessKeyID,
-			Insecure:         s3Spec.Insecure,
-			SignatureVersion: s3Spec.SignatureVersion,
+			AccessKeyID:      s3Spec.GetAccessKeyID(),
+			Insecure:         s3Spec.GetInsecure(),
+			SignatureVersion: s3Spec.GetSignatureVersion(),
 			SSE: s3.SSEConfig{
-				Type:                 s3Spec.SSE.Type,
-				KMSKeyID:             s3Spec.SSE.KMSKeyID,
-				KMSEncryptionContext: s3Spec.SSE.KMSEncryptionContext,
+				Type:                 s3Spec.GetSse().GetType(),
+				KMSKeyID:             s3Spec.GetSse().GetKmsKeyID(),
+				KMSEncryptionContext: s3Spec.GetSse().GetKmsEncryptionContext(),
 			},
 			HTTP: s3.HTTPConfig{
-				Config: bucketHttpConfig(s3Spec.HTTP),
+				Config: bucketHttpConfig(s3Spec.GetHttp()),
 			},
 		},
 		GCS: gcs.Config{
-			BucketName: gcsSpec.BucketName,
+			BucketName: gcsSpec.GetBucketName(),
 			ServiceAccount: flagext.Secret{
-				Value: gcsSpec.ServiceAccount,
+				Value: gcsSpec.GetServiceAccount(),
 			},
 		},
 		Azure: azure.Config{
-			StorageAccountName: azureSpec.StorageAccountName,
+			StorageAccountName: azureSpec.GetStorageAccountName(),
 			StorageAccountKey: flagext.Secret{
-				Value: azureSpec.StorageAccountKey,
+				Value: azureSpec.GetStorageAccountKey(),
 			},
-			ContainerName: azureSpec.ContainerName,
-			Endpoint:      azureSpec.Endpoint,
-			MaxRetries:    azureSpec.MaxRetries,
-			Config:        bucketHttpConfig(azureSpec.HTTP),
+			ContainerName: azureSpec.GetContainerName(),
+			Endpoint:      azureSpec.GetEndpoint(),
+			MaxRetries:    int(azureSpec.GetMaxRetries()),
+			Config:        bucketHttpConfig(azureSpec.GetHttp()),
 		},
 		Swift: swift.Config{
-			AuthVersion:       swiftSpec.AuthVersion,
-			AuthURL:           swiftSpec.AuthURL,
-			Username:          swiftSpec.Username,
-			UserDomainName:    swiftSpec.UserDomainName,
-			UserDomainID:      swiftSpec.UserDomainID,
-			UserID:            swiftSpec.UserID,
-			Password:          swiftSpec.Password,
-			DomainID:          swiftSpec.DomainID,
-			DomainName:        swiftSpec.DomainName,
-			ProjectID:         swiftSpec.ProjectID,
-			ProjectName:       swiftSpec.ProjectName,
-			ProjectDomainID:   swiftSpec.ProjectDomainID,
-			ProjectDomainName: swiftSpec.ProjectDomainName,
-			RegionName:        swiftSpec.RegionName,
-			ContainerName:     swiftSpec.ContainerName,
-			MaxRetries:        swiftSpec.MaxRetries,
-			ConnectTimeout:    swiftSpec.ConnectTimeout,
-			RequestTimeout:    swiftSpec.RequestTimeout,
+			AuthVersion:       int(swiftSpec.GetAuthVersion()),
+			AuthURL:           swiftSpec.GetAuthURL(),
+			Username:          swiftSpec.GetUsername(),
+			UserDomainName:    swiftSpec.GetUserDomainName(),
+			UserDomainID:      swiftSpec.GetUserDomainID(),
+			UserID:            swiftSpec.GetUserID(),
+			Password:          swiftSpec.GetPassword(),
+			DomainID:          swiftSpec.GetDomainID(),
+			DomainName:        swiftSpec.GetDomainName(),
+			ProjectID:         swiftSpec.GetProjectID(),
+			ProjectName:       swiftSpec.GetProjectName(),
+			ProjectDomainID:   swiftSpec.GetProjectDomainID(),
+			ProjectDomainName: swiftSpec.GetProjectDomainName(),
+			RegionName:        swiftSpec.GetRegionName(),
+			ContainerName:     swiftSpec.GetContainerName(),
+			MaxRetries:        int(swiftSpec.GetMaxRetries()),
+			ConnectTimeout:    swiftSpec.GetConnectTimeout().AsDuration(),
+			RequestTimeout:    swiftSpec.GetRequestTimeout().AsDuration(),
 		},
 		Filesystem: filesystem.Config{
-			Directory: filesystemSpec.Directory,
+			Directory: filesystemSpec.GetDirectory(),
 		},
 	}
 	logLevel := logging.Level{}
@@ -189,9 +203,12 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		ClientCAs:   "/run/cortex/certs/client/ca.crt",
 	}
 
+	isHA := r.spec.Cortex.DeploymentMode == corev1beta1.DeploymentModeHighlyAvailable
+
 	kvConfig := kv.Config{
-		Store: "memberlist",
+		Store: lo.Ternary(isHA, "memberlist", "inmemory"),
 	}
+
 	config := cortex.Config{
 		AuthEnabled: true,
 		TenantFederation: tenantfederation.Config{
@@ -236,7 +253,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			LoadPath: "/etc/cortex-runtime-config/runtime_config.yaml",
 		},
 		MemberlistKV: memberlist.KVConfig{
-			JoinMembers: flagext.StringSlice{"cortex-memberlist"},
+			JoinMembers: lo.Ternary(isHA, flagext.StringSlice{"cortex-memberlist"}, nil),
 		},
 
 		Alertmanager: alertmanager.MultitenantAlertmanagerConfig{
@@ -249,9 +266,10 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				URL: util.Must(url.Parse("/api/prom/alertmanager")),
 			},
 			FallbackConfigFile: "/etc/alertmanager/fallback.yaml",
-			ShardingEnabled:    true,
+			ShardingEnabled:    isHA,
 			ShardingRing: alertmanager.RingConfig{
-				KVStore: kvConfig,
+				KVStore:           kvConfig,
+				ReplicationFactor: lo.Ternary(isHA, 3, 1),
 			},
 		},
 		AlertmanagerStorage: alertstore.Config{
@@ -259,7 +277,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		},
 
 		Compactor: compactor.Config{
-			ShardingEnabled: true,
+			ShardingEnabled: isHA,
 			ShardingRing: compactor.RingConfig{
 				KVStore: kvConfig,
 			},
@@ -294,7 +312,8 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				NumTokens:     512,
 				ObservePeriod: 10 * time.Second,
 				RingConfig: ring.Config{
-					KVStore: kvConfig,
+					KVStore:           kvConfig,
+					ReplicationFactor: lo.Ternary(isHA, 3, 1),
 				},
 			},
 		},
@@ -318,7 +337,7 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			SplitQueriesByInterval: 24 * time.Hour,
 		},
 		Ruler: ruler.Config{
-			AlertmanagerURL:          fmt.Sprintf("https://cortex-alertmanager.%s.svc.cluster.local:8080/api/prom/alertmanager/", r.namespace),
+			AlertmanagerURL:          fmt.Sprintf("http://%s:9093", shared.OperatorAlertingClusterNodeServiceName),
 			AlertmanangerEnableV2API: true,
 			EnableAPI:                true,
 			Ring: ruler.RingConfig{
@@ -328,11 +347,13 @@ func (r *Reconciler) config() (resources.Resource, error) {
 				TLSEnabled: true,
 				TLS:        tlsClientConfig,
 			},
+			EnableSharding: isHA,
 		},
 		StoreGateway: storegateway.Config{
-			ShardingEnabled: true,
+			ShardingEnabled: isHA,
 			ShardingRing: storegateway.RingConfig{
-				KVStore: kvConfig,
+				KVStore:           kvConfig,
+				ReplicationFactor: lo.Ternary(isHA, 3, 1),
 			},
 		},
 		PurgerConfig: purger.Config{

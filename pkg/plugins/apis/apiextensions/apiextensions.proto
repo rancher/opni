@@ -8,15 +8,16 @@ import "google/protobuf/any.proto";
 package apiextensions;
 
 service ManagementAPIExtension {
-  rpc Descriptor(google.protobuf.Empty) returns (google.protobuf.ServiceDescriptorProto);
+  rpc Descriptors(google.protobuf.Empty) returns (ServiceDescriptorProtoList);
 }
 
-service GatewayAPIExtension {
-  rpc Configure(CertConfig) returns (GatewayAPIExtensionConfig);
+service HTTPAPIExtension {
+  rpc Configure(CertConfig) returns (HTTPAPIExtensionConfig);
 }
 
 service StreamAPIExtension {
-  rpc Services(google.protobuf.Empty) returns (ServiceDescriptorList);
+  // rpc Services(google.protobuf.Empty) returns (ServiceDescriptorList);
+  rpc Todo(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 service UnaryAPIExtension {
@@ -25,14 +26,15 @@ service UnaryAPIExtension {
 
 message CertConfig {
   string ca = 1;
-  string caData = 2;
+  bytes caData = 2;
   string cert = 3;
-  string certData = 4;
+  bytes certData = 4;
   string key = 5;
-  string keyData = 6;
+  bytes keyData = 6;
+  bool insecure = 7;
 }
 
-message GatewayAPIExtensionConfig {
+message HTTPAPIExtensionConfig {
   string httpAddr = 1;
   repeated RouteInfo routes = 2;
 }
@@ -49,7 +51,11 @@ message ServiceOptions {
 }
 
 message ServiceDescriptorList {
-  repeated ServiceDescriptor descriptors = 2;
+  repeated ServiceDescriptor items = 2;
+}
+
+message ServiceDescriptorProtoList {
+  repeated google.protobuf.ServiceDescriptorProto items = 1;
 }
 
 message RouteInfo {

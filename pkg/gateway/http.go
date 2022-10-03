@@ -3,14 +3,22 @@ package gateway
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/rancher/opni/pkg/alerting/condition"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rancher/opni/pkg/alerting"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/config/v1beta1"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
@@ -44,6 +52,7 @@ type GatewayHTTPServer struct {
 	logger         *zap.SugaredLogger
 	tlsConfig      *tls.Config
 	metricsHandler *MetricsEndpointHandler
+	pprofHandler   *PprofEndpointHandler
 	tracer         trace.Tracer
 
 	routesMu             sync.Mutex
@@ -55,6 +64,7 @@ func NewHTTPServer(
 	cfg *v1beta1.GatewayConfigSpec,
 	lg *zap.SugaredLogger,
 	pl plugins.LoaderInterface,
+	alertProvider *alerting.Provider, // need pointer to interface so that it updates to correct impl on change
 ) *GatewayHTTPServer {
 	lg = lg.Named("http")
 
@@ -74,6 +84,66 @@ func NewHTTPServer(
 		c.Status(http.StatusOK)
 	})
 
+	handlerName := cfg.Alerting.ManagementHookHandler
+	// request body will be in the form of AM webhook payload :
+	// https://prometheus.io/docs/alerting/latest/configuration/#webhook_config
+	//
+	// Note :
+	//    Webhooks are assumed to respond with 2xx response codes on a successful
+	//	  request and 5xx response codes are assumed to be recoverable.
+	// therefore, non-recoverable errors should have error codes 3XX and 4XX
+	router.POST(handlerName, func(c *gin.Context) {
+		if alerting.IsNil(alertProvider) {
+			c.Status(http.StatusConflict)
+			return
+		}
+		b, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			lg.With("handler", handlerName).Error(
+				fmt.Sprintf("failed to read request body %s", err),
+			)
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		annotations, err := condition.ParseCortexPayloadBytes(b)
+		if err != nil {
+			lg.With("handler", handlerName).Error(
+				fmt.Sprintf("failed to read request body %s", err),
+			)
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		//
+		opniAlertingRequests, errors := condition.ParseAlertManagerWebhookPayload(annotations)
+		if len(opniAlertingRequests) != len(errors) {
+			// this would be a non-recoverable interval server error since this means the code
+			// is written wrong => panic?
+			panic(errors)
+		}
+		var anyErrors []error
+		for _, opniAlertingRequest := range opniAlertingRequests {
+			resp, err := alerting.DoTrigger(*alertProvider, ctx, opniAlertingRequest)
+			if err != nil && err != shared.AlertingErrNotImplementedNOOP {
+				anyErrors = append(anyErrors, err)
+			}
+			lg.With("handler", handlerName).Debug(
+				fmt.Sprintf("opni alering request : %s and response %s", opniAlertingRequest, resp),
+			)
+		}
+		if len(anyErrors) != 0 {
+			for _, err := range anyErrors {
+				if status.Code(err) != codes.NotFound {
+					c.Status(http.StatusBadRequest)
+					return
+				} else { // return not found only if there are no other failed triggers
+					c.Status(http.StatusNotFound)
+				}
+			}
+			return
+		}
+		c.JSON(http.StatusOK, nil)
+	})
+
 	tlsConfig, _, err := loadTLSConfig(cfg)
 	if err != nil {
 		lg.With(
@@ -86,6 +156,7 @@ func NewHTTPServer(
 		logger:         lg,
 		tlsConfig:      tlsConfig,
 		metricsHandler: NewMetricsEndpointHandler(cfg.Metrics),
+		pprofHandler:   NewPprofEndpointHandler(cfg.Profiling),
 		reservedPrefixRoutes: []string{
 			cfg.Metrics.GetPath(),
 			"/healthz",
@@ -97,7 +168,7 @@ func NewHTTPServer(
 		srv.metricsHandler.MustRegister(p)
 	}))
 
-	pl.Hook(hooks.OnLoadM(func(p types.GatewayAPIExtensionPlugin, md meta.PluginMeta) {
+	pl.Hook(hooks.OnLoadM(func(p types.HTTPAPIExtensionPlugin, md meta.PluginMeta) {
 		ctx, ca := context.WithTimeout(ctx, 10*time.Second)
 		defer ca()
 		cfg, err := p.Configure(ctx, apiextensions.NewCertConfig(cfg.Certs))
@@ -136,11 +207,18 @@ func (s *GatewayHTTPServer) ListenAndServe(ctx context.Context) error {
 		return s.metricsHandler.ListenAndServe(ctx)
 	})
 
-	return util.WaitAll(ctx, ca, e1, e2)
+	e3 := lo.Async(func() error {
+		if s.conf.Profiling.Enabled {
+			return s.pprofHandler.ListenAndServe(ctx)
+		}
+		return nil
+	})
+
+	return util.WaitAll(ctx, ca, e1, e2, e3)
 }
 
 func (s *GatewayHTTPServer) setupPluginRoutes(
-	cfg *apiextensions.GatewayAPIExtensionConfig,
+	cfg *apiextensions.HTTPAPIExtensionConfig,
 	pluginMeta meta.PluginMeta,
 ) {
 	s.routesMu.Lock()

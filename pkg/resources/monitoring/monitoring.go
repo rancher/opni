@@ -11,7 +11,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
 	"github.com/rancher/opni/pkg/resources/monitoring/cortex"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,42 +71,53 @@ func NewReconciler(
 
 func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	// Look up referenced gateway
+	// TODO: delete when v1beta2 is deleted
+	var mc any
 	if r.mc != nil {
+		mc = r.mc
 		gw := &v1beta2.Gateway{}
 		err := r.client.Get(r.ctx, types.NamespacedName{
 			Name:      r.mc.Spec.Gateway.Name,
 			Namespace: r.mc.Namespace,
 		}, gw)
 		if err != nil {
-			return util.RequeueErr(err).Result()
+			return k8sutil.RequeueErr(err).Result()
 		}
 		r.gw = gw
-	}
-	if r.coremc != nil {
+
+		if gw.DeletionTimestamp != nil {
+			return k8sutil.DoNotRequeue().Result()
+		}
+	} else if r.coremc != nil {
+		mc = r.coremc
 		gw := &corev1beta1.Gateway{}
 		err := r.client.Get(r.ctx, types.NamespacedName{
-			Name:      r.mc.Spec.Gateway.Name,
-			Namespace: r.mc.Namespace,
+			Name:      r.coremc.Spec.Gateway.Name,
+			Namespace: r.coremc.Namespace,
 		}, gw)
 		if err != nil {
-			return util.RequeueErr(err).Result()
+			return k8sutil.RequeueErr(err).Result()
 		}
 		r.coregw = gw
+
+		if gw.DeletionTimestamp != nil {
+			return k8sutil.DoNotRequeue().Result()
+		}
 	}
 
 	updated, err := r.updateImageStatus()
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	if updated {
-		return util.Requeue().Result()
+		return k8sutil.Requeue().Result()
 	}
 
 	allResources := []resources.Resource{}
 
 	grafanaResources, err := r.grafana()
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, grafanaResources...)
 
@@ -117,20 +128,20 @@ func (r *Reconciler) Reconcile() (reconcile.Result, error) {
 	cortexRec := cortex.NewReconciler(
 		r.ctx,
 		r.client,
-		r.mc,
+		mc,
 		r.spec,
 		r.instanceName,
 		r.instanceNamespace,
 	)
 	cortexResult, err := cortexRec.Reconcile()
 	if err != nil {
-		result := util.LoadResult(cortexResult, err)
+		result := k8sutil.LoadResult(cortexResult, err)
 		if result.ShouldRequeue() {
 			return result.Result()
 		}
 	}
 
-	return util.DoNotRequeue().Result()
+	return k8sutil.DoNotRequeue().Result()
 }
 
 func convertSpec(spec v1beta2.MonitoringClusterSpec) corev1beta1.MonitoringClusterSpec {

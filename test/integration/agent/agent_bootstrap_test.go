@@ -141,13 +141,18 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 					case <-time.After(time.Second * 2):
 					}
 
-					_, err := client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+					cluster, err := client.GetCluster(context.Background(), &corev1.Reference{
+						Id: clusterName,
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					labels := cluster.GetLabels()
+					labels["i"] = "998"
+					_, err = client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
 						Cluster: &corev1.Reference{
 							Id: clusterName,
 						},
-						Labels: map[string]string{
-							"i": "998",
-						},
+						Labels: labels,
 					})
 					Expect(err).NotTo(HaveOccurred())
 				}()
@@ -241,7 +246,6 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 				return
 			}).Should(Succeed())
 
-			Expect(cluster.GetLabels()).To(HaveLen(1))
 			Expect(cluster.GetLabels()).To(HaveKeyWithValue("i", "999"))
 		})
 	})
@@ -313,7 +317,7 @@ var _ = Describe("Agent - Agent and Gateway Bootstrap Tests", Ordered, test.Enab
 				return err
 			}).Should(Succeed())
 
-			Eventually(func() *agent.Agent {
+			Eventually(func() agent.AgentInterface {
 				return environment.GetAgent("test-cluster-3").Agent
 			}).ShouldNot(BeNil())
 

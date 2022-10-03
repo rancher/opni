@@ -28,15 +28,17 @@ func (p *provisioner) buildEksResources(ctx *Context, conf resources.MainCluster
 	}
 
 	cluster, err := eks.NewCluster(ctx, conf.NamePrefix, &eks.ClusterArgs{
-		InstanceType:     StringPtr(conf.NodeInstanceType),
-		MaxSize:          Int(conf.NodeGroupMaxSize),
-		MinSize:          Int(conf.NodeGroupMinSize),
-		DesiredCapacity:  Int(conf.NodeGroupDesiredSize),
-		VpcId:            vpc.VpcId,
-		PublicSubnetIds:  vpc.PublicSubnetIds,
-		PrivateSubnetIds: vpc.PrivateSubnetIds,
-		Tags:             ToStringMap(conf.Tags),
-		ClusterTags:      ToStringMap(conf.Tags),
+		InstanceType:             StringPtr(conf.NodeInstanceType),
+		MaxSize:                  Int(conf.NodeGroupMaxSize),
+		MinSize:                  Int(conf.NodeGroupMinSize),
+		DesiredCapacity:          Int(conf.NodeGroupDesiredSize),
+		VpcId:                    vpc.VpcId,
+		PublicSubnetIds:          vpc.PublicSubnetIds,
+		PrivateSubnetIds:         vpc.PrivateSubnetIds,
+		Tags:                     ToStringMap(conf.Tags),
+		ClusterTags:              ToStringMap(conf.Tags),
+		ClusterSecurityGroupTags: ToStringMap(conf.Tags),
+		NodeSecurityGroupTags:    ToStringMap(conf.Tags),
 	})
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -55,10 +57,16 @@ func (p *provisioner) buildDnsResources(ctx *Context, conf resources.MainCluster
 	}
 
 	grafanaFqdn := All(conf.ID, zone.Name).ApplyT(func(idZoneName []any) string {
-		return fmt.Sprintf("grafana.%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
+		if !conf.NoIdInDnsNames {
+			return fmt.Sprintf("grafana.%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
+		}
+		return fmt.Sprintf("grafana.%s.%s", conf.NamePrefix, idZoneName[1])
 	}).(StringOutput)
 	gatewayFqdn := All(conf.ID, zone.Name).ApplyT(func(idZoneName []any) string {
-		return fmt.Sprintf("%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
+		if !conf.NoIdInDnsNames {
+			return fmt.Sprintf("%s.%s.%s", idZoneName[0], conf.NamePrefix, idZoneName[1])
+		}
+		return fmt.Sprintf("%s.%s", conf.NamePrefix, idZoneName[1])
 	}).(StringOutput)
 
 	cert, err := acm.NewCertificate(ctx, "cert", &acm.CertificateArgs{

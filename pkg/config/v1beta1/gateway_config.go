@@ -26,13 +26,24 @@ type GatewayConfigSpec struct {
 	Certs          CertsSpec      `json:"certs,omitempty"`
 	Plugins        PluginsSpec    `json:"plugins,omitempty"`
 	Alerting       AlertingSpec   `json:"alerting,omitempty"`
+	Profiling      ProfilingSpec  `json:"profiling,omitempty"`
 }
 
 type AlertingSpec struct {
-	Endpoints       []string `json:"endpoints,omitempty"`
-	ConfigMapName   string   `json:"configMapName,omitempty"`
-	StatefulSetName string   `json:"statefulSetName,omitempty"`
-	Namespace       string   `json:"Namespace,omitempty"`
+	//ManagementHookHandlerName string   `json:"managementHookHandlerName,omitempty"`
+	//Endpoints                 []string `json:"endpoints,omitempty"`
+	//ConfigMapName             string   `json:"configMapName,omitempty"`
+	//StatefulSetName           string   `json:"statefulSetName,omitempty"`
+	Namespace             string `json:"Namespace,omitempty"`
+	WorkerNodeService     string `json:"workerNodeService,omitempty"`
+	WorkerPort            int    `json:"workerPort,omitempty"`
+	WorkerStatefulSet     string `json:"workerStatefulSet,omitempty"`
+	ControllerNodeService string `json:"controllerNodeService,omitempty"`
+	ControllerNodePort    int    `json:"controllerNodePort,omitempty"`
+	ControllerClusterPort int    `json:"controllerClusterPort,omitempty"`
+	ControllerStatefulSet string `json:"controllerStatefulSet,omitempty"`
+	ConfigMap             string `json:"configMap,omitempty"`
+	ManagementHookHandler string `json:"managementHookHandler,omitempty"`
 }
 
 type MetricsSpec struct {
@@ -40,6 +51,12 @@ type MetricsSpec struct {
 	Port int `json:"port,omitempty"`
 	//+kubebuilder:default="/metrics"
 	Path string `json:"path,omitempty"`
+}
+
+type ProfilingSpec struct {
+	Enabled bool `json:"enabled,omitempty"`
+	//+kubebuilder:default=8087
+	Port int `json:"port,omitempty"`
 }
 
 func (s MetricsSpec) GetPort() int {
@@ -87,13 +104,21 @@ func (m ManagementSpec) GetWebListenAddress() string {
 }
 
 type CortexSpec struct {
-	Distributor   DistributorSpec   `json:"distributor,omitempty"`
-	Ingester      IngesterSpec      `json:"ingester,omitempty"`
-	Alertmanager  AlertmanagerSpec  `json:"alertmanager,omitempty"`
-	Ruler         RulerSpec         `json:"ruler,omitempty"`
-	QueryFrontend QueryFrontendSpec `json:"queryFrontend,omitempty"`
-	Purger        PurgerSpec        `json:"purger,omitempty"`
-	Certs         MTLSSpec          `json:"certs,omitempty"`
+	Management    ClusterManagementSpec `json:"management,omitempty"`
+	Distributor   DistributorSpec       `json:"distributor,omitempty"`
+	Ingester      IngesterSpec          `json:"ingester,omitempty"`
+	Alertmanager  AlertmanagerSpec      `json:"alertmanager,omitempty"`
+	Compactor     CompactorSpec         `json:"compactor,omitempty"`
+	StoreGateway  StoreGatewaySpec      `json:"storeGateway,omitempty"`
+	Ruler         RulerSpec             `json:"ruler,omitempty"`
+	QueryFrontend QueryFrontendSpec     `json:"queryFrontend,omitempty"`
+	Querier       QuerierSpec           `json:"querier,omitempty"`
+	Purger        PurgerSpec            `json:"purger,omitempty"`
+	Certs         MTLSSpec              `json:"certs,omitempty"`
+}
+
+type ClusterManagementSpec struct {
+	ClusterDriver string `json:"clusterDriver,omitempty"`
 }
 
 type DistributorSpec struct {
@@ -115,9 +140,23 @@ type AlertmanagerSpec struct {
 	HTTPAddress string `json:"httpAddress,omitempty"`
 }
 
+type CompactorSpec struct {
+	//+kubebuilder:default="cortex-compactor:8080"
+	HTTPAddress string `json:"httpAddress,omitempty"`
+}
+
+type StoreGatewaySpec struct {
+	//+kubebuilder:default="cortex-store-gateway:8080"
+	HTTPAddress string `json:"httpAddress,omitempty"`
+	//+kubebuilder:default="cortex-store-gateway-headless:9095"
+	GRPCAddress string `json:"grpcAddress,omitempty"`
+}
+
 type RulerSpec struct {
 	// +kubebuilder:default="cortex-ruler:8080"
 	HTTPAddress string `json:"httpAddress,omitempty"`
+	// +kubebuilder:default="cortex-ruler-headless:9095"
+	GRPCAddress string `json:"grpcAddress,omitempty"`
 }
 
 type QueryFrontendSpec struct {
@@ -125,6 +164,11 @@ type QueryFrontendSpec struct {
 	HTTPAddress string `json:"httpAddress,omitempty"`
 	// +kubebuilder:default="cortex-query-frontend-headless:9095"
 	GRPCAddress string `json:"grpcAddress,omitempty"`
+}
+
+type QuerierSpec struct {
+	// +kubebuilder:default="cortex-querier:8080"
+	HTTPAddress string `json:"httpAddress,omitempty"`
 }
 
 type PurgerSpec struct {
@@ -147,15 +191,15 @@ type CertsSpec struct {
 	// Path to a PEM encoded CA certificate file. Mutually exclusive with CACertData
 	CACert *string `json:"caCert,omitempty"`
 	// String containing PEM encoded CA certificate data. Mutually exclusive with CACert
-	CACertData *string `json:"caCertData,omitempty"`
+	CACertData []byte `json:"caCertData,omitempty"`
 	// Path to a PEM encoded server certificate file. Mutually exclusive with ServingCertData
 	ServingCert *string `json:"servingCert,omitempty"`
 	// String containing PEM encoded server certificate data. Mutually exclusive with ServingCert
-	ServingCertData *string `json:"servingCertData,omitempty"`
+	ServingCertData []byte `json:"servingCertData,omitempty"`
 	// Path to a PEM encoded server key file. Mutually exclusive with ServingKeyData
 	ServingKey *string `json:"servingKey,omitempty"`
 	// String containing PEM encoded server key data. Mutually exclusive with ServingKey
-	ServingKeyData *string `json:"servingKeyData,omitempty"`
+	ServingKeyData []byte `json:"servingKeyData,omitempty"`
 }
 
 type PluginsSpec struct {
@@ -188,6 +232,9 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	if s.Metrics.Port == 0 {
 		s.Metrics.Port = 8086
 	}
+	if s.Profiling.Port == 0 {
+		s.Profiling.Port = 8087
+	}
 	if s.Cortex.Distributor.HTTPAddress == "" {
 		s.Cortex.Distributor.HTTPAddress = "cortex-distributor:8080"
 	}
@@ -203,8 +250,20 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	if s.Cortex.Alertmanager.HTTPAddress == "" {
 		s.Cortex.Alertmanager.HTTPAddress = "cortex-alertmanager:8080"
 	}
+	if s.Cortex.Compactor.HTTPAddress == "" {
+		s.Cortex.Compactor.HTTPAddress = "cortex-compactor:8080"
+	}
+	if s.Cortex.StoreGateway.HTTPAddress == "" {
+		s.Cortex.StoreGateway.HTTPAddress = "cortex-store-gateway:8080"
+	}
+	if s.Cortex.StoreGateway.GRPCAddress == "" {
+		s.Cortex.StoreGateway.GRPCAddress = "cortex-store-gateway-headless:9095"
+	}
 	if s.Cortex.Ruler.HTTPAddress == "" {
 		s.Cortex.Ruler.HTTPAddress = "cortex-ruler:8080"
+	}
+	if s.Cortex.Ruler.GRPCAddress == "" {
+		s.Cortex.Ruler.GRPCAddress = "cortex-ruler-headless:9095"
 	}
 	if s.Cortex.QueryFrontend.HTTPAddress == "" {
 		s.Cortex.QueryFrontend.HTTPAddress = "cortex-query-frontend:8080"
@@ -212,11 +271,11 @@ func (s *GatewayConfigSpec) SetDefaults() {
 	if s.Cortex.QueryFrontend.GRPCAddress == "" {
 		s.Cortex.QueryFrontend.GRPCAddress = "cortex-query-frontend-headless:9095"
 	}
+	if s.Cortex.Querier.HTTPAddress == "" {
+		s.Cortex.Querier.HTTPAddress = "cortex-querier:8080"
+	}
 	if s.Cortex.Purger.HTTPAddress == "" {
 		s.Cortex.Purger.HTTPAddress = "cortex-purger:8080"
-	}
-	if len(s.Alerting.Endpoints) == 0 {
-		s.Alerting.Endpoints = []string{"opni-alerting:9093"}
 	}
 }
 

@@ -14,8 +14,21 @@ const (
 	LabelSelectorOpExists       LabelSelectorOperator = "Exists"
 	LabelSelectorOpDoesNotExist LabelSelectorOperator = "DoesNotExist"
 
-	NameLabel = "opni.io/name"
+	NameLabel       = "opni.io/name"
+	LegacyNameLabel = "kubernetes.io/metadata.name"
 )
+
+func IsLabelInternal(key string) bool {
+	return strings.HasPrefix(key, "opni.io/")
+}
+
+func IsLabelMutable(key string) bool {
+	if key == NameLabel {
+		// as a special case, the name label is mutable
+		return true
+	}
+	return !IsLabelInternal(key)
+}
 
 func (ls *LabelSelector) ExpressionString() string {
 	if ls == nil {

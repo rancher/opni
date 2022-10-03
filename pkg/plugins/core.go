@@ -14,12 +14,15 @@ import (
 
 var ErrNotImplemented = errors.New("not implemented")
 
-var ClientScheme = meta.NewScheme()
+var (
+	GatewayScheme = meta.NewScheme(meta.WithMode(meta.ModeGateway))
+	AgentScheme   = meta.NewScheme(meta.WithMode(meta.ModeAgent))
+)
 
 var Handshake = plugin.HandshakeConfig{
 	ProtocolVersion:  plugin.CoreProtocolVersion,
-	MagicCookieKey:   "OPNI_MONITORING_MAGIC_COOKIE",
-	MagicCookieValue: "opni-monitoring",
+	MagicCookieKey:   "OPNI_MAGIC_COOKIE",
+	MagicCookieValue: "opni",
 }
 
 func init() {

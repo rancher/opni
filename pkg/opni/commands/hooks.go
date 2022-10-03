@@ -1,3 +1,5 @@
+//go:build !nohooks
+
 package commands
 
 import (
@@ -6,7 +8,7 @@ import (
 	"time"
 
 	"github.com/rancher/opni/apis"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,13 +47,13 @@ func BuildWaitForResourceCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			opts := util.ClientOptions{
+			opts := k8sutil.ClientOptions{
 				Scheme: apis.NewScheme(),
 			}
 			if kc, ok := os.LookupEnv("KUBECONFIG"); ok {
 				opts.Kubeconfig = &kc
 			}
-			restConfig, err := util.NewRestConfig(opts)
+			restConfig, err := k8sutil.NewRestConfig(opts)
 			if err != nil {
 				return err
 			}
@@ -119,4 +121,8 @@ func BuildWaitForResourceCmd() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&jsonPaths, "jsonpath", "j", []string{}, "Wait for a JSONPath expression to evaluate to a non-zero value once the resource is created")
 	cmd.MarkFlagRequired("resource")
 	return cmd
+}
+
+func init() {
+	AddCommandsToGroup(Utilities, BuildHooksCmd())
 }

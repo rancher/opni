@@ -8,11 +8,12 @@ import (
 )
 
 type (
-	GatewayAPIExtensionPlugin    = apiextensions.GatewayAPIExtensionClient
+	HTTPAPIExtensionPlugin       = apiextensions.HTTPAPIExtensionClient
 	ManagementAPIExtensionPlugin = apiextensions.ManagementAPIExtensionClient
 	StreamAPIExtensionPlugin     = apiextensions.StreamAPIExtensionClient
 	UnaryAPIExtensionPlugin      = apiextensions.UnaryAPIExtensionClient
 	CapabilityBackendPlugin      = capabilityv1.BackendClient
+	CapabilityNodePlugin         = capabilityv1.NodeClient
 	MetricsPlugin                = collector.RemoteCollector
 	SystemPlugin                 = system.SystemPluginServer
 )

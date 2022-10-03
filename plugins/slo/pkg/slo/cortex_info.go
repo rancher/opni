@@ -2,21 +2,50 @@ package slo
 
 import (
 	"context"
-	"emperror.dev/errors"
 	"fmt"
+	"time"
+
+	"emperror.dev/errors"
+
 	"github.com/prometheus/common/model"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
-	"time"
 )
 
-func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, clusterId string, toApply []RuleGroupYAMLv2) error {
+var instantMaskDisabled = true
+
+func createGrafanaSLOMask(p *Plugin, ctx context.Context, clusterId string, ruleId string) error {
+	p.logger.With("sloId", ruleId, "clusterId", clusterId).Debugf("creating grafana mask")
+	if !instantMaskDisabled {
+		_, err := p.adminClient.Get().WriteMetrics(ctx, &cortexadmin.WriteRequest{
+			ClusterID: clusterId,
+			Timeseries: []*cortexadmin.TimeSeries{
+				{
+					Labels: []*cortexadmin.Label{
+						{
+							Name:  "__name__", //unique identifier for metrics
+							Value: grafana_delete_mask,
+						},
+						{
+							Name:  slo_uuid,
+							Value: ruleId,
+						},
+					},
+				},
+			},
+		})
+		return err
+	}
+	return nil
+}
+
+func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context.Context, clusterId string, ruleId *string, toApply []RuleGroupYAMLv2) error {
 	var errArr []error
 	for _, rules := range toApply {
 		err := applyCortexSLORules(
@@ -44,6 +73,15 @@ func tryApplyThenDeleteCortexRules(p *Plugin, lg *zap.SugaredLogger, ctx context
 			}
 		}
 	}
+	if ruleId != nil {
+		err := createGrafanaSLOMask(p, ctx, clusterId, *ruleId)
+		if err != nil {
+			lg.Errorf("creating grafana mask failed %s", err)
+			errArr = append(errArr, err)
+		}
+
+	}
+
 	return errors.Combine(errArr...)
 }
 

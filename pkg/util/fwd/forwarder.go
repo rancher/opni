@@ -3,6 +3,8 @@ package fwd
 import (
 	"bufio"
 	"crypto/tls"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -113,6 +115,8 @@ func To(addr string, opts ...ForwarderOption) gin.HandlerFunc {
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
+		c.Status(resp.StatusCode)
+
 		for k, vs := range resp.Header {
 			for _, v := range vs {
 				c.Header(k, v)
@@ -120,10 +124,10 @@ func To(addr string, opts ...ForwarderOption) gin.HandlerFunc {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode/100 >= 4 {
-			options.logger.With(
-				"req", c.FullPath(),
-				"status", resp.StatusCode,
-			).Info("server replied with error")
+			responseBody, _ := io.ReadAll(resp.Body)
+			c.Error(errors.New(string(responseBody)))
+			c.String(resp.StatusCode, string(responseBody))
+			return
 		}
 		bufio.NewReader(resp.Body).WriteTo(c.Writer)
 	}

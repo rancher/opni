@@ -2,12 +2,17 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+agent:
+  # agent version: "v1" or "v2"
+  version: v2
+
 image:
   repository: rancher/opni
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
   pullPolicy: Always
 
+# v1 only
 metrics:
   enabled: false
   insecure: false
@@ -24,6 +29,7 @@ logging:
   provider: rke
   jobTTL: 0
 
+# v1 only
 events:
   enabled: true
 
@@ -73,6 +79,15 @@ token: ""
 pin: ""
 # Gateway address
 address: ""
+
+# v2 only
+persistence:
+  # default is to use a persistent volume claim template
+  mode: pvc
+  # clusters without persistent storage can use a hostPath volume
+  #mode: hostPath
+  # hostDirectoryPath: /var/lib/opni/plugins
+
 
 bootstrapInCluster:
   # If enabled, the agent will bootstrap itself automatically by interacting

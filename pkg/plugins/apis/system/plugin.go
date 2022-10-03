@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-plugin"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/storage"
@@ -18,6 +19,7 @@ import (
 
 type SystemPluginClient interface {
 	UseManagementAPI(managementv1.ManagementClient)
+	UseNodeManagerClient(capabilityv1.NodeManagerClient)
 	UseKeyValueStore(KeyValueStoreClient)
 	UseAPIExtensions(ExtensionClientInterface)
 	mustEmbedUnimplementedSystemPluginClient()
@@ -26,13 +28,15 @@ type SystemPluginClient interface {
 // UnimplementedSystemPluginClient must be embedded to have forward compatible implementations.
 type UnimplementedSystemPluginClient struct{}
 
-func (UnimplementedSystemPluginClient) UseManagementAPI(managementv1.ManagementClient) {}
-func (UnimplementedSystemPluginClient) UseKeyValueStore(KeyValueStoreClient)           {}
-func (UnimplementedSystemPluginClient) UseAPIExtensions(ExtensionClientInterface)      {}
-func (UnimplementedSystemPluginClient) mustEmbedUnimplementedSystemPluginClient()      {}
+func (UnimplementedSystemPluginClient) UseManagementAPI(managementv1.ManagementClient)      {}
+func (UnimplementedSystemPluginClient) UseNodeManagerClient(capabilityv1.NodeManagerClient) {}
+func (UnimplementedSystemPluginClient) UseKeyValueStore(KeyValueStoreClient)                {}
+func (UnimplementedSystemPluginClient) UseAPIExtensions(ExtensionClientInterface)           {}
+func (UnimplementedSystemPluginClient) mustEmbedUnimplementedSystemPluginClient()           {}
 
 type SystemPluginServer interface {
 	ServeManagementAPI(managementv1.ManagementServer)
+	ServeNodeManagerServer(capabilityv1.NodeManagerServer)
 	ServeKeyValueStore(storage.KeyValueStore)
 	ServeAPIExtensions(dialAddress string) error
 }
@@ -81,6 +85,17 @@ func (c *systemPluginClientImpl) UseManagementAPI(ctx context.Context, in *Broke
 	defer cc.Close()
 	client := managementv1.NewManagementClient(cc)
 	c.client.UseManagementAPI(client)
+	return &emptypb.Empty{}, nil
+}
+
+func (c *systemPluginClientImpl) UseNodeManagerClient(ctx context.Context, in *BrokerID) (*emptypb.Empty, error) {
+	cc, err := c.broker.Dial(in.Id)
+	if err != nil {
+		return nil, err
+	}
+	defer cc.Close()
+	client := capabilityv1.NewNodeManagerClient(cc)
+	c.client.UseNodeManagerClient(client)
 	return &emptypb.Empty{}, nil
 }
 
@@ -152,6 +167,19 @@ func (s *systemPluginHandler) ServeManagementAPI(api managementv1.ManagementServ
 	)
 }
 
+func (s *systemPluginHandler) ServeNodeManagerServer(api capabilityv1.NodeManagerServer) {
+	s.serveSystemApi(
+		func(srv *grpc.Server) {
+			capabilityv1.RegisterNodeManagerServer(srv, api)
+		},
+		func(id uint32) {
+			s.client.UseNodeManagerClient(s.ctx, &BrokerID{
+				Id: id,
+			})
+		},
+	)
+}
+
 func (s *systemPluginHandler) ServeKeyValueStore(store storage.KeyValueStore) {
 	kvStoreSrv := &kvStoreServer{
 		store: store,
@@ -176,7 +204,7 @@ func (s *systemPluginHandler) ServeAPIExtensions(dialAddr string) error {
 }
 
 func init() {
-	plugins.ClientScheme.Add(SystemPluginID, NewPlugin(nil))
+	plugins.GatewayScheme.Add(SystemPluginID, NewPlugin(nil))
 }
 
 func (s *systemPluginHandler) serveSystemApi(regCallback func(*grpc.Server), useCallback func(uint32)) {

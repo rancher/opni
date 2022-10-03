@@ -7,6 +7,12 @@ annotations:
 apiVersion: v2
 appVersion: 0.5.4
 dependencies:
+- condition: opni-agent.kube-prometheus-stack.enabled
+  name: kube-prometheus-stack
+  repository: file://./charts/kube-prometheus-stack
+- condition: opni-agent.enabled
+  name: opni-agent
+  repository: file://./charts/opni-agent
 - condition: opni-prometheus-crd.enabled
   name: opni-prometheus-crd
   repository: file://./charts/opni-prometheus-crd

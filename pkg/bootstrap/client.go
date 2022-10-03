@@ -22,16 +22,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-var (
-	ErrInvalidEndpoint    = errors.New("invalid endpoint")
-	ErrNoRootCA           = errors.New("no root CA found in peer certificates")
-	ErrLeafNotSigned      = errors.New("leaf certificate not signed by the root CA")
-	ErrKeyExpired         = errors.New("key expired")
-	ErrRootCAHashMismatch = errors.New("root CA hash mismatch")
-	ErrNoValidSignature   = errors.New("no valid signature found in response")
-	ErrNoToken            = errors.New("no bootstrap token provided")
-)
-
 type ClientConfig struct {
 	Capability    string
 	Token         *tokens.Token
@@ -67,6 +57,7 @@ func (c *ClientConfig) Bootstrap(
 
 	cc, err := grpc.DialContext(ctx, c.Endpoint,
 		append(c.DialOpts,
+			grpc.WithBlock(),
 			grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 			grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
 			grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
@@ -75,6 +66,8 @@ func (c *ClientConfig) Bootstrap(
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial gateway: %w", err)
 	}
+	defer cc.Close()
+
 	client := bootstrapv1.NewBootstrapClient(cc)
 
 	ekp := ecdh.NewEphemeralKeyPair()
@@ -111,6 +104,10 @@ func (c *ClientConfig) Bootstrap(
 }
 
 func (c *ClientConfig) Finalize(ctx context.Context) error {
+	if c.K8sConfig == nil {
+		return nil
+	}
+
 	ns := c.K8sNamespace
 	if ns == "" {
 		if nsEnv, ok := os.LookupEnv("POD_NAMESPACE"); ok {
@@ -137,6 +134,8 @@ func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.Bootstra
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to dial gateway: %w", err)
 	}
+	defer cc.Close()
+
 	client := bootstrapv1.NewBootstrapClient(cc)
 
 	var peer peer.Peer

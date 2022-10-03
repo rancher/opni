@@ -7,15 +7,17 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"google.golang.org/grpc"
+
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
-	"github.com/rancher/opni/plugins/cortex/pkg/cortex"
 	"github.com/rancher/opni/plugins/example/pkg/example"
+	metrics_agent "github.com/rancher/opni/plugins/metrics/pkg/agent"
+	metrics_gateway "github.com/rancher/opni/plugins/metrics/pkg/gateway"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
-	"google.golang.org/grpc"
 )
 
 type apiextensionTestPlugin struct {
@@ -78,14 +80,27 @@ type testPlugin struct {
 	Metadata meta.PluginMeta
 }
 
-func LoadPlugins(loader *plugins.PluginLoader) int {
+func LoadPlugins(loader *plugins.PluginLoader, mode meta.PluginMode) int {
+	var metricsPluginScheme meta.Scheme
+	var scheme meta.Scheme
+	switch mode {
+	case meta.ModeGateway:
+		scheme = plugins.GatewayScheme
+		metricsPluginScheme = metrics_gateway.Scheme(context.Background())
+	case meta.ModeAgent:
+		scheme = plugins.AgentScheme
+		metricsPluginScheme = metrics_agent.Scheme(context.Background())
+	default:
+		panic("unknown plugin mode: " + mode)
+	}
+
 	testPlugins := []testPlugin{
 		{
-			Scheme: cortex.Scheme(context.Background()),
+			Scheme: metricsPluginScheme,
 			Metadata: meta.PluginMeta{
-				BinaryPath: "plugin_cortex",
+				BinaryPath: "plugin_metrics",
 				GoVersion:  runtime.Version(),
-				Module:     "github.com/rancher/opni/plugins/cortex",
+				Module:     "github.com/rancher/opni/plugins/metrics",
 			},
 		},
 		{
@@ -115,6 +130,7 @@ func LoadPlugins(loader *plugins.PluginLoader) int {
 	}
 	wg := &sync.WaitGroup{}
 	for _, p := range testPlugins {
+		p := p
 		sc := plugins.ServeConfig(p.Scheme)
 		ch := make(chan *plugin.ReattachConfig, 1)
 		sc.Test = &plugin.ServeTestConfig{
@@ -122,9 +138,8 @@ func LoadPlugins(loader *plugins.PluginLoader) int {
 		}
 		go plugin.Serve(sc)
 		rc := <-ch
-		cc := plugins.ClientConfig(p.Metadata, plugins.ClientScheme, rc)
+		cc := plugins.ClientConfig(p.Metadata, scheme, rc)
 		wg.Add(1)
-		p := p
 		go func() {
 			defer wg.Done()
 			loader.LoadOne(context.Background(), p.Metadata, cc)

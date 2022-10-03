@@ -6,14 +6,15 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-plugin"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
+
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/plugins"
 	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
-	gatewayunaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/unary"
+	"github.com/rancher/opni/pkg/plugins/apis/apiextensions/unary"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/plugins/example/pkg/example"
-	"go.uber.org/zap"
-	"google.golang.org/grpc"
 )
 
 type apiextensionUnaryTestPlugin struct {
@@ -51,7 +52,7 @@ func NewApiExtensionUnaryTestPlugin(
 		impl:    impl,
 	}
 	scheme := meta.NewScheme()
-	scheme.Add(gatewayunaryext.UnaryAPIExtensionPluginID, p)
+	scheme.Add(unary.UnaryAPIExtensionPluginID, p)
 
 	cfg := plugins.ServeConfig(scheme)
 	ch := make(chan *plugin.ReattachConfig)
@@ -94,7 +95,7 @@ func LoadUnaryPlugins(loader *plugins.PluginLoader) int {
 		}
 		go plugin.Serve(sc)
 		rc := <-ch
-		cc := plugins.ClientConfig(p.Metadata, plugins.ClientScheme, rc)
+		cc := plugins.ClientConfig(p.Metadata, plugins.GatewayScheme, rc)
 		wg.Add(1)
 		p := p
 		go func() {

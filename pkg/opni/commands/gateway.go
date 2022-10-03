@@ -1,3 +1,5 @@
+//go:build !nogateway
+
 package commands
 
 import (
@@ -24,14 +26,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 
-	// Import all plugin apis to ensure they are added to the client scheme
-	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
-	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/stream"
-	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/unary"
-	_ "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
-	_ "github.com/rancher/opni/pkg/plugins/apis/capability"
-	_ "github.com/rancher/opni/pkg/plugins/apis/metrics"
-	_ "github.com/rancher/opni/pkg/plugins/apis/system"
+	_ "github.com/rancher/opni/pkg/plugins/apis"
 )
 
 func BuildGatewayCmd() *cobra.Command {
@@ -50,8 +45,9 @@ func BuildGatewayCmd() *cobra.Command {
 		if err != nil {
 			if errors.Is(err, rest.ErrNotInCluster) {
 				inCluster = false
+			} else {
+				lg.Fatalf("failed to create config: %s", err)
 			}
-			lg.Fatalf("failed to create config: %s", err)
 		}
 
 		var fCancel context.CancelFunc
@@ -133,7 +129,7 @@ func BuildGatewayCmd() *cobra.Command {
 			}
 		}))
 
-		pluginLoader.LoadPlugins(ctx, gatewayConfig.Spec.Plugins)
+		pluginLoader.LoadPlugins(ctx, gatewayConfig.Spec.Plugins, plugins.GatewayScheme)
 
 		style := chalk.Yellow.NewStyle().
 			WithBackground(chalk.ResetColor).
@@ -188,4 +184,8 @@ func BuildGatewayCmd() *cobra.Command {
 
 	serveCmd.Flags().StringVar(&configLocation, "config", "", "Absolute path to a config file")
 	return serveCmd
+}
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildGatewayCmd())
 }

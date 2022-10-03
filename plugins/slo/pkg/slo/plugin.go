@@ -2,6 +2,7 @@ package slo
 
 import (
 	"context"
+
 	"go.uber.org/zap"
 
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
@@ -10,8 +11,9 @@ import (
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 )
 
@@ -48,6 +50,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(&sloapi.SLO_ServiceDesc, p))
+		managementext.NewPlugin(util.PackService(&sloapi.SLO_ServiceDesc, p)))
 	return scheme
 }

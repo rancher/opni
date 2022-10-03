@@ -25,7 +25,7 @@ import (
 	"github.com/rancher/opni/pkg/util"
 )
 
-//#region Test Setup
+// #region Test Setup
 var _ = Describe("Management API Cluster Management Tests", Ordered, Label("integration"), func() {
 	var environment *test.Environment
 	var client managementv1.ManagementClient
@@ -68,21 +68,24 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(clusterInfo.Id).To(Equal("test-cluster-id"))
-		Expect(clusterInfo.GetLabels()).To(BeNil())
 	})
 
 	It("can edit the label a cluster is using", func() {
-		_, err := client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
+		clusterInfo, err := client.GetCluster(context.Background(), &corev1.Reference{
+			Id: "test-cluster-id",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		labels := clusterInfo.GetLabels()
+		labels["i"] = "999"
+		_, err = client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
 			Cluster: &corev1.Reference{
 				Id: "test-cluster-id",
 			},
-			Labels: map[string]string{
-				"i": "999",
-			},
+			Labels: labels,
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		clusterInfo, err := client.GetCluster(context.Background(), &corev1.Reference{
+		clusterInfo, err = client.GetCluster(context.Background(), &corev1.Reference{
 			Id: "test-cluster-id",
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -106,17 +109,21 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 		_, errC := environment.StartAgent("test-cluster-id-2", token2, []string{fingerprint2})
 		Eventually(errC).Should(Receive(BeNil()))
 
+		clusterInfo, err := client.GetCluster(context.Background(), &corev1.Reference{
+			Id: "test-cluster-id",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		labels := clusterInfo.GetLabels()
+		labels["i"] = "999"
 		_, err = client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
 			Cluster: &corev1.Reference{
 				Id: "test-cluster-id-2",
 			},
-			Labels: map[string]string{
-				"i": "999",
-			},
+			Labels: labels,
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		clusterInfo, err := client.ListClusters(context.Background(), &managementv1.ListClustersRequest{
+		clusterInfoList, err := client.ListClusters(context.Background(), &managementv1.ListClustersRequest{
 			MatchLabels: &corev1.LabelSelector{
 				MatchLabels: map[string]string{
 					"i": "999",
@@ -125,11 +132,20 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(clusterInfo.GetItems()).NotTo(BeNil())
+		Expect(clusterInfoList.GetItems()).To(HaveLen(2))
 	})
 
 	When("a cluster has installed capabilities", func() {
 		It("should prevent the cluster from being deleted", func() {
+			client.InstallCapability(context.Background(), &managementv1.CapabilityInstallRequest{
+				Name: "metrics",
+				Target: &v1.InstallRequest{
+					Cluster: &corev1.Reference{
+						Id: "test-cluster-id",
+					},
+					IgnoreWarnings: true,
+				},
+			})
 			_, errG1 := client.GetCluster(context.Background(), &corev1.Reference{
 				Id: "test-cluster-id",
 			})
@@ -239,7 +255,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 			},
 		})
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to get cluster: not found"))
+		Expect(status.Code(err)).To(Equal(codes.NotFound))
 	})
 
 	It("cannot edit the label a cluster is using without providing an ID", func() {
@@ -302,27 +318,33 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 			_, errC := environment.StartAgent(clusterName, token, []string{fingerprint})
 			Eventually(errC).Should(Receive(BeNil()))
 
+			var labels map[string]string
 			Eventually(func() error {
-				_, err := client.GetCluster(context.Background(), &corev1.Reference{
+				info, err := client.GetCluster(context.Background(), &corev1.Reference{
 					Id: clusterName,
 				})
-				return err
+				if err != nil {
+					return err
+				}
+				labels = info.GetLabels()
+				return nil
 			}).Should(Succeed())
 
+			labels["i"] = "999"
 			_, errE := client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
 				Cluster: &corev1.Reference{
 					Id: clusterName,
 				},
-				Labels: map[string]string{
-					"i": "999",
-				},
+				Labels: labels,
 			})
 			Expect(errE).NotTo(HaveOccurred())
 
+			delete(labels, "i")
 			_, err = client.EditCluster(context.Background(), &managementv1.EditClusterRequest{
 				Cluster: &corev1.Reference{
 					Id: clusterName,
 				},
+				Labels: labels,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -330,7 +352,7 @@ var _ = Describe("Management API Cluster Management Tests", Ordered, Label("inte
 				Id: clusterName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(clusterInfo.GetLabels()).To(BeEmpty())
+			Expect(clusterInfo.GetLabels()).NotTo(HaveKey("i"))
 		})
 	})
 

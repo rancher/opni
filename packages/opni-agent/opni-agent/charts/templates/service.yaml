@@ -1,5 +1,5 @@
 ---
-{{- if .Values.metrics.enabled }}
+{{- if (or (eq .Values.agent.version "v2") .Values.metrics.enabled) }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -7,6 +7,7 @@ metadata:
   namespace: {{ include "opni-agent.namespace" . }}
   labels:
     {{- include "opni-agent.labels" . | nindent 4 }}
+    opni.io/app: agent
 spec:
   type: {{ .Values.service.type }}
   selector:
@@ -17,11 +18,11 @@ spec:
       targetPort: http
 ---
 {{- end }}
-{{- if .Values.logging.enabled }}
+{{- if (or (eq .Values.agent.version "v2") .Values.logging.enabled ) }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: opni-webhook
+  name: opni-agent-webhook
   namespace: {{ include "opni-agent.namespace" . }}
   labels:
     {{- include "opni-agent.labels" . | nindent 4 }}

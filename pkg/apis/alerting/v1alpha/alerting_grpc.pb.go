@@ -24,22 +24,19 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AlertingClient interface {
-	// unimplemented
+	// opni internal use
 	TriggerAlerts(ctx context.Context, in *TriggerAlertsRequest, opts ...grpc.CallOption) (*TriggerAlertsResponse, error)
 	// alerting internal use only
 	CreateAlertLog(ctx context.Context, in *v1.AlertLog, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// unimplemented
-	GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.AlertLog, error)
 	ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*InformativeAlertLogList, error)
-	// unimplemented
-	UpdateAlertLog(ctx context.Context, in *UpdateAlertLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// alerting internal use only (for now)
-	DeleteAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreateAlertCondition(ctx context.Context, in *AlertCondition, opts ...grpc.CallOption) (*v1.Reference, error)
 	GetAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertCondition, error)
 	ListAlertConditions(ctx context.Context, in *ListAlertConditionRequest, opts ...grpc.CallOption) (*AlertConditionList, error)
 	UpdateAlertCondition(ctx context.Context, in *UpdateAlertConditionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListAlertConditionChoices(ctx context.Context, in *AlertDetailChoicesRequest, opts ...grpc.CallOption) (*ListAlertTypeDetails, error)
 	DeleteAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListAvailableTemplatesForType(ctx context.Context, in *AlertDetailChoicesRequest, opts ...grpc.CallOption) (*TemplatesResponse, error)
+	AlertConditionStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertStatusResponse, error)
 	// unimplemented
 	PreviewAlertCondition(ctx context.Context, in *PreviewAlertConditionRequest, opts ...grpc.CallOption) (*PreviewAlertConditionResponse, error)
 	ActivateSilence(ctx context.Context, in *SilenceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -87,36 +84,9 @@ func (c *alertingClient) CreateAlertLog(ctx context.Context, in *v1.AlertLog, op
 	return out, nil
 }
 
-func (c *alertingClient) GetAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*v1.AlertLog, error) {
-	out := new(v1.AlertLog)
-	err := c.cc.Invoke(ctx, "/Alerting/GetAlertLog", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *alertingClient) ListAlertLogs(ctx context.Context, in *ListAlertLogRequest, opts ...grpc.CallOption) (*InformativeAlertLogList, error) {
 	out := new(InformativeAlertLogList)
 	err := c.cc.Invoke(ctx, "/Alerting/ListAlertLogs", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *alertingClient) UpdateAlertLog(ctx context.Context, in *UpdateAlertLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/Alerting/UpdateAlertLog", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *alertingClient) DeleteAlertLog(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/Alerting/DeleteAlertLog", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -159,9 +129,36 @@ func (c *alertingClient) UpdateAlertCondition(ctx context.Context, in *UpdateAle
 	return out, nil
 }
 
+func (c *alertingClient) ListAlertConditionChoices(ctx context.Context, in *AlertDetailChoicesRequest, opts ...grpc.CallOption) (*ListAlertTypeDetails, error) {
+	out := new(ListAlertTypeDetails)
+	err := c.cc.Invoke(ctx, "/Alerting/ListAlertConditionChoices", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *alertingClient) DeleteAlertCondition(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/Alerting/DeleteAlertCondition", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertingClient) ListAvailableTemplatesForType(ctx context.Context, in *AlertDetailChoicesRequest, opts ...grpc.CallOption) (*TemplatesResponse, error) {
+	out := new(TemplatesResponse)
+	err := c.cc.Invoke(ctx, "/Alerting/ListAvailableTemplatesForType", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *alertingClient) AlertConditionStatus(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*AlertStatusResponse, error) {
+	out := new(AlertStatusResponse)
+	err := c.cc.Invoke(ctx, "/Alerting/AlertConditionStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -280,22 +277,19 @@ func (c *alertingClient) DeleteEndpointImplementation(ctx context.Context, in *v
 // All implementations must embed UnimplementedAlertingServer
 // for forward compatibility
 type AlertingServer interface {
-	// unimplemented
+	// opni internal use
 	TriggerAlerts(context.Context, *TriggerAlertsRequest) (*TriggerAlertsResponse, error)
 	// alerting internal use only
 	CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error)
-	// unimplemented
-	GetAlertLog(context.Context, *v1.Reference) (*v1.AlertLog, error)
 	ListAlertLogs(context.Context, *ListAlertLogRequest) (*InformativeAlertLogList, error)
-	// unimplemented
-	UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error)
-	// alerting internal use only (for now)
-	DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error)
 	CreateAlertCondition(context.Context, *AlertCondition) (*v1.Reference, error)
 	GetAlertCondition(context.Context, *v1.Reference) (*AlertCondition, error)
 	ListAlertConditions(context.Context, *ListAlertConditionRequest) (*AlertConditionList, error)
 	UpdateAlertCondition(context.Context, *UpdateAlertConditionRequest) (*emptypb.Empty, error)
+	ListAlertConditionChoices(context.Context, *AlertDetailChoicesRequest) (*ListAlertTypeDetails, error)
 	DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error)
+	ListAvailableTemplatesForType(context.Context, *AlertDetailChoicesRequest) (*TemplatesResponse, error)
+	AlertConditionStatus(context.Context, *v1.Reference) (*AlertStatusResponse, error)
 	// unimplemented
 	PreviewAlertCondition(context.Context, *PreviewAlertConditionRequest) (*PreviewAlertConditionResponse, error)
 	ActivateSilence(context.Context, *SilenceRequest) (*emptypb.Empty, error)
@@ -328,17 +322,8 @@ func (UnimplementedAlertingServer) TriggerAlerts(context.Context, *TriggerAlerts
 func (UnimplementedAlertingServer) CreateAlertLog(context.Context, *v1.AlertLog) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertLog not implemented")
 }
-func (UnimplementedAlertingServer) GetAlertLog(context.Context, *v1.Reference) (*v1.AlertLog, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAlertLog not implemented")
-}
 func (UnimplementedAlertingServer) ListAlertLogs(context.Context, *ListAlertLogRequest) (*InformativeAlertLogList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAlertLogs not implemented")
-}
-func (UnimplementedAlertingServer) UpdateAlertLog(context.Context, *UpdateAlertLogRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateAlertLog not implemented")
-}
-func (UnimplementedAlertingServer) DeleteAlertLog(context.Context, *v1.Reference) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertLog not implemented")
 }
 func (UnimplementedAlertingServer) CreateAlertCondition(context.Context, *AlertCondition) (*v1.Reference, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAlertCondition not implemented")
@@ -352,8 +337,17 @@ func (UnimplementedAlertingServer) ListAlertConditions(context.Context, *ListAle
 func (UnimplementedAlertingServer) UpdateAlertCondition(context.Context, *UpdateAlertConditionRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateAlertCondition not implemented")
 }
+func (UnimplementedAlertingServer) ListAlertConditionChoices(context.Context, *AlertDetailChoicesRequest) (*ListAlertTypeDetails, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAlertConditionChoices not implemented")
+}
 func (UnimplementedAlertingServer) DeleteAlertCondition(context.Context, *v1.Reference) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAlertCondition not implemented")
+}
+func (UnimplementedAlertingServer) ListAvailableTemplatesForType(context.Context, *AlertDetailChoicesRequest) (*TemplatesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAvailableTemplatesForType not implemented")
+}
+func (UnimplementedAlertingServer) AlertConditionStatus(context.Context, *v1.Reference) (*AlertStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AlertConditionStatus not implemented")
 }
 func (UnimplementedAlertingServer) PreviewAlertCondition(context.Context, *PreviewAlertConditionRequest) (*PreviewAlertConditionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PreviewAlertCondition not implemented")
@@ -440,24 +434,6 @@ func _Alerting_CreateAlertLog_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Alerting_GetAlertLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AlertingServer).GetAlertLog(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Alerting/GetAlertLog",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingServer).GetAlertLog(ctx, req.(*v1.Reference))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Alerting_ListAlertLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListAlertLogRequest)
 	if err := dec(in); err != nil {
@@ -472,42 +448,6 @@ func _Alerting_ListAlertLogs_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AlertingServer).ListAlertLogs(ctx, req.(*ListAlertLogRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Alerting_UpdateAlertLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateAlertLogRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AlertingServer).UpdateAlertLog(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Alerting/UpdateAlertLog",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingServer).UpdateAlertLog(ctx, req.(*UpdateAlertLogRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Alerting_DeleteAlertLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(v1.Reference)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AlertingServer).DeleteAlertLog(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Alerting/DeleteAlertLog",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AlertingServer).DeleteAlertLog(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -584,6 +524,24 @@ func _Alerting_UpdateAlertCondition_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Alerting_ListAlertConditionChoices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AlertDetailChoicesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).ListAlertConditionChoices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Alerting/ListAlertConditionChoices",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).ListAlertConditionChoices(ctx, req.(*AlertDetailChoicesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Alerting_DeleteAlertCondition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(v1.Reference)
 	if err := dec(in); err != nil {
@@ -598,6 +556,42 @@ func _Alerting_DeleteAlertCondition_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AlertingServer).DeleteAlertCondition(ctx, req.(*v1.Reference))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Alerting_ListAvailableTemplatesForType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AlertDetailChoicesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).ListAvailableTemplatesForType(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Alerting/ListAvailableTemplatesForType",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).ListAvailableTemplatesForType(ctx, req.(*AlertDetailChoicesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Alerting_AlertConditionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AlertingServer).AlertConditionStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Alerting/AlertConditionStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AlertingServer).AlertConditionStatus(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -834,20 +828,8 @@ var Alerting_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Alerting_CreateAlertLog_Handler,
 		},
 		{
-			MethodName: "GetAlertLog",
-			Handler:    _Alerting_GetAlertLog_Handler,
-		},
-		{
 			MethodName: "ListAlertLogs",
 			Handler:    _Alerting_ListAlertLogs_Handler,
-		},
-		{
-			MethodName: "UpdateAlertLog",
-			Handler:    _Alerting_UpdateAlertLog_Handler,
-		},
-		{
-			MethodName: "DeleteAlertLog",
-			Handler:    _Alerting_DeleteAlertLog_Handler,
 		},
 		{
 			MethodName: "CreateAlertCondition",
@@ -866,8 +848,20 @@ var Alerting_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Alerting_UpdateAlertCondition_Handler,
 		},
 		{
+			MethodName: "ListAlertConditionChoices",
+			Handler:    _Alerting_ListAlertConditionChoices_Handler,
+		},
+		{
 			MethodName: "DeleteAlertCondition",
 			Handler:    _Alerting_DeleteAlertCondition_Handler,
+		},
+		{
+			MethodName: "ListAvailableTemplatesForType",
+			Handler:    _Alerting_ListAvailableTemplatesForType_Handler,
+		},
+		{
+			MethodName: "AlertConditionStatus",
+			Handler:    _Alerting_AlertConditionStatus_Handler,
 		},
 		{
 			MethodName: "PreviewAlertCondition",

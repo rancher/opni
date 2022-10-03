@@ -14,7 +14,7 @@ func BuildVersionCmd() *cobra.Command {
 	var verbose bool
 	versionCmd := &cobra.Command{
 		Use:   "version",
-		Short: "Show opni-monitoring version information",
+		Short: "Show opni version information",
 		Run: func(cmd *cobra.Command, args []string) {
 			info, _ := debug.ReadBuildInfo()
 			if verbose {
@@ -37,7 +37,7 @@ func BuildVersionCmd() *cobra.Command {
 				fmt.Println(version)
 				return
 			}
-			fmt.Printf("Opni Monitoring, %s %s\n", noun, version)
+			fmt.Printf("Opni, %s %s\n", noun, version)
 			fmt.Printf("  go version: %s\n", info.GoVersion)
 			fmt.Printf("  build date: %s\n", settings["vcs.time"].Value)
 		},

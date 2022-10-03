@@ -8,17 +8,20 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/logger"
-	"github.com/rancher/opni/pkg/plugins/hooks"
-	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+
+	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/logger"
+	"github.com/rancher/opni/pkg/plugins/hooks"
+	"github.com/rancher/opni/pkg/plugins/meta"
 )
+
+const DefaultPluginGlob = "plugin_*"
 
 type LoaderInterface interface {
 	// Adds a hook to the loader, which will be invoked at a specific time according
@@ -146,6 +149,10 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 		switch c := rpcClient.(type) {
 		case *plugin.GRPCClient:
 			p.hooksMu.RLock()
+			numHooks := len(p.loadHooks)
+			if numHooks > 0 {
+				lg.Debugf("invoking load hooks (%d)", numHooks)
+			}
 			for _, h := range p.loadHooks {
 				if h.hook.ShouldInvoke(raw) {
 					wg.Add(1)
@@ -188,13 +195,13 @@ func (p *PluginLoader) LoadOne(ctx context.Context, md meta.PluginMeta, cc *plug
 // is called, it is unsafe to call LoadPlugins() or LoadOne() again for this
 // plugin loader, although new hooks can still be added and will be invoked
 // immediately according to the current state of the plugin loader.
-func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec, reattach ...*plugin.ReattachConfig) {
+func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec, scheme meta.Scheme, reattach ...*plugin.ReattachConfig) {
 	tc, span := otel.Tracer("pluginloader").Start(ctx, "LoadPlugins")
 
 	wg := &sync.WaitGroup{}
 	var pluginPaths []string
 	for _, dir := range conf.Dirs {
-		paths, err := plugin.Discover("plugin_*", dir)
+		paths, err := plugin.Discover(DefaultPluginGlob, dir)
 		if err != nil {
 			continue
 		}
@@ -208,7 +215,7 @@ func (p *PluginLoader) LoadPlugins(ctx context.Context, conf v1beta1.PluginsSpec
 			).Error("failed to read plugin metadata", zap.Error(err))
 			continue
 		}
-		cc := ClientConfig(md, ClientScheme, reattach...)
+		cc := ClientConfig(md, scheme, reattach...)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

@@ -8,16 +8,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-hclog"
+
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
-	gatewayext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway"
-	unaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/gateway/unary"
+	httpext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/http"
 	managementext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/management"
+	unaryext "github.com/rancher/opni/pkg/plugins/apis/apiextensions/unary"
 	"github.com/rancher/opni/pkg/plugins/apis/capability"
 	"github.com/rancher/opni/pkg/plugins/apis/system"
 	"github.com/rancher/opni/pkg/plugins/meta"
+	"github.com/rancher/opni/pkg/util"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -100,11 +103,15 @@ func (s *ExamplePlugin) Info(context.Context, *emptypb.Empty) (*capabilityv1.Inf
 }
 
 func (s *ExamplePlugin) CanInstall(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, nil
+	return &emptypb.Empty{}, nil
 }
 
-func (s *ExamplePlugin) Install(context.Context, *capabilityv1.InstallRequest) (*emptypb.Empty, error) {
-	return nil, nil
+func (s *ExamplePlugin) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
+}
+
+func (s *ExamplePlugin) Install(context.Context, *capabilityv1.InstallRequest) (*capabilityv1.InstallResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Install not implemented")
 }
 
 func (s *ExamplePlugin) Uninstall(context.Context, *capabilityv1.UninstallRequest) (*emptypb.Empty, error) {
@@ -133,10 +140,9 @@ func Scheme(ctx context.Context) meta.Scheme {
 		Logger: logger.NewForPlugin(),
 	}
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(&ExampleAPIExtension_ServiceDesc, p))
+		managementext.NewPlugin(util.PackService(&ExampleAPIExtension_ServiceDesc, p)))
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
-	scheme.Add(gatewayext.GatewayAPIExtensionPluginID,
-		gatewayext.NewPlugin(p))
+	scheme.Add(httpext.HTTPAPIExtensionPluginID, httpext.NewPlugin(p))
 	scheme.Add(capability.CapabilityBackendPluginID, capability.NewPlugin(p))
 	scheme.Add(unaryext.UnaryAPIExtensionPluginID, unaryext.NewPlugin(&ExampleUnaryExtension_ServiceDesc, p))
 	return scheme

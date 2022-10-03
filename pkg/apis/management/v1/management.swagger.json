@@ -66,6 +66,7 @@
     },
     "/management/capabilities/{name}/installer": {
       "post": {
+        "summary": "Deprecated: For agent v2, use InstallCapability instead.",
         "operationId": "Management_CapabilityInstaller",
         "responses": {
           "200": {
@@ -412,6 +413,63 @@
             "in": "path",
             "required": true,
             "type": "string"
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
+    "/management/clusters/{target.cluster.id}/capabilities/{name}/install": {
+      "post": {
+        "operationId": "Management_InstallCapability",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/capabilityInstallResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "target.cluster.id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "target": {
+                  "type": "object",
+                  "properties": {
+                    "cluster": {
+                      "type": "object"
+                    },
+                    "ignoreWarnings": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "tags": [
@@ -951,6 +1009,38 @@
         }
       }
     },
+    "capabilityInstallRequest": {
+      "type": "object",
+      "properties": {
+        "cluster": {
+          "$ref": "#/definitions/coreReference"
+        },
+        "ignoreWarnings": {
+          "type": "boolean"
+        }
+      }
+    },
+    "capabilityInstallResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/capabilityInstallResponseStatus"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilityInstallResponseStatus": {
+      "type": "string",
+      "enum": [
+        "Unknown",
+        "Success",
+        "Warning",
+        "Error"
+      ],
+      "default": "Unknown"
+    },
     "capabilityUninstallRequest": {
       "type": "object",
       "properties": {
@@ -1110,6 +1200,12 @@
         "conditions": {
           "type": "array",
           "items": {
+            "type": "string"
+          }
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": {
             "type": "string"
           }
         }

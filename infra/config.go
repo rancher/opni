@@ -13,9 +13,12 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 	zoneID := config.Require(ctx, "opni:zoneID")
 	useLocalCharts := config.GetBool(ctx, "opni:useLocalCharts")
 	config.GetObject(ctx, "opni:cluster", &clusterConfig)
+	tags := map[string]string{}
+	config.GetObject(ctx, "opni:tags", &tags)
+	noIdInDnsNames := config.GetBool(ctx, "opni:noIdInDnsNames")
 	clusterConfig.LoadDefaults()
 
-	var cloud, imageRepo, imageTag string
+	var cloud, imageRepo, imageTag, minimalImageTag string
 
 	if value, ok := os.LookupEnv("CLOUD"); ok {
 		cloud = value
@@ -32,31 +35,42 @@ func LoadConfig(ctx *pulumi.Context) *Config {
 	} else {
 		imageTag = config.Get(ctx, "opni:imageTag")
 	}
+	if value, ok := os.LookupEnv("MINIMAL_IMAGE_TAG"); ok {
+		minimalImageTag = value
+	} else {
+		minimalImageTag = config.Get(ctx, "opni:minimalImageTag")
+	}
 
 	conf := &Config{
-		NamePrefix:     namePrefix,
-		ZoneID:         zoneID,
-		Cloud:          cloud,
-		ImageRepo:      imageRepo,
-		ImageTag:       imageTag,
-		UseLocalCharts: useLocalCharts,
-		Cluster:        clusterConfig,
+		NamePrefix:      namePrefix,
+		ZoneID:          zoneID,
+		Cloud:           cloud,
+		ImageRepo:       imageRepo,
+		ImageTag:        imageTag,
+		MinimalImageTag: minimalImageTag,
+		UseLocalCharts:  useLocalCharts,
+		Cluster:         clusterConfig,
+		Tags:            tags,
+		NoIdInDnsNames:  noIdInDnsNames,
 	}
 	conf.LoadDefaults()
 	return conf
 }
 
 type Config struct {
-	NamePrefix     string            `json:"namePrefix"`
-	ZoneID         string            `json:"zoneID"`
-	Cloud          string            `json:"cloud"`
-	ImageRepo      string            `json:"imageRepo"`
-	ImageTag       string            `json:"imageTag"`
-	UseLocalCharts bool              `json:"useLocalCharts"`
-	ChartsRepo     string            `json:"chartsRepo"`
-	ChartVersion   string            `json:"chartVersion"`
-	Cluster        ClusterConfig     `json:"cluster"`
-	Tags           map[string]string `json:"tags"`
+	NamePrefix            string            `json:"namePrefix"`
+	ZoneID                string            `json:"zoneID"`
+	Cloud                 string            `json:"cloud"`
+	ImageRepo             string            `json:"imageRepo"`
+	ImageTag              string            `json:"imageTag"`
+	MinimalImageTag       string            `json:"minimalImageTag"`
+	UseLocalCharts        bool              `json:"useLocalCharts"`
+	ChartsRepo            string            `json:"chartsRepo"`
+	ChartVersion          string            `json:"chartVersion"`
+	KubePrometheusEnabled bool              `json:"kubePrometheusEnabled"`
+	Cluster               ClusterConfig     `json:"cluster"`
+	Tags                  map[string]string `json:"tags"`
+	NoIdInDnsNames        bool              `json:"noIdInDnsNames"`
 }
 
 type ClusterConfig struct {
@@ -75,6 +89,9 @@ func (c *Config) LoadDefaults() {
 	}
 	if c.ImageTag == "" {
 		c.ImageTag = "latest"
+	}
+	if c.MinimalImageTag == "" {
+		c.MinimalImageTag = "latest-minimal"
 	}
 	if c.ChartsRepo == "" {
 		c.ChartsRepo = "https://raw.githubusercontent.com/rancher/opni/charts-repo/"

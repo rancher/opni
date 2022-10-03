@@ -1,3 +1,5 @@
+//go:build !noinfra
+
 package main
 
 import (
@@ -68,12 +70,13 @@ func run(ctx *Context) (runErr error) {
 		NodeGroupDesiredSize: conf.Cluster.NodeGroupDesiredSize,
 		ZoneID:               conf.ZoneID,
 		Tags:                 tags,
+		NoIdInDnsNames:       conf.NoIdInDnsNames,
 	})
 	if err != nil {
 		return err
 	}
-
-	var opniCrdChart, opniChart, opniAgentChart string
+	// FIXME: ability  for agent v1
+	var opniCrdChart, opniChart /*,opniAgentChart*/ string
 	var chartRepoOpts *helm.RepositoryOptsArgs
 	if conf.UseLocalCharts {
 		var ok bool
@@ -83,19 +86,20 @@ func run(ctx *Context) (runErr error) {
 		if opniChart, ok = findLocalChartDir("opni"); !ok {
 			return errors.New("could not find local opni chart")
 		}
-		if opniAgentChart, ok = findLocalChartDir("opni-agent"); !ok {
-			return errors.New("could not find local opni-agent chart")
-		}
+		// if opniAgentChart, ok = findLocalChartDir("opni-agent"); !ok {
+		// 	return errors.New("could not find local opni-agent chart")
+		// }
 	} else {
 		chartRepoOpts = &helm.RepositoryOptsArgs{
 			Repo: StringPtr(conf.ChartsRepo),
 		}
 		opniCrdChart = "opni-crd"
 		opniChart = "opni"
-		opniAgentChart = "opni-agent"
+		// opniAgentChart = "opni-agent"
 	}
 
 	opniServiceLB := mainCluster.Provider.ApplyT(func(k *kubernetes.Provider) (StringOutput, error) {
+		//FIXME
 		opniCrd, err := helm.NewRelease(ctx, "opni-crd", &helm.ReleaseArgs{
 			Chart:          String(opniCrdChart),
 			RepositoryOpts: chartRepoOpts,
@@ -120,8 +124,14 @@ func run(ctx *Context) (runErr error) {
 					"repository": String(conf.ImageRepo),
 					"tag":        String(conf.ImageTag),
 				},
+				"opni-prometheus-crd": Map{
+					"enabled": Bool(false),
+				},
 				"gateway": Map{
-					"enabled":     Bool(true),
+					"enabled": Bool(true),
+					"alerting": Map{
+						"enabled": Bool(true),
+					},
 					"hostname":    mainCluster.GatewayHostname,
 					"serviceType": String("LoadBalancer"),
 					"auth": Map{
@@ -138,24 +148,23 @@ func run(ctx *Context) (runErr error) {
 						},
 					},
 				},
-				"monitoring": Map{
-					"enabled": Bool(true),
-					"grafana": Map{
-						"enabled":  Bool(true),
-						"hostname": mainCluster.GrafanaHostname,
+				"opni-agent": Map{
+					"image": Map{
+						"repository": String(conf.ImageRepo),
+						"tag":        String(conf.MinimalImageTag),
 					},
-					"cortex": Map{
-						"storage": Map{
-							"backend": String("s3"),
-							"s3": Map{
-								"endpoint":         mainCluster.S3.Endpoint,
-								"region":           mainCluster.S3.Region,
-								"bucketName":       mainCluster.S3.Bucket,
-								"accessKeyID":      mainCluster.S3.AccessKeyID,
-								"secretAccessKey":  mainCluster.S3.SecretAccessKey,
-								"signatureVersion": String("v4"),
-							},
-						},
+					"enabled":          Bool(true),
+					"address":          String("opni"),
+					"fullnameOverride": String("opni-agent"),
+					"bootstrapInCluster": Map{
+						"enabled": Bool(true),
+					},
+					"agent": Map{
+						"version": String("v2"),
+					},
+					//FIXME change to a config value
+					"kube-prometheus-stack": Map{
+						"enabled": Bool(true),
 					},
 				},
 			},
@@ -167,50 +176,50 @@ func run(ctx *Context) (runErr error) {
 		if err != nil {
 			return StringOutput{}, errors.WithStack(err)
 		}
-
-		_, err = helm.NewRelease(ctx, "opni-agent", &helm.ReleaseArgs{
-			Chart:           String(opniAgentChart),
-			Version:         StringPtr(conf.ChartVersion),
-			RepositoryOpts:  chartRepoOpts,
-			Namespace:       String("opni"),
-			CreateNamespace: Bool(true),
-			Values: Map{
-				"address": String("opni-monitoring.opni.svc:9090"),
-				"image": Map{
-					"repository": String(conf.ImageRepo),
-					"tag":        String(conf.ImageTag),
-				},
-				"metrics": Map{
-					"enabled": Bool(true),
-				},
-				"bootstrapInCluster": Map{
-					"enabled":           Bool(true),
-					"managementAddress": String("opni-monitoring-internal.opni.svc:11090"),
-				},
-				"kube-prometheus-stack": Map{
-					"enabled": Bool(true),
-				},
-				"rules": Map{
-					"discovery": Map{
-						"prometheusRules": Map{},
-					},
-				},
-				"logLevel":  String("debug"),
-				"profiling": Bool(false), // change to true to enable profiling
-			},
-			Atomic:      Bool(true),
-			ForceUpdate: Bool(true),
-			Timeout:     Int(300),
-		}, Provider(k), DependsOn([]Resource{opniCrd, opni}), RetainOnDelete(true))
-		if err != nil {
-			return StringOutput{}, errors.WithStack(err)
-		}
+		//FIXME: add agent v1 back when its more stable
+		// _, err = helm.NewRelease(ctx, "opni-agent", &helm.ReleaseArgs{
+		// 	Chart:           String(opniAgentChart),
+		// 	Version:         StringPtr(conf.ChartVersion),
+		// 	RepositoryOpts:  chartRepoOpts,
+		// 	Namespace:       String("opni"),
+		// 	CreateNamespace: Bool(true),
+		// 	Values: Map{
+		// 		"address": String("opni.opni.svc:9090"),
+		// 		"image": Map{
+		// 			"repository": String(conf.ImageRepo),
+		// 			"tag":        String(conf.ImageTag),
+		// 		},
+		// 		"metrics": Map{
+		// 			"enabled": Bool(true),
+		// 		},
+		// 		"bootstrapInCluster": Map{
+		// 			"enabled":           Bool(true),
+		// 			"managementAddress": String("opni-internal.opni.svc:11090"),
+		// 		},
+		// 		"kube-prometheus-stack": Map{
+		// 			"enabled": Bool(true),
+		// 		},
+		// 		"rules": Map{
+		// 			"discovery": Map{
+		// 				"prometheusRules": Map{},
+		// 			},
+		// 		},
+		// 		"logLevel":  String("debug"),
+		// 		"profiling": Bool(false), // change to true to enable profiling
+		// 	},
+		// 	Atomic:      Bool(true),
+		// 	ForceUpdate: Bool(true),
+		// 	Timeout:     Int(300),
+		// }, Provider(k), DependsOn([]Resource{opniCrd, opni}), RetainOnDelete(true))
+		// if err != nil {
+		// 	return StringOutput{}, errors.WithStack(err)
+		// }
 
 		opniServiceLB := All(opni.Status.Namespace(), opni.Status.Name()).
 			ApplyT(func(args []any) (StringOutput, error) {
 				namespace := args[0].(*string)
-				opniLBSvc, err := corev1.GetService(ctx, "opni-monitoring", ID(
-					fmt.Sprintf("%s/opni-monitoring", *namespace),
+				opniLBSvc, err := corev1.GetService(ctx, "opni", ID(
+					fmt.Sprintf("%s/opni", *namespace),
 				), nil, Provider(k), Parent(opni))
 				if err != nil {
 					return StringOutput{}, err

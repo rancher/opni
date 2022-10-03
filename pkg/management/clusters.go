@@ -2,11 +2,17 @@ package management
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
+	"github.com/rancher/opni/pkg/storage"
 	"github.com/rancher/opni/pkg/validation"
+	"github.com/samber/lo"
+	"golang.org/x/exp/maps"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -41,6 +47,19 @@ func (m *Server) DeleteCluster(
 	if len(capabilities) > 0 {
 		return nil, status.Error(codes.FailedPrecondition, "cannot delete a cluster with capabilities; uninstall the capabilities first")
 	}
+	// delete the cluster's keyring, if it exists
+	if store, err := m.coreDataSource.StorageBackend().KeyringStore("gateway", ref); err != nil {
+		if !errors.Is(err, storage.ErrNotFound) {
+			return nil, fmt.Errorf("failed to look up keyring store for cluster %s: %w", ref.Id, err)
+		}
+	} else {
+		if err := store.Delete(ctx); err != nil {
+			if !errors.Is(err, storage.ErrNotFound) {
+				return nil, fmt.Errorf("failed to delete keyring store for cluster %s: %w", ref.Id, err)
+			}
+		}
+	}
+	// delete the cluster
 	err = m.coreDataSource.StorageBackend().DeleteCluster(ctx, ref)
 	if err != nil {
 		return nil, err
@@ -123,12 +142,58 @@ func (m *Server) EditCluster(
 	if err := validation.Validate(in); err != nil {
 		return nil, err
 	}
+
+	oldCluster, err := m.coreDataSource.StorageBackend().GetCluster(ctx, in.GetCluster())
+	if err != nil {
+		return nil, err
+	}
+
+	oldLabels := oldCluster.GetMetadata().GetLabels()
+
+	// ensure immutable labels are not modified
+	oldImmutableLabels := lo.PickBy(oldLabels, func(k string, _ string) bool {
+		return !corev1.IsLabelMutable(k)
+	})
+	newImmutableLabels := lo.PickBy(in.GetLabels(), func(k string, _ string) bool {
+		return !corev1.IsLabelMutable(k)
+	})
+	if !maps.Equal(oldImmutableLabels, newImmutableLabels) {
+		return nil, status.Error(codes.InvalidArgument, "cannot change immutable labels")
+	}
+
 	return m.coreDataSource.StorageBackend().UpdateCluster(ctx, in.GetCluster(), func(cluster *corev1.Cluster) {
 		if cluster.Metadata == nil {
 			cluster.Metadata = &corev1.ClusterMetadata{}
 		}
+
 		cluster.Metadata.Labels = in.GetLabels()
 	})
+}
+
+func (m *Server) InstallCapability(
+	ctx context.Context,
+	in *managementv1.CapabilityInstallRequest,
+) (*capabilityv1.InstallResponse, error) {
+	if err := validation.Validate(in); err != nil {
+		return nil, err
+	}
+
+	backendStore := m.capabilitiesDataSource.CapabilitiesStore()
+	backend, err := backendStore.Get(in.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := backend.Install(ctx, in.Target)
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return &capabilityv1.InstallResponse{
+			Status: capabilityv1.InstallResponseStatus_Success,
+		}, nil
+	}
+	return resp, nil
 }
 
 func (m *Server) UninstallCapability(

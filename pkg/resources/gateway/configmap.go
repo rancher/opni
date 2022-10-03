@@ -3,6 +3,8 @@ package gateway
 import (
 	"fmt"
 
+	"github.com/rancher/opni/pkg/alerting/shared"
+
 	"emperror.dev/errors"
 	"github.com/rancher/opni/pkg/auth/openid"
 	cfgmeta "github.com/rancher/opni/pkg/config/meta"
@@ -28,6 +30,9 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			},
 			Hostname: r.spec.Hostname,
 			Cortex: cfgv1beta1.CortexSpec{
+				Management: cfgv1beta1.ClusterManagementSpec{
+					ClusterDriver: "opni-manager",
+				},
 				Certs: cfgv1beta1.MTLSSpec{
 					ServerCA:   "/run/cortex/certs/server/ca.crt",
 					ClientCA:   "/run/cortex/certs/client/ca.crt",
@@ -37,29 +42,25 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 			},
 			AuthProvider: string(r.spec.Auth.Provider),
 			Certs: cfgv1beta1.CertsSpec{
-				CACert:      lo.ToPtr("/run/opni-monitoring/certs/ca.crt"),
-				ServingCert: lo.ToPtr("/run/opni-monitoring/certs/tls.crt"),
-				ServingKey:  lo.ToPtr("/run/opni-monitoring/certs/tls.key"),
+				CACert:      lo.ToPtr("/run/opni/certs/ca.crt"),
+				ServingCert: lo.ToPtr("/run/opni/certs/tls.crt"),
+				ServingKey:  lo.ToPtr("/run/opni/certs/tls.key"),
 			},
 			Storage: cfgv1beta1.StorageSpec{
 				Type: r.spec.StorageType,
 			},
-			Alerting: func() cfgv1beta1.AlertingSpec {
-				if r.spec.Alerting == nil {
-					return cfgv1beta1.AlertingSpec{
-						Endpoints:       []string{"opni-alerting:9093"},
-						ConfigMapName:   "alertmanager-config",
-						StatefulSetName: "opni-alerting-internal",
-						Namespace:       r.namespace,
-					}
-				}
-				return cfgv1beta1.AlertingSpec{
-					Endpoints:       []string{fmt.Sprintf("opni-alerting:%d", r.spec.Alerting.ApiPort)},
-					ConfigMapName:   r.spec.Alerting.ConfigName,
-					StatefulSetName: "opni-alerting-internal",
-					Namespace:       r.namespace,
-				}
-			}(),
+			Alerting: cfgv1beta1.AlertingSpec{
+				Namespace:             r.namespace,
+				WorkerNodeService:     shared.OperatorAlertingClusterNodeServiceName,
+				WorkerPort:            r.spec.Alerting.WebPort,
+				WorkerStatefulSet:     shared.OperatorAlertingClusterNodeServiceName + "-internal",
+				ControllerNodeService: shared.OperatorAlertingControllerServiceName,
+				ControllerStatefulSet: shared.OperatorAlertingControllerServiceName + "-internal",
+				ControllerNodePort:    r.spec.Alerting.WebPort,
+				ControllerClusterPort: r.spec.Alerting.ClusterPort,
+				ConfigMap:             "alertmanager-config",
+			},
+			Profiling: r.spec.Profiling,
 		},
 	}
 	gatewayConf.Spec.SetDefaults()
@@ -103,7 +104,7 @@ func (r *Reconciler) configMap() (resources.Resource, error) {
 				}
 				return fmt.Sprintf("https://grafana.%s/login/generic_oauth", r.spec.Hostname)
 			}(),
-			ManagementAPIEndpoint: "opni-monitoring-internal:11090",
+			ManagementAPIEndpoint: "opni-internal:11090",
 			Port:                  4000,
 			OpenID: openid.OpenidConfig{
 				Discovery: &openid.DiscoverySpec{

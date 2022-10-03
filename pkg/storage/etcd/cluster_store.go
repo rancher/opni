@@ -1,3 +1,5 @@
+//go:build !noetcd
+
 package etcd
 
 import (
@@ -18,6 +20,7 @@ import (
 
 func (e *EtcdStore) CreateCluster(ctx context.Context, cluster *corev1.Cluster) error {
 	cluster.SetResourceVersion("")
+
 	data, err := protojson.Marshal(cluster)
 	if err != nil {
 		return fmt.Errorf("failed to marshal cluster: %w", err)

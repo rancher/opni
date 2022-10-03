@@ -5,17 +5,30 @@ import (
 	"crypto"
 	"crypto/tls"
 	"fmt"
-	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
-	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"net"
 	"time"
 
+	"github.com/rancher/opni/pkg/patch"
+
 	"github.com/hashicorp/go-plugin"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/samber/lo"
+	"go.uber.org/zap"
+	"golang.org/x/mod/module"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"github.com/rancher/opni/pkg/alerting"
 	"github.com/rancher/opni/pkg/alerting/noop"
 	"github.com/rancher/opni/pkg/alerting/shared"
+	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	bootstrapv1 "github.com/rancher/opni/pkg/apis/bootstrap/v1"
+	bootstrapv2 "github.com/rancher/opni/pkg/apis/bootstrap/v2"
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
 	"github.com/rancher/opni/pkg/auth"
@@ -29,6 +42,7 @@ import (
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/machinery"
 	"github.com/rancher/opni/pkg/plugins"
+	"github.com/rancher/opni/pkg/plugins/apis/apiextensions"
 	"github.com/rancher/opni/pkg/plugins/hooks"
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/plugins/types"
@@ -36,15 +50,6 @@ import (
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/waitctx"
 	"github.com/rancher/opni/pkg/webui"
-	"github.com/samber/lo"
-	"go.uber.org/zap"
-	"golang.org/x/mod/module"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Gateway struct {
@@ -58,6 +63,7 @@ type Gateway struct {
 
 	storageBackend  storage.Backend
 	capBackendStore capabilities.BackendStore
+	syncRequester   *SyncRequester
 }
 
 type GatewayOptions struct {
@@ -131,6 +137,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 				zap.Error(err),
 			).Error("failed to add capability backend")
 		}
+		lg.With(
+			zap.String("plugin", md.Module),
+			zap.String("capability", info.CapabilityName),
+		).Info("added capability backend")
 	}))
 
 	// serve system plugin kv stores
@@ -155,12 +165,13 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 
 	pl.Hook(hooks.OnLoadMC(
 		func(p types.ManagementAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-
 			client := apiextensions.NewManagementAPIExtensionClient(cc)
-			desc, err := client.Descriptor(ctx, &emptypb.Empty{})
+			descs, err := client.Descriptors(ctx, &emptypb.Empty{})
 			if err == nil {
-				if desc.GetName() == "Alerting" {
-					options.alerting = alertingv1alpha.NewAlertingClient(cc)
+				for _, desc := range descs.Items {
+					if desc.GetName() == "Alerting" {
+						options.alerting = alertingv1alpha.NewAlertingClient(cc)
+					}
 				}
 			}
 		}))
@@ -173,10 +184,13 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Fatal("failed to load TLS config")
 	}
 
-	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl)
+	httpServer := NewHTTPServer(ctx, &conf.Spec, lg, pl, &options.alerting)
 
 	clusterAuth, err := cluster.New(ctx, storageBackend, auth.AuthorizationKey,
-		cluster.WithExcludeGRPCMethodsFromAuth("/bootstrap.Bootstrap/Join", "/bootstrap.Bootstrap/Auth"),
+		cluster.WithExcludeGRPCMethodsFromAuth(
+			"/bootstrap.Bootstrap/Join", "/bootstrap.Bootstrap/Auth",
+			"/bootstrap.v2.Bootstrap/Join", "/bootstrap.v2.Bootstrap/Auth",
+		),
 	)
 	if err != nil {
 		lg.With(
@@ -184,11 +198,18 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		).Fatal("failed to create cluster auth")
 	}
 
+	// set up plugin manifest server
+	manifest := patch.NewFilesystemPluginSyncServer(conf.Spec.Plugins, lg)
+
 	// set up grpc server
+	interceptor := clusterAuth.UnaryServerInterceptor()
 	grpcServer := NewGRPCServer(&conf.Spec, lg,
 		grpc.Creds(credentials.NewTLS(tlsConfig)),
-		grpc.ChainStreamInterceptor(clusterAuth.StreamServerInterceptor()),
-		grpc.ChainUnaryInterceptor(clusterAuth.UnaryServerInterceptor()),
+		grpc.ChainStreamInterceptor(
+			clusterAuth.StreamServerInterceptor(),
+			manifest.StreamServerInterceptor(),
+		),
+		grpc.ChainUnaryInterceptor(interceptor),
 	)
 
 	// set up stream server
@@ -200,19 +221,24 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	)
 	listener.AlertProvider = &options.alerting
 	monitor := health.NewMonitor(health.WithLogger(lg.Named("monitor")))
+	sync := NewSyncRequester(lg)
+	// set up agent connection handlers
+	agentHandler := MultiConnectionHandler(listener, sync)
 	go monitor.Run(ctx, listener)
-	streamSvc := NewStreamServer(listener, storageBackend, lg)
+	streamSvc := NewStreamServer(agentHandler, storageBackend, interceptor, lg)
 	streamv1.RegisterStreamServer(grpcServer, streamSvc)
 
+	controlv1.RegisterPluginManifestServer(grpcServer, manifest)
+
 	pl.Hook(hooks.OnLoadMC(func(ext types.StreamAPIExtensionPlugin, md meta.PluginMeta, cc *grpc.ClientConn) {
-		services, err := ext.Services(ctx, &emptypb.Empty{})
-		if err != nil {
-			lg.With(
-				zap.Error(err),
-				"plugin", md.Module,
-			).Error("failed to load stream services from plugin")
-		}
-		if err := streamSvc.AddRemote(cc, services); err != nil {
+		// services, err := ext.Services(ctx, &emptypb.Empty{})
+		// if err != nil {
+		// 	lg.With(
+		// 		zap.Error(err),
+		// 		"plugin", md.Module,
+		// 	).Error("failed to load stream services from plugin")
+		// }
+		if err := streamSvc.AddRemote(cc, md.ShortName()); err != nil {
 			lg.With(
 				zap.Error(err),
 				"plugin", md.Module,
@@ -221,8 +247,10 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 	}))
 
 	// set up bootstrap server
-	bootstrapSvc := bootstrap.NewServer(storageBackend, pkey, capBackendStore)
-	bootstrapv1.RegisterBootstrapServer(grpcServer, bootstrapSvc)
+	bootstrapServerV1 := bootstrap.NewServer(storageBackend, pkey, capBackendStore)
+	bootstrapServerV2 := bootstrap.NewServerV2(storageBackend, pkey)
+	bootstrapv1.RegisterBootstrapServer(grpcServer, bootstrapServerV1)
+	bootstrapv2.RegisterBootstrapServer(grpcServer, bootstrapServerV2)
 
 	//set up unary plugins
 	unarySvc := NewUnaryService()
@@ -238,6 +266,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 		httpServer:      httpServer,
 		grpcServer:      grpcServer,
 		statusQuerier:   monitor,
+		syncRequester:   sync,
 	}
 
 	waitctx.Go(ctx, func() {
@@ -317,6 +346,11 @@ func (g *Gateway) TLSConfig() *tls.Config {
 // Implements management.CapabilitiesDataSource
 func (g *Gateway) CapabilitiesStore() capabilities.BackendStore {
 	return g.capBackendStore
+}
+
+// Implements management.CapabilitiesDataSource
+func (g *Gateway) NodeManagerServer() capabilityv1.NodeManagerServer {
+	return g.syncRequester
 }
 
 // Implements management.HealthStatusDataSource

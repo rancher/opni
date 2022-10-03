@@ -26,50 +26,50 @@ var _ = Describe("Listener Utils", Ordered, Label("unit"), func() {
 	})
 	When("the given address uses the unix scheme", func() {
 		It("should return a socket listener", func() {
-			listener, err := util.NewProtocolListener("unix:///tmp/opni-monitoring-test-util.sock")
+			listener, err := util.NewProtocolListener("unix:///tmp/opni-test-util.sock")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listener).To(BeAssignableToTypeOf(&net.UnixListener{}))
 			listener.Close()
 		})
 		It("should create the socket's parent directory if needed", func() {
-			os.RemoveAll("/tmp/opni-monitoring-test-util-dir")
+			os.RemoveAll("/tmp/opni-test-util-dir")
 			listener, err := util.NewProtocolListener(
-				"unix:///tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock")
+				"unix:///tmp/opni-test-util-dir/opni-test-util.sock")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listener).To(BeAssignableToTypeOf(&net.UnixListener{}))
-			_, err = os.Stat("/tmp/opni-monitoring-test-util-dir")
+			_, err = os.Stat("/tmp/opni-test-util-dir")
 			Expect(err).NotTo(HaveOccurred())
 			listener.Close()
-			Expect(os.Remove("/tmp/opni-monitoring-test-util-dir")).To(Succeed())
+			Expect(os.Remove("/tmp/opni-test-util-dir")).To(Succeed())
 		})
 		It("should clean up existing sockets before creating a new one", func() {
 			By("creating a socket")
 			listener, err := util.NewProtocolListener(
-				"unix:///tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock")
+				"unix:///tmp/opni-test-util-dir/opni-test-util.sock")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listener).To(BeAssignableToTypeOf(&net.UnixListener{}))
 
 			By("ensuring the socket exists")
-			_, err = os.Stat("/tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock")
+			_, err = os.Stat("/tmp/opni-test-util-dir/opni-test-util.sock")
 			Expect(err).NotTo(HaveOccurred())
 
 			By("creating a new socket in its place")
 			listener, err = util.NewProtocolListener(
-				"unix:///tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock")
+				"unix:///tmp/opni-test-util-dir/opni-test-util.sock")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listener).To(BeAssignableToTypeOf(&net.UnixListener{}))
 			listener.Close()
 
 			By("creating a non-empty directory where the socket should be")
-			Expect(os.Mkdir("/tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock", 0700)).To(Succeed())
-			os.Create("/tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock/foo")
+			Expect(os.Mkdir("/tmp/opni-test-util-dir/opni-test-util.sock", 0700)).To(Succeed())
+			os.Create("/tmp/opni-test-util-dir/opni-test-util.sock/foo")
 
 			By("creating a new socket where the non-empty directory is")
 			listener, err = util.NewProtocolListener(
-				"unix:///tmp/opni-monitoring-test-util-dir/opni-monitoring-test-util.sock")
+				"unix:///tmp/opni-test-util-dir/opni-test-util.sock")
 			Expect(err).To(HaveOccurred())
 
-			os.RemoveAll("/tmp/opni-monitoring-test-util-dir")
+			os.RemoveAll("/tmp/opni-test-util-dir")
 		})
 	})
 	When("the given address uses an unsupported scheme", func() {

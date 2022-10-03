@@ -3,11 +3,16 @@ package alerting
 import (
 	"context"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/rancher/opni/pkg/alerting"
+	"github.com/rancher/opni/pkg/alerting/backend"
+	"github.com/rancher/opni/pkg/alerting/shared"
 	"github.com/rancher/opni/pkg/storage"
+	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
+	"go.uber.org/zap"
 
 	lru "github.com/hashicorp/golang-lru"
+
 	alertingv1alpha "github.com/rancher/opni/pkg/apis/alerting/v1alpha"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -22,20 +27,14 @@ const AlertingLogCacheSize = 32
 type Plugin struct {
 	alertingv1alpha.UnsafeAlertingServer
 	system.UnimplementedSystemPluginClient
-	ctx             context.Context
-	logger          hclog.Logger
+	Ctx             context.Context
+	Logger          *zap.SugaredLogger
 	inMemCache      *lru.Cache
-	endpointBackend future.Future[RuntimeEndpointBackend]
-	alertingOptions future.Future[AlertingOptions]
+	endpointBackend future.Future[backend.RuntimeEndpointBackend]
+	AlertingOptions future.Future[shared.NewAlertingOptions]
 	storage         future.Future[StorageAPIs]
 	mgmtClient      future.Future[managementv1.ManagementClient]
-}
-
-type AlertingOptions struct {
-	Endpoints   []string
-	ConfigMap   string
-	Namespace   string
-	StatefulSet string
+	adminClient     future.Future[cortexadmin.CortexAdminClient]
 }
 
 type StorageAPIs struct {
@@ -44,15 +43,15 @@ type StorageAPIs struct {
 }
 
 func NewPlugin(ctx context.Context) *Plugin {
-	lg := logger.NewForPlugin()
-	lg.SetLevel(hclog.Info)
+	lg := logger.NewPluginLogger().Named("alerting")
 	return &Plugin{
-		ctx:             ctx,
-		logger:          lg,
+		Ctx:             ctx,
+		Logger:          lg,
 		inMemCache:      nil,
 		mgmtClient:      future.New[managementv1.ManagementClient](),
-		endpointBackend: future.New[RuntimeEndpointBackend](),
-		alertingOptions: future.New[AlertingOptions](),
+		adminClient:     future.New[cortexadmin.CortexAdminClient](),
+		endpointBackend: future.New[backend.RuntimeEndpointBackend](),
+		AlertingOptions: future.New[shared.NewAlertingOptions](),
 		storage:         future.New[StorageAPIs](),
 	}
 }
@@ -65,6 +64,6 @@ func Scheme(ctx context.Context) meta.Scheme {
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(&alertingv1alpha.Alerting_ServiceDesc, p))
+		managementext.NewPlugin(util.PackService(&alertingv1alpha.Alerting_ServiceDesc, p)))
 	return scheme
 }

@@ -153,9 +153,17 @@ service Management {
       get: "/management/capabilities"
     };
   }
+  // Deprecated: For agent v2, use InstallCapability instead.
   rpc CapabilityInstaller(CapabilityInstallerRequest) returns (CapabilityInstallerResponse) {
+    option deprecated = true;
     option (google.api.http) = {
       post: "/management/capabilities/{name}/installer"
+      body: "*"
+    };
+  }
+  rpc InstallCapability(CapabilityInstallRequest) returns (capability.InstallResponse) {
+    option (google.api.http) = {
+      post: "/management/clusters/{target.cluster.id}/capabilities/{name}/install"
       body: "*"
     };
   }
@@ -250,6 +258,11 @@ message CapabilityInstallerRequest {
   string name = 1;
   string token = 2;
   string pin = 3;
+}
+
+message CapabilityInstallRequest {
+  string name = 1;
+  capability.InstallRequest target = 2;
 }
 
 message CapabilityInstallerResponse {

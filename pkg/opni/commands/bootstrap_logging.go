@@ -1,3 +1,5 @@
+//go:build !noagentv1
+
 package commands
 
 import (
@@ -9,6 +11,7 @@ import (
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/filter"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/output"
 	"github.com/cenkalti/backoff"
+	"github.com/rancher/opni/apis"
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/bootstrap"
 	"github.com/rancher/opni/pkg/capabilities/wellknown"
@@ -16,11 +19,13 @@ import (
 	"github.com/rancher/opni/pkg/opni/common"
 	"github.com/rancher/opni/pkg/tokens"
 	"github.com/rancher/opni/pkg/trust"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	gatewayopensearchext "github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -40,7 +45,6 @@ var (
 	bootstrapToken  string
 	provider        string
 	namespace       string
-	pins            []string
 	enableTracing   bool
 
 	k8sClient client.Client
@@ -82,7 +86,18 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	k8sClient = common.GetClientOrDie(inCluster)
+	restConfig, err := k8sutil.NewRestConfig(k8sutil.ClientOptions{})
+	if err != nil {
+		return err
+	}
+	k8sClient, err = k8sutil.NewK8sClient(k8sutil.ClientOptions{
+		Scheme:     apis.NewScheme(),
+		RestConfig: restConfig,
+	})
+	if err != nil {
+		return err
+	}
+
 	identifier := &simpleIdentProvider{
 		Client: k8sClient,
 	}
@@ -92,7 +107,7 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	bootstrapConfig, err := buildBoostrapClient(trustStrategy)
+	bootstrapConfig, err := buildBoostrapClient(restConfig, trustStrategy)
 	if err != nil {
 		return err
 	}
@@ -102,16 +117,12 @@ func doBootstrap(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	gatewayClient, err := gatewayclients.NewGatewayClient(gatewayEndpoint, identifier, keyring, trustStrategy)
-	if err != nil {
-		return err
-	}
-	cc, err := gatewayClient.Dial(cmd.Context())
+	gatewayClient, err := gatewayclients.NewGatewayClient(cmd.Context(), gatewayEndpoint, identifier, keyring, trustStrategy)
 	if err != nil {
 		return err
 	}
 
-	loggingClient := gatewayopensearchext.NewOpensearchClient(cc)
+	loggingClient := gatewayopensearchext.NewOpensearchClient(gatewayClient.ClientConn())
 
 	clusterRef := &gatewayopensearchext.ClusterReference{
 		AuthorizedClusterID: clusterID,
@@ -315,7 +326,7 @@ func createLogAdapter(ctx context.Context) error {
 
 }
 
-func buildBoostrapClient(trustStrategy trust.Strategy) (*bootstrap.ClientConfig, error) {
+func buildBoostrapClient(restConfig *rest.Config, trustStrategy trust.Strategy) (*bootstrap.ClientConfig, error) {
 	token, err := tokens.ParseHex(bootstrapToken)
 	if err != nil {
 		return nil, err
@@ -327,7 +338,7 @@ func buildBoostrapClient(trustStrategy trust.Strategy) (*bootstrap.ClientConfig,
 		Endpoint:      gatewayEndpoint,
 		TrustStrategy: trustStrategy,
 		K8sNamespace:  common.NamespaceFlagValue,
-		K8sConfig:     common.RestConfig,
+		K8sConfig:     restConfig,
 	}, nil
 }
 

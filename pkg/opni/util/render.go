@@ -11,7 +11,6 @@ import (
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/tokens"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/ttacon/chalk"
 )
 
@@ -70,14 +69,10 @@ func RenderCertInfoChain(chain []*corev1.CertInfo) string {
 	return w.Render()
 }
 
-func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus, stats *cortexadmin.UserIDStatsList) string {
+func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus) string {
 	w := table.NewWriter()
 	w.SetStyle(table.StyleColoredDark)
-	if stats == nil {
-		w.AppendHeader(table.Row{"ID", "LABELS", "CAPABILITIES", "STATUS"})
-	} else {
-		w.AppendHeader(table.Row{"ID", "LABELS", "CAPABILITIES", "STATUS", "NUM SERIES", "SAMPLE RATE", "RULE RATE"})
-	}
+	w.AppendHeader(table.Row{"ID", "LABELS", "CAPABILITIES", "STATUS"})
 	for i, t := range list.Items {
 		labels := []string{}
 		for k, v := range t.GetMetadata().GetLabels() {
@@ -92,18 +87,6 @@ func RenderClusterList(list *corev1.ClusterList, status []*corev1.HealthStatus, 
 			}
 		}
 		row := table.Row{t.GetId(), strings.Join(labels, ","), strings.Join(capabilities, ","), status[i].Summary()}
-		if stats != nil {
-			for _, s := range stats.Items {
-				if string(s.UserID) == t.GetId() {
-					row = append(row,
-						fmt.Sprint(s.NumSeries),
-						fmt.Sprintf("%.1f/s", s.APIIngestionRate),
-						fmt.Sprintf("%.1f/s", s.RuleIngestionRate),
-					)
-					break
-				}
-			}
-		}
 		w.AppendRow(row)
 	}
 	return w.Render()

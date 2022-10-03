@@ -1,3 +1,5 @@
+//go:build !noevents
+
 package commands
 
 import (
@@ -12,7 +14,8 @@ var (
 func BuildEventsCmd() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "events",
-		Short: "ship Kubernetes events to shipper endpoint",
+		Short: "Run the Kubernetes event collector",
+		Long:  "The event collector ships Kubernetes events to an opni-shipper endpoint.",
 		RunE:  doEvents,
 	}
 
@@ -23,4 +26,8 @@ func BuildEventsCmd() *cobra.Command {
 func doEvents(cmd *cobra.Command, args []string) error {
 	collector := events.NewEventCollector(cmd.Context(), shipperEndpoint)
 	return collector.Run(cmd.Context().Done())
+}
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildEventsCmd())
 }

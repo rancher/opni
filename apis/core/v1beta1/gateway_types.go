@@ -42,7 +42,7 @@ type GatewaySpec struct {
 	Hostname         string   `json:"hostname,omitempty"`
 	PluginSearchDirs []string `json:"pluginSearchDirs,omitempty"`
 
-	Alerting *AlertingSpec               `json:"alerting,omitempty"`
+	Alerting AlertingSpec                `json:"alerting,omitempty"`
 	NatsRef  corev1.LocalObjectReference `json:"natsCluster"`
 
 	//+kubebuilder:default=LoadBalancer
@@ -57,6 +57,7 @@ type GatewaySpec struct {
 	Affinity          *corev1.Affinity            `json:"affinity,omitempty"`
 	ExtraVolumeMounts []opnimeta.ExtraVolumeMount `json:"extraVolumeMounts,omitempty"`
 	ExtraEnvVars      []corev1.EnvVar             `json:"extraEnvVars,omitempty"`
+	Profiling         cfgv1beta1.ProfilingSpec    `json:"profiling,omitempty"`
 }
 
 func (g *GatewaySpec) GetServiceType() corev1.ServiceType {

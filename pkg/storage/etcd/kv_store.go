@@ -1,3 +1,5 @@
+//go:build !noetcd
+
 package etcd
 
 import (

@@ -129,5 +129,14 @@ func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kr2).To(Equal(kr))
 		})
+		It("should delete keyrings", func() {
+			kr := keyring.New(sharedKeys())
+			Expect(ts.Put(context.Background(), kr)).To(Succeed())
+			_, err := ts.Get(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ts.Delete(context.Background())).To(Succeed())
+			_, err = ts.Get(context.Background())
+			Expect(err).To(MatchError(storage.ErrNotFound))
+		})
 	}
 }

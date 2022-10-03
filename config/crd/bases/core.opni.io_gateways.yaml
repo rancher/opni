@@ -1065,7 +1065,7 @@ spec:
                           type: object
                       type: object
                     type: array
-                  apiPort:
+                  clusterPort:
                     default: 9094
                     type: integer
                   configName:
@@ -1073,6 +1073,8 @@ spec:
                     type: string
                   enabled:
                     type: boolean
+                  rawConfigMap:
+                    type: string
                   serviceType:
                     default: ClusterIP
                     type: string
@@ -2036,6 +2038,14 @@ spec:
                 items:
                   type: string
                 type: array
+              profiling:
+                properties:
+                  enabled:
+                    type: boolean
+                  port:
+                    default: 8087
+                    type: integer
+                type: object
               serviceAnnotations:
                 additionalProperties:
                   type: string

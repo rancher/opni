@@ -1,20 +1,25 @@
 package agent
 
 import (
-	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 	"google.golang.org/grpc"
+
+	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
+	controlv1 "github.com/rancher/opni/pkg/apis/control/v1"
 )
 
 type ClientSet interface {
-	controlv1.AgentControlClient
+	controlv1.HealthClient
+	capabilityv1.NodeClient
 }
 
 type clientSet struct {
-	controlv1.AgentControlClient
+	controlv1.HealthClient
+	capabilityv1.NodeClient
 }
 
 func NewClientSet(cc grpc.ClientConnInterface) ClientSet {
 	return &clientSet{
-		AgentControlClient: controlv1.NewAgentControlClient(cc),
+		HealthClient: controlv1.NewHealthClient(cc),
+		NodeClient:   capabilityv1.NewNodeClient(cc),
 	}
 }

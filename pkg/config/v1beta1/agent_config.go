@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	"github.com/rancher/opni/pkg/config/meta"
+	"github.com/rancher/opni/pkg/tokens"
 )
 
 type AgentConfig struct {
@@ -37,6 +38,7 @@ type AgentConfigSpec struct {
 	Bootstrap *BootstrapSpec `json:"bootstrap,omitempty"`
 	LogLevel  string         `json:"logLevel,omitempty"`
 	Profiling bool           `json:"profiling,omitempty"`
+	Plugins   PluginsSpec    `json:"plugins,omitempty"`
 }
 
 type BootstrapSpec struct {
@@ -54,6 +56,29 @@ type BootstrapSpec struct {
 	CACerts []string `json:"caCerts,omitempty"`
 }
 
+func (s *AgentConfigSpec) ContainsBootstrapCredentials() bool {
+	if s.Bootstrap == nil {
+		return false
+	}
+	if s.Bootstrap.InClusterManagementAddress != nil {
+		return s.Bootstrap.Token == "" &&
+			len(s.Bootstrap.Pins) == 0 &&
+			len(s.Bootstrap.CACerts) == 0
+	}
+
+	_, err := tokens.ParseHex(s.Bootstrap.Token)
+	if err != nil {
+		return false
+	}
+	switch s.TrustStrategy {
+	case TrustStrategyPKP:
+		return len(s.Bootstrap.Pins) > 0
+	case TrustStrategyCACerts:
+		return len(s.Bootstrap.CACerts) > 0
+	}
+	return false
+}
+
 func (s *AgentConfigSpec) SetDefaults() {
 	if s == nil {
 		return
@@ -69,26 +94,26 @@ func (s *AgentConfigSpec) SetDefaults() {
 	}
 }
 
-type RulesSpec struct {
-	Discovery DiscoverySpec `json:"discovery,omitempty"`
-}
+// type RulesSpec struct {
+// 	Discovery DiscoverySpec `json:"discovery,omitempty"`
+// }
 
-type DiscoverySpec struct {
-	PrometheusRules *PrometheusRulesSpec `json:"prometheusRules,omitempty"`
-	Filesystem      *FilesystemRulesSpec `json:"filesystem,omitempty"`
-	// Search interval. Defaults to "15m"
-	Interval string `json:"interval,omitempty"`
-}
+// type DiscoverySpec struct {
+// 	PrometheusRules *PrometheusRulesSpec `json:"prometheusRules,omitempty"`
+// 	Filesystem      *FilesystemRulesSpec `json:"filesystem,omitempty"`
+// 	// Search interval. Defaults to "15m"
+// 	Interval string `json:"interval,omitempty"`
+// }
 
-type FilesystemRulesSpec struct {
-	PathExpressions []string `json:"pathExpressions,omitempty"`
-}
+// type FilesystemRulesSpec struct {
+// 	PathExpressions []string `json:"pathExpressions,omitempty"`
+// }
 
-type PrometheusRulesSpec struct {
-	// Namespaces to search for rules in. If empty, will search all accessible
-	// namespaces.
-	SearchNamespaces []string `json:"searchNamespaces,omitempty"`
-	// Kubeconfig to use for rule discovery. If nil, will use the in-cluster
-	// kubeconfig.
-	Kubeconfig *string `json:"kubeconfig,omitempty"`
-}
+// type PrometheusRulesSpec struct {
+// 	// Namespaces to search for rules in. If empty, will search all accessible
+// 	// namespaces.
+// 	SearchNamespaces []string `json:"searchNamespaces,omitempty"`
+// 	// Kubeconfig to use for rule discovery. If nil, will use the in-cluster
+// 	// kubeconfig.
+// 	Kubeconfig *string `json:"kubeconfig,omitempty"`
+// }

@@ -24,7 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ManagementAPIExtensionClient interface {
-	Descriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error)
+	Descriptors(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceDescriptorProtoList, error)
 }
 
 type managementAPIExtensionClient struct {
@@ -35,9 +35,9 @@ func NewManagementAPIExtensionClient(cc grpc.ClientConnInterface) ManagementAPIE
 	return &managementAPIExtensionClient{cc}
 }
 
-func (c *managementAPIExtensionClient) Descriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error) {
-	out := new(descriptorpb.ServiceDescriptorProto)
-	err := c.cc.Invoke(ctx, "/apiextensions.ManagementAPIExtension/Descriptor", in, out, opts...)
+func (c *managementAPIExtensionClient) Descriptors(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceDescriptorProtoList, error) {
+	out := new(ServiceDescriptorProtoList)
+	err := c.cc.Invoke(ctx, "/apiextensions.ManagementAPIExtension/Descriptors", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (c *managementAPIExtensionClient) Descriptor(ctx context.Context, in *empty
 // All implementations must embed UnimplementedManagementAPIExtensionServer
 // for forward compatibility
 type ManagementAPIExtensionServer interface {
-	Descriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error)
+	Descriptors(context.Context, *emptypb.Empty) (*ServiceDescriptorProtoList, error)
 	mustEmbedUnimplementedManagementAPIExtensionServer()
 }
 
@@ -56,8 +56,8 @@ type ManagementAPIExtensionServer interface {
 type UnimplementedManagementAPIExtensionServer struct {
 }
 
-func (UnimplementedManagementAPIExtensionServer) Descriptor(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Descriptor not implemented")
+func (UnimplementedManagementAPIExtensionServer) Descriptors(context.Context, *emptypb.Empty) (*ServiceDescriptorProtoList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Descriptors not implemented")
 }
 func (UnimplementedManagementAPIExtensionServer) mustEmbedUnimplementedManagementAPIExtensionServer() {
 }
@@ -73,20 +73,20 @@ func RegisterManagementAPIExtensionServer(s grpc.ServiceRegistrar, srv Managemen
 	s.RegisterService(&ManagementAPIExtension_ServiceDesc, srv)
 }
 
-func _ManagementAPIExtension_Descriptor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ManagementAPIExtension_Descriptors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ManagementAPIExtensionServer).Descriptor(ctx, in)
+		return srv.(ManagementAPIExtensionServer).Descriptors(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/apiextensions.ManagementAPIExtension/Descriptor",
+		FullMethod: "/apiextensions.ManagementAPIExtension/Descriptors",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ManagementAPIExtensionServer).Descriptor(ctx, req.(*emptypb.Empty))
+		return srv.(ManagementAPIExtensionServer).Descriptors(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -99,94 +99,94 @@ var ManagementAPIExtension_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ManagementAPIExtensionServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Descriptor",
-			Handler:    _ManagementAPIExtension_Descriptor_Handler,
+			MethodName: "Descriptors",
+			Handler:    _ManagementAPIExtension_Descriptors_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/rancher/opni/pkg/plugins/apis/apiextensions/apiextensions.proto",
 }
 
-// GatewayAPIExtensionClient is the client API for GatewayAPIExtension service.
+// HTTPAPIExtensionClient is the client API for HTTPAPIExtension service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type GatewayAPIExtensionClient interface {
-	Configure(ctx context.Context, in *CertConfig, opts ...grpc.CallOption) (*GatewayAPIExtensionConfig, error)
+type HTTPAPIExtensionClient interface {
+	Configure(ctx context.Context, in *CertConfig, opts ...grpc.CallOption) (*HTTPAPIExtensionConfig, error)
 }
 
-type gatewayAPIExtensionClient struct {
+type hTTPAPIExtensionClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewGatewayAPIExtensionClient(cc grpc.ClientConnInterface) GatewayAPIExtensionClient {
-	return &gatewayAPIExtensionClient{cc}
+func NewHTTPAPIExtensionClient(cc grpc.ClientConnInterface) HTTPAPIExtensionClient {
+	return &hTTPAPIExtensionClient{cc}
 }
 
-func (c *gatewayAPIExtensionClient) Configure(ctx context.Context, in *CertConfig, opts ...grpc.CallOption) (*GatewayAPIExtensionConfig, error) {
-	out := new(GatewayAPIExtensionConfig)
-	err := c.cc.Invoke(ctx, "/apiextensions.GatewayAPIExtension/Configure", in, out, opts...)
+func (c *hTTPAPIExtensionClient) Configure(ctx context.Context, in *CertConfig, opts ...grpc.CallOption) (*HTTPAPIExtensionConfig, error) {
+	out := new(HTTPAPIExtensionConfig)
+	err := c.cc.Invoke(ctx, "/apiextensions.HTTPAPIExtension/Configure", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// GatewayAPIExtensionServer is the server API for GatewayAPIExtension service.
-// All implementations must embed UnimplementedGatewayAPIExtensionServer
+// HTTPAPIExtensionServer is the server API for HTTPAPIExtension service.
+// All implementations must embed UnimplementedHTTPAPIExtensionServer
 // for forward compatibility
-type GatewayAPIExtensionServer interface {
-	Configure(context.Context, *CertConfig) (*GatewayAPIExtensionConfig, error)
-	mustEmbedUnimplementedGatewayAPIExtensionServer()
+type HTTPAPIExtensionServer interface {
+	Configure(context.Context, *CertConfig) (*HTTPAPIExtensionConfig, error)
+	mustEmbedUnimplementedHTTPAPIExtensionServer()
 }
 
-// UnimplementedGatewayAPIExtensionServer must be embedded to have forward compatible implementations.
-type UnimplementedGatewayAPIExtensionServer struct {
+// UnimplementedHTTPAPIExtensionServer must be embedded to have forward compatible implementations.
+type UnimplementedHTTPAPIExtensionServer struct {
 }
 
-func (UnimplementedGatewayAPIExtensionServer) Configure(context.Context, *CertConfig) (*GatewayAPIExtensionConfig, error) {
+func (UnimplementedHTTPAPIExtensionServer) Configure(context.Context, *CertConfig) (*HTTPAPIExtensionConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Configure not implemented")
 }
-func (UnimplementedGatewayAPIExtensionServer) mustEmbedUnimplementedGatewayAPIExtensionServer() {}
+func (UnimplementedHTTPAPIExtensionServer) mustEmbedUnimplementedHTTPAPIExtensionServer() {}
 
-// UnsafeGatewayAPIExtensionServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to GatewayAPIExtensionServer will
+// UnsafeHTTPAPIExtensionServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to HTTPAPIExtensionServer will
 // result in compilation errors.
-type UnsafeGatewayAPIExtensionServer interface {
-	mustEmbedUnimplementedGatewayAPIExtensionServer()
+type UnsafeHTTPAPIExtensionServer interface {
+	mustEmbedUnimplementedHTTPAPIExtensionServer()
 }
 
-func RegisterGatewayAPIExtensionServer(s grpc.ServiceRegistrar, srv GatewayAPIExtensionServer) {
-	s.RegisterService(&GatewayAPIExtension_ServiceDesc, srv)
+func RegisterHTTPAPIExtensionServer(s grpc.ServiceRegistrar, srv HTTPAPIExtensionServer) {
+	s.RegisterService(&HTTPAPIExtension_ServiceDesc, srv)
 }
 
-func _GatewayAPIExtension_Configure_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _HTTPAPIExtension_Configure_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CertConfig)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GatewayAPIExtensionServer).Configure(ctx, in)
+		return srv.(HTTPAPIExtensionServer).Configure(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/apiextensions.GatewayAPIExtension/Configure",
+		FullMethod: "/apiextensions.HTTPAPIExtension/Configure",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GatewayAPIExtensionServer).Configure(ctx, req.(*CertConfig))
+		return srv.(HTTPAPIExtensionServer).Configure(ctx, req.(*CertConfig))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// GatewayAPIExtension_ServiceDesc is the grpc.ServiceDesc for GatewayAPIExtension service.
+// HTTPAPIExtension_ServiceDesc is the grpc.ServiceDesc for HTTPAPIExtension service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var GatewayAPIExtension_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "apiextensions.GatewayAPIExtension",
-	HandlerType: (*GatewayAPIExtensionServer)(nil),
+var HTTPAPIExtension_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "apiextensions.HTTPAPIExtension",
+	HandlerType: (*HTTPAPIExtensionServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Configure",
-			Handler:    _GatewayAPIExtension_Configure_Handler,
+			Handler:    _HTTPAPIExtension_Configure_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -197,7 +197,8 @@ var GatewayAPIExtension_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StreamAPIExtensionClient interface {
-	Services(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceDescriptorList, error)
+	// rpc Services(google.protobuf.Empty) returns (ServiceDescriptorList);
+	Todo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type streamAPIExtensionClient struct {
@@ -208,9 +209,9 @@ func NewStreamAPIExtensionClient(cc grpc.ClientConnInterface) StreamAPIExtension
 	return &streamAPIExtensionClient{cc}
 }
 
-func (c *streamAPIExtensionClient) Services(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceDescriptorList, error) {
-	out := new(ServiceDescriptorList)
-	err := c.cc.Invoke(ctx, "/apiextensions.StreamAPIExtension/Services", in, out, opts...)
+func (c *streamAPIExtensionClient) Todo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/apiextensions.StreamAPIExtension/Todo", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +222,8 @@ func (c *streamAPIExtensionClient) Services(ctx context.Context, in *emptypb.Emp
 // All implementations must embed UnimplementedStreamAPIExtensionServer
 // for forward compatibility
 type StreamAPIExtensionServer interface {
-	Services(context.Context, *emptypb.Empty) (*ServiceDescriptorList, error)
+	// rpc Services(google.protobuf.Empty) returns (ServiceDescriptorList);
+	Todo(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	mustEmbedUnimplementedStreamAPIExtensionServer()
 }
 
@@ -229,8 +231,8 @@ type StreamAPIExtensionServer interface {
 type UnimplementedStreamAPIExtensionServer struct {
 }
 
-func (UnimplementedStreamAPIExtensionServer) Services(context.Context, *emptypb.Empty) (*ServiceDescriptorList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Services not implemented")
+func (UnimplementedStreamAPIExtensionServer) Todo(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Todo not implemented")
 }
 func (UnimplementedStreamAPIExtensionServer) mustEmbedUnimplementedStreamAPIExtensionServer() {}
 
@@ -245,20 +247,20 @@ func RegisterStreamAPIExtensionServer(s grpc.ServiceRegistrar, srv StreamAPIExte
 	s.RegisterService(&StreamAPIExtension_ServiceDesc, srv)
 }
 
-func _StreamAPIExtension_Services_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _StreamAPIExtension_Todo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StreamAPIExtensionServer).Services(ctx, in)
+		return srv.(StreamAPIExtensionServer).Todo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/apiextensions.StreamAPIExtension/Services",
+		FullMethod: "/apiextensions.StreamAPIExtension/Todo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StreamAPIExtensionServer).Services(ctx, req.(*emptypb.Empty))
+		return srv.(StreamAPIExtensionServer).Todo(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -271,8 +273,8 @@ var StreamAPIExtension_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*StreamAPIExtensionServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Services",
-			Handler:    _StreamAPIExtension_Services_Handler,
+			MethodName: "Todo",
+			Handler:    _StreamAPIExtension_Todo_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

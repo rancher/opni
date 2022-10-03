@@ -3,14 +3,18 @@ package plugins_test
 import (
 	"context"
 	"fmt"
+	"github.com/rancher/opni/pkg/alerting/metrics"
+	"github.com/tidwall/gjson"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/test"
-	apis "github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	apis "github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -49,10 +53,47 @@ func expectRuleGroupToNotExist(adminClient apis.CortexAdminClient, ctx context.C
 	return fmt.Errorf("Rule %s still exists, but shouldn't", groupName)
 }
 
+type mockPod struct {
+	podName   string
+	namespace string
+	phase     string
+	uid       string
+}
+
+func setMockKubernetesPodState(kubePort int, pod *mockPod) {
+	queryUrl := fmt.Sprintf("http://localhost:%d/set", kubePort)
+	client := &http.Client{
+		Transport: &http.Transport{},
+	}
+	req, err := http.NewRequest("GET", queryUrl, nil)
+	if err != nil {
+		panic(err)
+	}
+	values := url.Values{}
+	values.Set("obj", "pod")
+	values.Set("name", pod.podName)
+	values.Set("namespace", pod.namespace)
+	values.Set("phase", pod.phase)
+	values.Set("uid", pod.uid)
+	req.URL.RawQuery = values.Encode()
+	go func() {
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			panic(fmt.Sprintf("kube metrics prometheus collector hit an error %d", resp.StatusCode))
+		}
+	}()
+}
+
 var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules", Ordered, Label(test.Unit, test.Slow), func() {
 	ctx := context.Background()
 	var env *test.Environment
 	var adminClient apis.CortexAdminClient
+	var kubernetesTempMetricServerPort int
+	var kubernetesJobName string
 	ruleTestDataDir := "../../../pkg/test/testdata/slo/cortexrule"
 	BeforeAll(func() {
 		env = &test.Environment{
@@ -71,10 +112,20 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 		adminClient = apis.NewCortexAdminClient(env.ManagementClientConn())
 		// wait until data has been stored in cortex for the cluster
 		adminClient := env.NewCortexAdminClient()
-
+		kubernetesTempMetricServerPort = env.StartMockKubernetesMetricServer(context.Background())
+		fmt.Printf("Mock kubernetes metrics server started on port %d\n", kubernetesTempMetricServerPort)
 		p, errc := env.StartAgent("agent", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		Eventually(errc).Should(Receive(BeNil()))
-		env.StartPrometheus(p)
+		kubernetesJobName = "kubernetes"
+		env.StartPrometheus(p, test.NewOverridePrometheusConfig(
+			"alerting/prometheus/config.yaml",
+			[]test.PrometheusJob{
+				{
+					JobName:    kubernetesJobName,
+					ScrapePort: kubernetesTempMetricServerPort,
+				},
+			}),
+		)
 		p2, errc2 := env.StartAgent("agent2", token, []string{info.Chain[len(info.Chain)-1].Fingerprint})
 		Eventually(errc2).Should(Receive(BeNil()))
 		env.StartPrometheus(p2)
@@ -112,6 +163,34 @@ var _ = Describe("Converting ServiceLevelObjective Messages to Prometheus Rules"
 	})
 
 	When("We use the cortex admin plugin", func() {
+		It("Should be able to enumerate all kube metrics series that match a certain expression", func() {
+			setMockKubernetesPodState(kubernetesTempMetricServerPort, &mockPod{
+				podName:   "test-pod",
+				namespace: "test-namespace",
+				phase:     "Running",
+				uid:       "test-uid",
+			})
+			Eventually(func() error {
+				resp, err := adminClient.ExtractRawSeries(ctx, &apis.MatcherRequest{
+					Tenant:    "agent",
+					MatchExpr: metrics.KubeObjMetricNameMatcher,
+				},
+				)
+				if err != nil {
+					return err
+				}
+
+				result := gjson.Get(string(resp.Data), "data.result")
+				if !result.Exists() {
+					return fmt.Errorf("no result data")
+				}
+				if len(result.Array()) == 0 {
+					return fmt.Errorf("no results")
+				}
+				return nil
+			}, 3*time.Minute, 30*time.Second).Should(Succeed())
+
+		})
 
 		It("Should be able to list distinct metrics for each job ", func() {
 			// expected outputs are a subset of the actual outputs

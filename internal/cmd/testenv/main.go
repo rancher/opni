@@ -7,13 +7,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rancher/opni/pkg/test"
+	"github.com/rancher/opni/pkg/tracing"
 	"github.com/spf13/pflag"
 	"github.com/ttacon/chalk"
 )
 
 func main() {
 	gin.SetMode(gin.TestMode)
-	var enableGateway, enableEtcd, enableCortex bool
+	var enableGateway, enableEtcd, enableCortex, enableCortexClusterDriver bool
 	var remoteGatewayAddress, remoteKubeconfig string
 	var agentIdSeed int64
 
@@ -23,6 +24,7 @@ func main() {
 	pflag.StringVar(&remoteGatewayAddress, "remote-gateway-address", "", "remote gateway address")
 	pflag.StringVar(&remoteKubeconfig, "remote-kubeconfig", "", "remote kubeconfig (for accessing the management api)")
 	pflag.Int64Var(&agentIdSeed, "agent-id-seed", 0, "random seed used for generating agent ids. if unset, uses a random seed.")
+	pflag.BoolVar(&enableCortexClusterDriver, "enable-cortex-cluster-driver", false, "enable cortex cluster driver")
 
 	pflag.Parse()
 
@@ -41,11 +43,14 @@ func main() {
 		defaultAgentOpts = append(defaultAgentOpts, test.WithRemoteKubeconfig(remoteKubeconfig))
 	}
 
+	tracing.Configure("testenv")
+
 	test.StartStandaloneTestEnvironment(
 		test.WithEnableGateway(enableGateway),
 		test.WithEnableEtcd(enableEtcd),
 		test.WithEnableCortex(enableCortex),
 		test.WithDefaultAgentOpts(defaultAgentOpts...),
 		test.WithAgentIdSeed(agentIdSeed),
+		test.WithEnableCortexClusterDriver(enableCortexClusterDriver),
 	)
 }

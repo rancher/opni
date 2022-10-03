@@ -10,18 +10,16 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 
-	"github.com/kralicky/ragu/pkg/plugins/golang/gateway"
+	"github.com/kralicky/ragu"
+	_ "github.com/kralicky/ragu/compat"
 	"github.com/kralicky/ragu/pkg/plugins/python"
-	"github.com/kralicky/ragu/pkg/ragu"
-
-	//mage:import
-	"github.com/kralicky/spellbook/build"
 
 	// mage:import
 	"github.com/kralicky/spellbook/mockgen"
@@ -29,9 +27,8 @@ import (
 	"github.com/kralicky/spellbook/testbin"
 	// mage:import dev
 	_ "github.com/rancher/opni/internal/mage/dev"
-
 	// mage:import charts
-	_ "github.com/rancher/charts-build-scripts/pkg/actions"
+	charts "github.com/rancher/charts-build-scripts/pkg/actions"
 	// mage:import test
 	"github.com/rancher/opni/internal/mage/test"
 )
@@ -39,7 +36,59 @@ import (
 var Default = All
 
 func All() {
-	mg.SerialDeps(Generate, build.Build)
+	mg.SerialDeps(Generate, Build)
+}
+
+func goBuild(args ...string) error {
+	tag, _ := os.LookupEnv("BUILD_VERSION")
+	tag = strings.TrimSpace(tag)
+
+	version := "unversioned"
+	if tag != "" {
+		version = tag
+	}
+
+	defaultArgs := []string{
+		"build",
+		"-ldflags", "-w -s -X github.com/rancher/opni/pkg/util.Version=" + version,
+		"-trimpath",
+		"-o", "./bin/",
+	}
+	return sh.RunWith(map[string]string{
+		"CGO_ENABLED": "0",
+	}, mg.GoCmd(), append(defaultArgs, args...)...)
+}
+
+func Build() error {
+	if err := goBuild("./cmd/...", "./internal/cmd/...", "./plugins/..."); err != nil {
+		return err
+	}
+
+	// create bin/plugins if it doesn't exist
+	if _, err := os.Stat("bin/plugins"); os.IsNotExist(err) {
+		if err := os.Mkdir("bin/plugins", 0755); err != nil {
+			return err
+		}
+	}
+
+	// move plugins to bin/plugins
+	entries, err := os.ReadDir("./plugins")
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		// add plugin_ prefix
+		pluginName := entry.Name()
+		if _, err := os.Stat(filepath.Join("bin", pluginName)); err == nil {
+			if err := os.Rename(filepath.Join("bin", pluginName), filepath.Join("bin", "plugins", "plugin_"+pluginName)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func Generate() {
@@ -120,6 +169,20 @@ func CRDGen() error {
 			}
 		}
 	}
+
+	//e1 := lo.Async(func() error {
+	//	return util.MinifyCRDYaml("./packages/opni/opni/charts/crds/crds.yaml")
+	//})
+	//e2 := lo.Async(func() error {
+	//	return util.MinifyCRDYaml("./packages/opni-agent/opni-agent/charts/crds/crds.yaml")
+	//})
+
+	//if err := <-e1; err != nil {
+	//	return err
+	//}
+	//if err := <-e2; err != nil {
+	//	return err
+	//}
 	return nil
 }
 
@@ -185,41 +248,6 @@ func k8sModuleVersion() string {
 
 func init() {
 	k8sVersion := k8sModuleVersion()
-
-	extraTargets := map[string]string{}
-	// find plugins
-	entries, err := os.ReadDir("./plugins")
-	if err != nil {
-		panic(err)
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		extraTargets["./plugins/"+entry.Name()] = "bin/plugins/plugin_" + entry.Name()
-	}
-	// find (optional) internal cmds
-	if entries, err = os.ReadDir("./internal/cmd"); err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-			extraTargets["./internal/cmd/"+entry.Name()] = "bin/" + entry.Name()
-		}
-	}
-
-	// get version info
-	tag, _ := os.LookupEnv("BUILD_VERSION")
-	tag = strings.TrimSpace(tag)
-
-	version := "unversioned"
-	if tag != "" {
-		version = tag
-	}
-
-	build.Config.ExtraFlags = append(build.Config.ExtraFlags, "-trimpath")
-	build.Config.LDFlags = append(build.Config.LDFlags, "-X", "github.com/rancher/opni/pkg/util.Version="+version)
-	build.Config.ExtraTargets = extraTargets
 
 	mockgen.Config.Mocks = []mockgen.Mock{
 		{
@@ -287,13 +315,13 @@ func init() {
 		},
 		{
 			Name:       "alertmanager",
-			Version:    "0.23.0",
+			Version:    "0.24.0",
 			URL:        "https://github.com/prometheus/alertmanager/releases/download/v{{.Version}}/alertmanager-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
 			GetVersion: getVersion,
 		},
 		{
 			Name:       "amtool",
-			Version:    "0.23.0",
+			Version:    "0.24.0",
 			URL:        "https://github.com/prometheus/alertmanager/releases/download/v{{.Version}}/alertmanager-{{.Version}}.{{.GOOS}}-{{.GOARCH}}.tar.gz",
 			GetVersion: getVersion,
 		},
@@ -323,7 +351,7 @@ func init() {
 }
 
 func ProtobufGo() error {
-	out, err := ragu.GenerateCode(append(ragu.DefaultGenerators(), gateway.Generator),
+	out, err := ragu.GenerateCode(ragu.DefaultGenerators(),
 		"pkg/**/*.proto",
 		"plugins/**/*.proto",
 	)
@@ -355,4 +383,34 @@ func ProtobufPython() error {
 
 func Protobuf() {
 	mg.Deps(ProtobufGo, ProtobufPython)
+}
+
+func Minimal() error {
+	if err := goBuild(
+		"-tags",
+		"noagentv1,noplugins,nohooks,norealtime,nocortex,nodebug,noevents,nogateway,noetcd,noscheme_thirdparty",
+		"./cmd/opni",
+	); err != nil {
+		return err
+	}
+
+	// create bin/plugins if it doesn't exist
+	if _, err := os.Stat("bin/plugins"); os.IsNotExist(err) {
+		if err := os.Mkdir("bin/plugins", 0755); err != nil {
+			return err
+		}
+	}
+
+	if upx, err := exec.LookPath("upx"); err == nil {
+		return sh.Run(upx, "-q", "bin/opni")
+	}
+	return nil
+}
+
+func Charts() {
+	mg.SerialDeps(All, CRDGen, func() {
+		charts.Charts("opni")
+	}, func() {
+		charts.Charts("opni-agent")
+	})
 }

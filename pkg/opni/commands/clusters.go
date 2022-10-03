@@ -1,16 +1,13 @@
 package commands
 
 import (
-	"fmt"
 	"reflect"
 
 	corev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	cliutil "github.com/rancher/opni/pkg/opni/util"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func BuildClustersCmd() *cobra.Command {
@@ -28,14 +25,14 @@ func BuildClustersCmd() *cobra.Command {
 
 func BuildClustersListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List clusters",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List clusters",
 		Run: func(cmd *cobra.Command, args []string) {
 			t, err := mgmtClient.ListClusters(cmd.Context(), &managementv1.ListClustersRequest{})
 			if err != nil {
 				lg.Fatal(err)
 			}
-			var clusterStats *cortexadmin.UserIDStatsList
 			var healthStatus []*corev1.HealthStatus
 			for _, c := range t.Items {
 				stat, err := mgmtClient.GetClusterHealthStatus(cmd.Context(), c.Reference())
@@ -45,15 +42,6 @@ func BuildClustersListCmd() *cobra.Command {
 					healthStatus = append(healthStatus, stat)
 				}
 			}
-
-			stats, err := adminClient.AllUserStats(cmd.Context(), &emptypb.Empty{})
-			if err != nil {
-				lg.With(
-					zap.Error(err),
-				).Warn("failed to query cortex stats")
-			}
-			clusterStats = stats
-			fmt.Println(cliutil.RenderClusterList(t, healthStatus, clusterStats))
 		},
 	}
 	return cmd
@@ -143,4 +131,8 @@ func BuildClustersLabelCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Enable overwriting existing label values")
 	return cmd
+}
+
+func init() {
+	AddCommandsToGroup(ManagementAPI, BuildClustersCmd())
 }

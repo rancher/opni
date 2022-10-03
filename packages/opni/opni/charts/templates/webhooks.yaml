@@ -98,4 +98,3 @@ webhooks:
         resources:
           - logadapters
     sideEffects: None
-

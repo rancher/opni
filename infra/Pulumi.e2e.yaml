@@ -1,5 +1,5 @@
 config:
-  aws:region: us-east-2
+  aws:region: us-east-1
   aws:skipCredentialsValidation: "true"
   aws:skipRequestingAccountId: "true"
   opni:cloud: aws
@@ -13,6 +13,6 @@ config:
   opni:namePrefix: opni-e2e-test
   opni:useLocalCharts: "true"
   opni:zoneID:
-    secure: AAABAA+P+GwwFQOEhkVqN4/Gj2XKDOaEgpUJK4kZTDcHGzUwBbmgHnTxw1jtKA==
+    secure: AAABAEgKAveQVLuL3+ZeK4BI7td1AWO5Oojkr/eScHxNIr2OPoI4H61WGPnmOQ==
   pulumi:disable-default-providers:
   - kubernetes

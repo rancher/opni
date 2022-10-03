@@ -10,7 +10,6 @@ import (
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -38,15 +37,27 @@ func cortexWorkloadLabels(target string) map[string]string {
 	}
 }
 
+func workloadComponent(o metav1.Object) (value string, ok bool) {
+	l := o.GetLabels()
+	value, ok = l["app.kubernetes.io/component"]
+	return
+}
+
 type CortexWorkloadOptions struct {
-	replicas          int32
-	ports             []Port
-	extraArgs         []string
-	extraVolumes      []corev1.Volume
-	extraVolumeMounts []corev1.VolumeMount
-	lifecycle         *corev1.Lifecycle
-	serviceName       string
-	storageSize       string
+	replicas           int32
+	ports              []Port
+	extraArgs          []string
+	extraVolumes       []corev1.Volume
+	extraVolumeMounts  []corev1.VolumeMount
+	extraEnvVars       []corev1.EnvVar
+	sidecarContainers  []corev1.Container
+	initContainers     []corev1.Container
+	lifecycle          *corev1.Lifecycle
+	serviceName        string
+	deploymentStrategy appsv1.DeploymentStrategy
+	updateStrategy     appsv1.StatefulSetUpdateStrategy
+	securityContext    corev1.SecurityContext
+	affinity           corev1.Affinity
 }
 
 type CortexWorkloadOption func(*CortexWorkloadOptions)
@@ -87,6 +98,48 @@ func ExtraVolumeMounts(volumeMounts ...corev1.VolumeMount) CortexWorkloadOption 
 	}
 }
 
+func ExtraEnvVars(envVars ...corev1.EnvVar) CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.extraEnvVars = append(o.extraEnvVars, envVars...)
+	}
+}
+
+func SidecarContainers(containers ...corev1.Container) CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.sidecarContainers = append(o.sidecarContainers, containers...)
+	}
+}
+
+func InitContainers(containers ...corev1.Container) CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.initContainers = append(o.initContainers, containers...)
+	}
+}
+
+func DeploymentStrategy(strategy *appsv1.DeploymentStrategy) CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.deploymentStrategy = *strategy
+	}
+}
+
+func UpdateStrategy(strategy *appsv1.StatefulSetUpdateStrategy) CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.updateStrategy = *strategy
+	}
+}
+
+func SecurityContext(securityContext *corev1.SecurityContext) CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.securityContext = *securityContext
+	}
+}
+
+func Affinity(affinity *corev1.Affinity) CortexWorkloadOption {
+	return func(o *CortexWorkloadOptions) {
+		o.affinity = *affinity
+	}
+}
+
 func Lifecycle(lifecycle *corev1.Lifecycle) CortexWorkloadOption {
 	return func(o *CortexWorkloadOptions) {
 		o.lifecycle = lifecycle
@@ -99,26 +152,106 @@ func ServiceName(serviceName string) CortexWorkloadOption {
 	}
 }
 
-func StorageSize(storageSize string) CortexWorkloadOption {
+func WithOverrides(spec *corev1beta1.CortexWorkloadSpec) CortexWorkloadOption {
 	return func(o *CortexWorkloadOptions) {
-		o.storageSize = storageSize
+		if spec == nil {
+			return
+		}
+		if spec.Replicas != nil {
+			o.replicas = *spec.Replicas
+		}
+		if spec.ExtraVolumes != nil {
+			o.extraVolumes = append(o.extraVolumes, spec.ExtraVolumes...)
+		}
+		if spec.ExtraVolumeMounts != nil {
+			o.extraVolumeMounts = append(o.extraVolumeMounts, spec.ExtraVolumeMounts...)
+		}
+		if spec.ExtraEnvVars != nil {
+			o.extraEnvVars = append(o.extraEnvVars, spec.ExtraEnvVars...)
+		}
+		if spec.ExtraArgs != nil {
+			o.extraArgs = append(o.extraArgs, spec.ExtraArgs...)
+		}
+		if spec.SidecarContainers != nil {
+			o.sidecarContainers = append(o.sidecarContainers, spec.SidecarContainers...)
+		}
+		if spec.InitContainers != nil {
+			o.initContainers = append(o.initContainers, spec.InitContainers...)
+		}
+		if spec.DeploymentStrategy != nil {
+			o.deploymentStrategy = *spec.DeploymentStrategy
+		}
+		if spec.UpdateStrategy != nil {
+			o.updateStrategy = *spec.UpdateStrategy
+		}
+		if spec.SecurityContext != nil {
+			o.securityContext = *spec.SecurityContext
+		}
+		if spec.Affinity != nil {
+			o.affinity = *spec.Affinity
+		}
 	}
 }
 
-func NoPersistentStorage() CortexWorkloadOption {
-	return func(o *CortexWorkloadOptions) {
-		o.storageSize = ""
+func (r *Reconciler) defaultWorkloadOptions(target string) CortexWorkloadOptions {
+	defaultReplicas := func() int32 {
+		switch r.spec.Cortex.DeploymentMode {
+		case corev1beta1.DeploymentModeAllInOne:
+			return 1
+		case corev1beta1.DeploymentModeHighlyAvailable:
+			return 3
+		}
+		return 0
 	}
+
+	options := CortexWorkloadOptions{
+		replicas:    defaultReplicas(),
+		ports:       []Port{HTTP, Gossip, GRPC},
+		serviceName: fmt.Sprintf("cortex-%s", target),
+		securityContext: corev1.SecurityContext{
+			ReadOnlyRootFilesystem: lo.ToPtr(true),
+		},
+		deploymentStrategy: appsv1.DeploymentStrategy{
+			Type: appsv1.RollingUpdateDeploymentStrategyType,
+			RollingUpdate: &appsv1.RollingUpdateDeployment{
+				MaxSurge:       lo.ToPtr(intstr.FromInt(0)),
+				MaxUnavailable: lo.ToPtr(intstr.FromInt(1)),
+			},
+		},
+		updateStrategy: appsv1.StatefulSetUpdateStrategy{
+			Type: appsv1.RollingUpdateStatefulSetStrategyType,
+		},
+		affinity: corev1.Affinity{
+			PodAntiAffinity: &corev1.PodAntiAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+					{
+						PodAffinityTerm: corev1.PodAffinityTerm{
+							LabelSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "app.kubernetes.io/component",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{target},
+									},
+								},
+							},
+							TopologyKey: "kubernetes.io/hostname",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+
+	return options
 }
 
 func (r *Reconciler) buildCortexDeployment(
 	target string,
 	opts ...CortexWorkloadOption,
-) resources.Resource {
-	options := CortexWorkloadOptions{
-		replicas: 3,
-		ports:    []Port{HTTP, Gossip, GRPC},
-	}
+) *appsv1.Deployment {
+	options := r.defaultWorkloadOptions(target)
 	options.apply(opts...)
 
 	labels := cortexWorkloadLabels(target)
@@ -131,39 +264,24 @@ func (r *Reconciler) buildCortexDeployment(
 		},
 	}
 
-	if !r.spec.Cortex.Enabled {
-		return resources.Absent(dep)
-	}
-
 	dep.Spec = appsv1.DeploymentSpec{
 		Replicas: &options.replicas,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: labels,
 		},
-		Strategy: appsv1.DeploymentStrategy{
-			Type: appsv1.RollingUpdateDeploymentStrategyType,
-			RollingUpdate: &appsv1.RollingUpdateDeployment{
-				MaxSurge:       lo.ToPtr(intstr.FromInt(0)),
-				MaxUnavailable: lo.ToPtr(intstr.FromInt(1)),
-			},
-		},
+		Strategy: options.deploymentStrategy,
 		Template: r.cortexWorkloadPodTemplate(target, options),
 	}
 
 	r.setOwner(dep)
-	return resources.Present(dep)
+	return dep
 }
 
 func (r *Reconciler) buildCortexStatefulSet(
 	target string,
 	opts ...CortexWorkloadOption,
-) resources.Resource {
-	options := CortexWorkloadOptions{
-		replicas:    3,
-		ports:       []Port{HTTP, Gossip, GRPC},
-		serviceName: fmt.Sprintf("cortex-%s", target),
-		storageSize: "2Gi",
-	}
+) *appsv1.StatefulSet {
+	options := r.defaultWorkloadOptions(target)
 	options.apply(opts...)
 
 	labels := cortexWorkloadLabels(target)
@@ -176,42 +294,18 @@ func (r *Reconciler) buildCortexStatefulSet(
 		},
 	}
 
-	if !r.spec.Cortex.Enabled {
-		return resources.Absent(statefulSet)
-	}
-
 	statefulSet.Spec = appsv1.StatefulSetSpec{
 		Replicas: &options.replicas,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: labels,
 		},
-		UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
-			Type: appsv1.RollingUpdateStatefulSetStrategyType,
-		},
-		ServiceName: options.serviceName,
-		Template:    r.cortexWorkloadPodTemplate(target, options),
-	}
-
-	if options.storageSize != "" {
-		statefulSet.Spec.VolumeClaimTemplates = []corev1.PersistentVolumeClaim{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "storage",
-				},
-				Spec: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: resource.MustParse(options.storageSize),
-						},
-					},
-				},
-			},
-		}
+		UpdateStrategy: options.updateStrategy,
+		ServiceName:    options.serviceName,
+		Template:       r.cortexWorkloadPodTemplate(target, options),
 	}
 
 	r.setOwner(statefulSet)
-	return resources.PresentIff(r.spec.Cortex.Enabled, statefulSet)
+	return statefulSet
 }
 
 func (r *Reconciler) cortexWorkloadPodTemplate(
@@ -276,7 +370,8 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: "cortex",
-			Containers: []corev1.Container{
+			InitContainers:     options.initContainers,
+			Containers: append([]corev1.Container{
 				{
 					Name: target,
 					Image: func() string {
@@ -304,14 +399,12 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 						"-target=" + target,
 						"-config.file=/etc/cortex/cortex.yaml",
 					}, options.extraArgs...),
-					Ports:          ports,
-					StartupProbe:   mtlsProbe,
-					LivenessProbe:  mtlsProbe,
-					ReadinessProbe: mtlsProbe,
-					SecurityContext: &corev1.SecurityContext{
-						ReadOnlyRootFilesystem: lo.ToPtr(true),
-					},
-					Env: r.spec.Cortex.ExtraEnvVars,
+					Ports:           ports,
+					StartupProbe:    mtlsProbe,
+					LivenessProbe:   mtlsProbe,
+					ReadinessProbe:  mtlsProbe,
+					SecurityContext: &options.securityContext,
+					Env:             r.spec.Cortex.ExtraEnvVars,
 					VolumeMounts: append([]corev1.VolumeMount{
 						{
 							Name:      "data",
@@ -347,28 +440,8 @@ func (r *Reconciler) cortexWorkloadPodTemplate(
 					}, options.extraVolumeMounts...),
 					Lifecycle: options.lifecycle,
 				},
-			},
-			Affinity: &corev1.Affinity{
-				PodAntiAffinity: &corev1.PodAntiAffinity{
-					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						{
-							PodAffinityTerm: corev1.PodAffinityTerm{
-								LabelSelector: &metav1.LabelSelector{
-									MatchExpressions: []metav1.LabelSelectorRequirement{
-										{
-											Key:      "app.kubernetes.io/component",
-											Operator: metav1.LabelSelectorOpIn,
-											Values:   []string{target},
-										},
-									},
-								},
-								TopologyKey: "kubernetes.io/hostname",
-							},
-							Weight: 100,
-						},
-					},
-				},
-			},
+			}, options.sidecarContainers...),
+			Affinity: &options.affinity,
 			Volumes: append([]corev1.Volume{
 				{
 					Name: "data",
@@ -478,6 +551,14 @@ func (r *Reconciler) buildCortexWorkloadServices(
 	options := CortexServiceOptions{}
 	options.apply(opts...)
 
+	var targetLabels map[string]string
+	switch r.spec.Cortex.DeploymentMode {
+	case corev1beta1.DeploymentModeAllInOne:
+		targetLabels = cortexWorkloadLabels("all")
+	case corev1beta1.DeploymentModeHighlyAvailable:
+		targetLabels = cortexWorkloadLabels(target)
+	}
+
 	httpPort := corev1.ServicePort{
 		Name:       "http-metrics",
 		Port:       8080,
@@ -495,10 +576,10 @@ func (r *Reconciler) buildCortexWorkloadServices(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cortex-" + target,
 			Namespace: r.namespace,
-			Labels:    cortexWorkloadLabels(target),
+			Labels:    targetLabels,
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: cortexWorkloadLabels(target),
+			Selector: targetLabels,
 			Type:     corev1.ServiceTypeClusterIP,
 			Ports:    []corev1.ServicePort{httpPort},
 		},
@@ -511,10 +592,10 @@ func (r *Reconciler) buildCortexWorkloadServices(
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cortex-" + target + "-headless",
 				Namespace: r.namespace,
-				Labels:    cortexWorkloadLabels(target),
+				Labels:    targetLabels,
 			},
 			Spec: corev1.ServiceSpec{
-				Selector:                 cortexWorkloadLabels(target),
+				Selector:                 targetLabels,
 				Type:                     corev1.ServiceTypeClusterIP,
 				ClusterIP:                corev1.ClusterIPNone,
 				Ports:                    []corev1.ServicePort{grpcPort},
@@ -530,14 +611,14 @@ func (r *Reconciler) buildCortexWorkloadServices(
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cortex-" + target,
 				Namespace: r.namespace,
-				Labels:    cortexWorkloadLabels(target),
+				Labels:    targetLabels,
 			},
 			Spec: monitoringv1.ServiceMonitorSpec{
 				NamespaceSelector: monitoringv1.NamespaceSelector{
 					MatchNames: []string{r.namespace},
 				},
 				Selector: metav1.LabelSelector{
-					MatchLabels: cortexWorkloadLabels(target),
+					MatchLabels: targetLabels,
 				},
 				Endpoints: []monitoringv1.Endpoint{
 					{

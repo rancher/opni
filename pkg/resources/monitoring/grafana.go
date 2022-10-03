@@ -43,16 +43,32 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 
 	grafana := &grafanav1alpha1.Grafana{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring",
+			Name:      "opni",
 			Namespace: r.instanceNamespace,
 		},
 	}
 	datasource := &grafanav1alpha1.GrafanaDataSource{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "opni-monitoring",
+			Name:      "opni",
 			Namespace: r.instanceNamespace,
 		},
 	}
+
+	legacyResources := []resources.Resource{
+		resources.Absent(&grafanav1alpha1.Grafana{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-monitoring",
+				Namespace: r.instanceNamespace,
+			},
+		}),
+		resources.Absent(&grafanav1alpha1.GrafanaDataSource{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "opni-monitoring",
+				Namespace: r.instanceNamespace,
+			},
+		}),
+	}
+
 	grafanaDashboards := []*grafanav1alpha1.GrafanaDashboard{
 		{
 			ObjectMeta: metav1.ObjectMeta{
@@ -65,6 +81,27 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 			},
 		},
 	}
+
+	grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "slo-overview",
+			Namespace: r.instanceNamespace,
+			Labels:    dashboardSelector.MatchLabels,
+		},
+		Spec: grafanav1alpha1.GrafanaDashboardSpec{
+			Json: string(sloOverviewDashboard),
+		},
+	})
+	grafanaDashboards = append(grafanaDashboards, &grafanav1alpha1.GrafanaDashboard{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "slo-detailed",
+			Namespace: r.instanceNamespace,
+			Labels:    dashboardSelector.MatchLabels,
+		},
+		Spec: grafanav1alpha1.GrafanaDashboardSpec{
+			Json: string(sloDetailedDashboard),
+		},
+	})
 
 	dashboards := map[string]json.RawMessage{}
 	if err := json.Unmarshal(dashboardsJson, &dashboards); err != nil {
@@ -84,17 +121,30 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	}
 
 	if !r.spec.Grafana.Enabled {
-		absentResources := []resources.Resource{
+		absentResources := append([]resources.Resource{
 			resources.Absent(grafana),
 			resources.Absent(datasource),
-		}
+		}, legacyResources...)
 		for _, dashboard := range grafanaDashboards {
 			absentResources = append(absentResources, resources.Absent(dashboard))
 		}
 		return absentResources, nil
 	}
 
-	grafanaHostname := fmt.Sprintf("grafana.%s", r.gw.Spec.Hostname)
+	// TODO: delete when v1beta2 is deleted
+	var gatewayAuthProvider v1beta1.AuthProviderType
+	var gatewayHostname string
+	if r.gw != nil {
+		gatewayHostname = r.gw.Spec.Hostname
+		gatewayAuthProvider = r.gw.Spec.Auth.Provider
+	} else if r.coregw != nil {
+		gatewayHostname = r.coregw.Spec.Hostname
+		gatewayAuthProvider = r.coregw.Spec.Auth.Provider
+	} else {
+		return nil, fmt.Errorf("no gateway found")
+	}
+
+	grafanaHostname := fmt.Sprintf("grafana.%s", gatewayHostname)
 	if r.spec.Grafana.Hostname != "" {
 		grafanaHostname = r.spec.Grafana.Hostname
 	}
@@ -158,13 +208,13 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 	grafana.Spec = spec
 
 	datasource.Spec = grafanav1alpha1.GrafanaDataSourceSpec{
-		Name: "opni-monitoring-datasources",
+		Name: "opni-datasources",
 		Datasources: []grafanav1alpha1.GrafanaDataSourceFields{
 			{
 				Name:            "Opni",
 				Type:            "prometheus",
 				Access:          "proxy",
-				Url:             fmt.Sprintf("https://opni-monitoring-internal.%s.svc:8080/api/prom", r.instanceNamespace),
+				Url:             fmt.Sprintf("https://opni-internal.%s.svc:8080/api/prom", r.instanceNamespace),
 				WithCredentials: true,
 				Editable:        false,
 				IsDefault:       true,
@@ -182,7 +232,7 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 				Uid:             "opni_alertmanager",
 				Type:            "alertmanager",
 				Access:          "proxy",
-				Url:             fmt.Sprintf("https://opni-monitoring-internal.%s.svc:8080/api/prom", r.instanceNamespace),
+				Url:             fmt.Sprintf("https://opni-internal.%s.svc:8080/api/prom", r.instanceNamespace),
 				WithCredentials: true,
 				Editable:        false,
 				JsonData: grafanav1alpha1.GrafanaDataSourceJsonData{
@@ -197,66 +247,121 @@ func (r *Reconciler) grafana() ([]resources.Resource, error) {
 		},
 	}
 
-	switch r.gw.Spec.Auth.Provider {
+	switch gatewayAuthProvider {
 	case v1beta1.AuthProviderNoAuth:
 		grafana.Spec.Config.AuthGenericOauth = &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
 			Enabled:           lo.ToPtr(true),
 			ClientId:          "grafana",
 			ClientSecret:      "noauth",
 			Scopes:            "openid profile email",
-			AuthUrl:           fmt.Sprintf("http://%s:4000/oauth2/authorize", r.gw.Spec.Hostname),
-			TokenUrl:          fmt.Sprintf("http://%s:4000/oauth2/token", r.gw.Spec.Hostname),
-			ApiUrl:            fmt.Sprintf("http://%s:4000/oauth2/userinfo", r.gw.Spec.Hostname),
+			AuthUrl:           fmt.Sprintf("http://%s:4000/oauth2/authorize", gatewayHostname),
+			TokenUrl:          fmt.Sprintf("http://%s:4000/oauth2/token", gatewayHostname),
+			ApiUrl:            fmt.Sprintf("http://%s:4000/oauth2/userinfo", gatewayHostname),
 			RoleAttributePath: "grafana_role",
 		}
 	case v1beta1.AuthProviderOpenID:
-		spec := r.gw.Spec.Auth.Openid
-		if spec.Discovery == nil && spec.WellKnownConfiguration == nil {
-			return nil, openid.ErrMissingDiscoveryConfig
-		}
-		wkc, err := spec.OpenidConfig.GetWellKnownConfiguration()
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch configuration from openid provider: %w", err)
-		}
-		scopes := spec.Scopes
-		if len(scopes) == 0 {
-			scopes = []string{"openid", "profile", "email"}
-		}
-		grafana.Spec.Config.AuthGenericOauth = &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
-			Enabled:               lo.ToPtr(true),
-			ClientId:              spec.ClientID,
-			ClientSecret:          spec.ClientSecret,
-			Scopes:                strings.Join(scopes, " "),
-			AuthUrl:               wkc.AuthEndpoint,
-			TokenUrl:              wkc.TokenEndpoint,
-			ApiUrl:                wkc.UserinfoEndpoint,
-			RoleAttributePath:     spec.RoleAttributePath,
-			AllowSignUp:           spec.AllowSignUp,
-			AllowedDomains:        strings.Join(spec.AllowedDomains, " "),
-			RoleAttributeStrict:   spec.RoleAttributeStrict,
-			EmailAttributePath:    spec.EmailAttributePath,
-			TLSSkipVerifyInsecure: spec.InsecureSkipVerify,
-			TLSClientCert:         spec.TLSClientCert,
-			TLSClientKey:          spec.TLSClientKey,
-			TLSClientCa:           spec.TLSClientCA,
-		}
+		// TODO: delete when v1beta2 is deleted
+		if r.gw != nil {
+			spec := r.gw.Spec.Auth.Openid
+			if spec.Discovery == nil && spec.WellKnownConfiguration == nil {
+				return nil, openid.ErrMissingDiscoveryConfig
+			}
+			wkc, err := spec.OpenidConfig.GetWellKnownConfiguration()
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch configuration from openid provider: %w", err)
+			}
+			scopes := spec.Scopes
+			if len(scopes) == 0 {
+				scopes = []string{"openid", "profile", "email"}
+			}
+			grafana.Spec.Config.AuthGenericOauth = &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
+				Enabled:               lo.ToPtr(true),
+				ClientId:              spec.ClientID,
+				ClientSecret:          spec.ClientSecret,
+				Scopes:                strings.Join(scopes, " "),
+				AuthUrl:               wkc.AuthEndpoint,
+				TokenUrl:              wkc.TokenEndpoint,
+				ApiUrl:                wkc.UserinfoEndpoint,
+				RoleAttributePath:     spec.RoleAttributePath,
+				AllowSignUp:           spec.AllowSignUp,
+				AllowedDomains:        strings.Join(spec.AllowedDomains, " "),
+				RoleAttributeStrict:   spec.RoleAttributeStrict,
+				EmailAttributePath:    spec.EmailAttributePath,
+				TLSSkipVerifyInsecure: spec.InsecureSkipVerify,
+				TLSClientCert:         spec.TLSClientCert,
+				TLSClientKey:          spec.TLSClientKey,
+				TLSClientCa:           spec.TLSClientCA,
+			}
 
-		if spec.InsecureSkipVerify != nil && *spec.InsecureSkipVerify {
-			r.logger.Warn(chalk.Yellow.Color("InsecureSkipVerify enabled for openid auth"))
+			if spec.InsecureSkipVerify != nil && *spec.InsecureSkipVerify {
+				r.logger.Warn(chalk.Yellow.Color("InsecureSkipVerify enabled for openid auth"))
+			}
+		} else if r.coregw != nil {
+			spec := r.coregw.Spec.Auth.Openid
+			if spec.Discovery == nil && spec.WellKnownConfiguration == nil {
+				return nil, openid.ErrMissingDiscoveryConfig
+			}
+			wkc, err := spec.OpenidConfig.GetWellKnownConfiguration()
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch configuration from openid provider: %w", err)
+			}
+			scopes := spec.Scopes
+			if len(scopes) == 0 {
+				scopes = []string{"openid", "profile", "email"}
+			}
+			grafana.Spec.Config.AuthGenericOauth = &grafanav1alpha1.GrafanaConfigAuthGenericOauth{
+				Enabled:               lo.ToPtr(true),
+				ClientId:              spec.ClientID,
+				ClientSecret:          spec.ClientSecret,
+				Scopes:                strings.Join(scopes, " "),
+				AuthUrl:               wkc.AuthEndpoint,
+				TokenUrl:              wkc.TokenEndpoint,
+				ApiUrl:                wkc.UserinfoEndpoint,
+				RoleAttributePath:     spec.RoleAttributePath,
+				AllowSignUp:           spec.AllowSignUp,
+				AllowedDomains:        strings.Join(spec.AllowedDomains, " "),
+				RoleAttributeStrict:   spec.RoleAttributeStrict,
+				EmailAttributePath:    spec.EmailAttributePath,
+				TLSSkipVerifyInsecure: spec.InsecureSkipVerify,
+				TLSClientCert:         spec.TLSClientCert,
+				TLSClientKey:          spec.TLSClientKey,
+				TLSClientCa:           spec.TLSClientCA,
+			}
+
+			if spec.InsecureSkipVerify != nil && *spec.InsecureSkipVerify {
+				r.logger.Warn(chalk.Yellow.Color("InsecureSkipVerify enabled for openid auth"))
+			}
+
 		}
 	}
 
-	controllerutil.SetOwnerReference(r.mc, grafana, r.client.Scheme())
-	controllerutil.SetOwnerReference(r.mc, datasource, r.client.Scheme())
+	// TODO: delete when v1beta2 is deleted
+	var presentResources []resources.Resource
+	if r.mc != nil {
+		controllerutil.SetOwnerReference(r.mc, grafana, r.client.Scheme())
+		controllerutil.SetOwnerReference(r.mc, datasource, r.client.Scheme())
 
-	presentResources := []resources.Resource{
-		resources.Present(grafana),
-		resources.Present(datasource),
-	}
-	for _, dashboard := range grafanaDashboards {
-		controllerutil.SetOwnerReference(r.mc, dashboard, r.client.Scheme())
-		presentResources = append(presentResources, resources.Present(dashboard))
+		presentResources = []resources.Resource{
+			resources.Present(grafana),
+			resources.Present(datasource),
+		}
+		for _, dashboard := range grafanaDashboards {
+			controllerutil.SetOwnerReference(r.mc, dashboard, r.client.Scheme())
+			presentResources = append(presentResources, resources.Present(dashboard))
+		}
+	} else if r.coremc != nil {
+		controllerutil.SetOwnerReference(r.coremc, grafana, r.client.Scheme())
+		controllerutil.SetOwnerReference(r.coremc, datasource, r.client.Scheme())
+
+		presentResources = []resources.Resource{
+			resources.Present(grafana),
+			resources.Present(datasource),
+		}
+		for _, dashboard := range grafanaDashboards {
+			controllerutil.SetOwnerReference(r.coremc, dashboard, r.client.Scheme())
+			presentResources = append(presentResources, resources.Present(dashboard))
+		}
 	}
 
-	return presentResources, nil
+	return append(presentResources, legacyResources...), nil
 }

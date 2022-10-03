@@ -1,3 +1,5 @@
+//go:build !noetcd
+
 package etcd
 
 import (
@@ -44,4 +46,15 @@ func (ks *etcdKeyringStore) Get(ctx context.Context) (keyring.Keyring, error) {
 		return nil, fmt.Errorf("failed to unmarshal keyring: %w", err)
 	}
 	return k, nil
+}
+
+func (ks *etcdKeyringStore) Delete(ctx context.Context) error {
+	resp, err := ks.client.Delete(ctx, path.Join(ks.prefix, keyringKey, ks.ref.Id))
+	if err != nil {
+		return fmt.Errorf("failed to delete keyring: %w", err)
+	}
+	if resp.Deleted == 0 {
+		return storage.ErrNotFound
+	}
+	return nil
 }

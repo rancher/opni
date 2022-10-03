@@ -3,7 +3,9 @@ option go_package = "github.com/rancher/opni/pkg/apis/capability/v1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
+import "github.com/kralicky/totem/extensions.proto";
 
 package capability;
 
@@ -12,10 +14,16 @@ service Backend {
   rpc Info(google.protobuf.Empty) returns (InfoResponse);
   
   // Returns an error if installing the capability would fail.
-  rpc CanInstall(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc CanInstall(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option deprecated = true;
+  }
 
-  // Installs the capability. Errors returned from this method are usually fatal.
-  rpc Install(InstallRequest) returns (google.protobuf.Empty);
+  // Installs the capability on a cluster. 
+  rpc Install(InstallRequest) returns (InstallResponse);
+
+  // Returns common runtime config info for this capability from a specific 
+  // cluster (node).
+  rpc Status(StatusRequest) returns (NodeCapabilityStatus);
 
 	// Requests the backend to clean up any resources it owns and prepare
 	// for uninstallation. This process is asynchronous. The status of the
@@ -32,7 +40,30 @@ service Backend {
 	// Returns a go template string which will generate a shell command used to
 	// install the capability. This will be displayed to the user in the UI.
 	// See InstallerTemplateSpec above for the available template fields.
-  rpc InstallerTemplate(google.protobuf.Empty) returns (InstallerTemplateResponse);
+  rpc InstallerTemplate(google.protobuf.Empty) returns (InstallerTemplateResponse) {
+    option deprecated = true;
+  }
+}
+
+service Node {
+  rpc SyncNow(Filter) returns (google.protobuf.Empty) {
+    option (totem.qos) = {
+      replicationStrategy: Broadcast
+    };
+  }
+}
+
+service NodeManager {
+  rpc RequestSync(SyncRequest) returns (google.protobuf.Empty);
+}
+
+message SyncRequest {
+  core.Reference cluster = 1;
+  Filter filter = 2;
+}
+
+message Filter {
+  repeated string capabilityNames = 1;
 }
 
 message InfoResponse {
@@ -41,6 +72,19 @@ message InfoResponse {
 
 message InstallRequest {
   core.Reference cluster = 1;
+  bool ignoreWarnings = 2;
+}
+
+enum InstallResponseStatus {
+  Unknown = 0;
+  Success = 1;
+  Warning = 2;
+  Error = 3;
+}
+
+message InstallResponse {
+  InstallResponseStatus status = 1;
+  string message = 2;
 }
 
 message UninstallRequest {
@@ -50,4 +94,13 @@ message UninstallRequest {
 
 message InstallerTemplateResponse {
   string template = 1;
+}
+
+message StatusRequest {
+  core.Reference cluster = 1;
+}
+
+message NodeCapabilityStatus {
+  bool enabled = 1;
+  google.protobuf.Timestamp lastSync = 2;
 }

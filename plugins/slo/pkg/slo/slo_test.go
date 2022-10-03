@@ -3,6 +3,10 @@ package slo_test
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"os"
+	"time"
+
 	promql "github.com/cortexproject/cortex/pkg/configs/legacy_promql"
 	"github.com/goombaio/namegenerator"
 	. "github.com/onsi/ginkgo/v2"
@@ -12,16 +16,13 @@ import (
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/metrics/unmarshal"
 	"github.com/rancher/opni/pkg/test"
-	"github.com/rancher/opni/plugins/cortex/pkg/apis/cortexadmin"
+	"github.com/rancher/opni/plugins/metrics/pkg/apis/cortexadmin"
 	sloapi "github.com/rancher/opni/plugins/slo/pkg/apis/slo"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	"github.com/tidwall/gjson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gopkg.in/yaml.v3"
-	"math/rand"
-	"os"
-	"time"
 )
 
 // need to check always that good <= total

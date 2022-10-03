@@ -41,7 +41,19 @@ import (
 #Image: docker.#Build & {
 	steps: [
 		docker.#Pull & {
-			source: "golang:1.18"
+			source: "golang:1.19"
+		},
+		docker.#Run & {
+			command: {
+				name: "apt"
+				args: ["update"]
+			}
+		},
+		docker.#Run & {
+			command: {
+				name: "apt"
+				args: ["install", "-y", "upx"]
+			}
 		},
 		docker.#Run & {
 			command: {

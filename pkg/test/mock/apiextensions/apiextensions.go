@@ -38,24 +38,24 @@ func (m *MockManagementAPIExtensionClient) EXPECT() *MockManagementAPIExtensionC
 	return m.recorder
 }
 
-// Descriptor mocks base method.
-func (m *MockManagementAPIExtensionClient) Descriptor(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*descriptorpb.ServiceDescriptorProto, error) {
+// Descriptors mocks base method.
+func (m *MockManagementAPIExtensionClient) Descriptors(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*apiextensions.ServiceDescriptorProtoList, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "Descriptor", varargs...)
-	ret0, _ := ret[0].(*descriptorpb.ServiceDescriptorProto)
+	ret := m.ctrl.Call(m, "Descriptors", varargs...)
+	ret0, _ := ret[0].(*apiextensions.ServiceDescriptorProtoList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Descriptor indicates an expected call of Descriptor.
-func (mr *MockManagementAPIExtensionClientMockRecorder) Descriptor(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// Descriptors indicates an expected call of Descriptors.
+func (mr *MockManagementAPIExtensionClientMockRecorder) Descriptors(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptor", reflect.TypeOf((*MockManagementAPIExtensionClient)(nil).Descriptor), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptors", reflect.TypeOf((*MockManagementAPIExtensionClient)(nil).Descriptors), varargs...)
 }
 
 // MockManagementAPIExtensionServer is a mock of ManagementAPIExtensionServer interface.
@@ -81,19 +81,19 @@ func (m *MockManagementAPIExtensionServer) EXPECT() *MockManagementAPIExtensionS
 	return m.recorder
 }
 
-// Descriptor mocks base method.
-func (m *MockManagementAPIExtensionServer) Descriptor(arg0 context.Context, arg1 *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
+// Descriptors mocks base method.
+func (m *MockManagementAPIExtensionServer) Descriptors(arg0 context.Context, arg1 *emptypb.Empty) (*apiextensions.ServiceDescriptorProtoList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Descriptor", arg0, arg1)
-	ret0, _ := ret[0].(*descriptorpb.ServiceDescriptorProto)
+	ret := m.ctrl.Call(m, "Descriptors", arg0, arg1)
+	ret0, _ := ret[0].(*apiextensions.ServiceDescriptorProtoList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Descriptor indicates an expected call of Descriptor.
-func (mr *MockManagementAPIExtensionServerMockRecorder) Descriptor(arg0, arg1 interface{}) *gomock.Call {
+// Descriptors indicates an expected call of Descriptors.
+func (mr *MockManagementAPIExtensionServerMockRecorder) Descriptors(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptor", reflect.TypeOf((*MockManagementAPIExtensionServer)(nil).Descriptor), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Descriptors", reflect.TypeOf((*MockManagementAPIExtensionServer)(nil).Descriptors), arg0, arg1)
 }
 
 // mustEmbedUnimplementedManagementAPIExtensionServer mocks base method.
@@ -143,132 +143,132 @@ func (mr *MockUnsafeManagementAPIExtensionServerMockRecorder) mustEmbedUnimpleme
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedManagementAPIExtensionServer", reflect.TypeOf((*MockUnsafeManagementAPIExtensionServer)(nil).mustEmbedUnimplementedManagementAPIExtensionServer))
 }
 
-// MockGatewayAPIExtensionClient is a mock of GatewayAPIExtensionClient interface.
-type MockGatewayAPIExtensionClient struct {
+// MockHTTPAPIExtensionClient is a mock of HTTPAPIExtensionClient interface.
+type MockHTTPAPIExtensionClient struct {
 	ctrl     *gomock.Controller
-	recorder *MockGatewayAPIExtensionClientMockRecorder
+	recorder *MockHTTPAPIExtensionClientMockRecorder
 }
 
-// MockGatewayAPIExtensionClientMockRecorder is the mock recorder for MockGatewayAPIExtensionClient.
-type MockGatewayAPIExtensionClientMockRecorder struct {
-	mock *MockGatewayAPIExtensionClient
+// MockHTTPAPIExtensionClientMockRecorder is the mock recorder for MockHTTPAPIExtensionClient.
+type MockHTTPAPIExtensionClientMockRecorder struct {
+	mock *MockHTTPAPIExtensionClient
 }
 
-// NewMockGatewayAPIExtensionClient creates a new mock instance.
-func NewMockGatewayAPIExtensionClient(ctrl *gomock.Controller) *MockGatewayAPIExtensionClient {
-	mock := &MockGatewayAPIExtensionClient{ctrl: ctrl}
-	mock.recorder = &MockGatewayAPIExtensionClientMockRecorder{mock}
+// NewMockHTTPAPIExtensionClient creates a new mock instance.
+func NewMockHTTPAPIExtensionClient(ctrl *gomock.Controller) *MockHTTPAPIExtensionClient {
+	mock := &MockHTTPAPIExtensionClient{ctrl: ctrl}
+	mock.recorder = &MockHTTPAPIExtensionClientMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockGatewayAPIExtensionClient) EXPECT() *MockGatewayAPIExtensionClientMockRecorder {
+func (m *MockHTTPAPIExtensionClient) EXPECT() *MockHTTPAPIExtensionClientMockRecorder {
 	return m.recorder
 }
 
 // Configure mocks base method.
-func (m *MockGatewayAPIExtensionClient) Configure(ctx context.Context, in *apiextensions.CertConfig, opts ...grpc.CallOption) (*apiextensions.GatewayAPIExtensionConfig, error) {
+func (m *MockHTTPAPIExtensionClient) Configure(ctx context.Context, in *apiextensions.CertConfig, opts ...grpc.CallOption) (*apiextensions.HTTPAPIExtensionConfig, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Configure", varargs...)
-	ret0, _ := ret[0].(*apiextensions.GatewayAPIExtensionConfig)
+	ret0, _ := ret[0].(*apiextensions.HTTPAPIExtensionConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Configure indicates an expected call of Configure.
-func (mr *MockGatewayAPIExtensionClientMockRecorder) Configure(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+func (mr *MockHTTPAPIExtensionClientMockRecorder) Configure(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Configure", reflect.TypeOf((*MockGatewayAPIExtensionClient)(nil).Configure), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Configure", reflect.TypeOf((*MockHTTPAPIExtensionClient)(nil).Configure), varargs...)
 }
 
-// MockGatewayAPIExtensionServer is a mock of GatewayAPIExtensionServer interface.
-type MockGatewayAPIExtensionServer struct {
+// MockHTTPAPIExtensionServer is a mock of HTTPAPIExtensionServer interface.
+type MockHTTPAPIExtensionServer struct {
 	ctrl     *gomock.Controller
-	recorder *MockGatewayAPIExtensionServerMockRecorder
+	recorder *MockHTTPAPIExtensionServerMockRecorder
 }
 
-// MockGatewayAPIExtensionServerMockRecorder is the mock recorder for MockGatewayAPIExtensionServer.
-type MockGatewayAPIExtensionServerMockRecorder struct {
-	mock *MockGatewayAPIExtensionServer
+// MockHTTPAPIExtensionServerMockRecorder is the mock recorder for MockHTTPAPIExtensionServer.
+type MockHTTPAPIExtensionServerMockRecorder struct {
+	mock *MockHTTPAPIExtensionServer
 }
 
-// NewMockGatewayAPIExtensionServer creates a new mock instance.
-func NewMockGatewayAPIExtensionServer(ctrl *gomock.Controller) *MockGatewayAPIExtensionServer {
-	mock := &MockGatewayAPIExtensionServer{ctrl: ctrl}
-	mock.recorder = &MockGatewayAPIExtensionServerMockRecorder{mock}
+// NewMockHTTPAPIExtensionServer creates a new mock instance.
+func NewMockHTTPAPIExtensionServer(ctrl *gomock.Controller) *MockHTTPAPIExtensionServer {
+	mock := &MockHTTPAPIExtensionServer{ctrl: ctrl}
+	mock.recorder = &MockHTTPAPIExtensionServerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockGatewayAPIExtensionServer) EXPECT() *MockGatewayAPIExtensionServerMockRecorder {
+func (m *MockHTTPAPIExtensionServer) EXPECT() *MockHTTPAPIExtensionServerMockRecorder {
 	return m.recorder
 }
 
 // Configure mocks base method.
-func (m *MockGatewayAPIExtensionServer) Configure(arg0 context.Context, arg1 *apiextensions.CertConfig) (*apiextensions.GatewayAPIExtensionConfig, error) {
+func (m *MockHTTPAPIExtensionServer) Configure(arg0 context.Context, arg1 *apiextensions.CertConfig) (*apiextensions.HTTPAPIExtensionConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Configure", arg0, arg1)
-	ret0, _ := ret[0].(*apiextensions.GatewayAPIExtensionConfig)
+	ret0, _ := ret[0].(*apiextensions.HTTPAPIExtensionConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Configure indicates an expected call of Configure.
-func (mr *MockGatewayAPIExtensionServerMockRecorder) Configure(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockHTTPAPIExtensionServerMockRecorder) Configure(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Configure", reflect.TypeOf((*MockGatewayAPIExtensionServer)(nil).Configure), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Configure", reflect.TypeOf((*MockHTTPAPIExtensionServer)(nil).Configure), arg0, arg1)
 }
 
-// mustEmbedUnimplementedGatewayAPIExtensionServer mocks base method.
-func (m *MockGatewayAPIExtensionServer) mustEmbedUnimplementedGatewayAPIExtensionServer() {
+// mustEmbedUnimplementedHTTPAPIExtensionServer mocks base method.
+func (m *MockHTTPAPIExtensionServer) mustEmbedUnimplementedHTTPAPIExtensionServer() {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedGatewayAPIExtensionServer")
+	m.ctrl.Call(m, "mustEmbedUnimplementedHTTPAPIExtensionServer")
 }
 
-// mustEmbedUnimplementedGatewayAPIExtensionServer indicates an expected call of mustEmbedUnimplementedGatewayAPIExtensionServer.
-func (mr *MockGatewayAPIExtensionServerMockRecorder) mustEmbedUnimplementedGatewayAPIExtensionServer() *gomock.Call {
+// mustEmbedUnimplementedHTTPAPIExtensionServer indicates an expected call of mustEmbedUnimplementedHTTPAPIExtensionServer.
+func (mr *MockHTTPAPIExtensionServerMockRecorder) mustEmbedUnimplementedHTTPAPIExtensionServer() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedGatewayAPIExtensionServer", reflect.TypeOf((*MockGatewayAPIExtensionServer)(nil).mustEmbedUnimplementedGatewayAPIExtensionServer))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedHTTPAPIExtensionServer", reflect.TypeOf((*MockHTTPAPIExtensionServer)(nil).mustEmbedUnimplementedHTTPAPIExtensionServer))
 }
 
-// MockUnsafeGatewayAPIExtensionServer is a mock of UnsafeGatewayAPIExtensionServer interface.
-type MockUnsafeGatewayAPIExtensionServer struct {
+// MockUnsafeHTTPAPIExtensionServer is a mock of UnsafeHTTPAPIExtensionServer interface.
+type MockUnsafeHTTPAPIExtensionServer struct {
 	ctrl     *gomock.Controller
-	recorder *MockUnsafeGatewayAPIExtensionServerMockRecorder
+	recorder *MockUnsafeHTTPAPIExtensionServerMockRecorder
 }
 
-// MockUnsafeGatewayAPIExtensionServerMockRecorder is the mock recorder for MockUnsafeGatewayAPIExtensionServer.
-type MockUnsafeGatewayAPIExtensionServerMockRecorder struct {
-	mock *MockUnsafeGatewayAPIExtensionServer
+// MockUnsafeHTTPAPIExtensionServerMockRecorder is the mock recorder for MockUnsafeHTTPAPIExtensionServer.
+type MockUnsafeHTTPAPIExtensionServerMockRecorder struct {
+	mock *MockUnsafeHTTPAPIExtensionServer
 }
 
-// NewMockUnsafeGatewayAPIExtensionServer creates a new mock instance.
-func NewMockUnsafeGatewayAPIExtensionServer(ctrl *gomock.Controller) *MockUnsafeGatewayAPIExtensionServer {
-	mock := &MockUnsafeGatewayAPIExtensionServer{ctrl: ctrl}
-	mock.recorder = &MockUnsafeGatewayAPIExtensionServerMockRecorder{mock}
+// NewMockUnsafeHTTPAPIExtensionServer creates a new mock instance.
+func NewMockUnsafeHTTPAPIExtensionServer(ctrl *gomock.Controller) *MockUnsafeHTTPAPIExtensionServer {
+	mock := &MockUnsafeHTTPAPIExtensionServer{ctrl: ctrl}
+	mock.recorder = &MockUnsafeHTTPAPIExtensionServerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockUnsafeGatewayAPIExtensionServer) EXPECT() *MockUnsafeGatewayAPIExtensionServerMockRecorder {
+func (m *MockUnsafeHTTPAPIExtensionServer) EXPECT() *MockUnsafeHTTPAPIExtensionServerMockRecorder {
 	return m.recorder
 }
 
-// mustEmbedUnimplementedGatewayAPIExtensionServer mocks base method.
-func (m *MockUnsafeGatewayAPIExtensionServer) mustEmbedUnimplementedGatewayAPIExtensionServer() {
+// mustEmbedUnimplementedHTTPAPIExtensionServer mocks base method.
+func (m *MockUnsafeHTTPAPIExtensionServer) mustEmbedUnimplementedHTTPAPIExtensionServer() {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "mustEmbedUnimplementedGatewayAPIExtensionServer")
+	m.ctrl.Call(m, "mustEmbedUnimplementedHTTPAPIExtensionServer")
 }
 
-// mustEmbedUnimplementedGatewayAPIExtensionServer indicates an expected call of mustEmbedUnimplementedGatewayAPIExtensionServer.
-func (mr *MockUnsafeGatewayAPIExtensionServerMockRecorder) mustEmbedUnimplementedGatewayAPIExtensionServer() *gomock.Call {
+// mustEmbedUnimplementedHTTPAPIExtensionServer indicates an expected call of mustEmbedUnimplementedHTTPAPIExtensionServer.
+func (mr *MockUnsafeHTTPAPIExtensionServerMockRecorder) mustEmbedUnimplementedHTTPAPIExtensionServer() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedGatewayAPIExtensionServer", reflect.TypeOf((*MockUnsafeGatewayAPIExtensionServer)(nil).mustEmbedUnimplementedGatewayAPIExtensionServer))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "mustEmbedUnimplementedHTTPAPIExtensionServer", reflect.TypeOf((*MockUnsafeHTTPAPIExtensionServer)(nil).mustEmbedUnimplementedHTTPAPIExtensionServer))
 }
 
 // MockStreamAPIExtensionClient is a mock of StreamAPIExtensionClient interface.
@@ -294,24 +294,24 @@ func (m *MockStreamAPIExtensionClient) EXPECT() *MockStreamAPIExtensionClientMoc
 	return m.recorder
 }
 
-// Services mocks base method.
-func (m *MockStreamAPIExtensionClient) Services(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*apiextensions.ServiceDescriptorList, error) {
+// Todo mocks base method.
+func (m *MockStreamAPIExtensionClient) Todo(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "Services", varargs...)
-	ret0, _ := ret[0].(*apiextensions.ServiceDescriptorList)
+	ret := m.ctrl.Call(m, "Todo", varargs...)
+	ret0, _ := ret[0].(*emptypb.Empty)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Services indicates an expected call of Services.
-func (mr *MockStreamAPIExtensionClientMockRecorder) Services(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// Todo indicates an expected call of Todo.
+func (mr *MockStreamAPIExtensionClientMockRecorder) Todo(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Services", reflect.TypeOf((*MockStreamAPIExtensionClient)(nil).Services), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Todo", reflect.TypeOf((*MockStreamAPIExtensionClient)(nil).Todo), varargs...)
 }
 
 // MockStreamAPIExtensionServer is a mock of StreamAPIExtensionServer interface.
@@ -337,19 +337,19 @@ func (m *MockStreamAPIExtensionServer) EXPECT() *MockStreamAPIExtensionServerMoc
 	return m.recorder
 }
 
-// Services mocks base method.
-func (m *MockStreamAPIExtensionServer) Services(arg0 context.Context, arg1 *emptypb.Empty) (*apiextensions.ServiceDescriptorList, error) {
+// Todo mocks base method.
+func (m *MockStreamAPIExtensionServer) Todo(arg0 context.Context, arg1 *emptypb.Empty) (*emptypb.Empty, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Services", arg0, arg1)
-	ret0, _ := ret[0].(*apiextensions.ServiceDescriptorList)
+	ret := m.ctrl.Call(m, "Todo", arg0, arg1)
+	ret0, _ := ret[0].(*emptypb.Empty)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Services indicates an expected call of Services.
-func (mr *MockStreamAPIExtensionServerMockRecorder) Services(arg0, arg1 interface{}) *gomock.Call {
+// Todo indicates an expected call of Todo.
+func (mr *MockStreamAPIExtensionServerMockRecorder) Todo(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Services", reflect.TypeOf((*MockStreamAPIExtensionServer)(nil).Services), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Todo", reflect.TypeOf((*MockStreamAPIExtensionServer)(nil).Todo), arg0, arg1)
 }
 
 // mustEmbedUnimplementedStreamAPIExtensionServer mocks base method.

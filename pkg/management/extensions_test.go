@@ -45,7 +45,7 @@ type ext2SrvImpl struct {
 
 var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 	var tv *testVars
-	var descriptorLogic func() (*descriptorpb.ServiceDescriptorProto, error)
+	var descriptorLogic func() (*apiextensions.ServiceDescriptorProtoList, error)
 	shouldLoadExt1 := atomic.NewBool(true)
 	shouldLoadExt2 := atomic.NewBool(false)
 	JustBeforeEach(func() {
@@ -83,15 +83,17 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			serviceDescriptor, err := grpcreflect.LoadServiceDescriptor(&ext.Ext_ServiceDesc)
 			Expect(err).NotTo(HaveOccurred())
 			apiextSrv.EXPECT().
-				Descriptor(gomock.Any(), gomock.Any()).
-				DoAndReturn(func(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
+				Descriptors(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(context.Context, *emptypb.Empty) (*apiextensions.ServiceDescriptorProtoList, error) {
 					if descriptorLogic != nil {
 						return descriptorLogic()
 					}
 					fqn := serviceDescriptor.GetFullyQualifiedName()
 					sd := serviceDescriptor.AsServiceDescriptorProto()
 					sd.Name = &fqn
-					return sd, nil
+					return &apiextensions.ServiceDescriptorProtoList{
+						Items: []*descriptorpb.ServiceDescriptorProto{sd},
+					}, nil
 				})
 			cc := test.NewApiExtensionTestPlugin(apiextSrv, &ext.Ext_ServiceDesc, &extSrvImpl{
 				MockExtServer: extSrv,
@@ -110,15 +112,17 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 			serviceDescriptor2, err := grpcreflect.LoadServiceDescriptor(&ext.Ext2_ServiceDesc)
 			Expect(err).NotTo(HaveOccurred())
 			apiextSrv2.EXPECT().
-				Descriptor(gomock.Any(), gomock.Any()).
-				DoAndReturn(func(context.Context, *emptypb.Empty) (*descriptorpb.ServiceDescriptorProto, error) {
+				Descriptors(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(context.Context, *emptypb.Empty) (*apiextensions.ServiceDescriptorProtoList, error) {
 					if descriptorLogic != nil {
 						return descriptorLogic()
 					}
 					fqn := serviceDescriptor2.GetFullyQualifiedName()
 					sd := serviceDescriptor2.AsServiceDescriptorProto()
 					sd.Name = &fqn
-					return sd, nil
+					return &apiextensions.ServiceDescriptorProtoList{
+						Items: []*descriptorpb.ServiceDescriptorProto{sd},
+					}, nil
 				})
 			cc2 := test.NewApiExtensionTestPlugin(apiextSrv2, &ext.Ext2_ServiceDesc, &ext2SrvImpl{
 				MockExt2Server: ext2Srv,
@@ -184,7 +188,7 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 	Context("error handling", func() {
 		When("the plugin's Descriptor method returns an error", func() {
 			BeforeEach(func() {
-				descriptorLogic = func() (*descriptorpb.ServiceDescriptorProto, error) {
+				descriptorLogic = func() (*apiextensions.ServiceDescriptorProtoList, error) {
 					return nil, fmt.Errorf("test error")
 				}
 				DeferCleanup(func() {
@@ -200,9 +204,13 @@ var _ = Describe("Extensions", Ordered, Label("slow"), func() {
 	})
 	When("the plugin is not serving the service returned from Descriptor", func() {
 		BeforeEach(func() {
-			descriptorLogic = func() (*descriptorpb.ServiceDescriptorProto, error) {
-				return &descriptorpb.ServiceDescriptorProto{
-					Name: lo.ToPtr("NotExt"),
+			descriptorLogic = func() (*apiextensions.ServiceDescriptorProtoList, error) {
+				return &apiextensions.ServiceDescriptorProtoList{
+					Items: []*descriptorpb.ServiceDescriptorProto{
+						{
+							Name: lo.ToPtr("NotExt"),
+						},
+					},
 				}, nil
 			}
 			DeferCleanup(func() {

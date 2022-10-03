@@ -5,10 +5,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/rancher/opni/pkg/agent"
-	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
-	"github.com/rancher/opni/pkg/config/v1beta1"
-	"github.com/rancher/opni/pkg/util"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
@@ -16,10 +12,37 @@ import (
 	"google.golang.org/grpc/health"
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
+
+	agentv1 "github.com/rancher/opni/pkg/agent"
+	streamv1 "github.com/rancher/opni/pkg/apis/stream/v1"
+	"github.com/rancher/opni/pkg/config/v1beta1"
+	"github.com/rancher/opni/pkg/util"
 )
 
 type ConnectionHandler interface {
-	HandleAgentConnection(context.Context, agent.ClientSet)
+	HandleAgentConnection(context.Context, agentv1.ClientSet)
+}
+
+func MultiConnectionHandler(handlers ...ConnectionHandler) ConnectionHandler {
+	return &multiConnectionHandler{
+		handlers: handlers,
+	}
+}
+
+type multiConnectionHandler struct {
+	handlers []ConnectionHandler
+}
+
+func (m *multiConnectionHandler) HandleAgentConnection(ctx context.Context, clientSet agentv1.ClientSet) {
+	for _, handler := range m.handlers {
+		go handler.HandleAgentConnection(ctx, clientSet)
+	}
+}
+
+type ConnectionHandlerFunc func(context.Context, agentv1.ClientSet)
+
+func (f ConnectionHandlerFunc) HandleAgentConnection(ctx context.Context, clientSet agentv1.ClientSet) {
+	f(ctx, clientSet)
 }
 
 type GatewayGRPCServer struct {
@@ -59,6 +82,7 @@ func (s *GatewayGRPCServer) ListenAndServe(ctx context.Context) error {
 		}),
 		grpc.ChainStreamInterceptor(otelgrpc.StreamServerInterceptor()),
 		grpc.ChainUnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+		grpc.MaxRecvMsgSize(32*1024*1024), // 32MB
 	)...)
 	healthv1.RegisterHealthServer(server, health.NewServer())
 	for _, services := range s.services {

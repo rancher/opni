@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SystemClient interface {
 	UseManagementAPI(ctx context.Context, in *BrokerID, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UseNodeManagerClient(ctx context.Context, in *BrokerID, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UseKeyValueStore(ctx context.Context, in *BrokerID, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UseAPIExtensions(ctx context.Context, in *DialAddress, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -39,6 +40,15 @@ func NewSystemClient(cc grpc.ClientConnInterface) SystemClient {
 func (c *systemClient) UseManagementAPI(ctx context.Context, in *BrokerID, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/system.System/UseManagementAPI", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *systemClient) UseNodeManagerClient(ctx context.Context, in *BrokerID, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/system.System/UseNodeManagerClient", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +78,7 @@ func (c *systemClient) UseAPIExtensions(ctx context.Context, in *DialAddress, op
 // for forward compatibility
 type SystemServer interface {
 	UseManagementAPI(context.Context, *BrokerID) (*emptypb.Empty, error)
+	UseNodeManagerClient(context.Context, *BrokerID) (*emptypb.Empty, error)
 	UseKeyValueStore(context.Context, *BrokerID) (*emptypb.Empty, error)
 	UseAPIExtensions(context.Context, *DialAddress) (*emptypb.Empty, error)
 	mustEmbedUnimplementedSystemServer()
@@ -79,6 +90,9 @@ type UnimplementedSystemServer struct {
 
 func (UnimplementedSystemServer) UseManagementAPI(context.Context, *BrokerID) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UseManagementAPI not implemented")
+}
+func (UnimplementedSystemServer) UseNodeManagerClient(context.Context, *BrokerID) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UseNodeManagerClient not implemented")
 }
 func (UnimplementedSystemServer) UseKeyValueStore(context.Context, *BrokerID) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UseKeyValueStore not implemented")
@@ -113,6 +127,24 @@ func _System_UseManagementAPI_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SystemServer).UseManagementAPI(ctx, req.(*BrokerID))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _System_UseNodeManagerClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BrokerID)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SystemServer).UseNodeManagerClient(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/system.System/UseNodeManagerClient",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SystemServer).UseNodeManagerClient(ctx, req.(*BrokerID))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -163,6 +195,10 @@ var System_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UseManagementAPI",
 			Handler:    _System_UseManagementAPI_Handler,
+		},
+		{
+			MethodName: "UseNodeManagerClient",
+			Handler:    _System_UseNodeManagerClient_Handler,
 		},
 		{
 			MethodName: "UseKeyValueStore",

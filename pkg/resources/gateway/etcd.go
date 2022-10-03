@@ -57,6 +57,10 @@ func (r *Reconciler) etcdStatefulSet() (resources.Resource, error) {
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: lo.ToPtr[int32](1),
+			PersistentVolumeClaimRetentionPolicy: &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+				WhenDeleted: appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
+				WhenScaled:  appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: etcdLabels,
 			},

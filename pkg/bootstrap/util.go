@@ -42,6 +42,9 @@ func eraseBootstrapTokensFromConfig(
 	if err != nil {
 		return err
 	}
+	if agentConfig.Spec.Bootstrap == nil {
+		return nil
+	}
 	agentConfig.Spec.Bootstrap = nil
 	data, err = yaml.Marshal(agentConfig)
 	if err != nil {

@@ -35,11 +35,11 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 						Provider: cfgv1beta1.AuthProviderNoAuth,
 						Noauth:   &noauth.ServerConfig{},
 					},
-					Alerting: &corev1beta1.AlertingSpec{
+					Alerting: corev1beta1.AlertingSpec{
 						Enabled:     true,
 						ServiceType: corev1.ServiceTypeLoadBalancer,
 						WebPort:     9093,
-						ApiPort:     9094,
+						ClusterPort: 9094,
 						ConfigName:  "alertmanager-config",
 						GatewayVolumeMounts: []opnimeta.ExtraVolumeMount{
 							{
@@ -109,7 +109,7 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 		It("should create the gateway services", func() {
 			Eventually(Object(&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "opni-monitoring",
+					Name:      "opni",
 					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
@@ -121,7 +121,7 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 			))
 			Eventually(Object(&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "opni-monitoring-internal",
+					Name:      "opni-internal",
 					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
@@ -130,7 +130,21 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 					"http",
 					"management-grpc",
 					"management-http",
+				),
+				Not(HavePorts(
 					"management-web",
+				)),
+				HaveType(corev1.ServiceTypeClusterIP),
+			))
+			Eventually(Object(&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "opni-admin-dashboard",
+					Namespace: gw.Namespace,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(gw),
+				HavePorts(
+					"web",
 				),
 				HaveType(corev1.ServiceTypeClusterIP),
 			))
@@ -150,7 +164,7 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 		It("should create gateway rbac", func() {
 			Eventually(Object(&corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "opni-monitoring",
+					Name:      "opni",
 					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
@@ -158,7 +172,7 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 			))
 			Eventually(Object(&rbacv1.Role{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "opni-monitoring-crd",
+					Name:      "opni-crd",
 					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
@@ -166,7 +180,7 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 			))
 			Eventually(Object(&rbacv1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "opni-monitoring-crd",
+					Name:      "opni-crd",
 					Namespace: gw.Namespace,
 				},
 			})).Should(ExistAnd(
@@ -195,8 +209,8 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 				HaveMatchingContainer(And(
 					HaveImage("bitnami/alertmanager:latest"),
 					HavePorts(
-						"alert-web-port",
-						"alert-api-port",
+						"web-port",
+						"cluster-port",
 					),
 					HaveVolumeMounts(
 						"opni-alertmanager-data",
@@ -225,8 +239,8 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 			})).Should(ExistAnd(
 				HaveOwner(gw),
 				HavePorts(
-					"alert-web-port",
-					"alert-api-port",
+					"web-port",
+					"cluster-port",
 				),
 				HaveType(corev1.ServiceTypeLoadBalancer),
 			))
@@ -242,7 +256,7 @@ var _ = Describe("Core Gateway Controller", Ordered, Label("controller", "slow")
 		When("disabling alerting", func() {
 			It("should remove the alerting objects", func() {
 				updateObject(gw, func(gw *corev1beta1.Gateway) *corev1beta1.Gateway {
-					gw.Spec.Alerting = nil
+					gw.Spec.Alerting.Enabled = false
 					return gw
 				})
 				Eventually(Object(&appsv1.StatefulSet{

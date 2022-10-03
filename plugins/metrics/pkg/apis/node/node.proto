@@ -1,0 +1,50 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/plugins/metrics/pkg/apis/node";
+
+import "google/protobuf/empty.proto";
+import "github.com/rancher/opni/pkg/config/v1beta1/agent_config.proto";
+import "github.com/rancher/opni/pkg/apis/capability/v1/capability.proto";
+
+package node;
+
+// The NodeMetricsCapability service serves implementation-specific config
+// for metrics capability nodes.
+service NodeMetricsCapability {
+  rpc Sync(SyncRequest) returns (SyncResponse);
+}
+
+message MetricsCapabilityConfig {
+  bool enabled = 1;
+  // If enabled is false, conditions may contain a list of relevant status
+  // messages describing why the capability is disabled.
+  repeated string conditions = 2;
+  MetricsCapabilitySpec spec = 3;
+}
+
+message MetricsCapabilitySpec {
+  config.v1beta1.RulesSpec rules = 1;
+  PrometheusSpec prometheus = 2;
+  // TODO: add config options for metrics capability here
+}
+
+message PrometheusSpec {
+  // default: quay.io/prometheus/prometheus:latest
+  string image = 1;
+  // can be one of: ["externalPromOperator"]
+  string deploymentStrategy = 2;
+}
+
+message SyncRequest {
+  MetricsCapabilityConfig currentConfig = 1;
+}
+
+enum ConfigStatus {
+  Unknown = 0;
+  UpToDate = 1;
+  NeedsUpdate = 2;
+}
+
+message SyncResponse {
+  ConfigStatus configStatus = 1;
+  MetricsCapabilityConfig updatedConfig = 2;
+}

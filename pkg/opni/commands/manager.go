@@ -1,3 +1,5 @@
+//go:build !nomanager
+
 package commands
 
 import (
@@ -9,11 +11,10 @@ import (
 
 	upgraderesponder "github.com/longhorn/upgrade-responder/client"
 	"github.com/rancher/opni/apis"
-	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
-	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/controllers"
 	"github.com/rancher/opni/pkg/features"
 	"github.com/rancher/opni/pkg/opni/common"
+	"github.com/rancher/opni/pkg/test/testutil"
 	"github.com/rancher/opni/pkg/tracing"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/manager"
@@ -65,7 +66,7 @@ func BuildManagerCmd() *cobra.Command {
 
 		ctrl.SetLogger(zap.New(
 			zap.Level(util.Must(zapcore.ParseLevel(logLevel))),
-			zap.Encoder(zapcore.NewConsoleEncoder(util.EncoderConfig)),
+			zap.Encoder(zapcore.NewConsoleEncoder(testutil.EncoderConfig)),
 		))
 
 		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -101,21 +102,6 @@ func BuildManagerCmd() *cobra.Command {
 
 		if err = (&controllers.AIOpniClusterReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AI OpniCluster")
-			return err
-		}
-
-		if err = (&controllers.LoggingReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Logging")
-			return err
-		}
-
-		if err = (&controllers.LogAdapterReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "LogAdapter")
-			return err
-		}
-
-		if err = (&controllers.LoggingLogAdapterReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Logging LogAdapter")
 			return err
 		}
 
@@ -156,16 +142,6 @@ func BuildManagerCmd() *cobra.Command {
 
 		if err = (&controllers.MulticlusterUserReconciler{}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "MulticlusterUser")
-			return err
-		}
-
-		if err = (&controllers.DataPrepperReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DataPrepper")
-			return err
-		}
-
-		if err = (&controllers.LoggingDataPrepperReconciler{}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Logging DataPrepper")
 			return err
 		}
 
@@ -234,16 +210,6 @@ func BuildManagerCmd() *cobra.Command {
 				setupLog.Error(err, "unable to create controller", "controller", "GpuPolicyAdapter")
 				return err
 			}
-		}
-
-		if err = (&v1beta2.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
-			return err
-		}
-
-		if err = (&loggingv1beta1.LogAdapter{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "LogAdapter")
-			return err
 		}
 
 		// +kubebuilder:scaffold:builder
@@ -329,4 +295,8 @@ func BuildManagerCmd() *cobra.Command {
 	features.DefaultMutableFeatureGate.AddFlag(cmd.Flags())
 
 	return cmd
+}
+
+func init() {
+	AddCommandsToGroup(OpniComponents, BuildManagerCmd())
 }

@@ -6,6 +6,70 @@ import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 
 package control;
 
-service AgentControl {
-  rpc GetHealth(google.protobuf.Empty) returns (core.Health);
+service Health { 
+  rpc GetHealth(google.protobuf.Empty) returns (core.Health); 
+}
+
+service PluginManifest {
+  rpc SendManifestsOrKnownPatch(ManifestMetadataList) returns (ManifestList);
+
+  rpc GetPluginManifests(google.protobuf.Empty) returns (ManifestMetadataList);
+
+  rpc UploadPatch(PatchSpec) returns (google.protobuf.Empty);
+}
+
+enum PatchOp {
+  // revisions match
+  NONE = 0;
+  // same plugin exists on both
+  UPDATE = 1;
+  // missing plugin on agent
+  CREATE = 2;
+  // outdate plugin on agent, with no version on the gateway
+  REMOVE = 3;
+}
+
+message CompressedManifests {
+  map<string, ManifestData> items = 1;
+}
+
+message ManifestMetadata {
+  string hash = 1;
+  string path = 2;
+  string revision = 3;
+}
+
+message ManifestMetadataList {
+//  CompressionMethod reqCompr = 1;
+  map<string, ManifestMetadata> items = 2;
+}
+
+message ManifestData {
+  bytes data = 1;
+  string opPath = 2;
+  PatchOp op = 3;
+  bool isPatch = 4;
+  string oldHash = 5;
+  string newHash = 6;
+
+  // If the server wants the agent to compute a patch and upload it, this will be true.
+  bool requestPatchUpload = 7;
+}
+
+message ManifestList {
+  // !!! plugin name -> bytes, not plugin path -> bytes
+  map<string, CompressedManifest> manifests = 1;
+}
+
+message CompressedManifest {
+  optional string attachedMetadata = 1;
+//  CompressionMethod comprMethod = 2;
+  ManifestData dataAndInfo = 3;
+}
+
+message PatchSpec {
+  string pluginName = 1;
+  string oldHash = 2;
+  string newHash = 3;
+  bytes patch = 4;
 }

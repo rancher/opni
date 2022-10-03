@@ -30,10 +30,11 @@ var statusLog = logger.New(
 func BuildCapabilityCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "capability",
-		Aliases: []string{"cap"},
+		Aliases: []string{"cap", "capabilities"},
 		Short:   "Manage cluster capabilities",
 	}
 	cmd.AddCommand(BuildCapabilityListCmd())
+	cmd.AddCommand(BuildCapabilityInstallCmd())
 	cmd.AddCommand(BuildCapabilityUninstallCmd())
 	cmd.AddCommand(BuildCapabilityStatusCmd())
 	cmd.AddCommand(BuildCapabilityCancelUninstallCmd())
@@ -57,6 +58,43 @@ func BuildCapabilityListCmd() *cobra.Command {
 	return cmd
 }
 
+func BuildCapabilityInstallCmd() *cobra.Command {
+	var ignoreWarnings bool
+	cmd := &cobra.Command{
+		Use:   "install <capability-name> <cluster-id> [cluster-id ...]",
+		Short: "Install a capability on one or more clusters",
+		Args:  cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			for _, clusterID := range args[1:] {
+				resp, err := mgmtClient.InstallCapability(cmd.Context(), &managementv1.CapabilityInstallRequest{
+					Name: args[0],
+					Target: &capabilityv1.InstallRequest{
+						Cluster: &corev1.Reference{
+							Id: clusterID,
+						},
+						IgnoreWarnings: ignoreWarnings,
+					},
+				})
+				if err != nil {
+					return err
+				}
+
+				switch resp.Status {
+				case capabilityv1.InstallResponseStatus_Success:
+					lg.Info("Capability installed successfully")
+				case capabilityv1.InstallResponseStatus_Warning:
+					lg.Warn("Capability installed with warning: " + resp.Message)
+				case capabilityv1.InstallResponseStatus_Error:
+					lg.Error("Capability installation failed (retry with --ignore-warnings to install anyway): " + resp.Message)
+				}
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&ignoreWarnings, "ignore-warnings", false, "Proceed with installation even if warnings are present")
+	return cmd
+}
+
 func BuildCapabilityUninstallCmd() *cobra.Command {
 	var options []string
 	var follow bool
@@ -75,8 +113,8 @@ func BuildCapabilityUninstallCmd() *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "uninstall [--option key=value ...] <cluster-id> <capability-name>",
-		Short: "Uninstall a capability from a cluster",
+		Use:   "uninstall [--option key=value ...] <capability-name> <cluster-id> [cluster-id ...]",
+		Short: "Uninstall a capability from one or more clusters",
 		Long:  fmt.Sprintf("Available options:\n%s", strings.Join(optionsHelp, "\n")),
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -106,26 +144,28 @@ func BuildCapabilityUninstallCmd() *cobra.Command {
 				return err
 			}
 
-			_, err = mgmtClient.UninstallCapability(cmd.Context(), &managementv1.CapabilityUninstallRequest{
-				Name: args[1],
-				Target: &capabilityv1.UninstallRequest{
-					Cluster: &corev1.Reference{
-						Id: args[0],
+			for _, clusterID := range args[1:] {
+				_, err = mgmtClient.UninstallCapability(cmd.Context(), &managementv1.CapabilityUninstallRequest{
+					Name: args[0],
+					Target: &capabilityv1.UninstallRequest{
+						Cluster: &corev1.Reference{
+							Id: clusterID,
+						},
+						Options: string(jsonData),
 					},
-					Options: string(jsonData),
-				},
-			})
-			if err != nil {
-				return fmt.Errorf("uninstall failed: %w", err)
-			}
+				})
+				if err != nil {
+					return fmt.Errorf("uninstall failed: %w", err)
+				}
 
-			lg.Info("Uninstall request submitted successfully")
-			if !follow {
+				lg.Info("Uninstall request submitted successfully")
+			}
+			if !follow || len(args[1:]) > 1 {
 				return nil
 			}
 
 			lg.Info("Watching for progress updates...")
-			logTaskProgress(cmd.Context(), args[0], args[1])
+			logTaskProgress(cmd.Context(), args[1], args[0])
 			return nil
 		},
 	}
@@ -137,14 +177,14 @@ func BuildCapabilityUninstallCmd() *cobra.Command {
 func BuildCapabilityCancelUninstallCmd() *cobra.Command {
 	var follow bool
 	cmd := &cobra.Command{
-		Use:   "cancel-uninstall <cluster-id> <capability-name>",
+		Use:   "cancel-uninstall <capability-name> <cluster-id>",
 		Short: "Cancel an in-progress uninstall of a capability",
 		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			_, err := mgmtClient.CancelCapabilityUninstall(cmd.Context(), &managementv1.CapabilityUninstallCancelRequest{
-				Name: args[1],
+				Name: args[0],
 				Cluster: &corev1.Reference{
-					Id: args[0],
+					Id: args[1],
 				},
 			})
 			if err != nil {
@@ -155,7 +195,7 @@ func BuildCapabilityCancelUninstallCmd() *cobra.Command {
 				return
 			}
 			lg.Info("Watching for progress updates...")
-			logTaskProgress(cmd.Context(), args[0], args[1])
+			logTaskProgress(cmd.Context(), args[1], args[0])
 		},
 	}
 	cmd.Flags().BoolVar(&follow, "follow", true, "follow progress of uninstall task")
@@ -165,24 +205,24 @@ func BuildCapabilityCancelUninstallCmd() *cobra.Command {
 func BuildCapabilityStatusCmd() *cobra.Command {
 	var follow bool
 	cmd := &cobra.Command{
-		Use:   "status <cluster-id> <capability-name>",
+		Use:   "status <capability-name> <cluster-id>",
 		Short: "Show the status of a capability, or the status of an in-progress uninstall operation",
 		Args:  cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			cluster, err := mgmtClient.GetCluster(cmd.Context(), &corev1.Reference{
-				Id: args[0],
+				Id: args[1],
 			})
 			if err != nil {
 				lg.Fatal(err)
 			}
 			for _, cap := range cluster.GetCapabilities() {
-				if cap.Name != args[1] {
+				if cap.Name != args[0] {
 					continue
 				}
 				if cap.DeletionTimestamp != nil {
 					fmt.Println(chalk.Yellow.Color("Uninstalling"))
 					if follow {
-						logTaskProgress(cmd.Context(), args[0], args[1])
+						logTaskProgress(cmd.Context(), args[1], args[0])
 					}
 					return
 				}
@@ -257,4 +297,8 @@ func printStatusLog(log corev1.TimestampedLog) {
 	default:
 		statusLog.Info(msg)
 	}
+}
+
+func init() {
+	AddCommandsToGroup(ManagementAPI, BuildCapabilityCmd())
 }

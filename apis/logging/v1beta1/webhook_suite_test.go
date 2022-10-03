@@ -26,8 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/test/testutil"
 
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	//+kubebuilder:scaffold:imports
@@ -55,7 +54,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(util.NewTestLogger())
+	logf.SetLogger(testutil.NewTestLogger())
 
 	ctx, cancel = context.WithCancel(context.TODO())
 

@@ -14,6 +14,7 @@ type MainClusterConfig struct {
 	NodeGroupDesiredSize int
 	ZoneID               string
 	Tags                 map[string]string
+	NoIdInDnsNames       bool
 }
 
 type DNSRecordConfig struct {

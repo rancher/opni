@@ -77,6 +77,11 @@ func (r *Reconciler) managementContainerPorts() ([]corev1.ContainerPort, error) 
 			Protocol:      corev1.ProtocolTCP,
 		})
 	}
+	return ports, nil
+}
+
+func (r *Reconciler) adminDashboardContainerPorts() ([]corev1.ContainerPort, error) {
+	var ports []corev1.ContainerPort
 	if addr := r.spec.Management.GetWebListenAddress(); addr != "" {
 		parts := strings.Split(addr, ":")
 		if len(parts) != 2 {
@@ -87,7 +92,7 @@ func (r *Reconciler) managementContainerPorts() ([]corev1.ContainerPort, error) 
 			return nil, fmt.Errorf("invalid Web listen address %q", addr)
 		}
 		ports = append(ports, corev1.ContainerPort{
-			Name:          "management-web",
+			Name:          "web",
 			ContainerPort: int32(portNum),
 			Protocol:      corev1.ProtocolTCP,
 		})

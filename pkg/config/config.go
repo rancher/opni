@@ -84,7 +84,7 @@ func decodeObject(typeMeta meta.TypeMeta, document []byte) (meta.Object, error) 
 func FindConfig() (string, error) {
 	pathsToSearch := []string{
 		".",
-		"/etc/opni-monitoring",
+		"/etc/opni",
 	}
 	filenamesToSearch := []string{
 		"gateway.yaml",

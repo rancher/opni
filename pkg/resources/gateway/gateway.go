@@ -10,9 +10,10 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 	"github.com/rancher/opni/pkg/logger"
 	"github.com/rancher/opni/pkg/resources"
-	"github.com/rancher/opni/pkg/util"
+	"github.com/rancher/opni/pkg/util/k8sutil"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -68,41 +69,41 @@ func NewReconciler(
 func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 	updated, err := r.updateImageStatus()
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	if updated {
-		return util.Requeue().Result()
+		return k8sutil.Requeue().Result()
 	}
 
 	allResources := []resources.Resource{}
 	etcdResources, err := r.etcd()
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, etcdResources...)
 	configMap, err := r.configMap()
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, configMap)
 	certs, err := r.certs()
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, certs...)
 	deployment, err := r.deployment()
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, deployment)
 	services, err := r.services()
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, services...)
 	rbac, err := r.rbac()
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	allResources = append(allResources, rbac...)
 	allResources = append(allResources, r.serviceMonitor())
@@ -121,7 +122,7 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 
 	result, err := r.ReconcileResource(object, reconciler.StatePresent)
 	if err != nil {
-		return util.RequeueErr(err).Result()
+		return k8sutil.RequeueErr(err).Result()
 	}
 	if result != nil {
 		return *result, err
@@ -138,20 +139,37 @@ func (r *Reconciler) Reconcile() (retResult reconcile.Result, retErr error) {
 	}
 
 	if r.gw != nil {
-		r.gw.Status.Ready = true
-		if err := r.client.Status().Update(r.ctx, r.gw); err != nil {
-			return util.RequeueErr(err).Result()
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.gw), r.gw)
+			if err != nil {
+				return err
+			}
+			r.gw.Status.Ready = true
+
+			return r.client.Status().Update(r.ctx, r.gw)
+		})
+		if err != nil {
+			return k8sutil.RequeueErr(err).Result()
 		}
 	}
 
 	if r.coreGW != nil {
-		r.coreGW.Status.Ready = true
-		if err := r.client.Status().Update(r.ctx, r.coreGW); err != nil {
-			return util.RequeueErr(err).Result()
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			err := r.client.Get(r.ctx, client.ObjectKeyFromObject(r.coreGW), r.coreGW)
+			if err != nil {
+				return err
+			}
+
+			r.coreGW.Status.Ready = true
+
+			return r.client.Status().Update(r.ctx, r.coreGW)
+		})
+		if err != nil {
+			return k8sutil.RequeueErr(err).Result()
 		}
 	}
 
-	return util.DoNotRequeue().Result()
+	return k8sutil.DoNotRequeue().Result()
 }
 
 func (r *Reconciler) statusImage() string {

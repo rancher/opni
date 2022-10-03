@@ -15,6 +15,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/plugins/alerting/pkg/alerting"
 	"github.com/rancher/opni/plugins/example/pkg/example"
+	metrics_agent "github.com/rancher/opni/plugins/metrics/pkg/agent"
 	metrics_gateway "github.com/rancher/opni/plugins/metrics/pkg/gateway"
 	"github.com/rancher/opni/plugins/slo/pkg/slo"
 	topology_agent "github.com/rancher/opni/plugins/topology/pkg/topology/agent"

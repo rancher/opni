@@ -1,23 +1,25 @@
 syntax = "proto3";
 option go_package = "github.com/rancher/opni/plugins/model_training/pkg/model_training";
-
+import "github.com/rancher/opni/pkg/apis/core/v1/core.proto";
 import "google/protobuf/empty.proto";
 import "google/api/annotations.proto";
 
 package model_training;
 
 service ModelTraining {
-  rpc ListWorkloads(ClusterID) returns (WorkloadResponse) {
+  rpc WorkloadLogCount(core.Reference) returns (WorkloadsList) {
     option (google.api.http) = {
-      get: "/get_workloads"
+      get: "/workload_log_count/{id}"
     };
   }
 }
 
-message ClusterID {
-  string id = 1;
+message WorkloadResponse {
+  string namespace = 1;
+  string deployment = 2;
+  int64 count = 3;
 }
 
-message WorkloadResponse {
-  string message = 1;
+message WorkloadsList {
+  repeated WorkloadResponse list = 1;
 }

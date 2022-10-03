@@ -8,6 +8,7 @@ package model_training
 
 import (
 	context "context"
+	v1 "github.com/rancher/opni/pkg/apis/core/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -22,7 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ModelTrainingClient interface {
-	ListWorkloads(ctx context.Context, in *ClusterID, opts ...grpc.CallOption) (*WorkloadResponse, error)
+	WorkloadLogCount(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadsList, error)
 }
 
 type modelTrainingClient struct {
@@ -33,9 +34,9 @@ func NewModelTrainingClient(cc grpc.ClientConnInterface) ModelTrainingClient {
 	return &modelTrainingClient{cc}
 }
 
-func (c *modelTrainingClient) ListWorkloads(ctx context.Context, in *ClusterID, opts ...grpc.CallOption) (*WorkloadResponse, error) {
-	out := new(WorkloadResponse)
-	err := c.cc.Invoke(ctx, "/model_training.ModelTraining/ListWorkloads", in, out, opts...)
+func (c *modelTrainingClient) WorkloadLogCount(ctx context.Context, in *v1.Reference, opts ...grpc.CallOption) (*WorkloadsList, error) {
+	out := new(WorkloadsList)
+	err := c.cc.Invoke(ctx, "/model_training.ModelTraining/WorkloadLogCount", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +47,7 @@ func (c *modelTrainingClient) ListWorkloads(ctx context.Context, in *ClusterID, 
 // All implementations must embed UnimplementedModelTrainingServer
 // for forward compatibility
 type ModelTrainingServer interface {
-	ListWorkloads(context.Context, *ClusterID) (*WorkloadResponse, error)
+	WorkloadLogCount(context.Context, *v1.Reference) (*WorkloadsList, error)
 	mustEmbedUnimplementedModelTrainingServer()
 }
 
@@ -54,8 +55,8 @@ type ModelTrainingServer interface {
 type UnimplementedModelTrainingServer struct {
 }
 
-func (UnimplementedModelTrainingServer) ListWorkloads(context.Context, *ClusterID) (*WorkloadResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListWorkloads not implemented")
+func (UnimplementedModelTrainingServer) WorkloadLogCount(context.Context, *v1.Reference) (*WorkloadsList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WorkloadLogCount not implemented")
 }
 func (UnimplementedModelTrainingServer) mustEmbedUnimplementedModelTrainingServer() {}
 
@@ -70,20 +71,20 @@ func RegisterModelTrainingServer(s grpc.ServiceRegistrar, srv ModelTrainingServe
 	s.RegisterService(&ModelTraining_ServiceDesc, srv)
 }
 
-func _ModelTraining_ListWorkloads_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ClusterID)
+func _ModelTraining_WorkloadLogCount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.Reference)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ModelTrainingServer).ListWorkloads(ctx, in)
+		return srv.(ModelTrainingServer).WorkloadLogCount(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/model_training.ModelTraining/ListWorkloads",
+		FullMethod: "/model_training.ModelTraining/WorkloadLogCount",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ModelTrainingServer).ListWorkloads(ctx, req.(*ClusterID))
+		return srv.(ModelTrainingServer).WorkloadLogCount(ctx, req.(*v1.Reference))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -96,8 +97,8 @@ var ModelTraining_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ModelTrainingServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ListWorkloads",
-			Handler:    _ModelTraining_ListWorkloads_Handler,
+			MethodName: "WorkloadLogCount",
+			Handler:    _ModelTraining_WorkloadLogCount_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

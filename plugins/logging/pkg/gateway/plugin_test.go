@@ -1,4 +1,4 @@
-package gateway
+package gateway_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	opnimeta "github.com/rancher/opni/pkg/util/meta"
 	"github.com/rancher/opni/plugins/logging/pkg/apis/loggingadmin"
+	. "github.com/rancher/opni/plugins/logging/pkg/gateway"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -75,7 +76,7 @@ var _ = Describe("Logging Plugin", Ordered, Label("unit"), func() {
 			Replicas:  3,
 			DiskSize:  request.NodePools[0].DiskSize,
 			Jvm:       fmt.Sprintf("-Xmx%d -Xms%d", giBytes, giBytes),
-			Roles:     replaceInArray(request.NodePools[0].Roles, "controlplane", "master"),
+			Roles:     ReplaceInArray(request.NodePools[0].Roles, "controlplane", "master"),
 			Affinity: &corev1.Affinity{
 				PodAntiAffinity: &corev1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{

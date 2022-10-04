@@ -25,7 +25,7 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 		testNs = makeTestNamespace()
 		object = &loggingv1beta1.OpniOpensearch{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "opni",
+				Name:      "opni-test",
 				Namespace: testNs,
 			},
 			Spec: loggingv1beta1.OpniOpensearchSpec{
@@ -83,6 +83,9 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 						Version:  "1.0.0",
 					},
 				},
+				NatsRef: &corev1.LocalObjectReference{
+					Name: "natstest",
+				},
 			},
 		}
 	})
@@ -131,10 +134,38 @@ var _ = Describe("Logging OpniOpensearch Controller", Ordered, Label("controller
 					ServiceName:      fmt.Sprintf("%s-opensearch-svc", object.Name),
 					HttpPort:         9200,
 					SetVMMaxMapCount: true,
+					AdditionalVolumes: []opsterv1.AdditionalVolume{
+						{
+							Name: "nkey",
+							Path: "/etc/nkey",
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: "natstest-nats-config",
+							},
+						},
+						{
+							Name: "pluginsettings",
+							Path: "/usr/share/opensearch/config/preprocessing",
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: fmt.Sprintf("%s-nats-connection", object.Name),
+								},
+							},
+						},
+					},
 				},
 			))
 			Expect(cluster.Spec.Dashboards).Should(Equal(object.Spec.Dashboards))
 			Expect(cluster.Spec.NodePools).Should(Equal(object.Spec.NodePools))
+		})
+		It("should create a nats configmap", func() {
+			Eventually(Object(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-nats-connection", object.Name),
+					Namespace: testNs,
+				},
+			})).Should(ExistAnd(
+				HaveOwner(object),
+			))
 		})
 	})
 })

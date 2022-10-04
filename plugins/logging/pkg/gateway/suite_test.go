@@ -1,4 +1,4 @@
-package gateway
+package gateway_test
 
 import (
 	"testing"
@@ -46,7 +46,6 @@ var _ = BeforeSuite(func() {
 
 	k8sManager = env.StartManager(
 		restConfig,
-		&controllers.OpniOpensearchReconciler{},
 		&controllers.LoggingOpniOpensearchReconciler{},
 	)
 

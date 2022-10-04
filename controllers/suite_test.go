@@ -118,7 +118,6 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		&GatewayReconciler{},
 		&CoreGatewayReconciler{},
 		&MonitoringReconciler{},
-		&OpniOpensearchReconciler{},
 		&DataPrepperReconciler{},
 		&LoggingDataPrepperReconciler{},
 		&LoggingLogAdapterReconciler{},

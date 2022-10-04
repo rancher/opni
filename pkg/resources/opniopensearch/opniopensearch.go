@@ -37,7 +37,9 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 	result := reconciler.CombinedResult{}
 	result.Combine(r.ReconcileResource(r.buildOpensearchCluster(), reconciler.StatePresent))
 	result.Combine(r.ReconcileResource(r.buildMulticlusterRoleBinding(), reconciler.StatePresent))
-	result.Combine(r.ReconcileResource(r.buildConfigMap(), reconciler.StatePresent))
+	if r.instance.Spec.NatsRef != nil {
+		result.Combine(r.ReconcileResource(r.buildConfigMap(), reconciler.StatePresent))
+	}
 
 	if result.Err != nil || !result.Result.IsZero() {
 		return &result.Result, result.Err

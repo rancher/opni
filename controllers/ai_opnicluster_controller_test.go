@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	. "github.com/kralicky/kmatch"
 	. "github.com/onsi/ginkgo/v2"
@@ -864,7 +865,7 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "missing-secret",
-				Namespace: cluster.Namespace,
+				Namespace: c.Namespace,
 			},
 			Data: map[string][]byte{
 				"accessKey": []byte("access-key"),
@@ -876,7 +877,7 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 		By("checking that the secret is created")
 		Eventually(Object(secret)).Should(Exist())
 
-		By("cbecking that seaweed is not deployed")
+		By("checking that seaweed is not deployed")
 		Consistently(Object(&appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "opni-seaweed",
@@ -891,7 +892,7 @@ var _ = Describe("AI OpniCluster Controller", Ordered, Label("controller"), func
 		})).ShouldNot(Exist())
 
 		By("checking that s3 info in the cluster status should be set")
-		Eventually(Object(cluster)).Should(MatchStatus(func(status aiv1beta1.OpniClusterStatus) bool {
+		Eventually(Object(cluster), 60*time.Second).Should(MatchStatus(func(status aiv1beta1.OpniClusterStatus) bool {
 			return status.Auth.S3Endpoint == "http://s3.amazonaws.biz" &&
 				status.Auth.S3AccessKey != nil &&
 				status.Auth.S3SecretKey != nil

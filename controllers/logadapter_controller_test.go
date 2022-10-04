@@ -19,7 +19,7 @@ import (
 	"github.com/rancher/opni/apis/v1beta2"
 )
 
-var _ = Describe("LogAdapter Controller", Ordered, Label("controller"), func() {
+var _ = Describe("LogAdapter Controller", Ordered, Label("controller", "deprecated"), func() {
 	var (
 		logadapter v1beta2.LogAdapter
 		cluster    v1beta2.OpniCluster

@@ -54,25 +54,30 @@ func (r *Reconciler) buildOpensearchCluster() *opsterv1.OpenSearchCluster {
 				ServiceName:      fmt.Sprintf("%s-opensearch-svc", r.instance.Name),
 				HttpPort:         9200,
 				SetVMMaxMapCount: true,
-				AdditionalVolumes: []opsterv1.AdditionalVolume{
-					{
-						Name: "nkey",
-						Path: "/etc/nkey",
-						Secret: &corev1.SecretVolumeSource{
-							// TODO select this with labels (not hard coded)
-							SecretName: fmt.Sprintf("%s-nats-config", r.instance.Spec.NatsRef.Name),
-						},
-					},
-					{
-						Name: "pluginsettings",
-						Path: "/usr/share/opensearch/config/preprocessing",
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: fmt.Sprintf("%s-nats-connection", r.instance.Name),
+				AdditionalVolumes: func() []opsterv1.AdditionalVolume {
+					if r.instance.Spec.NatsRef == nil {
+						return []opsterv1.AdditionalVolume{}
+					}
+					return []opsterv1.AdditionalVolume{
+						{
+							Name: "nkey",
+							Path: "/etc/nkey",
+							Secret: &corev1.SecretVolumeSource{
+								// TODO select this with labels (not hard coded)
+								SecretName: fmt.Sprintf("%s-nats-config", r.instance.Spec.NatsRef.Name),
 							},
 						},
-					},
-				},
+						{
+							Name: "pluginsettings",
+							Path: "/usr/share/opensearch/config/preprocessing",
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: fmt.Sprintf("%s-nats-connection", r.instance.Name),
+								},
+							},
+						},
+					}
+				}(),
 			},
 			NodePools:  r.instance.Spec.NodePools,
 			Security:   r.instance.Spec.OpensearchSettings.Security,
@@ -116,7 +121,7 @@ func (r *Reconciler) buildConfigMap() runtime.Object {
 			Namespace: r.instance.Namespace,
 		},
 		Data: map[string]string{
-			"settings.yml": string(buffer.Bytes()),
+			"settings.yml": buffer.String(),
 		},
 	}
 	ctrl.SetControllerReference(r.instance, configmap, r.client.Scheme())

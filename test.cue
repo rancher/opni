@@ -16,6 +16,7 @@ packages: {
 	temporal:    string @tag(packages_temporal)
 	controller:  string @tag(packages_controller)
 	slow:        string @tag(packages_slow)
+	deprecated:  string @tag(packages_deprecated)
 }
 
 pkgTests: {
@@ -42,6 +43,9 @@ tests: ginkgo.#TestPlan & {
 		controller: ginkgo.#Run & {
 			Packages: "./controllers"
 			Build: CoverPkg: "github.com/rancher/opni/controllers,github.com/rancher/opni/pkg/resources/.../..."
+			Suite: {
+				LabelFilter: "!deprecated"
+			}
 		}
 		logging: ginkgo.#Run & {
 			Packages: "./plugins/logging/pkg/gateway"

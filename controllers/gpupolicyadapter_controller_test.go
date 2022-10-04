@@ -11,7 +11,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("GpuPolicyAdapter Controller", Ordered, Label("controller"), func() {
+var _ = Describe("GpuPolicyAdapter Controller", Ordered, Label("controller", "deprecated"), func() {
 	When("creating a GpuPolicyAdapter", func() {
 		It("should create a ClusterPolicy", func() {
 			adapter := &v1beta2.GpuPolicyAdapter{

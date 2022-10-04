@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("DataPrepper Controller", Ordered, Label("controller"), func() {
+var _ = Describe("DataPrepper Controller", Ordered, Label("controller", "deprecated"), func() {
 	var (
 		testNs         string
 		dataPrepper    *v1beta2.DataPrepper

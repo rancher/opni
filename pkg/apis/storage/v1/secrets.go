@@ -1,5 +1,10 @@
 package v1
 
+import (
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
 const Redacted = "***"
 
 func (cfg *StorageSpec) RedactSecrets() {
@@ -56,56 +61,90 @@ func (cfg *SSEConfig) RedactSecrets() {
 	}
 }
 
-func (cfg *StorageSpec) UnredactSecrets(unredacted *StorageSpec) {
-	if cfg == nil || unredacted == nil {
-		return
+func (cfg *StorageSpec) UnredactSecrets(unredacted *StorageSpec) error {
+	if cfg == nil {
+		return nil
 	}
-	if cfg.S3 != nil && unredacted.S3 != nil {
-		cfg.S3.UnredactSecrets(unredacted.S3)
+	if cfg.S3 != nil {
+		if err := cfg.S3.UnredactSecrets(unredacted.GetS3()); err != nil {
+			return err
+		}
 	}
-	if cfg.Gcs != nil && unredacted.Gcs != nil {
-		cfg.Gcs.UnredactSecrets(unredacted.Gcs)
+	if cfg.Gcs != nil {
+		if err := cfg.Gcs.UnredactSecrets(unredacted.GetGcs()); err != nil {
+			return err
+		}
 	}
-	if cfg.Azure != nil && unredacted.Azure != nil {
-		cfg.Azure.UnredactSecrets(unredacted.Azure)
+	if cfg.Azure != nil {
+		if err := cfg.Azure.UnredactSecrets(unredacted.GetAzure()); err != nil {
+			return err
+		}
 	}
-	if cfg.Swift != nil && unredacted.Swift != nil {
-		cfg.Swift.UnredactSecrets(unredacted.Swift)
+	if cfg.Swift != nil {
+		if err := cfg.Swift.UnredactSecrets(unredacted.GetSwift()); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (cfg *S3StorageSpec) UnredactSecrets(unredacted *S3StorageSpec) {
+func (cfg *S3StorageSpec) UnredactSecrets(unredacted *S3StorageSpec) error {
 	if cfg.SecretAccessKey == Redacted {
+		if unredacted.GetSecretAccessKey() == "" {
+			return status.Error(codes.FailedPrecondition, "no secret access key provided")
+		}
 		cfg.SecretAccessKey = unredacted.SecretAccessKey
 	}
 	if cfg.Sse != nil {
-		cfg.Sse.UnredactSecrets(unredacted.Sse)
+		if err := cfg.Sse.UnredactSecrets(unredacted.GetSse()); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (cfg *GCSStorageSpec) UnredactSecrets(unredacted *GCSStorageSpec) {
+func (cfg *GCSStorageSpec) UnredactSecrets(unredacted *GCSStorageSpec) error {
 	if cfg.ServiceAccount == Redacted {
+		if unredacted.GetServiceAccount() == "" {
+			return status.Error(codes.FailedPrecondition, "no service account provided")
+		}
 		cfg.ServiceAccount = unredacted.ServiceAccount
 	}
+	return nil
 }
 
-func (cfg *AzureStorageSpec) UnredactSecrets(unredacted *AzureStorageSpec) {
+func (cfg *AzureStorageSpec) UnredactSecrets(unredacted *AzureStorageSpec) error {
 	if cfg.StorageAccountKey == Redacted {
+		if unredacted.GetStorageAccountKey() == "" {
+			return status.Error(codes.FailedPrecondition, "no storage account key provided")
+		}
 		cfg.StorageAccountKey = unredacted.StorageAccountKey
 	}
 	if cfg.MsiResource == Redacted {
+		if unredacted.GetMsiResource() == "" {
+			return status.Error(codes.FailedPrecondition, "no MSI resource provided")
+		}
 		cfg.MsiResource = unredacted.MsiResource
 	}
+	return nil
 }
 
-func (cfg *SwiftStorageSpec) UnredactSecrets(unredacted *SwiftStorageSpec) {
+func (cfg *SwiftStorageSpec) UnredactSecrets(unredacted *SwiftStorageSpec) error {
 	if cfg.Password == Redacted {
+		if unredacted.GetPassword() == "" {
+			return status.Error(codes.FailedPrecondition, "no password provided")
+		}
 		cfg.Password = unredacted.Password
 	}
+	return nil
 }
 
-func (cfg *SSEConfig) UnredactSecrets(unredacted *SSEConfig) {
+func (cfg *SSEConfig) UnredactSecrets(unredacted *SSEConfig) error {
 	if cfg.KmsEncryptionContext == Redacted {
+		if unredacted.GetKmsEncryptionContext() == "" {
+			return status.Error(codes.FailedPrecondition, "no KMS encryption context provided")
+		}
 		cfg.KmsEncryptionContext = unredacted.KmsEncryptionContext
 	}
+	return nil
 }

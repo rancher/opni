@@ -37,7 +37,7 @@ import (
 					name: "sh"
 					args: [
 						"-c",
-						"echo ${USERNAME} ${PASSWORD} && /usr/local/bin/helm registry login -u ${USERNAME} -p ${PASSWORD} \(remote) && /usr/local/bin/helm push \(chart) oci://\(remote)",
+						"/usr/local/bin/helm registry login -u ${USERNAME} -p ${PASSWORD} \(remote) && /usr/local/bin/helm push \(chart) oci://\(remote)",
 					]
 				}
 				workdir: "/src"

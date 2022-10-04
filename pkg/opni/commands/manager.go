@@ -229,12 +229,6 @@ func BuildManagerCmd() *cobra.Command {
 		features.FeatureList.WatchConfigMap()
 
 		if features.FeatureList.FeatureIsEnabled("manage-opensearch") {
-			if err = (&controllers.OpniOpensearchReconciler{}).SetupWithManager(mgr); err != nil {
-				defer cancel()
-				setupLog.Error(err, "unable to create controller", "controller", "OpniOpensearch")
-				return err
-			}
-
 			if err = (&controllers.LoggingOpniOpensearchReconciler{}).SetupWithManager(mgr); err != nil {
 				defer cancel()
 				setupLog.Error(err, "unable to create controller", "controller", "Logging OpniOpensearch")

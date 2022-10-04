@@ -172,6 +172,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 					return util.Version
 				}(),
 				ImageRepo: "docker.io/rancher",
+				NatsRef:   p.natsRef,
 			},
 		}
 
@@ -350,7 +351,7 @@ func convertNodePoolToProtobuf(pool opsterv1.NodePool) (*loggingadmin.Opensearch
 		NodeSelector: pool.NodeSelector,
 		Tolerations:  tolerations,
 		Persistence:  &persistence,
-		Roles:        replaceInArray(pool.Roles, "master", "controlplane"),
+		Roles:        ReplaceInArray(pool.Roles, "master", "controlplane"),
 		EnableAntiAffinity: func() *bool {
 			if pool.Affinity == nil {
 				return lo.ToPtr(false)
@@ -578,7 +579,7 @@ func convertProtobufToNodePool(pool *loggingadmin.OpensearchNodeDetails, cluster
 		DiskSize:  pool.DiskSize,
 		Resources: resources,
 		Jvm:       fmt.Sprintf("-Xmx%d -Xms%d", jvmVal, jvmVal),
-		Roles:     replaceInArray(pool.Roles, "controlplane", "master"),
+		Roles:     ReplaceInArray(pool.Roles, "controlplane", "master"),
 		Tolerations: func() []corev1.Toleration {
 			var tolerations []corev1.Toleration
 			for _, toleration := range pool.Tolerations {
@@ -681,7 +682,7 @@ func convertDashboardsToProtobuf(dashboard opsterv1.DashboardsConfig) *loggingad
 	}
 }
 
-func replaceInArray[T comparable](array []T, old T, new T) []T {
+func ReplaceInArray[T comparable](array []T, old T, new T) []T {
 	newArray := make([]T, 0, len(array))
 	for _, item := range array {
 		if item == old {

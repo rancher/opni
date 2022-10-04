@@ -1,7 +1,7 @@
 apiVersion: core.opni.io/v1beta1
 kind: NatsCluster
 metadata:
-  name: {{ include "opni.fullname" . }}
+  name: opni
   namespace: {{ include "opni.namespace" . }}
 spec:
   replicas: 3
@@ -12,3 +12,4 @@ spec:
     fileStorage:
       emptyDir: {}
       enabled: true
+      size: 5Gi

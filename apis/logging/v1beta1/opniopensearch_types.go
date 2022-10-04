@@ -1,6 +1,7 @@
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	opsterv1 "opensearch.opster.io/api/v1"
 )
@@ -36,10 +37,11 @@ type OpniOpensearchStatus struct {
 type OpniOpensearchSpec struct {
 	*ClusterConfigSpec `json:",inline"`
 	OpensearchSettings `json:"opensearch,omitempty"`
-	ExternalURL        string `json:"externalURL,omitempty"`
-	ImageRepo          string `json:"imageRepo"`
-	OpensearchVersion  string `json:"opensearchVersion,omitempty"`
-	Version            string `json:"version,omitempty"`
+	ExternalURL        string                       `json:"externalURL,omitempty"`
+	ImageRepo          string                       `json:"imageRepo"`
+	OpensearchVersion  string                       `json:"opensearchVersion,omitempty"`
+	Version            string                       `json:"version,omitempty"`
+	NatsRef            *corev1.LocalObjectReference `json:"natsCluster"`
 }
 
 type OpensearchSettings struct {

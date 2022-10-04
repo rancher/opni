@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-var _ = Describe("PretrainedModel Controller", Ordered, Label("controller"), func() {
+var _ = Describe("PretrainedModel Controller", Ordered, Label("controller", "deprecated"), func() {
 	It("should reconcile pretrained model resources", func() {
 		By("Creating a pretrainedmodel")
 		model := &v1beta2.PretrainedModel{

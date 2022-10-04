@@ -32,10 +32,7 @@ func (r *LoggingOpniOpensearchReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	opniOpensearchReconciler, err := opniopensearch.NewReconciler(ctx, opniOpensearch, r.Client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	opniOpensearchReconciler := opniopensearch.NewReconciler(ctx, opniOpensearch, r.Client)
 
 	reconcilers := []resources.ComponentReconciler{
 		opniOpensearchReconciler.Reconcile,

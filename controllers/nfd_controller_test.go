@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("NfdController", Ordered, Label("controller"), func() {
+var _ = Describe("NfdController", Ordered, Label("controller", "deprecated"), func() {
 	When("creating a NodeFeatureDiscovery", func() {
 		It("should succeed", func() {
 			nfd := &nfdv1.NodeFeatureDiscovery{

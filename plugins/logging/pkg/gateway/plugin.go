@@ -230,7 +230,7 @@ func Scheme(ctx context.Context) meta.Scheme {
 		p.manageFlag = p.featureOverride
 	}
 
-	if !p.manageFlag.IsEnabled() {
+	if p.manageFlag != nil && !p.manageFlag.IsEnabled() {
 		go p.setOpensearchClient()
 	}
 

@@ -235,10 +235,12 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 		conf.Grafana.Hostname = defaultGrafanaHostname
 	}
 
-	mutator := func(cluster client.Object) {
+	mutator := func(cluster client.Object) error {
 		switch cluster := cluster.(type) {
 		case *v1beta2.MonitoringCluster:
-			conf.GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage)
+			if err := conf.GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage); err != nil {
+				return err
+			}
 			cluster.Spec.Cortex.Enabled = true
 			cluster.Spec.Cortex.Storage = conf.GetStorage()
 			if cluster.Spec.Cortex.Storage.Filesystem != nil &&
@@ -252,7 +254,9 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 			}
 			cluster.Spec.Cortex.DeploymentMode = v1beta2.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
 		case *corev1beta1.MonitoringCluster:
-			conf.GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage)
+			if err := conf.GetStorage().UnredactSecrets(cluster.Spec.Cortex.Storage); err != nil {
+				return err
+			}
 			cluster.Spec.Cortex.Enabled = true
 			cluster.Spec.Cortex.Storage = conf.GetStorage()
 			if cluster.Spec.Cortex.Storage.Filesystem != nil &&
@@ -267,6 +271,7 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 			cluster.Spec.Cortex.DeploymentMode = corev1beta1.DeploymentMode(cortexops.DeploymentMode_name[int32(conf.GetMode())])
 		}
 		controllerutil.SetOwnerReference(gatewayObject, cluster, k.k8sClient.Scheme())
+		return nil
 	}
 
 	if exists {
@@ -280,7 +285,9 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 				return err
 			}
 			clone := existing.DeepCopyObject().(client.Object)
-			mutator(clone)
+			if err := mutator(clone); err != nil {
+				return err
+			}
 			cmp, err := patch.DefaultPatchMaker.Calculate(existing, clone,
 				patch.IgnoreStatusFields(),
 				patch.IgnoreVolumeClaimTemplateTypeMetaAndStatus(),
@@ -298,7 +305,9 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 			return nil, fmt.Errorf("failed to update monitoring cluster: %w", err)
 		}
 	} else {
-		mutator(cluster)
+		if err := mutator(cluster); err != nil {
+			return nil, err
+		}
 		err := k.k8sClient.Create(ctx, cluster)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create monitoring cluster: %w", err)

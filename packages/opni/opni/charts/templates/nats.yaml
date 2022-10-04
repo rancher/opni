@@ -12,3 +12,4 @@ spec:
     fileStorage:
       emptyDir: {}
       enabled: true
+      size: 5Gi

@@ -172,6 +172,7 @@ func (p *Plugin) CreateOrUpdateOpensearchCluster(
 					return util.Version
 				}(),
 				ImageRepo: "docker.io/rancher",
+				NatsRef:   p.natsRef,
 			},
 		}
 

@@ -40,6 +40,7 @@ import (
 	"github.com/rancher/opni/plugins/logging/pkg/apis/opensearch"
 	"github.com/rancher/opni/plugins/logging/pkg/backend"
 	"github.com/rancher/opni/plugins/logging/pkg/gateway/drivers"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -70,6 +71,7 @@ type PluginOptions struct {
 	restconfig        *rest.Config
 	featureOverride   featureflags.FeatureFlag
 	version           string
+	natsRef           *corev1.LocalObjectReference
 }
 
 type PluginOption func(*PluginOptions)
@@ -109,11 +111,23 @@ func WithVersion(version string) PluginOption {
 	}
 }
 
+func WithNatsRef(ref *corev1.LocalObjectReference) PluginOption {
+	return func(o *PluginOptions) {
+		o.natsRef = ref
+	}
+}
+
 func NewPlugin(ctx context.Context, opts ...PluginOption) *Plugin {
 	options := PluginOptions{
 		storageNamespace: os.Getenv("POD_NAMESPACE"),
 	}
 	options.apply(opts...)
+
+	if options.natsRef == nil {
+		options.natsRef = &corev1.LocalObjectReference{
+			Name: "opni",
+		}
+	}
 
 	lg := logger.NewPluginLogger().Named("logging")
 

@@ -40,6 +40,11 @@ spec:
                 type: string
               indexRetention:
                 type: string
+              natsCluster:
+                properties:
+                  name:
+                    type: string
+                type: object
               opensearch:
                 properties:
                   dashboards:

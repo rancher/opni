@@ -3,7 +3,6 @@ package cluster_test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -121,29 +120,13 @@ var _ = Describe("Cluster Auth", Ordered, Label("unit"), func() {
 				})
 			})
 
-			When("the keyring store does not exist for the requested cluster", func() {
-				BeforeEach(func() {
-					handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
-						return nil, errors.New("not found")
-					}
-				})
-				It("should return http 401", func() {
-					req := newRequest(http.MethodPost, "/", nil)
-					req.Header.Set("Authorization", validAuthHeader("cluster-1", ""))
-					resp, err := http.DefaultClient.Do(req)
-					Expect(err).NotTo(HaveOccurred())
-					defer resp.Body.Close()
-					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-				})
-			})
-
 			When("the keyring does not exist in the cluster's keyring store", func() {
 				BeforeEach(func() {
 					store := test.NewTestKeyringStore(ctrl, "", &corev1.Reference{
 						Id: "does-not-exist",
 					})
-					handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
-						return store, nil
+					handler = func(prefix string, ref *corev1.Reference) storage.KeyringStore {
+						return store
 					}
 				})
 				It("should return http 401", func() {
@@ -163,8 +146,8 @@ var _ = Describe("Cluster Auth", Ordered, Label("unit"), func() {
 							Id: "cluster-1",
 						})
 						store.Put(context.Background(), keyring.New())
-						handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
-							return store, nil
+						handler = func(prefix string, ref *corev1.Reference) storage.KeyringStore {
+							return store
 						}
 					})
 					It("should return an internal server error", func() {
@@ -182,8 +165,8 @@ var _ = Describe("Cluster Auth", Ordered, Label("unit"), func() {
 							Id: "cluster-1",
 						})
 						store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-						handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
-							return store, nil
+						handler = func(prefix string, ref *corev1.Reference) storage.KeyringStore {
+							return store
 						}
 					})
 					It("should return http 401", func() {
@@ -232,11 +215,11 @@ var _ = Describe("Cluster Auth", Ordered, Label("unit"), func() {
 						Id: "cluster-1",
 					})
 					store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-					handler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+					handler = func(prefix string, ref *corev1.Reference) storage.KeyringStore {
 						if ref.Id == "cluster-1" {
-							return store, nil
+							return store
 						}
-						return nil, errors.New("not found")
+						return nil // fall back to default handler
 					}
 				})
 				It("should return http 200", func() {

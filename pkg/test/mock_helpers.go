@@ -210,18 +210,18 @@ func NewTestClusterStore(ctrl *gomock.Controller) storage.ClusterStore {
 	return mockClusterStore
 }
 
-type KeyringStoreHandler = func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error)
+type KeyringStoreHandler = func(prefix string, ref *corev1.Reference) storage.KeyringStore
 
 func NewTestKeyringStoreBroker(ctrl *gomock.Controller, handler ...KeyringStoreHandler) storage.KeyringStoreBroker {
 	mockKeyringStoreBroker := mock_storage.NewMockKeyringStoreBroker(ctrl)
 	keyringStores := map[string]storage.KeyringStore{}
-	defaultHandler := func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+	defaultHandler := func(prefix string, ref *corev1.Reference) storage.KeyringStore {
 		if keyringStore, ok := keyringStores[prefix+ref.Id]; !ok {
 			s := NewTestKeyringStore(ctrl, prefix, ref)
 			keyringStores[prefix+ref.Id] = s
-			return s, nil
+			return s
 		} else {
-			return keyringStore, nil
+			return keyringStore
 		}
 	}
 
@@ -234,11 +234,14 @@ func NewTestKeyringStoreBroker(ctrl *gomock.Controller, handler ...KeyringStoreH
 
 	mockKeyringStoreBroker.EXPECT().
 		KeyringStore(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+		DoAndReturn(func(prefix string, ref *corev1.Reference) storage.KeyringStore {
 			if prefix == "gateway-internal" {
 				return defaultHandler(prefix, ref)
 			}
-			return h(prefix, ref)
+			if krs := h(prefix, ref); krs != nil {
+				return krs
+			}
+			return defaultHandler(prefix, ref)
 		}).
 		AnyTimes()
 	return mockKeyringStoreBroker

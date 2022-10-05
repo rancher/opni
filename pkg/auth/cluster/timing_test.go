@@ -3,7 +3,6 @@ package cluster_test
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -53,11 +52,11 @@ var _ = Describe("Request Timing", Ordered, Label("unit", "slow", "temporal"), f
 			Id: "cluster-1",
 		})
 		store.Put(context.Background(), keyring.New(keyring.NewSharedKeys(testSharedSecret)))
-		handler := func(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+		handler := func(prefix string, ref *corev1.Reference) storage.KeyringStore {
 			if ref.Id == "cluster-1" {
-				return store, nil
+				return store
 			}
-			return nil, errors.New("not found")
+			return nil // fall back to default handler
 		}
 		broker := test.NewTestKeyringStoreBroker(ctrl, handler)
 		mw, err := cluster.New(context.Background(), broker, "X-Test")

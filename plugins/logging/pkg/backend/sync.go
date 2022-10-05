@@ -3,7 +3,6 @@ package backend
 import (
 	"context"
 	"errors"
-	"reflect"
 
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
@@ -16,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 func (b *LoggingBackend) Status(ctx context.Context, req *capabilityv1.StatusRequest) (*capabilityv1.NodeCapabilityStatus, error) {
@@ -90,7 +90,7 @@ func (b *LoggingBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 }
 
 func (b *LoggingBackend) buildResponse(old, new *node.LoggingCapabilityConfig) *node.SyncResponse {
-	if reflect.DeepEqual(old, new) {
+	if proto.Equal(old, new) {
 		return &node.SyncResponse{
 			ConfigStatus: node.ConfigStatus_UpToDate,
 		}

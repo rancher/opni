@@ -19,7 +19,7 @@ import (
 	"github.com/rancher/opni/pkg/resources"
 )
 
-func setEmptyFields(spec v1beta1.AlertingSpec) {
+func alertingMutator(spec *v1beta1.AlertingSpec) {
 	// handle missing fields because the test suite is flaky locally
 	if spec.WebPort == 0 {
 		spec.WebPort = 9093
@@ -67,7 +67,7 @@ func (r *Reconciler) alerting() []resources.Resource {
 	publicControllerLabels := labelWithCluster(labelWithAlert(map[string]string{}))
 	publicControllerSvcLabels := publicControllerLabels
 
-	setEmptyFields(r.spec.Alerting)
+	alertingMutator(&r.spec.Alerting)
 	dataMountPath := shared.DataMountPath
 	configMountPath := shared.ConfigMountPath
 

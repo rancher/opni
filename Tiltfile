@@ -4,7 +4,7 @@ load('ext://namespace', 'namespace_create')
 
 set_team('52cc75cc-c4ed-462f-8ea7-a543d398a381')
 
-version = '0.5.4'
+version = '0.6.0-dev1'
 config.define_string_list('allowedContexts')
 config.define_string_list('opniChartValues')
 config.define_string('defaultRegistry')
@@ -37,19 +37,19 @@ local_resource('build charts',
 k8s_yaml(helm('./charts/opni-crd/'+version,
   name='opni-crd',
   namespace='opni',
-))
+), allow_duplicates=True)
 
 k8s_yaml(helm('./charts/opni/'+version,
   name='opni',
   namespace='opni',
   set=cfg.get('opniChartValues')
-))
+), allow_duplicates=True)
 
 if cfg.get('defaultRegistry') != None:
   default_registry(cfg.get('defaultRegistry'))
 
 custom_build("rancher/opni",
   command="dagger do load opni",
-  deps=['controllers', 'apis', 'pkg'], 
+  deps=['controllers', 'apis', 'pkg', 'plugins'], 
   ignore=ignore,
 )

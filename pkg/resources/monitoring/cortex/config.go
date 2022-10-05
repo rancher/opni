@@ -3,6 +3,7 @@ package cortex
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"net/url"
 	"reflect"
 	"time"
@@ -373,12 +374,12 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		LimitsConfig: validation.Limits{
 			CompactorBlocksRetentionPeriod:     model.Duration(retentionPeriod),
 			IngestionRateStrategy:              "infinite",
-			MaxLocalSeriesPerUser:              0,
-			MaxLocalSeriesPerMetric:            0,
-			MaxLocalMetricsWithMetadataPerUser: 0,
-			MaxLocalMetadataPerMetric:          0,
-			MaxGlobalSeriesPerUser:             0,
-			MaxGlobalSeriesPerMetric:           0,
+			MaxLocalSeriesPerUser:              math.MaxInt32,
+			MaxLocalSeriesPerMetric:            math.MaxInt32,
+			MaxLocalMetricsWithMetadataPerUser: math.MaxInt32,
+			MaxLocalMetadataPerMetric:          math.MaxInt32,
+			MaxGlobalSeriesPerUser:             math.MaxInt32,
+			MaxGlobalSeriesPerMetric:           math.MaxInt32,
 		},
 	}
 

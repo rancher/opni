@@ -32,7 +32,7 @@ dagger.#Plan & {
 			OPNI_UI_REPO:           string | *"rancher/opni-ui"
 			OPNI_UI_BRANCH:         string | *"main"
 			OPNI_UI_BUILD_IMAGE:    string | *"rancher/opni-monitoring-ui-build"
-			HELM_OCI_REPO:          string | *"docker.io/rancher"
+			HELM_OCI_REPO:          string | *"ghcr.io/rancher"
 			DASHBOARDS_VERSION:     string | *"1.3.3"
 			OPENSEARCH_VERSION:     string | *"1.3.3"
 			PLUGIN_VERSION:         string | *"0.5.4"
@@ -40,6 +40,8 @@ dagger.#Plan & {
 			EXPECTED_REF?:          string // used by tilt
 			DOCKER_USERNAME?:       string
 			DOCKER_PASSWORD?:       dagger.#Secret
+			HELM_OCI_USERNAME?:     string
+			HELM_OCI_PASSWORD?:     dagger.#Secret
 			PULUMI_ACCESS_TOKEN?:   dagger.#Secret
 			AWS_ACCESS_KEY_ID?:     dagger.#Secret
 			AWS_SECRET_ACCESS_KEY?: dagger.#Secret
@@ -420,14 +422,39 @@ dagger.#Plan & {
 			}
 			_agentChartVersion: yaml.Unmarshal(_agentPackageConfig.contents).version
 
-			charts: helm.#Push & {
-				source: _chartsBuild.export.directories."/src/assets"
-				chart:  "opni-agent/opni-agent-\(_agentChartVersion).tgz"
-				remote: client.env.HELM_OCI_REPO
-				if client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
-					auth: {
+			charts: {
+				_auth?: {
+					username: string
+					secret:   dagger.#Secret
+				}
+				if client.env.HELM_OCI_USERNAME != _|_ && client.env.HELM_OCI_PASSWORD != _|_ {
+					_auth: {
+						username: client.env.HELM_OCI_USERNAME
+						secret:   client.env.HELM_OCI_PASSWORD
+					}
+				}
+				if client.env.HELM_OCI_USERNAME == _|_ && client.env.HELM_OCI_PASSWORD == _|_ &&
+					client.env.DOCKER_USERNAME != _|_ && client.env.DOCKER_PASSWORD != _|_ {
+					_auth: {
 						username: client.env.DOCKER_USERNAME
 						secret:   client.env.DOCKER_PASSWORD
+					}
+				}
+
+				agent: helm.#Push & {
+					source: _chartsBuild.export.directories."/src/assets"
+					chart:  "opni-agent/opni-agent-\(_agentChartVersion).tgz"
+					remote: client.env.HELM_OCI_REPO
+					if _auth != _|_ {
+						auth: _auth
+					}
+				}
+				agentCrd: helm.#Push & {
+					source: _chartsBuild.export.directories."/src/assets"
+					chart:  "opni-agent-crd/opni-agent-crd-\(_agentChartVersion).tgz"
+					remote: client.env.HELM_OCI_REPO
+					if _auth != _|_ {
+						auth: _auth
 					}
 				}
 			}

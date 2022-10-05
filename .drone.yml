@@ -53,6 +53,9 @@ steps:
         from_secret: docker_username
       DOCKER_PASSWORD:
         from_secret: docker_password
+      HELM_OCI_USERNAME: rancher
+      HELM_OCI_PASSWORD:
+        from_secret: github_token
       TAG: ${DRONE_TAG}
     commands:
       - bin/dagger do push
@@ -74,6 +77,9 @@ steps:
         from_secret: docker_username
       DOCKER_PASSWORD:
         from_secret: docker_password
+      HELM_OCI_USERNAME: rancher
+      HELM_OCI_PASSWORD:
+        from_secret: github_token
       TAG: latest
     commands:
       - bin/dagger do push
@@ -95,6 +101,9 @@ steps:
         from_secret: docker_username
       DOCKER_PASSWORD:
         from_secret: docker_password
+      HELM_OCI_USERNAME: rancher
+      HELM_OCI_PASSWORD:
+        from_secret: github_token
       TAG: main
     commands:
       - bin/dagger do push

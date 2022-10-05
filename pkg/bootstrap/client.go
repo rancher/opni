@@ -139,7 +139,7 @@ func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.Bootstra
 	client := bootstrapv1.NewBootstrapClient(cc)
 
 	var peer peer.Peer
-	resp, err := client.Join(ctx, &bootstrapv1.BootstrapJoinRequest{}, grpc.Peer(&peer))
+	resp, err := client.Join(ctx, &bootstrapv1.BootstrapJoinRequest{}, grpc.Peer(&peer), grpc.WaitForReady(true))
 	if err != nil {
 		return nil, nil, fmt.Errorf("join request failed: %w", err)
 	}

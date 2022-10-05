@@ -8,7 +8,7 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-func (p *ModelTrainingPlugin) newNatsConnection() (*nats.Conn, error) {
+func newNatsConnection() (*nats.Conn, error) {
 	natsURL := os.Getenv("NATS_SERVER_URL")
 	natsSeedPath := os.Getenv("NKEY_SEED_FILENAME")
 
@@ -28,13 +28,6 @@ func (p *ModelTrainingPlugin) newNatsConnection() (*nats.Conn, error) {
 					retryBackoff.Reset()
 				}
 				return retryBackoff.NextBackOff()
-			},
-		),
-		nats.DisconnectErrHandler(
-			func(nc *nats.Conn, err error) {
-				p.Logger.With(
-					"err", err,
-				).Warn("nats disconnected")
 			},
 		),
 	)

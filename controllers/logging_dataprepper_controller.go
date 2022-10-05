@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	loggingv1beta1 "github.com/rancher/opni/apis/logging/v1beta1"
 	"github.com/rancher/opni/pkg/resources"
@@ -16,7 +17,8 @@ import (
 
 type LoggingDataPrepperReconciler struct {
 	client.Client
-	scheme *runtime.Scheme
+	scheme      *runtime.Scheme
+	OpniCentral bool
 }
 
 // +kubebuilder:rbac:groups=logging.opni.io,resources=datapreppers,verbs=get;list;watch;create;update;patch;delete
@@ -30,7 +32,14 @@ func (r *LoggingDataPrepperReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	DataPrepperReconciler, err := dataprepper.NewReconciler(ctx, DataPrepper, r.Client)
+	var opts []dataprepper.ReconcilerOption
+
+	if r.OpniCentral {
+		opts = append(opts, dataprepper.WithForceInsecure())
+		opts = append(opts, dataprepper.WithURLOverride(fmt.Sprintf("https://opni-opensearch-svc.%s:9200", req.Namespace)))
+	}
+
+	DataPrepperReconciler, err := dataprepper.NewReconciler(ctx, DataPrepper, r.Client, opts...)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

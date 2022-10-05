@@ -3,8 +3,8 @@ package backend
 import (
 	"context"
 	"errors"
+	"reflect"
 
-	"github.com/gogo/protobuf/proto"
 	capabilityv1 "github.com/rancher/opni/pkg/apis/capability/v1"
 	opnicorev1 "github.com/rancher/opni/pkg/apis/core/v1"
 	"github.com/rancher/opni/pkg/auth/cluster"
@@ -82,7 +82,7 @@ func (b *LoggingBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 		return nil, err
 	}
 
-	return b.buildResponse(req.CurrentConfig, &node.LoggingCapabilityConfig{
+	return b.buildResponse(req.GetCurrentConfig(), &node.LoggingCapabilityConfig{
 		Enabled:          enabled,
 		Conditions:       conditions,
 		OpensearchConfig: osConf,
@@ -90,7 +90,7 @@ func (b *LoggingBackend) Sync(ctx context.Context, req *node.SyncRequest) (*node
 }
 
 func (b *LoggingBackend) buildResponse(old, new *node.LoggingCapabilityConfig) *node.SyncResponse {
-	if proto.Equal(old, new) {
+	if reflect.DeepEqual(old, new) {
 		return &node.SyncResponse{
 			ConfigStatus: node.ConfigStatus_UpToDate,
 		}

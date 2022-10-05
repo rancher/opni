@@ -122,6 +122,7 @@ func NewKubernetesManagerDriver(
 		namespace:                      namespace,
 		clusterID:                      clusterID,
 		provider:                       provider,
+		k8sClient:                      k8sClient,
 	}, nil
 
 }

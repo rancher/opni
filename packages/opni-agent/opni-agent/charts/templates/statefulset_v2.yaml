@@ -106,6 +106,9 @@ spec:
           args:
           - --health-probe-bind-address=:7081
           - --metrics-bind-address=127.0.0.1:7080
+          {{- if .Values.bootstrapInCluster.enabled }}
+          - --central
+          {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ template "system_default_registry" . }}{{ .Values.image.repository }}:{{ .Values.image.tag | default $versionTag }}"

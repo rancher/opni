@@ -126,6 +126,8 @@ func (c *ClientConfig) bootstrapJoin(ctx context.Context) (*bootstrapv1.Bootstra
 	}
 	cc, err := grpc.DialContext(ctx, c.Endpoint,
 		append(c.DialOpts,
+			grpc.WithBlock(),
+			grpc.FailOnNonTempDialError(true),
 			grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 			grpc.WithChainStreamInterceptor(otelgrpc.StreamClientInterceptor()),
 			grpc.WithChainUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),

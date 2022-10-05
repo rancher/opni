@@ -1,0 +1,7 @@
+syntax = "proto3";
+option go_package = "github.com/rancher/opni/pkg/plugins/topology/pkg/apis/orchestrator";
+package orchestrator;
+
+service TopologyOrchestrator {
+    
+}

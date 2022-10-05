@@ -1,4 +1,4 @@
-package topology
+package gateway
 
 import (
 	"context"

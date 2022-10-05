@@ -16,8 +16,14 @@ func (c *ModelTrainingPlugin) WorkloadLogCount(ctx context.Context, in *corev1.R
 		panic(err)
 	}
 	cluster_aggregation_results := results_storage[in.Id]
-	json_aggregation_results, _ := json.Marshal(cluster_aggregation_results)
-	workload_response := *&model_training.WorkloadResponse{}
-	workload_response.Message = string(json_aggregation_results)
-	return &workload_response, nil
+	workloads_list := model_training.WorkloadsList{}
+	workload_array := make([]*model_training.WorkloadResponse, 0)
+	for namespace_name, deployments := range cluster_aggregation_results {
+		for deployment_name, count := range deployments {
+			workload_aggregation := model_training.WorkloadResponse{ClusterId: in.Id, Namespace: namespace_name, Deployment: deployment_name, Count: int64(count)}
+			workload_array = append(workload_array, &workload_aggregation)
+		}
+	}
+	workloads_list.List = workload_array
+	return &workloads_list, nil
 }

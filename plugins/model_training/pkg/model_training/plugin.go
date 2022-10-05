@@ -5,7 +5,6 @@ import (
 	"log"
 	"time"
 
-	backoffv2 "github.com/lestrrat-go/backoff/v2"
 	"github.com/nats-io/nats.go"
 	managementv1 "github.com/rancher/opni/pkg/apis/management/v1"
 	"github.com/rancher/opni/pkg/logger"
@@ -46,27 +45,15 @@ func (s *ModelTrainingPlugin) UseManagementAPI(api managementv1.ManagementClient
 	}
 }
 
-func (s *ModelTrainingPlugin) get_kv() {
-	retrier := backoffv2.Exponential(
-		backoffv2.WithMaxRetries(0),
-		backoffv2.WithMinInterval(5*time.Second),
-		backoffv2.WithMaxInterval(1*time.Minute),
-		backoffv2.WithMultiplier(1.1),
-	)
-	b := retrier.Start(s.ctx)
-	for backoffv2.Continue(b) {
-		nc, err := s.newNatsConnection()
-		if err == nil {
-			break
-		}
-		s.Logger.Error("failed to connect to nats, retrying")
-	}
-}
-
 func Scheme(ctx context.Context) meta.Scheme {
 	scheme := meta.NewScheme()
+	nc, _ := newNatsConnection()
+	mgr, _ := nc.JetStream()
+	keyValue, _ := mgr.KeyValue("os-workload-aggregation")
 	p := &ModelTrainingPlugin{
-		Logger: logger.NewPluginLogger().Named("model_training"),
+		Logger:         logger.NewPluginLogger().Named("model_training"),
+		natsConnection: nc,
+		kv:             keyValue,
 	}
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	return scheme

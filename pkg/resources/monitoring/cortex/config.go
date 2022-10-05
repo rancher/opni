@@ -45,6 +45,7 @@ import (
 	"github.com/cortexproject/cortex/pkg/util/tls"
 	"github.com/cortexproject/cortex/pkg/util/validation"
 	kyamlv3 "github.com/kralicky/yaml/v3"
+	"github.com/prometheus/common/model"
 	"github.com/prometheus/node_exporter/https"
 	corev1beta1 "github.com/rancher/opni/apis/core/v1beta1"
 	storagev1 "github.com/rancher/opni/pkg/apis/storage/v1"
@@ -209,6 +210,16 @@ func (r *Reconciler) config() (resources.Resource, error) {
 		Store: lo.Ternary(isHA, "memberlist", "inmemory"),
 	}
 
+	var retentionPeriod time.Duration
+	if d := r.spec.Cortex.Storage.GetRetentionPeriod(); d != nil {
+		duration := d.AsDuration()
+		if duration > 0 && duration < 2*time.Hour {
+			r.logger.Warn("Storage retention period is below the minimum required (2 hours); using default retention period (unlimited)")
+		} else {
+			retentionPeriod = duration
+		}
+	}
+
 	config := cortex.Config{
 		AuthEnabled: true,
 		TenantFederation: tenantfederation.Config{
@@ -360,9 +371,14 @@ func (r *Reconciler) config() (resources.Resource, error) {
 			Enable: false,
 		},
 		LimitsConfig: validation.Limits{
-			IngestionRate:         1e6,
-			IngestionRateStrategy: "local",
-			IngestionBurstSize:    2e6,
+			CompactorBlocksRetentionPeriod:     model.Duration(retentionPeriod),
+			IngestionRateStrategy:              "infinite",
+			MaxLocalSeriesPerUser:              0,
+			MaxLocalSeriesPerMetric:            0,
+			MaxLocalMetricsWithMetadataPerUser: 0,
+			MaxLocalMetadataPerMetric:          0,
+			MaxGlobalSeriesPerUser:             0,
+			MaxGlobalSeriesPerMetric:           0,
 		},
 	}
 

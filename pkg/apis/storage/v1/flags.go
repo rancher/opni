@@ -26,6 +26,7 @@ func (cfg *StorageSpec) RegisterFlagsWithPrefix(prefix string, f *flag.FlagSet) 
 	cfg.Filesystem.RegisterFlagsWithPrefix(prefix, f)
 
 	f.StringVar(&cfg.Backend, prefix+"backend", "", fmt.Sprintf("Backend storage to use. Supported backends are: %s.", strings.Join(supportedBackends, ", ")))
+	f.Var(dpbValue(0, &cfg.RetentionPeriod), prefix+"retention-period", "Delete blocks containing samples older than the specified retention period. 0 to disable")
 }
 
 type dpb struct {

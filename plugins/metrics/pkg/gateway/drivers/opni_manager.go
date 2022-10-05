@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/banzaicloud/k8s-objectmatcher/patch"
 	"github.com/rancher/opni/apis"
@@ -233,6 +234,12 @@ func (k *OpniManager) ConfigureCluster(ctx context.Context, conf *cortexops.Clus
 	}
 	if conf.Grafana.Hostname == "" {
 		conf.Grafana.Hostname = defaultGrafanaHostname
+	}
+	if conf.Storage != nil && conf.Storage.RetentionPeriod != nil {
+		retention := conf.Storage.RetentionPeriod.AsDuration()
+		if retention > 0 && retention < 2*time.Hour {
+			return nil, fmt.Errorf("storage retention period must be at least 2 hours")
+		}
 	}
 
 	mutator := func(cluster client.Object) error {

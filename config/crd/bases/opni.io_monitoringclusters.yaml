@@ -193,6 +193,15 @@ spec:
                           serviceAccount:
                             type: string
                         type: object
+                      retentionPeriod:
+                        properties:
+                          nanos:
+                            format: int32
+                            type: integer
+                          seconds:
+                            format: int64
+                            type: integer
+                        type: object
                       s3:
                         properties:
                           accessKeyID:

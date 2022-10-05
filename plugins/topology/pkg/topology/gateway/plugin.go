@@ -1,4 +1,4 @@
-package topology
+package gateway
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/rancher/opni/pkg/plugins/meta"
 	"github.com/rancher/opni/pkg/util"
 	"github.com/rancher/opni/pkg/util/future"
-	topov1 "github.com/rancher/opni/plugins/topology/pkg/apis/topology"
+	"github.com/rancher/opni/plugins/topology/pkg/apis/orchestrator"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -18,7 +18,7 @@ import (
 type Plugin struct {
 	ctx    context.Context
 	logger *zap.SugaredLogger
-	topov1.UnimplementedTopologyServer
+	orchestrator.UnsafeTopologyOrchestratorServer
 	system.UnimplementedSystemPluginClient
 
 	mgmtClient future.Future[managementv1.ManagementClient]
@@ -32,13 +32,13 @@ func NewPlugin(ctx context.Context) *Plugin {
 	}
 }
 
-var _ topov1.TopologyServer = (*Plugin)(nil)
+var _ orchestrator.TopologyOrchestratorServer = (*Plugin)(nil)
 
 func Scheme(ctx context.Context) meta.Scheme {
-	scheme := meta.NewScheme()
+	scheme := meta.NewScheme(meta.WithMode(meta.ModeGateway))
 	p := NewPlugin(ctx)
 	scheme.Add(system.SystemPluginID, system.NewPlugin(p))
 	scheme.Add(managementext.ManagementAPIExtensionPluginID,
-		managementext.NewPlugin(util.PackService(&topov1.Topology_ServiceDesc, p)))
+		managementext.NewPlugin(util.PackService(&orchestrator.TopologyOrchestrator_ServiceDesc, p)))
 	return scheme
 }

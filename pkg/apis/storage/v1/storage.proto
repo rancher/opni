@@ -12,6 +12,7 @@ message StorageSpec {
   AzureStorageSpec azure = 4;
   SwiftStorageSpec swift = 5;
   FilesystemStorageSpec filesystem = 6;
+	google.protobuf.Duration retentionPeriod = 7;
 }
 
 message S3StorageSpec {

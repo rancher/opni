@@ -100,7 +100,12 @@ func GenerateCRD() {
 }
 
 func Test() {
-	mg.Deps(test.Test)
+	mg.Deps(TestClean, test.Test)
+}
+
+func TestClean() error {
+	// find and remove all test binaries and coverage files
+	return sh.Run("git", "clean", "-xf", "--", "**/*.test", "**/cover-*.out")
 }
 
 func ControllerGen() error {

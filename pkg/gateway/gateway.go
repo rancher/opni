@@ -153,13 +153,7 @@ func NewGateway(ctx context.Context, conf *config.GatewayConfig, pl plugins.Load
 			).Warn("system plugin module name is invalid")
 			return
 		}
-		store, err := storageBackend.KeyValueStore(ns)
-		if err != nil {
-			lg.With(
-				zap.String("namespace", ns),
-				zap.Error(err),
-			).Error("failed to get key value store for plugin")
-		}
+		store := storageBackend.KeyValueStore(ns)
 		go p.ServeKeyValueStore(store)
 	}))
 

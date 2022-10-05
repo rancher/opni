@@ -70,11 +70,12 @@ type apiExtension struct {
 type Server struct {
 	managementv1.UnsafeManagementServer
 	managementServerOptions
-	config         *v1beta1.ManagementSpec
-	logger         *zap.SugaredLogger
-	rbacProvider   rbac.Provider
-	coreDataSource CoreDataSource
-	grpcServer     *grpc.Server
+	config            *v1beta1.ManagementSpec
+	logger            *zap.SugaredLogger
+	rbacProvider      rbac.Provider
+	coreDataSource    CoreDataSource
+	grpcServer        *grpc.Server
+	dashboardSettings *DashboardSettingsManager
 
 	apiExtMu      sync.RWMutex
 	apiExtensions []apiExtension
@@ -131,6 +132,10 @@ func NewServer(
 		logger:                  lg,
 		coreDataSource:          cds,
 		rbacProvider:            storage.NewRBACProvider(cds.StorageBackend()),
+		dashboardSettings: &DashboardSettingsManager{
+			kv:     cds.StorageBackend().KeyValueStore("dashboard"),
+			logger: lg,
+		},
 	}
 
 	director := m.configureApiExtensionDirector(ctx, pluginLoader)

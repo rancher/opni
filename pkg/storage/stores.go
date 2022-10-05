@@ -65,11 +65,11 @@ type KeyValueStoreT[T any] interface {
 type KeyValueStore KeyValueStoreT[[]byte]
 
 type KeyringStoreBroker interface {
-	KeyringStore(namespace string, ref *corev1.Reference) (KeyringStore, error)
+	KeyringStore(namespace string, ref *corev1.Reference) KeyringStore
 }
 
 type KeyValueStoreBroker interface {
-	KeyValueStore(namespace string) (KeyValueStore, error)
+	KeyValueStore(namespace string) KeyValueStore
 }
 
 // A store that can be used to compute subject access rules

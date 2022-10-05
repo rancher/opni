@@ -82,11 +82,11 @@ func NewCRDStore(opts ...CRDStoreOption) *CRDStore {
 	}
 }
 
-func (e *CRDStore) KeyringStore(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+func (e *CRDStore) KeyringStore(prefix string, ref *corev1.Reference) storage.KeyringStore {
 	return &crdKeyringStore{
 		CRDStoreOptions: e.CRDStoreOptions,
 		client:          e.client,
 		ref:             ref,
 		prefix:          prefix,
-	}, nil
+	}
 }

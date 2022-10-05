@@ -56,6 +56,8 @@ type ManagementClient interface {
 	UninstallCapability(ctx context.Context, in *CapabilityUninstallRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CapabilityUninstallStatus(ctx context.Context, in *CapabilityStatusRequest, opts ...grpc.CallOption) (*v1.TaskStatus, error)
 	CancelCapabilityUninstall(ctx context.Context, in *CapabilityUninstallCancelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetDashboardSettings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DashboardSettings, error)
+	UpdateDashboardSettings(ctx context.Context, in *DashboardSettings, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type managementClient struct {
@@ -351,6 +353,24 @@ func (c *managementClient) CancelCapabilityUninstall(ctx context.Context, in *Ca
 	return out, nil
 }
 
+func (c *managementClient) GetDashboardSettings(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DashboardSettings, error) {
+	out := new(DashboardSettings)
+	err := c.cc.Invoke(ctx, "/management.Management/GetDashboardSettings", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementClient) UpdateDashboardSettings(ctx context.Context, in *DashboardSettings, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/management.Management/UpdateDashboardSettings", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ManagementServer is the server API for Management service.
 // All implementations must embed UnimplementedManagementServer
 // for forward compatibility
@@ -386,6 +406,8 @@ type ManagementServer interface {
 	UninstallCapability(context.Context, *CapabilityUninstallRequest) (*emptypb.Empty, error)
 	CapabilityUninstallStatus(context.Context, *CapabilityStatusRequest) (*v1.TaskStatus, error)
 	CancelCapabilityUninstall(context.Context, *CapabilityUninstallCancelRequest) (*emptypb.Empty, error)
+	GetDashboardSettings(context.Context, *emptypb.Empty) (*DashboardSettings, error)
+	UpdateDashboardSettings(context.Context, *DashboardSettings) (*emptypb.Empty, error)
 	mustEmbedUnimplementedManagementServer()
 }
 
@@ -479,6 +501,12 @@ func (UnimplementedManagementServer) CapabilityUninstallStatus(context.Context, 
 }
 func (UnimplementedManagementServer) CancelCapabilityUninstall(context.Context, *CapabilityUninstallCancelRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelCapabilityUninstall not implemented")
+}
+func (UnimplementedManagementServer) GetDashboardSettings(context.Context, *emptypb.Empty) (*DashboardSettings, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDashboardSettings not implemented")
+}
+func (UnimplementedManagementServer) UpdateDashboardSettings(context.Context, *DashboardSettings) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateDashboardSettings not implemented")
 }
 func (UnimplementedManagementServer) mustEmbedUnimplementedManagementServer() {}
 
@@ -1018,6 +1046,42 @@ func _Management_CancelCapabilityUninstall_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Management_GetDashboardSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).GetDashboardSettings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/GetDashboardSettings",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).GetDashboardSettings(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Management_UpdateDashboardSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DashboardSettings)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServer).UpdateDashboardSettings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.Management/UpdateDashboardSettings",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServer).UpdateDashboardSettings(ctx, req.(*DashboardSettings))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Management_ServiceDesc is the grpc.ServiceDesc for Management service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1136,6 +1200,14 @@ var Management_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelCapabilityUninstall",
 			Handler:    _Management_CancelCapabilityUninstall_Handler,
+		},
+		{
+			MethodName: "GetDashboardSettings",
+			Handler:    _Management_GetDashboardSettings_Handler,
+		},
+		{
+			MethodName: "UpdateDashboardSettings",
+			Handler:    _Management_UpdateDashboardSettings_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

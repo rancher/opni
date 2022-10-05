@@ -66,11 +66,9 @@ func KeyringStoreTestSuite[T storage.KeyringStoreBroker](
 	return func() {
 		var ts storage.KeyringStore
 		BeforeAll(func() {
-			var err error
-			ts, err = tsF.Get().KeyringStore("test", &corev1.Reference{
+			ts = tsF.Get().KeyringStore("test", &corev1.Reference{
 				Id: "test",
 			})
-			Expect(err).NotTo(HaveOccurred())
 		})
 		It("should initially be empty", func() {
 			_, err := ts.Get(context.Background())

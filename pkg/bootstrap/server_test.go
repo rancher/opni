@@ -181,10 +181,9 @@ var _ = Describe("Server", Label("slow"), func() {
 						Expect(clusterList.Items[0].GetLabels()).To(HaveKeyWithValue("foo", "bar"))
 
 						By("checking that the cluster's keyring was stored")
-						ks, err := mockKeyringStoreBroker.KeyringStore("gateway", &corev1.Reference{
+						ks := mockKeyringStoreBroker.KeyringStore("gateway", &corev1.Reference{
 							Id: "foo",
 						})
-						Expect(err).NotTo(HaveOccurred())
 						kr, err := ks.Get(context.Background())
 						Expect(err).NotTo(HaveOccurred())
 						Expect(kr).NotTo(BeNil())

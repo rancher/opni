@@ -146,12 +146,9 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	default:
 		return nil, fmt.Errorf("unknown storage type: %s", agent.config.Storage.Type)
 	}
-	agent.keyringStore, err = keyringStoreBroker.KeyringStore("agent", &corev1.Reference{
+	agent.keyringStore = keyringStoreBroker.KeyringStore("agent", &corev1.Reference{
 		Id: id,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("error creating keyring store: %w", err)
-	}
 
 	var kr keyring.Keyring
 	if options.bootstrapper != nil {

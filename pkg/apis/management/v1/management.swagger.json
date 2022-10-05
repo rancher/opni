@@ -573,6 +573,59 @@
         ]
       }
     },
+    "/management/dashboard/settings": {
+      "get": {
+        "operationId": "Management_GetDashboardSettings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/managementDashboardSettings"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "Management"
+        ]
+      },
+      "put": {
+        "operationId": "Management_UpdateDashboardSettings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/managementDashboardSettings"
+            }
+          }
+        ],
+        "tags": [
+          "Management"
+        ]
+      }
+    },
     "/management/rolebindings": {
       "get": {
         "operationId": "Management_ListRoleBindings",
@@ -1559,6 +1612,37 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/coreTokenCapability"
+          }
+        }
+      }
+    },
+    "managementDashboardGlobalSettings": {
+      "type": "object",
+      "properties": {
+        "defaultImageRepository": {
+          "type": "string"
+        },
+        "defaultTokenTtl": {
+          "type": "string"
+        },
+        "defaultTokenLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "managementDashboardSettings": {
+      "type": "object",
+      "properties": {
+        "global": {
+          "$ref": "#/definitions/managementDashboardGlobalSettings"
+        },
+        "user": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
           }
         }
       }

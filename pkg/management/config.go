@@ -76,3 +76,17 @@ func (m *Server) UpdateConfig(
 	}
 	return &emptypb.Empty{}, nil
 }
+
+func (m *Server) GetDashboardSettings(
+	ctx context.Context,
+	in *emptypb.Empty,
+) (*managementv1.DashboardSettings, error) {
+	return m.dashboardSettings.GetDashboardSettings(ctx, in)
+}
+
+func (m *Server) UpdateDashboardSettings(
+	ctx context.Context,
+	in *managementv1.DashboardSettings,
+) (*emptypb.Empty, error) {
+	return m.dashboardSettings.UpdateDashboardSettings(ctx, in)
+}

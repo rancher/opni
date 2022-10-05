@@ -48,17 +48,13 @@ func (m *Server) DeleteCluster(
 		return nil, status.Error(codes.FailedPrecondition, "cannot delete a cluster with capabilities; uninstall the capabilities first")
 	}
 	// delete the cluster's keyring, if it exists
-	if store, err := m.coreDataSource.StorageBackend().KeyringStore("gateway", ref); err != nil {
+	store := m.coreDataSource.StorageBackend().KeyringStore("gateway", ref)
+	if err := store.Delete(ctx); err != nil {
 		if !errors.Is(err, storage.ErrNotFound) {
-			return nil, fmt.Errorf("failed to look up keyring store for cluster %s: %w", ref.Id, err)
-		}
-	} else {
-		if err := store.Delete(ctx); err != nil {
-			if !errors.Is(err, storage.ErrNotFound) {
-				return nil, fmt.Errorf("failed to delete keyring store for cluster %s: %w", ref.Id, err)
-			}
+			return nil, fmt.Errorf("failed to delete keyring store for cluster %s: %w", ref.Id, err)
 		}
 	}
+
 	// delete the cluster
 	err = m.coreDataSource.StorageBackend().DeleteCluster(ctx, ref)
 	if err != nil {

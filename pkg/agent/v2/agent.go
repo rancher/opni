@@ -161,7 +161,7 @@ func New(ctx context.Context, conf *v1beta1.AgentConfig, opts ...AgentOption) (*
 	if err != nil {
 		return nil, fmt.Errorf("error configuring keyring store broker: %w", err)
 	}
-	ks, err := broker.KeyringStore("agent", &corev1.Reference{
+	ks := broker.KeyringStore("agent", &corev1.Reference{
 		Id: id,
 	})
 

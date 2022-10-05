@@ -18,7 +18,7 @@ var _ = Describe("Cluster Utils", Ordered, Label("unit", "slow"), func() {
 	var kubeconfigPath string
 	BeforeAll(func() {
 		env := test.Environment{
-			TestBin: "../../testbin/bin",
+			TestBin: "../../../testbin/bin",
 		}
 		var err error
 		restConfig, _, err = env.StartK8s()

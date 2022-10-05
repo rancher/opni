@@ -17,9 +17,7 @@ func KeyValueStoreTestSuite[T storage.KeyValueStoreBroker](
 	return func() {
 		var ts storage.KeyValueStore
 		BeforeAll(func() {
-			var err error
-			ts, err = tsF.Get().KeyValueStore("test")
-			Expect(err).NotTo(HaveOccurred())
+			ts = tsF.Get().KeyValueStore("test")
 		})
 		It("should initially be empty", func() {
 			keys, err := ts.ListKeys(context.Background(), "")

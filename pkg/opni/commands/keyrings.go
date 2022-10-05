@@ -64,12 +64,9 @@ func BuildKeyringsGetCmd() *cobra.Command {
 				return fmt.Errorf("failed to configure storage backend: %w", err)
 			}
 
-			store, err := backend.KeyringStore("gateway", &corev1.Reference{
+			store := backend.KeyringStore("gateway", &corev1.Reference{
 				Id: args[0],
 			})
-			if err != nil {
-				return fmt.Errorf("failed to get keyring store: %w", err)
-			}
 
 			kr, err := store.Get(cmd.Context())
 			if err != nil {

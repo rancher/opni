@@ -104,7 +104,7 @@ func NewEtcdStore(ctx context.Context, conf *v1beta1.EtcdStorageSpec, opts ...Et
 	}
 }
 
-func (e *EtcdStore) KeyringStore(prefix string, ref *corev1.Reference) (storage.KeyringStore, error) {
+func (e *EtcdStore) KeyringStore(prefix string, ref *corev1.Reference) storage.KeyringStore {
 	pfx := e.Prefix
 	if prefix != "" {
 		pfx = prefix
@@ -114,10 +114,10 @@ func (e *EtcdStore) KeyringStore(prefix string, ref *corev1.Reference) (storage.
 		client:           e.Client,
 		ref:              ref,
 		prefix:           pfx,
-	}, nil
+	}
 }
 
-func (e *EtcdStore) KeyValueStore(prefix string) (storage.KeyValueStore, error) {
+func (e *EtcdStore) KeyValueStore(prefix string) storage.KeyValueStore {
 	pfx := e.Prefix
 	if prefix != "" {
 		pfx = prefix
@@ -126,5 +126,5 @@ func (e *EtcdStore) KeyValueStore(prefix string) (storage.KeyValueStore, error) 
 		EtcdStoreOptions: e.EtcdStoreOptions,
 		client:           e.Client,
 		prefix:           path.Join(pfx, "kv"),
-	}, nil
+	}
 }

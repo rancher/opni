@@ -182,6 +182,17 @@ service Management {
       post: "/management/clusters/{cluster.id}/capabilities/{name}/uninstall/cancel"
     };
   }
+  rpc GetDashboardSettings(google.protobuf.Empty) returns (DashboardSettings) {
+    option (google.api.http) = {
+      get: "/management/dashboard/settings"
+    };
+  } 
+  rpc UpdateDashboardSettings(DashboardSettings) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/management/dashboard/settings"
+      body: "*"
+    };
+  }
 }
 
 message CreateBootstrapTokenRequest {
@@ -282,4 +293,15 @@ message CapabilityStatusRequest {
 message CapabilityUninstallCancelRequest {
   string name = 1;
   core.Reference cluster = 2;
+}
+
+message DashboardSettings {
+  optional DashboardGlobalSettings global = 1;
+  map<string, string> user = 2;
+}
+
+message DashboardGlobalSettings {
+  string defaultImageRepository = 1;
+  google.protobuf.Duration defaultTokenTtl = 2;
+  map<string, string> defaultTokenLabels = 3;
 }

@@ -155,10 +155,7 @@ func (h *ServerV2) Auth(ctx context.Context, authReq *bootstrapv2.BootstrapAuthR
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("error incrementing usage count: %v", err))
 	}
-	krStore, err := h.storage.KeyringStore("gateway", newCluster.Reference())
-	if err != nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("error getting keyring store: %s", err))
-	}
+	krStore := h.storage.KeyringStore("gateway", newCluster.Reference())
 	if err := krStore.Put(ctx, kr); err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("error storing keyring: %s", err))
 	}

@@ -217,12 +217,11 @@ func (mr *MockBackendMockRecorder) GetToken(ctx, ref interface{}) *gomock.Call {
 }
 
 // KeyValueStore mocks base method.
-func (m *MockBackend) KeyValueStore(namespace string) (storage.KeyValueStore, error) {
+func (m *MockBackend) KeyValueStore(namespace string) storage.KeyValueStore {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyValueStore", namespace)
 	ret0, _ := ret[0].(storage.KeyValueStore)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // KeyValueStore indicates an expected call of KeyValueStore.
@@ -232,12 +231,11 @@ func (mr *MockBackendMockRecorder) KeyValueStore(namespace interface{}) *gomock.
 }
 
 // KeyringStore mocks base method.
-func (m *MockBackend) KeyringStore(namespace string, ref *v1.Reference) (storage.KeyringStore, error) {
+func (m *MockBackend) KeyringStore(namespace string, ref *v1.Reference) storage.KeyringStore {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyringStore", namespace, ref)
 	ret0, _ := ret[0].(storage.KeyringStore)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // KeyringStore indicates an expected call of KeyringStore.
@@ -874,12 +872,11 @@ func (m *MockKeyringStoreBroker) EXPECT() *MockKeyringStoreBrokerMockRecorder {
 }
 
 // KeyringStore mocks base method.
-func (m *MockKeyringStoreBroker) KeyringStore(namespace string, ref *v1.Reference) (storage.KeyringStore, error) {
+func (m *MockKeyringStoreBroker) KeyringStore(namespace string, ref *v1.Reference) storage.KeyringStore {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyringStore", namespace, ref)
 	ret0, _ := ret[0].(storage.KeyringStore)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // KeyringStore indicates an expected call of KeyringStore.
@@ -912,12 +909,11 @@ func (m *MockKeyValueStoreBroker) EXPECT() *MockKeyValueStoreBrokerMockRecorder 
 }
 
 // KeyValueStore mocks base method.
-func (m *MockKeyValueStoreBroker) KeyValueStore(namespace string) (storage.KeyValueStore, error) {
+func (m *MockKeyValueStoreBroker) KeyValueStore(namespace string) storage.KeyValueStore {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "KeyValueStore", namespace)
 	ret0, _ := ret[0].(storage.KeyValueStore)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return ret0
 }
 
 // KeyValueStore indicates an expected call of KeyValueStore.

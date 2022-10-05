@@ -217,10 +217,7 @@ func (h Server) handleCreate(
 	if err != nil {
 		return fmt.Errorf("error incrementing usage count: %w", err)
 	}
-	krStore, err := h.storage.KeyringStore("gateway", newCluster.Reference())
-	if err != nil {
-		return fmt.Errorf("error getting keyring store: %w", err)
-	}
+	krStore := h.storage.KeyringStore("gateway", newCluster.Reference())
 	if err := krStore.Put(ctx, kr); err != nil {
 		return fmt.Errorf("error storing keyring: %w", err)
 	}
@@ -242,10 +239,7 @@ func (h Server) handleEdit(
 	if err != nil {
 		return fmt.Errorf("error incrementing usage count: %w", err)
 	}
-	krStore, err := h.storage.KeyringStore("gateway", existingCluster)
-	if err != nil {
-		return fmt.Errorf("error getting keyring store: %w", err)
-	}
+	krStore := h.storage.KeyringStore("gateway", existingCluster)
 	kr, err := krStore.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting existing keyring: %w", err)

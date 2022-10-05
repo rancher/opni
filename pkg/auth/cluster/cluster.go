@@ -90,12 +90,9 @@ func initFakeKeyring(
 	broker storage.KeyringStoreBroker,
 	lg *zap.SugaredLogger,
 ) (storage.KeyringStore, error) {
-	store, err := broker.KeyringStore("gateway-internal", &corev1.Reference{
+	store := broker.KeyringStore("gateway-internal", &corev1.Reference{
 		Id: "fake",
 	})
-	if err != nil {
-		return nil, err
-	}
 
 	kp1 := ecdh.NewEphemeralKeyPair()
 	kp2 := ecdh.NewEphemeralKeyPair()
@@ -302,25 +299,24 @@ func (m *ClusterMiddleware) VerifyKeyring(authHeader string, msgBody []byte) (in
 	id := &corev1.Reference{
 		Id: string(clusterID),
 	}
-	if ks, err := m.keyringStoreBroker.KeyringStore("gateway", id); err == nil {
-		if kr, err := ks.Get(context.Background()); err == nil {
-			authorized := false
-			var sharedKeys *keyring.SharedKeys
-			if ok := kr.Try(func(shared *keyring.SharedKeys) {
-				if err := b2mac.Verify(mac, clusterID, nonce, msgBody, shared.ClientKey); err == nil {
-					authorized = true
-					sharedKeys = shared
-				}
-			}); !ok {
-				lg.Errorf("unauthorized: invalid or corrupted keyring for cluster %s: %v", clusterID, err)
-				return http.StatusInternalServerError, "", nil
+	ks := m.keyringStoreBroker.KeyringStore("gateway", id)
+	if kr, err := ks.Get(context.Background()); err == nil {
+		authorized := false
+		var sharedKeys *keyring.SharedKeys
+		if ok := kr.Try(func(shared *keyring.SharedKeys) {
+			if err := b2mac.Verify(mac, clusterID, nonce, msgBody, shared.ClientKey); err == nil {
+				authorized = true
+				sharedKeys = shared
 			}
-			if !authorized {
-				lg.Debugf("unauthorized: invalid mac for cluster %s", clusterID)
-				return http.StatusUnauthorized, "", nil
-			}
-			return http.StatusOK, string(clusterID), sharedKeys
+		}); !ok {
+			lg.Errorf("unauthorized: invalid or corrupted keyring for cluster %s: %v", clusterID, err)
+			return http.StatusInternalServerError, "", nil
 		}
+		if !authorized {
+			lg.Debugf("unauthorized: invalid mac for cluster %s", clusterID)
+			return http.StatusUnauthorized, "", nil
+		}
+		return http.StatusOK, string(clusterID), sharedKeys
 	}
 	kr, err := m.fakeKeyringStore.Get(context.Background())
 	if err != nil {

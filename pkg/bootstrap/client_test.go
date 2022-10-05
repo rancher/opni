@@ -239,10 +239,9 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 				Expect(sk1).NotTo(Equal(sk2))
 
 				By("verifying that the server keyring contains both sets of keys")
-				serverKrStore, err := store.KeyringStore("gateway", &v1.Reference{
+				serverKrStore := store.KeyringStore("gateway", &v1.Reference{
 					Id: testutil.Must(testIdent.UniqueIdentifier(context.Background())),
 				})
-				Expect(err).NotTo(HaveOccurred())
 				serverKr, err := serverKrStore.Get(context.Background())
 				Expect(err).NotTo(HaveOccurred())
 				allKeys := []*keyring.SharedKeys{}
@@ -266,10 +265,9 @@ var _ = Describe("Client", Ordered, Label("slow"), func() {
 					testIdent = test.NewTestIdentProvider(ctrl, uuid.NewString())
 				})
 				validateKeyrings := func(successes []keyring.Keyring) {
-					serverKrStore, err := store.KeyringStore("gateway", &v1.Reference{
+					serverKrStore := store.KeyringStore("gateway", &v1.Reference{
 						Id: testutil.Must(testIdent.UniqueIdentifier(context.Background())),
 					})
-					Expect(err).NotTo(HaveOccurred())
 					serverKr, err := serverKrStore.Get(context.Background())
 					Expect(err).NotTo(HaveOccurred())
 					var serverSharedKeys []*keyring.SharedKeys

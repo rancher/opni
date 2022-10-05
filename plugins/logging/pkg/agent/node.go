@@ -86,15 +86,15 @@ func (l *LoggingNode) SyncNow(_ context.Context, req *capabilityv1.Filter) (*emp
 }
 
 // Implements controlv1.HealthServer
-func (m *LoggingNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.Health, error) {
-	m.configMu.RLock()
-	defer m.configMu.RUnlock()
+func (l *LoggingNode) GetHealth(_ context.Context, _ *emptypb.Empty) (*corev1.Health, error) {
+	l.configMu.RLock()
+	defer l.configMu.RUnlock()
 
-	conditions := m.conditions.List()
+	conditions := l.conditions.List()
 
-	if m.config != nil {
-		if !m.config.Enabled && len(m.config.Conditions) > 0 {
-			conditions = append(conditions, fmt.Sprintf("Disabled: %s", strings.Join(m.config.Conditions, ", ")))
+	if l.config != nil {
+		if !l.config.Enabled && len(l.config.Conditions) > 0 {
+			conditions = append(conditions, fmt.Sprintf("Disabled: %s", strings.Join(l.config.Conditions, ", ")))
 		}
 	}
 

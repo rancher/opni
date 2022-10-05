@@ -36,6 +36,7 @@ func BuildClientCmd() *cobra.Command {
 		disableUsage bool
 		echoVersion  bool
 		logLevel     string
+		opniCentral  bool
 	)
 
 	run := func(signalCtx context.Context) error {
@@ -90,7 +91,9 @@ func BuildClientCmd() *cobra.Command {
 			return err
 		}
 
-		if err = (&controllers.LoggingDataPrepperReconciler{}).SetupWithManager(mgr); err != nil {
+		if err = (&controllers.LoggingDataPrepperReconciler{
+			OpniCentral: opniCentral,
+		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Logging DataPrepper")
 			return err
 		}
@@ -149,6 +152,7 @@ func BuildClientCmd() *cobra.Command {
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warning, error)")
 	cmd.Flags().StringVar(&metricsAddr, "metrics-bind-address", ":7080", "The address the metric endpoint binds to.")
 	cmd.Flags().StringVar(&probeAddr, "health-probe-bind-address", ":7081", "The address the probe endpoint binds to.")
+	cmd.Flags().BoolVarP(&opniCentral, "central", "c", false, "run controllers in Opni central cluster mode")
 	cmd.Flags().BoolVarP(&echoVersion, "version", "v", false, "print the version and exit")
 	features.DefaultMutableFeatureGate.AddFlag(cmd.Flags())
 

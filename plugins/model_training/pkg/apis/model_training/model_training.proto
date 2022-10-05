@@ -12,6 +12,11 @@ service ModelTraining {
       get: "/workload_log_count/{id}"
     };
   }
+  rpc TrainModel(WorkloadsList) returns (core.Reference) {
+    option (google.api.http) = {
+      post: "/train_model/{workloads}"
+    };
+  }
 }
 
 message WorkloadResponse {

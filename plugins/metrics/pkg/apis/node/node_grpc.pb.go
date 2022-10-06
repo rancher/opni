@@ -35,7 +35,7 @@ func NewNodeMetricsCapabilityClient(cc grpc.ClientConnInterface) NodeMetricsCapa
 
 func (c *nodeMetricsCapabilityClient) Sync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (*SyncResponse, error) {
 	out := new(SyncResponse)
-	err := c.cc.Invoke(ctx, "/node.NodeMetricsCapability/Sync", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/node.metrics.NodeMetricsCapability/Sync", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func _NodeMetricsCapability_Sync_Handler(srv interface{}, ctx context.Context, d
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/node.NodeMetricsCapability/Sync",
+		FullMethod: "/node.metrics.NodeMetricsCapability/Sync",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(NodeMetricsCapabilityServer).Sync(ctx, req.(*SyncRequest))
@@ -92,7 +92,7 @@ func _NodeMetricsCapability_Sync_Handler(srv interface{}, ctx context.Context, d
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var NodeMetricsCapability_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "node.NodeMetricsCapability",
+	ServiceName: "node.metrics.NodeMetricsCapability",
 	HandlerType: (*NodeMetricsCapabilityServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
